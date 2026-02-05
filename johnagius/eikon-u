@@ -1,0 +1,3 @@
+body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+#eikon-root { padding: 14px; }
+.eikon-test { padding: 12px; border: 1px solid #ddd; border-radius: 12px; }
