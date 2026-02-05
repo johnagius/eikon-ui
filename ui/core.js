@@ -1,359 +1,462 @@
-(function(){
-  "use strict";
+(function () {
+  const E = (window.EIKON = window.EIKON || {});
+  E.modules = E.modules || {};
 
-  const EIKON = window.EIKON = window.EIKON || {};
-  EIKON.version = "0.1.0";
-  EIKON.modules = EIKON.modules || {};
+  E.cfg = {
+    apiBase: "https://eikon-api.labrint.workers.dev",
+    storageTokenKey: "eikon_token",
+    storageUserKey: "eikon_user",
+    storageQueueKey: "eikon_queue_v1",
+    storageSidebarKey: "eikon_sidebar_collapsed_v1"
+  };
 
-  const cfg = window.EIKON_CONFIG || {};
-  const apiBase = (cfg.apiBase || "").trim() || "https://eikon-api.labrint.workers.dev";
-  EIKON.apiBase = apiBase;
+  E.state = {
+    token: null,
+    user: null,
+    root: null,
+    currentModule: null,
+    currentTab: null
+  };
 
-  const STORAGE_TOKEN = "eikon_token";
-  const STORAGE_QUEUE = "eikon_queue_v1";
-
-  function el(tag, attrs, children){
-    const node = document.createElement(tag);
-    if (attrs){
-      Object.keys(attrs).forEach(k=>{
-        const v = attrs[k];
-        if (k === "class") node.className = v;
-        else if (k === "style") node.setAttribute("style", v);
-        else if (k.startsWith("on") && typeof v === "function") node.addEventListener(k.slice(2), v);
-        else if (v === false || v === null || v === undefined) {}
-        else node.setAttribute(k, String(v));
-      });
-    }
-    if (children !== undefined && children !== null){
-      if (Array.isArray(children)){
-        children.forEach(ch=>{
-          if (ch === null || ch === undefined) return;
-          if (typeof ch === "string") node.appendChild(document.createTextNode(ch));
-          else node.appendChild(ch);
-        });
-      } else if (typeof children === "string"){
-        node.textContent = children;
-      } else {
-        node.appendChild(children);
+  function el(tag, attrs, children) {
+    const n = document.createElement(tag);
+    if (attrs) {
+      for (const k of Object.keys(attrs)) {
+        if (k === "class") n.className = attrs[k];
+        else if (k === "text") n.textContent = attrs[k];
+        else if (k === "html") n.innerHTML = attrs[k];
+        else if (k === "style") n.setAttribute("style", attrs[k]);
+        else if (k.startsWith("on") && typeof attrs[k] === "function") n.addEventListener(k.slice(2), attrs[k]);
+        else n.setAttribute(k, attrs[k]);
       }
     }
-    return node;
-  }
-
-  function qs(sel, root){ return (root || document).querySelector(sel); }
-  function qsa(sel, root){ return Array.from((root || document).querySelectorAll(sel)); }
-
-  function safeJsonParse(s, fallback){
-    try{ return JSON.parse(s); }catch(e){ return fallback; }
-  }
-
-  function getToken(){
-    return localStorage.getItem(STORAGE_TOKEN) || "";
-  }
-  function setToken(t){
-    if (!t) localStorage.removeItem(STORAGE_TOKEN);
-    else localStorage.setItem(STORAGE_TOKEN, t);
-  }
-
-  function toast(title, message){
-    let wrap = qs(".eikon-toast-wrap");
-    if (!wrap){
-      wrap = el("div", { class:"eikon-toast-wrap" });
-      document.body.appendChild(wrap);
-    }
-    const card = el("div", { class:"eikon-toast" }, [
-      el("div", { class:"t" }, title),
-      el("div", { class:"m" }, message || "")
-    ]);
-    wrap.appendChild(card);
-    setTimeout(()=>{ card.remove(); if (!wrap.children.length) wrap.remove(); }, 4200);
-  }
-
-  function showModal(opts){
-    const title = (opts && opts.title) ? String(opts.title) : "Dialog";
-    const bodyNode = (opts && opts.bodyNode) ? opts.bodyNode : el("div", {}, "");
-    const buttons = (opts && opts.buttons) ? opts.buttons : [];
-    const onClose = (opts && opts.onClose) ? opts.onClose : null;
-
-    const overlay = el("div", { class:"eikon-overlay" });
-    const modal = el("div", { class:"eikon-modal" });
-
-    const header = el("div", { class:"eikon-modal-header" }, [
-      el("div", { class:"title" }, title),
-      el("button", { class:"eikon-x", type:"button", onclick: ()=>close(false) }, "×")
-    ]);
-
-    const body = el("div", { class:"eikon-modal-body" });
-    body.appendChild(bodyNode);
-
-    const footer = el("div", { class:"eikon-modal-footer" });
-    buttons.forEach(b=>{
-      const btn = el("button", {
-        type:"button",
-        class: "eikon-btn" + (b.kind === "secondary" ? " secondary" : "") + (b.kind === "danger" ? " danger" : ""),
-        onclick: ()=> { if (b.onClick) b.onClick(close); }
-      }, b.label || "OK");
-      footer.appendChild(btn);
-    });
-
-    modal.appendChild(header);
-    modal.appendChild(body);
-    modal.appendChild(footer);
-    overlay.appendChild(modal);
-
-    function close(result){
-      overlay.remove();
-      if (typeof onClose === "function") onClose(result);
-    }
-
-    overlay.addEventListener("click", (e)=>{
-      if (e.target === overlay) close(false);
-    });
-
-    document.body.appendChild(overlay);
-    return { close };
-  }
-
-  function confirmDialog(title, message){
-    return new Promise((resolve)=>{
-      const body = el("div", {}, [
-        el("div", { style:"color:var(--muted); line-height:1.45; font-size:14px;" }, String(message || "Are you sure?"))
-      ]);
-      showModal({
-        title: title || "Confirm",
-        bodyNode: body,
-        buttons: [
-          { label:"Cancel", kind:"secondary", onClick:(close)=>{ close(false); resolve(false); } },
-          { label:"Yes", kind:"danger", onClick:(close)=>{ close(true); resolve(true); } }
-        ],
-        onClose:(r)=>resolve(!!r)
-      });
-    });
-  }
-
-  function setBusy(isBusy, text){
-    let overlay = qs("#eikon-busy");
-    if (!overlay){
-      overlay = el("div", { id:"eikon-busy", class:"eikon-overlay eikon-hidden" });
-      const box = el("div", { class:"eikon-modal", style:"max-width:520px" }, [
-        el("div", { class:"eikon-modal-header" }, [
-          el("div", { class:"title" }, "Working…"),
-          el("div", { style:"width:36px;height:36px" }, "")
-        ]),
-        el("div", { class:"eikon-modal-body" }, [
-          el("div", { id:"eikon-busy-text", style:"color:var(--muted); line-height:1.45" }, "Please wait…")
-        ])
-      ]);
-      overlay.appendChild(box);
-      document.body.appendChild(overlay);
-    }
-    const txt = qs("#eikon-busy-text", overlay);
-    if (txt) txt.textContent = text || "Please wait…";
-    if (isBusy) overlay.classList.remove("eikon-hidden");
-    else overlay.classList.add("eikon-hidden");
-  }
-
-  async function apiFetch(path, options){
-    const url = apiBase.replace(/\/+$/,"") + path;
-    const opt = Object.assign({ method:"GET", headers:{} }, options || {});
-    opt.headers = Object.assign({}, opt.headers || {});
-    opt.headers["Content-Type"] = opt.headers["Content-Type"] || "application/json";
-
-    const token = getToken();
-    if (token) opt.headers["Authorization"] = "Bearer " + token;
-
-    const controller = new AbortController();
-    const timeoutMs = 20000;
-    const t = setTimeout(()=>controller.abort(), timeoutMs);
-    opt.signal = controller.signal;
-
-    try{
-      const r = await fetch(url, opt);
-      clearTimeout(t);
-
-      let j = null;
-      try{ j = await r.json(); }catch(e){ j = null; }
-
-      if (r.status === 401){
-        // token invalid/expired
-        setToken("");
+    if (children && Array.isArray(children)) {
+      for (const c of children) {
+        if (c === null || c === undefined) continue;
+        if (typeof c === "string") n.appendChild(document.createTextNode(c));
+        else n.appendChild(c);
       }
-      return { ok: r.ok, status: r.status, json: j };
-    }catch(e){
-      clearTimeout(t);
-      return { ok:false, status: 0, json: { ok:false, error: "Network error" }, error: e };
     }
+    return n;
   }
 
-  function queueLoad(){
-    const raw = localStorage.getItem(STORAGE_QUEUE) || "[]";
-    const arr = safeJsonParse(raw, []);
-    return Array.isArray(arr) ? arr : [];
+  function pad2(n) {
+    return String(n).padStart(2, "0");
   }
 
-  function queueSave(arr){
-    localStorage.setItem(STORAGE_QUEUE, JSON.stringify(arr || []));
+  function todayYmd() {
+    const d = new Date();
+    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
   }
 
-  function queueAdd(item){
-    const q = queueLoad();
-    q.push(Object.assign({ added_at: new Date().toISOString() }, item));
-    queueSave(q);
+  function monthFromYmd(ymd) {
+    const s = String(ymd || "");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return "";
+    return s.slice(0, 7);
   }
 
-  async function flushQueue(){
-    const q = queueLoad();
-    if (!q.length) return { ok:true, sent:0, left:0 };
+  function safeJsonParse(s, fallback) {
+    try { return JSON.parse(s); } catch { return fallback; }
+  }
 
-    // Only flush if we have a token
-    const token = getToken();
-    if (!token) return { ok:false, sent:0, left:q.length };
+  function loadAuth() {
+    const t = localStorage.getItem(E.cfg.storageTokenKey);
+    const u = localStorage.getItem(E.cfg.storageUserKey);
+    E.state.token = t || null;
+    E.state.user = u ? safeJsonParse(u, null) : null;
+  }
+
+  function saveAuth(token, user) {
+    E.state.token = token;
+    E.state.user = user;
+    localStorage.setItem(E.cfg.storageTokenKey, token);
+    localStorage.setItem(E.cfg.storageUserKey, JSON.stringify(user));
+  }
+
+  function clearAuth() {
+    E.state.token = null;
+    E.state.user = null;
+    localStorage.removeItem(E.cfg.storageTokenKey);
+    localStorage.removeItem(E.cfg.storageUserKey);
+  }
+
+  function ensureToastWrap() {
+    let w = document.getElementById("eikon-toast-wrap");
+    if (!w) {
+      w = el("div", { id: "eikon-toast-wrap", class: "eikon-toast-wrap" });
+      document.body.appendChild(w);
+    }
+    return w;
+  }
+
+  function toast(title, message, ms) {
+    const wrap = ensureToastWrap();
+    const t = el("div", { class: "eikon-toast" }, [
+      el("div", { class: "t", text: title }),
+      el("div", { class: "m", text: message || "" })
+    ]);
+    wrap.appendChild(t);
+    setTimeout(() => {
+      t.style.opacity = "0";
+      t.style.transform = "translateY(6px)";
+      setTimeout(() => t.remove(), 250);
+    }, ms || 2600);
+  }
+
+  function modalConfirm(title, message, okText, cancelText) {
+    return new Promise((resolve) => {
+      const backdrop = el("div", { class: "eikon-modal-backdrop" });
+      const box = el("div", { class: "eikon-modal" });
+      const h = el("h3", { text: title || "Confirm" });
+      const p = el("p", { text: message || "" });
+
+      const btnCancel = el("button", {
+        class: "eikon-btn",
+        text: cancelText || "Cancel",
+        onclick: () => { backdrop.remove(); resolve(false); }
+      });
+
+      const btnOk = el("button", {
+        class: "eikon-btn danger",
+        text: okText || "OK",
+        onclick: () => { backdrop.remove(); resolve(true); }
+      });
+
+      const actions = el("div", { class: "actions" }, [btnCancel, btnOk]);
+      box.appendChild(h);
+      box.appendChild(p);
+      box.appendChild(actions);
+      backdrop.appendChild(box);
+      document.body.appendChild(backdrop);
+    });
+  }
+
+  async function apiFetch(path, opts) {
+    const url = E.cfg.apiBase.replace(/\/+$/, "") + path;
+    const headers = Object.assign({}, (opts && opts.headers) ? opts.headers : {});
+    headers["Content-Type"] = headers["Content-Type"] || "application/json";
+
+    if (E.state.token) headers["Authorization"] = "Bearer " + E.state.token;
+
+    const res = await fetch(url, {
+      method: (opts && opts.method) ? opts.method : "GET",
+      headers,
+      body: (opts && opts.body !== undefined) ? opts.body : undefined
+    });
+
+    let json = null;
+    try { json = await res.json(); } catch { json = null; }
+
+    if (!res.ok) {
+      const msg = (json && json.error) ? json.error : ("HTTP " + res.status);
+      const err = new Error(msg);
+      err.status = res.status;
+      err.body = json;
+      throw err;
+    }
+    return json;
+  }
+
+  function qLoad() {
+    const s = localStorage.getItem(E.cfg.storageQueueKey);
+    return s ? safeJsonParse(s, []) : [];
+  }
+
+  function qSave(arr) {
+    localStorage.setItem(E.cfg.storageQueueKey, JSON.stringify(arr));
+  }
+
+  function qAdd(item) {
+    const q = qLoad();
+    q.push(item);
+    qSave(q);
+  }
+
+  function qClear() {
+    qSave([]);
+  }
+
+  async function qFlush() {
+    const q = qLoad();
+    if (!q.length) return { ok: true, sent: 0, remaining: 0 };
 
     let sent = 0;
     const remaining = [];
 
-    for (let i=0;i<q.length;i++){
-      const it = q[i];
-
-      // Only temperature module queue in this MVP
-      if (it && it.type === "temp_upsert"){
-        const res = await apiFetch("/temperature/entries", {
-          method:"POST",
-          body: JSON.stringify(it.payload || {})
-        });
-        if (res.ok && res.json && res.json.ok){
-          sent++;
-        } else {
-          // keep it (try later)
-          remaining.push(it);
-        }
-      } else if (it && it.type === "temp_delete"){
-        const entryId = it.entry_id;
-        const res = await apiFetch("/temperature/entries/" + encodeURIComponent(entryId), {
-          method:"DELETE"
-        });
-        if (res.ok && res.json && res.json.ok){
-          sent++;
-        } else {
-          remaining.push(it);
-        }
-      } else {
-        // unknown queue item: keep to avoid data loss
-        remaining.push(it);
+    for (const job of q) {
+      try {
+        await apiFetch(job.path, { method: job.method, body: JSON.stringify(job.body) });
+        sent++;
+      } catch (e) {
+        remaining.push(job);
       }
     }
 
-    queueSave(remaining);
-    return { ok:true, sent, left: remaining.length };
+    qSave(remaining);
+    return { ok: true, sent, remaining: remaining.length };
   }
 
-  let flushTimer = null;
-  function startQueueFlusher(){
-    if (flushTimer) return;
-    flushTimer = setInterval(()=>{
-      if (navigator.onLine) flushQueue().catch(()=>{});
-    }, 8000);
-    window.addEventListener("online", ()=>{ flushQueue().catch(()=>{}); });
+  function loadSidebarCollapsed() {
+    const v = localStorage.getItem(E.cfg.storageSidebarKey);
+    return v === "1";
   }
 
-  async function authMe(){
-    const res = await apiFetch("/auth/me", { method:"GET" });
-    if (res.ok && res.json && res.json.ok) return res.json.user;
-    return null;
+  function saveSidebarCollapsed(isCollapsed) {
+    localStorage.setItem(E.cfg.storageSidebarKey, isCollapsed ? "1" : "0");
   }
 
-  async function login(email, password){
-    const res = await apiFetch("/auth/login", {
-      method:"POST",
-      body: JSON.stringify({ email, password })
-    });
-    if (res.ok && res.json && res.json.ok && res.json.token){
-      setToken(res.json.token);
-      return res.json.user || null;
-    }
-    return null;
-  }
+  function renderLogin(root, onLoggedIn) {
+    const wrap = el("div", { class: "eikon-login" });
+    const card = el("div", { class: "eikon-card" });
 
-  function logout(){
-    setToken("");
-    toast("Logged out", "You have been logged out.");
-  }
+    const title = el("div", { class: "eikon-title", text: "Eikon" });
+    const help = el("div", { class: "eikon-help", text: "Log in with your email and password. Your location is tied to your account automatically." });
 
-  function renderLogin(root, onLoggedIn){
-    root.innerHTML = "";
-    const wrap = el("div", { class:"eikon-login-wrap" });
-    const card = el("div", { class:"eikon-login" });
+    const email = el("input", { class: "eikon-input", type: "email", placeholder: "Email" });
+    const pass = el("input", { class: "eikon-input", type: "password", placeholder: "Password" });
 
-    const head = el("div", { class:"head" }, [
-      el("div", { class:"mark" }),
-      el("div", {}, [
-        el("div", { class:"title" }, "Eikon"),
-        el("div", { class:"sub" }, "Secure pharmacy processes (MVP)")
-      ])
-    ]);
+    const btn = el("button", { class: "eikon-btn primary", text: "Log In" });
 
-    const emailIn = el("input", { class:"eikon-input", type:"email", placeholder:"Email", autocomplete:"username" });
-    const passIn = el("input", { class:"eikon-input", type:"password", placeholder:"Password", autocomplete:"current-password" });
+    const msg = el("div", { class: "eikon-help", text: "" });
 
-    const body = el("div", { class:"body" }, [
-      el("div", { class:"eikon-label" }, "Email"),
-      emailIn,
-      el("div", { class:"eikon-label" }, "Password"),
-      passIn
-    ]);
-
-    const btn = el("button", { class:"eikon-btn", type:"button" }, "Log in");
-    const fine = el("div", { class:"fine" }, "If you forget credentials, contact your administrator.");
-    const footer = el("div", { class:"footer" }, [
-      btn,
-      fine
-    ]);
-
-    btn.addEventListener("click", async ()=>{
-      const email = (emailIn.value || "").trim().toLowerCase();
-      const password = (passIn.value || "").trim();
-      if (!email || !password){
-        toast("Missing details", "Please enter email and password.");
+    btn.addEventListener("click", async () => {
+      const e = (email.value || "").trim().toLowerCase();
+      const p = (pass.value || "").trim();
+      if (!e || !p) {
+        toast("Missing", "Enter email and password.");
         return;
       }
-      setBusy(true, "Logging in…");
-      const user = await login(email, password);
-      setBusy(false);
-      if (!user){
-        toast("Login failed", "Invalid email or password.");
-        return;
+
+      btn.disabled = true;
+      btn.textContent = "Logging in...";
+      msg.textContent = "";
+
+      try {
+        const r = await apiFetch("/auth/login", {
+          method: "POST",
+          body: JSON.stringify({ email: e, password: p })
+        });
+        if (!r || !r.ok || !r.token) throw new Error("Login failed");
+
+        saveAuth(r.token, r.user);
+        toast("Logged in", "Welcome back.");
+        onLoggedIn();
+      } catch (err) {
+        msg.textContent = "Login failed. Check details.";
+        toast("Login failed", err.message || "Error");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Log In";
       }
-      startQueueFlusher();
-      if (typeof onLoggedIn === "function") onLoggedIn(user);
     });
 
-    passIn.addEventListener("keydown", (e)=>{ if (e.key === "Enter") btn.click(); });
+    card.appendChild(title);
+    card.appendChild(el("div", { style: "height:8px;" }));
+    card.appendChild(help);
 
-    card.appendChild(head);
-    card.appendChild(body);
-    card.appendChild(footer);
+    card.appendChild(el("div", { style: "height:14px;" }));
+    card.appendChild(el("div", { class: "eikon-field" }, [el("div", { class: "eikon-label", text: "Email" }), email]));
+    card.appendChild(el("div", { class: "eikon-field" }, [el("div", { class: "eikon-label", text: "Password" }), pass]));
+    card.appendChild(btn);
+    card.appendChild(el("div", { style: "height:10px;" }));
+    card.appendChild(msg);
 
     wrap.appendChild(card);
+    root.innerHTML = "";
     root.appendChild(wrap);
   }
 
-  EIKON.ui = {
-    el, qs, qsa, toast, showModal, confirmDialog, setBusy
+  function renderShell(root) {
+    const app = el("div", { class: "eikon-app" });
+    const sidebar = el("div", { class: "eikon-sidebar" });
+    const main = el("div", { class: "eikon-main" });
+
+    const isCollapsedInitial = loadSidebarCollapsed();
+    if (isCollapsedInitial) sidebar.classList.add("collapsed");
+
+    function setCollapsed(val) {
+      if (val) sidebar.classList.add("collapsed");
+      else sidebar.classList.remove("collapsed");
+      saveSidebarCollapsed(val);
+      toggleBtn.textContent = val ? "»" : "«";
+      toggleBtn.title = val ? "Expand sidebar" : "Collapse sidebar";
+    }
+
+    const toggleBtn = el("button", {
+      class: "eikon-sidebar-toggle",
+      text: isCollapsedInitial ? "»" : "«",
+      title: isCollapsedInitial ? "Expand sidebar" : "Collapse sidebar"
+    });
+    toggleBtn.addEventListener("click", () => {
+      const nowCollapsed = sidebar.classList.contains("collapsed");
+      setCollapsed(!nowCollapsed);
+    });
+
+    const brand = el("div", { class: "eikon-brand" }, [
+      el("div", {
+        class: "eikon-badge",
+        html: "🧪",
+        title: "Toggle sidebar"
+      }),
+      el("div", { class: "brand-text", text: "Eikon" })
+    ]);
+
+    brand.querySelector(".eikon-badge").addEventListener("click", () => {
+      const nowCollapsed = sidebar.classList.contains("collapsed");
+      setCollapsed(!nowCollapsed);
+    });
+
+    const user = E.state.user || {};
+    const userCard = el("div", { class: "eikon-usercard" }, [
+      el("div", { class: "name", text: (user.org_name || user.email || "User") }),
+      el("div", { class: "sub", text: (user.location_name ? (user.location_name + " • ") : "") + (user.email || "") })
+    ]);
+
+    const nav = el("div", { class: "eikon-nav" });
+
+    function navBtn(key, label, pill, icon) {
+      const left = el("span", { class: "left" }, [
+        el("span", { class: "icon", text: icon || "•" }),
+        el("span", { class: "label", text: label })
+      ]);
+
+      const b = el("button", { title: label }, [
+        left,
+        el("span", { class: "pill", text: pill })
+      ]);
+
+      b.addEventListener("click", () => { E.routerGo(key); });
+      b.dataset.key = key;
+      return b;
+    }
+
+    nav.appendChild(navBtn("temperature", "Temperature Records", "LIVE", "🌡️"));
+    nav.appendChild(navBtn("endofday", "End Of Day", "soon", "🧾"));
+    nav.appendChild(navBtn("dda_purchases", "DDA Purchases", "soon", "📦"));
+    nav.appendChild(navBtn("dda_sales", "DDA Sales", "soon", "💊"));
+    nav.appendChild(navBtn("daily_register", "Daily Register", "soon", "📘"));
+    nav.appendChild(navBtn("repeat_rx", "Repeat Prescriptions", "soon", "🔁"));
+    nav.appendChild(navBtn("dda_stock", "DDA Stock Take", "soon", "📊"));
+    nav.appendChild(navBtn("calibrations", "Calibrations", "soon", "🛠️"));
+    nav.appendChild(navBtn("maintenance", "Maintenance", "soon", "🧰"));
+    nav.appendChild(navBtn("cleaning", "Cleaning", "soon", "🧽"));
+
+    const logoutBtn = el("button", { class: "eikon-logout", text: "Logout" });
+    logoutBtn.addEventListener("click", async () => {
+      const ok = await modalConfirm("Logout", "Are you sure you want to log out?", "Logout", "Cancel");
+      if (!ok) return;
+      clearAuth();
+      E.start(root);
+    });
+
+    sidebar.appendChild(toggleBtn);
+    sidebar.appendChild(brand);
+    sidebar.appendChild(userCard);
+    sidebar.appendChild(nav);
+    sidebar.appendChild(logoutBtn);
+
+    app.appendChild(sidebar);
+    app.appendChild(main);
+
+    return { app, sidebar, main, nav, setCollapsed };
+  }
+
+  async function refreshMe() {
+    if (!E.state.token) return false;
+    try {
+      const r = await apiFetch("/auth/me", { method: "GET" });
+      if (r && r.ok && r.user) {
+        saveAuth(E.state.token, r.user);
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  }
+
+  E.util = {
+    el,
+    toast,
+    modalConfirm,
+    todayYmd,
+    monthFromYmd,
+    apiFetch,
+    qAdd,
+    qFlush,
+    qLoad,
+    qClear,
+    loadAuth,
+    saveAuth,
+    clearAuth,
+    refreshMe
   };
 
-  EIKON.auth = {
-    getToken, setToken, authMe, login, logout, renderLogin
+  E.routerGo = function (key) {
+    location.hash = "#" + key;
   };
 
-  EIKON.api = {
-    fetch: apiFetch
-  };
+  E.start = async function (root) {
+    E.state.root = root;
+    loadAuth();
 
-  EIKON.queue = {
-    add: queueAdd,
-    flush: flushQueue,
-    start: startQueueFlusher,
-    load: queueLoad
-  };
+    const authed = await refreshMe();
+    if (!authed) {
+      renderLogin(root, async () => {
+        await refreshMe();
+        E.start(root);
+      });
+      return;
+    }
 
+    const shell = renderShell(root);
+    root.innerHTML = "";
+    root.appendChild(shell.app);
+
+    function setActiveNav(moduleKey) {
+      const btns = shell.nav.querySelectorAll("button");
+      btns.forEach(b => {
+        if (b.dataset.key === moduleKey) b.classList.add("active");
+        else b.classList.remove("active");
+      });
+    }
+
+    async function renderModule(moduleKey) {
+      setActiveNav(moduleKey);
+
+      shell.main.innerHTML = "";
+      const topbar = el("div", { class: "eikon-topbar" }, [
+        el("div", { class: "eikon-title", text: moduleKey === "temperature" ? "Temperature Records" : "Module" }),
+        el("div", { class: "eikon-top-actions" })
+      ]);
+      shell.main.appendChild(topbar);
+
+      if (moduleKey === "temperature") {
+        if (!E.modules.temperature || typeof E.modules.temperature.render !== "function") {
+          shell.main.appendChild(el("div", { class: "eikon-card", text: "Temperature module not loaded." }));
+          return;
+        }
+        const content = el("div");
+        shell.main.appendChild(content);
+        E.modules.temperature.render(content);
+        return;
+      }
+
+      shell.main.appendChild(
+        el("div", { class: "eikon-card" }, [
+          el("div", { class: "eikon-title", text: "Coming soon" }),
+          el("div", { class: "eikon-help", text: "This module will be added next, using the same login and the same Cloudflare API." })
+        ])
+      );
+    }
+
+    function onHash() {
+      const h = (location.hash || "").replace("#", "").trim();
+      const key = h || "temperature";
+      renderModule(key);
+    }
+
+    window.addEventListener("hashchange", onHash);
+    onHash();
+  };
 })();
