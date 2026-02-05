@@ -1,23 +1,11 @@
-(function(){
-  "use strict";
+(function () {
+  const root = document.getElementById("eikon-root");
+  if (!root) return;
 
-  function boot(){
-    const root = document.getElementById("eikon-root");
-    if (!root){
-      console.warn("Missing #eikon-root");
-      return;
-    }
-    const EIKON = window.EIKON;
-    if (!EIKON || !EIKON.modules || !EIKON.modules.temperature){
-      root.textContent = "Eikon UI loaded, but module not found.";
-      return;
-    }
-    EIKON.modules.temperature.render(root);
+  if (!window.EIKON || typeof window.EIKON.start !== "function") {
+    root.textContent = "Eikon core not loaded (core.js missing or not executed).";
+    return;
   }
 
-  if (document.readyState === "loading"){
-    document.addEventListener("DOMContentLoaded", boot);
-  } else {
-    boot();
-  }
+  window.EIKON.start(root);
 })();
