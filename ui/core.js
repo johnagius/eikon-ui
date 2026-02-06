@@ -20,6 +20,22 @@
     return (root || document).querySelector(sel);
   }
 
+// ===== EIKON Global Crash Logging (VERY VERBOSE) =====
+(function(){
+  try {
+    window.addEventListener("error", function(ev){
+      console.error("[EIKON][GLOBAL][error]", ev && ev.message, ev && ev.filename, ev && ev.lineno, ev && ev.colno, ev && ev.error);
+    });
+    window.addEventListener("unhandledrejection", function(ev){
+      console.error("[EIKON][GLOBAL][unhandledrejection]", ev && ev.reason);
+    });
+    console.log("[EIKON][GLOBAL] crash logging installed");
+  } catch (e) {
+    console.error("[EIKON][GLOBAL] failed to install crash logging", e);
+  }
+})();
+
+  
   function el(tag, attrs, ...children) {
     const node = document.createElement(tag);
     if (attrs && typeof attrs === "object") {
