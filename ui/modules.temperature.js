@@ -374,6 +374,23 @@
         renderMonthTable();
       }
 
+      if (!monthInput) {
+  console.error("[EIKON][temperature] monthInput is NULL - register UI did not render as expected.");
+  try {
+    console.error("[EIKON][temperature] root:", root);
+    console.error("[EIKON][temperature] root.innerHTML:", root && root.innerHTML);
+    if (root && root.querySelectorAll) {
+      console.error("[EIKON][temperature] inputs found:", root.querySelectorAll("input").length);
+      console.error("[EIKON][temperature] months found:", root.querySelectorAll('input[type="month"]').length);
+    }
+  } catch (e) {
+    console.error("[EIKON][temperature] failed to dump debug info", e);
+  }
+  // Prevent the entire module from crashing the app
+  return;
+}
+
+      
       monthInput.addEventListener("change", async () => {
         state.month = (monthInput.value || "").trim();
         if (!state.month) return;
