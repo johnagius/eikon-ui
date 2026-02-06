@@ -1,491 +1,589 @@
 (function () {
   "use strict";
 
-  const E = (window.EIKON = window.EIKON || {});
-  E.version = "2026-02-06-cleaning-1";
-  E.modules = E.modules || {};
-  E.state = E.state || {};
-  E.cfg = E.cfg || {};
+  // Global singleton
+  var E = window.EIKON || {};
+  window.EIKON = E;
 
-  E.cfg.debug = (localStorage.getItem("eikon_debug") === "1");
+  // Basic identity
+  E.APP_NAME = "Eikon";
+  E.VERSION = "2026-02-06-01";
 
-  function dlog(...args) {
-    if (E.cfg.debug) console.log(...args);
-  }
-  function derr(...args) {
-    console.error(...args);
-  }
+  // Debug level: 0 none, 1 normal, 2 verbose
+  (function initDebug() {
+    var url;
+    try { url = new URL(window.location.href); } catch (e) { url = null; }
+    var dbgParam = url ? (url.searchParams.get("dbg") || "") : "";
+    var lsDbg = "";
+    try { lsDbg = String(window.localStorage.getItem("eikon_dbg") || ""); } catch (e2) {}
 
-  function qs(sel, root) {
-    return (root || document).querySelector(sel);
-  }
+    var dbg = 0;
+    if (dbgParam) dbg = parseInt(dbgParam, 10) || 0;
+    else if (lsDbg) dbg = parseInt(lsDbg, 10) || 0;
 
-// ===== EIKON Global Crash Logging (VERY VERBOSE) =====
-(function(){
-  try {
-    window.addEventListener("error", function(ev){
-      console.error("[EIKON][GLOBAL][error]", ev && ev.message, ev && ev.filename, ev && ev.lineno, ev && ev.colno, ev && ev.error);
-    });
-    window.addEventListener("unhandledrejection", function(ev){
-      console.error("[EIKON][GLOBAL][unhandledrejection]", ev && ev.reason);
-    });
-    console.log("[EIKON][GLOBAL] crash logging installed");
-  } catch (e) {
-    console.error("[EIKON][GLOBAL] failed to install crash logging", e);
-  }
-})();
-
-  // ===== EIKON Debug Level from URL =====
-// dbg=0 (quiet), dbg=1 (normal), dbg=2 (heavy)
-(function(){
-  try {
-    var sp = new URLSearchParams(window.location.search || "");
-    var dbg = sp.get("dbg");
-    if (dbg !== null && dbg !== undefined && dbg !== "") {
-      var n = parseInt(dbg, 10);
-      if (Number.isFinite(n)) {
-        window.EIKON = window.EIKON || {};
-        window.EIKON.DEBUG = n;
-        console.log("[EIKON][core] DEBUG set from URL dbg=", n);
-      }
+    E.DEBUG = dbg;
+    if (dbgParam) {
+      try { window.localStorage.setItem("eikon_dbg", String(dbg)); } catch (e3) {}
     }
-  } catch (e) {
-    console.error("[EIKON][core] failed to parse dbg param", e);
-  }
-})();
+  })();
 
-  
-  function el(tag, attrs, ...children) {
-    const node = document.createElement(tag);
-    if (attrs && typeof attrs === "object") {
-      for (const k of Object.keys(attrs)) {
-        const v = attrs[k];
-        if (k === "class") node.className = v;
-        else if (k === "style") node.setAttribute("style", v);
-        else if (k.startsWith("on") && typeof v === "function") node.addEventListener(k.slice(2), v);
-        else if (v === true) node.setAttribute(k, "");
-        else if (v === false || v === null || v === undefined) {}
-        else node.setAttribute(k, String(v));
-      }
+  function ts() {
+    try {
+      var d = new Date();
+      return d.toISOString();
+    } catch (e) {
+      return "";
     }
-    for (const c of children) {
-      if (c === null || c === undefined) continue;
-      if (Array.isArray(c)) {
-        for (const cc of c) node.appendChild(typeof cc === "string" ? document.createTextNode(cc) : cc);
-      } else {
-        node.appendChild(typeof c === "string" ? document.createTextNode(c) : c);
-      }
+  }
+
+  function safeToString(x) {
+    try {
+      if (x === undefined) return "undefined";
+      if (x === null) return "null";
+      if (typeof x === "string") return x;
+      return JSON.stringify(x);
+    } catch (e) {
+      try { return String(x); } catch (e2) { return "[unprintable]"; }
     }
-    return node;
   }
 
-  E.el = el;
-  E.qs = qs;
-
-  // ========= Toasts =========
-  let toastWrap = null;
-
-  function ensureToastWrap() {
-    if (toastWrap) return toastWrap;
-    toastWrap = el("div", { class: "eikon-toast-wrap" });
-    document.body.appendChild(toastWrap);
-    return toastWrap;
+  function postToParent(level, args) {
+    try {
+      if (!window.parent || window.parent === window) return;
+      if (E.DEBUG < 2) return;
+      var payload = {
+        type: "EIKON_LOG",
+        level: level,
+        time: ts(),
+        msg: args.map(safeToString).join(" ")
+      };
+      window.parent.postMessage(payload, "*");
+    } catch (e) {}
   }
 
-  function toast(title, message, ms) {
-    ensureToastWrap();
-    const t = el("div", { class: "eikon-toast" },
-      el("div", { class: "h" }, title),
-      el("div", { class: "m" }, message)
-    );
-    toastWrap.appendChild(t);
-    setTimeout(() => {
-      try { t.remove(); } catch {}
-    }, ms || 3200);
+  function logBase(level, args) {
+    var prefix = "[EIKON]";
+    var t = ts();
+    var out = [prefix, t].concat(args);
+
+    try {
+      if (level === "error") console.error.apply(console, out);
+      else if (level === "warn") console.warn.apply(console, out);
+      else console.log.apply(console, out);
+    } catch (e) {}
+
+    postToParent(level, args);
   }
 
-  E.toast = toast;
+  E.log = function () { logBase("log", Array.prototype.slice.call(arguments)); };
+  E.warn = function () { logBase("warn", Array.prototype.slice.call(arguments)); };
+  E.error = function () { logBase("error", Array.prototype.slice.call(arguments)); };
 
-  // ========= Modal (custom confirm, no browser confirm()) =========
-  let modalBackdrop = null;
-  let modalTitleEl = null;
-  let modalBodyEl = null;
-  let modalOkBtn = null;
-  let modalCancelBtn = null;
-  let modalResolve = null;
-
-  function ensureModal() {
-    if (modalBackdrop) return;
-
-    modalTitleEl = el("div", { class: "t" }, "Confirm");
-    modalBodyEl = el("div", { class: "eikon-help" }, "");
-
-    modalOkBtn = el("button", { class: "eikon-btn eikon-btn-primary" }, "OK");
-    modalCancelBtn = el("button", { class: "eikon-btn" }, "Cancel");
-
-    modalOkBtn.addEventListener("click", () => {
-      if (modalResolve) modalResolve(true);
-      hideModal();
-    });
-    modalCancelBtn.addEventListener("click", () => {
-      if (modalResolve) modalResolve(false);
-      hideModal();
-    });
-
-    const box = el("div", { class: "eikon-modal" },
-      el("div", { class: "eikon-modal-head" },
-        modalTitleEl,
-        el("button", { class: "eikon-btn", onclick: () => { if (modalResolve) modalResolve(false); hideModal(); } }, "×")
-      ),
-      modalBodyEl,
-      el("div", { class: "eikon-modal-actions" }, modalCancelBtn, modalOkBtn)
-    );
-
-    modalBackdrop = el("div", { class: "eikon-modal-backdrop" }, box);
-    modalBackdrop.addEventListener("click", (e) => {
-      if (e.target === modalBackdrop) {
-        if (modalResolve) modalResolve(false);
-        hideModal();
-      }
-    });
-
-    document.body.appendChild(modalBackdrop);
-  }
-
-  function showModal(title, body, okText, cancelText) {
-    ensureModal();
-    modalTitleEl.textContent = title || "Confirm";
-    modalBodyEl.textContent = body || "";
-    modalOkBtn.textContent = okText || "OK";
-    modalCancelBtn.textContent = cancelText || "Cancel";
-    modalBackdrop.style.display = "flex";
-    return new Promise((resolve) => {
-      modalResolve = resolve;
-    });
-  }
-
-  function hideModal() {
-    if (!modalBackdrop) return;
-    modalBackdrop.style.display = "none";
-    modalResolve = null;
-  }
-
-  E.confirm = function (title, body, okText, cancelText) {
-    return showModal(title, body, okText, cancelText);
+  E.dbg = function () {
+    if (E.DEBUG >= 2) logBase("log", ["[DBG]"].concat(Array.prototype.slice.call(arguments)));
   };
 
-  // ========= Auth + API =========
-  const TOKEN_KEY = "eikon_token";
-
-  function getToken() {
-    return localStorage.getItem(TOKEN_KEY) || "";
-  }
-
-  function setToken(tok) {
-    if (!tok) localStorage.removeItem(TOKEN_KEY);
-    else localStorage.setItem(TOKEN_KEY, tok);
-  }
-
-  async function apiFetch(path, opts) {
-    const method = (opts && opts.method) ? opts.method : "GET";
-    const headers = Object.assign({}, (opts && opts.headers) ? opts.headers : {});
-    const token = getToken();
-
-    if (!headers["Content-Type"] && opts && opts.body && typeof opts.body === "string") {
-      headers["Content-Type"] = "application/json";
-    }
-    if (token) headers["Authorization"] = "Bearer " + token;
-
-    const url = path.startsWith("http") ? path : (path.startsWith("/") ? path : ("/" + path));
-    dlog("[EIKON][api] ->", url, { method, headers: Object.assign({}, headers, token ? { Authorization: "Bearer <stored>" } : {}) });
-
-    const res = await fetch(url, {
-      method,
-      headers,
-      body: opts && opts.body ? opts.body : undefined
+  // Crash logging
+  (function installCrashLogging() {
+    window.addEventListener("error", function (ev) {
+      try {
+        E.error("[GLOBAL] window.error:", ev && (ev.message || ev.error || ev));
+        if (ev && ev.error && ev.error.stack) E.error("[GLOBAL] stack:", ev.error.stack);
+        E.showFatalOverlay("Uncaught error", ev && (ev.message || (ev.error && ev.error.stack) || String(ev)));
+      } catch (e) {}
     });
 
-    let data = null;
-    try {
-      data = await res.json();
-    } catch {
-      data = null;
+    window.addEventListener("unhandledrejection", function (ev) {
+      try {
+        E.error("[GLOBAL] unhandledrejection:", ev && ev.reason);
+        if (ev && ev.reason && ev.reason.stack) E.error("[GLOBAL] stack:", ev.reason.stack);
+        E.showFatalOverlay("Unhandled promise rejection", ev && (ev.reason && (ev.reason.stack || ev.reason.message)) || String(ev));
+      } catch (e) {}
+    });
+
+    E.dbg("[GLOBAL] crash logging installed");
+  })();
+
+  // DOM helpers
+  E.q = function (sel, root) { return (root || document).querySelector(sel); };
+  E.qa = function (sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); };
+
+  E.escapeHtml = function (s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c];
+    });
+  };
+
+  // Token storage
+  E.TOKEN_KEY = "eikon_token";
+
+  E.getToken = function () {
+    try { return String(window.localStorage.getItem(E.TOKEN_KEY) || ""); } catch (e) { return ""; }
+  };
+  E.setToken = function (t) {
+    try { window.localStorage.setItem(E.TOKEN_KEY, String(t || "")); } catch (e) {}
+  };
+  E.clearToken = function () {
+    try { window.localStorage.removeItem(E.TOKEN_KEY); } catch (e) {}
+  };
+
+  // API base (same-origin, because UI is served by the Worker)
+  E.apiBase = "";
+
+  // Fetch wrapper with heavy debugging
+  E.apiFetch = async function (path, options) {
+    var opts = options || {};
+    var method = (opts.method || "GET").toUpperCase();
+    var headers = new Headers(opts.headers || {});
+    var token = E.getToken();
+
+    if (!headers.has("Content-Type") && opts.body && typeof opts.body === "string") {
+      // Caller may already have JSON string
+      headers.set("Content-Type", "application/json");
     }
 
-    dlog("[EIKON][api] <-", url, { status: res.status, data });
+    if (token) headers.set("Authorization", "Bearer " + token);
+
+    var url = path;
+    if (!/^https?:\/\//i.test(path)) url = (E.apiBase || "") + path;
+
+    var reqInfo = {
+      method: method,
+      headers: {},
+      hasToken: !!token
+    };
+    try {
+      headers.forEach(function (v, k) { reqInfo.headers[k] = v; });
+    } catch (e) {}
+
+    if (E.DEBUG >= 2) {
+      E.dbg("[api] ->", url, reqInfo);
+      if (opts.body) E.dbg("[api] body ->", opts.body);
+    } else {
+      E.log("[api] ->", method, url);
+    }
+
+    var res, text, json;
+    try {
+      res = await fetch(url, {
+        method: method,
+        headers: headers,
+        body: opts.body || undefined
+      });
+    } catch (e2) {
+      E.error("[api] network error:", e2);
+      throw e2;
+    }
+
+    var ct = "";
+    try { ct = String(res.headers.get("Content-Type") || ""); } catch (e3) {}
+
+    try {
+      text = await res.text();
+    } catch (e4) {
+      text = "";
+    }
+
+    // Try parse JSON
+    json = null;
+    if (ct.toLowerCase().indexOf("application/json") >= 0) {
+      try { json = JSON.parse(text || "null"); } catch (e5) { json = null; }
+    } else {
+      // Sometimes your API may still return JSON without correct CT
+      try { json = JSON.parse(text || "null"); } catch (e6) { json = null; }
+    }
+
+    if (E.DEBUG >= 2) {
+      E.dbg("[api] <-", url, { status: res.status, ok: res.ok, ct: ct });
+      E.dbg("[api] resp <-", (json !== null ? json : text));
+    } else {
+      E.log("[api] <-", method, url, "status=" + res.status);
+    }
 
     if (!res.ok) {
-      const msg = (data && data.error) ? data.error : ("HTTP " + res.status);
-      const err = new Error(msg);
+      var err = new Error((json && json.error) ? json.error : ("HTTP " + res.status));
       err.status = res.status;
-      err.data = data;
+      err.bodyText = text;
+      err.bodyJson = json;
       throw err;
     }
-    return data;
-  }
 
-  E.apiFetch = apiFetch;
+    return (json !== null ? json : { ok: true, text: text });
+  };
 
-  async function me() {
-    return await apiFetch("/auth/me", { method: "GET" });
-  }
+  // Module registry
+  E.modules = E.modules || {};
+  E.registerModule = function (mod) {
+    if (!mod || !mod.id) throw new Error("Invalid module registration (missing id)");
+    E.modules[mod.id] = mod;
+    E.dbg("[core] module registered:", mod.id);
+  };
 
-  async function login(email, password) {
-    const body = JSON.stringify({ email, password });
-    const out = await apiFetch("/auth/login", { method: "POST", body });
-    if (!out || !out.ok || !out.token) throw new Error("Login failed");
-    setToken(out.token);
-    return out.user;
-  }
+  // UI mounts
+  E.state = {
+    user: null,
+    activeModuleId: "",
+    sidebarCollapsed: false,
+    started: false
+  };
 
-  function logout() {
-    setToken("");
-    E.state.user = null;
-    E.state.shell = null;
-    E.state.activeModuleKey = "";
-    renderAuth();
-  }
+  E.ensureRoot = function () {
+    var root = document.getElementById("eikon-root");
+    if (!root) {
+      root = document.createElement("div");
+      root.id = "eikon-root";
+      document.body.appendChild(root);
+    }
+    return root;
+  };
 
-  E.logout = logout;
-
-  // ========= Router + Rendering =========
-  function parseHash() {
-    const raw = (location.hash || "").trim();
-    if (!raw) return "";
-    const h = raw.replace(/^#/, "");
-    if (!h) return "";
-    if (h.startsWith("/")) return h.slice(1);
-    return h;
-  }
-
-  function setHash(modKey) {
-    location.hash = "#" + modKey;
-  }
-
-  function getActiveModuleKey() {
-    const h = parseHash();
-    if (h && E.modules[h]) return h;
-    const keys = Object.keys(E.modules);
-    if (keys.length > 0) return keys[0];
-    return "";
-  }
-
-  function createShell(root, user) {
-    const sidebar = el("div", { class: "eikon-sidebar", "data-collapsed": "0" });
-
-    const brand = el("div", { class: "eikon-brand" },
-      el("div", { class: "eikon-logo" }, "E"),
-      el("div", { class: "eikon-brand-title" },
-        el("div", { class: "t1" }, "EIKON"),
-        el("div", { class: "t2" }, "Pharmacy Registers")
-      )
-    );
-
-    const toggle = el("div", { class: "eikon-sidebar-toggle", title: "Collapse/Expand" }, "⇔");
-    toggle.addEventListener("click", () => {
-      const cur = sidebar.getAttribute("data-collapsed") === "1";
-      sidebar.setAttribute("data-collapsed", cur ? "0" : "1");
-    });
-
-    const nav = el("div", { class: "eikon-nav" });
-
-    const main = el("div", { class: "eikon-main" });
-
-    const topbar = el("div", { class: "eikon-topbar" },
-      el("div", { class: "eikon-top-left" },
-        el("div", { class: "org" }, user.org_name || "EIKON"),
-        el("div", { class: "loc" }, (user.location_name || "") + " • " + (user.full_name || user.email || ""))
-      ),
-      el("div", { class: "eikon-top-right" },
-        el("div", { class: "eikon-chip" }, user.email || ""),
-        el("button", { class: "eikon-btn", onclick: () => logout() }, "Logout")
-      )
-    );
-
-    const content = el("div", { class: "eikon-content", id: "eikon-content" });
-
-    main.appendChild(topbar);
-    main.appendChild(content);
-
-    sidebar.appendChild(toggle);
-    sidebar.appendChild(brand);
-    sidebar.appendChild(nav);
-
-    root.innerHTML = "";
-    root.appendChild(el("div", { class: "eikon-shell" }, sidebar, main));
-
-    return { sidebar, nav, content };
-  }
-
-  async function renderModule(modKey) {
-    const shell = E.state.shell;
-    if (!shell) return;
-
-    const mod = E.modules[modKey];
-    if (!mod) return;
-
-    E.state.__renderSeq = (E.state.__renderSeq || 0) + 1;
-    const seq = E.state.__renderSeq;
-    E.state.activeModuleKey = modKey;
-
-    // highlight nav
-    const items = shell.nav.querySelectorAll(".eikon-nav-item");
-    items.forEach((it) => {
-      it.setAttribute("data-active", it.getAttribute("data-mod") === modKey ? "1" : "0");
-    });
-
-    shell.content.innerHTML = "";
-    dlog("[EIKON][core] renderModule() start", { seq, modKey });
-
+  // Fatal overlay (never silent black screen)
+  E.showFatalOverlay = function (title, details) {
     try {
-      const ret = mod.render(shell.content, E.state.user);
-      if (ret && typeof ret.then === "function") await ret;
-      dlog("[EIKON][core] renderModule() done", { seq, modKey });
-    } catch (err) {
-      const stale = (seq !== E.state.__renderSeq) || (E.state.activeModuleKey !== modKey);
-      derr("[EIKON][core] renderModule() ERROR", {
-        seq, modKey, stale,
-        message: err && err.message ? err.message : String(err),
-        stack: err && err.stack ? err.stack : null
+      var overlay = document.getElementById("eikon-fatal-overlay");
+      if (!overlay) {
+        overlay = document.createElement("div");
+        overlay.id = "eikon-fatal-overlay";
+        overlay.style.position = "fixed";
+        overlay.style.inset = "0";
+        overlay.style.background = "rgba(0,0,0,.78)";
+        overlay.style.zIndex = "2147483647";
+        overlay.style.display = "flex";
+        overlay.style.alignItems = "center";
+        overlay.style.justifyContent = "center";
+        overlay.style.padding = "18px";
+        document.body.appendChild(overlay);
+      }
+      overlay.innerHTML =
+        '<div style="width:min(920px,100%);background:#111b2a;border:1px solid #263246;border-radius:18px;padding:14px;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#e9eef7;">' +
+        '<div style="font-weight:900;font-size:18px;margin-bottom:8px;">' + E.escapeHtml(title || "Eikon crashed") + "</div>" +
+        '<div style="opacity:.85;margin-bottom:10px;">Open DevTools Console for details. dbg=2 is recommended.</div>' +
+        '<pre style="white-space:pre-wrap;background:rgba(0,0,0,.25);padding:12px;border-radius:14px;border:1px solid #263246;margin:0;">' + E.escapeHtml(String(details || "")) + "</pre>" +
+        "</div>";
+    } catch (e) {}
+  };
+
+  // Modal helper
+  E.modal = (function () {
+    var overlay = null;
+
+    function ensure() {
+      if (overlay) return overlay;
+      overlay = document.createElement("div");
+      overlay.className = "eikon-modal-overlay";
+      overlay.innerHTML =
+        '<div class="eikon-modal">' +
+        '  <div class="eikon-modal-title" id="eikon-modal-title"></div>' +
+        '  <div id="eikon-modal-body"></div>' +
+        '  <div class="eikon-modal-actions" id="eikon-modal-actions"></div>' +
+        "</div>";
+      document.body.appendChild(overlay);
+      overlay.addEventListener("click", function (e) {
+        if (e.target === overlay) hide();
       });
-      if (stale) return;
-
-      shell.content.innerHTML = "";
-      shell.content.appendChild(
-        el("div", { class: "eikon-card" },
-          el("div", { class: "eikon-title" }, "Module crashed"),
-          el("div", { class: "eikon-help" }, "See console for details. The core caught the error so the app can keep running."),
-          el("pre", { class: "eikon-pre" }, String(err && (err.stack || err.message || err)))
-        )
-      );
-      toast("Module crashed", "Open console for details.", 4200);
+      return overlay;
     }
-  }
 
-  function buildNav(shell) {
-    shell.nav.innerHTML = "";
-    const keys = Object.keys(E.modules);
-
-    for (const k of keys) {
-      const mod = E.modules[k];
-      const item = el("div", {
-        class: "eikon-nav-item",
-        "data-mod": k,
-        "data-active": "0",
-        onclick: () => setHash(k)
-      },
-        el("div", { class: "eikon-nav-ico" }, (mod.icon || "?").slice(0, 1)),
-        el("div", { class: "eikon-nav-text" },
-          el("div", { class: "t1" }, mod.title || k),
-          el("div", { class: "t2" }, mod.subtitle || "")
-        )
-      );
-      shell.nav.appendChild(item);
+    function show(title, bodyHtml, actions) {
+      var ov = ensure();
+      E.q("#eikon-modal-title", ov).textContent = title || "";
+      E.q("#eikon-modal-body", ov).innerHTML = bodyHtml || "";
+      var act = E.q("#eikon-modal-actions", ov);
+      act.innerHTML = "";
+      (actions || []).forEach(function (a) {
+        var btn = document.createElement("button");
+        btn.className = "eikon-btn" + (a.primary ? " primary" : "") + (a.danger ? " danger" : "");
+        btn.textContent = a.label || "OK";
+        btn.addEventListener("click", function () { a.onClick && a.onClick(); });
+        act.appendChild(btn);
+      });
+      ov.style.display = "flex";
     }
-  }
 
-  function onHashChange() {
-    const key = getActiveModuleKey();
-    if (!key) return;
-    renderModule(key);
-  }
+    function hide() {
+      if (!overlay) return;
+      overlay.style.display = "none";
+    }
 
-  async function renderAuth() {
-    const root = qs("#app");
-    if (!root) return;
+    return { show: show, hide: hide };
+  })();
 
-    const emailInput = el("input", { class: "eikon-input", type: "email", autocomplete: "username", placeholder: "Email" });
-    const passInput = el("input", { class: "eikon-input", type: "password", autocomplete: "current-password", placeholder: "Password" });
+  // Login UI
+  E.renderLogin = function (errorText) {
+    var root = E.ensureRoot();
+    root.innerHTML =
+      '<div class="eikon-login">' +
+      '  <div class="eikon-login-card">' +
+      '    <div class="eikon-login-title">Eikon</div>' +
+      '    <div class="eikon-login-sub">Sign in to continue</div>' +
+      '    <div class="eikon-row">' +
+      '      <div class="eikon-field" style="flex:1;min-width:220px;">' +
+      '        <div class="eikon-label">Email</div>' +
+      '        <input class="eikon-input" id="eikon-login-email" type="email" autocomplete="username" />' +
+      "      </div>" +
+      '      <div class="eikon-field" style="flex:1;min-width:220px;">' +
+      '        <div class="eikon-label">Password</div>' +
+      '        <input class="eikon-input" id="eikon-login-pass" type="password" autocomplete="current-password" />' +
+      "      </div>" +
+      "    </div>" +
+      '    <div class="eikon-row" style="margin-top:12px;justify-content:flex-end;">' +
+      '      <button class="eikon-btn primary" id="eikon-login-btn">Login</button>' +
+      "    </div>" +
+      (errorText ? ('<div class="eikon-alert">' + E.escapeHtml(errorText) + "</div>") : "") +
+      '    <div class="eikon-help" style="margin-top:10px;">Tip: add <span class="eikon-pill">dbg=2</span> to see verbose logs.</div>' +
+      "  </div>" +
+      "</div>";
 
-    const btn = el("button", { class: "eikon-btn eikon-btn-primary" }, "Login");
+    var emailEl = document.getElementById("eikon-login-email");
+    var passEl = document.getElementById("eikon-login-pass");
+    var btn = document.getElementById("eikon-login-btn");
 
-    btn.addEventListener("click", async () => {
-      const email = (emailInput.value || "").trim().toLowerCase();
-      const pass = (passInput.value || "").trim();
+    if (emailEl) emailEl.focus();
+
+    function doLogin() {
+      var email = (emailEl ? emailEl.value : "").trim().toLowerCase();
+      var pass = (passEl ? passEl.value : "").trim();
+      E.dbg("[auth] login attempt:", email);
+
       if (!email || !pass) {
-        toast("Missing fields", "Enter your email and password.", 3200);
+        E.renderLogin("Missing email or password");
         return;
       }
+
       btn.disabled = true;
-      btn.textContent = "Logging in...";
-      try {
-        const u = await login(email, pass);
-        E.state.user = u;
-        E.state.shell = createShell(root, u);
-        buildNav(E.state.shell);
-        if (!location.hash) setHash(getActiveModuleKey());
-        await onHashChange();
-        toast("Welcome", "Logged in successfully.", 2200);
-      } catch (err) {
-        derr("[EIKON][auth] login error", err);
-        toast("Login failed", (err && err.message) ? err.message : "Unknown error", 4200);
-      } finally {
-        btn.disabled = false;
-        btn.textContent = "Login";
-      }
+      btn.textContent = "Logging in…";
+
+      E.apiFetch("/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email, password: pass })
+      })
+        .then(function (resp) {
+          if (!resp || !resp.ok || !resp.token) throw new Error("Login failed (no token)");
+          E.setToken(resp.token);
+          E.state.user = resp.user || null;
+          E.dbg("[auth] login OK:", resp.user);
+          return E.bootAuthed();
+        })
+        .catch(function (err) {
+          E.error("[auth] login error:", err);
+          E.clearToken();
+          E.state.user = null;
+          E.renderLogin(String(err && (err.message || err.bodyText || err)));
+        })
+        .finally(function () {
+          try { btn.disabled = false; btn.textContent = "Login"; } catch (e) {}
+        });
+    }
+
+    if (btn) btn.addEventListener("click", doLogin);
+    if (passEl) passEl.addEventListener("keydown", function (e) { if (e.key === "Enter") doLogin(); });
+    if (emailEl) emailEl.addEventListener("keydown", function (e) { if (e.key === "Enter") doLogin(); });
+  };
+
+  // Shell + Router
+  E.renderShell = function () {
+    var root = E.ensureRoot();
+
+    // restore sidebar state
+    var collapsed = false;
+    try { collapsed = String(window.localStorage.getItem("eikon_sidebar_collapsed") || "") === "1"; } catch (e) {}
+    E.state.sidebarCollapsed = collapsed;
+
+    root.innerHTML =
+      '<div class="eikon-layout">' +
+      '  <aside class="eikon-sidebar' + (collapsed ? " collapsed" : "") + '" id="eikon-sidebar">' +
+      '    <div class="eikon-sidebar-header">' +
+      '      <div class="eikon-brand">Eikon</div>' +
+      '      <button class="eikon-collapse-btn" id="eikon-collapse-btn" title="Collapse/Expand">≡</button>' +
+      "    </div>" +
+      '    <nav class="eikon-nav" id="eikon-nav"></nav>' +
+      "  </aside>" +
+      '  <main class="eikon-main">' +
+      '    <div class="eikon-topbar">' +
+      '      <div class="eikon-top-left">' +
+      '        <div class="eikon-page-title" id="eikon-page-title">Loading…</div>' +
+      "      </div>" +
+      '      <div class="eikon-user">' +
+      '        <span id="eikon-user-label"></span>' +
+      '        <button class="eikon-btn" id="eikon-logout-btn">Logout</button>' +
+      "      </div>" +
+      "    </div>" +
+      '    <div class="eikon-content" id="eikon-content"></div>' +
+      "  </main>" +
+      "</div>";
+
+    // Sidebar toggle
+    var collapseBtn = document.getElementById("eikon-collapse-btn");
+    var sidebar = document.getElementById("eikon-sidebar");
+    if (collapseBtn && sidebar) {
+      collapseBtn.addEventListener("click", function () {
+        var nowCollapsed = !sidebar.classList.contains("collapsed");
+        sidebar.classList.toggle("collapsed", nowCollapsed);
+        E.state.sidebarCollapsed = nowCollapsed;
+        try { window.localStorage.setItem("eikon_sidebar_collapsed", nowCollapsed ? "1" : "0"); } catch (e) {}
+      });
+    }
+
+    // Logout
+    var logoutBtn = document.getElementById("eikon-logout-btn");
+    if (logoutBtn) {
+      logoutBtn.addEventListener("click", function () {
+        E.logout();
+      });
+    }
+
+    // Nav
+    E.renderNav();
+  };
+
+  E.renderNav = function () {
+    var nav = document.getElementById("eikon-nav");
+    if (!nav) return;
+
+    var mods = Object.keys(E.modules || {}).map(function (k) { return E.modules[k]; });
+    mods.sort(function (a, b) { return (a.order || 999) - (b.order || 999); });
+
+    nav.innerHTML = "";
+
+    mods.forEach(function (m) {
+      var btn = document.createElement("button");
+      btn.className = "eikon-nav-btn";
+      btn.setAttribute("data-mod", m.id);
+
+      var ico = document.createElement("span");
+      ico.className = "eikon-nav-ico";
+      ico.textContent = (m.icon || "•");
+
+      var label = document.createElement("span");
+      label.className = "eikon-nav-label";
+      label.textContent = (m.title || m.id);
+
+      btn.appendChild(ico);
+      btn.appendChild(label);
+
+      btn.addEventListener("click", function () {
+        window.location.hash = "#" + m.id;
+      });
+
+      nav.appendChild(btn);
     });
 
-    passInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") btn.click();
+    E.highlightNav();
+  };
+
+  E.highlightNav = function () {
+    var active = E.state.activeModuleId || "";
+    var btns = E.qa(".eikon-nav-btn", document);
+    btns.forEach(function (b) {
+      var id = b.getAttribute("data-mod") || "";
+      b.classList.toggle("active", id === active);
     });
-    emailInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") btn.click();
+  };
+
+  E.logout = function () {
+    E.dbg("[auth] logout");
+    E.clearToken();
+    E.state.user = null;
+    E.state.activeModuleId = "";
+    E.renderLogin();
+  };
+
+  E.getHashModuleId = function () {
+    var h = String(window.location.hash || "").replace(/^#/, "").trim();
+    if (!h) return "temperature";
+    return h;
+  };
+
+  E.renderActiveModule = async function () {
+    var content = document.getElementById("eikon-content");
+    if (!content) throw new Error("Missing #eikon-content mount");
+
+    var id = E.getHashModuleId();
+    if (!E.modules[id]) {
+      E.warn("[router] unknown module:", id, "falling back to temperature");
+      id = "temperature";
+      window.location.hash = "#temperature";
+    }
+
+    E.state.activeModuleId = id;
+    E.highlightNav();
+
+    var pageTitle = document.getElementById("eikon-page-title");
+    if (pageTitle) pageTitle.textContent = (E.modules[id].title || id);
+
+    // user label
+    var userLabel = document.getElementById("eikon-user-label");
+    if (userLabel) {
+      var u = E.state.user;
+      userLabel.textContent = u ? (u.full_name + " • " + u.location_name) : "";
+    }
+
+    // render module
+    content.innerHTML = "";
+    E.dbg("[router] render module:", id);
+
+    try {
+      await E.modules[id].render({
+        E: E,
+        mount: content,
+        user: E.state.user
+      });
+    } catch (err) {
+      E.error("[router] module render error:", err);
+      var msg = String(err && (err.stack || err.message || err));
+      content.innerHTML =
+        '<div class="eikon-card">' +
+        '  <div style="font-weight:900;font-size:16px;color:var(--danger);margin-bottom:8px;">Module crashed: ' + E.escapeHtml(id) + "</div>" +
+        '  <pre style="white-space:pre-wrap;margin:0;background:rgba(0,0,0,.25);padding:12px;border-radius:14px;border:1px solid var(--border);">' +
+        E.escapeHtml(msg) +
+        "</pre>" +
+        "</div>";
+    }
+  };
+
+  E.bootAuthed = async function () {
+    E.renderShell();
+    await E.renderActiveModule();
+  };
+
+  E.start = async function () {
+    if (E.state.started) return;
+    E.state.started = true;
+
+    E.dbg("[core] start()");
+
+    // If hash missing, default
+    if (!window.location.hash) window.location.hash = "#temperature";
+
+    // Router
+    window.addEventListener("hashchange", function () {
+      E.dbg("[router] hashchange:", window.location.hash);
+      if (!E.state.user) return; // if not logged, ignore
+      E.renderActiveModule();
     });
 
-    root.innerHTML = "";
-    root.appendChild(
-      el("div", { class: "eikon-auth" },
-        el("div", { class: "eikon-card eikon-auth-card" },
-          el("div", { class: "eikon-title" }, "EIKON Login"),
-          el("div", { class: "eikon-help" }, "Enter your account credentials."),
-          el("div", { style: "height:10px" }),
-          el("div", { class: "eikon-field" }, el("div", { class: "eikon-label" }, "Email"), emailInput),
-          el("div", { class: "eikon-field" }, el("div", { class: "eikon-label" }, "Password"), passInput),
-          el("div", { style: "height:10px" }),
-          btn,
-          el("div", { style: "height:10px" }),
-          el("div", { class: "eikon-help" }, "Tip: run ", el("span", { class: "eikon-badge" }, "localStorage.setItem(\"eikon_debug\",\"1\")"), " for heavy debug logs.")
-        )
-      )
-    );
-  }
-
-  async function start() {
-    // capture hard errors
-    window.addEventListener("unhandledrejection", (e) => {
-      derr("[EIKON] unhandledrejection", e && e.reason ? e.reason : e);
-      toast("Unhandled error", "Open console for details.", 4200);
-    });
-    window.addEventListener("error", (e) => {
-      derr("[EIKON] window error", e);
-    });
-
-    const root = qs("#app");
-    if (!root) return;
-
-    const tok = getToken();
-    if (!tok) {
-      await renderAuth();
+    // Try authed boot
+    var token = E.getToken();
+    if (!token) {
+      E.dbg("[auth] no token -> login screen");
+      E.renderLogin();
       return;
     }
 
+    E.dbg("[auth] token present, checking /auth/me …");
     try {
-      const out = await me();
-      if (!out || !out.ok || !out.user) throw new Error("Session invalid");
-      E.state.user = out.user;
-
-      E.state.shell = createShell(root, out.user);
-      buildNav(E.state.shell);
-
-      window.addEventListener("hashchange", onHashChange);
-      if (!location.hash) setHash(getActiveModuleKey());
-      await onHashChange();
+      var me = await E.apiFetch("/auth/me", { method: "GET" });
+      if (!me || !me.ok || !me.user) throw new Error("Invalid /auth/me response");
+      E.state.user = me.user;
+      E.dbg("[auth] /auth/me OK:", me.user);
+      await E.bootAuthed();
     } catch (err) {
-      derr("[EIKON][auth] session check failed", err);
-      setToken("");
-      await renderAuth();
+      E.error("[auth] /auth/me failed:", err);
+      E.clearToken();
+      E.state.user = null;
+      E.renderLogin("Session invalid. Please login again.\n" + String(err && (err.message || err.bodyText || err)));
     }
-  }
+  };
 
-  E.start = start;
 })();
