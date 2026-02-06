@@ -1,0 +1,12 @@
+<div id="eikon-root" style="min-height:800px;"></div>
+
+<link rel="stylesheet" href="https://eikon-api.labrint.workers.dev/ui/app.css" />
+
+<script>
+  window.EIKON_API_BASE = "https://eikon-api.labrint.workers.dev";
+</script>
+
+<script src="https://eikon-api.labrint.workers.dev/ui/core.js"></script>
+<script src="https://eikon-api.labrint.workers.dev/ui/modules.temperature.js"></script>
+<script src="https://eikon-api.labrint.workers.dev/ui/modules.cleaning.js"></script>
+<script src="https://eikon-api.labrint.workers.dev/ui/main.js"></script>
