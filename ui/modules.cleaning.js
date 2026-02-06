@@ -2,572 +2,291 @@
   "use strict";
 
   const E = window.EIKON;
+  const el = E.el;
 
-  if (!E || !E.util || !E.modules) {
-    console.error("[EIKON][cleaning] EIKON core not found. Make sure core.js loads before modules.cleaning.js");
-    return;
-  }
-
-  const dbg = (...args) => console.log("[EIKON][cleaning]", ...args);
-  const dbe = (...args) => console.error("[EIKON][cleaning]", ...args);
-
-  function pad2(n) {
-    const v = String(n);
-    return v.length === 1 ? "0" + v : v;
-  }
+  function pad2(n) { return String(n).padStart(2, "0"); }
 
   function todayYmd() {
     const d = new Date();
     return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
   }
 
-  function currentMonthYyyyMm() {
+  function thisMonth() {
     const d = new Date();
     return d.getFullYear() + "-" + pad2(d.getMonth() + 1);
   }
 
-  function isValidYmd(s) {
-    return /^\d{4}-\d{2}-\d{2}$/.test(String(s || "").trim());
+  async function openPrintableReport(url) {
+    const a = document.createElement("a");
+    a.href = url;
+    a.target = "_blank";
+    a.rel = "noopener";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
   }
 
-  function isValidHm(s) {
-    const v = String(s || "").trim();
-    return /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
-  }
-
-  async function api(path, opts) {
-    dbg("API ->", path, opts || {});
-    try {
-      const res = await E.util.apiFetch(path, opts || {});
-      dbg("API <-", path, res);
-      return res;
-    } catch (err) {
-      dbe("API !!", path, err);
-      throw err;
-    }
-  }
-
-  function esc(s) {
-    return String(s == null ? "" : s)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#39;");
-  }
-
-  function openPrintTabWithHtml(html, title) {
-    dbg("openPrintTabWithHtml()");
-    const w = window.open("", "_blank");
-    if (!w) {
-      E.util.toast("Popup blocked. Allow popups to open the report tab.", "error");
-      return;
-    }
-    try {
-      w.document.open();
-      w.document.write(html);
-      w.document.close();
-      w.document.title = title || "Report";
-    } catch (e) {
-      dbe("Failed to open print tab", e);
-      E.util.toast("Failed to open report tab.", "error");
-    }
-  }
-
-  function buildCleaningReportHtml(payload) {
-    const orgName = esc(payload.org_name || "");
-    const locationName = esc(payload.location_name || "");
-    const from = esc(payload.from || "");
-    const to = esc(payload.to || "");
-    const entries = Array.isArray(payload.entries) ? payload.entries : [];
-
-    const rows = entries
-      .map((e) => {
-        return `
-          <tr>
-            <td>${esc(e.entry_date || "")}</td>
-            <td>${esc(e.time_in || "")}</td>
-            <td>${esc(e.time_out || "")}</td>
-            <td>${esc(e.cleaner_name || "")}</td>
-            <td>${esc(e.staff_name || "")}</td>
-            <td>${esc(e.notes || "")}</td>
-          </tr>
-        `.trim();
-      })
-      .join("");
-
-    const html = `
-<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Cleaning Report</title>
-  <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; padding: 18px; }
-    h1 { margin: 0 0 6px 0; font-size: 20px; }
-    .meta { color: #444; margin-bottom: 14px; }
-    .btns { margin: 14px 0; display: flex; gap: 10px; }
-    button { padding: 10px 14px; border: 0; border-radius: 10px; background: #111; color: #fff; font-weight: 700; cursor: pointer; }
-    button.secondary { background: #444; }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-    th, td { border: 1px solid #ddd; padding: 8px; font-size: 12px; vertical-align: top; }
-    th { background: #f6f6f6; text-align: left; }
-    @media print {
-      .btns { display: none; }
-      body { padding: 0; }
-    }
-  </style>
-</head>
-<body>
-  <h1>Cleaning Register</h1>
-  <div class="meta">
-    <div><b>Org:</b> ${orgName}</div>
-    <div><b>Location:</b> ${locationName}</div>
-    <div><b>Range:</b> ${from} to ${to}</div>
-  </div>
-
-  <div class="btns">
-    <button onclick="window.print()">Print</button>
-    <button class="secondary" onclick="window.close()">Close</button>
-  </div>
-
-  <table>
-    <thead>
-      <tr>
-        <th style="width: 110px;">Date</th>
-        <th style="width: 80px;">Time In</th>
-        <th style="width: 80px;">Time Out</th>
-        <th style="width: 160px;">Cleaner</th>
-        <th style="width: 160px;">Staff</th>
-        <th>Notes</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${rows || `<tr><td colspan="6">No entries.</td></tr>`}
-    </tbody>
-  </table>
-</body>
-</html>
-    `.trim();
-
-    return html;
+  function isHm(v) {
+    return /^([01]\d|2[0-3]):[0-5]\d$/.test(String(v || "").trim());
   }
 
   E.modules.cleaning = {
-    key: "cleaning",
+    id: "cleaning",
     title: "Cleaning",
-    render: function (root) {
-      dbg("render() start");
+    subtitle: "Daily cleaning register",
+    icon: "C",
+    async render(root, user) {
+      const debug = (localStorage.getItem("eikon_debug") === "1");
+      function dlog(...args) { if (debug) console.log(...args); }
+
+      dlog("[EIKON][cleaning] render() start");
 
       const state = {
-        month: currentMonthYyyyMm(),
-        entries: [],
-        loading: false,
-        editingId: null
+        month: thisMonth(),
+        entries: []
       };
 
-      root.innerHTML = `
-        <div class="eikon-module">
-          <div class="eikon-row eikon-row-between eikon-gap-12 eikon-wrap">
-            <div>
-              <div class="eikon-title">Cleaning</div>
-              <div class="eikon-subtitle">Create, edit, delete cleaning register entries (including past dates).</div>
-            </div>
+      const header = el("div", { class: "eikon-card" },
+        el("div", { class: "eikon-title" }, "Cleaning Register"),
+        el("div", { class: "eikon-help" }, "Create entries with date, time in/out, cleaner name and staff name. You can add past dates too.")
+      );
 
-            <div class="eikon-row eikon-gap-8 eikon-wrap">
-              <div class="eikon-field">
-                <label class="eikon-label">Month</label>
-                <input id="cl-month" type="month" class="eikon-input" value="${state.month}" />
-              </div>
-              <button id="cl-refresh" class="eikon-btn">Refresh</button>
-            </div>
-          </div>
+      const monthInput = el("input", { class: "eikon-input", type: "month", value: state.month });
+      const btnRefresh = el("button", { class: "eikon-btn" }, "Refresh");
+      const btnPrint = el("button", { class: "eikon-btn eikon-btn-primary" }, "Print Report");
 
-          <div class="eikon-grid eikon-grid-2 eikon-gap-12" style="margin-top: 12px;">
-            <div class="eikon-card">
-              <div class="eikon-card-title" id="cl-form-title">New Entry</div>
+      const controls = el("div", { class: "eikon-card" },
+        el("div", { class: "eikon-row" },
+          el("div", { class: "eikon-field" }, el("div", { class: "eikon-label" }, "Month"), monthInput),
+          el("div", { class: "eikon-field", style: "min-width:140px" }, btnRefresh),
+          el("div", { class: "eikon-field", style: "min-width:160px" }, btnPrint)
+        )
+      );
 
-              <div class="eikon-grid eikon-grid-2 eikon-gap-10" style="margin-top: 10px;">
-                <div class="eikon-field">
-                  <label class="eikon-label">Date</label>
-                  <input id="cl-date" type="date" class="eikon-input" value="${todayYmd()}" />
-                </div>
+      const formCard = el("div", { class: "eikon-card" });
+      const tableCard = el("div", { class: "eikon-card" });
 
-                <div class="eikon-field">
-                  <label class="eikon-label">Cleaner Name</label>
-                  <input id="cl-cleaner" type="text" class="eikon-input" placeholder="e.g. Maria" />
-                </div>
+      root.appendChild(header);
+      root.appendChild(controls);
+      root.appendChild(formCard);
+      root.appendChild(tableCard);
 
-                <div class="eikon-field">
-                  <label class="eikon-label">Time In</label>
-                  <input id="cl-time-in" type="time" class="eikon-input" value="08:00" />
-                </div>
+      const fDate = el("input", { class: "eikon-input", type: "date", value: todayYmd() });
+      const fTimeIn = el("input", { class: "eikon-input", type: "time", value: "08:00" });
+      const fTimeOut = el("input", { class: "eikon-input", type: "time", value: "" });
+      const fCleaner = el("input", { class: "eikon-input", type: "text", placeholder: "Cleaner name" });
+      const fStaff = el("input", { class: "eikon-input", type: "text", placeholder: "Staff name" });
+      const fNotes = el("input", { class: "eikon-input", type: "text", placeholder: "Optional notes" });
 
-                <div class="eikon-field">
-                  <label class="eikon-label">Time Out (optional)</label>
-                  <input id="cl-time-out" type="time" class="eikon-input" />
-                </div>
+      const btnAdd = el("button", { class: "eikon-btn eikon-btn-primary" }, "Add Entry");
 
-                <div class="eikon-field">
-                  <label class="eikon-label">Staff Name</label>
-                  <input id="cl-staff" type="text" class="eikon-input" placeholder="e.g. John" />
-                </div>
-
-                <div class="eikon-field">
-                  <label class="eikon-label">Notes</label>
-                  <input id="cl-notes" type="text" class="eikon-input" placeholder="Optional notes" />
-                </div>
-              </div>
-
-              <div class="eikon-row eikon-gap-8 eikon-wrap" style="margin-top: 12px;">
-                <button id="cl-save" class="eikon-btn eikon-btn-primary">Save</button>
-                <button id="cl-clear" class="eikon-btn eikon-btn-ghost">Clear</button>
-                <button id="cl-delete" class="eikon-btn eikon-btn-danger" style="display:none;">Delete</button>
-              </div>
-
-              <div class="eikon-muted" id="cl-form-hint" style="margin-top: 10px;"></div>
-            </div>
-
-            <div class="eikon-card">
-              <div class="eikon-card-title">Entries</div>
-              <div class="eikon-muted" style="margin-top: 6px;">Click “Edit” to load an entry into the form.</div>
-              <div id="cl-table" style="margin-top: 10px;"></div>
-            </div>
-          </div>
-
-          <div class="eikon-card" style="margin-top: 12px;">
-            <div class="eikon-card-title">Report</div>
-            <div class="eikon-row eikon-gap-10 eikon-wrap" style="margin-top: 10px;">
-              <div class="eikon-field">
-                <label class="eikon-label">From</label>
-                <input id="cl-report-from" type="date" class="eikon-input" value="${todayYmd()}" />
-              </div>
-              <div class="eikon-field">
-                <label class="eikon-label">To</label>
-                <input id="cl-report-to" type="date" class="eikon-input" value="${todayYmd()}" />
-              </div>
-              <div class="eikon-row eikon-gap-8" style="align-items: flex-end;">
-                <button id="cl-report" class="eikon-btn">Generate Report</button>
-              </div>
-            </div>
-            <div class="eikon-muted" id="cl-report-hint" style="margin-top: 10px;"></div>
-          </div>
-        </div>
-      `.trim();
-
-      const els = {
-        month: root.querySelector("#cl-month"),
-        refresh: root.querySelector("#cl-refresh"),
-
-        formTitle: root.querySelector("#cl-form-title"),
-        date: root.querySelector("#cl-date"),
-        timeIn: root.querySelector("#cl-time-in"),
-        timeOut: root.querySelector("#cl-time-out"),
-        cleaner: root.querySelector("#cl-cleaner"),
-        staff: root.querySelector("#cl-staff"),
-        notes: root.querySelector("#cl-notes"),
-        save: root.querySelector("#cl-save"),
-        clear: root.querySelector("#cl-clear"),
-        del: root.querySelector("#cl-delete"),
-        formHint: root.querySelector("#cl-form-hint"),
-
-        table: root.querySelector("#cl-table"),
-
-        reportFrom: root.querySelector("#cl-report-from"),
-        reportTo: root.querySelector("#cl-report-to"),
-        reportBtn: root.querySelector("#cl-report"),
-        reportHint: root.querySelector("#cl-report-hint")
-      };
-
-      function setLoading(isLoading) {
-        state.loading = !!isLoading;
-        els.save.disabled = state.loading;
-        els.refresh.disabled = state.loading;
-        els.reportBtn.disabled = state.loading;
-      }
-
-      function clearForm() {
-        dbg("clearForm()");
-        state.editingId = null;
-        els.formTitle.textContent = "New Entry";
-        els.date.value = todayYmd();
-        els.timeIn.value = "08:00";
-        els.timeOut.value = "";
-        els.cleaner.value = "";
-        els.staff.value = "";
-        els.notes.value = "";
-        els.del.style.display = "none";
-        els.save.textContent = "Save";
-        els.formHint.textContent = "";
-      }
-
-      function setEditMode(entry) {
-        dbg("setEditMode()", entry);
-        state.editingId = entry.id;
-        els.formTitle.textContent = "Edit Entry #" + entry.id;
-        els.date.value = entry.entry_date || todayYmd();
-        els.timeIn.value = entry.time_in || "08:00";
-        els.timeOut.value = entry.time_out || "";
-        els.cleaner.value = entry.cleaner_name || "";
-        els.staff.value = entry.staff_name || "";
-        els.notes.value = entry.notes || "";
-        els.del.style.display = "inline-flex";
-        els.save.textContent = "Update";
-        els.formHint.textContent = "Editing entry " + entry.id + ". Update fields then click Update, or Delete.";
-      }
-
-      function validateForm() {
-        const entry_date = String(els.date.value || "").trim();
-        const time_in = String(els.timeIn.value || "").trim();
-        const time_out = String(els.timeOut.value || "").trim();
-        const cleaner_name = String(els.cleaner.value || "").trim();
-        const staff_name = String(els.staff.value || "").trim();
-        const notes = String(els.notes.value || "").trim();
-
-        if (!isValidYmd(entry_date)) return { ok: false, error: "Invalid date (YYYY-MM-DD)" };
-        if (!isValidHm(time_in)) return { ok: false, error: "Invalid time in (HH:mm)" };
-        if (time_out && !isValidHm(time_out)) return { ok: false, error: "Invalid time out (HH:mm) or leave empty" };
-        if (!cleaner_name) return { ok: false, error: "Cleaner name is required" };
-        if (!staff_name) return { ok: false, error: "Staff name is required" };
-
-        return {
-          ok: true,
-          payload: {
-            entry_date,
-            time_in,
-            time_out: time_out || "",
-            cleaner_name,
-            staff_name,
-            notes
-          }
+      btnAdd.addEventListener("click", async () => {
+        const payload = {
+          entry_date: (fDate.value || "").trim(),
+          time_in: (fTimeIn.value || "").trim(),
+          time_out: (fTimeOut.value || "").trim(),
+          cleaner_name: (fCleaner.value || "").trim(),
+          staff_name: (fStaff.value || "").trim(),
+          notes: (fNotes.value || "").trim()
         };
-      }
 
-      function renderTable() {
-        dbg("renderTable() entries=", state.entries.length);
+        if (!payload.entry_date) { E.toast("Missing date", "Choose a date.", 2500); return; }
+        if (!isHm(payload.time_in)) { E.toast("Invalid time in", "Use HH:mm.", 2500); return; }
+        if (payload.time_out && !isHm(payload.time_out)) { E.toast("Invalid time out", "Use HH:mm or leave empty.", 3000); return; }
+        if (!payload.cleaner_name) { E.toast("Missing cleaner", "Enter cleaner name.", 2500); return; }
+        if (!payload.staff_name) { E.toast("Missing staff", "Enter staff name.", 2500); return; }
 
-        if (!state.entries || state.entries.length === 0) {
-          els.table.innerHTML = `<div class="eikon-muted">No entries for ${esc(state.month)}.</div>`;
-          return;
+        dlog("[EIKON][cleaning] create", payload);
+
+        try {
+          await E.apiFetch("/cleaning/entries", { method: "POST", body: JSON.stringify(payload) });
+          E.toast("Added", "Cleaning entry saved.", 1800);
+          await refreshAll();
+        } catch (err) {
+          console.error("[EIKON][cleaning] create error", err);
+          E.toast("Add failed", err.message || "Unknown error", 4200);
         }
+      });
 
-        const rows = state.entries
-          .map((e) => {
-            return `
-              <tr>
-                <td>${esc(e.entry_date || "")}</td>
-                <td>${esc(e.time_in || "")}</td>
-                <td>${esc(e.time_out || "")}</td>
-                <td>${esc(e.cleaner_name || "")}</td>
-                <td>${esc(e.staff_name || "")}</td>
-                <td>${esc(e.notes || "")}</td>
-                <td style="white-space:nowrap;">
-                  <button class="eikon-btn eikon-btn-ghost" data-act="edit" data-id="${e.id}">Edit</button>
-                  <button class="eikon-btn eikon-btn-danger" data-act="del" data-id="${e.id}">Delete</button>
-                </td>
-              </tr>
-            `.trim();
-          })
-          .join("");
-
-        els.table.innerHTML = `
-          <div style="overflow:auto; max-width: 100%;">
-            <table class="eikon-table" style="min-width: 860px;">
-              <thead>
-                <tr>
-                  <th style="width:110px;">Date</th>
-                  <th style="width:80px;">In</th>
-                  <th style="width:80px;">Out</th>
-                  <th style="width:160px;">Cleaner</th>
-                  <th style="width:160px;">Staff</th>
-                  <th>Notes</th>
-                  <th style="width:160px;">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${rows}
-              </tbody>
-            </table>
-          </div>
-        `.trim();
-
-        els.table.querySelectorAll("button[data-act]").forEach((btn) => {
-          btn.addEventListener("click", async () => {
-            const act = btn.getAttribute("data-act");
-            const id = parseInt(btn.getAttribute("data-id"), 10);
-            if (!id) return;
-
-            const entry = state.entries.find((x) => x.id === id);
-            if (!entry) return;
-
-            if (act === "edit") {
-              setEditMode(entry);
-            } else if (act === "del") {
-              await deleteEntry(id);
-            }
-          });
-        });
+      function renderForm() {
+        formCard.innerHTML = "";
+        formCard.appendChild(el("div", { class: "eikon-title" }, "Add Cleaning Entry"));
+        formCard.appendChild(
+          el("div", { class: "eikon-row" },
+            el("div", { class: "eikon-field" }, el("div", { class: "eikon-label" }, "Date"), fDate),
+            el("div", { class: "eikon-field" }, el("div", { class: "eikon-label" }, "Time in"), fTimeIn),
+            el("div", { class: "eikon-field" }, el("div", { class: "eikon-label" }, "Time out (optional)"), fTimeOut),
+            el("div", { class: "eikon-field", style: "min-width:220px" }, el("div", { class: "eikon-label" }, "Cleaner"), fCleaner),
+            el("div", { class: "eikon-field", style: "min-width:220px" }, el("div", { class: "eikon-label" }, "Staff"), fStaff),
+            el("div", { class: "eikon-field", style: "min-width:260px" }, el("div", { class: "eikon-label" }, "Notes"), fNotes),
+            el("div", { class: "eikon-field", style: "min-width:140px" }, btnAdd)
+          )
+        );
       }
 
       async function loadEntries() {
-        try {
-          setLoading(true);
-          els.formHint.textContent = "";
-          dbg("loadEntries() month=", state.month);
-
-          const res = await api(`/cleaning/entries?month=${encodeURIComponent(state.month)}`, { method: "GET" });
-          if (!res || res.ok !== true) {
-            const msg = (res && res.error) ? res.error : "Failed to load entries";
-            throw new Error(msg);
-          }
-
-          state.entries = Array.isArray(res.entries) ? res.entries : [];
-          renderTable();
-          E.util.toast(`Loaded ${state.entries.length} cleaning entries`, "success");
-        } catch (e) {
-          dbe("loadEntries failed", e);
-          E.util.toast(e && e.message ? e.message : "Failed to load entries", "error");
-          els.table.innerHTML = `<div class="eikon-muted">Failed to load entries.</div>`;
-        } finally {
-          setLoading(false);
-        }
+        dlog("[EIKON][cleaning] loadEntries() month=", state.month);
+        const out = await E.apiFetch("/cleaning/entries?month=" + encodeURIComponent(state.month), { method: "GET" });
+        state.entries = (out && out.entries) ? out.entries : [];
       }
 
-      async function saveEntry() {
-        const v = validateForm();
-        if (!v.ok) {
-          E.util.toast(v.error, "error");
-          return;
-        }
+      function renderTable() {
+        tableCard.innerHTML = "";
+        tableCard.appendChild(el("div", { class: "eikon-title" }, "Entries (" + state.month + ")"));
 
-        try {
-          setLoading(true);
+        const wrap = el("div", { class: "eikon-tablewrap", style: "margin-top:10px" });
+        const table = el("table", { class: "eikon-table" });
 
-          const payload = v.payload;
-          dbg("saveEntry()", { editingId: state.editingId, payload });
+        const thead = el("thead", null,
+          el("tr", null,
+            el("th", null, "Date"),
+            el("th", null, "Time in"),
+            el("th", null, "Time out"),
+            el("th", null, "Cleaner"),
+            el("th", null, "Staff"),
+            el("th", null, "Notes"),
+            el("th", null, "Actions")
+          )
+        );
 
-          let res;
-          if (state.editingId) {
-            res = await api(`/cleaning/entries/${state.editingId}`, {
-              method: "PUT",
-              body: JSON.stringify(payload)
+        const tbody = el("tbody");
+
+        const rows = state.entries.slice().sort((a, b) => {
+          if (a.entry_date > b.entry_date) return -1;
+          if (a.entry_date < b.entry_date) return 1;
+          if (a.time_in > b.time_in) return -1;
+          if (a.time_in < b.time_in) return 1;
+          return (b.id || 0) - (a.id || 0);
+        });
+
+        for (const r of rows) {
+          const btnEdit = el("button", { class: "eikon-btn eikon-btn-primary" }, "Edit");
+          const btnDel = el("button", { class: "eikon-btn eikon-btn-danger" }, "Delete");
+
+          btnEdit.addEventListener("click", async () => {
+            // Inline edit modal replacement: reuse confirm modal just for confirmation; edits are done inline via temporary row editor
+            const editor = el("div", { class: "eikon-card", style: "margin-top:10px" },
+              el("div", { class: "eikon-title" }, "Edit entry #" + r.id),
+              el("div", { class: "eikon-row" })
+            );
+
+            const eDate = el("input", { class: "eikon-input", type: "date", value: r.entry_date });
+            const eIn = el("input", { class: "eikon-input", type: "time", value: r.time_in });
+            const eOut = el("input", { class: "eikon-input", type: "time", value: r.time_out || "" });
+            const eCleaner = el("input", { class: "eikon-input", type: "text", value: r.cleaner_name });
+            const eStaff = el("input", { class: "eikon-input", type: "text", value: r.staff_name });
+            const eNotes = el("input", { class: "eikon-input", type: "text", value: r.notes || "" });
+
+            const saveBtn = el("button", { class: "eikon-btn eikon-btn-primary" }, "Save");
+            const cancelBtn = el("button", { class: "eikon-btn" }, "Cancel");
+
+            cancelBtn.addEventListener("click", () => {
+              try { editor.remove(); } catch {}
             });
-          } else {
-            res = await api(`/cleaning/entries`, {
-              method: "POST",
-              body: JSON.stringify(payload)
+
+            saveBtn.addEventListener("click", async () => {
+              const payload = {
+                entry_date: (eDate.value || "").trim(),
+                time_in: (eIn.value || "").trim(),
+                time_out: (eOut.value || "").trim(),
+                cleaner_name: (eCleaner.value || "").trim(),
+                staff_name: (eStaff.value || "").trim(),
+                notes: (eNotes.value || "").trim()
+              };
+
+              if (!payload.entry_date) { E.toast("Missing date", "Choose a date.", 2500); return; }
+              if (!isHm(payload.time_in)) { E.toast("Invalid time in", "Use HH:mm.", 2500); return; }
+              if (payload.time_out && !isHm(payload.time_out)) { E.toast("Invalid time out", "Use HH:mm or leave empty.", 3000); return; }
+              if (!payload.cleaner_name) { E.toast("Missing cleaner", "Enter cleaner name.", 2500); return; }
+              if (!payload.staff_name) { E.toast("Missing staff", "Enter staff name.", 2500); return; }
+
+              dlog("[EIKON][cleaning] update", r.id, payload);
+
+              try {
+                await E.apiFetch("/cleaning/entries/" + r.id, { method: "PUT", body: JSON.stringify(payload) });
+                E.toast("Saved", "Entry updated.", 1800);
+                await refreshAll();
+              } catch (err) {
+                console.error("[EIKON][cleaning] update error", err);
+                E.toast("Update failed", err.message || "Unknown error", 4200);
+              }
             });
-          }
 
-          if (!res || res.ok !== true) {
-            const msg = (res && res.error) ? res.error : "Save failed";
-            throw new Error(msg);
-          }
+            editor.querySelector(".eikon-row").appendChild(el("div", { class: "eikon-field" }, el("div", { class: "eikon-label" }, "Date"), eDate));
+            editor.querySelector(".eikon-row").appendChild(el("div", { class: "eikon-field" }, el("div", { class: "eikon-label" }, "Time in"), eIn));
+            editor.querySelector(".eikon-row").appendChild(el("div", { class: "eikon-field" }, el("div", { class: "eikon-label" }, "Time out"), eOut));
+            editor.querySelector(".eikon-row").appendChild(el("div", { class: "eikon-field", style: "min-width:220px" }, el("div", { class: "eikon-label" }, "Cleaner"), eCleaner));
+            editor.querySelector(".eikon-row").appendChild(el("div", { class: "eikon-field", style: "min-width:220px" }, el("div", { class: "eikon-label" }, "Staff"), eStaff));
+            editor.querySelector(".eikon-row").appendChild(el("div", { class: "eikon-field", style: "min-width:260px" }, el("div", { class: "eikon-label" }, "Notes"), eNotes));
+            editor.querySelector(".eikon-row").appendChild(el("div", { class: "eikon-field", style: "min-width:220px" }, el("div", { class: "eikon-label" }, "Actions"),
+              el("div", { class: "eikon-row", style: "gap:8px" }, saveBtn, cancelBtn)
+            ));
 
-          E.util.toast(state.editingId ? "Entry updated" : "Entry created", "success");
-          clearForm();
-          await loadEntries();
-        } catch (e) {
-          dbe("saveEntry failed", e);
-          E.util.toast(e && e.message ? e.message : "Save failed", "error");
-        } finally {
-          setLoading(false);
-        }
-      }
+            tableCard.appendChild(editor);
+          });
 
-      async function deleteEntry(entryId) {
-        try {
-          const ok = await E.util.modalConfirm(
-            "Delete entry",
-            "Are you sure you want to delete cleaning entry #" + entryId + "? This cannot be undone."
+          btnDel.addEventListener("click", async () => {
+            const ok = await E.confirm("Delete entry", "Delete cleaning entry on " + r.entry_date + " (" + r.time_in + ")?", "Delete", "Cancel");
+            if (!ok) return;
+
+            dlog("[EIKON][cleaning] delete", r.id);
+
+            try {
+              await E.apiFetch("/cleaning/entries/" + r.id, { method: "DELETE" });
+              E.toast("Deleted", "Entry deleted.", 1600);
+              await refreshAll();
+            } catch (err) {
+              console.error("[EIKON][cleaning] delete error", err);
+              E.toast("Delete failed", err.message || "Unknown error", 4200);
+            }
+          });
+
+          tbody.appendChild(
+            el("tr", null,
+              el("td", null, r.entry_date),
+              el("td", null, r.time_in),
+              el("td", null, r.time_out || ""),
+              el("td", null, r.cleaner_name),
+              el("td", null, r.staff_name),
+              el("td", null, r.notes || ""),
+              el("td", null, el("div", { class: "eikon-row", style: "gap:8px" }, btnEdit, btnDel))
+            )
           );
-          if (!ok) return;
-
-          setLoading(true);
-          dbg("deleteEntry()", entryId);
-
-          const res = await api(`/cleaning/entries/${entryId}`, { method: "DELETE" });
-          if (!res || res.ok !== true) {
-            const msg = (res && res.error) ? res.error : "Delete failed";
-            throw new Error(msg);
-          }
-
-          E.util.toast("Entry deleted", "success");
-
-          if (state.editingId === entryId) clearForm();
-          await loadEntries();
-        } catch (e) {
-          dbe("deleteEntry failed", e);
-          E.util.toast(e && e.message ? e.message : "Delete failed", "error");
-        } finally {
-          setLoading(false);
         }
+
+        table.appendChild(thead);
+        table.appendChild(tbody);
+        wrap.appendChild(table);
+        tableCard.appendChild(wrap);
       }
 
-      async function generateReport() {
-        const from = String(els.reportFrom.value || "").trim();
-        const to = String(els.reportTo.value || "").trim();
-
-        dbg("generateReport()", { from, to });
-
-        if (!isValidYmd(from) || !isValidYmd(to)) {
-          E.util.toast("Invalid report dates (YYYY-MM-DD).", "error");
-          return;
-        }
-        if (to < from) {
-          E.util.toast("Report 'To' must be >= 'From'.", "error");
-          return;
-        }
-
-        try {
-          setLoading(true);
-          els.reportHint.textContent = "Generating report…";
-
-          const res = await api(`/cleaning/report?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`, { method: "GET" });
-          if (!res || res.ok !== true) {
-            const msg = (res && res.error) ? res.error : "Report failed";
-            throw new Error(msg);
-          }
-
-          const html = buildCleaningReportHtml(res);
-          openPrintTabWithHtml(html, "Cleaning Report");
-
-          els.reportHint.textContent = "Report opened in a new tab (if popups are allowed).";
-        } catch (e) {
-          dbe("generateReport failed", e);
-          E.util.toast(e && e.message ? e.message : "Report failed", "error");
-          els.reportHint.textContent = "Report failed.";
-        } finally {
-          setLoading(false);
-        }
+      async function refreshAll() {
+        await loadEntries();
+        renderForm();
+        renderTable();
       }
 
-      // Wire events
-      els.month.addEventListener("change", () => {
-        state.month = String(els.month.value || "").trim() || currentMonthYyyyMm();
-        dbg("month changed ->", state.month);
-        loadEntries();
+      monthInput.addEventListener("change", async () => {
+        state.month = (monthInput.value || "").trim();
+        if (!state.month) return;
+        await refreshAll();
       });
 
-      els.refresh.addEventListener("click", () => loadEntries());
-      els.save.addEventListener("click", () => saveEntry());
-      els.clear.addEventListener("click", () => clearForm());
-
-      els.del.addEventListener("click", async () => {
-        if (!state.editingId) return;
-        await deleteEntry(state.editingId);
+      btnRefresh.addEventListener("click", async () => {
+        await refreshAll();
+        E.toast("Refreshed", "Cleaning entries reloaded.", 1600);
       });
 
-      els.reportBtn.addEventListener("click", () => generateReport());
+      btnPrint.addEventListener("click", async () => {
+        const from = state.month + "-01";
+        // print full month by default (server will handle)
+        const url = "/cleaning/report/html?from=" + encodeURIComponent(from) + "&to=" + encodeURIComponent(from.slice(0, 7) + "-31");
+        dlog("[EIKON][cleaning] open print", url);
+        await openPrintableReport(url);
+      });
 
-      // Initial load
-      if (!els.month.value) els.month.value = state.month;
-      loadEntries();
-
-      dbg("render() done");
+      await refreshAll();
+      dlog("[EIKON][cleaning] render() done");
     }
   };
-
-  dbg("module registered as E.modules.cleaning");
 })();
