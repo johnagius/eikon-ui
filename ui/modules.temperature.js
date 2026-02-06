@@ -1,530 +1,802 @@
-(function(){
-  "use strict";
+(function () {
+  const E = window.EIKON;
+  if (!E) return;
 
-  const EIKON = window.EIKON;
-
-  function meta(){
-    return {
-      order: 10,
-      key: "temperature",
-      title: "Temperature",
-      subtitle: "Daily fridge / room logs",
-      icon: "🌡️"
-    };
+  function fmt1(n) {
+    if (n === null || n === undefined) return "";
+    const v = Number(n);
+    if (!Number.isFinite(v)) return "";
+    return (Math.round(v * 10) / 10).toFixed(1);
   }
 
-  function monthNow(){
-    const d = new Date();
+  function parseNum(n) {
+    const s = String(n || "").trim();
+    if (!s) return null;
+    const v = Number(s);
+    if (!Number.isFinite(v)) return null;
+    return Math.round(v * 10) / 10;
+  }
+
+  function ymdToMonth(ymd) {
+    return E.util.monthFromYmd(ymd);
+  }
+
+  function groupEntriesByDate(entries) {
+    const map = {};
+    for (const e of entries) {
+      if (!map[e.entry_date]) map[e.entry_date] = [];
+      map[e.entry_date].push(e);
+    }
+    return map;
+  }
+
+  function statusDot(minTemp, maxTemp, minLimit, maxLimit) {
+    const minT = (minTemp === null || minTemp === undefined) ? null : Number(minTemp);
+    const maxT = (maxTemp === null || maxTemp === undefined) ? null : Number(maxTemp);
+    const minL = (minLimit === null || minLimit === undefined) ? null : Number(minLimit);
+    const maxL = (maxLimit === null || maxLimit === undefined) ? null : Number(maxLimit);
+
+    if (!Number.isFinite(minT) || !Number.isFinite(maxT)) return { cls: "", label: "Missing" };
+
+    let out = false;
+    if (Number.isFinite(minL) && minT < minL) out = true;
+    if (Number.isFinite(maxL) && maxT > maxL) out = true;
+
+    if (out) return { cls: "bad", label: "Out of limit" };
+    return { cls: "ok", label: "OK" };
+  }
+
+  function monthKeyFromDate(d) {
     const y = d.getFullYear();
-    const m = String(d.getMonth()+1).padStart(2,"0");
-    return y + "-" + m;
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    return `${y}-${m}`;
   }
 
-  function normalizeMonthInput(v){
-    const s = String(v||"").trim();
-    if (/^\d{4}-\d{2}$/.test(s)) return s;
-    return monthNow();
+  function parseYmd(s) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(s || ""))) return null;
+    const [y, m, d] = s.split("-").map(n => parseInt(n, 10));
+    const dt = new Date(y, m - 1, d);
+    if (dt.getFullYear() !== y || dt.getMonth() !== (m - 1) || dt.getDate() !== d) return null;
+    return dt;
   }
 
-  function formatTempCell(min, max){
-    const a = (min === null || min === undefined || min === "") ? "" : String(min);
-    const b = (max === null || max === undefined || max === "") ? "" : String(max);
-    if (!a && !b) return "";
-    if (a && b) return a + " / " + b;
-    return a || b;
-  }
+  function buildPrintHtml(data) {
+    const org = String(data.org_name || "");
+    const loc = String(data.location_name || "");
+    const from = String(data.from || "");
+    const to = String(data.to || "");
+    const devices = Array.isArray(data.devices) ? data.devices : [];
+    const entries = Array.isArray(data.entries) ? data.entries : [];
 
-  async function render(root, user){
-    root.append(
-      EIKON.el("div", { class:"card" },
-        EIKON.el("h2", null, "Temperature"),
-        EIKON.el("p", { class:"sub" }, "Enter daily min/max per device. Admins can manage devices.")
-      )
-    );
-
-    const state = {
-      tab: "entries",
-      month: monthNow(),
-      devices: [],
-      entries: [],
-      loading: false
-    };
-
-    const tabs = EIKON.el("div", { style:"display:flex;gap:10px;flex-wrap:wrap" },
-      EIKON.el("button", { class:"btn primary", onclick: ()=>{ state.tab="entries"; draw(); } }, "Entries"),
-      EIKON.el("button", { class:"btn", onclick: ()=>{ state.tab="devices"; draw(); } }, "Devices"),
-      EIKON.el("button", { class:"btn", onclick: ()=>{ state.tab="print"; draw(); } }, "Print Report")
-    );
-    root.append(tabs);
-
-    const panel = EIKON.el("div", { class:"grid", style:"gap:14px" });
-    root.append(panel);
-
-    async function loadDevices(){
-      const data = await EIKON.apiFetch("/temperature/devices", { method:"GET" });
-      state.devices = (data && data.devices) ? data.devices : [];
+    const mapByDate = {};
+    for (const e of entries) {
+      const ed = String(e.entry_date || "");
+      const did = String(e.device_id || "");
+      if (!mapByDate[ed]) mapByDate[ed] = {};
+      mapByDate[ed][did] = e;
     }
 
-    async function loadEntries(){
-      const month = normalizeMonthInput(state.month);
-      const data = await EIKON.apiFetch("/temperature/entries?month=" + encodeURIComponent(month), { method:"GET" });
-      state.entries = (data && data.entries) ? data.entries : [];
-    }
+    const fromDt = parseYmd(from);
+    const toDt = parseYmd(to);
+    const days = [];
 
-    async function reloadAll(){
-      state.loading = true;
-      draw();
-      try{
-        await loadDevices();
-        await loadEntries();
-      } catch(e){
-        EIKON.toast(e && e.message ? e.message : "Failed to load", "err");
-      } finally {
-        state.loading = false;
-        draw();
+    if (fromDt && toDt) {
+      const cur = new Date(fromDt.getFullYear(), fromDt.getMonth(), fromDt.getDate());
+      const end = new Date(toDt.getFullYear(), toDt.getMonth(), toDt.getDate());
+      while (cur <= end) {
+        const ymd = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, "0")}-${String(cur.getDate()).padStart(2, "0")}`;
+        days.push(ymd);
+        cur.setDate(cur.getDate() + 1);
       }
     }
 
-    function draw(){
-      panel.innerHTML = "";
-
-      if (state.tab === "entries") drawEntries();
-      if (state.tab === "devices") drawDevices();
-      if (state.tab === "print") drawPrint();
+    const byMonth = {};
+    for (const ymd of days) {
+      const dt = parseYmd(ymd);
+      const mk = dt ? monthKeyFromDate(dt) : ymd.slice(0, 7);
+      if (!byMonth[mk]) byMonth[mk] = [];
+      byMonth[mk].push(ymd);
     }
 
-    function drawEntries(){
-      const monthCard = EIKON.el("div", { class:"card" });
+    const months = Object.keys(byMonth);
 
-      const monthInput = EIKON.el("input", {
-        type:"month",
-        value: normalizeMonthInput(state.month),
-        onchange: async (e)=>{
-          state.month = normalizeMonthInput(e.target.value);
-          await reloadAll();
-        }
-      });
-
-      const btnPrev = EIKON.el("button", { class:"btn", onclick: async ()=>{
-        state.month = EIKON.monthAdd(state.month, -1);
-        await reloadAll();
-      }}, "◀ Prev");
-
-      const btnNext = EIKON.el("button", { class:"btn", onclick: async ()=>{
-        state.month = EIKON.monthAdd(state.month, +1);
-        await reloadAll();
-      }}, "Next ▶");
-
-      const btnReload = EIKON.el("button", { class:"btn", onclick: reloadAll }, "Reload");
-
-      monthCard.append(
-        EIKON.el("h2", null, "Month"),
-        EIKON.el("div", { class:"grid cols-4" },
-          EIKON.el("div", { class:"field" },
-            EIKON.el("label", null, "Month"),
-            monthInput
-          ),
-          EIKON.el("div", { class:"field" },
-            EIKON.el("label", null, "Actions"),
-            EIKON.el("div", { style:"display:flex;gap:10px;flex-wrap:wrap" }, btnPrev, btnNext, btnReload)
-          ),
-          EIKON.el("div", { class:"field" },
-            EIKON.el("label", null, "Status"),
-            EIKON.el("div", { class:"pill" }, state.loading ? "Loading..." : ("Devices: " + state.devices.length + " · Entries: " + state.entries.length))
-          ),
-          EIKON.el("div", { class:"field" },
-            EIKON.el("label", null, "Note"),
-            EIKON.el("div", { class:"pill" }, "Click a row to edit, or add a new one below.")
-          )
-        )
-      );
-
-      panel.append(monthCard);
-
-      const formCard = EIKON.el("div", { class:"card" });
-      const f = {
-        id: 0,
-        device_id: "",
-        entry_date: EIKON.todayYmd(),
-        min_temp: "",
-        max_temp: "",
-        notes: ""
-      };
-
-      const deviceSel = EIKON.el("select", {
-        onchange: (e)=>{ f.device_id = e.target.value; }
-      });
-
-      deviceSel.append(EIKON.el("option", { value:"" }, "Select device..."));
-      for (const d of state.devices){
-        deviceSel.append(EIKON.el("option", { value:String(d.id) }, d.name + " (" + d.device_type + ")"));
-      }
-
-      const dateInput = EIKON.el("input", { type:"date", value:f.entry_date, onchange:(e)=>{ f.entry_date = e.target.value; }});
-      const minInput = EIKON.el("input", { type:"number", step:"0.1", value:"", placeholder:"e.g. 3.2", onchange:(e)=>{ f.min_temp = e.target.value; }});
-      const maxInput = EIKON.el("input", { type:"number", step:"0.1", value:"", placeholder:"e.g. 6.8", onchange:(e)=>{ f.max_temp = e.target.value; }});
-      const notesInput = EIKON.el("textarea", { placeholder:"Optional notes...", onchange:(e)=>{ f.notes = e.target.value; }});
-
-      const btnSave = EIKON.el("button", { class:"btn primary", onclick: async ()=>{
-        const devId = parseInt(String(f.device_id||""), 10);
-        if (!devId){
-          EIKON.toast("Select device", "warn");
-          return;
-        }
-        if (!f.entry_date){
-          EIKON.toast("Select date", "warn");
-          return;
-        }
-        btnSave.disabled = true;
-        try{
-          await EIKON.apiFetch("/temperature/entries", {
-            method:"POST",
-            body:{
-              device_id: devId,
-              entry_date: f.entry_date,
-              min_temp: (f.min_temp === "" ? null : Number(f.min_temp)),
-              max_temp: (f.max_temp === "" ? null : Number(f.max_temp)),
-              notes: String(f.notes||"")
-            }
-          });
-          EIKON.toast("Saved", "ok");
-          await reloadAll();
-          clearForm();
-        } catch(e){
-          EIKON.toast(e && e.message ? e.message : "Save failed", "err");
-        } finally {
-          btnSave.disabled = false;
-        }
-      }}, "Save entry");
-
-      const btnClear = EIKON.el("button", { class:"btn", onclick: ()=>{ clearForm(); }}, "Clear");
-
-      function clearForm(){
-        f.id = 0;
-        f.device_id = "";
-        f.entry_date = EIKON.todayYmd();
-        f.min_temp = "";
-        f.max_temp = "";
-        f.notes = "";
-        deviceSel.value = "";
-        dateInput.value = f.entry_date;
-        minInput.value = "";
-        maxInput.value = "";
-        notesInput.value = "";
-      }
-
-      formCard.append(
-        EIKON.el("h2", null, "Add / Edit entry"),
-        EIKON.el("div", { class:"grid cols-4" },
-          EIKON.el("div", { class:"field" }, EIKON.el("label", null, "Device"), deviceSel),
-          EIKON.el("div", { class:"field" }, EIKON.el("label", null, "Date"), dateInput),
-          EIKON.el("div", { class:"field" }, EIKON.el("label", null, "Min"), minInput),
-          EIKON.el("div", { class:"field" }, EIKON.el("label", null, "Max"), maxInput)
-        ),
-        EIKON.el("div", { class:"field" }, EIKON.el("label", null, "Notes (optional)"), notesInput),
-        EIKON.el("div", { style:"display:flex;gap:10px;flex-wrap:wrap" }, btnSave, btnClear)
-      );
-
-      panel.append(formCard);
-
-      const listCard = EIKON.el("div", { class:"card" },
-        EIKON.el("h2", null, "Entries")
-      );
-
-      const tableWrap = EIKON.el("div", { class:"tablewrap" });
-      const table = EIKON.el("table", null);
-      const thead = EIKON.el("thead", null,
-        EIKON.el("tr", null,
-          EIKON.el("th", null, "Date"),
-          EIKON.el("th", null, "Device"),
-          EIKON.el("th", null, "Min / Max"),
-          EIKON.el("th", null, "Notes"),
-          EIKON.el("th", null, "Actions")
-        )
-      );
-      const tbody = EIKON.el("tbody", null);
-
-      if (!state.entries.length){
-        tbody.append(EIKON.el("tr", null,
-          EIKON.el("td", { colspan:"5", class:"small" }, "No entries for this month.")
-        ));
-      } else {
-        for (const e of state.entries){
-          const btnEdit = EIKON.el("button", { class:"btn", onclick: ()=>{
-            f.id = e.id;
-            f.device_id = String(e.device_id || "");
-            f.entry_date = e.entry_date || EIKON.todayYmd();
-            f.min_temp = (e.min_temp === null || e.min_temp === undefined) ? "" : String(e.min_temp);
-            f.max_temp = (e.max_temp === null || e.max_temp === undefined) ? "" : String(e.max_temp);
-            f.notes = String(e.notes || "");
-            deviceSel.value = f.device_id;
-            dateInput.value = f.entry_date;
-            minInput.value = f.min_temp;
-            maxInput.value = f.max_temp;
-            notesInput.value = f.notes;
-            EIKON.toast("Loaded into form (edit then Save)", "ok");
-          }}, "Edit");
-
-          const btnDel = EIKON.el("button", { class:"btn danger", onclick: async ()=>{
-            const ok = await EIKON.confirmDialog("Delete entry?", "This will permanently delete the temperature entry for:\n\n" + (e.entry_date || "") + " · " + (e.device_name || ""));
-            if (!ok) return;
-            try{
-              await EIKON.apiFetch("/temperature/entries/" + e.id, { method:"DELETE" });
-              EIKON.toast("Deleted", "ok");
-              await reloadAll();
-            } catch(err){
-              EIKON.toast(err && err.message ? err.message : "Delete failed", "err");
-            }
-          }}, "Delete");
-
-          tbody.append(EIKON.el("tr", null,
-            EIKON.el("td", null, EIKON.ymdToDmy(e.entry_date)),
-            EIKON.el("td", null, (e.device_name || "")),
-            EIKON.el("td", null, formatTempCell(e.min_temp, e.max_temp)),
-            EIKON.el("td", null, (e.notes || "")),
-            EIKON.el("td", null, EIKON.el("div", { class:"row-actions" }, btnEdit, btnDel))
-          ));
-        }
-      }
-
-      table.append(thead, tbody);
-      tableWrap.append(table);
-      listCard.append(tableWrap);
-      panel.append(listCard);
+    function esc(s) {
+      return String(s).replace(/[&<>"']/g, (c) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      }[c]));
     }
 
-    function drawDevices(){
-      const card = EIKON.el("div", { class:"card" },
-        EIKON.el("h2", null, "Devices"),
-        EIKON.el("p", { class:"sub" }, "Admins can add or disable devices. Defaults are created automatically if missing.")
-      );
-
-      if (user.role !== "admin"){
-        card.append(EIKON.el("div", { class:"pill" }, "Only admins can manage devices."));
-        panel.append(card);
-        return;
-      }
-
-      const fName = EIKON.el("input", { type:"text", placeholder:"Device name (e.g. Pharmacy Fridge)" });
-      const fType = EIKON.el("select", null,
-        EIKON.el("option", { value:"room" }, "room"),
-        EIKON.el("option", { value:"fridge" }, "fridge"),
-        EIKON.el("option", { value:"other" }, "other")
-      );
-      const fMin = EIKON.el("input", { type:"number", step:"0.1", placeholder:"Min limit (optional)" });
-      const fMax = EIKON.el("input", { type:"number", step:"0.1", placeholder:"Max limit (optional)" });
-
-      const btnAdd = EIKON.el("button", { class:"btn primary", onclick: async ()=>{
-        const name = (fName.value || "").trim();
-        if (!name){
-          EIKON.toast("Enter name", "warn");
-          return;
-        }
-        try{
-          await EIKON.apiFetch("/temperature/devices", {
-            method:"POST",
-            body:{
-              name,
-              device_type: fType.value,
-              min_limit: (fMin.value === "" ? null : Number(fMin.value)),
-              max_limit: (fMax.value === "" ? null : Number(fMax.value))
-            }
-          });
-          EIKON.toast("Device added", "ok");
-          fName.value = "";
-          fMin.value = "";
-          fMax.value = "";
-          await reloadAll();
-        } catch(e){
-          EIKON.toast(e && e.message ? e.message : "Add failed", "err");
-        }
-      }}, "Add device");
-
-      card.append(
-        EIKON.el("div", { class:"grid cols-4" },
-          EIKON.el("div", { class:"field" }, EIKON.el("label", null, "Name"), fName),
-          EIKON.el("div", { class:"field" }, EIKON.el("label", null, "Type"), fType),
-          EIKON.el("div", { class:"field" }, EIKON.el("label", null, "Min limit"), fMin),
-          EIKON.el("div", { class:"field" }, EIKON.el("label", null, "Max limit"), fMax)
-        ),
-        EIKON.el("div", { style:"display:flex;gap:10px;flex-wrap:wrap" }, btnAdd, EIKON.el("button", { class:"btn", onclick: reloadAll }, "Reload"))
-      );
-
-      const list = EIKON.el("div", { class:"tablewrap", style:"margin-top:14px" });
-      const table = EIKON.el("table", null,
-        EIKON.el("thead", null,
-          EIKON.el("tr", null,
-            EIKON.el("th", null, "Name"),
-            EIKON.el("th", null, "Type"),
-            EIKON.el("th", null, "Min/Max Limit"),
-            EIKON.el("th", null, "Active"),
-            EIKON.el("th", null, "Actions")
-          )
-        )
-      );
-      const tbody = EIKON.el("tbody", null);
-
-      if (!state.devices.length){
-        tbody.append(EIKON.el("tr", null, EIKON.el("td", { colspan:"5", class:"small" }, "No devices.")));
-      } else {
-        for (const d of state.devices){
-          const btnDisable = EIKON.el("button", { class:"btn danger", onclick: async ()=>{
-            const ok = await EIKON.confirmDialog("Disable device?", "This will hide it from normal use.\n\n" + d.name);
-            if (!ok) return;
-            try{
-              await EIKON.apiFetch("/temperature/devices/" + d.id, {
-                method:"PUT",
-                body:{
-                  name:d.name,
-                  device_type:d.device_type,
-                  min_limit:d.min_limit,
-                  max_limit:d.max_limit,
-                  active:false
-                }
-              });
-              EIKON.toast("Disabled", "ok");
-              await reloadAll();
-            } catch(e){
-              EIKON.toast(e && e.message ? e.message : "Update failed", "err");
-            }
-          }}, "Disable");
-
-          tbody.append(EIKON.el("tr", null,
-            EIKON.el("td", null, d.name),
-            EIKON.el("td", null, d.device_type),
-            EIKON.el("td", null, (d.min_limit ?? "") + " / " + (d.max_limit ?? "")),
-            EIKON.el("td", null, d.active ? "Yes" : "No"),
-            EIKON.el("td", null, EIKON.el("div", { class:"row-actions" }, d.active ? btnDisable : EIKON.el("span", { class:"pill" }, "Inactive")))
-          ));
-        }
-      }
-
-      table.append(tbody);
-      list.append(table);
-      card.append(list);
-      panel.append(card);
+    function cellFor(ymd, devId) {
+      const e = (mapByDate[ymd] && mapByDate[ymd][String(devId)]) ? mapByDate[ymd][String(devId)] : null;
+      if (!e) return "";
+      return `${fmt1(e.min_temp)} / ${fmt1(e.max_temp)}`;
     }
 
-    function drawPrint(){
-      const card = EIKON.el("div", { class:"card" },
-        EIKON.el("h2", null, "Temperature report"),
-        EIKON.el("p", { class:"sub" }, "Generate a date-range report. In GoDaddy sandbox, direct print may be blocked; use Download HTML.")
-      );
+    let tables = "";
 
-      const from = EIKON.el("input", { type:"date", value: EIKON.todayYmd() });
-      const to = EIKON.el("input", { type:"date", value: EIKON.todayYmd() });
+    for (const mk of months) {
+      let thead = `<tr><th style="text-align:left;">${esc(mk)}</th>`;
+      for (const d of devices) {
+        thead += `<th style="text-align:left;">${esc(d.name || "")}</th>`;
+      }
+      thead += `</tr>`;
 
-      const btn = EIKON.el("button", { class:"btn primary", onclick: async ()=>{
-        try{
-          const data = await EIKON.apiFetch("/temperature/report?from=" + encodeURIComponent(from.value) + "&to=" + encodeURIComponent(to.value), { method:"GET" });
-          const html = buildReportHtml(data);
-          const printed = EIKON.tryPrintHtml(html, "Temperature Report");
-          if (!printed){
-            EIKON.showModal("Print blocked", "Your page is sandboxed (GoDaddy). Use Download HTML, open the downloaded file, then print (Ctrl+P).", [
-              { label:"Download HTML", kind:"primary", onClick: ()=>EIKON.downloadTextFile("temperature-report.html", html) },
-              { label:"Close", kind:"ghost" }
-            ]);
-          }
-        } catch(e){
-          EIKON.toast(e && e.message ? e.message : "Report failed", "err");
+      let tbody = "";
+      for (const ymd of byMonth[mk]) {
+        let tr = `<tr><td style="white-space:nowrap;">${esc(ymd)}</td>`;
+        for (const d of devices) {
+          tr += `<td>${esc(cellFor(ymd, d.id))}</td>`;
         }
-      }}, "Generate & Print");
+        tr += `</tr>`;
+        tbody += tr;
+      }
 
-      const btnDl = EIKON.el("button", { class:"btn", onclick: async ()=>{
-        try{
-          const data = await EIKON.apiFetch("/temperature/report?from=" + encodeURIComponent(from.value) + "&to=" + encodeURIComponent(to.value), { method:"GET" });
-          const html = buildReportHtml(data);
-          EIKON.downloadTextFile("temperature-report.html", html);
-          EIKON.toast("Downloaded HTML", "ok");
-        } catch(e){
-          EIKON.toast(e && e.message ? e.message : "Report failed", "err");
-        }
-      }}, "Download HTML");
-
-      card.append(
-        EIKON.el("div", { class:"grid cols-3" },
-          EIKON.el("div", { class:"field" }, EIKON.el("label", null, "From"), from),
-          EIKON.el("div", { class:"field" }, EIKON.el("label", null, "To"), to),
-          EIKON.el("div", { class:"field" }, EIKON.el("label", null, "Actions"), EIKON.el("div", { style:"display:flex;gap:10px;flex-wrap:wrap" }, btn, btnDl))
-        )
-      );
-
-      panel.append(card);
+      tables += `
+        <h2>${esc(mk)}</h2>
+        <table>
+          <thead>${thead}</thead>
+          <tbody>${tbody}</tbody>
+        </table>
+      `;
     }
 
-    function buildReportHtml(data){
-      const org = EIKON.escapeHtml((data && data.org_name) ? data.org_name : "");
-      const loc = EIKON.escapeHtml((data && data.location_name) ? data.location_name : "");
-      const from = EIKON.escapeHtml((data && data.from) ? data.from : "");
-      const to = EIKON.escapeHtml((data && data.to) ? data.to : "");
+    const title = loc ? `${org} - ${loc}` : org;
 
-      const devices = (data && data.devices) ? data.devices : [];
-      const entries = (data && data.entries) ? data.entries : [];
-
-      const map = new Map();
-      for (const e of entries){
-        const k = e.entry_date + "::" + e.device_id;
-        map.set(k, e);
-      }
-
-      // build list of dates from->to
-      const dates = [];
-      const d0 = new Date(from + "T00:00:00");
-      const d1 = new Date(to + "T00:00:00");
-      for (let d = new Date(d0); d <= d1; d.setDate(d.getDate()+1)){
-        const y = d.getFullYear();
-        const m = String(d.getMonth()+1).padStart(2,"0");
-        const da = String(d.getDate()).padStart(2,"0");
-        dates.push(y + "-" + m + "-" + da);
-      }
-
-      let th = `<th>Date</th>`;
-      for (const dev of devices){
-        th += `<th>${EIKON.escapeHtml(dev.name)}<div style="font-size:11px;color:#666">${EIKON.escapeHtml(dev.device_type || "")}</div></th>`;
-      }
-
-      let rows = "";
-      for (const day of dates){
-        let tds = `<td>${EIKON.escapeHtml(EIKON.ymdToDmy(day))}</td>`;
-        for (const dev of devices){
-          const e = map.get(day + "::" + dev.id);
-          const txt = e ? EIKON.escapeHtml(formatTempCell(e.min_temp, e.max_temp)) : "";
-          const note = e && e.notes ? `<div style="font-size:11px;color:#777;margin-top:4px">${EIKON.escapeHtml(e.notes)}</div>` : "";
-          tds += `<td>${txt}${note}</td>`;
-        }
-        rows += `<tr>${tds}</tr>`;
-      }
-
-      return `<!doctype html>
+    return `<!doctype html>
 <html>
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Temperature Report</title>
-  <style>
-    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:24px;color:#111}
-    h1{margin:0 0 6px 0;font-size:20px}
-    .sub{color:#444;margin:0 0 16px 0}
-    table{width:100%;border-collapse:collapse}
-    th,td{border:1px solid #ddd;padding:8px;vertical-align:top;font-size:12px}
-    th{background:#f5f5f5;text-align:left}
-    @media print{body{margin:0} h1{font-size:16px}}
-  </style>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>${esc(title)} - Temperature Report</title>
+<style>
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; margin:24px; color:#000;}
+  h1{margin:0 0 6px 0; font-size:22px;}
+  .sub{margin:0 0 18px 0; color:#333; font-size:13px;}
+  h2{margin:20px 0 8px 0; font-size:16px;}
+  table{width:100%; border-collapse:collapse; margin:0 0 14px 0; table-layout:fixed;}
+  th,td{border:1px solid #000; padding:8px 8px; vertical-align:top; font-size:12px; word-wrap:break-word;}
+  th{background:#f2f2f2; font-size:11px; text-transform:uppercase; letter-spacing:0.6px;}
+  @media print{
+    body{margin:12mm;}
+    h1{font-size:18px;}
+    .sub{font-size:12px;}
+    h2{page-break-after:avoid;}
+    table{page-break-inside:avoid;}
+  }
+</style>
 </head>
 <body>
-  <h1>Temperature Report</h1>
-  <p class="sub">${org} · ${loc}<br/>${from} → ${to}</p>
-  <table>
-    <thead><tr>${th}</tr></thead>
-    <tbody>${rows}</tbody>
-  </table>
+  <h1>${esc(title)}</h1>
+  <p class="sub">Temperature Report • ${esc(from)} to ${esc(to)}</p>
+  ${tables}
+<script>
+  window.addEventListener('load', function(){
+    setTimeout(function(){
+      try{ window.focus(); }catch(e){}
+      try{ window.print(); }catch(e){}
+    }, 80);
+  });
+  window.addEventListener('afterprint', function(){
+    setTimeout(function(){
+      try{ window.close(); }catch(e){}
+    }, 250);
+  });
+</script>
 </body>
 </html>`;
-    }
-
-    await reloadAll();
-    draw();
   }
 
-  EIKON.registerModule("temperature", { meta: meta(), render });
+  function openPrintTabWithHtml(html) {
+    const blob = new Blob([html], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.target = "_blank";
+    a.rel = "noopener";
+    a.style.display = "none";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    setTimeout(() => {
+      try { URL.revokeObjectURL(url); } catch (e) {}
+    }, 60000);
+  }
+
+  function renderReportPreviewHtml(data) {
+    const org = data.org_name || "";
+    const loc = data.location_name || "";
+    const from = data.from;
+    const to = data.to;
+
+    const devices = data.devices || [];
+    const entries = data.entries || [];
+
+    const mapByDate = {};
+    for (const e of entries) {
+      if (!mapByDate[e.entry_date]) mapByDate[e.entry_date] = {};
+      mapByDate[e.entry_date][String(e.device_id)] = e;
+    }
+
+    const fromDt = parseYmd(from);
+    const toDt = parseYmd(to);
+    const days = [];
+
+    if (fromDt && toDt) {
+      const cur = new Date(fromDt.getFullYear(), fromDt.getMonth(), fromDt.getDate());
+      const end = new Date(toDt.getFullYear(), toDt.getMonth(), toDt.getDate());
+      while (cur <= end) {
+        const ymd = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, "0")}-${String(cur.getDate()).padStart(2, "0")}`;
+        days.push(ymd);
+        cur.setDate(cur.getDate() + 1);
+      }
+    }
+
+    const byMonth = {};
+    for (const ymd of days) {
+      const dt = parseYmd(ymd);
+      const mk = dt ? monthKeyFromDate(dt) : ymd.slice(0, 7);
+      if (!byMonth[mk]) byMonth[mk] = [];
+      byMonth[mk].push(ymd);
+    }
+
+    const months = Object.keys(byMonth);
+
+    const wrap = E.util.el("div", { class: "eikon-card" });
+    wrap.appendChild(E.util.el("div", { class: "eikon-title", text: "Temperature Report Preview" }));
+    wrap.appendChild(E.util.el("div", { class: "eikon-help", text: `${org}${loc ? " • " + loc : ""} • ${from} to ${to}` }));
+    wrap.appendChild(E.util.el("div", { style: "height:10px;" }));
+
+    for (const mk of months) {
+      const tableWrap = E.util.el("div", { class: "eikon-tablewrap" });
+      const table = E.util.el("table", { class: "eikon-table" });
+
+      const thead = E.util.el("thead");
+      const trh = E.util.el("tr");
+      trh.appendChild(E.util.el("th", { text: mk }));
+      for (const d of devices) {
+        trh.appendChild(E.util.el("th", { text: d.name }));
+      }
+      thead.appendChild(trh);
+      table.appendChild(thead);
+
+      const tbody = E.util.el("tbody");
+      for (const ymd of byMonth[mk]) {
+        const tr = E.util.el("tr");
+        tr.appendChild(E.util.el("td", { text: ymd }));
+        for (const dev of devices) {
+          const e = (mapByDate[ymd] && mapByDate[ymd][String(dev.id)]) ? mapByDate[ymd][String(dev.id)] : null;
+          const cell = e ? `${fmt1(e.min_temp)} / ${fmt1(e.max_temp)}` : "";
+          tr.appendChild(E.util.el("td", { text: cell }));
+        }
+        tbody.appendChild(tr);
+      }
+      table.appendChild(tbody);
+
+      tableWrap.appendChild(table);
+
+      wrap.appendChild(E.util.el("div", { style: "height:12px;" }));
+      wrap.appendChild(E.util.el("div", { class: "eikon-muted", text: mk }));
+      wrap.appendChild(E.util.el("div", { style: "height:8px;" }));
+      wrap.appendChild(tableWrap);
+    }
+
+    return wrap;
+  }
+
+  E.modules.temperature = {
+    render: function (root) {
+      const state = {
+        tab: "entries",
+        devices: [],
+        entriesMonthCache: {},
+        selectedDate: E.util.todayYmd()
+      };
+
+      const tabs = E.util.el("div", { class: "eikon-tabs no-print" });
+      const tabEntries = E.util.el("div", { class: "eikon-tab active", text: "Entries" });
+      const tabDevices = E.util.el("div", { class: "eikon-tab", text: "Devices" });
+      const tabReport = E.util.el("div", { class: "eikon-tab", text: "Print Report" });
+
+      tabs.appendChild(tabEntries);
+      tabs.appendChild(tabDevices);
+      tabs.appendChild(tabReport);
+
+      const content = E.util.el("div");
+      root.innerHTML = "";
+      root.appendChild(tabs);
+      root.appendChild(content);
+
+      function setActiveTab(name) {
+        state.tab = name;
+        [tabEntries, tabDevices, tabReport].forEach(t => t.classList.remove("active"));
+        if (name === "entries") tabEntries.classList.add("active");
+        if (name === "devices") tabDevices.classList.add("active");
+        if (name === "report") tabReport.classList.add("active");
+      }
+
+      async function loadDevices(includeInactive) {
+        const q = includeInactive ? "?include_inactive=1" : "";
+        const r = await E.util.apiFetch("/temperature/devices" + q, { method: "GET" });
+        state.devices = (r && r.devices) ? r.devices : [];
+      }
+
+      async function loadMonthEntries(month) {
+        if (state.entriesMonthCache[month]) return state.entriesMonthCache[month];
+        const r = await E.util.apiFetch("/temperature/entries?month=" + encodeURIComponent(month), { method: "GET" });
+        const entries = (r && r.entries) ? r.entries : [];
+        state.entriesMonthCache[month] = entries;
+        return entries;
+      }
+
+      function clearMonthCache(month) {
+        delete state.entriesMonthCache[month];
+      }
+
+      async function renderEntries() {
+        content.innerHTML = "";
+
+        await loadDevices(false);
+        const activeDevices = state.devices.filter(d => d.active === 1);
+
+        const dateInput = E.util.el("input", { class: "eikon-input", type: "date", value: state.selectedDate });
+        const reloadBtn = E.util.el("button", { class: "eikon-btn", text: "Load" });
+        const saveBtn = E.util.el("button", { class: "eikon-btn primary", text: "Save" });
+        const syncBtn = E.util.el("button", { class: "eikon-btn", text: "Sync queued" });
+
+        const header = E.util.el("div", { class: "eikon-card no-print" });
+        header.appendChild(E.util.el("div", { class: "eikon-row" }, [
+          E.util.el("div", { class: "eikon-col" }, [
+            E.util.el("div", { class: "eikon-field" }, [
+              E.util.el("div", { class: "eikon-label", text: "Date" }),
+              dateInput
+            ])
+          ]),
+          E.util.el("div", { class: "eikon-col", style: "display:flex;align-items:flex-end;gap:10px;justify-content:flex-end;" }, [
+            reloadBtn,
+            syncBtn,
+            saveBtn
+          ])
+        ]));
+
+        const help = E.util.el("div", { class: "eikon-help", text: "Enter Min/Max for each active room/fridge. You can back-date any day. No browser confirm() is used (GoDaddy sandbox safe)." });
+        header.appendChild(E.util.el("div", { style: "height:8px;" }));
+        header.appendChild(help);
+
+        const tableCard = E.util.el("div", { class: "eikon-card" });
+        const tableWrap = E.util.el("div", { class: "eikon-tablewrap" });
+        const table = E.util.el("table", { class: "eikon-table" });
+
+        const thead = E.util.el("thead");
+        const trh = E.util.el("tr");
+        ["Device", "Type", "Min", "Max", "Status", "Notes", ""].forEach(h => trh.appendChild(E.util.el("th", { text: h })));
+        thead.appendChild(trh);
+        table.appendChild(thead);
+
+        const tbody = E.util.el("tbody");
+        table.appendChild(tbody);
+
+        tableWrap.appendChild(table);
+        tableCard.appendChild(tableWrap);
+
+        content.appendChild(header);
+        content.appendChild(E.util.el("div", { style: "height:12px;" }));
+        content.appendChild(tableCard);
+
+        function currentMonth() {
+          return ymdToMonth(state.selectedDate);
+        }
+
+        function buildRow(dev, existingEntry) {
+          const minIn = E.util.el("input", { class: "eikon-input", type: "number", step: "0.1", placeholder: "e.g. 3.2" });
+          const maxIn = E.util.el("input", { class: "eikon-input", type: "number", step: "0.1", placeholder: "e.g. 7.8" });
+          const notesIn = E.util.el("input", { class: "eikon-input", type: "text", placeholder: "Optional notes" });
+
+          if (existingEntry) {
+            minIn.value = fmt1(existingEntry.min_temp);
+            maxIn.value = fmt1(existingEntry.max_temp);
+            notesIn.value = existingEntry.notes || "";
+          }
+
+          const dot = E.util.el("span", { class: "eikon-dot" });
+          const statusLabel = E.util.el("span", { class: "eikon-muted", text: "" });
+          const statusWrap = E.util.el("span", { class: "eikon-pill" }, [dot, statusLabel]);
+
+          function refreshStatus() {
+            const minT = parseNum(minIn.value);
+            const maxT = parseNum(maxIn.value);
+            const st = statusDot(minT, maxT, dev.min_limit, dev.max_limit);
+            dot.className = "eikon-dot " + (st.cls || "");
+            statusLabel.textContent = st.label;
+          }
+          refreshStatus();
+
+          minIn.addEventListener("input", refreshStatus);
+          maxIn.addEventListener("input", refreshStatus);
+
+          const delBtn = E.util.el("button", { class: "eikon-btn danger", text: "Delete" });
+          delBtn.disabled = !existingEntry;
+
+          delBtn.addEventListener("click", async () => {
+            if (!existingEntry) return;
+            const ok = await E.util.modalConfirm("Delete entry", `Delete temperature entry for ${dev.name} on ${state.selectedDate}?`, "Delete", "Cancel");
+            if (!ok) return;
+            try {
+              await E.util.apiFetch("/temperature/entries/" + existingEntry.id, { method: "DELETE" });
+              E.util.toast("Deleted", "Entry removed.");
+              clearMonthCache(currentMonth());
+              await renderEntries();
+            } catch (e) {
+              E.util.toast("Delete failed", e.message || "Error");
+            }
+          });
+
+          const tr = E.util.el("tr");
+          tr.appendChild(E.util.el("td", { text: dev.name }));
+          tr.appendChild(E.util.el("td", { text: dev.device_type }));
+          tr.appendChild(E.util.el("td", {}, [minIn]));
+          tr.appendChild(E.util.el("td", {}, [maxIn]));
+          tr.appendChild(E.util.el("td", {}, [statusWrap]));
+          tr.appendChild(E.util.el("td", {}, [notesIn]));
+          tr.appendChild(E.util.el("td", {}, [delBtn]));
+
+          return { tr, dev, minIn, maxIn, notesIn, existingEntry };
+        }
+
+        async function fillRows() {
+          tbody.innerHTML = "";
+
+          const m = currentMonth();
+          const monthEntries = await loadMonthEntries(m);
+          const map = groupEntriesByDate(monthEntries);
+          const dayEntries = map[state.selectedDate] || [];
+
+          const byDeviceId = {};
+          for (const e of dayEntries) byDeviceId[String(e.device_id)] = e;
+
+          const rows = [];
+          for (const dev of activeDevices) {
+            const ex = byDeviceId[String(dev.id)] || null;
+            rows.push(buildRow(dev, ex));
+          }
+
+          if (rows.length === 0) {
+            const tr = E.util.el("tr");
+            const td = E.util.el("td", { text: "No active devices. Add devices first." });
+            td.colSpan = 7;
+            tr.appendChild(td);
+            tbody.appendChild(tr);
+            saveBtn.disabled = true;
+          } else {
+            saveBtn.disabled = false;
+            for (const r of rows) tbody.appendChild(r.tr);
+          }
+
+          return rows;
+        }
+
+        let rowObjs = await fillRows();
+
+        reloadBtn.addEventListener("click", async () => {
+          state.selectedDate = dateInput.value;
+          rowObjs = await fillRows();
+        });
+
+        dateInput.addEventListener("change", async () => {
+          state.selectedDate = dateInput.value;
+          rowObjs = await fillRows();
+        });
+
+        syncBtn.addEventListener("click", async () => {
+          try {
+            const r = await E.util.qFlush();
+            E.util.toast("Sync", `Sent ${r.sent}. Remaining ${r.remaining}.`);
+          } catch (e) {
+            E.util.toast("Sync failed", e.message || "Error");
+          }
+        });
+
+        saveBtn.addEventListener("click", async () => {
+          const d = (dateInput.value || "").trim();
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+            E.util.toast("Invalid date", "Pick a valid date.");
+            return;
+          }
+
+          const jobs = [];
+          for (const r of rowObjs) {
+            const minT = parseNum(r.minIn.value);
+            const maxT = parseNum(r.maxIn.value);
+            const notes = (r.notesIn.value || "").trim();
+
+            if (minT === null || maxT === null) {
+              E.util.toast("Missing values", "Each active device needs Min and Max.");
+              return;
+            }
+
+            jobs.push({
+              device_id: r.dev.id,
+              entry_date: d,
+              min_temp: minT,
+              max_temp: maxT,
+              notes: notes
+            });
+          }
+
+          saveBtn.disabled = true;
+          saveBtn.textContent = "Saving...";
+
+          try {
+            for (const b of jobs) {
+              try {
+                await E.util.apiFetch("/temperature/entries", { method: "POST", body: JSON.stringify(b) });
+              } catch (e) {
+                E.util.qAdd({ path: "/temperature/entries", method: "POST", body: b });
+              }
+            }
+            E.util.toast("Saved", "Entries saved (or queued if offline).");
+            clearMonthCache(ymdToMonth(d));
+            await renderEntries();
+          } catch (e) {
+            E.util.toast("Save failed", e.message || "Error");
+          } finally {
+            saveBtn.disabled = false;
+            saveBtn.textContent = "Save";
+          }
+        });
+      }
+
+      async function renderDevices() {
+        content.innerHTML = "";
+        await loadDevices(true);
+
+        const card = E.util.el("div", { class: "eikon-card no-print" });
+        card.appendChild(E.util.el("div", { class: "eikon-title", text: "Devices (Rooms / Fridges)" }));
+        card.appendChild(E.util.el("div", { class: "eikon-help", text: "Create, rename, set limits, deactivate/reactivate. Active devices are required for a complete daily record." }));
+        card.appendChild(E.util.el("div", { style: "height:12px;" }));
+
+        const addName = E.util.el("input", { class: "eikon-input", placeholder: "Device name (e.g. Back Room / Vaccine Fridge)" });
+        const addType = E.util.el("select", { class: "eikon-select" }, [
+          E.util.el("option", { value: "room", text: "room" }),
+          E.util.el("option", { value: "fridge", text: "fridge" }),
+          E.util.el("option", { value: "other", text: "other" })
+        ]);
+        const addMin = E.util.el("input", { class: "eikon-input", type: "number", step: "0.1", placeholder: "Min limit (optional)" });
+        const addMax = E.util.el("input", { class: "eikon-input", type: "number", step: "0.1", placeholder: "Max limit (optional)" });
+        const addBtn = E.util.el("button", { class: "eikon-btn primary", text: "Add device" });
+
+        const addRow = E.util.el("div", { class: "eikon-row" }, [
+          E.util.el("div", { class: "eikon-col" }, [E.util.el("div", { class: "eikon-field" }, [E.util.el("div", { class: "eikon-label", text: "Name" }), addName])]),
+          E.util.el("div", { class: "eikon-col" }, [E.util.el("div", { class: "eikon-field" }, [E.util.el("div", { class: "eikon-label", text: "Type" }), addType])]),
+          E.util.el("div", { class: "eikon-col" }, [E.util.el("div", { class: "eikon-field" }, [E.util.el("div", { class: "eikon-label", text: "Min limit" }), addMin])]),
+          E.util.el("div", { class: "eikon-col" }, [E.util.el("div", { class: "eikon-field" }, [E.util.el("div", { class: "eikon-label", text: "Max limit" }), addMax])])
+        ]);
+
+        card.appendChild(addRow);
+        card.appendChild(addBtn);
+
+        const tableCard = E.util.el("div", { class: "eikon-card" });
+        const tableWrap = E.util.el("div", { class: "eikon-tablewrap" });
+        const table = E.util.el("table", { class: "eikon-table" });
+
+        const thead = E.util.el("thead");
+        const trh = E.util.el("tr");
+        ["Name", "Type", "Min", "Max", "Active", ""].forEach(h => trh.appendChild(E.util.el("th", { text: h })));
+        thead.appendChild(trh);
+        table.appendChild(thead);
+
+        const tbody = E.util.el("tbody");
+        table.appendChild(tbody);
+
+        tableWrap.appendChild(table);
+        tableCard.appendChild(tableWrap);
+
+        content.appendChild(card);
+        content.appendChild(E.util.el("div", { style: "height:12px;" }));
+        content.appendChild(tableCard);
+
+        function rowForDevice(d) {
+          const name = E.util.el("input", { class: "eikon-input", value: d.name });
+          const type = E.util.el("select", { class: "eikon-select" }, [
+            E.util.el("option", { value: "room", text: "room" }),
+            E.util.el("option", { value: "fridge", text: "fridge" }),
+            E.util.el("option", { value: "other", text: "other" })
+          ]);
+          type.value = d.device_type;
+
+          const min = E.util.el("input", { class: "eikon-input", type: "number", step: "0.1", value: (d.min_limit === null || d.min_limit === undefined) ? "" : fmt1(d.min_limit) });
+          const max = E.util.el("input", { class: "eikon-input", type: "number", step: "0.1", value: (d.max_limit === null || d.max_limit === undefined) ? "" : fmt1(d.max_limit) });
+
+          const activeText = E.util.el("span", { class: "eikon-muted", text: d.active === 1 ? "Yes" : "No" });
+
+          const save = E.util.el("button", { class: "eikon-btn ok", text: "Save" });
+          const toggle = E.util.el("button", { class: d.active === 1 ? "eikon-btn danger" : "eikon-btn", text: d.active === 1 ? "Deactivate" : "Reactivate" });
+
+          save.addEventListener("click", async () => {
+            try {
+              await E.util.apiFetch("/temperature/devices/" + d.id, {
+                method: "PUT",
+                body: JSON.stringify({
+                  name: (name.value || "").trim(),
+                  device_type: type.value,
+                  min_limit: (min.value.trim() ? parseNum(min.value) : null),
+                  max_limit: (max.value.trim() ? parseNum(max.value) : null)
+                })
+              });
+              E.util.toast("Saved", "Device updated.");
+              await renderDevices();
+            } catch (e) {
+              E.util.toast("Save failed", e.message || "Error");
+            }
+          });
+
+          toggle.addEventListener("click", async () => {
+            const wantActive = d.active !== 1;
+            const ok = await E.util.modalConfirm(
+              wantActive ? "Reactivate device" : "Deactivate device",
+              wantActive ? "Reactivate this device?" : "Deactivate this device? (history kept)",
+              wantActive ? "Reactivate" : "Deactivate",
+              "Cancel"
+            );
+            if (!ok) return;
+
+            try {
+              await E.util.apiFetch("/temperature/devices/" + d.id, {
+                method: "PUT",
+                body: JSON.stringify({ active: wantActive })
+              });
+              E.util.toast("Updated", wantActive ? "Device reactivated." : "Device deactivated.");
+              await renderDevices();
+            } catch (e) {
+              E.util.toast("Update failed", e.message || "Error");
+            }
+          });
+
+          const tr = E.util.el("tr");
+          tr.appendChild(E.util.el("td", {}, [name]));
+          tr.appendChild(E.util.el("td", {}, [type]));
+          tr.appendChild(E.util.el("td", {}, [min]));
+          tr.appendChild(E.util.el("td", {}, [max]));
+          tr.appendChild(E.util.el("td", {}, [activeText]));
+          tr.appendChild(E.util.el("td", {}, [E.util.el("div", { style: "display:flex;gap:8px;justify-content:flex-end;" }, [save, toggle])]));
+          return tr;
+        }
+
+        function refreshTable() {
+          tbody.innerHTML = "";
+          for (const d of state.devices) {
+            tbody.appendChild(rowForDevice(d));
+          }
+        }
+
+        refreshTable();
+
+        addBtn.addEventListener("click", async () => {
+          const name = (addName.value || "").trim();
+          if (!name) {
+            E.util.toast("Missing", "Enter device name.");
+            return;
+          }
+          addBtn.disabled = true;
+          addBtn.textContent = "Adding...";
+          try {
+            await E.util.apiFetch("/temperature/devices", {
+              method: "POST",
+              body: JSON.stringify({
+                name,
+                device_type: addType.value,
+                min_limit: (addMin.value.trim() ? parseNum(addMin.value) : null),
+                max_limit: (addMax.value.trim() ? parseNum(addMax.value) : null)
+              })
+            });
+            addName.value = "";
+            addMin.value = "";
+            addMax.value = "";
+            E.util.toast("Added", "Device created.");
+            await renderDevices();
+          } catch (e) {
+            E.util.toast("Add failed", e.message || "Error");
+          } finally {
+            addBtn.disabled = false;
+            addBtn.textContent = "Add device";
+          }
+        });
+      }
+
+      async function renderReport() {
+        content.innerHTML = "";
+        await loadDevices(true);
+
+        const card = E.util.el("div", { class: "eikon-card no-print" });
+        card.appendChild(E.util.el("div", { class: "eikon-title", text: "Print Temperature Report" }));
+        card.appendChild(E.util.el("div", { class: "eikon-help", text: "Pick a date range. Months are separated into different tables. Print opens in a new tab (GoDaddy sandbox-safe) and the print dialog appears automatically." }));
+        card.appendChild(E.util.el("div", { style: "height:12px;" }));
+
+        const from = E.util.el("input", { class: "eikon-input", type: "date", value: E.util.todayYmd() });
+        const to = E.util.el("input", { class: "eikon-input", type: "date", value: E.util.todayYmd() });
+        const gen = E.util.el("button", { class: "eikon-btn primary", text: "Generate" });
+        const print = E.util.el("button", { class: "eikon-btn", text: "Print" });
+
+        const row = E.util.el("div", { class: "eikon-row" }, [
+          E.util.el("div", { class: "eikon-col" }, [E.util.el("div", { class: "eikon-field" }, [E.util.el("div", { class: "eikon-label", text: "From" }), from])]),
+          E.util.el("div", { class: "eikon-col" }, [E.util.el("div", { class: "eikon-field" }, [E.util.el("div", { class: "eikon-label", text: "To" }), to])]),
+          E.util.el("div", { class: "eikon-col", style: "display:flex;align-items:flex-end;gap:10px;justify-content:flex-end;" }, [gen, print])
+        ]);
+
+        card.appendChild(row);
+        content.appendChild(card);
+        content.appendChild(E.util.el("div", { style: "height:12px;" }));
+
+        const reportWrap = E.util.el("div");
+        content.appendChild(reportWrap);
+
+        let lastData = null;
+
+        gen.addEventListener("click", async () => {
+          const f = (from.value || "").trim();
+          const t = (to.value || "").trim();
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(f) || !/^\d{4}-\d{2}-\d{2}$/.test(t)) {
+            E.util.toast("Invalid", "Pick a valid date range.");
+            return;
+          }
+          if (t < f) {
+            E.util.toast("Invalid", "To must be >= From.");
+            return;
+          }
+
+          gen.disabled = true;
+          gen.textContent = "Loading...";
+          reportWrap.innerHTML = "";
+
+          try {
+            const r = await E.util.apiFetch("/temperature/report?from=" + encodeURIComponent(f) + "&to=" + encodeURIComponent(t), { method: "GET" });
+            if (!r || !r.ok) throw new Error("Report failed");
+            lastData = r;
+            reportWrap.appendChild(renderReportPreviewHtml(r));
+          } catch (e) {
+            E.util.toast("Report failed", e.message || "Error");
+          } finally {
+            gen.disabled = false;
+            gen.textContent = "Generate";
+          }
+        });
+
+        print.addEventListener("click", () => {
+          if (!lastData) {
+            E.util.toast("Nothing to print", "Generate the report first.");
+            return;
+          }
+          try {
+            const html = buildPrintHtml(lastData);
+            openPrintTabWithHtml(html);
+          } catch (e) {
+            E.util.toast("Print failed", e.message || "Error");
+          }
+        });
+      }
+
+      tabEntries.addEventListener("click", async () => {
+        setActiveTab("entries");
+        await renderEntries();
+      });
+      tabDevices.addEventListener("click", async () => {
+        setActiveTab("devices");
+        await renderDevices();
+      });
+      tabReport.addEventListener("click", async () => {
+        setActiveTab("report");
+        await renderReport();
+      });
+
+      (async () => {
+        setActiveTab("entries");
+        await renderEntries();
+      })();
+    }
+  };
 })();
