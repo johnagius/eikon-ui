@@ -35,6 +35,25 @@
   }
 })();
 
+  // ===== EIKON Debug Level from URL =====
+// dbg=0 (quiet), dbg=1 (normal), dbg=2 (heavy)
+(function(){
+  try {
+    var sp = new URLSearchParams(window.location.search || "");
+    var dbg = sp.get("dbg");
+    if (dbg !== null && dbg !== undefined && dbg !== "") {
+      var n = parseInt(dbg, 10);
+      if (Number.isFinite(n)) {
+        window.EIKON = window.EIKON || {};
+        window.EIKON.DEBUG = n;
+        console.log("[EIKON][core] DEBUG set from URL dbg=", n);
+      }
+    }
+  } catch (e) {
+    console.error("[EIKON][core] failed to parse dbg param", e);
+  }
+})();
+
   
   function el(tag, attrs, ...children) {
     const node = document.createElement(tag);
