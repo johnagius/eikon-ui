@@ -40,46 +40,6 @@
     return n;
   }
 
-  function pad2(n) {
-    return String(n).padStart(2, "0");
-  }
-
-  function todayYmd() {
-    const d = new Date();
-    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-  }
-
-  function monthFromYmd(ymd) {
-    const s = String(ymd || "");
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return "";
-    return s.slice(0, 7);
-  }
-
-  function safeJsonParse(s, fallback) {
-    try { return JSON.parse(s); } catch { return fallback; }
-  }
-
-  function loadAuth() {
-    const t = localStorage.getItem(E.cfg.storageTokenKey);
-    const u = localStorage.getItem(E.cfg.storageUserKey);
-    E.state.token = t || null;
-    E.state.user = u ? safeJsonParse(u, null) : null;
-  }
-
-  function saveAuth(token, user) {
-    E.state.token = token;
-    E.state.user = user;
-    localStorage.setItem(E.cfg.storageTokenKey, token);
-    localStorage.setItem(E.cfg.storageUserKey, JSON.stringify(user));
-  }
-
-  function clearAuth() {
-    E.state.token = null;
-    E.state.user = null;
-    localStorage.removeItem(E.cfg.storageTokenKey);
-    localStorage.removeItem(E.cfg.storageUserKey);
-  }
-
   function ensureToastWrap() {
     let w = document.getElementById("eikon-toast-wrap");
     if (!w) {
@@ -113,13 +73,19 @@
       const btnCancel = el("button", {
         class: "eikon-btn",
         text: cancelText || "Cancel",
-        onclick: () => { backdrop.remove(); resolve(false); }
+        onclick: () => {
+          backdrop.remove();
+          resolve(false);
+        }
       });
 
       const btnOk = el("button", {
         class: "eikon-btn danger",
         text: okText || "OK",
-        onclick: () => { backdrop.remove(); resolve(true); }
+        onclick: () => {
+          backdrop.remove();
+          resolve(true);
+        }
       });
 
       const actions = el("div", { class: "actions" }, [btnCancel, btnOk]);
@@ -131,24 +97,56 @@
     });
   }
 
+  function safeJsonParse(s, fallback) {
+    try {
+      return JSON.parse(s);
+    } catch {
+      return fallback;
+    }
+  }
+
+  function loadAuth() {
+    const t = localStorage.getItem(E.cfg.storageTokenKey);
+    const u = localStorage.getItem(E.cfg.storageUserKey);
+    E.state.token = t || null;
+    E.state.user = u ? safeJsonParse(u, null) : null;
+  }
+
+  function saveAuth(token, user) {
+    E.state.token = token;
+    E.state.user = user;
+    localStorage.setItem(E.cfg.storageTokenKey, token);
+    localStorage.setItem(E.cfg.storageUserKey, JSON.stringify(user));
+  }
+
+  function clearAuth() {
+    E.state.token = null;
+    E.state.user = null;
+    localStorage.removeItem(E.cfg.storageTokenKey);
+    localStorage.removeItem(E.cfg.storageUserKey);
+  }
+
   async function apiFetch(path, opts) {
     const url = E.cfg.apiBase.replace(/\/+$/, "") + path;
-    const headers = Object.assign({}, (opts && opts.headers) ? opts.headers : {});
+    const headers = Object.assign({}, opts && opts.headers ? opts.headers : {});
     headers["Content-Type"] = headers["Content-Type"] || "application/json";
-
     if (E.state.token) headers["Authorization"] = "Bearer " + E.state.token;
 
     const res = await fetch(url, {
-      method: (opts && opts.method) ? opts.method : "GET",
+      method: opts && opts.method ? opts.method : "GET",
       headers,
-      body: (opts && opts.body !== undefined) ? opts.body : undefined
+      body: opts && opts.body !== undefined ? opts.body : undefined
     });
 
     let json = null;
-    try { json = await res.json(); } catch { json = null; }
+    try {
+      json = await res.json();
+    } catch {
+      json = null;
+    }
 
     if (!res.ok) {
-      const msg = (json && json.error) ? json.error : ("HTTP " + res.status);
+      const msg = json && json.error ? json.error : "HTTP " + res.status;
       const err = new Error(msg);
       err.status = res.status;
       err.body = json;
@@ -182,7 +180,6 @@
 
     let sent = 0;
     const remaining = [];
-
     for (const job of q) {
       try {
         await apiFetch(job.path, { method: job.method, body: JSON.stringify(job.body) });
@@ -191,7 +188,6 @@
         remaining.push(job);
       }
     }
-
     qSave(remaining);
     return { ok: true, sent, remaining: remaining.length };
   }
@@ -205,23 +201,38 @@
     localStorage.setItem(E.cfg.storageSidebarKey, isCollapsed ? "1" : "0");
   }
 
+  async function refreshMe() {
+    if (!E.state.token) return false;
+    try {
+      const r = await apiFetch("/auth/me", { method: "GET" });
+      if (r && r.ok && r.user) {
+        saveAuth(E.state.token, r.user);
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  }
+
   function renderLogin(root, onLoggedIn) {
     const wrap = el("div", { class: "eikon-login" });
     const card = el("div", { class: "eikon-card" });
-
     const title = el("div", { class: "eikon-title", text: "Eikon" });
-    const help = el("div", { class: "eikon-help", text: "Log in with your email and password. Your location is tied to your account automatically." });
+    const help = el("div", {
+      class: "eikon-help",
+      text: "Log in with your email and password.\nYour location is tied to your account automatically."
+    });
 
     const email = el("input", { class: "eikon-input", type: "email", placeholder: "Email" });
     const pass = el("input", { class: "eikon-input", type: "password", placeholder: "Password" });
-
     const btn = el("button", { class: "eikon-btn primary", text: "Log In" });
-
     const msg = el("div", { class: "eikon-help", text: "" });
 
     btn.addEventListener("click", async () => {
       const e = (email.value || "").trim().toLowerCase();
       const p = (pass.value || "").trim();
+
       if (!e || !p) {
         toast("Missing", "Enter email and password.");
         return;
@@ -236,13 +247,13 @@
           method: "POST",
           body: JSON.stringify({ email: e, password: p })
         });
-        if (!r || !r.ok || !r.token) throw new Error("Login failed");
 
+        if (!r || !r.ok || !r.token) throw new Error("Login failed");
         saveAuth(r.token, r.user);
         toast("Logged in", "Welcome back.");
         onLoggedIn();
       } catch (err) {
-        msg.textContent = "Login failed. Check details.";
+        msg.textContent = "Login failed.\nCheck details.";
         toast("Login failed", err.message || "Error");
       } finally {
         btn.disabled = false;
@@ -253,7 +264,6 @@
     card.appendChild(title);
     card.appendChild(el("div", { style: "height:8px;" }));
     card.appendChild(help);
-
     card.appendChild(el("div", { style: "height:14px;" }));
     card.appendChild(el("div", { class: "eikon-field" }, [el("div", { class: "eikon-label", text: "Email" }), email]));
     card.appendChild(el("div", { class: "eikon-field" }, [el("div", { class: "eikon-label", text: "Password" }), pass]));
@@ -274,6 +284,12 @@
     const isCollapsedInitial = loadSidebarCollapsed();
     if (isCollapsedInitial) sidebar.classList.add("collapsed");
 
+    const toggleBtn = el("button", {
+      class: "eikon-sidebar-toggle",
+      text: isCollapsedInitial ? "»" : "«",
+      title: isCollapsedInitial ? "Expand sidebar" : "Collapse sidebar"
+    });
+
     function setCollapsed(val) {
       if (val) sidebar.classList.add("collapsed");
       else sidebar.classList.remove("collapsed");
@@ -282,22 +298,13 @@
       toggleBtn.title = val ? "Expand sidebar" : "Collapse sidebar";
     }
 
-    const toggleBtn = el("button", {
-      class: "eikon-sidebar-toggle",
-      text: isCollapsedInitial ? "»" : "«",
-      title: isCollapsedInitial ? "Expand sidebar" : "Collapse sidebar"
-    });
     toggleBtn.addEventListener("click", () => {
       const nowCollapsed = sidebar.classList.contains("collapsed");
       setCollapsed(!nowCollapsed);
     });
 
     const brand = el("div", { class: "eikon-brand" }, [
-      el("div", {
-        class: "eikon-badge",
-        html: "🧪",
-        title: "Toggle sidebar"
-      }),
+      el("div", { class: "eikon-badge", html: "", title: "Toggle sidebar" }),
       el("div", { class: "brand-text", text: "Eikon" })
     ]);
 
@@ -308,8 +315,8 @@
 
     const user = E.state.user || {};
     const userCard = el("div", { class: "eikon-usercard" }, [
-      el("div", { class: "name", text: (user.org_name || user.email || "User") }),
-      el("div", { class: "sub", text: (user.location_name ? (user.location_name + " • ") : "") + (user.email || "") })
+      el("div", { class: "name", text: user.org_name || user.email || "User" }),
+      el("div", { class: "sub", text: (user.location_name ? user.location_name + " • " : "") + (user.email || "") })
     ]);
 
     const nav = el("div", { class: "eikon-nav" });
@@ -319,27 +326,30 @@
         el("span", { class: "icon", text: icon || "•" }),
         el("span", { class: "label", text: label })
       ]);
-
       const b = el("button", { title: label }, [
         left,
         el("span", { class: "pill", text: pill })
       ]);
-
-      b.addEventListener("click", () => { E.routerGo(key); });
+      b.addEventListener("click", () => {
+        E.routerGo(key);
+      });
       b.dataset.key = key;
       return b;
     }
 
+    // LIVE modules
     nav.appendChild(navBtn("temperature", "Temperature Records", "LIVE", "🌡️"));
-    nav.appendChild(navBtn("endofday", "End Of Day", "soon", "🧾"));
-    nav.appendChild(navBtn("dda_purchases", "DDA Purchases", "soon", "📦"));
-    nav.appendChild(navBtn("dda_sales", "DDA Sales", "soon", "💊"));
-    nav.appendChild(navBtn("daily_register", "Daily Register", "soon", "📘"));
-    nav.appendChild(navBtn("repeat_rx", "Repeat Prescriptions", "soon", "🔁"));
-    nav.appendChild(navBtn("dda_stock", "DDA Stock Take", "soon", "📊"));
-    nav.appendChild(navBtn("calibrations", "Calibrations", "soon", "🛠️"));
-    nav.appendChild(navBtn("maintenance", "Maintenance", "soon", "🧰"));
-    nav.appendChild(navBtn("cleaning", "Cleaning", "soon", "🧽"));
+    nav.appendChild(navBtn("cleaning", "Cleaning", "LIVE", "🧼"));
+
+    // SOON modules
+    nav.appendChild(navBtn("endofday", "End Of Day", "soon", ""));
+    nav.appendChild(navBtn("dda_purchases", "DDA Purchases", "soon", ""));
+    nav.appendChild(navBtn("dda_sales", "DDA Sales", "soon", ""));
+    nav.appendChild(navBtn("daily_register", "Daily Register", "soon", ""));
+    nav.appendChild(navBtn("repeat_rx", "Repeat Prescriptions", "soon", ""));
+    nav.appendChild(navBtn("dda_stock", "DDA Stock Take", "soon", ""));
+    nav.appendChild(navBtn("calibrations", "Calibrations", "soon", ""));
+    nav.appendChild(navBtn("maintenance", "Maintenance", "soon", ""));
 
     const logoutBtn = el("button", { class: "eikon-logout", text: "Logout" });
     logoutBtn.addEventListener("click", async () => {
@@ -361,26 +371,10 @@
     return { app, sidebar, main, nav, setCollapsed };
   }
 
-  async function refreshMe() {
-    if (!E.state.token) return false;
-    try {
-      const r = await apiFetch("/auth/me", { method: "GET" });
-      if (r && r.ok && r.user) {
-        saveAuth(E.state.token, r.user);
-        return true;
-      }
-      return false;
-    } catch {
-      return false;
-    }
-  }
-
   E.util = {
     el,
     toast,
     modalConfirm,
-    todayYmd,
-    monthFromYmd,
     apiFetch,
     qAdd,
     qFlush,
@@ -415,7 +409,7 @@
 
     function setActiveNav(moduleKey) {
       const btns = shell.nav.querySelectorAll("button");
-      btns.forEach(b => {
+      btns.forEach((b) => {
         if (b.dataset.key === moduleKey) b.classList.add("active");
         else b.classList.remove("active");
       });
@@ -423,12 +417,20 @@
 
     async function renderModule(moduleKey) {
       setActiveNav(moduleKey);
-
       shell.main.innerHTML = "";
+
+      const titleText =
+        moduleKey === "temperature"
+          ? "Temperature Records"
+          : moduleKey === "cleaning"
+            ? "Cleaning"
+            : "Module";
+
       const topbar = el("div", { class: "eikon-topbar" }, [
-        el("div", { class: "eikon-title", text: moduleKey === "temperature" ? "Temperature Records" : "Module" }),
+        el("div", { class: "eikon-title", text: titleText }),
         el("div", { class: "eikon-top-actions" })
       ]);
+
       shell.main.appendChild(topbar);
 
       if (moduleKey === "temperature") {
@@ -442,10 +444,24 @@
         return;
       }
 
+      if (moduleKey === "cleaning") {
+        if (!E.modules.cleaning || typeof E.modules.cleaning.render !== "function") {
+          shell.main.appendChild(el("div", { class: "eikon-card", text: "Cleaning module not loaded." }));
+          return;
+        }
+        const content = el("div");
+        shell.main.appendChild(content);
+        E.modules.cleaning.render(content);
+        return;
+      }
+
       shell.main.appendChild(
         el("div", { class: "eikon-card" }, [
           el("div", { class: "eikon-title", text: "Coming soon" }),
-          el("div", { class: "eikon-help", text: "This module will be added next, using the same login and the same Cloudflare API." })
+          el("div", {
+            class: "eikon-help",
+            text: "This module will be added next, using the same login and the same Cloudflare API."
+          })
         ])
       );
     }
