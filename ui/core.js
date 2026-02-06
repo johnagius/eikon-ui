@@ -66,164 +66,279 @@
   function addMonths(ym, delta) {
     const m = String(ym || "");
     if (!/^\d{4}-\d{2}$/.test(m)) return toYm(new Date());
-    const y = parseInt(m.slice(0, 4), 10);
-    const mo = parseInt(m.slice(5, 7), 10);
-    const dt = new Date(Date.UTC(y, mo - 1 + delta, 1));
-    return dt.getUTCFullYear() + "-" + pad2(dt.getUTCMonth() + 1);
-  }
-
-  function storageGet(k) {
-    try { return localStorage.getItem(k) || ""; } catch { return ""; }
-  }
-  function storageSet(k, v) {
-    try { localStorage.setItem(k, String(v)); } catch {}
-  }
-  function storageDel(k) {
-    try { localStorage.removeItem(k); } catch {}
-  }
-
-  E.utils = {
-    $, el, safeText, toYmd, toYm, addMonths, monthLabel
-  };
-
-  // ---------- Modal (no confirm()/alert()) ----------
-  let modalOverlay = null;
-
-  function ensureModal() {
-    if (modalOverlay) return modalOverlay;
-    modalOverlay = el("div", { class: "eikon-modal-overlay" });
-    const modal = el("div", { class: "eikon-modal" });
-    const inner = el("div", { class: "inner" });
-    const h = el("h3", { text: "" });
-    const p = el("p", { text: "" });
-    const divider = el("div", { class: "divider" });
-    const actions = el("div", { class: "actions" });
-
-    inner.appendChild(h);
-    inner.appendChild(p);
-    inner.appendChild(divider);
-    modal.appendChild(inner);
-    modal.appendChild(actions);
-    modalOverlay.appendChild(modal);
-
-    modalOverlay._titleEl = h;
-    modalOverlay._textEl = p;
-    modalOverlay._actionsEl = actions;
-
-    document.body.appendChild(modalOverlay);
-    return modalOverlay;
-  }
-
-  function showModal(opts) {
-    const ov = ensureModal();
-    ov._titleEl.textContent = safeText(opts.title || "Confirm");
-    ov._textEl.textContent = safeText(opts.message || "");
-    ov._actionsEl.innerHTML = "";
-
-    const buttons = Array.isArray(opts.buttons) ? opts.buttons : [];
-    for (const b of buttons) {
-      const btn = el("button", {
-        class: "eikon-btn " + (b.kind === "primary" ? "primary" : b.kind === "danger" ? "danger" : ""),
-        text: safeText(b.text || "OK")
-      });
-      btn.addEventListener("click", () => {
-        hideModal();
-        if (typeof b.onClick === "function") b.onClick();
-      });
-      ov._actionsEl.appendChild(btn);
-    }
-
-    ov.style.display = "flex";
-  }
-
-  function hideModal() {
-    const ov = ensureModal();
-    ov.style.display = "none";
-  }
-
-  E.modal = {
-    alert(title, message) {
-      showModal({
-        title,
-        message,
-        buttons: [{ text: "OK", kind: "primary" }]
-      });
-    },
-    confirm(title, message) {
-      return new Promise((resolve) => {
-        showModal({
-          title,
-          message,
-          buttons: [
-            { text: "Cancel", kind: "", onClick: () => resolve(false) },
-            { text: "Confirm", kind: "danger", onClick: () => resolve(true) }
-          ]
-        });
-      });
-    }
-  };
-
-  // ---------- Auth / API ----------
-  E.setToken = function (t) {
-    E.state.token = safeText(t || "");
-    if (E.state.token) storageSet(E.config.storageTokenKey, E.state.token);
-    else storageDel(E.config.storageTokenKey);
-  };
-
-  E.getToken = function () {
-    return E.state.token || storageGet(E.config.storageTokenKey);
-  };
-
-  E.logout = function () {
-    E.setToken("");
-    E.state.user = null;
-    E.state.activeModule = "";
-    storageDel(E.config.storageLastModuleKey);
-    renderLogin("You have been logged out.");
-  };
-
-  E.apiFetch = async function (path, opts) {
-    const o = opts || {};
-    const method = (o.method || "GET").toUpperCase();
-    const url = (path.startsWith("http://") || path.startsWith("https://"))
-      ? path
-      : (E.config.apiBase.replace(/\/+$/g, "") + "/" + path.replace(/^\/+/g, ""));
-
-    const headers = new Headers(o.headers || {});
-    if (!headers.has("Content-Type") && o.json !== undefined) headers.set("Content-Type", "application/json");
-
-    const token = E.getToken();
-    if (token) headers.set("Authorization", "Bearer " + token);
-
-    const init = {
-      method,
-      headers,
-      body: o.json !== undefined ? JSON.stringify(o.json) : o.body
-    };
-
-    const res = await fetch(url, init);
-    let data = null;
-    const ct = (res.headers.get("Content-Type") || "").toLowerCase();
-    if (ct.includes("application/json")) {
-      data = await res.json().catch(() => null);
-    } else {
-      data = await res.text().catch(() => "");
-    }
-
-    if (res.status === 401) {
-      E.setToken("");
-      E.state.user = null;
-      throw new Error("Unauthorized");
-    }
-
-    if (!res.ok) {
-      const msg = data && data.error ? data.error : ("HTTP " + res.status);
-      const err = new Error(msg);
-      err.status = res.status;
-      err.data = data;
-      throw err;
-    }
-
+   diff --git a/ui/core.js b/ui/core.js
+index cdb35c56192b160b057e0774f8179dc052bca9ef..a1e2f7c438f0cc912f820abc76506e58a97edf3c 100644
+--- a/ui/core.js
++++ b/ui/core.js
+@@ -69,158 +69,239 @@
+     const y = parseInt(m.slice(0, 4), 10);
+     const mo = parseInt(m.slice(5, 7), 10);
+     const dt = new Date(Date.UTC(y, mo - 1 + delta, 1));
+     return dt.getUTCFullYear() + "-" + pad2(dt.getUTCMonth() + 1);
+   }
+ 
+   function storageGet(k) {
+     try { return localStorage.getItem(k) || ""; } catch { return ""; }
+   }
+   function storageSet(k, v) {
+     try { localStorage.setItem(k, String(v)); } catch {}
+   }
+   function storageDel(k) {
+     try { localStorage.removeItem(k); } catch {}
+   }
+ 
+   E.utils = {
+     $, el, safeText, toYmd, toYm, addMonths, monthLabel
+   };
+ 
+   // ---------- Modal (no confirm()/alert()) ----------
+   let modalOverlay = null;
+ 
+   function ensureModal() {
+     if (modalOverlay) return modalOverlay;
+-    modalOverlay = el("div", { class: "eikon-modal-overlay" });
+-    const modal = el("div", { class: "eikon-modal" });
+-    const inner = el("div", { class: "inner" });
++    modalOverlay = el("div", { class: "modal-overlay" });
++    const modal = el("div", { class: "modal" });
+     const h = el("h3", { text: "" });
+     const p = el("p", { text: "" });
+-    const divider = el("div", { class: "divider" });
+-    const actions = el("div", { class: "actions" });
++    const actions = el("div", { class: "modal-actions" });
+ 
+-    inner.appendChild(h);
+-    inner.appendChild(p);
+-    inner.appendChild(divider);
+-    modal.appendChild(inner);
++    modal.appendChild(h);
++    modal.appendChild(p);
+     modal.appendChild(actions);
+     modalOverlay.appendChild(modal);
+ 
+     modalOverlay._titleEl = h;
+     modalOverlay._textEl = p;
+     modalOverlay._actionsEl = actions;
+ 
+     document.body.appendChild(modalOverlay);
+     return modalOverlay;
+   }
+ 
+   function showModal(opts) {
+     const ov = ensureModal();
+     ov._titleEl.textContent = safeText(opts.title || "Confirm");
+     ov._textEl.textContent = safeText(opts.message || "");
+     ov._actionsEl.innerHTML = "";
+ 
+     const buttons = Array.isArray(opts.buttons) ? opts.buttons : [];
+     for (const b of buttons) {
+       const btn = el("button", {
+-        class: "eikon-btn " + (b.kind === "primary" ? "primary" : b.kind === "danger" ? "danger" : ""),
+-        text: safeText(b.text || "OK")
++        class: "btn " + (b.kind === "primary" ? "primary" : b.kind === "danger" ? "danger" : ""),
++        text: safeText(b.text || b.label || "OK")
+       });
+-      btn.addEventListener("click", () => {
+-        hideModal();
+-        if (typeof b.onClick === "function") b.onClick();
++      btn.addEventListener("click", async () => {
++        if (!b.keepOpen) hideModal();
++        if (typeof b.onClick === "function") await b.onClick();
+       });
+       ov._actionsEl.appendChild(btn);
+     }
+ 
+     ov.style.display = "flex";
+   }
+ 
+   function hideModal() {
+     const ov = ensureModal();
+     ov.style.display = "none";
+   }
+ 
++  E.showModal = function (title, message, buttons) {
++    showModal({ title, message, buttons });
++  };
++
++  E.confirmDialog = function (title, message) {
++    return new Promise((resolve) => {
++      showModal({
++        title,
++        message,
++        buttons: [
++          { label: "Cancel", kind: "", onClick: () => resolve(false) },
++          { label: "Confirm", kind: "danger", onClick: () => resolve(true) }
++        ]
++      });
++    });
++  };
++
+   E.modal = {
+     alert(title, message) {
+       showModal({
+         title,
+         message,
+-        buttons: [{ text: "OK", kind: "primary" }]
+-      });
+-    },
+-    confirm(title, message) {
+-      return new Promise((resolve) => {
+-        showModal({
+-          title,
+-          message,
+-          buttons: [
+-            { text: "Cancel", kind: "", onClick: () => resolve(false) },
+-            { text: "Confirm", kind: "danger", onClick: () => resolve(true) }
+-          ]
+-        });
++        buttons: [{ label: "OK", kind: "primary" }]
+       });
+     }
+   };
+ 
++  // ---------- UI helpers ----------
++  E.toast = function (message, kind) {
++    const msg = safeText(message || "");
++    if (!msg) return;
++    const t = el("div", { class: "toast " + (kind || "") });
++    t.textContent = msg;
++    document.body.appendChild(t);
++    setTimeout(() => {
++      if (t && t.parentNode) t.parentNode.removeChild(t);
++    }, 3000);
++  };
++
++  E.escapeHtml = function (s) {
++    return safeText(s).replace(/[&<>"']/g, (c) => ({
++      "&": "&amp;",
++      "<": "&lt;",
++      ">": "&gt;",
++      '"': "&quot;",
++      "'": "&#39;"
++    }[c]));
++  };
++
++  E.todayYmd = function () {
++    return toYmd(new Date());
++  };
++
++  E.ymdToDmy = function (ymd) {
++    const v = safeText(ymd || "").trim();
++    const parts = v.split("-");
++    if (parts.length !== 3) return v;
++    return parts[2] + "/" + parts[1] + "/" + parts[0];
++  };
++
++  E.nowHmRound = function () {
++    const d = new Date();
++    const mins = d.getMinutes();
++    const rounded = Math.round(mins / 5) * 5;
++    d.setMinutes(rounded);
++    d.setSeconds(0);
++    return pad2(d.getHours()) + ":" + pad2(d.getMinutes());
++  };
++
++  E.monthAdd = function (ym, delta) {
++    return addMonths(ym, delta);
++  };
++
++  E.tryPrintHtml = function (html, title) {
++    try {
++      const w = window.open("", "_blank");
++      if (!w) return false;
++      w.document.open();
++      w.document.write(html);
++      if (title) w.document.title = title;
++      w.document.close();
++      w.focus();
++      w.print();
++      return true;
++    } catch {
++      return false;
++    }
++  };
++
++  E.downloadTextFile = function (filename, text) {
++    const blob = new Blob([safeText(text)], { type: "text/html;charset=utf-8" });
++    const url = URL.createObjectURL(blob);
++    const a = document.createElement("a");
++    a.href = url;
++    a.download = filename || "download.html";
++    document.body.appendChild(a);
++    a.click();
++    a.remove();
++    setTimeout(() => URL.revokeObjectURL(url), 250);
++  };
++
+   // ---------- Auth / API ----------
+   E.setToken = function (t) {
+     E.state.token = safeText(t || "");
+     if (E.state.token) storageSet(E.config.storageTokenKey, E.state.token);
+     else storageDel(E.config.storageTokenKey);
+   };
+ 
+   E.getToken = function () {
+     return E.state.token || storageGet(E.config.storageTokenKey);
+   };
+ 
+   E.logout = function () {
+     E.setToken("");
+     E.state.user = null;
+     E.state.activeModule = "";
+     storageDel(E.config.storageLastModuleKey);
+     renderLogin("You have been logged out.");
+   };
+ 
+   E.apiFetch = async function (path, opts) {
+     const o = opts || {};
+     const method = (o.method || "GET").toUpperCase();
+     const url = (path.startsWith("http://") || path.startsWith("https://"))
+       ? path
+       : (E.config.apiBase.replace(/\/+$/g, "") + "/" + path.replace(/^\/+/g, ""));
+ 
+     const headers = new Headers(o.headers || {});
+-    if (!headers.has("Content-Type") && o.json !== undefined) headers.set("Content-Type", "application/json");
++    let jsonBody = null;
++    if (o.json !== undefined) {
++      jsonBody = o.json;
++    } else if (o.body && typeof o.body === "object" && !(o.body instanceof FormData) && !(o.body instanceof Blob) && !(o.body instanceof ArrayBuffer) && !(o.body instanceof URLSearchParams)) {
++      jsonBody = o.body;
++    }
++    if (!headers.has("Content-Type") && jsonBody !== null) headers.set("Content-Type", "application/json");
+ 
+     const token = E.getToken();
+     if (token) headers.set("Authorization", "Bearer " + token);
+ 
+     const init = {
+       method,
+       headers,
+-      body: o.json !== undefined ? JSON.stringify(o.json) : o.body
++      body: jsonBody !== null ? JSON.stringify(jsonBody) : o.body
+     };
+ 
+     const res = await fetch(url, init);
+     let data = null;
+     const ct = (res.headers.get("Content-Type") || "").toLowerCase();
+     if (ct.includes("application/json")) {
+       data = await res.json().catch(() => null);
+     } else {
+       data = await res.text().catch(() => "");
+     }
+ 
+     if (res.status === 401) {
+       E.setToken("");
+       E.state.user = null;
+       throw new Error("Unauthorized");
+     }
+ 
+     if (!res.ok) {
+       const msg = data && data.error ? data.error : ("HTTP " + res.status);
+       const err = new Error(msg);
+       err.status = res.status;
+       err.data = data;
+       throw err;
+     }
+ 
     return data;
   };
 
