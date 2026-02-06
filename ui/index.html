@@ -1,17 +1,132 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>EIKON</title>
-  <link rel="stylesheet" href="/ui/app.css" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Eikon</title>
+
+  <style>
+    html, body { height: 100%; margin: 0; }
+    body { background: #0b0d10; }
+    #app { min-height: 100%; }
+    /* In case CSS fails to load, at least show something */
+    .boot-fallback {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      color: #e8eef6;
+      padding: 16px;
+    }
+  </style>
+
+  <script>
+    (function () {
+      // ====== VERSION PROPAGATION (fixes stale JS/CSS) ======
+      // If index.html is loaded as /ui/index.html?v=123, then load ALL assets with ?v=123
+      var params = new URLSearchParams(location.search || "");
+      var v = params.get("v") || "";
+      var dbg = params.get("dbg") || ""; // you use dbg=2
+
+      // Persist debug level (so refresh keeps it)
+      if (dbg) {
+        try { localStorage.setItem("EIKON_DBG", String(dbg)); } catch (e) {}
+      }
+      var dbgLevel = 0;
+      try { dbgLevel = parseInt(localStorage.getItem("EIKON_DBG") || "0", 10) || 0; } catch (e) {}
+
+      function q(extra) {
+        // Preserve v and dbg on every asset request
+        var out = [];
+        if (v) out.push("v=" + encodeURIComponent(v));
+        if (dbgLevel) out.push("dbg=" + encodeURIComponent(String(dbgLevel)));
+        if (extra) out.push(extra);
+        return out.length ? ("?" + out.join("&")) : "";
+      }
+
+      function addCss(href) {
+        var link = document.createElement("link");
+        link.rel = "stylesheet";
+        link.href = href + q();
+        link.onload = function () {
+          if (dbgLevel) console.log("[EIKON][boot] CSS loaded:", link.href);
+        };
+        link.onerror = function (e) {
+          console.error("[EIKON][boot] CSS failed:", link.href, e);
+        };
+        document.head.appendChild(link);
+      }
+
+      function addJs(src) {
+        return new Promise(function (resolve, reject) {
+          var s = document.createElement("script");
+          s.src = src + q();
+          s.defer = true;
+          s.onload = function () {
+            if (dbgLevel) console.log("[EIKON][boot] JS loaded:", s.src);
+            resolve();
+          };
+          s.onerror = function (e) {
+            console.error("[EIKON][boot] JS failed:", s.src, e);
+            reject(e);
+          };
+          document.head.appendChild(s);
+        });
+      }
+
+      // ====== HEAVY DEBUG HOOKS (you asked for this) ======
+      function dbgLog() {
+        if (dbgLevel) console.log.apply(console, arguments);
+      }
+
+      window.addEventListener("error", function (ev) {
+        console.error("[EIKON][window.error]", ev.message, ev.filename + ":" + ev.lineno + ":" + ev.colno, ev.error);
+      });
+
+      window.addEventListener("unhandledrejection", function (ev) {
+        console.error("[EIKON][unhandledrejection]", ev.reason);
+      });
+
+      // Wrap fetch for verbose network logging when dbg is enabled
+      if (dbgLevel) {
+        var _fetch = window.fetch.bind(window);
+        window.fetch = async function (input, init) {
+          try {
+            var url = (typeof input === "string") ? input : (input && input.url) ? input.url : String(input);
+            var method = (init && init.method) ? init.method : "GET";
+            dbgLog("[EIKON][fetch] ->", method, url, init || {});
+            var res = await _fetch(input, init);
+            dbgLog("[EIKON][fetch] <-", method, url, res.status, res.statusText);
+            return res;
+          } catch (e) {
+            console.error("[EIKON][fetch] !!", e);
+            throw e;
+          }
+        };
+      }
+
+      // ====== LOAD ASSETS (order matters) ======
+      // IMPORTANT: do NOT change your module files; we just ensure they load fresh.
+      addCss("./app.css");
+
+      (async function () {
+        try {
+          await addJs("./core.js");
+          await addJs("./modules.temperature.js");
+          await addJs("./modules.cleaning.js");
+          await addJs("./main.js");
+
+          dbgLog("[EIKON][boot] All assets loaded.");
+        } catch (e) {
+          var el = document.getElementById("app");
+          if (el) {
+            el.innerHTML = "<div class='boot-fallback'><b>Eikon failed to load assets.</b><br/>Open DevTools console for details.</div>";
+          }
+        }
+      })();
+    })();
+  </script>
 </head>
 <body>
-  <div id="app"></div>
-
-  <script src="/ui/core.js"></script>
-  <script src="/ui/modules.temperature.js"></script>
-  <script src="/ui/modules.cleaning.js"></script>
-  <script src="/ui/main.js"></script>
+  <div id="app">
+    <div class="boot-fallback">Loading Eikon…</div>
+  </div>
 </body>
 </html>
