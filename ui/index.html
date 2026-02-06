@@ -2,22 +2,16 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Eikon</title>
-  <link rel="stylesheet" href="./app.css" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>EIKON</title>
+  <link rel="stylesheet" href="/ui/app.css" />
 </head>
 <body>
-  <div id="eikon-root"></div>
+  <div id="app"></div>
 
-  <script>
-    // When running directly from the Worker domain, API can be same-origin.
-    // When embedded on GoDaddy, the embed snippet sets window.EIKON_API_BASE explicitly.
-    window.EIKON_API_BASE = window.EIKON_API_BASE || "";
-  </script>
-
-  <script src="./core.js"></script>
-  <script src="./modules.temperature.js"></script>
-  <script src="./modules.cleaning.js"></script>
-  <script src="./main.js"></script>
+  <script src="/ui/core.js"></script>
+  <script src="/ui/modules.temperature.js"></script>
+  <script src="/ui/modules.cleaning.js"></script>
+  <script src="/ui/main.js"></script>
 </body>
 </html>
