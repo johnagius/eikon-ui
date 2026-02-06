@@ -1,0 +1,1153 @@
+function nowIso() {
+  return new Date().toISOString();
+}
+
+function jsonResponse(data, status = 200, extraHeaders = {}) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      "Content-Type": "application/json",
+      ...extraHeaders
+    }
+  });
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  }[c]));
+}
+
+function parseAllowedOrigins(env) {
+  const raw = (env.ALLOWED_ORIGINS || "").trim();
+  if (!raw) return [];
+  return raw.split(",").map(s => s.trim()).filter(Boolean);
+}
+
+function corsHeadersForRequest(request, env) {
+  const origin = request.headers.get("Origin") || "";
+  const allowed = parseAllowedOrigins(env);
+
+  if (!origin || allowed.length === 0) {
+    return { ok: false, headers: { "Vary": "Origin" } };
+  }
+
+  const matched = allowed.includes(origin);
+  if (!matched) {
+    return { ok: false, headers: { "Vary": "Origin" } };
+  }
+
+  return {
+    ok: true,
+    headers: {
+      "Access-Control-Allow-Origin": origin,
+      "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Access-Control-Max-Age": "86400",
+      "Vary": "Origin"
+    }
+  };
+}
+
+function base64FromBytes(bytes) {
+  let binary = "";
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary);
+}
+
+function bytesFromBase64(b64) {
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+function base64UrlFromBytes(bytes) {
+  return base64FromBytes(bytes).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function constantTimeEqual(a, b) {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= (a[i] ^ b[i]);
+  return diff === 0;
+}
+
+async function sha256B64FromString(s) {
+  const enc = new TextEncoder();
+  const digest = await crypto.subtle.digest("SHA-256", enc.encode(s));
+  return base64FromBytes(new Uint8Array(digest));
+}
+
+async function pbkdf2Hash(password, saltBytes, iterations) {
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(password),
+    { name: "PBKDF2" },
+    false,
+    ["deriveBits"]
+  );
+
+  const bits = await crypto.subtle.deriveBits(
+    {
+      name: "PBKDF2",
+      hash: "SHA-256",
+      salt: saltBytes,
+      iterations
+    },
+    keyMaterial,
+    256
+  );
+
+  return new Uint8Array(bits);
+}
+
+async function readJson(request) {
+  const ct = request.headers.get("Content-Type") || "";
+  if (!ct.toLowerCase().includes("application/json")) {
+    throw new Error("Expected application/json");
+  }
+  return await request.json();
+}
+
+async function dbFirst(env, sql, bind = []) {
+  const stmt = env.DB.prepare(sql);
+  const res = bind.length ? await stmt.bind(...bind).first() : await stmt.first();
+  return res || null;
+}
+
+async function dbAll(env, sql, bind = []) {
+  const stmt = env.DB.prepare(sql);
+  const res = bind.length ? await stmt.bind(...bind).all() : await stmt.all();
+  return res.results || [];
+}
+
+async function dbRun(env, sql, bind = []) {
+  const stmt = env.DB.prepare(sql);
+  const res = bind.length ? await stmt.bind(...bind).run() : await stmt.run();
+  return res;
+}
+
+async function writeAudit(env, orgId, userId, action, entityType, entityId, detailsObj) {
+  const detailsJson = JSON.stringify(detailsObj || {});
+  await dbRun(
+    env,
+    `INSERT INTO audit_log (org_id, user_id, action, entity_type, entity_id, details_json, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`,
+    [orgId, userId || null, action, entityType, entityId || "", detailsJson]
+  );
+}
+
+function requireRole(user, roles) {
+  return user && roles.includes(user.role);
+}
+
+async function authFromRequest(request, env) {
+  const auth = request.headers.get("Authorization") || "";
+  const m = auth.match(/^Bearer\s+(.+)$/i);
+  if (!m) return null;
+
+  const token = m[1].trim();
+  if (!token) return null;
+
+  const tokenHashB64 = await sha256B64FromString(token);
+
+  const sess = await dbFirst(
+    env,
+    `SELECT
+       s.id AS session_id,
+       s.user_id,
+       s.expires_at,
+       u.org_id,
+       u.email,
+       u.full_name,
+       u.role,
+       u.is_active,
+       u.default_location_id
+     FROM sessions s
+     JOIN users u ON u.id = s.user_id
+     WHERE s.token_hash_b64 = ?`,
+    [tokenHashB64]
+  );
+
+  if (!sess) return null;
+  if (sess.is_active !== 1) return null;
+
+  const now = new Date();
+  const exp = new Date(sess.expires_at);
+  if (!(exp > now)) return null;
+
+  const locId = sess.default_location_id ? Number(sess.default_location_id) : null;
+  if (!locId) return null;
+
+  const loc = await dbFirst(env, "SELECT id, name FROM locations WHERE id = ? AND org_id = ?", [locId, sess.org_id]);
+  if (!loc) return null;
+
+  const org = await dbFirst(env, "SELECT id, name FROM orgs WHERE id = ?", [sess.org_id]);
+
+  return {
+    session_id: sess.session_id,
+    user_id: sess.user_id,
+    org_id: sess.org_id,
+    org_name: org ? org.name : "",
+    email: sess.email,
+    full_name: sess.full_name,
+    role: sess.role,
+    location_id: loc.id,
+    location_name: loc.name
+  };
+}
+
+function htmlPage(title, bodyHtml) {
+  return new Response(
+    `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>${title}</title>
+<style>
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:720px;margin:40px auto;padding:0 16px;}
+  .card{border:1px solid #ddd;border-radius:10px;padding:18px;margin-top:16px;}
+  label{display:block;margin-top:10px;font-weight:600;}
+  input{width:100%;padding:10px;border:1px solid #ccc;border-radius:8px;margin-top:6px;}
+  button{margin-top:16px;padding:10px 14px;border:0;border-radius:8px;background:#111;color:#fff;font-weight:700;cursor:pointer;}
+  code{background:#f6f6f6;padding:2px 6px;border-radius:6px;}
+  .ok{color:green;font-weight:700;}
+  .err{color:#b00020;font-weight:700;}
+</style>
+</head>
+<body>
+${bodyHtml}
+</body>
+</html>`,
+    { headers: { "Content-Type": "text/html; charset=utf-8" } }
+  );
+}
+
+async function parseForm(request) {
+  const ct = (request.headers.get("Content-Type") || "").toLowerCase();
+  if (!ct.includes("application/x-www-form-urlencoded") && !ct.includes("multipart/form-data")) {
+    return null;
+  }
+  const form = await request.formData();
+  const obj = {};
+  for (const [k, v] of form.entries()) obj[k] = String(v);
+  return obj;
+}
+
+async function handleBootstrapGet(request, env) {
+  const usersCountRow = await dbFirst(env, "SELECT COUNT(*) AS c FROM users", []);
+  const hasUsers = usersCountRow && usersCountRow.c > 0;
+
+  const body = `
+<h1>Eikon API Bootstrap</h1>
+<div class="card">
+  <p>This creates the <b>first</b> org, location, and admin user.</p>
+  <p>Status: ${hasUsers ? `<span class="err">Bootstrap disabled (users already exist)</span>` : `<span class="ok">Ready</span>`}</p>
+  <form method="POST" action="/bootstrap">
+    <label>Bootstrap Token</label>
+    <input name="bootstrap_token" required />
+    <label>Org / Client Name</label>
+    <input name="org_name" required value="Demo Pharmacy"/>
+    <label>Default Location Name</label>
+    <input name="location_name" required value="Main Branch"/>
+    <label>Admin Email</label>
+    <input name="admin_email" required value="admin@example.com"/>
+    <label>Admin Full Name</label>
+    <input name="admin_full_name" required value="Admin"/>
+    <label>Admin Password</label>
+    <input name="admin_password" type="password" required />
+    <button type="submit" ${hasUsers ? "disabled" : ""}>Create Admin</button>
+  </form>
+  <p style="margin-top:12px;color:#555;">Note: location is tied to account (no switching).</p>
+</div>`;
+  return htmlPage("Bootstrap", body);
+}
+
+async function handleBootstrapPost(request, env) {
+  try {
+    const usersCountRow = await dbFirst(env, "SELECT COUNT(*) AS c FROM users", []);
+    const hasUsers = usersCountRow && usersCountRow.c > 0;
+    if (hasUsers) {
+      return htmlPage("Bootstrap", `<h1>Bootstrap disabled</h1><p class="err">Users already exist.</p>`);
+    }
+
+    let payload = await parseForm(request);
+    if (!payload) {
+      try { payload = await readJson(request); } catch { payload = {}; }
+    }
+
+    const bootstrapToken = (payload.bootstrap_token || "").trim();
+    const orgName = (payload.org_name || "").trim();
+    const locationName = (payload.location_name || "").trim();
+    const adminEmail = (payload.admin_email || "").trim().toLowerCase();
+    const adminFullName = (payload.admin_full_name || "").trim();
+    const adminPassword = (payload.admin_password || "").trim();
+
+    if (!bootstrapToken || !orgName || !locationName || !adminEmail || !adminPassword) {
+      return htmlPage("Bootstrap error", `<h1>Bootstrap error</h1><p class="err">Missing required fields.</p>`);
+    }
+
+    if ((env.BOOTSTRAP_TOKEN || "").trim() !== bootstrapToken) {
+      return htmlPage("Bootstrap error", `<h1>Bootstrap error</h1><p class="err">Invalid bootstrap token.</p>`);
+    }
+
+    const orgRow = await dbFirst(
+      env,
+      "INSERT INTO orgs (name, created_at) VALUES (?, datetime('now')) RETURNING id",
+      [orgName]
+    );
+    const orgId = orgRow.id;
+
+    const locRow = await dbFirst(
+      env,
+      "INSERT INTO locations (org_id, name, created_at) VALUES (?, ?, datetime('now')) RETURNING id",
+      [orgId, locationName]
+    );
+    const locationId = locRow.id;
+
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const iters = 100000; // <= Worker limit
+    const hash = await pbkdf2Hash(adminPassword, salt, iters);
+    const saltB64 = base64FromBytes(salt);
+    const hashB64 = base64FromBytes(hash);
+
+    const userRow = await dbFirst(
+      env,
+      `INSERT INTO users (org_id, email, full_name, role, pass_salt_b64, pass_hash_b64, pass_iters, is_active, default_location_id, created_at)
+       VALUES (?, ?, ?, 'admin', ?, ?, ?, 1, ?, datetime('now'))
+       RETURNING id`,
+      [orgId, adminEmail, adminFullName, saltB64, hashB64, iters, locationId]
+    );
+    const userId = userRow.id;
+
+    await writeAudit(env, orgId, userId, "BOOTSTRAP_CREATE", "org", String(orgId), { org_name: orgName });
+    await writeAudit(env, orgId, userId, "BOOTSTRAP_CREATE", "location", String(locationId), { location_name: locationName });
+    await writeAudit(env, orgId, userId, "BOOTSTRAP_CREATE", "user", String(userId), { email: adminEmail, role: "admin", default_location_id: locationId });
+
+    return htmlPage(
+      "Bootstrap complete",
+      `<h1>Bootstrap complete</h1>
+<div class="card">
+  <p class="ok">Created org, location, and admin user.</p>
+  <p><b>Org ID:</b> ${orgId}</p>
+  <p><b>Location ID:</b> ${locationId}</p>
+  <p><b>Admin Email:</b> ${escapeHtml(adminEmail)}</p>
+  <p>Next: log in via <code>POST /auth/login</code>.</p>
+</div>`
+    );
+  } catch (e) {
+    return htmlPage(
+      "Bootstrap error",
+      `<h1>Bootstrap error</h1>
+<p class="err">The Worker caught an exception.</p>
+<pre style="white-space:pre-wrap;background:#f6f6f6;padding:12px;border-radius:8px;border:1px solid #ddd;">${escapeHtml(e && (e.stack || e.message || String(e)))}</pre>`
+    );
+  }
+}
+
+async function handleLogin(request, env, corsOkHeaders) {
+  const body = await readJson(request);
+  const email = (body.email || "").trim().toLowerCase();
+  const password = (body.password || "").trim();
+
+  if (!email || !password) {
+    return jsonResponse({ ok: false, error: "Missing email or password" }, 400, corsOkHeaders);
+  }
+
+  const user = await dbFirst(
+    env,
+    `SELECT id, org_id, email, full_name, role, pass_salt_b64, pass_hash_b64, pass_iters, is_active, default_location_id
+     FROM users WHERE email = ?`,
+    [email]
+  );
+
+  if (!user || user.is_active !== 1) {
+    return jsonResponse({ ok: false, error: "Invalid credentials" }, 401, corsOkHeaders);
+  }
+
+  const saltBytes = bytesFromBase64(user.pass_salt_b64);
+  const derived = await pbkdf2Hash(password, saltBytes, user.pass_iters);
+  const stored = bytesFromBase64(user.pass_hash_b64);
+
+  if (!constantTimeEqual(derived, stored)) {
+    return jsonResponse({ ok: false, error: "Invalid credentials" }, 401, corsOkHeaders);
+  }
+
+  const locId = user.default_location_id ? Number(user.default_location_id) : null;
+  if (!locId) return jsonResponse({ ok: false, error: "Account has no assigned location" }, 403, corsOkHeaders);
+
+  const loc = await dbFirst(env, "SELECT id, name FROM locations WHERE id = ? AND org_id = ?", [locId, user.org_id]);
+  if (!loc) return jsonResponse({ ok: false, error: "Assigned location invalid" }, 403, corsOkHeaders);
+
+  const ttl = parseInt(env.SESSION_TTL_SECONDS || "2592000", 10);
+  const tokenRaw = crypto.getRandomValues(new Uint8Array(32));
+  const token = base64UrlFromBytes(tokenRaw);
+  const tokenHashB64 = await sha256B64FromString(token);
+  const exp = new Date(Date.now() + ttl * 1000).toISOString();
+
+  await dbRun(
+    env,
+    "INSERT INTO sessions (user_id, token_hash_b64, expires_at, created_at) VALUES (?, ?, ?, datetime('now'))",
+    [user.id, tokenHashB64, exp]
+  );
+
+  await writeAudit(env, user.org_id, user.id, "LOGIN", "user", String(user.id), { email: user.email });
+
+  return jsonResponse(
+    {
+      ok: true,
+      token,
+      user: {
+        id: user.id,
+        org_id: user.org_id,
+        email: user.email,
+        full_name: user.full_name,
+        role: user.role,
+        location_id: loc.id,
+        location_name: loc.name
+      }
+    },
+    200,
+    corsOkHeaders
+  );
+}
+
+async function handleMe(env, corsOkHeaders, authUser) {
+  return jsonResponse({ ok: true, user: authUser }, 200, corsOkHeaders);
+}
+
+function isValidYmd(s) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(s || "").trim());
+}
+
+function clampToOneDecimal(n) {
+  if (n === null || n === undefined) return null;
+  const v = Number(n);
+  if (!Number.isFinite(v)) return null;
+  return Math.round(v * 10) / 10;
+}
+
+function monthRange(yyyyMm) {
+  const m = String(yyyyMm || "").trim();
+  if (!/^\d{4}-\d{2}$/.test(m)) return null;
+  const [y, mo] = m.split("-").map(n => parseInt(n, 10));
+  const start = new Date(Date.UTC(y, mo - 1, 1));
+  const end = new Date(Date.UTC(y, mo, 1));
+  return {
+    startStr: start.toISOString().slice(0, 10),
+    endStr: end.toISOString().slice(0, 10)
+  };
+}
+
+async function ensureDefaultTempDevicesIfMissing(env, authUser) {
+  const existing = await dbAll(
+    env,
+    "SELECT id FROM temperature_devices WHERE org_id = ? AND location_id = ? AND active = 1",
+    [authUser.org_id, authUser.location_id]
+  );
+  if (existing.length > 0) return;
+
+  if (!requireRole(authUser, ["admin"])) return;
+
+  const defaults = [
+    { name: "Pharmacy", device_type: "room", min_limit: 15, max_limit: 25 },
+    { name: "Pharmacy Fridge", device_type: "fridge", min_limit: 2, max_limit: 8 }
+  ];
+
+  for (const d of defaults) {
+    await dbRun(
+      env,
+      `INSERT INTO temperature_devices (org_id, location_id, name, device_type, min_limit, max_limit, active, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'))`,
+      [authUser.org_id, authUser.location_id, d.name, d.device_type, d.min_limit, d.max_limit]
+    );
+  }
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "TEMP_DEFAULT_DEVICES_CREATE", "location", String(authUser.location_id), {});
+}
+
+async function handleTempDevicesList(request, env, corsOkHeaders, authUser) {
+  await ensureDefaultTempDevicesIfMissing(env, authUser);
+
+  const includeInactive = (new URL(request.url)).searchParams.get("include_inactive") === "1";
+
+  const devices = await dbAll(
+    env,
+    `SELECT id, name, device_type, min_limit, max_limit, active, created_at, updated_at
+     FROM temperature_devices
+     WHERE org_id = ? AND location_id = ?
+       ${includeInactive ? "" : "AND active = 1"}
+     ORDER BY active DESC, id ASC`,
+    [authUser.org_id, authUser.location_id]
+  );
+
+  return jsonResponse({ ok: true, devices }, 200, corsOkHeaders);
+}
+
+async function handleTempDevicesCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  const body = await readJson(request);
+  const name = (body.name || "").trim();
+  const deviceType = (body.device_type || "other").trim();
+  const minLimit = body.min_limit === null || body.min_limit === undefined ? null : Number(body.min_limit);
+  const maxLimit = body.max_limit === null || body.max_limit === undefined ? null : Number(body.max_limit);
+
+  if (!name) return jsonResponse({ ok: false, error: "Missing name" }, 400, corsOkHeaders);
+  if (!["room", "fridge", "other"].includes(deviceType)) return jsonResponse({ ok: false, error: "Invalid device_type" }, 400, corsOkHeaders);
+
+  const row = await dbFirst(
+    env,
+    `INSERT INTO temperature_devices (org_id, location_id, name, device_type, min_limit, max_limit, active, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'))
+     RETURNING id`,
+    [authUser.org_id, authUser.location_id, name, deviceType, minLimit, maxLimit]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "TEMP_DEVICE_CREATE", "temperature_devices", String(row.id), { name, device_type: deviceType });
+
+  return jsonResponse({ ok: true, device_id: row.id }, 200, corsOkHeaders);
+}
+
+async function handleTempDevicesUpdate(request, env, corsOkHeaders, authUser, deviceId) {
+  if (!requireRole(authUser, ["admin"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  const body = await readJson(request);
+  const name = body.name !== undefined ? String(body.name || "").trim() : undefined;
+  const deviceType = body.device_type !== undefined ? String(body.device_type || "").trim() : undefined;
+  const minLimit = body.min_limit !== undefined ? (body.min_limit === null ? null : Number(body.min_limit)) : undefined;
+  const maxLimit = body.max_limit !== undefined ? (body.max_limit === null ? null : Number(body.max_limit)) : undefined;
+  const active = body.active !== undefined ? (body.active ? 1 : 0) : undefined;
+
+  const existing = await dbFirst(
+    env,
+    `SELECT id, name, device_type, min_limit, max_limit, active
+     FROM temperature_devices
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [deviceId, authUser.org_id, authUser.location_id]
+  );
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  const newName = name !== undefined ? name : existing.name;
+  const newType = deviceType !== undefined ? deviceType : existing.device_type;
+  const newMin = minLimit !== undefined ? minLimit : existing.min_limit;
+  const newMax = maxLimit !== undefined ? maxLimit : existing.max_limit;
+  const newActive = active !== undefined ? active : existing.active;
+
+  if (!newName) return jsonResponse({ ok: false, error: "Name cannot be empty" }, 400, corsOkHeaders);
+  if (!["room", "fridge", "other"].includes(newType)) return jsonResponse({ ok: false, error: "Invalid device_type" }, 400, corsOkHeaders);
+
+  await dbRun(
+    env,
+    `UPDATE temperature_devices
+     SET name = ?, device_type = ?, min_limit = ?, max_limit = ?, active = ?, updated_at = datetime('now')
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [newName, newType, newMin, newMax, newActive, deviceId, authUser.org_id, authUser.location_id]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "TEMP_DEVICE_UPDATE", "temperature_devices", String(deviceId), {
+    name: newName,
+    device_type: newType,
+    min_limit: newMin,
+    max_limit: newMax,
+    active: newActive
+  });
+
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleTempDevicesDeactivate(request, env, corsOkHeaders, authUser, deviceId) {
+  return await handleTempDevicesUpdate(request, env, corsOkHeaders, authUser, deviceId);
+}
+
+async function assertDeviceBelongsActive(env, orgId, locationId, deviceId) {
+  const row = await dbFirst(
+    env,
+    `SELECT id, name, device_type, min_limit, max_limit, active
+     FROM temperature_devices
+     WHERE id = ? AND org_id = ? AND location_id = ? AND active = 1`,
+    [deviceId, orgId, locationId]
+  );
+  return row || null;
+}
+
+async function handleTempEntriesList(request, env, corsOkHeaders, authUser, url) {
+  const month = (url.searchParams.get("month") || "").trim();
+  const range = monthRange(month);
+  if (!range) return jsonResponse({ ok: false, error: "Missing/invalid month (YYYY-MM)" }, 400, corsOkHeaders);
+
+  const entries = await dbAll(
+    env,
+    `SELECT
+       e.id,
+       e.entry_date,
+       e.min_temp,
+       e.max_temp,
+       e.notes,
+       e.created_by,
+       e.created_at,
+       e.updated_at,
+       d.id AS device_id,
+       d.name AS device_name,
+       d.device_type,
+       d.min_limit,
+       d.max_limit,
+       d.active AS device_active
+     FROM temperature_entries e
+     JOIN temperature_devices d ON d.id = e.device_id
+     WHERE e.org_id = ?
+       AND e.location_id = ?
+       AND e.entry_date >= ?
+       AND e.entry_date < ?
+     ORDER BY e.entry_date DESC, d.id ASC`,
+    [authUser.org_id, authUser.location_id, range.startStr, range.endStr]
+  );
+
+  return jsonResponse({ ok: true, entries }, 200, corsOkHeaders);
+}
+
+async function handleTempEntriesUpsert(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDefaultTempDevicesIfMissing(env, authUser);
+
+  const body = await readJson(request);
+  const deviceId = parseInt(body.device_id, 10);
+  const entryDate = (body.entry_date || "").trim();
+  const minTemp = clampToOneDecimal(body.min_temp);
+  const maxTemp = clampToOneDecimal(body.max_temp);
+  const notes = (body.notes || "").trim();
+
+  if (!deviceId) return jsonResponse({ ok: false, error: "Missing device_id" }, 400, corsOkHeaders);
+  if (!isValidYmd(entryDate)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+
+  const dev = await assertDeviceBelongsActive(env, authUser.org_id, authUser.location_id, deviceId);
+  if (!dev) return jsonResponse({ ok: false, error: "Invalid device" }, 400, corsOkHeaders);
+
+  const row = await dbFirst(
+    env,
+    `INSERT INTO temperature_entries
+       (org_id, location_id, device_id, entry_date, min_temp, max_temp, notes, created_by, created_at, updated_at)
+     VALUES
+       (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+     ON CONFLICT(org_id, location_id, device_id, entry_date)
+     DO UPDATE SET
+       min_temp = excluded.min_temp,
+       max_temp = excluded.max_temp,
+       notes = excluded.notes,
+       updated_at = datetime('now')
+     RETURNING id`,
+    [authUser.org_id, authUser.location_id, deviceId, entryDate, minTemp, maxTemp, notes, authUser.user_id]
+  );
+
+  await dbRun(
+    env,
+    `INSERT INTO sync_jobs (org_id, module, op, payload_json, status, attempts, next_run_at, created_at, updated_at)
+     VALUES (?, 'temperature', 'upsert_entry', ?, 'pending', 0, datetime('now'), datetime('now'), datetime('now'))`,
+    [authUser.org_id, JSON.stringify({ entry_id: row.id })]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "TEMP_ENTRY_UPSERT", "temperature_entries", String(row.id), {
+    entry_date: entryDate,
+    device_id: deviceId,
+    min_temp: minTemp,
+    max_temp: maxTemp
+  });
+
+  return jsonResponse({ ok: true, entry_id: row.id }, 200, corsOkHeaders);
+}
+
+async function handleTempEntryDelete(request, env, corsOkHeaders, authUser, entryId) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  const existing = await dbFirst(
+    env,
+    `SELECT id, device_id, entry_date
+     FROM temperature_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  await dbRun(
+    env,
+    `DELETE FROM temperature_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+
+  await dbRun(
+    env,
+    `INSERT INTO sync_jobs (org_id, module, op, payload_json, status, attempts, next_run_at, created_at, updated_at)
+     VALUES (?, 'temperature', 'delete_entry', ?, 'pending', 0, datetime('now'), datetime('now'), datetime('now'))`,
+    [authUser.org_id, JSON.stringify({ entry_id: entryId })]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "TEMP_ENTRY_DELETE", "temperature_entries", String(entryId), {
+    entry_date: existing.entry_date,
+    device_id: existing.device_id
+  });
+
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleTempReport(request, env, corsOkHeaders, authUser, url) {
+  const from = (url.searchParams.get("from") || "").trim();
+  const to = (url.searchParams.get("to") || "").trim();
+  if (!isValidYmd(from) || !isValidYmd(to)) {
+    return jsonResponse({ ok: false, error: "Invalid from/to (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  }
+  if (to < from) {
+    return jsonResponse({ ok: false, error: "to must be >= from" }, 400, corsOkHeaders);
+  }
+
+  const devices = await dbAll(
+    env,
+    `SELECT d.id, d.name, d.device_type, d.min_limit, d.max_limit, d.active
+     FROM temperature_devices d
+     WHERE d.org_id = ? AND d.location_id = ?
+       AND (
+         d.active = 1
+         OR EXISTS (
+           SELECT 1 FROM temperature_entries e
+           WHERE e.device_id = d.id
+             AND e.org_id = d.org_id
+             AND e.location_id = d.location_id
+             AND e.entry_date >= ?
+             AND e.entry_date <= ?
+         )
+       )
+     ORDER BY d.id ASC`,
+    [authUser.org_id, authUser.location_id, from, to]
+  );
+
+  const entries = await dbAll(
+    env,
+    `SELECT id, entry_date, device_id, min_temp, max_temp, notes
+     FROM temperature_entries
+     WHERE org_id = ? AND location_id = ?
+       AND entry_date >= ?
+       AND entry_date <= ?
+     ORDER BY entry_date ASC, device_id ASC`,
+    [authUser.org_id, authUser.location_id, from, to]
+  );
+
+  return jsonResponse(
+    {
+      ok: true,
+      org_name: authUser.org_name,
+      location_name: authUser.location_name,
+      from,
+      to,
+      devices,
+      entries
+    },
+    200,
+    corsOkHeaders
+  );
+}
+
+/* =========================
+   CLEANING MODULE
+   ========================= */
+
+function isValidHm(s) {
+  const v = String(s || "").trim();
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
+}
+
+async function handleCleaningEntriesList(request, env, corsOkHeaders, authUser, url) {
+  const month = (url.searchParams.get("month") || "").trim();
+  const range = monthRange(month);
+  if (!range) return jsonResponse({ ok: false, error: "Missing/invalid month (YYYY-MM)" }, 400, corsOkHeaders);
+
+  const entries = await dbAll(
+    env,
+    `SELECT
+       id,
+       entry_date,
+       time_in,
+       time_out,
+       cleaner_name,
+       staff_name,
+       notes,
+       created_by,
+       created_at,
+       updated_at
+     FROM cleaning_entries
+     WHERE org_id = ?
+       AND location_id = ?
+       AND entry_date >= ?
+       AND entry_date < ?
+     ORDER BY entry_date DESC, time_in DESC, id DESC`,
+    [authUser.org_id, authUser.location_id, range.startStr, range.endStr]
+  );
+
+  return jsonResponse({ ok: true, entries }, 200, corsOkHeaders);
+}
+
+async function handleCleaningEntryCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  const body = await readJson(request);
+
+  const entryDate = String(body.entry_date || "").trim();
+  const timeIn = String(body.time_in || "").trim();
+  const timeOut = String(body.time_out || "").trim();
+  const cleanerName = String(body.cleaner_name || "").trim();
+  const staffName = String(body.staff_name || "").trim();
+  const notes = String(body.notes || "").trim();
+
+  if (!isValidYmd(entryDate)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (!isValidHm(timeIn)) return jsonResponse({ ok: false, error: "Invalid time_in (HH:mm)" }, 400, corsOkHeaders);
+  if (timeOut && !isValidHm(timeOut)) return jsonResponse({ ok: false, error: "Invalid time_out (HH:mm or empty)" }, 400, corsOkHeaders);
+  if (!cleanerName) return jsonResponse({ ok: false, error: "Missing cleaner_name" }, 400, corsOkHeaders);
+  if (!staffName) return jsonResponse({ ok: false, error: "Missing staff_name" }, 400, corsOkHeaders);
+
+  const row = await dbFirst(
+    env,
+    `INSERT INTO cleaning_entries
+       (org_id, location_id, entry_date, time_in, time_out, cleaner_name, staff_name, notes, created_by, created_at, updated_at)
+     VALUES
+       (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+     RETURNING id`,
+    [authUser.org_id, authUser.location_id, entryDate, timeIn, timeOut || "", cleanerName, staffName, notes, authUser.user_id]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CLEANING_ENTRY_CREATE", "cleaning_entries", String(row.id), {
+    entry_date: entryDate,
+    time_in: timeIn,
+    time_out: timeOut || "",
+    cleaner_name: cleanerName,
+    staff_name: staffName
+  });
+
+  return jsonResponse({ ok: true, entry_id: row.id }, 200, corsOkHeaders);
+}
+
+async function handleCleaningEntryUpdate(request, env, corsOkHeaders, authUser, entryId) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  const existing = await dbFirst(
+    env,
+    `SELECT id
+     FROM cleaning_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+
+  const entryDate = String(body.entry_date || "").trim();
+  const timeIn = String(body.time_in || "").trim();
+  const timeOut = String(body.time_out || "").trim();
+  const cleanerName = String(body.cleaner_name || "").trim();
+  const staffName = String(body.staff_name || "").trim();
+  const notes = String(body.notes || "").trim();
+
+  if (!isValidYmd(entryDate)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (!isValidHm(timeIn)) return jsonResponse({ ok: false, error: "Invalid time_in (HH:mm)" }, 400, corsOkHeaders);
+  if (timeOut && !isValidHm(timeOut)) return jsonResponse({ ok: false, error: "Invalid time_out (HH:mm or empty)" }, 400, corsOkHeaders);
+  if (!cleanerName) return jsonResponse({ ok: false, error: "Missing cleaner_name" }, 400, corsOkHeaders);
+  if (!staffName) return jsonResponse({ ok: false, error: "Missing staff_name" }, 400, corsOkHeaders);
+
+  await dbRun(
+    env,
+    `UPDATE cleaning_entries
+     SET entry_date = ?, time_in = ?, time_out = ?, cleaner_name = ?, staff_name = ?, notes = ?, updated_at = datetime('now')
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryDate, timeIn, timeOut || "", cleanerName, staffName, notes, entryId, authUser.org_id, authUser.location_id]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CLEANING_ENTRY_UPDATE", "cleaning_entries", String(entryId), {
+    entry_date: entryDate,
+    time_in: timeIn,
+    time_out: timeOut || "",
+    cleaner_name: cleanerName,
+    staff_name: staffName
+  });
+
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleCleaningEntryDelete(request, env, corsOkHeaders, authUser, entryId) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  const existing = await dbFirst(
+    env,
+    `SELECT id
+     FROM cleaning_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  await dbRun(
+    env,
+    `DELETE FROM cleaning_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CLEANING_ENTRY_DELETE", "cleaning_entries", String(entryId), {});
+
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleCleaningReport(request, env, corsOkHeaders, authUser, url) {
+  const from = (url.searchParams.get("from") || "").trim();
+  const to = (url.searchParams.get("to") || "").trim();
+
+  if (!isValidYmd(from) || !isValidYmd(to)) {
+    return jsonResponse({ ok: false, error: "Invalid from/to (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  }
+  if (to < from) {
+    return jsonResponse({ ok: false, error: "to must be >= from" }, 400, corsOkHeaders);
+  }
+
+  const entries = await dbAll(
+    env,
+    `SELECT
+       id,
+       entry_date,
+       time_in,
+       time_out,
+       cleaner_name,
+       staff_name,
+       notes
+     FROM cleaning_entries
+     WHERE org_id = ?
+       AND location_id = ?
+       AND entry_date >= ?
+       AND entry_date <= ?
+     ORDER BY entry_date ASC, time_in ASC, id ASC`,
+    [authUser.org_id, authUser.location_id, from, to]
+  );
+
+  return jsonResponse(
+    {
+      ok: true,
+      org_name: authUser.org_name,
+      location_name: authUser.location_name,
+      from,
+      to,
+      entries
+    },
+    200,
+    corsOkHeaders
+  );
+}
+
+
+/* =========================
+   UI FILE SERVING (/ui/*)
+   ========================= */
+
+function contentTypeForPath(pathname) {
+  const p = String(pathname || "").toLowerCase();
+  if (p.endsWith(".css")) return "text/css; charset=utf-8";
+  if (p.endsWith(".js")) return "application/javascript; charset=utf-8";
+  if (p.endsWith(".html")) return "text/html; charset=utf-8";
+  if (p.endsWith(".json")) return "application/json; charset=utf-8";
+  if (p.endsWith(".svg")) return "image/svg+xml";
+  if (p.endsWith(".png")) return "image/png";
+  if (p.endsWith(".jpg") || p.endsWith(".jpeg")) return "image/jpeg";
+  if (p.endsWith(".webp")) return "image/webp";
+  if (p.endsWith(".txt")) return "text/plain; charset=utf-8";
+  return "application/octet-stream";
+}
+
+function buildGithubRawUrl(env, uiPath) {
+  const owner = (env.UI_GITHUB_OWNER || "").trim() || "johnagius";
+  const repo = (env.UI_GITHUB_REPO || "").trim() || "eikon-ui";
+  const branch = (env.UI_GITHUB_BRANCH || "").trim() || "main";
+  const dir = (env.UI_GITHUB_DIR || "").trim() || "ui";
+
+  // uiPath will be like: "main.js" or "modules.temperature.js"
+  const safe = uiPath.replace(/^\/+/, "").replace(/\.\.+/g, ".");
+  return `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${dir}/${safe}`;
+}
+
+async function handleUiAsset(request, env, url) {
+  // /ui/<file>
+  const p = url.pathname;
+  const rel = p.replace(/^\/ui\/?/, "");
+  if (!rel || rel.endsWith("/")) {
+    return new Response("Not found", { status: 404, headers: { "Content-Type": "text/plain; charset=utf-8" } });
+  }
+
+  const cacheSeconds = parseInt((env.UI_CACHE_SECONDS || "300").trim(), 10);
+  const ct = contentTypeForPath(rel);
+
+  // Cache key includes the full requested URL (your worker domain), not GitHub
+  const cache = caches.default;
+  const cached = await cache.match(request);
+  if (cached) {
+    return cached;
+  }
+
+  const ghUrl = buildGithubRawUrl(env, rel);
+  const ghRes = await fetch(ghUrl, {
+    method: "GET",
+    headers: {
+      "User-Agent": "eikon-worker-ui-proxy",
+      "Cache-Control": "no-cache"
+    }
+  });
+
+  if (!ghRes.ok) {
+    return new Response("Not found", {
+      status: 404,
+      headers: { "Content-Type": "text/plain; charset=utf-8" }
+    });
+  }
+
+  const body = await ghRes.arrayBuffer();
+  const headers = new Headers();
+  headers.set("Content-Type", ct);
+  headers.set("Cache-Control", `public, max-age=${cacheSeconds}`);
+  headers.set("X-Source", "github-raw");
+  // Safe to allow cross-origin loads for CSS/JS
+  headers.set("Access-Control-Allow-Origin", "*");
+
+  const out = new Response(body, { status: 200, headers });
+
+  // Put in cache for next requests
+  await cache.put(request, out.clone());
+  return out;
+}
+
+export default {
+  async fetch(request, env, ctx) {
+    const url = new URL(request.url);
+
+    // Serve UI assets without auth/cors checks
+    if (url.pathname.startsWith("/ui/")) {
+      return await handleUiAsset(request, env, url);
+    }
+
+    if (url.pathname === "/health") {
+      return jsonResponse({ ok: true, time: nowIso() }, 200, { "Cache-Control": "no-store" });
+    }
+
+    if (url.pathname === "/bootstrap" && request.method === "GET") return await handleBootstrapGet(request, env);
+    if (url.pathname === "/bootstrap" && request.method === "POST") return await handleBootstrapPost(request, env);
+
+    const cors = corsHeadersForRequest(request, env);
+    if (request.method === "OPTIONS") {
+      return new Response(null, { status: 204, headers: cors.headers });
+    }
+    const corsOkHeaders = cors.ok ? cors.headers : { "Vary": "Origin" };
+
+    if (url.pathname === "/auth/login" && request.method === "POST") {
+      if (!cors.ok) return jsonResponse({ ok: false, error: "CORS blocked" }, 403, corsOkHeaders);
+      return await handleLogin(request, env, corsOkHeaders);
+    }
+
+    const authUser = await authFromRequest(request, env);
+    if (!authUser) return jsonResponse({ ok: false, error: "Unauthorized" }, 401, corsOkHeaders);
+    if (!cors.ok) return jsonResponse({ ok: false, error: "CORS blocked" }, 403, corsOkHeaders);
+
+    if (url.pathname === "/auth/me" && request.method === "GET") {
+      return await handleMe(env, corsOkHeaders, authUser);
+    }
+
+    // Devices
+    if (url.pathname === "/temperature/devices" && request.method === "GET") {
+      return await handleTempDevicesList(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname === "/temperature/devices" && request.method === "POST") {
+      return await handleTempDevicesCreate(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname.startsWith("/temperature/devices/") && (request.method === "PUT" || request.method === "DELETE")) {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const id = parseInt(parts[2], 10);
+      if (!id) return jsonResponse({ ok: false, error: "Invalid device id" }, 400, corsOkHeaders);
+
+      if (request.method === "PUT") {
+        return await handleTempDevicesUpdate(request, env, corsOkHeaders, authUser, id);
+      }
+      if (request.method === "DELETE") {
+        const body = { active: false };
+        const wrapped = new Request(request.url, {
+          method: "PUT",
+          headers: request.headers,
+          body: JSON.stringify(body)
+        });
+        return await handleTempDevicesDeactivate(wrapped, env, corsOkHeaders, authUser, id);
+      }
+    }
+
+    // Entries
+    if (url.pathname === "/temperature/entries" && request.method === "GET") {
+      return await handleTempEntriesList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/temperature/entries" && request.method === "POST") {
+      return await handleTempEntriesUpsert(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname.startsWith("/temperature/entries/") && request.method === "DELETE") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const id = parseInt(parts[2], 10);
+      if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+      return await handleTempEntryDelete(request, env, corsOkHeaders, authUser, id);
+    }
+
+    // Report (date range)
+    if (url.pathname === "/temperature/report" && request.method === "GET") {
+      return await handleTempReport(request, env, corsOkHeaders, authUser, url);
+    }
+
+    // Cleaning
+if (url.pathname === "/cleaning/entries" && request.method === "GET") {
+  return await handleCleaningEntriesList(request, env, corsOkHeaders, authUser, url);
+}
+if (url.pathname === "/cleaning/entries" && request.method === "POST") {
+  return await handleCleaningEntryCreate(request, env, corsOkHeaders, authUser);
+}
+if (url.pathname.startsWith("/cleaning/entries/") && request.method === "PUT") {
+  const parts = url.pathname.split("/").filter(Boolean);
+  const id = parseInt(parts[2], 10);
+  if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+  return await handleCleaningEntryUpdate(request, env, corsOkHeaders, authUser, id);
+}
+if (url.pathname.startsWith("/cleaning/entries/") && request.method === "DELETE") {
+  const parts = url.pathname.split("/").filter(Boolean);
+  const id = parseInt(parts[2], 10);
+  if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+  return await handleCleaningEntryDelete(request, env, corsOkHeaders, authUser, id);
+}
+if (url.pathname === "/cleaning/report" && request.method === "GET") {
+  return await handleCleaningReport(request, env, corsOkHeaders, authUser, url);
+}
+
+
+    return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+  },
+
+  async scheduled(event, env, ctx) {
+    // Next phase: sync_jobs -> Ragic with throttling + verification.
+  }
+};
