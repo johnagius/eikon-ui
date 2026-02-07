@@ -31,8 +31,28 @@ function parseAllowedOrigins(env) {
 function corsHeadersForRequest(request, env) {
   const origin = request.headers.get("Origin") || "";
   const allowed = parseAllowedOrigins(env);
+  const selfOrigin = new URL(request.url).origin;
 
-  if (!origin || allowed.length === 0) {
+  // If Origin is missing (same-origin requests often omit it), allow.
+  if (!origin) {
+    return { ok: true, headers: { "Vary": "Origin" } };
+  }
+
+  // Always allow same-origin
+  if (origin === selfOrigin) {
+    return {
+      ok: true,
+      headers: {
+        "Access-Control-Allow-Origin": origin,
+        "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        "Access-Control-Max-Age": "86400",
+        "Vary": "Origin"
+      }
+    };
+  }
+
+  if (allowed.length === 0) {
     return { ok: false, headers: { "Vary": "Origin" } };
   }
 
@@ -210,16 +230,16 @@ function htmlPage(title, bodyHtml) {
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>${title}</title>
+<title>${escapeHtml(title)}</title>
 <style>
-  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:720px;margin:40px auto;padding:0 16px;}
-  .card{border:1px solid #ddd;border-radius:10px;padding:18px;margin-top:16px;}
-  label{display:block;margin-top:10px;font-weight:600;}
-  input{width:100%;padding:10px;border:1px solid #ccc;border-radius:8px;margin-top:6px;}
-  button{margin-top:16px;padding:10px 14px;border:0;border-radius:8px;background:#111;color:#fff;font-weight:700;cursor:pointer;}
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:820px;margin:40px auto;padding:0 16px;}
+  .card{border:1px solid #ddd;border-radius:12px;padding:18px;margin-top:16px;}
+  label{display:block;margin-top:10px;font-weight:700;}
+  input{width:100%;padding:10px;border:1px solid #ccc;border-radius:10px;margin-top:6px;}
+  button{margin-top:16px;padding:10px 14px;border:0;border-radius:10px;background:#111;color:#fff;font-weight:800;cursor:pointer;}
   code{background:#f6f6f6;padding:2px 6px;border-radius:6px;}
-  .ok{color:green;font-weight:700;}
-  .err{color:#b00020;font-weight:700;}
+  .ok{color:green;font-weight:800;}
+  .err{color:#b00020;font-weight:800;}
 </style>
 </head>
 <body>
@@ -313,7 +333,7 @@ async function handleBootstrapPost(request, env) {
     const locationId = locRow.id;
 
     const salt = crypto.getRandomValues(new Uint8Array(16));
-    const iters = 100000; // <= Worker limit
+    const iters = 100000;
     const hash = await pbkdf2Hash(adminPassword, salt, iters);
     const saltB64 = base64FromBytes(salt);
     const hashB64 = base64FromBytes(hash);
@@ -347,7 +367,7 @@ async function handleBootstrapPost(request, env) {
       "Bootstrap error",
       `<h1>Bootstrap error</h1>
 <p class="err">The Worker caught an exception.</p>
-<pre style="white-space:pre-wrap;background:#f6f6f6;padding:12px;border-radius:8px;border:1px solid #ddd;">${escapeHtml(e && (e.stack || e.message || String(e)))}</pre>`
+<pre style="white-space:pre-wrap;background:#f6f6f6;padding:12px;border-radius:10px;border:1px solid #ddd;">${escapeHtml(e && (e.stack || e.message || String(e)))}</pre>`
     );
   }
 }
@@ -411,7 +431,8 @@ async function handleLogin(request, env, corsOkHeaders) {
         full_name: user.full_name,
         role: user.role,
         location_id: loc.id,
-        location_name: loc.name
+        location_name: loc.name,
+        org_name: (await dbFirst(env, "SELECT name FROM orgs WHERE id = ?", [user.org_id]))?.name || ""
       }
     },
     200,
@@ -427,8 +448,17 @@ function isValidYmd(s) {
   return /^\d{4}-\d{2}-\d{2}$/.test(String(s || "").trim());
 }
 
+function isValidYm(s) {
+  return /^\d{4}-\d{2}$/.test(String(s || "").trim());
+}
+
+function isValidHm(s) {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(String(s || "").trim());
+}
+
 function clampToOneDecimal(n) {
   if (n === null || n === undefined) return null;
+  if (n === "") return null;
   const v = Number(n);
   if (!Number.isFinite(v)) return null;
   return Math.round(v * 10) / 10;
@@ -565,10 +595,6 @@ async function handleTempDevicesUpdate(request, env, corsOkHeaders, authUser, de
   });
 
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
-}
-
-async function handleTempDevicesDeactivate(request, env, corsOkHeaders, authUser, deviceId) {
-  return await handleTempDevicesUpdate(request, env, corsOkHeaders, authUser, deviceId);
 }
 
 async function assertDeviceBelongsActive(env, orgId, locationId, deviceId) {
@@ -763,14 +789,112 @@ async function handleTempReport(request, env, corsOkHeaders, authUser, url) {
   );
 }
 
-/* =========================
-   CLEANING MODULE
-   ========================= */
-
-function isValidHm(s) {
-  const v = String(s || "").trim();
-  return /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
+function ymFromYmd(ymd) {
+  return String(ymd || "").slice(0, 7);
 }
+
+function htmlReportPage(title, htmlBody) {
+  return new Response(
+    `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>${escapeHtml(title)}</title>
+<style>
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:22px;color:#111;}
+  h1{margin:0 0 6px 0;font-size:20px;}
+  .meta{color:#444;margin:0 0 16px 0;font-size:13px;}
+  h2{margin:18px 0 8px 0;font-size:16px;}
+  table{width:100%;border-collapse:collapse;margin-top:8px;}
+  th,td{border:1px solid #bbb;padding:6px 8px;font-size:12px;vertical-align:top;}
+  th{background:#f2f2f2;}
+  .small{font-size:11px;color:#444;}
+  @media print{
+    .no-print{display:none;}
+    body{margin:0;}
+  }
+</style>
+</head>
+<body>
+<div class="no-print" style="margin-bottom:10px;">
+  <button onclick="window.print()" style="padding:8px 12px;font-weight:700;">Print</button>
+</div>
+${htmlBody}
+</body>
+</html>`,
+    {
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "no-store"
+      }
+    }
+  );
+}
+
+async function handleTempReportHtml(request, env, corsOkHeaders, authUser, url) {
+  const out = await handleTempReport(request, env, corsOkHeaders, authUser, url);
+  const data = await out.json();
+
+  if (!data.ok) return out;
+
+  const devices = data.devices || [];
+  const entries = data.entries || [];
+
+  // Build map by date -> device_id -> {min,max}
+  const map = new Map(); // date -> Map(device_id -> cell)
+  for (const e of entries) {
+    const d = e.entry_date;
+    if (!map.has(d)) map.set(d, new Map());
+    map.get(d).set(Number(e.device_id), {
+      min: e.min_temp,
+      max: e.max_temp
+    });
+  }
+
+  // Group dates by month
+  const dates = Array.from(map.keys()).sort();
+  const byMonth = new Map();
+  for (const d of dates) {
+    const ym = ymFromYmd(d);
+    if (!byMonth.has(ym)) byMonth.set(ym, []);
+    byMonth.get(ym).push(d);
+  }
+
+  let body = "";
+  body += `<h1>${escapeHtml(data.org_name || "Pharmacy")} — Temperature Report</h1>`;
+  body += `<p class="meta">Location: ${escapeHtml(data.location_name || "")}<br/>Range: ${escapeHtml(data.from)} to ${escapeHtml(data.to)}</p>`;
+
+  for (const [ym, dlist] of byMonth.entries()) {
+    body += `<h2>${escapeHtml(ym)}</h2>`;
+    body += `<table><thead><tr><th>Date</th>`;
+    for (const dev of devices) {
+      body += `<th>${escapeHtml(dev.name)}<div class="small">${escapeHtml(dev.device_type)}</div></th>`;
+    }
+    body += `</tr></thead><tbody>`;
+    for (const d of dlist) {
+      body += `<tr><td>${escapeHtml(d)}</td>`;
+      const rowMap = map.get(d) || new Map();
+      for (const dev of devices) {
+        const cell = rowMap.get(Number(dev.id));
+        if (!cell) body += `<td></td>`;
+        else {
+          const min = (cell.min === null || cell.min === undefined) ? "" : Number(cell.min).toFixed(1);
+          const max = (cell.max === null || cell.max === undefined) ? "" : Number(cell.max).toFixed(1);
+          body += `<td>${escapeHtml(min)}${min && max ? " / " : ""}${escapeHtml(max)}</td>`;
+        }
+      }
+      body += `</tr>`;
+    }
+    body += `</tbody></table>`;
+  }
+
+  return htmlReportPage("Temperature Report", body);
+}
+
+/* =========================
+   CLEANING MODULE (API)
+   ========================= */
 
 async function handleCleaningEntriesList(request, env, corsOkHeaders, authUser, url) {
   const month = (url.searchParams.get("month") || "").trim();
@@ -961,6 +1085,43 @@ async function handleCleaningReport(request, env, corsOkHeaders, authUser, url) 
   );
 }
 
+async function handleCleaningReportHtml(request, env, corsOkHeaders, authUser, url) {
+  const out = await handleCleaningReport(request, env, corsOkHeaders, authUser, url);
+  const data = await out.json();
+  if (!data.ok) return out;
+
+  const entries = data.entries || [];
+
+  // Group by month
+  const byMonth = new Map();
+  for (const e of entries) {
+    const ym = ymFromYmd(e.entry_date);
+    if (!byMonth.has(ym)) byMonth.set(ym, []);
+    byMonth.get(ym).push(e);
+  }
+
+  let body = "";
+  body += `<h1>${escapeHtml(data.org_name || "Pharmacy")} — Cleaning Report</h1>`;
+  body += `<p class="meta">Location: ${escapeHtml(data.location_name || "")}<br/>Range: ${escapeHtml(data.from)} to ${escapeHtml(data.to)}</p>`;
+
+  for (const [ym, list] of byMonth.entries()) {
+    body += `<h2>${escapeHtml(ym)}</h2>`;
+    body += `<table><thead><tr><th>Date</th><th>Time in</th><th>Time out</th><th>Cleaner</th><th>Staff</th><th>Notes</th></tr></thead><tbody>`;
+    for (const r of list) {
+      body += `<tr>
+        <td>${escapeHtml(r.entry_date)}</td>
+        <td>${escapeHtml(r.time_in)}</td>
+        <td>${escapeHtml(r.time_out || "")}</td>
+        <td>${escapeHtml(r.cleaner_name)}</td>
+        <td>${escapeHtml(r.staff_name)}</td>
+        <td>${escapeHtml(r.notes || "")}</td>
+      </tr>`;
+    }
+    body += `</tbody></table>`;
+  }
+
+  return htmlReportPage("Cleaning Report", body);
+}
 
 /* =========================
    UI FILE SERVING (/ui/*)
@@ -986,13 +1147,11 @@ function buildGithubRawUrl(env, uiPath) {
   const branch = (env.UI_GITHUB_BRANCH || "").trim() || "main";
   const dir = (env.UI_GITHUB_DIR || "").trim() || "ui";
 
-  // uiPath will be like: "main.js" or "modules.temperature.js"
   const safe = uiPath.replace(/^\/+/, "").replace(/\.\.+/g, ".");
   return `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${dir}/${safe}`;
 }
 
 async function handleUiAsset(request, env, url) {
-  // /ui/<file>
   const p = url.pathname;
   const rel = p.replace(/^\/ui\/?/, "");
   if (!rel || rel.endsWith("/")) {
@@ -1002,11 +1161,14 @@ async function handleUiAsset(request, env, url) {
   const cacheSeconds = parseInt((env.UI_CACHE_SECONDS || "300").trim(), 10);
   const ct = contentTypeForPath(rel);
 
-  // Cache key includes the full requested URL (your worker domain), not GitHub
   const cache = caches.default;
-  const cached = await cache.match(request);
-  if (cached) {
-    return cached;
+
+  // If caching disabled (0 or negative), skip cache entirely
+  const cachingEnabled = Number.isFinite(cacheSeconds) && cacheSeconds > 0;
+
+  if (cachingEnabled) {
+    const cached = await cache.match(request);
+    if (cached) return cached;
   }
 
   const ghUrl = buildGithubRawUrl(env, rel);
@@ -1028,23 +1190,27 @@ async function handleUiAsset(request, env, url) {
   const body = await ghRes.arrayBuffer();
   const headers = new Headers();
   headers.set("Content-Type", ct);
-  headers.set("Cache-Control", `public, max-age=${cacheSeconds}`);
+  headers.set("Cache-Control", cachingEnabled ? `public, max-age=${cacheSeconds}` : "no-store");
   headers.set("X-Source", "github-raw");
-  // Safe to allow cross-origin loads for CSS/JS
   headers.set("Access-Control-Allow-Origin", "*");
 
   const out = new Response(body, { status: 200, headers });
 
-  // Put in cache for next requests
-  await cache.put(request, out.clone());
+  if (cachingEnabled) {
+    await cache.put(request, out.clone());
+  }
+
   return out;
 }
+
+
+
 
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    // Serve UI assets without auth/cors checks
+    // UI assets
     if (url.pathname.startsWith("/ui/")) {
       return await handleUiAsset(request, env, url);
     }
@@ -1075,33 +1241,20 @@ export default {
       return await handleMe(env, corsOkHeaders, authUser);
     }
 
-    // Devices
+    // Temperature
     if (url.pathname === "/temperature/devices" && request.method === "GET") {
       return await handleTempDevicesList(request, env, corsOkHeaders, authUser);
     }
     if (url.pathname === "/temperature/devices" && request.method === "POST") {
       return await handleTempDevicesCreate(request, env, corsOkHeaders, authUser);
     }
-    if (url.pathname.startsWith("/temperature/devices/") && (request.method === "PUT" || request.method === "DELETE")) {
+    if (url.pathname.startsWith("/temperature/devices/") && request.method === "PUT") {
       const parts = url.pathname.split("/").filter(Boolean);
       const id = parseInt(parts[2], 10);
       if (!id) return jsonResponse({ ok: false, error: "Invalid device id" }, 400, corsOkHeaders);
-
-      if (request.method === "PUT") {
-        return await handleTempDevicesUpdate(request, env, corsOkHeaders, authUser, id);
-      }
-      if (request.method === "DELETE") {
-        const body = { active: false };
-        const wrapped = new Request(request.url, {
-          method: "PUT",
-          headers: request.headers,
-          body: JSON.stringify(body)
-        });
-        return await handleTempDevicesDeactivate(wrapped, env, corsOkHeaders, authUser, id);
-      }
+      return await handleTempDevicesUpdate(request, env, corsOkHeaders, authUser, id);
     }
 
-    // Entries
     if (url.pathname === "/temperature/entries" && request.method === "GET") {
       return await handleTempEntriesList(request, env, corsOkHeaders, authUser, url);
     }
@@ -1115,39 +1268,39 @@ export default {
       return await handleTempEntryDelete(request, env, corsOkHeaders, authUser, id);
     }
 
-    // Report (date range)
     if (url.pathname === "/temperature/report" && request.method === "GET") {
       return await handleTempReport(request, env, corsOkHeaders, authUser, url);
     }
+    if (url.pathname === "/temperature/report/html" && request.method === "GET") {
+      return await handleTempReportHtml(request, env, corsOkHeaders, authUser, url);
+    }
 
     // Cleaning
-if (url.pathname === "/cleaning/entries" && request.method === "GET") {
-  return await handleCleaningEntriesList(request, env, corsOkHeaders, authUser, url);
-}
-if (url.pathname === "/cleaning/entries" && request.method === "POST") {
-  return await handleCleaningEntryCreate(request, env, corsOkHeaders, authUser);
-}
-if (url.pathname.startsWith("/cleaning/entries/") && request.method === "PUT") {
-  const parts = url.pathname.split("/").filter(Boolean);
-  const id = parseInt(parts[2], 10);
-  if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
-  return await handleCleaningEntryUpdate(request, env, corsOkHeaders, authUser, id);
-}
-if (url.pathname.startsWith("/cleaning/entries/") && request.method === "DELETE") {
-  const parts = url.pathname.split("/").filter(Boolean);
-  const id = parseInt(parts[2], 10);
-  if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
-  return await handleCleaningEntryDelete(request, env, corsOkHeaders, authUser, id);
-}
-if (url.pathname === "/cleaning/report" && request.method === "GET") {
-  return await handleCleaningReport(request, env, corsOkHeaders, authUser, url);
-}
-
+    if (url.pathname === "/cleaning/entries" && request.method === "GET") {
+      return await handleCleaningEntriesList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/cleaning/entries" && request.method === "POST") {
+      return await handleCleaningEntryCreate(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname.startsWith("/cleaning/entries/") && request.method === "PUT") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const id = parseInt(parts[2], 10);
+      if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+      return await handleCleaningEntryUpdate(request, env, corsOkHeaders, authUser, id);
+    }
+    if (url.pathname.startsWith("/cleaning/entries/") && request.method === "DELETE") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const id = parseInt(parts[2], 10);
+      if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+      return await handleCleaningEntryDelete(request, env, corsOkHeaders, authUser, id);
+    }
+    if (url.pathname === "/cleaning/report" && request.method === "GET") {
+      return await handleCleaningReport(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/cleaning/report/html" && request.method === "GET") {
+      return await handleCleaningReportHtml(request, env, corsOkHeaders, authUser, url);
+    }
 
     return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
-  },
-
-  async scheduled(event, env, ctx) {
-    // Next phase: sync_jobs -> Ragic with throttling + verification.
   }
 };
