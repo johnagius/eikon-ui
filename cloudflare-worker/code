@@ -44,7 +44,7 @@ function corsHeadersForRequest(request, env) {
       ok: true,
       headers: {
         "Access-Control-Allow-Origin": origin,
-        "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
+        "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS,HEAD",
         "Access-Control-Allow-Headers": "Content-Type, Authorization",
         "Access-Control-Max-Age": "86400",
         "Vary": "Origin"
@@ -65,7 +65,7 @@ function corsHeadersForRequest(request, env) {
     ok: true,
     headers: {
       "Access-Control-Allow-Origin": origin,
-      "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
+      "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS,HEAD",
       "Access-Control-Allow-Headers": "Content-Type, Authorization",
       "Access-Control-Max-Age": "86400",
       "Vary": "Origin"
@@ -1124,6 +1124,575 @@ async function handleCleaningReportHtml(request, env, corsOkHeaders, authUser, u
 }
 
 /* =========================
+   CERTIFICATES MODULE (API)
+   ========================= */
+
+function addMonthsToYmd(ymd, months) {
+  const s = String(ymd || "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+
+  const y = parseInt(s.slice(0, 4), 10);
+  const m = parseInt(s.slice(5, 7), 10);
+  const d = parseInt(s.slice(8, 10), 10);
+
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
+
+  const targetMonthIndex = (m - 1) + Number(months || 0);
+  const ty = y + Math.floor(targetMonthIndex / 12);
+  const tm = (targetMonthIndex % 12 + 12) % 12; // 0..11
+
+  // Clamp day to end of month
+  const lastDay = new Date(Date.UTC(ty, tm + 1, 0)).getUTCDate();
+  const td = Math.min(d, lastDay);
+
+  const dt = new Date(Date.UTC(ty, tm, td));
+  return dt.toISOString().slice(0, 10);
+}
+
+async function ensureCertificatesSchema(env) {
+  console.log("[certificates] ensureCertificatesSchema() start");
+
+  await dbRun(
+    env,
+    `CREATE TABLE IF NOT EXISTS certificates_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+      item_key TEXT NOT NULL,
+      title TEXT NOT NULL,
+      subtitle TEXT NOT NULL,
+      last_label TEXT NOT NULL,
+      next_label TEXT NOT NULL,
+      interval_months INTEGER NOT NULL DEFAULT 12,
+      last_date TEXT,
+      certified_person TEXT,
+      requires_person INTEGER NOT NULL DEFAULT 0,
+      file_name TEXT,
+      file_mime TEXT,
+      file_size INTEGER,
+      file_uploaded_at TEXT,
+      file_r2_key TEXT,
+      file_b64 TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      created_by INTEGER,
+      updated_by INTEGER,
+      UNIQUE(org_id, location_id, item_key)
+    )`,
+    []
+  );
+
+  await dbRun(
+    env,
+    "CREATE INDEX IF NOT EXISTS idx_certificates_items_org_loc ON certificates_items (org_id, location_id)",
+    []
+  );
+
+  console.log("[certificates] ensureCertificatesSchema() done");
+}
+
+async function ensureDefaultCertificatesIfMissing(env, authUser) {
+  await ensureCertificatesSchema(env);
+
+  const existing = await dbFirst(
+    env,
+    "SELECT COUNT(*) AS c FROM certificates_items WHERE org_id = ? AND location_id = ?",
+    [authUser.org_id, authUser.location_id]
+  );
+
+  const c = existing && existing.c ? Number(existing.c) : 0;
+  console.log("[certificates] ensureDefaultCertificatesIfMissing() existing count=", c);
+
+  if (c > 0) return;
+
+  if (!requireRole(authUser, ["admin"])) return;
+
+  const defaults = [
+    {
+      item_key: "thermometer_calibration",
+      title: "Thermometer Calibration",
+      subtitle: "Yearly calibration",
+      last_label: "Last Calibration",
+      next_label: "Next Due",
+      interval_months: 12,
+      requires_person: 0
+    },
+    {
+      item_key: "ac_maintenance",
+      title: "AC Maintenance",
+      subtitle: "Yearly service",
+      last_label: "Last Service",
+      next_label: "Next Due",
+      interval_months: 12,
+      requires_person: 0
+    },
+    {
+      item_key: "first_aid_certificate",
+      title: "First Aid Certificate",
+      subtitle: "3 year renewal",
+      last_label: "Issued / Last Renewal",
+      next_label: "Renew By",
+      interval_months: 36,
+      requires_person: 1
+    },
+    {
+      item_key: "dispensary_licence",
+      title: "Dispensary Licence",
+      subtitle: "Yearly renewal",
+      last_label: "Last Renewal",
+      next_label: "Renew By",
+      interval_months: 12,
+      requires_person: 0
+    },
+    {
+      item_key: "fire_extinguisher",
+      title: "Fire Extinguisher",
+      subtitle: "Yearly renewal",
+      last_label: "Last Renewal",
+      next_label: "Renew By",
+      interval_months: 12,
+      requires_person: 0
+    },
+    {
+      item_key: "pest_control",
+      title: "Pest Control",
+      subtitle: "Yearly service",
+      last_label: "Last Service",
+      next_label: "Next Due",
+      interval_months: 12,
+      requires_person: 0
+    },
+    {
+      item_key: "fire_training",
+      title: "Fire Training",
+      subtitle: "3 year renewal",
+      last_label: "Issued / Last Renewal",
+      next_label: "Renew By",
+      interval_months: 36,
+      requires_person: 1
+    },
+    {
+      item_key: "reverse_osmosis_system",
+      title: "Reverse Osmosis System",
+      subtitle: "Yearly service",
+      last_label: "Last Service",
+      next_label: "Next Due",
+      interval_months: 12,
+      requires_person: 0
+    }
+  ];
+
+  for (const it of defaults) {
+    console.log("[certificates] inserting default item", it.item_key);
+    await dbRun(
+      env,
+      `INSERT INTO certificates_items
+        (org_id, location_id, item_key, title, subtitle, last_label, next_label, interval_months, requires_person, created_at, updated_at, created_by, updated_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), ?, ?)
+       ON CONFLICT(org_id, location_id, item_key)
+       DO NOTHING`,
+      [
+        authUser.org_id,
+        authUser.location_id,
+        it.item_key,
+        it.title,
+        it.subtitle,
+        it.last_label,
+        it.next_label,
+        it.interval_months,
+        it.requires_person ? 1 : 0,
+        authUser.user_id,
+        authUser.user_id
+      ]
+    );
+  }
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CERT_DEFAULT_ITEMS_CREATE", "location", String(authUser.location_id), {});
+  console.log("[certificates] default items ensured");
+}
+
+async function getCertificateItemByIdOrKey(env, authUser, idOrKey) {
+  const raw = String(idOrKey || "").trim();
+  if (!raw) return null;
+
+  let row = null;
+
+  if (/^\d+$/.test(raw)) {
+    const id = parseInt(raw, 10);
+    row = await dbFirst(
+      env,
+      `SELECT *
+       FROM certificates_items
+       WHERE id = ? AND org_id = ? AND location_id = ?`,
+      [id, authUser.org_id, authUser.location_id]
+    );
+    if (row) return row;
+  }
+
+  row = await dbFirst(
+    env,
+    `SELECT *
+     FROM certificates_items
+     WHERE item_key = ? AND org_id = ? AND location_id = ?`,
+    [raw, authUser.org_id, authUser.location_id]
+  );
+
+  return row || null;
+}
+
+async function handleCertificatesItemsList(request, env, corsOkHeaders, authUser) {
+  console.log("[certificates] LIST start", { org_id: authUser.org_id, location_id: authUser.location_id });
+
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDefaultCertificatesIfMissing(env, authUser);
+
+  const items = await dbAll(
+    env,
+    `SELECT
+       id,
+       item_key,
+       title,
+       subtitle,
+       last_label,
+       next_label,
+       interval_months,
+       last_date,
+       certified_person,
+       requires_person,
+       file_name,
+       file_mime,
+       file_size,
+       file_uploaded_at,
+       file_r2_key,
+       created_at,
+       updated_at
+     FROM certificates_items
+     WHERE org_id = ? AND location_id = ?
+     ORDER BY id ASC`,
+    [authUser.org_id, authUser.location_id]
+  );
+
+  const out = [];
+  for (const it of items) {
+    const next_due = (it.last_date && it.interval_months)
+      ? addMonthsToYmd(it.last_date, Number(it.interval_months))
+      : null;
+
+    out.push({
+      id: it.id,
+      item_key: it.item_key,
+      title: it.title,
+      subtitle: it.subtitle,
+      last_label: it.last_label,
+      next_label: it.next_label,
+      interval_months: Number(it.interval_months || 12),
+      last_date: it.last_date || null,
+      next_due: next_due,
+      certified_person: it.certified_person || "",
+      requires_person: it.requires_person ? 1 : 0,
+      file_name: it.file_name || "",
+      file_uploaded_at: it.file_uploaded_at || "",
+      file_mime: it.file_mime || "",
+      file_size: it.file_size === null || it.file_size === undefined ? null : Number(it.file_size),
+      file_r2_key: it.file_r2_key || ""
+    });
+  }
+
+  console.log("[certificates] LIST done count=", out.length);
+  return jsonResponse({ ok: true, items: out }, 200, corsOkHeaders);
+}
+
+async function handleCertificatesItemUpdate(request, env, corsOkHeaders, authUser, idOrKey) {
+  console.log("[certificates] UPDATE start", { idOrKey: String(idOrKey), org_id: authUser.org_id, location_id: authUser.location_id });
+
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDefaultCertificatesIfMissing(env, authUser);
+
+  const existing = await getCertificateItemByIdOrKey(env, authUser, idOrKey);
+  if (!existing) {
+    console.log("[certificates] UPDATE not found", { idOrKey: String(idOrKey) });
+    return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+  }
+
+  const body = await readJson(request);
+
+  const lastDate = body.last_date === null || body.last_date === undefined ? undefined : String(body.last_date || "").trim();
+  const intervalMonths = body.interval_months === null || body.interval_months === undefined ? undefined : parseInt(body.interval_months, 10);
+  const certifiedPerson = body.certified_person === undefined ? undefined : String(body.certified_person || "").trim();
+
+  if (lastDate !== undefined) {
+    if (lastDate && !isValidYmd(lastDate)) {
+      return jsonResponse({ ok: false, error: "Invalid last_date (YYYY-MM-DD or null)" }, 400, corsOkHeaders);
+    }
+  }
+
+  let newInterval = existing.interval_months;
+  if (intervalMonths !== undefined) {
+    if (!Number.isFinite(intervalMonths) || intervalMonths < 1 || intervalMonths > 240) {
+      return jsonResponse({ ok: false, error: "Invalid interval_months (1..240)" }, 400, corsOkHeaders);
+    }
+    newInterval = intervalMonths;
+  }
+
+  let newLast = existing.last_date;
+  if (lastDate !== undefined) {
+    newLast = lastDate ? lastDate : null;
+  }
+
+  let newPerson = existing.certified_person;
+  if (existing.requires_person === 1) {
+    if (certifiedPerson !== undefined) newPerson = certifiedPerson;
+  } else {
+    if (certifiedPerson !== undefined) {
+      console.log("[certificates] UPDATE: ignoring certified_person (requires_person=0)");
+    }
+  }
+
+  await dbRun(
+    env,
+    `UPDATE certificates_items
+     SET last_date = ?, interval_months = ?, certified_person = ?, updated_at = datetime('now'), updated_by = ?
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [
+      newLast,
+      newInterval,
+      existing.requires_person === 1 ? (newPerson || "") : (existing.certified_person || ""),
+      authUser.user_id,
+      existing.id,
+      authUser.org_id,
+      authUser.location_id
+    ]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CERT_ITEM_UPDATE", "certificates_items", String(existing.id), {
+    id: existing.id,
+    item_key: existing.item_key,
+    last_date: newLast,
+    interval_months: newInterval,
+    certified_person: (existing.requires_person === 1 ? (newPerson || "") : "")
+  });
+
+  console.log("[certificates] UPDATE done", { id: existing.id, item_key: existing.item_key });
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleCertificatesUpload(request, env, corsOkHeaders, authUser, idOrKey) {
+  console.log("[certificates] UPLOAD start", { idOrKey: String(idOrKey), ct: request.headers.get("Content-Type") || "" });
+
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDefaultCertificatesIfMissing(env, authUser);
+
+  const existing = await getCertificateItemByIdOrKey(env, authUser, idOrKey);
+  if (!existing) {
+    console.log("[certificates] UPLOAD not found", { idOrKey: String(idOrKey) });
+    return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+  }
+
+  const ct = (request.headers.get("Content-Type") || "").toLowerCase();
+
+  let fileName = "";
+  let fileMime = "application/octet-stream";
+  let fileSize = 0;
+  let bytes = null;
+
+  if (ct.includes("multipart/form-data")) {
+    const form = await request.formData();
+    const f = form.get("file");
+
+    if (!f) return jsonResponse({ ok: false, error: "Missing form field: file" }, 400, corsOkHeaders);
+    if (!(f instanceof File)) return jsonResponse({ ok: false, error: "Invalid file upload" }, 400, corsOkHeaders);
+
+    fileName = String(f.name || "upload.bin");
+    fileMime = String(f.type || "application/octet-stream");
+    fileSize = Number(f.size || 0);
+
+    const ab = await f.arrayBuffer();
+    bytes = new Uint8Array(ab);
+
+    console.log("[certificates] UPLOAD multipart received", { fileName, fileMime, fileSize });
+  } else if (ct.includes("application/json")) {
+    const body = await readJson(request);
+
+    fileName = String(body.file_name || "").trim();
+    fileMime = String(body.file_mime || "application/octet-stream").trim() || "application/octet-stream";
+    const b64 = String(body.file_b64 || "").trim();
+
+    if (!fileName) return jsonResponse({ ok: false, error: "Missing file_name" }, 400, corsOkHeaders);
+    if (!b64) return jsonResponse({ ok: false, error: "Missing file_b64" }, 400, corsOkHeaders);
+
+    try {
+      bytes = bytesFromBase64(b64);
+    } catch (e) {
+      console.log("[certificates] UPLOAD json base64 decode failed", e && (e.stack || e.message || String(e)));
+      return jsonResponse({ ok: false, error: "Invalid base64" }, 400, corsOkHeaders);
+    }
+
+    fileSize = bytes.length;
+
+    console.log("[certificates] UPLOAD json received", { fileName, fileMime, fileSize });
+  } else {
+    return jsonResponse({ ok: false, error: "Unsupported Content-Type for upload" }, 415, corsOkHeaders);
+  }
+
+  const maxBytes = parseInt((env.CERT_UPLOAD_MAX_BYTES || "800000").trim(), 10);
+  const hasR2 = !!env.CERTS_R2;
+
+  if (!hasR2 && fileSize > maxBytes) {
+    console.log("[certificates] UPLOAD too large for D1 base64", { fileSize, maxBytes });
+    return jsonResponse({ ok: false, error: `File too large (${fileSize} bytes). Max without R2 is ${maxBytes}.` }, 413, corsOkHeaders);
+  }
+
+  let fileR2Key = null;
+  let fileB64 = null;
+
+  if (hasR2) {
+    const safeName = fileName.replace(/[^\w.\-() ]+/g, "_").slice(0, 120) || "upload.bin";
+    fileR2Key = `certificates/org_${authUser.org_id}/loc_${authUser.location_id}/${existing.item_key}/${Date.now()}_${safeName}`;
+
+    console.log("[certificates] UPLOAD storing in R2", { fileR2Key });
+
+    await env.CERTS_R2.put(fileR2Key, bytes, {
+      httpMetadata: {
+        contentType: fileMime
+      }
+    });
+
+    fileB64 = null;
+  } else {
+    fileB64 = base64FromBytes(bytes);
+    fileR2Key = null;
+
+    console.log("[certificates] UPLOAD storing in D1 (base64)", { fileSize });
+  }
+
+  await dbRun(
+    env,
+    `UPDATE certificates_items
+     SET file_name = ?, file_mime = ?, file_size = ?, file_uploaded_at = datetime('now'),
+         file_r2_key = ?, file_b64 = ?, updated_at = datetime('now'), updated_by = ?
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [
+      fileName,
+      fileMime,
+      fileSize,
+      fileR2Key,
+      fileB64,
+      authUser.user_id,
+      existing.id,
+      authUser.org_id,
+      authUser.location_id
+    ]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CERT_FILE_UPLOAD", "certificates_items", String(existing.id), {
+    id: existing.id,
+    item_key: existing.item_key,
+    file_name: fileName,
+    file_mime: fileMime,
+    file_size: fileSize,
+    stored: hasR2 ? "r2" : "d1_base64"
+  });
+
+  console.log("[certificates] UPLOAD done", { id: existing.id, item_key: existing.item_key });
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+/* ===== CERTIFICATES: DOWNLOAD ENDPOINT PATCH ===== */
+
+function sanitizeFilenameForHeader(name) {
+  let s = String(name || "").trim();
+  if (!s) s = "download.bin";
+  s = s.replace(/[/\\]+/g, "_");
+  s = s.replace(/[\x00-\x1F\x7F]/g, "_");
+  s = s.replace(/\s+/g, " ").trim();
+  if (s.length > 180) s = s.slice(0, 180);
+  return s;
+}
+
+function contentDispositionHeader(filename, inline) {
+  const safe = sanitizeFilenameForHeader(filename);
+  const asciiFallback = safe.replace(/[^A-Za-z0-9._-]/g, "_") || "download.bin";
+  const utf8 = encodeURIComponent(safe)
+    .replace(/'/g, "%27")
+    .replace(/\(/g, "%28")
+    .replace(/\)/g, "%29")
+    .replace(/\*/g, "%2A");
+
+  return `${inline ? "inline" : "attachment"}; filename="${asciiFallback}"; filename*=UTF-8''${utf8}`;
+}
+
+async function handleCertificatesDownload(request, env, corsOkHeaders, authUser, idOrKey) {
+  console.log("[certificates] DOWNLOAD start", { idOrKey: String(idOrKey), org_id: authUser.org_id, location_id: authUser.location_id });
+
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDefaultCertificatesIfMissing(env, authUser);
+
+  const existing = await getCertificateItemByIdOrKey(env, authUser, idOrKey);
+  if (!existing) {
+    console.log("[certificates] DOWNLOAD not found item", { idOrKey: String(idOrKey) });
+    return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+  }
+
+  const hasFile = !!(existing.file_r2_key || existing.file_b64);
+  if (!hasFile) {
+    return jsonResponse({ ok: false, error: "No file uploaded" }, 404, corsOkHeaders);
+  }
+
+  const url = new URL(request.url);
+  const inline = url.searchParams.get("inline") === "1";
+
+  const fileName = existing.file_name || `${existing.item_key || "certificate"}.bin`;
+  const fileMime = (existing.file_mime || "application/octet-stream").trim() || "application/octet-stream";
+
+  const headers = {
+    ...corsOkHeaders,
+    "Content-Type": fileMime,
+    "Content-Disposition": contentDispositionHeader(fileName, inline),
+    "Cache-Control": "no-store",
+    "X-Content-Type-Options": "nosniff",
+    "Access-Control-Expose-Headers": "Content-Disposition, Content-Type, Content-Length"
+  };
+
+  // Prefer R2
+  if (existing.file_r2_key && env.CERTS_R2) {
+    const obj = await env.CERTS_R2.get(existing.file_r2_key);
+    if (!obj) {
+      console.log("[certificates] DOWNLOAD missing R2 object", { key: existing.file_r2_key });
+      return jsonResponse({ ok: false, error: "File missing" }, 404, corsOkHeaders);
+    }
+    return new Response(obj.body, { status: 200, headers });
+  }
+
+  // Fallback to D1 base64
+  if (existing.file_b64) {
+    let bytes;
+    try {
+      bytes = bytesFromBase64(String(existing.file_b64 || "").trim());
+    } catch (e) {
+      console.log("[certificates] DOWNLOAD base64 decode failed", e && (e.stack || e.message || String(e)));
+      return jsonResponse({ ok: false, error: "Corrupt stored file" }, 500, corsOkHeaders);
+    }
+
+    headers["Content-Length"] = String(bytes.length);
+    return new Response(bytes, { status: 200, headers });
+  }
+
+  return jsonResponse({ ok: false, error: "File missing" }, 404, corsOkHeaders);
+}
+
+/* =========================
    UI FILE SERVING (/ui/*)
    ========================= */
 
@@ -1151,6 +1720,14 @@ function buildGithubRawUrl(env, uiPath) {
   return `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${dir}/${safe}`;
 }
 
+function sanitizeJsSourceText(s) {
+  return String(s || "")
+    .replace(/\uFEFF/g, "")
+    .replace(/\u0000/g, "")
+    .replace(/\u2028/g, "\n")
+    .replace(/\u2029/g, "\n");
+}
+
 async function handleUiAsset(request, env, url) {
   const p = url.pathname;
   const rel = p.replace(/^\/ui\/?/, "");
@@ -1163,7 +1740,6 @@ async function handleUiAsset(request, env, url) {
 
   const cache = caches.default;
 
-  // If caching disabled (0 or negative), skip cache entirely
   const cachingEnabled = Number.isFinite(cacheSeconds) && cacheSeconds > 0;
 
   if (cachingEnabled) {
@@ -1187,7 +1763,22 @@ async function handleUiAsset(request, env, url) {
     });
   }
 
-  const body = await ghRes.arrayBuffer();
+  let body = await ghRes.arrayBuffer();
+
+  // Patch: sanitize problematic Unicode that can cause "Invalid or unexpected token"
+  if (rel.toLowerCase().endsWith(".js")) {
+    try {
+      const dec = new TextDecoder("utf-8");
+      const txt = dec.decode(body);
+      const clean = sanitizeJsSourceText(txt);
+      if (clean !== txt) {
+        body = new TextEncoder().encode(clean).buffer;
+      }
+    } catch (e) {
+      // serve original bytes if sanitize fails
+    }
+  }
+
   const headers = new Headers();
   headers.set("Content-Type", ct);
   headers.set("Cache-Control", cachingEnabled ? `public, max-age=${cacheSeconds}` : "no-store");
@@ -1202,9 +1793,6 @@ async function handleUiAsset(request, env, url) {
 
   return out;
 }
-
-
-
 
 export default {
   async fetch(request, env, ctx) {
@@ -1299,6 +1887,41 @@ export default {
     }
     if (url.pathname === "/cleaning/report/html" && request.method === "GET") {
       return await handleCleaningReportHtml(request, env, corsOkHeaders, authUser, url);
+    }
+
+    // Certificates (DOWNLOAD) - PATCH
+    if (url.pathname.startsWith("/certificates/items/") && (request.method === "GET" || request.method === "HEAD")) {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const idOrKey = parts[2];
+      const tail = parts[3] || "";
+
+      if ((tail === "download" || tail === "file") && idOrKey) {
+        const res = await handleCertificatesDownload(request, env, corsOkHeaders, authUser, idOrKey);
+        if (request.method === "HEAD") {
+          const h = new Headers(res.headers);
+          return new Response(null, { status: res.status, headers: h });
+        }
+        return res;
+      }
+    }
+
+    // Certificates
+    if (url.pathname === "/certificates/items" && request.method === "GET") {
+      return await handleCertificatesItemsList(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname.startsWith("/certificates/items/") && request.method === "PUT") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const idOrKey = parts[2]; // /certificates/items/:idOrKey
+      if (!idOrKey) return jsonResponse({ ok: false, error: "Invalid item id/key" }, 400, corsOkHeaders);
+      return await handleCertificatesItemUpdate(request, env, corsOkHeaders, authUser, idOrKey);
+    }
+    if (url.pathname.startsWith("/certificates/items/") && request.method === "POST") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const idOrKey = parts[2]; // /certificates/items/:idOrKey/upload
+      const tail = parts[3] || "";
+      if (tail !== "upload") return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+      if (!idOrKey) return jsonResponse({ ok: false, error: "Invalid item id/key" }, 400, corsOkHeaders);
+      return await handleCertificatesUpload(request, env, corsOkHeaders, authUser, idOrKey);
     }
 
     return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
