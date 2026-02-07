@@ -171,6 +171,101 @@
     }
   }
 
+  // -------------------------------
+  // PRINT HELPERS (Temperature-style)
+  // -------------------------------
+  function buildCleaningPrintHtml(month, entries) {
+    month = String(month || "");
+    entries = Array.isArray(entries) ? entries : [];
+
+    function esc2(s) {
+      return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+        return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c];
+      });
+    }
+
+    var rows = entries.slice().sort(function (a, b) {
+      var ad = String((a && a.entry_date) || "");
+      var bd = String((b && b.entry_date) || "");
+      if (ad !== bd) return ad.localeCompare(bd);
+      var ati = String((a && a.time_in) || "");
+      var bti = String((b && b.time_in) || "");
+      return ati.localeCompare(bti);
+    }).map(function (r) {
+      return "<tr>" +
+        "<td style='white-space:nowrap;'>" + esc2(r.entry_date || "") + "</td>" +
+        "<td>" + esc2(r.time_in || "") + "</td>" +
+        "<td>" + esc2(r.time_out || "") + "</td>" +
+        "<td>" + esc2(r.cleaner_name || "") + "</td>" +
+        "<td>" + esc2(r.staff_name || "") + "</td>" +
+        "<td>" + esc2(r.notes || "") + "</td>" +
+        "</tr>";
+    }).join("");
+
+    var title = "Cleaning Register";
+    var subtitle = month ? ("Month • " + month) : "";
+
+    return "<!doctype html>\n" +
+      "<html>\n<head>\n<meta charset='utf-8'/>" +
+      "<meta name='viewport' content='width=device-width, initial-scale=1'/>" +
+      "<title>" + esc2(title) + (month ? (" - " + esc2(month)) : "") + "</title>\n" +
+      "<style>\n" +
+      "body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; margin:24px; color:#000;}\n" +
+      "h1{margin:0 0 6px 0; font-size:22px;}\n" +
+      ".sub{margin:0 0 18px 0; color:#333; font-size:13px;}\n" +
+      "table{width:100%; border-collapse:collapse; margin:0 0 14px 0; table-layout:fixed;}\n" +
+      "th,td{border:1px solid #000; padding:8px 8px; vertical-align:top; font-size:12px; word-wrap:break-word;}\n" +
+      "th{background:#f2f2f2; font-size:11px; text-transform:uppercase; letter-spacing:0.6px;}\n" +
+      "@media print{body{margin:12mm;} h1{font-size:18px;} .sub{font-size:12px;} table{page-break-inside:auto;} tr{page-break-inside:avoid; page-break-after:auto;}}\n" +
+      "</style>\n</head>\n<body>\n" +
+      "<h1>" + esc2(title) + "</h1>\n" +
+      "<p class='sub'>" + esc2(subtitle) + "</p>\n" +
+      "<table>\n" +
+      "<thead><tr>" +
+      "<th>Date</th><th>Time In</th><th>Time Out</th><th>Cleaner</th><th>Staff</th><th>Notes</th>" +
+      "</tr></thead>\n" +
+      "<tbody>\n" + rows + "\n</tbody>\n" +
+      "</table>\n" +
+      "<script>\n" +
+      "window.addEventListener('load', function(){\n" +
+      "  setTimeout(function(){ try{window.focus();}catch(e){} try{window.print();}catch(e){} }, 80);\n" +
+      "});\n" +
+      "window.addEventListener('afterprint', function(){\n" +
+      "  setTimeout(function(){ try{window.close();}catch(e){} }, 250);\n" +
+      "});\n" +
+      "</script>\n" +
+      "</body>\n</html>";
+  }
+
+  function openPrintTabWithHtml(html) {
+    var blob = new Blob([html], { type: "text/html" });
+    var url = URL.createObjectURL(blob);
+
+    var w = null;
+    try {
+      w = window.open(url, "_blank", "noopener");
+    } catch (e) {
+      w = null;
+    }
+
+    if (!w) {
+      try {
+        var a = document.createElement("a");
+        a.href = url;
+        a.target = "_blank";
+        a.rel = "noopener";
+        a.style.display = "none";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      } catch (e2) {}
+    }
+
+    setTimeout(function () {
+      try { URL.revokeObjectURL(url); } catch (e3) {}
+    }, 60000);
+  }
+
   async function render(ctx) {
     var mount = ctx.mount;
     E.dbg("[cleaning] render() start");
@@ -287,9 +382,26 @@
       refresh().catch(function (e) { E.error(e); });
     });
 
-    printBtn.addEventListener("click", function () {
+    // --------- ONLY CHANGE: Printing now works like Temperature (new tab + auto print) ----------
+    printBtn.addEventListener("click", async function () {
       E.dbg("[cleaning] print()");
-      try { window.print(); } catch (e) { E.error("[cleaning] print failed:", e); }
+      try {
+        var m = String(monthInput.value || state.lastMonth || month || ym(new Date())).trim();
+        state.lastMonth = m;
+
+        var entries = state.entriesByMonth[m];
+        if (!Array.isArray(entries)) {
+          entries = await loadEntries(m);
+        }
+
+        var html = buildCleaningPrintHtml(m, entries || []);
+        openPrintTabWithHtml(html);
+      } catch (e) {
+        E.error("[cleaning] print failed:", e);
+        E.modal.show("Print failed", '<div class="eikon-alert">' + esc(String(e && (e.message || e.bodyText || e))) + "</div>", [
+          { label: "Close", primary: true, onClick: function () { E.modal.hide(); } }
+        ]);
+      }
     });
 
     saveBtn.addEventListener("click", async function () {
