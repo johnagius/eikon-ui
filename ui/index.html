@@ -86,6 +86,7 @@
         .then(function () { return loadScript(withParams("./core.js")); })
         .then(function () { return loadScript(withParams("./modules.temperature.js")); })
         .then(function () { return loadScript(withParams("./modules.cleaning.js")); })
+        .then(function () { return loadScript(withParams("./modules.certificates.js")); })
         .then(function () { return loadScript(withParams("./main.js")); })
         .then(function () {
           log("[EIKON][boot] All assets loaded.");
