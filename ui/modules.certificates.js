@@ -111,7 +111,6 @@
     if (token) headers["Authorization"] = "Bearer " + token;
 
     var url = path;
-    // Ensure absolute/relative works in iframe
     if (String(url || "").indexOf("http") !== 0) {
       url = new URL(String(path || ""), window.location.origin).toString();
     }
@@ -131,85 +130,223 @@
     return { blob: blob, filename: filename, contentType: ct || blob.type || "" };
   }
 
-async function triggerDownloadForItem(item) {
-  if (!item || !item.id) throw new Error("Missing item");
-  if (!item.file_name) throw new Error("No file uploaded");
-
-  // Open a popup immediately (user gesture) to escape sandbox download restrictions
-  var w = null;
-  try {
-    w = window.open("", "_blank");
-  } catch (e) {}
-  if (!w) {
-    throw new Error("Popup blocked. Please allow popups for this site to download files.");
+  function isProbablyEmbedded() {
+    try {
+      return window.top && window.top !== window.self;
+    } catch (e) {
+      // cross-origin top access throws => you're embedded
+      return true;
+    }
   }
 
-  // Basic UI in the popup
-  try {
-    w.document.open();
-    w.document.write(
-      "<!doctype html><html><head><meta charset=\"utf-8\"/>" +
-      "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/>" +
-      "<title>Downloading…</title>" +
-      "<style>" +
-      "body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:22px;color:#111;}" +
-      ".card{border:1px solid #ddd;border-radius:12px;padding:14px;}" +
-      ".t{font-weight:900;font-size:16px;margin-bottom:6px;}" +
-      ".s{opacity:.75;}" +
-      "</style></head><body>" +
-      "<div class=\"card\">" +
-      "<div class=\"t\">Downloading…</div>" +
-      "<div class=\"s\" id=\"st\">Please wait</div>" +
-      "</div></body></html>"
-    );
-    w.document.close();
-  } catch (e2) {}
-
-  var dlPath = "/certificates/items/" + encodeURIComponent(String(item.id)) + "/download";
-  try {
-    var out = await fetchBlobWithAuth(dlPath);
-
-    var filename = out.filename || item.file_name || "download.bin";
-
-    // Create the download in the popup (not in the sandboxed iframe)
-    var ab = await out.blob.arrayBuffer();
-    var blob = new Blob([ab], { type: out.contentType || out.blob.type || "application/octet-stream" });
-    var blobUrl = w.URL.createObjectURL(blob);
-
+  function writePopupShell(w) {
     try {
-      var st = w.document.getElementById("st");
-      if (st) st.textContent = "Starting download: " + filename;
-    } catch (e3) {}
-
-    var a = w.document.createElement("a");
-    a.href = blobUrl;
-    a.download = filename;
-    a.rel = "noopener";
-    w.document.body.appendChild(a);
-
-    // Trigger download
-    a.click();
-
-    // Cleanup
-    setTimeout(function () {
-      try { w.URL.revokeObjectURL(blobUrl); } catch (e4) {}
-      try { a.remove(); } catch (e5) {}
-    }, 2500);
-
-    // Optionally close popup shortly after
-    setTimeout(function () {
-      try { w.close(); } catch (e6) {}
-    }, 3500);
-
-  } catch (e) {
-    try {
-      var st2 = w.document.getElementById("st");
-      if (st2) st2.textContent = "Download failed: " + String(e && (e.message || e));
-    } catch (e7) {}
-    throw e;
+      w.document.open();
+      w.document.write(
+        "<!doctype html><html><head><meta charset=\"utf-8\"/>" +
+        "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/>" +
+        "<title>Certificate Download</title>" +
+        "<style>" +
+        "body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:22px;color:#111;}" +
+        ".card{border:1px solid #ddd;border-radius:14px;padding:14px;max-width:680px;}" +
+        ".t{font-weight:900;font-size:16px;margin-bottom:6px;}" +
+        ".s{opacity:.8;}" +
+        ".row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px;}" +
+        "a.btn,button.btn{display:inline-block;padding:10px 12px;border-radius:12px;border:1px solid #111;background:#111;color:#fff;font-weight:900;text-decoration:none;cursor:pointer;}" +
+        "a.btn.secondary{background:#fff;color:#111;}" +
+        ".small{font-size:12px;opacity:.75;margin-top:10px;line-height:1.35;}" +
+        "code{background:#f2f2f2;border-radius:8px;padding:2px 6px;}" +
+        "</style></head><body>" +
+        "<div class=\"card\">" +
+        "<div class=\"t\">Preparing download…</div>" +
+        "<div class=\"s\" id=\"st\">Fetching file from server</div>" +
+        "<div class=\"row\" id=\"actions\" style=\"display:none;\"></div>" +
+        "<div class=\"small\" id=\"hint\"></div>" +
+        "</div>" +
+        "</body></html>"
+      );
+      w.document.close();
+    } catch (e) {}
   }
-}
 
+  function popupSetText(w, id, text) {
+    try {
+      var el = w.document.getElementById(id);
+      if (el) el.textContent = String(text || "");
+    } catch (e) {}
+  }
+
+  function popupSetHtml(w, id, html) {
+    try {
+      var el = w.document.getElementById(id);
+      if (el) el.innerHTML = String(html || "");
+    } catch (e) {}
+  }
+
+  function popupShowActions(w) {
+    try {
+      var el = w.document.getElementById("actions");
+      if (el) el.style.display = "flex";
+    } catch (e) {}
+  }
+
+  function popupClearActions(w) {
+    try {
+      var el = w.document.getElementById("actions");
+      if (el) el.innerHTML = "";
+    } catch (e) {}
+  }
+
+  function popupAddActionLink(w, opts) {
+    try {
+      var actions = w.document.getElementById("actions");
+      if (!actions) return null;
+      var a = w.document.createElement("a");
+      a.className = "btn" + (opts && opts.secondary ? " secondary" : "");
+      a.href = opts && opts.href ? opts.href : "#";
+      if (opts && opts.download) a.setAttribute("download", opts.download);
+      if (opts && opts.target) a.setAttribute("target", opts.target);
+      if (opts && opts.rel) a.setAttribute("rel", opts.rel);
+      a.textContent = opts && opts.label ? opts.label : "Action";
+      actions.appendChild(a);
+      return a;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function popupAddActionButton(w, opts) {
+    try {
+      var actions = w.document.getElementById("actions");
+      if (!actions) return null;
+      var b = w.document.createElement("button");
+      b.className = "btn" + (opts && opts.secondary ? " secondary" : "");
+      b.type = "button";
+      b.textContent = opts && opts.label ? opts.label : "Button";
+      if (opts && typeof opts.onClick === "function") b.addEventListener("click", opts.onClick);
+      actions.appendChild(b);
+      return b;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  async function triggerDownloadForItem(item) {
+    if (!item || !item.id) throw new Error("Missing item");
+    if (!item.file_name) throw new Error("No file uploaded");
+
+    // IMPORTANT: open popup immediately during user click
+    var w = null;
+    try {
+      // try to reduce opener coupling; not guaranteed
+      w = window.open("", "_blank");
+      if (w) {
+        try { w.opener = null; } catch (eop) {}
+      }
+    } catch (e) {}
+
+    if (!w) {
+      throw new Error("Popup blocked. Please allow popups for this site to download files.");
+    }
+
+    writePopupShell(w);
+
+    var dlPath = "/certificates/items/" + encodeURIComponent(String(item.id)) + "/download";
+
+    try {
+      popupSetText(w, "st", "Fetching: " + String(item.file_name || "file"));
+
+      var out = await fetchBlobWithAuth(dlPath);
+      var filename = out.filename || item.file_name || "download.bin";
+      var ctLower = String(out.contentType || "").toLowerCase();
+
+      // Create blob URL in the popup's origin
+      var blobUrl = null;
+      try {
+        blobUrl = w.URL.createObjectURL(out.blob);
+      } catch (eurl) {
+        // fallback: create in current window (still ok for blob)
+        blobUrl = URL.createObjectURL(out.blob);
+      }
+
+      popupSetText(w, "st", "Ready: " + filename);
+      popupShowActions(w);
+      popupClearActions(w);
+
+      // Primary: user-click download link (most reliable in Chrome)
+      var dlLink = popupAddActionLink(w, {
+        label: "CLICK TO DOWNLOAD",
+        href: blobUrl,
+        download: filename,
+        rel: "noopener"
+      });
+
+      // Secondary: open in viewer (useful for PDFs/images if download is blocked by policy)
+      var openLink = popupAddActionLink(w, {
+        label: (ctLower.indexOf("pdf") >= 0 ? "Open PDF" : "Open file"),
+        href: blobUrl,
+        target: "_blank",
+        rel: "noopener",
+        secondary: true
+      });
+
+      popupSetHtml(
+        w,
+        "hint",
+        "If Chrome blocks the download, click <b>Open file</b> and then use the browser viewer’s download button.<br/>" +
+        "File type: <code>" + esc(out.contentType || out.blob.type || "unknown") + "</code>"
+      );
+
+      // Convenience: auto-click ONLY when not embedded (direct UI), because embedded contexts are where Chrome is strictest.
+      // Even then, keep it best-effort.
+      if (!isProbablyEmbedded() && dlLink) {
+        setTimeout(function () {
+          try { dlLink.click(); } catch (eauto) {}
+        }, 50);
+      }
+
+      // Cleanup when popup is closed; also revoke after a while to prevent memory leaks
+      var revoked = false;
+      function revokeLater() {
+        if (revoked) return;
+        revoked = true;
+        try { w.URL.revokeObjectURL(blobUrl); } catch (e1) {}
+        try { URL.revokeObjectURL(blobUrl); } catch (e2) {}
+      }
+
+      // Revoke after 10 minutes (user might need time)
+      setTimeout(revokeLater, 10 * 60 * 1000);
+
+      // Add a close button
+      popupAddActionButton(w, {
+        label: "Close",
+        secondary: true,
+        onClick: function () {
+          try { revokeLater(); } catch (e3) {}
+          try { w.close(); } catch (e4) {}
+        }
+      });
+
+      // If popup unloads, revoke too
+      try {
+        w.addEventListener("beforeunload", function () {
+          try { revokeLater(); } catch (e5) {}
+        });
+      } catch (e6) {}
+
+    } catch (e) {
+      popupSetText(w, "st", "Download failed: " + String(e && (e.message || e)));
+      popupShowActions(w);
+      popupClearActions(w);
+
+      popupAddActionButton(w, {
+        label: "Close",
+        onClick: function () { try { w.close(); } catch (e2) {} }
+      });
+
+      throw e;
+    }
+  }
 
   var state = {
     items: [],
@@ -246,7 +383,6 @@ async function triggerDownloadForItem(item) {
     dbg("[certificates] uploadFile() start itemId=", itemId, "file=", file && file.name, file && file.type, file && file.size);
     if (!file) throw new Error("No file selected");
 
-    // 1) Try multipart first
     try {
       var fd = new FormData();
       fd.append("file", file, file.name);
@@ -263,7 +399,6 @@ async function triggerDownloadForItem(item) {
     } catch (e) {
       dbg("[certificates] multipart upload failed, fallback to base64 json. err=", e);
 
-      // 2) Fallback: JSON base64
       var payload = await fileToBase64Payload(file);
 
       var resp2 = await E.apiFetch("/certificates/items/" + encodeURIComponent(String(itemId)) + "/upload", {
