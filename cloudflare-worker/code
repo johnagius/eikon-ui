@@ -1124,6 +1124,347 @@ async function handleCleaningReportHtml(request, env, corsOkHeaders, authUser, u
 }
 
 /* =========================
+   DAILY REGISTER MODULE (API)
+   ========================= */
+
+async function ensureDailyRegisterSchema(env) {
+  await dbRun(
+    env,
+    `CREATE TABLE IF NOT EXISTS daily_register_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+      entry_date TEXT NOT NULL,
+      client_name TEXT NOT NULL,
+      client_id TEXT NOT NULL,
+      medicine_name_dose TEXT NOT NULL,
+      posology TEXT NOT NULL,
+      prescriber_name TEXT NOT NULL,
+      prescriber_reg_no TEXT NOT NULL,
+      created_by INTEGER,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )`,
+    []
+  );
+
+  await dbRun(
+    env,
+    "CREATE INDEX IF NOT EXISTS idx_daily_register_org_loc_date ON daily_register_entries (org_id, location_id, entry_date)",
+    []
+  );
+
+  await dbRun(
+    env,
+    "CREATE INDEX IF NOT EXISTS idx_daily_register_org_loc_client ON daily_register_entries (org_id, location_id, client_id)",
+    []
+  );
+}
+
+async function handleDailyRegisterEntriesList(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDailyRegisterSchema(env);
+
+  const month = (url.searchParams.get("month") || "").trim();
+  const range = monthRange(month);
+  if (!range) return jsonResponse({ ok: false, error: "Missing/invalid month (YYYY-MM)" }, 400, corsOkHeaders);
+
+  const q = (url.searchParams.get("q") || "").trim();
+  const hasQ = !!q;
+  const qLike = `%${q}%`;
+
+  const sql = `
+    SELECT
+      id,
+      entry_date,
+      client_name,
+      client_id,
+      medicine_name_dose,
+      posology,
+      prescriber_name,
+      prescriber_reg_no,
+      created_by,
+      created_at,
+      updated_at
+    FROM daily_register_entries
+    WHERE org_id = ?
+      AND location_id = ?
+      AND entry_date >= ?
+      AND entry_date < ?
+      ${hasQ ? `AND (
+        entry_date LIKE ?
+        OR client_name LIKE ?
+        OR client_id LIKE ?
+        OR medicine_name_dose LIKE ?
+        OR posology LIKE ?
+        OR prescriber_name LIKE ?
+        OR prescriber_reg_no LIKE ?
+      )` : ""}
+    ORDER BY entry_date DESC, id DESC
+  `;
+
+  const bind = [authUser.org_id, authUser.location_id, range.startStr, range.endStr];
+  if (hasQ) {
+    bind.push(qLike, qLike, qLike, qLike, qLike, qLike, qLike);
+  }
+
+  const entries = await dbAll(env, sql, bind);
+
+  return jsonResponse({ ok: true, entries }, 200, corsOkHeaders);
+}
+
+async function handleDailyRegisterEntryCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDailyRegisterSchema(env);
+
+  const body = await readJson(request);
+
+  const entryDate = String(body.entry_date || "").trim();
+  const clientName = String(body.client_name || "").trim();
+  const clientId = String(body.client_id || "").trim();
+  const medicineNameDose = String(body.medicine_name_dose || "").trim();
+  const posology = String(body.posology || "").trim();
+  const prescriberName = String(body.prescriber_name || "").trim();
+  const prescriberRegNo = String(body.prescriber_reg_no || "").trim();
+
+  if (!isValidYmd(entryDate)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (!clientName) return jsonResponse({ ok: false, error: "Missing client_name" }, 400, corsOkHeaders);
+  if (!clientId) return jsonResponse({ ok: false, error: "Missing client_id" }, 400, corsOkHeaders);
+  if (!medicineNameDose) return jsonResponse({ ok: false, error: "Missing medicine_name_dose" }, 400, corsOkHeaders);
+  if (!posology) return jsonResponse({ ok: false, error: "Missing posology" }, 400, corsOkHeaders);
+  if (!prescriberName) return jsonResponse({ ok: false, error: "Missing prescriber_name" }, 400, corsOkHeaders);
+  if (!prescriberRegNo) return jsonResponse({ ok: false, error: "Missing prescriber_reg_no" }, 400, corsOkHeaders);
+
+  const row = await dbFirst(
+    env,
+    `INSERT INTO daily_register_entries
+      (org_id, location_id, entry_date, client_name, client_id, medicine_name_dose, posology, prescriber_name, prescriber_reg_no, created_by, created_at, updated_at)
+     VALUES
+      (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+     RETURNING id`,
+    [
+      authUser.org_id,
+      authUser.location_id,
+      entryDate,
+      clientName,
+      clientId,
+      medicineNameDose,
+      posology,
+      prescriberName,
+      prescriberRegNo,
+      authUser.user_id
+    ]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DAILY_REGISTER_ENTRY_CREATE", "daily_register_entries", String(row.id), {
+    entry_date: entryDate,
+    client_id: clientId,
+    medicine_name_dose: medicineNameDose
+  });
+
+  return jsonResponse({ ok: true, entry_id: row.id }, 200, corsOkHeaders);
+}
+
+async function handleDailyRegisterEntryUpdate(request, env, corsOkHeaders, authUser, entryId) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDailyRegisterSchema(env);
+
+  const existing = await dbFirst(
+    env,
+    `SELECT id
+     FROM daily_register_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+
+  const entryDate = String(body.entry_date || "").trim();
+  const clientName = String(body.client_name || "").trim();
+  const clientId = String(body.client_id || "").trim();
+  const medicineNameDose = String(body.medicine_name_dose || "").trim();
+  const posology = String(body.posology || "").trim();
+  const prescriberName = String(body.prescriber_name || "").trim();
+  const prescriberRegNo = String(body.prescriber_reg_no || "").trim();
+
+  if (!isValidYmd(entryDate)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (!clientName) return jsonResponse({ ok: false, error: "Missing client_name" }, 400, corsOkHeaders);
+  if (!clientId) return jsonResponse({ ok: false, error: "Missing client_id" }, 400, corsOkHeaders);
+  if (!medicineNameDose) return jsonResponse({ ok: false, error: "Missing medicine_name_dose" }, 400, corsOkHeaders);
+  if (!posology) return jsonResponse({ ok: false, error: "Missing posology" }, 400, corsOkHeaders);
+  if (!prescriberName) return jsonResponse({ ok: false, error: "Missing prescriber_name" }, 400, corsOkHeaders);
+  if (!prescriberRegNo) return jsonResponse({ ok: false, error: "Missing prescriber_reg_no" }, 400, corsOkHeaders);
+
+  await dbRun(
+    env,
+    `UPDATE daily_register_entries
+     SET entry_date = ?, client_name = ?, client_id = ?, medicine_name_dose = ?, posology = ?, prescriber_name = ?, prescriber_reg_no = ?, updated_at = datetime('now')
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [
+      entryDate,
+      clientName,
+      clientId,
+      medicineNameDose,
+      posology,
+      prescriberName,
+      prescriberRegNo,
+      entryId,
+      authUser.org_id,
+      authUser.location_id
+    ]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DAILY_REGISTER_ENTRY_UPDATE", "daily_register_entries", String(entryId), {
+    entry_date: entryDate,
+    client_id: clientId,
+    medicine_name_dose: medicineNameDose
+  });
+
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleDailyRegisterEntryDelete(request, env, corsOkHeaders, authUser, entryId) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDailyRegisterSchema(env);
+
+  const existing = await dbFirst(
+    env,
+    `SELECT id, entry_date, client_id
+     FROM daily_register_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  await dbRun(
+    env,
+    `DELETE FROM daily_register_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DAILY_REGISTER_ENTRY_DELETE", "daily_register_entries", String(entryId), {
+    entry_date: existing.entry_date,
+    client_id: existing.client_id
+  });
+
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleDailyRegisterReport(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDailyRegisterSchema(env);
+
+  const from = (url.searchParams.get("from") || "").trim();
+  const to = (url.searchParams.get("to") || "").trim();
+
+  if (!isValidYmd(from) || !isValidYmd(to)) {
+    return jsonResponse({ ok: false, error: "Invalid from/to (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  }
+  if (to < from) {
+    return jsonResponse({ ok: false, error: "to must be >= from" }, 400, corsOkHeaders);
+  }
+
+  const entries = await dbAll(
+    env,
+    `SELECT
+       id,
+       entry_date,
+       client_name,
+       client_id,
+       medicine_name_dose,
+       posology,
+       prescriber_name,
+       prescriber_reg_no
+     FROM daily_register_entries
+     WHERE org_id = ?
+       AND location_id = ?
+       AND entry_date >= ?
+       AND entry_date <= ?
+     ORDER BY entry_date ASC, id ASC`,
+    [authUser.org_id, authUser.location_id, from, to]
+  );
+
+  return jsonResponse(
+    {
+      ok: true,
+      org_name: authUser.org_name,
+      location_name: authUser.location_name,
+      from,
+      to,
+      entries
+    },
+    200,
+    corsOkHeaders
+  );
+}
+
+async function handleDailyRegisterReportHtml(request, env, corsOkHeaders, authUser, url) {
+  const out = await handleDailyRegisterReport(request, env, corsOkHeaders, authUser, url);
+  const data = await out.json();
+  if (!data.ok) return out;
+
+  const entries = data.entries || [];
+
+  // Group by month
+  const byMonth = new Map();
+  for (const e of entries) {
+    const ym = ymFromYmd(e.entry_date);
+    if (!byMonth.has(ym)) byMonth.set(ym, []);
+    byMonth.get(ym).push(e);
+  }
+
+  let body = "";
+  body += `<h1>${escapeHtml(data.org_name || "Pharmacy")} — Daily Register Report</h1>`;
+  body += `<p class="meta">Location: ${escapeHtml(data.location_name || "")}<br/>Range: ${escapeHtml(data.from)} to ${escapeHtml(data.to)}</p>`;
+
+  for (const [ym, list] of byMonth.entries()) {
+    body += `<h2>${escapeHtml(ym)}</h2>`;
+    body += `<table><thead><tr>
+      <th>Date</th>
+      <th>Client Name &amp; Surname</th>
+      <th>Client ID</th>
+      <th>Medicine Name &amp; Dose</th>
+      <th>Posology</th>
+      <th>Prescriber Name</th>
+      <th>Prescriber Reg No.</th>
+    </tr></thead><tbody>`;
+
+    for (const r of list) {
+      body += `<tr>
+        <td>${escapeHtml(r.entry_date)}</td>
+        <td>${escapeHtml(r.client_name)}</td>
+        <td>${escapeHtml(r.client_id)}</td>
+        <td>${escapeHtml(r.medicine_name_dose)}</td>
+        <td>${escapeHtml(r.posology)}</td>
+        <td>${escapeHtml(r.prescriber_name)}</td>
+        <td>${escapeHtml(r.prescriber_reg_no)}</td>
+      </tr>`;
+    }
+
+    body += `</tbody></table>`;
+  }
+
+  return htmlReportPage("Daily Register Report", body);
+}
+
+/* =========================
    CERTIFICATES MODULE (API)
    ========================= */
 
@@ -1273,7 +1614,7 @@ async function ensureDefaultCertificatesIfMissing(env, authUser) {
     },
     {
       item_key: "reverse_osmosis_system",
-      title: "Reverse Osmosis System",
+      title: "Reverse Osmmosis System",
       subtitle: "Yearly service",
       last_label: "Last Service",
       next_label: "Next Due",
@@ -1887,6 +2228,32 @@ export default {
     }
     if (url.pathname === "/cleaning/report/html" && request.method === "GET") {
       return await handleCleaningReportHtml(request, env, corsOkHeaders, authUser, url);
+    }
+
+    // Daily Register (PATCH: use /daily-register/* not /daily_register/*)
+    if (url.pathname === "/daily-register/entries" && request.method === "GET") {
+      return await handleDailyRegisterEntriesList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/daily-register/entries" && request.method === "POST") {
+      return await handleDailyRegisterEntryCreate(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname.startsWith("/daily-register/entries/") && request.method === "PUT") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const id = parseInt(parts[2], 10);
+      if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+      return await handleDailyRegisterEntryUpdate(request, env, corsOkHeaders, authUser, id);
+    }
+    if (url.pathname.startsWith("/daily-register/entries/") && request.method === "DELETE") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const id = parseInt(parts[2], 10);
+      if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+      return await handleDailyRegisterEntryDelete(request, env, corsOkHeaders, authUser, id);
+    }
+    if (url.pathname === "/daily-register/report" && request.method === "GET") {
+      return await handleDailyRegisterReport(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/daily-register/report/html" && request.method === "GET") {
+      return await handleDailyRegisterReportHtml(request, env, corsOkHeaders, authUser, url);
     }
 
     // Certificates (DOWNLOAD) - PATCH
