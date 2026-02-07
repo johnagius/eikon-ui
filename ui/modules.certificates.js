@@ -51,10 +51,12 @@
           var res = String(r.result || "");
           var idx = res.indexOf(",");
           var b64 = idx >= 0 ? res.slice(idx + 1) : res;
+
+          // IMPORTANT: Worker expects { file_name, file_mime, file_b64 }
           resolve({
             file_name: file && file.name ? String(file.name) : "upload.bin",
-            mime: file && file.type ? String(file.type) : "application/octet-stream",
-            b64: b64
+            file_mime: file && file.type ? String(file.type) : "application/octet-stream",
+            file_b64: b64
           });
         };
         r.readAsDataURL(file);
@@ -81,6 +83,8 @@
     return state.items;
   }
 
+  // PATCH: we still call /certificates/items/:id
+  // Worker patch now accepts either numeric ID or item_key, so UI can keep using numeric id.
   async function updateItem(itemId, payload) {
     dbg("[certificates] updateItem() id=", itemId, "payload=", payload);
     var resp = await E.apiFetch("/certificates/items/" + encodeURIComponent(String(itemId)), {
@@ -93,6 +97,8 @@
     return resp;
   }
 
+  // PATCH: Upload endpoint remains /certificates/items/:id/upload.
+  // Also fixes JSON fallback key names to match Worker: file_name, file_mime, file_b64.
   async function uploadFile(itemId, file) {
     dbg("[certificates] uploadFile() start itemId=", itemId, "file=", file && file.name, file && file.type, file && file.size);
     if (!file) throw new Error("No file selected");
@@ -124,7 +130,9 @@
       });
 
       dbg("[certificates] upload base64 resp=", resp2);
-      if (!resp2 || !resp2.ok) throw new Error((resp2 && resp2.error) ? resp2.error : (e && e.message ? e.message : "Upload failed"));
+      if (!resp2 || !resp2.ok) {
+        throw new Error((resp2 && resp2.error) ? resp2.error : (e && e.message ? e.message : "Upload failed"));
+      }
       return resp2;
     }
   }
@@ -265,7 +273,7 @@
       "  </div>" +
       '  <div class="eikon-field" style="min-width:160px;">' +
       '    <div class="eikon-label">Interval (months)</div>' +
-      '    <input class="eikon-input" id="cert-interval" type="number" min="1" max="120" value="' + esc(String(item.interval_months || 12)) + '"/>' +
+      '    <input class="eikon-input" id="cert-interval" type="number" min="1" max="240" value="' + esc(String(item.interval_months || 12)) + '"/>' +
       "  </div>" +
       "</div>";
 
@@ -293,8 +301,8 @@
             if (lastDate && !isYmd(lastDate)) {
               throw new Error("Invalid date (YYYY-MM-DD)");
             }
-            if (!interval || !Number.isFinite(interval) || interval < 1 || interval > 120) {
-              throw new Error("Invalid interval (1..120 months)");
+            if (!interval || !Number.isFinite(interval) || interval < 1 || interval > 240) {
+              throw new Error("Invalid interval (1..240 months)");
             }
 
             var payload = {
@@ -303,8 +311,9 @@
             };
             if (item.requires_person) payload.certified_person = personVal;
 
-            dbg("[certificates] save payload=", payload);
+            dbg("[certificates] save payload=", payload, "item.id=", item.id, "item.item_key=", item.item_key);
 
+            // PATCH: still use numeric id; Worker now accepts id or key.
             await updateItem(item.id, payload);
 
             E.modal.hide();
@@ -332,6 +341,8 @@
       try {
         var file = input.files && input.files[0] ? input.files[0] : null;
         if (!file) return;
+
+        dbg("[certificates] file chosen", { name: file.name, type: file.type, size: file.size, item_id: item.id, item_key: item.item_key });
 
         await uploadFile(item.id, file);
 
