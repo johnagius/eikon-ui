@@ -1,12 +1,88 @@
-<div id="eikon-root" style="min-height:800px;"></div>
-
-<link rel="stylesheet" href="https://eikon-api.labrint.workers.dev/ui/app.css" />
+<div id="eikon-embed-root" style="width:100%;max-width:1200px;margin:0 auto;">
+  <div id="eikon-embed-loader" style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;padding:14px;border:1px solid #ddd;border-radius:14px;background:#fff;color:#111;">
+    <div style="font-weight:900;font-size:16px;margin-bottom:6px;">Eikon</div>
+    <div style="opacity:.75;">Loading…</div>
+  </div>
+</div>
 
 <script>
-  window.EIKON_API_BASE = "https://eikon-api.labrint.workers.dev";
-</script>
+(function () {
+  "use strict";
 
-<script src="https://eikon-api.labrint.workers.dev/ui/core.js"></script>
-<script src="https://eikon-api.labrint.workers.dev/ui/modules.temperature.js"></script>
-<script src="https://eikon-api.labrint.workers.dev/ui/modules.cleaning.js"></script>
-<script src="https://eikon-api.labrint.workers.dev/ui/main.js"></script>
+  try {
+    // If GoDaddy runs this block multiple times, prevent duplicates in the same document
+    if (window.__EIKON_EMBEDDED__) {
+      console.warn("[EIKON][godaddy] embed already mounted in this document, skipping");
+      return;
+    }
+    window.__EIKON_EMBEDDED__ = true;
+
+    var root = document.getElementById("eikon-embed-root");
+    var loader = document.getElementById("eikon-embed-loader");
+    if (!root) {
+      console.error("[EIKON][godaddy] missing eikon-embed-root");
+      return;
+    }
+
+    // Listen for logs forwarded from iframe (dbg=2 only)
+    window.addEventListener("message", function (ev) {
+      try {
+        if (!ev || !ev.data || ev.data.type !== "EIKON_LOG") return;
+        var lvl = ev.data.level || "log";
+        var msg = "[EIKON][iframe][" + (ev.data.time || "") + "] " + (ev.data.msg || "");
+        if (lvl === "error") console.error(msg);
+        else if (lvl === "warn") console.warn(msg);
+        else console.log(msg);
+      } catch (e) {}
+    });
+
+    var base = "https://eikon-api.labrint.workers.dev/ui/index.html";
+    var v = Date.now();
+
+    // Always start in temperature unless you explicitly change it
+    var hash = "#temperature";
+    // Optional: allow passing hash from parent URL like /eikon#cleaning
+    try {
+      if (window.location.hash && window.location.hash.length > 1) {
+        hash = window.location.hash;
+      }
+    } catch (e) {}
+
+    // dbg=2 heavy logging
+    var src = base + "?v=" + encodeURIComponent(String(v)) + "&dbg=2" + hash;
+
+    console.log("[EIKON][godaddy] loading iframe:", src);
+
+    var iframe = document.createElement("iframe");
+    iframe.src = src;
+
+    // Allow print() in sandboxed iframes
+	iframe.setAttribute("sandbox", "allow-scripts allow-same-origin allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox");
+
+    iframe.style.width = "100%";
+    iframe.style.height = "85vh";
+    iframe.style.minHeight = "720px";
+    iframe.style.border = "0";
+    iframe.style.borderRadius = "14px";
+    iframe.style.background = "#0b0f14"; // matches app background
+
+    iframe.onload = function () {
+      console.log("[EIKON][godaddy] iframe loaded OK");
+      if (loader && loader.parentNode) loader.parentNode.removeChild(loader);
+    };
+
+    iframe.onerror = function (e) {
+      console.error("[EIKON][godaddy] iframe load error:", e);
+      if (loader) {
+        loader.innerHTML =
+          '<div style="font-weight:900;font-size:16px;margin-bottom:6px;color:#b00020;">Eikon failed to load</div>' +
+          '<div style="opacity:.75;">Check browser console for details.</div>';
+      }
+    };
+
+    root.appendChild(iframe);
+  } catch (err) {
+    console.error("[EIKON][godaddy] embed crash:", err);
+  }
+})();
+</script>
