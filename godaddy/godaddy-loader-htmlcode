@@ -10,7 +10,6 @@
   "use strict";
 
   try {
-    // If GoDaddy runs this block multiple times, prevent duplicates in the same document
     if (window.__EIKON_EMBEDDED__) {
       console.warn("[EIKON][godaddy] embed already mounted in this document, skipping");
       return;
@@ -27,28 +26,28 @@
     // Listen for logs forwarded from iframe (dbg=2 only)
     window.addEventListener("message", function (ev) {
       try {
-        if (!ev || !ev.data || ev.data.type !== "EIKON_LOG") return;
-        var lvl = ev.data.level || "log";
-        var msg = "[EIKON][iframe][" + (ev.data.time || "") + "] " + (ev.data.msg || "");
-        if (lvl === "error") console.error(msg);
-        else if (lvl === "warn") console.warn(msg);
-        else console.log(msg);
+        if (!ev || !ev.data) return;
+
+        if (ev.data.type === "EIKON_LOG") {
+          var lvl = ev.data.level || "log";
+          var msg = "[EIKON][iframe][" + (ev.data.time || "") + "] " + (ev.data.msg || "");
+          if (lvl === "error") console.error(msg);
+          else if (lvl === "warn") console.warn(msg);
+          else console.log(msg);
+        }
       } catch (e) {}
     });
 
     var base = "https://eikon-api.labrint.workers.dev/ui/index.html";
     var v = Date.now();
 
-    // Always start in temperature unless you explicitly change it
     var hash = "#temperature";
-    // Optional: allow passing hash from parent URL like /eikon#cleaning
     try {
       if (window.location.hash && window.location.hash.length > 1) {
         hash = window.location.hash;
       }
     } catch (e) {}
 
-    // dbg=2 heavy logging
     var src = base + "?v=" + encodeURIComponent(String(v)) + "&dbg=2" + hash;
 
     console.log("[EIKON][godaddy] loading iframe:", src);
@@ -56,15 +55,21 @@
     var iframe = document.createElement("iframe");
     iframe.src = src;
 
-    // Allow print() in sandboxed iframes
-	iframe.setAttribute("sandbox", "allow-scripts allow-same-origin allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox");
+    // IMPORTANT:
+    // Do NOT set sandbox here. Sandboxing is what is blocking downloads.
+    // Leaving it unset allows normal browser download behavior.
+    // iframe.setAttribute("sandbox", "...");  // <-- intentionally removed
+
+    iframe.allow = "clipboard-read; clipboard-write";
+    iframe.loading = "lazy";
+    iframe.referrerPolicy = "no-referrer";
 
     iframe.style.width = "100%";
     iframe.style.height = "85vh";
     iframe.style.minHeight = "720px";
     iframe.style.border = "0";
     iframe.style.borderRadius = "14px";
-    iframe.style.background = "#0b0f14"; // matches app background
+    iframe.style.background = "#0b0f14";
 
     iframe.onload = function () {
       console.log("[EIKON][godaddy] iframe loaded OK");
