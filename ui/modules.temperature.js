@@ -356,23 +356,92 @@
       "</body>\n</html>";
   }
 
-  function openPrintTabWithHtml(html) {
-    var blob = new Blob([html], { type: "text/html" });
-    var url = URL.createObjectURL(blob);
+function openPrintTabWithHtml(html) {
+  // NOTE: In GoDaddy's sandboxed iframe, popups/new tabs are blocked unless allow-popups is set.
+  // So printing must NOT rely on window.open / target="_blank" / blob: URLs.
+  // We print by writing the report HTML into an off-screen iframe and calling print() there.
 
-    var a = document.createElement("a");
-    a.href = url;
-    a.target = "_blank";
-    a.rel = "noopener";
-    a.style.display = "none";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+  try {
+    var iframe = document.createElement("iframe");
+    iframe.setAttribute("title", "Print");
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+    iframe.style.opacity = "0";
+    iframe.style.pointerEvents = "none";
 
-    setTimeout(function () {
-      try { URL.revokeObjectURL(url); } catch (e) {}
-    }, 60000);
+    document.body.appendChild(iframe);
+
+    function cleanup() {
+      try { iframe.remove(); } catch (e) {}
+    }
+
+    function doPrint() {
+      try {
+        var w = iframe.contentWindow;
+        if (!w) return;
+
+        // Clean up after print if possible
+        try {
+          w.addEventListener("afterprint", function () {
+            setTimeout(cleanup, 250);
+          });
+        } catch (e) {}
+
+        try { w.focus(); } catch (e) {}
+        try { w.print(); } catch (e) {}
+
+        // Fallback cleanup if afterprint doesn't fire
+        setTimeout(cleanup, 30000);
+      } catch (e) {
+        setTimeout(cleanup, 250);
+      }
+    }
+
+    // Fallback: if immediate print doesn't trigger, try again after load
+    iframe.onload = function () {
+      setTimeout(doPrint, 50);
+    };
+
+    // Write HTML synchronously (keeps this closest to the user's click gesture)
+    var doc = iframe.contentDocument || (iframe.contentWindow && iframe.contentWindow.document);
+    if (doc) {
+      doc.open();
+      doc.write(html);
+      doc.close();
+
+      // Try immediately
+      doPrint();
+      return;
+    }
+
+    // If we couldn't access doc, cleanup
+    cleanup();
+  } catch (e) {
+    // If something unexpected happens, fall through to last resort.
+    try { warn("openPrintTabWithHtml failed:", e && (e.message || e)); } catch (e2) {}
   }
+
+  // Last resort: navigate current frame to a data URL and rely on the report's own window.print().
+  // (May still be blocked in some sandbox configurations.)
+  try {
+    var dataUrl = "data:text/html;charset=utf-8," + encodeURIComponent(html);
+    window.location.href = dataUrl;
+  } catch (e3) {
+    try {
+      toast(
+        "Print blocked",
+        "Browser sandbox blocked printing (no popups allowed). This build prints without popups, but if your browser blocks print dialogs in sandboxed frames you may need allow-modals/allow-popups on the iframe.",
+        "bad",
+        6000
+      );
+    } catch (e4) {}
+  }
+}
+
 
   function renderReportPreviewDom(data) {
     var org = data.org_name || "";
