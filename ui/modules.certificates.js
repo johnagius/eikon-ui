@@ -131,28 +131,85 @@
     return { blob: blob, filename: filename, contentType: ct || blob.type || "" };
   }
 
-  async function triggerDownloadForItem(item) {
-    if (!item || !item.id) throw new Error("Missing item");
-    if (!item.file_name) throw new Error("No file uploaded");
+async function triggerDownloadForItem(item) {
+  if (!item || !item.id) throw new Error("Missing item");
+  if (!item.file_name) throw new Error("No file uploaded");
 
-    var dlPath = "/certificates/items/" + encodeURIComponent(String(item.id)) + "/download";
+  // Open a popup immediately (user gesture) to escape sandbox download restrictions
+  var w = null;
+  try {
+    w = window.open("", "_blank");
+  } catch (e) {}
+  if (!w) {
+    throw new Error("Popup blocked. Please allow popups for this site to download files.");
+  }
+
+  // Basic UI in the popup
+  try {
+    w.document.open();
+    w.document.write(
+      "<!doctype html><html><head><meta charset=\"utf-8\"/>" +
+      "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/>" +
+      "<title>Downloading…</title>" +
+      "<style>" +
+      "body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:22px;color:#111;}" +
+      ".card{border:1px solid #ddd;border-radius:12px;padding:14px;}" +
+      ".t{font-weight:900;font-size:16px;margin-bottom:6px;}" +
+      ".s{opacity:.75;}" +
+      "</style></head><body>" +
+      "<div class=\"card\">" +
+      "<div class=\"t\">Downloading…</div>" +
+      "<div class=\"s\" id=\"st\">Please wait</div>" +
+      "</div></body></html>"
+    );
+    w.document.close();
+  } catch (e2) {}
+
+  var dlPath = "/certificates/items/" + encodeURIComponent(String(item.id)) + "/download";
+  try {
     var out = await fetchBlobWithAuth(dlPath);
 
     var filename = out.filename || item.file_name || "download.bin";
-    var blobUrl = URL.createObjectURL(out.blob);
 
-    var a = document.createElement("a");
+    // Create the download in the popup (not in the sandboxed iframe)
+    var ab = await out.blob.arrayBuffer();
+    var blob = new Blob([ab], { type: out.contentType || out.blob.type || "application/octet-stream" });
+    var blobUrl = w.URL.createObjectURL(blob);
+
+    try {
+      var st = w.document.getElementById("st");
+      if (st) st.textContent = "Starting download: " + filename;
+    } catch (e3) {}
+
+    var a = w.document.createElement("a");
     a.href = blobUrl;
     a.download = filename;
     a.rel = "noopener";
-    document.body.appendChild(a);
+    w.document.body.appendChild(a);
+
+    // Trigger download
     a.click();
 
+    // Cleanup
     setTimeout(function () {
-      try { URL.revokeObjectURL(blobUrl); } catch (e) {}
-      try { a.remove(); } catch (e2) {}
-    }, 1500);
+      try { w.URL.revokeObjectURL(blobUrl); } catch (e4) {}
+      try { a.remove(); } catch (e5) {}
+    }, 2500);
+
+    // Optionally close popup shortly after
+    setTimeout(function () {
+      try { w.close(); } catch (e6) {}
+    }, 3500);
+
+  } catch (e) {
+    try {
+      var st2 = w.document.getElementById("st");
+      if (st2) st2.textContent = "Download failed: " + String(e && (e.message || e));
+    } catch (e7) {}
+    throw e;
   }
+}
+
 
   var state = {
     items: [],
