@@ -39,30 +39,6 @@
     return v;
   }
 
-  function ymdTodayUtc() {
-    return new Date().toISOString().slice(0, 10);
-  }
-
-  function daysBetweenYmd(a, b) {
-    // b - a in days
-    if (!isYmd(a) || !isYmd(b)) return null;
-    var da = new Date(a + "T00:00:00Z");
-    var db = new Date(b + "T00:00:00Z");
-    var ms = db.getTime() - da.getTime();
-    return Math.round(ms / 86400000);
-  }
-
-  function statusFromNextDue(nextDue) {
-    if (!isYmd(nextDue)) return { label: "-", days: null };
-    var today = ymdTodayUtc();
-    var d = daysBetweenYmd(today, nextDue);
-    if (d === null) return { label: "-", days: null };
-    if (d < 0) return { label: "EXPIRED", days: d };
-    if (d === 0) return { label: "DUE TODAY", days: d };
-    if (d <= 14) return { label: "DUE SOON", days: d };
-    return { label: "VALID", days: d };
-  }
-
   function fileToBase64Payload(file) {
     return new Promise(function (resolve, reject) {
       try {
@@ -83,138 +59,99 @@
     });
   }
 
-  function guessAuthToken() {
+  function getAuthTokenBestEffort() {
     try {
-      if (E && typeof E.getToken === "function") {
-        var t0 = E.getToken();
-        if (t0) return String(t0);
+      if (E && E.auth) {
+        if (typeof E.auth.getToken === "function") {
+          var t1 = String(E.auth.getToken() || "").trim();
+          if (t1) return t1;
+        }
+        if (E.auth.token) {
+          var t2 = String(E.auth.token || "").trim();
+          if (t2) return t2;
+        }
       }
-    } catch (e0) {}
+    } catch (e) {}
 
     try {
-      if (E && E.token) return String(E.token);
-    } catch (e1) {}
-
-    try {
-      if (E && E.state && E.state.token) return String(E.state.token);
-    } catch (e2) {}
-
-    try {
-      if (E && E.auth && E.auth.token) return String(E.auth.token);
-    } catch (e3) {}
-
-    // common storage keys (best-effort)
-    var keys = [
-      "eikon_token",
-      "EIKON_TOKEN",
-      "token",
-      "auth_token",
-      "eikon.auth.token"
-    ];
-
-    for (var i = 0; i < keys.length; i++) {
-      try {
+      var keys = ["eikon_token", "EIKON_TOKEN", "token", "auth_token", "eikon.auth.token"];
+      for (var i = 0; i < keys.length; i++) {
         var v = localStorage.getItem(keys[i]);
-        if (v) return String(v);
-      } catch (e4) {}
-      try {
-        var v2 = sessionStorage.getItem(keys[i]);
-        if (v2) return String(v2);
-      } catch (e5) {}
-    }
+        if (v && String(v).trim()) return String(v).trim();
+      }
+    } catch (e2) {}
 
     return "";
   }
 
   function parseFilenameFromContentDisposition(cd) {
-    var v = String(cd || "");
-    if (!v) return "";
+    var s = String(cd || "");
+    if (!s) return "";
+
     // filename*=UTF-8''...
-    var m1 = v.match(/filename\*\s*=\s*UTF-8''([^;]+)/i);
+    var m1 = s.match(/filename\*\s*=\s*UTF-8''([^;]+)/i);
     if (m1 && m1[1]) {
-      try { return decodeURIComponent(m1[1].trim()); } catch (e) { return m1[1].trim(); }
+      try { return decodeURIComponent(m1[1].trim().replace(/^\"|\"$/g, "")); } catch (e) {}
     }
+
     // filename="..."
-    var m2 = v.match(/filename\s*=\s*"([^"]+)"/i);
-    if (m2 && m2[1]) return m2[1].trim();
+    var m2 = s.match(/filename\s*=\s*\"([^\"]+)\"/i);
+    if (m2 && m2[1]) return m2[1];
+
     // filename=...
-    var m3 = v.match(/filename\s*=\s*([^;]+)/i);
-    if (m3 && m3[1]) return m3[1].trim().replace(/^"+|"+$/g, "");
+    var m3 = s.match(/filename\s*=\s*([^;]+)/i);
+    if (m3 && m3[1]) return m3[1].trim().replace(/^\"|\"$/g, "");
+
     return "";
   }
 
   async function fetchBlobWithAuth(path) {
-    var token = guessAuthToken();
-    if (!token) throw new Error("Missing auth token (please log in again)");
+    var token = getAuthTokenBestEffort();
+    var headers = {};
+    if (token) headers["Authorization"] = "Bearer " + token;
 
-    var headers = new Headers();
-    headers.set("Authorization", "Bearer " + token);
-
-    var res = await fetch(path, {
-      method: "GET",
-      headers: headers,
-      cache: "no-store",
-      credentials: "omit"
-    });
-
-    var ct = res.headers.get("Content-Type") || "";
-    var cd = res.headers.get("Content-Disposition") || "";
-
-    if (!res.ok) {
-      var txt = "";
-      try { txt = await res.text(); } catch (e) {}
-      // try to parse JSON error
-      try {
-        var j = JSON.parse(txt);
-        if (j && j.error) throw new Error(String(j.error));
-      } catch (e2) {}
-      throw new Error("Download failed (" + res.status + "): " + (txt || res.statusText || "Error"));
+    var url = path;
+    // Ensure absolute/relative works in iframe
+    if (String(url || "").indexOf("http") !== 0) {
+      url = new URL(String(path || ""), window.location.origin).toString();
     }
 
+    var res = await fetch(url, { method: "GET", headers: headers });
+    if (!res.ok) {
+      var tx = "";
+      try { tx = await res.text(); } catch (e) {}
+      throw new Error("Download failed (" + res.status + "): " + (tx || res.statusText || "Error"));
+    }
+
+    var cd = res.headers.get("Content-Disposition") || "";
+    var ct = res.headers.get("Content-Type") || "";
+    var filename = parseFilenameFromContentDisposition(cd) || "";
     var blob = await res.blob();
-    return {
-      blob: blob,
-      contentType: ct || (blob && blob.type ? blob.type : ""),
-      contentDisposition: cd
-    };
+
+    return { blob: blob, filename: filename, contentType: ct || blob.type || "" };
   }
 
-  async function downloadItemFile(item) {
+  async function triggerDownloadForItem(item) {
     if (!item || !item.id) throw new Error("Missing item");
-    if (!item.file_name) throw new Error("No file uploaded for this item");
+    if (!item.file_name) throw new Error("No file uploaded");
 
-    var url = "/certificates/items/" + encodeURIComponent(String(item.id)) + "/download";
-    dbg("[certificates] downloadItemFile()", url, item.file_name);
+    var dlPath = "/certificates/items/" + encodeURIComponent(String(item.id)) + "/download";
+    var out = await fetchBlobWithAuth(dlPath);
 
-    var out = await fetchBlobWithAuth(url);
-
-    var fileName = parseFilenameFromContentDisposition(out.contentDisposition) || String(item.file_name || "download.bin");
-    fileName = String(fileName).replace(/[\r\n]/g, "_");
+    var filename = out.filename || item.file_name || "download.bin";
+    var blobUrl = URL.createObjectURL(out.blob);
 
     var a = document.createElement("a");
-    var objectUrl = URL.createObjectURL(out.blob);
-    a.href = objectUrl;
-    a.download = fileName;
-    a.style.display = "none";
+    a.href = blobUrl;
+    a.download = filename;
+    a.rel = "noopener";
     document.body.appendChild(a);
     a.click();
-    setTimeout(function () {
-      try { URL.revokeObjectURL(objectUrl); } catch (e) {}
-      try { a.remove(); } catch (e2) {}
-    }, 2000);
-  }
 
-  async function loadItemAttachmentForPreview(item) {
-    if (!item || !item.id || !item.file_name) return null;
-    var url = "/certificates/items/" + encodeURIComponent(String(item.id)) + "/download";
-    var out = await fetchBlobWithAuth(url);
-    var objectUrl = URL.createObjectURL(out.blob);
-    var ct = String(out.contentType || "").toLowerCase();
-    return {
-      objectUrl: objectUrl,
-      contentType: ct,
-      fileName: parseFilenameFromContentDisposition(out.contentDisposition) || String(item.file_name || "")
-    };
+    setTimeout(function () {
+      try { URL.revokeObjectURL(blobUrl); } catch (e) {}
+      try { a.remove(); } catch (e2) {}
+    }, 1500);
   }
 
   var state = {
@@ -269,7 +206,7 @@
     } catch (e) {
       dbg("[certificates] multipart upload failed, fallback to base64 json. err=", e);
 
-      // 2) Fallback: JSON base64 (correct keys for Worker)
+      // 2) Fallback: JSON base64
       var payload = await fileToBase64Payload(file);
 
       var resp2 = await E.apiFetch("/certificates/items/" + encodeURIComponent(String(itemId)) + "/upload", {
@@ -330,17 +267,17 @@
     uploadBtn.textContent = "Upload";
     uploadBtn.addEventListener("click", function () { onUpload(item); });
 
-    var downloadBtn = document.createElement("button");
-    downloadBtn.className = "eikon-btn";
-    downloadBtn.type = "button";
-    downloadBtn.textContent = "Download";
-    downloadBtn.disabled = !item.file_name;
-    downloadBtn.style.opacity = item.file_name ? "1" : "0.5";
-    downloadBtn.addEventListener("click", function () { onDownload(item); });
-
     actions.appendChild(editBtn);
     actions.appendChild(uploadBtn);
-    actions.appendChild(downloadBtn);
+
+    if (item.file_name) {
+      var downloadBtn = document.createElement("button");
+      downloadBtn.className = "eikon-btn";
+      downloadBtn.type = "button";
+      downloadBtn.textContent = "Download";
+      downloadBtn.addEventListener("click", function () { onDownload(item); });
+      actions.appendChild(downloadBtn);
+    }
 
     head.appendChild(titleWrap);
     head.appendChild(actions);
@@ -374,24 +311,10 @@
     nextVal.style.color = "#1a57c6";
     nextVal.textContent = item.next_due ? fmtDmyFromYmd(item.next_due) : "-";
 
-    var st = statusFromNextDue(item.next_due);
-    var statusLine = document.createElement("div");
-    statusLine.style.marginTop = "8px";
-    statusLine.style.fontSize = "12px";
-    statusLine.style.fontWeight = "800";
-    statusLine.style.color = (st.label === "EXPIRED" || st.label === "DUE TODAY") ? "#b00020" : (st.label === "DUE SOON" ? "#a05a00" : "#1b6b1b");
-    if (st.days === null) statusLine.textContent = "Status: -";
-    else {
-      if (st.label === "EXPIRED") statusLine.textContent = "Status: EXPIRED (" + Math.abs(st.days) + " day(s) ago)";
-      else if (st.label === "DUE TODAY") statusLine.textContent = "Status: DUE TODAY";
-      else statusLine.textContent = "Status: " + st.label + " (" + st.days + " day(s) remaining)";
-    }
-
     body.appendChild(lastLabel);
     body.appendChild(lastVal);
     body.appendChild(nextLabel);
     body.appendChild(nextVal);
-    body.appendChild(statusLine);
 
     if (item.requires_person) {
       var pLabel = document.createElement("div");
@@ -445,7 +368,7 @@
       "  </div>" +
       '  <div class="eikon-field" style="min-width:160px;">' +
       '    <div class="eikon-label">Interval (months)</div>' +
-      '    <input class="eikon-input" id="cert-interval" type="number" min="1" max="240" value="' + esc(String(item.interval_months || 12)) + '"/>' +
+      '    <input class="eikon-input" id="cert-interval" type="number" min="1" max="120" value="' + esc(String(item.interval_months || 12)) + '"/>' +
       "  </div>" +
       "</div>";
 
@@ -473,8 +396,8 @@
             if (lastDate && !isYmd(lastDate)) {
               throw new Error("Invalid date (YYYY-MM-DD)");
             }
-            if (!interval || !Number.isFinite(interval) || interval < 1 || interval > 240) {
-              throw new Error("Invalid interval (1..240 months)");
+            if (!interval || !Number.isFinite(interval) || interval < 1 || interval > 120) {
+              throw new Error("Invalid interval (1..120 months)");
             }
 
             var payload = {
@@ -530,22 +453,9 @@
     input.click();
   }
 
-  function openPrintAll(items) {
-    var list = items || [];
-    if (!list.length) {
-      E.modal.show("Print", '<div class="eikon-alert">No certificates to print.</div>', [
-        { label: "Close", primary: true, onClick: function () { E.modal.hide(); } }
-      ]);
-      return;
-    }
-
-    var token = guessAuthToken();
-    if (!token) {
-      E.modal.show("Print", '<div class="eikon-alert">Missing auth token (please log in again).</div>', [
-        { label: "Close", primary: true, onClick: function () { E.modal.hide(); } }
-      ]);
-      return;
-    }
+  function openPrintAllWindow(items) {
+    var list = Array.isArray(items) ? items.slice() : [];
+    window.__EIKON_CERT_PRINT_DATA = { items: list };
 
     var w = window.open("", "_blank");
     if (!w) {
@@ -555,174 +465,120 @@
       return;
     }
 
-    var html = ""
-      + "<!doctype html>"
-      + "<html><head><meta charset=\"utf-8\"/>"
-      + "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/>"
-      + "<title>Certificates</title>"
-      + "<style>"
-      + "body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:18px;color:#111;}"
-      + "h1{margin:0 0 6px 0;font-size:20px;}"
-      + ".meta{color:#444;margin:0 0 16px 0;font-size:13px;}"
-      + ".bar{display:flex;gap:10px;align-items:center;justify-content:space-between;margin:0 0 10px 0;}"
-      + ".btn{padding:8px 12px;font-weight:800;border:0;border-radius:10px;background:#111;color:#fff;cursor:pointer;}"
-      + ".small{font-size:12px;color:#444;}"
-      + "table{width:100%;border-collapse:collapse;margin-top:10px;}"
-      + "th,td{border:1px solid #bbb;padding:6px 8px;font-size:12px;vertical-align:top;}"
-      + "th{background:#f2f2f2;}"
-      + ".section{margin-top:18px;page-break-inside:avoid;}"
-      + ".doc{margin-top:8px;border:1px solid #ddd;border-radius:12px;padding:10px;}"
-      + ".doc img{max-width:100%;height:auto;display:block;}"
-      + ".doc iframe,.doc embed{width:100%;height:640px;border:0;}"
-      + ".tag{display:inline-block;padding:2px 8px;border-radius:999px;font-weight:900;font-size:11px;}"
-      + ".tag.valid{background:#e8f5e8;color:#1b6b1b;}"
-      + ".tag.soon{background:#fff2d9;color:#a05a00;}"
-      + ".tag.expired{background:#fde7ea;color:#b00020;}"
-      + "@media print{.no-print{display:none;} body{margin:0;} .doc iframe,.doc embed{height:520px;}}"
-      + "</style>"
-      + "</head><body>"
-      + "<div class=\"bar no-print\">"
-      + "  <div><b>Certificates</b> <span class=\"small\">(with attachments)</span></div>"
-      + "  <div style=\"display:flex;gap:10px;align-items:center;\">"
-      + "    <div id=\"status\" class=\"small\">Loading attachments…</div>"
-      + "    <button class=\"btn\" id=\"printBtn\" type=\"button\">Print</button>"
-      + "  </div>"
-      + "</div>"
-      + "<h1>Certificates Register</h1>"
-      + "<p class=\"meta\">Generated: " + esc(nowIso()) + "</p>"
-      + "<table><thead><tr>"
-      + "<th>Certificate</th><th>Last</th><th>Next Due</th><th>Interval</th><th>Person</th><th>Status</th><th>File</th>"
-      + "</tr></thead><tbody id=\"rows\"></tbody></table>"
-      + "<div id=\"attachments\"></div>"
-      + "<script>"
-      + "(function(){"
-      + "  function esc(s){return String(s==null?'':s).replace(/[&<>\"']/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'}[c]);});}"
-      + "  function isYmd(s){return /^\\d{4}-\\d{2}-\\d{2}$/.test(String(s||'').trim());}"
-      + "  function ymdTodayUtc(){return new Date().toISOString().slice(0,10);}"
-      + "  function daysBetweenYmd(a,b){if(!isYmd(a)||!isYmd(b)) return null; var da=new Date(a+'T00:00:00Z'); var db=new Date(b+'T00:00:00Z'); return Math.round((db.getTime()-da.getTime())/86400000);}"
-      + "  function statusFromNextDue(nextDue){if(!isYmd(nextDue)) return {label:'-',days:null,cls:'valid'}; var today=ymdTodayUtc(); var d=daysBetweenYmd(today,nextDue); if(d===null) return {label:'-',days:null,cls:'valid'}; if(d<0) return {label:'EXPIRED',days:d,cls:'expired'}; if(d===0) return {label:'DUE TODAY',days:d,cls:'expired'}; if(d<=14) return {label:'DUE SOON',days:d,cls:'soon'}; return {label:'VALID',days:d,cls:'valid'};}"
-      + "  function fmtDmyFromYmd(s){var v=String(s||'').trim(); if(!isYmd(v)) return v; return v.slice(8,10)+'/'+v.slice(5,7)+'/'+v.slice(0,4);}"
-      + "  function parseFilenameFromCd(cd){var v=String(cd||''); if(!v) return ''; var m1=v.match(/filename\\*\\s*=\\s*UTF-8''([^;]+)/i); if(m1&&m1[1]){try{return decodeURIComponent(m1[1].trim());}catch(e){return m1[1].trim();}} var m2=v.match(/filename\\s*=\\s*\"([^\"]+)\"/i); if(m2&&m2[1]) return m2[1].trim(); var m3=v.match(/filename\\s*=\\s*([^;]+)/i); if(m3&&m3[1]) return m3[1].trim().replace(/^\"+|\"+$/g,''); return '';}"
-      + "  var items=[]; var token='';"
-      + "  var rowsEl=document.getElementById('rows');"
-      + "  var attEl=document.getElementById('attachments');"
-      + "  var statusEl=document.getElementById('status');"
-      + "  var printBtn=document.getElementById('printBtn');"
-      + "  printBtn.addEventListener('click', function(){ window.print(); });"
-      + "  function addRow(it){"
-      + "    var st=statusFromNextDue(it.next_due);"
-      + "    var person=it.requires_person ? (it.certified_person||'-') : '-';"
-      + "    var file=it.file_name ? it.file_name : '-';"
-      + "    var statusText='-';"
-      + "    if(st.days===null) statusText=st.label;"
-      + "    else if(st.label==='EXPIRED') statusText=st.label+' ('+Math.abs(st.days)+' day(s) ago)';"
-      + "    else if(st.label==='DUE TODAY') statusText=st.label;"
-      + "    else statusText=st.label+' ('+st.days+' day(s) remaining)';"
-      + "    var tr=document.createElement('tr');"
-      + "    tr.innerHTML="
-      + "      '<td><b>'+esc(it.title||'')+'</b><div class=\"small\">'+esc(it.subtitle||'')+'</div></td>'"
-      + "    + '<td>'+esc(it.last_date?fmtDmyFromYmd(it.last_date):'-')+'</td>'"
-      + "    + '<td>'+esc(it.next_due?fmtDmyFromYmd(it.next_due):'-')+'</td>'"
-      + "    + '<td>'+esc(String(it.interval_months||''))+' month(s)</td>'"
-      + "    + '<td>'+esc(person)+'</td>'"
-      + "    + '<td><span class=\"tag '+esc(st.cls)+'\">'+esc(st.label)+'</span><div class=\"small\">'+esc(statusText)+'</div></td>'"
-      + "    + '<td>'+esc(file)+'</td>';"
-      + "    rowsEl.appendChild(tr);"
-      + "  }"
-      + "  async function fetchBlob(path){"
-      + "    var h=new Headers();"
-      + "    h.set('Authorization', 'Bearer '+token);"
-      + "    var res=await fetch(path,{method:'GET',headers:h,cache:'no-store',credentials:'omit'});"
-      + "    var ct=res.headers.get('Content-Type')||'';"
-      + "    var cd=res.headers.get('Content-Disposition')||'';"
-      + "    if(!res.ok){"
-      + "      var txt=''; try{txt=await res.text();}catch(e){}"
-      + "      throw new Error('Fetch failed ('+res.status+'): '+(txt||res.statusText||'Error'));"
-      + "    }"
-      + "    var blob=await res.blob();"
-      + "    return {blob:blob, ct:(ct||blob.type||''), cd:cd};"
-      + "  }"
-      + "  function buildAttachmentSection(it){"
-      + "    var wrap=document.createElement('div');"
-      + "    wrap.className='section';"
-      + "    wrap.id='att_'+String(it.id);"
-      + "    var head=document.createElement('div');"
-      + "    head.innerHTML='<b>'+esc(it.title||'')+'</b> <span class=\"small\">('+esc(it.file_name||'')+')</span>';"
-      + "    var box=document.createElement('div');"
-      + "    box.className='doc';"
-      + "    box.innerHTML='<div class=\"small\">Loading attachment…</div>';"
-      + "    wrap.appendChild(head);"
-      + "    wrap.appendChild(box);"
-      + "    attEl.appendChild(wrap);"
-      + "    return box;"
-      + "  }"
-      + "  async function loadAttachments(){"
-      + "    var withFiles=items.filter(function(it){return !!it.file_name;});"
-      + "    if(!withFiles.length){ statusEl.textContent='No attachments.'; return; }"
-      + "    var done=0;"
-      + "    for(var i=0;i<withFiles.length;i++){"
-      + "      (function(it){"
-      + "        var box=buildAttachmentSection(it);"
-      + "        var p='/certificates/items/'+encodeURIComponent(String(it.id))+'/download';"
-      + "        fetchBlob(p).then(function(out){"
-      + "          var ct=String(out.ct||'').toLowerCase();"
-      + "          var name=parseFilenameFromCd(out.cd)||String(it.file_name||'');"
-      + "          var objUrl=URL.createObjectURL(out.blob);"
-      + "          if(ct.indexOf('image/')===0){"
-      + "            box.innerHTML='<img src=\"'+objUrl+'\" alt=\"'+esc(name)+'\"/>';"
-      + "          } else if(ct.indexOf('application/pdf')===0){"
-      + "            // Many browsers render this; printing embedded PDFs can vary, but it will at least be included as an embedded doc + link."
-      + "            box.innerHTML="
-      + "              '<div class=\"small\" style=\"margin-bottom:8px;\">PDF attachment: '+esc(name)+'</div>'"
-      + "            + '<embed src=\"'+objUrl+'\" type=\"application/pdf\" />'"
-      + "            + '<div class=\"small\" style=\"margin-top:8px;\">If the PDF does not appear in print, use the download option in the app.</div>';"
-      + "          } else {"
-      + "            box.innerHTML='<div class=\"small\">Attachment: '+esc(name)+'</div><a href=\"'+objUrl+'\" target=\"_blank\" rel=\"noopener\">Open</a>';"
-      + "          }"
-      + "        }).catch(function(e){"
-      + "          box.innerHTML='<div class=\"small\" style=\"color:#b00020; font-weight:800;\">Failed to load attachment: '+esc(String(e&&e.message?e.message:e))+'</div>';"
-      + "        }).finally(function(){"
-      + "          done++;"
-      + "          statusEl.textContent='Attachments: '+done+' / '+withFiles.length+' loaded';"
-      + "          if(done===withFiles.length){"
-      + "            statusEl.textContent='Attachments loaded.';"
-      + "            // Auto-print once everything is loaded:
-      + "            setTimeout(function(){ try{ window.print(); }catch(e){} }, 300);"
-      + "          }"
-      + "        });"
-      + "      })(withFiles[i]);"
-      + "    }"
-      + "  }"
-      + "  window.addEventListener('message', function(ev){"
-      + "    try{"
-      + "      var d=ev.data||{};"
-      + "      if(!d || d.type!=='EIKON_CERT_PRINT') return;"
-      + "      items = d.items || [];"
-      + "      token = String(d.token||'');"
-      + "      rowsEl.innerHTML='';"
-      + "      for(var i=0;i<items.length;i++) addRow(items[i]);"
-      + "      loadAttachments();"
-      + "    }catch(e){"
-      + "      statusEl.textContent='Error: '+String(e&&e.message?e.message:e);"
-      + "    }"
-      + "  });"
-      + "})();"
-      + "</script>"
-      + "</body></html>";
+    var html =
+      "<!doctype html>" +
+      "<html><head><meta charset=\"utf-8\"/>" +
+      "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/>" +
+      "<title>Certificates</title>" +
+      "<style>" +
+      "body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:22px;color:#111;}" +
+      "h1{margin:0 0 6px 0;font-size:20px;}" +
+      ".meta{color:#444;margin:0 0 16px 0;font-size:13px;}" +
+      ".no-print{margin-bottom:10px;display:flex;gap:10px;align-items:center;}" +
+      "button{padding:8px 12px;font-weight:800;border:0;border-radius:10px;background:#111;color:#fff;cursor:pointer;}" +
+      "table{width:100%;border-collapse:collapse;margin-top:8px;}" +
+      "th,td{border:1px solid #bbb;padding:6px 8px;font-size:12px;vertical-align:top;}" +
+      "th{background:#f2f2f2;}" +
+      ".doc{margin-top:10px;border:1px solid #ddd;border-radius:12px;padding:10px;}" +
+      ".doc h3{margin:0 0 6px 0;font-size:13px;}" +
+      ".doc .small{font-size:11px;color:#444;}" +
+      ".doc img{max-width:100%;height:auto;border-radius:10px;}" +
+      ".doc embed{width:100%;height:680px;border:0;}" +
+      "@media print{.no-print{display:none;}body{margin:0;}}" +
+      "</style>" +
+      "</head><body>" +
+      "<div class=\"no-print\">" +
+      "<button id=\"btnPrint\">Print</button>" +
+      "<div id=\"status\" style=\"font-weight:800;color:#444;\">Loading documents…</div>" +
+      "</div>" +
+      "<div id=\"root\"></div>" +
+      "<script>" +
+      "(function(){" +
+      "function esc(s){return String(s||'').replace(/[&<>\"']/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'}[c]);});}" +
+      "function isYmd(s){return /^\\d{4}-\\d{2}-\\d{2}$/.test(String(s||'').trim());}" +
+      "function fmtDmy(ymd){var v=String(ymd||'').trim();if(!isYmd(v))return v;return v.slice(8,10)+'/'+v.slice(5,7)+'/'+v.slice(0,4);}" +
+      "function getToken(){try{var keys=['eikon_token','EIKON_TOKEN','token','auth_token','eikon.auth.token'];for(var i=0;i<keys.length;i++){var v=localStorage.getItem(keys[i]);if(v&&String(v).trim())return String(v).trim();}}catch(e){}return '';}" +
+      "function parseCdFilename(cd){cd=String(cd||'');var m1=cd.match(/filename\\*\\s*=\\s*UTF-8''([^;]+)/i);if(m1&&m1[1]){try{return decodeURIComponent(m1[1].trim().replace(/^\\\"|\\\"$/g,''));}catch(e){}}var m2=cd.match(/filename\\s*=\\s*\\\"([^\\\"]+)\\\"/i);if(m2&&m2[1])return m2[1];var m3=cd.match(/filename\\s*=\\s*([^;]+)/i);if(m3&&m3[1])return m3[1].trim().replace(/^\\\"|\\\"$/g,'');return '';}" +
+      "var data=(window.opener&&window.opener.__EIKON_CERT_PRINT_DATA)?window.opener.__EIKON_CERT_PRINT_DATA:null;" +
+      "var root=document.getElementById('root');" +
+      "var statusEl=document.getElementById('status');" +
+      "document.getElementById('btnPrint').addEventListener('click',function(){window.print();});" +
+      "if(!data){statusEl.textContent='Missing print data';return;}" +
+      "var items=Array.isArray(data.items)?data.items:[];" +
+      "var html='';" +
+      "html+='<h1>Certificates</h1>';" +
+      "html+='<p class=\"meta\">Printed: '+esc(new Date().toLocaleString())+'</p>';" +
+      "html+='<table><thead><tr>';" +
+      "html+='<th>Certificate</th><th>Last</th><th>Next Due</th><th>Interval (months)</th><th>Person</th><th>File</th>';" +
+      "html+='</tr></thead><tbody>';" +
+      "for(var i=0;i<items.length;i++){" +
+      "var it=items[i]||{};" +
+      "html+='<tr>';" +
+      "html+='<td><b>'+esc(it.title||'')+'</b><div class=\"small\">'+esc(it.subtitle||'')+'</div></td>';" +
+      "html+='<td>'+esc(it.last_date?fmtDmy(it.last_date):'-')+'</td>';" +
+      "html+='<td><b>'+esc(it.next_due?fmtDmy(it.next_due):'-')+'</b></td>';" +
+      "html+='<td>'+esc(String(it.interval_months||''))+'</td>';" +
+      "html+='<td>'+esc(it.requires_person?(it.certified_person||'-'):'-')+'</td>';" +
+      "html+='<td>'+esc(it.file_name?it.file_name:'-')+'</td>';" +
+      "html+='</tr>';" +
+      "}" +
+      "html+='</tbody></table>';" +
+      "html+='<div style=\"margin-top:16px;\">';" +
+      "for(var j=0;j<items.length;j++){" +
+      "var it2=items[j]||{};" +
+      "if(!it2.file_name) continue;" +
+      "html+='<div class=\"doc\" id=\"doc_'+j+'\">'+" +
+      "'<h3>'+esc(it2.title||'')+' — Document</h3>'+" +
+      "'<div class=\"small\">'+esc(it2.file_name||'')+'</div>'+" +
+      "'<div class=\"small\" id=\"doc_status_'+j+'\">Fetching…</div>'+" +
+      "'<div id=\"doc_body_'+j+'\" style=\"margin-top:8px;\"></div>'+" +
+      "'</div>';" +
+      "}" +
+      "html+='</div>';" +
+      "root.innerHTML=html;" +
+      "var token=getToken();" +
+      "var headers={}; if(token) headers['Authorization']='Bearer '+token;" +
+      "var tasks=[];" +
+      "for(let k=0;k<items.length;k++){" +
+      "let it3=items[k]||{};" +
+      "if(!it3.file_name) continue;" +
+      "let id=it3.id;" +
+      "let docStatus=document.getElementById('doc_status_'+k);" +
+      "let docBody=document.getElementById('doc_body_'+k);" +
+      "let p=(function(idx,itemId){" +
+      "return fetch('/certificates/items/'+encodeURIComponent(String(itemId))+'/download?inline=1',{method:'GET',headers:headers})" +
+      ".then(function(res){if(!res.ok){return res.text().then(function(t){throw new Error('HTTP '+res.status+': '+(t||res.statusText));});}" +
+      "var ct=res.headers.get('Content-Type')||'';" +
+      "var cd=res.headers.get('Content-Disposition')||'';" +
+      "var fn=parseCdFilename(cd)||'';" +
+      "return res.blob().then(function(b){return {blob:b,ct:ct||b.type||'',fn:fn};});})" +
+      ".then(function(obj){" +
+      "docStatus.textContent='Loaded '+(obj.fn?('('+obj.fn+')'):'');" +
+      "var ct2=String(obj.ct||'').toLowerCase();" +
+      "var url=URL.createObjectURL(obj.blob);" +
+      "if(ct2.indexOf('image/')===0){" +
+      "var im=document.createElement('img'); im.src=url; docBody.appendChild(im);" +
+      "} else if(ct2.indexOf('pdf')>=0){" +
+      "var em=document.createElement('embed'); em.src=url; em.type='application/pdf'; docBody.appendChild(em);" +
+      "} else {" +
+      "var a=document.createElement('a'); a.href=url; a.textContent='Open file'; a.target='_blank'; a.rel='noopener'; docBody.appendChild(a);" +
+      "}" +
+      "})" +
+      ".catch(function(e){docStatus.textContent='Failed: '+String(e&&(e.message||e));});" +
+      "})(k,id);" +
+      "tasks.push(p);" +
+      "}" +
+      "Promise.allSettled(tasks).then(function(){" +
+      "statusEl.textContent='Ready';" +
+      "setTimeout(function(){try{window.print();}catch(e){}}, 300);" +
+      "});" +
+      "})();" +
+      "</script>" +
+      "</body></html>";
 
     w.document.open();
     w.document.write(html);
     w.document.close();
-
-    // Send items + token to print window
-    try {
-      w.postMessage({ type: "EIKON_CERT_PRINT", items: list, token: token }, window.location.origin);
-    } catch (e) {
-      try {
-        // fallback (some browsers allow "*" here)
-        w.postMessage({ type: "EIKON_CERT_PRINT", items: list, token: token }, "*");
-      } catch (e2) {}
-    }
   }
 
   async function render(ctx) {
@@ -731,14 +587,14 @@
 
     mount.innerHTML =
       '<div class="eikon-card">' +
-      '  <div class="eikon-row" style="align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:10px;">' +
+      '  <div class="eikon-row" style="align-items:flex-end;justify-content:space-between;">' +
       '    <div>' +
       '      <div style="font-weight:900;font-size:18px;">Certificates</div>' +
-      '      <div style="color:#666;font-size:12px;margin-top:2px;">Upload a document/photo for each item. New uploads overwrite the old file. Use Download for the current attachment. Use Print to generate a full register including attachments.</div>' +
+      '      <div style="color:#666;font-size:12px;margin-top:2px;">Upload a document/photo for each item. New uploads overwrite the old file.</div>' +
       "    </div>" +
-      '    <div class="eikon-row" style="gap:10px;flex-wrap:wrap;">' +
-      '      <button class="eikon-btn" id="cert-refresh">Refresh</button>' +
+      '    <div class="eikon-row" style="gap:10px;flex-wrap:wrap;justify-content:flex-end;">' +
       '      <button class="eikon-btn" id="cert-print">Print All</button>' +
+      '      <button class="eikon-btn" id="cert-refresh">Refresh</button>' +
       "    </div>" +
       "  </div>" +
       "</div>" +
@@ -765,15 +621,13 @@
             it,
             function () { openEditModal(it, refresh); },
             function () { openUploadPicker(it, refresh); },
-            async function () {
-              try {
-                await downloadItemFile(it);
-              } catch (e) {
+            function () {
+              triggerDownloadForItem(it).catch(function (e) {
                 err("[certificates] download failed:", e);
                 E.modal.show("Download failed", '<div class="eikon-alert">' + esc(String(e && (e.message || e.bodyText || e))) + "</div>", [
                   { label: "Close", primary: true, onClick: function () { E.modal.hide(); } }
                 ]);
-              }
+              });
             }
           );
           grid.appendChild(card);
@@ -788,12 +642,9 @@
 
     printBtn.addEventListener("click", function () {
       try {
-        openPrintAll(state.items || []);
+        openPrintAllWindow(state.items || []);
       } catch (e) {
         err("[certificates] print failed", e);
-        E.modal.show("Print failed", '<div class="eikon-alert">' + esc(String(e && (e.message || e.bodyText || e))) + "</div>", [
-          { label: "Close", primary: true, onClick: function () { E.modal.hide(); } }
-        ]);
       }
     });
 
