@@ -1,959 +1,1145 @@
+/**
+ * DDA POYC
+ * Endpoints expected (same shape as dda-sales):
+ *   GET    /dda-poyc/entries?month=YYYY-MM&q=...
+ *   POST   /dda-poyc/entries
+ *   PUT    /dda-poyc/entries/:id
+ *   DELETE /dda-poyc/entries/:id
+ *   GET    /dda-poyc/report?from=YYYY-MM-DD&to=YYYY-MM-DD
+ */
 (function () {
   "use strict";
 
-  var TAG = "[dda-poyc]";
-  function log() { try { console.log.apply(console, [TAG].concat([].slice.call(arguments))); } catch (e) {} }
-  function warn() { try { console.warn.apply(console, [TAG].concat([].slice.call(arguments))); } catch (e) {} }
+  var LOG_PREFIX = "[EIKON][dda-poyc]";
+  function log() {
+    try {
+      console.log.apply(console, [LOG_PREFIX].concat([].slice.call(arguments)));
+    } catch (e) {}
+  }
+  function warn() {
+    try {
+      console.warn.apply(console, [LOG_PREFIX].concat([].slice.call(arguments)));
+    } catch (e) {}
+  }
 
-  // Same icon style as dda-sales (keep consistent UI)
-  var ICON_SVG = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><path d="M7 7h10M7 12h10M7 17h7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+  // Use the same icon slot as dda-sales (simple document icon).
+  var ICON_SVG =
+    "" +
+    '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
+    '<path d="M7 3h7l3 3v15a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.7"/>' +
+    '<path d="M14 3v4a2 2 0 0 0 2 2h4" stroke="currentColor" stroke-width="1.7"/>' +
+    '<path d="M8 12h8M8 16h8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>' +
+    "</svg>";
 
-  // ---------- tiny DOM helper (matches dda-sales style) ----------
-  function el(doc, tag, props, children) {
-    var n = doc.createElement(tag);
-    props = props || {};
-    for (var k in props) {
-      if (!Object.prototype.hasOwnProperty.call(props, k)) continue;
-      var v = props[k];
-      if (k === "class") n.className = v;
-      else if (k === "text") n.textContent = v;
-      else if (k === "html") n.innerHTML = v;
-      else if (k === "style") n.setAttribute("style", v);
-      else if (k in n) { try { n[k] = v; } catch (e) { n.setAttribute(k, v); } }
-      else n.setAttribute(k, v);
+  function pad2(n) {
+    n = Number(n);
+    if (!Number.isFinite(n)) return "00";
+    return (n < 10 ? "0" : "") + String(n);
+  }
+  function isYmd(s) {
+    return /^\d{4}-\d{2}-\d{2}$/.test(String(s || "").trim());
+  }
+  function isYm(s) {
+    return /^\d{4}-\d{2}$/.test(String(s || "").trim());
+  }
+  function escapeHtml(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] || c;
+    });
+  }
+  function monthStartEnd(yyyyMm) {
+    var m = String(yyyyMm || "").trim();
+    if (!isYm(m)) return null;
+    var y = parseInt(m.slice(0, 4), 10);
+    var mo = parseInt(m.slice(5, 7), 10);
+    if (!Number.isFinite(y) || !Number.isFinite(mo) || mo < 1 || mo > 12) return null;
+    var start = m + "-01";
+    var lastDay = new Date(y, mo, 0).getDate();
+    var end = m + "-" + pad2(lastDay);
+    return { from: start, to: end };
+  }
+  function todayYm() {
+    var d = new Date();
+    return d.getFullYear() + "-" + pad2(d.getMonth() + 1);
+  }
+  function ymFromYmd(ymd) {
+    return String(ymd || "").slice(0, 7);
+  }
+
+  function isWindowLike(x) {
+    try {
+      return !!(x && x.window === x && x.document && x.document.nodeType === 9);
+    } catch (e) {
+      return false;
+    }
+  }
+  function findBestMountInDocument(doc) {
+    if (!doc) return null;
+    var ids = ["eikon-module-root", "module-root", "app", "root", "eikon-root", "content", "main"];
+    for (var i = 0; i < ids.length; i++) {
+      var el0 = null;
+      try {
+        el0 = doc.getElementById(ids[i]);
+      } catch (e) {
+        el0 = null;
+      }
+      if (el0 && el0.nodeType === 1) return el0;
+    }
+    try {
+      var q = doc.querySelector("[data-module-root='1'], [data-module-root='true']");
+      if (q && q.nodeType === 1) return q;
+    } catch (e2) {}
+    try {
+      if (doc.body && doc.body.nodeType === 1) return doc.body;
+    } catch (e3) {}
+    return null;
+  }
+  function resolveRenderContext(container) {
+    var ctx = { win: null, doc: null, mount: null, note: "" };
+
+    if (container && container.nodeType === 1) {
+      ctx.mount = container;
+      ctx.doc = container.ownerDocument || document;
+      ctx.win = ctx.doc.defaultView || window;
+      ctx.note = "container=Element";
+      return ctx;
+    }
+    if (container && container.nodeType === 9) {
+      ctx.doc = container;
+      ctx.win = container.defaultView || window;
+      ctx.mount = findBestMountInDocument(ctx.doc);
+      ctx.note = "container=Document";
+      return ctx;
+    }
+    if (isWindowLike(container)) {
+      ctx.win = container;
+      ctx.doc = container.document;
+      ctx.mount = findBestMountInDocument(ctx.doc);
+      ctx.note = "container=Window";
+      return ctx;
+    }
+    try {
+      if (container && container.tagName && String(container.tagName).toLowerCase() === "iframe") {
+        var w0 = container.contentWindow;
+        var d0 = container.contentDocument || (w0 ? w0.document : null);
+        if (w0 && d0) {
+          ctx.win = w0;
+          ctx.doc = d0;
+          ctx.mount = findBestMountInDocument(ctx.doc);
+          ctx.note = "container=iframe";
+          return ctx;
+        }
+      }
+    } catch (e1) {}
+
+    var maybeElProps = ["mount", "container", "root", "rootEl", "el", "element", "node"];
+    for (var j = 0; j < maybeElProps.length; j++) {
+      try {
+        var v = container && container[maybeElProps[j]];
+        if (v && v.nodeType === 1) {
+          ctx.mount = v;
+          ctx.doc = v.ownerDocument || document;
+          ctx.win = ctx.doc.defaultView || window;
+          ctx.note = "container=wrapper." + maybeElProps[j];
+          return ctx;
+        }
+      } catch (e2) {}
+    }
+    try {
+      if (container && container.document && container.document.nodeType === 9) {
+        ctx.doc = container.document;
+        ctx.win = ctx.doc.defaultView || window;
+        ctx.mount = findBestMountInDocument(ctx.doc);
+        ctx.note = "container=wrapper.document";
+        return ctx;
+      }
+    } catch (e3) {}
+    if (typeof container === "string") {
+      try {
+        var el1 = document.querySelector(container);
+        if (el1 && el1.nodeType === 1) {
+          ctx.mount = el1;
+          ctx.doc = el1.ownerDocument || document;
+          ctx.win = ctx.doc.defaultView || window;
+          ctx.note = "container=selector";
+          return ctx;
+        }
+      } catch (e4) {}
+    }
+
+    ctx.note = "container=unknown";
+    return ctx;
+  }
+
+  function el(doc, tag, attrs, children) {
+    var node = doc.createElement(tag);
+    if (attrs) {
+      Object.keys(attrs).forEach(function (k) {
+        if (k === "class") node.className = attrs[k];
+        else if (k === "html") node.innerHTML = attrs[k];
+        else if (k === "text") node.textContent = attrs[k];
+        else if (k === "value") node.value = attrs[k];
+        else if (k === "type") node.type = attrs[k];
+        else if (k === "placeholder") node.placeholder = attrs[k];
+        else if (k === "disabled") node.disabled = !!attrs[k];
+        else if (k === "onclick") node.onclick = attrs[k];
+        else if (k === "colspan") node.colSpan = attrs[k];
+        else if (k === "style") node.setAttribute("style", attrs[k]);
+        else node.setAttribute(k, attrs[k]);
+      });
     }
     if (children && children.length) {
-      for (var i = 0; i < children.length; i++) if (children[i]) n.appendChild(children[i]);
+      children.forEach(function (c) {
+        if (c == null) return;
+        if (typeof c === "string") node.appendChild(doc.createTextNode(c));
+        else node.appendChild(c);
+      });
     }
-    return n;
+    return node;
   }
 
-  function escapeHtml(s) {
-    return String(s == null ? "" : s)
-      .replace(/&/g, "&amp;").replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;").replace(/"/g, "&quot;")
-      .replace(/'/g, "&#39;");
+  function ensureStyleOnce(doc) {
+    // Reuse the exact styling class names used by dda-sales so it looks identical.
+    var id = "eikon-dda-sales-style";
+    try {
+      if (doc.getElementById(id)) return;
+    } catch (e) {}
+
+    var css =
+      "" +
+      ".eikon-dda-wrap{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:1100px;margin:0 auto;padding:16px;}" +
+      ".eikon-dda-top{display:flex;flex-wrap:wrap;gap:10px;align-items:end;justify-content:space-between;margin-bottom:12px;}" +
+      ".eikon-dda-title{font-size:18px;font-weight:900;margin:0;display:flex;align-items:center;gap:10px;color:var(--text,#e9eef7);}" +
+      ".eikon-dda-title .icon{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;color:var(--text,#e9eef7);opacity:.95;}" +
+      ".eikon-dda-controls{display:flex;flex-wrap:wrap;gap:10px;align-items:end;}" +
+      ".eikon-dda-field{display:flex;flex-direction:column;gap:4px;}" +
+      ".eikon-dda-field label{font-size:12px;font-weight:800;color:var(--muted,rgba(233,238,247,.68));letter-spacing:.2px;}" +
+      ".eikon-dda-field input,.eikon-dda-field textarea{padding:10px 12px;border:1px solid var(--line,rgba(255,255,255,.10));border-radius:12px;font-size:14px;background:rgba(10,16,24,.64);color:var(--text,#e9eef7);outline:none;transition:border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;}" +
+      ".eikon-dda-field input:hover,.eikon-dda-field textarea:hover{border-color:rgba(255,255,255,.18);}" +
+      ".eikon-dda-field input:focus,.eikon-dda-field textarea:focus{border-color:rgba(58,160,255,.55);box-shadow:0 0 0 3px rgba(58,160,255,.22);background:rgba(10,16,24,.74);}" +
+      ".eikon-dda-field textarea{min-height:64px;resize:vertical;}" +
+      ".eikon-dda-btn{padding:10px 12px;border:1px solid var(--line,rgba(255,255,255,.10));border-radius:12px;background:rgba(20,32,48,.62);color:var(--text,#e9eef7);font-weight:900;cursor:pointer;box-shadow:0 10px 24px rgba(0,0,0,.14);transition:transform 120ms ease, border-color 120ms ease, background 120ms ease;}" +
+      ".eikon-dda-btn:hover{border-color:rgba(58,160,255,.35);background:rgba(24,38,56,.70);}" +
+      ".eikon-dda-btn:active{transform:translateY(1px);}" +
+      ".eikon-dda-btn:disabled{opacity:.55;cursor:not-allowed;box-shadow:none;}" +
+      ".eikon-dda-btn.secondary{background:rgba(16,24,36,.34);}" +
+      ".eikon-dda-btn.secondary:hover{border-color:rgba(255,255,255,.18);background:rgba(16,24,36,.44);}" +
+      ".eikon-dda-btn.danger{background:rgba(255,77,79,.12);border-color:rgba(255,77,79,.42);}" +
+      ".eikon-dda-btn.danger:hover{background:rgba(255,77,79,.16);border-color:rgba(255,77,79,.60);}" +
+      ".eikon-dda-card{border:1px solid var(--line,rgba(255,255,255,.10));border-radius:16px;padding:12px;background:var(--panel,rgba(16,24,36,.66));box-shadow:0 18px 50px rgba(0,0,0,.38);backdrop-filter:blur(10px);}" +
+      ".eikon-dda-card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;}" +
+      ".eikon-dda-card-head h3{margin:0;font-size:15px;font-weight:1000;color:var(--text,#e9eef7);}" +
+      ".eikon-dda-msg{margin:10px 0;padding:10px 12px;border-radius:14px;border:1px solid var(--line,rgba(255,255,255,.10));background:rgba(16,24,36,.52);color:var(--text,#e9eef7);white-space:pre-line;}" +
+      ".eikon-dda-msg.ok{border-color:rgba(55,214,122,.35);}" +
+      ".eikon-dda-msg.err{border-color:rgba(255,77,79,.35);}" +
+      ".eikon-dda-hint{font-size:12px;color:var(--muted,rgba(233,238,247,.68));margin-top:6px;}" +
+      ".eikon-dda-table-wrap{overflow:auto;border:1px solid var(--line,rgba(255,255,255,.10));border-radius:14px;background:rgba(10,16,24,.18);}" +
+      ".eikon-dda-table{width:100%;border-collapse:collapse;min-width:980px;color:var(--text,#e9eef7);}" +
+      ".eikon-dda-table th,.eikon-dda-table td{border-bottom:1px solid var(--line,rgba(255,255,255,.10));padding:10px 10px;font-size:12px;vertical-align:top;}" +
+      ".eikon-dda-table th{background:rgba(12,19,29,.92);text-align:left;font-weight:900;position:sticky;top:0;z-index:1;color:var(--muted,rgba(233,238,247,.68));text-transform:uppercase;letter-spacing:.8px;}" +
+      ".eikon-dda-table tbody tr:hover{background:rgba(255,255,255,.04);}" +
+      ".eikon-dda-actions{display:flex;gap:10px;}" +
+      ".eikon-dda-link{color:var(--brand,#3aa0ff);text-decoration:underline;cursor:pointer;font-weight:900;}" +
+      ".eikon-dda-modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.58);display:none;align-items:center;justify-content:center;padding:16px;z-index:9999;}" +
+      ".eikon-dda-modal{width:100%;max-width:860px;background:rgba(16,24,36,.98);border-radius:16px;border:1px solid var(--line,rgba(255,255,255,.10));box-shadow:0 28px 80px rgba(0,0,0,.55);backdrop-filter:blur(10px);}" +
+      ".eikon-dda-modal-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--line,rgba(255,255,255,.10));}" +
+      ".eikon-dda-modal-head h3{margin:0;font-size:15px;font-weight:1000;color:var(--text,#e9eef7);}" +
+      ".eikon-dda-modal-body{padding:14px;}" +
+      ".eikon-dda-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}" +
+      ".eikon-dda-grid .full{grid-column:1 / -1;}" +
+      "@media(max-width:820px){.eikon-dda-grid{grid-template-columns:1fr;}}";
+
+    var style = doc.createElement("style");
+    style.id = id;
+    style.type = "text/css";
+    style.appendChild(doc.createTextNode(css));
+    try {
+      if (doc.head) doc.head.appendChild(style);
+      else if (doc.documentElement) doc.documentElement.appendChild(style);
+      else if (doc.body) doc.body.appendChild(style);
+    } catch (e2) {}
   }
 
-  function pad2(n) { n = Number(n || 0); return (n < 10 ? "0" : "") + n; }
-  function isYm(s) { return /^\d{4}-\d{2}$/.test(String(s || "").trim()); }
-  function isYmd(s) { return /^\d{4}-\d{2}-\d{2}$/.test(String(s || "").trim()); }
+  function getStoredToken(win) {
+    // identical strategy to dda-sales
+    var candidates = [];
+    try {
+      if (window && window !== win) candidates.push(window);
+    } catch (e) {}
+    candidates.push(win || window);
 
-  function monthStartEnd(ym) {
-    if (!isYm(ym)) return null;
-    var y = parseInt(ym.slice(0, 4), 10);
-    var m = parseInt(ym.slice(5, 7), 10);
-    var start = new Date(Date.UTC(y, m - 1, 1));
-    var end = new Date(Date.UTC(y, m, 1));
-    return {
-      start: start.toISOString().slice(0, 10),
-      end: end.toISOString().slice(0, 10)
-    };
+    for (var c = 0; c < candidates.length; c++) {
+      var W = candidates[c];
+      if (!W) continue;
+
+      try {
+        if (W.EIKON && typeof W.EIKON.getToken === "function") {
+          var t = W.EIKON.getToken();
+          if (t) return String(t);
+        }
+      } catch (e1) {}
+      try {
+        if (W.Eikon && typeof W.Eikon.getToken === "function") {
+          var t2 = W.Eikon.getToken();
+          if (t2) return String(t2);
+        }
+      } catch (e2) {}
+      try {
+        if (W.EIKON && W.EIKON.state && W.EIKON.state.token) return String(W.EIKON.state.token);
+      } catch (e3) {}
+      try {
+        if (W.Eikon && W.Eikon.state && W.Eikon.state.token) return String(W.Eikon.state.token);
+      } catch (e4) {}
+
+      var keys = ["eikon_token", "EIKON_TOKEN", "token", "auth_token", "session_token"];
+      for (var i = 0; i < keys.length; i++) {
+        try {
+          var v = W.localStorage && W.localStorage.getItem(keys[i]);
+          if (v && String(v).trim()) return String(v).trim();
+        } catch (e5) {}
+      }
+      for (var j = 0; j < keys.length; j++) {
+        try {
+          var v2 = W.sessionStorage && W.sessionStorage.getItem(keys[j]);
+          if (v2 && String(v2).trim()) return String(v2).trim();
+        } catch (e6) {}
+      }
+    }
+    return "";
   }
 
-  function setReportDefaultsForMonth(ym) {
-    var r = monthStartEnd(ym);
-    if (!r) return;
-    state.report_from = r.start;
-    // end should be last day of month (inclusive)
-    var end = new Date(r.end + "T00:00:00Z");
-    end.setUTCDate(end.getUTCDate() - 1);
-    state.report_to = end.toISOString().slice(0, 10);
+  function makeHttpError(status, payload) {
+    var msg = "HTTP " + status;
+    if (payload && typeof payload === "object" && payload.error) msg = String(payload.error);
+    else if (typeof payload === "string" && payload.trim()) msg = payload.trim();
+    var err = new Error(msg);
+    err.status = status;
+    err.payload = payload;
+    return err;
   }
 
-  function toIntSafe(v) {
-    if (v == null) return null;
-    var n = Number(v);
-    if (!Number.isFinite(n)) return null;
-    var i = Math.floor(n);
-    if (!Number.isInteger(n) && n !== i) return null;
-    return i;
-  }
-
-  // ---------- api ----------
   async function apiJson(win, path, opts) {
     opts = opts || {};
-    var headers = opts.headers || {};
-    headers["Content-Type"] = "application/json";
+    var headers = new Headers(opts.headers || {});
+    headers.set("Accept", "application/json");
 
-    // Core likely injects auth header at fetch layer, but keep consistent with dda-sales
-    opts.headers = headers;
+    var token = getStoredToken(win);
+    if (token && !headers.has("Authorization")) headers.set("Authorization", "Bearer " + token);
 
-    var res = await win.fetch(path, opts);
-    var ct = (res.headers.get("content-type") || "").toLowerCase();
+    if (opts.body != null && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+
+    var res = await fetch(path, {
+      method: opts.method || "GET",
+      headers: headers,
+      body: opts.body != null ? opts.body : undefined,
+    });
+
+    var ct = (res.headers.get("Content-Type") || "").toLowerCase();
     var data = null;
-    if (ct.indexOf("application/json") >= 0) data = await res.json();
-    else data = { ok: false, error: "Unexpected response type" };
 
-    if (!res.ok) {
-      var err = new Error((data && data.error) ? String(data.error) : ("HTTP " + res.status));
-      err.status = res.status;
-      err.data = data;
-      throw err;
+    if (ct.indexOf("application/json") >= 0) {
+      try {
+        data = await res.json();
+      } catch (e) {
+        data = null;
+      }
+    } else {
+      try {
+        data = await res.text();
+      } catch (e2) {
+        data = null;
+      }
     }
+    if (!res.ok) throw makeHttpError(res.status, data);
     return data;
   }
 
-  // ---------- render root resolution (same strategy as dda-sales) ----------
-  function resolveRenderContext(container) {
-    var mount = null;
-    var doc = null;
-    var win = null;
-
-    // container might be: element, {el}, {root}, {mount}, {container}, or iframe doc body wrapper
-    if (container && container.ownerDocument) {
-      mount = container;
-      doc = container.ownerDocument;
-      win = doc.defaultView || window;
-    } else if (container && container.el && container.el.ownerDocument) {
-      mount = container.el;
-      doc = mount.ownerDocument;
-      win = doc.defaultView || window;
-    } else if (container && container.root && container.root.ownerDocument) {
-      mount = container.root;
-      doc = mount.ownerDocument;
-      win = doc.defaultView || window;
-    } else if (container && container.mount && container.mount.ownerDocument) {
-      mount = container.mount;
-      doc = mount.ownerDocument;
-      win = doc.defaultView || window;
-    } else if (container && container.container && container.container.ownerDocument) {
-      mount = container.container;
-      doc = mount.ownerDocument;
-      win = doc.defaultView || window;
-    } else {
-      // last resort
-      doc = document;
-      win = window;
-      mount = document.getElementById("app") || document.body;
-    }
-
-    if (!mount || !doc || !win) return null;
-    return { mount: mount, doc: doc, win: win };
-  }
-
-  // ---------- styles (identical to dda-sales; injected once) ----------
-  var STYLE_ID = "eikon-dda-style";
-  function ensureStyleOnce(doc) {
-    if (!doc || doc.getElementById(STYLE_ID)) return;
-    var css = ""
-      + ".eikon-dda-wrap{padding:14px;max-width:1200px;margin:0 auto;}"
-      + ".eikon-dda-top{display:flex;flex-direction:column;gap:12px;margin-bottom:12px;}"
-      + ".eikon-dda-title{display:flex;align-items:center;gap:10px;font-size:18px;font-weight:800;}"
-      + ".eikon-dda-title .icon{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:10px;background:#111;color:#fff;}"
-      + ".eikon-dda-controls{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;}"
-      + ".eikon-dda-field{display:flex;flex-direction:column;gap:6px;min-width:160px;}"
-      + ".eikon-dda-field label{font-size:12px;color:#444;font-weight:700;}"
-      + ".eikon-dda-field input{padding:10px;border:1px solid #ccc;border-radius:10px;font-size:14px;}"
-      + ".eikon-dda-btn{padding:10px 14px;border-radius:10px;border:0;background:#111;color:#fff;font-weight:800;cursor:pointer;}"
-      + ".eikon-dda-btn.secondary{background:#f1f1f1;color:#111;border:1px solid #ddd;}"
-      + ".eikon-dda-btn.danger{background:#b00020;color:#fff;}"
-      + ".eikon-dda-card{background:#fff;border:1px solid #e6e6e6;border-radius:14px;padding:12px;box-shadow:0 2px 10px rgba(0,0,0,.04);}"
-      + ".eikon-dda-card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}"
-      + ".eikon-dda-card-head h3{margin:0;font-size:14px;font-weight:900;}"
-      + ".eikon-dda-table-wrap{overflow:auto;border-radius:12px;border:1px solid #eee;}"
-      + ".eikon-dda-table{width:100%;border-collapse:collapse;font-size:13px;}"
-      + ".eikon-dda-table th,.eikon-dda-table td{padding:10px;border-bottom:1px solid #eee;vertical-align:top;white-space:nowrap;}"
-      + ".eikon-dda-table th{background:#fafafa;font-weight:900;text-align:left;}"
-      + ".eikon-dda-actions{display:flex;gap:8px;}"
-      + ".eikon-dda-msg{margin-top:10px;padding:10px;border-radius:12px;font-weight:800;white-space:pre-wrap;}"
-      + ".eikon-dda-msg.ok{background:#e9f8ee;color:#0c6a2a;border:1px solid #bfe9c9;}"
-      + ".eikon-dda-msg.err{background:#fdebed;color:#8a1026;border:1px solid #f3b9c1;}"
-      + ".eikon-dda-msg.info{background:#eef3ff;color:#1b3a8a;border:1px solid #c8d6ff;}"
-      + ".eikon-dda-modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;padding:16px;z-index:9999;}"
-      + ".eikon-dda-modal{background:#fff;border-radius:16px;border:1px solid #eee;max-width:860px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,.22);}"
-      + ".eikon-dda-modal-head{display:flex;align-items:center;justify-content:space-between;padding:14px 14px 10px 14px;border-bottom:1px solid #eee;}"
-      + ".eikon-dda-modal-head h3{margin:0;font-size:16px;font-weight:900;}"
-      + ".eikon-dda-modal-body{padding:14px;}"
-      + ".eikon-dda-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}"
-      + ".eikon-dda-field.full{grid-column:1/-1;}"
-      + "@media (max-width:760px){.eikon-dda-grid{grid-template-columns:1fr;}.eikon-dda-field{min-width:unset;}}";
-
-    var style = el(doc, "style", { id: STYLE_ID, text: css }, []);
-    (doc.head || doc.documentElement).appendChild(style);
-  }
-
-  // ---------- module state ----------
-  var state = {
-    loading: false,
-    report_loading: false,
-    month: "",
-    q: "",
-    entries: [],
-    report: null,
-    report_from: "",
-    report_to: ""
-  };
-
-  // ctx & dom refs
-  var ctx = null;
-
-  var msgBox = null;
-  var reportMsg = null;
-  var reportPreview = null;
-
-  var monthInput = null;
-  var qInput = null;
-  var addBtn = null;
-
-  var reportFromInput = null;
-  var reportToInput = null;
-  var generateBtn = null;
-  var printBtn = null;
-
-  var tableBody = null;
-
-  // modal refs
-  var activeDoc = null;
-  var modalBackdrop = null;
-  var modalTitle = null;
-  var formEls = null;
-
-  var searchTimer = null;
-
-  function setLoading(on) {
-    state.loading = !!on;
-    if (addBtn) addBtn.disabled = state.loading || state.report_loading;
-    if (monthInput) monthInput.disabled = state.loading || state.report_loading;
-    if (qInput) qInput.disabled = state.loading || state.report_loading;
-    if (generateBtn) generateBtn.disabled = state.loading || state.report_loading;
-    if (printBtn) printBtn.disabled = state.loading || state.report_loading;
-  }
-
-  function setMsg(kind, text) {
-    if (!msgBox) return;
-    msgBox.className = "eikon-dda-msg" + (kind ? (" " + kind) : "");
-    msgBox.textContent = String(text || "");
-    msgBox.style.display = text ? "block" : "none";
-  }
-
-  function setReportMsg(kind, text) {
-    if (!reportMsg) return;
-    reportMsg.className = "eikon-dda-msg" + (kind ? (" " + kind) : "");
-    reportMsg.textContent = String(text || "");
-    reportMsg.style.display = text ? "block" : "none";
-  }
-
-  function renderRows() {
-    if (!ctx || !ctx.doc || !tableBody) return;
-    tableBody.innerHTML = "";
-
-    var rows = state.entries || [];
-    if (!rows.length) {
-      var tr0 = el(ctx.doc, "tr", {}, []);
-      var td0 = el(ctx.doc, "td", { text: "No entries for this filter.", style: "padding:14px;color:#666;" }, []);
-      td0.colSpan = 10;
-      tr0.appendChild(td0);
-      tableBody.appendChild(tr0);
-      return;
-    }
-
-    for (var i = 0; i < rows.length; i++) {
-      (function (r) {
-        var tr = el(ctx.doc, "tr", {}, []);
-        tr.appendChild(el(ctx.doc, "td", { text: r.entry_date || "" }, []));
-        tr.appendChild(el(ctx.doc, "td", { text: r.client_name || "" }, []));
-        tr.appendChild(el(ctx.doc, "td", { text: r.client_id_card || "" }, []));
-        tr.appendChild(el(ctx.doc, "td", { text: r.client_address || "" }, []));
-        tr.appendChild(el(ctx.doc, "td", { text: r.medicine_name_dose || "" }, []));
-        tr.appendChild(el(ctx.doc, "td", { text: (r.quantity == null ? "" : String(r.quantity)) }, []));
-        tr.appendChild(el(ctx.doc, "td", { text: r.doctor_name || "" }, []));
-        tr.appendChild(el(ctx.doc, "td", { text: r.doctor_reg_no || "" }, []));
-        tr.appendChild(el(ctx.doc, "td", { text: r.prescription_serial_no || "" }, []));
-
-        var actionsTd = el(ctx.doc, "td", {}, []);
-        var actions = el(ctx.doc, "div", { class: "eikon-dda-actions" }, []);
-        var editBtn = el(ctx.doc, "button", { class: "eikon-dda-btn secondary", text: "Edit" }, []);
-        editBtn.onclick = function () { openModalForEdit(r); };
-        var delBtn = el(ctx.doc, "button", { class: "eikon-dda-btn danger", text: "Delete" }, []);
-        delBtn.onclick = function () { doDelete(r, false); };
-        actions.appendChild(editBtn);
-        actions.appendChild(delBtn);
-        actionsTd.appendChild(actions);
-        tr.appendChild(actionsTd);
-
-        tableBody.appendChild(tr);
-      })(rows[i]);
-    }
-  }
-
-  function validateReportRange(from, to) {
-    from = String(from || "").trim();
-    to = String(to || "").trim();
-    if (!isYmd(from) || !isYmd(to)) return { ok: false, error: "Invalid from/to (YYYY-MM-DD)" };
-    if (to < from) return { ok: false, error: "to must be >= from" };
-    return { ok: true, from: from, to: to };
-  }
-
-  function renderReportPreview() {
-    if (!ctx || !ctx.doc || !reportPreview) return;
-    reportPreview.innerHTML = "";
-
-    var data = state.report;
-    if (!data || data.ok !== true) {
-      reportPreview.appendChild(el(ctx.doc, "div", { style: "color:#666;padding:8px 0;", text: "No report loaded. Click Generate." }, []));
-      return;
-    }
-
-    var entries = data.entries || [];
-    var meta = el(ctx.doc, "div", { style: "font-size:12px;color:#444;margin:0 0 8px 0;" }, []);
-    meta.innerHTML = "<b>" + escapeHtml(data.org_name || "") + "</b> — "
-      + escapeHtml(data.location_name || "")
-      + "<br/>Range: <b>" + escapeHtml(data.from) + "</b> to <b>" + escapeHtml(data.to) + "</b>"
-      + "<br/>Entries: <b>" + escapeHtml(String(entries.length)) + "</b>";
-    reportPreview.appendChild(meta);
-
-    if (!entries.length) {
-      reportPreview.appendChild(el(ctx.doc, "div", { style: "color:#666;padding:8px 0;", text: "No entries in this range." }, []));
-      return;
-    }
-
-    // small preview table (same as dda-sales)
-    var wrap = el(ctx.doc, "div", { class: "eikon-dda-table-wrap" }, []);
-    var table = el(ctx.doc, "table", { class: "eikon-dda-table" }, []);
-    var thead = el(ctx.doc, "thead", {}, []);
-    thead.appendChild(el(ctx.doc, "tr", {}, [
-      el(ctx.doc, "th", { text: "Date" }, []),
-      el(ctx.doc, "th", { text: "Client" }, []),
-      el(ctx.doc, "th", { text: "ID Card" }, []),
-      el(ctx.doc, "th", { text: "Medicine" }, []),
-      el(ctx.doc, "th", { text: "Qty" }, []),
-      el(ctx.doc, "th", { text: "Doctor" }, [])
-    ]));
-    table.appendChild(thead);
-
-    var tb = el(ctx.doc, "tbody", {}, []);
-    for (var i = 0; i < entries.length; i++) {
-      var r = entries[i];
-      tb.appendChild(el(ctx.doc, "tr", {}, [
-        el(ctx.doc, "td", { text: r.entry_date || "" }, []),
-        el(ctx.doc, "td", { text: r.client_name || "" }, []),
-        el(ctx.doc, "td", { text: r.client_id_card || "" }, []),
-        el(ctx.doc, "td", { text: r.medicine_name_dose || "" }, []),
-        el(ctx.doc, "td", { text: (r.quantity == null ? "" : String(r.quantity)) }, []),
-        el(ctx.doc, "td", { text: r.doctor_name || "" }, [])
-      ]));
-    }
-    table.appendChild(tb);
-    wrap.appendChild(table);
-    reportPreview.appendChild(wrap);
-  }
-
-  async function refresh() {
-    if (!ctx) return;
-    setMsg("", "");
-    setLoading(true);
-
+  function openPrintTabWithHtml(html) {
+    var blob = new Blob([html], { type: "text/html" });
+    var url = URL.createObjectURL(blob);
+    var w = null;
     try {
-      var url = "/dda-poyc/entries?month=" + encodeURIComponent(state.month);
+      w = window.open(url, "_blank", "noopener");
+    } catch (e) {
+      w = null;
+    }
+    if (!w) {
+      try {
+        var a = document.createElement("a");
+        a.href = url;
+        a.target = "_blank";
+        a.rel = "noopener";
+        a.style.display = "none";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      } catch (e2) {}
+    }
+    setTimeout(function () {
+      try {
+        URL.revokeObjectURL(url);
+      } catch (e3) {}
+    }, 60000);
+  }
+
+  function buildModule() {
+    var state = {
+      month: todayYm(),
+      q: "",
+      loading: false,
+      entries: [],
+      report_from: "",
+      report_to: "",
+      report: null,
+      report_loading: false,
+    };
+
+    var ctx = null;
+
+    var msgBox = null;
+    var tableBody = null;
+    var monthInput = null;
+    var qInput = null;
+    var addBtn = null;
+
+    var reportFromInput = null;
+    var reportToInput = null;
+    var generateBtn = null;
+    var printBtn = null;
+    var reportMsg = null;
+    var reportPreview = null;
+
+    var modalBackdrop = null;
+    var modalTitle = null;
+    var formEls = null;
+
+    // live search debounce (same behavior as dda-sales)
+    var searchTimer = null;
+
+    function setMsg(kind, text) {
+      if (!msgBox) return;
+      msgBox.className = "eikon-dda-msg " + (kind === "ok" ? "ok" : kind === "err" ? "err" : "");
+      msgBox.textContent = String(text || "");
+      msgBox.style.display = text ? "block" : "none";
+    }
+
+    function setLoading(v) {
+      state.loading = !!v;
+      var disabled = state.loading || state.report_loading;
+
+      if (addBtn) addBtn.disabled = disabled;
+      if (monthInput) monthInput.disabled = disabled;
+      if (qInput) qInput.disabled = disabled;
+
+      if (generateBtn) generateBtn.disabled = disabled;
+      if (printBtn) printBtn.disabled = disabled;
+      if (reportFromInput) reportFromInput.disabled = disabled;
+      if (reportToInput) reportToInput.disabled = disabled;
+    }
+
+    function setReportMsg(kind, text) {
+      if (!reportMsg) return;
+      reportMsg.className = "eikon-dda-msg " + (kind === "ok" ? "ok" : kind === "err" ? "err" : "");
+      reportMsg.textContent = String(text || "");
+      reportMsg.style.display = text ? "block" : "none";
+    }
+
+    function setReportDefaultsForMonth(m) {
+      var r = monthStartEnd(m);
+      if (!r) return;
+      state.report_from = r.from;
+      state.report_to = r.to;
+      if (reportFromInput) reportFromInput.value = r.from;
+      if (reportToInput) reportToInput.value = r.to;
+    }
+
+    function renderRows() {
+      if (!tableBody || !ctx) return;
+      tableBody.innerHTML = "";
+
+      var list = state.entries || [];
+      if (!list.length) {
+        var trEmpty = el(ctx.doc, "tr", {}, [
+          el(ctx.doc, "td", { colspan: "10", html: "No entries for this filter." }, []),
+        ]);
+        tableBody.appendChild(trEmpty);
+        return;
+      }
+
+      for (var i = 0; i < list.length; i++) {
+        (function (row) {
+          var tr = el(ctx.doc, "tr", {}, [
+            el(ctx.doc, "td", { text: String(row.entry_date || "") }, []),
+            el(ctx.doc, "td", { text: String(row.client_name || "") }, []),
+            el(ctx.doc, "td", { text: String(row.client_id_card || "") }, []),
+            el(ctx.doc, "td", { text: String(row.client_address || "") }, []),
+            el(ctx.doc, "td", { text: String(row.medicine_name_dose || "") }, []),
+            el(ctx.doc, "td", { text: String(row.quantity == null ? "" : row.quantity) }, []),
+            el(ctx.doc, "td", { text: String(row.doctor_name || "") }, []),
+            el(ctx.doc, "td", { text: String(row.doctor_reg_no || "") }, []),
+            el(ctx.doc, "td", { text: String(row.prescription_serial_no || "") }, []),
+            el(ctx.doc, "td", {}, []),
+          ]);
+
+          var actionsTd = tr.lastChild;
+          var actions = el(ctx.doc, "div", { class: "eikon-dda-actions" }, []);
+          var edit = el(ctx.doc, "span", { class: "eikon-dda-link", text: "Edit" }, []);
+          edit.onclick = function () {
+            openModalForEdit(row);
+          };
+          var del = el(ctx.doc, "span", { class: "eikon-dda-link", text: "Delete" }, []);
+          del.onclick = function () {
+            doDelete(row);
+          };
+          actions.appendChild(edit);
+          actions.appendChild(del);
+          actionsTd.appendChild(actions);
+
+          tableBody.appendChild(tr);
+        })(list[i]);
+      }
+    }
+
+    async function refresh() {
+      if (!ctx) return;
+
+      setMsg("", "");
+      setLoading(true);
+
+      var month = String(state.month || "").trim();
+      if (!isYm(month)) month = todayYm();
+
+      var url = "/dda-poyc/entries?month=" + encodeURIComponent(month);
+
       var q = String(state.q || "").trim();
       if (q) url += "&q=" + encodeURIComponent(q);
 
-      var data = await apiJson(ctx.win, url, { method: "GET" });
-      if (!data || data.ok !== true) throw new Error(data && data.error ? String(data.error) : "Unexpected response");
+      try {
+        var data = await apiJson(ctx.win, url, { method: "GET" });
+        if (!data || data.ok !== true) throw new Error(data && data.error ? String(data.error) : "Unexpected response");
 
-      state.entries = data.entries || [];
-      renderRows();
-    } catch (e) {
-      var msg = e && e.message ? e.message : String(e || "Error");
-      if (e && e.status === 401) msg = "Unauthorized (missing/invalid token).\nLog in again.";
-      setMsg("err", msg);
-      warn("refresh failed:", e);
-    } finally {
-      setLoading(false);
-    }
-  }
+        state.entries = Array.isArray(data.entries) ? data.entries : [];
+        renderRows();
+        setLoading(false);
+      } catch (e) {
+        setLoading(false);
+        state.entries = [];
+        renderRows();
 
-  async function generateReport() {
-    if (!ctx) return;
-    setReportMsg("", "");
-    var from = reportFromInput ? reportFromInput.value : state.report_from;
-    var to = reportToInput ? reportToInput.value : state.report_to;
-
-    var vr = validateReportRange(from, to);
-    if (!vr.ok) {
-      setReportMsg("err", vr.error);
-      return;
+        var msg = e && e.message ? e.message : String(e || "Error");
+        if (e && e.status === 401) msg = "Unauthorized (missing/invalid token).\nLog in again.";
+        setMsg("err", msg);
+        warn("refresh failed:", e);
+      }
     }
 
-    try {
-      state.report_loading = true;
-      setLoading(false);
+    function validateReportRange(from, to) {
+      from = String(from || "").trim();
+      to = String(to || "").trim();
+      if (!isYmd(from) || !isYmd(to)) return { ok: false, error: "Invalid from/to (YYYY-MM-DD)" };
+      if (to < from) return { ok: false, error: "to must be >= from" };
+      return { ok: true, from: from, to: to };
+    }
 
-      var url = "/dda-poyc/report?from=" + encodeURIComponent(vr.from) + "&to=" + encodeURIComponent(vr.to);
-      var data = await apiJson(ctx.win, url, { method: "GET" });
-      if (!data || data.ok !== true) throw new Error(data && data.error ? String(data.error) : "Unexpected response");
+    function groupEntriesByMonth(entries) {
+      var byMonth = new Map();
+      for (var i = 0; i < entries.length; i++) {
+        var e = entries[i] || {};
+        var ym = ymFromYmd(e.entry_date);
+        if (!byMonth.has(ym)) byMonth.set(ym, []);
+        byMonth.get(ym).push(e);
+      }
+      return byMonth;
+    }
 
-      state.report = data;
+    function renderReportPreview() {
+      if (!reportPreview || !ctx) return;
+      reportPreview.innerHTML = "";
+
+      if (!state.report || state.report.ok !== true) {
+        reportPreview.appendChild(el(ctx.doc, "div", { class: "eikon-dda-hint", html: "No report loaded. Click Generate." }, []));
+        return;
+      }
+
+      var data = state.report;
+      var entries = Array.isArray(data.entries) ? data.entries : [];
+      if (!entries.length) {
+        reportPreview.appendChild(
+          el(ctx.doc, "div", { class: "eikon-dda-hint", html: "Report has no entries for the selected date range." }, [])
+        );
+        return;
+      }
+
+      var byMonth = groupEntriesByMonth(entries);
+      var monthKeys = Array.from(byMonth.keys()).sort();
+
+      for (var mi = 0; mi < monthKeys.length; mi++) {
+        var ym = monthKeys[mi];
+        var list = byMonth.get(ym) || [];
+
+        reportPreview.appendChild(
+          el(ctx.doc, "h3", {
+            text: ym,
+            style: "margin:14px 0 8px 0;font-size:14px;font-weight:1000;",
+          }, [])
+        );
+
+        var tableWrap = el(ctx.doc, "div", { class: "eikon-dda-table-wrap" }, []);
+        var table = el(ctx.doc, "table", { class: "eikon-dda-table", style: "min-width:1100px;" }, []);
+
+        var thead = el(ctx.doc, "thead", {}, []);
+        thead.appendChild(
+          el(ctx.doc, "tr", {}, [
+            el(ctx.doc, "th", { text: "Date" }, []),
+            el(ctx.doc, "th", { text: "Client" }, []),
+            el(ctx.doc, "th", { text: "ID Card" }, []),
+            el(ctx.doc, "th", { text: "Address" }, []),
+            el(ctx.doc, "th", { text: "Medicine (name & dose)" }, []),
+            el(ctx.doc, "th", { text: "Qty" }, []),
+            el(ctx.doc, "th", { text: "Doctor" }, []),
+            el(ctx.doc, "th", { text: "Reg No." }, []),
+            el(ctx.doc, "th", { text: "Prescription Serial No." }, []),
+          ])
+        );
+        table.appendChild(thead);
+
+        var tbody = el(ctx.doc, "tbody", {}, []);
+        for (var i = 0; i < list.length; i++) {
+          var r = list[i] || {};
+          tbody.appendChild(
+            el(ctx.doc, "tr", {}, [
+              el(ctx.doc, "td", { text: String(r.entry_date || "") }, []),
+              el(ctx.doc, "td", { text: String(r.client_name || "") }, []),
+              el(ctx.doc, "td", { text: String(r.client_id_card || "") }, []),
+              el(ctx.doc, "td", { text: String(r.client_address || "") }, []),
+              el(ctx.doc, "td", { text: String(r.medicine_name_dose || "") }, []),
+              el(ctx.doc, "td", { text: String(r.quantity == null ? "" : r.quantity) }, []),
+              el(ctx.doc, "td", { text: String(r.doctor_name || "") }, []),
+              el(ctx.doc, "td", { text: String(r.doctor_reg_no || "") }, []),
+              el(ctx.doc, "td", { text: String(r.prescription_serial_no || "") }, []),
+            ])
+          );
+        }
+        table.appendChild(tbody);
+
+        tableWrap.appendChild(table);
+        reportPreview.appendChild(tableWrap);
+      }
+    }
+
+    async function generateReport() {
+      if (!ctx) return;
+
+      // match dda-sales: keep success message hidden unless error
+      setReportMsg("", "");
+
+      var from = reportFromInput ? reportFromInput.value : state.report_from;
+      var to = reportToInput ? reportToInput.value : state.report_to;
+
+      var vr = validateReportRange(from, to);
+      if (!vr.ok) {
+        setReportMsg("err", vr.error);
+        return;
+      }
+
       state.report_from = vr.from;
       state.report_to = vr.to;
 
-      if (reportFromInput) reportFromInput.value = vr.from;
-      if (reportToInput) reportToInput.value = vr.to;
-
-      renderReportPreview();
-      setReportMsg("ok", "Report generated.");
-    } catch (e) {
-      var msg = e && e.message ? e.message : String(e || "Error");
-      if (e && e.status === 401) msg = "Unauthorized (missing/invalid token).\nLog in again.";
-      setReportMsg("err", msg);
-      warn("generate report failed:", e);
-    } finally {
-      state.report_loading = false;
+      state.report_loading = true;
       setLoading(false);
-    }
-  }
 
-  function openPrintTabWithHtml(html) {
-    if (!ctx) return;
-    try {
-      var w = ctx.win.open("", "_blank");
-      if (!w) throw new Error("Popup blocked");
-      w.document.open();
-      w.document.write(html);
-      w.document.close();
-      // give it a tick to layout before print
-      setTimeout(function () {
-        try { w.focus(); w.print(); } catch (e) {}
-      }, 250);
-    } catch (e) {
-      setReportMsg("err", "Unable to open print window (popup blocked).");
-    }
-  }
-
-  function buildPrintableHtml(data) {
-    var entries = (data && data.entries) ? data.entries : [];
-    var title = "DDA POYC Report";
-    var html = "";
-    html += "<!doctype html><html><head><meta charset='utf-8'/><meta name='viewport' content='width=device-width,initial-scale=1'/>";
-    html += "<title>" + escapeHtml(title) + "</title>";
-    html += "<style>";
-    html += "body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:22px;color:#111;}";
-    html += "h1{margin:0 0 6px 0;font-size:20px;}";
-    html += ".meta{color:#444;margin:0 0 16px 0;font-size:13px;}";
-    html += "table{width:100%;border-collapse:collapse;margin-top:8px;}";
-    html += "th,td{border:1px solid #bbb;padding:6px 8px;font-size:12px;vertical-align:top;}";
-    html += "th{background:#f2f2f2;}";
-    html += ".no-print{margin-bottom:10px;}";
-    html += "@media print{.no-print{display:none;} body{margin:0;}}";
-    html += "</style></head><body>";
-    html += "<div class='no-print'><button onclick='window.print()' style='padding:8px 12px;font-weight:700;'>Print</button></div>";
-    html += "<h1>" + escapeHtml((data && data.org_name) ? data.org_name : "Pharmacy") + " — " + escapeHtml(title) + "</h1>";
-    html += "<p class='meta'>Location: " + escapeHtml((data && data.location_name) ? data.location_name : "") + "<br/>Range: "
-      + escapeHtml((data && data.from) ? data.from : "") + " to " + escapeHtml((data && data.to) ? data.to : "") + "</p>";
-
-    html += "<table><thead><tr>";
-    html += "<th>Date</th><th>Client Name</th><th>ID Card</th><th>Address</th><th>Medicine Name &amp; Dose</th><th>Qty</th><th>Doctor Name</th><th>Doctor Reg No.</th><th>Prescription Serial No.</th>";
-    html += "</tr></thead><tbody>";
-
-    for (var i = 0; i < entries.length; i++) {
-      var r = entries[i] || {};
-      html += "<tr>";
-      html += "<td>" + escapeHtml(r.entry_date || "") + "</td>";
-      html += "<td>" + escapeHtml(r.client_name || "") + "</td>";
-      html += "<td>" + escapeHtml(r.client_id_card || "") + "</td>";
-      html += "<td>" + escapeHtml(r.client_address || "") + "</td>";
-      html += "<td>" + escapeHtml(r.medicine_name_dose || "") + "</td>";
-      html += "<td>" + escapeHtml(String(r.quantity == null ? "" : r.quantity)) + "</td>";
-      html += "<td>" + escapeHtml(r.doctor_name || "") + "</td>";
-      html += "<td>" + escapeHtml(r.doctor_reg_no || "") + "</td>";
-      html += "<td>" + escapeHtml(r.prescription_serial_no || "") + "</td>";
-      html += "</tr>";
-    }
-
-    html += "</tbody></table>";
-    html += "</body></html>";
-    return html;
-  }
-
-  async function printReport() {
-    if (!ctx) return;
-    setReportMsg("", "");
-
-    var from = reportFromInput ? reportFromInput.value : state.report_from;
-    var to = reportToInput ? reportToInput.value : state.report_to;
-
-    var vr = validateReportRange(from, to);
-    if (!vr.ok) {
-      setReportMsg("err", vr.error);
-      return;
-    }
-
-    var canReuse = !!(state.report && state.report.ok === true && state.report.from === vr.from && state.report.to === vr.to);
-
-    try {
-      var data = null;
-      if (canReuse) {
-        data = state.report;
-      } else {
-        state.report_loading = true;
-        setLoading(false);
-
+      try {
         var url = "/dda-poyc/report?from=" + encodeURIComponent(vr.from) + "&to=" + encodeURIComponent(vr.to);
-        data = await apiJson(ctx.win, url, { method: "GET" });
+        var data = await apiJson(ctx.win, url, { method: "GET" });
         if (!data || data.ok !== true) throw new Error(data && data.error ? String(data.error) : "Unexpected response");
 
         state.report = data;
-        state.report_from = vr.from;
-        state.report_to = vr.to;
-
-        if (reportFromInput) reportFromInput.value = vr.from;
-        if (reportToInput) reportToInput.value = vr.to;
-
+        setReportMsg("", "");
         renderReportPreview();
+      } catch (e) {
+        state.report = null;
+        renderReportPreview();
+
+        var msg = e && e.message ? e.message : String(e || "Error");
+        if (e && e.status === 401) msg = "Unauthorized (missing/invalid token).\nLog in again.";
+        setReportMsg("err", msg);
+        warn("generate report failed:", e);
+      } finally {
+        state.report_loading = false;
+        setLoading(false);
       }
-
-      var html = buildPrintableHtml(data);
-      openPrintTabWithHtml(html);
-    } catch (e) {
-      var msg = e && e.message ? e.message : String(e || "Error");
-      if (e && e.status === 401) msg = "Unauthorized (missing/invalid token).\nLog in again.";
-      setReportMsg("err", msg);
-      warn("print report failed:", e);
-    } finally {
-      state.report_loading = false;
-      setLoading(false);
-    }
-  }
-
-  // ---------- modal (same as dda-sales, just POYC strings + endpoints) ----------
-  function buildModalOnceForDoc(doc) {
-    if (activeDoc === doc && modalBackdrop) return;
-    activeDoc = doc;
-    modalBackdrop = null;
-    modalTitle = null;
-    formEls = null;
-
-    modalBackdrop = el(doc, "div", { class: "eikon-dda-modal-backdrop" }, []);
-    var modal = el(doc, "div", { class: "eikon-dda-modal" }, []);
-
-    var head = el(doc, "div", { class: "eikon-dda-modal-head" }, []);
-    modalTitle = el(doc, "h3", { text: "DDA POYC Entry" }, []);
-    var closeBtn = el(doc, "button", { class: "eikon-dda-btn secondary", text: "Close" }, []);
-    closeBtn.onclick = function () { closeModal(); };
-
-    head.appendChild(modalTitle);
-    head.appendChild(closeBtn);
-
-    var body = el(doc, "div", { class: "eikon-dda-modal-body" }, []);
-    var grid = el(doc, "div", { class: "eikon-dda-grid" }, []);
-
-    function field(labelText, inputEl, full) {
-      var wrap = el(doc, "div", { class: "eikon-dda-field" + (full ? " full" : "") }, []);
-      wrap.appendChild(el(doc, "label", { text: labelText }, []));
-      wrap.appendChild(inputEl);
-      return wrap;
     }
 
-    formEls = {
-      id: null,
-      entry_date: el(doc, "input", { type: "date", value: "" }, []),
-      client_name: el(doc, "input", { type: "text", value: "", placeholder: "Client name" }, []),
-      client_id_card: el(doc, "input", { type: "text", value: "", placeholder: "ID card no." }, []),
-      client_address: el(doc, "input", { type: "text", value: "", placeholder: "Client address" }, []),
-      medicine_name_dose: el(doc, "input", { type: "text", value: "", placeholder: "Medicine name & dose" }, []),
-      quantity: el(doc, "input", { type: "number", value: "1", min: "1", step: "1" }, []),
-      doctor_name: el(doc, "input", { type: "text", value: "", placeholder: "Doctor name" }, []),
-      doctor_reg_no: el(doc, "input", { type: "text", value: "", placeholder: "Doctor reg no." }, []),
-      prescription_serial_no: el(doc, "input", { type: "text", value: "", placeholder: "Prescription serial no." }, [])
-    };
+    function buildPrintableHtml(reportData) {
+      var data = reportData || {};
+      var org = String(data.org_name || "Pharmacy");
+      var loc = String(data.location_name || "");
+      var from = String(data.from || "");
+      var to = String(data.to || "");
+      var entries = Array.isArray(data.entries) ? data.entries : [];
 
-    grid.appendChild(field("Entry Date", formEls.entry_date, false));
-    grid.appendChild(field("Quantity", formEls.quantity, false));
-    grid.appendChild(field("Client Name", formEls.client_name, true));
-    grid.appendChild(field("Client ID Card", formEls.client_id_card, false));
-    grid.appendChild(field("Client Address", formEls.client_address, false));
-    grid.appendChild(field("Medicine Name & Dose", formEls.medicine_name_dose, true));
-    grid.appendChild(field("Doctor Name", formEls.doctor_name, false));
-    grid.appendChild(field("Doctor Reg No.", formEls.doctor_reg_no, false));
-    grid.appendChild(field("Prescription Serial No.", formEls.prescription_serial_no, true));
+      var byMonth = groupEntriesByMonth(entries);
+      var monthKeys = Array.from(byMonth.keys()).sort();
 
-    body.appendChild(grid);
+      var html = "";
+      html += "<!doctype html><html><head><meta charset='utf-8'/>";
+      html += "<meta name='viewport' content='width=device-width, initial-scale=1'/>";
+      html += "<title>DDA POYC Report</title>";
+      html +=
+        "<style>" +
+        "body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:24px;color:#111;}" +
+        "h1{font-size:18px;margin:0 0 8px 0;}" +
+        ".meta{margin:0 0 18px 0;color:#333;font-size:12px;}" +
+        "table{width:100%;border-collapse:collapse;margin:8px 0 16px 0;font-size:11px;}" +
+        "th,td{border:1px solid #ddd;padding:6px;vertical-align:top;text-align:left;}" +
+        "th{background:#f5f5f5;font-weight:800;}" +
+        "@media print{button{display:none;}}" +
+        "</style>";
+      html += "</head><body>";
+      html += "<button onclick='window.print()' style='margin-bottom:12px;padding:8px 10px;'>Print</button>";
+      html += "<h1>" + escapeHtml(org) + " — DDA POYC Report</h1>";
+      html += "<p class='meta'>" + (loc ? "Location: " + escapeHtml(loc) + "<br/>" : "") + "Range: " + escapeHtml(from) + " to " + escapeHtml(to) + "</p>";
 
-    var footerBtns = el(doc, "div", { style: "display:flex;gap:10px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap;" }, []);
-    var deleteBtn = el(doc, "button", { class: "eikon-dda-btn danger", text: "Delete" }, []);
-    var saveBtn = el(doc, "button", { class: "eikon-dda-btn", text: "Save" }, []);
-
-    deleteBtn.style.display = "none";
-    saveBtn.onclick = function () { doSave(); };
-    deleteBtn.onclick = function () { if (!formEls.id) return; doDelete({ id: formEls.id }, true); };
-
-    footerBtns.appendChild(deleteBtn);
-    footerBtns.appendChild(saveBtn);
-    body.appendChild(footerBtns);
-
-    modal.appendChild(head);
-    modal.appendChild(body);
-    modalBackdrop.appendChild(modal);
-
-    modalBackdrop.onclick = function (e) {
-      if (e && e.target === modalBackdrop) closeModal();
-    };
-    modalBackdrop._deleteBtn = deleteBtn;
-
-    try { (doc.body || doc.documentElement).appendChild(modalBackdrop); } catch (e1) {}
-  }
-
-  function openModal() { if (modalBackdrop) modalBackdrop.style.display = "flex"; }
-  function closeModal() { if (modalBackdrop) modalBackdrop.style.display = "none"; }
-
-  function openModalForCreate() {
-    if (!ctx) return;
-    buildModalOnceForDoc(ctx.doc);
-
-    var d = new Date();
-    var ymd = d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
-
-    formEls.id = null;
-    modalTitle.textContent = "New DDA POYC Entry";
-    formEls.entry_date.value = ymd;
-    formEls.client_name.value = "";
-    formEls.client_id_card.value = "";
-    formEls.client_address.value = "";
-    formEls.medicine_name_dose.value = "";
-    formEls.quantity.value = "1";
-    formEls.doctor_name.value = "";
-    formEls.doctor_reg_no.value = "";
-    formEls.prescription_serial_no.value = "";
-
-    if (modalBackdrop && modalBackdrop._deleteBtn) modalBackdrop._deleteBtn.style.display = "none";
-    openModal();
-  }
-
-  function openModalForEdit(row) {
-    if (!ctx) return;
-    buildModalOnceForDoc(ctx.doc);
-
-    formEls.id = row && row.id != null ? Number(row.id) : null;
-    modalTitle.textContent = "Edit DDA POYC Entry";
-    formEls.entry_date.value = String(row.entry_date || "");
-    formEls.client_name.value = String(row.client_name || "");
-    formEls.client_id_card.value = String(row.client_id_card || "");
-    formEls.client_address.value = String(row.client_address || "");
-    formEls.medicine_name_dose.value = String(row.medicine_name_dose || "");
-    formEls.quantity.value = String(row.quantity == null ? "1" : row.quantity);
-    formEls.doctor_name.value = String(row.doctor_name || "");
-    formEls.doctor_reg_no.value = String(row.doctor_reg_no || "");
-    formEls.prescription_serial_no.value = String(row.prescription_serial_no || "");
-
-    if (modalBackdrop && modalBackdrop._deleteBtn) modalBackdrop._deleteBtn.style.display = "inline-block";
-    openModal();
-  }
-
-  function validateFormPayload() {
-    var entry_date = String(formEls.entry_date.value || "").trim();
-    var client_name = String(formEls.client_name.value || "").trim();
-    var client_id_card = String(formEls.client_id_card.value || "").trim();
-    var client_address = String(formEls.client_address.value || "").trim();
-    var medicine_name_dose = String(formEls.medicine_name_dose.value || "").trim();
-    var quantity = toIntSafe(formEls.quantity.value);
-    var doctor_name = String(formEls.doctor_name.value || "").trim();
-    var doctor_reg_no = String(formEls.doctor_reg_no.value || "").trim();
-    var prescription_serial_no = String(formEls.prescription_serial_no.value || "").trim();
-
-    if (!isYmd(entry_date)) return { ok: false, error: "Invalid entry_date (YYYY-MM-DD)" };
-    if (!client_name) return { ok: false, error: "Missing client_name" };
-    if (!client_id_card) return { ok: false, error: "Missing client_id_card" };
-    if (!client_address) return { ok: false, error: "Missing client_address" };
-    if (!medicine_name_dose) return { ok: false, error: "Missing medicine_name_dose" };
-    if (!quantity || quantity < 1) return { ok: false, error: "Invalid quantity (must be >= 1)" };
-    if (!doctor_name) return { ok: false, error: "Missing doctor_name" };
-    if (!doctor_reg_no) return { ok: false, error: "Missing doctor_reg_no" };
-    if (!prescription_serial_no) return { ok: false, error: "Missing prescription_serial_no" };
-
-    return {
-      ok: true,
-      payload: {
-        entry_date: entry_date,
-        client_name: client_name,
-        client_id_card: client_id_card,
-        client_address: client_address,
-        medicine_name_dose: medicine_name_dose,
-        quantity: quantity,
-        doctor_name: doctor_name,
-        doctor_reg_no: doctor_reg_no,
-        prescription_serial_no: prescription_serial_no
-      }
-    };
-  }
-
-  async function doSave() {
-    if (!ctx) return;
-    setMsg("", "");
-    var v = validateFormPayload();
-    if (!v.ok) {
-      setMsg("err", v.error);
-      return;
-    }
-
-    setLoading(true);
-    try {
-      var method, path;
-      if (formEls.id) {
-        method = "PUT";
-        path = "/dda-poyc/entries/" + encodeURIComponent(String(formEls.id));
+      if (!entries.length) {
+        html += "<p>No entries for the selected date range.</p>";
       } else {
-        method = "POST";
-        path = "/dda-poyc/entries";
+        for (var mi = 0; mi < monthKeys.length; mi++) {
+          var ym = monthKeys[mi];
+          var list = byMonth.get(ym) || [];
+          html += "<h2 style='font-size:13px;margin:16px 0 6px 0;'>" + escapeHtml(ym) + "</h2>";
+          html += "<table><thead><tr>";
+          html += "<th>Date</th><th>Client</th><th>ID Card</th><th>Address</th><th>Medicine (name &amp; dose)</th><th>Qty</th><th>Doctor</th><th>Reg No.</th><th>Prescription Serial No.</th>";
+          html += "</tr></thead><tbody>";
+          for (var i = 0; i < list.length; i++) {
+            var r = list[i] || {};
+            html += "<tr>";
+            html += "<td>" + escapeHtml(r.entry_date || "") + "</td>";
+            html += "<td>" + escapeHtml(r.client_name || "") + "</td>";
+            html += "<td>" + escapeHtml(r.client_id_card || "") + "</td>";
+            html += "<td>" + escapeHtml(r.client_address || "") + "</td>";
+            html += "<td>" + escapeHtml(r.medicine_name_dose || "") + "</td>";
+            html += "<td>" + escapeHtml(String(r.quantity == null ? "" : r.quantity)) + "</td>";
+            html += "<td>" + escapeHtml(r.doctor_name || "") + "</td>";
+            html += "<td>" + escapeHtml(r.doctor_reg_no || "") + "</td>";
+            html += "<td>" + escapeHtml(r.prescription_serial_no || "") + "</td>";
+            html += "</tr>";
+          }
+          html += "</tbody></table>";
+        }
       }
 
-      var data = await apiJson(ctx.win, path, { method: method, body: JSON.stringify(v.payload) });
-      if (!data || data.ok !== true) throw new Error(data && data.error ? String(data.error) : "Unexpected response");
-
-      closeModal();
-      setMsg("ok", "Saved.");
-      setLoading(false);
-      await refresh();
-    } catch (e) {
-      setLoading(false);
-      var msg = e && e.message ? e.message : String(e || "Error");
-      if (e && e.status === 401) msg = "Unauthorized (missing/invalid token).\nLog in again.";
-      setMsg("err", msg);
-      warn("save failed:", e);
-    }
-  }
-
-  async function doDelete(row, fromModal) {
-    if (!ctx) return;
-    setMsg("", "");
-
-    var id = row && row.id != null ? Number(row.id) : null;
-    if (!id) {
-      setMsg("err", "Invalid entry id.");
-      return;
+      html += "</body></html>";
+      return html;
     }
 
-    var ok = false;
-    try { ok = ctx.win.confirm("Delete this DDA POYC entry?"); } catch (e) { ok = true; }
-    if (!ok) return;
+    function openModal(title, initial, onSave) {
+      if (!ctx) return;
 
-    setLoading(true);
-    try {
-      var data = await apiJson(ctx.win, "/dda-poyc/entries/" + encodeURIComponent(String(id)), { method: "DELETE" });
-      if (!data || data.ok !== true) throw new Error(data && data.error ? String(data.error) : "Unexpected response");
+      if (!modalBackdrop) {
+        modalBackdrop = el(ctx.doc, "div", { class: "eikon-dda-modal-backdrop" }, []);
+        var modal = el(ctx.doc, "div", { class: "eikon-dda-modal" }, []);
+        var head = el(ctx.doc, "div", { class: "eikon-dda-modal-head" }, []);
+        modalTitle = el(ctx.doc, "h3", { text: "" }, []);
+        var closeBtn = el(ctx.doc, "button", { class: "eikon-dda-btn secondary", text: "Close" }, []);
+        closeBtn.onclick = function () {
+          hideModal();
+        };
+        head.appendChild(modalTitle);
+        head.appendChild(closeBtn);
 
-      if (fromModal) closeModal();
-      setMsg("ok", "Deleted.");
-      setLoading(false);
-      await refresh();
-    } catch (e) {
-      setLoading(false);
-      var msg = e && e.message ? e.message : String(e || "Error");
-      if (e && e.status === 401) msg = "Unauthorized (missing/invalid token).\nLog in again.";
-      setMsg("err", msg);
-      warn("delete failed:", e);
+        var body = el(ctx.doc, "div", { class: "eikon-dda-modal-body" }, []);
+
+        var grid = el(ctx.doc, "div", { class: "eikon-dda-grid" }, []);
+        function field(label, type, key, full, placeholder) {
+          var wrap = el(ctx.doc, "div", { class: "eikon-dda-field" + (full ? " full" : "") }, []);
+          wrap.appendChild(el(ctx.doc, "label", { text: label }, []));
+          var inp = null;
+          if (type === "textarea") {
+            inp = el(ctx.doc, "textarea", { placeholder: placeholder || "" }, []);
+          } else {
+            inp = el(ctx.doc, "input", { type: type, placeholder: placeholder || "" }, []);
+          }
+          wrap.appendChild(inp);
+          return { wrap: wrap, input: inp, key: key };
+        }
+
+        var f_entry_date = field("Date", "date", "entry_date", false);
+        var f_qty = field("Qty", "number", "quantity", false);
+        var f_client = field("Client", "text", "client_name", true, "Client name");
+        var f_id = field("ID Card", "text", "client_id_card", false, "ID card");
+        var f_addr = field("Address", "text", "client_address", true, "Address");
+        var f_med = field("Medicine (name & dose)", "text", "medicine_name_dose", true, "e.g. Diazepam 5mg");
+        var f_doc = field("Doctor", "text", "doctor_name", true, "Doctor name");
+        var f_reg = field("Reg No.", "text", "doctor_reg_no", false, "Registration no.");
+        var f_serial = field("Prescription Serial No.", "text", "prescription_serial_no", false, "Serial no.");
+
+        formEls = [f_entry_date, f_client, f_id, f_addr, f_med, f_qty, f_doc, f_reg, f_serial];
+
+        for (var i = 0; i < formEls.length; i++) grid.appendChild(formEls[i].wrap);
+
+        var footer = el(ctx.doc, "div", { style: "display:flex;gap:10px;justify-content:flex-end;margin-top:12px;" }, []);
+        var saveBtn = el(ctx.doc, "button", { class: "eikon-dda-btn", text: "Save" }, []);
+        saveBtn.onclick = async function () {
+          var payload = {};
+          for (var i = 0; i < formEls.length; i++) {
+            var k = formEls[i].key;
+            var v = formEls[i].input.value;
+            payload[k] = v;
+          }
+          // normalize qty
+          if (payload.quantity !== "" && payload.quantity != null) payload.quantity = Number(payload.quantity);
+          if (payload.quantity === "" || payload.quantity == null) delete payload.quantity;
+
+          await onSave(payload);
+        };
+        footer.appendChild(saveBtn);
+
+        body.appendChild(grid);
+        body.appendChild(footer);
+
+        modal.appendChild(head);
+        modal.appendChild(body);
+
+        modalBackdrop.appendChild(modal);
+
+        // close if click backdrop
+        modalBackdrop.onclick = function (e) {
+          if (e && e.target === modalBackdrop) hideModal();
+        };
+
+        ctx.doc.body.appendChild(modalBackdrop);
+      }
+
+      modalTitle.textContent = title;
+
+      // set values
+      var init = initial || {};
+      for (var i = 0; i < formEls.length; i++) {
+        var k = formEls[i].key;
+        var inp = formEls[i].input;
+        var v = init[k];
+        inp.value = v == null ? "" : String(v);
+      }
+
+      showModal();
     }
-  }
 
-  // ---------- render ----------
-  function renderInto(container) {
-    ctx = resolveRenderContext(container);
-    if (!ctx || !ctx.doc || !ctx.win || !ctx.mount) return;
+    function showModal() {
+      if (!modalBackdrop) return;
+      modalBackdrop.style.display = "flex";
+    }
 
-    try {
+    function hideModal() {
+      if (!modalBackdrop) return;
+      modalBackdrop.style.display = "none";
+    }
+
+    function openModalForNew() {
+      var startEnd = monthStartEnd(state.month) || monthStartEnd(todayYm());
+      var defaultDate = startEnd ? startEnd.from : "";
+      openModal(
+        "New Entry",
+        { entry_date: defaultDate },
+        async function (payload) {
+          if (!ctx) return;
+          try {
+            setMsg("", "");
+            setLoading(true);
+            var data = await apiJson(ctx.win, "/dda-poyc/entries", {
+              method: "POST",
+              body: JSON.stringify(payload),
+            });
+            if (!data || data.ok !== true) throw new Error(data && data.error ? String(data.error) : "Unexpected response");
+            hideModal();
+            await refresh();
+          } catch (e) {
+            var msg = e && e.message ? e.message : String(e || "Error");
+            if (e && e.status === 401) msg = "Unauthorized (missing/invalid token).\nLog in again.";
+            setMsg("err", msg);
+            warn("create failed:", e);
+          } finally {
+            setLoading(false);
+          }
+        }
+      );
+    }
+
+    function openModalForEdit(row) {
+      openModal(
+        "Edit Entry",
+        row || {},
+        async function (payload) {
+          if (!ctx) return;
+          var id = row && row.id;
+          if (!id) return;
+
+          try {
+            setMsg("", "");
+            setLoading(true);
+            var data = await apiJson(ctx.win, "/dda-poyc/entries/" + encodeURIComponent(String(id)), {
+              method: "PUT",
+              body: JSON.stringify(payload),
+            });
+            if (!data || data.ok !== true) throw new Error(data && data.error ? String(data.error) : "Unexpected response");
+            hideModal();
+            await refresh();
+          } catch (e) {
+            var msg = e && e.message ? e.message : String(e || "Error");
+            if (e && e.status === 401) msg = "Unauthorized (missing/invalid token).\nLog in again.";
+            setMsg("err", msg);
+            warn("update failed:", e);
+          } finally {
+            setLoading(false);
+          }
+        }
+      );
+    }
+
+    async function doDelete(row) {
+      if (!ctx) return;
+      var id = row && row.id;
+      if (!id) return;
+
+      var ok = true;
+      try {
+        ok = window.confirm("Delete this entry?");
+      } catch (e) {
+        ok = true;
+      }
+      if (!ok) return;
+
+      try {
+        setMsg("", "");
+        setLoading(true);
+        var data = await apiJson(ctx.win, "/dda-poyc/entries/" + encodeURIComponent(String(id)), { method: "DELETE" });
+        if (!data || data.ok !== true) throw new Error(data && data.error ? String(data.error) : "Unexpected response");
+        await refresh();
+      } catch (e) {
+        var msg = e && e.message ? e.message : String(e || "Error");
+        if (e && e.status === 401) msg = "Unauthorized (missing/invalid token).\nLog in again.";
+        setMsg("err", msg);
+        warn("delete failed:", e);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    function scheduleLiveSearch() {
+      if (searchTimer) {
+        try {
+          clearTimeout(searchTimer);
+        } catch (e) {}
+      }
+      // same feel as dda-sales: debounce a little as user types
+      searchTimer = setTimeout(function () {
+        refresh();
+      }, 220);
+    }
+
+    function renderInto(container) {
+      ctx = resolveRenderContext(container);
+      if (!ctx || !ctx.doc || !ctx.mount) throw new Error("Invalid render root");
+
       ensureStyleOnce(ctx.doc);
-      ctx.mount.innerHTML = "";
 
-      if (!state.month) {
-        var d = new Date();
-        state.month = d.getFullYear() + "-" + pad2(d.getMonth() + 1);
-      }
-      if (!state.report_from || !state.report_to) setReportDefaultsForMonth(state.month);
+      // clear mount
+      try {
+        ctx.mount.innerHTML = "";
+      } catch (e) {}
 
       var wrap = el(ctx.doc, "div", { class: "eikon-dda-wrap" }, []);
 
       var top = el(ctx.doc, "div", { class: "eikon-dda-top" }, []);
-      var title = el(ctx.doc, "div", { class: "eikon-dda-title" }, []);
+      var title = el(ctx.doc, "h2", { class: "eikon-dda-title" }, []);
       title.appendChild(el(ctx.doc, "span", { class: "icon", html: ICON_SVG }, []));
       title.appendChild(el(ctx.doc, "span", { text: "DDA POYC" }, []));
-      top.appendChild(title);
 
       var controls = el(ctx.doc, "div", { class: "eikon-dda-controls" }, []);
 
+      // Month
       var monthField = el(ctx.doc, "div", { class: "eikon-dda-field" }, []);
       monthField.appendChild(el(ctx.doc, "label", { text: "Month" }, []));
       monthInput = el(ctx.doc, "input", { type: "month", value: state.month }, []);
       monthInput.onchange = function () {
-        var m = String(monthInput.value || "").trim();
-        if (isYm(m)) {
-          state.month = m;
-          setReportDefaultsForMonth(m);
-          refresh();
-        }
+        state.month = String(monthInput.value || "").trim();
+        setReportDefaultsForMonth(state.month);
+        refresh();
       };
       monthField.appendChild(monthInput);
 
+      // Search (live)
       var qField = el(ctx.doc, "div", { class: "eikon-dda-field" }, []);
       qField.appendChild(el(ctx.doc, "label", { text: "Search" }, []));
-      qInput = el(ctx.doc, "input", { type: "text", value: state.q, placeholder: "Client / ID / medicine / doctor / serial…" }, []);
-
-      // ✅ live search while typing (debounced) — matches dda-sales
+      qInput = el(ctx.doc, "input", {
+        type: "text",
+        value: state.q,
+        placeholder: "Client / ID / medicine / doctor / serial…",
+      }, []);
       qInput.oninput = function () {
         state.q = String(qInput.value || "");
-        if (searchTimer) { try { ctx.win.clearTimeout(searchTimer); } catch (e) {} }
-        searchTimer = ctx.win.setTimeout(function () {
-          if (!state.loading && !state.report_loading) refresh();
-        }, 250);
+        scheduleLiveSearch();
       };
-      qInput.onkeydown = function (e) { if (e && e.key === "Enter") refresh(); };
       qField.appendChild(qInput);
 
-      // ✅ NO refresh button (requested)
-
+      // New Entry
       addBtn = el(ctx.doc, "button", { class: "eikon-dda-btn", text: "New Entry" }, []);
-      addBtn.onclick = function () { openModalForCreate(); };
+      addBtn.onclick = function () {
+        openModalForNew();
+      };
+
+      controls.appendChild(monthField);
+      controls.appendChild(qField);
+      controls.appendChild(addBtn);
+
+      top.appendChild(title);
+      top.appendChild(controls);
+
+      msgBox = el(ctx.doc, "div", { class: "eikon-dda-msg", style: "display:none;" }, []);
+
+      // Entries card
+      var cardEntries = el(ctx.doc, "div", { class: "eikon-dda-card" }, []);
+      var headEntries = el(ctx.doc, "div", { class: "eikon-dda-card-head" }, []);
+      headEntries.appendChild(el(ctx.doc, "h3", { text: "Entries" }, []));
+      cardEntries.appendChild(headEntries);
+
+      var tableWrap = el(ctx.doc, "div", { class: "eikon-dda-table-wrap" }, []);
+      var table = el(ctx.doc, "table", { class: "eikon-dda-table" }, []);
+      var thead = el(ctx.doc, "thead", {}, []);
+      thead.appendChild(
+        el(ctx.doc, "tr", {}, [
+          el(ctx.doc, "th", { text: "Date" }, []),
+          el(ctx.doc, "th", { text: "Client" }, []),
+          el(ctx.doc, "th", { text: "ID Card" }, []),
+          el(ctx.doc, "th", { text: "Address" }, []),
+          el(ctx.doc, "th", { text: "Medicine (name & dose)" }, []),
+          el(ctx.doc, "th", { text: "Qty" }, []),
+          el(ctx.doc, "th", { text: "Doctor" }, []),
+          el(ctx.doc, "th", { text: "Reg No." }, []),
+          el(ctx.doc, "th", { text: "Prescription Serial No." }, []),
+          el(ctx.doc, "th", { text: "Actions" }, []),
+        ])
+      );
+      table.appendChild(thead);
+      tableBody = el(ctx.doc, "tbody", {}, []);
+      table.appendChild(tableBody);
+
+      tableWrap.appendChild(table);
+      cardEntries.appendChild(tableWrap);
+
+      // Report card (same structure as dda-sales)
+      var cardReport = el(ctx.doc, "div", { class: "eikon-dda-card", style: "margin-top:12px;" }, []);
+      var headReport = el(ctx.doc, "div", { class: "eikon-dda-card-head" }, []);
+      headReport.appendChild(el(ctx.doc, "h3", { text: "Report" }, []));
+
+      var reportControls = el(ctx.doc, "div", { class: "eikon-dda-controls" }, []);
 
       var fromField = el(ctx.doc, "div", { class: "eikon-dda-field" }, []);
       fromField.appendChild(el(ctx.doc, "label", { text: "From" }, []));
       reportFromInput = el(ctx.doc, "input", { type: "date", value: state.report_from }, []);
-      reportFromInput.onchange = function () { state.report_from = String(reportFromInput.value || "").trim(); };
       fromField.appendChild(reportFromInput);
 
       var toField = el(ctx.doc, "div", { class: "eikon-dda-field" }, []);
       toField.appendChild(el(ctx.doc, "label", { text: "To" }, []));
       reportToInput = el(ctx.doc, "input", { type: "date", value: state.report_to }, []);
-      reportToInput.onchange = function () { state.report_to = String(reportToInput.value || "").trim(); };
       toField.appendChild(reportToInput);
 
-      generateBtn = el(ctx.doc, "button", { class: "eikon-dda-btn secondary", text: "Generate" }, []);
-      generateBtn.onclick = function () { generateReport(); };
+      generateBtn = el(ctx.doc, "button", { class: "eikon-dda-btn", text: "Generate" }, []);
+      generateBtn.onclick = function () {
+        generateReport();
+      };
 
       printBtn = el(ctx.doc, "button", { class: "eikon-dda-btn secondary", text: "Print" }, []);
-      printBtn.onclick = function () { printReport(); };
+      printBtn.onclick = function () {
+        if (!state.report || state.report.ok !== true) {
+          setReportMsg("err", "No report loaded. Click Generate.");
+          return;
+        }
+        var html = buildPrintableHtml(state.report);
+        openPrintTabWithHtml(html);
+      };
 
-      controls.appendChild(monthField);
-      controls.appendChild(qField);
-      controls.appendChild(addBtn);
-      controls.appendChild(fromField);
-      controls.appendChild(toField);
-      controls.appendChild(generateBtn);
-      controls.appendChild(printBtn);
+      reportControls.appendChild(fromField);
+      reportControls.appendChild(toField);
+      reportControls.appendChild(generateBtn);
+      reportControls.appendChild(printBtn);
 
-      top.appendChild(controls);
-      wrap.appendChild(top);
+      headReport.appendChild(reportControls);
+      cardReport.appendChild(headReport);
 
-      msgBox = el(ctx.doc, "div", { class: "eikon-dda-msg", text: "" }, []);
-      msgBox.style.display = "none";
-      wrap.appendChild(msgBox);
-
-      // Entries card
-      var card = el(ctx.doc, "div", { class: "eikon-dda-card" }, []);
-      var cardHead = el(ctx.doc, "div", { class: "eikon-dda-card-head" }, []);
-      cardHead.appendChild(el(ctx.doc, "h3", { text: "Entries" }, []));
-      card.appendChild(cardHead);
-
-      var tableWrap = el(ctx.doc, "div", { class: "eikon-dda-table-wrap" }, []);
-      var table = el(ctx.doc, "table", { class: "eikon-dda-table" }, []);
-
-      var thead = el(ctx.doc, "thead", {}, []);
-      thead.appendChild(el(ctx.doc, "tr", {}, [
-        el(ctx.doc, "th", { text: "Date" }, []),
-        el(ctx.doc, "th", { text: "Client" }, []),
-        el(ctx.doc, "th", { text: "ID Card" }, []),
-        el(ctx.doc, "th", { text: "Address" }, []),
-        el(ctx.doc, "th", { text: "Medicine (name & dose)" }, []),
-        el(ctx.doc, "th", { text: "Qty" }, []),
-        el(ctx.doc, "th", { text: "Doctor" }, []),
-        el(ctx.doc, "th", { text: "Reg No." }, []),
-        el(ctx.doc, "th", { text: "Prescription Serial No." }, []),
-        el(ctx.doc, "th", { text: "Actions" }, [])
-      ]));
-      table.appendChild(thead);
-
-      tableBody = el(ctx.doc, "tbody", {}, []);
-      table.appendChild(tableBody);
-
-      tableWrap.appendChild(table);
-      card.appendChild(tableWrap);
-      wrap.appendChild(card);
-
-      // Report card
-      var reportCard = el(ctx.doc, "div", { class: "eikon-dda-card", style: "margin-top:12px;" }, []);
-      var reportHead = el(ctx.doc, "div", { class: "eikon-dda-card-head" }, []);
-      reportHead.appendChild(el(ctx.doc, "h3", { text: "Report" }, []));
-      reportCard.appendChild(reportHead);
-
-      reportMsg = el(ctx.doc, "div", { class: "eikon-dda-msg", text: "" }, []);
-      reportMsg.style.display = "none";
-      reportCard.appendChild(reportMsg);
-
+      reportMsg = el(ctx.doc, "div", { class: "eikon-dda-msg", style: "display:none;" }, []);
       reportPreview = el(ctx.doc, "div", {}, []);
-      reportCard.appendChild(reportPreview);
 
-      wrap.appendChild(reportCard);
+      cardReport.appendChild(reportMsg);
+      cardReport.appendChild(reportPreview);
+
+      wrap.appendChild(top);
+      wrap.appendChild(msgBox);
+      wrap.appendChild(cardEntries);
+      wrap.appendChild(cardReport);
 
       ctx.mount.appendChild(wrap);
 
-      buildModalOnceForDoc(ctx.doc);
+      // defaults + initial load
+      if (!isYm(state.month)) state.month = todayYm();
+      if (monthInput) monthInput.value = state.month;
+
+      setReportDefaultsForMonth(state.month);
       renderRows();
       renderReportPreview();
       refresh();
-    } catch (e) {
-      warn("renderInto failed:", e);
     }
-  }
 
-  function buildModule() {
+    function destroy() {
+      try {
+        if (modalBackdrop && modalBackdrop.parentNode) modalBackdrop.parentNode.removeChild(modalBackdrop);
+      } catch (e) {}
+      modalBackdrop = null;
+      modalTitle = null;
+      formEls = null;
+      msgBox = null;
+      tableBody = null;
+      monthInput = null;
+      qInput = null;
+      addBtn = null;
+      reportFromInput = null;
+      reportToInput = null;
+      generateBtn = null;
+      printBtn = null;
+      reportMsg = null;
+      reportPreview = null;
+      ctx = null;
+    }
+
     return {
       id: "dda-poyc",
-      key: "dda-poyc",
-      slug: "dda-poyc",
       title: "DDA POYC",
-      navTitle: "DDA POYC",
-      icon: "",
-      iconText: "",
-      iconSvg: ICON_SVG,
-      iconHTML: ICON_SVG,
-      navIcon: ICON_SVG,
-      hash: "#dda-poyc",
-      route: "dda-poyc",
       render: renderInto,
-      mount: renderInto,
-      renderInto: renderInto
+      destroy: destroy,
     };
   }
 
-  function tryRegisterModule(mod) {
-    if (!mod) return false;
-    try {
-      if (window.EIKON && typeof window.EIKON.registerModule === "function") {
-        window.EIKON.registerModule(mod);
-        log("registered via window.EIKON.registerModule()");
-        return true;
-      }
-    } catch (e1) { warn("registerModule(EIKON) failed:", e1); }
-
-    try {
-      if (window.Eikon && typeof window.Eikon.registerModule === "function") {
-        window.Eikon.registerModule(mod);
-        log("registered via window.Eikon.registerModule()");
-        return true;
-      }
-    } catch (e2) { warn("registerModule(Eikon) failed:", e2); }
-
-    try {
-      window.EIKON_MODULES = window.EIKON_MODULES || [];
-      window.EIKON_MODULES.push(mod);
-      log("registered via window.EIKON_MODULES[] fallback");
-      return true;
-    } catch (e3) {}
-
-    try {
-      window.EikonModules = window.EikonModules || [];
-      window.EikonModules.push(mod);
-      log("registered via window.EikonModules[] fallback");
-      return true;
-    } catch (e4) {}
-
-    return false;
+  // Register module
+  function register() {
+    var mod = buildModule();
+    var api = (window && window.EIKON) || (window && window.Eikon);
+    if (!api || typeof api.registerModule !== "function") {
+      warn("EIKON.registerModule() not found");
+      return;
+    }
+    api.registerModule({
+      id: mod.id,
+      title: mod.title,
+      iconSvg: ICON_SVG,
+      render: mod.render,
+      destroy: mod.destroy,
+    });
+    log("registered via window.EIKON.registerModule()");
   }
 
-  // init
-  var moduleObj = buildModule();
-  tryRegisterModule(moduleObj);
-  setTimeout(function () { tryRegisterModule(moduleObj); }, 0);
-  setTimeout(function () { tryRegisterModule(moduleObj); }, 200);
-  setTimeout(function () { tryRegisterModule(moduleObj); }, 1000);
-
-  log("loaded modules.ddapoyc.js");
+  try {
+    register();
+    log("loaded modules.ddapoyc.js");
+  } catch (e) {
+    warn("failed to register:", e);
+  }
 })();
