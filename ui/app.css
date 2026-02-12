@@ -2,6 +2,7 @@
    EIKON UI — Harmonized CSS (revamp)
    - Keeps backward compatibility with existing classnames
    - Adds missing styles used by core.js: .eikon-nav-btn, .eikon-nav-ico, .eikon-modal-overlay
+   - Fixes modules that render plain HTML tables/inputs (Daily Register, DDA Sales)
    ========================================================================== */
 
 :root{
@@ -430,7 +431,7 @@ button{ -webkit-tap-highlight-color: transparent; }
 }
 
 /* ==========================================================================
-   Tables
+   Tables (for modules that DO use .eikon-table)
    ========================================================================== */
 .eikon-tablewrap{
   overflow:auto;
@@ -615,4 +616,125 @@ button{ -webkit-tap-highlight-color: transparent; }
   }
   .eikon-table th, .eikon-table td{ border-bottom:1px solid #000 !important; }
   .eikon-table thead th{ position: static !important; background: transparent !important; }
+}
+
+/* ==========================================================================
+   PATCH: Fix modules that don't use eikon-* input/table classes
+   - Daily Register + DDA Sales were rendering white tables (default browser styling)
+   - Force consistent dark scheme for generic inputs/tables in #eikon-content
+   - Add DDA Sales icon via data-mod selector
+   ========================================================================== */
+
+/* Sidebar: ensure DDA Sales has a proper icon (core.js sets data-mod="ddasales") */
+.eikon-nav-btn[data-mod="ddasales"] .eikon-nav-ico{
+  position: relative;
+  color: transparent; /* hide fallback bullet */
+}
+.eikon-nav-btn[data-mod="ddasales"] .eikon-nav-ico::before{
+  content: "📈";
+  position: absolute;
+  inset: 0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1;
+}
+
+/* Generic form controls inside module content */
+#eikon-content input:not([type="checkbox"]):not([type="radio"]),
+#eikon-content select,
+#eikon-content textarea{
+  background: rgba(10,16,24,0.64) !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 12px !important;
+  padding: 10px 12px !important;
+  color: var(--text) !important;
+  outline: none !important;
+  transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;
+}
+
+#eikon-content input:not([type="checkbox"]):not([type="radio"]):hover,
+#eikon-content select:hover,
+#eikon-content textarea:hover{
+  border-color: rgba(255,255,255,0.18) !important;
+}
+
+#eikon-content input:not([type="checkbox"]):not([type="radio"]):focus,
+#eikon-content select:focus,
+#eikon-content textarea:focus{
+  border-color: rgba(58,160,255,0.55) !important;
+  box-shadow: var(--focus) !important;
+  background: rgba(10,16,24,0.74) !important;
+}
+
+#eikon-content input::placeholder,
+#eikon-content textarea::placeholder{
+  color: rgba(233,238,247,0.40) !important;
+}
+
+/* Keep date/time/month pickers from rendering bright UI */
+#eikon-content input[type="date"],
+#eikon-content input[type="time"],
+#eikon-content input[type="month"]{
+  color-scheme: dark;
+}
+
+/* Generic tables inside module content */
+#eikon-content table{
+  width: 100%;
+  border-collapse: collapse;
+  background: rgba(10,16,24,0.18) !important;
+  color: var(--text) !important;
+}
+
+#eikon-content th,
+#eikon-content td{
+  padding: 10px 10px;
+  border-bottom: 1px solid var(--line) !important;
+  vertical-align: middle;
+  color: inherit !important;
+}
+
+#eikon-content thead th{
+  background: rgba(12,19,29,0.92) !important;
+  color: var(--muted) !important;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+#eikon-content tbody tr:hover{
+  background: rgba(255,255,255,0.04) !important;
+}
+
+/* DDA Sales module table wrappers/classes */
+.eikon-dda-table-wrap{
+  overflow: auto;
+  border-radius: 14px;
+  border: 1px solid var(--line) !important;
+  background: rgba(10,16,24,0.18) !important;
+}
+
+/* Keep a reasonable baseline if module doesn't set it */
+.eikon-dda-table{
+  min-width: 900px;
+}
+
+/* Daily Register safety: ensure tbody cells never inherit a light bg */
+#dr-tbody td{
+  background: transparent !important;
+  color: var(--text) !important;
+}
+#dr-tbody b{ color: var(--text) !important; }
+#dr-count{ color: var(--muted) !important; }
+
+/* If any module injects a white block around a table, neutralize common wrappers */
+#eikon-content .table,
+#eikon-content .table-responsive,
+#eikon-content .tablewrap,
+#eikon-content .entries,
+#eikon-content .entries-wrap{
+  background: transparent !important;
 }
