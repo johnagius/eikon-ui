@@ -58,7 +58,6 @@
   }
 
   function rowSearchBlob(r) {
-    // One blob for quick includes() filtering
     return (
       norm(r.entry_date) +
       " | " +
@@ -77,7 +76,7 @@
   }
 
   // ------------------------------------------------------------
-  // PATCH: module-scoped harmonious CSS (like Temperature module)
+  // module-scoped harmonious CSS (like Temperature module)
   // ------------------------------------------------------------
   var drStyleInstalled = false;
   function ensureDailyRegisterStyles() {
@@ -89,18 +88,15 @@
     st.id = "eikon-dailyregister-style";
     st.textContent =
       "" +
-      /* Wrap / headings */
       ".dr-wrap{max-width:1100px;margin:0 auto;padding:16px;}" +
       ".dr-head{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between;margin-bottom:12px;}" +
       ".dr-title{margin:0;font-size:18px;font-weight:900;color:var(--text,#e9eef7);}" +
       ".dr-sub{margin:4px 0 0 0;font-size:12px;color:var(--muted,rgba(233,238,247,.68));}" +
 
-      /* Control row */
       ".dr-controls{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;}" +
       ".dr-field{display:flex;flex-direction:column;gap:4px;}" +
       ".dr-field label{font-size:12px;font-weight:800;color:var(--muted,rgba(233,238,247,.68));letter-spacing:.2px;}" +
 
-      /* Inputs (match Temperature/Cleaning feel) */
       ".dr-field input{" +
       "padding:10px 12px;" +
       "border:1px solid var(--line,rgba(255,255,255,.10));" +
@@ -115,10 +111,8 @@
       ".dr-field input::placeholder{color:rgba(233,238,247,.40);}" +
       "#dr-month,#dr-search{color-scheme:dark;}" +
 
-      /* Buttons */
       ".dr-actions{display:flex;gap:10px;align-items:flex-end;}" +
 
-      /* Cards */
       ".dr-card{" +
       "border:1px solid var(--line,rgba(255,255,255,.10));" +
       "border-radius:16px;" +
@@ -131,7 +125,6 @@
       ".dr-card-head h3{margin:0;font-size:15px;font-weight:1000;color:var(--text,#e9eef7);}" +
       "#dr-count{font-size:12px;color:var(--muted,rgba(233,238,247,.68));font-weight:800;}" +
 
-      /* Table (fix contrast: no more white background) */
       ".dr-table-wrap{overflow:auto;border:1px solid var(--line,rgba(255,255,255,.10));border-radius:14px;background:rgba(10,16,24,.18);}" +
       ".dr-table{width:100%;border-collapse:collapse;min-width:980px;color:var(--text,#e9eef7);}" +
       ".dr-table th,.dr-table td{border-bottom:1px solid var(--line,rgba(255,255,255,.10));padding:10px 10px;font-size:12px;vertical-align:top;}" +
@@ -139,10 +132,8 @@
       ".dr-table tbody tr:hover{background:rgba(255,255,255,.04);}" +
       ".dr-table b{color:var(--text,#e9eef7);}" +
 
-      /* Make the small "ID:" line readable */
       ".dr-idline{opacity:.75;font-size:11px;color:var(--muted,rgba(233,238,247,.68));}" +
 
-      /* Modal form inputs (E.modal content uses these IDs) */
       "#dr-date,#dr-client-name,#dr-client-id,#dr-med,#dr-pos,#dr-prescriber,#dr-presc-reg{" +
       "width:100%;padding:10px 12px;border:1px solid var(--line,rgba(255,255,255,.10));border-radius:12px;" +
       "background:rgba(10,16,24,.64);color:var(--text,#e9eef7);outline:none;" +
@@ -160,41 +151,33 @@
   async function apiList(monthYm) {
     var ym = String(monthYm || "").trim();
     if (!isYm(ym)) throw new Error("Invalid month (YYYY-MM)");
-    dbg("[dailyregister] apiList month=", ym);
     var resp = await E.apiFetch("/daily-register/entries?month=" + encodeURIComponent(ym), { method: "GET" });
-    dbg("[dailyregister] apiList resp=", resp);
     if (!resp || !resp.ok) throw new Error(resp && resp.error ? resp.error : "Failed to load daily register entries");
     return Array.isArray(resp.entries) ? resp.entries : [];
   }
 
   async function apiCreate(payload) {
-    dbg("[dailyregister] apiCreate payload=", payload);
     var resp = await E.apiFetch("/daily-register/entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload || {}),
     });
-    dbg("[dailyregister] apiCreate resp=", resp);
     if (!resp || !resp.ok) throw new Error(resp && resp.error ? resp.error : "Create failed");
     return resp;
   }
 
   async function apiUpdate(id, payload) {
-    dbg("[dailyregister] apiUpdate id=", id, "payload=", payload);
     var resp = await E.apiFetch("/daily-register/entries/" + encodeURIComponent(String(id)), {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload || {}),
     });
-    dbg("[dailyregister] apiUpdate resp=", resp);
     if (!resp || !resp.ok) throw new Error(resp && resp.error ? resp.error : "Update failed");
     return resp;
   }
 
   async function apiDelete(id) {
-    dbg("[dailyregister] apiDelete id=", id);
     var resp = await E.apiFetch("/daily-register/entries/" + encodeURIComponent(String(id)), { method: "DELETE" });
-    dbg("[dailyregister] apiDelete resp=", resp);
     if (!resp || !resp.ok) throw new Error(resp && resp.error ? resp.error : "Delete failed");
     return resp;
   }
@@ -218,7 +201,6 @@
     if (!out.prescriber_name) throw new Error("Prescriber Name is required");
     if (!out.prescriber_reg_no) throw new Error("Prescriber Reg No is required");
 
-    // Keep lengths sane (avoid accidents)
     if (out.client_name.length > 200) throw new Error("Client Name too long");
     if (out.client_id.length > 100) throw new Error("Client ID too long");
     if (out.medicine_name_dose.length > 300) throw new Error("Medicine Name & Dose too long");
@@ -243,7 +225,6 @@
   }
 
   function openEntryModal(opts) {
-    // opts: { mode: "new"|"edit", entry: {...} }
     var mode = opts && opts.mode ? String(opts.mode) : "new";
     var entry = opts && opts.entry ? opts.entry : {};
     var isEdit = mode === "edit";
@@ -475,7 +456,6 @@
       }
     }
 
-    // Sort newest date first, then id desc
     out.sort(function (a, b) {
       var da = String(a.entry_date || "");
       var db = String(b.entry_date || "");
@@ -504,12 +484,9 @@
   }
 
   async function render(ctx) {
-    // PATCH: inject module-scoped styling only (no layout changes elsewhere)
     ensureDailyRegisterStyles();
 
     var mount = ctx.mount;
-    dbg("[dailyregister] render() start", ctx);
-
     mount.innerHTML =
       "" +
       "<div class='dr-wrap'>" +
@@ -583,7 +560,6 @@
 
         var entries = await apiList(state.monthYm);
 
-        // Normalize expected fields
         for (var i = 0; i < entries.length; i++) {
           var r = entries[i] || {};
           r.id = r.id;
@@ -630,14 +606,16 @@
 
     await refresh();
     state.mounted = true;
-    dbg("[dailyregister] render() done");
   }
 
   E.registerModule({
     id: "dailyregister",
     title: "Daily Register",
     order: 16,
-    icon: "️",
+
+    // ✅ PATCH: restore sidebar icon
+    icon: "🗓️",
+
     render: render,
   });
 })();
