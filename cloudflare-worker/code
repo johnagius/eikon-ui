@@ -1465,6 +1465,391 @@ async function handleDailyRegisterReportHtml(request, env, corsOkHeaders, authUs
 }
 
 /* =========================
+   DDA SALES MODULE (API)  <-- ADDED
+   ========================= */
+
+async function ensureDdaSalesSchema(env) {
+  await dbRun(
+    env,
+    `CREATE TABLE IF NOT EXISTS dda_sales_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+      entry_date TEXT NOT NULL,
+      client_name TEXT NOT NULL,
+      client_id_card TEXT NOT NULL,
+      client_address TEXT NOT NULL,
+      medicine_name_dose TEXT NOT NULL,
+      quantity INTEGER NOT NULL,
+      doctor_name TEXT NOT NULL,
+      doctor_reg_no TEXT NOT NULL,
+      prescription_serial_no TEXT NOT NULL,
+      created_by INTEGER,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )`,
+    []
+  );
+
+  await dbRun(
+    env,
+    "CREATE INDEX IF NOT EXISTS idx_dda_sales_org_loc_date ON dda_sales_entries (org_id, location_id, entry_date)",
+    []
+  );
+
+  await dbRun(
+    env,
+    "CREATE INDEX IF NOT EXISTS idx_dda_sales_org_loc_client ON dda_sales_entries (org_id, location_id, client_id_card)",
+    []
+  );
+
+  await dbRun(
+    env,
+    "CREATE INDEX IF NOT EXISTS idx_dda_sales_org_loc_serial ON dda_sales_entries (org_id, location_id, prescription_serial_no)",
+    []
+  );
+}
+
+function normalizeIntPositive(n) {
+  if (n === null || n === undefined) return null;
+  if (n === "") return null;
+  const v = Number(n);
+  if (!Number.isFinite(v)) return null;
+  const i = Math.floor(v);
+  if (String(i) !== String(v) && v !== i) {
+    // If they send 3.0, Number(v) is 3; still okay. If they send 3.2, reject.
+    if (!Number.isInteger(v)) return null;
+  }
+  return i;
+}
+
+async function handleDdaSalesEntriesList(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDdaSalesSchema(env);
+
+  const month = (url.searchParams.get("month") || "").trim();
+  const range = monthRange(month);
+  if (!range) return jsonResponse({ ok: false, error: "Missing/invalid month (YYYY-MM)" }, 400, corsOkHeaders);
+
+  const q = (url.searchParams.get("q") || "").trim();
+  const hasQ = !!q;
+  const qLike = `%${q}%`;
+
+  const sql = `
+    SELECT
+      id,
+      entry_date,
+      client_name,
+      client_id_card,
+      client_address,
+      medicine_name_dose,
+      quantity,
+      doctor_name,
+      doctor_reg_no,
+      prescription_serial_no,
+      created_by,
+      created_at,
+      updated_at
+    FROM dda_sales_entries
+    WHERE org_id = ?
+      AND location_id = ?
+      AND entry_date >= ?
+      AND entry_date < ?
+      ${hasQ ? `AND (
+        entry_date LIKE ?
+        OR client_name LIKE ?
+        OR client_id_card LIKE ?
+        OR client_address LIKE ?
+        OR medicine_name_dose LIKE ?
+        OR doctor_name LIKE ?
+        OR doctor_reg_no LIKE ?
+        OR prescription_serial_no LIKE ?
+      )` : ""}
+    ORDER BY entry_date DESC, id DESC
+  `;
+
+  const bind = [authUser.org_id, authUser.location_id, range.startStr, range.endStr];
+  if (hasQ) {
+    bind.push(qLike, qLike, qLike, qLike, qLike, qLike, qLike, qLike);
+  }
+
+  const entries = await dbAll(env, sql, bind);
+
+  return jsonResponse({ ok: true, entries }, 200, corsOkHeaders);
+}
+
+async function handleDdaSalesEntryCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDdaSalesSchema(env);
+
+  const body = await readJson(request);
+
+  const entryDate = String(body.entry_date || "").trim();
+  const clientName = String(body.client_name || "").trim();
+  const clientIdCard = String(body.client_id_card || "").trim();
+  const clientAddress = String(body.client_address || "").trim();
+  const medicineNameDose = String(body.medicine_name_dose || "").trim();
+  const quantity = normalizeIntPositive(body.quantity);
+  const doctorName = String(body.doctor_name || "").trim();
+  const doctorRegNo = String(body.doctor_reg_no || "").trim();
+  const prescriptionSerialNo = String(body.prescription_serial_no || "").trim();
+
+  if (!isValidYmd(entryDate)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (!clientName) return jsonResponse({ ok: false, error: "Missing client_name" }, 400, corsOkHeaders);
+  if (!clientIdCard) return jsonResponse({ ok: false, error: "Missing client_id_card" }, 400, corsOkHeaders);
+  if (!clientAddress) return jsonResponse({ ok: false, error: "Missing client_address" }, 400, corsOkHeaders);
+  if (!medicineNameDose) return jsonResponse({ ok: false, error: "Missing medicine_name_dose" }, 400, corsOkHeaders);
+  if (!quantity || quantity < 1) return jsonResponse({ ok: false, error: "Invalid quantity (must be >= 1)" }, 400, corsOkHeaders);
+  if (!doctorName) return jsonResponse({ ok: false, error: "Missing doctor_name" }, 400, corsOkHeaders);
+  if (!doctorRegNo) return jsonResponse({ ok: false, error: "Missing doctor_reg_no" }, 400, corsOkHeaders);
+  if (!prescriptionSerialNo) return jsonResponse({ ok: false, error: "Missing prescription_serial_no" }, 400, corsOkHeaders);
+
+  const row = await dbFirst(
+    env,
+    `INSERT INTO dda_sales_entries
+      (org_id, location_id, entry_date, client_name, client_id_card, client_address, medicine_name_dose, quantity, doctor_name, doctor_reg_no, prescription_serial_no, created_by, created_at, updated_at)
+     VALUES
+      (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+     RETURNING id`,
+    [
+      authUser.org_id,
+      authUser.location_id,
+      entryDate,
+      clientName,
+      clientIdCard,
+      clientAddress,
+      medicineNameDose,
+      quantity,
+      doctorName,
+      doctorRegNo,
+      prescriptionSerialNo,
+      authUser.user_id
+    ]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_SALES_ENTRY_CREATE", "dda_sales_entries", String(row.id), {
+    entry_date: entryDate,
+    client_id_card: clientIdCard,
+    prescription_serial_no: prescriptionSerialNo,
+    quantity: quantity
+  });
+
+  return jsonResponse({ ok: true, entry_id: row.id }, 200, corsOkHeaders);
+}
+
+async function handleDdaSalesEntryUpdate(request, env, corsOkHeaders, authUser, entryId) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDdaSalesSchema(env);
+
+  const existing = await dbFirst(
+    env,
+    `SELECT id
+     FROM dda_sales_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+
+  const entryDate = String(body.entry_date || "").trim();
+  const clientName = String(body.client_name || "").trim();
+  const clientIdCard = String(body.client_id_card || "").trim();
+  const clientAddress = String(body.client_address || "").trim();
+  const medicineNameDose = String(body.medicine_name_dose || "").trim();
+  const quantity = normalizeIntPositive(body.quantity);
+  const doctorName = String(body.doctor_name || "").trim();
+  const doctorRegNo = String(body.doctor_reg_no || "").trim();
+  const prescriptionSerialNo = String(body.prescription_serial_no || "").trim();
+
+  if (!isValidYmd(entryDate)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (!clientName) return jsonResponse({ ok: false, error: "Missing client_name" }, 400, corsOkHeaders);
+  if (!clientIdCard) return jsonResponse({ ok: false, error: "Missing client_id_card" }, 400, corsOkHeaders);
+  if (!clientAddress) return jsonResponse({ ok: false, error: "Missing client_address" }, 400, corsOkHeaders);
+  if (!medicineNameDose) return jsonResponse({ ok: false, error: "Missing medicine_name_dose" }, 400, corsOkHeaders);
+  if (!quantity || quantity < 1) return jsonResponse({ ok: false, error: "Invalid quantity (must be >= 1)" }, 400, corsOkHeaders);
+  if (!doctorName) return jsonResponse({ ok: false, error: "Missing doctor_name" }, 400, corsOkHeaders);
+  if (!doctorRegNo) return jsonResponse({ ok: false, error: "Missing doctor_reg_no" }, 400, corsOkHeaders);
+  if (!prescriptionSerialNo) return jsonResponse({ ok: false, error: "Missing prescription_serial_no" }, 400, corsOkHeaders);
+
+  await dbRun(
+    env,
+    `UPDATE dda_sales_entries
+     SET entry_date = ?, client_name = ?, client_id_card = ?, client_address = ?, medicine_name_dose = ?, quantity = ?, doctor_name = ?, doctor_reg_no = ?, prescription_serial_no = ?, updated_at = datetime('now')
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [
+      entryDate,
+      clientName,
+      clientIdCard,
+      clientAddress,
+      medicineNameDose,
+      quantity,
+      doctorName,
+      doctorRegNo,
+      prescriptionSerialNo,
+      entryId,
+      authUser.org_id,
+      authUser.location_id
+    ]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_SALES_ENTRY_UPDATE", "dda_sales_entries", String(entryId), {
+    entry_date: entryDate,
+    client_id_card: clientIdCard,
+    prescription_serial_no: prescriptionSerialNo,
+    quantity: quantity
+  });
+
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleDdaSalesEntryDelete(request, env, corsOkHeaders, authUser, entryId) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDdaSalesSchema(env);
+
+  const existing = await dbFirst(
+    env,
+    `SELECT id, entry_date, client_id_card, prescription_serial_no
+     FROM dda_sales_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  await dbRun(
+    env,
+    `DELETE FROM dda_sales_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_SALES_ENTRY_DELETE", "dda_sales_entries", String(entryId), {
+    entry_date: existing.entry_date,
+    client_id_card: existing.client_id_card,
+    prescription_serial_no: existing.prescription_serial_no
+  });
+
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleDdaSalesReport(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDdaSalesSchema(env);
+
+  const from = (url.searchParams.get("from") || "").trim();
+  const to = (url.searchParams.get("to") || "").trim();
+
+  if (!isValidYmd(from) || !isValidYmd(to)) {
+    return jsonResponse({ ok: false, error: "Invalid from/to (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  }
+  if (to < from) {
+    return jsonResponse({ ok: false, error: "to must be >= from" }, 400, corsOkHeaders);
+  }
+
+  const entries = await dbAll(
+    env,
+    `SELECT
+       id,
+       entry_date,
+       client_name,
+       client_id_card,
+       client_address,
+       medicine_name_dose,
+       quantity,
+       doctor_name,
+       doctor_reg_no,
+       prescription_serial_no
+     FROM dda_sales_entries
+     WHERE org_id = ?
+       AND location_id = ?
+       AND entry_date >= ?
+       AND entry_date <= ?
+     ORDER BY entry_date ASC, id ASC`,
+    [authUser.org_id, authUser.location_id, from, to]
+  );
+
+  return jsonResponse(
+    {
+      ok: true,
+      org_name: authUser.org_name,
+      location_name: authUser.location_name,
+      from,
+      to,
+      entries
+    },
+    200,
+    corsOkHeaders
+  );
+}
+
+async function handleDdaSalesReportHtml(request, env, corsOkHeaders, authUser, url) {
+  const out = await handleDdaSalesReport(request, env, corsOkHeaders, authUser, url);
+  const data = await out.json();
+  if (!data.ok) return out;
+
+  const entries = data.entries || [];
+
+  const byMonth = new Map();
+  for (const e of entries) {
+    const ym = ymFromYmd(e.entry_date);
+    if (!byMonth.has(ym)) byMonth.set(ym, []);
+    byMonth.get(ym).push(e);
+  }
+
+  let body = "";
+  body += `<h1>${escapeHtml(data.org_name || "Pharmacy")} — DDA Sales Report</h1>`;
+  body += `<p class="meta">Location: ${escapeHtml(data.location_name || "")}<br/>Range: ${escapeHtml(data.from)} to ${escapeHtml(data.to)}</p>`;
+
+  for (const [ym, list] of byMonth.entries()) {
+    body += `<h2>${escapeHtml(ym)}</h2>`;
+    body += `<table><thead><tr>
+      <th>Date</th>
+      <th>Client Name</th>
+      <th>ID Card</th>
+      <th>Address</th>
+      <th>Medicine Name &amp; Dose</th>
+      <th>Qty</th>
+      <th>Doctor Name</th>
+      <th>Doctor Reg No.</th>
+      <th>Prescription Serial No.</th>
+    </tr></thead><tbody>`;
+
+    for (const r of list) {
+      body += `<tr>
+        <td>${escapeHtml(r.entry_date)}</td>
+        <td>${escapeHtml(r.client_name)}</td>
+        <td>${escapeHtml(r.client_id_card)}</td>
+        <td>${escapeHtml(r.client_address)}</td>
+        <td>${escapeHtml(r.medicine_name_dose)}</td>
+        <td>${escapeHtml(String(r.quantity))}</td>
+        <td>${escapeHtml(r.doctor_name)}</td>
+        <td>${escapeHtml(r.doctor_reg_no)}</td>
+        <td>${escapeHtml(r.prescription_serial_no)}</td>
+      </tr>`;
+    }
+
+    body += `</tbody></table>`;
+  }
+
+  return htmlReportPage("DDA Sales Report", body);
+}
+
+/* =========================
    CERTIFICATES MODULE (API)
    ========================= */
 
@@ -2254,6 +2639,32 @@ export default {
     }
     if (url.pathname === "/daily-register/report/html" && request.method === "GET") {
       return await handleDailyRegisterReportHtml(request, env, corsOkHeaders, authUser, url);
+    }
+
+    // DDA Sales  <-- ADDED ROUTES
+    if (url.pathname === "/dda-sales/entries" && request.method === "GET") {
+      return await handleDdaSalesEntriesList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/dda-sales/entries" && request.method === "POST") {
+      return await handleDdaSalesEntryCreate(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname.startsWith("/dda-sales/entries/") && request.method === "PUT") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const id = parseInt(parts[2], 10);
+      if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+      return await handleDdaSalesEntryUpdate(request, env, corsOkHeaders, authUser, id);
+    }
+    if (url.pathname.startsWith("/dda-sales/entries/") && request.method === "DELETE") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const id = parseInt(parts[2], 10);
+      if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+      return await handleDdaSalesEntryDelete(request, env, corsOkHeaders, authUser, id);
+    }
+    if (url.pathname === "/dda-sales/report" && request.method === "GET") {
+      return await handleDdaSalesReport(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/dda-sales/report/html" && request.method === "GET") {
+      return await handleDdaSalesReportHtml(request, env, corsOkHeaders, authUser, url);
     }
 
     // Certificates (DOWNLOAD) - PATCH
