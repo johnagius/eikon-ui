@@ -1126,13 +1126,14 @@
       warn("EIKON.registerModule() not found");
       return;
     }
-    api.registerModule({
-      id: mod.id,
-      title: mod.title,
-      iconSvg: ICON_SVG,
-      render: mod.render,
-      destroy: mod.destroy,
-    });
+api.registerModule({
+  id: mod.id,
+  title: mod.title,
+  iconSvg: ICON_SVG,
+  icon: ICON_SVG, // <-- add this line only
+  render: mod.render,
+  destroy: mod.destroy,
+});
     log("registered via window.EIKON.registerModule()");
   }
 
