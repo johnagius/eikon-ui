@@ -16,8 +16,7 @@
   const E = window.EIKON;
 
   // -----------------------------
-  // FIX: ensure `el()` exists
-  // Some builds don't provide E.el; this module previously assumed it did.
+  // Robust: ensure `el()` exists
   // -----------------------------
   function elFallback(tag, attrs, ...children) {
     const node = document.createElement(tag);
@@ -26,12 +25,9 @@
       for (const [k, v] of Object.entries(attrs)) {
         if (v === null || v === undefined || v === false) continue;
 
-        if (k === "class") {
-          node.className = String(v);
-        } else if (k === "style") {
-          node.style.cssText = String(v);
-        } else if (k.startsWith("on") && typeof v === "function") {
-          // onClick, onInput, etc.
+        if (k === "class") node.className = String(v);
+        else if (k === "style") node.style.cssText = String(v);
+        else if (k.startsWith("on") && typeof v === "function") {
           node.addEventListener(k.slice(2).toLowerCase(), v);
         } else if (k === "dataset" && typeof v === "object") {
           for (const [dk, dv] of Object.entries(v)) node.dataset[dk] = String(dv);
@@ -41,9 +37,7 @@
           } catch {
             node.setAttribute(k, String(v));
           }
-        } else {
-          node.setAttribute(k, String(v));
-        }
+        } else node.setAttribute(k, String(v));
       }
     }
 
@@ -53,13 +47,47 @@
       if (c instanceof Node) return node.appendChild(c);
       node.appendChild(document.createTextNode(String(c)));
     }
-
     children.forEach(append);
+
     return node;
   }
 
   const el = (E && typeof E.el === "function") ? E.el : elFallback;
-  if (E && typeof E.el !== "function") E.el = el; // harmless, helps other modules too
+  if (E && typeof E.el !== "function") E.el = el;
+
+  // -----------------------------
+  // Robust: normalize the mount/root
+  // core builds differ: sometimes render() gets an HTMLElement,
+  // sometimes an object like { mount: HTMLElement } or { el: HTMLElement }
+  // -----------------------------
+  function resolveRoot(rootLike) {
+    // Direct DOM element
+    if (rootLike instanceof Element) return rootLike;
+
+    // Common container shapes
+    if (rootLike && rootLike.mount instanceof Element) return rootLike.mount;
+    if (rootLike && rootLike.el instanceof Element) return rootLike.el;
+    if (rootLike && rootLike.root instanceof Element) return rootLike.root;
+    if (rootLike && rootLike.container instanceof Element) return rootLike.container;
+    if (rootLike && rootLike.node instanceof Element) return rootLike.node;
+    if (rootLike && rootLike.element instanceof Element) return rootLike.element;
+
+    // If a selector/id was passed (rare)
+    if (typeof rootLike === "string") {
+      const q = document.querySelector(rootLike);
+      if (q) return q;
+      const byId = document.getElementById(rootLike.replace(/^#/, ""));
+      if (byId) return byId;
+    }
+
+    // Last resort: typical app mounts
+    return (
+      document.getElementById("mount") ||
+      document.getElementById("app") ||
+      document.getElementById("root") ||
+      document.body
+    );
+  }
 
   function pad2(n) { return String(n).padStart(2, "0"); }
   function todayYmd() {
@@ -70,6 +98,16 @@
     const d = new Date();
     return d.getFullYear() + "-" + pad2(d.getMonth() + 1);
   }
+
+  function asInt(v) {
+    if (v === "" || v === null || v === undefined) return null;
+    const n = Number(v);
+    if (!Number.isFinite(n)) return null;
+    const i = Math.floor(n);
+    if (i < 1) return null;
+    return i;
+  }
+
   async function openPrintableReport(url) {
     const a = document.createElement("a");
     a.href = url;
@@ -79,14 +117,7 @@
     a.click();
     a.remove();
   }
-  function asInt(v) {
-    if (v === "" || v === null || v === undefined) return null;
-    const n = Number(v);
-    if (!Number.isFinite(n)) return null;
-    const i = Math.floor(n);
-    if (i < 1) return null;
-    return i;
-  }
+
   function mkBtnRow(...nodes) {
     return el("div", { class: "eikon-row", style: "gap:8px; align-items:center;" }, ...nodes);
   }
@@ -98,6 +129,7 @@
       input
     );
   }
+
   async function promptEntryModal(title, initial) {
     const data = Object.assign(
       {
@@ -115,89 +147,32 @@
     );
 
     const inDate = el("input", { class: "eikon-input", type: "date", value: data.entry_date });
-    const inClient = el("input", {
-      class: "eikon-input",
-      type: "text",
-      placeholder: "e.g. John Apap",
-      value: data.client_name,
-    });
-    const inId = el("input", {
-      class: "eikon-input",
-      type: "text",
-      placeholder: "ID card no.",
-      value: data.client_id_card,
-    });
-    const inAddr = el("input", {
-      class: "eikon-input",
-      type: "text",
-      placeholder: "Address",
-      value: data.client_address,
-    });
-    const inMed = el("input", {
-      class: "eikon-input",
-      type: "text",
-      placeholder: "Medicine (name & dose)",
-      value: data.medicine_name_dose,
-    });
-    const inQty = el("input", {
-      class: "eikon-input",
-      type: "number",
-      min: "1",
-      step: "1",
-      placeholder: "Qty",
-      value: data.quantity === null || data.quantity === undefined ? "" : String(data.quantity),
-    });
-    const inDoc = el("input", {
-      class: "eikon-input",
-      type: "text",
-      placeholder: "Doctor name",
-      value: data.doctor_name,
-    });
-    const inReg = el("input", {
-      class: "eikon-input",
-      type: "text",
-      placeholder: "Doctor reg. no.",
-      value: data.doctor_reg_no,
-    });
-    const inSerial = el("input", {
-      class: "eikon-input",
-      type: "text",
-      placeholder: "Prescription serial no.",
-      value: data.prescription_serial_no,
-    });
+    const inClient = el("input", { class: "eikon-input", type: "text", placeholder: "e.g. John Apap", value: data.client_name });
+    const inId = el("input", { class: "eikon-input", type: "text", placeholder: "ID card no.", value: data.client_id_card });
+    const inAddr = el("input", { class: "eikon-input", type: "text", placeholder: "Address", value: data.client_address });
+    const inMed = el("input", { class: "eikon-input", type: "text", placeholder: "Medicine (name & dose)", value: data.medicine_name_dose });
+    const inQty = el("input", { class: "eikon-input", type: "number", min: "1", step: "1", placeholder: "Qty", value: data.quantity === null || data.quantity === undefined ? "" : String(data.quantity) });
+    const inDoc = el("input", { class: "eikon-input", type: "text", placeholder: "Doctor name", value: data.doctor_name });
+    const inReg = el("input", { class: "eikon-input", type: "text", placeholder: "Doctor reg. no.", value: data.doctor_reg_no });
+    const inSerial = el("input", { class: "eikon-input", type: "text", placeholder: "Prescription serial no.", value: data.prescription_serial_no });
 
     const body = el(
       "div",
       null,
       el("div", { class: "eikon-help" }, "All fields are required for compliance."),
       el("div", { style: "height:10px" }),
-      el(
-        "div",
-        { class: "eikon-row" },
-        rowField("Date", inDate, "min-width:180px"),
-        rowField("Qty", inQty, "min-width:120px")
-      ),
-      el(
-        "div",
-        { class: "eikon-row" },
-        rowField("Client", inClient, "min-width:260px"),
-        rowField("ID Card", inId, "min-width:180px")
-      ),
+      el("div", { class: "eikon-row" }, rowField("Date", inDate, "min-width:180px"), rowField("Qty", inQty, "min-width:120px")),
+      el("div", { class: "eikon-row" }, rowField("Client", inClient, "min-width:260px"), rowField("ID Card", inId, "min-width:180px")),
       rowField("Address", inAddr),
       rowField("Medicine (name & dose)", inMed),
-      el(
-        "div",
-        { class: "eikon-row" },
-        rowField("Doctor", inDoc, "min-width:260px"),
-        rowField("Reg. No.", inReg, "min-width:180px")
-      ),
+      el("div", { class: "eikon-row" }, rowField("Doctor", inDoc, "min-width:260px"), rowField("Reg. No.", inReg, "min-width:180px")),
       rowField("Prescription serial no.", inSerial)
     );
 
     const ok = await E.modal(title, body, "Save", "Cancel");
     if (!ok) return null;
 
-    const payload = {
+    return {
       entry_date: (inDate.value || "").trim(),
       client_name: (inClient.value || "").trim(),
       client_id_card: (inId.value || "").trim(),
@@ -208,7 +183,6 @@
       doctor_reg_no: (inReg.value || "").trim(),
       prescription_serial_no: (inSerial.value || "").trim(),
     };
-    return payload;
   }
 
   const MOD = {
@@ -217,7 +191,17 @@
     subtitle: "Government supplied DDAs register",
     icon: "G",
 
-    async render(root, user) {
+    async render(rootLike, user) {
+      const root = resolveRoot(rootLike);
+
+      // Make sure we're working with a DOM element
+      if (!(root instanceof Element)) {
+        throw new Error("Invalid mount/root passed to dda-poyc render()");
+      }
+
+      // Clear mount
+      root.innerHTML = "";
+
       const state = {
         month: thisMonth(),
         q: "",
@@ -226,7 +210,6 @@
         entries: [],
       };
 
-      // Header
       const header = el(
         "div",
         { class: "eikon-card" },
@@ -234,14 +217,8 @@
         el("div", { class: "eikon-help" }, "Separate register for government supplied DDAs.")
       );
 
-      // Controls
       const monthInput = el("input", { class: "eikon-input", type: "month", value: state.month });
-      const searchInput = el("input", {
-        class: "eikon-input",
-        type: "text",
-        placeholder: "Type to filter…",
-        value: state.q,
-      });
+      const searchInput = el("input", { class: "eikon-input", type: "text", placeholder: "Type to filter…", value: state.q });
       const fromInput = el("input", { class: "eikon-input", type: "date", value: state.from });
       const toInput = el("input", { class: "eikon-input", type: "date", value: state.to });
 
@@ -271,17 +248,12 @@
         )
       );
 
-      // Table + report cards
       const tableCard = el("div", { class: "eikon-card" });
       const reportCard = el(
         "div",
         { class: "eikon-card" },
         el("div", { class: "eikon-title" }, "Report"),
-        el(
-          "div",
-          { class: "eikon-help" },
-          "Use Generate to fetch JSON; Print opens a printable report in a new tab."
-        ),
+        el("div", { class: "eikon-help" }, "Use Generate to fetch JSON; Print opens a printable report in a new tab."),
         el("div", { style: "height:8px" }),
         el("div", { class: "eikon-help" }, "No report generated yet.")
       );
@@ -327,10 +299,7 @@
             const payload = await promptEntryModal("Edit Entry", r);
             if (!payload) return;
             try {
-              await E.apiFetch("/dda-poyc/entries/" + r.id, {
-                method: "PUT",
-                body: JSON.stringify(payload),
-              });
+              await E.apiFetch("/dda-poyc/entries/" + r.id, { method: "PUT", body: JSON.stringify(payload) });
               E.toast("Saved", "Entry updated.", 2000);
               await refresh();
             } catch (err) {
@@ -393,14 +362,11 @@
       function updateReportCard(text) {
         reportCard.innerHTML = "";
         reportCard.appendChild(el("div", { class: "eikon-title" }, "Report"));
-        reportCard.appendChild(
-          el("div", { class: "eikon-help" }, "Use Generate to fetch JSON; Print opens a printable report in a new tab.")
-        );
+        reportCard.appendChild(el("div", { class: "eikon-help" }, "Use Generate to fetch JSON; Print opens a printable report in a new tab."));
         reportCard.appendChild(el("div", { style: "height:8px" }));
         reportCard.appendChild(el("div", { class: "eikon-help" }, text));
       }
 
-      // Events
       monthInput.addEventListener("change", async () => {
         state.month = monthInput.value;
         if (state.month && /^\d{4}-\d{2}$/.test(state.month)) {
@@ -414,9 +380,7 @@
       searchInput.addEventListener("input", () => {
         state.q = searchInput.value || "";
         if (searchT) clearTimeout(searchT);
-        searchT = setTimeout(() => {
-          refresh().catch(console.error);
-        }, 150);
+        searchT = setTimeout(() => { refresh().catch(console.error); }, 150);
       });
 
       btnRefresh.addEventListener("click", async () => { await refresh(); });
@@ -462,12 +426,10 @@
         await openPrintableReport(url);
       });
 
-      // Initial
       await refresh();
     },
   };
 
-  // Register
   if (typeof E.registerModule === "function") {
     E.registerModule(MOD);
   } else {
