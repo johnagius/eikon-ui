@@ -1124,6 +1124,198 @@ async function handleCleaningReportHtml(request, env, corsOkHeaders, authUser, u
 }
 
 /* =========================
+   LOCUM REGISTER MODULE (API)
+   ========================= */
+
+async function ensureLocumRegisterSchema(env) {
+  // Table may already exist (you created it), but this is safe.
+  await dbRun(
+    env,
+    `CREATE TABLE IF NOT EXISTS locum_register_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+      entry_date TEXT NOT NULL,
+      time_in TEXT NOT NULL,
+      time_out TEXT NOT NULL,
+      locum_full_name TEXT NOT NULL,
+      registration_number TEXT NOT NULL,
+      created_by INTEGER,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )`,
+    []
+  );
+
+  await dbRun(
+    env,
+    "CREATE INDEX IF NOT EXISTS idx_locum_register_org_loc_date ON locum_register_entries (org_id, location_id, entry_date)",
+    []
+  );
+
+  await dbRun(
+    env,
+    "CREATE INDEX IF NOT EXISTS idx_locum_register_org_loc_regno ON locum_register_entries (org_id, location_id, registration_number)",
+    []
+  );
+}
+
+async function handleLocumRegisterEntriesList(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureLocumRegisterSchema(env);
+
+  const month = (url.searchParams.get("month") || "").trim();
+  const range = monthRange(month);
+  if (!range) return jsonResponse({ ok: false, error: "Missing/invalid month (YYYY-MM)" }, 400, corsOkHeaders);
+
+  const entries = await dbAll(
+    env,
+    `SELECT
+       id,
+       entry_date,
+       time_in,
+       time_out,
+       locum_full_name,
+       registration_number,
+       created_by,
+       created_at,
+       updated_at
+     FROM locum_register_entries
+     WHERE org_id = ?
+       AND location_id = ?
+       AND entry_date >= ?
+       AND entry_date < ?
+     ORDER BY entry_date DESC, time_in DESC, id DESC`,
+    [authUser.org_id, authUser.location_id, range.startStr, range.endStr]
+  );
+
+  return jsonResponse({ ok: true, entries }, 200, corsOkHeaders);
+}
+
+async function handleLocumRegisterEntryCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureLocumRegisterSchema(env);
+
+  const body = await readJson(request);
+
+  const entryDate = String(body.entry_date || "").trim();
+  const timeIn = String(body.time_in || "").trim();
+  const timeOut = String(body.time_out || "").trim();
+  const fullName = String(body.locum_full_name || "").trim();
+  const regNo = String(body.registration_number || "").trim();
+
+  if (!isValidYmd(entryDate)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (!isValidHm(timeIn)) return jsonResponse({ ok: false, error: "Invalid time_in (HH:mm)" }, 400, corsOkHeaders);
+  if (timeOut && !isValidHm(timeOut)) return jsonResponse({ ok: false, error: "Invalid time_out (HH:mm or empty)" }, 400, corsOkHeaders);
+  if (!fullName) return jsonResponse({ ok: false, error: "Missing locum_full_name" }, 400, corsOkHeaders);
+  if (!regNo) return jsonResponse({ ok: false, error: "Missing registration_number" }, 400, corsOkHeaders);
+
+  const row = await dbFirst(
+    env,
+    `INSERT INTO locum_register_entries
+       (org_id, location_id, entry_date, time_in, time_out, locum_full_name, registration_number, created_by, created_at, updated_at)
+     VALUES
+       (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+     RETURNING id`,
+    [authUser.org_id, authUser.location_id, entryDate, timeIn, timeOut || "", fullName, regNo, authUser.user_id]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "LOCUM_REGISTER_ENTRY_CREATE", "locum_register_entries", String(row.id), {
+    entry_date: entryDate,
+    time_in: timeIn,
+    time_out: timeOut || "",
+    locum_full_name: fullName,
+    registration_number: regNo
+  });
+
+  return jsonResponse({ ok: true, entry_id: row.id }, 200, corsOkHeaders);
+}
+
+async function handleLocumRegisterEntryUpdate(request, env, corsOkHeaders, authUser, entryId) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureLocumRegisterSchema(env);
+
+  const existing = await dbFirst(
+    env,
+    `SELECT id
+     FROM locum_register_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+
+  const entryDate = String(body.entry_date || "").trim();
+  const timeIn = String(body.time_in || "").trim();
+  const timeOut = String(body.time_out || "").trim();
+  const fullName = String(body.locum_full_name || "").trim();
+  const regNo = String(body.registration_number || "").trim();
+
+  if (!isValidYmd(entryDate)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (!isValidHm(timeIn)) return jsonResponse({ ok: false, error: "Invalid time_in (HH:mm)" }, 400, corsOkHeaders);
+  if (timeOut && !isValidHm(timeOut)) return jsonResponse({ ok: false, error: "Invalid time_out (HH:mm or empty)" }, 400, corsOkHeaders);
+  if (!fullName) return jsonResponse({ ok: false, error: "Missing locum_full_name" }, 400, corsOkHeaders);
+  if (!regNo) return jsonResponse({ ok: false, error: "Missing registration_number" }, 400, corsOkHeaders);
+
+  await dbRun(
+    env,
+    `UPDATE locum_register_entries
+     SET entry_date = ?, time_in = ?, time_out = ?, locum_full_name = ?, registration_number = ?, updated_at = datetime('now')
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryDate, timeIn, timeOut || "", fullName, regNo, entryId, authUser.org_id, authUser.location_id]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "LOCUM_REGISTER_ENTRY_UPDATE", "locum_register_entries", String(entryId), {
+    entry_date: entryDate,
+    time_in: timeIn,
+    time_out: timeOut || "",
+    locum_full_name: fullName,
+    registration_number: regNo
+  });
+
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleLocumRegisterEntryDelete(request, env, corsOkHeaders, authUser, entryId) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureLocumRegisterSchema(env);
+
+  const existing = await dbFirst(
+    env,
+    `SELECT id
+     FROM locum_register_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  await dbRun(
+    env,
+    `DELETE FROM locum_register_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "LOCUM_REGISTER_ENTRY_DELETE", "locum_register_entries", String(entryId), {});
+
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+
+/* =========================
    DAILY REGISTER MODULE (API)
    ========================= */
 
@@ -2986,6 +3178,27 @@ export default {
     if (url.pathname === "/cleaning/report/html" && request.method === "GET") {
       return await handleCleaningReportHtml(request, env, corsOkHeaders, authUser, url);
     }
+
+    // Locum Register
+    if (url.pathname === "/locumregister/entries" && request.method === "GET") {
+      return await handleLocumRegisterEntriesList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/locumregister/entries" && request.method === "POST") {
+      return await handleLocumRegisterEntryCreate(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname.startsWith("/locumregister/entries/") && request.method === "PUT") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const id = parseInt(parts[2], 10);
+      if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+      return await handleLocumRegisterEntryUpdate(request, env, corsOkHeaders, authUser, id);
+    }
+    if (url.pathname.startsWith("/locumregister/entries/") && request.method === "DELETE") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const id = parseInt(parts[2], 10);
+      if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+      return await handleLocumRegisterEntryDelete(request, env, corsOkHeaders, authUser, id);
+    }
+
 
     // Daily Register (PATCH: use /daily-register/* not /daily_register/*)
     if (url.pathname === "/daily-register/entries" && request.method === "GET") {
