@@ -400,6 +400,9 @@
     // live search debounce (same behavior as dda-sales)
     var searchTimer = null;
 
+    // ✅ PATCH: preserve search focus/caret across loading toggles
+    var qFocusRestore = null;
+
     function setMsg(kind, text) {
       if (!msgBox) return;
       msgBox.className = "eikon-dda-msg " + (kind === "ok" ? "ok" : kind === "err" ? "err" : "");
@@ -412,11 +415,38 @@
       var disabled = state.loading || state.report_loading;
       if (addBtn) addBtn.disabled = disabled;
       if (monthInput) monthInput.disabled = disabled;
-      if (qInput) qInput.disabled = disabled;
+
+      if (qInput) {
+        // ✅ PATCH: if disabling while focused, remember caret/selection so we can restore it after loading.
+        try {
+          if (v && ctx && ctx.doc && ctx.doc.activeElement === qInput) {
+            qFocusRestore = { s: qInput.selectionStart, e: qInput.selectionEnd };
+          }
+        } catch (e0) {}
+        qInput.disabled = disabled;
+      }
+
       if (generateBtn) generateBtn.disabled = disabled;
       if (printBtn) printBtn.disabled = disabled;
       if (reportFromInput) reportFromInput.disabled = disabled;
       if (reportToInput) reportToInput.disabled = disabled;
+
+      // ✅ PATCH: restore focus/caret after re-enabling to prevent live-search blur.
+      if (!v && qInput && qFocusRestore && !qInput.disabled) {
+        try {
+          qInput.focus();
+          if (
+            typeof qInput.setSelectionRange === "function" &&
+            qFocusRestore.s != null &&
+            qFocusRestore.e != null
+          ) {
+            qInput.setSelectionRange(qFocusRestore.s, qFocusRestore.e);
+          }
+        } catch (e1) {}
+        qFocusRestore = null;
+      } else if (!v) {
+        qFocusRestore = null;
+      }
     }
 
     function setReportMsg(kind, text) {
@@ -660,7 +690,13 @@
       html += "\n";
 
       html += "# " + escapeHtml(org) + " — DDA POYC Report\n\n";
-      html += (loc ? "Location: " + escapeHtml(loc) + "\n" : "") + "Range: " + escapeHtml(from) + " to " + escapeHtml(to) + "\n\n";
+      html +=
+        (loc ? "Location: " + escapeHtml(loc) + "\n" : "") +
+        "Range: " +
+        escapeHtml(from) +
+        " to " +
+        escapeHtml(to) +
+        "\n\n";
 
       if (!entries.length) {
         html += "\n\nNo entries for the selected date range.\n\n";
@@ -754,7 +790,12 @@
         formEls = [f_entry_date, f_client, f_id, f_addr, f_med, f_qty, f_doc, f_reg, f_serial];
         for (var i = 0; i < formEls.length; i++) grid.appendChild(formEls[i].wrap);
 
-        var footer = el(ctx.doc, "div", { style: "display:flex;gap:10px;justify-content:flex-end;margin-top:12px;" }, []);
+        var footer = el(
+          ctx.doc,
+          "div",
+          { style: "display:flex;gap:10px;justify-content:flex-end;margin-top:12px;" },
+          []
+        );
         var saveBtn = el(ctx.doc, "button", { class: "eikon-dda-btn", text: "Save" }, []);
         saveBtn.onclick = async function () {
           var payload = {};
@@ -820,7 +861,8 @@
             method: "POST",
             body: JSON.stringify(payload),
           });
-          if (!data || data.ok !== true) throw new Error(data && data.error ? String(data.error) : "Unexpected response");
+          if (!data || data.ok !== true)
+            throw new Error(data && data.error ? String(data.error) : "Unexpected response");
           hideModal();
           await refresh();
         } catch (e) {
@@ -846,7 +888,8 @@
             method: "PUT",
             body: JSON.stringify(payload),
           });
-          if (!data || data.ok !== true) throw new Error(data && data.error ? String(data.error) : "Unexpected response");
+          if (!data || data.ok !== true)
+            throw new Error(data && data.error ? String(data.error) : "Unexpected response");
           hideModal();
           await refresh();
         } catch (e) {
@@ -877,7 +920,8 @@
         setMsg("", "");
         setLoading(true);
         var data = await apiJson(ctx.win, "/dda-poyc/entries/" + encodeURIComponent(String(id)), { method: "DELETE" });
-        if (!data || data.ok !== true) throw new Error(data && data.error ? String(data.error) : "Unexpected response");
+        if (!data || data.ok !== true)
+          throw new Error(data && data.error ? String(data.error) : "Unexpected response");
         await refresh();
       } catch (e) {
         var msg = e && e.message ? e.message : String(e || "Error");
