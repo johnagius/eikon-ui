@@ -10,7 +10,6 @@
       else console.log.apply(console, arguments);
     } catch (e) {}
   }
-
   function err() {
     try {
       if (E && typeof E.error === "function") E.error.apply(null, arguments);
@@ -35,31 +34,25 @@
     var v = String(n);
     return v.length === 1 ? "0" + v : v;
   }
-
   function todayYmd() {
     var d = new Date();
     return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
   }
-
   function thisMonthYm() {
     var d = new Date();
     return d.getFullYear() + "-" + pad2(d.getMonth() + 1);
   }
-
   function isYmd(s) {
     return /^\d{4}-\d{2}-\d{2}$/.test(String(s || "").trim());
   }
-
   function isYm(s) {
     return /^\d{4}-\d{2}$/.test(String(s || "").trim());
   }
-
   function fmtDmyFromYmd(s) {
     var v = String(s || "").trim();
     if (!isYmd(v)) return v;
     return v.slice(8, 10) + "/" + v.slice(5, 7) + "/" + v.slice(0, 4);
   }
-
   function norm(s) {
     return String(s == null ? "" : s).toLowerCase().trim();
   }
@@ -67,14 +60,101 @@
   function rowSearchBlob(r) {
     // One blob for quick includes() filtering
     return (
-      norm(r.entry_date) + " | " +
-      norm(r.client_name) + " | " +
-      norm(r.client_id) + " | " +
-      norm(r.medicine_name_dose) + " | " +
-      norm(r.posology) + " | " +
-      norm(r.prescriber_name) + " | " +
+      norm(r.entry_date) +
+      " | " +
+      norm(r.client_name) +
+      " | " +
+      norm(r.client_id) +
+      " | " +
+      norm(r.medicine_name_dose) +
+      " | " +
+      norm(r.posology) +
+      " | " +
+      norm(r.prescriber_name) +
+      " | " +
       norm(r.prescriber_reg_no)
     );
+  }
+
+  // ------------------------------------------------------------
+  // PATCH: module-scoped harmonious CSS (like Temperature module)
+  // ------------------------------------------------------------
+  var drStyleInstalled = false;
+  function ensureDailyRegisterStyles() {
+    if (drStyleInstalled) return;
+    drStyleInstalled = true;
+
+    var st = document.createElement("style");
+    st.type = "text/css";
+    st.id = "eikon-dailyregister-style";
+    st.textContent =
+      "" +
+      /* Wrap / headings */
+      ".dr-wrap{max-width:1100px;margin:0 auto;padding:16px;}" +
+      ".dr-head{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between;margin-bottom:12px;}" +
+      ".dr-title{margin:0;font-size:18px;font-weight:900;color:var(--text,#e9eef7);}" +
+      ".dr-sub{margin:4px 0 0 0;font-size:12px;color:var(--muted,rgba(233,238,247,.68));}" +
+
+      /* Control row */
+      ".dr-controls{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;}" +
+      ".dr-field{display:flex;flex-direction:column;gap:4px;}" +
+      ".dr-field label{font-size:12px;font-weight:800;color:var(--muted,rgba(233,238,247,.68));letter-spacing:.2px;}" +
+
+      /* Inputs (match Temperature/Cleaning feel) */
+      ".dr-field input{" +
+      "padding:10px 12px;" +
+      "border:1px solid var(--line,rgba(255,255,255,.10));" +
+      "border-radius:12px;" +
+      "background:rgba(10,16,24,.64);" +
+      "color:var(--text,#e9eef7);" +
+      "outline:none;" +
+      "transition:border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;" +
+      "}" +
+      ".dr-field input:hover{border-color:rgba(255,255,255,.18);}" +
+      ".dr-field input:focus{border-color:rgba(58,160,255,.55);box-shadow:0 0 0 3px rgba(58,160,255,.22);background:rgba(10,16,24,.74);}" +
+      ".dr-field input::placeholder{color:rgba(233,238,247,.40);}" +
+      "#dr-month,#dr-search{color-scheme:dark;}" +
+
+      /* Buttons */
+      ".dr-actions{display:flex;gap:10px;align-items:flex-end;}" +
+
+      /* Cards */
+      ".dr-card{" +
+      "border:1px solid var(--line,rgba(255,255,255,.10));" +
+      "border-radius:16px;" +
+      "padding:12px;" +
+      "background:var(--panel,rgba(16,24,36,.66));" +
+      "box-shadow:0 18px 50px rgba(0,0,0,.38);" +
+      "backdrop-filter:blur(10px);" +
+      "}" +
+      ".dr-card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;}" +
+      ".dr-card-head h3{margin:0;font-size:15px;font-weight:1000;color:var(--text,#e9eef7);}" +
+      "#dr-count{font-size:12px;color:var(--muted,rgba(233,238,247,.68));font-weight:800;}" +
+
+      /* Table (fix contrast: no more white background) */
+      ".dr-table-wrap{overflow:auto;border:1px solid var(--line,rgba(255,255,255,.10));border-radius:14px;background:rgba(10,16,24,.18);}" +
+      ".dr-table{width:100%;border-collapse:collapse;min-width:980px;color:var(--text,#e9eef7);}" +
+      ".dr-table th,.dr-table td{border-bottom:1px solid var(--line,rgba(255,255,255,.10));padding:10px 10px;font-size:12px;vertical-align:top;}" +
+      ".dr-table th{background:rgba(12,19,29,.92);position:sticky;top:0;z-index:1;color:var(--muted,rgba(233,238,247,.68));text-transform:uppercase;letter-spacing:.8px;font-weight:1000;text-align:left;}" +
+      ".dr-table tbody tr:hover{background:rgba(255,255,255,.04);}" +
+      ".dr-table b{color:var(--text,#e9eef7);}" +
+
+      /* Make the small "ID:" line readable */
+      ".dr-idline{opacity:.75;font-size:11px;color:var(--muted,rgba(233,238,247,.68));}" +
+
+      /* Modal form inputs (E.modal content uses these IDs) */
+      "#dr-date,#dr-client-name,#dr-client-id,#dr-med,#dr-pos,#dr-prescriber,#dr-presc-reg{" +
+      "width:100%;padding:10px 12px;border:1px solid var(--line,rgba(255,255,255,.10));border-radius:12px;" +
+      "background:rgba(10,16,24,.64);color:var(--text,#e9eef7);outline:none;" +
+      "}" +
+      "#dr-date:focus,#dr-client-name:focus,#dr-client-id:focus,#dr-med:focus,#dr-pos:focus,#dr-prescriber:focus,#dr-presc-reg:focus{" +
+      "border-color:rgba(58,160,255,.55);box-shadow:0 0 0 3px rgba(58,160,255,.22);background:rgba(10,16,24,.74);" +
+      "}" +
+      "#dr-date{color-scheme:dark;}" +
+
+      "@media(max-width:820px){.dr-wrap{padding:12px;}.dr-controls{width:100%;}}";
+
+    document.head.appendChild(st);
   }
 
   async function apiList(monthYm) {
@@ -83,7 +163,7 @@
     dbg("[dailyregister] apiList month=", ym);
     var resp = await E.apiFetch("/daily-register/entries?month=" + encodeURIComponent(ym), { method: "GET" });
     dbg("[dailyregister] apiList resp=", resp);
-    if (!resp || !resp.ok) throw new Error((resp && resp.error) ? resp.error : "Failed to load daily register entries");
+    if (!resp || !resp.ok) throw new Error(resp && resp.error ? resp.error : "Failed to load daily register entries");
     return Array.isArray(resp.entries) ? resp.entries : [];
   }
 
@@ -92,10 +172,10 @@
     var resp = await E.apiFetch("/daily-register/entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload || {})
+      body: JSON.stringify(payload || {}),
     });
     dbg("[dailyregister] apiCreate resp=", resp);
-    if (!resp || !resp.ok) throw new Error((resp && resp.error) ? resp.error : "Create failed");
+    if (!resp || !resp.ok) throw new Error(resp && resp.error ? resp.error : "Create failed");
     return resp;
   }
 
@@ -104,10 +184,10 @@
     var resp = await E.apiFetch("/daily-register/entries/" + encodeURIComponent(String(id)), {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload || {})
+      body: JSON.stringify(payload || {}),
     });
     dbg("[dailyregister] apiUpdate resp=", resp);
-    if (!resp || !resp.ok) throw new Error((resp && resp.error) ? resp.error : "Update failed");
+    if (!resp || !resp.ok) throw new Error(resp && resp.error ? resp.error : "Update failed");
     return resp;
   }
 
@@ -115,7 +195,7 @@
     dbg("[dailyregister] apiDelete id=", id);
     var resp = await E.apiFetch("/daily-register/entries/" + encodeURIComponent(String(id)), { method: "DELETE" });
     dbg("[dailyregister] apiDelete resp=", resp);
-    if (!resp || !resp.ok) throw new Error((resp && resp.error) ? resp.error : "Delete failed");
+    if (!resp || !resp.ok) throw new Error(resp && resp.error ? resp.error : "Delete failed");
     return resp;
   }
 
@@ -127,7 +207,7 @@
       medicine_name_dose: String(p.medicine_name_dose || "").trim(),
       posology: String(p.posology || "").trim(),
       prescriber_name: String(p.prescriber_name || "").trim(),
-      prescriber_reg_no: String(p.prescriber_reg_no || "").trim()
+      prescriber_reg_no: String(p.prescriber_reg_no || "").trim(),
     };
 
     if (!out.entry_date || !isYmd(out.entry_date)) throw new Error("Date is required (YYYY-MM-DD)");
@@ -152,9 +232,11 @@
   function modalError(title, e) {
     try {
       var msg = String(e && (e.message || e.bodyText || e) ? (e.message || e.bodyText || e) : "Error");
-      E.modal.show(title || "Error", '<div class="eikon-alert">' + esc(msg) + "</div>", [
-        { label: "Close", primary: true, onClick: function () { E.modal.hide(); } }
-      ]);
+      E.modal.show(
+        title || "Error",
+        "<div style='white-space:pre-wrap'>" + esc(msg) + "</div>",
+        [{ label: "Close", primary: true, onClick: function () { E.modal.hide(); } }]
+      );
     } catch (e2) {
       alert(String(e && (e.message || e) ? (e.message || e) : "Error"));
     }
@@ -162,12 +244,11 @@
 
   function openEntryModal(opts) {
     // opts: { mode: "new"|"edit", entry: {...} }
-    var mode = (opts && opts.mode) ? String(opts.mode) : "new";
-    var entry = (opts && opts.entry) ? opts.entry : {};
-
+    var mode = opts && opts.mode ? String(opts.mode) : "new";
+    var entry = opts && opts.entry ? opts.entry : {};
     var isEdit = mode === "edit";
-    var title = isEdit ? "Edit Daily Register Entry" : "New Daily Register Entry";
 
+    var title = isEdit ? "Edit Daily Register Entry" : "New Daily Register Entry";
     var initial = {
       entry_date: String(entry.entry_date || todayYmd()).trim(),
       client_name: String(entry.client_name || "").trim(),
@@ -175,44 +256,18 @@
       medicine_name_dose: String(entry.medicine_name_dose || "").trim(),
       posology: String(entry.posology || "").trim(),
       prescriber_name: String(entry.prescriber_name || "").trim(),
-      prescriber_reg_no: String(entry.prescriber_reg_no || "").trim()
+      prescriber_reg_no: String(entry.prescriber_reg_no || "").trim(),
     };
 
     var body =
-      '<div class="eikon-row" style="gap:12px;flex-wrap:wrap;align-items:flex-start;">' +
-      '  <div class="eikon-field" style="min-width:220px;flex:0 0 auto;">' +
-      '    <div class="eikon-label">Date</div>' +
-      '    <input class="eikon-input" id="dr-date" type="date" value="' + esc(initial.entry_date) + '"/>' +
-      "  </div>" +
-      '  <div class="eikon-field" style="min-width:320px;flex:1 1 320px;">' +
-      '    <div class="eikon-label">Client Name &amp; Surname</div>' +
-      '    <input class="eikon-input" id="dr-client-name" type="text" value="' + esc(initial.client_name) + '" placeholder="e.g. Maria Borg"/>' +
-      "  </div>" +
-      '  <div class="eikon-field" style="min-width:220px;flex:0 0 auto;">' +
-      '    <div class="eikon-label">Client ID</div>' +
-      '    <input class="eikon-input" id="dr-client-id" type="text" value="' + esc(initial.client_id) + '" placeholder="e.g. ID card / passport / other"/>' +
-      "  </div>" +
-      "</div>" +
-      '<div class="eikon-row" style="gap:12px;flex-wrap:wrap;align-items:flex-start;margin-top:10px;">' +
-      '  <div class="eikon-field" style="min-width:420px;flex:1 1 420px;">' +
-      '    <div class="eikon-label">Medicine Name &amp; Dose</div>' +
-      '    <input class="eikon-input" id="dr-med" type="text" value="' + esc(initial.medicine_name_dose) + '" placeholder="e.g. Amoxicillin 500mg caps"/>' +
-      "  </div>" +
-      '  <div class="eikon-field" style="min-width:420px;flex:1 1 420px;">' +
-      '    <div class="eikon-label">Posology</div>' +
-      '    <input class="eikon-input" id="dr-pos" type="text" value="' + esc(initial.posology) + '" placeholder="e.g. 1 cap TDS for 7 days"/>' +
-      "  </div>" +
-      "</div>" +
-      '<div class="eikon-row" style="gap:12px;flex-wrap:wrap;align-items:flex-start;margin-top:10px;">' +
-      '  <div class="eikon-field" style="min-width:320px;flex:1 1 320px;">' +
-      '    <div class="eikon-label">Prescriber Name</div>' +
-      '    <input class="eikon-input" id="dr-prescriber" type="text" value="' + esc(initial.prescriber_name) + '" placeholder="e.g. Dr John Camilleri"/>' +
-      "  </div>" +
-      '  <div class="eikon-field" style="min-width:220px;flex:0 0 auto;">' +
-      '    <div class="eikon-label">Prescriber Reg No</div>' +
-      '    <input class="eikon-input" id="dr-presc-reg" type="text" value="' + esc(initial.prescriber_reg_no) + '" placeholder="e.g. MMC ####"/>' +
-      "  </div>" +
-      "</div>";
+      "" +
+      "<div class='eikon-field'><div class='eikon-label'>Date</div><input id='dr-date' type='date' value='" + esc(initial.entry_date) + "'></div>" +
+      "<div class='eikon-field'><div class='eikon-label'>Client Name &amp; Surname</div><input id='dr-client-name' type='text' value='" + esc(initial.client_name) + "' placeholder='e.g. John Borg'></div>" +
+      "<div class='eikon-field'><div class='eikon-label'>Client ID</div><input id='dr-client-id' type='text' value='" + esc(initial.client_id) + "' placeholder='e.g. 123456M'></div>" +
+      "<div class='eikon-field'><div class='eikon-label'>Medicine Name &amp; Dose</div><input id='dr-med' type='text' value='" + esc(initial.medicine_name_dose) + "' placeholder='e.g. Amoxil 500mg'></div>" +
+      "<div class='eikon-field'><div class='eikon-label'>Posology</div><input id='dr-pos' type='text' value='" + esc(initial.posology) + "' placeholder='e.g. 1-1-1 x 7 days'></div>" +
+      "<div class='eikon-field'><div class='eikon-label'>Prescriber Name</div><input id='dr-prescriber' type='text' value='" + esc(initial.prescriber_name) + "' placeholder='e.g. Dr Kevin'></div>" +
+      "<div class='eikon-field'><div class='eikon-label'>Prescriber Reg No</div><input id='dr-presc-reg' type='text' value='" + esc(initial.prescriber_reg_no) + "' placeholder='e.g. 1234'></div>";
 
     E.modal.show(title, body, [
       { label: "Cancel", onClick: function () { E.modal.hide(); } },
@@ -229,14 +284,11 @@
                 medicine_name_dose: (E.q("#dr-med").value || "").trim(),
                 posology: (E.q("#dr-pos").value || "").trim(),
                 prescriber_name: (E.q("#dr-prescriber").value || "").trim(),
-                prescriber_reg_no: (E.q("#dr-presc-reg").value || "").trim()
+                prescriber_reg_no: (E.q("#dr-presc-reg").value || "").trim(),
               });
 
-              if (isEdit) {
-                await apiUpdate(entry.id, payload);
-              } else {
-                await apiCreate(payload);
-              }
+              if (isEdit) await apiUpdate(entry.id, payload);
+              else await apiCreate(payload);
 
               E.modal.hide();
               if (state && typeof state.refresh === "function") state.refresh();
@@ -244,8 +296,8 @@
               modalError("Save failed", e);
             }
           })();
-        }
-      }
+        },
+      },
     ]);
   }
 
@@ -253,11 +305,11 @@
     if (!entry || !entry.id) return;
 
     var body =
-      '<div class="eikon-alert" style="margin-bottom:10px;">This will permanently delete the entry.</div>' +
-      '<div style="font-size:13px;line-height:1.4;">' +
-      "<b>Date:</b> " + esc(fmtDmyFromYmd(entry.entry_date)) + "<br/>" +
-      "<b>Client:</b> " + esc(entry.client_name) + " (" + esc(entry.client_id) + ")<br/>" +
-      "<b>Medicine:</b> " + esc(entry.medicine_name_dose) +
+      "<div style='white-space:pre-wrap'>" +
+      "This will permanently delete the entry.\n\n" +
+      "Date: " + esc(fmtDmyFromYmd(entry.entry_date)) + "\n" +
+      "Client: " + esc(entry.client_name) + " (" + esc(entry.client_id) + ")\n" +
+      "Medicine: " + esc(entry.medicine_name_dose) + "\n" +
       "</div>";
 
     E.modal.show("Delete entry?", body, [
@@ -275,8 +327,8 @@
               modalError("Delete failed", e);
             }
           })();
-        }
-      }
+        },
+      },
     ]);
   }
 
@@ -287,9 +339,11 @@
 
     var w = window.open("", "_blank");
     if (!w) {
-      E.modal.show("Print", '<div class="eikon-alert">Popup blocked. Allow popups and try again.</div>', [
-        { label: "Close", primary: true, onClick: function () { E.modal.hide(); } }
-      ]);
+      E.modal.show(
+        "Print",
+        "<div style='white-space:pre-wrap'>Popup blocked. Allow popups and try again.</div>",
+        [{ label: "Close", primary: true, onClick: function () { E.modal.hide(); } }]
+      );
       return;
     }
 
@@ -308,7 +362,7 @@
       rowsHtml +=
         "<tr>" +
         "<td>" + safe(fmtDmyFromYmd(r.entry_date || "")) + "</td>" +
-        "<td><b>" + safe(r.client_name || "") + "</b><div style=\"opacity:.75;font-size:11px;\">ID: " + safe(r.client_id || "") + "</div></td>" +
+        "<td><b>" + safe(r.client_name || "") + "</b><div style='opacity:.75;font-size:11px'>ID: " + safe(r.client_id || "") + "</div></td>" +
         "<td>" + safe(r.medicine_name_dose || "") + "</td>" +
         "<td>" + safe(r.posology || "") + "</td>" +
         "<td>" + safe(r.prescriber_name || "") + "</td>" +
@@ -317,42 +371,27 @@
     }
 
     var html =
-      "<!doctype html><html><head><meta charset=\"utf-8\"/>" +
-      "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/>" +
+      "<!doctype html><html><head><meta charset='utf-8'>" +
+      "<meta name='viewport' content='width=device-width,initial-scale=1'>" +
       "<title>Daily Register</title>" +
       "<style>" +
-      "body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:22px;color:#111;}" +
-      "h1{margin:0 0 6px 0;font-size:20px;}" +
-      ".meta{color:#444;margin:0 0 16px 0;font-size:13px;line-height:1.35;}" +
-      ".no-print{margin-bottom:10px;display:flex;gap:10px;align-items:center;}" +
-      "button{padding:8px 12px;font-weight:900;border:0;border-radius:10px;background:#111;color:#fff;cursor:pointer;}" +
-      "table{width:100%;border-collapse:collapse;margin-top:8px;}" +
-      "th,td{border:1px solid #bbb;padding:6px 8px;font-size:12px;vertical-align:top;}" +
-      "th{background:#f2f2f2;}" +
-      "@media print{.no-print{display:none;}body{margin:0;}}" +
-      "</style>" +
-      "</head><body>" +
-      "<div class=\"no-print\">" +
-      "<button id=\"btnPrint\">Print</button>" +
-      "<div style=\"font-weight:900;color:#444;\">Rows: " + safe(String(list.length)) + "</div>" +
-      "</div>" +
-      "<h1>Daily Register</h1>" +
-      "<div class=\"meta\">" +
-      "<div><b>Month:</b> " + safe(ym || "-") + "</div>" +
-      "<div><b>Search:</b> " + safe(q || "-") + "</div>" +
-      "<div><b>Printed:</b> " + safe(new Date().toLocaleString()) + "</div>" +
-      "</div>" +
+      "body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:18px;color:#111;}" +
+      "button{position:fixed;right:14px;top:14px;padding:8px 10px;font-weight:800;}" +
+      "table{width:100%;border-collapse:collapse;margin-top:10px;}" +
+      "th,td{border:1px solid #ddd;padding:6px 8px;font-size:12px;vertical-align:top;}" +
+      "th{background:#f5f5f5;text-align:left;}" +
+      ".meta{font-size:12px;color:#333;margin-top:6px;white-space:pre-wrap;}" +
+      "@media print{button{display:none!important;}}" +
+      "</style></head><body>" +
+      "<button onclick='window.print()'>Print</button>" +
+      "<h1 style='margin:0 0 4px 0;font-size:18px;'>Daily Register</h1>" +
+      "<div class='meta'>Rows: " + safe(String(list.length)) + "\nMonth: " + safe(ym || "-") + "\nSearch: " + safe(q || "-") + "\nPrinted: " + safe(new Date().toLocaleString()) + "</div>" +
       "<table><thead><tr>" +
-      "<th style=\"width:88px;\">Date</th>" +
-      "<th style=\"width:220px;\">Client</th>" +
-      "<th>Medicine Name &amp; Dose</th>" +
-      "<th>Posology</th>" +
-      "<th style=\"width:180px;\">Prescriber Name</th>" +
-      "<th style=\"width:110px;\">Reg No</th>" +
+      "<th>Date</th><th>Client</th><th>Medicine Name &amp; Dose</th><th>Posology</th><th>Prescriber Name</th><th>Reg No</th>" +
       "</tr></thead><tbody>" +
       rowsHtml +
       "</tbody></table>" +
-      "<script>(function(){document.getElementById('btnPrint').addEventListener('click',function(){window.print();});setTimeout(function(){try{window.print();}catch(e){}},250);})();</script>" +
+      "<script>setTimeout(function(){try{window.print()}catch(e){}},250);</script>" +
       "</body></html>";
 
     w.document.open();
@@ -381,8 +420,7 @@
     var bName = document.createElement("b");
     bName.textContent = entry.client_name || "";
     var divId = document.createElement("div");
-    divId.style.opacity = ".75";
-    divId.style.fontSize = "11px";
+    divId.className = "dr-idline";
     divId.textContent = "ID: " + (entry.client_id || "");
     tdClient.appendChild(bName);
     tdClient.appendChild(divId);
@@ -422,18 +460,12 @@
     return tr;
   }
 
-  var state = {
-    monthYm: thisMonthYm(),
-    query: "",
-    entries: [],
-    filtered: [],
-    mounted: false,
-    refresh: null
-  };
+  var state = { monthYm: thisMonthYm(), query: "", entries: [], filtered: [], mounted: false, refresh: null };
 
   function applyFilterAndRender(tableBodyEl, countEl) {
     var q = norm(state.query);
     var out = [];
+
     if (!q) {
       out = state.entries.slice();
     } else {
@@ -468,58 +500,61 @@
       })(out[j]);
     }
 
-    if (countEl) {
-      countEl.textContent = "Showing " + String(out.length) + " / " + String(state.entries.length);
-    }
+    if (countEl) countEl.textContent = "Showing " + String(out.length) + " / " + String(state.entries.length);
   }
 
   async function render(ctx) {
+    // PATCH: inject module-scoped styling only (no layout changes elsewhere)
+    ensureDailyRegisterStyles();
+
     var mount = ctx.mount;
     dbg("[dailyregister] render() start", ctx);
 
     mount.innerHTML =
-      '<div class="eikon-card">' +
-      '  <div class="eikon-row" style="align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;">' +
-      '    <div style="min-width:240px;">' +
-      '      <div style="font-weight:900;font-size:18px;">Daily Register</div>' +
-      '      <div style="color:#666;font-size:12px;margin-top:2px;">Log client medicine supply details. Search filters all columns live.</div>' +
+      "" +
+      "<div class='dr-wrap'>" +
+      "  <div class='dr-head'>" +
+      "    <div>" +
+      "      <h2 class='dr-title'>Daily Register</h2>" +
+      "      <div class='dr-sub'>Log client medicine supply details. Search filters all columns live.</div>" +
       "    </div>" +
-      '    <div class="eikon-row" style="gap:10px;flex-wrap:wrap;align-items:flex-end;justify-content:flex-end;">' +
-      '      <div class="eikon-field" style="min-width:170px;">' +
-      '        <div class="eikon-label">Month</div>' +
-      '        <input class="eikon-input" id="dr-month" type="month" value="' + esc(state.monthYm) + '"/>' +
+      "    <div class='dr-controls'>" +
+      "      <div class='dr-field'>" +
+      "        <label>Month</label>" +
+      "        <input id='dr-month' type='month' value='" + esc(state.monthYm || thisMonthYm()) + "'>" +
       "      </div>" +
-      '      <div class="eikon-field" style="min-width:260px;flex:1 1 260px;">' +
-      '        <div class="eikon-label">Search (any column)</div>' +
-      '        <input class="eikon-input" id="dr-search" type="text" value="' + esc(state.query) + '" placeholder="Type to filter…"/>' +
+      "      <div class='dr-field' style='min-width:320px;max-width:420px;flex:1;'>" +
+      "        <label>Search (any column)</label>" +
+      "        <input id='dr-search' type='text' value='" + esc(state.query || "") + "' placeholder='Type to filter…'>" +
       "      </div>" +
-      '      <button class="eikon-btn" id="dr-new">New</button>' +
-      '      <button class="eikon-btn" id="dr-print">Print</button>' +
-      '      <button class="eikon-btn" id="dr-refresh">Refresh</button>' +
+      "      <div class='dr-actions'>" +
+      "        <button id='dr-new' class='eikon-btn' type='button'>New</button>" +
+      "        <button id='dr-print' class='eikon-btn' type='button'>Print</button>" +
+      "        <button id='dr-refresh' class='eikon-btn' type='button'>Refresh</button>" +
+      "      </div>" +
       "    </div>" +
       "  </div>" +
-      "</div>" +
-
-      '<div class="eikon-card" style="margin-top:12px;">' +
-      '  <div class="eikon-row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">' +
-      '    <div style="font-weight:900;">Entries</div>' +
-      '    <div id="dr-count" style="font-size:12px;color:#444;font-weight:800;">Loading…</div>' +
-      "  </div>" +
-      '  <div style="margin-top:10px;overflow:auto;border:1px solid #e5e5e5;border-radius:12px;">' +
-      '    <table style="width:100%;border-collapse:collapse;min-width:980px;">' +
-      '      <thead>' +
-      '        <tr style="background:#f6f6f6;">' +
-      '          <th style="text-align:left;padding:10px;border-bottom:1px solid #e5e5e5;width:88px;">Date</th>' +
-      '          <th style="text-align:left;padding:10px;border-bottom:1px solid #e5e5e5;width:220px;">Client</th>' +
-      '          <th style="text-align:left;padding:10px;border-bottom:1px solid #e5e5e5;">Medicine Name &amp; Dose</th>' +
-      '          <th style="text-align:left;padding:10px;border-bottom:1px solid #e5e5e5;">Posology</th>' +
-      '          <th style="text-align:left;padding:10px;border-bottom:1px solid #e5e5e5;width:180px;">Prescriber</th>' +
-      '          <th style="text-align:left;padding:10px;border-bottom:1px solid #e5e5e5;width:110px;">Reg No</th>' +
-      '          <th style="text-align:left;padding:10px;border-bottom:1px solid #e5e5e5;width:150px;">Actions</th>' +
-      "        </tr>" +
-      "      </thead>" +
-      '      <tbody id="dr-tbody"></tbody>' +
-      "    </table>" +
+      "  <div class='dr-card'>" +
+      "    <div class='dr-card-head'>" +
+      "      <h3>Entries</h3>" +
+      "      <div id='dr-count'>Loading…</div>" +
+      "    </div>" +
+      "    <div class='dr-table-wrap'>" +
+      "      <table class='dr-table'>" +
+      "        <thead>" +
+      "          <tr>" +
+      "            <th>Date</th>" +
+      "            <th>Client</th>" +
+      "            <th>Medicine Name &amp; Dose</th>" +
+      "            <th>Posology</th>" +
+      "            <th>Prescriber</th>" +
+      "            <th>Reg No</th>" +
+      "            <th>Actions</th>" +
+      "          </tr>" +
+      "        </thead>" +
+      "        <tbody id='dr-tbody'></tbody>" +
+      "      </table>" +
+      "    </div>" +
       "  </div>" +
       "</div>";
 
@@ -534,7 +569,7 @@
     if (!monthEl || !searchEl || !btnNew || !btnPrint || !btnRefresh || !tbody || !countEl) {
       err("[dailyregister] DOM missing", {
         monthEl: !!monthEl, searchEl: !!searchEl, btnNew: !!btnNew, btnPrint: !!btnPrint,
-        btnRefresh: !!btnRefresh, tbody: !!tbody, countEl: !!countEl
+        btnRefresh: !!btnRefresh, tbody: !!tbody, countEl: !!countEl,
       });
       throw new Error("Daily Register DOM incomplete (see console)");
     }
@@ -572,10 +607,7 @@
 
     state.refresh = refresh;
 
-    monthEl.addEventListener("change", function () {
-      refresh();
-    });
-
+    monthEl.addEventListener("change", function () { refresh(); });
     searchEl.addEventListener("input", function () {
       state.query = String(searchEl.value || "");
       applyFilterAndRender(tbody, countEl);
@@ -594,12 +626,9 @@
       }
     });
 
-    btnRefresh.addEventListener("click", function () {
-      refresh();
-    });
+    btnRefresh.addEventListener("click", function () { refresh(); });
 
     await refresh();
-
     state.mounted = true;
     dbg("[dailyregister] render() done");
   }
@@ -608,8 +637,7 @@
     id: "dailyregister",
     title: "Daily Register",
     order: 16,
-    icon: "🗓️",
-    render: render
+    icon: "️",
+    render: render,
   });
-
 })();
