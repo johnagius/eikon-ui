@@ -2653,6 +2653,218 @@ async function handleDdaPoycReportHtml(request, env, corsOkHeaders, authUser, ur
   return htmlReportPage("DDA POYC Report", body);
 }
 
+/* ========================= DDA STOCK TAKES MODULE (API) ========================= */
+async function ensureDdaStockTakesSchema(env) {
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS dda_stocktakes (id INTEGER PRIMARY KEY AUTOINCREMENT, org_id INTEGER NOT NULL, location_id INTEGER NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')), created_by INTEGER, closed_at TEXT, updated_at TEXT NOT NULL DEFAULT (datetime('now')))`, []);
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS dda_stocktake_items (id INTEGER PRIMARY KEY AUTOINCREMENT, org_id INTEGER NOT NULL, location_id INTEGER NOT NULL, stocktake_id INTEGER NOT NULL, item_name TEXT NOT NULL, dosage TEXT, qty_tablets INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')))`, []);
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_dda_stocktakes_org_loc_created ON dda_stocktakes (org_id, location_id, created_at)", []);
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_dda_stocktake_items_stocktake ON dda_stocktake_items (org_id, location_id, stocktake_id)", []);
+}
+
+async function handleDdaStockTakesList(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureDdaStockTakesSchema(env);
+
+  const stocktakes = await dbAll(env, `
+    SELECT s.id, s.created_at, s.closed_at, s.updated_at,
+      (SELECT COUNT(*) FROM dda_stocktake_items i
+        WHERE i.org_id=s.org_id AND i.location_id=s.location_id AND i.stocktake_id=s.id) AS item_count
+    FROM dda_stocktakes s
+    WHERE s.org_id = ? AND s.location_id = ?
+    ORDER BY s.created_at DESC, s.id DESC
+  `, [authUser.org_id, authUser.location_id]);
+
+  return jsonResponse({ ok: true, stocktakes }, 200, corsOkHeaders);
+}
+
+async function handleDdaStockTakeCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureDdaStockTakesSchema(env);
+
+  const row = await dbFirst(env, `
+    INSERT INTO dda_stocktakes (org_id, location_id, created_by, created_at, updated_at)
+    VALUES (?, ?, ?, datetime('now'), datetime('now'))
+    RETURNING id, created_at
+  `, [authUser.org_id, authUser.location_id, authUser.user_id]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_STOCKTAKE_CREATE", "dda_stocktakes", String(row.id), { created_at: row.created_at });
+  return jsonResponse({ ok: true, stocktake_id: row.id, created_at: row.created_at }, 200, corsOkHeaders);
+}
+
+async function handleDdaStockTakeGet(request, env, corsOkHeaders, authUser, stocktakeId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureDdaStockTakesSchema(env);
+
+  const st = await dbFirst(env, `
+    SELECT id, created_at, created_by, closed_at, updated_at
+    FROM dda_stocktakes
+    WHERE id = ? AND org_id = ? AND location_id = ?
+  `, [stocktakeId, authUser.org_id, authUser.location_id]);
+
+  if (!st) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  const items = await dbAll(env, `
+    SELECT id, stocktake_id, item_name, dosage, qty_tablets, created_at, updated_at
+    FROM dda_stocktake_items
+    WHERE stocktake_id = ? AND org_id = ? AND location_id = ?
+    ORDER BY item_name COLLATE NOCASE ASC, id ASC
+  `, [stocktakeId, authUser.org_id, authUser.location_id]);
+
+  return jsonResponse({ ok: true, stocktake: st, items }, 200, corsOkHeaders);
+}
+
+async function handleDdaStockTakeUpdate(request, env, corsOkHeaders, authUser, stocktakeId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureDdaStockTakesSchema(env);
+
+  const st = await dbFirst(env, `SELECT id, closed_at FROM dda_stocktakes WHERE id = ? AND org_id = ? AND location_id = ?`, [stocktakeId, authUser.org_id, authUser.location_id]);
+  if (!st) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+  const close = body && (body.closed === 1 || body.closed === true);
+  const reopen = body && (body.closed === 0 || body.closed === false);
+
+  if (close) {
+    await dbRun(env, `
+      UPDATE dda_stocktakes
+      SET closed_at = COALESCE(closed_at, datetime('now')),
+          updated_at = datetime('now')
+      WHERE id = ? AND org_id = ? AND location_id = ?
+    `, [stocktakeId, authUser.org_id, authUser.location_id]);
+
+    await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_STOCKTAKE_CLOSE", "dda_stocktakes", String(stocktakeId), {});
+  } else if (reopen) {
+    await dbRun(env, `
+      UPDATE dda_stocktakes
+      SET closed_at = NULL,
+          updated_at = datetime('now')
+      WHERE id = ? AND org_id = ? AND location_id = ?
+    `, [stocktakeId, authUser.org_id, authUser.location_id]);
+
+    await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_STOCKTAKE_REOPEN", "dda_stocktakes", String(stocktakeId), {});
+  }
+
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleDdaStockTakeItemAdd(request, env, corsOkHeaders, authUser, stocktakeId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureDdaStockTakesSchema(env);
+
+  const st = await dbFirst(env, `SELECT id FROM dda_stocktakes WHERE id = ? AND org_id = ? AND location_id = ?`, [stocktakeId, authUser.org_id, authUser.location_id]);
+  if (!st) return jsonResponse({ ok: false, error: "Stock take not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+  const name = String(body.item_name || "").trim();
+  const dosage = String(body.dosage || "").trim();
+  const qty = Number(body.qty_tablets);
+
+  if (!name) return jsonResponse({ ok: false, error: "Missing item_name" }, 400, corsOkHeaders);
+  if (!Number.isFinite(qty) || qty < 0) return jsonResponse({ ok: false, error: "Invalid qty_tablets (>= 0)" }, 400, corsOkHeaders);
+
+  const row = await dbFirst(env, `
+    INSERT INTO dda_stocktake_items (org_id, location_id, stocktake_id, item_name, dosage, qty_tablets, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+    RETURNING id
+  `, [authUser.org_id, authUser.location_id, stocktakeId, name, dosage, Math.floor(qty)]);
+
+  await dbRun(env, `UPDATE dda_stocktakes SET updated_at = datetime('now') WHERE id = ? AND org_id = ? AND location_id = ?`, [stocktakeId, authUser.org_id, authUser.location_id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_STOCKTAKE_ITEM_ADD", "dda_stocktake_items", String(row.id), { stocktake_id: stocktakeId, item_name: name, dosage, qty_tablets: Math.floor(qty) });
+
+  return jsonResponse({ ok: true, item_id: row.id }, 200, corsOkHeaders);
+}
+
+async function handleDdaStockTakeItemUpdate(request, env, corsOkHeaders, authUser, itemId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureDdaStockTakesSchema(env);
+
+  const existing = await dbFirst(env, `
+    SELECT id, stocktake_id
+    FROM dda_stocktake_items
+    WHERE id = ? AND org_id = ? AND location_id = ?
+  `, [itemId, authUser.org_id, authUser.location_id]);
+
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+  const name = String(body.item_name || "").trim();
+  const dosage = String(body.dosage || "").trim();
+  const qty = Number(body.qty_tablets);
+
+  if (!name) return jsonResponse({ ok: false, error: "Missing item_name" }, 400, corsOkHeaders);
+  if (!Number.isFinite(qty) || qty < 0) return jsonResponse({ ok: false, error: "Invalid qty_tablets (>= 0)" }, 400, corsOkHeaders);
+
+  await dbRun(env, `
+    UPDATE dda_stocktake_items
+    SET item_name = ?, dosage = ?, qty_tablets = ?, updated_at = datetime('now')
+    WHERE id = ? AND org_id = ? AND location_id = ?
+  `, [name, dosage, Math.floor(qty), itemId, authUser.org_id, authUser.location_id]);
+
+  await dbRun(env, `UPDATE dda_stocktakes SET updated_at = datetime('now') WHERE id = ? AND org_id = ? AND location_id = ?`, [existing.stocktake_id, authUser.org_id, authUser.location_id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_STOCKTAKE_ITEM_UPDATE", "dda_stocktake_items", String(itemId), { item_name: name, dosage, qty_tablets: Math.floor(qty) });
+
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleDdaStockTakeItemDelete(request, env, corsOkHeaders, authUser, itemId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureDdaStockTakesSchema(env);
+
+  const existing = await dbFirst(env, `
+    SELECT id, stocktake_id, item_name
+    FROM dda_stocktake_items
+    WHERE id = ? AND org_id = ? AND location_id = ?
+  `, [itemId, authUser.org_id, authUser.location_id]);
+
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  await dbRun(env, `DELETE FROM dda_stocktake_items WHERE id = ? AND org_id = ? AND location_id = ?`, [itemId, authUser.org_id, authUser.location_id]);
+  await dbRun(env, `UPDATE dda_stocktakes SET updated_at = datetime('now') WHERE id = ? AND org_id = ? AND location_id = ?`, [existing.stocktake_id, authUser.org_id, authUser.location_id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_STOCKTAKE_ITEM_DELETE", "dda_stocktake_items", String(itemId), { item_name: existing.item_name });
+
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleDdaStockTakeReportHtml(request, env, corsOkHeaders, authUser, stocktakeId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureDdaStockTakesSchema(env);
+
+  const st = await dbFirst(env, `
+    SELECT id, created_at, closed_at
+    FROM dda_stocktakes
+    WHERE id = ? AND org_id = ? AND location_id = ?
+  `, [stocktakeId, authUser.org_id, authUser.location_id]);
+
+  if (!st) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  const items = await dbAll(env, `
+    SELECT item_name, dosage, qty_tablets
+    FROM dda_stocktake_items
+    WHERE stocktake_id = ? AND org_id = ? AND location_id = ?
+    ORDER BY item_name COLLATE NOCASE ASC, id ASC
+  `, [stocktakeId, authUser.org_id, authUser.location_id]);
+
+  let body = "";
+  body += `<h1>${escapeHtml(authUser.org_name || "Pharmacy")} — DDA Stock Take</h1>`;
+  body += `<div class="meta">Location: ${escapeHtml(authUser.location_name || "")}<br>
+    Stock Take ID: ${escapeHtml(String(st.id))}<br>
+    Created: ${escapeHtml(String(st.created_at || ""))}${st.closed_at ? `<br>Closed: ${escapeHtml(String(st.closed_at))}` : ""}</div>`;
+
+  body += `<table><thead><tr><th>Name</th><th>Dosage</th><th>Quantity of Tablets</th></tr></thead><tbody>`;
+  if (!items.length) {
+    body += `<tr><td colspan="3">No items.</td></tr>`;
+  } else {
+    for (const it of items) {
+      body += `<tr><td>${escapeHtml(it.item_name || "")}</td><td>${escapeHtml(it.dosage || "")}</td><td>${escapeHtml(String(it.qty_tablets == null ? "" : it.qty_tablets))}</td></tr>`;
+    }
+  }
+  body += `</tbody></table>`;
+
+  body += `<div class="meta">Generated: ${escapeHtml(nowIso())}</div>`;
+  return htmlReportPage("DDA Stock Take", body);
+}
+
+
 /* =========================
    CERTIFICATES MODULE (API)
    ========================= */
@@ -3538,6 +3750,47 @@ export default {
     if (url.pathname === "/dda-poyc/report/html" && request.method === "GET") {
       return await handleDdaPoycReportHtml(request, env, corsOkHeaders, authUser, url);
     }
+
+    // ✅ DDA Stock Takes (NEW)
+if (url.pathname === "/dda-stocktakes/stocktakes" && request.method === "GET")
+  return await handleDdaStockTakesList(request, env, corsOkHeaders, authUser);
+
+if (url.pathname === "/dda-stocktakes/stocktakes" && request.method === "POST")
+  return await handleDdaStockTakeCreate(request, env, corsOkHeaders, authUser);
+
+if (url.pathname.startsWith("/dda-stocktakes/stocktakes/")) {
+  const parts = url.pathname.split("/").filter(Boolean); // ["dda-stocktakes","stocktakes",":id", ...]
+  const id = parseInt(parts[2], 10);
+  if (!id) return jsonResponse({ ok: false, error: "Invalid stocktake id" }, 400, corsOkHeaders);
+
+  // /dda-stocktakes/stocktakes/:id
+  if (parts.length === 3 && request.method === "GET")
+    return await handleDdaStockTakeGet(request, env, corsOkHeaders, authUser, id);
+
+  if (parts.length === 3 && request.method === "PUT")
+    return await handleDdaStockTakeUpdate(request, env, corsOkHeaders, authUser, id);
+
+  // /dda-stocktakes/stocktakes/:id/items
+  if (parts.length === 4 && parts[3] === "items" && request.method === "POST")
+    return await handleDdaStockTakeItemAdd(request, env, corsOkHeaders, authUser, id);
+
+  // /dda-stocktakes/stocktakes/:id/report/html
+  if (parts.length === 5 && parts[3] === "report" && parts[4] === "html" && request.method === "GET")
+    return await handleDdaStockTakeReportHtml(request, env, corsOkHeaders, authUser, id);
+}
+
+if (url.pathname.startsWith("/dda-stocktakes/items/")) {
+  const parts = url.pathname.split("/").filter(Boolean); // ["dda-stocktakes","items",":itemId"]
+  const itemId = parseInt(parts[2], 10);
+  if (!itemId) return jsonResponse({ ok: false, error: "Invalid item id" }, 400, corsOkHeaders);
+
+  if (request.method === "PUT")
+    return await handleDdaStockTakeItemUpdate(request, env, corsOkHeaders, authUser, itemId);
+
+  if (request.method === "DELETE")
+    return await handleDdaStockTakeItemDelete(request, env, corsOkHeaders, authUser, itemId);
+}
+
 
     // Certificates (DOWNLOAD) - PATCH
     if (url.pathname.startsWith("/certificates/items/") && (request.method === "GET" || request.method === "HEAD")) {
