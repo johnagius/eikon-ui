@@ -1,31 +1,26 @@
 /* ui/modules.ddapoyc.js
-Eikon - DDA POYC module (UI)
-Government supplied DDAs register (separate table + endpoints from DDA Sales)
+   Eikon - DDA POYC module (UI)
+   Government supplied DDAs register (separate table + endpoints from DDA Sales)
 
-Endpoints (Cloudflare Worker):
-GET    /dda-poyc/entries?month=YYYY-MM&q=...
-POST   /dda-poyc/entries
-PUT    /dda-poyc/entries/:id
-DELETE /dda-poyc/entries/:id
-GET    /dda-poyc/report?from=YYYY-MM-DD&to=YYYY-MM-DD (JSON)
-GET    /dda-poyc/report/html?from=YYYY-MM-DD&to=YYYY-MM-DD (Printable HTML)
+   Endpoints (Cloudflare Worker):
+   GET    /dda-poyc/entries?month=YYYY-MM&q=...
+   POST   /dda-poyc/entries
+   PUT    /dda-poyc/entries/:id
+   DELETE /dda-poyc/entries/:id
+   GET    /dda-poyc/report?from=YYYY-MM-DD&to=YYYY-MM-DD (JSON)
+   GET    /dda-poyc/report/html?from=YYYY-MM-DD&to=YYYY-MM-DD (Printable HTML)
 */
-
 (function () {
   "use strict";
 
   const E = window.EIKON;
   const el = E.el;
 
-  function pad2(n) {
-    return String(n).padStart(2, "0");
-  }
-
+  function pad2(n) { return String(n).padStart(2, "0"); }
   function todayYmd() {
     const d = new Date();
     return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
   }
-
   function thisMonth() {
     const d = new Date();
     return d.getFullYear() + "-" + pad2(d.getMonth() + 1);
@@ -51,11 +46,7 @@ GET    /dda-poyc/report/html?from=YYYY-MM-DD&to=YYYY-MM-DD (Printable HTML)
   }
 
   function mkBtnRow(...nodes) {
-    return el(
-      "div",
-      { class: "eikon-row", style: "gap:8px; align-items:center;" },
-      ...nodes
-    );
+    return el("div", { class: "eikon-row", style: "gap:8px; align-items:center;" }, ...nodes);
   }
 
   function rowField(label, input, extraStyle) {
@@ -182,8 +173,16 @@ GET    /dda-poyc/report/html?from=YYYY-MM-DD&to=YYYY-MM-DD (Printable HTML)
   }
 
   const MOD = {
+    // Identity
     id: "dda-poyc",
+
+    // ✅ Router/navigation wiring (matches how dda-sales is described in your core state dump)
+    key: "dda-poyc",
+    slug: "dda-poyc",
+    route: "dda-poyc",
+    hash: "#dda-poyc",
     title: "DDA Poyc",
+    navTitle: "DDA Poyc",
     subtitle: "Government supplied DDAs register",
     icon: "G",
 
@@ -196,7 +195,6 @@ GET    /dda-poyc/report/html?from=YYYY-MM-DD&to=YYYY-MM-DD (Printable HTML)
         entries: [],
       };
 
-      // Header
       const header = el(
         "div",
         { class: "eikon-card" },
@@ -204,7 +202,6 @@ GET    /dda-poyc/report/html?from=YYYY-MM-DD&to=YYYY-MM-DD (Printable HTML)
         el("div", { class: "eikon-help" }, "Separate register for government supplied DDAs.")
       );
 
-      // Controls
       const monthInput = el("input", { class: "eikon-input", type: "month", value: state.month });
       const searchInput = el("input", {
         class: "eikon-input",
@@ -241,7 +238,6 @@ GET    /dda-poyc/report/html?from=YYYY-MM-DD&to=YYYY-MM-DD (Printable HTML)
         )
       );
 
-      // Table + report cards
       const tableCard = el("div", { class: "eikon-card" });
       const reportCard = el(
         "div",
@@ -331,11 +327,7 @@ GET    /dda-poyc/report/html?from=YYYY-MM-DD&to=YYYY-MM-DD (Printable HTML)
               el("td", null, r.client_id_card || ""),
               el("td", null, r.client_address || ""),
               el("td", null, r.medicine_name_dose || ""),
-              el(
-                "td",
-                null,
-                r.quantity === null || r.quantity === undefined ? "" : String(r.quantity)
-              ),
+              el("td", null, r.quantity === null || r.quantity === undefined ? "" : String(r.quantity)),
               el("td", null, r.doctor_name || ""),
               el("td", null, r.doctor_reg_no || ""),
               el("td", null, r.prescription_serial_no || ""),
@@ -357,10 +349,7 @@ GET    /dda-poyc/report/html?from=YYYY-MM-DD&to=YYYY-MM-DD (Printable HTML)
 
       async function refresh() {
         const out = await E.apiFetch(
-          "/dda-poyc/entries?month=" +
-            encodeURIComponent(state.month) +
-            "&q=" +
-            encodeURIComponent(state.q || ""),
+          "/dda-poyc/entries?month=" + encodeURIComponent(state.month) + "&q=" + encodeURIComponent(state.q || ""),
           { method: "GET" }
         );
         state.entries = out && out.entries ? out.entries : [];
@@ -381,20 +370,15 @@ GET    /dda-poyc/report/html?from=YYYY-MM-DD&to=YYYY-MM-DD (Printable HTML)
         reportCard.appendChild(el("div", { class: "eikon-help" }, text));
       }
 
-      // Events
       monthInput.addEventListener("change", async () => {
         state.month = monthInput.value;
-
-        // keep from/to sensible when month changes
         if (state.month && /^\d{4}-\d{2}$/.test(state.month)) {
           state.from = state.month + "-01";
           fromInput.value = state.from;
         }
-
         await refresh();
       });
 
-      // Live search (no refresh click required)
       let searchT = null;
       searchInput.addEventListener("input", () => {
         state.q = searchInput.value || "";
@@ -404,9 +388,7 @@ GET    /dda-poyc/report/html?from=YYYY-MM-DD&to=YYYY-MM-DD (Printable HTML)
         }, 150);
       });
 
-      btnRefresh.addEventListener("click", async () => {
-        await refresh();
-      });
+      btnRefresh.addEventListener("click", async () => { await refresh(); });
 
       btnNew.addEventListener("click", async () => {
         const payload = await promptEntryModal("New Entry", { entry_date: todayYmd() });
@@ -426,10 +408,7 @@ GET    /dda-poyc/report/html?from=YYYY-MM-DD&to=YYYY-MM-DD (Printable HTML)
         state.to = toInput.value || "";
         try {
           const out = await E.apiFetch(
-            "/dda-poyc/report?from=" +
-              encodeURIComponent(state.from) +
-              "&to=" +
-              encodeURIComponent(state.to),
+            "/dda-poyc/report?from=" + encodeURIComponent(state.from) + "&to=" + encodeURIComponent(state.to),
             { method: "GET" }
           );
           if (!out || !out.ok) throw new Error(out && out.error ? out.error : "Report failed");
@@ -454,18 +433,19 @@ GET    /dda-poyc/report/html?from=YYYY-MM-DD&to=YYYY-MM-DD (Printable HTML)
         await openPrintableReport(url);
       });
 
-      // Initial
       await refresh();
     },
   };
 
-  // ✅ IMPORTANT: register with router/core registry (matches how dda-sales is registered)
+  // Register with core/router
   if (typeof E.registerModule === "function") {
     E.registerModule(MOD);
+    if (E && E.log) E.log("[dda-poyc] registered via E.registerModule()");
+    else console.log("[EIKON][dda-poyc] registered via E.registerModule()");
   } else {
-    // fallback (older builds)
     E.modules = E.modules || {};
     E.modules[MOD.id] = MOD;
     E.modules.ddapoyc = MOD;
+    console.log("[EIKON][dda-poyc] registered via fallback registry");
   }
 })();
