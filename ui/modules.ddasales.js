@@ -4,18 +4,12 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
   "use strict";
   var LOG_PREFIX = "[EIKON][dda-sales]";
   function log() {
-    try {
-      console.log.apply(console, [LOG_PREFIX].concat([].slice.call(arguments)));
-    } catch (e) {}
+    try { console.log.apply(console, [LOG_PREFIX].concat([].slice.call(arguments))); } catch (e) {}
   }
   function warn() {
-    try {
-      console.warn.apply(console, [LOG_PREFIX].concat([].slice.call(arguments)));
-    } catch (e) {}
+    try { console.warn.apply(console, [LOG_PREFIX].concat([].slice.call(arguments))); } catch (e) {}
   }
 
-  // --- PATCH: real icon (used in module header + exported iconSvg) ---
-  // Sidebar icon is handled by core.js via m.icon (text). We export icon: "📈" below. :contentReference[oaicite:1]{index=1}
   var ICON_SVG =
     '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
     '<path d="M3 3v18h18"></path>' +
@@ -27,69 +21,56 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
     if (!Number.isFinite(n)) return "00";
     return (n < 10 ? "0" : "") + String(n);
   }
-  function isYmd(s) {
-    return /^\d{4}-\d{2}-\d{2}$/.test(String(s || "").trim());
-  }
-  function isYm(s) {
-    return /^\d{4}-\d{2}$/.test(String(s || "").trim());
-  }
+  function isYmd(s) { return /^\d{4}-\d{2}-\d{2}$/.test(String(s || "").trim()); }
+  function isYm(s) { return /^\d{4}-\d{2}$/.test(String(s || "").trim()); }
+
   function escapeHtml(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
       return ({ "&": "&", "<": "<", ">": ">", '"': '"', "'": "'" })[c] || c;
     });
   }
+
   function monthStartEnd(yyyyMm) {
     var m = String(yyyyMm || "").trim();
     if (!isYm(m)) return null;
     var y = parseInt(m.slice(0, 4), 10);
-    var mo = parseInt(m.slice(5, 7), 10); // 1..12
+    var mo = parseInt(m.slice(5, 7), 10);
     if (!Number.isFinite(y) || !Number.isFinite(mo) || mo < 1 || mo > 12) return null;
     var start = m + "-01";
-    var lastDay = new Date(y, mo, 0).getDate(); // day 0 of next month
+    var lastDay = new Date(y, mo, 0).getDate();
     var end = m + "-" + pad2(lastDay);
     return { from: start, to: end };
   }
+
   function todayYm() {
     var d = new Date();
     return d.getFullYear() + "-" + pad2(d.getMonth() + 1);
   }
+
   function toIntSafe(v) {
     var n = Number(v);
     if (!Number.isFinite(n)) return null;
     if (!Number.isInteger(n)) return null;
     return n;
   }
-  function ymFromYmd(ymd) {
-    return String(ymd || "").slice(0, 7);
-  }
+  function ymFromYmd(ymd) { return String(ymd || "").slice(0, 7); }
 
-  // ---- Resolve mount context (Element / Document / Window / iframe / wrapper) ----
   function isWindowLike(x) {
-    try {
-      return !!(x && x.window === x && x.document && x.document.nodeType === 9);
-    } catch (e) {
-      return false;
-    }
+    try { return !!(x && x.window === x && x.document && x.document.nodeType === 9); } catch (e) { return false; }
   }
   function findBestMountInDocument(doc) {
     if (!doc) return null;
     var ids = ["eikon-module-root", "module-root", "app", "root", "eikon-root", "content", "main"];
     for (var i = 0; i < ids.length; i++) {
       var el0 = null;
-      try {
-        el0 = doc.getElementById(ids[i]);
-      } catch (e) {
-        el0 = null;
-      }
+      try { el0 = doc.getElementById(ids[i]); } catch (e) { el0 = null; }
       if (el0 && el0.nodeType === 1) return el0;
     }
     try {
       var q = doc.querySelector("[data-module-root='1'], [data-module-root='true']");
       if (q && q.nodeType === 1) return q;
     } catch (e2) {}
-    try {
-      if (doc.body && doc.body.nodeType === 1) return doc.body;
-    } catch (e3) {}
+    try { if (doc.body && doc.body.nodeType === 1) return doc.body; } catch (e3) {}
     return null;
   }
   function resolveRenderContext(container) {
@@ -166,7 +147,6 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
     return ctx;
   }
 
-  // ---- DOM helpers tied to a specific document ----
   function el(doc, tag, attrs, children) {
     var node = doc.createElement(tag);
     if (attrs) {
@@ -193,51 +173,32 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
     return node;
   }
 
-  // --- PATCH: Harmonized dark theme CSS for this module (no global CSS needed) ---
   function ensureStyleOnce(doc) {
     var id = "eikon-dda-sales-style";
-    try {
-      if (doc.getElementById(id)) return;
-    } catch (e) {}
+    try { if (doc.getElementById(id)) return; } catch (e) {}
 
     var css =
       "" +
-      /* Layout */
       ".eikon-dda-wrap{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:1100px;margin:0 auto;padding:16px;}" +
       ".eikon-dda-top{display:flex;flex-wrap:wrap;gap:10px;align-items:end;justify-content:space-between;margin-bottom:12px;}" +
       ".eikon-dda-title{font-size:18px;font-weight:900;margin:0;display:flex;align-items:center;gap:10px;color:var(--text,#e9eef7);}" +
       ".eikon-dda-title .icon{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;color:var(--text,#e9eef7);opacity:.95;}" +
       ".eikon-dda-controls{display:flex;flex-wrap:wrap;gap:10px;align-items:end;}" +
 
-      /* Fields */
       ".eikon-dda-field{display:flex;flex-direction:column;gap:4px;}" +
       ".eikon-dda-field label{font-size:12px;font-weight:800;color:var(--muted,rgba(233,238,247,.68));letter-spacing:.2px;}" +
       ".eikon-dda-field input,.eikon-dda-field textarea{" +
-      "padding:10px 12px;" +
-      "border:1px solid var(--line,rgba(255,255,255,.10));" +
-      "border-radius:12px;" +
-      "font-size:14px;" +
-      "background:rgba(10,16,24,.64);" +
-      "color:var(--text,#e9eef7);" +
-      "outline:none;" +
+      "padding:10px 12px;border:1px solid var(--line,rgba(255,255,255,.10));border-radius:12px;" +
+      "font-size:14px;background:rgba(10,16,24,.64);color:var(--text,#e9eef7);outline:none;" +
       "transition:border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;" +
       "}" +
       ".eikon-dda-field input:hover,.eikon-dda-field textarea:hover{border-color:rgba(255,255,255,.18);}" +
       ".eikon-dda-field input:focus,.eikon-dda-field textarea:focus{border-color:rgba(58,160,255,.55);box-shadow:0 0 0 3px rgba(58,160,255,.22);background:rgba(10,16,24,.74);}" +
       ".eikon-dda-field textarea{min-height:64px;resize:vertical;}" +
 
-      /* Buttons */
-      ".eikon-dda-btn{" +
-      "padding:10px 12px;" +
-      "border:1px solid var(--line,rgba(255,255,255,.10));" +
-      "border-radius:12px;" +
-      "background:rgba(20,32,48,.62);" +
-      "color:var(--text,#e9eef7);" +
-      "font-weight:900;" +
-      "cursor:pointer;" +
-      "box-shadow:0 10px 24px rgba(0,0,0,.14);" +
-      "transition:transform 120ms ease, border-color 120ms ease, background 120ms ease;" +
-      "}" +
+      ".eikon-dda-btn{padding:10px 12px;border:1px solid var(--line,rgba(255,255,255,.10));border-radius:12px;" +
+      "background:rgba(20,32,48,.62);color:var(--text,#e9eef7);font-weight:900;cursor:pointer;box-shadow:0 10px 24px rgba(0,0,0,.14);" +
+      "transition:transform 120ms ease, border-color 120ms ease, background 120ms ease;}" +
       ".eikon-dda-btn:hover{border-color:rgba(58,160,255,.35);background:rgba(24,38,56,.70);}" +
       ".eikon-dda-btn:active{transform:translateY(1px);}" +
       ".eikon-dda-btn:disabled{opacity:.55;cursor:not-allowed;box-shadow:none;}" +
@@ -246,45 +207,34 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
       ".eikon-dda-btn.danger{background:rgba(255,77,79,.12);border-color:rgba(255,77,79,.42);}" +
       ".eikon-dda-btn.danger:hover{background:rgba(255,77,79,.16);border-color:rgba(255,77,79,.60);}" +
 
-      /* Cards / messages */
-      ".eikon-dda-card{" +
-      "border:1px solid var(--line,rgba(255,255,255,.10));" +
-      "border-radius:16px;" +
-      "padding:12px;" +
-      "background:var(--panel,rgba(16,24,36,.66));" +
-      "box-shadow:0 18px 50px rgba(0,0,0,.38);" +
-      "backdrop-filter:blur(10px);" +
-      "}" +
+      ".eikon-dda-card{border:1px solid var(--line,rgba(255,255,255,.10));border-radius:16px;padding:12px;background:var(--panel,rgba(16,24,36,.66));" +
+      "box-shadow:0 18px 50px rgba(0,0,0,.38);backdrop-filter:blur(10px);}" +
+
+      ".eikon-dda-card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;}" +
+      ".eikon-dda-card-head h3{margin:0;font-size:15px;font-weight:1000;color:var(--text,#e9eef7);}" +
+
       ".eikon-dda-msg{margin:10px 0;padding:10px 12px;border-radius:14px;border:1px solid var(--line,rgba(255,255,255,.10));background:rgba(16,24,36,.52);color:var(--text,#e9eef7);}" +
       ".eikon-dda-msg.ok{border-color:rgba(55,214,122,.35);}" +
       ".eikon-dda-msg.err{border-color:rgba(255,77,79,.35);}" +
       ".eikon-dda-hint{font-size:12px;color:var(--muted,rgba(233,238,247,.68));margin-top:6px;}" +
 
-      /* Tables */
       ".eikon-dda-table-wrap{overflow:auto;border:1px solid var(--line,rgba(255,255,255,.10));border-radius:14px;background:rgba(10,16,24,.18);}" +
       ".eikon-dda-table{width:100%;border-collapse:collapse;min-width:980px;color:var(--text,#e9eef7);}" +
       ".eikon-dda-table th,.eikon-dda-table td{border-bottom:1px solid var(--line,rgba(255,255,255,.10));padding:10px 10px;font-size:12px;vertical-align:top;}" +
       ".eikon-dda-table th{background:rgba(12,19,29,.92);text-align:left;font-weight:900;position:sticky;top:0;z-index:1;color:var(--muted,rgba(233,238,247,.68));text-transform:uppercase;letter-spacing:.8px;}" +
       ".eikon-dda-table tbody tr:hover{background:rgba(255,255,255,.04);}" +
 
-      /* Actions links */
       ".eikon-dda-actions{display:flex;gap:10px;}" +
       ".eikon-dda-link{color:var(--brand,#3aa0ff);text-decoration:underline;cursor:pointer;font-weight:900;}" +
-      ".eikon-dda-link:hover{filter:brightness(1.05);}" +
 
-      /* Modal */
       ".eikon-dda-modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.58);display:none;align-items:center;justify-content:center;padding:16px;z-index:9999;}" +
-      ".eikon-dda-modal{width:100%;max-width:860px;background:rgba(16,24,36,.98);border-radius:16px;border:1px solid var(--line,rgba(255,255,255,.10));box-shadow:0 28px 80px rgba(0,0,0,.55);backdrop-filter:blur(10px);}" +
+      ".eikon-dda-modal{width:100%;max-width:860px;background:rgba(16,24,36,.98);border-radius:16px;border:1px solid var(--line,rgba(255,255,255,.10));" +
+      "box-shadow:0 28px 80px rgba(0,0,0,.55);backdrop-filter:blur(10px);}" +
       ".eikon-dda-modal-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--line,rgba(255,255,255,.10));}" +
       ".eikon-dda-modal-head h3{margin:0;font-size:15px;font-weight:1000;color:var(--text,#e9eef7);}" +
       ".eikon-dda-modal-body{padding:14px;}" +
       ".eikon-dda-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}" +
       ".eikon-dda-grid .full{grid-column:1 / -1;}" +
-
-      /* Crash */
-      ".eikon-dda-crash{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;padding:16px;color:var(--text,#e9eef7);}" +
-      ".eikon-dda-crash h3{margin:0 0 8px 0;font-size:16px;font-weight:1000;color:rgba(255,77,79,.95);}" +
-      ".eikon-dda-crash pre{white-space:pre-wrap;border:1px solid var(--line,rgba(255,255,255,.10));background:rgba(16,24,36,.52);padding:12px;border-radius:12px;}" +
       "@media(max-width:820px){.eikon-dda-grid{grid-template-columns:1fr;}}";
 
     var style = doc.createElement("style");
@@ -298,50 +248,28 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
     } catch (e2) {}
   }
 
-  // ---- Auth/token + API ----
   function getStoredToken(win) {
     var candidates = [];
-    try {
-      if (window && window !== win) candidates.push(window);
-    } catch (e) {}
+    try { if (window && window !== win) candidates.push(window); } catch (e) {}
     candidates.push(win || window);
     for (var c = 0; c < candidates.length; c++) {
       var W = candidates[c];
       if (!W) continue;
-      try {
-        if (W.EIKON && typeof W.EIKON.getToken === "function") {
-          var t = W.EIKON.getToken();
-          if (t) return String(t);
-        }
-      } catch (e1) {}
-      try {
-        if (W.Eikon && typeof W.Eikon.getToken === "function") {
-          var t2 = W.Eikon.getToken();
-          if (t2) return String(t2);
-        }
-      } catch (e2) {}
-      try {
-        if (W.EIKON && W.EIKON.state && W.EIKON.state.token) return String(W.EIKON.state.token);
-      } catch (e3) {}
-      try {
-        if (W.Eikon && W.Eikon.state && W.Eikon.state.token) return String(W.Eikon.state.token);
-      } catch (e4) {}
+      try { if (W.EIKON && typeof W.EIKON.getToken === "function") { var t = W.EIKON.getToken(); if (t) return String(t); } } catch (e1) {}
+      try { if (W.Eikon && typeof W.Eikon.getToken === "function") { var t2 = W.Eikon.getToken(); if (t2) return String(t2); } } catch (e2) {}
+      try { if (W.EIKON && W.EIKON.state && W.EIKON.state.token) return String(W.EIKON.state.token); } catch (e3) {}
+      try { if (W.Eikon && W.Eikon.state && W.Eikon.state.token) return String(W.Eikon.state.token); } catch (e4) {}
       var keys = ["eikon_token", "EIKON_TOKEN", "token", "auth_token", "session_token"];
       for (var i = 0; i < keys.length; i++) {
-        try {
-          var v = W.localStorage && W.localStorage.getItem(keys[i]);
-          if (v && String(v).trim()) return String(v).trim();
-        } catch (e5) {}
+        try { var v = W.localStorage && W.localStorage.getItem(keys[i]); if (v && String(v).trim()) return String(v).trim(); } catch (e5) {}
       }
       for (var j = 0; j < keys.length; j++) {
-        try {
-          var v2 = W.sessionStorage && W.sessionStorage.getItem(keys[j]);
-          if (v2 && String(v2).trim()) return String(v2).trim();
-        } catch (e6) {}
+        try { var v2 = W.sessionStorage && W.sessionStorage.getItem(keys[j]); if (v2 && String(v2).trim()) return String(v2).trim(); } catch (e6) {}
       }
     }
     return "";
   }
+
   function makeHttpError(status, payload) {
     var msg = "HTTP " + status;
     if (payload && typeof payload === "object" && payload.error) msg = String(payload.error);
@@ -351,6 +279,7 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
     err.payload = payload;
     return err;
   }
+
   async function apiJson(win, path, opts) {
     opts = opts || {};
     var headers = new Headers(opts.headers || {});
@@ -362,68 +291,44 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
     var ct = (res.headers.get("Content-Type") || "").toLowerCase();
     var data = null;
     if (ct.indexOf("application/json") >= 0) {
-      try {
-        data = await res.json();
-      } catch (e) {
-        data = null;
-      }
+      try { data = await res.json(); } catch (e) { data = null; }
     } else {
-      try {
-        data = await res.text();
-      } catch (e2) {
-        data = null;
-      }
+      try { data = await res.text(); } catch (e2) { data = null; }
     }
     if (!res.ok) throw makeHttpError(res.status, data);
     return data;
   }
 
-  // ==============================
-  // PATCH: proven print-tab method
-  // ==============================
   function openPrintTabWithHtml(html) {
     var blob = new Blob([html], { type: "text/html" });
     var url = URL.createObjectURL(blob);
     var w = null;
-    try {
-      w = window.open(url, "_blank", "noopener");
-    } catch (e) {
-      w = null;
-    }
+    try { w = window.open(url, "_blank", "noopener"); } catch (e) { w = null; }
     if (!w) {
       try {
         var a = document.createElement("a");
-        a.href = url;
-        a.target = "_blank";
-        a.rel = "noopener";
+        a.href = url; a.target = "_blank"; a.rel = "noopener";
         a.style.display = "none";
         document.body.appendChild(a);
         a.click();
         a.remove();
       } catch (e2) {}
     }
-    setTimeout(function () {
-      try {
-        URL.revokeObjectURL(url);
-      } catch (e3) {}
-    }, 60000);
+    setTimeout(function () { try { URL.revokeObjectURL(url); } catch (e3) {} }, 60000);
   }
 
-  // ---- Module implementation ----
   function buildModule() {
     var state = {
       month: todayYm(),
       q: "",
       loading: false,
       entries: [],
-      // report
       report_from: "",
       report_to: "",
-      report: null, // { ok:true, org_name, location_name, from, to, entries:[] }
+      report: null,
       report_loading: false,
     };
 
-    // Per-render (depends on iframe doc)
     var ctx = null;
     var msgBox = null;
     var tableBody = null;
@@ -432,7 +337,6 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
     var refreshBtn = null;
     var addBtn = null;
 
-    // report controls + preview
     var reportFromInput = null;
     var reportToInput = null;
     var generateBtn = null;
@@ -440,11 +344,13 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
     var reportMsg = null;
     var reportPreview = null;
 
-    // Modal per-doc
     var activeDoc = null;
     var modalBackdrop = null;
     var modalTitle = null;
     var formEls = null;
+
+    // ✅ PATCH: debounce timer for live search
+    var searchTimer = null;
 
     function setMsg(kind, text) {
       if (!msgBox) return;
@@ -481,17 +387,6 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
       if (reportToInput) reportToInput.value = r.to;
     }
 
-    function renderCrash(doc, mount, title, err) {
-      try {
-        ensureStyleOnce(doc);
-        mount.innerHTML = "";
-        var wrap = el(doc, "div", { class: "eikon-dda-crash" }, []);
-        wrap.appendChild(el(doc, "h3", { text: title }, []));
-        wrap.appendChild(el(doc, "pre", { html: escapeHtml(String(err && (err.stack || err.message || String(err)))) }, []));
-        mount.appendChild(wrap);
-      } catch (e) {}
-    }
-
     function renderRows() {
       if (!tableBody || !ctx) return;
       tableBody.innerHTML = "";
@@ -518,13 +413,9 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
           var actionsTd = tr.lastChild;
           var actions = el(ctx.doc, "div", { class: "eikon-dda-actions" }, []);
           var edit = el(ctx.doc, "span", { class: "eikon-dda-link", text: "Edit" }, []);
-          edit.onclick = function () {
-            openModalForEdit(row);
-          };
+          edit.onclick = function () { openModalForEdit(row); };
           var del = el(ctx.doc, "span", { class: "eikon-dda-link", text: "Delete" }, []);
-          del.onclick = function () {
-            doDelete(row, false);
-          };
+          del.onclick = function () { doDelete(row, false); };
           actions.appendChild(edit);
           actions.appendChild(del);
           actionsTd.appendChild(actions);
@@ -559,7 +450,6 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
       }
     }
 
-    // --------- REPORT (Generate + Print) ---------
     function validateReportRange(from, to) {
       from = String(from || "").trim();
       to = String(to || "").trim();
@@ -644,7 +534,10 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
 
     async function generateReport() {
       if (!ctx) return;
+
+      // ✅ PATCH: don’t show “Report generated. Entries: X”
       setReportMsg("", "");
+
       var from = reportFromInput ? reportFromInput.value : state.report_from;
       var to = reportToInput ? reportToInput.value : state.report_to;
       var vr = validateReportRange(from, to);
@@ -663,8 +556,10 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
         var data = await apiJson(ctx.win, url, { method: "GET" });
         if (!data || data.ok !== true) throw new Error(data && data.error ? String(data.error) : "Unexpected response");
         state.report = data;
-        var count = data.entries && Array.isArray(data.entries) ? data.entries.length : 0;
-        setReportMsg("ok", "Report generated.\nEntries: " + count);
+
+        // ✅ PATCH: keep success message hidden
+        setReportMsg("", "");
+
         renderReportPreview();
       } catch (e) {
         state.report = null;
@@ -738,15 +633,11 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
         }
       }
 
-      // OPTIONAL but recommended: auto-open print dialog after load in the new tab
       html += "<script>setTimeout(function(){try{window.print()}catch(e){}},250);</script>";
       html += "</body></html>";
       return html;
     }
 
-    // ==============================
-    // PATCH: DDA printReport() fixed
-    // ==============================
     async function printReport() {
       if (!ctx) return;
       setReportMsg("", "");
@@ -758,7 +649,6 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
         return;
       }
 
-      // Reuse cached report if it matches range; otherwise fetch report JSON
       var canReuse = !!(state.report && state.report.ok === true && state.report.from === vr.from && state.report.to === vr.to);
 
       try {
@@ -781,9 +671,7 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
         }
 
         var html = buildPrintableHtml(data);
-        // Open via Blob URL (same approach as the working modules)
         openPrintTabWithHtml(html);
-        setReportMsg("ok", "Print tab opened.");
       } catch (e) {
         var msg = e && e.message ? e.message : String(e || "Error");
         if (e && e.status === 401) msg = "Unauthorized (missing/invalid token).\nLog in again.";
@@ -795,7 +683,6 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
       }
     }
 
-    // ---- Modal (unchanged) ----
     function buildModalOnceForDoc(doc) {
       if (activeDoc === doc && modalBackdrop) return;
       activeDoc = doc;
@@ -808,9 +695,7 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
       var head = el(doc, "div", { class: "eikon-dda-modal-head" }, []);
       modalTitle = el(doc, "h3", { text: "DDA Sales Entry" }, []);
       var closeBtn = el(doc, "button", { class: "eikon-dda-btn secondary", text: "Close" }, []);
-      closeBtn.onclick = function () {
-        closeModal();
-      };
+      closeBtn.onclick = function () { closeModal(); };
       head.appendChild(modalTitle);
       head.appendChild(closeBtn);
 
@@ -848,19 +733,13 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
       grid.appendChild(field("Prescription Serial No.", formEls.prescription_serial_no, true));
 
       body.appendChild(grid);
-      body.appendChild(el(doc, "div", { class: "eikon-dda-hint", html: "Saved to D1 table `dda_sales_entries`. Required fields match the API validations." }, []));
 
       var footerBtns = el(doc, "div", { style: "display:flex;gap:10px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap;" }, []);
       var deleteBtn = el(doc, "button", { class: "eikon-dda-btn danger", text: "Delete" }, []);
       var saveBtn = el(doc, "button", { class: "eikon-dda-btn", text: "Save" }, []);
       deleteBtn.style.display = "none";
-      saveBtn.onclick = function () {
-        doSave();
-      };
-      deleteBtn.onclick = function () {
-        if (!formEls.id) return;
-        doDelete({ id: formEls.id }, true);
-      };
+      saveBtn.onclick = function () { doSave(); };
+      deleteBtn.onclick = function () { if (!formEls.id) return; doDelete({ id: formEls.id }, true); };
       footerBtns.appendChild(deleteBtn);
       footerBtns.appendChild(saveBtn);
       body.appendChild(footerBtns);
@@ -869,24 +748,14 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
       modal.appendChild(body);
       modalBackdrop.appendChild(modal);
 
-      modalBackdrop.onclick = function (e) {
-        if (e && e.target === modalBackdrop) closeModal();
-      };
+      modalBackdrop.onclick = function (e) { if (e && e.target === modalBackdrop) closeModal(); };
       modalBackdrop._deleteBtn = deleteBtn;
 
-      try {
-        (doc.body || doc.documentElement).appendChild(modalBackdrop);
-      } catch (e1) {}
+      try { (doc.body || doc.documentElement).appendChild(modalBackdrop); } catch (e1) {}
     }
 
-    function openModal() {
-      if (!modalBackdrop) return;
-      modalBackdrop.style.display = "flex";
-    }
-    function closeModal() {
-      if (!modalBackdrop) return;
-      modalBackdrop.style.display = "none";
-    }
+    function openModal() { if (modalBackdrop) modalBackdrop.style.display = "flex"; }
+    function closeModal() { if (modalBackdrop) modalBackdrop.style.display = "none"; }
 
     function openModalForCreate() {
       if (!ctx) return;
@@ -967,20 +836,12 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
       if (!ctx) return;
       setMsg("", "");
       var v = validateFormPayload();
-      if (!v.ok) {
-        setMsg("err", v.error);
-        return;
-      }
+      if (!v.ok) { setMsg("err", v.error); return; }
       setLoading(true);
       try {
         var method, path;
-        if (formEls.id) {
-          method = "PUT";
-          path = "/dda-sales/entries/" + encodeURIComponent(String(formEls.id));
-        } else {
-          method = "POST";
-          path = "/dda-sales/entries";
-        }
+        if (formEls.id) { method = "PUT"; path = "/dda-sales/entries/" + encodeURIComponent(String(formEls.id)); }
+        else { method = "POST"; path = "/dda-sales/entries"; }
         var data = await apiJson(ctx.win, path, { method: method, body: JSON.stringify(v.payload) });
         if (!data || data.ok !== true) throw new Error(data && data.error ? String(data.error) : "Unexpected response");
         closeModal();
@@ -1000,16 +861,9 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
       if (!ctx) return;
       setMsg("", "");
       var id = row && row.id != null ? Number(row.id) : null;
-      if (!id) {
-        setMsg("err", "Invalid entry id.");
-        return;
-      }
+      if (!id) { setMsg("err", "Invalid entry id."); return; }
       var ok = false;
-      try {
-        ok = ctx.win.confirm("Delete this DDA Sales entry?");
-      } catch (e) {
-        ok = true;
-      }
+      try { ok = ctx.win.confirm("Delete this DDA Sales entry?"); } catch (e) { ok = true; }
       if (!ok) return;
 
       setLoading(true);
@@ -1031,30 +885,13 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
 
     function renderInto(container) {
       ctx = resolveRenderContext(container);
-      try {
-        log("renderInto() ctx.note=", ctx.note, "mount=", !!ctx.mount, "doc=", !!ctx.doc, "win=", !!ctx.win);
-      } catch (e) {}
-
-      if (!ctx || !ctx.doc || !ctx.win || !ctx.mount) {
-        try {
-          var fallbackDoc = document;
-          var fallbackMount = document.getElementById("eikon-root") || document.body;
-          renderCrash(fallbackDoc, fallbackMount, "DDA Sales module cannot mount (invalid container)", new Error("core passed a non-mountable container"));
-        } catch (e2) {}
-        return;
-      }
+      if (!ctx || !ctx.doc || !ctx.win || !ctx.mount) return;
 
       try {
         ensureStyleOnce(ctx.doc);
+        ctx.mount.innerHTML = "";
 
-        try {
-          ctx.mount.innerHTML = "";
-        } catch (e3) {}
-
-        // Init report defaults to current month
-        if (!state.report_from || !state.report_to) {
-          setReportDefaultsForMonth(state.month);
-        }
+        if (!state.report_from || !state.report_to) setReportDefaultsForMonth(state.month);
 
         var wrap = el(ctx.doc, "div", { class: "eikon-dda-wrap" }, []);
         var top = el(ctx.doc, "div", { class: "eikon-dda-top" }, []);
@@ -1073,7 +910,6 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
           var m = String(monthInput.value || "").trim();
           if (isYm(m)) {
             state.month = m;
-            // keep report range synced to chosen month
             setReportDefaultsForMonth(m);
             refresh();
           }
@@ -1083,50 +919,42 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
         var qField = el(ctx.doc, "div", { class: "eikon-dda-field" }, []);
         qField.appendChild(el(ctx.doc, "label", { text: "Search" }, []));
         qInput = el(ctx.doc, "input", { type: "text", value: state.q, placeholder: "Client / ID / medicine / doctor / serial…" }, []);
+
+        // ✅ PATCH: live search (debounced)
         qInput.oninput = function () {
           state.q = String(qInput.value || "");
+          if (searchTimer) { try { ctx.win.clearTimeout(searchTimer); } catch (e) {} }
+          searchTimer = ctx.win.setTimeout(function () {
+            if (!state.loading && !state.report_loading) refresh();
+          }, 250);
         };
-        qInput.onkeydown = function (e) {
-          if (e && e.key === "Enter") refresh();
-        };
+
+        qInput.onkeydown = function (e) { if (e && e.key === "Enter") refresh(); };
         qField.appendChild(qInput);
 
         refreshBtn = el(ctx.doc, "button", { class: "eikon-dda-btn secondary", text: "Refresh" }, []);
-        refreshBtn.onclick = function () {
-          refresh();
-        };
+        refreshBtn.onclick = function () { refresh(); };
 
         addBtn = el(ctx.doc, "button", { class: "eikon-dda-btn", text: "New Entry" }, []);
-        addBtn.onclick = function () {
-          openModalForCreate();
-        };
+        addBtn.onclick = function () { openModalForCreate(); };
 
-        // Report range + Generate + Print
         var fromField = el(ctx.doc, "div", { class: "eikon-dda-field" }, []);
         fromField.appendChild(el(ctx.doc, "label", { text: "From" }, []));
         reportFromInput = el(ctx.doc, "input", { type: "date", value: state.report_from }, []);
-        reportFromInput.onchange = function () {
-          state.report_from = String(reportFromInput.value || "").trim();
-        };
+        reportFromInput.onchange = function () { state.report_from = String(reportFromInput.value || "").trim(); };
         fromField.appendChild(reportFromInput);
 
         var toField = el(ctx.doc, "div", { class: "eikon-dda-field" }, []);
         toField.appendChild(el(ctx.doc, "label", { text: "To" }, []));
         reportToInput = el(ctx.doc, "input", { type: "date", value: state.report_to }, []);
-        reportToInput.onchange = function () {
-          state.report_to = String(reportToInput.value || "").trim();
-        };
+        reportToInput.onchange = function () { state.report_to = String(reportToInput.value || "").trim(); };
         toField.appendChild(reportToInput);
 
         generateBtn = el(ctx.doc, "button", { class: "eikon-dda-btn secondary", text: "Generate" }, []);
-        generateBtn.onclick = function () {
-          generateReport();
-        };
+        generateBtn.onclick = function () { generateReport(); };
 
         printBtn = el(ctx.doc, "button", { class: "eikon-dda-btn secondary", text: "Print" }, []);
-        printBtn.onclick = function () {
-          printReport();
-        };
+        printBtn.onclick = function () { printReport(); };
 
         controls.appendChild(monthField);
         controls.appendChild(qField);
@@ -1146,9 +974,13 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
 
         // Entries card
         var card = el(ctx.doc, "div", { class: "eikon-dda-card" }, []);
-        card.appendChild(el(ctx.doc, "div", { class: "eikon-dda-hint", html: "Endpoints: `/dda-sales/entries`  |  Report JSON: `/dda-sales/report`" }, []));
 
-        var tableWrap = el(ctx.doc, "div", { class: "eikon-dda-table-wrap", style: "margin-top:10px;" }, []);
+        // ✅ PATCH: replace “Endpoints...” with a proper header "Entries"
+        var cardHead = el(ctx.doc, "div", { class: "eikon-dda-card-head" }, []);
+        cardHead.appendChild(el(ctx.doc, "h3", { text: "Entries" }, []));
+        card.appendChild(cardHead);
+
+        var tableWrap = el(ctx.doc, "div", { class: "eikon-dda-table-wrap" }, []);
         var table = el(ctx.doc, "table", { class: "eikon-dda-table" }, []);
         var thead = el(ctx.doc, "thead", {}, []);
         thead.appendChild(
@@ -1174,31 +1006,29 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
 
         // Report preview card
         var reportCard = el(ctx.doc, "div", { class: "eikon-dda-card", style: "margin-top:12px;" }, []);
-        reportCard.appendChild(
-          el(ctx.doc, "div", {
-            class: "eikon-dda-hint",
-            html: "Report preview is generated client-side (for printing in a new window to avoid iframe/sandbox print issues).",
-          }, [])
-        );
+
+        // ✅ PATCH: remove “Report preview is generated client-side ...” text
+        var reportHead = el(ctx.doc, "div", { class: "eikon-dda-card-head" }, []);
+        reportHead.appendChild(el(ctx.doc, "h3", { text: "Report" }, []));
+        reportCard.appendChild(reportHead);
+
         reportMsg = el(ctx.doc, "div", { class: "eikon-dda-msg", text: "" }, []);
         reportMsg.style.display = "none";
         reportCard.appendChild(reportMsg);
+
         reportPreview = el(ctx.doc, "div", {}, []);
         reportCard.appendChild(reportPreview);
         wrap.appendChild(reportCard);
 
         ctx.mount.appendChild(wrap);
 
-        // build modal for this doc
         buildModalOnceForDoc(ctx.doc);
 
-        // initial render
         renderRows();
         renderReportPreview();
         refresh();
       } catch (e) {
         warn("renderInto failed:", e);
-        renderCrash(ctx.doc, ctx.mount, "DDA Sales module crashed while rendering", e);
       }
     }
 
@@ -1209,7 +1039,7 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
       title: "DDA Sales",
       navTitle: "DDA Sales",
 
-      // --- PATCH: sidebar icon (core uses m.icon textContent) ---
+      // keep sidebar icon
       icon: "📈",
 
       iconText: "",
@@ -1232,18 +1062,14 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
         log("registered via window.EIKON.registerModule()");
         return true;
       }
-    } catch (e1) {
-      warn("registerModule(EIKON) failed:", e1);
-    }
+    } catch (e1) { warn("registerModule(EIKON) failed:", e1); }
     try {
       if (window.Eikon && typeof window.Eikon.registerModule === "function") {
         window.Eikon.registerModule(mod);
         log("registered via window.Eikon.registerModule()");
         return true;
       }
-    } catch (e2) {
-      warn("registerModule(Eikon) failed:", e2);
-    }
+    } catch (e2) { warn("registerModule(Eikon) failed:", e2); }
     try {
       window.EIKON_MODULES = window.EIKON_MODULES || [];
       window.EIKON_MODULES.push(mod);
@@ -1261,14 +1087,8 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
 
   var moduleObj = buildModule();
   tryRegisterModule(moduleObj);
-  setTimeout(function () {
-    tryRegisterModule(moduleObj);
-  }, 0);
-  setTimeout(function () {
-    tryRegisterModule(moduleObj);
-  }, 200);
-  setTimeout(function () {
-    tryRegisterModule(moduleObj);
-  }, 1000);
+  setTimeout(function () { tryRegisterModule(moduleObj); }, 0);
+  setTimeout(function () { tryRegisterModule(moduleObj); }, 200);
+  setTimeout(function () { tryRegisterModule(moduleObj); }, 1000);
   log("loaded modules.ddasales.js");
 })();
