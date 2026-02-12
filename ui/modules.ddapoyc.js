@@ -3,18 +3,63 @@
    Government supplied DDAs register (separate table + endpoints from DDA Sales)
 
    Endpoints (Cloudflare Worker):
-   GET    /dda-poyc/entries?month=YYYY-MM&q=...
-   POST   /dda-poyc/entries
-   PUT    /dda-poyc/entries/:id
+   GET /dda-poyc/entries?month=YYYY-MM&q=...
+   POST /dda-poyc/entries
+   PUT /dda-poyc/entries/:id
    DELETE /dda-poyc/entries/:id
-   GET    /dda-poyc/report?from=YYYY-MM-DD&to=YYYY-MM-DD (JSON)
-   GET    /dda-poyc/report/html?from=YYYY-MM-DD&to=YYYY-MM-DD (Printable HTML)
+   GET /dda-poyc/report?from=YYYY-MM-DD&to=YYYY-MM-DD (JSON)
+   GET /dda-poyc/report/html?from=YYYY-MM-DD&to=YYYY-MM-DD (Printable HTML)
 */
 (function () {
   "use strict";
 
   const E = window.EIKON;
-  const el = E.el;
+
+  // -----------------------------
+  // FIX: ensure `el()` exists
+  // Some builds don't provide E.el; this module previously assumed it did.
+  // -----------------------------
+  function elFallback(tag, attrs, ...children) {
+    const node = document.createElement(tag);
+
+    if (attrs) {
+      for (const [k, v] of Object.entries(attrs)) {
+        if (v === null || v === undefined || v === false) continue;
+
+        if (k === "class") {
+          node.className = String(v);
+        } else if (k === "style") {
+          node.style.cssText = String(v);
+        } else if (k.startsWith("on") && typeof v === "function") {
+          // onClick, onInput, etc.
+          node.addEventListener(k.slice(2).toLowerCase(), v);
+        } else if (k === "dataset" && typeof v === "object") {
+          for (const [dk, dv] of Object.entries(v)) node.dataset[dk] = String(dv);
+        } else if (k in node) {
+          try {
+            node[k] = v;
+          } catch {
+            node.setAttribute(k, String(v));
+          }
+        } else {
+          node.setAttribute(k, String(v));
+        }
+      }
+    }
+
+    function append(c) {
+      if (c === null || c === undefined || c === false) return;
+      if (Array.isArray(c)) return c.forEach(append);
+      if (c instanceof Node) return node.appendChild(c);
+      node.appendChild(document.createTextNode(String(c)));
+    }
+
+    children.forEach(append);
+    return node;
+  }
+
+  const el = (E && typeof E.el === "function") ? E.el : elFallback;
+  if (E && typeof E.el !== "function") E.el = el; // harmless, helps other modules too
 
   function pad2(n) { return String(n).padStart(2, "0"); }
   function todayYmd() {
@@ -25,7 +70,6 @@
     const d = new Date();
     return d.getFullYear() + "-" + pad2(d.getMonth() + 1);
   }
-
   async function openPrintableReport(url) {
     const a = document.createElement("a");
     a.href = url;
@@ -35,7 +79,6 @@
     a.click();
     a.remove();
   }
-
   function asInt(v) {
     if (v === "" || v === null || v === undefined) return null;
     const n = Number(v);
@@ -44,11 +87,9 @@
     if (i < 1) return null;
     return i;
   }
-
   function mkBtnRow(...nodes) {
     return el("div", { class: "eikon-row", style: "gap:8px; align-items:center;" }, ...nodes);
   }
-
   function rowField(label, input, extraStyle) {
     return el(
       "div",
@@ -57,7 +98,6 @@
       input
     );
   }
-
   async function promptEntryModal(title, initial) {
     const data = Object.assign(
       {
@@ -168,21 +208,12 @@
       doctor_reg_no: (inReg.value || "").trim(),
       prescription_serial_no: (inSerial.value || "").trim(),
     };
-
     return payload;
   }
 
   const MOD = {
-    // Identity
     id: "dda-poyc",
-
-    // ✅ Router/navigation wiring (matches how dda-sales is described in your core state dump)
-    key: "dda-poyc",
-    slug: "dda-poyc",
-    route: "dda-poyc",
-    hash: "#dda-poyc",
     title: "DDA Poyc",
-    navTitle: "DDA Poyc",
     subtitle: "Government supplied DDAs register",
     icon: "G",
 
@@ -195,6 +226,7 @@
         entries: [],
       };
 
+      // Header
       const header = el(
         "div",
         { class: "eikon-card" },
@@ -202,6 +234,7 @@
         el("div", { class: "eikon-help" }, "Separate register for government supplied DDAs.")
       );
 
+      // Controls
       const monthInput = el("input", { class: "eikon-input", type: "month", value: state.month });
       const searchInput = el("input", {
         class: "eikon-input",
@@ -238,6 +271,7 @@
         )
       );
 
+      // Table + report cards
       const tableCard = el("div", { class: "eikon-card" });
       const reportCard = el(
         "div",
@@ -360,16 +394,13 @@
         reportCard.innerHTML = "";
         reportCard.appendChild(el("div", { class: "eikon-title" }, "Report"));
         reportCard.appendChild(
-          el(
-            "div",
-            { class: "eikon-help" },
-            "Use Generate to fetch JSON; Print opens a printable report in a new tab."
-          )
+          el("div", { class: "eikon-help" }, "Use Generate to fetch JSON; Print opens a printable report in a new tab.")
         );
         reportCard.appendChild(el("div", { style: "height:8px" }));
         reportCard.appendChild(el("div", { class: "eikon-help" }, text));
       }
 
+      // Events
       monthInput.addEventListener("change", async () => {
         state.month = monthInput.value;
         if (state.month && /^\d{4}-\d{2}$/.test(state.month)) {
@@ -426,26 +457,22 @@
         state.to = toInput.value || "";
         const url =
           E.apiBase.replace(/\/+$/, "") +
-          "/dda-poyc/report/html?from=" +
-          encodeURIComponent(state.from) +
-          "&to=" +
-          encodeURIComponent(state.to);
+          "/dda-poyc/report/html?from=" + encodeURIComponent(state.from) +
+          "&to=" + encodeURIComponent(state.to);
         await openPrintableReport(url);
       });
 
+      // Initial
       await refresh();
     },
   };
 
-  // Register with core/router
+  // Register
   if (typeof E.registerModule === "function") {
     E.registerModule(MOD);
-    if (E && E.log) E.log("[dda-poyc] registered via E.registerModule()");
-    else console.log("[EIKON][dda-poyc] registered via E.registerModule()");
   } else {
     E.modules = E.modules || {};
     E.modules[MOD.id] = MOD;
     E.modules.ddapoyc = MOD;
-    console.log("[EIKON][dda-poyc] registered via fallback registry");
   }
 })();
