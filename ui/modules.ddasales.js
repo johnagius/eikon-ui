@@ -1482,16 +1482,48 @@ function parsePositiveInt(v) {
   return n;
 }
 
+async function tableExists(env, name) {
+  const row = await dbFirst(
+    env,
+    "SELECT name FROM sqlite_master WHERE type='table' AND name = ?",
+    [String(name)]
+  );
+  return !!row;
+}
+
+async function columnExists(env, tableName, columnName) {
+  try {
+    const cols = await dbAll(env, `PRAGMA table_info(${tableName})`, []);
+    return cols.some(c => String(c.name) === String(columnName));
+  } catch {
+    return false;
+  }
+}
+
 async function ensureDdaSalesRegisterSchema(env) {
+  // Migrate legacy table name -> new name (if needed)
+  const hasNew = await tableExists(env, "dda_sales_entries");
+  const hasOld = await tableExists(env, "dda_sales_register_entries");
+
+  if (!hasNew && hasOld) {
+    // Rename old table to the intended name
+    try {
+      await dbRun(env, "ALTER TABLE dda_sales_register_entries RENAME TO dda_sales_entries", []);
+    } catch {
+      // If rename fails, we'll still create the new table below
+    }
+  }
+
+  // Ensure the correct table exists (no inline "--" comments here)
   await dbRun(
     env,
-    `CREATE TABLE IF NOT EXISTS dda_sales_register_entries (
+    `CREATE TABLE IF NOT EXISTS dda_sales_entries (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       org_id INTEGER NOT NULL,
       location_id INTEGER NOT NULL,
       entry_date TEXT NOT NULL,
       client_name TEXT NOT NULL,
-      client_id TEXT NOT NULL,
+      client_id_card TEXT NOT NULL,
       client_address TEXT NOT NULL,
       medicine_name_dose TEXT NOT NULL,
       quantity INTEGER NOT NULL,
@@ -1505,21 +1537,40 @@ async function ensureDdaSalesRegisterSchema(env) {
     []
   );
 
+  // If we migrated from old schema (client_id), rename column to client_id_card
+  // (safe to ignore errors if column already correct)
+  const hasClientId = await columnExists(env, "dda_sales_entries", "client_id");
+  const hasClientIdCard = await columnExists(env, "dda_sales_entries", "client_id_card");
+
+  if (hasClientId && !hasClientIdCard) {
+    try {
+      await dbRun(env, "ALTER TABLE dda_sales_entries RENAME COLUMN client_id TO client_id_card", []);
+    } catch {
+      // If rename-column fails (older SQLite), add new column and copy data
+      try {
+        await dbRun(env, "ALTER TABLE dda_sales_entries ADD COLUMN client_id_card TEXT", []);
+        await dbRun(env, "UPDATE dda_sales_entries SET client_id_card = client_id WHERE client_id_card IS NULL OR client_id_card = ''", []);
+      } catch {
+        // ignore; worst case you’ll need a manual migration
+      }
+    }
+  }
+
   await dbRun(
     env,
-    "CREATE INDEX IF NOT EXISTS idx_dda_sales_org_loc_date ON dda_sales_register_entries (org_id, location_id, entry_date)",
+    "CREATE INDEX IF NOT EXISTS idx_dda_sales_org_loc_date ON dda_sales_entries (org_id, location_id, entry_date)",
     []
   );
 
   await dbRun(
     env,
-    "CREATE INDEX IF NOT EXISTS idx_dda_sales_org_loc_clientid ON dda_sales_register_entries (org_id, location_id, client_id)",
+    "CREATE INDEX IF NOT EXISTS idx_dda_sales_org_loc_client ON dda_sales_entries (org_id, location_id, client_id_card)",
     []
   );
 
   await dbRun(
     env,
-    "CREATE INDEX IF NOT EXISTS idx_dda_sales_org_loc_presc ON dda_sales_register_entries (org_id, location_id, prescription_serial_no)",
+    "CREATE INDEX IF NOT EXISTS idx_dda_sales_org_loc_serial ON dda_sales_entries (org_id, location_id, prescription_serial_no)",
     []
   );
 }
@@ -1544,7 +1595,7 @@ async function handleDdaSalesEntriesList(request, env, corsOkHeaders, authUser, 
       id,
       entry_date,
       client_name,
-      client_id,
+      client_id_card,
       client_address,
       medicine_name_dose,
       quantity,
@@ -1554,7 +1605,7 @@ async function handleDdaSalesEntriesList(request, env, corsOkHeaders, authUser, 
       created_by,
       created_at,
       updated_at
-    FROM dda_sales_register_entries
+    FROM dda_sales_entries
     WHERE org_id = ?
       AND location_id = ?
       AND entry_date >= ?
@@ -1562,7 +1613,7 @@ async function handleDdaSalesEntriesList(request, env, corsOkHeaders, authUser, 
       ${hasQ ? `AND (
         entry_date LIKE ?
         OR client_name LIKE ?
-        OR client_id LIKE ?
+        OR client_id_card LIKE ?
         OR client_address LIKE ?
         OR medicine_name_dose LIKE ?
         OR doctor_name LIKE ?
@@ -1593,7 +1644,12 @@ async function handleDdaSalesEntryCreate(request, env, corsOkHeaders, authUser) 
 
   const entryDate = String(body.entry_date || "").trim() || todayYmdUtc();
   const clientName = String(body.client_name || "").trim();
-  const clientId = String(body.client_id || "").trim();
+
+  // Accept BOTH names so UI/API mismatch doesn’t break you:
+  const clientIdCard = String(
+    (body.client_id_card !== undefined ? body.client_id_card : body.client_id) || ""
+  ).trim();
+
   const clientAddress = String(body.client_address || "").trim();
   const medicineNameDose = String(body.medicine_name_dose || "").trim();
   const quantity = parsePositiveInt(body.quantity);
@@ -1603,7 +1659,7 @@ async function handleDdaSalesEntryCreate(request, env, corsOkHeaders, authUser) 
 
   if (!isValidYmd(entryDate)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
   if (!clientName) return jsonResponse({ ok: false, error: "Missing client_name" }, 400, corsOkHeaders);
-  if (!clientId) return jsonResponse({ ok: false, error: "Missing client_id" }, 400, corsOkHeaders);
+  if (!clientIdCard) return jsonResponse({ ok: false, error: "Missing client_id_card" }, 400, corsOkHeaders);
   if (!clientAddress) return jsonResponse({ ok: false, error: "Missing client_address" }, 400, corsOkHeaders);
   if (!medicineNameDose) return jsonResponse({ ok: false, error: "Missing medicine_name_dose" }, 400, corsOkHeaders);
   if (!quantity) return jsonResponse({ ok: false, error: "Invalid quantity (positive integer)" }, 400, corsOkHeaders);
@@ -1613,8 +1669,8 @@ async function handleDdaSalesEntryCreate(request, env, corsOkHeaders, authUser) 
 
   const row = await dbFirst(
     env,
-    `INSERT INTO dda_sales_register_entries
-      (org_id, location_id, entry_date, client_name, client_id, client_address, medicine_name_dose, quantity, doctor_name, doctor_reg_no, prescription_serial_no, created_by, created_at, updated_at)
+    `INSERT INTO dda_sales_entries
+      (org_id, location_id, entry_date, client_name, client_id_card, client_address, medicine_name_dose, quantity, doctor_name, doctor_reg_no, prescription_serial_no, created_by, created_at, updated_at)
      VALUES
       (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
      RETURNING id`,
@@ -1623,7 +1679,7 @@ async function handleDdaSalesEntryCreate(request, env, corsOkHeaders, authUser) 
       authUser.location_id,
       entryDate,
       clientName,
-      clientId,
+      clientIdCard,
       clientAddress,
       medicineNameDose,
       quantity,
@@ -1634,9 +1690,9 @@ async function handleDdaSalesEntryCreate(request, env, corsOkHeaders, authUser) 
     ]
   );
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_SALES_ENTRY_CREATE", "dda_sales_register_entries", String(row.id), {
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_SALES_ENTRY_CREATE", "dda_sales_entries", String(row.id), {
     entry_date: entryDate,
-    client_id: clientId,
+    client_id_card: clientIdCard,
     medicine_name_dose: medicineNameDose,
     quantity: quantity,
     prescription_serial_no: prescriptionSerialNo
@@ -1655,7 +1711,7 @@ async function handleDdaSalesEntryUpdate(request, env, corsOkHeaders, authUser, 
   const existing = await dbFirst(
     env,
     `SELECT id
-     FROM dda_sales_register_entries
+     FROM dda_sales_entries
      WHERE id = ? AND org_id = ? AND location_id = ?`,
     [entryId, authUser.org_id, authUser.location_id]
   );
@@ -1665,7 +1721,11 @@ async function handleDdaSalesEntryUpdate(request, env, corsOkHeaders, authUser, 
 
   const entryDate = String(body.entry_date || "").trim() || todayYmdUtc();
   const clientName = String(body.client_name || "").trim();
-  const clientId = String(body.client_id || "").trim();
+
+  const clientIdCard = String(
+    (body.client_id_card !== undefined ? body.client_id_card : body.client_id) || ""
+  ).trim();
+
   const clientAddress = String(body.client_address || "").trim();
   const medicineNameDose = String(body.medicine_name_dose || "").trim();
   const quantity = parsePositiveInt(body.quantity);
@@ -1675,7 +1735,7 @@ async function handleDdaSalesEntryUpdate(request, env, corsOkHeaders, authUser, 
 
   if (!isValidYmd(entryDate)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
   if (!clientName) return jsonResponse({ ok: false, error: "Missing client_name" }, 400, corsOkHeaders);
-  if (!clientId) return jsonResponse({ ok: false, error: "Missing client_id" }, 400, corsOkHeaders);
+  if (!clientIdCard) return jsonResponse({ ok: false, error: "Missing client_id_card" }, 400, corsOkHeaders);
   if (!clientAddress) return jsonResponse({ ok: false, error: "Missing client_address" }, 400, corsOkHeaders);
   if (!medicineNameDose) return jsonResponse({ ok: false, error: "Missing medicine_name_dose" }, 400, corsOkHeaders);
   if (!quantity) return jsonResponse({ ok: false, error: "Invalid quantity (positive integer)" }, 400, corsOkHeaders);
@@ -1685,13 +1745,13 @@ async function handleDdaSalesEntryUpdate(request, env, corsOkHeaders, authUser, 
 
   await dbRun(
     env,
-    `UPDATE dda_sales_register_entries
-     SET entry_date = ?, client_name = ?, client_id = ?, client_address = ?, medicine_name_dose = ?, quantity = ?, doctor_name = ?, doctor_reg_no = ?, prescription_serial_no = ?, updated_at = datetime('now')
+    `UPDATE dda_sales_entries
+     SET entry_date = ?, client_name = ?, client_id_card = ?, client_address = ?, medicine_name_dose = ?, quantity = ?, doctor_name = ?, doctor_reg_no = ?, prescription_serial_no = ?, updated_at = datetime('now')
      WHERE id = ? AND org_id = ? AND location_id = ?`,
     [
       entryDate,
       clientName,
-      clientId,
+      clientIdCard,
       clientAddress,
       medicineNameDose,
       quantity,
@@ -1704,9 +1764,9 @@ async function handleDdaSalesEntryUpdate(request, env, corsOkHeaders, authUser, 
     ]
   );
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_SALES_ENTRY_UPDATE", "dda_sales_register_entries", String(entryId), {
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_SALES_ENTRY_UPDATE", "dda_sales_entries", String(entryId), {
     entry_date: entryDate,
-    client_id: clientId,
+    client_id_card: clientIdCard,
     medicine_name_dose: medicineNameDose,
     quantity: quantity,
     prescription_serial_no: prescriptionSerialNo
@@ -1724,8 +1784,8 @@ async function handleDdaSalesEntryDelete(request, env, corsOkHeaders, authUser, 
 
   const existing = await dbFirst(
     env,
-    `SELECT id, entry_date, client_id, prescription_serial_no
-     FROM dda_sales_register_entries
+    `SELECT id, entry_date, client_id_card, prescription_serial_no
+     FROM dda_sales_entries
      WHERE id = ? AND org_id = ? AND location_id = ?`,
     [entryId, authUser.org_id, authUser.location_id]
   );
@@ -1733,14 +1793,14 @@ async function handleDdaSalesEntryDelete(request, env, corsOkHeaders, authUser, 
 
   await dbRun(
     env,
-    `DELETE FROM dda_sales_register_entries
+    `DELETE FROM dda_sales_entries
      WHERE id = ? AND org_id = ? AND location_id = ?`,
     [entryId, authUser.org_id, authUser.location_id]
   );
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_SALES_ENTRY_DELETE", "dda_sales_register_entries", String(entryId), {
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_SALES_ENTRY_DELETE", "dda_sales_entries", String(entryId), {
     entry_date: existing.entry_date,
-    client_id: existing.client_id,
+    client_id_card: existing.client_id_card,
     prescription_serial_no: existing.prescription_serial_no
   });
 
@@ -1770,14 +1830,14 @@ async function handleDdaSalesReport(request, env, corsOkHeaders, authUser, url) 
        id,
        entry_date,
        client_name,
-       client_id,
+       client_id_card,
        client_address,
        medicine_name_dose,
        quantity,
        doctor_name,
        doctor_reg_no,
        prescription_serial_no
-     FROM dda_sales_register_entries
+     FROM dda_sales_entries
      WHERE org_id = ?
        AND location_id = ?
        AND entry_date >= ?
@@ -1837,7 +1897,7 @@ async function handleDdaSalesReportHtml(request, env, corsOkHeaders, authUser, u
       body += `<tr>
         <td>${escapeHtml(r.entry_date)}</td>
         <td>${escapeHtml(r.client_name)}</td>
-        <td>${escapeHtml(r.client_id)}</td>
+        <td>${escapeHtml(r.client_id_card)}</td>
         <td>${escapeHtml(r.client_address)}</td>
         <td>${escapeHtml(r.medicine_name_dose)}</td>
         <td>${escapeHtml(String(r.quantity))}</td>
@@ -1852,6 +1912,7 @@ async function handleDdaSalesReportHtml(request, env, corsOkHeaders, authUser, u
 
   return htmlReportPage("DDA Sales Register", body);
 }
+
 
 /* =========================
    CERTIFICATES MODULE (API)
