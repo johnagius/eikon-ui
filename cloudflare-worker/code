@@ -456,6 +456,8 @@ function isValidHm(s) {
   return /^([01]\d|2[0-3]):[0-5]\d$/.test(String(s || "").trim());
 }
 
+async function ensureEndOfDaySchema(env) { await dbRun(env, "CREATE TABLE IF NOT EXISTS end_of_day (id INTEGER PRIMARY KEY AUTOINCREMENT, org_id INTEGER NOT NULL, location_id INTEGER NOT NULL, eod_date TEXT NOT NULL, time_of_day TEXT NOT NULL DEFAULT 'AM', staff_name TEXT NOT NULL, float_amount REAL NOT NULL DEFAULT 500, x_json TEXT NOT NULL DEFAULT '[]', epos_json TEXT NOT NULL DEFAULT '[]', cheques_json TEXT NOT NULL DEFAULT '[]', paid_outs_json TEXT NOT NULL DEFAULT '[]', cash_json TEXT NOT NULL DEFAULT '{}', bov_deposit_json TEXT NOT NULL DEFAULT '{}', bov_bag_number TEXT NOT NULL DEFAULT '', bov_contact_id INTEGER, notes TEXT NOT NULL DEFAULT '', saved_at TEXT, locked_at TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')), created_by INTEGER, updated_by INTEGER, UNIQUE(org_id, location_id, eod_date))", []); await dbRun(env, "CREATE TABLE IF NOT EXISTS end_of_day_contacts (id INTEGER PRIMARY KEY AUTOINCREMENT, org_id INTEGER NOT NULL, location_id INTEGER NOT NULL, display_name TEXT NOT NULL, phone TEXT NOT NULL DEFAULT '', is_active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')), created_by INTEGER, updated_by INTEGER, UNIQUE(org_id, location_id, display_name))", []); await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_end_of_day_org_loc_date ON end_of_day (org_id, location_id, eod_date)", []); await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_end_of_day_contacts_org_loc_active ON end_of_day_contacts (org_id, location_id, is_active, display_name)", []); }
+
 function clampToOneDecimal(n) {
   if (n === null || n === undefined) return null;
   if (n === "") return null;
@@ -890,6 +892,140 @@ async function handleTempReportHtml(request, env, corsOkHeaders, authUser, url) 
   }
 
   return htmlReportPage("Temperature Report", body);
+}
+
+/* =========================
+   END OF DAY (EOD) MODULE (API)
+   ========================= */
+
+async function handleEodGet(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureEndOfDaySchema(env);
+  const date = String(url.searchParams.get("date") || "").trim();
+  if (!isValidYmd(date)) return jsonResponse({ ok: false, error: "Invalid date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  const row = await dbFirst(env, "SELECT * FROM end_of_day WHERE org_id = ? AND location_id = ? AND eod_date = ?", [authUser.org_id, authUser.location_id, date]);
+  return jsonResponse({ ok: true, eod: row || null }, 200, corsOkHeaders);
+}
+
+async function handleEodUpsert(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureEndOfDaySchema(env);
+
+  const body = await readJson(request);
+
+  const date = String(body.eod_date || "").trim();
+  const timeOfDay = String(body.time_of_day || "AM").trim().toUpperCase();
+  const staffName = String(body.staff_name || "").trim();
+  const floatAmount = Number(body.float_amount);
+
+  const xJson = JSON.stringify(body.x || []);
+  const eposJson = JSON.stringify(body.epos || []);
+  const chequesJson = JSON.stringify(body.cheques || []);
+  const paidOutsJson = JSON.stringify(body.paid_outs || []);
+  const cashJson = JSON.stringify(body.cash || {});
+  const bovDepositJson = JSON.stringify(body.bov_deposit || {});
+
+  const bovBag = String(body.bov_bag_number || "").trim();
+  const bovContactId = (body.bov_contact_id === null || body.bov_contact_id === undefined || body.bov_contact_id === "") ? null : Number(body.bov_contact_id);
+  const notes = String(body.notes || "").trim();
+
+  if (!isValidYmd(date)) return jsonResponse({ ok: false, error: "Invalid eod_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (timeOfDay !== "AM" && timeOfDay !== "PM") return jsonResponse({ ok: false, error: "Invalid time_of_day (AM/PM)" }, 400, corsOkHeaders);
+  if (!staffName) return jsonResponse({ ok: false, error: "Missing staff_name" }, 400, corsOkHeaders);
+  if (!Number.isFinite(floatAmount) || floatAmount < 0) return jsonResponse({ ok: false, error: "Invalid float_amount" }, 400, corsOkHeaders);
+
+  const existing = await dbFirst(env, "SELECT id, locked_at FROM end_of_day WHERE org_id = ? AND location_id = ? AND eod_date = ?", [authUser.org_id, authUser.location_id, date]);
+  if (existing && existing.locked_at) return jsonResponse({ ok: false, error: "Locked" }, 409, corsOkHeaders);
+
+  if (!existing) {
+    const row = await dbFirst(
+      env,
+      "INSERT INTO end_of_day (org_id, location_id, eod_date, time_of_day, staff_name, float_amount, x_json, epos_json, cheques_json, paid_outs_json, cash_json, bov_deposit_json, bov_bag_number, bov_contact_id, notes, saved_at, created_at, updated_at, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), datetime('now'), ?, ?) RETURNING id",
+      [authUser.org_id, authUser.location_id, date, timeOfDay, staffName, floatAmount, xJson, eposJson, chequesJson, paidOutsJson, cashJson, bovDepositJson, bovBag, bovContactId, notes, authUser.user_id, authUser.user_id]
+    );
+    await writeAudit(env, authUser.org_id, authUser.user_id, "EOD_CREATE", "end_of_day", String(row.id), { eod_date: date });
+    return jsonResponse({ ok: true, id: row.id }, 200, corsOkHeaders);
+  } else {
+    await dbRun(
+      env,
+      "UPDATE end_of_day SET time_of_day = ?, staff_name = ?, float_amount = ?, x_json = ?, epos_json = ?, cheques_json = ?, paid_outs_json = ?, cash_json = ?, bov_deposit_json = ?, bov_bag_number = ?, bov_contact_id = ?, notes = ?, saved_at = datetime('now'), updated_at = datetime('now'), updated_by = ? WHERE id = ? AND org_id = ? AND location_id = ?",
+      [timeOfDay, staffName, floatAmount, xJson, eposJson, chequesJson, paidOutsJson, cashJson, bovDepositJson, bovBag, bovContactId, notes, authUser.user_id, existing.id, authUser.org_id, authUser.location_id]
+    );
+    await writeAudit(env, authUser.org_id, authUser.user_id, "EOD_UPDATE", "end_of_day", String(existing.id), { eod_date: date });
+    return jsonResponse({ ok: true, id: existing.id }, 200, corsOkHeaders);
+  }
+}
+
+async function handleEodLock(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureEndOfDaySchema(env);
+
+  const body = await readJson(request);
+  const date = String(body.eod_date || "").trim();
+  if (!isValidYmd(date)) return jsonResponse({ ok: false, error: "Invalid eod_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+
+  const existing = await dbFirst(env, "SELECT id, locked_at FROM end_of_day WHERE org_id = ? AND location_id = ? AND eod_date = ?", [authUser.org_id, authUser.location_id, date]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+  if (existing.locked_at) return jsonResponse({ ok: true, id: existing.id, locked_at: existing.locked_at }, 200, corsOkHeaders);
+
+  await dbRun(env, "UPDATE end_of_day SET locked_at = datetime('now'), updated_at = datetime('now'), updated_by = ? WHERE id = ? AND org_id = ? AND location_id = ?", [authUser.user_id, existing.id, authUser.org_id, authUser.location_id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "EOD_LOCK", "end_of_day", String(existing.id), { eod_date: date });
+
+  const locked = await dbFirst(env, "SELECT locked_at FROM end_of_day WHERE id = ? AND org_id = ? AND location_id = ?", [existing.id, authUser.org_id, authUser.location_id]);
+  return jsonResponse({ ok: true, id: existing.id, locked_at: locked ? locked.locked_at : null }, 200, corsOkHeaders);
+}
+
+async function handleEodContactsList(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureEndOfDaySchema(env);
+  const rows = await dbAll(env, "SELECT id, display_name, phone FROM end_of_day_contacts WHERE org_id = ? AND location_id = ? AND is_active = 1 ORDER BY display_name ASC", [authUser.org_id, authUser.location_id]);
+  return jsonResponse({ ok: true, contacts: rows }, 200, corsOkHeaders);
+}
+
+async function handleEodContactsCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureEndOfDaySchema(env);
+
+  const body = await readJson(request);
+  const name = String(body.display_name || "").trim();
+  const phone = String(body.phone || "").trim();
+  if (!name) return jsonResponse({ ok: false, error: "Missing display_name" }, 400, corsOkHeaders);
+
+  const row = await dbFirst(env, "INSERT INTO end_of_day_contacts (org_id, location_id, display_name, phone, is_active, created_at, updated_at, created_by, updated_by) VALUES (?, ?, ?, ?, 1, datetime('now'), datetime('now'), ?, ?) RETURNING id", [authUser.org_id, authUser.location_id, name, phone, authUser.user_id, authUser.user_id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "EOD_CONTACT_CREATE", "end_of_day_contacts", String(row.id), { display_name: name });
+
+  return jsonResponse({ ok: true, id: row.id }, 200, corsOkHeaders);
+}
+
+async function handleEodContactsUpdate(request, env, corsOkHeaders, authUser, contactId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureEndOfDaySchema(env);
+
+  const existing = await dbFirst(env, "SELECT id FROM end_of_day_contacts WHERE id = ? AND org_id = ? AND location_id = ?", [contactId, authUser.org_id, authUser.location_id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+  const name = String(body.display_name || "").trim();
+  const phone = String(body.phone || "").trim();
+  if (!name) return jsonResponse({ ok: false, error: "Missing display_name" }, 400, corsOkHeaders);
+
+  await dbRun(env, "UPDATE end_of_day_contacts SET display_name = ?, phone = ?, updated_at = datetime('now'), updated_by = ? WHERE id = ? AND org_id = ? AND location_id = ?", [name, phone, authUser.user_id, contactId, authUser.org_id, authUser.location_id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "EOD_CONTACT_UPDATE", "end_of_day_contacts", String(contactId), { display_name: name });
+
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleEodContactsDeactivate(request, env, corsOkHeaders, authUser, contactId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureEndOfDaySchema(env);
+
+  const existing = await dbFirst(env, "SELECT id, display_name FROM end_of_day_contacts WHERE id = ? AND org_id = ? AND location_id = ?", [contactId, authUser.org_id, authUser.location_id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  await dbRun(env, "UPDATE end_of_day_contacts SET is_active = 0, updated_at = datetime('now'), updated_by = ? WHERE id = ? AND org_id = ? AND location_id = ?", [authUser.user_id, contactId, authUser.org_id, authUser.location_id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "EOD_CONTACT_DEACTIVATE", "end_of_day_contacts", String(contactId), { display_name: existing.display_name });
+
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
 /* =========================
@@ -1941,6 +2077,8 @@ async function ensureDdaSalesSchema(env) {
     []
   );
 }
+
+
 
 function normalizeIntPositive(n) {
   if (n === null || n === undefined) return null;
@@ -3570,6 +3708,15 @@ export default {
     if (url.pathname === "/auth/me" && request.method === "GET") {
       return await handleMe(env, corsOkHeaders, authUser);
     }
+
+    // End Of Day (EOD)
+if (url.pathname === "/eod/get" && request.method === "GET") return await handleEodGet(request, env, corsOkHeaders, authUser, url);
+if (url.pathname === "/eod/upsert" && request.method === "POST") return await handleEodUpsert(request, env, corsOkHeaders, authUser);
+if (url.pathname === "/eod/lock" && request.method === "POST") return await handleEodLock(request, env, corsOkHeaders, authUser);
+// EOD Contacts
+if (url.pathname === "/eod/contacts" && request.method === "GET") return await handleEodContactsList(request, env, corsOkHeaders, authUser);
+if (url.pathname === "/eod/contacts" && request.method === "POST") return await handleEodContactsCreate(request, env, corsOkHeaders, authUser);
+{ const m = url.pathname.match(/^\/eod\/contacts\/(\d+)$/); if (m && request.method === "PUT") return await handleEodContactsUpdate(request, env, corsOkHeaders, authUser, Number(m[1])); if (m && request.method === "DELETE") return await handleEodContactsDeactivate(request, env, corsOkHeaders, authUser, Number(m[1])); }
 
     // Temperature
     if (url.pathname === "/temperature/devices" && request.method === "GET") {
