@@ -1099,8 +1099,9 @@
       title: mod.title,
       navTitle: "DDA POYC",
 
-      // ✅ ICON: provide the full set of fields used by DDA Sales sidebars
-      icon: "",
+      // ✅ ICON (SIDEBAR): core.js uses m.icon as textContent, so it must be a glyph (not SVG).
+      icon: "🧾",
+
       iconText: "",
       iconSvg: ICON_SVG,
       iconHTML: ICON_SVG,
