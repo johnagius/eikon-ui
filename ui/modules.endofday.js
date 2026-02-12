@@ -10,19 +10,6 @@
   if (!E) return;
 
   // -----------------------------
-  // Debug
-  // -----------------------------
-  function dbgEnabled() {
-    try {
-      return !!(E && E.state && Number(E.state.dbg || 0) >= 2);
-    } catch (e) { return false; }
-  }
-  function DBG() {
-    if (!dbgEnabled()) return;
-    try { console.log.apply(console, ["[EIKON][eod]"].concat([].slice.call(arguments))); } catch (e) {}
-  }
-
-  // -----------------------------
   // Helpers
   // -----------------------------
   function esc(s) { return E.escapeHtml(String(s == null ? "" : s)); }
@@ -106,6 +93,21 @@
       } catch (e2) {}
     }
     setTimeout(function () { try { URL.revokeObjectURL(url); } catch (e3) {} }, 60000);
+  }
+
+  // -----------------------------
+  // Debug helpers
+  // -----------------------------
+  function dbg() {
+    try {
+      if (E && typeof E.dbg === "function") E.dbg.apply(null, arguments);
+    } catch (e) {}
+  }
+
+  function warn() {
+    try {
+      if (E && typeof E.warn === "function") E.warn.apply(null, arguments);
+    } catch (e) {}
   }
 
   // -----------------------------
@@ -200,6 +202,12 @@
     });
   }
 
+  function clearLocalEodData() {
+    try { window.localStorage.removeItem(LS_EOD_KEY); } catch (e) {}
+    try { window.localStorage.removeItem(LS_EOD_CONTACTS_KEY); } catch (e2) {}
+    try { window.localStorage.removeItem(LS_EOD_AUDIT_KEY); } catch (e3) {}
+  }
+
   // -----------------------------
   // Modal
   // -----------------------------
@@ -236,14 +244,21 @@
   }
 
   // -----------------------------
-  // Module persistent state (FIX)
+  // Module UI
   // -----------------------------
-  var _mountRef = null;
-  var _state = null;
+  async function render(mount) {
+    // mount is a real DOM element (core passes ctx.mount)
+    mount.innerHTML = "";
 
-  function makeDefaultState(locationName, createdBy, dateStr) {
-    return {
-      date: dateStr || ymd(new Date()),
+    var user = E.state && E.state.user ? E.state.user : null;
+    var locationName = user && user.location_name ? String(user.location_name) : "";
+    var createdBy = user && user.full_name ? String(user.full_name) : (user && user.email ? String(user.email) : "");
+
+    dbg("[eod] render()", { locationName: locationName, createdBy: createdBy });
+
+    // State
+    var state = {
+      date: ymd(new Date()),
       time_of_day: "AM",
       staff: "",
       location_name: locationName,
@@ -292,49 +307,53 @@
       saved_at: "",
       locked_at: ""
     };
-  }
-
-  function deepCopy(obj) {
-    try { return JSON.parse(JSON.stringify(obj)); } catch (e) { return obj; }
-  }
-
-  function loadRecordIntoState(dateStr, locationName, createdBy) {
-    var existing = getEodByDateAndLoc(dateStr, locationName);
-    if (existing) return deepCopy(existing);
-    return makeDefaultState(locationName, createdBy, dateStr);
-  }
-
-  // -----------------------------
-  // Module UI
-  // -----------------------------
-  async function render(mount) {
-    DBG("render() mount=", mount, "state?", !!_state);
-
-    // Hard guard: sometimes core passes unexpected things; be defensive.
-    if (!mount || typeof mount !== "object" || typeof mount.innerHTML !== "string") {
-      DBG("render(): invalid mount", mount);
-      return;
-    }
-
-    mount.innerHTML = "";
-
-    var user = E.state && E.state.user ? E.state.user : null;
-    var locationName = user && user.location_name ? String(user.location_name) : "";
-    var createdBy = user && user.full_name ? String(user.full_name) : (user && user.email ? String(user.email) : "");
-
-    // Initialize persistent state once
-    if (!_state) {
-      _state = loadRecordIntoState(ymd(new Date()), locationName, createdBy);
-      DBG("initialized state for", _state.date, _state.location_name);
-    } else {
-      // Ensure current login location is set (if user changed location)
-      _state.location_name = locationName || _state.location_name || "";
-      _state.created_by = createdBy || _state.created_by || "";
-    }
-
-    var state = _state;
 
     function isLocked() { return !!state.locked_at; }
+
+    // Load existing record for today+location
+    function loadSelectedDate() {
+      var existing = getEodByDateAndLoc(state.date, state.location_name);
+      if (existing) {
+        state = JSON.parse(JSON.stringify(existing));
+        dbg("[eod] loaded existing record", { date: state.date, loc: state.location_name, locked: !!state.locked_at });
+      } else {
+        // reset but keep location/createdBy and defaults
+        state.saved_at = "";
+        state.locked_at = "";
+        state.time_of_day = "AM";
+        state.staff = "";
+        state.created_by = createdBy;
+        state.location_name = locationName;
+        state.float_amount = 500;
+
+        state.x = [
+          { amount: 0, remark: "" },
+          { amount: 0, remark: "" },
+          { amount: 0, remark: "" },
+          { amount: 0, remark: "" }
+        ];
+        state.epos = [
+          { amount: 0, remark: "" },
+          { amount: 0, remark: "" },
+          { amount: 0, remark: "" },
+          { amount: 0, remark: "" }
+        ];
+        state.cheques = [
+          { amount: 0, remark: "" },
+          { amount: 0, remark: "" }
+        ];
+        state.paid_outs = [
+          { amount: 0, remark: "" }
+        ];
+        state.cash = { n500: 0, n200: 0, n100: 0, n50: 0, n20: 0, n10: 0, n5: 0, coins_total: 0 };
+        state.bag_number = "";
+        state.deposit = { n500: 0, n200: 0, n100: 0, n50: 0, n20: 0, n10: 0 };
+        state.contact_id = "";
+        dbg("[eod] new blank record", { date: state.date, loc: state.location_name });
+      }
+    }
+
+    loadSelectedDate();
 
     // -----------------------------
     // Calculations
@@ -479,6 +498,66 @@
     }
 
     // -----------------------------
+    // Rerender scheduling (fix typing)
+    // -----------------------------
+    function getActiveBindSnapshot() {
+      try {
+        var ae = document.activeElement;
+        if (!ae) return null;
+
+        var node = ae;
+        if (node && node.getAttribute && !node.getAttribute("data-bind")) {
+          var p = node.closest ? node.closest("[data-bind]") : null;
+          if (p) node = p;
+        }
+
+        if (!node || !node.getAttribute) return null;
+        var b = node.getAttribute("data-bind");
+        if (!b) return null;
+
+        return {
+          bind: b,
+          start: (typeof node.selectionStart === "number") ? node.selectionStart : null,
+          end: (typeof node.selectionEnd === "number") ? node.selectionEnd : null
+        };
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function restoreActiveBindSnapshot(snap) {
+      if (!snap || !snap.bind) return;
+      try {
+        var sel = "[data-bind=\"" + snap.bind.replace(/"/g, '\\"') + "\"]";
+        var node = mount.querySelector(sel);
+        if (!node) return;
+
+        node.focus();
+        if (typeof node.setSelectionRange === "function" && snap.start != null && snap.end != null) {
+          node.setSelectionRange(snap.start, snap.end);
+        }
+      } catch (e) {}
+    }
+
+    var _rafPending = false;
+    var _lastSnap = null;
+
+    function scheduleRerender() {
+      _lastSnap = getActiveBindSnapshot();
+      if (_rafPending) return;
+      _rafPending = true;
+      requestAnimationFrame(function () {
+        _rafPending = false;
+        try {
+          render(_mountRef);
+          restoreActiveBindSnapshot(_lastSnap);
+        } catch (e) {
+          try { E.error("[eod] scheduled render failed", e); } catch (e2) {}
+        }
+      });
+    }
+
+    // -----------------------------
     // Validation + Save + Lock + Audit
     // -----------------------------
     function validateBeforeSave() {
@@ -491,6 +570,22 @@
       var fl = parseNum(state.float_amount);
       if (!(fl >= 0)) return { ok: false, msg: "Float must be a number (>= 0)." };
 
+      // Prevent locking totally blank sheets:
+      // Require at least one meaningful numeric input to be entered (non-zero)
+      // across X / EPOS / Cheques / Paid Outs / Cash / Deposit.
+      var hasNumbers =
+        totalX() !== 0 ||
+        totalEpos() !== 0 ||
+        totalCheques() !== 0 ||
+        totalPaidOuts() !== 0 ||
+        countedCashTill().total !== 0 ||
+        bovTotal() !== 0;
+
+      if (!hasNumbers) {
+        return { ok: false, msg: "You cannot save/lock a completely empty EOD. Enter at least one amount (X/EPOS/Cheques/Paid Outs/Cash/Deposit)." };
+      }
+
+      // If BOV section is used (any deposit notes or bag entered), require bag number.
       var hasDeposit = bovTotal() > 0 || String(state.bag_number || "").trim() !== "";
       if (hasDeposit && !String(state.bag_number || "").trim()) {
         return { ok: false, msg: "Bag Number is required when BOV deposit is used." };
@@ -506,7 +601,8 @@
       if (!v.ok) return toast("Missing Information", v.msg);
 
       state.saved_at = nowIso();
-      upsertEod(deepCopy(state));
+
+      upsertEod(JSON.parse(JSON.stringify(state)));
 
       writeAudit({
         ts: nowIso(),
@@ -514,21 +610,23 @@
         location_name: state.location_name,
         by: createdBy,
         action: "SAVE",
-        details: { staff: state.staff, float_amount: state.float_amount }
+        details: {
+          staff: state.staff,
+          float_amount: state.float_amount
+        }
       });
 
-      rerender();
+      scheduleRerender();
     }
 
     function doLock() {
       if (isLocked()) return toast("Already Locked", "This End Of Day is already locked.");
-
       var v = validateBeforeSave();
       if (!v.ok) return toast("Cannot Lock", "Fix required fields first:\n\n" + v.msg);
 
       state.saved_at = state.saved_at || nowIso();
       state.locked_at = nowIso();
-      upsertEod(deepCopy(state));
+      upsertEod(JSON.parse(JSON.stringify(state)));
 
       writeAudit({
         ts: nowIso(),
@@ -539,18 +637,16 @@
         details: {}
       });
 
-      rerender();
+      scheduleRerender();
     }
 
     function doUnlock() {
       if (!isLocked()) return toast("Not Locked", "This End Of Day is not locked.");
-      var pin = window.prompt("Enter master key to unlock this End Of Day:", "");
-      if (pin == null) return;
-      if (String(pin).trim() !== "6036") return toast("Incorrect", "Master key is incorrect.");
+      var pw = window.prompt("Enter master key to unlock this End Of Day:", "");
+      if (String(pw || "").trim() !== "6036") return toast("Denied", "Incorrect master key.");
 
       state.locked_at = "";
-      state.saved_at = nowIso();
-      upsertEod(deepCopy(state));
+      upsertEod(JSON.parse(JSON.stringify(state)));
 
       writeAudit({
         ts: nowIso(),
@@ -561,7 +657,7 @@
         details: {}
       });
 
-      rerender();
+      scheduleRerender();
     }
 
     function showAuditLog() {
@@ -922,9 +1018,8 @@
 
     // -----------------------------
     // UI: Build rows for sections
-    // NOTE (FIX): no rerender on each keystroke; rerender on blur/change.
     // -----------------------------
-    function makePaymentTable(title, rows, maxRows, onAddRow, locked) {
+    function makePaymentTable(title, rows, maxRows, onAddRow, locked, bindPrefix) {
       var card = el("div", { class: "eikon-card" });
       card.appendChild(el("div", { style: "display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;" }, [
         el("div", { style: "font-weight:900;color:#e9eef7;", text: title }),
@@ -962,26 +1057,40 @@
 
           tdTot.textContent = euro(parseNum(r.amount));
 
-          var inAmt = el("input", { class: "eikon-input eikon-slim-input", type: "number", value: String(parseNum(r.amount)), disabled: locked });
+          var inAmt = el("input", {
+            class: "eikon-input eikon-slim-input",
+            type: "number",
+            value: String(parseNum(r.amount)),
+            disabled: locked,
+            "data-bind": bindPrefix + "." + idx + ".amount"
+          });
           inAmt.oninput = function () {
-            // FIX: do not rerender here (keeps input editable)
             r.amount = parseNum(inAmt.value);
-            tdTot.textContent = euro(parseNum(r.amount));
+            scheduleRerender();
           };
-          inAmt.onchange = function () { r.amount = parseNum(inAmt.value); rerender(); };
-          inAmt.onblur = function () { r.amount = parseNum(inAmt.value); rerender(); };
 
-          var inRem = el("input", { class: "eikon-input", type: "text", value: String(r.remark || ""), disabled: locked });
-          inRem.oninput = function () { r.remark = String(inRem.value || ""); };
-          inRem.onchange = function () { r.remark = String(inRem.value || ""); rerender(); };
-          inRem.onblur = function () { r.remark = String(inRem.value || ""); rerender(); };
+          var inRem = el("input", {
+            class: "eikon-input",
+            type: "text",
+            value: String(r.remark || ""),
+            disabled: locked,
+            "data-bind": bindPrefix + "." + idx + ".remark"
+          });
+          inRem.oninput = function () {
+            r.remark = String(inRem.value || "");
+            // remark doesn't need totals, but keep consistent
+            scheduleRerender();
+          };
 
           tdAmt.appendChild(inAmt);
           tdRem.appendChild(inRem);
 
           if ((title.indexOf("Cheques") >= 0 || title.indexOf("Paid Outs") >= 0) && rows.length > 1) {
             var btnDel = el("button", { class: "eikon-btn", text: "Remove", disabled: locked });
-            btnDel.onclick = function () { rows.splice(idx, 1); rerender(); };
+            btnDel.onclick = function () {
+              rows.splice(idx, 1);
+              scheduleRerender();
+            };
             tdAct.appendChild(btnDel);
           } else {
             tdAct.textContent = "";
@@ -1011,7 +1120,7 @@
     var btnSave = el("button", { class: "eikon-btn primary", text: "Save", "data-allow-when-locked": "0" });
     var btnPrintA4 = el("button", { class: "eikon-btn", text: "Print End of Day on A4", "data-allow-when-locked": "1" });
     var btnLock = el("button", { class: "eikon-btn", text: "Lock", "data-allow-when-locked": "0" });
-    var btnUnlock = el("button", { class: "eikon-btn", text: "Unlock", "data-allow-when-locked": "1" });
+    var btnUnlock = el("button", { class: "eikon-btn", text: "Unlock (Master Key)", "data-allow-when-locked": "1" });
     var btnAudit = el("button", { class: "eikon-btn", text: "Audit Log", "data-allow-when-locked": "1" });
 
     btnSave.onclick = doSave;
@@ -1037,6 +1146,20 @@
       ]);
     };
 
+    // Admin clear local data (prototype)
+    var btnClear = el("button", { class: "eikon-btn", text: "Admin: Clear Local EOD Data", "data-allow-when-locked": "1" });
+    btnClear.onclick = function () {
+      var pw = window.prompt("Master key required to clear ALL local EOD data:", "");
+      if (String(pw || "").trim() !== "6036") return toast("Denied", "Incorrect master key.");
+      var ok = window.confirm("This will delete ALL local EOD records, contacts, and audit log from this browser.\n\nContinue?");
+      if (!ok) return;
+      clearLocalEodData();
+      toast("Cleared", "Local EOD data cleared.");
+      // reload current date record after wipe
+      loadSelectedDate();
+      scheduleRerender();
+    };
+
     // Status line
     var statusLine = el("div", { style: "display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px;" });
     if (state.locked_at) statusLine.appendChild(statusPill("Locked", "good"));
@@ -1045,35 +1168,31 @@
     else statusLine.appendChild(statusPill("Not Saved", "bad"));
 
     // Header fields
-    var inDate = el("input", { class: "eikon-input eikon-slim-input", type: "date", value: state.date, "data-allow-when-locked": "1" });
+    var inDate = el("input", { class: "eikon-input eikon-slim-input", type: "date", value: state.date, "data-allow-when-locked": "1", "data-bind": "meta.date" });
     inDate.onchange = function () {
-      var next = String(inDate.value || "").trim();
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(next)) return;
-      // FIX: load selected date into persistent state
-      _state = loadRecordIntoState(next, state.location_name, createdBy);
-      rerender();
+      state.date = inDate.value;
+      dbg("[eod] date change", state.date);
+      loadSelectedDate();
+      scheduleRerender();
     };
 
-    var selTime = el("select", { class: "eikon-select eikon-slim-input", "data-allow-when-locked": "0" }, [
+    var selTime = el("select", { class: "eikon-select eikon-slim-input", "data-allow-when-locked": "0", "data-bind": "meta.time_of_day" }, [
       el("option", { value: "AM", text: "AM" }),
       el("option", { value: "PM", text: "PM" })
     ]);
     selTime.value = state.time_of_day || "AM";
-    selTime.onchange = function () { state.time_of_day = selTime.value; };
+    selTime.onchange = function () { state.time_of_day = selTime.value; scheduleRerender(); };
 
-    var inStaff = el("input", { class: "eikon-input", type: "text", value: state.staff || "", placeholder: "Required", "data-allow-when-locked": "0" });
-    inStaff.oninput = function () { state.staff = inStaff.value; };
-    inStaff.onblur = function () { state.staff = inStaff.value; };
+    var inStaff = el("input", { class: "eikon-input", type: "text", value: state.staff || "", placeholder: "Required", "data-allow-when-locked": "0", "data-bind": "meta.staff" });
+    inStaff.oninput = function () { state.staff = inStaff.value; /* no need to re-render */ };
 
     var inLoc = el("input", { class: "eikon-input", type: "text", value: state.location_name || "", disabled: true, "data-allow-when-locked": "1" });
 
-    var inFloat = el("input", { class: "eikon-input eikon-slim-input", type: "number", value: String(parseNum(state.float_amount)), "data-allow-when-locked": "0" });
-    inFloat.oninput = function () { state.float_amount = parseNum(inFloat.value); };
-    inFloat.onchange = function () { state.float_amount = parseNum(inFloat.value); rerender(); };
-    inFloat.onblur = function () { state.float_amount = parseNum(inFloat.value); rerender(); };
+    var inFloat = el("input", { class: "eikon-input eikon-slim-input", type: "number", value: String(parseNum(state.float_amount)), "data-allow-when-locked": "0", "data-bind": "meta.float_amount" });
+    inFloat.oninput = function () { state.float_amount = parseNum(inFloat.value); scheduleRerender(); };
 
     var topRow = el("div", { class: "eikon-row", style: "gap:10px;flex-wrap:wrap;" }, [
-      btnSave, btnReport, btnPrintA4, (isLocked() ? btnUnlock : btnLock), btnAudit
+      btnSave, btnReport, btnPrintA4, btnLock, btnUnlock, btnAudit, btnClear
     ]);
 
     var metaRow = el("div", { class: "eikon-row", style: "gap:12px;flex-wrap:wrap;margin-top:10px;" }, [
@@ -1092,18 +1211,18 @@
     // Payments section (X / EPOS / Cheques / Paid Outs)
     var paymentsWrap = el("div", { style: "display:grid;grid-template-columns:1fr;gap:12px;margin-top:12px;" });
 
-    paymentsWrap.appendChild(makePaymentTable("X Readings", state.x, 4, null, isLocked()));
-    paymentsWrap.appendChild(makePaymentTable("EPOS", state.epos, 4, null, isLocked()));
+    paymentsWrap.appendChild(makePaymentTable("X Readings", state.x, 4, null, isLocked(), "x"));
+    paymentsWrap.appendChild(makePaymentTable("EPOS", state.epos, 4, null, isLocked(), "epos"));
 
     paymentsWrap.appendChild(makePaymentTable("Cheques", state.cheques, 2, function () {
       state.cheques.push({ amount: 0, remark: "" });
-      rerender();
-    }, isLocked()));
+      scheduleRerender();
+    }, isLocked(), "cheques"));
 
     paymentsWrap.appendChild(makePaymentTable("Paid Outs", state.paid_outs, 1, function () {
       state.paid_outs.push({ amount: 0, remark: "" });
-      rerender();
-    }, isLocked()));
+      scheduleRerender();
+    }, isLocked(), "paid_outs"));
 
     // Cash count + BOV deposit + summaries
     var cashCard = el("div", { class: "eikon-card" });
@@ -1113,7 +1232,7 @@
 
     var cashGrid = el("div", { style: "display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px;" });
 
-    // Cash denomination table
+    // Cash denom table
     var leftCash = el("div", {});
     var tblCash = el("table", { style: "width:100%;border-collapse:collapse;" });
     tblCash.appendChild(el("thead", {}, [
@@ -1130,13 +1249,8 @@
       var tdC = el("td", { style: "padding:8px;border-bottom:1px solid rgba(255,255,255,.06);text-align:right;" });
       var tdT = el("td", { style: "padding:8px;border-bottom:1px solid rgba(255,255,255,.06);text-align:right;white-space:nowrap;" });
 
-      var inp = el("input", { class: "eikon-input eikon-slim-input", type: "number", value: String(parseNum(state.cash[key])), disabled: isLocked() });
-      inp.oninput = function () {
-        state.cash[key] = parseNum(inp.value);
-        tdT.textContent = euro(parseNum(state.cash[key]) * denom);
-      };
-      inp.onchange = function () { state.cash[key] = parseNum(inp.value); rerender(); };
-      inp.onblur = function () { state.cash[key] = parseNum(inp.value); rerender(); };
+      var inp = el("input", { class: "eikon-input eikon-slim-input", type: "number", value: String(parseNum(state.cash[key])), disabled: isLocked(), "data-bind": "cash." + key });
+      inp.oninput = function () { state.cash[key] = parseNum(inp.value); scheduleRerender(); };
 
       tdC.appendChild(inp);
       tdT.textContent = euro(parseNum(state.cash[key]) * denom);
@@ -1154,17 +1268,14 @@
     tb.appendChild(cashRow("€10", 10, "n10"));
     tb.appendChild(cashRow("€5", 5, "n5"));
 
-    // Coins
     (function () {
       var tr = el("tr", {}, []);
       var tdD = el("td", { style: "padding:8px;border-bottom:1px solid rgba(255,255,255,.06);", text: "Coins" });
       var tdC = el("td", { style: "padding:8px;border-bottom:1px solid rgba(255,255,255,.06);text-align:right;" });
       var tdT = el("td", { style: "padding:8px;border-bottom:1px solid rgba(255,255,255,.06);text-align:right;white-space:nowrap;" });
 
-      var inp = el("input", { class: "eikon-input eikon-slim-input", type: "number", value: String(parseNum(state.cash.coins_total)), disabled: isLocked() });
-      inp.oninput = function () { state.cash.coins_total = parseNum(inp.value); tdT.textContent = euro(parseNum(state.cash.coins_total)); };
-      inp.onchange = function () { state.cash.coins_total = parseNum(inp.value); rerender(); };
-      inp.onblur = function () { state.cash.coins_total = parseNum(inp.value); rerender(); };
+      var inp = el("input", { class: "eikon-input eikon-slim-input", type: "number", value: String(parseNum(state.cash.coins_total)), disabled: isLocked(), "data-bind": "cash.coins_total" });
+      inp.oninput = function () { state.cash.coins_total = parseNum(inp.value); scheduleRerender(); };
 
       tdC.appendChild(inp);
       tdT.textContent = euro(parseNum(state.cash.coins_total));
@@ -1187,22 +1298,24 @@
     rightBov.appendChild(el("div", { style: "font-weight:900;color:#e9eef7;margin-bottom:6px;", text: "BOV Cash Deposit" }));
 
     var contacts = loadContacts();
-    var selContact = el("select", { class: "eikon-select", disabled: isLocked() });
+    var selContact = el("select", { class: "eikon-select", disabled: isLocked(), "data-bind": "bov.contact_id" });
     selContact.appendChild(el("option", { value: "", text: "— Select Contact —" }));
     contacts.forEach(function (c) {
       var label = (c.phone ? (c.name + " (" + c.phone + ")") : c.name);
       selContact.appendChild(el("option", { value: c.id, text: label }));
     });
     selContact.value = state.contact_id || "";
-    selContact.onchange = function () { state.contact_id = selContact.value; };
+    selContact.onchange = function () { state.contact_id = selContact.value; scheduleRerender(); };
 
     var btnManageContacts = el("button", { class: "eikon-btn", text: "Manage Contacts", disabled: isLocked() });
-    btnManageContacts.onclick = function () { showContactsManager(function () { rerender(); }); };
+    btnManageContacts.onclick = function () {
+      showContactsManager(function () {
+        scheduleRerender();
+      });
+    };
 
-    var inBag = el("input", { class: "eikon-input", type: "text", value: state.bag_number || "", disabled: isLocked() });
-    inBag.oninput = function () { state.bag_number = inBag.value; };
-    inBag.onchange = function () { state.bag_number = inBag.value; rerender(); };
-    inBag.onblur = function () { state.bag_number = inBag.value; rerender(); };
+    var inBag = el("input", { class: "eikon-input", type: "text", value: state.bag_number || "", disabled: isLocked(), "data-bind": "bov.bag_number" });
+    inBag.oninput = function () { state.bag_number = inBag.value; /* don't need rerender */ };
 
     rightBov.appendChild(el("div", { class: "eikon-row", style: "gap:10px;flex-wrap:wrap;align-items:flex-end;" }, [
       field("Bag Number", inBag),
@@ -1225,10 +1338,8 @@
       var tdC = el("td", { style: "padding:8px;border-bottom:1px solid rgba(255,255,255,.06);text-align:right;" });
       var tdT = el("td", { style: "padding:8px;border-bottom:1px solid rgba(255,255,255,.06);text-align:right;white-space:nowrap;" });
 
-      var inp = el("input", { class: "eikon-input eikon-slim-input", type: "number", value: String(parseNum(state.deposit[key])), disabled: isLocked() });
-      inp.oninput = function () { state.deposit[key] = parseNum(inp.value); tdT.textContent = euro(parseNum(state.deposit[key]) * denom); };
-      inp.onchange = function () { state.deposit[key] = parseNum(inp.value); rerender(); };
-      inp.onblur = function () { state.deposit[key] = parseNum(inp.value); rerender(); };
+      var inp = el("input", { class: "eikon-input eikon-slim-input", type: "number", value: String(parseNum(state.deposit[key])), disabled: isLocked(), "data-bind": "deposit." + key });
+      inp.oninput = function () { state.deposit[key] = parseNum(inp.value); scheduleRerender(); };
 
       tdC.appendChild(inp);
       tdT.textContent = euro(parseNum(state.deposit[key]) * denom);
@@ -1313,32 +1424,55 @@
       for (var z = 0; z < allHdrInputs.length; z++) {
         var t = allHdrInputs[z];
         var allow = t && t.dataset && t.dataset.allowWhenLocked === "1";
-        if (!allow && t !== btnPrintA4 && t !== btnReport && t !== btnAudit && t !== btnUnlock && t !== inDate) {
+        if (!allow && t !== btnPrintA4 && t !== btnReport && t !== btnAudit && t !== btnUnlock && t !== btnClear && t !== inDate) {
           t.disabled = true;
         }
       }
       btnSave.disabled = true;
       btnLock.disabled = true;
+      btnUnlock.disabled = false;
     } else {
       btnSave.disabled = false;
       btnLock.disabled = false;
+      btnUnlock.disabled = true;
     }
+
+    // Expose a small debug hook (optional)
+    try {
+      window.__EIKON_EOD_DEBUG__ = {
+        getState: function () { return JSON.parse(JSON.stringify(state)); },
+        listAll: function () { return loadAllEods(); },
+        clearLocal: function () { clearLocalEodData(); }
+      };
+    } catch (e) {}
   }
 
   // rerender trampoline
-  function rerender() {
-    try { render(_mountRef); } catch (e) { try { E.error("[eod] render failed", e); } catch (e2) {} }
-  }
+  var _mountRef = null;
 
-  // Register module
+  // Register module (FIX: core passes ctx object, not mount directly)
   E.registerModule({
     id: "endofday",
     name: "End Of Day",
     icon: "clock",
-    render: function (mount) {
-      _mountRef = mount;
-      return render(mount);
+    render: function (ctx) {
+      // ctx = { E, mount, user }
+      var mountEl = ctx && ctx.mount ? ctx.mount : ctx;
+      _mountRef = mountEl;
+      return render(mountEl);
     }
   });
 
-})(); 
+  /*
+    Server-side DB clear (you asked for a query):
+    Your real table names may differ; adjust accordingly.
+
+    -- Example (generic):
+    DELETE FROM eod_records;
+    DELETE FROM eod_contacts;
+    DELETE FROM eod_audit;
+
+    -- If you need to clear by org/location:
+    DELETE FROM eod_records WHERE org_id = ? AND location_id = ?;
+  */
+})();
