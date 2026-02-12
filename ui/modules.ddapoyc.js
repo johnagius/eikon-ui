@@ -557,9 +557,7 @@
       reportPreview.innerHTML = "";
 
       if (!state.report || state.report.ok !== true) {
-        reportPreview.appendChild(
-          el(ctx.doc, "div", { class: "eikon-dda-hint", html: "No report loaded. Click Generate." }, [])
-        );
+        reportPreview.appendChild(el(ctx.doc, "div", { class: "eikon-dda-hint", html: "No report loaded. Click Generate." }, []));
         return;
       }
 
@@ -580,15 +578,10 @@
         var list = byMonth.get(ym) || [];
 
         reportPreview.appendChild(
-          el(
-            ctx.doc,
-            "h3",
-            {
-              text: ym,
-              style: "margin:14px 0 8px 0;font-size:14px;font-weight:1000;",
-            },
-            []
-          )
+          el(ctx.doc, "h3", {
+            text: ym,
+            style: "margin:14px 0 8px 0;font-size:14px;font-weight:1000;",
+          }, [])
         );
 
         var tableWrap = el(ctx.doc, "div", { class: "eikon-dda-table-wrap" }, []);
@@ -705,14 +698,7 @@
       html += "</head><body>";
       html += "<button onclick='window.print()' style='margin-bottom:12px;padding:8px 10px;'>Print</button>";
       html += "<h1>" + escapeHtml(org) + " — DDA POYC Report</h1>";
-      html +=
-        "<p class='meta'>" +
-        (loc ? "Location: " + escapeHtml(loc) + "<br/>" : "") +
-        "Range: " +
-        escapeHtml(from) +
-        " to " +
-        escapeHtml(to) +
-        "</p>";
+      html += "<p class='meta'>" + (loc ? "Location: " + escapeHtml(loc) + "<br/>" : "") + "Range: " + escapeHtml(from) + " to " + escapeHtml(to) + "</p>";
 
       if (!entries.length) {
         html += "<p>No entries for the selected date range.</p>";
@@ -722,8 +708,7 @@
           var list = byMonth.get(ym) || [];
           html += "<h2 style='font-size:13px;margin:16px 0 6px 0;'>" + escapeHtml(ym) + "</h2>";
           html += "<table><thead><tr>";
-          html +=
-            "<th>Date</th><th>Client</th><th>ID Card</th><th>Address</th><th>Medicine (name &amp; dose)</th><th>Qty</th><th>Doctor</th><th>Reg No.</th><th>Prescription Serial No.</th>";
+          html += "<th>Date</th><th>Client</th><th>ID Card</th><th>Address</th><th>Medicine (name &amp; dose)</th><th>Qty</th><th>Doctor</th><th>Reg No.</th><th>Prescription Serial No.</th>";
           html += "</tr></thead><tbody>";
           for (var i = 0; i < list.length; i++) {
             var r = list[i] || {};
@@ -1139,15 +1124,16 @@
       return;
     }
 
-    // ✅ FIX: provide BOTH iconSvg and icon (some sidebars read icon)
+    // IMPORTANT FIX:
+    // Do NOT pass iconSvg here, because the sidebar is currently rendering it as text for this module.
+    // Leaving it out makes it behave like dda-sales (sidebar icon shows correctly).
     api.registerModule({
       id: mod.id,
       title: mod.title,
-      iconSvg: ICON_SVG,
-      icon: ICON_SVG,
       render: mod.render,
       destroy: mod.destroy,
     });
+
     log("registered via window.EIKON.registerModule()");
   }
 
