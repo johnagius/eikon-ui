@@ -1,2772 +1,1055 @@
-function nowIso() {
-  return new Date().toISOString();
-}
+/* module.ddasales.js
+   Eikon UI Module — DDA Sales Register
+   Works with Cloudflare Worker endpoints:
+     GET    /dda-sales/entries?month=YYYY-MM&q=...
+     POST   /dda-sales/entries
+     PUT    /dda-sales/entries/:id
+     DELETE /dda-sales/entries/:id
+     GET    /dda-sales/report/html?from=YYYY-MM-DD&to=YYYY-MM-DD
+*/
 
-function jsonResponse(data, status = 200, extraHeaders = {}) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: {
-      "Content-Type": "application/json",
-      ...extraHeaders
-    }
-  });
-}
+(function () {
+  "use strict";
 
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, (c) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;"
-  }[c]));
-}
+  var MODULE_KEY = "dda-sales";
+  var STYLE_ID = "eikon-style-dda-sales";
 
-function parseAllowedOrigins(env) {
-  const raw = (env.ALLOWED_ORIGINS || "").trim();
-  if (!raw) return [];
-  return raw.split(",").map(s => s.trim()).filter(Boolean);
-}
-
-function corsHeadersForRequest(request, env) {
-  const origin = request.headers.get("Origin") || "";
-  const allowed = parseAllowedOrigins(env);
-  const selfOrigin = new URL(request.url).origin;
-
-  // If Origin is missing (same-origin requests often omit it), allow.
-  if (!origin) {
-    return { ok: true, headers: { "Vary": "Origin" } };
+  function safeString(v) {
+    return (v === null || v === undefined) ? "" : String(v);
   }
 
-  // Always allow same-origin
-  if (origin === selfOrigin) {
+  function pad2(n) {
+    n = Number(n);
+    return (n < 10 ? "0" : "") + String(n);
+  }
+
+  function todayYmdLocal() {
+    var d = new Date();
+    return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
+  }
+
+  function currentYmLocal() {
+    var d = new Date();
+    return d.getFullYear() + "-" + pad2(d.getMonth() + 1);
+  }
+
+  function isValidYm(s) {
+    return /^\d{4}-\d{2}$/.test(String(s || "").trim());
+  }
+
+  function isValidYmd(s) {
+    return /^\d{4}-\d{2}-\d{2}$/.test(String(s || "").trim());
+  }
+
+  function monthStartEnd(ym) {
+    var m = String(ym || "").trim();
+    if (!isValidYm(m)) return null;
+    var parts = m.split("-");
+    var y = parseInt(parts[0], 10);
+    var mo = parseInt(parts[1], 10);
+    if (!Number.isFinite(y) || !Number.isFinite(mo) || mo < 1 || mo > 12) return null;
+    var start = new Date(y, mo - 1, 1);
+    var end = new Date(y, mo, 0);
     return {
-      ok: true,
-      headers: {
-        "Access-Control-Allow-Origin": origin,
-        "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS,HEAD",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
-        "Access-Control-Max-Age": "86400",
-        "Vary": "Origin"
-      }
+      from: start.getFullYear() + "-" + pad2(start.getMonth() + 1) + "-" + pad2(start.getDate()),
+      to: end.getFullYear() + "-" + pad2(end.getMonth() + 1) + "-" + pad2(end.getDate())
     };
   }
 
-  if (allowed.length === 0) {
-    return { ok: false, headers: { "Vary": "Origin" } };
+  function normalizeIntPositive(n) {
+    if (n === null || n === undefined) return null;
+    if (n === "") return null;
+    var v = Number(n);
+    if (!Number.isFinite(v)) return null;
+    if (!Number.isInteger(v)) return null;
+    if (v < 1) return null;
+    return v;
   }
 
-  const matched = allowed.includes(origin);
-  if (!matched) {
-    return { ok: false, headers: { "Vary": "Origin" } };
-  }
-
-  return {
-    ok: true,
-    headers: {
-      "Access-Control-Allow-Origin": origin,
-      "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS,HEAD",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
-      "Access-Control-Max-Age": "86400",
-      "Vary": "Origin"
-    }
-  };
-}
-
-function base64FromBytes(bytes) {
-  let binary = "";
-  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-  return btoa(binary);
-}
-
-function bytesFromBase64(b64) {
-  const bin = atob(b64);
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
-}
-
-function base64UrlFromBytes(bytes) {
-  return base64FromBytes(bytes).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
-}
-
-function constantTimeEqual(a, b) {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= (a[i] ^ b[i]);
-  return diff === 0;
-}
-
-async function sha256B64FromString(s) {
-  const enc = new TextEncoder();
-  const digest = await crypto.subtle.digest("SHA-256", enc.encode(s));
-  return base64FromBytes(new Uint8Array(digest));
-}
-
-async function pbkdf2Hash(password, saltBytes, iterations) {
-  const enc = new TextEncoder();
-  const keyMaterial = await crypto.subtle.importKey(
-    "raw",
-    enc.encode(password),
-    { name: "PBKDF2" },
-    false,
-    ["deriveBits"]
-  );
-
-  const bits = await crypto.subtle.deriveBits(
-    {
-      name: "PBKDF2",
-      hash: "SHA-256",
-      salt: saltBytes,
-      iterations
-    },
-    keyMaterial,
-    256
-  );
-
-  return new Uint8Array(bits);
-}
-
-async function readJson(request) {
-  const ct = request.headers.get("Content-Type") || "";
-  if (!ct.toLowerCase().includes("application/json")) {
-    throw new Error("Expected application/json");
-  }
-  return await request.json();
-}
-
-async function dbFirst(env, sql, bind = []) {
-  const stmt = env.DB.prepare(sql);
-  const res = bind.length ? await stmt.bind(...bind).first() : await stmt.first();
-  return res || null;
-}
-
-async function dbAll(env, sql, bind = []) {
-  const stmt = env.DB.prepare(sql);
-  const res = bind.length ? await stmt.bind(...bind).all() : await stmt.all();
-  return res.results || [];
-}
-
-async function dbRun(env, sql, bind = []) {
-  const stmt = env.DB.prepare(sql);
-  const res = bind.length ? await stmt.bind(...bind).run() : await stmt.run();
-  return res;
-}
-
-async function writeAudit(env, orgId, userId, action, entityType, entityId, detailsObj) {
-  const detailsJson = JSON.stringify(detailsObj || {});
-  await dbRun(
-    env,
-    `INSERT INTO audit_log (org_id, user_id, action, entity_type, entity_id, details_json, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`,
-    [orgId, userId || null, action, entityType, entityId || "", detailsJson]
-  );
-}
-
-function requireRole(user, roles) {
-  return user && roles.includes(user.role);
-}
-
-async function authFromRequest(request, env) {
-  const auth = request.headers.get("Authorization") || "";
-  const m = auth.match(/^Bearer\s+(.+)$/i);
-  if (!m) return null;
-
-  const token = m[1].trim();
-  if (!token) return null;
-
-  const tokenHashB64 = await sha256B64FromString(token);
-
-  const sess = await dbFirst(
-    env,
-    `SELECT
-       s.id AS session_id,
-       s.user_id,
-       s.expires_at,
-       u.org_id,
-       u.email,
-       u.full_name,
-       u.role,
-       u.is_active,
-       u.default_location_id
-     FROM sessions s
-     JOIN users u ON u.id = s.user_id
-     WHERE s.token_hash_b64 = ?`,
-    [tokenHashB64]
-  );
-
-  if (!sess) return null;
-  if (sess.is_active !== 1) return null;
-
-  const now = new Date();
-  const exp = new Date(sess.expires_at);
-  if (!(exp > now)) return null;
-
-  const locId = sess.default_location_id ? Number(sess.default_location_id) : null;
-  if (!locId) return null;
-
-  const loc = await dbFirst(env, "SELECT id, name FROM locations WHERE id = ? AND org_id = ?", [locId, sess.org_id]);
-  if (!loc) return null;
-
-  const org = await dbFirst(env, "SELECT id, name FROM orgs WHERE id = ?", [sess.org_id]);
-
-  return {
-    session_id: sess.session_id,
-    user_id: sess.user_id,
-    org_id: sess.org_id,
-    org_name: org ? org.name : "",
-    email: sess.email,
-    full_name: sess.full_name,
-    role: sess.role,
-    location_id: loc.id,
-    location_name: loc.name
-  };
-}
-
-function htmlPage(title, bodyHtml) {
-  return new Response(
-    `<!doctype html>
-<html>
-<head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>${escapeHtml(title)}</title>
-<style>
-  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:820px;margin:40px auto;padding:0 16px;}
-  .card{border:1px solid #ddd;border-radius:12px;padding:18px;margin-top:16px;}
-  label{display:block;margin-top:10px;font-weight:700;}
-  input{width:100%;padding:10px;border:1px solid #ccc;border-radius:10px;margin-top:6px;}
-  button{margin-top:16px;padding:10px 14px;border:0;border-radius:10px;background:#111;color:#fff;font-weight:800;cursor:pointer;}
-  code{background:#f6f6f6;padding:2px 6px;border-radius:6px;}
-  .ok{color:green;font-weight:800;}
-  .err{color:#b00020;font-weight:800;}
-</style>
-</head>
-<body>
-${bodyHtml}
-</body>
-</html>`,
-    { headers: { "Content-Type": "text/html; charset=utf-8" } }
-  );
-}
-
-async function parseForm(request) {
-  const ct = (request.headers.get("Content-Type") || "").toLowerCase();
-  if (!ct.includes("application/x-www-form-urlencoded") && !ct.includes("multipart/form-data")) {
-    return null;
-  }
-  const form = await request.formData();
-  const obj = {};
-  for (const [k, v] of form.entries()) obj[k] = String(v);
-  return obj;
-}
-
-async function handleBootstrapGet(request, env) {
-  const usersCountRow = await dbFirst(env, "SELECT COUNT(*) AS c FROM users", []);
-  const hasUsers = usersCountRow && usersCountRow.c > 0;
-
-  const body = `
-<h1>Eikon API Bootstrap</h1>
-<div class="card">
-  <p>This creates the <b>first</b> org, location, and admin user.</p>
-  <p>Status: ${hasUsers ? `<span class="err">Bootstrap disabled (users already exist)</span>` : `<span class="ok">Ready</span>`}</p>
-  <form method="POST" action="/bootstrap">
-    <label>Bootstrap Token</label>
-    <input name="bootstrap_token" required />
-    <label>Org / Client Name</label>
-    <input name="org_name" required value="Demo Pharmacy"/>
-    <label>Default Location Name</label>
-    <input name="location_name" required value="Main Branch"/>
-    <label>Admin Email</label>
-    <input name="admin_email" required value="admin@example.com"/>
-    <label>Admin Full Name</label>
-    <input name="admin_full_name" required value="Admin"/>
-    <label>Admin Password</label>
-    <input name="admin_password" type="password" required />
-    <button type="submit" ${hasUsers ? "disabled" : ""}>Create Admin</button>
-  </form>
-  <p style="margin-top:12px;color:#555;">Note: location is tied to account (no switching).</p>
-</div>`;
-  return htmlPage("Bootstrap", body);
-}
-
-async function handleBootstrapPost(request, env) {
-  try {
-    const usersCountRow = await dbFirst(env, "SELECT COUNT(*) AS c FROM users", []);
-    const hasUsers = usersCountRow && usersCountRow.c > 0;
-    if (hasUsers) {
-      return htmlPage("Bootstrap", `<h1>Bootstrap disabled</h1><p class="err">Users already exist.</p>`);
-    }
-
-    let payload = await parseForm(request);
-    if (!payload) {
-      try { payload = await readJson(request); } catch { payload = {}; }
-    }
-
-    const bootstrapToken = (payload.bootstrap_token || "").trim();
-    const orgName = (payload.org_name || "").trim();
-    const locationName = (payload.location_name || "").trim();
-    const adminEmail = (payload.admin_email || "").trim().toLowerCase();
-    const adminFullName = (payload.admin_full_name || "").trim();
-    const adminPassword = (payload.admin_password || "").trim();
-
-    if (!bootstrapToken || !orgName || !locationName || !adminEmail || !adminPassword) {
-      return htmlPage("Bootstrap error", `<h1>Bootstrap error</h1><p class="err">Missing required fields.</p>`);
-    }
-
-    if ((env.BOOTSTRAP_TOKEN || "").trim() !== bootstrapToken) {
-      return htmlPage("Bootstrap error", `<h1>Bootstrap error</h1><p class="err">Invalid bootstrap token.</p>`);
-    }
-
-    const orgRow = await dbFirst(
-      env,
-      "INSERT INTO orgs (name, created_at) VALUES (?, datetime('now')) RETURNING id",
-      [orgName]
-    );
-    const orgId = orgRow.id;
-
-    const locRow = await dbFirst(
-      env,
-      "INSERT INTO locations (org_id, name, created_at) VALUES (?, ?, datetime('now')) RETURNING id",
-      [orgId, locationName]
-    );
-    const locationId = locRow.id;
-
-    const salt = crypto.getRandomValues(new Uint8Array(16));
-    const iters = 100000;
-    const hash = await pbkdf2Hash(adminPassword, salt, iters);
-    const saltB64 = base64FromBytes(salt);
-    const hashB64 = base64FromBytes(hash);
-
-    const userRow = await dbFirst(
-      env,
-      `INSERT INTO users (org_id, email, full_name, role, pass_salt_b64, pass_hash_b64, pass_iters, is_active, default_location_id, created_at)
-       VALUES (?, ?, ?, 'admin', ?, ?, ?, 1, ?, datetime('now'))
-       RETURNING id`,
-      [orgId, adminEmail, adminFullName, saltB64, hashB64, iters, locationId]
-    );
-    const userId = userRow.id;
-
-    await writeAudit(env, orgId, userId, "BOOTSTRAP_CREATE", "org", String(orgId), { org_name: orgName });
-    await writeAudit(env, orgId, userId, "BOOTSTRAP_CREATE", "location", String(locationId), { location_name: locationName });
-    await writeAudit(env, orgId, userId, "BOOTSTRAP_CREATE", "user", String(userId), { email: adminEmail, role: "admin", default_location_id: locationId });
-
-    return htmlPage(
-      "Bootstrap complete",
-      `<h1>Bootstrap complete</h1>
-<div class="card">
-  <p class="ok">Created org, location, and admin user.</p>
-  <p><b>Org ID:</b> ${orgId}</p>
-  <p><b>Location ID:</b> ${locationId}</p>
-  <p><b>Admin Email:</b> ${escapeHtml(adminEmail)}</p>
-  <p>Next: log in via <code>POST /auth/login</code>.</p>
-</div>`
-    );
-  } catch (e) {
-    return htmlPage(
-      "Bootstrap error",
-      `<h1>Bootstrap error</h1>
-<p class="err">The Worker caught an exception.</p>
-<pre style="white-space:pre-wrap;background:#f6f6f6;padding:12px;border-radius:10px;border:1px solid #ddd;">${escapeHtml(e && (e.stack || e.message || String(e)))}</pre>`
-    );
-  }
-}
-
-async function handleLogin(request, env, corsOkHeaders) {
-  const body = await readJson(request);
-  const email = (body.email || "").trim().toLowerCase();
-  const password = (body.password || "").trim();
-
-  if (!email || !password) {
-    return jsonResponse({ ok: false, error: "Missing email or password" }, 400, corsOkHeaders);
-  }
-
-  const user = await dbFirst(
-    env,
-    `SELECT id, org_id, email, full_name, role, pass_salt_b64, pass_hash_b64, pass_iters, is_active, default_location_id
-     FROM users WHERE email = ?`,
-    [email]
-  );
-
-  if (!user || user.is_active !== 1) {
-    return jsonResponse({ ok: false, error: "Invalid credentials" }, 401, corsOkHeaders);
-  }
-
-  const saltBytes = bytesFromBase64(user.pass_salt_b64);
-  const derived = await pbkdf2Hash(password, saltBytes, user.pass_iters);
-  const stored = bytesFromBase64(user.pass_hash_b64);
-
-  if (!constantTimeEqual(derived, stored)) {
-    return jsonResponse({ ok: false, error: "Invalid credentials" }, 401, corsOkHeaders);
-  }
-
-  const locId = user.default_location_id ? Number(user.default_location_id) : null;
-  if (!locId) return jsonResponse({ ok: false, error: "Account has no assigned location" }, 403, corsOkHeaders);
-
-  const loc = await dbFirst(env, "SELECT id, name FROM locations WHERE id = ? AND org_id = ?", [locId, user.org_id]);
-  if (!loc) return jsonResponse({ ok: false, error: "Assigned location invalid" }, 403, corsOkHeaders);
-
-  const ttl = parseInt(env.SESSION_TTL_SECONDS || "2592000", 10);
-  const tokenRaw = crypto.getRandomValues(new Uint8Array(32));
-  const token = base64UrlFromBytes(tokenRaw);
-  const tokenHashB64 = await sha256B64FromString(token);
-  const exp = new Date(Date.now() + ttl * 1000).toISOString();
-
-  await dbRun(
-    env,
-    "INSERT INTO sessions (user_id, token_hash_b64, expires_at, created_at) VALUES (?, ?, ?, datetime('now'))",
-    [user.id, tokenHashB64, exp]
-  );
-
-  await writeAudit(env, user.org_id, user.id, "LOGIN", "user", String(user.id), { email: user.email });
-
-  return jsonResponse(
-    {
-      ok: true,
-      token,
-      user: {
-        id: user.id,
-        org_id: user.org_id,
-        email: user.email,
-        full_name: user.full_name,
-        role: user.role,
-        location_id: loc.id,
-        location_name: loc.name,
-        org_name: (await dbFirst(env, "SELECT name FROM orgs WHERE id = ?", [user.org_id]))?.name || ""
-      }
-    },
-    200,
-    corsOkHeaders
-  );
-}
-
-async function handleMe(env, corsOkHeaders, authUser) {
-  return jsonResponse({ ok: true, user: authUser }, 200, corsOkHeaders);
-}
-
-function isValidYmd(s) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(String(s || "").trim());
-}
-
-function isValidYm(s) {
-  return /^\d{4}-\d{2}$/.test(String(s || "").trim());
-}
-
-function isValidHm(s) {
-  return /^([01]\d|2[0-3]):[0-5]\d$/.test(String(s || "").trim());
-}
-
-function clampToOneDecimal(n) {
-  if (n === null || n === undefined) return null;
-  if (n === "") return null;
-  const v = Number(n);
-  if (!Number.isFinite(v)) return null;
-  return Math.round(v * 10) / 10;
-}
-
-function monthRange(yyyyMm) {
-  const m = String(yyyyMm || "").trim();
-  if (!/^\d{4}-\d{2}$/.test(m)) return null;
-  const [y, mo] = m.split("-").map(n => parseInt(n, 10));
-  const start = new Date(Date.UTC(y, mo - 1, 1));
-  const end = new Date(Date.UTC(y, mo, 1));
-  return {
-    startStr: start.toISOString().slice(0, 10),
-    endStr: end.toISOString().slice(0, 10)
-  };
-}
-
-async function ensureDefaultTempDevicesIfMissing(env, authUser) {
-  const existing = await dbAll(
-    env,
-    "SELECT id FROM temperature_devices WHERE org_id = ? AND location_id = ? AND active = 1",
-    [authUser.org_id, authUser.location_id]
-  );
-  if (existing.length > 0) return;
-
-  if (!requireRole(authUser, ["admin"])) return;
-
-  const defaults = [
-    { name: "Pharmacy", device_type: "room", min_limit: 15, max_limit: 25 },
-    { name: "Pharmacy Fridge", device_type: "fridge", min_limit: 2, max_limit: 8 }
-  ];
-
-  for (const d of defaults) {
-    await dbRun(
-      env,
-      `INSERT INTO temperature_devices (org_id, location_id, name, device_type, min_limit, max_limit, active, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'))`,
-      [authUser.org_id, authUser.location_id, d.name, d.device_type, d.min_limit, d.max_limit]
-    );
-  }
-
-  await writeAudit(env, authUser.org_id, authUser.user_id, "TEMP_DEFAULT_DEVICES_CREATE", "location", String(authUser.location_id), {});
-}
-
-async function handleTempDevicesList(request, env, corsOkHeaders, authUser) {
-  await ensureDefaultTempDevicesIfMissing(env, authUser);
-
-  const includeInactive = (new URL(request.url)).searchParams.get("include_inactive") === "1";
-
-  const devices = await dbAll(
-    env,
-    `SELECT id, name, device_type, min_limit, max_limit, active, created_at, updated_at
-     FROM temperature_devices
-     WHERE org_id = ? AND location_id = ?
-       ${includeInactive ? "" : "AND active = 1"}
-     ORDER BY active DESC, id ASC`,
-    [authUser.org_id, authUser.location_id]
-  );
-
-  return jsonResponse({ ok: true, devices }, 200, corsOkHeaders);
-}
-
-async function handleTempDevicesCreate(request, env, corsOkHeaders, authUser) {
-  if (!requireRole(authUser, ["admin"])) {
-    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
-  }
-
-  const body = await readJson(request);
-  const name = (body.name || "").trim();
-  const deviceType = (body.device_type || "other").trim();
-  const minLimit = body.min_limit === null || body.min_limit === undefined ? null : Number(body.min_limit);
-  const maxLimit = body.max_limit === null || body.max_limit === undefined ? null : Number(body.max_limit);
-
-  if (!name) return jsonResponse({ ok: false, error: "Missing name" }, 400, corsOkHeaders);
-  if (!["room", "fridge", "other"].includes(deviceType)) return jsonResponse({ ok: false, error: "Invalid device_type" }, 400, corsOkHeaders);
-
-  const row = await dbFirst(
-    env,
-    `INSERT INTO temperature_devices (org_id, location_id, name, device_type, min_limit, max_limit, active, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'))
-     RETURNING id`,
-    [authUser.org_id, authUser.location_id, name, deviceType, minLimit, maxLimit]
-  );
-
-  await writeAudit(env, authUser.org_id, authUser.user_id, "TEMP_DEVICE_CREATE", "temperature_devices", String(row.id), { name, device_type: deviceType });
-
-  return jsonResponse({ ok: true, device_id: row.id }, 200, corsOkHeaders);
-}
-
-async function handleTempDevicesUpdate(request, env, corsOkHeaders, authUser, deviceId) {
-  if (!requireRole(authUser, ["admin"])) {
-    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
-  }
-
-  const body = await readJson(request);
-  const name = body.name !== undefined ? String(body.name || "").trim() : undefined;
-  const deviceType = body.device_type !== undefined ? String(body.device_type || "").trim() : undefined;
-  const minLimit = body.min_limit !== undefined ? (body.min_limit === null ? null : Number(body.min_limit)) : undefined;
-  const maxLimit = body.max_limit !== undefined ? (body.max_limit === null ? null : Number(body.max_limit)) : undefined;
-  const active = body.active !== undefined ? (body.active ? 1 : 0) : undefined;
-
-  const existing = await dbFirst(
-    env,
-    `SELECT id, name, device_type, min_limit, max_limit, active
-     FROM temperature_devices
-     WHERE id = ? AND org_id = ? AND location_id = ?`,
-    [deviceId, authUser.org_id, authUser.location_id]
-  );
-  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
-
-  const newName = name !== undefined ? name : existing.name;
-  const newType = deviceType !== undefined ? deviceType : existing.device_type;
-  const newMin = minLimit !== undefined ? minLimit : existing.min_limit;
-  const newMax = maxLimit !== undefined ? maxLimit : existing.max_limit;
-  const newActive = active !== undefined ? active : existing.active;
-
-  if (!newName) return jsonResponse({ ok: false, error: "Name cannot be empty" }, 400, corsOkHeaders);
-  if (!["room", "fridge", "other"].includes(newType)) return jsonResponse({ ok: false, error: "Invalid device_type" }, 400, corsOkHeaders);
-
-  await dbRun(
-    env,
-    `UPDATE temperature_devices
-     SET name = ?, device_type = ?, min_limit = ?, max_limit = ?, active = ?, updated_at = datetime('now')
-     WHERE id = ? AND org_id = ? AND location_id = ?`,
-    [newName, newType, newMin, newMax, newActive, deviceId, authUser.org_id, authUser.location_id]
-  );
-
-  await writeAudit(env, authUser.org_id, authUser.user_id, "TEMP_DEVICE_UPDATE", "temperature_devices", String(deviceId), {
-    name: newName,
-    device_type: newType,
-    min_limit: newMin,
-    max_limit: newMax,
-    active: newActive
-  });
-
-  return jsonResponse({ ok: true }, 200, corsOkHeaders);
-}
-
-async function assertDeviceBelongsActive(env, orgId, locationId, deviceId) {
-  const row = await dbFirst(
-    env,
-    `SELECT id, name, device_type, min_limit, max_limit, active
-     FROM temperature_devices
-     WHERE id = ? AND org_id = ? AND location_id = ? AND active = 1`,
-    [deviceId, orgId, locationId]
-  );
-  return row || null;
-}
-
-async function handleTempEntriesList(request, env, corsOkHeaders, authUser, url) {
-  const month = (url.searchParams.get("month") || "").trim();
-  const range = monthRange(month);
-  if (!range) return jsonResponse({ ok: false, error: "Missing/invalid month (YYYY-MM)" }, 400, corsOkHeaders);
-
-  const entries = await dbAll(
-    env,
-    `SELECT
-       e.id,
-       e.entry_date,
-       e.min_temp,
-       e.max_temp,
-       e.notes,
-       e.created_by,
-       e.created_at,
-       e.updated_at,
-       d.id AS device_id,
-       d.name AS device_name,
-       d.device_type,
-       d.min_limit,
-       d.max_limit,
-       d.active AS device_active
-     FROM temperature_entries e
-     JOIN temperature_devices d ON d.id = e.device_id
-     WHERE e.org_id = ?
-       AND e.location_id = ?
-       AND e.entry_date >= ?
-       AND e.entry_date < ?
-     ORDER BY e.entry_date DESC, d.id ASC`,
-    [authUser.org_id, authUser.location_id, range.startStr, range.endStr]
-  );
-
-  return jsonResponse({ ok: true, entries }, 200, corsOkHeaders);
-}
-
-async function handleTempEntriesUpsert(request, env, corsOkHeaders, authUser) {
-  if (!requireRole(authUser, ["admin", "staff"])) {
-    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
-  }
-
-  await ensureDefaultTempDevicesIfMissing(env, authUser);
-
-  const body = await readJson(request);
-  const deviceId = parseInt(body.device_id, 10);
-  const entryDate = (body.entry_date || "").trim();
-  const minTemp = clampToOneDecimal(body.min_temp);
-  const maxTemp = clampToOneDecimal(body.max_temp);
-  const notes = (body.notes || "").trim();
-
-  if (!deviceId) return jsonResponse({ ok: false, error: "Missing device_id" }, 400, corsOkHeaders);
-  if (!isValidYmd(entryDate)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
-
-  const dev = await assertDeviceBelongsActive(env, authUser.org_id, authUser.location_id, deviceId);
-  if (!dev) return jsonResponse({ ok: false, error: "Invalid device" }, 400, corsOkHeaders);
-
-  const row = await dbFirst(
-    env,
-    `INSERT INTO temperature_entries
-       (org_id, location_id, device_id, entry_date, min_temp, max_temp, notes, created_by, created_at, updated_at)
-     VALUES
-       (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
-     ON CONFLICT(org_id, location_id, device_id, entry_date)
-     DO UPDATE SET
-       min_temp = excluded.min_temp,
-       max_temp = excluded.max_temp,
-       notes = excluded.notes,
-       updated_at = datetime('now')
-     RETURNING id`,
-    [authUser.org_id, authUser.location_id, deviceId, entryDate, minTemp, maxTemp, notes, authUser.user_id]
-  );
-
-  await dbRun(
-    env,
-    `INSERT INTO sync_jobs (org_id, module, op, payload_json, status, attempts, next_run_at, created_at, updated_at)
-     VALUES (?, 'temperature', 'upsert_entry', ?, 'pending', 0, datetime('now'), datetime('now'), datetime('now'))`,
-    [authUser.org_id, JSON.stringify({ entry_id: row.id })]
-  );
-
-  await writeAudit(env, authUser.org_id, authUser.user_id, "TEMP_ENTRY_UPSERT", "temperature_entries", String(row.id), {
-    entry_date: entryDate,
-    device_id: deviceId,
-    min_temp: minTemp,
-    max_temp: maxTemp
-  });
-
-  return jsonResponse({ ok: true, entry_id: row.id }, 200, corsOkHeaders);
-}
-
-async function handleTempEntryDelete(request, env, corsOkHeaders, authUser, entryId) {
-  if (!requireRole(authUser, ["admin", "staff"])) {
-    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
-  }
-
-  const existing = await dbFirst(
-    env,
-    `SELECT id, device_id, entry_date
-     FROM temperature_entries
-     WHERE id = ? AND org_id = ? AND location_id = ?`,
-    [entryId, authUser.org_id, authUser.location_id]
-  );
-
-  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
-
-  await dbRun(
-    env,
-    `DELETE FROM temperature_entries
-     WHERE id = ? AND org_id = ? AND location_id = ?`,
-    [entryId, authUser.org_id, authUser.location_id]
-  );
-
-  await dbRun(
-    env,
-    `INSERT INTO sync_jobs (org_id, module, op, payload_json, status, attempts, next_run_at, created_at, updated_at)
-     VALUES (?, 'temperature', 'delete_entry', ?, 'pending', 0, datetime('now'), datetime('now'), datetime('now'))`,
-    [authUser.org_id, JSON.stringify({ entry_id: entryId })]
-  );
-
-  await writeAudit(env, authUser.org_id, authUser.user_id, "TEMP_ENTRY_DELETE", "temperature_entries", String(entryId), {
-    entry_date: existing.entry_date,
-    device_id: existing.device_id
-  });
-
-  return jsonResponse({ ok: true }, 200, corsOkHeaders);
-}
-
-async function handleTempReport(request, env, corsOkHeaders, authUser, url) {
-  const from = (url.searchParams.get("from") || "").trim();
-  const to = (url.searchParams.get("to") || "").trim();
-  if (!isValidYmd(from) || !isValidYmd(to)) {
-    return jsonResponse({ ok: false, error: "Invalid from/to (YYYY-MM-DD)" }, 400, corsOkHeaders);
-  }
-  if (to < from) {
-    return jsonResponse({ ok: false, error: "to must be >= from" }, 400, corsOkHeaders);
-  }
-
-  const devices = await dbAll(
-    env,
-    `SELECT d.id, d.name, d.device_type, d.min_limit, d.max_limit, d.active
-     FROM temperature_devices d
-     WHERE d.org_id = ? AND d.location_id = ?
-       AND (
-         d.active = 1
-         OR EXISTS (
-           SELECT 1 FROM temperature_entries e
-           WHERE e.device_id = d.id
-             AND e.org_id = d.org_id
-             AND e.location_id = d.location_id
-             AND e.entry_date >= ?
-             AND e.entry_date <= ?
-         )
-       )
-     ORDER BY d.id ASC`,
-    [authUser.org_id, authUser.location_id, from, to]
-  );
-
-  const entries = await dbAll(
-    env,
-    `SELECT id, entry_date, device_id, min_temp, max_temp, notes
-     FROM temperature_entries
-     WHERE org_id = ? AND location_id = ?
-       AND entry_date >= ?
-       AND entry_date <= ?
-     ORDER BY entry_date ASC, device_id ASC`,
-    [authUser.org_id, authUser.location_id, from, to]
-  );
-
-  return jsonResponse(
-    {
-      ok: true,
-      org_name: authUser.org_name,
-      location_name: authUser.location_name,
-      from,
-      to,
-      devices,
-      entries
-    },
-    200,
-    corsOkHeaders
-  );
-}
-
-function ymFromYmd(ymd) {
-  return String(ymd || "").slice(0, 7);
-}
-
-function htmlReportPage(title, htmlBody) {
-  return new Response(
-    `<!doctype html>
-<html>
-<head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>${escapeHtml(title)}</title>
-<style>
-  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:22px;color:#111;}
-  h1{margin:0 0 6px 0;font-size:20px;}
-  .meta{color:#444;margin:0 0 16px 0;font-size:13px;}
-  h2{margin:18px 0 8px 0;font-size:16px;}
-  table{width:100%;border-collapse:collapse;margin-top:8px;}
-  th,td{border:1px solid #bbb;padding:6px 8px;font-size:12px;vertical-align:top;}
-  th{background:#f2f2f2;}
-  .small{font-size:11px;color:#444;}
-  @media print{
-    .no-print{display:none;}
-    body{margin:0;}
-  }
-</style>
-</head>
-<body>
-<div class="no-print" style="margin-bottom:10px;">
-  <button onclick="window.print()" style="padding:8px 12px;font-weight:700;">Print</button>
-</div>
-${htmlBody}
-</body>
-</html>`,
-    {
-      headers: {
-        "Content-Type": "text/html; charset=utf-8",
-        "Cache-Control": "no-store"
-      }
-    }
-  );
-}
-
-async function handleTempReportHtml(request, env, corsOkHeaders, authUser, url) {
-  const out = await handleTempReport(request, env, corsOkHeaders, authUser, url);
-  const data = await out.json();
-
-  if (!data.ok) return out;
-
-  const devices = data.devices || [];
-  const entries = data.entries || [];
-
-  // Build map by date -> device_id -> {min,max}
-  const map = new Map(); // date -> Map(device_id -> cell)
-  for (const e of entries) {
-    const d = e.entry_date;
-    if (!map.has(d)) map.set(d, new Map());
-    map.get(d).set(Number(e.device_id), {
-      min: e.min_temp,
-      max: e.max_temp
+  function escHtml(s) {
+    var str = safeString(s);
+    return str.replace(/[&<>"']/g, function (c) {
+      if (c === "&") return "&amp;";
+      if (c === "<") return "&lt;";
+      if (c === ">") return "&gt;";
+      if (c === '"') return "&quot;";
+      return "&#39;";
     });
   }
 
-  // Group dates by month
-  const dates = Array.from(map.keys()).sort();
-  const byMonth = new Map();
-  for (const d of dates) {
-    const ym = ymFromYmd(d);
-    if (!byMonth.has(ym)) byMonth.set(ym, []);
-    byMonth.get(ym).push(d);
-  }
-
-  let body = "";
-  body += `<h1>${escapeHtml(data.org_name || "Pharmacy")} — Temperature Report</h1>`;
-  body += `<p class="meta">Location: ${escapeHtml(data.location_name || "")}<br/>Range: ${escapeHtml(data.from)} to ${escapeHtml(data.to)}</p>`;
-
-  for (const [ym, dlist] of byMonth.entries()) {
-    body += `<h2>${escapeHtml(ym)}</h2>`;
-    body += `<table><thead><tr><th>Date</th>`;
-    for (const dev of devices) {
-      body += `<th>${escapeHtml(dev.name)}<div class="small">${escapeHtml(dev.device_type)}</div></th>`;
-    }
-    body += `</tr></thead><tbody>`;
-    for (const d of dlist) {
-      body += `<tr><td>${escapeHtml(d)}</td>`;
-      const rowMap = map.get(d) || new Map();
-      for (const dev of devices) {
-        const cell = rowMap.get(Number(dev.id));
-        if (!cell) body += `<td></td>`;
-        else {
-          const min = (cell.min === null || cell.min === undefined) ? "" : Number(cell.min).toFixed(1);
-          const max = (cell.max === null || cell.max === undefined) ? "" : Number(cell.max).toFixed(1);
-          body += `<td>${escapeHtml(min)}${min && max ? " / " : ""}${escapeHtml(max)}</td>`;
+  function el(tag, attrs) {
+    var node = document.createElement(tag);
+    if (attrs && typeof attrs === "object") {
+      Object.keys(attrs).forEach(function (k) {
+        var v = attrs[k];
+        if (k === "class") node.className = v;
+        else if (k === "style") node.setAttribute("style", v);
+        else if (k === "text") node.textContent = v;
+        else if (k === "html") node.innerHTML = v;
+        else if (k === "dataset" && v && typeof v === "object") {
+          Object.keys(v).forEach(function (dk) {
+            node.dataset[dk] = v[dk];
+          });
+        } else if (k in node) {
+          try { node[k] = v; } catch (_) { node.setAttribute(k, v); }
+        } else {
+          node.setAttribute(k, v);
         }
+      });
+    }
+    for (var i = 2; i < arguments.length; i++) {
+      var child = arguments[i];
+      if (child === null || child === undefined) continue;
+      if (Array.isArray(child)) {
+        child.forEach(function (c) {
+          if (c === null || c === undefined) return;
+          if (typeof c === "string" || typeof c === "number") node.appendChild(document.createTextNode(String(c)));
+          else node.appendChild(c);
+        });
+      } else if (typeof child === "string" || typeof child === "number") {
+        node.appendChild(document.createTextNode(String(child)));
+      } else {
+        node.appendChild(child);
       }
-      body += `</tr>`;
     }
-    body += `</tbody></table>`;
+    return node;
   }
 
-  return htmlReportPage("Temperature Report", body);
-}
+  function onceInjectStyle() {
+    if (document.getElementById(STYLE_ID)) return;
 
-/* =========================
-   CLEANING MODULE (API)
-   ========================= */
+    var css = ""
+      + ".eikon-dda-wrap{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#111;}"
+      + ".eikon-dda-title{display:flex;align-items:flex-end;gap:12px;margin:0 0 10px 0;}"
+      + ".eikon-dda-title h2{margin:0;font-size:18px;}"
+      + ".eikon-dda-title .sub{color:#555;font-size:12px;}"
+      + ".eikon-dda-card{border:1px solid #ddd;border-radius:12px;padding:12px;margin:12px 0;background:#fff;box-shadow:0 1px 0 rgba(0,0,0,.03);}"
+      + ".eikon-dda-toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:end;}"
+      + ".eikon-dda-field{display:flex;flex-direction:column;gap:4px;}"
+      + ".eikon-dda-field label{font-weight:800;font-size:12px;color:#222;}"
+      + ".eikon-dda-field input,.eikon-dda-field select{padding:9px 10px;border:1px solid #ccc;border-radius:10px;font-size:14px;min-width:160px;}"
+      + ".eikon-dda-btn{padding:10px 12px;border:0;border-radius:10px;background:#111;color:#fff;font-weight:900;cursor:pointer;font-size:13px;}"
+      + ".eikon-dda-btn.secondary{background:#444;}"
+      + ".eikon-dda-btn.ghost{background:#fff;color:#111;border:1px solid #bbb;}"
+      + ".eikon-dda-btn:disabled{opacity:.55;cursor:not-allowed;}"
+      + ".eikon-dda-row{display:flex;gap:10px;align-items:center;justify-content:space-between;}"
+      + ".eikon-dda-muted{color:#666;font-size:12px;}"
+      + ".eikon-dda-table{width:100%;border-collapse:collapse;margin-top:10px;}"
+      + ".eikon-dda-table th,.eikon-dda-table td{border:1px solid #bbb;padding:7px 8px;font-size:12px;vertical-align:top;}"
+      + ".eikon-dda-table th{background:#f2f2f2;text-align:left;}"
+      + ".eikon-dda-actions{display:flex;gap:6px;flex-wrap:wrap;}"
+      + ".eikon-dda-mini{padding:6px 8px;border-radius:10px;border:1px solid #bbb;background:#fff;cursor:pointer;font-weight:800;font-size:12px;}"
+      + ".eikon-dda-mini.danger{border-color:#b00020;color:#b00020;}"
+      + ".eikon-dda-mini.primary{border-color:#111;background:#111;color:#fff;}"
+      + ".eikon-dda-mini:disabled{opacity:.6;cursor:not-allowed;}"
+      + ".eikon-dda-empty{padding:12px;color:#555;font-size:13px;}"
+      + ".eikon-dda-toastwrap{position:fixed;right:16px;bottom:16px;z-index:9999;display:flex;flex-direction:column;gap:8px;}"
+      + ".eikon-dda-toast{max-width:360px;padding:10px 12px;border-radius:12px;border:1px solid #ddd;background:#fff;box-shadow:0 8px 24px rgba(0,0,0,.12);font-size:13px;}"
+      + ".eikon-dda-toast.ok{border-color:#1b7f2a;}"
+      + ".eikon-dda-toast.err{border-color:#b00020;}"
+      + ".eikon-dda-modalback{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9998;display:flex;align-items:center;justify-content:center;padding:18px;}"
+      + ".eikon-dda-modal{width:min(860px,100%);background:#fff;border-radius:16px;border:1px solid #ddd;box-shadow:0 18px 60px rgba(0,0,0,.25);overflow:hidden;}"
+      + ".eikon-dda-modal header{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid #eee;}"
+      + ".eikon-dda-modal header h3{margin:0;font-size:16px;}"
+      + ".eikon-dda-modal .body{padding:14px;}"
+      + ".eikon-dda-grid{display:grid;grid-template-columns:repeat(2, minmax(0,1fr));gap:10px;}"
+      + ".eikon-dda-grid .full{grid-column:1 / -1;}"
+      + ".eikon-dda-modal footer{display:flex;gap:10px;justify-content:flex-end;padding:12px 14px;border-top:1px solid #eee;}"
+      + ".eikon-dda-help{font-size:12px;color:#555;}"
+      + "@media (max-width:720px){"
+      + "  .eikon-dda-grid{grid-template-columns:1fr;}"
+      + "  .eikon-dda-field input{min-width:unset;width:100%;}"
+      + "}";
 
-async function handleCleaningEntriesList(request, env, corsOkHeaders, authUser, url) {
-  const month = (url.searchParams.get("month") || "").trim();
-  const range = monthRange(month);
-  if (!range) return jsonResponse({ ok: false, error: "Missing/invalid month (YYYY-MM)" }, 400, corsOkHeaders);
-
-  const entries = await dbAll(
-    env,
-    `SELECT
-       id,
-       entry_date,
-       time_in,
-       time_out,
-       cleaner_name,
-       staff_name,
-       notes,
-       created_by,
-       created_at,
-       updated_at
-     FROM cleaning_entries
-     WHERE org_id = ?
-       AND location_id = ?
-       AND entry_date >= ?
-       AND entry_date < ?
-     ORDER BY entry_date DESC, time_in DESC, id DESC`,
-    [authUser.org_id, authUser.location_id, range.startStr, range.endStr]
-  );
-
-  return jsonResponse({ ok: true, entries }, 200, corsOkHeaders);
-}
-
-async function handleCleaningEntryCreate(request, env, corsOkHeaders, authUser) {
-  if (!requireRole(authUser, ["admin", "staff"])) {
-    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+    var style = el("style", { id: STYLE_ID, text: css });
+    document.head.appendChild(style);
   }
 
-  const body = await readJson(request);
-
-  const entryDate = String(body.entry_date || "").trim();
-  const timeIn = String(body.time_in || "").trim();
-  const timeOut = String(body.time_out || "").trim();
-  const cleanerName = String(body.cleaner_name || "").trim();
-  const staffName = String(body.staff_name || "").trim();
-  const notes = String(body.notes || "").trim();
-
-  if (!isValidYmd(entryDate)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
-  if (!isValidHm(timeIn)) return jsonResponse({ ok: false, error: "Invalid time_in (HH:mm)" }, 400, corsOkHeaders);
-  if (timeOut && !isValidHm(timeOut)) return jsonResponse({ ok: false, error: "Invalid time_out (HH:mm or empty)" }, 400, corsOkHeaders);
-  if (!cleanerName) return jsonResponse({ ok: false, error: "Missing cleaner_name" }, 400, corsOkHeaders);
-  if (!staffName) return jsonResponse({ ok: false, error: "Missing staff_name" }, 400, corsOkHeaders);
-
-  const row = await dbFirst(
-    env,
-    `INSERT INTO cleaning_entries
-       (org_id, location_id, entry_date, time_in, time_out, cleaner_name, staff_name, notes, created_by, created_at, updated_at)
-     VALUES
-       (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
-     RETURNING id`,
-    [authUser.org_id, authUser.location_id, entryDate, timeIn, timeOut || "", cleanerName, staffName, notes, authUser.user_id]
-  );
-
-  await writeAudit(env, authUser.org_id, authUser.user_id, "CLEANING_ENTRY_CREATE", "cleaning_entries", String(row.id), {
-    entry_date: entryDate,
-    time_in: timeIn,
-    time_out: timeOut || "",
-    cleaner_name: cleanerName,
-    staff_name: staffName
-  });
-
-  return jsonResponse({ ok: true, entry_id: row.id }, 200, corsOkHeaders);
-}
-
-async function handleCleaningEntryUpdate(request, env, corsOkHeaders, authUser, entryId) {
-  if (!requireRole(authUser, ["admin", "staff"])) {
-    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  function getApiBase(ctx) {
+    if (ctx && ctx.apiBase) return String(ctx.apiBase).replace(/\/+$/, "");
+    if (window.EIKON_API_BASE) return String(window.EIKON_API_BASE).replace(/\/+$/, "");
+    if (window.Eikon && window.Eikon.apiBase) return String(window.Eikon.apiBase).replace(/\/+$/, "");
+    return window.location.origin;
   }
 
-  const existing = await dbFirst(
-    env,
-    `SELECT id
-     FROM cleaning_entries
-     WHERE id = ? AND org_id = ? AND location_id = ?`,
-    [entryId, authUser.org_id, authUser.location_id]
-  );
-  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
-
-  const body = await readJson(request);
-
-  const entryDate = String(body.entry_date || "").trim();
-  const timeIn = String(body.time_in || "").trim();
-  const timeOut = String(body.time_out || "").trim();
-  const cleanerName = String(body.cleaner_name || "").trim();
-  const staffName = String(body.staff_name || "").trim();
-  const notes = String(body.notes || "").trim();
-
-  if (!isValidYmd(entryDate)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
-  if (!isValidHm(timeIn)) return jsonResponse({ ok: false, error: "Invalid time_in (HH:mm)" }, 400, corsOkHeaders);
-  if (timeOut && !isValidHm(timeOut)) return jsonResponse({ ok: false, error: "Invalid time_out (HH:mm or empty)" }, 400, corsOkHeaders);
-  if (!cleanerName) return jsonResponse({ ok: false, error: "Missing cleaner_name" }, 400, corsOkHeaders);
-  if (!staffName) return jsonResponse({ ok: false, error: "Missing staff_name" }, 400, corsOkHeaders);
-
-  await dbRun(
-    env,
-    `UPDATE cleaning_entries
-     SET entry_date = ?, time_in = ?, time_out = ?, cleaner_name = ?, staff_name = ?, notes = ?, updated_at = datetime('now')
-     WHERE id = ? AND org_id = ? AND location_id = ?`,
-    [entryDate, timeIn, timeOut || "", cleanerName, staffName, notes, entryId, authUser.org_id, authUser.location_id]
-  );
-
-  await writeAudit(env, authUser.org_id, authUser.user_id, "CLEANING_ENTRY_UPDATE", "cleaning_entries", String(entryId), {
-    entry_date: entryDate,
-    time_in: timeIn,
-    time_out: timeOut || "",
-    cleaner_name: cleanerName,
-    staff_name: staffName
-  });
-
-  return jsonResponse({ ok: true }, 200, corsOkHeaders);
-}
-
-async function handleCleaningEntryDelete(request, env, corsOkHeaders, authUser, entryId) {
-  if (!requireRole(authUser, ["admin", "staff"])) {
-    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
-  }
-
-  const existing = await dbFirst(
-    env,
-    `SELECT id
-     FROM cleaning_entries
-     WHERE id = ? AND org_id = ? AND location_id = ?`,
-    [entryId, authUser.org_id, authUser.location_id]
-  );
-  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
-
-  await dbRun(
-    env,
-    `DELETE FROM cleaning_entries
-     WHERE id = ? AND org_id = ? AND location_id = ?`,
-    [entryId, authUser.org_id, authUser.location_id]
-  );
-
-  await writeAudit(env, authUser.org_id, authUser.user_id, "CLEANING_ENTRY_DELETE", "cleaning_entries", String(entryId), {});
-
-  return jsonResponse({ ok: true }, 200, corsOkHeaders);
-}
-
-async function handleCleaningReport(request, env, corsOkHeaders, authUser, url) {
-  const from = (url.searchParams.get("from") || "").trim();
-  const to = (url.searchParams.get("to") || "").trim();
-
-  if (!isValidYmd(from) || !isValidYmd(to)) {
-    return jsonResponse({ ok: false, error: "Invalid from/to (YYYY-MM-DD)" }, 400, corsOkHeaders);
-  }
-  if (to < from) {
-    return jsonResponse({ ok: false, error: "to must be >= from" }, 400, corsOkHeaders);
-  }
-
-  const entries = await dbAll(
-    env,
-    `SELECT
-       id,
-       entry_date,
-       time_in,
-       time_out,
-       cleaner_name,
-       staff_name,
-       notes
-     FROM cleaning_entries
-     WHERE org_id = ?
-       AND location_id = ?
-       AND entry_date >= ?
-       AND entry_date <= ?
-     ORDER BY entry_date ASC, time_in ASC, id ASC`,
-    [authUser.org_id, authUser.location_id, from, to]
-  );
-
-  return jsonResponse(
-    {
-      ok: true,
-      org_name: authUser.org_name,
-      location_name: authUser.location_name,
-      from,
-      to,
-      entries
-    },
-    200,
-    corsOkHeaders
-  );
-}
-
-async function handleCleaningReportHtml(request, env, corsOkHeaders, authUser, url) {
-  const out = await handleCleaningReport(request, env, corsOkHeaders, authUser, url);
-  const data = await out.json();
-  if (!data.ok) return out;
-
-  const entries = data.entries || [];
-
-  // Group by month
-  const byMonth = new Map();
-  for (const e of entries) {
-    const ym = ymFromYmd(e.entry_date);
-    if (!byMonth.has(ym)) byMonth.set(ym, []);
-    byMonth.get(ym).push(e);
-  }
-
-  let body = "";
-  body += `<h1>${escapeHtml(data.org_name || "Pharmacy")} — Cleaning Report</h1>`;
-  body += `<p class="meta">Location: ${escapeHtml(data.location_name || "")}<br/>Range: ${escapeHtml(data.from)} to ${escapeHtml(data.to)}</p>`;
-
-  for (const [ym, list] of byMonth.entries()) {
-    body += `<h2>${escapeHtml(ym)}</h2>`;
-    body += `<table><thead><tr><th>Date</th><th>Time in</th><th>Time out</th><th>Cleaner</th><th>Staff</th><th>Notes</th></tr></thead><tbody>`;
-    for (const r of list) {
-      body += `<tr>
-        <td>${escapeHtml(r.entry_date)}</td>
-        <td>${escapeHtml(r.time_in)}</td>
-        <td>${escapeHtml(r.time_out || "")}</td>
-        <td>${escapeHtml(r.cleaner_name)}</td>
-        <td>${escapeHtml(r.staff_name)}</td>
-        <td>${escapeHtml(r.notes || "")}</td>
-      </tr>`;
-    }
-    body += `</tbody></table>`;
-  }
-
-  return htmlReportPage("Cleaning Report", body);
-}
-
-/* =========================
-   DAILY REGISTER MODULE (API)
-   ========================= */
-
-async function ensureDailyRegisterSchema(env) {
-  await dbRun(
-    env,
-    `CREATE TABLE IF NOT EXISTS daily_register_entries (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      org_id INTEGER NOT NULL,
-      location_id INTEGER NOT NULL,
-      entry_date TEXT NOT NULL,
-      client_name TEXT NOT NULL,
-      client_id TEXT NOT NULL,
-      medicine_name_dose TEXT NOT NULL,
-      posology TEXT NOT NULL,
-      prescriber_name TEXT NOT NULL,
-      prescriber_reg_no TEXT NOT NULL,
-      created_by INTEGER,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-    )`,
-    []
-  );
-
-  await dbRun(
-    env,
-    "CREATE INDEX IF NOT EXISTS idx_daily_register_org_loc_date ON daily_register_entries (org_id, location_id, entry_date)",
-    []
-  );
-
-  await dbRun(
-    env,
-    "CREATE INDEX IF NOT EXISTS idx_daily_register_org_loc_client ON daily_register_entries (org_id, location_id, client_id)",
-    []
-  );
-}
-
-async function handleDailyRegisterEntriesList(request, env, corsOkHeaders, authUser, url) {
-  if (!requireRole(authUser, ["admin", "staff"])) {
-    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
-  }
-
-  await ensureDailyRegisterSchema(env);
-
-  const month = (url.searchParams.get("month") || "").trim();
-  const range = monthRange(month);
-  if (!range) return jsonResponse({ ok: false, error: "Missing/invalid month (YYYY-MM)" }, 400, corsOkHeaders);
-
-  const q = (url.searchParams.get("q") || "").trim();
-  const hasQ = !!q;
-  const qLike = `%${q}%`;
-
-  const sql = `
-    SELECT
-      id,
-      entry_date,
-      client_name,
-      client_id,
-      medicine_name_dose,
-      posology,
-      prescriber_name,
-      prescriber_reg_no,
-      created_by,
-      created_at,
-      updated_at
-    FROM daily_register_entries
-    WHERE org_id = ?
-      AND location_id = ?
-      AND entry_date >= ?
-      AND entry_date < ?
-      ${hasQ ? `AND (
-        entry_date LIKE ?
-        OR client_name LIKE ?
-        OR client_id LIKE ?
-        OR medicine_name_dose LIKE ?
-        OR posology LIKE ?
-        OR prescriber_name LIKE ?
-        OR prescriber_reg_no LIKE ?
-      )` : ""}
-    ORDER BY entry_date DESC, id DESC
-  `;
-
-  const bind = [authUser.org_id, authUser.location_id, range.startStr, range.endStr];
-  if (hasQ) {
-    bind.push(qLike, qLike, qLike, qLike, qLike, qLike, qLike);
-  }
-
-  const entries = await dbAll(env, sql, bind);
-
-  return jsonResponse({ ok: true, entries }, 200, corsOkHeaders);
-}
-
-async function handleDailyRegisterEntryCreate(request, env, corsOkHeaders, authUser) {
-  if (!requireRole(authUser, ["admin", "staff"])) {
-    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
-  }
-
-  await ensureDailyRegisterSchema(env);
-
-  const body = await readJson(request);
-
-  const entryDate = String(body.entry_date || "").trim();
-  const clientName = String(body.client_name || "").trim();
-  const clientId = String(body.client_id || "").trim();
-  const medicineNameDose = String(body.medicine_name_dose || "").trim();
-  const posology = String(body.posology || "").trim();
-  const prescriberName = String(body.prescriber_name || "").trim();
-  const prescriberRegNo = String(body.prescriber_reg_no || "").trim();
-
-  if (!isValidYmd(entryDate)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
-  if (!clientName) return jsonResponse({ ok: false, error: "Missing client_name" }, 400, corsOkHeaders);
-  if (!clientId) return jsonResponse({ ok: false, error: "Missing client_id" }, 400, corsOkHeaders);
-  if (!medicineNameDose) return jsonResponse({ ok: false, error: "Missing medicine_name_dose" }, 400, corsOkHeaders);
-  if (!posology) return jsonResponse({ ok: false, error: "Missing posology" }, 400, corsOkHeaders);
-  if (!prescriberName) return jsonResponse({ ok: false, error: "Missing prescriber_name" }, 400, corsOkHeaders);
-  if (!prescriberRegNo) return jsonResponse({ ok: false, error: "Missing prescriber_reg_no" }, 400, corsOkHeaders);
-
-  const row = await dbFirst(
-    env,
-    `INSERT INTO daily_register_entries
-      (org_id, location_id, entry_date, client_name, client_id, medicine_name_dose, posology, prescriber_name, prescriber_reg_no, created_by, created_at, updated_at)
-     VALUES
-      (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
-     RETURNING id`,
-    [
-      authUser.org_id,
-      authUser.location_id,
-      entryDate,
-      clientName,
-      clientId,
-      medicineNameDose,
-      posology,
-      prescriberName,
-      prescriberRegNo,
-      authUser.user_id
-    ]
-  );
-
-  await writeAudit(env, authUser.org_id, authUser.user_id, "DAILY_REGISTER_ENTRY_CREATE", "daily_register_entries", String(row.id), {
-    entry_date: entryDate,
-    client_id: clientId,
-    medicine_name_dose: medicineNameDose
-  });
-
-  return jsonResponse({ ok: true, entry_id: row.id }, 200, corsOkHeaders);
-}
-
-async function handleDailyRegisterEntryUpdate(request, env, corsOkHeaders, authUser, entryId) {
-  if (!requireRole(authUser, ["admin", "staff"])) {
-    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
-  }
-
-  await ensureDailyRegisterSchema(env);
-
-  const existing = await dbFirst(
-    env,
-    `SELECT id
-     FROM daily_register_entries
-     WHERE id = ? AND org_id = ? AND location_id = ?`,
-    [entryId, authUser.org_id, authUser.location_id]
-  );
-  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
-
-  const body = await readJson(request);
-
-  const entryDate = String(body.entry_date || "").trim();
-  const clientName = String(body.client_name || "").trim();
-  const clientId = String(body.client_id || "").trim();
-  const medicineNameDose = String(body.medicine_name_dose || "").trim();
-  const posology = String(body.posology || "").trim();
-  const prescriberName = String(body.prescriber_name || "").trim();
-  const prescriberRegNo = String(body.prescriber_reg_no || "").trim();
-
-  if (!isValidYmd(entryDate)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
-  if (!clientName) return jsonResponse({ ok: false, error: "Missing client_name" }, 400, corsOkHeaders);
-  if (!clientId) return jsonResponse({ ok: false, error: "Missing client_id" }, 400, corsOkHeaders);
-  if (!medicineNameDose) return jsonResponse({ ok: false, error: "Missing medicine_name_dose" }, 400, corsOkHeaders);
-  if (!posology) return jsonResponse({ ok: false, error: "Missing posology" }, 400, corsOkHeaders);
-  if (!prescriberName) return jsonResponse({ ok: false, error: "Missing prescriber_name" }, 400, corsOkHeaders);
-  if (!prescriberRegNo) return jsonResponse({ ok: false, error: "Missing prescriber_reg_no" }, 400, corsOkHeaders);
-
-  await dbRun(
-    env,
-    `UPDATE daily_register_entries
-     SET entry_date = ?, client_name = ?, client_id = ?, medicine_name_dose = ?, posology = ?, prescriber_name = ?, prescriber_reg_no = ?, updated_at = datetime('now')
-     WHERE id = ? AND org_id = ? AND location_id = ?`,
-    [
-      entryDate,
-      clientName,
-      clientId,
-      medicineNameDose,
-      posology,
-      prescriberName,
-      prescriberRegNo,
-      entryId,
-      authUser.org_id,
-      authUser.location_id
-    ]
-  );
-
-  await writeAudit(env, authUser.org_id, authUser.user_id, "DAILY_REGISTER_ENTRY_UPDATE", "daily_register_entries", String(entryId), {
-    entry_date: entryDate,
-    client_id: clientId,
-    medicine_name_dose: medicineNameDose
-  });
-
-  return jsonResponse({ ok: true }, 200, corsOkHeaders);
-}
-
-async function handleDailyRegisterEntryDelete(request, env, corsOkHeaders, authUser, entryId) {
-  if (!requireRole(authUser, ["admin", "staff"])) {
-    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
-  }
-
-  await ensureDailyRegisterSchema(env);
-
-  const existing = await dbFirst(
-    env,
-    `SELECT id, entry_date, client_id
-     FROM daily_register_entries
-     WHERE id = ? AND org_id = ? AND location_id = ?`,
-    [entryId, authUser.org_id, authUser.location_id]
-  );
-  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
-
-  await dbRun(
-    env,
-    `DELETE FROM daily_register_entries
-     WHERE id = ? AND org_id = ? AND location_id = ?`,
-    [entryId, authUser.org_id, authUser.location_id]
-  );
-
-  await writeAudit(env, authUser.org_id, authUser.user_id, "DAILY_REGISTER_ENTRY_DELETE", "daily_register_entries", String(entryId), {
-    entry_date: existing.entry_date,
-    client_id: existing.client_id
-  });
-
-  return jsonResponse({ ok: true }, 200, corsOkHeaders);
-}
-
-async function handleDailyRegisterReport(request, env, corsOkHeaders, authUser, url) {
-  if (!requireRole(authUser, ["admin", "staff"])) {
-    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
-  }
-
-  await ensureDailyRegisterSchema(env);
-
-  const from = (url.searchParams.get("from") || "").trim();
-  const to = (url.searchParams.get("to") || "").trim();
-
-  if (!isValidYmd(from) || !isValidYmd(to)) {
-    return jsonResponse({ ok: false, error: "Invalid from/to (YYYY-MM-DD)" }, 400, corsOkHeaders);
-  }
-  if (to < from) {
-    return jsonResponse({ ok: false, error: "to must be >= from" }, 400, corsOkHeaders);
-  }
-
-  const entries = await dbAll(
-    env,
-    `SELECT
-       id,
-       entry_date,
-       client_name,
-       client_id,
-       medicine_name_dose,
-       posology,
-       prescriber_name,
-       prescriber_reg_no
-     FROM daily_register_entries
-     WHERE org_id = ?
-       AND location_id = ?
-       AND entry_date >= ?
-       AND entry_date <= ?
-     ORDER BY entry_date ASC, id ASC`,
-    [authUser.org_id, authUser.location_id, from, to]
-  );
-
-  return jsonResponse(
-    {
-      ok: true,
-      org_name: authUser.org_name,
-      location_name: authUser.location_name,
-      from,
-      to,
-      entries
-    },
-    200,
-    corsOkHeaders
-  );
-}
-
-async function handleDailyRegisterReportHtml(request, env, corsOkHeaders, authUser, url) {
-  const out = await handleDailyRegisterReport(request, env, corsOkHeaders, authUser, url);
-  const data = await out.json();
-  if (!data.ok) return out;
-
-  const entries = data.entries || [];
-
-  // Group by month
-  const byMonth = new Map();
-  for (const e of entries) {
-    const ym = ymFromYmd(e.entry_date);
-    if (!byMonth.has(ym)) byMonth.set(ym, []);
-    byMonth.get(ym).push(e);
-  }
-
-  let body = "";
-  body += `<h1>${escapeHtml(data.org_name || "Pharmacy")} — Daily Register Report</h1>`;
-  body += `<p class="meta">Location: ${escapeHtml(data.location_name || "")}<br/>Range: ${escapeHtml(data.from)} to ${escapeHtml(data.to)}</p>`;
-
-  for (const [ym, list] of byMonth.entries()) {
-    body += `<h2>${escapeHtml(ym)}</h2>`;
-    body += `<table><thead><tr>
-      <th>Date</th>
-      <th>Client Name &amp; Surname</th>
-      <th>Client ID</th>
-      <th>Medicine Name &amp; Dose</th>
-      <th>Posology</th>
-      <th>Prescriber Name</th>
-      <th>Prescriber Reg No.</th>
-    </tr></thead><tbody>`;
-
-    for (const r of list) {
-      body += `<tr>
-        <td>${escapeHtml(r.entry_date)}</td>
-        <td>${escapeHtml(r.client_name)}</td>
-        <td>${escapeHtml(r.client_id)}</td>
-        <td>${escapeHtml(r.medicine_name_dose)}</td>
-        <td>${escapeHtml(r.posology)}</td>
-        <td>${escapeHtml(r.prescriber_name)}</td>
-        <td>${escapeHtml(r.prescriber_reg_no)}</td>
-      </tr>`;
-    }
-
-    body += `</tbody></table>`;
-  }
-
-  return htmlReportPage("Daily Register Report", body);
-}
-
-/* =========================
-   DDA SALES REGISTER MODULE (API)
-   ========================= */
-
-function todayYmdUtc() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function parsePositiveInt(v) {
-  if (v === null || v === undefined) return null;
-  const s = String(v).trim();
-  if (!s) return null;
-  if (!/^\d+$/.test(s)) return null;
-  const n = parseInt(s, 10);
-  if (!Number.isFinite(n) || n <= 0) return null;
-  return n;
-}
-
-async function tableExists(env, name) {
-  const row = await dbFirst(
-    env,
-    "SELECT name FROM sqlite_master WHERE type='table' AND name = ?",
-    [String(name)]
-  );
-  return !!row;
-}
-
-async function columnExists(env, tableName, columnName) {
-  try {
-    const cols = await dbAll(env, `PRAGMA table_info(${tableName})`, []);
-    return cols.some(c => String(c.name) === String(columnName));
-  } catch {
-    return false;
-  }
-}
-
-async function ensureDdaSalesRegisterSchema(env) {
-  // Migrate legacy table name -> new name (if needed)
-  const hasNew = await tableExists(env, "dda_sales_entries");
-  const hasOld = await tableExists(env, "dda_sales_register_entries");
-
-  if (!hasNew && hasOld) {
-    // Rename old table to the intended name
+  function getToken(ctx) {
+    if (ctx && ctx.token) return String(ctx.token);
+    if (window.Eikon && window.Eikon.token) return String(window.Eikon.token);
     try {
-      await dbRun(env, "ALTER TABLE dda_sales_register_entries RENAME TO dda_sales_entries", []);
-    } catch {
-      // If rename fails, we'll still create the new table below
+      var t1 = localStorage.getItem("eikon_token");
+      if (t1) return t1;
+      var t2 = localStorage.getItem("token");
+      if (t2) return t2;
+      return "";
+    } catch (_) {
+      return "";
     }
   }
 
-  // Ensure the correct table exists (no inline "--" comments here)
-  await dbRun(
-    env,
-    `CREATE TABLE IF NOT EXISTS dda_sales_entries (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      org_id INTEGER NOT NULL,
-      location_id INTEGER NOT NULL,
-      entry_date TEXT NOT NULL,
-      client_name TEXT NOT NULL,
-      client_id_card TEXT NOT NULL,
-      client_address TEXT NOT NULL,
-      medicine_name_dose TEXT NOT NULL,
-      quantity INTEGER NOT NULL,
-      doctor_name TEXT NOT NULL,
-      doctor_reg_no TEXT NOT NULL,
-      prescription_serial_no TEXT NOT NULL,
-      created_by INTEGER,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-    )`,
-    []
-  );
+  function setTokenMaybe(ctx, token) {
+    if (!token) return;
+    if (ctx) ctx.token = token;
+    if (window.Eikon) window.Eikon.token = token;
+    try { localStorage.setItem("eikon_token", token); } catch (_) {}
+  }
 
-  // If we migrated from old schema (client_id), rename column to client_id_card
-  // (safe to ignore errors if column already correct)
-  const hasClientId = await columnExists(env, "dda_sales_entries", "client_id");
-  const hasClientIdCard = await columnExists(env, "dda_sales_entries", "client_id_card");
+  function toast(msg, type) {
+    var wrap = document.querySelector(".eikon-dda-toastwrap");
+    if (!wrap) {
+      wrap = el("div", { class: "eikon-dda-toastwrap" });
+      document.body.appendChild(wrap);
+    }
+    var node = el("div", { class: "eikon-dda-toast " + (type === "err" ? "err" : "ok") },
+      el("div", { style: "font-weight:900;margin-bottom:2px;" }, type === "err" ? "Error" : "OK"),
+      el("div", {}, msg)
+    );
+    wrap.appendChild(node);
+    setTimeout(function () {
+      try { node.remove(); } catch (_) {}
+    }, 3600);
+  }
 
-  if (hasClientId && !hasClientIdCard) {
-    try {
-      await dbRun(env, "ALTER TABLE dda_sales_entries RENAME COLUMN client_id TO client_id_card", []);
-    } catch {
-      // If rename-column fails (older SQLite), add new column and copy data
+  function parseJsonSafe(text) {
+    try { return JSON.parse(text); } catch (_) { return null; }
+  }
+
+  function apiFetch(ctx, method, path, bodyObj, queryObj, abortSignal) {
+    var base = getApiBase(ctx);
+    var url = base + path;
+    if (queryObj && typeof queryObj === "object") {
+      var usp = new URLSearchParams();
+      Object.keys(queryObj).forEach(function (k) {
+        var v = queryObj[k];
+        if (v === null || v === undefined) return;
+        var s = String(v);
+        if (s === "") return;
+        usp.set(k, s);
+      });
+      var qs = usp.toString();
+      if (qs) url += (url.indexOf("?") >= 0 ? "&" : "?") + qs;
+    }
+
+    var token = getToken(ctx);
+    var headers = {
+      "Content-Type": "application/json"
+    };
+    if (token) headers["Authorization"] = "Bearer " + token;
+
+    var opts = {
+      method: method,
+      headers: headers,
+      mode: "cors",
+      cache: "no-store",
+      credentials: "omit",
+      signal: abortSignal
+    };
+
+    if (bodyObj !== undefined) {
+      opts.body = JSON.stringify(bodyObj);
+    }
+
+    return fetch(url, opts).then(function (res) {
+      return res.text().then(function (txt) {
+        var json = parseJsonSafe(txt);
+        var ok = res.ok;
+        var status = res.status;
+
+        // Token refresh patterns (optional) — if server ever returns a token
+        if (json && json.token) setTokenMaybe(ctx, json.token);
+
+        if (!ok) {
+          var errMsg = "Request failed";
+          if (json && json.error) errMsg = String(json.error);
+          else if (txt) errMsg = txt.slice(0, 240);
+          var err = new Error(errMsg);
+          err.status = status;
+          err.payload = json;
+          throw err;
+        }
+        return json !== null ? json : { ok: true, raw: txt };
+      });
+    });
+  }
+
+  function downloadBlob(filename, blob) {
+    var a = document.createElement("a");
+    var url = URL.createObjectURL(blob);
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () {
+      try { URL.revokeObjectURL(url); } catch (_) {}
+      try { a.remove(); } catch (_) {}
+    }, 0);
+  }
+
+  function csvEscapeCell(v) {
+    var s = safeString(v);
+    var needs = /[",\n\r]/.test(s);
+    var out = s.replace(/"/g, '""');
+    return needs ? '"' + out + '"' : out;
+  }
+
+  function entriesToCsv(entries) {
+    var headers = [
+      "ID",
+      "Entry Date",
+      "Client Name",
+      "ID Card",
+      "Address",
+      "Medicine Name & Dose",
+      "Quantity",
+      "Doctor Name",
+      "Doctor Reg No.",
+      "Prescription Serial No.",
+      "Created At",
+      "Updated At"
+    ];
+
+    var lines = [];
+    lines.push(headers.map(csvEscapeCell).join(","));
+
+    for (var i = 0; i < entries.length; i++) {
+      var e = entries[i] || {};
+      var row = [
+        safeString(e.id),
+        safeString(e.entry_date),
+        safeString(e.client_name),
+        safeString(e.client_id_card),
+        safeString(e.client_address),
+        safeString(e.medicine_name_dose),
+        safeString(e.quantity),
+        safeString(e.doctor_name),
+        safeString(e.doctor_reg_no),
+        safeString(e.prescription_serial_no),
+        safeString(e.created_at),
+        safeString(e.updated_at)
+      ];
+      lines.push(row.map(csvEscapeCell).join(","));
+    }
+
+    return lines.join("\r\n");
+  }
+
+  function createModal(titleText) {
+    var back = el("div", { class: "eikon-dda-modalback" });
+    var modal = el("div", { class: "eikon-dda-modal", role: "dialog", "aria-modal": "true" });
+    var header = el("header", {},
+      el("h3", { text: titleText }),
+      el("button", { class: "eikon-dda-mini", type: "button", text: "Close" })
+    );
+    var body = el("div", { class: "body" });
+    var footer = el("footer", {});
+    modal.appendChild(header);
+    modal.appendChild(body);
+    modal.appendChild(footer);
+    back.appendChild(modal);
+
+    function close() {
+      try { back.remove(); } catch (_) {}
+      document.removeEventListener("keydown", onKeyDown);
+    }
+
+    function onKeyDown(ev) {
+      if (ev.key === "Escape") close();
+    }
+
+    header.querySelector("button").addEventListener("click", function () { close(); });
+    back.addEventListener("click", function (ev) {
+      if (ev.target === back) close();
+    });
+
+    document.addEventListener("keydown", onKeyDown);
+    document.body.appendChild(back);
+
+    return {
+      back: back,
+      modal: modal,
+      body: body,
+      footer: footer,
+      close: close
+    };
+  }
+
+  function buildField(labelText, inputEl, helpText, extraClass) {
+    var field = el("div", { class: "eikon-dda-field" + (extraClass ? " " + extraClass : "") },
+      el("label", { text: labelText }),
+      inputEl
+    );
+    if (helpText) field.appendChild(el("div", { class: "eikon-dda-help", text: helpText }));
+    return field;
+  }
+
+  function trimAll(obj) {
+    var out = {};
+    Object.keys(obj).forEach(function (k) {
+      var v = obj[k];
+      if (typeof v === "string") out[k] = v.trim();
+      else out[k] = v;
+    });
+    return out;
+  }
+
+  function buildDdaPayloadFromForm(form) {
+    var payload = {
+      entry_date: safeString(form.entry_date || "").trim(),
+      client_name: safeString(form.client_name || "").trim(),
+      client_id_card: safeString(form.client_id_card || "").trim(),
+      client_address: safeString(form.client_address || "").trim(),
+      medicine_name_dose: safeString(form.medicine_name_dose || "").trim(),
+      quantity: normalizeIntPositive(form.quantity),
+      doctor_name: safeString(form.doctor_name || "").trim(),
+      doctor_reg_no: safeString(form.doctor_reg_no || "").trim(),
+      prescription_serial_no: safeString(form.prescription_serial_no || "").trim()
+    };
+    return payload;
+  }
+
+  function validateDdaPayload(payload) {
+    if (!isValidYmd(payload.entry_date)) return "Invalid entry_date (YYYY-MM-DD)";
+    if (!payload.client_name) return "Missing client_name";
+    if (!payload.client_id_card) return "Missing client_id_card";
+    if (!payload.client_address) return "Missing client_address";
+    if (!payload.medicine_name_dose) return "Missing medicine_name_dose";
+    if (!payload.quantity || payload.quantity < 1) return "Invalid quantity (must be an integer >= 1)";
+    if (!payload.doctor_name) return "Missing doctor_name";
+    if (!payload.doctor_reg_no) return "Missing doctor_reg_no";
+    if (!payload.prescription_serial_no) return "Missing prescription_serial_no";
+    return "";
+  }
+
+  function createModule() {
+    onceInjectStyle();
+
+    var state = {
+      mounted: false,
+      root: null,
+      ctx: null,
+      abort: null,
+      month: currentYmLocal(),
+      q: "",
+      entries: [],
+      loading: false,
+      lastLoadError: "",
+      lastMonthSavedKey: "eikon_dda_sales_last_month",
+      lastQSavedKey: "eikon_dda_sales_last_q"
+    };
+
+    var refs = {
+      monthInput: null,
+      qInput: null,
+      refreshBtn: null,
+      newBtn: null,
+      exportBtn: null,
+      reportBtn: null,
+      fromInput: null,
+      toInput: null,
+      tableWrap: null,
+      countSpan: null,
+      statusSpan: null
+    };
+
+    function loadPrefs() {
       try {
-        await dbRun(env, "ALTER TABLE dda_sales_entries ADD COLUMN client_id_card TEXT", []);
-        await dbRun(env, "UPDATE dda_sales_entries SET client_id_card = client_id WHERE client_id_card IS NULL OR client_id_card = ''", []);
-      } catch {
-        // ignore; worst case you’ll need a manual migration
+        var savedM = localStorage.getItem(state.lastMonthSavedKey);
+        if (savedM && isValidYm(savedM)) state.month = savedM;
+        var savedQ = localStorage.getItem(state.lastQSavedKey);
+        if (savedQ !== null && savedQ !== undefined) state.q = String(savedQ || "");
+      } catch (_) {}
+    }
+
+    function savePrefs() {
+      try {
+        localStorage.setItem(state.lastMonthSavedKey, state.month);
+        localStorage.setItem(state.lastQSavedKey, state.q);
+      } catch (_) {}
+    }
+
+    function setLoading(on) {
+      state.loading = !!on;
+      if (refs.refreshBtn) refs.refreshBtn.disabled = state.loading;
+      if (refs.newBtn) refs.newBtn.disabled = state.loading;
+      if (refs.exportBtn) refs.exportBtn.disabled = state.loading || !(state.entries && state.entries.length);
+      if (refs.reportBtn) refs.reportBtn.disabled = state.loading;
+      if (refs.statusSpan) refs.statusSpan.textContent = state.loading ? "Loading…" : (state.lastLoadError ? state.lastLoadError : "");
+    }
+
+    function renderTable() {
+      var wrap = refs.tableWrap;
+      if (!wrap) return;
+
+      wrap.innerHTML = "";
+
+      if (state.loading) {
+        wrap.appendChild(el("div", { class: "eikon-dda-empty", text: "Loading…" }));
+        return;
       }
-    }
-  }
 
-  await dbRun(
-    env,
-    "CREATE INDEX IF NOT EXISTS idx_dda_sales_org_loc_date ON dda_sales_entries (org_id, location_id, entry_date)",
-    []
-  );
-
-  await dbRun(
-    env,
-    "CREATE INDEX IF NOT EXISTS idx_dda_sales_org_loc_client ON dda_sales_entries (org_id, location_id, client_id_card)",
-    []
-  );
-
-  await dbRun(
-    env,
-    "CREATE INDEX IF NOT EXISTS idx_dda_sales_org_loc_serial ON dda_sales_entries (org_id, location_id, prescription_serial_no)",
-    []
-  );
-}
-
-async function handleDdaSalesEntriesList(request, env, corsOkHeaders, authUser, url) {
-  if (!requireRole(authUser, ["admin", "staff"])) {
-    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
-  }
-
-  await ensureDdaSalesRegisterSchema(env);
-
-  const month = (url.searchParams.get("month") || "").trim();
-  const range = monthRange(month);
-  if (!range) return jsonResponse({ ok: false, error: "Missing/invalid month (YYYY-MM)" }, 400, corsOkHeaders);
-
-  const q = (url.searchParams.get("q") || "").trim();
-  const hasQ = !!q;
-  const qLike = `%${q}%`;
-
-  const sql = `
-    SELECT
-      id,
-      entry_date,
-      client_name,
-      client_id_card,
-      client_address,
-      medicine_name_dose,
-      quantity,
-      doctor_name,
-      doctor_reg_no,
-      prescription_serial_no,
-      created_by,
-      created_at,
-      updated_at
-    FROM dda_sales_entries
-    WHERE org_id = ?
-      AND location_id = ?
-      AND entry_date >= ?
-      AND entry_date < ?
-      ${hasQ ? `AND (
-        entry_date LIKE ?
-        OR client_name LIKE ?
-        OR client_id_card LIKE ?
-        OR client_address LIKE ?
-        OR medicine_name_dose LIKE ?
-        OR doctor_name LIKE ?
-        OR doctor_reg_no LIKE ?
-        OR prescription_serial_no LIKE ?
-      )` : ""}
-    ORDER BY entry_date DESC, id DESC
-  `;
-
-  const bind = [authUser.org_id, authUser.location_id, range.startStr, range.endStr];
-  if (hasQ) {
-    bind.push(qLike, qLike, qLike, qLike, qLike, qLike, qLike, qLike);
-  }
-
-  const entries = await dbAll(env, sql, bind);
-
-  return jsonResponse({ ok: true, entries }, 200, corsOkHeaders);
-}
-
-async function handleDdaSalesEntryCreate(request, env, corsOkHeaders, authUser) {
-  if (!requireRole(authUser, ["admin", "staff"])) {
-    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
-  }
-
-  await ensureDdaSalesRegisterSchema(env);
-
-  const body = await readJson(request);
-
-  const entryDate = String(body.entry_date || "").trim() || todayYmdUtc();
-  const clientName = String(body.client_name || "").trim();
-
-  // Accept BOTH names so UI/API mismatch doesn’t break you:
-  const clientIdCard = String(
-    (body.client_id_card !== undefined ? body.client_id_card : body.client_id) || ""
-  ).trim();
-
-  const clientAddress = String(body.client_address || "").trim();
-  const medicineNameDose = String(body.medicine_name_dose || "").trim();
-  const quantity = parsePositiveInt(body.quantity);
-  const doctorName = String(body.doctor_name || "").trim();
-  const doctorRegNo = String(body.doctor_reg_no || "").trim();
-  const prescriptionSerialNo = String(body.prescription_serial_no || "").trim();
-
-  if (!isValidYmd(entryDate)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
-  if (!clientName) return jsonResponse({ ok: false, error: "Missing client_name" }, 400, corsOkHeaders);
-  if (!clientIdCard) return jsonResponse({ ok: false, error: "Missing client_id_card" }, 400, corsOkHeaders);
-  if (!clientAddress) return jsonResponse({ ok: false, error: "Missing client_address" }, 400, corsOkHeaders);
-  if (!medicineNameDose) return jsonResponse({ ok: false, error: "Missing medicine_name_dose" }, 400, corsOkHeaders);
-  if (!quantity) return jsonResponse({ ok: false, error: "Invalid quantity (positive integer)" }, 400, corsOkHeaders);
-  if (!doctorName) return jsonResponse({ ok: false, error: "Missing doctor_name" }, 400, corsOkHeaders);
-  if (!doctorRegNo) return jsonResponse({ ok: false, error: "Missing doctor_reg_no" }, 400, corsOkHeaders);
-  if (!prescriptionSerialNo) return jsonResponse({ ok: false, error: "Missing prescription_serial_no" }, 400, corsOkHeaders);
-
-  const row = await dbFirst(
-    env,
-    `INSERT INTO dda_sales_entries
-      (org_id, location_id, entry_date, client_name, client_id_card, client_address, medicine_name_dose, quantity, doctor_name, doctor_reg_no, prescription_serial_no, created_by, created_at, updated_at)
-     VALUES
-      (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
-     RETURNING id`,
-    [
-      authUser.org_id,
-      authUser.location_id,
-      entryDate,
-      clientName,
-      clientIdCard,
-      clientAddress,
-      medicineNameDose,
-      quantity,
-      doctorName,
-      doctorRegNo,
-      prescriptionSerialNo,
-      authUser.user_id
-    ]
-  );
-
-  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_SALES_ENTRY_CREATE", "dda_sales_entries", String(row.id), {
-    entry_date: entryDate,
-    client_id_card: clientIdCard,
-    medicine_name_dose: medicineNameDose,
-    quantity: quantity,
-    prescription_serial_no: prescriptionSerialNo
-  });
-
-  return jsonResponse({ ok: true, entry_id: row.id }, 200, corsOkHeaders);
-}
-
-async function handleDdaSalesEntryUpdate(request, env, corsOkHeaders, authUser, entryId) {
-  if (!requireRole(authUser, ["admin", "staff"])) {
-    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
-  }
-
-  await ensureDdaSalesRegisterSchema(env);
-
-  const existing = await dbFirst(
-    env,
-    `SELECT id
-     FROM dda_sales_entries
-     WHERE id = ? AND org_id = ? AND location_id = ?`,
-    [entryId, authUser.org_id, authUser.location_id]
-  );
-  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
-
-  const body = await readJson(request);
-
-  const entryDate = String(body.entry_date || "").trim() || todayYmdUtc();
-  const clientName = String(body.client_name || "").trim();
-
-  const clientIdCard = String(
-    (body.client_id_card !== undefined ? body.client_id_card : body.client_id) || ""
-  ).trim();
-
-  const clientAddress = String(body.client_address || "").trim();
-  const medicineNameDose = String(body.medicine_name_dose || "").trim();
-  const quantity = parsePositiveInt(body.quantity);
-  const doctorName = String(body.doctor_name || "").trim();
-  const doctorRegNo = String(body.doctor_reg_no || "").trim();
-  const prescriptionSerialNo = String(body.prescription_serial_no || "").trim();
-
-  if (!isValidYmd(entryDate)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
-  if (!clientName) return jsonResponse({ ok: false, error: "Missing client_name" }, 400, corsOkHeaders);
-  if (!clientIdCard) return jsonResponse({ ok: false, error: "Missing client_id_card" }, 400, corsOkHeaders);
-  if (!clientAddress) return jsonResponse({ ok: false, error: "Missing client_address" }, 400, corsOkHeaders);
-  if (!medicineNameDose) return jsonResponse({ ok: false, error: "Missing medicine_name_dose" }, 400, corsOkHeaders);
-  if (!quantity) return jsonResponse({ ok: false, error: "Invalid quantity (positive integer)" }, 400, corsOkHeaders);
-  if (!doctorName) return jsonResponse({ ok: false, error: "Missing doctor_name" }, 400, corsOkHeaders);
-  if (!doctorRegNo) return jsonResponse({ ok: false, error: "Missing doctor_reg_no" }, 400, corsOkHeaders);
-  if (!prescriptionSerialNo) return jsonResponse({ ok: false, error: "Missing prescription_serial_no" }, 400, corsOkHeaders);
-
-  await dbRun(
-    env,
-    `UPDATE dda_sales_entries
-     SET entry_date = ?, client_name = ?, client_id_card = ?, client_address = ?, medicine_name_dose = ?, quantity = ?, doctor_name = ?, doctor_reg_no = ?, prescription_serial_no = ?, updated_at = datetime('now')
-     WHERE id = ? AND org_id = ? AND location_id = ?`,
-    [
-      entryDate,
-      clientName,
-      clientIdCard,
-      clientAddress,
-      medicineNameDose,
-      quantity,
-      doctorName,
-      doctorRegNo,
-      prescriptionSerialNo,
-      entryId,
-      authUser.org_id,
-      authUser.location_id
-    ]
-  );
-
-  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_SALES_ENTRY_UPDATE", "dda_sales_entries", String(entryId), {
-    entry_date: entryDate,
-    client_id_card: clientIdCard,
-    medicine_name_dose: medicineNameDose,
-    quantity: quantity,
-    prescription_serial_no: prescriptionSerialNo
-  });
-
-  return jsonResponse({ ok: true }, 200, corsOkHeaders);
-}
-
-async function handleDdaSalesEntryDelete(request, env, corsOkHeaders, authUser, entryId) {
-  if (!requireRole(authUser, ["admin", "staff"])) {
-    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
-  }
-
-  await ensureDdaSalesRegisterSchema(env);
-
-  const existing = await dbFirst(
-    env,
-    `SELECT id, entry_date, client_id_card, prescription_serial_no
-     FROM dda_sales_entries
-     WHERE id = ? AND org_id = ? AND location_id = ?`,
-    [entryId, authUser.org_id, authUser.location_id]
-  );
-  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
-
-  await dbRun(
-    env,
-    `DELETE FROM dda_sales_entries
-     WHERE id = ? AND org_id = ? AND location_id = ?`,
-    [entryId, authUser.org_id, authUser.location_id]
-  );
-
-  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_SALES_ENTRY_DELETE", "dda_sales_entries", String(entryId), {
-    entry_date: existing.entry_date,
-    client_id_card: existing.client_id_card,
-    prescription_serial_no: existing.prescription_serial_no
-  });
-
-  return jsonResponse({ ok: true }, 200, corsOkHeaders);
-}
-
-async function handleDdaSalesReport(request, env, corsOkHeaders, authUser, url) {
-  if (!requireRole(authUser, ["admin", "staff"])) {
-    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
-  }
-
-  await ensureDdaSalesRegisterSchema(env);
-
-  const from = (url.searchParams.get("from") || "").trim();
-  const to = (url.searchParams.get("to") || "").trim();
-
-  if (!isValidYmd(from) || !isValidYmd(to)) {
-    return jsonResponse({ ok: false, error: "Invalid from/to (YYYY-MM-DD)" }, 400, corsOkHeaders);
-  }
-  if (to < from) {
-    return jsonResponse({ ok: false, error: "to must be >= from" }, 400, corsOkHeaders);
-  }
-
-  const entries = await dbAll(
-    env,
-    `SELECT
-       id,
-       entry_date,
-       client_name,
-       client_id_card,
-       client_address,
-       medicine_name_dose,
-       quantity,
-       doctor_name,
-       doctor_reg_no,
-       prescription_serial_no
-     FROM dda_sales_entries
-     WHERE org_id = ?
-       AND location_id = ?
-       AND entry_date >= ?
-       AND entry_date <= ?
-     ORDER BY entry_date ASC, id ASC`,
-    [authUser.org_id, authUser.location_id, from, to]
-  );
-
-  return jsonResponse(
-    {
-      ok: true,
-      org_name: authUser.org_name,
-      location_name: authUser.location_name,
-      from,
-      to,
-      entries
-    },
-    200,
-    corsOkHeaders
-  );
-}
-
-async function handleDdaSalesReportHtml(request, env, corsOkHeaders, authUser, url) {
-  const out = await handleDdaSalesReport(request, env, corsOkHeaders, authUser, url);
-  const data = await out.json();
-  if (!data.ok) return out;
-
-  const entries = data.entries || [];
-
-  // Group by month
-  const byMonth = new Map();
-  for (const e of entries) {
-    const ym = ymFromYmd(e.entry_date);
-    if (!byMonth.has(ym)) byMonth.set(ym, []);
-    byMonth.get(ym).push(e);
-  }
-
-  let body = "";
-  body += `<h1>${escapeHtml(data.org_name || "Pharmacy")} — DDA Sales Register</h1>`;
-  body += `<p class="meta">Location: ${escapeHtml(data.location_name || "")}<br/>Range: ${escapeHtml(data.from)} to ${escapeHtml(data.to)}</p>`;
-
-  for (const [ym, list] of byMonth.entries()) {
-    body += `<h2>${escapeHtml(ym)}</h2>`;
-    body += `<table><thead><tr>
-      <th>Date</th>
-      <th>Name &amp; Surname</th>
-      <th>ID Card</th>
-      <th>Address</th>
-      <th>Medicine Name &amp; Dose</th>
-      <th>Quantity</th>
-      <th>Doctor Name &amp; Surname</th>
-      <th>Registration Number</th>
-      <th>Serial No. of Prescription</th>
-    </tr></thead><tbody>`;
-
-    for (const r of list) {
-      body += `<tr>
-        <td>${escapeHtml(r.entry_date)}</td>
-        <td>${escapeHtml(r.client_name)}</td>
-        <td>${escapeHtml(r.client_id_card)}</td>
-        <td>${escapeHtml(r.client_address)}</td>
-        <td>${escapeHtml(r.medicine_name_dose)}</td>
-        <td>${escapeHtml(String(r.quantity))}</td>
-        <td>${escapeHtml(r.doctor_name)}</td>
-        <td>${escapeHtml(r.doctor_reg_no)}</td>
-        <td>${escapeHtml(r.prescription_serial_no)}</td>
-      </tr>`;
-    }
-
-    body += `</tbody></table>`;
-  }
-
-  return htmlReportPage("DDA Sales Register", body);
-}
-
-
-/* =========================
-   CERTIFICATES MODULE (API)
-   ========================= */
-
-function addMonthsToYmd(ymd, months) {
-  const s = String(ymd || "").trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
-
-  const y = parseInt(s.slice(0, 4), 10);
-  const m = parseInt(s.slice(5, 7), 10);
-  const d = parseInt(s.slice(8, 10), 10);
-
-  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
-
-  const targetMonthIndex = (m - 1) + Number(months || 0);
-  const ty = y + Math.floor(targetMonthIndex / 12);
-  const tm = (targetMonthIndex % 12 + 12) % 12; // 0..11
-
-  // Clamp day to end of month
-  const lastDay = new Date(Date.UTC(ty, tm + 1, 0)).getUTCDate();
-  const td = Math.min(d, lastDay);
-
-  const dt = new Date(Date.UTC(ty, tm, td));
-  return dt.toISOString().slice(0, 10);
-}
-
-async function ensureCertificatesSchema(env) {
-  console.log("[certificates] ensureCertificatesSchema() start");
-
-  await dbRun(
-    env,
-    `CREATE TABLE IF NOT EXISTS certificates_items (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      org_id INTEGER NOT NULL,
-      location_id INTEGER NOT NULL,
-      item_key TEXT NOT NULL,
-      title TEXT NOT NULL,
-      subtitle TEXT NOT NULL,
-      last_label TEXT NOT NULL,
-      next_label TEXT NOT NULL,
-      interval_months INTEGER NOT NULL DEFAULT 12,
-      last_date TEXT,
-      certified_person TEXT,
-      requires_person INTEGER NOT NULL DEFAULT 0,
-      file_name TEXT,
-      file_mime TEXT,
-      file_size INTEGER,
-      file_uploaded_at TEXT,
-      file_r2_key TEXT,
-      file_b64 TEXT,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-      created_by INTEGER,
-      updated_by INTEGER,
-      UNIQUE(org_id, location_id, item_key)
-    )`,
-    []
-  );
-
-  await dbRun(
-    env,
-    "CREATE INDEX IF NOT EXISTS idx_certificates_items_org_loc ON certificates_items (org_id, location_id)",
-    []
-  );
-
-  console.log("[certificates] ensureCertificatesSchema() done");
-}
-
-async function ensureDefaultCertificatesIfMissing(env, authUser) {
-  await ensureCertificatesSchema(env);
-
-  const existing = await dbFirst(
-    env,
-    "SELECT COUNT(*) AS c FROM certificates_items WHERE org_id = ? AND location_id = ?",
-    [authUser.org_id, authUser.location_id]
-  );
-
-  const c = existing && existing.c ? Number(existing.c) : 0;
-  console.log("[certificates] ensureDefaultCertificatesIfMissing() existing count=", c);
-
-  if (c > 0) return;
-
-  if (!requireRole(authUser, ["admin"])) return;
-
-  const defaults = [
-    {
-      item_key: "thermometer_calibration",
-      title: "Thermometer Calibration",
-      subtitle: "Yearly calibration",
-      last_label: "Last Calibration",
-      next_label: "Next Due",
-      interval_months: 12,
-      requires_person: 0
-    },
-    {
-      item_key: "ac_maintenance",
-      title: "AC Maintenance",
-      subtitle: "Yearly service",
-      last_label: "Last Service",
-      next_label: "Next Due",
-      interval_months: 12,
-      requires_person: 0
-    },
-    {
-      item_key: "first_aid_certificate",
-      title: "First Aid Certificate",
-      subtitle: "3 year renewal",
-      last_label: "Issued / Last Renewal",
-      next_label: "Renew By",
-      interval_months: 36,
-      requires_person: 1
-    },
-    {
-      item_key: "dispensary_licence",
-      title: "Dispensary Licence",
-      subtitle: "Yearly renewal",
-      last_label: "Last Renewal",
-      next_label: "Renew By",
-      interval_months: 12,
-      requires_person: 0
-    },
-    {
-      item_key: "fire_extinguisher",
-      title: "Fire Extinguisher",
-      subtitle: "Yearly renewal",
-      last_label: "Last Renewal",
-      next_label: "Renew By",
-      interval_months: 12,
-      requires_person: 0
-    },
-    {
-      item_key: "pest_control",
-      title: "Pest Control",
-      subtitle: "Yearly service",
-      last_label: "Last Service",
-      next_label: "Next Due",
-      interval_months: 12,
-      requires_person: 0
-    },
-    {
-      item_key: "fire_training",
-      title: "Fire Training",
-      subtitle: "3 year renewal",
-      last_label: "Issued / Last Renewal",
-      next_label: "Renew By",
-      interval_months: 36,
-      requires_person: 1
-    },
-    {
-      item_key: "reverse_osmosis_system",
-      title: "Reverse Osmosis System",
-      subtitle: "Yearly service",
-      last_label: "Last Service",
-      next_label: "Next Due",
-      interval_months: 12,
-      requires_person: 0
-    }
-  ];
-
-  for (const it of defaults) {
-    console.log("[certificates] inserting default item", it.item_key);
-    await dbRun(
-      env,
-      `INSERT INTO certificates_items
-        (org_id, location_id, item_key, title, subtitle, last_label, next_label, interval_months, requires_person, created_at, updated_at, created_by, updated_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), ?, ?)
-       ON CONFLICT(org_id, location_id, item_key)
-       DO NOTHING`,
-      [
-        authUser.org_id,
-        authUser.location_id,
-        it.item_key,
-        it.title,
-        it.subtitle,
-        it.last_label,
-        it.next_label,
-        it.interval_months,
-        it.requires_person ? 1 : 0,
-        authUser.user_id,
-        authUser.user_id
-      ]
-    );
-  }
-
-  await writeAudit(env, authUser.org_id, authUser.user_id, "CERT_DEFAULT_ITEMS_CREATE", "location", String(authUser.location_id), {});
-  console.log("[certificates] default items ensured");
-}
-
-async function getCertificateItemByIdOrKey(env, authUser, idOrKey) {
-  const raw = String(idOrKey || "").trim();
-  if (!raw) return null;
-
-  let row = null;
-
-  if (/^\d+$/.test(raw)) {
-    const id = parseInt(raw, 10);
-    row = await dbFirst(
-      env,
-      `SELECT *
-       FROM certificates_items
-       WHERE id = ? AND org_id = ? AND location_id = ?`,
-      [id, authUser.org_id, authUser.location_id]
-    );
-    if (row) return row;
-  }
-
-  row = await dbFirst(
-    env,
-    `SELECT *
-     FROM certificates_items
-     WHERE item_key = ? AND org_id = ? AND location_id = ?`,
-    [raw, authUser.org_id, authUser.location_id]
-  );
-
-  return row || null;
-}
-
-async function handleCertificatesItemsList(request, env, corsOkHeaders, authUser) {
-  console.log("[certificates] LIST start", { org_id: authUser.org_id, location_id: authUser.location_id });
-
-  if (!requireRole(authUser, ["admin", "staff"])) {
-    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
-  }
-
-  await ensureDefaultCertificatesIfMissing(env, authUser);
-
-  const items = await dbAll(
-    env,
-    `SELECT
-       id,
-       item_key,
-       title,
-       subtitle,
-       last_label,
-       next_label,
-       interval_months,
-       last_date,
-       certified_person,
-       requires_person,
-       file_name,
-       file_mime,
-       file_size,
-       file_uploaded_at,
-       file_r2_key,
-       created_at,
-       updated_at
-     FROM certificates_items
-     WHERE org_id = ? AND location_id = ?
-     ORDER BY id ASC`,
-    [authUser.org_id, authUser.location_id]
-  );
-
-  const out = [];
-  for (const it of items) {
-    const next_due = (it.last_date && it.interval_months)
-      ? addMonthsToYmd(it.last_date, Number(it.interval_months))
-      : null;
-
-    out.push({
-      id: it.id,
-      item_key: it.item_key,
-      title: it.title,
-      subtitle: it.subtitle,
-      last_label: it.last_label,
-      next_label: it.next_label,
-      interval_months: Number(it.interval_months || 12),
-      last_date: it.last_date || null,
-      next_due: next_due,
-      certified_person: it.certified_person || "",
-      requires_person: it.requires_person ? 1 : 0,
-      file_name: it.file_name || "",
-      file_uploaded_at: it.file_uploaded_at || "",
-      file_mime: it.file_mime || "",
-      file_size: it.file_size === null || it.file_size === undefined ? null : Number(it.file_size),
-      file_r2_key: it.file_r2_key || ""
-    });
-  }
-
-  console.log("[certificates] LIST done count=", out.length);
-  return jsonResponse({ ok: true, items: out }, 200, corsOkHeaders);
-}
-
-async function handleCertificatesItemUpdate(request, env, corsOkHeaders, authUser, idOrKey) {
-  console.log("[certificates] UPDATE start", { idOrKey: String(idOrKey), org_id: authUser.org_id, location_id: authUser.location_id });
-
-  if (!requireRole(authUser, ["admin", "staff"])) {
-    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
-  }
-
-  await ensureDefaultCertificatesIfMissing(env, authUser);
-
-  const existing = await getCertificateItemByIdOrKey(env, authUser, idOrKey);
-  if (!existing) {
-    console.log("[certificates] UPDATE not found", { idOrKey: String(idOrKey) });
-    return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
-  }
-
-  const body = await readJson(request);
-
-  const lastDate = body.last_date === null || body.last_date === undefined ? undefined : String(body.last_date || "").trim();
-  const intervalMonths = body.interval_months === null || body.interval_months === undefined ? undefined : parseInt(body.interval_months, 10);
-  const certifiedPerson = body.certified_person === undefined ? undefined : String(body.certified_person || "").trim();
-
-  if (lastDate !== undefined) {
-    if (lastDate && !isValidYmd(lastDate)) {
-      return jsonResponse({ ok: false, error: "Invalid last_date (YYYY-MM-DD or null)" }, 400, corsOkHeaders);
-    }
-  }
-
-  let newInterval = existing.interval_months;
-  if (intervalMonths !== undefined) {
-    if (!Number.isFinite(intervalMonths) || intervalMonths < 1 || intervalMonths > 240) {
-      return jsonResponse({ ok: false, error: "Invalid interval_months (1..240)" }, 400, corsOkHeaders);
-    }
-    newInterval = intervalMonths;
-  }
-
-  let newLast = existing.last_date;
-  if (lastDate !== undefined) {
-    newLast = lastDate ? lastDate : null;
-  }
-
-  let newPerson = existing.certified_person;
-  if (existing.requires_person === 1) {
-    if (certifiedPerson !== undefined) newPerson = certifiedPerson;
-  } else {
-    if (certifiedPerson !== undefined) {
-      console.log("[certificates] UPDATE: ignoring certified_person (requires_person=0)");
-    }
-  }
-
-  await dbRun(
-    env,
-    `UPDATE certificates_items
-     SET last_date = ?, interval_months = ?, certified_person = ?, updated_at = datetime('now'), updated_by = ?
-     WHERE id = ? AND org_id = ? AND location_id = ?`,
-    [
-      newLast,
-      newInterval,
-      existing.requires_person === 1 ? (newPerson || "") : (existing.certified_person || ""),
-      authUser.user_id,
-      existing.id,
-      authUser.org_id,
-      authUser.location_id
-    ]
-  );
-
-  await writeAudit(env, authUser.org_id, authUser.user_id, "CERT_ITEM_UPDATE", "certificates_items", String(existing.id), {
-    id: existing.id,
-    item_key: existing.item_key,
-    last_date: newLast,
-    interval_months: newInterval,
-    certified_person: (existing.requires_person === 1 ? (newPerson || "") : "")
-  });
-
-  console.log("[certificates] UPDATE done", { id: existing.id, item_key: existing.item_key });
-  return jsonResponse({ ok: true }, 200, corsOkHeaders);
-}
-
-async function handleCertificatesUpload(request, env, corsOkHeaders, authUser, idOrKey) {
-  console.log("[certificates] UPLOAD start", { idOrKey: String(idOrKey), ct: request.headers.get("Content-Type") || "" });
-
-  if (!requireRole(authUser, ["admin", "staff"])) {
-    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
-  }
-
-  await ensureDefaultCertificatesIfMissing(env, authUser);
-
-  const existing = await getCertificateItemByIdOrKey(env, authUser, idOrKey);
-  if (!existing) {
-    console.log("[certificates] UPLOAD not found", { idOrKey: String(idOrKey) });
-    return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
-  }
-
-  const ct = (request.headers.get("Content-Type") || "").toLowerCase();
-
-  let fileName = "";
-  let fileMime = "application/octet-stream";
-  let fileSize = 0;
-  let bytes = null;
-
-  if (ct.includes("multipart/form-data")) {
-    const form = await request.formData();
-    const f = form.get("file");
-
-    if (!f) return jsonResponse({ ok: false, error: "Missing form field: file" }, 400, corsOkHeaders);
-    if (!(f instanceof File)) return jsonResponse({ ok: false, error: "Invalid file upload" }, 400, corsOkHeaders);
-
-    fileName = String(f.name || "upload.bin");
-    fileMime = String(f.type || "application/octet-stream");
-    fileSize = Number(f.size || 0);
-
-    const ab = await f.arrayBuffer();
-    bytes = new Uint8Array(ab);
-
-    console.log("[certificates] UPLOAD multipart received", { fileName, fileMime, fileSize });
-  } else if (ct.includes("application/json")) {
-    const body = await readJson(request);
-
-    fileName = String(body.file_name || "").trim();
-    fileMime = String(body.file_mime || "application/octet-stream").trim() || "application/octet-stream";
-    const b64 = String(body.file_b64 || "").trim();
-
-    if (!fileName) return jsonResponse({ ok: false, error: "Missing file_name" }, 400, corsOkHeaders);
-    if (!b64) return jsonResponse({ ok: false, error: "Missing file_b64" }, 400, corsOkHeaders);
-
-    try {
-      bytes = bytesFromBase64(b64);
-    } catch (e) {
-      console.log("[certificates] UPLOAD json base64 decode failed", e && (e.stack || e.message || String(e)));
-      return jsonResponse({ ok: false, error: "Invalid base64" }, 400, corsOkHeaders);
-    }
-
-    fileSize = bytes.length;
-
-    console.log("[certificates] UPLOAD json received", { fileName, fileMime, fileSize });
-  } else {
-    return jsonResponse({ ok: false, error: "Unsupported Content-Type for upload" }, 415, corsOkHeaders);
-  }
-
-  const maxBytes = parseInt((env.CERT_UPLOAD_MAX_BYTES || "800000").trim(), 10);
-  const hasR2 = !!env.CERTS_R2;
-
-  if (!hasR2 && fileSize > maxBytes) {
-    console.log("[certificates] UPLOAD too large for D1 base64", { fileSize, maxBytes });
-    return jsonResponse({ ok: false, error: `File too large (${fileSize} bytes). Max without R2 is ${maxBytes}.` }, 413, corsOkHeaders);
-  }
-
-  let fileR2Key = null;
-  let fileB64 = null;
-
-  if (hasR2) {
-    const safeName = fileName.replace(/[^\w.\-() ]+/g, "_").slice(0, 120) || "upload.bin";
-    fileR2Key = `certificates/org_${authUser.org_id}/loc_${authUser.location_id}/${existing.item_key}/${Date.now()}_${safeName}`;
-
-    console.log("[certificates] UPLOAD storing in R2", { fileR2Key });
-
-    await env.CERTS_R2.put(fileR2Key, bytes, {
-      httpMetadata: {
-        contentType: fileMime
+      if (state.lastLoadError) {
+        wrap.appendChild(el("div", { class: "eikon-dda-empty", html: "<b>Error:</b> " + escHtml(state.lastLoadError) }));
       }
-    });
 
-    fileB64 = null;
-  } else {
-    fileB64 = base64FromBytes(bytes);
-    fileR2Key = null;
-
-    console.log("[certificates] UPLOAD storing in D1 (base64)", { fileSize });
-  }
-
-  await dbRun(
-    env,
-    `UPDATE certificates_items
-     SET file_name = ?, file_mime = ?, file_size = ?, file_uploaded_at = datetime('now'),
-         file_r2_key = ?, file_b64 = ?, updated_at = datetime('now'), updated_by = ?
-     WHERE id = ? AND org_id = ? AND location_id = ?`,
-    [
-      fileName,
-      fileMime,
-      fileSize,
-      fileR2Key,
-      fileB64,
-      authUser.user_id,
-      existing.id,
-      authUser.org_id,
-      authUser.location_id
-    ]
-  );
-
-  await writeAudit(env, authUser.org_id, authUser.user_id, "CERT_FILE_UPLOAD", "certificates_items", String(existing.id), {
-    id: existing.id,
-    item_key: existing.item_key,
-    file_name: fileName,
-    file_mime: fileMime,
-    file_size: fileSize,
-    stored: hasR2 ? "r2" : "d1_base64"
-  });
-
-  console.log("[certificates] UPLOAD done", { id: existing.id, item_key: existing.item_key });
-  return jsonResponse({ ok: true }, 200, corsOkHeaders);
-}
-
-/* ===== CERTIFICATES: DOWNLOAD ENDPOINT PATCH ===== */
-
-function sanitizeFilenameForHeader(name) {
-  let s = String(name || "").trim();
-  if (!s) s = "download.bin";
-  s = s.replace(/[/\\]+/g, "_");
-  s = s.replace(/[\x00-\x1F\x7F]/g, "_");
-  s = s.replace(/\s+/g, " ").trim();
-  if (s.length > 180) s = s.slice(0, 180);
-  return s;
-}
-
-function contentDispositionHeader(filename, inline) {
-  const safe = sanitizeFilenameForHeader(filename);
-  const asciiFallback = safe.replace(/[^A-Za-z0-9._-]/g, "_") || "download.bin";
-  const utf8 = encodeURIComponent(safe)
-    .replace(/'/g, "%27")
-    .replace(/\(/g, "%28")
-    .replace(/\)/g, "%29")
-    .replace(/\*/g, "%2A");
-
-  return `${inline ? "inline" : "attachment"}; filename="${asciiFallback}"; filename*=UTF-8''${utf8}`;
-}
-
-async function handleCertificatesDownload(request, env, corsOkHeaders, authUser, idOrKey) {
-  console.log("[certificates] DOWNLOAD start", { idOrKey: String(idOrKey), org_id: authUser.org_id, location_id: authUser.location_id });
-
-  if (!requireRole(authUser, ["admin", "staff"])) {
-    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
-  }
-
-  await ensureDefaultCertificatesIfMissing(env, authUser);
-
-  const existing = await getCertificateItemByIdOrKey(env, authUser, idOrKey);
-  if (!existing) {
-    console.log("[certificates] DOWNLOAD not found item", { idOrKey: String(idOrKey) });
-    return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
-  }
-
-  const hasFile = !!(existing.file_r2_key || existing.file_b64);
-  if (!hasFile) {
-    return jsonResponse({ ok: false, error: "No file uploaded" }, 404, corsOkHeaders);
-  }
-
-  const url = new URL(request.url);
-  const inline = url.searchParams.get("inline") === "1";
-
-  const fileName = existing.file_name || `${existing.item_key || "certificate"}.bin`;
-  const fileMime = (existing.file_mime || "application/octet-stream").trim() || "application/octet-stream";
-
-  const headers = {
-    ...corsOkHeaders,
-    "Content-Type": fileMime,
-    "Content-Disposition": contentDispositionHeader(fileName, inline),
-    "Cache-Control": "no-store",
-    "X-Content-Type-Options": "nosniff",
-    "Access-Control-Expose-Headers": "Content-Disposition, Content-Type, Content-Length"
-  };
-
-  // Prefer R2
-  if (existing.file_r2_key && env.CERTS_R2) {
-    const obj = await env.CERTS_R2.get(existing.file_r2_key);
-    if (!obj) {
-      console.log("[certificates] DOWNLOAD missing R2 object", { key: existing.file_r2_key });
-      return jsonResponse({ ok: false, error: "File missing" }, 404, corsOkHeaders);
-    }
-    return new Response(obj.body, { status: 200, headers });
-  }
-
-  // Fallback to D1 base64
-  if (existing.file_b64) {
-    let bytes;
-    try {
-      bytes = bytesFromBase64(String(existing.file_b64 || "").trim());
-    } catch (e) {
-      console.log("[certificates] DOWNLOAD base64 decode failed", e && (e.stack || e.message || String(e)));
-      return jsonResponse({ ok: false, error: "Corrupt stored file" }, 500, corsOkHeaders);
-    }
-
-    headers["Content-Length"] = String(bytes.length);
-    return new Response(bytes, { status: 200, headers });
-  }
-
-  return jsonResponse({ ok: false, error: "File missing" }, 404, corsOkHeaders);
-}
-
-/* =========================
-   UI FILE SERVING (/ui/*)
-   ========================= */
-
-function contentTypeForPath(pathname) {
-  const p = String(pathname || "").toLowerCase();
-  if (p.endsWith(".css")) return "text/css; charset=utf-8";
-  if (p.endsWith(".js")) return "application/javascript; charset=utf-8";
-  if (p.endsWith(".html")) return "text/html; charset=utf-8";
-  if (p.endsWith(".json")) return "application/json; charset=utf-8";
-  if (p.endsWith(".svg")) return "image/svg+xml";
-  if (p.endsWith(".png")) return "image/png";
-  if (p.endsWith(".jpg") || p.endsWith(".jpeg")) return "image/jpeg";
-  if (p.endsWith(".webp")) return "image/webp";
-  if (p.endsWith(".txt")) return "text/plain; charset=utf-8";
-  return "application/octet-stream";
-}
-
-function buildGithubRawUrl(env, uiPath) {
-  const owner = (env.UI_GITHUB_OWNER || "").trim() || "johnagius";
-  const repo = (env.UI_GITHUB_REPO || "").trim() || "eikon-ui";
-  const branch = (env.UI_GITHUB_BRANCH || "").trim() || "main";
-  const dir = (env.UI_GITHUB_DIR || "").trim() || "ui";
-
-  const safe = uiPath.replace(/^\/+/, "").replace(/\.\.+/g, ".");
-  return `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${dir}/${safe}`;
-}
-
-function sanitizeJsSourceText(s) {
-  return String(s || "")
-    .replace(/\uFEFF/g, "")
-    .replace(/\u0000/g, "")
-    .replace(/\u2028/g, "\n")
-    .replace(/\u2029/g, "\n");
-}
-
-async function handleUiAsset(request, env, url) {
-  const p = url.pathname;
-  const rel = p.replace(/^\/ui\/?/, "");
-  if (!rel || rel.endsWith("/")) {
-    return new Response("Not found", { status: 404, headers: { "Content-Type": "text/plain; charset=utf-8" } });
-  }
-
-  const cacheSeconds = parseInt((env.UI_CACHE_SECONDS || "300").trim(), 10);
-  const ct = contentTypeForPath(rel);
-
-  const cache = caches.default;
-
-  const cachingEnabled = Number.isFinite(cacheSeconds) && cacheSeconds > 0;
-
-  if (cachingEnabled) {
-    const cached = await cache.match(request);
-    if (cached) return cached;
-  }
-
-  const ghUrl = buildGithubRawUrl(env, rel);
-  const ghRes = await fetch(ghUrl, {
-    method: "GET",
-    headers: {
-      "User-Agent": "eikon-worker-ui-proxy",
-      "Cache-Control": "no-cache"
-    }
-  });
-
-  if (!ghRes.ok) {
-    return new Response("Not found", {
-      status: 404,
-      headers: { "Content-Type": "text/plain; charset=utf-8" }
-    });
-  }
-
-  let body = await ghRes.arrayBuffer();
-
-  // Patch: sanitize problematic Unicode that can cause "Invalid or unexpected token"
-  if (rel.toLowerCase().endsWith(".js")) {
-    try {
-      const dec = new TextDecoder("utf-8");
-      const txt = dec.decode(body);
-      const clean = sanitizeJsSourceText(txt);
-      if (clean !== txt) {
-        body = new TextEncoder().encode(clean).buffer;
+      var entries = state.entries || [];
+      if (!entries.length) {
+        wrap.appendChild(el("div", { class: "eikon-dda-empty", text: "No entries found for this month." }));
+        return;
       }
-    } catch (e) {
-      // serve original bytes if sanitize fails
-    }
-  }
 
-  const headers = new Headers();
-  headers.set("Content-Type", ct);
-  headers.set("Cache-Control", cachingEnabled ? `public, max-age=${cacheSeconds}` : "no-store");
-  headers.set("X-Source", "github-raw");
-  headers.set("Access-Control-Allow-Origin", "*");
+      var table = el("table", { class: "eikon-dda-table" });
+      var thead = el("thead");
+      var trh = el("tr");
+      var headers = [
+        "Date",
+        "Client Name",
+        "ID Card",
+        "Address",
+        "Medicine Name & Dose",
+        "Qty",
+        "Doctor Name",
+        "Doctor Reg No.",
+        "Prescription Serial No.",
+        "Actions"
+      ];
+      for (var i = 0; i < headers.length; i++) trh.appendChild(el("th", { text: headers[i] }));
+      thead.appendChild(trh);
+      table.appendChild(thead);
 
-  const out = new Response(body, { status: 200, headers });
+      var tbody = el("tbody");
+      for (var r = 0; r < entries.length; r++) {
+        var e = entries[r] || {};
+        var tr = el("tr");
+        tr.appendChild(el("td", { text: safeString(e.entry_date) }));
+        tr.appendChild(el("td", { text: safeString(e.client_name) }));
+        tr.appendChild(el("td", { text: safeString(e.client_id_card) }));
+        tr.appendChild(el("td", { text: safeString(e.client_address) }));
+        tr.appendChild(el("td", { text: safeString(e.medicine_name_dose) }));
+        tr.appendChild(el("td", { text: safeString(e.quantity) }));
+        tr.appendChild(el("td", { text: safeString(e.doctor_name) }));
+        tr.appendChild(el("td", { text: safeString(e.doctor_reg_no) }));
+        tr.appendChild(el("td", { text: safeString(e.prescription_serial_no) }));
 
-  if (cachingEnabled) {
-    await cache.put(request, out.clone());
-  }
+        var actionTd = el("td");
+        var actions = el("div", { class: "eikon-dda-actions" });
 
-  return out;
-}
+        var editBtn = el("button", { class: "eikon-dda-mini primary", type: "button", text: "Edit" });
+        editBtn.addEventListener("click", (function (entry) {
+          return function () { openEntryModal(entry); };
+        })(e));
 
-export default {
-  async fetch(request, env, ctx) {
-    const url = new URL(request.url);
+        var delBtn = el("button", { class: "eikon-dda-mini danger", type: "button", text: "Delete" });
+        delBtn.addEventListener("click", (function (entry) {
+          return function () { confirmDelete(entry); };
+        })(e));
 
-    // UI assets
-    if (url.pathname.startsWith("/ui/")) {
-      return await handleUiAsset(request, env, url);
-    }
+        actions.appendChild(editBtn);
+        actions.appendChild(delBtn);
+        actionTd.appendChild(actions);
+        tr.appendChild(actionTd);
 
-    if (url.pathname === "/health") {
-      return jsonResponse({ ok: true, time: nowIso() }, 200, { "Cache-Control": "no-store" });
-    }
+        tbody.appendChild(tr);
+      }
 
-    if (url.pathname === "/bootstrap" && request.method === "GET") return await handleBootstrapGet(request, env);
-    if (url.pathname === "/bootstrap" && request.method === "POST") return await handleBootstrapPost(request, env);
-
-    const cors = corsHeadersForRequest(request, env);
-    if (request.method === "OPTIONS") {
-      return new Response(null, { status: 204, headers: cors.headers });
-    }
-    const corsOkHeaders = cors.ok ? cors.headers : { "Vary": "Origin" };
-
-    if (url.pathname === "/auth/login" && request.method === "POST") {
-      if (!cors.ok) return jsonResponse({ ok: false, error: "CORS blocked" }, 403, corsOkHeaders);
-      return await handleLogin(request, env, corsOkHeaders);
-    }
-
-    const authUser = await authFromRequest(request, env);
-    if (!authUser) return jsonResponse({ ok: false, error: "Unauthorized" }, 401, corsOkHeaders);
-    if (!cors.ok) return jsonResponse({ ok: false, error: "CORS blocked" }, 403, corsOkHeaders);
-
-    if (url.pathname === "/auth/me" && request.method === "GET") {
-      return await handleMe(env, corsOkHeaders, authUser);
-    }
-
-    // Temperature
-    if (url.pathname === "/temperature/devices" && request.method === "GET") {
-      return await handleTempDevicesList(request, env, corsOkHeaders, authUser);
-    }
-    if (url.pathname === "/temperature/devices" && request.method === "POST") {
-      return await handleTempDevicesCreate(request, env, corsOkHeaders, authUser);
-    }
-    if (url.pathname.startsWith("/temperature/devices/") && request.method === "PUT") {
-      const parts = url.pathname.split("/").filter(Boolean);
-      const id = parseInt(parts[2], 10);
-      if (!id) return jsonResponse({ ok: false, error: "Invalid device id" }, 400, corsOkHeaders);
-      return await handleTempDevicesUpdate(request, env, corsOkHeaders, authUser, id);
+      table.appendChild(tbody);
+      wrap.appendChild(table);
     }
 
-    if (url.pathname === "/temperature/entries" && request.method === "GET") {
-      return await handleTempEntriesList(request, env, corsOkHeaders, authUser, url);
-    }
-    if (url.pathname === "/temperature/entries" && request.method === "POST") {
-      return await handleTempEntriesUpsert(request, env, corsOkHeaders, authUser);
-    }
-    if (url.pathname.startsWith("/temperature/entries/") && request.method === "DELETE") {
-      const parts = url.pathname.split("/").filter(Boolean);
-      const id = parseInt(parts[2], 10);
-      if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
-      return await handleTempEntryDelete(request, env, corsOkHeaders, authUser, id);
+    function setCount() {
+      if (!refs.countSpan) return;
+      var n = (state.entries && state.entries.length) ? state.entries.length : 0;
+      refs.countSpan.textContent = String(n);
     }
 
-    if (url.pathname === "/temperature/report" && request.method === "GET") {
-      return await handleTempReport(request, env, corsOkHeaders, authUser, url);
-    }
-    if (url.pathname === "/temperature/report/html" && request.method === "GET") {
-      return await handleTempReportHtml(request, env, corsOkHeaders, authUser, url);
-    }
-
-    // Cleaning
-    if (url.pathname === "/cleaning/entries" && request.method === "GET") {
-      return await handleCleaningEntriesList(request, env, corsOkHeaders, authUser, url);
-    }
-    if (url.pathname === "/cleaning/entries" && request.method === "POST") {
-      return await handleCleaningEntryCreate(request, env, corsOkHeaders, authUser);
-    }
-    if (url.pathname.startsWith("/cleaning/entries/") && request.method === "PUT") {
-      const parts = url.pathname.split("/").filter(Boolean);
-      const id = parseInt(parts[2], 10);
-      if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
-      return await handleCleaningEntryUpdate(request, env, corsOkHeaders, authUser, id);
-    }
-    if (url.pathname.startsWith("/cleaning/entries/") && request.method === "DELETE") {
-      const parts = url.pathname.split("/").filter(Boolean);
-      const id = parseInt(parts[2], 10);
-      if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
-      return await handleCleaningEntryDelete(request, env, corsOkHeaders, authUser, id);
-    }
-    if (url.pathname === "/cleaning/report" && request.method === "GET") {
-      return await handleCleaningReport(request, env, corsOkHeaders, authUser, url);
-    }
-    if (url.pathname === "/cleaning/report/html" && request.method === "GET") {
-      return await handleCleaningReportHtml(request, env, corsOkHeaders, authUser, url);
+    function updateReportRangeDefaults() {
+      var range = monthStartEnd(state.month);
+      if (!range) return;
+      if (refs.fromInput) refs.fromInput.value = range.from;
+      if (refs.toInput) refs.toInput.value = range.to;
     }
 
-    // Daily Register
-    if (url.pathname === "/daily_register/entries" && request.method === "GET") {
-      return await handleDailyRegisterEntriesList(request, env, corsOkHeaders, authUser, url);
-    }
-    if (url.pathname === "/daily_register/entries" && request.method === "POST") {
-      return await handleDailyRegisterEntryCreate(request, env, corsOkHeaders, authUser);
-    }
-    if (url.pathname.startsWith("/daily_register/entries/") && request.method === "PUT") {
-      const parts = url.pathname.split("/").filter(Boolean);
-      const id = parseInt(parts[2], 10);
-      if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
-      return await handleDailyRegisterEntryUpdate(request, env, corsOkHeaders, authUser, id);
-    }
-    if (url.pathname.startsWith("/daily_register/entries/") && request.method === "DELETE") {
-      const parts = url.pathname.split("/").filter(Boolean);
-      const id = parseInt(parts[2], 10);
-      if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
-      return await handleDailyRegisterEntryDelete(request, env, corsOkHeaders, authUser, id);
-    }
-    if (url.pathname === "/daily_register/report" && request.method === "GET") {
-      return await handleDailyRegisterReport(request, env, corsOkHeaders, authUser, url);
-    }
-    if (url.pathname === "/daily_register/report/html" && request.method === "GET") {
-      return await handleDailyRegisterReportHtml(request, env, corsOkHeaders, authUser, url);
+    function cancelInFlight() {
+      if (state.abort) {
+        try { state.abort.abort(); } catch (_) {}
+      }
+      state.abort = null;
     }
 
-    // DDA Sales Register
-    if (url.pathname === "/dda_sales/entries" && request.method === "GET") {
-      return await handleDdaSalesEntriesList(request, env, corsOkHeaders, authUser, url);
-    }
-    if (url.pathname === "/dda_sales/entries" && request.method === "POST") {
-      return await handleDdaSalesEntryCreate(request, env, corsOkHeaders, authUser);
-    }
-    if (url.pathname.startsWith("/dda_sales/entries/") && request.method === "PUT") {
-      const parts = url.pathname.split("/").filter(Boolean);
-      const id = parseInt(parts[2], 10);
-      if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
-      return await handleDdaSalesEntryUpdate(request, env, corsOkHeaders, authUser, id);
-    }
-    if (url.pathname.startsWith("/dda_sales/entries/") && request.method === "DELETE") {
-      const parts = url.pathname.split("/").filter(Boolean);
-      const id = parseInt(parts[2], 10);
-      if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
-      return await handleDdaSalesEntryDelete(request, env, corsOkHeaders, authUser, id);
-    }
-    if (url.pathname === "/dda_sales/report" && request.method === "GET") {
-      return await handleDdaSalesReport(request, env, corsOkHeaders, authUser, url);
-    }
-    if (url.pathname === "/dda_sales/report/html" && request.method === "GET") {
-      return await handleDdaSalesReportHtml(request, env, corsOkHeaders, authUser, url);
+    function loadEntries() {
+      cancelInFlight();
+      state.abort = new AbortController();
+      var sig = state.abort.signal;
+
+      state.lastLoadError = "";
+      setLoading(true);
+
+      var month = state.month;
+      var q = state.q;
+
+      apiFetch(state.ctx, "GET", "/dda-sales/entries", undefined, { month: month, q: q }, sig)
+        .then(function (data) {
+          if (!data || data.ok !== true) {
+            throw new Error((data && data.error) ? String(data.error) : "Unexpected response");
+          }
+          state.entries = Array.isArray(data.entries) ? data.entries : [];
+          setCount();
+          renderTable();
+          setLoading(false);
+          savePrefs();
+        })
+        .catch(function (err) {
+          if (err && (err.name === "AbortError" || err.message === "The user aborted a request.")) return;
+          state.entries = [];
+          setCount();
+          state.lastLoadError = (err && err.message) ? String(err.message) : "Failed to load";
+          setLoading(false);
+          renderTable();
+
+          if (err && err.status === 401) {
+            toast("Unauthorized. Please log in again.", "err");
+            if (state.ctx && typeof state.ctx.onUnauthorized === "function") {
+              try { state.ctx.onUnauthorized(); } catch (_) {}
+            }
+          } else {
+            toast(state.lastLoadError, "err");
+          }
+        });
     }
 
-    // Certificates (DOWNLOAD) - PATCH
-    if (url.pathname.startsWith("/certificates/items/") && (request.method === "GET" || request.method === "HEAD")) {
-      const parts = url.pathname.split("/").filter(Boolean);
-      const idOrKey = parts[2];
-      const tail = parts[3] || "";
+    function openReportHtml() {
+      var from = refs.fromInput ? refs.fromInput.value.trim() : "";
+      var to = refs.toInput ? refs.toInput.value.trim() : "";
+      if (!isValidYmd(from) || !isValidYmd(to)) {
+        toast("Invalid report date range. Use YYYY-MM-DD.", "err");
+        return;
+      }
+      if (to < from) {
+        toast("Report range invalid: to must be >= from.", "err");
+        return;
+      }
 
-      if ((tail === "download" || tail === "file") && idOrKey) {
-        const res = await handleCertificatesDownload(request, env, corsOkHeaders, authUser, idOrKey);
-        if (request.method === "HEAD") {
-          const h = new Headers(res.headers);
-          return new Response(null, { status: res.status, headers: h });
+      var base = getApiBase(state.ctx);
+      var token = getToken(state.ctx);
+
+      // Prefer opening directly; auth header cannot be added for window.open.
+      // If UI is served from same origin and token is stored in localStorage (used by fetch),
+      // the report endpoint still requires Authorization header.
+      //
+      // So we provide two modes:
+      // 1) Try to open report in a new tab using a special "token in query" pattern if you implement it later (not in Worker).
+      // 2) Fallback: fetch the HTML with Authorization, then open a blob URL.
+      //
+      // Since the Worker code requires Authorization and does NOT accept token in query,
+      // we implement the secure fallback via fetch+blob.
+
+      setLoading(true);
+
+      apiFetch(state.ctx, "GET", "/dda-sales/report/html", undefined, { from: from, to: to }, state.abort ? state.abort.signal : undefined)
+        .then(function (dataOrRaw) {
+          // apiFetch parses JSON by default; but /report/html returns HTML.
+          // Our apiFetch will try JSON.parse and fail -> returns {ok:true, raw: txt}
+          // so we use raw.
+          var html = "";
+          if (dataOrRaw && typeof dataOrRaw.raw === "string") html = dataOrRaw.raw;
+          else if (typeof dataOrRaw === "string") html = dataOrRaw;
+          else html = "";
+
+          if (!html || html.indexOf("<!doctype") === -1) {
+            // If server returned JSON error or something unexpected.
+            // Try to show a meaningful message.
+            if (dataOrRaw && dataOrRaw.error) throw new Error(String(dataOrRaw.error));
+            throw new Error("Unexpected report response");
+          }
+
+          var blob = new Blob([html], { type: "text/html;charset=utf-8" });
+          var url = URL.createObjectURL(blob);
+          window.open(url, "_blank", "noopener,noreferrer");
+          setTimeout(function () {
+            try { URL.revokeObjectURL(url); } catch (_) {}
+          }, 60000);
+
+          setLoading(false);
+        })
+        .catch(function (err) {
+          setLoading(false);
+          var msg = (err && err.message) ? String(err.message) : "Failed to open report";
+          toast(msg, "err");
+        });
+    }
+
+    function exportCsv() {
+      var entries = state.entries || [];
+      if (!entries.length) {
+        toast("No entries to export.", "err");
+        return;
+      }
+      var csv = entriesToCsv(entries);
+      var blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+      var fname = "dda-sales_" + state.month + ".csv";
+      downloadBlob(fname, blob);
+      toast("Exported CSV: " + fname, "ok");
+    }
+
+    function openEntryModal(existingEntry) {
+      var isEdit = !!(existingEntry && existingEntry.id);
+
+      var modal = createModal(isEdit ? "Edit DDA Sale Entry" : "New DDA Sale Entry");
+
+      var defaults = {
+        entry_date: todayYmdLocal(),
+        client_name: "",
+        client_id_card: "",
+        client_address: "",
+        medicine_name_dose: "",
+        quantity: 1,
+        doctor_name: "",
+        doctor_reg_no: "",
+        prescription_serial_no: ""
+      };
+
+      var init = {};
+      Object.keys(defaults).forEach(function (k) { init[k] = defaults[k]; });
+
+      if (isEdit) {
+        init.entry_date = safeString(existingEntry.entry_date || defaults.entry_date);
+        init.client_name = safeString(existingEntry.client_name || "");
+        init.client_id_card = safeString(existingEntry.client_id_card || "");
+        init.client_address = safeString(existingEntry.client_address || "");
+        init.medicine_name_dose = safeString(existingEntry.medicine_name_dose || "");
+        init.quantity = (existingEntry.quantity !== null && existingEntry.quantity !== undefined) ? Number(existingEntry.quantity) : defaults.quantity;
+        init.doctor_name = safeString(existingEntry.doctor_name || "");
+        init.doctor_reg_no = safeString(existingEntry.doctor_reg_no || "");
+        init.prescription_serial_no = safeString(existingEntry.prescription_serial_no || "");
+      }
+
+      var entryDate = el("input", { type: "date", value: init.entry_date });
+      var clientName = el("input", { type: "text", value: init.client_name, placeholder: "Name & Surname" });
+      var clientId = el("input", { type: "text", value: init.client_id_card, placeholder: "ID Card No." });
+      var clientAddress = el("input", { type: "text", value: init.client_address, placeholder: "Address" });
+      var medicineNameDose = el("input", { type: "text", value: init.medicine_name_dose, placeholder: "Medicine name + dose" });
+      var quantity = el("input", { type: "number", value: String(init.quantity), min: "1", step: "1" });
+      var doctorName = el("input", { type: "text", value: init.doctor_name, placeholder: "Doctor name" });
+      var doctorRegNo = el("input", { type: "text", value: init.doctor_reg_no, placeholder: "Doctor registration no." });
+      var serial = el("input", { type: "text", value: init.prescription_serial_no, placeholder: "Prescription serial no." });
+
+      var grid = el("div", { class: "eikon-dda-grid" },
+        buildField("Entry Date", entryDate, "Required (YYYY-MM-DD)."),
+        buildField("Quantity", quantity, "Integer >= 1."),
+        buildField("Client Name", clientName, "Required."),
+        buildField("Client ID Card", clientId, "Required."),
+        buildField("Client Address", clientAddress, "Required.", "full"),
+        buildField("Medicine Name & Dose", medicineNameDose, "Required.", "full"),
+        buildField("Doctor Name", doctorName, "Required."),
+        buildField("Doctor Reg No.", doctorRegNo, "Required."),
+        buildField("Prescription Serial No.", serial, "Required.", "full")
+      );
+
+      modal.body.appendChild(grid);
+
+      var saveBtn = el("button", { class: "eikon-dda-btn", type: "button", text: isEdit ? "Save Changes" : "Create Entry" });
+      var cancelBtn = el("button", { class: "eikon-dda-btn ghost", type: "button", text: "Cancel" });
+
+      var busy = false;
+      function setBusy(on) {
+        busy = !!on;
+        saveBtn.disabled = busy;
+        cancelBtn.disabled = busy;
+      }
+
+      cancelBtn.addEventListener("click", function () {
+        if (busy) return;
+        modal.close();
+      });
+
+      saveBtn.addEventListener("click", function () {
+        if (busy) return;
+
+        var form = trimAll({
+          entry_date: entryDate.value,
+          client_name: clientName.value,
+          client_id_card: clientId.value,
+          client_address: clientAddress.value,
+          medicine_name_dose: medicineNameDose.value,
+          quantity: quantity.value,
+          doctor_name: doctorName.value,
+          doctor_reg_no: doctorRegNo.value,
+          prescription_serial_no: serial.value
+        });
+
+        var payload = buildDdaPayloadFromForm(form);
+        var errMsg = validateDdaPayload(payload);
+        if (errMsg) {
+          toast(errMsg, "err");
+          return;
         }
-        return res;
+
+        setBusy(true);
+
+        var method = isEdit ? "PUT" : "POST";
+        var path = isEdit ? ("/dda-sales/entries/" + encodeURIComponent(String(existingEntry.id))) : "/dda-sales/entries";
+
+        apiFetch(state.ctx, method, path, payload, undefined, undefined)
+          .then(function (data) {
+            if (!data || data.ok !== true) {
+              throw new Error((data && data.error) ? String(data.error) : "Unexpected response");
+            }
+            toast(isEdit ? "Entry updated." : "Entry created.", "ok");
+            modal.close();
+            loadEntries();
+          })
+          .catch(function (err) {
+            var msg = (err && err.message) ? String(err.message) : "Save failed";
+            toast(msg, "err");
+          })
+          .finally(function () {
+            setBusy(false);
+          });
+      });
+
+      modal.footer.appendChild(cancelBtn);
+      modal.footer.appendChild(saveBtn);
+
+      // Focus first field
+      setTimeout(function () {
+        try { entryDate.focus(); } catch (_) {}
+      }, 0);
+    }
+
+    function confirmDelete(entry) {
+      if (!entry || !entry.id) return;
+
+      var modal = createModal("Delete Entry");
+      modal.body.appendChild(
+        el("div", { class: "eikon-dda-card", style: "border-color:#f0c0c0;background:#fff6f6;" },
+          el("div", { style: "font-weight:900;margin-bottom:6px;color:#b00020;" }, "This cannot be undone."),
+          el("div", { class: "eikon-dda-muted" }, "Entry: "),
+          el("div", { style: "font-size:13px;margin-top:6px;" },
+            el("div", {}, el("b", {}, "Date: "), safeString(entry.entry_date)),
+            el("div", {}, el("b", {}, "Client: "), safeString(entry.client_name)),
+            el("div", {}, el("b", {}, "Medicine: "), safeString(entry.medicine_name_dose)),
+            el("div", {}, el("b", {}, "Qty: "), safeString(entry.quantity)),
+            el("div", {}, el("b", {}, "Serial: "), safeString(entry.prescription_serial_no))
+          )
+        )
+      );
+
+      var delBtn = el("button", { class: "eikon-dda-btn", type: "button", text: "Delete" });
+      var cancelBtn = el("button", { class: "eikon-dda-btn ghost", type: "button", text: "Cancel" });
+
+      var busy = false;
+      function setBusy(on) {
+        busy = !!on;
+        delBtn.disabled = busy;
+        cancelBtn.disabled = busy;
       }
+
+      cancelBtn.addEventListener("click", function () {
+        if (busy) return;
+        modal.close();
+      });
+
+      delBtn.addEventListener("click", function () {
+        if (busy) return;
+        setBusy(true);
+
+        var path = "/dda-sales/entries/" + encodeURIComponent(String(entry.id));
+
+        apiFetch(state.ctx, "DELETE", path, undefined, undefined, undefined)
+          .then(function (data) {
+            if (!data || data.ok !== true) {
+              throw new Error((data && data.error) ? String(data.error) : "Unexpected response");
+            }
+            toast("Entry deleted.", "ok");
+            modal.close();
+            loadEntries();
+          })
+          .catch(function (err) {
+            var msg = (err && err.message) ? String(err.message) : "Delete failed";
+            toast(msg, "err");
+          })
+          .finally(function () {
+            setBusy(false);
+          });
+      });
+
+      modal.footer.appendChild(cancelBtn);
+      modal.footer.appendChild(delBtn);
     }
 
-    // Certificates
-    if (url.pathname === "/certificates/items" && request.method === "GET") {
-      return await handleCertificatesItemsList(request, env, corsOkHeaders, authUser);
-    }
-    if (url.pathname.startsWith("/certificates/items/") && request.method === "PUT") {
-      const parts = url.pathname.split("/").filter(Boolean);
-      const idOrKey = parts[2]; // /certificates/items/:idOrKey
-      if (!idOrKey) return jsonResponse({ ok: false, error: "Invalid item id/key" }, 400, corsOkHeaders);
-      return await handleCertificatesItemUpdate(request, env, corsOkHeaders, authUser, idOrKey);
-    }
-    if (url.pathname.startsWith("/certificates/items/") && request.method === "POST") {
-      const parts = url.pathname.split("/").filter(Boolean);
-      const idOrKey = parts[2]; // /certificates/items/:idOrKey/upload
-      const tail = parts[3] || "";
-      if (tail !== "upload") return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
-      if (!idOrKey) return jsonResponse({ ok: false, error: "Invalid item id/key" }, 400, corsOkHeaders);
-      return await handleCertificatesUpload(request, env, corsOkHeaders, authUser, idOrKey);
+    function buildUi(root) {
+      root.innerHTML = "";
+      root.classList.add("eikon-dda-wrap");
+
+      var titleRow = el("div", { class: "eikon-dda-title" },
+        el("h2", { text: "DDA Sales Register" }),
+        el("div", { class: "sub", html: "Controlled drugs sales log (DDA) — <span class='eikon-dda-muted'>entries this month: </span><b id='ddaCount'>0</b>" })
+      );
+
+      var toolbarCard = el("div", { class: "eikon-dda-card" });
+
+      var monthInput = el("input", { type: "month", value: state.month });
+      // Some browsers may not support type=month; fall back gracefully.
+      monthInput.addEventListener("input", function () {
+        var v = String(monthInput.value || "").trim();
+        if (!v) return;
+        // Some browsers output YYYY-MM; others might include day; normalize.
+        if (/^\d{4}-\d{2}/.test(v)) v = v.slice(0, 7);
+        if (!isValidYm(v)) return;
+        state.month = v;
+        updateReportRangeDefaults();
+      });
+
+      var qInput = el("input", { type: "text", value: state.q, placeholder: "Search (client, ID, medicine, doctor, serial…)" });
+      qInput.addEventListener("input", function () {
+        state.q = String(qInput.value || "");
+      });
+
+      var fromInput = el("input", { type: "date", value: "" });
+      var toInput = el("input", { type: "date", value: "" });
+
+      var refreshBtn = el("button", { class: "eikon-dda-btn", type: "button", text: "Refresh" });
+      var newBtn = el("button", { class: "eikon-dda-btn secondary", type: "button", text: "New Entry" });
+      var exportBtn = el("button", { class: "eikon-dda-btn ghost", type: "button", text: "Export CSV" });
+      var reportBtn = el("button", { class: "eikon-dda-btn ghost", type: "button", text: "Open Report (HTML)" });
+
+      refreshBtn.addEventListener("click", function () {
+        var v = String(monthInput.value || "").trim();
+        if (/^\d{4}-\d{2}/.test(v)) v = v.slice(0, 7);
+        if (v && isValidYm(v)) state.month = v;
+        state.q = String(qInput.value || "");
+        updateReportRangeDefaults();
+        loadEntries();
+      });
+
+      newBtn.addEventListener("click", function () {
+        openEntryModal(null);
+      });
+
+      exportBtn.addEventListener("click", function () {
+        exportCsv();
+      });
+
+      reportBtn.addEventListener("click", function () {
+        openReportHtml();
+      });
+
+      // Enter key in search triggers refresh
+      qInput.addEventListener("keydown", function (ev) {
+        if (ev.key === "Enter") {
+          ev.preventDefault();
+          refreshBtn.click();
+        }
+      });
+
+      var statusSpan = el("span", { class: "eikon-dda-muted", text: "" });
+
+      var toolbar = el("div", { class: "eikon-dda-toolbar" },
+        buildField("Month", monthInput, "YYYY-MM (used for list/filter)."),
+        buildField("Search", qInput, "Optional. Press Enter to refresh.", "full"),
+        buildField("Report From", fromInput, "Used by HTML report."),
+        buildField("Report To", toInput, "Used by HTML report."),
+        el("div", { class: "eikon-dda-field" },
+          el("label", { text: "Actions" }),
+          el("div", { style: "display:flex;gap:8px;flex-wrap:wrap;" }, refreshBtn, newBtn, exportBtn, reportBtn),
+          statusSpan
+        )
+      );
+
+      toolbarCard.appendChild(toolbar);
+
+      var tableCard = el("div", { class: "eikon-dda-card" });
+      var tableWrap = el("div", {});
+      tableCard.appendChild(el("div", { class: "eikon-dda-row" },
+        el("div", { class: "eikon-dda-muted", html: "List for <b>" + escHtml(state.month) + "</b>" + (state.q ? " — filtered" : "") }),
+        el("div", { class: "eikon-dda-muted" }, "Tip: Use Search to find by serial no., ID card, medicine, etc.")
+      ));
+      tableCard.appendChild(tableWrap);
+
+      root.appendChild(titleRow);
+      root.appendChild(toolbarCard);
+      root.appendChild(tableCard);
+
+      refs.monthInput = monthInput;
+      refs.qInput = qInput;
+      refs.refreshBtn = refreshBtn;
+      refs.newBtn = newBtn;
+      refs.exportBtn = exportBtn;
+      refs.reportBtn = reportBtn;
+      refs.fromInput = fromInput;
+      refs.toInput = toInput;
+      refs.tableWrap = tableWrap;
+      refs.countSpan = root.querySelector("#ddaCount");
+      refs.statusSpan = statusSpan;
+
+      updateReportRangeDefaults();
+      setCount();
+      renderTable();
+      setLoading(false);
     }
 
-    return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+    function mount(root, ctx) {
+      if (!root) throw new Error("module.ddasales: missing root element");
+      if (state.mounted) unmount();
+
+      state.root = root;
+      state.ctx = ctx || {};
+      state.mounted = true;
+
+      loadPrefs();
+      buildUi(root);
+
+      // Ensure month inputs reflect loaded prefs
+      if (refs.monthInput) refs.monthInput.value = state.month;
+      if (refs.qInput) refs.qInput.value = state.q;
+      updateReportRangeDefaults();
+
+      loadEntries();
+    }
+
+    function unmount() {
+      cancelInFlight();
+      state.mounted = false;
+      if (state.root) {
+        try { state.root.innerHTML = ""; } catch (_) {}
+        try { state.root.classList.remove("eikon-dda-wrap"); } catch (_) {}
+      }
+      state.root = null;
+      state.ctx = null;
+      refs.monthInput = null;
+      refs.qInput = null;
+      refs.refreshBtn = null;
+      refs.newBtn = null;
+      refs.exportBtn = null;
+      refs.reportBtn = null;
+      refs.fromInput = null;
+      refs.toInput = null;
+      refs.tableWrap = null;
+      refs.countSpan = null;
+      refs.statusSpan = null;
+    }
+
+    return {
+      key: MODULE_KEY,
+      title: "DDA Sales",
+      mount: mount,
+      unmount: unmount,
+      init: mount // alias for loaders that call init()
+    };
   }
-};
+
+  // Register module in a flexible way:
+  // - window.EikonModules[MODULE_KEY]
+  // - window.Eikon.registerModule(MODULE_KEY, module)
+  // - window.registerEikonModule(MODULE_KEY, module)
+  var moduleObj = createModule();
+
+  if (!window.EikonModules) window.EikonModules = {};
+  window.EikonModules[MODULE_KEY] = moduleObj;
+
+  if (window.Eikon && typeof window.Eikon.registerModule === "function") {
+    try { window.Eikon.registerModule(MODULE_KEY, moduleObj); } catch (_) {}
+  }
+
+  if (typeof window.registerEikonModule === "function") {
+    try { window.registerEikonModule(MODULE_KEY, moduleObj); } catch (_) {}
+  }
+})();
