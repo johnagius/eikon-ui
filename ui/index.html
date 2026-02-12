@@ -89,7 +89,8 @@
         .then(function () { return loadScript(withParams("./modules.certificates.js")); })
 		.then(function () { return loadScript(withParams("./modules.dailyregister.js")); })
 		.then(function () { return loadScript(withParams("./modules.ddasales.js")); })
-
+		.then(function () { return loadScript(withParams("./modules.ddapoyc.js")); })
+		  
         .then(function () { return loadScript(withParams("./main.js")); })
         .then(function () {
           log("[EIKON][boot] All assets loaded.");
