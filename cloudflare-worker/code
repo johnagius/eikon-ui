@@ -1657,6 +1657,246 @@ async function handleDailyRegisterReportHtml(request, env, corsOkHeaders, authUs
 }
 
 /* =========================
+   REPEAT PRESCRIPTIONS MODULE (API)
+   ========================= */
+
+async function ensureRepeatPrescriptionsSchema(env) {
+  await dbRun(
+    env,
+    `CREATE TABLE IF NOT EXISTS repeat_prescription_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+      entry_date TEXT NOT NULL,
+      client_name TEXT NOT NULL,
+      client_id TEXT NOT NULL,
+      medicine_name_dose TEXT NOT NULL,
+      posology TEXT NOT NULL,
+      prescriber_name TEXT NOT NULL,
+      prescriber_reg_no TEXT NOT NULL,
+      created_by INTEGER,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )`,
+    []
+  );
+
+  await dbRun(
+    env,
+    "CREATE INDEX IF NOT EXISTS idx_repeat_rx_org_loc_date ON repeat_prescription_entries (org_id, location_id, entry_date)",
+    []
+  );
+
+  await dbRun(
+    env,
+    "CREATE INDEX IF NOT EXISTS idx_repeat_rx_org_loc_client ON repeat_prescription_entries (org_id, location_id, client_id)",
+    []
+  );
+}
+
+async function handleRepeatPrescriptionsEntriesList(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureRepeatPrescriptionsSchema(env);
+
+  const month = (url.searchParams.get("month") || "").trim();
+  const range = monthRange(month);
+  if (!range) return jsonResponse({ ok: false, error: "Missing/invalid month (YYYY-MM)" }, 400, corsOkHeaders);
+
+  const q = (url.searchParams.get("q") || "").trim();
+  const hasQ = !!q;
+  const qLike = `%${q}%`;
+
+  const sql = `
+    SELECT
+      id,
+      entry_date,
+      client_name,
+      client_id,
+      medicine_name_dose,
+      posology,
+      prescriber_name,
+      prescriber_reg_no,
+      created_by,
+      created_at,
+      updated_at
+    FROM repeat_prescription_entries
+    WHERE org_id = ?
+      AND location_id = ?
+      AND entry_date >= ?
+      AND entry_date < ?
+      ${hasQ ? `AND (
+        entry_date LIKE ?
+        OR client_name LIKE ?
+        OR client_id LIKE ?
+        OR medicine_name_dose LIKE ?
+        OR posology LIKE ?
+        OR prescriber_name LIKE ?
+        OR prescriber_reg_no LIKE ?
+      )` : ""}
+    ORDER BY entry_date DESC, id DESC
+  `;
+
+  const bind = [authUser.org_id, authUser.location_id, range.startStr, range.endStr];
+  if (hasQ) bind.push(qLike, qLike, qLike, qLike, qLike, qLike, qLike);
+
+  const entries = await dbAll(env, sql, bind);
+
+  return jsonResponse({ ok: true, entries }, 200, corsOkHeaders);
+}
+
+async function handleRepeatPrescriptionsEntryCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureRepeatPrescriptionsSchema(env);
+
+  const body = await readJson(request);
+
+  const entryDate = String(body.entry_date || "").trim();
+  const clientName = String(body.client_name || "").trim();
+  const clientId = String(body.client_id || "").trim();
+  const medicineNameDose = String(body.medicine_name_dose || "").trim();
+  const posology = String(body.posology || "").trim();
+  const prescriberName = String(body.prescriber_name || "").trim();
+  const prescriberRegNo = String(body.prescriber_reg_no || "").trim();
+
+  if (!isValidYmd(entryDate)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (!clientName) return jsonResponse({ ok: false, error: "Missing client_name" }, 400, corsOkHeaders);
+  if (!clientId) return jsonResponse({ ok: false, error: "Missing client_id" }, 400, corsOkHeaders);
+  if (!medicineNameDose) return jsonResponse({ ok: false, error: "Missing medicine_name_dose" }, 400, corsOkHeaders);
+  if (!posology) return jsonResponse({ ok: false, error: "Missing posology" }, 400, corsOkHeaders);
+  if (!prescriberName) return jsonResponse({ ok: false, error: "Missing prescriber_name" }, 400, corsOkHeaders);
+  if (!prescriberRegNo) return jsonResponse({ ok: false, error: "Missing prescriber_reg_no" }, 400, corsOkHeaders);
+
+  const row = await dbFirst(
+    env,
+    `INSERT INTO repeat_prescription_entries
+      (org_id, location_id, entry_date, client_name, client_id, medicine_name_dose, posology, prescriber_name, prescriber_reg_no, created_by, created_at, updated_at)
+     VALUES
+      (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+     RETURNING id`,
+    [
+      authUser.org_id,
+      authUser.location_id,
+      entryDate,
+      clientName,
+      clientId,
+      medicineNameDose,
+      posology,
+      prescriberName,
+      prescriberRegNo,
+      authUser.user_id
+    ]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "REPEAT_RX_ENTRY_CREATE", "repeat_prescription_entries", String(row.id), {
+    entry_date: entryDate,
+    client_id: clientId,
+    medicine_name_dose: medicineNameDose
+  });
+
+  return jsonResponse({ ok: true, entry_id: row.id }, 200, corsOkHeaders);
+}
+
+async function handleRepeatPrescriptionsEntryUpdate(request, env, corsOkHeaders, authUser, entryId) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureRepeatPrescriptionsSchema(env);
+
+  const existing = await dbFirst(
+    env,
+    `SELECT id
+     FROM repeat_prescription_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+
+  const entryDate = String(body.entry_date || "").trim();
+  const clientName = String(body.client_name || "").trim();
+  const clientId = String(body.client_id || "").trim();
+  const medicineNameDose = String(body.medicine_name_dose || "").trim();
+  const posology = String(body.posology || "").trim();
+  const prescriberName = String(body.prescriber_name || "").trim();
+  const prescriberRegNo = String(body.prescriber_reg_no || "").trim();
+
+  if (!isValidYmd(entryDate)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (!clientName) return jsonResponse({ ok: false, error: "Missing client_name" }, 400, corsOkHeaders);
+  if (!clientId) return jsonResponse({ ok: false, error: "Missing client_id" }, 400, corsOkHeaders);
+  if (!medicineNameDose) return jsonResponse({ ok: false, error: "Missing medicine_name_dose" }, 400, corsOkHeaders);
+  if (!posology) return jsonResponse({ ok: false, error: "Missing posology" }, 400, corsOkHeaders);
+  if (!prescriberName) return jsonResponse({ ok: false, error: "Missing prescriber_name" }, 400, corsOkHeaders);
+  if (!prescriberRegNo) return jsonResponse({ ok: false, error: "Missing prescriber_reg_no" }, 400, corsOkHeaders);
+
+  await dbRun(
+    env,
+    `UPDATE repeat_prescription_entries
+     SET entry_date = ?, client_name = ?, client_id = ?, medicine_name_dose = ?, posology = ?, prescriber_name = ?, prescriber_reg_no = ?, updated_at = datetime('now')
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [
+      entryDate,
+      clientName,
+      clientId,
+      medicineNameDose,
+      posology,
+      prescriberName,
+      prescriberRegNo,
+      entryId,
+      authUser.org_id,
+      authUser.location_id
+    ]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "REPEAT_RX_ENTRY_UPDATE", "repeat_prescription_entries", String(entryId), {
+    entry_date: entryDate,
+    client_id: clientId,
+    medicine_name_dose: medicineNameDose
+  });
+
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleRepeatPrescriptionsEntryDelete(request, env, corsOkHeaders, authUser, entryId) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureRepeatPrescriptionsSchema(env);
+
+  const existing = await dbFirst(
+    env,
+    `SELECT id, entry_date, client_id
+     FROM repeat_prescription_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  await dbRun(
+    env,
+    `DELETE FROM repeat_prescription_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "REPEAT_RX_ENTRY_DELETE", "repeat_prescription_entries", String(entryId), {
+    entry_date: existing.entry_date,
+    client_id: existing.client_id
+  });
+
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+
+/* =========================
    DDA SALES MODULE (API)  <-- ADDED
    ========================= */
 
@@ -3251,6 +3491,27 @@ export default {
     if (url.pathname === "/dda-sales/report/html" && request.method === "GET") {
       return await handleDdaSalesReportHtml(request, env, corsOkHeaders, authUser, url);
     }
+
+    // Repeat Prescriptions
+    if (url.pathname === "/repeat-prescriptions/entries" && request.method === "GET") {
+      return await handleRepeatPrescriptionsEntriesList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/repeat-prescriptions/entries" && request.method === "POST") {
+      return await handleRepeatPrescriptionsEntryCreate(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname.startsWith("/repeat-prescriptions/entries/") && request.method === "PUT") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const id = parseInt(parts[2], 10);
+      if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+      return await handleRepeatPrescriptionsEntryUpdate(request, env, corsOkHeaders, authUser, id);
+    }
+    if (url.pathname.startsWith("/repeat-prescriptions/entries/") && request.method === "DELETE") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const id = parseInt(parts[2], 10);
+      if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+      return await handleRepeatPrescriptionsEntryDelete(request, env, corsOkHeaders, authUser, id);
+    }
+
 
     // DDA POYC  <-- ADDED ROUTES (NEW)
     if (url.pathname === "/dda-poyc/entries" && request.method === "GET") {
