@@ -5,7 +5,7 @@
      POST   /dda-sales/entries
      PUT    /dda-sales/entries/:id
      DELETE /dda-sales/entries/:id
-     GET    /dda-sales/report/html?from=YYYY-MM-DD&to=YYYY-MM-DD
+     GET    /dda-sales/report?from=YYYY-MM-DD&to=YYYY-MM-DD   (JSON)
 */
 
 (function () {
@@ -78,6 +78,10 @@
     return n;
   }
 
+  function ymFromYmd(ymd) {
+    return String(ymd || "").slice(0, 7);
+  }
+
   // ---- Resolve mount context (Element / Document / Window / iframe / wrapper) ----
 
   function isWindowLike(x) {
@@ -107,13 +111,11 @@
       if (el && el.nodeType === 1) return el;
     }
 
-    // fallback: first element with data-module-root
     try {
       var q = doc.querySelector("[data-module-root='1'], [data-module-root='true']");
       if (q && q.nodeType === 1) return q;
     } catch (e2) {}
 
-    // fallback: body
     try {
       if (doc.body && doc.body.nodeType === 1) return doc.body;
     } catch (e3) {}
@@ -122,10 +124,8 @@
   }
 
   function resolveRenderContext(container) {
-    // returns { win, doc, mount, note }
     var ctx = { win: null, doc: null, mount: null, note: "" };
 
-    // If it’s an Element
     if (container && container.nodeType === 1) {
       ctx.mount = container;
       ctx.doc = container.ownerDocument || document;
@@ -134,7 +134,6 @@
       return ctx;
     }
 
-    // If it’s a Document
     if (container && container.nodeType === 9) {
       ctx.doc = container;
       ctx.win = container.defaultView || window;
@@ -143,7 +142,6 @@
       return ctx;
     }
 
-    // If it’s a Window (iframe window most likely)
     if (isWindowLike(container)) {
       ctx.win = container;
       ctx.doc = container.document;
@@ -152,7 +150,6 @@
       return ctx;
     }
 
-    // If it’s an iframe element
     try {
       if (container && container.tagName && String(container.tagName).toLowerCase() === "iframe") {
         var w = container.contentWindow;
@@ -167,7 +164,6 @@
       }
     } catch (e1) {}
 
-    // Wrapper objects used by some cores
     var maybeElProps = ["mount", "container", "root", "rootEl", "el", "element", "node"];
     for (var i = 0; i < maybeElProps.length; i++) {
       try {
@@ -182,7 +178,6 @@
       } catch (e2) {}
     }
 
-    // Wrapper with document
     try {
       if (container && container.document && container.document.nodeType === 9) {
         ctx.doc = container.document;
@@ -193,7 +188,6 @@
       }
     } catch (e3) {}
 
-    // Last resort: try query selector if container is a string
     if (typeof container === "string") {
       try {
         var el = document.querySelector(container);
@@ -225,6 +219,7 @@
         else if (k === "placeholder") node.placeholder = attrs[k];
         else if (k === "disabled") node.disabled = !!attrs[k];
         else if (k === "onclick") node.onclick = attrs[k];
+        else if (k === "colspan") node.colSpan = attrs[k];
         else node.setAttribute(k, attrs[k]);
       });
     }
@@ -296,7 +291,6 @@
   // ---- Auth/token + API ----
 
   function getStoredToken(win) {
-    // Try known core functions/state on the *top* window first, then the iframe window.
     var candidates = [];
     try { if (window && window !== win) candidates.push(window); } catch (e) {}
     candidates.push(win || window);
@@ -386,7 +380,13 @@
       month: todayYm(),
       q: "",
       loading: false,
-      entries: []
+      entries: [],
+
+      // NEW: report
+      report_from: "",
+      report_to: "",
+      report: null, // { ok:true, org_name, location_name, from, to, entries:[] }
+      report_loading: false
     };
 
     // Per-render (depends on iframe doc)
@@ -397,7 +397,14 @@
     var qInput = null;
     var refreshBtn = null;
     var addBtn = null;
-    var reportBtn = null;
+
+    // NEW: report controls + preview
+    var reportFromInput = null;
+    var reportToInput = null;
+    var generateBtn = null;
+    var printBtn = null;
+    var reportMsg = null;
+    var reportPreview = null;
 
     // Modal per-doc
     var activeDoc = null;
@@ -414,11 +421,31 @@
 
     function setLoading(v) {
       state.loading = !!v;
-      if (refreshBtn) refreshBtn.disabled = state.loading;
-      if (addBtn) addBtn.disabled = state.loading;
-      if (reportBtn) reportBtn.disabled = state.loading;
-      if (monthInput) monthInput.disabled = state.loading;
-      if (qInput) qInput.disabled = state.loading;
+      if (refreshBtn) refreshBtn.disabled = state.loading || state.report_loading;
+      if (addBtn) addBtn.disabled = state.loading || state.report_loading;
+      if (monthInput) monthInput.disabled = state.loading || state.report_loading;
+      if (qInput) qInput.disabled = state.loading || state.report_loading;
+
+      if (generateBtn) generateBtn.disabled = state.loading || state.report_loading;
+      if (printBtn) printBtn.disabled = state.loading || state.report_loading;
+      if (reportFromInput) reportFromInput.disabled = state.loading || state.report_loading;
+      if (reportToInput) reportToInput.disabled = state.loading || state.report_loading;
+    }
+
+    function setReportMsg(kind, text) {
+      if (!reportMsg) return;
+      reportMsg.className = "eikon-dda-msg " + (kind === "ok" ? "ok" : kind === "err" ? "err" : "");
+      reportMsg.textContent = String(text || "");
+      reportMsg.style.display = text ? "block" : "none";
+    }
+
+    function setReportDefaultsForMonth(m) {
+      var r = monthStartEnd(m);
+      if (!r) return;
+      state.report_from = r.from;
+      state.report_to = r.to;
+      if (reportFromInput) reportFromInput.value = r.from;
+      if (reportToInput) reportToInput.value = r.to;
     }
 
     function renderCrash(doc, mount, title, err) {
@@ -427,7 +454,7 @@
         mount.innerHTML = "";
         var wrap = el(doc, "div", { class: "eikon-dda-crash" }, []);
         wrap.appendChild(el(doc, "h3", { text: title }, []));
-        wrap.appendChild(el(doc, "pre", { html: escapeHtml(String(err && (err.stack || err.message || err))) }, []));
+        wrap.appendChild(el(doc, "pre", { html: escapeHtml(String(err && (err.stack || err.message || String(err)))) }, []));
         mount.appendChild(wrap);
       } catch (e) {}
     }
@@ -508,22 +535,297 @@
       }
     }
 
-    function openReport() {
-      if (!ctx) return;
-      var range = monthStartEnd(state.month);
-      if (!range) {
-        setMsg("err", "Invalid month.");
+    // --------- NEW: REPORT (Generate + Print) ---------
+
+    function validateReportRange(from, to) {
+      from = String(from || "").trim();
+      to = String(to || "").trim();
+      if (!isYmd(from) || !isYmd(to)) return { ok: false, error: "Invalid from/to (YYYY-MM-DD)" };
+      if (to < from) return { ok: false, error: "to must be >= from" };
+      return { ok: true, from: from, to: to };
+    }
+
+    function groupEntriesByMonth(entries) {
+      var byMonth = new Map();
+      for (var i = 0; i < entries.length; i++) {
+        var e = entries[i] || {};
+        var ym = ymFromYmd(e.entry_date);
+        if (!byMonth.has(ym)) byMonth.set(ym, []);
+        byMonth.get(ym).push(e);
+      }
+      return byMonth;
+    }
+
+    function renderReportPreview() {
+      if (!reportPreview || !ctx) return;
+
+      reportPreview.innerHTML = "";
+      if (!state.report || state.report.ok !== true) {
+        reportPreview.appendChild(el(ctx.doc, "div", { class: "eikon-dda-hint", html: "No report generated yet." }, []));
         return;
       }
-      var reportUrl = "/dda-sales/report/html?from=" + encodeURIComponent(range.from) + "&to=" + encodeURIComponent(range.to);
-      try { ctx.win.open(reportUrl, "_blank", "noopener,noreferrer"); }
-      catch (e) { try { ctx.win.location.href = reportUrl; } catch (e2) {} }
+
+      var data = state.report;
+      var entries = Array.isArray(data.entries) ? data.entries : [];
+      if (!entries.length) {
+        reportPreview.appendChild(el(ctx.doc, "div", { class: "eikon-dda-hint", html: "Report has no entries for the selected date range." }, []));
+        return;
+      }
+
+      var byMonth = groupEntriesByMonth(entries);
+      var monthKeys = Array.from(byMonth.keys()).sort();
+
+      for (var mi = 0; mi < monthKeys.length; mi++) {
+        var ym = monthKeys[mi];
+        var list = byMonth.get(ym) || [];
+
+        reportPreview.appendChild(el(ctx.doc, "h3", {
+          text: ym,
+          style: "margin:14px 0 8px 0;font-size:14px;font-weight:1000;"
+        }, []));
+
+        var tableWrap = el(ctx.doc, "div", { class: "eikon-dda-table-wrap" }, []);
+        var table = el(ctx.doc, "table", { class: "eikon-dda-table", style: "min-width:1100px;" }, []);
+
+        var thead = el(ctx.doc, "thead", {}, []);
+        thead.appendChild(el(ctx.doc, "tr", {}, [
+          el(ctx.doc, "th", { text: "Date" }, []),
+          el(ctx.doc, "th", { text: "Client Name" }, []),
+          el(ctx.doc, "th", { text: "ID Card" }, []),
+          el(ctx.doc, "th", { text: "Address" }, []),
+          el(ctx.doc, "th", { text: "Medicine Name & Dose" }, []),
+          el(ctx.doc, "th", { text: "Qty" }, []),
+          el(ctx.doc, "th", { text: "Doctor Name" }, []),
+          el(ctx.doc, "th", { text: "Doctor Reg No." }, []),
+          el(ctx.doc, "th", { text: "Prescription Serial No." }, [])
+        ]));
+        table.appendChild(thead);
+
+        var tbody = el(ctx.doc, "tbody", {}, []);
+        for (var i = 0; i < list.length; i++) {
+          var r = list[i] || {};
+          tbody.appendChild(el(ctx.doc, "tr", {}, [
+            el(ctx.doc, "td", { text: String(r.entry_date || "") }, []),
+            el(ctx.doc, "td", { text: String(r.client_name || "") }, []),
+            el(ctx.doc, "td", { text: String(r.client_id_card || "") }, []),
+            el(ctx.doc, "td", { text: String(r.client_address || "") }, []),
+            el(ctx.doc, "td", { text: String(r.medicine_name_dose || "") }, []),
+            el(ctx.doc, "td", { text: String(r.quantity == null ? "" : r.quantity) }, []),
+            el(ctx.doc, "td", { text: String(r.doctor_name || "") }, []),
+            el(ctx.doc, "td", { text: String(r.doctor_reg_no || "") }, []),
+            el(ctx.doc, "td", { text: String(r.prescription_serial_no || "") }, [])
+          ]));
+        }
+        table.appendChild(tbody);
+
+        tableWrap.appendChild(table);
+        reportPreview.appendChild(tableWrap);
+      }
     }
+
+    async function generateReport() {
+      if (!ctx) return;
+
+      setReportMsg("", "");
+      var from = reportFromInput ? reportFromInput.value : state.report_from;
+      var to = reportToInput ? reportToInput.value : state.report_to;
+
+      var vr = validateReportRange(from, to);
+      if (!vr.ok) {
+        setReportMsg("err", vr.error);
+        return;
+      }
+
+      state.report_from = vr.from;
+      state.report_to = vr.to;
+
+      state.report_loading = true;
+      setLoading(false);
+
+      try {
+        var url = "/dda-sales/report?from=" + encodeURIComponent(vr.from) + "&to=" + encodeURIComponent(vr.to);
+        var data = await apiJson(ctx.win, url, { method: "GET" });
+        if (!data || data.ok !== true) throw new Error((data && data.error) ? String(data.error) : "Unexpected response");
+
+        state.report = data;
+        var count = (data.entries && Array.isArray(data.entries)) ? data.entries.length : 0;
+        setReportMsg("ok", "Report generated. Entries: " + count);
+        renderReportPreview();
+      } catch (e) {
+        state.report = null;
+        renderReportPreview();
+        var msg = (e && e.message) ? e.message : String(e || "Error");
+        if (e && e.status === 401) msg = "Unauthorized (missing/invalid token). Log in again.";
+        setReportMsg("err", msg);
+        warn("generate report failed:", e);
+      } finally {
+        state.report_loading = false;
+        setLoading(false);
+      }
+    }
+
+    function buildPrintableHtml(reportData) {
+      var data = reportData || {};
+      var org = String(data.org_name || "Pharmacy");
+      var loc = String(data.location_name || "");
+      var from = String(data.from || "");
+      var to = String(data.to || "");
+      var entries = Array.isArray(data.entries) ? data.entries : [];
+
+      var byMonth = groupEntriesByMonth(entries);
+      var monthKeys = Array.from(byMonth.keys()).sort();
+
+      var html = "";
+      html += "<!doctype html><html><head><meta charset='utf-8'/>";
+      html += "<meta name='viewport' content='width=device-width, initial-scale=1'/>";
+      html += "<title>DDA Sales Report</title>";
+      html += "<style>";
+      html += "body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:22px;color:#111;}";
+      html += "h1{margin:0 0 6px 0;font-size:20px;}";
+      html += ".meta{color:#444;margin:0 0 16px 0;font-size:13px;}";
+      html += "h2{margin:18px 0 8px 0;font-size:16px;}";
+      html += "table{width:100%;border-collapse:collapse;margin-top:8px;}";
+      html += "th,td{border:1px solid #bbb;padding:6px 8px;font-size:12px;vertical-align:top;}";
+      html += "th{background:#f2f2f2;}";
+      html += ".no-print{margin-bottom:10px;}";
+      html += "@media print{.no-print{display:none;} body{margin:0;}}";
+      html += "</style></head><body>";
+
+      html += "<div class='no-print'><button onclick='window.print()' style='padding:8px 12px;font-weight:800;'>Print</button></div>";
+      html += "<h1>" + escapeHtml(org) + " — DDA Sales Report</h1>";
+      html += "<p class='meta'>Location: " + escapeHtml(loc) + "<br/>Range: " + escapeHtml(from) + " to " + escapeHtml(to) + "</p>";
+
+      if (!entries.length) {
+        html += "<p>No entries for the selected date range.</p>";
+      } else {
+        for (var mi = 0; mi < monthKeys.length; mi++) {
+          var ym = monthKeys[mi];
+          var list = byMonth.get(ym) || [];
+          html += "<h2>" + escapeHtml(ym) + "</h2>";
+          html += "<table><thead><tr>";
+          html += "<th>Date</th><th>Client Name</th><th>ID Card</th><th>Address</th><th>Medicine Name &amp; Dose</th><th>Qty</th><th>Doctor Name</th><th>Doctor Reg No.</th><th>Prescription Serial No.</th>";
+          html += "</tr></thead><tbody>";
+          for (var i = 0; i < list.length; i++) {
+            var r = list[i] || {};
+            html += "<tr>";
+            html += "<td>" + escapeHtml(r.entry_date || "") + "</td>";
+            html += "<td>" + escapeHtml(r.client_name || "") + "</td>";
+            html += "<td>" + escapeHtml(r.client_id_card || "") + "</td>";
+            html += "<td>" + escapeHtml(r.client_address || "") + "</td>";
+            html += "<td>" + escapeHtml(r.medicine_name_dose || "") + "</td>";
+            html += "<td>" + escapeHtml(String(r.quantity == null ? "" : r.quantity)) + "</td>";
+            html += "<td>" + escapeHtml(r.doctor_name || "") + "</td>";
+            html += "<td>" + escapeHtml(r.doctor_reg_no || "") + "</td>";
+            html += "<td>" + escapeHtml(r.prescription_serial_no || "") + "</td>";
+            html += "</tr>";
+          }
+          html += "</tbody></table>";
+        }
+      }
+
+      html += "<script>";
+      html += "try{setTimeout(function(){window.focus();},0);}catch(e){}";
+      html += "</script>";
+
+      html += "</body></html>";
+      return html;
+    }
+
+    async function printReport() {
+      if (!ctx) return;
+
+      setReportMsg("", "");
+
+      // Validate range first
+      var from = reportFromInput ? reportFromInput.value : state.report_from;
+      var to = reportToInput ? reportToInput.value : state.report_to;
+
+      var vr = validateReportRange(from, to);
+      if (!vr.ok) {
+        setReportMsg("err", vr.error);
+        return;
+      }
+
+      // Open window immediately (user gesture) to avoid popup blockers / sandbox print issues
+      var w = null;
+      try { w = ctx.win.open("", "_blank", "noopener,noreferrer"); } catch (e) { w = null; }
+      if (!w) {
+        setReportMsg("err", "Popup blocked. Allow popups for this site to print.");
+        return;
+      }
+
+      // If current report matches range, reuse; else fetch JSON and then render
+      var canReuse = !!(state.report && state.report.ok === true && state.report.from === vr.from && state.report.to === vr.to);
+
+      try {
+        w.document.open();
+        w.document.write("<!doctype html><html><head><meta charset='utf-8'/><title>Preparing…</title></head><body>Preparing report…</body></html>");
+        w.document.close();
+      } catch (e0) {}
+
+      try {
+        var data = null;
+
+        if (canReuse) {
+          data = state.report;
+        } else {
+          // fetch without blocking opening the window
+          state.report_loading = true;
+          setLoading(false);
+
+          var url = "/dda-sales/report?from=" + encodeURIComponent(vr.from) + "&to=" + encodeURIComponent(vr.to);
+          data = await apiJson(ctx.win, url, { method: "GET" });
+          if (!data || data.ok !== true) throw new Error((data && data.error) ? String(data.error) : "Unexpected response");
+
+          state.report = data;
+          state.report_from = vr.from;
+          state.report_to = vr.to;
+          if (reportFromInput) reportFromInput.value = vr.from;
+          if (reportToInput) reportToInput.value = vr.to;
+          renderReportPreview();
+        }
+
+        var html = buildPrintableHtml(data);
+
+        try {
+          w.document.open();
+          w.document.write(html);
+          w.document.close();
+        } catch (e1) {
+          throw e1;
+        }
+
+        // Trigger print in the new window (not in iframe)
+        try {
+          setTimeout(function () {
+            try { w.focus(); } catch (e2) {}
+            try { w.print(); } catch (e3) {}
+          }, 250);
+        } catch (e4) {}
+
+        setReportMsg("ok", "Print window opened.");
+      } catch (e) {
+        var msg = (e && e.message) ? e.message : String(e || "Error");
+        if (e && e.status === 401) msg = "Unauthorized (missing/invalid token). Log in again.";
+        setReportMsg("err", msg);
+        warn("print report failed:", e);
+
+        try {
+          w.document.open();
+          w.document.write("<!doctype html><html><head><meta charset='utf-8'/><title>Error</title></head><body><h3 style='font-family:system-ui;color:#b00020;'>Report error</h3><pre style='white-space:pre-wrap;font-family:ui-monospace,Menlo,Consolas,monospace;'>" + escapeHtml(msg) + "</pre></body></html>");
+          w.document.close();
+        } catch (e5) {}
+      } finally {
+        state.report_loading = false;
+        setLoading(false);
+      }
+    }
+
+    // ---- Modal (unchanged) ----
 
     function buildModalOnceForDoc(doc) {
       if (activeDoc === doc && modalBackdrop) return;
 
-      // reset if doc changed
       activeDoc = doc;
       modalBackdrop = null;
       modalTitle = null;
@@ -607,7 +909,6 @@
         if (e && e.target === modalBackdrop) closeModal();
       };
 
-      // store buttons for toggle
       modalBackdrop._deleteBtn = deleteBtn;
 
       try {
@@ -779,16 +1080,13 @@
     }
 
     function renderInto(container) {
-      // IMPORTANT: core may pass iframe window, not a DOM element
       ctx = resolveRenderContext(container);
 
-      // Debug info (kept short)
       try {
         log("renderInto() ctx.note=", ctx.note, "mount=", !!ctx.mount, "doc=", !!ctx.doc, "win=", !!ctx.win);
       } catch (e) {}
 
       if (!ctx || !ctx.doc || !ctx.win || !ctx.mount) {
-        // If we can’t find a mount, we can’t render; show a clear message if possible
         try {
           var fallbackDoc = document;
           var fallbackMount = document.getElementById("eikon-root") || document.body;
@@ -800,8 +1098,12 @@
       try {
         ensureStyleOnce(ctx.doc);
 
-        // Clear mount safely
         try { ctx.mount.innerHTML = ""; } catch (e3) {}
+
+        // Init report defaults to current month
+        if (!state.report_from || !state.report_to) {
+          setReportDefaultsForMonth(state.month);
+        }
 
         var wrap = el(ctx.doc, "div", { class: "eikon-dda-wrap" }, []);
 
@@ -820,6 +1122,8 @@
           var m = String(monthInput.value || "").trim();
           if (isYm(m)) {
             state.month = m;
+            // keep report range synced to chosen month
+            setReportDefaultsForMonth(m);
             refresh();
           }
         };
@@ -838,14 +1142,38 @@
         addBtn = el(ctx.doc, "button", { class: "eikon-dda-btn", text: "New Entry" }, []);
         addBtn.onclick = function () { openModalForCreate(); };
 
-        reportBtn = el(ctx.doc, "button", { class: "eikon-dda-btn secondary", text: "Open Report (HTML)" }, []);
-        reportBtn.onclick = function () { openReport(); };
+        // NEW: Report range + Generate + Print
+        var fromField = el(ctx.doc, "div", { class: "eikon-dda-field" }, []);
+        fromField.appendChild(el(ctx.doc, "label", { text: "From" }, []));
+        reportFromInput = el(ctx.doc, "input", { type: "date", value: state.report_from }, []);
+        reportFromInput.onchange = function () {
+          state.report_from = String(reportFromInput.value || "").trim();
+        };
+        fromField.appendChild(reportFromInput);
+
+        var toField = el(ctx.doc, "div", { class: "eikon-dda-field" }, []);
+        toField.appendChild(el(ctx.doc, "label", { text: "To" }, []));
+        reportToInput = el(ctx.doc, "input", { type: "date", value: state.report_to }, []);
+        reportToInput.onchange = function () {
+          state.report_to = String(reportToInput.value || "").trim();
+        };
+        toField.appendChild(reportToInput);
+
+        generateBtn = el(ctx.doc, "button", { class: "eikon-dda-btn secondary", text: "Generate" }, []);
+        generateBtn.onclick = function () { generateReport(); };
+
+        printBtn = el(ctx.doc, "button", { class: "eikon-dda-btn secondary", text: "Print" }, []);
+        printBtn.onclick = function () { printReport(); };
 
         controls.appendChild(monthField);
         controls.appendChild(qField);
         controls.appendChild(refreshBtn);
         controls.appendChild(addBtn);
-        controls.appendChild(reportBtn);
+
+        controls.appendChild(fromField);
+        controls.appendChild(toField);
+        controls.appendChild(generateBtn);
+        controls.appendChild(printBtn);
 
         top.appendChild(controls);
         wrap.appendChild(top);
@@ -854,9 +1182,10 @@
         msgBox.style.display = "none";
         wrap.appendChild(msgBox);
 
+        // Entries card (unchanged)
         var card = el(ctx.doc, "div", { class: "eikon-dda-card" }, []);
         card.appendChild(el(ctx.doc, "div", { class: "eikon-dda-hint", html:
-          "Endpoints: <code>/dda-sales/entries</code> &nbsp;|&nbsp; Report: <code>/dda-sales/report/html</code>"
+          "Endpoints: <code>/dda-sales/entries</code> &nbsp;|&nbsp; Report JSON: <code>/dda-sales/report</code>"
         }, []));
 
         var tableWrap = el(ctx.doc, "div", { class: "eikon-dda-table-wrap", style: "margin-top:10px;" }, []);
@@ -883,11 +1212,28 @@
         card.appendChild(tableWrap);
         wrap.appendChild(card);
 
+        // NEW: Report preview card (minimal addition)
+        var reportCard = el(ctx.doc, "div", { class: "eikon-dda-card", style: "margin-top:12px;" }, []);
+        reportCard.appendChild(el(ctx.doc, "div", { class: "eikon-dda-hint", html:
+          "Report preview is generated client-side (for printing in a new window to avoid iframe/sandbox print issues)."
+        }, []));
+
+        reportMsg = el(ctx.doc, "div", { class: "eikon-dda-msg", text: "" }, []);
+        reportMsg.style.display = "none";
+        reportCard.appendChild(reportMsg);
+
+        reportPreview = el(ctx.doc, "div", {}, []);
+        reportCard.appendChild(reportPreview);
+        wrap.appendChild(reportCard);
+
         ctx.mount.appendChild(wrap);
 
         // build modal for this doc
         buildModalOnceForDoc(ctx.doc);
 
+        // initial render
+        renderRows();
+        renderReportPreview();
         refresh();
       } catch (e) {
         warn("renderInto failed:", e);
@@ -896,25 +1242,21 @@
     }
 
     return {
-      // identity
       id: "dda-sales",
       key: "dda-sales",
       slug: "dda-sales",
       title: "DDA Sales",
       navTitle: "DDA Sales",
 
-      // icon variations (core might use any of these)
       icon: "💊",
       iconText: "💊",
       iconSvg: ICON_SVG,
       iconHTML: ICON_SVG,
       navIcon: ICON_SVG,
 
-      // routing (your core uses #dda-sales)
       hash: "#dda-sales",
       route: "dda-sales",
 
-      // renderer
       render: renderInto,
       mount: renderInto,
       renderInto: renderInto
@@ -940,7 +1282,6 @@
       }
     } catch (e2) { warn("registerModule(Eikon) failed:", e2); }
 
-    // Fallback arrays
     try {
       window.EIKON_MODULES = window.EIKON_MODULES || [];
       window.EIKON_MODULES.push(mod);
@@ -962,7 +1303,6 @@
 
   tryRegisterModule(moduleObj);
 
-  // In case core is late-binding
   setTimeout(function () { tryRegisterModule(moduleObj); }, 0);
   setTimeout(function () { tryRegisterModule(moduleObj); }, 200);
   setTimeout(function () { tryRegisterModule(moduleObj); }, 1000);
