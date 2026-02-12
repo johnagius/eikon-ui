@@ -557,7 +557,9 @@
       reportPreview.innerHTML = "";
 
       if (!state.report || state.report.ok !== true) {
-        reportPreview.appendChild(el(ctx.doc, "div", { class: "eikon-dda-hint", html: "No report loaded. Click Generate." }, []));
+        reportPreview.appendChild(
+          el(ctx.doc, "div", { class: "eikon-dda-hint", html: "No report loaded. Click Generate." }, [])
+        );
         return;
       }
 
@@ -578,10 +580,15 @@
         var list = byMonth.get(ym) || [];
 
         reportPreview.appendChild(
-          el(ctx.doc, "h3", {
-            text: ym,
-            style: "margin:14px 0 8px 0;font-size:14px;font-weight:1000;",
-          }, [])
+          el(
+            ctx.doc,
+            "h3",
+            {
+              text: ym,
+              style: "margin:14px 0 8px 0;font-size:14px;font-weight:1000;",
+            },
+            []
+          )
         );
 
         var tableWrap = el(ctx.doc, "div", { class: "eikon-dda-table-wrap" }, []);
@@ -698,7 +705,14 @@
       html += "</head><body>";
       html += "<button onclick='window.print()' style='margin-bottom:12px;padding:8px 10px;'>Print</button>";
       html += "<h1>" + escapeHtml(org) + " — DDA POYC Report</h1>";
-      html += "<p class='meta'>" + (loc ? "Location: " + escapeHtml(loc) + "<br/>" : "") + "Range: " + escapeHtml(from) + " to " + escapeHtml(to) + "</p>";
+      html +=
+        "<p class='meta'>" +
+        (loc ? "Location: " + escapeHtml(loc) + "<br/>" : "") +
+        "Range: " +
+        escapeHtml(from) +
+        " to " +
+        escapeHtml(to) +
+        "</p>";
 
       if (!entries.length) {
         html += "<p>No entries for the selected date range.</p>";
@@ -708,7 +722,8 @@
           var list = byMonth.get(ym) || [];
           html += "<h2 style='font-size:13px;margin:16px 0 6px 0;'>" + escapeHtml(ym) + "</h2>";
           html += "<table><thead><tr>";
-          html += "<th>Date</th><th>Client</th><th>ID Card</th><th>Address</th><th>Medicine (name &amp; dose)</th><th>Qty</th><th>Doctor</th><th>Reg No.</th><th>Prescription Serial No.</th>";
+          html +=
+            "<th>Date</th><th>Client</th><th>ID Card</th><th>Address</th><th>Medicine (name &amp; dose)</th><th>Qty</th><th>Doctor</th><th>Reg No.</th><th>Prescription Serial No.</th>";
           html += "</tr></thead><tbody>";
           for (var i = 0; i < list.length; i++) {
             var r = list[i] || {};
@@ -837,62 +852,54 @@
     function openModalForNew() {
       var startEnd = monthStartEnd(state.month) || monthStartEnd(todayYm());
       var defaultDate = startEnd ? startEnd.from : "";
-      openModal(
-        "New Entry",
-        { entry_date: defaultDate },
-        async function (payload) {
-          if (!ctx) return;
-          try {
-            setMsg("", "");
-            setLoading(true);
-            var data = await apiJson(ctx.win, "/dda-poyc/entries", {
-              method: "POST",
-              body: JSON.stringify(payload),
-            });
-            if (!data || data.ok !== true) throw new Error(data && data.error ? String(data.error) : "Unexpected response");
-            hideModal();
-            await refresh();
-          } catch (e) {
-            var msg = e && e.message ? e.message : String(e || "Error");
-            if (e && e.status === 401) msg = "Unauthorized (missing/invalid token).\nLog in again.";
-            setMsg("err", msg);
-            warn("create failed:", e);
-          } finally {
-            setLoading(false);
-          }
+      openModal("New Entry", { entry_date: defaultDate }, async function (payload) {
+        if (!ctx) return;
+        try {
+          setMsg("", "");
+          setLoading(true);
+          var data = await apiJson(ctx.win, "/dda-poyc/entries", {
+            method: "POST",
+            body: JSON.stringify(payload),
+          });
+          if (!data || data.ok !== true) throw new Error(data && data.error ? String(data.error) : "Unexpected response");
+          hideModal();
+          await refresh();
+        } catch (e) {
+          var msg = e && e.message ? e.message : String(e || "Error");
+          if (e && e.status === 401) msg = "Unauthorized (missing/invalid token).\nLog in again.";
+          setMsg("err", msg);
+          warn("create failed:", e);
+        } finally {
+          setLoading(false);
         }
-      );
+      });
     }
 
     function openModalForEdit(row) {
-      openModal(
-        "Edit Entry",
-        row || {},
-        async function (payload) {
-          if (!ctx) return;
-          var id = row && row.id;
-          if (!id) return;
+      openModal("Edit Entry", row || {}, async function (payload) {
+        if (!ctx) return;
+        var id = row && row.id;
+        if (!id) return;
 
-          try {
-            setMsg("", "");
-            setLoading(true);
-            var data = await apiJson(ctx.win, "/dda-poyc/entries/" + encodeURIComponent(String(id)), {
-              method: "PUT",
-              body: JSON.stringify(payload),
-            });
-            if (!data || data.ok !== true) throw new Error(data && data.error ? String(data.error) : "Unexpected response");
-            hideModal();
-            await refresh();
-          } catch (e) {
-            var msg = e && e.message ? e.message : String(e || "Error");
-            if (e && e.status === 401) msg = "Unauthorized (missing/invalid token).\nLog in again.";
-            setMsg("err", msg);
-            warn("update failed:", e);
-          } finally {
-            setLoading(false);
-          }
+        try {
+          setMsg("", "");
+          setLoading(true);
+          var data = await apiJson(ctx.win, "/dda-poyc/entries/" + encodeURIComponent(String(id)), {
+            method: "PUT",
+            body: JSON.stringify(payload),
+          });
+          if (!data || data.ok !== true) throw new Error(data && data.error ? String(data.error) : "Unexpected response");
+          hideModal();
+          await refresh();
+        } catch (e) {
+          var msg = e && e.message ? e.message : String(e || "Error");
+          if (e && e.status === 401) msg = "Unauthorized (missing/invalid token).\nLog in again.";
+          setMsg("err", msg);
+          warn("update failed:", e);
+        } finally {
+          setLoading(false);
         }
-      );
+      });
     }
 
     async function doDelete(row) {
@@ -970,11 +977,16 @@
       // Search (live)
       var qField = el(ctx.doc, "div", { class: "eikon-dda-field" }, []);
       qField.appendChild(el(ctx.doc, "label", { text: "Search" }, []));
-      qInput = el(ctx.doc, "input", {
-        type: "text",
-        value: state.q,
-        placeholder: "Client / ID / medicine / doctor / serial…",
-      }, []);
+      qInput = el(
+        ctx.doc,
+        "input",
+        {
+          type: "text",
+          value: state.q,
+          placeholder: "Client / ID / medicine / doctor / serial…",
+        },
+        []
+      );
       qInput.oninput = function () {
         state.q = String(qInput.value || "");
         scheduleLiveSearch();
@@ -1126,14 +1138,16 @@
       warn("EIKON.registerModule() not found");
       return;
     }
-api.registerModule({
-  id: mod.id,
-  title: mod.title,
-  iconSvg: ICON_SVG,
-  icon: ICON_SVG, // <-- add this line only
-  render: mod.render,
-  destroy: mod.destroy,
-});
+
+    // ✅ FIX: provide BOTH iconSvg and icon (some sidebars read icon)
+    api.registerModule({
+      id: mod.id,
+      title: mod.title,
+      iconSvg: ICON_SVG,
+      icon: ICON_SVG,
+      render: mod.render,
+      destroy: mod.destroy,
+    });
     log("registered via window.EIKON.registerModule()");
   }
 
