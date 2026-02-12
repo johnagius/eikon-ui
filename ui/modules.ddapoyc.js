@@ -681,71 +681,73 @@
       var monthKeys = Array.from(byMonth.keys()).sort();
 
       var html = "";
-      html += "";
-      html += "";
-      html += "DDA POYC Report";
-      html += "";
-      html += "";
-      html += "Print";
-      html += "\n";
+      html += "<!doctype html>";
+      html += "<html>";
+      html += "<head>";
+      html += '<meta charset="utf-8">';
+      html += '<meta name="viewport" content="width=device-width, initial-scale=1">';
+      html += "<title>DDA POYC Report</title>";
+      html += "<style>";
+      html += "body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:24px;color:#111;}";
+      html += "h1{margin:0 0 6px 0;font-size:20px;}";
+      html += ".meta{margin:0 0 16px 0;font-size:12px;color:#333;}";
+      html += "h2{margin:18px 0 8px 0;font-size:14px;}";
+      html += "table{width:100%;border-collapse:collapse;margin:0 0 14px 0;}";
+      html += "th,td{border:1px solid #ddd;padding:6px 6px;font-size:11px;vertical-align:top;}";
+      html += "th{background:#f3f5f7;text-align:left;font-weight:700;}";
+      html += "@media print{body{margin:10mm;} h2{page-break-after:avoid;} table{page-break-inside:auto;} tr{page-break-inside:avoid;page-break-after:auto;}}";
+      html += "</style>";
+      html += "</head>";
+      html += "<body>";
 
-      html += "# " + escapeHtml(org) + " — DDA POYC Report\n\n";
-      html +=
-        (loc ? "Location: " + escapeHtml(loc) + "\n" : "") +
-        "Range: " +
-        escapeHtml(from) +
-        " to " +
-        escapeHtml(to) +
-        "\n\n";
+      html += "<h1>" + escapeHtml(org) + " — DDA POYC Report</h1>";
+      html += '<div class="meta">';
+      if (loc) html += "Location: " + escapeHtml(loc) + "<br>";
+      html += "Range: " + escapeHtml(from) + " to " + escapeHtml(to);
+      html += "</div>";
 
       if (!entries.length) {
-        html += "\n\nNo entries for the selected date range.\n\n";
+        html += "<div>No entries for the selected date range.</div>";
       } else {
         for (var mi = 0; mi < monthKeys.length; mi++) {
           var ym = monthKeys[mi];
           var list = byMonth.get(ym) || [];
-          html += "\n## " + escapeHtml(ym) + "\n";
-          html += "";
-          html += "";
-          html += "";
+
+          html += "<h2>" + escapeHtml(ym) + "</h2>";
+          html += "<table>";
+          html += "<thead><tr>";
+          html += "<th>Date</th>";
+          html += "<th>Client</th>";
+          html += "<th>ID Card</th>";
+          html += "<th>Address</th>";
+          html += "<th>Medicine (name &amp; dose)</th>";
+          html += "<th>Qty</th>";
+          html += "<th>Doctor</th>";
+          html += "<th>Reg No.</th>";
+          html += "<th>Prescription Serial No.</th>";
+          html += "</tr></thead>";
+          html += "<tbody>";
+
           for (var i = 0; i < list.length; i++) {
             var r = list[i] || {};
-            html += "";
-            html += "";
-            html += "";
-            html += "";
-            html += "";
-            html += "";
-            html += "";
-            html += "";
-            html += "";
-            html += "";
-            html += "";
+            html += "<tr>";
+            html += "<td>" + escapeHtml(r.entry_date || "") + "</td>";
+            html += "<td>" + escapeHtml(r.client_name || "") + "</td>";
+            html += "<td>" + escapeHtml(r.client_id_card || "") + "</td>";
+            html += "<td>" + escapeHtml(r.client_address || "") + "</td>";
+            html += "<td>" + escapeHtml(r.medicine_name_dose || "") + "</td>";
+            html += "<td>" + escapeHtml(String(r.quantity == null ? "" : r.quantity)) + "</td>";
+            html += "<td>" + escapeHtml(r.doctor_name || "") + "</td>";
+            html += "<td>" + escapeHtml(r.doctor_reg_no || "") + "</td>";
+            html += "<td>" + escapeHtml(r.prescription_serial_no || "") + "</td>";
+            html += "</tr>";
           }
-          html += "Date Client ID Card Address Medicine (name & dose)Qty Doctor Reg No.Prescription Serial No.\n";
-          html +=
-            escapeHtml(r.entry_date || "") +
-            "" +
-            escapeHtml(r.client_name || "") +
-            "" +
-            escapeHtml(r.client_id_card || "") +
-            "" +
-            escapeHtml(r.client_address || "") +
-            "" +
-            escapeHtml(r.medicine_name_dose || "") +
-            "" +
-            escapeHtml(String(r.quantity == null ? "" : r.quantity)) +
-            "" +
-            escapeHtml(r.doctor_name || "") +
-            "" +
-            escapeHtml(r.doctor_reg_no || "") +
-            "" +
-            escapeHtml(r.prescription_serial_no || "") +
-            "\n";
+
+          html += "</tbody></table>";
         }
       }
 
-      html += "";
+      html += "</body></html>";
       return html;
     }
 
