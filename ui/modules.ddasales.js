@@ -1,6 +1,6 @@
-/* module.ddasales.js
-   Eikon UI Module — DDA Sales Register
-   Works with Cloudflare Worker endpoints:
+/* ui/modules.ddasales.js
+   Eikon - DDA Sales module (UI)
+   Endpoints (Cloudflare Worker):
      GET    /dda-sales/entries?month=YYYY-MM&q=...
      POST   /dda-sales/entries
      PUT    /dda-sales/entries/:id
@@ -11,1045 +11,815 @@
 (function () {
   "use strict";
 
-  var MODULE_KEY = "dda-sales";
-  var STYLE_ID = "eikon-style-dda-sales";
-
-  function safeString(v) {
-    return (v === null || v === undefined) ? "" : String(v);
+  var LOG_PREFIX = "[EIKON][dda-sales]";
+  function log() {
+    try { console.log.apply(console, [LOG_PREFIX].concat([].slice.call(arguments))); } catch (e) {}
+  }
+  function warn() {
+    try { console.warn.apply(console, [LOG_PREFIX].concat([].slice.call(arguments))); } catch (e) {}
   }
 
   function pad2(n) {
     n = Number(n);
+    if (!Number.isFinite(n)) return "00";
     return (n < 10 ? "0" : "") + String(n);
   }
 
-  function todayYmdLocal() {
-    var d = new Date();
-    return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
+  function isYmd(s) {
+    return /^\d{4}-\d{2}-\d{2}$/.test(String(s || "").trim());
   }
-
-  function currentYmLocal() {
-    var d = new Date();
-    return d.getFullYear() + "-" + pad2(d.getMonth() + 1);
-  }
-
-  function isValidYm(s) {
+  function isYm(s) {
     return /^\d{4}-\d{2}$/.test(String(s || "").trim());
   }
 
-  function isValidYmd(s) {
-    return /^\d{4}-\d{2}-\d{2}$/.test(String(s || "").trim());
-  }
-
-  function monthStartEnd(ym) {
-    var m = String(ym || "").trim();
-    if (!isValidYm(m)) return null;
-    var parts = m.split("-");
-    var y = parseInt(parts[0], 10);
-    var mo = parseInt(parts[1], 10);
+  function monthStartEnd(yyyyMm) {
+    var m = String(yyyyMm || "").trim();
+    if (!isYm(m)) return null;
+    var y = parseInt(m.slice(0, 4), 10);
+    var mo = parseInt(m.slice(5, 7), 10); // 1..12
     if (!Number.isFinite(y) || !Number.isFinite(mo) || mo < 1 || mo > 12) return null;
-    var start = new Date(y, mo - 1, 1);
-    var end = new Date(y, mo, 0);
-    return {
-      from: start.getFullYear() + "-" + pad2(start.getMonth() + 1) + "-" + pad2(start.getDate()),
-      to: end.getFullYear() + "-" + pad2(end.getMonth() + 1) + "-" + pad2(end.getDate())
-    };
+
+    var start = m + "-01";
+
+    // last day of month: new Date(y, mo, 0) => day 0 of next month
+    var lastDay = new Date(y, mo, 0).getDate();
+    var end = m + "-" + pad2(lastDay);
+
+    return { from: start, to: end };
   }
 
-  function normalizeIntPositive(n) {
-    if (n === null || n === undefined) return null;
-    if (n === "") return null;
-    var v = Number(n);
-    if (!Number.isFinite(v)) return null;
-    if (!Number.isInteger(v)) return null;
-    if (v < 1) return null;
-    return v;
-  }
-
-  function escHtml(s) {
-    var str = safeString(s);
-    return str.replace(/[&<>"']/g, function (c) {
-      if (c === "&") return "&amp;";
-      if (c === "<") return "&lt;";
-      if (c === ">") return "&gt;";
-      if (c === '"') return "&quot;";
-      return "&#39;";
+  function escapeHtml(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      })[c] || c;
     });
   }
 
-  function el(tag, attrs) {
+  function ensureStyleOnce() {
+    var id = "eikon-dda-sales-style";
+    if (document.getElementById(id)) return;
+
+    var css = ""
+      + ".eikon-dda-wrap{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:1100px;margin:0 auto;padding:16px;}"
+      + ".eikon-dda-top{display:flex;flex-wrap:wrap;gap:10px;align-items:end;justify-content:space-between;margin-bottom:12px;}"
+      + ".eikon-dda-title{font-size:18px;font-weight:900;margin:0;}"
+      + ".eikon-dda-controls{display:flex;flex-wrap:wrap;gap:10px;align-items:end;}"
+      + ".eikon-dda-field{display:flex;flex-direction:column;gap:4px;}"
+      + ".eikon-dda-field label{font-size:12px;font-weight:800;opacity:0.85;}"
+      + ".eikon-dda-field input,.eikon-dda-field textarea{padding:9px 10px;border:1px solid #cfcfcf;border-radius:10px;font-size:14px;}"
+      + ".eikon-dda-field textarea{min-height:64px;resize:vertical;}"
+      + ".eikon-dda-btn{padding:9px 12px;border:0;border-radius:10px;background:#111;color:#fff;font-weight:900;cursor:pointer;}"
+      + ".eikon-dda-btn:disabled{opacity:0.5;cursor:not-allowed;}"
+      + ".eikon-dda-btn.secondary{background:#444;}"
+      + ".eikon-dda-btn.danger{background:#b00020;}"
+      + ".eikon-dda-card{border:1px solid #dedede;border-radius:14px;padding:12px;background:#fff;box-shadow:0 1px 0 rgba(0,0,0,0.03);}"
+      + ".eikon-dda-msg{margin:10px 0;padding:10px 12px;border-radius:12px;border:1px solid #ddd;background:#fafafa;}"
+      + ".eikon-dda-msg.ok{border-color:#bfe8c6;background:#f2fff5;}"
+      + ".eikon-dda-msg.err{border-color:#f0b3bc;background:#fff4f6;}"
+      + ".eikon-dda-table-wrap{overflow:auto;border:1px solid #e2e2e2;border-radius:14px;}"
+      + ".eikon-dda-table{width:100%;border-collapse:collapse;min-width:980px;}"
+      + ".eikon-dda-table th,.eikon-dda-table td{border-bottom:1px solid #eee;padding:8px 10px;font-size:12px;vertical-align:top;}"
+      + ".eikon-dda-table th{background:#f5f5f5;text-align:left;font-size:12px;font-weight:900;position:sticky;top:0;z-index:1;}"
+      + ".eikon-dda-actions{display:flex;gap:8px;}"
+      + ".eikon-dda-link{color:#111;text-decoration:underline;cursor:pointer;font-weight:800;}"
+      + ".eikon-dda-modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.35);display:none;align-items:center;justify-content:center;padding:16px;z-index:9999;}"
+      + ".eikon-dda-modal{width:100%;max-width:860px;background:#fff;border-radius:16px;border:1px solid #ddd;box-shadow:0 10px 30px rgba(0,0,0,0.20);}"
+      + ".eikon-dda-modal-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid #eee;}"
+      + ".eikon-dda-modal-head h3{margin:0;font-size:15px;font-weight:1000;}"
+      + ".eikon-dda-modal-body{padding:14px;}"
+      + ".eikon-dda-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}"
+      + ".eikon-dda-grid .full{grid-column:1 / -1;}"
+      + ".eikon-dda-hint{font-size:12px;opacity:0.75;margin-top:6px;}"
+      + "@media(max-width:820px){.eikon-dda-grid{grid-template-columns:1fr;}}";
+
+    var style = document.createElement("style");
+    style.id = id;
+    style.type = "text/css";
+    style.appendChild(document.createTextNode(css));
+    document.head.appendChild(style);
+  }
+
+  function el(tag, attrs, children) {
     var node = document.createElement(tag);
-    if (attrs && typeof attrs === "object") {
+    if (attrs) {
       Object.keys(attrs).forEach(function (k) {
-        var v = attrs[k];
-        if (k === "class") node.className = v;
-        else if (k === "style") node.setAttribute("style", v);
-        else if (k === "text") node.textContent = v;
-        else if (k === "html") node.innerHTML = v;
-        else if (k === "dataset" && v && typeof v === "object") {
-          Object.keys(v).forEach(function (dk) {
-            node.dataset[dk] = v[dk];
-          });
-        } else if (k in node) {
-          try { node[k] = v; } catch (_) { node.setAttribute(k, v); }
-        } else {
-          node.setAttribute(k, v);
-        }
+        if (k === "class") node.className = attrs[k];
+        else if (k === "html") node.innerHTML = attrs[k];
+        else if (k === "text") node.textContent = attrs[k];
+        else if (k === "value") node.value = attrs[k];
+        else if (k === "type") node.type = attrs[k];
+        else if (k === "placeholder") node.placeholder = attrs[k];
+        else if (k === "href") node.href = attrs[k];
+        else if (k === "target") node.target = attrs[k];
+        else if (k === "rel") node.rel = attrs[k];
+        else if (k === "disabled") node.disabled = !!attrs[k];
+        else if (k === "onclick") node.onclick = attrs[k];
+        else node.setAttribute(k, attrs[k]);
       });
     }
-    for (var i = 2; i < arguments.length; i++) {
-      var child = arguments[i];
-      if (child === null || child === undefined) continue;
-      if (Array.isArray(child)) {
-        child.forEach(function (c) {
-          if (c === null || c === undefined) return;
-          if (typeof c === "string" || typeof c === "number") node.appendChild(document.createTextNode(String(c)));
-          else node.appendChild(c);
-        });
-      } else if (typeof child === "string" || typeof child === "number") {
-        node.appendChild(document.createTextNode(String(child)));
-      } else {
-        node.appendChild(child);
-      }
+    if (children && children.length) {
+      children.forEach(function (c) {
+        if (c == null) return;
+        if (typeof c === "string") node.appendChild(document.createTextNode(c));
+        else node.appendChild(c);
+      });
     }
     return node;
   }
 
-  function onceInjectStyle() {
-    if (document.getElementById(STYLE_ID)) return;
-
-    var css = ""
-      + ".eikon-dda-wrap{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#111;}"
-      + ".eikon-dda-title{display:flex;align-items:flex-end;gap:12px;margin:0 0 10px 0;}"
-      + ".eikon-dda-title h2{margin:0;font-size:18px;}"
-      + ".eikon-dda-title .sub{color:#555;font-size:12px;}"
-      + ".eikon-dda-card{border:1px solid #ddd;border-radius:12px;padding:12px;margin:12px 0;background:#fff;box-shadow:0 1px 0 rgba(0,0,0,.03);}"
-      + ".eikon-dda-toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:end;}"
-      + ".eikon-dda-field{display:flex;flex-direction:column;gap:4px;}"
-      + ".eikon-dda-field label{font-weight:800;font-size:12px;color:#222;}"
-      + ".eikon-dda-field input,.eikon-dda-field select{padding:9px 10px;border:1px solid #ccc;border-radius:10px;font-size:14px;min-width:160px;}"
-      + ".eikon-dda-btn{padding:10px 12px;border:0;border-radius:10px;background:#111;color:#fff;font-weight:900;cursor:pointer;font-size:13px;}"
-      + ".eikon-dda-btn.secondary{background:#444;}"
-      + ".eikon-dda-btn.ghost{background:#fff;color:#111;border:1px solid #bbb;}"
-      + ".eikon-dda-btn:disabled{opacity:.55;cursor:not-allowed;}"
-      + ".eikon-dda-row{display:flex;gap:10px;align-items:center;justify-content:space-between;}"
-      + ".eikon-dda-muted{color:#666;font-size:12px;}"
-      + ".eikon-dda-table{width:100%;border-collapse:collapse;margin-top:10px;}"
-      + ".eikon-dda-table th,.eikon-dda-table td{border:1px solid #bbb;padding:7px 8px;font-size:12px;vertical-align:top;}"
-      + ".eikon-dda-table th{background:#f2f2f2;text-align:left;}"
-      + ".eikon-dda-actions{display:flex;gap:6px;flex-wrap:wrap;}"
-      + ".eikon-dda-mini{padding:6px 8px;border-radius:10px;border:1px solid #bbb;background:#fff;cursor:pointer;font-weight:800;font-size:12px;}"
-      + ".eikon-dda-mini.danger{border-color:#b00020;color:#b00020;}"
-      + ".eikon-dda-mini.primary{border-color:#111;background:#111;color:#fff;}"
-      + ".eikon-dda-mini:disabled{opacity:.6;cursor:not-allowed;}"
-      + ".eikon-dda-empty{padding:12px;color:#555;font-size:13px;}"
-      + ".eikon-dda-toastwrap{position:fixed;right:16px;bottom:16px;z-index:9999;display:flex;flex-direction:column;gap:8px;}"
-      + ".eikon-dda-toast{max-width:360px;padding:10px 12px;border-radius:12px;border:1px solid #ddd;background:#fff;box-shadow:0 8px 24px rgba(0,0,0,.12);font-size:13px;}"
-      + ".eikon-dda-toast.ok{border-color:#1b7f2a;}"
-      + ".eikon-dda-toast.err{border-color:#b00020;}"
-      + ".eikon-dda-modalback{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9998;display:flex;align-items:center;justify-content:center;padding:18px;}"
-      + ".eikon-dda-modal{width:min(860px,100%);background:#fff;border-radius:16px;border:1px solid #ddd;box-shadow:0 18px 60px rgba(0,0,0,.25);overflow:hidden;}"
-      + ".eikon-dda-modal header{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid #eee;}"
-      + ".eikon-dda-modal header h3{margin:0;font-size:16px;}"
-      + ".eikon-dda-modal .body{padding:14px;}"
-      + ".eikon-dda-grid{display:grid;grid-template-columns:repeat(2, minmax(0,1fr));gap:10px;}"
-      + ".eikon-dda-grid .full{grid-column:1 / -1;}"
-      + ".eikon-dda-modal footer{display:flex;gap:10px;justify-content:flex-end;padding:12px 14px;border-top:1px solid #eee;}"
-      + ".eikon-dda-help{font-size:12px;color:#555;}"
-      + "@media (max-width:720px){"
-      + "  .eikon-dda-grid{grid-template-columns:1fr;}"
-      + "  .eikon-dda-field input{min-width:unset;width:100%;}"
-      + "}";
-
-    var style = el("style", { id: STYLE_ID, text: css });
-    document.head.appendChild(style);
-  }
-
-  function getApiBase(ctx) {
-    if (ctx && ctx.apiBase) return String(ctx.apiBase).replace(/\/+$/, "");
-    if (window.EIKON_API_BASE) return String(window.EIKON_API_BASE).replace(/\/+$/, "");
-    if (window.Eikon && window.Eikon.apiBase) return String(window.Eikon.apiBase).replace(/\/+$/, "");
-    return window.location.origin;
-  }
-
-  function getToken(ctx) {
-    if (ctx && ctx.token) return String(ctx.token);
-    if (window.Eikon && window.Eikon.token) return String(window.Eikon.token);
+  function getStoredToken() {
+    // Try common patterns without breaking if unavailable.
     try {
-      var t1 = localStorage.getItem("eikon_token");
-      if (t1) return t1;
-      var t2 = localStorage.getItem("token");
-      if (t2) return t2;
-      return "";
-    } catch (_) {
-      return "";
-    }
-  }
+      if (window.Eikon && typeof window.Eikon.getToken === "function") {
+        var t0 = window.Eikon.getToken();
+        if (t0) return String(t0);
+      }
+    } catch (e) {}
 
-  function setTokenMaybe(ctx, token) {
-    if (!token) return;
-    if (ctx) ctx.token = token;
-    if (window.Eikon) window.Eikon.token = token;
-    try { localStorage.setItem("eikon_token", token); } catch (_) {}
-  }
+    // Try state objects
+    try {
+      if (window.Eikon && window.Eikon.state && window.Eikon.state.token) return String(window.Eikon.state.token);
+    } catch (e) {}
+    try {
+      if (window.EIKON && window.EIKON.state && window.EIKON.state.token) return String(window.EIKON.state.token);
+    } catch (e) {}
 
-  function toast(msg, type) {
-    var wrap = document.querySelector(".eikon-dda-toastwrap");
-    if (!wrap) {
-      wrap = el("div", { class: "eikon-dda-toastwrap" });
-      document.body.appendChild(wrap);
-    }
-    var node = el("div", { class: "eikon-dda-toast " + (type === "err" ? "err" : "ok") },
-      el("div", { style: "font-weight:900;margin-bottom:2px;" }, type === "err" ? "Error" : "OK"),
-      el("div", {}, msg)
-    );
-    wrap.appendChild(node);
-    setTimeout(function () {
-      try { node.remove(); } catch (_) {}
-    }, 3600);
-  }
-
-  function parseJsonSafe(text) {
-    try { return JSON.parse(text); } catch (_) { return null; }
-  }
-
-  function apiFetch(ctx, method, path, bodyObj, queryObj, abortSignal) {
-    var base = getApiBase(ctx);
-    var url = base + path;
-    if (queryObj && typeof queryObj === "object") {
-      var usp = new URLSearchParams();
-      Object.keys(queryObj).forEach(function (k) {
-        var v = queryObj[k];
-        if (v === null || v === undefined) return;
-        var s = String(v);
-        if (s === "") return;
-        usp.set(k, s);
-      });
-      var qs = usp.toString();
-      if (qs) url += (url.indexOf("?") >= 0 ? "&" : "?") + qs;
+    // localStorage keys
+    var keys = ["eikon_token", "EIKON_TOKEN", "token", "auth_token", "session_token"];
+    for (var i = 0; i < keys.length; i++) {
+      try {
+        var v = localStorage.getItem(keys[i]);
+        if (v && String(v).trim()) return String(v).trim();
+      } catch (e) {}
     }
 
-    var token = getToken(ctx);
-    var headers = {
-      "Content-Type": "application/json"
-    };
-    if (token) headers["Authorization"] = "Bearer " + token;
-
-    var opts = {
-      method: method,
-      headers: headers,
-      mode: "cors",
-      cache: "no-store",
-      credentials: "omit",
-      signal: abortSignal
-    };
-
-    if (bodyObj !== undefined) {
-      opts.body = JSON.stringify(bodyObj);
+    // sessionStorage keys
+    for (var j = 0; j < keys.length; j++) {
+      try {
+        var v2 = sessionStorage.getItem(keys[j]);
+        if (v2 && String(v2).trim()) return String(v2).trim();
+      } catch (e) {}
     }
 
-    return fetch(url, opts).then(function (res) {
-      return res.text().then(function (txt) {
-        var json = parseJsonSafe(txt);
-        var ok = res.ok;
-        var status = res.status;
-
-        // Token refresh patterns (optional) — if server ever returns a token
-        if (json && json.token) setTokenMaybe(ctx, json.token);
-
-        if (!ok) {
-          var errMsg = "Request failed";
-          if (json && json.error) errMsg = String(json.error);
-          else if (txt) errMsg = txt.slice(0, 240);
-          var err = new Error(errMsg);
-          err.status = status;
-          err.payload = json;
-          throw err;
-        }
-        return json !== null ? json : { ok: true, raw: txt };
-      });
-    });
-  }
-
-  function downloadBlob(filename, blob) {
-    var a = document.createElement("a");
-    var url = URL.createObjectURL(blob);
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(function () {
-      try { URL.revokeObjectURL(url); } catch (_) {}
-      try { a.remove(); } catch (_) {}
-    }, 0);
-  }
-
-  function csvEscapeCell(v) {
-    var s = safeString(v);
-    var needs = /[",\n\r]/.test(s);
-    var out = s.replace(/"/g, '""');
-    return needs ? '"' + out + '"' : out;
-  }
-
-  function entriesToCsv(entries) {
-    var headers = [
-      "ID",
-      "Entry Date",
-      "Client Name",
-      "ID Card",
-      "Address",
-      "Medicine Name & Dose",
-      "Quantity",
-      "Doctor Name",
-      "Doctor Reg No.",
-      "Prescription Serial No.",
-      "Created At",
-      "Updated At"
-    ];
-
-    var lines = [];
-    lines.push(headers.map(csvEscapeCell).join(","));
-
-    for (var i = 0; i < entries.length; i++) {
-      var e = entries[i] || {};
-      var row = [
-        safeString(e.id),
-        safeString(e.entry_date),
-        safeString(e.client_name),
-        safeString(e.client_id_card),
-        safeString(e.client_address),
-        safeString(e.medicine_name_dose),
-        safeString(e.quantity),
-        safeString(e.doctor_name),
-        safeString(e.doctor_reg_no),
-        safeString(e.prescription_serial_no),
-        safeString(e.created_at),
-        safeString(e.updated_at)
-      ];
-      lines.push(row.map(csvEscapeCell).join(","));
-    }
-
-    return lines.join("\r\n");
-  }
-
-  function createModal(titleText) {
-    var back = el("div", { class: "eikon-dda-modalback" });
-    var modal = el("div", { class: "eikon-dda-modal", role: "dialog", "aria-modal": "true" });
-    var header = el("header", {},
-      el("h3", { text: titleText }),
-      el("button", { class: "eikon-dda-mini", type: "button", text: "Close" })
-    );
-    var body = el("div", { class: "body" });
-    var footer = el("footer", {});
-    modal.appendChild(header);
-    modal.appendChild(body);
-    modal.appendChild(footer);
-    back.appendChild(modal);
-
-    function close() {
-      try { back.remove(); } catch (_) {}
-      document.removeEventListener("keydown", onKeyDown);
-    }
-
-    function onKeyDown(ev) {
-      if (ev.key === "Escape") close();
-    }
-
-    header.querySelector("button").addEventListener("click", function () { close(); });
-    back.addEventListener("click", function (ev) {
-      if (ev.target === back) close();
-    });
-
-    document.addEventListener("keydown", onKeyDown);
-    document.body.appendChild(back);
-
-    return {
-      back: back,
-      modal: modal,
-      body: body,
-      footer: footer,
-      close: close
-    };
-  }
-
-  function buildField(labelText, inputEl, helpText, extraClass) {
-    var field = el("div", { class: "eikon-dda-field" + (extraClass ? " " + extraClass : "") },
-      el("label", { text: labelText }),
-      inputEl
-    );
-    if (helpText) field.appendChild(el("div", { class: "eikon-dda-help", text: helpText }));
-    return field;
-  }
-
-  function trimAll(obj) {
-    var out = {};
-    Object.keys(obj).forEach(function (k) {
-      var v = obj[k];
-      if (typeof v === "string") out[k] = v.trim();
-      else out[k] = v;
-    });
-    return out;
-  }
-
-  function buildDdaPayloadFromForm(form) {
-    var payload = {
-      entry_date: safeString(form.entry_date || "").trim(),
-      client_name: safeString(form.client_name || "").trim(),
-      client_id_card: safeString(form.client_id_card || "").trim(),
-      client_address: safeString(form.client_address || "").trim(),
-      medicine_name_dose: safeString(form.medicine_name_dose || "").trim(),
-      quantity: normalizeIntPositive(form.quantity),
-      doctor_name: safeString(form.doctor_name || "").trim(),
-      doctor_reg_no: safeString(form.doctor_reg_no || "").trim(),
-      prescription_serial_no: safeString(form.prescription_serial_no || "").trim()
-    };
-    return payload;
-  }
-
-  function validateDdaPayload(payload) {
-    if (!isValidYmd(payload.entry_date)) return "Invalid entry_date (YYYY-MM-DD)";
-    if (!payload.client_name) return "Missing client_name";
-    if (!payload.client_id_card) return "Missing client_id_card";
-    if (!payload.client_address) return "Missing client_address";
-    if (!payload.medicine_name_dose) return "Missing medicine_name_dose";
-    if (!payload.quantity || payload.quantity < 1) return "Invalid quantity (must be an integer >= 1)";
-    if (!payload.doctor_name) return "Missing doctor_name";
-    if (!payload.doctor_reg_no) return "Missing doctor_reg_no";
-    if (!payload.prescription_serial_no) return "Missing prescription_serial_no";
     return "";
   }
 
-  function createModule() {
-    onceInjectStyle();
+  function makeHttpError(status, payload) {
+    var msg = "HTTP " + status;
+    if (payload && typeof payload === "object" && payload.error) msg = String(payload.error);
+    else if (typeof payload === "string" && payload.trim()) msg = payload.trim();
+    var err = new Error(msg);
+    err.status = status;
+    err.payload = payload;
+    return err;
+  }
+
+  async function apiJson(path, opts) {
+    opts = opts || {};
+    var headers = new Headers(opts.headers || {});
+    headers.set("Accept", "application/json");
+
+    var token = getStoredToken();
+    if (token && !headers.has("Authorization")) {
+      headers.set("Authorization", "Bearer " + token);
+    }
+
+    if (opts.body != null && !headers.has("Content-Type")) {
+      headers.set("Content-Type", "application/json");
+    }
+
+    var res = await fetch(path, {
+      method: opts.method || "GET",
+      headers: headers,
+      body: opts.body != null ? opts.body : undefined
+    });
+
+    var ct = (res.headers.get("Content-Type") || "").toLowerCase();
+    var data = null;
+
+    if (ct.indexOf("application/json") >= 0) {
+      try { data = await res.json(); } catch (e) { data = null; }
+    } else {
+      try { data = await res.text(); } catch (e2) { data = null; }
+    }
+
+    if (!res.ok) throw makeHttpError(res.status, data);
+    return data;
+  }
+
+  function setMsg(msgBox, kind, text) {
+    if (!msgBox) return;
+    msgBox.className = "eikon-dda-msg " + (kind === "ok" ? "ok" : kind === "err" ? "err" : "");
+    msgBox.textContent = String(text || "");
+    msgBox.style.display = text ? "block" : "none";
+  }
+
+  function todayYm() {
+    var d = new Date();
+    return d.getFullYear() + "-" + pad2(d.getMonth() + 1);
+  }
+
+  function toIntSafe(v) {
+    var n = Number(v);
+    if (!Number.isFinite(n)) return null;
+    if (!Number.isInteger(n)) return null;
+    return n;
+  }
+
+  function buildModule() {
+    ensureStyleOnce();
 
     var state = {
-      mounted: false,
-      root: null,
-      ctx: null,
-      abort: null,
-      month: currentYmLocal(),
+      month: todayYm(),
       q: "",
-      entries: [],
       loading: false,
-      lastLoadError: "",
-      lastMonthSavedKey: "eikon_dda_sales_last_month",
-      lastQSavedKey: "eikon_dda_sales_last_q"
+      entries: [],
+      lastError: ""
     };
 
-    var refs = {
-      monthInput: null,
-      qInput: null,
-      refreshBtn: null,
-      newBtn: null,
-      exportBtn: null,
-      reportBtn: null,
-      fromInput: null,
-      toInput: null,
-      tableWrap: null,
-      countSpan: null,
-      statusSpan: null
-    };
+    var modal = null;
+    var modalTitle = null;
+    var modalBackdrop = null;
+    var formEls = null;
+    var msgBox = null;
+    var tableBody = null;
+    var monthInput = null;
+    var qInput = null;
+    var refreshBtn = null;
+    var addBtn = null;
+    var reportBtn = null;
 
-    function loadPrefs() {
-      try {
-        var savedM = localStorage.getItem(state.lastMonthSavedKey);
-        if (savedM && isValidYm(savedM)) state.month = savedM;
-        var savedQ = localStorage.getItem(state.lastQSavedKey);
-        if (savedQ !== null && savedQ !== undefined) state.q = String(savedQ || "");
-      } catch (_) {}
-    }
+    function renderInto(container) {
+      ensureStyleOnce();
+      container.innerHTML = "";
 
-    function savePrefs() {
-      try {
-        localStorage.setItem(state.lastMonthSavedKey, state.month);
-        localStorage.setItem(state.lastQSavedKey, state.q);
-      } catch (_) {}
-    }
+      var wrap = el("div", { class: "eikon-dda-wrap" }, []);
 
-    function setLoading(on) {
-      state.loading = !!on;
-      if (refs.refreshBtn) refs.refreshBtn.disabled = state.loading;
-      if (refs.newBtn) refs.newBtn.disabled = state.loading;
-      if (refs.exportBtn) refs.exportBtn.disabled = state.loading || !(state.entries && state.entries.length);
-      if (refs.reportBtn) refs.reportBtn.disabled = state.loading;
-      if (refs.statusSpan) refs.statusSpan.textContent = state.loading ? "Loading…" : (state.lastLoadError ? state.lastLoadError : "");
-    }
+      var top = el("div", { class: "eikon-dda-top" }, []);
+      top.appendChild(el("h2", { class: "eikon-dda-title", text: "DDA Sales" }, []));
 
-    function renderTable() {
-      var wrap = refs.tableWrap;
-      if (!wrap) return;
+      var controls = el("div", { class: "eikon-dda-controls" }, []);
 
-      wrap.innerHTML = "";
+      var monthField = el("div", { class: "eikon-dda-field" }, []);
+      monthField.appendChild(el("label", { text: "Month" }, []));
+      monthInput = el("input", { type: "month", value: state.month }, []);
+      monthInput.onchange = function () {
+        var m = String(monthInput.value || "").trim();
+        if (isYm(m)) {
+          state.month = m;
+          refresh();
+        }
+      };
+      monthField.appendChild(monthInput);
 
-      if (state.loading) {
-        wrap.appendChild(el("div", { class: "eikon-dda-empty", text: "Loading…" }));
-        return;
-      }
+      var qField = el("div", { class: "eikon-dda-field" }, []);
+      qField.appendChild(el("label", { text: "Search" }, []));
+      qInput = el("input", { type: "text", value: state.q, placeholder: "Client / ID / medicine / doctor / serial…" }, []);
+      qInput.oninput = function () { state.q = String(qInput.value || ""); };
+      qInput.onkeydown = function (e) {
+        if (e && e.key === "Enter") refresh();
+      };
+      qField.appendChild(qInput);
 
-      if (state.lastLoadError) {
-        wrap.appendChild(el("div", { class: "eikon-dda-empty", html: "<b>Error:</b> " + escHtml(state.lastLoadError) }));
-      }
+      refreshBtn = el("button", { class: "eikon-dda-btn secondary", text: "Refresh" }, []);
+      refreshBtn.onclick = function () { refresh(); };
 
-      var entries = state.entries || [];
-      if (!entries.length) {
-        wrap.appendChild(el("div", { class: "eikon-dda-empty", text: "No entries found for this month." }));
-        return;
-      }
+      addBtn = el("button", { class: "eikon-dda-btn", text: "New Entry" }, []);
+      addBtn.onclick = function () { openModalForCreate(); };
 
-      var table = el("table", { class: "eikon-dda-table" });
-      var thead = el("thead");
-      var trh = el("tr");
-      var headers = [
-        "Date",
-        "Client Name",
-        "ID Card",
-        "Address",
-        "Medicine Name & Dose",
-        "Qty",
-        "Doctor Name",
-        "Doctor Reg No.",
-        "Prescription Serial No.",
-        "Actions"
-      ];
-      for (var i = 0; i < headers.length; i++) trh.appendChild(el("th", { text: headers[i] }));
-      thead.appendChild(trh);
+      reportBtn = el("button", { class: "eikon-dda-btn secondary", text: "Open Report (HTML)" }, []);
+      reportBtn.onclick = function () { openReport(); };
+
+      controls.appendChild(monthField);
+      controls.appendChild(qField);
+      controls.appendChild(refreshBtn);
+      controls.appendChild(addBtn);
+      controls.appendChild(reportBtn);
+
+      top.appendChild(controls);
+      wrap.appendChild(top);
+
+      msgBox = el("div", { class: "eikon-dda-msg", text: "" }, []);
+      msgBox.style.display = "none";
+      wrap.appendChild(msgBox);
+
+      var card = el("div", { class: "eikon-dda-card" }, []);
+      card.appendChild(el("div", { class: "eikon-dda-hint", html:
+        "Endpoints: <code>/dda-sales/entries</code> &nbsp;|&nbsp; Report: <code>/dda-sales/report/html</code>"
+      }, []));
+
+      var tableWrap = el("div", { class: "eikon-dda-table-wrap", style: "margin-top:10px;" }, []);
+      var table = el("table", { class: "eikon-dda-table" }, []);
+      var thead = el("thead", {}, []);
+      thead.appendChild(el("tr", {}, [
+        el("th", { text: "Date" }, []),
+        el("th", { text: "Client" }, []),
+        el("th", { text: "ID Card" }, []),
+        el("th", { text: "Address" }, []),
+        el("th", { text: "Medicine (name & dose)" }, []),
+        el("th", { text: "Qty" }, []),
+        el("th", { text: "Doctor" }, []),
+        el("th", { text: "Reg No." }, []),
+        el("th", { text: "Prescription Serial No." }, []),
+        el("th", { text: "Actions" }, [])
+      ]));
       table.appendChild(thead);
 
-      var tbody = el("tbody");
-      for (var r = 0; r < entries.length; r++) {
-        var e = entries[r] || {};
-        var tr = el("tr");
-        tr.appendChild(el("td", { text: safeString(e.entry_date) }));
-        tr.appendChild(el("td", { text: safeString(e.client_name) }));
-        tr.appendChild(el("td", { text: safeString(e.client_id_card) }));
-        tr.appendChild(el("td", { text: safeString(e.client_address) }));
-        tr.appendChild(el("td", { text: safeString(e.medicine_name_dose) }));
-        tr.appendChild(el("td", { text: safeString(e.quantity) }));
-        tr.appendChild(el("td", { text: safeString(e.doctor_name) }));
-        tr.appendChild(el("td", { text: safeString(e.doctor_reg_no) }));
-        tr.appendChild(el("td", { text: safeString(e.prescription_serial_no) }));
+      tableBody = el("tbody", {}, []);
+      table.appendChild(tableBody);
 
-        var actionTd = el("td");
-        var actions = el("div", { class: "eikon-dda-actions" });
+      tableWrap.appendChild(table);
+      card.appendChild(tableWrap);
+      wrap.appendChild(card);
 
-        var editBtn = el("button", { class: "eikon-dda-mini primary", type: "button", text: "Edit" });
-        editBtn.addEventListener("click", (function (entry) {
-          return function () { openEntryModal(entry); };
-        })(e));
+      container.appendChild(wrap);
 
-        var delBtn = el("button", { class: "eikon-dda-mini danger", type: "button", text: "Delete" });
-        delBtn.addEventListener("click", (function (entry) {
-          return function () { confirmDelete(entry); };
-        })(e));
+      buildModalOnce();
 
-        actions.appendChild(editBtn);
-        actions.appendChild(delBtn);
-        actionTd.appendChild(actions);
-        tr.appendChild(actionTd);
+      refresh();
+    }
 
-        tbody.appendChild(tr);
+    function setLoading(v) {
+      state.loading = !!v;
+      if (refreshBtn) refreshBtn.disabled = state.loading;
+      if (addBtn) addBtn.disabled = state.loading;
+      if (reportBtn) reportBtn.disabled = state.loading;
+      if (monthInput) monthInput.disabled = state.loading;
+      if (qInput) qInput.disabled = state.loading;
+    }
+
+    function renderRows() {
+      if (!tableBody) return;
+      tableBody.innerHTML = "";
+
+      var list = state.entries || [];
+      if (!list.length) {
+        tableBody.appendChild(el("tr", {}, [
+          el("td", { html: '<span style="opacity:0.7;">No entries for this month.</span>', colspan: "10" }, [])
+        ]));
+        return;
       }
 
-      table.appendChild(tbody);
-      wrap.appendChild(table);
+      for (var i = 0; i < list.length; i++) {
+        (function (row) {
+          var doctorLabel = String(row.doctor_name || "");
+          var tr = el("tr", {}, [
+            el("td", { text: String(row.entry_date || "") }, []),
+            el("td", { text: String(row.client_name || "") }, []),
+            el("td", { text: String(row.client_id_card || "") }, []),
+            el("td", { text: String(row.client_address || "") }, []),
+            el("td", { text: String(row.medicine_name_dose || "") }, []),
+            el("td", { text: String(row.quantity == null ? "" : row.quantity) }, []),
+            el("td", { text: doctorLabel }, []),
+            el("td", { text: String(row.doctor_reg_no || "") }, []),
+            el("td", { text: String(row.prescription_serial_no || "") }, []),
+            el("td", {}, [])
+          ]);
+
+          var actionsTd = tr.lastChild;
+          var actions = el("div", { class: "eikon-dda-actions" }, []);
+
+          var edit = el("span", { class: "eikon-dda-link", text: "Edit" }, []);
+          edit.onclick = function () { openModalForEdit(row); };
+
+          var del = el("span", { class: "eikon-dda-link", text: "Delete" }, []);
+          del.onclick = function () { doDelete(row); };
+
+          actions.appendChild(edit);
+          actions.appendChild(del);
+          actionsTd.appendChild(actions);
+
+          tableBody.appendChild(tr);
+        })(list[i]);
+      }
     }
 
-    function setCount() {
-      if (!refs.countSpan) return;
-      var n = (state.entries && state.entries.length) ? state.entries.length : 0;
-      refs.countSpan.textContent = String(n);
+    async function refresh() {
+      setMsg(msgBox, "", "");
+      setLoading(true);
+
+      var month = String(state.month || "").trim();
+      if (!isYm(month)) month = todayYm();
+
+      var url = "/dda-sales/entries?month=" + encodeURIComponent(month);
+      var q = String(state.q || "").trim();
+      if (q) url += "&q=" + encodeURIComponent(q);
+
+      try {
+        var data = await apiJson(url, { method: "GET" });
+        if (!data || data.ok !== true) {
+          throw new Error((data && data.error) ? String(data.error) : "Unexpected response");
+        }
+        state.entries = Array.isArray(data.entries) ? data.entries : [];
+        renderRows();
+        setLoading(false);
+      } catch (e) {
+        setLoading(false);
+        state.entries = [];
+        renderRows();
+
+        var msg = (e && e.message) ? e.message : String(e || "Error");
+        if (e && e.status === 401) msg = "Unauthorized (missing/invalid token). Log in again.";
+        setMsg(msgBox, "err", msg);
+        warn("refresh failed:", e);
+      }
     }
 
-    function updateReportRangeDefaults() {
+    function openReport() {
       var range = monthStartEnd(state.month);
-      if (!range) return;
-      if (refs.fromInput) refs.fromInput.value = range.from;
-      if (refs.toInput) refs.toInput.value = range.to;
-    }
-
-    function cancelInFlight() {
-      if (state.abort) {
-        try { state.abort.abort(); } catch (_) {}
-      }
-      state.abort = null;
-    }
-
-    function loadEntries() {
-      cancelInFlight();
-      state.abort = new AbortController();
-      var sig = state.abort.signal;
-
-      state.lastLoadError = "";
-      setLoading(true);
-
-      var month = state.month;
-      var q = state.q;
-
-      apiFetch(state.ctx, "GET", "/dda-sales/entries", undefined, { month: month, q: q }, sig)
-        .then(function (data) {
-          if (!data || data.ok !== true) {
-            throw new Error((data && data.error) ? String(data.error) : "Unexpected response");
-          }
-          state.entries = Array.isArray(data.entries) ? data.entries : [];
-          setCount();
-          renderTable();
-          setLoading(false);
-          savePrefs();
-        })
-        .catch(function (err) {
-          if (err && (err.name === "AbortError" || err.message === "The user aborted a request.")) return;
-          state.entries = [];
-          setCount();
-          state.lastLoadError = (err && err.message) ? String(err.message) : "Failed to load";
-          setLoading(false);
-          renderTable();
-
-          if (err && err.status === 401) {
-            toast("Unauthorized. Please log in again.", "err");
-            if (state.ctx && typeof state.ctx.onUnauthorized === "function") {
-              try { state.ctx.onUnauthorized(); } catch (_) {}
-            }
-          } else {
-            toast(state.lastLoadError, "err");
-          }
-        });
-    }
-
-    function openReportHtml() {
-      var from = refs.fromInput ? refs.fromInput.value.trim() : "";
-      var to = refs.toInput ? refs.toInput.value.trim() : "";
-      if (!isValidYmd(from) || !isValidYmd(to)) {
-        toast("Invalid report date range. Use YYYY-MM-DD.", "err");
+      if (!range) {
+        setMsg(msgBox, "err", "Invalid month.");
         return;
       }
-      if (to < from) {
-        toast("Report range invalid: to must be >= from.", "err");
-        return;
+      var reportUrl = "/dda-sales/report/html?from=" + encodeURIComponent(range.from) + "&to=" + encodeURIComponent(range.to);
+      try {
+        window.open(reportUrl, "_blank", "noopener,noreferrer");
+      } catch (e) {
+        // fallback: navigate same tab
+        window.location.href = reportUrl;
       }
-
-      var base = getApiBase(state.ctx);
-      var token = getToken(state.ctx);
-
-      // Prefer opening directly; auth header cannot be added for window.open.
-      // If UI is served from same origin and token is stored in localStorage (used by fetch),
-      // the report endpoint still requires Authorization header.
-      //
-      // So we provide two modes:
-      // 1) Try to open report in a new tab using a special "token in query" pattern if you implement it later (not in Worker).
-      // 2) Fallback: fetch the HTML with Authorization, then open a blob URL.
-      //
-      // Since the Worker code requires Authorization and does NOT accept token in query,
-      // we implement the secure fallback via fetch+blob.
-
-      setLoading(true);
-
-      apiFetch(state.ctx, "GET", "/dda-sales/report/html", undefined, { from: from, to: to }, state.abort ? state.abort.signal : undefined)
-        .then(function (dataOrRaw) {
-          // apiFetch parses JSON by default; but /report/html returns HTML.
-          // Our apiFetch will try JSON.parse and fail -> returns {ok:true, raw: txt}
-          // so we use raw.
-          var html = "";
-          if (dataOrRaw && typeof dataOrRaw.raw === "string") html = dataOrRaw.raw;
-          else if (typeof dataOrRaw === "string") html = dataOrRaw;
-          else html = "";
-
-          if (!html || html.indexOf("<!doctype") === -1) {
-            // If server returned JSON error or something unexpected.
-            // Try to show a meaningful message.
-            if (dataOrRaw && dataOrRaw.error) throw new Error(String(dataOrRaw.error));
-            throw new Error("Unexpected report response");
-          }
-
-          var blob = new Blob([html], { type: "text/html;charset=utf-8" });
-          var url = URL.createObjectURL(blob);
-          window.open(url, "_blank", "noopener,noreferrer");
-          setTimeout(function () {
-            try { URL.revokeObjectURL(url); } catch (_) {}
-          }, 60000);
-
-          setLoading(false);
-        })
-        .catch(function (err) {
-          setLoading(false);
-          var msg = (err && err.message) ? String(err.message) : "Failed to open report";
-          toast(msg, "err");
-        });
     }
 
-    function exportCsv() {
-      var entries = state.entries || [];
-      if (!entries.length) {
-        toast("No entries to export.", "err");
-        return;
+    function buildModalOnce() {
+      if (modalBackdrop) return;
+
+      modalBackdrop = el("div", { class: "eikon-dda-modal-backdrop" }, []);
+      modal = el("div", { class: "eikon-dda-modal" }, []);
+
+      var head = el("div", { class: "eikon-dda-modal-head" }, []);
+      modalTitle = el("h3", { text: "DDA Sales Entry" }, []);
+      var closeBtn = el("button", { class: "eikon-dda-btn secondary", text: "Close" }, []);
+      closeBtn.onclick = function () { closeModal(); };
+
+      head.appendChild(modalTitle);
+      head.appendChild(closeBtn);
+
+      var body = el("div", { class: "eikon-dda-modal-body" }, []);
+
+      var grid = el("div", { class: "eikon-dda-grid" }, []);
+
+      function field(labelText, inputEl, full) {
+        var wrap = el("div", { class: "eikon-dda-field" + (full ? " full" : "") }, []);
+        wrap.appendChild(el("label", { text: labelText }, []));
+        wrap.appendChild(inputEl);
+        return wrap;
       }
-      var csv = entriesToCsv(entries);
-      var blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-      var fname = "dda-sales_" + state.month + ".csv";
-      downloadBlob(fname, blob);
-      toast("Exported CSV: " + fname, "ok");
-    }
 
-    function openEntryModal(existingEntry) {
-      var isEdit = !!(existingEntry && existingEntry.id);
-
-      var modal = createModal(isEdit ? "Edit DDA Sale Entry" : "New DDA Sale Entry");
-
-      var defaults = {
-        entry_date: todayYmdLocal(),
-        client_name: "",
-        client_id_card: "",
-        client_address: "",
-        medicine_name_dose: "",
-        quantity: 1,
-        doctor_name: "",
-        doctor_reg_no: "",
-        prescription_serial_no: ""
+      formEls = {
+        id: null,
+        entry_date: el("input", { type: "date", value: "" }, []),
+        client_name: el("input", { type: "text", value: "", placeholder: "Client name" }, []),
+        client_id_card: el("input", { type: "text", value: "", placeholder: "ID card no." }, []),
+        client_address: el("input", { type: "text", value: "", placeholder: "Client address" }, []),
+        medicine_name_dose: el("input", { type: "text", value: "", placeholder: "Medicine name & dose" }, []),
+        quantity: el("input", { type: "number", value: "1", min: "1", step: "1" }, []),
+        doctor_name: el("input", { type: "text", value: "", placeholder: "Doctor name" }, []),
+        doctor_reg_no: el("input", { type: "text", value: "", placeholder: "Doctor reg no." }, []),
+        prescription_serial_no: el("input", { type: "text", value: "", placeholder: "Prescription serial no." }, [])
       };
 
-      var init = {};
-      Object.keys(defaults).forEach(function (k) { init[k] = defaults[k]; });
+      // Layout
+      grid.appendChild(field("Entry Date", formEls.entry_date, false));
+      grid.appendChild(field("Quantity", formEls.quantity, false));
 
-      if (isEdit) {
-        init.entry_date = safeString(existingEntry.entry_date || defaults.entry_date);
-        init.client_name = safeString(existingEntry.client_name || "");
-        init.client_id_card = safeString(existingEntry.client_id_card || "");
-        init.client_address = safeString(existingEntry.client_address || "");
-        init.medicine_name_dose = safeString(existingEntry.medicine_name_dose || "");
-        init.quantity = (existingEntry.quantity !== null && existingEntry.quantity !== undefined) ? Number(existingEntry.quantity) : defaults.quantity;
-        init.doctor_name = safeString(existingEntry.doctor_name || "");
-        init.doctor_reg_no = safeString(existingEntry.doctor_reg_no || "");
-        init.prescription_serial_no = safeString(existingEntry.prescription_serial_no || "");
+      grid.appendChild(field("Client Name", formEls.client_name, true));
+      grid.appendChild(field("Client ID Card", formEls.client_id_card, false));
+      grid.appendChild(field("Client Address", formEls.client_address, false));
+
+      grid.appendChild(field("Medicine Name & Dose", formEls.medicine_name_dose, true));
+
+      grid.appendChild(field("Doctor Name", formEls.doctor_name, false));
+      grid.appendChild(field("Doctor Reg No.", formEls.doctor_reg_no, false));
+
+      grid.appendChild(field("Prescription Serial No.", formEls.prescription_serial_no, true));
+
+      body.appendChild(grid);
+
+      var footerMsg = el("div", { class: "eikon-dda-hint", html:
+        "Saved to D1 table <code>dda_sales_entries</code>. Required fields match the API validations."
+      }, []);
+      body.appendChild(footerMsg);
+
+      var footerBtns = el("div", { style: "display:flex;gap:10px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap;" }, []);
+      var saveBtn = el("button", { class: "eikon-dda-btn", text: "Save" }, []);
+      var deleteBtn = el("button", { class: "eikon-dda-btn danger", text: "Delete" }, []);
+      deleteBtn.style.display = "none";
+
+      saveBtn.onclick = function () { doSave(); };
+      deleteBtn.onclick = function () {
+        if (!formEls.id) return;
+        doDelete({ id: formEls.id }, true);
+      };
+
+      footerBtns.appendChild(deleteBtn);
+      footerBtns.appendChild(saveBtn);
+      body.appendChild(footerBtns);
+
+      modal.appendChild(head);
+      modal.appendChild(body);
+
+      modalBackdrop.appendChild(modal);
+
+      modalBackdrop.onclick = function (e) {
+        if (e && e.target === modalBackdrop) closeModal();
+      };
+
+      document.body.appendChild(modalBackdrop);
+
+      // attach to state for toggling delete button visibility
+      modalBackdrop._eikonDeleteBtn = deleteBtn;
+      modalBackdrop._eikonSaveBtn = saveBtn;
+    }
+
+    function openModalForCreate() {
+      buildModalOnce();
+
+      var d = new Date();
+      var ymd = d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
+
+      formEls.id = null;
+      modalTitle.textContent = "New DDA Sales Entry";
+
+      formEls.entry_date.value = ymd;
+      formEls.client_name.value = "";
+      formEls.client_id_card.value = "";
+      formEls.client_address.value = "";
+      formEls.medicine_name_dose.value = "";
+      formEls.quantity.value = "1";
+      formEls.doctor_name.value = "";
+      formEls.doctor_reg_no.value = "";
+      formEls.prescription_serial_no.value = "";
+
+      if (modalBackdrop && modalBackdrop._eikonDeleteBtn) modalBackdrop._eikonDeleteBtn.style.display = "none";
+
+      openModal();
+    }
+
+    function openModalForEdit(row) {
+      buildModalOnce();
+
+      formEls.id = row && row.id != null ? Number(row.id) : null;
+      modalTitle.textContent = "Edit DDA Sales Entry";
+
+      formEls.entry_date.value = String(row.entry_date || "");
+      formEls.client_name.value = String(row.client_name || "");
+      formEls.client_id_card.value = String(row.client_id_card || "");
+      formEls.client_address.value = String(row.client_address || "");
+      formEls.medicine_name_dose.value = String(row.medicine_name_dose || "");
+      formEls.quantity.value = String(row.quantity == null ? "1" : row.quantity);
+      formEls.doctor_name.value = String(row.doctor_name || "");
+      formEls.doctor_reg_no.value = String(row.doctor_reg_no || "");
+      formEls.prescription_serial_no.value = String(row.prescription_serial_no || "");
+
+      if (modalBackdrop && modalBackdrop._eikonDeleteBtn) modalBackdrop._eikonDeleteBtn.style.display = "inline-block";
+
+      openModal();
+    }
+
+    function openModal() {
+      setMsg(msgBox, "", "");
+      if (modalBackdrop) modalBackdrop.style.display = "flex";
+    }
+
+    function closeModal() {
+      if (modalBackdrop) modalBackdrop.style.display = "none";
+    }
+
+    function validateFormPayload() {
+      var entry_date = String(formEls.entry_date.value || "").trim();
+      var client_name = String(formEls.client_name.value || "").trim();
+      var client_id_card = String(formEls.client_id_card.value || "").trim();
+      var client_address = String(formEls.client_address.value || "").trim();
+      var medicine_name_dose = String(formEls.medicine_name_dose.value || "").trim();
+      var quantity = toIntSafe(formEls.quantity.value);
+      var doctor_name = String(formEls.doctor_name.value || "").trim();
+      var doctor_reg_no = String(formEls.doctor_reg_no.value || "").trim();
+      var prescription_serial_no = String(formEls.prescription_serial_no.value || "").trim();
+
+      if (!isYmd(entry_date)) return { ok: false, error: "Invalid entry_date (YYYY-MM-DD)" };
+      if (!client_name) return { ok: false, error: "Missing client_name" };
+      if (!client_id_card) return { ok: false, error: "Missing client_id_card" };
+      if (!client_address) return { ok: false, error: "Missing client_address" };
+      if (!medicine_name_dose) return { ok: false, error: "Missing medicine_name_dose" };
+      if (!quantity || quantity < 1) return { ok: false, error: "Invalid quantity (must be >= 1)" };
+      if (!doctor_name) return { ok: false, error: "Missing doctor_name" };
+      if (!doctor_reg_no) return { ok: false, error: "Missing doctor_reg_no" };
+      if (!prescription_serial_no) return { ok: false, error: "Missing prescription_serial_no" };
+
+      return {
+        ok: true,
+        payload: {
+          entry_date: entry_date,
+          client_name: client_name,
+          client_id_card: client_id_card,
+          client_address: client_address,
+          medicine_name_dose: medicine_name_dose,
+          quantity: quantity,
+          doctor_name: doctor_name,
+          doctor_reg_no: doctor_reg_no,
+          prescription_serial_no: prescription_serial_no
+        }
+      };
+    }
+
+    async function doSave() {
+      setMsg(msgBox, "", "");
+      var v = validateFormPayload();
+      if (!v.ok) {
+        setMsg(msgBox, "err", v.error);
+        return;
       }
 
-      var entryDate = el("input", { type: "date", value: init.entry_date });
-      var clientName = el("input", { type: "text", value: init.client_name, placeholder: "Name & Surname" });
-      var clientId = el("input", { type: "text", value: init.client_id_card, placeholder: "ID Card No." });
-      var clientAddress = el("input", { type: "text", value: init.client_address, placeholder: "Address" });
-      var medicineNameDose = el("input", { type: "text", value: init.medicine_name_dose, placeholder: "Medicine name + dose" });
-      var quantity = el("input", { type: "number", value: String(init.quantity), min: "1", step: "1" });
-      var doctorName = el("input", { type: "text", value: init.doctor_name, placeholder: "Doctor name" });
-      var doctorRegNo = el("input", { type: "text", value: init.doctor_reg_no, placeholder: "Doctor registration no." });
-      var serial = el("input", { type: "text", value: init.prescription_serial_no, placeholder: "Prescription serial no." });
+      setLoading(true);
 
-      var grid = el("div", { class: "eikon-dda-grid" },
-        buildField("Entry Date", entryDate, "Required (YYYY-MM-DD)."),
-        buildField("Quantity", quantity, "Integer >= 1."),
-        buildField("Client Name", clientName, "Required."),
-        buildField("Client ID Card", clientId, "Required."),
-        buildField("Client Address", clientAddress, "Required.", "full"),
-        buildField("Medicine Name & Dose", medicineNameDose, "Required.", "full"),
-        buildField("Doctor Name", doctorName, "Required."),
-        buildField("Doctor Reg No.", doctorRegNo, "Required."),
-        buildField("Prescription Serial No.", serial, "Required.", "full")
-      );
+      try {
+        var method, path;
+        if (formEls.id) {
+          method = "PUT";
+          path = "/dda-sales/entries/" + encodeURIComponent(String(formEls.id));
+        } else {
+          method = "POST";
+          path = "/dda-sales/entries";
+        }
 
-      modal.body.appendChild(grid);
-
-      var saveBtn = el("button", { class: "eikon-dda-btn", type: "button", text: isEdit ? "Save Changes" : "Create Entry" });
-      var cancelBtn = el("button", { class: "eikon-dda-btn ghost", type: "button", text: "Cancel" });
-
-      var busy = false;
-      function setBusy(on) {
-        busy = !!on;
-        saveBtn.disabled = busy;
-        cancelBtn.disabled = busy;
-      }
-
-      cancelBtn.addEventListener("click", function () {
-        if (busy) return;
-        modal.close();
-      });
-
-      saveBtn.addEventListener("click", function () {
-        if (busy) return;
-
-        var form = trimAll({
-          entry_date: entryDate.value,
-          client_name: clientName.value,
-          client_id_card: clientId.value,
-          client_address: clientAddress.value,
-          medicine_name_dose: medicineNameDose.value,
-          quantity: quantity.value,
-          doctor_name: doctorName.value,
-          doctor_reg_no: doctorRegNo.value,
-          prescription_serial_no: serial.value
+        var data = await apiJson(path, {
+          method: method,
+          body: JSON.stringify(v.payload)
         });
 
-        var payload = buildDdaPayloadFromForm(form);
-        var errMsg = validateDdaPayload(payload);
-        if (errMsg) {
-          toast(errMsg, "err");
-          return;
+        if (!data || data.ok !== true) {
+          throw new Error((data && data.error) ? String(data.error) : "Unexpected response");
         }
 
-        setBusy(true);
-
-        var method = isEdit ? "PUT" : "POST";
-        var path = isEdit ? ("/dda-sales/entries/" + encodeURIComponent(String(existingEntry.id))) : "/dda-sales/entries";
-
-        apiFetch(state.ctx, method, path, payload, undefined, undefined)
-          .then(function (data) {
-            if (!data || data.ok !== true) {
-              throw new Error((data && data.error) ? String(data.error) : "Unexpected response");
-            }
-            toast(isEdit ? "Entry updated." : "Entry created.", "ok");
-            modal.close();
-            loadEntries();
-          })
-          .catch(function (err) {
-            var msg = (err && err.message) ? String(err.message) : "Save failed";
-            toast(msg, "err");
-          })
-          .finally(function () {
-            setBusy(false);
-          });
-      });
-
-      modal.footer.appendChild(cancelBtn);
-      modal.footer.appendChild(saveBtn);
-
-      // Focus first field
-      setTimeout(function () {
-        try { entryDate.focus(); } catch (_) {}
-      }, 0);
+        closeModal();
+        setMsg(msgBox, "ok", "Saved.");
+        setLoading(false);
+        await refresh();
+      } catch (e) {
+        setLoading(false);
+        var msg = (e && e.message) ? e.message : String(e || "Error");
+        if (e && e.status === 401) msg = "Unauthorized (missing/invalid token). Log in again.";
+        setMsg(msgBox, "err", msg);
+        warn("save failed:", e);
+      }
     }
 
-    function confirmDelete(entry) {
-      if (!entry || !entry.id) return;
-
-      var modal = createModal("Delete Entry");
-      modal.body.appendChild(
-        el("div", { class: "eikon-dda-card", style: "border-color:#f0c0c0;background:#fff6f6;" },
-          el("div", { style: "font-weight:900;margin-bottom:6px;color:#b00020;" }, "This cannot be undone."),
-          el("div", { class: "eikon-dda-muted" }, "Entry: "),
-          el("div", { style: "font-size:13px;margin-top:6px;" },
-            el("div", {}, el("b", {}, "Date: "), safeString(entry.entry_date)),
-            el("div", {}, el("b", {}, "Client: "), safeString(entry.client_name)),
-            el("div", {}, el("b", {}, "Medicine: "), safeString(entry.medicine_name_dose)),
-            el("div", {}, el("b", {}, "Qty: "), safeString(entry.quantity)),
-            el("div", {}, el("b", {}, "Serial: "), safeString(entry.prescription_serial_no))
-          )
-        )
-      );
-
-      var delBtn = el("button", { class: "eikon-dda-btn", type: "button", text: "Delete" });
-      var cancelBtn = el("button", { class: "eikon-dda-btn ghost", type: "button", text: "Cancel" });
-
-      var busy = false;
-      function setBusy(on) {
-        busy = !!on;
-        delBtn.disabled = busy;
-        cancelBtn.disabled = busy;
+    async function doDelete(row, fromModal) {
+      setMsg(msgBox, "", "");
+      var id = row && row.id != null ? Number(row.id) : null;
+      if (!id) {
+        setMsg(msgBox, "err", "Invalid entry id.");
+        return;
       }
 
-      cancelBtn.addEventListener("click", function () {
-        if (busy) return;
-        modal.close();
-      });
+      var ok = false;
+      try { ok = window.confirm("Delete this DDA Sales entry?"); } catch (e) { ok = true; }
+      if (!ok) return;
 
-      delBtn.addEventListener("click", function () {
-        if (busy) return;
-        setBusy(true);
+      setLoading(true);
 
-        var path = "/dda-sales/entries/" + encodeURIComponent(String(entry.id));
-
-        apiFetch(state.ctx, "DELETE", path, undefined, undefined, undefined)
-          .then(function (data) {
-            if (!data || data.ok !== true) {
-              throw new Error((data && data.error) ? String(data.error) : "Unexpected response");
-            }
-            toast("Entry deleted.", "ok");
-            modal.close();
-            loadEntries();
-          })
-          .catch(function (err) {
-            var msg = (err && err.message) ? String(err.message) : "Delete failed";
-            toast(msg, "err");
-          })
-          .finally(function () {
-            setBusy(false);
-          });
-      });
-
-      modal.footer.appendChild(cancelBtn);
-      modal.footer.appendChild(delBtn);
-    }
-
-    function buildUi(root) {
-      root.innerHTML = "";
-      root.classList.add("eikon-dda-wrap");
-
-      var titleRow = el("div", { class: "eikon-dda-title" },
-        el("h2", { text: "DDA Sales Register" }),
-        el("div", { class: "sub", html: "Controlled drugs sales log (DDA) — <span class='eikon-dda-muted'>entries this month: </span><b id='ddaCount'>0</b>" })
-      );
-
-      var toolbarCard = el("div", { class: "eikon-dda-card" });
-
-      var monthInput = el("input", { type: "month", value: state.month });
-      // Some browsers may not support type=month; fall back gracefully.
-      monthInput.addEventListener("input", function () {
-        var v = String(monthInput.value || "").trim();
-        if (!v) return;
-        // Some browsers output YYYY-MM; others might include day; normalize.
-        if (/^\d{4}-\d{2}/.test(v)) v = v.slice(0, 7);
-        if (!isValidYm(v)) return;
-        state.month = v;
-        updateReportRangeDefaults();
-      });
-
-      var qInput = el("input", { type: "text", value: state.q, placeholder: "Search (client, ID, medicine, doctor, serial…)" });
-      qInput.addEventListener("input", function () {
-        state.q = String(qInput.value || "");
-      });
-
-      var fromInput = el("input", { type: "date", value: "" });
-      var toInput = el("input", { type: "date", value: "" });
-
-      var refreshBtn = el("button", { class: "eikon-dda-btn", type: "button", text: "Refresh" });
-      var newBtn = el("button", { class: "eikon-dda-btn secondary", type: "button", text: "New Entry" });
-      var exportBtn = el("button", { class: "eikon-dda-btn ghost", type: "button", text: "Export CSV" });
-      var reportBtn = el("button", { class: "eikon-dda-btn ghost", type: "button", text: "Open Report (HTML)" });
-
-      refreshBtn.addEventListener("click", function () {
-        var v = String(monthInput.value || "").trim();
-        if (/^\d{4}-\d{2}/.test(v)) v = v.slice(0, 7);
-        if (v && isValidYm(v)) state.month = v;
-        state.q = String(qInput.value || "");
-        updateReportRangeDefaults();
-        loadEntries();
-      });
-
-      newBtn.addEventListener("click", function () {
-        openEntryModal(null);
-      });
-
-      exportBtn.addEventListener("click", function () {
-        exportCsv();
-      });
-
-      reportBtn.addEventListener("click", function () {
-        openReportHtml();
-      });
-
-      // Enter key in search triggers refresh
-      qInput.addEventListener("keydown", function (ev) {
-        if (ev.key === "Enter") {
-          ev.preventDefault();
-          refreshBtn.click();
+      try {
+        var data = await apiJson("/dda-sales/entries/" + encodeURIComponent(String(id)), { method: "DELETE" });
+        if (!data || data.ok !== true) {
+          throw new Error((data && data.error) ? String(data.error) : "Unexpected response");
         }
-      });
-
-      var statusSpan = el("span", { class: "eikon-dda-muted", text: "" });
-
-      var toolbar = el("div", { class: "eikon-dda-toolbar" },
-        buildField("Month", monthInput, "YYYY-MM (used for list/filter)."),
-        buildField("Search", qInput, "Optional. Press Enter to refresh.", "full"),
-        buildField("Report From", fromInput, "Used by HTML report."),
-        buildField("Report To", toInput, "Used by HTML report."),
-        el("div", { class: "eikon-dda-field" },
-          el("label", { text: "Actions" }),
-          el("div", { style: "display:flex;gap:8px;flex-wrap:wrap;" }, refreshBtn, newBtn, exportBtn, reportBtn),
-          statusSpan
-        )
-      );
-
-      toolbarCard.appendChild(toolbar);
-
-      var tableCard = el("div", { class: "eikon-dda-card" });
-      var tableWrap = el("div", {});
-      tableCard.appendChild(el("div", { class: "eikon-dda-row" },
-        el("div", { class: "eikon-dda-muted", html: "List for <b>" + escHtml(state.month) + "</b>" + (state.q ? " — filtered" : "") }),
-        el("div", { class: "eikon-dda-muted" }, "Tip: Use Search to find by serial no., ID card, medicine, etc.")
-      ));
-      tableCard.appendChild(tableWrap);
-
-      root.appendChild(titleRow);
-      root.appendChild(toolbarCard);
-      root.appendChild(tableCard);
-
-      refs.monthInput = monthInput;
-      refs.qInput = qInput;
-      refs.refreshBtn = refreshBtn;
-      refs.newBtn = newBtn;
-      refs.exportBtn = exportBtn;
-      refs.reportBtn = reportBtn;
-      refs.fromInput = fromInput;
-      refs.toInput = toInput;
-      refs.tableWrap = tableWrap;
-      refs.countSpan = root.querySelector("#ddaCount");
-      refs.statusSpan = statusSpan;
-
-      updateReportRangeDefaults();
-      setCount();
-      renderTable();
-      setLoading(false);
-    }
-
-    function mount(root, ctx) {
-      if (!root) throw new Error("module.ddasales: missing root element");
-      if (state.mounted) unmount();
-
-      state.root = root;
-      state.ctx = ctx || {};
-      state.mounted = true;
-
-      loadPrefs();
-      buildUi(root);
-
-      // Ensure month inputs reflect loaded prefs
-      if (refs.monthInput) refs.monthInput.value = state.month;
-      if (refs.qInput) refs.qInput.value = state.q;
-      updateReportRangeDefaults();
-
-      loadEntries();
-    }
-
-    function unmount() {
-      cancelInFlight();
-      state.mounted = false;
-      if (state.root) {
-        try { state.root.innerHTML = ""; } catch (_) {}
-        try { state.root.classList.remove("eikon-dda-wrap"); } catch (_) {}
+        if (fromModal) closeModal();
+        setMsg(msgBox, "ok", "Deleted.");
+        setLoading(false);
+        await refresh();
+      } catch (e) {
+        setLoading(false);
+        var msg = (e && e.message) ? e.message : String(e || "Error");
+        if (e && e.status === 401) msg = "Unauthorized (missing/invalid token). Log in again.";
+        setMsg(msgBox, "err", msg);
+        warn("delete failed:", e);
       }
-      state.root = null;
-      state.ctx = null;
-      refs.monthInput = null;
-      refs.qInput = null;
-      refs.refreshBtn = null;
-      refs.newBtn = null;
-      refs.exportBtn = null;
-      refs.reportBtn = null;
-      refs.fromInput = null;
-      refs.toInput = null;
-      refs.tableWrap = null;
-      refs.countSpan = null;
-      refs.statusSpan = null;
     }
 
+    // Public-ish interface for whatever core expects
     return {
-      key: MODULE_KEY,
+      id: "dda-sales",
+      key: "dda-sales",
       title: "DDA Sales",
-      mount: mount,
-      unmount: unmount,
-      init: mount // alias for loaders that call init()
+      navTitle: "DDA Sales",
+      route: "/dda-sales",
+      hash: "#/dda-sales",
+
+      // many systems call one of these
+      render: renderInto,
+      mount: renderInto,
+
+      // some systems call init(core)
+      init: function (core) {
+        // we don’t require core, but keep reference if provided
+        try { this._core = core; } catch (e) {}
+      }
     };
   }
 
-  // Register module in a flexible way:
-  // - window.EikonModules[MODULE_KEY]
-  // - window.Eikon.registerModule(MODULE_KEY, module)
-  // - window.registerEikonModule(MODULE_KEY, module)
-  var moduleObj = createModule();
+  function tryRegisterModule(mod) {
+    if (!mod) return false;
 
-  if (!window.EikonModules) window.EikonModules = {};
-  window.EikonModules[MODULE_KEY] = moduleObj;
+    // Avoid duplicates
+    function already(list) {
+      if (!Array.isArray(list)) return false;
+      for (var i = 0; i < list.length; i++) {
+        var m = list[i];
+        if (!m) continue;
+        var id = m.id || m.key;
+        if (id === mod.id || id === mod.key) return true;
+      }
+      return false;
+    }
 
-  if (window.Eikon && typeof window.Eikon.registerModule === "function") {
-    try { window.Eikon.registerModule(MODULE_KEY, moduleObj); } catch (_) {}
+    // Preferred: explicit registration hooks
+    try {
+      if (window.Eikon && typeof window.Eikon.registerModule === "function") {
+        window.Eikon.registerModule(mod);
+        log("registered via window.Eikon.registerModule()");
+        return true;
+      }
+    } catch (e) { warn("registerModule(Eikon) failed:", e); }
+
+    try {
+      if (window.EIKON && typeof window.EIKON.registerModule === "function") {
+        window.EIKON.registerModule(mod);
+        log("registered via window.EIKON.registerModule()");
+        return true;
+      }
+    } catch (e2) { warn("registerModule(EIKON) failed:", e2); }
+
+    try {
+      if (window.Eikon && typeof window.Eikon.addModule === "function") {
+        window.Eikon.addModule(mod);
+        log("registered via window.Eikon.addModule()");
+        return true;
+      }
+    } catch (e3) { warn("addModule(Eikon) failed:", e3); }
+
+    try {
+      if (window.EIKON && typeof window.EIKON.addModule === "function") {
+        window.EIKON.addModule(mod);
+        log("registered via window.EIKON.addModule()");
+        return true;
+      }
+    } catch (e4) { warn("addModule(EIKON) failed:", e4); }
+
+    // Fallback: global arrays that main.js may read
+    try {
+      window.EikonModules = window.EikonModules || [];
+      if (!already(window.EikonModules)) window.EikonModules.push(mod);
+      log("registered via window.EikonModules[] fallback");
+    } catch (e5) { warn("EikonModules fallback failed:", e5); }
+
+    try {
+      window.EIKON_MODULES = window.EIKON_MODULES || [];
+      if (!already(window.EIKON_MODULES)) window.EIKON_MODULES.push(mod);
+      log("registered via window.EIKON_MODULES[] fallback");
+    } catch (e6) { warn("EIKON_MODULES fallback failed:", e6); }
+
+    // Also expose a direct handle for debugging
+    try { window.EikonDdaSalesModule = mod; } catch (e7) {}
+
+    return true;
   }
 
-  if (typeof window.registerEikonModule === "function") {
-    try { window.registerEikonModule(MODULE_KEY, moduleObj); } catch (_) {}
+  // Build + register now
+  var moduleObj = null;
+  try {
+    moduleObj = buildModule();
+  } catch (e) {
+    warn("buildModule failed:", e);
+    // Ensure we never break boot; just expose something
+    moduleObj = {
+      id: "dda-sales",
+      key: "dda-sales",
+      title: "DDA Sales",
+      render: function (container) {
+        try {
+          container.innerHTML =
+            '<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;padding:16px;">'
+            + '<div style="font-weight:900;font-size:16px;color:#b00020;">DDA Sales module failed to initialize</div>'
+            + '<pre style="white-space:pre-wrap;border:1px solid #ddd;background:#fff;padding:10px;border-radius:10px;margin-top:10px;">'
+            + escapeHtml(String(e && (e.stack || e.message || e)))
+            + '</pre></div>';
+        } catch (e2) {}
+      }
+    };
   }
+
+  // Try immediate registration (core.js loaded before modules in your index)
+  tryRegisterModule(moduleObj);
+
+  // Try again shortly in case core registers late
+  setTimeout(function () { tryRegisterModule(moduleObj); }, 0);
+  setTimeout(function () { tryRegisterModule(moduleObj); }, 250);
+  setTimeout(function () { tryRegisterModule(moduleObj); }, 1000);
+
+  log("loaded modules.ddasales.js");
 })();
