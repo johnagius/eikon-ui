@@ -225,10 +225,13 @@
   // -----------------------------
   // Module UI
   // -----------------------------
-  async function render(mount) {
+  async function render(ctx) {
+    var mount = ctx && ctx.mount ? ctx.mount : ctx;
+    if (!mount) return;
+
     mount.innerHTML = "";
 
-    var user = E.state && E.state.user ? E.state.user : null;
+    var user = (ctx && ctx.user) ? ctx.user : (E.state && E.state.user ? E.state.user : null);
     var locationName = user && user.location_name ? String(user.location_name) : "";
     var createdBy = user && user.full_name ? String(user.full_name) : (user && user.email ? String(user.email) : "");
 
@@ -1314,9 +1317,9 @@
     id: "endofday",
     name: "End Of Day",
     icon: "clock",
-    render: function (mount) {
-      _mountRef = mount;
-      return render(mount);
+    render: function (ctx) {
+      _mountRef = ctx;
+      return render(ctx);
     }
   });
 })();
