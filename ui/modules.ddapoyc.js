@@ -1,12 +1,4 @@
-/**
- * DDA POYC
- * Endpoints expected (same shape as dda-sales):
- *   GET    /dda-poyc/entries?month=YYYY-MM&q=...
- *   POST   /dda-poyc/entries
- *   PUT    /dda-poyc/entries/:id
- *   DELETE /dda-poyc/entries/:id
- *   GET    /dda-poyc/report?from=YYYY-MM-DD&to=YYYY-MM-DD
- */
+/** * DDA POYC * Endpoints expected (same shape as dda-sales): * GET /dda-poyc/entries?month=YYYY-MM&q=... * POST /dda-poyc/entries * PUT /dda-poyc/entries/:id * DELETE /dda-poyc/entries/:id * GET /dda-poyc/report?from=YYYY-MM-DD&to=YYYY-MM-DD */
 (function () {
   "use strict";
 
@@ -22,13 +14,14 @@
     } catch (e) {}
   }
 
-  // Use the same icon slot as dda-sales (simple document icon).
+  // ✅ PATCH (ICON ONLY): Use the same technique as DDA Sales (iconSvg/iconHTML/navIcon/etc),
+  // but with a different icon for DDA POYC.
   var ICON_SVG =
     "" +
-    '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
-    '<path d="M7 3h7l3 3v15a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.7"/>' +
-    '<path d="M14 3v4a2 2 0 0 0 2 2h4" stroke="currentColor" stroke-width="1.7"/>' +
-    '<path d="M8 12h8M8 16h8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>' +
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>' +
+    '<rect x="8" y="2" width="8" height="4" rx="1"/>' +
+    '<path d="m9 14 2 2 4-4"/>' +
     "</svg>";
 
   function pad2(n) {
@@ -44,7 +37,7 @@
   }
   function escapeHtml(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
-      return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] || c;
+      return ({ "&": "&", "<": "<", ">": ">", '"': '"', "'": "'" })[c] || c;
     });
   }
   function monthStartEnd(yyyyMm) {
@@ -96,7 +89,6 @@
   }
   function resolveRenderContext(container) {
     var ctx = { win: null, doc: null, mount: null, note: "" };
-
     if (container && container.nodeType === 1) {
       ctx.mount = container;
       ctx.doc = container.ownerDocument || document;
@@ -131,7 +123,6 @@
         }
       }
     } catch (e1) {}
-
     var maybeElProps = ["mount", "container", "root", "rootEl", "el", "element", "node"];
     for (var j = 0; j < maybeElProps.length; j++) {
       try {
@@ -166,7 +157,6 @@
         }
       } catch (e4) {}
     }
-
     ctx.note = "container=unknown";
     return ctx;
   }
@@ -204,7 +194,6 @@
     try {
       if (doc.getElementById(id)) return;
     } catch (e) {}
-
     var css =
       "" +
       ".eikon-dda-wrap{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:1100px;margin:0 auto;padding:16px;}" +
@@ -248,7 +237,6 @@
       ".eikon-dda-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}" +
       ".eikon-dda-grid .full{grid-column:1 / -1;}" +
       "@media(max-width:820px){.eikon-dda-grid{grid-template-columns:1fr;}}";
-
     var style = doc.createElement("style");
     style.id = id;
     style.type = "text/css";
@@ -322,10 +310,8 @@
     opts = opts || {};
     var headers = new Headers(opts.headers || {});
     headers.set("Accept", "application/json");
-
     var token = getStoredToken(win);
     if (token && !headers.has("Authorization")) headers.set("Authorization", "Bearer " + token);
-
     if (opts.body != null && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
 
     var res = await fetch(path, {
@@ -336,7 +322,6 @@
 
     var ct = (res.headers.get("Content-Type") || "").toLowerCase();
     var data = null;
-
     if (ct.indexOf("application/json") >= 0) {
       try {
         data = await res.json();
@@ -395,7 +380,6 @@
     };
 
     var ctx = null;
-
     var msgBox = null;
     var tableBody = null;
     var monthInput = null;
@@ -426,11 +410,9 @@
     function setLoading(v) {
       state.loading = !!v;
       var disabled = state.loading || state.report_loading;
-
       if (addBtn) addBtn.disabled = disabled;
       if (monthInput) monthInput.disabled = disabled;
       if (qInput) qInput.disabled = disabled;
-
       if (generateBtn) generateBtn.disabled = disabled;
       if (printBtn) printBtn.disabled = disabled;
       if (reportFromInput) reportFromInput.disabled = disabled;
@@ -456,7 +438,6 @@
     function renderRows() {
       if (!tableBody || !ctx) return;
       tableBody.innerHTML = "";
-
       var list = state.entries || [];
       if (!list.length) {
         var trEmpty = el(ctx.doc, "tr", {}, [
@@ -465,7 +446,6 @@
         tableBody.appendChild(trEmpty);
         return;
       }
-
       for (var i = 0; i < list.length; i++) {
         (function (row) {
           var tr = el(ctx.doc, "tr", {}, [
@@ -494,7 +474,6 @@
           actions.appendChild(edit);
           actions.appendChild(del);
           actionsTd.appendChild(actions);
-
           tableBody.appendChild(tr);
         })(list[i]);
       }
@@ -502,7 +481,6 @@
 
     async function refresh() {
       if (!ctx) return;
-
       setMsg("", "");
       setLoading(true);
 
@@ -510,14 +488,12 @@
       if (!isYm(month)) month = todayYm();
 
       var url = "/dda-poyc/entries?month=" + encodeURIComponent(month);
-
       var q = String(state.q || "").trim();
       if (q) url += "&q=" + encodeURIComponent(q);
 
       try {
         var data = await apiJson(ctx.win, url, { method: "GET" });
         if (!data || data.ok !== true) throw new Error(data && data.error ? String(data.error) : "Unexpected response");
-
         state.entries = Array.isArray(data.entries) ? data.entries : [];
         renderRows();
         setLoading(false);
@@ -525,7 +501,6 @@
         setLoading(false);
         state.entries = [];
         renderRows();
-
         var msg = e && e.message ? e.message : String(e || "Error");
         if (e && e.status === 401) msg = "Unauthorized (missing/invalid token).\nLog in again.";
         setMsg("err", msg);
@@ -557,7 +532,9 @@
       reportPreview.innerHTML = "";
 
       if (!state.report || state.report.ok !== true) {
-        reportPreview.appendChild(el(ctx.doc, "div", { class: "eikon-dda-hint", html: "No report loaded. Click Generate." }, []));
+        reportPreview.appendChild(
+          el(ctx.doc, "div", { class: "eikon-dda-hint", html: "No report loaded. Click Generate." }, [])
+        );
         return;
       }
 
@@ -578,15 +555,11 @@
         var list = byMonth.get(ym) || [];
 
         reportPreview.appendChild(
-          el(ctx.doc, "h3", {
-            text: ym,
-            style: "margin:14px 0 8px 0;font-size:14px;font-weight:1000;",
-          }, [])
+          el(ctx.doc, "h3", { text: ym, style: "margin:14px 0 8px 0;font-size:14px;font-weight:1000;" }, [])
         );
 
         var tableWrap = el(ctx.doc, "div", { class: "eikon-dda-table-wrap" }, []);
         var table = el(ctx.doc, "table", { class: "eikon-dda-table", style: "min-width:1100px;" }, []);
-
         var thead = el(ctx.doc, "thead", {}, []);
         thead.appendChild(
           el(ctx.doc, "tr", {}, [
@@ -621,7 +594,6 @@
           );
         }
         table.appendChild(tbody);
-
         tableWrap.appendChild(table);
         reportPreview.appendChild(tableWrap);
       }
@@ -635,7 +607,6 @@
 
       var from = reportFromInput ? reportFromInput.value : state.report_from;
       var to = reportToInput ? reportToInput.value : state.report_to;
-
       var vr = validateReportRange(from, to);
       if (!vr.ok) {
         setReportMsg("err", vr.error);
@@ -652,14 +623,12 @@
         var url = "/dda-poyc/report?from=" + encodeURIComponent(vr.from) + "&to=" + encodeURIComponent(vr.to);
         var data = await apiJson(ctx.win, url, { method: "GET" });
         if (!data || data.ok !== true) throw new Error(data && data.error ? String(data.error) : "Unexpected response");
-
         state.report = data;
         setReportMsg("", "");
         renderReportPreview();
       } catch (e) {
         state.report = null;
         renderReportPreview();
-
         var msg = e && e.message ? e.message : String(e || "Error");
         if (e && e.status === 401) msg = "Unauthorized (missing/invalid token).\nLog in again.";
         setReportMsg("err", msg);
@@ -682,53 +651,65 @@
       var monthKeys = Array.from(byMonth.keys()).sort();
 
       var html = "";
-      html += "<!doctype html><html><head><meta charset='utf-8'/>";
-      html += "<meta name='viewport' content='width=device-width, initial-scale=1'/>";
-      html += "<title>DDA POYC Report</title>";
-      html +=
-        "<style>" +
-        "body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:24px;color:#111;}" +
-        "h1{font-size:18px;margin:0 0 8px 0;}" +
-        ".meta{margin:0 0 18px 0;color:#333;font-size:12px;}" +
-        "table{width:100%;border-collapse:collapse;margin:8px 0 16px 0;font-size:11px;}" +
-        "th,td{border:1px solid #ddd;padding:6px;vertical-align:top;text-align:left;}" +
-        "th{background:#f5f5f5;font-weight:800;}" +
-        "@media print{button{display:none;}}" +
-        "</style>";
-      html += "</head><body>";
-      html += "<button onclick='window.print()' style='margin-bottom:12px;padding:8px 10px;'>Print</button>";
-      html += "<h1>" + escapeHtml(org) + " — DDA POYC Report</h1>";
-      html += "<p class='meta'>" + (loc ? "Location: " + escapeHtml(loc) + "<br/>" : "") + "Range: " + escapeHtml(from) + " to " + escapeHtml(to) + "</p>";
+      html += "";
+      html += "";
+      html += "DDA POYC Report";
+      html += "";
+      html += "";
+      html += "Print";
+      html += "\n";
+
+      html += "# " + escapeHtml(org) + " — DDA POYC Report\n\n";
+      html += (loc ? "Location: " + escapeHtml(loc) + "\n" : "") + "Range: " + escapeHtml(from) + " to " + escapeHtml(to) + "\n\n";
 
       if (!entries.length) {
-        html += "<p>No entries for the selected date range.</p>";
+        html += "\n\nNo entries for the selected date range.\n\n";
       } else {
         for (var mi = 0; mi < monthKeys.length; mi++) {
           var ym = monthKeys[mi];
           var list = byMonth.get(ym) || [];
-          html += "<h2 style='font-size:13px;margin:16px 0 6px 0;'>" + escapeHtml(ym) + "</h2>";
-          html += "<table><thead><tr>";
-          html += "<th>Date</th><th>Client</th><th>ID Card</th><th>Address</th><th>Medicine (name &amp; dose)</th><th>Qty</th><th>Doctor</th><th>Reg No.</th><th>Prescription Serial No.</th>";
-          html += "</tr></thead><tbody>";
+          html += "\n## " + escapeHtml(ym) + "\n";
+          html += "";
+          html += "";
+          html += "";
           for (var i = 0; i < list.length; i++) {
             var r = list[i] || {};
-            html += "<tr>";
-            html += "<td>" + escapeHtml(r.entry_date || "") + "</td>";
-            html += "<td>" + escapeHtml(r.client_name || "") + "</td>";
-            html += "<td>" + escapeHtml(r.client_id_card || "") + "</td>";
-            html += "<td>" + escapeHtml(r.client_address || "") + "</td>";
-            html += "<td>" + escapeHtml(r.medicine_name_dose || "") + "</td>";
-            html += "<td>" + escapeHtml(String(r.quantity == null ? "" : r.quantity)) + "</td>";
-            html += "<td>" + escapeHtml(r.doctor_name || "") + "</td>";
-            html += "<td>" + escapeHtml(r.doctor_reg_no || "") + "</td>";
-            html += "<td>" + escapeHtml(r.prescription_serial_no || "") + "</td>";
-            html += "</tr>";
+            html += "";
+            html += "";
+            html += "";
+            html += "";
+            html += "";
+            html += "";
+            html += "";
+            html += "";
+            html += "";
+            html += "";
+            html += "";
           }
-          html += "</tbody></table>";
+          html += "Date Client ID Card Address Medicine (name & dose)Qty Doctor Reg No.Prescription Serial No.\n";
+          html +=
+            escapeHtml(r.entry_date || "") +
+            "" +
+            escapeHtml(r.client_name || "") +
+            "" +
+            escapeHtml(r.client_id_card || "") +
+            "" +
+            escapeHtml(r.client_address || "") +
+            "" +
+            escapeHtml(r.medicine_name_dose || "") +
+            "" +
+            escapeHtml(String(r.quantity == null ? "" : r.quantity)) +
+            "" +
+            escapeHtml(r.doctor_name || "") +
+            "" +
+            escapeHtml(r.doctor_reg_no || "") +
+            "" +
+            escapeHtml(r.prescription_serial_no || "") +
+            "\n";
         }
       }
 
-      html += "</body></html>";
+      html += "";
       return html;
     }
 
@@ -748,17 +729,14 @@
         head.appendChild(closeBtn);
 
         var body = el(ctx.doc, "div", { class: "eikon-dda-modal-body" }, []);
-
         var grid = el(ctx.doc, "div", { class: "eikon-dda-grid" }, []);
+
         function field(label, type, key, full, placeholder) {
           var wrap = el(ctx.doc, "div", { class: "eikon-dda-field" + (full ? " full" : "") }, []);
           wrap.appendChild(el(ctx.doc, "label", { text: label }, []));
           var inp = null;
-          if (type === "textarea") {
-            inp = el(ctx.doc, "textarea", { placeholder: placeholder || "" }, []);
-          } else {
-            inp = el(ctx.doc, "input", { type: type, placeholder: placeholder || "" }, []);
-          }
+          if (type === "textarea") inp = el(ctx.doc, "textarea", { placeholder: placeholder || "" }, []);
+          else inp = el(ctx.doc, "input", { type: type, placeholder: placeholder || "" }, []);
           wrap.appendChild(inp);
           return { wrap: wrap, input: inp, key: key };
         }
@@ -774,7 +752,6 @@
         var f_serial = field("Prescription Serial No.", "text", "prescription_serial_no", false, "Serial no.");
 
         formEls = [f_entry_date, f_client, f_id, f_addr, f_med, f_qty, f_doc, f_reg, f_serial];
-
         for (var i = 0; i < formEls.length; i++) grid.appendChild(formEls[i].wrap);
 
         var footer = el(ctx.doc, "div", { style: "display:flex;gap:10px;justify-content:flex-end;margin-top:12px;" }, []);
@@ -789,7 +766,6 @@
           // normalize qty
           if (payload.quantity !== "" && payload.quantity != null) payload.quantity = Number(payload.quantity);
           if (payload.quantity === "" || payload.quantity == null) delete payload.quantity;
-
           await onSave(payload);
         };
         footer.appendChild(saveBtn);
@@ -799,7 +775,6 @@
 
         modal.appendChild(head);
         modal.appendChild(body);
-
         modalBackdrop.appendChild(modal);
 
         // close if click backdrop
@@ -828,7 +803,6 @@
       if (!modalBackdrop) return;
       modalBackdrop.style.display = "flex";
     }
-
     function hideModal() {
       if (!modalBackdrop) return;
       modalBackdrop.style.display = "none";
@@ -865,7 +839,6 @@
         if (!ctx) return;
         var id = row && row.id;
         if (!id) return;
-
         try {
           setMsg("", "");
           setLoading(true);
@@ -940,8 +913,8 @@
       } catch (e) {}
 
       var wrap = el(ctx.doc, "div", { class: "eikon-dda-wrap" }, []);
-
       var top = el(ctx.doc, "div", { class: "eikon-dda-top" }, []);
+
       var title = el(ctx.doc, "h2", { class: "eikon-dda-title" }, []);
       title.appendChild(el(ctx.doc, "span", { class: "icon", html: ICON_SVG }, []));
       title.appendChild(el(ctx.doc, "span", { text: "DDA POYC" }, []));
@@ -1019,7 +992,6 @@
       table.appendChild(thead);
       tableBody = el(ctx.doc, "tbody", {}, []);
       table.appendChild(tableBody);
-
       tableWrap.appendChild(table);
       cardEntries.appendChild(tableWrap);
 
@@ -1029,7 +1001,6 @@
       headReport.appendChild(el(ctx.doc, "h3", { text: "Report" }, []));
 
       var reportControls = el(ctx.doc, "div", { class: "eikon-dda-controls" }, []);
-
       var fromField = el(ctx.doc, "div", { class: "eikon-dda-field" }, []);
       fromField.appendChild(el(ctx.doc, "label", { text: "From" }, []));
       reportFromInput = el(ctx.doc, "input", { type: "date", value: state.report_from }, []);
@@ -1059,13 +1030,12 @@
       reportControls.appendChild(toField);
       reportControls.appendChild(generateBtn);
       reportControls.appendChild(printBtn);
-
       headReport.appendChild(reportControls);
+
       cardReport.appendChild(headReport);
 
       reportMsg = el(ctx.doc, "div", { class: "eikon-dda-msg", style: "display:none;" }, []);
       reportPreview = el(ctx.doc, "div", {}, []);
-
       cardReport.appendChild(reportMsg);
       cardReport.appendChild(reportPreview);
 
@@ -1079,8 +1049,8 @@
       // defaults + initial load
       if (!isYm(state.month)) state.month = todayYm();
       if (monthInput) monthInput.value = state.month;
-
       setReportDefaultsForMonth(state.month);
+
       renderRows();
       renderReportPreview();
       refresh();
@@ -1093,29 +1063,27 @@
       modalBackdrop = null;
       modalTitle = null;
       formEls = null;
+
       msgBox = null;
       tableBody = null;
       monthInput = null;
       qInput = null;
       addBtn = null;
+
       reportFromInput = null;
       reportToInput = null;
       generateBtn = null;
       printBtn = null;
       reportMsg = null;
       reportPreview = null;
+
       ctx = null;
     }
 
-    return {
-      id: "dda-poyc",
-      title: "DDA POYC",
-      render: renderInto,
-      destroy: destroy,
-    };
+    return { id: "dda-poyc", title: "DDA POYC", render: renderInto, destroy: destroy };
   }
 
-  // Register module
+  // Register module (same icon technique as DDA Sales)
   function register() {
     var mod = buildModule();
     var api = (window && window.EIKON) || (window && window.Eikon);
@@ -1124,13 +1092,26 @@
       return;
     }
 
-    // IMPORTANT FIX:
-    // Do NOT pass iconSvg here, because the sidebar is currently rendering it as text for this module.
-    // Leaving it out makes it behave like dda-sales (sidebar icon shows correctly).
     api.registerModule({
       id: mod.id,
+      key: mod.id,
+      slug: "dda-poyc",
       title: mod.title,
+      navTitle: "DDA POYC",
+
+      // ✅ ICON: provide the full set of fields used by DDA Sales sidebars
+      icon: "",
+      iconText: "",
+      iconSvg: ICON_SVG,
+      iconHTML: ICON_SVG,
+      navIcon: ICON_SVG,
+
+      hash: "#dda-poyc",
+      route: "dda-poyc",
+
       render: mod.render,
+      mount: mod.render,
+      renderInto: mod.render,
       destroy: mod.destroy,
     });
 
