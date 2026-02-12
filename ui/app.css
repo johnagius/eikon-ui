@@ -1,365 +1,618 @@
+/* ==========================================================================
+   EIKON UI — Harmonized CSS (revamp)
+   - Keeps backward compatibility with existing classnames
+   - Adds missing styles used by core.js: .eikon-nav-btn, .eikon-nav-ico, .eikon-modal-overlay
+   ========================================================================== */
+
 :root{
-  --bg:#0b0f14;
-  --panel:#0f1622;
-  --panel2:#111b2a;
-  --text:#e9eef7;
-  --muted:#a8b3c7;
-  --border:#263246;
-  --accent:#5aa2ff;
-  --danger:#ff5a7a;
-  --ok:#43d17a;
+  /* Color system (dark, pharmacy-friendly, calm) */
+  --bg0: #0a0f16;
+  --bg1: #0c131d;
+  --panel: rgba(16, 24, 36, 0.66);
+  --panel-strong: rgba(16, 24, 36, 0.92);
+  --panel2: rgba(11, 18, 28, 0.74);
+  --glass: rgba(255,255,255,0.06);
+
+  --text: #e9eef7;
+  --muted: rgba(233, 238, 247, 0.68);
+  --muted2: rgba(233, 238, 247, 0.52);
+
+  --line: rgba(255,255,255,0.10);
+  --line2: rgba(255,255,255,0.14);
+
+  --brand: #3aa0ff;
+  --brand-2: #62d1ff;
+
+  --ok: #37d67a;
+  --warn: #ffb020;
+  --bad: #ff4d4f;
+
+  --shadow: rgba(0,0,0,0.38);
+
+  /* Sizing + rhythm */
+  --radius: 16px;
+  --radius2: 12px;
+  --radius3: 10px;
+  --pad: 16px;
+  --pad2: 12px;
+  --gap: 12px;
+
+  --focus: 0 0 0 3px rgba(58,160,255,0.22);
 }
 
-*{box-sizing:border-box}
-html,body{height:100%}
+/* Base reset */
+*{ box-sizing:border-box; }
+html,body{ height:100%; margin:0; }
 body{
-  margin:0;
-  font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-  background:var(--bg);
-  color:var(--text);
+  background:
+    radial-gradient(1000px 650px at 18% -10%, rgba(58,160,255,0.18), transparent 60%),
+    radial-gradient(900px 700px at 82% 0%, rgba(55,214,122,0.12), transparent 55%),
+    linear-gradient(180deg, var(--bg1), var(--bg0));
+  color: var(--text);
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-a{color:var(--accent);text-decoration:none}
-a:hover{text-decoration:underline}
+a{ color: inherit; text-decoration: none; }
+a:hover{ text-decoration: underline; text-decoration-color: rgba(58,160,255,0.55); }
 
-#eikon-root{height:100%}
+button, input, select, textarea{ font: inherit; }
+button{ -webkit-tap-highlight-color: transparent; }
+::selection{ background: rgba(58,160,255,0.26); }
 
-/* Layout */
-.eikon-layout{
-  height:100%;
+/* Subtle scrollbar (nice on desktop) */
+*::-webkit-scrollbar{ height: 10px; width: 10px; }
+*::-webkit-scrollbar-thumb{
+  background: rgba(255,255,255,0.12);
+  border: 2px solid rgba(0,0,0,0);
+  background-clip: padding-box;
+  border-radius: 999px;
+}
+*::-webkit-scrollbar-thumb:hover{ background: rgba(255,255,255,0.18); }
+*::-webkit-scrollbar-track{ background: rgba(255,255,255,0.04); }
+
+/* ==========================================================================
+   Layout shell
+   ========================================================================== */
+.eikon-app{
   display:flex;
-  flex-direction:row;
+  min-height:100vh;
   width:100%;
-}
-
-.eikon-sidebar{
-  width:240px;
-  min-width:240px;
-  background:var(--panel);
-  border-right:1px solid var(--border);
-  display:flex;
-  flex-direction:column;
-  transition:width .18s ease, min-width .18s ease;
-}
-
-.eikon-sidebar.collapsed{
-  width:56px;
-  min-width:56px;
-}
-
-.eikon-sidebar-header{
-  padding:14px 12px;
-  display:flex;
-  align-items:center;
-  gap:10px;
-  border-bottom:1px solid var(--border);
-}
-
-.eikon-brand{
-  font-weight:900;
-  letter-spacing:.2px;
-  font-size:16px;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
-
-.eikon-sidebar.collapsed .eikon-brand{
-  display:none;
-}
-
-.eikon-collapse-btn{
-  margin-left:auto;
-  background:transparent;
-  border:1px solid var(--border);
-  color:var(--text);
-  padding:8px 10px;
-  border-radius:10px;
-  cursor:pointer;
-}
-.eikon-collapse-btn:hover{border-color:#35506f}
-
-.eikon-nav{
-  padding:10px;
-  display:flex;
-  flex-direction:column;
-  gap:8px;
-  overflow:auto;
-}
-
-.eikon-nav-btn{
-  width:100%;
-  display:flex;
-  align-items:center;
-  gap:10px;
-  padding:10px 12px;
-  border-radius:12px;
-  border:1px solid transparent;
-  background:transparent;
-  color:var(--text);
-  cursor:pointer;
-  text-align:left;
-}
-.eikon-nav-btn:hover{
-  background:rgba(255,255,255,.04);
-  border-color:rgba(255,255,255,.06);
-}
-
-.eikon-nav-btn.active{
-  background:rgba(90,162,255,.14);
-  border-color:rgba(90,162,255,.35);
-}
-
-.eikon-nav-ico{
-  width:18px;
-  height:18px;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  opacity:.9;
-  flex:0 0 18px;
-}
-.eikon-nav-label{
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
-.eikon-sidebar.collapsed .eikon-nav-label{
-  display:none;
 }
 
 .eikon-main{
   flex:1;
-  display:flex;
-  flex-direction:column;
   min-width:0;
+  padding: 22px;
 }
 
 .eikon-topbar{
   display:flex;
-  align-items:center;
   justify-content:space-between;
-  gap:12px;
-  padding:12px 14px;
-  background:var(--panel2);
-  border-bottom:1px solid var(--border);
+  align-items:center;
+  gap: var(--gap);
+  margin-bottom: 16px;
 }
 
-.eikon-top-left{
+.eikon-title{
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: 0.2px;
+}
+
+.eikon-top-actions{
+  display:flex;
+  gap: 10px;
+  align-items:center;
+}
+
+/* Cards + grid helpers */
+.eikon-card{
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: 0 18px 50px var(--shadow);
+  padding: var(--pad);
+  backdrop-filter: blur(10px);
+}
+
+.eikon-row{ display:flex; gap: var(--gap); flex-wrap:wrap; align-items:flex-start; }
+.eikon-col{ flex:1; min-width: 260px; }
+
+/* ==========================================================================
+   Sidebar
+   ========================================================================== */
+.eikon-sidebar{
+  width: 268px;
+  padding: 18px;
+  border-right: 1px solid var(--line);
+  background:
+    linear-gradient(180deg, rgba(16,24,36,0.86), rgba(10,15,22,0.92));
+  position: relative;
+  transition: width 180ms ease, padding 180ms ease;
+  overflow: hidden;
+}
+
+.eikon-sidebar-toggle{
+  position:absolute;
+  top: 12px;
+  right: 12px;
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(16,24,36,0.36);
+  color: var(--text);
+  cursor:pointer;
   display:flex;
   align-items:center;
-  gap:12px;
-  min-width:0;
+  justify-content:center;
+  font-weight: 900;
+  box-shadow: 0 10px 24px rgba(0,0,0,0.18);
 }
+.eikon-sidebar-toggle:hover{ border-color: rgba(58,160,255,0.40); }
+.eikon-sidebar-toggle:focus{ outline:none; box-shadow: var(--focus); }
 
-.eikon-page-title{
-  font-weight:900;
-  font-size:16px;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
-
-.eikon-user{
+.eikon-brand{
   display:flex;
   align-items:center;
   gap:10px;
-  color:var(--muted);
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  max-width:60%;
+  font-weight:900;
+  letter-spacing:0.3px;
+  margin-bottom: 18px;
+  user-select:none;
 }
+.eikon-brand .brand-text{ white-space: nowrap; }
 
-.eikon-btn{
-  border:1px solid var(--border);
-  background:rgba(255,255,255,.03);
-  color:var(--text);
-  padding:9px 12px;
-  border-radius:12px;
-  cursor:pointer;
-  font-weight:700;
-}
-.eikon-btn:hover{border-color:#35506f}
-.eikon-btn.primary{
-  background:rgba(90,162,255,.18);
-  border-color:rgba(90,162,255,.35);
-}
-.eikon-btn.danger{
-  background:rgba(255,90,122,.15);
-  border-color:rgba(255,90,122,.35);
-}
-
-.eikon-content{
-  padding:14px;
-  overflow:auto;
-  min-height:0;
-}
-
-/* Cards */
-.eikon-card{
-  background:rgba(255,255,255,.03);
-  border:1px solid var(--border);
-  border-radius:16px;
-  padding:14px;
-}
-
-.eikon-card + .eikon-card{margin-top:12px}
-
-.eikon-row{
+.eikon-badge{
+  width:34px;
+  height:34px;
+  border-radius: 11px;
   display:flex;
-  gap:12px;
-  flex-wrap:wrap;
-  align-items:flex-end;
+  align-items:center;
+  justify-content:center;
+  background: rgba(58,160,255,0.18);
+  border:1px solid rgba(58,160,255,0.40);
+  box-shadow: 0 14px 34px rgba(0,0,0,0.22);
+  cursor: pointer;
 }
 
-.eikon-field{
+.eikon-usercard{
+  padding: 12px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(16,24,36,0.52);
+  margin-bottom: 14px;
+}
+.eikon-usercard .name{ font-weight: 850; }
+.eikon-usercard .sub{
+  color: var(--muted);
+  font-size: 12px;
+  margin-top:2px;
+  line-height:1.25;
+}
+
+/* Nav container (core.js uses #eikon-nav + .eikon-nav-btn/.eikon-nav-ico/.eikon-nav-label)
+   Old CSS used .eikon-nav button. We support both. */
+.eikon-nav{
   display:flex;
   flex-direction:column;
-  gap:6px;
+  gap: 8px;
+  margin-top: 14px;
 }
 
+/* New core.js buttons */
+.eikon-nav-btn{
+  background: rgba(16,24,36,0.34);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  color: var(--text);
+  padding: 10px 12px;
+  text-align:left;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  gap: 10px;
+  transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+.eikon-nav-btn:hover{
+  border-color: rgba(58,160,255,0.40);
+  background: rgba(16,24,36,0.44);
+}
+.eikon-nav-btn:active{ transform: translateY(1px); }
+.eikon-nav-btn:focus{ outline:none; box-shadow: var(--focus); }
+.eikon-nav-btn.active{
+  background: rgba(58,160,255,0.16);
+  border-color: rgba(58,160,255,0.52);
+}
+
+.eikon-nav-ico{
+  width: 28px;
+  height: 28px;
+  border-radius: 11px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--line);
+  flex: 0 0 auto;
+}
+.eikon-nav-label{
+  font-weight: 850;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Backward compatibility: old markup had .eikon-nav button with inner .icon/.label/.pill */
+.eikon-nav button{
+  background: rgba(16,24,36,0.34);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  color: var(--text);
+  padding: 10px 12px;
+  text-align:left;
+  cursor:pointer;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+  transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+.eikon-nav button:hover{ border-color: rgba(58,160,255,0.40); background: rgba(16,24,36,0.44); }
+.eikon-nav button:active{ transform: translateY(1px); }
+.eikon-nav button:focus{ outline:none; box-shadow: var(--focus); }
+.eikon-nav button.active{
+  background: rgba(58,160,255,0.16);
+  border-color: rgba(58,160,255,0.52);
+}
+.eikon-nav button .left{ display:flex; align-items:center; gap:10px; min-width: 0; }
+.eikon-nav button .icon{
+  width: 28px; height: 28px;
+  border-radius: 11px;
+  display:flex; align-items:center; justify-content:center;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--line);
+  flex: 0 0 auto;
+}
+.eikon-nav button .label{
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-weight: 850;
+}
+.eikon-nav button .pill{
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.07);
+  color: var(--muted);
+  border:1px solid var(--line);
+  flex: 0 0 auto;
+}
+
+.eikon-logout{
+  margin-top: 16px;
+  width:100%;
+  background: rgba(255,77,79,0.10);
+  border: 1px solid rgba(255,77,79,0.35);
+  color: var(--text);
+  border-radius: 14px;
+  padding: 10px 12px;
+  cursor:pointer;
+  font-weight: 850;
+}
+.eikon-logout:hover{ border-color: rgba(255,77,79,0.55); }
+.eikon-logout:focus{ outline:none; box-shadow: 0 0 0 3px rgba(255,77,79,0.18); }
+
+/* Collapsed sidebar */
+.eikon-sidebar.collapsed{
+  width: 80px;
+  padding: 14px 10px;
+}
+.eikon-sidebar.collapsed .eikon-sidebar-toggle{ right: 10px; }
+.eikon-sidebar.collapsed .eikon-brand{ justify-content:center; margin-bottom: 12px; }
+.eikon-sidebar.collapsed .eikon-brand .brand-text{ display:none; }
+.eikon-sidebar.collapsed .eikon-usercard{ display:none; }
+.eikon-sidebar.collapsed .eikon-nav{ margin-top: 8px; }
+
+/* core.js collapsed: hide labels for .eikon-nav-btn */
+.eikon-sidebar.collapsed .eikon-nav-btn{ justify-content:center; padding: 10px 10px; }
+.eikon-sidebar.collapsed .eikon-nav-btn .eikon-nav-label{ display:none; }
+.eikon-sidebar.collapsed .eikon-nav-ico{ width: 34px; height: 34px; border-radius: 12px; }
+
+/* old nav collapsed */
+.eikon-sidebar.collapsed .eikon-nav button{ justify-content:center; padding: 10px 10px; }
+.eikon-sidebar.collapsed .eikon-nav button .label{ display:none; }
+.eikon-sidebar.collapsed .eikon-nav button .pill{ display:none; }
+.eikon-sidebar.collapsed .eikon-nav button .icon{ width: 34px; height: 34px; border-radius: 12px; }
+.eikon-sidebar.collapsed .eikon-logout{ padding: 10px 10px; }
+
+/* ==========================================================================
+   Forms
+   ========================================================================== */
+.eikon-field{ display:flex; flex-direction:column; gap:6px; margin-bottom: 12px; }
 .eikon-label{
-  font-size:12px;
-  color:var(--muted);
-  font-weight:700;
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 800;
+  letter-spacing: 0.2px;
 }
 
+/* Inputs */
 .eikon-input, .eikon-select, .eikon-textarea{
-  background:rgba(0,0,0,.20);
-  border:1px solid var(--border);
-  color:var(--text);
-  padding:10px 12px;
-  border-radius:12px;
+  background: rgba(10,16,24,0.64);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  color: var(--text);
   outline:none;
-  min-width:180px;
+  transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;
+}
+.eikon-input:hover, .eikon-select:hover, .eikon-textarea:hover{
+  border-color: rgba(255,255,255,0.18);
 }
 .eikon-input:focus, .eikon-select:focus, .eikon-textarea:focus{
-  border-color:rgba(90,162,255,.55);
+  border-color: rgba(58,160,255,0.55);
+  box-shadow: var(--focus);
+  background: rgba(10,16,24,0.74);
+}
+.eikon-textarea{ min-height: 84px; resize: vertical; }
+
+.eikon-input::placeholder, .eikon-textarea::placeholder{ color: rgba(233,238,247,0.40); }
+
+/* Slim inputs used by temperature module */
+.eikon-slim-input{ min-width: 120px; }
+
+/* Disabled states */
+.eikon-input:disabled, .eikon-select:disabled, .eikon-textarea:disabled, .eikon-btn:disabled{
+  opacity: 0.60;
+  cursor: not-allowed;
 }
 
-.eikon-textarea{min-width:260px;min-height:40px;resize:vertical}
+/* ==========================================================================
+   Buttons
+   ========================================================================== */
+.eikon-btn{
+  background: rgba(20, 32, 48, 0.62);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  color: var(--text);
+  cursor:pointer;
+  font-weight: 850;
+  transition: transform 120ms ease, border-color 120ms ease, background 120ms ease, box-shadow 120ms ease;
+  box-shadow: 0 10px 24px rgba(0,0,0,0.14);
+}
+.eikon-btn:hover{
+  border-color: rgba(58,160,255,0.35);
+  background: rgba(24, 38, 56, 0.70);
+}
+.eikon-btn:active{ transform: translateY(1px); }
+.eikon-btn:focus{ outline:none; box-shadow: var(--focus), 0 10px 24px rgba(0,0,0,0.14); }
 
-.eikon-help{
-  font-size:12px;
-  color:var(--muted);
+.eikon-btn.primary{
+  background: rgba(58,160,255,0.16);
+  border-color: rgba(58,160,255,0.50);
+}
+.eikon-btn.primary:hover{ background: rgba(58,160,255,0.22); }
+
+.eikon-btn.danger{
+  background: rgba(255,77,79,0.12);
+  border-color: rgba(255,77,79,0.42);
+}
+.eikon-btn.danger:hover{ background: rgba(255,77,79,0.16); border-color: rgba(255,77,79,0.60); }
+
+.eikon-btn.ok{
+  background: rgba(55,214,122,0.12);
+  border-color: rgba(55,214,122,0.42);
+}
+.eikon-btn.ok:hover{ background: rgba(55,214,122,0.16); border-color: rgba(55,214,122,0.60); }
+
+/* ==========================================================================
+   Tabs / chips
+   ========================================================================== */
+.eikon-tabs{ display:flex; gap:10px; flex-wrap:wrap; margin-bottom: 12px; }
+.eikon-tab{
+  background: rgba(16,24,36,0.30);
+  border:1px solid var(--line);
+  border-radius: 999px;
+  padding: 8px 12px;
+  cursor:pointer;
+  color: var(--muted);
+  font-weight: 850;
+  transition: border-color 120ms ease, background 120ms ease, color 120ms ease;
+}
+.eikon-tab:hover{ border-color: rgba(255,255,255,0.18); color: rgba(233,238,247,0.80); }
+.eikon-tab.active{
+  color: var(--text);
+  background: rgba(58,160,255,0.16);
+  border-color: rgba(58,160,255,0.50);
 }
 
-/* Tables */
-.eikon-table-wrap{
-  width:100%;
+/* ==========================================================================
+   Tables
+   ========================================================================== */
+.eikon-tablewrap{
   overflow:auto;
-  border:1px solid var(--border);
-  border-radius:14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: rgba(10,16,24,0.18);
 }
 
 .eikon-table{
   width:100%;
-  border-collapse:collapse;
-  min-width:840px;
+  border-collapse: collapse;
+  border: 0;
+  min-width: 720px;
 }
 
 .eikon-table th, .eikon-table td{
-  padding:10px 10px;
-  border-bottom:1px solid rgba(255,255,255,.06);
-  vertical-align:top;
-  text-align:left;
-  font-size:13px;
-}
-.eikon-table th{
-  font-size:12px;
-  letter-spacing:.2px;
-  text-transform:uppercase;
-  color:var(--muted);
-  background:rgba(255,255,255,.02);
+  padding: 10px 10px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
 }
 
+.eikon-table thead th{
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: rgba(12,19,29,0.92);
+  backdrop-filter: blur(6px);
+}
+
+.eikon-table th{
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.eikon-table tbody tr{
+  transition: background 120ms ease;
+}
+.eikon-table tbody tr:hover{
+  background: rgba(255,255,255,0.04);
+}
+.eikon-table tr:last-child td{ border-bottom:none; }
+
+/* ==========================================================================
+   Status pills / dots / misc
+   ========================================================================== */
 .eikon-pill{
   display:inline-flex;
   align-items:center;
   gap:8px;
-  padding:6px 10px;
-  border-radius:999px;
-  border:1px solid var(--border);
-  background:rgba(255,255,255,.03);
-  font-size:12px;
-  color:var(--text);
+  font-weight:850;
+  font-size: 12px;
 }
 
-/* Modal */
-.eikon-modal-overlay{
-  position:fixed;
-  inset:0;
-  background:rgba(0,0,0,.62);
-  display:none;
+.eikon-dot{
+  width:10px;
+  height:10px;
+  border-radius:999px;
+  background: var(--muted);
+  box-shadow: 0 0 0 4px rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.10);
+}
+.eikon-dot.ok{ background: var(--ok); }
+.eikon-dot.warn{ background: var(--warn); }
+.eikon-dot.bad{ background: var(--bad); }
+
+.eikon-muted{ color: var(--muted); }
+.eikon-help{
+  font-size:12px;
+  color: var(--muted);
+  line-height:1.45;
+}
+
+/* ==========================================================================
+   Toasts
+   ========================================================================== */
+.eikon-toast-wrap{
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 9999;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  pointer-events:none;
+  max-width: min(420px, calc(100vw - 32px));
+}
+.eikon-toast{
+  pointer-events:auto;
+  background: rgba(16,24,36,0.94);
+  border:1px solid var(--line);
+  border-radius: 14px;
+  padding: 10px 12px;
+  box-shadow: 0 18px 45px var(--shadow);
+}
+.eikon-toast .t, .eikon-toast .t-title{ font-weight: 900; }
+.eikon-toast .m, .eikon-toast .t-msg{
+  font-size:12px;
+  color: var(--muted);
+  margin-top:2px;
+  white-space: pre-wrap;
+}
+.eikon-toast.good{ border-color: rgba(55,214,122,0.35); }
+.eikon-toast.warn{ border-color: rgba(255,176,32,0.35); }
+.eikon-toast.bad{ border-color: rgba(255,77,79,0.35); }
+
+/* ==========================================================================
+   Modal
+   core.js uses .eikon-modal-overlay + #eikon-modal-title/body/actions
+   old CSS used .eikon-modal-backdrop + .eikon-modal .actions
+   We support both.
+   ========================================================================== */
+.eikon-modal-overlay,
+.eikon-modal-backdrop{
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.58);
+  z-index: 9998;
+  display:none; /* core shows it via style.display = "flex" */
   align-items:center;
   justify-content:center;
-  padding:18px;
-  z-index:9999;
+  padding: 20px;
 }
 
 .eikon-modal{
-  width:min(720px, 100%);
-  background:var(--panel2);
-  border:1px solid var(--border);
-  border-radius:18px;
-  padding:14px;
+  width: min(560px, 100%);
+  background: rgba(16,24,36,0.98);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 28px 80px rgba(0,0,0,0.55);
+  padding: 16px;
+  backdrop-filter: blur(10px);
 }
 
-.eikon-modal-title{
-  font-weight:900;
-  font-size:16px;
-  margin:0 0 10px 0;
-}
+.eikon-modal h3{ margin:0 0 6px 0; }
+.eikon-modal p{ margin:0; color: var(--muted); }
 
-.eikon-modal-actions{
+.eikon-modal .actions,
+#eikon-modal-actions{
   display:flex;
-  gap:10px;
   justify-content:flex-end;
-  margin-top:12px;
+  gap:10px;
+  margin-top: 14px;
 }
 
-/* Login */
+/* ==========================================================================
+   Login page (core.js renders IDs)
+   ========================================================================== */
 .eikon-login{
-  height:100%;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding:18px;
-}
-.eikon-login-card{
-  width:min(520px, 100%);
-  background:var(--panel2);
-  border:1px solid var(--border);
-  border-radius:18px;
-  padding:16px;
-}
-.eikon-login-title{
-  font-size:18px;
-  font-weight:900;
-  margin:0 0 8px 0;
-}
-.eikon-login-sub{
-  color:var(--muted);
-  margin:0 0 14px 0;
-}
-.eikon-alert{
-  border:1px solid rgba(255,90,122,.35);
-  background:rgba(255,90,122,.12);
-  color:var(--text);
-  padding:10px 12px;
-  border-radius:14px;
-  margin-top:10px;
-  white-space:pre-wrap;
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 22px 12px 0 12px;
 }
 
-/* Responsive */
-@media (max-width: 880px){
-  .eikon-sidebar{position:sticky;left:0;top:0}
-  .eikon-table{min-width:720px}
+#eikon-root .eikon-card h2,
+#eikon-root .eikon-card h3{
+  letter-spacing: 0.2px;
 }
 
-@media (max-width: 520px){
-  .eikon-input,.eikon-select,.eikon-textarea{min-width:100%}
-  .eikon-row{flex-direction:column;align-items:stretch}
+#eikon-login-email, #eikon-login-pass{
+  width: 100%;
+}
+
+/* ==========================================================================
+   Print styles
+   ========================================================================== */
+@media print{
+  body{ background:#fff !important; color:#000 !important; }
+  .eikon-sidebar, .eikon-topbar, .no-print{ display:none !important; }
+  .eikon-main{ padding:0 !important; }
+  .eikon-card{
+    box-shadow:none !important;
+    background:#fff !important;
+    border:0 !important;
+    padding: 0 !important;
+  }
+  .eikon-tablewrap{ border:0 !important; overflow:visible !important; background: transparent !important; }
+  .eikon-table{
+    min-width: 0 !important;
+    border:1px solid #000 !important;
+  }
+  .eikon-table th, .eikon-table td{ border-bottom:1px solid #000 !important; }
+  .eikon-table thead th{ position: static !important; background: transparent !important; }
 }
