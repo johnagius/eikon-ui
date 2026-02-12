@@ -97,14 +97,39 @@
   }
   async function apiDelete(path) { return await E.apiFetch(path, { method: "DELETE" }); }
 
-  async function openPrintWindow(url) {
+  // ✅ Printing method updated to match modules.temperature.js (Blob -> objectURL -> open)
+  function openPrintTabWithHtml(html) {
+    var blob = new Blob([String(html || "")], { type: "text/html" });
+    var url = URL.createObjectURL(blob);
+
+    var w = null;
+    try { w = window.open(url, "_blank", "noopener"); } catch (e) { w = null; }
+
+    if (!w) {
+      try {
+        var a = document.createElement("a");
+        a.href = url;
+        a.target = "_blank";
+        a.rel = "noopener";
+        a.style.display = "none";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      } catch (e2) {}
+    }
+
+    setTimeout(function () { try { URL.revokeObjectURL(url); } catch (e3) {} }, 60000);
+  }
+
+  async function printReportHtml(url) {
     try {
-      var w = window.open(url, "_blank");
-      if (!w) throw new Error("Popup blocked");
-      w.focus();
-      return;
+      // Endpoint returns HTML; E.apiFetch returns {ok:true,text:"..."} for non-JSON
+      var resp = await apiGet(url);
+      var html = (resp && typeof resp.text === "string") ? resp.text : "";
+      if (!html) throw new Error("Empty report");
+      openPrintTabWithHtml(html);
     } catch (e) {
-      toast("Print", "Could not open print window (popup blocked).", "warn", 4200);
+      toast("Print", "Could not generate printable report.\n" + String(e && (e.message || e.bodyText || e)), "bad", 5200);
     }
   }
 
@@ -440,10 +465,11 @@
       }
     });
 
+    // ✅ Only changed: printing now fetches HTML then opens Blob tab (temperature-style)
     btnPrint.addEventListener("click", async function () {
       if (!state.selectedId) return toast("Print", "No stock take selected.", "warn", 3200);
       var url = "/dda-stocktakes/stocktakes/" + encodeURIComponent(state.selectedId) + "/report/html";
-      await openPrintWindow(url);
+      await printReportHtml(url);
     });
 
     btnAdd.addEventListener("click", async function () {
