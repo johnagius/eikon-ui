@@ -2904,17 +2904,12 @@
     _deferredRerender = false;
   }
 
-  // Register module
-  E.registerModule({
+     E.registerModule({
     id: "endofday",
-    name: "End Of Day",
-    icon: "clock",
-    render: function (ctx) {
-      _mountRef = ctx;
-      // New render token for initial render
-      var token = ++_renderToken;
-      return render(ctx, token);
-    }
+    title: "End Of Day",
+    order: 20,
+    icon: "🧾",
+    render: render
   });
 
 })();
