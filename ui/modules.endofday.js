@@ -78,6 +78,18 @@
     return s.slice(0, 7);
   }
 
+  function isYmdStr(s) {
+    return /^\d{4}-\d{2}-\d{2}$/.test(String(s || ""));
+  }
+
+  function looksLikeEodRecord(o, dateStr) {
+    if (!o || typeof o !== "object") return false;
+    // Most important: must have a date (or we can accept the requested date)
+    if (isYmdStr(o.date)) return true;
+    if (dateStr && isYmdStr(dateStr) && (o.staff || o.cash || o.x || o.epos || o.cheques || o.paid_outs || o.deposit)) return true;
+    return false;
+  }
+
   function euro(n) {
     var v = Number(n || 0);
     return "€" + v.toFixed(2);
@@ -212,14 +224,43 @@
       ],
       { method: "GET" }
     );
+
     var data = r.data;
     if (!data) return null;
-    if (data.record) return data.record;
-    if (data.eod) return data.eod;
-    if (data.item) return data.item;
-    if (data.ok === true && data.data && typeof data.data === "object") return data.data;
-    if (typeof data === "object") return data;
-    return null;
+
+    // unwrap common shapes
+    var candidate = null;
+    if (data.record) candidate = data.record;
+    else if (data.eod) candidate = data.eod;
+    else if (data.item) candidate = data.item;
+    else if (data.ok === true && data.data && typeof data.data === "object") candidate = data.data;
+    else if (typeof data === "object") candidate = data;
+
+    if (!candidate || typeof candidate !== "object") return null;
+
+    // IMPORTANT FIX:
+    // If API returns { ok:true, eod:null, record:null, item:null } (or similar),
+    // treat it as "no record", NOT a record object.
+    if (
+      candidate.ok === true &&
+      candidate.record == null &&
+      candidate.eod == null &&
+      candidate.item == null &&
+      candidate.data == null &&
+      !candidate.date
+    ) {
+      return null;
+    }
+
+    // If record object exists but date is missing, set it from the request (safe)
+    if (!candidate.date && isYmdStr(dateStr) && looksLikeEodRecord(candidate, dateStr)) {
+      candidate.date = dateStr;
+    }
+
+    // Only return something that looks like a real EOD record
+    if (!looksLikeEodRecord(candidate, dateStr)) return null;
+
+    return candidate;
   }
 
   async function apiUpsertRecord(rec) {
@@ -391,7 +432,14 @@
   // -----------------------------
   async function getEodByDateAndLoc(dateStr, locationName) {
     if (_apiMode.ok) {
-      try { return await apiGetRecord(dateStr); }
+      try {
+        var rec = await apiGetRecord(dateStr);
+        if (rec && typeof rec === "object") {
+          if (!rec.date && isYmdStr(dateStr)) rec.date = dateStr;
+          if (!rec.location_name && locationName) rec.location_name = locationName;
+        }
+        return rec;
+      }
       catch (e) { return getEodByDateAndLocLocal(dateStr, locationName); }
     }
     return getEodByDateAndLocLocal(dateStr, locationName);
@@ -1151,14 +1199,45 @@
 
     async function loadSelectedDate() {
       var existing = await getEodByDateAndLoc(state.date, state.location_name);
+
+      // If the API returned some non-record object, treat as missing
+      if (existing && typeof existing === "object" && !looksLikeEodRecord(existing, state.date)) {
+        existing = null;
+      }
+
       if (existing) {
         state = JSON.parse(JSON.stringify(existing));
-        // ensure new fields exist
+
+        // ensure critical fields exist
+        if (!state.date) state.date = ymd(new Date());
+        if (!state.location_name) state.location_name = locationName;
+        if (!state.created_by) state.created_by = createdBy;
+
+        if (!state.float_amount) state.float_amount = "1000.00";
+
         if (!state.deposit) state.deposit = { n500: "0", n200: "0", n100: "0", n50: "0", n20: "0", n10: "0", n5: "0" };
         if (state.deposit.n5 == null) state.deposit.n5 = "0";
         if (state.deposit_edited == null) state.deposit_edited = false;
+
         if (!Array.isArray(state.x) || !state.x.length) state.x = [{ amount: "0", remark: "" }];
         if (!Array.isArray(state.epos) || !state.epos.length) state.epos = [{ amount: "0", remark: "" }];
+
+        // FIX: these were missing when the API returned an "empty wrapper" record
+        if (!Array.isArray(state.cheques) || !state.cheques.length) state.cheques = [{ amount: "0", remark: "" }];
+        if (!Array.isArray(state.paid_outs) || !state.paid_outs.length) state.paid_outs = [{ amount: "0", remark: "" }];
+
+        if (!state.cash || typeof state.cash !== "object") {
+          state.cash = { n500: "0", n200: "0", n100: "0", n50: "0", n20: "0", n10: "0", n5: "0", coins_total: "0" };
+        } else {
+          if (state.cash.n500 == null) state.cash.n500 = "0";
+          if (state.cash.n200 == null) state.cash.n200 = "0";
+          if (state.cash.n100 == null) state.cash.n100 = "0";
+          if (state.cash.n50 == null) state.cash.n50 = "0";
+          if (state.cash.n20 == null) state.cash.n20 = "0";
+          if (state.cash.n10 == null) state.cash.n10 = "0";
+          if (state.cash.n5 == null) state.cash.n5 = "0";
+          if (state.cash.coins_total == null) state.cash.coins_total = "0";
+        }
       } else {
         // reset but keep defaults
         state.saved_at = "";
