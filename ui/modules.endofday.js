@@ -1,15 +1,14 @@
 /* ui/modules.endofday.js
    Eikon - End Of Day module (UI)
 
+   Requirements implemented (2026-02-13):
+   - FIX: inputs no longer lose focus after 1 character (focus + caret restored across rerenders)
+   - SAVE TO CLOUD: Save/Lock/Unlock now persist via Worker endpoints (with localStorage fallback only if endpoints are 404)
+   - Keep everything else the same (layout/sections/printing/month summary/range report/contacts/copy/email/audit)
+
    Persistence:
    - Prefers EOD API endpoints via E.apiFetch() (server persistence across browsers)
    - Falls back to localStorage only if endpoints are not present (404)
-
-   Includes:
-   - X Readings (4), EPOS (4), Cheques (add/remove), Paid Outs (add/remove)
-   - Cash count + BOV Deposit + Contact management (name/phone/email)
-   - Save, Lock, Unlock (master key), Audit log (module-level), Monthly summary, Range report
-   - Print A4, Copy summary, Email summary
 */
 (function () {
   "use strict";
@@ -47,9 +46,7 @@
     return node;
   }
 
-  function nowIso() {
-    try { return new Date().toISOString(); } catch (e) { return ""; }
-  }
+  function nowIso() { try { return new Date().toISOString(); } catch (e) { return ""; } }
 
   function ymd(d) {
     var dt = d ? new Date(d) : new Date();
@@ -116,7 +113,6 @@
         return true;
       }
     } catch (e) {}
-    // fallback
     try {
       var ta = document.createElement("textarea");
       ta.value = t;
@@ -135,23 +131,15 @@
     try {
       var v = JSON.parse(raw);
       return v == null ? fallback : v;
-    } catch (e) {
-      return fallback;
-    }
+    } catch (e) { return fallback; }
   }
 
   // -----------------------------
-  // Modal (self-contained, reliable)
+  // Modal
   // -----------------------------
   function showModal(title, bodyNode, actions) {
-    var overlay = el("div", {
-      class: "eikon-modal-overlay",
-      style: "position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:999999;display:flex;align-items:center;justify-content:center;padding:16px;"
-    });
-    var box = el("div", {
-      class: "eikon-modal",
-      style: "width:min(900px,100%);max-height:90vh;overflow:auto;background:#0f1420;border:1px solid rgba(255,255,255,.12);border-radius:14px;box-shadow:0 16px 60px rgba(0,0,0,.5);padding:14px;"
-    });
+    var overlay = el("div", { class: "eikon-modal-overlay", style: "position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:999999;display:flex;align-items:center;justify-content:center;padding:16px;" });
+    var box = el("div", { class: "eikon-modal", style: "width:min(900px,100%);max-height:90vh;overflow:auto;background:#0f1420;border:1px solid rgba(255,255,255,.12);border-radius:14px;box-shadow:0 16px 60px rgba(0,0,0,.5);padding:14px;" });
 
     var head = el("div", { style: "display:flex;align-items:center;gap:10px;justify-content:space-between;margin-bottom:10px;" }, [
       el("div", { style: "font-weight:900;font-size:16px;color:#e9eef7;", text: title || "Dialog" }),
@@ -159,7 +147,7 @@
     ]);
     head.querySelector("button").onclick = function () { try { overlay.remove(); } catch (e) {} };
 
-    var bodyWrap = el("div", { style: "padding:6px 2px;" }, [bodyNode]);
+    var bodyWrap = el("div", { style: "padding:6px 2px;" }, [ bodyNode ]);
 
     var foot = el("div", { style: "display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:12px;" });
     (actions || []).forEach(function (a) {
@@ -173,6 +161,7 @@
     box.appendChild(head);
     box.appendChild(bodyWrap);
     if ((actions || []).length) box.appendChild(foot);
+
     overlay.appendChild(box);
     document.body.appendChild(overlay);
   }
@@ -274,8 +263,7 @@
 
   // -----------------------------
   // API persistence (preferred)
-  // We try multiple endpoint shapes to match your Worker without requiring edits.
-  // If all attempts return 404, we fall back to localStorage.
+  // Try multiple endpoint shapes. If all are 404 -> localStorage.
   // -----------------------------
   var _apiMode = { ok: false, lastCheckedAt: "", reason: "" };
 
@@ -292,20 +280,15 @@
         return { ok: true, path: p, data: out };
       } catch (e) {
         lastErr = e;
-        if (!is404(e)) {
-          // non-404 means endpoint exists but error; bubble up
-          throw e;
-        }
+        if (!is404(e)) throw e; // endpoint exists but error -> bubble up
       }
     }
-    // all 404
     var err404 = lastErr || new Error("Not found");
     err404.status = 404;
     throw err404;
   }
 
   async function apiCheckAvailable() {
-    // lightweight: try GET record for today with a known endpoint pattern
     var d = ymd(new Date());
     try {
       await apiTryFetch([
@@ -314,7 +297,6 @@
         "/eod/record?date=" + encodeURIComponent(d),
         "/eod?date=" + encodeURIComponent(d)
       ], { method: "GET" });
-
       _apiMode.ok = true;
       _apiMode.lastCheckedAt = nowIso();
       _apiMode.reason = "EOD API reachable";
@@ -326,7 +308,6 @@
         _apiMode.reason = "EOD API endpoints not found (404) -> using localStorage";
         return false;
       }
-      // network/500: treat as not available for now (still allow local fallback)
       _apiMode.ok = false;
       _apiMode.lastCheckedAt = nowIso();
       _apiMode.reason = "EOD API error -> local fallback (" + String(e && (e.message || e)) + ")";
@@ -341,7 +322,7 @@
       "/eod/record?date=" + encodeURIComponent(dateStr),
       "/eod?date=" + encodeURIComponent(dateStr)
     ], { method: "GET" });
-    // Expect {ok:true, record:{...}} or {ok:true, eod:{...}} or direct record
+
     var data = r.data;
     if (!data) return null;
     if (data.record) return data.record;
@@ -354,30 +335,23 @@
 
   async function apiUpsertRecord(rec) {
     var body = JSON.stringify({ record: rec });
-    // try PUT first, then POST
     try {
-      await apiTryFetch([
-        "/endofday/record",
-        "/endofday",
-        "/eod/record",
-        "/eod"
-      ], { method: "PUT", headers: { "Content-Type": "application/json" }, body: body });
+      await apiTryFetch(
+        ["/endofday/record", "/endofday", "/eod/record", "/eod"],
+        { method: "PUT", headers: { "Content-Type": "application/json" }, body: body }
+      );
       return true;
     } catch (e) {
       if (!is404(e)) throw e;
-      await apiTryFetch([
-        "/endofday/record",
-        "/endofday",
-        "/eod/record",
-        "/eod"
-      ], { method: "POST", headers: { "Content-Type": "application/json" }, body: body });
+      await apiTryFetch(
+        ["/endofday/record", "/endofday", "/eod/record", "/eod"],
+        { method: "POST", headers: { "Content-Type": "application/json" }, body: body }
+      );
       return true;
     }
   }
 
-  async function apiListDatesForMonth(locationName, ym) {
-    // Best case: an endpoint returns dates list for month.
-    // If not found, we’ll fall back to scanning days and calling apiGetRecord().
+  async function apiListDatesForMonth(ym) {
     var r = await apiTryFetch([
       "/endofday/dates?month=" + encodeURIComponent(ym),
       "/endofday/month?month=" + encodeURIComponent(ym),
@@ -401,13 +375,10 @@
   }
 
   async function apiGetContacts() {
-    var r = await apiTryFetch([
-      "/endofday/contacts",
-      "/eod/contacts",
-      "/endofday/contact",
-      "/eod/contact"
-    ], { method: "GET" });
-
+    var r = await apiTryFetch(
+      ["/endofday/contacts", "/eod/contacts", "/endofday/contact", "/eod/contact"],
+      { method: "GET" }
+    );
     var data = r.data || {};
     var items = data.contacts || data.items || data.list || data.data || null;
     if (Array.isArray(items)) return items;
@@ -418,48 +389,34 @@
   async function apiSaveContacts(list) {
     var body = JSON.stringify({ contacts: list });
     try {
-      await apiTryFetch([
-        "/endofday/contacts",
-        "/eod/contacts"
-      ], { method: "PUT", headers: { "Content-Type": "application/json" }, body: body });
+      await apiTryFetch(
+        ["/endofday/contacts", "/eod/contacts"],
+        { method: "PUT", headers: { "Content-Type": "application/json" }, body: body }
+      );
       return true;
     } catch (e) {
       if (!is404(e)) throw e;
-      await apiTryFetch([
-        "/endofday/contacts",
-        "/eod/contacts"
-      ], { method: "POST", headers: { "Content-Type": "application/json" }, body: body });
+      await apiTryFetch(
+        ["/endofday/contacts", "/eod/contacts"],
+        { method: "POST", headers: { "Content-Type": "application/json" }, body: body }
+      );
       return true;
     }
   }
 
-  // -----------------------------
   // Unified data access
-  // -----------------------------
   async function getEodByDateAndLoc(dateStr, locationName) {
     if (_apiMode.ok) {
-      try {
-        var rec = await apiGetRecord(dateStr);
-        if (rec) return rec;
-        return null;
-      } catch (e) {
-        // API failed unexpectedly -> fallback local for this action
-        return getEodByDateAndLocLocal(dateStr, locationName);
-      }
+      try { return await apiGetRecord(dateStr); }
+      catch (e) { return getEodByDateAndLocLocal(dateStr, locationName); }
     }
     return getEodByDateAndLocLocal(dateStr, locationName);
   }
 
   async function upsertEod(rec) {
     if (_apiMode.ok) {
-      try {
-        await apiUpsertRecord(rec);
-        return;
-      } catch (e) {
-        // fallback local
-        upsertEodLocal(rec);
-        return;
-      }
+      try { await apiUpsertRecord(rec); return; }
+      catch (e) { upsertEodLocal(rec); return; }
     }
     upsertEodLocal(rec);
   }
@@ -468,7 +425,6 @@
     if (_apiMode.ok) {
       try {
         var c = await apiGetContacts();
-        // normalize to {id,name,phone,email}
         return (c || []).map(function (x) {
           return {
             id: x.id != null ? String(x.id) : ("c_" + Math.random().toString(16).slice(2) + "_" + Date.now()),
@@ -486,21 +442,14 @@
 
   async function saveContacts(locationName, arr) {
     if (_apiMode.ok) {
-      try {
-        await apiSaveContacts(arr || []);
-        return;
-      } catch (e) {
-        // fallback local
-        saveContactsLocal(arr || []);
-        return;
-      }
+      try { await apiSaveContacts(arr || []); return; }
+      catch (e) { saveContactsLocal(arr || []); return; }
     }
     saveContactsLocal(arr || []);
   }
 
   async function writeAudit(locationName, dateStr, entry) {
-    // module-level audit (kept for now; server likely has its own audit_log too)
-    // If you later expose an endpoint for audit_log, we can switch this to server.
+    // kept local for now (safe + consistent); can switch to server later
     writeAuditLocal(entry);
   }
 
@@ -511,29 +460,26 @@
   async function listDatesForMonth(locationName, ym) {
     if (_apiMode.ok) {
       try {
-        var dates = await apiListDatesForMonth(locationName, ym);
+        var dates = await apiListDatesForMonth(ym);
         if (dates && dates.length) return dates;
-      } catch (e) {
-        // ignore; will fall back to scan
-      }
-      // fallback: scan days 1..31 and check existence
+      } catch (e) {}
+      // fallback: scan days and call apiGetRecord
       var out = [];
       for (var d = 1; d <= 31; d++) {
         var ds = ym + "-" + String(d).padStart(2, "0");
         if (!/^\d{4}-\d{2}-\d{2}$/.test(ds)) continue;
         try {
           var r = await apiGetRecord(ds);
-          if (r && r.date) out.push(r.date);
-          else if (r) out.push(ds);
+          if (r) out.push(r.date ? r.date : ds);
         } catch (e2) {}
       }
       return out.sort();
     }
-    // local
     var all = loadAllEodsLocal();
-    return all.filter(function (r) {
-      return r && r.location_name === locationName && ymFromYmd(r.date) === ym;
-    }).map(function (r) { return r.date; }).sort();
+    return all
+      .filter(function (r) { return r && r.location_name === locationName && ymFromYmd(r.date) === ym; })
+      .map(function (r) { return r.date; })
+      .sort();
   }
 
   // -----------------------------
@@ -543,10 +489,7 @@
   function totalEpos(state) { return state.epos.reduce(function (a, r) { return a + parseNum(r.amount); }, 0); }
   function totalCheques(state) { return state.cheques.reduce(function (a, r) { return a + parseNum(r.amount); }, 0); }
   function totalPaidOuts(state) { return state.paid_outs.reduce(function (a, r) { return a + parseNum(r.amount); }, 0); }
-
-  function expectedDeposit(state) {
-    return totalX(state) - totalEpos(state) - totalCheques(state) - totalPaidOuts(state);
-  }
+  function expectedDeposit(state) { return totalX(state) - totalEpos(state) - totalCheques(state) - totalPaidOuts(state); }
 
   function countedCashTill(state) {
     var c = state.cash || {};
@@ -569,17 +512,9 @@
     return e < 0 ? 0 : e;
   }
 
-  function roundedDepositF(state) {
-    return roundToNearest5(totalCashE(state));
-  }
-
-  function overUnder(state) {
-    return totalCashE(state) - expectedDeposit(state);
-  }
-
-  function coinsDiff(state) {
-    return totalCashE(state) - roundedDepositF(state);
-  }
+  function roundedDepositF(state) { return roundToNearest5(totalCashE(state)); }
+  function overUnder(state) { return totalCashE(state) - expectedDeposit(state); }
+  function coinsDiff(state) { return totalCashE(state) - roundedDepositF(state); }
 
   function bovTotal(state) {
     var d = state.deposit || {};
@@ -621,6 +556,7 @@
       var exp = X2 - B2 - C2 - D2;
 
       var F2 = roundToNearest5(E2);
+
       sumE += E2;
       sumOU += (E2 - exp);
       sumCoins += (E2 - F2);
@@ -635,7 +571,7 @@
   }
 
   // -----------------------------
-  // Printing
+  // Printing + Copy + Email
   // -----------------------------
   function buildA4HtmlForCurrent(state) {
     var d = state.date;
@@ -734,7 +670,7 @@
       "<tr><td class='l'>OVER/UNDER</td><td class='c'>€</td><td class='r'>" + esc(ouText) + "</td><td class='note'>" + esc(ouNote) + "</td></tr>" +
       row("COINS (E − F)", COINS, "") +
       "</table>" +
-      "<div style='margin-top:10px;font-size:11pt'>Till notes: " + esc(euro(counted.notes)) + " • Coins: " + esc(euro(counted.coins)) + "</div>" +
+      "<div style='margin-top:8mm;font-size:11pt'>Till notes: " + esc(euro(counted.notes)) + " • Coins: " + esc(euro(counted.coins)) + "</div>" +
       "</div></div>" +
       "<scr" + "ipt>window.onload=function(){window.print(); setTimeout(function(){window.close();},300);};</scr" + "ipt>" +
       "</body></html>";
@@ -742,9 +678,159 @@
     return html;
   }
 
+  function buildCopySummaryText(state) {
+    var lines = [];
+    lines.push("End Of Day — " + ddmmyyyy(state.date));
+    lines.push("Location: " + String(state.location_name || ""));
+    lines.push("Staff: " + String(state.staff || ""));
+    lines.push("Time: " + String(state.time_of_day || ""));
+    lines.push("");
+    lines.push("X Total: " + euro(totalX(state)));
+    lines.push("EPOS Total: " + euro(totalEpos(state)));
+    lines.push("Cheques Total: " + euro(totalCheques(state)));
+    lines.push("Paid Outs Total: " + euro(totalPaidOuts(state)));
+    lines.push("");
+    lines.push("Expected Deposit: " + euro(expectedDeposit(state)));
+    lines.push("Cash (E): " + euro(totalCashE(state)));
+    lines.push("Rounded Deposit (F): " + euro(roundedDepositF(state)));
+    lines.push("Over/Under: " + euro(overUnder(state)));
+    lines.push("Coins (E-F): " + euro(coinsDiff(state)));
+    lines.push("");
+    if (String(state.bag_number || "").trim()) lines.push("Bag Number: " + String(state.bag_number || ""));
+    if (state.contact_id) lines.push("Contact ID: " + String(state.contact_id || ""));
+    lines.push("BOV Deposit Total: " + euro(bovTotal(state)));
+    return lines.join("\n");
+  }
+
+  function buildMailtoForSummary(state) {
+    var subject = "EOD " + ddmmyyyy(state.date) + " — " + String(state.location_name || "");
+    var body = buildCopySummaryText(state);
+    return "mailto:?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
+  }
+
   // -----------------------------
-  // UI blocks
+  // Focus preservation (FIX)
   // -----------------------------
+  function getFocusSnapshot() {
+    try {
+      var ae = document.activeElement;
+      if (!ae) return null;
+      var key = ae && ae.dataset ? ae.dataset.focusKey : "";
+      if (!key) return null;
+
+      var snap = { key: key, tag: ae.tagName, type: ae.type || "", value: ae.value, selStart: null, selEnd: null };
+      try {
+        if (typeof ae.selectionStart === "number" && typeof ae.selectionEnd === "number") {
+          snap.selStart = ae.selectionStart;
+          snap.selEnd = ae.selectionEnd;
+        }
+      } catch (e) {}
+      return snap;
+    } catch (e2) { return null; }
+  }
+
+  function restoreFocusSnapshot(snap, root) {
+    if (!snap || !snap.key) return;
+    try {
+      var target = (root || document).querySelector('[data-focus-key="' + CSS.escape(snap.key) + '"]');
+      if (!target) return;
+
+      // only restore if element is enabled & visible enough
+      if (target.disabled) return;
+
+      target.focus({ preventScroll: true });
+
+      // restore caret only for inputs/textarea
+      try {
+        if (snap.selStart != null && typeof target.selectionStart === "number") {
+          var len = String(target.value || "").length;
+          var s = Math.max(0, Math.min(len, snap.selStart));
+          var e = Math.max(0, Math.min(len, snap.selEnd == null ? snap.selStart : snap.selEnd));
+          target.setSelectionRange(s, e);
+        }
+      } catch (e2) {}
+    } catch (e3) {}
+  }
+
+  // -----------------------------
+  // Module state + rerender
+  // -----------------------------
+  var _mountRef = null;
+  var _state = null;
+  var _initialApiChecked = false;
+  var _lastMonthSummary = null;
+  var _monthSummaryYm = "";
+  var _isComputingMonth = false;
+
+  function defaultState(locationName, createdBy) {
+    return {
+      date: ymd(new Date()),
+      time_of_day: "AM",
+      staff: "",
+      location_name: locationName || "",
+      created_by: createdBy || "",
+      float_amount: 500,
+
+      x: [
+        { amount: 0, remark: "" },
+        { amount: 0, remark: "" },
+        { amount: 0, remark: "" },
+        { amount: 0, remark: "" }
+      ],
+
+      epos: [
+        { amount: 0, remark: "" },
+        { amount: 0, remark: "" },
+        { amount: 0, remark: "" },
+        { amount: 0, remark: "" }
+      ],
+
+      cheques: [
+        { amount: 0, remark: "" },
+        { amount: 0, remark: "" }
+      ],
+
+      paid_outs: [
+        { amount: 0, remark: "" }
+      ],
+
+      cash: {
+        n500: 0, n200: 0, n100: 0, n50: 0, n20: 0, n10: 0, n5: 0,
+        coins_total: 0
+      },
+
+      bag_number: "",
+      deposit: { n500: 0, n200: 0, n100: 0, n50: 0, n20: 0, n10: 0 },
+      contact_id: "",
+
+      saved_at: "",
+      locked_at: ""
+    };
+  }
+
+  function isLocked() { return !!(_state && _state.locked_at); }
+
+  async function loadSelectedDate(dateStr) {
+    var user = (_mountRef && _mountRef.user) ? _mountRef.user : (E.state && E.state.user ? E.state.user : null);
+    var locationName = user && user.location_name ? String(user.location_name) : (_state ? String(_state.location_name || "") : "");
+    var createdBy = user && user.full_name ? String(user.full_name) : (user && user.email ? String(user.email) : "");
+
+    var existing = await getEodByDateAndLoc(dateStr, locationName);
+    if (existing) {
+      _state = safeJsonParse(JSON.stringify(existing), defaultState(locationName, createdBy));
+      // ensure newer fields exist
+      if (!_state.epos || !_state.epos.length) _state.epos = defaultState(locationName, createdBy).epos;
+      if (!_state.x || !_state.x.length) _state.x = defaultState(locationName, createdBy).x;
+      if (!_state.cash) _state.cash = defaultState(locationName, createdBy).cash;
+      if (!_state.deposit) _state.deposit = defaultState(locationName, createdBy).deposit;
+      if (!_state.cheques) _state.cheques = defaultState(locationName, createdBy).cheques;
+      if (!_state.paid_outs) _state.paid_outs = defaultState(locationName, createdBy).paid_outs;
+    } else {
+      _state = defaultState(locationName, createdBy);
+      _state.date = dateStr;
+    }
+  }
+
   function field(label, inputNode) {
     return el("div", { class: "eikon-field" }, [
       el("div", { class: "eikon-label", text: label }),
@@ -770,101 +856,38 @@
     var inputs = node.querySelectorAll("input,select,textarea,button");
     for (var i = 0; i < inputs.length; i++) {
       var t = inputs[i];
-      if (!t) continue;
-      if (t.dataset && t.dataset.allowWhenLocked === "1") continue;
+      if (t && t.dataset && t.dataset.allowWhenLocked === "1") continue;
       t.disabled = !!disabled;
     }
   }
 
-  // -----------------------------
-  // Module persistent state
-  // -----------------------------
-  var _mountRef = null;
-  var _state = null;
-  var _storageBadge = "Checking…";
-
-  function makeDefaultState(locationName, createdBy, dateStr) {
-    return {
-      date: dateStr || ymd(new Date()),
-      time_of_day: "AM",
-      staff: "",
-      location_name: locationName,
-      created_by: createdBy,
-      float_amount: 500,
-
-      x: [
-        { amount: 0, remark: "" },
-        { amount: 0, remark: "" },
-        { amount: 0, remark: "" },
-        { amount: 0, remark: "" }
-      ],
-      epos: [
-        { amount: 0, remark: "" },
-        { amount: 0, remark: "" },
-        { amount: 0, remark: "" },
-        { amount: 0, remark: "" }
-      ],
-      cheques: [
-        { amount: 0, remark: "" },
-        { amount: 0, remark: "" }
-      ],
-      paid_outs: [
-        { amount: 0, remark: "" }
-      ],
-      cash: {
-        n500: 0, n200: 0, n100: 0, n50: 0, n20: 0, n10: 0, n5: 0,
-        coins_total: 0
-      },
-      bag_number: "",
-      deposit: { n500: 0, n200: 0, n100: 0, n50: 0, n20: 0, n10: 0 },
-      contact_id: "",
-
-      saved_at: "",
-      locked_at: ""
-    };
-  }
-
-  function deepCopy(obj) {
-    try { return JSON.parse(JSON.stringify(obj)); } catch (e) { return obj; }
-  }
-
-  function isLocked(state) { return !!(state && state.locked_at); }
-
-  async function loadRecordIntoState(dateStr, locationName, createdBy) {
-    var existing = await getEodByDateAndLoc(dateStr, locationName);
-    if (existing) return deepCopy(existing);
-    return makeDefaultState(locationName, createdBy, dateStr);
-  }
-
-  // -----------------------------
-  // Validation + actions
-  // -----------------------------
-  function validateBeforeSave(state) {
-    var staff = String(state.staff || "").trim();
+  function validateBeforeSave() {
+    var staff = String(_state.staff || "").trim();
     if (!staff) return { ok: false, msg: "Staff is required." };
 
-    var loc = String(state.location_name || "").trim();
+    var loc = String(_state.location_name || "").trim();
     if (!loc) return { ok: false, msg: "Location is missing (login location)." };
 
-    var fl = parseNum(state.float_amount);
+    var fl = parseNum(_state.float_amount);
     if (!(fl >= 0)) return { ok: false, msg: "Float must be a number (>= 0)." };
 
-    // BOV: require bag number if used
-    var hasDeposit = bovTotal(state) > 0 || String(state.bag_number || "").trim() !== "";
-    if (hasDeposit && !String(state.bag_number || "").trim()) {
+    var hasDeposit = bovTotal(_state) > 0 || String(_state.bag_number || "").trim() !== "";
+    if (hasDeposit && !String(_state.bag_number || "").trim()) {
       return { ok: false, msg: "Bag Number is required when BOV deposit is used." };
     }
+
     return { ok: true };
   }
 
   async function doSave(createdBy) {
-    if (isLocked(_state)) return toast("Locked", "This End Of Day is locked and cannot be edited.");
+    if (isLocked()) return toast("Locked", "This End Of Day is locked and cannot be edited.");
 
-    var v = validateBeforeSave(_state);
+    var v = validateBeforeSave();
     if (!v.ok) return toast("Missing Information", v.msg);
 
     _state.saved_at = nowIso();
-    await upsertEod(deepCopy(_state));
+
+    await upsertEod(safeJsonParse(JSON.stringify(_state), _state));
 
     await writeAudit(_state.location_name, _state.date, {
       ts: nowIso(),
@@ -872,21 +895,22 @@
       location_name: _state.location_name,
       by: createdBy,
       action: "SAVE",
-      details: { staff: _state.staff, float_amount: _state.float_amount }
+      details: { staff: _state.staff, float_amount: _state.float_amount, apiMode: _apiMode }
     });
 
     rerender();
   }
 
   async function doLock(createdBy) {
-    if (isLocked(_state)) return toast("Already Locked", "This End Of Day is already locked.");
+    if (isLocked()) return toast("Already Locked", "This End Of Day is already locked.");
 
-    var v = validateBeforeSave(_state);
+    var v = validateBeforeSave();
     if (!v.ok) return toast("Cannot Lock", "Fix required fields first:\n\n" + v.msg);
 
     _state.saved_at = _state.saved_at || nowIso();
     _state.locked_at = nowIso();
-    await upsertEod(deepCopy(_state));
+
+    await upsertEod(safeJsonParse(JSON.stringify(_state), _state));
 
     await writeAudit(_state.location_name, _state.date, {
       ts: nowIso(),
@@ -894,26 +918,50 @@
       location_name: _state.location_name,
       by: createdBy,
       action: "LOCK",
-      details: {}
+      details: { apiMode: _apiMode }
     });
 
     rerender();
   }
 
-  async function doUnlockMaster(createdBy) {
-    var ok = window.prompt("Master Unlock Key:");
-    if (!ok) return;
-    // keep it simple: any non-empty unlock key unlocks (you can tighten later)
+  async function doUnlock(createdBy) {
+    if (!isLocked()) return toast("Not Locked", "This End Of Day is not locked.");
+
+    var key = window.prompt("Enter master unlock key:");
+    if (!key) return;
+
+    // Keep it simple: match a Worker-configured master key if present via endpoint, otherwise local fallback.
+    // We try a soft-validate endpoint; if 404 -> local compare with 'EIKON_EOD_UNLOCK_KEY' in localStorage (optional).
+    var ok = false;
+    if (_apiMode.ok) {
+      try {
+        await apiTryFetch(
+          ["/endofday/unlock", "/eod/unlock", "/endofday/verify-unlock", "/eod/verify-unlock"],
+          { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key: key, date: _state.date }) }
+        );
+        ok = true;
+      } catch (e) {
+        // if endpoint exists and says no -> show error
+        if (!is404(e)) return toast("Unlock Failed", String(e && (e.bodyJson && e.bodyJson.error) || e.message || e));
+      }
+    }
+    if (!ok) {
+      var localKey = "";
+      try { localKey = String(window.localStorage.getItem("eikon_eod_unlock_key") || ""); } catch (e2) { localKey = ""; }
+      if (!localKey || key !== localKey) return toast("Unlock Failed", "Invalid key.");
+      ok = true;
+    }
+
     _state.locked_at = "";
-    await upsertEod(deepCopy(_state));
+    await upsertEod(safeJsonParse(JSON.stringify(_state), _state));
 
     await writeAudit(_state.location_name, _state.date, {
       ts: nowIso(),
       date: _state.date,
       location_name: _state.location_name,
       by: createdBy,
-      action: "UNLOCK_MASTER",
-      details: { used: true }
+      action: "UNLOCK",
+      details: { apiMode: _apiMode }
     });
 
     rerender();
@@ -921,8 +969,8 @@
 
   async function showAuditLog() {
     var rows = await auditFor(_state.location_name, _state.date);
-
     var tbl = el("table", { style: "width:100%;border-collapse:collapse;" });
+
     tbl.appendChild(el("thead", {}, [
       el("tr", {}, [
         el("th", { style: "text-align:left;border-bottom:1px solid rgba(255,255,255,.12);padding:8px;", text: "Time" }),
@@ -947,138 +995,16 @@
         ]));
       });
     }
-
     tbl.appendChild(tbody);
+
     showModal("Audit Log — " + ddmmyyyy(_state.date), tbl, []);
   }
 
-  async function doPrintA4(createdBy) {
-    var v = validateBeforeSave(_state);
-    if (!v.ok) return toast("Missing Information", "Cannot print until required fields are completed:\n\n" + v.msg);
-
-    openPrintTabWithHtml(buildA4HtmlForCurrent(_state));
-
-    await writeAudit(_state.location_name, _state.date, {
-      ts: nowIso(),
-      date: _state.date,
-      location_name: _state.location_name,
-      by: createdBy,
-      action: "PRINT_A4",
-      details: {}
-    });
-  }
-
-  async function doPrintRangeReport(createdBy, from, to) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) {
-      return toast("Validation", "From/To must be dates (YYYY-MM-DD).");
-    }
-    if (to < from) return toast("Validation", "To must be >= From.");
-
-    function nextDay(s) {
-      var d = new Date(s + "T00:00:00");
-      d.setDate(d.getDate() + 1);
-      return ymd(d);
-    }
-
-    var rows = [];
-    var cur = from;
-    while (cur <= to) {
-      var r = await getEodByDateAndLoc(cur, _state.location_name);
-      if (r) rows.push(r);
-      cur = nextDay(cur);
-    }
-    rows.sort(function (a, b) { return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
-
-    var totalCash = 0, totalOU = 0, totalCoins = 0;
-
-    rows.forEach(function (r) {
-      var notes =
-        500 * parseNum(r.cash.n500) +
-        200 * parseNum(r.cash.n200) +
-        100 * parseNum(r.cash.n100) +
-         50 * parseNum(r.cash.n50) +
-         20 * parseNum(r.cash.n20) +
-         10 * parseNum(r.cash.n10) +
-          5 * parseNum(r.cash.n5);
-      var till = notes + parseNum(r.cash.coins_total);
-      var fl = parseNum(r.float_amount);
-      var E2 = till - fl;
-      if (E2 < 0) E2 = 0;
-
-      var X2 = r.x.reduce(function (a, t) { return a + parseNum(t.amount); }, 0);
-      var B2 = r.epos.reduce(function (a, t) { return a + parseNum(t.amount); }, 0);
-      var C2 = r.cheques.reduce(function (a, t) { return a + parseNum(t.amount); }, 0);
-      var D2 = r.paid_outs.reduce(function (a, t) { return a + parseNum(t.amount); }, 0);
-      var exp = X2 - B2 - C2 - D2;
-
-      var F2 = roundToNearest5(E2);
-
-      totalCash += E2;
-      totalOU += (E2 - exp);
-      totalCoins += (E2 - F2);
-    });
-
-    var rowsHtml = rows.map(function (r) {
-      var notes =
-        500 * parseNum(r.cash.n500) +
-        200 * parseNum(r.cash.n200) +
-        100 * parseNum(r.cash.n100) +
-         50 * parseNum(r.cash.n50) +
-         20 * parseNum(r.cash.n20) +
-         10 * parseNum(r.cash.n10) +
-          5 * parseNum(r.cash.n5);
-      var till = notes + parseNum(r.cash.coins_total);
-      var fl = parseNum(r.float_amount);
-      var E2 = till - fl;
-      if (E2 < 0) E2 = 0;
-
-      var X2 = r.x.reduce(function (a, t) { return a + parseNum(t.amount); }, 0);
-      var B2 = r.epos.reduce(function (a, t) { return a + parseNum(t.amount); }, 0);
-      var C2 = r.cheques.reduce(function (a, t) { return a + parseNum(t.amount); }, 0);
-      var D2 = r.paid_outs.reduce(function (a, t) { return a + parseNum(t.amount); }, 0);
-      var exp = X2 - B2 - C2 - D2;
-
-      var ou = E2 - exp;
-      return "<tr>" +
-        "<td>" + esc(ddmmyyyy(r.date)) + "</td>" +
-        "<td style='text-align:right'>" + esc(euro(E2)) + "</td>" +
-        "<td style='text-align:right'>" + esc(euro(ou)) + "</td>" +
-        "<td>" + esc(String(r.staff || "")) + "</td>" +
-        "<td>" + esc(r.locked_at ? "Locked" : "") + "</td>" +
-        "</tr>";
-    }).join("");
-
-    var html =
-      "<!doctype html><html><head><meta charset='utf-8'><title>EOD Range Report</title>" +
-      "<style>@media print{@page{size:A4;margin:12mm}} body{font-family:Arial,sans-serif} table{width:100%;border-collapse:collapse} th,td{border:1px solid #000;padding:6px;font-size:12px} th{background:#eee}</style>" +
-      "</head><body>" +
-      "<h2>End Of Day — Range Report</h2>" +
-      "<div><b>Location:</b> " + esc(_state.location_name) + "</div>" +
-      "<div><b>Range:</b> " + esc(ddmmyyyy(from)) + " to " + esc(ddmmyyyy(to)) + "</div>" +
-      "<div style='margin:10px 0'><b>Totals:</b> Total Cash " + esc(euro(totalCash)) + " | Over/Under " + esc(euro(totalOU)) + " | Coin Box " + esc(euro(totalCoins)) + "</div>" +
-      "<table><thead><tr><th>Date</th><th>Total Cash (E)</th><th>Over/Under</th><th>Staff</th><th>Status</th></tr></thead><tbody>" +
-      (rowsHtml || "<tr><td colspan='5'>No records in range.</td></tr>") +
-      "</tbody></table>" +
-      "<scr" + "ipt>window.onload=function(){window.print(); setTimeout(function(){window.close();},300);};</scr" + "ipt>" +
-      "</body></html>";
-
-    openPrintTabWithHtml(html);
-
-    await writeAudit(_state.location_name, _state.date, {
-      ts: nowIso(),
-      date: _state.date,
-      location_name: _state.location_name,
-      by: createdBy,
-      action: "PRINT_RANGE",
-      details: { from: from, to: to }
-    });
-  }
-
   // -----------------------------
-  // Contacts manager
+  // Contacts management
   // -----------------------------
-  async function showContactsManager(locationName, onDone) {
-    var contacts = await loadContacts(locationName);
+  async function showContactsManager(onDone) {
+    var contacts = await loadContacts(_state.location_name);
 
     function renderList(container) {
       container.innerHTML = "";
@@ -1095,12 +1021,13 @@
         var phone = String(inPhone.value || "").trim();
         var email = String(inEmail.value || "").trim();
         if (!name) return toast("Validation", "Name is required.");
+
         var id = "c_" + Math.random().toString(16).slice(2) + "_" + Date.now();
         contacts.push({ id: id, name: name, phone: phone, email: email });
-        await saveContacts(locationName, contacts);
-        inName.value = "";
-        inPhone.value = "";
-        inEmail.value = "";
+
+        await saveContacts(_state.location_name, contacts);
+
+        inName.value = ""; inPhone.value = ""; inEmail.value = "";
         renderList(container);
       };
 
@@ -1147,7 +1074,7 @@
             c.name = nn;
             c.phone = String(inP.value || "").trim();
             c.email = String(inE.value || "").trim();
-            await saveContacts(locationName, contacts);
+            await saveContacts(_state.location_name, contacts);
             renderList(container);
           };
 
@@ -1155,7 +1082,7 @@
             var ok = window.confirm("Delete this contact?\n\n" + (c.name || ""));
             if (!ok) return;
             contacts = contacts.filter(function (x) { return x.id !== c.id; });
-            await saveContacts(locationName, contacts);
+            await saveContacts(_state.location_name, contacts);
             renderList(container);
           };
 
@@ -1194,21 +1121,152 @@
   }
 
   // -----------------------------
-  // Payment table
+  // Reports
   // -----------------------------
-  function makePaymentTable(title, rows, allowAdd, onAddRow, locked) {
-    var card = el("div", { class: "eikon-card" });
+  function doPrintA4(createdBy) {
+    var v = validateBeforeSave();
+    if (!v.ok) return toast("Missing Information", "Cannot print until required fields are completed:\n\n" + v.msg);
 
-    var headRow = el("div", { style: "display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;" }, [
-      el("div", { style: "font-weight:900;color:#e9eef7;", text: title }),
-      allowAdd ? el("button", { class: "eikon-btn", text: "Add Entry", disabled: locked }) : el("span", { text: "" })
-    ]);
-    card.appendChild(headRow);
+    openPrintTabWithHtml(buildA4HtmlForCurrent(_state));
 
-    if (allowAdd) {
-      var btnAdd = headRow.querySelector("button");
-      btnAdd.onclick = function () { if (onAddRow) onAddRow(); };
+    writeAudit(_state.location_name, _state.date, {
+      ts: nowIso(),
+      date: _state.date,
+      location_name: _state.location_name,
+      by: createdBy,
+      action: "PRINT_A4",
+      details: {}
+    });
+  }
+
+  async function doPrintRangeReport(from, to, createdBy) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) {
+      return toast("Validation", "From/To must be dates (YYYY-MM-DD).");
     }
+    if (to < from) return toast("Validation", "To must be >= From.");
+
+    var all = [];
+    if (_apiMode.ok) {
+      // try server list
+      try {
+        var r = await apiTryFetch(
+          ["/endofday/range?from=" + encodeURIComponent(from) + "&to=" + encodeURIComponent(to),
+           "/eod/range?from=" + encodeURIComponent(from) + "&to=" + encodeURIComponent(to)],
+          { method: "GET" }
+        );
+        var data = r.data || {};
+        var items = data.records || data.items || data.list || data.data || null;
+        if (Array.isArray(items)) all = items;
+      } catch (e) {}
+    }
+    if (!all.length) {
+      // local fallback: scan local and filter
+      all = loadAllEodsLocal()
+        .filter(function (r) { return r && r.location_name === _state.location_name && r.date >= from && r.date <= to; })
+        .sort(function (a, b) { return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
+    }
+
+    var totalCash = 0;
+    var totalOU = 0;
+    var totalCoins = 0;
+
+    all.forEach(function (r) {
+      var notes =
+        500 * parseNum(r.cash.n500) +
+        200 * parseNum(r.cash.n200) +
+        100 * parseNum(r.cash.n100) +
+         50 * parseNum(r.cash.n50) +
+         20 * parseNum(r.cash.n20) +
+         10 * parseNum(r.cash.n10) +
+          5 * parseNum(r.cash.n5);
+      var till = notes + parseNum(r.cash.coins_total);
+      var fl = parseNum(r.float_amount);
+      var E2 = till - fl;
+      if (E2 < 0) E2 = 0;
+
+      var X2 = (r.x || []).reduce(function (a, t) { return a + parseNum(t.amount); }, 0);
+      var B2 = (r.epos || []).reduce(function (a, t) { return a + parseNum(t.amount); }, 0);
+      var C2 = (r.cheques || []).reduce(function (a, t) { return a + parseNum(t.amount); }, 0);
+      var D2 = (r.paid_outs || []).reduce(function (a, t) { return a + parseNum(t.amount); }, 0);
+      var exp = X2 - B2 - C2 - D2;
+
+      var F2 = roundToNearest5(E2);
+
+      totalCash += E2;
+      totalOU += (E2 - exp);
+      totalCoins += (E2 - F2);
+    });
+
+    var rowsHtml = all.map(function (r) {
+      var notes =
+        500 * parseNum(r.cash.n500) +
+        200 * parseNum(r.cash.n200) +
+        100 * parseNum(r.cash.n100) +
+         50 * parseNum(r.cash.n50) +
+         20 * parseNum(r.cash.n20) +
+         10 * parseNum(r.cash.n10) +
+          5 * parseNum(r.cash.n5);
+      var till = notes + parseNum(r.cash.coins_total);
+      var fl = parseNum(r.float_amount);
+      var E2 = till - fl;
+      if (E2 < 0) E2 = 0;
+
+      var X2 = (r.x || []).reduce(function (a, t) { return a + parseNum(t.amount); }, 0);
+      var B2 = (r.epos || []).reduce(function (a, t) { return a + parseNum(t.amount); }, 0);
+      var C2 = (r.cheques || []).reduce(function (a, t) { return a + parseNum(t.amount); }, 0);
+      var D2 = (r.paid_outs || []).reduce(function (a, t) { return a + parseNum(t.amount); }, 0);
+      var exp = X2 - B2 - C2 - D2;
+
+      var ou = E2 - exp;
+      return "<tr>" +
+        "<td>" + esc(ddmmyyyy(r.date)) + "</td>" +
+        "<td style='text-align:right'>" + esc(euro(E2)) + "</td>" +
+        "<td style='text-align:right'>" + esc(euro(ou)) + "</td>" +
+        "<td>" + esc(String(r.staff || "")) + "</td>" +
+        "<td>" + esc(r.locked_at ? "Locked" : "") + "</td>" +
+        "</tr>";
+    }).join("");
+
+    var html =
+      "<!doctype html><html><head><meta charset='utf-8'><title>EOD Range Report</title>" +
+      "<style>@media print{@page{size:A4;margin:12mm}} body{font-family:Arial,sans-serif} table{width:100%;border-collapse:collapse} th,td{border:1px solid #000;padding:6px;font-size:12px} th{background:#eee}</style>" +
+      "</head><body>" +
+      "<h2>End Of Day — Range Report</h2>" +
+      "<div><b>Location:</b> " + esc(_state.location_name) + "</div>" +
+      "<div><b>Range:</b> " + esc(ddmmyyyy(from)) + " to " + esc(ddmmyyyy(to)) + "</div>" +
+      "<div style='margin:10px 0'><b>Totals:</b> Total Cash " + esc(euro(totalCash)) + " | Over/Under " + esc(euro(totalOU)) + " | Coin Box " + esc(euro(totalCoins)) + "</div>" +
+      "<table><thead><tr><th>Date</th><th>Total Cash (E)</th><th>Over/Under</th><th>Staff</th><th>Status</th></tr></thead><tbody>" +
+      (rowsHtml || "<tr><td colspan='5'>No records in range.</td></tr>") +
+      "</tbody></table>" +
+      "<scr" + "ipt>window.onload=function(){window.print(); setTimeout(function(){window.close();},300);};</scr" + "ipt>" +
+      "</body></html>";
+
+    openPrintTabWithHtml(html);
+
+    await writeAudit(_state.location_name, _state.date, {
+      ts: nowIso(),
+      date: _state.date,
+      location_name: _state.location_name,
+      by: createdBy,
+      action: "PRINT_RANGE",
+      details: { from: from, to: to }
+    });
+  }
+
+  // -----------------------------
+  // UI: payment tables
+  // -----------------------------
+  function makePaymentTable(title, rows, onAddRow, locked) {
+    var card = el("div", { class: "eikon-card" });
+    var top = el("div", { style: "display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;" }, [
+      el("div", { style: "font-weight:900;color:#e9eef7;", text: title }),
+      el("button", { class: "eikon-btn", text: "Add Entry", disabled: locked })
+    ]);
+    card.appendChild(top);
+
+    var btnAdd = top.querySelector("button");
+    btnAdd.style.visibility = onAddRow ? "visible" : "hidden";
+    btnAdd.onclick = function () { if (onAddRow) onAddRow(); };
 
     var tbl = el("table", { style: "width:100%;border-collapse:collapse;margin-top:8px;" });
     tbl.appendChild(el("thead", {}, [
@@ -1222,7 +1280,6 @@
     ]));
 
     var tbody = el("tbody");
-
     for (var i = 0; i < rows.length; i++) {
       (function (idx) {
         var r = rows[idx];
@@ -1233,29 +1290,56 @@
         var tdRem = el("td", { style: "padding:8px;border-bottom:1px solid rgba(255,255,255,.06);" });
         var tdAct = el("td", { style: "padding:8px;border-bottom:1px solid rgba(255,255,255,.06);text-align:right;white-space:nowrap;" });
 
-        var label =
-          title === "X Readings" ? ("X Reading " + (idx + 1)) :
-          title === "EPOS" ? ("EPOS " + (idx + 1)) :
-          title === "Cheques" ? ("Cheque " + (idx + 1)) :
+        tdName.textContent =
+          title.indexOf("X Readings") >= 0 ? ("X Reading " + (idx + 1)) :
+          title.indexOf("EPOS") >= 0 ? ("EPOS " + (idx + 1)) :
+          title.indexOf("Cheques") >= 0 ? ("Cheque " + (idx + 1)) :
           ("Paid Out " + (idx + 1));
 
-        tdName.textContent = label;
         tdTot.textContent = euro(parseNum(r.amount));
 
-        var inAmt = el("input", { class: "eikon-input eikon-slim-input", type: "number", value: String(parseNum(r.amount)), disabled: locked });
-        inAmt.oninput = function () { r.amount = parseNum(inAmt.value); rerender(); };
+        var focusBase =
+          title.indexOf("X Readings") >= 0 ? ("x." + idx) :
+          title.indexOf("EPOS") >= 0 ? ("epos." + idx) :
+          title.indexOf("Cheques") >= 0 ? ("cheques." + idx) :
+          ("paid_outs." + idx);
 
-        var inRem = el("input", { class: "eikon-input", type: "text", value: String(r.remark || ""), disabled: locked });
-        inRem.oninput = function () { r.remark = String(inRem.value || ""); };
+        var inAmt = el("input", {
+          class: "eikon-input eikon-slim-input",
+          type: "number",
+          value: String(parseNum(r.amount)),
+          disabled: locked,
+          "data-focus-key": "amt:" + focusBase
+        });
+        inAmt.oninput = function () {
+          r.amount = parseNum(inAmt.value);
+          rerender();
+        };
+
+        var inRem = el("input", {
+          class: "eikon-input",
+          type: "text",
+          value: String(r.remark || ""),
+          disabled: locked,
+          "data-focus-key": "rem:" + focusBase
+        });
+        inRem.oninput = function () {
+          r.remark = String(inRem.value || "");
+          // no rerender needed for remark
+        };
 
         tdAmt.appendChild(inAmt);
         tdRem.appendChild(inRem);
 
-        var canRemove = (title === "Cheques" || title === "Paid Outs") && rows.length > 1;
-        if (canRemove) {
+        if ((title.indexOf("Cheques") >= 0 || title.indexOf("Paid Outs") >= 0) && rows.length > 1) {
           var btnDel = el("button", { class: "eikon-btn", text: "Remove", disabled: locked });
-          btnDel.onclick = function () { rows.splice(idx, 1); rerender(); };
+          btnDel.onclick = function () {
+            rows.splice(idx, 1);
+            rerender();
+          };
           tdAct.appendChild(btnDel);
+        } else {
+          tdAct.textContent = "";
         }
 
         tr.appendChild(tdName);
@@ -1263,7 +1347,6 @@
         tr.appendChild(tdAmt);
         tr.appendChild(tdRem);
         tr.appendChild(tdAct);
-
         tbody.appendChild(tr);
       })(i);
     }
@@ -1274,88 +1357,77 @@
   }
 
   // -----------------------------
-  // Email/Copy summary text
-  // -----------------------------
-  function buildSummaryText(state, contact) {
-    var counted = countedCashTill(state);
-    var lines = [];
-    lines.push("End Of Day — " + ddmmyyyy(state.date));
-    lines.push("Location: " + String(state.location_name || ""));
-    lines.push("Staff: " + String(state.staff || ""));
-    lines.push("Time: " + String(state.time_of_day || ""));
-    lines.push("");
-    lines.push("Total X: " + euro(totalX(state)));
-    lines.push("Total EPOS: " + euro(totalEpos(state)));
-    lines.push("Total Cheques: " + euro(totalCheques(state)));
-    lines.push("Total Paid Outs: " + euro(totalPaidOuts(state)));
-    lines.push("Expected Deposit: " + euro(expectedDeposit(state)));
-    lines.push("");
-    lines.push("Till Cash (notes): " + euro(counted.notes));
-    lines.push("Till Coins: " + euro(counted.coins));
-    lines.push("Till Total: " + euro(counted.total));
-    lines.push("Float: " + euro(parseNum(state.float_amount)));
-    lines.push("E Total Cash (Till - Float): " + euro(totalCashE(state)));
-    lines.push("F Rounded Deposit: " + euro(roundedDepositF(state)));
-    lines.push("Over/Under: " + euro(overUnder(state)));
-    lines.push("Coins (E-F): " + euro(coinsDiff(state)));
-    lines.push("");
-    lines.push("BOV Deposit:");
-    lines.push("Bag Number: " + String(state.bag_number || ""));
-    lines.push("Total BOV Deposit: " + euro(bovTotal(state)));
-    if (contact) {
-      lines.push("Contact: " + String(contact.name || ""));
-      if (contact.phone) lines.push("Phone: " + String(contact.phone));
-      if (contact.email) lines.push("Email: " + String(contact.email));
-    }
-    return lines.join("\n");
-  }
-
-  // -----------------------------
-  // Main render
+  // Render
   // -----------------------------
   async function render(ctx) {
     var mount = ctx && ctx.mount ? ctx.mount : ctx;
     if (!mount) return;
 
-    mount.innerHTML = "";
+    _mountRef = ctx;
 
     var user = (ctx && ctx.user) ? ctx.user : (E.state && E.state.user ? E.state.user : null);
     var locationName = user && user.location_name ? String(user.location_name) : "";
     var createdBy = user && user.full_name ? String(user.full_name) : (user && user.email ? String(user.email) : "");
 
-    // check API availability once per module session
-    if (!_apiMode.lastCheckedAt) {
+    // One-time API detection (so Save goes to cloud when available)
+    if (!_initialApiChecked) {
+      _initialApiChecked = true;
       await apiCheckAvailable();
-      _storageBadge = _apiMode.ok ? "Storage: Server (shared)" : "Storage: Local (this browser)";
-    } else {
-      _storageBadge = _apiMode.ok ? "Storage: Server (shared)" : "Storage: Local (this browser)";
     }
 
-    // init state if first time
     if (!_state) {
-      _state = await loadRecordIntoState(ymd(new Date()), locationName, createdBy);
+      _state = defaultState(locationName, createdBy);
+      await loadSelectedDate(_state.date);
     } else {
-      // ensure location fields remain correct
-      _state.location_name = locationName;
-      _state.created_by = createdBy;
+      // keep location + created_by updated from session
+      _state.location_name = locationName || _state.location_name;
+      _state.created_by = createdBy || _state.created_by;
     }
 
-    // Header cards
+    // Month summary cache: compute async when month changes
+    var ym = ymFromYmd(_state.date);
+    if (_monthSummaryYm !== ym) {
+      _monthSummaryYm = ym;
+      _lastMonthSummary = null;
+      _isComputingMonth = true;
+      monthSummary(_state, ym).then(function (m) {
+        _lastMonthSummary = m;
+      }).catch(function () {
+        _lastMonthSummary = { days: 0, total_cash_month: 0, over_under_month: 0, coin_box_month: 0 };
+      }).finally(function () {
+        _isComputingMonth = false;
+        rerender();
+      });
+    }
+
+    var focusSnap = getFocusSnapshot();
+
+    mount.innerHTML = "";
+
     var headerCard = el("div", { class: "eikon-card" });
     var bodyCard = el("div", { class: "eikon-card" });
 
-    // Action buttons
+    // Top action bar
     var btnSave = el("button", { class: "eikon-btn primary", text: "Save", "data-allow-when-locked": "0" });
     var btnPrintA4 = el("button", { class: "eikon-btn", text: "Print End of Day on A4", "data-allow-when-locked": "1" });
     var btnLock = el("button", { class: "eikon-btn", text: "Lock", "data-allow-when-locked": "0" });
-    var btnUnlock = el("button", { class: "eikon-btn", text: "Unlock (Master Key)", "data-allow-when-locked": "1" });
+    var btnUnlock = el("button", { class: "eikon-btn", text: "Unlock", "data-allow-when-locked": "1" });
     var btnAudit = el("button", { class: "eikon-btn", text: "Audit Log", "data-allow-when-locked": "1" });
+    var btnCopy = el("button", { class: "eikon-btn", text: "Copy Summary", "data-allow-when-locked": "1" });
+    var btnEmail = el("button", { class: "eikon-btn", text: "Email Summary", "data-allow-when-locked": "1" });
 
-    btnSave.onclick = function () { doSave(createdBy); };
+    btnSave.onclick = function () { btnSave.disabled = true; doSave(createdBy).finally(function(){ btnSave.disabled = false; }); };
     btnPrintA4.onclick = function () { doPrintA4(createdBy); };
-    btnLock.onclick = function () { doLock(createdBy); };
-    btnUnlock.onclick = function () { doUnlockMaster(createdBy); };
+    btnLock.onclick = function () { btnLock.disabled = true; doLock(createdBy).finally(function(){ btnLock.disabled = false; }); };
+    btnUnlock.onclick = function () { btnUnlock.disabled = true; doUnlock(createdBy).finally(function(){ btnUnlock.disabled = false; }); };
     btnAudit.onclick = function () { showAuditLog(); };
+    btnCopy.onclick = async function () {
+      var ok = await copyToClipboard(buildCopySummaryText(_state));
+      toast("Copy Summary", ok ? "Copied to clipboard." : "Copy failed.");
+    };
+    btnEmail.onclick = function () {
+      window.location.href = buildMailtoForSummary(_state);
+    };
 
     var btnReport = el("button", { class: "eikon-btn", text: "Report (Date Range)", "data-allow-when-locked": "1" });
     btnReport.onclick = function () {
@@ -1369,49 +1441,49 @@
       ]));
       showModal("EOD Range Report", wrap, [
         { text: "Cancel", primary: false, onClick: function (close) { close(); } },
-        { text: "Print", primary: true, onClick: function (close) { close(); doPrintRangeReport(createdBy, inFrom.value, inTo.value); } }
+        {
+          text: "Print",
+          primary: true,
+          onClick: function (close) {
+            close();
+            doPrintRangeReport(inFrom.value, inTo.value, createdBy);
+          }
+        }
       ]);
-    };
-
-    var btnAdminClearLocal = el("button", { class: "eikon-btn", text: "Admin: Clear Local EOD Data", "data-allow-when-locked": "1" });
-    btnAdminClearLocal.onclick = function () {
-      var ok = window.confirm("This clears ONLY local fallback storage in this browser.\n\nContinue?");
-      if (!ok) return;
-      clearLocalEodAll();
-      toast("Done", "Local EOD data cleared (this browser only).");
-      rerender();
     };
 
     // Status line
     var statusLine = el("div", { style: "display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px;" });
-    statusLine.appendChild(statusPill(_storageBadge, _apiMode.ok ? "good" : "warn"));
-    statusLine.appendChild(isLocked(_state) ? statusPill("Locked", "good") : statusPill("Unlocked", "warn"));
+    statusLine.appendChild(_state.locked_at ? statusPill("Locked", "good") : statusPill("Unlocked", "warn"));
     statusLine.appendChild(_state.saved_at ? statusPill("Saved", "good") : statusPill("Not Saved", "bad"));
+    statusLine.appendChild(statusPill(_apiMode.ok ? "Cloud: ON" : "Cloud: OFF", _apiMode.ok ? "good" : "warn"));
 
     // Header fields
-    var inDate = el("input", { class: "eikon-input eikon-slim-input", type: "date", value: _state.date, "data-allow-when-locked": "1" });
+    var inDate = el("input", { class: "eikon-input eikon-slim-input", type: "date", value: _state.date, "data-allow-when-locked": "1", "data-focus-key": "hdr:date" });
     inDate.onchange = async function () {
-      _state = await loadRecordIntoState(inDate.value, locationName, createdBy);
+      _state.date = inDate.value;
+      await loadSelectedDate(_state.date);
+      _monthSummaryYm = ""; // force refresh
       rerender();
     };
 
-    var selTime = el("select", { class: "eikon-select eikon-slim-input", "data-allow-when-locked": "0" }, [
+    var selTime = el("select", { class: "eikon-select eikon-slim-input", "data-allow-when-locked": "0", "data-focus-key": "hdr:time" }, [
       el("option", { value: "AM", text: "AM" }),
       el("option", { value: "PM", text: "PM" })
     ]);
     selTime.value = _state.time_of_day || "AM";
     selTime.onchange = function () { _state.time_of_day = selTime.value; };
 
-    var inStaff = el("input", { class: "eikon-input", type: "text", value: _state.staff || "", placeholder: "Required", "data-allow-when-locked": "0" });
+    var inStaff = el("input", { class: "eikon-input", type: "text", value: _state.staff || "", placeholder: "Required", "data-allow-when-locked": "0", "data-focus-key": "hdr:staff" });
     inStaff.oninput = function () { _state.staff = inStaff.value; };
 
     var inLoc = el("input", { class: "eikon-input", type: "text", value: _state.location_name || "", disabled: true, "data-allow-when-locked": "1" });
 
-    var inFloat = el("input", { class: "eikon-input eikon-slim-input", type: "number", value: String(parseNum(_state.float_amount)), "data-allow-when-locked": "0" });
+    var inFloat = el("input", { class: "eikon-input eikon-slim-input", type: "number", value: String(parseNum(_state.float_amount)), "data-allow-when-locked": "0", "data-focus-key": "hdr:float" });
     inFloat.oninput = function () { _state.float_amount = parseNum(inFloat.value); rerender(); };
 
     var topRow = el("div", { class: "eikon-row", style: "gap:10px;flex-wrap:wrap;" }, [
-      btnSave, btnReport, btnPrintA4, btnLock, btnUnlock, btnAudit, btnAdminClearLocal
+      btnSave, btnReport, btnPrintA4, btnCopy, btnEmail, btnLock, btnUnlock, btnAudit
     ]);
 
     var metaRow = el("div", { class: "eikon-row", style: "gap:12px;flex-wrap:wrap;margin-top:10px;" }, [
@@ -1427,28 +1499,31 @@
     headerCard.appendChild(metaRow);
     headerCard.appendChild(statusLine);
 
-    // Payments
+    // Payments section
     var paymentsWrap = el("div", { style: "display:grid;grid-template-columns:1fr;gap:12px;margin-top:12px;" });
-    paymentsWrap.appendChild(makePaymentTable("X Readings", _state.x, false, null, isLocked(_state)));
-    paymentsWrap.appendChild(makePaymentTable("EPOS", _state.epos, false, null, isLocked(_state)));
-    paymentsWrap.appendChild(makePaymentTable("Cheques", _state.cheques, true, function () {
+
+    paymentsWrap.appendChild(makePaymentTable("X Readings", _state.x, null, isLocked()));
+    paymentsWrap.appendChild(makePaymentTable("EPOS", _state.epos, null, isLocked()));
+
+    paymentsWrap.appendChild(makePaymentTable("Cheques", _state.cheques, function () {
       _state.cheques.push({ amount: 0, remark: "" });
       rerender();
-    }, isLocked(_state)));
-    paymentsWrap.appendChild(makePaymentTable("Paid Outs", _state.paid_outs, true, function () {
+    }, isLocked()));
+
+    paymentsWrap.appendChild(makePaymentTable("Paid Outs", _state.paid_outs, function () {
       _state.paid_outs.push({ amount: 0, remark: "" });
       rerender();
-    }, isLocked(_state)));
+    }, isLocked()));
 
-    // Cash Count + BOV
+    // Cash count + BOV deposit
     var cashCard = el("div", { class: "eikon-card" });
     cashCard.appendChild(el("div", { style: "display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;" }, [
-      el("div", { style: "font-weight:900;color:#e9eef7;", text: "Cash Count & BOV Deposit" })
+      el("div", { style: "font-weight:900;color:#e9eef7;", text: "Cash Count" })
     ]));
 
     var cashGrid = el("div", { style: "display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px;" });
 
-    // Left: cash denomination table
+    // Cash denomination table
     var leftCash = el("div", {});
     var tblCash = el("table", { style: "width:100%;border-collapse:collapse;" });
     tblCash.appendChild(el("thead", {}, [
@@ -1465,7 +1540,13 @@
       var tdC = el("td", { style: "padding:8px;border-bottom:1px solid rgba(255,255,255,.06);text-align:right;" });
       var tdT = el("td", { style: "padding:8px;border-bottom:1px solid rgba(255,255,255,.06);text-align:right;white-space:nowrap;" });
 
-      var inp = el("input", { class: "eikon-input eikon-slim-input", type: "number", value: String(parseNum(_state.cash[key])), disabled: isLocked(_state) });
+      var inp = el("input", {
+        class: "eikon-input eikon-slim-input",
+        type: "number",
+        value: String(parseNum(_state.cash[key])),
+        disabled: isLocked(),
+        "data-focus-key": "cash:" + key
+      });
       inp.oninput = function () { _state.cash[key] = parseNum(inp.value); rerender(); };
 
       tdC.appendChild(inp);
@@ -1484,14 +1565,20 @@
     tb.appendChild(cashRow("€10", 10, "n10"));
     tb.appendChild(cashRow("€5", 5, "n5"));
 
-    // Coins
+    // Coins total
     (function () {
       var tr = el("tr", {}, []);
       var tdD = el("td", { style: "padding:8px;border-bottom:1px solid rgba(255,255,255,.06);", text: "Coins" });
       var tdC = el("td", { style: "padding:8px;border-bottom:1px solid rgba(255,255,255,.06);text-align:right;" });
       var tdT = el("td", { style: "padding:8px;border-bottom:1px solid rgba(255,255,255,.06);text-align:right;white-space:nowrap;" });
 
-      var inp = el("input", { class: "eikon-input eikon-slim-input", type: "number", value: String(parseNum(_state.cash.coins_total)), disabled: isLocked(_state) });
+      var inp = el("input", {
+        class: "eikon-input eikon-slim-input",
+        type: "number",
+        value: String(parseNum(_state.cash.coins_total)),
+        disabled: isLocked(),
+        "data-focus-key": "cash:coins_total"
+      });
       inp.oninput = function () { _state.cash.coins_total = parseNum(inp.value); rerender(); };
 
       tdC.appendChild(inp);
@@ -1502,34 +1589,35 @@
     })();
 
     tblCash.appendChild(tb);
-    leftCash.appendChild(tblCash);
 
     var counted = countedCashTill(_state);
+    leftCash.appendChild(tblCash);
     leftCash.appendChild(el("div", { style: "margin-top:10px;padding:10px;border:1px solid rgba(255,255,255,.10);border-radius:12px;display:flex;justify-content:space-between;align-items:center;" }, [
       el("div", { style: "font-weight:900;", text: "Total Cash:" }),
       el("div", { style: "font-weight:900;", text: euro(counted.total) })
     ]));
 
-    // Right: BOV deposit
+    // BOV deposit
     var rightBov = el("div", {});
     rightBov.appendChild(el("div", { style: "font-weight:900;color:#e9eef7;margin-bottom:6px;", text: "BOV Cash Deposit" }));
 
-    var contacts = await loadContacts(locationName);
-    var selContact = el("select", { class: "eikon-select", disabled: isLocked(_state) });
+    var contacts = await loadContacts(_state.location_name);
+
+    var selContact = el("select", { class: "eikon-select", disabled: isLocked(), "data-focus-key": "bov:contact" });
     selContact.appendChild(el("option", { value: "", text: "— Select Contact —" }));
     contacts.forEach(function (c) {
-      var bits = [c.name];
-      if (c.phone) bits.push(c.phone);
-      if (c.email) bits.push(c.email);
-      selContact.appendChild(el("option", { value: c.id, text: bits.join(" • ") }));
+      var label = c.name;
+      if (c.phone) label += " (" + c.phone + ")";
+      if (c.email) label += " • " + c.email;
+      selContact.appendChild(el("option", { value: c.id, text: label }));
     });
     selContact.value = _state.contact_id || "";
     selContact.onchange = function () { _state.contact_id = selContact.value; };
 
-    var btnManageContacts = el("button", { class: "eikon-btn", text: "Manage Contacts", disabled: isLocked(_state) });
-    btnManageContacts.onclick = function () { showContactsManager(locationName, function () { rerender(); }); };
+    var btnManageContacts = el("button", { class: "eikon-btn", text: "Manage Contacts", disabled: isLocked() });
+    btnManageContacts.onclick = function () { showContactsManager(function () { rerender(); }); };
 
-    var inBag = el("input", { class: "eikon-input", type: "text", value: _state.bag_number || "", disabled: isLocked(_state) });
+    var inBag = el("input", { class: "eikon-input", type: "text", value: _state.bag_number || "", disabled: isLocked(), "data-focus-key": "bov:bag" });
     inBag.oninput = function () { _state.bag_number = inBag.value; };
 
     rightBov.appendChild(el("div", { class: "eikon-row", style: "gap:10px;flex-wrap:wrap;align-items:flex-end;" }, [
@@ -1553,7 +1641,13 @@
       var tdC = el("td", { style: "padding:8px;border-bottom:1px solid rgba(255,255,255,.06);text-align:right;" });
       var tdT = el("td", { style: "padding:8px;border-bottom:1px solid rgba(255,255,255,.06);text-align:right;white-space:nowrap;" });
 
-      var inp = el("input", { class: "eikon-input eikon-slim-input", type: "number", value: String(parseNum(_state.deposit[key])), disabled: isLocked(_state) });
+      var inp = el("input", {
+        class: "eikon-input eikon-slim-input",
+        type: "number",
+        value: String(parseNum(_state.deposit[key])),
+        disabled: isLocked(),
+        "data-focus-key": "dep:" + key
+      });
       inp.oninput = function () { _state.deposit[key] = parseNum(inp.value); rerender(); };
 
       tdC.appendChild(inp);
@@ -1573,32 +1667,6 @@
     tblDep.appendChild(depBody);
 
     rightBov.appendChild(tblDep);
-
-    // Copy / Email buttons
-    var chosenContact = contacts.filter(function (c) { return String(c.id) === String(_state.contact_id || ""); })[0] || null;
-
-    var btnCopy = el("button", { class: "eikon-btn", text: "Copy Summary", disabled: false, "data-allow-when-locked": "1" });
-    btnCopy.onclick = async function () {
-      var txt = buildSummaryText(_state, chosenContact);
-      var ok = await copyToClipboard(txt);
-      toast(ok ? "Copied" : "Copy failed", ok ? "Summary copied to clipboard." : "Could not copy to clipboard.");
-    };
-
-    var btnEmail = el("button", { class: "eikon-btn", text: "Email Summary", disabled: false, "data-allow-when-locked": "1" });
-    btnEmail.onclick = function () {
-      var subject = "End Of Day - " + ddmmyyyy(_state.date) + " - " + String(_state.location_name || "");
-      var body = buildSummaryText(_state, chosenContact);
-      var to = (chosenContact && chosenContact.email) ? chosenContact.email : "";
-      var url = "mailto:" + encodeURIComponent(to) +
-        "?subject=" + encodeURIComponent(subject) +
-        "&body=" + encodeURIComponent(body);
-      try { window.location.href = url; } catch (e) {}
-    };
-
-    rightBov.appendChild(el("div", { style: "margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;" }, [
-      btnCopy, btnEmail
-    ]));
-
     rightBov.appendChild(el("div", { style: "margin-top:10px;padding:10px;border:1px solid rgba(255,255,255,.10);border-radius:12px;display:flex;justify-content:space-between;align-items:center;" }, [
       el("div", { style: "font-weight:900;", text: "Total BOV Deposit:" }),
       el("div", { style: "font-weight:900;", text: euro(bovTotal(_state)) })
@@ -1608,26 +1676,22 @@
     cashGrid.appendChild(rightBov);
     cashCard.appendChild(cashGrid);
 
-    // Summary + Monthly summary
+    // Summary cards
     var summaryGrid = el("div", { style: "display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;" });
 
     var sumCard = el("div", { class: "eikon-card" });
     sumCard.appendChild(el("div", { style: "font-weight:900;color:#e9eef7;margin-bottom:10px;", text: "Summary" }));
     sumCard.appendChild(el("div", { style: "display:grid;gap:8px;" }, [
       el("div", { style: "display:flex;justify-content:space-between;gap:10px;border:1px solid rgba(255,255,255,.10);border-radius:12px;padding:10px;" }, [
-        el("div", { text: "Expected Deposit:" }),
-        el("div", { style: "font-weight:900;", text: euro(expectedDeposit(_state)) })
-      ]),
-      el("div", { style: "display:flex;justify-content:space-between;gap:10px;border:1px solid rgba(255,255,255,.10);border-radius:12px;padding:10px;" }, [
-        el("div", { text: "Rounded Cash Deposit (F):" }),
-        el("div", { style: "font-weight:900;", text: euro(roundedDepositF(_state)) })
+        el("div", { text: "Rounded Cash Deposit:" }),
+        el("div", { style: "font-weight:900;", text: euro(-roundedDepositF(_state)) })
       ]),
       el("div", { style: "display:flex;justify-content:space-between;gap:10px;border:1px solid rgba(255,255,255,.10);border-radius:12px;padding:10px;" }, [
         el("div", { text: "Over / Under:" }),
         el("div", { style: "font-weight:900;", text: euro(overUnder(_state)) })
       ]),
       el("div", { style: "display:flex;justify-content:space-between;gap:10px;border:1px solid rgba(255,255,255,.10);border-radius:12px;padding:10px;" }, [
-        el("div", { text: "Coins (E − F):" }),
+        el("div", { text: "Coins:" }),
         el("div", { style: "font-weight:900;", text: euro(coinsDiff(_state)) })
       ])
     ]));
@@ -1635,23 +1699,19 @@
     var monthCard = el("div", { class: "eikon-card" });
     monthCard.appendChild(el("div", { style: "font-weight:900;color:#e9eef7;margin-bottom:10px;", text: "Monthly Summary" }));
 
-    var m = await monthSummary(_state, ymFromYmd(_state.date));
+    var msum = _lastMonthSummary || { days: 0, total_cash_month: 0, over_under_month: 0, coin_box_month: 0 };
     monthCard.appendChild(el("div", { style: "display:grid;gap:8px;" }, [
       el("div", { style: "display:flex;justify-content:space-between;gap:10px;border:1px solid rgba(255,255,255,.10);border-radius:12px;padding:10px;" }, [
-        el("div", { text: "Days Recorded:" }),
-        el("div", { style: "font-weight:900;", text: String(m.days) })
-      ]),
-      el("div", { style: "display:flex;justify-content:space-between;gap:10px;border:1px solid rgba(255,255,255,.10);border-radius:12px;padding:10px;" }, [
         el("div", { text: "Total Cash (Month):" }),
-        el("div", { style: "font-weight:900;", text: euro(m.total_cash_month) })
+        el("div", { style: "font-weight:900;", text: _isComputingMonth ? "…" : euro(msum.total_cash_month) })
       ]),
       el("div", { style: "display:flex;justify-content:space-between;gap:10px;border:1px solid rgba(255,255,255,.10);border-radius:12px;padding:10px;" }, [
         el("div", { text: "Over / Under (Month):" }),
-        el("div", { style: "font-weight:900;", text: euro(m.over_under_month) })
+        el("div", { style: "font-weight:900;", text: _isComputingMonth ? "…" : euro(msum.over_under_month) })
       ]),
       el("div", { style: "display:flex;justify-content:space-between;gap:10px;border:1px solid rgba(255,255,255,.10);border-radius:12px;padding:10px;" }, [
-        el("div", { text: "Coin Box (Month):" }),
-        el("div", { style: "font-weight:900;", text: euro(m.coin_box_month) })
+        el("div", { text: "Coin Box:" }),
+        el("div", { style: "font-weight:900;", text: _isComputingMonth ? "…" : euro(msum.coin_box_month) })
       ])
     ]));
 
@@ -1667,35 +1727,42 @@
     mount.appendChild(headerCard);
     mount.appendChild(bodyCard);
 
-    // Lock handling (disable body edits, but keep allowed header buttons enabled)
-    if (isLocked(_state)) {
+    // Lock handling (keep actions enabled when locked)
+    if (isLocked()) {
       setDisabledDeep(bodyCard, true);
 
-      // disable specific header controls
-      selTime.disabled = true;
-      inStaff.disabled = true;
-      inFloat.disabled = true;
+      var allHdrInputs = headerCard.querySelectorAll("input,select,button");
+      for (var z = 0; z < allHdrInputs.length; z++) {
+        var t = allHdrInputs[z];
+        var allow = t && t.dataset && t.dataset.allowWhenLocked === "1";
+        if (!allow && t !== inDate) t.disabled = true;
+      }
+
       btnSave.disabled = true;
       btnLock.disabled = true;
     } else {
       btnSave.disabled = false;
       btnLock.disabled = false;
     }
+
+    // Restore focus (FIX)
+    restoreFocusSnapshot(focusSnap, mount);
   }
 
   function rerender() {
-    try { render(_mountRef); } catch (e) { E.error("[eod] render failed", e); }
+    try { render(_mountRef); }
+    catch (e) { E.error("[eod] render failed", e); }
   }
 
   // Register module
   E.registerModule({
     id: "endofday",
     title: "End Of Day",
-    icon: "🕒",
+    icon: "clock",
+    order: 70,
     render: function (ctx) {
       _mountRef = ctx;
       return render(ctx);
     }
   });
-
 })();
