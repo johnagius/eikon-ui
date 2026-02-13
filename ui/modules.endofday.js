@@ -81,6 +81,15 @@
   var _cacheMonthSummary = { key: "", ts: 0, data: null };
   var _cacheMonthDates = { key: "", ts: 0, data: [] };
 
+  // Persisted snapshot of the currently loaded EOD (as last read from storage)
+  // Used to live-adjust Monthly Summary while typing (no full rerender).
+  var _persistedDayKey = "";     // `${date}|${location}`
+  var _persistedDayRec = null;   // deep-cloned stored record for selected day (or null)
+
+  // Monthly Summary live base (computed from stored records) + baseline day contribution
+  // Used by liveUpdateUI() to keep Monthly Summary in sync while typing.
+  var _monthLiveBase = null; // { key, ym, date, baseTotals, baseDay }
+   
   function cacheFresh(ts) {
     return (Date.now() - ts) < CACHE_TTL_MS;
   }
