@@ -962,38 +962,38 @@
     return auditForLocal(dateStr, locationName);
   }
 
-  async function listDatesForMonth(locationName, ym) {  async function listDatesForMonth(locationName, ym) {
-    var k = String(locationName || "") + "|" + String(ym || "");
+  async function listDatesForMonth(locationName, ym) {
+  var k = String(locationName || "") + "|" + String(ym || "");
 
-    // CACHE
-    if (_cacheMonthDates.key === k && cacheFresh(_cacheMonthDates.ts)) {
-      return _cacheMonthDates.data || [];
-    }
-
-    var apiDates = [];
-    if (_apiMode.ok) {
-      try {
-        apiDates = await apiListDatesForMonth(ym, locationName);
-        if (!Array.isArray(apiDates)) apiDates = [];
-      } catch (e) {
-        apiDates = [];
-      }
-    }
-
-    // local scan (includes latest edits via local shadow)
-    var all = loadAllEodsLocal();
-    var localDates = all
-      .filter(function (r) { return r && r.location_name === locationName && ymFromYmd(r.date) === ym; })
-      .map(function (r) { return r.date; });
-
-    var dates = uniqSorted((apiDates || []).concat(localDates || []));
-
-    _cacheMonthDates.key = k;
-    _cacheMonthDates.ts = Date.now();
-    _cacheMonthDates.data = dates;
-
-    return dates;
+  // CACHE
+  if (_cacheMonthDates.key === k && cacheFresh(_cacheMonthDates.ts)) {
+    return _cacheMonthDates.data || [];
   }
+
+  var apiDates = [];
+  if (_apiMode.ok) {
+    try {
+      apiDates = await apiListDatesForMonth(ym, locationName);
+      if (!Array.isArray(apiDates)) apiDates = [];
+    } catch (e) {
+      apiDates = [];
+    }
+  }
+
+  // local scan (includes latest edits via local shadow)
+  var all = loadAllEodsLocal();
+  var localDates = all
+    .filter(function (r) { return r && r.location_name === locationName && ymFromYmd(r.date) === ym; })
+    .map(function (r) { return r.date; });
+
+  var dates = uniqSorted((apiDates || []).concat(localDates || []));
+
+  _cacheMonthDates.key = k;
+  _cacheMonthDates.ts = Date.now();
+  _cacheMonthDates.data = dates;
+
+  return dates;
+}
 
   // -----------------------------
   // Calculations (MATCH HTML)
