@@ -261,19 +261,27 @@
     _scrollRestore = null;
   }
 
-  function isEditingField() {
-    try {
-      if (!_mountEl) return false;
-      var ae = document.activeElement;
-      if (!ae) return false;
-      if (!_mountEl.contains(ae)) return false;
-      var tag = String(ae.tagName || "").toLowerCase();
-      if (tag === "input" || tag === "textarea" || tag === "select") {
-        return !!(ae.getAttribute && ae.getAttribute("data-focus-key"));
-      }
-    } catch (e) {}
-    return false;
-  }
+function isEditingField() {
+  try {
+    if (!_mountEl) return false;
+    var ae = document.activeElement;
+    if (!ae) return false;
+    if (!_mountEl.contains(ae)) return false;
+
+    var tag = String(ae.tagName || "").toLowerCase();
+
+    // ✅ PATCH: allow rerenders while a DATE input is focused
+    if (tag === "input") {
+      var tp = String(ae.type || "").toLowerCase();
+      if (tp === "date") return false;
+    }
+
+    if (tag === "input" || tag === "textarea" || tag === "select") {
+      return !!(ae.getAttribute && ae.getAttribute("data-focus-key"));
+    }
+  } catch (e) {}
+  return false;
+}
 
   function requestDeferredRerender() {
     _deferredRerender = true;
