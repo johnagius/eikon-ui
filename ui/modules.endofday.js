@@ -261,27 +261,27 @@
     _scrollRestore = null;
   }
 
-function isEditingField() {
-  try {
-    if (!_mountEl) return false;
-    var ae = document.activeElement;
-    if (!ae) return false;
-    if (!_mountEl.contains(ae)) return false;
+  function isEditingField() {
+    try {
+      if (!_mountEl) return false;
+      var ae = document.activeElement;
+      if (!ae) return false;
+      if (!_mountEl.contains(ae)) return false;
 
-    var tag = String(ae.tagName || "").toLowerCase();
+      var tag = String(ae.tagName || "").toLowerCase();
 
-    // ✅ PATCH: allow rerenders while a DATE input is focused
-    if (tag === "input") {
-      var tp = String(ae.type || "").toLowerCase();
-      if (tp === "date") return false;
-    }
+      // ✅ PATCH: allow rerenders while a DATE input is focused
+      if (tag === "input") {
+        var tp = String(ae.type || "").toLowerCase();
+        if (tp === "date") return false;
+      }
 
-    if (tag === "input" || tag === "textarea" || tag === "select") {
-      return !!(ae.getAttribute && ae.getAttribute("data-focus-key"));
-    }
-  } catch (e) {}
-  return false;
-}
+      if (tag === "input" || tag === "textarea" || tag === "select") {
+        return !!(ae.getAttribute && ae.getAttribute("data-focus-key"));
+      }
+    } catch (e) {}
+    return false;
+  }
 
   function requestDeferredRerender() {
     _deferredRerender = true;
@@ -1069,6 +1069,68 @@ function isEditingField() {
     document.body.appendChild(overlay);
   }
 
+  // ✅ PATCH: sandbox-safe confirm dialog (replaces window.confirm which is blocked without iframe allow-modals)
+  function confirmModal(title, message, okText, cancelText) {
+    return new Promise(function (resolve) {
+      var doneCalled = false;
+
+      var overlay = el("div", { class: "eikon-modal-overlay", style: "position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:999999;display:flex;align-items:center;justify-content:center;padding:16px;" });
+      var box = el("div", { class: "eikon-modal", style: "width:min(640px,100%);max-height:90vh;overflow:auto;background:#0f1420;border:1px solid rgba(255,255,255,.12);border-radius:14px;box-shadow:0 16px 60px rgba(0,0,0,.5);padding:14px;" });
+
+      function cleanupAndResolve(val) {
+        if (doneCalled) return;
+        doneCalled = true;
+        try { document.removeEventListener("keydown", onKeyDown, true); } catch (e0) {}
+        try { overlay.remove(); } catch (e1) {}
+        resolve(!!val);
+      }
+
+      function onKeyDown(ev) {
+        try {
+          if (ev && ev.key === "Escape") {
+            ev.preventDefault();
+            cleanupAndResolve(false);
+          }
+        } catch (e) {}
+      }
+
+      document.addEventListener("keydown", onKeyDown, true);
+
+      overlay.addEventListener("click", function (ev) {
+        // click outside the box cancels
+        if (ev && ev.target === overlay) cleanupAndResolve(false);
+      });
+
+      var head = el("div", { style: "display:flex;align-items:center;gap:10px;justify-content:space-between;margin-bottom:10px;" }, [
+        el("div", { style: "font-weight:900;font-size:16px;color:#e9eef7;", text: title || "Confirm" }),
+        el("button", { class: "eikon-btn", text: "Close" })
+      ]);
+      head.querySelector("button").onclick = function () { cleanupAndResolve(false); };
+
+      var bodyNode = el("div", { style: "color:rgba(233,238,247,.90);white-space:pre-wrap;line-height:1.35;", text: String(message || "") });
+
+      var foot = el("div", { style: "display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:12px;" });
+      var bCancel = el("button", { class: "eikon-btn", text: cancelText || "Cancel" });
+      var bOk = el("button", { class: "eikon-btn primary", text: okText || "OK" });
+
+      bCancel.onclick = function () { cleanupAndResolve(false); };
+      bOk.onclick = function () { cleanupAndResolve(true); };
+
+      foot.appendChild(bCancel);
+      foot.appendChild(bOk);
+
+      box.appendChild(head);
+      box.appendChild(el("div", { style: "padding:6px 2px;" }, [bodyNode]));
+      box.appendChild(foot);
+
+      overlay.appendChild(box);
+      document.body.appendChild(overlay);
+
+      // focus OK by default (helps keyboard users)
+      try { bOk.focus(); } catch (e2) {}
+    });
+  }
+
   function field(label, inputNode) {
     return el("div", { class: "eikon-field" }, [
       el("div", { class: "eikon-label", text: label }),
@@ -1181,8 +1243,14 @@ function isEditingField() {
             renderList(container);
           };
 
+          // ✅ PATCH: sandbox-safe confirm (no window.confirm)
           btnDel.onclick = async function () {
-            var ok = window.confirm("Delete this contact?\n\n" + (c.name || ""));
+            var ok = await confirmModal(
+              "Delete Contact",
+              "Delete this contact?\n\n" + (c.name || ""),
+              "Delete",
+              "Cancel"
+            );
             if (!ok) return;
             contacts = contacts.filter(function (x) { return x.id !== c.id; });
             await saveContacts(locationName, contacts);
@@ -1720,11 +1788,16 @@ function isEditingField() {
       rerender();
     }
 
-    // PATCH: Unlock button
+    // ✅ PATCH: Unlock button (sandbox-safe confirm)
     async function doUnlock() {
       if (!isLocked()) return toast("Already Unlocked", "This End Of Day is not locked.");
 
-      var ok = window.confirm("Unlock this End Of Day?\n\nOnce unlocked, it can be edited again.");
+      var ok = await confirmModal(
+        "Unlock End Of Day",
+        "Unlock this End Of Day?\n\nOnce unlocked, it can be edited again.",
+        "Unlock",
+        "Cancel"
+      );
       if (!ok) return;
 
       state.locked_at = "";
