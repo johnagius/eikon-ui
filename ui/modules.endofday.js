@@ -65,6 +65,9 @@
   // Render token to drop stale renders
   var _renderToken = 0;
 
+  // Track date-change requests to prevent stale async loads overriding the latest selection
+  var _dateChangeSeq = 0;
+
   // Debounced rerender
   var _rerenderTimer = null;
 
@@ -491,18 +494,31 @@
     throw err404;
   }
 
-  async function apiCheckAvailable() {
+  // PATCH: include location_name/location as optional query params (server may require it)
+  async function apiCheckAvailable(locationName) {
     var d = ymd(new Date());
+    var loc = String(locationName || "").trim();
+
+    var base = [
+      "/endofday/record?date=" + encodeURIComponent(d),
+      "/endofday?date=" + encodeURIComponent(d),
+      "/eod/record?date=" + encodeURIComponent(d),
+      "/eod?date=" + encodeURIComponent(d)
+    ];
+
+    var paths = [];
+    if (loc) {
+      for (var i = 0; i < base.length; i++) {
+        paths.push(base[i] + "&location_name=" + encodeURIComponent(loc));
+        paths.push(base[i] + "&location=" + encodeURIComponent(loc));
+        paths.push(base[i]);
+      }
+    } else {
+      paths = base;
+    }
+
     try {
-      await apiTryFetch(
-        [
-          "/endofday/record?date=" + encodeURIComponent(d),
-          "/endofday?date=" + encodeURIComponent(d),
-          "/eod/record?date=" + encodeURIComponent(d),
-          "/eod?date=" + encodeURIComponent(d)
-        ],
-        { method: "GET" }
-      );
+      await apiTryFetch(paths, { method: "GET" });
       _apiMode.ok = true;
       _apiMode.lastCheckedAt = nowIso();
       _apiMode.reason = "EOD API reachable";
@@ -521,16 +537,28 @@
     }
   }
 
-  async function apiGetRecord(dateStr) {
-    var r = await apiTryFetch(
-      [
-        "/endofday/record?date=" + encodeURIComponent(dateStr),
-        "/endofday?date=" + encodeURIComponent(dateStr),
-        "/eod/record?date=" + encodeURIComponent(dateStr),
-        "/eod?date=" + encodeURIComponent(dateStr)
-      ],
-      { method: "GET" }
-    );
+  // PATCH: include location_name/location as optional query params
+  async function apiGetRecord(dateStr, locationName) {
+    var loc = String(locationName || "").trim();
+    var base = [
+      "/endofday/record?date=" + encodeURIComponent(dateStr),
+      "/endofday?date=" + encodeURIComponent(dateStr),
+      "/eod/record?date=" + encodeURIComponent(dateStr),
+      "/eod?date=" + encodeURIComponent(dateStr)
+    ];
+
+    var paths = [];
+    if (loc) {
+      for (var i = 0; i < base.length; i++) {
+        paths.push(base[i] + "&location_name=" + encodeURIComponent(loc));
+        paths.push(base[i] + "&location=" + encodeURIComponent(loc));
+        paths.push(base[i]);
+      }
+    } else {
+      paths = base;
+    }
+
+    var r = await apiTryFetch(paths, { method: "GET" });
 
     var data = r.data;
     if (!data) return null;
@@ -582,18 +610,30 @@
     }
   }
 
-  async function apiListDatesForMonth(ym) {
-    var r = await apiTryFetch(
-      [
-        "/endofday/dates?month=" + encodeURIComponent(ym),
-        "/endofday/month?month=" + encodeURIComponent(ym),
-        "/endofday/list?month=" + encodeURIComponent(ym),
-        "/eod/dates?month=" + encodeURIComponent(ym),
-        "/eod/month?month=" + encodeURIComponent(ym),
-        "/eod/list?month=" + encodeURIComponent(ym)
-      ],
-      { method: "GET" }
-    );
+  // PATCH: include location_name/location as optional query params
+  async function apiListDatesForMonth(ym, locationName) {
+    var loc = String(locationName || "").trim();
+    var base = [
+      "/endofday/dates?month=" + encodeURIComponent(ym),
+      "/endofday/month?month=" + encodeURIComponent(ym),
+      "/endofday/list?month=" + encodeURIComponent(ym),
+      "/eod/dates?month=" + encodeURIComponent(ym),
+      "/eod/month?month=" + encodeURIComponent(ym),
+      "/eod/list?month=" + encodeURIComponent(ym)
+    ];
+
+    var paths = [];
+    if (loc) {
+      for (var i = 0; i < base.length; i++) {
+        paths.push(base[i] + "&location_name=" + encodeURIComponent(loc));
+        paths.push(base[i] + "&location=" + encodeURIComponent(loc));
+        paths.push(base[i]);
+      }
+    } else {
+      paths = base;
+    }
+
+    var r = await apiTryFetch(paths, { method: "GET" });
     var data = r.data || {};
     var dates = data.dates || data.items || data.list || data.records || null;
     if (Array.isArray(dates)) {
@@ -734,7 +774,7 @@
   async function getEodByDateAndLoc(dateStr, locationName) {
     if (_apiMode.ok) {
       try {
-        var rec = await apiGetRecord(dateStr);
+        var rec = await apiGetRecord(dateStr, locationName);
         if (rec && typeof rec === "object") {
           if (!rec.date && isYmdStr(dateStr)) rec.date = dateStr;
           if (!rec.location_name && locationName) rec.location_name = locationName;
@@ -819,7 +859,7 @@
     var dates = [];
     if (_apiMode.ok) {
       try {
-        dates = await apiListDatesForMonth(ym);
+        dates = await apiListDatesForMonth(ym, locationName);
         if (!Array.isArray(dates)) dates = [];
       } catch (e) {
         dates = [];
@@ -1551,7 +1591,7 @@
     var createdBy = user && user.full_name ? String(user.full_name) : (user && user.email ? String(user.email) : "");
 
     if (_apiMode.lastCheckedAt === "") {
-      await apiCheckAvailable();
+      await apiCheckAvailable(locationName);
     }
 
     // Persist state across rerenders
@@ -1566,24 +1606,30 @@
 
     function isLocked() { return !!state.locked_at; }
 
-    async function loadSelectedDateIfNeeded(force) {
-      var key = String(state.date || "") + "|" + String(state.location_name || "");
+    // PATCH: dateOverride ensures we load the exact selected date even if state changes mid-async
+    async function loadSelectedDateIfNeeded(force, dateOverride) {
+      var dateToLoad = String(dateOverride || state.date || "").trim();
+      if (!isYmdStr(dateToLoad)) dateToLoad = ymd(new Date());
+
+      var key = String(dateToLoad || "") + "|" + String(state.location_name || "");
       if (!force && key === _lastLoadedKey) return;
 
-      var existing = await getEodByDateAndLoc(state.date, state.location_name);
+      var existing = await getEodByDateAndLoc(dateToLoad, state.location_name);
 
-      if (existing && typeof existing === "object" && !looksLikeEodRecord(existing, state.date)) existing = null;
+      if (existing && typeof existing === "object" && !looksLikeEodRecord(existing, dateToLoad)) existing = null;
 
       if (existing) {
         state = JSON.parse(JSON.stringify(existing));
         state = ensureStateShape(state, locationName, createdBy);
+        // Ensure the loaded record matches the requested date (and keep current login location)
+        state.date = dateToLoad;
+        if (!state.location_name) state.location_name = locationName;
         // keep persisted
         _state = state;
       } else {
-        // keep defaults but ensure date/location are right
-        var keepDate = state.date;
+        // new blank EOD for that date
         state = defaultState(locationName, createdBy);
-        state.date = keepDate || ymd(new Date());
+        state.date = dateToLoad;
         _state = state;
       }
 
@@ -1596,7 +1642,7 @@
     }
 
     // Load record ONLY when date/location changes (or first time)
-    await loadSelectedDateIfNeeded(false);
+    await loadSelectedDateIfNeeded(false, state.date);
 
     // Build new UI without clearing mount first (prevents blank flicker)
     var root = document.createElement("div");
@@ -1660,6 +1706,31 @@
         location_name: state.location_name,
         by: createdBy,
         action: "LOCK",
+        details: {}
+      });
+
+      rerender();
+    }
+
+    // PATCH: Unlock button
+    async function doUnlock() {
+      if (!isLocked()) return toast("Already Unlocked", "This End Of Day is not locked.");
+
+      var ok = window.confirm("Unlock this End Of Day?\n\nOnce unlocked, it can be edited again.");
+      if (!ok) return;
+
+      state.locked_at = "";
+      state.saved_at = state.saved_at || nowIso();
+      await upsertEod(JSON.parse(JSON.stringify(state)));
+
+      invalidateMonthCache(state.location_name, ymFromYmd(state.date));
+
+      await writeAudit(state.location_name, state.date, {
+        ts: nowIso(),
+        date: state.date,
+        location_name: state.location_name,
+        by: createdBy,
+        action: "UNLOCK",
         details: {}
       });
 
@@ -2091,11 +2162,13 @@
     var btnSave = el("button", { class: "eikon-btn primary", text: "Save", "data-allow-when-locked": "0" });
     var btnPrintA4 = el("button", { class: "eikon-btn", text: "Print End of Day on A4", "data-allow-when-locked": "1" });
     var btnLock = el("button", { class: "eikon-btn", text: "Lock", "data-allow-when-locked": "0" });
+    var btnUnlock = el("button", { class: "eikon-btn", text: "Unlock", "data-allow-when-locked": "1" });
     var btnAudit = el("button", { class: "eikon-btn", text: "Audit Log", "data-allow-when-locked": "1" });
 
     btnSave.onclick = doSave;
     btnPrintA4.onclick = doPrintA4;
     btnLock.onclick = doLock;
+    btnUnlock.onclick = doUnlock;
     btnAudit.onclick = showAuditLog;
 
     var btnReport = el("button", { class: "eikon-btn", text: "Report (Date Range)", "data-allow-when-locked": "1" });
@@ -2121,12 +2194,24 @@
 
     var inDate = el("input", { class: "eikon-input eikon-slim-input", type: "date", value: state.date, "data-allow-when-locked": "1", "data-focus-key": "meta_date" });
     inDate.onchange = async function () {
-      state.date = inDate.value;
-      _state.date = state.date;
+      var requested = String(inDate.value || "").trim();
+      if (!isYmdStr(requested)) return;
+
+      var seq = ++_dateChangeSeq;
+
+      // Update the global state immediately
+      state.date = requested;
+      _state.date = requested;
+
       // force load on date change
       _lastLoadedKey = "";
-      invalidateMonthCache(state.location_name, ymFromYmd(state.date));
-      await loadSelectedDateIfNeeded(true);
+      invalidateMonthCache(state.location_name, ymFromYmd(requested));
+
+      await loadSelectedDateIfNeeded(true, requested);
+
+      // If user changed date again while we were loading, ignore this completion
+      if (seq !== _dateChangeSeq) return;
+
       rerender();
     };
 
@@ -2151,7 +2236,7 @@
     inFloat.dataset.allowWhenLocked = "0";
 
     var topRow = el("div", { class: "eikon-row", style: "gap:10px;flex-wrap:wrap;" }, [
-      btnSave, btnReport, btnPrintA4, btnLock, btnAudit
+      btnSave, btnReport, btnPrintA4, btnLock, btnUnlock, btnAudit
     ]);
 
     var metaRow = el("div", { class: "eikon-row", style: "gap:12px;flex-wrap:wrap;margin-top:10px;" }, [
@@ -2436,9 +2521,11 @@
       }
       btnSave.disabled = true;
       btnLock.disabled = true;
+      btnUnlock.disabled = false;
     } else {
       btnSave.disabled = false;
       btnLock.disabled = false;
+      btnUnlock.disabled = true;
     }
 
     // Drop stale render before swapping DOM
