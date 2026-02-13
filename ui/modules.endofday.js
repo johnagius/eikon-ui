@@ -9,6 +9,10 @@
      - Debounce rerenders during typing
      - Avoid clearing mount until new DOM is ready; drop stale renders
 
+   Additional fixes in this version:
+   - FIX: allow decimal entry on EU keyboards (comma or dot) in amount boxes
+   - FIX: allow switching between inputs while rerenders are pending (no focus "snap back")
+
    Existing requirements kept:
    - typing/focus + allow decimals up to 2dp in amount boxes
    - X Readings + EPOS start with 1 row
@@ -29,6 +33,7 @@
   // Module-level state + render control
   // -----------------------------
   var _mountRef = null;
+  var _mountEl = null;
 
   // Persisted UI state across rerenders (so typing doesn’t reset)
   var _state = null;
@@ -66,7 +71,78 @@
     if (_cacheMonthDates.key === k) _cacheMonthDates.ts = 0;
   }
 
+  // -----------------------------
+  // Focus tracking (FIX: prevent focus snapping back during rerenders)
+  // -----------------------------
+  var _focusInit = false;
+  var _pendingFocusKey = null;   // string key, "" means "do not restore to previous"
+  var _pendingFocusTs = 0;
+
+  function ensureGlobalFocusTracking() {
+    if (_focusInit) return;
+    _focusInit = true;
+
+    // Pointer intent happens BEFORE blur/focus sequences, so we can honor the user's click target.
+    document.addEventListener(
+      "pointerdown",
+      function (ev) {
+        try {
+          var t = ev && ev.target;
+          if (!t || !t.closest) return;
+          var kNode = t.closest("[data-focus-key]");
+          if (kNode && kNode.getAttribute) {
+            _pendingFocusKey = String(kNode.getAttribute("data-focus-key") || "");
+          } else {
+            // user clicked something that isn't a focus-key field: don't "snap back" to previous input
+            _pendingFocusKey = "";
+          }
+          _pendingFocusTs = Date.now();
+        } catch (e) {}
+      },
+      true
+    );
+
+    // Track actual focus changes too (keyboard tabbing etc)
+    document.addEventListener(
+      "focusin",
+      function (ev) {
+        try {
+          var t = ev && ev.target;
+          if (!t || !t.getAttribute) return;
+          var k = t.getAttribute("data-focus-key");
+          if (k) {
+            _focusedKey = String(k);
+            _pendingFocusKey = String(k);
+            _pendingFocusTs = Date.now();
+            try { _focusedSel = { start: t.selectionStart, end: t.selectionEnd }; } catch (e2) { _focusedSel = null; }
+          } else {
+            // Focus moved to a non-field (button etc) -> don't force focus back after rerender
+            _focusedKey = null;
+            _focusedSel = null;
+            _pendingFocusKey = "";
+            _pendingFocusTs = Date.now();
+          }
+        } catch (e) {}
+      },
+      true
+    );
+  }
+
   function rememberFocus() {
+    // If the user has just clicked elsewhere, honor that target (prevents "snap back")
+    if (Date.now() - _pendingFocusTs < 250) {
+      if (_pendingFocusKey === "") {
+        _focusedKey = null;
+        _focusedSel = null;
+        return;
+      }
+      if (_pendingFocusKey) {
+        _focusedKey = _pendingFocusKey;
+        _focusedSel = null;
+        return;
+      }
+    }
+
     var ae = document.activeElement;
     if (!ae) return;
     var k = ae.getAttribute && ae.getAttribute("data-focus-key");
@@ -77,8 +153,16 @@
 
   function restoreFocus() {
     if (!_focusedKey) return;
-    var node = document.querySelector('[data-focus-key="' + _focusedKey.replace(/"/g, '\\"') + '"]');
+
+    var scope = _mountEl || document;
+    var selector = '[data-focus-key="' + String(_focusedKey).replace(/"/g, '\\"') + '"]';
+    var node = null;
+    try { node = scope.querySelector(selector); } catch (e) { node = null; }
+    if (!node) {
+      try { node = document.querySelector(selector); } catch (e2) { node = null; }
+    }
     if (!node) return;
+
     try {
       node.focus();
       if (_focusedSel && node.setSelectionRange) node.setSelectionRange(_focusedSel.start, _focusedSel.end);
@@ -205,9 +289,16 @@
 
   // -----------------------------
   // Decimals: allow partial typing and up to 2dp
+  // FIX: accept comma decimals (EU keyboards) and normalize to dot
   // -----------------------------
   function moneyNormalizeInput(raw) {
     var s = String(raw == null ? "" : raw);
+
+    // normalize comma to dot (only if user is using comma)
+    if (s.indexOf(",") >= 0 && s.indexOf(".") === -1) {
+      s = s.replace(/,/g, ".");
+    }
+
     if (s === "") return { ok: true, normalized: "", isPartial: true };
     if (/^\.\d{0,2}$/.test(s)) return { ok: true, normalized: s, isPartial: true };
     if (/^\d+(\.\d{0,2})?$/.test(s)) {
@@ -220,6 +311,10 @@
   function moneyToNumber(raw) {
     var s = String(raw == null ? "" : raw).trim();
     if (!s) return 0;
+
+    // normalize comma to dot
+    if (s.indexOf(",") >= 0 && s.indexOf(".") === -1) s = s.replace(/,/g, ".");
+
     if (s === ".") return 0;
     var v = Number(s);
     return Number.isFinite(v) ? v : 0;
@@ -833,9 +928,9 @@
 
       var topRow = el("div", { style: "display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px;" });
 
-      var inName = el("input", { class: "eikon-input", placeholder: "Name (e.g. Accounts)" });
-      var inEmail = el("input", { class: "eikon-input", placeholder: "Email (optional)" });
-      var inPhone = el("input", { class: "eikon-input", placeholder: "Phone (optional)" });
+      var inName = el("input", { class: "eikon-input", placeholder: "Name (e.g. Accounts)", "data-focus-key": "contacts_new_name" });
+      var inEmail = el("input", { class: "eikon-input", placeholder: "Email (optional)", "data-focus-key": "contacts_new_email" });
+      var inPhone = el("input", { class: "eikon-input", placeholder: "Phone (optional)", "data-focus-key": "contacts_new_phone" });
       var btnAdd = el("button", { class: "eikon-btn primary", text: "Add" });
 
       btnAdd.onclick = async function () {
@@ -883,9 +978,9 @@
           var tdPhone = el("td", { style: "padding:8px;border-bottom:1px solid rgba(255,255,255,.06);" });
           var tdAct = el("td", { style: "padding:8px;border-bottom:1px solid rgba(255,255,255,.06);text-align:right;white-space:nowrap;" });
 
-          var inN = el("input", { class: "eikon-input", value: c.name || "" });
-          var inE = el("input", { class: "eikon-input", value: c.email || "" });
-          var inP = el("input", { class: "eikon-input", value: c.phone || "" });
+          var inN = el("input", { class: "eikon-input", value: c.name || "", "data-focus-key": "contacts_name_" + c.id });
+          var inE = el("input", { class: "eikon-input", value: c.email || "", "data-focus-key": "contacts_email_" + c.id });
+          var inP = el("input", { class: "eikon-input", value: c.phone || "", "data-focus-key": "contacts_phone_" + c.id });
 
           var btnSave = el("button", { class: "eikon-btn primary", text: "Save" });
           var btnDel = el("button", { class: "eikon-btn", text: "Delete" });
@@ -1306,7 +1401,11 @@
     var mount = ctx && ctx.mount ? ctx.mount : ctx;
     if (!mount) return;
 
+    ensureGlobalFocusTracking();
+
     _mountRef = ctx;
+    _mountEl = mount;
+
     var myToken = token || ++_renderToken;
 
     var user = (ctx && ctx.user) ? ctx.user : (E.state && E.state.user ? E.state.user : null);
@@ -1570,7 +1669,13 @@
       };
 
       inp.oninput = function () {
-        var raw = inp.value;
+        // FIX: allow comma decimals from EU keyboards; normalize to dot live
+        var raw = String(inp.value || "");
+        if (raw.indexOf(",") >= 0 && raw.indexOf(".") === -1) {
+          raw = raw.replace(/,/g, ".");
+          inp.value = raw;
+        }
+
         var r = moneyNormalizeInput(raw);
         if (!r.ok) {
           inp.value = String(valueGetter() == null ? "" : valueGetter());
@@ -1589,6 +1694,11 @@
 
       inp.onblur = function () {
         var raw2 = String(inp.value || "").trim();
+
+        // normalize comma to dot before validating/parsing
+        if (raw2.indexOf(",") >= 0 && raw2.indexOf(".") === -1) raw2 = raw2.replace(/,/g, ".");
+        inp.value = raw2;
+
         if (raw2 === "" || raw2 === "." || isNaN(Number(raw2))) {
           valueSetter("0");
           inp.value = "0";
@@ -1751,8 +1861,8 @@
     var btnReport = el("button", { class: "eikon-btn", text: "Report (Date Range)", "data-allow-when-locked": "1" });
     btnReport.onclick = function () {
       var wrap = el("div");
-      var inFrom = el("input", { class: "eikon-input", type: "date", value: state.date });
-      var inTo = el("input", { class: "eikon-input", type: "date", value: state.date });
+      var inFrom = el("input", { class: "eikon-input", type: "date", value: state.date, "data-focus-key": "report_from" });
+      var inTo = el("input", { class: "eikon-input", type: "date", value: state.date, "data-focus-key": "report_to" });
       wrap.appendChild(el("div", { class: "eikon-help", text: "Print a summary for a selected date range (for the current location)." }));
       wrap.appendChild(el("div", { class: "eikon-row", style: "margin-top:10px;gap:10px;flex-wrap:wrap;" }, [
         field("From", inFrom),
@@ -1769,7 +1879,7 @@
     statusLine.appendChild(state.saved_at ? statusPill("Saved", "good") : statusPill("Not Saved", "bad"));
     statusLine.appendChild(_apiMode.ok ? statusPill("Cloud: ON", "good") : statusPill("Cloud: OFF", "bad"));
 
-    var inDate = el("input", { class: "eikon-input eikon-slim-input", type: "date", value: state.date, "data-allow-when-locked": "1" });
+    var inDate = el("input", { class: "eikon-input eikon-slim-input", type: "date", value: state.date, "data-allow-when-locked": "1", "data-focus-key": "meta_date" });
     inDate.onchange = async function () {
       state.date = inDate.value;
       _state.date = state.date;
@@ -1780,17 +1890,17 @@
       rerender();
     };
 
-    var selTime = el("select", { class: "eikon-select eikon-slim-input", "data-allow-when-locked": "0" }, [
+    var selTime = el("select", { class: "eikon-select eikon-slim-input", "data-allow-when-locked": "0", "data-focus-key": "meta_time_of_day" }, [
       el("option", { value: "AM", text: "AM" }),
       el("option", { value: "PM", text: "PM" })
     ]);
     selTime.value = state.time_of_day || "AM";
     selTime.onchange = function () { state.time_of_day = selTime.value; _state.time_of_day = state.time_of_day; };
 
-    var inStaff = el("input", { class: "eikon-input", type: "text", value: state.staff || "", placeholder: "Required", "data-allow-when-locked": "0" });
+    var inStaff = el("input", { class: "eikon-input", type: "text", value: state.staff || "", placeholder: "Required", "data-allow-when-locked": "0", "data-focus-key": "meta_staff" });
     inStaff.oninput = function () { state.staff = inStaff.value; _state.staff = state.staff; };
 
-    var inLoc = el("input", { class: "eikon-input", type: "text", value: state.location_name || "", disabled: true, "data-allow-when-locked": "1" });
+    var inLoc = el("input", { class: "eikon-input", type: "text", value: state.location_name || "", disabled: true, "data-allow-when-locked": "1", "data-focus-key": "meta_location" });
 
     var inFloat = makeMoneyInput(
       function () { return state.float_amount; },
@@ -1905,7 +2015,7 @@
 
     var contacts = await loadContacts(state.location_name);
 
-    var selContact = el("select", { class: "eikon-select", disabled: isLocked() });
+    var selContact = el("select", { class: "eikon-select", disabled: isLocked(), "data-focus-key": "bov_contact" });
     selContact.appendChild(el("option", { value: "", text: "— Select Contact —" }));
     contacts.forEach(function (c) {
       var parts = [c.name];
