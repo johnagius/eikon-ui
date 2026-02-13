@@ -1,6 +1,9 @@
 /* ui/modules.endofday.js
    Eikon - End Of Day module (UI)
-   Persistence currently uses localStorage so the UI is testable immediately.
+
+   Persistence:
+   - Prefers cloud KV (E.cloud.kv OR E.api.post("/kv/*"))
+   - Falls back to localStorage if cloud KV is unavailable
 
    FIXES INCLUDED (2026-02-12):
    - Keep Unlock / Print / Report / Audit / Admin-clear enabled when EOD is locked.
@@ -112,35 +115,80 @@
   }
 
   // -----------------------------
-  // Local storage “DB” (temporary)
+  // Storage adapter: Cloud KV preferred, local fallback
   // -----------------------------
   var LS_EOD_KEY = "eikon_eod_records_v1";
   var LS_EOD_CONTACTS_KEY = "eikon_eod_contacts_v1";
   var LS_EOD_AUDIT_KEY = "eikon_eod_audit_v1";
 
-  function loadAllEods() {
+  function hasCloudKv() {
+    return !!(E && E.cloud && E.cloud.kv && typeof E.cloud.kv.get === "function" && typeof E.cloud.kv.set === "function");
+  }
+  function hasApiKv() {
+    return !!(E && E.api && typeof E.api.post === "function");
+  }
+
+  async function kvGet(key) {
+    if (hasCloudKv()) return await E.cloud.kv.get(key);
+    if (hasApiKv()) {
+      var r = await E.api.post("/kv/get", { key: key });
+      return r && (r.value ?? r.data ?? null);
+    }
+    throw new Error("No cloud KV provider available (E.cloud.kv or E.api.post('/kv/*')).");
+  }
+
+  async function kvSet(key, value) {
+    if (hasCloudKv()) return await E.cloud.kv.set(key, value);
+    if (hasApiKv()) return await E.api.post("/kv/set", { key: key, value: value });
+    throw new Error("No cloud KV provider available (E.cloud.kv or E.api.post('/kv/*')).");
+  }
+
+  async function kvDel(key) {
+    if (hasCloudKv()) return await E.cloud.kv.del(key);
+    if (hasApiKv()) return await E.api.post("/kv/del", { key: key });
+    throw new Error("No cloud KV provider available (E.cloud.kv or E.api.post('/kv/*')).");
+  }
+
+  function usingCloud() {
+    return hasCloudKv() || hasApiKv();
+  }
+
+  // Cloud keys
+  function eodKeyRecord(locationName, dateStr) {
+    return "eod/records/" + String(locationName || "unknown") + "/" + String(dateStr || "");
+  }
+  function eodKeyContacts(locationName) {
+    return "eod/contacts/" + String(locationName || "unknown");
+  }
+  function eodKeyAudit(locationName, dateStr) {
+    return "eod/audit/" + String(locationName || "unknown") + "/" + String(dateStr || "");
+  }
+  // Monthly index so range reports & month summary work without "list keys"
+  function eodKeyIndexMonth(locationName, ym) {
+    return "eod/index/" + String(locationName || "unknown") + "/" + String(ym || "");
+  }
+
+  // -------- Local fallback storage --------
+  function loadAllEodsLocal() {
     try {
       var raw = window.localStorage.getItem(LS_EOD_KEY) || "[]";
       var arr = JSON.parse(raw);
       return Array.isArray(arr) ? arr : [];
     } catch (e) { return []; }
   }
-
-  function saveAllEods(arr) {
+  function saveAllEodsLocal(arr) {
     try { window.localStorage.setItem(LS_EOD_KEY, JSON.stringify(arr || [])); } catch (e) {}
   }
-
-  function getEodByDateAndLoc(dateStr, locationName) {
-    var all = loadAllEods();
+  function getEodByDateAndLocLocal(dateStr, locationName) {
+    var all = loadAllEodsLocal();
     for (var i = 0; i < all.length; i++) {
       var r = all[i];
       if (r && r.date === dateStr && r.location_name === locationName) return r;
     }
     return null;
   }
-
-  function upsertEod(rec) {
-    var all = loadAllEods();
+  function upsertEodLocal(rec) {
+    var all = loadAllEodsLocal();
     var replaced = false;
 
     for (var i = 0; i < all.length; i++) {
@@ -161,10 +209,9 @@
       return 0;
     });
 
-    saveAllEods(all);
+    saveAllEodsLocal(all);
   }
-
-  function loadContacts() {
+  function loadContactsLocal() {
     try {
       var raw = window.localStorage.getItem(LS_EOD_CONTACTS_KEY) || "";
       if (!raw) return [];
@@ -172,27 +219,23 @@
       return Array.isArray(arr) ? arr : [];
     } catch (e) { return []; }
   }
-
-  function saveContacts(arr) {
+  function saveContactsLocal(arr) {
     try { window.localStorage.setItem(LS_EOD_CONTACTS_KEY, JSON.stringify(arr || [])); } catch (e) {}
   }
-
-  function loadAudit() {
+  function loadAuditLocal() {
     try {
       var raw = window.localStorage.getItem(LS_EOD_AUDIT_KEY) || "[]";
       var arr = JSON.parse(raw);
       return Array.isArray(arr) ? arr : [];
     } catch (e) { return []; }
   }
-
-  function writeAudit(entry) {
-    var all = loadAudit();
+  function writeAuditLocal(entry) {
+    var all = loadAuditLocal();
     all.push(entry);
     try { window.localStorage.setItem(LS_EOD_AUDIT_KEY, JSON.stringify(all)); } catch (e) {}
   }
-
-  function auditFor(dateStr, locationName) {
-    var all = loadAudit();
+  function auditForLocal(dateStr, locationName) {
+    var all = loadAuditLocal();
     return all
       .filter(function (a) { return a && a.date === dateStr && a.location_name === locationName; })
       .sort(function (x, y) {
@@ -203,11 +246,84 @@
         return 0;
       });
   }
-
   function clearLocalEodAll() {
     try { window.localStorage.removeItem(LS_EOD_KEY); } catch (e) {}
     try { window.localStorage.removeItem(LS_EOD_CONTACTS_KEY); } catch (e2) {}
     try { window.localStorage.removeItem(LS_EOD_AUDIT_KEY); } catch (e3) {}
+  }
+
+  // -------- Unified data access (cloud preferred) --------
+  async function getEodByDateAndLoc(dateStr, locationName) {
+    if (!usingCloud()) return getEodByDateAndLocLocal(dateStr, locationName);
+    var key = eodKeyRecord(locationName, dateStr);
+    var v = await kvGet(key);
+    return v ? v : null;
+  }
+
+  async function upsertEod(rec) {
+    if (!usingCloud()) return upsertEodLocal(rec);
+
+    // Save record
+    await kvSet(eodKeyRecord(rec.location_name, rec.date), rec);
+
+    // Maintain month index
+    var ym = ymFromYmd(rec.date);
+    var idxKey = eodKeyIndexMonth(rec.location_name, ym);
+    var idx = await kvGet(idxKey);
+    if (!Array.isArray(idx)) idx = [];
+    if (idx.indexOf(rec.date) === -1) {
+      idx.push(rec.date);
+      idx.sort(); // ascending
+      await kvSet(idxKey, idx);
+    }
+  }
+
+  async function loadContacts(locationName) {
+    if (!usingCloud()) return loadContactsLocal();
+    var v = await kvGet(eodKeyContacts(locationName));
+    return Array.isArray(v) ? v : [];
+  }
+
+  async function saveContacts(locationName, arr) {
+    if (!usingCloud()) return saveContactsLocal(arr);
+    await kvSet(eodKeyContacts(locationName), arr || []);
+  }
+
+  async function loadAudit(locationName, dateStr) {
+    if (!usingCloud()) return loadAuditLocal();
+    var v = await kvGet(eodKeyAudit(locationName, dateStr));
+    return Array.isArray(v) ? v : [];
+  }
+
+  async function writeAudit(locationName, dateStr, entry) {
+    if (!usingCloud()) return writeAuditLocal(entry);
+    var all = await loadAudit(locationName, dateStr);
+    all.push(entry);
+    await kvSet(eodKeyAudit(locationName, dateStr), all);
+  }
+
+  async function auditFor(locationName, dateStr) {
+    if (!usingCloud()) return auditForLocal(dateStr, locationName);
+    var all = await loadAudit(locationName, dateStr);
+    return all.sort(function (x, y) {
+      var xt = (x && x.ts) || "";
+      var yt = (y && y.ts) || "";
+      if (xt < yt) return 1;
+      if (xt > yt) return -1;
+      return 0;
+    });
+  }
+
+  async function listDatesForMonth(locationName, ym) {
+    if (!usingCloud()) {
+      var all = loadAllEodsLocal();
+      return all
+        .filter(function (r) { return r && r.location_name === locationName && ymFromYmd(r.date) === ym; })
+        .map(function (r) { return r.date; })
+        .sort();
+    }
+    var idx = await kvGet(eodKeyIndexMonth(locationName, ym));
+    return Array.isArray(idx) ? idx.slice().sort() : [];
   }
 
   // -----------------------------
@@ -267,42 +383,32 @@
       created_by: createdBy,
       float_amount: 500,
 
-      // A: X readings (4)
       x: [
         { amount: 0, remark: "" },
         { amount: 0, remark: "" },
         { amount: 0, remark: "" },
         { amount: 0, remark: "" }
       ],
-
-      // B: EPOS (4)
       epos: [
         { amount: 0, remark: "" },
         { amount: 0, remark: "" },
         { amount: 0, remark: "" },
         { amount: 0, remark: "" }
       ],
-
-      // C: Cheques (2 by default)
       cheques: [
         { amount: 0, remark: "" },
         { amount: 0, remark: "" }
       ],
-
-      // D: Paid outs (1 by default)
       paid_outs: [
         { amount: 0, remark: "" }
       ],
 
-      // Cash count
       cash: { n500: 0, n200: 0, n100: 0, n50: 0, n20: 0, n10: 0, n5: 0, coins_total: 0 },
 
-      // BOV deposit
       bag_number: "",
       deposit: { n500: 0, n200: 0, n100: 0, n50: 0, n20: 0, n10: 0 },
       contact_id: "",
 
-      // meta
       saved_at: "",
       locked_at: ""
     };
@@ -312,8 +418,8 @@
     try { return JSON.parse(JSON.stringify(obj)); } catch (e) { return obj; }
   }
 
-  function loadRecordIntoState(dateStr, locationName, createdBy) {
-    var existing = getEodByDateAndLoc(dateStr, locationName);
+  async function loadRecordIntoState(dateStr, locationName, createdBy) {
+    var existing = await getEodByDateAndLoc(dateStr, locationName);
     if (existing) return deepCopy(existing);
     return makeDefaultState(locationName, createdBy, dateStr);
   }
@@ -349,17 +455,15 @@
     window.alert((title ? title + "\n\n" : "") + (msg || ""));
   }
 
-  // ✅ FIX: allow certain buttons even when locked (no need to rely on dataset wiring)
+  // ✅ FIX: allow certain buttons even when locked
   function setDisabledDeep(node, disabled) {
     var inputs = node.querySelectorAll("input,select,textarea,button");
     for (var i = 0; i < inputs.length; i++) {
       var t = inputs[i];
       if (!t) continue;
 
-      // Always allow explicitly marked controls
       if (t.dataset && t.dataset.allowWhenLocked === "1") continue;
 
-      // Also allow these by label (covers cases where dataset isn’t set)
       if (t.tagName === "BUTTON") {
         var txt = String(t.textContent || "").trim();
         if (
@@ -368,10 +472,8 @@
           txt === "Report (Date Range)" ||
           txt === "Audit Log" ||
           txt === "Admin: Clear Local EOD Data" ||
-          txt === "Logout" // harmless; some shells include it
-        ) {
-          continue;
-        }
+          txt === "Logout"
+        ) continue;
       }
 
       t.disabled = !!disabled;
@@ -450,50 +552,47 @@
 
   function isLocked(state) { return !!state.locked_at; }
 
-  function monthSummary(state, monthYm) {
-    var all = loadAllEods();
+  async function monthSummary(state, monthYm) {
     var loc = state.location_name;
     var m = monthYm || ymFromYmd(state.date);
-    var list = all.filter(function (r) { return r && r.location_name === loc && ymFromYmd(r.date) === m; });
 
+    var dates = await listDatesForMonth(loc, m);
     var sumE = 0, sumOU = 0, sumCoins = 0;
 
-    list.forEach(function (r) {
-      var e = (function (rr) {
-        var notes =
-          500 * parseNum(rr.cash.n500) +
-          200 * parseNum(rr.cash.n200) +
-          100 * parseNum(rr.cash.n100) +
-          50 * parseNum(rr.cash.n50) +
-          20 * parseNum(rr.cash.n20) +
-          10 * parseNum(rr.cash.n10) +
-          5 * parseNum(rr.cash.n5);
-        var till = notes + parseNum(rr.cash.coins_total);
-        var fl = parseNum(rr.float_amount);
-        var E2 = till - fl;
-        if (E2 < 0) E2 = 0;
-        return E2;
-      })(r);
+    for (var i = 0; i < dates.length; i++) {
+      var r = await getEodByDateAndLoc(dates[i], loc);
+      if (!r) continue;
 
-      var exp = (function (rr) {
-        var X2 = rr.x.reduce(function (a, t) { return a + parseNum(t.amount); }, 0);
-        var B2 = rr.epos.reduce(function (a, t) { return a + parseNum(t.amount); }, 0);
-        var C2 = rr.cheques.reduce(function (a, t) { return a + parseNum(t.amount); }, 0);
-        var D2 = rr.paid_outs.reduce(function (a, t) { return a + parseNum(t.amount); }, 0);
-        return X2 - B2 - C2 - D2;
-      })(r);
+      var notes =
+        500 * parseNum(r.cash.n500) +
+        200 * parseNum(r.cash.n200) +
+        100 * parseNum(r.cash.n100) +
+        50 * parseNum(r.cash.n50) +
+        20 * parseNum(r.cash.n20) +
+        10 * parseNum(r.cash.n10) +
+        5 * parseNum(r.cash.n5);
 
-      var F2 = roundToNearest5(e);
-      sumE += e;
-      sumOU += (e - exp);
-      sumCoins += (e - F2);
-    });
+      var till = notes + parseNum(r.cash.coins_total);
+      var fl = parseNum(r.float_amount);
+      var E2 = till - fl; if (E2 < 0) E2 = 0;
 
-    return { days: list.length, total_cash_month: sumE, over_under_month: sumOU, coin_box_month: sumCoins };
+      var X2 = r.x.reduce(function (a, t) { return a + parseNum(t.amount); }, 0);
+      var B2 = r.epos.reduce(function (a, t) { return a + parseNum(t.amount); }, 0);
+      var C2 = r.cheques.reduce(function (a, t) { return a + parseNum(t.amount); }, 0);
+      var D2 = r.paid_outs.reduce(function (a, t) { return a + parseNum(t.amount); }, 0);
+      var exp = X2 - B2 - C2 - D2;
+
+      var F2 = roundToNearest5(E2);
+      sumE += E2;
+      sumOU += (E2 - exp);
+      sumCoins += (E2 - F2);
+    }
+
+    return { days: dates.length, total_cash_month: sumE, over_under_month: sumOU, coin_box_month: sumCoins };
   }
 
   // -----------------------------
-  // Printing (A4)
+  // Printing (A4 + Range)
   // -----------------------------
   function buildA4HtmlForCurrent(state) {
     var d = state.date;
@@ -602,27 +701,40 @@
     return html;
   }
 
-  function doPrintA4(state, createdBy) {
+  async function doPrintA4(state, createdBy) {
     var v = validateBeforeSave(state);
     if (!v.ok) return toast("Missing Information", "Cannot print until required fields are completed:\n\n" + v.msg);
 
     openPrintTabWithHtml(buildA4HtmlForCurrent(state));
-    writeAudit({ ts: nowIso(), date: state.date, location_name: state.location_name, by: createdBy, action: "PRINT_A4", details: {} });
+    await writeAudit(state.location_name, state.date, { ts: nowIso(), date: state.date, location_name: state.location_name, by: createdBy, action: "PRINT_A4", details: {} });
   }
 
-  function doPrintRangeReport(state, createdBy, from, to) {
+  async function doPrintRangeReport(state, createdBy, from, to) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) {
       return toast("Validation", "From/To must be dates (YYYY-MM-DD).");
     }
     if (to < from) return toast("Validation", "To must be >= From.");
 
-    var all = loadAllEods()
-      .filter(function (r) { return r && r.location_name === state.location_name && r.date >= from && r.date <= to; })
-      .sort(function (a, b) { return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
+    // Fetch records in range using month indices (works for cloud + local)
+    function nextDay(s) {
+      var d = new Date(s + "T00:00:00");
+      d.setDate(d.getDate() + 1);
+      return ymd(d);
+    }
+
+    var rows = [];
+    var cur = from;
+    while (cur <= to) {
+      var r = await getEodByDateAndLoc(cur, state.location_name);
+      if (r) rows.push(r);
+      cur = nextDay(cur);
+    }
+
+    rows.sort(function (a, b) { return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
 
     var totalCash = 0, totalOU = 0, totalCoins = 0;
 
-    all.forEach(function (r) {
+    rows.forEach(function (r) {
       var notes =
         500 * parseNum(r.cash.n500) +
         200 * parseNum(r.cash.n200) +
@@ -648,7 +760,7 @@
       totalCoins += (E2 - F2);
     });
 
-    var rowsHtml = all.map(function (r) {
+    var rowsHtml = rows.map(function (r) {
       var notes =
         500 * parseNum(r.cash.n500) +
         200 * parseNum(r.cash.n200) +
@@ -705,14 +817,14 @@
       "</body></html>";
 
     openPrintTabWithHtml(html);
-    writeAudit({ ts: nowIso(), date: state.date, location_name: state.location_name, by: createdBy, action: "PRINT_RANGE", details: { from: from, to: to } });
+    await writeAudit(state.location_name, state.date, { ts: nowIso(), date: state.date, location_name: state.location_name, by: createdBy, action: "PRINT_RANGE", details: { from: from, to: to } });
   }
 
   // -----------------------------
   // Contacts manager (simple)
   // -----------------------------
-  function showContactsManager(onDone) {
-    var contacts = loadContacts();
+  async function showContactsManager(locationName, onDone) {
+    var contacts = await loadContacts(locationName);
 
     function renderList(container) {
       container.innerHTML = "";
@@ -722,14 +834,14 @@
       var inPhone = el("input", { class: "eikon-input", placeholder: "Phone (optional)" });
       var btnAdd = el("button", { class: "eikon-btn primary", text: "Add" });
 
-      btnAdd.onclick = function () {
+      btnAdd.onclick = async function () {
         var name = String(inName.value || "").trim();
         var phone = String(inPhone.value || "").trim();
         if (!name) return toast("Validation", "Name is required.");
 
         var id = "c_" + Math.random().toString(16).slice(2) + "_" + Date.now();
         contacts.push({ id: id, name: name, phone: phone });
-        saveContacts(contacts);
+        await saveContacts(locationName, contacts);
 
         inName.value = "";
         inPhone.value = "";
@@ -769,20 +881,20 @@
           var btnSave = el("button", { class: "eikon-btn primary", text: "Save" });
           var btnDel = el("button", { class: "eikon-btn", text: "Delete" });
 
-          btnSave.onclick = function () {
+          btnSave.onclick = async function () {
             var nn = String(inN.value || "").trim();
             if (!nn) return toast("Validation", "Name cannot be empty.");
             c.name = nn;
             c.phone = String(inP.value || "").trim();
-            saveContacts(contacts);
+            await saveContacts(locationName, contacts);
             renderList(container);
           };
 
-          btnDel.onclick = function () {
+          btnDel.onclick = async function () {
             var ok = window.confirm("Delete this contact?\n\n" + (c.name || ""));
             if (!ok) return;
             contacts = contacts.filter(function (x) { return x.id !== c.id; });
-            saveContacts(contacts);
+            await saveContacts(locationName, contacts);
             renderList(container);
           };
 
@@ -811,10 +923,10 @@
     ]);
   }
 
-  function showAuditLog(state) {
-    var rows = auditFor(state.date, state.location_name);
-    var tbl = el("table", { style: "width:100%;border-collapse:collapse;" });
+  async function showAuditLog(state) {
+    var rows = await auditFor(state.location_name, state.date);
 
+    var tbl = el("table", { style: "width:100%;border-collapse:collapse;" });
     tbl.appendChild(el("thead", {}, [
       el("tr", {}, [
         el("th", { style: "text-align:left;border-bottom:1px solid rgba(255,255,255,.12);padding:8px;", text: "Time" }),
@@ -889,6 +1001,7 @@
       return;
     }
 
+    _mountRef = mount;
     mount.innerHTML = "";
 
     var user = E.state && E.state.user ? E.state.user : null;
@@ -897,7 +1010,7 @@
 
     // Initialize persistent state once
     if (!_state) {
-      _state = loadRecordIntoState(ymd(new Date()), locationName, createdBy);
+      _state = await loadRecordIntoState(ymd(new Date()), locationName, createdBy);
       DBG("initialized state for", _state.date, _state.location_name);
     } else {
       _state.location_name = locationName || _state.location_name || "";
@@ -908,44 +1021,47 @@
 
     function rerender() { render(_mountRef || mount); }
 
-    // -----------------------------
-    // Handlers
-    // -----------------------------
     function doSave() {
-      if (isLocked(state)) return toast("Locked", "This End Of Day is locked and cannot be edited.");
-      var v = validateBeforeSave(state);
-      if (!v.ok) return toast("Missing Information", v.msg);
+      return (async function () {
+        if (isLocked(state)) return toast("Locked", "This End Of Day is locked and cannot be edited.");
+        var v = validateBeforeSave(state);
+        if (!v.ok) return toast("Missing Information", v.msg);
 
-      state.saved_at = nowIso();
-      upsertEod(deepCopy(state));
-      writeAudit({ ts: nowIso(), date: state.date, location_name: state.location_name, by: createdBy, action: "SAVE", details: { staff: state.staff, float_amount: state.float_amount } });
-      rerender();
+        state.saved_at = nowIso();
+        await upsertEod(deepCopy(state));
+        await writeAudit(state.location_name, state.date, { ts: nowIso(), date: state.date, location_name: state.location_name, by: createdBy, action: "SAVE", details: { staff: state.staff, float_amount: state.float_amount } });
+        rerender();
+      })();
     }
 
     function doLock() {
-      if (isLocked(state)) return toast("Already Locked", "This End Of Day is already locked.");
-      var v = validateBeforeSave(state);
-      if (!v.ok) return toast("Cannot Lock", "Fix required fields first:\n\n" + v.msg);
+      return (async function () {
+        if (isLocked(state)) return toast("Already Locked", "This End Of Day is already locked.");
+        var v = validateBeforeSave(state);
+        if (!v.ok) return toast("Cannot Lock", "Fix required fields first:\n\n" + v.msg);
 
-      state.saved_at = state.saved_at || nowIso();
-      state.locked_at = nowIso();
-      upsertEod(deepCopy(state));
-      writeAudit({ ts: nowIso(), date: state.date, location_name: state.location_name, by: createdBy, action: "LOCK", details: {} });
-      rerender();
+        state.saved_at = state.saved_at || nowIso();
+        state.locked_at = nowIso();
+        await upsertEod(deepCopy(state));
+        await writeAudit(state.location_name, state.date, { ts: nowIso(), date: state.date, location_name: state.location_name, by: createdBy, action: "LOCK", details: {} });
+        rerender();
+      })();
     }
 
     function doUnlock() {
-      if (!isLocked(state)) return toast("Not Locked", "This End Of Day is not locked.");
+      return (async function () {
+        if (!isLocked(state)) return toast("Not Locked", "This End Of Day is not locked.");
 
-      var pin = window.prompt("Enter master key to unlock this End Of Day:", "");
-      if (pin == null) return;
-      if (String(pin).trim() !== "6036") return toast("Incorrect", "Master key is incorrect.");
+        var pin = window.prompt("Enter master key to unlock this End Of Day:", "");
+        if (pin == null) return;
+        if (String(pin).trim() !== "6036") return toast("Incorrect", "Master key is incorrect.");
 
-      state.locked_at = "";
-      state.saved_at = nowIso();
-      upsertEod(deepCopy(state));
-      writeAudit({ ts: nowIso(), date: state.date, location_name: state.location_name, by: createdBy, action: "UNLOCK", details: {} });
-      rerender();
+        state.locked_at = "";
+        state.saved_at = nowIso();
+        await upsertEod(deepCopy(state));
+        await writeAudit(state.location_name, state.date, { ts: nowIso(), date: state.date, location_name: state.location_name, by: createdBy, action: "UNLOCK", details: {} });
+        rerender();
+      })();
     }
 
     function doAdminClearLocal() {
@@ -958,13 +1074,13 @@
 
       clearLocalEodAll();
       _state = null;
-      writeAudit({ ts: nowIso(), date: ymd(new Date()), location_name: locationName, by: createdBy, action: "ADMIN_CLEAR_LOCAL", details: {} });
+      // log goes to current storage path; keep as best-effort
+      writeAudit(locationName, ymd(new Date()), { ts: nowIso(), date: ymd(new Date()), location_name: locationName, by: createdBy, action: "ADMIN_CLEAR_LOCAL", details: {} })
+        .catch(function () {});
       rerender();
     }
 
-    // -----------------------------
-    // Top header + actions
-    // -----------------------------
+    // Header + actions
     var header = el("div", { style: "display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;" }, [
       el("div", { style: "font-weight:950;font-size:22px;color:#e9eef7;", text: "End Of Day" }),
       el("div")
@@ -1009,26 +1125,24 @@
     btnAudit.dataset.allowWhenLocked = "1";
     btnAudit.onclick = function () { showAuditLog(state); };
 
+    var btnAdminClear = el("button", { class: "eikon-btn", text: "Admin: Clear Local EOD Data" });
+    btnAdminClear.dataset.allowWhenLocked = "1";
+    btnAdminClear.onclick = doAdminClearLocal;
+
     btnRow.appendChild(btnSave);
     btnRow.appendChild(btnReport);
     btnRow.appendChild(btnPrint);
     btnRow.appendChild(btnLock);
     btnRow.appendChild(btnUnlock);
     btnRow.appendChild(btnAudit);
+    btnRow.appendChild(btnAdminClear);
 
-    var btnAdminClear = el("button", { class: "eikon-btn", text: "Admin: Clear Local EOD Data" });
-    btnAdminClear.dataset.allowWhenLocked = "1";
-    btnAdminClear.onclick = doAdminClearLocal;
-
-    // -----------------------------
     // Meta row
-    // -----------------------------
     var metaGrid = el("div", { style: "display:grid;grid-template-columns:repeat(5,minmax(160px,1fr));gap:12px;align-items:end;" });
 
     var inDate = el("input", { class: "eikon-input", type: "date", value: state.date });
-    inDate.onchange = function () {
-      // Load the correct record for selected date
-      _state = loadRecordIntoState(String(inDate.value || ""), state.location_name, createdBy);
+    inDate.onchange = async function () {
+      _state = await loadRecordIntoState(String(inDate.value || ""), state.location_name, createdBy);
       rerender();
     };
 
@@ -1056,10 +1170,9 @@
     var pills = el("div", { style: "display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap;" });
     pills.appendChild(statusPill(isLocked(state) ? "Locked" : "Unlocked", isLocked(state) ? "warn" : "good"));
     pills.appendChild(statusPill(state.saved_at ? "Saved" : "Not saved", state.saved_at ? "good" : "bad"));
+    pills.appendChild(statusPill(usingCloud() ? "Cloud" : "Local", usingCloud() ? "good" : "warn"));
 
-    // -----------------------------
-    // Sections A-D (simple UI)
-    // -----------------------------
+    // Sections A-D
     function makeSectionList(title, list, labels, addLabel) {
       var wrap = el("div", {}, []);
       for (var i = 0; i < list.length; i++) {
@@ -1083,9 +1196,7 @@
     var secCheq = makeSectionList("Cheques", state.cheques, state.cheques.map(function (_, i) { return "Cheque " + (i + 1); }), "Add Entry");
     var secPaid = makeSectionList("Paid Outs", state.paid_outs, state.paid_outs.map(function (_, i) { return "Paid Out " + (i + 1); }), "Add Entry");
 
-    // -----------------------------
-    // Totals summary card
-    // -----------------------------
+    // Totals summary
     var counted = countedCashTill(state);
     var Etotal = totalCashE(state);
     var Ftotal = roundedDepositF(state);
@@ -1120,19 +1231,53 @@
       ])
     ]);
 
-    // Month summary
-    var ms = monthSummary(state, ymFromYmd(state.date));
+    // Month summary (async)
     var monthCard = el("div", { style: "margin-top:12px;padding:12px;border:1px solid rgba(255,255,255,.10);border-radius:14px;background:rgba(10,14,22,.35);display:flex;gap:14px;flex-wrap:wrap;align-items:center;" }, [
       el("div", { style: "font-weight:950;color:#e9eef7;", text: "Month (" + esc(ymFromYmd(state.date)) + ") Summary" }),
-      el("div", { style: "color:rgba(233,238,247,.9);", text: "Days: " + String(ms.days) }),
-      el("div", { style: "color:rgba(233,238,247,.9);", text: "Total Cash: " + euro(ms.total_cash_month) }),
-      el("div", { style: "color:rgba(233,238,247,.9);", text: "Over/Under: " + euro(ms.over_under_month) }),
-      el("div", { style: "color:rgba(233,238,247,.9);", text: "Coin Box: " + euro(ms.coin_box_month) })
+      el("div", { style: "color:rgba(233,238,247,.9);", text: "Loading..." })
     ]);
 
-    // -----------------------------
+    monthSummary(state, ymFromYmd(state.date)).then(function (ms) {
+      monthCard.innerHTML = "";
+      monthCard.appendChild(el("div", { style: "font-weight:950;color:#e9eef7;", text: "Month (" + esc(ymFromYmd(state.date)) + ") Summary" }));
+      monthCard.appendChild(el("div", { style: "color:rgba(233,238,247,.9);", text: "Days: " + String(ms.days) }));
+      monthCard.appendChild(el("div", { style: "color:rgba(233,238,247,.9);", text: "Total Cash: " + euro(ms.total_cash_month) }));
+      monthCard.appendChild(el("div", { style: "color:rgba(233,238,247,.9);", text: "Over/Under: " + euro(ms.over_under_month) }));
+      monthCard.appendChild(el("div", { style: "color:rgba(233,238,247,.9);", text: "Coin Box: " + euro(ms.coin_box_month) }));
+    }).catch(function () {
+      monthCard.innerHTML = "";
+      monthCard.appendChild(el("div", { style: "font-weight:950;color:#e9eef7;", text: "Month (" + esc(ymFromYmd(state.date)) + ") Summary" }));
+      monthCard.appendChild(el("div", { style: "color:rgba(255,200,90,.9);", text: "Unavailable (storage error)" }));
+    });
+
     // Compose page
-    // -----------------------------
     var page = el("div", {}, []);
-    page.appendChild(
-::contentReference[oaicite:0]{index=0}
+    page.appendChild(header);
+    page.appendChild(btnRow);
+    page.appendChild(metaGrid);
+    page.appendChild(pills);
+
+    page.appendChild(secX);
+    page.appendChild(secEpos);
+    page.appendChild(secCheq);
+    page.appendChild(secPaid);
+
+    page.appendChild(makeSectionCard("Totals", null, summary));
+    page.appendChild(monthCard);
+
+    // Apply lock rules AFTER build
+    setDisabledDeep(page, isLocked(state));
+
+    mount.appendChild(page);
+
+    DBG("render complete; locked=", isLocked(state), "cloud=", usingCloud());
+  }
+
+  // Expose mount hook (adapt to your shell’s module loader if different)
+  E.modules = E.modules || {};
+  E.modules.end_of_day = {
+    mount: function (node) { render(node); },
+    unmount: function () { _mountRef = null; }
+  };
+
+})();
