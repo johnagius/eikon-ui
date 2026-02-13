@@ -590,6 +590,17 @@
         }
 
         var out = await E.apiFetch(p, opt);
+
+        // Treat JSON envelope { ok:false, ... } as a failure so the UI doesn't assume a save/lock worked.
+        // (Some API layers return 200 with { ok:false } rather than throwing.)
+        if (out && typeof out === "object" && out.ok === false) {
+          var msg = String(out.error || out.message || "API error");
+          var err = new Error(msg);
+          try { err.status = Number(out.status || out.http_status || out.code || 400); } catch (e2) {}
+          err.api = out;
+          throw err;
+        }
+
         return { ok: true, path: p, data: out };
       } catch (e) {
         lastErr = e;
@@ -803,6 +814,30 @@
     } catch (e) { return []; }
   }
 
+  function getEodByDateAndLocLocal(dateStr, locationName) {
+    var d = String(dateStr || "").trim();
+    var loc = String(locationName || "").trim();
+    if (!d || !loc) return null;
+
+    var all = loadAllEodsLocal();
+    var best = null;
+
+    for (var i = 0; i < all.length; i++) {
+      var r = all[i];
+      if (!r || typeof r !== "object") continue;
+      if (String(r.date || "") !== d) continue;
+      if (String(r.location_name || "") !== loc) continue;
+
+      best = pickNewestRecord(best, r);
+    }
+
+    if (!best) return null;
+
+    // return a defensive clone so UI mutations don't corrupt the stored object reference
+    try { return JSON.parse(JSON.stringify(best)); } catch (e) { return best; }
+  }
+
+
   function saveAllEodsLocal(arr) {
     try { window.localStorage.setItem(LS_EOD_KEY, JSON.stringify(arr || [])); } catch (e) {}
   }
@@ -814,12 +849,20 @@
     if (_apiMode.ok) {
       try {
         await apiUpsertRecord(rec);
-        return;
+        return { ok: true, cloud: true };
       } catch (e) {
-        // keep local shadow; cloud failure tolerated
-        return;
+        if (is404(e)) {
+          _apiMode.ok = false;
+          _apiMode.lastCheckedAt = nowIso();
+          _apiMode.reason = "EOD API endpoints not found (404) -> using localStorage";
+          return { ok: true, cloud: false, fallback: true };
+        }
+        // Non-404: keep local shadow but bubble error so caller can warn user.
+        throw e;
       }
     }
+
+    return { ok: true, cloud: false };
   }
 
   function upsertEodLocal(rec) {
@@ -886,27 +929,53 @@
   // Unified data access
   // -----------------------------
   async function getEodByDateAndLoc(dateStr, locationName) {
+    var loc = String(locationName || "");
+    var localRec = getEodByDateAndLocLocal(dateStr, loc);
+    var cloudRec = null;
+
     if (_apiMode.ok) {
       try {
-        var rec = await apiGetRecord(dateStr, locationName);
-        if (rec && typeof rec === "object") {
-          if (!rec.date && isYmdStr(dateStr)) rec.date = dateStr;
-          if (!rec.location_name && locationName) rec.location_name = locationName;
+        cloudRec = await apiGetRecord(dateStr, loc);
+        if (cloudRec && typeof cloudRec === "object") {
+          if (!cloudRec.date && isYmdStr(dateStr)) cloudRec.date = dateStr;
+          if (!cloudRec.location_name && loc) cloudRec.location_name = loc;
         }
-        return rec;
       } catch (e) {
-        return getEodByDateAndLocLocal(dateStr, locationName);
+        cloudRec = null;
       }
     }
-    return getEodByDateAndLocLocal(dateStr, locationName);
+
+    var picked = pickNewestRecord(cloudRec, localRec);
+
+    // If cloud is newer, keep a local shadow too (helps refresh/offline)
+    if (picked && picked === cloudRec) {
+      try { upsertEodLocal(picked); } catch (e2) {}
+    }
+
+    return picked;
   }
 
   async function upsertEod(rec) {
+    // ALWAYS write a local shadow copy first (fixes “restart shows old data” even if GET is stale)
+    try { upsertEodLocal(rec); } catch (e0) {}
+
     if (_apiMode.ok) {
-      try { await apiUpsertRecord(rec); return; }
-      catch (e) { upsertEodLocal(rec); return; }
+      try {
+        await apiUpsertRecord(rec);
+        return { ok: true, cloud: true };
+      } catch (e) {
+        if (is404(e)) {
+          _apiMode.ok = false;
+          _apiMode.lastCheckedAt = nowIso();
+          _apiMode.reason = "EOD API endpoints not found (404) -> using localStorage";
+          return { ok: true, cloud: false, fallback: true };
+        }
+        // Non-404: keep local shadow but bubble error so caller can warn user.
+        throw e;
+      }
     }
-    upsertEodLocal(rec);
+
+    return { ok: true, cloud: false };
   }
 
   async function loadContacts(locationName) {
@@ -1261,7 +1330,18 @@
   }
 
   function toast(title, msg) {
-    window.alert((title ? title + "\n\n" : "") + (msg || ""));
+    // Sandbox-safe (window.alert/confirm can be blocked inside iframes without allow-modals)
+    try {
+      var body = el("div", {
+        style: "color:rgba(233,238,247,.92);white-space:pre-wrap;line-height:1.35;"
+      }, [String(msg || "")]);
+
+      showModal(String(title || "Notice"), body, [
+        { text: "OK", primary: true, onClick: function (close) { close(); } }
+      ]);
+    } catch (e) {
+      try { console.log("[EIKON][eod][toast]", title, msg); } catch (e2) {}
+    }
   }
 
   // -----------------------------
@@ -1862,7 +1942,19 @@
       if (!v.ok) return toast("Missing Information", v.msg);
 
       state.saved_at = nowIso();
-      await upsertEod(JSON.parse(JSON.stringify(state)));
+
+      try {
+        var payload = JSON.parse(JSON.stringify(state));
+        payload.action = "SAVE";
+        await upsertEod(payload);
+      } catch (e) {
+        // Saved locally (shadow copy), but cloud rejected/failed. (shadow copy), but cloud rejected/failed.
+        toast(
+          "Cloud Save Failed",
+          "Saved locally, but cloud did not accept this save.\n\n" +
+            String((e && (e.message || e)) || e)
+        );
+      }
 
       _persistedDayKey = String(state.date || "") + "|" + String(state.location_name || "");
       _persistedDayRec = JSON.parse(JSON.stringify(state));
@@ -1889,7 +1981,18 @@
 
       state.saved_at = state.saved_at || nowIso();
       state.locked_at = nowIso();
-      await upsertEod(JSON.parse(JSON.stringify(state)));
+
+      try {
+        var payload = JSON.parse(JSON.stringify(state));
+        payload.action = "LOCK";
+        await upsertEod(payload);
+      } catch (e) {
+        toast(
+          "Cloud Lock Failed",
+          "Locked locally, but cloud did not accept this lock.\n\n" +
+            String((e && (e.message || e)) || e)
+        );
+      }
 
       invalidateMonthCache(state.location_name, ymFromYmd(state.date));
 
@@ -1919,7 +2022,21 @@
 
       state.locked_at = "";
       state.saved_at = state.saved_at || nowIso();
-      await upsertEod(JSON.parse(JSON.stringify(state)));
+
+      // Hint to server that this is an explicit unlock (some backends enforce lock semantics)
+      var payload = JSON.parse(JSON.stringify(state));
+      payload.unlock = true;
+      payload.action = "UNLOCK";
+
+      try {
+        await upsertEod(payload);
+      } catch (e) {
+        toast(
+          "Cloud Unlock Failed",
+          "Unlocked locally, but cloud did not accept this unlock.\n\n" +
+            String((e && (e.message || e)) || e)
+        );
+      }
 
       invalidateMonthCache(state.location_name, ymFromYmd(state.date));
 
