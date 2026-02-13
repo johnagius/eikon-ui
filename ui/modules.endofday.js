@@ -24,13 +24,6 @@
      - Update totals/summary in-place while typing (no DOM swap)
      - Any requested rerender while a field is focused is deferred until editing stops
 
-   NEW FIX (stale data / month summary after unlock-edit):
-   - FIX: prevent stale cloud GET responses from masking fresh data
-     - Force no-store on GET reads
-     - Always write local shadow copy on save/lock/unlock
-     - When loading, prefer newest of (cloud, local)
-     - Month dates list = union(cloud, local) to avoid missing days
-
    Existing requirements kept:
    - typing/focus + allow decimals up to 2dp in amount boxes
    - X Readings + EPOS start with 1 row
@@ -88,6 +81,15 @@
   var _cacheMonthSummary = { key: "", ts: 0, data: null };
   var _cacheMonthDates = { key: "", ts: 0, data: [] };
 
+  // Persisted snapshot of the currently loaded EOD (as last read from storage)
+  // Used to live-adjust Monthly Summary while typing (no full rerender).
+  var _persistedDayKey = "";     // `${date}|${location}`
+  var _persistedDayRec = null;   // deep-cloned stored record for selected day (or null)
+
+  // Monthly Summary live base (computed from stored records) + baseline day contribution
+  // Used by liveUpdateUI() to keep Monthly Summary in sync while typing.
+  var _monthLiveBase = null; // { key, ym, date, baseTotals, baseDay }
+   
   function cacheFresh(ts) {
     return (Date.now() - ts) < CACHE_TTL_MS;
   }
@@ -277,7 +279,7 @@
 
       var tag = String(ae.tagName || "").toLowerCase();
 
-      // allow rerenders while a DATE input is focused
+      // ✅ PATCH: allow rerenders while a DATE input is focused
       if (tag === "input") {
         var tp = String(ae.type || "").toLowerCase();
         if (tp === "date") return false;
@@ -414,6 +416,84 @@
     return false;
   }
 
+  // -----------------------------
+  // Prefer newest record (Cloud vs Local shadow) + timestamp parsing
+  // -----------------------------
+  function tsToMs(v) {
+    var s = String(v == null ? "" : v).trim();
+    if (!s) return 0;
+
+    // ISO -> Date.parse
+    if (s.indexOf("T") >= 0) {
+      var ms1 = Date.parse(s);
+      return Number.isFinite(ms1) ? ms1 : 0;
+    }
+
+    // SQLite-ish "YYYY-MM-DD HH:MM:SS" -> treat as UTC for stable ordering
+    if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(\.\d+)?$/.test(s)) {
+      var ms2 = Date.parse(s.replace(" ", "T") + "Z");
+      return Number.isFinite(ms2) ? ms2 : 0;
+    }
+
+    var ms3 = Date.parse(s);
+    return Number.isFinite(ms3) ? ms3 : 0;
+  }
+
+  function recLastUpdateMs(r) {
+    if (!r || typeof r !== "object") return 0;
+    // Prefer updated_at (cloud), then saved_at, then locked_at
+    return Math.max(
+      tsToMs(r.updated_at),
+      tsToMs(r.saved_at),
+      tsToMs(r.locked_at)
+    );
+  }
+
+  function pickNewestRecord(a, b) {
+    if (!a && !b) return null;
+    if (a && !b) return a;
+    if (!a && b) return b;
+
+    var am = recLastUpdateMs(a);
+    var bm = recLastUpdateMs(b);
+
+    if (am > bm) return a;
+    if (bm > am) return b;
+
+    // tie-break: if one is locked and other isn't, prefer locked
+    var al = !!(a && a.locked_at);
+    var bl = !!(b && b.locked_at);
+    if (al && !bl) return a;
+    if (bl && !al) return b;
+
+    return a;
+  }
+
+  function uniqSorted(arr) {
+    var out = [];
+    var seen = {};
+    (arr || []).forEach(function (x) {
+      var s = String(x || "");
+      if (!s) return;
+      if (seen[s]) return;
+      seen[s] = 1;
+      out.push(s);
+    });
+    out.sort();
+    return out;
+  }
+
+  function dayContribution(rec) {
+    if (!rec) return { E: 0, OU: 0, COINS: 0 };
+
+    var till = countedCashTill(rec).total;
+    var E2 = Math.max(0, till - moneyToNumber(rec.float_amount));
+    var exp = expectedDeposit(rec);
+    var F2 = roundToNearest5(E2);
+
+    return { E: E2, OU: (E2 - exp), COINS: (E2 - F2) };
+  }
+   
   function euro(n) {
     var v = Number(n || 0);
     return "€" + v.toFixed(2);
@@ -492,29 +572,31 @@
     try { return err && Number(err.status) === 404; } catch (e) { return false; }
   }
 
-  // FIX (stale data): force no-store on GET requests (prevents browser/proxy cache from masking updates)
   async function apiTryFetch(paths, options) {
     var lastErr = null;
+
     for (var i = 0; i < paths.length; i++) {
       var p = paths[i];
+
       try {
-        var opts = options || { method: "GET" };
-        var m = String(opts.method || "GET").toUpperCase();
+        // Clone options so we don't mutate callers
+        var opt = options ? Object.assign({}, options) : { method: "GET" };
+        var m = String((opt && opt.method) || "GET").toUpperCase();
+
+        // Prevent stale GETs (service worker / browser / intermediary caches)
         if (m === "GET") {
-          opts = Object.assign({}, opts, {
-            cache: "no-store",
-            headers: Object.assign({}, (opts.headers || {}), {
-              "Cache-Control": "no-cache"
-            })
-          });
+          if (opt.cache == null) opt.cache = "no-store";
+          opt.headers = Object.assign({ "Cache-Control": "no-cache" }, opt.headers || {});
         }
-        var out = await E.apiFetch(p, opts);
+
+        var out = await E.apiFetch(p, opt);
         return { ok: true, path: p, data: out };
       } catch (e) {
         lastErr = e;
         if (!is404(e)) throw e;
       }
     }
+
     var err404 = lastErr || new Error("Not found");
     err404.status = 404;
     throw err404;
@@ -725,13 +807,19 @@
     try { window.localStorage.setItem(LS_EOD_KEY, JSON.stringify(arr || [])); } catch (e) {}
   }
 
-  function getEodByDateAndLocLocal(dateStr, locationName) {
-    var all = loadAllEodsLocal();
-    for (var i = 0; i < all.length; i++) {
-      var r = all[i];
-      if (r && r.date === dateStr && r.location_name === locationName) return r;
+  async function upsertEod(rec) {
+    // ALWAYS write a local shadow copy first (fixes “restart shows old data” even if GET is stale)
+    try { upsertEodLocal(rec); } catch (e0) {}
+
+    if (_apiMode.ok) {
+      try {
+        await apiUpsertRecord(rec);
+        return;
+      } catch (e) {
+        // keep local shadow; cloud failure tolerated
+        return;
+      }
     }
-    return null;
   }
 
   function upsertEodLocal(rec) {
@@ -795,94 +883,30 @@
   }
 
   // -----------------------------
-  // Freshness helpers (FIX: choose newest record cloud vs local)
-  // -----------------------------
-  function tsToMs(ts) {
-    try {
-      var t = String(ts || "").trim();
-      if (!t) return 0;
-      var ms = Date.parse(t);
-      return Number.isFinite(ms) ? ms : 0;
-    } catch (e) { return 0; }
-  }
-
-  function recLastUpdateMs(r) {
-    if (!r || typeof r !== "object") return 0;
-    // prefer explicit updated/saved/locked times if present
-    return Math.max(
-      tsToMs(r.updated_at),
-      tsToMs(r.saved_at),
-      tsToMs(r.locked_at),
-      tsToMs(r.created_at)
-    );
-  }
-
-  function pickNewestRecord(a, b) {
-    if (!a && !b) return null;
-    if (a && !b) return a;
-    if (!a && b) return b;
-    var am = recLastUpdateMs(a);
-    var bm = recLastUpdateMs(b);
-    if (bm > am) return b;
-    return a;
-  }
-
-  function uniqSorted(arr) {
-    var out = [];
-    var seen = {};
-    (arr || []).forEach(function (d) {
-      var s = String(d || "");
-      if (!s) return;
-      if (seen[s]) return;
-      seen[s] = 1;
-      out.push(s);
-    });
-    out.sort();
-    return out;
-  }
-
-  // -----------------------------
   // Unified data access
   // -----------------------------
   async function getEodByDateAndLoc(dateStr, locationName) {
-    // Always consider local shadow first (supports offline + avoids stale cloud masking)
-    var local = getEodByDateAndLocLocal(dateStr, locationName);
-    var cloud = null;
-
     if (_apiMode.ok) {
       try {
-        cloud = await apiGetRecord(dateStr, locationName);
-        if (cloud && typeof cloud === "object") {
-          if (!cloud.date && isYmdStr(dateStr)) cloud.date = dateStr;
-          if (!cloud.location_name && locationName) cloud.location_name = locationName;
+        var rec = await apiGetRecord(dateStr, locationName);
+        if (rec && typeof rec === "object") {
+          if (!rec.date && isYmdStr(dateStr)) rec.date = dateStr;
+          if (!rec.location_name && locationName) rec.location_name = locationName;
         }
+        return rec;
       } catch (e) {
-        cloud = null;
+        return getEodByDateAndLocLocal(dateStr, locationName);
       }
     }
-
-    var best = pickNewestRecord(local, cloud);
-
-    // If cloud is newer, refresh local shadow so next load (even after restart) stays consistent
-    try {
-      if (best && best === cloud) {
-        if (!local || recLastUpdateMs(cloud) > recLastUpdateMs(local)) {
-          upsertEodLocal(JSON.parse(JSON.stringify(cloud)));
-        }
-      }
-    } catch (e2) {}
-
-    return best;
+    return getEodByDateAndLocLocal(dateStr, locationName);
   }
 
   async function upsertEod(rec) {
-    // Always write local shadow first (survives refresh; also helps if cloud caching is weird)
-    try { upsertEodLocal(rec); } catch (e0) {}
-
     if (_apiMode.ok) {
       try { await apiUpsertRecord(rec); return; }
-      catch (e) { return; }
+      catch (e) { upsertEodLocal(rec); return; }
     }
+    upsertEodLocal(rec);
   }
 
   async function loadContacts(locationName) {
@@ -938,7 +962,7 @@
     return auditForLocal(dateStr, locationName);
   }
 
-  async function listDatesForMonth(locationName, ym) {
+  async function listDatesForMonth(locationName, ym) {  async function listDatesForMonth(locationName, ym) {
     var k = String(locationName || "") + "|" + String(ym || "");
 
     // CACHE
@@ -946,23 +970,23 @@
       return _cacheMonthDates.data || [];
     }
 
-    // Always merge cloud + local (prevents missing dates + helps when cloud caching misbehaves)
-    var cloudDates = [];
+    var apiDates = [];
     if (_apiMode.ok) {
       try {
-        cloudDates = await apiListDatesForMonth(ym, locationName);
-        if (!Array.isArray(cloudDates)) cloudDates = [];
+        apiDates = await apiListDatesForMonth(ym, locationName);
+        if (!Array.isArray(apiDates)) apiDates = [];
       } catch (e) {
-        cloudDates = [];
+        apiDates = [];
       }
     }
 
+    // local scan (includes latest edits via local shadow)
     var all = loadAllEodsLocal();
     var localDates = all
       .filter(function (r) { return r && r.location_name === locationName && ymFromYmd(r.date) === ym; })
       .map(function (r) { return r.date; });
 
-    var dates = uniqSorted((cloudDates || []).concat(localDates || []));
+    var dates = uniqSorted((apiDates || []).concat(localDates || []));
 
     _cacheMonthDates.key = k;
     _cacheMonthDates.ts = Date.now();
@@ -1144,7 +1168,7 @@
     document.body.appendChild(overlay);
   }
 
-  // sandbox-safe confirm dialog (replaces window.confirm which is blocked without iframe allow-modals)
+  // ✅ PATCH: sandbox-safe confirm dialog (replaces window.confirm which is blocked without iframe allow-modals)
   function confirmModal(title, message, okText, cancelText) {
     return new Promise(function (resolve) {
       var doneCalled = false;
@@ -1201,7 +1225,7 @@
       overlay.appendChild(box);
       document.body.appendChild(overlay);
 
-      // focus OK by default
+      // focus OK by default (helps keyboard users)
       try { bOk.focus(); } catch (e2) {}
     });
   }
@@ -1318,6 +1342,7 @@
             renderList(container);
           };
 
+          // ✅ PATCH: sandbox-safe confirm (no window.confirm)
           btnDel.onclick = async function () {
             var ok = await confirmModal(
               "Delete Contact",
@@ -1756,7 +1781,7 @@
 
     function isLocked() { return !!state.locked_at; }
 
-    // dateOverride ensures we load the exact selected date even if state changes mid-async
+    // PATCH: dateOverride ensures we load the exact selected date even if state changes mid-async
     async function loadSelectedDateIfNeeded(force, dateOverride) {
       var dateToLoad = String(dateOverride || state.date || "").trim();
       if (!isYmdStr(dateToLoad)) dateToLoad = ymd(new Date());
@@ -1771,15 +1796,34 @@
       if (existing) {
         state = JSON.parse(JSON.stringify(existing));
         state = ensureStateShape(state, locationName, createdBy);
+        // Ensure the loaded record matches the requested date (and keep current login location)
         state.date = dateToLoad;
         if (!state.location_name) state.location_name = locationName;
+        // keep persisted
         _state = state;
       } else {
+        // new blank EOD for that date
         state = defaultState(locationName, createdBy);
         state.date = dateToLoad;
         _state = state;
       }
+             // Track persisted snapshot for live Monthly Summary delta updates while typing
+      _persistedDayKey = key;
+      if (existing && typeof existing === "object") {
+        try {
+          var snap = JSON.parse(JSON.stringify(existing));
+          snap = ensureStateShape(snap, locationName, createdBy);
+          snap.date = dateToLoad;
+          if (!snap.location_name) snap.location_name = locationName;
+          _persistedDayRec = JSON.parse(JSON.stringify(snap));
+        } catch (eSnap) {
+          _persistedDayRec = null;
+        }
+      } else {
+        _persistedDayRec = null;
+      }
 
+      // auto-fill deposit if not edited
       if (!state.deposit_edited) {
         autoFillDeposit(state, roundedDepositF(state), paperUnitsFromCash(state));
       }
@@ -1820,6 +1864,9 @@
       state.saved_at = nowIso();
       await upsertEod(JSON.parse(JSON.stringify(state)));
 
+      _persistedDayKey = String(state.date || "") + "|" + String(state.location_name || "");
+      _persistedDayRec = JSON.parse(JSON.stringify(state));
+
       invalidateMonthCache(state.location_name, ymFromYmd(state.date));
 
       await writeAudit(state.location_name, state.date, {
@@ -1858,6 +1905,7 @@
       rerender();
     }
 
+    // ✅ PATCH: Unlock button (sandbox-safe confirm)
     async function doUnlock() {
       if (!isLocked()) return toast("Already Unlocked", "This End Of Day is not locked.");
 
@@ -2031,6 +2079,7 @@
     }
 
     function liveUpdateUI() {
+      // Payment row totals
       function updRows(prefix, arr) {
         arr = Array.isArray(arr) ? arr : [];
         for (var i = 0; i < arr.length; i++) {
@@ -2043,6 +2092,7 @@
       updRows("chq", state.cheques);
       updRows("po", state.paid_outs);
 
+      // Cash denomination totals
       var c = state.cash || {};
       setBindText("cash_total_n500", euro(intToNumber(c.n500) * 500));
       setBindText("cash_total_n200", euro(intToNumber(c.n200) * 200));
@@ -2056,6 +2106,7 @@
       var counted = countedCashTill(state);
       setBindText("cash_total_till", euro(counted.total));
 
+      // Deposit totals + optional sync (only sync input values when NOT edited)
       var d = state.deposit || {};
       var denoms = [500, 200, 100, 50, 20, 10, 5];
       for (var j = 0; j < denoms.length; j++) {
@@ -2069,6 +2120,7 @@
       }
       setBindText("bov_total", euro(bovTotal(state)));
 
+      // Summary
       var exp = expectedDeposit(state);
       var Etotal = totalCashE(state);
       var Ftotal = roundedDepositF(state);
@@ -2080,6 +2132,22 @@
       setBindText("sum_F", euro(Ftotal));
       setBindText("sum_OU", euro(Math.abs(OU)) + (OU < 0 ? " (UNDER)" : OU > 0 ? " (OVER)" : ""));
       setBindText("sum_COINS", euro(COINS));
+             // Monthly Summary (live delta while typing)
+      try {
+        if (_monthLiveBase) {
+          var ymCur = ymFromYmd(state.date);
+          var myKey = String(state.location_name || "") + "|" + String(ymCur || "");
+          if (_monthLiveBase.key === myKey && _monthLiveBase.date === state.date) {
+            var cur = dayContribution(state);
+            var bd = _monthLiveBase.baseDay || { E: 0, OU: 0, COINS: 0 };
+            var bt = _monthLiveBase.baseTotals || { total_cash_month: 0, over_under_month: 0, coin_box_month: 0 };
+
+            setBindText("month_total_cash", euro(bt.total_cash_month + (cur.E - bd.E)));
+            setBindText("month_over_under", euro(bt.over_under_month + (cur.OU - bd.OU)));
+            setBindText("month_coin_box", euro(bt.coin_box_month + (cur.COINS - bd.COINS)));
+          }
+        }
+      } catch (eMonth) {}
     }
 
     // -----------------------------
@@ -2096,13 +2164,16 @@
       });
 
       inp.onfocus = function () {
+        // IMPORTANT: do not select/clear if focus happened due to programmatic restore
         if (_isRestoringFocus) return;
+
         try { inp.select(); } catch (e) {}
         var v = String(inp.value || "");
         if (v === "0" || v === "0.00") inp.value = "";
       };
 
       inp.oninput = function () {
+        // FIX: allow comma decimals from EU keyboards; normalize to dot live
         var raw = String(inp.value || "");
         if (raw.indexOf(",") >= 0 && raw.indexOf(".") === -1) {
           raw = raw.replace(/,/g, ".");
@@ -2116,21 +2187,25 @@
         }
         valueSetter(r.normalized);
 
+        // Keep caret tracking fresh (so restore doesn't jump)
         try {
           _focusedKey = focusKey;
           _focusedSel = { start: inp.selectionStart, end: inp.selectionEnd };
         } catch (eSel) {}
 
+        // Keep deposit autofill in sync
         if (!state.deposit_edited) {
           autoFillDeposit(state, roundedDepositF(state), paperUnitsFromCash(state));
         }
 
+        // Update UI in-place (NO rerender / NO DOM swap)
         liveUpdateUI();
       };
 
       inp.onblur = function () {
         var raw2 = String(inp.value || "").trim();
 
+        // normalize comma to dot before validating/parsing
         if (raw2.indexOf(",") >= 0 && raw2.indexOf(".") === -1) raw2 = raw2.replace(/,/g, ".");
         inp.value = raw2;
 
@@ -2147,6 +2222,7 @@
           autoFillDeposit(state, roundedDepositF(state), paperUnitsFromCash(state));
         }
 
+        // Update UI in-place
         liveUpdateUI();
       };
 
@@ -2165,7 +2241,9 @@
       });
 
       inp.onfocus = function () {
+        // IMPORTANT: do not select/clear if focus happened due to programmatic restore
         if (_isRestoringFocus) return;
+
         try { inp.select(); } catch (e) {}
         if (String(inp.value || "") === "0") inp.value = "";
       };
@@ -2173,6 +2251,7 @@
       inp.oninput = function () {
         valueSetter(String(intToNumber(inp.value)));
 
+        // Keep caret tracking fresh (so restore doesn't jump)
         try {
           _focusedKey = focusKey;
           _focusedSel = { start: inp.selectionStart, end: inp.selectionEnd };
@@ -2182,6 +2261,7 @@
           autoFillDeposit(state, roundedDepositF(state), paperUnitsFromCash(state));
         }
 
+        // Update UI in-place (NO rerender / NO DOM swap)
         liveUpdateUI();
       };
 
@@ -2191,6 +2271,7 @@
           inp.value = "0";
         }
 
+        // Update UI in-place
         liveUpdateUI();
       };
 
@@ -2332,14 +2413,17 @@
 
       var seq = ++_dateChangeSeq;
 
+      // Update the global state immediately
       state.date = requested;
       _state.date = requested;
 
+      // force load on date change
       _lastLoadedKey = "";
       invalidateMonthCache(state.location_name, ymFromYmd(requested));
 
       await loadSelectedDateIfNeeded(true, requested);
 
+      // If user changed date again while we were loading, ignore this completion
       if (seq !== _dateChangeSeq) return;
 
       rerender();
@@ -2612,20 +2696,51 @@
     ]));
 
     var m = await monthSummary(state, ymFromYmd(state.date));
+
+    // Live base used by liveUpdateUI() to keep Monthly Summary in sync while typing
+    (function () {
+      var ymCur = ymFromYmd(state.date);
+      var monthKey = String(state.location_name || "") + "|" + String(ymCur || "");
+      var baseDay = { E: 0, OU: 0, COINS: 0 };
+
+      var dayKey = String(state.date || "") + "|" + String(state.location_name || "");
+      if (_persistedDayKey === dayKey && _persistedDayRec) {
+        baseDay = dayContribution(_persistedDayRec);
+      }
+
+      _monthLiveBase = {
+        key: monthKey,
+        ym: ymCur,
+        date: state.date,
+        baseTotals: m,
+        baseDay: baseDay
+      };
+    })();
+
     var monthCard = el("div", { class: "eikon-card" });
     monthCard.appendChild(el("div", { style: "font-weight:900;color:#e9eef7;margin-bottom:10px;", text: "Monthly Summary" }));
+
+    var monthTotalCashVal = el("div", { style: "font-weight:900;", text: euro(m.total_cash_month) });
+    monthTotalCashVal.setAttribute("data-eod-bind", "month_total_cash");
+
+    var monthOverUnderVal = el("div", { style: "font-weight:900;", text: euro(m.over_under_month) });
+    monthOverUnderVal.setAttribute("data-eod-bind", "month_over_under");
+
+    var monthCoinBoxVal = el("div", { style: "font-weight:900;", text: euro(m.coin_box_month) });
+    monthCoinBoxVal.setAttribute("data-eod-bind", "month_coin_box");
+
     monthCard.appendChild(el("div", { style: "display:grid;gap:8px;" }, [
       el("div", { style: "display:flex;justify-content:space-between;gap:10px;border:1px solid rgba(255,255,255,.10);border-radius:12px;padding:10px;" }, [
         el("div", { text: "Total Cash (Month):" }),
-        el("div", { style: "font-weight:900;", text: euro(m.total_cash_month) })
+        monthTotalCashVal
       ]),
       el("div", { style: "display:flex;justify-content:space-between;gap:10px;border:1px solid rgba(255,255,255,.10);border-radius:12px;padding:10px;" }, [
         el("div", { text: "Over / Under (Month):" }),
-        el("div", { style: "font-weight:900;", text: euro(m.over_under_month) })
+        monthOverUnderVal
       ]),
       el("div", { style: "display:flex;justify-content:space-between;gap:10px;border:1px solid rgba(255,255,255,.10);border-radius:12px;padding:10px;" }, [
         el("div", { text: "Coin Box (Month):" }),
-        el("div", { style: "font-weight:900;", text: euro(m.coin_box_month) })
+        monthCoinBoxVal
       ])
     ]));
 
@@ -2668,6 +2783,7 @@
     // Best-effort scroll restore after DOM swap (focus restore will restore again)
     if (_scrollRestore) restoreScrollState(_scrollRestore);
 
+    // If a rerender was requested while editing, we can clear it now (we already updated)
     _deferredRerender = false;
   }
 
@@ -2678,6 +2794,7 @@
     icon: "clock",
     render: function (ctx) {
       _mountRef = ctx;
+      // New render token for initial render
       var token = ++_renderToken;
       return render(ctx, token);
     }
