@@ -13,6 +13,12 @@
    - FIX: allow decimal entry on EU keyboards (comma or dot) in amount boxes
    - FIX: allow switching between inputs while rerenders are pending (no focus "snap back")
 
+   NEW FIX in this version:
+   - FIX: stop "second digit overwrites first digit" + scroll jumps while typing
+     - Guard input onfocus select/clear during programmatic focus restore
+     - Focus restore uses preventScroll + restores scroll position
+     - Keep caret selection updated while typing
+
    Existing requirements kept:
    - typing/focus + allow decimals up to 2dp in amount boxes
    - X Readings + EPOS start with 1 row
@@ -44,6 +50,12 @@
   // Focus restore
   var _focusedKey = null;
   var _focusedSel = null;
+
+  // Guard to avoid triggering input onfocus select/clear during programmatic focus restore
+  var _isRestoringFocus = false;
+
+  // Preserve scroll position across rerenders triggered while typing
+  var _scrollRestore = null;
 
   // Render token to drop stale renders
   var _renderToken = 0;
@@ -151,8 +163,61 @@
     try { _focusedSel = { start: ae.selectionStart, end: ae.selectionEnd }; } catch (e) { _focusedSel = null; }
   }
 
+  // -----------------------------
+  // Scroll capture/restore (prevents "scrolling on its own" during rerenders)
+  // -----------------------------
+  function findScrollParent(start) {
+    try {
+      var n = start;
+      while (n && n !== document.body && n !== document.documentElement) {
+        if (n.nodeType === 1) {
+          var cs = window.getComputedStyle(n);
+          var oy = cs && cs.overflowY ? cs.overflowY : "";
+          if ((oy === "auto" || oy === "scroll") && n.scrollHeight > n.clientHeight) return n;
+        }
+        n = n.parentElement;
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  function captureScrollState(mountNode) {
+    try {
+      var docEl = document.scrollingElement || document.documentElement || document.body;
+      var docTop = docEl ? (docEl.scrollTop || 0) : 0;
+      var winY = (typeof window.scrollY === "number") ? window.scrollY : docTop;
+
+      var sp = findScrollParent(mountNode);
+      var spTop = sp ? sp.scrollTop : null;
+
+      return { docEl: docEl, docTop: docTop, winY: winY, sp: sp, spTop: spTop };
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function restoreScrollState(st) {
+    if (!st) return;
+    try {
+      if (st.sp && st.spTop != null) st.sp.scrollTop = st.spTop;
+    } catch (e1) {}
+    try {
+      if (st.docEl && st.docTop != null) st.docEl.scrollTop = st.docTop;
+    } catch (e2) {}
+    try {
+      if (typeof window.scrollTo === "function" && st.winY != null) window.scrollTo(0, st.winY);
+    } catch (e3) {}
+  }
+
   function restoreFocus() {
-    if (!_focusedKey) return;
+    // Restore scroll regardless (focus can cause jumps if preventScroll unsupported)
+    var st = _scrollRestore;
+
+    if (!_focusedKey) {
+      if (st) restoreScrollState(st);
+      _scrollRestore = null;
+      return;
+    }
 
     var scope = _mountEl || document;
     var selector = '[data-focus-key="' + String(_focusedKey).replace(/"/g, '\\"') + '"]';
@@ -161,18 +226,35 @@
     if (!node) {
       try { node = document.querySelector(selector); } catch (e2) { node = null; }
     }
-    if (!node) return;
 
+    if (!node) {
+      if (st) restoreScrollState(st);
+      _scrollRestore = null;
+      return;
+    }
+
+    // Programmatic focus restore: prevent select-all + prevent scroll jumps
+    _isRestoringFocus = true;
     try {
-      node.focus();
-      if (_focusedSel && node.setSelectionRange) node.setSelectionRange(_focusedSel.start, _focusedSel.end);
+      try { node.focus({ preventScroll: true }); }
+      catch (e0) { try { node.focus(); } catch (e00) {} }
+
+      if (_focusedSel && node.setSelectionRange) {
+        try { node.setSelectionRange(_focusedSel.start, _focusedSel.end); } catch (e1) {}
+      }
     } catch (e) {}
+    _isRestoringFocus = false;
+
+    if (st) restoreScrollState(st);
+    _scrollRestore = null;
   }
 
   function scheduleRerender(delayMs) {
     var delay = typeof delayMs === "number" ? delayMs : 80; // debounce typing
     if (!_mountRef) return;
     rememberFocus();
+    _scrollRestore = captureScrollState(_mountEl);
+
     if (_rerenderTimer) window.clearTimeout(_rerenderTimer);
     _rerenderTimer = window.setTimeout(function () {
       _rerenderTimer = null;
@@ -208,7 +290,7 @@
       else if (k === "type") node.type = String(v || "");
       else if (k === "placeholder") node.placeholder = String(v || "");
       else if (k === "disabled") node.disabled = !!v;
-      else if (k === "style") node.setAttribute("style", String(v || ""));
+      else if (k === "style") node.setAttribute("style", String(v || "")); // NOTE: keep existing behavior
       else node.setAttribute(k, String(v));
     });
     if (Array.isArray(children)) {
@@ -1663,6 +1745,9 @@
       });
 
       inp.onfocus = function () {
+        // IMPORTANT: do not select/clear if focus happened due to programmatic restore
+        if (_isRestoringFocus) return;
+
         try { inp.select(); } catch (e) {}
         var v = String(inp.value || "");
         if (v === "0" || v === "0.00") inp.value = "";
@@ -1683,13 +1768,19 @@
         }
         valueSetter(r.normalized);
 
+        // Keep caret tracking fresh (so restore doesn't jump)
+        try {
+          _focusedKey = focusKey;
+          _focusedSel = { start: inp.selectionStart, end: inp.selectionEnd };
+        } catch (eSel) {}
+
         // Keep deposit autofill in sync (but don’t refetch anything)
         if (!state.deposit_edited) {
           autoFillDeposit(state, roundedDepositF(state), paperUnitsFromCash(state));
         }
 
         // Debounced rerender (NO API reload now)
-        scheduleRerender(90);
+        scheduleRerender(120);
       };
 
       inp.onblur = function () {
@@ -1711,7 +1802,7 @@
         if (!state.deposit_edited) {
           autoFillDeposit(state, roundedDepositF(state), paperUnitsFromCash(state));
         }
-        scheduleRerender(40);
+        scheduleRerender(60);
       };
 
       return inp;
@@ -1729,6 +1820,9 @@
       });
 
       inp.onfocus = function () {
+        // IMPORTANT: do not select/clear if focus happened due to programmatic restore
+        if (_isRestoringFocus) return;
+
         try { inp.select(); } catch (e) {}
         if (String(inp.value || "") === "0") inp.value = "";
       };
@@ -1736,18 +1830,24 @@
       inp.oninput = function () {
         valueSetter(String(intToNumber(inp.value)));
 
+        // Keep caret tracking fresh (so restore doesn't jump)
+        try {
+          _focusedKey = focusKey;
+          _focusedSel = { start: inp.selectionStart, end: inp.selectionEnd };
+        } catch (eSel) {}
+
         if (!state.deposit_edited) {
           autoFillDeposit(state, roundedDepositF(state), paperUnitsFromCash(state));
         }
 
-        scheduleRerender(90);
+        scheduleRerender(120);
       };
 
       inp.onblur = function () {
         if (String(inp.value || "").trim() === "") {
           valueSetter("0");
           inp.value = "0";
-          scheduleRerender(40);
+          scheduleRerender(60);
         }
       };
 
@@ -2189,6 +2289,9 @@
     // Swap DOM only at end (prevents blank flicker)
     mount.innerHTML = "";
     mount.appendChild(root);
+
+    // Best-effort scroll restore after DOM swap (focus restore will restore again)
+    if (_scrollRestore) restoreScrollState(_scrollRestore);
   }
 
   // Register module
