@@ -19,6 +19,11 @@
      - Focus restore uses preventScroll + restores scroll position
      - Keep caret selection updated while typing
 
+   NEW FIX (typing focus loss):
+   - FIX: typing no longer triggers full rerender timers (prevents mobile/iOS focus drop)
+     - Update totals/summary in-place while typing (no DOM swap)
+     - Any requested rerender while a field is focused is deferred until editing stops
+
    Existing requirements kept:
    - typing/focus + allow decimals up to 2dp in amount boxes
    - X Readings + EPOS start with 1 row
@@ -62,6 +67,10 @@
 
   // Debounced rerender
   var _rerenderTimer = null;
+
+  // Rerender deferral while editing (prevents focus loss on mobile/iOS)
+  var _deferredRerender = false;
+  var _deferredRerenderTimer = null;
 
   // Caches to avoid spamming cloudworker
   var CACHE_TTL_MS = 30000; // 30s
@@ -249,15 +258,62 @@
     _scrollRestore = null;
   }
 
+  function isEditingField() {
+    try {
+      if (!_mountEl) return false;
+      var ae = document.activeElement;
+      if (!ae) return false;
+      if (!_mountEl.contains(ae)) return false;
+      var tag = String(ae.tagName || "").toLowerCase();
+      if (tag === "input" || tag === "textarea" || tag === "select") {
+        return !!(ae.getAttribute && ae.getAttribute("data-focus-key"));
+      }
+    } catch (e) {}
+    return false;
+  }
+
+  function requestDeferredRerender() {
+    _deferredRerender = true;
+    if (_deferredRerenderTimer) return;
+
+    _deferredRerenderTimer = window.setTimeout(function tick() {
+      if (!_deferredRerender) { _deferredRerenderTimer = null; return; }
+
+      // Wait until the user is no longer focused in an edit field (prevents mobile focus drop)
+      if (isEditingField()) {
+        _deferredRerenderTimer = window.setTimeout(tick, 250);
+        return;
+      }
+
+      _deferredRerender = false;
+      _deferredRerenderTimer = null;
+      rerender();
+    }, 250);
+  }
+
   function scheduleRerender(delayMs) {
-    var delay = typeof delayMs === "number" ? delayMs : 80; // debounce typing
+    var delay = typeof delayMs === "number" ? delayMs : 80; // debounce
     if (!_mountRef) return;
+
+    // If user is actively editing, do NOT swap DOM now (causes focus loss on some browsers)
+    if (isEditingField()) {
+      requestDeferredRerender();
+      return;
+    }
+
     rememberFocus();
     _scrollRestore = captureScrollState(_mountEl);
 
     if (_rerenderTimer) window.clearTimeout(_rerenderTimer);
     _rerenderTimer = window.setTimeout(function () {
       _rerenderTimer = null;
+
+      // If user started editing while we were waiting, defer again
+      if (isEditingField()) {
+        requestDeferredRerender();
+        return;
+      }
+
       var token = ++_renderToken;
       render(_mountRef, token)
         .then(function () {
@@ -1732,6 +1788,84 @@
     }
 
     // -----------------------------
+    // Live UI updates while typing (no rerender / no DOM swap)
+    // -----------------------------
+    function setBindText(key, text) {
+      try {
+        var nodes = mount.querySelectorAll('[data-eod-bind="' + key + '"]');
+        for (var i = 0; i < nodes.length; i++) nodes[i].textContent = String(text == null ? "" : text);
+      } catch (e) {}
+    }
+
+    function setValueByFocusKey(focusKey, value, skipActive) {
+      try {
+        var selector = '[data-focus-key="' + String(focusKey).replace(/"/g, '\\"') + '"]';
+        var nodes = mount.querySelectorAll(selector);
+        for (var i = 0; i < nodes.length; i++) {
+          var n = nodes[i];
+          if (skipActive && document.activeElement === n) continue;
+          n.value = String(value == null ? "" : value);
+        }
+      } catch (e) {}
+    }
+
+    function liveUpdateUI() {
+      // Payment row totals
+      function updRows(prefix, arr) {
+        arr = Array.isArray(arr) ? arr : [];
+        for (var i = 0; i < arr.length; i++) {
+          var r = arr[i] || {};
+          setBindText(prefix + "_row_total_" + i, euro(moneyToNumber(r.amount)));
+        }
+      }
+      updRows("x", state.x);
+      updRows("epos", state.epos);
+      updRows("chq", state.cheques);
+      updRows("po", state.paid_outs);
+
+      // Cash denomination totals
+      var c = state.cash || {};
+      setBindText("cash_total_n500", euro(intToNumber(c.n500) * 500));
+      setBindText("cash_total_n200", euro(intToNumber(c.n200) * 200));
+      setBindText("cash_total_n100", euro(intToNumber(c.n100) * 100));
+      setBindText("cash_total_n50",  euro(intToNumber(c.n50)  * 50));
+      setBindText("cash_total_n20",  euro(intToNumber(c.n20)  * 20));
+      setBindText("cash_total_n10",  euro(intToNumber(c.n10)  * 10));
+      setBindText("cash_total_n5",   euro(intToNumber(c.n5)   * 5));
+      setBindText("cash_total_coins_total", euro(moneyToNumber(c.coins_total)));
+
+      var counted = countedCashTill(state);
+      setBindText("cash_total_till", euro(counted.total));
+
+      // Deposit totals + optional sync (only sync input values when NOT edited)
+      var d = state.deposit || {};
+      var denoms = [500, 200, 100, 50, 20, 10, 5];
+      for (var j = 0; j < denoms.length; j++) {
+        var den = denoms[j];
+        var k = "n" + den;
+        var q = intToNumber(d[k]);
+        setBindText("dep_total_" + k, euro(q * den));
+        if (!state.deposit_edited) {
+          setValueByFocusKey("dep_" + k, String(q), true);
+        }
+      }
+      setBindText("bov_total", euro(bovTotal(state)));
+
+      // Summary
+      var exp = expectedDeposit(state);
+      var Etotal = totalCashE(state);
+      var Ftotal = roundedDepositF(state);
+      var OU = overUnder(state);
+      var COINS = coinsDiff(state);
+
+      setBindText("sum_expected", euro(exp));
+      setBindText("sum_E", euro(Etotal));
+      setBindText("sum_F", euro(Ftotal));
+      setBindText("sum_OU", euro(Math.abs(OU)) + (OU < 0 ? " (UNDER)" : OU > 0 ? " (OVER)" : ""));
+      setBindText("sum_COINS", euro(COINS));
+    }
+
+    // -----------------------------
     // Inputs
     // -----------------------------
     function makeMoneyInput(valueGetter, valueSetter, focusKey, disabled) {
@@ -1774,13 +1908,13 @@
           _focusedSel = { start: inp.selectionStart, end: inp.selectionEnd };
         } catch (eSel) {}
 
-        // Keep deposit autofill in sync (but don’t refetch anything)
+        // Keep deposit autofill in sync
         if (!state.deposit_edited) {
           autoFillDeposit(state, roundedDepositF(state), paperUnitsFromCash(state));
         }
 
-        // Debounced rerender (NO API reload now)
-        scheduleRerender(120);
+        // Update UI in-place (NO rerender / NO DOM swap)
+        liveUpdateUI();
       };
 
       inp.onblur = function () {
@@ -1802,7 +1936,9 @@
         if (!state.deposit_edited) {
           autoFillDeposit(state, roundedDepositF(state), paperUnitsFromCash(state));
         }
-        scheduleRerender(60);
+
+        // Update UI in-place
+        liveUpdateUI();
       };
 
       return inp;
@@ -1840,15 +1976,18 @@
           autoFillDeposit(state, roundedDepositF(state), paperUnitsFromCash(state));
         }
 
-        scheduleRerender(120);
+        // Update UI in-place (NO rerender / NO DOM swap)
+        liveUpdateUI();
       };
 
       inp.onblur = function () {
         if (String(inp.value || "").trim() === "") {
           valueSetter("0");
           inp.value = "0";
-          scheduleRerender(60);
         }
+
+        // Update UI in-place
+        liveUpdateUI();
       };
 
       return inp;
@@ -1904,6 +2043,7 @@
             title === "Cheques" ? ("Cheque " + (idx + 1)) :
             ("Paid Out " + (idx + 1));
 
+          tdTot.setAttribute("data-eod-bind", rowKeyPrefix + "_row_total_" + idx);
           tdTot.textContent = euro(moneyToNumber(r.amount));
 
           var inAmt = makeMoneyInput(
@@ -2066,6 +2206,7 @@
       );
 
       tdC.appendChild(inp);
+      tdT.setAttribute("data-eod-bind", "cash_total_" + key);
       tdT.textContent = euro(intToNumber(state.cash[key]) * denom);
 
       tr.appendChild(tdD); tr.appendChild(tdC); tr.appendChild(tdT);
@@ -2094,6 +2235,8 @@
         isLocked()
       );
       tdC.appendChild(inp);
+
+      tdT.setAttribute("data-eod-bind", "cash_total_coins_total");
       tdT.textContent = euro(moneyToNumber(state.cash.coins_total));
 
       tr.appendChild(tdD); tr.appendChild(tdC); tr.appendChild(tdT);
@@ -2105,9 +2248,13 @@
     var counted = countedCashTill(state);
 
     leftCash.appendChild(tblCash);
+
+    var tillVal = el("div", { style: "font-weight:900;", text: euro(counted.total) });
+    tillVal.setAttribute("data-eod-bind", "cash_total_till");
+
     leftCash.appendChild(el("div", { style: "margin-top:10px;padding:10px;border:1px solid rgba(255,255,255,.10);border-radius:12px;display:flex;justify-content:space-between;align-items:center;" }, [
       el("div", { style: "font-weight:900;", text: "Total Cash (Till):" }),
-      el("div", { style: "font-weight:900;", text: euro(counted.total) })
+      tillVal
     ]));
 
     var rightBov = el("div", {});
@@ -2176,6 +2323,8 @@
       );
 
       tdC.appendChild(inp);
+
+      tdT.setAttribute("data-eod-bind", "dep_total_" + key);
       tdT.textContent = euro(intToNumber(state.deposit[key]) * denom);
 
       tr.appendChild(tdD); tr.appendChild(tdC); tr.appendChild(tdT);
@@ -2194,9 +2343,12 @@
 
     rightBov.appendChild(tblDep);
 
+    var bovVal = el("div", { style: "font-weight:900;", text: euro(bovTotal(state)) });
+    bovVal.setAttribute("data-eod-bind", "bov_total");
+
     rightBov.appendChild(el("div", { style: "margin-top:10px;padding:10px;border:1px solid rgba(255,255,255,.10);border-radius:12px;display:flex;justify-content:space-between;align-items:center;" }, [
       el("div", { style: "font-weight:900;", text: "Total BOV Deposit:" }),
-      el("div", { style: "font-weight:900;", text: euro(bovTotal(state)) })
+      bovVal
     ]));
 
     cashGrid.appendChild(leftCash);
@@ -2215,26 +2367,32 @@
     var OU = overUnder(state);
     var COINS = coinsDiff(state);
 
+    var sumExpectedVal = el("div", { style: "font-weight:900;", text: euro(exp) }); sumExpectedVal.setAttribute("data-eod-bind", "sum_expected");
+    var sumEVal = el("div", { style: "font-weight:900;", text: euro(Etotal) }); sumEVal.setAttribute("data-eod-bind", "sum_E");
+    var sumFVal = el("div", { style: "font-weight:900;", text: euro(Ftotal) }); sumFVal.setAttribute("data-eod-bind", "sum_F");
+    var sumOUVal = el("div", { style: "font-weight:900;", text: euro(Math.abs(OU)) + (OU < 0 ? " (UNDER)" : OU > 0 ? " (OVER)" : "") }); sumOUVal.setAttribute("data-eod-bind", "sum_OU");
+    var sumCoinsVal = el("div", { style: "font-weight:900;", text: euro(COINS) }); sumCoinsVal.setAttribute("data-eod-bind", "sum_COINS");
+
     sumCard.appendChild(el("div", { style: "display:grid;gap:8px;" }, [
       el("div", { style: "display:flex;justify-content:space-between;gap:10px;border:1px solid rgba(255,255,255,.10);border-radius:12px;padding:10px;" }, [
         el("div", { text: "Expected Deposit (A − B − C − D):" }),
-        el("div", { style: "font-weight:900;", text: euro(exp) })
+        sumExpectedVal
       ]),
       el("div", { style: "display:flex;justify-content:space-between;gap:10px;border:1px solid rgba(255,255,255,.10);border-radius:12px;padding:10px;" }, [
         el("div", { text: "E — Total Cash (Till − Float):" }),
-        el("div", { style: "font-weight:900;", text: euro(Etotal) })
+        sumEVal
       ]),
       el("div", { style: "display:flex;justify-content:space-between;gap:10px;border:1px solid rgba(255,255,255,.10);border-radius:12px;padding:10px;" }, [
         el("div", { text: "F — Rounded Cash Deposited:" }),
-        el("div", { style: "font-weight:900;", text: euro(Ftotal) })
+        sumFVal
       ]),
       el("div", { style: "display:flex;justify-content:space-between;gap:10px;border:1px solid rgba(255,255,255,.10);border-radius:12px;padding:10px;" }, [
         el("div", { text: "Over / Under (E − Expected):" }),
-        el("div", { style: "font-weight:900;", text: euro(Math.abs(OU)) + (OU < 0 ? " (UNDER)" : OU > 0 ? " (OVER)" : "") })
+        sumOUVal
       ]),
       el("div", { style: "display:flex;justify-content:space-between;gap:10px;border:1px solid rgba(255,255,255,.10);border-radius:12px;padding:10px;" }, [
         el("div", { text: "Coins (E − F):" }),
-        el("div", { style: "font-weight:900;", text: euro(COINS) })
+        sumCoinsVal
       ])
     ]));
 
@@ -2292,6 +2450,9 @@
 
     // Best-effort scroll restore after DOM swap (focus restore will restore again)
     if (_scrollRestore) restoreScrollState(_scrollRestore);
+
+    // If a rerender was requested while editing, we can clear it now (we already updated)
+    _deferredRerender = false;
   }
 
   // Register module
