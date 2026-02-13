@@ -7,6 +7,8 @@ function jsonResponse(data, status = 200, extraHeaders = {}) {
     status,
     headers: {
       "Content-Type": "application/json",
+      "Cache-Control": "no-store",
+      "Pragma": "no-cache",
       ...extraHeaders
     }
   });
@@ -1066,13 +1068,13 @@ async function handleEodUpsert(request, env, corsOkHeaders, authUser) {
         x_json, epos_json, cheques_json, paid_outs_json, cash_json,
         bov_deposit_json, bov_bag_number, bov_contact_id, notes,
         saved_at, locked_at, created_at, updated_at, updated_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?, datetime('now'), datetime('now'), ?)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), CASE WHEN ? THEN datetime('now') ELSE NULL END, datetime('now'), datetime('now'), ?)
        RETURNING id`,
       [
         authUser.org_id, authUser.location_id, date, timeOfDay, staffName, floatAmount,
         xJson, eposJson, chequesJson, paidOutsJson, cashJson,
         bovDepositJson, bovBagNumber || null, bovContactId, notes || null,
-        wantsLock ? "datetime('now')" : null, // NOTE: kept original behavior pattern
+        wantsLock ? 1 : 0, // NOTE: kept original behavior pattern
         authUser.user_id
       ]
     );
