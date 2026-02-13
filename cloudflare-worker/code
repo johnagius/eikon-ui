@@ -943,69 +943,197 @@ async function handleEodGet(request, env, corsOkHeaders, authUser, url) {
 }
 
 async function handleEodUpsert(request, env, corsOkHeaders, authUser) {
-  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
   await ensureEndOfDaySchema(env);
 
-  let body = await readJson(request);
-
-  // UI sends { record: { ... } } — unwrap if present
-  if (body.record && typeof body.record === "object") {
+  let body = await readJson(request); // UI sends { record: { ... } }
+  if (body && typeof body === "object" && body.record && typeof body.record === "object") {
     body = body.record;
   }
 
-  // Accept both UI field names (date/staff/deposit/bag_number/contact_id) and worker field names (eod_date/staff_name/bov_deposit/bov_bag_number/bov_contact_id)
   const date = String(body.eod_date || body.date || "").trim();
-  const timeOfDay = String(body.time_of_day || "AM").trim().toUpperCase();
-  const staffName = String(body.staff_name || body.staff || "").trim();
-  const floatAmount = Number(body.float_amount);
+  if (!isValidYmd(date)) {
+    return jsonResponse({ ok: false, error: "Invalid date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  }
 
-  const xJson = JSON.stringify(body.x || []);
-  const eposJson = JSON.stringify(body.epos || []);
-  const chequesJson = JSON.stringify(body.cheques || []);
-  const paidOutsJson = JSON.stringify(body.paid_outs || []);
-  const cashJson = JSON.stringify(body.cash || {});
-  const bovDepositJson = JSON.stringify(body.bov_deposit || body.deposit || {});
+  // Read locked_at intent (explicit)
+  const hasLockedAtField =
+    body &&
+    typeof body === "object" &&
+    (Object.prototype.hasOwnProperty.call(body, "locked_at") ||
+      Object.prototype.hasOwnProperty.call(body, "lockedAt"));
 
-  const bovBag = String(body.bov_bag_number || body.bag_number || "").trim();
-  const rawContactId = body.bov_contact_id != null ? body.bov_contact_id : body.contact_id;
-  const bovContactId = (rawContactId === null || rawContactId === undefined || rawContactId === "") ? null : Number(rawContactId);
-  const notes = String(body.notes || "").trim();
+  const lockedAtRaw = hasLockedAtField
+    ? (Object.prototype.hasOwnProperty.call(body, "locked_at") ? body.locked_at : body.lockedAt)
+    : undefined;
 
-  // UI may send locked_at via upsert (lock-via-save flow)
-  const wantsLock = !!(body.locked_at);
+  const wantsLock = !!(lockedAtRaw && String(lockedAtRaw).trim());
 
-  if (!isValidYmd(date)) return jsonResponse({ ok: false, error: "Invalid eod_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
-  if (timeOfDay !== "AM" && timeOfDay !== "PM") return jsonResponse({ ok: false, error: "Invalid time_of_day (AM/PM)" }, 400, corsOkHeaders);
-  if (!staffName) return jsonResponse({ ok: false, error: "Missing staff_name" }, 400, corsOkHeaders);
-  if (!Number.isFinite(floatAmount) || floatAmount < 0) return jsonResponse({ ok: false, error: "Invalid float_amount" }, 400, corsOkHeaders);
+  // Load existing early so we can allow UNLOCK without requiring staff/float validation
+  const existing = await dbFirst(
+    env,
+    "SELECT id, locked_at FROM end_of_day WHERE org_id = ? AND location_id = ? AND eod_date = ?",
+    [authUser.org_id, authUser.location_id, date]
+  );
 
-  const existing = await dbFirst(env, "SELECT id, locked_at FROM end_of_day WHERE org_id = ? AND location_id = ? AND eod_date = ?", [authUser.org_id, authUser.location_id, date]);
-
-  // If already locked and this is NOT a lock request (i.e. a normal edit), block it
-  if (existing && existing.locked_at && !wantsLock) return jsonResponse({ ok: false, error: "Locked" }, 409, corsOkHeaders);
-
-  if (!existing) {
-    const lockedVal = wantsLock ? "datetime('now')" : null;
-    const row = await dbFirst(
-      env,
-      `INSERT INTO end_of_day (org_id, location_id, eod_date, time_of_day, staff_name, float_amount, x_json, epos_json, cheques_json, paid_outs_json, cash_json, bov_deposit_json, bov_bag_number, bov_contact_id, notes, saved_at, locked_at, created_at, updated_at, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ${wantsLock ? "datetime('now')" : "NULL"}, datetime('now'), datetime('now'), ?, ?) RETURNING id`,
-      [authUser.org_id, authUser.location_id, date, timeOfDay, staffName, floatAmount, xJson, eposJson, chequesJson, paidOutsJson, cashJson, bovDepositJson, bovBag, bovContactId, notes, authUser.user_id, authUser.user_id]
+  const wantsUnlock =
+    !!(existing && existing.locked_at) &&
+    (
+      lockedAtRaw === "" ||
+      lockedAtRaw === null ||
+      body.unlock === true ||
+      body.action === "UNLOCK"
     );
-    await writeAudit(env, authUser.org_id, authUser.user_id, wantsLock ? "EOD_CREATE_LOCK" : "EOD_CREATE", "end_of_day", String(row.id), { eod_date: date });
-    return jsonResponse({ ok: true, id: row.id }, 200, corsOkHeaders);
-  } else {
-    // If already locked, only allow if this is a re-lock (idempotent)
-    if (existing.locked_at) {
+
+  // ✅ PATCH: allow explicit unlock for locked records
+  if (existing && existing.locked_at) {
+    if (wantsUnlock) {
+      await dbRun(
+        env,
+        `UPDATE end_of_day
+         SET locked_at = NULL,
+             updated_at = datetime('now'),
+             updated_by = ?
+         WHERE id = ? AND org_id = ? AND location_id = ?`,
+        [authUser.user_id, existing.id, authUser.org_id, authUser.location_id]
+      );
+
+      await writeAudit(
+        env,
+        authUser.org_id,
+        authUser.user_id,
+        "EOD_UNLOCK",
+        "end_of_day",
+        String(existing.id),
+        { eod_date: date }
+      );
+
+      const row = await dbFirst(
+        env,
+        "SELECT e.*, l.name AS location_name FROM end_of_day e LEFT JOIN locations l ON l.id = e.location_id AND l.org_id = e.org_id WHERE e.org_id = ? AND e.location_id = ? AND e.eod_date = ?",
+        [authUser.org_id, authUser.location_id, date]
+      );
+      const uiRow = eodRowToUi(row);
+      if (uiRow && !uiRow.location_name && authUser.location_name) uiRow.location_name = authUser.location_name;
+
+      return jsonResponse({ ok: true, eod: uiRow, record: uiRow, item: uiRow }, 200, corsOkHeaders);
+    }
+
+    // idempotent lock call: return existing locked state
+    if (wantsLock) {
       return jsonResponse({ ok: true, id: existing.id, locked_at: existing.locked_at }, 200, corsOkHeaders);
     }
+
+    // still block normal updates while locked
+    return jsonResponse({ ok: false, error: "Locked - cannot update" }, 409, corsOkHeaders);
+  }
+
+  // Normal validation for create/update (unlocked)
+  const staffName = String(body.staff_name || body.staff || "").trim();
+  const floatAmount = Number(body.float_amount ?? body.float ?? body.floatAmount ?? 500);
+
+  if (!staffName) {
+    return jsonResponse({ ok: false, error: "Missing staff/staff_name" }, 400, corsOkHeaders);
+  }
+  if (!Number.isFinite(floatAmount) || floatAmount < 0) {
+    return jsonResponse({ ok: false, error: "Invalid float_amount (>= 0)" }, 400, corsOkHeaders);
+  }
+
+  const timeOfDay = String(body.time_of_day || "AM").trim() || "AM";
+
+  const xJson = JSON.stringify(Array.isArray(body.x) ? body.x : []);
+  const eposJson = JSON.stringify(Array.isArray(body.epos) ? body.epos : []);
+  const chequesJson = JSON.stringify(Array.isArray(body.cheques) ? body.cheques : []);
+  const paidOutsJson = JSON.stringify(Array.isArray(body.paid_outs) ? body.paid_outs : []);
+  const cashJson = JSON.stringify(body.cash && typeof body.cash === "object" ? body.cash : {});
+
+  const bovDeposit = body.bov_deposit || body.deposit || {};
+  const bovDepositJson = JSON.stringify(bovDeposit && typeof bovDeposit === "object" ? bovDeposit : {});
+  const bovBagNumber = String(body.bov_bag_number || body.bag_number || "").trim();
+  const bovContactId = body.bov_contact_id != null ? body.bov_contact_id : (body.contact_id != null ? body.contact_id : null);
+
+  const notes = String(body.notes || "").trim();
+
+  // Insert or update
+  if (!existing) {
+    const row = await dbFirst(
+      env,
+      `INSERT INTO end_of_day
+       (org_id, location_id, eod_date, time_of_day, staff_name, float_amount,
+        x_json, epos_json, cheques_json, paid_outs_json, cash_json,
+        bov_deposit_json, bov_bag_number, bov_contact_id, notes,
+        saved_at, locked_at, created_at, updated_at, updated_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?, datetime('now'), datetime('now'), ?)
+       RETURNING id`,
+      [
+        authUser.org_id, authUser.location_id, date, timeOfDay, staffName, floatAmount,
+        xJson, eposJson, chequesJson, paidOutsJson, cashJson,
+        bovDepositJson, bovBagNumber || null, bovContactId, notes || null,
+        wantsLock ? "datetime('now')" : null, // NOTE: kept original behavior pattern
+        authUser.user_id
+      ]
+    );
+
+    await writeAudit(env, authUser.org_id, authUser.user_id, "EOD_CREATE", "end_of_day", String(row.id), { eod_date: date, locked: wantsLock });
+
+  } else {
     await dbRun(
       env,
-      `UPDATE end_of_day SET time_of_day = ?, staff_name = ?, float_amount = ?, x_json = ?, epos_json = ?, cheques_json = ?, paid_outs_json = ?, cash_json = ?, bov_deposit_json = ?, bov_bag_number = ?, bov_contact_id = ?, notes = ?, saved_at = datetime('now'), ${wantsLock ? "locked_at = datetime('now')," : ""} updated_at = datetime('now'), updated_by = ? WHERE id = ? AND org_id = ? AND location_id = ?`,
-      [timeOfDay, staffName, floatAmount, xJson, eposJson, chequesJson, paidOutsJson, cashJson, bovDepositJson, bovBag, bovContactId, notes, authUser.user_id, existing.id, authUser.org_id, authUser.location_id]
+      `UPDATE end_of_day SET
+         time_of_day = ?,
+         staff_name = ?,
+         float_amount = ?,
+         x_json = ?,
+         epos_json = ?,
+         cheques_json = ?,
+         paid_outs_json = ?,
+         cash_json = ?,
+         bov_deposit_json = ?,
+         bov_bag_number = ?,
+         bov_contact_id = ?,
+         notes = ?,
+         saved_at = datetime('now'),
+         locked_at = CASE WHEN ? THEN datetime('now') ELSE locked_at END,
+         updated_at = datetime('now'),
+         updated_by = ?
+       WHERE id = ? AND org_id = ? AND location_id = ?`,
+      [
+        timeOfDay,
+        staffName,
+        floatAmount,
+        xJson,
+        eposJson,
+        chequesJson,
+        paidOutsJson,
+        cashJson,
+        bovDepositJson,
+        bovBagNumber || null,
+        bovContactId,
+        notes || null,
+        wantsLock ? 1 : 0,
+        authUser.user_id,
+        existing.id,
+        authUser.org_id,
+        authUser.location_id
+      ]
     );
-    await writeAudit(env, authUser.org_id, authUser.user_id, wantsLock ? "EOD_UPDATE_LOCK" : "EOD_UPDATE", "end_of_day", String(existing.id), { eod_date: date });
-    return jsonResponse({ ok: true, id: existing.id }, 200, corsOkHeaders);
+
+    await writeAudit(env, authUser.org_id, authUser.user_id, wantsLock ? "EOD_LOCK" : "EOD_UPDATE", "end_of_day", String(existing.id), { eod_date: date });
   }
+
+  const row = await dbFirst(
+    env,
+    "SELECT e.*, l.name AS location_name FROM end_of_day e LEFT JOIN locations l ON l.id = e.location_id AND l.org_id = e.org_id WHERE e.org_id = ? AND e.location_id = ? AND e.eod_date = ?",
+    [authUser.org_id, authUser.location_id, date]
+  );
+
+  const uiRow = eodRowToUi(row);
+  if (uiRow && !uiRow.location_name && authUser.location_name) uiRow.location_name = authUser.location_name;
+
+  return jsonResponse({ ok: true, eod: uiRow, record: uiRow, item: uiRow }, 200, corsOkHeaders);
 }
 
 async function handleEodLock(request, env, corsOkHeaders, authUser) {
