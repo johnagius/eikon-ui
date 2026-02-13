@@ -1,22 +1,22 @@
 /* ui/modules.endofday.js
    Eikon - End Of Day module (UI)
 
-   Requirements implemented:
-   - FIX: typing/focus + allow decimals up to 2dp (e.g. 1512.32) in amount boxes
-   - X Readings + EPOS start with 1 row (user can add/remove)
-   - BOV deposit auto-fills from cash notes to match uploaded HTML behaviour (editable; stops auto once user edits)
-   - Copy BOV deposit to Outlook/email (HTML + plain) using selected contact (name/email/phone)
-   - Summary calculations aligned with uploaded HTML:
-       expected = A - B - C - D
-       E = max(0, till - float)
-       F = round(E/5)*5
-       OU = E - expected
-       coins = E - F
-   - Print: opens a print tab like modules.temperature.js (does NOT auto-close instantly)
-   - Cloud: uses API when available; falls back to localStorage if API 404
+   Fixes in this version:
+   - FIX: prevent blank screen + excessive Cloudflare Worker calls while typing
+     - Keep in-memory state across rerenders
+     - Only load API record when date/location changes
+     - Cache contacts + month summary + month dates (TTL)
+     - Debounce rerenders during typing
+     - Avoid clearing mount until new DOM is ready; drop stale renders
 
-   Notes:
-   - Deposit denominations include €5 as per your HTML.
+   Existing requirements kept:
+   - typing/focus + allow decimals up to 2dp in amount boxes
+   - X Readings + EPOS start with 1 row
+   - BOV deposit auto-fills from cash notes (stops once user edits)
+   - Copy BOV deposit to Outlook/email (HTML + plain)
+   - Summary calculations aligned with HTML
+   - Print tab (does NOT auto-close)
+   - Cloud API when available; fallback localStorage when 404
 */
 
 (function () {
@@ -24,6 +24,88 @@
 
   var E = window.EIKON;
   if (!E) return;
+
+  // -----------------------------
+  // Module-level state + render control
+  // -----------------------------
+  var _mountRef = null;
+
+  // Persisted UI state across rerenders (so typing doesn’t reset)
+  var _state = null;
+
+  // Only reload selected-date record when this changes
+  var _lastLoadedKey = ""; // `${date}|${location}`
+
+  // Focus restore
+  var _focusedKey = null;
+  var _focusedSel = null;
+
+  // Render token to drop stale renders
+  var _renderToken = 0;
+
+  // Debounced rerender
+  var _rerenderTimer = null;
+
+  // Caches to avoid spamming cloudworker
+  var CACHE_TTL_MS = 30000; // 30s
+  var _cacheContacts = { key: "", ts: 0, data: [] };
+  var _cacheMonthSummary = { key: "", ts: 0, data: null };
+  var _cacheMonthDates = { key: "", ts: 0, data: [] };
+
+  function cacheFresh(ts) {
+    return (Date.now() - ts) < CACHE_TTL_MS;
+  }
+
+  function invalidateContactsCache(locationName) {
+    if (_cacheContacts.key === String(locationName || "")) _cacheContacts.ts = 0;
+  }
+
+  function invalidateMonthCache(locationName, ym) {
+    var k = String(locationName || "") + "|" + String(ym || "");
+    if (_cacheMonthSummary.key === k) _cacheMonthSummary.ts = 0;
+    if (_cacheMonthDates.key === k) _cacheMonthDates.ts = 0;
+  }
+
+  function rememberFocus() {
+    var ae = document.activeElement;
+    if (!ae) return;
+    var k = ae.getAttribute && ae.getAttribute("data-focus-key");
+    if (!k) return;
+    _focusedKey = k;
+    try { _focusedSel = { start: ae.selectionStart, end: ae.selectionEnd }; } catch (e) { _focusedSel = null; }
+  }
+
+  function restoreFocus() {
+    if (!_focusedKey) return;
+    var node = document.querySelector('[data-focus-key="' + _focusedKey.replace(/"/g, '\\"') + '"]');
+    if (!node) return;
+    try {
+      node.focus();
+      if (_focusedSel && node.setSelectionRange) node.setSelectionRange(_focusedSel.start, _focusedSel.end);
+    } catch (e) {}
+  }
+
+  function scheduleRerender(delayMs) {
+    var delay = typeof delayMs === "number" ? delayMs : 80; // debounce typing
+    if (!_mountRef) return;
+    rememberFocus();
+    if (_rerenderTimer) window.clearTimeout(_rerenderTimer);
+    _rerenderTimer = window.setTimeout(function () {
+      _rerenderTimer = null;
+      var token = ++_renderToken;
+      render(_mountRef, token)
+        .then(function () {
+          if (token === _renderToken) restoreFocus();
+        })
+        .catch(function () {
+          if (token === _renderToken) restoreFocus();
+        });
+    }, delay);
+  }
+
+  function rerender() {
+    scheduleRerender(80);
+  }
 
   // -----------------------------
   // Helpers
@@ -82,11 +164,13 @@
     return /^\d{4}-\d{2}-\d{2}$/.test(String(s || ""));
   }
 
-  function looksLikeEodRecord(o, dateStr) {
+  function looksLikeEodRecord(o, requestedDate) {
     if (!o || typeof o !== "object") return false;
-    // Most important: must have a date (or we can accept the requested date)
     if (isYmdStr(o.date)) return true;
-    if (dateStr && isYmdStr(dateStr) && (o.staff || o.cash || o.x || o.epos || o.cheques || o.paid_outs || o.deposit)) return true;
+    if (requestedDate && isYmdStr(requestedDate)) {
+      // accept if it has meaningful fields
+      if (o.staff || o.cash || o.x || o.epos || o.cheques || o.paid_outs || o.deposit || o.float_amount) return true;
+    }
     return false;
   }
 
@@ -100,7 +184,6 @@
   }
 
   function openPrintTabWithHtml(html) {
-    // Same pattern as modules.temperature.js: open blob in new tab; do not auto-close.
     var blob = new Blob([String(html || "")], { type: "text/html" });
     var url = URL.createObjectURL(blob);
     var w = null;
@@ -121,25 +204,16 @@
   }
 
   // -----------------------------
-  // Decimals: allow partial typing (e.g. "12.", ".5") and up to 2dp
+  // Decimals: allow partial typing and up to 2dp
   // -----------------------------
   function moneyNormalizeInput(raw) {
-    // returns { ok, normalized, isPartial }
     var s = String(raw == null ? "" : raw);
-
-    // allow empty as partial
     if (s === "") return { ok: true, normalized: "", isPartial: true };
-
-    // allow leading dot ".5"
     if (/^\.\d{0,2}$/.test(s)) return { ok: true, normalized: s, isPartial: true };
-
-    // allow "123" / "123." / "123.4" / "123.45"
     if (/^\d+(\.\d{0,2})?$/.test(s)) {
       var partial = s.endsWith(".") || /\.\d$/.test(s);
       return { ok: true, normalized: s, isPartial: partial };
     }
-
-    // allow "-"? not needed
     return { ok: false, normalized: s, isPartial: false };
   }
 
@@ -159,7 +233,7 @@
   }
 
   // -----------------------------
-  // Cloud API detection + calls (already in your live module; kept compatible)
+  // Cloud API detection + calls
   // -----------------------------
   var _apiMode = { ok: false, lastCheckedAt: "", reason: "" };
 
@@ -228,7 +302,6 @@
     var data = r.data;
     if (!data) return null;
 
-    // unwrap common shapes
     var candidate = null;
     if (data.record) candidate = data.record;
     else if (data.eod) candidate = data.eod;
@@ -238,9 +311,7 @@
 
     if (!candidate || typeof candidate !== "object") return null;
 
-    // IMPORTANT FIX:
-    // If API returns { ok:true, eod:null, record:null, item:null } (or similar),
-    // treat it as "no record", NOT a record object.
+    // Treat { ok:true, record:null, eod:null, item:null } as "no record"
     if (
       candidate.ok === true &&
       candidate.record == null &&
@@ -252,14 +323,11 @@
       return null;
     }
 
-    // If record object exists but date is missing, set it from the request (safe)
     if (!candidate.date && isYmdStr(dateStr) && looksLikeEodRecord(candidate, dateStr)) {
       candidate.date = dateStr;
     }
 
-    // Only return something that looks like a real EOD record
     if (!looksLikeEodRecord(candidate, dateStr)) return null;
-
     return candidate;
   }
 
@@ -439,8 +507,9 @@
           if (!rec.location_name && locationName) rec.location_name = locationName;
         }
         return rec;
+      } catch (e) {
+        return getEodByDateAndLocLocal(dateStr, locationName);
       }
-      catch (e) { return getEodByDateAndLocLocal(dateStr, locationName); }
     }
     return getEodByDateAndLocLocal(dateStr, locationName);
   }
@@ -454,10 +523,18 @@
   }
 
   async function loadContacts(locationName) {
+    var locKey = String(locationName || "");
+
+    // CACHE
+    if (_cacheContacts.key === locKey && cacheFresh(_cacheContacts.ts)) {
+      return _cacheContacts.data || [];
+    }
+
+    var out = [];
     if (_apiMode.ok) {
       try {
         var c = await apiGetContacts();
-        return (c || [])
+        out = (c || [])
           .map(function (x) {
             return {
               id: x.id != null ? String(x.id) : ("c_" + Math.random().toString(16).slice(2) + "_" + Date.now()),
@@ -468,22 +545,29 @@
           })
           .filter(function (x) { return !!x.name; });
       } catch (e) {
-        return loadContactsLocal();
+        out = loadContactsLocal();
       }
+    } else {
+      out = loadContactsLocal();
     }
-    return loadContactsLocal();
+
+    _cacheContacts.key = locKey;
+    _cacheContacts.ts = Date.now();
+    _cacheContacts.data = out;
+
+    return out;
   }
 
   async function saveContacts(locationName, arr) {
     if (_apiMode.ok) {
-      try { await apiSaveContacts(arr || []); return; }
-      catch (e) { saveContactsLocal(arr || []); return; }
+      try { await apiSaveContacts(arr || []); invalidateContactsCache(locationName); return; }
+      catch (e) { saveContactsLocal(arr || []); invalidateContactsCache(locationName); return; }
     }
     saveContactsLocal(arr || []);
+    invalidateContactsCache(locationName);
   }
 
   async function writeAudit(locationName, dateStr, entry) {
-    // kept local (safe) for now; easy to switch to server later
     writeAuditLocal(entry);
   }
 
@@ -492,29 +576,43 @@
   }
 
   async function listDatesForMonth(locationName, ym) {
-    if (_apiMode.ok) {
-      try {
-        var dates = await apiListDatesForMonth(ym);
-        if (dates && dates.length) return dates;
-      } catch (e) {}
-      // fallback: scan
-      var out = [];
-      for (var d = 1; d <= 31; d++) {
-        var ds = ym + "-" + String(d).padStart(2, "0");
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(ds)) continue;
-        try {
-          var r = await apiGetRecord(ds);
-          if (r) out.push(r.date ? r.date : ds);
-        } catch (e2) {}
-      }
-      return out.sort();
+    var k = String(locationName || "") + "|" + String(ym || "");
+
+    // CACHE
+    if (_cacheMonthDates.key === k && cacheFresh(_cacheMonthDates.ts)) {
+      return _cacheMonthDates.data || [];
     }
 
-    var all = loadAllEodsLocal();
-    return all
-      .filter(function (r) { return r && r.location_name === locationName && ymFromYmd(r.date) === ym; })
-      .map(function (r) { return r.date; })
-      .sort();
+    var dates = [];
+    if (_apiMode.ok) {
+      try {
+        dates = await apiListDatesForMonth(ym);
+        if (!Array.isArray(dates)) dates = [];
+      } catch (e) {
+        dates = [];
+      }
+
+      if (!dates.length) {
+        // fallback: local scan
+        var all = loadAllEodsLocal();
+        dates = all
+          .filter(function (r) { return r && r.location_name === locationName && ymFromYmd(r.date) === ym; })
+          .map(function (r) { return r.date; })
+          .sort();
+      }
+    } else {
+      var all2 = loadAllEodsLocal();
+      dates = all2
+        .filter(function (r) { return r && r.location_name === locationName && ymFromYmd(r.date) === ym; })
+        .map(function (r) { return r.date; })
+        .sort();
+    }
+
+    _cacheMonthDates.key = k;
+    _cacheMonthDates.ts = Date.now();
+    _cacheMonthDates.data = dates;
+
+    return dates;
   }
 
   // -----------------------------
@@ -574,8 +672,15 @@
   }
 
   async function monthSummary(state, monthYm) {
-    var loc = state.location_name;
-    var m = monthYm || ymFromYmd(state.date);
+    var loc = String(state.location_name || "");
+    var m = String(monthYm || ymFromYmd(state.date) || "");
+    var key = loc + "|" + m;
+
+    // CACHE
+    if (_cacheMonthSummary.key === key && cacheFresh(_cacheMonthSummary.ts) && _cacheMonthSummary.data) {
+      return _cacheMonthSummary.data;
+    }
+
     var dates = await listDatesForMonth(loc, m);
 
     var sumE = 0, sumOU = 0, sumCoins = 0;
@@ -607,14 +712,19 @@
       sumCoins += (E2 - F2);
     }
 
-    return { days: dates.length, total_cash_month: sumE, over_under_month: sumOU, coin_box_month: sumCoins };
+    var out = { days: dates.length, total_cash_month: sumE, over_under_month: sumOU, coin_box_month: sumCoins };
+
+    _cacheMonthSummary.key = key;
+    _cacheMonthSummary.ts = Date.now();
+    _cacheMonthSummary.data = out;
+
+    return out;
   }
 
   // -----------------------------
-  // BOV auto-fill (MATCH HTML)
+  // BOV auto-fill
   // -----------------------------
   function paperUnitsFromCash(state) {
-    // mirrors HTML: uses notes from cash count. (We include 500 too in our UI.)
     var c = state.cash || {};
     return {
       500: intToNumber(c.n500),
@@ -628,8 +738,6 @@
   }
 
   function autoFillDeposit(state, targetAmount, availableUnits) {
-    // Greedy from highest -> lowest, limited by available units.
-    // Matches the feel of your HTML (auto suggestion).
     var t = Math.max(0, moneyToNumber(targetAmount));
     var denoms = [500, 200, 100, 50, 20, 10, 5];
     var out = { n500: 0, n200: 0, n100: 0, n50: 0, n20: 0, n10: 0, n5: 0 };
@@ -648,7 +756,7 @@
   }
 
   // -----------------------------
-  // Modal
+  // Modal + UI helpers
   // -----------------------------
   function showModal(title, bodyNode, actions) {
     var overlay = el("div", { class: "eikon-modal-overlay", style: "position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:999999;display:flex;align-items:center;justify-content:center;padding:16px;" });
@@ -680,9 +788,6 @@
     document.body.appendChild(overlay);
   }
 
-  // -----------------------------
-  // UI helpers
-  // -----------------------------
   function field(label, inputNode) {
     return el("div", { class: "eikon-field" }, [
       el("div", { class: "eikon-label", text: label }),
@@ -718,7 +823,7 @@
   }
 
   // -----------------------------
-  // Contacts manager
+  // Contacts manager (unchanged logic, cache-safe via saveContacts)
   // -----------------------------
   function showContactsManager(locationName, onDone) {
     var contacts = null;
@@ -842,8 +947,7 @@
   }
 
   // -----------------------------
-  // Printing (A4) — keep same format/output as current
-  // (but DO NOT auto-close)
+  // Printing (A4)
   // -----------------------------
   function buildA4HtmlForCurrent(state) {
     var d = state.date;
@@ -854,7 +958,6 @@
       return Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
-    // Ensure fixed rows in print, like previous:
     var Arows = (state.x || []).slice();
     while (Arows.length < 4) Arows.push({ amount: "0", remark: "" });
     var Avals = Arows.slice(0, 4).map(function (r) { return moneyToNumber(r.amount); });
@@ -957,7 +1060,7 @@
   }
 
   // -----------------------------
-  // Copy deposit to Outlook/email (MATCH HTML)
+  // Copy deposit to Outlook/email
   // -----------------------------
   function buildDepositHTML(state, contact) {
     var bag = esc(String(state.bag_number || "").trim());
@@ -1089,7 +1192,6 @@
       toast("Copied", "Formatted cash deposit copied (HTML + plain text). Paste into Outlook.");
       return true;
     } catch (e) {
-      // Fallback: contentEditable selection
       try {
         var div = document.createElement("div");
         div.contentEditable = "true";
@@ -1118,66 +1220,19 @@
   }
 
   // -----------------------------
-  // Render
+  // State init + ensure structure
   // -----------------------------
-  var _mountRef = null;
-  var _focusedKey = null;
-  var _focusedSel = null;
-
-  function rememberFocus() {
-    var ae = document.activeElement;
-    if (!ae) return;
-    var k = ae.getAttribute && ae.getAttribute("data-focus-key");
-    if (!k) return;
-    _focusedKey = k;
-    try { _focusedSel = { start: ae.selectionStart, end: ae.selectionEnd }; } catch (e) { _focusedSel = null; }
-  }
-
-  function restoreFocus() {
-    if (!_focusedKey) return;
-    var node = document.querySelector('[data-focus-key="' + _focusedKey.replace(/"/g, '\\"') + '"]');
-    if (!node) return;
-    try {
-      node.focus();
-      if (_focusedSel && node.setSelectionRange) node.setSelectionRange(_focusedSel.start, _focusedSel.end);
-    } catch (e) {}
-  }
-
-  function rerender() {
-    try {
-      rememberFocus();
-      render(_mountRef).then(function () { restoreFocus(); }).catch(function () { restoreFocus(); });
-    } catch (e) {
-      try { E.error("[eod] render failed", e); } catch (e2) {}
-    }
-  }
-
-  async function render(ctx) {
-    var mount = ctx && ctx.mount ? ctx.mount : ctx;
-    if (!mount) return;
-
-    mount.innerHTML = "";
-
-    var user = (ctx && ctx.user) ? ctx.user : (E.state && E.state.user ? E.state.user : null);
-    var locationName = user && user.location_name ? String(user.location_name) : "";
-    var createdBy = user && user.full_name ? String(user.full_name) : (user && user.email ? String(user.email) : "");
-
-    // check cloud availability once per module load
-    if (_apiMode.lastCheckedAt === "") {
-      await apiCheckAvailable();
-    }
-
-    // State
-    var state = {
+  function defaultState(locationName, createdBy) {
+    return {
       date: ymd(new Date()),
       time_of_day: "AM",
       staff: "",
-      location_name: locationName,
-      created_by: createdBy,
-      float_amount: "1000.00", // match your HTML default better; editable
+      location_name: String(locationName || ""),
+      created_by: String(createdBy || ""),
+      float_amount: "1000.00",
 
-      x: [{ amount: "0", remark: "" }],           // start 1 row
-      epos: [{ amount: "0", remark: "" }],        // start 1 row
+      x: [{ amount: "0", remark: "" }],
+      epos: [{ amount: "0", remark: "" }],
       cheques: [{ amount: "0", remark: "" }],
       paid_outs: [{ amount: "0", remark: "" }],
 
@@ -1194,82 +1249,121 @@
       saved_at: "",
       locked_at: ""
     };
+  }
+
+  function ensureStateShape(state, locationName, createdBy) {
+    if (!state || typeof state !== "object") state = defaultState(locationName, createdBy);
+
+    if (!state.date) state.date = ymd(new Date());
+    if (!state.location_name) state.location_name = String(locationName || "");
+    if (!state.created_by) state.created_by = String(createdBy || "");
+    if (!state.float_amount) state.float_amount = "1000.00";
+    if (!state.time_of_day) state.time_of_day = "AM";
+
+    if (!Array.isArray(state.x) || !state.x.length) state.x = [{ amount: "0", remark: "" }];
+    if (!Array.isArray(state.epos) || !state.epos.length) state.epos = [{ amount: "0", remark: "" }];
+    if (!Array.isArray(state.cheques) || !state.cheques.length) state.cheques = [{ amount: "0", remark: "" }];
+    if (!Array.isArray(state.paid_outs) || !state.paid_outs.length) state.paid_outs = [{ amount: "0", remark: "" }];
+
+    if (!state.cash || typeof state.cash !== "object") {
+      state.cash = { n500: "0", n200: "0", n100: "0", n50: "0", n20: "0", n10: "0", n5: "0", coins_total: "0" };
+    } else {
+      if (state.cash.n500 == null) state.cash.n500 = "0";
+      if (state.cash.n200 == null) state.cash.n200 = "0";
+      if (state.cash.n100 == null) state.cash.n100 = "0";
+      if (state.cash.n50 == null) state.cash.n50 = "0";
+      if (state.cash.n20 == null) state.cash.n20 = "0";
+      if (state.cash.n10 == null) state.cash.n10 = "0";
+      if (state.cash.n5 == null) state.cash.n5 = "0";
+      if (state.cash.coins_total == null) state.cash.coins_total = "0";
+    }
+
+    if (!state.deposit || typeof state.deposit !== "object") {
+      state.deposit = { n500: "0", n200: "0", n100: "0", n50: "0", n20: "0", n10: "0", n5: "0" };
+    } else {
+      if (state.deposit.n500 == null) state.deposit.n500 = "0";
+      if (state.deposit.n200 == null) state.deposit.n200 = "0";
+      if (state.deposit.n100 == null) state.deposit.n100 = "0";
+      if (state.deposit.n50 == null) state.deposit.n50 = "0";
+      if (state.deposit.n20 == null) state.deposit.n20 = "0";
+      if (state.deposit.n10 == null) state.deposit.n10 = "0";
+      if (state.deposit.n5 == null) state.deposit.n5 = "0";
+    }
+
+    if (state.deposit_edited == null) state.deposit_edited = false;
+    if (state.bag_number == null) state.bag_number = "";
+    if (state.contact_id == null) state.contact_id = "";
+    if (state.saved_at == null) state.saved_at = "";
+    if (state.locked_at == null) state.locked_at = "";
+
+    return state;
+  }
+
+  // -----------------------------
+  // Render
+  // -----------------------------
+  async function render(ctx, token) {
+    var mount = ctx && ctx.mount ? ctx.mount : ctx;
+    if (!mount) return;
+
+    _mountRef = ctx;
+    var myToken = token || ++_renderToken;
+
+    var user = (ctx && ctx.user) ? ctx.user : (E.state && E.state.user ? E.state.user : null);
+    var locationName = user && user.location_name ? String(user.location_name) : "";
+    var createdBy = user && user.full_name ? String(user.full_name) : (user && user.email ? String(user.email) : "");
+
+    if (_apiMode.lastCheckedAt === "") {
+      await apiCheckAvailable();
+    }
+
+    // Persist state across rerenders
+    if (!_state || String(_state.location_name || "") !== locationName) {
+      _state = defaultState(locationName, createdBy);
+      _lastLoadedKey = "";
+    } else {
+      _state = ensureStateShape(_state, locationName, createdBy);
+    }
+
+    var state = _state;
 
     function isLocked() { return !!state.locked_at; }
 
-    async function loadSelectedDate() {
+    async function loadSelectedDateIfNeeded(force) {
+      var key = String(state.date || "") + "|" + String(state.location_name || "");
+      if (!force && key === _lastLoadedKey) return;
+
       var existing = await getEodByDateAndLoc(state.date, state.location_name);
 
-      // If the API returned some non-record object, treat as missing
-      if (existing && typeof existing === "object" && !looksLikeEodRecord(existing, state.date)) {
-        existing = null;
-      }
+      if (existing && typeof existing === "object" && !looksLikeEodRecord(existing, state.date)) existing = null;
 
       if (existing) {
         state = JSON.parse(JSON.stringify(existing));
-
-        // ensure critical fields exist
-        if (!state.date) state.date = ymd(new Date());
-        if (!state.location_name) state.location_name = locationName;
-        if (!state.created_by) state.created_by = createdBy;
-
-        if (!state.float_amount) state.float_amount = "1000.00";
-
-        if (!state.deposit) state.deposit = { n500: "0", n200: "0", n100: "0", n50: "0", n20: "0", n10: "0", n5: "0" };
-        if (state.deposit.n5 == null) state.deposit.n5 = "0";
-        if (state.deposit_edited == null) state.deposit_edited = false;
-
-        if (!Array.isArray(state.x) || !state.x.length) state.x = [{ amount: "0", remark: "" }];
-        if (!Array.isArray(state.epos) || !state.epos.length) state.epos = [{ amount: "0", remark: "" }];
-
-        // FIX: these were missing when the API returned an "empty wrapper" record
-        if (!Array.isArray(state.cheques) || !state.cheques.length) state.cheques = [{ amount: "0", remark: "" }];
-        if (!Array.isArray(state.paid_outs) || !state.paid_outs.length) state.paid_outs = [{ amount: "0", remark: "" }];
-
-        if (!state.cash || typeof state.cash !== "object") {
-          state.cash = { n500: "0", n200: "0", n100: "0", n50: "0", n20: "0", n10: "0", n5: "0", coins_total: "0" };
-        } else {
-          if (state.cash.n500 == null) state.cash.n500 = "0";
-          if (state.cash.n200 == null) state.cash.n200 = "0";
-          if (state.cash.n100 == null) state.cash.n100 = "0";
-          if (state.cash.n50 == null) state.cash.n50 = "0";
-          if (state.cash.n20 == null) state.cash.n20 = "0";
-          if (state.cash.n10 == null) state.cash.n10 = "0";
-          if (state.cash.n5 == null) state.cash.n5 = "0";
-          if (state.cash.coins_total == null) state.cash.coins_total = "0";
-        }
+        state = ensureStateShape(state, locationName, createdBy);
+        // keep persisted
+        _state = state;
       } else {
-        // reset but keep defaults
-        state.saved_at = "";
-        state.locked_at = "";
-        state.time_of_day = "AM";
-        state.staff = "";
-        state.created_by = createdBy;
-        state.location_name = locationName;
-        if (!state.float_amount) state.float_amount = "1000.00";
-
-        state.x = [{ amount: "0", remark: "" }];
-        state.epos = [{ amount: "0", remark: "" }];
-        state.cheques = [{ amount: "0", remark: "" }];
-        state.paid_outs = [{ amount: "0", remark: "" }];
-        state.cash = { n500: "0", n200: "0", n100: "0", n50: "0", n20: "0", n10: "0", n5: "0", coins_total: "0" };
-        state.bag_number = "";
-        state.deposit = { n500: "0", n200: "0", n100: "0", n50: "0", n20: "0", n10: "0", n5: "0" };
-        state.deposit_edited = false;
-        state.contact_id = "";
+        // keep defaults but ensure date/location are right
+        var keepDate = state.date;
+        state = defaultState(locationName, createdBy);
+        state.date = keepDate || ymd(new Date());
+        _state = state;
       }
 
-      // If not edited, refresh auto-fill based on latest values:
+      // auto-fill deposit if not edited
       if (!state.deposit_edited) {
         autoFillDeposit(state, roundedDepositF(state), paperUnitsFromCash(state));
       }
+
+      _lastLoadedKey = key;
     }
 
-    await loadSelectedDate();
+    // Load record ONLY when date/location changes (or first time)
+    await loadSelectedDateIfNeeded(false);
 
-    // -----------------------------
-    // Validation + Save + Lock
-    // -----------------------------
+    // Build new UI without clearing mount first (prevents blank flicker)
+    var root = document.createElement("div");
+
     function validateBeforeSave() {
       var staff = String(state.staff || "").trim();
       if (!staff) return { ok: false, msg: "Staff is required." };
@@ -1277,7 +1371,6 @@
       var loc = String(state.location_name || "").trim();
       if (!loc) return { ok: false, msg: "Location is missing (login location)." };
 
-      // float must be numeric
       var fl = moneyToNumber(state.float_amount);
       if (!(fl >= 0)) return { ok: false, msg: "Float must be a number (>= 0)." };
 
@@ -1297,6 +1390,8 @@
 
       state.saved_at = nowIso();
       await upsertEod(JSON.parse(JSON.stringify(state)));
+
+      invalidateMonthCache(state.location_name, ymFromYmd(state.date));
 
       await writeAudit(state.location_name, state.date, {
         ts: nowIso(),
@@ -1319,6 +1414,8 @@
       state.saved_at = state.saved_at || nowIso();
       state.locked_at = nowIso();
       await upsertEod(JSON.parse(JSON.stringify(state)));
+
+      invalidateMonthCache(state.location_name, ymFromYmd(state.date));
 
       await writeAudit(state.location_name, state.date, {
         ts: nowIso(),
@@ -1365,9 +1462,6 @@
       showModal("Audit Log — " + ddmmyyyy(state.date), tbl, []);
     }
 
-    // -----------------------------
-    // Print / Report
-    // -----------------------------
     function doPrintA4() {
       var v = validateBeforeSave();
       if (!v.ok) return toast("Missing Information", "Cannot print until required fields are completed:\n\n" + v.msg);
@@ -1395,7 +1489,6 @@
       while (cur <= to) {
         var rec = await getEodByDateAndLoc(cur, state.location_name);
         if (rec) all.push(rec);
-        // increment day
         var dt = new Date(cur + "T00:00:00");
         dt.setDate(dt.getDate() + 1);
         cur = ymd(dt);
@@ -1471,7 +1564,6 @@
       });
 
       inp.onfocus = function () {
-        // match HTML: select + clear if 0/0.00
         try { inp.select(); } catch (e) {}
         var v = String(inp.value || "");
         if (v === "0" || v === "0.00") inp.value = "";
@@ -1481,21 +1573,18 @@
         var raw = inp.value;
         var r = moneyNormalizeInput(raw);
         if (!r.ok) {
-          // revert by removing last char
           inp.value = String(valueGetter() == null ? "" : valueGetter());
           return;
         }
         valueSetter(r.normalized);
-        // DO NOT rerender on every keystroke (prevents decimal typing issues)
-        // Instead update dependent totals via rerender debounce-style:
-        window.clearTimeout(inp._t);
-        inp._t = window.setTimeout(function () {
-          // If deposit not edited, keep autofill synced
-          if (!state.deposit_edited) {
-            autoFillDeposit(state, roundedDepositF(state), paperUnitsFromCash(state));
-          }
-          rerender();
-        }, 0);
+
+        // Keep deposit autofill in sync (but don’t refetch anything)
+        if (!state.deposit_edited) {
+          autoFillDeposit(state, roundedDepositF(state), paperUnitsFromCash(state));
+        }
+
+        // Debounced rerender (NO API reload now)
+        scheduleRerender(90);
       };
 
       inp.onblur = function () {
@@ -1504,7 +1593,6 @@
           valueSetter("0");
           inp.value = "0";
         } else {
-          // clamp to 2dp display
           var v2 = moneyToNumber(raw2);
           var fixed = (Math.round(v2 * 100) / 100).toFixed(2);
           valueSetter(fixed);
@@ -1513,7 +1601,7 @@
         if (!state.deposit_edited) {
           autoFillDeposit(state, roundedDepositF(state), paperUnitsFromCash(state));
         }
-        rerender();
+        scheduleRerender(40);
       };
 
       return inp;
@@ -1537,17 +1625,19 @@
 
       inp.oninput = function () {
         valueSetter(String(intToNumber(inp.value)));
+
         if (!state.deposit_edited) {
           autoFillDeposit(state, roundedDepositF(state), paperUnitsFromCash(state));
         }
-        rerender();
+
+        scheduleRerender(90);
       };
 
       inp.onblur = function () {
         if (String(inp.value || "").trim() === "") {
           valueSetter("0");
           inp.value = "0";
-          rerender();
+          scheduleRerender(40);
         }
       };
 
@@ -1555,9 +1645,12 @@
     }
 
     // -----------------------------
-    // Payment table (X / EPOS / Cheques / Paid outs)
+    // Payment table
     // -----------------------------
     function makePaymentTable(title, rows, canAdd, locked, rowKeyPrefix) {
+      rows = Array.isArray(rows) ? rows : [{ amount: "0", remark: "" }];
+      if (!rows.length) rows.push({ amount: "0", remark: "" });
+
       var card = el("div", { class: "eikon-card" });
 
       var btnAdd = el("button", { class: "eikon-btn", text: "Add Entry", disabled: locked || !canAdd });
@@ -1586,6 +1679,8 @@
       for (var i = 0; i < rows.length; i++) {
         (function (idx) {
           var r = rows[idx];
+          if (!r || typeof r !== "object") r = rows[idx] = { amount: "0", remark: "" };
+
           var tr = el("tr", {}, []);
           var tdName = el("td", { style: "padding:8px;border-bottom:1px solid rgba(255,255,255,.06);" });
           var tdTot = el("td", { style: "padding:8px;border-bottom:1px solid rgba(255,255,255,.06);text-align:right;white-space:nowrap;" });
@@ -1638,7 +1733,7 @@
     }
 
     // -----------------------------
-    // Build UI
+    // Header UI
     // -----------------------------
     var headerCard = el("div", { class: "eikon-card" });
     var bodyCard = el("div", { class: "eikon-card" });
@@ -1677,7 +1772,11 @@
     var inDate = el("input", { class: "eikon-input eikon-slim-input", type: "date", value: state.date, "data-allow-when-locked": "1" });
     inDate.onchange = async function () {
       state.date = inDate.value;
-      await loadSelectedDate();
+      _state.date = state.date;
+      // force load on date change
+      _lastLoadedKey = "";
+      invalidateMonthCache(state.location_name, ymFromYmd(state.date));
+      await loadSelectedDateIfNeeded(true);
       rerender();
     };
 
@@ -1686,16 +1785,16 @@
       el("option", { value: "PM", text: "PM" })
     ]);
     selTime.value = state.time_of_day || "AM";
-    selTime.onchange = function () { state.time_of_day = selTime.value; };
+    selTime.onchange = function () { state.time_of_day = selTime.value; _state.time_of_day = state.time_of_day; };
 
     var inStaff = el("input", { class: "eikon-input", type: "text", value: state.staff || "", placeholder: "Required", "data-allow-when-locked": "0" });
-    inStaff.oninput = function () { state.staff = inStaff.value; };
+    inStaff.oninput = function () { state.staff = inStaff.value; _state.staff = state.staff; };
 
     var inLoc = el("input", { class: "eikon-input", type: "text", value: state.location_name || "", disabled: true, "data-allow-when-locked": "1" });
 
     var inFloat = makeMoneyInput(
       function () { return state.float_amount; },
-      function (v) { state.float_amount = v; },
+      function (v) { state.float_amount = v; _state.float_amount = v; },
       "float_amount",
       isLocked()
     );
@@ -1733,7 +1832,6 @@
 
     var cashGrid = el("div", { style: "display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px;" });
 
-    // left: cash notes + coins total
     var leftCash = el("div", {});
     var tblCash = el("table", { style: "width:100%;border-collapse:collapse;" });
     tblCash.appendChild(el("thead", {}, [
@@ -1752,7 +1850,7 @@
 
       var inp = makeIntInput(
         function () { return state.cash[key]; },
-        function (v) { state.cash[key] = v; },
+        function (v) { state.cash[key] = v; _state.cash[key] = v; },
         "cash_" + key,
         isLocked()
       );
@@ -1773,7 +1871,6 @@
     cashBody.appendChild(cashRow("€10", 10, "n10"));
     cashBody.appendChild(cashRow("€5", 5, "n5"));
 
-    // coins total (money)
     (function () {
       var tr = el("tr", {}, []);
       var tdD = el("td", { style: "padding:8px;border-bottom:1px solid rgba(255,255,255,.06);", text: "Coins (total)" });
@@ -1782,7 +1879,7 @@
 
       var inp = makeMoneyInput(
         function () { return state.cash.coins_total; },
-        function (v) { state.cash.coins_total = v; },
+        function (v) { state.cash.coins_total = v; _state.cash.coins_total = v; },
         "cash_coins_total",
         isLocked()
       );
@@ -1803,7 +1900,6 @@
       el("div", { style: "font-weight:900;", text: euro(counted.total) })
     ]));
 
-    // right: BOV deposit
     var rightBov = el("div", {});
     rightBov.appendChild(el("div", { style: "font-weight:900;color:#e9eef7;margin-bottom:6px;", text: "BOV Cash Deposit" }));
 
@@ -1818,7 +1914,7 @@
       selContact.appendChild(el("option", { value: c.id, text: parts.join(" • ") }));
     });
     selContact.value = state.contact_id || "";
-    selContact.onchange = function () { state.contact_id = selContact.value; };
+    selContact.onchange = function () { state.contact_id = selContact.value; _state.contact_id = state.contact_id; };
 
     var btnManageContacts = el("button", { class: "eikon-btn", text: "Manage Contacts", disabled: isLocked() });
     btnManageContacts.onclick = function () {
@@ -1826,7 +1922,7 @@
     };
 
     var inBag = el("input", { class: "eikon-input", type: "text", value: state.bag_number || "", disabled: isLocked(), "data-focus-key": "bag_number" });
-    inBag.oninput = function () { state.bag_number = inBag.value; };
+    inBag.oninput = function () { state.bag_number = inBag.value; _state.bag_number = state.bag_number; };
 
     var btnCopyDeposit = el("button", { class: "eikon-btn primary", text: "Copy Deposit to Email (Outlook)", disabled: isLocked() });
     btnCopyDeposit.onclick = async function () {
@@ -1861,7 +1957,9 @@
         function () { return state.deposit[key]; },
         function (v) {
           state.deposit[key] = v;
-          state.deposit_edited = true; // stop auto-fill once user edits
+          state.deposit_edited = true;
+          _state.deposit[key] = v;
+          _state.deposit_edited = true;
         },
         "dep_" + key,
         isLocked()
@@ -1895,7 +1993,7 @@
     cashGrid.appendChild(rightBov);
     cashCard.appendChild(cashGrid);
 
-    // Summary cards (MATCH HTML)
+    // Summary (cached month summary avoids constant API calls)
     var summaryGrid = el("div", { style: "display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;" });
 
     var sumCard = el("div", { class: "eikon-card" });
@@ -1956,8 +2054,8 @@
     bodyCard.appendChild(cashCard);
     bodyCard.appendChild(summaryGrid);
 
-    mount.appendChild(headerCard);
-    mount.appendChild(bodyCard);
+    root.appendChild(headerCard);
+    root.appendChild(bodyCard);
 
     // Lock behaviour
     if (isLocked()) {
@@ -1974,6 +2072,13 @@
       btnSave.disabled = false;
       btnLock.disabled = false;
     }
+
+    // Drop stale render before swapping DOM
+    if (myToken !== _renderToken) return;
+
+    // Swap DOM only at end (prevents blank flicker)
+    mount.innerHTML = "";
+    mount.appendChild(root);
   }
 
   // Register module
@@ -1983,7 +2088,9 @@
     icon: "clock",
     render: function (ctx) {
       _mountRef = ctx;
-      return render(ctx);
+      // New render token for initial render
+      var token = ++_renderToken;
+      return render(ctx, token);
     }
   });
 
