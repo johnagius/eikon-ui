@@ -2495,7 +2495,6 @@ async function handleDailyRegisterReportHtml(request, env, corsOkHeaders, authUs
    ========================= */
 
 async function ensureRepeatPrescriptionsSchema(env) {
-  // Create with expires_date for new installs
   await dbRun(
     env,
     `CREATE TABLE IF NOT EXISTS repeat_prescription_entries (
@@ -2517,7 +2516,6 @@ async function ensureRepeatPrescriptionsSchema(env) {
     []
   );
 
-  // Migration: add expires_date if table already existed without it
   const cols = await dbAll(env, "PRAGMA table_info(repeat_prescription_entries)", []);
   let hasExpires = false;
   for (const c of cols) {
@@ -2527,30 +2525,15 @@ async function ensureRepeatPrescriptionsSchema(env) {
     await dbRun(env, "ALTER TABLE repeat_prescription_entries ADD COLUMN expires_date TEXT", []);
   }
 
-  // Backfill old rows
   await dbRun(
     env,
     "UPDATE repeat_prescription_entries SET expires_date = date(entry_date, '+6 months') WHERE expires_date IS NULL OR expires_date = ''",
     []
   );
 
-  await dbRun(
-    env,
-    "CREATE INDEX IF NOT EXISTS idx_repeat_rx_org_loc_date ON repeat_prescription_entries (org_id, location_id, entry_date)",
-    []
-  );
-
-  await dbRun(
-    env,
-    "CREATE INDEX IF NOT EXISTS idx_repeat_rx_org_loc_client ON repeat_prescription_entries (org_id, location_id, client_id)",
-    []
-  );
-
-  await dbRun(
-    env,
-    "CREATE INDEX IF NOT EXISTS idx_repeat_rx_org_loc_expires ON repeat_prescription_entries (org_id, location_id, expires_date)",
-    []
-  );
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_repeat_rx_org_loc_date ON repeat_prescription_entries (org_id, location_id, entry_date)", []);
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_repeat_rx_org_loc_client ON repeat_prescription_entries (org_id, location_id, client_id)", []);
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_repeat_rx_org_loc_expires ON repeat_prescription_entries (org_id, location_id, expires_date)", []);
 }
 
 async function handleRepeatPrescriptionsEntriesList(request, env, corsOkHeaders, authUser, url) {
@@ -2568,8 +2551,7 @@ async function handleRepeatPrescriptionsEntriesList(request, env, corsOkHeaders,
   const hasQ = !!q;
   const qLike = `%${q}%`;
 
-  // IMPORTANT: do NOT filter out expired rows here.
-  // We always return them; UI highlights them red.
+  // IMPORTANT: NO expires_date filter here. Return expired rows too.
   const sql = `
     SELECT
       id,
