@@ -60,7 +60,7 @@
     return v.slice(8, 10) + "/" + v.slice(5, 7) + "/" + v.slice(0, 4);
   }
 
-  // Add months to YYYY-MM-DD, clamped to end-of-month (e.g. 31st -> 30th/28th as needed)
+  // Add months to YYYY-MM-DD, clamped to end-of-month
   function addMonthsYmd(ymd, months) {
     var v = String(ymd || "").trim();
     if (!isYmd(v)) return "";
@@ -107,12 +107,11 @@
   function isExpiredYmd(expiresYmd) {
     var ex = String(expiresYmd || "").trim();
     if (!isYmd(ex)) return false;
-    // ISO date string compare works: YYYY-MM-DD
-    return ex < todayYmd();
+    return ex < todayYmd(); // YYYY-MM-DD string compare
   }
 
   // ------------------------------------------------------------
-  // module-scoped harmonious CSS (clone of Daily Register)
+  // CSS
   // ------------------------------------------------------------
   var rpStyleInstalled = false;
   function ensureRepeatPrescriptionStyles() {
@@ -161,8 +160,9 @@
       ".rp-table th,.rp-table td{border-bottom:1px solid var(--line,rgba(255,255,255,.10));padding:10px 10px;font-size:12px;vertical-align:top;}" +
       ".rp-table th{background:rgba(12,19,29,.92);position:sticky;top:0;z-index:1;color:var(--muted,rgba(233,238,247,.68));text-transform:uppercase;letter-spacing:.8px;font-weight:1000;text-align:left;}" +
       ".rp-table tbody tr:hover{background:rgba(255,255,255,.04);}" +
-      ".rp-table tbody tr.rp-expired{background:rgba(255,90,90,.14);}" +
-      ".rp-table tbody tr.rp-expired:hover{background:rgba(255,90,90,.18);}" +
+      // IMPORTANT: force table-row so nothing can hide it
+      ".rp-table tbody tr.rp-expired-row{display:table-row !important;background:rgba(255,90,90,.14) !important;}" +
+      ".rp-table tbody tr.rp-expired-row:hover{background:rgba(255,90,90,.18) !important;}" +
       ".rp-table b{color:var(--text,#e9eef7);}" +
       ".rp-idline{opacity:.75;font-size:11px;color:var(--muted,rgba(233,238,247,.68));}" +
       "#rp-date,#rp-expires,#rp-client-name,#rp-client-id,#rp-med,#rp-pos,#rp-prescriber,#rp-presc-reg{" +
@@ -389,17 +389,14 @@
           expiresTouched = true;
         });
 
-        dateEl.addEventListener("input", function () {
+        function applyAuto() {
           if (expiresTouched) return;
           var auto = addMonthsYmd(String(dateEl.value || "").trim(), 6);
           if (auto) expEl.value = auto;
-        });
+        }
 
-        dateEl.addEventListener("change", function () {
-          if (expiresTouched) return;
-          var auto = addMonthsYmd(String(dateEl.value || "").trim(), 6);
-          if (auto) expEl.value = auto;
-        });
+        dateEl.addEventListener("input", applyAuto);
+        dateEl.addEventListener("change", applyAuto);
       }
     } catch (e) {}
   }
@@ -524,7 +521,7 @@
 
   function buildTableRow(entry, onEdit, onDelete) {
     var tr = document.createElement("tr");
-    if (isExpiredYmd(entry.expires_date)) tr.className = "rp-expired";
+    if (isExpiredYmd(entry.expires_date)) tr.classList.add("rp-expired-row");
 
     function tdText(text, bold) {
       var td = document.createElement("td");
