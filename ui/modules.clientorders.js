@@ -1073,6 +1073,36 @@ chk.addEventListener("change", async function () {
     }
   }
 
+   function rerender() {
+  try {
+    applyFilterSplitSort();
+
+    var tbodyA = null, tbodyD = null, countA = null, countD = null;
+
+    try { tbodyA = E.q("#co-tbody-active"); } catch (e1) { tbodyA = document.querySelector("#co-tbody-active"); }
+    try { tbodyD = E.q("#co-tbody-done"); } catch (e2) { tbodyD = document.querySelector("#co-tbody-done"); }
+    try { countA = E.q("#co-count-active"); } catch (e3) { countA = document.querySelector("#co-count-active"); }
+    try { countD = E.q("#co-count-done"); } catch (e4) { countD = document.querySelector("#co-count-done"); }
+
+    if (tbodyA) renderTable(tbodyA, state.filteredActive || []);
+    if (tbodyD) renderTable(tbodyD, state.filteredDone || []);
+
+    var totalActive = 0, totalDone = 0;
+    var all = Array.isArray(state.entries) ? state.entries : [];
+    for (var i = 0; i < all.length; i++) {
+      if (all[i] && all[i].fulfilled) totalDone++;
+      else totalActive++;
+    }
+
+    if (countA) countA.textContent = "Showing " + String((state.filteredActive || []).length) + " / " + String(totalActive);
+    if (countD) countD.textContent = "Showing " + String((state.filteredDone || []).length) + " / " + String(totalDone);
+
+    try { if (typeof state.renderDebugPanel === "function") state.renderDebugPanel(); } catch (e5) {}
+  } catch (e) {
+    try { err("[clientorders] rerender failed", { message: e && e.message ? e.message : String(e) }); } catch (e6) {}
+  }
+}
+
   function setSort(thEls, sortState) {
     for (var i = 0; i < thEls.length; i++) {
       var th = thEls[i];
