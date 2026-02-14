@@ -953,12 +953,22 @@ async function ensureClientOrdersSchema(env) {
     "CREATE INDEX IF NOT EXISTS idx_client_orders_org_loc_priority ON client_orders_entries (org_id, location_id, priority)",
     []
   );
-    // Backfill schema for existing deployments (safe if column already exists)
-  try {
-    await dbRun(env, "ALTER TABLE client_orders_entries ADD COLUMN client_alt_phone TEXT NOT NULL DEFAULT ''", []);
-  } catch (e) {
-    // ignore: column already exists
+
+  // Backfill schema for existing deployments (safe if column already exists)
+  const adds = [
+    "ALTER TABLE client_orders_entries ADD COLUMN client_phone TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE client_orders_entries ADD COLUMN client_alt_phone TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE client_orders_entries ADD COLUMN client_email TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE client_orders_entries ADD COLUMN client_address TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE client_orders_entries ADD COLUMN items_text TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE client_orders_entries ADD COLUMN pickup_date TEXT",
+    "ALTER TABLE client_orders_entries ADD COLUMN deposit_amount REAL NOT NULL DEFAULT 0"
+  ];
+
+  for (const sql of adds) {
+    try { await dbRun(env, sql, []); } catch (e) { /* ignore duplicate column */ }
   }
+
 }
 
 function normalizePriority(p) {
@@ -1111,9 +1121,9 @@ async function handleClientOrdersEntryCreate(request, env, corsOkHeaders, authUs
   const row = await dbFirst(
     env,
     `INSERT INTO client_orders_entries
-      (org_id, location_id, order_date, client_name, client_phone, client_email, client_address,
-       items_text, priority, needed_by, pickup_date, deposit_amount,
-       fulfilled, fulfilled_at, notes, created_by, created_at, updated_at)
+    (org_id, location_id, order_date, client_name, client_phone, client_alt_phone, client_email, client_address,
+    items_text, priority, needed_by, pickup_date, deposit_amount,
+    fulfilled, fulfilled_at, notes, created_by, created_at, updated_at)
      VALUES
       (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? THEN datetime('now') ELSE NULL END, ?, ?, datetime('now'), datetime('now'))
      RETURNING id`,
@@ -1123,6 +1133,7 @@ async function handleClientOrdersEntryCreate(request, env, corsOkHeaders, authUs
       orderDate,
       clientName,
       clientPhone,
+      clientAltPhone,
       clientEmail,
       clientAddress,
       itemsText,
@@ -1197,6 +1208,7 @@ async function handleClientOrdersEntryUpdate(request, env, corsOkHeaders, authUs
      SET order_date = ?,
          client_name = ?,
          client_phone = ?,
+         client_alt_phone = ?,
          client_email = ?,
          client_address = ?,
          items_text = ?,
@@ -1217,6 +1229,7 @@ async function handleClientOrdersEntryUpdate(request, env, corsOkHeaders, authUs
       orderDate,
       clientName,
       clientPhone,
+      clientAltPhone,
       clientEmail,
       clientAddress,
       itemsText,
