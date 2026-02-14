@@ -887,13 +887,21 @@
   function buildTableRow(entry, opts) {
     var tr = document.createElement("tr");
 
-    function td(text, cls, title) {
-      var el = document.createElement("td");
-      if (cls) el.className = cls;
-      if (title) el.title = title;
-      el.textContent = text;
-      return el;
-    }
+function td(text, cls, title) {
+  var el = document.createElement("td");
+  if (cls) el.className = cls;
+  if (title) el.title = title;
+
+  if (cls && String(cls).indexOf("co-clamp") >= 0) {
+    var inner = document.createElement("div");
+    inner.className = "co-clamp-inner";
+    inner.textContent = text;
+    el.appendChild(inner);
+  } else {
+    el.textContent = text;
+  }
+  return el;
+}
 
     tr.appendChild(td(fmtDmyFromYmd(entry.order_date || ""), "", entry.order_date || ""));
     tr.appendChild(td(entry.client_name || "", "", entry.client_name || ""));
@@ -942,6 +950,8 @@ chk.addEventListener("change", async function () {
     if (isFinite(dn2)) depositAmount = dn2;
   }
 
+if (depositAmount == null) depositAmount = 0;
+   
   var payload = {
     order_date: entry.order_date || "",
     client_name: entry.client_name || "",
