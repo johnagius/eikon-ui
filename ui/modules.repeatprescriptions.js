@@ -60,24 +60,33 @@
     return v.slice(8, 10) + "/" + v.slice(5, 7) + "/" + v.slice(0, 4);
   }
 
-  // Add months to YYYY-MM-DD, clamped to end-of-month
-  function addMonthsYmd(ymd, months) {
-    var v = String(ymd || "").trim();
-    if (!isYmd(v)) return "";
-    var parts = v.split("-");
-    var y = parseInt(parts[0], 10);
-    var m = parseInt(parts[1], 10);
-    var d = parseInt(parts[2], 10);
-    if (!y || !m || !d) return "";
+  // Add months to a YYYY-MM-DD (clamps day to end-of-month)
+  function addMonthsToYmd(ymd, months) {
+    var s = String(ymd || "").trim();
+    if (!isYmd(s)) return null;
 
-    var base = new Date(Date.UTC(y, m - 1, 1));
-    base.setUTCMonth(base.getUTCMonth() + Number(months || 0));
-    var ty = base.getUTCFullYear();
-    var tm = base.getUTCMonth();
-    var dim = new Date(Date.UTC(ty, tm + 1, 0)).getUTCDate();
-    var dd = Math.min(d, dim);
-    var out = new Date(Date.UTC(ty, tm, dd));
-    return out.getUTCFullYear() + "-" + pad2(out.getUTCMonth() + 1) + "-" + pad2(out.getUTCDate());
+    var y = parseInt(s.slice(0, 4), 10);
+    var m = parseInt(s.slice(5, 7), 10);
+    var d = parseInt(s.slice(8, 10), 10);
+    if (!isFinite(y) || !isFinite(m) || !isFinite(d)) return null;
+
+    var targetMonthIndex = (m - 1) + Number(months || 0);
+    var ty = y + Math.floor(targetMonthIndex / 12);
+    var tm = ((targetMonthIndex % 12) + 12) % 12; // 0..11
+
+    // last day of target month
+    var lastDay = new Date(Date.UTC(ty, tm + 1, 0)).getUTCDate();
+    var td = Math.min(d, lastDay);
+
+    var dt = new Date(Date.UTC(ty, tm, td));
+    return dt.toISOString().slice(0, 10);
+  }
+
+  function isExpiredYmd(expiresYmd) {
+    var ex = String(expiresYmd || "").trim();
+    if (!isYmd(ex)) return false;
+    // requirement: "older than todays date" => strictly <
+    return ex < todayYmd();
   }
 
   function norm(s) {
@@ -104,14 +113,8 @@
     );
   }
 
-  function isExpiredYmd(expiresYmd) {
-    var ex = String(expiresYmd || "").trim();
-    if (!isYmd(ex)) return false;
-    return ex < todayYmd(); // YYYY-MM-DD string compare
-  }
-
   // ------------------------------------------------------------
-  // CSS
+  // module-scoped harmonious CSS (clone of Daily Register)
   // ------------------------------------------------------------
   var rpStyleInstalled = false;
   function ensureRepeatPrescriptionStyles() {
@@ -123,7 +126,7 @@
     st.id = "eikon-repeatprescriptions-style";
     st.textContent =
       "" +
-      ".rp-wrap{max-width:1100px;margin:0 auto;padding:16px;}" +
+      ".rp-wrap{max-width:1200px;margin:0 auto;padding:16px;}" +
       ".rp-head{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between;margin-bottom:12px;}" +
       ".rp-title{margin:0;font-size:18px;font-weight:900;color:var(--text,#e9eef7);}" +
       ".rp-sub{margin:4px 0 0 0;font-size:12px;color:var(--muted,rgba(233,238,247,.68));}" +
@@ -156,13 +159,13 @@
       ".rp-card-head h3{margin:0;font-size:15px;font-weight:1000;color:var(--text,#e9eef7);}" +
       "#rp-count{font-size:12px;color:var(--muted,rgba(233,238,247,.68));font-weight:800;}" +
       ".rp-table-wrap{overflow:auto;border:1px solid var(--line,rgba(255,255,255,.10));border-radius:14px;background:rgba(10,16,24,.18);}" +
-      ".rp-table{width:100%;border-collapse:collapse;min-width:1080px;color:var(--text,#e9eef7);}" +
+      ".rp-table{width:100%;border-collapse:collapse;min-width:1120px;color:var(--text,#e9eef7);}" +
       ".rp-table th,.rp-table td{border-bottom:1px solid var(--line,rgba(255,255,255,.10));padding:10px 10px;font-size:12px;vertical-align:top;}" +
       ".rp-table th{background:rgba(12,19,29,.92);position:sticky;top:0;z-index:1;color:var(--muted,rgba(233,238,247,.68));text-transform:uppercase;letter-spacing:.8px;font-weight:1000;text-align:left;}" +
       ".rp-table tbody tr:hover{background:rgba(255,255,255,.04);}" +
-      // IMPORTANT: force table-row so nothing can hide it
-      ".rp-table tbody tr.rp-expired-row{display:table-row !important;background:rgba(255,90,90,.14) !important;}" +
-      ".rp-table tbody tr.rp-expired-row:hover{background:rgba(255,90,90,.18) !important;}" +
+      ".rp-table tbody tr.rp-expired{background:rgba(255,80,80,.18) !important;}" +
+      ".rp-table tbody tr.rp-expired:hover{background:rgba(255,80,80,.26) !important;}" +
+      ".rp-table tbody tr.rp-expired td:first-child{box-shadow:inset 4px 0 0 rgba(255,80,80,.65);}" +
       ".rp-table b{color:var(--text,#e9eef7);}" +
       ".rp-idline{opacity:.75;font-size:11px;color:var(--muted,rgba(233,238,247,.68));}" +
       "#rp-date,#rp-expires,#rp-client-name,#rp-client-id,#rp-med,#rp-pos,#rp-prescriber,#rp-presc-reg{" +
@@ -228,9 +231,7 @@
     };
 
     if (!out.entry_date || !isYmd(out.entry_date)) throw new Error("Date is required (YYYY-MM-DD)");
-    if (!out.expires_date) out.expires_date = addMonthsYmd(out.entry_date, 6);
     if (!out.expires_date || !isYmd(out.expires_date)) throw new Error("Expires is required (YYYY-MM-DD)");
-
     if (!out.client_name) throw new Error("Client Name & Surname is required");
     if (!out.client_id) throw new Error("Client ID is required");
     if (!out.medicine_name_dose) throw new Error("Medicine Name & Dose is required");
@@ -273,8 +274,12 @@
     var title = isEdit ? "Edit Repeat Prescription Entry" : "New Repeat Prescription Entry";
 
     var initialEntryDate = String(entry.entry_date || todayYmd()).trim();
+    if (!isYmd(initialEntryDate)) initialEntryDate = todayYmd();
+
     var initialExpires = String(entry.expires_date || "").trim();
-    if (!isYmd(initialExpires)) initialExpires = addMonthsYmd(initialEntryDate, 6);
+    if (!isYmd(initialExpires)) {
+      initialExpires = addMonthsToYmd(initialEntryDate, 6) || initialEntryDate;
+    }
 
     var initial = {
       entry_date: initialEntryDate,
@@ -377,28 +382,27 @@
       },
     ]);
 
-    // Auto-calc Expires = Date + 6 months (until user overrides)
-    try {
-      var dateEl = E.q("#rp-date");
-      var expEl = E.q("#rp-expires");
-      if (dateEl && expEl) {
-        var baseAuto = addMonthsYmd(String(dateEl.value || "").trim(), 6);
-        var expiresTouched = isYmd(String(expEl.value || "").trim()) && String(expEl.value || "").trim() !== baseAuto;
+    // Auto-set Expires = Date + 6 months unless user manually edits Expires
+    setTimeout(function () {
+      try {
+        var dateEl = E.q("#rp-date");
+        var expEl = E.q("#rp-expires");
+        if (!dateEl || !expEl) return;
 
+        var expiresTouched = false;
         expEl.addEventListener("input", function () {
           expiresTouched = true;
         });
 
-        function applyAuto() {
+        dateEl.addEventListener("change", function () {
           if (expiresTouched) return;
-          var auto = addMonthsYmd(String(dateEl.value || "").trim(), 6);
-          if (auto) expEl.value = auto;
-        }
-
-        dateEl.addEventListener("input", applyAuto);
-        dateEl.addEventListener("change", applyAuto);
-      }
-    } catch (e) {}
+          var d = String(dateEl.value || "").trim();
+          if (!isYmd(d)) return;
+          var next = addMonthsToYmd(d, 6);
+          if (next) expEl.value = next;
+        });
+      } catch (e) {}
+    }, 0);
   }
 
   function openConfirmDelete(entry) {
@@ -521,7 +525,11 @@
 
   function buildTableRow(entry, onEdit, onDelete) {
     var tr = document.createElement("tr");
-    if (isExpiredYmd(entry.expires_date)) tr.classList.add("rp-expired-row");
+
+    // IMPORTANT: never hide expired rows — only highlight
+    if (isExpiredYmd(entry.expires_date)) {
+      tr.className = "rp-expired";
+    }
 
     function tdText(text, bold) {
       var td = document.createElement("td");
@@ -589,6 +597,7 @@
     var q = norm(state.query);
     var out = [];
 
+    // IMPORTANT: do NOT filter out expired rows here.
     if (!q) out = state.entries.slice();
     else {
       for (var i = 0; i < state.entries.length; i++) {
@@ -713,7 +722,12 @@
           r.id = r.id;
           r.entry_date = String(r.entry_date || "").trim();
           r.expires_date = String(r.expires_date || "").trim();
-          if (!isYmd(r.expires_date) && isYmd(r.entry_date)) r.expires_date = addMonthsYmd(r.entry_date, 6);
+
+          // If backend returns old rows without expires_date, compute a sensible default for UI
+          if (!isYmd(r.expires_date) && isYmd(r.entry_date)) {
+            r.expires_date = addMonthsToYmd(r.entry_date, 6) || "";
+          }
+
           r.client_name = String(r.client_name || "").trim();
           r.client_id = String(r.client_id || "").trim();
           r.medicine_name_dose = String(r.medicine_name_dose || "").trim();
@@ -740,7 +754,14 @@
     });
 
     btnNew.addEventListener("click", function () {
-      openEntryModal({ mode: "new", entry: { entry_date: todayYmd() } });
+      var d = todayYmd();
+      openEntryModal({
+        mode: "new",
+        entry: {
+          entry_date: d,
+          expires_date: addMonthsToYmd(d, 6) || d,
+        },
+      });
     });
 
     btnPrint.addEventListener("click", function () {
