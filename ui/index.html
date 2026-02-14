@@ -84,8 +84,8 @@
       // Load in strict order
       loadCss(withParams("./app.css"))
         .then(function () { return loadScript(withParams("./core.js")); })
-		.then(function () { return loadScript(withParams("modules.clientorders.js")); })
-		.then(function () { return loadScript(withParams("modules.endofday.js")); })
+		.then(function () { return loadScript(withParams("./modules.clientorders.js")); })
+		.then(function () { return loadScript(withParams("./modules.endofday.js")); })
         .then(function () { return loadScript(withParams("./modules.temperature.js")); })
         .then(function () { return loadScript(withParams("./modules.cleaning.js")); })
         .then(function () { return loadScript(withParams("./modules.certificates.js")); })
