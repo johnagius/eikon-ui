@@ -1122,10 +1122,8 @@ async function handleClientOrdersEntryCreate(request, env, corsOkHeaders, authUs
     env,
     `INSERT INTO client_orders_entries
     (org_id, location_id, order_date, client_name, client_phone, client_alt_phone, client_email, client_address,
-    items_text, priority, needed_by, pickup_date, deposit_amount,
-    fulfilled, fulfilled_at, notes, created_by, created_at, updated_at)
+    items_text, priority, needed_by, pickup_date, deposit_amount, fulfilled, fulfilled_at, notes, created_by, created_at, updated_at)
      VALUES
-      VALUES
   (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? THEN datetime('now') ELSE NULL END, ?, ?, datetime('now'), datetime('now'))
      RETURNING id`,
     [
