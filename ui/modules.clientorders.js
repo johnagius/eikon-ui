@@ -216,6 +216,7 @@
       ".co-debug{margin-top:12px;border:1px solid rgba(255,255,255,.10);border-radius:14px;background:rgba(10,16,24,.24);padding:10px;}" +
       ".co-debug h4{margin:0 0 8px 0;font-size:13px;font-weight:1000;color:rgba(233,238,247,.84);}" +
       ".co-debug pre{margin:0;white-space:pre-wrap;word-break:break-word;font-size:11px;line-height:1.35;color:rgba(233,238,247,.78);}" +
+      ".co-debug{display:none!important;}" +
 
       // Modal inputs
       "#co-date,#co-client,#co-address,#co-contact,#co-alternate,#co-email,#co-needed,#co-pickup,#co-deposit{" +
