@@ -897,6 +897,354 @@ async function handleTempReportHtml(request, env, corsOkHeaders, authUser, url) 
 }
 
 /* =========================
+   CLIENT ORDERS MODULE (API)
+   ========================= */
+
+async function ensureClientOrdersSchema(env) {
+  await dbRun(
+    env,
+    `CREATE TABLE IF NOT EXISTS client_orders_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+
+      order_date TEXT NOT NULL,               -- YYYY-MM-DD
+      client_name TEXT NOT NULL,
+      client_phone TEXT NOT NULL DEFAULT '',
+      client_email TEXT NOT NULL DEFAULT '',
+      client_address TEXT NOT NULL DEFAULT '',
+
+      items_text TEXT NOT NULL,               -- free text (what they ordered)
+      priority INTEGER NOT NULL DEFAULT 2,     -- 1=high,2=normal,3=low
+      needed_by TEXT,                         -- YYYY-MM-DD or NULL
+      pickup_date TEXT,                       -- YYYY-MM-DD or NULL
+      deposit_amount REAL NOT NULL DEFAULT 0,  -- optional
+
+      fulfilled INTEGER NOT NULL DEFAULT 0,    -- 0/1
+      fulfilled_at TEXT,                      -- datetime when marked fulfilled
+
+      notes TEXT NOT NULL DEFAULT '',
+
+      created_by INTEGER,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )`,
+    []
+  );
+
+  await dbRun(
+    env,
+    "CREATE INDEX IF NOT EXISTS idx_client_orders_org_loc_date ON client_orders_entries (org_id, location_id, order_date)",
+    []
+  );
+  await dbRun(
+    env,
+    "CREATE INDEX IF NOT EXISTS idx_client_orders_org_loc_fulfilled ON client_orders_entries (org_id, location_id, fulfilled, order_date)",
+    []
+  );
+  await dbRun(
+    env,
+    "CREATE INDEX IF NOT EXISTS idx_client_orders_org_loc_client ON client_orders_entries (org_id, location_id, client_name)",
+    []
+  );
+  await dbRun(
+    env,
+    "CREATE INDEX IF NOT EXISTS idx_client_orders_org_loc_priority ON client_orders_entries (org_id, location_id, priority)",
+    []
+  );
+}
+
+function normalizePriority(p) {
+  const n = Number(p);
+  if (!Number.isFinite(n)) return 2;
+  const i = Math.floor(n);
+  if (i === 1 || i === 2 || i === 3) return i;
+  return 2;
+}
+
+function normalizeMoney(n) {
+  if (n === null || n === undefined || n === "") return 0;
+  const v = Number(n);
+  if (!Number.isFinite(v) || v < 0) return null;
+  // keep 2dp-ish
+  return Math.round(v * 100) / 100;
+}
+
+function normalizeMaybeYmd(s) {
+  const t = String(s ?? "").trim();
+  if (!t) return null;
+  return isValidYmd(t) ? t : "__INVALID__";
+}
+
+async function handleClientOrdersEntriesList(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureClientOrdersSchema(env);
+
+  const month = (url.searchParams.get("month") || "").trim();
+  const range = monthRange(month);
+  if (!range) return jsonResponse({ ok: false, error: "Missing/invalid month (YYYY-MM)" }, 400, corsOkHeaders);
+
+  const q = (url.searchParams.get("q") || "").trim();
+  const hasQ = !!q;
+  const qLike = `%${q}%`;
+
+  // fulfilled filter: "0", "1", or omit for all
+  const fulfilledParam = (url.searchParams.get("fulfilled") || "").trim();
+  const hasFulfilled = fulfilledParam === "0" || fulfilledParam === "1";
+  const fulfilledVal = hasFulfilled ? Number(fulfilledParam) : null;
+
+  const sql = `
+    SELECT
+      id,
+      order_date,
+      client_name,
+      client_phone,
+      client_email,
+      client_address,
+      items_text,
+      priority,
+      needed_by,
+      pickup_date,
+      deposit_amount,
+      fulfilled,
+      fulfilled_at,
+      notes,
+      created_by,
+      created_at,
+      updated_at
+    FROM client_orders_entries
+    WHERE org_id = ?
+      AND location_id = ?
+      AND order_date >= ?
+      AND order_date < ?
+      ${hasFulfilled ? "AND fulfilled = ?" : ""}
+      ${hasQ ? `AND (
+        order_date LIKE ?
+        OR client_name LIKE ?
+        OR client_phone LIKE ?
+        OR client_email LIKE ?
+        OR client_address LIKE ?
+        OR items_text LIKE ?
+        OR notes LIKE ?
+      )` : ""}
+    ORDER BY fulfilled ASC, order_date DESC, priority ASC, id DESC
+  `;
+
+  const bind = [authUser.org_id, authUser.location_id, range.startStr, range.endStr];
+  if (hasFulfilled) bind.push(fulfilledVal);
+  if (hasQ) bind.push(qLike, qLike, qLike, qLike, qLike, qLike, qLike);
+
+  const entries = await dbAll(env, sql, bind);
+  return jsonResponse({ ok: true, entries }, 200, corsOkHeaders);
+}
+
+async function handleClientOrdersEntryCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureClientOrdersSchema(env);
+
+  const body = await readJson(request);
+
+  const orderDate = String(body.order_date || body.entry_date || "").trim();
+  const clientName = String(body.client_name || "").trim();
+  const clientPhone = String(body.client_phone || "").trim();
+  const clientEmail = String(body.client_email || "").trim();
+  const clientAddress = String(body.client_address || "").trim();
+  const itemsText = String(body.items_text || body.items || "").trim();
+  const priority = normalizePriority(body.priority);
+  const neededBy = normalizeMaybeYmd(body.needed_by);
+  const pickupDate = normalizeMaybeYmd(body.pickup_date);
+  const depositAmount = normalizeMoney(body.deposit_amount);
+  const fulfilled = body.fulfilled ? 1 : 0;
+  const notes = String(body.notes || "").trim();
+
+  if (!isValidYmd(orderDate)) return jsonResponse({ ok: false, error: "Invalid order_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (!clientName) return jsonResponse({ ok: false, error: "Missing client_name" }, 400, corsOkHeaders);
+  if (!itemsText) return jsonResponse({ ok: false, error: "Missing items_text" }, 400, corsOkHeaders);
+
+  if (neededBy === "__INVALID__") return jsonResponse({ ok: false, error: "Invalid needed_by (YYYY-MM-DD or empty)" }, 400, corsOkHeaders);
+  if (pickupDate === "__INVALID__") return jsonResponse({ ok: false, error: "Invalid pickup_date (YYYY-MM-DD or empty)" }, 400, corsOkHeaders);
+  if (depositAmount === null) return jsonResponse({ ok: false, error: "Invalid deposit_amount (>= 0)" }, 400, corsOkHeaders);
+
+  const row = await dbFirst(
+    env,
+    `INSERT INTO client_orders_entries
+      (org_id, location_id, order_date, client_name, client_phone, client_email, client_address,
+       items_text, priority, needed_by, pickup_date, deposit_amount,
+       fulfilled, fulfilled_at, notes, created_by, created_at, updated_at)
+     VALUES
+      (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? THEN datetime('now') ELSE NULL END, ?, ?, datetime('now'), datetime('now'))
+     RETURNING id`,
+    [
+      authUser.org_id,
+      authUser.location_id,
+      orderDate,
+      clientName,
+      clientPhone,
+      clientEmail,
+      clientAddress,
+      itemsText,
+      priority,
+      neededBy,
+      pickupDate,
+      depositAmount,
+      fulfilled,
+      fulfilled ? 1 : 0,
+      notes,
+      authUser.user_id
+    ]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CLIENT_ORDER_CREATE", "client_orders_entries", String(row.id), {
+    order_date: orderDate,
+    client_name: clientName,
+    priority,
+    fulfilled
+  });
+
+  return jsonResponse({ ok: true, entry_id: row.id }, 200, corsOkHeaders);
+}
+
+async function handleClientOrdersEntryUpdate(request, env, corsOkHeaders, authUser, entryId) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureClientOrdersSchema(env);
+
+  const existing = await dbFirst(
+    env,
+    `SELECT id, fulfilled
+     FROM client_orders_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+
+  const orderDate = String(body.order_date || body.entry_date || "").trim();
+  const clientName = String(body.client_name || "").trim();
+  const clientPhone = String(body.client_phone || "").trim();
+  const clientEmail = String(body.client_email || "").trim();
+  const clientAddress = String(body.client_address || "").trim();
+  const itemsText = String(body.items_text || body.items || "").trim();
+  const priority = normalizePriority(body.priority);
+  const neededBy = normalizeMaybeYmd(body.needed_by);
+  const pickupDate = normalizeMaybeYmd(body.pickup_date);
+  const depositAmount = normalizeMoney(body.deposit_amount);
+  const fulfilled = body.fulfilled ? 1 : 0;
+  const notes = String(body.notes || "").trim();
+
+  if (!isValidYmd(orderDate)) return jsonResponse({ ok: false, error: "Invalid order_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (!clientName) return jsonResponse({ ok: false, error: "Missing client_name" }, 400, corsOkHeaders);
+  if (!itemsText) return jsonResponse({ ok: false, error: "Missing items_text" }, 400, corsOkHeaders);
+
+  if (neededBy === "__INVALID__") return jsonResponse({ ok: false, error: "Invalid needed_by (YYYY-MM-DD or empty)" }, 400, corsOkHeaders);
+  if (pickupDate === "__INVALID__") return jsonResponse({ ok: false, error: "Invalid pickup_date (YYYY-MM-DD or empty)" }, 400, corsOkHeaders);
+  if (depositAmount === null) return jsonResponse({ ok: false, error: "Invalid deposit_amount (>= 0)" }, 400, corsOkHeaders);
+
+  const wasFulfilled = existing.fulfilled ? 1 : 0;
+  const turningOn = (wasFulfilled === 0 && fulfilled === 1);
+  const turningOff = (wasFulfilled === 1 && fulfilled === 0);
+
+  await dbRun(
+    env,
+    `UPDATE client_orders_entries
+     SET order_date = ?,
+         client_name = ?,
+         client_phone = ?,
+         client_email = ?,
+         client_address = ?,
+         items_text = ?,
+         priority = ?,
+         needed_by = ?,
+         pickup_date = ?,
+         deposit_amount = ?,
+         fulfilled = ?,
+         fulfilled_at = CASE
+            WHEN ? THEN datetime('now')
+            WHEN ? THEN NULL
+            ELSE fulfilled_at
+         END,
+         notes = ?,
+         updated_at = datetime('now')
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [
+      orderDate,
+      clientName,
+      clientPhone,
+      clientEmail,
+      clientAddress,
+      itemsText,
+      priority,
+      neededBy,
+      pickupDate,
+      depositAmount,
+      fulfilled,
+      turningOn ? 1 : 0,
+      turningOff ? 1 : 0,
+      notes,
+      entryId,
+      authUser.org_id,
+      authUser.location_id
+    ]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CLIENT_ORDER_UPDATE", "client_orders_entries", String(entryId), {
+    order_date: orderDate,
+    client_name: clientName,
+    priority,
+    fulfilled
+  });
+
+  // Optional: add explicit audit for fulfill/unfulfill if you want
+  if (turningOn) {
+    await writeAudit(env, authUser.org_id, authUser.user_id, "CLIENT_ORDER_FULFILLED", "client_orders_entries", String(entryId), {});
+  } else if (turningOff) {
+    await writeAudit(env, authUser.org_id, authUser.user_id, "CLIENT_ORDER_UNFULFILLED", "client_orders_entries", String(entryId), {});
+  }
+
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleClientOrdersEntryDelete(request, env, corsOkHeaders, authUser, entryId) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureClientOrdersSchema(env);
+
+  const existing = await dbFirst(
+    env,
+    `SELECT id, order_date, client_name
+     FROM client_orders_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  await dbRun(
+    env,
+    `DELETE FROM client_orders_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CLIENT_ORDER_DELETE", "client_orders_entries", String(entryId), {
+    order_date: existing.order_date,
+    client_name: existing.client_name
+  });
+
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+/* =========================
    END OF DAY (EOD) MODULE (API)
    ========================= */
 
@@ -3032,6 +3380,325 @@ async function handleDdaPoycReportHtml(request, env, corsOkHeaders, authUser, ur
   return htmlReportPage("DDA POYC Report", body);
 }
 
+/* =========================
+   DDA PURCHASES MODULE (API)  <-- NEW
+   ========================= */
+
+async function ensureDdaPurchasesSchema(env) {
+  await dbRun(
+    env,
+    `CREATE TABLE IF NOT EXISTS dda_purchases_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+      entry_date TEXT NOT NULL,
+      dda_name_dose TEXT NOT NULL,
+      quantity INTEGER NOT NULL,
+      agent TEXT NOT NULL,
+      invoice_number TEXT NOT NULL,
+      created_by INTEGER,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )`,
+    []
+  );
+
+  await dbRun(
+    env,
+    "CREATE INDEX IF NOT EXISTS idx_dda_purchases_org_loc_date ON dda_purchases_entries (org_id, location_id, entry_date)",
+    []
+  );
+  await dbRun(
+    env,
+    "CREATE INDEX IF NOT EXISTS idx_dda_purchases_org_loc_invoice ON dda_purchases_entries (org_id, location_id, invoice_number)",
+    []
+  );
+  await dbRun(
+    env,
+    "CREATE INDEX IF NOT EXISTS idx_dda_purchases_org_loc_dda ON dda_purchases_entries (org_id, location_id, dda_name_dose)",
+    []
+  );
+}
+
+async function handleDdaPurchasesEntriesList(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDdaPurchasesSchema(env);
+
+  const month = (url.searchParams.get("month") || "").trim();
+  const range = monthRange(month);
+  if (!range) return jsonResponse({ ok: false, error: "Missing/invalid month (YYYY-MM)" }, 400, corsOkHeaders);
+
+  const q = (url.searchParams.get("q") || "").trim();
+  const hasQ = !!q;
+  const qLike = `%${q}%`;
+
+  const sql = `
+    SELECT
+      id,
+      entry_date,
+      dda_name_dose,
+      quantity,
+      agent,
+      invoice_number,
+      created_by,
+      created_at,
+      updated_at
+    FROM dda_purchases_entries
+    WHERE org_id = ?
+      AND location_id = ?
+      AND entry_date >= ?
+      AND entry_date < ?
+      ${hasQ ? `AND (
+        entry_date LIKE ?
+        OR dda_name_dose LIKE ?
+        OR agent LIKE ?
+        OR invoice_number LIKE ?
+      )` : ""}
+    ORDER BY entry_date DESC, id DESC
+  `;
+
+  const bind = [authUser.org_id, authUser.location_id, range.startStr, range.endStr];
+  if (hasQ) bind.push(qLike, qLike, qLike, qLike);
+
+  const entries = await dbAll(env, sql, bind);
+  return jsonResponse({ ok: true, entries }, 200, corsOkHeaders);
+}
+
+async function handleDdaPurchasesEntryCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDdaPurchasesSchema(env);
+
+  const body = await readJson(request);
+
+  const entryDate = String(body.entry_date || "").trim();
+  const ddaNameDose = String(body.dda_name_dose || "").trim();
+  const quantity = normalizeIntPositive(body.quantity);
+  const agent = String(body.agent || "").trim();
+  const invoiceNumber = String(body.invoice_number || "").trim();
+
+  if (!isValidYmd(entryDate)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (!ddaNameDose) return jsonResponse({ ok: false, error: "Missing dda_name_dose" }, 400, corsOkHeaders);
+  if (!quantity || quantity < 1) return jsonResponse({ ok: false, error: "Invalid quantity (must be >= 1)" }, 400, corsOkHeaders);
+  if (!agent) return jsonResponse({ ok: false, error: "Missing agent" }, 400, corsOkHeaders);
+  if (!invoiceNumber) return jsonResponse({ ok: false, error: "Missing invoice_number" }, 400, corsOkHeaders);
+
+  const row = await dbFirst(
+    env,
+    `INSERT INTO dda_purchases_entries
+      (org_id, location_id, entry_date, dda_name_dose, quantity, agent, invoice_number, created_by, created_at, updated_at)
+     VALUES
+      (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+     RETURNING id`,
+    [
+      authUser.org_id,
+      authUser.location_id,
+      entryDate,
+      ddaNameDose,
+      quantity,
+      agent,
+      invoiceNumber,
+      authUser.user_id
+    ]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_PURCHASES_ENTRY_CREATE", "dda_purchases_entries", String(row.id), {
+    entry_date: entryDate,
+    dda_name_dose: ddaNameDose,
+    invoice_number: invoiceNumber,
+    quantity
+  });
+
+  return jsonResponse({ ok: true, entry_id: row.id }, 200, corsOkHeaders);
+}
+
+async function handleDdaPurchasesEntryUpdate(request, env, corsOkHeaders, authUser, entryId) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDdaPurchasesSchema(env);
+
+  const existing = await dbFirst(
+    env,
+    `SELECT id
+     FROM dda_purchases_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+
+  const entryDate = String(body.entry_date || "").trim();
+  const ddaNameDose = String(body.dda_name_dose || "").trim();
+  const quantity = normalizeIntPositive(body.quantity);
+  const agent = String(body.agent || "").trim();
+  const invoiceNumber = String(body.invoice_number || "").trim();
+
+  if (!isValidYmd(entryDate)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (!ddaNameDose) return jsonResponse({ ok: false, error: "Missing dda_name_dose" }, 400, corsOkHeaders);
+  if (!quantity || quantity < 1) return jsonResponse({ ok: false, error: "Invalid quantity (must be >= 1)" }, 400, corsOkHeaders);
+  if (!agent) return jsonResponse({ ok: false, error: "Missing agent" }, 400, corsOkHeaders);
+  if (!invoiceNumber) return jsonResponse({ ok: false, error: "Missing invoice_number" }, 400, corsOkHeaders);
+
+  await dbRun(
+    env,
+    `UPDATE dda_purchases_entries
+     SET entry_date = ?, dda_name_dose = ?, quantity = ?, agent = ?, invoice_number = ?, updated_at = datetime('now')
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [
+      entryDate,
+      ddaNameDose,
+      quantity,
+      agent,
+      invoiceNumber,
+      entryId,
+      authUser.org_id,
+      authUser.location_id
+    ]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_PURCHASES_ENTRY_UPDATE", "dda_purchases_entries", String(entryId), {
+    entry_date: entryDate,
+    dda_name_dose: ddaNameDose,
+    invoice_number: invoiceNumber,
+    quantity
+  });
+
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleDdaPurchasesEntryDelete(request, env, corsOkHeaders, authUser, entryId) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDdaPurchasesSchema(env);
+
+  const existing = await dbFirst(
+    env,
+    `SELECT id, entry_date, dda_name_dose, invoice_number
+     FROM dda_purchases_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  await dbRun(
+    env,
+    `DELETE FROM dda_purchases_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_PURCHASES_ENTRY_DELETE", "dda_purchases_entries", String(entryId), {
+    entry_date: existing.entry_date,
+    dda_name_dose: existing.dda_name_dose,
+    invoice_number: existing.invoice_number
+  });
+
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleDdaPurchasesReport(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDdaPurchasesSchema(env);
+
+  const from = (url.searchParams.get("from") || "").trim();
+  const to = (url.searchParams.get("to") || "").trim();
+
+  if (!isValidYmd(from) || !isValidYmd(to)) {
+    return jsonResponse({ ok: false, error: "Invalid from/to (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  }
+  if (to < from) {
+    return jsonResponse({ ok: false, error: "to must be >= from" }, 400, corsOkHeaders);
+  }
+
+  const entries = await dbAll(
+    env,
+    `SELECT
+       id,
+       entry_date,
+       dda_name_dose,
+       quantity,
+       agent,
+       invoice_number
+     FROM dda_purchases_entries
+     WHERE org_id = ?
+       AND location_id = ?
+       AND entry_date >= ?
+       AND entry_date <= ?
+     ORDER BY entry_date ASC, id ASC`,
+    [authUser.org_id, authUser.location_id, from, to]
+  );
+
+  return jsonResponse(
+    {
+      ok: true,
+      org_name: authUser.org_name,
+      location_name: authUser.location_name,
+      from,
+      to,
+      entries
+    },
+    200,
+    corsOkHeaders
+  );
+}
+
+async function handleDdaPurchasesReportHtml(request, env, corsOkHeaders, authUser, url) {
+  const out = await handleDdaPurchasesReport(request, env, corsOkHeaders, authUser, url);
+  const data = await out.json();
+  if (!data.ok) return out;
+
+  const entries = data.entries || [];
+
+  const byMonth = new Map();
+  for (const e of entries) {
+    const ym = ymFromYmd(e.entry_date);
+    if (!byMonth.has(ym)) byMonth.set(ym, []);
+    byMonth.get(ym).push(e);
+  }
+
+  let body = "";
+  body += `<h1>${escapeHtml(data.org_name || "Pharmacy")} — DDA Purchases Report</h1>`;
+  body += `<p class="meta">Location: ${escapeHtml(data.location_name || "")}<br/>Range: ${escapeHtml(data.from)} to ${escapeHtml(data.to)}</p>`;
+
+  for (const [ym, list] of byMonth.entries()) {
+    body += `<h2>${escapeHtml(ym)}</h2>`;
+    body += `<table><thead><tr>
+      <th>Date</th>
+      <th>DDA Name &amp; Dose</th>
+      <th>Qty</th>
+      <th>Agent</th>
+      <th>Invoice No.</th>
+    </tr></thead><tbody>`;
+
+    for (const r of list) {
+      body += `<tr>
+        <td>${escapeHtml(r.entry_date)}</td>
+        <td>${escapeHtml(r.dda_name_dose)}</td>
+        <td>${escapeHtml(String(r.quantity))}</td>
+        <td>${escapeHtml(r.agent)}</td>
+        <td>${escapeHtml(r.invoice_number)}</td>
+      </tr>`;
+    }
+
+    body += `</tbody></table>`;
+  }
+
+  return htmlReportPage("DDA Purchases Report", body);
+}
+
 /* ========================= DDA STOCK TAKES MODULE (API) ========================= */
 async function ensureDdaStockTakesSchema(env) {
   await dbRun(env, `CREATE TABLE IF NOT EXISTS dda_stocktakes (id INTEGER PRIMARY KEY AUTOINCREMENT, org_id INTEGER NOT NULL, location_id INTEGER NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')), created_by INTEGER, closed_at TEXT, updated_at TEXT NOT NULL DEFAULT (datetime('now')))`, []);
@@ -4013,6 +4680,26 @@ export default {
       return await handleTempReportHtml(request, env, corsOkHeaders, authUser, url);
     }
 
+// Client Orders
+if (url.pathname === "/client-orders/entries" && request.method === "GET") {
+  return await handleClientOrdersEntriesList(request, env, corsOkHeaders, authUser, url);
+}
+if (url.pathname === "/client-orders/entries" && request.method === "POST") {
+  return await handleClientOrdersEntryCreate(request, env, corsOkHeaders, authUser);
+}
+if (url.pathname.startsWith("/client-orders/entries/") && request.method === "PUT") {
+  const parts = url.pathname.split("/").filter(Boolean);
+  const id = parseInt(parts[2], 10);
+  if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+  return await handleClientOrdersEntryUpdate(request, env, corsOkHeaders, authUser, id);
+}
+if (url.pathname.startsWith("/client-orders/entries/") && request.method === "DELETE") {
+  const parts = url.pathname.split("/").filter(Boolean);
+  const id = parseInt(parts[2], 10);
+  if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+  return await handleClientOrdersEntryDelete(request, env, corsOkHeaders, authUser, id);
+}
+
     // Cleaning
     if (url.pathname === "/cleaning/entries" && request.method === "GET") {
       return await handleCleaningEntriesList(request, env, corsOkHeaders, authUser, url);
@@ -4158,6 +4845,32 @@ export default {
     if (url.pathname === "/dda-poyc/report/html" && request.method === "GET") {
       return await handleDdaPoycReportHtml(request, env, corsOkHeaders, authUser, url);
     }
+
+    // DDA Purchases  <-- NEW ROUTES
+if (url.pathname === "/dda-purchases/entries" && request.method === "GET") {
+  return await handleDdaPurchasesEntriesList(request, env, corsOkHeaders, authUser, url);
+}
+if (url.pathname === "/dda-purchases/entries" && request.method === "POST") {
+  return await handleDdaPurchasesEntryCreate(request, env, corsOkHeaders, authUser);
+}
+if (url.pathname.startsWith("/dda-purchases/entries/") && request.method === "PUT") {
+  const parts = url.pathname.split("/").filter(Boolean);
+  const id = parseInt(parts[2], 10);
+  if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+  return await handleDdaPurchasesEntryUpdate(request, env, corsOkHeaders, authUser, id);
+}
+if (url.pathname.startsWith("/dda-purchases/entries/") && request.method === "DELETE") {
+  const parts = url.pathname.split("/").filter(Boolean);
+  const id = parseInt(parts[2], 10);
+  if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+  return await handleDdaPurchasesEntryDelete(request, env, corsOkHeaders, authUser, id);
+}
+if (url.pathname === "/dda-purchases/report" && request.method === "GET") {
+  return await handleDdaPurchasesReport(request, env, corsOkHeaders, authUser, url);
+}
+if (url.pathname === "/dda-purchases/report/html" && request.method === "GET") {
+  return await handleDdaPurchasesReportHtml(request, env, corsOkHeaders, authUser, url);
+}
 
     // ✅ DDA Stock Takes (NEW)
 if (url.pathname === "/dda-stocktakes/stocktakes" && request.method === "GET")
