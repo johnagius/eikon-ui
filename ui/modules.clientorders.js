@@ -204,7 +204,8 @@
       ".co-dot.p2{background:rgba(67,209,122,.95);}" +
       ".co-dot.p3{background:rgba(58,160,255,.95);}" +
 
-      ".co-clamp{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}" +
+      ".co-clamp{max-width:320px;}" +
+      ".co-clamp-inner{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:normal;}" +
       ".co-check{transform:scale(1.05);accent-color:rgba(58,160,255,.95);}" +
 
       ".co-mode{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:900;color:rgba(233,238,247,.78);}" +
