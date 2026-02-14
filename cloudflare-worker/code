@@ -2494,29 +2494,8 @@ async function handleDailyRegisterReportHtml(request, env, corsOkHeaders, authUs
    REPEAT PRESCRIPTIONS MODULE (API)
    ========================= */
 
-function repeatRxAddMonthsYmd(ymd, months) {
-  const s = String(ymd || "").trim();
-  if (!isValidYmd(s)) return "";
-  const parts = s.split("-");
-  const y = parseInt(parts[0], 10);
-  const m = parseInt(parts[1], 10);
-  const d = parseInt(parts[2], 10);
-  if (!y || !m || !d) return "";
-
-  const base = new Date(Date.UTC(y, m - 1, 1));
-  base.setUTCMonth(base.getUTCMonth() + Number(months || 0));
-  const ty = base.getUTCFullYear();
-  const tm = base.getUTCMonth(); // 0..11
-
-  const dim = new Date(Date.UTC(ty, tm + 1, 0)).getUTCDate();
-  const dd = Math.min(d, dim);
-
-  const out = new Date(Date.UTC(ty, tm, dd));
-  const pad2 = (n) => String(n).padStart(2, "0");
-  return `${out.getUTCFullYear()}-${pad2(out.getUTCMonth() + 1)}-${pad2(out.getUTCDate())}`;
-}
-
 async function ensureRepeatPrescriptionsSchema(env) {
+  // Create with expires_date for new installs
   await dbRun(
     env,
     `CREATE TABLE IF NOT EXISTS repeat_prescription_entries (
@@ -2524,7 +2503,7 @@ async function ensureRepeatPrescriptionsSchema(env) {
       org_id INTEGER NOT NULL,
       location_id INTEGER NOT NULL,
       entry_date TEXT NOT NULL,
-      expires_date TEXT NOT NULL DEFAULT '',
+      expires_date TEXT NOT NULL,
       client_name TEXT NOT NULL,
       client_id TEXT NOT NULL,
       medicine_name_dose TEXT NOT NULL,
@@ -2538,21 +2517,22 @@ async function ensureRepeatPrescriptionsSchema(env) {
     []
   );
 
-  // Migration: add expires_date if older table exists
-  try {
-    await dbRun(env, "ALTER TABLE repeat_prescription_entries ADD COLUMN expires_date TEXT NOT NULL DEFAULT ''", []);
-  } catch (e) {
-    /* column may already exist */
+  // Migration: add expires_date if table already existed without it
+  const cols = await dbAll(env, "PRAGMA table_info(repeat_prescription_entries)", []);
+  let hasExpires = false;
+  for (const c of cols) {
+    if (String(c.name || "") === "expires_date") { hasExpires = true; break; }
+  }
+  if (!hasExpires) {
+    await dbRun(env, "ALTER TABLE repeat_prescription_entries ADD COLUMN expires_date TEXT", []);
   }
 
-  // Backfill any missing expires_date for existing rows
-  try {
-    await dbRun(
-      env,
-      "UPDATE repeat_prescription_entries SET expires_date = COALESCE(NULLIF(expires_date,''), date(entry_date,'+6 months')) WHERE expires_date IS NULL OR expires_date = ''",
-      []
-    );
-  } catch (e2) {}
+  // Backfill old rows
+  await dbRun(
+    env,
+    "UPDATE repeat_prescription_entries SET expires_date = date(entry_date, '+6 months') WHERE expires_date IS NULL OR expires_date = ''",
+    []
+  );
 
   await dbRun(
     env,
@@ -2563,6 +2543,12 @@ async function ensureRepeatPrescriptionsSchema(env) {
   await dbRun(
     env,
     "CREATE INDEX IF NOT EXISTS idx_repeat_rx_org_loc_client ON repeat_prescription_entries (org_id, location_id, client_id)",
+    []
+  );
+
+  await dbRun(
+    env,
+    "CREATE INDEX IF NOT EXISTS idx_repeat_rx_org_loc_expires ON repeat_prescription_entries (org_id, location_id, expires_date)",
     []
   );
 }
@@ -2582,7 +2568,8 @@ async function handleRepeatPrescriptionsEntriesList(request, env, corsOkHeaders,
   const hasQ = !!q;
   const qLike = `%${q}%`;
 
-  // IMPORTANT: no "expires_date >= date('now')" or similar filter here
+  // IMPORTANT: do NOT filter out expired rows here.
+  // We always return them; UI highlights them red.
   const sql = `
     SELECT
       id,
@@ -2632,6 +2619,8 @@ async function handleRepeatPrescriptionsEntryCreate(request, env, corsOkHeaders,
   const body = await readJson(request);
 
   const entryDate = String(body.entry_date || "").trim();
+  let expiresDate = String(body.expires_date || "").trim();
+
   const clientName = String(body.client_name || "").trim();
   const clientId = String(body.client_id || "").trim();
   const medicineNameDose = String(body.medicine_name_dose || "").trim();
@@ -2639,11 +2628,9 @@ async function handleRepeatPrescriptionsEntryCreate(request, env, corsOkHeaders,
   const prescriberName = String(body.prescriber_name || "").trim();
   const prescriberRegNo = String(body.prescriber_reg_no || "").trim();
 
-  let expiresDate = String(body.expires_date || "").trim();
-
   if (!isValidYmd(entryDate)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
 
-  if (!expiresDate) expiresDate = repeatRxAddMonthsYmd(entryDate, 6);
+  if (!expiresDate) expiresDate = addMonthsToYmd(entryDate, 6) || "";
   if (!isValidYmd(expiresDate)) return jsonResponse({ ok: false, error: "Invalid expires_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
 
   if (!clientName) return jsonResponse({ ok: false, error: "Missing client_name" }, 400, corsOkHeaders);
@@ -2694,8 +2681,7 @@ async function handleRepeatPrescriptionsEntryUpdate(request, env, corsOkHeaders,
 
   const existing = await dbFirst(
     env,
-    `SELECT id
-     FROM repeat_prescription_entries
+    `SELECT id FROM repeat_prescription_entries
      WHERE id = ? AND org_id = ? AND location_id = ?`,
     [entryId, authUser.org_id, authUser.location_id]
   );
@@ -2704,6 +2690,8 @@ async function handleRepeatPrescriptionsEntryUpdate(request, env, corsOkHeaders,
   const body = await readJson(request);
 
   const entryDate = String(body.entry_date || "").trim();
+  let expiresDate = String(body.expires_date || "").trim();
+
   const clientName = String(body.client_name || "").trim();
   const clientId = String(body.client_id || "").trim();
   const medicineNameDose = String(body.medicine_name_dose || "").trim();
@@ -2711,11 +2699,9 @@ async function handleRepeatPrescriptionsEntryUpdate(request, env, corsOkHeaders,
   const prescriberName = String(body.prescriber_name || "").trim();
   const prescriberRegNo = String(body.prescriber_reg_no || "").trim();
 
-  let expiresDate = String(body.expires_date || "").trim();
-
   if (!isValidYmd(entryDate)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
 
-  if (!expiresDate) expiresDate = repeatRxAddMonthsYmd(entryDate, 6);
+  if (!expiresDate) expiresDate = addMonthsToYmd(entryDate, 6) || "";
   if (!isValidYmd(expiresDate)) return jsonResponse({ ok: false, error: "Invalid expires_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
 
   if (!clientName) return jsonResponse({ ok: false, error: "Missing client_name" }, 400, corsOkHeaders);
