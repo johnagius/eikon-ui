@@ -1,16 +1,16 @@
 /* ui/modules.clientorders.js
    Eikon - Client Orders module (UI)
 
-   Intended endpoints (same shape as Daily Register):
+   Endpoints (Worker):
      GET    /client-orders/entries?month=YYYY-MM
      POST   /client-orders/entries
      PUT    /client-orders/entries/:id
      DELETE /client-orders/entries/:id
 
-   Cloud preference:
-   - We ONLY fallback to localStorage on 404 (endpoint missing) or network/offline (no status).
-   - By default we DO NOT fallback on 5xx, because that hides real server bugs and causes silent local saves.
-   - To temporarily allow 5xx fallback: add URL param ?co_fallback500=1
+   Notes:
+   - Cloud (API) is ALWAYS preferred.
+   - LocalStorage is used only when endpoints are missing (404) or network/offline.
+   - HTTP 500 does NOT fall back by default (prevents split-brain). You can opt-in via co_allow500=1.
 */
 (function () {
   "use strict";
@@ -19,81 +19,41 @@
   if (!E) throw new Error("EIKON core missing (modules.clientorders.js)");
 
   // ------------------------------------------------------------
-  // Debug helpers (verbose + ring buffer)
+  // Debug helpers (in-module ring buffer + optional UI panel)
   // ------------------------------------------------------------
-  function safeStr(x) {
-    try {
-      if (x === undefined) return "undefined";
-      if (x === null) return "null";
-      if (typeof x === "string") return x;
-      return JSON.stringify(x);
-    } catch (e) {
-      try { return String(x); } catch (e2) { return "[unprintable]"; }
-    }
-  }
+  var LOG_MAX = 80;
+  var logBuf = [];
+  var reqSeq = 0;
 
-  function nowIso() {
+  function tsIso() {
     try { return new Date().toISOString(); } catch (e) { return ""; }
   }
 
-  var CO_DBG = {
-    max: 250,
-    items: [],
-    push: function (level, args) {
-      try {
-        var msg = args.map(safeStr).join(" ");
-        CO_DBG.items.push({ t: nowIso(), level: level, msg: msg });
-        if (CO_DBG.items.length > CO_DBG.max) CO_DBG.items.shift();
-      } catch (e) {}
-    },
-    dumpText: function () {
-      try {
-        return CO_DBG.items.map(function (it) {
-          return "[" + it.t + "] " + it.level.toUpperCase() + " " + it.msg;
-        }).join("\n");
-      } catch (e) {
-        return "";
+  function pushLog(level, msg, obj) {
+    try {
+      var line = "[" + tsIso() + "] " + level + " " + msg;
+      if (obj !== undefined) {
+        try { line += " " + JSON.stringify(obj); } catch (e2) { line += " " + String(obj); }
       }
-    }
-  };
-
-  function dbg() {
-    try {
-      CO_DBG.push("dbg", Array.prototype.slice.call(arguments));
-      if (E && typeof E.dbg === "function") E.dbg.apply(null, arguments);
-      else console.log.apply(console, arguments);
-    } catch (e) {}
-  }
-  function warn() {
-    try {
-      CO_DBG.push("warn", Array.prototype.slice.call(arguments));
-      if (E && typeof E.warn === "function") E.warn.apply(null, arguments);
-      else console.warn.apply(console, arguments);
-    } catch (e) {}
-  }
-  function err() {
-    try {
-      CO_DBG.push("error", Array.prototype.slice.call(arguments));
-      if (E && typeof E.error === "function") E.error.apply(null, arguments);
-      else console.error.apply(console, arguments);
+      logBuf.push(line);
+      if (logBuf.length > LOG_MAX) logBuf.shift();
+      // also send to core logger
+      if (level === "ERROR") {
+        if (E && typeof E.error === "function") E.error(msg, obj);
+        else console.error(msg, obj);
+      } else {
+        if (E && typeof E.dbg === "function") E.dbg(msg, obj);
+        else console.log(msg, obj);
+      }
+      // best-effort update panel
+      try { if (state && typeof state.renderDebugPanel === "function") state.renderDebugPanel(); } catch (e3) {}
     } catch (e) {}
   }
 
-  function getParam(name) {
-    try {
-      var u = new URL(window.location.href);
-      return String(u.searchParams.get(name) || "").trim();
-    } catch (e) {
-      return "";
-    }
-  }
+  function dbg(msg, obj) { pushLog("DBG", msg, obj); }
+  function warn(msg, obj) { pushLog("WARN", msg, obj); }
+  function err(msg, obj) { pushLog("ERROR", msg, obj); }
 
-  // If set, revert to old behavior (fallback on 5xx too)
-  var ALLOW_500_FALLBACK = getParam("co_fallback500") === "1";
-
-  // ------------------------------------------------------------
-  // Escaping / date helpers
-  // ------------------------------------------------------------
   function esc(s) {
     try {
       return E.escapeHtml(String(s == null ? "" : s));
@@ -111,6 +71,7 @@
     var v = String(n);
     return v.length === 1 ? "0" + v : v;
   }
+
   function toYmd(d) {
     try {
       return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
@@ -118,15 +79,16 @@
       return "";
     }
   }
+
   function todayYmd() { return toYmd(new Date()); }
+
   function addDaysYmd(days) {
     var d = new Date();
     d.setDate(d.getDate() + (Number(days) || 0));
     return toYmd(d);
   }
+
   function isYmd(s) { return /^\d{4}-\d{2}-\d{2}$/.test(String(s || "").trim()); }
-  function isYm(s) { return /^\d{4}-\d{2}$/.test(String(s || "").trim()); }
-  function currentYm() { return String(todayYmd()).slice(0, 7); }
 
   function fmtDmyFromYmd(s) {
     var v = String(s || "").trim();
@@ -134,17 +96,25 @@
     return v.slice(8, 10) + "/" + v.slice(5, 7) + "/" + v.slice(0, 4);
   }
 
+  function ymNow() {
+    var d = new Date();
+    return d.getFullYear() + "-" + pad2(d.getMonth() + 1);
+  }
+
   function norm(s) { return String(s == null ? "" : s).toLowerCase().trim(); }
+
   function clampStr(s, max) {
     var v = String(s == null ? "" : s);
     if (v.length <= max) return v;
     return v.slice(0, max);
   }
+
   function validEmail(s) {
     var v = String(s || "").trim();
     if (!v) return true;
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
   }
+
   function parseMoney2(s) {
     var v = String(s == null ? "" : s).trim();
     if (!v) return "";
@@ -157,24 +127,24 @@
 
   function rowSearchBlob(r) {
     return (
-      norm(r.order_date) + " | " +
-      norm(r.client_name) + " | " +
-      norm(r.address) + " | " +
-      norm(r.contact) + " | " +
-      norm(r.alternate) + " | " +
-      norm(r.email) + " | " +
-      norm(r.items) + " | " +
-      norm(r.priority) + " | " +
-      norm(r.needed_by) + " | " +
-      norm(r.pick_up_date) + " | " +
-      norm(r.deposit) + " | " +
-      norm(r.notes) + " | " +
-      norm(r.fulfilled ? "fulfilled" : "active")
+      norm(r.order_date) +
+      " | " + norm(r.client_name) +
+      " | " + norm(r.address) +
+      " | " + norm(r.contact) +
+      " | " + norm(r.alternate) +
+      " | " + norm(r.email) +
+      " | " + norm(r.items) +
+      " | " + norm(r.priority) +
+      " | " + norm(r.needed_by) +
+      " | " + norm(r.pick_up_date) +
+      " | " + norm(r.deposit) +
+      " | " + norm(r.notes) +
+      " | " + norm(r.fulfilled ? "fulfilled" : "active")
     );
   }
 
   // ------------------------------------------------------------
-  // Module-scoped CSS
+  // Styles
   // ------------------------------------------------------------
   var coStyleInstalled = false;
   function ensureClientOrdersStyles() {
@@ -235,14 +205,18 @@
       ".co-dot.p3{background:rgba(58,160,255,.95);}" +
 
       ".co-clamp{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}" +
-
       ".co-check{transform:scale(1.05);accent-color:rgba(58,160,255,.95);}" +
 
       ".co-mode{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:900;color:rgba(233,238,247,.78);}" +
       ".co-badge{font-size:11px;font-weight:1000;padding:4px 8px;border-radius:999px;border:1px solid rgba(255,255,255,.12);background:rgba(10,16,24,.35);}" +
       ".co-badge.local{border-color:rgba(255,200,90,.28);}" +
-      ".co-badge.err{border-color:rgba(255,90,122,.30);}" +
+      ".co-badge.err{border-color:rgba(255,90,122,.35);}" +
 
+      ".co-debug{margin-top:12px;border:1px solid rgba(255,255,255,.10);border-radius:14px;background:rgba(10,16,24,.24);padding:10px;}" +
+      ".co-debug h4{margin:0 0 8px 0;font-size:13px;font-weight:1000;color:rgba(233,238,247,.84);}" +
+      ".co-debug pre{margin:0;white-space:pre-wrap;word-break:break-word;font-size:11px;line-height:1.35;color:rgba(233,238,247,.78);}" +
+
+      // Modal inputs
       "#co-date,#co-client,#co-address,#co-contact,#co-alternate,#co-email,#co-needed,#co-pickup,#co-deposit{" +
       "width:100%;padding:10px 12px;border:1px solid var(--line,rgba(255,255,255,.10));border-radius:12px;" +
       "background:rgba(10,16,24,.64);color:var(--text,#e9eef7);outline:none;" +
@@ -266,9 +240,10 @@
   }
 
   // ------------------------------------------------------------
-  // Local fallback storage
+  // Local fallback storage (only for missing endpoints/offline)
   // ------------------------------------------------------------
   var LS_KEY = "eikon_clientorders_v1";
+  var LS_PREF_KEY = "eikon_clientorders_pref_allow500";
 
   function lsRead() {
     try {
@@ -285,15 +260,10 @@
   }
 
   function lsWrite(obj) {
-    try {
-      window.localStorage.setItem(LS_KEY, JSON.stringify(obj || { seq: 0, entries: [] }));
-    } catch (e) {}
+    try { window.localStorage.setItem(LS_KEY, JSON.stringify(obj || { seq: 0, entries: [] })); } catch (e) {}
   }
 
-  function localList() {
-    var db = lsRead();
-    return db.entries.slice();
-  }
+  function localList() { return lsRead().entries.slice(); }
 
   function localCreate(payload) {
     var db = lsRead();
@@ -326,322 +296,226 @@
     return { ok: true };
   }
 
-  // ------------------------------------------------------------
-  // Cloud preference fallback policy
-  // ------------------------------------------------------------
-  function shouldFallback(e) {
-    // Do NOT fallback on auth problems; DO fallback on missing endpoints/offline.
+  function getAllow500Fallback() {
+    // query param co_allow500=1 wins, else localStorage pref
+    try {
+      var url = new URL(window.location.href);
+      var qp = (url.searchParams.get("co_allow500") || "").trim();
+      if (qp === "1" || qp.toLowerCase() === "true") return true;
+      if (qp === "0" || qp.toLowerCase() === "false") return false;
+    } catch (e) {}
+    try {
+      return String(window.localStorage.getItem(LS_PREF_KEY) || "") === "1";
+    } catch (e2) {
+      return false;
+    }
+  }
+
+  function setAllow500Fallback(v) {
+    try { window.localStorage.setItem(LS_PREF_KEY, v ? "1" : "0"); } catch (e) {}
+  }
+
+  function shouldFallback(e, allow500Fallback) {
+    // Do NOT fallback on auth problems
     var st = e && typeof e.status === "number" ? e.status : null;
     if (st === 401 || st === 403) return false;
 
-    // endpoint missing -> ok to fallback
+    // Missing endpoints -> yes
     if (st === 404) return true;
 
-    // 5xx: prefer cloud (surface bug) unless explicitly allowed
-    if (st && st >= 500) return !!ALLOW_500_FALLBACK;
-
-    // network / unknown
+    // Network / unknown -> yes
     if (!st) return true;
 
-    // 4xx validation etc should not fallback
+    // Server errors -> NO by default (prevents split brain)
+    if (st >= 500) return !!allow500Fallback;
+
     return false;
   }
 
   // ------------------------------------------------------------
-  // API fetch wrapper with deep diagnostics
+  // API + debugging wrapper
   // ------------------------------------------------------------
-  var REQ_SEQ = 0;
-
-  function fullUrl(path) {
+  async function apiFetchDbg(path, options, tag) {
+    reqSeq++;
+    var reqId = "CO#" + String(reqSeq) + "-" + String(Date.now());
+    var method = (options && options.method) ? String(options.method).toUpperCase() : "GET";
+    var full = path;
     try {
-      if (/^https?:\/\//i.test(path)) return path;
-      return String(window.location.origin || "") + String(path || "");
-    } catch (e) {
-      return String(path || "");
-    }
-  }
+      // replicate core.js path resolution best-effort
+      if (!/^https?:\/\//i.test(path)) full = (E.apiBase || "") + path;
+    } catch (e) {}
 
-  async function apiFetchDbg(label, path, options) {
-    REQ_SEQ++;
-    var rid = "CO#" + String(REQ_SEQ) + "-" + String(Date.now());
-    var opts = options || {};
-    var method = String(opts.method || "GET").toUpperCase();
-
-    dbg("[clientorders]", rid, label, "->", method, path, "(full:", fullUrl(path) + ")");
-
-    if (E && E.DEBUG >= 2) {
-      try {
-        dbg("[clientorders]", rid, "headers:", opts.headers || {});
-      } catch (e1) {}
-      try {
-        if (opts.body) dbg("[clientorders]", rid, "body:", opts.body);
-      } catch (e2) {}
-    }
+    dbg("[clientorders] " + reqId + " " + (tag || "") + " -> " + method + " " + path + " (full: " + full + ")");
+    try {
+      if (options && options.headers) dbg("[clientorders] " + reqId + " headers:", options.headers);
+      if (options && options.body) dbg("[clientorders] " + reqId + " body:", options.body);
+    } catch (e2) {}
 
     var t0 = Date.now();
     try {
-      var resp = await E.apiFetch(path, opts);
-      var ms = Date.now() - t0;
-
-      // avoid dumping massive payloads unless dbg=2
-      if (E && E.DEBUG >= 2) dbg("[clientorders]", rid, label, "<- OK", ms + "ms", resp);
-      else dbg("[clientorders]", rid, label, "<- OK", ms + "ms");
-
-      return resp;
+      var out = await E.apiFetch(path, options || {});
+      dbg("[clientorders] " + reqId + " <- OK " + String(Date.now() - t0) + "ms", out && (out.ok !== undefined ? { ok: out.ok } : { type: typeof out }));
+      return out;
     } catch (e) {
-      var ms2 = Date.now() - t0;
-      var st = (e && typeof e.status === "number") ? e.status : null;
-
-      err("[clientorders]", rid, label, "<- FAIL", ms2 + "ms", {
-        status: st,
-        message: e && e.message,
-        bodyJson: e && e.bodyJson,
-        bodyTextHead: (e && e.bodyText) ? String(e.bodyText).slice(0, 500) : ""
-      });
-
+      var dur = Date.now() - t0;
+      var bodyTextHead = "";
+      try { bodyTextHead = String(e && e.bodyText ? e.bodyText : "").slice(0, 320); } catch (e3) {}
+      err("[clientorders] " + reqId + " <- FAIL " + String(dur) + "ms", { status: e && e.status, message: e && e.message, bodyJson: e && e.bodyJson || null, bodyTextHead: bodyTextHead });
       throw e;
     }
   }
 
-  // Normalize entries from API (accept multiple server shapes)
-  function normalizeIncomingEntry(r, idx) {
-    var o = r || {};
+  function apiMonthList(month, q, fulfilled) {
+    var qs = [];
+    qs.push("month=" + encodeURIComponent(month));
+    if (q) qs.push("q=" + encodeURIComponent(q));
+    if (fulfilled === 0 || fulfilled === 1) qs.push("fulfilled=" + String(fulfilled));
+    return apiFetchDbg("/client-orders/entries?" + qs.join("&"), { method: "GET" }, "month");
+  }
 
-    // show what came in (keys) when dbg=2
-    if (E && E.DEBUG >= 2) {
-      try {
-        dbg("[clientorders] normalizeIncomingEntry idx=" + String(idx), "keys=", Object.keys(o));
-      } catch (e0) {}
+  // 3-year window: previous year, current year, next year
+  function buildMonths3y() {
+    var y = new Date().getFullYear();
+    var out = [];
+    for (var yy = y - 1; yy <= y + 1; yy++) {
+      for (var mm = 1; mm <= 12; mm++) out.push(String(yy) + "-" + pad2(mm));
     }
-
-    // Common worker alias mapping
-    var orderDate = (o.order_date != null ? o.order_date : o.orderDate);
-    var clientName = (o.client_name != null ? o.client_name : o.clientName);
-
-    var address = (o.address != null ? o.address : (o.client_address != null ? o.client_address : o.clientAddress));
-    var contact = (o.contact != null ? o.contact : (o.client_phone != null ? o.client_phone : o.clientPhone));
-    var alternate = (o.alternate != null ? o.alternate : (o.alt_phone != null ? o.alt_phone : o.client_phone_alt));
-    var email = (o.email != null ? o.email : (o.client_email != null ? o.client_email : o.clientEmail));
-
-    var items = (o.items != null ? o.items : (o.items_text != null ? o.items_text : o.itemsText));
-
-    var priority = (o.priority != null ? o.priority : 2);
-
-    var neededBy = (o.needed_by != null ? o.needed_by : o.neededBy);
-    var pickup = (o.pick_up_date != null ? o.pick_up_date :
-                 (o.pickup_date != null ? o.pickup_date :
-                 (o.pickupDate != null ? o.pickupDate : o.pick_up)));
-
-    var deposit = (o.deposit != null ? o.deposit :
-                  (o.deposit_amount != null ? o.deposit_amount : o.depositAmount));
-
-    var notes = (o.notes != null ? o.notes : "");
-
-    var fulfilled = o.fulfilled;
-    // tolerate 0/1
-    var isFul = !!(fulfilled === true || fulfilled === 1 || fulfilled === "1");
-
-    var fulfilledAt = (o.fulfilled_at != null ? o.fulfilled_at :
-                      (o.fulfilledAt != null ? o.fulfilledAt : ""));
-
-    var out = {
-      id: (o.id != null ? o.id : ""),
-      order_date: String(orderDate || "").trim(),
-      client_name: String(clientName || "").trim(),
-      address: String(address || "").trim(),
-      contact: String(contact || "").trim(),
-      alternate: String(alternate || "").trim(),
-      email: String(email || "").trim(),
-      items: String(items || "").trim(),
-      priority: Number(priority || 2),
-      needed_by: String(neededBy || "").trim(),
-      pick_up_date: String(pickup || "").trim(),
-      deposit: String(deposit == null ? "" : deposit).trim(),
-      notes: String(notes || "").trim(),
-      fulfilled: isFul,
-      fulfilled_at: String(fulfilledAt || "").trim()
-    };
-
-    // defaults
-    if (!isYmd(out.order_date)) out.order_date = todayYmd();
-    if (!isYmd(out.needed_by)) out.needed_by = addDaysYmd(2);
-    if (!isYmd(out.pick_up_date)) out.pick_up_date = addDaysYmd(2);
-    if (!(out.priority === 1 || out.priority === 2 || out.priority === 3)) out.priority = 2;
-
-    if (out.deposit) {
-      var m = parseMoney2(out.deposit);
-      out.deposit = (m === null ? String(out.deposit || "") : m);
-    }
-
-    // extra diagnostics for the “shifted columns” symptom
-    if (E && E.DEBUG >= 2) {
-      try {
-        if (out.email.indexOf("\n") >= 0 || out.email.indexOf("\r") >= 0) {
-          warn("[clientorders] incoming email contains newline (suspicious):", out.email);
-        }
-        if (!out.items) {
-          warn("[clientorders] incoming items empty; entry:", out);
-        }
-      } catch (e1) {}
-    }
-
     return out;
   }
 
-  // Build payload to send to API (include aliases for Worker compatibility)
-  function toApiPayload(p) {
-    var payload = Object.assign({}, p || {});
-    // aliases (safe extras)
-    payload.client_address = payload.address;
-    payload.client_phone = payload.contact;
-    payload.client_email = payload.email;
-    payload.items_text = payload.items;
-    payload.pickup_date = payload.pick_up_date;
-    payload.deposit_amount = payload.deposit;
-
-    // keep original fields too
-    return payload;
+  function mergeById(intoMap, entries) {
+    if (!Array.isArray(entries)) return;
+    for (var i = 0; i < entries.length; i++) {
+      var r = entries[i];
+      if (!r || r.id == null) continue;
+      intoMap[String(r.id)] = r;
+    }
   }
 
-  // ------------------------------------------------------------
-  // API operations (cloud first)
-  // ------------------------------------------------------------
+  function mapApiRowToUi(r) {
+    // Accept both "UI-shaped" and "DB-shaped" rows.
+    var o = Object.assign({}, r || {});
+    if (o.address == null && o.client_address != null) o.address = o.client_address;
+    if (o.contact == null && o.client_phone != null) o.contact = o.client_phone;
+    if (o.alternate == null && (o.client_alt_phone != null || o.client_alternate != null)) o.alternate = (o.client_alt_phone != null ? o.client_alt_phone : o.client_alternate);
+    if (o.email == null && o.client_email != null) o.email = o.client_email;
+    if (o.items == null && o.items_text != null) o.items = o.items_text;
+    if (o.pick_up_date == null && o.pickup_date != null) o.pick_up_date = o.pickup_date;
+    if (o.deposit == null && o.deposit_amount != null) {
+      var n = Number(o.deposit_amount);
+      if (isFinite(n) && n > 0) o.deposit = (Math.round(n * 100) / 100).toFixed(2);
+      else o.deposit = "";
+    }
+    return o;
+  }
+
   async function apiList() {
-    // 3-year window: previous year, current year, next year
-    function buildMonths3y() {
-      var y = new Date().getFullYear();
-      var out = [];
-      for (var yy = y - 1; yy <= y + 1; yy++) {
-        for (var mm = 1; mm <= 12; mm++) out.push(String(yy) + "-" + pad2(mm));
-      }
-      return out;
-    }
+    var allow500Fallback = getAllow500Fallback();
 
-    function mergeById(intoMap, entries) {
-      if (!Array.isArray(entries)) return;
-      for (var i = 0; i < entries.length; i++) {
-        var r = entries[i];
-        if (!r || r.id == null) continue;
-        intoMap[String(r.id)] = r;
-      }
-    }
-
-    // Probe current month first to avoid spamming 36 failing calls
-    var probeMonth = currentYm();
-    if (!isYm(probeMonth)) probeMonth = String(buildMonths3y()[0] || "");
+    // Probe current month first to detect missing endpoint (404) quickly + reduce noise.
+    var probeMonth = ymNow();
+    dbg("[clientorders] apiList probe month: " + probeMonth);
 
     try {
-      dbg("[clientorders] apiList probe month:", probeMonth);
+      await apiFetchDbg("/client-orders/entries?month=" + encodeURIComponent(probeMonth), { method: "GET" }, "probe");
+    } catch (eProbe) {
+      if (!shouldFallback(eProbe, allow500Fallback)) throw eProbe;
+      warn("[clientorders] apiList probe -> fallback to local", { status: eProbe && eProbe.status, message: eProbe && eProbe.message });
+      return { mode: "local", entries: localList(), lastError: eProbe || null, allow500Fallback: allow500Fallback };
+    }
 
-      var probeResp = await apiFetchDbg(
-        "probe",
-        "/client-orders/entries?month=" + encodeURIComponent(probeMonth),
-        { method: "GET" }
+    // If probe succeeded, load 3y window (batched).
+    var months = buildMonths3y();
+    var byId = Object.create(null);
+    var BATCH = 6;
+    var anyOk = false;
+    var firstErr = null;
+
+    for (var i = 0; i < months.length; i += BATCH) {
+      var batch = months.slice(i, i + BATCH);
+      var settled = await Promise.allSettled(
+        batch.map(function (m) {
+          return apiMonthList(m, "", null);
+        })
       );
 
-      // If probe succeeded, proceed with full 3y fetch.
-      var months = buildMonths3y();
-      var byId = Object.create(null);
-
-      // include probe entries
-      mergeById(byId, probeResp && probeResp.entries);
-
-      var BATCH = 6;
-      var firstErr = null;
-
-      for (var i = 0; i < months.length; i += BATCH) {
-        var batch = months.slice(i, i + BATCH);
-
-        var settled = await Promise.allSettled(
-          batch.map(function (m) {
-            return apiFetchDbg(
-              "list month=" + m,
-              "/client-orders/entries?month=" + encodeURIComponent(m),
-              { method: "GET" }
-            );
-          })
-        );
-
-        for (var k = 0; k < settled.length; k++) {
-          var it = settled[k];
-          if (it.status === "fulfilled") {
-            mergeById(byId, it.value && it.value.entries);
-          } else {
-            var e = it.reason;
-            if (!firstErr) firstErr = e;
-
-            // auth errors hard-fail
-            if (e && (e.status === 401 || e.status === 403)) throw e;
-
-            // tolerate partial failure only if fallback policy allows it
-            if (shouldFallback(e)) {
-              warn("[clientorders] month fetch failed (fallback-eligible, skipped):", e && (e.message || e));
-            } else {
-              // If it is not fallback-eligible (e.g. 500), surface it.
-              throw e;
-            }
-          }
+      for (var k = 0; k < settled.length; k++) {
+        var it = settled[k];
+        if (it.status === "fulfilled") {
+          anyOk = true;
+          var resp = it.value;
+          mergeById(byId, resp && resp.entries);
+        } else {
+          var e = it.reason;
+          if (!firstErr) firstErr = e;
+          // auth errors should hard-fail
+          if (e && (e.status === 401 || e.status === 403)) throw e;
+          // tolerate partial
+          dbg("[clientorders] month fetch failed (skipped)", { status: e && e.status, message: e && e.message });
         }
       }
-
-      return { mode: "api", entries: Object.keys(byId).map(function (id) { return byId[id]; }) };
-    } catch (e2) {
-      // fallback only if policy allows
-      if (!shouldFallback(e2)) throw e2;
-      return { mode: "local", entries: localList(), fallbackReason: e2 };
     }
+
+    if (!anyOk) {
+      if (shouldFallback(firstErr, allow500Fallback)) {
+        warn("[clientorders] apiList all failed -> fallback local", { status: firstErr && firstErr.status, message: firstErr && firstErr.message });
+        return { mode: "local", entries: localList(), lastError: firstErr || null, allow500Fallback: allow500Fallback };
+      }
+      throw firstErr || new Error("Failed to load client orders");
+    }
+
+    return { mode: "api", entries: Object.keys(byId).map(function (id) { return byId[id]; }), lastError: null, allow500Fallback: allow500Fallback };
   }
 
   async function apiCreate(payload) {
-    var body = toApiPayload(payload || {});
+    var allow500Fallback = getAllow500Fallback();
     try {
-      var resp = await apiFetchDbg("/create", "/client-orders/entries", {
+      var resp = await apiFetchDbg("/client-orders/entries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
-      });
+        body: JSON.stringify(payload || {}),
+      }, "create");
       if (!resp || !resp.ok) throw new Error((resp && resp.error) || "Create failed");
-      return { mode: "api", resp: resp };
+      return { mode: "api", resp: resp, lastError: null, allow500Fallback: allow500Fallback };
     } catch (e) {
-      if (!shouldFallback(e)) throw e;
-      warn("[clientorders] apiCreate fallback -> localCreate", e && (e.message || e));
-      return { mode: "local", resp: localCreate(payload) };
+      if (!shouldFallback(e, allow500Fallback)) throw e;
+      warn("[clientorders] create -> local fallback", { status: e && e.status, message: e && e.message });
+      return { mode: "local", resp: localCreate(payload), lastError: e || null, allow500Fallback: allow500Fallback };
     }
   }
 
   async function apiUpdate(id, payload) {
-    var body = toApiPayload(payload || {});
+    var allow500Fallback = getAllow500Fallback();
     try {
-      var resp = await apiFetchDbg("/update", "/client-orders/entries/" + encodeURIComponent(String(id)), {
+      var resp = await apiFetchDbg("/client-orders/entries/" + encodeURIComponent(String(id)), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
-      });
+        body: JSON.stringify(payload || {}),
+      }, "update");
       if (!resp || !resp.ok) throw new Error((resp && resp.error) || "Update failed");
-      return { mode: "api", resp: resp };
+      return { mode: "api", resp: resp, lastError: null, allow500Fallback: allow500Fallback };
     } catch (e) {
-      if (!shouldFallback(e)) throw e;
-      warn("[clientorders] apiUpdate fallback -> localUpdate", e && (e.message || e));
-      return { mode: "local", resp: localUpdate(id, payload) };
+      if (!shouldFallback(e, allow500Fallback)) throw e;
+      warn("[clientorders] update -> local fallback", { status: e && e.status, message: e && e.message });
+      return { mode: "local", resp: localUpdate(id, payload), lastError: e || null, allow500Fallback: allow500Fallback };
     }
   }
 
   async function apiDelete(id) {
+    var allow500Fallback = getAllow500Fallback();
     try {
-      var resp = await apiFetchDbg("/delete", "/client-orders/entries/" + encodeURIComponent(String(id)), {
-        method: "DELETE"
-      });
+      var resp = await apiFetchDbg("/client-orders/entries/" + encodeURIComponent(String(id)), { method: "DELETE" }, "delete");
       if (!resp || !resp.ok) throw new Error((resp && resp.error) || "Delete failed");
-      return { mode: "api", resp: resp };
+      return { mode: "api", resp: resp, lastError: null, allow500Fallback: allow500Fallback };
     } catch (e) {
-      if (!shouldFallback(e)) throw e;
-      warn("[clientorders] apiDelete fallback -> localDelete", e && (e.message || e));
-      return { mode: "local", resp: localDelete(id) };
+      if (!shouldFallback(e, allow500Fallback)) throw e;
+      warn("[clientorders] delete -> local fallback", { status: e && e.status, message: e && e.message });
+      return { mode: "local", resp: localDelete(id), lastError: e || null, allow500Fallback: allow500Fallback };
     }
   }
 
   // ------------------------------------------------------------
-  // Validation
+  // Validation (UI payload)
   // ------------------------------------------------------------
   function validatePayload(p) {
     var out = {
@@ -658,7 +532,7 @@
       deposit: String(p.deposit || "").trim(),
       notes: String(p.notes || "").trim(),
       fulfilled: !!p.fulfilled,
-      fulfilled_at: String(p.fulfilled_at || "").trim()
+      fulfilled_at: String(p.fulfilled_at || "").trim(),
     };
 
     if (!out.order_date || !isYmd(out.order_date)) throw new Error("Date is required (YYYY-MM-DD)");
@@ -668,7 +542,6 @@
     if (!out.pick_up_date || !isYmd(out.pick_up_date)) throw new Error("Pick Up Date is required (YYYY-MM-DD)");
 
     if (!(out.priority === 1 || out.priority === 2 || out.priority === 3)) out.priority = 2;
-
     if (out.email && !validEmail(out.email)) throw new Error("Email is invalid");
 
     if (out.deposit) {
@@ -691,6 +564,37 @@
     if (!out.fulfilled) out.fulfilled_at = "";
 
     return out;
+  }
+
+  function toApiPayload(ui) {
+    // Send BOTH UI keys and DB-ish keys for compatibility.
+    var p = ui || {};
+    return {
+      // UI keys
+      order_date: p.order_date,
+      client_name: p.client_name,
+      address: p.address,
+      contact: p.contact,
+      alternate: p.alternate,
+      email: p.email,
+      items: p.items,
+      priority: p.priority,
+      needed_by: p.needed_by,
+      pick_up_date: p.pick_up_date,
+      deposit: p.deposit,
+      notes: p.notes,
+      fulfilled: p.fulfilled,
+      fulfilled_at: p.fulfilled_at,
+
+      // DB-ish aliases
+      client_address: p.address,
+      client_phone: p.contact,
+      client_alt_phone: p.alternate,
+      client_email: p.email,
+      items_text: p.items,
+      pickup_date: p.pick_up_date,
+      deposit_amount: p.deposit,
+    };
   }
 
   function modalError(title, e) {
@@ -728,7 +632,7 @@
       deposit: String(row.deposit || "").trim(),
       notes: String(row.notes || "").trim(),
       fulfilled: !!row.fulfilled,
-      fulfilled_at: String(row.fulfilled_at || "").trim()
+      fulfilled_at: String(row.fulfilled_at || "").trim(),
     };
 
     if (!isYmd(initial.order_date)) initial.order_date = todayYmd();
@@ -771,11 +675,7 @@
         onClick: function () {
           (async function () {
             try {
-              // ensure select has a value
-              var prSel = E.q("#co-priority");
-              if (prSel && !prSel.value) prSel.value = "2";
-
-              var raw = {
+              var payloadUi = validatePayload({
                 order_date: (E.q("#co-date").value || "").trim(),
                 client_name: (E.q("#co-client").value || "").trim(),
                 address: (E.q("#co-address").value || "").trim(),
@@ -789,16 +689,16 @@
                 deposit: (E.q("#co-deposit").value || "").trim(),
                 notes: (E.q("#co-notes").value || "").trim(),
                 fulfilled: !!(E.q("#co-fulfilled").checked),
-                fulfilled_at: String(row.fulfilled_at || "").trim()
-              };
+                fulfilled_at: String(row.fulfilled_at || "").trim(),
+              });
 
-              dbg("[clientorders] save clicked raw:", raw);
+              dbg("[clientorders] modal save UI payload", payloadUi);
 
-              var payload = validatePayload(raw);
-              dbg("[clientorders] save validated payload:", payload);
+              var apiPayload = toApiPayload(payloadUi);
+              dbg("[clientorders] modal save API payload", apiPayload);
 
-              if (isEdit) await apiUpdate(row.id, payload);
-              else await apiCreate(payload);
+              if (isEdit) await apiUpdate(row.id, apiPayload);
+              else await apiCreate(apiPayload);
 
               E.modal.hide();
               if (state && typeof state.refresh === "function") state.refresh();
@@ -806,11 +706,10 @@
               modalError("Save failed", e);
             }
           })();
-        }
-      }
+        },
+      },
     ]);
 
-    // Set priority select after modal mount
     try {
       var pr = E.q("#co-priority");
       if (pr) pr.value = String(initial.priority);
@@ -843,8 +742,8 @@
               modalError("Delete failed", e);
             }
           })();
-        }
-      }
+        },
+      },
     ]);
   }
 
@@ -858,11 +757,8 @@
 
     var w = window.open("", "_blank");
     if (!w) {
-      E.modal.show(
-        "Print",
-        "<div style='white-space:pre-wrap'>Popup blocked. Allow popups and try again.</div>",
-        [{ label: "Close", primary: true, onClick: function () { E.modal.hide(); } }]
-      );
+      E.modal.show("Print", "<div style='white-space:pre-wrap'>Popup blocked. Allow popups and try again.</div>",
+        [{ label: "Close", primary: true, onClick: function () { E.modal.hide(); } }]);
       return;
     }
 
@@ -954,12 +850,10 @@
     list.sort(function (ra, rb) {
       var a = getSortVal(ra, key);
       var b = getSortVal(rb, key);
-
       var c = 0;
       if (key === "order_date" || key === "needed_by" || key === "pick_up_date") c = cmp(String(a || ""), String(b || ""));
       else if (key === "priority" || key === "deposit" || key === "fulfilled") c = cmp(Number(a || 0), Number(b || 0));
       else c = cmp(String(a || ""), String(b || ""));
-
       if (c !== 0) return c * mul;
 
       var ia = String((ra && ra.id) || "");
@@ -973,12 +867,11 @@
   }
 
   // ------------------------------------------------------------
-  // Row builder (with alignment diagnostics)
+  // Row builder
   // ------------------------------------------------------------
   function prBadge(priority) {
     var p = Number(priority || 2);
     if (p !== 1 && p !== 2 && p !== 3) p = 2;
-
     var wrap = document.createElement("span");
     wrap.className = "co-pr";
     var dot = document.createElement("span");
@@ -993,44 +886,39 @@
   function buildTableRow(entry, opts) {
     var tr = document.createElement("tr");
 
-    function tdKey(key, text, cls, title) {
+    function td(text, cls, title) {
       var el = document.createElement("td");
-      el.setAttribute("data-col", String(key || ""));
       if (cls) el.className = cls;
       if (title) el.title = title;
-      el.textContent = (text == null ? "" : String(text));
+      el.textContent = text;
       return el;
     }
 
-    tr.appendChild(tdKey("order_date", fmtDmyFromYmd(entry.order_date || ""), "", entry.order_date || ""));
-    tr.appendChild(tdKey("client_name", entry.client_name || "", "", entry.client_name || ""));
-    tr.appendChild(tdKey("address", entry.address || "", "co-clamp", entry.address || ""));
-    tr.appendChild(tdKey("contact", entry.contact || "", "", entry.contact || ""));
-    tr.appendChild(tdKey("alternate", entry.alternate || "", "", entry.alternate || ""));
-    tr.appendChild(tdKey("email", entry.email || "", "co-clamp", entry.email || ""));
-
-    // Item/s column (critical for your “shifted columns” symptom)
-    tr.appendChild(tdKey("items", entry.items || "", "co-clamp", entry.items || ""));
+    tr.appendChild(td(fmtDmyFromYmd(entry.order_date || ""), "", entry.order_date || ""));
+    tr.appendChild(td(entry.client_name || "", "", entry.client_name || ""));
+    tr.appendChild(td(entry.address || "", "co-clamp", entry.address || ""));
+    tr.appendChild(td(entry.contact || "", "", entry.contact || ""));
+    tr.appendChild(td(entry.alternate || "", "", entry.alternate || ""));
+    tr.appendChild(td(entry.email || "", "co-clamp", entry.email || ""));
+    tr.appendChild(td(entry.items || "", "co-clamp", entry.items || ""));
 
     var tdPr = document.createElement("td");
-    tdPr.setAttribute("data-col", "priority");
     tdPr.appendChild(prBadge(entry.priority));
     tr.appendChild(tdPr);
 
-    tr.appendChild(tdKey("needed_by", fmtDmyFromYmd(entry.needed_by || ""), "", entry.needed_by || ""));
-    tr.appendChild(tdKey("pick_up_date", fmtDmyFromYmd(entry.pick_up_date || ""), "", entry.pick_up_date || ""));
+    tr.appendChild(td(fmtDmyFromYmd(entry.needed_by || ""), "", entry.needed_by || ""));
+    tr.appendChild(td(fmtDmyFromYmd(entry.pick_up_date || ""), "", entry.pick_up_date || ""));
 
     var tdDep = document.createElement("td");
-    tdDep.setAttribute("data-col", "deposit");
     tdDep.style.textAlign = "right";
     tdDep.style.whiteSpace = "nowrap";
     tdDep.textContent = entry.deposit || "";
     tr.appendChild(tdDep);
 
-    tr.appendChild(tdKey("notes", entry.notes || "", "co-clamp", entry.notes || ""));
+    tr.appendChild(td(entry.notes || "", "co-clamp", entry.notes || ""));
 
+    // Fulfilled checkbox
     var tdChk = document.createElement("td");
-    tdChk.setAttribute("data-col", "fulfilled");
     tdChk.style.textAlign = "center";
     tdChk.style.whiteSpace = "nowrap";
 
@@ -1044,7 +932,7 @@
         try {
           var next = !!chk.checked;
           var payload = { fulfilled: next, fulfilled_at: next ? new Date().toISOString() : "" };
-          dbg("[clientorders] fulfilled toggle", { id: entry.id, next: next, payload: payload });
+          dbg("[clientorders] fulfilled toggle", { id: entry.id, payload: payload });
           await apiUpdate(entry.id, payload);
           if (opts && typeof opts.onChanged === "function") opts.onChanged();
         } catch (e) {
@@ -1057,8 +945,8 @@
     tdChk.appendChild(chk);
     tr.appendChild(tdChk);
 
+    // Actions
     var tdActions = document.createElement("td");
-    tdActions.setAttribute("data-col", "actions");
     tdActions.style.whiteSpace = "nowrap";
 
     var btnEdit = document.createElement("button");
@@ -1088,6 +976,7 @@
     entries: [],
     mode: "api", // api | local | api_error
     lastError: null,
+    allow500Fallback: false,
     queryActive: "",
     queryDone: "",
     sortActive: { key: "priority", dir: "asc" },
@@ -1095,7 +984,8 @@
     filteredActive: [],
     filteredDone: [],
     refresh: null,
-    mounted: false
+    mounted: false,
+    renderDebugPanel: null
   };
 
   var COLS = [
@@ -1138,32 +1028,17 @@
     state.filteredDone = done;
   }
 
-  function renderTable(tbodyEl, list, tableName) {
+  function renderTable(tbodyEl, list) {
     tbodyEl.innerHTML = "";
     for (var i = 0; i < list.length; i++) {
-      (function (entry, idx) {
+      (function (entry) {
         var tr = buildTableRow(entry, {
           onEdit: function (e) { openOrderModal({ mode: "edit", entry: e }); },
           onDelete: function (e) { openConfirmDelete(e); },
           onChanged: function () { if (state && typeof state.refresh === "function") state.refresh(); }
         });
-
         tbodyEl.appendChild(tr);
-
-        // Alignment diagnostics: verify td count matches headers (+ Actions)
-        try {
-          var expected = COLS.length + 1; // actions
-          var actual = tr.children ? tr.children.length : 0;
-          if (actual !== expected) {
-            warn("[clientorders] TD COUNT MISMATCH (" + tableName + ") idx=" + idx, {
-              expected: expected,
-              actual: actual,
-              id: entry && entry.id,
-              cols: Array.prototype.slice.call(tr.children).map(function (td) { return td.getAttribute("data-col"); })
-            });
-          }
-        } catch (e0) {}
-      })(list[i], i);
+      })(list[i]);
     }
   }
 
@@ -1172,7 +1047,6 @@
       var th = thEls[i];
       var key = th.getAttribute("data-key") || "";
       if (!key) continue;
-
       var wrap = th.querySelector(".co-sort");
       if (!wrap) continue;
 
@@ -1193,7 +1067,6 @@
     ths.forEach(function (th) {
       var key = th.getAttribute("data-key");
       if (!key) return;
-
       th.addEventListener("click", function () {
         if (key === "actions") return;
         var s = which === "done" ? state.sortDone : state.sortActive;
@@ -1201,11 +1074,10 @@
         else { s.key = key; s.dir = "asc"; }
 
         applyFilterSplitSort();
-
         var tbodyA = E.q("#co-tbody-active");
         var tbodyD = E.q("#co-tbody-done");
-        if (tbodyA) renderTable(tbodyA, state.filteredActive, "active");
-        if (tbodyD) renderTable(tbodyD, state.filteredDone, "done");
+        if (tbodyA) renderTable(tbodyA, state.filteredActive);
+        if (tbodyD) renderTable(tbodyD, state.filteredDone);
 
         if (which === "done") setSort(ths, state.sortDone);
         else setSort(ths, state.sortActive);
@@ -1225,40 +1097,20 @@
     return "<span class='co-sort'><span>" + esc(col.label) + "</span><span class='car'></span></span>";
   }
 
-  function openDebugModal() {
+  function debugEnabled() {
+    // dbg=2 is typical; also allow co_debug=1
     try {
-      var snap = {
-        mode: state.mode,
-        lastError: state.lastError ? { status: state.lastError.status, message: state.lastError.message } : null,
-        entries: Array.isArray(state.entries) ? state.entries.length : 0,
-        active: Array.isArray(state.filteredActive) ? state.filteredActive.length : 0,
-        done: Array.isArray(state.filteredDone) ? state.filteredDone.length : 0,
-        allow500Fallback: !!ALLOW_500_FALLBACK
-      };
-
-      var body =
-        "<div style='white-space:pre-wrap;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:12px; line-height:1.3'>" +
-        "SNAPSHOT:\n" + esc(JSON.stringify(snap, null, 2)) + "\n\n" +
-        "LAST LOGS:\n" + esc(CO_DBG.dumpText()) +
-        "</div>";
-
-      E.modal.show("Client Orders Debug", body, [
-        { label: "Close", primary: true, onClick: function () { E.modal.hide(); } }
-      ]);
-    } catch (e) {
-      modalError("Debug", e);
-    }
+      var url = new URL(window.location.href);
+      var qp = (url.searchParams.get("co_debug") || "").trim();
+      if (qp === "1" || qp.toLowerCase() === "true") return true;
+    } catch (e) {}
+    return !!(E && typeof E.DEBUG === "number" && E.DEBUG >= 2);
   }
 
   async function render(ctx) {
     ensureClientOrdersStyles();
 
     var mount = ctx.mount;
-
-    var debugBtnHtml = (E && E.DEBUG >= 2)
-      ? "<button id='co-debug' class='eikon-btn' type='button'>Debug</button>"
-      : "";
-
     mount.innerHTML =
       "" +
       "<div class='co-wrap'>" +
@@ -1272,7 +1124,6 @@
       "        <span class='co-badge' id='co-mode-badge'>Loading…</span>" +
       "      </div>" +
       "      <div class='co-actions'>" +
-      debugBtnHtml +
       "        <button id='co-new' class='eikon-btn' type='button'>New Order</button>" +
       "        <button id='co-refresh' class='eikon-btn' type='button'>Refresh</button>" +
       "      </div>" +
@@ -1328,12 +1179,14 @@
       "      </table>" +
       "    </div>" +
       "  </div>" +
+
+      (debugEnabled() ? ("<div class='co-debug' id='co-debug'><h4>Client Orders Debug</h4><pre id='co-debug-pre'>Loading…</pre></div>") : "") +
+
       "</div>";
 
     var badge = E.q("#co-mode-badge", mount);
     var btnNew = E.q("#co-new", mount);
     var btnRefresh = E.q("#co-refresh", mount);
-    var btnDebug = E.q("#co-debug", mount);
 
     var searchA = E.q("#co-search-active", mount);
     var searchD = E.q("#co-search-done", mount);
@@ -1350,11 +1203,9 @@
     var tableA = E.q("#co-table-active", mount);
     var tableD = E.q("#co-table-done", mount);
 
-    if (
-      !badge || !btnNew || !btnRefresh ||
-      !searchA || !searchD || !btnPrintA || !btnPrintD ||
-      !tbodyA || !tbodyD || !countA || !countD || !tableA || !tableD
-    ) {
+    var debugPre = E.q("#co-debug-pre", mount);
+
+    if (!badge || !btnNew || !btnRefresh || !searchA || !searchD || !btnPrintA || !btnPrintD || !tbodyA || !tbodyD || !countA || !countD || !tableA || !tableD) {
       err("[clientorders] DOM missing", {
         badge: !!badge, btnNew: !!btnNew, btnRefresh: !!btnRefresh,
         searchA: !!searchA, searchD: !!searchD, btnPrintA: !!btnPrintA, btnPrintD: !!btnPrintD,
@@ -1364,24 +1215,36 @@
       throw new Error("Client Orders DOM incomplete (see console)");
     }
 
+    state.renderDebugPanel = function () {
+      if (!debugPre) return;
+      var snap = {
+        mode: state.mode,
+        lastError: state.lastError ? { status: state.lastError.status, message: state.lastError.message || String(state.lastError) } : null,
+        entries: (state.entries || []).length,
+        active: (state.filteredActive || []).length,
+        done: (state.filteredDone || []).length,
+        allow500Fallback: !!state.allow500Fallback
+      };
+      var txt =
+        "SNAPSHOT:\n" + JSON.stringify(snap, null, 2) +
+        "\n\nLAST LOGS:\n" + (logBuf.join("\n") || "(none)");
+      debugPre.textContent = txt;
+    };
+
     function updateBadge() {
       if (!badge) return;
 
       if (state.mode === "local") {
-        badge.textContent = "Local mode (API missing/offline)";
+        badge.textContent = "Local mode (no API yet)";
         badge.className = "co-badge local";
-        return;
-      }
-
-      if (state.mode === "api_error") {
-        var st = state.lastError && state.lastError.status ? ("HTTP " + state.lastError.status) : "Error";
-        badge.textContent = "Online (API error: " + st + ")";
+      } else if (state.mode === "api_error") {
+        var st = state.lastError && state.lastError.status ? String(state.lastError.status) : "";
+        badge.textContent = "Online (API error: " + (state.lastError && state.lastError.message ? state.lastError.message : ("HTTP " + st)) + ")";
         badge.className = "co-badge err";
-        return;
+      } else {
+        badge.textContent = "Online";
+        badge.className = "co-badge";
       }
-
-      badge.textContent = "Online";
-      badge.className = "co-badge";
     }
 
     function updateCounts(totalActive, totalDone) {
@@ -1390,26 +1253,51 @@
     }
 
     async function refresh() {
-      try {
-        state.lastError = null;
-        state.mode = "api";
-        updateBadge();
+      var allow500Fallback = getAllow500Fallback();
+      state.allow500Fallback = allow500Fallback;
+      dbg("[clientorders] refresh start; allow500Fallback=" + String(allow500Fallback));
 
+      try {
         countA.textContent = "Loading…";
         countD.textContent = "Loading…";
 
-        dbg("[clientorders] refresh start; allow500Fallback=", ALLOW_500_FALLBACK);
-
         var res = await apiList();
         state.mode = res.mode || "api";
-        if (res.fallbackReason) state.lastError = res.fallbackReason;
+        state.lastError = res.lastError || null;
+        state.allow500Fallback = !!res.allow500Fallback;
 
-        var rawEntries = Array.isArray(res.entries) ? res.entries : [];
-        dbg("[clientorders] refresh loaded", { mode: state.mode, count: rawEntries.length });
-
+        var entriesRaw = Array.isArray(res.entries) ? res.entries : [];
         var entries = [];
-        for (var i = 0; i < rawEntries.length; i++) {
-          entries.push(normalizeIncomingEntry(rawEntries[i], i));
+        for (var i = 0; i < entriesRaw.length; i++) {
+          var raw = mapApiRowToUi(entriesRaw[i] || {});
+          // normalize
+          var r = {
+            id: raw.id,
+            order_date: String(raw.order_date || "").trim(),
+            client_name: String(raw.client_name || "").trim(),
+            address: String(raw.address || "").trim(),
+            contact: String(raw.contact || "").trim(),
+            alternate: String(raw.alternate || "").trim(),
+            email: String(raw.email || "").trim(),
+            items: String(raw.items || "").trim(),
+            priority: Number(raw.priority || 2),
+            needed_by: String(raw.needed_by || "").trim(),
+            pick_up_date: String(raw.pick_up_date || "").trim(),
+            deposit: String(raw.deposit || "").trim(),
+            notes: String(raw.notes || "").trim(),
+            fulfilled: !!raw.fulfilled,
+            fulfilled_at: String(raw.fulfilled_at || "").trim()
+          };
+
+          if (!isYmd(r.order_date)) r.order_date = todayYmd();
+          if (!isYmd(r.needed_by)) r.needed_by = addDaysYmd(2);
+          if (!isYmd(r.pick_up_date)) r.pick_up_date = addDaysYmd(2);
+          if (!(r.priority === 1 || r.priority === 2 || r.priority === 3)) r.priority = 2;
+          if (r.deposit) {
+            var m = parseMoney2(r.deposit);
+            r.deposit = (m === null ? String(r.deposit || "") : m);
+          }
+          entries.push(r);
         }
 
         state.entries = entries;
@@ -1421,9 +1309,8 @@
         }
 
         applyFilterSplitSort();
-
-        renderTable(tbodyA, state.filteredActive, "active");
-        renderTable(tbodyD, state.filteredDone, "done");
+        renderTable(tbodyA, state.filteredActive);
+        renderTable(tbodyD, state.filteredDone);
 
         updateCounts(totalActive, totalDone);
         updateBadge();
@@ -1431,38 +1318,25 @@
         setSort(E.qa("th[data-key]", tableA), state.sortActive);
         setSort(E.qa("th[data-key]", tableD), state.sortDone);
 
-        dbg("[clientorders] refresh done", { totalActive: totalActive, totalDone: totalDone });
+        try { if (typeof state.renderDebugPanel === "function") state.renderDebugPanel(); } catch (e1) {}
       } catch (e) {
-        // IMPORTANT: do not silently fallback here (cloud preferred)
-        state.lastError = e;
+        err("[clientorders] refresh failed", { status: e && e.status, bodyText: e && e.bodyText ? String(e.bodyText).slice(0, 900) : "" });
         state.mode = "api_error";
+        state.lastError = e || null;
         updateBadge();
-
-        err("[clientorders] refresh failed", e);
-
         countA.textContent = "Failed to load";
         countD.textContent = "Failed to load";
-
+        try { if (typeof state.renderDebugPanel === "function") state.renderDebugPanel(); } catch (e2) {}
         modalError("Client Orders", e);
       }
     }
 
     state.refresh = refresh;
 
-    if (btnDebug) {
-      btnDebug.addEventListener("click", function () { openDebugModal(); });
-    }
-
     btnNew.addEventListener("click", function () {
       openOrderModal({
         mode: "new",
-        entry: {
-          order_date: todayYmd(),
-          priority: 2,
-          needed_by: addDaysYmd(2),
-          pick_up_date: addDaysYmd(2),
-          fulfilled: false
-        }
+        entry: { order_date: todayYmd(), priority: 2, needed_by: addDaysYmd(2), pick_up_date: addDaysYmd(2), fulfilled: false }
       });
     });
 
@@ -1471,21 +1345,21 @@
     searchA.addEventListener("input", function () {
       state.queryActive = String(searchA.value || "");
       applyFilterSplitSort();
-      renderTable(tbodyA, state.filteredActive, "active");
-
+      renderTable(tbodyA, state.filteredActive);
       var totalActive = 0;
       for (var i = 0; i < state.entries.length; i++) if (!(state.entries[i] && state.entries[i].fulfilled)) totalActive++;
       countA.textContent = "Showing " + String(state.filteredActive.length) + " / " + String(totalActive);
+      try { if (typeof state.renderDebugPanel === "function") state.renderDebugPanel(); } catch (e) {}
     });
 
     searchD.addEventListener("input", function () {
       state.queryDone = String(searchD.value || "");
       applyFilterSplitSort();
-      renderTable(tbodyD, state.filteredDone, "done");
-
+      renderTable(tbodyD, state.filteredDone);
       var totalDone = 0;
       for (var i = 0; i < state.entries.length; i++) if (state.entries[i] && state.entries[i].fulfilled) totalDone++;
       countD.textContent = "Showing " + String(state.filteredDone.length) + " / " + String(totalDone);
+      try { if (typeof state.renderDebugPanel === "function") state.renderDebugPanel(); } catch (e) {}
     });
 
     btnPrintA.addEventListener("click", function () {
