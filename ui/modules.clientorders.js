@@ -291,16 +291,81 @@
     return false;
   }
 
-  async function apiList() {
-    try {
-      var resp = await E.apiFetch("/client-orders/entries", { method: "GET" });
-      if (!resp || !resp.ok) throw new Error((resp && resp.error) || "Failed to load client orders");
-      return { mode: "api", entries: Array.isArray(resp.entries) ? resp.entries : [] };
-    } catch (e) {
-      if (!shouldFallback(e)) throw e;
-      return { mode: "local", entries: localList() };
+async function apiList() {
+  // 3-year window: previous year, current year, next year
+  function buildMonths3y() {
+    var y = new Date().getFullYear();
+    var out = [];
+    for (var yy = y - 1; yy <= y + 1; yy++) {
+      for (var mm = 1; mm <= 12; mm++) {
+        out.push(String(yy) + "-" + pad2(mm));
+      }
+    }
+    return out;
+  }
+
+  function mergeById(intoMap, entries) {
+    if (!Array.isArray(entries)) return;
+    for (var i = 0; i < entries.length; i++) {
+      var r = entries[i];
+      if (!r || r.id == null) continue;
+      intoMap[String(r.id)] = r; // last one wins (fine if ids are unique)
     }
   }
+
+  try {
+    var months = buildMonths3y();
+    var byId = Object.create(null);
+
+    // batch to avoid spamming 36 parallel requests at once
+    var BATCH = 6;
+
+    var anyOk = false;
+    var firstErr = null;
+
+    for (var i = 0; i < months.length; i += BATCH) {
+      var batch = months.slice(i, i + BATCH);
+
+      // each request MUST include ?month=YYYY-MM
+      var settled = await Promise.allSettled(
+        batch.map(function (m) {
+          return E.apiFetch("/client-orders/entries?month=" + encodeURIComponent(m), { method: "GET" });
+        })
+      );
+
+      for (var k = 0; k < settled.length; k++) {
+        var it = settled[k];
+
+        if (it.status === "fulfilled") {
+          anyOk = true;
+          var resp = it.value;
+          // E.apiFetch returns parsed JSON on 2xx; expected shape: { ok:true, entries:[...] }
+          mergeById(byId, resp && resp.entries);
+        } else {
+          var e = it.reason;
+          if (!firstErr) firstErr = e;
+
+          // auth errors should still hard-fail
+          if (e && (e.status === 401 || e.status === 403)) throw e;
+
+          // otherwise: tolerate partial failure (network hiccup on one month, etc)
+          dbg("[clientorders] month fetch failed (skipped)", e);
+        }
+      }
+    }
+
+    // If literally none succeeded, fall back / or throw
+    if (!anyOk) {
+      if (shouldFallback(firstErr)) return { mode: "local", entries: localList() };
+      throw firstErr || new Error("Failed to load client orders");
+    }
+
+    return { mode: "api", entries: Object.keys(byId).map(function (id) { return byId[id]; }) };
+  } catch (e) {
+    if (!shouldFallback(e)) throw e;
+    return { mode: "local", entries: localList() };
+  }
+}
 
   async function apiCreate(payload) {
     try {
