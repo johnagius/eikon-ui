@@ -1157,78 +1157,156 @@ async function handleClientOrdersEntryCreate(request, env, corsOkHeaders, authUs
   return jsonResponse({ ok: true, entry_id: row.id }, 200, corsOkHeaders);
 }
 
-async function handleClientOrdersEntryUpdate(request, env, corsOkHeaders, authUser, entryId) {
+async function handleClientOrdersEntryUpdate(request, env, corsOkHeaders, authUser, url, entryId) {
   if (!requireRole(authUser, ["admin", "staff"])) {
     return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
   }
 
   await ensureClientOrdersSchema(env);
 
-  const existing = await dbFirst(
+  var id = Number(entryId);
+  if (!Number.isFinite(id) || id <= 0) {
+    return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+  }
+
+  var existing = await dbFirst(
     env,
-    `SELECT id, fulfilled
-     FROM client_orders_entries
-     WHERE id = ? AND org_id = ? AND location_id = ?`,
-    [entryId, authUser.org_id, authUser.location_id]
+    "SELECT * FROM client_orders_entries WHERE org_id = ? AND location_id = ? AND id = ?",
+    [authUser.org_id, authUser.location_id, id]
   );
-  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
 
-  const body = await readJson(request);
+  if (!existing) {
+    return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+  }
 
-  const orderDate = String(body.order_date || body.entry_date || "").trim();
-  const clientName = String(body.client_name || "").trim();
-  const clientAltPhone = String(body.client_alt_phone ?? body.alternate ?? "").trim();
-  const clientPhone = String(body.client_phone || "").trim();
-  const clientEmail = String(body.client_email || "").trim();
-  const clientAddress = String(body.client_address || "").trim();
-  const itemsText = String(body.items_text || body.items || "").trim();
-  const priority = normalizePriority(body.priority);
-  const neededBy = normalizeMaybeYmd(body.needed_by);
-  const pickupDate = normalizeMaybeYmd(body.pickup_date);
-  const depositAmount = normalizeMoney(body.deposit_amount);
-  const fulfilled = body.fulfilled ? 1 : 0;
-  const notes = String(body.notes || "").trim();
+  var body;
+  try {
+    body = await readJson(request);
+  } catch (e) {
+    return jsonResponse(
+      { ok: false, error: "Invalid JSON body" },
+      400,
+      corsOkHeaders
+    );
+  }
 
-  if (!isValidYmd(orderDate)) return jsonResponse({ ok: false, error: "Invalid order_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
-  if (!clientName) return jsonResponse({ ok: false, error: "Missing client_name" }, 400, corsOkHeaders);
-  if (!itemsText) return jsonResponse({ ok: false, error: "Missing items_text" }, 400, corsOkHeaders);
+  if (!body || typeof body !== "object") body = {};
 
-  if (neededBy === "__INVALID__") return jsonResponse({ ok: false, error: "Invalid needed_by (YYYY-MM-DD or empty)" }, 400, corsOkHeaders);
-  if (pickupDate === "__INVALID__") return jsonResponse({ ok: false, error: "Invalid pickup_date (YYYY-MM-DD or empty)" }, 400, corsOkHeaders);
-  if (depositAmount === null) return jsonResponse({ ok: false, error: "Invalid deposit_amount (>= 0)" }, 400, corsOkHeaders);
+  function has(k) {
+    return Object.prototype.hasOwnProperty.call(body, k);
+  }
 
-  const wasFulfilled = existing.fulfilled ? 1 : 0;
-  const turningOn = (wasFulfilled === 0 && fulfilled === 1);
-  const turningOff = (wasFulfilled === 1 && fulfilled === 0);
+  function getStr(k, fallback) {
+    if (!has(k)) return String(fallback == null ? "" : fallback);
+    var v = body[k];
+    if (v == null) return "";
+    return String(v);
+  }
+
+  function getNullableDateOrDateTime(k, fallback) {
+    var s = getStr(k, fallback).trim();
+    if (!s) return null;
+    return s;
+  }
+
+  // Merge fields (only validate fields that the client actually provided)
+  var orderDate = has("order_date") ? String(body.order_date || "").trim() : String(existing.order_date || "");
+  if (has("order_date") && !isValidYmd(orderDate)) {
+    return jsonResponse({ ok: false, error: "Invalid order_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  }
+
+  var clientName = has("client_name") ? String(body.client_name || "").trim() : String(existing.client_name || "");
+  if (has("client_name") && !clientName) {
+    return jsonResponse({ ok: false, error: "Client name required" }, 400, corsOkHeaders);
+  }
+
+  var clientPhone = has("client_phone") ? String(body.client_phone || "").trim() : String(existing.client_phone || "");
+  var clientAltPhone;
+  if (has("client_alt_phone")) clientAltPhone = String(body.client_alt_phone || "").trim();
+  else if (has("client_alternate")) clientAltPhone = String(body.client_alternate || "").trim();
+  else clientAltPhone = String(existing.client_alt_phone || existing.client_alternate || "");
+
+  var clientEmail = has("client_email") ? String(body.client_email || "").trim() : String(existing.client_email || "");
+  var clientAddress = has("client_address") ? String(body.client_address || "").trim() : String(existing.client_address || "");
+
+  var itemsText = has("items_text") ? String(body.items_text || "").trim() : String(existing.items_text || "");
+  if (has("items_text") && !itemsText) {
+    return jsonResponse({ ok: false, error: "Items text required" }, 400, corsOkHeaders);
+  }
+
+  var priority = has("priority") ? Number(body.priority || 2) : Number(existing.priority || 2);
+  if (![1, 2, 3].includes(priority)) priority = 2;
+
+  var neededBy = has("needed_by") ? getNullableDateOrDateTime("needed_by", "") : (existing.needed_by ? String(existing.needed_by) : null);
+  if (has("needed_by") && neededBy && !isValidDateOrDateTime(neededBy)) {
+    return jsonResponse({ ok: false, error: "Invalid needed_by (YYYY-MM-DD or YYYY-MM-DD HH:MM)" }, 400, corsOkHeaders);
+  }
+
+  var pickupDate = has("pickup_date") ? getNullableDateOrDateTime("pickup_date", "") : (existing.pickup_date ? String(existing.pickup_date) : null);
+  if (has("pickup_date") && pickupDate && !isValidDateOrDateTime(pickupDate)) {
+    return jsonResponse({ ok: false, error: "Invalid pickup_date (YYYY-MM-DD or YYYY-MM-DD HH:MM)" }, 400, corsOkHeaders);
+  }
+
+  var depositAmount = existing.deposit_amount == null ? null : Number(existing.deposit_amount);
+  if (has("deposit_amount")) {
+    var depRaw = body.deposit_amount;
+    if (depRaw == null || String(depRaw).trim() === "") {
+      depositAmount = null;
+    } else {
+      var n = Number(depRaw);
+      if (!isFinite(n) || n < 0) {
+        return jsonResponse({ ok: false, error: "Invalid deposit_amount" }, 400, corsOkHeaders);
+      }
+      depositAmount = n;
+    }
+  }
+
+  var notes = has("notes") ? String(body.notes || "") : String(existing.notes || "");
+
+  var fulfilled = has("fulfilled") ? !!body.fulfilled : !!existing.fulfilled;
+
+  var fulfilledAt = null;
+  if (has("fulfilled_at")) {
+    var fat = String(body.fulfilled_at == null ? "" : body.fulfilled_at).trim();
+    if (fat) {
+      if (!isValidDateOrDateTime(fat)) {
+        return jsonResponse({ ok: false, error: "Invalid fulfilled_at" }, 400, corsOkHeaders);
+      }
+      fulfilledAt = fat;
+    } else {
+      fulfilledAt = null;
+    }
+  }
 
   await dbRun(
     env,
     `UPDATE client_orders_entries
-     SET order_date = ?,
-         client_name = ?,
-         client_phone = ?,
-         client_alt_phone = ?,
-         client_email = ?,
-         client_address = ?,
-         items_text = ?,
-         priority = ?,
-         needed_by = ?,
-         pickup_date = ?,
-         deposit_amount = ?,
-         fulfilled = ?,
-         fulfilled_at = CASE
-            WHEN ? THEN datetime('now')
-            WHEN ? THEN NULL
-            ELSE fulfilled_at
-         END,
-         notes = ?,
-         updated_at = datetime('now')
-     WHERE id = ? AND org_id = ? AND location_id = ?`,
+       SET order_date = ?,
+           client_name = ?,
+           client_phone = ?,
+           client_alt_phone = ?,
+           client_alternate = ?,
+           client_email = ?,
+           client_address = ?,
+           items_text = ?,
+           priority = ?,
+           needed_by = ?,
+           pickup_date = ?,
+           deposit_amount = ?,
+           fulfilled = ?,
+           fulfilled_at = CASE
+             WHEN ? THEN COALESCE(?, fulfilled_at, datetime('now'))
+             ELSE NULL
+           END,
+           notes = ?,
+           updated_at = datetime('now')
+     WHERE org_id = ? AND location_id = ? AND id = ?`,
     [
       orderDate,
       clientName,
       clientPhone,
       clientAltPhone,
+      clientAltPhone, // keep legacy mirror column
       clientEmail,
       clientAddress,
       itemsText,
@@ -1236,29 +1314,17 @@ async function handleClientOrdersEntryUpdate(request, env, corsOkHeaders, authUs
       neededBy,
       pickupDate,
       depositAmount,
-      fulfilled,
-      turningOn ? 1 : 0,
-      turningOff ? 1 : 0,
+      fulfilled ? 1 : 0,
+      fulfilled ? 1 : 0,
+      fulfilledAt,
       notes,
-      entryId,
       authUser.org_id,
-      authUser.location_id
+      authUser.location_id,
+      id
     ]
   );
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "CLIENT_ORDER_UPDATE", "client_orders_entries", String(entryId), {
-    order_date: orderDate,
-    client_name: clientName,
-    priority,
-    fulfilled
-  });
-
-  // Optional: add explicit audit for fulfill/unfulfill if you want
-  if (turningOn) {
-    await writeAudit(env, authUser.org_id, authUser.user_id, "CLIENT_ORDER_FULFILLED", "client_orders_entries", String(entryId), {});
-  } else if (turningOff) {
-    await writeAudit(env, authUser.org_id, authUser.user_id, "CLIENT_ORDER_UNFULFILLED", "client_orders_entries", String(entryId), {});
-  }
+  await writeAudit(env, authUser, "clientorders.entry.update", { id: id });
 
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
