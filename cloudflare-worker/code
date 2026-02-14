@@ -1157,174 +1157,134 @@ async function handleClientOrdersEntryCreate(request, env, corsOkHeaders, authUs
   return jsonResponse({ ok: true, entry_id: row.id }, 200, corsOkHeaders);
 }
 
-async function handleClientOrdersEntryUpdate(request, env, corsOkHeaders, authUser, url, entryId) {
+async function handleClientOrdersEntryUpdate(request, env, corsOkHeaders, authUser, entryId) {
   if (!requireRole(authUser, ["admin", "staff"])) {
     return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
   }
 
   await ensureClientOrdersSchema(env);
 
-  var id = Number(entryId);
-  if (!Number.isFinite(id) || id <= 0) {
+  const entryIdNum = parseInt(String(entryId || ""), 10);
+  if (!entryIdNum || isNaN(entryIdNum)) {
     return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
   }
 
-  var existing = await dbFirst(
+  // IMPORTANT:
+  // Client Orders list is org-wide (can include multiple locations),
+  // so updates must not require the caller's current location_id to match.
+  const existing = await dbFirst(
     env,
-    "SELECT * FROM client_orders_entries WHERE org_id = ? AND location_id = ? AND id = ?",
-    [authUser.org_id, authUser.location_id, id]
+    `SELECT id, org_id, location_id, fulfilled, fulfilled_at
+     FROM client_orders_entries
+     WHERE org_id = ? AND id = ?`,
+    [authUser.org_id, entryIdNum]
   );
 
   if (!existing) {
-    return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+    return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
   }
 
-  var body;
-  try {
-    body = await readJson(request);
-  } catch (e) {
-    return jsonResponse(
-      { ok: false, error: "Invalid JSON body" },
-      400,
-      corsOkHeaders
-    );
+  const body = await request.json().catch(() => null);
+  if (!body || typeof body !== "object") {
+    return jsonResponse({ ok: false, error: "Invalid JSON body" }, 400, corsOkHeaders);
   }
 
-  if (!body || typeof body !== "object") body = {};
-
-  function has(k) {
-    return Object.prototype.hasOwnProperty.call(body, k);
-  }
-
-  function getStr(k, fallback) {
-    if (!has(k)) return String(fallback == null ? "" : fallback);
-    var v = body[k];
-    if (v == null) return "";
-    return String(v);
-  }
-
-  function getNullableDateOrDateTime(k, fallback) {
-    var s = getStr(k, fallback).trim();
-    if (!s) return null;
-    return s;
-  }
-
-  // Merge fields (only validate fields that the client actually provided)
-  var orderDate = has("order_date") ? String(body.order_date || "").trim() : String(existing.order_date || "");
-  if (has("order_date") && !isValidYmd(orderDate)) {
+  const orderDate = String(body.order_date || "").trim();
+  if (!isValidYmd(orderDate)) {
     return jsonResponse({ ok: false, error: "Invalid order_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
   }
 
-  var clientName = has("client_name") ? String(body.client_name || "").trim() : String(existing.client_name || "");
-  if (has("client_name") && !clientName) {
-    return jsonResponse({ ok: false, error: "Client name required" }, 400, corsOkHeaders);
+  const clientName = String(body.client_name || "").trim();
+  if (!clientName) {
+    return jsonResponse({ ok: false, error: "client_name required" }, 400, corsOkHeaders);
   }
 
-  var clientPhone = has("client_phone") ? String(body.client_phone || "").trim() : String(existing.client_phone || "");
-  var clientAltPhone;
-  if (has("client_alt_phone")) clientAltPhone = String(body.client_alt_phone || "").trim();
-  else if (has("client_alternate")) clientAltPhone = String(body.client_alternate || "").trim();
-  else clientAltPhone = String(existing.client_alt_phone || existing.client_alternate || "");
+  const clientPhone = String(body.client_phone || "").trim();
+  const clientAltPhone = String(body.client_alt_phone || "").trim();
+  const clientEmail = String(body.client_email || "").trim();
+  const clientAddress = String(body.client_address || "").trim();
 
-  var clientEmail = has("client_email") ? String(body.client_email || "").trim() : String(existing.client_email || "");
-  var clientAddress = has("client_address") ? String(body.client_address || "").trim() : String(existing.client_address || "");
-
-  var itemsText = has("items_text") ? String(body.items_text || "").trim() : String(existing.items_text || "");
-  if (has("items_text") && !itemsText) {
-    return jsonResponse({ ok: false, error: "Items text required" }, 400, corsOkHeaders);
+  const itemsText = String(body.items_text || "").trim();
+  if (!itemsText) {
+    return jsonResponse({ ok: false, error: "items_text required" }, 400, corsOkHeaders);
   }
 
-  var priority = has("priority") ? Number(body.priority || 2) : Number(existing.priority || 2);
-  if (![1, 2, 3].includes(priority)) priority = 2;
+  let priority = parseInt(body.priority, 10);
+  if (isNaN(priority)) priority = 1;
+  priority = Math.max(1, Math.min(3, priority));
 
-  var neededBy = has("needed_by") ? getNullableDateOrDateTime("needed_by", "") : (existing.needed_by ? String(existing.needed_by) : null);
-  if (has("needed_by") && neededBy && !isValidDateOrDateTime(neededBy)) {
-    return jsonResponse({ ok: false, error: "Invalid needed_by (YYYY-MM-DD or YYYY-MM-DD HH:MM)" }, 400, corsOkHeaders);
+  const neededBy = String(body.needed_by || "").trim();
+  if (neededBy && !isValidYmd(neededBy)) {
+    return jsonResponse({ ok: false, error: "Invalid needed_by (YYYY-MM-DD)" }, 400, corsOkHeaders);
   }
 
-  var pickupDate = has("pickup_date") ? getNullableDateOrDateTime("pickup_date", "") : (existing.pickup_date ? String(existing.pickup_date) : null);
-  if (has("pickup_date") && pickupDate && !isValidDateOrDateTime(pickupDate)) {
-    return jsonResponse({ ok: false, error: "Invalid pickup_date (YYYY-MM-DD or YYYY-MM-DD HH:MM)" }, 400, corsOkHeaders);
+  const pickupDate = String(body.pickup_date || "").trim();
+  if (pickupDate && !isValidYmd(pickupDate)) {
+    return jsonResponse({ ok: false, error: "Invalid pickup_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
   }
 
-  var depositAmount = existing.deposit_amount == null ? null : Number(existing.deposit_amount);
-  if (has("deposit_amount")) {
-    var depRaw = body.deposit_amount;
-    if (depRaw == null || String(depRaw).trim() === "") {
-      depositAmount = null;
-    } else {
-      var n = Number(depRaw);
-      if (!isFinite(n) || n < 0) {
-        return jsonResponse({ ok: false, error: "Invalid deposit_amount" }, 400, corsOkHeaders);
-      }
-      depositAmount = n;
+  let depositAmount = body.deposit_amount;
+  if (depositAmount === "" || depositAmount === null || depositAmount === undefined) {
+    depositAmount = null;
+  } else {
+    const n = Number(depositAmount);
+    if (isNaN(n)) {
+      return jsonResponse({ ok: false, error: "Invalid deposit_amount" }, 400, corsOkHeaders);
     }
+    depositAmount = n;
   }
 
-  var notes = has("notes") ? String(body.notes || "") : String(existing.notes || "");
+  const notes = String(body.notes || "").trim();
 
-  var fulfilled = has("fulfilled") ? !!body.fulfilled : !!existing.fulfilled;
-
-  var fulfilledAt = null;
-  if (has("fulfilled_at")) {
-    var fat = String(body.fulfilled_at == null ? "" : body.fulfilled_at).trim();
-    if (fat) {
-      if (!isValidDateOrDateTime(fat)) {
-        return jsonResponse({ ok: false, error: "Invalid fulfilled_at" }, 400, corsOkHeaders);
-      }
-      fulfilledAt = fat;
-    } else {
-      fulfilledAt = null;
-    }
-  }
+  const fulfilledInt = body.fulfilled ? 1 : 0;
 
   await dbRun(
     env,
     `UPDATE client_orders_entries
-       SET order_date = ?,
-           client_name = ?,
-           client_phone = ?,
-           client_alt_phone = ?,
-           client_alternate = ?,
-           client_email = ?,
-           client_address = ?,
-           items_text = ?,
-           priority = ?,
-           needed_by = ?,
-           pickup_date = ?,
-           deposit_amount = ?,
-           fulfilled = ?,
-           fulfilled_at = CASE
-             WHEN ? THEN COALESCE(?, fulfilled_at, datetime('now'))
-             ELSE NULL
-           END,
-           notes = ?,
-           updated_at = datetime('now')
-     WHERE org_id = ? AND location_id = ? AND id = ?`,
+     SET order_date = ?,
+         client_name = ?,
+         client_phone = ?,
+         client_alt_phone = ?,
+         client_email = ?,
+         client_address = ?,
+         items_text = ?,
+         priority = ?,
+         needed_by = ?,
+         pickup_date = ?,
+         deposit_amount = ?,
+         notes = ?,
+         fulfilled = ?,
+         fulfilled_at = CASE
+           WHEN ? = 1 THEN (CASE WHEN fulfilled_at IS NULL THEN datetime('now') ELSE fulfilled_at END)
+           ELSE NULL
+         END,
+         updated_at = datetime('now')
+     WHERE org_id = ? AND id = ?`,
     [
       orderDate,
       clientName,
       clientPhone,
       clientAltPhone,
-      clientAltPhone, // keep legacy mirror column
       clientEmail,
       clientAddress,
       itemsText,
       priority,
-      neededBy,
-      pickupDate,
+      neededBy || null,
+      pickupDate || null,
       depositAmount,
-      fulfilled ? 1 : 0,
-      fulfilled ? 1 : 0,
-      fulfilledAt,
       notes,
+      fulfilledInt,
+      fulfilledInt,
       authUser.org_id,
-      authUser.location_id,
-      id
+      entryIdNum
     ]
   );
 
-  await writeAudit(env, authUser, "clientorders.entry.update", { id: id });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CLIENT_ORDER_UPDATE", "client_orders_entries", String(entryIdNum), {
+    order_date: orderDate,
+    client_name: clientName,
+    fulfilled: !!body.fulfilled
+  });
 
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
@@ -1336,26 +1296,27 @@ async function handleClientOrdersEntryDelete(request, env, corsOkHeaders, authUs
 
   await ensureClientOrdersSchema(env);
 
+  const entryIdNum = parseInt(String(entryId || ""), 10);
+  if (!entryIdNum || isNaN(entryIdNum)) {
+    return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+  }
+
+  // IMPORTANT:
+  // Client Orders list is org-wide (can include multiple locations),
+  // so deletes must not require the caller's current location_id to match.
   const existing = await dbFirst(
     env,
-    `SELECT id, order_date, client_name
-     FROM client_orders_entries
-     WHERE id = ? AND org_id = ? AND location_id = ?`,
-    [entryId, authUser.org_id, authUser.location_id]
-  );
-  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
-
-  await dbRun(
-    env,
-    `DELETE FROM client_orders_entries
-     WHERE id = ? AND org_id = ? AND location_id = ?`,
-    [entryId, authUser.org_id, authUser.location_id]
+    "SELECT id FROM client_orders_entries WHERE org_id = ? AND id = ?",
+    [authUser.org_id, entryIdNum]
   );
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "CLIENT_ORDER_DELETE", "client_orders_entries", String(entryId), {
-    order_date: existing.order_date,
-    client_name: existing.client_name
-  });
+  if (!existing) {
+    return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+  }
+
+  await dbRun(env, "DELETE FROM client_orders_entries WHERE org_id = ? AND id = ?", [authUser.org_id, entryIdNum]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CLIENT_ORDER_DELETE", "client_orders_entries", String(entryIdNum), {});
 
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
