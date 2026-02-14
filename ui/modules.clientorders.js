@@ -928,20 +928,50 @@
     chk.className = "co-check";
     chk.checked = !!entry.fulfilled;
     chk.addEventListener("click", function (ev) { ev.stopPropagation(); });
-    chk.addEventListener("change", function () {
-      (async function () {
-        try {
-          var next = !!chk.checked;
-          var payload = { fulfilled: next, fulfilled_at: next ? new Date().toISOString() : "" };
-          dbg("[clientorders] fulfilled toggle", { id: entry.id, payload: payload });
-          await apiUpdate(entry.id, payload);
-          if (opts && typeof opts.onChanged === "function") opts.onChanged();
-        } catch (e) {
-          chk.checked = !chk.checked;
-          modalError("Update failed", e);
-        }
-      })();
-    });
+chk.addEventListener("change", async function () {
+  var next = chk.checked;
+  var ts = next ? new Date().toISOString() : "";
+
+  // Build a full API payload from the row (API expects full update)
+  var depositAmount = null;
+  if (entry && entry.deposit != null && String(entry.deposit).trim() !== "") {
+    var dn = Number(String(entry.deposit).replace(/,/g, "").trim());
+    if (isFinite(dn)) depositAmount = dn;
+  } else if (entry && entry.deposit_amount != null && String(entry.deposit_amount).trim() !== "") {
+    var dn2 = Number(String(entry.deposit_amount).replace(/,/g, "").trim());
+    if (isFinite(dn2)) depositAmount = dn2;
+  }
+
+  var payload = {
+    order_date: entry.order_date || "",
+    client_name: entry.client_name || "",
+    client_phone: entry.client_phone || entry.contact || "",
+    client_alt_phone: entry.client_alt_phone || entry.client_alternate || entry.alternate || "",
+    client_email: entry.client_email || entry.email || "",
+    client_address: entry.client_address || entry.address || "",
+    items_text: entry.items_text || entry.items || "",
+    priority: entry.priority != null && String(entry.priority).trim() !== "" ? entry.priority : 2,
+    needed_by: entry.needed_by || "",
+    pickup_date: entry.pick_up_date || "",
+    deposit_amount: depositAmount,
+    notes: entry.notes || "",
+    fulfilled: next,
+    fulfilled_at: ts
+  };
+
+  try {
+    await apiUpdate(entry.id, payload);
+
+    entry.fulfilled = next;
+    entry.fulfilled_at = ts;
+    entry._done = !!next;
+
+    rerender();
+  } catch (e) {
+    chk.checked = !!entry.fulfilled;
+    alert("Update failed: " + (e && e.message ? e.message : e));
+  }
+});
 
     tdChk.appendChild(chk);
     tr.appendChild(tdChk);
