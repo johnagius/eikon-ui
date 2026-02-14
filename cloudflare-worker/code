@@ -1125,7 +1125,8 @@ async function handleClientOrdersEntryCreate(request, env, corsOkHeaders, authUs
     items_text, priority, needed_by, pickup_date, deposit_amount,
     fulfilled, fulfilled_at, notes, created_by, created_at, updated_at)
      VALUES
-      (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? THEN datetime('now') ELSE NULL END, ?, ?, datetime('now'), datetime('now'))
+      VALUES
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? THEN datetime('now') ELSE NULL END, ?, ?, datetime('now'), datetime('now'))
      RETURNING id`,
     [
       authUser.org_id,
