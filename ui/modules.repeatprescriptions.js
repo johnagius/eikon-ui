@@ -60,6 +60,26 @@
     return v.slice(8, 10) + "/" + v.slice(5, 7) + "/" + v.slice(0, 4);
   }
 
+  // Add months to YYYY-MM-DD, clamped to end-of-month (e.g. 31st -> 30th/28th as needed)
+  function addMonthsYmd(ymd, months) {
+    var v = String(ymd || "").trim();
+    if (!isYmd(v)) return "";
+    var parts = v.split("-");
+    var y = parseInt(parts[0], 10);
+    var m = parseInt(parts[1], 10);
+    var d = parseInt(parts[2], 10);
+    if (!y || !m || !d) return "";
+
+    var base = new Date(Date.UTC(y, m - 1, 1));
+    base.setUTCMonth(base.getUTCMonth() + Number(months || 0));
+    var ty = base.getUTCFullYear();
+    var tm = base.getUTCMonth();
+    var dim = new Date(Date.UTC(ty, tm + 1, 0)).getUTCDate();
+    var dd = Math.min(d, dim);
+    var out = new Date(Date.UTC(ty, tm, dd));
+    return out.getUTCFullYear() + "-" + pad2(out.getUTCMonth() + 1) + "-" + pad2(out.getUTCDate());
+  }
+
   function norm(s) {
     return String(s == null ? "" : s).toLowerCase().trim();
   }
@@ -67,6 +87,8 @@
   function rowSearchBlob(r) {
     return (
       norm(r.entry_date) +
+      " | " +
+      norm(r.expires_date) +
       " | " +
       norm(r.client_name) +
       " | " +
@@ -80,6 +102,13 @@
       " | " +
       norm(r.prescriber_reg_no)
     );
+  }
+
+  function isExpiredYmd(expiresYmd) {
+    var ex = String(expiresYmd || "").trim();
+    if (!isYmd(ex)) return false;
+    // ISO date string compare works: YYYY-MM-DD
+    return ex < todayYmd();
   }
 
   // ------------------------------------------------------------
@@ -128,27 +157,29 @@
       ".rp-card-head h3{margin:0;font-size:15px;font-weight:1000;color:var(--text,#e9eef7);}" +
       "#rp-count{font-size:12px;color:var(--muted,rgba(233,238,247,.68));font-weight:800;}" +
       ".rp-table-wrap{overflow:auto;border:1px solid var(--line,rgba(255,255,255,.10));border-radius:14px;background:rgba(10,16,24,.18);}" +
-      ".rp-table{width:100%;border-collapse:collapse;min-width:980px;color:var(--text,#e9eef7);}" +
+      ".rp-table{width:100%;border-collapse:collapse;min-width:1080px;color:var(--text,#e9eef7);}" +
       ".rp-table th,.rp-table td{border-bottom:1px solid var(--line,rgba(255,255,255,.10));padding:10px 10px;font-size:12px;vertical-align:top;}" +
       ".rp-table th{background:rgba(12,19,29,.92);position:sticky;top:0;z-index:1;color:var(--muted,rgba(233,238,247,.68));text-transform:uppercase;letter-spacing:.8px;font-weight:1000;text-align:left;}" +
       ".rp-table tbody tr:hover{background:rgba(255,255,255,.04);}" +
+      ".rp-table tbody tr.rp-expired{background:rgba(255,90,90,.14);}" +
+      ".rp-table tbody tr.rp-expired:hover{background:rgba(255,90,90,.18);}" +
       ".rp-table b{color:var(--text,#e9eef7);}" +
       ".rp-idline{opacity:.75;font-size:11px;color:var(--muted,rgba(233,238,247,.68));}" +
-      "#rp-date,#rp-client-name,#rp-client-id,#rp-med,#rp-pos,#rp-prescriber,#rp-presc-reg{" +
+      "#rp-date,#rp-expires,#rp-client-name,#rp-client-id,#rp-med,#rp-pos,#rp-prescriber,#rp-presc-reg{" +
       "width:100%;padding:10px 12px;border:1px solid var(--line,rgba(255,255,255,.10));border-radius:12px;" +
       "background:rgba(10,16,24,.64);color:var(--text,#e9eef7);outline:none;" +
       "}" +
-      "#rp-date:focus,#rp-client-name:focus,#rp-client-id:focus,#rp-med:focus,#rp-pos:focus,#rp-prescriber:focus,#rp-presc-reg:focus{" +
+      "#rp-date:focus,#rp-expires:focus,#rp-client-name:focus,#rp-client-id:focus,#rp-med:focus,#rp-pos:focus,#rp-prescriber:focus,#rp-presc-reg:focus{" +
       "border-color:rgba(58,160,255,.55);box-shadow:0 0 0 3px rgba(58,160,255,.22);background:rgba(10,16,24,.74);" +
       "}" +
-      "#rp-date{color-scheme:dark;}" +
+      "#rp-date,#rp-expires{color-scheme:dark;}" +
       "@media(max-width:820px){.rp-wrap{padding:12px;}.rp-controls{width:100%;}}";
 
     document.head.appendChild(st);
   }
 
   // ------------------------------------------------------------
-  // API (worker endpoints will be added later)
+  // API
   // ------------------------------------------------------------
   async function apiList(monthYm) {
     var ym = String(monthYm || "").trim();
@@ -187,6 +218,7 @@
   function validatePayload(p) {
     var out = {
       entry_date: String(p.entry_date || "").trim(),
+      expires_date: String(p.expires_date || "").trim(),
       client_name: String(p.client_name || "").trim(),
       client_id: String(p.client_id || "").trim(),
       medicine_name_dose: String(p.medicine_name_dose || "").trim(),
@@ -196,6 +228,9 @@
     };
 
     if (!out.entry_date || !isYmd(out.entry_date)) throw new Error("Date is required (YYYY-MM-DD)");
+    if (!out.expires_date) out.expires_date = addMonthsYmd(out.entry_date, 6);
+    if (!out.expires_date || !isYmd(out.expires_date)) throw new Error("Expires is required (YYYY-MM-DD)");
+
     if (!out.client_name) throw new Error("Client Name & Surname is required");
     if (!out.client_id) throw new Error("Client ID is required");
     if (!out.medicine_name_dose) throw new Error("Medicine Name & Dose is required");
@@ -237,8 +272,13 @@
 
     var title = isEdit ? "Edit Repeat Prescription Entry" : "New Repeat Prescription Entry";
 
+    var initialEntryDate = String(entry.entry_date || todayYmd()).trim();
+    var initialExpires = String(entry.expires_date || "").trim();
+    if (!isYmd(initialExpires)) initialExpires = addMonthsYmd(initialEntryDate, 6);
+
     var initial = {
-      entry_date: String(entry.entry_date || todayYmd()).trim(),
+      entry_date: initialEntryDate,
+      expires_date: initialExpires,
       client_name: String(entry.client_name || "").trim(),
       client_id: String(entry.client_id || "").trim(),
       medicine_name_dose: String(entry.medicine_name_dose || "").trim(),
@@ -254,6 +294,12 @@
       "    <label>Date</label>" +
       "    <input id='rp-date' type='date' value='" +
       esc(initial.entry_date) +
+      "' />" +
+      "  </div>" +
+      "  <div class='eikon-form-row'>" +
+      "    <label>Expires</label>" +
+      "    <input id='rp-expires' type='date' value='" +
+      esc(initial.expires_date) +
       "' />" +
       "  </div>" +
       "  <div class='eikon-form-row'>" +
@@ -309,6 +355,7 @@
             try {
               var payload = validatePayload({
                 entry_date: (E.q("#rp-date").value || "").trim(),
+                expires_date: (E.q("#rp-expires").value || "").trim(),
                 client_name: (E.q("#rp-client-name").value || "").trim(),
                 client_id: (E.q("#rp-client-id").value || "").trim(),
                 medicine_name_dose: (E.q("#rp-med").value || "").trim(),
@@ -329,6 +376,32 @@
         },
       },
     ]);
+
+    // Auto-calc Expires = Date + 6 months (until user overrides)
+    try {
+      var dateEl = E.q("#rp-date");
+      var expEl = E.q("#rp-expires");
+      if (dateEl && expEl) {
+        var baseAuto = addMonthsYmd(String(dateEl.value || "").trim(), 6);
+        var expiresTouched = isYmd(String(expEl.value || "").trim()) && String(expEl.value || "").trim() !== baseAuto;
+
+        expEl.addEventListener("input", function () {
+          expiresTouched = true;
+        });
+
+        dateEl.addEventListener("input", function () {
+          if (expiresTouched) return;
+          var auto = addMonthsYmd(String(dateEl.value || "").trim(), 6);
+          if (auto) expEl.value = auto;
+        });
+
+        dateEl.addEventListener("change", function () {
+          if (expiresTouched) return;
+          var auto = addMonthsYmd(String(dateEl.value || "").trim(), 6);
+          if (auto) expEl.value = auto;
+        });
+      }
+    } catch (e) {}
   }
 
   function openConfirmDelete(entry) {
@@ -339,6 +412,9 @@
       "This will permanently delete the entry.\n\n" +
       "Date: " +
       esc(fmtDmyFromYmd(entry.entry_date)) +
+      "\n" +
+      "Expires: " +
+      esc(fmtDmyFromYmd(entry.expires_date)) +
       "\n" +
       "Client: " +
       esc(entry.client_name) +
@@ -403,6 +479,7 @@
         "" +
         "<tr>" +
         "<td>" + safe(fmtDmyFromYmd(r.entry_date || "")) + "</td>" +
+        "<td>" + safe(fmtDmyFromYmd(r.expires_date || "")) + "</td>" +
         "<td><b>" + safe(r.client_name || "") + "</b><div style='opacity:.7;font-size:11px'>ID: " + safe(r.client_id || "") + "</div></td>" +
         "<td>" + safe(r.medicine_name_dose || "") + "</td>" +
         "<td>" + safe(r.posology || "") + "</td>" +
@@ -434,7 +511,7 @@
       safe(new Date().toLocaleString()) +
       "</pre>" +
       "<table><thead><tr>" +
-      "<th>Date</th><th>Client</th><th>Medicine Name &amp; Dose</th><th>Posology</th><th>Prescriber Name</th><th>Reg No</th>" +
+      "<th>Date</th><th>Expires</th><th>Client</th><th>Medicine Name &amp; Dose</th><th>Posology</th><th>Prescriber Name</th><th>Reg No</th>" +
       "</tr></thead><tbody>" +
       rowsHtml +
       "</tbody></table>" +
@@ -447,6 +524,7 @@
 
   function buildTableRow(entry, onEdit, onDelete) {
     var tr = document.createElement("tr");
+    if (isExpiredYmd(entry.expires_date)) tr.className = "rp-expired";
 
     function tdText(text, bold) {
       var td = document.createElement("td");
@@ -461,6 +539,7 @@
     }
 
     var tdDate = tdText(fmtDmyFromYmd(entry.entry_date || ""), false);
+    var tdExpires = tdText(fmtDmyFromYmd(entry.expires_date || ""), false);
 
     var tdClient = document.createElement("td");
     var bName = document.createElement("b");
@@ -496,6 +575,7 @@
     tdActions.appendChild(btnDel);
 
     tr.appendChild(tdDate);
+    tr.appendChild(tdExpires);
     tr.appendChild(tdClient);
     tr.appendChild(tdMed);
     tr.appendChild(tdPos);
@@ -585,6 +665,7 @@
       "        <thead>" +
       "          <tr>" +
       "            <th>Date</th>" +
+      "            <th>Expires</th>" +
       "            <th>Client</th>" +
       "            <th>Medicine Name &amp; Dose</th>" +
       "            <th>Posology</th>" +
@@ -594,7 +675,7 @@
       "          </tr>" +
       "        </thead>" +
       "        <tbody id='rp-tbody'>" +
-      "          <tr><td colspan='7'>Loading…</td></tr>" +
+      "          <tr><td colspan='8'>Loading…</td></tr>" +
       "        </tbody>" +
       "      </table>" +
       "    </div>" +
@@ -634,6 +715,8 @@
           var r = entries[i] || {};
           r.id = r.id;
           r.entry_date = String(r.entry_date || "").trim();
+          r.expires_date = String(r.expires_date || "").trim();
+          if (!isYmd(r.expires_date) && isYmd(r.entry_date)) r.expires_date = addMonthsYmd(r.entry_date, 6);
           r.client_name = String(r.client_name || "").trim();
           r.client_id = String(r.client_id || "").trim();
           r.medicine_name_dose = String(r.medicine_name_dose || "").trim();
