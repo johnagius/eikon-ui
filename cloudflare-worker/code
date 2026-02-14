@@ -911,6 +911,7 @@ async function ensureClientOrdersSchema(env) {
       order_date TEXT NOT NULL,               -- YYYY-MM-DD
       client_name TEXT NOT NULL,
       client_phone TEXT NOT NULL DEFAULT '',
+      client_alt_phone TEXT NOT NULL DEFAULT '',
       client_email TEXT NOT NULL DEFAULT '',
       client_address TEXT NOT NULL DEFAULT '',
 
@@ -952,6 +953,12 @@ async function ensureClientOrdersSchema(env) {
     "CREATE INDEX IF NOT EXISTS idx_client_orders_org_loc_priority ON client_orders_entries (org_id, location_id, priority)",
     []
   );
+    // Backfill schema for existing deployments (safe if column already exists)
+  try {
+    await dbRun(env, "ALTER TABLE client_orders_entries ADD COLUMN client_alt_phone TEXT NOT NULL DEFAULT ''", []);
+  } catch (e) {
+    // ignore: column already exists
+  }
 }
 
 function normalizePriority(p) {
@@ -974,6 +981,33 @@ function normalizeMaybeYmd(s) {
   const t = String(s ?? "").trim();
   if (!t) return null;
   return isValidYmd(t) ? t : "__INVALID__";
+}
+
+function clientOrderRowToUi(r) {
+  if (!r) return r;
+  const phone = r.client_phone || "";
+  const alt = r.client_alt_phone || "";
+  const email = r.client_email || "";
+  const addr = r.client_address || "";
+  const items = r.items_text || "";
+  const orderDate = r.order_date || "";
+  const pickup = r.pickup_date || null;
+  const deposit = (r.deposit_amount === null || r.deposit_amount === undefined) ? 0 : r.deposit_amount;
+
+  return {
+    // DB names (keep for compatibility)
+    ...r,
+
+    // UI aliases (what your front-end likely expects)
+    entry_date: orderDate,
+    contact: phone,
+    alternate: alt,
+    email,
+    address: addr,
+    items,
+    pick_up_date: pickup,
+    deposit
+  };
 }
 
 async function handleClientOrdersEntriesList(request, env, corsOkHeaders, authUser, url) {
@@ -1002,6 +1036,7 @@ async function handleClientOrdersEntriesList(request, env, corsOkHeaders, authUs
       order_date,
       client_name,
       client_phone,
+      client_alt_phone,
       client_email,
       client_address,
       items_text,
@@ -1037,7 +1072,8 @@ async function handleClientOrdersEntriesList(request, env, corsOkHeaders, authUs
   if (hasFulfilled) bind.push(fulfilledVal);
   if (hasQ) bind.push(qLike, qLike, qLike, qLike, qLike, qLike, qLike);
 
-  const entries = await dbAll(env, sql, bind);
+  const rows = await dbAll(env, sql, bind);
+  const entries = rows.map(clientOrderRowToUi);
   return jsonResponse({ ok: true, entries }, 200, corsOkHeaders);
 }
 
@@ -1053,6 +1089,7 @@ async function handleClientOrdersEntryCreate(request, env, corsOkHeaders, authUs
   const orderDate = String(body.order_date || body.entry_date || "").trim();
   const clientName = String(body.client_name || "").trim();
   const clientPhone = String(body.client_phone || "").trim();
+  const clientAltPhone = String(body.client_alt_phone ?? body.alternate ?? "").trim();
   const clientEmail = String(body.client_email || "").trim();
   const clientAddress = String(body.client_address || "").trim();
   const itemsText = String(body.items_text || body.items || "").trim();
@@ -1130,6 +1167,7 @@ async function handleClientOrdersEntryUpdate(request, env, corsOkHeaders, authUs
 
   const orderDate = String(body.order_date || body.entry_date || "").trim();
   const clientName = String(body.client_name || "").trim();
+  const clientAltPhone = String(body.client_alt_phone ?? body.alternate ?? "").trim();
   const clientPhone = String(body.client_phone || "").trim();
   const clientEmail = String(body.client_email || "").trim();
   const clientAddress = String(body.client_address || "").trim();
@@ -4584,7 +4622,8 @@ async function handleUiAsset(request, env, url) {
 
 export default {
   async fetch(request, env, ctx) {
-    const url = new URL(request.url);
+    try {
+      const url = new URL(request.url);
 
     // UI assets
     if (url.pathname.startsWith("/ui/")) {
@@ -4949,5 +4988,25 @@ if (url.pathname.startsWith("/dda-stocktakes/items/")) {
     }
 
     return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+    } catch (e) {
+      // Never let an exception become Cloudflare 1101 HTML again.
+      console.log("[worker] exception", e && (e.stack || e.message || String(e)));
+
+      let corsHeaders = { "Vary": "Origin" };
+      try {
+        const cors = corsHeadersForRequest(request, env);
+        corsHeaders = cors.ok ? cors.headers : { "Vary": "Origin" };
+      } catch {}
+
+      const debugStack = String(env.DEBUG_STACK || "").trim() === "1";
+      const payload = {
+        ok: false,
+        error: "Worker threw exception",
+        message: (e && e.message) ? e.message : String(e)
+      };
+      if (debugStack) payload.stack = e && e.stack ? e.stack : "";
+
+      return jsonResponse(payload, 500, corsHeaders);
+    }
   }
 };
