@@ -1,14 +1,16 @@
 /* ui/modules.clientorders.js
    Eikon - Client Orders module (UI)
 
-   NOTE (for later Worker work):
    Intended endpoints (same shape as Daily Register):
-     GET    /client-orders/entries
+     GET    /client-orders/entries?month=YYYY-MM
      POST   /client-orders/entries
      PUT    /client-orders/entries/:id
      DELETE /client-orders/entries/:id
 
-   For now this module will AUTO-FALLBACK to localStorage if the API is missing (e.g. 404 / offline).
+   Cloud preference:
+   - We ONLY fallback to localStorage on 404 (endpoint missing) or network/offline (no status).
+   - By default we DO NOT fallback on 5xx, because that hides real server bugs and causes silent local saves.
+   - To temporarily allow 5xx fallback: add URL param ?co_fallback500=1
 */
 (function () {
   "use strict";
@@ -16,19 +18,82 @@
   var E = window.EIKON;
   if (!E) throw new Error("EIKON core missing (modules.clientorders.js)");
 
+  // ------------------------------------------------------------
+  // Debug helpers (verbose + ring buffer)
+  // ------------------------------------------------------------
+  function safeStr(x) {
+    try {
+      if (x === undefined) return "undefined";
+      if (x === null) return "null";
+      if (typeof x === "string") return x;
+      return JSON.stringify(x);
+    } catch (e) {
+      try { return String(x); } catch (e2) { return "[unprintable]"; }
+    }
+  }
+
+  function nowIso() {
+    try { return new Date().toISOString(); } catch (e) { return ""; }
+  }
+
+  var CO_DBG = {
+    max: 250,
+    items: [],
+    push: function (level, args) {
+      try {
+        var msg = args.map(safeStr).join(" ");
+        CO_DBG.items.push({ t: nowIso(), level: level, msg: msg });
+        if (CO_DBG.items.length > CO_DBG.max) CO_DBG.items.shift();
+      } catch (e) {}
+    },
+    dumpText: function () {
+      try {
+        return CO_DBG.items.map(function (it) {
+          return "[" + it.t + "] " + it.level.toUpperCase() + " " + it.msg;
+        }).join("\n");
+      } catch (e) {
+        return "";
+      }
+    }
+  };
+
   function dbg() {
     try {
+      CO_DBG.push("dbg", Array.prototype.slice.call(arguments));
       if (E && typeof E.dbg === "function") E.dbg.apply(null, arguments);
       else console.log.apply(console, arguments);
     } catch (e) {}
   }
+  function warn() {
+    try {
+      CO_DBG.push("warn", Array.prototype.slice.call(arguments));
+      if (E && typeof E.warn === "function") E.warn.apply(null, arguments);
+      else console.warn.apply(console, arguments);
+    } catch (e) {}
+  }
   function err() {
     try {
+      CO_DBG.push("error", Array.prototype.slice.call(arguments));
       if (E && typeof E.error === "function") E.error.apply(null, arguments);
       else console.error.apply(console, arguments);
     } catch (e) {}
   }
 
+  function getParam(name) {
+    try {
+      var u = new URL(window.location.href);
+      return String(u.searchParams.get(name) || "").trim();
+    } catch (e) {
+      return "";
+    }
+  }
+
+  // If set, revert to old behavior (fallback on 5xx too)
+  var ALLOW_500_FALLBACK = getParam("co_fallback500") === "1";
+
+  // ------------------------------------------------------------
+  // Escaping / date helpers
+  // ------------------------------------------------------------
   function esc(s) {
     try {
       return E.escapeHtml(String(s == null ? "" : s));
@@ -53,25 +118,23 @@
       return "";
     }
   }
-  function todayYmd() {
-    return toYmd(new Date());
-  }
+  function todayYmd() { return toYmd(new Date()); }
   function addDaysYmd(days) {
     var d = new Date();
     d.setDate(d.getDate() + (Number(days) || 0));
     return toYmd(d);
   }
-  function isYmd(s) {
-    return /^\d{4}-\d{2}-\d{2}$/.test(String(s || "").trim());
-  }
+  function isYmd(s) { return /^\d{4}-\d{2}-\d{2}$/.test(String(s || "").trim()); }
+  function isYm(s) { return /^\d{4}-\d{2}$/.test(String(s || "").trim()); }
+  function currentYm() { return String(todayYmd()).slice(0, 7); }
+
   function fmtDmyFromYmd(s) {
     var v = String(s || "").trim();
     if (!isYmd(v)) return v;
     return v.slice(8, 10) + "/" + v.slice(5, 7) + "/" + v.slice(0, 4);
   }
-  function norm(s) {
-    return String(s == null ? "" : s).toLowerCase().trim();
-  }
+
+  function norm(s) { return String(s == null ? "" : s).toLowerCase().trim(); }
   function clampStr(s, max) {
     var v = String(s == null ? "" : s);
     if (v.length <= max) return v;
@@ -85,47 +148,33 @@
   function parseMoney2(s) {
     var v = String(s == null ? "" : s).trim();
     if (!v) return "";
-    // allow comma input, normalize
     v = v.replace(/,/g, "");
     var n = Number(v);
     if (!isFinite(n)) return null;
     if (n < 0) return null;
-    // 2 decimals
     return (Math.round(n * 100) / 100).toFixed(2);
   }
 
   function rowSearchBlob(r) {
     return (
-      norm(r.order_date) +
-      " | " +
-      norm(r.client_name) +
-      " | " +
-      norm(r.address) +
-      " | " +
-      norm(r.contact) +
-      " | " +
-      norm(r.alternate) +
-      " | " +
-      norm(r.email) +
-      " | " +
-      norm(r.items) +
-      " | " +
-      norm(r.priority) +
-      " | " +
-      norm(r.needed_by) +
-      " | " +
-      norm(r.pick_up_date) +
-      " | " +
-      norm(r.deposit) +
-      " | " +
-      norm(r.notes) +
-      " | " +
+      norm(r.order_date) + " | " +
+      norm(r.client_name) + " | " +
+      norm(r.address) + " | " +
+      norm(r.contact) + " | " +
+      norm(r.alternate) + " | " +
+      norm(r.email) + " | " +
+      norm(r.items) + " | " +
+      norm(r.priority) + " | " +
+      norm(r.needed_by) + " | " +
+      norm(r.pick_up_date) + " | " +
+      norm(r.deposit) + " | " +
+      norm(r.notes) + " | " +
       norm(r.fulfilled ? "fulfilled" : "active")
     );
   }
 
   // ------------------------------------------------------------
-  // Module-scoped CSS (harmonious with Daily Register)
+  // Module-scoped CSS
   // ------------------------------------------------------------
   var coStyleInstalled = false;
   function ensureClientOrdersStyles() {
@@ -181,20 +230,19 @@
 
       ".co-pr{display:inline-flex;align-items:center;gap:8px;font-weight:900;}" +
       ".co-dot{width:10px;height:10px;border-radius:999px;display:inline-block;border:1px solid rgba(255,255,255,.18);}" +
-      ".co-dot.p1{background:rgba(255,90,122,.95);}" + // red
-      ".co-dot.p2{background:rgba(67,209,122,.95);}" +  // green
-      ".co-dot.p3{background:rgba(58,160,255,.95);}" +  // blue
+      ".co-dot.p1{background:rgba(255,90,122,.95);}" +
+      ".co-dot.p2{background:rgba(67,209,122,.95);}" +
+      ".co-dot.p3{background:rgba(58,160,255,.95);}" +
 
       ".co-clamp{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}" +
-      ".co-idline{opacity:.75;font-size:11px;color:var(--muted,rgba(233,238,247,.68));}" +
 
       ".co-check{transform:scale(1.05);accent-color:rgba(58,160,255,.95);}" +
 
       ".co-mode{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:900;color:rgba(233,238,247,.78);}" +
       ".co-badge{font-size:11px;font-weight:1000;padding:4px 8px;border-radius:999px;border:1px solid rgba(255,255,255,.12);background:rgba(10,16,24,.35);}" +
       ".co-badge.local{border-color:rgba(255,200,90,.28);}" +
+      ".co-badge.err{border-color:rgba(255,90,122,.30);}" +
 
-      // Modal inputs (module-specific ids)
       "#co-date,#co-client,#co-address,#co-contact,#co-alternate,#co-email,#co-needed,#co-pickup,#co-deposit{" +
       "width:100%;padding:10px 12px;border:1px solid var(--line,rgba(255,255,255,.10));border-radius:12px;" +
       "background:rgba(10,16,24,.64);color:var(--text,#e9eef7);outline:none;" +
@@ -218,7 +266,7 @@
   }
 
   // ------------------------------------------------------------
-  // Local fallback storage (until Worker endpoints exist)
+  // Local fallback storage
   // ------------------------------------------------------------
   var LS_KEY = "eikon_clientorders_v1";
 
@@ -273,137 +321,321 @@
   function localDelete(id) {
     var db = lsRead();
     var sid = String(id);
-    db.entries = db.entries.filter(function (r) {
-      return String(r.id) !== sid;
-    });
+    db.entries = db.entries.filter(function (r) { return String(r.id) !== sid; });
     lsWrite(db);
     return { ok: true };
   }
 
+  // ------------------------------------------------------------
+  // Cloud preference fallback policy
+  // ------------------------------------------------------------
   function shouldFallback(e) {
-    // Do NOT fallback on auth problems; DO fallback on missing endpoints/offline/server errors
+    // Do NOT fallback on auth problems; DO fallback on missing endpoints/offline.
     var st = e && typeof e.status === "number" ? e.status : null;
     if (st === 401 || st === 403) return false;
+
+    // endpoint missing -> ok to fallback
     if (st === 404) return true;
-    if (st && st >= 500) return true;
+
+    // 5xx: prefer cloud (surface bug) unless explicitly allowed
+    if (st && st >= 500) return !!ALLOW_500_FALLBACK;
+
     // network / unknown
     if (!st) return true;
+
+    // 4xx validation etc should not fallback
     return false;
   }
 
-async function apiList() {
-  // 3-year window: previous year, current year, next year
-  function buildMonths3y() {
-    var y = new Date().getFullYear();
-    var out = [];
-    for (var yy = y - 1; yy <= y + 1; yy++) {
-      for (var mm = 1; mm <= 12; mm++) {
-        out.push(String(yy) + "-" + pad2(mm));
-      }
+  // ------------------------------------------------------------
+  // API fetch wrapper with deep diagnostics
+  // ------------------------------------------------------------
+  var REQ_SEQ = 0;
+
+  function fullUrl(path) {
+    try {
+      if (/^https?:\/\//i.test(path)) return path;
+      return String(window.location.origin || "") + String(path || "");
+    } catch (e) {
+      return String(path || "");
     }
+  }
+
+  async function apiFetchDbg(label, path, options) {
+    REQ_SEQ++;
+    var rid = "CO#" + String(REQ_SEQ) + "-" + String(Date.now());
+    var opts = options || {};
+    var method = String(opts.method || "GET").toUpperCase();
+
+    dbg("[clientorders]", rid, label, "->", method, path, "(full:", fullUrl(path) + ")");
+
+    if (E && E.DEBUG >= 2) {
+      try {
+        dbg("[clientorders]", rid, "headers:", opts.headers || {});
+      } catch (e1) {}
+      try {
+        if (opts.body) dbg("[clientorders]", rid, "body:", opts.body);
+      } catch (e2) {}
+    }
+
+    var t0 = Date.now();
+    try {
+      var resp = await E.apiFetch(path, opts);
+      var ms = Date.now() - t0;
+
+      // avoid dumping massive payloads unless dbg=2
+      if (E && E.DEBUG >= 2) dbg("[clientorders]", rid, label, "<- OK", ms + "ms", resp);
+      else dbg("[clientorders]", rid, label, "<- OK", ms + "ms");
+
+      return resp;
+    } catch (e) {
+      var ms2 = Date.now() - t0;
+      var st = (e && typeof e.status === "number") ? e.status : null;
+
+      err("[clientorders]", rid, label, "<- FAIL", ms2 + "ms", {
+        status: st,
+        message: e && e.message,
+        bodyJson: e && e.bodyJson,
+        bodyTextHead: (e && e.bodyText) ? String(e.bodyText).slice(0, 500) : ""
+      });
+
+      throw e;
+    }
+  }
+
+  // Normalize entries from API (accept multiple server shapes)
+  function normalizeIncomingEntry(r, idx) {
+    var o = r || {};
+
+    // show what came in (keys) when dbg=2
+    if (E && E.DEBUG >= 2) {
+      try {
+        dbg("[clientorders] normalizeIncomingEntry idx=" + String(idx), "keys=", Object.keys(o));
+      } catch (e0) {}
+    }
+
+    // Common worker alias mapping
+    var orderDate = (o.order_date != null ? o.order_date : o.orderDate);
+    var clientName = (o.client_name != null ? o.client_name : o.clientName);
+
+    var address = (o.address != null ? o.address : (o.client_address != null ? o.client_address : o.clientAddress));
+    var contact = (o.contact != null ? o.contact : (o.client_phone != null ? o.client_phone : o.clientPhone));
+    var alternate = (o.alternate != null ? o.alternate : (o.alt_phone != null ? o.alt_phone : o.client_phone_alt));
+    var email = (o.email != null ? o.email : (o.client_email != null ? o.client_email : o.clientEmail));
+
+    var items = (o.items != null ? o.items : (o.items_text != null ? o.items_text : o.itemsText));
+
+    var priority = (o.priority != null ? o.priority : 2);
+
+    var neededBy = (o.needed_by != null ? o.needed_by : o.neededBy);
+    var pickup = (o.pick_up_date != null ? o.pick_up_date :
+                 (o.pickup_date != null ? o.pickup_date :
+                 (o.pickupDate != null ? o.pickupDate : o.pick_up)));
+
+    var deposit = (o.deposit != null ? o.deposit :
+                  (o.deposit_amount != null ? o.deposit_amount : o.depositAmount));
+
+    var notes = (o.notes != null ? o.notes : "");
+
+    var fulfilled = o.fulfilled;
+    // tolerate 0/1
+    var isFul = !!(fulfilled === true || fulfilled === 1 || fulfilled === "1");
+
+    var fulfilledAt = (o.fulfilled_at != null ? o.fulfilled_at :
+                      (o.fulfilledAt != null ? o.fulfilledAt : ""));
+
+    var out = {
+      id: (o.id != null ? o.id : ""),
+      order_date: String(orderDate || "").trim(),
+      client_name: String(clientName || "").trim(),
+      address: String(address || "").trim(),
+      contact: String(contact || "").trim(),
+      alternate: String(alternate || "").trim(),
+      email: String(email || "").trim(),
+      items: String(items || "").trim(),
+      priority: Number(priority || 2),
+      needed_by: String(neededBy || "").trim(),
+      pick_up_date: String(pickup || "").trim(),
+      deposit: String(deposit == null ? "" : deposit).trim(),
+      notes: String(notes || "").trim(),
+      fulfilled: isFul,
+      fulfilled_at: String(fulfilledAt || "").trim()
+    };
+
+    // defaults
+    if (!isYmd(out.order_date)) out.order_date = todayYmd();
+    if (!isYmd(out.needed_by)) out.needed_by = addDaysYmd(2);
+    if (!isYmd(out.pick_up_date)) out.pick_up_date = addDaysYmd(2);
+    if (!(out.priority === 1 || out.priority === 2 || out.priority === 3)) out.priority = 2;
+
+    if (out.deposit) {
+      var m = parseMoney2(out.deposit);
+      out.deposit = (m === null ? String(out.deposit || "") : m);
+    }
+
+    // extra diagnostics for the “shifted columns” symptom
+    if (E && E.DEBUG >= 2) {
+      try {
+        if (out.email.indexOf("\n") >= 0 || out.email.indexOf("\r") >= 0) {
+          warn("[clientorders] incoming email contains newline (suspicious):", out.email);
+        }
+        if (!out.items) {
+          warn("[clientorders] incoming items empty; entry:", out);
+        }
+      } catch (e1) {}
+    }
+
     return out;
   }
 
-  function mergeById(intoMap, entries) {
-    if (!Array.isArray(entries)) return;
-    for (var i = 0; i < entries.length; i++) {
-      var r = entries[i];
-      if (!r || r.id == null) continue;
-      intoMap[String(r.id)] = r; // last one wins (fine if ids are unique)
-    }
+  // Build payload to send to API (include aliases for Worker compatibility)
+  function toApiPayload(p) {
+    var payload = Object.assign({}, p || {});
+    // aliases (safe extras)
+    payload.client_address = payload.address;
+    payload.client_phone = payload.contact;
+    payload.client_email = payload.email;
+    payload.items_text = payload.items;
+    payload.pickup_date = payload.pick_up_date;
+    payload.deposit_amount = payload.deposit;
+
+    // keep original fields too
+    return payload;
   }
 
-  try {
-    var months = buildMonths3y();
-    var byId = Object.create(null);
+  // ------------------------------------------------------------
+  // API operations (cloud first)
+  // ------------------------------------------------------------
+  async function apiList() {
+    // 3-year window: previous year, current year, next year
+    function buildMonths3y() {
+      var y = new Date().getFullYear();
+      var out = [];
+      for (var yy = y - 1; yy <= y + 1; yy++) {
+        for (var mm = 1; mm <= 12; mm++) out.push(String(yy) + "-" + pad2(mm));
+      }
+      return out;
+    }
 
-    // batch to avoid spamming 36 parallel requests at once
-    var BATCH = 6;
-
-    var anyOk = false;
-    var firstErr = null;
-
-    for (var i = 0; i < months.length; i += BATCH) {
-      var batch = months.slice(i, i + BATCH);
-
-      // each request MUST include ?month=YYYY-MM
-      var settled = await Promise.allSettled(
-        batch.map(function (m) {
-          return E.apiFetch("/client-orders/entries?month=" + encodeURIComponent(m), { method: "GET" });
-        })
-      );
-
-      for (var k = 0; k < settled.length; k++) {
-        var it = settled[k];
-
-        if (it.status === "fulfilled") {
-          anyOk = true;
-          var resp = it.value;
-          // E.apiFetch returns parsed JSON on 2xx; expected shape: { ok:true, entries:[...] }
-          mergeById(byId, resp && resp.entries);
-        } else {
-          var e = it.reason;
-          if (!firstErr) firstErr = e;
-
-          // auth errors should still hard-fail
-          if (e && (e.status === 401 || e.status === 403)) throw e;
-
-          // otherwise: tolerate partial failure (network hiccup on one month, etc)
-          dbg("[clientorders] month fetch failed (skipped)", e);
-        }
+    function mergeById(intoMap, entries) {
+      if (!Array.isArray(entries)) return;
+      for (var i = 0; i < entries.length; i++) {
+        var r = entries[i];
+        if (!r || r.id == null) continue;
+        intoMap[String(r.id)] = r;
       }
     }
 
-    // If literally none succeeded, fall back / or throw
-    if (!anyOk) {
-      if (shouldFallback(firstErr)) return { mode: "local", entries: localList() };
-      throw firstErr || new Error("Failed to load client orders");
-    }
+    // Probe current month first to avoid spamming 36 failing calls
+    var probeMonth = currentYm();
+    if (!isYm(probeMonth)) probeMonth = String(buildMonths3y()[0] || "");
 
-    return { mode: "api", entries: Object.keys(byId).map(function (id) { return byId[id]; }) };
-  } catch (e) {
-    if (!shouldFallback(e)) throw e;
-    return { mode: "local", entries: localList() };
+    try {
+      dbg("[clientorders] apiList probe month:", probeMonth);
+
+      var probeResp = await apiFetchDbg(
+        "probe",
+        "/client-orders/entries?month=" + encodeURIComponent(probeMonth),
+        { method: "GET" }
+      );
+
+      // If probe succeeded, proceed with full 3y fetch.
+      var months = buildMonths3y();
+      var byId = Object.create(null);
+
+      // include probe entries
+      mergeById(byId, probeResp && probeResp.entries);
+
+      var BATCH = 6;
+      var firstErr = null;
+
+      for (var i = 0; i < months.length; i += BATCH) {
+        var batch = months.slice(i, i + BATCH);
+
+        var settled = await Promise.allSettled(
+          batch.map(function (m) {
+            return apiFetchDbg(
+              "list month=" + m,
+              "/client-orders/entries?month=" + encodeURIComponent(m),
+              { method: "GET" }
+            );
+          })
+        );
+
+        for (var k = 0; k < settled.length; k++) {
+          var it = settled[k];
+          if (it.status === "fulfilled") {
+            mergeById(byId, it.value && it.value.entries);
+          } else {
+            var e = it.reason;
+            if (!firstErr) firstErr = e;
+
+            // auth errors hard-fail
+            if (e && (e.status === 401 || e.status === 403)) throw e;
+
+            // tolerate partial failure only if fallback policy allows it
+            if (shouldFallback(e)) {
+              warn("[clientorders] month fetch failed (fallback-eligible, skipped):", e && (e.message || e));
+            } else {
+              // If it is not fallback-eligible (e.g. 500), surface it.
+              throw e;
+            }
+          }
+        }
+      }
+
+      return { mode: "api", entries: Object.keys(byId).map(function (id) { return byId[id]; }) };
+    } catch (e2) {
+      // fallback only if policy allows
+      if (!shouldFallback(e2)) throw e2;
+      return { mode: "local", entries: localList(), fallbackReason: e2 };
+    }
   }
-}
 
   async function apiCreate(payload) {
+    var body = toApiPayload(payload || {});
     try {
-      var resp = await E.apiFetch("/client-orders/entries", {
+      var resp = await apiFetchDbg("/create", "/client-orders/entries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload || {}),
+        body: JSON.stringify(body)
       });
       if (!resp || !resp.ok) throw new Error((resp && resp.error) || "Create failed");
       return { mode: "api", resp: resp };
     } catch (e) {
       if (!shouldFallback(e)) throw e;
+      warn("[clientorders] apiCreate fallback -> localCreate", e && (e.message || e));
       return { mode: "local", resp: localCreate(payload) };
     }
   }
 
   async function apiUpdate(id, payload) {
+    var body = toApiPayload(payload || {});
     try {
-      var resp = await E.apiFetch("/client-orders/entries/" + encodeURIComponent(String(id)), {
+      var resp = await apiFetchDbg("/update", "/client-orders/entries/" + encodeURIComponent(String(id)), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload || {}),
+        body: JSON.stringify(body)
       });
       if (!resp || !resp.ok) throw new Error((resp && resp.error) || "Update failed");
       return { mode: "api", resp: resp };
     } catch (e) {
       if (!shouldFallback(e)) throw e;
+      warn("[clientorders] apiUpdate fallback -> localUpdate", e && (e.message || e));
       return { mode: "local", resp: localUpdate(id, payload) };
     }
   }
 
   async function apiDelete(id) {
     try {
-      var resp = await E.apiFetch("/client-orders/entries/" + encodeURIComponent(String(id)), { method: "DELETE" });
+      var resp = await apiFetchDbg("/delete", "/client-orders/entries/" + encodeURIComponent(String(id)), {
+        method: "DELETE"
+      });
       if (!resp || !resp.ok) throw new Error((resp && resp.error) || "Delete failed");
       return { mode: "api", resp: resp };
     } catch (e) {
       if (!shouldFallback(e)) throw e;
+      warn("[clientorders] apiDelete fallback -> localDelete", e && (e.message || e));
       return { mode: "local", resp: localDelete(id) };
     }
   }
@@ -426,7 +658,7 @@ async function apiList() {
       deposit: String(p.deposit || "").trim(),
       notes: String(p.notes || "").trim(),
       fulfilled: !!p.fulfilled,
-      fulfilled_at: String(p.fulfilled_at || "").trim(),
+      fulfilled_at: String(p.fulfilled_at || "").trim()
     };
 
     if (!out.order_date || !isYmd(out.order_date)) throw new Error("Date is required (YYYY-MM-DD)");
@@ -439,7 +671,6 @@ async function apiList() {
 
     if (out.email && !validEmail(out.email)) throw new Error("Email is invalid");
 
-    // Deposit optional
     if (out.deposit) {
       var money = parseMoney2(out.deposit);
       if (money === null) throw new Error("Deposit must be a valid amount (e.g. 20.00)");
@@ -448,7 +679,6 @@ async function apiList() {
       out.deposit = "";
     }
 
-    // limits (keep generous but safe)
     if (out.client_name.length > 200) throw new Error("Client name too long");
     if (out.address.length > 300) throw new Error("Address too long");
     if (out.contact.length > 80) throw new Error("Contact too long");
@@ -457,7 +687,6 @@ async function apiList() {
     if (out.items.length > 1200) throw new Error("Item/s too long");
     if (out.notes.length > 2000) throw new Error("Additional Notes too long");
 
-    // fulfilled_at: set if fulfilled and missing
     if (out.fulfilled && !out.fulfilled_at) out.fulfilled_at = new Date().toISOString();
     if (!out.fulfilled) out.fulfilled_at = "";
 
@@ -499,7 +728,7 @@ async function apiList() {
       deposit: String(row.deposit || "").trim(),
       notes: String(row.notes || "").trim(),
       fulfilled: !!row.fulfilled,
-      fulfilled_at: String(row.fulfilled_at || "").trim(),
+      fulfilled_at: String(row.fulfilled_at || "").trim()
     };
 
     if (!isYmd(initial.order_date)) initial.order_date = todayYmd();
@@ -542,15 +771,11 @@ async function apiList() {
         onClick: function () {
           (async function () {
             try {
+              // ensure select has a value
               var prSel = E.q("#co-priority");
-              if (prSel) prSel.value = String(prSel.value || "2"); // ensure value present
+              if (prSel && !prSel.value) prSel.value = "2";
 
-              // set select initial value
-              try {
-                E.q("#co-priority").value = String(initial.priority);
-              } catch (e0) {}
-
-              var payload = validatePayload({
+              var raw = {
                 order_date: (E.q("#co-date").value || "").trim(),
                 client_name: (E.q("#co-client").value || "").trim(),
                 address: (E.q("#co-address").value || "").trim(),
@@ -564,8 +789,13 @@ async function apiList() {
                 deposit: (E.q("#co-deposit").value || "").trim(),
                 notes: (E.q("#co-notes").value || "").trim(),
                 fulfilled: !!(E.q("#co-fulfilled").checked),
-                fulfilled_at: String(row.fulfilled_at || "").trim(),
-              });
+                fulfilled_at: String(row.fulfilled_at || "").trim()
+              };
+
+              dbg("[clientorders] save clicked raw:", raw);
+
+              var payload = validatePayload(raw);
+              dbg("[clientorders] save validated payload:", payload);
 
               if (isEdit) await apiUpdate(row.id, payload);
               else await apiCreate(payload);
@@ -576,11 +806,11 @@ async function apiList() {
               modalError("Save failed", e);
             }
           })();
-        },
-      },
+        }
+      }
     ]);
 
-    // After modal shows: set priority select correctly (in case DOM not ready before show)
+    // Set priority select after modal mount
     try {
       var pr = E.q("#co-priority");
       if (pr) pr.value = String(initial.priority);
@@ -613,13 +843,13 @@ async function apiList() {
               modalError("Delete failed", e);
             }
           })();
-        },
-      },
+        }
+      }
     ]);
   }
 
   // ------------------------------------------------------------
-  // Print (same model as Daily Register)
+  // Print
   // ------------------------------------------------------------
   function openPrintWindow(entries, title, queryText) {
     var list = Array.isArray(entries) ? entries.slice() : [];
@@ -703,13 +933,9 @@ async function apiList() {
   }
 
   // ------------------------------------------------------------
-  // Sorting helpers
+  // Sorting
   // ------------------------------------------------------------
-  function cmp(a, b) {
-    if (a < b) return -1;
-    if (a > b) return 1;
-    return 0;
-  }
+  function cmp(a, b) { if (a < b) return -1; if (a > b) return 1; return 0; }
 
   function getSortVal(r, key) {
     var v = r ? r[key] : "";
@@ -730,14 +956,12 @@ async function apiList() {
       var b = getSortVal(rb, key);
 
       var c = 0;
-      // dates: compare string YYYY-MM-DD is safe lexicographically
       if (key === "order_date" || key === "needed_by" || key === "pick_up_date") c = cmp(String(a || ""), String(b || ""));
       else if (key === "priority" || key === "deposit" || key === "fulfilled") c = cmp(Number(a || 0), Number(b || 0));
       else c = cmp(String(a || ""), String(b || ""));
 
       if (c !== 0) return c * mul;
 
-      // tie-breaker: newer first by id (best-effort)
       var ia = String((ra && ra.id) || "");
       var ib = String((rb && rb.id) || "");
       if (ia < ib) return 1;
@@ -749,7 +973,7 @@ async function apiList() {
   }
 
   // ------------------------------------------------------------
-  // Row builder
+  // Row builder (with alignment diagnostics)
   // ------------------------------------------------------------
   function prBadge(priority) {
     var p = Number(priority || 2);
@@ -769,45 +993,44 @@ async function apiList() {
   function buildTableRow(entry, opts) {
     var tr = document.createElement("tr");
 
-    function td(text, cls, title) {
+    function tdKey(key, text, cls, title) {
       var el = document.createElement("td");
+      el.setAttribute("data-col", String(key || ""));
       if (cls) el.className = cls;
       if (title) el.title = title;
-      el.textContent = text;
+      el.textContent = (text == null ? "" : String(text));
       return el;
     }
 
-    tr.appendChild(td(fmtDmyFromYmd(entry.order_date || ""), "", entry.order_date || ""));
+    tr.appendChild(tdKey("order_date", fmtDmyFromYmd(entry.order_date || ""), "", entry.order_date || ""));
+    tr.appendChild(tdKey("client_name", entry.client_name || "", "", entry.client_name || ""));
+    tr.appendChild(tdKey("address", entry.address || "", "co-clamp", entry.address || ""));
+    tr.appendChild(tdKey("contact", entry.contact || "", "", entry.contact || ""));
+    tr.appendChild(tdKey("alternate", entry.alternate || "", "", entry.alternate || ""));
+    tr.appendChild(tdKey("email", entry.email || "", "co-clamp", entry.email || ""));
 
-    tr.appendChild(td(entry.client_name || "", "", entry.client_name || ""));
-
-    tr.appendChild(td(entry.address || "", "co-clamp", entry.address || ""));
-
-    tr.appendChild(td(entry.contact || "", "", entry.contact || ""));
-
-    tr.appendChild(td(entry.alternate || "", "", entry.alternate || ""));
-
-    tr.appendChild(td(entry.email || "", "co-clamp", entry.email || ""));
-
-    tr.appendChild(td(entry.items || "", "co-clamp", entry.items || ""));
+    // Item/s column (critical for your “shifted columns” symptom)
+    tr.appendChild(tdKey("items", entry.items || "", "co-clamp", entry.items || ""));
 
     var tdPr = document.createElement("td");
+    tdPr.setAttribute("data-col", "priority");
     tdPr.appendChild(prBadge(entry.priority));
     tr.appendChild(tdPr);
 
-    tr.appendChild(td(fmtDmyFromYmd(entry.needed_by || ""), "", entry.needed_by || ""));
-    tr.appendChild(td(fmtDmyFromYmd(entry.pick_up_date || ""), "", entry.pick_up_date || ""));
+    tr.appendChild(tdKey("needed_by", fmtDmyFromYmd(entry.needed_by || ""), "", entry.needed_by || ""));
+    tr.appendChild(tdKey("pick_up_date", fmtDmyFromYmd(entry.pick_up_date || ""), "", entry.pick_up_date || ""));
 
     var tdDep = document.createElement("td");
+    tdDep.setAttribute("data-col", "deposit");
     tdDep.style.textAlign = "right";
     tdDep.style.whiteSpace = "nowrap";
     tdDep.textContent = entry.deposit || "";
     tr.appendChild(tdDep);
 
-    tr.appendChild(td(entry.notes || "", "co-clamp", entry.notes || ""));
+    tr.appendChild(tdKey("notes", entry.notes || "", "co-clamp", entry.notes || ""));
 
-    // Fulfilled checkbox
     var tdChk = document.createElement("td");
+    tdChk.setAttribute("data-col", "fulfilled");
     tdChk.style.textAlign = "center";
     tdChk.style.whiteSpace = "nowrap";
 
@@ -815,21 +1038,16 @@ async function apiList() {
     chk.type = "checkbox";
     chk.className = "co-check";
     chk.checked = !!entry.fulfilled;
-    chk.addEventListener("click", function (ev) {
-      ev.stopPropagation();
-    });
+    chk.addEventListener("click", function (ev) { ev.stopPropagation(); });
     chk.addEventListener("change", function () {
       (async function () {
         try {
           var next = !!chk.checked;
-          var payload = {
-            fulfilled: next,
-            fulfilled_at: next ? new Date().toISOString() : "",
-          };
+          var payload = { fulfilled: next, fulfilled_at: next ? new Date().toISOString() : "" };
+          dbg("[clientorders] fulfilled toggle", { id: entry.id, next: next, payload: payload });
           await apiUpdate(entry.id, payload);
           if (opts && typeof opts.onChanged === "function") opts.onChanged();
         } catch (e) {
-          // revert UI if failed
           chk.checked = !chk.checked;
           modalError("Update failed", e);
         }
@@ -839,8 +1057,8 @@ async function apiList() {
     tdChk.appendChild(chk);
     tr.appendChild(tdChk);
 
-    // Actions
     var tdActions = document.createElement("td");
+    tdActions.setAttribute("data-col", "actions");
     tdActions.style.whiteSpace = "nowrap";
 
     var btnEdit = document.createElement("button");
@@ -848,17 +1066,13 @@ async function apiList() {
     btnEdit.type = "button";
     btnEdit.textContent = "Edit";
     btnEdit.style.marginRight = "8px";
-    btnEdit.addEventListener("click", function () {
-      opts && opts.onEdit && opts.onEdit(entry);
-    });
+    btnEdit.addEventListener("click", function () { opts && opts.onEdit && opts.onEdit(entry); });
 
     var btnDel = document.createElement("button");
     btnDel.className = "eikon-btn";
     btnDel.type = "button";
     btnDel.textContent = "Delete";
-    btnDel.addEventListener("click", function () {
-      opts && opts.onDelete && opts.onDelete(entry);
-    });
+    btnDel.addEventListener("click", function () { opts && opts.onDelete && opts.onDelete(entry); });
 
     tdActions.appendChild(btnEdit);
     tdActions.appendChild(btnDel);
@@ -872,7 +1086,8 @@ async function apiList() {
   // ------------------------------------------------------------
   var state = {
     entries: [],
-    mode: "api", // api | local
+    mode: "api", // api | local | api_error
+    lastError: null,
     queryActive: "",
     queryDone: "",
     sortActive: { key: "priority", dir: "asc" },
@@ -880,7 +1095,7 @@ async function apiList() {
     filteredActive: [],
     filteredDone: [],
     refresh: null,
-    mounted: false,
+    mounted: false
   };
 
   var COLS = [
@@ -896,7 +1111,7 @@ async function apiList() {
     { key: "pick_up_date", label: "Pick Up Date" },
     { key: "deposit", label: "Deposit" },
     { key: "notes", label: "Additional Notes" },
-    { key: "fulfilled", label: "Fulfilled" }, // checkbox column
+    { key: "fulfilled", label: "Fulfilled" }
   ];
 
   function applyFilterSplitSort() {
@@ -913,18 +1128,9 @@ async function apiList() {
     var qa = norm(state.queryActive);
     var qd = norm(state.queryDone);
 
-    if (qa) {
-      active = active.filter(function (r) {
-        return rowSearchBlob(r).indexOf(qa) >= 0;
-      });
-    }
-    if (qd) {
-      done = done.filter(function (r) {
-        return rowSearchBlob(r).indexOf(qd) >= 0;
-      });
-    }
+    if (qa) active = active.filter(function (r) { return rowSearchBlob(r).indexOf(qa) >= 0; });
+    if (qd) done = done.filter(function (r) { return rowSearchBlob(r).indexOf(qd) >= 0; });
 
-    // Default secondary sort for active: needed_by ascending after priority
     sortList(active, state.sortActive);
     sortList(done, state.sortDone);
 
@@ -932,23 +1138,32 @@ async function apiList() {
     state.filteredDone = done;
   }
 
-  function renderTable(tbodyEl, list) {
+  function renderTable(tbodyEl, list, tableName) {
     tbodyEl.innerHTML = "";
     for (var i = 0; i < list.length; i++) {
-      (function (entry) {
+      (function (entry, idx) {
         var tr = buildTableRow(entry, {
-          onEdit: function (e) {
-            openOrderModal({ mode: "edit", entry: e });
-          },
-          onDelete: function (e) {
-            openConfirmDelete(e);
-          },
-          onChanged: function () {
-            if (state && typeof state.refresh === "function") state.refresh();
-          },
+          onEdit: function (e) { openOrderModal({ mode: "edit", entry: e }); },
+          onDelete: function (e) { openConfirmDelete(e); },
+          onChanged: function () { if (state && typeof state.refresh === "function") state.refresh(); }
         });
+
         tbodyEl.appendChild(tr);
-      })(list[i]);
+
+        // Alignment diagnostics: verify td count matches headers (+ Actions)
+        try {
+          var expected = COLS.length + 1; // actions
+          var actual = tr.children ? tr.children.length : 0;
+          if (actual !== expected) {
+            warn("[clientorders] TD COUNT MISMATCH (" + tableName + ") idx=" + idx, {
+              expected: expected,
+              actual: actual,
+              id: entry && entry.id,
+              cols: Array.prototype.slice.call(tr.children).map(function (td) { return td.getAttribute("data-col"); })
+            });
+          }
+        } catch (e0) {}
+      })(list[i], i);
     }
   }
 
@@ -983,22 +1198,18 @@ async function apiList() {
         if (key === "actions") return;
         var s = which === "done" ? state.sortDone : state.sortActive;
         if (s.key === key) s.dir = (s.dir === "asc" ? "desc" : "asc");
-        else {
-          s.key = key;
-          s.dir = "asc";
-        }
+        else { s.key = key; s.dir = "asc"; }
 
         applyFilterSplitSort();
-        // rerender both, simpler + consistent
+
         var tbodyA = E.q("#co-tbody-active");
         var tbodyD = E.q("#co-tbody-done");
-        if (tbodyA) renderTable(tbodyA, state.filteredActive);
-        if (tbodyD) renderTable(tbodyD, state.filteredDone);
+        if (tbodyA) renderTable(tbodyA, state.filteredActive, "active");
+        if (tbodyD) renderTable(tbodyD, state.filteredDone, "done");
 
         if (which === "done") setSort(ths, state.sortDone);
         else setSort(ths, state.sortActive);
 
-        // keep other table indicators updated too
         try {
           var other = which === "done" ? E.q("#co-table-active") : E.q("#co-table-done");
           if (other) {
@@ -1011,18 +1222,43 @@ async function apiList() {
   }
 
   function thHtml(col) {
-    // for checkbox column, still sortable
-    return (
-      "<span class='co-sort'><span>" +
-      esc(col.label) +
-      "</span><span class='car'></span></span>"
-    );
+    return "<span class='co-sort'><span>" + esc(col.label) + "</span><span class='car'></span></span>";
+  }
+
+  function openDebugModal() {
+    try {
+      var snap = {
+        mode: state.mode,
+        lastError: state.lastError ? { status: state.lastError.status, message: state.lastError.message } : null,
+        entries: Array.isArray(state.entries) ? state.entries.length : 0,
+        active: Array.isArray(state.filteredActive) ? state.filteredActive.length : 0,
+        done: Array.isArray(state.filteredDone) ? state.filteredDone.length : 0,
+        allow500Fallback: !!ALLOW_500_FALLBACK
+      };
+
+      var body =
+        "<div style='white-space:pre-wrap;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:12px; line-height:1.3'>" +
+        "SNAPSHOT:\n" + esc(JSON.stringify(snap, null, 2)) + "\n\n" +
+        "LAST LOGS:\n" + esc(CO_DBG.dumpText()) +
+        "</div>";
+
+      E.modal.show("Client Orders Debug", body, [
+        { label: "Close", primary: true, onClick: function () { E.modal.hide(); } }
+      ]);
+    } catch (e) {
+      modalError("Debug", e);
+    }
   }
 
   async function render(ctx) {
     ensureClientOrdersStyles();
 
     var mount = ctx.mount;
+
+    var debugBtnHtml = (E && E.DEBUG >= 2)
+      ? "<button id='co-debug' class='eikon-btn' type='button'>Debug</button>"
+      : "";
+
     mount.innerHTML =
       "" +
       "<div class='co-wrap'>" +
@@ -1036,6 +1272,7 @@ async function apiList() {
       "        <span class='co-badge' id='co-mode-badge'>Loading…</span>" +
       "      </div>" +
       "      <div class='co-actions'>" +
+      debugBtnHtml +
       "        <button id='co-new' class='eikon-btn' type='button'>New Order</button>" +
       "        <button id='co-refresh' class='eikon-btn' type='button'>Refresh</button>" +
       "      </div>" +
@@ -1096,6 +1333,7 @@ async function apiList() {
     var badge = E.q("#co-mode-badge", mount);
     var btnNew = E.q("#co-new", mount);
     var btnRefresh = E.q("#co-refresh", mount);
+    var btnDebug = E.q("#co-debug", mount);
 
     var searchA = E.q("#co-search-active", mount);
     var searchD = E.q("#co-search-done", mount);
@@ -1121,20 +1359,29 @@ async function apiList() {
         badge: !!badge, btnNew: !!btnNew, btnRefresh: !!btnRefresh,
         searchA: !!searchA, searchD: !!searchD, btnPrintA: !!btnPrintA, btnPrintD: !!btnPrintD,
         tbodyA: !!tbodyA, tbodyD: !!tbodyD, countA: !!countA, countD: !!countD,
-        tableA: !!tableA, tableD: !!tableD,
+        tableA: !!tableA, tableD: !!tableD
       });
       throw new Error("Client Orders DOM incomplete (see console)");
     }
 
     function updateBadge() {
       if (!badge) return;
+
       if (state.mode === "local") {
-        badge.textContent = "Local mode (no API yet)";
+        badge.textContent = "Local mode (API missing/offline)";
         badge.className = "co-badge local";
-      } else {
-        badge.textContent = "Online";
-        badge.className = "co-badge";
+        return;
       }
+
+      if (state.mode === "api_error") {
+        var st = state.lastError && state.lastError.status ? ("HTTP " + state.lastError.status) : "Error";
+        badge.textContent = "Online (API error: " + st + ")";
+        badge.className = "co-badge err";
+        return;
+      }
+
+      badge.textContent = "Online";
+      badge.className = "co-badge";
     }
 
     function updateCounts(totalActive, totalDone) {
@@ -1144,46 +1391,29 @@ async function apiList() {
 
     async function refresh() {
       try {
+        state.lastError = null;
+        state.mode = "api";
+        updateBadge();
+
         countA.textContent = "Loading…";
         countD.textContent = "Loading…";
 
+        dbg("[clientorders] refresh start; allow500Fallback=", ALLOW_500_FALLBACK);
+
         var res = await apiList();
         state.mode = res.mode || "api";
+        if (res.fallbackReason) state.lastError = res.fallbackReason;
 
-        // normalize rows
-        var entries = Array.isArray(res.entries) ? res.entries : [];
-        for (var i = 0; i < entries.length; i++) {
-          var r = entries[i] || {};
-          r.id = r.id;
-          r.order_date = String(r.order_date || "").trim();
-          r.client_name = String(r.client_name || "").trim();
-          r.address = String(r.address || "").trim();
-          r.contact = String(r.contact || "").trim();
-          r.alternate = String(r.alternate || "").trim();
-          r.email = String(r.email || "").trim();
-          r.items = String(r.items || "").trim();
-          r.priority = Number(r.priority || 2);
-          r.needed_by = String(r.needed_by || "").trim();
-          r.pick_up_date = String(r.pick_up_date || "").trim();
-          r.deposit = String(r.deposit || "").trim();
-          r.notes = String(r.notes || "").trim();
-          r.fulfilled = !!r.fulfilled;
-          r.fulfilled_at = String(r.fulfilled_at || "").trim();
+        var rawEntries = Array.isArray(res.entries) ? res.entries : [];
+        dbg("[clientorders] refresh loaded", { mode: state.mode, count: rawEntries.length });
 
-          // safe defaults
-          if (!isYmd(r.order_date)) r.order_date = todayYmd();
-          if (!isYmd(r.needed_by)) r.needed_by = addDaysYmd(2);
-          if (!isYmd(r.pick_up_date)) r.pick_up_date = addDaysYmd(2);
-          if (!(r.priority === 1 || r.priority === 2 || r.priority === 3)) r.priority = 2;
-          if (r.deposit) {
-            var m = parseMoney2(r.deposit);
-            r.deposit = (m === null ? String(r.deposit || "") : m);
-          }
+        var entries = [];
+        for (var i = 0; i < rawEntries.length; i++) {
+          entries.push(normalizeIncomingEntry(rawEntries[i], i));
         }
 
         state.entries = entries;
 
-        // compute totals before search
         var totalActive = 0, totalDone = 0;
         for (var j = 0; j < entries.length; j++) {
           if (entries[j] && entries[j].fulfilled) totalDone++;
@@ -1192,24 +1422,36 @@ async function apiList() {
 
         applyFilterSplitSort();
 
-        renderTable(tbodyA, state.filteredActive);
-        renderTable(tbodyD, state.filteredDone);
+        renderTable(tbodyA, state.filteredActive, "active");
+        renderTable(tbodyD, state.filteredDone, "done");
 
         updateCounts(totalActive, totalDone);
         updateBadge();
 
-        // sort indicators
         setSort(E.qa("th[data-key]", tableA), state.sortActive);
         setSort(E.qa("th[data-key]", tableD), state.sortDone);
+
+        dbg("[clientorders] refresh done", { totalActive: totalActive, totalDone: totalDone });
       } catch (e) {
+        // IMPORTANT: do not silently fallback here (cloud preferred)
+        state.lastError = e;
+        state.mode = "api_error";
+        updateBadge();
+
         err("[clientorders] refresh failed", e);
+
         countA.textContent = "Failed to load";
         countD.textContent = "Failed to load";
+
         modalError("Client Orders", e);
       }
     }
 
     state.refresh = refresh;
+
+    if (btnDebug) {
+      btnDebug.addEventListener("click", function () { openDebugModal(); });
+    }
 
     btnNew.addEventListener("click", function () {
       openOrderModal({
@@ -1219,21 +1461,18 @@ async function apiList() {
           priority: 2,
           needed_by: addDaysYmd(2),
           pick_up_date: addDaysYmd(2),
-          fulfilled: false,
-        },
+          fulfilled: false
+        }
       });
     });
 
-    btnRefresh.addEventListener("click", function () {
-      refresh();
-    });
+    btnRefresh.addEventListener("click", function () { refresh(); });
 
     searchA.addEventListener("input", function () {
       state.queryActive = String(searchA.value || "");
       applyFilterSplitSort();
-      renderTable(tbodyA, state.filteredActive);
+      renderTable(tbodyA, state.filteredActive, "active");
 
-      // update counts with same totals (best-effort)
       var totalActive = 0;
       for (var i = 0; i < state.entries.length; i++) if (!(state.entries[i] && state.entries[i].fulfilled)) totalActive++;
       countA.textContent = "Showing " + String(state.filteredActive.length) + " / " + String(totalActive);
@@ -1242,7 +1481,7 @@ async function apiList() {
     searchD.addEventListener("input", function () {
       state.queryDone = String(searchD.value || "");
       applyFilterSplitSort();
-      renderTable(tbodyD, state.filteredDone);
+      renderTable(tbodyD, state.filteredDone, "done");
 
       var totalDone = 0;
       for (var i = 0; i < state.entries.length; i++) if (state.entries[i] && state.entries[i].fulfilled) totalDone++;
@@ -1250,19 +1489,13 @@ async function apiList() {
     });
 
     btnPrintA.addEventListener("click", function () {
-      try {
-        openPrintWindow(state.filteredActive || [], "Client Orders — Active", state.queryActive || "");
-      } catch (e) {
-        modalError("Print", e);
-      }
+      try { openPrintWindow(state.filteredActive || [], "Client Orders — Active", state.queryActive || ""); }
+      catch (e) { modalError("Print", e); }
     });
 
     btnPrintD.addEventListener("click", function () {
-      try {
-        openPrintWindow(state.filteredDone || [], "Client Orders — Fulfilled", state.queryDone || "");
-      } catch (e) {
-        modalError("Print", e);
-      }
+      try { openPrintWindow(state.filteredDone || [], "Client Orders — Fulfilled", state.queryDone || ""); }
+      catch (e) { modalError("Print", e); }
     });
 
     wireSortableHeaders(tableA, "active");
@@ -1277,6 +1510,6 @@ async function apiList() {
     title: "Client Orders",
     order: 17,
     icon: "📦",
-    render: render,
+    render: render
   });
 })();
