@@ -2494,6 +2494,28 @@ async function handleDailyRegisterReportHtml(request, env, corsOkHeaders, authUs
    REPEAT PRESCRIPTIONS MODULE (API)
    ========================= */
 
+function repeatRxAddMonthsYmd(ymd, months) {
+  const s = String(ymd || "").trim();
+  if (!isValidYmd(s)) return "";
+  const parts = s.split("-");
+  const y = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10);
+  const d = parseInt(parts[2], 10);
+  if (!y || !m || !d) return "";
+
+  const base = new Date(Date.UTC(y, m - 1, 1));
+  base.setUTCMonth(base.getUTCMonth() + Number(months || 0));
+  const ty = base.getUTCFullYear();
+  const tm = base.getUTCMonth(); // 0..11
+
+  const dim = new Date(Date.UTC(ty, tm + 1, 0)).getUTCDate();
+  const dd = Math.min(d, dim);
+
+  const out = new Date(Date.UTC(ty, tm, dd));
+  const pad2 = (n) => String(n).padStart(2, "0");
+  return `${out.getUTCFullYear()}-${pad2(out.getUTCMonth() + 1)}-${pad2(out.getUTCDate())}`;
+}
+
 async function ensureRepeatPrescriptionsSchema(env) {
   await dbRun(
     env,
@@ -2502,6 +2524,7 @@ async function ensureRepeatPrescriptionsSchema(env) {
       org_id INTEGER NOT NULL,
       location_id INTEGER NOT NULL,
       entry_date TEXT NOT NULL,
+      expires_date TEXT NOT NULL DEFAULT '',
       client_name TEXT NOT NULL,
       client_id TEXT NOT NULL,
       medicine_name_dose TEXT NOT NULL,
@@ -2514,6 +2537,22 @@ async function ensureRepeatPrescriptionsSchema(env) {
     )`,
     []
   );
+
+  // Migration: add expires_date if older table exists
+  try {
+    await dbRun(env, "ALTER TABLE repeat_prescription_entries ADD COLUMN expires_date TEXT NOT NULL DEFAULT ''", []);
+  } catch (e) {
+    /* column may already exist */
+  }
+
+  // Backfill any missing expires_date for existing rows
+  try {
+    await dbRun(
+      env,
+      "UPDATE repeat_prescription_entries SET expires_date = COALESCE(NULLIF(expires_date,''), date(entry_date,'+6 months')) WHERE expires_date IS NULL OR expires_date = ''",
+      []
+    );
+  } catch (e2) {}
 
   await dbRun(
     env,
@@ -2543,10 +2582,12 @@ async function handleRepeatPrescriptionsEntriesList(request, env, corsOkHeaders,
   const hasQ = !!q;
   const qLike = `%${q}%`;
 
+  // IMPORTANT: no "expires_date >= date('now')" or similar filter here
   const sql = `
     SELECT
       id,
       entry_date,
+      expires_date,
       client_name,
       client_id,
       medicine_name_dose,
@@ -2563,6 +2604,7 @@ async function handleRepeatPrescriptionsEntriesList(request, env, corsOkHeaders,
       AND entry_date < ?
       ${hasQ ? `AND (
         entry_date LIKE ?
+        OR expires_date LIKE ?
         OR client_name LIKE ?
         OR client_id LIKE ?
         OR medicine_name_dose LIKE ?
@@ -2574,10 +2616,9 @@ async function handleRepeatPrescriptionsEntriesList(request, env, corsOkHeaders,
   `;
 
   const bind = [authUser.org_id, authUser.location_id, range.startStr, range.endStr];
-  if (hasQ) bind.push(qLike, qLike, qLike, qLike, qLike, qLike, qLike);
+  if (hasQ) bind.push(qLike, qLike, qLike, qLike, qLike, qLike, qLike, qLike);
 
   const entries = await dbAll(env, sql, bind);
-
   return jsonResponse({ ok: true, entries }, 200, corsOkHeaders);
 }
 
@@ -2598,7 +2639,13 @@ async function handleRepeatPrescriptionsEntryCreate(request, env, corsOkHeaders,
   const prescriberName = String(body.prescriber_name || "").trim();
   const prescriberRegNo = String(body.prescriber_reg_no || "").trim();
 
+  let expiresDate = String(body.expires_date || "").trim();
+
   if (!isValidYmd(entryDate)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+
+  if (!expiresDate) expiresDate = repeatRxAddMonthsYmd(entryDate, 6);
+  if (!isValidYmd(expiresDate)) return jsonResponse({ ok: false, error: "Invalid expires_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+
   if (!clientName) return jsonResponse({ ok: false, error: "Missing client_name" }, 400, corsOkHeaders);
   if (!clientId) return jsonResponse({ ok: false, error: "Missing client_id" }, 400, corsOkHeaders);
   if (!medicineNameDose) return jsonResponse({ ok: false, error: "Missing medicine_name_dose" }, 400, corsOkHeaders);
@@ -2609,14 +2656,15 @@ async function handleRepeatPrescriptionsEntryCreate(request, env, corsOkHeaders,
   const row = await dbFirst(
     env,
     `INSERT INTO repeat_prescription_entries
-      (org_id, location_id, entry_date, client_name, client_id, medicine_name_dose, posology, prescriber_name, prescriber_reg_no, created_by, created_at, updated_at)
+      (org_id, location_id, entry_date, expires_date, client_name, client_id, medicine_name_dose, posology, prescriber_name, prescriber_reg_no, created_by, created_at, updated_at)
      VALUES
-      (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+      (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
      RETURNING id`,
     [
       authUser.org_id,
       authUser.location_id,
       entryDate,
+      expiresDate,
       clientName,
       clientId,
       medicineNameDose,
@@ -2629,6 +2677,7 @@ async function handleRepeatPrescriptionsEntryCreate(request, env, corsOkHeaders,
 
   await writeAudit(env, authUser.org_id, authUser.user_id, "REPEAT_RX_ENTRY_CREATE", "repeat_prescription_entries", String(row.id), {
     entry_date: entryDate,
+    expires_date: expiresDate,
     client_id: clientId,
     medicine_name_dose: medicineNameDose
   });
@@ -2662,7 +2711,13 @@ async function handleRepeatPrescriptionsEntryUpdate(request, env, corsOkHeaders,
   const prescriberName = String(body.prescriber_name || "").trim();
   const prescriberRegNo = String(body.prescriber_reg_no || "").trim();
 
+  let expiresDate = String(body.expires_date || "").trim();
+
   if (!isValidYmd(entryDate)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+
+  if (!expiresDate) expiresDate = repeatRxAddMonthsYmd(entryDate, 6);
+  if (!isValidYmd(expiresDate)) return jsonResponse({ ok: false, error: "Invalid expires_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+
   if (!clientName) return jsonResponse({ ok: false, error: "Missing client_name" }, 400, corsOkHeaders);
   if (!clientId) return jsonResponse({ ok: false, error: "Missing client_id" }, 400, corsOkHeaders);
   if (!medicineNameDose) return jsonResponse({ ok: false, error: "Missing medicine_name_dose" }, 400, corsOkHeaders);
@@ -2673,10 +2728,11 @@ async function handleRepeatPrescriptionsEntryUpdate(request, env, corsOkHeaders,
   await dbRun(
     env,
     `UPDATE repeat_prescription_entries
-     SET entry_date = ?, client_name = ?, client_id = ?, medicine_name_dose = ?, posology = ?, prescriber_name = ?, prescriber_reg_no = ?, updated_at = datetime('now')
+     SET entry_date = ?, expires_date = ?, client_name = ?, client_id = ?, medicine_name_dose = ?, posology = ?, prescriber_name = ?, prescriber_reg_no = ?, updated_at = datetime('now')
      WHERE id = ? AND org_id = ? AND location_id = ?`,
     [
       entryDate,
+      expiresDate,
       clientName,
       clientId,
       medicineNameDose,
@@ -2691,6 +2747,7 @@ async function handleRepeatPrescriptionsEntryUpdate(request, env, corsOkHeaders,
 
   await writeAudit(env, authUser.org_id, authUser.user_id, "REPEAT_RX_ENTRY_UPDATE", "repeat_prescription_entries", String(entryId), {
     entry_date: entryDate,
+    expires_date: expiresDate,
     client_id: clientId,
     medicine_name_dose: medicineNameDose
   });
@@ -2707,7 +2764,7 @@ async function handleRepeatPrescriptionsEntryDelete(request, env, corsOkHeaders,
 
   const existing = await dbFirst(
     env,
-    `SELECT id, entry_date, client_id
+    `SELECT id, entry_date, expires_date, client_id
      FROM repeat_prescription_entries
      WHERE id = ? AND org_id = ? AND location_id = ?`,
     [entryId, authUser.org_id, authUser.location_id]
@@ -2723,12 +2780,12 @@ async function handleRepeatPrescriptionsEntryDelete(request, env, corsOkHeaders,
 
   await writeAudit(env, authUser.org_id, authUser.user_id, "REPEAT_RX_ENTRY_DELETE", "repeat_prescription_entries", String(entryId), {
     entry_date: existing.entry_date,
+    expires_date: existing.expires_date,
     client_id: existing.client_id
   });
 
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
-
 
 /* =========================
    DDA SALES MODULE (API)  <-- ADDED
