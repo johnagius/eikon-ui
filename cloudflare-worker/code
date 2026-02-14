@@ -1164,102 +1164,133 @@ async function handleClientOrdersEntryUpdate(request, env, corsOkHeaders, authUs
 
   await ensureClientOrdersSchema(env);
 
-  const entryIdNum = parseInt(String(entryId || ""), 10);
-  if (!entryIdNum || isNaN(entryIdNum)) {
+  // Parse + validate id (be strict, but accept numeric strings)
+  const id = Number(entryId);
+  if (!Number.isFinite(id) || id % 1 !== 0 || id <= 0) {
     return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
   }
 
-  // IMPORTANT:
-  // Client Orders list is org-wide (can include multiple locations),
-  // so updates must not require the caller's current location_id to match.
+  // Load existing row first (enables partial updates safely)
   const existing = await dbFirst(
     env,
-    `SELECT id, org_id, location_id, fulfilled, fulfilled_at
-     FROM client_orders_entries
-     WHERE org_id = ? AND id = ?`,
-    [authUser.org_id, entryIdNum]
+    "SELECT * FROM client_orders_entries WHERE org_id = ? AND location_id = ? AND id = ?",
+    [authUser.org_id, authUser.location_id, id]
   );
 
   if (!existing) {
-    return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+    return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
   }
 
-  const body = await request.json().catch(() => null);
-  if (!body || typeof body !== "object") {
+  let body = null;
+  try {
+    body = await readJson(request);
+  } catch (e) {
     return jsonResponse({ ok: false, error: "Invalid JSON body" }, 400, corsOkHeaders);
   }
+  if (!body || typeof body !== "object") body = {};
 
-  const orderDate = String(body.order_date || "").trim();
+  const has = (k) => Object.prototype.hasOwnProperty.call(body, k);
+
+  // Merge fields: if caller didn’t send a field, keep existing DB value.
+  const orderDate = has("order_date") ? String(body.order_date || "").trim() : String(existing.order_date || "").trim();
+  const clientName = has("client_name") ? String(body.client_name || "").trim() : String(existing.client_name || "").trim();
+  const clientPhone = has("client_phone") ? String(body.client_phone || "").trim() : String(existing.client_phone || "").trim();
+
+  const clientAltPhone = has("client_alt_phone")
+    ? String(body.client_alt_phone || "").trim()
+    : String(existing.client_alt_phone || "").trim();
+
+  const clientEmail = has("client_email")
+    ? String(body.client_email || "").trim()
+    : String(existing.client_email || "").trim();
+
+  const clientAddress = has("client_address")
+    ? String(body.client_address || "").trim()
+    : String(existing.client_address || "").trim();
+
+  const itemsText = has("items_text") ? String(body.items_text || "").trim() : String(existing.items_text || "").trim();
+
+  const priority = has("priority") ? normalizePriority(body.priority) : Number(existing.priority);
+  const neededBy = has("needed_by") ? String(body.needed_by || "").trim() : String(existing.needed_by || "").trim();
+  const pickupDate = has("pickup_date") ? String(body.pickup_date || "").trim() : String(existing.pickup_date || "").trim();
+  const notes = has("notes") ? String(body.notes || "").trim() : String(existing.notes || "").trim();
+
+  // deposit_amount is NOT NULL in your schema: NEVER allow null through.
+  // - If caller sends deposit_amount: normalize it (null/"" => 0)
+  // - If caller doesn't send it: keep existing
+  let depositAmount;
+  if (has("deposit_amount")) {
+    depositAmount = normalizeMoney(body.deposit_amount);
+    // normalizeMoney returns null only for invalid non-empty input
+    if (depositAmount === null) {
+      return jsonResponse({ ok: false, error: "Invalid deposit_amount" }, 400, corsOkHeaders);
+    }
+  } else {
+    depositAmount = normalizeMoney(existing.deposit_amount);
+    if (depositAmount === null) depositAmount = 0;
+  }
+
+  // Fulfilled can be partial too
+  const nextFulfilled = has("fulfilled") ? !!body.fulfilled : !!existing.fulfilled;
+
+  let fulfilledAt = null;
+  if (nextFulfilled) {
+    if (has("fulfilled_at")) {
+      // if caller sends a value use it; if they send null/"" fallback to now
+      const raw = body.fulfilled_at;
+      fulfilledAt = raw ? String(raw) : nowIso();
+    } else {
+      // keep existing if present, otherwise set now
+      fulfilledAt = existing.fulfilled_at ? String(existing.fulfilled_at) : nowIso();
+    }
+  } else {
+    // unfulfilled means no timestamp
+    fulfilledAt = null;
+  }
+
+  // Validate required + formats (after merge)
   if (!isValidYmd(orderDate)) {
     return jsonResponse({ ok: false, error: "Invalid order_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
   }
-
-  const clientName = String(body.client_name || "").trim();
   if (!clientName) {
-    return jsonResponse({ ok: false, error: "client_name required" }, 400, corsOkHeaders);
+    return jsonResponse({ ok: false, error: "client_name is required" }, 400, corsOkHeaders);
   }
-
-  const clientPhone = String(body.client_phone || "").trim();
-  const clientAltPhone = String(body.client_alt_phone || "").trim();
-  const clientEmail = String(body.client_email || "").trim();
-  const clientAddress = String(body.client_address || "").trim();
-
-  const itemsText = String(body.items_text || "").trim();
+  if (!clientPhone) {
+    return jsonResponse({ ok: false, error: "client_phone is required" }, 400, corsOkHeaders);
+  }
   if (!itemsText) {
-    return jsonResponse({ ok: false, error: "items_text required" }, 400, corsOkHeaders);
+    return jsonResponse({ ok: false, error: "items_text is required" }, 400, corsOkHeaders);
   }
-
-  let priority = parseInt(body.priority, 10);
-  if (isNaN(priority)) priority = 1;
-  priority = Math.max(1, Math.min(3, priority));
-
-  const neededBy = String(body.needed_by || "").trim();
+  if (![1, 2, 3].includes(priority)) {
+    return jsonResponse({ ok: false, error: "priority must be 1, 2, or 3" }, 400, corsOkHeaders);
+  }
   if (neededBy && !isValidYmd(neededBy)) {
     return jsonResponse({ ok: false, error: "Invalid needed_by (YYYY-MM-DD)" }, 400, corsOkHeaders);
   }
-
-  const pickupDate = String(body.pickup_date || "").trim();
   if (pickupDate && !isValidYmd(pickupDate)) {
     return jsonResponse({ ok: false, error: "Invalid pickup_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
   }
 
-  let depositAmount = body.deposit_amount;
-  if (depositAmount === "" || depositAmount === null || depositAmount === undefined) {
-    depositAmount = null;
-  } else {
-    const n = Number(depositAmount);
-    if (isNaN(n)) {
-      return jsonResponse({ ok: false, error: "Invalid deposit_amount" }, 400, corsOkHeaders);
-    }
-    depositAmount = n;
-  }
-
-  const notes = String(body.notes || "").trim();
-
-  const fulfilledInt = body.fulfilled ? 1 : 0;
-
+  // Perform update
   await dbRun(
     env,
     `UPDATE client_orders_entries
-     SET order_date = ?,
-         client_name = ?,
-         client_phone = ?,
-         client_alt_phone = ?,
-         client_email = ?,
-         client_address = ?,
-         items_text = ?,
-         priority = ?,
-         needed_by = ?,
-         pickup_date = ?,
-         deposit_amount = ?,
-         notes = ?,
-         fulfilled = ?,
-         fulfilled_at = CASE
-           WHEN ? = 1 THEN (CASE WHEN fulfilled_at IS NULL THEN datetime('now') ELSE fulfilled_at END)
-           ELSE NULL
-         END,
-         updated_at = datetime('now')
-     WHERE org_id = ? AND id = ?`,
+       SET order_date = ?,
+           client_name = ?,
+           client_phone = ?,
+           client_alt_phone = ?,
+           client_email = ?,
+           client_address = ?,
+           items_text = ?,
+           priority = ?,
+           needed_by = ?,
+           pickup_date = ?,
+           deposit_amount = ?,
+           notes = ?,
+           fulfilled = ?,
+           fulfilled_at = ?,
+           updated_at = datetime('now')
+     WHERE org_id = ? AND location_id = ? AND id = ?`,
     [
       orderDate,
       clientName,
@@ -1269,24 +1300,25 @@ async function handleClientOrdersEntryUpdate(request, env, corsOkHeaders, authUs
       clientAddress,
       itemsText,
       priority,
-      neededBy || null,
-      pickupDate || null,
-      depositAmount,
+      neededBy,
+      pickupDate,
+      depositAmount,         // ALWAYS a number (0+), never null
       notes,
-      fulfilledInt,
-      fulfilledInt,
+      nextFulfilled ? 1 : 0,
+      fulfilledAt,           // ok to be null when not fulfilled
       authUser.org_id,
-      entryIdNum
+      authUser.location_id,
+      id
     ]
   );
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "CLIENT_ORDER_UPDATE", "client_orders_entries", String(entryIdNum), {
-    order_date: orderDate,
-    client_name: clientName,
-    fulfilled: !!body.fulfilled
-  });
+  const updated = await dbFirst(
+    env,
+    "SELECT * FROM client_orders_entries WHERE org_id = ? AND location_id = ? AND id = ?",
+    [authUser.org_id, authUser.location_id, id]
+  );
 
-  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+  return jsonResponse({ ok: true, entry: clientOrderRowToUi(updated) }, 200, corsOkHeaders);
 }
 
 async function handleClientOrdersEntryDelete(request, env, corsOkHeaders, authUser, entryId) {
