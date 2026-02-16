@@ -161,7 +161,8 @@ async function poctRuntime(root){
           if(!resp2 || !resp2.ok){
             throw new Error(resp2 && resp2.error ? resp2.error : "Save failed");
           }
-        }catch(e){
+                  try{ dbg("[poct] cloud save OK"); }catch(eOK){}
+}catch(e){
           __cloud.lastError = String(e && (e.message || e.bodyText || e) ? (e.message || e.bodyText || e) : e);
           try{ if(window.__POCT_TOAST) window.__POCT_TOAST("Cloud save failed", "warn", __cloud.lastError); }catch(e2){}
         }finally{
@@ -646,6 +647,106 @@ function numOrNull(v){
       try{ window.__POCT_setDefaultDts = setDefaultDts; window.__POCT_ACTIVE_ROOT = root; }catch(e){}
       await cloudLoad();
       dbg('[poct] cloud loaded', { records: (__cloud.records||[]).length, patients: (__cloud.patients||[]).length, lastError: __cloud.lastError || '' });
+
+      // Legacy localStorage migration (one-time helper):
+      // If an older POCT build stored data locally, offer to migrate it to the cloud for THIS org+location.
+      async function tryMigrateLegacyLocalToCloud() {
+        try {
+          if (!window || !window.localStorage) return;
+          var cloudHasData = ((__cloud.records && __cloud.records.length) || (__cloud.patients && __cloud.patients.length));
+          if (cloudHasData) return;
+
+          var rs = null, ps = null;
+          try { rs = window.localStorage.getItem(STORAGE_KEY); } catch (e1) {}
+          try { ps = window.localStorage.getItem(PATIENTS_KEY); } catch (e2) {}
+          if (!rs && !ps) return;
+
+          var recs = safeJson(rs || "[]", []);
+          var pats = safeJson(ps || "[]", []);
+          if (!Array.isArray(recs) || recs.length === 0) return;
+
+          var msg =
+            "Legacy POCT data found in this browser (previous local-only version).\n\n" +
+            "Records: " + String(recs.length) + "\n" +
+            "Patients: " + String(Array.isArray(pats) ? pats.length : 0) + "\n\n" +
+            "Migrate this data to the CLOUD for this location now?";
+
+          function askConfirm() {
+            return new Promise(function (resolve) {
+              try {
+                if (E && E.modal && typeof E.modal.show === "function") {
+                  E.modal.show(
+                    "Migrate local POCT data to cloud?",
+                    "<div style='white-space:pre-wrap'>" + esc(msg) + "</div>",
+                    [
+                      { label: "Not now", onClick: function () { try { E.modal.hide(); } catch (e) {} resolve(false); } },
+                      { label: "Migrate", primary: true, onClick: function () { try { E.modal.hide(); } catch (e) {} resolve(true); } }
+                    ]
+                  );
+                } else {
+                  resolve(window.confirm(msg));
+                }
+              } catch (e3) {
+                resolve(false);
+              }
+            });
+          }
+
+          var ok = await askConfirm();
+          if (!ok) return;
+
+          // Set state from legacy payload
+          __cloud.records = deepClone(recs);
+          if (Array.isArray(pats) && pats.length) {
+            __cloud.patients = deepClone(pats);
+          } else {
+            // Best-effort patient list from records
+            var map = {};
+            for (var i = 0; i < recs.length; i++) {
+              var r = recs[i] || {};
+              var p = r.patient || {};
+              var pid = String(p.patientId || "").trim();
+              if (!pid) continue;
+              var nowIso2 = nowIso();
+              var seen = String(r.performedAtIso || "").trim() || nowIso2;
+              var cur = map[pid];
+              if (!cur) {
+                map[pid] = {
+                  patientId: pid,
+                  name: String(p.name || ""),
+                  phone: String(p.phone || ""),
+                  age: (p.age === null || p.age === undefined) ? null : p.age,
+                  address: String(p.address || ""),
+                  createdAtIso: nowIso2,
+                  updatedAtIso: nowIso2,
+                  lastSeenIso: seen,
+                  conflicts: []
+                };
+              } else {
+                // update lastSeen if newer
+                if (String(cur.lastSeenIso || "") < seen) cur.lastSeenIso = seen;
+              }
+            }
+            var out = [];
+            for (var k in map) out.push(map[k]);
+            __cloud.patients = out;
+          }
+
+          // Push to cloud immediately
+          await cloudSaveNow();
+
+          // Remove legacy local keys after successful migrate
+          try { window.localStorage.removeItem(STORAGE_KEY); } catch (e4) {}
+          try { window.localStorage.removeItem(PATIENTS_KEY); } catch (e5) {}
+
+          try { if (window.__POCT_TOAST) window.__POCT_TOAST("Migrated local POCT data to cloud", "good", ""); } catch (e6) {}
+          try { dbg("[poct] legacy local data migrated to cloud", { records: (__cloud.records||[]).length, patients: (__cloud.patients||[]).length }); } catch (e7) {}
+        } catch (e) {
+          err("[poct] legacy migrate failed", e);
+        }
+      }
+      await tryMigrateLegacyLocalToCloud();
+
       function migrateV2Once(){
         try{
           if(__cloud.migratedV2) return;
@@ -2480,7 +2581,7 @@ function renderBP(){
             if(r.feeDue === null || r.feeDue === undefined) r.feeDue = 0;
             cleaned.push(r);
           }
-          var ok = window.confirm("Import will REPLACE your current local data.\n\nProceed?");
+          var ok = window.confirm("Import will REPLACE the current cloud data for this location.\n\nProceed?");
           if(!ok) return;
           saveRecords(cleaned);
           if(obj && Array.isArray(obj.patients)){
@@ -2515,10 +2616,10 @@ function renderBP(){
         reader.readAsText(file);
       });
       document.getElementById("btnWipe").addEventListener("click", function(){
-        var ok = window.confirm("Wipe ALL POCT local data?\n\nThis will delete all saved records in this browser.");
+        var ok = window.confirm("Wipe ALL POCT cloud data for this location?\n\nThis will permanently delete all saved records & patients for this location.");
         if(!ok) return;
         cloudWipe();
-        toast("Local data wiped", "good");
+        toast("Cloud data wiped", "good");
         clearBPForm();
         clearUrineForm();
         clearHbForm();
