@@ -1179,6 +1179,10 @@ wirePatientIdInput(document.getElementById("bp_pid"), document.getElementById("b
         w.document.close();
         try{ w.focus(); }catch(e){}
       }
+      function recordSummary(r){
+        try{ return resultSummary(r); }catch(e){ return ""; }
+      }
+
       function resultSummary(r){
         var res = (r && r.results) ? r.results : {};
         if(r.testType === "bp"){
