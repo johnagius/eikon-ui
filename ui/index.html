@@ -84,6 +84,7 @@
       // Load in strict order
       loadCss(withParams("./app.css"))
         .then(function () { return loadScript(withParams("./core.js")); })
+		.then(function () { return loadScript(withParams("./modules.alerts.js")); })
 		.then(function () { return loadScript(withParams("./modules.clientorders.js")); })
 		.then(function () { return loadScript(withParams("./modules.poct.js")); })
 		.then(function () { return loadScript(withParams("./modules.endofday.js")); })
