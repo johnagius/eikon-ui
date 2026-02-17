@@ -7,6 +7,48 @@
   // Small helpers (match style used in other modules)
   // ----------------------------
   function esc(s) { return E.escapeHtml(String(s == null ? "" : s)); }
+  function pad2(n) { var v = String(n); return v.length === 1 ? "0" + v : v; }
+
+  var MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  function ymLabel(ym) {
+    var v = String(ym || "").trim();
+    if (!/^\d{4}-\d{2}$/.test(v)) return v;
+    var y = v.slice(0, 4);
+    var m = parseInt(v.slice(5, 7), 10);
+    var name = MONTH_NAMES[(m >= 1 && m <= 12) ? (m - 1) : 0];
+    return name + " " + y;
+  }
+
+  function monthOptionsHtml(selectedYm) {
+    var sel = String(selectedYm || "").trim();
+    var now = new Date();
+    var y0 = now.getFullYear();
+    var startY = y0 - 1;
+    var endY = y0 + 1;
+
+    var list = [];
+    var seen = {};
+    for (var y = startY; y <= endY; y++) {
+      for (var m = 1; m <= 12; m++) {
+        var ym = y + "-" + pad2(m);
+        list.push(ym);
+        seen[ym] = true;
+      }
+    }
+
+    // If current selection is outside the 3-year range, include it at top
+    if (sel && !seen[sel] && /^\d{4}-\d{2}$/.test(sel)) {
+      list.unshift(sel);
+    }
+
+    var out = "";
+    for (var i = 0; i < list.length; i++) {
+      var v = list[i];
+      out += '<option value="' + esc(v) + '"' + (v === sel ? " selected" : "") + ">" + esc(ymLabel(v)) + "</option>";
+    }
+    return out;
+  }
+
   function el(tag, attrs, kids) {
     var n = document.createElement(tag);
     attrs = attrs || {};
@@ -171,7 +213,7 @@
       "</style></head><body>" +
       "<button onclick='window.print()'>Print</button>" +
       "<h1 style='margin:0 0 4px 0;font-size:18px;'>Alerts</h1>" +
-      "<div class='meta'>Rows: " + safe(String(list.length)) + "\nMonth: " + safe(ym || "-") + "\nPrinted: " + safe(new Date().toLocaleString()) + "</div>" +
+      "<div class='meta'>Rows: " + safe(String(list.length)) + "\nMonth: " + safe(ymLabel(ym || "-")) + "\nPrinted: " + safe(new Date().toLocaleString()) + "</div>" +
       "<table><thead><tr>" +
       "<th>Date</th><th>Type</th><th>Status</th><th>Item</th><th>Room/Fridge</th><th>Supplier</th><th>Checklist</th>" +
       "</tr></thead><tbody>" +
@@ -570,9 +612,11 @@
         '<div class="eikon-row" style="align-items:center;gap:12px;flex-wrap:wrap;">' +
           '<span class="eikon-pill" style="font-weight:900;">⚠️ Alerts</span>' +
 
-          '<div class="eikon-field" style="min-width:180px;">' +
+          '<div class="eikon-field" style="min-width:220px;">' +
             '<div class="eikon-label">Month</div>' +
-            '<input id="al-month" class="eikon-input" type="month" value="' + esc(month) + '">' +
+            '<select id="al-month" class="eikon-input">' +
+              monthOptionsHtml(month) +
+            "</select>" +
           "</div>" +
 
           '<div class="eikon-field" style="margin-left:auto;">' +
@@ -755,9 +799,7 @@
       state._checkSaveTimer = setTimeout(function () { saveChecklistNow().catch(function () {}); }, 350);
     }
 
-    function onSelectRow(r) {
-      setSelected(r);
-    }
+    function onSelectRow(r) { setSelected(r); }
 
     function wireChecklistCheckbox(cb, field) {
       if (!cb) return;
@@ -793,7 +835,6 @@
       try {
         var list = await refresh();
         renderTable(tbody, list, state.selectedId, onSelectRow);
-        // keep selection if possible
         if (state.selectedId) {
           var found = null;
           for (var i = 0; i < list.length; i++) {
@@ -817,11 +858,8 @@
 
     if (printBtn) {
       printBtn.addEventListener("click", function () {
-        try {
-          openPrintWindow(state.entries || [], state.month || "");
-        } catch (e) {
-          toast("Print failed", (e && (e.message || e.bodyText)) ? (e.message || e.bodyText) : "Error", "bad", 4200);
-        }
+        try { openPrintWindow(state.entries || [], state.month || ""); }
+        catch (e) { toast("Print failed", (e && (e.message || e.bodyText)) ? (e.message || e.bodyText) : "Error", "bad", 4200); }
       });
     }
 
