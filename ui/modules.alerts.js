@@ -52,6 +52,13 @@
       ".al-check{display:flex;gap:10px;align-items:center;margin:8px 0;}" +
       ".al-check input{transform:scale(1.05);}" +
       ".al-mini{font-size:12px;opacity:.85;}" +
+      ".al-row-selected{background:rgba(58,160,255,.10)!important;}" +
+      ".al-row-selected td{border-bottom-color:rgba(58,160,255,.22)!important;}" +
+      ".al-checkbar{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;margin-top:10px;}" +
+      ".al-sel-title{font-weight:900;margin:0 0 6px 0;}" +
+      ".al-sel-meta{font-size:12px;opacity:.85;white-space:pre-wrap;}" +
+      ".al-saving{font-size:12px;opacity:.75;margin-top:8px;min-height:16px;}" +
+      ".al-sel-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;}" +
       "@media (max-width: 860px){.al-two-col{grid-template-columns:1fr;}.al-panel{order:2;}}";
     document.head.appendChild(st);
   }
@@ -85,6 +92,123 @@
     });
   }
 
+  function openPrintWindow(entries, monthYm) {
+    var list = Array.isArray(entries) ? entries.slice() : [];
+    var ym = String(monthYm || "").trim();
+
+    var w = window.open("", "_blank");
+    if (!w) {
+      try {
+        E.modal.show(
+          "Print",
+          "<div style='white-space:pre-wrap'>Popup blocked. Allow popups and try again.</div>",
+          [{ label: "Close", primary: true, onClick: function () { E.modal.hide(); } }]
+        );
+      } catch (e) {}
+      return;
+    }
+
+    function safe(s) {
+      return String(s == null ? "" : s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+    function yesNo(v) { return (v === 1 || v === "1" || v === true) ? "Yes" : "No"; }
+    function checklistLine(r) {
+      return (
+        "Team: " + yesNo(r.team_informed) + " | " +
+        "Supplier: " + yesNo(r.supplier_informed) + " | " +
+        "Authorities: " + yesNo(r.authorities_informed) + "\n" +
+        "Return: " + yesNo(r.return_arranged) + " | " +
+        "Handover: " + yesNo(r.handed_over) + " | " +
+        "Collection: " + yesNo(r.collection_note_received) + " | " +
+        "Credit: " + yesNo(r.credit_note_received)
+      );
+    }
+
+    var rowsHtml = "";
+    for (var i = 0; i < list.length; i++) {
+      var r = list[i] || {};
+      var typeLabel = (r.alert_type === "quarantine" ? "Quarantine" : "Recall");
+      var statusLabel = (r.status === "in_progress" ? "In progress" : (r.status === "closed" ? "Closed" : "Open"));
+
+      var detailBits = [];
+      if (r.batch) detailBits.push("Batch: " + r.batch);
+      if (r.expiry) detailBits.push("Expiry: " + fmtDmyFromYmd(r.expiry));
+      if (r.quantity) detailBits.push("Qty: " + r.quantity);
+
+      rowsHtml +=
+        "<tr>" +
+        "<td>" + safe(fmtDmyFromYmd(r.entry_date || "")) + "</td>" +
+        "<td>" + safe(typeLabel) + "</td>" +
+        "<td>" + safe(statusLabel) + "</td>" +
+        "<td><b>" + safe(r.item_name || "") + "</b>" +
+          (detailBits.length ? ("<div style='opacity:.75;font-size:11px'>" + safe(detailBits.join(" | ")) + "</div>") : "") +
+          (r.reason ? ("<div style='opacity:.75;font-size:11px'>Reason: " + safe(r.reason) + "</div>") : "") +
+          (r.notes ? ("<div style='opacity:.75;font-size:11px'>Notes: " + safe(r.notes) + "</div>") : "") +
+        "</td>" +
+        "<td>" + safe((r.storage_location === "fridge") ? "Fridge" : "Room") + "</td>" +
+        "<td>" + safe(r.supplier || "") + "</td>" +
+        "<td style='white-space:pre-wrap'>" + safe(checklistLine(r)) + "</td>" +
+        "</tr>";
+    }
+
+    var html =
+      "<!doctype html><html><head><meta charset='utf-8'>" +
+      "<meta name='viewport' content='width=device-width,initial-scale=1'>" +
+      "<title>Alerts</title>" +
+      "<style>" +
+      "body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:18px;color:#111;}" +
+      "button{position:fixed;right:14px;top:14px;padding:8px 10px;font-weight:800;}" +
+      "table{width:100%;border-collapse:collapse;margin-top:10px;}" +
+      "th,td{border:1px solid #ddd;padding:6px 8px;font-size:12px;vertical-align:top;}" +
+      "th{background:#f5f5f5;text-align:left;}" +
+      ".meta{font-size:12px;color:#333;margin-top:6px;white-space:pre-wrap;}" +
+      "@media print{button{display:none!important;}}" +
+      "</style></head><body>" +
+      "<button onclick='window.print()'>Print</button>" +
+      "<h1 style='margin:0 0 4px 0;font-size:18px;'>Alerts</h1>" +
+      "<div class='meta'>Rows: " + safe(String(list.length)) + "\nMonth: " + safe(ym || "-") + "\nPrinted: " + safe(new Date().toLocaleString()) + "</div>" +
+      "<table><thead><tr>" +
+      "<th>Date</th><th>Type</th><th>Status</th><th>Item</th><th>Room/Fridge</th><th>Supplier</th><th>Checklist</th>" +
+      "</tr></thead><tbody>" +
+      rowsHtml +
+      "</tbody></table>" +
+      "<script>setTimeout(function(){try{window.print()}catch(e){}},250);</script>" +
+      "</body></html>";
+
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+  }
+
+  function payloadFromEntry(r) {
+    var x = r || {};
+    return {
+      entry_date: String(x.entry_date || "").trim(),
+      alert_type: String(x.alert_type || "").trim(),
+      status: String(x.status || "").trim(),
+      item_name: String(x.item_name || "").trim(),
+      batch: String(x.batch || "").trim(),
+      expiry: String(x.expiry || "").trim(),
+      quantity: String(x.quantity || "").trim(),
+      reason: String(x.reason || "").trim(),
+      storage_location: String(x.storage_location || "").trim(),
+      supplier: String(x.supplier || "").trim(),
+      notes: String(x.notes || "").trim(),
+      team_informed: bool01(asBool(x.team_informed)),
+      supplier_informed: bool01(asBool(x.supplier_informed)),
+      authorities_informed: bool01(asBool(x.authorities_informed)),
+      return_arranged: bool01(asBool(x.return_arranged)),
+      handed_over: bool01(asBool(x.handed_over)),
+      collection_note_received: bool01(asBool(x.collection_note_received)),
+      credit_note_received: bool01(asBool(x.credit_note_received))
+    };
+  }
+
   function ymNow() {
     var d = new Date();
     var y = d.getFullYear();
@@ -98,6 +222,15 @@
     var day = String(d.getDate()).padStart(2, "0");
     return y + "-" + m + "-" + day;
   }
+  function isYmd(s) {
+    return /^\d{4}-\d{2}-\d{2}$/.test(String(s || "").trim());
+  }
+  function fmtDmyFromYmd(s) {
+    var v = String(s || "").trim();
+    if (!isYmd(v)) return v;
+    return v.slice(8, 10) + "/" + v.slice(5, 7) + "/" + v.slice(0, 4);
+  }
+
   function bool01(v) { return v ? 1 : 0; }
   function asBool(v) { return !!(v === 1 || v === "1" || v === true); }
 
@@ -248,7 +381,7 @@
 
         '<div class="al-panel">' +
           '<div style="font-weight:900;margin-bottom:6px;">Actions</div>' +
-          '<div class="al-mini">These are the checkboxes you requested (kept off the table so no horizontal scrolling).</div>' +
+          '<div class="al-mini">These are the checkboxes you requested.</div>' +
           '<div style="height:10px;"></div>' +
 
           '<label class="al-check"><input id="al-team" type="checkbox"' + (team_informed ? " checked" : "") + '> Team informed</label>' +
@@ -329,9 +462,9 @@
   // ----------------------------
   // Render list
   // ----------------------------
-  var state = { month: ymNow(), entries: [] };
+  var state = { month: ymNow(), entries: [], selectedId: null, selectedEntry: null, _checkSaveTimer: null, _checkSaving: false };
 
-  function renderTable(tbody, entries) {
+  function renderTable(tbody, entries, selectedId, onSelect) {
     tbody.innerHTML = "";
     if (!entries || !entries.length) {
       var tr0 = document.createElement("tr");
@@ -346,6 +479,12 @@
 
     entries.forEach(function (r) {
       var tr = document.createElement("tr");
+      tr.style.cursor = "pointer";
+      tr.dataset.id = String(r.id || "");
+      if (selectedId && String(r.id) === String(selectedId)) tr.classList.add("al-row-selected");
+      tr.addEventListener("click", function () {
+        if (typeof onSelect === "function") onSelect(r);
+      });
 
       function tdTxt(t) {
         var td = document.createElement("td");
@@ -371,15 +510,14 @@
       tdA.style.whiteSpace = "nowrap";
 
       var btnEdit = el("button", { class: "eikon-btn", text: "Edit" });
-      btnEdit.addEventListener("click", function () {
+      btnEdit.addEventListener("click", function (e) { e.stopPropagation();
         openEditModal(r, function () {
-          // reload
           refresh().catch(function () {});
         });
       });
 
       var btnDel = el("button", { class: "eikon-btn danger", text: "Delete" });
-      btnDel.addEventListener("click", async function () {
+      btnDel.addEventListener("click", async function (e) { e.stopPropagation();
         var ok = await modalConfirm(
           "Delete alert",
           "Delete this alert?\n\n" + (r.item_name || "") + " (" + (r.entry_date || "") + ")",
@@ -441,11 +579,36 @@
             '<div class="eikon-label">Actions</div>' +
             '<div class="eikon-row" style="gap:10px;">' +
               '<button id="al-refresh" class="eikon-btn">Refresh</button>' +
+              '<button id="al-print" class="eikon-btn">Print</button>' +
               '<button id="al-add" class="eikon-btn primary">Add Alert</button>' +
             "</div>" +
           "</div>" +
         "</div>" +
-        '<div class="eikon-help" style="margin-top:10px;">Checklists are inside Add/Edit (side panel) to avoid wide tables.</div>' +
+        '<div class="al-checkbar">' +
+          '<div class="al-panel" style="width:100%;">' +
+            '<div class="al-sel-title">Checklist</div>' +
+            '<div id="al-sp-meta" class="al-sel-meta">Select an alert row to view/update checklist.</div>' +
+            '<div style="height:8px;"></div>' +
+            '<div class="eikon-row" style="gap:14px;flex-wrap:wrap;align-items:flex-start;">' +
+              '<div style="min-width:240px;flex:1;">' +
+                '<label class="al-check"><input id="al-sp-team" type="checkbox" disabled> Team informed</label>' +
+                '<label class="al-check"><input id="al-sp-supp" type="checkbox" disabled> Supplier informed</label>' +
+                '<label class="al-check"><input id="al-sp-auth" type="checkbox" disabled> Authorities informed</label>' +
+                '<label class="al-check"><input id="al-sp-return" type="checkbox" disabled> Return arranged</label>' +
+              '</div>' +
+              '<div style="min-width:240px;flex:1;">' +
+                '<label class="al-check"><input id="al-sp-handover" type="checkbox" disabled> Handed over</label>' +
+                '<label class="al-check"><input id="al-sp-cnote" type="checkbox" disabled> Collection note received</label>' +
+                '<label class="al-check"><input id="al-sp-credit" type="checkbox" disabled> Credit note received</label>' +
+              '</div>' +
+            '</div>' +
+            '<div id="al-sp-saving" class="al-saving"></div>' +
+            '<div class="al-sel-actions">' +
+              '<button id="al-sp-edit" class="eikon-btn" type="button" disabled>Edit Selected</button>' +
+              '<button id="al-sp-clear" class="eikon-btn" type="button" disabled>Clear Selection</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
       "</div>" +
 
       '<div style="height:12px;"></div>' +
@@ -472,8 +635,156 @@
 
     var monthInput = E.q("#al-month", mount);
     var refreshBtn = E.q("#al-refresh", mount);
+    var printBtn = E.q("#al-print", mount);
     var addBtn = E.q("#al-add", mount);
     var tbody = E.q("#al-tbody", mount);
+
+    var spMeta = E.q("#al-sp-meta", mount);
+    var spSaving = E.q("#al-sp-saving", mount);
+    var spEditBtn = E.q("#al-sp-edit", mount);
+    var spClearBtn = E.q("#al-sp-clear", mount);
+    var spTeam = E.q("#al-sp-team", mount);
+    var spSupp = E.q("#al-sp-supp", mount);
+    var spAuth = E.q("#al-sp-auth", mount);
+    var spReturn = E.q("#al-sp-return", mount);
+    var spHandover = E.q("#al-sp-handover", mount);
+    var spCnote = E.q("#al-sp-cnote", mount);
+    var spCredit = E.q("#al-sp-credit", mount);
+
+    function setSelected(entry) {
+      state.selectedEntry = entry ? Object.assign({}, entry) : null;
+      state.selectedId = entry && entry.id ? entry.id : null;
+
+      var has = !!state.selectedEntry;
+
+      function setEnabled(el, en) { if (el) el.disabled = !en; }
+      setEnabled(spTeam, has);
+      setEnabled(spSupp, has);
+      setEnabled(spAuth, has);
+      setEnabled(spReturn, has);
+      setEnabled(spHandover, has);
+      setEnabled(spCnote, has);
+      setEnabled(spCredit, has);
+      setEnabled(spEditBtn, has);
+      setEnabled(spClearBtn, has);
+
+      if (!has) {
+        if (spMeta) spMeta.textContent = "Select an alert row to view/update checklist.";
+        if (spSaving) spSaving.textContent = "";
+        if (spTeam) spTeam.checked = false;
+        if (spSupp) spSupp.checked = false;
+        if (spAuth) spAuth.checked = false;
+        if (spReturn) spReturn.checked = false;
+        if (spHandover) spHandover.checked = false;
+        if (spCnote) spCnote.checked = false;
+        if (spCredit) spCredit.checked = false;
+        highlightSelectedRow();
+        return;
+      }
+
+      var r = state.selectedEntry;
+      var typeLabel = (r.alert_type === "quarantine" ? "Quarantine" : "Recall");
+      var statusLabel = (r.status === "in_progress" ? "In progress" : (r.status === "closed" ? "Closed" : "Open"));
+      if (spMeta) spMeta.textContent = "Selected: " + (r.item_name || "-") + "  |  " + fmtDmyFromYmd(r.entry_date || "") + "  |  " + typeLabel + "  |  " + statusLabel;
+
+      if (spTeam) spTeam.checked = asBool(r.team_informed);
+      if (spSupp) spSupp.checked = asBool(r.supplier_informed);
+      if (spAuth) spAuth.checked = asBool(r.authorities_informed);
+      if (spReturn) spReturn.checked = asBool(r.return_arranged);
+      if (spHandover) spHandover.checked = asBool(r.handed_over);
+      if (spCnote) spCnote.checked = asBool(r.collection_note_received);
+      if (spCredit) spCredit.checked = asBool(r.credit_note_received);
+
+      if (spSaving) spSaving.textContent = "";
+      highlightSelectedRow();
+    }
+
+    function highlightSelectedRow() {
+      try {
+        var sid = state.selectedId == null ? "" : String(state.selectedId);
+        var rows = tbody ? tbody.querySelectorAll("tr") : [];
+        for (var i = 0; i < rows.length; i++) {
+          var tr = rows[i];
+          var id = tr && tr.dataset ? String(tr.dataset.id || "") : "";
+          if (sid && id === sid) tr.classList.add("al-row-selected");
+          else tr.classList.remove("al-row-selected");
+        }
+      } catch (e) {}
+    }
+
+    async function saveChecklistNow() {
+      if (!state.selectedEntry || !state.selectedId) return;
+      if (state._checkSaving) return;
+
+      if (state._checkSaveTimer) {
+        try { clearTimeout(state._checkSaveTimer); } catch (e) {}
+        state._checkSaveTimer = null;
+      }
+
+      state._checkSaving = true;
+      if (spSaving) spSaving.textContent = "Saving…";
+
+      try {
+        var payload = payloadFromEntry(state.selectedEntry);
+        await apiUpdate(state.selectedId, payload);
+
+        for (var i = 0; i < (state.entries || []).length; i++) {
+          if (String(state.entries[i].id) === String(state.selectedId)) {
+            state.entries[i] = Object.assign({}, state.entries[i], state.selectedEntry);
+            break;
+          }
+        }
+
+        if (spSaving) spSaving.textContent = "Saved " + new Date().toLocaleTimeString();
+      } catch (e) {
+        var msg = (e && (e.message || e.bodyText)) ? (e.message || e.bodyText) : "Error";
+        if (spSaving) spSaving.textContent = "Save failed: " + msg;
+        toast("Checklist save failed", msg, "bad", 4200);
+      } finally {
+        state._checkSaving = false;
+      }
+    }
+
+    function scheduleChecklistSave() {
+      if (!state.selectedEntry || !state.selectedId) return;
+
+      if (spSaving) spSaving.textContent = "Saving…";
+      if (state._checkSaveTimer) {
+        try { clearTimeout(state._checkSaveTimer); } catch (e) {}
+      }
+      state._checkSaveTimer = setTimeout(function () { saveChecklistNow().catch(function () {}); }, 350);
+    }
+
+    function onSelectRow(r) {
+      setSelected(r);
+    }
+
+    function wireChecklistCheckbox(cb, field) {
+      if (!cb) return;
+      cb.addEventListener("change", function () {
+        if (!state.selectedEntry) return;
+        state.selectedEntry[field] = cb.checked ? 1 : 0;
+        scheduleChecklistSave();
+      });
+    }
+
+    wireChecklistCheckbox(spTeam, "team_informed");
+    wireChecklistCheckbox(spSupp, "supplier_informed");
+    wireChecklistCheckbox(spAuth, "authorities_informed");
+    wireChecklistCheckbox(spReturn, "return_arranged");
+    wireChecklistCheckbox(spHandover, "handed_over");
+    wireChecklistCheckbox(spCnote, "collection_note_received");
+    wireChecklistCheckbox(spCredit, "credit_note_received");
+
+    if (spEditBtn) {
+      spEditBtn.addEventListener("click", function () {
+        if (!state.selectedEntry) return;
+        openEditModal(state.selectedEntry, function () { doRefresh().catch(function () {}); });
+      });
+    }
+    if (spClearBtn) {
+      spClearBtn.addEventListener("click", function () { setSelected(null); });
+    }
 
     async function doRefresh() {
       state.month = String(monthInput.value || ymNow()).trim();
@@ -481,7 +792,18 @@
       refreshBtn.textContent = "Loading...";
       try {
         var list = await refresh();
-        renderTable(tbody, list);
+        renderTable(tbody, list, state.selectedId, onSelectRow);
+        // keep selection if possible
+        if (state.selectedId) {
+          var found = null;
+          for (var i = 0; i < list.length; i++) {
+            if (String(list[i].id) === String(state.selectedId)) { found = list[i]; break; }
+          }
+          if (found) setSelected(found);
+          else setSelected(null);
+        } else {
+          setSelected(null);
+        }
       } catch (e) {
         toast("Load failed", (e && (e.message || e.bodyText)) ? (e.message || e.bodyText) : "Error", "bad", 4200);
       } finally {
@@ -492,6 +814,17 @@
 
     monthInput.addEventListener("change", function () { doRefresh().catch(function () {}); });
     refreshBtn.addEventListener("click", function () { doRefresh().catch(function () {}); });
+
+    if (printBtn) {
+      printBtn.addEventListener("click", function () {
+        try {
+          openPrintWindow(state.entries || [], state.month || "");
+        } catch (e) {
+          toast("Print failed", (e && (e.message || e.bodyText)) ? (e.message || e.bodyText) : "Error", "bad", 4200);
+        }
+      });
+    }
+
     addBtn.addEventListener("click", function () {
       openEditModal(null, function () { doRefresh().catch(function () {}); });
     });
