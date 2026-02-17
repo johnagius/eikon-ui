@@ -313,7 +313,7 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
       ".eikon-dda-top{display:flex;flex-wrap:wrap;gap:10px;align-items:end;justify-content:space-between;margin-bottom:12px;}" +
       ".eikon-dda-title{font-size:18px;font-weight:900;margin:0;display:flex;align-items:center;gap:10px;color:var(--text,#e9eef7);}" +
       ".eikon-dda-title .icon{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;color:var(--text,#e9eef7);opacity:.95;}" +
-      ".eikon-dda-controls{display:flex;flex-wrap:wrap;gap:10px;align-items:end;}" +
+      ".eikon-dda-controls{display:flex;flex-direction:column;gap:10px;align-items:stretch;}.eikon-dda-controls-row{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;}" +
 
       ".eikon-dda-field{display:flex;flex-direction:column;gap:4px;}" +
       ".eikon-dda-field label{font-size:12px;font-weight:800;color:var(--muted,rgba(233,238,247,.68));letter-spacing:.2px;}" +
@@ -419,7 +419,10 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
     var token = getStoredToken(win);
     if (token && !headers.has("Authorization")) headers.set("Authorization", "Bearer " + token);
     if (opts.body != null && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
-    var res = await fetch(path, { method: opts.method || "GET", headers: headers, body: opts.body != null ? opts.body : undefined });
+    var method = opts.method || "GET";
+    var fetchOpts = { method: method, headers: headers, body: opts.body != null ? opts.body : undefined };
+    try { fetchOpts.cache = "no-store"; } catch (e0) {}
+    var res = await fetch(path, fetchOpts);
     var ct = (res.headers.get("Content-Type") || "").toLowerCase();
     var data = null;
     if (ct.indexOf("application/json") >= 0) {
@@ -829,7 +832,8 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
           try {
             var earlyMap = state.early_by_id || {};
             if (row && row.id != null && earlyMap[String(row.id)]) {
-              tr.style.backgroundColor = "rgba(255,0,0,0.12)";
+              tr.style.backgroundColor = "rgba(255, 90, 90, 0.22)";
+              tr.style.borderLeft = "4px solid rgba(255, 120, 120, 0.85)";
               tr.title = "Early supply: same client + medicine within 30 days";
             }
           } catch (e) {}
@@ -856,6 +860,7 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
       var url = "/dda-sales/entries?month=" + encodeURIComponent(month);
       var q = String(state.q || "").trim();
       if (q) url += "&q=" + encodeURIComponent(q);
+      url += "&_ts=" + Date.now();
       try {
         var data = await apiJson(ctx.win, url, { method: "GET" });
         if (!data || data.ok !== true) throw new Error(data && data.error ? String(data.error) : "Unexpected response");
@@ -952,7 +957,8 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
           // ✅ PATCH: highlight early supply (<30 days) for same client + medicine
           try {
             if (r && r.id != null && earlyById && earlyById[String(r.id)]) {
-              tr.style.backgroundColor = "rgba(255,0,0,0.12)";
+              tr.style.backgroundColor = "rgba(255, 90, 90, 0.22)";
+              tr.style.borderLeft = "4px solid rgba(255, 120, 120, 0.85)";
               tr.title = "Early supply: same client + medicine within 30 days";
             }
           } catch (e) {}
@@ -1404,6 +1410,7 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
       }
     }
 
+    
     async function doDelete(row, fromModal) {
       if (!ctx) return;
       setMsg("", "");
@@ -1414,20 +1421,87 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
       if (!ok) return;
 
       setLoading(true);
-      try {
-        var url = "/dda-sales/entries/" + encodeURIComponent(String(id));
-        var data = null;
+      var attempts = [];
+      var data = null;
+
+      function summarizeAttempts(list) {
         try {
-          data = await apiJson(ctx.win, url, { method: "DELETE" });
-        } catch (eDel) {
-          // Fallback for environments that block DELETE
-          if (eDel && (eDel.status === 404 || eDel.status === 405 || eDel.status === 501)) {
-            data = await apiJson(ctx.win, url + "/delete", { method: "POST" });
-          } else {
-            throw eDel;
+          return (list || []).map(function (a) {
+            if (!a) return "";
+            if (a.ok) return a.name + " => ok";
+            var s = a.status != null ? String(a.status) : "ERR";
+            var em = a.message ? String(a.message) : "";
+            return a.name + " => " + s + (em ? " (" + em + ")" : "");
+          }).filter(Boolean).join(" | ");
+        } catch (e) {
+          return "";
+        }
+      }
+
+      async function tryCall(name, path, opts) {
+        opts = opts || {};
+        opts.headers = opts.headers || {};
+        // ask the API to include extra debug info in JSON responses
+        try { opts.headers["X-Eikon-Debug"] = "1"; } catch (e0) {}
+        try {
+          var out = await apiJson(ctx.win, path, opts);
+          attempts.push({ name: name, ok: true, status: 200, data: out });
+          return out;
+        } catch (e) {
+          attempts.push({ name: name, ok: false, status: e && e.status != null ? e.status : null, payload: e && e.payload ? e.payload : null, message: e && e.message ? e.message : String(e || "Error") });
+          throw e;
+        }
+      }
+
+      try {
+        // Most compatible: POST to a fixed path (works even if proxies block DELETE or path-params)
+        try {
+          data = await tryCall("POST /dda-sales/entries/delete", "/dda-sales/entries/delete", {
+            method: "POST",
+            body: JSON.stringify({ id: id })
+          });
+        } catch (ePostFixed) {
+          data = null;
+        }
+
+        // Canonical: DELETE /dda-sales/entries/:id
+        if (!data) {
+          var url = "/dda-sales/entries/" + encodeURIComponent(String(id));
+          try {
+            data = await tryCall("DELETE " + url, url, { method: "DELETE" });
+          } catch (eDel) {
+            data = null;
           }
         }
-        if (!data || data.ok !== true) throw new Error(data && data.error ? String(data.error) : "Unexpected response");
+
+        // Fallback: POST /dda-sales/entries/:id/delete
+        if (!data) {
+          var url2 = "/dda-sales/entries/" + encodeURIComponent(String(id)) + "/delete";
+          try {
+            data = await tryCall("POST " + url2, url2, { method: "POST" });
+          } catch (ePost) {
+            data = null;
+          }
+        }
+
+        if (!data || data.ok !== true) {
+          var errMsg = data && data.error ? String(data.error) : "Delete failed.";
+          var err = new Error(errMsg);
+          err.attempts = attempts;
+          throw err;
+        }
+
+        // Extra safety: if debug info says 0 rows changed, treat as failure
+        try {
+          if (data && data.debug && data.debug.changes === 0) {
+            var err2 = new Error("Delete reported 0 rows changed.");
+            err2.attempts = attempts;
+            throw err2;
+          }
+        } catch (eDbg) {
+          throw eDbg;
+        }
+
         if (fromModal) closeModal();
         setMsg("ok", "Deleted.");
         setLoading(false);
@@ -1436,12 +1510,15 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
         setLoading(false);
         var msg = e && e.message ? e.message : String(e || "Error");
         if (e && e.status === 401) msg = "Unauthorized (missing/invalid token).\nLog in again.";
+        var at = e && e.attempts ? e.attempts : attempts;
+        var extra = summarizeAttempts(at);
+        if (extra) msg += "\n\nDebug: " + extra;
         setMsg("err", msg);
-        warn("delete failed:", e);
+        warn("delete failed:", e, { attempts: at });
       }
     }
 
-    function renderInto(container) {
+function renderInto(container) {
       ctx = resolveRenderContext(container);
       if (!ctx || !ctx.doc || !ctx.win || !ctx.mount) return;
 
@@ -1460,6 +1537,8 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
         top.appendChild(title);
 
         var controls = el(ctx.doc, "div", { class: "eikon-dda-controls" }, []);
+        var controlsTop = el(ctx.doc, "div", { class: "eikon-dda-controls-row" }, []);
+        var controlsBottom = el(ctx.doc, "div", { class: "eikon-dda-controls-row" }, []);
 
         var monthField = el(ctx.doc, "div", { class: "eikon-dda-field" }, []);
         monthField.appendChild(el(ctx.doc, "label", { text: "Month" }, []));
@@ -1473,6 +1552,7 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
           }
         };
         monthField.appendChild(monthInput);
+        try { monthField.style.minWidth = "170px"; } catch (e0) {}
 
         var qField = el(ctx.doc, "div", { class: "eikon-dda-field" }, []);
         qField.appendChild(el(ctx.doc, "label", { text: "Search" }, []));
@@ -1489,6 +1569,7 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
 
         qInput.onkeydown = function (e) { if (e && e.key === "Enter") refresh(); };
         qField.appendChild(qInput);
+        try { qField.style.minWidth = "260px"; qField.style.flex = "1 1 320px"; } catch (e1) {}
 
         refreshBtn = el(ctx.doc, "button", { class: "eikon-dda-btn secondary", text: "Refresh" }, []);
         refreshBtn.onclick = function () { refresh(); };
@@ -1501,12 +1582,14 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
         reportFromInput = el(ctx.doc, "input", { type: "date", value: state.report_from }, []);
         reportFromInput.onchange = function () { state.report_from = String(reportFromInput.value || "").trim(); };
         fromField.appendChild(reportFromInput);
+        try { fromField.style.minWidth = "170px"; } catch (e2) {}
 
         var toField = el(ctx.doc, "div", { class: "eikon-dda-field" }, []);
         toField.appendChild(el(ctx.doc, "label", { text: "To" }, []));
         reportToInput = el(ctx.doc, "input", { type: "date", value: state.report_to }, []);
         reportToInput.onchange = function () { state.report_to = String(reportToInput.value || "").trim(); };
         toField.appendChild(reportToInput);
+        try { toField.style.minWidth = "170px"; } catch (e3) {}
 
         generateBtn = el(ctx.doc, "button", { class: "eikon-dda-btn secondary", text: "Generate" }, []);
         generateBtn.onclick = function () { generateReport(); };
@@ -1514,17 +1597,22 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
         printBtn = el(ctx.doc, "button", { class: "eikon-dda-btn secondary", text: "Print" }, []);
         printBtn.onclick = function () { printReport(); };
 
-        controls.appendChild(monthField);
-        controls.appendChild(qField);
-        controls.appendChild(refreshBtn);
-        controls.appendChild(addBtn);
-        controls.appendChild(fromField);
-        controls.appendChild(toField);
-        controls.appendChild(generateBtn);
-        controls.appendChild(printBtn);
+        controlsTop.appendChild(monthField);
+        controlsTop.appendChild(qField);
+        controlsTop.appendChild(refreshBtn);
+        controlsTop.appendChild(addBtn);
+
+        // keep From/To/Generate/Print on the same line
+        controlsBottom.appendChild(fromField);
+        controlsBottom.appendChild(toField);
+        controlsBottom.appendChild(generateBtn);
+        controlsBottom.appendChild(printBtn);
+
+        controls.appendChild(controlsTop);
+        controls.appendChild(controlsBottom);
 
         top.appendChild(controls);
-        wrap.appendChild(top);
+wrap.appendChild(top);
 
         msgBox = el(ctx.doc, "div", { class: "eikon-dda-msg", text: "" }, []);
         msgBox.style.display = "none";
