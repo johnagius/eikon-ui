@@ -16,6 +16,48 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
     '<path d="M7 14l3-3 3 2 5-6"></path>' +
     "</svg>";
 
+  // ✅ PATCH: Medicine Name & Dose suggestions (Tab to accept)
+  var MEDICINE_NAME_DOSE_SUGGESTIONS = [
+    "Alprazolam 0.25mg",
+    "Alprazolam 0.5mg",
+    "Bromazepam 3mg",
+    "Buprenorphine/Naloxone 8mg/2mg",
+    "Clonazepam 0.5mg",
+    "Clonazepam 2mg",
+    "Dexamfetamine 5mg",
+    "Diazepam 5mg",
+    "Lorazepam 1mg",
+    "Mexazolam 1mg",
+    "Methylphenidate 10mg",
+    "Methylphenidate 18mg SR",
+    "Methylphenidate 36mg SR",
+    "Morphine 10mg injection",
+    "Morphine 10mg/ml",
+    "Morphine sulphate 10mg tablets",
+    "Nitrazepam 5mg",
+    "Tianeptine 12.5mg",
+    "Tramadol 50mg",
+    "Tramadol/Dexketoprofen 75/25mg",
+    "Zolpidem 10mg",
+  ];
+
+  // ✅ PATCH: normalize Maltese ID card numbers
+  // - always uppercase
+  // - if pattern is 1-7 digits + 1 letter => left-pad zeros to 7 digits, keep letter
+  //   e.g. 789M => 0000789M
+  function normalizeMtIdCard(raw) {
+    var s = String(raw || "").replace(/\s+/g, "").toUpperCase();
+    if (!s) return "";
+    var m = /^(\d{1,7})([A-Z])$/.exec(s);
+    if (m) {
+      var digits = m[1];
+      while (digits.length < 7) digits = "0" + digits;
+      return digits + m[2];
+    }
+    return s;
+  }
+
+
   function pad2(n) {
     n = Number(n);
     if (!Number.isFinite(n)) return "00";
@@ -23,6 +65,94 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
   }
   function isYmd(s) { return /^\d{4}-\d{2}-\d{2}$/.test(String(s || "").trim()); }
   function isYm(s) { return /^\d{4}-\d{2}$/.test(String(s || "").trim()); }
+
+  // ✅ PATCH: Early supply highlighting (same client + medicine within <30 days)
+  function ymdToTs(ymd) {
+    ymd = String(ymd || "").trim();
+    if (!isYmd(ymd)) return NaN;
+    var y = parseInt(ymd.slice(0, 4), 10);
+    var m = parseInt(ymd.slice(5, 7), 10);
+    var d = parseInt(ymd.slice(8, 10), 10);
+    if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return NaN;
+    return new Date(y, m - 1, d).getTime();
+  }
+  function dateToYmd(dt) {
+    if (!(dt instanceof Date)) dt = new Date(dt);
+    if (!dt || !Number.isFinite(dt.getTime())) return "";
+    return dt.getFullYear() + "-" + pad2(dt.getMonth() + 1) + "-" + pad2(dt.getDate());
+  }
+  function addDaysYmd(ymd, deltaDays) {
+    var t = ymdToTs(ymd);
+    if (!Number.isFinite(t)) return "";
+    var d = new Date(t);
+    d.setDate(d.getDate() + Number(deltaDays || 0));
+    return dateToYmd(d);
+  }
+  function normalizeMedicineKey(med) {
+    return String(med || "").trim().replace(/\s+/g, " ").toLowerCase();
+  }
+
+  function computeEarlyById(entries) {
+    var list = Array.isArray(entries) ? entries.slice() : [];
+    // Ensure chronological order to flag the later entry
+    list.sort(function (a, b) {
+      var ta = ymdToTs(a && a.entry_date);
+      var tb = ymdToTs(b && b.entry_date);
+      if (ta !== tb) return (ta || 0) - (tb || 0);
+      var ia = Number(a && a.id) || 0;
+      var ib = Number(b && b.id) || 0;
+      return ia - ib;
+    });
+
+    var earlyById = {}; // id => true
+    var lastTsByKey = {}; // key => ts
+    var MS_30_DAYS = 30 * 24 * 60 * 60 * 1000;
+
+    for (var i = 0; i < list.length; i++) {
+      var r = list[i] || {};
+      var id = r.id;
+      if (id == null) continue;
+      var dt = ymdToTs(r.entry_date);
+      if (!Number.isFinite(dt)) continue;
+
+      var idCard = normalizeMtIdCard(r.client_id_card || "");
+      var medKey = normalizeMedicineKey(r.medicine_name_dose || "");
+      if (!idCard || !medKey) continue;
+
+      var k = idCard + "|" + medKey;
+      var last = lastTsByKey[k];
+      if (last != null && Number.isFinite(last) && (dt - last) < MS_30_DAYS) {
+        earlyById[String(id)] = true;
+      }
+      lastTsByKey[k] = dt;
+    }
+    return earlyById;
+  }
+
+  async function computeEarlyByIdForMonth(month, entriesForMonth) {
+    // Prefer a 30-day lookback (month_start - 30 days .. month_end) so we can detect early supply
+    // even if the previous supply was in the previous month.
+    var early = {};
+    try {
+      var range = monthStartEnd(month);
+      if (!range) return computeEarlyById(entriesForMonth);
+      var lookbackFrom = addDaysYmd(range.from, -30);
+      if (!lookbackFrom) return computeEarlyById(entriesForMonth);
+
+      var data = await apiJson(ctx.win, "/dda-sales/report?from=" + encodeURIComponent(lookbackFrom) + "&to=" + encodeURIComponent(range.to), { method: "GET" });
+      if (!data || data.ok !== true) return computeEarlyById(entriesForMonth);
+      var allEarly = computeEarlyById(Array.isArray(data.entries) ? data.entries : []);
+      // Only keep flags for entries that are actually displayed in the month list
+      for (var i = 0; i < (entriesForMonth || []).length; i++) {
+        var e = entriesForMonth[i] || {};
+        if (e.id != null && allEarly[String(e.id)]) early[String(e.id)] = true;
+      }
+      return early;
+    } catch (e) {
+      return computeEarlyById(entriesForMonth);
+    }
+  }
+
 
   function escapeHtml(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
@@ -323,6 +453,7 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
       q: "",
       loading: false,
       entries: [],
+      early_by_id: {},
       report_from: "",
       report_to: "",
       report: null,
@@ -352,6 +483,14 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
     // ✅ PATCH: debounce timer for live search
     var searchTimer = null;
 
+    // ✅ PATCH: client lookup debounce / sequencing
+    var clientLookupTimer = null;
+    var clientLookupSeq = 0;
+
+    // ✅ PATCH: medicine autocomplete UI state
+    var medicineHintEl = null;
+    var medicineCurrentSuggestion = "";
+
     function setMsg(kind, text) {
       if (!msgBox) return;
       msgBox.className = "eikon-dda-msg " + (kind === "ok" ? "ok" : kind === "err" ? "err" : "");
@@ -370,6 +509,88 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
       if (reportFromInput) reportFromInput.disabled = state.loading || state.report_loading;
       if (reportToInput) reportToInput.disabled = state.loading || state.report_loading;
     }
+
+
+    // ✅ PATCH: Find best medicine suggestion for current input (prefix match, case-insensitive)
+    function bestMedicineSuggestion(input) {
+      var q = String(input || "").trim();
+      if (!q) return "";
+      var ql = q.toLowerCase();
+      var best = "";
+      for (var i = 0; i < MEDICINE_NAME_DOSE_SUGGESTIONS.length; i++) {
+        var s = MEDICINE_NAME_DOSE_SUGGESTIONS[i];
+        if (!s) continue;
+        var sl = String(s).toLowerCase();
+        if (sl.indexOf(ql) === 0) { best = s; break; }
+      }
+      if (!best) {
+        for (var j = 0; j < MEDICINE_NAME_DOSE_SUGGESTIONS.length; j++) {
+          var s2 = MEDICINE_NAME_DOSE_SUGGESTIONS[j];
+          if (!s2) continue;
+          var s2l = String(s2).toLowerCase();
+          if (s2l.indexOf(ql) !== -1) { best = s2; break; }
+        }
+      }
+      return best || "";
+    }
+
+    // ✅ PATCH: update medicine hint text below the field
+    function updateMedicineHint() {
+      if (!formEls || !formEls.medicine_name_dose) return;
+      var v = String(formEls.medicine_name_dose.value || "");
+      var vTrim = v.trim();
+      medicineCurrentSuggestion = bestMedicineSuggestion(vTrim);
+      if (!medicineHintEl) return;
+      if (!vTrim) {
+        medicineHintEl.style.display = "none";
+        medicineHintEl.textContent = "";
+        return;
+      }
+      if (medicineCurrentSuggestion &&
+          medicineCurrentSuggestion.toLowerCase().indexOf(vTrim.toLowerCase()) === 0 &&
+          medicineCurrentSuggestion.toLowerCase() !== vTrim.toLowerCase()) {
+        medicineHintEl.style.display = "block";
+        medicineHintEl.textContent = "Suggestion: " + medicineCurrentSuggestion + "  (Tab to accept)";
+      } else {
+        medicineHintEl.style.display = "none";
+        medicineHintEl.textContent = "";
+      }
+    }
+
+    // ✅ PATCH: prefill client name/address from past DDA sales entries by ID card (create mode only)
+    function scheduleClientLookup(idCard) {
+      if (!ctx) return;
+      if (!formEls || formEls.id) return; // create only
+      var norm = normalizeMtIdCard(idCard);
+      if (!norm) return;
+      // Only auto-lookup when we have a full Maltese ID card format: 7 digits + 1 letter
+      if (!/^\d{7}[A-Z]$/.test(norm)) return;
+
+      if (clientLookupTimer) { try { ctx.win.clearTimeout(clientLookupTimer); } catch (e) {} }
+      clientLookupTimer = ctx.win.setTimeout(function () {
+        lookupClientByIdCard(norm);
+      }, 250);
+    }
+
+    async function lookupClientByIdCard(idCard) {
+      if (!ctx) return;
+      if (!formEls || formEls.id) return; // create only
+      var norm = normalizeMtIdCard(idCard);
+      if (!norm) return;
+      var seq = ++clientLookupSeq;
+      try {
+        var data = await apiJson(ctx.win, "/dda-sales/client?client_id_card=" + encodeURIComponent(norm), { method: "GET" });
+        if (seq !== clientLookupSeq) return;
+        if (data && data.ok === true && data.found) {
+          // Populate (user can overwrite afterwards if needed)
+          formEls.client_name.value = String(data.client_name || "");
+          formEls.client_address.value = String(data.client_address || "");
+        }
+      } catch (e) {
+        // silent; we don't want noisy errors while typing
+      }
+    }
+
 
     function setReportMsg(kind, text) {
       if (!reportMsg) return;
@@ -410,6 +631,14 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
             el(ctx.doc, "td", { text: String(row.prescription_serial_no || "") }, []),
             el(ctx.doc, "td", {}, []),
           ]);
+          // ✅ PATCH: highlight early supply (<30 days) for same client + medicine
+          try {
+            var earlyMap = state.early_by_id || {};
+            if (row && row.id != null && earlyMap[String(row.id)]) {
+              tr.style.backgroundColor = "rgba(255,0,0,0.12)";
+              tr.title = "Early supply: same client + medicine within 30 days";
+            }
+          } catch (e) {}
           var actionsTd = tr.lastChild;
           var actions = el(ctx.doc, "div", { class: "eikon-dda-actions" }, []);
           var edit = el(ctx.doc, "span", { class: "eikon-dda-link", text: "Edit" }, []);
@@ -437,11 +666,13 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
         var data = await apiJson(ctx.win, url, { method: "GET" });
         if (!data || data.ok !== true) throw new Error(data && data.error ? String(data.error) : "Unexpected response");
         state.entries = Array.isArray(data.entries) ? data.entries : [];
+        state.early_by_id = await computeEarlyByIdForMonth(month, state.entries);
         renderRows();
         setLoading(false);
       } catch (e) {
         setLoading(false);
         state.entries = [];
+        state.early_by_id = {};
         renderRows();
         var msg = e && e.message ? e.message : String(e || "Error");
         if (e && e.status === 401) msg = "Unauthorized (missing/invalid token).\nLog in again.";
@@ -478,6 +709,7 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
       }
       var data = state.report;
       var entries = Array.isArray(data.entries) ? data.entries : [];
+      var earlyById = computeEarlyById(entries);
       if (!entries.length) {
         reportPreview.appendChild(el(ctx.doc, "div", { class: "eikon-dda-hint", html: "Report has no entries for the selected date range." }, []));
         return;
@@ -512,8 +744,7 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
         var tbody = el(ctx.doc, "tbody", {}, []);
         for (var i = 0; i < list.length; i++) {
           var r = list[i] || {};
-          tbody.appendChild(
-            el(ctx.doc, "tr", {}, [
+                    var tr = el(ctx.doc, "tr", {}, [
               el(ctx.doc, "td", { text: String(r.entry_date || "") }, []),
               el(ctx.doc, "td", { text: String(r.client_name || "") }, []),
               el(ctx.doc, "td", { text: String(r.client_id_card || "") }, []),
@@ -523,8 +754,15 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
               el(ctx.doc, "td", { text: String(r.doctor_name || "") }, []),
               el(ctx.doc, "td", { text: String(r.doctor_reg_no || "") }, []),
               el(ctx.doc, "td", { text: String(r.prescription_serial_no || "") }, []),
-            ])
-          );
+            ]);
+          // ✅ PATCH: highlight early supply (<30 days) for same client + medicine
+          try {
+            if (r && r.id != null && earlyById && earlyById[String(r.id)]) {
+              tr.style.backgroundColor = "rgba(255,0,0,0.12)";
+              tr.title = "Early supply: same client + medicine within 30 days";
+            }
+          } catch (e) {}
+          tbody.appendChild(tr);
         }
         table.appendChild(tbody);
         tableWrap.appendChild(table);
@@ -722,12 +960,76 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
         prescription_serial_no: el(doc, "input", { type: "text", value: "", placeholder: "Prescription serial no." }, []),
       };
 
+      // ✅ PATCH: Medicine hint element (shown under the field)
+      medicineHintEl = el(doc, "div", {
+        class: "eikon-dda-med-hint",
+        style: "font-size:12px;opacity:.75;margin-top:4px;display:none;"
+      }, []);
+
+      // ✅ PATCH: enforce uppercase and Maltese-ID padding on Client ID Card
+      formEls.client_id_card.oninput = function () {
+        var v = String(formEls.client_id_card.value || "");
+        var up = v.toUpperCase();
+        if (up !== v) {
+          var ss = null, se = null;
+          try { ss = formEls.client_id_card.selectionStart; se = formEls.client_id_card.selectionEnd; } catch (e) { ss = null; se = null; }
+          formEls.client_id_card.value = up;
+          if (ss != null && se != null) { try { formEls.client_id_card.setSelectionRange(ss, se); } catch (e2) {} }
+        }
+        // If it looks like a Maltese ID card (1-7 digits + 1 letter), pad it immediately (e.g. 789M -> 0000789M)
+        var norm = normalizeMtIdCard(formEls.client_id_card.value || "");
+        if (norm && norm !== String(formEls.client_id_card.value || "")) {
+          formEls.client_id_card.value = norm;
+          try { formEls.client_id_card.setSelectionRange(norm.length, norm.length); } catch (e3) {}
+        }
+        // Prefill name/address if we already know this ID (create mode only)
+        if (norm) scheduleClientLookup(norm);
+      };
+      formEls.client_id_card.onblur = function () {
+        var before = String(formEls.client_id_card.value || "");
+        var norm = normalizeMtIdCard(before);
+        if (norm !== before) formEls.client_id_card.value = norm;
+        scheduleClientLookup(norm);
+      };
+
+      // ✅ PATCH: medicine autocomplete events
+      formEls.medicine_name_dose.oninput = function () { updateMedicineHint(); };
+      formEls.medicine_name_dose.onkeydown = function (e) {
+        if (!e) return;
+        if (e.key === "Tab" && !e.shiftKey) {
+          var cur = String(formEls.medicine_name_dose.value || "");
+          var curTrim = cur.trim();
+          if (!curTrim) return;
+          var sug = bestMedicineSuggestion(curTrim);
+          if (sug &&
+              sug.toLowerCase().indexOf(curTrim.toLowerCase()) === 0 &&
+              sug.toLowerCase() !== curTrim.toLowerCase()) {
+            e.preventDefault();
+            formEls.medicine_name_dose.value = sug;
+            updateMedicineHint();
+            try { if (formEls.doctor_name) formEls.doctor_name.focus(); } catch (e2) {}
+          }
+        }
+      };
+
       grid.appendChild(field("Entry Date", formEls.entry_date, false));
       grid.appendChild(field("Quantity", formEls.quantity, false));
       grid.appendChild(field("Client Name", formEls.client_name, true));
       grid.appendChild(field("Client ID Card", formEls.client_id_card, false));
       grid.appendChild(field("Client Address", formEls.client_address, false));
-      grid.appendChild(field("Medicine Name & Dose", formEls.medicine_name_dose, true));
+      var medField = field("Medicine Name & Dose", formEls.medicine_name_dose, true);
+      // ✅ PATCH: Medicine suggestions dropdown (datalist) + Tab to accept
+      try {
+        var dlId = "eikon-dda-medlist";
+        var dl = el(doc, "datalist", { id: dlId }, []);
+        for (var i = 0; i < MEDICINE_NAME_DOSE_SUGGESTIONS.length; i++) {
+          dl.appendChild(el(doc, "option", { value: MEDICINE_NAME_DOSE_SUGGESTIONS[i] }, []));
+        }
+        formEls.medicine_name_dose.setAttribute("list", dlId);
+        medField.appendChild(dl);
+      } catch (e) {}
+      if (medicineHintEl) medField.appendChild(medicineHintEl);
+      grid.appendChild(medField);
       grid.appendChild(field("Doctor Name", formEls.doctor_name, false));
       grid.appendChild(field("Doctor Reg No.", formEls.doctor_reg_no, false));
       grid.appendChild(field("Prescription Serial No.", formEls.prescription_serial_no, true));
@@ -773,6 +1075,10 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
       formEls.doctor_name.value = "";
       formEls.doctor_reg_no.value = "";
       formEls.prescription_serial_no.value = "";
+      clientLookupSeq = 0;
+      if (medicineHintEl) { medicineHintEl.style.display = "none"; medicineHintEl.textContent = ""; }
+      medicineCurrentSuggestion = "";
+      updateMedicineHint();
       if (modalBackdrop && modalBackdrop._deleteBtn) modalBackdrop._deleteBtn.style.display = "none";
       openModal();
     }
@@ -784,13 +1090,16 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
       modalTitle.textContent = "Edit DDA Sales Entry";
       formEls.entry_date.value = String(row.entry_date || "");
       formEls.client_name.value = String(row.client_name || "");
-      formEls.client_id_card.value = String(row.client_id_card || "");
+      formEls.client_id_card.value = normalizeMtIdCard(String(row.client_id_card || ""));
       formEls.client_address.value = String(row.client_address || "");
       formEls.medicine_name_dose.value = String(row.medicine_name_dose || "");
       formEls.quantity.value = String(row.quantity == null ? "1" : row.quantity);
       formEls.doctor_name.value = String(row.doctor_name || "");
       formEls.doctor_reg_no.value = String(row.doctor_reg_no || "");
       formEls.prescription_serial_no.value = String(row.prescription_serial_no || "");
+      if (medicineHintEl) { medicineHintEl.style.display = "none"; medicineHintEl.textContent = ""; }
+      medicineCurrentSuggestion = "";
+      updateMedicineHint();
       if (modalBackdrop && modalBackdrop._deleteBtn) modalBackdrop._deleteBtn.style.display = "inline-block";
       openModal();
     }
@@ -798,7 +1107,9 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
     function validateFormPayload() {
       var entry_date = String(formEls.entry_date.value || "").trim();
       var client_name = String(formEls.client_name.value || "").trim();
-      var client_id_card = String(formEls.client_id_card.value || "").trim();
+      var client_id_card_raw = String(formEls.client_id_card.value || "").trim();
+      var client_id_card = normalizeMtIdCard(client_id_card_raw);
+      if (client_id_card && client_id_card !== client_id_card_raw) formEls.client_id_card.value = client_id_card;
       var client_address = String(formEls.client_address.value || "").trim();
       var medicine_name_dose = String(formEls.medicine_name_dose.value || "").trim();
       var quantity = toIntSafe(formEls.quantity.value);
