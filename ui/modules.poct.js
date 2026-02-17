@@ -1611,7 +1611,8 @@ function sparkSvgDual(values1, values2, big){
             html += "<td>" + (must(r.notes||"") ? esc(r.notes) : "<span class='muted'>—</span>") + "</td>";
             html += "<td class='nowrap'>"
                   + "<button class='btn small' data-edit='" + esc(r.id) + "' data-type='" + esc(r.testType) + "'><span>✏️</span>Edit</button> "
-                  + "<button class='btn small' data-print='" + esc(r.id) + "'><span>🖨️</span>Print</button>"
+                  + "<button class='btn small' data-print='" + esc(r.id) + "'><span>🖨️</span>Print</button> "
+                  + "<button class='btn danger small' data-del='" + esc(r.id) + "'><span>🗑️</span>Delete</button>"
                   + "</td>";
             html += "</tr>";
           }
@@ -1629,6 +1630,21 @@ function sparkSvgDual(values1, values2, big){
             prints[pr].addEventListener("click", function(){
               var id = this.getAttribute("data-print");
               printRecord(id);
+            });
+          }
+          var dels = tbody.querySelectorAll("button[data-del]");
+          for(var dl=0;dl<dels.length;dl++){
+            dels[dl].addEventListener("click", function(){
+              var id = this.getAttribute("data-del");
+              if(!id) return;
+              var r0 = getById(id);
+              var label = (r0 && r0.testLabel) ? r0.testLabel : "record";
+              var ok = window.confirm("Delete this " + label + " record?\n\nThis cannot be undone.");
+              if(!ok) return;
+              deleteRecordById(id);
+              toast("Record deleted", "good");
+              // Refresh everything (patients list + charts + tables)
+              renderAll();
             });
           }
         }
