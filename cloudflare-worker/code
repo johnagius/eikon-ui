@@ -2543,34 +2543,49 @@ async function handleRepeatPrescriptionsEntriesList(request, env, corsOkHeaders,
 
   await ensureRepeatPrescriptionsSchema(env);
 
-  const month = (url.searchParams.get("month") || "").trim();
-  const range = monthRange(month);
-  if (!range) return jsonResponse({ ok: false, error: "Missing/invalid month (YYYY-MM)" }, 400, corsOkHeaders);
-
   const q = (url.searchParams.get("q") || "").trim();
   const hasQ = !!q;
   const qLike = `%${q}%`;
 
-  // IMPORTANT: NO expires_date filter here. Return expired rows too.
+  // NEW: support either month=YYYY-MM (legacy) OR from/to=YYYY-MM-DD (range)
+  const from = (url.searchParams.get("from") || "").trim();
+  const to = (url.searchParams.get("to") || "").trim();
+
+  let startStr = "";
+  let endStr = "";
+  let endOp = "<"; // month mode uses exclusive end
+
+  if (from || to) {
+    if (!isValidYmd(from) || !isValidYmd(to)) {
+      return jsonResponse({ ok: false, error: "Invalid from/to (YYYY-MM-DD)" }, 400, corsOkHeaders);
+    }
+    if (to < from) {
+      return jsonResponse({ ok: false, error: "to must be >= from" }, 400, corsOkHeaders);
+    }
+    startStr = from;
+    endStr = to;
+    endOp = "<="; // range mode uses inclusive end
+  } else {
+    const month = (url.searchParams.get("month") || "").trim();
+    const range = monthRange(month);
+    if (!range) return jsonResponse({ ok: false, error: "Missing/invalid month (YYYY-MM)" }, 400, corsOkHeaders);
+    startStr = range.startStr;
+    endStr = range.endStr;
+    endOp = "<";
+  }
+
+  // IMPORTANT: do NOT filter out expired rows here. We always return them; UI highlights them red.
   const sql = `
     SELECT
-      id,
-      entry_date,
-      expires_date,
-      client_name,
-      client_id,
-      medicine_name_dose,
-      posology,
-      prescriber_name,
-      prescriber_reg_no,
-      created_by,
-      created_at,
-      updated_at
+      id, entry_date, expires_date,
+      client_name, client_id, medicine_name_dose, posology,
+      prescriber_name, prescriber_reg_no,
+      created_by, created_at, updated_at
     FROM repeat_prescription_entries
     WHERE org_id = ?
       AND location_id = ?
       AND entry_date >= ?
-      AND entry_date < ?
+      AND entry_date ${endOp} ?
       ${hasQ ? `AND (
         entry_date LIKE ?
         OR expires_date LIKE ?
@@ -2584,7 +2599,7 @@ async function handleRepeatPrescriptionsEntriesList(request, env, corsOkHeaders,
     ORDER BY entry_date DESC, id DESC
   `;
 
-  const bind = [authUser.org_id, authUser.location_id, range.startStr, range.endStr];
+  const bind = [authUser.org_id, authUser.location_id, startStr, endStr];
   if (hasQ) bind.push(qLike, qLike, qLike, qLike, qLike, qLike, qLike, qLike);
 
   const entries = await dbAll(env, sql, bind);
@@ -2751,6 +2766,222 @@ async function handleRepeatPrescriptionsEntryDelete(request, env, corsOkHeaders,
     expires_date: existing.expires_date,
     client_id: existing.client_id
   });
+
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+/* ========================= ALERTS (Recall / Quarantine) ========================= */
+
+async function ensureAlertsSchema(env) {
+  await dbRun(env, `
+    CREATE TABLE IF NOT EXISTS alerts_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+
+      entry_date TEXT NOT NULL,
+      alert_type TEXT NOT NULL,
+      status TEXT NOT NULL,
+
+      item_name TEXT NOT NULL,
+      batch TEXT,
+      expiry TEXT,
+      quantity TEXT,
+      reason TEXT,
+      storage_location TEXT NOT NULL,
+      supplier TEXT,
+      notes TEXT,
+
+      team_informed INTEGER NOT NULL DEFAULT 0,
+      supplier_informed INTEGER NOT NULL DEFAULT 0,
+      authorities_informed INTEGER NOT NULL DEFAULT 0,
+      return_arranged INTEGER NOT NULL DEFAULT 0,
+      handed_over INTEGER NOT NULL DEFAULT 0,
+      collection_note_received INTEGER NOT NULL DEFAULT 0,
+      credit_note_received INTEGER NOT NULL DEFAULT 0,
+
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      created_by INTEGER,
+      updated_by INTEGER
+    )
+  `);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_alerts_entries_org_loc_date ON alerts_entries(org_id, location_id, entry_date)`);
+}
+
+function normalizeAlertType(x) {
+  const s = String(x || "").trim().toLowerCase();
+  if (s === "recall") return "recall";
+  if (s === "quarantine") return "quarantine";
+  return "";
+}
+function normalizeAlertStatus(x) {
+  const s = String(x || "").trim().toLowerCase();
+  if (s === "open") return "open";
+  if (s === "in_progress" || s === "in progress") return "in_progress";
+  if (s === "closed") return "closed";
+  return "";
+}
+function to01(v) { return (v === 1 || v === "1" || v === true) ? 1 : 0; }
+
+async function handleAlertsEntriesList(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureAlertsSchema(env);
+
+  const month = String(url.searchParams.get("month") || "").trim(); // YYYY-MM
+  const bind = [authUser.org_id, authUser.location_id];
+  let where = `WHERE org_id = ? AND location_id = ?`;
+  if (month) { where += ` AND substr(entry_date, 1, 7) = ?`; bind.push(month); }
+
+  const rows = await dbAll(env, `
+    SELECT *
+    FROM alerts_entries
+    ${where}
+    ORDER BY entry_date DESC, id DESC
+  `, bind);
+
+  return jsonResponse({ ok: true, entries: rows }, 200, corsOkHeaders);
+}
+
+async function handleAlertsEntryCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureAlertsSchema(env);
+
+  const body = await readJson(request);
+  const entry_date = String(body.entry_date || "").trim();
+  const alert_type = normalizeAlertType(body.alert_type);
+  const status = normalizeAlertStatus(body.status);
+  const item_name = String(body.item_name || "").trim();
+  const batch = String(body.batch || "").trim();
+  const expiry = String(body.expiry || "").trim();
+  const quantity = String(body.quantity || "").trim();
+  const reason = String(body.reason || "").trim();
+  const storage_location = String(body.storage_location || "").trim().toLowerCase();
+  const supplier = String(body.supplier || "").trim();
+  const notes = String(body.notes || "").trim();
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(entry_date)) return jsonResponse({ ok: false, error: "Invalid date" }, 400, corsOkHeaders);
+  if (!alert_type) return jsonResponse({ ok: false, error: "Invalid type" }, 400, corsOkHeaders);
+  if (!status) return jsonResponse({ ok: false, error: "Invalid status" }, 400, corsOkHeaders);
+  if (!item_name) return jsonResponse({ ok: false, error: "Item name required" }, 400, corsOkHeaders);
+  if (!(storage_location === "room" || storage_location === "fridge")) return jsonResponse({ ok: false, error: "Room/Fridge required" }, 400, corsOkHeaders);
+  if (expiry && !/^\d{4}-\d{2}-\d{2}$/.test(expiry)) return jsonResponse({ ok: false, error: "Invalid expiry" }, 400, corsOkHeaders);
+
+  const team_informed = to01(body.team_informed);
+  const supplier_informed = to01(body.supplier_informed);
+  const authorities_informed = to01(body.authorities_informed);
+  const return_arranged = to01(body.return_arranged);
+  const handed_over = to01(body.handed_over);
+  const collection_note_received = to01(body.collection_note_received);
+  const credit_note_received = to01(body.credit_note_received);
+
+  const res = await dbRun(env, `
+    INSERT INTO alerts_entries (
+      org_id, location_id,
+      entry_date, alert_type, status,
+      item_name, batch, expiry, quantity, reason, storage_location, supplier, notes,
+      team_informed, supplier_informed, authorities_informed, return_arranged, handed_over, collection_note_received, credit_note_received,
+      created_at, updated_at, created_by, updated_by
+    ) VALUES (
+      ?, ?,
+      ?, ?, ?,
+      ?, ?, ?, ?, ?, ?, ?, ?,
+      ?, ?, ?, ?, ?, ?, ?,
+      datetime('now'), datetime('now'), ?, ?
+    )
+  `, [
+    authUser.org_id, authUser.location_id,
+    entry_date, alert_type, status,
+    item_name, batch || null, expiry || null, quantity || null, reason || null, storage_location, supplier || null, notes || null,
+    team_informed, supplier_informed, authorities_informed, return_arranged, handed_over, collection_note_received, credit_note_received,
+    authUser.user_id, authUser.user_id
+  ]);
+
+  const newId = (res && res.meta && res.meta.last_row_id) ? Number(res.meta.last_row_id) : null;
+  await writeAudit(env, authUser.org_id, authUser.user_id, "ALERT_CREATE", "alerts_entries", String(newId || ""), { entry_date, alert_type, status, item_name });
+
+  return jsonResponse({ ok: true, id: newId }, 200, corsOkHeaders);
+}
+
+async function handleAlertsEntryUpdate(request, env, corsOkHeaders, authUser, id) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureAlertsSchema(env);
+
+  const existing = await dbFirst(env, `
+    SELECT id FROM alerts_entries
+    WHERE id = ? AND org_id = ? AND location_id = ?
+  `, [id, authUser.org_id, authUser.location_id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+  const entry_date = String(body.entry_date || "").trim();
+  const alert_type = normalizeAlertType(body.alert_type);
+  const status = normalizeAlertStatus(body.status);
+  const item_name = String(body.item_name || "").trim();
+  const batch = String(body.batch || "").trim();
+  const expiry = String(body.expiry || "").trim();
+  const quantity = String(body.quantity || "").trim();
+  const reason = String(body.reason || "").trim();
+  const storage_location = String(body.storage_location || "").trim().toLowerCase();
+  const supplier = String(body.supplier || "").trim();
+  const notes = String(body.notes || "").trim();
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(entry_date)) return jsonResponse({ ok: false, error: "Invalid date" }, 400, corsOkHeaders);
+  if (!alert_type) return jsonResponse({ ok: false, error: "Invalid type" }, 400, corsOkHeaders);
+  if (!status) return jsonResponse({ ok: false, error: "Invalid status" }, 400, corsOkHeaders);
+  if (!item_name) return jsonResponse({ ok: false, error: "Item name required" }, 400, corsOkHeaders);
+  if (!(storage_location === "room" || storage_location === "fridge")) return jsonResponse({ ok: false, error: "Room/Fridge required" }, 400, corsOkHeaders);
+  if (expiry && !/^\d{4}-\d{2}-\d{2}$/.test(expiry)) return jsonResponse({ ok: false, error: "Invalid expiry" }, 400, corsOkHeaders);
+
+  const team_informed = to01(body.team_informed);
+  const supplier_informed = to01(body.supplier_informed);
+  const authorities_informed = to01(body.authorities_informed);
+  const return_arranged = to01(body.return_arranged);
+  const handed_over = to01(body.handed_over);
+  const collection_note_received = to01(body.collection_note_received);
+  const credit_note_received = to01(body.credit_note_received);
+
+  await dbRun(env, `
+    UPDATE alerts_entries
+    SET
+      entry_date = ?, alert_type = ?, status = ?,
+      item_name = ?, batch = ?, expiry = ?, quantity = ?, reason = ?, storage_location = ?, supplier = ?, notes = ?,
+      team_informed = ?, supplier_informed = ?, authorities_informed = ?, return_arranged = ?, handed_over = ?, collection_note_received = ?, credit_note_received = ?,
+      updated_at = datetime('now'), updated_by = ?
+    WHERE id = ? AND org_id = ? AND location_id = ?
+  `, [
+    entry_date, alert_type, status,
+    item_name, batch || null, expiry || null, quantity || null, reason || null, storage_location, supplier || null, notes || null,
+    team_informed, supplier_informed, authorities_informed, return_arranged, handed_over, collection_note_received, credit_note_received,
+    authUser.user_id,
+    id, authUser.org_id, authUser.location_id
+  ]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "ALERT_UPDATE", "alerts_entries", String(id), { entry_date, alert_type, status, item_name });
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleAlertsEntryDelete(request, env, corsOkHeaders, authUser, id) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureAlertsSchema(env);
+
+  const existing = await dbFirst(env, `
+    SELECT id, entry_date, alert_type, item_name
+    FROM alerts_entries
+    WHERE id = ? AND org_id = ? AND location_id = ?
+  `, [id, authUser.org_id, authUser.location_id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  await dbRun(env, `DELETE FROM alerts_entries WHERE id = ? AND org_id = ? AND location_id = ?`, [id, authUser.org_id, authUser.location_id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "ALERT_DELETE", "alerts_entries", String(id), existing);
 
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
@@ -4716,6 +4947,623 @@ async function handleUiAsset(request, env, url) {
   return out;
 }
 
+
+// ------------------------------------------------------------
+// POCT (Point of Care Testing) — Cloud state sync (D1)
+// Endpoints:
+//   GET  /poct/state  -> { ok:true, state:{records:[], patients:[]} }
+//   PUT  /poct/state  -> replace/upsert state for org+location
+// ------------------------------------------------------------
+
+async function ensurePoctSchema(env) {
+  // Safe even if you already created the tables manually.
+  await dbRun(
+    env,
+    `CREATE TABLE IF NOT EXISTS poct_patients (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+      patient_id TEXT NOT NULL,
+      name TEXT NOT NULL DEFAULT '',
+      phone TEXT NOT NULL DEFAULT '',
+      age REAL,
+      address TEXT NOT NULL DEFAULT '',
+      created_at_iso TEXT NOT NULL DEFAULT '',
+      updated_at_iso TEXT NOT NULL DEFAULT '',
+      last_seen_iso TEXT NOT NULL DEFAULT '',
+      conflicts_json TEXT NOT NULL DEFAULT '[]',
+      patient_json TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      created_by INTEGER,
+      updated_by INTEGER,
+      UNIQUE(org_id, location_id, patient_id)
+    )`
+  );
+
+  await dbRun(
+    env,
+    `CREATE TABLE IF NOT EXISTS poct_records (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+      record_id TEXT NOT NULL,
+      test_type TEXT NOT NULL,
+      test_label TEXT NOT NULL DEFAULT '',
+      performed_at_iso TEXT NOT NULL,
+      performed_at_local TEXT NOT NULL DEFAULT '',
+      patient_id TEXT NOT NULL DEFAULT '',
+      patient_name TEXT NOT NULL DEFAULT '',
+      patient_phone TEXT NOT NULL DEFAULT '',
+      patient_age REAL,
+      patient_address TEXT NOT NULL DEFAULT '',
+      fee_due REAL NOT NULL DEFAULT 0,
+      notes TEXT NOT NULL DEFAULT '',
+      intervention TEXT NOT NULL DEFAULT '',
+      bp_sys REAL,
+      bp_dia REAL,
+      bp_pulse REAL,
+      bp_arm TEXT,
+      bp_position TEXT,
+      urine_leu TEXT,
+      urine_nit TEXT,
+      urine_uro TEXT,
+      urine_pro TEXT,
+      urine_ph TEXT,
+      urine_bld TEXT,
+      urine_ket TEXT,
+      urine_glu TEXT,
+      urine_appearance TEXT,
+      hba1c_pct REAL,
+      hba1c_mmol REAL,
+      bg_glucose REAL,
+      bg_timing TEXT,
+      chol_tc REAL,
+      chol_hdl REAL,
+      chol_ldl REAL,
+      chol_tg REAL,
+      chol_ratio REAL,
+      chol_fasting TEXT,
+      bmi_weight REAL,
+      bmi_height REAL,
+      bmi_bmi REAL,
+      bmi_category TEXT,
+      bmi_waist REAL,
+      results_json TEXT NOT NULL DEFAULT '{}',
+      record_json TEXT NOT NULL,
+      updated_at_iso TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      created_by INTEGER,
+      updated_by INTEGER,
+      UNIQUE(org_id, location_id, record_id)
+    )`
+  );
+
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_poct_records_org_loc_dt ON poct_records(org_id, location_id, performed_at_iso)`);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_poct_records_org_loc_type_dt ON poct_records(org_id, location_id, test_type, performed_at_iso)`);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_poct_records_org_loc_patient ON poct_records(org_id, location_id, patient_id)`);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_poct_records_org_loc_phone ON poct_records(org_id, location_id, patient_phone)`);
+
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_poct_patients_org_loc_lastseen ON poct_patients(org_id, location_id, last_seen_iso)`);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_poct_patients_org_loc_name ON poct_patients(org_id, location_id, name)`);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_poct_patients_org_loc_phone ON poct_patients(org_id, location_id, phone)`);
+}
+
+function poctText(v, maxLen = 4000) {
+  let s = String(v == null ? "" : v).trim();
+  if (s.length > maxLen) s = s.slice(0, maxLen);
+  return s;
+}
+function poctNumOrNull(v) {
+  if (v == null) return null;
+  if (typeof v === "number") return Number.isFinite(v) ? v : null;
+  const s = String(v).trim();
+  if (!s) return null;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+}
+function poctJsonString(v, fallback) {
+  try {
+    return JSON.stringify(v == null ? fallback : v);
+  } catch (e) {
+    return JSON.stringify(fallback);
+  }
+}
+
+function poctExtractRecordColumns(rec) {
+  const r = rec && typeof rec === "object" ? rec : {};
+  const p = r.patient && typeof r.patient === "object" ? r.patient : {};
+  const res = r.results && typeof r.results === "object" ? r.results : {};
+
+  const testType = poctText(r.testType, 30);
+  const out = {
+    record_id: poctText(r.id, 120),
+    test_type: testType || "unknown",
+    test_label: poctText(r.testLabel, 80),
+    performed_at_iso: poctText(r.performedAtIso, 60),
+    performed_at_local: poctText(r.performedAtLocal, 60),
+
+    patient_id: poctText(p.patientId, 120),
+    patient_name: poctText(p.name, 200),
+    patient_phone: poctText(p.phone, 80),
+    patient_age: poctNumOrNull(p.age),
+    patient_address: poctText(p.address, 500),
+
+    fee_due: poctNumOrNull(r.feeDue) || 0,
+    notes: poctText(r.notes, 2000),
+    intervention: poctText(r.intervention, 2000),
+
+    bp_sys: null,
+    bp_dia: null,
+    bp_pulse: null,
+    bp_arm: null,
+    bp_position: null,
+
+    urine_leu: null,
+    urine_nit: null,
+    urine_uro: null,
+    urine_pro: null,
+    urine_ph: null,
+    urine_bld: null,
+    urine_ket: null,
+    urine_glu: null,
+    urine_appearance: null,
+
+    hba1c_pct: null,
+    hba1c_mmol: null,
+
+    bg_glucose: null,
+    bg_timing: null,
+
+    chol_tc: null,
+    chol_hdl: null,
+    chol_ldl: null,
+    chol_tg: null,
+    chol_ratio: null,
+    chol_fasting: null,
+
+    bmi_weight: null,
+    bmi_height: null,
+    bmi_bmi: null,
+    bmi_category: null,
+    bmi_waist: null,
+
+    results_json: poctJsonString(res, {}),
+    record_json: poctJsonString(r, {}),
+    updated_at_iso: poctText(r.updatedAtIso, 60) || nowIso(),
+  };
+
+  // Map typed result fields (best-effort; record_json remains source-of-truth).
+  if (testType === "bp") {
+    out.bp_sys = poctNumOrNull(res.sys);
+    out.bp_dia = poctNumOrNull(res.dia);
+    out.bp_pulse = poctNumOrNull(res.pulse);
+    out.bp_arm = poctText(res.arm, 40) || null;
+    out.bp_position = poctText(res.position, 40) || null;
+  } else if (testType === "urine") {
+    out.urine_leu = poctText(res.leu, 60) || null;
+    out.urine_nit = poctText(res.nit, 60) || null;
+    out.urine_uro = poctText(res.uro, 60) || null;
+    out.urine_pro = poctText(res.pro, 60) || null;
+    out.urine_ph = poctText(res.ph, 60) || null;
+    out.urine_bld = poctText(res.bld, 60) || null;
+    out.urine_ket = poctText(res.ket, 60) || null;
+    out.urine_glu = poctText(res.glu, 60) || null;
+    out.urine_appearance = poctText(res.appearance, 120) || null;
+  } else if (testType === "hba1c") {
+    out.hba1c_pct = poctNumOrNull(res.pct);
+    out.hba1c_mmol = poctNumOrNull(res.mmol);
+  } else if (testType === "bg") {
+    out.bg_glucose = poctNumOrNull(res.glucose);
+    out.bg_timing = poctText(res.timing, 40) || null;
+  } else if (testType === "chol") {
+    out.chol_tc = poctNumOrNull(res.tc);
+    out.chol_hdl = poctNumOrNull(res.hdl);
+    out.chol_ldl = poctNumOrNull(res.ldl);
+    out.chol_tg = poctNumOrNull(res.tg);
+    out.chol_ratio = poctNumOrNull(res.ratio);
+    out.chol_fasting = poctText(res.fasting, 40) || null;
+  } else if (testType === "bmi") {
+    out.bmi_weight = poctNumOrNull(res.weight);
+    out.bmi_height = poctNumOrNull(res.height);
+    out.bmi_bmi = poctNumOrNull(res.bmi);
+    out.bmi_category = poctText(res.category, 80) || null;
+    out.bmi_waist = poctNumOrNull(res.waist);
+  }
+
+  return out;
+}
+
+function poctExtractPatientColumns(pat) {
+  const p = pat && typeof pat === "object" ? pat : {};
+  const pid = poctText(p.patientId, 120);
+  const conflicts = Array.isArray(p.conflicts) ? p.conflicts : [];
+  return {
+    patient_id: pid,
+    name: poctText(p.name, 200),
+    phone: poctText(p.phone, 80),
+    age: poctNumOrNull(p.age),
+    address: poctText(p.address, 500),
+    created_at_iso: poctText(p.createdAtIso, 60) || nowIso(),
+    updated_at_iso: poctText(p.updatedAtIso, 60) || nowIso(),
+    last_seen_iso: poctText(p.lastSeenIso, 60),
+    conflicts_json: poctJsonString(conflicts, []),
+    patient_json: poctJsonString(p, {}),
+  };
+}
+
+function poctChunk(arr, size) {
+  const out = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
+async function handlePoctStateGet(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensurePoctSchema(env);
+
+  const orgId = authUser.org_id;
+  const locId = authUser.location_id;
+
+  const recRows = await dbAll(
+    env,
+    `SELECT record_json FROM poct_records
+     WHERE org_id = ? AND location_id = ?
+     ORDER BY performed_at_iso DESC, id DESC`,
+    [orgId, locId]
+  );
+
+  const patRows = await dbAll(
+    env,
+    `SELECT patient_json FROM poct_patients
+     WHERE org_id = ? AND location_id = ?
+     ORDER BY name ASC, patient_id ASC`,
+    [orgId, locId]
+  );
+
+  const records = [];
+  for (let i = 0; i < recRows.length; i++) {
+    const s = recRows[i] ? recRows[i].record_json : null;
+    if (!s) continue;
+    try {
+      const v = JSON.parse(String(s));
+      if (v && typeof v === "object") records.push(v);
+    } catch (e) {}
+  }
+
+  const patients = [];
+  for (let j = 0; j < patRows.length; j++) {
+    const s2 = patRows[j] ? patRows[j].patient_json : null;
+    if (!s2) continue;
+    try {
+      const v2 = JSON.parse(String(s2));
+      if (v2 && typeof v2 === "object") patients.push(v2);
+    } catch (e) {}
+  }
+
+  // compatibility with modules.poct.js cloudLoad()
+  return jsonResponse({ ok: true, state: { records, patients }, records, patients }, 200, corsOkHeaders);
+}
+
+async function handlePoctStatePut(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensurePoctSchema(env);
+
+  const body = await readJson(request);
+  const st = body && (body.state || body.data) ? (body.state || body.data) : body;
+
+  const recordsIn = st && (st.records || st.entries) ? (st.records || st.entries) : [];
+  const patientsIn = st && st.patients ? st.patients : [];
+
+  const records = Array.isArray(recordsIn) ? recordsIn : [];
+  const patients = Array.isArray(patientsIn) ? patientsIn : [];
+
+  const orgId = authUser.org_id;
+  const locId = authUser.location_id;
+  const userId = authUser.user_id;
+
+  // Build sets of IDs (also filters out invalid items).
+  const recIds = [];
+  const recIdSet = new Set();
+  const cleanedRecords = [];
+  for (let i = 0; i < records.length; i++) {
+    const r = records[i];
+    const id = r && r.id ? String(r.id).trim() : "";
+    if (!id) continue;
+    if (!recIdSet.has(id)) {
+      recIdSet.add(id);
+      recIds.push(id);
+    }
+    cleanedRecords.push(r);
+  }
+
+  const patIds = [];
+  const patIdSet = new Set();
+  const cleanedPatients = [];
+  for (let j = 0; j < patients.length; j++) {
+    const p = patients[j];
+    const id2 = p && p.patientId ? String(p.patientId).trim() : "";
+    if (!id2) continue;
+    if (!patIdSet.has(id2)) {
+      patIdSet.add(id2);
+      patIds.push(id2);
+    }
+    cleanedPatients.push(p);
+  }
+
+  // Apply as an authoritative replace (no explicit SQL transaction).
+  // NOTE: Cloudflare may reject BEGIN/COMMIT in some contexts; we keep writes idempotent and safe.
+  let counts = {
+    patients_upserted: 0,
+    records_upserted: 0,
+    patients_deleted: 0,
+    records_deleted: 0,
+  };
+
+  try {
+// Upsert patients
+    const upPatSql = `
+      INSERT INTO poct_patients (
+        org_id, location_id, patient_id, name, phone, age, address,
+        created_at_iso, updated_at_iso, last_seen_iso, conflicts_json, patient_json,
+        created_by, updated_by, updated_at
+      ) VALUES (
+        ?,?,?,?,?,?,?,?,?,?,?,?,?,?, datetime('now')
+      )
+      ON CONFLICT(org_id, location_id, patient_id) DO UPDATE SET
+        name = excluded.name,
+        phone = excluded.phone,
+        age = excluded.age,
+        address = excluded.address,
+        created_at_iso = CASE WHEN poct_patients.created_at_iso = '' THEN excluded.created_at_iso ELSE poct_patients.created_at_iso END,
+        updated_at_iso = excluded.updated_at_iso,
+        last_seen_iso = excluded.last_seen_iso,
+        conflicts_json = excluded.conflicts_json,
+        patient_json = excluded.patient_json,
+        updated_by = excluded.updated_by,
+        updated_at = datetime('now')
+    `;
+    const upPat = env.DB.prepare(upPatSql);
+
+    for (let i = 0; i < cleanedPatients.length; i++) {
+      const cols = poctExtractPatientColumns(cleanedPatients[i]);
+      if (!cols.patient_id) continue;
+      await upPat
+        .bind(
+          orgId,
+          locId,
+          cols.patient_id,
+          cols.name,
+          cols.phone,
+          cols.age,
+          cols.address,
+          cols.created_at_iso,
+          cols.updated_at_iso,
+          cols.last_seen_iso,
+          cols.conflicts_json,
+          cols.patient_json,
+          userId,
+          userId
+        )
+        .run();
+      counts.patients_upserted++;
+    }
+
+    // Upsert records
+    const upRecSql = `
+      INSERT INTO poct_records (
+        org_id, location_id, record_id, test_type, test_label, performed_at_iso, performed_at_local,
+        patient_id, patient_name, patient_phone, patient_age, patient_address,
+        fee_due, notes, intervention,
+        bp_sys, bp_dia, bp_pulse, bp_arm, bp_position,
+        urine_leu, urine_nit, urine_uro, urine_pro, urine_ph, urine_bld, urine_ket, urine_glu, urine_appearance,
+        hba1c_pct, hba1c_mmol,
+        bg_glucose, bg_timing,
+        chol_tc, chol_hdl, chol_ldl, chol_tg, chol_ratio, chol_fasting,
+        bmi_weight, bmi_height, bmi_bmi, bmi_category, bmi_waist,
+        results_json, record_json, updated_at_iso,
+        created_by, updated_by
+      ) VALUES (
+        ?,?,?,?,?,?,?,?,
+        ?,?,?,?,
+        ?,?,?,
+        ?,?,?,?,?,
+        ?,?,?,?,?,?,?,?,?,
+        ?,?,
+        ?,?,
+        ?,?,?,?,?,?,
+        ?,?,?,?,?,
+        ?,?,?,
+        ?,?
+      )
+      ON CONFLICT(org_id, location_id, record_id) DO UPDATE SET
+        test_type=excluded.test_type,
+        test_label=excluded.test_label,
+        performed_at_iso=excluded.performed_at_iso,
+        performed_at_local=excluded.performed_at_local,
+        patient_id=excluded.patient_id,
+        patient_name=excluded.patient_name,
+        patient_phone=excluded.patient_phone,
+        patient_age=excluded.patient_age,
+        patient_address=excluded.patient_address,
+        fee_due=excluded.fee_due,
+        notes=excluded.notes,
+        intervention=excluded.intervention,
+        bp_sys=excluded.bp_sys,
+        bp_dia=excluded.bp_dia,
+        bp_pulse=excluded.bp_pulse,
+        bp_arm=excluded.bp_arm,
+        bp_position=excluded.bp_position,
+        urine_leu=excluded.urine_leu,
+        urine_nit=excluded.urine_nit,
+        urine_uro=excluded.urine_uro,
+        urine_pro=excluded.urine_pro,
+        urine_ph=excluded.urine_ph,
+        urine_bld=excluded.urine_bld,
+        urine_ket=excluded.urine_ket,
+        urine_glu=excluded.urine_glu,
+        urine_appearance=excluded.urine_appearance,
+        hba1c_pct=excluded.hba1c_pct,
+        hba1c_mmol=excluded.hba1c_mmol,
+        bg_glucose=excluded.bg_glucose,
+        bg_timing=excluded.bg_timing,
+        chol_tc=excluded.chol_tc,
+        chol_hdl=excluded.chol_hdl,
+        chol_ldl=excluded.chol_ldl,
+        chol_tg=excluded.chol_tg,
+        chol_ratio=excluded.chol_ratio,
+        chol_fasting=excluded.chol_fasting,
+        bmi_weight=excluded.bmi_weight,
+        bmi_height=excluded.bmi_height,
+        bmi_bmi=excluded.bmi_bmi,
+        bmi_category=excluded.bmi_category,
+        bmi_waist=excluded.bmi_waist,
+        results_json=excluded.results_json,
+        record_json=excluded.record_json,
+        updated_at_iso=excluded.updated_at_iso,
+        updated_by=excluded.updated_by,
+        updated_at=datetime('now')
+    `;
+    const upRec = env.DB.prepare(upRecSql);
+
+    for (let k = 0; k < cleanedRecords.length; k++) {
+      const cols = poctExtractRecordColumns(cleanedRecords[k]);
+      if (!cols.record_id) continue;
+      // performed_at_iso is required in schema; best-effort fallback
+      if (!cols.performed_at_iso) cols.performed_at_iso = nowIso();
+
+      await upRec
+        .bind(
+          orgId,
+          locId,
+          cols.record_id,
+          cols.test_type,
+          cols.test_label,
+          cols.performed_at_iso,
+          cols.performed_at_local,
+
+          cols.patient_id,
+          cols.patient_name,
+          cols.patient_phone,
+          cols.patient_age,
+          cols.patient_address,
+
+          cols.fee_due,
+          cols.notes,
+          cols.intervention,
+
+          cols.bp_sys,
+          cols.bp_dia,
+          cols.bp_pulse,
+          cols.bp_arm,
+          cols.bp_position,
+
+          cols.urine_leu,
+          cols.urine_nit,
+          cols.urine_uro,
+          cols.urine_pro,
+          cols.urine_ph,
+          cols.urine_bld,
+          cols.urine_ket,
+          cols.urine_glu,
+          cols.urine_appearance,
+
+          cols.hba1c_pct,
+          cols.hba1c_mmol,
+
+          cols.bg_glucose,
+          cols.bg_timing,
+
+          cols.chol_tc,
+          cols.chol_hdl,
+          cols.chol_ldl,
+          cols.chol_tg,
+          cols.chol_ratio,
+          cols.chol_fasting,
+
+          cols.bmi_weight,
+          cols.bmi_height,
+          cols.bmi_bmi,
+          cols.bmi_category,
+          cols.bmi_waist,
+
+          cols.results_json,
+          cols.record_json,
+          cols.updated_at_iso,
+
+          userId,
+          userId
+        )
+        .run();
+
+      counts.records_upserted++;
+    }
+
+    // Delete records that no longer exist (authoritative replace)
+    const existingRec = await dbAll(
+      env,
+      `SELECT record_id AS id FROM poct_records WHERE org_id = ? AND location_id = ?`,
+      [orgId, locId]
+    );
+    const toDeleteRec = [];
+    for (let i = 0; i < existingRec.length; i++) {
+      const id = existingRec[i] ? String(existingRec[i].id || "") : "";
+      if (!id) continue;
+      if (!recIdSet.has(id)) toDeleteRec.push(id);
+    }
+    const recChunks = poctChunk(toDeleteRec, 800);
+    for (let c = 0; c < recChunks.length; c++) {
+      const chunk = recChunks[c];
+      if (!chunk.length) continue;
+      const qs = chunk.map(() => "?").join(",");
+      await dbRun(
+        env,
+        `DELETE FROM poct_records WHERE org_id = ? AND location_id = ? AND record_id IN (${qs})`,
+        [orgId, locId, ...chunk]
+      );
+      counts.records_deleted += chunk.length;
+    }
+
+    // Delete patients that no longer exist
+    const existingPat = await dbAll(
+      env,
+      `SELECT patient_id AS id FROM poct_patients WHERE org_id = ? AND location_id = ?`,
+      [orgId, locId]
+    );
+    const toDeletePat = [];
+    for (let j2 = 0; j2 < existingPat.length; j2++) {
+      const id2 = existingPat[j2] ? String(existingPat[j2].id || "") : "";
+      if (!id2) continue;
+      if (!patIdSet.has(id2)) toDeletePat.push(id2);
+    }
+    const patChunks = poctChunk(toDeletePat, 800);
+    for (let d = 0; d < patChunks.length; d++) {
+      const chunk2 = patChunks[d];
+      if (!chunk2.length) continue;
+      const qs2 = chunk2.map(() => "?").join(",");
+      await dbRun(
+        env,
+        `DELETE FROM poct_patients WHERE org_id = ? AND location_id = ? AND patient_id IN (${qs2})`,
+        [orgId, locId, ...chunk2]
+      );
+      counts.patients_deleted += chunk2.length;
+    }
+  } catch (e) {
+    // Best-effort failure response; partial progress is possible but safe (upserts happen before deletes).
+    throw e;
+  }
+
+  return jsonResponse({ ok: true, ...counts }, 200, corsOkHeaders);
+}
+
+
 export default {
   async fetch(request, env, ctx) {
     try {
@@ -4882,7 +5730,16 @@ if (url.pathname.startsWith("/client-orders/entries/") && request.method === "DE
     }
 
 
-    // Daily Register (PATCH: use /daily-register/* not /daily_register/*)
+    
+    // POCT (Point of Care Testing) — cloud state sync
+    if (url.pathname === "/poct/state" && request.method === "GET") {
+      return await handlePoctStateGet(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/poct/state" && request.method === "PUT") {
+      return await handlePoctStatePut(request, env, corsOkHeaders, authUser);
+    }
+
+// Daily Register (PATCH: use /daily-register/* not /daily_register/*)
     if (url.pathname === "/daily-register/entries" && request.method === "GET") {
       return await handleDailyRegisterEntriesList(request, env, corsOkHeaders, authUser, url);
     }
@@ -4907,6 +5764,21 @@ if (url.pathname.startsWith("/client-orders/entries/") && request.method === "DE
     if (url.pathname === "/daily-register/report/html" && request.method === "GET") {
       return await handleDailyRegisterReportHtml(request, env, corsOkHeaders, authUser, url);
     }
+
+// Alerts
+if (url.pathname === "/alerts/entries" && request.method === "GET") {
+  return await handleAlertsEntriesList(request, env, corsOkHeaders, authUser, url);
+}
+if (url.pathname === "/alerts/entries" && request.method === "POST") {
+  return await handleAlertsEntryCreate(request, env, corsOkHeaders, authUser);
+}
+if (url.pathname.startsWith("/alerts/entries/")) {
+  const parts = url.pathname.split("/").filter(Boolean);
+  const id = parseInt(parts[2], 10);
+  if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+  if (request.method === "PUT") return await handleAlertsEntryUpdate(request, env, corsOkHeaders, authUser, id);
+  if (request.method === "DELETE") return await handleAlertsEntryDelete(request, env, corsOkHeaders, authUser, id);
+}
 
     // DDA Sales  <-- ADDED ROUTES
     if (url.pathname === "/dda-sales/entries" && request.method === "GET") {
