@@ -361,6 +361,44 @@ function patientsToMap(arr){
         }
         return null;
       }
+
+      function confirmDeleteRecord(id){
+        var sid = String(id||"");
+        if(!sid) return;
+        var r = getById(sid);
+        var label = (r && r.testLabel) ? String(r.testLabel) : "record";
+        var msg = "Delete this " + label + " record?\n\nThis cannot be undone.";
+        try{
+          if(E && E.modal && typeof E.modal.show === "function"){
+            E.modal.show(
+              "Delete record?",
+              "<div style='white-space:pre-wrap'>" + esc(msg) + "</div>",
+              [
+                { label: "Cancel", onClick: function(){ try{ E.modal.hide(); }catch(e){} } },
+                { label: "Delete", primary: true, onClick: function(){
+                    try{ E.modal.hide(); }catch(e){}
+                    try{
+                      deleteRecordById(sid);
+                      toast("Record deleted", "good");
+                      renderAll();
+                    }catch(e2){
+                      try{ toast("Delete failed", "warn", String(e2 && (e2.message||e2) ? (e2.message||e2) : e2)); }catch(e3){}
+                    }
+                  }
+                }
+              ]
+            );
+            return;
+          }
+        }catch(e){}
+        // Fallback (if modal unavailable). Avoid window.confirm in sandboxed iframes.
+        try{
+          deleteRecordById(sid);
+          toast("Record deleted", "good");
+          renderAll();
+        }catch(e4){}
+      }
+
       function esc(s){
         return String(s === null || s === undefined ? "" : s)
           .replace(/&/g,"&amp;")
@@ -1229,7 +1267,7 @@ wirePatientIdInput(document.getElementById("bp_pid"), document.getElementById("b
           if(rows.length >= 12) break;
         }
         if(rows.length === 0){
-          tbody.innerHTML = "<tr><td colspan='9' class='muted'>No matches.</td></tr>";
+          tbody.innerHTML = "<tr><td colspan='8' class='muted'>No matches.</td></tr>";
           return;
         }
         var html = "";
@@ -1247,6 +1285,7 @@ wirePatientIdInput(document.getElementById("bp_pid"), document.getElementById("b
           html += "<td class='td-actions nowrap'>";
           html += "<button class='btn' data-act='print' data-id='" + esc(r2.id) + "'>🖨️ Print</button>";
           html += "<button class='btn' data-act='goto' data-type='" + esc(r2.testType) + "' data-id='" + esc(r2.id) + "'>✏️ Edit</button>";
+          html += "<button class='btn danger' data-act='del' data-id='" + esc(r2.id) + "'>🗑️ Delete</button>";
           html += "</td>";
           html += "</tr>";
         }
@@ -1279,6 +1318,10 @@ wirePatientIdInput(document.getElementById("bp_pid"), document.getElementById("b
           if(act === "goto" && id){
             var type = btn.getAttribute("data-type");
             jumpToEdit(type, id);
+            return;
+          }
+          if(act === "del" && id){
+            confirmDeleteRecord(id);
             return;
           }
         });
@@ -1639,12 +1682,7 @@ function sparkSvgDual(values1, values2, big){
               if(!id) return;
               var r0 = getById(id);
               var label = (r0 && r0.testLabel) ? r0.testLabel : "record";
-              var ok = window.confirm("Delete this " + label + " record?\n\nThis cannot be undone.");
-              if(!ok) return;
-              deleteRecordById(id);
-              toast("Record deleted", "good");
-              // Refresh everything (patients list + charts + tables)
-              renderAll();
+              confirmDeleteRecord(id);
             });
           }
         }
@@ -2547,16 +2585,7 @@ function renderBP(){
             if(type === "bmi") loadBmIntoForm(id);
             return;
           }
-          if(act === "del"){
-            var r = getById(id);
-            var label = (r && r.testLabel) ? r.testLabel : "record";
-            var ok = window.confirm("Delete this " + label + " record?\n\nThis cannot be undone.");
-            if(!ok) return;
-            deleteRecordById(id);
-            toast("Record deleted", "good");
-            renderAll();
-            return;
-          }
+          if(act === "del"){ confirmDeleteRecord(id); return; }
         });
       }
       bindTableActions("bp_tbody", "bp");
@@ -2593,16 +2622,7 @@ function renderBP(){
           jumpToEdit(t, id);
           return;
         }
-        if(act === "del"){
-          var r = getById(id);
-          var label = (r && r.testLabel) ? r.testLabel : "record";
-          var ok = window.confirm("Delete this " + label + " record?\n\nThis cannot be undone.");
-          if(!ok) return;
-          deleteRecordById(id);
-          toast("Record deleted", "good");
-          renderAll();
-          return;
-        }
+        if(act === "del"){ confirmDeleteRecord(id); return; }
       });
       function bindInputRerender(ids){
         for(var i=0;i<ids.length;i++){
