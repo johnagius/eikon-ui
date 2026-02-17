@@ -357,6 +357,8 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
       ".eikon-dda-actions{display:flex;gap:10px;}" +
       ".eikon-dda-link{color:var(--brand,#3aa0ff);text-decoration:underline;cursor:pointer;font-weight:900;}" +
 
+      ".eikon-dda-action-btn{background:transparent;border:0;padding:0;margin:0;color:var(--brand,#3aa0ff);text-decoration:underline;cursor:pointer;font-weight:900;font-size:12px;}.eikon-dda-action-btn.danger{color:var(--danger,#ff5a7a);}.eikon-dda-action-btn:disabled{opacity:.55;cursor:not-allowed;text-decoration:none;}.eikon-dda-suggestbox{position:absolute;left:0;right:0;top:100%;margin-top:6px;z-index:2147480000;background:rgba(12,19,29,.98);border:1px solid var(--line,rgba(255,255,255,.12));border-radius:12px;max-height:220px;overflow:auto;box-shadow:0 12px 30px rgba(0,0,0,.35);display:none;}.eikon-dda-suggestitem{padding:8px 10px;cursor:pointer;font-size:12px;}.eikon-dda-suggestitem:hover{background:rgba(255,255,255,.06);}.eikon-dda-suggestmeta{opacity:.7;font-size:11px;margin-left:6px;}.eikon-dda-suggestempty{padding:8px 10px;opacity:.7;font-size:12px;}" +
+
       ".eikon-dda-modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.58);display:none;align-items:center;justify-content:center;padding:16px;z-index:9999;}" +
       ".eikon-dda-modal{width:100%;max-width:860px;background:rgba(16,24,36,.98);border-radius:16px;border:1px solid var(--line,rgba(255,255,255,.10));" +
       "box-shadow:0 28px 80px rgba(0,0,0,.55);backdrop-filter:blur(10px);}" +
@@ -491,6 +493,20 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
     var medicineHintEl = null;
     var medicineCurrentSuggestion = "";
 
+    // ✅ PATCH: medicine suggestion dropdown (show on click/focus)
+    var medicineSuggestBox = null;
+    var medicineSuggestHideTimer = null;
+
+    // ✅ PATCH: doctor suggestions + autofill
+    var doctorNameSuggestBox = null;
+    var doctorRegSuggestBox = null;
+    var doctorSuggestHideTimer = null;
+    var doctorLookupTimer = null;
+    var doctorLookupSeq = 0;
+    var doctorSuggestResults = [];
+    var doctorLastMode = "name";
+    var doctorLastQuery = "";
+
     function setMsg(kind, text) {
       if (!msgBox) return;
       msgBox.className = "eikon-dda-msg " + (kind === "ok" ? "ok" : kind === "err" ? "err" : "");
@@ -556,6 +572,184 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
         medicineHintEl.textContent = "";
       }
     }
+
+    // ✅ PATCH: helper to clear a node
+    function clearNode(n) {
+      try { while (n && n.firstChild) n.removeChild(n.firstChild); } catch (e) {}
+    }
+
+    // ✅ PATCH: Medicine suggestions dropdown (show list on focus/click)
+    function getMedicineMatches(q) {
+      var qt = String(q || "").trim().toLowerCase();
+      var out = [];
+      for (var i = 0; i < MEDICINE_NAME_DOSE_SUGGESTIONS.length; i++) {
+        var s = MEDICINE_NAME_DOSE_SUGGESTIONS[i];
+        if (!s) continue;
+        var sl = String(s).toLowerCase();
+        if (!qt) out.push(s);
+        else if (sl.indexOf(qt) === 0) out.push(s);
+        else if (sl.indexOf(qt) >= 0) out.push(s);
+        if (out.length >= 14) break;
+      }
+      return out;
+    }
+
+    function renderMedicineSuggest() {
+      if (!medicineSuggestBox || !formEls || !formEls.medicine_name_dose) return;
+      var doc = medicineSuggestBox.ownerDocument || (ctx ? ctx.doc : document);
+      clearNode(medicineSuggestBox);
+      var q = String(formEls.medicine_name_dose.value || "");
+      var list = getMedicineMatches(q);
+      if (!list.length) {
+        medicineSuggestBox.appendChild(el(doc, "div", { class: "eikon-dda-suggestempty", text: "No suggestions" }, []));
+        return;
+      }
+      for (var i = 0; i < list.length; i++) {
+        (function (val) {
+          var it = el(doc, "div", { class: "eikon-dda-suggestitem", text: val }, []);
+          var pick = function (ev) {
+            try { if (ev) { ev.preventDefault(); ev.stopPropagation(); } } catch (e) {}
+            try { formEls.medicine_name_dose.value = val; } catch (e2) {}
+            medicineCurrentSuggestion = "";
+            updateMedicineHint();
+            hideMedicineSuggest(true);
+            try { if (formEls.doctor_name) formEls.doctor_name.focus(); } catch (e3) {}
+          };
+          it.onmousedown = pick;
+          it.onclick = pick;
+          it.ontouchstart = pick;
+          medicineSuggestBox.appendChild(it);
+        })(list[i]);
+      }
+    }
+
+    function showMedicineSuggest() {
+      if (!medicineSuggestBox) return;
+      if (medicineSuggestHideTimer) { try { ctx.win.clearTimeout(medicineSuggestHideTimer); } catch (e) {} }
+      renderMedicineSuggest();
+      medicineSuggestBox.style.display = "block";
+    }
+
+    function hideMedicineSuggest(immediate) {
+      if (!medicineSuggestBox) return;
+      if (medicineSuggestHideTimer) { try { ctx.win.clearTimeout(medicineSuggestHideTimer); } catch (e) {} }
+      if (immediate) {
+        medicineSuggestBox.style.display = "none";
+        return;
+      }
+      medicineSuggestHideTimer = (ctx && ctx.win ? ctx.win.setTimeout(function () {
+        try { if (medicineSuggestBox) medicineSuggestBox.style.display = "none"; } catch (e) {}
+      }, 160) : null);
+    }
+
+    // ✅ PATCH: Doctor suggestions + autofill (from past DDA sales entries)
+    function renderDoctorSuggest(mode) {
+      var box = mode === "reg" ? doctorRegSuggestBox : doctorNameSuggestBox;
+      if (!box) return;
+      var doc = box.ownerDocument || (ctx ? ctx.doc : document);
+      clearNode(box);
+      var list = doctorSuggestResults || [];
+      if (!list.length) {
+        box.appendChild(el(doc, "div", { class: "eikon-dda-suggestempty", text: "No doctor suggestions yet" }, []));
+        return;
+      }
+      for (var i = 0; i < list.length; i++) {
+        (function (d) {
+          var name = String(d.doctor_name || "");
+          var reg = String(d.doctor_reg_no || "");
+          var count = d.count == null ? "" : String(d.count);
+          var it = el(doc, "div", { class: "eikon-dda-suggestitem" }, []);
+          it.appendChild(el(doc, "span", { text: name + (reg ? " — " + reg : "") }, []));
+          if (count) it.appendChild(el(doc, "span", { class: "eikon-dda-suggestmeta", text: "(" + count + ")" }, []));
+          var pick = function (ev) {
+            try { if (ev) { ev.preventDefault(); ev.stopPropagation(); } } catch (e) {}
+            try { if (formEls && formEls.doctor_name) formEls.doctor_name.value = name; } catch (e2) {}
+            try { if (formEls && formEls.doctor_reg_no) formEls.doctor_reg_no.value = reg; } catch (e3) {}
+            hideDoctorSuggest(true);
+            try { if (formEls && formEls.prescription_serial_no) formEls.prescription_serial_no.focus(); } catch (e4) {}
+          };
+          it.onmousedown = pick;
+          it.onclick = pick;
+          it.ontouchstart = pick;
+          box.appendChild(it);
+        })(list[i]);
+      }
+    }
+
+    function showDoctorSuggest(mode) {
+      var box = mode === "reg" ? doctorRegSuggestBox : doctorNameSuggestBox;
+      if (!box) return;
+      if (doctorSuggestHideTimer) { try { ctx.win.clearTimeout(doctorSuggestHideTimer); } catch (e) {} }
+      box.style.display = "block";
+      renderDoctorSuggest(mode);
+    }
+
+    function hideDoctorSuggest(immediate) {
+      if (doctorSuggestHideTimer) { try { ctx.win.clearTimeout(doctorSuggestHideTimer); } catch (e) {} }
+      var hideFn = function () {
+        try { if (doctorNameSuggestBox) doctorNameSuggestBox.style.display = "none"; } catch (e1) {}
+        try { if (doctorRegSuggestBox) doctorRegSuggestBox.style.display = "none"; } catch (e2) {}
+      };
+      if (immediate) { hideFn(); return; }
+      doctorSuggestHideTimer = (ctx && ctx.win ? ctx.win.setTimeout(hideFn, 160) : null);
+    }
+
+    function scheduleDoctorLookup(mode, q) {
+      if (!ctx) return;
+      if (!formEls) return;
+      doctorLastMode = mode || "name";
+      doctorLastQuery = String(q || "");
+      if (doctorLookupTimer) { try { ctx.win.clearTimeout(doctorLookupTimer); } catch (e) {} }
+      doctorLookupTimer = ctx.win.setTimeout(function () {
+        lookupDoctors(doctorLastMode, doctorLastQuery);
+      }, 260);
+    }
+
+    async function lookupDoctors(mode, q) {
+      if (!ctx) return;
+      var seq = ++doctorLookupSeq;
+      var qq = String(q || "").trim();
+      try {
+        var url = "/dda-sales/doctors?limit=12";
+        if (qq) url += "&q=" + encodeURIComponent(qq);
+        var data = await apiJson(ctx.win, url, { method: "GET" });
+        if (seq !== doctorLookupSeq) return;
+        doctorSuggestResults = (data && data.ok === true && Array.isArray(data.doctors)) ? data.doctors : [];
+      } catch (e) {
+        if (seq !== doctorLookupSeq) return;
+        doctorSuggestResults = [];
+      }
+
+      // Autofill other field when we have exactly one match
+      try {
+        var list = doctorSuggestResults || [];
+        if (list.length === 1) {
+          var d = list[0] || {};
+          var name = String(d.doctor_name || "");
+          var reg = String(d.doctor_reg_no || "");
+          if (mode === "name") {
+            var cur = String(formEls.doctor_name.value || "").trim().toLowerCase();
+            if (cur && name.toLowerCase().indexOf(cur) === 0) {
+              var regCur = String(formEls.doctor_reg_no.value || "").trim();
+              if (!regCur || (reg && reg.toLowerCase().indexOf(regCur.toLowerCase()) === 0)) {
+                formEls.doctor_reg_no.value = reg;
+              }
+            }
+          } else {
+            var curR = String(formEls.doctor_reg_no.value || "").trim().toLowerCase();
+            if (curR && reg.toLowerCase().indexOf(curR) === 0) {
+              var nameCur = String(formEls.doctor_name.value || "").trim();
+              if (!nameCur || (name && name.toLowerCase().indexOf(nameCur.toLowerCase()) === 0)) {
+                formEls.doctor_name.value = name;
+              }
+            }
+          }
+        }
+      } catch (e2) {}
+
+      showDoctorSuggest(mode);
+    }
+
 
     // ✅ PATCH: prefill client name/address from past DDA sales entries by ID card (create mode only)
     function scheduleClientLookup(idCard) {
@@ -641,10 +835,10 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
           } catch (e) {}
           var actionsTd = tr.lastChild;
           var actions = el(ctx.doc, "div", { class: "eikon-dda-actions" }, []);
-          var edit = el(ctx.doc, "span", { class: "eikon-dda-link", text: "Edit" }, []);
-          edit.onclick = function () { openModalForEdit(row); };
-          var del = el(ctx.doc, "span", { class: "eikon-dda-link", text: "Delete" }, []);
-          del.onclick = function () { doDelete(row, false); };
+          var edit = el(ctx.doc, "button", { type: "button", class: "eikon-dda-action-btn", text: "Edit" }, []);
+          edit.onclick = function (ev) { try { if (ev) { ev.preventDefault(); ev.stopPropagation(); } } catch (e) {} openModalForEdit(row); };
+          var del = el(ctx.doc, "button", { type: "button", class: "eikon-dda-action-btn danger", text: "Delete" }, []);
+          del.onclick = function (ev2) { try { if (ev2) { ev2.preventDefault(); ev2.stopPropagation(); } } catch (e2) {} doDelete(row, false); };
           actions.appendChild(edit);
           actions.appendChild(del);
           actionsTd.appendChild(actions);
@@ -993,7 +1187,13 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
       };
 
       // ✅ PATCH: medicine autocomplete events
-      formEls.medicine_name_dose.oninput = function () { updateMedicineHint(); };
+      formEls.medicine_name_dose.oninput = function () {
+        updateMedicineHint();
+        try { if (medicineSuggestBox && medicineSuggestBox.style.display === "block") renderMedicineSuggest(); } catch (e) {}
+      };
+      formEls.medicine_name_dose.onfocus = function () { showMedicineSuggest(); };
+      formEls.medicine_name_dose.onclick = function () { showMedicineSuggest(); };
+      formEls.medicine_name_dose.onblur = function () { hideMedicineSuggest(false); };
       formEls.medicine_name_dose.onkeydown = function (e) {
         if (!e) return;
         if (e.key === "Tab" && !e.shiftKey) {
@@ -1012,6 +1212,19 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
         }
       };
 
+      // ✅ PATCH: doctor autocomplete events (suggest + autofill)
+      formEls.doctor_name.oninput = function () { scheduleDoctorLookup("name", formEls.doctor_name.value); };
+      formEls.doctor_name.onfocus = function () { showDoctorSuggest("name"); scheduleDoctorLookup("name", formEls.doctor_name.value); };
+      formEls.doctor_name.onclick = function () { showDoctorSuggest("name"); scheduleDoctorLookup("name", formEls.doctor_name.value); };
+      formEls.doctor_name.onblur = function () { hideDoctorSuggest(false); };
+      formEls.doctor_name.onkeydown = function (e) { if (e && e.key === "Escape") hideDoctorSuggest(true); };
+
+      formEls.doctor_reg_no.oninput = function () { scheduleDoctorLookup("reg", formEls.doctor_reg_no.value); };
+      formEls.doctor_reg_no.onfocus = function () { showDoctorSuggest("reg"); scheduleDoctorLookup("reg", formEls.doctor_reg_no.value); };
+      formEls.doctor_reg_no.onclick = function () { showDoctorSuggest("reg"); scheduleDoctorLookup("reg", formEls.doctor_reg_no.value); };
+      formEls.doctor_reg_no.onblur = function () { hideDoctorSuggest(false); };
+      formEls.doctor_reg_no.onkeydown = function (e2) { if (e2 && e2.key === "Escape") hideDoctorSuggest(true); };
+
       grid.appendChild(field("Entry Date", formEls.entry_date, false));
       grid.appendChild(field("Quantity", formEls.quantity, false));
       grid.appendChild(field("Client Name", formEls.client_name, true));
@@ -1029,16 +1242,35 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
         medField.appendChild(dl);
       } catch (e) {}
       if (medicineHintEl) medField.appendChild(medicineHintEl);
+      // ✅ PATCH: show medicine suggestions on click/focus (custom dropdown)
+      try {
+        medField.style.position = "relative";
+        medicineSuggestBox = el(doc, "div", { class: "eikon-dda-suggestbox" }, []);
+        medField.appendChild(medicineSuggestBox);
+      } catch (e) {}
       grid.appendChild(medField);
-      grid.appendChild(field("Doctor Name", formEls.doctor_name, false));
-      grid.appendChild(field("Doctor Reg No.", formEls.doctor_reg_no, false));
+      var docNameField = field("Doctor Name", formEls.doctor_name, false);
+      var docRegField = field("Doctor Reg No.", formEls.doctor_reg_no, false);
+      // ✅ PATCH: doctor suggestions dropdowns (from past entries)
+      try {
+        docNameField.style.position = "relative";
+        doctorNameSuggestBox = el(doc, "div", { class: "eikon-dda-suggestbox" }, []);
+        docNameField.appendChild(doctorNameSuggestBox);
+      } catch (e) {}
+      try {
+        docRegField.style.position = "relative";
+        doctorRegSuggestBox = el(doc, "div", { class: "eikon-dda-suggestbox" }, []);
+        docRegField.appendChild(doctorRegSuggestBox);
+      } catch (e2) {}
+      grid.appendChild(docNameField);
+      grid.appendChild(docRegField);
       grid.appendChild(field("Prescription Serial No.", formEls.prescription_serial_no, true));
 
       body.appendChild(grid);
 
       var footerBtns = el(doc, "div", { style: "display:flex;gap:10px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap;" }, []);
-      var deleteBtn = el(doc, "button", { class: "eikon-dda-btn danger", text: "Delete" }, []);
-      var saveBtn = el(doc, "button", { class: "eikon-dda-btn", text: "Save" }, []);
+      var deleteBtn = el(doc, "button", { type: "button", class: "eikon-dda-btn danger", text: "Delete" }, []);
+      var saveBtn = el(doc, "button", { type: "button", class: "eikon-dda-btn", text: "Save" }, []);
       deleteBtn.style.display = "none";
       saveBtn.onclick = function () { doSave(); };
       deleteBtn.onclick = function () { if (!formEls.id) return; doDelete({ id: formEls.id }, true); };
@@ -1079,6 +1311,8 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
       if (medicineHintEl) { medicineHintEl.style.display = "none"; medicineHintEl.textContent = ""; }
       medicineCurrentSuggestion = "";
       updateMedicineHint();
+      try { if (medicineSuggestBox) medicineSuggestBox.style.display = "none"; } catch (e) {}
+      hideDoctorSuggest(true);
       if (modalBackdrop && modalBackdrop._deleteBtn) modalBackdrop._deleteBtn.style.display = "none";
       openModal();
     }
@@ -1100,6 +1334,8 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
       if (medicineHintEl) { medicineHintEl.style.display = "none"; medicineHintEl.textContent = ""; }
       medicineCurrentSuggestion = "";
       updateMedicineHint();
+      try { if (medicineSuggestBox) medicineSuggestBox.style.display = "none"; } catch (e) {}
+      hideDoctorSuggest(true);
       if (modalBackdrop && modalBackdrop._deleteBtn) modalBackdrop._deleteBtn.style.display = "inline-block";
       openModal();
     }
@@ -1179,7 +1415,18 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
 
       setLoading(true);
       try {
-        var data = await apiJson(ctx.win, "/dda-sales/entries/" + encodeURIComponent(String(id)), { method: "DELETE" });
+        var url = "/dda-sales/entries/" + encodeURIComponent(String(id));
+        var data = null;
+        try {
+          data = await apiJson(ctx.win, url, { method: "DELETE" });
+        } catch (eDel) {
+          // Fallback for environments that block DELETE
+          if (eDel && (eDel.status === 404 || eDel.status === 405 || eDel.status === 501)) {
+            data = await apiJson(ctx.win, url + "/delete", { method: "POST" });
+          } else {
+            throw eDel;
+          }
+        }
         if (!data || data.ok !== true) throw new Error(data && data.error ? String(data.error) : "Unexpected response");
         if (fromModal) closeModal();
         setMsg("ok", "Deleted.");
