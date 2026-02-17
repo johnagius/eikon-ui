@@ -47,7 +47,7 @@ function corsHeadersForRequest(request, env) {
       headers: {
         "Access-Control-Allow-Origin": origin,
         "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS,HEAD",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Eikon-Debug",
         "Access-Control-Max-Age": "86400",
         "Vary": "Origin"
       }
@@ -68,7 +68,7 @@ function corsHeadersForRequest(request, env) {
     headers: {
       "Access-Control-Allow-Origin": origin,
       "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS,HEAD",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Eikon-Debug",
       "Access-Control-Max-Age": "86400",
       "Vary": "Origin"
     }
@@ -571,7 +571,12 @@ async function handleTempDevicesUpdate(request, env, corsOkHeaders, authUser, de
      WHERE id = ? AND org_id = ? AND location_id = ?`,
     [deviceId, authUser.org_id, authUser.location_id]
   );
-  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+  if (!existing) {
+    const wantDebug = (request.headers.get("X-Eikon-Debug") || "") === "1";
+    const payload = { ok: false, error: "Not found" };
+    if (wantDebug) payload.debug = { entryId: entryId };
+    return jsonResponse(payload, 404, corsOkHeaders);
+  }
 
   const newName = name !== undefined ? name : existing.name;
   const newType = deviceType !== undefined ? deviceType : existing.device_type;
@@ -598,7 +603,9 @@ async function handleTempDevicesUpdate(request, env, corsOkHeaders, authUser, de
     active: newActive
   });
 
-  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+  const out = { ok: true };
+  if (wantDebug) out.debug = { entryId: entryId, changes: changes };
+  return jsonResponse(out, 200, corsOkHeaders);
 }
 
 async function assertDeviceBelongsActive(env, orgId, locationId, deviceId) {
@@ -734,8 +741,11 @@ async function handleTempEntryDelete(request, env, corsOkHeaders, authUser, entr
     device_id: existing.device_id
   });
 
-  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+    const payload = { ok: true };
+  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  return jsonResponse(payload, 200, corsOkHeaders);
 }
+
 
 async function handleTempReport(request, env, corsOkHeaders, authUser, url) {
   const from = (url.searchParams.get("from") || "").trim();
@@ -1350,8 +1360,11 @@ async function handleClientOrdersEntryDelete(request, env, corsOkHeaders, authUs
 
   await writeAudit(env, authUser.org_id, authUser.user_id, "CLIENT_ORDER_DELETE", "client_orders_entries", String(entryIdNum), {});
 
-  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+    const payload = { ok: true };
+  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  return jsonResponse(payload, 200, corsOkHeaders);
 }
+
 
 /* =========================
    END OF DAY (EOD) MODULE (API)
@@ -1710,8 +1723,11 @@ async function handleEodContactsUpdate(request, env, corsOkHeaders, authUser, co
   await dbRun(env, "UPDATE end_of_day_contacts SET display_name = ?, phone = ?, email = ?, updated_at = datetime('now'), updated_by = ? WHERE id = ? AND org_id = ? AND location_id = ?", [name, phone, email, authUser.user_id, contactId, authUser.org_id, authUser.location_id]);
   await writeAudit(env, authUser.org_id, authUser.user_id, "EOD_CONTACT_UPDATE", "end_of_day_contacts", String(contactId), { display_name: name });
 
-  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+    const payload = { ok: true };
+  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  return jsonResponse(payload, 200, corsOkHeaders);
 }
+
 
 async function handleEodContactsDeactivate(request, env, corsOkHeaders, authUser, contactId) {
   if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
@@ -1723,8 +1739,11 @@ async function handleEodContactsDeactivate(request, env, corsOkHeaders, authUser
   await dbRun(env, "UPDATE end_of_day_contacts SET is_active = 0, updated_at = datetime('now'), updated_by = ? WHERE id = ? AND org_id = ? AND location_id = ?", [authUser.user_id, contactId, authUser.org_id, authUser.location_id]);
   await writeAudit(env, authUser.org_id, authUser.user_id, "EOD_CONTACT_DEACTIVATE", "end_of_day_contacts", String(contactId), { display_name: existing.display_name });
 
-  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+    const payload = { ok: true };
+  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  return jsonResponse(payload, 200, corsOkHeaders);
 }
+
 
 /* =========================
    CLEANING MODULE (API)
@@ -1846,8 +1865,11 @@ async function handleCleaningEntryUpdate(request, env, corsOkHeaders, authUser, 
     staff_name: staffName
   });
 
-  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+    const payload = { ok: true };
+  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  return jsonResponse(payload, 200, corsOkHeaders);
 }
+
 
 async function handleCleaningEntryDelete(request, env, corsOkHeaders, authUser, entryId) {
   if (!requireRole(authUser, ["admin", "staff"])) {
@@ -1872,8 +1894,11 @@ async function handleCleaningEntryDelete(request, env, corsOkHeaders, authUser, 
 
   await writeAudit(env, authUser.org_id, authUser.user_id, "CLEANING_ENTRY_DELETE", "cleaning_entries", String(entryId), {});
 
-  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+    const payload = { ok: true };
+  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  return jsonResponse(payload, 200, corsOkHeaders);
 }
+
 
 async function handleCleaningReport(request, env, corsOkHeaders, authUser, url) {
   const from = (url.searchParams.get("from") || "").trim();
@@ -2117,8 +2142,11 @@ async function handleLocumRegisterEntryUpdate(request, env, corsOkHeaders, authU
     registration_number: regNo
   });
 
-  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+    const payload = { ok: true };
+  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  return jsonResponse(payload, 200, corsOkHeaders);
 }
+
 
 async function handleLocumRegisterEntryDelete(request, env, corsOkHeaders, authUser, entryId) {
   if (!requireRole(authUser, ["admin", "staff"])) {
@@ -2145,8 +2173,11 @@ async function handleLocumRegisterEntryDelete(request, env, corsOkHeaders, authU
 
   await writeAudit(env, authUser.org_id, authUser.user_id, "LOCUM_REGISTER_ENTRY_DELETE", "locum_register_entries", String(entryId), {});
 
-  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+    const payload = { ok: true };
+  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  return jsonResponse(payload, 200, corsOkHeaders);
 }
+
 
 
 /* =========================
@@ -2356,8 +2387,11 @@ async function handleDailyRegisterEntryUpdate(request, env, corsOkHeaders, authU
     medicine_name_dose: medicineNameDose
   });
 
-  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+    const payload = { ok: true };
+  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  return jsonResponse(payload, 200, corsOkHeaders);
 }
+
 
 async function handleDailyRegisterEntryDelete(request, env, corsOkHeaders, authUser, entryId) {
   if (!requireRole(authUser, ["admin", "staff"])) {
@@ -2387,8 +2421,11 @@ async function handleDailyRegisterEntryDelete(request, env, corsOkHeaders, authU
     client_id: existing.client_id
   });
 
-  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+    const payload = { ok: true };
+  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  return jsonResponse(payload, 200, corsOkHeaders);
 }
+
 
 async function handleDailyRegisterReport(request, env, corsOkHeaders, authUser, url) {
   if (!requireRole(authUser, ["admin", "staff"])) {
@@ -2735,8 +2772,11 @@ async function handleRepeatPrescriptionsEntryUpdate(request, env, corsOkHeaders,
     medicine_name_dose: medicineNameDose
   });
 
-  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+    const payload = { ok: true };
+  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  return jsonResponse(payload, 200, corsOkHeaders);
 }
+
 
 async function handleRepeatPrescriptionsEntryDelete(request, env, corsOkHeaders, authUser, entryId) {
   if (!requireRole(authUser, ["admin", "staff"])) {
@@ -2767,8 +2807,11 @@ async function handleRepeatPrescriptionsEntryDelete(request, env, corsOkHeaders,
     client_id: existing.client_id
   });
 
-  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+    const payload = { ok: true };
+  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  return jsonResponse(payload, 200, corsOkHeaders);
 }
+
 
 /* ========================= ALERTS (Recall / Quarantine) ========================= */
 
@@ -2964,8 +3007,11 @@ async function handleAlertsEntryUpdate(request, env, corsOkHeaders, authUser, id
   ]);
 
   await writeAudit(env, authUser.org_id, authUser.user_id, "ALERT_UPDATE", "alerts_entries", String(id), { entry_date, alert_type, status, item_name });
-  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+    const payload = { ok: true };
+  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  return jsonResponse(payload, 200, corsOkHeaders);
 }
+
 
 async function handleAlertsEntryDelete(request, env, corsOkHeaders, authUser, id) {
   if (!requireRole(authUser, ["admin", "staff"])) {
@@ -2983,8 +3029,11 @@ async function handleAlertsEntryDelete(request, env, corsOkHeaders, authUser, id
   await dbRun(env, `DELETE FROM alerts_entries WHERE id = ? AND org_id = ? AND location_id = ?`, [id, authUser.org_id, authUser.location_id]);
   await writeAudit(env, authUser.org_id, authUser.user_id, "ALERT_DELETE", "alerts_entries", String(id), existing);
 
-  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+    const payload = { ok: true };
+  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  return jsonResponse(payload, 200, corsOkHeaders);
 }
+
 
 /* =========================
    DDA SALES MODULE (API)  <-- ADDED
@@ -3006,12 +3055,23 @@ async function ensureDdaSalesSchema(env) {
       doctor_name TEXT NOT NULL,
       doctor_reg_no TEXT NOT NULL,
       prescription_serial_no TEXT NOT NULL,
+      urgent INTEGER NOT NULL DEFAULT 0,
       created_by INTEGER,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     )`,
     []
   );
+
+  const cols = await dbAll(env, "PRAGMA table_info(dda_sales_entries)", []);
+  let hasUrgent = false;
+  for (const c of cols) {
+    if (String(c.name || "") === "urgent") { hasUrgent = true; break; }
+  }
+  if (!hasUrgent) {
+    await dbRun(env, "ALTER TABLE dda_sales_entries ADD COLUMN urgent INTEGER NOT NULL DEFAULT 0", []);
+  }
+  await dbRun(env, "UPDATE dda_sales_entries SET urgent = 0 WHERE urgent IS NULL", []);
 
   await dbRun(
     env,
@@ -3047,6 +3107,51 @@ function normalizeIntPositive(n) {
   return i;
 }
 
+function normalizeBool01(v) {
+  if (v === null || v === undefined) return 0;
+  if (v === true) return 1;
+  if (v === false) return 0;
+  if (v === 1 || v === 0) return v;
+  const s = String(v).trim().toLowerCase();
+  if (!s) return 0;
+  if (s === "1" || s === "true" || s === "yes" || s === "y" || s === "on") return 1;
+  return 0;
+}
+
+// ✅ PATCH: normalize Maltese ID card numbers
+// - always uppercase
+// - if pattern is 1-7 digits + 1 letter => left-pad zeros to 7 digits, keep letter
+//   e.g. 789M => 0000789M
+function normalizeMtIdCard(raw) {
+  const s = String(raw || "").replace(/\s+/g, "").toUpperCase();
+  if (!s) return "";
+  const m = /^(\d{1,7})([A-Z])$/.exec(s);
+  if (m) {
+    let digits = m[1];
+    while (digits.length < 7) digits = "0" + digits;
+    return digits + m[2];
+  }
+  return s;
+}
+
+function mtIdCardLookupKeys(raw) {
+  const key = String(raw || "").replace(/\s+/g, "").toUpperCase();
+  const norm = normalizeMtIdCard(key);
+  const out = [];
+  if (norm) out.push(norm);
+  if (key && !out.includes(key)) out.push(key);
+
+  const m = /^(\d{1,7})([A-Z])$/.exec(key);
+  if (m) {
+    const digits = String(parseInt(m[1], 10)); // strips leading zeros
+    const unpadded = digits + m[2];
+    if (unpadded && !out.includes(unpadded)) out.push(unpadded);
+  }
+  return out;
+}
+
+
+
 async function handleDdaSalesEntriesList(request, env, corsOkHeaders, authUser, url) {
   if (!requireRole(authUser, ["admin", "staff"])) {
     return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
@@ -3074,6 +3179,7 @@ async function handleDdaSalesEntriesList(request, env, corsOkHeaders, authUser, 
       doctor_name,
       doctor_reg_no,
       prescription_serial_no,
+      urgent,
       created_by,
       created_at,
       updated_at
@@ -3105,6 +3211,104 @@ async function handleDdaSalesEntriesList(request, env, corsOkHeaders, authUser, 
   return jsonResponse({ ok: true, entries }, 200, corsOkHeaders);
 }
 
+
+
+async function handleDdaSalesClientLookup(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDdaSalesSchema(env);
+
+  const clientIdCardRaw = String(url.searchParams.get("client_id_card") || "").trim();
+  const clientIdCard = normalizeMtIdCard(clientIdCardRaw);
+  if (!clientIdCard) return jsonResponse({ ok: false, error: "Missing client_id_card" }, 400, corsOkHeaders);
+
+  const keys = mtIdCardLookupKeys(clientIdCardRaw);
+  const placeholders = keys.map(() => "?").join(", ");
+
+  const row = await dbFirst(
+    env,
+    `SELECT client_name, client_address, client_id_card
+     FROM dda_sales_entries
+     WHERE org_id = ?
+       AND location_id = ?
+       AND upper(replace(client_id_card, ' ', '')) IN (${placeholders})
+     ORDER BY entry_date DESC, id DESC
+     LIMIT 1`,
+    [authUser.org_id, authUser.location_id].concat(keys)
+  );
+
+  if (!row) return jsonResponse({ ok: true, found: false, client_id_card: clientIdCard }, 200, corsOkHeaders);
+
+  if (row && row.client_id_card && row.client_id_card !== clientIdCard) {
+    // normalize existing historical records to prevent duplicates going forward
+    await dbRun(
+      env,
+      `UPDATE dda_sales_entries
+       SET client_id_card = ?
+       WHERE org_id = ?
+         AND location_id = ?
+         AND upper(replace(client_id_card, ' ', '')) IN (${placeholders})`,
+      [clientIdCard, authUser.org_id, authUser.location_id].concat(keys)
+    );
+  }
+
+  return jsonResponse(
+    { ok: true, found: true, client_id_card: row.client_id_card, client_name: row.client_name, client_address: row.client_address },
+    200,
+    corsOkHeaders
+  );
+}
+
+async function handleDdaSalesDoctorsLookup(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDdaSalesSchema(env);
+
+  const qRaw = String((url && url.searchParams ? url.searchParams.get("q") : "") || "").trim();
+  const limitRaw = parseInt(String((url && url.searchParams ? url.searchParams.get("limit") : "") || "12"), 10);
+  const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(50, limitRaw)) : 12;
+
+  let sql = `
+    SELECT doctor_name, doctor_reg_no, COUNT(*) AS c, MAX(entry_date) AS last_date
+    FROM dda_sales_entries
+    WHERE org_id = ? AND location_id = ?
+      AND doctor_name IS NOT NULL AND doctor_reg_no IS NOT NULL
+      AND TRIM(doctor_name) <> '' AND TRIM(doctor_reg_no) <> ''
+  `;
+  const bind = [authUser.org_id, authUser.location_id];
+
+  if (qRaw) {
+    const q = "%" + qRaw.toLowerCase() + "%";
+    sql += " AND (LOWER(doctor_name) LIKE ? OR LOWER(doctor_reg_no) LIKE ?) ";
+    bind.push(q, q);
+  }
+
+  sql += `
+    GROUP BY doctor_name, doctor_reg_no
+    ORDER BY c DESC, last_date DESC
+    LIMIT ?
+  `;
+  bind.push(limit);
+
+  const rows = await dbAll(env, sql, bind);
+
+  const out = [];
+  for (const r of rows) {
+    out.push({
+      doctor_name: r.doctor_name || "",
+      doctor_reg_no: r.doctor_reg_no || "",
+      count: r.c == null ? 0 : Number(r.c)
+    });
+  }
+
+  return jsonResponse({ ok: true, doctors: out }, 200, corsOkHeaders);
+}
+
+
 async function handleDdaSalesEntryCreate(request, env, corsOkHeaders, authUser) {
   if (!requireRole(authUser, ["admin", "staff"])) {
     return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
@@ -3117,16 +3321,33 @@ async function handleDdaSalesEntryCreate(request, env, corsOkHeaders, authUser) 
   const entryDate = String(body.entry_date || "").trim();
   const clientName = String(body.client_name || "").trim();
   const clientIdCard = String(body.client_id_card || "").trim();
+  const clientIdCardNorm = normalizeMtIdCard(clientIdCard);
+  const keys = mtIdCardLookupKeys(clientIdCard);
+  const placeholders = keys.map(() => "?").join(", ");
+
+  // normalize existing historical records for this client_id_card to prevent duplicates
+  if (clientIdCardNorm && keys.length) {
+  await dbRun(
+      env,
+      `UPDATE dda_sales_entries
+       SET client_id_card = ?
+       WHERE org_id = ?
+         AND location_id = ?
+         AND upper(replace(client_id_card, ' ', '')) IN (${placeholders})`,
+      [clientIdCardNorm, authUser.org_id, authUser.location_id].concat(keys)
+    );
+    }
   const clientAddress = String(body.client_address || "").trim();
   const medicineNameDose = String(body.medicine_name_dose || "").trim();
   const quantity = normalizeIntPositive(body.quantity);
   const doctorName = String(body.doctor_name || "").trim();
   const doctorRegNo = String(body.doctor_reg_no || "").trim();
   const prescriptionSerialNo = String(body.prescription_serial_no || "").trim();
+  const urgent = normalizeBool01(body.urgent);
 
   if (!isValidYmd(entryDate)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
   if (!clientName) return jsonResponse({ ok: false, error: "Missing client_name" }, 400, corsOkHeaders);
-  if (!clientIdCard) return jsonResponse({ ok: false, error: "Missing client_id_card" }, 400, corsOkHeaders);
+  if (!clientIdCardNorm) return jsonResponse({ ok: false, error: "Missing client_id_card" }, 400, corsOkHeaders);
   if (!clientAddress) return jsonResponse({ ok: false, error: "Missing client_address" }, 400, corsOkHeaders);
   if (!medicineNameDose) return jsonResponse({ ok: false, error: "Missing medicine_name_dose" }, 400, corsOkHeaders);
   if (!quantity || quantity < 1) return jsonResponse({ ok: false, error: "Invalid quantity (must be >= 1)" }, 400, corsOkHeaders);
@@ -3137,31 +3358,33 @@ async function handleDdaSalesEntryCreate(request, env, corsOkHeaders, authUser) 
   const row = await dbFirst(
     env,
     `INSERT INTO dda_sales_entries
-      (org_id, location_id, entry_date, client_name, client_id_card, client_address, medicine_name_dose, quantity, doctor_name, doctor_reg_no, prescription_serial_no, created_by, created_at, updated_at)
+      (org_id, location_id, entry_date, client_name, client_id_card, client_address, medicine_name_dose, quantity, doctor_name, doctor_reg_no, prescription_serial_no, urgent, created_by, created_at, updated_at)
      VALUES
-      (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+      (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
      RETURNING id`,
     [
       authUser.org_id,
       authUser.location_id,
       entryDate,
       clientName,
-      clientIdCard,
+      clientIdCardNorm,
       clientAddress,
       medicineNameDose,
       quantity,
       doctorName,
       doctorRegNo,
       prescriptionSerialNo,
+      urgent,
       authUser.user_id
     ]
   );
 
   await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_SALES_ENTRY_CREATE", "dda_sales_entries", String(row.id), {
     entry_date: entryDate,
-    client_id_card: clientIdCard,
+    client_id_card: clientIdCardNorm,
     prescription_serial_no: prescriptionSerialNo,
-    quantity: quantity
+    quantity: quantity,
+    urgent: urgent
   });
 
   return jsonResponse({ ok: true, entry_id: row.id }, 200, corsOkHeaders);
@@ -3188,16 +3411,33 @@ async function handleDdaSalesEntryUpdate(request, env, corsOkHeaders, authUser, 
   const entryDate = String(body.entry_date || "").trim();
   const clientName = String(body.client_name || "").trim();
   const clientIdCard = String(body.client_id_card || "").trim();
+  const clientIdCardNorm = normalizeMtIdCard(clientIdCard);
+  const keys = mtIdCardLookupKeys(clientIdCard);
+  const placeholders = keys.map(() => "?").join(", ");
+
+  // normalize existing historical records for this client_id_card to prevent duplicates
+  if (clientIdCardNorm && keys.length) {
+  await dbRun(
+      env,
+      `UPDATE dda_sales_entries
+       SET client_id_card = ?
+       WHERE org_id = ?
+         AND location_id = ?
+         AND upper(replace(client_id_card, ' ', '')) IN (${placeholders})`,
+      [clientIdCardNorm, authUser.org_id, authUser.location_id].concat(keys)
+    );
+    }
   const clientAddress = String(body.client_address || "").trim();
   const medicineNameDose = String(body.medicine_name_dose || "").trim();
   const quantity = normalizeIntPositive(body.quantity);
   const doctorName = String(body.doctor_name || "").trim();
   const doctorRegNo = String(body.doctor_reg_no || "").trim();
   const prescriptionSerialNo = String(body.prescription_serial_no || "").trim();
+  const urgent = normalizeBool01(body.urgent);
 
   if (!isValidYmd(entryDate)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
   if (!clientName) return jsonResponse({ ok: false, error: "Missing client_name" }, 400, corsOkHeaders);
-  if (!clientIdCard) return jsonResponse({ ok: false, error: "Missing client_id_card" }, 400, corsOkHeaders);
+  if (!clientIdCardNorm) return jsonResponse({ ok: false, error: "Missing client_id_card" }, 400, corsOkHeaders);
   if (!clientAddress) return jsonResponse({ ok: false, error: "Missing client_address" }, 400, corsOkHeaders);
   if (!medicineNameDose) return jsonResponse({ ok: false, error: "Missing medicine_name_dose" }, 400, corsOkHeaders);
   if (!quantity || quantity < 1) return jsonResponse({ ok: false, error: "Invalid quantity (must be >= 1)" }, 400, corsOkHeaders);
@@ -3205,21 +3445,22 @@ async function handleDdaSalesEntryUpdate(request, env, corsOkHeaders, authUser, 
   if (!doctorRegNo) return jsonResponse({ ok: false, error: "Missing doctor_reg_no" }, 400, corsOkHeaders);
   if (!prescriptionSerialNo) return jsonResponse({ ok: false, error: "Missing prescription_serial_no" }, 400, corsOkHeaders);
 
-  await dbRun(
+  const updRes = await dbRun(
     env,
     `UPDATE dda_sales_entries
-     SET entry_date = ?, client_name = ?, client_id_card = ?, client_address = ?, medicine_name_dose = ?, quantity = ?, doctor_name = ?, doctor_reg_no = ?, prescription_serial_no = ?, updated_at = datetime('now')
+     SET entry_date = ?, client_name = ?, client_id_card = ?, client_address = ?, medicine_name_dose = ?, quantity = ?, doctor_name = ?, doctor_reg_no = ?, prescription_serial_no = ?, urgent = ?, updated_at = datetime('now')
      WHERE id = ? AND org_id = ? AND location_id = ?`,
     [
       entryDate,
       clientName,
-      clientIdCard,
+      clientIdCardNorm,
       clientAddress,
       medicineNameDose,
       quantity,
       doctorName,
       doctorRegNo,
       prescriptionSerialNo,
+      urgent,
       entryId,
       authUser.org_id,
       authUser.location_id
@@ -3228,12 +3469,35 @@ async function handleDdaSalesEntryUpdate(request, env, corsOkHeaders, authUser, 
 
   await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_SALES_ENTRY_UPDATE", "dda_sales_entries", String(entryId), {
     entry_date: entryDate,
-    client_id_card: clientIdCard,
+    client_id_card: clientIdCardNorm,
     prescription_serial_no: prescriptionSerialNo,
-    quantity: quantity
+    quantity: quantity,
+    urgent: urgent
   });
 
-  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+  const changes = updRes && updRes.meta && typeof updRes.meta.changes === "number" ? updRes.meta.changes : null;
+  const wantDebug = (request.headers.get("X-Eikon-Debug") || "") === "1";
+
+  const payload = { ok: true };
+  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  return jsonResponse(payload, 200, corsOkHeaders);
+}
+
+
+async function handleDdaSalesEntryDeleteByBody(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDdaSalesSchema(env);
+
+  let body = null;
+  try { body = await request.json(); } catch (e) { body = null; }
+  const entryId = parseInt(body && body.id, 10);
+  if (!entryId) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+
+  // Reuse the canonical delete handler
+  return await handleDdaSalesEntryDelete(request, env, corsOkHeaders, authUser, entryId);
 }
 
 async function handleDdaSalesEntryDelete(request, env, corsOkHeaders, authUser, entryId) {
@@ -3252,12 +3516,20 @@ async function handleDdaSalesEntryDelete(request, env, corsOkHeaders, authUser, 
   );
   if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
 
-  await dbRun(
+  const delRes = await dbRun(
     env,
     `DELETE FROM dda_sales_entries
      WHERE id = ? AND org_id = ? AND location_id = ?`,
     [entryId, authUser.org_id, authUser.location_id]
   );
+
+  const changes = delRes && delRes.meta && typeof delRes.meta.changes === "number" ? delRes.meta.changes : null;
+  const wantDebug = (request.headers.get("X-Eikon-Debug") || "") === "1";
+  if (changes === 0) {
+    const payload = { ok: false, error: "Delete failed (no rows changed)" };
+    if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+    return jsonResponse(payload, 500, corsOkHeaders);
+  }
 
   await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_SALES_ENTRY_DELETE", "dda_sales_entries", String(entryId), {
     entry_date: existing.entry_date,
@@ -3265,8 +3537,11 @@ async function handleDdaSalesEntryDelete(request, env, corsOkHeaders, authUser, 
     prescription_serial_no: existing.prescription_serial_no
   });
 
-  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+    const payload = { ok: true };
+  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  return jsonResponse(payload, 200, corsOkHeaders);
 }
+
 
 async function handleDdaSalesReport(request, env, corsOkHeaders, authUser, url) {
   if (!requireRole(authUser, ["admin", "staff"])) {
@@ -3297,7 +3572,8 @@ async function handleDdaSalesReport(request, env, corsOkHeaders, authUser, url) 
        quantity,
        doctor_name,
        doctor_reg_no,
-       prescription_serial_no
+       prescription_serial_no,
+       urgent
      FROM dda_sales_entries
      WHERE org_id = ?
        AND location_id = ?
@@ -3351,6 +3627,7 @@ async function handleDdaSalesReportHtml(request, env, corsOkHeaders, authUser, u
       <th>Doctor Name</th>
       <th>Doctor Reg No.</th>
       <th>Prescription Serial No.</th>
+      <th>Urgent</th>
     </tr></thead><tbody>`;
 
     for (const r of list) {
@@ -3364,6 +3641,7 @@ async function handleDdaSalesReportHtml(request, env, corsOkHeaders, authUser, u
         <td>${escapeHtml(r.doctor_name)}</td>
         <td>${escapeHtml(r.doctor_reg_no)}</td>
         <td>${escapeHtml(r.prescription_serial_no)}</td>
+        <td>${(r && (r.urgent === 1 || r.urgent === true)) ? "URGENT" : ""}</td>
       </tr>`;
     }
 
@@ -3605,8 +3883,11 @@ async function handleDdaPoycEntryUpdate(request, env, corsOkHeaders, authUser, e
     quantity: quantity
   });
 
-  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+    const payload = { ok: true };
+  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  return jsonResponse(payload, 200, corsOkHeaders);
 }
+
 
 async function handleDdaPoycEntryDelete(request, env, corsOkHeaders, authUser, entryId) {
   if (!requireRole(authUser, ["admin", "staff"])) {
@@ -3637,8 +3918,11 @@ async function handleDdaPoycEntryDelete(request, env, corsOkHeaders, authUser, e
     prescription_serial_no: existing.prescription_serial_no
   });
 
-  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+    const payload = { ok: true };
+  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  return jsonResponse(payload, 200, corsOkHeaders);
 }
+
 
 async function handleDdaPoycReport(request, env, corsOkHeaders, authUser, url) {
   if (!requireRole(authUser, ["admin", "staff"])) {
@@ -3936,8 +4220,11 @@ async function handleDdaPurchasesEntryUpdate(request, env, corsOkHeaders, authUs
     quantity
   });
 
-  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+    const payload = { ok: true };
+  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  return jsonResponse(payload, 200, corsOkHeaders);
 }
+
 
 async function handleDdaPurchasesEntryDelete(request, env, corsOkHeaders, authUser, entryId) {
   if (!requireRole(authUser, ["admin", "staff"])) {
@@ -3968,8 +4255,11 @@ async function handleDdaPurchasesEntryDelete(request, env, corsOkHeaders, authUs
     invoice_number: existing.invoice_number
   });
 
-  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+    const payload = { ok: true };
+  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  return jsonResponse(payload, 200, corsOkHeaders);
 }
+
 
 async function handleDdaPurchasesReport(request, env, corsOkHeaders, authUser, url) {
   if (!requireRole(authUser, ["admin", "staff"])) {
@@ -4155,8 +4445,11 @@ async function handleDdaStockTakeUpdate(request, env, corsOkHeaders, authUser, s
     await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_STOCKTAKE_REOPEN", "dda_stocktakes", String(stocktakeId), {});
   }
 
-  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+    const payload = { ok: true };
+  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  return jsonResponse(payload, 200, corsOkHeaders);
 }
+
 
 async function handleDdaStockTakeItemAdd(request, env, corsOkHeaders, authUser, stocktakeId) {
   if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
@@ -4214,8 +4507,11 @@ async function handleDdaStockTakeItemUpdate(request, env, corsOkHeaders, authUse
   await dbRun(env, `UPDATE dda_stocktakes SET updated_at = datetime('now') WHERE id = ? AND org_id = ? AND location_id = ?`, [existing.stocktake_id, authUser.org_id, authUser.location_id]);
   await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_STOCKTAKE_ITEM_UPDATE", "dda_stocktake_items", String(itemId), { item_name: name, dosage, qty_tablets: Math.floor(qty) });
 
-  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+    const payload = { ok: true };
+  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  return jsonResponse(payload, 200, corsOkHeaders);
 }
+
 
 async function handleDdaStockTakeItemDelete(request, env, corsOkHeaders, authUser, itemId) {
   if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
@@ -4233,8 +4529,11 @@ async function handleDdaStockTakeItemDelete(request, env, corsOkHeaders, authUse
   await dbRun(env, `UPDATE dda_stocktakes SET updated_at = datetime('now') WHERE id = ? AND org_id = ? AND location_id = ?`, [existing.stocktake_id, authUser.org_id, authUser.location_id]);
   await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_STOCKTAKE_ITEM_DELETE", "dda_stocktake_items", String(itemId), { item_name: existing.item_name });
 
-  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+    const payload = { ok: true };
+  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  return jsonResponse(payload, 200, corsOkHeaders);
 }
+
 
 async function handleDdaStockTakeReportHtml(request, env, corsOkHeaders, authUser, stocktakeId) {
   if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
@@ -4632,8 +4931,11 @@ async function handleCertificatesItemUpdate(request, env, corsOkHeaders, authUse
   });
 
   console.log("[certificates] UPDATE done", { id: existing.id, item_key: existing.item_key });
-  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+    const payload = { ok: true };
+  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  return jsonResponse(payload, 200, corsOkHeaders);
 }
+
 
 async function handleCertificatesUpload(request, env, corsOkHeaders, authUser, idOrKey) {
   console.log("[certificates] UPLOAD start", { idOrKey: String(idOrKey), ct: request.headers.get("Content-Type") || "" });
@@ -4756,8 +5058,11 @@ async function handleCertificatesUpload(request, env, corsOkHeaders, authUser, i
   });
 
   console.log("[certificates] UPLOAD done", { id: existing.id, item_key: existing.item_key });
-  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+    const payload = { ok: true };
+  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  return jsonResponse(payload, 200, corsOkHeaders);
 }
+
 
 /* ===== CERTIFICATES: DOWNLOAD ENDPOINT PATCH ===== */
 
@@ -5781,13 +6086,22 @@ if (url.pathname.startsWith("/alerts/entries/")) {
 }
 
     // DDA Sales  <-- ADDED ROUTES
+    if (url.pathname === "/dda-sales/client" && request.method === "GET") {
+      return await handleDdaSalesClientLookup(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/dda-sales/doctors" && request.method === "GET") {
+      return await handleDdaSalesDoctorsLookup(request, env, corsOkHeaders, authUser, url);
+    }
     if (url.pathname === "/dda-sales/entries" && request.method === "GET") {
       return await handleDdaSalesEntriesList(request, env, corsOkHeaders, authUser, url);
     }
     if (url.pathname === "/dda-sales/entries" && request.method === "POST") {
       return await handleDdaSalesEntryCreate(request, env, corsOkHeaders, authUser);
     }
-    if (url.pathname.startsWith("/dda-sales/entries/") && request.method === "PUT") {
+        if (url.pathname === "/dda-sales/entries/delete" && request.method === "POST") {
+      return await handleDdaSalesEntryDeleteByBody(request, env, corsOkHeaders, authUser);
+    }
+if (url.pathname.startsWith("/dda-sales/entries/") && request.method === "PUT") {
       const parts = url.pathname.split("/").filter(Boolean);
       const id = parseInt(parts[2], 10);
       if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
@@ -5796,6 +6110,15 @@ if (url.pathname.startsWith("/alerts/entries/")) {
     if (url.pathname.startsWith("/dda-sales/entries/") && request.method === "DELETE") {
       const parts = url.pathname.split("/").filter(Boolean);
       const id = parseInt(parts[2], 10);
+      if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+      return await handleDdaSalesEntryDelete(request, env, corsOkHeaders, authUser, id);
+    }
+    // Fallback: some environments may block DELETE; allow POST /dda-sales/entries/:id/delete
+    if (url.pathname.startsWith("/dda-sales/entries/") && request.method === "POST") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const id = parseInt(parts[2], 10);
+      const action = parts[3] || "";
+      if (action !== "delete") return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
       if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
       return await handleDdaSalesEntryDelete(request, env, corsOkHeaders, authUser, id);
     }
