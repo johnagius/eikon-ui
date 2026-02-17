@@ -517,7 +517,94 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
       msgBox.style.display = text ? "block" : "none";
     }
 
-    function setLoading(v) {
+    
+    // ✅ PATCH: In-UI confirm dialog (works inside sandboxed iframes where window.confirm is blocked)
+    // Returns Promise<boolean>
+    var _confirmBackdrop = null;
+    function uiConfirm(message, opts) {
+      opts = opts || {};
+      if (!ctx || !ctx.doc || !ctx.win) return Promise.resolve(true);
+      var doc = ctx.doc;
+
+      // Build once
+      if (!_confirmBackdrop) {
+        var bd = doc.createElement("div");
+        bd.className = "eikon-dda-confirm-backdrop";
+        bd.style.cssText = "position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55);z-index:1100;";
+        var card = doc.createElement("div");
+        card.className = "eikon-dda-confirm-card";
+        card.style.cssText = "width:min(420px,calc(100vw - 32px));background:rgba(12,19,29,.98);border:1px solid rgba(255,255,255,.12);border-radius:14px;box-shadow:0 20px 80px rgba(0,0,0,.55);padding:14px 14px 12px 14px;color:rgba(233,238,247,.92);";
+        var title = doc.createElement("div");
+        title.className = "eikon-dda-confirm-title";
+        title.style.cssText = "font-weight:900;font-size:14px;letter-spacing:.2px;margin-bottom:8px;";
+        title.textContent = "Confirm";
+        var msg = doc.createElement("div");
+        msg.className = "eikon-dda-confirm-message";
+        msg.style.cssText = "font-size:13px;line-height:1.35;color:rgba(233,238,247,.86);white-space:pre-wrap;";
+        var btnRow = doc.createElement("div");
+        btnRow.style.cssText = "display:flex;gap:10px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap;";
+        var cancelBtn = doc.createElement("button");
+        cancelBtn.type = "button";
+        cancelBtn.className = "eikon-dda-btn";
+        cancelBtn.textContent = "Cancel";
+        cancelBtn.style.minWidth = "96px";
+        var okBtn = doc.createElement("button");
+        okBtn.type = "button";
+        okBtn.className = "eikon-dda-btn danger";
+        okBtn.textContent = "OK";
+        okBtn.style.minWidth = "96px";
+
+        btnRow.appendChild(cancelBtn);
+        btnRow.appendChild(okBtn);
+
+        card.appendChild(title);
+        card.appendChild(msg);
+        card.appendChild(btnRow);
+        bd.appendChild(card);
+
+        // Click outside = cancel
+        bd.addEventListener("click", function (ev) {
+          try {
+            if (ev && ev.target === bd) {
+              ev.preventDefault();
+              ev.stopPropagation();
+              cancelBtn.click();
+            }
+          } catch (e) {}
+        });
+
+        doc.body.appendChild(bd);
+        _confirmBackdrop = { bd: bd, title: title, msg: msg, cancelBtn: cancelBtn, okBtn: okBtn };
+      }
+
+      return new Promise(function (resolve) {
+        var bd = _confirmBackdrop.bd;
+        var titleEl = _confirmBackdrop.title;
+        var msgEl = _confirmBackdrop.msg;
+        var cancelBtn = _confirmBackdrop.cancelBtn;
+        var okBtn = _confirmBackdrop.okBtn;
+
+        titleEl.textContent = opts.title ? String(opts.title) : "Confirm";
+        msgEl.textContent = String(message || "");
+        cancelBtn.textContent = opts.cancelText ? String(opts.cancelText) : "Cancel";
+        okBtn.textContent = opts.confirmText ? String(opts.confirmText) : "OK";
+        if (opts.danger === false) okBtn.className = "eikon-dda-btn";
+        else okBtn.className = "eikon-dda-btn danger";
+
+        function cleanup(val) {
+          try { bd.style.display = "none"; } catch (e) {}
+          try { cancelBtn.onclick = null; okBtn.onclick = null; } catch (e2) {}
+          resolve(!!val);
+        }
+
+        cancelBtn.onclick = function (ev) { try { if (ev) { ev.preventDefault(); ev.stopPropagation(); } } catch (e) {} cleanup(false); };
+        okBtn.onclick = function (ev) { try { if (ev) { ev.preventDefault(); ev.stopPropagation(); } } catch (e) {} cleanup(true); };
+
+        try { bd.style.display = "flex"; } catch (e) {}
+      });
+    }
+
+function setLoading(v) {
       state.loading = !!v;
       if (refreshBtn) refreshBtn.disabled = state.loading || state.report_loading;
       if (addBtn) addBtn.disabled = state.loading || state.report_loading;
@@ -1416,12 +1503,15 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
       setMsg("", "");
       var id = row && row.id != null ? Number(row.id) : null;
       if (!id) { setMsg("err", "Invalid entry id."); return; }
-      var ok = false;
-      try { ok = ctx.win.confirm("Delete this DDA Sales entry?"); } catch (e) { ok = true; }
-      if (!ok) return;
+      log("delete clicked", { id: id, fromModal: !!fromModal });
+      // window.confirm() is blocked inside sandboxed iframes (no allow-modals)
+      var ok = await uiConfirm("Delete this DDA Sales entry?", { title: "Delete entry", confirmText: "Delete", cancelText: "Cancel", danger: true });
+      if (!ok) { log("delete cancelled", { id: id }); return; }
 
+      setMsg("info", "Deleting…");
       setLoading(true);
       var attempts = [];
+      log("delete starting", { id: id });
       var data = null;
 
       function summarizeAttempts(list) {
@@ -1444,6 +1534,7 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
         // ask the API to include extra debug info in JSON responses
         try { opts.headers["X-Eikon-Debug"] = "1"; } catch (e0) {}
         try {
+          log("delete request", { name: name, path: path, method: (opts && opts.method) || "GET" });
           var out = await apiJson(ctx.win, path, opts);
           attempts.push({ name: name, ok: true, status: 200, data: out });
           return out;
