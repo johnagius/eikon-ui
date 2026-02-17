@@ -367,6 +367,10 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
       ".eikon-dda-modal-body{padding:14px;}" +
       ".eikon-dda-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}" +
       ".eikon-dda-grid .full{grid-column:1 / -1;}" +
+      ".eikon-dda-checkrow{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line,rgba(255,255,255,.10));border-radius:12px;background:rgba(10,16,24,.64);min-height:42px;}" +
+      ".eikon-dda-field .eikon-dda-checkrow input[type=checkbox]{width:18px;height:18px;margin:0;padding:0;}" +
+      ".eikon-dda-checkrow span{font-size:13px;font-weight:800;color:var(--text,#e9eef7);opacity:.9;}" +
+      ".eikon-dda-urgent-pill{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;border:1px solid rgba(255,77,79,.55);background:rgba(255,77,79,.14);color:var(--text,#e9eef7);font-weight:1000;font-size:11px;letter-spacing:.6px;text-transform:uppercase;}" +
       "@media(max-width:820px){.eikon-dda-grid{grid-template-columns:1fr;}}";
 
     var style = doc.createElement("style");
@@ -897,7 +901,7 @@ function setLoading(v) {
       tableBody.innerHTML = "";
       var list = state.entries || [];
       if (!list.length) {
-        var trEmpty = el(ctx.doc, "tr", {}, [el(ctx.doc, "td", { colspan: "10", html: "No entries for this month." }, [])]);
+        var trEmpty = el(ctx.doc, "tr", {}, [el(ctx.doc, "td", { colspan: "11", html: "No entries for this month." }, [])]);
         tableBody.appendChild(trEmpty);
         return;
       }
@@ -913,6 +917,7 @@ function setLoading(v) {
             el(ctx.doc, "td", { text: String(row.doctor_name || "") }, []),
             el(ctx.doc, "td", { text: String(row.doctor_reg_no || "") }, []),
             el(ctx.doc, "td", { text: String(row.prescription_serial_no || "") }, []),
+            (function(){ var tdel = el(ctx.doc, "td", {}, []); try { if (row && (row.urgent === 1 || row.urgent === true || String(row.urgent || "").toLowerCase() === "true")) { tdel.appendChild(el(ctx.doc, "span", { class: "eikon-dda-urgent-pill", text: "URGENT" }, [])); } } catch (e3) {} return tdel; })(),
             el(ctx.doc, "td", {}, []),
           ]);
           // ✅ PATCH: highlight early supply (<30 days) for same client + medicine
@@ -1023,6 +1028,7 @@ function setLoading(v) {
             el(ctx.doc, "th", { text: "Doctor Name" }, []),
             el(ctx.doc, "th", { text: "Doctor Reg No." }, []),
             el(ctx.doc, "th", { text: "Prescription Serial No." }, []),
+            el(ctx.doc, "th", { text: "Urgent" }, []),
           ])
         );
         table.appendChild(thead);
@@ -1040,6 +1046,7 @@ function setLoading(v) {
               el(ctx.doc, "td", { text: String(r.doctor_name || "") }, []),
               el(ctx.doc, "td", { text: String(r.doctor_reg_no || "") }, []),
               el(ctx.doc, "td", { text: String(r.prescription_serial_no || "") }, []),
+              (function(){ var tdel = el(ctx.doc, "td", {}, []); try { if (r && (r.urgent === 1 || r.urgent === true || String(r.urgent || "").toLowerCase() === "true")) { tdel.appendChild(el(ctx.doc, "span", { class: "eikon-dda-urgent-pill", text: "URGENT" }, [])); } } catch (e4) {} return tdel; })(),
             ]);
           // ✅ PATCH: highlight early supply (<30 days) for same client + medicine
           try {
@@ -1138,7 +1145,7 @@ function setLoading(v) {
           html += "<h2 style='font-size:14px;margin:10px 0 6px 0;'>" + escapeHtml(ym) + "</h2>";
           html += "<table><thead><tr>";
           html +=
-            "<th>Date</th><th>Client Name</th><th>ID Card</th><th>Address</th><th>Medicine Name & Dose</th><th>Qty</th><th>Doctor Name</th><th>Doctor Reg No.</th><th>Prescription Serial No.</th>";
+            "<th>Date</th><th>Client Name</th><th>ID Card</th><th>Address</th><th>Medicine Name & Dose</th><th>Qty</th><th>Doctor Name</th><th>Doctor Reg No.</th><th>Prescription Serial No.</th><th>Urgent</th>";
           html += "</tr></thead><tbody>";
           for (var i = 0; i < list.length; i++) {
             var r = list[i] || {};
@@ -1152,6 +1159,7 @@ function setLoading(v) {
             html += "<td>" + escapeHtml(r.doctor_name || "") + "</td>";
             html += "<td>" + escapeHtml(r.doctor_reg_no || "") + "</td>";
             html += "<td>" + escapeHtml(r.prescription_serial_no || "") + "</td>";
+            html += "<td>" + ((r && (r.urgent === 1 || r.urgent === true || String(r.urgent || "").toLowerCase() === "true")) ? "URGENT" : "") + "</td>";
             html += "</tr>";
           }
           html += "</tbody></table>";
@@ -1245,6 +1253,7 @@ function setLoading(v) {
         doctor_name: el(doc, "input", { type: "text", value: "", placeholder: "Doctor name" }, []),
         doctor_reg_no: el(doc, "input", { type: "text", value: "", placeholder: "Doctor reg no." }, []),
         prescription_serial_no: el(doc, "input", { type: "text", value: "", placeholder: "Prescription serial no." }, []),
+        urgent: el(doc, "input", { type: "checkbox" }, []),
       };
 
       // ✅ PATCH: Medicine hint element (shown under the field)
@@ -1320,6 +1329,10 @@ function setLoading(v) {
 
       grid.appendChild(field("Entry Date", formEls.entry_date, false));
       grid.appendChild(field("Quantity", formEls.quantity, false));
+      var urgentRow = el(doc, "div", { class: "eikon-dda-checkrow" }, []);
+      urgentRow.appendChild(formEls.urgent);
+      urgentRow.appendChild(el(doc, "span", { text: "Yes" }, []));
+      grid.appendChild(field("Urgent", urgentRow, false));
       grid.appendChild(field("Client Name", formEls.client_name, true));
       grid.appendChild(field("Client ID Card", formEls.client_id_card, false));
       grid.appendChild(field("Client Address", formEls.client_address, false));
@@ -1400,6 +1413,7 @@ function setLoading(v) {
       formEls.doctor_name.value = "";
       formEls.doctor_reg_no.value = "";
       formEls.prescription_serial_no.value = "";
+      if (formEls.urgent) formEls.urgent.checked = false;
       clientLookupSeq = 0;
       if (medicineHintEl) { medicineHintEl.style.display = "none"; medicineHintEl.textContent = ""; }
       medicineCurrentSuggestion = "";
@@ -1424,6 +1438,7 @@ function setLoading(v) {
       formEls.doctor_name.value = String(row.doctor_name || "");
       formEls.doctor_reg_no.value = String(row.doctor_reg_no || "");
       formEls.prescription_serial_no.value = String(row.prescription_serial_no || "");
+      if (formEls.urgent) formEls.urgent.checked = !!(row && (row.urgent === 1 || row.urgent === true || String(row.urgent || "").toLowerCase() === "true"));
       if (medicineHintEl) { medicineHintEl.style.display = "none"; medicineHintEl.textContent = ""; }
       medicineCurrentSuggestion = "";
       updateMedicineHint();
@@ -1445,6 +1460,7 @@ function setLoading(v) {
       var doctor_name = String(formEls.doctor_name.value || "").trim();
       var doctor_reg_no = String(formEls.doctor_reg_no.value || "").trim();
       var prescription_serial_no = String(formEls.prescription_serial_no.value || "").trim();
+      var urgent = formEls.urgent && !!formEls.urgent.checked ? 1 : 0;
 
       if (!isYmd(entry_date)) return { ok: false, error: "Invalid entry_date (YYYY-MM-DD)" };
       if (!client_name) return { ok: false, error: "Missing client_name" };
@@ -1468,6 +1484,7 @@ function setLoading(v) {
           doctor_name: doctor_name,
           doctor_reg_no: doctor_reg_no,
           prescription_serial_no: prescription_serial_no,
+          urgent: urgent,
         },
       };
     }
@@ -1731,6 +1748,7 @@ wrap.appendChild(top);
             el(ctx.doc, "th", { text: "Doctor" }, []),
             el(ctx.doc, "th", { text: "Reg No." }, []),
             el(ctx.doc, "th", { text: "Prescription Serial No." }, []),
+            el(ctx.doc, "th", { text: "Urgent" }, []),
             el(ctx.doc, "th", { text: "Actions" }, []),
           ])
         );
