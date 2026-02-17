@@ -4,51 +4,9 @@
   if (!E) return;
 
   // ----------------------------
-  // Small helpers (match style used in other modules)
+  // Small helpers
   // ----------------------------
   function esc(s) { return E.escapeHtml(String(s == null ? "" : s)); }
-  function pad2(n) { var v = String(n); return v.length === 1 ? "0" + v : v; }
-
-  var MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-  function ymLabel(ym) {
-    var v = String(ym || "").trim();
-    if (!/^\d{4}-\d{2}$/.test(v)) return v;
-    var y = v.slice(0, 4);
-    var m = parseInt(v.slice(5, 7), 10);
-    var name = MONTH_NAMES[(m >= 1 && m <= 12) ? (m - 1) : 0];
-    return name + " " + y;
-  }
-
-  function monthOptionsHtml(selectedYm) {
-    var sel = String(selectedYm || "").trim();
-    var now = new Date();
-    var y0 = now.getFullYear();
-    var startY = y0 - 1;
-    var endY = y0 + 1;
-
-    var list = [];
-    var seen = {};
-    for (var y = startY; y <= endY; y++) {
-      for (var m = 1; m <= 12; m++) {
-        var ym = y + "-" + pad2(m);
-        list.push(ym);
-        seen[ym] = true;
-      }
-    }
-
-    // If current selection is outside the 3-year range, include it at top
-    if (sel && !seen[sel] && /^\d{4}-\d{2}$/.test(sel)) {
-      list.unshift(sel);
-    }
-
-    var out = "";
-    for (var i = 0; i < list.length; i++) {
-      var v = list[i];
-      out += '<option value="' + esc(v) + '"' + (v === sel ? " selected" : "") + ">" + esc(ymLabel(v)) + "</option>";
-    }
-    return out;
-  }
-
   function el(tag, attrs, kids) {
     var n = document.createElement(tag);
     attrs = attrs || {};
@@ -75,6 +33,35 @@
     return n;
   }
 
+  function pad2(n) { var v = String(n); return v.length === 1 ? "0" + v : v; }
+  function todayYmd() {
+    var d = new Date();
+    return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
+  }
+  function isYmd(s) { return /^\d{4}-\d{2}-\d{2}$/.test(String(s || "").trim()); }
+  function fmtDmyFromYmd(s) {
+    var v = String(s || "").trim();
+    if (!isYmd(v)) return v;
+    return v.slice(8, 10) + "/" + v.slice(5, 7) + "/" + v.slice(0, 4);
+  }
+
+  function bool01(v) { return v ? 1 : 0; }
+  function asBool(v) { return !!(v === 1 || v === "1" || v === true); }
+
+  function yearRangeNow() {
+    var y = new Date().getFullYear();
+    return { fromY: y - 1, toY: y + 1, label: String(y - 1) + " – " + String(y + 1) };
+  }
+  function inYearRange(entry_date, range) {
+    var s = String(entry_date || "").trim();
+    if (!isYmd(s)) return false;
+    var y = parseInt(s.slice(0, 4), 10);
+    return y >= range.fromY && y <= range.toY;
+  }
+
+  // ----------------------------
+  // Toast styles + toast
+  // ----------------------------
   var toastInstalled = false;
   function ensureToastStyles() {
     if (toastInstalled) return;
@@ -134,9 +121,12 @@
     });
   }
 
-  function openPrintWindow(entries, monthYm) {
+  // ----------------------------
+  // Print (same method as Daily Register)
+  // ----------------------------
+  function openPrintWindow(entries, rangeLabel) {
     var list = Array.isArray(entries) ? entries.slice() : [];
-    var ym = String(monthYm || "").trim();
+    var rLabel = String(rangeLabel || "").trim();
 
     var w = window.open("", "_blank");
     if (!w) {
@@ -213,7 +203,7 @@
       "</style></head><body>" +
       "<button onclick='window.print()'>Print</button>" +
       "<h1 style='margin:0 0 4px 0;font-size:18px;'>Alerts</h1>" +
-      "<div class='meta'>Rows: " + safe(String(list.length)) + "\nMonth: " + safe(ymLabel(ym || "-")) + "\nPrinted: " + safe(new Date().toLocaleString()) + "</div>" +
+      "<div class='meta'>Rows: " + safe(String(list.length)) + "\nYears: " + safe(rLabel || "-") + "\nPrinted: " + safe(new Date().toLocaleString()) + "</div>" +
       "<table><thead><tr>" +
       "<th>Date</th><th>Type</th><th>Status</th><th>Item</th><th>Room/Fridge</th><th>Supplier</th><th>Checklist</th>" +
       "</tr></thead><tbody>" +
@@ -251,38 +241,12 @@
     };
   }
 
-  function ymNow() {
-    var d = new Date();
-    var y = d.getFullYear();
-    var m = String(d.getMonth() + 1).padStart(2, "0");
-    return y + "-" + m;
-  }
-  function todayYmd() {
-    var d = new Date();
-    var y = d.getFullYear();
-    var m = String(d.getMonth() + 1).padStart(2, "0");
-    var day = String(d.getDate()).padStart(2, "0");
-    return y + "-" + m + "-" + day;
-  }
-  function isYmd(s) {
-    return /^\d{4}-\d{2}-\d{2}$/.test(String(s || "").trim());
-  }
-  function fmtDmyFromYmd(s) {
-    var v = String(s || "").trim();
-    if (!isYmd(v)) return v;
-    return v.slice(8, 10) + "/" + v.slice(5, 7) + "/" + v.slice(0, 4);
-  }
-
-  function bool01(v) { return v ? 1 : 0; }
-  function asBool(v) { return !!(v === 1 || v === "1" || v === true); }
-
   // ----------------------------
   // API
   // ----------------------------
-  async function apiList(month) {
-    var m = String(month || "").trim();
-    var q = "/alerts/entries" + (m ? ("?month=" + encodeURIComponent(m)) : "");
-    return await E.apiFetch(q, { method: "GET" });
+  async function apiList() {
+    // No month param: backend returns all rows, then we filter locally to 3 years
+    return await E.apiFetch("/alerts/entries", { method: "GET" });
   }
   async function apiCreate(payload) {
     return await E.apiFetch("/alerts/entries", {
@@ -311,7 +275,6 @@
     var isEdit = !!(entry && entry.id);
     var id = isEdit ? entry.id : null;
 
-    // defaults
     var data = entry || {};
     var entry_date = data.entry_date || todayYmd();
     var alert_type = (data.alert_type || "recall");
@@ -466,26 +429,11 @@
               credit_note_received: bool01(E.q("#al-credit").checked)
             };
 
-            if (!/^\d{4}-\d{2}-\d{2}$/.test(payload.entry_date)) {
-              toast("Invalid", "Date is required.", "warn");
-              return;
-            }
-            if (!payload.item_name) {
-              toast("Invalid", "Item name is required.", "warn");
-              return;
-            }
-            if (payload.alert_type !== "recall" && payload.alert_type !== "quarantine") {
-              toast("Invalid", "Type must be Recall or Quarantine.", "warn");
-              return;
-            }
-            if (payload.status !== "open" && payload.status !== "in_progress" && payload.status !== "closed") {
-              toast("Invalid", "Status is invalid.", "warn");
-              return;
-            }
-            if (payload.storage_location !== "room" && payload.storage_location !== "fridge") {
-              toast("Invalid", "Room/Fridge is required.", "warn");
-              return;
-            }
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(payload.entry_date)) { toast("Invalid", "Date is required.", "warn"); return; }
+            if (!payload.item_name) { toast("Invalid", "Item name is required.", "warn"); return; }
+            if (payload.alert_type !== "recall" && payload.alert_type !== "quarantine") { toast("Invalid", "Type must be Recall or Quarantine.", "warn"); return; }
+            if (payload.status !== "open" && payload.status !== "in_progress" && payload.status !== "closed") { toast("Invalid", "Status is invalid.", "warn"); return; }
+            if (payload.storage_location !== "room" && payload.storage_location !== "fridge") { toast("Invalid", "Room/Fridge is required.", "warn"); return; }
 
             if (isEdit) await apiUpdate(id, payload);
             else await apiCreate(payload);
@@ -504,7 +452,14 @@
   // ----------------------------
   // Render list
   // ----------------------------
-  var state = { month: ymNow(), entries: [], selectedId: null, selectedEntry: null, _checkSaveTimer: null, _checkSaving: false };
+  var state = {
+    entries: [],
+    selectedId: null,
+    selectedEntry: null,
+    _checkSaveTimer: null,
+    _checkSaving: false,
+    range: yearRangeNow()
+  };
 
   function renderTable(tbody, entries, selectedId, onSelect) {
     tbody.innerHTML = "";
@@ -513,7 +468,7 @@
       var td0 = document.createElement("td");
       td0.colSpan = 10;
       td0.className = "eikon-help";
-      td0.textContent = "No alerts for this month.";
+      td0.textContent = "No alerts found in this 3-year range.";
       tr0.appendChild(td0);
       tbody.appendChild(tr0);
       return;
@@ -535,8 +490,7 @@
       }
 
       var typeLabel = (r.alert_type === "quarantine" ? "Quarantine" : "Recall");
-      var statusLabel =
-        (r.status === "in_progress" ? "In progress" : (r.status === "closed" ? "Closed" : "Open"));
+      var statusLabel = (r.status === "in_progress" ? "In progress" : (r.status === "closed" ? "Closed" : "Open"));
 
       tr.appendChild(tdTxt(r.entry_date || ""));
       tr.appendChild(tdTxt(typeLabel));
@@ -552,14 +506,14 @@
       tdA.style.whiteSpace = "nowrap";
 
       var btnEdit = el("button", { class: "eikon-btn", text: "Edit" });
-      btnEdit.addEventListener("click", function (e) { e.stopPropagation();
-        openEditModal(r, function () {
-          refresh().catch(function () {});
-        });
+      btnEdit.addEventListener("click", function (e) {
+        e.stopPropagation();
+        openEditModal(r, function () { doRefresh().catch(function () {}); });
       });
 
       var btnDel = el("button", { class: "eikon-btn danger", text: "Delete" });
-      btnDel.addEventListener("click", async function (e) { e.stopPropagation();
+      btnDel.addEventListener("click", async function (e) {
+        e.stopPropagation();
         var ok = await modalConfirm(
           "Delete alert",
           "Delete this alert?\n\n" + (r.item_name || "") + " (" + (r.entry_date || "") + ")",
@@ -570,9 +524,9 @@
         try {
           await apiDelete(r.id);
           toast("Deleted", "Alert removed.", "good");
-          await refresh();
-        } catch (e) {
-          toast("Delete failed", (e && (e.message || e.bodyText)) ? (e.message || e.bodyText) : "Error", "bad", 4200);
+          await doRefresh();
+        } catch (e2) {
+          toast("Delete failed", (e2 && (e2.message || e2.bodyText)) ? (e2.message || e2.bodyText) : "Error", "bad", 4200);
         }
       });
 
@@ -585,27 +539,37 @@
     });
   }
 
-  async function refresh() {
-    var month = state.month;
-    var r = await apiList(month);
-    var list = (r && r.entries) ? r.entries : [];
+  async function loadAndFilter() {
+    // Always show prev/current/next year based on today's year
+    state.range = yearRangeNow();
+
+    var resp = await apiList();
+    var list = (resp && resp.entries) ? resp.entries : [];
+
+    // filter to 3-year range
+    var filtered = [];
+    for (var i = 0; i < list.length; i++) {
+      if (inYearRange(list[i].entry_date, state.range)) filtered.push(list[i]);
+    }
+
     // sort newest first
-    list.sort(function (a, b) {
+    filtered.sort(function (a, b) {
       var da = String(a.entry_date || "");
       var db = String(b.entry_date || "");
       if (da !== db) return (da < db ? 1 : -1);
       return Number(b.id || 0) - Number(a.id || 0);
     });
-    state.entries = list;
-    return list;
+
+    state.entries = filtered;
+    return filtered;
   }
 
   async function render(ctx) {
     var mount = ctx.mount;
     ensureToastStyles();
 
-    var month = state.month || ymNow();
-    state.month = month;
+    var range = yearRangeNow();
+    state.range = range;
 
     mount.innerHTML =
       '<div class="eikon-card">' +
@@ -613,10 +577,8 @@
           '<span class="eikon-pill" style="font-weight:900;">⚠️ Alerts</span>' +
 
           '<div class="eikon-field" style="min-width:220px;">' +
-            '<div class="eikon-label">Month</div>' +
-            '<select id="al-month" class="eikon-input">' +
-              monthOptionsHtml(month) +
-            "</select>" +
+            '<div class="eikon-label">Years shown</div>' +
+            '<input id="al-years" class="eikon-input" type="text" disabled value="' + esc(range.label) + '">' +
           "</div>" +
 
           '<div class="eikon-field" style="margin-left:auto;">' +
@@ -628,6 +590,7 @@
             "</div>" +
           "</div>" +
         "</div>" +
+
         '<div class="al-checkbar">' +
           '<div class="al-panel" style="width:100%;">' +
             '<div class="al-sel-title">Checklist</div>' +
@@ -677,7 +640,7 @@
         "</div>" +
       "</div>";
 
-    var monthInput = E.q("#al-month", mount);
+    var yearsEl = E.q("#al-years", mount);
     var refreshBtn = E.q("#al-refresh", mount);
     var printBtn = E.q("#al-print", mount);
     var addBtn = E.q("#al-add", mount);
@@ -700,8 +663,8 @@
       state.selectedId = entry && entry.id ? entry.id : null;
 
       var has = !!state.selectedEntry;
+      function setEnabled(x, en) { if (x) x.disabled = !en; }
 
-      function setEnabled(el, en) { if (el) el.disabled = !en; }
       setEnabled(spTeam, has);
       setEnabled(spSupp, has);
       setEnabled(spAuth, has);
@@ -729,7 +692,8 @@
       var r = state.selectedEntry;
       var typeLabel = (r.alert_type === "quarantine" ? "Quarantine" : "Recall");
       var statusLabel = (r.status === "in_progress" ? "In progress" : (r.status === "closed" ? "Closed" : "Open"));
-      if (spMeta) spMeta.textContent = "Selected: " + (r.item_name || "-") + "  |  " + fmtDmyFromYmd(r.entry_date || "") + "  |  " + typeLabel + "  |  " + statusLabel;
+      if (spMeta) spMeta.textContent =
+        "Selected: " + (r.item_name || "-") + "  |  " + fmtDmyFromYmd(r.entry_date || "") + "  |  " + typeLabel + "  |  " + statusLabel;
 
       if (spTeam) spTeam.checked = asBool(r.team_informed);
       if (spSupp) spSupp.checked = asBool(r.supplier_informed);
@@ -791,15 +755,12 @@
 
     function scheduleChecklistSave() {
       if (!state.selectedEntry || !state.selectedId) return;
-
       if (spSaving) spSaving.textContent = "Saving…";
       if (state._checkSaveTimer) {
         try { clearTimeout(state._checkSaveTimer); } catch (e) {}
       }
       state._checkSaveTimer = setTimeout(function () { saveChecklistNow().catch(function () {}); }, 350);
     }
-
-    function onSelectRow(r) { setSelected(r); }
 
     function wireChecklistCheckbox(cb, field) {
       if (!cb) return;
@@ -818,23 +779,24 @@
     wireChecklistCheckbox(spCnote, "collection_note_received");
     wireChecklistCheckbox(spCredit, "credit_note_received");
 
-    if (spEditBtn) {
-      spEditBtn.addEventListener("click", function () {
-        if (!state.selectedEntry) return;
-        openEditModal(state.selectedEntry, function () { doRefresh().catch(function () {}); });
-      });
-    }
-    if (spClearBtn) {
-      spClearBtn.addEventListener("click", function () { setSelected(null); });
-    }
+    if (spEditBtn) spEditBtn.addEventListener("click", function () {
+      if (!state.selectedEntry) return;
+      openEditModal(state.selectedEntry, function () { doRefresh().catch(function () {}); });
+    });
+    if (spClearBtn) spClearBtn.addEventListener("click", function () { setSelected(null); });
 
     async function doRefresh() {
-      state.month = String(monthInput.value || ymNow()).trim();
       refreshBtn.disabled = true;
       refreshBtn.textContent = "Loading...";
       try {
-        var list = await refresh();
-        renderTable(tbody, list, state.selectedId, onSelectRow);
+        var list = await loadAndFilter();
+
+        // update years label in case year rolled over
+        if (yearsEl) yearsEl.value = state.range.label;
+
+        renderTable(tbody, list, state.selectedId, function (r) { setSelected(r); });
+
+        // keep selection if possible
         if (state.selectedId) {
           var found = null;
           for (var i = 0; i < list.length; i++) {
@@ -853,15 +815,12 @@
       }
     }
 
-    monthInput.addEventListener("change", function () { doRefresh().catch(function () {}); });
     refreshBtn.addEventListener("click", function () { doRefresh().catch(function () {}); });
 
-    if (printBtn) {
-      printBtn.addEventListener("click", function () {
-        try { openPrintWindow(state.entries || [], state.month || ""); }
-        catch (e) { toast("Print failed", (e && (e.message || e.bodyText)) ? (e.message || e.bodyText) : "Error", "bad", 4200); }
-      });
-    }
+    if (printBtn) printBtn.addEventListener("click", function () {
+      try { openPrintWindow(state.entries || [], (state.range && state.range.label) ? state.range.label : ""); }
+      catch (e) { toast("Print failed", (e && (e.message || e.bodyText)) ? (e.message || e.bodyText) : "Error", "bad", 4200); }
+    });
 
     addBtn.addEventListener("click", function () {
       openEditModal(null, function () { doRefresh().catch(function () {}); });
