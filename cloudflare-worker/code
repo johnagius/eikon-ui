@@ -2,6 +2,14 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+function isDebugEnabled(request) {
+  try {
+    return (request && request.headers && (request.headers.get("X-Eikon-Debug") || "") === "1");
+  } catch (e) {
+    return false;
+  }
+}
+
 function jsonResponse(data, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(data), {
     status,
@@ -1320,7 +1328,7 @@ async function handleTempDevicesUpdate(request, env, corsOkHeaders, authUser, de
   if (!existing) {
     const wantDebug = (request.headers.get("X-Eikon-Debug") || "") === "1";
     const payload = { ok: false, error: "Not found" };
-    if (wantDebug) payload.debug = { entryId: entryId };
+    if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
     return jsonResponse(payload, 404, corsOkHeaders);
   }
 
@@ -1350,7 +1358,7 @@ async function handleTempDevicesUpdate(request, env, corsOkHeaders, authUser, de
   });
 
   const out = { ok: true };
-  if (wantDebug) out.debug = { entryId: entryId, changes: changes };
+  if (isDebugEnabled(request)) out.debug = { entryId: entryId };
   return jsonResponse(out, 200, corsOkHeaders);
 }
 
@@ -1488,7 +1496,7 @@ async function handleTempEntryDelete(request, env, corsOkHeaders, authUser, entr
   });
 
     const payload = { ok: true };
-  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
   return jsonResponse(payload, 200, corsOkHeaders);
 }
 
@@ -2107,7 +2115,7 @@ async function handleClientOrdersEntryDelete(request, env, corsOkHeaders, authUs
   await writeAudit(env, authUser.org_id, authUser.user_id, "CLIENT_ORDER_DELETE", "client_orders_entries", String(entryIdNum), {});
 
     const payload = { ok: true };
-  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
   return jsonResponse(payload, 200, corsOkHeaders);
 }
 
@@ -2470,7 +2478,7 @@ async function handleEodContactsUpdate(request, env, corsOkHeaders, authUser, co
   await writeAudit(env, authUser.org_id, authUser.user_id, "EOD_CONTACT_UPDATE", "end_of_day_contacts", String(contactId), { display_name: name });
 
     const payload = { ok: true };
-  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
   return jsonResponse(payload, 200, corsOkHeaders);
 }
 
@@ -2486,7 +2494,7 @@ async function handleEodContactsDeactivate(request, env, corsOkHeaders, authUser
   await writeAudit(env, authUser.org_id, authUser.user_id, "EOD_CONTACT_DEACTIVATE", "end_of_day_contacts", String(contactId), { display_name: existing.display_name });
 
     const payload = { ok: true };
-  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
   return jsonResponse(payload, 200, corsOkHeaders);
 }
 
@@ -2612,7 +2620,7 @@ async function handleCleaningEntryUpdate(request, env, corsOkHeaders, authUser, 
   });
 
     const payload = { ok: true };
-  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
   return jsonResponse(payload, 200, corsOkHeaders);
 }
 
@@ -2641,7 +2649,7 @@ async function handleCleaningEntryDelete(request, env, corsOkHeaders, authUser, 
   await writeAudit(env, authUser.org_id, authUser.user_id, "CLEANING_ENTRY_DELETE", "cleaning_entries", String(entryId), {});
 
     const payload = { ok: true };
-  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
   return jsonResponse(payload, 200, corsOkHeaders);
 }
 
@@ -2889,7 +2897,7 @@ async function handleLocumRegisterEntryUpdate(request, env, corsOkHeaders, authU
   });
 
     const payload = { ok: true };
-  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
   return jsonResponse(payload, 200, corsOkHeaders);
 }
 
@@ -2920,7 +2928,7 @@ async function handleLocumRegisterEntryDelete(request, env, corsOkHeaders, authU
   await writeAudit(env, authUser.org_id, authUser.user_id, "LOCUM_REGISTER_ENTRY_DELETE", "locum_register_entries", String(entryId), {});
 
     const payload = { ok: true };
-  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
   return jsonResponse(payload, 200, corsOkHeaders);
 }
 
@@ -3134,7 +3142,7 @@ async function handleDailyRegisterEntryUpdate(request, env, corsOkHeaders, authU
   });
 
     const payload = { ok: true };
-  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
   return jsonResponse(payload, 200, corsOkHeaders);
 }
 
@@ -3168,7 +3176,7 @@ async function handleDailyRegisterEntryDelete(request, env, corsOkHeaders, authU
   });
 
     const payload = { ok: true };
-  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
   return jsonResponse(payload, 200, corsOkHeaders);
 }
 
@@ -3519,7 +3527,7 @@ async function handleRepeatPrescriptionsEntryUpdate(request, env, corsOkHeaders,
   });
 
     const payload = { ok: true };
-  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
   return jsonResponse(payload, 200, corsOkHeaders);
 }
 
@@ -3554,7 +3562,7 @@ async function handleRepeatPrescriptionsEntryDelete(request, env, corsOkHeaders,
   });
 
     const payload = { ok: true };
-  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
   return jsonResponse(payload, 200, corsOkHeaders);
 }
 
@@ -3754,7 +3762,7 @@ async function handleAlertsEntryUpdate(request, env, corsOkHeaders, authUser, id
 
   await writeAudit(env, authUser.org_id, authUser.user_id, "ALERT_UPDATE", "alerts_entries", String(id), { entry_date, alert_type, status, item_name });
     const payload = { ok: true };
-  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
   return jsonResponse(payload, 200, corsOkHeaders);
 }
 
@@ -3776,7 +3784,7 @@ async function handleAlertsEntryDelete(request, env, corsOkHeaders, authUser, id
   await writeAudit(env, authUser.org_id, authUser.user_id, "ALERT_DELETE", "alerts_entries", String(id), existing);
 
     const payload = { ok: true };
-  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
   return jsonResponse(payload, 200, corsOkHeaders);
 }
 
@@ -4225,7 +4233,7 @@ async function handleDdaSalesEntryUpdate(request, env, corsOkHeaders, authUser, 
   const wantDebug = (request.headers.get("X-Eikon-Debug") || "") === "1";
 
   const payload = { ok: true };
-  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
   return jsonResponse(payload, 200, corsOkHeaders);
 }
 
@@ -4273,7 +4281,7 @@ async function handleDdaSalesEntryDelete(request, env, corsOkHeaders, authUser, 
   const wantDebug = (request.headers.get("X-Eikon-Debug") || "") === "1";
   if (changes === 0) {
     const payload = { ok: false, error: "Delete failed (no rows changed)" };
-    if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+    if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
     return jsonResponse(payload, 500, corsOkHeaders);
   }
 
@@ -4284,7 +4292,7 @@ async function handleDdaSalesEntryDelete(request, env, corsOkHeaders, authUser, 
   });
 
     const payload = { ok: true };
-  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
   return jsonResponse(payload, 200, corsOkHeaders);
 }
 
@@ -4630,7 +4638,7 @@ async function handleDdaPoycEntryUpdate(request, env, corsOkHeaders, authUser, e
   });
 
     const payload = { ok: true };
-  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
   return jsonResponse(payload, 200, corsOkHeaders);
 }
 
@@ -4665,7 +4673,7 @@ async function handleDdaPoycEntryDelete(request, env, corsOkHeaders, authUser, e
   });
 
     const payload = { ok: true };
-  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
   return jsonResponse(payload, 200, corsOkHeaders);
 }
 
@@ -4967,7 +4975,7 @@ async function handleDdaPurchasesEntryUpdate(request, env, corsOkHeaders, authUs
   });
 
     const payload = { ok: true };
-  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
   return jsonResponse(payload, 200, corsOkHeaders);
 }
 
@@ -5002,7 +5010,7 @@ async function handleDdaPurchasesEntryDelete(request, env, corsOkHeaders, authUs
   });
 
     const payload = { ok: true };
-  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
   return jsonResponse(payload, 200, corsOkHeaders);
 }
 
@@ -5192,7 +5200,7 @@ async function handleDdaStockTakeUpdate(request, env, corsOkHeaders, authUser, s
   }
 
     const payload = { ok: true };
-  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
   return jsonResponse(payload, 200, corsOkHeaders);
 }
 
@@ -5254,7 +5262,7 @@ async function handleDdaStockTakeItemUpdate(request, env, corsOkHeaders, authUse
   await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_STOCKTAKE_ITEM_UPDATE", "dda_stocktake_items", String(itemId), { item_name: name, dosage, qty_tablets: Math.floor(qty) });
 
     const payload = { ok: true };
-  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
   return jsonResponse(payload, 200, corsOkHeaders);
 }
 
@@ -5276,7 +5284,7 @@ async function handleDdaStockTakeItemDelete(request, env, corsOkHeaders, authUse
   await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_STOCKTAKE_ITEM_DELETE", "dda_stocktake_items", String(itemId), { item_name: existing.item_name });
 
     const payload = { ok: true };
-  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
   return jsonResponse(payload, 200, corsOkHeaders);
 }
 
@@ -5678,7 +5686,7 @@ async function handleCertificatesItemUpdate(request, env, corsOkHeaders, authUse
 
   console.log("[certificates] UPDATE done", { id: existing.id, item_key: existing.item_key });
     const payload = { ok: true };
-  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
   return jsonResponse(payload, 200, corsOkHeaders);
 }
 
@@ -5805,7 +5813,7 @@ async function handleCertificatesUpload(request, env, corsOkHeaders, authUser, i
 
   console.log("[certificates] UPLOAD done", { id: existing.id, item_key: existing.item_key });
     const payload = { ok: true };
-  if (wantDebug) payload.debug = { entryId: entryId, changes: changes };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
   return jsonResponse(payload, 200, corsOkHeaders);
 }
 
@@ -6182,8 +6190,7 @@ function poctExtractRecordColumns(rec) {
 
     results_json: poctJsonString(res, {}),
     record_json: poctJsonString(r, {}),
-    updated_at_iso: poctText(r.updatedAtIso, 60) || nowIso(),
-  };
+    updated_at_iso: poctText(r.updatedAtIso, 60) || nowIso() };
 
   // Map typed result fields (best-effort; record_json remains source-of-truth).
   if (testType === "bp") {
@@ -6240,8 +6247,7 @@ function poctExtractPatientColumns(pat) {
     updated_at_iso: poctText(p.updatedAtIso, 60) || nowIso(),
     last_seen_iso: poctText(p.lastSeenIso, 60),
     conflicts_json: poctJsonString(conflicts, []),
-    patient_json: poctJsonString(p, {}),
-  };
+    patient_json: poctJsonString(p, {}) };
 }
 
 function poctChunk(arr, size) {
@@ -6355,8 +6361,7 @@ async function handlePoctStatePut(request, env, corsOkHeaders, authUser) {
     patients_upserted: 0,
     records_upserted: 0,
     patients_deleted: 0,
-    records_deleted: 0,
-  };
+    records_deleted: 0 };
 
   try {
 // Upsert patients
