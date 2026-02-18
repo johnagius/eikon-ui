@@ -196,7 +196,7 @@
     } catch (e) {}
     var css =
       "" +
-      ".eikon-dda-wrap{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;width:100%;margin:0;padding:16px;box-sizing:border-box;}.eikon-dda-layout{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:12px;align-items:start;}@media(max-width:980px){.eikon-dda-layout{grid-template-columns:1fr;}}.eikon-dda-main{min-width:0;}.eikon-dda-side{min-width:0;}.eikon-dda-controls.vertical{flex-direction:column;align-items:stretch;}.eikon-dda-controls.vertical .eikon-dda-btn{width:100%;}.eikon-dda-report-layout{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:12px;align-items:start;}@media(max-width:980px){.eikon-dda-report-layout{grid-template-columns:1fr;}}" +
+      ".eikon-dda-wrap{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;width:100%;margin:0;padding:16px;box-sizing:border-box;}.eikon-dda-layout{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:12px;align-items:start;}.eikon-dda-span-all{grid-column:1 / -1;}@media(max-width:980px){.eikon-dda-layout{grid-template-columns:1fr;}}.eikon-dda-main{min-width:0;}.eikon-dda-side{min-width:0;}.eikon-dda-controls.vertical{flex-direction:column;align-items:stretch;}.eikon-dda-controls.vertical .eikon-dda-btn{width:100%;}.eikon-dda-report-layout{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:12px;align-items:start;}@media(max-width:980px){.eikon-dda-report-layout{grid-template-columns:1fr;}}" +
       ".eikon-dda-top{display:flex;flex-wrap:wrap;gap:10px;align-items:end;justify-content:space-between;margin-bottom:12px;}" +
       ".eikon-dda-title{font-size:18px;font-weight:900;margin:0;display:flex;align-items:center;gap:10px;color:var(--text,#e9eef7);}" +
       ".eikon-dda-title .icon{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;color:var(--text,#e9eef7);opacity:.95;}" +
@@ -947,7 +947,6 @@
       }, 220);
     }
 
-    
     function renderInto(container) {
       ctx = resolveRenderContext(container);
       if (!ctx || !ctx.doc || !ctx.mount) throw new Error("Invalid render root");
@@ -961,21 +960,22 @@
 
       var wrap = el(ctx.doc, "div", { class: "eikon-dda-wrap" }, []);
 
-      // 2-column page layout: content on the left, month/search/new-entry on the right
+      // Page grid: left content + right controls on the first row,
+      // and full-width cards for the table/report.
       var layout = el(ctx.doc, "div", { class: "eikon-dda-layout" }, []);
-      var mainCol = el(ctx.doc, "div", { class: "eikon-dda-main" }, []);
-      var sideCol = el(ctx.doc, "div", { class: "eikon-dda-side" }, []);
 
-      // Title (main column)
+      // Title (row 1, left)
+      var titleWrap = el(ctx.doc, "div", { class: "eikon-dda-main" }, []);
       var title = el(ctx.doc, "h2", { class: "eikon-dda-title", style: "margin:0 0 10px 0;" }, []);
       title.appendChild(el(ctx.doc, "span", { class: "icon", html: ICON_SVG }, []));
       title.appendChild(el(ctx.doc, "span", { text: "DDA POYC" }, []));
-      mainCol.appendChild(title);
+      titleWrap.appendChild(title);
 
       msgBox = el(ctx.doc, "div", { class: "eikon-dda-msg", style: "display:none;" }, []);
-      mainCol.appendChild(msgBox);
+      titleWrap.appendChild(msgBox);
 
-      // Sidebar controls (Month / Search / New Entry)
+      // Sidebar controls (row 1, right)
+      var sideCol = el(ctx.doc, "div", { class: "eikon-dda-side" }, []);
       var sideCard = el(ctx.doc, "div", { class: "eikon-dda-card" }, []);
       var sideControls = el(ctx.doc, "div", { class: "eikon-dda-controls vertical" }, []);
 
@@ -1021,8 +1021,11 @@
       sideCard.appendChild(sideControls);
       sideCol.appendChild(sideCard);
 
-      // Entries card (main column)
-      var cardEntries = el(ctx.doc, "div", { class: "eikon-dda-card" }, []);
+      layout.appendChild(titleWrap);
+      layout.appendChild(sideCol);
+
+      // Entries card (row 2, spans both columns)
+      var cardEntries = el(ctx.doc, "div", { class: "eikon-dda-card eikon-dda-span-all" }, []);
       var headEntries = el(ctx.doc, "div", { class: "eikon-dda-card-head" }, []);
       headEntries.appendChild(el(ctx.doc, "h3", { text: "Entries" }, []));
       cardEntries.appendChild(headEntries);
@@ -1049,10 +1052,10 @@
       table.appendChild(tableBody);
       tableWrap.appendChild(table);
       cardEntries.appendChild(tableWrap);
-      mainCol.appendChild(cardEntries);
+      layout.appendChild(cardEntries);
 
-      // Report card (main column) with right-side controls
-      var cardReport = el(ctx.doc, "div", { class: "eikon-dda-card", style: "margin-top:12px;" }, []);
+      // Report card (row 3, spans both columns)
+      var cardReport = el(ctx.doc, "div", { class: "eikon-dda-card eikon-dda-span-all" }, []);
       var headReport = el(ctx.doc, "div", { class: "eikon-dda-card-head" }, []);
       headReport.appendChild(el(ctx.doc, "h3", { text: "Report" }, []));
       cardReport.appendChild(headReport);
@@ -1103,12 +1106,9 @@
       reportLayout.appendChild(reportLeft);
       reportLayout.appendChild(reportRight);
       cardReport.appendChild(reportLayout);
-      mainCol.appendChild(cardReport);
+      layout.appendChild(cardReport);
 
-      layout.appendChild(mainCol);
-      layout.appendChild(sideCol);
       wrap.appendChild(layout);
-
       ctx.mount.appendChild(wrap);
 
       // defaults + initial load
