@@ -195,48 +195,7 @@
       if (doc.getElementById(id)) return;
     } catch (e) {}
     var css =
-      "" +
-      ".eikon-dda-wrap{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:1100px;margin:0 auto;padding:16px;}" +
-      ".eikon-dda-top{display:flex;flex-wrap:wrap;gap:10px;align-items:end;justify-content:space-between;margin-bottom:12px;}" +
-      ".eikon-dda-title{font-size:18px;font-weight:900;margin:0;display:flex;align-items:center;gap:10px;color:var(--text,#e9eef7);}" +
-      ".eikon-dda-title .icon{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;color:var(--text,#e9eef7);opacity:.95;}" +
-      ".eikon-dda-controls{display:flex;flex-wrap:wrap;gap:10px;align-items:end;}" +
-      ".eikon-dda-field{display:flex;flex-direction:column;gap:4px;}" +
-      ".eikon-dda-field label{font-size:12px;font-weight:800;color:var(--muted,rgba(233,238,247,.68));letter-spacing:.2px;}" +
-      ".eikon-dda-field input,.eikon-dda-field textarea{padding:10px 12px;border:1px solid var(--line,rgba(255,255,255,.10));border-radius:12px;font-size:14px;background:rgba(10,16,24,.64);color:var(--text,#e9eef7);outline:none;transition:border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;}" +
-      ".eikon-dda-field input:hover,.eikon-dda-field textarea:hover{border-color:rgba(255,255,255,.18);}" +
-      ".eikon-dda-field input:focus,.eikon-dda-field textarea:focus{border-color:rgba(58,160,255,.55);box-shadow:0 0 0 3px rgba(58,160,255,.22);background:rgba(10,16,24,.74);}" +
-      ".eikon-dda-field textarea{min-height:64px;resize:vertical;}" +
-      ".eikon-dda-btn{padding:10px 12px;border:1px solid var(--line,rgba(255,255,255,.10));border-radius:12px;background:rgba(20,32,48,.62);color:var(--text,#e9eef7);font-weight:900;cursor:pointer;box-shadow:0 10px 24px rgba(0,0,0,.14);transition:transform 120ms ease, border-color 120ms ease, background 120ms ease;}" +
-      ".eikon-dda-btn:hover{border-color:rgba(58,160,255,.35);background:rgba(24,38,56,.70);}" +
-      ".eikon-dda-btn:active{transform:translateY(1px);}" +
-      ".eikon-dda-btn:disabled{opacity:.55;cursor:not-allowed;box-shadow:none;}" +
-      ".eikon-dda-btn.secondary{background:rgba(16,24,36,.34);}" +
-      ".eikon-dda-btn.secondary:hover{border-color:rgba(255,255,255,.18);background:rgba(16,24,36,.44);}" +
-      ".eikon-dda-btn.danger{background:rgba(255,77,79,.12);border-color:rgba(255,77,79,.42);}" +
-      ".eikon-dda-btn.danger:hover{background:rgba(255,77,79,.16);border-color:rgba(255,77,79,.60);}" +
-      ".eikon-dda-card{border:1px solid var(--line,rgba(255,255,255,.10));border-radius:16px;padding:12px;background:var(--panel,rgba(16,24,36,.66));box-shadow:0 18px 50px rgba(0,0,0,.38);backdrop-filter:blur(10px);}" +
-      ".eikon-dda-card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;}" +
-      ".eikon-dda-card-head h3{margin:0;font-size:15px;font-weight:1000;color:var(--text,#e9eef7);}" +
-      ".eikon-dda-msg{margin:10px 0;padding:10px 12px;border-radius:14px;border:1px solid var(--line,rgba(255,255,255,.10));background:rgba(16,24,36,.52);color:var(--text,#e9eef7);white-space:pre-line;}" +
-      ".eikon-dda-msg.ok{border-color:rgba(55,214,122,.35);}" +
-      ".eikon-dda-msg.err{border-color:rgba(255,77,79,.35);}" +
-      ".eikon-dda-hint{font-size:12px;color:var(--muted,rgba(233,238,247,.68));margin-top:6px;}" +
-      ".eikon-dda-table-wrap{overflow:auto;border:1px solid var(--line,rgba(255,255,255,.10));border-radius:14px;background:rgba(10,16,24,.18);}" +
-      ".eikon-dda-table{width:100%;border-collapse:collapse;min-width:980px;color:var(--text,#e9eef7);}" +
-      ".eikon-dda-table th,.eikon-dda-table td{border-bottom:1px solid var(--line,rgba(255,255,255,.10));padding:10px 10px;font-size:12px;vertical-align:top;}" +
-      ".eikon-dda-table th{background:rgba(12,19,29,.92);text-align:left;font-weight:900;position:sticky;top:0;z-index:1;color:var(--muted,rgba(233,238,247,.68));text-transform:uppercase;letter-spacing:.8px;}" +
-      ".eikon-dda-table tbody tr:hover{background:rgba(255,255,255,.04);}" +
-      ".eikon-dda-actions{display:flex;gap:10px;}" +
-      ".eikon-dda-link{color:var(--brand,#3aa0ff);text-decoration:underline;cursor:pointer;font-weight:900;}" +
-      ".eikon-dda-modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.58);display:none;align-items:center;justify-content:center;padding:16px;z-index:9999;}" +
-      ".eikon-dda-modal{width:100%;max-width:860px;background:rgba(16,24,36,.98);border-radius:16px;border:1px solid var(--line,rgba(255,255,255,.10));box-shadow:0 28px 80px rgba(0,0,0,.55);backdrop-filter:blur(10px);}" +
-      ".eikon-dda-modal-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--line,rgba(255,255,255,.10));}" +
-      ".eikon-dda-modal-head h3{margin:0;font-size:15px;font-weight:1000;color:var(--text,#e9eef7);}" +
-      ".eikon-dda-modal-body{padding:14px;}" +
-      ".eikon-dda-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}" +
-      ".eikon-dda-grid .full{grid-column:1 / -1;}" +
-      "@media(max-width:820px){.eikon-dda-grid{grid-template-columns:1fr;}}";
+      .eikon-dda-wrap{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;width:100%;margin:0;padding:16px;box-sizing:border-box;}.eikon-dda-layout{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:12px;align-items:start;}@media(max-width:980px){.eikon-dda-layout{grid-template-columns:1fr;}}.eikon-dda-main{min-width:0;}.eikon-dda-side{min-width:0;}.eikon-dda-top{display:flex;flex-wrap:wrap;gap:10px;align-items:end;justify-content:space-between;margin-bottom:12px;}.eikon-dda-title{font-size:18px;font-weight:900;margin:0;display:flex;align-items:center;gap:10px;color:var(--text,#e9eef7);}.eikon-dda-title .icon{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;color:var(--text,#e9eef7);opacity:.95;}.eikon-dda-controls{display:flex;flex-wrap:wrap;gap:10px;align-items:end;}.eikon-dda-controls.vertical{flex-direction:column;align-items:stretch;}.eikon-dda-controls.vertical .eikon-dda-btn{width:100%;}.eikon-dda-field{display:flex;flex-direction:column;gap:4px;}.eikon-dda-field label{font-size:12px;font-weight:800;color:var(--muted,rgba(233,238,247,.68));letter-spacing:.2px;}.eikon-dda-field input,.eikon-dda-field textarea{padding:10px 12px;border:1px solid var(--line,rgba(255,255,255,.10));border-radius:12px;font-size:14px;background:rgba(10,16,24,.64);color:var(--text,#e9eef7);outline:none;transition:border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;}.eikon-dda-field input:hover,.eikon-dda-field textarea:hover{border-color:rgba(255,255,255,.18);}.eikon-dda-field input:focus,.eikon-dda-field textarea:focus{border-color:rgba(58,160,255,.55);box-shadow:0 0 0 3px rgba(58,160,255,.22);background:rgba(10,16,24,.74);}.eikon-dda-field textarea{min-height:64px;resize:vertical;}.eikon-dda-btn{padding:10px 12px;border:1px solid var(--line,rgba(255,255,255,.10));border-radius:12px;background:rgba(20,32,48,.62);color:var(--text,#e9eef7);font-weight:900;cursor:pointer;box-shadow:0 10px 24px rgba(0,0,0,.14);transition:transform 120ms ease, border-color 120ms ease, background 120ms ease;}.eikon-dda-btn:hover{border-color:rgba(58,160,255,.35);background:rgba(24,38,56,.70);}.eikon-dda-btn:active{transform:translateY(1px);}.eikon-dda-btn:disabled{opacity:.55;cursor:not-allowed;box-shadow:none;}.eikon-dda-btn.secondary{background:rgba(16,24,36,.34);}.eikon-dda-btn.secondary:hover{border-color:rgba(255,255,255,.18);background:rgba(16,24,36,.44);}.eikon-dda-btn.danger{background:rgba(255,77,79,.12);border-color:rgba(255,77,79,.42);}.eikon-dda-btn.danger:hover{background:rgba(255,77,79,.16);border-color:rgba(255,77,79,.60);}.eikon-dda-card{border:1px solid var(--line,rgba(255,255,255,.10));border-radius:16px;padding:12px;background:var(--panel,rgba(16,24,36,.66));box-shadow:0 18px 50px rgba(0,0,0,.38);backdrop-filter:blur(10px);}.eikon-dda-card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;}.eikon-dda-card-head h3{margin:0;font-size:15px;font-weight:1000;color:var(--text,#e9eef7);}.eikon-dda-msg{margin:10px 0;padding:10px 12px;border-radius:14px;border:1px solid var(--line,rgba(255,255,255,.10));background:rgba(16,24,36,.52);color:var(--text,#e9eef7);white-space:pre-line;}.eikon-dda-msg.ok{border-color:rgba(55,214,122,.35);}.eikon-dda-msg.err{border-color:rgba(255,77,79,.35);}.eikon-dda-hint{font-size:12px;color:var(--muted,rgba(233,238,247,.68));margin-top:6px;}.eikon-dda-table-wrap{overflow:auto;border:1px solid var(--line,rgba(255,255,255,.10));border-radius:14px;background:rgba(10,16,24,.18);}.eikon-dda-table{width:100%;border-collapse:collapse;min-width:980px;color:var(--text,#e9eef7);}.eikon-dda-table th,.eikon-dda-table td{border-bottom:1px solid var(--line,rgba(255,255,255,.10));padding:10px 10px;font-size:12px;vertical-align:top;}.eikon-dda-table th{background:rgba(12,19,29,.92);text-align:left;font-weight:900;position:sticky;top:0;z-index:1;color:var(--muted,rgba(233,238,247,.68));text-transform:uppercase;letter-spacing:.8px;}.eikon-dda-table tbody tr:hover{background:rgba(255,255,255,.04);}.eikon-dda-actions{display:flex;gap:10px;}.eikon-dda-link{color:var(--brand,#3aa0ff);text-decoration:underline;cursor:pointer;font-weight:900;}.eikon-dda-report-layout{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:12px;align-items:start;}@media(max-width:980px){.eikon-dda-report-layout{grid-template-columns:1fr;}}.eikon-dda-modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.58);display:none;align-items:center;justify-content:center;padding:16px;z-index:9999;}.eikon-dda-modal{width:100%;max-width:860px;background:rgba(16,24,36,.98);border-radius:16px;border:1px solid var(--line,rgba(255,255,255,.10));box-shadow:0 28px 80px rgba(0,0,0,.55);backdrop-filter:blur(10px);}.eikon-dda-modal-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--line,rgba(255,255,255,.10));}.eikon-dda-modal-head h3{margin:0;font-size:15px;font-weight:1000;color:var(--text,#e9eef7);}.eikon-dda-modal-body{padding:14px;}.eikon-dda-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}.eikon-dda-grid .full{grid-column:1 / -1;}@media(max-width:820px){.eikon-dda-grid{grid-template-columns:1fr;}};
     var style = doc.createElement("style");
     style.id = id;
     style.type = "text/css";
@@ -958,14 +917,30 @@
         ctx.mount.innerHTML = "";
       } catch (e) {}
 
-      var wrap = el(ctx.doc, "div", { class: "eikon-dda-wrap" }, []);
-      var top = el(ctx.doc, "div", { class: "eikon-dda-top" }, []);
 
-      var title = el(ctx.doc, "h2", { class: "eikon-dda-title" }, []);
+      var wrap = el(ctx.doc, "div", { class: "eikon-dda-wrap" }, []);
+
+      // Layout: main content + right sidebar controls
+      var layout = el(ctx.doc, "div", { class: "eikon-dda-layout" }, []);
+      var mainCol = el(ctx.doc, "div", { class: "eikon-dda-main" }, []);
+      var sideCol = el(ctx.doc, "div", { class: "eikon-dda-side" }, []);
+
+      // Title (main column)
+      var title = el(ctx.doc, "h2", { class: "eikon-dda-title", style: "margin:0 0 10px 0;" }, []);
       title.appendChild(el(ctx.doc, "span", { class: "icon", html: ICON_SVG }, []));
       title.appendChild(el(ctx.doc, "span", { text: "DDA POYC" }, []));
+      mainCol.appendChild(title);
 
-      var controls = el(ctx.doc, "div", { class: "eikon-dda-controls" }, []);
+      msgBox = el(ctx.doc, "div", { class: "eikon-dda-msg", style: "display:none;" }, []);
+      mainCol.appendChild(msgBox);
+
+      // Sidebar controls (month/search/new entry)
+      var sideControlsCard = el(ctx.doc, "div", { class: "eikon-dda-card" }, []);
+      var sideHead = el(ctx.doc, "div", { class: "eikon-dda-card-head" }, []);
+      sideHead.appendChild(el(ctx.doc, "h3", { text: "" }, []));
+      sideControlsCard.appendChild(sideHead);
+
+      var controls = el(ctx.doc, "div", { class: "eikon-dda-controls vertical" }, []);
 
       // Month
       var monthField = el(ctx.doc, "div", { class: "eikon-dda-field" }, []);
@@ -1007,12 +982,10 @@
       controls.appendChild(qField);
       controls.appendChild(addBtn);
 
-      top.appendChild(title);
-      top.appendChild(controls);
+      sideControlsCard.appendChild(controls);
+      sideCol.appendChild(sideControlsCard);
 
-      msgBox = el(ctx.doc, "div", { class: "eikon-dda-msg", style: "display:none;" }, []);
-
-      // Entries card
+      // Entries card (main column)
       var cardEntries = el(ctx.doc, "div", { class: "eikon-dda-card" }, []);
       var headEntries = el(ctx.doc, "div", { class: "eikon-dda-card-head" }, []);
       headEntries.appendChild(el(ctx.doc, "h3", { text: "Entries" }, []));
@@ -1040,13 +1013,24 @@
       table.appendChild(tableBody);
       tableWrap.appendChild(table);
       cardEntries.appendChild(tableWrap);
+      mainCol.appendChild(cardEntries);
 
-      // Report card (same structure as dda-sales)
+      // Report card (main column) with right-side controls
       var cardReport = el(ctx.doc, "div", { class: "eikon-dda-card", style: "margin-top:12px;" }, []);
       var headReport = el(ctx.doc, "div", { class: "eikon-dda-card-head" }, []);
       headReport.appendChild(el(ctx.doc, "h3", { text: "Report" }, []));
+      cardReport.appendChild(headReport);
 
-      var reportControls = el(ctx.doc, "div", { class: "eikon-dda-controls" }, []);
+      var reportLayout = el(ctx.doc, "div", { class: "eikon-dda-report-layout" }, []);
+      var reportLeft = el(ctx.doc, "div", { style: "min-width:0;" }, []);
+      var reportRight = el(ctx.doc, "div", { style: "min-width:0;" }, []);
+
+      reportMsg = el(ctx.doc, "div", { class: "eikon-dda-msg", style: "display:none;" }, []);
+      reportPreview = el(ctx.doc, "div", {}, []);
+      reportLeft.appendChild(reportMsg);
+      reportLeft.appendChild(reportPreview);
+
+      var reportControls = el(ctx.doc, "div", { class: "eikon-dda-controls vertical" }, []);
       var fromField = el(ctx.doc, "div", { class: "eikon-dda-field" }, []);
       fromField.appendChild(el(ctx.doc, "label", { text: "From" }, []));
       reportFromInput = el(ctx.doc, "input", { type: "date", value: state.report_from }, []);
@@ -1076,20 +1060,20 @@
       reportControls.appendChild(toField);
       reportControls.appendChild(generateBtn);
       reportControls.appendChild(printBtn);
-      headReport.appendChild(reportControls);
 
-      cardReport.appendChild(headReport);
+      reportRight.appendChild(reportControls);
 
-      reportMsg = el(ctx.doc, "div", { class: "eikon-dda-msg", style: "display:none;" }, []);
-      reportPreview = el(ctx.doc, "div", {}, []);
-      cardReport.appendChild(reportMsg);
-      cardReport.appendChild(reportPreview);
+      reportLayout.appendChild(reportLeft);
+      reportLayout.appendChild(reportRight);
+      cardReport.appendChild(reportLayout);
 
-      wrap.appendChild(top);
-      wrap.appendChild(msgBox);
-      wrap.appendChild(cardEntries);
-      wrap.appendChild(cardReport);
+      mainCol.appendChild(cardReport);
 
+      layout.appendChild(mainCol);
+      layout.appendChild(sideCol);
+      wrap.appendChild(layout);
+
+      ctx.mount.appendChild(wrap);
       ctx.mount.appendChild(wrap);
 
       // defaults + initial load
