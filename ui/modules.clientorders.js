@@ -188,7 +188,7 @@
       ".co-card-head .right{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;justify-content:flex-end;}" +
 
       ".co-table-wrap{overflow:auto;border:1px solid var(--line,rgba(255,255,255,.10));border-radius:14px;background:rgba(10,16,24,.18);}" +
-      ".co-table{width:max-content;min-width:100%;border-collapse:collapse;table-layout:auto;color:var(--text,#e9eef7);}" +
+      ".co-table{width:100%;min-width:100%;border-collapse:collapse;table-layout:auto;color:var(--text,#e9eef7);}" +
       ".co-table th,.co-table td{border-bottom:1px solid var(--line,rgba(255,255,255,.10));padding:8px 8px;font-size:12px;vertical-align:top;overflow-wrap:normal;word-break:normal;}" +
       ".co-table th{background:rgba(12,19,29,.92);position:sticky;top:0;z-index:1;color:var(--muted,rgba(233,238,247,.68));text-transform:uppercase;letter-spacing:.8px;font-weight:1000;text-align:left;cursor:pointer;user-select:none;white-space:nowrap;}" +
       ".co-table th.noclick{cursor:default;}" +
@@ -236,7 +236,7 @@
       "}" +
       "#co-date,#co-needed,#co-pickup{color-scheme:dark;}" +
 
-      "@media(max-width:920px){.co-wrap{padding:12px;}.co-controls{width:100%;}}";
+      ".co-row-selected{background:rgba(58,160,255,.10)!important;}.co-detail{margin-top:12px;border:1px solid var(--line,rgba(255,255,255,.10));border-radius:14px;background:rgba(10,16,24,.24);padding:12px;}.co-detail-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;}.co-detail-title{font-weight:1000;color:var(--text,#e9eef7);}.co-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}.co-detail-grid .wide{grid-column:1/-1;}.co-detail-grid .k{font-size:11px;font-weight:900;color:var(--muted,rgba(233,238,247,.68));text-transform:uppercase;letter-spacing:.6px;}.co-detail-grid .v{font-size:12px;color:var(--text,#e9eef7);margin-top:2px;white-space:normal;word-break:break-word;}.co-detail-grid .v-pre{white-space:pre-wrap;}.co-detail-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:12px;}.co-detail-actions .spacer{flex:1;}.co-detail-ful{display:inline-flex;align-items:center;gap:8px;font-weight:900;color:rgba(233,238,247,.78);}@media(max-width:720px){.co-detail-grid{grid-template-columns:1fr;}}@media(max-width:920px){.co-wrap{padding:12px;}.co-controls{width:100%;}}";
 
     document.head.appendChild(st);
   }
@@ -888,28 +888,26 @@
   function buildTableRow(entry, opts) {
     var tr = document.createElement("tr");
 
-function td(text, cls, title) {
-  var el = document.createElement("td");
-  if (cls) el.className = cls;
-  if (title) el.title = title;
+    function td(text, cls, title) {
+      var el = document.createElement("td");
+      if (cls) el.className = cls;
+      if (title) el.title = title;
 
-  if (cls && String(cls).indexOf("co-clamp") >= 0) {
-    var inner = document.createElement("div");
-    inner.className = "co-clamp-inner";
-    inner.textContent = text;
-    el.appendChild(inner);
-  } else {
-    el.textContent = text;
-  }
-  return el;
-}
+      if (cls && String(cls).indexOf("co-clamp") >= 0) {
+        var inner = document.createElement("div");
+        inner.className = "co-clamp-inner";
+        inner.textContent = text;
+        el.appendChild(inner);
+      } else {
+        el.textContent = text;
+      }
+      return el;
+    }
 
+    // Minimal row columns to fit narrow/sandboxed containers
     tr.appendChild(td(fmtDmyFromYmd(entry.order_date || ""), "", entry.order_date || ""));
-    tr.appendChild(td(entry.client_name || "", "", entry.client_name || ""));
-    tr.appendChild(td(entry.address || "", "co-clamp", entry.address || ""));
+    tr.appendChild(td(entry.client_name || "", "co-clamp co-client", entry.client_name || ""));
     tr.appendChild(td(entry.contact || "", "", entry.contact || ""));
-    tr.appendChild(td(entry.alternate || "", "", entry.alternate || ""));
-    tr.appendChild(td(entry.email || "", "co-clamp", entry.email || ""));
     tr.appendChild(td(entry.items || "", "co-clamp", entry.items || ""));
 
     var tdPr = document.createElement("td");
@@ -917,101 +915,141 @@ function td(text, cls, title) {
     tr.appendChild(tdPr);
 
     tr.appendChild(td(fmtDmyFromYmd(entry.needed_by || ""), "", entry.needed_by || ""));
-    tr.appendChild(td(fmtDmyFromYmd(entry.pick_up_date || ""), "", entry.pick_up_date || ""));
 
-    var tdDep = document.createElement("td");
-    tdDep.style.textAlign = "right";
-    tdDep.style.whiteSpace = "nowrap";
-    tdDep.textContent = entry.deposit || "";
-    tr.appendChild(tdDep);
-
-    tr.appendChild(td(entry.notes || "", "co-clamp", entry.notes || ""));
-
-    // Fulfilled checkbox
-    var tdChk = document.createElement("td");
-    tdChk.style.textAlign = "center";
-    tdChk.style.whiteSpace = "nowrap";
-
-    var chk = document.createElement("input");
-    chk.type = "checkbox";
-    chk.className = "co-check";
-    chk.checked = !!entry.fulfilled;
-    chk.addEventListener("click", function (ev) { ev.stopPropagation(); });
-chk.addEventListener("change", async function () {
-  var next = chk.checked;
-  var ts = next ? new Date().toISOString() : "";
-
-  // Build a full API payload from the row (API expects full update)
-  var depositAmount = null;
-  if (entry && entry.deposit != null && String(entry.deposit).trim() !== "") {
-    var dn = Number(String(entry.deposit).replace(/,/g, "").trim());
-    if (isFinite(dn)) depositAmount = dn;
-  } else if (entry && entry.deposit_amount != null && String(entry.deposit_amount).trim() !== "") {
-    var dn2 = Number(String(entry.deposit_amount).replace(/,/g, "").trim());
-    if (isFinite(dn2)) depositAmount = dn2;
-  }
-
-if (depositAmount == null) depositAmount = 0;
-   
-  var payload = {
-    order_date: entry.order_date || "",
-    client_name: entry.client_name || "",
-    client_phone: entry.client_phone || entry.contact || "",
-    client_alt_phone: entry.client_alt_phone || entry.client_alternate || entry.alternate || "",
-    client_email: entry.client_email || entry.email || "",
-    client_address: entry.client_address || entry.address || "",
-    items_text: entry.items_text || entry.items || "",
-    priority: entry.priority != null && String(entry.priority).trim() !== "" ? entry.priority : 2,
-    needed_by: entry.needed_by || "",
-    pickup_date: entry.pick_up_date || "",
-    deposit_amount: depositAmount,
-    notes: entry.notes || "",
-    fulfilled: next,
-    fulfilled_at: ts
-  };
-
-  try {
-    await apiUpdate(entry.id, payload);
-
-    entry.fulfilled = next;
-    entry.fulfilled_at = ts;
-    entry._done = !!next;
-
-    rerender();
-  } catch (e) {
-    chk.checked = !!entry.fulfilled;
-    alert("Update failed: " + (e && e.message ? e.message : e));
-  }
-});
-
-    tdChk.appendChild(chk);
-    tr.appendChild(tdChk);
-
-    // Actions
-    var tdActions = document.createElement("td");
-    tdActions.style.whiteSpace = "nowrap";
-
-    var btnEdit = document.createElement("button");
-    btnEdit.className = "eikon-btn";
-    btnEdit.type = "button";
-    btnEdit.textContent = "Edit";
-    btnEdit.style.marginRight = "8px";
-    btnEdit.addEventListener("click", function () { opts && opts.onEdit && opts.onEdit(entry); });
-
-    var btnDel = document.createElement("button");
-    btnDel.className = "eikon-btn";
-    btnDel.type = "button";
-    btnDel.textContent = "Delete";
-    btnDel.addEventListener("click", function () { opts && opts.onDelete && opts.onDelete(entry); });
-
-    tdActions.appendChild(btnEdit);
-    tdActions.appendChild(btnDel);
-    tr.appendChild(tdActions);
+    // Row click selects and shows details below
+    tr.addEventListener("click", function () {
+      try { if (opts && typeof opts.onSelect === "function") opts.onSelect(entry); } catch (e) {}
+    });
 
     return tr;
   }
 
+  
   // ------------------------------------------------------------
+  // Selection + Detail panel helpers
+  // ------------------------------------------------------------
+  function entryById(id) {
+    var sid = String(id || "");
+    for (var i = 0; i < (state.entries || []).length; i++) {
+      if (String(state.entries[i].id) === sid) return state.entries[i];
+    }
+    return null;
+  }
+
+  function setSelected(which, id) {
+    state.selectedWhich = which;
+    state.selectedId = (id != null ? String(id) : "");
+    rerender();
+  }
+
+  function buildUpdatePayloadFromEntry(entry, nextFulfilled) {
+    var ts = nextFulfilled ? new Date().toISOString() : "";
+    // Build a UI-shaped payload then send through toApiPayload for compatibility
+    var ui = {
+      order_date: String(entry.order_date || "").trim(),
+      client_name: String(entry.client_name || "").trim(),
+      address: String(entry.address || "").trim(),
+      contact: String(entry.contact || "").trim(),
+      alternate: String(entry.alternate || "").trim(),
+      email: String(entry.email || "").trim(),
+      items: String(entry.items || "").trim(),
+      priority: Number(entry.priority || 2),
+      needed_by: String(entry.needed_by || "").trim(),
+      pick_up_date: String(entry.pick_up_date || "").trim(),
+      deposit: String(entry.deposit || "").trim(),
+      notes: String(entry.notes || "").trim(),
+      fulfilled: !!nextFulfilled,
+      fulfilled_at: ts
+    };
+    return toApiPayload(ui);
+  }
+
+  function renderDetail(which, mountEl) {
+    if (!mountEl) return;
+    var sid = String(state.selectedId || "");
+    var show = (state.selectedWhich === which) && sid;
+    if (!show) {
+      mountEl.innerHTML = "";
+      mountEl.style.display = "none";
+      return;
+    }
+
+    var entry = entryById(sid);
+    if (!entry) {
+      mountEl.innerHTML = "";
+      mountEl.style.display = "none";
+      return;
+    }
+
+    mountEl.style.display = "block";
+
+    var prTxt = (Number(entry.priority || 2) === 1 ? "High" : Number(entry.priority || 2) === 3 ? "Low" : "Medium");
+
+    mountEl.innerHTML =
+      "<div class='co-detail-head'>" +
+      "  <div class='co-detail-title'>Order details</div>" +
+      "  <button class='eikon-btn' type='button' id='co-detail-close-" + esc(which) + "'>Close</button>" +
+      "</div>" +
+      "<div class='co-detail-grid'>" +
+      "  <div><div class='k'>Date</div><div class='v'>" + esc(fmtDmyFromYmd(entry.order_date || "")) + "</div></div>" +
+      "  <div><div class='k'>Client</div><div class='v'>" + esc(entry.client_name || "") + "</div></div>" +
+      "  <div><div class='k'>Contact</div><div class='v'>" + esc(entry.contact || "") + "</div></div>" +
+      "  <div><div class='k'>Alternate</div><div class='v'>" + esc(entry.alternate || "-") + "</div></div>" +
+      "  <div><div class='k'>Email</div><div class='v'>" + esc(entry.email || "-") + "</div></div>" +
+      "  <div><div class='k'>Address</div><div class='v'>" + esc(entry.address || "-") + "</div></div>" +
+      "  <div class='wide'><div class='k'>Item/s</div><div class='v v-pre'>" + esc(entry.items || "") + "</div></div>" +
+      "  <div><div class='k'>Priority</div><div class='v'>" + esc(String(entry.priority || 2)) + " (" + esc(prTxt) + ")</div></div>" +
+      "  <div><div class='k'>Needed by</div><div class='v'>" + esc(fmtDmyFromYmd(entry.needed_by || "")) + "</div></div>" +
+      "  <div><div class='k'>Pick Up Date</div><div class='v'>" + esc(fmtDmyFromYmd(entry.pick_up_date || "")) + "</div></div>" +
+      "  <div><div class='k'>Deposit</div><div class='v'>" + esc(entry.deposit || "-") + "</div></div>" +
+      "  <div class='wide'><div class='k'>Additional Notes</div><div class='v v-pre'>" + esc(entry.notes || "-") + "</div></div>" +
+      "</div>" +
+      "<div class='co-detail-actions'>" +
+      "  <label class='co-detail-ful'><input type='checkbox' class='co-check' id='co-detail-ful-" + esc(which) + "' " + (entry.fulfilled ? "checked" : "") + "> Fulfilled</label>" +
+      "  <div class='spacer'></div>" +
+      "  <button class='eikon-btn' type='button' id='co-detail-edit-" + esc(which) + "'>Edit</button>" +
+      "  <button class='eikon-btn' type='button' id='co-detail-del-" + esc(which) + "'>Delete</button>" +
+      "</div>";
+
+    var btnClose = E.q("#co-detail-close-" + which, mountEl);
+    var btnEdit = E.q("#co-detail-edit-" + which, mountEl);
+    var btnDel = E.q("#co-detail-del-" + which, mountEl);
+    var chkFul = E.q("#co-detail-ful-" + which, mountEl);
+
+    if (btnClose) btnClose.addEventListener("click", function () {
+      state.selectedWhich = "";
+      state.selectedId = "";
+      rerender();
+    });
+
+    if (btnEdit) btnEdit.addEventListener("click", function () {
+      openOrderModal({ mode: "edit", entry: entry });
+    });
+
+    if (btnDel) btnDel.addEventListener("click", function () {
+      openConfirmDelete(entry);
+    });
+
+    if (chkFul) chkFul.addEventListener("change", function () {
+      (async function () {
+        var next = !!chkFul.checked;
+        try {
+          await apiUpdate(entry.id, buildUpdatePayloadFromEntry(entry, next));
+          // refresh ensures it moves between tables + keeps sort/search correct
+          if (state && typeof state.refresh === "function") await state.refresh();
+          // keep selected open on the same id (it may now be in the other table)
+          state.selectedWhich = next ? "done" : "active";
+          state.selectedId = String(entry.id);
+          rerender();
+        } catch (e) {
+          chkFul.checked = !!entry.fulfilled;
+          modalError("Update failed", e);
+        }
+      })();
+    });
+  }
+
+// ------------------------------------------------------------
   // State + Rendering
   // ------------------------------------------------------------
   var state = {
@@ -1027,23 +1065,18 @@ if (depositAmount == null) depositAmount = 0;
     filteredDone: [],
     refresh: null,
     mounted: false,
-    renderDebugPanel: null
+    renderDebugPanel: null,
+    selectedWhich: "",
+    selectedId: ""
   };
 
   var COLS = [
     { key: "order_date", label: "Date" },
     { key: "client_name", label: "Client" },
-    { key: "address", label: "Address" },
     { key: "contact", label: "Contact" },
-    { key: "alternate", label: "Alternate" },
-    { key: "email", label: "Email" },
     { key: "items", label: "Item/s" },
     { key: "priority", label: "Priority" },
-    { key: "needed_by", label: "Needed by" },
-    { key: "pick_up_date", label: "Pick Up Date" },
-    { key: "deposit", label: "Deposit" },
-    { key: "notes", label: "Additional Notes" },
-    { key: "fulfilled", label: "Fulfilled" }
+    { key: "needed_by", label: "Needed by" }
   ];
 
   function applyFilterSplitSort() {
@@ -1070,15 +1103,22 @@ if (depositAmount == null) depositAmount = 0;
     state.filteredDone = done;
   }
 
-  function renderTable(tbodyEl, list) {
+  function renderTable(tbodyEl, list, which) {
     tbodyEl.innerHTML = "";
+    var w = (which === "done") ? "done" : "active";
     for (var i = 0; i < list.length; i++) {
       (function (entry) {
         var tr = buildTableRow(entry, {
-          onEdit: function (e) { openOrderModal({ mode: "edit", entry: e }); },
-          onDelete: function (e) { openConfirmDelete(e); },
-          onChanged: function () { if (state && typeof state.refresh === "function") state.refresh(); }
+          onSelect: function (e) { setSelected(w, e && e.id); }
         });
+
+        // highlight selected row
+        try {
+          if (state.selectedWhich === w && String(state.selectedId || "") === String(entry.id || "")) {
+            tr.classList.add("co-row-selected");
+          }
+        } catch (e1) {}
+
         tbodyEl.appendChild(tr);
       })(list[i]);
     }
@@ -1095,8 +1135,8 @@ if (depositAmount == null) depositAmount = 0;
     try { countA = E.q("#co-count-active"); } catch (e3) { countA = document.querySelector("#co-count-active"); }
     try { countD = E.q("#co-count-done"); } catch (e4) { countD = document.querySelector("#co-count-done"); }
 
-    if (tbodyA) renderTable(tbodyA, state.filteredActive || []);
-    if (tbodyD) renderTable(tbodyD, state.filteredDone || []);
+    if (tbodyA) renderTable(tbodyA, state.filteredActive || [], "active");
+    if (tbodyD) renderTable(tbodyD, state.filteredDone || [], "done");
 
     var totalActive = 0, totalDone = 0;
     var all = Array.isArray(state.entries) ? state.entries : [];
@@ -1108,7 +1148,12 @@ if (depositAmount == null) depositAmount = 0;
     if (countA) countA.textContent = "Showing " + String((state.filteredActive || []).length) + " / " + String(totalActive);
     if (countD) countD.textContent = "Showing " + String((state.filteredDone || []).length) + " / " + String(totalDone);
 
-    try { if (typeof state.renderDebugPanel === "function") state.renderDebugPanel(); } catch (e5) {}
+    
+
+    // Update detail panels
+    try { renderDetail("active", E.q("#co-detail-active")); } catch (e7) {}
+    try { renderDetail("done", E.q("#co-detail-done")); } catch (e8) {}
+try { if (typeof state.renderDebugPanel === "function") state.renderDebugPanel(); } catch (e5) {}
   } catch (e) {
     try { err("[clientorders] rerender failed", { message: e && e.message ? e.message : String(e) }); } catch (e6) {}
   }
@@ -1148,8 +1193,8 @@ if (depositAmount == null) depositAmount = 0;
         applyFilterSplitSort();
         var tbodyA = E.q("#co-tbody-active");
         var tbodyD = E.q("#co-tbody-done");
-        if (tbodyA) renderTable(tbodyA, state.filteredActive);
-        if (tbodyD) renderTable(tbodyD, state.filteredDone);
+        if (tbodyA) renderTable(tbodyA, state.filteredActive, "active");
+        if (tbodyD) renderTable(tbodyD, state.filteredDone, "done");
 
         if (which === "done") setSort(ths, state.sortDone);
         else setSort(ths, state.sortActive);
@@ -1189,7 +1234,7 @@ if (depositAmount == null) depositAmount = 0;
       "  <div class='co-head'>" +
       "    <div>" +
       "      <h2 class='co-title'>Client Orders</h2>" +
-      "      <div class='co-sub'>Active orders stay clean. Tick Fulfilled to move between tables. Click any column header to sort.</div>" +
+      "      " +
       "    </div>" +
       "    <div class='co-controls'>" +
       "      <div class='co-mode' id='co-mode'>" +
@@ -1220,7 +1265,6 @@ if (depositAmount == null) depositAmount = 0;
       "      <table class='co-table' id='co-table-active'>" +
       "        <thead><tr>" +
       COLS.map(function (c) { return "<th data-key='" + esc(c.key) + "'>" + thHtml(c) + "</th>"; }).join("") +
-      "          <th class='noclick' data-key='actions'>Actions</th>" +
       "        </tr></thead>" +
       "        <tbody id='co-tbody-active'></tbody>" +
       "      </table>" +
@@ -1245,7 +1289,6 @@ if (depositAmount == null) depositAmount = 0;
       "      <table class='co-table' id='co-table-done'>" +
       "        <thead><tr>" +
       COLS.map(function (c) { return "<th data-key='" + esc(c.key) + "'>" + thHtml(c) + "</th>"; }).join("") +
-      "          <th class='noclick' data-key='actions'>Actions</th>" +
       "        </tr></thead>" +
       "        <tbody id='co-tbody-done'></tbody>" +
       "      </table>" +
@@ -1321,7 +1364,11 @@ if (depositAmount == null) depositAmount = 0;
 
     function updateCounts(totalActive, totalDone) {
       countA.textContent = "Showing " + String(state.filteredActive.length) + " / " + String(totalActive);
+      try { renderDetail("active", E.q("#co-detail-active")); } catch (e1) {}
+      try { renderDetail("done", E.q("#co-detail-done")); } catch (e2) {}
       countD.textContent = "Showing " + String(state.filteredDone.length) + " / " + String(totalDone);
+      try { renderDetail("active", E.q("#co-detail-active")); } catch (e1) {}
+      try { renderDetail("done", E.q("#co-detail-done")); } catch (e2) {}
     }
 
     async function refresh() {
@@ -1381,8 +1428,8 @@ if (depositAmount == null) depositAmount = 0;
         }
 
         applyFilterSplitSort();
-        renderTable(tbodyA, state.filteredActive);
-        renderTable(tbodyD, state.filteredDone);
+        renderTable(tbodyA, state.filteredActive, "active");
+        renderTable(tbodyD, state.filteredDone, "done");
 
         updateCounts(totalActive, totalDone);
         updateBadge();
@@ -1390,7 +1437,12 @@ if (depositAmount == null) depositAmount = 0;
         setSort(E.qa("th[data-key]", tableA), state.sortActive);
         setSort(E.qa("th[data-key]", tableD), state.sortDone);
 
-        try { if (typeof state.renderDebugPanel === "function") state.renderDebugPanel(); } catch (e1) {}
+        
+
+        // Detail panels
+        try { renderDetail("active", E.q("#co-detail-active")); } catch (e3) {}
+        try { renderDetail("done", E.q("#co-detail-done")); } catch (e4) {}
+try { if (typeof state.renderDebugPanel === "function") state.renderDebugPanel(); } catch (e1) {}
       } catch (e) {
         err("[clientorders] refresh failed", { status: e && e.status, bodyText: e && e.bodyText ? String(e.bodyText).slice(0, 900) : "" });
         state.mode = "api_error";
@@ -1417,20 +1469,24 @@ if (depositAmount == null) depositAmount = 0;
     searchA.addEventListener("input", function () {
       state.queryActive = String(searchA.value || "");
       applyFilterSplitSort();
-      renderTable(tbodyA, state.filteredActive);
+      renderTable(tbodyA, state.filteredActive, "active");
       var totalActive = 0;
       for (var i = 0; i < state.entries.length; i++) if (!(state.entries[i] && state.entries[i].fulfilled)) totalActive++;
       countA.textContent = "Showing " + String(state.filteredActive.length) + " / " + String(totalActive);
+      try { renderDetail("active", E.q("#co-detail-active")); } catch (e1) {}
+      try { renderDetail("done", E.q("#co-detail-done")); } catch (e2) {}
       try { if (typeof state.renderDebugPanel === "function") state.renderDebugPanel(); } catch (e) {}
     });
 
     searchD.addEventListener("input", function () {
       state.queryDone = String(searchD.value || "");
       applyFilterSplitSort();
-      renderTable(tbodyD, state.filteredDone);
+      renderTable(tbodyD, state.filteredDone, "done");
       var totalDone = 0;
       for (var i = 0; i < state.entries.length; i++) if (state.entries[i] && state.entries[i].fulfilled) totalDone++;
       countD.textContent = "Showing " + String(state.filteredDone.length) + " / " + String(totalDone);
+      try { renderDetail("active", E.q("#co-detail-active")); } catch (e1) {}
+      try { renderDetail("done", E.q("#co-detail-done")); } catch (e2) {}
       try { if (typeof state.renderDebugPanel === "function") state.renderDebugPanel(); } catch (e) {}
     });
 
