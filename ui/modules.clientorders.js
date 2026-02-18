@@ -236,7 +236,7 @@
       "}" +
       "#co-date,#co-needed,#co-pickup{color-scheme:dark;}" +
 
-      .co-selected{margin-bottom:12px;}.co-selected .co-card-head{margin-bottom:8px;}.co-selected-title{font-weight:1000;color:var(--text,#e9eef7);margin:0;font-size:14px;}.co-selected-sub{font-size:12px;color:var(--muted,rgba(233,238,247,.68));font-weight:800;margin-top:2px;}.co-sgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}.co-sgrid .wide{grid-column:1/-1;}.co-sgrid .k{font-size:11px;font-weight:900;color:var(--muted,rgba(233,238,247,.68));text-transform:uppercase;letter-spacing:.6px;}.co-sgrid .v{font-size:12px;color:var(--text,#e9eef7);margin-top:2px;white-space:normal;word-break:break-word;}.co-sgrid .v-pre{white-space:pre-wrap;}.co-sactions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:12px;}.co-sactions .spacer{flex:1;}.co-sful{display:inline-flex;align-items:center;gap:8px;font-weight:900;color:rgba(233,238,247,.78);}.co-row-selected{background:rgba(58,160,255,.10)!important;}@media(max-width:720px){.co-sgrid{grid-template-columns:1fr;}}+"@media(max-width:920px){.co-wrap{padding:12px;}.co-controls{width:100%;}}";
+      "@media(max-width:920px){.co-wrap{padding:12px;}.co-controls{width:100%;}}";
 
     document.head.appendChild(st);
   }
@@ -888,26 +888,28 @@
   function buildTableRow(entry, opts) {
     var tr = document.createElement("tr");
 
-    function td(text, cls, title) {
-      var el = document.createElement("td");
-      if (cls) el.className = cls;
-      if (title) el.title = title;
+function td(text, cls, title) {
+  var el = document.createElement("td");
+  if (cls) el.className = cls;
+  if (title) el.title = title;
 
-      if (cls && String(cls).indexOf("co-clamp") >= 0) {
-        var inner = document.createElement("div");
-        inner.className = "co-clamp-inner";
-        inner.textContent = text;
-        el.appendChild(inner);
-      } else {
-        el.textContent = text;
-      }
-      return el;
-    }
+  if (cls && String(cls).indexOf("co-clamp") >= 0) {
+    var inner = document.createElement("div");
+    inner.className = "co-clamp-inner";
+    inner.textContent = text;
+    el.appendChild(inner);
+  } else {
+    el.textContent = text;
+  }
+  return el;
+}
 
-    // Compact columns for sandboxed/narrow containers
     tr.appendChild(td(fmtDmyFromYmd(entry.order_date || ""), "", entry.order_date || ""));
-    tr.appendChild(td(entry.client_name || "", "co-clamp", entry.client_name || ""));
+    tr.appendChild(td(entry.client_name || "", "", entry.client_name || ""));
+    tr.appendChild(td(entry.address || "", "co-clamp", entry.address || ""));
     tr.appendChild(td(entry.contact || "", "", entry.contact || ""));
+    tr.appendChild(td(entry.alternate || "", "", entry.alternate || ""));
+    tr.appendChild(td(entry.email || "", "co-clamp", entry.email || ""));
     tr.appendChild(td(entry.items || "", "co-clamp", entry.items || ""));
 
     var tdPr = document.createElement("td");
@@ -915,144 +917,99 @@
     tr.appendChild(tdPr);
 
     tr.appendChild(td(fmtDmyFromYmd(entry.needed_by || ""), "", entry.needed_by || ""));
+    tr.appendChild(td(fmtDmyFromYmd(entry.pick_up_date || ""), "", entry.pick_up_date || ""));
 
-    tr.addEventListener("click", function () {
-      try { if (opts && typeof opts.onSelect === "function") opts.onSelect(entry); } catch (e) {}
-    });
+    var tdDep = document.createElement("td");
+    tdDep.style.textAlign = "right";
+    tdDep.style.whiteSpace = "nowrap";
+    tdDep.textContent = entry.deposit || "";
+    tr.appendChild(tdDep);
+
+    tr.appendChild(td(entry.notes || "", "co-clamp", entry.notes || ""));
+
+    // Fulfilled checkbox
+    var tdChk = document.createElement("td");
+    tdChk.style.textAlign = "center";
+    tdChk.style.whiteSpace = "nowrap";
+
+    var chk = document.createElement("input");
+    chk.type = "checkbox";
+    chk.className = "co-check";
+    chk.checked = !!entry.fulfilled;
+    chk.addEventListener("click", function (ev) { ev.stopPropagation(); });
+chk.addEventListener("change", async function () {
+  var next = chk.checked;
+  var ts = next ? new Date().toISOString() : "";
+
+  // Build a full API payload from the row (API expects full update)
+  var depositAmount = null;
+  if (entry && entry.deposit != null && String(entry.deposit).trim() !== "") {
+    var dn = Number(String(entry.deposit).replace(/,/g, "").trim());
+    if (isFinite(dn)) depositAmount = dn;
+  } else if (entry && entry.deposit_amount != null && String(entry.deposit_amount).trim() !== "") {
+    var dn2 = Number(String(entry.deposit_amount).replace(/,/g, "").trim());
+    if (isFinite(dn2)) depositAmount = dn2;
+  }
+
+if (depositAmount == null) depositAmount = 0;
+   
+  var payload = {
+    order_date: entry.order_date || "",
+    client_name: entry.client_name || "",
+    client_phone: entry.client_phone || entry.contact || "",
+    client_alt_phone: entry.client_alt_phone || entry.client_alternate || entry.alternate || "",
+    client_email: entry.client_email || entry.email || "",
+    client_address: entry.client_address || entry.address || "",
+    items_text: entry.items_text || entry.items || "",
+    priority: entry.priority != null && String(entry.priority).trim() !== "" ? entry.priority : 2,
+    needed_by: entry.needed_by || "",
+    pickup_date: entry.pick_up_date || "",
+    deposit_amount: depositAmount,
+    notes: entry.notes || "",
+    fulfilled: next,
+    fulfilled_at: ts
+  };
+
+  try {
+    await apiUpdate(entry.id, payload);
+
+    entry.fulfilled = next;
+    entry.fulfilled_at = ts;
+    entry._done = !!next;
+
+    rerender();
+  } catch (e) {
+    chk.checked = !!entry.fulfilled;
+    alert("Update failed: " + (e && e.message ? e.message : e));
+  }
+});
+
+    tdChk.appendChild(chk);
+    tr.appendChild(tdChk);
+
+    // Actions
+    var tdActions = document.createElement("td");
+    tdActions.style.whiteSpace = "nowrap";
+
+    var btnEdit = document.createElement("button");
+    btnEdit.className = "eikon-btn";
+    btnEdit.type = "button";
+    btnEdit.textContent = "Edit";
+    btnEdit.style.marginRight = "8px";
+    btnEdit.addEventListener("click", function () { opts && opts.onEdit && opts.onEdit(entry); });
+
+    var btnDel = document.createElement("button");
+    btnDel.className = "eikon-btn";
+    btnDel.type = "button";
+    btnDel.textContent = "Delete";
+    btnDel.addEventListener("click", function () { opts && opts.onDelete && opts.onDelete(entry); });
+
+    tdActions.appendChild(btnEdit);
+    tdActions.appendChild(btnDel);
+    tr.appendChild(tdActions);
 
     return tr;
   }
-
-
-  // ------------------------------------------------------------
-  // Selection panel (shows missing columns + actions above tables)
-  // ------------------------------------------------------------
-  function entryById(id) {
-    var sid = String(id || "");
-    for (var i = 0; i < (state.entries || []).length; i++) {
-      if (String(state.entries[i].id) === sid) return state.entries[i];
-    }
-    return null;
-  }
-
-  function setSelected(which, id) {
-    state.selectedWhich = which || "";
-    state.selectedId = (id != null ? String(id) : "");
-    rerender();
-  }
-
-  function buildUpdatePayloadFromEntry(entry, nextFulfilled) {
-    var ts = nextFulfilled ? new Date().toISOString() : "";
-    var ui = {
-      order_date: String(entry.order_date || "").trim(),
-      client_name: String(entry.client_name || "").trim(),
-      address: String(entry.address || "").trim(),
-      contact: String(entry.contact || "").trim(),
-      alternate: String(entry.alternate || "").trim(),
-      email: String(entry.email || "").trim(),
-      items: String(entry.items || "").trim(),
-      priority: Number(entry.priority || 2),
-      needed_by: String(entry.needed_by || "").trim(),
-      pick_up_date: String(entry.pick_up_date || "").trim(),
-      deposit: String(entry.deposit || "").trim(),
-      notes: String(entry.notes || "").trim(),
-      fulfilled: !!nextFulfilled,
-      fulfilled_at: ts
-    };
-    return toApiPayload(ui);
-  }
-
-  function renderSelectedPanel() {
-    var mountEl = state.selectedMount;
-    if (!mountEl) return;
-
-    var sid = String(state.selectedId || "");
-    if (!sid) {
-      mountEl.innerHTML = "";
-      mountEl.style.display = "none";
-      return;
-    }
-
-    var entry = entryById(sid);
-    if (!entry) {
-      mountEl.innerHTML = "";
-      mountEl.style.display = "none";
-      return;
-    }
-
-    mountEl.style.display = "block";
-
-    var whichLabel = (state.selectedWhich === "done") ? "Fulfilled" : "Active";
-    var title = "Selected Order (" + whichLabel + ")";
-    var subtitle = fmtDmyFromYmd(entry.order_date || "") + " | " + (entry.client_name || "") + " | " + (entry.items || "");
-
-    mountEl.innerHTML =
-      "" +
-      "<div class='co-card-head'>" +
-      "  <div>" +
-      "    <div class='co-selected-title'>" + esc(title) + "</div>" +
-      "    <div class='co-selected-sub'>" + esc(clampStr(subtitle, 240)) + "</div>" +
-      "  </div>" +
-      "  <div class='right'>" +
-      "    <button id='co-s-close' class='eikon-btn' type='button'>Close</button>" +
-      "  </div>" +
-      "</div>" +
-      "<div class='co-sgrid'>" +
-      "  <div><div class='k'>Client</div><div class='v'>" + esc(entry.client_name || "") + "</div></div>" +
-      "  <div><div class='k'>Contact</div><div class='v'>" + esc(entry.contact || "") + "</div></div>" +
-      "  <div class='wide'><div class='k'>Item/s</div><div class='v v-pre'>" + esc(entry.items || "") + "</div></div>" +
-      "  <div><div class='k'>Priority</div><div class='v'>" + esc(String(entry.priority || 2)) + "</div></div>" +
-      "  <div><div class='k'>Needed by</div><div class='v'>" + esc(fmtDmyFromYmd(entry.needed_by || "")) + "</div></div>" +
-      "  <div><div class='k'>Pick Up Date</div><div class='v'>" + esc(fmtDmyFromYmd(entry.pick_up_date || "")) + "</div></div>" +
-      "  <div><div class='k'>Deposit</div><div class='v'>" + esc(entry.deposit || "") + "</div></div>" +
-      "  <div><div class='k'>Email</div><div class='v'>" + esc(entry.email || "") + "</div></div>" +
-      "  <div class='wide'><div class='k'>Address</div><div class='v v-pre'>" + esc(entry.address || "") + "</div></div>" +
-      "  <div class='wide'><div class='k'>Alternate</div><div class='v'>" + esc(entry.alternate || "") + "</div></div>" +
-      "  <div class='wide'><div class='k'>Additional Notes</div><div class='v v-pre'>" + esc(entry.notes || "") + "</div></div>" +
-      "</div>" +
-      "<div class='co-sactions'>" +
-      "  <label class='co-sful'><input id='co-s-ful' class='co-check' type='checkbox' " + (entry.fulfilled ? "checked" : "") + "> Fulfilled</label>" +
-      "  <div class='spacer'></div>" +
-      "  <button id='co-s-edit' class='eikon-btn' type='button'>Edit</button>" +
-      "  <button id='co-s-del' class='eikon-btn' type='button'>Delete</button>" +
-      "</div>";
-
-    var btnClose = mountEl.querySelector("#co-s-close");
-    var btnEdit = mountEl.querySelector("#co-s-edit");
-    var btnDel = mountEl.querySelector("#co-s-del");
-    var chkFul = mountEl.querySelector("#co-s-ful");
-
-    if (btnClose) btnClose.addEventListener("click", function () {
-      state.selectedId = "";
-      state.selectedWhich = "";
-      rerender();
-    });
-
-    if (btnEdit) btnEdit.addEventListener("click", function () {
-      openOrderModal({ mode: "edit", entry: entry });
-    });
-
-    if (btnDel) btnDel.addEventListener("click", function () {
-      openConfirmDelete(entry);
-    });
-
-    if (chkFul) chkFul.addEventListener("change", function () {
-      (async function () {
-        var next = !!chkFul.checked;
-        try {
-          await apiUpdate(entry.id, buildUpdatePayloadFromEntry(entry, next));
-          if (state && typeof state.refresh === "function") await state.refresh();
-          state.selectedWhich = next ? "done" : "active";
-          state.selectedId = String(entry.id);
-          rerender();
-        } catch (e) {
-          chkFul.checked = !!entry.fulfilled;
-          modalError("Update failed", e);
-        }
-      })();
-    });
-  }
-
 
   // ------------------------------------------------------------
   // State + Rendering
@@ -1070,20 +1027,23 @@
     filteredDone: [],
     refresh: null,
     mounted: false,
-    renderDebugPanel: null,
-    // selection (single panel above tables)
-    selectedId: "",
-    selectedWhich: "", // "active" | "done"
-    selectedMount: null
+    renderDebugPanel: null
   };
 
   var COLS = [
     { key: "order_date", label: "Date" },
     { key: "client_name", label: "Client" },
+    { key: "address", label: "Address" },
     { key: "contact", label: "Contact" },
+    { key: "alternate", label: "Alternate" },
+    { key: "email", label: "Email" },
     { key: "items", label: "Item/s" },
     { key: "priority", label: "Priority" },
-    { key: "needed_by", label: "Needed by" }
+    { key: "needed_by", label: "Needed by" },
+    { key: "pick_up_date", label: "Pick Up Date" },
+    { key: "deposit", label: "Deposit" },
+    { key: "notes", label: "Additional Notes" },
+    { key: "fulfilled", label: "Fulfilled" }
   ];
 
   function applyFilterSplitSort() {
@@ -1110,19 +1070,14 @@
     state.filteredDone = done;
   }
 
-  function renderTable(tbodyEl, list, which) {
+  function renderTable(tbodyEl, list) {
     tbodyEl.innerHTML = "";
-    var w = (which === "done") ? "done" : "active";
     for (var i = 0; i < list.length; i++) {
       (function (entry) {
         var tr = buildTableRow(entry, {
-          onSelect: function (e) { setSelected(w, e && e.id); }
-        });
-        tbodyEl.appendChild(tr);
-      })(list[i]);
-    }
-  }
-
+          onEdit: function (e) { openOrderModal({ mode: "edit", entry: e }); },
+          onDelete: function (e) { openConfirmDelete(e); },
+          onChanged: function () { if (state && typeof state.refresh === "function") state.refresh(); }
         });
         tbodyEl.appendChild(tr);
       })(list[i]);
@@ -1140,26 +1095,8 @@
     try { countA = E.q("#co-count-active"); } catch (e3) { countA = document.querySelector("#co-count-active"); }
     try { countD = E.q("#co-count-done"); } catch (e4) { countD = document.querySelector("#co-count-done"); }
 
-    if (tbodyA) renderTable(tbodyA, state.filteredActive || [], "active");
-    if (tbodyD) renderTable(tbodyD, state.filteredDone || [], "done");
-
-    // selected panel + selected row highlight
-    try { renderSelectedPanel(); } catch (eSel) {}
-    try {
-      var sid = String(state.selectedId || "");
-      if (sid) {
-        var rows = document.querySelectorAll("#co-tbody-active tr, #co-tbody-done tr");
-        for (var rr = 0; rr < rows.length; rr++) rows[rr].classList.remove("co-row-selected");
-        var list = (state.selectedWhich === "done") ? (state.filteredDone || []) : (state.filteredActive || []);
-        for (var ix = 0; ix < list.length; ix++) {
-          if (String(list[ix].id) === sid) {
-            var tbody = (state.selectedWhich === "done") ? document.querySelector("#co-tbody-done") : document.querySelector("#co-tbody-active");
-            if (tbody && tbody.children && tbody.children[ix]) tbody.children[ix].classList.add("co-row-selected");
-            break;
-          }
-        }
-      }
-    } catch (eHi) {}
+    if (tbodyA) renderTable(tbodyA, state.filteredActive || []);
+    if (tbodyD) renderTable(tbodyD, state.filteredDone || []);
 
     var totalActive = 0, totalDone = 0;
     var all = Array.isArray(state.entries) ? state.entries : [];
@@ -1211,9 +1148,8 @@
         applyFilterSplitSort();
         var tbodyA = E.q("#co-tbody-active");
         var tbodyD = E.q("#co-tbody-done");
-        if (tbodyA) renderTable(tbodyA, state.filteredActive, "active");
-        if (tbodyD) renderTable(tbodyD, state.filteredDone, "done");
-        try { renderSelectedPanel(); } catch (eSel3) {}
+        if (tbodyA) renderTable(tbodyA, state.filteredActive);
+        if (tbodyD) renderTable(tbodyD, state.filteredDone);
 
         if (which === "done") setSort(ths, state.sortDone);
         else setSort(ths, state.sortActive);
@@ -1253,7 +1189,7 @@
       "  <div class='co-head'>" +
       "    <div>" +
       "      <h2 class='co-title'>Client Orders</h2>" +
-      "      <div class='co-sub'>Active orders stay clean. Tick Fulfilled to move between tables.</div>" +
+      "      <div class='co-sub'>Active orders stay clean. Tick Fulfilled to move between tables. Click any column header to sort.</div>" +
       "    </div>" +
       "    <div class='co-controls'>" +
       "      <div class='co-mode' id='co-mode'>" +
@@ -1266,9 +1202,7 @@
       "    </div>" +
       "  </div>" +
 
-      \"  <div class='co-card co-selected' id='co-selected' style='display:none'></div>\" +
-
-      \"  <div class='co-card' id='co-card-active'>\" +
+      "  <div class='co-card' id='co-card-active'>" +
       "    <div class='co-card-head'>" +
       "      <div>" +
       "        <h3>Active Orders</h3>" +
@@ -1286,7 +1220,7 @@
       "      <table class='co-table' id='co-table-active'>" +
       "        <thead><tr>" +
       COLS.map(function (c) { return "<th data-key='" + esc(c.key) + "'>" + thHtml(c) + "</th>"; }).join("") +
-      "          " +
+      "          <th class='noclick' data-key='actions'>Actions</th>" +
       "        </tr></thead>" +
       "        <tbody id='co-tbody-active'></tbody>" +
       "      </table>" +
@@ -1311,7 +1245,7 @@
       "      <table class='co-table' id='co-table-done'>" +
       "        <thead><tr>" +
       COLS.map(function (c) { return "<th data-key='" + esc(c.key) + "'>" + thHtml(c) + "</th>"; }).join("") +
-      "          " +
+      "          <th class='noclick' data-key='actions'>Actions</th>" +
       "        </tr></thead>" +
       "        <tbody id='co-tbody-done'></tbody>" +
       "      </table>" +
@@ -1343,14 +1277,12 @@
 
     var debugPre = E.q("#co-debug-pre", mount);
 
-    state.selectedMount = E.q("#co-selected", mount);
-
-    if (!badge || !btnNew || !btnRefresh || !searchA || !searchD || !btnPrintA || !btnPrintD || !tbodyA || !tbodyD || !countA || !countD || !tableA || !tableD || !state.selectedMount) {
+    if (!badge || !btnNew || !btnRefresh || !searchA || !searchD || !btnPrintA || !btnPrintD || !tbodyA || !tbodyD || !countA || !countD || !tableA || !tableD) {
       err("[clientorders] DOM missing", {
         badge: !!badge, btnNew: !!btnNew, btnRefresh: !!btnRefresh,
         searchA: !!searchA, searchD: !!searchD, btnPrintA: !!btnPrintA, btnPrintD: !!btnPrintD,
         tbodyA: !!tbodyA, tbodyD: !!tbodyD, countA: !!countA, countD: !!countD,
-        tableA: !!tableA, tableD: !!tableD, selected: !!state.selectedMount
+        tableA: !!tableA, tableD: !!tableD
       });
       throw new Error("Client Orders DOM incomplete (see console)");
     }
@@ -1449,25 +1381,8 @@
         }
 
         applyFilterSplitSort();
-        renderTable(tbodyA, state.filteredActive, "active");
-        renderTable(tbodyD, state.filteredDone, "done");
-
-        try { renderSelectedPanel(); } catch (eSel2) {}
-        try {
-          var sid2 = String(state.selectedId || "");
-          var rows2 = mount.querySelectorAll("#co-tbody-active tr, #co-tbody-done tr");
-          for (var rr2 = 0; rr2 < rows2.length; rr2++) rows2[rr2].classList.remove("co-row-selected");
-          if (sid2) {
-            var list2 = (state.selectedWhich === "done") ? (state.filteredDone || []) : (state.filteredActive || []);
-            for (var ix2 = 0; ix2 < list2.length; ix2++) {
-              if (String(list2[ix2].id) === sid2) {
-                var tbody2 = (state.selectedWhich === "done") ? mount.querySelector("#co-tbody-done") : mount.querySelector("#co-tbody-active");
-                if (tbody2 && tbody2.children && tbody2.children[ix2]) tbody2.children[ix2].classList.add("co-row-selected");
-                break;
-              }
-            }
-          }
-        } catch (eHi2) {}
+        renderTable(tbodyA, state.filteredActive);
+        renderTable(tbodyD, state.filteredDone);
 
         updateCounts(totalActive, totalDone);
         updateBadge();
@@ -1502,7 +1417,7 @@
     searchA.addEventListener("input", function () {
       state.queryActive = String(searchA.value || "");
       applyFilterSplitSort();
-      renderTable(tbodyA, state.filteredActive, "active");
+      renderTable(tbodyA, state.filteredActive);
       var totalActive = 0;
       for (var i = 0; i < state.entries.length; i++) if (!(state.entries[i] && state.entries[i].fulfilled)) totalActive++;
       countA.textContent = "Showing " + String(state.filteredActive.length) + " / " + String(totalActive);
@@ -1512,7 +1427,7 @@
     searchD.addEventListener("input", function () {
       state.queryDone = String(searchD.value || "");
       applyFilterSplitSort();
-      renderTable(tbodyD, state.filteredDone, "done");
+      renderTable(tbodyD, state.filteredDone);
       var totalDone = 0;
       for (var i = 0; i < state.entries.length; i++) if (state.entries[i] && state.entries[i].fulfilled) totalDone++;
       countD.textContent = "Showing " + String(state.filteredDone.length) + " / " + String(totalDone);
