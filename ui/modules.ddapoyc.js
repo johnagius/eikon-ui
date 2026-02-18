@@ -196,7 +196,7 @@
     } catch (e) {}
     var css =
       "" +
-      ".eikon-dda-wrap{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;width:100%;margin:0;padding:16px;box-sizing:border-box;}.eikon-dda-layout{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:12px;align-items:start;}.eikon-dda-span-all{grid-column:1 / -1;}@media(max-width:980px){.eikon-dda-layout{grid-template-columns:1fr;}}.eikon-dda-main{min-width:0;}.eikon-dda-side{min-width:0;}.eikon-dda-controls.vertical{flex-direction:column;align-items:stretch;}.eikon-dda-controls.vertical .eikon-dda-btn{width:100%;}.eikon-dda-report-layout{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:12px;align-items:start;}@media(max-width:980px){.eikon-dda-report-layout{grid-template-columns:1fr;}}" +
+      ".eikon-dda-wrap{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;width:100%;margin:0;padding:16px;box-sizing:border-box;}.eikon-dda-layout{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:12px;align-items:start;}.eikon-dda-span-all{grid-column:1 / -1;}.eikon-dda-topbar{grid-column:1 / -1;display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:12px;align-items:start;}@media(max-width:980px){.eikon-dda-topbar{grid-template-columns:1fr;}}@media(max-width:980px){.eikon-dda-layout{grid-template-columns:1fr;}}.eikon-dda-main{min-width:0;}.eikon-dda-side{min-width:0;}.eikon-dda-controls.vertical{flex-direction:column;align-items:stretch;}.eikon-dda-controls.vertical .eikon-dda-btn{width:100%;}.eikon-dda-report-layout{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:12px;align-items:start;}@media(max-width:980px){.eikon-dda-report-layout{grid-template-columns:1fr;}}" +
       ".eikon-dda-top{display:flex;flex-wrap:wrap;gap:10px;align-items:end;justify-content:space-between;margin-bottom:12px;}" +
       ".eikon-dda-title{font-size:18px;font-weight:900;margin:0;display:flex;align-items:center;gap:10px;color:var(--text,#e9eef7);}" +
       ".eikon-dda-title .icon{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;color:var(--text,#e9eef7);opacity:.95;}" +
@@ -959,23 +959,65 @@
       } catch (e) {}
 
       var wrap = el(ctx.doc, "div", { class: "eikon-dda-wrap" }, []);
-
-      // Page grid: left content + right controls on the first row,
-      // and full-width cards for the table/report.
       var layout = el(ctx.doc, "div", { class: "eikon-dda-layout" }, []);
 
-      // Title (row 1, left)
-      var titleWrap = el(ctx.doc, "div", { class: "eikon-dda-main" }, []);
+      // Title (full width)
+      var titleRow = el(ctx.doc, "div", { class: "eikon-dda-span-all" }, []);
       var title = el(ctx.doc, "h2", { class: "eikon-dda-title", style: "margin:0 0 10px 0;" }, []);
       title.appendChild(el(ctx.doc, "span", { class: "icon", html: ICON_SVG }, []));
       title.appendChild(el(ctx.doc, "span", { text: "DDA POYC" }, []));
-      titleWrap.appendChild(title);
+      titleRow.appendChild(title);
 
       msgBox = el(ctx.doc, "div", { class: "eikon-dda-msg", style: "display:none;" }, []);
-      titleWrap.appendChild(msgBox);
+      titleRow.appendChild(msgBox);
+      layout.appendChild(titleRow);
 
-      // Sidebar controls (row 1, right)
-      var sideCol = el(ctx.doc, "div", { class: "eikon-dda-side" }, []);
+      // Top bar (full width): Report controls (left) + Month/Search/New Entry (right)
+      var topbar = el(ctx.doc, "div", { class: "eikon-dda-topbar" }, []);
+
+      // Report controls card (left)
+      var cardReportControls = el(ctx.doc, "div", { class: "eikon-dda-card" }, []);
+      var headReportControls = el(ctx.doc, "div", { class: "eikon-dda-card-head" }, []);
+      headReportControls.appendChild(el(ctx.doc, "h3", { text: "Report" }, []));
+      cardReportControls.appendChild(headReportControls);
+
+      reportMsg = el(ctx.doc, "div", { class: "eikon-dda-msg", style: "display:none;" }, []);
+      cardReportControls.appendChild(reportMsg);
+
+      var reportControls = el(ctx.doc, "div", { class: "eikon-dda-controls", style: "justify-content:flex-start;" }, []);
+
+      var fromField = el(ctx.doc, "div", { class: "eikon-dda-field", style: "min-width:220px;" }, []);
+      fromField.appendChild(el(ctx.doc, "label", { text: "From" }, []));
+      reportFromInput = el(ctx.doc, "input", { type: "date", value: state.report_from }, []);
+      fromField.appendChild(reportFromInput);
+
+      var toField = el(ctx.doc, "div", { class: "eikon-dda-field", style: "min-width:220px;" }, []);
+      toField.appendChild(el(ctx.doc, "label", { text: "To" }, []));
+      reportToInput = el(ctx.doc, "input", { type: "date", value: state.report_to }, []);
+      toField.appendChild(reportToInput);
+
+      generateBtn = el(ctx.doc, "button", { class: "eikon-dda-btn", text: "Generate", style: "align-self:end;min-width:140px;" }, []);
+      generateBtn.onclick = function () {
+        generateReport();
+      };
+
+      printBtn = el(ctx.doc, "button", { class: "eikon-dda-btn secondary", text: "Print", style: "align-self:end;min-width:120px;" }, []);
+      printBtn.onclick = function () {
+        if (!state.report || state.report.ok !== true) {
+          setReportMsg("err", "No report loaded. Click Generate.");
+          return;
+        }
+        var html = buildPrintableHtml(state.report);
+        openPrintTabWithHtml(html);
+      };
+
+      reportControls.appendChild(fromField);
+      reportControls.appendChild(toField);
+      reportControls.appendChild(generateBtn);
+      reportControls.appendChild(printBtn);
+      cardReportControls.appendChild(reportControls);
+
+      // Filters/New Entry card (right)
       var sideCard = el(ctx.doc, "div", { class: "eikon-dda-card" }, []);
       var sideControls = el(ctx.doc, "div", { class: "eikon-dda-controls vertical" }, []);
 
@@ -1019,12 +1061,12 @@
       sideControls.appendChild(qField);
       sideControls.appendChild(addBtn);
       sideCard.appendChild(sideControls);
-      sideCol.appendChild(sideCard);
 
-      layout.appendChild(titleWrap);
-      layout.appendChild(sideCol);
+      topbar.appendChild(cardReportControls);
+      topbar.appendChild(sideCard);
+      layout.appendChild(topbar);
 
-      // Entries card (row 2, spans both columns)
+      // Entries card (full width)
       var cardEntries = el(ctx.doc, "div", { class: "eikon-dda-card eikon-dda-span-all" }, []);
       var headEntries = el(ctx.doc, "div", { class: "eikon-dda-card-head" }, []);
       headEntries.appendChild(el(ctx.doc, "h3", { text: "Entries" }, []));
@@ -1054,59 +1096,15 @@
       cardEntries.appendChild(tableWrap);
       layout.appendChild(cardEntries);
 
-      // Report card (row 3, spans both columns)
-      var cardReport = el(ctx.doc, "div", { class: "eikon-dda-card eikon-dda-span-all" }, []);
-      var headReport = el(ctx.doc, "div", { class: "eikon-dda-card-head" }, []);
-      headReport.appendChild(el(ctx.doc, "h3", { text: "Report" }, []));
-      cardReport.appendChild(headReport);
+      // Report preview (full width)
+      var cardReportPreview = el(ctx.doc, "div", { class: "eikon-dda-card eikon-dda-span-all" }, []);
+      var headPreview = el(ctx.doc, "div", { class: "eikon-dda-card-head" }, []);
+      headPreview.appendChild(el(ctx.doc, "h3", { text: "Report Preview" }, []));
+      cardReportPreview.appendChild(headPreview);
 
-      var reportLayout = el(ctx.doc, "div", { class: "eikon-dda-report-layout" }, []);
-      var reportLeft = el(ctx.doc, "div", { style: "min-width:0;" }, []);
-      var reportRight = el(ctx.doc, "div", { style: "min-width:0;" }, []);
-
-      reportMsg = el(ctx.doc, "div", { class: "eikon-dda-msg", style: "display:none;" }, []);
       reportPreview = el(ctx.doc, "div", {}, []);
-      reportLeft.appendChild(reportMsg);
-      reportLeft.appendChild(reportPreview);
-
-      var reportControls = el(ctx.doc, "div", { class: "eikon-dda-controls vertical" }, []);
-
-      var fromField = el(ctx.doc, "div", { class: "eikon-dda-field" }, []);
-      fromField.appendChild(el(ctx.doc, "label", { text: "From" }, []));
-      reportFromInput = el(ctx.doc, "input", { type: "date", value: state.report_from }, []);
-      fromField.appendChild(reportFromInput);
-
-      var toField = el(ctx.doc, "div", { class: "eikon-dda-field" }, []);
-      toField.appendChild(el(ctx.doc, "label", { text: "To" }, []));
-      reportToInput = el(ctx.doc, "input", { type: "date", value: state.report_to }, []);
-      toField.appendChild(reportToInput);
-
-      generateBtn = el(ctx.doc, "button", { class: "eikon-dda-btn", text: "Generate" }, []);
-      generateBtn.onclick = function () {
-        generateReport();
-      };
-
-      printBtn = el(ctx.doc, "button", { class: "eikon-dda-btn secondary", text: "Print" }, []);
-      printBtn.onclick = function () {
-        if (!state.report || state.report.ok !== true) {
-          setReportMsg("err", "No report loaded. Click Generate.");
-          return;
-        }
-        var html = buildPrintableHtml(state.report);
-        openPrintTabWithHtml(html);
-      };
-
-      reportControls.appendChild(fromField);
-      reportControls.appendChild(toField);
-      reportControls.appendChild(generateBtn);
-      reportControls.appendChild(printBtn);
-
-      reportRight.appendChild(reportControls);
-
-      reportLayout.appendChild(reportLeft);
-      reportLayout.appendChild(reportRight);
-      cardReport.appendChild(reportLayout);
-      layout.appendChild(cardReport);
+      cardReportPreview.appendChild(reportPreview);
+      layout.appendChild(cardReportPreview);
 
       wrap.appendChild(layout);
       ctx.mount.appendChild(wrap);
