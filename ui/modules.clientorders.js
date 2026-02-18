@@ -236,6 +236,19 @@
       "}" +
       "#co-date,#co-needed,#co-pickup{color-scheme:dark;}" +
 
+      ".co-selected{margin-bottom:12px;}" +
+      ".co-selected .co-card-head{margin-bottom:8px;}" +
+      ".co-selected-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;}" +
+      ".co-kv{border:1px solid rgba(255,255,255,.10);border-radius:14px;background:rgba(10,16,24,.20);padding:10px;min-height:54px;}" +
+      ".co-kv .k{font-size:11px;font-weight:1000;color:var(--muted,rgba(233,238,247,.68));text-transform:uppercase;letter-spacing:.7px;margin-bottom:4px;}" +
+      ".co-kv .v{font-size:12px;color:var(--text,#e9eef7);white-space:pre-wrap;word-break:break-word;}" +
+      ".co-selected-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:flex-end;}" +
+      ".co-selected-actions .eikon-btn{min-width:110px;}" +
+      ".co-row-sel{background:rgba(58,160,255,.10)!important;outline:1px solid rgba(58,160,255,.25);}" +
+      ".co-row-sel:hover{background:rgba(58,160,255,.12)!important;}" +
+      "@media(max-width:980px){.co-selected-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}"+
+      "@media(max-width:560px){.co-selected-grid{grid-template-columns:1fr;}.co-selected-actions{justify-content:stretch;}.co-selected-actions .eikon-btn{flex:1;}}"+
+
       "@media(max-width:920px){.co-wrap{padding:12px;}.co-controls{width:100%;}}";
 
     document.head.appendChild(st);
@@ -887,29 +900,33 @@
 
   function buildTableRow(entry, opts) {
     var tr = document.createElement("tr");
+    tr.setAttribute("data-id", String(entry && entry.id != null ? entry.id : ""));
+    tr.tabIndex = 0;
 
-function td(text, cls, title) {
-  var el = document.createElement("td");
-  if (cls) el.className = cls;
-  if (title) el.title = title;
+    if (state && state.selectedId && entry && String(entry.id) === String(state.selectedId)) {
+      tr.classList.add("co-row-sel");
+    }
 
-  if (cls && String(cls).indexOf("co-clamp") >= 0) {
-    var inner = document.createElement("div");
-    inner.className = "co-clamp-inner";
-    inner.textContent = text;
-    el.appendChild(inner);
-  } else {
-    el.textContent = text;
-  }
-  return el;
-}
+    function td(text, cls, title) {
+      var el = document.createElement("td");
+      if (cls) el.className = cls;
+      if (title) el.title = title;
 
+      if (cls && String(cls).indexOf("co-clamp") >= 0) {
+        var inner = document.createElement("div");
+        inner.className = "co-clamp-inner";
+        inner.textContent = text;
+        el.appendChild(inner);
+      } else {
+        el.textContent = text;
+      }
+      return el;
+    }
+
+    // Compact vital columns only:
     tr.appendChild(td(fmtDmyFromYmd(entry.order_date || ""), "", entry.order_date || ""));
     tr.appendChild(td(entry.client_name || "", "", entry.client_name || ""));
-    tr.appendChild(td(entry.address || "", "co-clamp", entry.address || ""));
     tr.appendChild(td(entry.contact || "", "", entry.contact || ""));
-    tr.appendChild(td(entry.alternate || "", "", entry.alternate || ""));
-    tr.appendChild(td(entry.email || "", "co-clamp", entry.email || ""));
     tr.appendChild(td(entry.items || "", "co-clamp", entry.items || ""));
 
     var tdPr = document.createElement("td");
@@ -917,96 +934,26 @@ function td(text, cls, title) {
     tr.appendChild(tdPr);
 
     tr.appendChild(td(fmtDmyFromYmd(entry.needed_by || ""), "", entry.needed_by || ""));
-    tr.appendChild(td(fmtDmyFromYmd(entry.pick_up_date || ""), "", entry.pick_up_date || ""));
 
-    var tdDep = document.createElement("td");
-    tdDep.style.textAlign = "right";
-    tdDep.style.whiteSpace = "nowrap";
-    tdDep.textContent = entry.deposit || "";
-    tr.appendChild(tdDep);
+    // Row selection (panel above tables)
+    function selectRow() {
+      if (!entry || entry.id == null) return;
+      if (state) {
+        state.selectedId = String(entry.id);
+        state.selectedFrom = (opts && opts.which) ? String(opts.which) : "";
+      }
+      try { if (typeof opts.onSelect === "function") opts.onSelect(entry); } catch (e) {}
+    }
 
-    tr.appendChild(td(entry.notes || "", "co-clamp", entry.notes || ""));
+    tr.addEventListener("click", function () { selectRow(); });
 
-    // Fulfilled checkbox
-    var tdChk = document.createElement("td");
-    tdChk.style.textAlign = "center";
-    tdChk.style.whiteSpace = "nowrap";
-
-    var chk = document.createElement("input");
-    chk.type = "checkbox";
-    chk.className = "co-check";
-    chk.checked = !!entry.fulfilled;
-    chk.addEventListener("click", function (ev) { ev.stopPropagation(); });
-chk.addEventListener("change", async function () {
-  var next = chk.checked;
-  var ts = next ? new Date().toISOString() : "";
-
-  // Build a full API payload from the row (API expects full update)
-  var depositAmount = null;
-  if (entry && entry.deposit != null && String(entry.deposit).trim() !== "") {
-    var dn = Number(String(entry.deposit).replace(/,/g, "").trim());
-    if (isFinite(dn)) depositAmount = dn;
-  } else if (entry && entry.deposit_amount != null && String(entry.deposit_amount).trim() !== "") {
-    var dn2 = Number(String(entry.deposit_amount).replace(/,/g, "").trim());
-    if (isFinite(dn2)) depositAmount = dn2;
-  }
-
-if (depositAmount == null) depositAmount = 0;
-   
-  var payload = {
-    order_date: entry.order_date || "",
-    client_name: entry.client_name || "",
-    client_phone: entry.client_phone || entry.contact || "",
-    client_alt_phone: entry.client_alt_phone || entry.client_alternate || entry.alternate || "",
-    client_email: entry.client_email || entry.email || "",
-    client_address: entry.client_address || entry.address || "",
-    items_text: entry.items_text || entry.items || "",
-    priority: entry.priority != null && String(entry.priority).trim() !== "" ? entry.priority : 2,
-    needed_by: entry.needed_by || "",
-    pickup_date: entry.pick_up_date || "",
-    deposit_amount: depositAmount,
-    notes: entry.notes || "",
-    fulfilled: next,
-    fulfilled_at: ts
-  };
-
-  try {
-    await apiUpdate(entry.id, payload);
-
-    entry.fulfilled = next;
-    entry.fulfilled_at = ts;
-    entry._done = !!next;
-
-    rerender();
-  } catch (e) {
-    chk.checked = !!entry.fulfilled;
-    alert("Update failed: " + (e && e.message ? e.message : e));
-  }
-});
-
-    tdChk.appendChild(chk);
-    tr.appendChild(tdChk);
-
-    // Actions
-    var tdActions = document.createElement("td");
-    tdActions.style.whiteSpace = "nowrap";
-
-    var btnEdit = document.createElement("button");
-    btnEdit.className = "eikon-btn";
-    btnEdit.type = "button";
-    btnEdit.textContent = "Edit";
-    btnEdit.style.marginRight = "8px";
-    btnEdit.addEventListener("click", function () { opts && opts.onEdit && opts.onEdit(entry); });
-
-    var btnDel = document.createElement("button");
-    btnDel.className = "eikon-btn";
-    btnDel.type = "button";
-    btnDel.textContent = "Delete";
-    btnDel.addEventListener("click", function () { opts && opts.onDelete && opts.onDelete(entry); });
-
-    tdActions.appendChild(btnEdit);
-    tdActions.appendChild(btnDel);
-    tr.appendChild(tdActions);
+    tr.addEventListener("keydown", function (ev) {
+      var k = ev && (ev.key || ev.keyCode);
+      if (k === "Enter" || k === " " || k === 13 || k === 32) {
+        ev.preventDefault();
+        selectRow();
+      }
+    });
 
     return tr;
   }
@@ -1022,28 +969,23 @@ if (depositAmount == null) depositAmount = 0;
     queryActive: "",
     queryDone: "",
     sortActive: { key: "priority", dir: "asc" },
-    sortDone: { key: "pick_up_date", dir: "desc" },
+    sortDone: { key: "order_date", dir: "desc" },
     filteredActive: [],
     filteredDone: [],
     refresh: null,
     mounted: false,
-    renderDebugPanel: null
+    renderDebugPanel: null,
+    selectedId: null,
+    selectedFrom: ""
   };
 
   var COLS = [
     { key: "order_date", label: "Date" },
     { key: "client_name", label: "Client" },
-    { key: "address", label: "Address" },
     { key: "contact", label: "Contact" },
-    { key: "alternate", label: "Alternate" },
-    { key: "email", label: "Email" },
     { key: "items", label: "Item/s" },
     { key: "priority", label: "Priority" },
-    { key: "needed_by", label: "Needed by" },
-    { key: "pick_up_date", label: "Pick Up Date" },
-    { key: "deposit", label: "Deposit" },
-    { key: "notes", label: "Additional Notes" },
-    { key: "fulfilled", label: "Fulfilled" }
+    { key: "needed_by", label: "Needed by" }
   ];
 
   function applyFilterSplitSort() {
@@ -1075,6 +1017,8 @@ if (depositAmount == null) depositAmount = 0;
     for (var i = 0; i < list.length; i++) {
       (function (entry) {
         var tr = buildTableRow(entry, {
+          which: (tbodyEl && tbodyEl.id === "co-tbody-done") ? "done" : "active",
+          onSelect: function () { if (state && typeof state.renderSelectedPanel === "function") state.renderSelectedPanel(); },
           onEdit: function (e) { openOrderModal({ mode: "edit", entry: e }); },
           onDelete: function (e) { openConfirmDelete(e); },
           onChanged: function () { if (state && typeof state.refresh === "function") state.refresh(); }
@@ -1084,35 +1028,36 @@ if (depositAmount == null) depositAmount = 0;
     }
   }
 
-   function rerender() {
-  try {
-    applyFilterSplitSort();
+  function rerender() {
+    try {
+      applyFilterSplitSort();
 
-    var tbodyA = null, tbodyD = null, countA = null, countD = null;
+      var tbodyA = null, tbodyD = null, countA = null, countD = null;
 
-    try { tbodyA = E.q("#co-tbody-active"); } catch (e1) { tbodyA = document.querySelector("#co-tbody-active"); }
-    try { tbodyD = E.q("#co-tbody-done"); } catch (e2) { tbodyD = document.querySelector("#co-tbody-done"); }
-    try { countA = E.q("#co-count-active"); } catch (e3) { countA = document.querySelector("#co-count-active"); }
-    try { countD = E.q("#co-count-done"); } catch (e4) { countD = document.querySelector("#co-count-done"); }
+      try { tbodyA = E.q("#co-tbody-active"); } catch (e1) { tbodyA = document.querySelector("#co-tbody-active"); }
+      try { tbodyD = E.q("#co-tbody-done"); } catch (e2) { tbodyD = document.querySelector("#co-tbody-done"); }
+      try { countA = E.q("#co-count-active"); } catch (e3) { countA = document.querySelector("#co-count-active"); }
+      try { countD = E.q("#co-count-done"); } catch (e4) { countD = document.querySelector("#co-count-done"); }
 
-    if (tbodyA) renderTable(tbodyA, state.filteredActive || []);
-    if (tbodyD) renderTable(tbodyD, state.filteredDone || []);
+      if (tbodyA) renderTable(tbodyA, state.filteredActive || []);
+      if (tbodyD) renderTable(tbodyD, state.filteredDone || []);
 
-    var totalActive = 0, totalDone = 0;
-    var all = Array.isArray(state.entries) ? state.entries : [];
-    for (var i = 0; i < all.length; i++) {
-      if (all[i] && all[i].fulfilled) totalDone++;
-      else totalActive++;
+      var totalActive = 0, totalDone = 0;
+      var all = Array.isArray(state.entries) ? state.entries : [];
+      for (var i = 0; i < all.length; i++) {
+        if (all[i] && all[i].fulfilled) totalDone++;
+        else totalActive++;
+      }
+
+      if (countA) countA.textContent = "Showing " + String((state.filteredActive || []).length) + " / " + String(totalActive);
+      if (countD) countD.textContent = "Showing " + String((state.filteredDone || []).length) + " / " + String(totalDone);
+
+      try { if (typeof state.renderSelectedPanel === "function") state.renderSelectedPanel(); } catch (eSel) {}
+      try { if (typeof state.renderDebugPanel === "function") state.renderDebugPanel(); } catch (e5) {}
+    } catch (e) {
+      try { err("[clientorders] rerender failed", { message: e && e.message ? e.message : String(e) }); } catch (e6) {}
     }
-
-    if (countA) countA.textContent = "Showing " + String((state.filteredActive || []).length) + " / " + String(totalActive);
-    if (countD) countD.textContent = "Showing " + String((state.filteredDone || []).length) + " / " + String(totalDone);
-
-    try { if (typeof state.renderDebugPanel === "function") state.renderDebugPanel(); } catch (e5) {}
-  } catch (e) {
-    try { err("[clientorders] rerender failed", { message: e && e.message ? e.message : String(e) }); } catch (e6) {}
   }
-}
 
   function setSort(thEls, sortState) {
     for (var i = 0; i < thEls.length; i++) {
@@ -1140,7 +1085,7 @@ if (depositAmount == null) depositAmount = 0;
       var key = th.getAttribute("data-key");
       if (!key) return;
       th.addEventListener("click", function () {
-        if (key === "actions") return;
+        if (key === "actions") return; // legacy
         var s = which === "done" ? state.sortDone : state.sortActive;
         if (s.key === key) s.dir = (s.dir === "asc" ? "desc" : "asc");
         else { s.key = key; s.dir = "asc"; }
@@ -1189,7 +1134,7 @@ if (depositAmount == null) depositAmount = 0;
       "  <div class='co-head'>" +
       "    <div>" +
       "      <h2 class='co-title'>Client Orders</h2>" +
-      "      <div class='co-sub'>Active orders stay clean. Tick Fulfilled to move between tables. Click any column header to sort.</div>" +
+      "      <div class='co-sub'>Active orders stay clean. Select a row to view details and actions.</div>" +
       "    </div>" +
       "    <div class='co-controls'>" +
       "      <div class='co-mode' id='co-mode'>" +
@@ -1200,6 +1145,21 @@ if (depositAmount == null) depositAmount = 0;
       "        <button id='co-refresh' class='eikon-btn' type='button'>Refresh</button>" +
       "      </div>" +
       "    </div>" +
+      "  </div>" +
+
+      "  <div class='co-card co-selected' id='co-selected'>" +
+      "    <div class='co-card-head'>" +
+      "      <div>" +
+      "        <h3>Selected Order</h3>" +
+      "        <div class='meta' id='co-selected-meta'>Click a row to view full details.</div>" +
+      "      </div>" +
+      "      <div class='co-selected-actions'>" +
+      "        <button id='co-sel-edit' class='eikon-btn' type='button' disabled>Edit</button>" +
+      "        <button id='co-sel-del' class='eikon-btn' type='button' disabled>Delete</button>" +
+      "        <button id='co-sel-toggle' class='eikon-btn' type='button' disabled>Mark Fulfilled</button>" +
+      "      </div>" +
+      "    </div>" +
+      "    <div class='co-selected-grid' id='co-selected-grid'></div>" +
       "  </div>" +
 
       "  <div class='co-card' id='co-card-active'>" +
@@ -1220,7 +1180,6 @@ if (depositAmount == null) depositAmount = 0;
       "      <table class='co-table' id='co-table-active'>" +
       "        <thead><tr>" +
       COLS.map(function (c) { return "<th data-key='" + esc(c.key) + "'>" + thHtml(c) + "</th>"; }).join("") +
-      "          <th class='noclick' data-key='actions'>Actions</th>" +
       "        </tr></thead>" +
       "        <tbody id='co-tbody-active'></tbody>" +
       "      </table>" +
@@ -1245,7 +1204,6 @@ if (depositAmount == null) depositAmount = 0;
       "      <table class='co-table' id='co-table-done'>" +
       "        <thead><tr>" +
       COLS.map(function (c) { return "<th data-key='" + esc(c.key) + "'>" + thHtml(c) + "</th>"; }).join("") +
-      "          <th class='noclick' data-key='actions'>Actions</th>" +
       "        </tr></thead>" +
       "        <tbody id='co-tbody-done'></tbody>" +
       "      </table>" +
@@ -1277,12 +1235,19 @@ if (depositAmount == null) depositAmount = 0;
 
     var debugPre = E.q("#co-debug-pre", mount);
 
-    if (!badge || !btnNew || !btnRefresh || !searchA || !searchD || !btnPrintA || !btnPrintD || !tbodyA || !tbodyD || !countA || !countD || !tableA || !tableD) {
+    var selMeta = E.q("#co-selected-meta", mount);
+    var selGrid = E.q("#co-selected-grid", mount);
+    var selBtnEdit = E.q("#co-sel-edit", mount);
+    var selBtnDel = E.q("#co-sel-del", mount);
+    var selBtnToggle = E.q("#co-sel-toggle", mount);
+
+    if (!badge || !btnNew || !btnRefresh || !searchA || !searchD || !btnPrintA || !btnPrintD || !tbodyA || !tbodyD || !countA || !countD || !tableA || !tableD || !selMeta || !selGrid || !selBtnEdit || !selBtnDel || !selBtnToggle) {
       err("[clientorders] DOM missing", {
         badge: !!badge, btnNew: !!btnNew, btnRefresh: !!btnRefresh,
         searchA: !!searchA, searchD: !!searchD, btnPrintA: !!btnPrintA, btnPrintD: !!btnPrintD,
         tbodyA: !!tbodyA, tbodyD: !!tbodyD, countA: !!countA, countD: !!countD,
-        tableA: !!tableA, tableD: !!tableD
+        tableA: !!tableA, tableD: !!tableD,
+        selMeta: !!selMeta, selGrid: !!selGrid, selBtnEdit: !!selBtnEdit, selBtnDel: !!selBtnDel, selBtnToggle: !!selBtnToggle
       });
       throw new Error("Client Orders DOM incomplete (see console)");
     }
@@ -1301,6 +1266,70 @@ if (depositAmount == null) depositAmount = 0;
         "SNAPSHOT:\n" + JSON.stringify(snap, null, 2) +
         "\n\nLAST LOGS:\n" + (logBuf.join("\n") || "(none)");
       debugPre.textContent = txt;
+    };
+
+    state.renderSelectedPanel = function () {
+      try {
+        var id = state && state.selectedId ? String(state.selectedId) : "";
+        var entry = null;
+
+        if (id) {
+          for (var i = 0; i < (state.entries || []).length; i++) {
+            if (state.entries[i] && String(state.entries[i].id) === id) { entry = state.entries[i]; break; }
+          }
+        }
+
+        // Clear grid
+        selGrid.innerHTML = "";
+
+        if (!entry) {
+          selMeta.textContent = "Click a row to view full details.";
+          selBtnEdit.disabled = true;
+          selBtnDel.disabled = true;
+          selBtnToggle.disabled = true;
+          selBtnToggle.textContent = "Mark Fulfilled";
+          return;
+        }
+
+        // Meta line
+        var metaBits = [];
+        metaBits.push("ID: " + String(entry.id));
+        metaBits.push(entry.fulfilled ? "Status: Fulfilled" : "Status: Active");
+        selMeta.textContent = metaBits.join(" · ");
+
+        // Key-value tiles (non-vital fields + a couple helpful ones)
+        function addKV(k, v) {
+          var wrap = document.createElement("div");
+          wrap.className = "co-kv";
+          var kk = document.createElement("div");
+          kk.className = "k";
+          kk.textContent = k;
+          var vv = document.createElement("div");
+          vv.className = "v";
+          vv.textContent = (v == null || String(v).trim() === "") ? "-" : String(v);
+          wrap.appendChild(kk);
+          wrap.appendChild(vv);
+          selGrid.appendChild(wrap);
+        }
+
+        addKV("Date", fmtDmyFromYmd(entry.order_date || ""));
+        addKV("Client", entry.client_name || "");
+        addKV("Contact", entry.contact || "");
+        addKV("Address", entry.address || "");
+        addKV("Alternate", entry.alternate || "");
+        addKV("Email", entry.email || "");
+        addKV("Item/s", entry.items || "");
+        addKV("Priority", String(entry.priority || ""));
+        addKV("Needed by", fmtDmyFromYmd(entry.needed_by || ""));
+        addKV("Pick Up Date", fmtDmyFromYmd(entry.pick_up_date || ""));
+        addKV("Deposit", entry.deposit || "");
+        addKV("Notes", entry.notes || "");
+
+        selBtnEdit.disabled = false;
+        selBtnDel.disabled = false;
+        selBtnToggle.disabled = false;
+        selBtnToggle.textContent = entry.fulfilled ? "Mark Unfulfilled" : "Mark Fulfilled";
+      } catch (e) {}
     };
 
     function updateBadge() {
@@ -1390,6 +1419,7 @@ if (depositAmount == null) depositAmount = 0;
         setSort(E.qa("th[data-key]", tableA), state.sortActive);
         setSort(E.qa("th[data-key]", tableD), state.sortDone);
 
+        try { if (typeof state.renderSelectedPanel === "function") state.renderSelectedPanel(); } catch (eSel2) {}
         try { if (typeof state.renderDebugPanel === "function") state.renderDebugPanel(); } catch (e1) {}
       } catch (e) {
         err("[clientorders] refresh failed", { status: e && e.status, bodyText: e && e.bodyText ? String(e.bodyText).slice(0, 900) : "" });
@@ -1414,6 +1444,88 @@ if (depositAmount == null) depositAmount = 0;
 
     btnRefresh.addEventListener("click", function () { refresh(); });
 
+    function buildTogglePayload(entry, next) {
+      // Deposit numeric for DB key
+      var depositAmount = null;
+      if (entry && entry.deposit != null && String(entry.deposit).trim() !== "") {
+        var dn = Number(String(entry.deposit).replace(/,/g, "").trim());
+        if (isFinite(dn)) depositAmount = dn;
+      } else if (entry && entry.deposit_amount != null && String(entry.deposit_amount).trim() !== "") {
+        var dn2 = Number(String(entry.deposit_amount).replace(/,/g, "").trim());
+        if (isFinite(dn2)) depositAmount = dn2;
+      }
+      if (depositAmount == null) depositAmount = 0;
+
+      var ts = next ? new Date().toISOString() : "";
+
+      return {
+        order_date: entry.order_date || "",
+        client_name: entry.client_name || "",
+        client_phone: entry.client_phone || entry.contact || "",
+        client_alt_phone: entry.client_alt_phone || entry.client_alternate || entry.alternate || "",
+        client_email: entry.client_email || entry.email || "",
+        client_address: entry.client_address || entry.address || "",
+        items_text: entry.items_text || entry.items || "",
+        priority: entry.priority != null && String(entry.priority).trim() !== "" ? entry.priority : 2,
+        needed_by: entry.needed_by || "",
+        pickup_date: entry.pick_up_date || "",
+        deposit_amount: depositAmount,
+        notes: entry.notes || "",
+        fulfilled: next,
+        fulfilled_at: ts
+      };
+    }
+
+    async function panelToggleFulfilled() {
+      try {
+        var id = state && state.selectedId ? String(state.selectedId) : "";
+        if (!id) return;
+
+        var entry = null;
+        for (var i = 0; i < (state.entries || []).length; i++) {
+          if (state.entries[i] && String(state.entries[i].id) === id) { entry = state.entries[i]; break; }
+        }
+        if (!entry) return;
+
+        var next = !entry.fulfilled;
+        var payload = buildTogglePayload(entry, next);
+
+        await apiUpdate(entry.id, payload);
+
+        entry.fulfilled = next;
+        entry.fulfilled_at = next ? (payload.fulfilled_at || "") : "";
+
+        rerender();
+        if (typeof state.renderSelectedPanel === "function") state.renderSelectedPanel();
+      } catch (e) {
+        modalError("Update failed", e);
+      }
+    }
+
+    selBtnEdit.addEventListener("click", function () {
+      var id = state && state.selectedId ? String(state.selectedId) : "";
+      if (!id) return;
+      for (var i = 0; i < (state.entries || []).length; i++) {
+        if (state.entries[i] && String(state.entries[i].id) === id) {
+          openOrderModal({ mode: "edit", entry: state.entries[i] });
+          return;
+        }
+      }
+    });
+
+    selBtnDel.addEventListener("click", function () {
+      var id = state && state.selectedId ? String(state.selectedId) : "";
+      if (!id) return;
+      for (var i = 0; i < (state.entries || []).length; i++) {
+        if (state.entries[i] && String(state.entries[i].id) === id) {
+          openConfirmDelete(state.entries[i]);
+          return;
+        }
+      }
+    });
+
+    selBtnToggle.addEventListener("click", function () { panelToggleFulfilled(); });
+
     searchA.addEventListener("input", function () {
       state.queryActive = String(searchA.value || "");
       applyFilterSplitSort();
@@ -1422,6 +1534,7 @@ if (depositAmount == null) depositAmount = 0;
       for (var i = 0; i < state.entries.length; i++) if (!(state.entries[i] && state.entries[i].fulfilled)) totalActive++;
       countA.textContent = "Showing " + String(state.filteredActive.length) + " / " + String(totalActive);
       try { if (typeof state.renderDebugPanel === "function") state.renderDebugPanel(); } catch (e) {}
+      try { if (typeof state.renderSelectedPanel === "function") state.renderSelectedPanel(); } catch (e2) {}
     });
 
     searchD.addEventListener("input", function () {
@@ -1432,6 +1545,7 @@ if (depositAmount == null) depositAmount = 0;
       for (var i = 0; i < state.entries.length; i++) if (state.entries[i] && state.entries[i].fulfilled) totalDone++;
       countD.textContent = "Showing " + String(state.filteredDone.length) + " / " + String(totalDone);
       try { if (typeof state.renderDebugPanel === "function") state.renderDebugPanel(); } catch (e) {}
+      try { if (typeof state.renderSelectedPanel === "function") state.renderSelectedPanel(); } catch (e2) {}
     });
 
     btnPrintA.addEventListener("click", function () {
