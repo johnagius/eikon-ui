@@ -263,6 +263,568 @@ async function parseForm(request) {
   return obj;
 }
 
+
+function wantsHtmlResponse(request, url) {
+  const q = url.searchParams.get("ui");
+  if (q === "1" || q === "true") return true;
+  const accept = (request.headers.get("Accept") || "").toLowerCase();
+  return accept.includes("text/html");
+}
+
+function normRole(role) {
+  const r = String(role || "").trim().toLowerCase();
+  if (r === "admin") return "admin";
+  if (r === "user") return "user";
+  return "";
+}
+
+function toInt01(v, defVal = 1) {
+  if (v === undefined || v === null || v === "") return defVal;
+  const n = Number(v);
+  return n === 0 ? 0 : 1;
+}
+
+async function handleAdminUsersUi(request, env) {
+  // Public page shell (no data exposed without logging in).
+  const body = `
+<h1>Admin — User Accounts</h1>
+<div class="card">
+  <p><b>Important:</b> Passwords are stored as <b>secure hashes</b>. The system cannot display existing passwords in plaintext. You can only <b>set/reset</b> a password.</p>
+  <p style="color:#555;">Login here to manage users for your org.</p>
+
+  <div id="loginBox">
+    <label>Email</label>
+    <input id="email" autocomplete="username" />
+    <label>Password</label>
+    <input id="password" type="password" autocomplete="current-password" />
+    <button id="btnLogin">Login</button>
+    <p id="loginMsg" style="margin-top:10px;"></p>
+  </div>
+
+  <div id="app" style="display:none;">
+    <p id="me" style="margin:0 0 10px 0;"></p>
+
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+      <div style="flex:1;min-width:240px;">
+        <label>Search</label>
+        <input id="q" placeholder="email / name" />
+      </div>
+      <div style="min-width:240px;">
+        <label>Show sensitive fields (hash/salt/iters)</label>
+        <input id="showSensitive" type="checkbox" />
+      </div>
+      <div>
+        <button id="btnRefresh">Refresh</button>
+        <button id="btnLogout" style="background:#444;">Logout</button>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px;">
+      <h2 style="margin:0 0 6px 0;">Create user</h2>
+      <label>Email</label>
+      <input id="newEmail" />
+      <label>Full name</label>
+      <input id="newFullName" />
+      <label>Role (admin/user)</label>
+      <input id="newRole" value="user" />
+      <label>Default location ID</label>
+      <input id="newLocId" />
+      <label>Password</label>
+      <input id="newPassword" type="password" />
+      <label>Active (1/0)</label>
+      <input id="newActive" value="1" />
+      <button id="btnCreate">Create</button>
+      <p id="createMsg" style="margin-top:10px;"></p>
+    </div>
+
+    <div class="card" style="margin-top:16px;">
+      <h2 style="margin:0 0 10px 0;">Users</h2>
+      <div style="overflow:auto;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr>
+              <th style="text-align:left;border-bottom:1px solid #ddd;padding:8px;">ID</th>
+              <th style="text-align:left;border-bottom:1px solid #ddd;padding:8px;">Email</th>
+              <th style="text-align:left;border-bottom:1px solid #ddd;padding:8px;">Name</th>
+              <th style="text-align:left;border-bottom:1px solid #ddd;padding:8px;">Role</th>
+              <th style="text-align:left;border-bottom:1px solid #ddd;padding:8px;">Active</th>
+              <th style="text-align:left;border-bottom:1px solid #ddd;padding:8px;">Location</th>
+              <th style="text-align:left;border-bottom:1px solid #ddd;padding:8px;">Created</th>
+              <th style="text-align:left;border-bottom:1px solid #ddd;padding:8px;">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+      <p id="listMsg" style="margin-top:10px;"></p>
+    </div>
+
+    <div class="card" style="margin-top:16px;">
+      <h2 style="margin:0 0 10px 0;">Edit user</h2>
+      <p style="color:#555;margin-top:0;">Select “Edit” from the list to load details.</p>
+
+      <label>User ID</label>
+      <input id="editId" disabled />
+      <label>Email</label>
+      <input id="editEmail" />
+      <label>Full name</label>
+      <input id="editFullName" />
+      <label>Role (admin/user)</label>
+      <input id="editRole" />
+      <label>Default location ID</label>
+      <input id="editLocId" />
+      <label>Active (1/0)</label>
+      <input id="editActive" />
+      <button id="btnSave">Save details</button>
+
+      <div style="margin-top:14px;border-top:1px solid #eee;padding-top:14px;">
+        <h3 style="margin:0 0 6px 0;">Reset password</h3>
+        <label>New password</label>
+        <input id="editPassword" type="password" />
+        <button id="btnSetPw" style="background:#111;">Set password</button>
+      </div>
+
+      <pre id="editSensitive" style="display:none;white-space:pre-wrap;background:#f6f6f6;padding:12px;border-radius:10px;border:1px solid #ddd;margin-top:14px;"></pre>
+      <p id="editMsg" style="margin-top:10px;"></p>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const $ = (id)=>document.getElementById(id);
+  const LS_KEY = "eikon_admin_token";
+
+  function setMsg(el, ok, msg){
+    el.textContent = msg || "";
+    el.style.color = ok ? "green" : "#b00020";
+    el.style.fontWeight = "800";
+  }
+
+  async function api(path, opts){
+    const token = localStorage.getItem(LS_KEY) || "";
+    const headers = Object.assign({}, (opts && opts.headers) || {}, {
+      "Accept":"application/json",
+      "Content-Type":"application/json",
+      "Authorization": token ? ("Bearer " + token) : ""
+    });
+    const res = await fetch(path, Object.assign({}, opts || {}, { headers }));
+    const text = await res.text();
+    let data = null;
+    try { data = JSON.parse(text); } catch { data = { ok:false, error:text }; }
+    if (!res.ok) throw new Error((data && data.error) || ("HTTP " + res.status));
+    return data;
+  }
+
+  async function login(){
+    setMsg($("loginMsg"), true, "Logging in...");
+    try{
+      const email = $("email").value.trim();
+      const password = $("password").value;
+      const res = await fetch("/auth/login", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json", "Accept":"application/json" },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      if(!data.ok) throw new Error(data.error || "Login failed");
+      localStorage.setItem(LS_KEY, data.token);
+      await afterLogin();
+    }catch(e){
+      setMsg($("loginMsg"), false, e.message || String(e));
+    }
+  }
+
+  async function afterLogin(){
+    try{
+      const me = await api("/auth/me", { method:"GET" });
+      if(!me.ok) throw new Error(me.error || "Unauthorized");
+      if(!me.user || me.user.role !== "admin") throw new Error("This page requires an admin account.");
+      $("loginBox").style.display = "none";
+      $("app").style.display = "block";
+      $("me").textContent = "Logged in as: " + me.user.email + " (" + me.user.role + ") — Org: " + (me.user.org_name || me.user.org_id) + " — Location: " + (me.user.location_name || me.user.location_id);
+      setMsg($("loginMsg"), true, "");
+      await refresh();
+    }catch(e){
+      localStorage.removeItem(LS_KEY);
+      $("loginBox").style.display = "block";
+      $("app").style.display = "none";
+      setMsg($("loginMsg"), false, e.message || String(e));
+    }
+  }
+
+  function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c])); }
+
+  function mkButton(id){
+    return '<button data-id="' + esc(id) + '" class="editBtn" style="padding:6px 10px;border-radius:10px;border:0;background:#111;color:#fff;font-weight:800;cursor:pointer;">Edit</button>';
+  }
+
+  async function refresh(){
+    setMsg($("listMsg"), true, "Loading...");
+    try{
+      const sensitive = $("showSensitive").checked ? "1" : "0";
+      const data = await api("/admin/users?sensitive="+sensitive, { method:"GET" });
+      const q = ($("q").value || "").trim().toLowerCase();
+      const rows = (data.users || []).filter(u=>{
+        if(!q) return true;
+        return (u.email||"").toLowerCase().includes(q) || (u.full_name||"").toLowerCase().includes(q) || String(u.id||"").includes(q);
+      });
+
+      const tb = $("rows");
+      tb.innerHTML = "";
+      for(const u of rows){
+        const tr = document.createElement("tr");
+        const locText = (u.default_location_id || "") + (u.default_location_name ? (" - " + u.default_location_name) : "");
+        tr.innerHTML =
+          '<td style="border-bottom:1px solid #eee;padding:8px;">' + esc(u.id) + '</td>' +
+          '<td style="border-bottom:1px solid #eee;padding:8px;">' + esc(u.email) + '</td>' +
+          '<td style="border-bottom:1px solid #eee;padding:8px;">' + esc(u.full_name) + '</td>' +
+          '<td style="border-bottom:1px solid #eee;padding:8px;">' + esc(u.role) + '</td>' +
+          '<td style="border-bottom:1px solid #eee;padding:8px;">' + esc(u.is_active) + '</td>' +
+          '<td style="border-bottom:1px solid #eee;padding:8px;">' + esc(locText) + '</td>' +
+          '<td style="border-bottom:1px solid #eee;padding:8px;">' + esc(u.created_at || "") + '</td>' +
+          '<td style="border-bottom:1px solid #eee;padding:8px;">' + mkButton(u.id) + '</td>';
+        tb.appendChild(tr);
+      }
+
+      for(const btn of document.querySelectorAll(".editBtn")){
+        btn.addEventListener("click", async (ev)=>{
+          const id = ev.target.getAttribute("data-id");
+          await loadUser(id);
+        });
+      }
+
+      setMsg($("listMsg"), true, "Loaded " + rows.length + " user(s).");
+    }catch(e){
+      setMsg($("listMsg"), false, e.message || String(e));
+    }
+  }
+
+  async function loadUser(id){
+    setMsg($("editMsg"), true, "Loading user...");
+    try{
+      const sensitive = $("showSensitive").checked ? "1" : "0";
+      const data = await api("/admin/users/" + encodeURIComponent(id) + "?sensitive=" + sensitive, { method:"GET" });
+      const u = data.user;
+      $("editId").value = u.id;
+      $("editEmail").value = u.email || "";
+      $("editFullName").value = u.full_name || "";
+      $("editRole").value = u.role || "";
+      $("editLocId").value = u.default_location_id || "";
+      $("editActive").value = String(u.is_active);
+
+      const pre = $("editSensitive");
+      if (sensitive && u.sensitive){
+        pre.style.display = "block";
+        pre.textContent = JSON.stringify(u.sensitive, null, 2);
+      } else {
+        pre.style.display = "none";
+        pre.textContent = "";
+      }
+
+      setMsg($("editMsg"), true, "User loaded.");
+    }catch(e){
+      setMsg($("editMsg"), false, e.message || String(e));
+    }
+  }
+
+  async function createUser(){
+    setMsg($("createMsg"), true, "Creating...");
+    try{
+      const payload = {
+        email: $("newEmail").value.trim(),
+        full_name: $("newFullName").value.trim(),
+        role: $("newRole").value.trim(),
+        default_location_id: $("newLocId").value.trim(),
+        password: $("newPassword").value,
+        is_active: $("newActive").value.trim()
+      };
+      const data = await api("/admin/users", { method:"POST", body: JSON.stringify(payload) });
+      setMsg($("createMsg"), true, "Created user id " + data.user_id);
+      $("newPassword").value = "";
+      await refresh();
+    }catch(e){
+      setMsg($("createMsg"), false, e.message || String(e));
+    }
+  }
+
+  async function saveUser(){
+    setMsg($("editMsg"), true, "Saving...");
+    try{
+      const id = $("editId").value;
+      if(!id) throw new Error("No user selected");
+      const payload = {
+        email: $("editEmail").value.trim(),
+        full_name: $("editFullName").value.trim(),
+        role: $("editRole").value.trim(),
+        default_location_id: $("editLocId").value.trim(),
+        is_active: $("editActive").value.trim()
+      };
+      await api("/admin/users/" + encodeURIComponent(id), { method:"PUT", body: JSON.stringify(payload) });
+      setMsg($("editMsg"), true, "Saved.");
+      await refresh();
+    }catch(e){
+      setMsg($("editMsg"), false, e.message || String(e));
+    }
+  }
+
+  async function setPassword(){
+    setMsg($("editMsg"), true, "Setting password...");
+    try{
+      const id = $("editId").value;
+      if(!id) throw new Error("No user selected");
+      const password = $("editPassword").value;
+      await api("/admin/users/" + encodeURIComponent(id) + "/password", { method:"POST", body: JSON.stringify({ password }) });
+      $("editPassword").value = "";
+      setMsg($("editMsg"), true, "Password updated.");
+    }catch(e){
+      setMsg($("editMsg"), false, e.message || String(e));
+    }
+  }
+
+  function logout(){
+    localStorage.removeItem(LS_KEY);
+    location.reload();
+  }
+
+  $("btnLogin").addEventListener("click", login);
+  $("btnRefresh").addEventListener("click", refresh);
+  $("btnCreate").addEventListener("click", createUser);
+  $("btnSave").addEventListener("click", saveUser);
+  $("btnSetPw").addEventListener("click", setPassword);
+  $("btnLogout").addEventListener("click", logout);
+  $("q").addEventListener("keydown", (e)=>{ if(e.key==="Enter") refresh(); });
+
+  // Auto login if token exists
+  if(localStorage.getItem(LS_KEY)){
+    afterLogin();
+  }
+})();
+</script>
+`;
+  return htmlPage("Admin — Users", body);
+}
+
+function adminForbidden(corsOkHeaders) {
+  return jsonResponse({ ok: false, error: "Forbidden (admin only)" }, 403, corsOkHeaders);
+}
+
+async function userByIdInOrg(env, orgId, userId) {
+  const u = await dbFirst(
+    env,
+    `SELECT u.id, u.org_id, u.email, u.full_name, u.role, u.is_active, u.default_location_id,
+            u.created_at, u.pass_salt_b64, u.pass_hash_b64, u.pass_iters,
+            l.name AS default_location_name
+     FROM users u
+     LEFT JOIN locations l ON l.id = u.default_location_id
+     WHERE u.id = ? AND u.org_id = ?`,
+    [userId, orgId]
+  );
+  return u || null;
+}
+
+function shapeUserForResponse(u, includeSensitive) {
+  const base = {
+    id: u.id,
+    org_id: u.org_id,
+    email: u.email,
+    full_name: u.full_name,
+    role: u.role,
+    is_active: u.is_active,
+    default_location_id: u.default_location_id,
+    default_location_name: u.default_location_name || "",
+    created_at: u.created_at
+  };
+  if (includeSensitive) {
+    // NOTE: these are password HASH fields (NOT plaintext passwords).
+    base.sensitive = {
+      pass_salt_b64: u.pass_salt_b64,
+      pass_hash_b64: u.pass_hash_b64,
+      pass_iters: u.pass_iters
+    };
+  }
+  return base;
+}
+
+async function handleAdminUsersList(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin"])) return adminForbidden(corsOkHeaders);
+
+  const includeSensitive = (url.searchParams.get("sensitive") || "") === "1";
+  const rows = await dbAll(
+    env,
+    `SELECT u.id, u.org_id, u.email, u.full_name, u.role, u.is_active, u.default_location_id,
+            u.created_at, u.pass_salt_b64, u.pass_hash_b64, u.pass_iters,
+            l.name AS default_location_name
+     FROM users u
+     LEFT JOIN locations l ON l.id = u.default_location_id
+     WHERE u.org_id = ?
+     ORDER BY u.id`,
+    [authUser.org_id]
+  );
+
+  return jsonResponse({ ok: true, users: rows.map(r => shapeUserForResponse(r, includeSensitive)) }, 200, corsOkHeaders);
+}
+
+async function handleAdminUserGet(request, env, corsOkHeaders, authUser, url, userId) {
+  if (!requireRole(authUser, ["admin"])) return adminForbidden(corsOkHeaders);
+
+  const includeSensitive = (url.searchParams.get("sensitive") || "") === "1";
+  const u = await userByIdInOrg(env, authUser.org_id, userId);
+  if (!u) return jsonResponse({ ok: false, error: "User not found" }, 404, corsOkHeaders);
+
+  return jsonResponse({ ok: true, user: shapeUserForResponse(u, includeSensitive) }, 200, corsOkHeaders);
+}
+
+async function handleAdminUserCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin"])) return adminForbidden(corsOkHeaders);
+
+  const body = await readJson(request);
+  const email = String(body.email || "").trim().toLowerCase();
+  const fullName = String(body.full_name || "").trim();
+  const role = normRole(body.role);
+  const password = String(body.password || "");
+  const isActive = toInt01(body.is_active, 1);
+
+  const locIdRaw = body.default_location_id;
+  const defaultLocationId = locIdRaw === undefined || locIdRaw === null || String(locIdRaw).trim() === ""
+    ? null
+    : Number(locIdRaw);
+
+  if (!email || !password) return jsonResponse({ ok: false, error: "Missing email or password" }, 400, corsOkHeaders);
+  if (!role) return jsonResponse({ ok: false, error: "Role must be 'admin' or 'user'" }, 400, corsOkHeaders);
+
+  if (defaultLocationId) {
+    const loc = await dbFirst(env, "SELECT id FROM locations WHERE id = ? AND org_id = ?", [defaultLocationId, authUser.org_id]);
+    if (!loc) return jsonResponse({ ok: false, error: "Invalid default_location_id (not in your org)" }, 400, corsOkHeaders);
+  } else {
+    return jsonResponse({ ok: false, error: "default_location_id is required" }, 400, corsOkHeaders);
+  }
+
+  const existing = await dbFirst(env, "SELECT id FROM users WHERE email = ? AND org_id = ?", [email, authUser.org_id]);
+  if (existing) return jsonResponse({ ok: false, error: "Email already exists in your org" }, 409, corsOkHeaders);
+
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iters = 100000;
+  const hash = await pbkdf2Hash(password, salt, iters);
+  const saltB64 = base64FromBytes(salt);
+  const hashB64 = base64FromBytes(hash);
+
+  const row = await dbFirst(
+    env,
+    `INSERT INTO users (org_id, email, full_name, role, pass_salt_b64, pass_hash_b64, pass_iters, is_active, default_location_id, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+     RETURNING id`,
+    [authUser.org_id, email, fullName, role, saltB64, hashB64, iters, isActive, defaultLocationId]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "ADMIN_CREATE_USER", "user", String(row.id), {
+    email, full_name: fullName, role, is_active: isActive, default_location_id: defaultLocationId
+  });
+
+  return jsonResponse({ ok: true, user_id: row.id }, 200, corsOkHeaders);
+}
+
+async function handleAdminUserUpdate(request, env, corsOkHeaders, authUser, userId) {
+  if (!requireRole(authUser, ["admin"])) return adminForbidden(corsOkHeaders);
+
+  const current = await userByIdInOrg(env, authUser.org_id, userId);
+  if (!current) return jsonResponse({ ok: false, error: "User not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+
+  const email = body.email !== undefined ? String(body.email || "").trim().toLowerCase() : null;
+  const fullName = body.full_name !== undefined ? String(body.full_name || "").trim() : null;
+  const role = body.role !== undefined ? normRole(body.role) : null;
+  const isActive = body.is_active !== undefined ? toInt01(body.is_active, current.is_active) : null;
+
+  const locIdRaw = body.default_location_id;
+  const defaultLocationId = body.default_location_id !== undefined
+    ? (locIdRaw === null || String(locIdRaw).trim() === "" ? null : Number(locIdRaw))
+    : null;
+
+  if (role !== null && !role) return jsonResponse({ ok: false, error: "Role must be 'admin' or 'user'" }, 400, corsOkHeaders);
+
+  if (defaultLocationId !== null) {
+    if (!defaultLocationId) return jsonResponse({ ok: false, error: "default_location_id is required (cannot be empty)" }, 400, corsOkHeaders);
+    const loc = await dbFirst(env, "SELECT id FROM locations WHERE id = ? AND org_id = ?", [defaultLocationId, authUser.org_id]);
+    if (!loc) return jsonResponse({ ok: false, error: "Invalid default_location_id (not in your org)" }, 400, corsOkHeaders);
+  }
+
+  if (email !== null && email !== current.email) {
+    if (!email) return jsonResponse({ ok: false, error: "Email cannot be empty" }, 400, corsOkHeaders);
+    const existing = await dbFirst(env, "SELECT id FROM users WHERE email = ? AND org_id = ? AND id <> ?", [email, authUser.org_id, userId]);
+    if (existing) return jsonResponse({ ok: false, error: "Email already exists in your org" }, 409, corsOkHeaders);
+  }
+
+  const fields = [];
+  const binds = [];
+
+  function add(field, value) {
+    fields.push(field + " = ?");
+    binds.push(value);
+  }
+
+  if (email !== null) add("email", email);
+  if (fullName !== null) add("full_name", fullName);
+  if (role !== null) add("role", role);
+  if (isActive !== null) add("is_active", isActive);
+  if (defaultLocationId !== null) add("default_location_id", defaultLocationId);
+
+  if (fields.length === 0) return jsonResponse({ ok: true, updated: 0 }, 200, corsOkHeaders);
+
+  binds.push(userId, authUser.org_id);
+
+  await dbRun(
+    env,
+    `UPDATE users SET ${fields.join(", ")} WHERE id = ? AND org_id = ?`,
+    binds
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "ADMIN_UPDATE_USER", "user", String(userId), {
+    before: { email: current.email, full_name: current.full_name, role: current.role, is_active: current.is_active, default_location_id: current.default_location_id },
+    after: { email: email !== null ? email : current.email,
+             full_name: fullName !== null ? fullName : current.full_name,
+             role: role !== null ? role : current.role,
+             is_active: isActive !== null ? isActive : current.is_active,
+             default_location_id: defaultLocationId !== null ? defaultLocationId : current.default_location_id }
+  });
+
+  return jsonResponse({ ok: true, updated: 1 }, 200, corsOkHeaders);
+}
+
+async function handleAdminUserSetPassword(request, env, corsOkHeaders, authUser, userId) {
+  if (!requireRole(authUser, ["admin"])) return adminForbidden(corsOkHeaders);
+
+  const current = await userByIdInOrg(env, authUser.org_id, userId);
+  if (!current) return jsonResponse({ ok: false, error: "User not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+  const password = String(body.password || "");
+  if (!password || password.length < 6) return jsonResponse({ ok: false, error: "Password is required (min 6 chars)" }, 400, corsOkHeaders);
+
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iters = 100000;
+  const hash = await pbkdf2Hash(password, salt, iters);
+  const saltB64 = base64FromBytes(salt);
+  const hashB64 = base64FromBytes(hash);
+
+  await dbRun(
+    env,
+    `UPDATE users SET pass_salt_b64 = ?, pass_hash_b64 = ?, pass_iters = ? WHERE id = ? AND org_id = ?`,
+    [saltB64, hashB64, iters, userId, authUser.org_id]
+  );
+
+  // Best-effort: invalidate sessions for the user (forces re-login).
+  try {
+    await dbRun(env, "DELETE FROM sessions WHERE user_id = ?", [userId]);
+  } catch (_) {}
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "ADMIN_SET_PASSWORD", "user", String(userId), {
+    target_user_id: userId, target_email: current.email
+  });
+
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
 async function handleBootstrapGet(request, env) {
   const usersCountRow = await dbFirst(env, "SELECT COUNT(*) AS c FROM users", []);
   const hasUsers = usersCountRow && usersCountRow.c > 0;
@@ -5883,6 +6445,11 @@ export default {
       return jsonResponse({ ok: true, time: nowIso() }, 200, { "Cache-Control": "no-store" });
     }
 
+    // Admin UI (public shell; requires login inside page)
+    if (url.pathname === "/admin/users" && request.method === "GET" && wantsHtmlResponse(request, url)) {
+      return await handleAdminUsersUi(request, env);
+    }
+
     if (url.pathname === "/bootstrap" && request.method === "GET") return await handleBootstrapGet(request, env);
     if (url.pathname === "/bootstrap" && request.method === "POST") return await handleBootstrapPost(request, env);
 
@@ -5903,6 +6470,25 @@ export default {
 
     if (url.pathname === "/auth/me" && request.method === "GET") {
       return await handleMe(env, corsOkHeaders, authUser);
+    }
+
+    // Admin — user management (admin role required)
+    if (url.pathname === "/admin/users" && request.method === "GET") {
+      return await handleAdminUsersList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/admin/users" && request.method === "POST") {
+      return await handleAdminUserCreate(request, env, corsOkHeaders, authUser);
+    }
+    const adminUserIdMatch = url.pathname.match(/^\/admin\/users\/(\d+)$/);
+    if (adminUserIdMatch && request.method === "GET") {
+      return await handleAdminUserGet(request, env, corsOkHeaders, authUser, url, Number(adminUserIdMatch[1]));
+    }
+    if (adminUserIdMatch && request.method === "PUT") {
+      return await handleAdminUserUpdate(request, env, corsOkHeaders, authUser, Number(adminUserIdMatch[1]));
+    }
+    const adminUserPwMatch = url.pathname.match(/^\/admin\/users\/(\d+)\/password$/);
+    if (adminUserPwMatch && request.method === "POST") {
+      return await handleAdminUserSetPassword(request, env, corsOkHeaders, authUser, Number(adminUserPwMatch[1]));
     }
 
     // End Of Day (EOD) — GET record (all paths the UI may try)
