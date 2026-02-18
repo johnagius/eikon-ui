@@ -196,7 +196,7 @@
     } catch (e) {}
     var css =
       "" +
-      ".eikon-dda-wrap{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:1100px;margin:0 auto;padding:16px;}" +
+      ".eikon-dda-wrap{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;width:100%;margin:0;padding:16px;box-sizing:border-box;}.eikon-dda-layout{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:12px;align-items:start;}@media(max-width:980px){.eikon-dda-layout{grid-template-columns:1fr;}}.eikon-dda-main{min-width:0;}.eikon-dda-side{min-width:0;}.eikon-dda-controls.vertical{flex-direction:column;align-items:stretch;}.eikon-dda-controls.vertical .eikon-dda-btn{width:100%;}.eikon-dda-report-layout{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:12px;align-items:start;}@media(max-width:980px){.eikon-dda-report-layout{grid-template-columns:1fr;}}" +
       ".eikon-dda-top{display:flex;flex-wrap:wrap;gap:10px;align-items:end;justify-content:space-between;margin-bottom:12px;}" +
       ".eikon-dda-title{font-size:18px;font-weight:900;margin:0;display:flex;align-items:center;gap:10px;color:var(--text,#e9eef7);}" +
       ".eikon-dda-title .icon{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;color:var(--text,#e9eef7);opacity:.95;}" +
@@ -947,6 +947,7 @@
       }, 220);
     }
 
+    
     function renderInto(container) {
       ctx = resolveRenderContext(container);
       if (!ctx || !ctx.doc || !ctx.mount) throw new Error("Invalid render root");
@@ -959,13 +960,24 @@
       } catch (e) {}
 
       var wrap = el(ctx.doc, "div", { class: "eikon-dda-wrap" }, []);
-      var top = el(ctx.doc, "div", { class: "eikon-dda-top" }, []);
 
-      var title = el(ctx.doc, "h2", { class: "eikon-dda-title" }, []);
+      // 2-column page layout: content on the left, month/search/new-entry on the right
+      var layout = el(ctx.doc, "div", { class: "eikon-dda-layout" }, []);
+      var mainCol = el(ctx.doc, "div", { class: "eikon-dda-main" }, []);
+      var sideCol = el(ctx.doc, "div", { class: "eikon-dda-side" }, []);
+
+      // Title (main column)
+      var title = el(ctx.doc, "h2", { class: "eikon-dda-title", style: "margin:0 0 10px 0;" }, []);
       title.appendChild(el(ctx.doc, "span", { class: "icon", html: ICON_SVG }, []));
       title.appendChild(el(ctx.doc, "span", { text: "DDA POYC" }, []));
+      mainCol.appendChild(title);
 
-      var controls = el(ctx.doc, "div", { class: "eikon-dda-controls" }, []);
+      msgBox = el(ctx.doc, "div", { class: "eikon-dda-msg", style: "display:none;" }, []);
+      mainCol.appendChild(msgBox);
+
+      // Sidebar controls (Month / Search / New Entry)
+      var sideCard = el(ctx.doc, "div", { class: "eikon-dda-card" }, []);
+      var sideControls = el(ctx.doc, "div", { class: "eikon-dda-controls vertical" }, []);
 
       // Month
       var monthField = el(ctx.doc, "div", { class: "eikon-dda-field" }, []);
@@ -1003,16 +1015,13 @@
         openModalForNew();
       };
 
-      controls.appendChild(monthField);
-      controls.appendChild(qField);
-      controls.appendChild(addBtn);
+      sideControls.appendChild(monthField);
+      sideControls.appendChild(qField);
+      sideControls.appendChild(addBtn);
+      sideCard.appendChild(sideControls);
+      sideCol.appendChild(sideCard);
 
-      top.appendChild(title);
-      top.appendChild(controls);
-
-      msgBox = el(ctx.doc, "div", { class: "eikon-dda-msg", style: "display:none;" }, []);
-
-      // Entries card
+      // Entries card (main column)
       var cardEntries = el(ctx.doc, "div", { class: "eikon-dda-card" }, []);
       var headEntries = el(ctx.doc, "div", { class: "eikon-dda-card-head" }, []);
       headEntries.appendChild(el(ctx.doc, "h3", { text: "Entries" }, []));
@@ -1040,13 +1049,25 @@
       table.appendChild(tableBody);
       tableWrap.appendChild(table);
       cardEntries.appendChild(tableWrap);
+      mainCol.appendChild(cardEntries);
 
-      // Report card (same structure as dda-sales)
+      // Report card (main column) with right-side controls
       var cardReport = el(ctx.doc, "div", { class: "eikon-dda-card", style: "margin-top:12px;" }, []);
       var headReport = el(ctx.doc, "div", { class: "eikon-dda-card-head" }, []);
       headReport.appendChild(el(ctx.doc, "h3", { text: "Report" }, []));
+      cardReport.appendChild(headReport);
 
-      var reportControls = el(ctx.doc, "div", { class: "eikon-dda-controls" }, []);
+      var reportLayout = el(ctx.doc, "div", { class: "eikon-dda-report-layout" }, []);
+      var reportLeft = el(ctx.doc, "div", { style: "min-width:0;" }, []);
+      var reportRight = el(ctx.doc, "div", { style: "min-width:0;" }, []);
+
+      reportMsg = el(ctx.doc, "div", { class: "eikon-dda-msg", style: "display:none;" }, []);
+      reportPreview = el(ctx.doc, "div", {}, []);
+      reportLeft.appendChild(reportMsg);
+      reportLeft.appendChild(reportPreview);
+
+      var reportControls = el(ctx.doc, "div", { class: "eikon-dda-controls vertical" }, []);
+
       var fromField = el(ctx.doc, "div", { class: "eikon-dda-field" }, []);
       fromField.appendChild(el(ctx.doc, "label", { text: "From" }, []));
       reportFromInput = el(ctx.doc, "input", { type: "date", value: state.report_from }, []);
@@ -1076,19 +1097,17 @@
       reportControls.appendChild(toField);
       reportControls.appendChild(generateBtn);
       reportControls.appendChild(printBtn);
-      headReport.appendChild(reportControls);
 
-      cardReport.appendChild(headReport);
+      reportRight.appendChild(reportControls);
 
-      reportMsg = el(ctx.doc, "div", { class: "eikon-dda-msg", style: "display:none;" }, []);
-      reportPreview = el(ctx.doc, "div", {}, []);
-      cardReport.appendChild(reportMsg);
-      cardReport.appendChild(reportPreview);
+      reportLayout.appendChild(reportLeft);
+      reportLayout.appendChild(reportRight);
+      cardReport.appendChild(reportLayout);
+      mainCol.appendChild(cardReport);
 
-      wrap.appendChild(top);
-      wrap.appendChild(msgBox);
-      wrap.appendChild(cardEntries);
-      wrap.appendChild(cardReport);
+      layout.appendChild(mainCol);
+      layout.appendChild(sideCol);
+      wrap.appendChild(layout);
 
       ctx.mount.appendChild(wrap);
 
@@ -1101,6 +1120,7 @@
       renderReportPreview();
       refresh();
     }
+
 
     function destroy() {
       try {
