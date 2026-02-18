@@ -236,7 +236,7 @@
       "}" +
       "#co-date,#co-needed,#co-pickup{color-scheme:dark;}" +
 
-      ".co-row-selected{background:rgba(58,160,255,.10)!important;}.co-detail{margin-top:12px;border:1px solid var(--line,rgba(255,255,255,.10));border-radius:14px;background:rgba(10,16,24,.24);padding:12px;}.co-detail-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;}.co-detail-title{font-weight:1000;color:var(--text,#e9eef7);}.co-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}.co-detail-grid .wide{grid-column:1/-1;}.co-detail-grid .k{font-size:11px;font-weight:900;color:var(--muted,rgba(233,238,247,.68));text-transform:uppercase;letter-spacing:.6px;}.co-detail-grid .v{font-size:12px;color:var(--text,#e9eef7);margin-top:2px;white-space:normal;word-break:break-word;}.co-detail-grid .v-pre{white-space:pre-wrap;}.co-detail-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:12px;}.co-detail-actions .spacer{flex:1;}.co-detail-ful{display:inline-flex;align-items:center;gap:8px;font-weight:900;color:rgba(233,238,247,.78);}@media(max-width:720px){.co-detail-grid{grid-template-columns:1fr;}}@media(max-width:920px){.co-wrap{padding:12px;}.co-controls{width:100%;}}";
+      ".co-row-selected{background:rgba(58,160,255,.10)!important;}.co-detail{margin:0 0 12px 0;border:1px solid var(--line,rgba(255,255,255,.10));border-radius:14px;background:rgba(10,16,24,.24);padding:12px;}.co-detail-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;}.co-detail-title{font-weight:1000;color:var(--text,#e9eef7);}.co-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}.co-detail-grid .wide{grid-column:1/-1;}.co-detail-grid .k{font-size:11px;font-weight:900;color:var(--muted,rgba(233,238,247,.68));text-transform:uppercase;letter-spacing:.6px;}.co-detail-grid .v{font-size:12px;color:var(--text,#e9eef7);margin-top:2px;white-space:normal;word-break:break-word;}.co-detail-grid .v-pre{white-space:pre-wrap;}.co-detail-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:12px;}.co-detail-actions .spacer{flex:1;}.co-detail-ful{display:inline-flex;align-items:center;gap:8px;font-weight:900;color:rgba(233,238,247,.78);}@media(max-width:720px){.co-detail-grid{grid-template-columns:1fr;}}@media(max-width:920px){.co-wrap{padding:12px;}.co-controls{width:100%;}}";
 
     document.head.appendChild(st);
   }
@@ -1065,6 +1065,7 @@
     filteredDone: [],
     refresh: null,
     mounted: false,
+        mount: null,
     renderDebugPanel: null,
     selectedWhich: "",
     selectedId: ""
@@ -1124,16 +1125,24 @@
     }
   }
 
-   function rerender() {
+  // Query helpers scoped to this module (safer in sandboxed containers)
+  function coQ(sel, root){
+    try { return (root || state.mount || document).querySelector(sel); } catch(e){ return null; }
+  }
+  function coQA(sel, root){
+    try { return Array.prototype.slice.call((root || state.mount || document).querySelectorAll(sel)); } catch(e){ return []; }
+  }
+
+  function rerender() {
   try {
     applyFilterSplitSort();
 
     var tbodyA = null, tbodyD = null, countA = null, countD = null;
 
-    try { tbodyA = E.q("#co-tbody-active"); } catch (e1) { tbodyA = document.querySelector("#co-tbody-active"); }
-    try { tbodyD = E.q("#co-tbody-done"); } catch (e2) { tbodyD = document.querySelector("#co-tbody-done"); }
-    try { countA = E.q("#co-count-active"); } catch (e3) { countA = document.querySelector("#co-count-active"); }
-    try { countD = E.q("#co-count-done"); } catch (e4) { countD = document.querySelector("#co-count-done"); }
+    try { tbodyA = coQ("#co-tbody-active"); } catch (e1) { tbodyA = document.querySelector("#co-tbody-active"); }
+    try { tbodyD = coQ("#co-tbody-done"); } catch (e2) { tbodyD = document.querySelector("#co-tbody-done"); }
+    try { countA = coQ("#co-count-active"); } catch (e3) { countA = document.querySelector("#co-count-active"); }
+    try { countD = coQ("#co-count-done"); } catch (e4) { countD = document.querySelector("#co-count-done"); }
 
     if (tbodyA) renderTable(tbodyA, state.filteredActive || [], "active");
     if (tbodyD) renderTable(tbodyD, state.filteredDone || [], "done");
@@ -1151,8 +1160,8 @@
     
 
     // Update detail panels
-    try { renderDetail("active", E.q("#co-detail-active")); } catch (e7) {}
-    try { renderDetail("done", E.q("#co-detail-done")); } catch (e8) {}
+    try { renderDetail("active", coQ("#co-detail-active")); } catch (e7) {}
+    try { renderDetail("done", coQ("#co-detail-done")); } catch (e8) {}
 try { if (typeof state.renderDebugPanel === "function") state.renderDebugPanel(); } catch (e5) {}
   } catch (e) {
     try { err("[clientorders] rerender failed", { message: e && e.message ? e.message : String(e) }); } catch (e6) {}
@@ -1191,8 +1200,8 @@ try { if (typeof state.renderDebugPanel === "function") state.renderDebugPanel()
         else { s.key = key; s.dir = "asc"; }
 
         applyFilterSplitSort();
-        var tbodyA = E.q("#co-tbody-active");
-        var tbodyD = E.q("#co-tbody-done");
+        var tbodyA = coQ("#co-tbody-active");
+        var tbodyD = coQ("#co-tbody-done");
         if (tbodyA) renderTable(tbodyA, state.filteredActive, "active");
         if (tbodyD) renderTable(tbodyD, state.filteredDone, "done");
 
@@ -1228,6 +1237,7 @@ try { if (typeof state.renderDebugPanel === "function") state.renderDebugPanel()
     ensureClientOrdersStyles();
 
     var mount = ctx.mount;
+    state.mount = mount;
     mount.innerHTML =
       "" +
       "<div class='co-wrap'>" +
@@ -1261,6 +1271,7 @@ try { if (typeof state.renderDebugPanel === "function") state.renderDebugPanel()
       "        <button id='co-print-active' class='eikon-btn' type='button'>Print</button>" +
       "      </div>" +
       "    </div>" +
+      "    <div class='co-detail' id='co-detail-active' style='display:none'></div>" +
       "    <div class='co-table-wrap'>" +
       "      <table class='co-table' id='co-table-active'>" +
       "        <thead><tr>" +
@@ -1285,6 +1296,7 @@ try { if (typeof state.renderDebugPanel === "function") state.renderDebugPanel()
       "        <button id='co-print-done' class='eikon-btn' type='button'>Print</button>" +
       "      </div>" +
       "    </div>" +
+      "    <div class='co-detail' id='co-detail-done' style='display:none'></div>" +
       "    <div class='co-table-wrap'>" +
       "      <table class='co-table' id='co-table-done'>" +
       "        <thead><tr>" +
@@ -1364,11 +1376,11 @@ try { if (typeof state.renderDebugPanel === "function") state.renderDebugPanel()
 
     function updateCounts(totalActive, totalDone) {
       countA.textContent = "Showing " + String(state.filteredActive.length) + " / " + String(totalActive);
-      try { renderDetail("active", E.q("#co-detail-active")); } catch (e1) {}
-      try { renderDetail("done", E.q("#co-detail-done")); } catch (e2) {}
+      try { renderDetail("active", coQ("#co-detail-active")); } catch (e1) {}
+      try { renderDetail("done", coQ("#co-detail-done")); } catch (e2) {}
       countD.textContent = "Showing " + String(state.filteredDone.length) + " / " + String(totalDone);
-      try { renderDetail("active", E.q("#co-detail-active")); } catch (e1) {}
-      try { renderDetail("done", E.q("#co-detail-done")); } catch (e2) {}
+      try { renderDetail("active", coQ("#co-detail-active")); } catch (e1) {}
+      try { renderDetail("done", coQ("#co-detail-done")); } catch (e2) {}
     }
 
     async function refresh() {
@@ -1440,8 +1452,8 @@ try { if (typeof state.renderDebugPanel === "function") state.renderDebugPanel()
         
 
         // Detail panels
-        try { renderDetail("active", E.q("#co-detail-active")); } catch (e3) {}
-        try { renderDetail("done", E.q("#co-detail-done")); } catch (e4) {}
+        try { renderDetail("active", coQ("#co-detail-active")); } catch (e3) {}
+        try { renderDetail("done", coQ("#co-detail-done")); } catch (e4) {}
 try { if (typeof state.renderDebugPanel === "function") state.renderDebugPanel(); } catch (e1) {}
       } catch (e) {
         err("[clientorders] refresh failed", { status: e && e.status, bodyText: e && e.bodyText ? String(e.bodyText).slice(0, 900) : "" });
@@ -1473,8 +1485,8 @@ try { if (typeof state.renderDebugPanel === "function") state.renderDebugPanel()
       var totalActive = 0;
       for (var i = 0; i < state.entries.length; i++) if (!(state.entries[i] && state.entries[i].fulfilled)) totalActive++;
       countA.textContent = "Showing " + String(state.filteredActive.length) + " / " + String(totalActive);
-      try { renderDetail("active", E.q("#co-detail-active")); } catch (e1) {}
-      try { renderDetail("done", E.q("#co-detail-done")); } catch (e2) {}
+      try { renderDetail("active", coQ("#co-detail-active")); } catch (e1) {}
+      try { renderDetail("done", coQ("#co-detail-done")); } catch (e2) {}
       try { if (typeof state.renderDebugPanel === "function") state.renderDebugPanel(); } catch (e) {}
     });
 
@@ -1485,8 +1497,8 @@ try { if (typeof state.renderDebugPanel === "function") state.renderDebugPanel()
       var totalDone = 0;
       for (var i = 0; i < state.entries.length; i++) if (state.entries[i] && state.entries[i].fulfilled) totalDone++;
       countD.textContent = "Showing " + String(state.filteredDone.length) + " / " + String(totalDone);
-      try { renderDetail("active", E.q("#co-detail-active")); } catch (e1) {}
-      try { renderDetail("done", E.q("#co-detail-done")); } catch (e2) {}
+      try { renderDetail("active", coQ("#co-detail-active")); } catch (e1) {}
+      try { renderDetail("done", coQ("#co-detail-done")); } catch (e2) {}
       try { if (typeof state.renderDebugPanel === "function") state.renderDebugPanel(); } catch (e) {}
     });
 
