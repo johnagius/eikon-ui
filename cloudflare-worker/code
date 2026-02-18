@@ -6620,6 +6620,201 @@ async function handlePoctStatePut(request, env, corsOkHeaders, authUser) {
 }
 
 
+async function handleInstructionsGlobalGet(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  const row = await dbFirst(
+    env,
+    `SELECT data_json, created_at, created_by, updated_at, updated_by
+     FROM instructions_global
+     WHERE org_id = ? AND location_id = ?`,
+    [authUser.org_id, authUser.location_id]
+  );
+
+  if (!row) {
+    return jsonResponse({ ok: true, global: null }, 200, corsOkHeaders);
+  }
+
+  let data = null;
+  try { data = JSON.parse(String(row.data_json || "null")); } catch (e) { data = null; }
+
+  return jsonResponse({
+    ok: true,
+    global: (data && typeof data === "object") ? data : null,
+    meta: {
+      created_at: String(row.created_at || ""),
+      created_by: row.created_by || null,
+      updated_at: String(row.updated_at || ""),
+      updated_by: row.updated_by || null
+    }
+  }, 200, corsOkHeaders);
+}
+
+async function handleInstructionsGlobalPut(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  const body = await readJson(request);
+  const global = (body && (body.global || body.data)) || null;
+
+  if (!global || typeof global !== "object") {
+    return jsonResponse({ ok: false, error: "Missing/invalid global payload" }, 400, corsOkHeaders);
+  }
+
+  const now = nowIso();
+  const dataJson = JSON.stringify(global);
+
+  await env.DB.prepare(
+    `INSERT INTO instructions_global
+       (org_id, location_id, data_json, created_at, created_by, updated_at, updated_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(org_id, location_id) DO UPDATE SET
+       data_json = excluded.data_json,
+       updated_at = excluded.updated_at,
+       updated_by = excluded.updated_by`
+  ).bind(
+    authUser.org_id,
+    authUser.location_id,
+    dataJson,
+    now,
+    authUser.user_id,
+    now,
+    authUser.user_id
+  ).run();
+
+  return jsonResponse({ ok: true, updated_at: now }, 200, corsOkHeaders);
+}
+
+function parseHandoverJson(s) {
+  try {
+    const v = JSON.parse(String(s || "[]"));
+    return Array.isArray(v) ? v : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+async function handleInstructionsDailyGetOrList(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  const ymd = String(url.searchParams.get("ymd") || "").trim();
+  const month = String(url.searchParams.get("month") || "").trim();
+
+  if (ymd) {
+    if (!isValidYmd(ymd)) return jsonResponse({ ok: false, error: "Invalid ymd (YYYY-MM-DD)" }, 400, corsOkHeaders);
+
+    const row = await dbFirst(
+      env,
+      `SELECT ymd, notes, handover_json, created_at, created_by, updated_at, updated_by
+       FROM instructions_daily
+       WHERE org_id = ? AND location_id = ? AND ymd = ?`,
+      [authUser.org_id, authUser.location_id, ymd]
+    );
+
+    if (!row) {
+      return jsonResponse({ ok: true, record: null }, 200, corsOkHeaders);
+    }
+
+    return jsonResponse({
+      ok: true,
+      record: {
+        ymd: String(row.ymd),
+        notes: String(row.notes || ""),
+        handover_out: parseHandoverJson(row.handover_json),
+        created_at: String(row.created_at || ""),
+        created_by: row.created_by || null,
+        updated_at: String(row.updated_at || ""),
+        updated_by: row.updated_by || null
+      }
+    }, 200, corsOkHeaders);
+  }
+
+  // Month list
+  if (!month || !isValidYm(month)) return jsonResponse({ ok: false, error: "Missing/invalid month (YYYY-MM)" }, 400, corsOkHeaders);
+  const range = monthRange(month);
+  if (!range) return jsonResponse({ ok: false, error: "Missing/invalid month (YYYY-MM)" }, 400, corsOkHeaders);
+
+  const rows = await dbAll(
+    env,
+    `SELECT ymd, notes, handover_json, updated_at, updated_by
+     FROM instructions_daily
+     WHERE org_id = ?
+       AND location_id = ?
+       AND ymd >= ?
+       AND ymd < ?
+     ORDER BY ymd ASC`,
+    [authUser.org_id, authUser.location_id, range.startStr, range.endStr]
+  );
+
+  const records = (rows || []).map(r => ({
+    ymd: String(r.ymd),
+    notes: String(r.notes || ""),
+    handover_out: parseHandoverJson(r.handover_json),
+    updated_at: String(r.updated_at || ""),
+    updated_by: r.updated_by || null
+  }));
+
+  return jsonResponse({ ok: true, records }, 200, corsOkHeaders);
+}
+
+async function handleInstructionsDailyPut(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  const body = await readJson(request);
+
+  const ymd = String(body.ymd || "").trim();
+  if (!isValidYmd(ymd)) return jsonResponse({ ok: false, error: "Invalid ymd (YYYY-MM-DD)" }, 400, corsOkHeaders);
+
+  const notes = String(body.notes || "");
+  const handover = Array.isArray(body.handover_out) ? body.handover_out : [];
+  const handoverJson = JSON.stringify(handover);
+
+  const now = nowIso();
+
+  // If cleared, delete the day row to keep month lists clean
+  if ((notes || "").trim() === "" && (!handover || handover.length === 0)) {
+    await env.DB.prepare(
+      `DELETE FROM instructions_daily
+       WHERE org_id = ? AND location_id = ? AND ymd = ?`
+    ).bind(authUser.org_id, authUser.location_id, ymd).run();
+
+    return jsonResponse({ ok: true, deleted: true, updated_at: now }, 200, corsOkHeaders);
+  }
+
+  await env.DB.prepare(
+    `INSERT INTO instructions_daily
+       (org_id, location_id, ymd, notes, handover_json, created_at, created_by, updated_at, updated_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(org_id, location_id, ymd) DO UPDATE SET
+       notes = excluded.notes,
+       handover_json = excluded.handover_json,
+       updated_at = excluded.updated_at,
+       updated_by = excluded.updated_by`
+  ).bind(
+    authUser.org_id,
+    authUser.location_id,
+    ymd,
+    notes,
+    handoverJson,
+    now,
+    authUser.user_id,
+    now,
+    authUser.user_id
+  ).run();
+
+  return jsonResponse({ ok: true, updated_at: now }, 200, corsOkHeaders);
+}
+
+
+
+
 export default {
   async fetch(request, env, ctx) {
     try {
@@ -6746,6 +6941,23 @@ export default {
     }
     // EOD Contacts — update/delete individual
     { const m = url.pathname.match(/^\/(?:eod|endofday)\/contacts\/(\d+)$/); if (m && request.method === "PUT") return await handleEodContactsUpdate(request, env, corsOkHeaders, authUser, Number(m[1])); if (m && request.method === "DELETE") return await handleEodContactsDeactivate(request, env, corsOkHeaders, authUser, Number(m[1])); }
+
+
+    // Instructions (global + daily handover)
+    if (url.pathname === "/instructions/global" && request.method === "GET") {
+      return await handleInstructionsGlobalGet(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname === "/instructions/global" && request.method === "PUT") {
+      return await handleInstructionsGlobalPut(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname === "/instructions/daily" && request.method === "GET") {
+      return await handleInstructionsDailyGetOrList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/instructions/daily" && request.method === "PUT") {
+      return await handleInstructionsDailyPut(request, env, corsOkHeaders, authUser);
+    }
+
+
 
     // Temperature
     if (url.pathname === "/temperature/devices" && request.method === "GET") {
