@@ -1531,7 +1531,7 @@
     var html =
       "<!DOCTYPE html><html><head><meta charset='utf-8'><title>EOD (A4)</title>" +
       "<style>" +
-      "@media print{ @page{ size:A4; margin:0; } html,body{height:297mm;overflow:hidden !important;} *{page-break-after:avoid !important;page-break-before:avoid !important;page-break-inside:avoid !important;} }" +
+      "@media print{ @page{ size:A4; margin:0; } .printbar{display:none !important;} html,body{height:auto;overflow:visible !important;} *{page-break-after:avoid !important;page-break-before:avoid !important;page-break-inside:avoid !important;} }" +
       "html,body{margin:0;padding:0} body{font-family:Arial, sans-serif} .page{width:210mm;height:297mm;position:relative}" +
       ".sheet{width:170mm;margin:25mm auto} table{width:100%;border-collapse:collapse}" +
       "td{border:1px solid #000;padding:6px;font-size:12pt} .hdr td{font-weight:bold}" +
