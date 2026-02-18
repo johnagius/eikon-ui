@@ -245,8 +245,8 @@
   // API
   // ----------------------------
   async function apiList() {
-    // No month param: backend returns all rows, then we filter locally to 3 years
-    return await E.apiFetch("/alerts/entries", { method: "GET" });
+    // Cache-bust to avoid stale GET after mutating calls (seen on some CDN/proxy paths)
+    return await E.apiFetch("/alerts/entries?ts=" + Date.now(), { method: "GET" });
   }
   async function apiCreate(payload) {
     return await E.apiFetch("/alerts/entries", {
@@ -461,7 +461,7 @@
     range: yearRangeNow()
   };
 
-  function renderTable(tbody, entries, selectedId, onSelect) {
+  function renderTable(tbody, entries, selectedId, onSelect, onDeleted) {
     tbody.innerHTML = "";
     if (!entries || !entries.length) {
       var tr0 = document.createElement("tr");
@@ -523,7 +523,19 @@
         if (!ok) return;
         try {
           await apiDelete(r.id);
+
+          // Optimistic UI update (so the row disappears immediately even if GET is cached)
+          state.entries = (state.entries || []).filter(function (x) { return String(x.id) !== String(r.id); });
+
+          // If we deleted the selected row, clear selection via hook
+          if (typeof onDeleted === "function") onDeleted(r.id);
+
+          // Re-render immediately from local state
+          renderTable(tbody, state.entries, state.selectedId, onSelect, onDeleted);
+
           toast("Deleted", "Alert removed.", "good");
+
+          // Still refresh from server (cache-busted) to reconcile
           await doRefresh();
         } catch (e2) {
           toast("Delete failed", (e2 && (e2.message || e2.bodyText)) ? (e2.message || e2.bodyText) : "Error", "bad", 4200);
@@ -794,7 +806,16 @@
         // update years label in case year rolled over
         if (yearsEl) yearsEl.value = state.range.label;
 
-        renderTable(tbody, list, state.selectedId, function (r) { setSelected(r); });
+        renderTable(
+          tbody,
+          list,
+          state.selectedId,
+          function (r) { setSelected(r); },
+          function (deletedId) {
+            if (state.selectedId && String(state.selectedId) === String(deletedId)) setSelected(null);
+            else highlightSelectedRow();
+          }
+        );
 
         // keep selection if possible
         if (state.selectedId) {
