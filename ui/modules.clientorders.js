@@ -192,7 +192,8 @@
       ".co-table th,.co-table td{border-bottom:1px solid var(--line,rgba(255,255,255,.10));padding:8px 8px;font-size:12px;vertical-align:top;overflow-wrap:normal;word-break:normal;}" +
       ".co-table th{background:rgba(12,19,29,.92);position:sticky;top:0;z-index:1;color:var(--muted,rgba(233,238,247,.68));text-transform:uppercase;letter-spacing:.8px;font-weight:1000;text-align:left;cursor:pointer;user-select:none;white-space:nowrap;}" +
       ".co-table th.noclick{cursor:default;}" +
-      ".co-table tbody tr:hover{background:rgba(255,255,255,.04);}" +
+      ".co-table tbody tr{cursor:pointer;}
+      .co-table tbody tr:hover{background:rgba(255,255,255,.04);}" +
 
       ".co-sort{display:inline-flex;gap:6px;align-items:center;}" +
       ".co-sort .car{opacity:.55;font-size:11px;}" +
@@ -1011,12 +1012,12 @@
       "  <button class='eikon-btn' type='button' id='co-detail-del-" + esc(which) + "'>Delete</button>" +
       "</div>";
 
-    var btnClose = E.q("#co-detail-close-" + which, mountEl);
-    var btnEdit = E.q("#co-detail-edit-" + which, mountEl);
-    var btnDel = E.q("#co-detail-del-" + which, mountEl);
-    var chkFul = E.q("#co-detail-ful-" + which, mountEl);
+    var btnClose = mountEl.querySelector("#co-detail-close-" + which);
+    var btnEdit = mountEl.querySelector("#co-detail-edit-" + which);
+    var btnDel = mountEl.querySelector("#co-detail-del-" + which);
+    var chkFul = mountEl.querySelector("#co-detail-ful-" + which);
 
-    if (btnClose) btnClose.addEventListener("click", function () {
+if (btnClose) btnClose.addEventListener("click", function () {
       state.selectedWhich = "";
       state.selectedId = "";
       rerender();
@@ -1047,6 +1048,29 @@
         }
       })();
     });
+  }
+
+
+  function renderSelected(mountEl) {
+    if (!mountEl) return;
+    var sid = String(state.selectedId || "");
+    if (!sid) {
+      mountEl.innerHTML = "";
+      mountEl.style.display = "none";
+      return;
+    }
+    // Determine which bucket for correct fulfilled toggle behaviour
+    var entry = entryById(sid);
+    if (!entry) {
+      mountEl.innerHTML = "";
+      mountEl.style.display = "none";
+      return;
+    }
+    // Reuse existing detail renderer (label it as 'selected')
+    // This keeps actions: Close / Fulfilled / Edit / Delete.
+    // The Close button will just clear selection.
+    mountEl.classList.add("co-detail");
+    renderDetail(entry.fulfilled ? "done" : "active", mountEl);
   }
 
 // ------------------------------------------------------------
@@ -1115,7 +1139,7 @@
 
         // highlight selected row
         try {
-          if (state.selectedWhich === w && String(state.selectedId || "") === String(entry.id || "")) {
+          if (String(state.selectedId || "") === String(entry.id || "")) {
             tr.classList.add("co-row-selected");
           }
         } catch (e1) {}
@@ -1159,9 +1183,8 @@
 
     
 
-    // Update detail panels
-    try { renderDetail("active", coQ("#co-detail-active")); } catch (e7) {}
-    try { renderDetail("done", coQ("#co-detail-done")); } catch (e8) {}
+    // Update selected panel (global)
+    try { renderSelected(coQ("#co-selected")); } catch (e7) {}
 try { if (typeof state.renderDebugPanel === "function") state.renderDebugPanel(); } catch (e5) {}
   } catch (e) {
     try { err("[clientorders] rerender failed", { message: e && e.message ? e.message : String(e) }); } catch (e6) {}
@@ -1256,6 +1279,8 @@ try { if (typeof state.renderDebugPanel === "function") state.renderDebugPanel()
       "      </div>" +
       "    </div>" +
       "  </div>" +
+
+      "  <div class='co-detail' id='co-selected' style='display:none'></div>" +
 
       "  <div class='co-card' id='co-card-active'>" +
       "    <div class='co-card-head'>" +
