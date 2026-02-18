@@ -6,12 +6,13 @@
 
   var MODULE_ID = "instructions";
   var STYLE_ID = "eikon-ins-styles";
-  var STORAGE_PREFIX = "eikon_instructions_state_v1";
 
   var ctxRef = null;
   var mountRef = null;
 
+  // ----------------------------
   // UI state (not persisted)
+  // ----------------------------
   var ui = {
     tab: "daily",          // daily | ops | systems | clinical | settings
     ymd: null,             // selected day YYYY-MM-DD (UTC)
@@ -27,8 +28,17 @@
     editingBulletSev: "g"
   };
 
-  // Data state (persisted)
+  // ----------------------------
+  // Data state (loaded from D1 via Worker)
+  // ----------------------------
   var state = null;
+
+  var net = {
+    loadingGlobal: false,
+    loadingMonths: {},    // ym -> true/false
+    loadedMonths: {},     // ym -> true/false
+    lastError: ""
+  };
 
   // ----------------------------
   // Utilities
@@ -63,6 +73,10 @@
     return dateToYmdUTC(new Date());
   }
 
+  function ymFromYmd(ymd) {
+    return String(ymd || "").slice(0, 7);
+  }
+
   function monthLabelUTC(ymd) {
     var d = ymdToDateUTC(ymd);
     try {
@@ -80,8 +94,17 @@
     try { return new Date().toISOString(); } catch (e) { return ""; }
   }
 
+  function escHtml(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
   // ----------------------------
-  // Persisted data model
+  // Data model helpers
   // ----------------------------
   function makeDefaultState() {
     return {
@@ -114,6 +137,7 @@
   function normalizeState(s) {
     var d = makeDefaultState();
     if (!s || typeof s !== "object") return d;
+
     if (!s.global || typeof s.global !== "object") s.global = {};
     if (!s.daily || typeof s.daily !== "object") s.daily = {};
 
@@ -148,38 +172,6 @@
     return s;
   }
 
-  function storageKey(user) {
-    var org = user && (user.org_id || user.orgId || user.org) ? String(user.org_id || user.orgId || user.org) : "org";
-    var loc = user && (user.location_id || user.locationId || user.location) ? String(user.location_id || user.locationId || user.location) : "loc";
-    return STORAGE_PREFIX + "_" + org + "_" + loc;
-  }
-
-  function loadState() {
-    var user = ctxRef && ctxRef.user ? ctxRef.user : null;
-    var key = storageKey(user);
-    try {
-      var raw = window.localStorage.getItem(key);
-      if (!raw) return normalizeState(makeDefaultState());
-      var parsed = safeJsonParse(raw);
-      return normalizeState(parsed);
-    } catch (e) {
-      return normalizeState(makeDefaultState());
-    }
-  }
-
-  function saveState() {
-    var user = ctxRef && ctxRef.user ? ctxRef.user : null;
-    var key = storageKey(user);
-    try {
-      window.localStorage.setItem(key, JSON.stringify(state || makeDefaultState()));
-      flash("ok", "Saved (local).");
-      return true;
-    } catch (e) {
-      flash("err", "Save failed (storage blocked).");
-      return false;
-    }
-  }
-
   function ensureDaily(ymd) {
     if (!state.daily[ymd]) state.daily[ymd] = { notes: "", updated_at: "", handover_out: [] };
     var rec = state.daily[ymd];
@@ -189,18 +181,134 @@
     return rec;
   }
 
+  function removeDailyIfEmpty(ymd) {
+    var rec = state.daily[ymd];
+    if (!rec) return;
+    var notesEmpty = !rec.notes || String(rec.notes).trim() === "";
+    var handEmpty = !rec.handover_out || rec.handover_out.length === 0;
+    if (notesEmpty && handEmpty) delete state.daily[ymd];
+  }
+
   function hasDailyNotes(ymd) {
     var rec = state.daily[ymd];
     return !!(rec && typeof rec.notes === "string" && rec.notes.trim() !== "");
   }
+
   function hasDailyOut(ymd) {
     var rec = state.daily[ymd];
     return !!(rec && Array.isArray(rec.handover_out) && rec.handover_out.length > 0);
   }
+
   function hasDailyIn(ymd) {
     var prev = addDaysYmdUTC(ymd, -1);
     var rec = state.daily[prev];
     return !!(rec && Array.isArray(rec.handover_out) && rec.handover_out.length > 0);
+  }
+
+  // ----------------------------
+  // Network (D1 via Worker)
+  // ----------------------------
+  async function loadGlobalIfNeeded() {
+    if (net.loadingGlobal) return;
+    if (!state) state = normalizeState(makeDefaultState());
+
+    net.loadingGlobal = true;
+    try {
+      var resp = await E.apiFetch("/instructions/global", { method: "GET" });
+      if (!resp || !resp.ok) throw new Error("Failed to load global instructions");
+
+      var merged = normalizeState({ v: 1, global: resp.global || {}, daily: state.daily || {} });
+      state.global = merged.global;
+      net.lastError = "";
+    } catch (e) {
+      net.lastError = (e && (e.message || String(e))) || "Failed to load";
+      flash("err", "Could not load global instructions.");
+    } finally {
+      net.loadingGlobal = false;
+    }
+  }
+
+  async function loadMonthIfNeeded(ym) {
+    ym = String(ym || "").trim();
+    if (!ym) return;
+    if (net.loadedMonths[ym]) return;
+    if (net.loadingMonths[ym]) return;
+
+    net.loadingMonths[ym] = true;
+    try {
+      var resp = await E.apiFetch("/instructions/daily?month=" + encodeURIComponent(ym), { method: "GET" });
+      if (!resp || !resp.ok) throw new Error("Failed to load month instructions");
+
+      // Merge records into state.daily
+      var records = resp.records || [];
+      for (var i = 0; i < records.length; i++) {
+        var r = records[i] || {};
+        var ymd = String(r.ymd || "").trim();
+        if (!ymd) continue;
+        state.daily[ymd] = {
+          notes: String(r.notes || ""),
+          updated_at: String(r.updated_at || ""),
+          handover_out: Array.isArray(r.handover_out) ? r.handover_out : []
+        };
+      }
+
+      // Normalize daily records we just inserted
+      state = normalizeState(state);
+
+      net.loadedMonths[ym] = true;
+      net.lastError = "";
+    } catch (e2) {
+      net.lastError = (e2 && (e2.message || String(e2))) || "Failed to load";
+      flash("err", "Could not load daily instructions (" + ym + ").");
+    } finally {
+      net.loadingMonths[ym] = false;
+    }
+  }
+
+  async function saveGlobalToServer() {
+    try {
+      var payload = { global: state.global };
+      var resp = await E.apiFetch("/instructions/global", {
+        method: "PUT",
+        body: JSON.stringify(payload)
+      });
+      if (!resp || !resp.ok) throw new Error("Save failed");
+      flash("ok", "Saved.");
+      return true;
+    } catch (e) {
+      flash("err", "Save failed.");
+      return false;
+    }
+  }
+
+  async function saveDailyToServer(ymd) {
+    try {
+      var rec = ensureDaily(ymd);
+      var payload = {
+        ymd: ymd,
+        notes: String(rec.notes || ""),
+        handover_out: Array.isArray(rec.handover_out) ? rec.handover_out : []
+      };
+
+      var resp = await E.apiFetch("/instructions/daily", {
+        method: "PUT",
+        body: JSON.stringify(payload)
+      });
+
+      if (!resp || !resp.ok) throw new Error("Save failed");
+
+      if (resp.deleted) {
+        delete state.daily[ymd];
+      } else {
+        rec.updated_at = String(resp.updated_at || rec.updated_at || nowIso());
+      }
+
+      flash("ok", "Saved.");
+      return true;
+    } catch (e) {
+      flash("err", "Save failed.");
+      return false;
+    }
   }
 
   // ----------------------------
@@ -221,16 +329,17 @@
       else if (k === "disabled") el.disabled = !!v;
       else if (k === "type") el.type = v;
       else if (k === "placeholder") el.setAttribute("placeholder", v);
-      else if (k === "rows") el.setAttribute("rows", String(v));
       else if (k === "id") el.id = v;
-      else if (typeof v === "function" && k.slice(0, 2) === "on") el[k] = v; // onclick, onchange, oninput, etc.
+      else if (typeof v === "function" && k.slice(0, 2) === "on") el[k] = v;
       else el.setAttribute(k, v);
     });
+
     (children || []).forEach(function (c) {
       if (c === null || c === undefined) return;
       if (typeof c === "string") el.appendChild(document.createTextNode(c));
       else el.appendChild(c);
     });
+
     return el;
   }
 
@@ -254,9 +363,9 @@
       ".eikon-ins-wrap{display:flex;flex-direction:column;gap:12px;}\n" +
       ".eikon-ins-top{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;}\n" +
       ".eikon-ins-tabs{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}\n" +
-      ".eikon-ins-tabbtn{border:1px solid var(--border);background:rgba(255,255,255,.04);padding:8px 10px;border-radius:999px;cursor:pointer;font-weight:800;}\n" +
+      ".eikon-ins-tabbtn{border:1px solid var(--border);background:rgba(255,255,255,.04);padding:8px 10px;border-radius:999px;cursor:pointer;font-weight:900;}\n" +
       ".eikon-ins-tabbtn.active{background:rgba(255,255,255,.10);border-color:rgba(255,255,255,.22);}\n" +
-      ".eikon-ins-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}\n" +
+      ".eikon-ins-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:flex-end;}\n" +
       ".eikon-ins-flash{padding:8px 10px;border-radius:10px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.04);font-size:13px;}\n" +
       ".eikon-ins-flash.ok{border-color:rgba(25,195,125,.45);background:rgba(25,195,125,.10);}\n" +
       ".eikon-ins-flash.err{border-color:rgba(255,90,90,.45);background:rgba(255,90,90,.10);}\n" +
@@ -275,9 +384,9 @@
       ".eikon-ins-ta{width:100%;min-height:140px;resize:vertical;}\n" +
       ".eikon-ins-ta.small{min-height:110px;}\n" +
       ".eikon-ins-divider{height:1px;background:rgba(255,255,255,.10);margin:10px 0;}\n" +
-      ".eikon-ins-switch{display:inline-flex;gap:8px;align-items:center;cursor:pointer;user-select:none;font-weight:800;}\n" +
+      ".eikon-ins-switch{display:inline-flex;gap:8px;align-items:center;cursor:pointer;user-select:none;font-weight:900;}\n" +
       ".eikon-ins-switch input{transform:scale(1.05);}\n" +
-      ".eikon-ins-kbd{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:12px;opacity:.8;}\n" +
+      ".eikon-ins-kbd{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:12px;opacity:.85;}\n" +
       ".eikon-ins-daily-top{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;}\n" +
       ".eikon-ins-daily-left{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}\n" +
       ".eikon-ins-datechip{padding:8px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.04);font-weight:900;}\n" +
@@ -333,7 +442,137 @@
   }
 
   // ----------------------------
-  // Global editor card (textareas)
+  // Printing (A4) — same approach as other modules (popup + window.print)
+  // ----------------------------
+  function openPrintWindow(html) {
+    var w = null;
+    try { w = window.open("", "_blank"); } catch (e) { w = null; }
+    if (!w) {
+      E.modal.show(
+        "Print",
+        "<div style='white-space:pre-wrap'>Popup blocked. Allow popups and try again.</div>",
+        [{ label: "Close", primary: true, onClick: function () { E.modal.hide(); } }]
+      );
+      return;
+    }
+    try {
+      w.document.open();
+      w.document.write(String(html || ""));
+      w.document.close();
+      w.focus();
+    } catch (e2) {}
+  }
+
+  function buildPrintHtmlAll() {
+    var user = ctxRef && ctxRef.user ? ctxRef.user : {};
+    var ymd = ui.ymd || todayYmdUTC();
+    var prevYmd = addDaysYmdUTC(ymd, -1);
+    var nextYmd = addDaysYmdUTC(ymd, 1);
+
+    var g = state && state.global ? state.global : makeDefaultState().global;
+    var day = (state && state.daily && state.daily[ymd]) ? state.daily[ymd] : { notes: "", updated_at: "", handover_out: [] };
+    var incoming = (state && state.daily && state.daily[prevYmd] && state.daily[prevYmd].handover_out) ? state.daily[prevYmd].handover_out : [];
+    var outgoing = (day && Array.isArray(day.handover_out)) ? day.handover_out : [];
+
+    function sec(title, bodyText) {
+      var t = String(bodyText || "").trim();
+      if (!t) t = "";
+      return (
+        "<div class='sec'>" +
+          "<h2>" + escHtml(title) + "</h2>" +
+          "<div class='box'>" + escHtml(t) + "</div>" +
+        "</div>"
+      );
+    }
+
+    function bullets(title, arr) {
+      arr = Array.isArray(arr) ? arr : [];
+      var items = arr.map(function (b) {
+        var sev = (b && (b.sev === "r" || b.sev === "y" || b.sev === "g")) ? b.sev : "g";
+        var label = (sev === "r" ? "CRITICAL" : (sev === "y" ? "MEDIUM" : "LOW"));
+        return (
+          "<li class='li sev-" + sev + "'>" +
+            "<span class='dot dot-" + sev + "'></span>" +
+            "<span class='lbl'>[" + label + "]</span> " +
+            "<span class='txt'>" + escHtml(String(b && b.text || "")) + "</span>" +
+          "</li>"
+        );
+      }).join("");
+      if (!items) items = "<li class='li'><span class='txt'>(none)</span></li>";
+      return (
+        "<div class='sec'>" +
+          "<h2>" + escHtml(title) + "</h2>" +
+          "<ul class='ul'>" + items + "</ul>" +
+        "</div>"
+      );
+    }
+
+    var header =
+      "<div class='printbar'><button onclick='window.print()'>Print</button></div>" +
+      "<h1>Instructions (A4)</h1>" +
+      "<div class='meta'>" +
+        "Org: " + escHtml(String(user.org_name || user.org || user.org_id || "-")) + " | " +
+        "Location: " + escHtml(String(user.location_name || user.location || user.location_id || "-")) + "<br/>" +
+        "Selected day: <b>" + escHtml(ymd) + "</b> | Next day: " + escHtml(nextYmd) + " | Previous day: " + escHtml(prevYmd) + "<br/>" +
+        "Printed: " + escHtml(new Date().toLocaleString()) +
+      "</div>";
+
+    var html =
+      "<!doctype html><html><head><meta charset='utf-8'><title>Instructions (A4)</title>" +
+      "<style>" +
+      "@page{size:A4;margin:12mm;} body{font-family:Arial, sans-serif; font-size:12px; color:#111;}" +
+      "h1{margin:0 0 6px 0; font-size:18px;}" +
+      "h2{margin:0 0 6px 0; font-size:14px;}" +
+      ".meta{font-size:12px;color:#333;margin:0 0 12px 0; line-height:1.35;}" +
+      ".sec{margin:0 0 12px 0; page-break-inside:avoid;}" +
+      ".box{white-space:pre-wrap; border:1px solid #ddd; padding:10px; border-radius:10px; background:#fafafa;}" +
+      ".ul{margin:0; padding:0 0 0 0; list-style:none;}" +
+      ".li{display:flex; gap:8px; align-items:flex-start; margin:0 0 6px 0;}" +
+      ".dot{width:10px;height:10px;border-radius:99px; margin-top:3px; flex:0 0 auto;}" +
+      ".dot-g{background:#19c37d;}.dot-y{background:#f5c25c;}.dot-r{background:#ff5a5a;}" +
+      ".lbl{font-weight:800;}" +
+      ".printbar{position:fixed;right:14px;top:14px;}" +
+      ".printbar button{padding:8px 10px;font-weight:800;}" +
+      "@media print{.printbar{display:none!important;}}" +
+      "</style></head><body>" +
+      header +
+      "<hr style='border:none;border-top:1px solid #ddd;margin:10px 0 14px 0'/>" +
+
+      "<h2 style='margin:0 0 8px 0'>Operations</h2>" +
+      sec("Opening", g.opening.text) +
+      sec("Closing", g.closing.text) +
+      sec("End of Day", g.endofday.text) +
+
+      "<h2 style='margin:14px 0 8px 0'>Systems</h2>" +
+      sec("POS", g.pos.text) +
+      sec("POYC", g.poyc.text) +
+      sec("Ordering", g.ordering.text) +
+      sec("Loyalty Schemes", g.loyalty.text) +
+
+      "<h2 style='margin:14px 0 8px 0'>Clinical</h2>" +
+      (g.hiv.enabled ? sec("HIV Dispensing", g.hiv.text) : sec("HIV Dispensing (Disabled)", "")) +
+      (g.concerta.enabled ? sec("Concerta Dispensing", g.concerta.text) : sec("Concerta Dispensing (Disabled)", "")) +
+      sec("Doctors / Appointments", g.doctors_process.text) +
+      sec("Doctors Fees", g.doctors_fees.text) +
+      sec("Clinic Fees", g.clinic_fees.text) +
+
+      "<h2 style='margin:14px 0 8px 0'>Handover</h2>" +
+      sec("Permanent Handover Instructions", g.permanent_handover.text) +
+      sec("Day Specific Instructions (" + ymd + ")", day.notes) +
+      bullets("Incoming Handover (from " + prevYmd + ")", incoming) +
+      bullets("Outgoing Handover (for " + nextYmd + ")", outgoing) +
+
+      "</body></html>";
+
+    return html;
+  }
+
+  function doPrintAll() {
+    openPrintWindow(buildPrintHtmlAll());
+  }
+
+  // ----------------------------
+  // Cards
   // ----------------------------
   function renderEditorCard(opts) {
     // opts: { key, title, subtitle, placeholder, cols, anchorId, toggleable }
@@ -348,23 +587,22 @@
 
     var controls = [];
 
-    // Toggleable (HIV / Concerta)
     if (opts.toggleable) {
       var enabledNow = !!g.enabled;
-      var sw = h("label", { class: "eikon-ins-switch" }, [
-        h("input", {
-          type: "checkbox",
-          checked: enabledNow,
-          onchange: function (ev) {
-            g.enabled = !!ev.target.checked;
-            g.updated_at = nowIso();
-            saveState();
-            renderIntoMount();
-          }
-        }, []),
-        h("span", { text: enabledNow ? "Enabled" : "Disabled" }, [])
-      ]);
-      controls.push(sw);
+      controls.push(
+        h("label", { class: "eikon-ins-switch" }, [
+          h("input", {
+            type: "checkbox",
+            checked: enabledNow,
+            onchange: function (ev) {
+              g.enabled = !!ev.target.checked;
+              g.updated_at = nowIso();
+              saveGlobalToServer().then(function () { renderIntoMount(); });
+            }
+          }, []),
+          h("span", { text: enabledNow ? "Enabled" : "Disabled" }, [])
+        ])
+      );
     }
 
     if (!isEditing) {
@@ -379,8 +617,7 @@
         g.updated_at = nowIso();
         ui.editing[opts.key] = false;
         ui.drafts[opts.key] = "";
-        saveState();
-        renderIntoMount();
+        saveGlobalToServer().then(function () { renderIntoMount(); });
       }));
       controls.push(btn("Cancel", "eikon-btn", function () {
         ui.editing[opts.key] = false;
@@ -391,13 +628,9 @@
 
     var body;
     if (opts.toggleable && !g.enabled) {
-      body = h("div", { class: "eikon-ins-read" }, [
-        "This section is disabled. Toggle it on to show/edit the contents."
-      ]);
+      body = h("div", { class: "eikon-ins-read" }, ["This section is disabled. Toggle it on to show/edit the contents."]);
     } else if (!isEditing) {
-      body = h("div", { class: "eikon-ins-read" }, [
-        (g.text && g.text.trim()) ? g.text : ("(" + (opts.placeholder || "No text") + ")")
-      ]);
+      body = h("div", { class: "eikon-ins-read" }, [(g.text && g.text.trim()) ? g.text : ("(" + (opts.placeholder || "No text") + ")")]);
     } else {
       body = h("textarea", {
         class: "eikon-input eikon-ins-ta" + (opts.small ? " small" : ""),
@@ -417,45 +650,22 @@
   }
 
   // ----------------------------
-  // Tabs
+  // Tabs renderers
   // ----------------------------
   function renderOpsTab() {
     var wrap = h("div", { class: "eikon-ins-grid" }, []);
 
-    var pills = h("div", { class: "eikon-ins-pillrow" }, [
-      h("button", { class: "eikon-ins-pill", text: "Opening", onclick: function () { scrollToId("ins_ops_opening"); } }, []),
-      h("button", { class: "eikon-ins-pill", text: "Closing", onclick: function () { scrollToId("ins_ops_closing"); } }, []),
-      h("button", { class: "eikon-ins-pill", text: "End of Day", onclick: function () { scrollToId("ins_ops_eod"); } }, [])
-    ]);
+    wrap.appendChild(h("div", { class: "eikon-ins-col12" }, [
+      h("div", { class: "eikon-ins-pillrow" }, [
+        h("button", { class: "eikon-ins-pill", text: "Opening", onclick: function () { scrollToId("ins_ops_opening"); } }, []),
+        h("button", { class: "eikon-ins-pill", text: "Closing", onclick: function () { scrollToId("ins_ops_closing"); } }, []),
+        h("button", { class: "eikon-ins-pill", text: "End of Day", onclick: function () { scrollToId("ins_ops_eod"); } }, [])
+      ])
+    ]));
 
-    wrap.appendChild(h("div", { class: "eikon-ins-col12" }, [pills]));
-
-    wrap.appendChild(renderEditorCard({
-      key: "opening",
-      title: "Opening Instructions",
-      subtitle: "Checklist + anything that must happen before the first customer.",
-      placeholder: "Write your opening checklist here…",
-      cols: 6,
-      anchorId: "ins_ops_opening"
-    }));
-
-    wrap.appendChild(renderEditorCard({
-      key: "closing",
-      title: "Closing Instructions",
-      subtitle: "Closing routine, security checks, cash-up notes, next-day prep.",
-      placeholder: "Write your closing checklist here…",
-      cols: 6,
-      anchorId: "ins_ops_closing"
-    }));
-
-    wrap.appendChild(renderEditorCard({
-      key: "endofday",
-      title: "End of Day Instructions",
-      subtitle: "End-of-day process (reports, reconciliation, backups, etc.).",
-      placeholder: "Write your end-of-day instructions here…",
-      cols: 12,
-      anchorId: "ins_ops_eod"
-    }));
+    wrap.appendChild(renderEditorCard({ key: "opening", title: "Opening Instructions", subtitle: "Checklist + anything that must happen before the first customer.", placeholder: "Write your opening checklist here…", cols: 6, anchorId: "ins_ops_opening" }));
+    wrap.appendChild(renderEditorCard({ key: "closing", title: "Closing Instructions", subtitle: "Closing routine, security checks, cash-up notes, next-day prep.", placeholder: "Write your closing checklist here…", cols: 6, anchorId: "ins_ops_closing" }));
+    wrap.appendChild(renderEditorCard({ key: "endofday", title: "End of Day Instructions", subtitle: "End-of-day process (reports, reconciliation, backups, etc.).", placeholder: "Write your end-of-day instructions here…", cols: 12, anchorId: "ins_ops_eod" }));
 
     return wrap;
   }
@@ -463,50 +673,19 @@
   function renderSystemsTab() {
     var wrap = h("div", { class: "eikon-ins-grid" }, []);
 
-    var pills = h("div", { class: "eikon-ins-pillrow" }, [
-      h("button", { class: "eikon-ins-pill", text: "POS", onclick: function () { scrollToId("ins_sys_pos"); } }, []),
-      h("button", { class: "eikon-ins-pill", text: "POYC", onclick: function () { scrollToId("ins_sys_poyc"); } }, []),
-      h("button", { class: "eikon-ins-pill", text: "Ordering", onclick: function () { scrollToId("ins_sys_order"); } }, []),
-      h("button", { class: "eikon-ins-pill", text: "Loyalty", onclick: function () { scrollToId("ins_sys_loyalty"); } }, [])
-    ]);
+    wrap.appendChild(h("div", { class: "eikon-ins-col12" }, [
+      h("div", { class: "eikon-ins-pillrow" }, [
+        h("button", { class: "eikon-ins-pill", text: "POS", onclick: function () { scrollToId("ins_sys_pos"); } }, []),
+        h("button", { class: "eikon-ins-pill", text: "POYC", onclick: function () { scrollToId("ins_sys_poyc"); } }, []),
+        h("button", { class: "eikon-ins-pill", text: "Ordering", onclick: function () { scrollToId("ins_sys_order"); } }, []),
+        h("button", { class: "eikon-ins-pill", text: "Loyalty", onclick: function () { scrollToId("ins_sys_loyalty"); } }, [])
+      ])
+    ]));
 
-    wrap.appendChild(h("div", { class: "eikon-ins-col12" }, [pills]));
-
-    wrap.appendChild(renderEditorCard({
-      key: "pos",
-      title: "Point of Sale (POS) Instructions",
-      subtitle: "How to use the POS system (common workflows + troubleshooting).",
-      placeholder: "Write POS instructions here…",
-      cols: 12,
-      anchorId: "ins_sys_pos"
-    }));
-
-    wrap.appendChild(renderEditorCard({
-      key: "poyc",
-      title: "POYC System Instructions",
-      subtitle: "POYC workflow, checks, common issues, and where things are stored.",
-      placeholder: "Write POYC instructions here…",
-      cols: 12,
-      anchorId: "ins_sys_poyc"
-    }));
-
-    wrap.appendChild(renderEditorCard({
-      key: "ordering",
-      title: "How to Order Items",
-      subtitle: "Supplier ordering process, cut-off times, urgent orders, returns/credits.",
-      placeholder: "Write ordering instructions here…",
-      cols: 6,
-      anchorId: "ins_sys_order"
-    }));
-
-    wrap.appendChild(renderEditorCard({
-      key: "loyalty",
-      title: "Active Loyalty Schemes",
-      subtitle: "Current loyalty offers, how to apply, and any restrictions.",
-      placeholder: "List active loyalty schemes here…",
-      cols: 6,
-      anchorId: "ins_sys_loyalty"
-    }));
+    wrap.appendChild(renderEditorCard({ key: "pos", title: "Point of Sale (POS) Instructions", subtitle: "How to use the POS system (common workflows + troubleshooting).", placeholder: "Write POS instructions here…", cols: 12, anchorId: "ins_sys_pos" }));
+    wrap.appendChild(renderEditorCard({ key: "poyc", title: "POYC System Instructions", subtitle: "POYC workflow, checks, common issues, and where things are stored.", placeholder: "Write POYC instructions here…", cols: 12, anchorId: "ins_sys_poyc" }));
+    wrap.appendChild(renderEditorCard({ key: "ordering", title: "How to Order Items", subtitle: "Supplier ordering process, cut-off times, urgent orders, returns/credits.", placeholder: "Write ordering instructions here…", cols: 6, anchorId: "ins_sys_order" }));
+    wrap.appendChild(renderEditorCard({ key: "loyalty", title: "Active Loyalty Schemes", subtitle: "Current loyalty offers, how to apply, and any restrictions.", placeholder: "List active loyalty schemes here…", cols: 6, anchorId: "ins_sys_loyalty" }));
 
     return wrap;
   }
@@ -514,59 +693,20 @@
   function renderClinicalTab() {
     var wrap = h("div", { class: "eikon-ins-grid" }, []);
 
-    var pills = h("div", { class: "eikon-ins-pillrow" }, [
-      h("button", { class: "eikon-ins-pill", text: "HIV", onclick: function () { scrollToId("ins_cli_hiv"); } }, []),
-      h("button", { class: "eikon-ins-pill", text: "Concerta", onclick: function () { scrollToId("ins_cli_concerta"); } }, []),
-      h("button", { class: "eikon-ins-pill", text: "Doctors", onclick: function () { scrollToId("ins_cli_doctors"); } }, []),
-      h("button", { class: "eikon-ins-pill", text: "Fees", onclick: function () { scrollToId("ins_cli_fees"); } }, [])
-    ]);
-    wrap.appendChild(h("div", { class: "eikon-ins-col12" }, [pills]));
+    wrap.appendChild(h("div", { class: "eikon-ins-col12" }, [
+      h("div", { class: "eikon-ins-pillrow" }, [
+        h("button", { class: "eikon-ins-pill", text: "HIV", onclick: function () { scrollToId("ins_cli_hiv"); } }, []),
+        h("button", { class: "eikon-ins-pill", text: "Concerta", onclick: function () { scrollToId("ins_cli_concerta"); } }, []),
+        h("button", { class: "eikon-ins-pill", text: "Doctors", onclick: function () { scrollToId("ins_cli_doctors"); } }, []),
+        h("button", { class: "eikon-ins-pill", text: "Fees", onclick: function () { scrollToId("ins_cli_fees"); } }, [])
+      ])
+    ]));
 
-    wrap.appendChild(renderEditorCard({
-      key: "hiv",
-      title: "Dispensing Instructions — HIV",
-      subtitle: "Toggle on/off. When disabled, the section is hidden for normal use.",
-      placeholder: "Write HIV dispensing instructions here…",
-      cols: 12,
-      anchorId: "ins_cli_hiv",
-      toggleable: true
-    }));
-
-    wrap.appendChild(renderEditorCard({
-      key: "concerta",
-      title: "Dispensing Instructions — Concerta",
-      subtitle: "Toggle on/off. When disabled, the section is hidden for normal use.",
-      placeholder: "Write Concerta dispensing instructions here…",
-      cols: 12,
-      anchorId: "ins_cli_concerta",
-      toggleable: true
-    }));
-
-    wrap.appendChild(renderEditorCard({
-      key: "doctors_process",
-      title: "Doctors / Appointments Instructions",
-      subtitle: "How bookings work, what staff must collect, what to prepare, etc.",
-      placeholder: "Write doctors/appointments instructions here…",
-      cols: 12,
-      anchorId: "ins_cli_doctors"
-    }));
-
-    wrap.appendChild(renderEditorCard({
-      key: "doctors_fees",
-      title: "Doctors Fees",
-      subtitle: "Fee list, payment method rules, refunds, special cases.",
-      placeholder: "Write doctors fees here…",
-      cols: 6,
-      anchorId: "ins_cli_fees"
-    }));
-
-    wrap.appendChild(renderEditorCard({
-      key: "clinic_fees",
-      title: "Clinic Fees",
-      subtitle: "Clinic fees and any notes (packages, follow-ups, etc.).",
-      placeholder: "Write clinic fees here…",
-      cols: 6
-    }));
+    wrap.appendChild(renderEditorCard({ key: "hiv", title: "Dispensing Instructions — HIV", subtitle: "Toggle on/off. When disabled, the section is hidden for normal use.", placeholder: "Write HIV dispensing instructions here…", cols: 12, anchorId: "ins_cli_hiv", toggleable: true }));
+    wrap.appendChild(renderEditorCard({ key: "concerta", title: "Dispensing Instructions — Concerta", subtitle: "Toggle on/off. When disabled, the section is hidden for normal use.", placeholder: "Write Concerta dispensing instructions here…", cols: 12, anchorId: "ins_cli_concerta", toggleable: true }));
+    wrap.appendChild(renderEditorCard({ key: "doctors_process", title: "Doctors / Appointments Instructions", subtitle: "How bookings work, what staff must collect, what to prepare, etc.", placeholder: "Write doctors/appointments instructions here…", cols: 12, anchorId: "ins_cli_doctors" }));
+    wrap.appendChild(renderEditorCard({ key: "doctors_fees", title: "Doctors Fees", subtitle: "Fee list, payment method rules, refunds, special cases.", placeholder: "Write doctors fees here…", cols: 6, anchorId: "ins_cli_fees" }));
+    wrap.appendChild(renderEditorCard({ key: "clinic_fees", title: "Clinic Fees", subtitle: "Clinic fees and any notes (packages, follow-ups, etc.).", placeholder: "Write clinic fees here…", cols: 6 }));
 
     return wrap;
   }
@@ -615,7 +755,7 @@
           return function () {
             ui.ymd = ymd2;
             ui.monthYmd = ymd2.slice(0, 7) + "-01";
-            renderIntoMount();
+            ensureMonthLoadedForSelection();
           };
         })(ymd)
       }, [
@@ -630,6 +770,24 @@
     return cal;
   }
 
+  function ensureMonthLoadedForSelection() {
+    if (!ui.ymd) ui.ymd = todayYmdUTC();
+    if (!ui.monthYmd) ui.monthYmd = ui.ymd.slice(0, 7) + "-01";
+
+    var ym = ymFromYmd(ui.ymd);
+    var prevYm = ymFromYmd(addDaysYmdUTC(ui.ymd, -1));
+
+    Promise.resolve()
+      .then(function () { return loadGlobalIfNeeded(); })
+      .then(function () { return loadMonthIfNeeded(ym); })
+      .then(function () {
+        if (prevYm !== ym) return loadMonthIfNeeded(prevYm);
+      })
+      .finally(function () {
+        renderIntoMount();
+      });
+  }
+
   function renderDailyTab() {
     var ymd = ui.ymd;
     var prevYmd = addDaysYmdUTC(ymd, -1);
@@ -642,9 +800,9 @@
     var top = h("div", { class: "eikon-ins-daily-top" }, [
       h("div", { class: "eikon-ins-daily-left" }, [
         h("div", { class: "eikon-ins-datechip", text: ymd }, []),
-        btn("◀ Prev", "eikon-btn", function () { ui.ymd = prevYmd; ui.monthYmd = ui.ymd.slice(0, 7) + "-01"; renderIntoMount(); }),
-        btn("Today", "eikon-btn", function () { ui.ymd = today; ui.monthYmd = today.slice(0, 7) + "-01"; renderIntoMount(); }),
-        btn("Next ▶", "eikon-btn", function () { ui.ymd = nextYmd; ui.monthYmd = ui.ymd.slice(0, 7) + "-01"; renderIntoMount(); }),
+        btn("◀ Prev", "eikon-btn", function () { ui.ymd = prevYmd; ui.monthYmd = ui.ymd.slice(0, 7) + "-01"; ensureMonthLoadedForSelection(); }),
+        btn("Today", "eikon-btn", function () { ui.ymd = today; ui.monthYmd = today.slice(0, 7) + "-01"; ensureMonthLoadedForSelection(); }),
+        btn("Next ▶", "eikon-btn", function () { ui.ymd = nextYmd; ui.monthYmd = ui.ymd.slice(0, 7) + "-01"; ensureMonthLoadedForSelection(); }),
         (function () {
           var inp = h("input", {
             class: "eikon-input",
@@ -655,7 +813,7 @@
               if (!v) return;
               ui.ymd = v;
               ui.monthYmd = v.slice(0, 7) + "-01";
-              renderIntoMount();
+              ensureMonthLoadedForSelection();
             }
           }, []);
           return inp;
@@ -663,7 +821,15 @@
         h("span", { class: "eikon-ins-mini", text: (ymd === today ? "Today" : "") }, [])
       ]),
       h("div", { class: "eikon-ins-actions" }, [
-        btn("Save all (local)", "eikon-btn primary", function () { saveState(); })
+        btn("Print (A4)", "eikon-btn", doPrintAll),
+        btn("Refresh", "eikon-btn", function () {
+          // Force reload current + previous month
+          var ym = ymFromYmd(ui.ymd);
+          var prevYm = ymFromYmd(addDaysYmdUTC(ui.ymd, -1));
+          delete net.loadedMonths[ym];
+          delete net.loadedMonths[prevYm];
+          ensureMonthLoadedForSelection();
+        })
       ])
     ]);
 
@@ -680,7 +846,7 @@
             var d = ymdToDateUTC(m);
             d.setUTCMonth(d.getUTCMonth() - 1);
             ui.monthYmd = dateToYmdUTC(d).slice(0, 7) + "-01";
-            renderIntoMount();
+            loadMonthIfNeeded(ymFromYmd(ui.monthYmd)).finally(renderIntoMount);
           }),
           h("div", { class: "eikon-ins-kbd", text: monthLabelUTC(ui.monthYmd || (ui.ymd.slice(0, 7) + "-01")) }, []),
           btn("▶", "eikon-btn", function () {
@@ -688,7 +854,7 @@
             var d2 = ymdToDateUTC(m2);
             d2.setUTCMonth(d2.getUTCMonth() + 1);
             ui.monthYmd = dateToYmdUTC(d2).slice(0, 7) + "-01";
-            renderIntoMount();
+            loadMonthIfNeeded(ymFromYmd(ui.monthYmd)).finally(renderIntoMount);
           })
         ])
       ]),
@@ -704,7 +870,7 @@
       ])
     ]);
 
-    // Permanent handover card (global)
+    // Permanent handover (global)
     var permCard = renderEditorCard({
       key: "permanent_handover",
       title: "Permanent Handover Instructions",
@@ -713,7 +879,7 @@
       cols: 12
     });
 
-    // Day notes
+    // Day notes controls
     var notesControls;
     if (!ui.dailyEditing) {
       notesControls = [btn("Edit", "eikon-btn", function () {
@@ -728,8 +894,10 @@
           dayRec.updated_at = nowIso();
           ui.dailyEditing = false;
           ui.dailyDraft = "";
-          saveState();
-          renderIntoMount();
+          saveDailyToServer(ymd).then(function () {
+            removeDailyIfEmpty(ymd);
+            renderIntoMount();
+          });
         }),
         btn("Cancel", "eikon-btn", function () {
           ui.dailyEditing = false;
@@ -741,9 +909,7 @@
 
     var notesBody;
     if (!ui.dailyEditing) {
-      notesBody = h("div", { class: "eikon-ins-read" }, [
-        (dayRec.notes && dayRec.notes.trim()) ? dayRec.notes : "(No day-specific instructions yet)"
-      ]);
+      notesBody = h("div", { class: "eikon-ins-read" }, [(dayRec.notes && dayRec.notes.trim()) ? dayRec.notes : "(No day-specific instructions yet)"]);
     } else {
       notesBody = h("textarea", {
         class: "eikon-input eikon-ins-ta",
@@ -785,8 +951,7 @@
               lines.map(function (l) { return "• " + l; }).join("\n");
             r.notes = joined;
             r.updated_at = nowIso();
-            saveState();
-            renderIntoMount();
+            saveDailyToServer(ymd).then(function () { renderIntoMount(); });
           })
         ])
       ]),
@@ -796,9 +961,7 @@
           return h("div", { class: "eikon-ins-bullet" }, [
             h("span", { class: "eikon-ins-dot " + b.sev }, []),
             h("div", { class: "eikon-ins-btxt" }, [b.text]),
-            h("div", { class: "eikon-ins-bact" }, [
-              b.created_at ? h("div", { class: "eikon-ins-mini", text: b.created_at }, []) : null
-            ])
+            h("div", { class: "eikon-ins-bact" }, [b.created_at ? h("div", { class: "eikon-ins-mini", text: b.created_at }, []) : null])
           ]);
         }));
       })()
@@ -833,8 +996,7 @@
         });
         r.updated_at = nowIso();
         ui.addBullet.text = "";
-        saveState();
-        renderIntoMount();
+        saveDailyToServer(ymd).then(function () { renderIntoMount(); });
       });
 
       return h("div", { class: "eikon-ins-grid" }, [
@@ -872,8 +1034,10 @@
                 var r = ensureDaily(ymd);
                 r.handover_out = (r.handover_out || []).filter(function (x) { return x.id !== b.id; });
                 r.updated_at = nowIso();
-                saveState();
-                renderIntoMount();
+                saveDailyToServer(ymd).then(function () {
+                  removeDailyIfEmpty(ymd);
+                  renderIntoMount();
+                });
               })
             ])
           ]);
@@ -896,20 +1060,19 @@
           h("div", { class: "eikon-ins-btxt" }, [sevRow2, ta2]),
           h("div", { class: "eikon-ins-bact" }, [
             btn("Save", "eikon-btn primary", function () {
-              var t = String(ui.editingBulletDraft || "").trim();
-              if (!t) { flash("err", "Bullet text is empty."); return; }
+              var t2 = String(ui.editingBulletDraft || "").trim();
+              if (!t2) { flash("err", "Bullet text is empty."); return; }
               var r2 = ensureDaily(ymd);
               var idx = (r2.handover_out || []).findIndex(function (x) { return x.id === b.id; });
               if (idx >= 0) {
-                r2.handover_out[idx].text = t;
+                r2.handover_out[idx].text = t2;
                 r2.handover_out[idx].sev = (ui.editingBulletSev === "g" || ui.editingBulletSev === "y" || ui.editingBulletSev === "r") ? ui.editingBulletSev : "g";
                 r2.updated_at = nowIso();
               }
               ui.editingBulletId = null;
               ui.editingBulletDraft = "";
               ui.editingBulletSev = "g";
-              saveState();
-              renderIntoMount();
+              saveDailyToServer(ymd).then(function () { renderIntoMount(); });
             }),
             btn("Cancel", "eikon-btn", function () {
               ui.editingBulletId = null;
@@ -935,8 +1098,10 @@
             var r = ensureDaily(ymd);
             r.handover_out = [];
             r.updated_at = nowIso();
-            saveState();
-            renderIntoMount();
+            saveDailyToServer(ymd).then(function () {
+              removeDailyIfEmpty(ymd);
+              renderIntoMount();
+            });
           })
         ])
       ]),
@@ -945,7 +1110,6 @@
       outList
     ]);
 
-    // Right column stack
     var rightCol = h("div", { class: "eikon-ins-col6" }, [
       permCard,
       h("div", { class: "eikon-ins-divider" }, []),
@@ -956,83 +1120,34 @@
 
     return h("div", { class: "eikon-ins-wrap" }, [
       top,
-      h("div", { class: "eikon-ins-grid" }, [
-        calCard,
-        rightCol,
-        outCard
-      ]),
-      h("div", { class: "eikon-ins-mini" }, [
-        "Currently stored in ",
-        h("span", { class: "eikon-ins-kbd", text: "local browser storage" }, []),
-        ". Next: D1 + Cloudflare Worker endpoints so this syncs across devices."
-      ])
+      h("div", { class: "eikon-ins-grid" }, [calCard, rightCol, outCard])
     ]);
   }
 
   function renderSettingsTab() {
-    var user = ctxRef && ctxRef.user ? ctxRef.user : null;
-    var key = storageKey(user);
-
-    var exportBtn = btn("Export JSON", "eikon-btn", function () {
-      try {
-        var blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
-        var url = URL.createObjectURL(blob);
-        var a = document.createElement("a");
-        a.href = url;
-        a.download = "eikon_instructions_export_" + (ui.ymd || todayYmdUTC()) + ".json";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        flash("ok", "Exported.");
-      } catch (e) {
-        flash("err", "Export failed.");
-      }
-    });
-
-    var importInput = h("input", { type: "file", accept: "application/json", class: "eikon-input" }, []);
-    importInput.onchange = function () {
-      var f = importInput.files && importInput.files[0];
-      if (!f) return;
-      var r = new FileReader();
-      r.onload = function () {
-        var txt = String(r.result || "");
-        var parsed = safeJsonParse(txt);
-        if (!parsed) { flash("err", "Invalid JSON file."); return; }
-        state = normalizeState(parsed);
-        saveState();
-        renderIntoMount();
-      };
-      r.onerror = function () { flash("err", "Could not read file."); };
-      r.readAsText(f);
-    };
-
-    var clearBtn = btn("Reset (local) — wipe instructions", "eikon-btn danger", function () {
-      var ok = window.confirm("This will clear ALL instructions stored in this browser for this org/location.\n\nContinue?");
-      if (!ok) return;
-      state = normalizeState(makeDefaultState());
-      saveState();
-      renderIntoMount();
-    });
-
     return h("div", { class: "eikon-ins-grid" }, [
       h("div", { class: "eikon-card eikon-ins-card eikon-ins-col12" }, [
         h("div", { class: "eikon-ins-cardhead" }, [
           h("div", { class: "eikon-ins-title" }, [
-            h("h3", { text: "Settings (Temporary Local Storage)" }, []),
-            h("div", { class: "eikon-ins-sub", text: "Until we wire D1 + Worker endpoints, everything here is stored per-browser." }, []),
-            h("div", { class: "eikon-ins-meta", text: "Storage key: " + key }, [])
+            h("h3", { text: "Storage" }, []),
+            h("div", { class: "eikon-ins-sub", text: "This module now stores in D1 (Cloudflare) via the Worker endpoints.", }, []),
+            net.lastError ? h("div", { class: "eikon-ins-meta", text: "Last error: " + net.lastError }, []) : h("div", { class: "eikon-ins-meta", text: "Status: OK" }, [])
           ]),
-          h("div", { class: "eikon-ins-btnrow" }, [exportBtn])
+          h("div", { class: "eikon-ins-btnrow" }, [
+            btn("Print (A4)", "eikon-btn", doPrintAll),
+            btn("Reload", "eikon-btn", function () {
+              net.loadedMonths = {};
+              ensureMonthLoadedForSelection();
+            })
+          ])
         ]),
-        h("div", { class: "eikon-ins-divider" }, []),
-        h("div", { class: "eikon-ins-wrap" }, [
-          h("div", {}, [
-            h("div", { class: "eikon-ins-mini", text: "Import JSON (overwrites current local data):" }, []),
-            importInput
-          ]),
-          h("div", { class: "eikon-ins-divider" }, []),
-          clearBtn
+        h("div", { class: "eikon-ins-read" }, [
+          "Endpoints:\n" +
+          "• GET/PUT /instructions/global\n" +
+          "• GET /instructions/daily?month=YYYY-MM\n" +
+          "• GET /instructions/daily?ymd=YYYY-MM-DD\n" +
+          "• PUT /instructions/daily\n\n" +
+          "Printing: Print (A4) prints ALL instructions + the selected day notes and handover."
         ])
       ])
     ]);
@@ -1053,6 +1168,7 @@
     if (!mountRef) return;
     ensureStyles();
 
+    if (!state) state = normalizeState(makeDefaultState());
     if (!ui.ymd) ui.ymd = todayYmdUTC();
     if (!ui.monthYmd) ui.monthYmd = ui.ymd.slice(0, 7) + "-01";
 
@@ -1067,7 +1183,8 @@
         tabBtn("settings", "⚙️ Settings")
       ]),
       h("div", { class: "eikon-ins-actions" }, [
-        ui.flash ? h("div", { class: "eikon-ins-flash " + (ui.flash.kind || ""), text: ui.flash.text || "" }, []) : null
+        ui.flash ? h("div", { class: "eikon-ins-flash " + (ui.flash.kind || ""), text: ui.flash.text || "" }, []) : null,
+        (net.loadingGlobal || net.loadingMonths[ymFromYmd(ui.ymd)]) ? h("div", { class: "eikon-ins-mini", text: "Loading…" }, []) : null
       ])
     ]);
 
@@ -1081,17 +1198,17 @@
     mountRef.appendChild(h("div", { class: "eikon-ins-wrap" }, [topRow, content]));
   }
 
-  function render(ctx) {
+  async function render(ctx) {
     ctxRef = ctx;
     mountRef = ctx.mount;
 
-    if (!state) state = loadState();
-    else state = normalizeState(state);
+    if (!state) state = normalizeState(makeDefaultState());
 
     if (!ui.ymd) ui.ymd = todayYmdUTC();
     if (!ui.monthYmd) ui.monthYmd = ui.ymd.slice(0, 7) + "-01";
 
-    renderIntoMount();
+    // Load global + current month + previous-month if needed for incoming handover
+    ensureMonthLoadedForSelection();
   }
 
   // ----------------------------
