@@ -1784,6 +1784,57 @@ function clientOrderRowToUi(r) {
   };
 }
 
+
+function nearExpiryRowToUi(r) {
+  if (!r) return null;
+  return {
+    id: r.id,
+    product_name: r.product_name,
+    expiry_date: r.expiry_date,
+    location: r.location || "",
+    notes: r.notes || "",
+    created_by: r.created_by,
+    created_at: r.created_at,
+    updated_at: r.updated_at,
+    updated_by: r.updated_by
+  };
+}
+
+
+async function ensureNearExpirySchema(env) {
+  await dbRun(
+    env,
+    `CREATE TABLE IF NOT EXISTS near_expiry_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+
+      product_name TEXT NOT NULL,
+      expiry_date TEXT NOT NULL, -- YYYY-MM-DD
+
+      location TEXT NOT NULL DEFAULT '',
+      notes TEXT NOT NULL DEFAULT '',
+
+      created_by INTEGER,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_by INTEGER
+    )`,
+    []
+  );
+
+  await dbRun(
+    env,
+    "CREATE INDEX IF NOT EXISTS idx_near_expiry_org_loc_expiry ON near_expiry_entries (org_id, location_id, expiry_date)",
+    []
+  );
+  await dbRun(
+    env,
+    "CREATE INDEX IF NOT EXISTS idx_near_expiry_org_loc_name ON near_expiry_entries (org_id, location_id, product_name)",
+    []
+  );
+}
+
 async function handleClientOrdersEntriesList(request, env, corsOkHeaders, authUser, url) {
   if (!requireRole(authUser, ["admin", "staff"])) {
     return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
@@ -2502,6 +2553,170 @@ async function handleEodContactsDeactivate(request, env, corsOkHeaders, authUser
 /* =========================
    CLEANING MODULE (API)
    ========================= */
+
+
+// ------------------------------------------------------------
+// Near Expiry
+// ------------------------------------------------------------
+async function handleNearExpiryEntriesList(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureNearExpirySchema(env);
+
+  const q = (url.searchParams.get("q") || "").trim();
+  const hasQ = !!q;
+  const qLike = `%${q}%`;
+
+  const sql = `
+    SELECT
+      id,
+      product_name,
+      expiry_date,
+      location,
+      notes,
+      created_by,
+      created_at,
+      updated_at,
+      updated_by
+    FROM near_expiry_entries
+    WHERE org_id = ?
+      AND location_id = ?
+      ${hasQ ? `AND (
+        product_name LIKE ?
+        OR expiry_date LIKE ?
+        OR location LIKE ?
+        OR notes LIKE ?
+      )` : ""}
+    ORDER BY expiry_date ASC, product_name ASC, id DESC
+  `;
+
+  const bind = [authUser.org_id, authUser.location_id];
+  if (hasQ) bind.push(qLike, qLike, qLike, qLike);
+
+  const rows = await dbAll(env, sql, bind);
+  const entries = rows.map(nearExpiryRowToUi);
+  return jsonResponse({ ok: true, entries }, 200, corsOkHeaders);
+}
+
+async function handleNearExpiryEntryCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureNearExpirySchema(env);
+
+  const body = await readJson(request);
+
+  const productName = String(body.product_name || body.name || "").trim();
+  const expiryDate = String(body.expiry_date || "").trim();
+  const location = String(body.location || "").trim();
+  const notes = String(body.notes || "").trim();
+
+  if (!productName) return jsonResponse({ ok: false, error: "Missing product_name" }, 400, corsOkHeaders);
+  if (!isValidYmd(expiryDate)) return jsonResponse({ ok: false, error: "Missing/invalid expiry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+
+  const row = await dbFirst(
+    env,
+    `INSERT INTO near_expiry_entries
+      (org_id, location_id, product_name, expiry_date, location, notes, created_by, updated_by, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+     RETURNING id`,
+    [authUser.org_id, authUser.location_id, productName, expiryDate, location, notes, authUser.user_id, authUser.user_id]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "NEAR_EXPIRY_CREATE", "near_expiry_entries", String(row.id), {
+    product_name: productName,
+    expiry_date: expiryDate
+  });
+
+  const saved = await dbFirst(
+    env,
+    `SELECT id, product_name, expiry_date, location, notes, created_by, created_at, updated_at, updated_by
+     FROM near_expiry_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [row.id, authUser.org_id, authUser.location_id]
+  );
+
+  return jsonResponse({ ok: true, entry: nearExpiryRowToUi(saved) }, 200, corsOkHeaders);
+}
+
+async function handleNearExpiryEntryUpdate(request, env, corsOkHeaders, authUser, id) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureNearExpirySchema(env);
+
+  const existing = await dbFirst(
+    env,
+    "SELECT id FROM near_expiry_entries WHERE id = ? AND org_id = ? AND location_id = ?",
+    [id, authUser.org_id, authUser.location_id]
+  );
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+
+  const productName = String(body.product_name || body.name || "").trim();
+  const expiryDate = String(body.expiry_date || "").trim();
+  const location = String(body.location || "").trim();
+  const notes = String(body.notes || "").trim();
+
+  if (!productName) return jsonResponse({ ok: false, error: "Missing product_name" }, 400, corsOkHeaders);
+  if (!isValidYmd(expiryDate)) return jsonResponse({ ok: false, error: "Missing/invalid expiry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+
+  await dbRun(
+    env,
+    `UPDATE near_expiry_entries
+     SET product_name = ?, expiry_date = ?, location = ?, notes = ?, updated_by = ?, updated_at = datetime('now')
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [productName, expiryDate, location, notes, authUser.user_id, id, authUser.org_id, authUser.location_id]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "NEAR_EXPIRY_UPDATE", "near_expiry_entries", String(id), {
+    product_name: productName,
+    expiry_date: expiryDate
+  });
+
+  const saved = await dbFirst(
+    env,
+    `SELECT id, product_name, expiry_date, location, notes, created_by, created_at, updated_at, updated_by
+     FROM near_expiry_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [id, authUser.org_id, authUser.location_id]
+  );
+
+  return jsonResponse({ ok: true, entry: nearExpiryRowToUi(saved) }, 200, corsOkHeaders);
+}
+
+async function handleNearExpiryEntryDelete(request, env, corsOkHeaders, authUser, id) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureNearExpirySchema(env);
+
+  const existing = await dbFirst(
+    env,
+    "SELECT id, product_name, expiry_date FROM near_expiry_entries WHERE id = ? AND org_id = ? AND location_id = ?",
+    [id, authUser.org_id, authUser.location_id]
+  );
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  await dbRun(
+    env,
+    "DELETE FROM near_expiry_entries WHERE id = ? AND org_id = ? AND location_id = ?",
+    [id, authUser.org_id, authUser.location_id]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "NEAR_EXPIRY_DELETE", "near_expiry_entries", String(id), {
+    product_name: existing.product_name,
+    expiry_date: existing.expiry_date
+  });
+
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
 
 async function handleCleaningEntriesList(request, env, corsOkHeaders, authUser, url) {
   const month = (url.searchParams.get("month") || "").trim();
@@ -7376,6 +7591,27 @@ if (url.pathname.startsWith("/client-orders/entries/") && request.method === "DE
   if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
   return await handleClientOrdersEntryDelete(request, env, corsOkHeaders, authUser, id);
 }
+// Near Expiry
+if (url.pathname === "/near-expiry/entries" && request.method === "GET") {
+  return await handleNearExpiryEntriesList(request, env, corsOkHeaders, authUser, url);
+}
+if (url.pathname === "/near-expiry/entries" && request.method === "POST") {
+  return await handleNearExpiryEntryCreate(request, env, corsOkHeaders, authUser);
+}
+if (url.pathname.startsWith("/near-expiry/entries/") && request.method === "PUT") {
+  const parts = url.pathname.split("/").filter(Boolean);
+  const id = parseInt(parts[2], 10);
+  if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+  return await handleNearExpiryEntryUpdate(request, env, corsOkHeaders, authUser, id);
+}
+if (url.pathname.startsWith("/near-expiry/entries/") && request.method === "DELETE") {
+  const parts = url.pathname.split("/").filter(Boolean);
+  const id = parseInt(parts[2], 10);
+  if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+  return await handleNearExpiryEntryDelete(request, env, corsOkHeaders, authUser, id);
+}
+
+
 
     // Cleaning
     if (url.pathname === "/cleaning/entries" && request.method === "GET") {
