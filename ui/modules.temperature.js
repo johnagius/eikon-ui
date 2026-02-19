@@ -69,8 +69,8 @@
       ".eikon-dot.bad{background:rgba(255,90,122,.95);}"+
       ".eikon-mini{font-size:12px;opacity:.85;}" +
       ".eikon-slim-input{min-width:120px;}" +
-      ".eikon-chart-wrap{width:100%;overflow:auto;}" +
-      ".eikon-chart{width:100%;min-width:680px;}" +
+      ".eikon-chart-wrap{width:100%;overflow:hidden;}" +
+      ".eikon-chart{width:100%;min-width:0;display:block;}" +
       ".eikon-dash-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:12px;}" +
       ".eikon-dash-device{border:1px solid var(--border);background:rgba(255,255,255,.02);border-radius:16px;padding:12px;}" +
       ".eikon-dash-head{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:8px;}" +
