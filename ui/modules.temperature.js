@@ -70,7 +70,7 @@
       ".eikon-mini{font-size:12px;opacity:.85;}" +
       ".eikon-slim-input{min-width:120px;}" +
       ".eikon-chart-wrap{width:100%;overflow:hidden;}" +
-      ".eikon-chart{width:100%;min-width:0;display:block;}" +
+      ".eikon-chart{width:100%;min-width:0;display:block;height:100% !important;}" +
       ".eikon-dash-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:12px;}" +
       ".eikon-dash-device{border:1px solid var(--border);background:rgba(255,255,255,.02);border-radius:16px;padding:12px;}" +
       ".eikon-dash-head{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:8px;}" +
@@ -599,7 +599,9 @@
     var dMax = pathFor(maxs);
 
     var out = "";
-    out += "<svg class='eikon-chart' xmlns='http://www.w3.org/2000/svg' viewBox='0 0 " + W + " " + H + "' width='100%' height='" + H + "' role='img' aria-label='Temperature chart'>";
+    var svgHAttr = (mode === "print") ? String(H) : "100%";
+    var svgStyle = (mode === "print") ? ("width:100%;height:" + H + "px;") : "width:100%;height:100%;";
+    out += "<svg class='eikon-chart' xmlns='http://www.w3.org/2000/svg' viewBox='0 0 " + W + " " + H + "' width='100%' height='" + svgHAttr + "' style='" + svgStyle + "' role='img' aria-label='Temperature chart'>";
     out += "<rect x='0' y='0' width='" + W + "' height='" + H + "' fill='" + bg + "' rx='14' ry='14'/>";
 
     for (var yi = 0; yi < yTicks.length; yi++) {
@@ -1262,7 +1264,7 @@
           ]),
           el("div", { class: "eikon-dash-sub", text: meta }),
           el("div", { style: "height:8px;" }),
-          el("div", { class: "eikon-chart-wrap", html: svg })
+          el("div", { class: "eikon-chart-wrap", style: "height:" + chartH + "px;", html: svg })
         ]);
 
         grid.appendChild(box);
