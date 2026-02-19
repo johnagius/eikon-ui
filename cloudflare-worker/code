@@ -55,7 +55,7 @@ function corsHeadersForRequest(request, env) {
       headers: {
         "Access-Control-Allow-Origin": origin,
         "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS,HEAD",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Eikon-Debug",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Eikon-Debug, X-Eikon-Report-Pass, X-Eikon-Edit-Pass",
         "Access-Control-Max-Age": "86400",
         "Vary": "Origin"
       }
@@ -76,7 +76,7 @@ function corsHeadersForRequest(request, env) {
     headers: {
       "Access-Control-Allow-Origin": origin,
       "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS,HEAD",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Eikon-Debug",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Eikon-Debug, X-Eikon-Report-Pass, X-Eikon-Edit-Pass",
       "Access-Control-Max-Age": "86400",
       "Vary": "Origin"
     }
@@ -2933,6 +2933,370 @@ async function handleLocumRegisterEntryDelete(request, env, corsOkHeaders, authU
 }
 
 
+
+
+
+/* =========================
+   LOCUM RECEIPTS MODULE (API)
+   ========================= */
+
+const LOCUM_RECEIPTS_REPORT_PASS = "1234";
+const LOCUM_RECEIPTS_EDIT_PASS = "!4321";
+
+function round2(n) {
+  const x = Number(n);
+  if (!Number.isFinite(x)) return 0;
+  return Math.round(x * 100) / 100;
+}
+
+function isValidYear(s) {
+  return /^\d{4}$/.test(String(s || "").trim());
+}
+
+function yearRange(yyyy) {
+  const y = String(yyyy || "").trim();
+  if (!isValidYear(y)) return null;
+  const yNum = parseInt(y, 10);
+  const start = new Date(Date.UTC(yNum, 0, 1));
+  const end = new Date(Date.UTC(yNum + 1, 0, 1));
+  return { startStr: start.toISOString().slice(0, 10), endStr: end.toISOString().slice(0, 10) };
+}
+
+function isValidDayType(s) {
+  const v = String(s || "").trim().toLowerCase();
+  return v === "normal" || v === "holiday";
+}
+
+function requireHeaderPass(request, headerName, expected) {
+  try {
+    return String(request.headers.get(headerName) || "") === String(expected);
+  } catch (e) {
+    return false;
+  }
+}
+
+async function ensureLocumReceiptsSchema(env) {
+  // One-line queries (easy to copy/paste into D1 console)
+  await dbRun(env, "CREATE TABLE IF NOT EXISTS locum_receipts (id INTEGER PRIMARY KEY AUTOINCREMENT, org_id INTEGER NOT NULL, location_id INTEGER NOT NULL, receipt_date TEXT NOT NULL, hours REAL NOT NULL, locum_full_name TEXT NOT NULL, registration_number TEXT NOT NULL, day_type TEXT NOT NULL DEFAULT 'normal', fee_per_hour REAL NOT NULL, total_fee REAL NOT NULL, created_by INTEGER, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')))", []);
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_locum_receipts_org_loc_date ON locum_receipts (org_id, location_id, receipt_date)", []);
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_locum_receipts_org_loc_name ON locum_receipts (org_id, location_id, locum_full_name)", []);
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_locum_receipts_org_loc_regno ON locum_receipts (org_id, location_id, registration_number)", []);
+}
+
+async function handleLocumReceiptsList(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureLocumReceiptsSchema(env);
+
+  const month = (url.searchParams.get("month") || "").trim();
+  const year = (url.searchParams.get("year") || "").trim();
+
+  let range = null;
+  let label = "";
+  if (month) {
+    range = monthRange(month);
+    label = "month";
+    if (!range) return jsonResponse({ ok: false, error: "Missing/invalid month (YYYY-MM)" }, 400, corsOkHeaders);
+  } else if (year) {
+    range = yearRange(year);
+    label = "year";
+    if (!range) return jsonResponse({ ok: false, error: "Missing/invalid year (YYYY)" }, 400, corsOkHeaders);
+  } else {
+    return jsonResponse({ ok: false, error: "Missing month or year" }, 400, corsOkHeaders);
+  }
+
+  const receipts = await dbAll(
+    env,
+    `SELECT
+       id,
+       receipt_date,
+       hours,
+       locum_full_name,
+       registration_number,
+       day_type,
+       fee_per_hour,
+       total_fee,
+       created_by,
+       created_at,
+       updated_at
+     FROM locum_receipts
+     WHERE org_id = ?
+       AND location_id = ?
+       AND receipt_date >= ?
+       AND receipt_date < ?
+     ORDER BY receipt_date DESC, id DESC`,
+    [authUser.org_id, authUser.location_id, range.startStr, range.endStr]
+  );
+
+  const payload = { ok: true, receipts };
+  if (isDebugEnabled(request)) payload.debug = { range, label };
+  return jsonResponse(payload, 200, corsOkHeaders);
+}
+
+async function handleLocumReceiptCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureLocumReceiptsSchema(env);
+
+  const body = await readJson(request);
+
+  const receiptDate = String(body.receipt_date || "").trim();
+  const hours = Number(body.hours);
+  const fullName = String(body.locum_full_name || "").trim();
+  const regNo = String(body.registration_number || "").trim();
+  const dayType = String(body.day_type || "normal").trim().toLowerCase();
+  const feePerHour = Number(body.fee_per_hour);
+
+  if (!isValidYmd(receiptDate)) return jsonResponse({ ok: false, error: "Invalid receipt_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (!Number.isFinite(hours) || hours <= 0) return jsonResponse({ ok: false, error: "Invalid hours" }, 400, corsOkHeaders);
+  if (hours > 24) return jsonResponse({ ok: false, error: "Hours cannot exceed 24" }, 400, corsOkHeaders);
+  if (!fullName) return jsonResponse({ ok: false, error: "Missing locum_full_name" }, 400, corsOkHeaders);
+  if (!regNo) return jsonResponse({ ok: false, error: "Missing registration_number" }, 400, corsOkHeaders);
+  if (!isValidDayType(dayType)) return jsonResponse({ ok: false, error: "Invalid day_type (normal|holiday)" }, 400, corsOkHeaders);
+  if (!Number.isFinite(feePerHour) || feePerHour < 0) return jsonResponse({ ok: false, error: "Invalid fee_per_hour" }, 400, corsOkHeaders);
+
+  const totalFee = round2(hours * feePerHour);
+
+  const row = await dbFirst(
+    env,
+    `INSERT INTO locum_receipts
+       (org_id, location_id, receipt_date, hours, locum_full_name, registration_number, day_type, fee_per_hour, total_fee, created_by, created_at, updated_at)
+     VALUES
+       (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+     RETURNING id, receipt_date, hours, locum_full_name, registration_number, day_type, fee_per_hour, total_fee, created_by, created_at, updated_at`,
+    [authUser.org_id, authUser.location_id, receiptDate, hours, fullName, regNo, dayType, feePerHour, totalFee, authUser.user_id]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "LOCUM_RECEIPT_CREATE", "locum_receipts", String(row.id), {
+    receipt_date: receiptDate,
+    hours,
+    locum_full_name: fullName,
+    registration_number: regNo,
+    day_type: dayType,
+    fee_per_hour: feePerHour,
+    total_fee: totalFee
+  });
+
+  const payload = { ok: true, receipt: row, id: row.id };
+  if (isDebugEnabled(request)) payload.debug = { row };
+  return jsonResponse(payload, 200, corsOkHeaders);
+}
+
+async function handleLocumReceiptUpdate(request, env, corsOkHeaders, authUser, receiptId) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  // extra protection as requested
+  if (!requireHeaderPass(request, "X-Eikon-Edit-Pass", LOCUM_RECEIPTS_EDIT_PASS)) {
+    return jsonResponse({ ok: false, error: "Edit password required" }, 403, corsOkHeaders);
+  }
+
+  await ensureLocumReceiptsSchema(env);
+
+  const existing = await dbFirst(
+    env,
+    `SELECT id
+     FROM locum_receipts
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [receiptId, authUser.org_id, authUser.location_id]
+  );
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+
+  const receiptDate = String(body.receipt_date || "").trim();
+  const hours = Number(body.hours);
+  const fullName = String(body.locum_full_name || "").trim();
+  const regNo = String(body.registration_number || "").trim();
+  const dayType = String(body.day_type || "normal").trim().toLowerCase();
+  const feePerHour = Number(body.fee_per_hour);
+
+  if (!isValidYmd(receiptDate)) return jsonResponse({ ok: false, error: "Invalid receipt_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (!Number.isFinite(hours) || hours <= 0) return jsonResponse({ ok: false, error: "Invalid hours" }, 400, corsOkHeaders);
+  if (hours > 24) return jsonResponse({ ok: false, error: "Hours cannot exceed 24" }, 400, corsOkHeaders);
+  if (!fullName) return jsonResponse({ ok: false, error: "Missing locum_full_name" }, 400, corsOkHeaders);
+  if (!regNo) return jsonResponse({ ok: false, error: "Missing registration_number" }, 400, corsOkHeaders);
+  if (!isValidDayType(dayType)) return jsonResponse({ ok: false, error: "Invalid day_type (normal|holiday)" }, 400, corsOkHeaders);
+  if (!Number.isFinite(feePerHour) || feePerHour < 0) return jsonResponse({ ok: false, error: "Invalid fee_per_hour" }, 400, corsOkHeaders);
+
+  const totalFee = round2(hours * feePerHour);
+
+  await dbRun(
+    env,
+    `UPDATE locum_receipts
+     SET receipt_date = ?,
+         hours = ?,
+         locum_full_name = ?,
+         registration_number = ?,
+         day_type = ?,
+         fee_per_hour = ?,
+         total_fee = ?,
+         updated_at = datetime('now')
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [receiptDate, hours, fullName, regNo, dayType, feePerHour, totalFee, receiptId, authUser.org_id, authUser.location_id]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "LOCUM_RECEIPT_UPDATE", "locum_receipts", String(receiptId), {
+    receipt_date: receiptDate,
+    hours,
+    locum_full_name: fullName,
+    registration_number: regNo,
+    day_type: dayType,
+    fee_per_hour: feePerHour,
+    total_fee: totalFee
+  });
+
+  const payload = { ok: true };
+  if (isDebugEnabled(request)) payload.debug = { receiptId };
+  return jsonResponse(payload, 200, corsOkHeaders);
+}
+
+async function handleLocumReceiptDelete(request, env, corsOkHeaders, authUser, receiptId) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  // extra protection as requested
+  if (!requireHeaderPass(request, "X-Eikon-Edit-Pass", LOCUM_RECEIPTS_EDIT_PASS)) {
+    return jsonResponse({ ok: false, error: "Edit password required" }, 403, corsOkHeaders);
+  }
+
+  await ensureLocumReceiptsSchema(env);
+
+  const existing = await dbFirst(
+    env,
+    `SELECT id
+     FROM locum_receipts
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [receiptId, authUser.org_id, authUser.location_id]
+  );
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  await dbRun(
+    env,
+    "DELETE FROM locum_receipts WHERE id = ? AND org_id = ? AND location_id = ?",
+    [receiptId, authUser.org_id, authUser.location_id]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "LOCUM_RECEIPT_DELETE", "locum_receipts", String(receiptId), {});
+
+  const payload = { ok: true };
+  if (isDebugEnabled(request)) payload.debug = { receiptId };
+  return jsonResponse(payload, 200, corsOkHeaders);
+}
+
+async function handleLocumReceiptsReport(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  // extra protection as requested
+  if (!requireHeaderPass(request, "X-Eikon-Report-Pass", LOCUM_RECEIPTS_REPORT_PASS)) {
+    return jsonResponse({ ok: false, error: "Report password required" }, 403, corsOkHeaders);
+  }
+
+  await ensureLocumReceiptsSchema(env);
+
+  const month = (url.searchParams.get("month") || "").trim();
+  const year = (url.searchParams.get("year") || "").trim();
+
+  let range = null;
+  let periodLabel = "";
+  if (month) {
+    range = monthRange(month);
+    if (!range) return jsonResponse({ ok: false, error: "Missing/invalid month (YYYY-MM)" }, 400, corsOkHeaders);
+    periodLabel = "Month • " + month;
+  } else if (year) {
+    range = yearRange(year);
+    if (!range) return jsonResponse({ ok: false, error: "Missing/invalid year (YYYY)" }, 400, corsOkHeaders);
+    periodLabel = "Year • " + year;
+  } else {
+    return jsonResponse({ ok: false, error: "Missing month or year" }, 400, corsOkHeaders);
+  }
+
+  const rows = await dbAll(
+    env,
+    `SELECT
+       id,
+       receipt_date,
+       hours,
+       locum_full_name,
+       registration_number,
+       day_type,
+       fee_per_hour,
+       total_fee
+     FROM locum_receipts
+     WHERE org_id = ?
+       AND location_id = ?
+       AND receipt_date >= ?
+       AND receipt_date < ?
+     ORDER BY locum_full_name ASC, registration_number ASC, receipt_date ASC, id ASC`,
+    [authUser.org_id, authUser.location_id, range.startStr, range.endStr]
+  );
+
+  // Group by locum (name + reg)
+  const byKey = new Map();
+  for (const r of rows) {
+    const name = String(r.locum_full_name || "");
+    const reg = String(r.registration_number || "");
+    const key = name + "||" + reg;
+    if (!byKey.has(key)) {
+      byKey.set(key, { locum_full_name: name, registration_number: reg, entries: [], total_hours: 0, total_fees: 0 });
+    }
+    const g = byKey.get(key);
+    const h = Number(r.hours);
+    const tf = Number(r.total_fee);
+    g.entries.push({
+      id: r.id,
+      receipt_date: r.receipt_date,
+      hours: Number.isFinite(h) ? h : 0,
+      locum_full_name: name,
+      registration_number: reg,
+      day_type: r.day_type,
+      fee_per_hour: Number(r.fee_per_hour),
+      total_fee: Number.isFinite(tf) ? tf : 0
+    });
+    g.total_hours = round2(g.total_hours + (Number.isFinite(h) ? h : 0));
+    g.total_fees = round2(g.total_fees + (Number.isFinite(tf) ? tf : 0));
+  }
+
+  const locums = Array.from(byKey.values());
+
+  // Overall table
+  const overall = locums.map(l => ({
+    locum_full_name: l.locum_full_name,
+    registration_number: l.registration_number,
+    total_hours: l.total_hours,
+    total_fees: l.total_fees
+  }));
+
+  const overallTotals = overall.reduce(
+    (acc, r) => {
+      acc.total_hours = round2(acc.total_hours + (Number(r.total_hours) || 0));
+      acc.total_fees = round2(acc.total_fees + (Number(r.total_fees) || 0));
+      return acc;
+    },
+    { total_hours: 0, total_fees: 0 }
+  );
+
+  const report = {
+    location_name: authUser.location_name || "",
+    period_label: periodLabel,
+    generated_at: new Date().toISOString().replace("T", " ").slice(0, 19),
+    locums,
+    overall,
+    overall_totals: overallTotals
+  };
+
+  const payload = { ok: true, report };
+  if (isDebugEnabled(request)) payload.debug = { range, rowCount: rows.length };
+  return jsonResponse(payload, 200, corsOkHeaders);
+}
 
 /* =========================
    DAILY REGISTER MODULE (API)
@@ -7061,6 +7425,30 @@ if (url.pathname.startsWith("/client-orders/entries/") && request.method === "DE
 
 
     
+
+    // Locum Receipts
+    if (url.pathname === "/locumreceipts/receipts" && request.method === "GET") {
+      return await handleLocumReceiptsList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/locumreceipts/receipts" && request.method === "POST") {
+      return await handleLocumReceiptCreate(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname.startsWith("/locumreceipts/receipts/") && request.method === "PUT") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const id = parseInt(parts[2], 10);
+      if (!id) return jsonResponse({ ok: false, error: "Invalid receipt id" }, 400, corsOkHeaders);
+      return await handleLocumReceiptUpdate(request, env, corsOkHeaders, authUser, id);
+    }
+    if (url.pathname.startsWith("/locumreceipts/receipts/") && request.method === "DELETE") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const id = parseInt(parts[2], 10);
+      if (!id) return jsonResponse({ ok: false, error: "Invalid receipt id" }, 400, corsOkHeaders);
+      return await handleLocumReceiptDelete(request, env, corsOkHeaders, authUser, id);
+    }
+    if (url.pathname === "/locumreceipts/report" && request.method === "GET") {
+      return await handleLocumReceiptsReport(request, env, corsOkHeaders, authUser, url);
+    }
+
     // POCT (Point of Care Testing) — cloud state sync
     if (url.pathname === "/poct/state" && request.method === "GET") {
       return await handlePoctStateGet(request, env, corsOkHeaders, authUser, url);
