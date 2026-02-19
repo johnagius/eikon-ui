@@ -632,7 +632,8 @@
     }
 
     // Series (thin=min, thick=max) + dots to show isolated readings
-    out += rangeBars(mins, maxs);
+    var showRangeBars = (minNumeric <= 1 && maxNumeric <= 1); // only show min↕max bar when there is a single reading (prevents "ladder" look)
+    if (showRangeBars) out += rangeBars(mins, maxs);
     if (dMin) out += "<path d='" + dMin + "' fill='none' stroke='" + series + "' stroke-opacity='" + (dark ? "0.60" : "0.40") + "' stroke-width='1.3' stroke-linejoin='round' stroke-linecap='round'/>";
     if (dMax) out += "<path d='" + dMax + "' fill='none' stroke='" + series + "' stroke-opacity='" + (dark ? "0.98" : "0.92") + "' stroke-width='2.4' stroke-linejoin='round' stroke-linecap='round'/>";
 
