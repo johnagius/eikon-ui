@@ -345,6 +345,61 @@
     if (mn !== null) return "Min limit: " + fmt1(mn) + "°C";
     return "Max limit: " + fmt1(mx) + "°C";
   }
+  function normDeviceKey(s) {
+    return String(s == null ? "" : s).trim().toLowerCase().replace(/\s+/g, " ");
+  }
+
+  function deviceKeyFromDevice(d) {
+    return normDeviceKey(d && d.name) + "|" + String((d && d.device_type) || "").toLowerCase();
+  }
+
+  function deviceKeyFromEntry(e) {
+    // entries returned by API include device_name/device_type; fall back to name/type if present
+    return normDeviceKey(e && (e.device_name || e.name)) + "|" + String((e && (e.device_type || e.type)) || "").toLowerCase();
+  }
+
+  function mapEntriesToActiveDevices(activeDevices, entries) {
+    var devs = Array.isArray(activeDevices) ? activeDevices : [];
+    var arr = Array.isArray(entries) ? entries : [];
+
+    var activeIdSet = {};
+    var keyToId = {};
+    for (var i = 0; i < devs.length; i++) {
+      var d = devs[i];
+      var id = String(d && d.id);
+      activeIdSet[id] = 1;
+      var k = deviceKeyFromDevice(d);
+      // if two active devices share the same key, keep the first (rare)
+      if (k && !keyToId[k]) keyToId[k] = id;
+    }
+
+    var byId = {};
+    var remapped = 0;
+    var ignored = 0;
+
+    for (var j = 0; j < arr.length; j++) {
+      var e = arr[j];
+      var did = String(e && e.device_id);
+      if (activeIdSet[did]) {
+        if (!byId[did]) byId[did] = [];
+        byId[did].push(e);
+        continue;
+      }
+      var ek = deviceKeyFromEntry(e);
+      var aid = ek ? keyToId[ek] : null;
+      if (aid) {
+        remapped++;
+        if (!byId[aid]) byId[aid] = [];
+        byId[aid].push(e);
+      } else {
+        ignored++;
+      }
+    }
+
+    return { byId: byId, remapped: remapped, ignored: ignored, activeIdSet: activeIdSet, keyToId: keyToId };
+  }
+
+
 
   function buildDeviceMonthChartSvg(opts) {
     opts = opts || {};
@@ -471,11 +526,12 @@
     }
 
     function pathFor(arr) {
+      // Connect gaps (skip missing days but keep the line continuous between readings)
       var d = "";
       var started = false;
       for (var i = 0; i < arr.length; i++) {
         var v = arr[i];
-        if (!Number.isFinite(v)) { started = false; continue; }
+        if (!Number.isFinite(v)) continue;
         var x = xFor(i);
         var y = yFor(v);
         if (!started) { d += "M" + x.toFixed(2) + "," + y.toFixed(2); started = true; }
@@ -490,6 +546,27 @@
         var v = arr[i];
         if (!Number.isFinite(v)) continue;
         s += "<circle cx='" + xFor(i).toFixed(2) + "' cy='" + yFor(v).toFixed(2) + "' r='" + r + "' fill='" + series + "' fill-opacity='" + opacity + "'/>";
+      }
+      return s;
+    }
+
+
+    function rangeBars(minArr, maxArr) {
+      // Draw a vertical bar between min and max for days where both exist (gives a "line" even for single-day data)
+      var s = "";
+      var a = minArr || [];
+      var b = maxArr || [];
+      var n = Math.min(a.length, b.length);
+      for (var i = 0; i < n; i++) {
+        var mn = a[i];
+        var mx = b[i];
+        if (!Number.isFinite(mn) || !Number.isFinite(mx)) continue;
+        var x = xFor(i);
+        var y1 = yFor(mn);
+        var y2 = yFor(mx);
+        var top = Math.min(y1, y2);
+        var bot = Math.max(y1, y2);
+        s += "<line x1='" + x.toFixed(2) + "' y1='" + top.toFixed(2) + "' x2='" + x.toFixed(2) + "' y2='" + bot.toFixed(2) + "' stroke='" + series + "' stroke-opacity='" + (dark ? "0.60" : "0.55") + "' stroke-width='" + (dark ? "2.0" : "1.6") + "' stroke-linecap='round'/>";
       }
       return s;
     }
@@ -555,6 +632,7 @@
     }
 
     // Series (thin=min, thick=max) + dots to show isolated readings
+    out += rangeBars(mins, maxs);
     if (dMin) out += "<path d='" + dMin + "' fill='none' stroke='" + series + "' stroke-opacity='" + (dark ? "0.60" : "0.40") + "' stroke-width='1.3' stroke-linejoin='round' stroke-linecap='round'/>";
     if (dMax) out += "<path d='" + dMax + "' fill='none' stroke='" + series + "' stroke-opacity='" + (dark ? "0.98" : "0.92") + "' stroke-width='2.4' stroke-linejoin='round' stroke-linecap='round'/>";
 
@@ -601,7 +679,8 @@
     }
 
     function sectionHtml(monthKey, entries, highlightYmd) {
-      var byDid = groupByDevice(entries);
+      var mapped = mapEntriesToActiveDevices(devices, entries);
+      var byDid = mapped.byId;
       var out = "";
       out += "<h2>" + esc(monthKeyNice(monthKey)) + "</h2>";
       out += "<div class='section-sub'>Devices: " + esc(String(devices.length)) + " • Entries: " + esc(String(entries.length)) + "</div>";
@@ -792,14 +871,28 @@
   // ------------------------------------------------------------
   var _lastPrintOpenAt = 0;
 
-  function openPrintTabWithHtml(html, existingWindow) {
-    // FIX: Using "noopener" as a window feature can cause some browsers to return null
-    // even though the tab opened -> our fallback would open a second tab.
-    // So we open without features and then null-out opener.
+    function openPrintTabWithHtml(html) {
+    // In sandboxed iframe environments (e.g. GoDaddy), window.open() can be unreliable:
+    // - it may return null even when a tab opens (leading to duplicate fallbacks)
+    // - navigating a pre-opened about:blank popup can be blocked by the sandbox
+    // The most reliable method is a single anchor-click in the user gesture.
 
     var now = Date.now();
-    if (now - _lastPrintOpenAt < 700) {
-      dbg("print suppressed (double click / duplicate call)");
+
+    // Cross-iframe lock (prevents double-open if the host accidentally embeds two iframes)
+    var lkKey = "eikon_temp_print_lock_v1";
+    try {
+      var last = Number(window.localStorage.getItem(lkKey) || "0");
+      if (now - last < 1400) {
+        dbg("print suppressed (lock)");
+        return;
+      }
+      window.localStorage.setItem(lkKey, String(now));
+    } catch (e0) {}
+
+    // Same-frame lock
+    if (now - _lastPrintOpenAt < 900) {
+      dbg("print suppressed (double call)");
       return;
     }
     _lastPrintOpenAt = now;
@@ -807,58 +900,28 @@
     var blob = new Blob([html], { type: "text/html" });
     var url = URL.createObjectURL(blob);
 
-    function safeNavigate(w) {
-      if (!w) return false;
-      try {
-        // about:blank is same-origin so this is safe; after navigating to blob it's still same-origin.
-        w.opener = null;
-      } catch (e) {}
-      try {
-        w.location.href = url;
-        return true;
-      } catch (e2) {
-        return false;
-      }
-    }
-
-    // If we already opened a blank tab synchronously, use it.
-    if (existingWindow && safeNavigate(existingWindow)) {
-      setTimeout(function () { try { URL.revokeObjectURL(url); } catch (e3) {} }, 60000);
-      return;
-    }
-
-    // Try window.open
-    var w = null;
     try {
-      w = window.open(url, "_blank");
-      if (w) {
-        try { w.opener = null; } catch (e4) {}
-      }
-    } catch (e5) {
-      w = null;
-    }
-
-    // Fallback: anchor click
-    if (!w) {
-      try {
-        var a = document.createElement("a");
-        a.href = url;
-        a.target = "_blank";
-        a.rel = "noopener";
-        a.style.display = "none";
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-      } catch (e6) {}
+      var a = document.createElement("a");
+      a.href = url;
+      a.target = "_blank";
+      a.rel = "noopener";
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch (e1) {
+      // Last resort
+      try { window.open(url, "_blank"); } catch (e2) {}
     }
 
     setTimeout(function () {
-      try { URL.revokeObjectURL(url); } catch (e7) {}
+      try { URL.revokeObjectURL(url); } catch (e3) {}
     }, 60000);
   }
 
   // ------------------------------------------------------------
   // Report preview dom (unchanged)
+ (unchanged)
   // ------------------------------------------------------------
   function renderReportPreviewDom(data) {
     var org = data.org_name || "";
@@ -1085,7 +1148,9 @@
     function dashDebugSummary(monthKey, monthEntries) {
       if (!dashDebugEnabled()) return;
       var devs = activeDevicesForDashboard();
-      var byDid = groupEntriesByDevice(monthEntries);
+      var mapped = mapEntriesToActiveDevices(devs, monthEntries);
+      var byDid = mapped.byId;
+      if (dashDebugEnabled()) dbg("[dash] mapEntries", monthKey, "remapped=", mapped.remapped, "ignored=", mapped.ignored);
       var dayIndex = {};
       var days = monthDaysFromKey(monthKey);
       for (var i = 0; i < days.length; i++) dayIndex[days[i]] = i;
@@ -1146,7 +1211,9 @@
       target.innerHTML = "";
 
       var devs = activeDevicesForDashboard();
-      var byDid = groupEntriesByDevice(monthEntries);
+      var mapped = mapEntriesToActiveDevices(devs, monthEntries);
+      var byDid = mapped.byId;
+      if (dashDebugEnabled()) dbg("[dash] mapEntries", monthKey, "remapped=", mapped.remapped, "ignored=", mapped.ignored);
 
       var head = el("div", { class: "eikon-row", style: "align-items:flex-end;gap:10px;flex-wrap:wrap;" }, [
         el("div", { style: "font-weight:900;", text: monthKeyNice(monthKey) }),
@@ -1369,18 +1436,21 @@
       }
     });
 
+    // Guard against accidental double-fire (some hosts embed multiple iframes / rapid taps)
+    var _dashPrintInFlight = false;
+    var _dashPrintAt = 0;
+
     printDashBtn.addEventListener("click", async function (ev) {
       if (ev && ev.preventDefault) ev.preventDefault();
       if (ev && ev.stopPropagation) ev.stopPropagation();
 
-      // Open blank tab immediately to preserve user gesture (prevents popup blockers)
-      var preWin = null;
-      try {
-        preWin = window.open("about:blank", "_blank");
-        if (preWin) { try { preWin.opener = null; } catch (e0) {} }
-      } catch (e1) {
-        preWin = null;
+      var now = Date.now();
+      if (_dashPrintInFlight || (now - _dashPrintAt < 1400)) {
+        dbg("[dash] print click suppressed");
+        return;
       }
+      _dashPrintInFlight = true;
+      _dashPrintAt = now;
 
       try {
         printDashBtn.disabled = true;
@@ -1389,7 +1459,6 @@
         var mk = currentMonth();
         if (!mk) {
           toast("Cannot print", "Invalid month.", "warn");
-          if (preWin && !preWin.closed) try { preWin.close(); } catch (e2) {}
           return;
         }
         var pk = monthKeyAdd(mk, -1);
@@ -1400,7 +1469,7 @@
         var devs = activeDevicesForDashboard();
 
         if (dashDebugEnabled()) {
-          dashDbg("PRINT DASHBOARD", "mk=", mk, "pk=", pk, "devs=", devs.length, "nowEntries=", nowEntries.length, "prevEntries=", prevEntries.length);
+          dbg("[dash] PRINT DASHBOARD mk=", mk, "pk=", pk, "devs=", devs.length, "nowEntries=", nowEntries.length, "prevEntries=", prevEntries.length);
         }
 
         var html = buildDashboardPrintHtml({
@@ -1412,6 +1481,16 @@
           prevEntries: prevEntries,
           highlightYmd: state.selectedDate
         });
+
+        openPrintTabWithHtml(html);
+      } catch (e) {
+        toast("Print failed", e && e.message ? e.message : "Error", "bad", 4200);
+      } finally {
+        printDashBtn.disabled = false;
+        printDashBtn.textContent = "Print dashboard";
+        _dashPrintInFlight = false;
+      }
+    });
 
         openPrintTabWithHtml(html, preWin);
       } catch (e) {
