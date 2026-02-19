@@ -53,6 +53,7 @@
   function ensureToastStyles() {
     if (toastInstalled) return;
     toastInstalled = true;
+
     var st = document.createElement("style");
     st.type = "text/css";
     st.textContent =
@@ -70,12 +71,6 @@
       ".eikon-slim-input{min-width:120px;}" +
       ".eikon-chart-wrap{width:100%;overflow:auto;}" +
       ".eikon-chart{width:100%;min-width:680px;}" +
-      ".eikon-legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;}" +
-      ".eikon-legend-item{display:flex;align-items:center;gap:8px;padding:4px 10px;border-radius:999px;border:1px solid var(--border);background:rgba(255,255,255,.02);}" +
-      ".eikon-legend-item .nm{font-size:12px;opacity:.9;white-space:nowrap;}" +
-      ".eikon-kv{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;}" +
-      ".eikon-kv .k{font-size:12px;opacity:.8;}" +
-      ".eikon-kv .v{font-weight:900;}" +
       ".eikon-dash-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:12px;}" +
       ".eikon-dash-device{border:1px solid var(--border);background:rgba(255,255,255,.02);border-radius:16px;padding:12px;}" +
       ".eikon-dash-head{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:8px;}" +
@@ -178,7 +173,7 @@
   }
 
   // ------------------------------------------------------------
-  // Core math + date helpers (from your old module, adapted)
+  // Core math + date helpers
   // ------------------------------------------------------------
   function fmt1(n) {
     if (n === null || n === undefined) return "";
@@ -190,7 +185,6 @@
   function parseNum(n) {
     var s = String(n || "").trim();
     if (!s) return null;
-    // tolerate comma decimals (e.g. "3,2")
     s = s.replace(/,/g, ".");
     var v = Number(s);
     if (!Number.isFinite(v)) return null;
@@ -272,6 +266,27 @@
   }
 
   // ------------------------------------------------------------
+  // Dashboard debug (console)
+  // ------------------------------------------------------------
+  var DASH_DBG_KEY = "eikon_temp_dash_debug";
+  function dashDebugEnabled() {
+    try {
+      return !!E.DEBUG || window.localStorage.getItem(DASH_DBG_KEY) === "1";
+    } catch (e) {
+      return !!E.DEBUG;
+    }
+  }
+
+  function dashDbg() {
+    if (!dashDebugEnabled()) return;
+    try {
+      var args = ["[temp][dash]"].concat([].slice.call(arguments));
+      // eslint-disable-next-line no-console
+      console.log.apply(console, args);
+    } catch (e) {}
+  }
+
+  // ------------------------------------------------------------
   // Dashboard chart helpers (SVG, per-device, print-safe)
   // ------------------------------------------------------------
   function numFromAny(v) {
@@ -279,7 +294,6 @@
     if (typeof v === "number") return Number.isFinite(v) ? v : null;
     var s = String(v).trim();
     if (!s) return null;
-    // tolerate locales that store decimals with commas (e.g. "3,2")
     s = s.replace(/,/g, ".");
     var n = Number(s);
     return Number.isFinite(n) ? n : null;
@@ -350,7 +364,7 @@
     var bg = dark ? "rgba(255,255,255,.02)" : "#fff";
     var grid = dark ? "rgba(255,255,255,.10)" : "#d0d0d0";
     var axis = dark ? "rgba(233,238,247,.85)" : "#000";
-    var series = dark ? "rgba(233,238,247,.95)" : "#000";
+    var series = dark ? "rgba(233,238,247,.98)" : "#000";
     var muted = dark ? "rgba(233,238,247,.55)" : "#444";
     var hi = dark ? "rgba(255,255,255,.18)" : "#999";
     var lim = dark ? "rgba(233,238,247,.55)" : "#000";
@@ -368,22 +382,30 @@
     var minV = Infinity;
     var maxV = -Infinity;
 
+    var mapped = 0;
+    var skippedDate = 0;
+    var minNumeric = 0;
+    var maxNumeric = 0;
+
     for (var ei = 0; ei < entries.length; ei++) {
       var e = entries[ei];
       var ds = String(e.entry_date || "");
       if (ds.length >= 10) ds = ds.slice(0, 10);
       var idx = dayIndex[ds];
-      if (idx === undefined) continue;
+      if (idx === undefined) { skippedDate++; continue; }
+      mapped++;
 
       var mn = numFromAny(e.min_temp);
       var mx = numFromAny(e.max_temp);
 
       if (mn !== null) {
+        minNumeric++;
         mins[idx] = mn;
         if (mn < minV) minV = mn;
         if (mn > maxV) maxV = mn;
       }
       if (mx !== null) {
+        maxNumeric++;
         maxs[idx] = mx;
         if (mx < minV) minV = mx;
         if (mx > maxV) maxV = mx;
@@ -404,7 +426,6 @@
 
     var noData = !(Number.isFinite(minV) && Number.isFinite(maxV));
     if (noData) {
-      // If there are limits, use them to set a sensible range.
       if (minLimit !== null || maxLimit !== null) {
         minV = (minLimit !== null ? minLimit : (maxLimit !== null ? maxLimit - 2 : 0));
         maxV = (maxLimit !== null ? maxLimit : (minLimit !== null ? minLimit + 2 : 10));
@@ -417,6 +438,29 @@
     if (!Number.isFinite(span) || span < 1) span = 1;
     minV = minV - span * 0.10;
     maxV = maxV + span * 0.10;
+
+    if (opts.debug && entries.length) {
+      dashDbg(
+        "chart",
+        mk,
+        "dev#", String(dev && dev.id),
+        (dev && dev.name) || "",
+        "type=", (dev && dev.device_type) || "",
+        "entries=", entries.length,
+        "mapped=", mapped,
+        "skippedDate=", skippedDate,
+        "minNumeric=", minNumeric,
+        "maxNumeric=", maxNumeric,
+        "noData=", noData,
+        "sample=", entries.slice(0, 2)
+      );
+      if (mapped === 0 && entries.length) {
+        dashDbg("WARNING: 0 mapped entries for device; check entry_date format. First entry_date=", String(entries[0] && entries[0].entry_date));
+      }
+      if ((minNumeric + maxNumeric) === 0 && entries.length) {
+        dashDbg("WARNING: 0 numeric temps for device; check min_temp/max_temp types. First entry min/max=", entries[0] && entries[0].min_temp, entries[0] && entries[0].max_temp);
+      }
+    }
 
     function xFor(i) {
       if (n <= 1) return padL;
@@ -450,7 +494,6 @@
       return s;
     }
 
-    // Y ticks
     var ticks = 5;
     var yTicks = [];
     for (var t = 0; t < ticks; t++) {
@@ -458,7 +501,6 @@
       yTicks.push(v2);
     }
 
-    // X labels: 1, 8, 15, 22, last
     var xLabs = [];
     if (n > 0) {
       var cand = [0, 7, 14, 21, n - 1];
@@ -483,7 +525,6 @@
     out += "<svg class='eikon-chart' xmlns='http://www.w3.org/2000/svg' viewBox='0 0 " + W + " " + H + "' width='100%' height='" + H + "' role='img' aria-label='Temperature chart'>";
     out += "<rect x='0' y='0' width='" + W + "' height='" + H + "' fill='" + bg + "' rx='14' ry='14'/>";
 
-    // Grid + Y labels
     for (var yi = 0; yi < yTicks.length; yi++) {
       var vv = yTicks[yi];
       var y = yFor(vv);
@@ -491,23 +532,19 @@
       out += "<text x='" + (padL - 8) + "' y='" + (y + 4).toFixed(2) + "' text-anchor='end' font-size='11' fill='" + axis + "'>" + svgEscape(fmt1(vv)) + "</text>";
     }
 
-    // X axis
     out += "<line x1='" + padL + "' y1='" + (padT + plotH) + "' x2='" + (W - padR) + "' y2='" + (padT + plotH) + "' stroke='" + grid + "' stroke-width='1'/>";
 
-    // X labels
     for (var xl = 0; xl < xLabs.length; xl++) {
       var idxx = xLabs[xl];
       var xx = xFor(idxx);
       out += "<text x='" + xx.toFixed(2) + "' y='" + (H - 12) + "' text-anchor='middle' font-size='11' fill='" + axis + "'>" + svgEscape(String(idxx + 1)) + "</text>";
     }
 
-    // Highlight day
     if (highlightIdx !== null) {
       var hx = xFor(highlightIdx);
       out += "<line x1='" + hx.toFixed(2) + "' y1='" + padT + "' x2='" + hx.toFixed(2) + "' y2='" + (padT + plotH) + "' stroke='" + hi + "' stroke-width='2'/>";
     }
 
-    // Limits
     if (minLimit !== null) {
       var yMinL = yFor(minLimit);
       out += "<line x1='" + padL + "' y1='" + yMinL.toFixed(2) + "' x2='" + (W - padR) + "' y2='" + yMinL.toFixed(2) + "' stroke='" + lim + "' stroke-width='1.5' stroke-dasharray='6 5'/>";
@@ -517,15 +554,13 @@
       out += "<line x1='" + padL + "' y1='" + yMaxL.toFixed(2) + "' x2='" + (W - padR) + "' y2='" + yMaxL.toFixed(2) + "' stroke='" + lim + "' stroke-width='1.5' stroke-dasharray='6 5'/>";
     }
 
-    // Series (thin=min, thick=max)
-    if (dMin) out += "<path d='" + dMin + "' fill='none' stroke='" + series + "' stroke-opacity='" + (dark ? "0.35" : "0.30") + "' stroke-width='1' stroke-linejoin='round' stroke-linecap='round'/>";
-    if (dMax) out += "<path d='" + dMax + "' fill='none' stroke='" + series + "' stroke-opacity='" + (dark ? "0.92" : "0.88") + "' stroke-width='2' stroke-linejoin='round' stroke-linecap='round'/>";
+    // Series (thin=min, thick=max) + dots to show isolated readings
+    if (dMin) out += "<path d='" + dMin + "' fill='none' stroke='" + series + "' stroke-opacity='" + (dark ? "0.60" : "0.40") + "' stroke-width='1.3' stroke-linejoin='round' stroke-linecap='round'/>";
+    if (dMax) out += "<path d='" + dMax + "' fill='none' stroke='" + series + "' stroke-opacity='" + (dark ? "0.98" : "0.92") + "' stroke-width='2.4' stroke-linejoin='round' stroke-linecap='round'/>";
 
-    // Dots (helps show isolated points when there are missing days)
-    out += dotsFor(mins, 2, (dark ? "0.35" : "0.30"));
-    out += dotsFor(maxs, 2.6, (dark ? "0.90" : "0.85"));
+    out += dotsFor(mins, 2.8, (dark ? "0.65" : "0.55"));
+    out += dotsFor(maxs, 3.4, (dark ? "0.98" : "0.92"));
 
-    // Caption
     out += "<text x='" + padL + "' y='16' text-anchor='start' font-size='12' fill='" + muted + "'>Thin=min • Thick=max</text>";
 
     if (noData) {
@@ -541,8 +576,7 @@
     var title = String(opts.title || "Temperature Dashboard");
     var mk = String(opts.monthKey || "");
     var pk = String(opts.prevMonthKey || "");
-
-    if (pk === mk) pk = ""; // safety: avoid duplicate month sections
+    if (pk === mk) pk = ""; // safety
 
     var devices = Array.isArray(opts.devices) ? opts.devices : [];
     var monthEntries = Array.isArray(opts.monthEntries) ? opts.monthEntries : [];
@@ -556,8 +590,9 @@
 
     function groupByDevice(entries) {
       var map = {};
-      for (var i = 0; i < entries.length; i++) {
-        var e = entries[i];
+      var arr = Array.isArray(entries) ? entries : [];
+      for (var i = 0; i < arr.length; i++) {
+        var e = arr[i];
         var did = String(e.device_id);
         if (!map[did]) map[did] = [];
         map[did].push(e);
@@ -752,17 +787,58 @@
       "</body>\n</html>";
   }
 
-  function openPrintTabWithHtml(html) {
+  // ------------------------------------------------------------
+  // Print: open tab/window (FIX: avoid double-open in some browsers)
+  // ------------------------------------------------------------
+  var _lastPrintOpenAt = 0;
+
+  function openPrintTabWithHtml(html, existingWindow) {
+    // FIX: Using "noopener" as a window feature can cause some browsers to return null
+    // even though the tab opened -> our fallback would open a second tab.
+    // So we open without features and then null-out opener.
+
+    var now = Date.now();
+    if (now - _lastPrintOpenAt < 700) {
+      dbg("print suppressed (double click / duplicate call)");
+      return;
+    }
+    _lastPrintOpenAt = now;
+
     var blob = new Blob([html], { type: "text/html" });
     var url = URL.createObjectURL(blob);
 
+    function safeNavigate(w) {
+      if (!w) return false;
+      try {
+        // about:blank is same-origin so this is safe; after navigating to blob it's still same-origin.
+        w.opener = null;
+      } catch (e) {}
+      try {
+        w.location.href = url;
+        return true;
+      } catch (e2) {
+        return false;
+      }
+    }
+
+    // If we already opened a blank tab synchronously, use it.
+    if (existingWindow && safeNavigate(existingWindow)) {
+      setTimeout(function () { try { URL.revokeObjectURL(url); } catch (e3) {} }, 60000);
+      return;
+    }
+
+    // Try window.open
     var w = null;
     try {
-      w = window.open(url, "_blank", "noopener");
-    } catch (e) {
+      w = window.open(url, "_blank");
+      if (w) {
+        try { w.opener = null; } catch (e4) {}
+      }
+    } catch (e5) {
       w = null;
     }
 
+    // Fallback: anchor click
     if (!w) {
       try {
         var a = document.createElement("a");
@@ -773,14 +849,17 @@
         document.body.appendChild(a);
         a.click();
         a.remove();
-      } catch (e2) {}
+      } catch (e6) {}
     }
 
     setTimeout(function () {
-      try { URL.revokeObjectURL(url); } catch (e3) {}
+      try { URL.revokeObjectURL(url); } catch (e7) {}
     }, 60000);
   }
 
+  // ------------------------------------------------------------
+  // Report preview dom (unchanged)
+  // ------------------------------------------------------------
   function renderReportPreviewDom(data) {
     var org = data.org_name || "";
     var loc = data.location_name || "";
@@ -871,7 +950,7 @@
   }
 
   // ------------------------------------------------------------
-  // Module state (persists while UI stays loaded)
+  // Module state
   // ------------------------------------------------------------
   var state = {
     tab: "entries",
@@ -899,6 +978,7 @@
     var entries = (r && r.entries) ? r.entries : [];
     state.entriesMonthCache[month] = entries;
     dbg("entries loaded:", entries.length);
+    if (dashDebugEnabled()) dashDbg("month entries loaded", month, "count=", entries.length, "sample=", entries.slice(0, 3));
     return entries;
   }
 
@@ -907,7 +987,7 @@
   }
 
   // ------------------------------------------------------------
-  // Render: Entries
+  // Render: Entries + Dashboard
   // ------------------------------------------------------------
   async function renderEntries(content) {
     content.innerHTML = "";
@@ -958,9 +1038,7 @@
     tableWrap.appendChild(table);
     tableCard.appendChild(tableWrap);
 
-    // ------------------------------------------------------------
-    // Monthly dashboard (this month + previous month)
-    // ------------------------------------------------------------
+    // Dashboard below entries (as requested)
     var dashCard = el("div", { class: "eikon-card" }, [
       el("div", { style: "font-weight:900;margin-bottom:6px;", text: "Monthly Dashboard" }),
       el("div", { class: "eikon-help", text: "Per-device charts for the selected month (and the month before). Thin=min • Thick=max • Dashed=limits." }),
@@ -1004,6 +1082,66 @@
       return map;
     }
 
+    function dashDebugSummary(monthKey, monthEntries) {
+      if (!dashDebugEnabled()) return;
+      var devs = activeDevicesForDashboard();
+      var byDid = groupEntriesByDevice(monthEntries);
+      var dayIndex = {};
+      var days = monthDaysFromKey(monthKey);
+      for (var i = 0; i < days.length; i++) dayIndex[days[i]] = i;
+
+      var idsInEntries = Object.keys(byDid);
+      var idsInDevices = devs.map(function (d) { return String(d.id); });
+
+      var missing = [];
+      for (var mi = 0; mi < idsInDevices.length; mi++) {
+        if (!byDid[idsInDevices[mi]]) missing.push(idsInDevices[mi]);
+      }
+
+      var extra = [];
+      for (var ei = 0; ei < idsInEntries.length; ei++) {
+        if (idsInDevices.indexOf(idsInEntries[ei]) === -1) extra.push(idsInEntries[ei]);
+      }
+
+      dashDbg("SUMMARY", monthKey, "days=", days.length, "entries=", monthEntries.length, "activeDevices=", devs.length);
+      if (monthEntries.length) dashDbg("entries sample", monthEntries.slice(0, 3));
+      if (missing.length) dashDbg("active devices with ZERO entries this month:", missing);
+      if (extra.length) dashDbg("entries include device_ids not in active list:", extra);
+
+      for (var di = 0; di < devs.length; di++) {
+        var d = devs[di];
+        var list = byDid[String(d.id)] || [];
+        var mapped = 0;
+        var skippedDate = 0;
+        var minNumeric = 0;
+        var maxNumeric = 0;
+
+        for (var jj = 0; jj < list.length; jj++) {
+          var e = list[jj];
+          var ds = String(e.entry_date || "");
+          if (ds.length >= 10) ds = ds.slice(0, 10);
+          if (dayIndex[ds] === undefined) skippedDate++;
+          else mapped++;
+
+          if (numFromAny(e.min_temp) !== null) minNumeric++;
+          if (numFromAny(e.max_temp) !== null) maxNumeric++;
+        }
+
+        dashDbg(
+          "device",
+          "#" + String(d.id),
+          d.name,
+          "type=" + (d.device_type || ""),
+          "entries=" + list.length,
+          "mapped=" + mapped,
+          "skippedDate=" + skippedDate,
+          "minNumeric=" + minNumeric,
+          "maxNumeric=" + maxNumeric,
+          "sampleDates=" + list.slice(0, 3).map(function (x) { return String(x && x.entry_date); }).join(", ")
+        );
+      }
+    }
+
     function renderMonthDeviceCharts(target, monthKey, monthEntries, highlightYmd) {
       target.innerHTML = "";
 
@@ -1038,7 +1176,8 @@
           highlightYmd: highlightYmd || "",
           mode: "dark",
           width: 1000,
-          height: 220
+          height: 220,
+          debug: dashDebugEnabled()
         });
 
         var box = el("div", { class: "eikon-dash-device" }, [
@@ -1063,11 +1202,17 @@
         if (!mk) return;
         var pk = monthKeyAdd(mk, -1);
 
-        dashNow.innerHTML = "<div class=\"eikon-help\">Loading chart…</div>";
-        dashPrev.innerHTML = "<div class=\"eikon-help\">Loading chart…</div>";
+        dashNow.innerHTML = "<div class=\"eikon-help\">Loading charts…</div>";
+        dashPrev.innerHTML = "<div class=\"eikon-help\">Loading charts…</div>";
 
         var nowEntries = await loadMonthEntries(mk);
-        var prevEntries = pk ? await loadMonthEntries(pk) : [];
+        var prevEntries = (pk && pk !== mk) ? await loadMonthEntries(pk) : [];
+
+        if (dashDebugEnabled()) {
+          dashDbg("refreshDashboard", "selectedDate=", state.selectedDate, "mk=", mk, "pk=", pk);
+          dashDebugSummary(mk, nowEntries);
+          if (pk && pk !== mk) dashDebugSummary(pk, prevEntries);
+        }
 
         renderMonthDeviceCharts(dashNow, mk, nowEntries, state.selectedDate);
         if (pk && pk !== mk) renderMonthDeviceCharts(dashPrev, pk, prevEntries, "");
@@ -1075,6 +1220,7 @@
       } catch (e) {
         dashNow.innerHTML = "<div class=\"eikon-help\">Dashboard failed to load.</div>";
         dashPrev.innerHTML = "";
+        if (dashDebugEnabled()) dashDbg("refreshDashboard error", e && (e.stack || e.message || e));
       }
     }
 
@@ -1223,7 +1369,19 @@
       }
     });
 
-    printDashBtn.addEventListener("click", async function () {
+    printDashBtn.addEventListener("click", async function (ev) {
+      if (ev && ev.preventDefault) ev.preventDefault();
+      if (ev && ev.stopPropagation) ev.stopPropagation();
+
+      // Open blank tab immediately to preserve user gesture (prevents popup blockers)
+      var preWin = null;
+      try {
+        preWin = window.open("about:blank", "_blank");
+        if (preWin) { try { preWin.opener = null; } catch (e0) {} }
+      } catch (e1) {
+        preWin = null;
+      }
+
       try {
         printDashBtn.disabled = true;
         printDashBtn.textContent = "Preparing...";
@@ -1231,6 +1389,7 @@
         var mk = currentMonth();
         if (!mk) {
           toast("Cannot print", "Invalid month.", "warn");
+          if (preWin && !preWin.closed) try { preWin.close(); } catch (e2) {}
           return;
         }
         var pk = monthKeyAdd(mk, -1);
@@ -1239,6 +1398,10 @@
         var prevEntries = (pk && pk !== mk) ? await loadMonthEntries(pk) : [];
 
         var devs = activeDevicesForDashboard();
+
+        if (dashDebugEnabled()) {
+          dashDbg("PRINT DASHBOARD", "mk=", mk, "pk=", pk, "devs=", devs.length, "nowEntries=", nowEntries.length, "prevEntries=", prevEntries.length);
+        }
 
         var html = buildDashboardPrintHtml({
           title: "Temperature Dashboard",
@@ -1250,9 +1413,12 @@
           highlightYmd: state.selectedDate
         });
 
-        openPrintTabWithHtml(html);
+        openPrintTabWithHtml(html, preWin);
       } catch (e) {
         toast("Print failed", e && e.message ? e.message : "Error", "bad", 4200);
+        if (preWin && !preWin.closed) {
+          try { preWin.close(); } catch (e3) {}
+        }
       } finally {
         printDashBtn.disabled = false;
         printDashBtn.textContent = "Print dashboard";
@@ -1271,7 +1437,6 @@
         return;
       }
 
-      // Validate + build jobs
       var jobs = [];
       for (var i = 0; i < rowObjs.length; i++) {
         var r = rowObjs[i];
@@ -1332,7 +1497,6 @@
       }
     });
 
-    // initial fill
     await fillRows();
     await refreshDashboard();
   }
