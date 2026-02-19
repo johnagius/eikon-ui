@@ -1081,7 +1081,7 @@
       el("div", {
         class: "eikon-help",
         text:
-          "Enter Min/Max for each active device. You can back-date any day. Deletes and confirms use Eikon modal (GoDaddy-safe)."
+          "Enter Min/Max for each active device. You can back-date any day."
       })
     ]);
 
