@@ -1230,6 +1230,14 @@
 
       var grid = el("div", { class: "eikon-dash-grid" });
 
+      // Chart height: make it visually fill the device card (no horizontal scroll, comfortable vertical size)
+      var chartH = 280;
+      try {
+        var w = window.innerWidth || 0;
+        if (w && w < 520) chartH = 220;
+        else if (w && w < 900) chartH = 250;
+      } catch (e) {}
+
       for (var i = 0; i < devs.length; i++) {
         var d = devs[i];
         var eList = byDid[String(d.id)] || [];
@@ -1243,7 +1251,7 @@
           highlightYmd: highlightYmd || "",
           mode: "dark",
           width: 1000,
-          height: 220,
+          height: chartH,
           debug: dashDebugEnabled()
         });
 
