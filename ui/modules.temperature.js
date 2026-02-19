@@ -1240,22 +1240,15 @@
         else if (w && w < 900) chartH = 250;
       } catch (e) {}
 
+      var chartJobs = [];
+
       for (var i = 0; i < devs.length; i++) {
         var d = devs[i];
         var eList = byDid[String(d.id)] || [];
 
         var meta = limitsTextForDevice(d) + " • " + (eList.length ? (eList.length + " readings") : "No readings");
 
-        var svg = buildDeviceMonthChartSvg({
-          monthKey: monthKey,
-          device: d,
-          entries: eList,
-          highlightYmd: highlightYmd || "",
-          mode: "dark",
-          width: 1000,
-          height: chartH,
-          debug: dashDebugEnabled()
-        });
+                var chartWrap = el("div", { class: "eikon-chart-wrap", style: "height:" + chartH + "px;" });
 
         var box = el("div", { class: "eikon-dash-device" }, [
           el("div", { class: "eikon-dash-head" }, [
@@ -1264,13 +1257,54 @@
           ]),
           el("div", { class: "eikon-dash-sub", text: meta }),
           el("div", { style: "height:8px;" }),
-          el("div", { class: "eikon-chart-wrap", style: "height:" + chartH + "px;", html: svg })
+          chartWrap
         ]);
 
         grid.appendChild(box);
+        chartJobs.push({ wrap: chartWrap, device: d, entries: eList });
+
       }
 
       target.appendChild(grid);
+
+      // Post-layout render: measure each chart container width so the SVG viewBox matches the viewport width.
+      // This avoids preserveAspectRatio "letterboxing" (charts looking short inside a tall box).
+      try {
+        requestAnimationFrame(function () {
+          try {
+            for (var cj = 0; cj < chartJobs.length; cj++) {
+              var job = chartJobs[cj];
+              if (!job || !job.wrap) continue;
+
+              var wpx = 0;
+              try { wpx = job.wrap.clientWidth || 0; } catch (e) { wpx = 0; }
+              if (!wpx) {
+                try { wpx = Math.round((job.wrap.getBoundingClientRect && job.wrap.getBoundingClientRect().width) || 0); } catch (e2) { wpx = 0; }
+              }
+              if (!wpx || !isFinite(wpx)) wpx = 1000;
+
+              var svg = buildDeviceMonthChartSvg({
+                monthKey: monthKey,
+                device: job.device,
+                entries: job.entries,
+                highlightYmd: highlightYmd || "",
+                mode: "dark",
+                width: Math.max(1, Math.round(wpx)),
+                height: chartH,
+                debug: dashDebugEnabled()
+              });
+
+              job.wrap.innerHTML = svg;
+
+              if (dashDebugEnabled()) {
+                dbg("[dash] chart sized", monthKey, "dev#", job.device && job.device.id, "wrapW=", wpx, "H=", chartH);
+              }
+            }
+          } catch (e3) {
+            warn("[dash] chart post-layout render failed:", e3 && (e3.message || e3));
+          }
+        });
+      } catch (e4) {}
     }
 
     async function refreshDashboard() {
