@@ -9,40 +9,41 @@
   // ------------------------------------------------------------
   function log() { E.log.apply(E, ["[nearexpiry]"].concat([].slice.call(arguments))); }
   function dbg() { E.dbg.apply(E, ["[nearexpiry]"].concat([].slice.call(arguments))); }
-  function err() { E.err.apply(E, ["[nearexpiry]"].concat([].slice.call(arguments))); }
+  function err() { (E.error || E.log).apply(E, ["[nearexpiry]"].concat([].slice.call(arguments))); }
 
   // ------------------------------------------------------------
-  // API helper (consistent with other modules)
-  // ------------------------------------------------------------
-  var reqSeq = 0;
+// API helper (consistent with other modules)
+// ------------------------------------------------------------
+// NOTE: E.apiFetch() (from core.js) already returns parsed JSON, NOT a Response.
+// It throws on non-2xx and attaches err.status.
+var reqSeq = 0;
 
-  async function apiFetchDbg(path, options, tag) {
-    reqSeq++;
-    var reqId = "NE#" + String(reqSeq) + "-" + String(Date.now());
-    var method = (options && options.method) ? String(options.method).toUpperCase() : "GET";
-    var t0 = Date.now();
+async function apiJson(path, options, tag) {
+  reqSeq++;
+  var reqId = "NE#" + String(reqSeq) + "-" + String(Date.now());
+  var method = (options && options.method) ? String(options.method).toUpperCase() : "GET";
+  var t0 = Date.now();
 
-    dbg(reqId + " -> " + method + " " + path + (tag ? (" [" + tag + "]") : ""));
-    try {
-      var out = await E.apiFetch(path, options || {});
-      dbg(reqId + " <- OK " + out.status + " (" + (Date.now() - t0) + "ms)");
-      return out;
-    } catch (e) {
-      err(reqId + " <- ERR (" + (Date.now() - t0) + "ms)", e);
-      throw e;
-    }
-  }
-
-  async function apiJson(path, options, tag) {
-    var res = await apiFetchDbg(path, options, tag);
-    var j = null;
-    try { j = await res.json(); } catch (e) { j = null; }
-    if (!res.ok || !j || j.ok === false) {
-      var msg = (j && (j.error || j.message)) ? (j.error || j.message) : ("HTTP " + res.status);
-      throw new Error(msg);
+  // E.apiFetch already logs [api] -> / <- at DBG=2; we add a compact tag log
+  dbg(reqId + " -> " + method + " " + path + (tag ? (" [" + tag + "]") : ""));
+  try {
+    var j = await E.apiFetch(path, options || {});
+    dbg(reqId + " <- OK (" + (Date.now() - t0) + "ms)");
+    if (!j || j.ok === false) {
+      var msg = (j && (j.error || j.message)) ? (j.error || j.message) : "Unknown API error";
+      var ex = new Error(msg);
+      ex.status = (j && j.status) ? j.status : undefined;
+      throw ex;
     }
     return j;
+  } catch (e) {
+    // Ensure we always have a useful message
+    if (e && !e.message && typeof e === "string") e = new Error(e);
+    err(reqId + " <- ERR (" + (Date.now() - t0) + "ms)", e);
+    throw e;
   }
+}
+
 
   // ------------------------------------------------------------
   // Helpers
