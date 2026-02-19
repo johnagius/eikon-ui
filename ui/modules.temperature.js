@@ -68,6 +68,14 @@
       ".eikon-dot.bad{background:rgba(255,90,122,.95);}"+
       ".eikon-mini{font-size:12px;opacity:.85;}" +
       ".eikon-slim-input{min-width:120px;}" +
+      ".eikon-chart-wrap{width:100%;overflow:auto;}" +
+      ".eikon-chart{width:100%;min-width:680px;}" +
+      ".eikon-legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;}" +
+      ".eikon-legend-item{display:flex;align-items:center;gap:8px;padding:4px 10px;border-radius:999px;border:1px solid var(--border);background:rgba(255,255,255,.02);}" +
+      ".eikon-legend-item .nm{font-size:12px;opacity:.9;white-space:nowrap;}" +
+      ".eikon-kv{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;}" +
+      ".eikon-kv .k{font-size:12px;opacity:.8;}" +
+      ".eikon-kv .v{font-weight:900;}" +
       "";
     document.head.appendChild(st);
   }
@@ -182,6 +190,25 @@
     return Math.round(v * 10) / 10;
   }
 
+  // Default safety floor for room temperature (used when device has no explicit min_limit)
+  var ROOM_DEFAULT_MIN_LIMIT = 8.1;
+
+  function effectiveMinLimit(dev) {
+    try {
+      if (dev && Number.isFinite(Number(dev.min_limit))) return Number(dev.min_limit);
+      if (dev && String(dev.device_type || "") === "room") return ROOM_DEFAULT_MIN_LIMIT;
+    } catch (e) {}
+    return null;
+  }
+
+  function exampleTempsForDevice(dev) {
+    var t = String((dev && dev.device_type) || "").toLowerCase();
+    if (t === "room") return { min: "16.5", max: "23.3" };
+    if (t === "fridge") return { min: "3.2", max: "7.8" };
+    return { min: "10.0", max: "20.0" };
+  }
+
+
   function todayYmd() {
     var d = new Date();
     var y = d.getFullYear();
@@ -236,6 +263,313 @@
     var dt = new Date(y, m - 1, d);
     if (dt.getFullYear() !== y || dt.getMonth() !== (m - 1) || dt.getDate() !== d) return null;
     return dt;
+  }
+
+  // ------------------------------------------------------------
+  // Dashboard chart helpers (SVG, print-safe)
+  // ------------------------------------------------------------
+  function monthKeyAdd(monthKey, delta) {
+    var mk = String(monthKey || "");
+    if (!/^\d{4}-\d{2}$/.test(mk)) return "";
+    var y = parseInt(mk.slice(0, 4), 10);
+    var m = parseInt(mk.slice(5, 7), 10) - 1;
+    var d = new Date(y, m, 1);
+    d.setMonth(d.getMonth() + (delta || 0));
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
+  }
+
+  function monthKeyNice(monthKey) {
+    var mk = String(monthKey || "");
+    if (!/^\d{4}-\d{2}$/.test(mk)) return mk;
+    var y = parseInt(mk.slice(0, 4), 10);
+    var m = parseInt(mk.slice(5, 7), 10);
+    var names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    return (names[m - 1] || mk) + " " + y;
+  }
+
+  function monthDaysFromKey(monthKey) {
+    var mk = String(monthKey || "");
+    if (!/^\d{4}-\d{2}$/.test(mk)) return [];
+    var y = parseInt(mk.slice(0, 4), 10);
+    var m = parseInt(mk.slice(5, 7), 10);
+    var last = new Date(y, m, 0).getDate();
+    var out = [];
+    for (var d = 1; d <= last; d++) {
+      out.push(y + "-" + String(m).padStart(2, "0") + "-" + String(d).padStart(2, "0"));
+    }
+    return out;
+  }
+
+  function dashPatternForIndex(i) {
+    var pats = ["", "7 4", "2 3", "10 4 2 4", "1 4", "12 4 2 4 2 4"];
+    return pats[(i || 0) % pats.length];
+  }
+
+  function svgEscape(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c];
+    });
+  }
+
+  function buildLegendHtml(devices, mode) {
+    var devs = Array.isArray(devices) ? devices : [];
+    var dark = mode !== "print";
+    var stroke = dark ? "rgba(233,238,247,.95)" : "#000";
+    var html = "<div class='eikon-legend'>";
+    for (var i = 0; i < devs.length; i++) {
+      var d = devs[i];
+      var dash = dashPatternForIndex(i);
+      html += "<div class='eikon-legend-item'>" +
+        "<svg width='44' height='10' viewBox='0 0 44 10' xmlns='http://www.w3.org/2000/svg'>" +
+        "<line x1='2' y1='5' x2='42' y2='5' stroke='" + stroke + "' stroke-width='2' stroke-dasharray='" + dash + "' />" +
+        "</svg>" +
+        "<span class='nm'>" + svgEscape(d && d.name ? d.name : "") + "</span>" +
+        "</div>";
+    }
+    html += "</div>";
+    return html;
+  }
+
+  function buildMonthChartSvg(opts) {
+    opts = opts || {};
+    var mk = String(opts.monthKey || "");
+    var days = monthDaysFromKey(mk);
+    var n = days.length;
+
+    var W = Number(opts.width || 1000);
+    var H = Number(opts.height || 260);
+
+    var padL = 54, padR = 14, padT = 22, padB = 34;
+    var plotW = Math.max(10, W - padL - padR);
+    var plotH = Math.max(10, H - padT - padB);
+
+    var mode = String(opts.mode || "dark");
+    var dark = mode !== "print";
+    var bg = dark ? "rgba(255,255,255,.02)" : "#fff";
+    var grid = dark ? "rgba(255,255,255,.10)" : "#d0d0d0";
+    var axis = dark ? "rgba(233,238,247,.85)" : "#000";
+    var series = dark ? "rgba(233,238,247,.95)" : "#000";
+    var muted = dark ? "rgba(233,238,247,.55)" : "#444";
+    var hi = dark ? "rgba(255,255,255,.16)" : "#999";
+
+    var devs = Array.isArray(opts.devices) ? opts.devices : [];
+    var entries = Array.isArray(opts.entries) ? opts.entries : [];
+
+    var dayIndex = {};
+    for (var i = 0; i < n; i++) dayIndex[days[i]] = i;
+
+    var seriesByDid = {};
+    for (var di = 0; di < devs.length; di++) {
+      var did = String(devs[di].id);
+      seriesByDid[did] = { min: new Array(n), max: new Array(n) };
+      for (var ii = 0; ii < n; ii++) { seriesByDid[did].min[ii] = null; seriesByDid[did].max[ii] = null; }
+    }
+
+    var minV = Infinity;
+    var maxV = -Infinity;
+
+    for (var ei = 0; ei < entries.length; ei++) {
+      var e = entries[ei];
+      var idx = dayIndex[String(e.entry_date || "")];
+      if (idx === undefined) continue;
+      var did2 = String(e.device_id);
+      if (!seriesByDid[did2]) continue;
+      var mn = Number(e.min_temp);
+      var mx = Number(e.max_temp);
+      if (!Number.isFinite(mn) || !Number.isFinite(mx)) continue;
+      seriesByDid[did2].min[idx] = mn;
+      seriesByDid[did2].max[idx] = mx;
+      if (mn < minV) minV = mn;
+      if (mx < minV) minV = mx;
+      if (mn > maxV) maxV = mn;
+      if (mx > maxV) maxV = mx;
+    }
+
+    var noData = !(Number.isFinite(minV) && Number.isFinite(maxV));
+    if (noData) { minV = 0; maxV = 10; }
+
+    var span = maxV - minV;
+    if (!Number.isFinite(span) || span < 1) span = 1;
+    minV = minV - span * 0.08;
+    maxV = maxV + span * 0.08;
+
+    function xFor(i) {
+      if (n <= 1) return padL;
+      return padL + (i / (n - 1)) * plotW;
+    }
+    function yFor(v) {
+      return padT + (maxV - v) * (plotH / (maxV - minV));
+    }
+
+    function pathFor(arr) {
+      var d = "";
+      var started = false;
+      for (var i = 0; i < arr.length; i++) {
+        var v = arr[i];
+        if (!Number.isFinite(v)) { started = false; continue; }
+        var x = xFor(i);
+        var y = yFor(v);
+        if (!started) { d += "M" + x.toFixed(2) + "," + y.toFixed(2); started = true; }
+        else { d += " L" + x.toFixed(2) + "," + y.toFixed(2); }
+      }
+      return d;
+    }
+
+    // Ticks
+    var ticks = 5;
+    var yTicks = [];
+    for (var t = 0; t < ticks; t++) {
+      var v = minV + (t / (ticks - 1)) * (maxV - minV);
+      yTicks.push(v);
+    }
+
+    // X label positions: 1, 8, 15, 22, last
+    var xLabs = [];
+    if (n > 0) {
+      var cand = [0, 7, 14, 21, n - 1];
+      var seen = {};
+      for (var ci = 0; ci < cand.length; ci++) {
+        var idx = cand[ci];
+        if (idx < 0 || idx >= n) continue;
+        if (seen[idx]) continue;
+        seen[idx] = 1;
+        xLabs.push(idx);
+      }
+    }
+
+    var highlightIdx = null;
+    var hy = String(opts.highlightYmd || "");
+    if (hy && dayIndex[hy] !== undefined) highlightIdx = dayIndex[hy];
+
+    var out = "";
+    out += "<svg class='eikon-chart' xmlns='http://www.w3.org/2000/svg' viewBox='0 0 " + W + " " + H + "' width='100%' height='" + H + "' role='img' aria-label='Temperature chart'>";
+    out += "<rect x='0' y='0' width='" + W + "' height='" + H + "' fill='" + bg + "' rx='14' ry='14'/>";
+
+    // Grid + Y labels
+    for (var yi = 0; yi < yTicks.length; yi++) {
+      var v2 = yTicks[yi];
+      var y = yFor(v2);
+      out += "<line x1='" + padL + "' y1='" + y.toFixed(2) + "' x2='" + (W - padR) + "' y2='" + y.toFixed(2) + "' stroke='" + grid + "' stroke-width='1'/>";
+      out += "<text x='" + (padL - 8) + "' y='" + (y + 4).toFixed(2) + "' text-anchor='end' font-size='11' fill='" + axis + "'>" + svgEscape(fmt1(v2)) + "</text>";
+    }
+
+    // X axis line
+    out += "<line x1='" + padL + "' y1='" + (padT + plotH) + "' x2='" + (W - padR) + "' y2='" + (padT + plotH) + "' stroke='" + grid + "' stroke-width='1'/>";
+
+    // X labels
+    for (var xl = 0; xl < xLabs.length; xl++) {
+      var idx2 = xLabs[xl];
+      var x2 = xFor(idx2);
+      out += "<text x='" + x2.toFixed(2) + "' y='" + (H - 12) + "' text-anchor='middle' font-size='11' fill='" + axis + "'>" + svgEscape(String(idx2 + 1)) + "</text>";
+    }
+
+    // Highlight day
+    if (highlightIdx !== null) {
+      var hx = xFor(highlightIdx);
+      out += "<line x1='" + hx.toFixed(2) + "' y1='" + padT + "' x2='" + hx.toFixed(2) + "' y2='" + (padT + plotH) + "' stroke='" + hi + "' stroke-width='2'/>";
+    }
+
+    // Series
+    for (var si = 0; si < devs.length; si++) {
+      var dv = devs[si];
+      var did3 = String(dv.id);
+      var ser = seriesByDid[did3];
+      if (!ser) continue;
+      var dash = dashPatternForIndex(si);
+      var dMax = pathFor(ser.max);
+      var dMin = pathFor(ser.min);
+
+      if (dMin) out += "<path d='" + dMin + "' fill='none' stroke='" + series + "' stroke-opacity='" + (dark ? "0.35" : "0.30") + "' stroke-width='1' stroke-linejoin='round' stroke-linecap='round' stroke-dasharray='" + dash + "'/>";
+      if (dMax) out += "<path d='" + dMax + "' fill='none' stroke='" + series + "' stroke-opacity='" + (dark ? "0.90" : "0.85") + "' stroke-width='2' stroke-linejoin='round' stroke-linecap='round' stroke-dasharray='" + dash + "'/>";
+    }
+
+    // Caption
+    out += "<text x='" + padL + "' y='16' text-anchor='start' font-size='12' fill='" + muted + "'>Thin=min • Thick=max</text>";
+
+    if (noData) {
+      out += "<text x='" + (padL + plotW / 2) + "' y='" + (padT + plotH / 2) + "' text-anchor='middle' font-size='14' fill='" + muted + "'>No data</text>";
+    }
+
+    out += "</svg>";
+    return out;
+  }
+
+  function buildDashboardPrintHtml(opts) {
+    opts = opts || {};
+    var title = String(opts.title || "Temperature Dashboard");
+    var mk = String(opts.monthKey || "");
+    var pk = String(opts.prevMonthKey || "");
+
+    var devices = Array.isArray(opts.devices) ? opts.devices : [];
+    var monthDevices = Array.isArray(opts.monthDevices) ? opts.monthDevices : devices;
+    var prevDevices = Array.isArray(opts.prevDevices) ? opts.prevDevices : devices;
+
+    var svg1 = buildMonthChartSvg({
+      monthKey: mk,
+      devices: monthDevices,
+      entries: (opts.monthEntries || []),
+      highlightYmd: (opts.highlightYmd || ""),
+      mode: "print",
+      width: 1000,
+      height: 280
+    });
+
+    var svg2 = buildMonthChartSvg({
+      monthKey: pk,
+      devices: prevDevices,
+      entries: (opts.prevEntries || []),
+      highlightYmd: "",
+      mode: "print",
+      width: 1000,
+      height: 280
+    });
+
+    var legend1 = buildLegendHtml(monthDevices, "print");
+    var legend2 = buildLegendHtml(prevDevices, "print");
+
+    function esc(s) {
+      return String(s).replace(/[&<>'"]/g, function (c) {
+        return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c];
+      });
+    }
+
+    return "<!doctype html>\n" +
+      "<html><head><meta charset='utf-8'/>" +
+      "<meta name='viewport' content='width=device-width, initial-scale=1'/>" +
+      "<title>" + esc(title) + "</title>" +
+      "<style>" +
+      "@page{size:A4; margin:12mm;}" +
+      "body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:0;color:#000;}" +
+      ".page{padding:12mm;}" +
+      "h1{margin:0 0 6px 0;font-size:20px;}" +
+      ".sub{margin:0 0 14px 0;font-size:12px;color:#111;}" +
+      "h2{margin:16px 0 8px 0;font-size:14px;}" +
+      ".box{border:1px solid #000;border-radius:10px;padding:10px;margin:0 0 12px 0;}" +
+      ".eikon-legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}" +
+      ".eikon-legend-item{display:flex;align-items:center;gap:8px;border:1px solid #000;border-radius:999px;padding:4px 10px;}" +
+      ".eikon-legend-item .nm{font-size:11px;white-space:nowrap;}" +
+      "svg{max-width:100%;height:auto;display:block;}" +
+      "@media print{h2{page-break-after:avoid;} .box{page-break-inside:avoid;}}" +
+      "</style></head><body>" +
+      "<div class='page'>" +
+      "<h1>" + esc(title) + "</h1>" +
+      "<p class='sub'>Printed: " + esc(new Date().toISOString().slice(0, 10)) + " • Thin=min, Thick=max</p>" +
+      "<div class='box'>" +
+      "<h2>" + esc(monthKeyNice(mk)) + "</h2>" +
+      svg1 +
+      legend1 +
+      "</div>" +
+      "<div class='box'>" +
+      "<h2>" + esc(monthKeyNice(pk)) + "</h2>" +
+      svg2 +
+      legend2 +
+      "</div>" +
+      "</div>" +
+      "<script>" +
+      "window.addEventListener('load', function(){setTimeout(function(){try{window.focus();}catch(e){} try{window.print();}catch(e){}}, 80);});" +
+      "window.addEventListener('afterprint', function(){setTimeout(function(){try{window.close();}catch(e){}}, 250);});" +
+      "</script>" +
+      "</body></html>";
   }
 
   // ------------------------------------------------------------
@@ -523,13 +857,14 @@ function openPrintTabWithHtml(html) {
   // ------------------------------------------------------------
   async function renderEntries(content) {
     content.innerHTML = "";
-    await loadDevices(false);
+    await loadDevices(true);
 
     var activeDevices = state.devices.filter(function (d) { return d.active === 1; });
 
     var dateInput = el("input", { class: "eikon-input eikon-slim-input", type: "date", value: state.selectedDate });
     var reloadBtn = el("button", { class: "eikon-btn", text: "Load" });
     var syncBtn = el("button", { class: "eikon-btn", text: "Sync queued" });
+    var printDashBtn = el("button", { class: "eikon-btn", text: "Print dashboard" });
     var saveBtn = el("button", { class: "eikon-btn primary", text: "Save" });
 
     var header = el("div", { class: "eikon-card" }, [
@@ -540,7 +875,7 @@ function openPrintTabWithHtml(html) {
         ]),
         el("div", { class: "eikon-field", style: "margin-left:auto;" }, [
           el("div", { class: "eikon-label", text: "Actions" }),
-          el("div", { class: "eikon-row", style: "gap:10px;" }, [reloadBtn, syncBtn, saveBtn])
+          el("div", { class: "eikon-row", style: "gap:10px;" }, [reloadBtn, syncBtn, printDashBtn, saveBtn])
         ])
       ]),
       el("div", { style: "height:8px;" }),
@@ -569,7 +904,24 @@ function openPrintTabWithHtml(html) {
     tableWrap.appendChild(table);
     tableCard.appendChild(tableWrap);
 
+    // ------------------------------------------------------------
+    // Monthly dashboard (this month + previous month)
+    // ------------------------------------------------------------
+    var dashCard = el("div", { class: "eikon-card" }, [
+      el("div", { style: "font-weight:900;margin-bottom:6px;", text: "Monthly Dashboard" }),
+      el("div", { class: "eikon-help", text: "Live trend lines for all devices in the selected month (and the month before). Thin line = Min, thick line = Max." }),
+      el("div", { style: "height:10px;" })
+    ]);
+
+    var dashNow = el("div");
+    var dashPrev = el("div");
+    dashCard.appendChild(dashNow);
+    dashCard.appendChild(el("div", { style: "height:12px;" }));
+    dashCard.appendChild(dashPrev);
+
     content.appendChild(header);
+    content.appendChild(el("div", { style: "height:12px;" }));
+    content.appendChild(dashCard);
     content.appendChild(el("div", { style: "height:12px;" }));
     content.appendChild(tableCard);
 
@@ -577,9 +929,85 @@ function openPrintTabWithHtml(html) {
       return ymdToMonth(state.selectedDate);
     }
 
+    function devicesForMonthChart(monthEntries) {
+      var ids = {};
+      for (var i = 0; i < monthEntries.length; i++) {
+        ids[String(monthEntries[i].device_id)] = 1;
+      }
+
+      var out = [];
+      // Prefer devices that actually have data in the month.
+      for (var di = 0; di < state.devices.length; di++) {
+        var d = state.devices[di];
+        if (ids[String(d.id)]) out.push(d);
+      }
+
+      // If nothing recorded yet, show active devices so the legend still matches the daily table.
+      if (!out.length) {
+        for (var dj = 0; dj < state.devices.length; dj++) {
+          if (state.devices[dj].active === 1) out.push(state.devices[dj]);
+        }
+      }
+      return out;
+    }
+
+    function renderChartSection(target, monthKey, monthEntries, highlightYmd) {
+      target.innerHTML = "";
+
+      var devs = devicesForMonthChart(monthEntries);
+
+      var head = el("div", { class: "eikon-row", style: "align-items:flex-end;gap:10px;flex-wrap:wrap;" }, [
+        el("div", { style: "font-weight:900;", text: monthKeyNice(monthKey) }),
+        el("div", { class: "eikon-help", style: "margin-left:auto;", text: (monthEntries.length ? (monthEntries.length + " entries") : "No entries yet") })
+      ]);
+
+      var svg = buildMonthChartSvg({
+        monthKey: monthKey,
+        devices: devs,
+        entries: monthEntries,
+        highlightYmd: highlightYmd || "",
+        mode: "dark",
+        width: 1000,
+        height: 260
+      });
+
+      var chartWrap = el("div", { class: "eikon-chart-wrap" }, [
+        el("div", { html: svg })
+      ]);
+
+      var legend = el("div", { html: buildLegendHtml(devs, "dark") });
+
+      target.appendChild(head);
+      target.appendChild(el("div", { style: "height:8px;" }));
+      target.appendChild(chartWrap);
+      target.appendChild(legend);
+    }
+
+    async function refreshDashboard() {
+      try {
+        var mk = currentMonth();
+        if (!mk) return;
+        var pk = monthKeyAdd(mk, -1);
+
+        dashNow.innerHTML = "<div class=\"eikon-help\">Loading chart…</div>";
+        dashPrev.innerHTML = "<div class=\"eikon-help\">Loading chart…</div>";
+
+        var nowEntries = await loadMonthEntries(mk);
+        var prevEntries = pk ? await loadMonthEntries(pk) : [];
+
+        renderChartSection(dashNow, mk, nowEntries, state.selectedDate);
+        renderChartSection(dashPrev, pk, prevEntries, "");
+      } catch (e) {
+        dashNow.innerHTML = "<div class=\"eikon-help\">Dashboard failed to load.</div>";
+        dashPrev.innerHTML = "";
+      }
+    }
+
+
     function buildRow(dev, existingEntry) {
-      var minIn = el("input", { class: "eikon-input eikon-slim-input", type: "number", step: "0.1", placeholder: "e.g. 3.2" });
-      var maxIn = el("input", { class: "eikon-input eikon-slim-input", type: "number", step: "0.1", placeholder: "e.g. 7.8" });
+      var ex = exampleTempsForDevice(dev);
+      var minIn = el("input", { class: "eikon-input eikon-slim-input", type: "number", step: "0.1", placeholder: "e.g. " + ex.min });
+      var maxIn = el("input", { class: "eikon-input eikon-slim-input", type: "number", step: "0.1", placeholder: "e.g. " + ex.max });
       var notesIn = el("input", { class: "eikon-input", type: "text", placeholder: "Optional notes" });
 
       if (existingEntry) {
@@ -595,7 +1023,7 @@ function openPrintTabWithHtml(html) {
       function refreshStatus() {
         var minT = parseNum(minIn.value);
         var maxT = parseNum(maxIn.value);
-        var st = statusDot(minT, maxT, dev.min_limit, dev.max_limit);
+        var st = statusDot(minT, maxT, effectiveMinLimit(dev), dev.max_limit);
         dot.className = "eikon-dot " + (st.cls || "");
         statusLabel.textContent = st.label;
       }
@@ -621,6 +1049,7 @@ function openPrintTabWithHtml(html) {
           toast("Deleted", "Entry removed.", "good");
           clearMonthCache(currentMonth());
           await fillRows();
+          await refreshDashboard();
         } catch (e) {
           toast("Delete failed", (e && (e.message || e.bodyText)) ? (e.message || e.bodyText) : "Error", "bad", 3200);
         }
@@ -680,6 +1109,7 @@ function openPrintTabWithHtml(html) {
     async function reloadForDate(newDate) {
       state.selectedDate = newDate;
       await fillRows();
+      await refreshDashboard();
     }
 
     reloadBtn.addEventListener("click", async function () {
@@ -716,6 +1146,45 @@ function openPrintTabWithHtml(html) {
       } finally {
         syncBtn.disabled = false;
         syncBtn.textContent = "Sync queued";
+      }
+    });
+
+    printDashBtn.addEventListener("click", async function () {
+      try {
+        printDashBtn.disabled = true;
+        printDashBtn.textContent = "Preparing...";
+
+        var mk = currentMonth();
+        if (!mk) {
+          toast("Cannot print", "Invalid month.", "warn");
+          return;
+        }
+        var pk = monthKeyAdd(mk, -1);
+
+        var nowEntries = await loadMonthEntries(mk);
+        var prevEntries = pk ? await loadMonthEntries(pk) : [];
+
+        var nowDevs = devicesForMonthChart(nowEntries);
+        var prevDevs = devicesForMonthChart(prevEntries);
+
+        var html = buildDashboardPrintHtml({
+          title: "Temperature Dashboard",
+          monthKey: mk,
+          prevMonthKey: pk,
+          devices: state.devices,
+          monthDevices: nowDevs,
+          prevDevices: prevDevs,
+          monthEntries: nowEntries,
+          prevEntries: prevEntries,
+          highlightYmd: state.selectedDate
+        });
+
+        openPrintTabWithHtml(html);
+      } catch (e) {
+        toast("Print failed", e && e.message ? e.message : "Error", "bad", 4200);
+      } finally {
+        printDashBtn.disabled = false;
+        printDashBtn.textContent = "Print dashboard";
       }
     });
 
@@ -778,6 +1247,7 @@ function openPrintTabWithHtml(html) {
 
         clearMonthCache(ymdToMonth(d));
         await fillRows();
+        await refreshDashboard();
 
         if (queued > 0) {
           toast("Saved / Queued", "Saved: " + saved + ". Queued: " + queued + " (use Sync queued).", "warn", 4200);
@@ -794,6 +1264,7 @@ function openPrintTabWithHtml(html) {
 
     // initial fill
     await fillRows();
+    await refreshDashboard();
   }
 
   // ------------------------------------------------------------
@@ -807,7 +1278,7 @@ function openPrintTabWithHtml(html) {
       el("div", { style: "font-weight:900;margin-bottom:6px;", text: "Devices (Rooms / Fridges)" }),
       el("div", {
         class: "eikon-help",
-        text: "Create, rename, set limits, deactivate/reactivate. Active devices are required for a complete daily record."
+        text: "Create, rename, set limits, deactivate/reactivate. Active devices are required for a complete daily record. Rooms default to a minimum safety floor of 8.1°C when Min limit is left blank."
       }),
       el("div", { style: "height:12px;" })
     ]);
