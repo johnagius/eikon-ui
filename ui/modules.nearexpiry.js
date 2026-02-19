@@ -523,8 +523,10 @@ async function apiJson(path, options, tag) {
   // ------------------------------------------------------------
   // Render
   // ------------------------------------------------------------
-  function render(container, ctx) {
+  function render(ctx) {
     ctx = ctx || {};
+    var container = ctx.mount || ctx.container || ctx.el || null;
+    if (!container) { err("render() missing mount"); return; }
 
     var html =
       '<style>' +
