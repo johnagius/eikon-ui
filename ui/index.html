@@ -85,6 +85,7 @@
       loadCss(withParams("./app.css"))
         .then(function () { return loadScript(withParams("./core.js")); })
 		.then(function () { return loadScript(withParams("./modules.alerts.js")); })
+		.then(function () { return loadScript(withParams("./modules.locumreceipts.js")); })
 		.then(function () { return loadScript(withParams("./modules.instructions.js")); })
 		.then(function () { return loadScript(withParams("./modules.clientorders.js")); })
 		.then(function () { return loadScript(withParams("./modules.poct.js")); })
