@@ -2,6 +2,9 @@
   "use strict";
 
   var E = window.EIKON;
+  var LR_MODULE_VERSION = "2026-02-19-2";
+  try { if (E && E.dbg) E.dbg("[locumreceipts] loaded v", LR_MODULE_VERSION); } catch (e) {}
+
   if (!E) throw new Error("EIKON core missing (modules.locumreceipts.js)");
 
   function esc(s) { return E.escapeHtml(s); }
@@ -56,17 +59,17 @@
       + ".lr-head{display:flex;gap:12px;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;}"
       + ".lr-title{font-size:18px;font-weight:900;letter-spacing:.2px;margin:0;}"
       + ".lr-sub{margin:2px 0 0 0;color:var(--muted);font-size:12px;}"
-      + ".lr-grid{display:grid;grid-template-columns:repeat(6,minmax(160px,1fr));gap:12px;}"
-      + "@media (max-width:1100px){.lr-grid{grid-template-columns:repeat(3,minmax(160px,1fr));}}"
-      + "@media (max-width:720px){.lr-grid{grid-template-columns:repeat(1,minmax(160px,1fr));}}"
-      + ".lr-kpis{display:grid;grid-template-columns:repeat(3,minmax(160px,1fr));gap:12px;margin-top:10px;}"
-      + "@media (max-width:720px){.lr-kpis{grid-template-columns:repeat(1,minmax(160px,1fr));}}"
+      + ".lr-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;}"
+      + ""
+      + ""
+      + ".lr-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:10px;}"
+      + ""
       + ".lr-kpi{border:1px solid var(--border);background:rgba(255,255,255,.03);border-radius:14px;padding:10px 12px;}"
       + ".lr-kpi .k{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);}"
       + ".lr-kpi .v{font-size:18px;font-weight:900;margin-top:4px;}"
       + ".lr-split{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}"
       + ".lr-actions{display:flex;gap:8px;flex-wrap:wrap;}"
-      + ".lr-mini{font-size:12px;color:var(--muted);}"
+      + ".lr-mini{font-size:12px;color:var(--muted);}.lr-grid .eikon-field{min-width:0;}.lr-grid .eikon-input,.lr-grid select,.lr-grid textarea{width:100%;}.lr-actions .eikon-btn{white-space:nowrap;}"
       + ".lr-report-wrap{margin-top:12px;}"
       + ".lr-report-section{border:1px solid var(--border);border-radius:16px;padding:12px;margin-top:12px;background:rgba(255,255,255,.02);}"
       + ".lr-report-h{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;flex-wrap:wrap;}"
@@ -80,36 +83,36 @@
     document.head.appendChild(style);
   }
 
-  function storageKeyRates() {
+  function storageKeyFeeMem() {
     var u = E.state && E.state.user ? E.state.user : null;
     var orgId = u ? (u.org_id || "") : "";
     var locId = u ? (u.location_id || "") : "";
-    return "eikon_locum_receipt_rates_v1_" + String(orgId) + "_" + String(locId);
+    return "eikon_locum_receipt_fee_mem_v1_" + String(orgId) + "_" + String(locId);
   }
 
-  function loadRates() {
-    var def = { normal: 0, holiday: 0 };
+  function loadFeeMem() {
+    var def = { normal: null, holiday: null };
     try {
-      var raw = localStorage.getItem(storageKeyRates()) || "";
+      var raw = localStorage.getItem(storageKeyFeeMem()) || "";
       if (!raw) return def;
       var obj = JSON.parse(raw);
       if (!obj || typeof obj !== "object") return def;
       var n = parseNum(obj.normal);
       var h = parseNum(obj.holiday);
       return {
-        normal: isFinite(n) ? n : 0,
-        holiday: isFinite(h) ? h : 0
+        normal: isFinite(n) ? n : null,
+        holiday: isFinite(h) ? h : null
       };
     } catch (e) {
       return def;
     }
   }
 
-  function saveRates(rates) {
+  function saveFeeMem(mem) {
     try {
-      localStorage.setItem(storageKeyRates(), JSON.stringify({
-        normal: Number(rates.normal) || 0,
-        holiday: Number(rates.holiday) || 0
+      localStorage.setItem(storageKeyFeeMem(), JSON.stringify({
+        normal: (mem && isFinite(Number(mem.normal))) ? Number(mem.normal) : null,
+        holiday: (mem && isFinite(Number(mem.holiday))) ? Number(mem.holiday) : null
       }));
     } catch (e) {}
   }
@@ -117,7 +120,7 @@
   var state = {
     lastMonth: "",
     receiptsByMonth: {},
-    rates: { normal: 0, holiday: 0 },
+    feeMem: { normal: null, holiday: null },
     lastReport: null
   };
 
@@ -332,7 +335,7 @@
           '<div class="eikon-help" style="margin-bottom:10px;">' + esc(message || "") + '</div>' +
           '<div class="eikon-field">' +
             '<label class="eikon-label">Password</label>' +
-            '<input id="lr-pass" class="eikon-input" type="password" autocomplete="off" value="">' +
+            '<input id="lr-pass" class="eikon-input" type="password" autocomplete="new-password" value="">' +
           '</div>' +
         '</div>';
 
@@ -519,7 +522,7 @@
     var month = state.lastMonth || ym(new Date());
     state.lastMonth = month;
 
-    state.rates = loadRates();
+    state.feeMem = loadFeeMem();
 
     mount.innerHTML =
       '<div class="eikon-card">' +
@@ -539,29 +542,6 @@
                 '<button id="lrc-refresh" class="eikon-btn" type="button">Refresh</button>' +
               '</div>' +
             '</div>' +
-          '</div>' +
-        '</div>' +
-      '</div>' +
-
-      '<div class="eikon-card">' +
-        '<div class="lr-head" style="margin-bottom:10px;">' +
-          '<div>' +
-            '<div class="lr-title" style="font-size:15px;">Hourly Rates (per location)</div>' +
-            '<div class="lr-sub">Used to auto-fill fee per hour when selecting the day type.</div>' +
-          '</div>' +
-        '</div>' +
-        '<div class="lr-grid">' +
-          '<div class="eikon-field">' +
-            '<label class="eikon-label">Normal Day (€ / hour)</label>' +
-            '<input id="lrc-rate-normal" class="eikon-input" type="number" step="0.01" min="0" value="' + esc(String(state.rates.normal || 0)) + '">' +
-          '</div>' +
-          '<div class="eikon-field">' +
-            '<label class="eikon-label">Sunday / Public Holiday (€ / hour)</label>' +
-            '<input id="lrc-rate-holiday" class="eikon-input" type="number" step="0.01" min="0" value="' + esc(String(state.rates.holiday || 0)) + '">' +
-          '</div>' +
-          '<div class="eikon-field">' +
-            '<label class="eikon-label"> </label>' +
-            '<button id="lrc-rate-save" class="eikon-btn" type="button">Save Rates</button>' +
           '</div>' +
         '</div>' +
       '</div>' +
@@ -652,7 +632,7 @@
         '<div class="lr-head" style="margin-bottom:10px;">' +
           '<div>' +
             '<div class="lr-title" style="font-size:15px;">Report</div>' +
-            '<div class="lr-sub">To view the report you must enter password <b>1234</b>.</div>' +
+            '<div class="lr-sub">To view the report you must enter the report password.</div>' +
           '</div>' +
           '<div class="lr-actions">' +
             '<div class="eikon-field">' +
@@ -680,9 +660,6 @@
     var refreshBtn = E.q("#lrc-refresh", mount);
     var tbody = E.q("#lrc-tbody", mount);
 
-    var rateNormal = E.q("#lrc-rate-normal", mount);
-    var rateHoliday = E.q("#lrc-rate-holiday", mount);
-    var rateSaveBtn = E.q("#lrc-rate-save", mount);
 
     var inDate = E.q("#lrc-date", mount);
     var inHours = E.q("#lrc-hours", mount);
@@ -702,17 +679,30 @@
     var rptPrintBtn = E.q("#lrc-rpt-print", mount);
     var rptContainer = E.q("#lrc-report", mount);
 
-    function applyRateFromDayType() {
+    function applyRateFromDayType(force) {
       var t = String(inDay.value || "normal");
       dayLabelEl.textContent = dayTypeLabel(t);
 
-      // Auto-fill if fee empty or equals previous rate
+      var mem = state.feeMem || { normal: null, holiday: null };
+      var remembered = (t === "holiday") ? mem.holiday : mem.normal;
+
       var currentFee = parseNum(inFee.value);
-      if (!isFinite(currentFee) || String(inFee.value || "").trim() === "") {
-        var r = (t === "holiday") ? state.rates.holiday : state.rates.normal;
-        inFee.value = String(isFinite(r) ? r : 0);
+      if (force || String(inFee.value || "").trim() === "" || !isFinite(currentFee)) {
+        if (remembered != null && isFinite(Number(remembered))) {
+          inFee.value = String(remembered);
+        }
       }
       updateTotalPreview();
+    }
+
+    function rememberFeeFor(t) {
+      t = (t === "holiday") ? "holiday" : "normal";
+      var f = parseNum(inFee.value);
+      if (isFinite(f) && f >= 0) {
+        if (!state.feeMem) state.feeMem = { normal: null, holiday: null };
+        state.feeMem[t] = f;
+        saveFeeMem(state.feeMem);
+      }
     }
 
     function updateTotalPreview() {
@@ -722,32 +712,27 @@
       totalEl.textContent = "€ " + money2(tot);
     }
 
-    inDay.addEventListener("change", applyRateFromDayType);
-    inHours.addEventListener("input", updateTotalPreview);
-    inFee.addEventListener("input", updateTotalPreview);
+    var lastDayType = String(inDay.value || "normal");
 
-    // Set initial fee from rates
-    (function initFee() {
-      var t = String(inDay.value || "normal");
-      var r = (t === "holiday") ? state.rates.holiday : state.rates.normal;
-      inFee.value = String(isFinite(r) ? r : 0);
-      applyRateFromDayType();
-    })();
-
-    rateSaveBtn.addEventListener("click", function () {
-      var n = parseNum(rateNormal.value);
-      var h = parseNum(rateHoliday.value);
-      if (!isFinite(n) || n < 0) n = 0;
-      if (!isFinite(h) || h < 0) h = 0;
-      state.rates = { normal: n, holiday: h };
-      saveRates(state.rates);
-      applyRateFromDayType();
-      E.modal.show("Saved", '<div class="eikon-help">Rates saved for this location.</div>', [
-        { label: "Close", primary: true, onClick: function () { E.modal.hide(); } }
-      ]);
+    inDay.addEventListener("change", function () {
+      // save current fee under previous day type
+      rememberFeeFor(lastDayType);
+      lastDayType = String(inDay.value || "normal");
+      applyRateFromDayType(true);
     });
 
-    async function refresh() {
+    inHours.addEventListener("input", updateTotalPreview);
+
+    inFee.addEventListener("input", function () {
+      rememberFeeFor(String(inDay.value || "normal"));
+      updateTotalPreview();
+    });
+
+    // Set initial fee from remembered values (if any)
+    applyRateFromDayType(true);
+;
+
+        async function refresh() {
       var m = monthInput.value || month;
       state.lastMonth = m;
       var receipts = await loadReceipts(m);
@@ -937,12 +922,16 @@
           E.q("#lrc-edit-hours").addEventListener("input", updEditTotal);
           E.q("#lrc-edit-fee").addEventListener("input", updEditTotal);
           E.q("#lrc-edit-day").addEventListener("change", function () {
-            // optional auto-fill from saved rates when switching
+            // optional auto-fill from last-used fee when switching day type
             try {
               var t = String(E.q("#lrc-edit-day").value || "normal");
-              var r = (t === "holiday") ? state.rates.holiday : state.rates.normal;
-              if (!isFinite(parseNum(E.q("#lrc-edit-fee").value)) || String(E.q("#lrc-edit-fee").value || "").trim() === "") {
-                E.q("#lrc-edit-fee").value = String(isFinite(r) ? r : 0);
+              var mem = state.feeMem || { normal: null, holiday: null };
+              var remembered = (t === "holiday") ? mem.holiday : mem.normal;
+              var feeEl = E.q("#lrc-edit-fee");
+              if (!isFinite(parseNum(feeEl.value)) || String(feeEl.value || "").trim() === "") {
+                if (remembered != null && isFinite(Number(remembered))) {
+                  feeEl.value = String(remembered);
+                }
               }
             } catch (e2) {}
             updEditTotal();
@@ -990,7 +979,7 @@
 
     async function fetchReport(kind) {
       var pass = await askPassword("Report Access", "Enter report password to continue.");
-      if (pass !== "1234") {
+      if (pass !== "Report1234!") {
         E.modal.show("Incorrect password", '<div class="eikon-help">Report password is incorrect.</div>', [
           { label: "Close", primary: true, onClick: function () { E.modal.hide(); } }
         ]);
