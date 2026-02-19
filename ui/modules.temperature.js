@@ -76,6 +76,12 @@
       ".eikon-kv{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;}" +
       ".eikon-kv .k{font-size:12px;opacity:.8;}" +
       ".eikon-kv .v{font-weight:900;}" +
+      ".eikon-dash-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:12px;}" +
+      ".eikon-dash-device{border:1px solid var(--border);background:rgba(255,255,255,.02);border-radius:16px;padding:12px;}" +
+      ".eikon-dash-head{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:8px;}" +
+      ".eikon-dash-name{font-weight:900;}" +
+      ".eikon-dash-meta{font-size:12px;opacity:.8;}" +
+      ".eikon-dash-sub{font-size:12px;opacity:.8;margin-top:2px;}" +
       "";
     document.head.appendChild(st);
   }
@@ -109,7 +115,6 @@
           { label: okLabel || "OK", danger: true, onClick: function () { E.modal.hide(); resolve(true); } }
         ]);
       } catch (e) {
-        // fallback if modal fails
         resolve(window.confirm(bodyText || "Are you sure?"));
       }
     });
@@ -185,29 +190,12 @@
   function parseNum(n) {
     var s = String(n || "").trim();
     if (!s) return null;
+    // tolerate comma decimals (e.g. "3,2")
+    s = s.replace(/,/g, ".");
     var v = Number(s);
     if (!Number.isFinite(v)) return null;
     return Math.round(v * 10) / 10;
   }
-
-  // Default safety floor for room temperature (used when device has no explicit min_limit)
-  var ROOM_DEFAULT_MIN_LIMIT = 8.1;
-
-  function effectiveMinLimit(dev) {
-    try {
-      if (dev && Number.isFinite(Number(dev.min_limit))) return Number(dev.min_limit);
-      if (dev && String(dev.device_type || "") === "room") return ROOM_DEFAULT_MIN_LIMIT;
-    } catch (e) {}
-    return null;
-  }
-
-  function exampleTempsForDevice(dev) {
-    var t = String((dev && dev.device_type) || "").toLowerCase();
-    if (t === "room") return { min: "16.5", max: "23.3" };
-    if (t === "fridge") return { min: "3.2", max: "7.8" };
-    return { min: "10.0", max: "20.0" };
-  }
-
 
   function todayYmd() {
     var d = new Date();
@@ -265,9 +253,38 @@
     return dt;
   }
 
+  // Default safety floor for room temperature (used when device has no explicit min_limit)
+  var ROOM_DEFAULT_MIN_LIMIT = 8.1;
+
+  function effectiveMinLimit(dev) {
+    try {
+      if (dev && Number.isFinite(Number(dev.min_limit))) return Number(dev.min_limit);
+      if (dev && String(dev.device_type || "").toLowerCase() === "room") return ROOM_DEFAULT_MIN_LIMIT;
+    } catch (e) {}
+    return null;
+  }
+
+  function exampleTempsForDevice(dev) {
+    var t = String((dev && dev.device_type) || "").toLowerCase();
+    if (t === "room") return { min: "16.5", max: "23.3" };
+    if (t === "fridge") return { min: "3.2", max: "7.8" };
+    return { min: "10.0", max: "20.0" };
+  }
+
   // ------------------------------------------------------------
-  // Dashboard chart helpers (SVG, print-safe)
+  // Dashboard chart helpers (SVG, per-device, print-safe)
   // ------------------------------------------------------------
+  function numFromAny(v) {
+    if (v === null || v === undefined) return null;
+    if (typeof v === "number") return Number.isFinite(v) ? v : null;
+    var s = String(v).trim();
+    if (!s) return null;
+    // tolerate locales that store decimals with commas (e.g. "3,2")
+    s = s.replace(/,/g, ".");
+    var n = Number(s);
+    return Number.isFinite(n) ? n : null;
+  }
+
   function monthKeyAdd(monthKey, delta) {
     var mk = String(monthKey || "");
     if (!/^\d{4}-\d{2}$/.test(mk)) return "";
@@ -300,46 +317,31 @@
     return out;
   }
 
-  function dashPatternForIndex(i) {
-    var pats = ["", "7 4", "2 3", "10 4 2 4", "1 4", "12 4 2 4 2 4"];
-    return pats[(i || 0) % pats.length];
-  }
-
   function svgEscape(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
       return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c];
     });
   }
 
-  function buildLegendHtml(devices, mode) {
-    var devs = Array.isArray(devices) ? devices : [];
-    var dark = mode !== "print";
-    var stroke = dark ? "rgba(233,238,247,.95)" : "#000";
-    var html = "<div class='eikon-legend'>";
-    for (var i = 0; i < devs.length; i++) {
-      var d = devs[i];
-      var dash = dashPatternForIndex(i);
-      html += "<div class='eikon-legend-item'>" +
-        "<svg width='44' height='10' viewBox='0 0 44 10' xmlns='http://www.w3.org/2000/svg'>" +
-        "<line x1='2' y1='5' x2='42' y2='5' stroke='" + stroke + "' stroke-width='2' stroke-dasharray='" + dash + "' />" +
-        "</svg>" +
-        "<span class='nm'>" + svgEscape(d && d.name ? d.name : "") + "</span>" +
-        "</div>";
-    }
-    html += "</div>";
-    return html;
+  function limitsTextForDevice(dev) {
+    var mn = numFromAny(effectiveMinLimit(dev));
+    var mx = numFromAny(dev && dev.max_limit);
+    if (mn === null && mx === null) return "No limits";
+    if (mn !== null && mx !== null) return "Limits: " + fmt1(mn) + "–" + fmt1(mx) + "°C";
+    if (mn !== null) return "Min limit: " + fmt1(mn) + "°C";
+    return "Max limit: " + fmt1(mx) + "°C";
   }
 
-  function buildMonthChartSvg(opts) {
+  function buildDeviceMonthChartSvg(opts) {
     opts = opts || {};
     var mk = String(opts.monthKey || "");
     var days = monthDaysFromKey(mk);
     var n = days.length;
 
     var W = Number(opts.width || 1000);
-    var H = Number(opts.height || 260);
+    var H = Number(opts.height || 220);
 
-    var padL = 54, padR = 14, padT = 22, padB = 34;
+    var padL = 54, padR = 14, padT = 18, padB = 30;
     var plotW = Math.max(10, W - padL - padR);
     var plotH = Math.max(10, H - padT - padB);
 
@@ -350,48 +352,71 @@
     var axis = dark ? "rgba(233,238,247,.85)" : "#000";
     var series = dark ? "rgba(233,238,247,.95)" : "#000";
     var muted = dark ? "rgba(233,238,247,.55)" : "#444";
-    var hi = dark ? "rgba(255,255,255,.16)" : "#999";
+    var hi = dark ? "rgba(255,255,255,.18)" : "#999";
+    var lim = dark ? "rgba(233,238,247,.55)" : "#000";
 
-    var devs = Array.isArray(opts.devices) ? opts.devices : [];
+    var dev = opts.device || {};
     var entries = Array.isArray(opts.entries) ? opts.entries : [];
 
     var dayIndex = {};
     for (var i = 0; i < n; i++) dayIndex[days[i]] = i;
 
-    var seriesByDid = {};
-    for (var di = 0; di < devs.length; di++) {
-      var did = String(devs[di].id);
-      seriesByDid[did] = { min: new Array(n), max: new Array(n) };
-      for (var ii = 0; ii < n; ii++) { seriesByDid[did].min[ii] = null; seriesByDid[did].max[ii] = null; }
-    }
+    var mins = new Array(n);
+    var maxs = new Array(n);
+    for (var ii = 0; ii < n; ii++) { mins[ii] = null; maxs[ii] = null; }
 
     var minV = Infinity;
     var maxV = -Infinity;
 
     for (var ei = 0; ei < entries.length; ei++) {
       var e = entries[ei];
-      var idx = dayIndex[String(e.entry_date || "")];
+      var ds = String(e.entry_date || "");
+      if (ds.length >= 10) ds = ds.slice(0, 10);
+      var idx = dayIndex[ds];
       if (idx === undefined) continue;
-      var did2 = String(e.device_id);
-      if (!seriesByDid[did2]) continue;
-      var mn = Number(e.min_temp);
-      var mx = Number(e.max_temp);
-      if (!Number.isFinite(mn) || !Number.isFinite(mx)) continue;
-      seriesByDid[did2].min[idx] = mn;
-      seriesByDid[did2].max[idx] = mx;
-      if (mn < minV) minV = mn;
-      if (mx < minV) minV = mx;
-      if (mn > maxV) maxV = mn;
-      if (mx > maxV) maxV = mx;
+
+      var mn = numFromAny(e.min_temp);
+      var mx = numFromAny(e.max_temp);
+
+      if (mn !== null) {
+        mins[idx] = mn;
+        if (mn < minV) minV = mn;
+        if (mn > maxV) maxV = mn;
+      }
+      if (mx !== null) {
+        maxs[idx] = mx;
+        if (mx < minV) minV = mx;
+        if (mx > maxV) maxV = mx;
+      }
+    }
+
+    var minLimit = numFromAny(effectiveMinLimit(dev));
+    var maxLimit = numFromAny(dev && dev.max_limit);
+
+    if (minLimit !== null) {
+      if (minLimit < minV) minV = minLimit;
+      if (minLimit > maxV) maxV = minLimit;
+    }
+    if (maxLimit !== null) {
+      if (maxLimit < minV) minV = maxLimit;
+      if (maxLimit > maxV) maxV = maxLimit;
     }
 
     var noData = !(Number.isFinite(minV) && Number.isFinite(maxV));
-    if (noData) { minV = 0; maxV = 10; }
+    if (noData) {
+      // If there are limits, use them to set a sensible range.
+      if (minLimit !== null || maxLimit !== null) {
+        minV = (minLimit !== null ? minLimit : (maxLimit !== null ? maxLimit - 2 : 0));
+        maxV = (maxLimit !== null ? maxLimit : (minLimit !== null ? minLimit + 2 : 10));
+      } else {
+        minV = 0; maxV = 10;
+      }
+    }
 
     var span = maxV - minV;
     if (!Number.isFinite(span) || span < 1) span = 1;
-    minV = minV - span * 0.08;
-    maxV = maxV + span * 0.08;
+    minV = minV - span * 0.10;
+    maxV = maxV + span * 0.10;
 
     function xFor(i) {
       if (n <= 1) return padL;
@@ -415,25 +440,35 @@
       return d;
     }
 
-    // Ticks
+    function dotsFor(arr, r, opacity) {
+      var s = "";
+      for (var i = 0; i < arr.length; i++) {
+        var v = arr[i];
+        if (!Number.isFinite(v)) continue;
+        s += "<circle cx='" + xFor(i).toFixed(2) + "' cy='" + yFor(v).toFixed(2) + "' r='" + r + "' fill='" + series + "' fill-opacity='" + opacity + "'/>";
+      }
+      return s;
+    }
+
+    // Y ticks
     var ticks = 5;
     var yTicks = [];
     for (var t = 0; t < ticks; t++) {
-      var v = minV + (t / (ticks - 1)) * (maxV - minV);
-      yTicks.push(v);
+      var v2 = minV + (t / (ticks - 1)) * (maxV - minV);
+      yTicks.push(v2);
     }
 
-    // X label positions: 1, 8, 15, 22, last
+    // X labels: 1, 8, 15, 22, last
     var xLabs = [];
     if (n > 0) {
       var cand = [0, 7, 14, 21, n - 1];
       var seen = {};
       for (var ci = 0; ci < cand.length; ci++) {
-        var idx = cand[ci];
-        if (idx < 0 || idx >= n) continue;
-        if (seen[idx]) continue;
-        seen[idx] = 1;
-        xLabs.push(idx);
+        var idx2 = cand[ci];
+        if (idx2 < 0 || idx2 >= n) continue;
+        if (seen[idx2]) continue;
+        seen[idx2] = 1;
+        xLabs.push(idx2);
       }
     }
 
@@ -441,26 +476,29 @@
     var hy = String(opts.highlightYmd || "");
     if (hy && dayIndex[hy] !== undefined) highlightIdx = dayIndex[hy];
 
+    var dMin = pathFor(mins);
+    var dMax = pathFor(maxs);
+
     var out = "";
     out += "<svg class='eikon-chart' xmlns='http://www.w3.org/2000/svg' viewBox='0 0 " + W + " " + H + "' width='100%' height='" + H + "' role='img' aria-label='Temperature chart'>";
     out += "<rect x='0' y='0' width='" + W + "' height='" + H + "' fill='" + bg + "' rx='14' ry='14'/>";
 
     // Grid + Y labels
     for (var yi = 0; yi < yTicks.length; yi++) {
-      var v2 = yTicks[yi];
-      var y = yFor(v2);
+      var vv = yTicks[yi];
+      var y = yFor(vv);
       out += "<line x1='" + padL + "' y1='" + y.toFixed(2) + "' x2='" + (W - padR) + "' y2='" + y.toFixed(2) + "' stroke='" + grid + "' stroke-width='1'/>";
-      out += "<text x='" + (padL - 8) + "' y='" + (y + 4).toFixed(2) + "' text-anchor='end' font-size='11' fill='" + axis + "'>" + svgEscape(fmt1(v2)) + "</text>";
+      out += "<text x='" + (padL - 8) + "' y='" + (y + 4).toFixed(2) + "' text-anchor='end' font-size='11' fill='" + axis + "'>" + svgEscape(fmt1(vv)) + "</text>";
     }
 
-    // X axis line
+    // X axis
     out += "<line x1='" + padL + "' y1='" + (padT + plotH) + "' x2='" + (W - padR) + "' y2='" + (padT + plotH) + "' stroke='" + grid + "' stroke-width='1'/>";
 
     // X labels
     for (var xl = 0; xl < xLabs.length; xl++) {
-      var idx2 = xLabs[xl];
-      var x2 = xFor(idx2);
-      out += "<text x='" + x2.toFixed(2) + "' y='" + (H - 12) + "' text-anchor='middle' font-size='11' fill='" + axis + "'>" + svgEscape(String(idx2 + 1)) + "</text>";
+      var idxx = xLabs[xl];
+      var xx = xFor(idxx);
+      out += "<text x='" + xx.toFixed(2) + "' y='" + (H - 12) + "' text-anchor='middle' font-size='11' fill='" + axis + "'>" + svgEscape(String(idxx + 1)) + "</text>";
     }
 
     // Highlight day
@@ -469,19 +507,23 @@
       out += "<line x1='" + hx.toFixed(2) + "' y1='" + padT + "' x2='" + hx.toFixed(2) + "' y2='" + (padT + plotH) + "' stroke='" + hi + "' stroke-width='2'/>";
     }
 
-    // Series
-    for (var si = 0; si < devs.length; si++) {
-      var dv = devs[si];
-      var did3 = String(dv.id);
-      var ser = seriesByDid[did3];
-      if (!ser) continue;
-      var dash = dashPatternForIndex(si);
-      var dMax = pathFor(ser.max);
-      var dMin = pathFor(ser.min);
-
-      if (dMin) out += "<path d='" + dMin + "' fill='none' stroke='" + series + "' stroke-opacity='" + (dark ? "0.35" : "0.30") + "' stroke-width='1' stroke-linejoin='round' stroke-linecap='round' stroke-dasharray='" + dash + "'/>";
-      if (dMax) out += "<path d='" + dMax + "' fill='none' stroke='" + series + "' stroke-opacity='" + (dark ? "0.90" : "0.85") + "' stroke-width='2' stroke-linejoin='round' stroke-linecap='round' stroke-dasharray='" + dash + "'/>";
+    // Limits
+    if (minLimit !== null) {
+      var yMinL = yFor(minLimit);
+      out += "<line x1='" + padL + "' y1='" + yMinL.toFixed(2) + "' x2='" + (W - padR) + "' y2='" + yMinL.toFixed(2) + "' stroke='" + lim + "' stroke-width='1.5' stroke-dasharray='6 5'/>";
     }
+    if (maxLimit !== null) {
+      var yMaxL = yFor(maxLimit);
+      out += "<line x1='" + padL + "' y1='" + yMaxL.toFixed(2) + "' x2='" + (W - padR) + "' y2='" + yMaxL.toFixed(2) + "' stroke='" + lim + "' stroke-width='1.5' stroke-dasharray='6 5'/>";
+    }
+
+    // Series (thin=min, thick=max)
+    if (dMin) out += "<path d='" + dMin + "' fill='none' stroke='" + series + "' stroke-opacity='" + (dark ? "0.35" : "0.30") + "' stroke-width='1' stroke-linejoin='round' stroke-linecap='round'/>";
+    if (dMax) out += "<path d='" + dMax + "' fill='none' stroke='" + series + "' stroke-opacity='" + (dark ? "0.92" : "0.88") + "' stroke-width='2' stroke-linejoin='round' stroke-linecap='round'/>";
+
+    // Dots (helps show isolated points when there are missing days)
+    out += dotsFor(mins, 2, (dark ? "0.35" : "0.30"));
+    out += dotsFor(maxs, 2.6, (dark ? "0.90" : "0.85"));
 
     // Caption
     out += "<text x='" + padL + "' y='16' text-anchor='start' font-size='12' fill='" + muted + "'>Thin=min • Thick=max</text>";
@@ -500,37 +542,64 @@
     var mk = String(opts.monthKey || "");
     var pk = String(opts.prevMonthKey || "");
 
+    if (pk === mk) pk = ""; // safety: avoid duplicate month sections
+
     var devices = Array.isArray(opts.devices) ? opts.devices : [];
-    var monthDevices = Array.isArray(opts.monthDevices) ? opts.monthDevices : devices;
-    var prevDevices = Array.isArray(opts.prevDevices) ? opts.prevDevices : devices;
-
-    var svg1 = buildMonthChartSvg({
-      monthKey: mk,
-      devices: monthDevices,
-      entries: (opts.monthEntries || []),
-      highlightYmd: (opts.highlightYmd || ""),
-      mode: "print",
-      width: 1000,
-      height: 280
-    });
-
-    var svg2 = buildMonthChartSvg({
-      monthKey: pk,
-      devices: prevDevices,
-      entries: (opts.prevEntries || []),
-      highlightYmd: "",
-      mode: "print",
-      width: 1000,
-      height: 280
-    });
-
-    var legend1 = buildLegendHtml(monthDevices, "print");
-    var legend2 = buildLegendHtml(prevDevices, "print");
+    var monthEntries = Array.isArray(opts.monthEntries) ? opts.monthEntries : [];
+    var prevEntries = Array.isArray(opts.prevEntries) ? opts.prevEntries : [];
 
     function esc(s) {
       return String(s).replace(/[&<>'"]/g, function (c) {
         return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c];
       });
+    }
+
+    function groupByDevice(entries) {
+      var map = {};
+      for (var i = 0; i < entries.length; i++) {
+        var e = entries[i];
+        var did = String(e.device_id);
+        if (!map[did]) map[did] = [];
+        map[did].push(e);
+      }
+      return map;
+    }
+
+    function sectionHtml(monthKey, entries, highlightYmd) {
+      var byDid = groupByDevice(entries);
+      var out = "";
+      out += "<h2>" + esc(monthKeyNice(monthKey)) + "</h2>";
+      out += "<div class='section-sub'>Devices: " + esc(String(devices.length)) + " • Entries: " + esc(String(entries.length)) + "</div>";
+      for (var i = 0; i < devices.length; i++) {
+        var d = devices[i];
+        var eList = byDid[String(d.id)] || [];
+        out += "<div class='devbox'>";
+        out += "<div class='devhead'>";
+        out += "<div class='dn'>" + esc(d.name || "") + "</div>";
+        out += "<div class='dt'>" + esc((d.device_type || "") + " • " + limitsTextForDevice(d) + " • " + (eList.length ? (eList.length + " readings") : "No readings")) + "</div>";
+        out += "</div>";
+        out += buildDeviceMonthChartSvg({
+          monthKey: monthKey,
+          device: d,
+          entries: eList,
+          highlightYmd: highlightYmd || "",
+          mode: "print",
+          width: 1000,
+          height: 220
+        });
+        out += "</div>";
+      }
+      return out;
+    }
+
+    var now = new Date();
+    var printed = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0") + "-" + String(now.getDate()).padStart(2, "0");
+
+    var body = "";
+    body += sectionHtml(mk, monthEntries, opts.highlightYmd || "");
+    if (pk) {
+      body += "<div class='pagebreak'></div>";
+      body += sectionHtml(pk, prevEntries, "");
     }
 
     return "<!doctype html>\n" +
@@ -542,28 +611,21 @@
       "body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:0;color:#000;}" +
       ".page{padding:12mm;}" +
       "h1{margin:0 0 6px 0;font-size:20px;}" +
-      ".sub{margin:0 0 14px 0;font-size:12px;color:#111;}" +
-      "h2{margin:16px 0 8px 0;font-size:14px;}" +
-      ".box{border:1px solid #000;border-radius:10px;padding:10px;margin:0 0 12px 0;}" +
-      ".eikon-legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}" +
-      ".eikon-legend-item{display:flex;align-items:center;gap:8px;border:1px solid #000;border-radius:999px;padding:4px 10px;}" +
-      ".eikon-legend-item .nm{font-size:11px;white-space:nowrap;}" +
+      ".sub{margin:0 0 12px 0;font-size:12px;color:#111;}" +
+      "h2{margin:16px 0 4px 0;font-size:14px;}" +
+      ".section-sub{margin:0 0 10px 0;font-size:11px;color:#111;}" +
+      ".devbox{border:1px solid #000;border-radius:10px;padding:10px;margin:0 0 12px 0;page-break-inside:avoid;}" +
+      ".devhead{display:flex;flex-direction:column;gap:2px;margin:0 0 6px 0;}" +
+      ".devhead .dn{font-weight:900;font-size:13px;}" +
+      ".devhead .dt{font-size:11px;color:#111;}" +
       "svg{max-width:100%;height:auto;display:block;}" +
-      "@media print{h2{page-break-after:avoid;} .box{page-break-inside:avoid;}}" +
+      ".pagebreak{break-before:page; page-break-before:always; height:0;}" +
+      "@media print{h2{page-break-after:avoid;} .devbox{page-break-inside:avoid;}}" +
       "</style></head><body>" +
       "<div class='page'>" +
       "<h1>" + esc(title) + "</h1>" +
-      "<p class='sub'>Printed: " + esc(new Date().toISOString().slice(0, 10)) + " • Thin=min, Thick=max</p>" +
-      "<div class='box'>" +
-      "<h2>" + esc(monthKeyNice(mk)) + "</h2>" +
-      svg1 +
-      legend1 +
-      "</div>" +
-      "<div class='box'>" +
-      "<h2>" + esc(monthKeyNice(pk)) + "</h2>" +
-      svg2 +
-      legend2 +
-      "</div>" +
+      "<p class='sub'>Printed: " + esc(printed) + " • Thin=min, Thick=max • Dashed lines = limits</p>" +
+      body +
       "</div>" +
       "<script>" +
       "window.addEventListener('load', function(){setTimeout(function(){try{window.focus();}catch(e){} try{window.print();}catch(e){}}, 80);});" +
@@ -690,42 +752,34 @@
       "</body>\n</html>";
   }
 
-function openPrintTabWithHtml(html) {
-  // Open the printable report in a new tab/window (requires allow-popups on the embedding iframe).
-  // This avoids calling print() from inside the sandboxed frame.
+  function openPrintTabWithHtml(html) {
+    var blob = new Blob([html], { type: "text/html" });
+    var url = URL.createObjectURL(blob);
 
-  var blob = new Blob([html], { type: "text/html" });
-  var url = URL.createObjectURL(blob);
-
-  // Try window.open first (best for preserving user-gesture context).
-  var w = null;
-  try {
-    w = window.open(url, "_blank", "noopener");
-  } catch (e) {
-    w = null;
-  }
-
-  // Fallback to anchor-click method
-  if (!w) {
+    var w = null;
     try {
-      var a = document.createElement("a");
-      a.href = url;
-      a.target = "_blank";
-      a.rel = "noopener";
-      a.style.display = "none";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-    } catch (e2) {}
+      w = window.open(url, "_blank", "noopener");
+    } catch (e) {
+      w = null;
+    }
+
+    if (!w) {
+      try {
+        var a = document.createElement("a");
+        a.href = url;
+        a.target = "_blank";
+        a.rel = "noopener";
+        a.style.display = "none";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      } catch (e2) {}
+    }
+
+    setTimeout(function () {
+      try { URL.revokeObjectURL(url); } catch (e3) {}
+    }, 60000);
   }
-
-  // Revoke blob later (don’t revoke immediately or the new tab may not finish loading).
-  setTimeout(function () {
-    try { URL.revokeObjectURL(url); } catch (e3) {}
-  }, 60000);
-}
-
-
 
   function renderReportPreviewDom(data) {
     var org = data.org_name || "";
@@ -909,7 +963,7 @@ function openPrintTabWithHtml(html) {
     // ------------------------------------------------------------
     var dashCard = el("div", { class: "eikon-card" }, [
       el("div", { style: "font-weight:900;margin-bottom:6px;", text: "Monthly Dashboard" }),
-      el("div", { class: "eikon-help", text: "Live trend lines for all devices in the selected month (and the month before). Thin line = Min, thick line = Max." }),
+      el("div", { class: "eikon-help", text: "Per-device charts for the selected month (and the month before). Thin=min • Thick=max • Dashed=limits." }),
       el("div", { style: "height:10px;" })
     ]);
 
@@ -921,66 +975,86 @@ function openPrintTabWithHtml(html) {
 
     content.appendChild(header);
     content.appendChild(el("div", { style: "height:12px;" }));
-    content.appendChild(dashCard);
-    content.appendChild(el("div", { style: "height:12px;" }));
     content.appendChild(tableCard);
+    content.appendChild(el("div", { style: "height:12px;" }));
+    content.appendChild(dashCard);
 
     function currentMonth() {
       return ymdToMonth(state.selectedDate);
     }
 
-    function devicesForMonthChart(monthEntries) {
-      var ids = {};
-      for (var i = 0; i < monthEntries.length; i++) {
-        ids[String(monthEntries[i].device_id)] = 1;
-      }
-
+    function activeDevicesForDashboard() {
       var out = [];
-      // Prefer devices that actually have data in the month.
-      for (var di = 0; di < state.devices.length; di++) {
-        var d = state.devices[di];
-        if (ids[String(d.id)]) out.push(d);
-      }
-
-      // If nothing recorded yet, show active devices so the legend still matches the daily table.
-      if (!out.length) {
-        for (var dj = 0; dj < state.devices.length; dj++) {
-          if (state.devices[dj].active === 1) out.push(state.devices[dj]);
-        }
+      for (var i = 0; i < state.devices.length; i++) {
+        var d = state.devices[i];
+        if (d && d.active === 1) out.push(d);
       }
       return out;
     }
 
-    function renderChartSection(target, monthKey, monthEntries, highlightYmd) {
+    function groupEntriesByDevice(entries) {
+      var map = {};
+      var arr = Array.isArray(entries) ? entries : [];
+      for (var i = 0; i < arr.length; i++) {
+        var e = arr[i];
+        var did = String(e.device_id);
+        if (!map[did]) map[did] = [];
+        map[did].push(e);
+      }
+      return map;
+    }
+
+    function renderMonthDeviceCharts(target, monthKey, monthEntries, highlightYmd) {
       target.innerHTML = "";
 
-      var devs = devicesForMonthChart(monthEntries);
+      var devs = activeDevicesForDashboard();
+      var byDid = groupEntriesByDevice(monthEntries);
 
       var head = el("div", { class: "eikon-row", style: "align-items:flex-end;gap:10px;flex-wrap:wrap;" }, [
         el("div", { style: "font-weight:900;", text: monthKeyNice(monthKey) }),
         el("div", { class: "eikon-help", style: "margin-left:auto;", text: (monthEntries.length ? (monthEntries.length + " entries") : "No entries yet") })
       ]);
 
-      var svg = buildMonthChartSvg({
-        monthKey: monthKey,
-        devices: devs,
-        entries: monthEntries,
-        highlightYmd: highlightYmd || "",
-        mode: "dark",
-        width: 1000,
-        height: 260
-      });
-
-      var chartWrap = el("div", { class: "eikon-chart-wrap" }, [
-        el("div", { html: svg })
-      ]);
-
-      var legend = el("div", { html: buildLegendHtml(devs, "dark") });
-
       target.appendChild(head);
-      target.appendChild(el("div", { style: "height:8px;" }));
-      target.appendChild(chartWrap);
-      target.appendChild(legend);
+      target.appendChild(el("div", { style: "height:10px;" }));
+
+      if (!devs.length) {
+        target.appendChild(el("div", { class: "eikon-help", text: "No active devices." }));
+        return;
+      }
+
+      var grid = el("div", { class: "eikon-dash-grid" });
+
+      for (var i = 0; i < devs.length; i++) {
+        var d = devs[i];
+        var eList = byDid[String(d.id)] || [];
+
+        var meta = limitsTextForDevice(d) + " • " + (eList.length ? (eList.length + " readings") : "No readings");
+
+        var svg = buildDeviceMonthChartSvg({
+          monthKey: monthKey,
+          device: d,
+          entries: eList,
+          highlightYmd: highlightYmd || "",
+          mode: "dark",
+          width: 1000,
+          height: 220
+        });
+
+        var box = el("div", { class: "eikon-dash-device" }, [
+          el("div", { class: "eikon-dash-head" }, [
+            el("div", { class: "eikon-dash-name", text: (d.name || "") }),
+            el("div", { class: "eikon-dash-meta", style: "margin-left:auto;", text: (d.device_type || "") })
+          ]),
+          el("div", { class: "eikon-dash-sub", text: meta }),
+          el("div", { style: "height:8px;" }),
+          el("div", { class: "eikon-chart-wrap", html: svg })
+        ]);
+
+        grid.appendChild(box);
+      }
+
+      target.appendChild(grid);
     }
 
     async function refreshDashboard() {
@@ -995,14 +1069,14 @@ function openPrintTabWithHtml(html) {
         var nowEntries = await loadMonthEntries(mk);
         var prevEntries = pk ? await loadMonthEntries(pk) : [];
 
-        renderChartSection(dashNow, mk, nowEntries, state.selectedDate);
-        renderChartSection(dashPrev, pk, prevEntries, "");
+        renderMonthDeviceCharts(dashNow, mk, nowEntries, state.selectedDate);
+        if (pk && pk !== mk) renderMonthDeviceCharts(dashPrev, pk, prevEntries, "");
+        else dashPrev.innerHTML = "";
       } catch (e) {
         dashNow.innerHTML = "<div class=\"eikon-help\">Dashboard failed to load.</div>";
         dashPrev.innerHTML = "";
       }
     }
-
 
     function buildRow(dev, existingEntry) {
       var ex = exampleTempsForDevice(dev);
@@ -1162,18 +1236,15 @@ function openPrintTabWithHtml(html) {
         var pk = monthKeyAdd(mk, -1);
 
         var nowEntries = await loadMonthEntries(mk);
-        var prevEntries = pk ? await loadMonthEntries(pk) : [];
+        var prevEntries = (pk && pk !== mk) ? await loadMonthEntries(pk) : [];
 
-        var nowDevs = devicesForMonthChart(nowEntries);
-        var prevDevs = devicesForMonthChart(prevEntries);
+        var devs = activeDevicesForDashboard();
 
         var html = buildDashboardPrintHtml({
           title: "Temperature Dashboard",
           monthKey: mk,
           prevMonthKey: pk,
-          devices: state.devices,
-          monthDevices: nowDevs,
-          prevDevices: prevDevs,
+          devices: devs,
           monthEntries: nowEntries,
           prevEntries: prevEntries,
           highlightYmd: state.selectedDate
@@ -1239,7 +1310,6 @@ function openPrintTabWithHtml(html) {
             });
             saved++;
           } catch (e) {
-            // queue on failure (offline / transient)
             qAdd({ path: "/temperature/entries", method: "POST", body: body });
             queued++;
           }
@@ -1278,7 +1348,7 @@ function openPrintTabWithHtml(html) {
       el("div", { style: "font-weight:900;margin-bottom:6px;", text: "Devices (Rooms / Fridges)" }),
       el("div", {
         class: "eikon-help",
-        text: "Create, rename, set limits, deactivate/reactivate. Active devices are required for a complete daily record. Rooms default to a minimum safety floor of 8.1°C when Min limit is left blank."
+        text: "Create, rename, set limits, deactivate/reactivate. Active devices are required for a complete daily record."
       }),
       el("div", { style: "height:12px;" })
     ]);
@@ -1358,7 +1428,7 @@ function openPrintTabWithHtml(html) {
           });
 
           toast("Saved", "Device updated.", "good");
-          state.entriesMonthCache = {}; // safe reset: device changes affect entry UI assumptions
+          state.entriesMonthCache = {};
           await renderDevices(content);
         } catch (e) {
           toast("Save failed", e && e.message ? e.message : "Error", "bad", 4200);
@@ -1547,7 +1617,6 @@ function openPrintTabWithHtml(html) {
 
     ensureToastStyles();
 
-    // Tabs as buttons (uses existing CSS)
     var bar = el("div", { class: "eikon-card" });
     var row = el("div", { class: "eikon-row", style: "align-items:center;" });
 
@@ -1601,7 +1670,6 @@ function openPrintTabWithHtml(html) {
     btnDevices.addEventListener("click", function () { showTab("devices"); });
     btnReport.addEventListener("click", function () { showTab("report"); });
 
-    // Start on last state.tab
     await showTab(state.tab || "entries");
   }
 
