@@ -921,7 +921,6 @@
 
   // ------------------------------------------------------------
   // Report preview dom (unchanged)
- (unchanged)
   // ------------------------------------------------------------
   function renderReportPreviewDom(data) {
     var org = data.org_name || "";
@@ -1489,18 +1488,6 @@
         printDashBtn.disabled = false;
         printDashBtn.textContent = "Print dashboard";
         _dashPrintInFlight = false;
-      }
-    });
-
-        openPrintTabWithHtml(html, preWin);
-      } catch (e) {
-        toast("Print failed", e && e.message ? e.message : "Error", "bad", 4200);
-        if (preWin && !preWin.closed) {
-          try { preWin.close(); } catch (e3) {}
-        }
-      } finally {
-        printDashBtn.disabled = false;
-        printDashBtn.textContent = "Print dashboard";
       }
     });
 
