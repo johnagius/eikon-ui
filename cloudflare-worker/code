@@ -2940,7 +2940,7 @@ async function handleLocumRegisterEntryDelete(request, env, corsOkHeaders, authU
    LOCUM RECEIPTS MODULE (API)
    ========================= */
 
-const LOCUM_RECEIPTS_REPORT_PASS = "1234";
+const LOCUM_RECEIPTS_REPORT_PASS = "Report1234!";
 const LOCUM_RECEIPTS_EDIT_PASS = "!4321";
 
 function round2(n) {
