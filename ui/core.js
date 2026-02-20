@@ -1,4 +1,4 @@
- (function () {
+(function () {
   "use strict";
 
   // Global singleton
@@ -7,7 +7,7 @@
 
   // Basic identity
   E.APP_NAME = "Eikon";
-  E.VERSION = "2026-02-06-01";
+  E.VERSION = "2026-02-20-01";
 
   // Debug level: 0 none, 1 normal, 2 verbose
   (function initDebug() {
@@ -416,7 +416,15 @@
       var isFullscreenHost = false;
       try {
         var u = new URL(window.location.href);
-        isFullscreenHost = (u.hostname === "eikon-api.labrint.workers.dev" && /\/ui(\/index\.html)?\/?$/.test(u.pathname));
+
+        // Only treat as fullscreen host when this UI is running top-level (not embedded in an iframe)
+        var isTop = false;
+        try { isTop = (window.top === window); } catch (eTop) { isTop = false; }
+
+        isFullscreenHost =
+          isTop &&
+          (u.hostname === "eikon-api.labrint.workers.dev") &&
+          (/\/ui(\/index\.html)?\/?$/.test(u.pathname));
       } catch (e) {}
 
       var enterBase = "https://eikon-api.labrint.workers.dev/ui/index.html";
