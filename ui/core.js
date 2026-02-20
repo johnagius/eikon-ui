@@ -7,82 +7,45 @@
 
   // Basic identity
   E.APP_NAME = "Eikon";
-  E.VERSION = "2026-02-20-02";
+  E.VERSION = "2026-02-20-03";
 
-  // UI asset base (IMPORTANT: works even when the UI scripts are embedded on a different host page)
-  E.UI_BASE = (function () {
-    try {
-      // Prefer the URL of the currently executing script (core.js)
-      var s = (document.currentScript && document.currentScript.src) ? document.currentScript.src : "";
-      if (!s) {
-        // Fallback: scan for a script that looks like /ui/core.js
-        var list = document.getElementsByTagName("script");
-        for (var i = list.length - 1; i >= 0; i--) {
-          var src = String(list[i].src || "");
-          if (src.indexOf("/ui/core.js") !== -1 || src.indexOf("/ui/core.js?") !== -1) { s = src; break; }
-        }
-      }
-      if (s) {
-        var u = new URL(s, window.location.href);
-        // Directory of the script
-        return u.href.replace(/\/[^\/\?#]+(\?.*)?$/, "/");
-      }
-    } catch (e) {}
-
-    // Last resort: if the page itself is under /ui/, use that; else default to /ui/
-    try {
-      var u2 = new URL(window.location.href);
-      if (u2.pathname.indexOf("/ui/") !== -1) return u2.origin + "/ui/";
-      return u2.origin + "/ui/";
-    } catch (e2) {}
-    return "/ui/";
-  })();
-
-  E.uiAssetUrl = function (relPath) {
-    var rel = String(relPath || "").replace(/^\/+/, "");
-    var url = E.UI_BASE + rel;
-    // Cache-bust with version (safe even if server caches)
-    if (url.indexOf("?") === -1) url += "?v=" + encodeURIComponent(E.VERSION);
-    return url;
-  };
-
-  // Splash assets
-  // Place these files in: ui/assets/
-  //   - eikon-logo.png
-  //   - eikon-intro.gif
-  // The GIF is swapped to the static logo after it finishes, so it can't loop forever.
+  // Splash assets (place files in ui/assets/)
+  //   - ui/assets/eikon-logo.png
+  //   - ui/assets/eikon-intro.gif
+  // GIF plays once then is swapped to the static logo (prevents looping forever).
   E.SPLASH = {
-    logoUrl: E.uiAssetUrl("assets/eikon-logo.png"),
-    gifUrl: E.uiAssetUrl("assets/eikon-intro.gif"),
-    gifMs: 4930
+    logoUrl: "./assets/eikon-logo.png?v=" + encodeURIComponent(E.VERSION),
+    introGifUrl: "./assets/eikon-intro.gif?v=" + encodeURIComponent(E.VERSION),
+    introMs: 4930
   };
 
   E.playGifOnceThenSwap = function (imgEl, gifUrl, swapUrl, ms) {
     try {
       if (!imgEl) return;
-      var swapped = false;
-      function doSwap() {
-        if (swapped) return;
-        swapped = true;
-        if (!swapUrl) return;
-        try { imgEl.src = swapUrl; } catch (e1) {}
+      var did = false;
+
+      function schedule() {
+        if (did) return;
+        did = true;
+
+        var t = Math.max(0, Number(ms) || 0);
+        setTimeout(function () {
+          try { if (swapUrl) imgEl.src = swapUrl; } catch (e) {}
+        }, t);
       }
-      // Start GIF
-      if (gifUrl) {
-        try { imgEl.src = gifUrl; } catch (e2) {}
-      }
-      // Swap after duration (start timer on load when possible)
-      var t = Math.max(0, Number(ms) || 0);
-      var timer = function () { setTimeout(doSwap, t); };
+
+      if (gifUrl) imgEl.src = gifUrl;
+
       try {
-        if (imgEl.complete) timer();
-        else imgEl.addEventListener("load", timer, { once: true });
-      } catch (e3) {
-        timer();
+        if (imgEl.complete) schedule();
+        else imgEl.addEventListener("load", schedule, { once: true });
+      } catch (e2) {
+        schedule();
       }
+
       // Hard fallback in case load never fires
-      setTimeout(doSwap, t + 2500);
-    } catch (e4) {}
+      setTimeout(schedule, Math.max(0, Number(ms) || 0) + 2500);
+    } catch (e3) {}
   };
 
   // Debug level: 0 none, 1 normal, 2 verbose
@@ -92,9 +55,11 @@
     var dbgParam = url ? (url.searchParams.get("dbg") || "") : "";
     var lsDbg = "";
     try { lsDbg = String(window.localStorage.getItem("eikon_dbg") || ""); } catch (e2) {}
+
     var dbg = 0;
     if (dbgParam) dbg = parseInt(dbgParam, 10) || 0;
     else if (lsDbg) dbg = parseInt(lsDbg, 10) || 0;
+
     E.DEBUG = dbg;
     if (dbgParam) {
       try { window.localStorage.setItem("eikon_dbg", String(dbg)); } catch (e3) {}
@@ -155,10 +120,7 @@
       try {
         E.error("[GLOBAL] unhandledrejection:", ev && ev.reason);
         if (ev && ev.reason && ev.reason.stack) E.error("[GLOBAL] stack:", ev.reason.stack);
-        E.showFatalOverlay(
-          "Unhandled promise rejection",
-          (ev && ev.reason && (ev.reason.stack || ev.reason.message)) || String(ev)
-        );
+        E.showFatalOverlay("Unhandled promise rejection", ev && (ev.reason && (ev.reason.stack || ev.reason.message)) || String(ev));
       } catch (e) {}
     });
     E.dbg("[GLOBAL] crash logging installed");
@@ -191,7 +153,6 @@
     var token = E.getToken();
 
     if (!headers.has("Content-Type") && opts.body && typeof opts.body === "string") {
-      // Caller may already have JSON string
       headers.set("Content-Type", "application/json");
     }
     if (token) headers.set("Authorization", "Bearer " + token);
@@ -221,12 +182,10 @@
     try { ct = String(res.headers.get("Content-Type") || ""); } catch (e3) {}
     try { text = await res.text(); } catch (e4) { text = ""; }
 
-    // Try parse JSON
     json = null;
     if (ct.toLowerCase().indexOf("application/json") >= 0) {
       try { json = JSON.parse(text || "null"); } catch (e5) { json = null; }
     } else {
-      // Sometimes your API may still return JSON without correct CT
       try { json = JSON.parse(text || "null"); } catch (e6) { json = null; }
     }
 
@@ -438,7 +397,7 @@
       '  <main class="eikon-main">' +
       '    <div class="eikon-topbar">' +
       '      <div class="eikon-top-left">' +
-      '        <div class="eikon-page-title" id="eikon-page-title"><img id="eikon-loading-logo" alt="Eikon" style="height:26px;width:auto;display:block;" /></div>' +
+      '        <div class="eikon-page-title" id="eikon-page-title"><img id="eikon-loading-logo" alt="Eikon" style="height:26px;width:auto;display:block;filter:drop-shadow(0 1px 2px rgba(0,0,0,.35));" /></div>' +
       "      </div>" +
       '      <div class="eikon-user">' +
       '        <span id="eikon-user-label"></span>' +
@@ -448,7 +407,7 @@
       "    </div>" +
       '    <div class="eikon-content" id="eikon-content">' +
       '      <div id="eikon-ui-loading" style="display:flex;align-items:center;justify-content:center;min-height:55vh;">' +
-      '        <img id="eikon-ui-loading-anim" alt="Loading" style="max-width:min(720px,92vw);width:100%;height:auto;display:block;" />' +
+      '        <img id="eikon-ui-loading-anim" alt="Loading UI" style="max-width:min(720px,92vw);width:100%;height:auto;display:block;" />' +
       '      </div>' +
       '    </div>' +
       "  </main>" +
@@ -458,8 +417,9 @@
     try {
       var logoEl = document.getElementById("eikon-loading-logo");
       if (logoEl) logoEl.src = E.SPLASH.logoUrl;
+
       var animEl = document.getElementById("eikon-ui-loading-anim");
-      if (animEl) E.playGifOnceThenSwap(animEl, E.SPLASH.gifUrl, E.SPLASH.logoUrl, E.SPLASH.gifMs);
+      if (animEl) E.playGifOnceThenSwap(animEl, E.SPLASH.introGifUrl, E.SPLASH.logoUrl, E.SPLASH.introMs);
     } catch (e) {}
 
     // Sidebar toggle
@@ -476,11 +436,7 @@
 
     // Logout
     var logoutBtn = document.getElementById("eikon-logout-btn");
-    if (logoutBtn) {
-      logoutBtn.addEventListener("click", function () {
-        E.logout();
-      });
-    }
+    if (logoutBtn) logoutBtn.addEventListener("click", function () { E.logout(); });
 
     // Fullscreen / Exit Fullscreen
     var fsBtn = document.getElementById("eikon-fullscreen-btn");
