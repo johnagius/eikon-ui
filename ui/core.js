@@ -7,18 +7,19 @@
 
   // Basic identity
   E.APP_NAME = "Eikon";
-  E.VERSION = "2026-02-20-03";
+  E.VERSION = "2026-02-20-04";
 
-  // Splash assets (place files in ui/assets/)
-  //   - ui/assets/eikon-logo.png
-  //   - ui/assets/eikon-intro.gif
-  // GIF plays once then is swapped to the static logo (prevents looping forever).
+  // Splash / loading assets (static files under /ui/assets/)
+  // Put these two files in: ui/assets/
+  //   - eikon-logo.png
+  //   - eikon-intro.gif
   E.SPLASH = {
     logoUrl: "./assets/eikon-logo.png?v=" + encodeURIComponent(E.VERSION),
     introGifUrl: "./assets/eikon-intro.gif?v=" + encodeURIComponent(E.VERSION),
     introMs: 4930
   };
 
+  // Play GIF then swap to static image (prevents looping forever)
   E.playGifOnceThenSwap = function (imgEl, gifUrl, swapUrl, ms) {
     try {
       if (!imgEl) return;
@@ -27,25 +28,104 @@
       function schedule() {
         if (did) return;
         did = true;
-
         var t = Math.max(0, Number(ms) || 0);
+
         setTimeout(function () {
           try { if (swapUrl) imgEl.src = swapUrl; } catch (e) {}
         }, t);
       }
 
-      if (gifUrl) imgEl.src = gifUrl;
+      if (gifUrl) {
+        try { imgEl.src = gifUrl; } catch (e2) {}
+      }
 
       try {
         if (imgEl.complete) schedule();
         else imgEl.addEventListener("load", schedule, { once: true });
-      } catch (e2) {
+      } catch (e3) {
         schedule();
       }
 
-      // Hard fallback in case load never fires
+      // Hard fallback
       setTimeout(schedule, Math.max(0, Number(ms) || 0) + 2500);
-    } catch (e3) {}
+    } catch (e4) {}
+  };
+
+  // Intro overlay: show GIF once at boot, keep it visible for introMs minimum,
+  // and only remove after BOTH:
+  //   - introMs elapsed
+  //   - first module render completed
+  E._intro = null;
+
+  E.showIntroOverlayOnce = function () {
+    try {
+      if (E._intro && E._intro.active) return;
+
+      E._intro = {
+        active: true,
+        minDone: false,
+        moduleDone: false,
+        overlay: null,
+        hideIfReady: function () {
+          try {
+            if (!E._intro || !E._intro.active) return;
+            if (!(E._intro.minDone && E._intro.moduleDone)) return;
+            if (E._intro.overlay && E._intro.overlay.parentNode) {
+              E._intro.overlay.parentNode.removeChild(E._intro.overlay);
+            }
+            E._intro.active = false;
+          } catch (e) {}
+        }
+      };
+
+      var ov = document.createElement("div");
+      ov.id = "eikon-intro-overlay";
+      ov.style.position = "fixed";
+      ov.style.inset = "0";
+      ov.style.zIndex = "2147483646";
+      ov.style.background = "rgba(11,15,20,0.92)"; // matches app dark bg
+      ov.style.display = "flex";
+      ov.style.alignItems = "center";
+      ov.style.justifyContent = "center";
+      ov.style.padding = "18px";
+
+      // Center GIF
+      var img = document.createElement("img");
+      img.id = "eikon-intro-gif";
+      img.alt = "Eikon";
+      img.style.width = "min(860px, 92vw)";
+      img.style.height = "auto";
+      img.style.display = "block";
+      img.style.filter = "drop-shadow(0 10px 40px rgba(0,0,0,.55))";
+
+      // Debug: surface missing asset problems
+      img.addEventListener("error", function () {
+        try { E.warn("[splash] intro gif failed to load:", E.SPLASH.introGifUrl); } catch (e) {}
+      });
+
+      ov.appendChild(img);
+      document.body.appendChild(ov);
+      E._intro.overlay = ov;
+
+      // Start GIF and ensure it can't loop forever
+      E.playGifOnceThenSwap(img, E.SPLASH.introGifUrl, E.SPLASH.logoUrl, E.SPLASH.introMs);
+
+      // Minimum display timer
+      setTimeout(function () {
+        if (!E._intro) return;
+        E._intro.minDone = true;
+        E._intro.hideIfReady();
+      }, Math.max(0, Number(E.SPLASH.introMs) || 0));
+
+    } catch (e2) {}
+  };
+
+  E.markIntroModuleDone = function () {
+    try {
+      if (!E._intro) return;
+      E._intro.moduleDone = true;
+      E._intro.hideIfReady();
+    } catch (e) {}
   };
 
   // Debug level: 0 none, 1 normal, 2 verbose
@@ -55,11 +135,9 @@
     var dbgParam = url ? (url.searchParams.get("dbg") || "") : "";
     var lsDbg = "";
     try { lsDbg = String(window.localStorage.getItem("eikon_dbg") || ""); } catch (e2) {}
-
     var dbg = 0;
     if (dbgParam) dbg = parseInt(dbgParam, 10) || 0;
     else if (lsDbg) dbg = parseInt(lsDbg, 10) || 0;
-
     E.DEBUG = dbg;
     if (dbgParam) {
       try { window.localStorage.setItem("eikon_dbg", String(dbg)); } catch (e3) {}
@@ -397,7 +475,8 @@
       '  <main class="eikon-main">' +
       '    <div class="eikon-topbar">' +
       '      <div class="eikon-top-left">' +
-      '        <div class="eikon-page-title" id="eikon-page-title"><img id="eikon-loading-logo" alt="Eikon" style="height:26px;width:auto;display:block;filter:drop-shadow(0 1px 2px rgba(0,0,0,.35));" /></div>' +
+      '        <img id="eikon-topbar-logo" alt="Eikon" style="height:26px;width:auto;display:block;filter:drop-shadow(0 1px 2px rgba(0,0,0,.35));" />' +
+      '        <div class="eikon-page-title" id="eikon-page-title"><span id="eikon-page-title-text">Loading…</span></div>' +
       "      </div>" +
       '      <div class="eikon-user">' +
       '        <span id="eikon-user-label"></span>' +
@@ -405,21 +484,19 @@
       '        <button class="eikon-btn" id="eikon-fullscreen-btn">Fullscreen</button>' +
       "      </div>" +
       "    </div>" +
-      '    <div class="eikon-content" id="eikon-content">' +
-      '      <div id="eikon-ui-loading" style="display:flex;align-items:center;justify-content:center;min-height:55vh;">' +
-      '        <img id="eikon-ui-loading-anim" alt="Loading UI" style="max-width:min(720px,92vw);width:100%;height:auto;display:block;" />' +
-      '      </div>' +
-      '    </div>' +
+      '    <div class="eikon-content" id="eikon-content"></div>' +
       "  </main>" +
       "</div>";
 
-    // Loading visuals (logo + intro GIF once)
+    // Set topbar logo
     try {
-      var logoEl = document.getElementById("eikon-loading-logo");
-      if (logoEl) logoEl.src = E.SPLASH.logoUrl;
-
-      var animEl = document.getElementById("eikon-ui-loading-anim");
-      if (animEl) E.playGifOnceThenSwap(animEl, E.SPLASH.introGifUrl, E.SPLASH.logoUrl, E.SPLASH.introMs);
+      var logoEl = document.getElementById("eikon-topbar-logo");
+      if (logoEl) {
+        logoEl.src = E.SPLASH.logoUrl;
+        logoEl.addEventListener("error", function () {
+          try { E.warn("[splash] logo failed to load:", E.SPLASH.logoUrl); } catch (e) {}
+        });
+      }
     } catch (e) {}
 
     // Sidebar toggle
@@ -469,10 +546,8 @@
           var target = base + q + h;
 
           if (isFullscreenHost) {
-            // exit: go back in the same tab
             window.location.href = target;
           } else {
-            // enter: open a new tab (fallback to same tab if blocked)
             var w = window.open(target, "_blank", "noopener");
             if (!w) window.location.href = target;
           }
@@ -551,8 +626,13 @@
     E.state.activeModuleId = id;
     E.highlightNav();
 
-    var pageTitle = document.getElementById("eikon-page-title");
-    if (pageTitle) pageTitle.textContent = (E.modules[id].title || id);
+    // module title text (do NOT overwrite the topbar logo)
+    var titleText = document.getElementById("eikon-page-title-text");
+    if (titleText) titleText.textContent = (E.modules[id].title || id);
+    else {
+      var pageTitle = document.getElementById("eikon-page-title");
+      if (pageTitle) pageTitle.textContent = (E.modules[id].title || id);
+    }
 
     // user label
     var userLabel = document.getElementById("eikon-user-label");
@@ -564,6 +644,7 @@
     // render module
     content.innerHTML = "";
     E.dbg("[router] render module:", id);
+
     try {
       await E.modules[id].render({ E: E, mount: content, user: E.state.user });
     } catch (err) {
@@ -581,7 +662,16 @@
 
   E.bootAuthed = async function () {
     E.renderShell();
-    await E.renderActiveModule();
+
+    // Show intro overlay once (GIF once, no looping)
+    E.showIntroOverlayOnce();
+
+    // Render module, then mark module done so overlay can hide after introMs
+    try {
+      await E.renderActiveModule();
+    } finally {
+      E.markIntroModuleDone();
+    }
   };
 
   E.start = async function () {
@@ -595,7 +685,7 @@
     // Router
     window.addEventListener("hashchange", function () {
       E.dbg("[router] hashchange:", window.location.hash);
-      if (!E.state.user) return; // if not logged, ignore
+      if (!E.state.user) return;
       E.renderActiveModule();
     });
 
