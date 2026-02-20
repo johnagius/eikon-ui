@@ -4368,6 +4368,231 @@ async function handleAlertsEntryDelete(request, env, corsOkHeaders, authUser, id
 }
 
 
+
+/* ========================= RETURNS (Supplier Returns) ========================= */
+
+async function ensureReturnsSchema(env) {
+  await dbRun(env, `
+    CREATE TABLE IF NOT EXISTS returns_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+
+      entry_date TEXT NOT NULL,
+      description TEXT NOT NULL,
+
+      expiry TEXT,
+      batch TEXT,
+      quantity TEXT,
+      supplier TEXT,
+      invoice_number TEXT,
+      remarks TEXT,
+      location_stored TEXT,
+
+      return_arranged INTEGER NOT NULL DEFAULT 0,
+      handed_over INTEGER NOT NULL DEFAULT 0,
+      collection_note_received INTEGER NOT NULL DEFAULT 0,
+      credit_note_received INTEGER NOT NULL DEFAULT 0,
+
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      created_by INTEGER,
+      updated_by INTEGER
+    )
+  `);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_returns_entries_org_loc_date ON returns_entries(org_id, location_id, entry_date)`);
+}
+
+async function handleReturnsEntriesList(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureReturnsSchema(env);
+
+  const month = String(url.searchParams.get("month") || "").trim(); // YYYY-MM
+  const qRaw = String(url.searchParams.get("q") || "").trim().toLowerCase();
+
+  const bind = [authUser.org_id, authUser.location_id];
+  let where = "WHERE org_id=? AND location_id=?";
+
+  if (month && /^\d{4}-\d{2}$/.test(month)) {
+    where += " AND entry_date LIKE ?";
+    bind.push(month + "-%");
+  }
+
+  if (qRaw) {
+    const like = "%" + qRaw + "%";
+    where += " AND (lower(description) LIKE ? OR lower(batch) LIKE ? OR lower(quantity) LIKE ? OR lower(supplier) LIKE ? OR lower(invoice_number) LIKE ? OR lower(remarks) LIKE ? OR lower(location_stored) LIKE ?)";
+    bind.push(like, like, like, like, like, like, like);
+  }
+
+  const rows = await dbAll(env, `
+    SELECT
+      id, entry_date, description,
+      expiry, batch, quantity, supplier, invoice_number, remarks, location_stored,
+      return_arranged, handed_over, collection_note_received, credit_note_received
+    FROM returns_entries
+    ${where}
+    ORDER BY entry_date DESC, id DESC
+    LIMIT 800
+  `, bind);
+
+  const payload = { ok: true, entries: rows || [] };
+  if (isDebugEnabled(request)) payload.debug = { month, q: qRaw, count: (rows || []).length };
+  return jsonResponse(payload, 200, corsOkHeaders);
+}
+
+async function handleReturnsEntryCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureReturnsSchema(env);
+
+  const body = await readJson(request);
+  const entry_date = String(body.entry_date || "").trim();
+  const description = String(body.description || "").trim();
+
+  const expiry = String(body.expiry || "").trim();
+  const batch = String(body.batch || "").trim();
+  const quantity = String(body.quantity || "").trim();
+  const supplier = String(body.supplier || "").trim();
+  const invoice_number = String(body.invoice_number || "").trim();
+  const remarks = String(body.remarks || "").trim();
+  const location_stored = String(body.location_stored || "").trim();
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(entry_date)) return jsonResponse({ ok: false, error: "Invalid date" }, 400, corsOkHeaders);
+  if (!description) return jsonResponse({ ok: false, error: "Description required" }, 400, corsOkHeaders);
+  if (expiry && !/^\d{4}-\d{2}-\d{2}$/.test(expiry)) return jsonResponse({ ok: false, error: "Invalid expiry" }, 400, corsOkHeaders);
+
+  const return_arranged = to01(body.return_arranged);
+  const handed_over = to01(body.handed_over);
+  const collection_note_received = to01(body.collection_note_received);
+  const credit_note_received = to01(body.credit_note_received);
+
+  const res = await dbRun(env, `
+    INSERT INTO returns_entries (
+      org_id, location_id,
+      entry_date, description,
+      expiry, batch, quantity, supplier, invoice_number, remarks, location_stored,
+      return_arranged, handed_over, collection_note_received, credit_note_received,
+      created_at, updated_at, created_by, updated_by
+    ) VALUES (
+      ?, ?,
+      ?, ?,
+      ?, ?, ?, ?, ?, ?, ?,
+      ?, ?, ?, ?,
+      datetime('now'), datetime('now'), ?, ?
+    )
+  `, [
+    authUser.org_id, authUser.location_id,
+    entry_date, description,
+    expiry || null, batch || null, quantity || null, supplier || null, invoice_number || null, remarks || null, location_stored || null,
+    return_arranged, handed_over, collection_note_received, credit_note_received,
+    authUser.user_id, authUser.user_id
+  ]);
+
+  const newId = (res && res.meta && res.meta.last_row_id) ? Number(res.meta.last_row_id) : null;
+  await writeAudit(env, authUser.org_id, authUser.user_id, "RETURNS_CREATE", "returns_entries", String(newId || ""), { entry_date, description });
+
+  return jsonResponse({ ok: true, id: newId }, 200, corsOkHeaders);
+}
+
+async function handleReturnsEntryUpdate(request, env, corsOkHeaders, authUser, id) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureReturnsSchema(env);
+
+  const existing = await dbFirst(env, `
+    SELECT id, entry_date, description
+    FROM returns_entries
+    WHERE id=? AND org_id=? AND location_id=?
+  `, [id, authUser.org_id, authUser.location_id]);
+
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+  const entry_date = String(body.entry_date || "").trim();
+  const description = String(body.description || "").trim();
+
+  const expiry = String(body.expiry || "").trim();
+  const batch = String(body.batch || "").trim();
+  const quantity = String(body.quantity || "").trim();
+  const supplier = String(body.supplier || "").trim();
+  const invoice_number = String(body.invoice_number || "").trim();
+  const remarks = String(body.remarks || "").trim();
+  const location_stored = String(body.location_stored || "").trim();
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(entry_date)) return jsonResponse({ ok: false, error: "Invalid date" }, 400, corsOkHeaders);
+  if (!description) return jsonResponse({ ok: false, error: "Description required" }, 400, corsOkHeaders);
+  if (expiry && !/^\d{4}-\d{2}-\d{2}$/.test(expiry)) return jsonResponse({ ok: false, error: "Invalid expiry" }, 400, corsOkHeaders);
+
+  const return_arranged = to01(body.return_arranged);
+  const handed_over = to01(body.handed_over);
+  const collection_note_received = to01(body.collection_note_received);
+  const credit_note_received = to01(body.credit_note_received);
+
+  await dbRun(env, `
+    UPDATE returns_entries SET
+      entry_date=?,
+      description=?,
+      expiry=?,
+      batch=?,
+      quantity=?,
+      supplier=?,
+      invoice_number=?,
+      remarks=?,
+      location_stored=?,
+      return_arranged=?,
+      handed_over=?,
+      collection_note_received=?,
+      credit_note_received=?,
+      updated_at=datetime('now'),
+      updated_by=?
+    WHERE id=? AND org_id=? AND location_id=?
+  `, [
+    entry_date,
+    description,
+    expiry || null,
+    batch || null,
+    quantity || null,
+    supplier || null,
+    invoice_number || null,
+    remarks || null,
+    location_stored || null,
+    return_arranged,
+    handed_over,
+    collection_note_received,
+    credit_note_received,
+    authUser.user_id,
+    id, authUser.org_id, authUser.location_id
+  ]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "RETURNS_UPDATE", "returns_entries", String(id), { entry_date, description });
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleReturnsEntryDelete(request, env, corsOkHeaders, authUser, id) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureReturnsSchema(env);
+
+  const existing = await dbFirst(env, `
+    SELECT id, entry_date, description
+    FROM returns_entries
+    WHERE id=? AND org_id=? AND location_id=?
+  `, [id, authUser.org_id, authUser.location_id]);
+
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  await dbRun(env, `DELETE FROM returns_entries WHERE id=? AND org_id=? AND location_id=?`, [id, authUser.org_id, authUser.location_id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "RETURNS_DELETE", "returns_entries", String(id), { entry_date: existing.entry_date, description: existing.description });
+
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+
 /* =========================
    DDA SALES MODULE (API)  <-- ADDED
    ========================= */
@@ -7733,6 +7958,23 @@ if (url.pathname.startsWith("/alerts/entries/")) {
   if (request.method === "PUT") return await handleAlertsEntryUpdate(request, env, corsOkHeaders, authUser, id);
   if (request.method === "DELETE") return await handleAlertsEntryDelete(request, env, corsOkHeaders, authUser, id);
 }
+
+    // Returns
+    if (url.pathname === "/returns/entries" && request.method === "GET") {
+      return await handleReturnsEntriesList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/returns/entries" && request.method === "POST") {
+      return await handleReturnsEntryCreate(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname.startsWith("/returns/entries/")) {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const id = parseInt(parts[2], 10);
+      if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+      if (request.method === "PUT") return await handleReturnsEntryUpdate(request, env, corsOkHeaders, authUser, id);
+      if (request.method === "DELETE") return await handleReturnsEntryDelete(request, env, corsOkHeaders, authUser, id);
+    }
+
+
 
     // DDA Sales  <-- ADDED ROUTES
     if (url.pathname === "/dda-sales/client" && request.method === "GET") {
