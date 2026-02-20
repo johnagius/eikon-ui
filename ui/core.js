@@ -9,19 +9,6 @@
   E.APP_NAME = "Eikon";
   E.VERSION = "2026-02-06-01";
 
-  // Fullscreen routing (toggle between branded site and worker-hosted UI)
-  E.FULLSCREEN_URL = "https://eikon-api.labrint.workers.dev/ui/index.html";
-  E.FULLSCREEN_RETURN_URL = "https://swiftdataautomation.com/eikon";
-
-  E.isWorkerUi = function () {
-    try {
-      var u = new URL(window.location.href);
-      return (u.origin + u.pathname) === E.FULLSCREEN_URL;
-    } catch (e) {
-      return false;
-    }
-  };
-
   // Debug level: 0 none, 1 normal, 2 verbose
   (function initDebug() {
     var url;
@@ -64,12 +51,7 @@
     try {
       if (!window.parent || window.parent === window) return;
       if (E.DEBUG < 2) return;
-      var payload = {
-        type: "EIKON_LOG",
-        level: level,
-        time: ts(),
-        msg: args.map(safeToString).join(" ")
-      };
+      var payload = { type: "EIKON_LOG", level: level, time: ts(), msg: args.map(safeToString).join(" ") };
       window.parent.postMessage(payload, "*");
     } catch (e) {}
   }
@@ -78,25 +60,20 @@
     var prefix = "[EIKON]";
     var t = ts();
     var out = [prefix, t].concat(args);
-
     try {
       if (level === "error") console.error.apply(console, out);
       else if (level === "warn") console.warn.apply(console, out);
       else console.log.apply(console, out);
     } catch (e) {}
-
     postToParent(level, args);
   }
 
   E.log = function () { logBase("log", Array.prototype.slice.call(arguments)); };
   E.warn = function () { logBase("warn", Array.prototype.slice.call(arguments)); };
   E.error = function () { logBase("error", Array.prototype.slice.call(arguments)); };
+  E.dbg = function () { if (E.DEBUG >= 2) logBase("log", ["[DBG]"].concat(Array.prototype.slice.call(arguments))); };
 
-  E.dbg = function () {
-    if (E.DEBUG >= 2) logBase("log", ["[DBG]"].concat(Array.prototype.slice.call(arguments)));
-  };
-
-  // Crash logging
+  // Crash logging (never silent black screen)
   (function installCrashLogging() {
     window.addEventListener("error", function (ev) {
       try {
@@ -110,7 +87,10 @@
       try {
         E.error("[GLOBAL] unhandledrejection:", ev && ev.reason);
         if (ev && ev.reason && ev.reason.stack) E.error("[GLOBAL] stack:", ev.reason.stack);
-        E.showFatalOverlay("Unhandled promise rejection", ev && (ev.reason && (ev.reason.stack || ev.reason.message)) || String(ev));
+        E.showFatalOverlay(
+          "Unhandled promise rejection",
+          (ev && ev.reason && (ev.reason.stack || ev.reason.message)) || String(ev)
+        );
       } catch (e) {}
     });
 
@@ -129,7 +109,6 @@
 
   // Token storage
   E.TOKEN_KEY = "eikon_token";
-
   E.getToken = function () {
     try { return String(window.localStorage.getItem(E.TOKEN_KEY) || ""); } catch (e) { return ""; }
   };
@@ -154,20 +133,13 @@
       // Caller may already have JSON string
       headers.set("Content-Type", "application/json");
     }
-
     if (token) headers.set("Authorization", "Bearer " + token);
 
     var url = path;
     if (!/^https?:\/\//i.test(path)) url = (E.apiBase || "") + path;
 
-    var reqInfo = {
-      method: method,
-      headers: {},
-      hasToken: !!token
-    };
-    try {
-      headers.forEach(function (v, k) { reqInfo.headers[k] = v; });
-    } catch (e) {}
+    var reqInfo = { method: method, headers: {}, hasToken: !!token };
+    try { headers.forEach(function (v, k) { reqInfo.headers[k] = v; }); } catch (e) {}
 
     if (E.DEBUG >= 2) {
       E.dbg("[api] ->", url, reqInfo);
@@ -178,11 +150,7 @@
 
     var res, text, json;
     try {
-      res = await fetch(url, {
-        method: method,
-        headers: headers,
-        body: opts.body || undefined
-      });
+      res = await fetch(url, { method: method, headers: headers, body: opts.body || undefined });
     } catch (e2) {
       E.error("[api] network error:", e2);
       throw e2;
@@ -190,12 +158,7 @@
 
     var ct = "";
     try { ct = String(res.headers.get("Content-Type") || ""); } catch (e3) {}
-
-    try {
-      text = await res.text();
-    } catch (e4) {
-      text = "";
-    }
+    try { text = await res.text(); } catch (e4) { text = ""; }
 
     // Try parse JSON
     json = null;
@@ -233,12 +196,7 @@
   };
 
   // UI mounts
-  E.state = {
-    user: null,
-    activeModuleId: "",
-    sidebarCollapsed: false,
-    started: false
-  };
+  E.state = { user: null, activeModuleId: "", sidebarCollapsed: false, started: false };
 
   E.ensureRoot = function () {
     var root = document.getElementById("eikon-root");
@@ -268,10 +226,12 @@
         document.body.appendChild(overlay);
       }
       overlay.innerHTML =
-        '<div style="width:min(920px,100%);background:#111b2a;border:1px solid #263246;border-radius:18px;padding:14px;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#e9eef7;">' +
-        '<div style="font-weight:900;font-size:18px;margin-bottom:8px;">' + E.escapeHtml(title || "Eikon crashed") + "</div>" +
-        '<div style="opacity:.85;margin-bottom:10px;">Open DevTools Console for details. dbg=2 is recommended.</div>' +
-        '<pre style="white-space:pre-wrap;background:rgba(0,0,0,.25);padding:12px;border-radius:14px;border:1px solid #263246;margin:0;">' + E.escapeHtml(String(details || "")) + "</pre>" +
+        '<div style="max-width:920px;width:100%;background:rgba(15,22,34,.96);border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:16px;">' +
+        '  <div style="font-weight:900;font-size:18px;margin-bottom:8px;">' + E.escapeHtml(title || "Eikon crashed") + "</div>" +
+        '  <div style="color:rgba(255,255,255,.75);font-size:13px;margin-bottom:10px;">Open DevTools Console for details. dbg=2 is recommended.</div>' +
+        '  <pre style="white-space:pre-wrap;word-break:break-word;margin:0;background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.10);border-radius:12px;padding:12px;max-height:60vh;overflow:auto;">' +
+        E.escapeHtml(String(details || "")) +
+        "</pre>" +
         "</div>";
     } catch (e) {}
   };
@@ -285,15 +245,13 @@
       overlay = document.createElement("div");
       overlay.className = "eikon-modal-overlay";
       overlay.innerHTML =
-        '<div class="eikon-modal">' +
+        '<div class="eikon-modal" role="dialog" aria-modal="true">' +
         '  <div class="eikon-modal-title" id="eikon-modal-title"></div>' +
-        '  <div id="eikon-modal-body"></div>' +
+        '  <div class="eikon-modal-body" id="eikon-modal-body"></div>' +
         '  <div class="eikon-modal-actions" id="eikon-modal-actions"></div>' +
         "</div>";
       document.body.appendChild(overlay);
-      overlay.addEventListener("click", function (e) {
-        if (e.target === overlay) hide();
-      });
+      overlay.addEventListener("click", function (e) { if (e.target === overlay) hide(); });
       return overlay;
     }
 
@@ -339,11 +297,13 @@
       '        <input class="eikon-input" id="eikon-login-pass" type="password" autocomplete="current-password" />' +
       "      </div>" +
       "    </div>" +
-      '    <div class="eikon-row" style="margin-top:12px;justify-content:flex-end;">' +
+      '    <div style="margin-top:12px;display:flex;justify-content:flex-end;gap:10px;">' +
       '      <button class="eikon-btn primary" id="eikon-login-btn">Login</button>' +
       "    </div>" +
-      (errorText ? ('<div class="eikon-alert">' + E.escapeHtml(errorText) + "</div>") : "") +
-      '    <div class="eikon-help" style="margin-top:10px;">Tip: add <span class="eikon-pill">dbg=2</span> to see verbose logs.</div>' +
+      (errorText
+        ? ('<div class="eikon-alert">' + E.escapeHtml(errorText) + "</div>")
+        : "") +
+      '<div class="eikon-help" style="margin-top:10px;">Tip: add dbg=2 to see verbose logs.</div>' +
       "  </div>" +
       "</div>";
 
@@ -385,7 +345,10 @@
           E.renderLogin(String(err && (err.message || err.bodyText || err)));
         })
         .finally(function () {
-          try { btn.disabled = false; btn.textContent = "Login"; } catch (e) {}
+          try {
+            btn.disabled = false;
+            btn.textContent = "Login";
+          } catch (e) {}
         });
     }
 
@@ -420,7 +383,7 @@
       '      <div class="eikon-user">' +
       '        <span id="eikon-user-label"></span>' +
       '        <button class="eikon-btn" id="eikon-logout-btn">Logout</button>' +
-      '        <button class="eikon-btn" id="eikon-fullscreen-btn"></button>' +
+      '        <button class="eikon-btn" id="eikon-fullscreen-btn">Fullscreen</button>' +
       "      </div>" +
       "    </div>" +
       '    <div class="eikon-content" id="eikon-content"></div>' +
@@ -450,36 +413,36 @@
     // Fullscreen / Exit Fullscreen
     var fsBtn = document.getElementById("eikon-fullscreen-btn");
     if (fsBtn) {
-      function syncFsBtn() {
-        if (E.isWorkerUi()) {
-          fsBtn.textContent = "Exit Fullscreen";
-          fsBtn.title = "Back to " + E.FULLSCREEN_RETURN_URL;
-        } else {
-          fsBtn.textContent = "Fullscreen";
-          fsBtn.title = "Open " + E.FULLSCREEN_URL;
-        }
-      }
+      var isFullscreenHost = false;
+      try {
+        var u = new URL(window.location.href);
+        isFullscreenHost = (u.hostname === "eikon-api.labrint.workers.dev" && /\/ui(\/index\.html)?\/?$/.test(u.pathname));
+      } catch (e) {}
 
-      syncFsBtn();
+      var enterBase = "https://eikon-api.labrint.workers.dev/ui/index.html";
+      var exitBase = "https://swiftdataautomation.com/eikon";
+
+      fsBtn.textContent = isFullscreenHost ? "Exit Fullscreen" : "Fullscreen";
+      fsBtn.title = fsBtn.textContent;
 
       fsBtn.addEventListener("click", function () {
-        var q = window.location.search || "";
-        var h = window.location.hash || "";
+        var base = isFullscreenHost ? exitBase : enterBase;
+        try {
+          var q = window.location.search || "";
+          var h = window.location.hash || "";
+          var target = base + q + h;
 
-        if (E.isWorkerUi()) {
-          // If this tab was opened by script, close may work. If not, we redirect.
-          try { window.close(); } catch (e) {}
-          try {
-            window.location.href = E.FULLSCREEN_RETURN_URL + q + h;
-          } catch (e2) {
-            window.location.href = E.FULLSCREEN_RETURN_URL;
+          if (isFullscreenHost) {
+            // exit: go back in the same tab
+            window.location.href = target;
+          } else {
+            // enter: open a new tab (fallback to same tab if blocked)
+            var w = window.open(target, "_blank", "noopener");
+            if (!w) window.location.href = target;
           }
-          return;
+        } catch (e2) {
+          try { window.location.href = base; } catch (e3) {}
         }
-
-        var url = E.FULLSCREEN_URL + q + h;
-        var w = window.open(url, "_blank", "noopener");
-        if (!w) window.location.href = url;
       });
     }
 
@@ -574,18 +537,14 @@
     E.dbg("[router] render module:", id);
 
     try {
-      await E.modules[id].render({
-        E: E,
-        mount: content,
-        user: E.state.user
-      });
+      await E.modules[id].render({ E: E, mount: content, user: E.state.user });
     } catch (err) {
       E.error("[router] module render error:", err);
       var msg = String(err && (err.stack || err.message || err));
       content.innerHTML =
-        '<div class="eikon-card">' +
-        '  <div style="font-weight:900;font-size:16px;color:var(--danger);margin-bottom:8px;">Module crashed: ' + E.escapeHtml(id) + "</div>" +
-        '  <pre style="white-space:pre-wrap;margin:0;background:rgba(0,0,0,.25);padding:12px;border-radius:14px;border:1px solid var(--border);">' +
+        '<div class="eikon-card" style="border-color:rgba(255,90,122,.35);background:rgba(255,90,122,.08)">' +
+        "<div style=\"font-weight:900;margin-bottom:8px;\">Module crashed: " + E.escapeHtml(id) + "</div>" +
+        "<pre style=\"margin:0;white-space:pre-wrap;word-break:break-word;\">" +
         E.escapeHtml(msg) +
         "</pre>" +
         "</div>";
@@ -600,7 +559,6 @@
   E.start = async function () {
     if (E.state.started) return;
     E.state.started = true;
-
     E.dbg("[core] start()");
 
     // If hash missing, default
