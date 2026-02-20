@@ -275,6 +275,8 @@
       state.needs = Array.isArray(n && n.needs) ? n.needs : [];
 
       renderTables();
+    } catch (e) {
+      showError("Scarce Stock", e);
     } finally {
       if (btn) { btn.disabled = false; btn.textContent = "Refresh"; }
     }
