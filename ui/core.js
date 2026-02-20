@@ -9,38 +9,80 @@
   E.APP_NAME = "Eikon";
   E.VERSION = "2026-02-20-02";
 
-  // Splash / loading assets (static files under /ui/assets/)
-  // Put these two files in: ui/assets/
+  // UI asset base (IMPORTANT: works even when the UI scripts are embedded on a different host page)
+  E.UI_BASE = (function () {
+    try {
+      // Prefer the URL of the currently executing script (core.js)
+      var s = (document.currentScript && document.currentScript.src) ? document.currentScript.src : "";
+      if (!s) {
+        // Fallback: scan for a script that looks like /ui/core.js
+        var list = document.getElementsByTagName("script");
+        for (var i = list.length - 1; i >= 0; i--) {
+          var src = String(list[i].src || "");
+          if (src.indexOf("/ui/core.js") !== -1 || src.indexOf("/ui/core.js?") !== -1) { s = src; break; }
+        }
+      }
+      if (s) {
+        var u = new URL(s, window.location.href);
+        // Directory of the script
+        return u.href.replace(/\/[^\/\?#]+(\?.*)?$/, "/");
+      }
+    } catch (e) {}
+
+    // Last resort: if the page itself is under /ui/, use that; else default to /ui/
+    try {
+      var u2 = new URL(window.location.href);
+      if (u2.pathname.indexOf("/ui/") !== -1) return u2.origin + "/ui/";
+      return u2.origin + "/ui/";
+    } catch (e2) {}
+    return "/ui/";
+  })();
+
+  E.uiAssetUrl = function (relPath) {
+    var rel = String(relPath || "").replace(/^\/+/, "");
+    var url = E.UI_BASE + rel;
+    // Cache-bust with version (safe even if server caches)
+    if (url.indexOf("?") === -1) url += "?v=" + encodeURIComponent(E.VERSION);
+    return url;
+  };
+
+  // Splash assets
+  // Place these files in: ui/assets/
   //   - eikon-logo.png
   //   - eikon-intro.gif
-  // We show the GIF once, then swap to the static logo so it cannot loop forever.
+  // The GIF is swapped to the static logo after it finishes, so it can't loop forever.
   E.SPLASH = {
-    logoUrl: "./assets/eikon-logo.png?v=" + encodeURIComponent(E.VERSION),
-    introGifUrl: "./assets/eikon-intro.gif?v=" + encodeURIComponent(E.VERSION),
-    introMs: 4930
+    logoUrl: E.uiAssetUrl("assets/eikon-logo.png"),
+    gifUrl: E.uiAssetUrl("assets/eikon-intro.gif"),
+    gifMs: 4930
   };
 
   E.playGifOnceThenSwap = function (imgEl, gifUrl, swapUrl, ms) {
     try {
       if (!imgEl) return;
-      var did = false;
-      function schedule() {
-        if (did) return;
-        did = true;
-        if (!ms || !swapUrl) return;
-        setTimeout(function () {
-          try { imgEl.src = swapUrl; } catch (e) {}
-        }, ms);
+      var swapped = false;
+      function doSwap() {
+        if (swapped) return;
+        swapped = true;
+        if (!swapUrl) return;
+        try { imgEl.src = swapUrl; } catch (e1) {}
       }
-      if (gifUrl) imgEl.src = gifUrl;
+      // Start GIF
+      if (gifUrl) {
+        try { imgEl.src = gifUrl; } catch (e2) {}
+      }
+      // Swap after duration (start timer on load when possible)
+      var t = Math.max(0, Number(ms) || 0);
+      var timer = function () { setTimeout(doSwap, t); };
       try {
-        // data/fast loads: `complete` may already be true
-        if (imgEl.complete) schedule();
-        else imgEl.addEventListener("load", schedule, { once: true });
-      } catch (e2) {
-        schedule();
+        if (imgEl.complete) timer();
+        else imgEl.addEventListener("load", timer, { once: true });
+      } catch (e3) {
+        timer();
       }
-    } catch (e3) {}
+      // Hard fallback in case load never fires
+      setTimeout(doSwap, t + 2500);
+    } catch (e4) {}
   };
 
   // Debug level: 0 none, 1 normal, 2 verbose
@@ -100,7 +142,7 @@
   E.error = function () { logBase("error", Array.prototype.slice.call(arguments)); };
   E.dbg = function () { if (E.DEBUG >= 2) logBase("log", ["[DBG]"].concat(Array.prototype.slice.call(arguments))); };
 
-  // Crash logging (never silent)
+  // Crash logging (never silent black screen)
   (function installCrashLogging() {
     window.addEventListener("error", function (ev) {
       try {
@@ -113,7 +155,10 @@
       try {
         E.error("[GLOBAL] unhandledrejection:", ev && ev.reason);
         if (ev && ev.reason && ev.reason.stack) E.error("[GLOBAL] stack:", ev.reason.stack);
-        E.showFatalOverlay("Unhandled promise rejection", ev && (ev.reason && (ev.reason.stack || ev.reason.message)) || String(ev));
+        E.showFatalOverlay(
+          "Unhandled promise rejection",
+          (ev && ev.reason && (ev.reason.stack || ev.reason.message)) || String(ev)
+        );
       } catch (e) {}
     });
     E.dbg("[GLOBAL] crash logging installed");
@@ -146,6 +191,7 @@
     var token = E.getToken();
 
     if (!headers.has("Content-Type") && opts.body && typeof opts.body === "string") {
+      // Caller may already have JSON string
       headers.set("Content-Type", "application/json");
     }
     if (token) headers.set("Authorization", "Bearer " + token);
@@ -175,10 +221,12 @@
     try { ct = String(res.headers.get("Content-Type") || ""); } catch (e3) {}
     try { text = await res.text(); } catch (e4) { text = ""; }
 
+    // Try parse JSON
     json = null;
     if (ct.toLowerCase().indexOf("application/json") >= 0) {
       try { json = JSON.parse(text || "null"); } catch (e5) { json = null; }
     } else {
+      // Sometimes your API may still return JSON without correct CT
       try { json = JSON.parse(text || "null"); } catch (e6) { json = null; }
     }
 
@@ -390,7 +438,7 @@
       '  <main class="eikon-main">' +
       '    <div class="eikon-topbar">' +
       '      <div class="eikon-top-left">' +
-      '        <div class="eikon-page-title" id="eikon-page-title"><img id="eikon-ui-title-asset" alt="Loading UI" style="height:26px;width:auto;display:block;" /></div>' +
+      '        <div class="eikon-page-title" id="eikon-page-title"><img id="eikon-loading-logo" alt="Eikon" style="height:26px;width:auto;display:block;" /></div>' +
       "      </div>" +
       '      <div class="eikon-user">' +
       '        <span id="eikon-user-label"></span>' +
@@ -398,16 +446,20 @@
       '        <button class="eikon-btn" id="eikon-fullscreen-btn">Fullscreen</button>' +
       "      </div>" +
       "    </div>" +
-      '    <div class="eikon-content" id="eikon-content">      <div id="eikon-ui-loading" style="display:flex;align-items:center;justify-content:center;min-height:55vh;">        <img id="eikon-ui-loading-asset" alt="Loading UI" style="max-width:min(720px, 92vw);width:100%;height:auto;" />      </div>    </div>' +
+      '    <div class="eikon-content" id="eikon-content">' +
+      '      <div id="eikon-ui-loading" style="display:flex;align-items:center;justify-content:center;min-height:55vh;">' +
+      '        <img id="eikon-ui-loading-anim" alt="Loading" style="max-width:min(720px,92vw);width:100%;height:auto;display:block;" />' +
+      '      </div>' +
+      '    </div>' +
       "  </main>" +
       "</div>";
 
-    // Set loading assets (GIF plays once, then swaps to logo)
+    // Loading visuals (logo + intro GIF once)
     try {
-      var tImg = document.getElementById("eikon-ui-title-asset");
-      if (tImg) E.playGifOnceThenSwap(tImg, E.SPLASH.introGifUrl, E.SPLASH.logoUrl, E.SPLASH.introMs);
-      var cImg = document.getElementById("eikon-ui-loading-asset");
-      if (cImg) E.playGifOnceThenSwap(cImg, E.SPLASH.introGifUrl, E.SPLASH.logoUrl, E.SPLASH.introMs);
+      var logoEl = document.getElementById("eikon-loading-logo");
+      if (logoEl) logoEl.src = E.SPLASH.logoUrl;
+      var animEl = document.getElementById("eikon-ui-loading-anim");
+      if (animEl) E.playGifOnceThenSwap(animEl, E.SPLASH.gifUrl, E.SPLASH.logoUrl, E.SPLASH.gifMs);
     } catch (e) {}
 
     // Sidebar toggle
@@ -424,7 +476,11 @@
 
     // Logout
     var logoutBtn = document.getElementById("eikon-logout-btn");
-    if (logoutBtn) logoutBtn.addEventListener("click", function () { E.logout(); });
+    if (logoutBtn) {
+      logoutBtn.addEventListener("click", function () {
+        E.logout();
+      });
+    }
 
     // Fullscreen / Exit Fullscreen
     var fsBtn = document.getElementById("eikon-fullscreen-btn");
