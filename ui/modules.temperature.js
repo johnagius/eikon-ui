@@ -116,61 +116,74 @@
   }
 
   // ------------------------------------------------------------
-  // Offline queue (localStorage) for "Sync queued"
-  // ------------------------------------------------------------
-  var QKEY = "eikon_temp_queue_v1";
+// Offline queue (localStorage) for "Sync queued"
+// IMPORTANT: scope the queue by org_id + location_id so that
+// queued jobs from one location can never be synced under another.
+// ------------------------------------------------------------
+var QKEY_BASE = "eikon_temp_queue_v1";
 
-  function qLoad() {
+function qKey() {
+  try {
+    var u = (E && E.state && E.state.user) ? E.state.user : null;
+    var orgId = u ? (u.org_id || "") : "";
+    var locId = u ? (u.location_id || "") : "";
+    return QKEY_BASE + "_" + String(orgId) + "_" + String(locId);
+  } catch (e) {
+    return QKEY_BASE;
+  }
+}
+
+function qLoad() {
+  try {
+    var raw = window.localStorage.getItem(qKey());
+    if (!raw) return [];
+    var arr = JSON.parse(raw);
+    if (!Array.isArray(arr)) return [];
+    return arr;
+  } catch (e) {
+    return [];
+  }
+}
+
+function qSave(arr) {
+  try { window.localStorage.setItem(qKey(), JSON.stringify(arr || [])); } catch (e) {}
+}
+
+function qAdd(job) {
+  var arr = qLoad();
+  arr.push(job);
+  qSave(arr);
+  dbg("queued job:", job);
+}
+
+async function qFlush() {
+  var arr = qLoad();
+  if (!arr.length) return { sent: 0, remaining: 0 };
+
+  dbg("qFlush start, jobs=", arr.length);
+
+  var sent = 0;
+  var keep = [];
+
+  for (var i = 0; i < arr.length; i++) {
+    var j = arr[i];
     try {
-      var raw = window.localStorage.getItem(QKEY);
-      if (!raw) return [];
-      var arr = JSON.parse(raw);
-      if (!Array.isArray(arr)) return [];
-      return arr;
+      await E.apiFetch(j.path, {
+        method: j.method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(j.body)
+      });
+      sent++;
     } catch (e) {
-      return [];
+      keep.push(j);
+      warn("qFlush job failed, keeping:", e && (e.message || e));
     }
   }
 
-  function qSave(arr) {
-    try { window.localStorage.setItem(QKEY, JSON.stringify(arr || [])); } catch (e) {}
-  }
-
-  function qAdd(job) {
-    var arr = qLoad();
-    arr.push(job);
-    qSave(arr);
-    dbg("queued job:", job);
-  }
-
-  async function qFlush() {
-    var arr = qLoad();
-    if (!arr.length) return { sent: 0, remaining: 0 };
-
-    dbg("qFlush start, jobs=", arr.length);
-
-    var sent = 0;
-    var keep = [];
-
-    for (var i = 0; i < arr.length; i++) {
-      var j = arr[i];
-      try {
-        await E.apiFetch(j.path, {
-          method: j.method,
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(j.body)
-        });
-        sent++;
-      } catch (e) {
-        keep.push(j);
-        warn("qFlush job failed, keeping:", e && (e.message || e));
-      }
-    }
-
-    qSave(keep);
-    dbg("qFlush done, sent=", sent, "remaining=", keep.length);
-    return { sent: sent, remaining: keep.length };
-  }
+  qSave(keep);
+  dbg("qFlush done, sent=", sent, "remaining=", keep.length);
+  return { sent: sent, remaining: keep.length };
+}
 
   // ------------------------------------------------------------
   // Core math + date helpers
@@ -1018,12 +1031,39 @@
   // Module state
   // ------------------------------------------------------------
   var state = {
-    tab: "entries",
-    devices: [],
-    entriesMonthCache: {},
-    selectedDate: todayYmd(),
-    lastReportData: null
-  };
+  tab: "entries",
+  // set in render(ctx) as: "<org_id>_<location_id>"
+  userKey: "",
+  devices: [],
+  // cache key is "<userKey>|<YYYY-MM>"
+  entriesMonthCache: {},
+  selectedDate: todayYmd(),
+  lastReportData: null
+};
+
+function getUserKey(u) {
+  try {
+    if (!u) return "";
+    return String(u.org_id || "") + "_" + String(u.location_id || "");
+  } catch (e) {
+    return "";
+  }
+}
+
+function ensureUserScope(u) {
+  var k = getUserKey(u);
+  if (k && state.userKey !== k) {
+    dbg("user scope changed:", state.userKey, "->", k, "(clearing temperature caches)");
+    state.userKey = k;
+    state.devices = [];
+    state.entriesMonthCache = {};
+    state.lastReportData = null;
+  } else if (!state.userKey && k) {
+    // first render
+    state.userKey = k;
+  }
+}
+
 
   // ------------------------------------------------------------
   // API helpers
@@ -1037,18 +1077,20 @@
   }
 
   async function loadMonthEntries(month) {
-    if (state.entriesMonthCache[month]) return state.entriesMonthCache[month];
-    dbg("loadMonthEntries month=", month);
+    var ck = String(state.userKey || "") + "|" + String(month || "");
+    if (state.entriesMonthCache[ck]) return state.entriesMonthCache[ck];
+    dbg("loadMonthEntries month=", month, "userKey=", state.userKey);
     var r = await E.apiFetch("/temperature/entries?month=" + encodeURIComponent(month), { method: "GET" });
     var entries = (r && r.entries) ? r.entries : [];
-    state.entriesMonthCache[month] = entries;
+    state.entriesMonthCache[ck] = entries;
     dbg("entries loaded:", entries.length);
     if (dashDebugEnabled()) dashDbg("month entries loaded", month, "count=", entries.length, "sample=", entries.slice(0, 3));
     return entries;
   }
 
   function clearMonthCache(month) {
-    delete state.entriesMonthCache[month];
+    var ck = String(state.userKey || "") + "|" + String(month || "");
+    delete state.entriesMonthCache[ck];
   }
 
   // ------------------------------------------------------------
@@ -1889,6 +1931,10 @@
   async function render(ctx) {
     var mount = ctx.mount;
     mount.innerHTML = "";
+
+    // If the operator logs out / in to a different location without a full page reload,
+    // we MUST scope caches/queues by location.
+    ensureUserScope(ctx.user);
 
     ensureToastStyles();
 
