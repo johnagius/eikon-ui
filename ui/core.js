@@ -78,155 +78,11 @@
   E.log = function () { logBase("log", Array.prototype.slice.call(arguments)); };
   E.warn = function () { logBase("warn", Array.prototype.slice.call(arguments)); };
   E.error = function () { logBase("error", Array.prototype.slice.call(arguments)); };
-
   E.dbg = function () {
-    if (E.DEBUG >= 2) logBase("log", ["[DBG]"].concat(Array.prototype.slice.call(arguments)));
+    if (E.DEBUG >= 2) logBase("log", ["[dbg]"].concat(Array.prototype.slice.call(arguments)));
   };
 
-  // Crash logging
-  (function installCrashLogging() {
-    window.addEventListener("error", function (ev) {
-      try {
-        E.error("[GLOBAL] window.error:", ev && (ev.message || ev.error || ev));
-        if (ev && ev.error && ev.error.stack) E.error("[GLOBAL] stack:", ev.error.stack);
-        E.showFatalOverlay("Uncaught error", ev && (ev.message || (ev.error && ev.error.stack) || String(ev)));
-      } catch (e) {}
-    });
-
-    window.addEventListener("unhandledrejection", function (ev) {
-      try {
-        E.error("[GLOBAL] unhandledrejection:", ev && ev.reason);
-        if (ev && ev.reason && ev.reason.stack) E.error("[GLOBAL] stack:", ev.reason.stack);
-        E.showFatalOverlay("Unhandled promise rejection", ev && (ev.reason && (ev.reason.stack || ev.reason.message)) || String(ev));
-      } catch (e) {}
-    });
-
-    E.dbg("[GLOBAL] crash logging installed");
-  })();
-
-  // DOM helpers
-  E.q = function (sel, root) { return (root || document).querySelector(sel); };
-  E.qa = function (sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); };
-
-  E.escapeHtml = function (s) {
-    return String(s).replace(/[&<>"']/g, function (c) {
-      return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c];
-    });
-  };
-
-  // Token storage
-  E.TOKEN_KEY = "eikon_token";
-
-  E.getToken = function () {
-    try { return String(window.localStorage.getItem(E.TOKEN_KEY) || ""); } catch (e) { return ""; }
-  };
-  E.setToken = function (t) {
-    try { window.localStorage.setItem(E.TOKEN_KEY, String(t || "")); } catch (e) {}
-  };
-  E.clearToken = function () {
-    try { window.localStorage.removeItem(E.TOKEN_KEY); } catch (e) {}
-  };
-
-  // API base (same-origin, because UI is served by the Worker)
-  E.apiBase = "";
-
-  // Fetch wrapper with heavy debugging
-  E.apiFetch = async function (path, options) {
-    var opts = options || {};
-    var method = (opts.method || "GET").toUpperCase();
-    var headers = new Headers(opts.headers || {});
-    var token = E.getToken();
-
-    if (!headers.has("Content-Type") && opts.body && typeof opts.body === "string") {
-      // Caller may already have JSON string
-      headers.set("Content-Type", "application/json");
-    }
-
-    if (token) headers.set("Authorization", "Bearer " + token);
-
-    var url = path;
-    if (!/^https?:\/\//i.test(path)) url = (E.apiBase || "") + path;
-
-    var reqInfo = {
-      method: method,
-      headers: {},
-      hasToken: !!token
-    };
-    try {
-      headers.forEach(function (v, k) { reqInfo.headers[k] = v; });
-    } catch (e) {}
-
-    if (E.DEBUG >= 2) {
-      E.dbg("[api] ->", url, reqInfo);
-      if (opts.body) E.dbg("[api] body ->", opts.body);
-    } else {
-      E.log("[api] ->", method, url);
-    }
-
-    var res, text, json;
-    try {
-      res = await fetch(url, {
-        method: method,
-        headers: headers,
-        body: opts.body || undefined
-      });
-    } catch (e2) {
-      E.error("[api] network error:", e2);
-      throw e2;
-    }
-
-    var ct = "";
-    try { ct = String(res.headers.get("Content-Type") || ""); } catch (e3) {}
-
-    try {
-      text = await res.text();
-    } catch (e4) {
-      text = "";
-    }
-
-    // Try parse JSON
-    json = null;
-    if (ct.toLowerCase().indexOf("application/json") >= 0) {
-      try { json = JSON.parse(text || "null"); } catch (e5) { json = null; }
-    } else {
-      // Sometimes your API may still return JSON without correct CT
-      try { json = JSON.parse(text || "null"); } catch (e6) { json = null; }
-    }
-
-    if (E.DEBUG >= 2) {
-      E.dbg("[api] <-", url, { status: res.status, ok: res.ok, ct: ct });
-      E.dbg("[api] resp <-", (json !== null ? json : text));
-    } else {
-      E.log("[api] <-", method, url, "status=" + res.status);
-    }
-
-    if (!res.ok) {
-      var err = new Error((json && json.error) ? json.error : ("HTTP " + res.status));
-      err.status = res.status;
-      err.bodyText = text;
-      err.bodyJson = json;
-      throw err;
-    }
-
-    return (json !== null ? json : { ok: true, text: text });
-  };
-
-  // Module registry
-  E.modules = E.modules || {};
-  E.registerModule = function (mod) {
-    if (!mod || !mod.id) throw new Error("Invalid module registration (missing id)");
-    E.modules[mod.id] = mod;
-    E.dbg("[core] module registered:", mod.id);
-  };
-
-  // UI mounts
-  E.state = {
-    user: null,
-    activeModuleId: "",
-    sidebarCollapsed: false,
-    started: false
-  };
-
+  // Root
   E.ensureRoot = function () {
     var root = document.getElementById("eikon-root");
     if (!root) {
@@ -237,126 +93,137 @@
     return root;
   };
 
-  // Fatal overlay (never silent black screen)
-  E.showFatalOverlay = function (title, details) {
+  // Simple state
+  E.state = E.state || {
+    token: null,
+    user: null,
+    module: null,
+    sidebarCollapsed: false
+  };
+
+  // Token
+  E.getToken = function () {
+    if (E.state.token) return E.state.token;
     try {
-      var overlay = document.getElementById("eikon-fatal-overlay");
-      if (!overlay) {
-        overlay = document.createElement("div");
-        overlay.id = "eikon-fatal-overlay";
-        overlay.style.position = "fixed";
-        overlay.style.inset = "0";
-        overlay.style.background = "rgba(0,0,0,.78)";
-        overlay.style.zIndex = "2147483647";
-        overlay.style.display = "flex";
-        overlay.style.alignItems = "center";
-        overlay.style.justifyContent = "center";
-        overlay.style.padding = "18px";
-        document.body.appendChild(overlay);
-      }
-      overlay.innerHTML =
-        '<div style="width:min(920px,100%);background:#111b2a;border:1px solid #263246;border-radius:18px;padding:14px;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#e9eef7;">' +
-        '<div style="font-weight:900;font-size:18px;margin-bottom:8px;">' + E.escapeHtml(title || "Eikon crashed") + "</div>" +
-        '<div style="opacity:.85;margin-bottom:10px;">Open DevTools Console for details. dbg=2 is recommended.</div>' +
-        '<pre style="white-space:pre-wrap;background:rgba(0,0,0,.25);padding:12px;border-radius:14px;border:1px solid #263246;margin:0;">' + E.escapeHtml(String(details || "")) + "</pre>" +
-        "</div>";
+      var t = window.localStorage.getItem("eikon_token");
+      if (t) E.state.token = String(t);
+    } catch (e) {}
+    return E.state.token;
+  };
+
+  E.setToken = function (tok) {
+    E.state.token = tok ? String(tok) : null;
+    try {
+      if (E.state.token) window.localStorage.setItem("eikon_token", E.state.token);
+      else window.localStorage.removeItem("eikon_token");
     } catch (e) {}
   };
 
-  // Modal helper
-  E.modal = (function () {
-    var overlay = null;
+  E.clearToken = function () { E.setToken(null); };
 
-    function ensure() {
-      if (overlay) return overlay;
-      overlay = document.createElement("div");
-      overlay.className = "eikon-modal-overlay";
-      overlay.innerHTML =
-        '<div class="eikon-modal">' +
-        '  <div class="eikon-modal-title" id="eikon-modal-title"></div>' +
-        '  <div id="eikon-modal-body"></div>' +
-        '  <div class="eikon-modal-actions" id="eikon-modal-actions"></div>' +
-        "</div>";
-      document.body.appendChild(overlay);
-      overlay.addEventListener("click", function (e) {
-        if (e.target === overlay) hide();
+  // API base
+  E.API_BASE = "https://eikon-api.labrint.workers.dev";
+
+  // Fetch helper
+  E.fetchJSON = function (path, opts) {
+    opts = opts || {};
+    var url = E.API_BASE + path;
+    var headers = opts.headers || {};
+    headers["Content-Type"] = "application/json";
+
+    var tok = E.getToken();
+    if (tok) headers["Authorization"] = "Bearer " + tok;
+
+    var fetchOpts = {
+      method: opts.method || "GET",
+      headers: headers,
+      body: opts.body ? JSON.stringify(opts.body) : undefined
+    };
+
+    return fetch(url, fetchOpts).then(function (res) {
+      return res.text().then(function (txt) {
+        var data = null;
+        try { data = txt ? JSON.parse(txt) : null; } catch (e) { data = null; }
+        if (!res.ok) {
+          var err = new Error("HTTP " + res.status);
+          err.status = res.status;
+          err.bodyText = txt;
+          err.body = data;
+          throw err;
+        }
+        return data;
       });
-      return overlay;
-    }
+    });
+  };
 
-    function show(title, bodyHtml, actions) {
-      var ov = ensure();
-      E.q("#eikon-modal-title", ov).textContent = title || "";
-      E.q("#eikon-modal-body", ov).innerHTML = bodyHtml || "";
-      var act = E.q("#eikon-modal-actions", ov);
-      act.innerHTML = "";
-      (actions || []).forEach(function (a) {
-        var btn = document.createElement("button");
-        btn.className = "eikon-btn" + (a.primary ? " primary" : "") + (a.danger ? " danger" : "");
-        btn.textContent = a.label || "OK";
-        btn.addEventListener("click", function () { a.onClick && a.onClick(); });
-        act.appendChild(btn);
-      });
-      ov.style.display = "flex";
-    }
+  // Auth
+  E.logout = function () {
+    E.clearToken();
+    E.state.user = null;
+    try { window.location.hash = ""; } catch (e) {}
+    E.renderLogin();
+  };
 
-    function hide() {
-      if (!overlay) return;
-      overlay.style.display = "none";
-    }
+  E.boot = function () {
+    var tok = E.getToken();
+    if (!tok) return E.renderLogin();
 
-    return { show: show, hide: hide };
-  })();
+    // Try boot as authed
+    E.bootAuthed().catch(function (err) {
+      E.error("[boot] authed boot failed:", err);
+      E.clearToken();
+      E.state.user = null;
+      E.renderLogin(String(err && (err.message || err.bodyText || err)));
+    });
+  };
+
+  E.bootAuthed = function () {
+    return E.fetchJSON("/api/me", { method: "GET" }).then(function (me) {
+      E.state.user = me || null;
+      E.renderShell();
+      E.route();
+      E.startHashListener();
+    });
+  };
 
   // Login UI
-  E.renderLogin = function (errorText) {
+  E.renderLogin = function (errMsg) {
     var root = E.ensureRoot();
     root.innerHTML =
       '<div class="eikon-login">' +
       '  <div class="eikon-login-card">' +
       '    <div class="eikon-login-title">Eikon</div>' +
-      '    <div class="eikon-login-sub">Sign in to continue</div>' +
-      '    <div class="eikon-row">' +
-      '      <div class="eikon-field" style="flex:1;min-width:220px;">' +
-      '        <div class="eikon-label">Email</div>' +
-      '        <input class="eikon-input" id="eikon-login-email" type="email" autocomplete="username" />' +
-      "      </div>" +
-      '      <div class="eikon-field" style="flex:1;min-width:220px;">' +
-      '        <div class="eikon-label">Password</div>' +
-      '        <input class="eikon-input" id="eikon-login-pass" type="password" autocomplete="current-password" />' +
-      "      </div>" +
+      '    <div class="eikon-login-sub">Sign in</div>' +
+      (errMsg ? ('<div class="eikon-login-error">' + E.escapeHtml(errMsg) + "</div>") : "") +
+      '    <div class="eikon-login-row">' +
+      '      <label>Email</label>' +
+      '      <input id="eikon-login-email" type="email" autocomplete="username" />' +
       "    </div>" +
-      '    <div class="eikon-row" style="margin-top:12px;justify-content:flex-end;">' +
-      '      <button class="eikon-btn primary" id="eikon-login-btn">Login</button>' +
+      '    <div class="eikon-login-row">' +
+      '      <label>Password</label>' +
+      '      <input id="eikon-login-pass" type="password" autocomplete="current-password" />' +
       "    </div>" +
-      (errorText ? ('<div class="eikon-alert">' + E.escapeHtml(errorText) + "</div>") : "") +
-      '    <div class="eikon-help" style="margin-top:10px;">Tip: add <span class="eikon-pill">dbg=2</span> to see verbose logs.</div>' +
+      '    <button class="eikon-btn primary" id="eikon-login-btn">Login</button>' +
       "  </div>" +
       "</div>";
 
+    var btn = document.getElementById("eikon-login-btn");
     var emailEl = document.getElementById("eikon-login-email");
     var passEl = document.getElementById("eikon-login-pass");
-    var btn = document.getElementById("eikon-login-btn");
-
-    if (emailEl) emailEl.focus();
 
     function doLogin() {
-      var email = (emailEl ? emailEl.value : "").trim().toLowerCase();
-      var pass = (passEl ? passEl.value : "").trim();
-      E.dbg("[auth] login attempt:", email);
-
+      var email = emailEl ? String(emailEl.value || "").trim() : "";
+      var pass = passEl ? String(passEl.value || "") : "";
       if (!email || !pass) {
-        E.renderLogin("Missing email or password");
+        E.renderLogin("Email and password required");
         return;
       }
 
-      btn.disabled = true;
-      btn.textContent = "Logging in…";
+      try { btn.disabled = true; btn.textContent = "Signing in…"; } catch (e) {}
 
-      E.apiFetch("/auth/login", {
+      E.fetchJSON("/api/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email, password: pass })
+        body: { email: email, password: pass }
       })
         .then(function (resp) {
           if (!resp || !resp.ok || !resp.token) throw new Error("Login failed (no token)");
@@ -407,6 +274,8 @@
       '      <div class="eikon-user">' +
       '        <span id="eikon-user-label"></span>' +
       '        <button class="eikon-btn" id="eikon-logout-btn">Logout</button>' +
+      '        <button class="eikon-btn eikon-btn-icon" id="eikon-embed-expand-btn" type="button" title="Fullscreen" aria-label="Fullscreen">⤢</button>' +
+      '        <button class="eikon-btn eikon-btn-icon" id="eikon-embed-popout-btn" type="button" title="Open in new tab" aria-label="Open in new tab">↗</button>' +
       "      </div>" +
       "    </div>" +
       '    <div class="eikon-content" id="eikon-content"></div>' +
@@ -432,6 +301,92 @@
         E.logout();
       });
     }
+
+    // Embed controls (fullscreen + popout)
+    var expandEmbedBtn = document.getElementById("eikon-embed-expand-btn");
+    var popoutEmbedBtn = document.getElementById("eikon-embed-popout-btn");
+
+    function _fsEl() {
+      return document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement || null;
+    }
+    function _isFs() { return !!_fsEl(); }
+
+    function _reqFs(el) {
+      el = el || document.documentElement;
+      var req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+      if (!req) return Promise.reject(new Error("fullscreen API not available"));
+      try {
+        var out = req.call(el);
+        if (out && typeof out.then === "function") return out;
+        return Promise.resolve();
+      } catch (e) {
+        return Promise.reject(e);
+      }
+    }
+
+    function _exitFs() {
+      var exit = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+      if (!exit) return Promise.resolve();
+      try {
+        var out = exit.call(document);
+        if (out && typeof out.then === "function") return out;
+        return Promise.resolve();
+      } catch (e) {
+        return Promise.reject(e);
+      }
+    }
+
+    function _updateEmbedIcons() {
+      if (!expandEmbedBtn) return;
+      if (_isFs()) {
+        expandEmbedBtn.textContent = "⤡";
+        expandEmbedBtn.title = "Exit fullscreen";
+        expandEmbedBtn.setAttribute("aria-label", "Exit fullscreen");
+      } else {
+        expandEmbedBtn.textContent = "⤢";
+        expandEmbedBtn.title = "Fullscreen";
+        expandEmbedBtn.setAttribute("aria-label", "Fullscreen");
+      }
+    }
+
+    function _openPopout() {
+      var href = "";
+      try { href = String(window.location.href || ""); } catch (e) { href = ""; }
+      if (!href) return;
+
+      try {
+        window.open(href, "_blank", "noopener,noreferrer");
+      } catch (e2) {
+        try { window.location.href = href; } catch (e3) {}
+      }
+    }
+
+    if (expandEmbedBtn) {
+      expandEmbedBtn.addEventListener("click", function (e) {
+        try { e.preventDefault(); e.stopPropagation(); } catch (e2) {}
+
+        // Toggle fullscreen. If blocked (common in sandboxed builders), fall back to popout.
+        if (_isFs()) {
+          _exitFs().then(_updateEmbedIcons, _updateEmbedIcons);
+        } else {
+          _reqFs(document.documentElement)
+            .then(_updateEmbedIcons)
+            .catch(function () { _openPopout(); });
+        }
+      });
+    }
+
+    if (popoutEmbedBtn) {
+      popoutEmbedBtn.addEventListener("click", function (e) {
+        try { e.preventDefault(); e.stopPropagation(); } catch (e2) {}
+        _openPopout();
+      });
+    }
+
+    document.addEventListener("fullscreenchange", _updateEmbedIcons);
+    document.addEventListener("webkitfullscreenchange", _updateEmbedIcons);
+    document.addEventListener("msfullscreenchange", _updateEmbedIcons);
+    _updateEmbedIcons();
 
     // Nav
     E.renderNav();
@@ -473,117 +428,159 @@
   };
 
   E.highlightNav = function () {
-    var active = E.state.activeModuleId || "";
-    var btns = E.qa(".eikon-nav-btn", document);
-    btns.forEach(function (b) {
-      var id = b.getAttribute("data-mod") || "";
-      b.classList.toggle("active", id === active);
-    });
+    var nav = document.getElementById("eikon-nav");
+    if (!nav) return;
+
+    var active = (E.state.module || "").toLowerCase();
+    var btns = nav.querySelectorAll(".eikon-nav-btn");
+    for (var i = 0; i < btns.length; i++) {
+      var b = btns[i];
+      var mod = String(b.getAttribute("data-mod") || "").toLowerCase();
+      b.classList.toggle("active", mod === active);
+    }
   };
 
-  E.logout = function () {
-    E.dbg("[auth] logout");
-    E.clearToken();
-    E.state.user = null;
-    E.state.activeModuleId = "";
-    E.renderLogin();
-  };
+  E.route = function () {
+    var hash = "";
+    try { hash = String(window.location.hash || ""); } catch (e) { hash = ""; }
+    hash = hash.replace(/^#/, "").trim();
 
-  E.getHashModuleId = function () {
-    var h = String(window.location.hash || "").replace(/^#/, "").trim();
-    if (!h) return "temperature";
-    return h;
-  };
-
-  E.renderActiveModule = async function () {
-    var content = document.getElementById("eikon-content");
-    if (!content) throw new Error("Missing #eikon-content mount");
-
-    var id = E.getHashModuleId();
-    if (!E.modules[id]) {
-      E.warn("[router] unknown module:", id, "falling back to temperature");
-      id = "temperature";
-      window.location.hash = "#temperature";
+    if (!hash) {
+      // default module
+      hash = "temperature";
+      try { window.location.hash = "#" + hash; } catch (e2) {}
     }
 
-    E.state.activeModuleId = id;
+    var mod = E.modules && E.modules[hash];
+    if (!mod) {
+      E.warn("[route] unknown module:", hash);
+      E.renderNotFound(hash);
+      return;
+    }
+
+    E.state.module = hash;
+
+    var titleEl = document.getElementById("eikon-page-title");
+    if (titleEl) titleEl.textContent = mod.title || hash;
+
+    var userEl = document.getElementById("eikon-user-label");
+    if (userEl) {
+      var u = E.state.user || {};
+      var label = "";
+      if (u.name) label = String(u.name);
+      else if (u.email) label = String(u.email);
+      else label = "User";
+      userEl.textContent = label;
+    }
+
     E.highlightNav();
+    E.renderModule(mod);
+  };
 
-    var pageTitle = document.getElementById("eikon-page-title");
-    if (pageTitle) pageTitle.textContent = (E.modules[id].title || id);
+  E.renderNotFound = function (hash) {
+    var content = document.getElementById("eikon-content");
+    if (!content) return;
+    content.innerHTML =
+      '<div class="eikon-card">' +
+      '  <div class="eikon-card-title">Not found</div>' +
+      '  <div class="eikon-muted">Unknown module: <b>' + E.escapeHtml(hash) + "</b></div>" +
+      "</div>";
+  };
 
-    // user label
-    var userLabel = document.getElementById("eikon-user-label");
-    if (userLabel) {
-      var u = E.state.user;
-      userLabel.textContent = u ? (u.full_name + " • " + u.location_name) : "";
-    }
-
-    // render module
-    content.innerHTML = "";
-    E.dbg("[router] render module:", id);
+  E.renderModule = function (mod) {
+    var content = document.getElementById("eikon-content");
+    if (!content) return;
 
     try {
-      await E.modules[id].render({
-        E: E,
-        mount: content,
-        user: E.state.user
-      });
-    } catch (err) {
-      E.error("[router] module render error:", err);
-      var msg = String(err && (err.stack || err.message || err));
+      if (typeof mod.render === "function") mod.render(content);
+      else {
+        content.innerHTML =
+          '<div class="eikon-card">' +
+          '  <div class="eikon-card-title">' + E.escapeHtml(mod.title || mod.id) + "</div>" +
+          '  <div class="eikon-muted">This module has no render() function.</div>' +
+          "</div>";
+      }
+    } catch (e) {
+      E.error("[module] render error:", e);
       content.innerHTML =
         '<div class="eikon-card">' +
-        '  <div style="font-weight:900;font-size:16px;color:var(--danger);margin-bottom:8px;">Module crashed: ' + E.escapeHtml(id) + "</div>" +
-        '  <pre style="white-space:pre-wrap;margin:0;background:rgba(0,0,0,.25);padding:12px;border-radius:14px;border:1px solid var(--border);">' +
-        E.escapeHtml(msg) +
-        "</pre>" +
+        '  <div class="eikon-card-title" style="color:#ff5a7a;">Module crashed</div>' +
+        '  <div class="eikon-muted">' + E.escapeHtml(String(e && (e.stack || e.message || e))) + "</div>" +
         "</div>";
     }
   };
 
-  E.bootAuthed = async function () {
-    E.renderShell();
-    await E.renderActiveModule();
-  };
+  E.startHashListener = function () {
+    if (E.__hashListenerStarted) return;
+    E.__hashListenerStarted = true;
 
-  E.start = async function () {
-    if (E.state.started) return;
-    E.state.started = true;
-
-    E.dbg("[core] start()");
-
-    // If hash missing, default
-    if (!window.location.hash) window.location.hash = "#temperature";
-
-    // Router
     window.addEventListener("hashchange", function () {
-      E.dbg("[router] hashchange:", window.location.hash);
-      if (!E.state.user) return; // if not logged, ignore
-      E.renderActiveModule();
+      E.route();
     });
+  };
 
-    // Try authed boot
-    var token = E.getToken();
-    if (!token) {
-      E.dbg("[auth] no token -> login screen");
-      E.renderLogin();
-      return;
-    }
+  // Modules registry
+  E.modules = E.modules || {};
 
-    E.dbg("[auth] token present, checking /auth/me …");
+  E.registerModule = function (id, def) {
+    if (!id) return;
+    def = def || {};
+    def.id = id;
+    E.modules[id] = def;
+  };
+
+  // Helpers
+  E.escapeHtml = function (s) {
+    s = String(s == null ? "" : s);
+    return s
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  };
+
+  E.fmtDate = function (d) {
     try {
-      var me = await E.apiFetch("/auth/me", { method: "GET" });
-      if (!me || !me.ok || !me.user) throw new Error("Invalid /auth/me response");
-      E.state.user = me.user;
-      E.dbg("[auth] /auth/me OK:", me.user);
-      await E.bootAuthed();
-    } catch (err) {
-      E.error("[auth] /auth/me failed:", err);
-      E.clearToken();
-      E.state.user = null;
-      E.renderLogin("Session invalid. Please login again.\n" + String(err && (err.message || err.bodyText || err)));
+      if (!d) return "";
+      var dd = new Date(d);
+      if (isNaN(dd.getTime())) return "";
+      return dd.toISOString().slice(0, 10);
+    } catch (e) {
+      return "";
     }
   };
+
+  E.fmtTime = function (d) {
+    try {
+      if (!d) return "";
+      var dd = new Date(d);
+      if (isNaN(dd.getTime())) return "";
+      return dd.toISOString().slice(11, 16);
+    } catch (e) {
+      return "";
+    }
+  };
+
+  E.fmtDT = function (d) {
+    try {
+      if (!d) return "";
+      var dd = new Date(d);
+      if (isNaN(dd.getTime())) return "";
+      return dd.toISOString().replace("T", " ").slice(0, 16);
+    } catch (e) {
+      return "";
+    }
+  };
+
+  // Boot on DOM ready
+  function onReady(fn) {
+    if (document.readyState === "complete" || document.readyState === "interactive") fn();
+    else document.addEventListener("DOMContentLoaded", fn);
+  }
+
+  onReady(function () {
+    try { E.boot(); } catch (e) { E.error("[boot] crash:", e); }
+  });
 
 })();
