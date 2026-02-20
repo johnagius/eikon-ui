@@ -7,7 +7,7 @@
 
   // Basic identity
   E.APP_NAME = "Eikon";
-  E.VERSION = "2026-02-20-04";
+  E.VERSION = "2026-02-20-05";
 
   // Splash / loading assets (static files under /ui/assets/)
   // Put these two files in: ui/assets/
@@ -17,6 +17,18 @@
     logoUrl: "./assets/eikon-logo.png?v=" + encodeURIComponent(E.VERSION),
     introGifUrl: "./assets/eikon-intro.gif?v=" + encodeURIComponent(E.VERSION),
     introMs: 4930
+  };
+
+  // Intro can be disabled by adding ?intro=0 to the iframe URL
+  E.isIntroEnabled = function () {
+    try {
+      var u = new URL(window.location.href);
+      var v = String(u.searchParams.get("intro") || "").trim().toLowerCase();
+      if (v === "0" || v === "false" || v === "off" || v === "no") return false;
+      return true;
+    } catch (e) {
+      return true;
+    }
   };
 
   // Play GIF then swap to static image (prevents looping forever)
@@ -54,22 +66,30 @@
   // Intro overlay: show GIF once at boot, keep it visible for introMs minimum,
   // and only remove after BOTH:
   //   - introMs elapsed
-  //   - first module render completed
+  //   - first screen (login OR first module render) completed
   E._intro = null;
 
   E.showIntroOverlayOnce = function () {
     try {
+      if (!E.isIntroEnabled()) return;
       if (E._intro && E._intro.active) return;
+
+      if (!document.body) {
+        document.addEventListener("DOMContentLoaded", function () {
+          try { E.showIntroOverlayOnce(); } catch (e) {}
+        }, { once: true });
+        return;
+      }
 
       E._intro = {
         active: true,
         minDone: false,
-        moduleDone: false,
+        screenDone: false,
         overlay: null,
         hideIfReady: function () {
           try {
             if (!E._intro || !E._intro.active) return;
-            if (!(E._intro.minDone && E._intro.moduleDone)) return;
+            if (!(E._intro.minDone && E._intro.screenDone)) return;
             if (E._intro.overlay && E._intro.overlay.parentNode) {
               E._intro.overlay.parentNode.removeChild(E._intro.overlay);
             }
@@ -83,13 +103,12 @@
       ov.style.position = "fixed";
       ov.style.inset = "0";
       ov.style.zIndex = "2147483646";
-      ov.style.background = "rgba(11,15,20,0.92)"; // matches app dark bg
+      ov.style.background = "rgba(11,15,20,0.92)";
       ov.style.display = "flex";
       ov.style.alignItems = "center";
       ov.style.justifyContent = "center";
       ov.style.padding = "18px";
 
-      // Center GIF
       var img = document.createElement("img");
       img.id = "eikon-intro-gif";
       img.alt = "Eikon";
@@ -98,7 +117,6 @@
       img.style.display = "block";
       img.style.filter = "drop-shadow(0 10px 40px rgba(0,0,0,.55))";
 
-      // Debug: surface missing asset problems
       img.addEventListener("error", function () {
         try { E.warn("[splash] intro gif failed to load:", E.SPLASH.introGifUrl); } catch (e) {}
       });
@@ -120,13 +138,16 @@
     } catch (e2) {}
   };
 
-  E.markIntroModuleDone = function () {
+  E.markIntroScreenDone = function () {
     try {
       if (!E._intro) return;
-      E._intro.moduleDone = true;
+      E._intro.screenDone = true;
       E._intro.hideIfReady();
     } catch (e) {}
   };
+
+  // ---- show intro as early as possible (covers the PWA's own "UI loading" text) ----
+  try { E.showIntroOverlayOnce(); } catch (eEarly) {}
 
   // Debug level: 0 none, 1 normal, 2 verbose
   (function initDebug() {
@@ -135,9 +156,11 @@
     var dbgParam = url ? (url.searchParams.get("dbg") || "") : "";
     var lsDbg = "";
     try { lsDbg = String(window.localStorage.getItem("eikon_dbg") || ""); } catch (e2) {}
+
     var dbg = 0;
     if (dbgParam) dbg = parseInt(dbgParam, 10) || 0;
     else if (lsDbg) dbg = parseInt(lsDbg, 10) || 0;
+
     E.DEBUG = dbg;
     if (dbgParam) {
       try { window.localStorage.setItem("eikon_dbg", String(dbg)); } catch (e3) {}
@@ -452,6 +475,9 @@
     if (btn) btn.addEventListener("click", doLogin);
     if (passEl) passEl.addEventListener("keydown", function (e) { if (e.key === "Enter") doLogin(); });
     if (emailEl) emailEl.addEventListener("keydown", function (e) { if (e.key === "Enter") doLogin(); });
+
+    // Login is a "screen done" condition for the intro
+    E.markIntroScreenDone();
   };
 
   // Shell + Router
@@ -663,14 +689,11 @@
   E.bootAuthed = async function () {
     E.renderShell();
 
-    // Show intro overlay once (GIF once, no looping)
-    E.showIntroOverlayOnce();
-
-    // Render module, then mark module done so overlay can hide after introMs
+    // Render module, then mark "screen done" so overlay can hide after introMs
     try {
       await E.renderActiveModule();
     } finally {
-      E.markIntroModuleDone();
+      E.markIntroScreenDone();
     }
   };
 
@@ -678,6 +701,9 @@
     if (E.state.started) return;
     E.state.started = true;
     E.dbg("[core] start()");
+
+    // Ensure intro exists (safe / idempotent)
+    try { E.showIntroOverlayOnce(); } catch (e) {}
 
     // If hash missing, default
     if (!window.location.hash) window.location.hash = "#temperature";
