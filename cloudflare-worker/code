@@ -7619,6 +7619,649 @@ async function handleInstructionsDailyPut(request, env, corsOkHeaders, authUser)
 
 
 
+
+
+// ============================================================
+// Scarce Stock
+// ============================================================
+async function ensureScarceStockSchema(env) {
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS scarce_stock_offers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id INTEGER NOT NULL,
+    location_id INTEGER NOT NULL,
+    entry_date TEXT NOT NULL,
+    item_name TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    batch TEXT NOT NULL DEFAULT '',
+    expiry_date TEXT,
+    quantity_available INTEGER NOT NULL DEFAULT 0,
+    is_closed INTEGER NOT NULL DEFAULT 0,
+    created_by INTEGER,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_by INTEGER
+  )`, []);
+
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS scarce_stock_offer_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    offer_id INTEGER NOT NULL,
+    requester_org_id INTEGER NOT NULL,
+    requester_location_id INTEGER NOT NULL,
+    quantity_requested INTEGER NOT NULL DEFAULT 0,
+    note TEXT NOT NULL DEFAULT '',
+    created_by INTEGER,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_by INTEGER
+  )`, []);
+
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS scarce_stock_needs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id INTEGER NOT NULL,
+    location_id INTEGER NOT NULL,
+    entry_date TEXT NOT NULL,
+    item_name TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    needed_by TEXT,
+    quantity_needed INTEGER NOT NULL DEFAULT 0,
+    is_closed INTEGER NOT NULL DEFAULT 0,
+    created_by INTEGER,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_by INTEGER
+  )`, []);
+
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS scarce_stock_need_offers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    need_id INTEGER NOT NULL,
+    offerer_org_id INTEGER NOT NULL,
+    offerer_location_id INTEGER NOT NULL,
+    quantity_offered INTEGER NOT NULL DEFAULT 0,
+    note TEXT NOT NULL DEFAULT '',
+    created_by INTEGER,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_by INTEGER
+  )`, []);
+
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_ss_offers_org_loc_date ON scarce_stock_offers (org_id, location_id, entry_date)", []);
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_ss_offers_item ON scarce_stock_offers (item_name)", []);
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_ss_offer_requests_offer ON scarce_stock_offer_requests (offer_id)", []);
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_ss_offer_requests_req_loc ON scarce_stock_offer_requests (requester_org_id, requester_location_id)", []);
+
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_ss_needs_org_loc_date ON scarce_stock_needs (org_id, location_id, entry_date)", []);
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_ss_needs_item ON scarce_stock_needs (item_name)", []);
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_ss_need_offers_need ON scarce_stock_need_offers (need_id)", []);
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_ss_need_offers_offer_loc ON scarce_stock_need_offers (offerer_org_id, offerer_location_id)", []);
+}
+
+function ssIntNonNeg(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return null;
+  const i = Math.floor(n);
+  return i < 0 ? null : i;
+}
+function ssText(v, max) {
+  let s = String(v ?? "").trim();
+  if (max && s.length > max) s = s.slice(0, max);
+  return s;
+}
+function ssBool01(v) { return (v === 1 || v === "1" || v === true) ? 1 : 0; }
+
+function ssCanSeeSensitive(authUser, aOrg, aLoc, bOrg, bLoc) {
+  const uOrg = authUser.org_id, uLoc = authUser.location_id;
+  const isA = (uOrg === aOrg && uLoc === aLoc);
+  const isB = (uOrg === bOrg && uLoc === bLoc);
+  return isA || isB;
+}
+
+// ----- Offers list
+async function handleScarceOffersList(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureScarceStockSchema(env);
+
+  const offersBase = await dbAll(env, `
+    SELECT
+      o.id, o.org_id, o.location_id, o.entry_date, o.item_name, o.description, o.batch, o.expiry_date,
+      o.quantity_available, o.is_closed,
+      org.name AS org_name,
+      loc.name AS location_name,
+      COALESCE(SUM(r.quantity_requested), 0) AS total_requested
+    FROM scarce_stock_offers o
+    JOIN orgs org ON org.id = o.org_id
+    JOIN locations loc ON loc.id = o.location_id
+    LEFT JOIN scarce_stock_offer_requests r ON r.offer_id = o.id
+    GROUP BY o.id
+    ORDER BY o.is_closed ASC, o.entry_date DESC, o.id DESC
+  `, []);
+
+  const offerIds = offersBase.map(x => Number(x.id)).filter(n => Number.isFinite(n) && n > 0);
+  let reqRows = [];
+  if (offerIds.length) {
+    const qs = offerIds.map(() => "?").join(",");
+    reqRows = await dbAll(env, `
+      SELECT
+        r.id, r.offer_id, r.requester_org_id, r.requester_location_id, r.quantity_requested, r.note,
+        org.name AS requester_org_name,
+        loc.name AS requester_location_name
+      FROM scarce_stock_offer_requests r
+      JOIN orgs org ON org.id = r.requester_org_id
+      JOIN locations loc ON loc.id = r.requester_location_id
+      WHERE r.offer_id IN (${qs})
+      ORDER BY r.created_at ASC, r.id ASC
+    `, offerIds);
+  }
+
+  const reqByOffer = new Map();
+  for (const rr of reqRows) {
+    const oid = Number(rr.offer_id);
+    if (!reqByOffer.has(oid)) reqByOffer.set(oid, []);
+    reqByOffer.get(oid).push(rr);
+  }
+
+  const offers = [];
+  for (const o of offersBase) {
+    const mineOwner = (authUser.org_id === o.org_id && authUser.location_id === o.location_id);
+    const requestsIn = reqByOffer.get(Number(o.id)) || [];
+    const requestsOut = [];
+
+    for (const rr of requestsIn) {
+      const canSee = ssCanSeeSensitive(
+        authUser,
+        Number(o.org_id), Number(o.location_id),
+        Number(rr.requester_org_id), Number(rr.requester_location_id)
+      );
+      const mine = (authUser.org_id === rr.requester_org_id && authUser.location_id === rr.requester_location_id);
+
+      requestsOut.push({
+        id: rr.id,
+        offer_id: rr.offer_id,
+        quantity_requested: Number(rr.quantity_requested || 0),
+        is_private: canSee ? 0 : 1,
+        requester_display: canSee ? ((rr.requester_org_name || "") + " — " + (rr.requester_location_name || "")) : "",
+        note: canSee ? (rr.note || "") : "",
+        mine: mine ? 1 : 0
+      });
+    }
+
+    offers.push({
+      id: o.id,
+      org_id: o.org_id,
+      org_name: o.org_name || "",
+      location_id: o.location_id,
+      location_name: o.location_name || "",
+      entry_date: o.entry_date,
+      item_name: o.item_name,
+      description: o.description || "",
+      batch: o.batch || "",
+      expiry_date: o.expiry_date || null,
+      quantity_available: Number(o.quantity_available || 0),
+      is_closed: Number(o.is_closed || 0),
+      total_requested: Number(o.total_requested || 0),
+      remaining_quantity: Number(o.quantity_available || 0) - Number(o.total_requested || 0),
+      mine_owner: mineOwner ? 1 : 0,
+      requests: requestsOut
+    });
+  }
+
+  return jsonResponse({ ok: true, offers }, 200, corsOkHeaders);
+}
+
+// ----- Offers create/update/delete
+async function handleScarceOfferCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureScarceStockSchema(env);
+
+  const body = await readJson(request);
+  const entry_date = ssText(body.entry_date, 40);
+  const item_name = ssText(body.item_name, 220);
+  const description = ssText(body.description, 2000);
+  const batch = ssText(body.batch, 120);
+  const expiry_date = ssText(body.expiry_date, 40);
+  const qty = ssIntNonNeg(body.quantity_available);
+  const is_closed = ssBool01(body.is_closed);
+
+  if (!isValidYmd(entry_date)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (!item_name) return jsonResponse({ ok: false, error: "Missing item_name" }, 400, corsOkHeaders);
+  if (expiry_date && !isValidYmd(expiry_date)) return jsonResponse({ ok: false, error: "Invalid expiry_date (YYYY-MM-DD or empty)" }, 400, corsOkHeaders);
+  if (qty === null) return jsonResponse({ ok: false, error: "Invalid quantity_available (>= 0)" }, 400, corsOkHeaders);
+
+  const res = await dbRun(env, `
+    INSERT INTO scarce_stock_offers
+      (org_id, location_id, entry_date, item_name, description, batch, expiry_date, quantity_available, is_closed, created_by, created_at, updated_at, updated_by)
+    VALUES
+      (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), ?)
+  `, [
+    authUser.org_id, authUser.location_id,
+    entry_date, item_name, description, batch,
+    expiry_date || null,
+    qty, is_closed ? 1 : 0,
+    authUser.user_id, authUser.user_id
+  ]);
+
+  const insertedId = res?.meta?.last_row_id || null;
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_OFFER_CREATE", "scarce_stock_offers", String(insertedId || ""), { item_name, quantity_available: qty });
+  return jsonResponse({ ok: true, id: insertedId }, 200, corsOkHeaders);
+}
+
+async function handleScarceOfferUpdate(request, env, corsOkHeaders, authUser, offerId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureScarceStockSchema(env);
+
+  const id = Number(offerId);
+  if (!Number.isFinite(id) || id <= 0) return jsonResponse({ ok: false, error: "Invalid offer id" }, 400, corsOkHeaders);
+
+  const existing = await dbFirst(env, `SELECT id, org_id, location_id FROM scarce_stock_offers WHERE id = ?`, [id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  if (!(existing.org_id === authUser.org_id && existing.location_id === authUser.location_id)) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  const body = await readJson(request);
+  const entry_date = ssText(body.entry_date, 40);
+  const item_name = ssText(body.item_name, 220);
+  const description = ssText(body.description, 2000);
+  const batch = ssText(body.batch, 120);
+  const expiry_date = ssText(body.expiry_date, 40);
+  const qty = ssIntNonNeg(body.quantity_available);
+  const is_closed = ssBool01(body.is_closed);
+
+  if (!isValidYmd(entry_date)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (!item_name) return jsonResponse({ ok: false, error: "Missing item_name" }, 400, corsOkHeaders);
+  if (expiry_date && !isValidYmd(expiry_date)) return jsonResponse({ ok: false, error: "Invalid expiry_date (YYYY-MM-DD or empty)" }, 400, corsOkHeaders);
+  if (qty === null) return jsonResponse({ ok: false, error: "Invalid quantity_available (>= 0)" }, 400, corsOkHeaders);
+
+  await dbRun(env, `
+    UPDATE scarce_stock_offers
+    SET entry_date = ?, item_name = ?, description = ?, batch = ?, expiry_date = ?, quantity_available = ?, is_closed = ?,
+        updated_at = datetime('now'), updated_by = ?
+    WHERE id = ?
+  `, [
+    entry_date, item_name, description, batch, (expiry_date || null), qty, (is_closed ? 1 : 0),
+    authUser.user_id, id
+  ]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_OFFER_UPDATE", "scarce_stock_offers", String(id), { item_name, quantity_available: qty, is_closed: is_closed ? 1 : 0 });
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleScarceOfferDelete(request, env, corsOkHeaders, authUser, offerId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureScarceStockSchema(env);
+
+  const id = Number(offerId);
+  if (!Number.isFinite(id) || id <= 0) return jsonResponse({ ok: false, error: "Invalid offer id" }, 400, corsOkHeaders);
+
+  const existing = await dbFirst(env, `SELECT id, org_id, location_id, item_name FROM scarce_stock_offers WHERE id = ?`, [id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  if (!(existing.org_id === authUser.org_id && existing.location_id === authUser.location_id)) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await dbRun(env, `DELETE FROM scarce_stock_offer_requests WHERE offer_id = ?`, [id]);
+  await dbRun(env, `DELETE FROM scarce_stock_offers WHERE id = ?`, [id]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_OFFER_DELETE", "scarce_stock_offers", String(id), { item_name: existing.item_name || "" });
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+// ----- Offer requests (create/update/delete)
+async function handleScarceOfferRequestCreate(request, env, corsOkHeaders, authUser, offerId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureScarceStockSchema(env);
+
+  const id = Number(offerId);
+  if (!Number.isFinite(id) || id <= 0) return jsonResponse({ ok: false, error: "Invalid offer id" }, 400, corsOkHeaders);
+
+  const offer = await dbFirst(env, `SELECT id, is_closed FROM scarce_stock_offers WHERE id = ?`, [id]);
+  if (!offer) return jsonResponse({ ok: false, error: "Offer not found" }, 404, corsOkHeaders);
+  if (Number(offer.is_closed || 0) === 1) return jsonResponse({ ok: false, error: "Offer is closed" }, 400, corsOkHeaders);
+
+  const body = await readJson(request);
+  const qty = ssIntNonNeg(body.quantity_requested);
+  const note = ssText(body.note, 4000);
+
+  if (qty === null || qty <= 0) return jsonResponse({ ok: false, error: "Invalid quantity_requested (>= 1)" }, 400, corsOkHeaders);
+
+  const res = await dbRun(env, `
+    INSERT INTO scarce_stock_offer_requests
+      (offer_id, requester_org_id, requester_location_id, quantity_requested, note, created_by, created_at, updated_at, updated_by)
+    VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), ?)
+  `, [
+    id, authUser.org_id, authUser.location_id,
+    qty, note,
+    authUser.user_id, authUser.user_id
+  ]);
+
+  const insertedId = res?.meta?.last_row_id || null;
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_REQUEST_CREATE", "scarce_stock_offer_requests", String(insertedId || ""), { offer_id: id, quantity_requested: qty });
+  return jsonResponse({ ok: true, id: insertedId }, 200, corsOkHeaders);
+}
+
+async function handleScarceOfferRequestUpdate(request, env, corsOkHeaders, authUser, requestId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureScarceStockSchema(env);
+
+  const id = Number(requestId);
+  if (!Number.isFinite(id) || id <= 0) return jsonResponse({ ok: false, error: "Invalid request id" }, 400, corsOkHeaders);
+
+  const existing = await dbFirst(env, `SELECT id, requester_org_id, requester_location_id FROM scarce_stock_offer_requests WHERE id = ?`, [id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  if (!(existing.requester_org_id === authUser.org_id && existing.requester_location_id === authUser.location_id)) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  const body = await readJson(request);
+  const qty = ssIntNonNeg(body.quantity_requested);
+  const note = ssText(body.note, 4000);
+
+  if (qty === null || qty <= 0) return jsonResponse({ ok: false, error: "Invalid quantity_requested (>= 1)" }, 400, corsOkHeaders);
+
+  await dbRun(env, `
+    UPDATE scarce_stock_offer_requests
+    SET quantity_requested = ?, note = ?, updated_at = datetime('now'), updated_by = ?
+    WHERE id = ?
+  `, [qty, note, authUser.user_id, id]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_REQUEST_UPDATE", "scarce_stock_offer_requests", String(id), { quantity_requested: qty });
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleScarceOfferRequestDelete(request, env, corsOkHeaders, authUser, requestId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureScarceStockSchema(env);
+
+  const id = Number(requestId);
+  if (!Number.isFinite(id) || id <= 0) return jsonResponse({ ok: false, error: "Invalid request id" }, 400, corsOkHeaders);
+
+  const existing = await dbFirst(env, `SELECT id, requester_org_id, requester_location_id, offer_id FROM scarce_stock_offer_requests WHERE id = ?`, [id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  if (!(existing.requester_org_id === authUser.org_id && existing.requester_location_id === authUser.location_id)) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await dbRun(env, `DELETE FROM scarce_stock_offer_requests WHERE id = ?`, [id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_REQUEST_DELETE", "scarce_stock_offer_requests", String(id), { offer_id: existing.offer_id });
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+// ----- Needs list
+async function handleScarceNeedsList(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureScarceStockSchema(env);
+
+  const needsBase = await dbAll(env, `
+    SELECT
+      n.id, n.org_id, n.location_id, n.entry_date, n.item_name, n.description, n.needed_by,
+      n.quantity_needed, n.is_closed,
+      org.name AS org_name,
+      loc.name AS location_name,
+      COALESCE(SUM(o.quantity_offered), 0) AS total_offered
+    FROM scarce_stock_needs n
+    JOIN orgs org ON org.id = n.org_id
+    JOIN locations loc ON loc.id = n.location_id
+    LEFT JOIN scarce_stock_need_offers o ON o.need_id = n.id
+    GROUP BY n.id
+    ORDER BY n.is_closed ASC, n.entry_date DESC, n.id DESC
+  `, []);
+
+  const needIds = needsBase.map(x => Number(x.id)).filter(n => Number.isFinite(n) && n > 0);
+  let offRows = [];
+  if (needIds.length) {
+    const qs = needIds.map(() => "?").join(",");
+    offRows = await dbAll(env, `
+      SELECT
+        o.id, o.need_id, o.offerer_org_id, o.offerer_location_id, o.quantity_offered, o.note,
+        org.name AS offerer_org_name,
+        loc.name AS offerer_location_name
+      FROM scarce_stock_need_offers o
+      JOIN orgs org ON org.id = o.offerer_org_id
+      JOIN locations loc ON loc.id = o.offerer_location_id
+      WHERE o.need_id IN (${qs})
+      ORDER BY o.created_at ASC, o.id ASC
+    `, needIds);
+  }
+
+  const offByNeed = new Map();
+  for (const rr of offRows) {
+    const nid = Number(rr.need_id);
+    if (!offByNeed.has(nid)) offByNeed.set(nid, []);
+    offByNeed.get(nid).push(rr);
+  }
+
+  const needs = [];
+  for (const n of needsBase) {
+    const mineOwner = (authUser.org_id === n.org_id && authUser.location_id === n.location_id);
+    const offersIn = offByNeed.get(Number(n.id)) || [];
+    const offersOut = [];
+
+    for (const rr of offersIn) {
+      const canSee = ssCanSeeSensitive(
+        authUser,
+        Number(n.org_id), Number(n.location_id),
+        Number(rr.offerer_org_id), Number(rr.offerer_location_id)
+      );
+      const mine = (authUser.org_id === rr.offerer_org_id && authUser.location_id === rr.offerer_location_id);
+
+      offersOut.push({
+        id: rr.id,
+        need_id: rr.need_id,
+        quantity_offered: Number(rr.quantity_offered || 0),
+        is_private: canSee ? 0 : 1,
+        offerer_display: canSee ? ((rr.offerer_org_name || "") + " — " + (rr.offerer_location_name || "")) : "",
+        note: canSee ? (rr.note || "") : "",
+        mine: mine ? 1 : 0
+      });
+    }
+
+    needs.push({
+      id: n.id,
+      org_id: n.org_id,
+      org_name: n.org_name || "",
+      location_id: n.location_id,
+      location_name: n.location_name || "",
+      entry_date: n.entry_date,
+      item_name: n.item_name,
+      description: n.description || "",
+      needed_by: n.needed_by || null,
+      quantity_needed: Number(n.quantity_needed || 0),
+      is_closed: Number(n.is_closed || 0),
+      total_offered: Number(n.total_offered || 0),
+      remaining_quantity: Number(n.quantity_needed || 0) - Number(n.total_offered || 0),
+      mine_owner: mineOwner ? 1 : 0,
+      offers: offersOut
+    });
+  }
+
+  return jsonResponse({ ok: true, needs }, 200, corsOkHeaders);
+}
+
+// ----- Needs create/update/delete
+async function handleScarceNeedCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureScarceStockSchema(env);
+
+  const body = await readJson(request);
+  const entry_date = ssText(body.entry_date, 40);
+  const item_name = ssText(body.item_name, 220);
+  const description = ssText(body.description, 2000);
+  const needed_by = ssText(body.needed_by, 40);
+  const qty = ssIntNonNeg(body.quantity_needed);
+  const is_closed = ssBool01(body.is_closed);
+
+  if (!isValidYmd(entry_date)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (!item_name) return jsonResponse({ ok: false, error: "Missing item_name" }, 400, corsOkHeaders);
+  if (needed_by && !isValidYmd(needed_by)) return jsonResponse({ ok: false, error: "Invalid needed_by (YYYY-MM-DD or empty)" }, 400, corsOkHeaders);
+  if (qty === null) return jsonResponse({ ok: false, error: "Invalid quantity_needed (>= 0)" }, 400, corsOkHeaders);
+
+  const res = await dbRun(env, `
+    INSERT INTO scarce_stock_needs
+      (org_id, location_id, entry_date, item_name, description, needed_by, quantity_needed, is_closed, created_by, created_at, updated_at, updated_by)
+    VALUES
+      (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), ?)
+  `, [
+    authUser.org_id, authUser.location_id,
+    entry_date, item_name, description,
+    (needed_by || null),
+    qty, is_closed ? 1 : 0,
+    authUser.user_id, authUser.user_id
+  ]);
+
+  const insertedId = res?.meta?.last_row_id || null;
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_NEED_CREATE", "scarce_stock_needs", String(insertedId || ""), { item_name, quantity_needed: qty });
+  return jsonResponse({ ok: true, id: insertedId }, 200, corsOkHeaders);
+}
+
+async function handleScarceNeedUpdate(request, env, corsOkHeaders, authUser, needId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureScarceStockSchema(env);
+
+  const id = Number(needId);
+  if (!Number.isFinite(id) || id <= 0) return jsonResponse({ ok: false, error: "Invalid need id" }, 400, corsOkHeaders);
+
+  const existing = await dbFirst(env, `SELECT id, org_id, location_id FROM scarce_stock_needs WHERE id = ?`, [id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  if (!(existing.org_id === authUser.org_id && existing.location_id === authUser.location_id)) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  const body = await readJson(request);
+  const entry_date = ssText(body.entry_date, 40);
+  const item_name = ssText(body.item_name, 220);
+  const description = ssText(body.description, 2000);
+  const needed_by = ssText(body.needed_by, 40);
+  const qty = ssIntNonNeg(body.quantity_needed);
+  const is_closed = ssBool01(body.is_closed);
+
+  if (!isValidYmd(entry_date)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (!item_name) return jsonResponse({ ok: false, error: "Missing item_name" }, 400, corsOkHeaders);
+  if (needed_by && !isValidYmd(needed_by)) return jsonResponse({ ok: false, error: "Invalid needed_by (YYYY-MM-DD or empty)" }, 400, corsOkHeaders);
+  if (qty === null) return jsonResponse({ ok: false, error: "Invalid quantity_needed (>= 0)" }, 400, corsOkHeaders);
+
+  await dbRun(env, `
+    UPDATE scarce_stock_needs
+    SET entry_date = ?, item_name = ?, description = ?, needed_by = ?, quantity_needed = ?, is_closed = ?,
+        updated_at = datetime('now'), updated_by = ?
+    WHERE id = ?
+  `, [
+    entry_date, item_name, description,
+    (needed_by || null),
+    qty, (is_closed ? 1 : 0),
+    authUser.user_id, id
+  ]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_NEED_UPDATE", "scarce_stock_needs", String(id), { item_name, quantity_needed: qty, is_closed: is_closed ? 1 : 0 });
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleScarceNeedDelete(request, env, corsOkHeaders, authUser, needId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureScarceStockSchema(env);
+
+  const id = Number(needId);
+  if (!Number.isFinite(id) || id <= 0) return jsonResponse({ ok: false, error: "Invalid need id" }, 400, corsOkHeaders);
+
+  const existing = await dbFirst(env, `SELECT id, org_id, location_id, item_name FROM scarce_stock_needs WHERE id = ?`, [id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  if (!(existing.org_id === authUser.org_id && existing.location_id === authUser.location_id)) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await dbRun(env, `DELETE FROM scarce_stock_need_offers WHERE need_id = ?`, [id]);
+  await dbRun(env, `DELETE FROM scarce_stock_needs WHERE id = ?`, [id]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_NEED_DELETE", "scarce_stock_needs", String(id), { item_name: existing.item_name || "" });
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+// ----- Need offers (create/update/delete)
+async function handleScarceNeedOfferCreate(request, env, corsOkHeaders, authUser, needId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureScarceStockSchema(env);
+
+  const id = Number(needId);
+  if (!Number.isFinite(id) || id <= 0) return jsonResponse({ ok: false, error: "Invalid need id" }, 400, corsOkHeaders);
+
+  const need = await dbFirst(env, `SELECT id, is_closed FROM scarce_stock_needs WHERE id = ?`, [id]);
+  if (!need) return jsonResponse({ ok: false, error: "Need not found" }, 404, corsOkHeaders);
+  if (Number(need.is_closed || 0) === 1) return jsonResponse({ ok: false, error: "Need is closed" }, 400, corsOkHeaders);
+
+  const body = await readJson(request);
+  const qty = ssIntNonNeg(body.quantity_offered);
+  const note = ssText(body.note, 4000);
+
+  if (qty === null || qty <= 0) return jsonResponse({ ok: false, error: "Invalid quantity_offered (>= 1)" }, 400, corsOkHeaders);
+
+  const res = await dbRun(env, `
+    INSERT INTO scarce_stock_need_offers
+      (need_id, offerer_org_id, offerer_location_id, quantity_offered, note, created_by, created_at, updated_at, updated_by)
+    VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), ?)
+  `, [
+    id, authUser.org_id, authUser.location_id,
+    qty, note,
+    authUser.user_id, authUser.user_id
+  ]);
+
+  const insertedId = res?.meta?.last_row_id || null;
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_NEED_OFFER_CREATE", "scarce_stock_need_offers", String(insertedId || ""), { need_id: id, quantity_offered: qty });
+  return jsonResponse({ ok: true, id: insertedId }, 200, corsOkHeaders);
+}
+
+async function handleScarceNeedOfferUpdate(request, env, corsOkHeaders, authUser, offerId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureScarceStockSchema(env);
+
+  const id = Number(offerId);
+  if (!Number.isFinite(id) || id <= 0) return jsonResponse({ ok: false, error: "Invalid offer id" }, 400, corsOkHeaders);
+
+  const existing = await dbFirst(env, `SELECT id, offerer_org_id, offerer_location_id FROM scarce_stock_need_offers WHERE id = ?`, [id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  if (!(existing.offerer_org_id === authUser.org_id && existing.offerer_location_id === authUser.location_id)) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  const body = await readJson(request);
+  const qty = ssIntNonNeg(body.quantity_offered);
+  const note = ssText(body.note, 4000);
+
+  if (qty === null || qty <= 0) return jsonResponse({ ok: false, error: "Invalid quantity_offered (>= 1)" }, 400, corsOkHeaders);
+
+  await dbRun(env, `
+    UPDATE scarce_stock_need_offers
+    SET quantity_offered = ?, note = ?, updated_at = datetime('now'), updated_by = ?
+    WHERE id = ?
+  `, [qty, note, authUser.user_id, id]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_NEED_OFFER_UPDATE", "scarce_stock_need_offers", String(id), { quantity_offered: qty });
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleScarceNeedOfferDelete(request, env, corsOkHeaders, authUser, offerId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureScarceStockSchema(env);
+
+  const id = Number(offerId);
+  if (!Number.isFinite(id) || id <= 0) return jsonResponse({ ok: false, error: "Invalid offer id" }, 400, corsOkHeaders);
+
+  const existing = await dbFirst(env, `SELECT id, offerer_org_id, offerer_location_id, need_id FROM scarce_stock_need_offers WHERE id = ?`, [id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  if (!(existing.offerer_org_id === authUser.org_id && existing.offerer_location_id === authUser.location_id)) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await dbRun(env, `DELETE FROM scarce_stock_need_offers WHERE id = ?`, [id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_NEED_OFFER_DELETE", "scarce_stock_need_offers", String(id), { need_id: existing.need_id });
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
 export default {
   async fetch(request, env, ctx) {
     try {
@@ -7761,6 +8404,90 @@ export default {
       return await handleInstructionsDailyPut(request, env, corsOkHeaders, authUser);
     }
 
+
+    // Scarce Stock
+    if (url.pathname === "/scarce-stock/offers" && request.method === "GET") {
+      return await handleScarceOffersList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/scarce-stock/offers" && request.method === "POST") {
+      return await handleScarceOfferCreate(request, env, corsOkHeaders, authUser);
+    }
+
+    // Offer requests
+    if (url.pathname.startsWith("/scarce-stock/offers/") && url.pathname.endsWith("/requests") && request.method === "POST") {
+      const parts = url.pathname.split("/").filter(Boolean); // scarce-stock, offers, :id, requests
+      const offerId = parseInt(parts[2], 10);
+      if (!Number.isInteger(offerId) || offerId <= 0) return jsonResponse({ ok: false, error: "Invalid offer id" }, 400, corsOkHeaders);
+      return await handleScarceOfferRequestCreate(request, env, corsOkHeaders, authUser, offerId);
+    }
+    if (url.pathname.startsWith("/scarce-stock/offer-requests/") && request.method === "PUT") {
+      const parts = url.pathname.split("/").filter(Boolean); // scarce-stock, offer-requests, :id
+      const reqId = parseInt(parts[2], 10);
+      if (!Number.isInteger(reqId) || reqId <= 0) return jsonResponse({ ok: false, error: "Invalid request id" }, 400, corsOkHeaders);
+      return await handleScarceOfferRequestUpdate(request, env, corsOkHeaders, authUser, reqId);
+    }
+    if (url.pathname.startsWith("/scarce-stock/offer-requests/") && request.method === "DELETE") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const reqId = parseInt(parts[2], 10);
+      if (!Number.isInteger(reqId) || reqId <= 0) return jsonResponse({ ok: false, error: "Invalid request id" }, 400, corsOkHeaders);
+      return await handleScarceOfferRequestDelete(request, env, corsOkHeaders, authUser, reqId);
+    }
+
+    // Offer update/delete
+    if (url.pathname.startsWith("/scarce-stock/offers/") && request.method === "PUT") {
+      const parts = url.pathname.split("/").filter(Boolean); // scarce-stock, offers, :id
+      const offerId = parseInt(parts[2], 10);
+      if (!Number.isInteger(offerId) || offerId <= 0) return jsonResponse({ ok: false, error: "Invalid offer id" }, 400, corsOkHeaders);
+      return await handleScarceOfferUpdate(request, env, corsOkHeaders, authUser, offerId);
+    }
+    if (url.pathname.startsWith("/scarce-stock/offers/") && request.method === "DELETE") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const offerId = parseInt(parts[2], 10);
+      if (!Number.isInteger(offerId) || offerId <= 0) return jsonResponse({ ok: false, error: "Invalid offer id" }, 400, corsOkHeaders);
+      return await handleScarceOfferDelete(request, env, corsOkHeaders, authUser, offerId);
+    }
+
+    // Needs
+    if (url.pathname === "/scarce-stock/needs" && request.method === "GET") {
+      return await handleScarceNeedsList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/scarce-stock/needs" && request.method === "POST") {
+      return await handleScarceNeedCreate(request, env, corsOkHeaders, authUser);
+    }
+
+    // Need offers
+    if (url.pathname.startsWith("/scarce-stock/needs/") && url.pathname.endsWith("/offers") && request.method === "POST") {
+      const parts = url.pathname.split("/").filter(Boolean); // scarce-stock, needs, :id, offers
+      const needId = parseInt(parts[2], 10);
+      if (!Number.isInteger(needId) || needId <= 0) return jsonResponse({ ok: false, error: "Invalid need id" }, 400, corsOkHeaders);
+      return await handleScarceNeedOfferCreate(request, env, corsOkHeaders, authUser, needId);
+    }
+    if (url.pathname.startsWith("/scarce-stock/need-offers/") && request.method === "PUT") {
+      const parts = url.pathname.split("/").filter(Boolean); // scarce-stock, need-offers, :id
+      const offerId = parseInt(parts[2], 10);
+      if (!Number.isInteger(offerId) || offerId <= 0) return jsonResponse({ ok: false, error: "Invalid offer id" }, 400, corsOkHeaders);
+      return await handleScarceNeedOfferUpdate(request, env, corsOkHeaders, authUser, offerId);
+    }
+    if (url.pathname.startsWith("/scarce-stock/need-offers/") && request.method === "DELETE") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const offerId = parseInt(parts[2], 10);
+      if (!Number.isInteger(offerId) || offerId <= 0) return jsonResponse({ ok: false, error: "Invalid offer id" }, 400, corsOkHeaders);
+      return await handleScarceNeedOfferDelete(request, env, corsOkHeaders, authUser, offerId);
+    }
+
+    // Need update/delete
+    if (url.pathname.startsWith("/scarce-stock/needs/") && request.method === "PUT") {
+      const parts = url.pathname.split("/").filter(Boolean); // scarce-stock, needs, :id
+      const needId = parseInt(parts[2], 10);
+      if (!Number.isInteger(needId) || needId <= 0) return jsonResponse({ ok: false, error: "Invalid need id" }, 400, corsOkHeaders);
+      return await handleScarceNeedUpdate(request, env, corsOkHeaders, authUser, needId);
+    }
+    if (url.pathname.startsWith("/scarce-stock/needs/") && request.method === "DELETE") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const needId = parseInt(parts[2], 10);
+      if (!Number.isInteger(needId) || needId <= 0) return jsonResponse({ ok: false, error: "Invalid need id" }, 400, corsOkHeaders);
+      return await handleScarceNeedDelete(request, env, corsOkHeaders, authUser, needId);
+    }
 
 
     // Temperature
