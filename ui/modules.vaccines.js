@@ -16,7 +16,7 @@
   "use strict";
 
   var E = window.EIKON;
-  var VAX_MODULE_VERSION = "2026-02-21-1";
+  var VAX_MODULE_VERSION = "2026-02-21-2";
   try { if (E && E.dbg) E.dbg("[vaccines] loaded v", VAX_MODULE_VERSION); } catch (e) {}
 
   if (!E) throw new Error("EIKON core missing (modules.vaccines.js)");
@@ -69,20 +69,20 @@
   }
 
   async function apiJson(method, path, bodyObj) {
+    // E.apiFetch() already returns parsed JSON (or throws on non-2xx).
     var opts = { method: method, headers: {} };
     if (bodyObj !== undefined) {
       opts.headers["Content-Type"] = "application/json";
       opts.body = JSON.stringify(bodyObj || {});
     }
-    var res = await E.apiFetch(path, opts);
-    var txt = await res.text();
-    var data = null;
-    try { data = txt ? JSON.parse(txt) : null; } catch (e) { data = { ok: false, error: "Bad JSON from server", raw: txt }; }
-    if (!res.ok || (data && data.ok === false)) {
-      var msg = (data && (data.error || data.message)) ? (data.error || data.message) : ("HTTP " + res.status);
+    var data = await E.apiFetch(path, opts);
+
+    // Some endpoints might return { ok:false, error:"..." } with 200; treat as error.
+    if (data && data.ok === false) {
+      var msg = (data && (data.error || data.message)) ? (data.error || data.message) : "Request failed";
       var err = new Error(msg);
       err._data = data;
-      err._status = res.status;
+      err._status = 200;
       throw err;
     }
     return data;
@@ -498,6 +498,7 @@
         await refreshStock();
         paint();
       } catch (e) {
+        try { E.error && E.error('[vaccines] bootstrap failed:', e); } catch(_e) {}
         paint();
       }
     })();
