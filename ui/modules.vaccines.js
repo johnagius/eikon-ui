@@ -1,7 +1,7 @@
 /* ui/modules.vaccines.js
    Eikon - Vaccines module (UI)
 
-   Version: 2026-02-21-6
+   Version: 2026-02-21-8
 
    Fix:
    - Country search now works by country NAME (full or partial), not ISO.
@@ -29,7 +29,7 @@
   var E = window.EIKON;
   if (!E) return;
 
-  var VERSION = "2026-02-21-7";
+  var VERSION = "2026-02-21-8";
   try { if (E && E.dbg) E.dbg("[vaccines] loaded v", VERSION); } catch (e) {}
 
   // ------------------------------------------------------------
@@ -121,7 +121,7 @@
     stylesDone = true;
 
     var css =
-      ".vax-root{--vax-accent:rgba(90,168,255,.85);--vax-pink:rgba(255,92,165,.85);--vax-green:rgba(44,210,152,.8);--vax-gold:#f2c94c}" +
+      ".vax-root{--vax-accent:rgba(90,168,255,.85);--vax-pink:rgba(255,92,165,.85);--vax-green:rgba(44,210,152,.8)}" +
       ".vax-root .hdr{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px}" +
       ".vax-root h2{margin:0;font-size:18px;letter-spacing:.2px}" +
       ".vax-root .meta{margin-top:3px;color:var(--muted);font-size:12px}" +
@@ -187,11 +187,12 @@
       ".vax-root .vaxPuzzle .country .border{fill:none;stroke:rgba(0,0,0,0.24);stroke-width:.78;vector-effect:non-scaling-stroke;opacity:.26}" +
       ".vax-root .vaxPuzzle .country:hover{filter:drop-shadow(0 14px 16px rgba(0,0,0,0.26)) brightness(1.05)}" +
       ".vax-root .vaxPuzzle .country.is-active{transform:translate(-10px,-10px) scale(1.06);filter:drop-shadow(0 20px 26px rgba(0,0,0,0.30))}" +
-      ".vax-root .vaxPuzzle .country.is-active .fill{fill:var(--vax-gold,#f2c94c)!important}" +
+      ".vax-root .vaxPuzzle .country.is-active .fill{fill:#f2c94c !important}" +
       ".vax-root .vaxPuzzle .country.is-active .border{opacity:.28}" +
       ".vax-root .vaxPuzzle .country.is-dim{opacity:.22;filter:saturate(.7) brightness(.92)}" +
 
       ".vax-root .suggest{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}" +
+      ".vax-root .grp{align-items:center}.vax-root .grp .nm{font-weight:900}.vax-root .grp .sub{font-size:11px;color:rgba(233,238,247,.68);margin-top:2px}.vax-root .optWrap{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;align-items:center}.vax-root .opt{display:inline-flex;align-items:center;gap:8px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.16);padding:6px 10px;border-radius:999px}.vax-root .opt:hover{border-color:rgba(255,255,255,.20);background:rgba(0,0,0,.22)}.vax-root .opt .optName{font-weight:800;font-size:12px;white-space:nowrap}.vax-root .opt .optQty{width:60px;max-width:70px;background:rgba(10,14,20,.35);border:1px solid rgba(255,255,255,.14);color:var(--text);padding:6px 8px;border-radius:12px;outline:none;text-align:center}.vax-root .ordersTools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}.vax-root .ordersTools .input{max-width:360px}" +
 
       ".vax-toast{position:fixed;left:50%;bottom:18px;transform:translate(-50%,12px);opacity:0;z-index:99999;padding:10px 12px;border-radius:14px;border:1px solid rgba(255,255,255,.14);background:rgba(10,14,20,.78);backdrop-filter:blur(10px);color:rgba(233,238,247,.92);font-size:13px;box-shadow:0 12px 40px rgba(0,0,0,.45);transition:opacity .25s ease,transform .25s ease}" +
       ".vax-toast.show{opacity:1;transform:translate(-50%,0)}";
@@ -472,7 +473,7 @@
         // palette
         if (iso === "AQ" || nm === "Antarctica") {
           g.style.setProperty("--base", "#ffffff");
-          g.style.setProperty("--selected-fill", "#f2c94c");
+          g.style.setProperty("--selected-fill", "#ffffff");
         } else {
           var bbox = null;
           try { bbox = g.getBBox(); } catch (e) { bbox = null; }
@@ -481,7 +482,7 @@
           var cont = continentFromPoint(cx, cy, iso);
           var base = colorFor(iso, cont);
           g.style.setProperty("--base", base);
-          g.style.setProperty("--selected-fill", "#f2c94c");
+          g.style.setProperty("--selected-fill", lightenHex(base, 0.20));
         }
 
         idx.push({ code: iso, name: nm, nn: normName(nm) });
@@ -742,57 +743,60 @@
   }
 
   
-  function renderGroupedSelectableList(container, rows, selectedMap) {
+
+  function groupVaccinesByVaccinatesFor(rows) {
+    rows = rows || [];
+    var map = {};
+    rows.forEach(function (r) {
+      if (!r) return;
+      var key = String(r.vaccinates_for || "").trim();
+      if (!key) key = String(r.brand_name || "").trim() || "Other";
+      if (!map[key]) map[key] = [];
+      map[key].push(r);
+    });
+    var keys = Object.keys(map);
+    keys.sort(function (a, b) { return String(a).localeCompare(String(b)); });
+    return keys.map(function (k) {
+      var opts = map[k] || [];
+      opts.sort(function (a, b) { return String(a.brand_name || "").localeCompare(String(b.brand_name || "")); });
+      return { key: k, options: opts };
+    });
+  }
+
+  function renderGroupedRecommendations(container, rows, selectedMap) {
     selectedMap = selectedMap || {};
     rows = rows || [];
     container.innerHTML = "";
 
     if (!rows.length) {
-      container.appendChild(el("div", { class: "muted", text: "No rows." }));
+      container.appendChild(el("div", { class: "muted", text: "No recommendations." }));
       return;
     }
 
-    // Group by "vaccinates_for" so Hepatitis A shows once with multiple brand options.
-    var groups = {};
-    rows.forEach(function (r) {
-      var label = String(r.vaccinates_for || "").trim();
-      if (!label) label = String(r.brand_name || "").trim() || "Unknown";
-      var key = normName(label);
-      if (!groups[key]) groups[key] = { label: label, items: [] };
-      groups[key].items.push(r);
-    });
+    var groups = groupVaccinesByVaccinatesFor(rows);
+    groups.forEach(function (g) {
+      var wrap = el("div", { class: "item grp" });
 
-    var keys = Object.keys(groups).sort(function (a, b) {
-      return String(groups[a].label).localeCompare(String(groups[b].label));
-    });
+      var left = el("div", {});
+      left.appendChild(el("div", { class: "nm", text: g.key }));
+      left.appendChild(el("div", { class: "sub", text: "Select brand option(s)" }));
 
-    keys.forEach(function (k) {
-      var g = groups[k];
-      g.items.sort(function (a, b) { return String(a.brand_name || "").localeCompare(String(b.brand_name || "")); });
+      var optWrap = el("div", { class: "optWrap" });
 
-      var box = el("div", { class: "item", style: "flex-direction:column;align-items:stretch" });
-
-      // Group header
-      box.appendChild(el("div", { class: "nm", text: g.label }));
-
-      // Options list
-      var opts = el("div", { style: "margin-top:8px;display:flex;flex-direction:column;gap:8px" });
-
-      g.items.forEach(function (r) {
-        var nm = String(r.brand_name || "").trim();
-        if (!nm) return;
-
-        var opt = el("div", { style: "display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding-top:6px;border-top:1px solid rgba(255,255,255,.08)" });
+      (g.options || []).forEach(function (v) {
+        var brand = String(v.brand_name || "").trim();
+        if (!brand) return;
+        var opt = el("div", { class: "opt" });
+        var tip = [];
+        if (v.vaccinates_for) tip.push(String(v.vaccinates_for));
+        if (v.dosing_schedule) tip.push(String(v.dosing_schedule));
+        if (tip.length) opt.title = tip.join(" • ");
 
         var cb = input("checkbox", "", "");
-        cb.checked = selectedMap[nm] != null;
+        cb.checked = selectedMap[brand] != null;
 
-        var nameEl = el("div", { style: "font-weight:800" , text: nm });
-
-        var tag = el("span", { class: "tag " + (isRoutine(r) ? "yes" : "no"), text: (isRoutine(r) ? "Routine" : "Not routine") });
-
-        var qty = input("number", "", cb.checked ? selectedMap[nm] : 1);
-        qty.className = "qty";
+        var qty = input("number", "", cb.checked ? selectedMap[brand] : 1);
+        qty.className = "optQty";
         qty.min = "1";
         qty.disabled = !cb.checked;
 
@@ -800,37 +804,32 @@
           if (cb.checked) {
             var qv = Math.max(1, toInt(qty.value, 1));
             qty.value = String(qv);
-            selectedMap[nm] = qv;
             qty.disabled = false;
+            selectedMap[brand] = qv;
           } else {
-            delete selectedMap[nm];
+            delete selectedMap[brand];
             qty.disabled = true;
+            qty.value = "1";
           }
         });
 
         qty.addEventListener("change", function () {
           var qv = Math.max(1, toInt(qty.value, 1));
           qty.value = String(qv);
-          if (cb.checked) selectedMap[nm] = qv;
+          if (cb.checked) selectedMap[brand] = qv;
         });
 
         opt.appendChild(cb);
-        opt.appendChild(nameEl);
-        opt.appendChild(tag);
+        opt.appendChild(el("span", { class: "optName", text: brand }));
         opt.appendChild(qty);
-
-        if (r.dosing_schedule) {
-          opt.appendChild(el("div", { class: "sub", style: "flex:1 1 100%;margin-left:22px", text: String(r.dosing_schedule) }));
-        }
-
-        opts.appendChild(opt);
+        optWrap.appendChild(opt);
       });
 
-      box.appendChild(opts);
-      container.appendChild(box);
+      wrap.appendChild(left);
+      wrap.appendChild(optWrap);
+      container.appendChild(wrap);
     });
   }
-
 // ------------------------------------------------------------
   // Module render
   // ------------------------------------------------------------
@@ -844,9 +843,6 @@
       active: "travel",
       catalog: [],
       stockRows: [],
-      orders: [],
-      ordersSearch: "",
-      ordersLoadedAt: "",
       selectedCountryCode: "",
       selectedCountryName: "",
       selectedTravel: {},
@@ -857,6 +853,8 @@
       otherSearch: "",
       dbSearch: "",
       stockSearch: "",
+      orders: [],
+      ordersSearch: "",
       mapWidget: null,
       countries: [] // name-based list from map (preferred)
     };
@@ -908,11 +906,12 @@
       S.stockRows = (data && data.rows) ? data.rows : [];
     }
 
+
     async function refreshOrders() {
       var data = await apiJson("GET", "/vaccines/orders");
-      S.orders = (data && data.orders) ? data.orders : [];
-      S.ordersLoadedAt = nowIso();
+      S.orders = (data && data.orders) ? data.orders : ((data && data.items) ? data.items : []);
     }
+
 
     function paint() {
       setActiveTabStyles();
@@ -924,119 +923,119 @@
       else body.appendChild(renderDbTab());
     }
 
-    // -------------------------
-    // TRAVEL TAB
-    // -------------------------
     
-    function renderOrdersCard(section) {
+
+    function renderOrdersCard() {
       var card = el("div", { class: "eikon-card", style: "margin-top:12px" });
 
-      var title = (section === "travel") ? "Client orders (Travel)" : "Client orders (Routine & Other)";
       card.appendChild(el("div", {
         class: "row",
-        style: "justify-content:space-between;align-items:center;margin-bottom:8px"
+        style: "justify-content:space-between;align-items:center;margin-bottom:10px"
       }, [
-        el("div", { html: "<b>" + esc(title) + "</b><div class='muted' style='font-size:12px;margin-top:2px'>Search by client, phone, country, vaccine, date. Reprint anytime.</div>" }),
+        el("div", { html: "<b>Client orders</b><div class='muted' style='font-size:12px;margin-top:2px'>Saved vaccine orders • Search • Print</div>" }),
         btn("Refresh", "btn", function () {
           (async function () {
-            try { await refreshOrders(); toast("Orders refreshed"); paint(); }
+            try { await refreshOrders(); paint(); toast("Orders refreshed"); }
             catch (e) { modalError("Refresh failed", e); }
           })();
         })
       ]));
 
-      var q = input("text", "Search orders…", S.ordersSearch || "");
-      q.className = "input";
-      q.style.maxWidth = "420px";
-      q.addEventListener("input", function () { S.ordersSearch = q.value; paint(); });
+      var tools = el("div", { class: "ordersTools" });
+      var s = input("text", "Search orders (name, phone, country, vaccine)…", S.ordersSearch || "");
+      s.className = "input";
+      s.addEventListener("input", function () { S.ordersSearch = s.value; paint(); });
+      tools.appendChild(s);
+      card.appendChild(tools);
 
-      card.appendChild(el("div", { class: "row", style: "margin-bottom:8px" }, [q]));
-
+      var q = norm(S.ordersSearch);
       var rows = Array.isArray(S.orders) ? S.orders.slice() : [];
-      rows = rows.filter(function (o) { return String(o.section || "").toLowerCase() === String(section).toLowerCase(); });
-
-      var qq = norm(S.ordersSearch);
-      if (qq) {
+      if (q) {
         rows = rows.filter(function (o) {
-          var items = Array.isArray(o.items) ? o.items : [];
-          var itemsStr = items.map(function (it) { return (it.name || "") + " x" + (it.qty || 1); }).join(" ");
-          var s = (
-            String(o.id || "") + " " +
-            String(o.created_at || "") + " " +
-            String(o.client_first || "") + " " +
-            String(o.client_last || "") + " " +
-            String(o.phone || "") + " " +
-            String(o.email || "") + " " +
-            String(o.country_name || "") + " " +
-            String(o.country_code || "") + " " +
-            itemsStr
-          ).toLowerCase();
-          return s.indexOf(qq) >= 0;
+          var t = "";
+          t += String(o.created_at || "").toLowerCase() + " ";
+          t += String(o.section || "").toLowerCase() + " ";
+          t += String(o.country_name || "").toLowerCase() + " ";
+          t += String(o.country_code || "").toLowerCase() + " ";
+          t += String(o.client_first || "").toLowerCase() + " ";
+          t += String(o.client_last || "").toLowerCase() + " ";
+          t += String(o.phone || "").toLowerCase() + " ";
+          t += String(o.email || "").toLowerCase() + " ";
+          var its = (o.items || []);
+          for (var i = 0; i < its.length; i++) {
+            t += String(its[i].name || "").toLowerCase() + " ";
+          }
+          return t.indexOf(q) >= 0;
         });
       }
 
-      var wrap = el("div", { style: "overflow:auto;border:1px solid rgba(255,255,255,.10);border-radius:16px" });
+      var wrapper = el("div", { style: "overflow:auto;border:1px solid rgba(255,255,255,.10);border-radius:16px" });
       var table = el("table", {});
       table.appendChild(el("thead", {}, [el("tr", {}, [
         el("th", { text: "Date" }),
         el("th", { text: "Client" }),
         el("th", { text: "Phone" }),
+        el("th", { text: "Section" }),
         el("th", { text: "Country" }),
         el("th", { text: "Items" }),
         el("th", { text: "" })
       ])]));
 
       var tbody = el("tbody", {});
+
       if (!rows.length) {
-        tbody.appendChild(el("tr", {}, [el("td", { colspan: "6", class: "muted", text: "No orders found." })]));
+        tbody.appendChild(el("tr", {}, [el("td", { colspan: "7", class: "muted", text: "No orders found." })]));
       } else {
         rows.forEach(function (o) {
-          var created = String(o.created_at || "");
-          if (created.indexOf("T") >= 0) created = created.replace("T", " ").slice(0, 19);
-
-          var client = (String(o.client_first || "") + " " + String(o.client_last || "")).trim();
-          var country = o.country_name ? (String(o.country_name) + " (" + String(o.country_code || "") + ")") : "";
-
-          var items = Array.isArray(o.items) ? o.items : [];
-          var itemsStr = items.map(function (it) { return (it.name || "") + " x" + (it.qty || 1); }).join(", ");
-          if (itemsStr.length > 120) itemsStr = itemsStr.slice(0, 117) + "…";
-
           var tr = el("tr", {});
-          tr.appendChild(el("td", { text: created }));
-          tr.appendChild(el("td", { html: "<b>" + esc(client || "—") + "</b>" + (o.email ? ("<div class='muted'>" + esc(o.email) + "</div>") : "") }));
-          tr.appendChild(el("td", { text: String(o.phone || "") }));
-          tr.appendChild(el("td", { text: country }));
-          tr.appendChild(el("td", { text: itemsStr }));
+          var dt = String(o.created_at || "").replace("T", " ").slice(0, 19);
+          var client = (String(o.client_first || "").trim() + " " + String(o.client_last || "").trim()).trim();
+          var country = (o.country_name ? (String(o.country_name) + " (" + String(o.country_code || "") + ")") : "");
+          var items = (o.items || []);
+          var itemsCount = items.reduce(function (acc, it) { return acc + Math.max(1, toInt(it.qty, 1)); }, 0);
+          var itemsTip = items.map(function (it) { return String(it.name || "") + " × " + String(it.qty || 1); }).join(", ");
 
-          var act = el("td", {});
-          act.appendChild(btn("Print…", "btn", function () {
+          tr.appendChild(el("td", { text: dt || "" }));
+          tr.appendChild(el("td", { html: "<b>" + esc(client || "") + "</b>" }));
+          tr.appendChild(el("td", { text: String(o.phone || "") }));
+          tr.appendChild(el("td", { text: String(o.section || "") }));
+          tr.appendChild(el("td", { text: country }));
+          var tdItems = el("td", { text: String(itemsCount || 0) });
+          if (itemsTip) tdItems.title = itemsTip;
+          tr.appendChild(tdItems);
+
+          var tdAct = el("td", {});
+          tdAct.appendChild(btn("Print…", "btn", function () {
             choosePrintSize("Print order", function (size) {
-              var order = {
-                created_at: String(o.created_at || ""),
-                section: String(o.section || ""),
-                country_code: String(o.country_code || ""),
-                country_name: String(o.country_name || ""),
-                client_first: String(o.client_first || ""),
-                client_last: String(o.client_last || ""),
-                phone: String(o.phone || ""),
-                email: String(o.email || ""),
-                items: items.map(function (it) { return { name: it.name, qty: it.qty }; })
-              };
-              openPrintHtml(buildOrderPrintHtml(order, size));
+              openPrintHtml(buildOrderPrintHtml({
+                created_at: o.created_at,
+                section: o.section,
+                country_code: o.country_code,
+                country_name: o.country_name,
+                client_first: o.client_first,
+                client_last: o.client_last,
+                phone: o.phone,
+                email: o.email,
+                items: (o.items || [])
+              }, size));
             });
           }));
-          tr.appendChild(act);
+          tr.appendChild(tdAct);
+
           tbody.appendChild(tr);
         });
       }
 
       table.appendChild(tbody);
-      wrap.appendChild(table);
-      card.appendChild(wrap);
+      wrapper.appendChild(table);
+      card.appendChild(wrapper);
+
       return card;
     }
-
-function renderTravelTab() {
+// -------------------------
+    // TRAVEL TAB
+    // -------------------------
+    function renderTravelTab() {
       var wrap = el("div", {});
       var hero = el("div", { class: "hero" });
       var inner = el("div", { class: "heroInner" });
@@ -1177,8 +1176,8 @@ function renderTravelTab() {
         highList.appendChild(el("div", { class: "muted", text: "Choose a country above to see recommendations." }));
       } else {
         var rec = computeTravelRecommendations(S.selectedCountryCode, S.catalog);
-        renderGroupedSelectableList(alwaysList, rec.always, S.selectedTravel);
-        renderGroupedSelectableList(highList, rec.high, S.selectedTravel);
+        renderGroupedRecommendations(alwaysList, rec.always, S.selectedTravel);
+        renderGroupedRecommendations(highList, rec.high, S.selectedTravel);
         if (!rec.always.length && !rec.high.length) {
           alwaysList.appendChild(el("div", { class: "muted", text: "No travel recommendations in database for this country code." }));
         }
@@ -1293,9 +1292,6 @@ function renderTravelTab() {
             var saved = await apiJson("POST", "/vaccines/orders", payload);
             toast("Saved order");
             try { await refreshOrders(); } catch (e) {}
-            try { await refreshStock(); } catch (e) {}
-            try { await refreshOrders(); } catch (e) {}
-            try { await refreshStock(); } catch (e) {}
 
             choosePrintSize("Print order", function (size) {
               var order = {
@@ -1330,8 +1326,8 @@ function renderTravelTab() {
       grid.appendChild(orderCard);
       wrap.appendChild(grid);
 
-      // Client orders table (Travel)
-      wrap.appendChild(renderOrdersCard("travel"));
+      // Orders table
+      wrap.appendChild(renderOrdersCard());
 
       return wrap;
 
@@ -1443,6 +1439,7 @@ function renderTravelTab() {
 
             var saved = await apiJson("POST", "/vaccines/orders", payload);
             toast("Saved order");
+            try { await refreshOrders(); } catch (e) {}
 
             choosePrintSize("Print order", function (size) {
               var order = {
@@ -1476,8 +1473,8 @@ function renderTravelTab() {
       wrap.appendChild(card);
       wrap.appendChild(orderCard);
 
-      // Client orders table (Routine & Other)
-      wrap.appendChild(renderOrdersCard("other"));
+      // Orders table
+      wrap.appendChild(renderOrdersCard());
 
       return wrap;
 
