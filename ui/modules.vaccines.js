@@ -1,7 +1,7 @@
 /* ui/modules.vaccines.js
    Eikon - Vaccines module (UI)
 
-   Version: 2026-02-21-11
+   Version: 2026-02-21-12
 
    Fix:
    - Show selected/added vaccines in Create order panel (editable qty + remove).
@@ -33,7 +33,7 @@
   var E = window.EIKON;
   if (!E) return;
 
-  var VERSION = "2026-02-21-11";
+  var VERSION = "2026-02-21-12";
   try { if (E && E.dbg) E.dbg("[vaccines] loaded v", VERSION); } catch (e) {}
 
   // ------------------------------------------------------------
@@ -277,6 +277,7 @@
     return Object.keys(merged).map(function (k) { return merged[k]; })
       .sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
 
+  }
 
   function syncVaxControls(rootEl, selectedMap, onlyName) {
     if (!rootEl) return;
@@ -389,7 +390,6 @@
     }
   }
 
-  }
 
   // ------------------------------------------------------------
   // Printing
