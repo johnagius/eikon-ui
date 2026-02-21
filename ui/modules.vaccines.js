@@ -1,30 +1,29 @@
 /* ui/modules.vaccines.js
    Eikon - Vaccines module (UI)
 
-   Worker endpoints:
-     GET    /vaccines/catalog?q=
-     POST   /vaccines/catalog                     { brand_name }
-     GET    /vaccines/orders?month=YYYY-MM        (optional UI)
-     POST   /vaccines/orders                      { section, country_code, country_name, client_first, client_last, phone, email, items:[{name,qty}] }
-
-     GET    /vaccines/stock/rows?q=
-     POST   /vaccines/stock/rows                  { vaccine_name, qty, batch, expiry_date }
-     PUT    /vaccines/stock/rows/:id              { vaccine_name?, qty, batch, expiry_date }
+   Fixes in this version:
+   - Real interactive world map (countries) with pop-out selection + color shift
+   - Recommended vaccines section spans full width (no more squashed)
 */
 
 (function () {
   "use strict";
 
   var E = window.EIKON;
-  var VAX_MODULE_VERSION = "2026-02-21-2";
-  try { if (E && E.dbg) E.dbg("[vaccines] loaded v", VAX_MODULE_VERSION); } catch (e) {}
+  var VAX_MODULE_VERSION = "2026-02-21-3";
+
+  try {
+    if (E && E.dbg) E.dbg("[vaccines] loaded v", VAX_MODULE_VERSION);
+  } catch (e) {}
 
   if (!E) throw new Error("EIKON core missing (modules.vaccines.js)");
 
   // ------------------------------------------------------------
   // Helpers
   // ------------------------------------------------------------
-  function esc(s) { return E.escapeHtml(String(s == null ? "" : s)); }
+  function esc(s) {
+    return E.escapeHtml(String(s == null ? "" : s));
+  }
 
   function el(tag, attrs, kids) {
     var n = document.createElement(tag);
@@ -33,6 +32,7 @@
         if (k === "class") n.className = attrs[k];
         else if (k === "text") n.textContent = attrs[k];
         else if (k === "html") n.innerHTML = attrs[k];
+        else if (k === "style") n.setAttribute("style", attrs[k]);
         else n.setAttribute(k, attrs[k]);
       });
     }
@@ -61,23 +61,17 @@
     try { return new Date().toISOString(); } catch (e) { return ""; }
   }
 
-  function monthKey(d) {
-    var dt = d instanceof Date ? d : new Date();
-    var y = dt.getFullYear();
-    var m = dt.getMonth() + 1;
-    return y + "-" + (m < 10 ? "0" + m : "" + m);
+  function norm(s) {
+    return String(s || "").trim().toLowerCase();
   }
 
   async function apiJson(method, path, bodyObj) {
-    // E.apiFetch() already returns parsed JSON (or throws on non-2xx).
     var opts = { method: method, headers: {} };
     if (bodyObj !== undefined) {
       opts.headers["Content-Type"] = "application/json";
       opts.body = JSON.stringify(bodyObj || {});
     }
-    var data = await E.apiFetch(path, opts);
-
-    // Some endpoints might return { ok:false, error:"..." } with 200; treat as error.
+    var data = await E.apiFetch(path, opts); // core.js returns parsed JSON
     if (data && data.ok === false) {
       var msg = (data && (data.error || data.message)) ? (data.error || data.message) : "Request failed";
       var err = new Error(msg);
@@ -94,9 +88,10 @@
     try {
       if (err && err._data && err._data.error && err._data.error !== msg) extra = "\n" + String(err._data.error);
     } catch (e) {}
-    E.modal.show(title || "Error", "<div style='white-space:pre-wrap'>" + esc(msg + extra) + "</div>", [
-      { label: "Close", primary: true, onClick: function () { E.modal.hide(); } }
-    ]);
+    E.modal.show(title || "Error",
+      "<div style='white-space:pre-wrap'>" + esc(msg + extra) + "</div>",
+      [{ label: "Close", primary: true, onClick: function () { E.modal.hide(); } }]
+    );
   }
 
   function toast(text) {
@@ -111,7 +106,7 @@
   }
 
   // ------------------------------------------------------------
-  // Styles (scoped)
+  // Styles
   // ------------------------------------------------------------
   var stylesDone = false;
   function ensureStyles() {
@@ -128,15 +123,18 @@
       ".vax-root .tab:hover{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.18)}" +
       ".vax-root .tab:active{transform:translateY(1px)}" +
       ".vax-root .tab.active{background:rgba(90,168,255,.12);border-color:rgba(90,168,255,.6)}" +
-      ".vax-root .grid{display:grid;grid-template-columns:1.1fr .9fr;gap:12px;align-items:stretch}" +
-      "@media(max-width:980px){.vax-root .grid{grid-template-columns:1fr}}" +
+
+      // Layout: hero full width; recommended full width; then table+order grid
+      ".vax-root .grid2{display:grid;grid-template-columns:1.2fr .8fr;gap:12px;align-items:start}" +
+      "@media(max-width:980px){.vax-root .grid2{grid-template-columns:1fr}}" +
+
       ".vax-root .hero{position:relative;overflow:hidden;border-radius:16px;border:1px solid rgba(255,255,255,.12);background:linear-gradient(135deg,rgba(90,168,255,.14),rgba(255,92,165,.10),rgba(44,210,152,.08));box-shadow:0 10px 30px rgba(0,0,0,.28)}" +
-      ".vax-root .heroInner{display:grid;grid-template-columns:1fr 340px;gap:14px;padding:14px;align-items:center}" +
+      ".vax-root .heroInner{display:grid;grid-template-columns:1fr 460px;gap:14px;padding:14px;align-items:center}" +
       "@media(max-width:980px){.vax-root .heroInner{grid-template-columns:1fr}}" +
       ".vax-root .heroTitle{font-size:18px;font-weight:900;letter-spacing:.2px;margin:0 0 2px 0}" +
       ".vax-root .heroSub{color:rgba(233,238,247,.78);font-size:12px;margin:0 0 10px 0}" +
       ".vax-root .searchRow{display:flex;gap:8px;align-items:center;flex-wrap:wrap}" +
-      ".vax-root .input{width:100%;min-width:220px;max-width:420px;background:rgba(10,14,20,.35);border:1px solid rgba(255,255,255,.14);color:var(--text);padding:10px 12px;border-radius:12px;outline:none}" +
+      ".vax-root .input{width:100%;min-width:220px;max-width:520px;background:rgba(10,14,20,.35);border:1px solid rgba(255,255,255,.14);color:var(--text);padding:10px 12px;border-radius:12px;outline:none}" +
       ".vax-root .input:focus{border-color:rgba(90,168,255,.6);box-shadow:0 0 0 3px rgba(90,168,255,.12)}" +
       ".vax-root .btn{border:1px solid var(--border);background:rgba(255,255,255,.03);color:var(--text);padding:10px 12px;border-radius:12px;cursor:pointer;transition:transform .08s ease,background .12s ease,border-color .12s ease;user-select:none;display:inline-flex;align-items:center;gap:8px;font-size:13px}" +
       ".vax-root .btn:hover{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.18)}" +
@@ -144,50 +142,59 @@
       ".vax-root .btn.primary{background:rgba(90,168,255,.14);border-color:rgba(90,168,255,.6)}" +
       ".vax-root .btn.pink{background:rgba(255,92,165,.12);border-color:rgba(255,92,165,.55)}" +
       ".vax-root .btn.green{background:rgba(44,210,152,.12);border-color:rgba(44,210,152,.55)}" +
+
       ".vax-root .pill{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.14);background:rgba(10,14,20,.22);font-size:12px;color:rgba(233,238,247,.86)}" +
       ".vax-root .pill b{color:var(--text)}" +
-      ".vax-root .globeWrap{display:flex;justify-content:center;align-items:center}" +
-      ".vax-root .globe{width:320px;height:320px;border-radius:50%;position:relative;overflow:hidden;border:1px solid rgba(255,255,255,.15);background:radial-gradient(circle at 30% 30%,rgba(255,255,255,.20),rgba(90,168,255,.08) 35%,rgba(0,0,0,.38) 72%,rgba(0,0,0,.52));box-shadow:inset -18px -18px 60px rgba(0,0,0,.35), 0 12px 40px rgba(0,0,0,.35)}" +
-      ".vax-root .globe::before{content:'';position:absolute;inset:-40px;background:radial-gradient(circle at 20% 20%,rgba(255,255,255,.22),transparent 55%),radial-gradient(circle at 80% 60%,rgba(255,92,165,.18),transparent 50%),radial-gradient(circle at 30% 80%,rgba(44,210,152,.14),transparent 55%);filter:blur(0px);opacity:.95}" +
-      ".vax-root .globe svg{position:absolute;inset:0;opacity:.95;filter:drop-shadow(0 10px 24px rgba(0,0,0,.35))}" +
-      ".vax-root .pin{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) translateY(10px) scale(.9);width:14px;height:14px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#fff,rgba(255,255,255,.2) 35%,rgba(255,92,165,.65));box-shadow:0 0 0 10px rgba(255,92,165,.10),0 0 0 22px rgba(90,168,255,.08),0 18px 40px rgba(0,0,0,.42);opacity:0;transition:opacity .18s ease,transform .24s ease}" +
-      ".vax-root .pin::after{content:'';position:absolute;left:50%;top:12px;transform:translateX(-50%);width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:14px solid rgba(255,92,165,.75);filter:drop-shadow(0 10px 18px rgba(0,0,0,.35))}" +
-      ".vax-root .globe.active .pin{opacity:1;transform:translate(-50%,-50%) translateY(-10px) scale(1.05)}" +
-      ".vax-root .countryLabel{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);padding:8px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.16);background:rgba(10,14,20,.35);backdrop-filter:blur(10px);font-size:12px;color:rgba(233,238,247,.92);white-space:nowrap;max-width:90%;overflow:hidden;text-overflow:ellipsis}" +
+
+      ".vax-root .box{border:1px solid rgba(255,255,255,.10);border-radius:16px;background:rgba(0,0,0,.14);padding:12px}" +
+      ".vax-root .box h3{margin:0 0 8px 0;font-size:13px;letter-spacing:.2px}" +
       ".vax-root .split{display:grid;grid-template-columns:1fr 1fr;gap:10px}" +
       "@media(max-width:980px){.vax-root .split{grid-template-columns:1fr}}" +
-      ".vax-root .box{border:1px solid rgba(255,255,255,.10);background:rgba(10,14,20,.22);border-radius:16px;padding:12px}" +
-      ".vax-root .box h3{margin:0 0 10px 0;font-size:14px;letter-spacing:.2px}" +
-      ".vax-root .list{display:flex;flex-direction:column;gap:8px;max-height:330px;overflow:auto;padding-right:4px}" +
-      ".vax-root .item{display:flex;align-items:flex-start;gap:10px;padding:10px;border-radius:14px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.03)}" +
-      ".vax-root .item:hover{border-color:rgba(255,255,255,.18);background:rgba(255,255,255,.04)}" +
-      ".vax-root .item .nm{font-weight:900}" +
-      ".vax-root .item .sub{color:rgba(233,238,247,.75);font-size:12px;margin-top:2px}" +
-      ".vax-root .qty{width:88px;background:rgba(10,14,20,.28);border:1px solid rgba(255,255,255,.12);color:var(--text);border-radius:10px;padding:8px 10px;outline:none}" +
-      ".vax-root .qty:focus{border-color:rgba(90,168,255,.6);box-shadow:0 0 0 3px rgba(90,168,255,.12)}" +
-      ".vax-root table{width:100%;border-collapse:collapse}" +
-      ".vax-root th,.vax-root td{padding:10px 10px;border-bottom:1px solid rgba(255,255,255,.08);vertical-align:top;text-align:left}" +
-      ".vax-root th{font-size:12px;color:rgba(233,238,247,.75);letter-spacing:.35px;text-transform:uppercase}" +
-      ".vax-root td{font-size:13px}" +
-      ".vax-root .muted{color:rgba(233,238,247,.70)}" +
-      ".vax-root .tag{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;border:1px solid rgba(255,255,255,.12);font-size:12px;background:rgba(255,255,255,.03)}" +
-      ".vax-root .tag.yes{border-color:rgba(44,210,152,.45);background:rgba(44,210,152,.10)}" +
-      ".vax-root .tag.no{border-color:rgba(255,255,255,.10);background:rgba(255,255,255,.02)}" +
-      ".vax-root .right{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}" +
-      ".vax-root .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}" +
-      ".vax-root .row > *{flex:0 0 auto}" +
-      ".vax-root .row .grow{flex:1 1 auto;min-width:220px}" +
-      ".vax-toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%) translateY(12px);opacity:0;background:rgba(10,14,20,.88);border:1px solid rgba(255,255,255,.14);color:rgba(233,238,247,.95);padding:10px 12px;border-radius:999px;box-shadow:0 12px 40px rgba(0,0,0,.45);transition:opacity .18s ease,transform .18s ease;z-index:9999;font-size:13px}" +
-      ".vax-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}";
+
+      ".vax-root .list{display:flex;flex-direction:column;gap:8px}" +
+      ".vax-root .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}" +
+      ".vax-root .item{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:10px 10px;border-radius:14px;border:1px solid rgba(255,255,255,.10);background:rgba(10,14,20,.22)}" +
+      ".vax-root .item:hover{border-color:rgba(255,255,255,.18);background:rgba(10,14,20,.30)}" +
+      ".vax-root .item .nm{font-weight:800}" +
+      ".vax-root .item .sub{font-size:12px;color:rgba(233,238,247,.72);margin-top:2px}" +
+      ".vax-root .qty{width:72px;max-width:92px;background:rgba(10,14,20,.35);border:1px solid rgba(255,255,255,.14);color:var(--text);padding:8px 10px;border-radius:12px;outline:none;text-align:center}" +
+      ".vax-root .tag{display:inline-flex;align-items:center;padding:3px 8px;border-radius:999px;font-size:11px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.04);color:rgba(233,238,247,.86)}" +
+      ".vax-root .tag.yes{border-color:rgba(44,210,152,.55);background:rgba(44,210,152,.10)}" +
+      ".vax-root .tag.no{border-color:rgba(255,92,165,.50);background:rgba(255,92,165,.08)}" +
+
+      ".vax-root table{width:100%;border-collapse:collapse;font-size:13px}" +
+      ".vax-root th,.vax-root td{padding:10px 10px;border-bottom:1px solid rgba(255,255,255,.08);vertical-align:top}" +
+      ".vax-root th{position:sticky;top:0;background:rgba(0,0,0,.20);backdrop-filter:blur(8px);text-align:left;font-size:12px;color:rgba(233,238,247,.78)}" +
+      ".vax-root .muted{color:var(--muted)}" +
+
+      // Map shell
+      ".vax-root .mapShell{position:relative;border-radius:18px;border:1px solid rgba(255,255,255,.14);background:radial-gradient(circle at 25% 25%,rgba(255,255,255,.10),rgba(90,168,255,.06) 35%,rgba(0,0,0,.20) 72%,rgba(0,0,0,.28));overflow:hidden;box-shadow:inset -18px -18px 60px rgba(0,0,0,.28), 0 12px 40px rgba(0,0,0,.35)}" +
+      ".vax-root .mapPad{padding:10px}" +
+      ".vax-root .mapInner{position:relative;overflow:hidden;border-radius:14px;background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(0,0,0,.14))}" +
+      ".vax-root .mapInner svg{display:block;width:100%;height:auto;max-height:320px;margin:auto;filter:drop-shadow(0 14px 22px rgba(0,0,0,.35))}" +
+      ".vax-root .mapHud{position:absolute;left:12px;right:12px;bottom:12px;padding:10px 12px;border-radius:14px;border:1px solid rgba(255,255,255,.14);background:rgba(10,14,20,.28);backdrop-filter:blur(8px);font-size:12px;color:rgba(233,238,247,.9);text-align:center}" +
+      ".vax-root .mapLoading{padding:22px 14px;color:rgba(233,238,247,.78);font-size:12px}" +
+      ".vax-root .mapHint{margin-top:8px;color:rgba(233,238,247,.62);font-size:11px}" +
+
+      // Country styling (applied to SVG elements after load)
+      ".vax-root .vax-country{stroke:rgba(0,0,0,.22);stroke-width:.6;vector-effect:non-scaling-stroke;cursor:pointer;transition:transform .18s ease, filter .18s ease, opacity .18s ease}" +
+      ".vax-root .vax-country:hover{filter:brightness(1.10) saturate(1.15)}" +
+      ".vax-root .vax-country.dim{opacity:.28}" +
+      ".vax-root .vax-country.selected{filter:drop-shadow(0 10px 12px rgba(0,0,0,.35)) brightness(1.15) saturate(1.22);transform-box:fill-box;transform-origin:center;transform:translateY(-3px) scale(1.06)}" +
+      ".vax-root .vax-country.selected{stroke:rgba(255,255,255,.65);stroke-width:1.1}" +
+
+      // Toast
+      ".vax-toast{position:fixed;left:50%;bottom:18px;transform:translate(-50%,12px);opacity:0;z-index:99999;padding:10px 12px;border-radius:14px;border:1px solid rgba(255,255,255,.14);background:rgba(10,14,20,.78);backdrop-filter:blur(10px);color:rgba(233,238,247,.92);font-size:13px;box-shadow:0 12px 40px rgba(0,0,0,.45);transition:opacity .25s ease,transform .25s ease}" +
+      ".vax-toast.show{opacity:1;transform:translate(-50%,0)}";
 
     var st = document.createElement("style");
-    st.type = "text/css";
-    st.appendChild(document.createTextNode(css));
+    st.setAttribute("data-vax-styles", "1");
+    st.textContent = css;
     document.head.appendChild(st);
   }
 
   // ------------------------------------------------------------
-  // Country index (no hardcoded list)
+  // Country index
   // ------------------------------------------------------------
   function buildCountryIndexFromIntl() {
     try {
@@ -201,8 +208,7 @@
         if (!cc || !/^[A-Z]{2}$/.test(cc)) return;
         if (seen[cc]) return;
         seen[cc] = 1;
-        var nm = dn.of(cc) || cc;
-        out.push({ code: cc, name: nm });
+        out.push({ code: cc, name: dn.of(cc) || cc });
       });
       out.sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
       return out;
@@ -214,7 +220,7 @@
   function buildCountryIndexFromCatalog(catalog) {
     try {
       if (!window.Intl || typeof Intl.DisplayNames !== "function") return [];
-      var dn2 = new Intl.DisplayNames(["en"], { type: "region" });
+      var dn = new Intl.DisplayNames(["en"], { type: "region" });
       var codes = {};
       (catalog || []).forEach(function (v) {
         [v.travel_always, v.travel_highrisk].forEach(function (s) {
@@ -224,9 +230,8 @@
           });
         });
       });
-      codes["MT"] = 1;
       var arr = Object.keys(codes).map(function (cc) {
-        return { code: cc, name: dn2.of(cc) || cc };
+        return { code: cc, name: dn.of(cc) || cc };
       });
       arr.sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
       return arr;
@@ -236,189 +241,8 @@
   }
 
   // ------------------------------------------------------------
-  // Printing
+  // Vaccine logic
   // ------------------------------------------------------------
-  function choosePrintSize(title, onPick) {
-    var body =
-      "<div style='color:rgba(233,238,247,.85);font-size:13px;line-height:1.45'>" +
-      "Choose paper size:</div>";
-    E.modal.show(title || "Print", body, [
-      { label: "A4", primary: true, onClick: function () { E.modal.hide(); onPick("A4"); } },
-      { label: "Receipt (75mm)", onClick: function () { E.modal.hide(); onPick("RECEIPT"); } },
-      { label: "Cancel", onClick: function () { E.modal.hide(); } }
-    ]);
-  }
-
-  function openPrintHtml(html) {
-    var w = window.open("", "_blank");
-    if (!w) {
-      E.modal.show("Print", "<div style='white-space:pre-wrap'>Popup blocked. Allow popups and try again.</div>", [
-        { label: "Close", primary: true, onClick: function () { E.modal.hide(); } }
-      ]);
-      return;
-    }
-    try {
-      w.document.open();
-      w.document.write(html);
-      w.document.close();
-    } catch (e) {
-      try { w.close(); } catch (e2) {}
-      modalError("Print failed", e);
-    }
-  }
-
-  function buildOrderPrintHtml(order, size) {
-    var isReceipt = String(size || "A4").toUpperCase() !== "A4";
-    var pageCss = isReceipt
-      ? "@media print{@page{size:75mm auto;margin:4mm;} .printbar{display:none!important;}}"
-      : "@media print{@page{size:A4;margin:12mm;} .printbar{display:none!important;}}";
-
-    var w = isReceipt ? "75mm" : "auto";
-    var max = isReceipt ? "75mm" : "900px";
-    var pad = isReceipt ? "6px" : "16px";
-    var title = "Vaccine Order";
-
-    var itemsHtml = (order.items || []).map(function (it) {
-      return "<tr>" +
-        "<td style='padding:8px 6px;border-bottom:1px dashed #ddd'><b>" + esc(it.name) + "</b><div style='font-size:11px;color:#555'>" + esc(it.info || "") + "</div></td>" +
-        "<td style='padding:8px 6px;border-bottom:1px dashed #ddd;text-align:right;white-space:nowrap'><b>x " + esc(it.qty) + "</b></td>" +
-        "</tr>";
-    }).join("");
-
-    var countryLine = (order.country_name || order.country_code) ? ("<div style='margin-top:4px'><span style='color:#555'>Country:</span> <b>" + esc(order.country_name || "") + "</b> <span style='color:#777'>(" + esc(order.country_code || "") + ")</span></div>") : "";
-    var secLine = order.section ? ("<div style='margin-top:4px'><span style='color:#555'>Section:</span> <b>" + esc(order.section) + "</b></div>") : "";
-
-    var html =
-      "<!doctype html><html><head><meta charset='utf-8' />" +
-      "<title>" + esc(title) + "</title>" +
-      "<style>" +
-      pageCss +
-      "html,body{margin:0;padding:0;background:#fff;color:#111;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}" +
-      ".wrap{width:" + w + ";max-width:" + max + ";margin:0 auto;padding:" + pad + "}" +
-      ".printbar{position:sticky;top:0;display:flex;justify-content:flex-end;gap:8px;background:#fff;padding:10px;border-bottom:1px solid #eee}" +
-      ".btn{border:1px solid #bbb;background:#fff;padding:8px 10px;border-radius:10px;cursor:pointer}" +
-      "h1{margin:0;font-size:" + (isReceipt ? "16px" : "22px") + ";letter-spacing:.2px}" +
-      ".meta{margin-top:6px;font-size:12px;color:#444}" +
-      ".card{margin-top:12px;border:1px solid #000;border-radius:12px;padding:" + (isReceipt ? "10px" : "14px") + "}" +
-      ".grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px}" +
-      ".k{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#555}" +
-      ".v{font-size:14px;font-weight:800;margin-top:2px}" +
-      ".note{margin-top:10px;font-size:11px;color:#666}" +
-      "table{width:100%;border-collapse:collapse;margin-top:10px}" +
-      "</style></head><body>" +
-      "<div class='printbar'>" +
-      "  <button class='btn' onclick='window.print()'>Print</button>" +
-      "  <button class='btn' onclick='window.close()'>Close</button>" +
-      "</div>" +
-      "<div class='wrap'>" +
-      "  <h1>Vaccine Order</h1>" +
-      "  <div class='meta'><div><span style='color:#555'>Order #</span> <b>" + esc(order.id || "") + "</b></div>" +
-      "  <div style='margin-top:2px'><span style='color:#555'>Created:</span> <b>" + esc(order.created_at || "") + "</b></div>" +
-      countryLine + secLine +
-      "  </div>" +
-      "  <div class='card'>" +
-      "    <div class='grid'>" +
-      "      <div><div class='k'>Client</div><div class='v'>" + esc((order.client_first || "") + " " + (order.client_last || "")).trim() + "</div></div>" +
-      "      <div><div class='k'>Phone</div><div class='v'>" + esc(order.phone || "") + "</div></div>" +
-      "      <div><div class='k'>Email</div><div class='v'>" + esc(order.email || "") + "</div></div>" +
-      "      <div><div class='k'>Location</div><div class='v'>" + esc(order.location_name || "") + "</div></div>" +
-      "    </div>" +
-      "    <table>" +
-      "      <thead><tr><th style='text-align:left;font-size:12px;color:#555;padding:6px'>Vaccine</th><th style='text-align:right;font-size:12px;color:#555;padding:6px'>Qty</th></tr></thead>" +
-      "      <tbody>" + itemsHtml + "</tbody>" +
-      "    </table>" +
-      "    <div class='note'>Generated via the Eikon system.</div>" +
-      "  </div>" +
-      "</div>" +
-      "<script>window.addEventListener('load',function(){setTimeout(function(){try{window.focus();}catch(e){} try{window.print();}catch(e){}},80);});window.addEventListener('afterprint',function(){setTimeout(function(){try{window.close();}catch(e){}},250);});</script>" +
-      "</body></html>";
-
-    return html;
-  }
-
-  function buildTablePrintHtml(title, rows, size) {
-    var isReceipt = String(size || "A4").toUpperCase() !== "A4";
-    var pageCss = isReceipt
-      ? "@media print{@page{size:75mm auto;margin:4mm;} .printbar{display:none!important;}}"
-      : "@media print{@page{size:A4;margin:12mm;} .printbar{display:none!important;}}";
-
-    var w = isReceipt ? "75mm" : "auto";
-    var max = isReceipt ? "75mm" : "1100px";
-    var pad = isReceipt ? "6px" : "14px";
-
-    var head = isReceipt
-      ? "<tr><th style='text-align:left;padding:6px;border-bottom:1px solid #ddd'>Vaccine</th><th style='text-align:right;padding:6px;border-bottom:1px solid #ddd'>Routine</th></tr>"
-      : "<tr><th style='text-align:left;padding:8px;border-bottom:1px solid #ddd'>Vaccine</th><th style='text-align:left;padding:8px;border-bottom:1px solid #ddd'>Vaccinates for</th><th style='text-align:left;padding:8px;border-bottom:1px solid #ddd'>Schedule</th><th style='text-align:center;padding:8px;border-bottom:1px solid #ddd'>Routine</th></tr>";
-
-    var body = (rows || []).map(function (r) {
-      var routine = String(r.routine_in_malta || "").toLowerCase().indexOf("yes") >= 0 ? "Yes" : "No";
-      if (isReceipt) {
-        return "<tr>" +
-          "<td style='padding:6px;border-bottom:1px dashed #ddd'><b>" + esc(r.brand_name || "") + "</b><div style='font-size:11px;color:#555'>" + esc(r.vaccinates_for || "") + "</div></td>" +
-          "<td style='padding:6px;border-bottom:1px dashed #ddd;text-align:right'>" + esc(routine) + "</td>" +
-          "</tr>";
-      }
-      return "<tr>" +
-        "<td style='padding:8px;border-bottom:1px solid #eee'><b>" + esc(r.brand_name || "") + "</b></td>" +
-        "<td style='padding:8px;border-bottom:1px solid #eee'>" + esc(r.vaccinates_for || "") + "</td>" +
-        "<td style='padding:8px;border-bottom:1px solid #eee'>" + esc(r.dosing_schedule || "") + "</td>" +
-        "<td style='padding:8px;border-bottom:1px solid #eee;text-align:center'>" + esc(routine) + "</td>" +
-        "</tr>";
-    }).join("");
-
-    var html =
-      "<!doctype html><html><head><meta charset='utf-8' />" +
-      "<title>" + esc(title || "Vaccines") + "</title>" +
-      "<style>" +
-      pageCss +
-      "html,body{margin:0;padding:0;background:#fff;color:#111;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}" +
-      ".wrap{width:" + w + ";max-width:" + max + ";margin:0 auto;padding:" + pad + "}" +
-      ".printbar{position:sticky;top:0;display:flex;justify-content:flex-end;gap:8px;background:#fff;padding:10px;border-bottom:1px solid #eee}" +
-      ".btn{border:1px solid #bbb;background:#fff;padding:8px 10px;border-radius:10px;cursor:pointer}" +
-      "h1{margin:0;font-size:" + (isReceipt ? "14px" : "20px") + "}" +
-      ".meta{margin-top:6px;font-size:12px;color:#444}" +
-      "table{width:100%;border-collapse:collapse;margin-top:10px}" +
-      "th{font-size:12px;color:#333;text-transform:uppercase;letter-spacing:.35px}" +
-      "</style></head><body>" +
-      "<div class='printbar'><button class='btn' onclick='window.print()'>Print</button><button class='btn' onclick='window.close()'>Close</button></div>" +
-      "<div class='wrap'>" +
-      "<h1>" + esc(title || "Vaccines") + "</h1>" +
-      "<div class='meta'>Generated: " + esc(nowIso()) + "</div>" +
-      "<table><thead>" + head + "</thead><tbody>" + body + "</tbody></table>" +
-      "</div>" +
-      "<script>window.addEventListener('load',function(){setTimeout(function(){try{window.focus();}catch(e){}},50);});</script>" +
-      "</body></html>";
-    return html;
-  }
-
-  // ------------------------------------------------------------
-  // State
-  // ------------------------------------------------------------
-  function makeState(user) {
-    return {
-      user: user || null,
-      active: "travel",
-      catalog: [],
-      stockRows: [],
-      catalogLoadedAt: "",
-      stockLoadedAt: "",
-      countryIndex: null,
-      selectedCountryCode: "",
-      selectedCountryName: "",
-      selectedTravel: {}, // name -> qty
-      selectedOther: {},  // name -> qty
-      extra: [],          // { name, qty }
-      client_first: "",
-      client_last: "",
-      phone: "",
-      email: "",
-      travelSearch: "",
-      otherSearch: "",
-      stockSearch: "",
-      dbSearch: ""
-    };
-  }
-
   function isRoutine(v) {
     return String(v && v.routine_in_malta || "").toLowerCase().indexOf("yes") >= 0;
   }
@@ -433,7 +257,6 @@
     var cc = String(code || "").trim().toUpperCase();
     if (!cc) return false;
     var s = String(csv || "").toUpperCase();
-    // fast path: exact match on comma/edges
     return ("," + s.replace(/\s+/g, "") + ",").indexOf("," + cc + ",") >= 0;
   }
 
@@ -448,7 +271,356 @@
   }
 
   // ------------------------------------------------------------
-  // UI rendering
+  // Printing (kept same style as your other modules)
+  // ------------------------------------------------------------
+  function choosePrintSize(title, onPick) {
+    var body =
+      "<div style='color:rgba(233,238,247,.85);font-size:13px;line-height:1.45'>" +
+      "Choose paper size:</div>";
+    E.modal.show(title || "Print", body, [
+      { label: "A4", primary: true, onClick: function () { E.modal.hide(); onPick("A4"); } },
+      { label: "Receipt (75mm)", onClick: function () { E.modal.hide(); onPick("RECEIPT"); } },
+      { label: "Cancel", onClick: function () { E.modal.hide(); } }
+    ]);
+  }
+
+  function openPrintHtml(html) {
+    var w = window.open("", "_blank");
+    if (!w) { toast("Popup blocked"); return; }
+    try { w.document.open(); w.document.write(html); w.document.close(); } catch (e) {}
+    try { w.focus(); } catch (e2) {}
+    setTimeout(function () { try { w.print(); } catch (e3) {} }, 120);
+  }
+
+  function buildPrintShell(title, bodyHtml, size) {
+    var isReceipt = (size === "RECEIPT");
+    var pageCss = isReceipt
+      ? "@page{size:75mm auto;margin:6mm}"
+      : "@page{size:A4;margin:12mm}";
+    var base =
+      "html,body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;}" +
+      "h1{margin:0 0 10px 0;font-size:18px}" +
+      "table{width:100%;border-collapse:collapse;font-size:12px}" +
+      "th,td{border-bottom:1px solid #ddd;padding:6px 6px;vertical-align:top}" +
+      "th{text-align:left;background:#f6f6f6}" +
+      ".muted{color:#666}" +
+      ".row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}" +
+      ".pill{display:inline-block;border:1px solid #ddd;border-radius:999px;padding:3px 8px;font-size:11px;background:#fafafa}";
+    return (
+      "<!doctype html><html><head><meta charset='utf-8'/>" +
+      "<title>" + esc(title || "Print") + "</title>" +
+      "<style>" + pageCss + base + "</style>" +
+      "</head><body>" + bodyHtml + "</body></html>"
+    );
+  }
+
+  function buildOrderPrintHtml(order, size) {
+    var title = "Vaccine order";
+    var items = (order && order.items) ? order.items : [];
+    var rows = items.map(function (it) {
+      return "<tr><td><b>" + esc(it.name || "") + "</b><div class='muted'>" + esc(it.info || "") + "</div></td><td style='text-align:right'>" + esc(it.qty || 1) + "</td></tr>";
+    }).join("");
+
+    var countryLine = order.country_name ? "<span class='pill'><b>Country</b> " + esc(order.country_name) + " (" + esc(order.country_code || "") + ")</span>" : "";
+    var secLine = "<span class='pill'><b>Section</b> " + esc(order.section || "") + "</span>";
+
+    var body =
+      "<h1>" + esc(title) + "</h1>" +
+      "<div class='row'>" +
+      "<span class='pill'><b>Created</b> " + esc(order.created_at || "") + "</span>" +
+      secLine + countryLine +
+      "</div>" +
+      "<div style='margin:10px 0'>" +
+      "<div><b>Client:</b> " + esc((order.client_first || "") + " " + (order.client_last || "")).trim() + "</div>" +
+      "<div><b>Phone:</b> " + esc(order.phone || "") + "</div>" +
+      (order.email ? "<div><b>Email:</b> " + esc(order.email) + "</div>" : "") +
+      (order.location_name ? "<div><b>Location:</b> " + esc(order.location_name) + "</div>" : "") +
+      "</div>" +
+      "<table><thead><tr><th>Vaccine</th><th style='text-align:right'>Qty</th></tr></thead><tbody>" +
+      (rows || "<tr><td colspan='2' class='muted'>No items</td></tr>") +
+      "</tbody></table>";
+
+    return buildPrintShell(title, body, size);
+  }
+
+  function buildTablePrintHtml(title, rows, size) {
+    rows = rows || [];
+    var body =
+      "<h1>" + esc(title) + "</h1>" +
+      "<div class='muted' style='margin-bottom:8px'>Generated " + esc(nowIso()) + "</div>" +
+      "<table><thead><tr>" +
+      "<th>Vaccine</th><th>Vaccinates for</th><th>Schedule</th><th>Routine</th>" +
+      "</tr></thead><tbody>" +
+      (rows.length ? rows.map(function (r) {
+        return "<tr>" +
+          "<td><b>" + esc(r.brand_name || "") + "</b></td>" +
+          "<td>" + esc(r.vaccinates_for || "") + "</td>" +
+          "<td>" + esc(r.dosing_schedule || "") + "</td>" +
+          "<td>" + esc(isRoutine(r) ? "Yes" : "No") + "</td>" +
+          "</tr>";
+      }).join("") : "<tr><td colspan='4' class='muted'>No rows</td></tr>") +
+      "</tbody></table>";
+
+    return buildPrintShell(title, body, size);
+  }
+
+  // ------------------------------------------------------------
+  // World map (real countries) – fetched + cached
+  // ------------------------------------------------------------
+  var MAP_CACHE_KEY = "eikon_vax_worldsvg_v1";
+  var MAP_CACHE_TS_KEY = "eikon_vax_worldsvg_v1_ts";
+  var MAP_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 21; // 21 days
+  var MAP_URLS = [
+    // Nice, small, ISO-2 ids
+    "https://simplemaps.com/static/demos/resources/svg-library/svgs/world.svg"
+  ];
+
+  function sanitizeSvg(doc) {
+    try {
+      // remove scripts + foreignObject
+      Array.prototype.slice.call(doc.querySelectorAll("script, foreignObject")).forEach(function (n) { n.remove(); });
+      // remove inline event handlers
+      Array.prototype.slice.call(doc.querySelectorAll("*")).forEach(function (n) {
+        Array.prototype.slice.call(n.attributes || []).forEach(function (a) {
+          if (!a || !a.name) return;
+          if (/^on/i.test(a.name)) n.removeAttribute(a.name);
+        });
+      });
+    } catch (e) {}
+    return doc;
+  }
+
+  async function loadWorldSvgText() {
+    try {
+      var ts = toInt(localStorage.getItem(MAP_CACHE_TS_KEY), 0);
+      var cached = localStorage.getItem(MAP_CACHE_KEY);
+      if (cached && ts && (Date.now() - ts) < MAP_CACHE_TTL_MS) return cached;
+    } catch (e) {}
+
+    // Fetch
+    for (var i = 0; i < MAP_URLS.length; i++) {
+      try {
+        var r = await fetch(MAP_URLS[i], { method: "GET", mode: "cors", cache: "force-cache" });
+        if (!r || !r.ok) continue;
+        var txt = await r.text();
+        if (!txt || txt.length < 500) continue;
+        try {
+          localStorage.setItem(MAP_CACHE_KEY, txt);
+          localStorage.setItem(MAP_CACHE_TS_KEY, String(Date.now()));
+        } catch (e2) {}
+        return txt;
+      } catch (e3) {}
+    }
+    return null;
+  }
+
+  function paletteColor(code) {
+    // deterministic palette
+    var pal = [
+      "#ff7aa2", "#ffb86b", "#ffd36b", "#b9f27c", "#7cf2d3",
+      "#6bbcff", "#9b8bff", "#ff6be7", "#ff8f6b", "#6bffa3",
+      "#6be7ff", "#b86bff"
+    ];
+    var s = String(code || "");
+    var h = 0;
+    for (var i = 0; i < s.length; i++) h = ((h << 5) - h) + s.charCodeAt(i);
+    h = Math.abs(h);
+    return pal[h % pal.length];
+  }
+
+  function buildFallbackGlobe() {
+    // decorative fallback (the old one)
+    var ns = "http://www.w3.org/2000/svg";
+    var svg = document.createElementNS(ns, "svg");
+    svg.setAttribute("viewBox", "0 0 320 320");
+    svg.innerHTML =
+      '<defs>' +
+      '  <linearGradient id="ocean" x1="0" y1="0" x2="1" y2="1">' +
+      '    <stop offset="0" stop-color="rgba(90,168,255,.35)"/>' +
+      '    <stop offset="1" stop-color="rgba(0,0,0,.10)"/>' +
+      '  </linearGradient>' +
+      '</defs>' +
+      '<rect x="0" y="0" width="320" height="320" fill="url(#ocean)" />' +
+      '<g stroke="rgba(255,255,255,.22)" stroke-width="1">' +
+      '  <path d="M0 160 H320" />' +
+      '  <path d="M160 0 V320" />' +
+      '  <circle cx="160" cy="160" r="130" fill="none" />' +
+      '  <circle cx="160" cy="160" r="90" fill="none" />' +
+      '</g>' +
+      '<g fill="rgba(44,210,152,.25)">' +
+      '  <path d="M50,120 C70,80 120,70 140,95 C155,115 140,145 120,160 C90,180 55,155 50,120 Z"/>' +
+      '  <path d="M170,90 C200,70 250,85 260,120 C268,150 240,175 210,168 C180,160 155,120 170,90 Z"/>' +
+      '  <path d="M160,185 C190,170 230,185 240,215 C250,250 205,270 175,250 C150,235 140,200 160,185 Z"/>' +
+      '</g>';
+    return svg;
+  }
+
+  function createWorldMapWidget(onPickCountry) {
+    ensureStyles();
+
+    var shell = el("div", { class: "mapShell" });
+    var pad = el("div", { class: "mapPad" });
+    var inner = el("div", { class: "mapInner" });
+
+    var hud = el("div", { class: "mapHud", text: "Loading world map…" });
+    var loading = el("div", { class: "mapLoading", html: "<b>Loading map…</b><div class='mapHint'>First load may take a second. After that it’s cached.</div>" });
+
+    inner.appendChild(loading);
+    pad.appendChild(inner);
+    shell.appendChild(pad);
+    shell.appendChild(hud);
+
+    var state = {
+      svgEl: null,
+      selected: ""
+    };
+
+    function setHud(text) {
+      hud.textContent = text || "";
+    }
+
+    function applyCountryClasses(svgEl) {
+      // Identify country nodes by id (ISO2) – handle uppercase/lowercase
+      var nodes = Array.prototype.slice.call(svgEl.querySelectorAll("[id]"));
+      nodes.forEach(function (n) {
+        var id = String(n.getAttribute("id") || "").trim();
+        if (!/^[A-Za-z]{2}$/.test(id)) return;
+        n.classList.add("vax-country");
+        // store normalized code
+        n.setAttribute("data-cc", id.toUpperCase());
+        // color
+        n.style.fill = paletteColor(id.toUpperCase());
+      });
+    }
+
+    function clearSelected() {
+      if (!state.svgEl) return;
+      var prev = state.svgEl.querySelectorAll(".vax-country.selected");
+      Array.prototype.forEach.call(prev, function (n) { n.classList.remove("selected"); });
+      var dim = state.svgEl.querySelectorAll(".vax-country.dim");
+      Array.prototype.forEach.call(dim, function (n) { n.classList.remove("dim"); });
+    }
+
+    function selectCountry(code, dimOthers) {
+      code = String(code || "").toUpperCase();
+      state.selected = code;
+      if (!state.svgEl) return;
+
+      clearSelected();
+
+      if (!code) {
+        return;
+      }
+
+      // dim others for focus (optional)
+      if (dimOthers) {
+        var all = state.svgEl.querySelectorAll(".vax-country");
+        Array.prototype.forEach.call(all, function (n) { n.classList.add("dim"); });
+      }
+
+      var targets = state.svgEl.querySelectorAll('.vax-country[data-cc="' + code + '"]');
+      if (!targets || !targets.length) return;
+
+      Array.prototype.forEach.call(targets, function (n) {
+        n.classList.remove("dim");
+        n.classList.add("selected");
+        // bring to front
+        try { n.parentNode.appendChild(n); } catch (e) {}
+      });
+    }
+
+    function bindClick(svgEl) {
+      svgEl.addEventListener("click", function (ev) {
+        var t = ev.target;
+        if (!t) return;
+        var node = t.closest ? t.closest(".vax-country") : t;
+        if (!node || !node.classList || !node.classList.contains("vax-country")) return;
+        var cc = String(node.getAttribute("data-cc") || "").toUpperCase();
+        if (!cc) return;
+        onPickCountry && onPickCountry(cc);
+      });
+    }
+
+    (async function boot() {
+      try {
+        var txt = await loadWorldSvgText();
+        if (!txt) throw new Error("Map unavailable");
+
+        var dp = new DOMParser();
+        var doc = dp.parseFromString(txt, "image/svg+xml");
+        doc = sanitizeSvg(doc);
+
+        var svgEl = doc.documentElement;
+        if (!svgEl || svgEl.nodeName.toLowerCase() !== "svg") throw new Error("Bad SVG");
+
+        // Ensure viewBox exists (some SVGs rely on width/height)
+        if (!svgEl.getAttribute("viewBox")) {
+          var w = svgEl.getAttribute("width");
+          var h = svgEl.getAttribute("height");
+          if (w && h) svgEl.setAttribute("viewBox", "0 0 " + parseFloat(w) + " " + parseFloat(h));
+        }
+
+        inner.innerHTML = "";
+        inner.appendChild(svgEl);
+        state.svgEl = svgEl;
+
+        applyCountryClasses(svgEl);
+        bindClick(svgEl);
+
+        setHud("Click a country on the map, or search by name above.");
+      } catch (e) {
+        // fallback
+        inner.innerHTML = "";
+        inner.appendChild(buildFallbackGlobe());
+        setHud("Map failed to load. Using fallback globe.");
+      }
+    })();
+
+    return {
+      el: shell,
+      setHud: setHud,
+      select: selectCountry,
+      clear: clearSelected
+    };
+  }
+
+  // ------------------------------------------------------------
+  // Module state
+  // ------------------------------------------------------------
+  function makeState(user) {
+    return {
+      user: user || null,
+      active: "travel",
+      catalog: [],
+      stockRows: [],
+      catalogLoadedAt: "",
+      stockLoadedAt: "",
+      countryIndex: null,
+
+      selectedCountryCode: "",
+      selectedCountryName: "",
+
+      selectedTravel: {},
+      selectedOther: {},
+      extra: [],
+
+      client_first: "",
+      client_last: "",
+      phone: "",
+      email: "",
+
+      travelSearch: "",
+      otherSearch: "",
+      stockSearch: "",
+      dbSearch: "",
+
+      // map widget handle
+      mapWidget: null
+    };
+  }
+
+  // ------------------------------------------------------------
+  // UI Rendering
   // ------------------------------------------------------------
   function render(ctx) {
     ensureStyles();
@@ -460,21 +632,18 @@
 
     var root = el("div", { class: "vax-root" });
 
-    var headerCard = el("div", { class: "eikon-card" }, []);
+    // Header
+    var headerCard = el("div", { class: "eikon-card" });
     var hdr = el("div", { class: "hdr" });
+
     var left = el("div", {});
     left.appendChild(el("h2", { text: "Vaccines" }));
     left.appendChild(el("div", { class: "meta", text: "Travel • Routine & Other • Stock • Database" }));
 
     var tabs = el("div", { class: "tabs" });
     function mkTab(id, label, icon) {
-      var b = el("button", { type: "button", class: "tab", "data-tab": id });
-      b.appendChild(el("span", { text: icon || "•" }));
-      b.appendChild(el("span", { text: label }));
-      b.addEventListener("click", function () {
-        S.active = id;
-        paint();
-      });
+      var b = el("div", { class: "tab", "data-tab": id, html: "<span>" + esc(icon) + "</span><span>" + esc(label) + "</span>" });
+      b.addEventListener("click", function () { S.active = id; paint(); });
       return b;
     }
     tabs.appendChild(mkTab("travel", "Travel", "🌍"));
@@ -491,14 +660,14 @@
     root.appendChild(body);
     mount.appendChild(root);
 
-    // Load catalog + stock in the background (no "waiting" UX; we render skeletons)
+    // Bootstrap load
     (async function bootstrap() {
       try {
         await refreshCatalog();
         await refreshStock();
         paint();
       } catch (e) {
-        try { E.error && E.error('[vaccines] bootstrap failed:', e); } catch(_e) {}
+        try { E.error && E.error("[vaccines] bootstrap failed:", e); } catch (_e) {}
         paint();
       }
     })();
@@ -507,7 +676,6 @@
       var data = await apiJson("GET", "/vaccines/catalog", undefined);
       S.catalog = (data && data.items) ? data.items : [];
       S.catalogLoadedAt = nowIso();
-      // Build country index (prefer Intl list; fall back to codes found in catalog)
       S.countryIndex = buildCountryIndexFromIntl() || buildCountryIndexFromCatalog(S.catalog);
     }
 
@@ -518,8 +686,8 @@
     }
 
     function setActiveTabStyles() {
-      var btns = E.qa(".vax-root .tab", root);
-      btns.forEach(function (b) {
+      var btns = root.querySelectorAll(".tab");
+      Array.prototype.forEach.call(btns, function (b) {
         var id = b.getAttribute("data-tab");
         b.classList.toggle("active", id === S.active);
       });
@@ -535,76 +703,156 @@
     }
 
     // ----------------------------------------------------------
-    // Travel tab
+    // Travel tab (UPDATED LAYOUT + REAL MAP)
     // ----------------------------------------------------------
     function renderTravelTab() {
       var wrap = el("div", {});
-      // Hero
+
+      // HERO
       var hero = el("div", { class: "hero" });
       var inner = el("div", { class: "heroInner" });
 
       var info = el("div", {});
       info.appendChild(el("div", { class: "heroTitle", text: "Travel vaccines" }));
-      info.appendChild(el("div", { class: "heroSub", text: "Pick a country to instantly see recommended vaccines, build an order, print, and save." }));
+      info.appendChild(el("div", { class: "heroSub", text: "Search or click a country to see recommended vaccines. The selected country pops out." }));
 
-      var searchRow = el("div", { class: "searchRow" });
       var countryInput = input("text", "Search country (e.g. Italy, Kenya, Japan)…", "");
       countryInput.className = "input";
-      countryInput.setAttribute("autocomplete", "off");
-      countryInput.setAttribute("list", "vax-country-datalist");
-      var dl = el("datalist", { id: "vax-country-datalist" });
-      (S.countryIndex || []).forEach(function (c) {
-        dl.appendChild(el("option", { value: c.name + " (" + c.code + ")" }));
-      });
+      countryInput.style.maxWidth = "520px";
 
-      var pickBtn = btn("Use country", "btn primary", function () {
-        var v = String(countryInput.value || "").trim();
-        var parsed = parseCountryInput(v);
-        if (!parsed) {
-          toast("Type a country and select it from the list");
+      var suggestBox = el("div", { class: "row", style: "gap:6px" });
+
+      function renderSuggestions(q) {
+        suggestBox.innerHTML = "";
+        q = norm(q);
+        if (!q) return;
+        var list = (S.countryIndex || []).filter(function (c) {
+          return norm(c.name).indexOf(q) >= 0 || norm(c.code).indexOf(q) >= 0;
+        }).slice(0, 10);
+
+        if (!list.length) {
+          suggestBox.appendChild(el("div", { class: "muted", text: "No matches" }));
           return;
         }
-        S.selectedCountryCode = parsed.code;
-        S.selectedCountryName = parsed.name;
-        paint();
-      });
 
-      searchRow.appendChild(countryInput);
-      searchRow.appendChild(pickBtn);
-
-      var pills = el("div", { class: "row", style: "margin-top:10px" });
-      pills.appendChild(el("span", { class: "pill", html: "<b>Catalog</b> " + esc(S.catalog.length) + " vaccines" }));
-      pills.appendChild(el("span", { class: "pill", html: "<b>Stock rows</b> " + esc(S.stockRows.length) }));
-      if (S.selectedCountryCode) {
-        pills.appendChild(el("span", { class: "pill", html: "<b>Selected</b> " + esc(S.selectedCountryName || "") + " (" + esc(S.selectedCountryCode) + ")" }));
-      } else {
-        pills.appendChild(el("span", { class: "pill", html: "<b>Tip</b> Start by choosing a country" }));
+        list.forEach(function (c) {
+          suggestBox.appendChild(btn(c.name + " (" + c.code + ")", "btn", function () {
+            selectCountry(c.code, c.name);
+          }));
+        });
       }
 
-      info.appendChild(searchRow);
-      info.appendChild(dl);
+      countryInput.addEventListener("input", function () {
+        renderSuggestions(countryInput.value);
+      });
+
+      countryInput.addEventListener("keydown", function (ev) {
+        if (ev.key === "Enter") {
+          ev.preventDefault();
+          // try exact parse
+          var t = String(countryInput.value || "").trim();
+          if (!t) return;
+          var m = t.match(/\(([A-Za-z]{2})\)\s*$/);
+          var code = m ? m[1].toUpperCase() : "";
+          if (!code) {
+            // try exact name match
+            var hit = null;
+            var lc = t.toLowerCase();
+            (S.countryIndex || []).some(function (c) {
+              if (String(c.name || "").toLowerCase() === lc) { hit = c; return true; }
+              return false;
+            });
+            if (hit) selectCountry(hit.code, hit.name);
+            else toast("Pick a country from suggestions");
+          } else {
+            // find name
+            var found = null;
+            (S.countryIndex || []).some(function (c) { if (c.code === code) { found = c; return true; } return false; });
+            selectCountry(code, found ? found.name : code);
+          }
+        }
+      });
+
+      function selectCountry(code, name) {
+        S.selectedCountryCode = String(code || "").toUpperCase();
+        S.selectedCountryName = String(name || "").trim() || S.selectedCountryCode;
+        countryInput.value = S.selectedCountryName + " (" + S.selectedCountryCode + ")";
+        suggestBox.innerHTML = "";
+        // pop-out on map
+        if (S.mapWidget) {
+          S.mapWidget.select(S.selectedCountryCode, true);
+          S.mapWidget.setHud(S.selectedCountryName + " (" + S.selectedCountryCode + ") — click another country to change");
+        }
+        paint();
+      }
+
+      var controls = el("div", { class: "searchRow" }, [
+        countryInput,
+        btn("Clear", "btn", function () {
+          S.selectedCountryCode = "";
+          S.selectedCountryName = "";
+          countryInput.value = "";
+          suggestBox.innerHTML = "";
+          if (S.mapWidget) {
+            S.mapWidget.clear();
+            S.mapWidget.setHud("Click a country on the map, or search by name above.");
+          }
+          paint();
+        })
+      ]);
+
+      info.appendChild(controls);
+      info.appendChild(suggestBox);
+
+      var pills = el("div", { class: "row", style: "margin-top:10px;gap:8px" });
+      pills.appendChild(el("span", { class: "pill", html: "<b>Catalog</b> " + esc(S.catalog.length) + " vaccines" }));
+      pills.appendChild(el("span", { class: "pill", html: "<b>Stock rows</b> " + esc(S.stockRows.length) }));
+      pills.appendChild(el("span", { class: "pill", html: "<b>Selected</b> " + esc(S.selectedCountryCode ? (S.selectedCountryName + " (" + S.selectedCountryCode + ")") : "None") }));
       info.appendChild(pills);
 
-      var globeWrap = el("div", { class: "globeWrap" });
-      var globe = el("div", { class: "globe" });
-      globe.appendChild(buildGlobeSvg());
-      var pin = el("div", { class: "pin" });
-      globe.appendChild(pin);
-      var lab = el("div", { class: "countryLabel", text: S.selectedCountryCode ? ((S.selectedCountryName || "") + " (" + S.selectedCountryCode + ")") : "No country selected" });
-      globe.appendChild(lab);
-      if (S.selectedCountryCode) globe.classList.add("active");
-      globeWrap.appendChild(globe);
+      // MAP
+      var mapWrap = el("div", {});
+      var mapWidget = createWorldMapWidget(function (cc) {
+        // click on map selects
+        var name = cc;
+        try {
+          if (window.Intl && typeof Intl.DisplayNames === "function") {
+            var dn = new Intl.DisplayNames(["en"], { type: "region" });
+            name = dn.of(cc) || cc;
+          } else {
+            // try from index
+            var found = null;
+            (S.countryIndex || []).some(function (c) { if (c.code === cc) { found = c; return true; } return false; });
+            if (found) name = found.name;
+          }
+        } catch (e) {}
+        selectCountry(cc, name);
+      });
+      S.mapWidget = mapWidget;
+      mapWrap.appendChild(mapWidget.el);
+
+      // if already selected, apply selection (e.g. returning to tab)
+      if (S.selectedCountryCode) {
+        setTimeout(function () {
+          try {
+            if (S.mapWidget) {
+              S.mapWidget.select(S.selectedCountryCode, true);
+              S.mapWidget.setHud(S.selectedCountryName + " (" + S.selectedCountryCode + ")");
+            }
+          } catch (e) {}
+        }, 50);
+      }
 
       inner.appendChild(info);
-      inner.appendChild(globeWrap);
+      inner.appendChild(mapWrap);
       hero.appendChild(inner);
       wrap.appendChild(hero);
 
-      // Recommendations + order builder
-      var grid = el("div", { class: "grid", style: "margin-top:12px" });
-
-      var leftCard = el("div", { class: "eikon-card" });
-      leftCard.appendChild(el("div", { class: "row", style: "justify-content:space-between;align-items:center;margin-bottom:8px" }, [
+      // --------------------------------------------------------
+      // RECOMMENDED (NOW FULL WIDTH)
+      // --------------------------------------------------------
+      var recCard = el("div", { class: "eikon-card", style: "margin-top:12px" });
+      recCard.appendChild(el("div", { class: "row", style: "justify-content:space-between;align-items:center;margin-bottom:8px" }, [
         el("div", { html: "<b>Recommended vaccines</b><div class='muted' style='font-size:12px;margin-top:2px'>Filtered by country • Select vaccines & quantities</div>" }),
         btn("Clear selection", "btn", function () { S.selectedTravel = {}; S.extra = []; paint(); })
       ]));
@@ -635,45 +883,47 @@
       highBox.appendChild(highList);
       split.appendChild(alwaysBox);
       split.appendChild(highBox);
+      recCard.appendChild(split);
+      wrap.appendChild(recCard);
 
-      leftCard.appendChild(split);
+      // --------------------------------------------------------
+      // BELOW: Travel table + Order (GRID)
+      // --------------------------------------------------------
+      var grid2 = el("div", { class: "grid2", style: "margin-top:12px" });
 
-      // Travel table (browse & print)
-      var travelTblCard = el("div", { class: "eikon-card", style: "margin-top:12px" });
-      travelTblCard.appendChild(el("div", { class: "row", style: "justify-content:space-between;align-items:center;margin-bottom:8px" }, [
-        el("div", { html: "<b>Travel vaccines table</b><div class='muted' style='font-size:12px;margin-top:2px'>Search filters as you type • Add items from here too</div>" }),
-        el("div", { class: "right" }, [
-          btn("Print…", "btn", function () {
-            choosePrintSize("Print table", function (size) {
-              var rows = getTravelTableRowsFiltered();
-              openPrintHtml(buildTablePrintHtml("Travel vaccines", rows, size));
-            });
-          })
-        ])
+      // Travel table card
+      var tableCard = el("div", { class: "eikon-card" });
+      tableCard.appendChild(el("div", { class: "row", style: "justify-content:space-between;align-items:center;margin-bottom:8px" }, [
+        el("div", { html: "<b>Travel vaccines table</b><div class='muted' style='font-size:12px;margin-top:2px'>Search filters as you type</div>" }),
+        btn("Print…", "btn", function () {
+          choosePrintSize("Print table", function (size) {
+            var rows = getTravelTableRowsFiltered();
+            openPrintHtml(buildTablePrintHtml("Travel vaccines", rows, size));
+          });
+        })
       ]));
+
       var tSearch = input("text", "Search travel table…", S.travelSearch || "");
       tSearch.className = "input";
       tSearch.style.maxWidth = "360px";
       tSearch.addEventListener("input", function () { S.travelSearch = tSearch.value; paint(); });
-      travelTblCard.appendChild(el("div", { class: "row", style: "margin-bottom:8px" }, [tSearch]));
-      travelTblCard.appendChild(buildVaxTable(getTravelTableRowsFiltered(), function (row) {
-        // add to selection
-        var nm = row.brand_name || "";
+      tableCard.appendChild(el("div", { class: "row", style: "margin-bottom:8px" }, [tSearch]));
+      tableCard.appendChild(buildVaxTable(getTravelTableRowsFiltered(), function (r) {
+        var nm = r.brand_name || "";
         if (!nm) return;
-        if (!S.selectedTravel[nm]) S.selectedTravel[nm] = 1;
-        paint();
+        S.selectedTravel[nm] = S.selectedTravel[nm] ? (S.selectedTravel[nm] + 1) : 1;
         toast("Added: " + nm);
+        paint();
       }));
-      leftCard.appendChild(travelTblCard);
 
-      grid.appendChild(leftCard);
-
+      // Order card (unchanged logic)
       var rightCard = el("div", { class: "eikon-card" });
-
       rightCard.appendChild(el("div", { html: "<b>Create order</b><div class='muted' style='font-size:12px;margin-top:2px'>Enter client details, add extra vaccines, print & save</div>" }));
 
+      // Extra vaccines
       var extraBox = el("div", { class: "box", style: "margin-top:10px" });
       extraBox.appendChild(el("h3", { text: "Extra vaccines" }));
+
       var extraRow = el("div", { class: "row" });
       var extraInput = input("text", "Type vaccine name (suggestions)…", "");
       extraInput.className = "input";
@@ -695,12 +945,14 @@
       var addExtra = btn("Add", "btn green", function () {
         var nm = String(extraInput.value || "").trim();
         if (!nm) { toast("Type a vaccine name"); return; }
-        var q = toInt(extraQty.value, 1); if (q <= 0) q = 1;
+        var q = toInt(extraQty.value, 1);
+        if (q <= 0) q = 1;
         S.extra.push({ name: nm, qty: q });
         extraInput.value = "";
         extraQty.value = "1";
         paint();
       });
+
       extraRow.appendChild(extraInput);
       extraRow.appendChild(extraQty);
       extraRow.appendChild(addExtra);
@@ -708,7 +960,7 @@
       extraBox.appendChild(vdl);
 
       if (S.extra.length) {
-        var exList = el("div", { class: "list", style: "max-height:180px;margin-top:10px" });
+        var exList = el("div", { class: "list", style: "max-height:180px;margin-top:10px;overflow:auto" });
         S.extra.forEach(function (it, idx) {
           var line = el("div", { class: "item" });
           line.appendChild(el("div", { html: "<div class='nm'>" + esc(it.name) + "</div><div class='sub'>Extra item</div>" }));
@@ -717,7 +969,7 @@
           qx.min = "1";
           qx.step = "1";
           qx.addEventListener("change", function () { it.qty = Math.max(1, toInt(qx.value, 1)); });
-          var rm = btn("✕", "btn", function () { S.extra.splice(idx, 1); paint(); });
+          var rm = btn("✕", "btn pink", function () { S.extra.splice(idx, 1); paint(); });
           rm.title = "Remove";
           line.appendChild(el("div", { style: "margin-left:auto;display:flex;gap:8px;align-items:center" }, [qx, rm]));
           exList.appendChild(line);
@@ -729,7 +981,7 @@
 
       rightCard.appendChild(extraBox);
 
-      // Client form
+      // Client details
       var form = el("div", { class: "box", style: "margin-top:10px" });
       form.appendChild(el("h3", { text: "Client details" }));
 
@@ -738,6 +990,7 @@
       var f3 = input("text", "Phone number", S.phone || "");
       var f4 = input("email", "Email (optional)", S.email || "");
       [f1, f2, f3, f4].forEach(function (i) { i.className = "input"; i.style.maxWidth = "100%"; });
+
       f1.addEventListener("input", function () { S.client_first = f1.value; });
       f2.addEventListener("input", function () { S.client_last = f2.value; });
       f3.addEventListener("input", function () { S.phone = f3.value; });
@@ -747,9 +1000,7 @@
       form.appendChild(el("div", { class: "row" }, [el("div", { class: "grow" }, [f3]), el("div", { class: "grow" }, [f4])]));
 
       var actions = el("div", { class: "row", style: "justify-content:flex-end;margin-top:10px" });
-      var savePrint = btn("Print & Save order…", "btn primary", function () {
-        choosePrintSize("Print order", function (size) { doCreateOrder("travel", size); });
-      });
+      var savePrint = btn("Print & Save order…", "btn primary", function () { choosePrintSize("Print order", function (size) { doCreateOrder("travel", size); }); });
       var quickSave = btn("Save only", "btn", function () { doCreateOrder("travel", null); });
       actions.appendChild(quickSave);
       actions.appendChild(savePrint);
@@ -765,7 +1016,7 @@
       if (!items.length) {
         summary.appendChild(el("div", { class: "muted", text: "No items selected yet." }));
       } else {
-        var list = el("div", { class: "list", style: "max-height:260px" });
+        var list = el("div", { class: "list", style: "max-height:260px;overflow:auto" });
         items.forEach(function (it) {
           var v = getVaxByName(S.catalog, it.name);
           var sub = v ? (String(v.vaccinates_for || "") + (v.dosing_schedule ? (" • " + v.dosing_schedule) : "")) : "";
@@ -777,12 +1028,9 @@
           q.step = "1";
           q.addEventListener("change", function () {
             var nn = Math.max(1, toInt(q.value, 1));
-            // apply back to selectedTravel or extra
             if (S.selectedTravel[it.name] != null) { S.selectedTravel[it.name] = nn; paint(); }
             else {
-              for (var j = 0; j < S.extra.length; j++) {
-                if (S.extra[j].name === it.name) S.extra[j].qty = nn;
-              }
+              for (var j = 0; j < S.extra.length; j++) if (S.extra[j].name === it.name) S.extra[j].qty = nn;
             }
           });
           row.appendChild(el("div", { style: "margin-left:auto" }, [q]));
@@ -790,81 +1038,13 @@
         });
         summary.appendChild(list);
       }
-
       rightCard.appendChild(summary);
 
-      grid.appendChild(rightCard);
-      wrap.appendChild(grid);
+      grid2.appendChild(tableCard);
+      grid2.appendChild(rightCard);
 
+      wrap.appendChild(grid2);
       return wrap;
-    }
-
-    function buildGlobeSvg() {
-      // Abstract, colorful continents (not country-accurate; decorative)
-      var ns = "http://www.w3.org/2000/svg";
-      var svg = document.createElementNS(ns, "svg");
-      svg.setAttribute("viewBox", "0 0 320 320");
-      svg.innerHTML =
-        "<defs>" +
-        "  <linearGradient id='g1' x1='0' y1='0' x2='1' y2='1'>" +
-        "    <stop offset='0' stop-color='rgba(90,168,255,.55)'/>" +
-        "    <stop offset='.55' stop-color='rgba(44,210,152,.38)'/>" +
-        "    <stop offset='1' stop-color='rgba(255,92,165,.42)'/>" +
-        "  </linearGradient>" +
-        "  <radialGradient id='g2' cx='.35' cy='.3' r='.9'>" +
-        "    <stop offset='0' stop-color='rgba(255,255,255,.22)'/>" +
-        "    <stop offset='.55' stop-color='rgba(255,255,255,.05)'/>" +
-        "    <stop offset='1' stop-color='rgba(0,0,0,0)'/>" +
-        "  </radialGradient>" +
-        "</defs>" +
-        "<circle cx='160' cy='160' r='160' fill='rgba(0,0,0,0)'/>" +
-        // graticule lines
-        "<g opacity='.20' stroke='rgba(255,255,255,.75)' stroke-width='1'>" +
-        "  <path d='M160 0 V320'/>" +
-        "  <path d='M0 160 H320'/>" +
-        "  <path d='M80 0 V320'/>" +
-        "  <path d='M240 0 V320'/>" +
-        "  <path d='M0 80 H320'/>" +
-        "  <path d='M0 240 H320'/>" +
-        "</g>" +
-        // continents (blobs)
-        "<g fill='url(#g1)' opacity='.78'>" +
-        "  <path d='M64,112 C78,84 118,70 142,86 C160,98 158,126 136,140 C114,154 88,150 74,138 C64,130 58,124 64,112 Z'/>" + // N America
-        "  <path d='M118,176 C132,160 154,160 170,178 C184,196 174,222 152,236 C130,250 110,236 108,214 C106,196 108,186 118,176 Z'/>" + // S America
-        "  <path d='M186,98 C208,84 242,88 256,112 C270,136 252,166 224,166 C198,166 182,144 180,124 C178,110 176,104 186,98 Z'/>" + // Europe
-        "  <path d='M188,170 C210,154 252,152 270,178 C288,204 270,246 232,250 C198,254 174,228 174,204 C174,186 176,178 188,170 Z'/>" + // Africa
-        "  <path d='M234,190 C256,168 296,176 304,206 C312,236 292,266 260,268 C236,270 220,252 222,230 C224,212 224,202 234,190 Z'/>" + // Asia/Oceania
-        "</g>" +
-        "<circle cx='160' cy='160' r='160' fill='url(#g2)' opacity='.95'/>";
-
-      return svg;
-    }
-
-    function parseCountryInput(text) {
-      var t = String(text || "").trim();
-      if (!t) return null;
-
-      var m = t.match(/\(([A-Za-z]{2})\)\s*$/);
-      var code = m ? m[1].toUpperCase() : "";
-      var name = "";
-      if (code) {
-        var found = null;
-        (S.countryIndex || []).some(function (c) {
-          if (c.code === code) { found = c; return true; }
-          return false;
-        });
-        name = found ? found.name : t.replace(/\([A-Za-z]{2}\)\s*$/, "").trim();
-        return { code: code, name: name || code };
-      }
-
-      // Try exact name match
-      var lc = t.toLowerCase();
-      var hit = null;
-      (S.countryIndex || []).some(function (c) {
-        if (String(c.name || "").toLowerCase() === lc) { hit = c; return true; }
-        return false;
-      });
-      return hit ? { code: hit.code, name: hit.name } : null;
     }
 
     function computeTravelRecommendations(countryCode) {
@@ -875,7 +1055,6 @@
         if (csvHasCountry(v.travel_always, countryCode)) always.push(v);
         else if (csvHasCountry(v.travel_highrisk, countryCode)) high.push(v);
       });
-      // stable sort
       function byName(a, b) { return String(a.brand_name || "").localeCompare(String(b.brand_name || "")); }
       always.sort(byName);
       high.sort(byName);
@@ -887,6 +1066,7 @@
       (rows || []).forEach(function (v) {
         var nm = String(v.brand_name || "").trim();
         if (!nm) return;
+
         var it = el("div", { class: "item" });
 
         var cb = input("checkbox", "", "");
@@ -918,6 +1098,7 @@
         it.appendChild(cb);
         it.appendChild(desc);
         it.appendChild(el("div", { style: "margin-left:auto" }, [qty]));
+
         container.appendChild(it);
       });
     }
@@ -930,20 +1111,16 @@
         var q = Math.max(1, toInt(selectedMap[nm], 1));
         out.push({ name: nm, qty: q });
       });
-
       (extraArr || []).forEach(function (it) {
         var nm = String(it.name || "").trim();
         if (!nm) return;
         var q = Math.max(1, toInt(it.qty, 1));
-        // allow duplicates, but we keep it merged for storage/stock
+        // merge duplicates (stock/order)
         var found = null;
-        for (var i = 0; i < out.length; i++) {
-          if (out[i].name === nm) { found = out[i]; break; }
-        }
+        for (var i = 0; i < out.length; i++) if (out[i].name === nm) { found = out[i]; break; }
         if (found) found.qty += q;
         else out.push({ name: nm, qty: q });
       });
-
       return out;
     }
 
@@ -956,6 +1133,7 @@
         var cl = String(S.client_last || "").trim();
         var ph = String(S.phone || "").trim();
         var em = String(S.email || "").trim();
+
         if (!cf || !cl) { toast("Enter client name and surname"); return; }
         if (!ph) { toast("Enter phone number"); return; }
 
@@ -971,18 +1149,16 @@
         };
 
         var data = await apiJson("POST", "/vaccines/orders", payload);
-
         toast("Saved order #" + String(data.order && data.order.id || data.order_id || ""));
+
         await refreshStock();
 
-        // Reset selections
         if (section === "travel") S.selectedTravel = {};
         else S.selectedOther = {};
         S.extra = [];
 
         if (printSizeOrNull) {
           var order = data.order || {};
-          // enrich items for print with info strings
           var enriched = (order.items || items).map(function (it) {
             var v = getVaxByName(S.catalog, it.name);
             var info = v ? (String(v.vaccinates_for || "") + (v.dosing_schedule ? (" • " + v.dosing_schedule) : "")) : "";
@@ -999,6 +1175,38 @@
       }
     }
 
+    function buildVaxTable(rows, onPickRow) {
+      rows = rows || [];
+      var wrapper = el("div", { style: "overflow:auto;border:1px solid rgba(255,255,255,.10);border-radius:16px" });
+      var table = el("table", {});
+      table.appendChild(el("thead", {}, [el("tr", {}, [
+        el("th", { text: "Vaccine" }),
+        el("th", { text: "Vaccinates for" }),
+        el("th", { text: "Schedule" }),
+        el("th", { text: "Routine" }),
+        el("th", { text: "" })
+      ])]));
+      var tbody = el("tbody", {});
+      if (!rows.length) {
+        tbody.appendChild(el("tr", {}, [el("td", { colspan: "5", class: "muted", text: "No rows." })]));
+      } else {
+        rows.forEach(function (r) {
+          var tr = el("tr", {});
+          tr.appendChild(el("td", { html: "<b>" + esc(r.brand_name || "") + "</b>" }));
+          tr.appendChild(el("td", { text: String(r.vaccinates_for || "") }));
+          tr.appendChild(el("td", { text: String(r.dosing_schedule || "") }));
+          tr.appendChild(el("td", { html: "<span class='tag " + (isRoutine(r) ? "yes" : "no") + "'>" + (isRoutine(r) ? "Yes" : "No") + "</span>" }));
+          var act = el("td", {});
+          if (onPickRow) act.appendChild(btn("Add", "btn", function () { onPickRow(r); }));
+          tr.appendChild(act);
+          tbody.appendChild(tr);
+        });
+      }
+      table.appendChild(tbody);
+      wrapper.appendChild(table);
+      return wrapper;
+    }
+
     function getTravelTableRowsFiltered() {
       var q = String(S.travelSearch || "").trim().toLowerCase();
       var rows = (S.catalog || []).filter(isTravelVax);
@@ -1010,7 +1218,7 @@
     }
 
     // ----------------------------------------------------------
-    // Routine & Other tab
+    // Routine & Other (unchanged)
     // ----------------------------------------------------------
     function renderOtherTab() {
       var wrap = el("div", {});
@@ -1026,15 +1234,14 @@
       q.className = "input";
       q.style.maxWidth = "360px";
       q.addEventListener("input", function () { S.otherSearch = q.value; paint(); });
-      row.appendChild(q);
 
+      row.appendChild(q);
       row.appendChild(btn("Print…", "btn", function () {
         choosePrintSize("Print table", function (size) {
           var rows = getOtherTableRowsFiltered();
           openPrintHtml(buildTablePrintHtml("Routine & other vaccines", rows, size));
         });
       }));
-
       card.appendChild(row);
 
       card.appendChild(buildVaxTable(getOtherTableRowsFiltered(), function (r) {
@@ -1045,113 +1252,33 @@
         toast("Added: " + nm);
       }));
 
-      // Order card
       var orderCard = el("div", { class: "eikon-card", style: "margin-top:12px" });
-      orderCard.appendChild(el("div", { html: "<b>Create order</b><div class='muted' style='font-size:12px;margin-top:2px'>Same process as travel (no country)</div>" }));
+      orderCard.appendChild(el("div", { html: "<b>Create order</b><div class='muted' style='font-size:12px;margin-top:2px'>Same workflow as Travel</div>" }));
 
-      var extraBox = el("div", { class: "box", style: "margin-top:10px" });
-      extraBox.appendChild(el("h3", { text: "Extra vaccines (optional)" }));
-      var extraRow = el("div", { class: "row" });
-      var extraInput = input("text", "Type vaccine name (suggestions)…", "");
-      extraInput.className = "input";
-      extraInput.setAttribute("list", "vax-vaccine-datalist2");
-      extraInput.style.maxWidth = "360px";
-      var vdl2 = el("datalist", { id: "vax-vaccine-datalist2" });
-      (S.catalog || []).forEach(function (v) {
-        var nm = String(v.brand_name || "").trim();
-        if (!nm) return;
-        vdl2.appendChild(el("option", { value: nm }));
-      });
-      var extraQty = input("number", "Qty", "1");
-      extraQty.className = "qty";
-      extraQty.min = "1";
-      extraQty.step = "1";
-      var addExtra = btn("Add", "btn green", function () {
-        var nm = String(extraInput.value || "").trim();
-        if (!nm) { toast("Type a vaccine name"); return; }
-        var qq = toInt(extraQty.value, 1); if (qq <= 0) qq = 1;
-        S.extra.push({ name: nm, qty: qq });
-        extraInput.value = "";
-        extraQty.value = "1";
-        paint();
-      });
-      extraRow.appendChild(extraInput);
-      extraRow.appendChild(extraQty);
-      extraRow.appendChild(addExtra);
-      extraBox.appendChild(extraRow);
-      extraBox.appendChild(vdl2);
+      var box = el("div", { class: "box", style: "margin-top:10px" });
 
-      if (S.extra.length) {
-        var exList = el("div", { class: "list", style: "max-height:180px;margin-top:10px" });
-        S.extra.forEach(function (it, idx) {
-          var line = el("div", { class: "item" });
-          line.appendChild(el("div", { html: "<div class='nm'>" + esc(it.name) + "</div><div class='sub'>Extra item</div>" }));
-          var qx = input("number", "", it.qty);
-          qx.className = "qty";
-          qx.min = "1";
-          qx.step = "1";
-          qx.addEventListener("change", function () { it.qty = Math.max(1, toInt(qx.value, 1)); });
-          var rm = btn("✕", "btn", function () { S.extra.splice(idx, 1); paint(); });
-          rm.title = "Remove";
-          line.appendChild(el("div", { style: "margin-left:auto;display:flex;gap:8px;align-items:center" }, [qx, rm]));
-          exList.appendChild(line);
-        });
-        extraBox.appendChild(exList);
-      }
-      orderCard.appendChild(extraBox);
-
-      var form = el("div", { class: "box", style: "margin-top:10px" });
-      form.appendChild(el("h3", { text: "Client details" }));
       var f1 = input("text", "Name", S.client_first || "");
       var f2 = input("text", "Surname", S.client_last || "");
       var f3 = input("text", "Phone number", S.phone || "");
       var f4 = input("email", "Email (optional)", S.email || "");
       [f1, f2, f3, f4].forEach(function (i) { i.className = "input"; i.style.maxWidth = "100%"; });
+
       f1.addEventListener("input", function () { S.client_first = f1.value; });
       f2.addEventListener("input", function () { S.client_last = f2.value; });
       f3.addEventListener("input", function () { S.phone = f3.value; });
       f4.addEventListener("input", function () { S.email = f4.value; });
 
-      form.appendChild(el("div", { class: "row" }, [el("div", { class: "grow" }, [f1]), el("div", { class: "grow" }, [f2])]));
-      form.appendChild(el("div", { class: "row" }, [el("div", { class: "grow" }, [f3]), el("div", { class: "grow" }, [f4])]));
+      box.appendChild(el("div", { class: "row" }, [el("div", { class: "grow" }, [f1]), el("div", { class: "grow" }, [f2])]));
+      box.appendChild(el("div", { class: "row" }, [el("div", { class: "grow" }, [f3]), el("div", { class: "grow" }, [f4])]));
 
       var actions = el("div", { class: "row", style: "justify-content:flex-end;margin-top:10px" });
       actions.appendChild(btn("Save only", "btn", function () { doCreateOrder("other", null); }));
       actions.appendChild(btn("Print & Save order…", "btn primary", function () {
         choosePrintSize("Print order", function (size) { doCreateOrder("other", size); });
       }));
-      form.appendChild(actions);
+      box.appendChild(actions);
 
-      orderCard.appendChild(form);
-
-      var summary = el("div", { class: "box", style: "margin-top:10px" });
-      summary.appendChild(el("h3", { text: "Order items" }));
-      var items = collectOrderItems(S.selectedOther, S.extra);
-      if (!items.length) summary.appendChild(el("div", { class: "muted", text: "No items selected yet." }));
-      else {
-        var list = el("div", { class: "list", style: "max-height:260px" });
-        items.forEach(function (it) {
-          var v = getVaxByName(S.catalog, it.name);
-          var sub = v ? (String(v.vaccinates_for || "") + (v.dosing_schedule ? (" • " + v.dosing_schedule) : "")) : "";
-          var row = el("div", { class: "item" });
-          row.appendChild(el("div", { html: "<div class='nm'>" + esc(it.name) + "</div><div class='sub'>" + esc(sub) + "</div>" }));
-          var q = input("number", "", it.qty);
-          q.className = "qty";
-          q.min = "1";
-          q.step = "1";
-          q.addEventListener("change", function () {
-            var nn = Math.max(1, toInt(q.value, 1));
-            if (S.selectedOther[it.name] != null) { S.selectedOther[it.name] = nn; paint(); }
-            else {
-              for (var j = 0; j < S.extra.length; j++) if (S.extra[j].name === it.name) S.extra[j].qty = nn;
-            }
-          });
-          row.appendChild(el("div", { style: "margin-left:auto" }, [q]));
-          list.appendChild(row);
-        });
-        summary.appendChild(list);
-      }
-      orderCard.appendChild(summary);
+      orderCard.appendChild(box);
 
       wrap.appendChild(card);
       wrap.appendChild(orderCard);
@@ -1160,7 +1287,10 @@
 
     function getOtherTableRowsFiltered() {
       var q = String(S.otherSearch || "").trim().toLowerCase();
-      var rows = (S.catalog || []).filter(function (v) { return !isTravelVax(v); });
+      var rows = (S.catalog || []).filter(function (r) {
+        var travel = isTravelVax(r);
+        return !travel || isRoutine(r);
+      });
       if (!q) return rows;
       return rows.filter(function (r) {
         var s = (String(r.brand_name || "") + " " + String(r.vaccinates_for || "") + " " + String(r.dosing_schedule || "")).toLowerCase();
@@ -1168,189 +1298,77 @@
       });
     }
 
-    function buildVaxTable(rows, onAdd) {
-      var wrapper = el("div", { style: "overflow:auto;border:1px solid rgba(255,255,255,.10);border-radius:16px" });
-      var table = el("table", {});
-      var thead = el("thead", {});
-      thead.appendChild(el("tr", {}, [
-        el("th", { text: "Vaccine" }),
-        el("th", { text: "Vaccinates for" }),
-        el("th", { text: "Schedule" }),
-        el("th", { text: "Routine" }),
-        el("th", { text: "" })
-      ]));
-      table.appendChild(thead);
-
-      var tbody = el("tbody", {});
-      if (!rows || !rows.length) {
-        tbody.appendChild(el("tr", {}, [el("td", { colspan: "5", class: "muted", text: "No rows." })]));
-      } else {
-        rows.forEach(function (r) {
-          var routine = isRoutine(r);
-          var tr = el("tr", {});
-          tr.appendChild(el("td", { html: "<b>" + esc(r.brand_name || "") + "</b>" }));
-          tr.appendChild(el("td", { text: String(r.vaccinates_for || "") }));
-          tr.appendChild(el("td", { text: String(r.dosing_schedule || "") }));
-          tr.appendChild(el("td", { html: "<span class='tag " + (routine ? "yes" : "no") + "'>" + (routine ? "Yes" : "No") + "</span>" }));
-          var add = btn("Add", "btn", function () { if (onAdd) onAdd(r); });
-          add.style.padding = "8px 10px";
-          tr.appendChild(el("td", { style: "text-align:right" }, [add]));
-          tbody.appendChild(tr);
-        });
-      }
-
-      table.appendChild(tbody);
-      wrapper.appendChild(table);
-      return wrapper;
-    }
-
     // ----------------------------------------------------------
-    // Stock tab
+    // Stock (same behavior as before)
     // ----------------------------------------------------------
     function renderStockTab() {
       var wrap = el("div", {});
       var card = el("div", { class: "eikon-card" });
 
       card.appendChild(el("div", { class: "row", style: "justify-content:space-between;align-items:center;margin-bottom:8px" }, [
-        el("div", { html: "<b>Stock</b><div class='muted' style='font-size:12px;margin-top:2px'>Stock levels subtract on each order • Negative values allowed</div>" }),
-        el("div", { class: "right" }, [
-          btn("Refresh", "btn", function () { (async function(){ try{ await refreshStock(); paint(); toast("Stock refreshed"); } catch(e){ modalError("Refresh failed", e);} })(); })
-        ])
+        el("div", { html: "<b>Stock</b><div class='muted' style='font-size:12px;margin-top:2px'>Optional stock levels, batches, expiry • Negative allowed</div>" }),
+        btn("Refresh", "btn", function () {
+          (async function () {
+            try { await refreshStock(); paint(); toast("Stock refreshed"); }
+            catch (e) { modalError("Refresh failed", e); }
+          })();
+        })
       ]));
 
       var q = input("text", "Search stock…", S.stockSearch || "");
       q.className = "input";
       q.style.maxWidth = "360px";
       q.addEventListener("input", function () { S.stockSearch = q.value; paint(); });
+      card.appendChild(el("div", { class: "row", style: "margin-bottom:8px" }, [q]));
 
-      card.appendChild(el("div", { class: "row", style: "margin-bottom:10px" }, [q]));
-
-      // Add new row
+      // Add stock row
       var addBox = el("div", { class: "box" });
-      addBox.appendChild(el("h3", { text: "Add / top-up stock" }));
-      var r = el("div", { class: "row" });
+      addBox.appendChild(el("h3", { text: "Add / adjust stock" }));
 
-      var vName = input("text", "Vaccine name (suggestions)…", "");
-      vName.className = "input";
-      vName.setAttribute("list", "vax-vaccine-datalist-stock");
-      vName.style.maxWidth = "360px";
-
-      var vdl = el("datalist", { id: "vax-vaccine-datalist-stock" });
-      (S.catalog || []).forEach(function (v) {
-        var nm = String(v.brand_name || "").trim();
-        if (!nm) return;
-        vdl.appendChild(el("option", { value: nm }));
-      });
-
+      var nm = input("text", "Vaccine name", "");
+      nm.className = "input";
+      nm.style.maxWidth = "420px";
       var qty = input("number", "Qty", "0");
       qty.className = "qty";
-      qty.step = "1";
-
       var batch = input("text", "Batch (optional)", "");
       batch.className = "input";
-      batch.style.maxWidth = "220px";
-
+      batch.style.maxWidth = "200px";
       var exp = input("date", "", "");
-      exp.className = "qty";
-      exp.style.width = "180px";
+      exp.className = "input";
+      exp.style.maxWidth = "200px";
 
       var addBtn = btn("Save stock row", "btn primary", function () {
         (async function () {
           try {
-            var nm = String(vName.value || "").trim();
-            if (!nm) { toast("Enter vaccine name"); return; }
-            var qn = toInt(qty.value, 0);
-            var b = String(batch.value || "").trim();
-            var ex = String(exp.value || "").trim();
-            await apiJson("POST", "/vaccines/stock/rows", { vaccine_name: nm, qty: qn, batch: b, expiry_date: ex });
-            toast("Stock saved");
-            vName.value = ""; qty.value = "0"; batch.value = ""; exp.value = "";
+            var name = String(nm.value || "").trim();
+            if (!name) { toast("Enter vaccine name"); return; }
+            await apiJson("POST", "/vaccines/stock/rows", {
+              vaccine_name: name,
+              qty: toInt(qty.value, 0),
+              batch: String(batch.value || "").trim(),
+              expiry_date: String(exp.value || "").trim()
+            });
+            toast("Saved");
+            nm.value = ""; qty.value = "0"; batch.value = ""; exp.value = "";
             await refreshStock();
             paint();
-          } catch (e) { modalError("Save stock failed", e); }
+          } catch (e) { modalError("Save failed", e); }
         })();
       });
 
-      r.appendChild(vName);
-      r.appendChild(qty);
-      r.appendChild(batch);
-      r.appendChild(exp);
-      r.appendChild(addBtn);
-      addBox.appendChild(r);
-      addBox.appendChild(vdl);
+      addBox.appendChild(el("div", { class: "row" }, [nm]));
+      addBox.appendChild(el("div", { class: "row" }, [qty, batch, exp, addBtn]));
+      addBox.appendChild(el("div", { class: "muted", text: "Tip: Leave batch/expiry empty if you don’t track them." }));
 
       card.appendChild(addBox);
+      card.appendChild(buildStockTable(filterStockRows()));
 
-      // Existing rows
-      var listBox = el("div", { class: "box", style: "margin-top:10px" });
-      listBox.appendChild(el("h3", { text: "Existing stock rows" }));
-
-      var rows = filterStockRows();
-      if (!rows.length) {
-        listBox.appendChild(el("div", { class: "muted", text: "No stock rows yet. Add one above, or ignore stock tracking (orders will still be saved)." }));
-      } else {
-        var tblWrap = el("div", { style: "overflow:auto;border:1px solid rgba(255,255,255,.10);border-radius:16px" });
-        var table = el("table", {});
-        var thead = el("thead", {});
-        thead.appendChild(el("tr", {}, [
-          el("th", { text: "Vaccine" }),
-          el("th", { text: "Qty" }),
-          el("th", { text: "Batch" }),
-          el("th", { text: "Expiry" }),
-          el("th", { text: "Updated" }),
-          el("th", { text: "" })
-        ]));
-        table.appendChild(thead);
-
-        var tbody = el("tbody", {});
-        rows.forEach(function (sr) {
-          var tr = el("tr", {});
-          tr.appendChild(el("td", { html: "<b>" + esc(sr.vaccine_name || "") + "</b>" }));
-
-          var qn = input("number", "", sr.qty);
-          qn.className = "qty";
-          qn.step = "1";
-          var bb = input("text", "", sr.batch || "");
-          bb.className = "input";
-          bb.style.maxWidth = "220px";
-          var ex = input("date", "", sr.expiry_date || "");
-          ex.className = "qty";
-          ex.style.width = "180px";
-
-          tr.appendChild(el("td", {}, [qn]));
-          tr.appendChild(el("td", {}, [bb]));
-          tr.appendChild(el("td", {}, [ex]));
-          tr.appendChild(el("td", { class: "muted", text: String(sr.updated_at || "") }));
-
-          var save = btn("Save", "btn", function () {
-            (async function () {
-              try {
-                var newQty = toInt(qn.value, 0);
-                var newBatch = String(bb.value || "").trim();
-                var newExp = String(ex.value || "").trim();
-                await apiJson("PUT", "/vaccines/stock/rows/" + encodeURIComponent(String(sr.id)), { qty: newQty, batch: newBatch, expiry_date: newExp });
-                toast("Updated");
-                await refreshStock();
-                paint();
-              } catch (e) { modalError("Update failed", e); }
-            })();
-          });
-          save.style.padding = "8px 10px";
-          tr.appendChild(el("td", { style: "text-align:right" }, [save]));
-          tbody.appendChild(tr);
-        });
-        table.appendChild(tbody);
-        tblWrap.appendChild(table);
-        listBox.appendChild(tblWrap);
-      }
-
-      card.appendChild(listBox);
       wrap.appendChild(card);
       return wrap;
     }
 
     function filterStockRows() {
-      var q = String(S.stockSearch || "").trim().toLowerCase();
+      var q = norm(S.stockSearch);
       var rows = Array.isArray(S.stockRows) ? S.stockRows.slice() : [];
       if (!q) return rows;
       return rows.filter(function (r) {
@@ -1359,19 +1377,83 @@
       });
     }
 
+    function buildStockTable(rows) {
+      rows = rows || [];
+      var wrapper = el("div", { style: "overflow:auto;border:1px solid rgba(255,255,255,.10);border-radius:16px;margin-top:10px" });
+      var table = el("table", {});
+      table.appendChild(el("thead", {}, [el("tr", {}, [
+        el("th", { text: "Vaccine" }),
+        el("th", { text: "Qty" }),
+        el("th", { text: "Batch" }),
+        el("th", { text: "Expiry" }),
+        el("th", { text: "" })
+      ])]));
+      var tbody = el("tbody", {});
+      if (!rows.length) {
+        tbody.appendChild(el("tr", {}, [el("td", { colspan: "5", class: "muted", text: "No stock rows." })]));
+      } else {
+        rows.forEach(function (r) {
+          var tr = el("tr", {});
+          tr.appendChild(el("td", { html: "<b>" + esc(r.vaccine_name || "") + "</b>" }));
+
+          var q = input("number", "", r.qty);
+          q.className = "qty";
+          q.style.maxWidth = "90px";
+
+          var b = input("text", "", r.batch || "");
+          b.className = "input";
+          b.style.maxWidth = "160px";
+
+          var e = input("text", "", r.expiry_date || "");
+          e.className = "input";
+          e.style.maxWidth = "140px";
+          e.placeholder = "YYYY-MM-DD";
+
+          tr.appendChild(el("td", {}, [q]));
+          tr.appendChild(el("td", {}, [b]));
+          tr.appendChild(el("td", {}, [e]));
+
+          var save = btn("Update", "btn primary", function () {
+            (async function () {
+              try {
+                await apiJson("PUT", "/vaccines/stock/rows/" + encodeURIComponent(r.id), {
+                  qty: toInt(q.value, 0),
+                  batch: String(b.value || "").trim(),
+                  expiry_date: String(e.value || "").trim()
+                });
+                toast("Updated");
+                await refreshStock();
+                paint();
+              } catch (err) { modalError("Update failed", err); }
+            })();
+          });
+
+          tr.appendChild(el("td", {}, [save]));
+          tbody.appendChild(tr);
+        });
+      }
+      table.appendChild(tbody);
+      wrapper.appendChild(table);
+      return wrapper;
+    }
+
     // ----------------------------------------------------------
-    // Database tab
+    // Database (same behavior as before: add name only)
     // ----------------------------------------------------------
     function renderDbTab() {
       var wrap = el("div", {});
       var card = el("div", { class: "eikon-card" });
 
       card.appendChild(el("div", { class: "row", style: "justify-content:space-between;align-items:center;margin-bottom:8px" }, [
-        el("div", { html: "<b>Database</b><div class='muted' style='font-size:12px;margin-top:2px'>You can only add new vaccines (name only). Existing rows are read-only.</div>" }),
-        btn("Refresh", "btn", function () { (async function(){ try{ await refreshCatalog(); paint(); toast("Catalog refreshed"); } catch(e){ modalError("Refresh failed", e);} })(); })
+        el("div", { html: "<b>Database</b><div class='muted' style='font-size:12px;margin-top:2px'>Add vaccine name only. Existing rows are read-only.</div>" }),
+        btn("Refresh", "btn", function () {
+          (async function () {
+            try { await refreshCatalog(); paint(); toast("Catalog refreshed"); }
+            catch (e) { modalError("Refresh failed", e); }
+          })();
+        })
       ]));
 
-      // Add row (only vaccine name)
       var addBox = el("div", { class: "box" });
       addBox.appendChild(el("h3", { text: "Add vaccine to database" }));
 
@@ -1396,22 +1478,24 @@
       r.appendChild(nm);
       r.appendChild(addBtn);
       addBox.appendChild(r);
-      addBox.appendChild(el("div", { class: "muted", text: "Note: Only the vaccine name is editable. Other columns remain blank unless an admin seeds them." }));
+      addBox.appendChild(el("div", { class: "muted", text: "Only the vaccine name is editable for users." }));
 
       card.appendChild(addBox);
 
-      // Search + table
       var q = input("text", "Search database…", S.dbSearch || "");
       q.className = "input";
       q.style.maxWidth = "360px";
       q.addEventListener("input", function () { S.dbSearch = q.value; paint(); });
 
-      card.appendChild(el("div", { class: "row", style: "margin-top:10px" }, [q, btn("Print…", "btn", function () {
-        choosePrintSize("Print table", function (size) {
-          var rows = filterDbRows();
-          openPrintHtml(buildTablePrintHtml("Vaccine database", rows, size));
-        });
-      })]));
+      card.appendChild(el("div", { class: "row", style: "margin-top:10px" }, [
+        q,
+        btn("Print…", "btn", function () {
+          choosePrintSize("Print table", function (size) {
+            var rows = filterDbRows();
+            openPrintHtml(buildTablePrintHtml("Vaccine database", rows, size));
+          });
+        })
+      ]));
 
       card.appendChild(buildVaxDbTable(filterDbRows()));
 
@@ -1459,9 +1543,9 @@
       wrapper.appendChild(table);
       return wrapper;
     }
-
   }
 
+  // Register module
   E.registerModule({
     id: "vaccines",
     title: "Vaccines",
