@@ -1,26 +1,25 @@
 /* ui/modules.vaccines.js
    Eikon - Vaccines module (UI)
 
-   Version: 2026-02-21-6
+   Version: 2026-02-21-7
 
    Fix:
-   - Country search now works by country NAME (full or partial), not ISO.
+   - Country search works by country NAME (full or partial), not ISO.
      Uses country list extracted from local map HTML: ./world_hi_res_v4_palette.html
    - Enter key selects top match.
    - Clicking map fills name + selects country.
 
-   Keeps:
-   - Travel first with puzzle map pop-out (.is-active)
-   - Recommended vaccines full width
-   - Routine & Other, Stock, Database
-   - Printing A4/Receipt
-   - D1 endpoints:
-       GET    /vaccines/catalog
-       POST   /vaccines/catalog
-       POST   /vaccines/orders
-       GET    /vaccines/stock/rows
-       POST   /vaccines/stock/rows
-       PUT    /vaccines/stock/rows/:id
+   Map loading:
+   - Fetches map with cache-busting query based on E.VERSION + module VERSION.
+   - Also tries ./assets/world_hi_res_v4_palette.html if file placed there.
+
+   D1 endpoints used:
+     GET    /vaccines/catalog
+     POST   /vaccines/catalog
+     POST   /vaccines/orders
+     GET    /vaccines/stock/rows
+     POST   /vaccines/stock/rows
+     PUT    /vaccines/stock/rows/:id
 */
 
 (function () {
@@ -29,14 +28,11 @@
   var E = window.EIKON;
   if (!E) return;
 
-  var VERSION = "2026-02-21-6";
+  var VERSION = "2026-02-21-7";
   try { if (E && E.dbg) E.dbg("[vaccines] loaded v", VERSION); } catch (e) {}
 
-  // ------------------------------------------------------------
-  // Helpers
-  // ------------------------------------------------------------
+  // ---------------- Helpers ----------------
   function esc(s) { return E.escapeHtml(String(s == null ? "" : s)); }
-
   function el(tag, attrs, kids) {
     var n = document.createElement(tag);
     if (attrs) {
@@ -51,38 +47,29 @@
     if (kids && kids.length) kids.forEach(function (c) { if (c) n.appendChild(c); });
     return n;
   }
-
   function btn(label, cls, onClick) {
     var b = el("button", { type: "button", class: cls || "btn", text: label });
     if (onClick) b.addEventListener("click", onClick);
     return b;
   }
-
   function input(type, placeholder, value) {
     var i = el("input", { type: type || "text", placeholder: placeholder || "" });
     if (value != null) i.value = String(value);
     return i;
   }
-
   function norm(s) { return String(s || "").trim().toLowerCase(); }
-
   function normName(s) {
-    // normalize name for partial matching (remove punctuation-ish)
     return String(s || "")
       .toLowerCase()
       .replace(/[\u2019']/g, "")
       .replace(/[^a-z0-9]+/g, " ")
       .trim();
   }
-
   function toInt(v, def) {
     var n = parseInt(String(v == null ? "" : v), 10);
     return Number.isFinite(n) ? n : (def == null ? 0 : def);
   }
-
-  function nowIso() {
-    try { return new Date().toISOString(); } catch (e) { return ""; }
-  }
+  function nowIso() { try { return new Date().toISOString(); } catch (e) { return ""; } }
 
   async function apiJson(method, path, bodyObj) {
     var opts = { method: method, headers: {} };
@@ -90,9 +77,10 @@
       opts.headers["Content-Type"] = "application/json";
       opts.body = JSON.stringify(bodyObj || {});
     }
-    return await E.apiFetch(path, opts); // returns parsed JSON; throws on non-2xx
+    return await E.apiFetch(path, opts);
   }
 
+  // ---------------- Toast / Modal ----------------
   function toast(text) {
     ensureStyles();
     var t = el("div", { class: "vax-toast", text: text || "" });
@@ -103,7 +91,6 @@
       setTimeout(function () { try { t.remove(); } catch (e) {} }, 280);
     }, 2200);
   }
-
   function modalError(title, err) {
     var msg = String((err && (err.stack || err.message || err)) || "Error");
     E.modal.show(title || "Error",
@@ -112,9 +99,7 @@
     );
   }
 
-  // ------------------------------------------------------------
-  // Styles
-  // ------------------------------------------------------------
+  // ---------------- Styles ----------------
   var stylesDone = false;
   function ensureStyles() {
     if (stylesDone) return;
@@ -143,7 +128,6 @@
       ".vax-root .btn:hover{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.18)}" +
       ".vax-root .btn:active{transform:translateY(1px)}" +
       ".vax-root .btn.primary{background:rgba(90,168,255,.14);border-color:rgba(90,168,255,.6)}" +
-      ".vax-root .btn.pink{background:rgba(255,92,165,.12);border-color:rgba(255,92,165,.55)}" +
 
       ".vax-root .pill{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.14);background:rgba(10,14,20,.22);font-size:12px;color:rgba(233,238,247,.86)}" +
       ".vax-root .pill b{color:var(--text)}" +
@@ -202,18 +186,14 @@
     document.head.appendChild(st);
   }
 
-  // ------------------------------------------------------------
-  // Vaccine data helpers
-  // ------------------------------------------------------------
+  // ---------------- Vaccine data helpers ----------------
   function isRoutine(r) {
     var v = String((r && r.routine_in_malta) || "").trim().toLowerCase();
     return v === "yes" || v === "y" || v === "1" || v === "true";
   }
-
   function isTravel(r) {
     return !!(String(r.travel_always || "").trim() || String(r.travel_highrisk || "").trim());
   }
-
   function inList(cc, csv) {
     cc = String(cc || "").trim().toUpperCase();
     if (!/^[A-Z]{2}$/.test(cc)) return false;
@@ -226,7 +206,6 @@
     }
     return false;
   }
-
   function computeTravelRecommendations(countryCode, catalog) {
     countryCode = String(countryCode || "").trim().toUpperCase();
     var c = Array.isArray(catalog) ? catalog : [];
@@ -257,7 +236,6 @@
       if (nm && q > 0) items.push({ name: nm, qty: q });
     });
 
-    // merge duplicates
     var merged = {};
     items.forEach(function (it) {
       var key = String(it.name || "").trim().toLowerCase();
@@ -270,9 +248,7 @@
       .sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
   }
 
-  // ------------------------------------------------------------
-  // Printing
-  // ------------------------------------------------------------
+  // ---------------- Printing ----------------
   function choosePrintSize(title, onPick) {
     var body = "<div style='color:rgba(233,238,247,.85);font-size:13px;line-height:1.45'>Choose paper size:</div>";
     E.modal.show(title || "Print", body, [
@@ -281,7 +257,6 @@
       { label: "Cancel", onClick: function () { E.modal.hide(); } }
     ]);
   }
-
   function openPrintHtml(html) {
     var w = window.open("", "_blank");
     if (!w) { toast("Popup blocked"); return; }
@@ -289,7 +264,6 @@
     try { w.focus(); } catch (e2) {}
     setTimeout(function () { try { w.print(); } catch (e3) {} }, 120);
   }
-
   function buildPrintShell(title, bodyHtml, size) {
     var isReceipt = (size === "RECEIPT");
     var pageCss = isReceipt ? "@page{size:75mm auto;margin:6mm}" : "@page{size:A4;margin:12mm}";
@@ -309,7 +283,6 @@
       "</head><body>" + bodyHtml + "</body></html>"
     );
   }
-
   function buildOrderPrintHtml(order, size) {
     var title = "Vaccine order";
     var items = (order && order.items) ? order.items : [];
@@ -333,15 +306,13 @@
 
     var body =
       "<h1>" + esc(title) + "</h1>" +
-      meta +
-      client +
+      meta + client +
       "<table><thead><tr><th>Vaccine</th><th style='text-align:right'>Qty</th></tr></thead><tbody>" +
       (rows || "<tr><td colspan='2' class='muted'>No items</td></tr>") +
       "</tbody></table>";
 
     return buildPrintShell(title, body, size);
   }
-
   function buildTablePrintHtml(title, rows, size) {
     rows = rows || [];
     var body =
@@ -353,17 +324,19 @@
           "</td><td>" + esc(r.dosing_schedule || "") + "</td><td>" + esc(isRoutine(r) ? "Yes" : "No") + "</td></tr>";
       }).join("") : "<tr><td colspan='4' class='muted'>No rows</td></tr>") +
       "</tbody></table>";
-
     return buildPrintShell(title, body, size);
   }
 
-  // ------------------------------------------------------------
-  // Puzzle map loader (local HTML -> SVG) + COUNTRY LIST extraction
-  // ------------------------------------------------------------
-  var PUZZLE_PATH = "./world_hi_res_v4_palette.html";
+  // ---------------- Puzzle map loader + country list ----------------
+  var CACHE_BUST = encodeURIComponent(String(E.VERSION || "")) + "-" + encodeURIComponent(VERSION);
+  var PUZZLE_PATHS = [
+    "./world_hi_res_v4_palette.html?v=" + CACHE_BUST,
+    "./assets/world_hi_res_v4_palette.html?v=" + CACHE_BUST
+  ];
+
   var puzzleTemplateSvg = null;
   var puzzleLoading = null;
-  var mapCountryIndex = []; // [{code,name,normName}]
+  var mapCountryIndex = []; // [{code,name,nn}]
 
   function sanitizeDoc(doc) {
     try {
@@ -459,7 +432,6 @@
   }
 
   function applyPuzzlePaletteAndIndex(svgEl) {
-    // Build country index from map (data-name + data-iso) and apply palette.
     var idx = [];
     try {
       var nodes = svgEl.querySelectorAll('#countries .country');
@@ -469,7 +441,6 @@
         var nm = String(g.getAttribute("data-name") || "").trim();
         if (!iso || !/^[A-Z]{2}$/.test(iso) || !nm) continue;
 
-        // palette
         if (iso === "AQ" || nm === "Antarctica") {
           g.style.setProperty("--base", "#ffffff");
           g.style.setProperty("--selected-fill", "#ffffff");
@@ -488,7 +459,6 @@
       }
     } catch (e2) {}
 
-    // dedupe by code
     var seen = {};
     var out = [];
     for (var j = 0; j < idx.length; j++) {
@@ -506,23 +476,28 @@
     if (puzzleLoading) return await puzzleLoading;
 
     puzzleLoading = (async function () {
-      var res = await fetch(PUZZLE_PATH, { method: "GET", cache: "force-cache" });
-      if (!res || !res.ok) throw new Error("Map not found at /ui/world_hi_res_v4_palette.html");
-      var html = await res.text();
-      if (!html || html.length < 1000) throw new Error("Map HTML looks empty");
-
-      var dp = new DOMParser();
-      var doc = dp.parseFromString(html, "text/html");
-      sanitizeDoc(doc);
-
-      var svg = doc.querySelector("svg");
-      if (!svg) throw new Error("No <svg> found in map HTML");
-
-      puzzleTemplateSvg = document.importNode(svg, true);
-      puzzleTemplateSvg.removeAttribute("width");
-      puzzleTemplateSvg.removeAttribute("height");
-      puzzleTemplateSvg.setAttribute("preserveAspectRatio", "xMidYMid meet");
-      return puzzleTemplateSvg;
+      var lastErr = null;
+      for (var i = 0; i < PUZZLE_PATHS.length; i++) {
+        try {
+          var res = await fetch(PUZZLE_PATHS[i], { method: "GET", cache: "force-cache" });
+          if (!res || !res.ok) { lastErr = new Error("HTTP " + (res ? res.status : "?") + " for " + PUZZLE_PATHS[i]); continue; }
+          var html = await res.text();
+          if (!html || html.length < 1000) { lastErr = new Error("Empty map HTML: " + PUZZLE_PATHS[i]); continue; }
+          var dp = new DOMParser();
+          var doc = dp.parseFromString(html, "text/html");
+          sanitizeDoc(doc);
+          var svg = doc.querySelector("svg");
+          if (!svg) { lastErr = new Error("No <svg> in " + PUZZLE_PATHS[i]); continue; }
+          puzzleTemplateSvg = document.importNode(svg, true);
+          puzzleTemplateSvg.removeAttribute("width");
+          puzzleTemplateSvg.removeAttribute("height");
+          puzzleTemplateSvg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+          return puzzleTemplateSvg;
+        } catch (e) {
+          lastErr = e;
+        }
+      }
+      throw lastErr || new Error("Map load failed");
     })();
 
     return await puzzleLoading;
@@ -536,11 +511,7 @@
     var inner = el("div", { class: "mapInner" });
     var hud = el("div", { class: "mapHud", text: "Loading map…" });
 
-    inner.appendChild(el("div", {
-      class: "mapLoading",
-      html: "<b>Loading map…</b><div style='opacity:.75;margin-top:6px'>Using local world_hi_res_v4_palette.html</div>"
-    }));
-
+    inner.appendChild(el("div", { class: "mapLoading", html: "<b>Loading map…</b><div style='opacity:.75;margin-top:6px'>Using local world_hi_res_v4_palette.html</div>" }));
     pad.appendChild(inner);
     shell.appendChild(pad);
     shell.appendChild(hud);
@@ -607,7 +578,6 @@
         inner.appendChild(svg);
         state.svg = svg;
 
-        // palette + index requires bbox -> do it next frame
         requestAnimationFrame(function () {
           try {
             applyPuzzlePaletteAndIndex(svg);
@@ -627,14 +597,11 @@
     return { el: shell, select: select, clear: clear, setHud: setHud };
   }
 
-  // ------------------------------------------------------------
-  // Country search (NAME-based)
-  // ------------------------------------------------------------
+  // ---------------- Country search (NAME-based) ----------------
   function countryMatches(query, list) {
     var q = normName(query);
     if (!q) return [];
     list = Array.isArray(list) ? list : [];
-    // score: startswith better than contains; shorter name slightly better
     var hits = [];
     for (var i = 0; i < list.length; i++) {
       var c = list[i];
@@ -657,9 +624,7 @@
     return hits.length ? hits[0] : null;
   }
 
-  // ------------------------------------------------------------
-  // UI blocks
-  // ------------------------------------------------------------
+  // ---------------- UI blocks ----------------
   function buildVaxTable(rows, onPickRow) {
     rows = rows || [];
     var wrapper = el("div", { style: "overflow:auto;border:1px solid rgba(255,255,255,.10);border-radius:16px" });
@@ -741,9 +706,7 @@
     });
   }
 
-  // ------------------------------------------------------------
-  // Module render
-  // ------------------------------------------------------------
+  // ---------------- Module render ----------------
   async function render(ctx) {
     ensureStyles();
 
@@ -765,12 +728,11 @@
       dbSearch: "",
       stockSearch: "",
       mapWidget: null,
-      countries: [] // name-based list from map (preferred)
+      countries: [] // from map (name-based)
     };
 
     var root = el("div", { class: "vax-root" });
 
-    // Header
     var headerCard = el("div", { class: "eikon-card" });
     var hdr = el("div", { class: "hdr" });
 
@@ -825,9 +787,6 @@
       else body.appendChild(renderDbTab());
     }
 
-    // -------------------------
-    // TRAVEL TAB
-    // -------------------------
     function renderTravelTab() {
       var wrap = el("div", {});
       var hero = el("div", { class: "hero" });
@@ -835,13 +794,11 @@
 
       var info = el("div", {});
       info.appendChild(el("div", { class: "heroTitle", text: "Travel vaccines" }));
-      info.appendChild(el("div", { class: "heroSub", text: "Search by country name (partial OK), or click a country on the map." }));
+      info.appendChild(el("div", { class: "heroSub", text: "Search by country name (partial OK) or click a country on the map." }));
 
       var cInp = input("text", "Search country (e.g. Italy, United, South)…", "");
       cInp.className = "input";
-
       var suggestionRow = el("div", { class: "suggest" });
-      var lastMatches = [];
 
       function selectCountry(code, name) {
         S.selectedCountryCode = String(code || "").toUpperCase();
@@ -849,7 +806,6 @@
 
         cInp.value = S.selectedCountryName;
         suggestionRow.innerHTML = "";
-        lastMatches = [];
 
         if (S.mapWidget) {
           S.mapWidget.select(S.selectedCountryCode, true);
@@ -860,33 +816,25 @@
 
       function updateSuggestions() {
         suggestionRow.innerHTML = "";
-        lastMatches = [];
-
         var list = (S.countries && S.countries.length) ? S.countries : mapCountryIndex;
-        var q = cInp.value;
-        if (!q || !String(q).trim()) return;
+        var q = String(cInp.value || "").trim();
+        if (!q) return;
 
         var matches = countryMatches(q, list);
-        lastMatches = matches;
-
         if (!matches.length) {
           suggestionRow.appendChild(el("div", { class: "muted", text: "No matches" }));
           return;
         }
         matches.forEach(function (c) {
-          suggestionRow.appendChild(btn(c.name + " (" + c.code + ")", "btn", function () {
-            selectCountry(c.code, c.name);
-          }));
+          suggestionRow.appendChild(btn(c.name, "btn", function () { selectCountry(c.code, c.name); }));
         });
       }
 
       cInp.addEventListener("input", updateSuggestions);
 
-      // ENTER = pick best match automatically
       cInp.addEventListener("keydown", function (ev) {
         if (ev.key !== "Enter") return;
         ev.preventDefault();
-
         var list = (S.countries && S.countries.length) ? S.countries : mapCountryIndex;
         var best = pickBestCountry(cInp.value, list);
         if (!best) { toast("No matching country"); return; }
@@ -898,7 +846,6 @@
         S.selectedCountryName = "";
         cInp.value = "";
         suggestionRow.innerHTML = "";
-        lastMatches = [];
         if (S.mapWidget) {
           S.mapWidget.clear();
           S.mapWidget.setHud("Click a country or search by name");
@@ -915,16 +862,13 @@
       pills.appendChild(el("span", { class: "pill", html: "<b>Selected</b> " + esc(S.selectedCountryCode ? (S.selectedCountryName + " (" + S.selectedCountryCode + ")") : "None") }));
       info.appendChild(pills);
 
-      // Map (right)
       var mapWrap = el("div", {});
       if (!S.mapWidget) {
         S.mapWidget = createPuzzleMapWidget(
           function (cc, nm) { selectCountry(cc, nm); },
           function (countryList) {
-            // Map is ready -> use its country list for name searches
             if (Array.isArray(countryList) && countryList.length) {
               S.countries = countryList;
-              // refresh suggestions if user is typing
               if (String(cInp.value || "").trim()) updateSuggestions();
             }
           }
@@ -932,7 +876,6 @@
       }
       mapWrap.appendChild(S.mapWidget.el);
 
-      // reflect already selected
       if (S.selectedCountryCode) {
         setTimeout(function () {
           try {
@@ -955,7 +898,6 @@
       ]));
 
       var split = el("div", { class: "split" });
-
       var alwaysBox = el("div", { class: "box" });
       alwaysBox.appendChild(el("h3", { text: "Always recommended" }));
       var alwaysList = el("div", { class: "list" });
@@ -986,7 +928,6 @@
       // Below: table + order
       var grid = el("div", { class: "grid2" });
 
-      // Table
       var tableCard = el("div", { class: "eikon-card" });
       tableCard.appendChild(el("div", { class: "row", style: "justify-content:space-between;align-items:center;margin-bottom:8px" }, [
         el("div", { html: "<b>Travel vaccines table</b><div class='muted' style='font-size:12px;margin-top:2px'>Search filters as you type • Add from here too</div>" }),
@@ -1010,10 +951,8 @@
         paint();
       }));
 
-      // Order
       var orderCard = el("div", { class: "eikon-card" });
       orderCard.appendChild(el("div", { html: "<b>Create order</b><div class='muted' style='font-size:12px;margin-top:2px'>Client details • Extra vaccines • Print A4 or Receipt</div>" }));
-
       var orderBox = el("div", { class: "box", style: "margin-top:10px" });
 
       var fn = input("text", "Client name", "");
@@ -1027,7 +966,6 @@
       orderBox.appendChild(el("div", { class: "row" }, [ph]));
       orderBox.appendChild(el("div", { class: "row" }, [em]));
 
-      // Extras
       orderBox.appendChild(el("div", { style: "margin-top:10px;font-weight:800", text: "Extra vaccines" }));
       var exName = input("text", "Type vaccine name (suggestions)…", "");
       exName.className = "input";
@@ -1113,7 +1051,6 @@
       ]));
 
       orderCard.appendChild(orderBox);
-
       grid.appendChild(tableCard);
       grid.appendChild(orderCard);
       wrap.appendChild(grid);
@@ -1131,13 +1068,10 @@
       }
     }
 
-    // -------------------------
-    // ROUTINE & OTHER TAB
-    // -------------------------
     function renderOtherTab() {
       var wrap = el("div", {});
-
       var card = el("div", { class: "eikon-card" });
+
       card.appendChild(el("div", { class: "row", style: "justify-content:space-between;align-items:center;margin-bottom:8px" }, [
         el("div", { html: "<b>Routine & Other vaccines</b><div class='muted' style='font-size:12px;margin-top:2px'>Search filters as you type • Create orders • Print</div>" }),
         btn("Clear selection", "btn", function () { S.selectedOther = {}; S.extraOther = []; paint(); })
@@ -1165,7 +1099,6 @@
         paint();
       }));
 
-      // order box
       var orderCard = el("div", { class: "eikon-card", style: "margin-top:12px" });
       orderCard.appendChild(el("div", { html: "<b>Create order</b><div class='muted' style='font-size:12px;margin-top:2px'>Same workflow as Travel</div>" }));
 
@@ -1182,7 +1115,6 @@
       box.appendChild(el("div", { class: "row" }, [ph]));
       box.appendChild(el("div", { class: "row" }, [em]));
 
-      // extra
       box.appendChild(el("div", { style: "margin-top:10px;font-weight:800", text: "Extra vaccines" }));
       var exName = input("text", "Type vaccine name…", "");
       exName.className = "input";
@@ -1257,7 +1189,6 @@
       ]));
 
       orderCard.appendChild(box);
-
       wrap.appendChild(card);
       wrap.appendChild(orderCard);
       return wrap;
@@ -1273,9 +1204,6 @@
       }
     }
 
-    // -------------------------
-    // STOCK TAB
-    // -------------------------
     function renderStockTab() {
       var wrap = el("div", {});
       var card = el("div", { class: "eikon-card" });
@@ -1410,9 +1338,6 @@
       }
     }
 
-    // -------------------------
-    // DATABASE TAB
-    // -------------------------
     function renderDbTab() {
       var wrap = el("div", {});
       var card = el("div", { class: "eikon-card" });
