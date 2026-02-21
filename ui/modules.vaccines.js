@@ -1,13 +1,17 @@
 /* ui/modules.vaccines.js
    Eikon - Vaccines module (UI)
 
-   Version: 2026-02-21-9
+   Version: 2026-02-21-10
 
    Fix:
-   - Country search now works by country NAME (full or partial), not ISO.
-     Uses country list extracted from local map HTML: ./world_hi_res_v4_palette.html
-   - Enter key selects top match.
-   - Clicking map fills name + selects country.
+   - Show selected/added vaccines in Create order panel (editable qty + remove).
+   - Travel + Routine/Other tables now use checkbox + qty (uniform selection).
+   - Selection synced across recommendations, table and order panel (no full rerender on each change).
+   - Receipt print height auto-fits content to avoid long trailing paper.
+
+   Notes:
+   - Country search uses country NAME (from local puzzle map HTML).
+   - Enter selects top match; map click fills name + selects country.
 
    Keeps:
    - Travel first with puzzle map pop-out (.is-active)
@@ -144,6 +148,7 @@
       ".vax-root .btn:active{transform:translateY(1px)}" +
       ".vax-root .btn.primary{background:rgba(90,168,255,.14);border-color:rgba(90,168,255,.6)}" +
       ".vax-root .btn.pink{background:rgba(255,92,165,.12);border-color:rgba(255,92,165,.55)}" +
+      ".vax-root .btn.sm{padding:6px 8px;border-radius:10px;font-size:12px;line-height:1}" +
 
       ".vax-root .pill{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.14);background:rgba(10,14,20,.22);font-size:12px;color:rgba(233,238,247,.86)}" +
       ".vax-root .pill b{color:var(--text)}" +
@@ -159,6 +164,8 @@
       ".vax-root .item:hover{border-color:rgba(255,255,255,.18);background:rgba(10,14,20,.30)}" +
       ".vax-root .item .nm{font-weight:800}" +
       ".vax-root .item .sub{font-size:12px;color:rgba(233,238,247,.72);margin-top:2px}" +
+
+      ".vax-root .orderList{display:flex;flex-direction:column;gap:8px;margin-top:8px}.vax-root .orderLine{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 10px;border-radius:14px;border:1px solid rgba(255,255,255,.10);background:rgba(10,14,20,.22)}.vax-root .orderLine .nm{font-weight:800}" +
 
       ".vax-root .qty{width:72px;max-width:92px;background:rgba(10,14,20,.35);border:1px solid rgba(255,255,255,.14);color:var(--text);padding:8px 10px;border-radius:12px;outline:none;text-align:center}" +
 
@@ -269,6 +276,119 @@
 
     return Object.keys(merged).map(function (k) { return merged[k]; })
       .sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
+
+
+  function syncVaxControls(rootEl, selectedMap, onlyName) {
+    if (!rootEl) return;
+    selectedMap = selectedMap || {};
+    var nodes = rootEl.querySelectorAll("[data-vax-name]");
+    for (var i = 0; i < nodes.length; i++) {
+      var n = nodes[i];
+      if (!n || !n.dataset) continue;
+      var nm = String(n.dataset.vaxName || "");
+      if (onlyName && nm !== onlyName) continue;
+      if (!nm) continue;
+      var has = selectedMap[nm] != null;
+      var role = String(n.dataset.vaxRole || "");
+      if (role === "cb") {
+        try { n.checked = !!has; } catch (e) {}
+      } else if (role === "qty") {
+        var v = has ? Math.max(1, toInt(selectedMap[nm], 1)) : 1;
+        try { if (String(n.value) !== String(v)) n.value = String(v); } catch (e2) {}
+        if (String(n.dataset.vaxDisable || "") === "1") {
+          try { n.disabled = !has; } catch (e3) {}
+        }
+      }
+    }
+  }
+
+  function renderOrderSelectionEditor(container, selectedMap, extraArr, opts) {
+    if (!container) return;
+    opts = opts || {};
+    selectedMap = selectedMap || {};
+    extraArr = extraArr || [];
+
+    container.innerHTML = "";
+
+    var keys = Object.keys(selectedMap).filter(function (k) { return toInt(selectedMap[k], 0) > 0; })
+      .sort(function (a, b) { return String(a).localeCompare(String(b)); });
+
+    var hasAny = keys.length || extraArr.length;
+    if (!hasAny) {
+      container.appendChild(el("div", { class: "muted", text: "No vaccines selected yet." }));
+      return;
+    }
+
+    if (keys.length) {
+      container.appendChild(el("div", { class: "muted", style: "font-size:12px;margin-bottom:4px", text: "Selected" }));
+      keys.forEach(function (nm) {
+        var line = el("div", { class: "orderLine" });
+        var left = el("div", { class: "nm", text: nm });
+
+        var right = el("div", { class: "row", style: "gap:6px;flex-wrap:nowrap;justify-content:flex-end" });
+        var q = input("number", "", String(Math.max(1, toInt(selectedMap[nm], 1))));
+        q.className = "qty";
+        q.min = "1";
+        q.dataset.vaxName = nm;
+        q.dataset.vaxRole = "qty";
+
+        q.addEventListener("change", function () {
+          var v = Math.max(1, toInt(q.value, 1));
+          q.value = String(v);
+          selectedMap[nm] = v;
+          if (opts.onChange) opts.onChange(nm, "qty");
+        });
+
+        var rm = btn("✕", "btn sm", function () {
+          delete selectedMap[nm];
+          if (opts.onChange) opts.onChange(nm, "toggle");
+        });
+        rm.title = "Remove";
+
+        right.appendChild(q);
+        right.appendChild(rm);
+        line.appendChild(left);
+        line.appendChild(right);
+        container.appendChild(line);
+      });
+    }
+
+    if (extraArr.length) {
+      container.appendChild(el("div", { class: "muted", style: "font-size:12px;margin:10px 0 4px", text: "Extra" }));
+      extraArr.forEach(function (x, idx) {
+        var nm = String(x.name || "").trim();
+        if (!nm) return;
+
+        var line = el("div", { class: "orderLine" });
+        var left = el("div", { class: "nm", text: nm });
+
+        var right = el("div", { class: "row", style: "gap:6px;flex-wrap:nowrap;justify-content:flex-end" });
+        var q = input("number", "", String(Math.max(1, toInt(x.qty, 1))));
+        q.className = "qty";
+        q.min = "1";
+
+        q.addEventListener("change", function () {
+          var v = Math.max(1, toInt(q.value, 1));
+          q.value = String(v);
+          x.qty = v;
+          if (opts.onExtraChange) opts.onExtraChange();
+        });
+
+        var rm = btn("✕", "btn sm", function () {
+          extraArr.splice(idx, 1);
+          if (opts.onExtraChange) opts.onExtraChange();
+        });
+        rm.title = "Remove";
+
+        right.appendChild(q);
+        right.appendChild(rm);
+        line.appendChild(left);
+        line.appendChild(right);
+        container.appendChild(line);
+      });
+    }
+  }
+
   }
 
   // ------------------------------------------------------------
@@ -288,26 +408,55 @@
     if (!w) { toast("Popup blocked"); return; }
     try { w.document.open(); w.document.write(html); w.document.close(); } catch (e) {}
     try { w.focus(); } catch (e2) {}
-    setTimeout(function () { try { w.print(); } catch (e3) {} }, 120);
   }
 
   function buildPrintShell(title, bodyHtml, size) {
     var isReceipt = (size === "RECEIPT");
-    var pageCss = isReceipt ? "@page{size:75mm auto;margin:6mm}" : "@page{size:A4;margin:12mm}";
+
+    // Receipt printers are "continuous", but browser @page auto height is unreliable.
+    // We render into #paper, measure its height, then set an explicit @page height.
+    var pageCss = isReceipt ? "@page{size:75mm 200mm;margin:0}" : "@page{size:A4;margin:12mm}";
+
     var base =
-      "html,body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;}" +
-      "h1{margin:0 0 10px 0;font-size:18px}" +
-      "table{width:100%;border-collapse:collapse;font-size:12px}" +
-      "th,td{border-bottom:1px solid #ddd;padding:6px 6px;vertical-align:top}" +
+      "*,*::before,*::after{box-sizing:border-box;}" +
+      "html,body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;margin:0;padding:0;}" +
+      (isReceipt ? "body{width:75mm;}" : "") +
+      (isReceipt ? "#paper{padding:6mm;}" : "") +
+      "h1{margin:0 0 10px 0;font-size:" + (isReceipt ? "16px" : "18px") + "}" +
+      "table{width:100%;border-collapse:collapse;font-size:" + (isReceipt ? "11px" : "12px") + "}" +
+      "th,td{border-bottom:1px solid #ddd;padding:" + (isReceipt ? "4px 4px" : "6px 6px") + ";vertical-align:top}" +
       "th{text-align:left;background:#f6f6f6}" +
       ".muted{color:#666}" +
       ".row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}" +
       ".pill{display:inline-block;border:1px solid #ddd;border-radius:999px;padding:3px 8px;font-size:11px;background:#fafafa}";
+
+    var script =
+      "<script>(function(){" +
+      "function pxToMm(px){return px*25.4/96;}" +
+      "function applyReceiptPageSize(){" +
+      " try{" +
+      "  var p=document.getElementById('paper');" +
+      "  if(!p) return;" +
+      "  var h=Math.max(p.scrollHeight||0, p.getBoundingClientRect().height||0);" +
+      "  var mm=Math.ceil(pxToMm(h)+2);" +
+      "  if(mm<60) mm=60;" +
+      "  if(mm>1200) mm=1200;" +
+      "  var st=document.getElementById('pageSizeStyle');" +
+      "  if(st) st.textContent='@page{size:75mm '+mm+'mm;margin:0}';" +
+      " }catch(e){}" +
+      "}" +
+      "window.addEventListener('load', function(){" +
+      (isReceipt ? "applyReceiptPageSize();" : "") +
+      " setTimeout(function(){try{window.focus();}catch(e){} try{window.print();}catch(e2){}}, 120);" +
+      "});" +
+      "})();<\/script>";
+
     return (
       "<!doctype html><html><head><meta charset='utf-8'/>" +
       "<title>" + esc(title || "Print") + "</title>" +
-      "<style>" + pageCss + base + "</style>" +
-      "</head><body>" + bodyHtml + "</body></html>"
+      "<style id='pageSizeStyle'>" + pageCss + "</style>" +
+      "<style>" + base + "</style>" +
+      "</head><body>" + (isReceipt ? "<div id='paper'>" + bodyHtml + "</div>" : bodyHtml) + script + "</body></html>"
     );
   }
 
@@ -678,8 +827,9 @@
   // ------------------------------------------------------------
   // UI blocks
   // ------------------------------------------------------------
-  function buildVaxTable(rows, onPickRow) {
+  function buildVaxTable(rows, selectedMap, onChange) {
     rows = rows || [];
+    selectedMap = selectedMap || {};
     var wrapper = el("div", { style: "overflow:auto;border:1px solid rgba(255,255,255,.10);border-radius:16px" });
     var table = el("table", {});
     table.appendChild(el("thead", {}, [el("tr", {}, [
@@ -687,21 +837,65 @@
       el("th", { text: "Vaccinates for" }),
       el("th", { text: "Schedule" }),
       el("th", { text: "Routine" }),
-      el("th", { text: "" })
+      el("th", { text: "Select" })
     ])]));
     var tbody = el("tbody", {});
     if (!rows.length) {
       tbody.appendChild(el("tr", {}, [el("td", { colspan: "5", class: "muted", text: "No rows." })]));
     } else {
       rows.forEach(function (r) {
+        var nm = String(r.brand_name || "").trim();
         var tr = el("tr", {});
-        tr.appendChild(el("td", { html: "<b>" + esc(r.brand_name || "") + "</b>" }));
+        tr.appendChild(el("td", { html: "<b>" + esc(nm) + "</b>" }));
         tr.appendChild(el("td", { text: String(r.vaccinates_for || "") }));
         tr.appendChild(el("td", { text: String(r.dosing_schedule || "") }));
         tr.appendChild(el("td", { html: "<span class='tag " + (isRoutine(r) ? "yes" : "no") + "'>" + (isRoutine(r) ? "Yes" : "No") + "</span>" }));
-        var act = el("td", {});
-        if (onPickRow) act.appendChild(btn("Add", "btn", function () { onPickRow(r); }));
-        tr.appendChild(act);
+
+        var selTd = el("td", {});
+        if (nm) {
+          var right = el("div", { class: "row", style: "justify-content:flex-end;gap:6px;flex-wrap:nowrap" });
+
+          var cb = input("checkbox", "", "");
+          cb.checked = selectedMap[nm] != null;
+          cb.dataset.vaxName = nm;
+          cb.dataset.vaxRole = "cb";
+
+          var q = input("number", "", cb.checked ? selectedMap[nm] : 1);
+          q.className = "qty";
+          q.min = "1";
+          q.disabled = !cb.checked;
+          q.dataset.vaxName = nm;
+          q.dataset.vaxRole = "qty";
+          q.dataset.vaxDisable = "1";
+
+          cb.addEventListener("change", function () {
+            if (cb.checked) {
+              var v = Math.max(1, toInt(q.value, 1));
+              q.value = String(v);
+              q.disabled = false;
+              selectedMap[nm] = v;
+            } else {
+              delete selectedMap[nm];
+              q.disabled = true;
+              q.value = "1";
+            }
+            if (onChange) onChange(nm, "toggle");
+          });
+
+          q.addEventListener("change", function () {
+            var v = Math.max(1, toInt(q.value, 1));
+            q.value = String(v);
+            if (cb.checked) {
+              selectedMap[nm] = v;
+              if (onChange) onChange(nm, "qty");
+            }
+          });
+
+          right.appendChild(cb);
+          right.appendChild(q);
+          selTd.appendChild(right);
+        }
+        tr.appendChild(selTd);
         tbody.appendChild(tr);
       });
     }
@@ -780,7 +974,7 @@
     });
   }
 
-  function renderGroupedRecommendations(container, rows, selectedMap) {
+  function renderGroupedRecommendations(container, rows, selectedMap, onChange) {
     selectedMap = selectedMap || {};
     rows = rows || [];
     container.innerHTML = "";
@@ -811,11 +1005,16 @@
 
         var cb = input("checkbox", "", "");
         cb.checked = selectedMap[brand] != null;
+        cb.dataset.vaxName = brand;
+        cb.dataset.vaxRole = "cb";
 
         var qty = input("number", "", cb.checked ? selectedMap[brand] : 1);
         qty.className = "optQty";
         qty.min = "1";
         qty.disabled = !cb.checked;
+        qty.dataset.vaxName = brand;
+        qty.dataset.vaxRole = "qty";
+        qty.dataset.vaxDisable = "1";
 
         cb.addEventListener("change", function () {
           if (cb.checked) {
@@ -828,12 +1027,17 @@
             qty.disabled = true;
             qty.value = "1";
           }
+       
+          if (onChange) onChange(brand, "toggle");
         });
 
         qty.addEventListener("change", function () {
           var qv = Math.max(1, toInt(qty.value, 1));
           qty.value = String(qv);
-          if (cb.checked) selectedMap[brand] = qv;
+          if (cb.checked) {
+            selectedMap[brand] = qv;
+            if (onChange) onChange(brand, "qty");
+          }
         });
 
         opt.appendChild(cb);
@@ -1054,6 +1258,21 @@
     // -------------------------
     function renderTravelTab() {
       var wrap = el("div", {});
+      var travelSelList = null;
+
+      function renderTravelOrderList() {
+        if (!travelSelList) return;
+        renderOrderSelectionEditor(travelSelList, S.selectedTravel, S.extraTravel, {
+          onChange: travelSelChanged,
+          onExtraChange: function () { renderTravelOrderList(); }
+        });
+      }
+
+      function travelSelChanged(name, reason) {
+        syncVaxControls(wrap, S.selectedTravel, name);
+        if (reason !== "qty") renderTravelOrderList();
+      }
+
       var hero = el("div", { class: "hero" });
       var inner = el("div", { class: "heroInner" });
 
@@ -1127,7 +1346,7 @@
           S.mapWidget.clear();
           S.mapWidget.setHud("Click a country or search by name");
         }
-        paint();
+        renderTravelOrderList();
       });
 
       info.appendChild(el("div", { class: "searchRow" }, [cInp, clearBtn]));
@@ -1193,8 +1412,8 @@
         highList.appendChild(el("div", { class: "muted", text: "Choose a country above to see recommendations." }));
       } else {
         var rec = computeTravelRecommendations(S.selectedCountryCode, S.catalog);
-        renderGroupedRecommendations(alwaysList, rec.always, S.selectedTravel);
-        renderGroupedRecommendations(highList, rec.high, S.selectedTravel);
+        renderGroupedRecommendations(alwaysList, rec.always, S.selectedTravel, travelSelChanged);
+        renderGroupedRecommendations(highList, rec.high, S.selectedTravel, travelSelChanged);
         if (!rec.always.length && !rec.high.length) {
           alwaysList.appendChild(el("div", { class: "muted", text: "No travel recommendations in database for this country code." }));
         }
@@ -1226,13 +1445,7 @@
       tSearch.style.maxWidth = "360px";
       tSearch.addEventListener("input", function () { S.travelSearch = tSearch.value; paint(); });
       tableCard.appendChild(el("div", { class: "row", style: "margin-bottom:8px" }, [tSearch]));
-      tableCard.appendChild(buildVaxTable(getTravelRows(), function (row) {
-        var nm = row.brand_name || "";
-        if (!nm) return;
-        S.selectedTravel[nm] = (S.selectedTravel[nm] || 0) + 1;
-        toast("Added " + nm);
-        paint();
-      }));
+      tableCard.appendChild(buildVaxTable(getTravelRows(), S.selectedTravel, travelSelChanged));
 
       // Order
       var orderCard = el("div", { class: "eikon-card" });
@@ -1240,16 +1453,26 @@
 
       var orderBox = el("div", { class: "box", style: "margin-top:10px" });
 
-      var fn = input("text", "Client name", "");
-      var ln = input("text", "Client surname", "");
-      var ph = input("text", "Phone number", "");
-      var em = input("email", "Email (optional)", "");
+      var fn = input("text", "Client name", S.clientTravel.first || "");
+      var ln = input("text", "Client surname", S.clientTravel.last || "");
+      var ph = input("text", "Phone number", S.clientTravel.phone || "");
+      var em = input("email", "Email (optional)", S.clientTravel.email || "");
+      fn.addEventListener("input", function () { S.clientTravel.first = fn.value; });
+      ln.addEventListener("input", function () { S.clientTravel.last = ln.value; });
+      ph.addEventListener("input", function () { S.clientTravel.phone = ph.value; });
+      em.addEventListener("input", function () { S.clientTravel.email = em.value; });
       [fn, ln, ph, em].forEach(function (i) { i.className = "input"; i.style.maxWidth = "420px"; });
 
       orderBox.appendChild(el("div", { class: "row" }, [fn]));
       orderBox.appendChild(el("div", { class: "row" }, [ln]));
       orderBox.appendChild(el("div", { class: "row" }, [ph]));
       orderBox.appendChild(el("div", { class: "row" }, [em]));
+
+      // Selected
+      orderBox.appendChild(el("div", { style: "margin-top:10px;font-weight:800", text: "Selected vaccines" }));
+      travelSelList = el("div", { class: "orderList" });
+      orderBox.appendChild(travelSelList);
+      renderTravelOrderList();
 
       // Extras
       orderBox.appendChild(el("div", { style: "margin-top:10px;font-weight:800", text: "Extra vaccines" }));
@@ -1275,7 +1498,7 @@
         S.extraTravel.push({ name: n, qty: q });
         exName.value = "";
         exQty.value = "1";
-        paint();
+        renderTravelOrderList();
       });
 
       orderBox.appendChild(el("div", { class: "row" }, [exName, exQty, addEx]));
@@ -1364,6 +1587,21 @@
     // -------------------------
     function renderOtherTab() {
       var wrap = el("div", {});
+      var otherSelList = null;
+
+      function renderOtherOrderList() {
+        if (!otherSelList) return;
+        renderOrderSelectionEditor(otherSelList, S.selectedOther, S.extraOther, {
+          onChange: otherSelChanged,
+          onExtraChange: function () { renderOtherOrderList(); }
+        });
+      }
+
+      function otherSelChanged(name, reason) {
+        syncVaxControls(wrap, S.selectedOther, name);
+        if (reason !== "qty") renderOtherOrderList();
+      }
+
 
       var card = el("div", { class: "eikon-card" });
       card.appendChild(el("div", { class: "row", style: "justify-content:space-between;align-items:center;margin-bottom:8px" }, [
@@ -1385,13 +1623,7 @@
         })
       ]));
 
-      card.appendChild(buildVaxTable(getRows(), function (row) {
-        var nm = row.brand_name || "";
-        if (!nm) return;
-        S.selectedOther[nm] = (S.selectedOther[nm] || 0) + 1;
-        toast("Added " + nm);
-        paint();
-      }));
+      card.appendChild(buildVaxTable(getRows(), S.selectedOther, otherSelChanged));
 
       // order box
       var orderCard = el("div", { class: "eikon-card", style: "margin-top:12px" });
@@ -1399,16 +1631,26 @@
 
       var box = el("div", { class: "box", style: "margin-top:10px" });
 
-      var fn = input("text", "Client name", "");
-      var ln = input("text", "Client surname", "");
-      var ph = input("text", "Phone number", "");
-      var em = input("email", "Email (optional)", "");
+      var fn = input("text", "Client name", S.clientTravel.first || "");
+      var ln = input("text", "Client surname", S.clientTravel.last || "");
+      var ph = input("text", "Phone number", S.clientTravel.phone || "");
+      var em = input("email", "Email (optional)", S.clientTravel.email || "");
+      fn.addEventListener("input", function () { S.clientTravel.first = fn.value; });
+      ln.addEventListener("input", function () { S.clientTravel.last = ln.value; });
+      ph.addEventListener("input", function () { S.clientTravel.phone = ph.value; });
+      em.addEventListener("input", function () { S.clientTravel.email = em.value; });
       [fn, ln, ph, em].forEach(function (i) { i.className = "input"; i.style.maxWidth = "420px"; });
 
       box.appendChild(el("div", { class: "row" }, [fn]));
       box.appendChild(el("div", { class: "row" }, [ln]));
       box.appendChild(el("div", { class: "row" }, [ph]));
       box.appendChild(el("div", { class: "row" }, [em]));
+
+      // Selected
+      box.appendChild(el("div", { style: "margin-top:10px;font-weight:800", text: "Selected vaccines" }));
+      otherSelList = el("div", { class: "orderList" });
+      box.appendChild(otherSelList);
+      renderOtherOrderList();
 
       // extra
       box.appendChild(el("div", { style: "margin-top:10px;font-weight:800", text: "Extra vaccines" }));
@@ -1425,7 +1667,7 @@
         S.extraOther.push({ name: n, qty: q });
         exName.value = "";
         exQty.value = "1";
-        paint();
+        renderOtherOrderList();
       });
       box.appendChild(el("div", { class: "row" }, [exName, exQty, addEx]));
 
