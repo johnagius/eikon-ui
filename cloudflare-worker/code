@@ -8262,6 +8262,439 @@ async function handleScarceNeedOfferDelete(request, env, corsOkHeaders, authUser
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
+
+// ------------------------------------------------------------
+// Vaccines (Catalog + Orders + Stock)
+// ------------------------------------------------------------
+async function ensureVaccinesSchema(env) {
+  await dbRun(
+    env,
+    `CREATE TABLE IF NOT EXISTS vaccines_catalog (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id INTEGER NOT NULL DEFAULT 0,
+      location_id INTEGER NOT NULL DEFAULT 0,
+
+      brand_name TEXT NOT NULL,
+      vaccinates_for TEXT NOT NULL DEFAULT '',
+      dosing_schedule TEXT NOT NULL DEFAULT '',
+      routine_in_malta TEXT NOT NULL DEFAULT '',
+      travel_always TEXT NOT NULL DEFAULT '',
+      travel_highrisk TEXT NOT NULL DEFAULT '',
+
+      created_at TEXT NOT NULL DEFAULT ''
+    )`
+  );
+
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_vax_catalog_brand ON vaccines_catalog(brand_name)`);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_vax_catalog_org_loc ON vaccines_catalog(org_id, location_id)`);
+
+  await dbRun(
+    env,
+    `CREATE TABLE IF NOT EXISTS vaccines_orders (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+
+      created_at TEXT NOT NULL,
+      section TEXT NOT NULL DEFAULT '',         -- 'travel' | 'other'
+      country_code TEXT NOT NULL DEFAULT '',
+      country_name TEXT NOT NULL DEFAULT '',
+
+      client_first TEXT NOT NULL,
+      client_last TEXT NOT NULL,
+      phone TEXT NOT NULL DEFAULT '',
+      email TEXT NOT NULL DEFAULT ''
+    )`
+  );
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_vax_orders_org_loc_created ON vaccines_orders(org_id, location_id, created_at)`);
+
+  await dbRun(
+    env,
+    `CREATE TABLE IF NOT EXISTS vaccines_order_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+      order_id INTEGER NOT NULL,
+
+      vaccine_name TEXT NOT NULL,
+      qty INTEGER NOT NULL DEFAULT 1
+    )`
+  );
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_vax_items_order ON vaccines_order_items(order_id)`);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_vax_items_name ON vaccines_order_items(vaccine_name)`);
+
+  await dbRun(
+    env,
+    `CREATE TABLE IF NOT EXISTS vaccines_stock (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+
+      vaccine_name TEXT NOT NULL,
+      qty INTEGER NOT NULL DEFAULT 0,
+      batch TEXT NOT NULL DEFAULT '',
+      expiry_date TEXT NOT NULL DEFAULT '',     -- YYYY-MM-DD (optional)
+      updated_at TEXT NOT NULL
+    )`
+  );
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_vax_stock_org_loc_name ON vaccines_stock(org_id, location_id, vaccine_name)`);
+}
+
+function vaxNormName(s) {
+  return String(s == null ? "" : s).trim();
+}
+function vaxNormText(s) {
+  return String(s == null ? "" : s);
+}
+function vaxNormCsv(s) {
+  return String(s == null ? "" : s).trim();
+}
+function vaxInt(v, def = 0) {
+  const n = parseInt(String(v == null ? "" : v), 10);
+  return Number.isFinite(n) ? n : def;
+}
+
+async function handleVaccinesCatalogList(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureVaccinesSchema(env);
+
+  const q = (url.searchParams.get("q") || "").trim();
+  const hasQ = !!q;
+  const qLike = `%${q}%`;
+
+  // Return global (org=0,loc=0) plus org/location scoped (org=auth, loc=0 or loc=current)
+  const baseWhere = `(org_id = 0 AND location_id = 0) OR (org_id = ? AND (location_id = 0 OR location_id = ?))`;
+
+  const sql = hasQ
+    ? `SELECT id, org_id, location_id, brand_name, vaccinates_for, dosing_schedule, routine_in_malta, travel_always, travel_highrisk, created_at
+       FROM vaccines_catalog
+       WHERE (${baseWhere})
+         AND (brand_name LIKE ? OR vaccinates_for LIKE ? OR dosing_schedule LIKE ?)
+       ORDER BY brand_name COLLATE NOCASE ASC, id ASC`
+    : `SELECT id, org_id, location_id, brand_name, vaccinates_for, dosing_schedule, routine_in_malta, travel_always, travel_highrisk, created_at
+       FROM vaccines_catalog
+       WHERE (${baseWhere})
+       ORDER BY brand_name COLLATE NOCASE ASC, id ASC`;
+
+  const bind = hasQ
+    ? [authUser.org_id, authUser.location_id, qLike, qLike, qLike]
+    : [authUser.org_id, authUser.location_id];
+
+  const stmt = env.DB.prepare(sql);
+  const res = await stmt.bind(...bind).all();
+  const items = (res && res.results) ? res.results : [];
+
+  return jsonResponse({ ok: true, items }, 200, corsOkHeaders);
+}
+
+async function handleVaccinesCatalogCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureVaccinesSchema(env);
+
+  let body = null;
+  try { body = await readJson(request); } catch (e) { body = null; }
+  const brand_name = vaxNormName(body && body.brand_name);
+  if (!brand_name) return jsonResponse({ ok: false, error: "Missing brand_name" }, 400, corsOkHeaders);
+
+  const created_at = nowIso();
+
+  const res = await dbRun(
+    env,
+    `INSERT INTO vaccines_catalog (org_id, location_id, brand_name, vaccinates_for, dosing_schedule, routine_in_malta, travel_always, travel_highrisk, created_at)
+     VALUES (?, ?, ?, '', '', '', '', '', ?)`,
+    [authUser.org_id, authUser.location_id, brand_name, created_at]
+  );
+
+  const newId = (res && res.meta && res.meta.last_row_id) ? Number(res.meta.last_row_id) : null;
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "VAX_CATALOG_ADD", "vaccines_catalog", String(newId || ""), {
+    brand_name
+  });
+
+  return jsonResponse({ ok: true, id: newId, created_at }, 200, corsOkHeaders);
+}
+
+async function handleVaccinesOrdersList(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureVaccinesSchema(env);
+
+  const month = (url.searchParams.get("month") || "").trim();
+  const range = month ? monthRange(month) : null;
+
+  let ordersSql =
+    `SELECT id, created_at, section, country_code, country_name, client_first, client_last, phone, email
+     FROM vaccines_orders
+     WHERE org_id = ? AND location_id = ?`;
+
+  const bind = [authUser.org_id, authUser.location_id];
+
+  if (range) {
+    ordersSql += ` AND created_at >= ? AND created_at < ?`;
+    bind.push(range.startStr, range.endStr);
+  }
+
+  ordersSql += ` ORDER BY id DESC LIMIT 200`;
+
+  const ordersRes = await env.DB.prepare(ordersSql).bind(...bind).all();
+  const orders = (ordersRes && ordersRes.results) ? ordersRes.results : [];
+
+  // Items
+  const ids = orders.map(o => o.id);
+  let itemsByOrder = {};
+  if (ids.length) {
+    const placeholders = ids.map(() => "?").join(",");
+    const itemsRes = await env.DB.prepare(
+      `SELECT order_id, vaccine_name, qty FROM vaccines_order_items WHERE org_id = ? AND location_id = ? AND order_id IN (${placeholders}) ORDER BY id ASC`
+    ).bind(authUser.org_id, authUser.location_id, ...ids).all();
+    const items = (itemsRes && itemsRes.results) ? itemsRes.results : [];
+    items.forEach(it => {
+      const k = String(it.order_id);
+      if (!itemsByOrder[k]) itemsByOrder[k] = [];
+      itemsByOrder[k].push({ name: it.vaccine_name, qty: it.qty });
+    });
+  }
+
+  orders.forEach(o => { o.items = itemsByOrder[String(o.id)] || []; });
+
+  return jsonResponse({ ok: true, orders }, 200, corsOkHeaders);
+}
+
+async function applyVaccineStockDelta(env, orgId, locationId, vaccineName, deltaQty) {
+  const name = vaxNormName(vaccineName);
+  if (!name) return null;
+  const delta = vaxInt(deltaQty, 0);
+  if (!delta) return null;
+
+  // Pick earliest expiry row first (expiry_date '' goes last). If none exists, create a default row.
+  const row = await dbFirst(
+    env,
+    `SELECT id, qty, expiry_date
+     FROM vaccines_stock
+     WHERE org_id = ? AND location_id = ? AND vaccine_name = ?
+     ORDER BY CASE WHEN expiry_date = '' THEN 1 ELSE 0 END, expiry_date ASC, id ASC
+     LIMIT 1`,
+    [orgId, locationId, name]
+  );
+
+  const ts = nowIso();
+
+  if (!row) {
+    const ins = await dbRun(
+      env,
+      `INSERT INTO vaccines_stock (org_id, location_id, vaccine_name, qty, batch, expiry_date, updated_at)
+       VALUES (?, ?, ?, ?, '', '', ?)`,
+      [orgId, locationId, name, delta, ts]
+    );
+    return { id: (ins && ins.meta && ins.meta.last_row_id) ? Number(ins.meta.last_row_id) : null, qty: delta };
+  }
+
+  const newQty = vaxInt(row.qty, 0) + delta;
+
+  await dbRun(
+    env,
+    `UPDATE vaccines_stock SET qty = ?, updated_at = ? WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [newQty, ts, row.id, orgId, locationId]
+  );
+
+  return { id: row.id, qty: newQty };
+}
+
+async function handleVaccinesOrdersCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureVaccinesSchema(env);
+
+  const body = await readJson(request);
+
+  const section = vaxNormName(body.section || "");
+  const country_code = vaxNormName(body.country_code || "");
+  const country_name = vaxNormName(body.country_name || "");
+
+  const client_first = vaxNormName(body.client_first || "");
+  const client_last = vaxNormName(body.client_last || "");
+  const phone = vaxNormName(body.phone || "");
+  const email = vaxNormName(body.email || "");
+
+  if (!client_first || !client_last) return jsonResponse({ ok: false, error: "Missing client name" }, 400, corsOkHeaders);
+  if (!phone) return jsonResponse({ ok: false, error: "Missing phone" }, 400, corsOkHeaders);
+
+  const itemsIn = Array.isArray(body.items) ? body.items : [];
+  if (!itemsIn.length) return jsonResponse({ ok: false, error: "No items" }, 400, corsOkHeaders);
+
+  // Normalize + aggregate duplicate vaccine names
+  const agg = {};
+  const items = [];
+  itemsIn.forEach(it => {
+    const nm = vaxNormName(it && (it.name || it.vaccine_name));
+    if (!nm) return;
+    let q = vaxInt(it.qty, 1);
+    if (q <= 0) q = 1;
+    agg[nm] = (agg[nm] || 0) + q;
+  });
+
+  Object.keys(agg).sort((a, b) => String(a).localeCompare(String(b))).forEach(nm => {
+    items.push({ name: nm, qty: agg[nm] });
+  });
+
+  if (!items.length) return jsonResponse({ ok: false, error: "No valid items" }, 400, corsOkHeaders);
+
+  const created_at = nowIso();
+
+  const res = await dbRun(
+    env,
+    `INSERT INTO vaccines_orders (org_id, location_id, created_at, section, country_code, country_name, client_first, client_last, phone, email)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [authUser.org_id, authUser.location_id, created_at, section, country_code, country_name, client_first, client_last, phone, email]
+  );
+
+  const orderId = (res && res.meta && res.meta.last_row_id) ? Number(res.meta.last_row_id) : null;
+  if (!orderId) return jsonResponse({ ok: false, error: "Failed to create order" }, 500, corsOkHeaders);
+
+  // Insert items
+  for (const it of items) {
+    await dbRun(
+      env,
+      `INSERT INTO vaccines_order_items (org_id, location_id, order_id, vaccine_name, qty)
+       VALUES (?, ?, ?, ?, ?)`,
+      [authUser.org_id, authUser.location_id, orderId, it.name, it.qty]
+    );
+  }
+
+  // Apply stock subtraction (negative delta). This must never crash the order if stock is missing.
+  let stockTouches = [];
+  try {
+    for (const it of items) {
+      const upd = await applyVaccineStockDelta(env, authUser.org_id, authUser.location_id, it.name, -Math.abs(vaxInt(it.qty, 1)));
+      if (upd) stockTouches.push(upd);
+    }
+  } catch (e) {
+    // Ignore stock errors; orders must still be saved.
+  }
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "VAX_ORDER_CREATE", "vaccines_orders", String(orderId), {
+    section, country_code, country_name, client_first, client_last, phone, email, items
+  });
+
+  return jsonResponse({
+    ok: true,
+    order: {
+      id: orderId,
+      created_at,
+      section,
+      country_code,
+      country_name,
+      client_first,
+      client_last,
+      phone,
+      email,
+      items
+    },
+    stock: stockTouches
+  }, 200, corsOkHeaders);
+}
+
+async function handleVaccinesStockRowsList(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureVaccinesSchema(env);
+
+  const q = (url.searchParams.get("q") || "").trim();
+  const hasQ = !!q;
+  const qLike = `%${q}%`;
+
+  const sql = hasQ
+    ? `SELECT id, vaccine_name, qty, batch, expiry_date, updated_at
+       FROM vaccines_stock
+       WHERE org_id = ? AND location_id = ?
+         AND (vaccine_name LIKE ? OR batch LIKE ? OR expiry_date LIKE ?)
+       ORDER BY vaccine_name COLLATE NOCASE ASC, expiry_date ASC, id ASC`
+    : `SELECT id, vaccine_name, qty, batch, expiry_date, updated_at
+       FROM vaccines_stock
+       WHERE org_id = ? AND location_id = ?
+       ORDER BY vaccine_name COLLATE NOCASE ASC, expiry_date ASC, id ASC`;
+
+  const bind = hasQ
+    ? [authUser.org_id, authUser.location_id, qLike, qLike, qLike]
+    : [authUser.org_id, authUser.location_id];
+
+  const res = await env.DB.prepare(sql).bind(...bind).all();
+  const rows = (res && res.results) ? res.results : [];
+
+  return jsonResponse({ ok: true, rows }, 200, corsOkHeaders);
+}
+
+async function handleVaccinesStockRowCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureVaccinesSchema(env);
+
+  const body = await readJson(request);
+
+  const vaccine_name = vaxNormName(body.vaccine_name || body.name || "");
+  if (!vaccine_name) return jsonResponse({ ok: false, error: "Missing vaccine_name" }, 400, corsOkHeaders);
+
+  const qty = vaxInt(body.qty, 0);
+  const batch = vaxNormText(body.batch || "").trim();
+  const expiry_date = vaxNormText(body.expiry_date || "").trim();
+  const updated_at = nowIso();
+
+  const res = await dbRun(
+    env,
+    `INSERT INTO vaccines_stock (org_id, location_id, vaccine_name, qty, batch, expiry_date, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [authUser.org_id, authUser.location_id, vaccine_name, qty, batch, expiry_date, updated_at]
+  );
+
+  const id = (res && res.meta && res.meta.last_row_id) ? Number(res.meta.last_row_id) : null;
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "VAX_STOCK_CREATE", "vaccines_stock", String(id || ""), {
+    vaccine_name, qty, batch, expiry_date
+  });
+
+  return jsonResponse({ ok: true, id, updated_at }, 200, corsOkHeaders);
+}
+
+async function handleVaccinesStockRowUpdate(request, env, corsOkHeaders, authUser, id) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureVaccinesSchema(env);
+
+  const row = await dbFirst(env, `SELECT id, vaccine_name FROM vaccines_stock WHERE id = ? AND org_id = ? AND location_id = ?`, [id, authUser.org_id, authUser.location_id]);
+  if (!row) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+
+  const qty = vaxInt(body.qty, 0);
+  const batch = vaxNormText(body.batch || "").trim();
+  const expiry_date = vaxNormText(body.expiry_date || "").trim();
+  const updated_at = nowIso();
+
+  await dbRun(
+    env,
+    `UPDATE vaccines_stock
+     SET qty = ?, batch = ?, expiry_date = ?, updated_at = ?
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [qty, batch, expiry_date, updated_at, id, authUser.org_id, authUser.location_id]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "VAX_STOCK_UPDATE", "vaccines_stock", String(id), {
+    vaccine_name: row.vaccine_name, qty, batch, expiry_date
+  });
+
+  return jsonResponse({ ok: true, id, updated_at }, 200, corsOkHeaders);
+}
+
 export default {
   async fetch(request, env, ctx) {
     try {
@@ -8523,6 +8956,33 @@ export default {
     if (url.pathname === "/temperature/report/html" && request.method === "GET") {
       return await handleTempReportHtml(request, env, corsOkHeaders, authUser, url);
     }
+
+// Vaccines
+if (url.pathname === "/vaccines/catalog" && request.method === "GET") {
+  return await handleVaccinesCatalogList(request, env, corsOkHeaders, authUser, url);
+}
+if (url.pathname === "/vaccines/catalog" && request.method === "POST") {
+  return await handleVaccinesCatalogCreate(request, env, corsOkHeaders, authUser);
+}
+if (url.pathname === "/vaccines/orders" && request.method === "GET") {
+  return await handleVaccinesOrdersList(request, env, corsOkHeaders, authUser, url);
+}
+if (url.pathname === "/vaccines/orders" && request.method === "POST") {
+  return await handleVaccinesOrdersCreate(request, env, corsOkHeaders, authUser);
+}
+if (url.pathname === "/vaccines/stock/rows" && request.method === "GET") {
+  return await handleVaccinesStockRowsList(request, env, corsOkHeaders, authUser, url);
+}
+if (url.pathname === "/vaccines/stock/rows" && request.method === "POST") {
+  return await handleVaccinesStockRowCreate(request, env, corsOkHeaders, authUser);
+}
+if (url.pathname.startsWith("/vaccines/stock/rows/") && request.method === "PUT") {
+  const parts = url.pathname.split("/").filter(Boolean);
+  const id = parseInt(parts[3], 10);
+  if (!id) return jsonResponse({ ok: false, error: "Invalid stock row id" }, 400, corsOkHeaders);
+  return await handleVaccinesStockRowUpdate(request, env, corsOkHeaders, authUser, id);
+}
+
 
 // Client Orders
 if (url.pathname === "/client-orders/entries" && request.method === "GET") {
