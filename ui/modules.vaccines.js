@@ -1,7 +1,7 @@
 /* ui/modules.vaccines.js
    Eikon - Vaccines module (UI)
 
-   Version: 2026-02-21-8
+   Version: 2026-02-21-9
 
    Fix:
    - Country search now works by country NAME (full or partial), not ISO.
@@ -29,7 +29,7 @@
   var E = window.EIKON;
   if (!E) return;
 
-  var VERSION = "2026-02-21-8";
+  var VERSION = "2026-02-21-9";
   try { if (E && E.dbg) E.dbg("[vaccines] loaded v", VERSION); } catch (e) {}
 
   // ------------------------------------------------------------
@@ -361,7 +361,10 @@
   // ------------------------------------------------------------
   // Puzzle map loader (local HTML -> SVG) + COUNTRY LIST extraction
   // ------------------------------------------------------------
-  var PUZZLE_PATH = "./world_hi_res_v4_palette.html";
+  var PUZZLE_PATHS = [
+    "./world_hi_res_v4_palette.html?v=" + encodeURIComponent((E && (E.VERSION || E.build || E.BUILD || "")) || Date.now()),
+    "./world_hi_res_v4_palette.html"
+  ];
   var puzzleTemplateSvg = null;
   var puzzleLoading = null;
   var mapCountryIndex = []; // [{code,name,normName}]
@@ -507,8 +510,22 @@
     if (puzzleLoading) return await puzzleLoading;
 
     puzzleLoading = (async function () {
-      var res = await fetch(PUZZLE_PATH, { method: "GET", cache: "force-cache" });
-      if (!res || !res.ok) throw new Error("Map not found at /ui/world_hi_res_v4_palette.html");
+      var res = null;
+      var lastErr = "";
+      for (var pi = 0; pi < PUZZLE_PATHS.length; pi++) {
+        var pth = PUZZLE_PATHS[pi];
+        try {
+          res = await fetch(pth, { method: "GET", cache: "force-cache" });
+          if (res && res.ok) break;
+          lastErr = "HTTP " + (res ? res.status : "0") + " for " + pth;
+        } catch (e) {
+          lastErr = String(e && (e.message || e) || "fetch failed") + " for " + pth;
+          res = null;
+        }
+      }
+      if (!res || !res.ok) {
+        throw new Error("Map not found. Your worker serves /ui/* by proxying GitHub raw; ensure ui/world_hi_res_v4_palette.html exists in the repo. (" + lastErr + ")");
+      }
       var html = await res.text();
       if (!html || html.length < 1000) throw new Error("Map HTML looks empty");
 
