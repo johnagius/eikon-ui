@@ -1,7 +1,7 @@
 /* ui/modules.vaccines.js
    Eikon - Vaccines module (UI)
 
-   Version: 2026-02-21-10
+   Version: 2026-02-21-11
 
    Fix:
    - Show selected/added vaccines in Create order panel (editable qty + remove).
@@ -33,7 +33,7 @@
   var E = window.EIKON;
   if (!E) return;
 
-  var VERSION = "2026-02-21-9";
+  var VERSION = "2026-02-21-11";
   try { if (E && E.dbg) E.dbg("[vaccines] loaded v", VERSION); } catch (e) {}
 
   // ------------------------------------------------------------
@@ -415,13 +415,14 @@
 
     // Receipt printers are "continuous", but browser @page auto height is unreliable.
     // We render into #paper, measure its height, then set an explicit @page height.
-    var pageCss = isReceipt ? "@page{size:75mm 200mm;margin:0}" : "@page{size:A4;margin:12mm}";
+    var pageCss = isReceipt ? "@page{size:75mm 40mm;margin:0}" : "@page{size:A4;margin:12mm}";
 
     var base =
       "*,*::before,*::after{box-sizing:border-box;}" +
       "html,body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;margin:0;padding:0;}" +
       (isReceipt ? "body{width:75mm;}" : "") +
       (isReceipt ? "#paper{padding:6mm;}" : "") +
+      (isReceipt ? "#content{display:inline-block;width:100%;}" : "") +
       "h1{margin:0 0 10px 0;font-size:" + (isReceipt ? "16px" : "18px") + "}" +
       "table{width:100%;border-collapse:collapse;font-size:" + (isReceipt ? "11px" : "12px") + "}" +
       "th,td{border-bottom:1px solid #ddd;padding:" + (isReceipt ? "4px 4px" : "6px 6px") + ";vertical-align:top}" +
@@ -435,9 +436,9 @@
       "function pxToMm(px){return px*25.4/96;}" +
       "function applyReceiptPageSize(){" +
       " try{" +
-      "  var p=document.getElementById('paper');" +
-      "  if(!p) return;" +
-      "  var h=Math.max(p.scrollHeight||0, p.getBoundingClientRect().height||0);" +
+      "  var c=document.getElementById('content');" +
+      "  if(!c) return;" +
+      "  var h=Math.max(c.scrollHeight||0, c.getBoundingClientRect().height||0);" +
       "  var mm=Math.ceil(pxToMm(h)+2);" +
       "  if(mm<60) mm=60;" +
       "  if(mm>1200) mm=1200;" +
@@ -446,7 +447,7 @@
       " }catch(e){}" +
       "}" +
       "window.addEventListener('load', function(){" +
-      (isReceipt ? "applyReceiptPageSize();" : "") +
+      (isReceipt ? "applyReceiptPageSize();setTimeout(applyReceiptPageSize,80);setTimeout(applyReceiptPageSize,220);" : "") +
       " setTimeout(function(){try{window.focus();}catch(e){} try{window.print();}catch(e2){}}, 120);" +
       "});" +
       "})();<\/script>";
@@ -456,7 +457,7 @@
       "<title>" + esc(title || "Print") + "</title>" +
       "<style id='pageSizeStyle'>" + pageCss + "</style>" +
       "<style>" + base + "</style>" +
-      "</head><body>" + (isReceipt ? "<div id='paper'>" + bodyHtml + "</div>" : bodyHtml) + script + "</body></html>"
+      "</head><body>" + (isReceipt ? "<div id='paper'><div id='content'>" + bodyHtml + "</div></div>" : bodyHtml) + script + "</body></html>"
     );
   }
 
@@ -1077,7 +1078,8 @@
       orders: [],
       ordersSearch: "",
       mapWidget: null,
-      countries: [] // name-based list from map (preferred)
+      countries: [], // name-based list from map (preferred)
+      clientTravel: { first: "", last: "", phone: "", email: "" }
     };
 
     var root = el("div", { class: "vax-root" });
