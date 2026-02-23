@@ -2136,12 +2136,16 @@ async function doPrintRangeReport(from, to) {
     { key: "rounded",   label: "Rounded", cls: "num", colClass: "num" },
     { key: "cashTill",  label: "Total Cash Till", cls: "num", colClass: "num" },
     { key: "bov",       label: "Total BOV Deposit", cls: "num", colClass: "num" },
+
+    // ✅ NEW column (must be before Coins)
+    { key: "ou",        label: "Over / Under (E − Expected)", cls: "num", colClass: "num" },
+
     { key: "coinsEF",   label: "Coins (E − F)", cls: "num", colClass: "num" }
   ];
 
   // Totals
   var sum = {
-    E: 0, F: 0, coinsEF: 0,
+    E: 0, F: 0, ou: 0, coinsEF: 0,
     x: 0, epos: 0, chq: 0, po: 0,
     cashCount: 0, rounded: 0, cashTill: 0, bov: 0
   };
@@ -2161,6 +2165,9 @@ async function doPrintRangeReport(from, to) {
     var chqTot = totalC(r);
     var poTot = totalD(r);
 
+    var exp = expectedDeposit(r);
+    var ou = (E2 - exp);
+
     var cashCount = tillTotal;
     var rounded = roundToNearest5(cashCount);
     var bov = bovTotal(r);
@@ -2179,9 +2186,14 @@ async function doPrintRangeReport(from, to) {
       rounded: euro(rounded),
       cashTill: euro(fl),
       bov: euro(bov),
+      ou: euro(ou),
       coinsEF: euro(coinsEF),
 
-      _num: { E2: E2, F2: F2, coinsEF: coinsEF, xTot: xTot, eposTot: eposTot, chqTot: chqTot, poTot: poTot, cashCount: cashCount, rounded: rounded, fl: fl, bov: bov }
+      _num: {
+        E2: E2, F2: F2, ou: ou, coinsEF: coinsEF,
+        xTot: xTot, eposTot: eposTot, chqTot: chqTot, poTot: poTot,
+        cashCount: cashCount, rounded: rounded, fl: fl, bov: bov
+      }
     };
   }
 
@@ -2189,6 +2201,7 @@ async function doPrintRangeReport(from, to) {
     var m = rowMetrics(all[i])._num;
     sum.E += m.E2;
     sum.F += m.F2;
+    sum.ou += m.ou;
     sum.coinsEF += m.coinsEF;
 
     sum.x += m.xTot;
@@ -2222,7 +2235,6 @@ async function doPrintRangeReport(from, to) {
       if (c.cls === "num") {
         return "<td class='td-num'>" + esc(val) + "</td>";
       }
-      // text
       return "<td class='td-text'>" + esc(val) + "</td>";
     }).join("");
 
@@ -2264,6 +2276,7 @@ async function doPrintRangeReport(from, to) {
     "<div class='meta'><b>Location:</b> " + esc(state.location_name) + "</div>" +
     "<div class='meta'><b>Range:</b> " + esc(ddmmyyyy(from)) + " to " + esc(ddmmyyyy(to)) + "</div>" +
 
+    // Totals block unchanged (as requested)
     "<div class='totals'>" +
       "<b>Totals (" + esc(String(all.length)) + " days):</b> " +
       "Total Cash (E) " + esc(euro(sum.E)) + " | " +
