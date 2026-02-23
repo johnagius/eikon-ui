@@ -2,7 +2,7 @@
   "use strict";
 
   var E = window.EIKON;
-  var LR_MODULE_VERSION = "2026-02-23-1";
+  var LR_MODULE_VERSION = "2026-02-23-2";
   try { if (E && E.dbg) E.dbg("[locumreceipts] loaded v", LR_MODULE_VERSION); } catch (e) {}
 
   if (!E) throw new Error("EIKON core missing (modules.locumreceipts.js)");
@@ -34,14 +34,12 @@
   function money2(n) {
     var x = Number(n);
     if (!isFinite(x)) x = 0;
-    // keep 2 decimals (no locale, for print consistency)
     return x.toFixed(2);
   }
 
   function hoursFmt(n) {
     var x = Number(n);
     if (!isFinite(x)) x = 0;
-    // show up to 2 decimals, trim trailing zeros
     var s = x.toFixed(2);
     s = s.replace(/\.00$/, "").replace(/(\.\d)0$/, "$1");
     return s;
@@ -52,7 +50,6 @@
     if (s === "holiday") return "Sunday / Public Holiday";
     return "Normal Day";
   }
-
 
   // Malta day type calculation (Sunday/Public Holiday vs Normal)
   // Fixed public holidays (dd/MM). Movable: Good Friday (Western/Gregorian Easter).
@@ -83,7 +80,6 @@
     var d = Number(m[3]);
     if (!isFinite(y) || !isFinite(mo) || !isFinite(d)) return null;
     var dt = new Date(y, mo - 1, d);
-    // Guard against overflow (e.g. 2026-02-31)
     if (dt.getFullYear() !== y || dt.getMonth() !== (mo - 1) || dt.getDate() !== d) return null;
     return dt;
   }
@@ -120,16 +116,13 @@
   function isMaltaSundayOrPublicHoliday(dt) {
     if (!(dt instanceof Date)) return false;
 
-    // Sunday
-    if (dt.getDay() === 0) return true;
+    if (dt.getDay() === 0) return true; // Sunday
 
-    // Fixed holidays
     var dd = String(dt.getDate()).padStart(2, "0");
     var mm = String(dt.getMonth() + 1).padStart(2, "0");
     var key = dd + "/" + mm;
     if (MALTA_FIXED_HOLIDAYS[key]) return true;
 
-    // Good Friday (Western)
     var gf = goodFridayDate(dt.getFullYear());
     if (gf && gf.getFullYear() === dt.getFullYear() && gf.getMonth() === dt.getMonth() && gf.getDate() === dt.getDate()) return true;
 
@@ -142,7 +135,6 @@
     return isMaltaSundayOrPublicHoliday(dt) ? "holiday" : "normal";
   }
 
-
   function ensureStyles() {
     if (document.getElementById("eikon-locumreceipts-style")) return;
     var css = ""
@@ -150,29 +142,21 @@
       + ".lr-title{font-size:18px;font-weight:900;letter-spacing:.2px;margin:0;}"
       + ".lr-sub{margin:2px 0 0 0;color:var(--muted);font-size:12px;}"
       + ".lr-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;}"
-      + ""
-      + ""
       + ".lr-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:10px;}"
-      + ""
       + ".lr-kpi{border:1px solid var(--border);background:rgba(255,255,255,.03);border-radius:14px;padding:10px 12px;}"
       + ".lr-kpi .k{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);}"
       + ".lr-kpi .v{font-size:18px;font-weight:900;margin-top:4px;}"
-      + ""
       + ".lr-actions{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;}"
       + ".lr-split{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}"
-      + ""
       + ".lr-note{color:var(--muted);font-size:12px;margin:6px 0 0 0;}"
-      + ""
       + ".lr-report-wrap{margin-top:10px;}"
       + ".lr-report-section{border:1px solid var(--border);border-radius:14px;padding:12px;margin-top:10px;}"
       + ".lr-report-h{display:flex;justify-content:space-between;gap:12px;align-items:flex-end;flex-wrap:wrap;}"
       + ".lr-report-h h3{margin:0;font-size:15px;font-weight:900;}"
       + ".lr-report-h .lr-mini{font-size:11px;color:var(--muted);font-weight:700;}"
       + ".lr-report-h .tot{font-size:12px;color:var(--muted);}"
-      + ""
-      + "@media print{.no-print{display:none !important;}}"
-      ;
-
+      + ".lr-row-actions{display:flex;gap:8px;flex-wrap:wrap;}"
+      + "@media print{.no-print{display:none !important;}}";
     var st = document.createElement("style");
     st.id = "eikon-locumreceipts-style";
     st.textContent = css;
@@ -439,7 +423,6 @@
         }
       ]);
 
-      // focus
       setTimeout(function () {
         try { E.q("#lr-pass").focus(); } catch (e2) {}
       }, 40);
@@ -506,13 +489,27 @@
 
       var act = document.createElement("td");
 
+      var wrap = document.createElement("div");
+      wrap.className = "lr-row-actions";
+      act.appendChild(wrap);
+
       var pBtn = document.createElement("button");
       pBtn.className = "eikon-btn";
       pBtn.textContent = "View / Print";
+      pBtn.addEventListener("click", function () { if (onPrint) onPrint(r); });
+      wrap.appendChild(pBtn);
 
-      pBtn.addEventListener("click", function () { onPrint(r); });
+      var eBtn = document.createElement("button");
+      eBtn.className = "eikon-btn";
+      eBtn.textContent = "Edit";
+      eBtn.addEventListener("click", function () { if (onEdit) onEdit(r); });
+      wrap.appendChild(eBtn);
 
-      act.appendChild(pBtn);
+      var dBtn = document.createElement("button");
+      dBtn.className = "eikon-btn";
+      dBtn.textContent = "Delete";
+      dBtn.addEventListener("click", function () { if (onDelete) onDelete(r); });
+      wrap.appendChild(dBtn);
 
       tr.appendChild(act);
       tbody.appendChild(tr);
@@ -580,7 +577,6 @@
       container.appendChild(sec);
     });
 
-    // Overall
     var overallSec = document.createElement("div");
     overallSec.className = "lr-report-section";
 
@@ -675,7 +671,11 @@
             '<label class="eikon-label">Registration Number</label>' +
             '<input id="lrc-reg" class="eikon-input" type="text" value="">' +
           '</div>' +
-          '<div class="eikon-field">' +            '<label class="eikon-label">Day Type (auto)</label>' +            '<input id="lrc-daytype-view" class="eikon-input" type="text" value="' + esc(dayTypeLabel(todayType)) + '" readonly>' +            '<input id="lrc-daytype" type="hidden" value="' + esc(todayType) + '">' +          '</div>' +
+          '<div class="eikon-field">' +
+            '<label class="eikon-label">Day Type (auto)</label>' +
+            '<input id="lrc-daytype-view" class="eikon-input" type="text" value="' + esc(dayTypeLabel(todayType)) + '" readonly>' +
+            '<input id="lrc-daytype" type="hidden" value="' + esc(todayType) + '">' +
+          '</div>' +
           '<div class="eikon-field">' +
             '<label class="eikon-label">Fee per Hour (€)</label>' +
             '<input id="lrc-fee" class="eikon-input" type="number" step="0.01" min="0" value="">' +
@@ -719,7 +719,7 @@
                 '<th style="width:190px;">Day Type</th>' +
                 '<th style="width:110px;text-align:right;">Fee/Hr</th>' +
                 '<th style="width:110px;text-align:right;">Total</th>' +
-                '<th style="width:240px;">Actions</th>' +
+                '<th style="width:260px;">Actions</th>' +
               '</tr>' +
             '</thead>' +
             '<tbody id="lrc-tbody"></tbody>' +
@@ -759,7 +759,6 @@
     var refreshBtn = E.q("#lrc-refresh", mount);
     var tbody = E.q("#lrc-tbody", mount);
 
-
     var inDate = E.q("#lrc-date", mount);
     var inHours = E.q("#lrc-hours", mount);
     var inName = E.q("#lrc-name", mount);
@@ -779,6 +778,23 @@
     var rptPrintBtn = E.q("#lrc-rpt-print", mount);
     var rptContainer = E.q("#lrc-report", mount);
 
+    function rememberFeeFor(t) {
+      t = (t === "holiday") ? "holiday" : "normal";
+      var f = parseNum(inFee.value);
+      if (isFinite(f) && f >= 0) {
+        if (!state.feeMem) state.feeMem = { normal: null, holiday: null };
+        state.feeMem[t] = f;
+        saveFeeMem(state.feeMem);
+      }
+    }
+
+    function updateTotalPreview() {
+      var h = parseNum(inHours.value);
+      var f = parseNum(inFee.value);
+      var tot = computeTotal(h, f);
+      totalEl.textContent = "€ " + money2(tot);
+    }
+
     function applyRateFromDayType(force) {
       var t = dayTypeFromDateStr(String(inDate.value || "").trim());
       try { inDay.value = t; } catch (e0) {}
@@ -797,29 +813,11 @@
       updateTotalPreview();
     }
 
-    function rememberFeeFor(t) {
-      t = (t === "holiday") ? "holiday" : "normal";
-      var f = parseNum(inFee.value);
-      if (isFinite(f) && f >= 0) {
-        if (!state.feeMem) state.feeMem = { normal: null, holiday: null };
-        state.feeMem[t] = f;
-        saveFeeMem(state.feeMem);
-      }
-    }
-
-    function updateTotalPreview() {
-      var h = parseNum(inHours.value);
-      var f = parseNum(inFee.value);
-      var tot = computeTotal(h, f);
-      totalEl.textContent = "€ " + money2(tot);
-    }
-
     var lastDayType = dayTypeFromDateStr(String(inDate.value || "").trim());
 
     inDate.addEventListener("change", function () {
       var newType = dayTypeFromDateStr(String(inDate.value || "").trim());
       if (newType !== lastDayType) {
-        // save current fee under previous day type
         rememberFeeFor(lastDayType);
         lastDayType = newType;
         applyRateFromDayType(true);
@@ -835,11 +833,10 @@
       updateTotalPreview();
     });
 
-    // Set initial fee from remembered values (if any)
+    // initial
     applyRateFromDayType(true);
-;
 
-        async function refresh() {
+    async function refresh() {
       var m = monthInput.value || month;
       state.lastMonth = m;
       var receipts = await loadReceipts(m);
@@ -891,20 +888,16 @@
       });
       if (!resp || !resp.ok) throw new Error("Save failed");
 
-      // Clear hours only, keep locum details for convenience
       try { inHours.value = ""; } catch (e1) {}
       updateTotalPreview();
 
-      // remember fee under current type
       rememberFeeFor(payload.day_type);
 
       await refresh();
 
       if (shouldPrint) {
         try {
-          // Print the saved receipt (server returns saved receipt in resp.receipt if available)
           var row = (resp.receipt) ? resp.receipt : payload;
-          // If server didn't return totals, compute locally for preview
           if (row && (row.total_fee == null)) row.total_fee = computeTotal(row.hours, row.fee_per_hour);
           if (row && (row.day_type == null)) row.day_type = payload.day_type;
           var html = buildReceiptPrintHtml((E.state.user && E.state.user.location_name) ? E.state.user.location_name : "", row);
@@ -932,7 +925,7 @@
     });
 
     async function openEdit(row) {
-      var pass = await askPassword("Edit Receipt", "Enter password to edit (required).");
+      var pass = await askPassword("Edit Receipt", "Enter password to edit.");
       if (pass !== "!4321") {
         E.modal.show("Incorrect password", '<div class="eikon-help">Edit password is incorrect.</div>', [
           { label: "Close", primary: true, onClick: function () { E.modal.hide(); } }
@@ -960,7 +953,11 @@
             '<label class="eikon-label">Registration Number</label>' +
             '<input id="lrc-edit-reg" class="eikon-input" type="text" value="' + esc(row.registration_number || "") + '">' +
           '</div>' +
-          '<div class="eikon-field">' +             '<label class="eikon-label">Day Type (auto)</label>' +             '<input id="lrc-edit-dayview" class="eikon-input" type="text" value="' + esc(dayTypeLabel(editType)) + '" readonly>' +             '<input id="lrc-edit-day" type="hidden" value="' + esc(editType) + '">' +           '</div>' +
+          '<div class="eikon-field">' +
+            '<label class="eikon-label">Day Type (auto)</label>' +
+            '<input id="lrc-edit-dayview" class="eikon-input" type="text" value="' + esc(dayTypeLabel(editType)) + '" readonly>' +
+            '<input id="lrc-edit-day" type="hidden" value="' + esc(editType) + '">' +
+          '</div>' +
           '<div class="eikon-field">' +
             '<label class="eikon-label">Fee per Hour (€)</label>' +
             '<input id="lrc-edit-fee" class="eikon-input" type="number" step="0.01" min="0" value="' + esc(String(row.fee_per_hour || "")) + '">' +
@@ -1036,7 +1033,6 @@
               E.q("#lrc-edit-day").value = t;
               try { E.q("#lrc-edit-dayview").value = dayTypeLabel(t); } catch (e0) {}
 
-              // optional auto-fill from last-used fee when day type changes
               if (t !== prev) {
                 var mem = state.feeMem || { normal: null, holiday: null };
                 var remembered = (t === "holiday") ? mem.holiday : mem.normal;
@@ -1051,14 +1047,13 @@
             updEditTotal();
           });
 
-          // sync day type with the date immediately
           try { E.q("#lrc-edit-date").dispatchEvent(new Event("change")); } catch (e4) {}
         } catch (e3) {}
       }, 0);
     }
 
     async function openDelete(row) {
-      var pass = await askPassword("Delete Receipt", "Enter password to delete (required).");
+      var pass = await askPassword("Delete Receipt", "Enter password to delete.");
       if (pass !== "!4321") {
         E.modal.show("Incorrect password", '<div class="eikon-help">Delete password is incorrect.</div>', [
           { label: "Close", primary: true, onClick: function () { E.modal.hide(); } }
@@ -1153,7 +1148,6 @@
       }
     });
 
-    // Initial report placeholder
     renderReportInto(rptContainer, null);
 
     await refresh();
