@@ -2100,7 +2100,6 @@
         details: {}
       });
     }
-
 async function doPrintRangeReport(from, to) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) {
     return toast("Validation", "From/To must be dates (YYYY-MM-DD).");
@@ -2125,8 +2124,13 @@ async function doPrintRangeReport(from, to) {
   var cols = [
     { key: "staff",  label: "Staff Name", cls: "text", colClass: "staff" },
     { key: "date",   label: "Date",       cls: "text", colClass: "date" },
-    { key: "E",      label: "Total Cash (E)", cls: "num", colClass: "num" },
-    { key: "F",      label: "F — Rounded Cash Deposited", cls: "num", colClass: "num" },
+
+    // ✅ header text changed
+    { key: "E",      label: "Total Cash", cls: "num", colClass: "num" },
+
+    // ✅ header text changed
+    { key: "F",      label: "Rounded Cash Deposited", cls: "num", colClass: "num" },
+
     { key: "bag",    label: "Bag Number", cls: "text", colClass: "bag" },
     { key: "x",      label: "Total X Reading", cls: "num", colClass: "num" },
     { key: "epos",   label: "Total EPOS", cls: "num", colClass: "num" },
@@ -2137,10 +2141,11 @@ async function doPrintRangeReport(from, to) {
     { key: "cashTill",  label: "Total Cash Till", cls: "num", colClass: "num" },
     { key: "bov",       label: "Total BOV Deposit", cls: "num", colClass: "num" },
 
-    // ✅ NEW column (must be before Coins)
-    { key: "ou",        label: "Over / Under (E − Expected)", cls: "num", colClass: "num" },
+    // ✅ header text changed
+    { key: "ou",        label: "Over / Under", cls: "num", colClass: "num" },
 
-    { key: "coinsEF",   label: "Coins (E − F)", cls: "num", colClass: "num" }
+    // ✅ header text changed
+    { key: "coinsEF",   label: "Coins", cls: "num", colClass: "num" }
   ];
 
   // Totals
@@ -2232,9 +2237,7 @@ async function doPrintRangeReport(from, to) {
 
     var tds = cols.map(function (c) {
       var val = v[c.key];
-      if (c.cls === "num") {
-        return "<td class='td-num'>" + esc(val) + "</td>";
-      }
+      if (c.cls === "num") return "<td class='td-num'>" + esc(val) + "</td>";
       return "<td class='td-text'>" + esc(val) + "</td>";
     }).join("");
 
@@ -2253,7 +2256,6 @@ async function doPrintRangeReport(from, to) {
 
       "table{width:calc(100% - 20mm);margin:0 10mm 14px 10mm;border-collapse:collapse;table-layout:fixed}" +
 
-      // widths (stable layout)
       "col.staff{width:120px}" +
       "col.date{width:82px}" +
       "col.bag{width:92px}" +
@@ -2266,7 +2268,6 @@ async function doPrintRangeReport(from, to) {
       "td.td-num{text-align:right;white-space:nowrap}" +
       "td.td-text{text-align:left;white-space:nowrap}" +
 
-      // rotated header (NOT clipped)
       "th.rot{position:relative;height:120px;padding:0;vertical-align:bottom;overflow:visible}" +
       "th.rot span{position:absolute;bottom:6px;left:6px;transform:rotate(-45deg);transform-origin:bottom left;white-space:nowrap}" +
     "</style>" +
@@ -2276,11 +2277,12 @@ async function doPrintRangeReport(from, to) {
     "<div class='meta'><b>Location:</b> " + esc(state.location_name) + "</div>" +
     "<div class='meta'><b>Range:</b> " + esc(ddmmyyyy(from)) + " to " + esc(ddmmyyyy(to)) + "</div>" +
 
-    // Totals block unchanged (as requested)
+    // ✅ totals line now includes Over/Under before Coins (E−F)
     "<div class='totals'>" +
       "<b>Totals (" + esc(String(all.length)) + " days):</b> " +
       "Total Cash (E) " + esc(euro(sum.E)) + " | " +
       "Rounded Deposited (F) " + esc(euro(sum.F)) + " | " +
+      "Over/Under (E−Expected) " + esc(euro(sum.ou)) + " | " +
       "Coins (E−F) " + esc(euro(sum.coinsEF)) + "<br>" +
       "Total X " + esc(euro(sum.x)) + " | " +
       "Total EPOS " + esc(euro(sum.epos)) + " | " +
