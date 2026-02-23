@@ -2124,13 +2124,8 @@ async function doPrintRangeReport(from, to) {
   var cols = [
     { key: "staff",  label: "Staff Name", cls: "text", colClass: "staff" },
     { key: "date",   label: "Date",       cls: "text", colClass: "date" },
-
-    // ✅ header text changed
-    { key: "E",      label: "Total Cash", cls: "num", colClass: "num" },
-
-    // ✅ header text changed
+    { key: "E",      label: "Total Cash", cls: "num",  colClass: "num" },
     { key: "F",      label: "Rounded Cash Deposited", cls: "num", colClass: "num" },
-
     { key: "bag",    label: "Bag Number", cls: "text", colClass: "bag" },
     { key: "x",      label: "Total X Reading", cls: "num", colClass: "num" },
     { key: "epos",   label: "Total EPOS", cls: "num", colClass: "num" },
@@ -2140,11 +2135,7 @@ async function doPrintRangeReport(from, to) {
     { key: "rounded",   label: "Rounded", cls: "num", colClass: "num" },
     { key: "cashTill",  label: "Total Cash Till", cls: "num", colClass: "num" },
     { key: "bov",       label: "Total BOV Deposit", cls: "num", colClass: "num" },
-
-    // ✅ header text changed
     { key: "ou",        label: "Over / Under", cls: "num", colClass: "num" },
-
-    // ✅ header text changed
     { key: "coinsEF",   label: "Coins", cls: "num", colClass: "num" }
   ];
 
@@ -2234,15 +2225,37 @@ async function doPrintRangeReport(from, to) {
 
   var rowsHtml = all.map(function (r) {
     var v = rowMetrics(r);
-
     var tds = cols.map(function (c) {
       var val = v[c.key];
       if (c.cls === "num") return "<td class='td-num'>" + esc(val) + "</td>";
       return "<td class='td-text'>" + esc(val) + "</td>";
     }).join("");
-
     return "<tr>" + tds + "</tr>";
   }).join("");
+
+  // ✅ Totals row in table footer (bottom)
+  var tfootHtml = (function () {
+    // First cell spans Staff+Date for neatness
+    var out = "<tfoot><tr class='totrow'>";
+    out += "<td class='td-text' colspan='2'><b>Totals (" + esc(String(all.length)) + " days)</b></td>";
+
+    // Then follow remaining columns in order, matching the table
+    out += "<td class='td-num'><b>" + esc(euro(sum.E)) + "</b></td>";        // Total Cash
+    out += "<td class='td-num'><b>" + esc(euro(sum.F)) + "</b></td>";        // Rounded Deposited
+    out += "<td class='td-text'></td>";                                      // Bag Number (blank)
+    out += "<td class='td-num'><b>" + esc(euro(sum.x)) + "</b></td>";        // Total X
+    out += "<td class='td-num'><b>" + esc(euro(sum.epos)) + "</b></td>";     // Total EPOS
+    out += "<td class='td-num'><b>" + esc(euro(sum.chq)) + "</b></td>";      // Total Cheques
+    out += "<td class='td-num'><b>" + esc(euro(sum.po)) + "</b></td>";       // Total Paid Outs
+    out += "<td class='td-num'><b>" + esc(euro(sum.cashCount)) + "</b></td>";// Total Cash Count
+    out += "<td class='td-num'><b>" + esc(euro(sum.rounded)) + "</b></td>";  // Rounded
+    out += "<td class='td-num'><b>" + esc(euro(sum.cashTill)) + "</b></td>"; // Total Cash Till
+    out += "<td class='td-num'><b>" + esc(euro(sum.bov)) + "</b></td>";      // Total BOV Deposit
+    out += "<td class='td-num'><b>" + esc(euro(sum.ou)) + "</b></td>";       // Over/Under
+    out += "<td class='td-num'><b>" + esc(euro(sum.coinsEF)) + "</b></td>";  // Coins
+    out += "</tr></tfoot>";
+    return out;
+  })();
 
   var html =
     "<!doctype html><html><head><meta charset='utf-8'><title>EOD Range Report</title>" +
@@ -2252,7 +2265,6 @@ async function doPrintRangeReport(from, to) {
       ".printbar{position:sticky;top:0;background:#fff;padding:8px;border-bottom:1px solid #ccc;display:flex;gap:8px;justify-content:flex-end}" +
       "h2{margin:14px 10mm 6px 10mm}" +
       ".meta{margin:0 10mm 8px 10mm;font-size:12px}" +
-      ".totals{margin:8px 10mm 10px 10mm;font-size:12px;line-height:1.35}" +
 
       "table{width:calc(100% - 20mm);margin:0 10mm 14px 10mm;border-collapse:collapse;table-layout:fixed}" +
 
@@ -2270,6 +2282,9 @@ async function doPrintRangeReport(from, to) {
 
       "th.rot{position:relative;height:120px;padding:0;vertical-align:bottom;overflow:visible}" +
       "th.rot span{position:absolute;bottom:6px;left:6px;transform:rotate(-45deg);transform-origin:bottom left;white-space:nowrap}" +
+
+      // footer totals styling
+      "tfoot .totrow td{font-weight:800;background:#f3f3f3}" +
     "</style>" +
     "</head><body>" +
     "<div class='printbar'><button onclick='window.print()'>Print</button></div>" +
@@ -2277,29 +2292,13 @@ async function doPrintRangeReport(from, to) {
     "<div class='meta'><b>Location:</b> " + esc(state.location_name) + "</div>" +
     "<div class='meta'><b>Range:</b> " + esc(ddmmyyyy(from)) + " to " + esc(ddmmyyyy(to)) + "</div>" +
 
-    // ✅ totals line now includes Over/Under before Coins (E−F)
-    "<div class='totals'>" +
-      "<b>Totals (" + esc(String(all.length)) + " days):</b> " +
-      "Total Cash (E) " + esc(euro(sum.E)) + " | " +
-      "Rounded Deposited (F) " + esc(euro(sum.F)) + " | " +
-      "Over/Under (E−Expected) " + esc(euro(sum.ou)) + " | " +
-      "Coins (E−F) " + esc(euro(sum.coinsEF)) + "<br>" +
-      "Total X " + esc(euro(sum.x)) + " | " +
-      "Total EPOS " + esc(euro(sum.epos)) + " | " +
-      "Total Cheques " + esc(euro(sum.chq)) + " | " +
-      "Total Paid Outs " + esc(euro(sum.po)) + "<br>" +
-      "Total Cash Count " + esc(euro(sum.cashCount)) + " | " +
-      "Rounded " + esc(euro(sum.rounded)) + " | " +
-      "Total Cash Till " + esc(euro(sum.cashTill)) + " | " +
-      "Total BOV Deposit " + esc(euro(sum.bov)) +
-    "</div>" +
-
     "<table>" +
       colgroupHtml +
       theadHtml +
       "<tbody>" +
         (rowsHtml || "<tr><td colspan='" + cols.length + "'>No records in range.</td></tr>") +
       "</tbody>" +
+      tfootHtml +
     "</table>" +
     "</body></html>";
 
