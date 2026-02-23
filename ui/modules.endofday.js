@@ -2101,77 +2101,190 @@
       });
     }
 
-    async function doPrintRangeReport(from, to) {
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) {
-        return toast("Validation", "From/To must be dates (YYYY-MM-DD).");
-      }
-      if (to < from) return toast("Validation", "To must be >= From.");
+async function doPrintRangeReport(from, to) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) {
+    return toast("Validation", "From/To must be dates (YYYY-MM-DD).");
+  }
+  if (to < from) return toast("Validation", "To must be >= From.");
 
-      var all = [];
-      var cur = from;
-      while (cur <= to) {
-        var rec = await getEodByDateAndLoc(cur, state.location_name);
-        if (rec) all.push(rec);
-        var dt = new Date(cur + "T00:00:00");
-        dt.setDate(dt.getDate() + 1);
-        cur = ymd(dt);
-      }
+  var all = [];
+  var cur = from;
+  while (cur <= to) {
+    var rec = await getEodByDateAndLoc(cur, state.location_name);
+    if (rec) all.push(rec);
+    var dt = new Date(cur + "T00:00:00");
+    dt.setDate(dt.getDate() + 1);
+    cur = ymd(dt);
+  }
 
-      all.sort(function (a, b) { return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
+  all.sort(function (a, b) { return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
 
-      var totalCash = 0;
-      var totalOU = 0;
-      var totalCoins = 0;
+  var sumE = 0;
+  var sumF = 0;
+  var sumCoinsEF = 0;
 
-      all.forEach(function (r) {
-        var till = countedCashTill(r).total;
-        var E2 = Math.max(0, till - moneyToNumber(r.float_amount));
-        var exp = expectedDeposit(r);
-        var F2 = roundToNearest5(E2);
-        totalCash += E2;
-        totalOU += (E2 - exp);
-        totalCoins += (E2 - F2);
-      });
+  var sumX = 0;
+  var sumEpos = 0;
+  var sumCheques = 0;
+  var sumPaidOuts = 0;
 
-      var rowsHtml = all.map(function (r) {
-        var till = countedCashTill(r).total;
-        var E2 = Math.max(0, till - moneyToNumber(r.float_amount));
-        var exp = expectedDeposit(r);
-        var ou = E2 - exp;
-        return "<tr>" +
-          "<td>" + esc(ddmmyyyy(r.date)) + "</td>" +
-          "<td style='text-align:right'>" + esc(euro(E2)) + "</td>" +
-          "<td style='text-align:right'>" + esc(euro(ou)) + "</td>" +
-          "<td>" + esc(String(r.staff || "")) + "</td>" +
-          "<td>" + esc(r.locked_at ? "Locked" : "") + "</td>" +
-          "</tr>";
-      }).join("");
+  var sumCashCount = 0;       // Total Cash Count (counted till notes+coins)
+  var sumRoundedCount = 0;    // Rounded (nearest 5 of Total Cash Count)
+  var sumCashTill = 0;        // Total Cash Till (float amount)
+  var sumBov = 0;             // Total BOV Deposit
 
-      var html =
-        "<!doctype html><html><head><meta charset='utf-8'><title>EOD Range Report</title>" +
-        "<style>@media print{@page{size:A4;margin:12mm}} body{font-family:Arial,sans-serif} table{width:100%;border-collapse:collapse} th,td{border:1px solid #000;padding:6px;font-size:12px} th{background:#eee} .printbar{position:sticky;top:0;background:#fff;padding:8px;border-bottom:1px solid #ccc;display:flex;gap:8px;justify-content:flex-end}</style>" +
-        "</head><body>" +
-        "<div class='printbar'><button onclick='window.print()'>Print</button></div>" +
-        "<h2>End Of Day — Range Report</h2>" +
-        "<div><b>Location:</b> " + esc(state.location_name) + "</div>" +
-        "<div><b>Range:</b> " + esc(ddmmyyyy(from)) + " to " + esc(ddmmyyyy(to)) + "</div>" +
-        "<div style='margin:10px 0'><b>Totals:</b> Total Cash " + esc(euro(totalCash)) + " | Over/Under " + esc(euro(totalOU)) + " | Coin Box " + esc(euro(totalCoins)) + "</div>" +
-        "<table><thead><tr><th>Date</th><th>Total Cash (E)</th><th>Over/Under</th><th>Staff</th><th>Status</th></tr></thead><tbody>" +
-        (rowsHtml || "<tr><td colspan='5'>No records in range.</td></tr>") +
-        "</tbody></table>" +
-        "</body></html>";
+  function safeStr(v) { return String(v == null ? "" : v); }
 
-      openPrintTabWithHtml(html);
+  all.forEach(function (r) {
+    var counted = countedCashTill(r);
+    var tillTotal = counted.total; // notes + coins
 
-      writeAudit(state.location_name, state.date, {
-        ts: nowIso(),
-        date: state.date,
-        location_name: state.location_name,
-        by: createdBy,
-        action: "PRINT_RANGE",
-        details: { from: from, to: to }
-      });
-    }
+    var fl = moneyToNumber(r.float_amount);
+    var E2 = Math.max(0, tillTotal - fl);
+    var F2 = roundToNearest5(E2);
+    var coinsEF = (E2 - F2);
+
+    var xTot = totalA(r);
+    var eposTot = totalB(r);
+    var chqTot = totalC(r);
+    var poTot = totalD(r);
+
+    var cashCount = tillTotal;
+    var roundedCount = roundToNearest5(cashCount);
+    var bov = bovTotal(r);
+
+    sumE += E2;
+    sumF += F2;
+    sumCoinsEF += coinsEF;
+
+    sumX += xTot;
+    sumEpos += eposTot;
+    sumCheques += chqTot;
+    sumPaidOuts += poTot;
+
+    sumCashCount += cashCount;
+    sumRoundedCount += roundedCount;
+    sumCashTill += fl;
+    sumBov += bov;
+  });
+
+  function thRot(label) {
+    return "<th class='rot'><div>" + esc(label) + "</div></th>";
+  }
+
+  var rowsHtml = all.map(function (r) {
+    var counted = countedCashTill(r);
+    var tillTotal = counted.total;
+
+    var fl = moneyToNumber(r.float_amount);
+
+    var E2 = Math.max(0, tillTotal - fl);
+    var F2 = roundToNearest5(E2);
+    var coinsEF = (E2 - F2);
+
+    var xTot = totalA(r);
+    var eposTot = totalB(r);
+    var chqTot = totalC(r);
+    var poTot = totalD(r);
+
+    var cashCount = tillTotal;
+    var roundedCount = roundToNearest5(cashCount);
+
+    var bag = safeStr(r.bag_number || "").trim();
+    var bov = bovTotal(r);
+
+    return "<tr>" +
+      "<td class='td-text'>" + esc(safeStr(r.staff || "")) + "</td>" +
+      "<td>" + esc(ddmmyyyy(r.date)) + "</td>" +
+      "<td style='text-align:right'>" + esc(euro(E2)) + "</td>" +
+      "<td style='text-align:right'>" + esc(euro(F2)) + "</td>" +
+      "<td>" + esc(bag) + "</td>" +
+      "<td style='text-align:right'>" + esc(euro(xTot)) + "</td>" +
+      "<td style='text-align:right'>" + esc(euro(eposTot)) + "</td>" +
+      "<td style='text-align:right'>" + esc(euro(chqTot)) + "</td>" +
+      "<td style='text-align:right'>" + esc(euro(poTot)) + "</td>" +
+      "<td style='text-align:right'>" + esc(euro(cashCount)) + "</td>" +
+      "<td style='text-align:right'>" + esc(euro(roundedCount)) + "</td>" +
+      "<td style='text-align:right'>" + esc(euro(fl)) + "</td>" +
+      "<td style='text-align:right'>" + esc(euro(bov)) + "</td>" +
+      "<td style='text-align:right'>" + esc(euro(coinsEF)) + "</td>" +
+      "</tr>";
+  }).join("");
+
+  var html =
+    "<!doctype html><html><head><meta charset='utf-8'><title>EOD Range Report</title>" +
+    "<style>" +
+      "@media print{ @page{size:A4 landscape;margin:10mm} .printbar{display:none !important;} }" +
+      "body{font-family:Arial,sans-serif}" +
+      ".printbar{position:sticky;top:0;background:#fff;padding:8px;border-bottom:1px solid #ccc;display:flex;gap:8px;justify-content:flex-end}" +
+      "h2{margin:10px 0 6px 0}" +
+      ".meta{margin:0 0 8px 0;font-size:12px}" +
+      ".totals{margin:8px 0 10px 0;font-size:12px;line-height:1.35}" +
+      "table{width:100%;border-collapse:collapse;table-layout:fixed}" +
+      "th,td{border:1px solid #000;padding:4px;font-size:10px;vertical-align:middle;overflow:hidden;text-overflow:ellipsis}" +
+      "th{background:#eee;text-align:center}" +
+      "td{white-space:nowrap}" +
+      "td.td-text{white-space:normal}" +
+
+      /* angled headers */
+      "th.rot{height:110px;vertical-align:bottom;padding:0 4px;white-space:nowrap}" +
+      "th.rot > div{display:inline-block;transform-origin:bottom left;transform:translate(2px, 76px) rotate(-45deg);white-space:nowrap}" +
+    "</style>" +
+    "</head><body>" +
+    "<div class='printbar'><button onclick='window.print()'>Print</button></div>" +
+    "<h2>End Of Day — Range Report</h2>" +
+    "<div class='meta'><b>Location:</b> " + esc(state.location_name) + "</div>" +
+    "<div class='meta'><b>Range:</b> " + esc(ddmmyyyy(from)) + " to " + esc(ddmmyyyy(to)) + "</div>" +
+
+    "<div class='totals'>" +
+      "<b>Totals (" + esc(String(all.length)) + " days):</b> " +
+      "Total Cash (E) " + esc(euro(sumE)) + " | " +
+      "Rounded Deposited (F) " + esc(euro(sumF)) + " | " +
+      "Coins (E−F) " + esc(euro(sumCoinsEF)) + "<br>" +
+      "Total X " + esc(euro(sumX)) + " | " +
+      "Total EPOS " + esc(euro(sumEpos)) + " | " +
+      "Total Cheques " + esc(euro(sumCheques)) + " | " +
+      "Total Paid Outs " + esc(euro(sumPaidOuts)) + "<br>" +
+      "Total Cash Count " + esc(euro(sumCashCount)) + " | " +
+      "Rounded " + esc(euro(sumRoundedCount)) + " | " +
+      "Total Cash Till " + esc(euro(sumCashTill)) + " | " +
+      "Total BOV Deposit " + esc(euro(sumBov)) +
+    "</div>" +
+
+    "<table>" +
+      "<thead><tr>" +
+        thRot("Staff Name") +
+        thRot("Date") +
+        thRot("Total Cash (E)") +
+        thRot("F — Rounded Cash Deposited") +
+        thRot("Bag Number") +
+        thRot("Total X Reading") +
+        thRot("Total EPOS") +
+        thRot("Total Cheques") +
+        thRot("Total Paid Outs") +
+        thRot("Total Cash Count") +
+        thRot("Rounded") +
+        thRot("Total Cash Till") +
+        thRot("Total BOV Deposit") +
+        thRot("Coins (E − F)") +
+      "</tr></thead>" +
+      "<tbody>" +
+        (rowsHtml || "<tr><td colspan='14'>No records in range.</td></tr>") +
+      "</tbody>" +
+    "</table>" +
+    "</body></html>";
+
+  openPrintTabWithHtml(html);
+
+  writeAudit(state.location_name, state.date, {
+    ts: nowIso(),
+    date: state.date,
+    location_name: state.location_name,
+    by: createdBy,
+    action: "PRINT_RANGE",
+    details: { from: from, to: to }
+  });
+}
 
     // -----------------------------
     // Live UI updates while typing (no rerender / no DOM swap)
