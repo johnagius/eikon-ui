@@ -153,15 +153,24 @@
   }
 
   async function loadRecords() {
-    var r = await E.apiFetch("/pharmacy-calc/records", { method: "GET" });
+    // Try with include_json=1 — if the backend supports it, calc_data_json comes inline
+    var r = await E.apiFetch("/pharmacy-calc/records?include_json=1", { method: "GET" });
     state.records = (r && Array.isArray(r.records)) ? r.records : [];
     state.recordsLoaded = true;
   }
 
   async function loadSingleRecord(id) {
-    var r = await E.apiFetch("/pharmacy-calc/records/" + encodeURIComponent(String(id)), { method: "GET" });
-    if (r && r.record) return r.record;
-    if (r && Array.isArray(r.records) && r.records.length) return r.records[0];
+    // Check if list already loaded this record with full data
+    if (state.records) {
+      var cached = state.records.find(function(rec2) { return rec2.id === id || rec2.id === Number(id); });
+      if (cached && cached.calc_data_json) return cached;
+    }
+    // Try the single-record endpoint (may return 404 if not implemented)
+    try {
+      var r = await E.apiFetch("/pharmacy-calc/records/" + encodeURIComponent(String(id)), { method: "GET" });
+      if (r && r.record) return r.record;
+      if (r && Array.isArray(r.records) && r.records.length) return r.records[0];
+    } catch(e2) { /* endpoint not implemented */ }
     return null;
   }
 
@@ -1717,7 +1726,7 @@
       h += '</div>';
 
       if (!data) {
-        h += '<div style="border-top:1px solid var(--border);padding-top:10px;color:var(--danger,#e05);">No calculation data available for this record.</div>';
+        h += '<div style="border-top:1px solid var(--border);padding-top:14px;">'+'<div style="color:var(--danger,#e05);font-weight:800;margin-bottom:8px;">Calculation data not available.</div>'+'<div style="font-size:12px;opacity:.75;line-height:1.6;">The <b>GET /pharmacy-calc/records/:id</b> endpoint returned 404 &mdash; it needs to be added to your backend API.</div>'+'<div style="font-size:12px;opacity:.75;margin-top:6px;">Add this route to your Cloudflare Worker: <code style="background:rgba(255,255,255,.1);padding:2px 6px;border-radius:4px;">router.get("/pharmacy-calc/records/:id", async (req, env) =&gt; { const row = await env.DB.prepare("SELECT * FROM pharmacy_calc_records WHERE id=?").bind(req.params.id).first(); return row ? ok({ record: row }) : notFound(); });</code></div>'+'</div>';
       } else {
         h += '<div style="border-top:1px solid var(--border);padding-top:10px;">';
         var ct = fullRec.calc_type;
