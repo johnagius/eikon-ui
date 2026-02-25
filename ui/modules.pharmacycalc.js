@@ -1565,115 +1565,116 @@
     function showDetail(rec) {
       detailPanel.innerHTML = "";
       detailPanel.style.display = "";
-      var header = mk("div", { style: "display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);padding-bottom:6px;margin-bottom:10px;" });
-      header.appendChild(mk("div", { style: "font-weight:900;font-size:13px;text-transform:uppercase;letter-spacing:.6px;", text: "Record Details" }));
-      var closeBtn = mk("button", { class: "eikon-btn danger", text: "✕ Close", type: "button", style: "font-size:12px;padding:4px 10px;" });
+
+      // ── Top bar: identity + close ──────────────────────────────────────────
+      var topBar = mk("div", { style: "display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;" });
+      var savedAt = (rec.created_at || "").replace("T"," ").replace(/\.\d+/,"");
+      topBar.appendChild(mk("div", {}, [
+        mk("div", { style: "font-weight:900;font-size:14px;", text: (rec.patient_name || "—") + "  ·  " + (rec.id_card || "—") }),
+        mk("div", { style: "font-size:12px;opacity:.65;margin-top:2px;", text: (calcTypeLabel[rec.calc_type] || rec.calc_type || "") + "   ·   Start: " + (rec.start_date || "—") + "   ·   Saved: " + savedAt })
+      ]));
+      var closeBtn = mk("button", { class: "eikon-btn danger", text: "✕ Close", type: "button", style: "font-size:12px;padding:4px 10px;flex-shrink:0;" });
       closeBtn.addEventListener("click", function() { detailPanel.style.display = "none"; });
-      header.appendChild(closeBtn);
-      detailPanel.appendChild(header);
+      topBar.appendChild(closeBtn);
+      detailPanel.appendChild(topBar);
 
-      // Meta fields
-      var metaHtml =
-        "<table class='eikon-table'><tbody>" +
-        "<tr><td><b>Calculator</b></td><td>" + escHtml(calcTypeLabel[rec.calc_type] || rec.calc_type || "") + "</td></tr>" +
-        "<tr><td><b>Patient</b></td><td>" + escHtml(rec.patient_name || "") + "</td></tr>" +
-        "<tr><td><b>ID Card</b></td><td>" + escHtml(rec.id_card || "") + "</td></tr>" +
-        "<tr><td><b>Start Date</b></td><td>" + escHtml(rec.start_date || "") + "</td></tr>" +
-        "<tr><td><b>Saved At</b></td><td>" + escHtml(rec.created_at || "") + "</td></tr>" +
-        "</tbody></table>";
-      detailPanel.appendChild(mk("div", { html: metaHtml }));
+      // ── Calc summary ───────────────────────────────────────────────────────
+      if (!rec.calc_data_json) return;
+      var data;
+      try { data = typeof rec.calc_data_json === "string" ? JSON.parse(rec.calc_data_json) : rec.calc_data_json; }
+      catch(e) { detailPanel.appendChild(mk("div", { class: "eikon-help", text: "(Could not parse calc data)" })); return; }
 
-      // Calc data — human-readable rendering per calculator type
-      if (rec.calc_data_json) {
-        detailPanel.appendChild(mk("div", { style: "font-weight:900;font-size:12px;text-transform:uppercase;letter-spacing:.6px;border-top:1px solid var(--border);padding-top:8px;margin:10px 0 6px;", text: "Calculation Summary" }));
-        try {
-          var data = typeof rec.calc_data_json === "string" ? JSON.parse(rec.calc_data_json) : rec.calc_data_json;
-          var summaryHtml = "";
+      var div = mk("div", { style: "border-top:1px solid var(--border);padding-top:10px;" });
 
-          if (rec.calc_type === "pred") {
-            // Prednisolone / Prednisone
-            summaryHtml += "<div style='font-weight:800;margin-bottom:4px;'>" + escHtml(data.drug || "Prednisolone") + " Taper — " + (data.stepPlans ? data.stepPlans.length : "?") + " steps</div>";
-            if (data.stepPlans && data.stepPlans.length) {
-              summaryHtml += "<table class='eikon-table'><thead><tr><th>Step</th><th>Dose/day</th><th>Days</th><th>From</th><th>Note</th></tr></thead><tbody>";
-              data.stepPlans.forEach(function(sp) {
-                var start = sp.start ? new Date(sp.start) : null;
-                summaryHtml += "<tr><td><b>" + sp.stepNumber + "</b></td><td><b>" + formatStrength(sp.doseMg) + " mg</b></td><td>" + sp.days + "</td><td>" + (start ? fmtDate(start) : "") + "</td><td>" + escHtml(sp.note || "") + "</td></tr>";
-              });
-              summaryHtml += "</tbody></table>";
-            }
-            if (data.totalRows && data.totalRows.length) {
-              summaryHtml += "<div style='font-weight:800;margin:8px 0 4px;'>Tablets to dispense:</div><table class='eikon-table'><thead><tr><th>Strength</th><th>Physical tabs</th></tr></thead><tbody>";
-              data.totalRows.forEach(function(r) { summaryHtml += "<tr><td>" + formatStrength(r.strength) + " mg</td><td><b>" + r.tabletsToDispense + "</b></td></tr>"; });
-              summaryHtml += "</tbody></table>";
-            }
-            if (data.boxes) summaryHtml += "<div class='eikon-help'><b>Boxes:</b> " + data.totalDispensedTabsAll + " tabs → " + data.boxes + " box(es)</div>";
-
-          } else if (rec.calc_type === "lev") {
-            // Levothyroxine
-            summaryHtml += "<div style='font-weight:800;margin-bottom:4px;'>Levothyroxine — " + (data.weeks || "?") + " weeks</div>";
-            if (data.prescribedDoses && data.prescribedDoses.length) {
-              summaryHtml += "<table class='eikon-table'><thead><tr><th>Dose</th><th>mcg/day</th></tr></thead><tbody>";
-              data.prescribedDoses.forEach(function(pd) { summaryHtml += "<tr><td>Dose " + pd.idx + "</td><td><b>" + formatStrength(pd.mcg) + " mcg</b></td></tr>"; });
-              summaryHtml += "</tbody></table>";
-            }
-            if (data.dispensing && data.dispensing.length) {
-              summaryHtml += "<div style='font-weight:800;margin:8px 0 4px;'>Dispensing:</div><table class='eikon-table'><thead><tr><th>Strength</th><th>Physical tabs</th><th>Boxes</th></tr></thead><tbody>";
-              data.dispensing.forEach(function(d) { summaryHtml += "<tr><td>" + formatStrength(d.strength) + " mcg</td><td><b>" + d.physicalTablets + "</b></td><td>" + d.boxes + "</td></tr>"; });
-              summaryHtml += "</tbody></table>";
-            }
-
-          } else if (rec.calc_type === "war") {
-            // Warfarin
-            summaryHtml += "<div style='font-weight:800;margin-bottom:4px;'>Warfarin Variable Dosing — " + (data.weeks || "?") + " weeks</div>";
-            if (data.dispByStrength && data.dispByStrength.length) {
-              summaryHtml += "<table class='eikon-table'><thead><tr><th>Strength</th><th>Physical tabs</th><th>Boxes</th></tr></thead><tbody>";
-              data.dispByStrength.forEach(function(r) { summaryHtml += "<tr><td>" + formatStrength(r.strength) + " mg</td><td><b>" + r.tabletsDispense + "</b></td><td>" + r.boxesNeeded + "</td></tr>"; });
-              summaryHtml += "</tbody></table>";
-            }
-
-          } else if (rec.calc_type === "ins") {
-            // Insulin
-            var typeLabel = data.type === "pen" ? "Cartridge/Pen" : "Vial";
-            summaryHtml += "<div style='font-weight:800;margin-bottom:4px;'>Insulin — " + (data.weeks || "?") + " weeks, " + typeLabel + "</div>";
-            if (data.doses) {
-              summaryHtml += "<table class='eikon-table'><thead><tr><th>Time</th><th>Units</th></tr></thead><tbody>";
-              [["Morning", data.doses.morning],["Afternoon", data.doses.afternoon],["Evening", data.doses.evening],["Night", data.doses.night]].forEach(function(pair){
-                summaryHtml += "<tr><td>" + pair[0] + "</td><td><b>" + formatStrength(pair[1]) + " u</b></td></tr>";
-              });
-              summaryHtml += "</tbody></table>";
-            }
-            summaryHtml += "<table class='eikon-table' style='margin-top:6px;'><tbody>" +
-              "<tr><td>Daily dose</td><td><b>" + formatStrength(data.dailyUnits) + " units</b></td></tr>" +
-              "<tr><td>Containers used</td><td><b>" + data.containersUsed + "</b> × " + data.unitsPerContainer + " u</td></tr>" +
-              (data.boxesNeeded ? "<tr><td>Boxes</td><td><b>" + data.boxesNeeded + "</b></td></tr>" : "") +
-              "<tr><td>Units wasted (discard)</td><td><b>" + formatStrength(data.wastedFromDiscard || 0) + " u</b></td></tr>" +
-              "</tbody></table>";
-
-          } else if (rec.calc_type === "mtx") {
-            // Methotrexate
-            summaryHtml += "<div style='font-weight:800;margin-bottom:4px;'>Methotrexate — " + (data.weeks || "?") + " weeks</div>";
-            summaryHtml += "<table class='eikon-table'><tbody>" +
-              "<tr><td>Weekly dose</td><td><b>" + formatStrength(data.weeklyDose) + " mg</b></td></tr>" +
-              "<tr><td>Tablet strength</td><td><b>" + formatStrength(data.tabletStrength) + " mg</b></td></tr>" +
-              "<tr><td>Total tablets to dispense</td><td><b>" + data.totalTabsToDispense + "</b></td></tr>" +
-              (data.boxes ? "<tr><td>Boxes</td><td><b>" + data.boxes + "</b></td></tr>" : "") +
-              "</tbody></table>";
-            if (data.firstDoseDate) {
-              var fd = new Date(data.firstDoseDate);
-              summaryHtml += "<div class='eikon-help'>First dose: " + fmtDate(fd) + " (" + DOW[fd.getDay()] + ")</div>";
-            }
-          } else {
-            // Fallback: compact JSON for unknown types
-            var pre = mk("pre", { style: "font-family:monospace;font-size:11px;background:rgba(0,0,0,.3);border-radius:8px;padding:10px;overflow-x:auto;white-space:pre-wrap;word-break:break-word;max-height:200px;overflow-y:auto;" });
-            pre.textContent = JSON.stringify(data, null, 2);
-            detailPanel.appendChild(pre);
-          }
-
-          if (summaryHtml) detailPanel.appendChild(mk("div", { html: summaryHtml }));
-        } catch (e) {
-          detailPanel.appendChild(mk("div", { class: "eikon-help", text: "(Could not parse calc data)" }));
+      // ── PREDNISOLONE ───────────────────────────────────────────────────────
+      if (rec.calc_type === "pred") {
+        var totalDays = (data.stepPlans || []).reduce(function(a,s){ return a + s.days; }, 0);
+        var endDate = data.startDate ? fmtDate(addDays(new Date(data.startDate), totalDays - 1)) : "—";
+        div.appendChild(mk("div", { style: "font-weight:900;margin-bottom:8px;", text: (data.drug || "Prednisolone") + " taper · " + (data.stepPlans ? data.stepPlans.length : 0) + " steps · " + totalDays + " days total · ends " + endDate }));
+        var html = "<table class='eikon-table'><thead><tr><th>Step</th><th>Dose</th><th>Days</th><th>Dates</th><th>Tablets/day</th></tr></thead><tbody>";
+        (data.stepPlans || []).forEach(function(sp) {
+          var s = sp.start ? fmtDate(new Date(sp.start)) : "";
+          var e = sp.end   ? fmtDate(new Date(sp.end))   : "";
+          var tabDesc = (sp.comboItems || []).map(function(it) {
+            var p = []; if (it.wholeCount) p.push(it.wholeCount + "× " + it.strength + " mg"); if (it.halfCount) p.push(it.halfCount + "× ½ of " + it.strength + " mg"); return p.join(" + ");
+          }).join(" + ") || "—";
+          html += "<tr><td><b>" + sp.stepNumber + "</b></td><td><b>" + formatStrength(sp.doseMg) + " mg</b></td><td>" + sp.days + "</td><td>" + s + " → " + e + "</td><td>" + escHtml(tabDesc) + "</td></tr>";
+        });
+        html += "</tbody></table>";
+        if (data.totalRows && data.totalRows.length) {
+          html += "<table class='eikon-table' style='margin-top:8px;'><thead><tr><th>Strength</th><th>Whole tabs</th><th>Half pieces</th><th>Dispense</th></tr></thead><tbody>";
+          data.totalRows.forEach(function(r) {
+            html += "<tr><td><b>" + formatStrength(r.strength) + " mg</b></td><td>" + (r.wholePieces||0) + "</td><td>" + (r.halfPieces||0) + "</td><td><b>" + r.tabletsToDispense + " tabs</b></td></tr>";
+          });
+          html += "</tbody></table>";
         }
+        if (data.boxes) html += "<div style='margin-top:6px;font-weight:800;'>→ Dispense: " + data.totalDispensedTabsAll + " tablets = <b>" + data.boxes + " box(es)</b> of " + data.tabsPerBox + "</div>";
+        div.innerHTML += html;
+
+      // ── LEVOTHYROXINE ──────────────────────────────────────────────────────
+      } else if (rec.calc_type === "lev") {
+        var doseList = (data.prescribedDoses || []).map(function(pd){ return "Dose " + pd.idx + ": " + formatStrength(pd.mcg) + " mcg"; }).join("  ·  ");
+        div.appendChild(mk("div", { style: "font-weight:900;margin-bottom:8px;", text: "Levothyroxine · " + (data.weeks || "?") + " weeks  ·  " + doseList }));
+        if (data.dispensing && data.dispensing.length) {
+          var html = "<table class='eikon-table'><thead><tr><th>Strength</th><th>Physical tabs</th><th>Box size</th><th>Boxes</th><th>Extra</th></tr></thead><tbody>";
+          data.dispensing.forEach(function(d) {
+            html += "<tr><td><b>" + formatStrength(d.strength) + " mcg</b></td><td><b>" + d.physicalTablets + "</b></td><td>" + d.boxSize + "</td><td><b>" + d.boxes + "</b></td><td>" + (d.extra||0) + "</td></tr>";
+          });
+          html += "</tbody></table>";
+          div.innerHTML += html;
+        }
+
+      // ── WARFARIN ───────────────────────────────────────────────────────────
+      } else if (rec.calc_type === "war") {
+        var startD = data.startDate ? fmtDate(new Date(data.startDate)) : "—";
+        div.appendChild(mk("div", { style: "font-weight:900;margin-bottom:8px;", text: "Warfarin · " + (data.weeks || "?") + " weeks · from " + startD }));
+        if (data.dispByStrength && data.dispByStrength.length) {
+          var html = "<table class='eikon-table'><thead><tr><th>Strength</th><th>Whole tabs</th><th>Half pieces</th><th>Dispense</th><th>Sheets</th><th>Boxes</th></tr></thead><tbody>";
+          data.dispByStrength.forEach(function(r) {
+            html += "<tr><td><b>" + formatStrength(r.strength) + " mg</b></td><td>" + (r.wholePieces||0) + "</td><td>" + (r.halfPieces||0) + "</td><td><b>" + r.tabletsDispense + "</b></td><td>" + (r.sheetsNeeded||0) + "</td><td><b>" + r.boxesNeeded + "</b></td></tr>";
+          });
+          html += "</tbody></table>";
+          div.innerHTML += html;
+        }
+
+      // ── INSULIN ────────────────────────────────────────────────────────────
+      } else if (rec.calc_type === "ins") {
+        var typeLabel = data.type === "pen" ? "Cartridge/Pen" : "Vial";
+        var dailyStr = "";
+        if (data.doses) {
+          var parts = [];
+          if (data.doses.morning)   parts.push("Morn: " + data.doses.morning + "u");
+          if (data.doses.afternoon) parts.push("Aft: "  + data.doses.afternoon + "u");
+          if (data.doses.evening)   parts.push("Eve: "  + data.doses.evening + "u");
+          if (data.doses.night)     parts.push("Night: "+ data.doses.night + "u");
+          dailyStr = parts.join("  ·  ");
+        }
+        div.appendChild(mk("div", { style: "font-weight:900;margin-bottom:8px;", text: "Insulin (" + typeLabel + ") · " + (data.weeks||"?") + " weeks · " + formatStrength(data.dailyUnits) + " units/day" }));
+        div.appendChild(mk("div", { style: "font-size:12px;margin-bottom:8px;opacity:.8;", text: dailyStr }));
+        var html = "<table class='eikon-table'><tbody>" +
+          "<tr><td>Container</td><td><b>" + typeLabel + " · " + data.unitsPerContainer + " u/container</b></td></tr>" +
+          "<tr><td>Containers to dispense</td><td><b>" + data.containersUsed + (data.containersPerBox ? " (" + Math.ceil(data.containersUsed/data.containersPerBox) + " box(es) of " + data.containersPerBox + ")" : "") + "</b></td></tr>" +
+          "<tr><td>Units needed (dose)</td><td><b>" + formatStrength(data.totalUnitsNeededNoWaste) + " u</b></td></tr>" +
+          "<tr><td>Units wasted (discard)</td><td><b>" + formatStrength(data.wastedFromDiscard||0) + " u</b>" + (data.includeDiscard ? " · discard after " + data.discardDays + " days" : " · no discard rule") + "</td></tr>" +
+          "<tr><td>Leftover at end</td><td><b>" + formatStrength(data.leftoverUnitsAtEnd||0) + " u</b></td></tr>" +
+          "</tbody></table>";
+        div.innerHTML += html;
+
+      // ── METHOTREXATE ───────────────────────────────────────────────────────
+      } else if (rec.calc_type === "mtx") {
+        var fd = data.firstDoseDate ? new Date(data.firstDoseDate) : null;
+        var fdStr = fd ? fmtDate(fd) + " (" + DOW[fd.getDay()] + ")" : "—";
+        div.appendChild(mk("div", { style: "font-weight:900;margin-bottom:8px;", text: "Methotrexate · " + (data.weeks||"?") + " weeks · " + formatStrength(data.weeklyDose) + " mg/week · first dose " + fdStr }));
+        var html = "<table class='eikon-table'><tbody>" +
+          "<tr><td>Tablet strength</td><td><b>" + formatStrength(data.tabletStrength) + " mg</b></td></tr>" +
+          "<tr><td>Tablets per dose</td><td><b>" + ((data.schedule && data.schedule[0]) ? data.schedule[0].wholeTabs + (data.schedule[0].halfPieces ? " + ½" : "") : "—") + "</b></td></tr>" +
+          "<tr><td>Total tablets to dispense</td><td><b>" + data.totalTabsToDispense + "</b></td></tr>" +
+          (data.boxes ? "<tr><td>Boxes</td><td><b>" + data.boxes + " × " + data.tabsPerBox + " tabs/box</b></td></tr>" : "") +
+          "</tbody></table>";
+        div.innerHTML += html;
       }
+
+      detailPanel.appendChild(div);
     }
 
     // ── Table ───────────────────────────────────────────────────────────────
