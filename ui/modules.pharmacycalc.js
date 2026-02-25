@@ -561,25 +561,34 @@
     dayGridSection.appendChild(dayGridWrap);
     dayGridSection.appendChild(mk("div", { class: "eikon-help", style: "margin-top:4px;", text: "For alternating patterns the day grid lets you assign which dose goes on which day." }));
 
+    // Default day-dose assignments per mode
+    var ALT2_DEFAULTS = {1:"1",2:"2",3:"1",4:"2",5:"1",6:"2",0:"1"}; // Mon–Sun alternating
+    var ALT3_DEFAULTS = {1:"1",2:"2",3:"3",4:"1",5:"2",6:"3",0:"1"}; // Mon–Sun cycling 1-2-3
+
+    var _prevMode = patternModeSel.value;
     function updatePatternUi() {
       var mode = patternModeSel.value;
+      var modeChanged = mode !== _prevMode;
+      _prevMode = mode;
+
       if (mode === "single") {
         d2Field.style.display = "none"; d3Field.style.display = "none"; dayGridSection.style.display = "none";
-        // Reset day selects — all use dose 1
         LEV_DAYS.forEach(function(d) { if (daySelects[d.dow]) daySelects[d.dow].value = "1"; });
       } else if (mode === "alt2") {
         d2Field.style.display = ""; d3Field.style.display = "none"; dayGridSection.style.display = "";
-        // Update day select options — only show dose 1/2
+        // Disable Dose 3 option in each select
         LEV_DAYS.forEach(function(d) {
           var sel = daySelects[d.dow]; if (!sel) return;
-          sel.options[2].disabled = true; // Dose 3
-          if (sel.value === "3") sel.value = "1";
+          sel.options[2].disabled = true;
+          // Apply default pattern when switching to this mode, or fix invalid values
+          if (modeChanged || sel.value === "3") sel.value = ALT2_DEFAULTS[d.dow];
         });
       } else { // alt3
         d2Field.style.display = ""; d3Field.style.display = ""; dayGridSection.style.display = "";
         LEV_DAYS.forEach(function(d) {
           var sel = daySelects[d.dow]; if (!sel) return;
           sel.options[2].disabled = false;
+          if (modeChanged) sel.value = ALT3_DEFAULTS[d.dow];
         });
       }
     }
