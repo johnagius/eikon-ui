@@ -8695,6 +8695,112 @@ async function handleVaccinesStockRowUpdate(request, env, corsOkHeaders, authUse
   return jsonResponse({ ok: true, id, updated_at }, 200, corsOkHeaders);
 }
 
+// ── Pharmacy Calculators ────────────────────────────────────────────────────
+
+async function ensurePharmacyCalcSchema(env) {
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS pharmacy_calc_patients (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id       INTEGER NOT NULL,
+    location_id  INTEGER NOT NULL,
+    patient_name TEXT    NOT NULL DEFAULT '',
+    id_card      TEXT    NOT NULL DEFAULT '',
+    created_at   TEXT    NOT NULL DEFAULT (datetime('now')),
+    updated_at   TEXT    NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(org_id, location_id, id_card)
+  )`, []);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_pharm_calc_patients_org_loc
+    ON pharmacy_calc_patients (org_id, location_id, id_card)`, []);
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS pharmacy_calc_records (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id           INTEGER NOT NULL,
+    location_id      INTEGER NOT NULL,
+    patient_name     TEXT    NOT NULL DEFAULT '',
+    id_card          TEXT    NOT NULL DEFAULT '',
+    start_date       TEXT    NOT NULL DEFAULT '',
+    calc_type        TEXT    NOT NULL DEFAULT '',
+    calc_data_json   TEXT    NOT NULL DEFAULT '{}',
+    created_at       TEXT    NOT NULL DEFAULT (datetime('now')),
+    created_by       INTEGER
+  )`, []);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_pharm_calc_records_org_loc
+    ON pharmacy_calc_records (org_id, location_id, created_at DESC)`, []);
+}
+
+async function handlePharmacyCalcPatientsList(request, env, corsOkHeaders, authUser) {
+  await ensurePharmacyCalcSchema(env);
+  const rows = await dbAll(env,
+    `SELECT id, patient_name, id_card FROM pharmacy_calc_patients
+     WHERE org_id = ? AND location_id = ?
+     ORDER BY patient_name ASC`,
+    [authUser.org_id, authUser.location_id]
+  );
+  return jsonResponse({ ok: true, patients: rows || [] }, 200, corsOkHeaders);
+}
+
+async function handlePharmacyCalcRecordsList(request, env, corsOkHeaders, authUser) {
+  await ensurePharmacyCalcSchema(env);
+  const rows = await dbAll(env,
+    `SELECT id, patient_name, id_card, start_date, calc_type, created_at
+     FROM pharmacy_calc_records
+     WHERE org_id = ? AND location_id = ?
+     ORDER BY created_at DESC
+     LIMIT 200`,
+    [authUser.org_id, authUser.location_id]
+  );
+  return jsonResponse({ ok: true, records: rows || [] }, 200, corsOkHeaders);
+}
+
+async function handlePharmacyCalcRecordsCreate(request, env, corsOkHeaders, authUser) {
+  await ensurePharmacyCalcSchema(env);
+  const body = await request.json().catch(() => ({}));
+  const patientName  = String(body.patient_name  || "").trim();
+  const idCard       = String(body.id_card        || "").trim();
+  const startDate    = String(body.start_date     || "").trim();
+  const calcType     = String(body.calc_type      || "").trim();
+  const calcDataJson = typeof body.calc_data_json === "string"
+    ? body.calc_data_json
+    : JSON.stringify(body.calc_data_json || {});
+
+  if (!patientName) return jsonResponse({ ok: false, error: "patient_name is required" }, 400, corsOkHeaders);
+  if (!idCard)      return jsonResponse({ ok: false, error: "id_card is required" },      400, corsOkHeaders);
+  if (!calcType)    return jsonResponse({ ok: false, error: "calc_type is required" },    400, corsOkHeaders);
+
+  // Upsert patient — unique key is (org_id, location_id, id_card)
+  await dbRun(env,
+    `INSERT INTO pharmacy_calc_patients
+       (org_id, location_id, patient_name, id_card, created_at, updated_at)
+     VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))
+     ON CONFLICT(org_id, location_id, id_card) DO UPDATE SET
+       patient_name = excluded.patient_name,
+       updated_at   = datetime('now')`,
+    [authUser.org_id, authUser.location_id, patientName, idCard]
+  );
+
+  const row = await dbFirst(env,
+    `INSERT INTO pharmacy_calc_records
+       (org_id, location_id, patient_name, id_card, start_date, calc_type, calc_data_json, created_at, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)
+     RETURNING id`,
+    [authUser.org_id, authUser.location_id, patientName, idCard, startDate, calcType, calcDataJson, authUser.user_id]
+  );
+
+  return jsonResponse({ ok: true, id: row ? row.id : null }, 201, corsOkHeaders);
+}
+
+async function handlePharmacyCalcRecordDelete(request, env, corsOkHeaders, authUser, recordId) {
+  await ensurePharmacyCalcSchema(env);
+  const existing = await dbFirst(env,
+    `SELECT id FROM pharmacy_calc_records WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [recordId, authUser.org_id, authUser.location_id]
+  );
+  if (!existing) return jsonResponse({ ok: false, error: "Record not found" }, 404, corsOkHeaders);
+  await dbRun(env,
+    `DELETE FROM pharmacy_calc_records WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [recordId, authUser.org_id, authUser.location_id]
+  );
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
 export default {
   async fetch(request, env, ctx) {
     try {
@@ -9354,6 +9460,24 @@ if (url.pathname.startsWith("/dda-stocktakes/items/")) {
       if (tail !== "upload") return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
       if (!idOrKey) return jsonResponse({ ok: false, error: "Invalid item id/key" }, 400, corsOkHeaders);
       return await handleCertificatesUpload(request, env, corsOkHeaders, authUser, idOrKey);
+    }
+
+    // ── Pharmacy Calculators ─────────────────────────────────────────────────
+    if (url.pathname === "/pharmacy-calc/patients" && request.method === "GET")
+      return await handlePharmacyCalcPatientsList(request, env, corsOkHeaders, authUser);
+
+    if (url.pathname === "/pharmacy-calc/records" && request.method === "GET")
+      return await handlePharmacyCalcRecordsList(request, env, corsOkHeaders, authUser);
+
+    if (url.pathname === "/pharmacy-calc/records" && request.method === "POST")
+      return await handlePharmacyCalcRecordsCreate(request, env, corsOkHeaders, authUser);
+
+    if (url.pathname.startsWith("/pharmacy-calc/records/")) {
+      const parts = url.pathname.split("/").filter(Boolean); // ["pharmacy-calc","records",":id"]
+      const recId = parseInt(parts[2], 10);
+      if (!recId) return jsonResponse({ ok: false, error: "Invalid record id" }, 400, corsOkHeaders);
+      if (request.method === "DELETE")
+        return await handlePharmacyCalcRecordDelete(request, env, corsOkHeaders, authUser, recId);
     }
 
     return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
