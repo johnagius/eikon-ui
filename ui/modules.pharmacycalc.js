@@ -1572,7 +1572,8 @@
     }
     if (!data) { toast("Error", "No calculation data available.", "bad"); return; }
 
-    var meta = { pharmacyName: rec.pharmacy_name || "", patientName: rec.patient_name || "", idCard: rec.id_card || "", note: rec.note || "" };
+    var user = (E.state && E.state.user) ? E.state.user : null;
+var meta = { pharmacyName: (user && user.location_name) || (user && user.org_name) || "", patientName: rec.patient_name || "", idCard: rec.id_card || "", note: rec.note || "" };
     var ct = rec.calc_type;
     var inner = "";
 
