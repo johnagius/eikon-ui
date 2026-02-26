@@ -1387,21 +1387,12 @@
             maxZoom: 19
           }).addTo(dvMap);
 
-          // ── Click on map → reverse geocode → fill address textarea ──
+          // ── Click on map → drop pin immediately, reverse geocode address ──
           dvMap.on("click", function(ev) {
             var lat = ev.latlng.lat, lng = ev.latlng.lng;
-            dvMapSetStatus("Looking up address…");
-            // Drop/move marker immediately for responsiveness
-            if (dvMapMarker) {
-              dvMapMarker.setLatLng([lat, lng]);
-            } else {
-              dvMapMarker = window.L.marker([lat, lng], { draggable: true }).addTo(dvMap);
-              dvMapMarker.on("dragend", function(de) {
-                var p = de.target.getLatLng();
-                dvMapReverseGeocode(p.lat, p.lng);
-              });
-            }
-            dvMapReverseGeocode(lat, lng);
+            dvMapSetStatus("Looking up address\u2026");
+            dvMapSetResult("");
+            dvMapPlacePin(lat, lng, false); // false = do trigger reverse geocode
           });
 
           // Wire address textarea → forward geocode (only when user is typing, not when we fill it)
@@ -1448,98 +1439,164 @@
     else { el.textContent = ""; el.style.display = "none"; }
   }
 
-  async function dvMapReverseGeocode(lat, lng) {
-    try {
-      var url = "https://nominatim.openstreetmap.org/reverse?format=json&lat=" +
-        encodeURIComponent(lat) + "&lon=" + encodeURIComponent(lng) +
-        "&zoom=18&addressdetails=1";
-      var resp = await fetch(url, { headers: { "Accept-Language": "en" } });
-      if (!resp.ok) throw new Error("Nominatim reverse " + resp.status);
-      var data = await resp.json();
-      if (!data || !data.address) { dvMapSetStatus("Couldn't resolve address."); return; }
+  // ── Geocoding providers ───────────────────────────────────────
+  // Primary:  ArcGIS World Geocoding Service (free, no key, great Malta coverage)
+  // Fallback: Nominatim / OpenStreetMap
+  // ─────────────────────────────────────────────────────────────
 
-      // Build a clean human address from structured parts
-      var a = data.address;
-      var parts = [];
-      // House number + road
-      if (a.house_number && a.road) parts.push(a.house_number + " " + a.road);
-      else if (a.road) parts.push(a.road);
-      else if (a.pedestrian) parts.push(a.pedestrian);
-      else if (a.footway) parts.push(a.footway);
-      // Suburb / neighbourhood / village / town / city
-      if (a.suburb)       parts.push(a.suburb);
-      else if (a.village) parts.push(a.village);
-      else if (a.town)    parts.push(a.town);
-      else if (a.city)    parts.push(a.city);
-      // Postcode
-      if (a.postcode) parts.push(a.postcode);
+  var ARCGIS_FWD     = "https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates";
+  var ARCGIS_REV     = "https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/reverseGeocode";
+  var NOMINATIM_SRCH = "https://nominatim.openstreetmap.org/search";
+  var NOMINATIM_REV  = "https://nominatim.openstreetmap.org/reverse";
 
-      var trimmed = parts.length ? parts.join(", ") : (data.display_name || "");
-
-      dvMapSetStatus("");
-      dvMapSetResult(trimmed);
-      dvMapSetHint("");
-
-      // Fill the address textarea — set suppress so the input event doesn't
-      // trigger a forward geocode that would move the pin away from where the
-      // user clicked
-      var addrEl = document.getElementById("dv-address");
-      if (addrEl) {
-        dvMapSuppressFwd = true;
-        addrEl.value = trimmed;
-        try { addrEl.dispatchEvent(new Event("input", { bubbles: true })); } catch(e2) {}
-      }
-    } catch(ex) {
-      dvMapSetStatus("Reverse lookup failed.");
-      warn("reverse geocode error", ex);
+  // Place pin and optionally trigger reverse geocode
+  function dvMapPlacePin(lat, lng, suppressReverseGeocode) {
+    if (!dvMap) return;
+    if (dvMapMarker) {
+      dvMapMarker.setLatLng([lat, lng]);
+    } else {
+      dvMapMarker = window.L.marker([lat, lng], { draggable: true }).addTo(dvMap);
+      dvMapMarker.on("dragend", function(de) {
+        var p = de.target.getLatLng();
+        dvMapReverseGeocode(p.lat, p.lng);
+      });
     }
+    if (!suppressReverseGeocode) dvMapReverseGeocode(lat, lng);
   }
 
-  async function dvMapGeocode(addr) {
+  // Fill the address textarea without triggering the forward geocode loop
+  function dvMapFillAddress(addr) {
+    var addrEl = document.getElementById("dv-address");
+    if (!addrEl) return;
+    dvMapSuppressFwd = true;
+    addrEl.value = addr;
+    try { addrEl.dispatchEvent(new Event("input", { bubbles: true })); } catch(e) {}
+  }
+
+  // ── Reverse geocode (map click / marker drag) ─────────────────
+  async function dvMapReverseGeocode(lat, lng) {
+    dvMapSetStatus("Looking up address…");
+    dvMapSetResult("");
+
+    // 1. ArcGIS reverse geocode — best house-number accuracy
     try {
-      // Use countrycodes=mt to constrain to Malta, and addressdetails for precision
-      var q = encodeURIComponent(addr);
-      var url = "https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=1" +
-        "&countrycodes=mt&q=" + q;
-      var resp = await fetch(url, { headers: { "Accept-Language": "en" } });
-      if (!resp.ok) throw new Error("Nominatim " + resp.status);
-      var data = await resp.json();
-      if (!data || !data.length) {
-        // Retry without countrycodes in case user typed a valid address not matching MT
-        var url2 = "https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=1&q=" +
-          encodeURIComponent(addr + ", Malta");
-        var resp2 = await fetch(url2, { headers: { "Accept-Language": "en" } });
-        if (resp2.ok) { var d2 = await resp2.json(); if (d2 && d2.length) data = d2; }
+      var arcRevUrl = ARCGIS_REV +
+        "?f=json&langCode=en&returnIntersection=false" +
+        "&location=" + encodeURIComponent(lng + "," + lat) +
+        "&distance=100&outSR=4326" +
+        "&featureTypes=PointAddress,StreetAddress,Parcel,POI";
+      var r1 = await fetch(arcRevUrl);
+      if (r1.ok) {
+        var d1 = await r1.json();
+        if (d1 && d1.address && d1.address.Match_addr) {
+          var addr = d1.address.Match_addr.replace(/,\s*Malta\s*$/i, "").replace(/,\s*MLT\s*$/i, "").trim();
+          dvMapSetStatus("");
+          dvMapSetResult("\u{1F4CD} " + addr);
+          dvMapSetHint("\u2713 Drag the pin to fine-tune");
+          dvMapFillAddress(addr);
+          return;
+        }
       }
-      if (!data || !data.length) {
-        dvMapSetStatus("Address not found — try adding the town name (e.g. Valletta, Sliema).");
-        dvMapSetResult("");
+    } catch(ex) { warn("ArcGIS reverse failed, trying Nominatim", ex); }
+
+    // 2. Nominatim fallback
+    try {
+      var nomRevUrl = NOMINATIM_REV +
+        "?format=json&addressdetails=1&zoom=18" +
+        "&lat=" + encodeURIComponent(lat) + "&lon=" + encodeURIComponent(lng);
+      var r2 = await fetch(nomRevUrl, { headers: { "Accept-Language": "en" } });
+      if (!r2.ok) throw new Error("HTTP " + r2.status);
+      var d2 = await r2.json();
+      if (d2 && d2.address) {
+        var a = d2.address;
+        var parts = [];
+        if (a.house_number && a.road) parts.push(a.house_number + " " + a.road);
+        else if (a.road) parts.push(a.road);
+        else if (a.pedestrian || a.footway) parts.push(a.pedestrian || a.footway);
+        if (a.suburb || a.village || a.town || a.city)
+          parts.push(a.suburb || a.village || a.town || a.city);
+        if (a.postcode) parts.push(a.postcode);
+        var addr2 = parts.length ? parts.join(", ") : (d2.display_name || "");
+        dvMapSetStatus("");
+        dvMapSetResult("\u{1F4CD} " + addr2 + " (approx)");
+        dvMapSetHint("\u2713 Drag the pin to fine-tune");
+        dvMapFillAddress(addr2);
         return;
       }
-      var r = data[0];
-      var lat = parseFloat(r.lat), lng = parseFloat(r.lon);
-      dvMapSetStatus("");
-      dvMapSetResult(r.display_name);
-      dvMapSetHint("");
+    } catch(ex2) { warn("Nominatim reverse failed", ex2); }
 
-      if (!dvMap) return;
-      dvMap.setView([lat, lng], 18);  // zoom to 18 for house-level precision
-
-      if (dvMapMarker) {
-        dvMapMarker.setLatLng([lat, lng]);
-      } else {
-        dvMapMarker = window.L.marker([lat, lng], { draggable: true }).addTo(dvMap);
-        dvMapMarker.on("dragend", function(de) {
-          var p = de.target.getLatLng();
-          dvMapReverseGeocode(p.lat, p.lng);
-        });
-      }
-      dvMapMarker.bindPopup("<strong style='font-size:12px;'>"+esc(addr)+"</strong>").openPopup();
-    } catch(ex) {
-      dvMapSetStatus("Map lookup failed.");
-      warn("geocode error", ex);
-    }
+    dvMapSetStatus("\u26A0\uFE0F Could not resolve address. Drag the pin or type manually.");
   }
+
+  // ── Forward geocode (user typing address) ─────────────────────
+  async function dvMapGeocode(addr) {
+    // Add Malta context unless already present
+    var searchStr = /malta|gozo|valletta|sliema|birkirkara|qormi|mosta/i.test(addr)
+      ? addr
+      : addr + ", Malta";
+
+    // 1. ArcGIS forward geocode — best accuracy for house numbers
+    try {
+      var arcFwdUrl = ARCGIS_FWD +
+        "?f=json&maxLocations=3&outFields=Match_addr,StAddr,City,Postal,Score" +
+        "&countryCode=MLT" +
+        "&singleLine=" + encodeURIComponent(searchStr);
+      var r1 = await fetch(arcFwdUrl);
+      if (r1.ok) {
+        var d1 = await r1.json();
+        var cands = d1 && d1.candidates;
+        if (cands && cands.length) {
+          // Prefer PointAddress / StreetAddress match (score >= 80)
+          var best = null;
+          for (var i = 0; i < cands.length; i++) {
+            if (cands[i].score >= 80 && (!best || cands[i].score > best.score)) best = cands[i];
+          }
+          if (!best && cands[0].score >= 60) best = cands[0]; // accept lower if nothing better
+          if (best) {
+            var lat = best.location.y, lng = best.location.x;
+            var label = (best.attributes && best.attributes.Match_addr)
+              ? best.attributes.Match_addr : best.address;
+            label = (label || "").replace(/,\s*MLT\s*$/, "").replace(/,\s*Malta\s*$/i, "").trim();
+            var score = Math.round(best.score);
+            var scoreNote = score >= 90 ? "\u2705 Exact match"
+              : score >= 75 ? "\u2714 Good match (score " + score + "/100)"
+              : "\u26A0\uFE0F Approximate (score " + score + "/100) — drag pin to correct";
+            dvMapSetStatus("");
+            dvMapSetResult(scoreNote + "\n" + label);
+            dvMapSetHint("Drag the pin to fine-tune if needed");
+            if (!dvMap) return;
+            dvMap.setView([lat, lng], 19);
+            dvMapPlacePin(lat, lng, true);
+            return;
+          }
+        }
+      }
+    } catch(ex) { warn("ArcGIS forward failed, trying Nominatim", ex); }
+
+    // 2. Nominatim fallback
+    try {
+      var nomFwdUrl = NOMINATIM_SRCH +
+        "?format=json&limit=1&addressdetails=1&countrycodes=mt" +
+        "&q=" + encodeURIComponent(searchStr);
+      var r2 = await fetch(nomFwdUrl, { headers: { "Accept-Language": "en" } });
+      if (!r2.ok) throw new Error("HTTP " + r2.status);
+      var d2 = await r2.json();
+      if (d2 && d2.length) {
+        var res = d2[0];
+        dvMapSetStatus("");
+        dvMapSetResult("\u{1F4CD} " + res.display_name + " (OpenStreetMap — may be approximate)");
+        dvMapSetHint("Drag the pin to fine-tune if needed");
+        if (!dvMap) return;
+        dvMap.setView([parseFloat(res.lat), parseFloat(res.lon)], 18);
+        dvMapPlacePin(parseFloat(res.lat), parseFloat(res.lon), true);
+        return;
+      }
+    } catch(ex2) { warn("Nominatim forward failed", ex2); }
+
+    dvMapSetStatus("\u26A0\uFE0F Address not found. Try including the town, e.g. \"39 Triq il-Wilga, St Julian's\"");
+    dvMapSetResult("");
+  }
+
 
   // ------------------------------------------------------------
   // Modal: New / Edit delivery
