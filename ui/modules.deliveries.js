@@ -1341,26 +1341,28 @@
 
   function dvMapEnsureLeaflet(cb) {
     if (dvMapLeafletReady && window.L) { cb(); return; }
-    // Load Leaflet CSS
+    // Load Leaflet CSS from cdnjs (no integrity check to avoid hash mismatches)
     if (!document.getElementById("leaflet-css")) {
       var lnk = document.createElement("link");
       lnk.id = "leaflet-css";
       lnk.rel = "stylesheet";
-      lnk.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
-      lnk.integrity = "sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=";
-      lnk.crossOrigin = "";
+      lnk.href = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css";
       document.head.appendChild(lnk);
     }
-    // Load Leaflet JS if not present
     if (window.L) { dvMapLeafletReady = true; cb(); return; }
     var s = document.createElement("script");
-    s.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
-    s.integrity = "sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV/XN/sp8=";
-    s.crossOrigin = "";
+    s.src = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js";
     s.onload = function() { dvMapLeafletReady = true; cb(); };
-    s.onerror = function() { warn("Leaflet failed to load"); };
+    s.onerror = function() {
+      warn("Leaflet failed to load from cdnjs");
+      dvMapSetStatus("⚠️ Map failed to load. Check your connection.");
+    };
     document.head.appendChild(s);
   }
+
+  // Malta + Gozo bounding box centre and zoom
+  var MALTA_GOZO_CENTER = [35.9375, 14.3754];
+  var MALTA_GOZO_ZOOM   = 11;
 
   function dvMapInit(initialAddr) {
     dvMapEnsureLeaflet(function() {
@@ -1371,20 +1373,42 @@
           if (!el) return;
           dvMapCleanup();
 
-          // Default to Malta centre
-          dvMap = window.L.map("dv-map-el", { zoomControl: true, attributionControl: true }).setView([35.9375, 14.3754], 11);
+          // Show Malta + Gozo overview
+          dvMap = window.L.map("dv-map-el", {
+            zoomControl: true,
+            attributionControl: true,
+            scrollWheelZoom: true
+          }).setView(MALTA_GOZO_CENTER, MALTA_GOZO_ZOOM);
+
           window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
             maxZoom: 19
           }).addTo(dvMap);
 
-          // Wire address textarea
+          // ── Click on map → reverse geocode → fill address textarea ──
+          dvMap.on("click", function(ev) {
+            var lat = ev.latlng.lat, lng = ev.latlng.lng;
+            dvMapSetStatus("Looking up address…");
+            // Drop/move marker immediately for responsiveness
+            if (dvMapMarker) {
+              dvMapMarker.setLatLng([lat, lng]);
+            } else {
+              dvMapMarker = window.L.marker([lat, lng], { draggable: true }).addTo(dvMap);
+              dvMapMarker.on("dragend", function(de) {
+                var p = de.target.getLatLng();
+                dvMapReverseGeocode(p.lat, p.lng);
+              });
+            }
+            dvMapReverseGeocode(lat, lng);
+          });
+
+          // Wire address textarea → forward geocode
           var addrEl = document.getElementById("dv-address");
           if (addrEl) {
             addrEl.addEventListener("input", function() {
               if (dvMapGeoTimer) clearTimeout(dvMapGeoTimer);
               var v = (addrEl.value || "").trim();
-              if (!v || v.length < 6) { dvMapSetStatus(""); return; }
+              if (!v || v.length < 5) { dvMapSetStatus(""); return; }
               dvMapSetStatus("Searching…");
               dvMapGeoTimer = setTimeout(function() { dvMapGeocode(v); }, 800);
             });
@@ -1395,13 +1419,22 @@
             dvMapSetStatus("Searching…");
             dvMapGeoTimer = setTimeout(function() { dvMapGeocode(initialAddr.trim()); }, 400);
           }
+
+          // Hint text
+          dvMapSetHint("💡 Click the map to set address, or type above");
+
         } catch(ex) { warn("map setup error", ex); }
-      }, 120);
+      }, 150);
     });
   }
 
   function dvMapSetStatus(msg) {
     var el = document.getElementById("dv-map-status");
+    if (el) { el.textContent = msg || ""; el.style.display = msg ? "block" : "none"; }
+  }
+
+  function dvMapSetHint(msg) {
+    var el = document.getElementById("dv-map-hint");
     if (el) el.textContent = msg || "";
   }
 
@@ -1412,15 +1445,48 @@
     else { el.textContent = ""; el.style.display = "none"; }
   }
 
+  async function dvMapReverseGeocode(lat, lng) {
+    try {
+      var url = "https://nominatim.openstreetmap.org/reverse?format=json&lat=" +
+        encodeURIComponent(lat) + "&lon=" + encodeURIComponent(lng) + "&zoom=18&addressdetails=1";
+      var resp = await fetch(url, { headers: { "Accept-Language": "en" } });
+      if (!resp.ok) throw new Error("Nominatim reverse " + resp.status);
+      var data = await resp.json();
+      if (!data || !data.display_name) { dvMapSetStatus("Couldn't resolve address."); return; }
+
+      var addr = data.display_name;
+      // Trim trailing country info for brevity
+      var parts = addr.split(", ");
+      // Remove "Malta" duplicate at end if present
+      while (parts.length > 1 && norm(parts[parts.length-1]) === "malta") parts.pop();
+      var trimmed = parts.join(", ");
+
+      dvMapSetStatus("");
+      dvMapSetResult(trimmed);
+      dvMapSetHint("");
+
+      // Fill the address textarea
+      var addrEl = document.getElementById("dv-address");
+      if (addrEl) {
+        addrEl.value = trimmed;
+        // Fire input event so any other listeners pick it up
+        try { addrEl.dispatchEvent(new Event("input", {bubbles: true})); } catch(e2){}
+      }
+    } catch(ex) {
+      dvMapSetStatus("Reverse lookup failed.");
+      warn("reverse geocode error", ex);
+    }
+  }
+
   async function dvMapGeocode(addr) {
     try {
       var q = encodeURIComponent(addr + ", Malta");
       var url = "https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" + q;
-      var resp = await fetch(url, { headers: { "Accept-Language": "en", "User-Agent": "Eikon-Pharmacy/1.0" } });
+      var resp = await fetch(url, { headers: { "Accept-Language": "en" } });
       if (!resp.ok) throw new Error("Nominatim " + resp.status);
       var data = await resp.json();
       if (!data || !data.length) {
-        dvMapSetStatus("Address not found — check spelling.");
+        dvMapSetStatus("Address not found on map — check spelling.");
         dvMapSetResult("");
         return;
       }
@@ -1428,6 +1494,7 @@
       var lat = parseFloat(r.lat), lng = parseFloat(r.lon);
       dvMapSetStatus("");
       dvMapSetResult(r.display_name);
+      dvMapSetHint("");
 
       if (!dvMap) return;
       dvMap.setView([lat, lng], 17);
@@ -1435,9 +1502,13 @@
       if (dvMapMarker) {
         dvMapMarker.setLatLng([lat, lng]);
       } else {
-        dvMapMarker = window.L.marker([lat, lng]).addTo(dvMap);
+        dvMapMarker = window.L.marker([lat, lng], { draggable: true }).addTo(dvMap);
+        dvMapMarker.on("dragend", function(de) {
+          var p = de.target.getLatLng();
+          dvMapReverseGeocode(p.lat, p.lng);
+        });
       }
-      dvMapMarker.bindPopup("<strong style='font-size:12px;'>"+addr+"</strong>").openPopup();
+      dvMapMarker.bindPopup("<strong style='font-size:12px;'>"+esc(addr)+"</strong>").openPopup();
     } catch(ex) {
       dvMapSetStatus("Map lookup failed.");
       warn("geocode error", ex);
@@ -1537,10 +1608,11 @@
 
     var mapHtml =
       "<div style='display:flex;flex-direction:column;height:100%;gap:8px;'>" +
-      "  <div style='font-size:10px;font-weight:900;color:rgba(233,238,247,.5);text-transform:uppercase;letter-spacing:.8px;'>📍 Address Preview</div>" +
-      "  <div id='dv-map-el' style='flex:1;min-height:300px;border-radius:12px;overflow:hidden;border:1px solid rgba(255,255,255,.12);background:rgba(10,16,24,.6);'></div>" +
-      "  <div id='dv-map-status' style='font-size:11px;color:rgba(233,238,247,.45);min-height:16px;font-style:italic;'></div>" +
-      "  <div id='dv-map-result' style='font-size:11px;color:rgba(67,209,122,.8);background:rgba(67,209,122,.08);border:1px solid rgba(67,209,122,.18);border-radius:8px;padding:7px 10px;display:none;'></div>" +
+      "  <div style='font-size:10px;font-weight:900;color:rgba(233,238,247,.5);text-transform:uppercase;letter-spacing:.8px;'>📍 Address on Map</div>" +
+      "  <div id='dv-map-el' style='flex:1;min-height:320px;border-radius:12px;overflow:hidden;border:1px solid rgba(255,255,255,.12);background:rgba(10,16,24,.6);cursor:crosshair;'></div>" +
+      "  <div id='dv-map-hint' style='font-size:11px;color:rgba(233,238,247,.35);min-height:16px;text-align:center;'>💡 Click the map to set address, or type above</div>" +
+      "  <div id='dv-map-status' style='font-size:11px;color:rgba(58,160,255,.7);background:rgba(58,160,255,.07);border:1px solid rgba(58,160,255,.15);border-radius:8px;padding:5px 10px;display:none;'></div>" +
+      "  <div id='dv-map-result' style='font-size:11px;color:rgba(67,209,122,.8);background:rgba(67,209,122,.08);border:1px solid rgba(67,209,122,.18);border-radius:8px;padding:7px 10px;display:none;word-break:break-word;'></div>" +
       "</div>";
 
     var body =
