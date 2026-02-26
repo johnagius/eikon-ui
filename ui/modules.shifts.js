@@ -166,10 +166,52 @@
   }
 
   function apiOp(path, opts, onOk, merge) {
+    opts = opts || {};
+    // Ensure JSON content-type for bodies (Cloudflare worker readJson() is strict).
+    if (opts.body != null) {
+      opts.headers = opts.headers || {};
+      var hasCT = false;
+      try {
+        Object.keys(opts.headers).forEach(function(k){
+          if (String(k).toLowerCase() === "content-type") hasCT = true;
+        });
+      } catch(e){}
+      if (!hasCT) opts.headers["Content-Type"] = "application/json";
+    }
+
+    var rid = Math.random().toString(16).slice(2);
+    var t0 = Date.now();
+    try {
+      console.groupCollapsed("[shifts][api "+rid+"] "+(opts.method||"GET")+" "+path);
+      console.log("opts:", JSON.parse(JSON.stringify(opts)));
+      console.groupEnd();
+    } catch(e){}
+
     E.apiFetch(path, opts)
-      .then(function(r){ merge && merge(r); lsSync(); onOk && onOk(r); })
-      .catch(function(){ merge && merge({}); lsSync(); onOk && onOk({}); });
+      .then(function(r){
+        try {
+          console.groupCollapsed("[shifts][api "+rid+"] OK "+path+" ("+(Date.now()-t0)+"ms)");
+          console.log("response:", r);
+          console.groupEnd();
+        } catch(e){}
+        merge && merge(r);
+        lsSync();
+        onOk && onOk(r);
+      })
+      .catch(function(err){
+        try {
+          console.groupCollapsed("[shifts][api "+rid+"] FAIL "+path+" ("+(Date.now()-t0)+"ms)");
+          console.error(err);
+          console.log("opts:", opts);
+          console.groupEnd();
+        } catch(e){}
+        toast("API error: "+((err&&err.message)?err.message:"(unknown)"), "error");
+        merge && merge({});
+        lsSync();
+        onOk && onOk({});
+      });
   }
+
 
   /* ── Date/time helpers ──────────────────────────────────────── */
   var MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -545,7 +587,12 @@
         if (Array.isArray(o.patterns)) out.patterns = o.patterns;
         if (o.provisionalId) out.provisionalId = o.provisionalId;
       }
-    } catch(e){}
+    } catch(e){
+      try {
+        console.warn("[shifts][patterns] patterns_json parse error for staff", staffObj && staffObj.id, e);
+        console.warn("[shifts][patterns] raw patterns_json:", staffObj && staffObj.patterns_json);
+      } catch(_e){}
+    }
     out.patterns = (out.patterns||[]).map(normalizePattern);
     if (!out.provisionalId && out.patterns[0]) out.provisionalId = out.patterns[0].id;
     return out;
@@ -725,6 +772,22 @@
     }, 30);
   }
 function saveEmp(id, p, cb) {
+    try {
+      console.groupCollapsed("[shifts][staff-save] "+(id?"PUT":"POST")+" staff "+(id||"(new)")+" :: "+(p&&p.full_name||""));
+      console.log("payload:", p);
+      if (p && p.patterns_json) {
+        console.log("patterns_json length:", String(p.patterns_json).length);
+        console.log("patterns_json preview:", String(p.patterns_json).slice(0, 220) + (String(p.patterns_json).length>220?"…":""));
+        try {
+          var _pj = JSON.parse(p.patterns_json);
+          console.log("patterns count:", (_pj && _pj.patterns && _pj.patterns.length) || 0, "provisionalId:", _pj && _pj.provisionalId);
+        } catch(pe) {
+          console.warn("patterns_json JSON.parse failed:", pe);
+        }
+      }
+      console.groupEnd();
+    } catch(_e){}
+
     if(id){ var ix=S.staff.findIndex(function(s){return s.id===id;}); if(ix>=0)Object.assign(S.staff[ix],p); }
     else { p.id=lsNextId(); S.staff.push(p); }
     apiOp(id?"/shifts/staff/"+id:"/shifts/staff", {method:id?"PUT":"POST",body:JSON.stringify(p)}, cb);
