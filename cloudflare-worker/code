@@ -2171,6 +2171,351 @@ async function handleClientOrdersEntryDelete(request, env, corsOkHeaders, authUs
 }
 
 
+
+
+async function ensureClientTicketsSchema(env) {
+  await dbRun(
+    env,
+    `CREATE TABLE IF NOT EXISTS client_tickets_entries (
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id         INTEGER NOT NULL,
+      location_id    INTEGER NOT NULL,
+
+      ticket_id      TEXT    NOT NULL DEFAULT '',   -- e.g. TKT-00047 (generated client-side)
+      open_date      TEXT    NOT NULL,              -- YYYY-MM-DD
+      client_name    TEXT    NOT NULL,
+      phone          TEXT    NOT NULL DEFAULT '',
+      email          TEXT    NOT NULL DEFAULT '',
+
+      category       TEXT    NOT NULL DEFAULT '',   -- Billing | Prescription | … | custom
+      priority       INTEGER NOT NULL DEFAULT 2,    -- 1=High(red) 2=Medium(orange) 3=Low(green)
+      status         TEXT    NOT NULL DEFAULT 'Open',
+        -- Open | In Progress | Awaiting Client | Resolved | Closed
+
+      issue          TEXT    NOT NULL DEFAULT '',   -- main description
+      assigned_to    TEXT    NOT NULL DEFAULT '',   -- staff name free-text
+      followup_date  TEXT,                          -- YYYY-MM-DD or NULL
+      notes_log      TEXT    NOT NULL DEFAULT '[]', -- JSON array of {ts,author,text}
+
+      resolved       INTEGER NOT NULL DEFAULT 0,    -- 0/1 derived flag
+      resolved_at    TEXT,                          -- ISO datetime or NULL
+
+      created_by     INTEGER,
+      created_at     TEXT    NOT NULL DEFAULT (datetime('now')),
+      updated_at     TEXT    NOT NULL DEFAULT (datetime('now'))
+    )`,
+    []
+  );
+
+  // Indexes — covering the most common query patterns
+  const indexes = [
+    "CREATE INDEX IF NOT EXISTS idx_client_tickets_org_loc_date     ON client_tickets_entries (org_id, location_id, open_date)",
+    "CREATE INDEX IF NOT EXISTS idx_client_tickets_org_loc_status   ON client_tickets_entries (org_id, location_id, resolved, open_date)",
+    "CREATE INDEX IF NOT EXISTS idx_client_tickets_org_loc_priority ON client_tickets_entries (org_id, location_id, priority)",
+    "CREATE INDEX IF NOT EXISTS idx_client_tickets_org_loc_client   ON client_tickets_entries (org_id, location_id, client_name)",
+    "CREATE INDEX IF NOT EXISTS idx_client_tickets_ticket_id        ON client_tickets_entries (org_id, ticket_id)"
+  ];
+  for (const sql of indexes) {
+    await dbRun(env, sql, []);
+  }
+}
+
+// Map a DB row to the shape the UI expects
+function clientTicketRowToUi(r) {
+  if (!r) return r;
+  return {
+    id:            r.id,
+    ticket_id:     r.ticket_id     || "",
+    open_date:     r.open_date     || "",
+    client_name:   r.client_name   || "",
+    phone:         r.phone         || "",
+    email:         r.email         || "",
+    category:      r.category      || "",
+    priority:      Number(r.priority) || 2,
+    status:        r.status        || "Open",
+    issue:         r.issue         || "",
+    assigned_to:   r.assigned_to   || "",
+    followup_date: r.followup_date || null,
+    notes_log:     r.notes_log     || "[]",
+    resolved:      !!r.resolved,
+    resolved_at:   r.resolved_at   || null,
+    created_by:    r.created_by,
+    created_at:    r.created_at,
+    updated_at:    r.updated_at
+  };
+}
+
+function normalizeTicketPriority(p) {
+  const n = Number(p);
+  if (!Number.isFinite(n)) return 2;
+  const i = Math.floor(n);
+  if (i === 1 || i === 2 || i === 3) return i;
+  return 2;
+}
+
+const VALID_TICKET_STATUSES = ["Open", "In Progress", "Awaiting Client", "Resolved", "Closed"];
+
+function normalizeTicketStatus(s) {
+  const v = String(s || "").trim();
+  return VALID_TICKET_STATUSES.includes(v) ? v : "Open";
+}
+
+// --------------- LIST ----------------------------------------
+
+async function handleClientTicketsEntriesList(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureClientTicketsSchema(env);
+
+  // Optional filters
+  const resolvedParam = (url.searchParams.get("resolved") || "").trim(); // "0" | "1" | "" (all)
+  const hasResolved   = resolvedParam === "0" || resolvedParam === "1";
+  const resolvedVal   = hasResolved ? Number(resolvedParam) : null;
+
+  const q     = (url.searchParams.get("q") || "").trim();
+  const hasQ  = !!q;
+  const qLike = `%${q}%`;
+
+  const sql = `
+    SELECT
+      id, ticket_id, open_date, client_name, phone, email,
+      category, priority, status, issue, assigned_to,
+      followup_date, notes_log, resolved, resolved_at,
+      created_by, created_at, updated_at
+    FROM client_tickets_entries
+    WHERE org_id = ?
+      AND location_id = ?
+      ${hasResolved ? "AND resolved = ?" : ""}
+      ${hasQ ? `AND (
+        ticket_id    LIKE ?
+        OR client_name   LIKE ?
+        OR phone         LIKE ?
+        OR email         LIKE ?
+        OR category      LIKE ?
+        OR issue         LIKE ?
+        OR assigned_to   LIKE ?
+        OR notes_log     LIKE ?
+      )` : ""}
+    ORDER BY resolved ASC, priority ASC, open_date DESC, id DESC
+  `;
+
+  const bind = [authUser.org_id, authUser.location_id];
+  if (hasResolved) bind.push(resolvedVal);
+  if (hasQ)        bind.push(qLike, qLike, qLike, qLike, qLike, qLike, qLike, qLike);
+
+  const rows    = await dbAll(env, sql, bind);
+  const entries = rows.map(clientTicketRowToUi);
+
+  return jsonResponse({ ok: true, entries }, 200, corsOkHeaders);
+}
+
+// --------------- CREATE ---------------------------------------
+
+async function handleClientTicketsEntryCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureClientTicketsSchema(env);
+
+  let body;
+  try   { body = await readJson(request); }
+  catch { return jsonResponse({ ok: false, error: "Invalid JSON body" }, 400, corsOkHeaders); }
+  if (!body || typeof body !== "object") body = {};
+
+  const ticketId    = String(body.ticket_id    || "").trim();
+  const openDate    = String(body.open_date    || "").trim();
+  const clientName  = String(body.client_name  || "").trim();
+  const phone       = String(body.phone        || "").trim();
+  const email       = String(body.email        || "").trim();
+  const category    = String(body.category     || "").trim();
+  const priority    = normalizeTicketPriority(body.priority);
+  const status      = normalizeTicketStatus(body.status);
+  const issue       = String(body.issue        || "").trim();
+  const assignedTo  = String(body.assigned_to  || "").trim();
+  const followupDate= String(body.followup_date|| "").trim() || null;
+  const notesLog    = String(body.notes_log    || "[]").trim();
+  const resolved    = (status === "Resolved" || status === "Closed") ? 1 : 0;
+  const resolvedAt  = resolved ? (String(body.resolved_at || "").trim() || nowIso()) : null;
+
+  // Validation
+  if (!isValidYmd(openDate))   return jsonResponse({ ok: false, error: "Invalid open_date (YYYY-MM-DD)" },  400, corsOkHeaders);
+  if (!clientName)             return jsonResponse({ ok: false, error: "client_name is required" },         400, corsOkHeaders);
+  if (!issue)                  return jsonResponse({ ok: false, error: "issue is required" },               400, corsOkHeaders);
+  if (!category)               return jsonResponse({ ok: false, error: "category is required" },            400, corsOkHeaders);
+  if (followupDate && !isValidYmd(followupDate))
+    return jsonResponse({ ok: false, error: "Invalid followup_date (YYYY-MM-DD or empty)" }, 400, corsOkHeaders);
+
+  // Validate notes_log is parseable JSON array
+  try {
+    const parsed = JSON.parse(notesLog);
+    if (!Array.isArray(parsed)) throw new Error("not array");
+  } catch {
+    return jsonResponse({ ok: false, error: "notes_log must be a JSON array string" }, 400, corsOkHeaders);
+  }
+
+  const row = await dbFirst(
+    env,
+    `INSERT INTO client_tickets_entries
+      (org_id, location_id, ticket_id, open_date, client_name, phone, email,
+       category, priority, status, issue, assigned_to, followup_date,
+       notes_log, resolved, resolved_at, created_by, created_at, updated_at)
+     VALUES
+      (?, ?, ?, ?, ?, ?, ?,  ?, ?, ?, ?, ?, ?,  ?, ?, ?, ?, datetime('now'), datetime('now'))
+     RETURNING id`,
+    [
+      authUser.org_id, authUser.location_id, ticketId, openDate, clientName, phone, email,
+      category, priority, status, issue, assignedTo, followupDate,
+      notesLog, resolved, resolvedAt, authUser.user_id
+    ]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CLIENT_TICKET_CREATE", "client_tickets_entries", String(row.id), {
+    ticket_id: ticketId, client_name: clientName, priority, status
+  });
+
+  return jsonResponse({ ok: true, entry_id: row.id }, 200, corsOkHeaders);
+}
+
+// --------------- UPDATE ---------------------------------------
+
+async function handleClientTicketsEntryUpdate(request, env, corsOkHeaders, authUser, entryId) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureClientTicketsSchema(env);
+
+  const id = Number(entryId);
+  if (!Number.isFinite(id) || id % 1 !== 0 || id <= 0) {
+    return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+  }
+
+  const existing = await dbFirst(
+    env,
+    "SELECT * FROM client_tickets_entries WHERE org_id = ? AND location_id = ? AND id = ?",
+    [authUser.org_id, authUser.location_id, id]
+  );
+  if (!existing) {
+    return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+  }
+
+  let body;
+  try   { body = await readJson(request); }
+  catch { return jsonResponse({ ok: false, error: "Invalid JSON body" }, 400, corsOkHeaders); }
+  if (!body || typeof body !== "object") body = {};
+
+  const has = (k) => Object.prototype.hasOwnProperty.call(body, k);
+
+  // Merge — if not sent, keep existing DB value
+  const openDate    = has("open_date")     ? String(body.open_date    || "").trim() : String(existing.open_date   || "");
+  const clientName  = has("client_name")   ? String(body.client_name  || "").trim() : String(existing.client_name || "");
+  const phone       = has("phone")         ? String(body.phone        || "").trim() : String(existing.phone       || "");
+  const email       = has("email")         ? String(body.email        || "").trim() : String(existing.email       || "");
+  const category    = has("category")      ? String(body.category     || "").trim() : String(existing.category    || "");
+  const priority    = has("priority")      ? normalizeTicketPriority(body.priority) : Number(existing.priority);
+  const status      = has("status")        ? normalizeTicketStatus(body.status)     : normalizeTicketStatus(existing.status);
+  const issue       = has("issue")         ? String(body.issue        || "").trim() : String(existing.issue       || "");
+  const assignedTo  = has("assigned_to")   ? String(body.assigned_to  || "").trim() : String(existing.assigned_to || "");
+  const followupDate= has("followup_date") ? (String(body.followup_date || "").trim() || null) : (existing.followup_date || null);
+  const notesLog    = has("notes_log")     ? String(body.notes_log    || "[]")      : String(existing.notes_log   || "[]");
+
+  const resolved = (status === "Resolved" || status === "Closed") ? 1 : 0;
+  let resolvedAt;
+  if (resolved) {
+    if (has("resolved_at")) {
+      resolvedAt = String(body.resolved_at || "").trim() || nowIso();
+    } else {
+      resolvedAt = existing.resolved_at ? String(existing.resolved_at) : nowIso();
+    }
+  } else {
+    resolvedAt = null;
+  }
+
+  // Validate after merge
+  if (!isValidYmd(openDate))  return jsonResponse({ ok: false, error: "Invalid open_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (!clientName)            return jsonResponse({ ok: false, error: "client_name is required" },        400, corsOkHeaders);
+  if (!issue)                 return jsonResponse({ ok: false, error: "issue is required" },              400, corsOkHeaders);
+  if (!category)              return jsonResponse({ ok: false, error: "category is required" },           400, corsOkHeaders);
+  if (followupDate && !isValidYmd(followupDate))
+    return jsonResponse({ ok: false, error: "Invalid followup_date (YYYY-MM-DD or empty)" }, 400, corsOkHeaders);
+  try {
+    const p = JSON.parse(notesLog);
+    if (!Array.isArray(p)) throw new Error("not array");
+  } catch {
+    return jsonResponse({ ok: false, error: "notes_log must be a JSON array string" }, 400, corsOkHeaders);
+  }
+
+  await dbRun(
+    env,
+    `UPDATE client_tickets_entries
+        SET open_date     = ?,
+            client_name   = ?,
+            phone         = ?,
+            email         = ?,
+            category      = ?,
+            priority      = ?,
+            status        = ?,
+            issue         = ?,
+            assigned_to   = ?,
+            followup_date = ?,
+            notes_log     = ?,
+            resolved      = ?,
+            resolved_at   = ?,
+            updated_at    = datetime('now')
+      WHERE org_id = ? AND location_id = ? AND id = ?`,
+    [
+      openDate, clientName, phone, email, category,
+      priority, status, issue, assignedTo, followupDate,
+      notesLog, resolved, resolvedAt,
+      authUser.org_id, authUser.location_id, id
+    ]
+  );
+
+  const updated = await dbFirst(
+    env,
+    "SELECT * FROM client_tickets_entries WHERE org_id = ? AND location_id = ? AND id = ?",
+    [authUser.org_id, authUser.location_id, id]
+  );
+
+  return jsonResponse({ ok: true, entry: clientTicketRowToUi(updated) }, 200, corsOkHeaders);
+}
+
+// --------------- DELETE ---------------------------------------
+
+async function handleClientTicketsEntryDelete(request, env, corsOkHeaders, authUser, entryId) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureClientTicketsSchema(env);
+
+  const id = parseInt(String(entryId || ""), 10);
+  if (!id || isNaN(id)) {
+    return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+  }
+
+  // Delete is org-wide (not location-scoped) so a staff member at any
+  // location can clean up tickets — consistent with client-orders behaviour.
+  const existing = await dbFirst(
+    env,
+    "SELECT id FROM client_tickets_entries WHERE org_id = ? AND id = ?",
+    [authUser.org_id, id]
+  );
+  if (!existing) {
+    return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+  }
+
+  await dbRun(env, "DELETE FROM client_tickets_entries WHERE org_id = ? AND id = ?", [authUser.org_id, id]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CLIENT_TICKET_DELETE", "client_tickets_entries", String(id), {});
+
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+
 /* =========================
    END OF DAY (EOD) MODULE (API)
    ========================= */
@@ -9345,6 +9690,27 @@ if (url.pathname.startsWith("/client-orders/entries/") && request.method === "DE
   if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
   return await handleClientOrdersEntryDelete(request, env, corsOkHeaders, authUser, id);
 }
+
+// Client Tickets
+if (url.pathname === "/client-tickets/entries" && request.method === "GET") {
+  return await handleClientTicketsEntriesList(request, env, corsOkHeaders, authUser, url);
+}
+if (url.pathname === "/client-tickets/entries" && request.method === "POST") {
+  return await handleClientTicketsEntryCreate(request, env, corsOkHeaders, authUser);
+}
+if (url.pathname.startsWith("/client-tickets/entries/") && request.method === "PUT") {
+  const parts = url.pathname.split("/").filter(Boolean);
+  const id = parseInt(parts[2], 10);
+  if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+  return await handleClientTicketsEntryUpdate(request, env, corsOkHeaders, authUser, id);
+}
+if (url.pathname.startsWith("/client-tickets/entries/") && request.method === "DELETE") {
+  const parts = url.pathname.split("/").filter(Boolean);
+  const id = parseInt(parts[2], 10);
+  if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+  return await handleClientTicketsEntryDelete(request, env, corsOkHeaders, authUser, id);
+}
+
 // Near Expiry
 if (url.pathname === "/near-expiry/entries" && request.method === "GET") {
   return await handleNearExpiryEntriesList(request, env, corsOkHeaders, authUser, url);
