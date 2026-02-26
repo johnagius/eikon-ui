@@ -885,8 +885,22 @@ async function handleSuDeleteLocation(request, env, extraHeaders, locationId) {
 
 async function readJson(request) {
   const ct = request.headers.get("Content-Type") || "";
+  // Be tolerant of missing/incorrect Content-Type (some clients omit it). Still log loudly for debugging.
   if (!ct.toLowerCase().includes("application/json")) {
-    throw new Error("Expected application/json");
+    try {
+      const txt = await request.clone().text();
+      try {
+        const obj = JSON.parse(txt || "{}");
+        console.warn("[shifts][readJson] Non-JSON Content-Type:", ct, " — body still parsed as JSON.");
+        return obj;
+      } catch (pe) {
+        console.error("[shifts][readJson] Failed to parse JSON. Content-Type:", ct, "Body preview:", (txt || "").slice(0, 400));
+        throw new Error("Expected application/json (got " + ct + ")");
+      }
+    } catch (e) {
+      console.error("[shifts][readJson] Failed reading request body. Content-Type:", ct, e);
+      throw new Error("Expected application/json (got " + ct + ")");
+    }
   }
   return await request.json();
 }
@@ -9676,7 +9690,17 @@ async function ensureShiftsSchema(env) {
     created_by INTEGER
   )`, []);
 
-  // Shift assignments
+  
+// Migrations: add patterns_json if missing (older deployments)
+try {
+  const cols = await dbAll(env, `PRAGMA table_info(shift_staff)`, []);
+  const has = cols && cols.some(c => c.name === "patterns_json");
+  if (!has) {
+    await dbRun(env, `ALTER TABLE shift_staff ADD COLUMN patterns_json TEXT NOT NULL DEFAULT '[]'`, []);
+  }
+} catch (e) { /* ignore */ }
+
+// Shift assignments
   await dbRun(env, `CREATE TABLE IF NOT EXISTS shift_assignments (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     org_id INTEGER NOT NULL,
@@ -9751,7 +9775,7 @@ async function handleShiftStaffList(request, env, corsOkHeaders, authUser, url) 
   const includeInactive = (url.searchParams.get("include_inactive") || "") === "1";
   const staff = await dbAll(env,
     `SELECT id, full_name, designation, employment_type, contracted_hours,
-            email, phone, registration_number, is_active, created_at, updated_at
+            email, phone, registration_number, patterns_json, is_active, created_at, updated_at
      FROM shift_staff
      WHERE org_id = ? AND location_id = ?
      ${includeInactive ? "" : "AND is_active = 1"}
@@ -9763,6 +9787,11 @@ async function handleShiftStaffList(request, env, corsOkHeaders, authUser, url) 
 async function handleShiftStaffCreate(request, env, corsOkHeaders, authUser) {
   await ensureShiftsSchema(env);
   const body = await readJson(request);
+  try {
+    console.log("[shifts][staff-create] org:", authUser && authUser.org_id, "loc:", authUser && authUser.location_id);
+    const pj = body && body.patterns_json;
+    if (pj != null) console.log("[shifts][staff-create] patterns_json type:", typeof pj, "len:", String(pj).length);
+  } catch(e) {}
   const fullName = String(body.full_name || "").trim();
   if (!fullName) return jsonResponse({ ok: false, error: "Missing full_name" }, 400, corsOkHeaders);
   const designation = String(body.designation || "other").trim();
@@ -9770,11 +9799,13 @@ async function handleShiftStaffCreate(request, env, corsOkHeaders, authUser) {
   const hours = Math.max(1, Math.min(48, parseFloat(body.contracted_hours) || 40));
   const row = await dbFirst(env,
     `INSERT INTO shift_staff (org_id, location_id, full_name, designation, employment_type,
-       contracted_hours, email, phone, registration_number, is_active, created_at, updated_at, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'), ?) RETURNING id`,
+       contracted_hours, email, phone, registration_number, patterns_json, is_active, created_at, updated_at, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'), ?) RETURNING id`,
     [authUser.org_id, authUser.location_id, fullName, designation, empType, hours,
      String(body.email || "").trim(), String(body.phone || "").trim(),
-     String(body.registration_number || "").trim(), authUser.user_id]);
+     String(body.registration_number || "").trim(),
+     typeof body.patterns_json === "string" ? body.patterns_json : JSON.stringify(body.patterns || body.week_patterns || []),
+     authUser.user_id]);
   await writeAudit(env, authUser.org_id, authUser.user_id, "SHIFT_STAFF_CREATE", "shift_staff", String(row.id), { full_name: fullName });
   return jsonResponse({ ok: true, staff_id: row.id }, 200, corsOkHeaders);
 }
@@ -9784,16 +9815,24 @@ async function handleShiftStaffUpdate(request, env, corsOkHeaders, authUser, sta
   const ex = await dbFirst(env, `SELECT id FROM shift_staff WHERE id=? AND org_id=? AND location_id=?`, [staffId, authUser.org_id, authUser.location_id]);
   if (!ex) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
   const body = await readJson(request);
+  try {
+    console.log("[shifts][staff-update] staffId:", staffId, "org:", authUser && authUser.org_id, "loc:", authUser && authUser.location_id);
+  } catch(e) {}
   const fullName = String(body.full_name || "").trim();
+  try {
+    const pj = (body && body.patterns_json);
+    if (pj != null) console.log("[shifts][staff-update] patterns_json type:", typeof pj, "len:", String(pj).length);
+  } catch(e) {}
   if (!fullName) return jsonResponse({ ok: false, error: "Missing full_name" }, 400, corsOkHeaders);
   await dbRun(env,
     `UPDATE shift_staff SET full_name=?, designation=?, employment_type=?, contracted_hours=?,
-       email=?, phone=?, registration_number=?, is_active=?, updated_at=datetime('now')
+       email=?, phone=?, registration_number=?, patterns_json=?, is_active=?, updated_at=datetime('now')
      WHERE id=? AND org_id=? AND location_id=?`,
     [fullName, String(body.designation||"other"), String(body.employment_type||"fulltime"),
      Math.max(1,Math.min(48,parseFloat(body.contracted_hours)||40)),
      String(body.email||"").trim(), String(body.phone||"").trim(),
      String(body.registration_number||"").trim(),
+     typeof body.patterns_json === "string" ? body.patterns_json : JSON.stringify(body.patterns || body.week_patterns || []),
      body.is_active === 0 ? 0 : 1,
      staffId, authUser.org_id, authUser.location_id]);
   await writeAudit(env, authUser.org_id, authUser.user_id, "SHIFT_STAFF_UPDATE", "shift_staff", String(staffId), {});
@@ -9857,6 +9896,110 @@ async function handleShiftAssignmentDelete(request, env, corsOkHeaders, authUser
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
+
+async function handleShiftApplyPattern(request, env, corsOkHeaders, authUser) {
+  await ensureShiftsSchema(env);
+  const body = await readJson(request);
+
+  const staffId = parseInt(body.staff_id || body.staffId);
+  if (!staffId) return jsonResponse({ ok:false, error:"staff_id required" }, 400, corsOkHeaders);
+
+  // verify staff belongs to org/location
+  const st = await dbFirst(env, `SELECT id FROM shift_staff WHERE id=? AND org_id=? AND location_id=?`, [staffId, authUser.org_id, authUser.location_id]);
+  if (!st) return jsonResponse({ ok:false, error:"Staff not found" }, 404, corsOkHeaders);
+
+  const mode = String(body.mode || "overwrite"); // overwrite | fill
+  const start = String(body.start_date || body.startDate || "").trim();
+  const end = String(body.end_date || body.endDate || "").trim();
+  try {
+    const pat = body && (body.pattern || body.week_pattern || {});
+    const week = pat && pat.week;
+    console.log("[shifts][apply-pattern] staffId:", staffId, "mode:", mode, "start:", start, "end:", end,
+                "hasDates:", Array.isArray(body.dates) ? body.dates.length : 0,
+                "weekLen:", Array.isArray(week) ? week.length : 0);
+  } catch(e) {}
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end)) {
+    return jsonResponse({ ok:false, error:"start_date and end_date required (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  }
+  if (end < start) return jsonResponse({ ok:false, error:"end_date must be >= start_date" }, 400, corsOkHeaders);
+
+  // Normalize inputs
+  const explicitDates = Array.isArray(body.dates) ? body.dates : null;
+  const week = body.pattern && Array.isArray(body.pattern.week) ? body.pattern.week : (body.week && Array.isArray(body.week) ? body.week : null);
+
+  function dow(dateStr) {
+    const [Y,M,D] = dateStr.split("-").map(n=>parseInt(n,10));
+    const dt = new Date(Date.UTC(Y, M-1, D));
+    return dt.getUTCDay(); // 0 Sun .. 6 Sat
+  }
+  function addDays(dateStr, n) {
+    const [Y,M,D] = dateStr.split("-").map(n=>parseInt(n,10));
+    const dt = new Date(Date.UTC(Y, M-1, D));
+    dt.setUTCDate(dt.getUTCDate()+n);
+    const yy = dt.getUTCFullYear();
+    const mm = String(dt.getUTCMonth()+1).padStart(2,"0");
+    const dd = String(dt.getUTCDate()).padStart(2,"0");
+    return `${yy}-${mm}-${dd}`;
+  }
+
+  // Build list of candidate rows
+  const rows = [];
+  if (explicitDates) {
+    for (const it of explicitDates) {
+      const date = String(it.date || it.shift_date || "").trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+      if (date < start || date > end) continue;
+      const stt = String(it.start_time || it.start || "").trim();
+      const ett = String(it.end_time || it.end || "").trim();
+      if (!stt || !ett) continue;
+      rows.push({ date, start_time: stt, end_time: ett, role_override: String(it.role_override||"").trim(), notes: String(it.notes||"").trim() });
+    }
+  } else if (week) {
+    // Week array indexed 0..6; each entry {off,start,end}
+    let cur = start;
+    while (cur <= end) {
+      const d = dow(cur);
+      const entry = week[d] || {};
+      const off = !!entry.off;
+      const stt = String(entry.start || entry.start_time || "").trim();
+      const ett = String(entry.end || entry.end_time || "").trim();
+      if (!off && stt && ett) {
+        rows.push({ date: cur, start_time: stt, end_time: ett, role_override: String(entry.role_override||"").trim(), notes: String(entry.notes||"").trim() });
+      }
+      cur = addDays(cur, 1);
+    }
+  } else {
+    return jsonResponse({ ok:false, error:"Provide either body.dates[] or body.pattern.week[]" }, 400, corsOkHeaders);
+  }
+
+  // Determine which dates already have shifts (for fill mode)
+  let existing = new Set();
+  if (mode === "fill") {
+    const ex = await dbAll(env, `SELECT shift_date FROM shift_assignments WHERE org_id=? AND location_id=? AND staff_id=? AND shift_date>=? AND shift_date<=?`,
+      [authUser.org_id, authUser.location_id, staffId, start, end]);
+    for (const r of ex) existing.add(r.shift_date);
+  } else {
+    // overwrite
+    await dbRun(env, `DELETE FROM shift_assignments WHERE org_id=? AND location_id=? AND staff_id=? AND shift_date>=? AND shift_date<=?`,
+      [authUser.org_id, authUser.location_id, staffId, start, end]);
+  }
+
+  let inserted = 0;
+  for (const r of rows) {
+    if (mode === "fill" && existing.has(r.date)) continue;
+    await dbRun(env,
+      `INSERT INTO shift_assignments (org_id, location_id, staff_id, shift_date, start_time, end_time, role_override, notes, created_at, updated_at, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), ?)`,
+      [authUser.org_id, authUser.location_id, staffId, r.date, r.start_time, r.end_time, r.role_override || "", r.notes || "", authUser.user_id]);
+    inserted++;
+  }
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SHIFT_APPLY_PATTERN", "shift_assignments", String(staffId), { mode, start, end, inserted });
+
+  try { console.log("[shifts][apply-pattern] done staffId:", staffId, "inserted:", inserted); } catch(e) {}
+  return jsonResponse({ ok:true, inserted }, 200, corsOkHeaders);
+}
+
 // ── Leaves ────────────────────────────────────────────────────────
 
 async function handleShiftLeavesList(request, env, corsOkHeaders, authUser, url) {
@@ -9917,7 +10060,7 @@ async function handleShiftLeaveReject(request, env, corsOkHeaders, authUser, lea
 async function handleShiftOpeningHoursGet(request, env, corsOkHeaders, authUser) {
   await ensureShiftsSchema(env);
   const row = await dbFirst(env, `SELECT hours_json FROM shift_opening_hours WHERE org_id=? AND location_id=?`, [authUser.org_id, authUser.location_id]);
-  const hours = row ? JSON.parse(row.hours_json || "{}") : { default: { open:"09:00", close:"18:00", closed:false }, weekends:false, overrides:{} };
+  const hours = row ? JSON.parse(row.hours_json || "{}") : { default: { open:"07:30", close:"19:30", closed:false }, openSaturday:true, openSunday:false, overrides:{} };
   return jsonResponse({ ok: true, hours }, 200, corsOkHeaders);
 }
 
@@ -10757,6 +10900,9 @@ if (url.pathname.startsWith("/dda-stocktakes/items/")) {
     }
     if (url.pathname === "/shifts/assignments" && request.method === "POST") {
       return await handleShiftAssignmentCreate(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname === "/shifts/apply-pattern" && request.method === "POST") {
+      return await handleShiftApplyPattern(request, env, corsOkHeaders, authUser);
     }
     if (url.pathname.startsWith("/shifts/assignments/") && request.method === "PUT") {
       const id = parseInt(url.pathname.split("/")[3]);
