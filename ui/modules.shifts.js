@@ -16,29 +16,73 @@
     });
   }
 
-  /* ── Malta Employment Law Constants 2025-2026 ──────────────── */
-  var MALTA = {
+  /* ── Malta Employment Law Reference (editable, auto-year) ───── */
+  // Defaults can be overridden via Settings → Malta Employment Law Reference.
+  // Overrides are stored under: S.settings.maltaLaw
+  var MALTA_DEFAULT = {
     annualLeaveHours: { 2023:208, 2024:240, 2025:224, 2026:216, 2027:216 },
     sickLeavePaidHours:     80,   // 10 days × 8h, employer pays
     sickLeaveHalfPayHours:  80,   // additional 10 days at half pay
     urgentFamilyLeaveHours: 32,   // updated Jan 2025 (was 15h)
     maxWeeklyHours:         48,   // EU Working Time Directive
     fullTimeWeeklyHours:    40,
-    publicHolidays2026:     14,
-    phWeekdays2026:         11,
-    phWeekend2026:           3,
-    minWageWeekly2026:    226.44  // 221.78 + 4.66 COLA
+    yearData: {
+      2025: { publicHolidays: 14, colaWeekly: 0,    minWageWeekly: 0,      miscarriageLeaveDays: 0 },
+      2026: { publicHolidays: 14, colaWeekly: 4.66, minWageWeekly: 226.44, miscarriageLeaveDays: 7 }
+    }
   };
+
+  var MALTA = JSON.parse(JSON.stringify(MALTA_DEFAULT));
+
+  function lastKnownYear(map, yr) {
+    if (!map) return yr;
+    var keys = Object.keys(map).map(function(k){return parseInt(k,10);}).filter(function(n){return !isNaN(n);}).sort(function(a,b){return a-b;});
+    if (!keys.length) return yr;
+    var best = keys[0];
+    for (var i=0;i<keys.length;i++){ if(keys[i] <= yr) best = keys[i]; }
+    return best;
+  }
+
+  function setMaltaFromSettings() {
+    try {
+      var cfg = S && S.settings && S.settings.maltaLaw;
+      if (!cfg || typeof cfg !== "object") { MALTA = JSON.parse(JSON.stringify(MALTA_DEFAULT)); return; }
+
+      // Start from defaults then overlay user config.
+      MALTA = JSON.parse(JSON.stringify(MALTA_DEFAULT));
+      if (cfg.annualLeaveHours && typeof cfg.annualLeaveHours === "object") {
+        Object.keys(cfg.annualLeaveHours).forEach(function(y){ MALTA.annualLeaveHours[y] = cfg.annualLeaveHours[y]; });
+      }
+      ["sickLeavePaidHours","sickLeaveHalfPayHours","urgentFamilyLeaveHours","maxWeeklyHours","fullTimeWeeklyHours"].forEach(function(k){
+        if (cfg[k] != null && cfg[k] !== "") MALTA[k] = cfg[k];
+      });
+      if (cfg.yearData && typeof cfg.yearData === "object") {
+        MALTA.yearData = MALTA.yearData || {};
+        Object.keys(cfg.yearData).forEach(function(y){
+          MALTA.yearData[y] = Object.assign({}, MALTA.yearData[y] || {}, cfg.yearData[y] || {});
+        });
+      }
+    } catch(e) { MALTA = JSON.parse(JSON.stringify(MALTA_DEFAULT)); }
+  }
+
+  function maltaYear(yr) {
+    var y = String(yr);
+    var yd = MALTA.yearData || {};
+    if (yd[y]) return yd[y];
+    var lk = lastKnownYear(yd, yr);
+    return yd[String(lk)] || {};
+  }
 
   function calcEntitlement(emp) {
     var yr = new Date().getFullYear();
-    var base = MALTA.annualLeaveHours[yr] || 216;
+    var lk = lastKnownYear(MALTA.annualLeaveHours, yr);
+    var base = MALTA.annualLeaveHours[yr] || MALTA.annualLeaveHours[lk] || 216;
     var ratio = emp.employment_type === "fulltime" ? 1 :
-                Math.min((parseFloat(emp.contracted_hours) || 20) / MALTA.fullTimeWeeklyHours, 1);
+                Math.min((parseFloat(emp.contracted_hours) || 20) / (parseFloat(MALTA.fullTimeWeeklyHours)||40), 1);
     return {
       annual:       Math.round(base * ratio),
-      sick:         Math.round(MALTA.sickLeavePaidHours * ratio),
-      urgentFamily: Math.round(MALTA.urgentFamilyLeaveHours * ratio)
+      sick:         Math.round((parseFloat(MALTA.sickLeavePaidHours)||80) * ratio),
+      urgentFamily: Math.round((parseFloat(MALTA.urgentFamilyLeaveHours)||32) * ratio)
     };
   }
 
@@ -50,8 +94,8 @@
     staff:        [],
     shifts:       [],
     leaves:       [],
-    openingHours: { "default": { open:"09:00", close:"18:00", closed:false }, weekends:false, overrides:{} },
-    settings:     { pharmacistRequired:true, minPharmacists:1 },
+    openingHours: { "default": { open:"07:30", close:"19:30", closed:false }, openSaturday:true, openSunday:false, weekends:false, overrides:{} },
+    settings:     { pharmacistRequired:true, minPharmacists:1, maltaLaw:null },
     _ls: "eikon_shifts_v2"
   };
 
@@ -84,6 +128,8 @@
       S.leaves       = c.leaves       || [];
       S.openingHours = d.hours        || S.openingHours;
       S.settings     = e.settings     || S.settings;
+      normalizeOpeningHours();
+      setMaltaFromSettings();
     } catch(err) {
       E.warn && E.warn("[shifts] API unavailable, using localStorage:", err && err.message);
       var ls = lsGet();
@@ -92,7 +138,24 @@
       S.leaves       = ls.leaves       || S.leaves;
       S.openingHours = ls.openingHours || S.openingHours;
       S.settings     = ls.settings     || S.settings;
+      normalizeOpeningHours();
+      setMaltaFromSettings();
     }
+  }
+
+  function normalizeOpeningHours() {
+    var oh = S.openingHours || {};
+    if (!oh["default"]) oh["default"] = { open:"07:30", close:"19:30", closed:false };
+    if (!oh.overrides) oh.overrides = {};
+    if (typeof oh.weekends === "boolean") {
+      if (oh.openSaturday == null) oh.openSaturday = oh.weekends;
+      if (oh.openSunday == null) oh.openSunday = oh.weekends;
+    }
+    if (oh.openSaturday == null) oh.openSaturday = true;
+    if (oh.openSunday == null) oh.openSunday = false;
+    // Keep legacy field for backwards compatibility
+    if (oh.weekends == null) oh.weekends = (oh.openSaturday && oh.openSunday);
+    S.openingHours = oh;
   }
 
   async function loadMonth() {
@@ -158,27 +221,94 @@
   function ohFor(ds) {
     var ov = (S.openingHours.overrides||{})[ds];
     if (ov) return ov;
-    var d = new Date(ds).getDay();
-    if ((d===0||d===6) && !S.openingHours.weekends) return { open:"09:00", close:"18:00", closed:true };
-    return S.openingHours["default"]||{open:"09:00",close:"18:00",closed:false};
+
+    // normalize (in case settings were loaded after module init)
+    if (!S.openingHours || !S.openingHours["default"]) normalizeOpeningHours();
+
+    var d = new Date(ds).getDay(); // 0 Sun .. 6 Sat
+    var satOpen = (S.openingHours.openSaturday != null) ? !!S.openingHours.openSaturday : !!S.openingHours.weekends;
+    var sunOpen = (S.openingHours.openSunday   != null) ? !!S.openingHours.openSunday   : !!S.openingHours.weekends;
+
+    if (d === 6 && !satOpen) return { open: (S.openingHours["default"]&&S.openingHours["default"].open)||"07:30", close:(S.openingHours["default"]&&S.openingHours["default"].close)||"19:30", closed:true };
+    if (d === 0 && !sunOpen) return { open: (S.openingHours["default"]&&S.openingHours["default"].open)||"07:30", close:(S.openingHours["default"]&&S.openingHours["default"].close)||"19:30", closed:true };
+
+    return S.openingHours["default"] || {open:"07:30",close:"19:30",closed:false};
   }
 
   /* ── Coverage check ─────────────────────────────────────────── */
   function checkCov(ds) {
-    var oh=ohFor(ds); if(oh.closed) return {ok:true,issues:[]};
-    var onLeave={};
-    S.leaves.filter(function(l){ return l.status==="approved"&&l.start_date<=ds&&l.end_date>=ds; })
-            .forEach(function(l){ onLeave[l.staff_id]=true; });
-    var phOnDuty = S.shifts.filter(function(s){
-      if(s.shift_date!==ds) return false;
-      if(onLeave[s.staff_id]) return false;
-      var e=emp(s.staff_id);
-      return e&&(e.designation==="pharmacist"||e.designation==="locum"||s.role_override==="pharmacist");
+    var oh = ohFor(ds);
+    if (oh.closed) return { ok:true, issues:[], gaps:[], open:oh.open, close:oh.close };
+
+    var min = parseInt(S.settings.minPharmacists, 10) || 1;
+    var need = !!S.settings.pharmacistRequired;
+
+    // Build on-leave lookup for the day
+    var onLeave = {};
+    S.leaves.filter(function(l){ return l.status==="approved" && l.start_date<=ds && l.end_date>=ds; })
+            .forEach(function(l){ onLeave[l.staff_id] = true; });
+
+    // Collect pharmacist/locum intervals (clamped to opening hours)
+    var openM = t2m(oh.open || "07:30");
+    var closeM = t2m(oh.close || "19:30");
+    if (closeM <= openM) return { ok:true, issues:[], gaps:[], open:oh.open, close:oh.close };
+
+    var events = [];
+    var dayShifts = S.shifts.filter(function(s){ return s.shift_date === ds; });
+
+    dayShifts.forEach(function(s){
+      if (onLeave[s.staff_id]) return;
+      var e = emp(s.staff_id);
+      var isPh = (e && (e.designation==="pharmacist" || e.designation==="locum")) || (s.role_override === "pharmacist");
+      if (!isPh) return;
+      var st = Math.max(openM, t2m(s.start_time));
+      var et = Math.min(closeM, t2m(s.end_time));
+      if (et <= st) return;
+      events.push({t:st, d:+1});
+      events.push({t:et, d:-1});
     });
+
+    // If nothing scheduled, whole day is a gap when coverage required
+    if (!events.length) {
+      var gaps0 = need ? [{start:openM, end:closeM, count:0}] : [];
+      var issues0 = need ? ["No pharmacist coverage: " + m2t(openM) + "–" + m2t(closeM)] : [];
+      return { ok: issues0.length===0, issues: issues0, gaps: gaps0, open:oh.open, close:oh.close };
+    }
+
+    // Sweep line to compute gaps with count < min
+    events.sort(function(a,b){ return a.t - b.t || b.d - a.d; }); // starts before ends at same time
+    var gaps = [];
+    var count = 0;
+    var cur = openM;
+
+    // Apply any events that start at opening time
+    var i=0;
+    while(i<events.length && events[i].t <= openM){ count += events[i].d; i++; }
+
+    while (cur < closeM) {
+      var nextT = (i < events.length) ? Math.min(events[i].t, closeM) : closeM;
+      if (nextT > cur) {
+        if (need && count < min) gaps.push({ start: cur, end: nextT, count: count });
+        cur = nextT;
+      }
+      while (i < events.length && events[i].t === cur) { count += events[i].d; i++; }
+      if (i >= events.length && cur >= closeM) break;
+      if (i >= events.length && cur < closeM) {
+        // tail segment
+        if (need && count < min) gaps.push({ start: cur, end: closeM, count: count });
+        break;
+      }
+    }
+
     var issues = [];
-    if(S.settings.pharmacistRequired && phOnDuty.length < (S.settings.minPharmacists||1))
-      issues.push("No pharmacist coverage on "+ds);
-    return {ok:issues.length===0, issues:issues};
+    if (need && gaps.length) {
+      gaps.slice(0,3).forEach(function(g){
+        issues.push("Pharmacist gap: " + m2t(g.start) + "–" + m2t(g.end));
+      });
+      if (gaps.length > 3) issues.push("+" + (gaps.length-3) + " more gap(s)");
+    }
+
+    return { ok: issues.length===0, issues: issues, gaps:gaps, open:oh.open, close:oh.close, min:min };
   }
 
   /* ── Leave balance ──────────────────────────────────────────── */
@@ -261,8 +391,16 @@
   }
 
   function empModal(e, mountRef) {
-    var edit=!!e;
-    var body=
+    var edit = !!e;
+    setMaltaFromSettings();
+
+    var yrNow = new Date().getFullYear();
+    var lk = lastKnownYear(MALTA.annualLeaveHours, yrNow);
+    var alFT = MALTA.annualLeaveHours[yrNow] || MALTA.annualLeaveHours[lk] || 216;
+
+    var patState = getPatternState(e);
+
+    var body =
       '<div class="eikon-row">'+
       '<div class="eikon-field" style="flex:1;min-width:200px;"><div class="eikon-label">Full Name</div>'+
       '<input class="eikon-input" id="se-name" type="text" value="'+esc(e&&e.full_name||"")+'"/></div>'+
@@ -273,11 +411,11 @@
       '<div class="eikon-row" style="margin-top:10px;">'+
       '<div class="eikon-field"><div class="eikon-label">Employment Type</div>'+
       '<select class="eikon-select" id="se-type">'+
-      '<option value="fulltime"'+(e&&e.employment_type==="fulltime"?" selected":"")+'>Full-Time (40h/wk — Malta 2026: 216h leave)</option>'+
+      '<option value="fulltime"'+(e&&e.employment_type==="fulltime"?" selected":"")+'>Full-Time ('+(MALTA.fullTimeWeeklyHours||40)+'h/wk — Malta '+yrNow+': '+alFT+'h leave)</option>'+
       '<option value="parttime"'+(e&&e.employment_type==="parttime"?" selected":"")+'>Part-Time (pro-rata)</option>'+
       '</select></div>'+
       '<div class="eikon-field"><div class="eikon-label">Contracted h/wk</div>'+
-      '<input class="eikon-input" id="se-hrs" type="number" min="1" max="48" value="'+(e&&e.contracted_hours||40)+'" style="min-width:80px;"/></div></div>'+
+      '<input class="eikon-input" id="se-hrs" type="number" min="1" max="'+(MALTA.maxWeeklyHours||48)+'" value="'+(e&&e.contracted_hours||40)+'" style="min-width:80px;"/></div></div>'+
       '<div class="eikon-row" style="margin-top:10px;">'+
       '<div class="eikon-field" style="flex:1;"><div class="eikon-label">Email</div>'+
       '<input class="eikon-input" id="se-email" type="email" value="'+esc(e&&e.email||"")+'"/></div>'+
@@ -286,7 +424,18 @@
       '<div class="eikon-field" style="margin-top:10px;"><div class="eikon-label">Registration No. (Pharmacists)</div>'+
       '<input class="eikon-input" id="se-reg" type="text" value="'+esc(e&&e.registration_number||"")+'" placeholder="e.g. PH-1234"/></div>'+
       '<div style="margin-top:12px;padding:10px;background:rgba(90,162,255,.07);border:1px solid rgba(90,162,255,.2);border-radius:10px;font-size:12px;color:var(--muted);">'+
-      '📋 <b>Malta 2026:</b> FT=216h annual leave. PT=pro-rata. Sick=80h paid+80h ½ pay. Urgent family=32h/yr. Max 48h/wk.</div>';
+      '📋 <b>Malta '+yrNow+':</b> FT='+alFT+'h annual leave. PT=pro-rata. Sick='+(MALTA.sickLeavePaidHours||80)+'h paid + '+(MALTA.sickLeaveHalfPayHours||80)+'h ½ pay. Urgent family='+(MALTA.urgentFamilyLeaveHours||32)+'h/yr. Max '+(MALTA.maxWeeklyHours||48)+'h/wk.</div>'+
+
+      '<div style="margin-top:14px;padding:12px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:12px;">'+
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">'+
+      '<div style="font-weight:900;">🗓 Weekly Patterns</div>'+
+      '<button class="eikon-btn primary" id="se-addpat" style="font-size:12px;padding:6px 10px;">+ New Pattern</button>'+
+      '</div>'+
+      '<div style="margin-top:8px;font-size:11px;color:var(--muted);">Create weekly templates and apply them across date ranges, or apply a week directly from the calendar.</div>'+
+      (edit ? '' : '<div style="margin-top:8px;font-size:11px;color:var(--muted);">Save the employee first to apply patterns to dates.</div>')+
+      '<div id="se-patlist" style="margin-top:10px;">'+renderPatternList(patState)+'</div>'+
+      '</div>';
+
     E.modal.show(edit?"Edit Employee":"Add Employee", body, [
       {label:"Cancel", onClick:function(){E.modal.hide();}},
       {label:edit?"Save":"Add Employee", primary:true, onClick:function(){
@@ -298,15 +447,284 @@
           email:          E.q("#se-email").value.trim(),
           phone:          E.q("#se-phone").value.trim(),
           registration_number: E.q("#se-reg").value.trim(),
-          is_active:1
+          is_active:1,
+          patterns_json:  JSON.stringify({patterns: patState.patterns || [], provisionalId: patState.provisionalId || null})
         };
         if(!p.full_name){toast("Name required","error");return;}
-        saveEmp(edit?e.id:null, p, function(){ E.modal.hide(); renderEmpRows(mountRef); toast(edit?"Employee updated.":"Employee added."); });
+        saveEmp(edit?e.id:null, p, function(){
+          E.modal.hide();
+          renderEmpRows(mountRef);
+          toast(edit?"Employee updated.":"Employee added.");
+        });
+      }}
+    ]);
+
+    // Wire pattern manager
+    setTimeout(function(){
+      var list = document.getElementById("se-patlist");
+      if (!list) return;
+
+      function rerender(){
+        list.innerHTML = renderPatternList(patState);
+        wire();
+      }
+
+      function wire(){
+        // provisional selection
+        list.querySelectorAll("input[name='se-provisional']").forEach(function(r){
+          r.onchange=function(){
+            patState.provisionalId = r.value;
+            rerender();
+          };
+        });
+
+        list.querySelectorAll("[data-pat-edit]").forEach(function(btn){
+          btn.onclick=function(){
+            var id=btn.getAttribute("data-pat-edit");
+            var p=findPattern(patState, id);
+            patternEditorModal(p, function(upd){
+              if(!upd) return;
+              if(p){
+                Object.assign(p, upd);
+              } else {
+                patState.patterns.push(upd);
+              }
+              if(!patState.provisionalId) patState.provisionalId = upd.id;
+              rerender();
+            });
+          };
+        });
+
+        list.querySelectorAll("[data-pat-del]").forEach(function(btn){
+          btn.onclick=function(){
+            var id=btn.getAttribute("data-pat-del");
+            if(!confirm("Delete this pattern?")) return;
+            patState.patterns = patState.patterns.filter(function(x){return x.id!==id;});
+            if(patState.provisionalId===id) patState.provisionalId = patState.patterns[0]?patState.patterns[0].id:null;
+            rerender();
+          };
+        });
+
+        list.querySelectorAll("[data-pat-apply]").forEach(function(btn){
+          btn.onclick=function(){
+            if(!edit){ toast("Save the employee first.","error"); return; }
+            var id=btn.getAttribute("data-pat-apply");
+            var p=findPattern(patState, id);
+            if(!p){ toast("Pattern not found","error"); return; }
+            applyPatternModal(e, p, function(){
+              // refresh calendar if currently visible later
+            });
+          };
+        });
+      }
+
+      var addBtn = document.getElementById("se-addpat");
+      if (addBtn) addBtn.onclick=function(){
+        patternEditorModal(null, function(upd){
+          if(!upd) return;
+          patState.patterns.push(upd);
+          if(!patState.provisionalId) patState.provisionalId = upd.id;
+          rerender();
+        });
+      };
+
+      wire();
+    }, 60);
+  }
+
+  // ── Patterns (stored in staff.patterns_json) ───────────────────
+
+  function getPatternState(staffObj) {
+    var out = { patterns:[], provisionalId:null };
+    if (!staffObj) return out;
+    try {
+      var raw = staffObj.patterns_json;
+      if (!raw) return out;
+      var o = JSON.parse(raw);
+      if (o && typeof o==="object") {
+        if (Array.isArray(o.patterns)) out.patterns = o.patterns;
+        if (o.provisionalId) out.provisionalId = o.provisionalId;
+      }
+    } catch(e){}
+    out.patterns = (out.patterns||[]).map(normalizePattern);
+    if (!out.provisionalId && out.patterns[0]) out.provisionalId = out.patterns[0].id;
+    return out;
+  }
+
+  function normalizePattern(p) {
+    p = p && typeof p==="object" ? p : {};
+    var id = String(p.id || ("pat_"+Math.random().toString(16).slice(2)));
+    var name = String(p.name || "Pattern");
+    var week = Array.isArray(p.week) ? p.week.slice(0,7) : [];
+    while (week.length < 7) week.push({off:true});
+    week = week.map(function(d){
+      d = d && typeof d==="object" ? d : {};
+      var off = !!d.off;
+      var st = String(d.start || d.start_time || "").trim();
+      var et = String(d.end || d.end_time || "").trim();
+      var ro = String(d.role_override||"").trim();
+      return off ? {off:true} : {off:false, start:st, end:et, role_override:ro};
+    });
+    return { id:id, name:name, week:week, createdAt: p.createdAt || Date.now() };
+  }
+
+  function findPattern(state, id){
+    return (state.patterns||[]).find(function(p){return p.id===id;}) || null;
+  }
+
+  function renderPatternList(state) {
+    var pats = (state.patterns||[]);
+    if (!pats.length) {
+      return '<div style="padding:10px;border:1px dashed var(--border);border-radius:10px;color:var(--muted);font-size:12px;">No patterns yet.</div>';
+    }
+    return pats.map(function(p){
+      var isProv = state.provisionalId === p.id;
+      return ''+
+        '<div style="display:flex;align-items:flex-start;gap:10px;padding:10px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;background:rgba(255,255,255,.02);">'+
+        '<div style="padding-top:2px;"><input type="radio" name="se-provisional" value="'+esc(p.id)+'" '+(isProv?'checked':'')+' title="Provisional (default)"/></div>'+
+        '<div style="flex:1;">'+
+          '<div style="font-weight:800;">'+esc(p.name)+' '+(isProv?'<span class="eikon-pill" style="font-size:10px;margin-left:6px;">Provisional</span>':"")+'</div>'+
+          '<div style="margin-top:4px;font-size:11px;color:var(--muted);line-height:1.35;">'+esc(patternSummary(p))+'</div>'+
+        '</div>'+
+        '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">'+
+          '<button class="eikon-btn" data-pat-edit="'+esc(p.id)+'" style="font-size:11px;padding:5px 8px;">Edit</button>'+
+          '<button class="eikon-btn" data-pat-apply="'+esc(p.id)+'" style="font-size:11px;padding:5px 8px;">Apply</button>'+
+          '<button class="eikon-btn danger" data-pat-del="'+esc(p.id)+'" style="font-size:11px;padding:5px 8px;">Delete</button>'+
+        '</div>'+
+        '</div>';
+    }).join("");
+  }
+
+  function patternSummary(p) {
+    var DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+    var uiOrder = [1,2,3,4,5,6,0]; // Mon..Sun
+    var parts = uiOrder.map(function(d){
+      var x = (p.week||[])[d] || {off:true};
+      if (x.off || !x.start || !x.end) return DAYS[d]+": off";
+      return DAYS[d]+": "+x.start+"–"+x.end;
+    });
+    return parts.join(" • ");
+  }
+
+  function patternEditorModal(existing, onDone) {
+    var p = normalizePattern(existing || {});
+    var DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+    var uiOrder = [1,2,3,4,5,6,0]; // Mon..Sun
+
+    var rows = uiOrder.map(function(d){
+      var x = p.week[d] || {off:true};
+      var off = !!x.off;
+      return ''+
+        '<tr>'+
+          '<td style="padding:6px 8px;font-weight:700;">'+DAYS[d]+'</td>'+
+          '<td style="padding:6px 8px;"><label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);"><input type="checkbox" id="pe-off-'+d+'" '+(off?'checked':'')+'/> Off</label></td>'+
+          '<td style="padding:6px 8px;"><input class="eikon-input" id="pe-st-'+d+'" type="time" value="'+esc(off?"":(x.start||""))+'" style="min-width:110px;"/></td>'+
+          '<td style="padding:6px 8px;"><input class="eikon-input" id="pe-et-'+d+'" type="time" value="'+esc(off?"":(x.end||""))+'" style="min-width:110px;"/></td>'+
+        '</tr>';
+    }).join("");
+
+    var body =
+      '<div class="eikon-field"><div class="eikon-label">Pattern Name</div>'+
+      '<input class="eikon-input" id="pe-name" type="text" value="'+esc(existing?existing.name:p.name)+'"/></div>'+
+      '<div class="eikon-table-wrap" style="margin-top:10px;"><table class="eikon-table">'+
+      '<thead><tr><th>Day</th><th>Off</th><th>Start</th><th>End</th></tr></thead>'+
+      '<tbody>'+rows+'</tbody></table></div>'+
+      '<div style="margin-top:8px;font-size:11px;color:var(--muted);">Tip: leave Start/End empty for days off.</div>';
+
+    E.modal.show(existing?"Edit Pattern":"New Pattern", body, [
+      {label:"Cancel", onClick:function(){E.modal.hide(); onDone && onDone(null);}},
+      {label:"Save Pattern", primary:true, onClick:function(){
+        var name = E.q("#pe-name").value.trim() || "Pattern";
+        var week = [];
+        for (var d=0; d<7; d++){
+          var off = !!E.q("#pe-off-"+d).checked;
+          var st = (E.q("#pe-st-"+d).value||"").trim();
+          var et = (E.q("#pe-et-"+d).value||"").trim();
+          if (off || !st || !et) week[d] = {off:true};
+          else {
+            if (t2m(et) <= t2m(st)) { toast(DAYS[d]+": end must be after start","error"); return; }
+            week[d] = {off:false, start:st, end:et};
+          }
+        }
+        var out = { id: p.id, name:name, week:week, createdAt: existing&&existing.createdAt || Date.now() };
+        E.modal.hide();
+        onDone && onDone(out);
       }}
     ]);
   }
 
-  function saveEmp(id, p, cb) {
+  function applyPatternModal(staffObj, pattern, done) {
+    var today = new Date();
+    var year = today.getFullYear();
+    var tds = year+"-"+pad(today.getMonth()+1)+"-"+pad(today.getDate());
+    var startOfYear = year+"-01-01";
+    var endOfYear = year+"-12-31";
+
+    var body =
+      '<div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Apply <b>'+esc(pattern.name)+'</b> for <b>'+esc(staffObj.full_name)+'</b>.</div>'+
+      '<div class="eikon-row">'+
+        '<div class="eikon-field"><div class="eikon-label">Range</div>'+
+          '<select class="eikon-select" id="ap-range">'+
+            '<option value="today">From today ('+esc(tds)+') → end of year</option>'+
+            '<option value="fullyear">Full year ('+esc(startOfYear)+' → '+esc(endOfYear)+')</option>'+
+            '<option value="custom">Custom range</option>'+
+          '</select></div>'+
+        '<div class="eikon-field"><div class="eikon-label">Start</div><input class="eikon-input" id="ap-start" type="date" value="'+esc(tds)+'"/></div>'+
+        '<div class="eikon-field"><div class="eikon-label">End</div><input class="eikon-input" id="ap-end" type="date" value="'+esc(endOfYear)+'"/></div>'+
+      '</div>'+
+      '<div class="eikon-row" style="margin-top:10px;">'+
+        '<div class="eikon-field"><div class="eikon-label">Mode</div>'+
+          '<select class="eikon-select" id="ap-mode">'+
+            '<option value="overwrite">Overwrite existing shifts in range</option>'+
+            '<option value="fill">Fill empty days only (keep existing)</option>'+
+          '</select></div>'+
+      '</div>'+
+      '<div style="margin-top:10px;padding:10px;border:1px solid var(--border);border-radius:10px;background:rgba(255,255,255,.02);font-size:11px;color:var(--muted);">'+
+      '<b>Overwrite</b> clears this employee’s shifts in the selected date range and re-applies the pattern. <b>Fill</b> only adds shifts to days where the employee has no shift.</div>';
+
+    E.modal.show("Apply Weekly Pattern", body, [
+      {label:"Cancel", onClick:function(){E.modal.hide();}},
+      {label:"Apply", primary:true, onClick:function(){
+        var range = E.q("#ap-range").value;
+        var start = (range==="today") ? tds : (range==="fullyear" ? startOfYear : E.q("#ap-start").value);
+        var end   = (range==="today") ? endOfYear : (range==="fullyear" ? endOfYear : E.q("#ap-end").value);
+        var mode  = E.q("#ap-mode").value;
+        if(!start || !end){ toast("Select dates","error"); return; }
+        if(end < start){ toast("End must be after start","error"); return; }
+        if(mode==="overwrite" && !confirm("Overwrite all shifts for "+staffObj.full_name+" from "+start+" to "+end+"?")) return;
+
+        apiOp("/shifts/apply-pattern", {method:"POST", body: JSON.stringify({
+          staff_id: staffObj.id,
+          start_date: start,
+          end_date: end,
+          mode: mode,
+          pattern: { week: pattern.week }
+        })}, function(r){
+          E.modal.hide();
+          toast("Applied. Inserted: "+(r&&r.inserted!=null?r.inserted:"")+"");
+          loadMonth().then(function(){ done && done(); });
+        });
+      }}
+    ]);
+
+    setTimeout(function(){
+      var sel = document.getElementById("ap-range");
+      var st = document.getElementById("ap-start");
+      var en = document.getElementById("ap-end");
+      if(!sel||!st||!en) return;
+
+      sel.onchange=function(){
+        var custom = sel.value==="custom";
+        st.disabled = !custom;
+        en.disabled = !custom;
+
+        if(sel.value==="today"){ st.value = tds; en.value = endOfYear; }
+        else if(sel.value==="fullyear"){ st.value = startOfYear; en.value = endOfYear; }
+      };
+      sel.onchange();
+    }, 30);
+  }
+function saveEmp(id, p, cb) {
     if(id){ var ix=S.staff.findIndex(function(s){return s.id===id;}); if(ix>=0)Object.assign(S.staff[ix],p); }
     else { p.id=lsNextId(); S.staff.push(p); }
     apiOp(id?"/shifts/staff/"+id:"/shifts/staff", {method:id?"PUT":"POST",body:JSON.stringify(p)}, cb);
@@ -321,7 +739,10 @@
      VIEW: SETTINGS
   ══════════════════════════════════════════════════════════════ */
   function vSettings(m) {
-    var def = S.openingHours["default"]||{open:"09:00",close:"18:00",closed:false};
+    normalizeOpeningHours();
+    setMaltaFromSettings();
+
+    var def = S.openingHours["default"]||{open:"07:30",close:"19:30",closed:false};
     var ov  = S.openingHours.overrides||{};
     var ovRows = Object.keys(ov).sort().map(function(d){
       var v=ov[d];
@@ -331,18 +752,29 @@
         '<td><button class="eikon-btn danger sh-rm-ov" data-d="'+esc(d)+'" style="font-size:11px;padding:5px 8px;">Remove</button></td></tr>';
     }).join("")||'<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:14px;">No overrides.</td></tr>';
 
+    var satOpen = (S.openingHours.openSaturday != null) ? !!S.openingHours.openSaturday : !!S.openingHours.weekends;
+    var sunOpen = (S.openingHours.openSunday   != null) ? !!S.openingHours.openSunday   : !!S.openingHours.weekends;
+
+    var yrNow = new Date().getFullYear();
+
     m.innerHTML=
       '<div style="display:flex;flex-direction:column;gap:14px;">'+
       '<div class="eikon-card">'+
       '<div style="font-weight:900;font-size:15px;margin-bottom:12px;">🕐 Default Opening Hours</div>'+
       '<div class="eikon-row">'+
-      '<div class="eikon-field"><div class="eikon-label">Open</div><input class="eikon-input" id="ss-open" type="time" value="'+esc(def.open||"09:00")+'"/></div>'+
-      '<div class="eikon-field"><div class="eikon-label">Close</div><input class="eikon-input" id="ss-close" type="time" value="'+esc(def.close||"18:00")+'"/></div>'+
-      '<div class="eikon-field"><div class="eikon-label">Weekends</div>'+
-      '<select class="eikon-select" id="ss-wknd">'+
-      '<option value="0"'+(S.openingHours.weekends?"":" selected")+'>Closed</option>'+
-      '<option value="1"'+(S.openingHours.weekends?" selected":"")+'>Open</option>'+
-      '</select></div></div>'+
+      '<div class="eikon-field"><div class="eikon-label">Open</div><input class="eikon-input" id="ss-open" type="time" value="'+esc(def.open||"07:30")+'"/></div>'+
+      '<div class="eikon-field"><div class="eikon-label">Close</div><input class="eikon-input" id="ss-close" type="time" value="'+esc(def.close||"19:30")+'"/></div>'+
+      '<div class="eikon-field"><div class="eikon-label">Saturday</div>'+
+      '<select class="eikon-select" id="ss-sat">'+
+      '<option value="1"'+(satOpen?' selected':'')+'>Open</option>'+
+      '<option value="0"'+(!satOpen?' selected':'')+'>Closed</option>'+
+      '</select></div>'+
+      '<div class="eikon-field"><div class="eikon-label">Sunday</div>'+
+      '<select class="eikon-select" id="ss-sun">'+
+      '<option value="1"'+(sunOpen?' selected':'')+'>Open</option>'+
+      '<option value="0"'+(!sunOpen?' selected':'')+'>Closed</option>'+
+      '</select></div>'+
+      '</div>'+
       '<div style="margin-top:12px;"><button class="eikon-btn primary" id="ss-savehours">Save Hours</button></div></div>'+
 
       '<div class="eikon-card">'+
@@ -352,8 +784,8 @@
       '<div class="eikon-field"><div class="eikon-label">Date</div><input class="eikon-input" id="ss-ovd" type="date"/></div>'+
       '<div class="eikon-field"><div class="eikon-label">Type</div>'+
       '<select class="eikon-select" id="ss-ovt"><option value="custom">Custom Hours</option><option value="closed">Fully Closed</option></select></div>'+
-      '<div class="eikon-field" id="ss-ovta"><div class="eikon-label">Open</div><input class="eikon-input" id="ss-ovo" type="time" value="09:00"/></div>'+
-      '<div class="eikon-field" id="ss-ovtb"><div class="eikon-label">Close</div><input class="eikon-input" id="ss-ovc" type="time" value="13:00"/></div>'+
+      '<div class="eikon-field" id="ss-ovta"><div class="eikon-label">Open</div><input class="eikon-input" id="ss-ovo" type="time" value="'+esc(def.open||"07:30")+'"/></div>'+
+      '<div class="eikon-field" id="ss-ovtb"><div class="eikon-label">Close</div><input class="eikon-input" id="ss-ovc" type="time" value="'+esc(def.close||"19:30")+'"/></div>'+
       '<div class="eikon-field"><div class="eikon-label">Note</div><input class="eikon-input" id="ss-ovn" type="text" placeholder="e.g. Half day"/></div>'+
       '</div>'+
       '<div style="margin-top:10px;"><button class="eikon-btn primary" id="ss-addov">Add Override</button></div>'+
@@ -365,7 +797,7 @@
       '<div class="eikon-row">'+
       '<div class="eikon-field"><div class="eikon-label">Require Pharmacist Coverage</div>'+
       '<select class="eikon-select" id="ss-rph">'+
-      '<option value="1"'+(S.settings.pharmacistRequired?" selected":"")+'>Yes — Alert when no pharmacist scheduled</option>'+
+      '<option value="1"'+(S.settings.pharmacistRequired?" selected":"")+'>Yes — Alert on uncovered hours</option>'+
       '<option value="0"'+(S.settings.pharmacistRequired?"":" selected")+'>No — Informational</option>'+
       '</select></div>'+
       '<div class="eikon-field"><div class="eikon-label">Min Pharmacists On Duty</div>'+
@@ -373,24 +805,9 @@
       '</div>'+
       '<div style="margin-top:12px;"><button class="eikon-btn primary" id="ss-saverules">Save Rules</button></div></div>'+
 
-      '<div class="eikon-card">'+
-      '<div style="font-weight:900;font-size:15px;margin-bottom:10px;">📋 Malta Employment Law Reference 2026</div>'+
-      '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;">'+
-      rcard("Annual Leave FT 2026","216h (27 days)","#5aa2ff")+
-      rcard("Annual Leave FT 2025","224h (28 days)","#5aa2ff")+
-      rcard("Annual Leave FT 2024","240h (30 days)","#5aa2ff")+
-      rcard("Sick Leave Paid","80h (10 days)","#fb923c")+
-      rcard("Sick Leave ½ Pay","80h (10 days)","#fb923c")+
-      rcard("Urgent Family Leave","32h / year (2025+)","#43d17a")+
-      rcard("Maternity Leave","18 weeks","#f472b6")+
-      rcard("Paternity Leave","10 working days","#38bdf8")+
-      rcard("Parental Leave","4 months (2 paid)","#a78bfa")+
-      rcard("Miscarriage Leave","7 calendar days (2026+)","#94a3b8")+
-      rcard("Max Weekly Hours","48h (EU WTD)","#ff5a7a")+
-      rcard("COLA 2026","€4.66/week","#43d17a")+
-      rcard("Min Wage 2026","€226.44/wk","#43d17a")+
-      rcard("Part-time Leave","Pro-rata (avg hrs / 40)","#64748b")+
-      '</div></div></div>';
+      maltaRefHTML(yrNow) +
+
+      '</div>';
 
     var ovType = E.q("#ss-ovt",m);
     ovType.onchange=function(){
@@ -401,7 +818,10 @@
 
     E.q("#ss-savehours",m).onclick=function(){
       S.openingHours["default"]={open:E.q("#ss-open",m).value, close:E.q("#ss-close",m).value, closed:false};
-      S.openingHours.weekends=E.q("#ss-wknd",m).value==="1";
+      S.openingHours.openSaturday = E.q("#ss-sat",m).value==="1";
+      S.openingHours.openSunday   = E.q("#ss-sun",m).value==="1";
+      // legacy
+      S.openingHours.weekends = (S.openingHours.openSaturday && S.openingHours.openSunday);
       apiOp("/shifts/opening-hours",{method:"PUT",body:JSON.stringify(S.openingHours)},function(){toast("Opening hours saved.");});
     };
 
@@ -420,6 +840,9 @@
       apiOp("/shifts/settings",{method:"PUT",body:JSON.stringify(S.settings)},function(){toast("Rules saved.");});
     };
 
+    var eb = E.q("#ss-editmalta", m);
+    if (eb) eb.onclick=function(){ maltaLawModal(yrNow, function(){ vSettings(m); }); };
+
     m.querySelectorAll(".sh-rm-ov").forEach(function(btn){
       btn.onclick=function(){
         var d=btn.getAttribute("data-d"); delete S.openingHours.overrides[d];
@@ -428,7 +851,114 @@
     });
   }
 
-  function rcard(l,v,c){
+  function maltaRefHTML(yrNow) {
+    var yd = maltaYear(yrNow);
+    var alNow = MALTA.annualLeaveHours[yrNow] || MALTA.annualLeaveHours[lastKnownYear(MALTA.annualLeaveHours, yrNow)] || 216;
+
+    // show current year + previous 2 years if present
+    var yrs=[yrNow, yrNow-1, yrNow-2].filter(function(y){ return MALTA.annualLeaveHours[y]!=null; });
+
+    var cards = '';
+    cards += yrs.map(function(y){
+      return rcard("Annual Leave FT "+y, String(MALTA.annualLeaveHours[y])+"h", "#5aa2ff");
+    }).join("");
+
+    cards += rcard("Sick Leave Paid",""+(MALTA.sickLeavePaidHours||80)+"h (10 days)","#fb923c");
+    cards += rcard("Sick Leave ½ Pay",""+(MALTA.sickLeaveHalfPayHours||80)+"h (10 days)","#fb923c");
+    cards += rcard("Urgent Family Leave",""+(MALTA.urgentFamilyLeaveHours||32)+"h / year","#43d17a");
+    cards += rcard("Maternity Leave","18 weeks","#f472b6");
+    cards += rcard("Paternity Leave","10 working days","#38bdf8");
+    cards += rcard("Parental Leave","4 months (2 paid)","#a78bfa");
+    if (yd.miscarriageLeaveDays) cards += rcard("Miscarriage Leave",""+yd.miscarriageLeaveDays+" calendar days","#94a3b8");
+    cards += rcard("Max Weekly Hours",""+(MALTA.maxWeeklyHours||48)+"h (EU WTD)","#ff5a7a");
+    if (yd.colaWeekly) cards += rcard("COLA "+yrNow,"€"+Number(yd.colaWeekly).toFixed(2)+"/week","#43d17a");
+    if (yd.minWageWeekly) cards += rcard("Min Wage "+yrNow,"€"+Number(yd.minWageWeekly).toFixed(2)+"/wk","#43d17a");
+    cards += rcard("Part-time Leave","Pro-rata (avg hrs / 40)","#64748b");
+
+    return ''+
+      '<div class="eikon-card">'+
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'+
+      '<div style="font-weight:900;font-size:15px;">📋 Malta Employment Law Reference '+yrNow+'</div>'+
+      '<button class="eikon-btn" id="ss-editmalta" style="font-size:12px;padding:6px 10px;">Edit</button>'+
+      '</div>'+
+      '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;">'+cards+'</div>'+
+      '<div style="margin-top:10px;font-size:11px;color:var(--muted);">These figures are a reference. Edit to match the current year and your internal policy.</div>'+
+      '</div>';
+  }
+
+  function maltaLawModal(yrNow, done) {
+    setMaltaFromSettings();
+    var ySel = yrNow;
+    var cfg = (S.settings.maltaLaw && typeof S.settings.maltaLaw==="object") ? S.settings.maltaLaw : {};
+    var yd = Object.assign({}, maltaYear(ySel));
+    var al = (cfg.annualLeaveHours && cfg.annualLeaveHours[ySel]!=null) ? cfg.annualLeaveHours[ySel] : (MALTA.annualLeaveHours[ySel] || MALTA.annualLeaveHours[lastKnownYear(MALTA.annualLeaveHours, ySel)] || 216);
+
+    var years = [];
+    for (var y=yrNow-2; y<=yrNow+2; y++) years.push(y);
+
+    var body =
+      '<div class="eikon-row">'+
+      '<div class="eikon-field"><div class="eikon-label">Year</div>'+
+      '<select class="eikon-select" id="ml-year">'+years.map(function(y){ return '<option value="'+y+'"'+(y===ySel?' selected':'')+'>'+y+'</option>'; }).join("")+'</select></div>'+
+      '<div class="eikon-field"><div class="eikon-label">Annual Leave FT (hours)</div>'+
+      '<input class="eikon-input" id="ml-al" type="number" min="0" value="'+esc(al)+'" style="min-width:110px;"/></div>'+
+      '<div class="eikon-field"><div class="eikon-label">Public Holidays (count)</div>'+
+      '<input class="eikon-input" id="ml-ph" type="number" min="0" value="'+esc(yd.publicHolidays||"")+'" style="min-width:110px;"/></div>'+
+      '</div>'+
+      '<div class="eikon-row" style="margin-top:10px;">'+
+      '<div class="eikon-field"><div class="eikon-label">COLA (€/week)</div>'+
+      '<input class="eikon-input" id="ml-cola" type="number" step="0.01" min="0" value="'+esc(yd.colaWeekly||"")+'" style="min-width:110px;"/></div>'+
+      '<div class="eikon-field"><div class="eikon-label">Min Wage (€/week)</div>'+
+      '<input class="eikon-input" id="ml-mw" type="number" step="0.01" min="0" value="'+esc(yd.minWageWeekly||"")+'" style="min-width:110px;"/></div>'+
+      '<div class="eikon-field"><div class="eikon-label">Miscarriage Leave (days)</div>'+
+      '<input class="eikon-input" id="ml-ml" type="number" min="0" value="'+esc(yd.miscarriageLeaveDays||"")+'" style="min-width:110px;"/></div>'+
+      '</div>'+
+      '<hr style="border-color:var(--border);margin:12px 0;"/>'+
+      '<div style="font-weight:800;margin-bottom:8px;">Core values</div>'+
+      '<div class="eikon-row">'+
+      '<div class="eikon-field"><div class="eikon-label">Sick paid (hours)</div><input class="eikon-input" id="ml-sp" type="number" min="0" value="'+esc(MALTA.sickLeavePaidHours||80)+'"/></div>'+
+      '<div class="eikon-field"><div class="eikon-label">Sick ½ pay (hours)</div><input class="eikon-input" id="ml-sh" type="number" min="0" value="'+esc(MALTA.sickLeaveHalfPayHours||80)+'"/></div>'+
+      '<div class="eikon-field"><div class="eikon-label">Urgent family (hours)</div><input class="eikon-input" id="ml-uf" type="number" min="0" value="'+esc(MALTA.urgentFamilyLeaveHours||32)+'"/></div>'+
+      '</div>'+
+      '<div class="eikon-row" style="margin-top:10px;">'+
+      '<div class="eikon-field"><div class="eikon-label">Full-time week (hours)</div><input class="eikon-input" id="ml-ft" type="number" min="1" max="48" value="'+esc(MALTA.fullTimeWeeklyHours||40)+'"/></div>'+
+      '<div class="eikon-field"><div class="eikon-label">Max weekly (hours)</div><input class="eikon-input" id="ml-mx" type="number" min="1" max="80" value="'+esc(MALTA.maxWeeklyHours||48)+'"/></div>'+
+      '</div>';
+
+    E.modal.show("Malta Employment Law Reference", body, [
+      {label:"Cancel", onClick:function(){E.modal.hide();}},
+      {label:"Save", primary:true, onClick:function(){
+        var y = parseInt(E.q("#ml-year").value,10) || yrNow;
+        var next = (S.settings.maltaLaw && typeof S.settings.maltaLaw==="object") ? JSON.parse(JSON.stringify(S.settings.maltaLaw)) : {};
+        if (!next.annualLeaveHours) next.annualLeaveHours = {};
+        if (!next.yearData) next.yearData = {};
+
+        next.annualLeaveHours[y] = parseInt(E.q("#ml-al").value,10) || 0;
+
+        next.yearData[y] = Object.assign({}, next.yearData[y]||{}, {
+          publicHolidays: parseInt(E.q("#ml-ph").value,10) || 0,
+          colaWeekly: parseFloat(E.q("#ml-cola").value) || 0,
+          minWageWeekly: parseFloat(E.q("#ml-mw").value) || 0,
+          miscarriageLeaveDays: parseInt(E.q("#ml-ml").value,10) || 0
+        });
+
+        next.sickLeavePaidHours = parseInt(E.q("#ml-sp").value,10) || 0;
+        next.sickLeaveHalfPayHours = parseInt(E.q("#ml-sh").value,10) || 0;
+        next.urgentFamilyLeaveHours = parseInt(E.q("#ml-uf").value,10) || 0;
+        next.fullTimeWeeklyHours = parseInt(E.q("#ml-ft").value,10) || 40;
+        next.maxWeeklyHours = parseInt(E.q("#ml-mx").value,10) || 48;
+
+        S.settings.maltaLaw = next;
+        apiOp("/shifts/settings",{method:"PUT",body:JSON.stringify(S.settings)},function(){
+          setMaltaFromSettings();
+          toast("Malta reference saved.");
+          E.modal.hide();
+          done && done();
+        });
+      }}
+    ]);
+  }
+function rcard(l,v,c){
     return '<div style="padding:10px 12px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;">'+
       '<div style="font-size:11px;color:var(--muted);margin-bottom:4px;">'+esc(l)+'</div>'+
       '<div style="font-weight:700;color:'+c+';">'+esc(v)+'</div></div>';
@@ -442,11 +972,33 @@
     var firstDow=dow(y,mo,1);
     var cells="";
     var cellDay=1-firstDow;
+
+    function dateFromCellDay(n){
+      var dt=new Date(y,mo,n);
+      return dt.getFullYear()+"-"+pad(dt.getMonth()+1)+"-"+pad(dt.getDate());
+    }
+    function addDaysYMD(ds, n){
+      var dt=new Date(ds); dt.setDate(dt.getDate()+n);
+      return dt.getFullYear()+"-"+pad(dt.getMonth()+1)+"-"+pad(dt.getDate());
+    }
+
     for(var r=0;r<6;r++){
-      var row="<tr>"; var anyReal=false;
+      var rowStartCell = cellDay; // Sunday for this row
+      var ws = dateFromCellDay(rowStartCell);
+      var we = addDaysYMD(ws, 6);
+
+      var row='<tr>';
+      var anyReal=false;
+
+      // Week action column
+      row += '<td style="background:rgba(0,0,0,.04);border:1px solid var(--border);vertical-align:top;padding:6px;width:70px;min-width:70px;">'+
+             '<button class="eikon-btn sh-week-apply" data-ws="'+esc(ws)+'" data-we="'+esc(we)+'" style="font-size:11px;padding:6px 8px;width:100%;">↻ Pattern</button>'+
+             '<div style="margin-top:6px;font-size:9px;color:var(--muted);text-align:center;">'+esc(ws.slice(5))+'–'+esc(we.slice(5))+'</div>'+
+             '</td>';
+
       for(var c=0;c<7;c++,cellDay++){
         if(cellDay<1||cellDay>days){
-          row+='<td style="background:rgba(0,0,0,.12);height:84px;"></td>';
+          row+='<td style="background:rgba(0,0,0,.12);height:84px;border:1px solid var(--border);"></td>';
         } else {
           anyReal=true;
           var ds=ymd(y,mo,cellDay);
@@ -460,25 +1012,30 @@
           var bg=ph?"rgba(90,162,255,.06)":oh.closed?"rgba(0,0,0,.18)":"rgba(255,255,255,.02)";
           var bc=(!oh.closed&&!cov.ok)?"rgba(255,90,122,.6)":"var(--border)";
           var wd=new Date(ds).getDay(); var isWknd=wd===0||wd===6;
+
           var pills=dayShifts.map(function(s){
             var e=emp(s.staff_id); if(!e)return"";
             var lv=onLeaveMap[s.staff_id];
             var col=dc(e.designation);
             var extra=lv?"opacity:0.35;text-decoration:line-through;":"";
-            return '<div style="font-size:10px;padding:2px 5px;border-radius:5px;margin-top:2px;background:'+col+'1a;border:1px solid '+col+'55;color:'+col+';'+extra+'overflow:hidden;white-space:nowrap;text-overflow:ellipsis;" title="'+esc(e.full_name)+(lv?" (on leave)":"")+'">'+esc(e.full_name.split(" ")[0])+(s.start_time?" "+s.start_time.slice(0,5):"")+'</div>';
+            return '<div style="font-size:10px;padding:2px 5px;border-radius:5px;margin-top:2px;background:'+col+'1a;border:1px solid '+col+'55;color:'+col+';'+extra+'overflow:hidden;white-space:nowrap;text-overflow:ellipsis;" title="'+esc(e.full_name)+(lv?" (on leave)":"")+'">'+esc((e.full_name||"").split(" ")[0])+(s.start_time?" "+s.start_time.slice(0,5):"")+'</div>';
           }).join("");
+
           var lvPills=Object.keys(onLeaveMap).filter(function(sid){
             return !dayShifts.some(function(s){return s.staff_id==sid;});
           }).map(function(sid){
             var e=emp(+sid); if(!e)return"";
-            return '<div style="font-size:10px;padding:2px 5px;border-radius:5px;margin-top:2px;background:rgba(255,90,122,.12);border:1px solid rgba(255,90,122,.3);color:var(--danger);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">🏖'+esc(e.full_name.split(" ")[0])+'</div>';
+            return '<div style="font-size:10px;padding:2px 5px;border-radius:5px;margin-top:2px;background:rgba(255,90,122,.12);border:1px solid rgba(255,90,122,.3);color:var(--danger);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">🏖'+esc((e.full_name||"").split(" ")[0])+'</div>';
           }).join("");
+
+          var warn = (!cov.ok && !oh.closed) ? (cov.gaps && cov.gaps.length && (cov.gaps[0].start===t2m(oh.open||"") && cov.gaps[0].end===t2m(oh.close||"")) ? "⚠ No pharm." : "⚠ Pharm gap") : "";
+
           row+='<td style="vertical-align:top;padding:6px;background:'+bg+';border:1px solid '+bc+';cursor:pointer;height:84px;width:14.28%;position:relative;" data-date="'+ds+'">'+
             '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:2px;">'+
             '<span style="font-weight:700;font-size:13px;color:'+(isWknd?"var(--muted)":"var(--text)")+';">'+cellDay+'</span>'+
             (ph?'<span style="font-size:9px;background:rgba(90,162,255,.2);color:var(--accent);border-radius:3px;padding:1px 3px;">PH</span>':"")+'</div>'+
             '<div style="font-size:9px;color:var(--muted);margin-bottom:2px;">'+(oh.closed?"CLOSED":(oh.open||"")+"–"+(oh.close||""))+'</div>'+
-            (!cov.ok&&!oh.closed?'<div style="font-size:9px;color:var(--danger);font-weight:700;">⚠ No pharm.</div>':"")+
+            (warn?'<div style="font-size:9px;color:var(--danger);font-weight:700;">'+warn+'</div>':"")+
             pills+lvPills+'</td>';
         }
       }
@@ -498,10 +1055,10 @@
       Object.keys(DESIG).slice(0,5).map(function(k){
         return '<span style="display:flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:'+dc(k)+';display:inline-block;"></span>'+DESIG[k]+'</span>';
       }).join("")+'</div></div>'+
-      '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;min-width:560px;">'+
-      '<thead><tr>'+DSHORT.map(function(d){return '<th style="text-align:center;padding:8px;font-size:12px;color:var(--muted);">'+d+'</th>';}).join("")+'</tr></thead>'+
+      '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;min-width:640px;">'+
+      '<thead><tr><th style="text-align:center;padding:8px;font-size:12px;color:var(--muted);">Week</th>'+DSHORT.map(function(d){return '<th style="text-align:center;padding:8px;font-size:12px;color:var(--muted);">'+d+'</th>';}).join("")+'</tr></thead>'+
       '<tbody>'+cells+'</tbody></table></div>'+
-      '<div style="margin-top:8px;font-size:11px;color:var(--muted);">💡 Click any day to manage shifts. <span style="color:var(--danger)">Red border</span> = missing pharmacist. <span style="color:var(--accent)">PH</span> = Public Holiday.</div>'+
+      '<div style="margin-top:8px;font-size:11px;color:var(--muted);">💡 Click any day to manage shifts. <span style="color:var(--danger)">Red border</span> = pharmacist uncovered hours. <span style="color:var(--accent)">PH</span> = Public Holiday.</div>'+
       '</div>';
 
     E.q("#sh-cp",m).onclick=function(){ S.month--; if(S.month<0){S.month=11;S.year--;} loadMonth().then(function(){vCalendar(m);}); };
@@ -511,9 +1068,16 @@
     m.querySelectorAll("td[data-date]").forEach(function(td){
       td.onclick=function(){ dayModal(td.getAttribute("data-date"), function(){vCalendar(m);}); };
     });
-  }
 
-  function dayModal(ds, onSave) {
+    m.querySelectorAll(".sh-week-apply").forEach(function(btn){
+      btn.onclick=function(ev){
+        ev && ev.stopPropagation();
+        weekApplyModal(btn.getAttribute("data-ws"), btn.getAttribute("data-we"), function(){
+          loadMonth().then(function(){vCalendar(m);});
+        });
+      };
+    });
+  }function dayModal(ds, onSave) {
     var oh=ohFor(ds);
     var dayShifts=S.shifts.filter(function(s){return s.shift_date===ds;});
     var dayLeaves=S.leaves.filter(function(l){return l.status==="approved"&&l.start_date<=ds&&l.end_date>=ds;});
@@ -521,15 +1085,17 @@
     var cov=checkCov(ds);
     var ph=isPH(ds);
     var allPharm=pharmStaff();
-    var pharmOnDuty=dayShifts.filter(function(s){ return !onLeaveMap[s.staff_id] && (function(e){ return e&&(e.designation==="pharmacist"||e.designation==="locum"); })(emp(s.staff_id)); });
+
     var staffOpts=actStaff().map(function(s){ return '<option value="'+s.id+'">'+esc(s.full_name)+' ('+esc(dl(s.designation))+')</option>'; }).join("");
 
+    // Coverage banner (supports partial gaps)
     var covBanner="";
-    if(S.settings.pharmacistRequired && pharmOnDuty.length===0 && !oh.closed){
+    if(S.settings.pharmacistRequired && !cov.ok && !oh.closed){
+      var gapTxt = (cov.gaps||[]).slice(0,4).map(function(g){ return m2t(g.start)+"–"+m2t(g.end); }).join(", ");
       var alts=allPharm.filter(function(p){ return !dayShifts.some(function(s){return s.staff_id===p.id;}); });
-      var locumAvail=actStaff().some(function(s){return s.designation==="locum";});
+      var hint = alts.length ? (" Assign: "+alts.slice(0,3).map(function(a){return esc(a.full_name);}).join(", ")+".") : "";
       covBanner='<div style="padding:8px 10px;background:rgba(255,90,122,.1);border:1px solid rgba(255,90,122,.35);border-radius:8px;font-size:12px;margin-bottom:10px;">'+
-        '⚠️ <b>No pharmacist coverage!</b> '+(alts.length?" Assign: "+alts.slice(0,2).map(function(a){return esc(a.full_name);}).join(", ")+".":(locumAvail?" Assign available locum.":" Consider booking a locum."))+'</div>';
+        '⚠️ <b>Pharmacist uncovered hours:</b> '+esc(gapTxt||"")+hint+'</div>';
     }
 
     var shiftRows=dayShifts.length
@@ -546,6 +1112,9 @@
     var lvRow=dayLeaves.length
       ? '<div style="margin-bottom:10px;">'+dayLeaves.map(function(l){ var e=emp(l.staff_id); return '<span class="eikon-pill" style="font-size:11px;color:var(--danger);border-color:rgba(255,90,122,.4);">🏖 '+esc(e?e.full_name:"?")+'</span> '; }).join("")+'</div>':"";
 
+    var defaultSt = oh.open||"07:30";
+    var defaultEt = oh.close||"19:30";
+
     var body=
       '<div style="font-size:12px;color:var(--muted);margin-bottom:8px;">'+esc(ds)+
       (ph?' <span style="color:var(--accent);font-weight:700;">— Public Holiday</span>':"")+
@@ -555,27 +1124,57 @@
       '<div id="dm-shifts">'+shiftRows+'</div>'+
       '<hr style="border-color:var(--border);margin:12px 0;"/>'+
       '<div style="font-weight:700;margin-bottom:8px;">Add Shift</div>'+
-      '<div class="eikon-row">'+
-      '<div class="eikon-field"><div class="eikon-label">Employee</div><select class="eikon-select" id="dm-emp">'+staffOpts+'</select></div>'+
-      '<div class="eikon-field"><div class="eikon-label">Start</div><input class="eikon-input" id="dm-st" type="time" value="'+(oh.open||"09:00")+'"/></div>'+
-      '<div class="eikon-field"><div class="eikon-label">End</div><input class="eikon-input" id="dm-et" type="time" value="'+(oh.close||"18:00")+'"/></div>'+
-      '</div>'+
-      '<div class="eikon-field" style="margin-top:8px;"><div class="eikon-label">Notes</div><input class="eikon-input" id="dm-nt" type="text" placeholder="optional"/></div>';
+      (oh.closed?'<div style="padding:10px;border:1px solid var(--border);border-radius:10px;color:var(--muted);font-size:12px;">This day is marked as closed in Opening Hours.</div>':(
+        '<div class="eikon-row">'+
+        '<div class="eikon-field"><div class="eikon-label">Employee</div><select class="eikon-select" id="dm-emp">'+staffOpts+'</select></div>'+
+        '<div class="eikon-field"><div class="eikon-label">Start</div><input class="eikon-input" id="dm-st" type="time" value="'+esc(defaultSt)+'"/></div>'+
+        '<div class="eikon-field"><div class="eikon-label">End</div><input class="eikon-input" id="dm-et" type="time" value="'+esc(defaultEt)+'"/></div>'+
+        '</div>'+
+        '<div class="eikon-field" style="margin-top:8px;"><div class="eikon-label">Notes</div><input class="eikon-input" id="dm-nt" type="text" placeholder="optional"/></div>'+
+        (S.settings.pharmacistRequired && cov.gaps && cov.gaps.length ? '<div style="margin-top:8px;font-size:11px;color:var(--muted);">Suggestion: cover '+esc(m2t(cov.gaps[0].start))+'–'+esc(m2t(cov.gaps[0].end))+' (uncovered).</div>':"")
+      ));
 
     E.modal.show("Shifts — "+ds, body, [
       {label:"Close", onClick:function(){E.modal.hide();}},
       {label:"Add Shift", primary:true, onClick:function(){
+        if(oh.closed){ E.modal.hide(); return; }
         var sid=parseInt(E.q("#dm-emp").value);
         var st=E.q("#dm-st").value; var et=E.q("#dm-et").value;
         if(!sid||!st||!et){toast("Fill all fields","error");return;}
         if(t2m(et)<=t2m(st)){toast("End must be after start","error");return;}
         var p={staff_id:sid,shift_date:ds,start_time:st,end_time:et,notes:E.q("#dm-nt").value.trim()};
         p.id=lsNextId(); S.shifts.push(p);
-        apiOp("/shifts/assignments",{method:"POST",body:JSON.stringify(p)},function(r){ if(r.shift_id)p.id=r.shift_id; E.modal.hide(); toast("Shift added."); onSave&&onSave(); });
+        apiOp("/shifts/assignments",{method:"POST",body:JSON.stringify(p)},function(r){
+          if(r.shift_id)p.id=r.shift_id;
+          E.modal.hide();
+          toast("Shift added.");
+          onSave&&onSave();
+        });
       }}
     ]);
 
     setTimeout(function(){
+      // Suggest uncovered times for pharmacists/locums
+      function applyGapSuggestionIfPharm(){
+        var empSel = document.getElementById("dm-emp");
+        if(!empSel) return;
+        var sid = parseInt(empSel.value,10);
+        var e = emp(sid);
+        if(!e) return;
+        var isPh = (e.designation==="pharmacist" || e.designation==="locum");
+        if(isPh && cov.gaps && cov.gaps.length){
+          var stEl = document.getElementById("dm-st");
+          var etEl = document.getElementById("dm-et");
+          if(stEl && etEl){
+            stEl.value = m2t(cov.gaps[0].start);
+            etEl.value = m2t(cov.gaps[0].end);
+          }
+        }
+      }
+      var empSel = document.getElementById("dm-emp");
+      if(empSel) empSel.onchange = applyGapSuggestionIfPharm;
+      applyGapSuggestionIfPharm();
+
       document.querySelectorAll("[data-del-sh]").forEach(function(btn){
         btn.onclick=function(){
           var id=parseInt(btn.getAttribute("data-del-sh"));
@@ -595,8 +1194,156 @@
       });
     },80);
   }
+  function weekApplyModal(ws, we, done) {
+    var staff = actStaff();
+    if (!staff.length) { toast("No staff available","error"); return; }
 
-  function singleShiftModal(e2, ds, existing, onSave) {
+    // helpers
+    function weekDates(start) {
+      var out=[]; for(var i=0;i<7;i++) out.push(addD(start,i));
+      return out;
+    }
+
+    var staffOpts = staff.map(function(s){ return '<option value="'+s.id+'">'+esc(s.full_name)+' ('+esc(dl(s.designation))+')</option>'; }).join("");
+
+    var body =
+      '<div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Apply a weekly pattern for <b>'+esc(ws)+'</b> to <b>'+esc(we)+'</b>.</div>'+
+      '<div class="eikon-row">'+
+        '<div class="eikon-field"><div class="eikon-label">Employee</div><select class="eikon-select" id="wa-emp">'+staffOpts+'</select></div>'+
+        '<div class="eikon-field"><div class="eikon-label">Start from</div><select class="eikon-select" id="wa-pat"></select></div>'+
+        '<div class="eikon-field"><div class="eikon-label">Mode</div>'+
+          '<select class="eikon-select" id="wa-mode"><option value="overwrite">Overwrite</option><option value="fill">Fill empty only</option></select>'+
+        '</div>'+
+      '</div>'+
+      '<div id="wa-week" style="margin-top:10px;"></div>'+
+      '<div style="margin-top:10px;font-size:11px;color:var(--muted);">'+
+      'This will also save the confirmed week as a new pattern for the employee.</div>';
+
+    E.modal.show("Apply Pattern — Week", body, [
+      {label:"Cancel", onClick:function(){E.modal.hide();}},
+      {label:"Apply", primary:true, onClick:function(){
+        var sid = parseInt(E.q("#wa-emp").value,10);
+        var e = emp(sid);
+        if(!e){ toast("Select employee","error"); return; }
+
+        var mode = E.q("#wa-mode").value;
+        if(mode==="overwrite" && !confirm("Overwrite shifts for "+e.full_name+" from "+ws+" to "+we+"?")) return;
+
+        // Collect dates payload
+        var ds = weekDates(ws);
+        var dates = [];
+        for (var i=0;i<ds.length;i++){
+          var off = !!E.q("#wa-off-"+i).checked;
+          var st = (E.q("#wa-st-"+i).value||"").trim();
+          var et = (E.q("#wa-et-"+i).value||"").trim();
+          if (off || !st || !et) continue;
+          if (t2m(et) <= t2m(st)) { toast(ds[i]+": end must be after start","error"); return; }
+          dates.push({ date: ds[i], start_time: st, end_time: et });
+        }
+
+        apiOp("/shifts/apply-pattern", {method:"POST", body: JSON.stringify({
+          staff_id: sid,
+          start_date: ws,
+          end_date: we,
+          mode: mode,
+          dates: dates
+        })}, function(r){
+          // Save as new pattern (always)
+          var pState = getPatternState(e);
+          var week = [];
+          for (var d=0; d<7; d++) week[d] = {off:true};
+          for (var i=0;i<ds.length;i++){
+            var dt = new Date(ds[i]);
+            var dow2 = dt.getDay();
+            var off2 = !!E.q("#wa-off-"+i).checked;
+            var st2 = (E.q("#wa-st-"+i).value||"").trim();
+            var et2 = (E.q("#wa-et-"+i).value||"").trim();
+            if (off2 || !st2 || !et2) week[dow2] = {off:true};
+            else week[dow2] = {off:false, start: st2, end: et2};
+          }
+          var newPat = normalizePattern({ id:"pat_"+Date.now()+"_"+Math.random().toString(16).slice(2), name:"Week "+ws, week:week, createdAt: Date.now() });
+          pState.patterns.push(newPat);
+
+          // persist staff with updated patterns_json
+          var payload = Object.assign({}, e, {
+            patterns_json: JSON.stringify({patterns: pState.patterns, provisionalId: pState.provisionalId || null})
+          });
+          saveEmp(e.id, payload, function(){
+            E.modal.hide();
+            toast("Applied. Inserted: "+(r&&r.inserted!=null?r.inserted:"")+"");
+            done && done();
+          });
+        });
+      }}
+    ]);
+
+    setTimeout(function(){
+      var empSel = document.getElementById("wa-emp");
+      var patSel = document.getElementById("wa-pat");
+      var weekWrap = document.getElementById("wa-week");
+      if(!empSel || !patSel || !weekWrap) return;
+
+      function renderWeekFromPattern(pattern) {
+        var ds = weekDates(ws);
+        var DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+        var rows = ds.map(function(dateStr, i){
+          var d = new Date(dateStr).getDay();
+          var entry = (pattern && pattern.week && pattern.week[d]) ? pattern.week[d] : {off:true};
+          var off = !!entry.off || !entry.start || !entry.end;
+          return ''+
+            '<tr>'+
+              '<td style="padding:6px 8px;font-weight:700;white-space:nowrap;">'+DAYS[d]+' <span style="color:var(--muted);font-weight:600;">'+esc(dateStr.slice(5))+'</span></td>'+
+              '<td style="padding:6px 8px;"><label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);"><input type="checkbox" id="wa-off-'+i+'" '+(off?'checked':'')+'/> Off</label></td>'+
+              '<td style="padding:6px 8px;"><input class="eikon-input" id="wa-st-'+i+'" type="time" value="'+esc(off?"":(entry.start||""))+'" style="min-width:110px;"/></td>'+
+              '<td style="padding:6px 8px;"><input class="eikon-input" id="wa-et-'+i+'" type="time" value="'+esc(off?"":(entry.end||""))+'" style="min-width:110px;"/></td>'+
+            '</tr>';
+        }).join("");
+
+        weekWrap.innerHTML =
+          '<div class="eikon-table-wrap"><table class="eikon-table">'+
+          '<thead><tr><th>Day</th><th>Off</th><th>Start</th><th>End</th></tr></thead>'+
+          '<tbody>'+rows+'</tbody></table></div>';
+
+        // disable start/end when off toggled
+        ds.forEach(function(_, i){
+          var offEl = document.getElementById("wa-off-"+i);
+          if(!offEl) return;
+          offEl.onchange = function(){
+            var stEl = document.getElementById("wa-st-"+i);
+            var etEl = document.getElementById("wa-et-"+i);
+            if(stEl && etEl){
+              if(offEl.checked){ stEl.value=""; etEl.value=""; }
+            }
+          };
+        });
+      }
+
+      function refreshPatternChoices() {
+        var sid = parseInt(empSel.value,10);
+        var e = emp(sid);
+        var st = getPatternState(e);
+        var pats = st.patterns || [];
+        var prov = st.provisionalId;
+        if (!pats.length) {
+          // offer blank
+          patSel.innerHTML = '<option value="__blank">Blank</option>';
+          renderWeekFromPattern(null);
+          return;
+        }
+        patSel.innerHTML = pats.map(function(p){
+          return '<option value="'+esc(p.id)+'"'+(p.id===prov?' selected':'')+'>'+esc(p.name)+(p.id===prov?' (provisional)':'')+'</option>';
+        }).join("");
+        var selPat = findPattern(st, patSel.value) || findPattern(st, prov) || pats[0];
+        renderWeekFromPattern(selPat);
+      }
+
+      empSel.onchange = refreshPatternChoices;
+      patSel.onchange = refreshPatternChoices;
+      refreshPatternChoices();
+    }, 50);
+  }
+
+function singleShiftModal(e2, ds, existing, onSave) {
     var oh=ohFor(ds);
     var body=
       '<div style="margin-bottom:10px;font-size:13px;"><b>'+esc(e2?e2.full_name:"?")+' — '+esc(ds)+'</b></div>'+
