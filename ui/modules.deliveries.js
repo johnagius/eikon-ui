@@ -1330,12 +1330,14 @@
   var dvMapMarker = null;
   var dvMapGeoTimer = null;
   var dvMapLeafletReady = false;
+  var dvMapSuppressFwd = false; // true while we're filling the textarea from a map click
 
   function dvMapCleanup() {
     try {
       if (dvMapGeoTimer) { clearTimeout(dvMapGeoTimer); dvMapGeoTimer = null; }
       if (dvMap) { dvMap.remove(); dvMap = null; }
       dvMapMarker = null;
+      dvMapSuppressFwd = false;
     } catch(e) {}
   }
 
@@ -1402,10 +1404,11 @@
             dvMapReverseGeocode(lat, lng);
           });
 
-          // Wire address textarea → forward geocode
+          // Wire address textarea → forward geocode (only when user is typing, not when we fill it)
           var addrEl = document.getElementById("dv-address");
           if (addrEl) {
             addrEl.addEventListener("input", function() {
+              if (dvMapSuppressFwd) { dvMapSuppressFwd = false; return; }
               if (dvMapGeoTimer) clearTimeout(dvMapGeoTimer);
               var v = (addrEl.value || "").trim();
               if (!v || v.length < 5) { dvMapSetStatus(""); return; }
@@ -1448,29 +1451,43 @@
   async function dvMapReverseGeocode(lat, lng) {
     try {
       var url = "https://nominatim.openstreetmap.org/reverse?format=json&lat=" +
-        encodeURIComponent(lat) + "&lon=" + encodeURIComponent(lng) + "&zoom=18&addressdetails=1";
+        encodeURIComponent(lat) + "&lon=" + encodeURIComponent(lng) +
+        "&zoom=18&addressdetails=1";
       var resp = await fetch(url, { headers: { "Accept-Language": "en" } });
       if (!resp.ok) throw new Error("Nominatim reverse " + resp.status);
       var data = await resp.json();
-      if (!data || !data.display_name) { dvMapSetStatus("Couldn't resolve address."); return; }
+      if (!data || !data.address) { dvMapSetStatus("Couldn't resolve address."); return; }
 
-      var addr = data.display_name;
-      // Trim trailing country info for brevity
-      var parts = addr.split(", ");
-      // Remove "Malta" duplicate at end if present
-      while (parts.length > 1 && norm(parts[parts.length-1]) === "malta") parts.pop();
-      var trimmed = parts.join(", ");
+      // Build a clean human address from structured parts
+      var a = data.address;
+      var parts = [];
+      // House number + road
+      if (a.house_number && a.road) parts.push(a.house_number + " " + a.road);
+      else if (a.road) parts.push(a.road);
+      else if (a.pedestrian) parts.push(a.pedestrian);
+      else if (a.footway) parts.push(a.footway);
+      // Suburb / neighbourhood / village / town / city
+      if (a.suburb)       parts.push(a.suburb);
+      else if (a.village) parts.push(a.village);
+      else if (a.town)    parts.push(a.town);
+      else if (a.city)    parts.push(a.city);
+      // Postcode
+      if (a.postcode) parts.push(a.postcode);
+
+      var trimmed = parts.length ? parts.join(", ") : (data.display_name || "");
 
       dvMapSetStatus("");
       dvMapSetResult(trimmed);
       dvMapSetHint("");
 
-      // Fill the address textarea
+      // Fill the address textarea — set suppress so the input event doesn't
+      // trigger a forward geocode that would move the pin away from where the
+      // user clicked
       var addrEl = document.getElementById("dv-address");
       if (addrEl) {
+        dvMapSuppressFwd = true;
         addrEl.value = trimmed;
-        // Fire input event so any other listeners pick it up
-        try { addrEl.dispatchEvent(new Event("input", {bubbles: true})); } catch(e2){}
+        try { addrEl.dispatchEvent(new Event("input", { bubbles: true })); } catch(e2) {}
       }
     } catch(ex) {
       dvMapSetStatus("Reverse lookup failed.");
@@ -1480,13 +1497,22 @@
 
   async function dvMapGeocode(addr) {
     try {
-      var q = encodeURIComponent(addr + ", Malta");
-      var url = "https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" + q;
+      // Use countrycodes=mt to constrain to Malta, and addressdetails for precision
+      var q = encodeURIComponent(addr);
+      var url = "https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=1" +
+        "&countrycodes=mt&q=" + q;
       var resp = await fetch(url, { headers: { "Accept-Language": "en" } });
       if (!resp.ok) throw new Error("Nominatim " + resp.status);
       var data = await resp.json();
       if (!data || !data.length) {
-        dvMapSetStatus("Address not found on map — check spelling.");
+        // Retry without countrycodes in case user typed a valid address not matching MT
+        var url2 = "https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=1&q=" +
+          encodeURIComponent(addr + ", Malta");
+        var resp2 = await fetch(url2, { headers: { "Accept-Language": "en" } });
+        if (resp2.ok) { var d2 = await resp2.json(); if (d2 && d2.length) data = d2; }
+      }
+      if (!data || !data.length) {
+        dvMapSetStatus("Address not found — try adding the town name (e.g. Valletta, Sliema).");
         dvMapSetResult("");
         return;
       }
@@ -1497,7 +1523,7 @@
       dvMapSetHint("");
 
       if (!dvMap) return;
-      dvMap.setView([lat, lng], 17);
+      dvMap.setView([lat, lng], 18);  // zoom to 18 for house-level precision
 
       if (dvMapMarker) {
         dvMapMarker.setLatLng([lat, lng]);
