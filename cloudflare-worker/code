@@ -4938,6 +4938,278 @@ async function handleReturnsEntryDelete(request, env, corsOkHeaders, authUser, i
 }
 
 
+/* ========================= CLIENT DELIVERIES ========================= */
+
+async function ensureDeliveriesSchema(env) {
+  await dbRun(env, `
+    CREATE TABLE IF NOT EXISTS client_deliveries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+
+      delivery_id TEXT NOT NULL DEFAULT '',
+      order_date TEXT NOT NULL,
+      scheduled_date TEXT NOT NULL DEFAULT '',
+      scheduled_time_slot TEXT NOT NULL DEFAULT '',
+      actual_delivery_date TEXT NOT NULL DEFAULT '',
+      actual_delivery_time TEXT NOT NULL DEFAULT '',
+
+      client_name TEXT NOT NULL,
+      phone TEXT NOT NULL DEFAULT '',
+      email TEXT NOT NULL DEFAULT '',
+      delivery_address TEXT NOT NULL,
+      address_notes TEXT NOT NULL DEFAULT '',
+      id_doc_ref TEXT NOT NULL DEFAULT '',
+
+      delivery_method TEXT NOT NULL DEFAULT 'In-house Driver',
+      priority INTEGER NOT NULL DEFAULT 2,
+      assigned_driver TEXT NOT NULL DEFAULT '',
+      tracking_number TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'Scheduled',
+
+      signature_required INTEGER NOT NULL DEFAULT 0,
+      signature_obtained INTEGER NOT NULL DEFAULT 0,
+      recipient_name TEXT NOT NULL DEFAULT '',
+      proof_of_delivery TEXT NOT NULL DEFAULT '',
+      delivery_attempts INTEGER NOT NULL DEFAULT 0,
+      failure_reason TEXT NOT NULL DEFAULT '',
+
+      contains_controlled INTEGER NOT NULL DEFAULT 0,
+      cold_chain_required INTEGER NOT NULL DEFAULT 0,
+
+      ticket_ref TEXT NOT NULL DEFAULT '',
+      items TEXT NOT NULL DEFAULT '[]',
+      delivery_log TEXT NOT NULL DEFAULT '[]',
+      internal_notes TEXT NOT NULL DEFAULT '',
+
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      created_by INTEGER,
+      updated_by INTEGER
+    )
+  `);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_client_deliveries_org_loc ON client_deliveries(org_id, location_id)`);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_client_deliveries_org_loc_status ON client_deliveries(org_id, location_id, status)`);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_client_deliveries_org_loc_order_date ON client_deliveries(org_id, location_id, order_date)`);
+}
+
+async function handleDeliveriesEntriesList(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureDeliveriesSchema(env);
+
+  const rows = await dbAll(env, `
+    SELECT
+      id, delivery_id, order_date, scheduled_date, scheduled_time_slot,
+      actual_delivery_date, actual_delivery_time,
+      client_name, phone, email, delivery_address, address_notes, id_doc_ref,
+      delivery_method, priority, assigned_driver, tracking_number, status,
+      signature_required, signature_obtained, recipient_name, proof_of_delivery,
+      delivery_attempts, failure_reason,
+      contains_controlled, cold_chain_required,
+      ticket_ref, items, delivery_log, internal_notes,
+      created_at, updated_at
+    FROM client_deliveries
+    WHERE org_id=? AND location_id=?
+    ORDER BY
+      CASE WHEN status IN ('Scheduled','Dispatched','Out for Delivery') THEN 0 ELSE 1 END ASC,
+      priority ASC,
+      order_date DESC,
+      id DESC
+    LIMIT 2000
+  `, [authUser.org_id, authUser.location_id]);
+
+  return jsonResponse({ ok: true, entries: rows || [] }, 200, corsOkHeaders);
+}
+
+async function handleDeliveriesEntryCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureDeliveriesSchema(env);
+
+  const body = await readJson(request);
+
+  const delivery_id          = String(body.delivery_id || "").trim();
+  const order_date           = String(body.order_date || "").trim();
+  const scheduled_date       = String(body.scheduled_date || "").trim();
+  const scheduled_time_slot  = String(body.scheduled_time_slot || "").trim();
+  const actual_delivery_date = String(body.actual_delivery_date || "").trim();
+  const actual_delivery_time = String(body.actual_delivery_time || "").trim();
+  const client_name          = String(body.client_name || "").trim();
+  const phone                = String(body.phone || "").trim();
+  const email                = String(body.email || "").trim();
+  const delivery_address     = String(body.delivery_address || "").trim();
+  const address_notes        = String(body.address_notes || "").trim();
+  const id_doc_ref           = String(body.id_doc_ref || "").trim();
+  const delivery_method      = String(body.delivery_method || "In-house Driver").trim();
+  const priority             = Math.max(1, Math.min(3, parseInt(body.priority || 2, 10) || 2));
+  const assigned_driver      = String(body.assigned_driver || "").trim();
+  const tracking_number      = String(body.tracking_number || "").trim();
+  const status               = String(body.status || "Scheduled").trim();
+  const recipient_name       = String(body.recipient_name || "").trim();
+  const proof_of_delivery    = String(body.proof_of_delivery || "").trim();
+  const delivery_attempts    = Math.max(0, parseInt(body.delivery_attempts || 0, 10) || 0);
+  const failure_reason       = String(body.failure_reason || "").trim();
+  const ticket_ref           = String(body.ticket_ref || "").trim();
+  const items                = String(body.items || "[]").trim();
+  const delivery_log         = String(body.delivery_log || "[]").trim();
+  const internal_notes       = String(body.internal_notes || "").trim();
+
+  const signature_required   = to01(body.signature_required);
+  const signature_obtained   = to01(body.signature_obtained);
+  const contains_controlled  = to01(body.contains_controlled);
+  const cold_chain_required  = to01(body.cold_chain_required);
+
+  if (!client_name) return jsonResponse({ ok: false, error: "Client name required" }, 400, corsOkHeaders);
+  if (!delivery_address) return jsonResponse({ ok: false, error: "Delivery address required" }, 400, corsOkHeaders);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(order_date)) return jsonResponse({ ok: false, error: "Invalid order_date" }, 400, corsOkHeaders);
+
+  const res = await dbRun(env, `
+    INSERT INTO client_deliveries (
+      org_id, location_id,
+      delivery_id, order_date, scheduled_date, scheduled_time_slot,
+      actual_delivery_date, actual_delivery_time,
+      client_name, phone, email, delivery_address, address_notes, id_doc_ref,
+      delivery_method, priority, assigned_driver, tracking_number, status,
+      signature_required, signature_obtained, recipient_name, proof_of_delivery,
+      delivery_attempts, failure_reason,
+      contains_controlled, cold_chain_required,
+      ticket_ref, items, delivery_log, internal_notes,
+      created_at, updated_at, created_by, updated_by
+    ) VALUES (
+      ?, ?,
+      ?, ?, ?, ?,
+      ?, ?,
+      ?, ?, ?, ?, ?, ?,
+      ?, ?, ?, ?, ?,
+      ?, ?, ?, ?,
+      ?, ?,
+      ?, ?,
+      ?, ?, ?, ?,
+      datetime('now'), datetime('now'), ?, ?
+    )
+  `, [
+    authUser.org_id, authUser.location_id,
+    delivery_id, order_date, scheduled_date, scheduled_time_slot,
+    actual_delivery_date, actual_delivery_time,
+    client_name, phone, email, delivery_address, address_notes, id_doc_ref,
+    delivery_method, priority, assigned_driver, tracking_number, status,
+    signature_required, signature_obtained, recipient_name, proof_of_delivery,
+    delivery_attempts, failure_reason,
+    contains_controlled, cold_chain_required,
+    ticket_ref, items, delivery_log, internal_notes,
+    authUser.user_id, authUser.user_id
+  ]);
+
+  const newId = (res && res.meta && res.meta.last_row_id) ? Number(res.meta.last_row_id) : null;
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DELIVERY_CREATE", "client_deliveries", String(newId || ""), { delivery_id, client_name, status });
+
+  return jsonResponse({ ok: true, id: newId }, 200, corsOkHeaders);
+}
+
+async function handleDeliveriesEntryUpdate(request, env, corsOkHeaders, authUser, id) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureDeliveriesSchema(env);
+
+  const existing = await dbFirst(env, `
+    SELECT id, delivery_id, client_name, status
+    FROM client_deliveries
+    WHERE id=? AND org_id=? AND location_id=?
+  `, [id, authUser.org_id, authUser.location_id]);
+
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+
+  const delivery_id          = String(body.delivery_id || "").trim();
+  const order_date           = String(body.order_date || "").trim();
+  const scheduled_date       = String(body.scheduled_date || "").trim();
+  const scheduled_time_slot  = String(body.scheduled_time_slot || "").trim();
+  const actual_delivery_date = String(body.actual_delivery_date || "").trim();
+  const actual_delivery_time = String(body.actual_delivery_time || "").trim();
+  const client_name          = String(body.client_name || "").trim();
+  const phone                = String(body.phone || "").trim();
+  const email                = String(body.email || "").trim();
+  const delivery_address     = String(body.delivery_address || "").trim();
+  const address_notes        = String(body.address_notes || "").trim();
+  const id_doc_ref           = String(body.id_doc_ref || "").trim();
+  const delivery_method      = String(body.delivery_method || "In-house Driver").trim();
+  const priority             = Math.max(1, Math.min(3, parseInt(body.priority || 2, 10) || 2));
+  const assigned_driver      = String(body.assigned_driver || "").trim();
+  const tracking_number      = String(body.tracking_number || "").trim();
+  const status               = String(body.status || "Scheduled").trim();
+  const recipient_name       = String(body.recipient_name || "").trim();
+  const proof_of_delivery    = String(body.proof_of_delivery || "").trim();
+  const delivery_attempts    = Math.max(0, parseInt(body.delivery_attempts || 0, 10) || 0);
+  const failure_reason       = String(body.failure_reason || "").trim();
+  const ticket_ref           = String(body.ticket_ref || "").trim();
+  const items                = String(body.items || "[]").trim();
+  const delivery_log         = String(body.delivery_log || "[]").trim();
+  const internal_notes       = String(body.internal_notes || "").trim();
+
+  const signature_required   = to01(body.signature_required);
+  const signature_obtained   = to01(body.signature_obtained);
+  const contains_controlled  = to01(body.contains_controlled);
+  const cold_chain_required  = to01(body.cold_chain_required);
+
+  if (!client_name) return jsonResponse({ ok: false, error: "Client name required" }, 400, corsOkHeaders);
+  if (!delivery_address) return jsonResponse({ ok: false, error: "Delivery address required" }, 400, corsOkHeaders);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(order_date)) return jsonResponse({ ok: false, error: "Invalid order_date" }, 400, corsOkHeaders);
+
+  await dbRun(env, `
+    UPDATE client_deliveries SET
+      delivery_id=?, order_date=?, scheduled_date=?, scheduled_time_slot=?,
+      actual_delivery_date=?, actual_delivery_time=?,
+      client_name=?, phone=?, email=?, delivery_address=?, address_notes=?, id_doc_ref=?,
+      delivery_method=?, priority=?, assigned_driver=?, tracking_number=?, status=?,
+      signature_required=?, signature_obtained=?, recipient_name=?, proof_of_delivery=?,
+      delivery_attempts=?, failure_reason=?,
+      contains_controlled=?, cold_chain_required=?,
+      ticket_ref=?, items=?, delivery_log=?, internal_notes=?,
+      updated_at=datetime('now'), updated_by=?
+    WHERE id=? AND org_id=? AND location_id=?
+  `, [
+    delivery_id, order_date, scheduled_date, scheduled_time_slot,
+    actual_delivery_date, actual_delivery_time,
+    client_name, phone, email, delivery_address, address_notes, id_doc_ref,
+    delivery_method, priority, assigned_driver, tracking_number, status,
+    signature_required, signature_obtained, recipient_name, proof_of_delivery,
+    delivery_attempts, failure_reason,
+    contains_controlled, cold_chain_required,
+    ticket_ref, items, delivery_log, internal_notes,
+    authUser.user_id,
+    id, authUser.org_id, authUser.location_id
+  ]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DELIVERY_UPDATE", "client_deliveries", String(id), { delivery_id, client_name, status });
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleDeliveriesEntryDelete(request, env, corsOkHeaders, authUser, id) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureDeliveriesSchema(env);
+
+  const existing = await dbFirst(env, `
+    SELECT id, delivery_id, client_name, status
+    FROM client_deliveries
+    WHERE id=? AND org_id=? AND location_id=?
+  `, [id, authUser.org_id, authUser.location_id]);
+
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  await dbRun(env, `DELETE FROM client_deliveries WHERE id=? AND org_id=? AND location_id=?`, [id, authUser.org_id, authUser.location_id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DELIVERY_DELETE", "client_deliveries", String(id), { delivery_id: existing.delivery_id, client_name: existing.client_name });
+
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+
 /* ========================= CREDIT NOTES ========================= */
 
 async function ensureCreditNotesSchema(env) {
@@ -10113,6 +10385,20 @@ if (url.pathname.startsWith("/dda-stocktakes/items/")) {
         if (!nid) return jsonResponse({ ok: false, error: "Invalid note id" }, 400, corsOkHeaders);
         return await handleCreditNoteNoteDelete(request, env, corsOkHeaders, authUser, cnId, nid);
       }
+    }
+
+    // CLIENT DELIVERIES
+    if (url.pathname === "/client-deliveries/entries" && request.method === "GET") {
+      return await handleDeliveriesEntriesList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/client-deliveries/entries" && request.method === "POST") {
+      return await handleDeliveriesEntryCreate(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname.startsWith("/client-deliveries/entries/")) {
+      const dvId = parseInt(url.pathname.split("/")[3], 10);
+      if (!dvId) return jsonResponse({ ok: false, error: "Invalid id" }, 400, corsOkHeaders);
+      if (request.method === "PUT") return await handleDeliveriesEntryUpdate(request, env, corsOkHeaders, authUser, dvId);
+      if (request.method === "DELETE") return await handleDeliveriesEntryDelete(request, env, corsOkHeaders, authUser, dvId);
     }
 
     return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
