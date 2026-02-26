@@ -4593,6 +4593,230 @@ async function handleReturnsEntryDelete(request, env, corsOkHeaders, authUser, i
 }
 
 
+/* ========================= CREDIT NOTES ========================= */
+
+async function ensureCreditNotesSchema(env) {
+  await dbRun(env, `
+    CREATE TABLE IF NOT EXISTS credit_notes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+      issue_date TEXT NOT NULL,
+      client_name TEXT NOT NULL,
+      client_surname TEXT NOT NULL,
+      telephone TEXT NOT NULL,
+      email TEXT,
+      receipt_number TEXT,
+      amount REAL NOT NULL,
+      expiry_date TEXT,
+      no_expiry INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      created_by INTEGER,
+      updated_by INTEGER
+    )
+  `);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_credit_notes_org_loc ON credit_notes(org_id, location_id)`);
+
+  await dbRun(env, `
+    CREATE TABLE IF NOT EXISTS credit_note_purchases (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      credit_note_id INTEGER NOT NULL,
+      org_id INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+      amount REAL NOT NULL,
+      receipt_number TEXT,
+      timestamp TEXT NOT NULL DEFAULT (datetime('now')),
+      created_by INTEGER
+    )
+  `);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_cn_purchases_cn_id ON credit_note_purchases(credit_note_id)`);
+
+  await dbRun(env, `
+    CREATE TABLE IF NOT EXISTS credit_note_notes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      credit_note_id INTEGER NOT NULL,
+      org_id INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+      text TEXT NOT NULL,
+      timestamp TEXT NOT NULL DEFAULT (datetime('now')),
+      created_by INTEGER
+    )
+  `);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_cn_notes_cn_id ON credit_note_notes(credit_note_id)`);
+}
+
+async function handleCreditNotesList(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureCreditNotesSchema(env);
+
+  const rows = await dbAll(env, `
+    SELECT id, issue_date, client_name, client_surname, telephone, email,
+           receipt_number, amount, expiry_date, no_expiry
+    FROM credit_notes
+    WHERE org_id=? AND location_id=?
+    ORDER BY issue_date DESC, id DESC
+    LIMIT 1000
+  `, [authUser.org_id, authUser.location_id]);
+
+  const ids = (rows || []).map(r => r.id);
+  let purchases = [];
+  let notes = [];
+  if (ids.length) {
+    const placeholders = ids.map(() => "?").join(",");
+    purchases = await dbAll(env, `SELECT id, credit_note_id, amount, receipt_number, timestamp FROM credit_note_purchases WHERE credit_note_id IN (${placeholders}) AND org_id=? ORDER BY timestamp ASC`, [...ids, authUser.org_id]) || [];
+    notes = await dbAll(env, `SELECT id, credit_note_id, text, timestamp FROM credit_note_notes WHERE credit_note_id IN (${placeholders}) AND org_id=? ORDER BY timestamp ASC`, [...ids, authUser.org_id]) || [];
+  }
+
+  const purchaseMap = {};
+  for (const p of purchases) { if (!purchaseMap[p.credit_note_id]) purchaseMap[p.credit_note_id] = []; purchaseMap[p.credit_note_id].push(p); }
+  const notesMap = {};
+  for (const n of notes) { if (!notesMap[n.credit_note_id]) notesMap[n.credit_note_id] = []; notesMap[n.credit_note_id].push(n); }
+
+  const entries = (rows || []).map(r => ({
+    ...r,
+    no_expiry: r.no_expiry === 1 || r.no_expiry === true,
+    purchase_entries: purchaseMap[r.id] || [],
+    notes: notesMap[r.id] || []
+  }));
+
+  return jsonResponse({ ok: true, entries }, 200, corsOkHeaders);
+}
+
+async function handleCreditNoteCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureCreditNotesSchema(env);
+  const body = await readJson(request);
+  const issue_date = String(body.issue_date || "").trim();
+  const client_name = String(body.client_name || "").trim();
+  const client_surname = String(body.client_surname || "").trim();
+  const telephone = String(body.telephone || "").trim();
+  const email = String(body.email || "").trim();
+  const receipt_number = String(body.receipt_number || "").trim();
+  const amount = parseFloat(body.amount) || 0;
+  const expiry_date = String(body.expiry_date || "").trim();
+  const no_expiry = body.no_expiry ? 1 : 0;
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(issue_date)) return jsonResponse({ ok: false, error: "Invalid issue date" }, 400, corsOkHeaders);
+  if (!client_name) return jsonResponse({ ok: false, error: "Client name required" }, 400, corsOkHeaders);
+  if (!client_surname) return jsonResponse({ ok: false, error: "Client surname required" }, 400, corsOkHeaders);
+  if (!telephone) return jsonResponse({ ok: false, error: "Telephone required" }, 400, corsOkHeaders);
+  if (amount <= 0) return jsonResponse({ ok: false, error: "Amount must be > 0" }, 400, corsOkHeaders);
+  if (!no_expiry && expiry_date && !/^\d{4}-\d{2}-\d{2}$/.test(expiry_date)) return jsonResponse({ ok: false, error: "Invalid expiry date" }, 400, corsOkHeaders);
+
+  const res = await dbRun(env, `
+    INSERT INTO credit_notes (org_id, location_id, issue_date, client_name, client_surname, telephone, email, receipt_number, amount, expiry_date, no_expiry, created_at, updated_at, created_by, updated_by)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,datetime('now'),datetime('now'),?,?)
+  `, [authUser.org_id, authUser.location_id, issue_date, client_name, client_surname, telephone, email||null, receipt_number||null, amount, (no_expiry ? null : expiry_date||null), no_expiry, authUser.user_id, authUser.user_id]);
+
+  const newId = (res && res.meta && res.meta.last_row_id) ? Number(res.meta.last_row_id) : null;
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CREDITNOTE_CREATE", "credit_notes", String(newId||""), { issue_date, client_name, client_surname });
+  return jsonResponse({ ok: true, id: newId }, 200, corsOkHeaders);
+}
+
+async function handleCreditNoteUpdate(request, env, corsOkHeaders, authUser, id) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureCreditNotesSchema(env);
+  const existing = await dbFirst(env, `SELECT id FROM credit_notes WHERE id=? AND org_id=? AND location_id=?`, [id, authUser.org_id, authUser.location_id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+  const issue_date = String(body.issue_date || "").trim();
+  const client_name = String(body.client_name || "").trim();
+  const client_surname = String(body.client_surname || "").trim();
+  const telephone = String(body.telephone || "").trim();
+  const email = String(body.email || "").trim();
+  const receipt_number = String(body.receipt_number || "").trim();
+  const amount = parseFloat(body.amount) || 0;
+  const expiry_date = String(body.expiry_date || "").trim();
+  const no_expiry = body.no_expiry ? 1 : 0;
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(issue_date)) return jsonResponse({ ok: false, error: "Invalid issue date" }, 400, corsOkHeaders);
+  if (!client_name) return jsonResponse({ ok: false, error: "Client name required" }, 400, corsOkHeaders);
+  if (!client_surname) return jsonResponse({ ok: false, error: "Client surname required" }, 400, corsOkHeaders);
+  if (!telephone) return jsonResponse({ ok: false, error: "Telephone required" }, 400, corsOkHeaders);
+  if (amount <= 0) return jsonResponse({ ok: false, error: "Amount must be > 0" }, 400, corsOkHeaders);
+  if (!no_expiry && expiry_date && !/^\d{4}-\d{2}-\d{2}$/.test(expiry_date)) return jsonResponse({ ok: false, error: "Invalid expiry date" }, 400, corsOkHeaders);
+
+  await dbRun(env, `
+    UPDATE credit_notes SET issue_date=?,client_name=?,client_surname=?,telephone=?,email=?,receipt_number=?,amount=?,expiry_date=?,no_expiry=?,updated_at=datetime('now'),updated_by=?
+    WHERE id=? AND org_id=? AND location_id=?
+  `, [issue_date, client_name, client_surname, telephone, email||null, receipt_number||null, amount, (no_expiry ? null : expiry_date||null), no_expiry, authUser.user_id, id, authUser.org_id, authUser.location_id]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CREDITNOTE_UPDATE", "credit_notes", String(id), { issue_date, client_name, client_surname });
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleCreditNoteDelete(request, env, corsOkHeaders, authUser, id) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureCreditNotesSchema(env);
+  const existing = await dbFirst(env, `SELECT id, client_name, client_surname FROM credit_notes WHERE id=? AND org_id=? AND location_id=?`, [id, authUser.org_id, authUser.location_id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  await dbRun(env, `DELETE FROM credit_note_purchases WHERE credit_note_id=? AND org_id=?`, [id, authUser.org_id]);
+  await dbRun(env, `DELETE FROM credit_note_notes WHERE credit_note_id=? AND org_id=?`, [id, authUser.org_id]);
+  await dbRun(env, `DELETE FROM credit_notes WHERE id=? AND org_id=? AND location_id=?`, [id, authUser.org_id, authUser.location_id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CREDITNOTE_DELETE", "credit_notes", String(id), { client_name: existing.client_name, client_surname: existing.client_surname });
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleCreditNotePurchaseAdd(request, env, corsOkHeaders, authUser, creditNoteId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureCreditNotesSchema(env);
+  const cn = await dbFirst(env, `SELECT id FROM credit_notes WHERE id=? AND org_id=? AND location_id=?`, [creditNoteId, authUser.org_id, authUser.location_id]);
+  if (!cn) return jsonResponse({ ok: false, error: "Credit note not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+  const amount = parseFloat(body.amount) || 0;
+  const receipt_number = String(body.receipt_number || "").trim();
+  if (amount <= 0) return jsonResponse({ ok: false, error: "Amount must be > 0" }, 400, corsOkHeaders);
+
+  const res = await dbRun(env, `
+    INSERT INTO credit_note_purchases (credit_note_id, org_id, location_id, amount, receipt_number, timestamp, created_by)
+    VALUES (?,?,?,?,?,datetime('now'),?)
+  `, [creditNoteId, authUser.org_id, authUser.location_id, amount, receipt_number||null, authUser.user_id]);
+
+  const newId = (res && res.meta && res.meta.last_row_id) ? Number(res.meta.last_row_id) : null;
+  return jsonResponse({ ok: true, id: newId }, 200, corsOkHeaders);
+}
+
+async function handleCreditNotePurchaseDelete(request, env, corsOkHeaders, authUser, creditNoteId, purchaseId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureCreditNotesSchema(env);
+  const existing = await dbFirst(env, `SELECT id FROM credit_note_purchases WHERE id=? AND credit_note_id=? AND org_id=?`, [purchaseId, creditNoteId, authUser.org_id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+  await dbRun(env, `DELETE FROM credit_note_purchases WHERE id=? AND org_id=?`, [purchaseId, authUser.org_id]);
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleCreditNoteNoteAdd(request, env, corsOkHeaders, authUser, creditNoteId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureCreditNotesSchema(env);
+  const cn = await dbFirst(env, `SELECT id FROM credit_notes WHERE id=? AND org_id=? AND location_id=?`, [creditNoteId, authUser.org_id, authUser.location_id]);
+  if (!cn) return jsonResponse({ ok: false, error: "Credit note not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+  const text = String(body.text || "").trim();
+  if (!text) return jsonResponse({ ok: false, error: "Note text required" }, 400, corsOkHeaders);
+
+  const res = await dbRun(env, `
+    INSERT INTO credit_note_notes (credit_note_id, org_id, location_id, text, timestamp, created_by)
+    VALUES (?,?,?,?,datetime('now'),?)
+  `, [creditNoteId, authUser.org_id, authUser.location_id, text, authUser.user_id]);
+
+  const newId = (res && res.meta && res.meta.last_row_id) ? Number(res.meta.last_row_id) : null;
+  return jsonResponse({ ok: true, id: newId }, 200, corsOkHeaders);
+}
+
+async function handleCreditNoteNoteDelete(request, env, corsOkHeaders, authUser, creditNoteId, noteId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureCreditNotesSchema(env);
+  const existing = await dbFirst(env, `SELECT id FROM credit_note_notes WHERE id=? AND credit_note_id=? AND org_id=?`, [noteId, creditNoteId, authUser.org_id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+  await dbRun(env, `DELETE FROM credit_note_notes WHERE id=? AND org_id=?`, [noteId, authUser.org_id]);
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
 /* =========================
    DDA SALES MODULE (API)  <-- ADDED
    ========================= */
@@ -9493,6 +9717,37 @@ if (url.pathname.startsWith("/dda-stocktakes/items/")) {
   if (request.method === "DELETE")
     return await handlePharmacyCalcRecordDelete(request, env, corsOkHeaders, authUser, recId);
 }
+
+    // ── Credit Notes ─────────────────────────────────────────────────────────
+    if (url.pathname === "/creditnotes/list" && request.method === "GET")
+      return await handleCreditNotesList(request, env, corsOkHeaders, authUser, url);
+
+    if (url.pathname === "/creditnotes/entries" && request.method === "POST")
+      return await handleCreditNoteCreate(request, env, corsOkHeaders, authUser);
+
+    if (url.pathname.startsWith("/creditnotes/entries/")) {
+      const cnParts = url.pathname.split("/").filter(Boolean);
+      const cnId = parseInt(cnParts[2], 10);
+      if (!cnId) return jsonResponse({ ok: false, error: "Invalid credit note id" }, 400, corsOkHeaders);
+      if (cnParts.length === 3 && request.method === "PUT")
+        return await handleCreditNoteUpdate(request, env, corsOkHeaders, authUser, cnId);
+      if (cnParts.length === 3 && request.method === "DELETE")
+        return await handleCreditNoteDelete(request, env, corsOkHeaders, authUser, cnId);
+      if (cnParts.length === 4 && cnParts[3] === "purchases" && request.method === "POST")
+        return await handleCreditNotePurchaseAdd(request, env, corsOkHeaders, authUser, cnId);
+      if (cnParts.length === 5 && cnParts[3] === "purchases" && request.method === "DELETE") {
+        const pid = parseInt(cnParts[4], 10);
+        if (!pid) return jsonResponse({ ok: false, error: "Invalid purchase id" }, 400, corsOkHeaders);
+        return await handleCreditNotePurchaseDelete(request, env, corsOkHeaders, authUser, cnId, pid);
+      }
+      if (cnParts.length === 4 && cnParts[3] === "notes" && request.method === "POST")
+        return await handleCreditNoteNoteAdd(request, env, corsOkHeaders, authUser, cnId);
+      if (cnParts.length === 5 && cnParts[3] === "notes" && request.method === "DELETE") {
+        const nid = parseInt(cnParts[4], 10);
+        if (!nid) return jsonResponse({ ok: false, error: "Invalid note id" }, 400, corsOkHeaders);
+        return await handleCreditNoteNoteDelete(request, env, corsOkHeaders, authUser, cnId, nid);
+      }
+    }
 
     return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
     } catch (e) {
