@@ -884,25 +884,24 @@ async function handleSuDeleteLocation(request, env, extraHeaders, locationId) {
 }
 
 async function readJson(request) {
-  const ct = request.headers.get("Content-Type") || "";
-  // Be tolerant of missing/incorrect Content-Type (some clients omit it). Still log loudly for debugging.
-  if (!ct.toLowerCase().includes("application/json")) {
-    try {
-      const txt = await request.clone().text();
-      try {
-        const obj = JSON.parse(txt || "{}");
-        console.warn("[shifts][readJson] Non-JSON Content-Type:", ct, " — body still parsed as JSON.");
-        return obj;
-      } catch (pe) {
-        console.error("[shifts][readJson] Failed to parse JSON. Content-Type:", ct, "Body preview:", (txt || "").slice(0, 400));
-        throw new Error("Expected application/json (got " + ct + ")");
-      }
-    } catch (e) {
-      console.error("[shifts][readJson] Failed reading request body. Content-Type:", ct, e);
-      throw new Error("Expected application/json (got " + ct + ")");
-    }
+  // Be tolerant: try to parse JSON even if Content-Type is missing/wrong.
+  // (This avoids silent failures when a client forgets the header.)
+  const ct = String(request.headers.get("Content-Type") || "");
+  const dbg = isDebugEnabled(request);
+  let txt = "";
+  try { txt = await request.text(); } catch (e) { txt = ""; }
+  if (dbg) {
+    try { console.log("[DBG][readJson] ct=", ct, "len=", (txt||"").length); } catch(e2) {}
   }
-  return await request.json();
+  if (!txt) return {};
+  try {
+    return JSON.parse(txt);
+  } catch (e3) {
+    if (dbg) {
+      try { console.log("[DBG][readJson] JSON parse failed:", e3 && e3.message, "body=", txt.slice(0, 500)); } catch(e4) {}
+    }
+    throw new Error("Invalid JSON body");
+  }
 }
 
 async function dbFirst(env, sql, bind = []) {
@@ -9787,11 +9786,6 @@ async function handleShiftStaffList(request, env, corsOkHeaders, authUser, url) 
 async function handleShiftStaffCreate(request, env, corsOkHeaders, authUser) {
   await ensureShiftsSchema(env);
   const body = await readJson(request);
-  try {
-    console.log("[shifts][staff-create] org:", authUser && authUser.org_id, "loc:", authUser && authUser.location_id);
-    const pj = body && body.patterns_json;
-    if (pj != null) console.log("[shifts][staff-create] patterns_json type:", typeof pj, "len:", String(pj).length);
-  } catch(e) {}
   const fullName = String(body.full_name || "").trim();
   if (!fullName) return jsonResponse({ ok: false, error: "Missing full_name" }, 400, corsOkHeaders);
   const designation = String(body.designation || "other").trim();
@@ -9815,14 +9809,7 @@ async function handleShiftStaffUpdate(request, env, corsOkHeaders, authUser, sta
   const ex = await dbFirst(env, `SELECT id FROM shift_staff WHERE id=? AND org_id=? AND location_id=?`, [staffId, authUser.org_id, authUser.location_id]);
   if (!ex) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
   const body = await readJson(request);
-  try {
-    console.log("[shifts][staff-update] staffId:", staffId, "org:", authUser && authUser.org_id, "loc:", authUser && authUser.location_id);
-  } catch(e) {}
   const fullName = String(body.full_name || "").trim();
-  try {
-    const pj = (body && body.patterns_json);
-    if (pj != null) console.log("[shifts][staff-update] patterns_json type:", typeof pj, "len:", String(pj).length);
-  } catch(e) {}
   if (!fullName) return jsonResponse({ ok: false, error: "Missing full_name" }, 400, corsOkHeaders);
   await dbRun(env,
     `UPDATE shift_staff SET full_name=?, designation=?, employment_type=?, contracted_hours=?,
@@ -9911,13 +9898,6 @@ async function handleShiftApplyPattern(request, env, corsOkHeaders, authUser) {
   const mode = String(body.mode || "overwrite"); // overwrite | fill
   const start = String(body.start_date || body.startDate || "").trim();
   const end = String(body.end_date || body.endDate || "").trim();
-  try {
-    const pat = body && (body.pattern || body.week_pattern || {});
-    const week = pat && pat.week;
-    console.log("[shifts][apply-pattern] staffId:", staffId, "mode:", mode, "start:", start, "end:", end,
-                "hasDates:", Array.isArray(body.dates) ? body.dates.length : 0,
-                "weekLen:", Array.isArray(week) ? week.length : 0);
-  } catch(e) {}
   if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end)) {
     return jsonResponse({ ok:false, error:"start_date and end_date required (YYYY-MM-DD)" }, 400, corsOkHeaders);
   }
@@ -9996,7 +9976,6 @@ async function handleShiftApplyPattern(request, env, corsOkHeaders, authUser) {
 
   await writeAudit(env, authUser.org_id, authUser.user_id, "SHIFT_APPLY_PATTERN", "shift_assignments", String(staffId), { mode, start, end, inserted });
 
-  try { console.log("[shifts][apply-pattern] done staffId:", staffId, "inserted:", inserted); } catch(e) {}
   return jsonResponse({ ok:true, inserted }, 200, corsOkHeaders);
 }
 
