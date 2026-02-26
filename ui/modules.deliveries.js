@@ -1324,6 +1324,127 @@
   }
 
   // ------------------------------------------------------------
+  // Map helpers (Leaflet + OpenStreetMap + Nominatim)
+  // ------------------------------------------------------------
+  var dvMap = null;
+  var dvMapMarker = null;
+  var dvMapGeoTimer = null;
+  var dvMapLeafletReady = false;
+
+  function dvMapCleanup() {
+    try {
+      if (dvMapGeoTimer) { clearTimeout(dvMapGeoTimer); dvMapGeoTimer = null; }
+      if (dvMap) { dvMap.remove(); dvMap = null; }
+      dvMapMarker = null;
+    } catch(e) {}
+  }
+
+  function dvMapEnsureLeaflet(cb) {
+    if (dvMapLeafletReady && window.L) { cb(); return; }
+    // Load Leaflet CSS
+    if (!document.getElementById("leaflet-css")) {
+      var lnk = document.createElement("link");
+      lnk.id = "leaflet-css";
+      lnk.rel = "stylesheet";
+      lnk.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+      lnk.integrity = "sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=";
+      lnk.crossOrigin = "";
+      document.head.appendChild(lnk);
+    }
+    // Load Leaflet JS if not present
+    if (window.L) { dvMapLeafletReady = true; cb(); return; }
+    var s = document.createElement("script");
+    s.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+    s.integrity = "sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV/XN/sp8=";
+    s.crossOrigin = "";
+    s.onload = function() { dvMapLeafletReady = true; cb(); };
+    s.onerror = function() { warn("Leaflet failed to load"); };
+    document.head.appendChild(s);
+  }
+
+  function dvMapInit(initialAddr) {
+    dvMapEnsureLeaflet(function() {
+      // Small delay to ensure modal DOM is painted
+      setTimeout(function() {
+        try {
+          var el = document.getElementById("dv-map-el");
+          if (!el) return;
+          dvMapCleanup();
+
+          // Default to Malta centre
+          dvMap = window.L.map("dv-map-el", { zoomControl: true, attributionControl: true }).setView([35.9375, 14.3754], 11);
+          window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+            maxZoom: 19
+          }).addTo(dvMap);
+
+          // Wire address textarea
+          var addrEl = document.getElementById("dv-address");
+          if (addrEl) {
+            addrEl.addEventListener("input", function() {
+              if (dvMapGeoTimer) clearTimeout(dvMapGeoTimer);
+              var v = (addrEl.value || "").trim();
+              if (!v || v.length < 6) { dvMapSetStatus(""); return; }
+              dvMapSetStatus("Searching…");
+              dvMapGeoTimer = setTimeout(function() { dvMapGeocode(v); }, 800);
+            });
+          }
+
+          // Geocode initial address if present
+          if (initialAddr && initialAddr.trim().length > 5) {
+            dvMapSetStatus("Searching…");
+            dvMapGeoTimer = setTimeout(function() { dvMapGeocode(initialAddr.trim()); }, 400);
+          }
+        } catch(ex) { warn("map setup error", ex); }
+      }, 120);
+    });
+  }
+
+  function dvMapSetStatus(msg) {
+    var el = document.getElementById("dv-map-status");
+    if (el) el.textContent = msg || "";
+  }
+
+  function dvMapSetResult(label) {
+    var el = document.getElementById("dv-map-result");
+    if (!el) return;
+    if (label) { el.textContent = "✓ " + label; el.style.display = "block"; }
+    else { el.textContent = ""; el.style.display = "none"; }
+  }
+
+  async function dvMapGeocode(addr) {
+    try {
+      var q = encodeURIComponent(addr + ", Malta");
+      var url = "https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" + q;
+      var resp = await fetch(url, { headers: { "Accept-Language": "en", "User-Agent": "Eikon-Pharmacy/1.0" } });
+      if (!resp.ok) throw new Error("Nominatim " + resp.status);
+      var data = await resp.json();
+      if (!data || !data.length) {
+        dvMapSetStatus("Address not found — check spelling.");
+        dvMapSetResult("");
+        return;
+      }
+      var r = data[0];
+      var lat = parseFloat(r.lat), lng = parseFloat(r.lon);
+      dvMapSetStatus("");
+      dvMapSetResult(r.display_name);
+
+      if (!dvMap) return;
+      dvMap.setView([lat, lng], 17);
+
+      if (dvMapMarker) {
+        dvMapMarker.setLatLng([lat, lng]);
+      } else {
+        dvMapMarker = window.L.marker([lat, lng]).addTo(dvMap);
+      }
+      dvMapMarker.bindPopup("<strong style='font-size:12px;'>"+addr+"</strong>").openPopup();
+    } catch(ex) {
+      dvMapSetStatus("Map lookup failed.");
+      warn("geocode error", ex);
+    }
+  }
+
+  // ------------------------------------------------------------
   // Modal: New / Edit delivery
   // ------------------------------------------------------------
   function openDeliveryModal(opts) {
@@ -1380,7 +1501,7 @@
       }).join("");
     }
 
-    var body =
+    var formHtml =
       "<div class='eikon-field'><div class='eikon-label'>Order Date</div><input id='dv-order-date' type='date' value='"+esc(initial.order_date)+"'></div>" +
       "<div class='eikon-field'><div class='eikon-label'>Client Name &amp; Surname</div><input id='dv-client' type='text' value='"+esc(initial.client_name)+"' placeholder='e.g. Maria Camilleri'></div>" +
       "<div class='eikon-field'><div class='eikon-label'>Phone</div><input id='dv-phone' type='tel' value='"+esc(initial.phone)+"' placeholder='e.g. 7900 0000'></div>" +
@@ -1414,8 +1535,22 @@
       "<div class='eikon-field'><div class='eikon-label'>Items</div><div id='dv-items-editor-container'></div></div>" +
       "<div class='eikon-field'><div class='eikon-label'>Internal Notes (not printed on client label)</div><textarea id='dv-internal-notes' placeholder='Staff notes…'>"+esc(initial.internal_notes)+"</textarea></div>";
 
+    var mapHtml =
+      "<div style='display:flex;flex-direction:column;height:100%;gap:8px;'>" +
+      "  <div style='font-size:10px;font-weight:900;color:rgba(233,238,247,.5);text-transform:uppercase;letter-spacing:.8px;'>📍 Address Preview</div>" +
+      "  <div id='dv-map-el' style='flex:1;min-height:300px;border-radius:12px;overflow:hidden;border:1px solid rgba(255,255,255,.12);background:rgba(10,16,24,.6);'></div>" +
+      "  <div id='dv-map-status' style='font-size:11px;color:rgba(233,238,247,.45);min-height:16px;font-style:italic;'></div>" +
+      "  <div id='dv-map-result' style='font-size:11px;color:rgba(67,209,122,.8);background:rgba(67,209,122,.08);border:1px solid rgba(67,209,122,.18);border-radius:8px;padding:7px 10px;display:none;'></div>" +
+      "</div>";
+
+    var body =
+      "<div style='display:flex;gap:20px;align-items:stretch;'>" +
+      "  <div style='flex:0 0 400px;max-height:72vh;overflow-y:auto;overflow-x:hidden;padding-right:6px;'>" + formHtml + "</div>" +
+      "  <div style='flex:1;min-width:260px;'>" + mapHtml + "</div>" +
+      "</div>";
+
     E.modal.show(isEdit?"Edit Delivery":"New Delivery", body, [
-      {label:"Cancel", onClick:function(){E.modal.hide();}},
+      {label:"Cancel", onClick:function(){E.modal.hide(); dvMapCleanup();}},
       {label:isEdit?"Save Changes":"Create Delivery", primary:true, onClick:function(){
         (async function(){
           try {
@@ -1465,6 +1600,7 @@
             if (isEdit) await apiUpdate(row.id, payloadUi);
             else await apiCreate(payloadUi);
 
+            dvMapCleanup();
             E.modal.hide();
             if (typeof state.refresh==="function") state.refresh();
           } catch(e){ modalError("Save failed",e); }
@@ -1486,6 +1622,9 @@
 
     // Build items editor after modal is shown
     try { buildItemsEditor("dv-items-editor-container", parseItems(initial.items)); } catch(e){}
+
+    // Initialise map
+    try { dvMapInit(initial.delivery_address); } catch(e){ warn("map init failed",e); }
   }
 
   // ------------------------------------------------------------
