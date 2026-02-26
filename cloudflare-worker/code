@@ -10401,6 +10401,47 @@ if (url.pathname.startsWith("/dda-stocktakes/items/")) {
       if (request.method === "DELETE") return await handleDeliveriesEntryDelete(request, env, corsOkHeaders, authUser, dvId);
     }
 
+    // ── LOYALTY ───────────────────────────────────────────────────────────────
+    // Campaigns
+    if (url.pathname === "/loyalty/campaigns" && request.method === "GET") {
+      return await handleLoyaltyCampaignsList(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname === "/loyalty/campaigns" && request.method === "POST") {
+      return await handleLoyaltyCampaignCreate(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname.startsWith("/loyalty/campaigns/")) {
+      const campId = url.pathname.split("/")[3];
+      if (!campId) return jsonResponse({ ok: false, error: "Invalid campaign id" }, 400, corsOkHeaders);
+      if (request.method === "PUT")    return await handleLoyaltyCampaignUpdate(request, env, corsOkHeaders, authUser, campId);
+      if (request.method === "DELETE") return await handleLoyaltyCampaignDelete(request, env, corsOkHeaders, authUser, campId);
+    }
+    // Clients
+    if (url.pathname === "/loyalty/clients" && request.method === "GET") {
+      return await handleLoyaltyClientsList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/loyalty/clients" && request.method === "POST") {
+      return await handleLoyaltyClientUpsert(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname.startsWith("/loyalty/clients/") && request.method === "DELETE") {
+      const clientId = decodeURIComponent(url.pathname.split("/")[3] || "");
+      if (!clientId) return jsonResponse({ ok: false, error: "Invalid client id" }, 400, corsOkHeaders);
+      return await handleLoyaltyClientDelete(request, env, corsOkHeaders, authUser, clientId);
+    }
+    // Known items (autocomplete dictionary)
+    if (url.pathname === "/loyalty/items" && request.method === "GET") {
+      return await handleLoyaltyItemsList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/loyalty/items" && request.method === "POST") {
+      return await handleLoyaltyItemUpsert(request, env, corsOkHeaders, authUser);
+    }
+    // Transactions
+    if (url.pathname === "/loyalty/transactions" && request.method === "GET") {
+      return await handleLoyaltyTransactionsList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/loyalty/transactions" && request.method === "POST") {
+      return await handleLoyaltyTransactionCreate(request, env, corsOkHeaders, authUser);
+    }
+
     return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
     } catch (e) {
       // Never let an exception become Cloudflare 1101 HTML again.
@@ -10424,4 +10465,596 @@ if (url.pathname.startsWith("/dda-stocktakes/items/")) {
     }
   }
 };
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LOYALTY MODULE
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ─── Schema ──────────────────────────────────────────────────────────────────
+
+async function ensureLoyaltySchema(env) {
+  // Campaigns
+  await dbRun(env, `
+    CREATE TABLE IF NOT EXISTS loyalty_campaigns (
+      id          TEXT PRIMARY KEY,
+      org_id      INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+      name        TEXT NOT NULL,
+      type        TEXT NOT NULL DEFAULT 'stamp_card',
+      brand       TEXT NOT NULL DEFAULT '',
+      items       TEXT NOT NULL DEFAULT '',
+      description TEXT NOT NULL DEFAULT '',
+      active      INTEGER NOT NULL DEFAULT 1,
+      open_ended  INTEGER NOT NULL DEFAULT 1,
+      start_date  TEXT,
+      end_date    TEXT,
+      -- stamp_card
+      stamp_target    INTEGER NOT NULL DEFAULT 10,
+      reward          TEXT NOT NULL DEFAULT '',
+      -- points
+      points_per_unit REAL NOT NULL DEFAULT 1,
+      redeem_threshold INTEGER NOT NULL DEFAULT 100,
+      -- discount
+      discount_pct    REAL NOT NULL DEFAULT 10,
+      discount_scope  TEXT NOT NULL DEFAULT '',
+      -- event
+      event_name  TEXT NOT NULL DEFAULT '',
+      event_offer TEXT NOT NULL DEFAULT '',
+      -- buy_x_get_y
+      buy_qty     INTEGER NOT NULL DEFAULT 3,
+      get_qty     INTEGER NOT NULL DEFAULT 1,
+      -- tiered (stored as JSON array)
+      tiers_json  TEXT NOT NULL DEFAULT '[]',
+      created_by  INTEGER,
+      created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    )`, []);
+
+  await dbRun(env,
+    `CREATE INDEX IF NOT EXISTS idx_loyalty_campaigns_org_loc
+     ON loyalty_campaigns (org_id, location_id, active)`, []);
+
+  // Clients
+  await dbRun(env, `
+    CREATE TABLE IF NOT EXISTS loyalty_clients (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id      INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+      id_card     TEXT NOT NULL,
+      name        TEXT NOT NULL DEFAULT '',
+      created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(org_id, location_id, id_card)
+    )`, []);
+
+  await dbRun(env,
+    `CREATE INDEX IF NOT EXISTS idx_loyalty_clients_org_loc_card
+     ON loyalty_clients (org_id, location_id, id_card)`, []);
+
+  // Known item descriptions (autocomplete)
+  await dbRun(env, `
+    CREATE TABLE IF NOT EXISTS loyalty_items (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id      INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+      description TEXT NOT NULL,
+      use_count   INTEGER NOT NULL DEFAULT 1,
+      created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(org_id, location_id, description)
+    )`, []);
+
+  await dbRun(env,
+    `CREATE INDEX IF NOT EXISTS idx_loyalty_items_org_loc
+     ON loyalty_items (org_id, location_id, use_count DESC)`, []);
+
+  // Transactions
+  await dbRun(env, `
+    CREATE TABLE IF NOT EXISTS loyalty_transactions (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id          INTEGER NOT NULL,
+      location_id     INTEGER NOT NULL,
+      client_id_card  TEXT NOT NULL,
+      client_name     TEXT NOT NULL DEFAULT '',
+      campaign_id     TEXT NOT NULL,
+      receipt_no      TEXT NOT NULL DEFAULT '',
+      items_json      TEXT NOT NULL DEFAULT '[]',
+      total           REAL NOT NULL DEFAULT 0,
+      notes           TEXT NOT NULL DEFAULT '',
+      stamps_awarded  INTEGER NOT NULL DEFAULT 0,
+      points_awarded  INTEGER NOT NULL DEFAULT 0,
+      action_label    TEXT NOT NULL DEFAULT '',
+      txn_date        TEXT NOT NULL,
+      created_by      INTEGER,
+      created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+    )`, []);
+
+  await dbRun(env,
+    `CREATE INDEX IF NOT EXISTS idx_loyalty_txns_org_loc_date
+     ON loyalty_transactions (org_id, location_id, txn_date DESC)`, []);
+
+  await dbRun(env,
+    `CREATE INDEX IF NOT EXISTS idx_loyalty_txns_org_loc_client
+     ON loyalty_transactions (org_id, location_id, client_id_card)`, []);
+
+  await dbRun(env,
+    `CREATE INDEX IF NOT EXISTS idx_loyalty_txns_org_loc_campaign
+     ON loyalty_transactions (org_id, location_id, campaign_id)`, []);
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function normMtIdCard(raw) {
+  // Pad Maltese-style ID cards: numeric part to 7 digits, preserve trailing letter
+  const s = String(raw ?? "").trim().toUpperCase();
+  if (!s) return s;
+  const m = s.match(/^(\d+)([A-Z]?)$/);
+  if (!m) return s;
+  return m[1].padStart(7, "0") + m[2];
+}
+
+function campaignRowToUi(r) {
+  if (!r) return null;
+  return {
+    id:              r.id,
+    name:            r.name,
+    type:            r.type,
+    brand:           r.brand || "",
+    items:           r.items || "",
+    description:     r.description || "",
+    active:          !!r.active,
+    open_ended:      !!r.open_ended,
+    start_date:      r.start_date || "",
+    end_date:        r.end_date || "",
+    stamp_target:    r.stamp_target ?? 10,
+    reward:          r.reward || "",
+    points_per_unit: r.points_per_unit ?? 1,
+    redeem_threshold:r.redeem_threshold ?? 100,
+    discount_pct:    r.discount_pct ?? 10,
+    discount_scope:  r.discount_scope || "",
+    event_name:      r.event_name || "",
+    event_offer:     r.event_offer || "",
+    buy_qty:         r.buy_qty ?? 3,
+    get_qty:         r.get_qty ?? 1,
+    tiers:           (() => { try { return JSON.parse(r.tiers_json || "[]"); } catch { return []; } })(),
+    created_at:      r.created_at,
+    updated_at:      r.updated_at,
+  };
+}
+
+function txnRowToUi(r) {
+  if (!r) return null;
+  return {
+    id:             r.id,
+    client_id:      r.client_id_card,
+    client_name:    r.client_name || "",
+    campaign_id:    r.campaign_id,
+    receipt_no:     r.receipt_no || "",
+    items:          (() => { try { return JSON.parse(r.items_json || "[]"); } catch { return []; } })(),
+    total:          r.total ?? 0,
+    notes:          r.notes || "",
+    stamps_awarded: r.stamps_awarded ?? 0,
+    points_awarded: r.points_awarded ?? 0,
+    action_label:   r.action_label || "",
+    date:           r.txn_date,
+    created_at:     r.created_at,
+  };
+}
+
+// ─── Campaigns ────────────────────────────────────────────────────────────────
+
+async function handleLoyaltyCampaignsList(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureLoyaltySchema(env);
+
+  const rows = await dbAll(env,
+    `SELECT * FROM loyalty_campaigns
+     WHERE org_id = ? AND location_id = ?
+     ORDER BY active DESC, created_at DESC`,
+    [authUser.org_id, authUser.location_id]);
+
+  return jsonResponse({ ok: true, campaigns: rows.map(campaignRowToUi) }, 200, corsOkHeaders);
+}
+
+async function handleLoyaltyCampaignCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureLoyaltySchema(env);
+
+  const body = await readJson(request);
+  const id   = String(body.id || "").trim() || `ly_${Date.now().toString(36)}_${Math.random().toString(36).slice(2,7)}`;
+  const name = String(body.name || "").trim();
+  if (!name) return jsonResponse({ ok: false, error: "Missing name" }, 400, corsOkHeaders);
+
+  const type = ["stamp_card","points","discount","event","buy_x_get_y","tiered"].includes(body.type)
+    ? body.type : "stamp_card";
+
+  const tiersJson = (() => {
+    try { return JSON.stringify(Array.isArray(body.tiers) ? body.tiers : []); } catch { return "[]"; }
+  })();
+
+  const startDate = body.open_ended ? null : (String(body.start_date || "").trim() || null);
+  const endDate   = body.open_ended ? null : (String(body.end_date   || "").trim() || null);
+
+  if (startDate && !isValidYmd(startDate)) return jsonResponse({ ok: false, error: "Invalid start_date" }, 400, corsOkHeaders);
+  if (endDate   && !isValidYmd(endDate))   return jsonResponse({ ok: false, error: "Invalid end_date"   }, 400, corsOkHeaders);
+
+  await dbRun(env, `
+    INSERT INTO loyalty_campaigns
+      (id, org_id, location_id, name, type, brand, items, description,
+       active, open_ended, start_date, end_date,
+       stamp_target, reward, points_per_unit, redeem_threshold,
+       discount_pct, discount_scope, event_name, event_offer,
+       buy_qty, get_qty, tiers_json, created_by, created_at, updated_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'),datetime('now'))
+    ON CONFLICT(id) DO UPDATE SET
+      name=excluded.name, type=excluded.type, brand=excluded.brand,
+      items=excluded.items, description=excluded.description, active=excluded.active,
+      open_ended=excluded.open_ended, start_date=excluded.start_date, end_date=excluded.end_date,
+      stamp_target=excluded.stamp_target, reward=excluded.reward,
+      points_per_unit=excluded.points_per_unit, redeem_threshold=excluded.redeem_threshold,
+      discount_pct=excluded.discount_pct, discount_scope=excluded.discount_scope,
+      event_name=excluded.event_name, event_offer=excluded.event_offer,
+      buy_qty=excluded.buy_qty, get_qty=excluded.get_qty, tiers_json=excluded.tiers_json,
+      updated_at=datetime('now')`,
+    [
+      id, authUser.org_id, authUser.location_id,
+      name, type,
+      String(body.brand || "").trim(),
+      String(body.items || "").trim(),
+      String(body.description || "").trim(),
+      body.active ? 1 : 0,
+      body.open_ended ? 1 : 0,
+      startDate, endDate,
+      parseInt(body.stamp_target) || 10,
+      String(body.reward || "").trim(),
+      parseFloat(body.points_per_unit) || 1,
+      parseInt(body.redeem_threshold) || 100,
+      parseFloat(body.discount_pct) || 10,
+      String(body.discount_scope || "").trim(),
+      String(body.event_name || "").trim(),
+      String(body.event_offer || "").trim(),
+      parseInt(body.buy_qty) || 3,
+      parseInt(body.get_qty) || 1,
+      tiersJson,
+      authUser.user_id
+    ]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "LOYALTY_CAMPAIGN_CREATE", "loyalty_campaigns", id, { name, type });
+  return jsonResponse({ ok: true, id }, 200, corsOkHeaders);
+}
+
+async function handleLoyaltyCampaignUpdate(request, env, corsOkHeaders, authUser, campId) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureLoyaltySchema(env);
+
+  const existing = await dbFirst(env,
+    `SELECT id FROM loyalty_campaigns WHERE id=? AND org_id=? AND location_id=?`,
+    [campId, authUser.org_id, authUser.location_id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Campaign not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+  const name = String(body.name || "").trim();
+  if (!name) return jsonResponse({ ok: false, error: "Missing name" }, 400, corsOkHeaders);
+
+  const type = ["stamp_card","points","discount","event","buy_x_get_y","tiered"].includes(body.type)
+    ? body.type : "stamp_card";
+
+  const tiersJson = (() => {
+    try { return JSON.stringify(Array.isArray(body.tiers) ? body.tiers : []); } catch { return "[]"; }
+  })();
+
+  const startDate = body.open_ended ? null : (String(body.start_date || "").trim() || null);
+  const endDate   = body.open_ended ? null : (String(body.end_date   || "").trim() || null);
+
+  if (startDate && !isValidYmd(startDate)) return jsonResponse({ ok: false, error: "Invalid start_date" }, 400, corsOkHeaders);
+  if (endDate   && !isValidYmd(endDate))   return jsonResponse({ ok: false, error: "Invalid end_date"   }, 400, corsOkHeaders);
+
+  await dbRun(env, `
+    UPDATE loyalty_campaigns SET
+      name=?, type=?, brand=?, items=?, description=?,
+      active=?, open_ended=?, start_date=?, end_date=?,
+      stamp_target=?, reward=?, points_per_unit=?, redeem_threshold=?,
+      discount_pct=?, discount_scope=?, event_name=?, event_offer=?,
+      buy_qty=?, get_qty=?, tiers_json=?, updated_at=datetime('now')
+    WHERE id=? AND org_id=? AND location_id=?`,
+    [
+      name, type,
+      String(body.brand || "").trim(),
+      String(body.items || "").trim(),
+      String(body.description || "").trim(),
+      body.active ? 1 : 0,
+      body.open_ended ? 1 : 0,
+      startDate, endDate,
+      parseInt(body.stamp_target) || 10,
+      String(body.reward || "").trim(),
+      parseFloat(body.points_per_unit) || 1,
+      parseInt(body.redeem_threshold) || 100,
+      parseFloat(body.discount_pct) || 10,
+      String(body.discount_scope || "").trim(),
+      String(body.event_name || "").trim(),
+      String(body.event_offer || "").trim(),
+      parseInt(body.buy_qty) || 3,
+      parseInt(body.get_qty) || 1,
+      tiersJson,
+      campId, authUser.org_id, authUser.location_id
+    ]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "LOYALTY_CAMPAIGN_UPDATE", "loyalty_campaigns", campId, { name, type });
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleLoyaltyCampaignDelete(request, env, corsOkHeaders, authUser, campId) {
+  if (!requireRole(authUser, ["admin"])) {
+    return jsonResponse({ ok: false, error: "Forbidden – admin only" }, 403, corsOkHeaders);
+  }
+  await ensureLoyaltySchema(env);
+
+  const existing = await dbFirst(env,
+    `SELECT id FROM loyalty_campaigns WHERE id=? AND org_id=? AND location_id=?`,
+    [campId, authUser.org_id, authUser.location_id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Campaign not found" }, 404, corsOkHeaders);
+
+  await dbRun(env,
+    `DELETE FROM loyalty_campaigns WHERE id=? AND org_id=? AND location_id=?`,
+    [campId, authUser.org_id, authUser.location_id]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "LOYALTY_CAMPAIGN_DELETE", "loyalty_campaigns", campId, {});
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+// ─── Clients ──────────────────────────────────────────────────────────────────
+
+async function handleLoyaltyClientsList(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureLoyaltySchema(env);
+
+  const q = (url.searchParams.get("q") || "").trim();
+  let rows;
+  if (q) {
+    const like = `%${q}%`;
+    rows = await dbAll(env,
+      `SELECT id, id_card, name, created_at, updated_at
+       FROM loyalty_clients
+       WHERE org_id=? AND location_id=? AND (id_card LIKE ? OR name LIKE ?)
+       ORDER BY name ASC LIMIT 200`,
+      [authUser.org_id, authUser.location_id, like, like]);
+  } else {
+    rows = await dbAll(env,
+      `SELECT id, id_card, name, created_at, updated_at
+       FROM loyalty_clients
+       WHERE org_id=? AND location_id=?
+       ORDER BY name ASC`,
+      [authUser.org_id, authUser.location_id]);
+  }
+
+  return jsonResponse({ ok: true, clients: rows }, 200, corsOkHeaders);
+}
+
+async function handleLoyaltyClientUpsert(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureLoyaltySchema(env);
+
+  const body = await readJson(request);
+  const rawCard = String(body.id_card || "").trim();
+  if (!rawCard) return jsonResponse({ ok: false, error: "Missing id_card" }, 400, corsOkHeaders);
+
+  const idCard = normMtIdCard(rawCard);
+  const name   = String(body.name || "").trim();
+
+  await dbRun(env, `
+    INSERT INTO loyalty_clients (org_id, location_id, id_card, name, created_at, updated_at)
+    VALUES (?,?,?,?,datetime('now'),datetime('now'))
+    ON CONFLICT(org_id, location_id, id_card) DO UPDATE SET
+      name = CASE WHEN excluded.name != '' THEN excluded.name ELSE name END,
+      updated_at = datetime('now')`,
+    [authUser.org_id, authUser.location_id, idCard, name]);
+
+  const row = await dbFirst(env,
+    `SELECT id, id_card, name FROM loyalty_clients WHERE org_id=? AND location_id=? AND id_card=?`,
+    [authUser.org_id, authUser.location_id, idCard]);
+
+  return jsonResponse({ ok: true, client: row }, 200, corsOkHeaders);
+}
+
+async function handleLoyaltyClientDelete(request, env, corsOkHeaders, authUser, rawCard) {
+  if (!requireRole(authUser, ["admin"])) {
+    return jsonResponse({ ok: false, error: "Forbidden – admin only" }, 403, corsOkHeaders);
+  }
+  await ensureLoyaltySchema(env);
+
+  const idCard = normMtIdCard(rawCard) || rawCard;
+
+  await dbRun(env,
+    `DELETE FROM loyalty_clients WHERE org_id=? AND location_id=? AND id_card=?`,
+    [authUser.org_id, authUser.location_id, idCard]);
+
+  // Also delete their transactions
+  await dbRun(env,
+    `DELETE FROM loyalty_transactions WHERE org_id=? AND location_id=? AND client_id_card=?`,
+    [authUser.org_id, authUser.location_id, idCard]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "LOYALTY_CLIENT_DELETE", "loyalty_clients", idCard, {});
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+// ─── Known items ──────────────────────────────────────────────────────────────
+
+async function handleLoyaltyItemsList(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureLoyaltySchema(env);
+
+  const q = (url.searchParams.get("q") || "").trim();
+  let rows;
+  if (q) {
+    rows = await dbAll(env,
+      `SELECT description, use_count FROM loyalty_items
+       WHERE org_id=? AND location_id=? AND description LIKE ?
+       ORDER BY use_count DESC LIMIT 20`,
+      [authUser.org_id, authUser.location_id, `%${q}%`]);
+  } else {
+    rows = await dbAll(env,
+      `SELECT description, use_count FROM loyalty_items
+       WHERE org_id=? AND location_id=?
+       ORDER BY use_count DESC LIMIT 300`,
+      [authUser.org_id, authUser.location_id]);
+  }
+
+  return jsonResponse({ ok: true, items: rows.map(r => r.description) }, 200, corsOkHeaders);
+}
+
+async function handleLoyaltyItemUpsert(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureLoyaltySchema(env);
+
+  const body = await readJson(request);
+  const desc = String(body.description || "").trim();
+  if (!desc) return jsonResponse({ ok: false, error: "Missing description" }, 400, corsOkHeaders);
+
+  await dbRun(env, `
+    INSERT INTO loyalty_items (org_id, location_id, description, use_count, created_at, updated_at)
+    VALUES (?,?,?,1,datetime('now'),datetime('now'))
+    ON CONFLICT(org_id, location_id, description) DO UPDATE SET
+      use_count  = use_count + 1,
+      updated_at = datetime('now')`,
+    [authUser.org_id, authUser.location_id, desc]);
+
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+// ─── Transactions ─────────────────────────────────────────────────────────────
+
+async function handleLoyaltyTransactionsList(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureLoyaltySchema(env);
+
+  const clientCard = (url.searchParams.get("client") || "").trim();
+  const campaignId = (url.searchParams.get("campaign") || "").trim();
+  const month      = (url.searchParams.get("month") || "").trim();
+
+  const conditions = ["org_id = ?", "location_id = ?"];
+  const bind = [authUser.org_id, authUser.location_id];
+
+  if (clientCard) {
+    conditions.push("client_id_card = ?");
+    bind.push(normMtIdCard(clientCard) || clientCard);
+  }
+  if (campaignId) {
+    conditions.push("campaign_id = ?");
+    bind.push(campaignId);
+  }
+  if (month) {
+    const range = monthRange(month);
+    if (!range) return jsonResponse({ ok: false, error: "Invalid month (YYYY-MM)" }, 400, corsOkHeaders);
+    conditions.push("txn_date >= ?", "txn_date < ?");
+    bind.push(range.startStr, range.endStr);
+  }
+
+  const rows = await dbAll(env,
+    `SELECT * FROM loyalty_transactions
+     WHERE ${conditions.join(" AND ")}
+     ORDER BY created_at DESC
+     LIMIT 500`,
+    bind);
+
+  return jsonResponse({ ok: true, transactions: rows.map(txnRowToUi) }, 200, corsOkHeaders);
+}
+
+async function handleLoyaltyTransactionCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureLoyaltySchema(env);
+
+  const body = await readJson(request);
+
+  const rawCard = String(body.client_id || body.client_id_card || "").trim();
+  if (!rawCard) return jsonResponse({ ok: false, error: "Missing client_id" }, 400, corsOkHeaders);
+
+  const idCard     = normMtIdCard(rawCard) || rawCard;
+  const clientName = String(body.client_name || "").trim();
+  const campaignId = String(body.campaign_id || "").trim();
+  if (!campaignId) return jsonResponse({ ok: false, error: "Missing campaign_id" }, 400, corsOkHeaders);
+
+  // Verify campaign belongs to this org/location
+  const camp = await dbFirst(env,
+    `SELECT id FROM loyalty_campaigns WHERE id=? AND org_id=? AND location_id=?`,
+    [campaignId, authUser.org_id, authUser.location_id]);
+  if (!camp) return jsonResponse({ ok: false, error: "Campaign not found" }, 404, corsOkHeaders);
+
+  const txnDate    = String(body.date || body.txn_date || "").trim() || new Date().toISOString().slice(0,10);
+  if (!isValidYmd(txnDate)) return jsonResponse({ ok: false, error: "Invalid date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+
+  const itemsJson = (() => {
+    try { return JSON.stringify(Array.isArray(body.items) ? body.items : []); } catch { return "[]"; }
+  })();
+
+  const total         = Math.max(0, parseFloat(body.total) || 0);
+  const stampsAwarded = Math.max(0, parseInt(body.stamps_awarded) || 0);
+  const pointsAwarded = Math.max(0, parseInt(body.points_awarded) || 0);
+  const receiptNo     = String(body.receipt_no || "").trim();
+  const notes         = String(body.notes || "").trim();
+  const actionLabel   = String(body.action_label || "").trim();
+
+  const row = await dbFirst(env, `
+    INSERT INTO loyalty_transactions
+      (org_id, location_id, client_id_card, client_name, campaign_id,
+       receipt_no, items_json, total, notes, stamps_awarded, points_awarded,
+       action_label, txn_date, created_by, created_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'))
+    RETURNING id`,
+    [
+      authUser.org_id, authUser.location_id,
+      idCard, clientName, campaignId,
+      receiptNo, itemsJson, total, notes,
+      stampsAwarded, pointsAwarded,
+      actionLabel, txnDate, authUser.user_id
+    ]);
+
+  // Auto-upsert client record so they're in the clients table
+  await dbRun(env, `
+    INSERT INTO loyalty_clients (org_id, location_id, id_card, name, created_at, updated_at)
+    VALUES (?,?,?,?,datetime('now'),datetime('now'))
+    ON CONFLICT(org_id, location_id, id_card) DO UPDATE SET
+      name = CASE WHEN excluded.name != '' THEN excluded.name ELSE name END,
+      updated_at = datetime('now')`,
+    [authUser.org_id, authUser.location_id, idCard, clientName]);
+
+  // Auto-bump use_count for every item description
+  try {
+    const items = JSON.parse(itemsJson);
+    for (const item of items) {
+      const desc = String(item.desc || item.description || "").trim();
+      if (!desc) continue;
+      await dbRun(env, `
+        INSERT INTO loyalty_items (org_id, location_id, description, use_count, created_at, updated_at)
+        VALUES (?,?,?,1,datetime('now'),datetime('now'))
+        ON CONFLICT(org_id, location_id, description) DO UPDATE SET
+          use_count=use_count+1, updated_at=datetime('now')`,
+        [authUser.org_id, authUser.location_id, desc]);
+    }
+  } catch { /* non-fatal */ }
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "LOYALTY_TXN_CREATE", "loyalty_transactions", String(row.id), {
+    client_id_card: idCard, campaign_id: campaignId, action_label: actionLabel
+  });
+
+  return jsonResponse({ ok: true, id: row.id }, 200, corsOkHeaders);
+}
+
  
