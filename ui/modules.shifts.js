@@ -166,52 +166,44 @@
   }
 
   function apiOp(path, opts, onOk, merge) {
-    opts = opts || {};
-    // Ensure JSON content-type for bodies (Cloudflare worker readJson() is strict).
-    if (opts.body != null) {
-      opts.headers = opts.headers || {};
-      var hasCT = false;
-      try {
-        Object.keys(opts.headers).forEach(function(k){
-          if (String(k).toLowerCase() === "content-type") hasCT = true;
-        });
-      } catch(e){}
-      if (!hasCT) opts.headers["Content-Type"] = "application/json";
-    }
-
-    var rid = Math.random().toString(16).slice(2);
-    var t0 = Date.now();
+    var o = opts || {};
     try {
-      console.groupCollapsed("[shifts][api "+rid+"] "+(opts.method||"GET")+" "+path);
-      console.log("opts:", JSON.parse(JSON.stringify(opts)));
-      console.groupEnd();
-    } catch(e){}
+      var method = String(o.method || "GET").toUpperCase();
+      o.headers = Object.assign({}, (o.headers || {}));
 
-    E.apiFetch(path, opts)
+      // Force debug header for write operations to shifts endpoints (worker logs)
+      if (method !== "GET" && String(path || "").indexOf("/shifts/") === 0) {
+        if (!o.headers["X-Eikon-Debug"] && !o.headers["x-eikon-debug"]) o.headers["X-Eikon-Debug"] = "1";
+      }
+
+      console.groupCollapsed("[shifts][apiOp] " + method + " " + path);
+      try { console.log("opts:", o); } catch (e1) {}
+      console.groupEnd();
+    } catch (e0) {}
+
+    E.apiFetch(path, o)
       .then(function(r){
-        try {
-          console.groupCollapsed("[shifts][api "+rid+"] OK "+path+" ("+(Date.now()-t0)+"ms)");
-          console.log("response:", r);
-          console.groupEnd();
-        } catch(e){}
+        try { console.log("[shifts][apiOp] OK", path, r); } catch (e2) {}
         merge && merge(r);
         lsSync();
         onOk && onOk(r);
       })
       .catch(function(err){
         try {
-          console.groupCollapsed("[shifts][api "+rid+"] FAIL "+path+" ("+(Date.now()-t0)+"ms)");
-          console.error(err);
-          console.log("opts:", opts);
-          console.groupEnd();
-        } catch(e){}
-        toast("API error: "+((err&&err.message)?err.message:"(unknown)"), "error");
-        merge && merge({});
+          console.error("[shifts][apiOp] ERR", path, err);
+          if (err && err.bodyJson) console.error("[shifts][apiOp] bodyJson", err.bodyJson);
+          if (err && err.bodyText) console.error("[shifts][apiOp] bodyText", err.bodyText);
+        } catch (e3) {}
+        // Only toast on writes (avoid noisy GET failures)
+        try {
+          var m = String((o && o.method) || "GET").toUpperCase();
+          if (m !== "GET") toast("API error: " + (err && err.message ? err.message : "unknown"), "error");
+        } catch (e4) {}
+        merge && merge({ ok:false, error: (err && err.message) ? err.message : "error" });
         lsSync();
-        onOk && onOk({});
+        onOk && onOk({ ok:false, error: (err && err.message) ? err.message : "error" });
       });
   }
-
 
   /* ── Date/time helpers ──────────────────────────────────────── */
   var MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -441,6 +433,7 @@
     var alFT = MALTA.annualLeaveHours[yrNow] || MALTA.annualLeaveHours[lk] || 216;
 
     var patState = getPatternState(e);
+    try { console.log("[shifts][patterns] loaded staffId=", (e&&e.id), "patterns=", (patState.patterns||[]).length, "provisionalId=", patState.provisionalId); } catch(e0) {}
 
     var body =
       '<div class="eikon-row">'+
@@ -506,6 +499,48 @@
       var list = document.getElementById("se-patlist");
       if (!list) return;
 
+      // ---- PATTERN AUTO-PERSIST (so "Save pattern" actually saves) ----
+      var _patSaveT = null;
+      var _patLastToast = 0;
+
+      function buildEmpPayloadForPersist() {
+        // Build a payload that satisfies worker validation (full_name required)
+        return {
+          full_name:      (E.q("#se-name") && E.q("#se-name").value || (e && e.full_name) || "").trim(),
+          designation:    (E.q("#se-desig") && E.q("#se-desig").value) || (e && e.designation) || "other",
+          employment_type:(E.q("#se-type") && E.q("#se-type").value) || (e && e.employment_type) || "fulltime",
+          contracted_hours: parseFloat((E.q("#se-hrs") && E.q("#se-hrs").value) || (e && e.contracted_hours) || 40) || 40,
+          email:          (E.q("#se-email") && E.q("#se-email").value || (e && e.email) || "").trim(),
+          phone:          (E.q("#se-phone") && E.q("#se-phone").value || (e && e.phone) || "").trim(),
+          registration_number: (E.q("#se-reg") && E.q("#se-reg").value || (e && e.registration_number) || "").trim(),
+          is_active:      (e && e.is_active===0) ? 0 : 1,
+          patterns_json:  JSON.stringify({ patterns: patState.patterns || [], provisionalId: patState.provisionalId || null })
+        };
+      }
+
+      function schedulePersistPatterns(reason) {
+        if (!edit || !e || !e.id) return; // new employee cannot persist yet
+        clearTimeout(_patSaveT);
+        _patSaveT = setTimeout(function(){
+          try {
+            var payload = buildEmpPayloadForPersist();
+            console.groupCollapsed("[shifts][patterns] persist -> " + reason + " (staffId=" + e.id + ")");
+            console.log("patterns:", (patState.patterns||[]).length, "provisionalId:", patState.provisionalId);
+            console.log("payload.patterns_json:", payload.patterns_json);
+            console.groupEnd();
+            saveEmp(e.id, payload, function(r){
+              console.log("[shifts][patterns] persist <-", r);
+              // small anti-spam toast (max once per 4s)
+              var now = Date.now();
+              if (now - _patLastToast > 4000) { _patLastToast = now; toast("Patterns saved."); }
+            });
+          } catch (ex) {
+            console.error("[shifts][patterns] persist exception", ex);
+          }
+        }, 450);
+      }
+
+
       function rerender(){
         list.innerHTML = renderPatternList(patState);
         wire();
@@ -516,6 +551,7 @@
         list.querySelectorAll("input[name='se-provisional']").forEach(function(r){
           r.onchange=function(){
             patState.provisionalId = r.value;
+            schedulePersistPatterns("provisional-change");
             rerender();
           };
         });
@@ -532,6 +568,7 @@
                 patState.patterns.push(upd);
               }
               if(!patState.provisionalId) patState.provisionalId = upd.id;
+              schedulePersistPatterns("pattern-edit");
               rerender();
             });
           };
@@ -543,6 +580,7 @@
             if(!confirm("Delete this pattern?")) return;
             patState.patterns = patState.patterns.filter(function(x){return x.id!==id;});
             if(patState.provisionalId===id) patState.provisionalId = patState.patterns[0]?patState.patterns[0].id:null;
+            schedulePersistPatterns("pattern-delete");
             rerender();
           };
         });
@@ -566,6 +604,7 @@
           if(!upd) return;
           patState.patterns.push(upd);
           if(!patState.provisionalId) patState.provisionalId = upd.id;
+          schedulePersistPatterns("pattern-add");
           rerender();
         });
       };
@@ -587,12 +626,7 @@
         if (Array.isArray(o.patterns)) out.patterns = o.patterns;
         if (o.provisionalId) out.provisionalId = o.provisionalId;
       }
-    } catch(e){
-      try {
-        console.warn("[shifts][patterns] patterns_json parse error for staff", staffObj && staffObj.id, e);
-        console.warn("[shifts][patterns] raw patterns_json:", staffObj && staffObj.patterns_json);
-      } catch(_e){}
-    }
+    } catch(e){}
     out.patterns = (out.patterns||[]).map(normalizePattern);
     if (!out.provisionalId && out.patterns[0]) out.provisionalId = out.patterns[0].id;
     return out;
@@ -772,22 +806,6 @@
     }, 30);
   }
 function saveEmp(id, p, cb) {
-    try {
-      console.groupCollapsed("[shifts][staff-save] "+(id?"PUT":"POST")+" staff "+(id||"(new)")+" :: "+(p&&p.full_name||""));
-      console.log("payload:", p);
-      if (p && p.patterns_json) {
-        console.log("patterns_json length:", String(p.patterns_json).length);
-        console.log("patterns_json preview:", String(p.patterns_json).slice(0, 220) + (String(p.patterns_json).length>220?"…":""));
-        try {
-          var _pj = JSON.parse(p.patterns_json);
-          console.log("patterns count:", (_pj && _pj.patterns && _pj.patterns.length) || 0, "provisionalId:", _pj && _pj.provisionalId);
-        } catch(pe) {
-          console.warn("patterns_json JSON.parse failed:", pe);
-        }
-      }
-      console.groupEnd();
-    } catch(_e){}
-
     if(id){ var ix=S.staff.findIndex(function(s){return s.id===id;}); if(ix>=0)Object.assign(S.staff[ix],p); }
     else { p.id=lsNextId(); S.staff.push(p); }
     apiOp(id?"/shifts/staff/"+id:"/shifts/staff", {method:id?"PUT":"POST",body:JSON.stringify(p)}, cb);
