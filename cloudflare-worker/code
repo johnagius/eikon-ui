@@ -9654,6 +9654,302 @@ async function handlePharmacyCalcRecordGet(request, env, corsOkHeaders, authUser
   return jsonResponse({ ok: true, record: row }, 200, corsOkHeaders);
 }
 
+
+
+// ── SHIFTS MODULE FUNCTIONS ────────────────────────────────────
+async function ensureShiftsSchema(env) {
+  // Staff roster
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS shift_staff (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id INTEGER NOT NULL,
+    location_id INTEGER NOT NULL,
+    full_name TEXT NOT NULL,
+    designation TEXT NOT NULL DEFAULT 'other',
+    employment_type TEXT NOT NULL DEFAULT 'fulltime',
+    contracted_hours REAL NOT NULL DEFAULT 40,
+    email TEXT NOT NULL DEFAULT '',
+    phone TEXT NOT NULL DEFAULT '',
+    registration_number TEXT NOT NULL DEFAULT '',
+    is_active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    created_by INTEGER
+  )`, []);
+
+  // Shift assignments
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS shift_assignments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id INTEGER NOT NULL,
+    location_id INTEGER NOT NULL,
+    staff_id INTEGER NOT NULL REFERENCES shift_staff(id),
+    shift_date TEXT NOT NULL,
+    start_time TEXT NOT NULL DEFAULT '09:00',
+    end_time TEXT NOT NULL DEFAULT '18:00',
+    role_override TEXT NOT NULL DEFAULT '',
+    notes TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    created_by INTEGER
+  )`, []);
+
+  // Leave requests
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS shift_leaves (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id INTEGER NOT NULL,
+    location_id INTEGER NOT NULL,
+    staff_id INTEGER NOT NULL REFERENCES shift_staff(id),
+    leave_type TEXT NOT NULL DEFAULT 'annual',
+    start_date TEXT NOT NULL,
+    start_time TEXT,
+    end_date TEXT NOT NULL,
+    end_time TEXT,
+    hours_requested REAL NOT NULL DEFAULT 8,
+    reason TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'pending',
+    reviewed_by INTEGER,
+    reviewed_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    created_by INTEGER
+  )`, []);
+
+  // Opening hours (stored as single JSON row per location)
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS shift_opening_hours (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id INTEGER NOT NULL,
+    location_id INTEGER NOT NULL,
+    hours_json TEXT NOT NULL DEFAULT '{}',
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_by INTEGER,
+    UNIQUE(org_id, location_id)
+  )`, []);
+
+  // Settings (stored as single JSON row per location)
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS shift_settings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id INTEGER NOT NULL,
+    location_id INTEGER NOT NULL,
+    settings_json TEXT NOT NULL DEFAULT '{}',
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_by INTEGER,
+    UNIQUE(org_id, location_id)
+  )`, []);
+
+  // Indexes
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_shift_staff_org_loc ON shift_staff (org_id, location_id, is_active)`, []);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_shift_assign_org_date ON shift_assignments (org_id, location_id, shift_date)`, []);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_shift_leaves_org ON shift_leaves (org_id, location_id, status, start_date)`, []);
+}
+
+/* ── 2. HANDLER FUNCTIONS ────────────────────────────────────────
+   Paste these near the other handler functions                    */
+
+// ── Staff ─────────────────────────────────────────────────────────
+
+async function handleShiftStaffList(request, env, corsOkHeaders, authUser, url) {
+  await ensureShiftsSchema(env);
+  const includeInactive = (url.searchParams.get("include_inactive") || "") === "1";
+  const staff = await dbAll(env,
+    `SELECT id, full_name, designation, employment_type, contracted_hours,
+            email, phone, registration_number, is_active, created_at, updated_at
+     FROM shift_staff
+     WHERE org_id = ? AND location_id = ?
+     ${includeInactive ? "" : "AND is_active = 1"}
+     ORDER BY full_name ASC`,
+    [authUser.org_id, authUser.location_id]);
+  return jsonResponse({ ok: true, staff }, 200, corsOkHeaders);
+}
+
+async function handleShiftStaffCreate(request, env, corsOkHeaders, authUser) {
+  await ensureShiftsSchema(env);
+  const body = await readJson(request);
+  const fullName = String(body.full_name || "").trim();
+  if (!fullName) return jsonResponse({ ok: false, error: "Missing full_name" }, 400, corsOkHeaders);
+  const designation = String(body.designation || "other").trim();
+  const empType = String(body.employment_type || "fulltime").trim();
+  const hours = Math.max(1, Math.min(48, parseFloat(body.contracted_hours) || 40));
+  const row = await dbFirst(env,
+    `INSERT INTO shift_staff (org_id, location_id, full_name, designation, employment_type,
+       contracted_hours, email, phone, registration_number, is_active, created_at, updated_at, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'), ?) RETURNING id`,
+    [authUser.org_id, authUser.location_id, fullName, designation, empType, hours,
+     String(body.email || "").trim(), String(body.phone || "").trim(),
+     String(body.registration_number || "").trim(), authUser.user_id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SHIFT_STAFF_CREATE", "shift_staff", String(row.id), { full_name: fullName });
+  return jsonResponse({ ok: true, staff_id: row.id }, 200, corsOkHeaders);
+}
+
+async function handleShiftStaffUpdate(request, env, corsOkHeaders, authUser, staffId) {
+  await ensureShiftsSchema(env);
+  const ex = await dbFirst(env, `SELECT id FROM shift_staff WHERE id=? AND org_id=? AND location_id=?`, [staffId, authUser.org_id, authUser.location_id]);
+  if (!ex) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+  const body = await readJson(request);
+  const fullName = String(body.full_name || "").trim();
+  if (!fullName) return jsonResponse({ ok: false, error: "Missing full_name" }, 400, corsOkHeaders);
+  await dbRun(env,
+    `UPDATE shift_staff SET full_name=?, designation=?, employment_type=?, contracted_hours=?,
+       email=?, phone=?, registration_number=?, is_active=?, updated_at=datetime('now')
+     WHERE id=? AND org_id=? AND location_id=?`,
+    [fullName, String(body.designation||"other"), String(body.employment_type||"fulltime"),
+     Math.max(1,Math.min(48,parseFloat(body.contracted_hours)||40)),
+     String(body.email||"").trim(), String(body.phone||"").trim(),
+     String(body.registration_number||"").trim(),
+     body.is_active === 0 ? 0 : 1,
+     staffId, authUser.org_id, authUser.location_id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SHIFT_STAFF_UPDATE", "shift_staff", String(staffId), {});
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+// ── Assignments ───────────────────────────────────────────────────
+
+async function handleShiftAssignmentsList(request, env, corsOkHeaders, authUser, url) {
+  await ensureShiftsSchema(env);
+  const year = parseInt(url.searchParams.get("year") || new Date().getFullYear());
+  const month = parseInt(url.searchParams.get("month") || new Date().getMonth() + 1);
+  if (!year || !month) return jsonResponse({ ok: false, error: "year and month required" }, 400, corsOkHeaders);
+  const from = `${year}-${String(month).padStart(2,"0")}-01`;
+  const nextM = month === 12 ? `${year+1}-01-01` : `${year}-${String(month+1).padStart(2,"0")}-01`;
+  const shifts = await dbAll(env,
+    `SELECT id, staff_id, shift_date, start_time, end_time, role_override, notes
+     FROM shift_assignments
+     WHERE org_id=? AND location_id=? AND shift_date>=? AND shift_date<?
+     ORDER BY shift_date ASC, start_time ASC`,
+    [authUser.org_id, authUser.location_id, from, nextM]);
+  return jsonResponse({ ok: true, shifts }, 200, corsOkHeaders);
+}
+
+async function handleShiftAssignmentCreate(request, env, corsOkHeaders, authUser) {
+  await ensureShiftsSchema(env);
+  const body = await readJson(request);
+  const staffId = parseInt(body.staff_id);
+  const shiftDate = String(body.shift_date || "").trim();
+  const startTime = String(body.start_time || "09:00").trim();
+  const endTime = String(body.end_time || "18:00").trim();
+  if (!staffId || !shiftDate) return jsonResponse({ ok: false, error: "staff_id and shift_date required" }, 400, corsOkHeaders);
+  const row = await dbFirst(env,
+    `INSERT INTO shift_assignments (org_id, location_id, staff_id, shift_date, start_time, end_time,
+       role_override, notes, created_at, updated_at, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), ?) RETURNING id`,
+    [authUser.org_id, authUser.location_id, staffId, shiftDate, startTime, endTime,
+     String(body.role_override||""), String(body.notes||""), authUser.user_id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SHIFT_ASSIGN_CREATE", "shift_assignments", String(row.id), { shift_date: shiftDate });
+  return jsonResponse({ ok: true, shift_id: row.id }, 200, corsOkHeaders);
+}
+
+async function handleShiftAssignmentUpdate(request, env, corsOkHeaders, authUser, shiftId) {
+  await ensureShiftsSchema(env);
+  const ex = await dbFirst(env, `SELECT id FROM shift_assignments WHERE id=? AND org_id=? AND location_id=?`, [shiftId, authUser.org_id, authUser.location_id]);
+  if (!ex) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+  const body = await readJson(request);
+  await dbRun(env,
+    `UPDATE shift_assignments SET start_time=?, end_time=?, role_override=?, notes=?, updated_at=datetime('now')
+     WHERE id=? AND org_id=? AND location_id=?`,
+    [String(body.start_time||"09:00"), String(body.end_time||"18:00"),
+     String(body.role_override||""), String(body.notes||""),
+     shiftId, authUser.org_id, authUser.location_id]);
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleShiftAssignmentDelete(request, env, corsOkHeaders, authUser, shiftId) {
+  await ensureShiftsSchema(env);
+  await dbRun(env, `DELETE FROM shift_assignments WHERE id=? AND org_id=? AND location_id=?`, [shiftId, authUser.org_id, authUser.location_id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SHIFT_ASSIGN_DELETE", "shift_assignments", String(shiftId), {});
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+// ── Leaves ────────────────────────────────────────────────────────
+
+async function handleShiftLeavesList(request, env, corsOkHeaders, authUser, url) {
+  await ensureShiftsSchema(env);
+  const year = parseInt(url.searchParams.get("year") || new Date().getFullYear());
+  const from = `${year}-01-01`, to = `${year}-12-31`;
+  const leaves = await dbAll(env,
+    `SELECT id, staff_id, leave_type, start_date, start_time, end_date, end_time,
+            hours_requested, reason, status, reviewed_by, reviewed_at, created_at
+     FROM shift_leaves
+     WHERE org_id=? AND location_id=? AND start_date>=? AND start_date<=?
+     ORDER BY start_date DESC`,
+    [authUser.org_id, authUser.location_id, from, to]);
+  return jsonResponse({ ok: true, leaves }, 200, corsOkHeaders);
+}
+
+async function handleShiftLeaveCreate(request, env, corsOkHeaders, authUser) {
+  await ensureShiftsSchema(env);
+  const body = await readJson(request);
+  const staffId = parseInt(body.staff_id);
+  const startDate = String(body.start_date || "").trim();
+  const endDate = String(body.end_date || startDate).trim();
+  if (!staffId || !startDate) return jsonResponse({ ok: false, error: "staff_id and start_date required" }, 400, corsOkHeaders);
+  const row = await dbFirst(env,
+    `INSERT INTO shift_leaves (org_id, location_id, staff_id, leave_type, start_date, start_time,
+       end_date, end_time, hours_requested, reason, status, created_at, updated_at, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', datetime('now'), datetime('now'), ?) RETURNING id`,
+    [authUser.org_id, authUser.location_id, staffId,
+     String(body.leave_type||"annual"), startDate, body.start_time||null,
+     endDate, body.end_time||null, parseFloat(body.hours_requested)||8,
+     String(body.reason||""), authUser.user_id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SHIFT_LEAVE_CREATE", "shift_leaves", String(row.id), { start_date: startDate });
+  return jsonResponse({ ok: true, leave_id: row.id }, 200, corsOkHeaders);
+}
+
+async function handleShiftLeaveApprove(request, env, corsOkHeaders, authUser, leaveId) {
+  await ensureShiftsSchema(env);
+  await dbRun(env,
+    `UPDATE shift_leaves SET status='approved', reviewed_by=?, reviewed_at=datetime('now'), updated_at=datetime('now')
+     WHERE id=? AND org_id=? AND location_id=?`,
+    [authUser.user_id, leaveId, authUser.org_id, authUser.location_id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SHIFT_LEAVE_APPROVE", "shift_leaves", String(leaveId), {});
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleShiftLeaveReject(request, env, corsOkHeaders, authUser, leaveId) {
+  await ensureShiftsSchema(env);
+  await dbRun(env,
+    `UPDATE shift_leaves SET status='rejected', reviewed_by=?, reviewed_at=datetime('now'), updated_at=datetime('now')
+     WHERE id=? AND org_id=? AND location_id=?`,
+    [authUser.user_id, leaveId, authUser.org_id, authUser.location_id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SHIFT_LEAVE_REJECT", "shift_leaves", String(leaveId), {});
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+// ── Opening Hours & Settings ──────────────────────────────────────
+
+async function handleShiftOpeningHoursGet(request, env, corsOkHeaders, authUser) {
+  await ensureShiftsSchema(env);
+  const row = await dbFirst(env, `SELECT hours_json FROM shift_opening_hours WHERE org_id=? AND location_id=?`, [authUser.org_id, authUser.location_id]);
+  const hours = row ? JSON.parse(row.hours_json || "{}") : { default: { open:"09:00", close:"18:00", closed:false }, weekends:false, overrides:{} };
+  return jsonResponse({ ok: true, hours }, 200, corsOkHeaders);
+}
+
+async function handleShiftOpeningHoursPut(request, env, corsOkHeaders, authUser) {
+  await ensureShiftsSchema(env);
+  const body = await readJson(request);
+  const json = JSON.stringify(body);
+  await dbRun(env,
+    `INSERT INTO shift_opening_hours (org_id, location_id, hours_json, updated_at, updated_by) VALUES (?,?,?,datetime('now'),?)
+     ON CONFLICT(org_id, location_id) DO UPDATE SET hours_json=excluded.hours_json, updated_at=excluded.updated_at, updated_by=excluded.updated_by`,
+    [authUser.org_id, authUser.location_id, json, authUser.user_id]);
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleShiftSettingsGet(request, env, corsOkHeaders, authUser) {
+  await ensureShiftsSchema(env);
+  const row = await dbFirst(env, `SELECT settings_json FROM shift_settings WHERE org_id=? AND location_id=?`, [authUser.org_id, authUser.location_id]);
+  const settings = row ? JSON.parse(row.settings_json || "{}") : { pharmacistRequired: true, minPharmacists: 1 };
+  return jsonResponse({ ok: true, settings }, 200, corsOkHeaders);
+}
+
+async function handleShiftSettingsPut(request, env, corsOkHeaders, authUser) {
+  await ensureShiftsSchema(env);
+  const body = await readJson(request);
+  await dbRun(env,
+    `INSERT INTO shift_settings (org_id, location_id, settings_json, updated_at, updated_by) VALUES (?,?,?,datetime('now'),?)
+     ON CONFLICT(org_id, location_id) DO UPDATE SET settings_json=excluded.settings_json, updated_at=excluded.updated_at, updated_by=excluded.updated_by`,
+    [authUser.org_id, authUser.location_id, JSON.stringify(body), authUser.user_id]);
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+// ── END SHIFTS MODULE FUNCTIONS ────────────────────────────────
+
 export default {
   async fetch(request, env, ctx) {
     try {
@@ -10441,6 +10737,63 @@ if (url.pathname.startsWith("/dda-stocktakes/items/")) {
     if (url.pathname === "/loyalty/transactions" && request.method === "POST") {
       return await handleLoyaltyTransactionCreate(request, env, corsOkHeaders, authUser);
     }
+
+
+    // ── Shifts Module ──────────────────────────────────────────────
+// ── Shifts Module ──────────────────────────────────────────────
+    if (url.pathname === "/shifts/staff" && request.method === "GET") {
+      return await handleShiftStaffList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/shifts/staff" && request.method === "POST") {
+      return await handleShiftStaffCreate(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname.startsWith("/shifts/staff/") && request.method === "PUT") {
+      const id = parseInt(url.pathname.split("/")[3]);
+      if (!id) return jsonResponse({ ok: false, error: "Invalid staff id" }, 400, corsOkHeaders);
+      return await handleShiftStaffUpdate(request, env, corsOkHeaders, authUser, id);
+    }
+    if (url.pathname === "/shifts/assignments" && request.method === "GET") {
+      return await handleShiftAssignmentsList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/shifts/assignments" && request.method === "POST") {
+      return await handleShiftAssignmentCreate(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname.startsWith("/shifts/assignments/") && request.method === "PUT") {
+      const id = parseInt(url.pathname.split("/")[3]);
+      if (!id) return jsonResponse({ ok: false, error: "Invalid shift id" }, 400, corsOkHeaders);
+      return await handleShiftAssignmentUpdate(request, env, corsOkHeaders, authUser, id);
+    }
+    if (url.pathname.startsWith("/shifts/assignments/") && request.method === "DELETE") {
+      const id = parseInt(url.pathname.split("/")[3]);
+      if (!id) return jsonResponse({ ok: false, error: "Invalid shift id" }, 400, corsOkHeaders);
+      return await handleShiftAssignmentDelete(request, env, corsOkHeaders, authUser, id);
+    }
+    if (url.pathname === "/shifts/leaves" && request.method === "GET") {
+      return await handleShiftLeavesList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/shifts/leaves" && request.method === "POST") {
+      return await handleShiftLeaveCreate(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname.startsWith("/shifts/leaves/") && request.method === "POST") {
+      const parts = url.pathname.split("/"); // ["","shifts","leaves","ID","approve|reject"]
+      const id = parseInt(parts[3]);
+      if (!id) return jsonResponse({ ok: false, error: "Invalid leave id" }, 400, corsOkHeaders);
+      if (parts[4] === "approve") return await handleShiftLeaveApprove(request, env, corsOkHeaders, authUser, id);
+      if (parts[4] === "reject")  return await handleShiftLeaveReject(request, env, corsOkHeaders, authUser, id);
+    }
+    if (url.pathname === "/shifts/opening-hours" && request.method === "GET") {
+      return await handleShiftOpeningHoursGet(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname === "/shifts/opening-hours" && request.method === "PUT") {
+      return await handleShiftOpeningHoursPut(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname === "/shifts/settings" && request.method === "GET") {
+      return await handleShiftSettingsGet(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname === "/shifts/settings" && request.method === "PUT") {
+      return await handleShiftSettingsPut(request, env, corsOkHeaders, authUser);
+    }
+    // ── End Shifts Module ───────────────────────────────────────────
 
     return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
     } catch (e) {
