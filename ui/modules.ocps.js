@@ -37,7 +37,6 @@
     { trade: "Yasmin",       estrogen: "Ethinylestradiol",  estrogenDose: 0.03,    progestogen: "Drospirenone",          progestogenDose: 3     },
     { trade: "Yasminelle",   estrogen: "Ethinylestradiol",  estrogenDose: 0.02,    progestogen: "Drospirenone",          progestogenDose: 3     },
     { trade: "Yaz",          estrogen: "Ethinylestradiol",  estrogenDose: 0.02,    progestogen: "Drospirenone",          progestogenDose: 3     },
-    { trade: "Yaz 24+4",     estrogen: "Ethinylestradiol",  estrogenDose: 0.02,    progestogen: "Drospirenone",          progestogenDose: 3     },
     { trade: "Zoely",        estrogen: "Estradiol",         estrogenDose: 1.5,     progestogen: "Nomegestrol acetate",   progestogenDose: 2.5   }
   ];
 
