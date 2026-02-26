@@ -880,9 +880,9 @@
     try {
       applyFilterSplitSort();
 
-      var tbodyA = m.getElementById("dv-tbody-active");
-      var tbodyC = m.getElementById("dv-tbody-completed");
-      var tbodyF = m.getElementById("dv-tbody-failed");
+      var tbodyA = m.querySelector("#dv-tbody-active");
+      var tbodyC = m.querySelector("#dv-tbody-completed");
+      var tbodyF = m.querySelector("#dv-tbody-failed");
       if (tbodyA) renderTable(tbodyA, state.filteredActive,    "active");
       if (tbodyC) renderTable(tbodyC, state.filteredCompleted, "completed");
       if (tbodyF) renderTable(tbodyF, state.filteredFailed,    "failed");
@@ -894,21 +894,21 @@
         else if (isFailed(r)) totalF++;
         else totalA++;
       });
-      var countA=m.getElementById("dv-count-active");
-      var countC=m.getElementById("dv-count-completed");
-      var countF=m.getElementById("dv-count-failed");
+      var countA=m.querySelector("#dv-count-active");
+      var countC=m.querySelector("#dv-count-completed");
+      var countF=m.querySelector("#dv-count-failed");
       if (countA) countA.textContent="Showing "+String(state.filteredActive.length)+" / "+String(totalA);
       if (countC) countC.textContent=String(state.filteredCompleted.length)+" of "+String(totalC)+" records";
       if (countF) countF.textContent=String(state.filteredFailed.length)+" of "+String(totalF)+" records";
 
       // Stats
-      var statsEl=m.getElementById("dv-stats");
+      var statsEl=m.querySelector("#dv-stats");
       if (statsEl) renderStats(statsEl);
 
       // Sort headers
-      var tableA=m.getElementById("dv-table-active");
-      var tableC=m.getElementById("dv-table-completed");
-      var tableF=m.getElementById("dv-table-failed");
+      var tableA=m.querySelector("#dv-table-active");
+      var tableC=m.querySelector("#dv-table-completed");
+      var tableF=m.querySelector("#dv-table-failed");
       if (tableA) updateSortHeaders(tableA, state.sortActive);
       if (tableC) updateSortHeaders(tableC, state.sortCompleted);
       if (tableF) updateSortHeaders(tableF, state.sortFailed);
@@ -955,7 +955,7 @@
     var m = mount||document;
     var panes = ["active","completed","failed"];
     panes.forEach(function(p){
-      var el=m.getElementById("dv-pane-"+p);
+      var el=m.querySelector("#dv-pane-"+p);
       if (el) el.style.display=(p===tab?"block":"none");
     });
     var tabs = m.querySelectorAll(".dv-tab");
@@ -970,14 +970,14 @@
   // ------------------------------------------------------------
   function buildSelectedPanel(entry, mount) {
     var m = mount||document;
-    var selContent  = m.getElementById("dv-sel-content");
-    var selMeta     = m.getElementById("dv-sel-meta");
-    var selBtnNote  = m.getElementById("dv-sel-add-note");
-    var selBtnEdit  = m.getElementById("dv-sel-edit");
-    var selBtnDel   = m.getElementById("dv-sel-del");
-    var selBtnPrint = m.getElementById("dv-sel-print");
-    var selBtnDeliv = m.getElementById("dv-sel-deliver");
-    var selBtnFail  = m.getElementById("dv-sel-fail");
+    var selContent  = m.querySelector("#dv-sel-content");
+    var selMeta     = m.querySelector("#dv-sel-meta");
+    var selBtnNote  = m.querySelector("#dv-sel-add-note");
+    var selBtnEdit  = m.querySelector("#dv-sel-edit");
+    var selBtnDel   = m.querySelector("#dv-sel-del");
+    var selBtnPrint = m.querySelector("#dv-sel-print");
+    var selBtnDeliv = m.querySelector("#dv-sel-deliver");
+    var selBtnFail  = m.querySelector("#dv-sel-fail");
 
     // Highlight rows
     var allRows = m.querySelectorAll(".dv-table tbody tr");
@@ -1901,7 +1901,7 @@
         var el = mount.querySelector(queryKey==="queryActive"?"#dv-search-active":queryKey==="queryCompleted"?"#dv-search-completed":"#dv-search-failed");
         state[queryKey]=String(el?el.value||"":"");
         applyFilterSplitSort();
-        var tbody=mount.getElementById?mount.getElementById(tbodyId):E.q("#"+tbodyId,mount);
+        var tbody=mount.querySelector("#"+tbodyId);
         if (tbody) renderTable(tbody,state[filteredKey],which);
         var total=0;
         state.entries.forEach(function(r){
