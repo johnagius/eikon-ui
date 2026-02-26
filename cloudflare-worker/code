@@ -8801,6 +8801,18 @@ async function handlePharmacyCalcRecordDelete(request, env, corsOkHeaders, authU
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
+async function handlePharmacyCalcRecordGet(request, env, corsOkHeaders, authUser, recordId) {
+  await ensurePharmacyCalcSchema(env);
+  const row = await dbFirst(env,
+    `SELECT id, patient_name, id_card, start_date, calc_type, calc_data_json, created_at, created_by
+     FROM pharmacy_calc_records
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [recordId, authUser.org_id, authUser.location_id]
+  );
+  if (!row) return jsonResponse({ ok: false, error: "Record not found" }, 404, corsOkHeaders);
+  return jsonResponse({ ok: true, record: row }, 200, corsOkHeaders);
+}
+
 export default {
   async fetch(request, env, ctx) {
     try {
@@ -9473,12 +9485,14 @@ if (url.pathname.startsWith("/dda-stocktakes/items/")) {
       return await handlePharmacyCalcRecordsCreate(request, env, corsOkHeaders, authUser);
 
     if (url.pathname.startsWith("/pharmacy-calc/records/")) {
-      const parts = url.pathname.split("/").filter(Boolean); // ["pharmacy-calc","records",":id"]
-      const recId = parseInt(parts[2], 10);
-      if (!recId) return jsonResponse({ ok: false, error: "Invalid record id" }, 400, corsOkHeaders);
-      if (request.method === "DELETE")
-        return await handlePharmacyCalcRecordDelete(request, env, corsOkHeaders, authUser, recId);
-    }
+  const parts = url.pathname.split("/").filter(Boolean);
+  const recId = parseInt(parts[2], 10);
+  if (!recId) return jsonResponse({ ok: false, error: "Invalid record id" }, 400, corsOkHeaders);
+  if (request.method === "GET")
+    return await handlePharmacyCalcRecordGet(request, env, corsOkHeaders, authUser, recId);
+  if (request.method === "DELETE")
+    return await handlePharmacyCalcRecordDelete(request, env, corsOkHeaders, authUser, recId);
+}
 
     return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
     } catch (e) {
