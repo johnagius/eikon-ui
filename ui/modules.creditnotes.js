@@ -109,11 +109,11 @@
   var state = {
     q: "",
     rows: [],
-    filtered: [],
+    filtered: [],        // open notes matching search
+    filteredClosed: [],  // closed notes matching search
     selectedId: null,
     selected: null,
-    busy: false,
-    showAll: false  // show all vs only open
+    busy: false
   };
 
   function calcIsOpen(cn) {
@@ -172,20 +172,17 @@
 
   function applyFilter() {
     var q = String(state.q || "").trim().toLowerCase();
-    var list = state.rows.slice();
+    var all = state.rows.slice();
 
-    if (!state.showAll) {
-      list = list.filter(function (r) { return r.is_open; });
+    if (q) {
+      all = all.filter(function (r) {
+        var blob = [r.client_name, r.client_surname, r.telephone, r.email, r.receipt_number, String(r.id || "")].join(" ").toLowerCase();
+        return blob.indexOf(q) !== -1;
+      });
     }
 
-    if (!q) {
-      state.filtered = list;
-      return;
-    }
-    state.filtered = list.filter(function (r) {
-      var blob = [r.client_name, r.client_surname, r.telephone, r.email, r.receipt_number, String(r.id || "")].join(" ").toLowerCase();
-      return blob.indexOf(q) !== -1;
-    });
+    state.filtered       = all.filter(function (r) { return r.is_open; });
+    state.filteredClosed = all.filter(function (r) { return !r.is_open; });
   }
 
   function setSelected(row) {
@@ -215,6 +212,7 @@
       }
       if (sel) setSelected(sel); else { state.selectedId = null; state.selected = null; }
       renderTable();
+      renderClosedTable();
       renderSelection();
       renderStats();
     } catch (e) {
@@ -542,6 +540,58 @@
     }
   }
 
+  function renderClosedTable() {
+    var tbody = document.getElementById("cn-closed-tbody");
+    var countEl = document.getElementById("cn-closed-count");
+    var card = document.getElementById("cn-closed-card");
+    if (!tbody) return;
+
+    // applyFilter already called by renderTable; filteredClosed is up to date
+    var list = state.filteredClosed || [];
+    if (countEl) countEl.textContent = String(list.length);
+
+    // Show/hide the card based on whether there are any closed notes
+    if (card) card.style.display = list.length ? "" : "none";
+
+    tbody.innerHTML = "";
+    if (!list.length) return;
+
+    for (var i = 0; i < list.length; i++) {
+      (function () {
+        var r = list[i];
+        var tr = document.createElement("tr");
+        tr.style.cursor = "pointer";
+        if (state.selectedId && String(r.id) === String(state.selectedId)) tr.classList.add("cn-row-selected");
+        tr.addEventListener("click", function () {
+          setSelected(r);
+          renderSelection();
+          renderTable();
+          renderClosedTable();
+          // Scroll detail panel into view
+          var panel = document.getElementById("cn-detail-panel");
+          if (panel) panel.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+
+        // Reason closed
+        var closedReason = "";
+        if (r.remaining <= 0) {
+          closedReason = "Fully used";
+        } else if (!r.no_expiry && r.expiry_date) {
+          var exp = new Date(r.expiry_date); exp.setHours(23,59,59,999);
+          if (exp < new Date()) closedReason = "Expired " + fmtDmy(r.expiry_date);
+        }
+
+        tr.innerHTML =
+          "<td style='white-space:nowrap'>" + esc(fmtDmy(r.issue_date)) + "</td>" +
+          "<td><b>" + esc(r.client_name + " " + r.client_surname) + "</b></td>" +
+          "<td>" + esc(r.telephone) + "</td>" +
+          "<td style='white-space:nowrap;text-align:right;color:#ff5a7a;'>" + esc(fmtEuro(r.remaining)) + " / " + esc(fmtEuro(r.amount)) + "</td>" +
+          "<td><span class='cn-mini' style='opacity:.75;'>" + esc(closedReason) + "</span></td>";
+        tbody.appendChild(tr);
+      })();
+    }
+  }
+
   function fillMainForm(cn) {
     cn = cn || {};
     var map = {
@@ -807,7 +857,6 @@
           "<div style='margin-left:auto;display:flex;gap:10px;flex-wrap:wrap;align-items:center;'>" +
             "<div class='eikon-field' style='min-width:220px;'><div class='eikon-label'>Search</div><input id='cn-search' class='eikon-input' placeholder='Name, phone, receipt…' value=''></div>" +
             "<div style='display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;'>" +
-              "<label style='display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;padding-bottom:2px;'><input type='checkbox' id='cn-show-all'> Show closed</label>" +
               "<button id='cn-refresh' class='eikon-btn'>Refresh</button>" +
               "<button id='cn-print-list' class='eikon-btn'>🖨 Print List</button>" +
               "<button id='cn-new' class='eikon-btn primary'>+ New</button>" +
@@ -820,16 +869,36 @@
       // Detail panel
       "<div class='eikon-card' id='cn-detail-panel'></div>" +
 
-      // Table
+      // Open credit notes table
       "<div class='eikon-card'>" +
         "<div class='eikon-row' style='align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;'>" +
-          "<div style='font-weight:900;'>Credit Notes</div>" +
+          "<div style='font-weight:900;'>Open Credit Notes</div>" +
           "<div class='eikon-pill' style='margin-left:auto;'>Shown: <span id='cn-table-count'>0</span></div>" +
         "</div>" +
         "<div class='eikon-table-wrap'>" +
           "<table class='eikon-table' style='min-width:520px;'>" +
             "<thead><tr><th style='width:110px;'>Date</th><th>Client</th><th>Telephone</th><th style='text-align:right;width:120px;'>Balance</th></tr></thead>" +
             "<tbody id='cn-tbody'></tbody>" +
+          "</table>" +
+        "</div>" +
+      "</div>" +
+
+      // Closed credit notes table (hidden when empty)
+      "<div class='eikon-card' id='cn-closed-card' style='display:none;'>" +
+        "<div class='eikon-row' style='align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;'>" +
+          "<div style='font-weight:900;opacity:.75;'>Closed Credit Notes</div>" +
+          "<div class='eikon-pill' style='margin-left:auto;'>Shown: <span id='cn-closed-count'>0</span></div>" +
+        "</div>" +
+        "<div class='eikon-table-wrap'>" +
+          "<table class='eikon-table' style='min-width:580px;'>" +
+            "<thead><tr>" +
+              "<th style='width:110px;'>Date</th>" +
+              "<th>Client</th>" +
+              "<th>Telephone</th>" +
+              "<th style='text-align:right;width:150px;'>Balance / Total</th>" +
+              "<th style='width:130px;'>Reason</th>" +
+            "</tr></thead>" +
+            "<tbody id='cn-closed-tbody'></tbody>" +
           "</table>" +
         "</div>" +
       "</div>";
@@ -846,15 +915,12 @@
       state.q = this.value;
       applyFilter();
       renderTable();
-    });
-    document.getElementById("cn-show-all").addEventListener("change", function () {
-      state.showAll = this.checked;
-      applyFilter();
-      renderTable();
+      renderClosedTable();
     });
 
     renderSelection();
     renderTable();
+    renderClosedTable();
     renderStats();
     doRefresh();
   }
