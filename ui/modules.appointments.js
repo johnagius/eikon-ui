@@ -8,7 +8,7 @@
   function warn() { E.warn.apply(E, ["[appt]"].concat([].slice.call(arguments))); }
   function err()  { E.error.apply(E,["[appt]"].concat([].slice.call(arguments))); }
 
-  // ── Utilities ──────────────────────────────────────────────────────────────
+  // -- Utilities --------------------------------------------------------------
   function esc(s) {
     return String(s == null ? "" : s)
       .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
@@ -64,7 +64,7 @@
     return pad2(h) + ":" + pad2(mn);
   }
 
-  // ── Toast & Modal helpers ──────────────────────────────────────────────────
+  // -- Toast & Modal helpers --------------------------------------------------
   var toastInstalled = false;
   function ensureToastStyles() {
     if (toastInstalled) return; toastInstalled = true;
@@ -101,7 +101,7 @@
     });
   }
 
-  // ── In-memory data (cloud is source of truth) ─────────────────────────────
+  // -- In-memory data (cloud is source of truth) -----------------------------
   // NOTE: This module is intentionally "cloud-only". It does NOT persist
   // doctors/clinics/schedules/appointments/waitlist in localStorage to avoid
   // cross-browser / partitioned-storage divergence when running in iframes.
@@ -180,8 +180,8 @@
       return true;
     });
   }
-// ── API config
- ─────────────────────────────────────────────────────────────
+// -- API config
+ -------------------------------------------------------------
 
   // Cloud-only mode: never fall back to localStorage.
   function shouldFallback(_e) { return false; }
@@ -191,7 +191,7 @@
     return E.apiFetch(path, options || {});
   }
 
-  // ── Doctors API ─────────────────────────────────────────────────────────────
+  // -- Doctors API -------------------------------------------------------------
 
   async function apiLoadDoctors() {
     try {
@@ -238,7 +238,7 @@
     } catch(e) { throw e; }
   }
 
-  // ── Clinics API ─────────────────────────────────────────────────────────────
+  // -- Clinics API -------------------------------------------------------------
 
   async function apiLoadClinics() {
     try {
@@ -274,7 +274,7 @@
     } catch(e) { throw e; }
   }
 
-  // ── Schedules API ───────────────────────────────────────────────────────────
+  // -- Schedules API -----------------------------------------------------------
 
   async function apiLoadSchedules(params) {
     try {
@@ -324,7 +324,7 @@
     } catch(e) { throw e; }
   }
 
-  // ── Appointments API ────────────────────────────────────────────────────────
+  // -- Appointments API --------------------------------------------------------
 
   async function apiLoadAppts(params) {
     try {
@@ -408,7 +408,7 @@
     } catch(e) { throw e; }
   }
 
-  // ── Waitlist API ────────────────────────────────────────────────────────────
+  // -- Waitlist API ------------------------------------------------------------
 
   async function apiLoadWaitlist(params) {
     try {
@@ -480,7 +480,7 @@
     } catch(e) { throw e; }
   }
 
-  // ── Initial data load ───────────────────────────────────────────────────────
+  // -- Initial data load -------------------------------------------------------
   // Called once when the module mounts to hydrate localStorage from the API.
   // After this, all UI reads from localStorage for speed; writes go to API + localStorage.
 
@@ -505,7 +505,7 @@
 
 // ============================================================================
 //  HOW TO USE THE API FUNCTIONS
-//  ─────────────────────────────
+//  -----------------------------
 //  In render(), replace the first line after ensureStyles() with:
 //
 //    ensureStyles();
@@ -539,12 +539,12 @@
 
 
 
-  // ── Compute total ─────────────────────────────────────────────────────────
+  // -- Compute total ---------------------------------------------------------
   function computeTotal(a) {
     return (parseFloat(a.doctorFee)||0) + (parseFloat(a.clinicFee)||0) + (parseFloat(a.medicinesCost)||0);
   }
 
-  // ── Status helpers ────────────────────────────────────────────────────────
+  // -- Status helpers --------------------------------------------------------
   var APPT_STATUSES = ["Scheduled","Confirmed","Completed","Cancelled","No Show"];
   var WL_STATUSES   = ["Waiting","Promoted","Cancelled"];
 
@@ -567,7 +567,7 @@
     return span;
   }
 
-  // ── CSS Styles ────────────────────────────────────────────────────────────
+  // -- CSS Styles ------------------------------------------------------------
   var apStyleInstalled = false;
   function ensureStyles() {
     if (apStyleInstalled) return; apStyleInstalled = true;
@@ -712,7 +712,7 @@
     document.head.appendChild(st);
   }
 
-  // ── Dropdown builders ────────────────────────────────────────────────────
+  // -- Dropdown builders ----------------------------------------------------
   function buildDoctorOptions(selected, allowEmpty) {
     var docs = loadDoctors();
     var html = allowEmpty ? "<option value=''>— Any Doctor —</option>" : "<option value=''>— Select Doctor —</option>";
@@ -741,7 +741,7 @@
     }).join("");
   }
 
-  // ── Print Functions ───────────────────────────────────────────────────────
+  // -- Print Functions -------------------------------------------------------
   function printApptList(list, title, filterDesc) {
     var w = window.open("","_blank");
     if (!w) { toast("Print","Popup blocked — allow popups and try again.","bad"); return; }
@@ -902,7 +902,7 @@
     w.document.open(); w.document.write(html); w.document.close();
   }
 
-  // ── Modals: Doctor management ────────────────────────────────────────────
+  // -- Modals: Doctor management --------------------------------------------
   function openDoctorsModal(onDone) {
     function renderBody() {
       var docs = loadDoctors();
@@ -979,7 +979,7 @@
     },60);
   }
 
-  // ── Modals: Clinic management ────────────────────────────────────────────
+  // -- Modals: Clinic management --------------------------------------------
   function openClinicsModal(onDone) {
     function renderBody() {
       var clinics = loadClinics();
@@ -1052,7 +1052,7 @@
     },60);
   }
 
-  // ── Modals: Schedules management ─────────────────────────────────────────
+  // -- Modals: Schedules management -----------------------------------------
   function openSchedulesModal(onDone) {
     function renderBody() {
       var scheds = loadSchedules();
@@ -1175,7 +1175,7 @@
     },60);
   }
 
-  // ── Modal: New/Edit Appointment ────────────────────────────────────────────
+  // -- Modal: New/Edit Appointment --------------------------------------------
   function openApptModal(opts, onSaved) {
     var isEdit = !!(opts&&opts.appt);
     var a = (opts&&opts.appt)||{};
@@ -1338,7 +1338,7 @@
     },60);
   }
 
-  // ── Modal: Waiting list entry ─────────────────────────────────────────────
+  // -- Modal: Waiting list entry ---------------------------------------------
   function openWaitlistModal(opts, onSaved) {
     var isEdit = !!(opts&&opts.entry);
     var w = (opts&&opts.entry)||{};
@@ -1398,7 +1398,7 @@
     ]);
   }
 
-  // ── State ─────────────────────────────────────────────────────────────────
+  // -- State -----------------------------------------------------------------
   var state = {
     view: "day",          // "day" | "list" | "waitlist"
     currentDate: todayYmd(),
@@ -1417,7 +1417,7 @@
     refresh: null
   };
 
-  // ── Sorting ───────────────────────────────────────────────────────────────
+  // -- Sorting ---------------------------------------------------------------
   function cmp(a,b){if(a<b)return -1;if(a>b)return 1;return 0;}
   function sortList(list,sortState,keyFn) {
     var key=sortState.key; var dir=sortState.dir; var mul=dir==="desc"?-1:1;
@@ -1428,7 +1428,7 @@
     });
   }
 
-  // ── Filtered appt list ────────────────────────────────────────────────────
+  // -- Filtered appt list ----------------------------------------------------
   function getFilteredAppts() {
     var all = loadAppts();
     var q = norm(state.listQuery);
@@ -1457,7 +1457,7 @@
     return sortList(all, state.wlSort);
   }
 
-  // ── Main render ────────────────────────────────────────────────────────────
+  // -- Main render ------------------------------------------------------------
   function render(ctx) {
     // Auto-sync on module render
     try { refreshAll('render').catch(function(e){ console.error('[appt] refreshAll(render) failed', e); }); } catch(_e){}
@@ -1477,7 +1477,7 @@
       return "<span class='ap-sort"+(on?" on":"")+"' data-key='"+esc(key)+"'>"+esc(label)+"<span class='car'>"+arrow+"</span></span>";
     }
 
-    // ── Build markup ──────────────────────────────────────────────────────
+    // -- Build markup ------------------------------------------------------
     mount.innerHTML =
       "<div class='ap-wrap'>" +
 
@@ -1504,7 +1504,7 @@
       "  </div>" +
       "</div>" +
 
-      // ── Day View ──
+      // -- Day View --
       "<div id='ap-view-day' style='display:"+(state.view==="day"?"block":"none")+"'>" +
       "  <div class='ap-card'>" +
       "    <div class='ap-card-head'>" +
@@ -1534,7 +1534,7 @@
       "  </div>" +
       "</div>" +
 
-      // ── List View ──
+      // -- List View --
       "<div id='ap-view-list' style='display:"+(state.view==="list"?"block":"none")+"'>" +
       "  <div class='ap-card'>" +
       "    <div class='ap-card-head'>" +
@@ -1588,7 +1588,7 @@
       "  </div>" +
       "</div>" +
 
-      // ── Waiting List View ──
+      // -- Waiting List View --
       "<div id='ap-view-waitlist' style='display:"+(state.view==="waitlist"?"block":"none")+"'>" +
       "  <div class='ap-card'>" +
       "    <div class='ap-card-head'>" +
@@ -1627,7 +1627,7 @@
 
       "</div>";
 
-    // ── DOM refs ──────────────────────────────────────────────────────────
+    // -- DOM refs ----------------------------------------------------------
     var viewDayEl      = E.q("#ap-view-day",   mount);
     var viewListEl     = E.q("#ap-view-list",  mount);
     var viewWlEl       = E.q("#ap-view-waitlist",mount);
@@ -1658,7 +1658,7 @@
     var wlDetailBody   = E.q("#ap-wl-detail-body",mount);
     var wlDetailActions= E.q("#ap-wl-detail-actions",mount);
 
-    // ── Tab switching ──────────────────────────────────────────────────────
+    // -- Tab switching ------------------------------------------------------
     function switchView(v) {
       state.view=v;
       viewDayEl.style.display=  v==="day"?"block":"none";
@@ -1675,7 +1675,7 @@
       tab.addEventListener("click",function(){ switchView(tab.getAttribute("data-view")); });
     });
 
-    // ── Appointment detail panel builder ─────────────────────────────────
+    // -- Appointment detail panel builder ---------------------------------
     function buildDetailHtml(a) {
       var dr=doctorById(a.doctorId); var cl=clinicById(a.clinicId);
       var total=computeTotal(a);
@@ -1763,7 +1763,7 @@
       buildDetailActions(a, detailCard, detailBody, detailTitle, detailActions);
     }
 
-    // ── Day View rendering ──────────────────────────────────────────────────
+    // -- Day View rendering --------------------------------------------------
     function renderDay() {
       var ymd=state.currentDate;
       if(dayLabel) dayLabel.textContent=fmtDmy(ymd)+" — "+dayName(ymd);
@@ -1828,7 +1828,7 @@
       updateWlBadge();
     }
 
-    // ── List table rendering ───────────────────────────────────────────────
+    // -- List table rendering -----------------------------------------------
     function renderListTable() {
       var filtered=getFilteredAppts();
       if(listCount) listCount.textContent="Showing "+filtered.length+" record"+(filtered.length===1?"":"s");
@@ -1875,7 +1875,7 @@
       updateWlBadge();
     }
 
-    // ── Waiting list rendering ─────────────────────────────────────────────
+    // -- Waiting list rendering ---------------------------------------------
     function renderWlTable() {
       var waiting=getFilteredWaitlist();
       if(wlCount) wlCount.textContent="Showing "+waiting.length+" entr"+(waiting.length===1?"y":"ies");
@@ -1986,13 +1986,13 @@
       }
     }
 
-    // ── WL badge ──────────────────────────────────────────────────────────
+    // -- WL badge ----------------------------------------------------------
     function updateWlBadge() {
       var active=loadWaitlist().filter(function(w){return w.status==="Waiting";}).length;
       if(wlBadge) wlBadge.textContent=active;
     }
 
-    // ── Global refresh ────────────────────────────────────────────────────
+    // -- Global refresh ----------------------------------------------------
     function refresh() {
       if(state.view==="day") renderDay();
       if(state.view==="list") renderListTable();
@@ -2001,7 +2001,7 @@
     }
     state.refresh = refresh;
 
-    // ── Day navigation ────────────────────────────────────────────────────
+    // -- Day navigation ----------------------------------------------------
     var dayPrevBtn  = E.q("#ap-day-prev",  mount);
     var dayNextBtn  = E.q("#ap-day-next",  mount);
     var dayTodayBtn = E.q("#ap-day-today", mount);
@@ -2037,7 +2037,7 @@
       printApptList(appts,"Appointments — "+fmtDmy(state.currentDate)+" ("+dayName(state.currentDate)+")","Date: "+fmtDmy(state.currentDate));
     });
 
-    // ── List filters ──────────────────────────────────────────────────────
+    // -- List filters ------------------------------------------------------
     function onListFilter(){renderListTable();}
     var lSearch=E.q("#ap-list-search",mount); var lDr=E.q("#ap-list-dr",mount);
     var lCl=E.q("#ap-list-cl",mount); var lSt=E.q("#ap-list-status",mount);
@@ -2076,7 +2076,7 @@
       });
     }
 
-    // ── Waiting list interactions ─────────────────────────────────────────
+    // -- Waiting list interactions -----------------------------------------
     var wlSearch=E.q("#ap-wl-search",mount); var wlPrint=E.q("#ap-wl-print",mount);
     var wlTable=E.q("#ap-wl-table",mount);
     if(wlSearch) wlSearch.addEventListener("input",function(){state.wlQuery=wlSearch.value;state.selectedWlId=null;if(wlDetailCard)wlDetailCard.style.display="none";renderWlTable();});
@@ -2094,7 +2094,7 @@
       });
     }
 
-    // ── Header buttons ────────────────────────────────────────────────────
+    // -- Header buttons ----------------------------------------------------
     var btnNewAppt  = E.q("#ap-new-appt",     mount);
     var btnNewWl    = E.q("#ap-btn-waitlist",  mount);
     var settingsBtn = E.q("#ap-settings-btn",  mount);
@@ -2124,7 +2124,7 @@
     if(btnCls) btnCls.addEventListener("click",function(){if(settingsMenu)settingsMenu.style.display="none"; openClinicsModal(function(){refresh();});});
     if(btnSch) btnSch.addEventListener("click",function(){if(settingsMenu)settingsMenu.style.display="none"; openSchedulesModal(function(){refresh();});});
 
-    // ── Initial render ────────────────────────────────────────────────────
+    // -- Initial render ----------------------------------------------------
     renderDay();
     updateWlBadge();
 
@@ -2136,7 +2136,7 @@
     }
   }
 
-  // ── Cloud sync & refresh ───────────────────────────────────────────────────
+  // -- Cloud sync & refresh ---------------------------------------------------
   async function refreshAll(reason) {
     reason = reason || "unknown";
     var dbgOn = (/[?&]appt_debug=1/.test(String(location.search||"")));
@@ -2175,7 +2175,7 @@
 
 
 
-// ── Register module ───────────────────────────────────────────────────────
+// -- Register module -------------------------------------------------------
   E.registerModule({
     id:    "appointments",
     title: "Appointments",
