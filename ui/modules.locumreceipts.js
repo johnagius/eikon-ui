@@ -1156,7 +1156,7 @@
   E.registerModule({
     id: "locumreceipts",
     title: "Locum Receipts",
-    order: 23,
+    order: 260,
     icon: "🧾",
     render: render
   });
