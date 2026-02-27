@@ -1096,42 +1096,15 @@ function saveEmp(id, p, cb) {
   }
 
   function toggleActive(e,cb){
-    e.is_active=e.is_active===0?1:0;
-    saveEmp(e.id, Object.assign({},e), cb);
-  
-  function deleteStaff(e, cb){
-    if(!e || !e.id) return;
-    var id = e.id;
-    console.groupCollapsed("[shifts][staffDelete] DELETE /shifts/staff/"+id, {id:id, name:e.full_name, active:e.is_active});
-    apiOp("/shifts/staff/"+id, {method:"DELETE"}, function(r){
-      try { console.log("[shifts][staffDelete] resp", r); } catch(_){}
-      // Optimistic local removal
-      S.staff = (S.staff||[]).filter(function(s){ return s.id !== id; });
-      S.shifts = (S.shifts||[]).filter(function(s){ return s.staff_id !== id; });
-      S.leaves = (S.leaves||[]).filter(function(l){ return l.staff_id !== id; });
-      lsSync();
-
-      // Refresh staff list from server (incl. inactive) to keep UI in sync
-      E.apiFetch("/shifts/staff?include_inactive=1", {method:"GET"}).then(function(res){
-        if(res && res.staff){ S.staff = res.staff; lsSync(); }
-        console.log("[shifts][staffDelete] staff refreshed", (S.staff||[]).length);
-      }, function(err){
-        console.warn("[shifts][staffDelete] staff refresh failed (using local state)", err);
-      }).then(function(){
-        try{ console.groupEnd(); }catch(_){}
-        toast("Staff deleted.");
-        cb && cb();
-      });
-    });
+    e.is_active = e.is_active===0 ? 1 : 0;
+    saveEmp(e.id, Object.assign({}, e), cb);
   }
 
-  function confirmDeleteStaff(e, cb){
+function confirmDeleteStaff(e, cb){
     // Backwards compatibility
     safeConfirmDeleteStaff(e, cb);
   }
 
-
-}
 
 
   /* ══════════════════════════════════════════════════════════════
@@ -1891,11 +1864,47 @@ function dayModal(ds, onSave) {
       // Locum shift (select existing or create new + save shift)
       var addLoc = document.getElementById("dm-addloc");
       if(addLoc) addLoc.onclick=function(){
+        // Prefer pharmacist uncovered gap for this day (if any) as default Time in/out.
         var st0 = (document.getElementById("dm-st") && document.getElementById("dm-st").value) || defaultSt;
         var et0 = (document.getElementById("dm-et") && document.getElementById("dm-et").value) || defaultEt;
+
+        try {
+          var cov = checkCov(ds);
+          if (cov && cov.gaps && cov.gaps.length) {
+            var g = cov.gaps[0];
+            var gst = m2t(g.start);
+            var get = m2t(g.end);
+
+            // Use the first gap as suggestion unless user already picked a tighter interval.
+            var curLen = (st0 && et0) ? (t2m(et0) - t2m(st0)) : 999999;
+            var gapLen = g.end - g.start;
+            if (!st0 || !et0 || curLen >= gapLen) {
+              st0 = gst;
+              et0 = get;
+            }
+            console.log("[shifts][locumShift] suggested gap", ds, {st: st0, et: et0, gap: gst + "–" + get, gaps: cov.gaps.length});
+          } else {
+            console.log("[shifts][locumShift] no gaps; using default", ds, {st: st0, et: et0});
+          }
+        } catch(e) {
+          console.warn("[shifts][locumShift] gap suggest failed", ds, e);
+        }
+
         console.log("[shifts][locumShift] open", { ds: ds, defaultSt: st0, defaultEt: et0 });
         locumShiftModal(ds, st0, et0, function(){
-          // Return to day modal after creating locum shift
+          // Refresh calendar (month) so the main grid updates immediately
+          try {
+            loadMonth().then(function(){
+              onSave && onSave();
+            }).catch(function(err){
+              console.warn("[shifts][locumShift] loadMonth failed, forcing refresh", err);
+              onSave && onSave();
+            });
+          } catch(err2) {
+            console.warn("[shifts][locumShift] refresh failed", err2);
+            onSave && onSave();
+          }
+          // Reopen day modal with updated data
           dayModal(ds, onSave);
         });
       };
