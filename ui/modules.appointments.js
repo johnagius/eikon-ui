@@ -10,6 +10,23 @@
 
   var E = window.EIKON;
   if (!E) return;
+  // Always-on error and rejection logging (no URL flags required)
+  try {
+    window.addEventListener("unhandledrejection", function(ev){
+      try {
+        var reason = ev && ev.reason;
+        apptErr("unhandledrejection", reason);
+        toast("Appointments error", (reason && reason.message) ? reason.message : String(reason||"Unhandled rejection"), "bad", 5000);
+      } catch(e){}
+      try { if (ev && ev.preventDefault) ev.preventDefault(); } catch(e2){}
+    });
+    window.addEventListener("error", function(ev){
+      try {
+        apptErr("window.error", ev && (ev.error || ev.message || ev));
+      } catch(e){}
+    });
+  } catch(e) {}
+
 
     var APPT_DEBUG_ALWAYS = true;
   function log(){ try { if(APPT_DEBUG_ALWAYS){ console.log.apply(console, ["[appt]"].concat([].slice.call(arguments))); } } catch(e){} try{ E.log.apply(E, ["[appt]"].concat([].slice.call(arguments))); }catch(e2){} }
