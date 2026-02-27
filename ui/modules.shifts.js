@@ -426,6 +426,54 @@
     _tt=setTimeout(function(){if(t.parentNode){t.style.opacity="0";setTimeout(function(){t.remove();},300);}},3500);
   }
 
+  /* ── Staff delete confirm (sandbox-safe) ─────────────────────── */
+  function safeConfirmDeleteStaff(e, cb){
+    try{
+      if(!e || !e.id){ console.warn("[shifts][staffDelete] missing staff", e); return; }
+      console.groupCollapsed("[shifts][staffDelete] confirm", {id:e.id, name:e.full_name});
+      var body =
+        '<div style="display:flex;flex-direction:column;gap:10px">' +
+          '<div style="padding:10px;border:1px solid rgba(255,90,122,.35);background:rgba(255,90,122,.08);border-radius:10px">' +
+            '<b>Delete staff member</b><br/>' +
+            'This will permanently remove <b>'+esc(e.full_name)+'</b> and also remove any shifts and leave entries linked to them.<br/>' +
+            '<span style="opacity:.85">This cannot be undone.</span>' +
+          '</div>' +
+          '<div class="eikon-field">' +
+            '<div class="eikon-label">Type <b>DELETE</b> to confirm</div>' +
+            '<input class="eikon-input" id="sd-confirm" placeholder="DELETE" />' +
+          '</div>' +
+        '</div>';
+
+      E.modal.show("Confirm delete", body, [
+        {label:"Cancel", onClick:function(){ console.groupEnd(); E.modal.hide(); }},
+        {label:"Delete", primary:true, onClick:function(){
+          var v = (document.getElementById("sd-confirm")||{}).value || "";
+          if(String(v).trim().toUpperCase() !== "DELETE"){
+            toast("Type DELETE to confirm","error");
+            return;
+          }
+          E.modal.hide();
+          console.log("[shifts][staffDelete] confirmed, deleting…", e.id);
+          // Prefer deleteStaff() if present; fallback to API DELETE.
+          if (typeof deleteStaff === "function") {
+            deleteStaff(e, function(){ console.groupEnd(); cb && cb(); });
+          } else {
+            apiOp("/shifts/staff/"+e.id, {method:"DELETE"}, function(r){
+              console.log("[shifts][staffDelete] resp", r);
+              console.groupEnd();
+              cb && cb();
+            });
+          }
+        }}
+      ]);
+    }catch(err){
+      console.error("[shifts][staffDelete] confirm failed", err);
+      toast("Delete failed (see console)","error");
+      try{ console.groupEnd(); }catch(_){}
+    }
+  }
+
+
   // Clipboard helper (sandbox-safe): tries navigator.clipboard, then execCommand, then manual copy modal
   function copyText(text, label){
     var t = String(text==null?"":text);
@@ -527,7 +575,7 @@
       tb2.onclick=function(){ toggleActive(e,function(){renderEmpRows(m);}); };
       act.appendChild(eb); act.appendChild(tb2);
       var db=document.createElement("button"); db.className="eikon-btn danger"; db.style.marginLeft="6px"; db.textContent="Delete";
-      db.onclick=function(){ confirmDeleteStaff(e,function(){ renderEmpRows(m); }); };
+      db.onclick=function(){ safeConfirmDeleteStaff(e,function(){ renderEmpRows(m); }); };
       act.appendChild(db);
       tb.appendChild(tr);
     });
