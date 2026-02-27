@@ -1720,17 +1720,17 @@
 
       // Quick status buttons
       if(a.status!=="Confirmed"&&a.status!=="Completed"&&a.status!=="Cancelled"){
-        detailActionsEl.appendChild(mkBtn(" Confirm","",function(){
+        detailActionsEl.appendChild(mkBtn(" Confirm","",async function(){
           await apiUpdateAppt(a.id,{status:"Confirmed"}); toast("Updated","Appointment confirmed.","good"); refresh();
         }));
       }
       if(a.status!=="Completed"){
-        detailActionsEl.appendChild(mkBtn(" Complete","",function(){
+        detailActionsEl.appendChild(mkBtn(" Complete","",async function(){
           await apiUpdateAppt(a.id,{status:"Completed"}); toast("Updated","Appointment marked as complete.","good"); refresh();
         }));
       }
       if(a.status!=="Cancelled"){
-        detailActionsEl.appendChild(mkBtn(" Cancel","",function(){
+        detailActionsEl.appendChild(mkBtn(" Cancel","",async function(){
           modalConfirm("Cancel Appointment","Mark this appointment as cancelled?","Yes, Cancel","Keep").then(async function(ok){
             if(!ok) return;
             await apiUpdateAppt(a.id,{status:"Cancelled"}); toast("Cancelled","Appointment cancelled.","good"); refresh();
@@ -1738,12 +1738,12 @@
         }));
       }
       if(a.status!=="No Show"){
-        detailActionsEl.appendChild(mkBtn("No Show","",function(){
+        detailActionsEl.appendChild(mkBtn("No Show","",async function(){
           await apiUpdateAppt(a.id,{status:"No Show"}); toast("Updated","Marked as no show.","good"); refresh();
         }));
       }
 
-      detailActionsEl.appendChild(mkBtn("Delete","",function(){
+      detailActionsEl.appendChild(mkBtn("Delete","",async function(){
         modalConfirm("Delete Appointment","Permanently delete this appointment?","Delete","Cancel").then(async function(ok){
           if(!ok) return;
           await apiDeleteAppt(a.id);
@@ -1953,7 +1953,7 @@
           openWaitlistModal({entry:fresh||w},function(){refresh();});
         }));
         if(w.status==="Waiting"){
-          wlDetailActions.appendChild(mkBtn(" Book Appointment",function(){
+          wlDetailActions.appendChild(mkBtn(" Book Appointment",async function(){
             // Promote: open appt modal pre-filled from waiting list
             E.modal.hide();
             openApptModal({date:todayYmd(), fromWaitlist:w}, function(){
@@ -1963,7 +1963,7 @@
               refresh();
             });
           }));
-          wlDetailActions.appendChild(mkBtn(" Cancel",function(){
+          wlDetailActions.appendChild(mkBtn(" Cancel",async function(){
             modalConfirm("Cancel Entry","Remove this patient from the waiting list?","Yes, Cancel","Keep").then(async function(ok){
               if(!ok) return;
               await apiUpdateWaitlistEntry(w.id,{status:"Cancelled"});
@@ -1972,7 +1972,7 @@
             });
           }));
         }
-        wlDetailActions.appendChild(mkBtn("Delete",function(){
+        wlDetailActions.appendChild(mkBtn("Delete",async function(){
           modalConfirm("Delete Entry","Permanently delete this waiting list entry?","Delete","Cancel").then(async function(ok){
             if(!ok) return;
             await apiDeleteWaitlist(w.id);
