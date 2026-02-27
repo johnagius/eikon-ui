@@ -426,6 +426,50 @@
     _tt=setTimeout(function(){if(t.parentNode){t.style.opacity="0";setTimeout(function(){t.remove();},300);}},3500);
   }
 
+
+  /* ── Staff delete (hard delete, refresh staff list) ───────────── */
+  function deleteStaff(e, cb){
+    try{
+      if(!e || !e.id){ console.warn("[shifts][staffDelete] deleteStaff missing staff", e); return; }
+      var id = e.id;
+
+      console.groupCollapsed("[shifts][staffDelete] DELETE /shifts/staff/"+id, {id:id, name:e.full_name, active:e.is_active});
+
+      apiOp("/shifts/staff/"+id, {method:"DELETE"}, function(r){
+        try{ console.log("[shifts][staffDelete] resp", r); }catch(_){}
+
+        // Optimistic local removal
+        try {
+          S.staff  = (S.staff||[]).filter(function(s){ return s.id !== id; });
+          S.shifts = (S.shifts||[]).filter(function(s){ return s.staff_id !== id; });
+          S.leaves = (S.leaves||[]).filter(function(l){ return l.staff_id !== id; });
+          lsSync();
+        } catch(err){
+          console.warn("[shifts][staffDelete] local cleanup failed", err);
+        }
+
+        // Refresh staff list from server (incl. inactive) to keep UI in sync
+        E.apiFetch("/shifts/staff?include_inactive=1", {method:"GET"}).then(function(res){
+          if(res && res.staff){
+            S.staff = res.staff;
+            lsSync();
+          }
+          console.log("[shifts][staffDelete] staff refreshed", (S.staff||[]).length);
+        }, function(err){
+          console.warn("[shifts][staffDelete] staff refresh failed (using local state)", err);
+        }).then(function(){
+          try{ console.groupEnd(); }catch(_){}
+          toast("Staff deleted.");
+          cb && cb();
+        });
+      });
+    }catch(err){
+      try{ console.groupEnd(); }catch(_){}
+      console.error("[shifts][staffDelete] deleteStaff failed", err);
+      toast("Delete failed","error");
+    }
+  }
+
   /* ── Staff delete confirm (sandbox-safe) ─────────────────────── */
   function safeConfirmDeleteStaff(e, cb){
     try{
