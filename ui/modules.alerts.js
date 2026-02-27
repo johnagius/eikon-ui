@@ -853,7 +853,7 @@
   E.registerModule({
     id: "alerts",
     title: "Alerts",
-    order: 15,
+    order: 110,
     icon: "⚠️",
     render: render
   });
