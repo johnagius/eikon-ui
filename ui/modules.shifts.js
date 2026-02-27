@@ -77,8 +77,10 @@
     var yr = new Date().getFullYear();
     var lk = lastKnownYear(MALTA.annualLeaveHours, yr);
     var base = MALTA.annualLeaveHours[yr] || MALTA.annualLeaveHours[lk] || 216;
-    var ratio = emp.employment_type === "fulltime" ? 1 :
-                Math.min((parseFloat(emp.contracted_hours) || 20) / (parseFloat(MALTA.fullTimeWeeklyHours)||40), 1);
+    var ft = (parseFloat(MALTA.fullTimeWeeklyHours)||40);
+    var ch = parseFloat(emp.contracted_hours);
+    if (!isFinite(ch) || ch<=0) ch = ft;
+    var ratio = Math.min(ch / ft, 1);
     return {
       annual:       Math.round(base * ratio),
       sick:         Math.round((parseFloat(MALTA.sickLeavePaidHours)||80) * ratio),
@@ -147,14 +149,47 @@
     var oh = S.openingHours || {};
     if (!oh["default"]) oh["default"] = { open:"07:30", close:"19:30", closed:false };
     if (!oh.overrides) oh.overrides = {};
+
+    // Legacy weekend flags
     if (typeof oh.weekends === "boolean") {
       if (oh.openSaturday == null) oh.openSaturday = oh.weekends;
       if (oh.openSunday == null) oh.openSunday = oh.weekends;
     }
     if (oh.openSaturday == null) oh.openSaturday = true;
     if (oh.openSunday == null) oh.openSunday = false;
-    // Keep legacy field for backwards compatibility
+
+    var def = oh["default"] || { open:"07:30", close:"19:30", closed:false };
+
+    // New structure: weekly hours by day-of-week (0=Sun..6=Sat)
+    if (!oh.weekly || typeof oh.weekly !== "object") {
+      oh.weekly = {};
+      for (var d=0; d<7; d++) {
+        oh.weekly[d] = { open:(def.open||"07:30"), close:(def.close||"19:30"), closed: !!def.closed };
+      }
+      if (!oh.openSaturday) oh.weekly[6].closed = true;
+      if (!oh.openSunday)   oh.weekly[0].closed = true;
+    } else {
+      // Normalize weekly entries (support string keys)
+      var wk = {};
+      for (var d2=0; d2<7; d2++) {
+        var e = oh.weekly[d2] || oh.weekly[String(d2)] || {};
+        wk[d2] = {
+          open:  String(e.open || def.open || "07:30"),
+          close: String(e.close || def.close || "19:30"),
+          closed: parseBool(e.closed, false)
+        };
+      }
+      oh.weekly = wk;
+    }
+
+    // Keep legacy flags for backwards compatibility (derived from weekly)
+    oh.openSaturday = !oh.weekly[6].closed;
+    oh.openSunday   = !oh.weekly[0].closed;
     if (oh.weekends == null) oh.weekends = (oh.openSaturday && oh.openSunday);
+
+    // Ensure default mirrors Monday (helps older UI assumptions)
+    oh["default"] = Object.assign({}, oh.weekly[1] || def);
+
     S.openingHours = oh;
   }
 
@@ -247,26 +282,29 @@
   function dc(d){ return DCOLOR[d]||"#64748b"; }
   function dl(d){ return DESIG[d]||d||"Other"; }
 
+  function etl(t){ return (t==="fulltime")?"Full-Time":(t==="parttime")?"Part-Time":(t==="external")?"External":(t||"—"); }
+
   function emp(id) { return S.staff.find(function(s){ return s.id===id; })||null; }
   function actStaff() { return S.staff.filter(function(s){ return s.is_active!==0; }); }
   function pharmStaff() { return actStaff().filter(function(s){ return s.designation==="pharmacist"||s.designation==="locum"; }); }
 
   /* ── Opening hours ──────────────────────────────────────────── */
   function ohFor(ds) {
-    var ov = (S.openingHours.overrides||{})[ds];
+    var ov = (S.openingHours && S.openingHours.overrides || {})[ds];
     if (ov) return ov;
 
     // normalize (in case settings were loaded after module init)
-    if (!S.openingHours || !S.openingHours["default"]) normalizeOpeningHours();
+    if (!S.openingHours || (!S.openingHours.weekly && !S.openingHours["default"])) normalizeOpeningHours();
 
     var d = new Date(ds).getDay(); // 0 Sun .. 6 Sat
-    var satOpen = (S.openingHours.openSaturday != null) ? !!S.openingHours.openSaturday : !!S.openingHours.weekends;
-    var sunOpen = (S.openingHours.openSunday   != null) ? !!S.openingHours.openSunday   : !!S.openingHours.weekends;
+    var base = (S.openingHours.weekly && S.openingHours.weekly[d]) || S.openingHours["default"] || {open:"07:30",close:"19:30",closed:false};
 
-    if (d === 6 && !satOpen) return { open: (S.openingHours["default"]&&S.openingHours["default"].open)||"07:30", close:(S.openingHours["default"]&&S.openingHours["default"].close)||"19:30", closed:true };
-    if (d === 0 && !sunOpen) return { open: (S.openingHours["default"]&&S.openingHours["default"].open)||"07:30", close:(S.openingHours["default"]&&S.openingHours["default"].close)||"19:30", closed:true };
-
-    return S.openingHours["default"] || {open:"07:30",close:"19:30",closed:false};
+    return {
+      open:  base.open  || "07:30",
+      close: base.close || "19:30",
+      closed: !!base.closed,
+      note: base.note
+    };
   }
 
   /* ── Coverage check ─────────────────────────────────────────── */
@@ -407,7 +445,7 @@
       tr.innerHTML=
         '<td><b>'+esc(e.full_name||"")+'</b></td>'+
         '<td><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+col+';margin-right:5px;"></span>'+esc(dl(e.designation))+'</td>'+
-        '<td><span class="eikon-pill" style="font-size:11px;">'+(e.employment_type==="fulltime"?"Full-Time":"Part-Time")+'</span></td>'+
+        '<td><span class="eikon-pill" style="font-size:11px;">'+etl(e.employment_type)+'</span></td>'+
         '<td>'+(e.contracted_hours||"—")+'h</td>'+
         '<td style="font-size:12px;color:var(--muted);">'+esc(e.email||"")+(e.phone?"<br>"+esc(e.phone):"")+'</td>'+
         '<td>'+(b?'<span style="color:'+(b.annualLeft<24?"var(--danger)":"var(--ok)")+'">'+b.annualLeft+'h / '+b.annualEnt+'h</span>':"—")+'</td>'+
@@ -918,6 +956,19 @@ function saveEmp(id, p, cb) {
     setMaltaFromSettings();
 
     var def = S.openingHours["default"]||{open:"07:30",close:"19:30",closed:false};
+    var wk = S.openingHours.weekly || {};
+    var DNAME = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+    var wkRows = "";
+    for (var d0=0; d0<7; d0++) {
+      var v0 = wk[d0] || def;
+      wkRows += '<tr style="border-top:1px solid var(--border);">'+
+        '<td style="padding:8px 6px;font-weight:800;font-size:12px;">'+esc(DNAME[d0])+'</td>'+
+        '<td style="padding:8px 6px;text-align:center;"><input type="checkbox" id="ss-w'+d0+'-closed"'+(v0.closed?' checked':'')+'/></td>'+
+        '<td style="padding:6px;"><input class="eikon-input" id="ss-w'+d0+'-open" type="time" value="'+esc(v0.open||def.open||"07:30")+'" style="min-width:110px;"/></td>'+
+        '<td style="padding:6px;"><input class="eikon-input" id="ss-w'+d0+'-close" type="time" value="'+esc(v0.close||def.close||"19:30")+'" style="min-width:110px;"/></td>'+
+      '</tr>';
+    }
+
     var ov  = S.openingHours.overrides||{};
     var ovRows = Object.keys(ov).sort().map(function(d){
       var v=ov[d];
@@ -925,32 +976,26 @@ function saveEmp(id, p, cb) {
         '<td>'+(v.closed?'<span style="color:var(--danger)">Closed</span>':esc(v.open)+"–"+esc(v.close))+'</td>'+
         '<td>'+esc(v.note||"—")+'</td>'+
         '<td><button class="eikon-btn danger sh-rm-ov" data-d="'+esc(d)+'" style="font-size:11px;padding:5px 8px;">Remove</button></td></tr>';
-    }).join("")||'<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:14px;">No overrides.</td></tr>';
-
-    var satOpen = (S.openingHours.openSaturday != null) ? !!S.openingHours.openSaturday : !!S.openingHours.weekends;
-    var sunOpen = (S.openingHours.openSunday   != null) ? !!S.openingHours.openSunday   : !!S.openingHours.weekends;
-
-    var yrNow = new Date().getFullYear();
+    }).join("")||'<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:14px;">No overrides.</td></tr>';var yrNow = new Date().getFullYear();
 
     m.innerHTML=
       '<div style="display:flex;flex-direction:column;gap:14px;">'+
       '<div class="eikon-card">'+
-      '<div style="font-weight:900;font-size:15px;margin-bottom:12px;">🕐 Default Opening Hours</div>'+
-      '<div class="eikon-row">'+
-      '<div class="eikon-field"><div class="eikon-label">Open</div><input class="eikon-input" id="ss-open" type="time" value="'+esc(def.open||"07:30")+'"/></div>'+
-      '<div class="eikon-field"><div class="eikon-label">Close</div><input class="eikon-input" id="ss-close" type="time" value="'+esc(def.close||"19:30")+'"/></div>'+
-      '<div class="eikon-field"><div class="eikon-label">Saturday</div>'+
-      '<select class="eikon-select" id="ss-sat">'+
-      '<option value="1"'+(satOpen?' selected':'')+'>Open</option>'+
-      '<option value="0"'+(!satOpen?' selected':'')+'>Closed</option>'+
-      '</select></div>'+
-      '<div class="eikon-field"><div class="eikon-label">Sunday</div>'+
-      '<select class="eikon-select" id="ss-sun">'+
-      '<option value="1"'+(sunOpen?' selected':'')+'>Open</option>'+
-      '<option value="0"'+(!sunOpen?' selected':'')+'>Closed</option>'+
-      '</select></div>'+
-      '</div>'+
-      '<div style="margin-top:12px;"><button class="eikon-btn primary" id="ss-savehours">Save Hours</button></div></div>'+
+      '<div style="font-weight:900;font-size:15px;margin-bottom:12px;">🕐 Weekly Opening Hours</div>'+
+      '<div class="eikon-help" style="margin-bottom:10px;">Set standard opening hours per weekday (Sunday can be closed). Exceptional day overrides below still take priority.</div>'+
+      '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;min-width:520px;">'+
+      '<thead><tr>'+
+        '<th style="text-align:left;padding:8px 6px;font-size:12px;color:var(--muted);">Day</th>'+
+        '<th style="text-align:center;padding:8px 6px;font-size:12px;color:var(--muted);">Closed</th>'+
+        '<th style="text-align:left;padding:8px 6px;font-size:12px;color:var(--muted);">Open</th>'+
+        '<th style="text-align:left;padding:8px 6px;font-size:12px;color:var(--muted);">Close</th>'+
+      '</tr></thead>'+
+      '<tbody>'+wkRows+'</tbody></table></div>'+
+      '<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">'+
+        '<button class="eikon-btn" id="ss-copy-weekdays">Copy Monday → Tue–Fri</button>'+
+        '<button class="eikon-btn" id="ss-copy-all">Copy Monday → Tue–Sun</button>'+
+        '<button class="eikon-btn primary" id="ss-savehours">Save Hours</button>'+
+      '</div></div>'+
 
       '<div class="eikon-card">'+
       '<div style="font-weight:900;font-size:15px;margin-bottom:4px;">📅 Exceptional Day Overrides</div>'+
@@ -991,13 +1036,71 @@ function saveEmp(id, p, cb) {
       E.q("#ss-ovtb",m).style.display=c?"":"none";
     };
 
+    // Weekly opening hours helpers
+    function ssSyncRowDisabled(d){
+      var cb = E.q("#ss-w"+d+"-closed",m);
+      var op = E.q("#ss-w"+d+"-open",m);
+      var cl = E.q("#ss-w"+d+"-close",m);
+      if(!cb||!op||!cl) return;
+      var isC = !!cb.checked;
+      op.disabled = isC;
+      cl.disabled = isC;
+      op.style.opacity = isC ? "0.5" : "1";
+      cl.style.opacity = isC ? "0.5" : "1";
+    }
+    function ssCopyFromMonday(days){
+      var monC = E.q("#ss-w1-closed",m).checked;
+      var monO = E.q("#ss-w1-open",m).value;
+      var monCl = E.q("#ss-w1-close",m).value;
+      (days||[]).forEach(function(d){
+        var cb = E.q("#ss-w"+d+"-closed",m);
+        var op = E.q("#ss-w"+d+"-open",m);
+        var cl = E.q("#ss-w"+d+"-close",m);
+        if(cb) cb.checked = monC;
+        if(op) op.value = monO;
+        if(cl) cl.value = monCl;
+        ssSyncRowDisabled(d);
+      });
+      console.log("[shifts][hours] copied from Monday ->", days);
+      toast("Copied Monday hours.");
+    }
+    // bind closed toggles
+    for (var d=0; d<7; d++){
+      (function(dd){
+        var cb = E.q("#ss-w"+dd+"-closed",m);
+        if(cb) cb.onchange=function(){ ssSyncRowDisabled(dd); };
+        ssSyncRowDisabled(dd);
+      })(d);
+    }
+    var b1=E.q("#ss-copy-weekdays",m); if(b1) b1.onclick=function(){ ssCopyFromMonday([2,3,4,5]); };
+    var b2=E.q("#ss-copy-all",m); if(b2) b2.onclick=function(){ ssCopyFromMonday([0,2,3,4,5,6]); };
+
     E.q("#ss-savehours",m).onclick=function(){
-      S.openingHours["default"]={open:E.q("#ss-open",m).value, close:E.q("#ss-close",m).value, closed:false};
-      S.openingHours.openSaturday = E.q("#ss-sat",m).value==="1";
-      S.openingHours.openSunday   = E.q("#ss-sun",m).value==="1";
-      // legacy
-      S.openingHours.weekends = (S.openingHours.openSaturday && S.openingHours.openSunday);
-      apiOp("/shifts/opening-hours",{method:"PUT",body:JSON.stringify(S.openingHours)},function(){toast("Opening hours saved.");});
+      try {
+        var wk2 = {};
+        for (var d=0; d<7; d++){
+          var cb = E.q("#ss-w"+d+"-closed",m);
+          var op = E.q("#ss-w"+d+"-open",m);
+          var cl = E.q("#ss-w"+d+"-close",m);
+          wk2[d] = {
+            closed: cb ? !!cb.checked : false,
+            open:  op ? op.value : "07:30",
+            close: cl ? cl.value : "19:30"
+          };
+          // basic sanity: if not closed, ensure times present
+          if(!wk2[d].closed){
+            if(!wk2[d].open) wk2[d].open = "07:30";
+            if(!wk2[d].close) wk2[d].close = "19:30";
+          }
+        }
+        S.openingHours.weekly = wk2;
+        normalizeOpeningHours();
+        console.log("[shifts][hours] save weekly", JSON.parse(JSON.stringify(S.openingHours.weekly)));
+        apiOp("/shifts/opening-hours",{method:"PUT",body:JSON.stringify(S.openingHours)},function(){toast("Opening hours saved.");});
+      } catch(e) {
+        console.error("[shifts][hours] save failed", e);
+        toast("Failed to save hours","error");
+      }
     };
 
     E.q("#ss-addov",m).onclick=function(){
@@ -1224,7 +1327,7 @@ function rcard(l,v,c){
       '<button class="eikon-btn" id="sh-cp">◀</button>'+
       '<div style="font-weight:900;font-size:17px;min-width:180px;text-align:center;">'+MONTHS[mo]+" "+y+'</div>'+
       '<button class="eikon-btn" id="sh-cn">▶</button>'+
-      '<button class="eikon-btn" id="sh-ct">Today</button>'+
+      '<button class="eikon-btn" id="sh-ct">Today</button>'+'<button class="eikon-btn" id="sh-exp">Export / Print</button>'+
       '<div style="flex:1;"></div>'+
       '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:11px;">'+
       Object.keys(DESIG).slice(0,5).map(function(k){
@@ -1239,6 +1342,7 @@ function rcard(l,v,c){
     E.q("#sh-cp",m).onclick=function(){ S.month--; if(S.month<0){S.month=11;S.year--;} loadMonth().then(function(){vCalendar(m);}); };
     E.q("#sh-cn",m).onclick=function(){ S.month++; if(S.month>11){S.month=0;S.year++;} loadMonth().then(function(){vCalendar(m);}); };
     E.q("#sh-ct",m).onclick=function(){ var n=new Date(); S.year=n.getFullYear(); S.month=n.getMonth(); loadMonth().then(function(){vCalendar(m);}); };
+    var expBtn = E.q("#sh-exp",m); if(expBtn) expBtn.onclick=function(){ exportPrintModal(); };
 
     m.querySelectorAll("td[data-date]").forEach(function(td){
       td.onclick=function(){ dayModal(td.getAttribute("data-date"), function(){vCalendar(m);}); };
@@ -1252,7 +1356,61 @@ function rcard(l,v,c){
         });
       };
     });
-  }function dayModal(ds, onSave) {
+  } 
+
+  function externalLocumModal(onCreated){
+    var body =
+      '<div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Add a one-off external locum (not part of your regular team). This creates a staff entry with Employment Type = External.</div>'+
+      '<div class="eikon-field"><div class="eikon-label">Full name</div><input class="eikon-input" id="exl-name" type="text" placeholder="e.g. Dr John Doe"/></div>'+
+      '<div class="eikon-field" style="margin-top:10px;"><div class="eikon-label">Role</div>'+
+        '<select class="eikon-select" id="exl-role">'+
+          '<option value="locum" selected>Locum Pharmacist</option>'+
+          '<option value="assistant">Assistant</option>'+
+        '</select>'+
+      '</div>'+
+      '<div style="margin-top:10px;font-size:11px;color:var(--muted);">Tip: you can later set this external person to Inactive from the Staff tab.</div>';
+
+    E.modal.show("Add External Locum", body, [
+      {label:"Cancel", onClick:function(){ E.modal.hide(); }},
+      {label:"Create", primary:true, onClick:async function(){
+        try {
+          var name = (document.getElementById("exl-name").value||"").trim();
+          if(!name){ toast("Enter name","error"); return; }
+          var role = document.getElementById("exl-role").value;
+          var payload = {
+            full_name: name,
+            designation: role==="assistant" ? "assistant" : "locum",
+            employment_type: "external",
+            contracted_hours: 40,
+            is_active: 1,
+            patterns_json: "{\"patterns\":[],\"provisionalId\":null}"
+          };
+          console.groupCollapsed("[shifts][externalLocum] create", payload);
+          apiOp("/shifts/staff", {method:"POST", body: JSON.stringify(payload)}, async function(r){
+            console.log("[shifts][externalLocum] created", r);
+            try {
+              var staffRes = await E.apiFetch("/shifts/staff?include_inactive=1", {method:"GET"});
+              S.staff = staffRes.staff || S.staff;
+              lsSync();
+              console.log("[shifts][externalLocum] staff reloaded", S.staff.length);
+            } catch(e) {
+              console.error("[shifts][externalLocum] reload failed", e);
+            }
+            console.groupEnd();
+            E.modal.hide();
+            toast("External locum added.");
+            if (onCreated) onCreated(r && r.staff_id ? r.staff_id : null);
+          });
+        } catch(e) {
+          console.groupEnd();
+          console.error("[shifts][externalLocum] failed", e);
+          toast("Failed to add locum","error");
+        }
+      }}
+    ]);
+  }
+
+  function dayModal(ds, onSave) {
     var oh=ohFor(ds);
     var dayShifts=S.shifts.filter(function(s){return s.shift_date===ds;});
     var dayLeaves=S.leaves.filter(function(l){return l.status==="approved"&&l.start_date<=ds&&l.end_date>=ds;});
@@ -1301,7 +1459,7 @@ function rcard(l,v,c){
       '<div style="font-weight:700;margin-bottom:8px;">Add Shift</div>'+
       (oh.closed?'<div style="padding:10px;border:1px solid var(--border);border-radius:10px;color:var(--muted);font-size:12px;">This day is marked as closed in Opening Hours.</div>':(
         '<div class="eikon-row">'+
-        '<div class="eikon-field"><div class="eikon-label">Employee</div><select class="eikon-select" id="dm-emp">'+staffOpts+'</select></div>'+
+        '<div class="eikon-field"><div class="eikon-label">Employee</div><select class="eikon-select" id="dm-emp">'+staffOpts+'</select><div style="margin-top:6px;"><button class="eikon-btn" id="dm-addloc" style="font-size:11px;padding:6px 8px;">+ External Locum</button></div></div>'+
         '<div class="eikon-field"><div class="eikon-label">Start</div><input class="eikon-input" id="dm-st" type="time" value="'+esc(defaultSt)+'"/></div>'+
         '<div class="eikon-field"><div class="eikon-label">End</div><input class="eikon-input" id="dm-et" type="time" value="'+esc(defaultEt)+'"/></div>'+
         '</div>'+
@@ -1349,6 +1507,21 @@ function rcard(l,v,c){
       var empSel = document.getElementById("dm-emp");
       if(empSel) empSel.onchange = applyGapSuggestionIfPharm;
       applyGapSuggestionIfPharm();
+
+      // External locum quick-add
+      var addLoc = document.getElementById("dm-addloc");
+      if(addLoc) addLoc.onclick=function(){
+        externalLocumModal(function(newId){
+          try {
+            if(newId){
+              // refresh options
+              var opts = actStaff().map(function(s){ return '<option value="'+s.id+'">'+esc(s.full_name)+' ('+esc(dl(s.designation))+')</option>'; }).join("");
+              var sel = document.getElementById("dm-emp");
+              if(sel){ sel.innerHTML = opts; sel.value = String(newId); }
+            }
+          } catch(e){ console.error("[shifts][externalLocum] ui refresh failed", e); }
+        });
+      };
 
       document.querySelectorAll("[data-del-sh]").forEach(function(btn){
         btn.onclick=function(){
@@ -1817,62 +1990,420 @@ function singleShiftModal(e2, ds, existing, onSave) {
   /* ══════════════════════════════════════════════════════════════
      VIEW: INTEGRATION (iCal / Google Calendar)
   ══════════════════════════════════════════════════════════════ */
-  function vIntegration(m){
-    var ical=buildICal();
-    m.innerHTML=
-      '<div style="display:flex;flex-direction:column;gap:14px;">'+
-      '<div class="eikon-card">'+
-      '<div style="font-weight:900;font-size:15px;margin-bottom:8px;">📆 Google Calendar & iCal Export</div>'+
-      '<div class="eikon-help" style="margin-bottom:14px;">Export your schedule as an .ics file to import into Google Calendar, Outlook, or Apple Calendar. For a live feed, host the .ics at a public URL and subscribe via webcal:// in Google Calendar.</div>'+
-      '<div class="eikon-row" style="margin-bottom:14px;">'+
-      '<div class="eikon-field"><div class="eikon-label">Filter Employee</div>'+
-      '<select class="eikon-select" id="si-emp">'+
-      '<option value="">All Staff</option>'+
-      actStaff().map(function(s){return '<option value="'+s.id+'">'+esc(s.full_name)+'</option>';}).join("")+
-      '</select></div>'+
-      '<div class="eikon-field"><div class="eikon-label">Month Filter</div>'+
-      '<input class="eikon-input" id="si-month" type="month" value="'+S.year+"-"+pad(S.month+1)+'"/></div>'+
-      '</div>'+
-      '<div style="display:flex;gap:10px;flex-wrap:wrap;">'+
-      '<a id="si-dl" href="#" download="eikon-shifts.ics" class="eikon-btn primary">⬇ Download .ics</a>'+
-      '<button class="eikon-btn" id="si-copy">📋 Copy webcal:// Instructions</button>'+
-      '</div>'+
-      '<div id="si-hint" style="margin-top:10px;"></div>'+
-      '</div>'+
-      '<div class="eikon-card">'+
-      '<div style="font-weight:900;margin-bottom:10px;">Step-by-Step: Google Calendar</div>'+
-      '<div style="font-size:13px;color:var(--muted);line-height:2;padding-left:4px;">'+
-      '1. Click <b>Download .ics</b> above.<br>'+
-      '2. Open <b>Google Calendar</b> → click the <b>⚙ Settings gear</b>.<br>'+
-      '3. Choose <b>Import & Export</b> → <b>Import</b>.<br>'+
-      '4. Select the downloaded .ics file → click Import.<br>'+
-      '<br>For a <b>live updating calendar</b>:<br>'+
-      '5. Host the .ics file at a public URL (e.g. yoursite.com/shifts.ics).<br>'+
-      '6. In Google Calendar → <b>Other calendars</b> → <b>+ From URL</b>.<br>'+
-      '7. Enter the URL. Google refreshes it every ~12-24 hours.<br>'+
-      '</div></div>'+
-      '<div class="eikon-card">'+
-      '<div style="font-weight:900;margin-bottom:10px;">iCal Preview</div>'+
-      '<pre id="si-preview" style="background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:10px;padding:12px;font-size:11px;max-height:200px;overflow:auto;white-space:pre-wrap;color:var(--muted);"></pre>'+
-      '</div></div>';
-
-    function refresh(){
-      var mv=(E.q("#si-month",m).value||"").split("-");
-      var yr=mv.length===2?parseInt(mv[0]):S.year;
-      var mo2=mv.length===2?parseInt(mv[1])-1:S.month;
-      var eid=parseInt(E.q("#si-emp",m).value)||null;
-      var ic=buildICal(yr,mo2,eid);
-      var blob=new Blob([ic],{type:"text/calendar;charset=utf-8"});
-      E.q("#si-dl",m).href=URL.createObjectURL(blob);
-      E.q("#si-preview",m).textContent=ic.slice(0,1800)+(ic.length>1800?"…":"");
+  
+  /* ── Export / Print ─────────────────────────────────────────── */
+  function genToken(len){
+    len = len || 32;
+    var alpha = "abcdefghijklmnopqrstuvwxyz234567";
+    try {
+      var a = new Uint8Array(len);
+      (window.crypto||window.msCrypto).getRandomValues(a);
+      var out = "";
+      for (var i=0;i<len;i++) out += alpha[a[i] % alpha.length];
+      return out;
+    } catch(e) {
+      // fallback (less random)
+      var s=""; while(s.length<len) s += Math.random().toString(36).slice(2);
+      return s.slice(0,len).replace(/[^a-z0-9]/g,"a");
     }
-    refresh();
-    E.q("#si-emp",m).onchange=refresh;
-    E.q("#si-month",m).onchange=refresh;
-    E.q("#si-copy",m).onclick=function(){
-      E.q("#si-hint",m).innerHTML='<div style="padding:10px;background:rgba(90,162,255,.1);border:1px solid rgba(90,162,255,.3);border-radius:8px;font-size:12px;">'+
-        '💡 To create a live webcal:// link: host the .ics file at a public HTTPS URL, then replace <code>https://</code> with <code>webcal://</code>. Paste that link in Google Calendar → Other calendars → From URL.</div>';
+  }
+
+  function csvEsc(v){
+    if (v == null) v = "";
+    var s = String(v);
+    if (/[",\r\n]/.test(s)) s = '"' + s.replace(/"/g,'""') + '"';
+    return s;
+  }
+
+  function downloadText(filename, mime, text) {
+    try {
+      var blob = new Blob([text], { type: mime || "text/plain" });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function(){ URL.revokeObjectURL(url); a.remove(); }, 300);
+      console.log("[shifts][export] download", filename, "bytes=", (text||"").length);
+    } catch(e) {
+      console.error("[shifts][export] download failed", e);
+      toast("Download failed","error");
+    }
+  }
+
+  async function fetchShiftRange(from, to, staffId){
+    var u = "/shifts/assignments-range?from="+encodeURIComponent(from)+"&to="+encodeURIComponent(to);
+    if (staffId) u += "&staff_id="+encodeURIComponent(staffId);
+    console.groupCollapsed("[shifts][export] fetch range", from, "→", to, "staff=", staffId||"ALL");
+    try {
+      var r = await E.apiFetch(u, {method:"GET"});
+      var shifts = (r && r.shifts) ? r.shifts : [];
+      console.log("[shifts][export] range shifts=", shifts.length, "sample=", shifts.slice(0,3));
+      console.groupEnd();
+      return shifts;
+    } catch(e) {
+      console.error("[shifts][export] range fetch failed", e);
+      console.groupEnd();
+      throw e;
+    }
+  }
+
+  function shiftsToCsv(shifts){
+    var rows = [];
+    rows.push(["Date","Start","End","Employee","Role","Notes"].map(csvEsc).join(","));
+    (shifts||[]).forEach(function(s){
+      var e = emp(s.staff_id);
+      rows.push([
+        s.shift_date || "",
+        s.start_time || "",
+        s.end_time || "",
+        (e && e.full_name) ? e.full_name : ("#"+s.staff_id),
+        (e && e.designation) ? dl(e.designation) : (s.role_override||""),
+        s.notes || ""
+      ].map(csvEsc).join(","));
+    });
+    return rows.join("\r\n");
+  }
+
+  function buildPrintHtml(shifts, title, from, to, staffId){
+    var by = {};
+    (shifts||[]).forEach(function(s){
+      var d = s.shift_date || "—";
+      (by[d] = by[d] || []).push(s);
+    });
+    var days = Object.keys(by).sort();
+    var h = '';
+    h += '<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;padding:18px;">';
+    h += '<div style="font-size:18px;font-weight:900;margin-bottom:6px;">'+esc(title)+'</div>';
+    h += '<div style="color:#555;font-size:12px;margin-bottom:14px;">Range: '+esc(from)+' → '+esc(to)+(staffId?(' | Staff #'+esc(staffId)):"")+'</div>';
+    days.forEach(function(d){
+      var list = by[d] || [];
+      list.sort(function(a,b){ return String(a.start_time||"").localeCompare(String(b.start_time||"")); });
+      h += '<div style="margin-top:14px;font-weight:900;">'+esc(d)+'</div>';
+      h += '<table style="width:100%;border-collapse:collapse;margin-top:6px;font-size:12px;">';
+      h += '<thead><tr>'+
+           '<th style="text-align:left;border:1px solid #ddd;padding:6px;background:#f6f7fb;">Time</th>'+
+           '<th style="text-align:left;border:1px solid #ddd;padding:6px;background:#f6f7fb;">Employee</th>'+
+           '<th style="text-align:left;border:1px solid #ddd;padding:6px;background:#f6f7fb;">Role</th>'+
+           '<th style="text-align:left;border:1px solid #ddd;padding:6px;background:#f6f7fb;">Notes</th>'+
+           '</tr></thead><tbody>';
+      list.forEach(function(s){
+        var e = emp(s.staff_id);
+        h += '<tr>'+
+             '<td style="border:1px solid #ddd;padding:6px;">'+esc((s.start_time||"")+"–"+(s.end_time||""))+'</td>'+
+             '<td style="border:1px solid #ddd;padding:6px;">'+esc(e?e.full_name:("#"+s.staff_id))+'</td>'+
+             '<td style="border:1px solid #ddd;padding:6px;">'+esc(e?dl(e.designation):(s.role_override||""))+'</td>'+
+             '<td style="border:1px solid #ddd;padding:6px;">'+esc(s.notes||"")+'</td>'+
+             '</tr>';
+      });
+      h += '</tbody></table>';
+    });
+    if (!days.length) h += '<div style="margin-top:12px;color:#777;">No shifts in this range.</div>';
+    h += '</div>';
+    return h;
+  }
+
+  function printHtml(title, htmlBody){
+    console.log("[shifts][print] start", title);
+    try {
+      var f = document.createElement("iframe");
+      f.style.position="fixed";
+      f.style.right="0";
+      f.style.bottom="0";
+      f.style.width="0";
+      f.style.height="0";
+      f.style.border="0";
+      document.body.appendChild(f);
+
+      var doc = f.contentDocument || f.contentWindow.document;
+      doc.open();
+      doc.write('<!doctype html><html><head><meta charset="utf-8"/><title>'+esc(title)+'</title></head><body>'+htmlBody+'</body></html>');
+      doc.close();
+
+      setTimeout(function(){
+        try {
+          f.contentWindow.focus();
+          f.contentWindow.print();
+        } catch(e) { console.error("[shifts][print] print failed", e); }
+        setTimeout(function(){ try{ f.remove(); } catch(_){} }, 1200);
+      }, 250);
+    } catch(e) {
+      console.error("[shifts][print] failed", e);
+      toast("Print failed","error");
+    }
+  }
+
+  function exportPrintModal(){
+    var today = new Date();
+    var dsToday = today.getFullYear()+"-"+pad(today.getMonth()+1)+"-"+pad(today.getDate());
+    var monthVal = S.year+"-"+pad(S.month+1);
+
+    var staffOpts = '<option value="">All Staff</option>' + actStaff().map(function(s){
+      return '<option value="'+s.id+'">'+esc(s.full_name)+' ('+esc(dl(s.designation))+')</option>';
+    }).join("");
+
+    var body =
+      '<div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Export shifts to CSV or print a report (day / month / year / custom range).</div>'+
+      '<div class="eikon-row">'+
+        '<div class="eikon-field"><div class="eikon-label">Scope</div>'+
+          '<select class="eikon-select" id="xp-scope">'+
+            '<option value="day">Day</option>'+
+            '<option value="month" selected>Month</option>'+
+            '<option value="year">Year</option>'+
+            '<option value="range">Range</option>'+
+          '</select>'+
+        '</div>'+
+        '<div class="eikon-field"><div class="eikon-label">Staff</div><select class="eikon-select" id="xp-staff">'+staffOpts+'</select></div>'+
+      '</div>'+
+      '<div class="eikon-row" id="xp-row-day" style="margin-top:6px;">'+
+        '<div class="eikon-field"><div class="eikon-label">Date</div><input class="eikon-input" id="xp-day" type="date" value="'+esc(dsToday)+'"/></div>'+
+      '</div>'+
+      '<div class="eikon-row" id="xp-row-month" style="margin-top:6px;display:none;">'+
+        '<div class="eikon-field"><div class="eikon-label">Month</div><input class="eikon-input" id="xp-month" type="month" value="'+esc(monthVal)+'"/></div>'+
+      '</div>'+
+      '<div class="eikon-row" id="xp-row-year" style="margin-top:6px;display:none;">'+
+        '<div class="eikon-field"><div class="eikon-label">Year</div><input class="eikon-input" id="xp-year" type="number" min="2000" max="2100" value="'+esc(String(S.year))+'"/></div>'+
+      '</div>'+
+      '<div class="eikon-row" id="xp-row-range" style="margin-top:6px;display:none;">'+
+        '<div class="eikon-field"><div class="eikon-label">From</div><input class="eikon-input" id="xp-from" type="date" value="'+esc(dsToday)+'"/></div>'+
+        '<div class="eikon-field"><div class="eikon-label">To</div><input class="eikon-input" id="xp-to" type="date" value="'+esc(dsToday)+'"/></div>'+
+      '</div>'+
+      '<div id="xp-hint" style="margin-top:10px;font-size:11px;color:var(--muted);"></div>';
+
+    E.modal.show("Export / Print", body, [
+      {label:"Close", onClick:function(){ E.modal.hide(); }},
+      {label:"Download CSV", primary:true, onClick:async function(){
+        try {
+          var r = await xpDo("csv");
+          if (!r) return;
+          downloadText(r.filename, "text/csv;charset=utf-8", r.csv);
+          toast("CSV downloaded.");
+        } catch(e) { console.error(e); toast("Export failed","error"); }
+      }},
+      {label:"Print", onClick:async function(){
+        try {
+          var r = await xpDo("print");
+          if (!r) return;
+          printHtml(r.title, r.html);
+        } catch(e) { console.error(e); toast("Print failed","error"); }
+      }}
+    ]);
+
+    function showRow(id, show){
+      var el = document.getElementById(id);
+      if (el) el.style.display = show ? "" : "none";
+    }
+
+    function scopeChanged(){
+      var sc = document.getElementById("xp-scope").value;
+      showRow("xp-row-day",   sc==="day");
+      showRow("xp-row-month", sc==="month");
+      showRow("xp-row-year",  sc==="year");
+      showRow("xp-row-range", sc==="range");
+      var hint = document.getElementById("xp-hint");
+      if (hint) hint.textContent = (sc==="day")?"Single date export/print.":
+        (sc==="month")?"Whole month export/print.":
+        (sc==="year")?"Whole year export/print. (May be large.)":
+        "Custom date range export/print.";
+    }
+
+    async function xpDo(kind){
+      var scope = document.getElementById("xp-scope").value;
+      var staffId = document.getElementById("xp-staff").value;
+      staffId = staffId ? parseInt(staffId,10) : null;
+
+      var from="", to="", title="Shifts";
+      if (scope==="day"){
+        from = document.getElementById("xp-day").value;
+        to = from;
+        title = "Shifts — "+from;
+      } else if (scope==="month"){
+        var mv = document.getElementById("xp-month").value; // YYYY-MM
+        if(!mv){ toast("Select a month","error"); return null; }
+        var parts = mv.split("-");
+        var yy = parseInt(parts[0],10), mm = parseInt(parts[1],10);
+        from = yy+"-"+pad(mm)+"-01";
+        var last = new Date(yy, mm, 0).getDate();
+        to = yy+"-"+pad(mm)+"-"+pad(last);
+        title = "Shifts — "+mv;
+      } else if (scope==="year"){
+        var yy2 = parseInt(document.getElementById("xp-year").value,10);
+        if(!yy2){ toast("Select a year","error"); return null; }
+        from = yy2+"-01-01";
+        to = yy2+"-12-31";
+        title = "Shifts — "+yy2;
+      } else {
+        from = document.getElementById("xp-from").value;
+        to = document.getElementById("xp-to").value;
+        if(!from||!to){ toast("Select range","error"); return null; }
+        if(from>to){ var t=from; from=to; to=t; }
+        title = "Shifts — "+from+" → "+to;
+      }
+
+      var shifts = await fetchShiftRange(from, to, staffId);
+      if (kind==="csv"){
+        var csv = shiftsToCsv(shifts);
+        var fn = "shifts_"+from+"_to_"+to+(staffId?("_staff"+staffId):"")+".csv";
+        return { filename: fn, csv: csv };
+      }
+      // print
+      var html = buildPrintHtml(shifts, title, from, to, staffId);
+      return { title: title, html: html };
+    }
+
+    setTimeout(function(){
+      var sc = document.getElementById("xp-scope");
+      if (sc) sc.onchange = scopeChanged;
+      // default month view
+      document.getElementById("xp-scope").value = "month";
+      scopeChanged();
+    }, 30);
+  }
+
+function vIntegration(m){
+    var token = (S.settings && S.settings.calendarToken) ? String(S.settings.calendarToken) : "";
+    var origin = (window.location && window.location.origin) ? window.location.origin : "";
+    var staffOpts = '<option value="">All Staff</option>' + actStaff().map(function(s){
+      return '<option value="'+s.id+'">'+esc(s.full_name)+' ('+esc(dl(s.designation))+')</option>';
+    }).join("");
+
+    function urlFor(){
+      var staffId = E.q("#si-live-emp",m) ? E.q("#si-live-emp",m).value : "";
+      var past = E.q("#si-live-past",m) ? (parseInt(E.q("#si-live-past",m).value,10)||30) : 30;
+      var future = E.q("#si-live-fut",m) ? (parseInt(E.q("#si-live-fut",m).value,10)||180) : 180;
+
+      if (!token) return "";
+      var u = origin + "/shifts/ical?token=" + encodeURIComponent(token);
+      if (staffId) u += "&staff_id=" + encodeURIComponent(staffId);
+      if (past!=null) u += "&past=" + encodeURIComponent(past);
+      if (future!=null) u += "&future=" + encodeURIComponent(future);
+      return u;
+    }
+
+    m.innerHTML =
+      '<div style="display:flex;flex-direction:column;gap:14px;">'+
+
+      '<div class="eikon-card">'+
+        '<div style="font-weight:900;font-size:15px;margin-bottom:8px;">🔗 Live Calendar Feed (Google Calendar / iCal)</div>'+
+        '<div class="eikon-help" style="margin-bottom:12px;">Subscribe to a live-updating calendar URL. Google Calendar refreshes subscriptions periodically. Use: Google Calendar → Other calendars → From URL.</div>'+
+        '<div class="eikon-row">'+
+          '<div class="eikon-field"><div class="eikon-label">Employee filter</div><select class="eikon-select" id="si-live-emp">'+staffOpts+'</select></div>'+
+          '<div class="eikon-field"><div class="eikon-label">Past days</div><input class="eikon-input" id="si-live-past" type="number" min="0" max="365" value="30"/></div>'+
+          '<div class="eikon-field"><div class="eikon-label">Future days</div><input class="eikon-input" id="si-live-fut" type="number" min="1" max="730" value="180"/></div>'+
+        '</div>'+
+        '<div class="eikon-field" style="margin-top:10px;">'+
+          '<div class="eikon-label">Live URL</div>'+
+          '<input class="eikon-input" id="si-live-url" type="text" readonly value="'+esc(token?urlFor():"")+'" />'+
+          '<div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;">'+
+            '<button class="eikon-btn '+(token?"":"primary")+'" id="si-live-gen">'+(token?"Regenerate Token":"Generate Token")+'</button>'+
+            '<button class="eikon-btn" id="si-live-copy"'+(token?"":" disabled")+'>📋 Copy URL</button>'+
+            '<button class="eikon-btn" id="si-live-copyweb"'+(token?"":" disabled")+'>📋 Copy webcal:// URL</button>'+
+          '</div>'+
+          '<div style="margin-top:8px;font-size:11px;color:var(--muted);">'+
+            (token?('Token: <code style="font-size:11px;">'+esc(token)+'</code>'):'No token yet. Click <b>Generate Token</b>.')+
+          '</div>'+
+        '</div>'+
+      '</div>'+
+
+      '<div class="eikon-card">'+
+        '<div style="font-weight:900;font-size:15px;margin-bottom:8px;">🧾 Export / Print</div>'+
+        '<div class="eikon-help" style="margin-bottom:12px;">Download CSV or print reports (day / month / year / range).</div>'+
+        '<button class="eikon-btn primary" id="si-export">Open Export / Print</button>'+
+      '</div>'+
+
+      '<div class="eikon-card">'+
+        '<div style="font-weight:900;font-size:15px;margin-bottom:8px;">📆 Static .ics Download (manual import)</div>'+
+        '<div class="eikon-help" style="margin-bottom:14px;">Download an .ics file for a selected month. This is a one-time import (not live).</div>'+
+        '<div class="eikon-row" style="margin-bottom:14px;">'+
+          '<div class="eikon-field"><div class="eikon-label">Filter Employee</div>'+
+            '<select class="eikon-select" id="si-emp">'+
+              '<option value="">All Staff</option>'+
+              actStaff().map(function(s){return '<option value="'+s.id+'">'+esc(s.full_name)+'</option>';}).join("")+
+            '</select>'+
+          '</div>'+
+          '<div class="eikon-field"><div class="eikon-label">Month Filter</div>'+
+            '<input class="eikon-input" id="si-month" type="month" value="'+S.year+"-"+pad(S.month+1)+'"/>'+
+          '</div>'+
+        '</div>'+
+        '<div style="display:flex;gap:10px;flex-wrap:wrap;">'+
+          '<a id="si-dl" href="#" download="eikon-shifts.ics" class="eikon-btn primary">⬇ Download .ics</a>'+
+          '<button class="eikon-btn" id="si-copy">📋 Copy webcal:// Instructions</button>'+
+        '</div>'+
+        '<div id="si-hint" style="margin-top:10px;"></div>'+
+      '</div>'+
+
+      '</div>';
+
+    // Handlers
+    function refreshLiveUrl(){
+      var u = urlFor();
+      var inp = document.getElementById("si-live-url");
+      if (inp) inp.value = u;
+      console.log("[shifts][ical] live url updated:", u);
+    }
+
+    function saveToken(newTok){
+      S.settings = S.settings || {};
+      S.settings.calendarToken = newTok;
+      token = newTok;
+      console.log("[shifts][ical] saving token…", newTok);
+      apiOp("/shifts/settings", {method:"PUT", body: JSON.stringify(S.settings)}, function(){
+        toast("Calendar token saved.");
+        vIntegration(m);
+      });
+    }
+
+    var genBtn = document.getElementById("si-live-gen");
+    if (genBtn) genBtn.onclick=function(){
+      var t = genToken(32);
+      saveToken(t);
     };
+    var copyBtn = document.getElementById("si-live-copy");
+    if (copyBtn) copyBtn.onclick=function(){
+      var u = urlFor();
+      if (!u) { toast("No URL","error"); return; }
+      navigator.clipboard.writeText(u).then(function(){ toast("Copied."); }).catch(function(e){ console.error(e); toast("Copy failed","error"); });
+    };
+    var copyWeb = document.getElementById("si-live-copyweb");
+    if (copyWeb) copyWeb.onclick=function(){
+      var u = urlFor();
+      if (!u) { toast("No URL","error"); return; }
+      var w = u.replace(/^https?:\/\//, "webcal://");
+      navigator.clipboard.writeText(w).then(function(){ toast("Copied webcal:// URL."); }).catch(function(e){ console.error(e); toast("Copy failed","error"); });
+    };
+
+    ["si-live-emp","si-live-past","si-live-fut"].forEach(function(id){
+      var el = document.getElementById(id);
+      if (el) el.onchange = refreshLiveUrl;
+      if (el) el.oninput = refreshLiveUrl;
+    });
+    refreshLiveUrl();
+
+    var exBtn = document.getElementById("si-export");
+    if (exBtn) exBtn.onclick=function(){ exportPrintModal(); };
+
+    // Existing .ics download logic
+    function rebuild(){
+      var empId = E.q("#si-emp",m).value;
+      var mv = E.q("#si-month",m).value;
+      var y = parseInt((mv||"").split("-")[0]||S.year,10);
+      var mm = parseInt((mv||"").split("-")[1]||S.month+1,10)-1;
+      var ics = buildICal(y, mm, empId?parseInt(empId,10):null);
+      var blob = new Blob([ics], {type:"text/calendar;charset=utf-8"});
+      var url = URL.createObjectURL(blob);
+      var a = E.q("#si-dl",m);
+      a.href=url;
+      a.download="eikon-shifts-"+(mv||"month")+(empId?("-staff"+empId):"")+".ics";
+      E.q("#si-hint",m).innerHTML='<div class="eikon-help">Generated '+(ics.split("BEGIN:VEVENT").length-1)+' events.</div>';
+    }
+    E.q("#si-month",m).onchange=rebuild;
+    E.q("#si-emp",m).onchange=rebuild;
+    E.q("#si-copy",m).onclick=function(){
+      var txt = "Google Calendar → Other calendars → From URL. Paste a webcal:// URL to subscribe.\n\nFor live: use the Live URL above (webcal://).";
+      navigator.clipboard.writeText(txt).then(function(){ toast("Copied instructions."); }).catch(function(e){ console.error(e); toast("Copy failed","error"); });
+    };
+    rebuild();
   }
 
   function buildICal(yr,mo2,empFilter){
