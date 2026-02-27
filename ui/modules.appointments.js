@@ -37,7 +37,7 @@
     var d = new Date(ymd + "T12:00:00"); d.setDate(d.getDate() + n);
     return d.getFullYear() + "-" + pad2(d.getMonth()+1) + "-" + pad2(d.getDate());
   }
-  function dayOfWeek(ymd) { // 0=Sun, 1=Mon…6=Sat
+  function dayOfWeek(ymd) { // 0=Sun, 1=Mon...6=Sat
     return new Date(ymd + "T12:00:00").getDay();
   }
   function dayName(ymd) {
@@ -46,7 +46,7 @@
   }
   function fmtMoney(v) {
     var n = parseFloat(v) || 0;
-    return "€" + n.toFixed(2);
+    return "EUR" + n.toFixed(2);
   }
   function generateToken() {
     var chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -342,7 +342,7 @@
     } catch(e) { throw e; }
   }
 
-  // Map API response shape → localStorage shape (they differ slightly in field names)
+  // Map API response shape -> localStorage shape (they differ slightly in field names)
   function apiApptToLocal(a) {
     return {
       id:                 a.id,
@@ -499,7 +499,7 @@
       log("[appt] initial load complete");
     } catch(e) {
       warn("[appt] initial load partial error:", e && e.message);
-      // Non-fatal — module continues with whatever is in localStorage
+      // Non-fatal - module continues with whatever is in localStorage
     }
   }
 
@@ -512,21 +512,21 @@
 //    initialLoad().then(async function(){ if (state.refresh) state.refresh(); });
 //
 //  In the modal save handlers, swap:
-//    createDoctor(payload)   →  await apiCreateDoctor(payload)
-//    updateDoctor(id,p)      →  await apiUpdateDoctor(id,p)
-//    deleteDoctor(id)        →  await apiDeleteDoctor(id)
-//    createClinic(payload)   →  await apiCreateClinic(payload)
-//    updateClinic(id,p)      →  await apiUpdateClinic(id,p)
-//    deleteClinic(id)        →  await apiDeleteClinic(id)
-//    apiCreateSchedule(payload) →  await apiCreateSchedule(payload)
-//    apiUpdateSchedule(id,p)    →  await apiUpdateSchedule(id,p)
-//    await apiDeleteSchedule(id)      →  await apiDeleteSchedule(id)
-//    await apiCreateAppt(payload)     →  await apiCreateAppt(payload)
-//    await apiUpdateAppt(id,p)        →  await apiUpdateAppt(id,p)
-//    await apiDeleteAppt(id)          →  await apiDeleteAppt(id)
-//    await apiCreateWaitlistEntry(p)  →  await apiCreateWaitlist(p)
-//    await apiUpdateWaitlistEntry(i,p)→  await apiUpdateWaitlist(id,p)
-//    await apiDeleteWaitlistEntry(id) →  await apiDeleteWaitlist(id)
+//    createDoctor(payload)   ->  await apiCreateDoctor(payload)
+//    updateDoctor(id,p)      ->  await apiUpdateDoctor(id,p)
+//    deleteDoctor(id)        ->  await apiDeleteDoctor(id)
+//    createClinic(payload)   ->  await apiCreateClinic(payload)
+//    updateClinic(id,p)      ->  await apiUpdateClinic(id,p)
+//    deleteClinic(id)        ->  await apiDeleteClinic(id)
+//    apiCreateSchedule(payload) ->  await apiCreateSchedule(payload)
+//    apiUpdateSchedule(id,p)    ->  await apiUpdateSchedule(id,p)
+//    await apiDeleteSchedule(id)      ->  await apiDeleteSchedule(id)
+//    await apiCreateAppt(payload)     ->  await apiCreateAppt(payload)
+//    await apiUpdateAppt(id,p)        ->  await apiUpdateAppt(id,p)
+//    await apiDeleteAppt(id)          ->  await apiDeleteAppt(id)
+//    await apiCreateWaitlistEntry(p)  ->  await apiCreateWaitlist(p)
+//    await apiUpdateWaitlistEntry(i,p)->  await apiUpdateWaitlist(id,p)
+//    await apiDeleteWaitlistEntry(id) ->  await apiDeleteWaitlist(id)
 //
 //  In renderDay(), replace:
 //    var scheds = getSchedulesForDate(ymd);
@@ -534,7 +534,7 @@
 //    var scheds = await apiGetSchedulesForDate(ymd);  (make renderDay async)
 //
 //  All read operations (loadDoctors, loadClinics, etc.) stay reading from
-//  localStorage — the API layer keeps it in sync after every write + on mount.
+//  localStorage - the API layer keeps it in sync after every write + on mount.
 // ============================================================================
 
 
@@ -715,7 +715,7 @@
   // -- Dropdown builders ----------------------------------------------------
   function buildDoctorOptions(selected, allowEmpty) {
     var docs = loadDoctors();
-    var html = allowEmpty ? "<option value=''>— Any Doctor —</option>" : "<option value=''>— Select Doctor —</option>";
+    var html = allowEmpty ? "<option value=''>- Any Doctor -</option>" : "<option value=''>- Select Doctor -</option>";
     docs.forEach(function(d){
       html += "<option value='"+esc(d.id)+"'"+(d.id===selected?" selected":"")+">"+esc(d.name)+(d.specialty?" ("+esc(d.specialty)+")":"")+("</option>");
     });
@@ -723,9 +723,9 @@
   }
   function buildClinicOptions(selected, allowEmpty) {
     var clinics = loadClinics();
-    var html = allowEmpty ? "<option value=''>— Any Clinic —</option>" : "<option value=''>— Select Clinic —</option>";
+    var html = allowEmpty ? "<option value=''>- Any Clinic -</option>" : "<option value=''>- Select Clinic -</option>";
     clinics.forEach(function(c){
-      html += "<option value='"+esc(c.id)+"'"+(c.id===selected?" selected":"")+">"+esc(c.name)+(c.locality?" – "+esc(c.locality):"")+("</option>");
+      html += "<option value='"+esc(c.id)+"'"+(c.id===selected?" selected":"")+">"+esc(c.name)+(c.locality?" - "+esc(c.locality):"")+("</option>");
     });
     return html;
   }
@@ -744,7 +744,7 @@
   // -- Print Functions -------------------------------------------------------
   function printApptList(list, title, filterDesc) {
     var w = window.open("","_blank");
-    if (!w) { toast("Print","Popup blocked — allow popups and try again.","bad"); return; }
+    if (!w) { toast("Print","Popup blocked - allow popups and try again.","bad"); return; }
     function safe(s){ return esc(s); }
     var rowsHtml="";
     list.forEach(function(a){
@@ -760,10 +760,10 @@
         "<td>"+safe(dr?dr.name:"")+"</td>"+
         "<td>"+safe(cl?cl.name:"")+"</td>"+
         "<td>"+safe(a.status||"Scheduled")+"</td>"+
-        "<td style='text-align:right;'>€"+safe((parseFloat(a.doctorFee)||0).toFixed(2))+"</td>"+
-        "<td style='text-align:right;'>€"+safe((parseFloat(a.clinicFee)||0).toFixed(2))+"</td>"+
-        "<td style='text-align:right;'>€"+safe((parseFloat(a.medicinesCost)||0).toFixed(2))+"</td>"+
-        "<td style='text-align:right;font-weight:bold;'>€"+safe((computeTotal(a)).toFixed(2))+"</td>"+
+        "<td style='text-align:right;'>EUR"+safe((parseFloat(a.doctorFee)||0).toFixed(2))+"</td>"+
+        "<td style='text-align:right;'>EUR"+safe((parseFloat(a.clinicFee)||0).toFixed(2))+"</td>"+
+        "<td style='text-align:right;'>EUR"+safe((parseFloat(a.medicinesCost)||0).toFixed(2))+"</td>"+
+        "<td style='text-align:right;font-weight:bold;'>EUR"+safe((computeTotal(a)).toFixed(2))+"</td>"+
         "</tr>";
     });
     var totals = list.reduce(function(acc,a){
@@ -786,17 +786,17 @@
       "tfoot td{font-weight:800;background:#e8edf3;}" +
       "@media print{button{display:none!important;}}" +
       "</style></head><body>" +
-      "<button onclick='window.print()'>🖨 Print</button>" +
+      "<button onclick='window.print()'> Print</button>" +
       "<h1>"+safe(title)+"</h1>" +
-      "<div class='meta'>Records: "+list.length+(filterDesc?" · "+safe(filterDesc):"")+" · Printed: "+new Date().toLocaleString()+"</div>" +
+      "<div class='meta'>Records: "+list.length+(filterDesc?"  "+safe(filterDesc):"")+"  Printed: "+new Date().toLocaleString()+"</div>" +
       "<table><thead><tr>" +
       "<th>ID</th><th>Date</th><th>Time</th><th>Patient</th><th>ID Card</th><th>Phone</th><th>Doctor</th><th>Clinic</th><th>Status</th><th>Dr Fee</th><th>Clinic Fee</th><th>Meds</th><th>Total</th>" +
       "</tr></thead><tbody>" + rowsHtml + "</tbody>" +
       "<tfoot><tr><td colspan='9' style='text-align:right;'>TOTALS</td>" +
-      "<td style='text-align:right;'>€"+totals.doc.toFixed(2)+"</td>" +
-      "<td style='text-align:right;'>€"+totals.cl.toFixed(2)+"</td>" +
-      "<td style='text-align:right;'>€"+totals.med.toFixed(2)+"</td>" +
-      "<td style='text-align:right;'>€"+totals.tot.toFixed(2)+"</td>" +
+      "<td style='text-align:right;'>EUR"+totals.doc.toFixed(2)+"</td>" +
+      "<td style='text-align:right;'>EUR"+totals.cl.toFixed(2)+"</td>" +
+      "<td style='text-align:right;'>EUR"+totals.med.toFixed(2)+"</td>" +
+      "<td style='text-align:right;'>EUR"+totals.tot.toFixed(2)+"</td>" +
       "</tr></tfoot>" +
       "</table>" +
       "<script>setTimeout(function(){try{window.print()}catch(e){}},250);<\/script>" +
@@ -835,26 +835,26 @@
       ".meds-box .mv{font-size:12px;white-space:pre-wrap;}" +
       "@media print{button{display:none!important;}}" +
       "</style></head><body>" +
-      "<button onclick='window.print()'>🖨 Print</button>" +
+      "<button onclick='window.print()'> Print</button>" +
       "<div class='hdr'>" +
-      "<div><div class='aid'>"+safe(a.id||"—")+"</div>" +
-      "<div class='asub'>"+safe(fmtDmy(a.date))+" at "+safe(a.time||"—")+" · "+safe(a.status||"Scheduled")+"</div></div>" +
-      "<div><div style='font-size:10px;color:#888;margin-bottom:3px;'>PATIENT TOKEN</div><div class='token-box'>"+safe(a.token||"—")+"</div></div>" +
+      "<div><div class='aid'>"+safe(a.id||"-")+"</div>" +
+      "<div class='asub'>"+safe(fmtDmy(a.date))+" at "+safe(a.time||"-")+"  "+safe(a.status||"Scheduled")+"</div></div>" +
+      "<div><div style='font-size:10px;color:#888;margin-bottom:3px;'>PATIENT TOKEN</div><div class='token-box'>"+safe(a.token||"-")+"</div></div>" +
       "</div>" +
       "<div class='grid'>" +
-      "<div class='kv half'><div class='k'>Patient</div><div class='v'>"+safe(a.patientName||"—")+"</div></div>" +
-      "<div class='kv'><div class='k'>ID Card</div><div class='v'>"+safe(a.patientIdCard||"—")+"</div></div>" +
-      "<div class='kv'><div class='k'>Phone</div><div class='v'>"+safe(a.patientPhone||"—")+"</div></div>" +
-      "<div class='kv'><div class='k'>Doctor</div><div class='v'>"+safe(dr?dr.name:"—")+"</div></div>" +
-      "<div class='kv'><div class='k'>Clinic</div><div class='v'>"+safe(cl?cl.name:"—")+(cl&&cl.locality?" · "+safe(cl.locality):"")+"</div></div>" +
-      "<div class='kv'><div class='k'>Duration</div><div class='v'>"+safe(a.durationMins||"—")+" min</div></div>" +
+      "<div class='kv half'><div class='k'>Patient</div><div class='v'>"+safe(a.patientName||"-")+"</div></div>" +
+      "<div class='kv'><div class='k'>ID Card</div><div class='v'>"+safe(a.patientIdCard||"-")+"</div></div>" +
+      "<div class='kv'><div class='k'>Phone</div><div class='v'>"+safe(a.patientPhone||"-")+"</div></div>" +
+      "<div class='kv'><div class='k'>Doctor</div><div class='v'>"+safe(dr?dr.name:"-")+"</div></div>" +
+      "<div class='kv'><div class='k'>Clinic</div><div class='v'>"+safe(cl?cl.name:"-")+(cl&&cl.locality?"  "+safe(cl.locality):"")+"</div></div>" +
+      "<div class='kv'><div class='k'>Duration</div><div class='v'>"+safe(a.durationMins||"-")+" min</div></div>" +
       (a.notes?"<div class='kv wide'><div class='k'>Notes</div><div class='v'>"+safe(a.notes)+"</div></div>":"")+
       "</div>" +
       "<div class='fee-row'>" +
-      "<div class='fee-box'><div class='fk'>Doctor Fee</div><div class='fv'>€"+safe((parseFloat(a.doctorFee)||0).toFixed(2))+"</div></div>" +
-      "<div class='fee-box'><div class='fk'>Clinic Fee</div><div class='fv'>€"+safe((parseFloat(a.clinicFee)||0).toFixed(2))+"</div></div>" +
-      "<div class='fee-box'><div class='fk'>Medicines</div><div class='fv'>€"+safe((parseFloat(a.medicinesCost)||0).toFixed(2))+"</div></div>" +
-      "<div class='fee-box total'><div class='fk'>Total Due</div><div class='fv'>€"+safe((computeTotal(a)).toFixed(2))+"</div></div>" +
+      "<div class='fee-box'><div class='fk'>Doctor Fee</div><div class='fv'>EUR"+safe((parseFloat(a.doctorFee)||0).toFixed(2))+"</div></div>" +
+      "<div class='fee-box'><div class='fk'>Clinic Fee</div><div class='fv'>EUR"+safe((parseFloat(a.clinicFee)||0).toFixed(2))+"</div></div>" +
+      "<div class='fee-box'><div class='fk'>Medicines</div><div class='fv'>EUR"+safe((parseFloat(a.medicinesCost)||0).toFixed(2))+"</div></div>" +
+      "<div class='fee-box total'><div class='fk'>Total Due</div><div class='fv'>EUR"+safe((computeTotal(a)).toFixed(2))+"</div></div>" +
       "</div>" +
       (meds?"<div class='meds-box'><div class='mk'>Medicines / Items</div><div class='mv'>"+safe(meds)+"</div></div>":"")+
       "<script>setTimeout(function(){try{window.print()}catch(e){}},250);<\/script>" +
@@ -892,9 +892,9 @@
       "table{width:100%;border-collapse:collapse;}th,td{border:1px solid #ddd;padding:5px 7px;font-size:11px;}" +
       "th{background:#f0f2f5;font-weight:800;text-align:left;}tr:nth-child(even){background:#fafbfc;}" +
       "@media print{button{display:none!important;}}</style></head><body>" +
-      "<button onclick='window.print()'>🖨 Print</button>" +
+      "<button onclick='window.print()'> Print</button>" +
       "<h1>Waiting List</h1>" +
-      "<div class='meta'>Records: "+list.length+" · Printed: "+new Date().toLocaleString()+"</div>" +
+      "<div class='meta'>Records: "+list.length+"  Printed: "+new Date().toLocaleString()+"</div>" +
       "<table><thead><tr><th>ID</th><th>Patient</th><th>ID Card</th><th>Phone</th><th>Doctor Pref.</th><th>Clinic Pref.</th><th>Preferred Dates</th><th>Flexibility</th><th>Added</th><th>Status</th><th>Notes</th></tr></thead><tbody>" +
       rowsHtml + "</tbody></table>" +
       "<script>setTimeout(function(){try{window.print()}catch(e){}},250);<\/script>" +
@@ -909,7 +909,7 @@
       var rows = docs.length ? docs.map(function(d){
         return "<div class='ap-mgmt-row' data-id='"+esc(d.id)+"'>" +
           "<div><div class='mgmt-name'>"+esc(d.name)+"</div>" +
-          "<div class='mgmt-sub'>"+esc(d.specialty||"General")+" · Fee: "+esc(fmtMoney(d.defaultFee||0))+"</div></div>" +
+          "<div class='mgmt-sub'>"+esc(d.specialty||"General")+"  Fee: "+esc(fmtMoney(d.defaultFee||0))+"</div></div>" +
           "<div class='mgmt-actions'>" +
           "<button class='eikon-btn ap-dr-edit' data-id='"+esc(d.id)+"' type='button'>Edit</button>" +
           "<button class='eikon-btn ap-dr-del'  data-id='"+esc(d.id)+"' type='button' style='color:rgba(255,90,122,.85);'>Delete</button>" +
@@ -917,7 +917,7 @@
       }).join("") : "<div style='font-size:12px;color:rgba(233,238,247,.45);padding:8px 0;'>No doctors yet. Add one below.</div>";
 
       return "<div class='ap-mgmt-grid' id='ap-dr-list'>"+rows+"</div>"+
-        "<button class='ap-add-btn' id='ap-dr-add' type='button' style='margin-top:10px;width:100%;'>＋ Add New Doctor</button>";
+        "<button class='ap-add-btn' id='ap-dr-add' type='button' style='margin-top:10px;width:100%;'> Add New Doctor</button>";
     }
 
     function showDrForm(existing) {
@@ -927,7 +927,7 @@
         "<div class='eikon-field'><div class='eikon-label'>Full Name (with title)</div><input class='ap-input' id='ap-drmod-name' type='text' value='"+esc(d.name||"")+"' placeholder='e.g. Dr. Joseph Borg'></div>" +
         "<div class='eikon-field'><div class='eikon-label'>Specialty</div><input class='ap-input' id='ap-drmod-spec' type='text' value='"+esc(d.specialty||"")+"' placeholder='e.g. General Practice, Cardiology'></div>" +
         "<div class='eikon-field'><div class='eikon-label'>Phone</div><input class='ap-input' id='ap-drmod-phone' type='tel' value='"+esc(d.phone||"")+"' placeholder='e.g. 2100 0000'></div>" +
-        "<div class='eikon-field'><div class='eikon-label'>Default Patient Fee (€)</div><input class='ap-input' id='ap-drmod-fee' type='number' step='0.01' min='0' value='"+esc(d.defaultFee!=null?d.defaultFee:"")+"' placeholder='e.g. 25.00'></div>" +
+        "<div class='eikon-field'><div class='eikon-label'>Default Patient Fee (EUR)</div><input class='ap-input' id='ap-drmod-fee' type='number' step='0.01' min='0' value='"+esc(d.defaultFee!=null?d.defaultFee:"")+"' placeholder='e.g. 25.00'></div>" +
         "<div class='eikon-field'><div class='eikon-label'>Notes (optional)</div><textarea class='ap-textarea' id='ap-drmod-notes'>"+esc(d.notes||"")+"</textarea></div>";
       E.modal.show(isEdit?"Edit Doctor":"Add Doctor", body, [
         {label:"Cancel", onClick:async function(){openDoctorsModal(onDone);}},
@@ -986,7 +986,7 @@
       var rows = clinics.length ? clinics.map(function(c){
         return "<div class='ap-mgmt-row' data-id='"+esc(c.id)+"'>" +
           "<div><div class='mgmt-name'>"+esc(c.name)+"</div>" +
-          "<div class='mgmt-sub'>"+esc(c.locality||"")+" · Clinic Fee: "+esc(fmtMoney(c.fee||0))+"</div></div>" +
+          "<div class='mgmt-sub'>"+esc(c.locality||"")+"  Clinic Fee: "+esc(fmtMoney(c.fee||0))+"</div></div>" +
           "<div class='mgmt-actions'>" +
           "<button class='eikon-btn ap-cl-edit' data-id='"+esc(c.id)+"' type='button'>Edit</button>" +
           "<button class='eikon-btn ap-cl-del'  data-id='"+esc(c.id)+"' type='button' style='color:rgba(255,90,122,.85);'>Delete</button>" +
@@ -994,7 +994,7 @@
       }).join("") : "<div style='font-size:12px;color:rgba(233,238,247,.45);padding:8px 0;'>No clinics yet.</div>";
 
       return "<div class='ap-mgmt-grid' id='ap-cl-list'>"+rows+"</div>"+
-        "<button class='ap-add-btn' id='ap-cl-add' type='button' style='margin-top:10px;width:100%;'>＋ Add New Clinic</button>";
+        "<button class='ap-add-btn' id='ap-cl-add' type='button' style='margin-top:10px;width:100%;'> Add New Clinic</button>";
     }
 
     function showClForm(existing) {
@@ -1005,7 +1005,7 @@
         "<div class='eikon-field'><div class='eikon-label'>Locality</div><input class='ap-input' id='ap-clmod-loc' type='text' value='"+esc(c.locality||"")+"' placeholder='e.g. Sliema, Valletta'></div>" +
         "<div class='eikon-field'><div class='eikon-label'>Address</div><input class='ap-input' id='ap-clmod-addr' type='text' value='"+esc(c.address||"")+"' placeholder='e.g. Triq ix-Xatt, Sliema'></div>" +
         "<div class='eikon-field'><div class='eikon-label'>Phone</div><input class='ap-input' id='ap-clmod-phone' type='tel' value='"+esc(c.phone||"")+"' placeholder='e.g. 2134 0000'></div>" +
-        "<div class='eikon-field'><div class='eikon-label'>Standard Clinic Fee (€)</div><input class='ap-input' id='ap-clmod-fee' type='number' step='0.01' min='0' value='"+esc(c.fee!=null?c.fee:"")+"' placeholder='e.g. 15.00'></div>" +
+        "<div class='eikon-field'><div class='eikon-label'>Standard Clinic Fee (EUR)</div><input class='ap-input' id='ap-clmod-fee' type='number' step='0.01' min='0' value='"+esc(c.fee!=null?c.fee:"")+"' placeholder='e.g. 15.00'></div>" +
         "<div class='eikon-field'><div class='eikon-label'>Notes (optional)</div><textarea class='ap-textarea' id='ap-clmod-notes'>"+esc(c.notes||"")+"</textarea></div>";
       E.modal.show(isEdit?"Edit Clinic":"Add Clinic", body, [
         {label:"Cancel", onClick:async function(){openClinicsModal(onDone);}},
@@ -1064,7 +1064,7 @@
           : days[Number(s.dayOfWeek)] + "s" + (s.validFrom?" from "+fmtDmy(s.validFrom):"") + (s.validUntil?" until "+fmtDmy(s.validUntil):"");
         return "<div class='ap-mgmt-row'>" +
           "<div style='flex:1'><div class='mgmt-name'>"+(dr?esc(dr.name):"Unknown Doctor")+(s.cancelled?" <span style='color:#ff8ca4;'>[Cancelled]</span>":"")+"</div>" +
-          "<div class='mgmt-sub'>"+(cl?esc(cl.name):"")+" · "+esc(desc)+" · "+esc(s.startTime||"")+"–"+esc(s.endTime||"")+"</div></div>" +
+          "<div class='mgmt-sub'>"+(cl?esc(cl.name):"")+"  "+esc(desc)+"  "+esc(s.startTime||"")+"-"+esc(s.endTime||"")+"</div></div>" +
           "<div class='mgmt-actions'>" +
           "<button class='eikon-btn ap-sch-toggle' data-id='"+esc(s.id)+"' type='button'>"+(s.cancelled?"Reinstate":"Cancel")+"</button>" +
           "<button class='eikon-btn ap-sch-edit'   data-id='"+esc(s.id)+"' type='button'>Edit</button>" +
@@ -1073,7 +1073,7 @@
       }).join("") : "<div style='font-size:12px;color:rgba(233,238,247,.45);padding:8px 0;'>No schedules yet.</div>";
 
       return "<div class='ap-mgmt-grid' id='ap-sch-list'>"+rows+"</div>"+
-        "<button class='ap-add-btn' id='ap-sch-add' type='button' style='margin-top:10px;width:100%;'>＋ Add Schedule</button>";
+        "<button class='ap-add-btn' id='ap-sch-add' type='button' style='margin-top:10px;width:100%;'> Add Schedule</button>";
     }
 
     function showSchForm(existing) {
@@ -1243,18 +1243,18 @@
       // Fees
       "<div class='ap-form-section' style='margin-top:10px;'>Fees &amp; Medicines</div>" +
       "<div class='ap-form-fee-grid'>" +
-      "<div class='eikon-field'><div class='eikon-label'>Doctor Fee (€)</div>" +
+      "<div class='eikon-field'><div class='eikon-label'>Doctor Fee (EUR)</div>" +
       "<input class='ap-input' id='ap-mod-drfee' type='number' step='0.01' min='0' value='"+esc(init.doctorFee)+"' placeholder='Auto from doctor' style='width:100%;'></div>" +
-      "<div class='eikon-field'><div class='eikon-label'>Clinic Fee (€)</div>" +
+      "<div class='eikon-field'><div class='eikon-label'>Clinic Fee (EUR)</div>" +
       "<input class='ap-input' id='ap-mod-clfee' type='number' step='0.01' min='0' value='"+esc(init.clinicFee)+"' placeholder='Auto from clinic' style='width:100%;'></div>" +
-      "<div class='eikon-field'><div class='eikon-label'>Medicines Cost (€)</div>" +
+      "<div class='eikon-field'><div class='eikon-label'>Medicines Cost (EUR)</div>" +
       "<input class='ap-input' id='ap-mod-medfee' type='number' step='0.01' min='0' value='"+esc(init.medicinesCost)+"' placeholder='0.00' style='width:100%;'></div>" +
       "</div>" +
-      "<div style='margin-top:6px;'><span class='ap-total-preview' id='ap-mod-total'>Total: calculating…</span></div>" +
+      "<div style='margin-top:6px;'><span class='ap-total-preview' id='ap-mod-total'>Total: calculating...</span></div>" +
       "<div class='eikon-field' style='margin-top:8px;'><div class='eikon-label'>Medicines / Items Dispensed</div>" +
       "<textarea class='ap-textarea' id='ap-mod-meds' placeholder='e.g. Amoxicillin 250mg x14&#10;Paracetamol 500mg x20'>"+esc(init.medicines)+"</textarea></div>" +
       "<div class='eikon-field' style='margin-top:8px;'><div class='eikon-label'>Internal Notes</div>" +
-      "<textarea class='ap-textarea' id='ap-mod-notes' placeholder='Any internal notes or instructions…' style='min-height:55px;'>"+esc(init.notes)+"</textarea></div>" +
+      "<textarea class='ap-textarea' id='ap-mod-notes' placeholder='Any internal notes or instructions...' style='min-height:55px;'>"+esc(init.notes)+"</textarea></div>" +
       "<div class='eikon-field' id='ap-cancel-reason-wrap' style='margin-top:8px;display:"+(init.status==="Cancelled"?"block":"none")+";'>" +
       "<div class='eikon-label'>Cancellation Reason</div>" +
       "<input class='ap-input' id='ap-mod-cancelreason' type='text' value='"+esc(init.cancellationReason)+"' placeholder='Reason for cancellation' style='width:100%;'></div>";
@@ -1307,7 +1307,7 @@
         var cf=parseFloat((E.q("#ap-mod-clfee")||{}).value||"")||0;
         var mf=parseFloat((E.q("#ap-mod-medfee")||{}).value||"")||0;
         var totEl=E.q("#ap-mod-total");
-        if(totEl) totEl.textContent="Total: €"+(df+cf+mf).toFixed(2);
+        if(totEl) totEl.textContent="Total: EUR"+(df+cf+mf).toFixed(2);
       }
       function autoFillFees(){
         var drSel=E.q("#ap-mod-dr"); var clSel=E.q("#ap-mod-cl");
@@ -1363,7 +1363,7 @@
       "<select class='ap-select' id='ap-wlmod-flex' style='width:100%;'>" +
       "<option value='Flexible'"+(w.flexibility==="Flexible"||(w.flexibility===undefined&&true)?" selected":"")+">Flexible</option>" +
       "<option value='Fixed'"+(w.flexibility==="Fixed"?" selected":"")+">Fixed dates only</option>" +
-      "<option value='Urgent'"+(w.flexibility==="Urgent"?" selected":"")+">Urgent – first available</option>" +
+      "<option value='Urgent'"+(w.flexibility==="Urgent"?" selected":"")+">Urgent - first available</option>" +
       "</select></div>" +
       (isEdit?"<div class='eikon-field' style='margin-top:4px;'><div class='eikon-label'>Status</div><select class='ap-select' id='ap-wlmod-status' style='width:100%;'>"+buildStatusOptions(w.status||"Waiting",WL_STATUSES)+"</select></div>":"")+
       "<div class='eikon-field' style='margin-top:4px;'><div class='eikon-label'>Notes</div>" +
@@ -1473,7 +1473,7 @@
 
     function thHtml(label,key,sortSt){
       var on=sortSt.key===key;
-      var arrow=on?(sortSt.dir==="asc"?"▲":"▼"):"⇅";
+      var arrow=on?(sortSt.dir==="asc"?"":""):"";
       return "<span class='ap-sort"+(on?" on":"")+"' data-key='"+esc(key)+"'>"+esc(label)+"<span class='car'>"+arrow+"</span></span>";
     }
 
@@ -1482,23 +1482,23 @@
       "<div class='ap-wrap'>" +
 
       "<div class='ap-head'>" +
-      "  <div><h2 class='ap-title'>📅 Doctors Appointments</h2>" +
+      "  <div><h2 class='ap-title'> Doctors Appointments</h2>" +
       "    <div class='ap-sub'>Manage patient appointments, schedules, and waiting list.</div>" +
       "  </div>" +
       "  <div class='ap-controls'>" +
       "    <div class='ap-tabs'>" +
-      "      <button class='ap-tab"+(state.view==="day"?" active":"")+"' data-view='day' type='button'>📅 Day View</button>" +
-      "      <button class='ap-tab"+(state.view==="list"?" active":"")+"' data-view='list' type='button'>📋 All Appointments</button>" +
-      "      <button class='ap-tab"+(state.view==="waitlist"?" active":"")+"' data-view='waitlist' type='button'>⏳ Waiting List <span class='ap-wl-badge' id='ap-wl-badge'>…</span></button>" +
+      "      <button class='ap-tab"+(state.view==="day"?" active":"")+"' data-view='day' type='button'> Day View</button>" +
+      "      <button class='ap-tab"+(state.view==="list"?" active":"")+"' data-view='list' type='button'> All Appointments</button>" +
+      "      <button class='ap-tab"+(state.view==="waitlist"?" active":"")+"' data-view='waitlist' type='button'> Waiting List <span class='ap-wl-badge' id='ap-wl-badge'>...</span></button>" +
       "    </div>" +
-      "    <button class='eikon-btn' id='ap-new-appt' type='button'>＋ New Appointment</button>" +
-      "    <button class='eikon-btn' id='ap-btn-waitlist' type='button'>＋ Waiting List</button>" +
+      "    <button class='eikon-btn' id='ap-new-appt' type='button'> New Appointment</button>" +
+      "    <button class='eikon-btn' id='ap-btn-waitlist' type='button'> Waiting List</button>" +
       "    <div style='position:relative;display:inline-block;'>" +
-      "      <button class='eikon-btn' id='ap-settings-btn' type='button'>⚙ Settings ▾</button>" +
+      "      <button class='eikon-btn' id='ap-settings-btn' type='button'> Settings </button>" +
       "      <div id='ap-settings-menu' style='display:none;position:absolute;right:0;top:34px;background:rgba(15,22,34,.98);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:6px;z-index:9999;min-width:170px;box-shadow:0 12px 40px rgba(0,0,0,.5);'>" +
-      "        <button class='eikon-btn' id='ap-manage-doctors'  type='button' style='display:block;width:100%;text-align:left;margin:0 0 4px 0;'>👨‍⚕️ Manage Doctors</button>" +
-      "        <button class='eikon-btn' id='ap-manage-clinics'  type='button' style='display:block;width:100%;text-align:left;margin:0 0 4px 0;'>🏥 Manage Clinics</button>" +
-      "        <button class='eikon-btn' id='ap-manage-scheds'   type='button' style='display:block;width:100%;text-align:left;'>📆 Schedules</button>" +
+      "        <button class='eikon-btn' id='ap-manage-doctors'  type='button' style='display:block;width:100%;text-align:left;margin:0 0 4px 0;'> Manage Doctors</button>" +
+      "        <button class='eikon-btn' id='ap-manage-clinics'  type='button' style='display:block;width:100%;text-align:left;margin:0 0 4px 0;'> Manage Clinics</button>" +
+      "        <button class='eikon-btn' id='ap-manage-scheds'   type='button' style='display:block;width:100%;text-align:left;'> Schedules</button>" +
       "      </div>" +
       "    </div>" +
       "  </div>" +
@@ -1510,16 +1510,16 @@
       "    <div class='ap-card-head'>" +
       "      <div style='display:flex;flex-direction:column;gap:4px;'>" +
       "        <div class='ap-nav'>" +
-      "          <button class='ap-nav-btn' id='ap-day-prev' type='button'>◀</button>" +
+      "          <button class='ap-nav-btn' id='ap-day-prev' type='button'></button>" +
       "          <div><div class='ap-nav-date' id='ap-day-label'></div><div class='ap-nav-sub' id='ap-day-sub'></div></div>" +
-      "          <button class='ap-nav-btn' id='ap-day-next' type='button'>▶</button>" +
+      "          <button class='ap-nav-btn' id='ap-day-next' type='button'></button>" +
       "          <button class='ap-nav-btn' id='ap-day-today' type='button' style='font-size:11px;padding:5px 8px;'>Today</button>" +
       "        </div>" +
       "      </div>" +
       "      <div class='right'>" +
       "        <input class='ap-date-input' id='ap-day-picker' type='date' value='"+esc(state.currentDate)+"' title='Jump to date'>" +
       "        <select class='ap-select' id='ap-day-dr-filter' style='min-width:160px;'>"+buildDoctorOptions("","any")+"</select>" +
-      "        <button class='eikon-btn' id='ap-day-print' type='button'>🖨 Print Day</button>" +
+      "        <button class='eikon-btn' id='ap-day-print' type='button'> Print Day</button>" +
       "      </div>" +
       "    </div>" +
       "    <div id='ap-day-schedinfo'></div>" +
@@ -1538,21 +1538,21 @@
       "<div id='ap-view-list' style='display:"+(state.view==="list"?"block":"none")+"'>" +
       "  <div class='ap-card'>" +
       "    <div class='ap-card-head'>" +
-      "      <div><h3>All Appointments</h3><div class='meta' id='ap-list-count'>Loading…</div></div>" +
+      "      <div><h3>All Appointments</h3><div class='meta' id='ap-list-count'>Loading...</div></div>" +
       "      <div class='right'>" +
-      "        <button class='eikon-btn' id='ap-list-print' type='button'>🖨 Print List</button>" +
+      "        <button class='eikon-btn' id='ap-list-print' type='button'> Print List</button>" +
       "      </div>" +
       "    </div>" +
       "    <div class='ap-filters'>" +
       "      <div class='ap-filter-field'><label>Search</label>" +
-      "        <input class='ap-input' id='ap-list-search' type='text' placeholder='Patient, doctor, clinic…' value='"+esc(state.listQuery)+"' style='min-width:200px;'></div>" +
+      "        <input class='ap-input' id='ap-list-search' type='text' placeholder='Patient, doctor, clinic...' value='"+esc(state.listQuery)+"' style='min-width:200px;'></div>" +
       "      <div class='ap-filter-field'><label>Doctor</label>" +
       "        <select class='ap-select' id='ap-list-dr'>"+buildDoctorOptions(state.filterDoctorId,"any")+"</select></div>" +
       "      <div class='ap-filter-field'><label>Clinic</label>" +
       "        <select class='ap-select' id='ap-list-cl'>"+buildClinicOptions(state.filterClinicId,"any")+"</select></div>" +
       "      <div class='ap-filter-field'><label>Status</label>" +
       "        <select class='ap-select' id='ap-list-status'>" +
-      "          <option value=''>— All Statuses —</option>" +
+      "          <option value=''>- All Statuses -</option>" +
       "          "+APPT_STATUSES.map(function(s){return "<option value='"+esc(s)+"'"+(s===state.filterStatus?" selected":"")+">"+esc(s)+"</option>";}).join("") +
       "        </select></div>" +
       "      <div class='ap-filter-field'><label>From</label>" +
@@ -1592,10 +1592,10 @@
       "<div id='ap-view-waitlist' style='display:"+(state.view==="waitlist"?"block":"none")+"'>" +
       "  <div class='ap-card'>" +
       "    <div class='ap-card-head'>" +
-      "      <div><h3>⏳ Waiting List</h3><div class='meta' id='ap-wl-count'>Loading…</div></div>" +
+      "      <div><h3> Waiting List</h3><div class='meta' id='ap-wl-count'>Loading...</div></div>" +
       "      <div class='right'>" +
-      "        <input class='ap-input' id='ap-wl-search' type='text' placeholder='Search waiting list…' value='"+esc(state.wlQuery)+"' style='min-width:200px;'>" +
-      "        <button class='eikon-btn' id='ap-wl-print' type='button'>🖨 Print</button>" +
+      "        <input class='ap-input' id='ap-wl-search' type='text' placeholder='Search waiting list...' value='"+esc(state.wlQuery)+"' style='min-width:200px;'>" +
+      "        <button class='eikon-btn' id='ap-wl-print' type='button'> Print</button>" +
       "      </div>" +
       "    </div>" +
       "    <div class='ap-table-wrap'>" +
@@ -1680,14 +1680,14 @@
       var dr=doctorById(a.doctorId); var cl=clinicById(a.clinicId);
       var total=computeTotal(a);
       return "<div class='ap-detail-grid'>" +
-        "<div class='ap-kv half'><div class='k'>Patient</div><div class='v'>"+esc(a.patientName||"—")+"</div></div>" +
-        "<div class='ap-kv'><div class='k'>ID Card</div><div class='v'>"+esc(a.patientIdCard||"—")+"</div></div>" +
-        "<div class='ap-kv'><div class='k'>Phone</div><div class='v'>"+esc(a.patientPhone||"—")+"</div></div>" +
+        "<div class='ap-kv half'><div class='k'>Patient</div><div class='v'>"+esc(a.patientName||"-")+"</div></div>" +
+        "<div class='ap-kv'><div class='k'>ID Card</div><div class='v'>"+esc(a.patientIdCard||"-")+"</div></div>" +
+        "<div class='ap-kv'><div class='k'>Phone</div><div class='v'>"+esc(a.patientPhone||"-")+"</div></div>" +
         "<div class='ap-kv'><div class='k'>Date</div><div class='v'>"+esc(fmtDmy(a.date))+"</div></div>" +
-        "<div class='ap-kv'><div class='k'>Time</div><div class='v'>"+esc(a.time||"—")+"</div></div>" +
-        "<div class='ap-kv'><div class='k'>Duration</div><div class='v'>"+esc(a.durationMins||"—")+" min</div></div>" +
-        "<div class='ap-kv'><div class='k'>Doctor</div><div class='v'>"+esc(dr?dr.name:"—")+"</div></div>" +
-        "<div class='ap-kv'><div class='k'>Clinic</div><div class='v'>"+esc(cl?cl.name:"—")+(cl&&cl.locality?" · "+esc(cl.locality):"")+"</div></div>" +
+        "<div class='ap-kv'><div class='k'>Time</div><div class='v'>"+esc(a.time||"-")+"</div></div>" +
+        "<div class='ap-kv'><div class='k'>Duration</div><div class='v'>"+esc(a.durationMins||"-")+" min</div></div>" +
+        "<div class='ap-kv'><div class='k'>Doctor</div><div class='v'>"+esc(dr?dr.name:"-")+"</div></div>" +
+        "<div class='ap-kv'><div class='k'>Clinic</div><div class='v'>"+esc(cl?cl.name:"-")+(cl&&cl.locality?"  "+esc(cl.locality):"")+"</div></div>" +
         "<div class='ap-kv fee'><div class='k'>Doctor Fee</div><div class='v'>"+esc(fmtMoney(a.doctorFee||0))+"</div></div>" +
         "<div class='ap-kv fee'><div class='k'>Clinic Fee</div><div class='v'>"+esc(fmtMoney(a.clinicFee||0))+"</div></div>" +
         "<div class='ap-kv fee'><div class='k'>Medicines</div><div class='v'>"+esc(fmtMoney(a.medicinesCost||0))+"</div></div>" +
@@ -1695,8 +1695,8 @@
         (a.medicines?"<div class='ap-kv wide'><div class='k'>Medicines / Items</div><div class='v'><div class='ap-meds'><div class='meds-txt'>"+esc(a.medicines)+"</div></div></div></div>":"")+
         (a.notes?"<div class='ap-kv wide'><div class='k'>Notes</div><div class='v'>"+esc(a.notes)+"</div></div>":"")+
         (a.cancellationReason?"<div class='ap-kv wide'><div class='k'>Cancellation Reason</div><div class='v' style='color:rgba(255,140,160,.9);'>"+esc(a.cancellationReason)+"</div></div>":"")+
-        "<div class='ap-kv'><div class='k'>Patient Token</div><div class='v'><span class='ap-token-box'>"+esc(a.token||"—")+"</span></div></div>" +
-        "<div class='ap-kv'><div class='k'>Appointment ID</div><div class='v'>"+esc(a.id||"—")+"</div></div>" +
+        "<div class='ap-kv'><div class='k'>Patient Token</div><div class='v'><span class='ap-token-box'>"+esc(a.token||"-")+"</span></div></div>" +
+        "<div class='ap-kv'><div class='k'>Appointment ID</div><div class='v'>"+esc(a.id||"-")+"</div></div>" +
         "<div class='ap-kv'><div class='k'>Created</div><div class='v'>"+esc(fmtTs(a.createdAt||""))+"</div></div>" +
         "</div>";
     }
@@ -1714,23 +1714,23 @@
         return function(){ var fresh=apptById(apptId); openApptModal({appt:fresh},function(){ refresh(); }); };
       })(a.id)));
 
-      detailActionsEl.appendChild(mkBtn("🖨 Print","",function(){
+      detailActionsEl.appendChild(mkBtn(" Print","",function(){
         var fresh=apptById(a.id); printSingleAppt(fresh||a);
       }));
 
       // Quick status buttons
       if(a.status!=="Confirmed"&&a.status!=="Completed"&&a.status!=="Cancelled"){
-        detailActionsEl.appendChild(mkBtn("✓ Confirm","",function(){
+        detailActionsEl.appendChild(mkBtn(" Confirm","",function(){
           await apiUpdateAppt(a.id,{status:"Confirmed"}); toast("Updated","Appointment confirmed.","good"); refresh();
         }));
       }
       if(a.status!=="Completed"){
-        detailActionsEl.appendChild(mkBtn("✔ Complete","",function(){
+        detailActionsEl.appendChild(mkBtn(" Complete","",function(){
           await apiUpdateAppt(a.id,{status:"Completed"}); toast("Updated","Appointment marked as complete.","good"); refresh();
         }));
       }
       if(a.status!=="Cancelled"){
-        detailActionsEl.appendChild(mkBtn("✗ Cancel","",function(){
+        detailActionsEl.appendChild(mkBtn(" Cancel","",function(){
           modalConfirm("Cancel Appointment","Mark this appointment as cancelled?","Yes, Cancel","Keep").then(async function(ok){
             if(!ok) return;
             await apiUpdateAppt(a.id,{status:"Cancelled"}); toast("Cancelled","Appointment cancelled.","good"); refresh();
@@ -1758,7 +1758,7 @@
     function showApptDetail(a, detailCard, detailTitle, detailBody, detailActions) {
       if(!a||!detailCard) return;
       detailCard.style.display="block";
-      if(detailTitle) detailTitle.textContent="Appointment — "+a.id+(a.patientName?" · "+a.patientName:"");
+      if(detailTitle) detailTitle.textContent="Appointment - "+a.id+(a.patientName?"  "+a.patientName:"");
       if(detailBody)  detailBody.innerHTML=buildDetailHtml(a);
       buildDetailActions(a, detailCard, detailBody, detailTitle, detailActions);
     }
@@ -1766,7 +1766,7 @@
     // -- Day View rendering --------------------------------------------------
     function renderDay() {
       var ymd=state.currentDate;
-      if(dayLabel) dayLabel.textContent=fmtDmy(ymd)+" — "+dayName(ymd);
+      if(dayLabel) dayLabel.textContent=fmtDmy(ymd)+" - "+dayName(ymd);
       if(daySub){ var isToday=(ymd===todayYmd()); daySub.textContent=isToday?"Today":""; }
       if(dayPicker) dayPicker.value=ymd;
 
@@ -1780,7 +1780,7 @@
           daySchedInfo.innerHTML=scheds.map(function(s){
             var dr=doctorById(s.doctorId); var cl=clinicById(s.clinicId);
             var label=s.isOneOff?"One-off":"Recurring "+["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][s.dayOfWeek]+"s";
-            return "<div class='ap-sched-bar'>📆 <strong>"+(dr?esc(dr.name):"Unknown")+"</strong> at "+(cl?esc(cl.name):"Unknown")+" · "+esc(s.startTime||"")+"–"+esc(s.endTime||"")+" <span class='ap-repeat-tag'>"+esc(label)+"</span></div>";
+            return "<div class='ap-sched-bar'> <strong>"+(dr?esc(dr.name):"Unknown")+"</strong> at "+(cl?esc(cl.name):"Unknown")+"  "+esc(s.startTime||"")+"-"+esc(s.endTime||"")+" <span class='ap-repeat-tag'>"+esc(label)+"</span></div>";
           }).join("");
         } else {
           daySchedInfo.innerHTML="<div style='font-size:11px;color:rgba(233,238,247,.35);margin-bottom:6px;font-style:italic;'>No scheduled sessions defined for this day.</div>";
@@ -1796,7 +1796,7 @@
 
       if(!appts.length){
         var emp=document.createElement("div"); emp.className="ap-day-empty";
-        emp.textContent="No appointments for this day."+(scheds.length?" A session is scheduled — add appointments using ＋ New Appointment.":"");
+        emp.textContent="No appointments for this day."+(scheds.length?" A session is scheduled - add appointments using  New Appointment.":"");
         dayList.appendChild(emp);
       } else {
         appts.forEach(function(a){
@@ -1807,8 +1807,8 @@
           if(state.selectedApptId&&String(a.id)===String(state.selectedApptId)) slot.style.outline="1px solid rgba(58,160,255,.5)";
           slot.innerHTML=
             "<div><div class='ap-slot-time'>"+esc(a.time||"")+"</div><div class='ap-slot-sub'>"+esc(a.durationMins||30)+" min</div></div>"+
-            "<div><div class='ap-slot-patient'>"+esc(a.patientName||"—")+"</div>"+
-            "<div class='ap-slot-detail'>"+(dr?esc(dr.name):"")+(cl?" · "+esc(cl.name):"")+"</div></div>"+
+            "<div><div class='ap-slot-patient'>"+esc(a.patientName||"-")+"</div>"+
+            "<div class='ap-slot-detail'>"+(dr?esc(dr.name):"")+(cl?"  "+esc(cl.name):"")+"</div></div>"+
             "<div class='ap-slot-right'>"+
             "<span class='ap-status "+statusClass(a.status)+"'>"+esc(a.status||"Scheduled")+"</span>"+
             "<span class='ap-slot-total'>"+esc(fmtMoney(computeTotal(a)))+"</span>"+
@@ -1925,17 +1925,17 @@
       var dr=doctorById(w.doctorId); var cl=clinicById(w.clinicId);
       wlDetailCard.style.display="block";
       var titleEl=E.q("#ap-wl-detail-title",mount);
-      if(titleEl) titleEl.textContent="Waiting List — "+w.id+" · "+w.patientName;
+      if(titleEl) titleEl.textContent="Waiting List - "+w.id+"  "+w.patientName;
       if(wlDetailBody){
         wlDetailBody.innerHTML=
           "<div class='ap-detail-grid'>" +
-          "<div class='ap-kv half'><div class='k'>Patient</div><div class='v'>"+esc(w.patientName||"—")+"</div></div>" +
-          "<div class='ap-kv'><div class='k'>ID Card</div><div class='v'>"+esc(w.patientIdCard||"—")+"</div></div>" +
-          "<div class='ap-kv'><div class='k'>Phone</div><div class='v'>"+esc(w.patientPhone||"—")+"</div></div>" +
+          "<div class='ap-kv half'><div class='k'>Patient</div><div class='v'>"+esc(w.patientName||"-")+"</div></div>" +
+          "<div class='ap-kv'><div class='k'>ID Card</div><div class='v'>"+esc(w.patientIdCard||"-")+"</div></div>" +
+          "<div class='ap-kv'><div class='k'>Phone</div><div class='v'>"+esc(w.patientPhone||"-")+"</div></div>" +
           "<div class='ap-kv'><div class='k'>Doctor Pref.</div><div class='v'>"+esc(dr?dr.name:"Any")+"</div></div>" +
           "<div class='ap-kv'><div class='k'>Clinic Pref.</div><div class='v'>"+esc(cl?cl.name:"Any")+"</div></div>" +
-          "<div class='ap-kv'><div class='k'>Flexibility</div><div class='v'>"+esc(w.flexibility||"—")+"</div></div>" +
-          "<div class='ap-kv wide'><div class='k'>Preferred Dates / Days</div><div class='v'>"+esc(w.preferredDates||"—")+"</div></div>" +
+          "<div class='ap-kv'><div class='k'>Flexibility</div><div class='v'>"+esc(w.flexibility||"-")+"</div></div>" +
+          "<div class='ap-kv wide'><div class='k'>Preferred Dates / Days</div><div class='v'>"+esc(w.preferredDates||"-")+"</div></div>" +
           (w.notes?"<div class='ap-kv wide'><div class='k'>Notes</div><div class='v'>"+esc(w.notes)+"</div></div>":"")+
           "<div class='ap-kv'><div class='k'>Added</div><div class='v'>"+esc(fmtDmy(w.addedDate||""))+"</div></div>" +
           "<div class='ap-kv'><div class='k'>Status</div><div class='v'>"+esc(w.status||"Waiting")+"</div></div>" +
@@ -1953,7 +1953,7 @@
           openWaitlistModal({entry:fresh||w},function(){refresh();});
         }));
         if(w.status==="Waiting"){
-          wlDetailActions.appendChild(mkBtn("📅 Book Appointment",function(){
+          wlDetailActions.appendChild(mkBtn(" Book Appointment",function(){
             // Promote: open appt modal pre-filled from waiting list
             E.modal.hide();
             openApptModal({date:todayYmd(), fromWaitlist:w}, function(){
@@ -1963,7 +1963,7 @@
               refresh();
             });
           }));
-          wlDetailActions.appendChild(mkBtn("✗ Cancel",function(){
+          wlDetailActions.appendChild(mkBtn(" Cancel",function(){
             modalConfirm("Cancel Entry","Remove this patient from the waiting list?","Yes, Cancel","Keep").then(async function(ok){
               if(!ok) return;
               await apiUpdateWaitlistEntry(w.id,{status:"Cancelled"});
@@ -2034,7 +2034,7 @@
     if(dayPrintBtn) dayPrintBtn.addEventListener("click",function(){
       var appts=apptsForDate(state.currentDate);
       if(state.filterDoctorId) appts=appts.filter(function(a){return a.doctorId===state.filterDoctorId;});
-      printApptList(appts,"Appointments — "+fmtDmy(state.currentDate)+" ("+dayName(state.currentDate)+")","Date: "+fmtDmy(state.currentDate));
+      printApptList(appts,"Appointments - "+fmtDmy(state.currentDate)+" ("+dayName(state.currentDate)+")","Date: "+fmtDmy(state.currentDate));
     });
 
     // -- List filters ------------------------------------------------------
@@ -2062,7 +2062,7 @@
       printApptList(filtered,"Appointments List");
     });
 
-    // Sortable column headers — list
+    // Sortable column headers - list
     if(listTable){
       listTable.querySelector("thead").addEventListener("click",async function(ev){
         var el=ev.target.closest("[data-key]");
@@ -2131,7 +2131,7 @@
     // Initial reminder if no doctors/clinics set up
     if(!loadDoctors().length && !loadClinics().length){
       setTimeout(function(){
-        toast("Setup needed","Add doctors and clinics via the ⚙ Settings menu to get started.",""  ,5000);
+        toast("Setup needed","Add doctors and clinics via the  Settings menu to get started.",""  ,5000);
       },800);
     }
   }
@@ -2180,7 +2180,7 @@
     id:    "appointments",
     title: "Appointments",
     order: 215,
-    icon:  "📅",
+    icon:  "",
     render: render
   });
 
