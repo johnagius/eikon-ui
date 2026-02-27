@@ -10208,44 +10208,48 @@ async function handleShiftAssignmentsRangeList(request, env, corsOkHeaders, auth
 
 async function handleShiftIcalPublic(request, env, corsOkHeaders, url) {
   await ensureShiftsSchema(env);
-  const token = String(url.searchParams.get("token")||"").trim();
+    const debug = String(url.searchParams.get("debug")||"").trim() === "1";
+  let token = String(url.searchParams.get("token")||"").trim();
+  // also allow /shifts/ical/<token> and /shifts/ical/<token>.ics
+  if (!token && url.pathname.startsWith("/shifts/ical/")) {
+    token = decodeURIComponent(url.pathname.slice("/shifts/ical/".length)).replace(/\.ics$/i,"").trim();
+  }
   if (!token) return new Response("Missing token", { status: 400, headers: { "Content-Type":"text/plain; charset=utf-8" } });
-
-  console.log("[shifts][ical] request", url.pathname, "tokenLen=", token.length, "staff_id=", url.searchParams.get("staff_id")||"", "past=", url.searchParams.get("past")||"", "future=", url.searchParams.get("future")||"", "debug=", url.searchParams.get("debug")||"0");
-
-  let resolvedViaSettings = false;
   let map = await dbFirst(env, `SELECT org_id, location_id FROM shift_calendar_tokens WHERE token=?`, [token]);
 
-  // Backward-compat fallback: if token table not populated yet, try settings_json.calendarToken
-  if (!map && /^[a-z0-9]{12,128}$/i.test(token)) {
+  // Backward-compat fallback: if token table not populated yet, scan shift_settings JSON.
+  if (!map) {
     try {
-      const like = '%"calendarToken":"' + token + '"%';
-      const row = await dbFirst(env, `SELECT org_id, location_id, settings_json FROM shift_settings WHERE settings_json LIKE ? LIMIT 5`, [like]);
-      if (row) {
+      const rows = await dbAll(env, `SELECT org_id, location_id, settings_json FROM shift_settings LIMIT 200`, []);
+      for (const row of (rows||[])) {
         try {
-          const st = JSON.parse(row.settings_json || '{}');
-          if (st && String(st.calendarToken || '').trim() === token) {
+          const st = JSON.parse(row.settings_json || "{}");
+          const cand = String(
+            (st && (st.calendarToken || st.calendar_token)) ||
+            (st && st.integration && (st.integration.calendarToken || st.integration.calendar_token)) ||
+            (st && st.shifts && (st.shifts.calendarToken || st.shifts.calendar_token)) ||
+            ""
+          ).trim();
+          if (cand && cand === token) {
             map = { org_id: row.org_id, location_id: row.location_id };
-            resolvedViaSettings = true;
-            console.log("[shifts][ical] token resolved via settings_json for org", map.org_id, "loc", map.location_id);
+            console.log("[shifts][ical] token resolved via shift_settings scan for org", map.org_id, "loc", map.location_id);
+            break;
           }
         } catch (e2) {}
       }
     } catch (e) {
-      console.log("[shifts][ical] fallback token lookup failed", e && (e.stack || e));
+      console.log("[shifts][ical] settings scan failed", e && (e.stack || e));
     }
   }
 
   if (!map) {
-    const dbg = url.searchParams.get("debug") === "1";
-    if (dbg) {
-      // Do not leak org/location details; only show whether token exists in DB or settings.
-      const info = { ok:false, error:"token_not_found", token_prefix: token.slice(0,6), token_len: token.length, has_token_row: false, resolved_via_settings: false };
-      return jsonResponse(info, 404, { "Content-Type":"application/json; charset=utf-8", "Cache-Control":"no-store" });
+    if (debug) {
+      let tokenRows = [];
+      try { tokenRows = await dbAll(env, `SELECT token, org_id, location_id FROM shift_calendar_tokens ORDER BY created_at DESC LIMIT 20`, []); } catch(e) {}
+      return jsonResponse({ ok:false, error:"Not found", token: token, tokenTableSample: tokenRows }, 404, corsOkHeaders);
     }
     return new Response("Not found", { status: 404, headers: { "Content-Type":"text/plain; charset=utf-8" } });
   }
-
   const staffId = url.searchParams.get("staff_id") ? parseInt(url.searchParams.get("staff_id")) : null;
   const past = Math.max(0, Math.min(365, parseInt(url.searchParams.get("past")||"30",10)||30));
   const future = Math.max(1, Math.min(730, parseInt(url.searchParams.get("future")||"180",10)||180));
@@ -10420,26 +10424,11 @@ export default {
     }
 
 
-    // Public iCal feed (no auth; uses token query param)
-    // Supports:
-    //   /shifts/ical?token=...
-    //   /shifts/ical.ics?token=...
-    //   /shifts/ical/<token>
-    //   /shifts/ical.ics/<token>
-    if (request.method === "GET") {
-      const mIcal = url.pathname.match(/^\/shifts\/ical(?:\.ics)?(?:\/([A-Za-z0-9]{12,128}))?\/?$/);
-      if (mIcal) {
-        if (!url.searchParams.get("token") && mIcal[1]) {
-          // create a new URL so we can pass token as query param
-          const u2 = new URL(url.toString());
-          u2.searchParams.set("token", mIcal[1]);
-          return await handleShiftIcalPublic(request, env, corsOkHeaders, u2);
-        }
-        return await handleShiftIcalPublic(request, env, corsOkHeaders, url);
-      }
+    // Public iCal feed (no auth; supports /shifts/ical, /shifts/ical.ics and /shifts/ical/<token>)
+    if ((url.pathname === "/shifts/ical" || url.pathname === "/shifts/ical.ics" || url.pathname.startsWith("/shifts/ical/")) && request.method === "GET") {
+      return await handleShiftIcalPublic(request, env, corsOkHeaders, url);
     }
-
-    const authUser = await authFromRequest(request, env);
+const authUser = await authFromRequest(request, env);
     if (!authUser) return jsonResponse({ ok: false, error: "Unauthorized" }, 401, corsOkHeaders);
     if (!cors.ok) return jsonResponse({ ok: false, error: "CORS blocked" }, 403, corsOkHeaders);
 
