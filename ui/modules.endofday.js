@@ -3048,7 +3048,7 @@ async function doPrintRangeReport(from, to) {
      E.registerModule({
     id: "endofday",
     title: "End Of Day",
-    order: 20,
+    order: 180,
     icon: "🧾",
     render: render
   });
