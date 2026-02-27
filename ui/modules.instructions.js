@@ -1218,7 +1218,7 @@
     id: MODULE_ID,
     title: "Instructions",
     icon: "📋",
-    order: 22,
+    order: 300,
     render: render
   });
 
