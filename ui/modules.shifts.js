@@ -1,2505 +1,11792 @@
-/* ============================================================
-   EIKON — Shift Management Module  (modules.shifts.js)
-   Drop alongside other modules.*.js files.
-   Add to index.html BEFORE main.js:
-     .then(function(){ return loadScript(withParams("./modules.shifts.js")); })
-   ============================================================ */
-(function () {
-  "use strict";
+function nowIso() {
+  return new Date().toISOString();
+}
 
-  var E = window.EIKON;
-  if (!E) throw new Error("EIKON core missing (modules.shifts.js)");
-
-  function esc(s) {
-    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
-      return ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" })[c];
-    });
+function isDebugEnabled(request) {
+  try {
+    return (request && request.headers && (request.headers.get("X-Eikon-Debug") || "") === "1");
+  } catch (e) {
+    return false;
   }
+}
 
-  /* ── Malta Employment Law Reference (editable, auto-year) ───── */
-  // Defaults can be overridden via Settings → Malta Employment Law Reference.
-  // Overrides are stored under: S.settings.maltaLaw
-  var MALTA_DEFAULT = {
-    annualLeaveHours: { 2023:208, 2024:240, 2025:224, 2026:216, 2027:216 },
-    sickLeavePaidHours:     80,   // 10 days × 8h, employer pays
-    sickLeaveHalfPayHours:  80,   // additional 10 days at half pay
-    urgentFamilyLeaveHours: 32,   // updated Jan 2025 (was 15h)
-    maxWeeklyHours:         48,   // EU Working Time Directive
-    fullTimeWeeklyHours:    40,
-    yearData: {
-      2025: { publicHolidays: 14, colaWeekly: 0,    minWageWeekly: 0,      miscarriageLeaveDays: 0 },
-      2026: { publicHolidays: 14, colaWeekly: 4.66, minWageWeekly: 226.44, miscarriageLeaveDays: 7 }
+function jsonResponse(data, status = 200, extraHeaders = {}) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      "Content-Type": "application/json",
+      "Cache-Control": "no-store",
+      "Pragma": "no-cache",
+      ...extraHeaders
     }
-  };
+  });
+}
 
-  var MALTA = JSON.parse(JSON.stringify(MALTA_DEFAULT));
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  }[c]));
+}
 
-  function lastKnownYear(map, yr) {
-    if (!map) return yr;
-    var keys = Object.keys(map).map(function(k){return parseInt(k,10);}).filter(function(n){return !isNaN(n);}).sort(function(a,b){return a-b;});
-    if (!keys.length) return yr;
-    var best = keys[0];
-    for (var i=0;i<keys.length;i++){ if(keys[i] <= yr) best = keys[i]; }
-    return best;
+function parseAllowedOrigins(env) {
+  const raw = (env.ALLOWED_ORIGINS || "").trim();
+  if (!raw) return [];
+  return raw.split(",").map(s => s.trim()).filter(Boolean);
+}
+
+function corsHeadersForRequest(request, env) {
+  const origin = request.headers.get("Origin") || "";
+  const allowed = parseAllowedOrigins(env);
+  const selfOrigin = new URL(request.url).origin;
+
+  // If Origin is missing (same-origin requests often omit it), allow.
+  if (!origin) {
+    return { ok: true, headers: { "Vary": "Origin" } };
   }
 
-  function setMaltaFromSettings() {
-    try {
-      var cfg = S && S.settings && S.settings.maltaLaw;
-      if (!cfg || typeof cfg !== "object") { MALTA = JSON.parse(JSON.stringify(MALTA_DEFAULT)); return; }
-
-      // Start from defaults then overlay user config.
-      MALTA = JSON.parse(JSON.stringify(MALTA_DEFAULT));
-      if (cfg.annualLeaveHours && typeof cfg.annualLeaveHours === "object") {
-        Object.keys(cfg.annualLeaveHours).forEach(function(y){ MALTA.annualLeaveHours[y] = cfg.annualLeaveHours[y]; });
-      }
-      ["sickLeavePaidHours","sickLeaveHalfPayHours","urgentFamilyLeaveHours","maxWeeklyHours","fullTimeWeeklyHours"].forEach(function(k){
-        if (cfg[k] != null && cfg[k] !== "") MALTA[k] = cfg[k];
-      });
-      if (cfg.yearData && typeof cfg.yearData === "object") {
-        MALTA.yearData = MALTA.yearData || {};
-        Object.keys(cfg.yearData).forEach(function(y){
-          MALTA.yearData[y] = Object.assign({}, MALTA.yearData[y] || {}, cfg.yearData[y] || {});
-        });
-      }
-    } catch(e) { MALTA = JSON.parse(JSON.stringify(MALTA_DEFAULT)); }
-  }
-
-  function maltaYear(yr) {
-    var y = String(yr);
-    var yd = MALTA.yearData || {};
-    if (yd[y]) return yd[y];
-    var lk = lastKnownYear(yd, yr);
-    return yd[String(lk)] || {};
-  }
-
-  function calcEntitlement(emp) {
-    var yr = new Date().getFullYear();
-    var lk = lastKnownYear(MALTA.annualLeaveHours, yr);
-    var base = MALTA.annualLeaveHours[yr] || MALTA.annualLeaveHours[lk] || 216;
-    var ft = (parseFloat(MALTA.fullTimeWeeklyHours)||40);
-    var ch = parseFloat(emp.contracted_hours);
-    if (!isFinite(ch) || ch<=0) ch = ft;
-    var ratio = Math.min(ch / ft, 1);
+  // Always allow same-origin
+  if (origin === selfOrigin) {
     return {
-      annual:       Math.round(base * ratio),
-      sick:         Math.round((parseFloat(MALTA.sickLeavePaidHours)||80) * ratio),
-      urgentFamily: Math.round((parseFloat(MALTA.urgentFamilyLeaveHours)||32) * ratio)
+      ok: true,
+      headers: {
+        "Access-Control-Allow-Origin": origin,
+        "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS,HEAD",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Eikon-Debug, X-Eikon-Report-Pass, X-Eikon-Edit-Pass",
+        "Access-Control-Max-Age": "86400",
+        "Vary": "Origin"
+      }
     };
   }
 
-  /* ── State ─────────────────────────────────────────────────── */
-  var S = {
-    tab: "calendar",
-    year: new Date().getFullYear(),
-    month: new Date().getMonth(),
-    staff:        [],
-    shifts:       [],
-    leaves:       [],
-    openingHours: { "default": { open:"07:30", close:"19:30", closed:false }, openSaturday:true, openSunday:false, weekends:false, overrides:{} },
-    settings:     { pharmacistRequired:true, minPharmacists:1, maltaLaw:null },
-    _ls: "eikon_shifts_v2"
-  };
-
-  /* ── localStorage helpers (demo/fallback) ───────────────────── */
-  function lsGet() {
-    try { var r = localStorage.getItem(S._ls); return r ? JSON.parse(r) : {}; } catch(e){ return {}; }
-  }
-  function lsPut(d) { try { localStorage.setItem(S._ls, JSON.stringify(d)); } catch(e){} }
-  function lsSync() {
-    var d = lsGet();
-    d.staff = S.staff; d.shifts = S.shifts; d.leaves = S.leaves;
-    d.openingHours = S.openingHours; d.settings = S.settings;
-    lsPut(d);
-  }
-  function lsNextId() {
-    var d = lsGet(); d._id = (d._id||0)+1; lsPut(d); return d._id;
+  if (allowed.length === 0) {
+    return { ok: false, headers: { "Vary": "Origin" } };
   }
 
-  async function loadAll() {
-    try {
-      var [a,b,c,d,e] = await Promise.all([
-        E.apiFetch("/shifts/staff?include_inactive=1",       {method:"GET"}),
-        E.apiFetch("/shifts/assignments?year="+S.year+"&month="+(S.month+1), {method:"GET"}),
-        E.apiFetch("/shifts/leaves?year="+S.year,            {method:"GET"}),
-        E.apiFetch("/shifts/opening-hours",                   {method:"GET"}),
-        E.apiFetch("/shifts/settings",                        {method:"GET"})
-      ]);
-      S.staff        = a.staff        || [];
-      S.shifts       = b.shifts       || [];
-      S.leaves       = c.leaves       || [];
-      S.openingHours = d.hours        || S.openingHours;
-      S.settings     = e.settings     || S.settings;
-      normalizeOpeningHours();
-      setMaltaFromSettings();
-    } catch(err) {
-      E.warn && E.warn("[shifts] API unavailable, using localStorage:", err && err.message);
-      var ls = lsGet();
-      S.staff        = ls.staff        || S.staff;
-      S.shifts       = ls.shifts       || S.shifts;
-      S.leaves       = ls.leaves       || S.leaves;
-      S.openingHours = ls.openingHours || S.openingHours;
-      S.settings     = ls.settings     || S.settings;
-      normalizeOpeningHours();
-      setMaltaFromSettings();
+  const matched = allowed.includes(origin);
+  if (!matched) {
+    return { ok: false, headers: { "Vary": "Origin" } };
+  }
+
+  return {
+    ok: true,
+    headers: {
+      "Access-Control-Allow-Origin": origin,
+      "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS,HEAD",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Eikon-Debug, X-Eikon-Report-Pass, X-Eikon-Edit-Pass",
+      "Access-Control-Max-Age": "86400",
+      "Vary": "Origin"
     }
-  }
-
-  function normalizeOpeningHours() {
-    var oh = S.openingHours || {};
-    if (!oh["default"]) oh["default"] = { open:"07:30", close:"19:30", closed:false };
-    if (!oh.overrides) oh.overrides = {};
-
-    // Legacy weekend flags
-    if (typeof oh.weekends === "boolean") {
-      if (oh.openSaturday == null) oh.openSaturday = oh.weekends;
-      if (oh.openSunday == null) oh.openSunday = oh.weekends;
-    }
-    if (oh.openSaturday == null) oh.openSaturday = true;
-    if (oh.openSunday == null) oh.openSunday = false;
-
-    var def = oh["default"] || { open:"07:30", close:"19:30", closed:false };
-
-    // New structure: weekly hours by day-of-week (0=Sun..6=Sat)
-    if (!oh.weekly || typeof oh.weekly !== "object") {
-      oh.weekly = {};
-      for (var d=0; d<7; d++) {
-        oh.weekly[d] = { open:(def.open||"07:30"), close:(def.close||"19:30"), closed: !!def.closed };
-      }
-      if (!oh.openSaturday) oh.weekly[6].closed = true;
-      if (!oh.openSunday)   oh.weekly[0].closed = true;
-    } else {
-      // Normalize weekly entries (support string keys)
-      var wk = {};
-      for (var d2=0; d2<7; d2++) {
-        var e = oh.weekly[d2] || oh.weekly[String(d2)] || {};
-        wk[d2] = {
-          open:  String(e.open || def.open || "07:30"),
-          close: String(e.close || def.close || "19:30"),
-          closed: parseBool(e.closed, false)
-        };
-      }
-      oh.weekly = wk;
-    }
-
-    // Keep legacy flags for backwards compatibility (derived from weekly)
-    oh.openSaturday = !oh.weekly[6].closed;
-    oh.openSunday   = !oh.weekly[0].closed;
-    if (oh.weekends == null) oh.weekends = (oh.openSaturday && oh.openSunday);
-
-    // Ensure default mirrors Monday (helps older UI assumptions)
-    oh["default"] = Object.assign({}, oh.weekly[1] || def);
-
-    S.openingHours = oh;
-  }
-
-  async function loadMonth() {
-    try {
-      var r = await E.apiFetch("/shifts/assignments?year="+S.year+"&month="+(S.month+1), {method:"GET"});
-      S.shifts = r.shifts || [];
-    } catch(e) { /* use cached */ }
-  }
-
-  function apiOp(path, opts, onOk, merge) {
-    var o = opts || {};
-    try {
-      var method = String(o.method || "GET").toUpperCase();
-      o.headers = Object.assign({}, (o.headers || {}));
-
-      // Force debug header for write operations to shifts endpoints (worker logs)
-      if (method !== "GET" && String(path || "").indexOf("/shifts/") === 0) {
-        if (!o.headers["X-Eikon-Debug"] && !o.headers["x-eikon-debug"]) o.headers["X-Eikon-Debug"] = "1";
-      }
-
-      console.groupCollapsed("[shifts][apiOp] " + method + " " + path);
-      try { console.log("opts:", o); } catch (e1) {}
-      console.groupEnd();
-    } catch (e0) {}
-
-    E.apiFetch(path, o)
-      .then(function(r){
-        try { console.log("[shifts][apiOp] OK", path, r); } catch (e2) {}
-        merge && merge(r);
-        lsSync();
-        onOk && onOk(r);
-      })
-      .catch(function(err){
-        try {
-          console.error("[shifts][apiOp] ERR", path, err);
-          if (err && err.bodyJson) console.error("[shifts][apiOp] bodyJson", err.bodyJson);
-          if (err && err.bodyText) console.error("[shifts][apiOp] bodyText", err.bodyText);
-        } catch (e3) {}
-        // Only toast on writes (avoid noisy GET failures)
-        try {
-          var m = String((o && o.method) || "GET").toUpperCase();
-          if (m !== "GET") toast("API error: " + (err && err.message ? err.message : "unknown"), "error");
-        } catch (e4) {}
-        merge && merge({ ok:false, error: (err && err.message) ? err.message : "error" });
-        lsSync();
-        onOk && onOk({ ok:false, error: (err && err.message) ? err.message : "error" });
-      });
-  }
-
-  /* ── Date/time helpers ──────────────────────────────────────── */
-  var MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-  var DSHORT  = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-
-  function ymd(y,m,d) { return y+"-"+pad(m+1)+"-"+pad(d); }
-  function pad(n) { return String(n).padStart(2,"0"); }
-  function dim(y,m) { return new Date(y,m+1,0).getDate(); }
-  function dow(y,m,d) { return new Date(y,m,d).getDay(); }
-  function t2m(t) { if(!t)return 0; var p=t.split(":"); return +p[0]*60+(+p[1]||0); }
-  function m2t(m) { return pad(Math.floor(m/60))+":"+pad(m%60); }
-  function addD(s,n) {
-    var dt = new Date(s); dt.setDate(dt.getDate()+n);
-    return dt.getFullYear()+"-"+pad(dt.getMonth()+1)+"-"+pad(dt.getDate());
-  }
-  function wdCount(s,e) {
-    var n=0, dt=new Date(s), end=new Date(e);
-    while(dt<=end){ var wd=dt.getDay(); if(wd!==0&&wd!==6)n++; dt.setDate(dt.getDate()+1); }
-    return n;
-  }
-
-  var PH = [
-    "2026-01-01","2026-02-10","2026-03-19","2026-03-31",
-    "2026-05-01","2026-06-07","2026-06-29","2026-08-15",
-    "2026-09-08","2026-09-21","2026-12-08","2026-12-13","2026-12-25",
-    "2025-01-01","2025-02-10","2025-03-19","2025-04-18",
-    "2025-05-01","2025-06-07","2025-06-29","2025-08-15",
-    "2025-09-08","2025-09-21","2025-12-08","2025-12-13","2025-12-25"
-  ];
-  function isPH(d) { return PH.indexOf(d)>=0; }
-
-  /* ── Staff helpers ──────────────────────────────────────────── */
-  var DESIG = {
-    pharmacist:"Pharmacist", locum:"Locum Pharmacist", assistant:"Pharmacy Assistant",
-    dispenser:"Dispenser", cashier:"Cashier", manager:"Manager", cleaner:"Cleaner", other:"Other"
   };
-  var DCOLOR = {
-    pharmacist:"#5aa2ff", locum:"#a78bfa", assistant:"#43d17a",
-    dispenser:"#fb923c", cashier:"#f59e0b", manager:"#38bdf8", cleaner:"#94a3b8", other:"#64748b"
-  };
-  function dc(d){ return DCOLOR[d]||"#64748b"; }
-  function dl(d){ return DESIG[d]||d||"Other"; }
+}
 
-  function etl(t){ return (t==="fulltime")?"Full-Time":(t==="parttime")?"Part-Time":(t==="external")?"External":(t||"—"); }
+function base64FromBytes(bytes) {
+  let binary = "";
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary);
+}
 
-  function emp(id) { return S.staff.find(function(s){ return s.id===id; })||null; }
-  function actStaff() { return S.staff.filter(function(s){ return s.is_active!==0; }); }
-  function pharmStaff() { return actStaff().filter(function(s){ return s.designation==="pharmacist"||s.designation==="locum"; }); }
+function bytesFromBase64(b64) {
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
 
-  /* ── Opening hours ──────────────────────────────────────────── */
-  function ohFor(ds) {
-    var ov = (S.openingHours && S.openingHours.overrides || {})[ds];
-    if (ov) return ov;
+function base64UrlFromBytes(bytes) {
+  return base64FromBytes(bytes).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
 
-    // normalize (in case settings were loaded after module init)
-    if (!S.openingHours || (!S.openingHours.weekly && !S.openingHours["default"])) normalizeOpeningHours();
+function constantTimeEqual(a, b) {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= (a[i] ^ b[i]);
+  return diff === 0;
+}
 
-    var d = new Date(ds).getDay(); // 0 Sun .. 6 Sat
-    var base = (S.openingHours.weekly && S.openingHours.weekly[d]) || S.openingHours["default"] || {open:"07:30",close:"19:30",closed:false};
+async function sha256B64FromString(s) {
+  const enc = new TextEncoder();
+  const digest = await crypto.subtle.digest("SHA-256", enc.encode(s));
+  return base64FromBytes(new Uint8Array(digest));
+}
 
-    return {
-      open:  base.open  || "07:30",
-      close: base.close || "19:30",
-      closed: !!base.closed,
-      note: base.note
-    };
+async function pbkdf2Hash(password, saltBytes, iterations) {
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(password),
+    { name: "PBKDF2" },
+    false,
+    ["deriveBits"]
+  );
+
+  const bits = await crypto.subtle.deriveBits(
+    {
+      name: "PBKDF2",
+      hash: "SHA-256",
+      salt: saltBytes,
+      iterations
+    },
+    keyMaterial,
+    256
+  );
+
+  return new Uint8Array(bits);
+}
+
+function htmlResponse(html, status = 200, extraHeaders = {}) {
+  return new Response(html, {
+    status,
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "no-store",
+      "Pragma": "no-cache",
+      ...extraHeaders
+    }
+  });
+}
+
+function isSuperuser(authUser, env) {
+  // Superuser is an admin whose email is allowlisted in env.SUPERUSER_EMAILS (comma-separated).
+  const list = String(env.SUPERUSER_EMAILS || "").split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
+  if (!authUser) return false;
+  if (authUser.role !== "admin") return false;
+  if (list.length === 0) return false; // explicit allowlist required
+  return list.includes(String(authUser.email || "").toLowerCase());
+}
+
+async function requireSuperuser(request, env, extraHeaders = {}) {
+  const authUser = await authFromRequest(request, env);
+  if (!authUser) return { ok: false, res: jsonResponse({ ok: false, error: "Unauthorized" }, 401, extraHeaders) };
+  if (!isSuperuser(authUser, env)) return { ok: false, res: jsonResponse({ ok: false, error: "Forbidden" }, 403, extraHeaders) };
+  return { ok: true, authUser };
+}
+
+async function handleSuPage(request, env) {
+  // Public page; actions require Bearer token of a superuser.
+  const html = `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Superuser Admin</title>
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:0;background:#f6f7fb;color:#111}
+    header{padding:16px 20px;background:#111;color:#fff}
+    main{padding:18px 20px;max-width:1100px;margin:0 auto}
+    .card{background:#fff;border:1px solid #e6e8ef;border-radius:14px;padding:14px 14px;margin:12px 0;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+    h2{margin:0 0 10px 0;font-size:18px}
+    label{display:block;font-size:12px;margin:10px 0 6px 0;color:#333}
+    input,select,button,textarea{font:inherit}
+    input,select,textarea{width:100%;padding:10px;border:1px solid #d6d9e6;border-radius:10px;background:#fff}
+    textarea{min-height:80px}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+    .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+    button{border:0;border-radius:10px;padding:10px 12px;background:#111;color:#fff;cursor:pointer}
+    button.secondary{background:#394150}
+    button.danger{background:#b42318}
+    button.ghost{background:#fff;color:#111;border:1px solid #d6d9e6}
+    .err{color:#b42318;font-weight:600;margin-top:8px;white-space:pre-wrap}
+    .ok{color:#067647;font-weight:600;margin-top:8px;white-space:pre-wrap}
+    table{width:100%;border-collapse:collapse;margin-top:10px}
+    th,td{border-bottom:1px solid #eee;padding:8px 6px;text-align:left;font-size:13px;vertical-align:top}
+    th{font-size:12px;color:#555}
+    .small{font-size:12px;color:#555}
+    .pill{display:inline-block;padding:2px 8px;border-radius:999px;background:#eef2ff;font-size:12px}
+    .muted{color:#666}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
+  </style>
+</head>
+<body>
+<header>
+  <div style="max-width:1100px;margin:0 auto;">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+      <div>
+        <div style="font-weight:800;font-size:16px">Eikon Superuser Admin</div>
+        <div class="small">Create / update / delete users, orgs, locations, wipe location data (superuser only)</div>
+      </div>
+      <div class="small">Endpoint: <span class="mono">${new URL(request.url).origin}</span></div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="card">
+    <h2>1) Login (superuser)</h2>
+    <div class="row">
+      <div>
+        <label>Email</label>
+        <input id="loginEmail" placeholder="you@example.com" />
+      </div>
+      <div>
+        <label>Password</label>
+        <input id="loginPassword" type="password" placeholder="••••••••" />
+      </div>
+    </div>
+    <div class="actions">
+      <button id="btnLogin">Login</button>
+      <button class="ghost" id="btnLogout">Logout</button>
+      <button class="secondary" id="btnRefresh">Refresh tables</button>
+    </div>
+    <div id="loginMsg" class="small muted"></div>
+  </div>
+
+  <div class="card">
+    <h2>2) Create new account (Org + Location + Admin/User)</h2>
+    <div class="small muted">This creates (optionally) an org (with chosen ID), a location (with chosen ID), and a user tied to that location/org.</div>
+
+    <div class="row3">
+      <div>
+        <label>Org ID (existing or new)</label>
+        <input id="newOrgId" placeholder="e.g. 4" />
+        <div class="small muted">Leave blank to auto-pick next available.</div>
+      </div>
+      <div>
+        <label>Org name (if creating new org)</label>
+        <input id="newOrgName" placeholder="e.g. Stella Maris Pharmacy" />
+      </div>
+      <div>
+        <label>Location ID (new)</label>
+        <input id="newLocationId" placeholder="e.g. 10" />
+        <div class="small muted">Leave blank to auto-pick next available.</div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label>Location name</label>
+        <input id="newLocationName" placeholder="e.g. Stella Maris Pharmacy" />
+      </div>
+      <div>
+        <label>Active (1/0)</label>
+        <input id="newActive" value="1" />
+      </div>
+    </div>
+
+    <div class="row3">
+      <div>
+        <label>User email</label>
+        <input id="newEmail" placeholder="noelpace89@gmail.com" />
+      </div>
+      <div>
+        <label>User password</label>
+        <input id="newPassword" type="password" placeholder="Set a password" />
+      </div>
+      <div>
+        <label>Role (admin/user)</label>
+        <select id="newRole">
+          <option value="admin">admin</option>
+          <option value="user">user</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="btnCreateAccount">Create account</button>
+      <button class="ghost" id="btnPrefillIds">Prefill next IDs</button>
+    </div>
+    <div id="createMsg"></div>
+  </div>
+
+  <div class="card">
+    <h2>3) Orgs</h2>
+    <div class="small muted">Orgs are tenants/owners. Locations and users belong to one org.</div>
+    <div id="orgsWrap"></div>
+  </div>
+
+  <div class="card">
+    <h2>4) Locations</h2>
+    <div class="small muted">Edit location name/org, wipe all data for a location, or delete a location.</div>
+    <div id="locationsWrap"></div>
+  </div>
+
+  <div class="card">
+    <h2>5) Users</h2>
+    <div class="small muted">Edit user details, hold/unhold (active), reset password, or delete.</div>
+    <div id="usersWrap"></div>
+  </div>
+
+</main>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+
+  function getToken(){ return localStorage.getItem("su_token") || ""; }
+  function setToken(t){ localStorage.setItem("su_token", t); }
+  function clearToken(){ localStorage.removeItem("su_token"); }
+
+  function hdrs(){
+    const t = getToken();
+    return t ? { "Authorization": "Bearer " + t } : {};
   }
 
-  /* ── Coverage check ─────────────────────────────────────────── */
-  function checkCov(ds) {
-    var oh = ohFor(ds);
-    if (oh.closed) return { ok:true, issues:[], gaps:[], open:oh.open, close:oh.close };
+  function showMsg(el, ok, msg){
+    el.className = ok ? "ok" : "err";
+    el.textContent = msg;
+  }
 
-    var min = parseInt(S.settings.minPharmacists, 10) || 1;
-    var need = !!S.settings.pharmacistRequired;
-
-    // Build on-leave lookup for the day
-    var onLeave = {};
-    S.leaves.filter(function(l){ return l.status==="approved" && l.start_date<=ds && l.end_date>=ds; })
-            .forEach(function(l){ onLeave[l.staff_id] = true; });
-
-    // Collect pharmacist/locum intervals (clamped to opening hours)
-    var openM = t2m(oh.open || "07:30");
-    var closeM = t2m(oh.close || "19:30");
-    if (closeM <= openM) return { ok:true, issues:[], gaps:[], open:oh.open, close:oh.close };
-
-    var events = [];
-    var dayShifts = S.shifts.filter(function(s){ return s.shift_date === ds; });
-
-    dayShifts.forEach(function(s){
-      if (onLeave[s.staff_id]) return;
-      var e = emp(s.staff_id);
-      var isPh = (e && (e.designation==="pharmacist" || e.designation==="locum")) || (s.role_override === "pharmacist");
-      if (!isPh) return;
-      var st = Math.max(openM, t2m(s.start_time));
-      var et = Math.min(closeM, t2m(s.end_time));
-      if (et <= st) return;
-      events.push({t:st, d:+1});
-      events.push({t:et, d:-1});
+  async function api(path, opts={}){
+    const res = await fetch(path, {
+      ...opts,
+      headers: {
+        "Content-Type": "application/json",
+        ...hdrs(),
+        ...(opts.headers||{})
+      }
     });
-
-    // If nothing scheduled, whole day is a gap when coverage required
-    if (!events.length) {
-      var gaps0 = need ? [{start:openM, end:closeM, count:0}] : [];
-      var issues0 = need ? ["No pharmacist coverage: " + m2t(openM) + "–" + m2t(closeM)] : [];
-      return { ok: issues0.length===0, issues: issues0, gaps: gaps0, open:oh.open, close:oh.close };
+    const data = await res.json().catch(()=>({}));
+    if(!res.ok || data.ok === false){
+      const err = data && data.error ? data.error : ("HTTP " + res.status);
+      throw new Error(err);
     }
-
-    // Sweep line to compute gaps with count < min
-    events.sort(function(a,b){ return a.t - b.t || b.d - a.d; }); // starts before ends at same time
-    var gaps = [];
-    var count = 0;
-    var cur = openM;
-
-    // Apply any events that start at opening time
-    var i=0;
-    while(i<events.length && events[i].t <= openM){ count += events[i].d; i++; }
-
-    while (cur < closeM) {
-      var nextT = (i < events.length) ? Math.min(events[i].t, closeM) : closeM;
-      if (nextT > cur) {
-        if (need && count < min) gaps.push({ start: cur, end: nextT, count: count });
-        cur = nextT;
-      }
-      while (i < events.length && events[i].t === cur) { count += events[i].d; i++; }
-      if (i >= events.length && cur >= closeM) break;
-      if (i >= events.length && cur < closeM) {
-        // tail segment
-        if (need && count < min) gaps.push({ start: cur, end: closeM, count: count });
-        break;
-      }
-    }
-
-    var issues = [];
-    if (need && gaps.length) {
-      gaps.slice(0,3).forEach(function(g){
-        issues.push("Pharmacist gap: " + m2t(g.start) + "–" + m2t(g.end));
-      });
-      if (gaps.length > 3) issues.push("+" + (gaps.length-3) + " more gap(s)");
-    }
-
-    return { ok: issues.length===0, issues: issues, gaps:gaps, open:oh.open, close:oh.close, min:min };
+    return data;
   }
 
-  /* ── Leave balance ──────────────────────────────────────────── */
-  function bal(id) {
-    var e=emp(id); if(!e) return null;
-    var ent=calcEntitlement(e); var yr=new Date().getFullYear();
-    var usedA=0, usedS=0;
-    S.leaves.filter(function(l){ return l.staff_id===id&&(l.status==="approved"||l.status==="pending"); })
-            .forEach(function(l){
-              var y=parseInt((l.start_date||"").split("-")[0]);
-              if(y!==yr) return;
-              if(l.leave_type==="sick") usedS+=+l.hours_requested||0;
-              else usedA+=+l.hours_requested||0;
-            });
-    return {
-      annualEnt: ent.annual, annualUsed: usedA, annualLeft: Math.max(0,ent.annual-usedA),
-      sickEnt:   ent.sick,   sickUsed:   usedS, sickLeft:   Math.max(0,ent.sick-usedS),
-      ufEnt:     ent.urgentFamily
-    };
-  }
-
-  /* ── Toast ──────────────────────────────────────────────────── */
-  var _tt=null;
-  function toast(msg,type){
-    var el=document.getElementById("sh-toast"); if(el)el.remove();
-    var t=document.createElement("div"); t.id="sh-toast";
-    t.style.cssText="position:fixed;bottom:24px;right:24px;z-index:99999;padding:12px 18px;border-radius:12px;font-weight:700;font-size:13px;max-width:340px;pointer-events:none;";
-    if(type==="error"){t.style.background="rgba(255,90,122,.18)";t.style.border="1px solid rgba(255,90,122,.5)";t.style.color="#ff5a7a";}
-    else{t.style.background="rgba(67,209,122,.15)";t.style.border="1px solid rgba(67,209,122,.4)";t.style.color="#43d17a";}
-    t.textContent=msg; document.body.appendChild(t);
-    if(_tt)clearTimeout(_tt);
-    _tt=setTimeout(function(){if(t.parentNode){t.style.opacity="0";setTimeout(function(){t.remove();},300);}},3500);
-  }
-
-  /* ══════════════════════════════════════════════════════════════
-     VIEW: STAFF
-  ══════════════════════════════════════════════════════════════ */
-  function vStaff(m) {
-    m.innerHTML =
-      '<div class="eikon-card">' +
-      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">' +
-      '<div style="font-weight:900;font-size:15px;">👥 Employee Roster</div>' +
-      '<button class="eikon-btn primary" id="sh-add-emp">+ Add Employee</button></div>' +
-      '<div class="eikon-table-wrap"><table class="eikon-table"><thead><tr>' +
-      '<th>Name</th><th>Role</th><th>Type</th><th>Hrs/wk</th><th>Contact</th>' +
-      '<th>Annual Leave</th><th>Sick Left</th><th>Status</th><th>Actions</th>' +
-      '</tr></thead><tbody id="sh-etbody"></tbody></table></div></div>';
-
-    E.q("#sh-add-emp",m).onclick=function(){ empModal(null,m); };
-    renderEmpRows(m);
-  }
-
-  function renderEmpRows(m) {
-    var tb = E.q("#sh-etbody",m); if(!tb) return;
-    tb.innerHTML="";
-    var all = S.staff.slice().sort(function(a,b){ return (a.full_name||"").localeCompare(b.full_name||""); });
-    if(!all.length){ tb.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px;">No staff yet. Click "+ Add Employee".</td></tr>'; return; }
-    all.forEach(function(e){
-      var b=bal(e.id);
-      var col=dc(e.designation);
-      var tr=document.createElement("tr"); tr.style.opacity=e.is_active===0?"0.4":"1";
-      tr.innerHTML=
-        '<td><b>'+esc(e.full_name||"")+'</b></td>'+
-        '<td><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+col+';margin-right:5px;"></span>'+esc(dl(e.designation))+'</td>'+
-        '<td><span class="eikon-pill" style="font-size:11px;">'+etl(e.employment_type)+'</span></td>'+
-        '<td>'+(e.contracted_hours||"—")+'h</td>'+
-        '<td style="font-size:12px;color:var(--muted);">'+esc(e.email||"")+(e.phone?"<br>"+esc(e.phone):"")+'</td>'+
-        '<td>'+(b?'<span style="color:'+(b.annualLeft<24?"var(--danger)":"var(--ok)")+'">'+b.annualLeft+'h / '+b.annualEnt+'h</span>':"—")+'</td>'+
-        '<td>'+(b?b.sickLeft+'h':"—")+'</td>'+
-        '<td><span class="eikon-pill" style="font-size:11px;'+(e.is_active===0?"color:var(--danger);border-color:rgba(255,90,122,.4);":"color:var(--ok);border-color:rgba(67,209,122,.4);")+'">'+(e.is_active===0?"Inactive":"Active")+'</span></td>'+
-        '<td></td>';
-      var act=tr.querySelectorAll("td")[8];
-      var eb=document.createElement("button"); eb.className="eikon-btn"; eb.textContent="Edit";
-      eb.onclick=function(){ empModal(e,m); };
-      var tb2=document.createElement("button"); tb2.className="eikon-btn "+(e.is_active===0?"primary":"danger"); tb2.style.marginLeft="6px";
-      tb2.textContent=e.is_active===0?"Activate":"Deactivate";
-      tb2.onclick=function(){ toggleActive(e,function(){renderEmpRows(m);}); };
-      act.appendChild(eb); act.appendChild(tb2); tb.appendChild(tr);
+  async function login(){
+    const email = $("loginEmail").value.trim().toLowerCase();
+    const password = $("loginPassword").value;
+    $("loginMsg").textContent = "Logging in...";
+    const res = await fetch("/auth/login", {
+      method: "POST",
+      headers: { "Content-Type":"application/json" },
+      body: JSON.stringify({ email, password })
     });
+    const data = await res.json().catch(()=>({}));
+    if(!res.ok || !data.ok){
+      $("loginMsg").textContent = "Login failed: " + (data.error || ("HTTP " + res.status));
+      return;
+    }
+    setToken(data.token);
+    $("loginMsg").textContent = "Logged in. Token stored locally. Refresh tables.";
   }
 
-  function empModal(e, mountRef) {
-    var edit = !!e;
-    setMaltaFromSettings();
-
-    var yrNow = new Date().getFullYear();
-    var lk = lastKnownYear(MALTA.annualLeaveHours, yrNow);
-    var alFT = MALTA.annualLeaveHours[yrNow] || MALTA.annualLeaveHours[lk] || 216;
-
-    var patState = getPatternState(e);
-    try { console.log("[shifts][patterns] loaded staffId=", (e&&e.id), "patterns=", (patState.patterns||[]).length, "provisionalId=", patState.provisionalId); } catch(e0) {}
-
-    var body =
-      '<div class="eikon-row">'+
-      '<div class="eikon-field" style="flex:1;min-width:200px;"><div class="eikon-label">Full Name</div>'+
-      '<input class="eikon-input" id="se-name" type="text" value="'+esc(e&&e.full_name||"")+'"/></div>'+
-      '<div class="eikon-field"><div class="eikon-label">Designation</div>'+
-      '<select class="eikon-select" id="se-desig">'+
-      Object.keys(DESIG).map(function(k){ return '<option value="'+k+'"'+(e&&e.designation===k?" selected":"")+'>'+DESIG[k]+'</option>'; }).join("")+
-      '</select></div></div>'+
-      '<div class="eikon-row" style="margin-top:10px;">'+
-      '<div class="eikon-field"><div class="eikon-label">Employment Type</div>'+
-      '<select class="eikon-select" id="se-type">'+
-      '<option value="fulltime"'+(e&&e.employment_type==="fulltime"?" selected":"")+'>Full-Time ('+(MALTA.fullTimeWeeklyHours||40)+'h/wk — Malta '+yrNow+': '+alFT+'h leave)</option>'+
-      '<option value="parttime"'+(e&&e.employment_type==="parttime"?" selected":"")+'>Part-Time (pro-rata)</option>'+
-      '</select></div>'+
-      '<div class="eikon-field"><div class="eikon-label">Contracted h/wk</div>'+
-      '<input class="eikon-input" id="se-hrs" type="number" min="1" max="'+(MALTA.maxWeeklyHours||48)+'" value="'+(e&&e.contracted_hours||40)+'" style="min-width:80px;"/></div></div>'+
-      '<div class="eikon-row" style="margin-top:10px;">'+
-      '<div class="eikon-field" style="flex:1;"><div class="eikon-label">Email</div>'+
-      '<input class="eikon-input" id="se-email" type="email" value="'+esc(e&&e.email||"")+'"/></div>'+
-      '<div class="eikon-field" style="flex:1;"><div class="eikon-label">Phone</div>'+
-      '<input class="eikon-input" id="se-phone" type="tel" value="'+esc(e&&e.phone||"")+'"/></div></div>'+
-      '<div class="eikon-field" style="margin-top:10px;"><div class="eikon-label">Registration No. (Pharmacists)</div>'+
-      '<input class="eikon-input" id="se-reg" type="text" value="'+esc(e&&e.registration_number||"")+'" placeholder="e.g. PH-1234"/></div>'+
-      '<div style="margin-top:12px;padding:10px;background:rgba(90,162,255,.07);border:1px solid rgba(90,162,255,.2);border-radius:10px;font-size:12px;color:var(--muted);">'+
-      '📋 <b>Malta '+yrNow+':</b> FT='+alFT+'h annual leave. PT=pro-rata. Sick='+(MALTA.sickLeavePaidHours||80)+'h paid + '+(MALTA.sickLeaveHalfPayHours||80)+'h ½ pay. Urgent family='+(MALTA.urgentFamilyLeaveHours||32)+'h/yr. Max '+(MALTA.maxWeeklyHours||48)+'h/wk.</div>'+
-
-      '<div style="margin-top:14px;padding:12px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:12px;">'+
-      '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">'+
-      '<div style="font-weight:900;">🗓 Weekly Patterns</div>'+
-      '<button class="eikon-btn primary" id="se-addpat" style="font-size:12px;padding:6px 10px;">+ New Pattern</button>'+
-      '</div>'+
-      '<div style="margin-top:8px;font-size:11px;color:var(--muted);">Create weekly templates and apply them across date ranges, or apply a week directly from the calendar.</div>'+
-      (edit ? '' : '<div style="margin-top:8px;font-size:11px;color:var(--muted);">Save the employee first to apply patterns to dates.</div>')+
-      '<div id="se-patlist" style="margin-top:10px;">'+renderPatternList(patState)+'</div>'+
-      '</div>';
-
-    E.modal.show(edit?"Edit Employee":"Add Employee", body, [
-      {label:"Cancel", onClick:function(){E.modal.hide();}},
-      {label:edit?"Save":"Add Employee", primary:true, onClick:function(){
-        var p={
-          full_name:      E.q("#se-name").value.trim(),
-          designation:    E.q("#se-desig").value,
-          employment_type:E.q("#se-type").value,
-          contracted_hours:parseFloat(E.q("#se-hrs").value)||40,
-          email:          E.q("#se-email").value.trim(),
-          phone:          E.q("#se-phone").value.trim(),
-          registration_number: E.q("#se-reg").value.trim(),
-          is_active:1,
-          patterns_json:  JSON.stringify({patterns: patState.patterns || [], provisionalId: patState.provisionalId || null})
-        };
-        if(!p.full_name){toast("Name required","error");return;}
-        saveEmp(edit?e.id:null, p, function(){
-          E.modal.hide();
-          renderEmpRows(mountRef);
-          toast(edit?"Employee updated.":"Employee added.");
-        });
-      }}
-    ]);
-
-    // Wire pattern manager
-    setTimeout(function(){
-      var list = document.getElementById("se-patlist");
-      if (!list) return;
-
-      // ---- PATTERN AUTO-PERSIST (so "Save pattern" actually saves) ----
-      var _patSaveT = null;
-      var _patLastToast = 0;
-
-      // sandbox-safe delete confirm (no window.confirm)
-      var _patDel = { id:null, until:0 };
-      function confirmDeletePattern(id){
-        var now = Date.now();
-        if (_patDel.id === id && now < _patDel.until) { _patDel.id = null; _patDel.until = 0; return true; }
-        _patDel.id = id;
-        _patDel.until = now + 5000;
-        toast("Click Delete again to confirm.", "warn");
-        setTimeout(function(){ try{ if(_patDel.id===id && Date.now()>=_patDel.until) _patDel.id=null; } catch(e){} }, 5200);
-        return false;
-      }
-
-
-      function buildEmpPayloadForPersist() {
-        // Build a payload that satisfies worker validation (full_name required)
-        return {
-          full_name:      (E.q("#se-name") && E.q("#se-name").value || (e && e.full_name) || "").trim(),
-          designation:    (E.q("#se-desig") && E.q("#se-desig").value) || (e && e.designation) || "other",
-          employment_type:(E.q("#se-type") && E.q("#se-type").value) || (e && e.employment_type) || "fulltime",
-          contracted_hours: parseFloat((E.q("#se-hrs") && E.q("#se-hrs").value) || (e && e.contracted_hours) || 40) || 40,
-          email:          (E.q("#se-email") && E.q("#se-email").value || (e && e.email) || "").trim(),
-          phone:          (E.q("#se-phone") && E.q("#se-phone").value || (e && e.phone) || "").trim(),
-          registration_number: (E.q("#se-reg") && E.q("#se-reg").value || (e && e.registration_number) || "").trim(),
-          is_active:      (e && e.is_active===0) ? 0 : 1,
-          patterns_json:  JSON.stringify({ patterns: patState.patterns || [], provisionalId: patState.provisionalId || null })
-        };
-      }
-
-      function schedulePersistPatterns(reason) {
-        if (!edit || !e || !e.id) return; // new employee cannot persist yet
-        clearTimeout(_patSaveT);
-        _patSaveT = setTimeout(function(){
-          try {
-            var payload = buildEmpPayloadForPersist();
-            console.groupCollapsed("[shifts][patterns] persist -> " + reason + " (staffId=" + e.id + ")");
-            console.log("patterns:", (patState.patterns||[]).length, "provisionalId:", patState.provisionalId);
-            console.log("payload.patterns_json:", payload.patterns_json);
-            console.groupEnd();
-            saveEmp(e.id, payload, function(r){
-              console.log("[shifts][patterns] persist <-", r);
-              // small anti-spam toast (max once per 4s)
-              var now = Date.now();
-              if (now - _patLastToast > 4000) { _patLastToast = now; toast("Patterns saved."); }
-            });
-          } catch (ex) {
-            console.error("[shifts][patterns] persist exception", ex);
-          }
-        }, 450);
-      }
-
-
-      function rerender(){
-        list.innerHTML = renderPatternList(patState);
-        wire();
-      }
-
-      function wire(){
-        // provisional selection
-        list.querySelectorAll("input[name='se-provisional']").forEach(function(r){
-          r.onchange=function(){
-            patState.provisionalId = r.value;
-            schedulePersistPatterns("provisional-change");
-            rerender();
-          };
-        });
-
-        list.querySelectorAll("[data-pat-edit]").forEach(function(btn){
-          btn.onclick=function(){
-            var id=btn.getAttribute("data-pat-edit");
-            var p=findPattern(patState, id);
-            patternEditorModal(p, function(upd){
-              if(!upd) return;
-              if(p){
-                Object.assign(p, upd);
-              } else {
-                patState.patterns.push(upd);
-              }
-              if(!patState.provisionalId) patState.provisionalId = upd.id;
-              schedulePersistPatterns("pattern-edit");
-              rerender();
-            });
-          };
-        });
-
-        list.querySelectorAll("[data-pat-del]").forEach(function(btn){
-          btn.onclick=function(){
-            var id=btn.getAttribute("data-pat-del");
-            if(!confirmDeletePattern(id)) return;
-            patState.patterns = patState.patterns.filter(function(x){return x.id!==id;});
-            if(patState.provisionalId===id) patState.provisionalId = patState.patterns[0]?patState.patterns[0].id:null;
-            schedulePersistPatterns("pattern-delete");
-            rerender();
-          };
-        });
-
-        list.querySelectorAll("[data-pat-apply]").forEach(function(btn){
-          btn.onclick=function(){
-            if(!edit){ toast("Save the employee first.","error"); return; }
-            var id=btn.getAttribute("data-pat-apply");
-            var p=findPattern(patState, id);
-            if(!p){ toast("Pattern not found","error"); return; }
-            applyPatternModal(e, p, function(){
-              // refresh calendar if currently visible later
-            });
-          };
-        });
-      }
-
-      var addBtn = document.getElementById("se-addpat");
-      if (addBtn) addBtn.onclick=function(){
-        patternEditorModal(null, function(upd){
-          if(!upd) return;
-          patState.patterns.push(upd);
-          if(!patState.provisionalId) patState.provisionalId = upd.id;
-          schedulePersistPatterns("pattern-add");
-          rerender();
-        });
-      };
-
-      wire();
-    }, 60);
-  }
-
-  // ── Patterns (stored in staff.patterns_json) ───────────────────
-
-  function getPatternState(staffObj) {
-    var out = { patterns:[], provisionalId:null };
-    if (!staffObj) return out;
-    try {
-      var raw = staffObj.patterns_json;
-      if (!raw) return out;
-      var o = JSON.parse(raw);
-      if (o && typeof o==="object") {
-        if (Array.isArray(o.patterns)) out.patterns = o.patterns;
-        if (o.provisionalId) out.provisionalId = o.provisionalId;
-      }
-    } catch(e){}
-    out.patterns = (out.patterns||[]).map(normalizePattern);
-    if (!out.provisionalId && out.patterns[0]) out.provisionalId = out.patterns[0].id;
-    return out;
-  }
-
-  
-  function parseBool(v){
+  async function prefillIds(){
     try{
-      if (v === true || v === 1) return true;
-      if (v === false || v === 0 || v == null) return false;
-      if (typeof v === "string") {
-        var s = v.trim().toLowerCase();
-        if (!s) return false;
-        if (s === "true" || s === "1" || s === "yes" || s === "y" || s === "on") return true;
-        if (s === "false" || s === "0" || s === "no" || s === "n" || s === "off") return false;
-      }
-      return !!v;
-    } catch(e){ return !!v; }
-  }
-
-  function isOffEntry(e){
-    e = e && typeof e==="object" ? e : {};
-    if (parseBool(e.off)) return true;
-    var st = String(e.start || e.start_time || "").trim();
-    var et = String(e.end || e.end_time || "").trim();
-    return (!st || !et);
-  }
-
-function normalizePattern(p) {
-    p = p && typeof p==="object" ? p : {};
-    var id = String(p.id || ("pat_"+Math.random().toString(16).slice(2)));
-    var name = String(p.name || "Pattern");
-    var week = Array.isArray(p.week) ? p.week.slice(0,7) : [];
-    while (week.length < 7) week.push({off:true});
-    week = week.map(function(d){
-      d = d && typeof d==="object" ? d : {};
-      var off = isOffEntry(d);
-      var st = String(d.start || d.start_time || "").trim();
-      var et = String(d.end || d.end_time || "").trim();
-      var ro = String(d.role_override||"").trim();
-      return off ? {off:true} : {off:false, start:st, end:et, role_override:ro};
-    });
-    return { id:id, name:name, week:week, createdAt: p.createdAt || Date.now() };
-  }
-
-  function findPattern(state, id){
-    return (state.patterns||[]).find(function(p){return p.id===id;}) || null;
-  }
-
-  function renderPatternList(state) {
-    var pats = (state.patterns||[]);
-    if (!pats.length) {
-      return '<div style="padding:10px;border:1px dashed var(--border);border-radius:10px;color:var(--muted);font-size:12px;">No patterns yet.</div>';
+      const data = await api("/su/api/overview", { method:"GET" });
+      $("newOrgId").value = data.next_org_id;
+      $("newLocationId").value = data.next_location_id;
+      $("createMsg").textContent = "Prefilled next IDs.";
+      $("createMsg").className = "ok";
+    }catch(e){
+      showMsg($("createMsg"), false, e.message);
     }
-    return pats.map(function(p){
-      var isProv = state.provisionalId === p.id;
-      return ''+
-        '<div style="display:flex;align-items:flex-start;gap:10px;padding:10px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;background:rgba(255,255,255,.02);">'+
-        '<div style="padding-top:2px;"><input type="radio" name="se-provisional" value="'+esc(p.id)+'" '+(isProv?'checked':'')+' title="Provisional (default)"/></div>'+
-        '<div style="flex:1;">'+
-          '<div style="font-weight:800;">'+esc(p.name)+' '+(isProv?'<span class="eikon-pill" style="font-size:10px;margin-left:6px;">Provisional</span>':"")+'</div>'+
-          '<div style="margin-top:4px;font-size:11px;color:var(--muted);line-height:1.35;">'+esc(patternSummary(p))+'</div>'+
-        '</div>'+
-        '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">'+
-          '<button class="eikon-btn" data-pat-edit="'+esc(p.id)+'" style="font-size:11px;padding:5px 8px;">Edit</button>'+
-          '<button class="eikon-btn" data-pat-apply="'+esc(p.id)+'" style="font-size:11px;padding:5px 8px;">Apply</button>'+
-          '<button class="eikon-btn danger" data-pat-del="'+esc(p.id)+'" style="font-size:11px;padding:5px 8px;">Delete</button>'+
-        '</div>'+
-        '</div>';
+  }
+
+  function renderTable(rows, cols){
+    if(!rows || rows.length===0) return "<div class='small muted'>No data.</div>";
+    const thead = "<tr>" + cols.map(c=>"<th>"+c.label+"</th>").join("") + "</tr>";
+    const tbody = rows.map(r=>{
+      return "<tr>" + cols.map(c=>{
+        const v = (typeof c.render==="function") ? c.render(r) : (r[c.key] ?? "");
+        return "<td>"+v+"</td>";
+      }).join("") + "</tr>";
     }).join("");
+    return "<table><thead>"+thead+"</thead><tbody>"+tbody+"</tbody></table>";
   }
 
-  function patternSummary(p) {
-    var DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-    var uiOrder = [1,2,3,4,5,6,0]; // Mon..Sun
-    var parts = uiOrder.map(function(d){
-      var x = (p.week||[])[d] || {off:true};
-      if (x.off || !x.start || !x.end) return DAYS[d]+": off";
-      return DAYS[d]+": "+x.start+"–"+x.end;
-    });
-    return parts.join(" • ");
-  }
+  async function refresh(){
+    try{
+      const data = await api("/su/api/overview", { method:"GET" });
+      // Orgs
+      $("orgsWrap").innerHTML = renderTable(data.orgs, [
+        {label:"ID", key:"id"},
+        {label:"Name", key:"name"},
+        {label:"Created", key:"created_at"},
+        {label:"Actions", render:(r)=> (
+          '<button class="ghost" onclick="editOrg(' + r.id + ')">Edit</button> ' +
+          '<button class="danger" onclick="deleteOrg(' + r.id + ', 0)">Delete</button> ' +
+          '<button class="danger" onclick="deleteOrg(' + r.id + ', 1)">Force delete</button>'
+        )}
+      ]);
 
-  function patternEditorModal(existing, onDone) {
-    var p = normalizePattern(existing || {});
-    var DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-    var uiOrder = [1,2,3,4,5,6,0]; // Mon..Sun
+      // Locations
+      $("locationsWrap").innerHTML = renderTable(data.locations, [
+        {label:"ID", key:"id"},
+        {label:"Org", key:"org_id"},
+        {label:"Name", key:"name"},
+        {label:"Created", key:"created_at"},
+        {label:"Actions", render:(r)=>(
+          '<button class="ghost" onclick="editLocation(' + r.id + ')">Edit</button> ' +
+          '<button class="secondary" onclick="wipeLocation(' + r.id + ')">Wipe data</button> ' +
+          '<button class="danger" onclick="deleteLocation(' + r.id + ')">Delete</button>'
+        )}
+      ]);
 
-    var rows = uiOrder.map(function(d){
-      var x = p.week[d] || {off:true};
-      var off = isOffEntry(x);
-      return ''+
-        '<tr>'+
-          '<td style="padding:6px 8px;font-weight:700;">'+DAYS[d]+'</td>'+
-          '<td style="padding:6px 8px;"><label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);"><input type="checkbox" id="pe-off-'+d+'" '+(off?'checked':'')+'/> Off</label></td>'+
-          '<td style="padding:6px 8px;"><input class="eikon-input" id="pe-st-'+d+'" type="time" value="'+esc(off?"":(x.start||""))+'" style="min-width:110px;"/></td>'+
-          '<td style="padding:6px 8px;"><input class="eikon-input" id="pe-et-'+d+'" type="time" value="'+esc(off?"":(x.end||""))+'" style="min-width:110px;"/></td>'+
-        '</tr>';
-    }).join("");
+      // Users
+      $("usersWrap").innerHTML = renderTable(data.users, [
+        {label:"ID", key:"id"},
+        {label:"Email", key:"email"},
+        {label:"Name", key:"full_name"},
+        {label:"Role", key:"role"},
+        {label:"Active", key:"is_active"},
+        {label:"Org", key:"org_id"},
+        {label:"Default Location", render:(r)=>String(r.default_location_id) + " - " + (r.location_name || "")},
+        {label:"Created", key:"created_at"},
+        {label:"Actions", render:(r)=>(
+          '<button class="ghost" onclick="editUser(' + r.id + ')">Edit</button> ' +
+          '<button class="secondary" onclick="resetPassword(' + r.id + ')">Reset password</button> ' +
+          '<button class="secondary" onclick="toggleHold(' + r.id + ', ' + r.is_active + ')">' + (r.is_active ? "Hold" : "Unhold") + '</button> ' +
+          '<button class="danger" onclick="deleteUser(' + r.id + ')">Delete</button>'
+        )}
+      ]);
 
-    var body =
-      '<div class="eikon-field"><div class="eikon-label">Pattern Name</div>'+
-      '<input class="eikon-input" id="pe-name" type="text" value="'+esc(existing?existing.name:p.name)+'"/></div>'+
-      '<div class="eikon-table-wrap" style="margin-top:10px;"><table class="eikon-table">'+
-      '<thead><tr><th>Day</th><th>Off</th><th>Start</th><th>End</th></tr></thead>'+
-      '<tbody>'+rows+'</tbody></table></div>'+
-      '<div style="margin-top:8px;font-size:11px;color:var(--muted);">Tip: leave Start/End empty for days off.</div>';
-
-    E.modal.show(existing?"Edit Pattern":"New Pattern", body, [
-      {label:"Cancel", onClick:function(){E.modal.hide(); onDone && onDone(null);}},
-      {label:"Save Pattern", primary:true, onClick:function(){
-        var name = E.q("#pe-name").value.trim() || "Pattern";
-        var week = [];
-        for (var d=0; d<7; d++){
-          var off = !!E.q("#pe-off-"+d).checked;
-          var st = (E.q("#pe-st-"+d).value||"").trim();
-          var et = (E.q("#pe-et-"+d).value||"").trim();
-          if (off || !st || !et) week[d] = {off:true};
-          else {
-            if (t2m(et) <= t2m(st)) { toast(DAYS[d]+": end must be after start","error"); return; }
-            week[d] = {off:false, start:st, end:et};
-          }
-        }
-        var out = { id: p.id, name:name, week:week, createdAt: existing&&existing.createdAt || Date.now() };
-        E.modal.hide();
-        onDone && onDone(out);
-      }}
-    ]);
-
-    // pe-auto-off-sync: make Off checkbox reflect time inputs (sandbox-safe, no browser confirm))
-    setTimeout(function(){
-      try{
-        for (var d=0; d<7; d++){
-          (function(di){
-            var offEl = document.getElementById("pe-off-"+di);
-            var stEl  = document.getElementById("pe-st-"+di);
-            var etEl  = document.getElementById("pe-et-"+di);
-            if(!offEl || !stEl || !etEl) return;
-
-            function sync(){
-              var off = !!offEl.checked;
-              stEl.disabled = off;
-              etEl.disabled = off;
-              if(off){ stEl.value=""; etEl.value=""; }
-            }
-
-            offEl.onchange = function(){ sync(); };
-
-            function bump(){
-              if ((stEl.value||"").trim() || (etEl.value||"").trim()){
-                offEl.checked = false;
-                stEl.disabled = false;
-                etEl.disabled = false;
-              }
-            }
-            stEl.oninput = bump;
-            etEl.oninput = bump;
-
-            // initial state
-            if(offEl.checked){ stEl.disabled = true; etEl.disabled = true; }
-          })(d);
-        }
-      } catch(e) { console.error("[shifts][patterns] pe sync error", e); }
-    }, 30);
-
-  }
-
-  function applyPatternModal(staffObj, pattern, done) {
-    var today = new Date();
-    var year = today.getFullYear();
-    var tds = year+"-"+pad(today.getMonth()+1)+"-"+pad(today.getDate());
-    var startOfYear = year+"-01-01";
-    var endOfYear = year+"-12-31";
-
-    var body =
-      '<div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Apply <b>'+esc(pattern.name)+'</b> for <b>'+esc(staffObj.full_name)+'</b>.</div>'+
-      '<div class="eikon-row">'+
-        '<div class="eikon-field"><div class="eikon-label">Range</div>'+
-          '<select class="eikon-select" id="ap-range">'+
-            '<option value="today">From today ('+esc(tds)+') → end of year</option>'+
-            '<option value="fullyear">Full year ('+esc(startOfYear)+' → '+esc(endOfYear)+')</option>'+
-            '<option value="custom">Custom range</option>'+
-          '</select></div>'+
-        '<div class="eikon-field"><div class="eikon-label">Start</div><input class="eikon-input" id="ap-start" type="date" value="'+esc(tds)+'"/></div>'+
-        '<div class="eikon-field"><div class="eikon-label">End</div><input class="eikon-input" id="ap-end" type="date" value="'+esc(endOfYear)+'"/></div>'+
-      '</div>'+
-      '<div class="eikon-row" style="margin-top:10px;">'+
-        '<div class="eikon-field"><div class="eikon-label">Mode</div>'+
-          '<select class="eikon-select" id="ap-mode">'+
-            '<option value="overwrite">Overwrite existing shifts in range</option>'+
-            '<option value="fill">Fill empty days only (keep existing)</option>'+
-          '</select></div>'+
-      '</div>'+
-      '<div id="ap-owarn" style="margin-top:10px;padding:10px;border:1px solid rgba(255,90,122,.45);border-radius:10px;background:rgba(255,90,122,.06);font-size:11px;color:var(--text);display:none;">'+
-      '<div style="font-weight:800;margin-bottom:6px;">Overwrite confirmation</div>'+
-      '<label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="ap-oconf"/> I understand this will overwrite shifts in the selected range.</label>'+
-      '</div>'+
-      '<div style="margin-top:10px;padding:10px;border:1px solid var(--border);border-radius:10px;background:rgba(255,255,255,.02);font-size:11px;color:var(--muted);">'+
-      '<b>Overwrite</b> clears this employee’s shifts in the selected date range and re-applies the pattern. <b>Fill</b> only adds shifts to days where the employee has no shift.</div>';
-
-    E.modal.show("Apply Weekly Pattern", body, [
-      {label:"Cancel", onClick:function(){E.modal.hide();}},
-      {label:"Apply", primary:true, onClick:function(){
-        var range = E.q("#ap-range").value;
-        var start = (range==="today") ? tds : (range==="fullyear" ? startOfYear : E.q("#ap-start").value);
-        var end   = (range==="today") ? endOfYear : (range==="fullyear" ? endOfYear : E.q("#ap-end").value);
-        var mode  = E.q("#ap-mode").value;
-        if(!start || !end){ toast("Select dates","error"); return; }
-        if(end < start){ toast("End must be after start","error"); return; }
-        if (mode==="overwrite") {
-          var c = E.q("#ap-oconf");
-          if (!c || !c.checked) { toast("Please confirm overwrite.","error"); return; }
-        }
-
-        apiOp("/shifts/apply-pattern", {method:"POST", body: JSON.stringify({
-          staff_id: staffObj.id,
-          start_date: start,
-          end_date: end,
-          mode: mode,
-          pattern: { week: pattern.week }
-        })}, function(r){
-          E.modal.hide();
-          toast("Applied. Inserted: "+(r&&r.inserted!=null?r.inserted:"")+"");
-          loadMonth().then(function(){ done && done(); });
-        });
-      }}
-    ]);
-
-    setTimeout(function(){
-      var sel = document.getElementById("ap-range");
-      var st = document.getElementById("ap-start");
-      var en = document.getElementById("ap-end");
-      if(!sel||!st||!en) return;
-
-      sel.onchange=function(){
-        var custom = sel.value==="custom";
-        st.disabled = !custom;
-        en.disabled = !custom;
-
-        if(sel.value==="today"){ st.value = tds; en.value = endOfYear; }
-        else if(sel.value==="fullyear"){ st.value = startOfYear; en.value = endOfYear; }
-      };
-      sel.onchange();
-      try{
-        var modeSel = document.getElementById("ap-mode");
-        var ow = document.getElementById("ap-owarn");
-        var oc = document.getElementById("ap-oconf");
-        function syncOverwriteConfirm(){
-          if(!modeSel || !ow) return;
-          var isOw = String(modeSel.value||"") === "overwrite";
-          ow.style.display = isOw ? "block" : "none";
-          if(!isOw && oc) oc.checked = false;
-        }
-        if(modeSel) modeSel.onchange = syncOverwriteConfirm;
-        syncOverwriteConfirm();
-      } catch(e) { console.error("[shifts][patterns] ap overwrite sync error", e); }
-
-    }, 30);
-  }
-function saveEmp(id, p, cb) {
-    if(id){ var ix=S.staff.findIndex(function(s){return s.id===id;}); if(ix>=0)Object.assign(S.staff[ix],p); }
-    else { p.id=lsNextId(); S.staff.push(p); }
-    apiOp(id?"/shifts/staff/"+id:"/shifts/staff", {method:id?"PUT":"POST",body:JSON.stringify(p)}, cb);
-  }
-
-  function toggleActive(e,cb){
-    e.is_active=e.is_active===0?1:0;
-    saveEmp(e.id, Object.assign({},e), cb);
-  }
-
-  /* ══════════════════════════════════════════════════════════════
-     VIEW: SETTINGS
-  ══════════════════════════════════════════════════════════════ */
-  function vSettings(m) {
-    normalizeOpeningHours();
-    setMaltaFromSettings();
-
-    var def = S.openingHours["default"]||{open:"07:30",close:"19:30",closed:false};
-    var wk = S.openingHours.weekly || {};
-    var DNAME = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
-    var wkRows = "";
-    for (var d0=0; d0<7; d0++) {
-      var v0 = wk[d0] || def;
-      wkRows += '<tr style="border-top:1px solid var(--border);">'+
-        '<td style="padding:8px 6px;font-weight:800;font-size:12px;">'+esc(DNAME[d0])+'</td>'+
-        '<td style="padding:8px 6px;text-align:center;"><input type="checkbox" id="ss-w'+d0+'-closed"'+(v0.closed?' checked':'')+'/></td>'+
-        '<td style="padding:6px;"><input class="eikon-input" id="ss-w'+d0+'-open" type="time" value="'+esc(v0.open||def.open||"07:30")+'" style="min-width:110px;"/></td>'+
-        '<td style="padding:6px;"><input class="eikon-input" id="ss-w'+d0+'-close" type="time" value="'+esc(v0.close||def.close||"19:30")+'" style="min-width:110px;"/></td>'+
-      '</tr>';
+      $("loginMsg").textContent = "Loaded " + data.users.length + " user(s), " + data.locations.length + " location(s), " + data.orgs.length + " org(s).";
+    }catch(e){
+      $("loginMsg").textContent = "Refresh failed: " + e.message;
     }
+  }
 
-    var ov  = S.openingHours.overrides||{};
-    var ovRows = Object.keys(ov).sort().map(function(d){
-      var v=ov[d];
-      return '<tr><td>'+esc(d)+'</td>'+
-        '<td>'+(v.closed?'<span style="color:var(--danger)">Closed</span>':esc(v.open)+"–"+esc(v.close))+'</td>'+
-        '<td>'+esc(v.note||"—")+'</td>'+
-        '<td><button class="eikon-btn danger sh-rm-ov" data-d="'+esc(d)+'" style="font-size:11px;padding:5px 8px;">Remove</button></td></tr>';
-    }).join("")||'<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:14px;">No overrides.</td></tr>';var yrNow = new Date().getFullYear();
-
-    m.innerHTML=
-      '<div style="display:flex;flex-direction:column;gap:14px;">'+
-      '<div class="eikon-card">'+
-      '<div style="font-weight:900;font-size:15px;margin-bottom:12px;">🕐 Weekly Opening Hours</div>'+
-      '<div class="eikon-help" style="margin-bottom:10px;">Set standard opening hours per weekday (Sunday can be closed). Exceptional day overrides below still take priority.</div>'+
-      '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;min-width:520px;">'+
-      '<thead><tr>'+
-        '<th style="text-align:left;padding:8px 6px;font-size:12px;color:var(--muted);">Day</th>'+
-        '<th style="text-align:center;padding:8px 6px;font-size:12px;color:var(--muted);">Closed</th>'+
-        '<th style="text-align:left;padding:8px 6px;font-size:12px;color:var(--muted);">Open</th>'+
-        '<th style="text-align:left;padding:8px 6px;font-size:12px;color:var(--muted);">Close</th>'+
-      '</tr></thead>'+
-      '<tbody>'+wkRows+'</tbody></table></div>'+
-      '<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">'+
-        '<button class="eikon-btn" id="ss-copy-weekdays">Copy Monday → Tue–Fri</button>'+
-        '<button class="eikon-btn" id="ss-copy-all">Copy Monday → Tue–Sun</button>'+
-        '<button class="eikon-btn primary" id="ss-savehours">Save Hours</button>'+
-      '</div></div>'+
-
-      '<div class="eikon-card">'+
-      '<div style="font-weight:900;font-size:15px;margin-bottom:4px;">📅 Exceptional Day Overrides</div>'+
-      '<div class="eikon-help" style="margin-bottom:12px;">Override hours for a specific date (public holiday, half day, emergency).</div>'+
-      '<div class="eikon-row">'+
-      '<div class="eikon-field"><div class="eikon-label">Date</div><input class="eikon-input" id="ss-ovd" type="date"/></div>'+
-      '<div class="eikon-field"><div class="eikon-label">Type</div>'+
-      '<select class="eikon-select" id="ss-ovt"><option value="custom">Custom Hours</option><option value="closed">Fully Closed</option></select></div>'+
-      '<div class="eikon-field" id="ss-ovta"><div class="eikon-label">Open</div><input class="eikon-input" id="ss-ovo" type="time" value="'+esc(def.open||"07:30")+'"/></div>'+
-      '<div class="eikon-field" id="ss-ovtb"><div class="eikon-label">Close</div><input class="eikon-input" id="ss-ovc" type="time" value="'+esc(def.close||"19:30")+'"/></div>'+
-      '<div class="eikon-field"><div class="eikon-label">Note</div><input class="eikon-input" id="ss-ovn" type="text" placeholder="e.g. Half day"/></div>'+
-      '</div>'+
-      '<div style="margin-top:10px;"><button class="eikon-btn primary" id="ss-addov">Add Override</button></div>'+
-      '<div class="eikon-table-wrap" style="margin-top:12px;"><table class="eikon-table"><thead><tr><th>Date</th><th>Hours</th><th>Note</th><th></th></tr></thead>'+
-      '<tbody id="ss-ovtbody">'+ovRows+'</tbody></table></div></div>'+
-
-      '<div class="eikon-card">'+
-      '<div style="font-weight:900;font-size:15px;margin-bottom:12px;">⚙️ Coverage Rules</div>'+
-      '<div class="eikon-row">'+
-      '<div class="eikon-field"><div class="eikon-label">Require Pharmacist Coverage</div>'+
-      '<select class="eikon-select" id="ss-rph">'+
-      '<option value="1"'+(S.settings.pharmacistRequired?" selected":"")+'>Yes — Alert on uncovered hours</option>'+
-      '<option value="0"'+(S.settings.pharmacistRequired?"":" selected")+'>No — Informational</option>'+
-      '</select></div>'+
-      '<div class="eikon-field"><div class="eikon-label">Min Pharmacists On Duty</div>'+
-      '<input class="eikon-input" id="ss-mph" type="number" min="1" max="5" value="'+(S.settings.minPharmacists||1)+'" style="min-width:80px;"/></div>'+
-      '</div>'+
-      '<div style="margin-top:12px;"><button class="eikon-btn primary" id="ss-saverules">Save Rules</button></div></div>'+
-
-      maltaRefHTML(yrNow) +
-
-      '</div>';
-
-    var ovType = E.q("#ss-ovt",m);
-    ovType.onchange=function(){
-      var c=ovType.value==="custom";
-      E.q("#ss-ovta",m).style.display=c?"":"none";
-      E.q("#ss-ovtb",m).style.display=c?"":"none";
+  async function createAccount(){
+    const body = {
+      org_id: $("newOrgId").value.trim(),
+      org_name: $("newOrgName").value.trim(),
+      location_id: $("newLocationId").value.trim(),
+      location_name: $("newLocationName").value.trim(),
+      email: $("newEmail").value.trim().toLowerCase(),
+      password: $("newPassword").value,
+      role: $("newRole").value,
+      is_active: $("newActive").value.trim()
     };
+    try{
+      const data = await api("/su/api/account", { method:"POST", body: JSON.stringify(body) });
+      showMsg($("createMsg"), true, "Created. Org " + data.org_id + ", Location " + data.location_id + ", User " + data.user_id);
+      await refresh();
+    }catch(e){
+      showMsg($("createMsg"), false, e.message);
+    }
+  }
 
-    // Weekly opening hours helpers
-    function ssSyncRowDisabled(d){
-      var cb = E.q("#ss-w"+d+"-closed",m);
-      var op = E.q("#ss-w"+d+"-open",m);
-      var cl = E.q("#ss-w"+d+"-close",m);
-      if(!cb||!op||!cl) return;
-      var isC = !!cb.checked;
-      op.disabled = isC;
-      cl.disabled = isC;
-      op.style.opacity = isC ? "0.5" : "1";
-      cl.style.opacity = isC ? "0.5" : "1";
-    }
-    function ssCopyFromMonday(days){
-      var monC = E.q("#ss-w1-closed",m).checked;
-      var monO = E.q("#ss-w1-open",m).value;
-      var monCl = E.q("#ss-w1-close",m).value;
-      (days||[]).forEach(function(d){
-        var cb = E.q("#ss-w"+d+"-closed",m);
-        var op = E.q("#ss-w"+d+"-open",m);
-        var cl = E.q("#ss-w"+d+"-close",m);
-        if(cb) cb.checked = monC;
-        if(op) op.value = monO;
-        if(cl) cl.value = monCl;
-        ssSyncRowDisabled(d);
-      });
-      console.log("[shifts][hours] copied from Monday ->", days);
-      toast("Copied Monday hours.");
-    }
-    // bind closed toggles
-    for (var d=0; d<7; d++){
-      (function(dd){
-        var cb = E.q("#ss-w"+dd+"-closed",m);
-        if(cb) cb.onchange=function(){ ssSyncRowDisabled(dd); };
-        ssSyncRowDisabled(dd);
-      })(d);
-    }
-    var b1=E.q("#ss-copy-weekdays",m); if(b1) b1.onclick=function(){ ssCopyFromMonday([2,3,4,5]); };
-    var b2=E.q("#ss-copy-all",m); if(b2) b2.onclick=function(){ ssCopyFromMonday([0,2,3,4,5,6]); };
+  async function editUser(userId){
+    const data = await api("/su/api/users/" + userId, { method:"GET" });
+    const u = data.user;
+    const email = prompt("Email:", u.email) ?? "";
+    if(email === "") return;
+    const full_name = prompt("Full name:", u.full_name) ?? "";
+    const role = prompt("Role (admin/user):", u.role) ?? "";
+    const is_active = prompt("Active (1/0):", String(u.is_active)) ?? "";
+    const org_id = prompt("Org ID:", String(u.org_id)) ?? "";
+    const default_location_id = prompt("Default location ID:", String(u.default_location_id)) ?? "";
+    try{
+      await api("/su/api/users/" + userId, { method:"PUT", body: JSON.stringify({ email, full_name, role, is_active, org_id, default_location_id }) });
+      await refresh();
+    }catch(e){ alert(e.message); }
+  }
 
-    E.q("#ss-savehours",m).onclick=function(){
+  async function resetPassword(userId){
+    const pw = prompt("Enter NEW password (will overwrite):");
+    if(!pw) return;
+    try{
+      await api("/su/api/users/" + userId + "/password", { method:"POST", body: JSON.stringify({ password: pw }) });
+      alert("Password updated.");
+    }catch(e){ alert(e.message); }
+  }
+
+  async function toggleHold(userId, isActive){
+    const newVal = isActive ? 0 : 1;
+    try{
+      await api("/su/api/users/" + userId, { method:"PUT", body: JSON.stringify({ is_active: String(newVal) }) });
+      await refresh();
+    }catch(e){ alert(e.message); }
+  }
+
+  async function deleteUser(userId){
+    if(!confirm("Delete user " + userId + "? This cannot be undone.")) return;
+    try{
+      await api("/su/api/users/" + userId, { method:"DELETE" });
+      await refresh();
+    }catch(e){ alert(e.message); }
+  }
+
+
+  async function editOrg(orgId){
+    try{
+      const data = await api("/su/api/orgs/" + orgId, { method:"GET" });
+      const o = data.org;
+      const name = prompt("Org name:", o.name) ?? "";
+      if(name === "") return;
+      await api("/su/api/orgs/" + orgId, { method:"PUT", body: JSON.stringify({ name }) });
+      await refresh();
+    }catch(e){ alert(e.message); }
+  }
+
+  async function deleteOrg(orgId, force){
+    const token = force ? "DELETE ALL" : "DELETE";
+    const msg = force
+      ? ("Type " + token + " to permanently DELETE org_id=" + orgId + " and ALL data (locations, users, and module rows).")
+      : ("Type " + token + " to delete org_id=" + orgId + " (only works if it has no locations/users).");
+    const confirmText = prompt(msg);
+    if(confirmText !== token) return;
+    try{
+      const url = "/su/api/orgs/" + orgId + (force ? "?force=1" : "");
+      await api(url, { method:"DELETE", body: JSON.stringify({ confirm: confirmText }) });
+      await refresh();
+    }catch(e){ alert(e.message); }
+  }
+
+  async function editLocation(locationId){
+    const data = await api("/su/api/locations/" + locationId, { method:"GET" });
+    const l = data.location;
+    const name = prompt("Location name:", l.name) ?? "";
+    if(name === "") return;
+    const org_id = prompt("Org ID:", String(l.org_id)) ?? "";
+    try{
+      await api("/su/api/locations/" + locationId, { method:"PUT", body: JSON.stringify({ name, org_id }) });
+      await refresh();
+    }catch(e){ alert(e.message); }
+  }
+
+  async function wipeLocation(locationId){
+    const confirmText = prompt("Type WIPE to delete ALL rows for location_id="+locationId+" (all module tables).");
+    if(confirmText !== "WIPE") return;
+    const alsoUsers = confirm("Also delete users whose default_location_id = " + locationId + " ? (OK = yes, Cancel = no)");
+    try{
+      await api("/su/api/locations/" + locationId + "/wipe", { method:"POST", body: JSON.stringify({ delete_users: alsoUsers ? 1 : 0 }) });
+      await refresh();
+      alert("Wipe completed.");
+    }catch(e){ alert(e.message); }
+  }
+
+  async function deleteLocation(locationId){
+    const confirmText = prompt("Type DELETE to delete location_id="+locationId+" (location row). This may fail if foreign keys exist.");
+    if(confirmText !== "DELETE") return;
+    try{
+      await api("/su/api/locations/" + locationId, { method:"DELETE" });
+      await refresh();
+      alert("Location deleted.");
+    }catch(e){ alert(e.message); }
+  }
+
+  $("btnLogin").onclick = login;
+  $("btnLogout").onclick = ()=>{ clearToken(); $("loginMsg").textContent="Logged out (token cleared)."; };
+  $("btnRefresh").onclick = refresh;
+  $("btnCreateAccount").onclick = createAccount;
+  $("btnPrefillIds").onclick = prefillIds;
+
+  // Auto-refresh if token exists
+  if(getToken()) refresh();
+</script>
+</body>
+</html>`;
+  return htmlResponse(html, 200, { "Cache-Control":"no-store" });
+}
+
+async function suNextIds(env) {
+  const orgMax = await dbFirst(env, "SELECT IFNULL(MAX(id), 0) AS m FROM orgs", []);
+  const locMax = await dbFirst(env, "SELECT IFNULL(MAX(id), 0) AS m FROM locations", []);
+  return { next_org_id: (orgMax?.m || 0) + 1, next_location_id: (locMax?.m || 0) + 1 };
+}
+
+async function handleSuOverview(request, env, extraHeaders) {
+  const orgs = await dbAll(env, "SELECT id, name, created_at FROM orgs ORDER BY id", []);
+  const locations = await dbAll(env, "SELECT id, org_id, name, created_at FROM locations ORDER BY id", []);
+  const users = await dbAll(env, `
+    SELECT u.id, u.email, u.full_name, u.role, u.is_active, u.org_id, u.default_location_id, u.created_at,
+           l.name AS location_name
+    FROM users u
+    LEFT JOIN locations l ON l.id = u.default_location_id
+    ORDER BY u.id
+  `, []);
+  const ids = await suNextIds(env);
+  return jsonResponse({ ok: true, ...ids, orgs, locations, users }, 200, extraHeaders);
+}
+
+
+async function handleSuGetOrg(request, env, extraHeaders, orgId) {
+  const org = await dbFirst(env, "SELECT id, name, created_at FROM orgs WHERE id=?", [orgId]);
+  if (!org) return jsonResponse({ ok:false, error:"org not found" }, 404, extraHeaders);
+  return jsonResponse({ ok:true, org }, 200, extraHeaders);
+}
+
+async function handleSuUpdateOrg(request, env, extraHeaders, orgId) {
+  const body = await readJson(request);
+  const name = String(body.name || "").trim();
+  if (!name) return jsonResponse({ ok:false, error:"name is required" }, 400, extraHeaders);
+
+  const org = await dbFirst(env, "SELECT id FROM orgs WHERE id=?", [orgId]);
+  if (!org) return jsonResponse({ ok:false, error:"org not found" }, 404, extraHeaders);
+
+  await dbRun(env, "UPDATE orgs SET name=? WHERE id=?", [name, orgId]);
+  return jsonResponse({ ok:true }, 200, extraHeaders);
+}
+
+async function handleSuDeleteOrg(request, env, extraHeaders, orgId, force) {
+  const body = await readJson(request);
+  const confirm = String(body.confirm || "").trim();
+
+  const org = await dbFirst(env, "SELECT id, name FROM orgs WHERE id=?", [orgId]);
+  if (!org) return jsonResponse({ ok:false, error:"org not found" }, 404, extraHeaders);
+
+  if (!force) {
+    if (confirm !== "DELETE") return jsonResponse({ ok:false, error:"confirm must be DELETE" }, 400, extraHeaders);
+
+    const locCount = await dbFirst(env, "SELECT COUNT(1) AS c FROM locations WHERE org_id=?", [orgId]);
+    const userCount = await dbFirst(env, "SELECT COUNT(1) AS c FROM users WHERE org_id=?", [orgId]);
+    const lc = locCount?.c || 0;
+    const uc = userCount?.c || 0;
+    if (lc > 0 || uc > 0) {
+      return jsonResponse({ ok:false, error:"org not empty", locations: lc, users: uc }, 400, extraHeaders);
+    }
+    await dbRun(env, "DELETE FROM orgs WHERE id=?", [orgId]);
+    return jsonResponse({ ok:true }, 200, extraHeaders);
+  }
+
+  // Force delete: wipes all module tables for all locations under the org, deletes users/sessions, deletes locations, then deletes org.
+  if (confirm !== "DELETE ALL") return jsonResponse({ ok:false, error:"confirm must be DELETE ALL" }, 400, extraHeaders);
+
+  const locs = await dbAll(env, "SELECT id FROM locations WHERE org_id=? ORDER BY id", [orgId]);
+  const tables = await suTablesWithLocationId(env);
+
+  // Wipe module tables per location
+  for (const l of locs) {
+    const locationId = l.id;
+    for (const t of tables) {
+      try { await dbRun(env, `DELETE FROM ${t} WHERE location_id=?`, [locationId]); } catch {}
+    }
+    // Remove users tied to that location (and sessions)
+    try { await dbRun(env, "DELETE FROM sessions WHERE user_id IN (SELECT id FROM users WHERE default_location_id=?)", [locationId]); } catch {}
+    try { await dbRun(env, "DELETE FROM users WHERE default_location_id=?", [locationId]); } catch {}
+  }
+
+  // Also delete any remaining sessions/users in the org (belt and braces)
+  try { await dbRun(env, "DELETE FROM sessions WHERE user_id IN (SELECT id FROM users WHERE org_id=?)", [orgId]); } catch {}
+  try { await dbRun(env, "DELETE FROM users WHERE org_id=?", [orgId]); } catch {}
+
+  // Delete locations then org
+  await dbRun(env, "DELETE FROM locations WHERE org_id=?", [orgId]);
+  await dbRun(env, "DELETE FROM orgs WHERE id=?", [orgId]);
+
+  return jsonResponse({ ok:true, deleted_locations: locs.length, wiped_tables: tables }, 200, extraHeaders);
+}
+
+
+function parseIntOrNull(v) {
+  if (v === null || v === undefined) return null;
+  const s = String(v).trim();
+  if (!s) return null;
+  const n = Number(s);
+  if (!Number.isInteger(n) || n < 0) return null;
+  return n;
+}
+
+async function handleSuCreateAccount(request, env, extraHeaders) {
+  const body = await readJson(request);
+  const email = String(body.email || "").trim().toLowerCase();
+  const password = String(body.password || "");
+  const role = String(body.role || "user").trim().toLowerCase();
+  const isActive = parseIntOrNull(body.is_active);
+  const orgIdRequested = parseIntOrNull(body.org_id);
+  const orgName = String(body.org_name || "").trim();
+  const locationIdRequested = parseIntOrNull(body.location_id);
+  const locationName = String(body.location_name || "").trim();
+
+  if (!email) return jsonResponse({ ok:false, error:"email is required" }, 400, extraHeaders);
+  if (!password) return jsonResponse({ ok:false, error:"password is required" }, 400, extraHeaders);
+  if (role !== "admin" && role !== "user") return jsonResponse({ ok:false, error:"role must be admin or user" }, 400, extraHeaders);
+  if (!locationName) return jsonResponse({ ok:false, error:"location_name is required" }, 400, extraHeaders);
+
+  const ids = await suNextIds(env);
+  const orgId = orgIdRequested || ids.next_org_id;
+  const locationId = locationIdRequested || ids.next_location_id;
+
+  // Ensure email is unique
+  const exists = await dbFirst(env, "SELECT id FROM users WHERE lower(email)=lower(?)", [email]);
+  if (exists) return jsonResponse({ ok:false, error:"email already exists" }, 409, extraHeaders);
+
+  // Ensure org exists or create it
+  const orgRow = await dbFirst(env, "SELECT id FROM orgs WHERE id=?", [orgId]);
+  if (!orgRow) {
+    const name = orgName || locationName;
+    // try to insert with explicit id
+    await dbRun(env, "INSERT INTO orgs (id, name, created_at) VALUES (?, ?, datetime('now'))", [orgId, name]);
+  }
+
+  // Ensure location id unused
+  const locRow = await dbFirst(env, "SELECT id FROM locations WHERE id=?", [locationId]);
+  if (locRow) return jsonResponse({ ok:false, error:"location_id already exists" }, 409, extraHeaders);
+
+  await dbRun(env, "INSERT INTO locations (id, org_id, name, created_at) VALUES (?, ?, ?, datetime('now'))", [locationId, orgId, locationName]);
+
+  // Hash password (PBKDF2)
+  const iters = 100000;
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const hash = await pbkdf2Hash(password, salt, iters);
+  const saltB64 = base64FromBytes(salt);
+  const hashB64 = base64FromBytes(hash);
+
+  const fullName = String(body.full_name || "").trim() || email;
+  const activeVal = (isActive === null) ? 1 : (isActive ? 1 : 0);
+
+  const userRow = await dbFirst(
+    env,
+    `INSERT INTO users (org_id, email, full_name, role, pass_salt_b64, pass_hash_b64, pass_iters, is_active, default_location_id, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+     RETURNING id`,
+    [orgId, email, fullName, role, saltB64, hashB64, iters, activeVal, locationId]
+  );
+
+  return jsonResponse({ ok:true, org_id: orgId, location_id: locationId, user_id: userRow?.id }, 200, extraHeaders);
+}
+
+async function handleSuGetUser(request, env, extraHeaders, userId) {
+  const row = await dbFirst(env, `
+    SELECT u.id, u.email, u.full_name, u.role, u.is_active, u.org_id, u.default_location_id, u.created_at,
+           u.pass_salt_b64, u.pass_hash_b64, u.pass_iters
+    FROM users u WHERE u.id=?
+  `, [userId]);
+  if (!row) return jsonResponse({ ok:false, error:"user not found" }, 404, extraHeaders);
+  return jsonResponse({ ok:true, user: row }, 200, extraHeaders);
+}
+
+async function handleSuUpdateUser(request, env, extraHeaders, userId) {
+  const body = await readJson(request);
+  const existing = await dbFirst(env, "SELECT * FROM users WHERE id=?", [userId]);
+  if (!existing) return jsonResponse({ ok:false, error:"user not found" }, 404, extraHeaders);
+
+  const email = body.email !== undefined ? String(body.email).trim().toLowerCase() : existing.email;
+  const full_name = body.full_name !== undefined ? String(body.full_name).trim() : existing.full_name;
+  const role = body.role !== undefined ? String(body.role).trim().toLowerCase() : existing.role;
+  const is_active = body.is_active !== undefined ? (parseIntOrNull(body.is_active) ? 1 : 0) : existing.is_active;
+  const org_id = body.org_id !== undefined ? parseIntOrNull(body.org_id) : existing.org_id;
+  const default_location_id = body.default_location_id !== undefined ? parseIntOrNull(body.default_location_id) : existing.default_location_id;
+
+  if (!email) return jsonResponse({ ok:false, error:"email is required" }, 400, extraHeaders);
+  if (role !== "admin" && role !== "user") return jsonResponse({ ok:false, error:"role must be admin or user" }, 400, extraHeaders);
+  if (!org_id) return jsonResponse({ ok:false, error:"org_id is required" }, 400, extraHeaders);
+  if (!default_location_id) return jsonResponse({ ok:false, error:"default_location_id is required" }, 400, extraHeaders);
+
+  // Ensure org exists
+  const orgRow = await dbFirst(env, "SELECT id FROM orgs WHERE id=?", [org_id]);
+  if (!orgRow) return jsonResponse({ ok:false, error:"org_id does not exist" }, 400, extraHeaders);
+
+  // Ensure location exists and belongs to org
+  const locRow = await dbFirst(env, "SELECT id, org_id FROM locations WHERE id=?", [default_location_id]);
+  if (!locRow) return jsonResponse({ ok:false, error:"default_location_id does not exist" }, 400, extraHeaders);
+  if (Number(locRow.org_id) !== Number(org_id)) return jsonResponse({ ok:false, error:"default_location_id not in org" }, 400, extraHeaders);
+
+  // Ensure email unique
+  const dupe = await dbFirst(env, "SELECT id FROM users WHERE lower(email)=lower(?) AND id<>?", [email, userId]);
+  if (dupe) return jsonResponse({ ok:false, error:"email already exists" }, 409, extraHeaders);
+
+  await dbRun(env, `
+    UPDATE users
+    SET email=?, full_name=?, role=?, is_active=?, org_id=?, default_location_id=?
+    WHERE id=?
+  `, [email, full_name, role, is_active, org_id, default_location_id, userId]);
+
+  return jsonResponse({ ok:true }, 200, extraHeaders);
+}
+
+async function handleSuResetPassword(request, env, extraHeaders, userId) {
+  const body = await readJson(request);
+  const password = String(body.password || "");
+  if (!password) return jsonResponse({ ok:false, error:"password is required" }, 400, extraHeaders);
+
+  const user = await dbFirst(env, "SELECT id FROM users WHERE id=?", [userId]);
+  if (!user) return jsonResponse({ ok:false, error:"user not found" }, 404, extraHeaders);
+
+  const iters = 100000;
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const hash = await pbkdf2Hash(password, salt, iters);
+  const saltB64 = base64FromBytes(salt);
+  const hashB64 = base64FromBytes(hash);
+
+  await dbRun(env, "UPDATE users SET pass_salt_b64=?, pass_hash_b64=?, pass_iters=? WHERE id=?", [saltB64, hashB64, iters, userId]);
+  // Best-effort: clear sessions for that user if sessions table exists
+  try { await dbRun(env, "DELETE FROM sessions WHERE user_id=?", [userId]); } catch {}
+  return jsonResponse({ ok:true }, 200, extraHeaders);
+}
+
+async function handleSuDeleteUser(request, env, extraHeaders, userId) {
+  const user = await dbFirst(env, "SELECT id FROM users WHERE id=?", [userId]);
+  if (!user) return jsonResponse({ ok:false, error:"user not found" }, 404, extraHeaders);
+  try { await dbRun(env, "DELETE FROM sessions WHERE user_id=?", [userId]); } catch {}
+  await dbRun(env, "DELETE FROM users WHERE id=?", [userId]);
+  return jsonResponse({ ok:true }, 200, extraHeaders);
+}
+
+async function handleSuGetLocation(request, env, extraHeaders, locationId) {
+  const row = await dbFirst(env, "SELECT id, org_id, name, created_at FROM locations WHERE id=?", [locationId]);
+  if (!row) return jsonResponse({ ok:false, error:"location not found" }, 404, extraHeaders);
+  return jsonResponse({ ok:true, location: row }, 200, extraHeaders);
+}
+
+async function handleSuUpdateLocation(request, env, extraHeaders, locationId) {
+  const body = await readJson(request);
+  const existing = await dbFirst(env, "SELECT id, org_id, name FROM locations WHERE id=?", [locationId]);
+  if (!existing) return jsonResponse({ ok:false, error:"location not found" }, 404, extraHeaders);
+
+  const name = body.name !== undefined ? String(body.name).trim() : existing.name;
+  const org_id = body.org_id !== undefined ? parseIntOrNull(body.org_id) : existing.org_id;
+
+  if (!name) return jsonResponse({ ok:false, error:"name is required" }, 400, extraHeaders);
+  if (!org_id) return jsonResponse({ ok:false, error:"org_id is required" }, 400, extraHeaders);
+
+  const orgRow = await dbFirst(env, "SELECT id FROM orgs WHERE id=?", [org_id]);
+  if (!orgRow) return jsonResponse({ ok:false, error:"org_id does not exist" }, 400, extraHeaders);
+
+  // If moving org, ensure no users in other org reference this location as default unless you also move them.
+  const usersUsing = await dbFirst(env, "SELECT COUNT(*) AS c FROM users WHERE default_location_id=?", [locationId]);
+  const count = Number(usersUsing?.c || 0);
+  if (count > 0) {
+    // Enforce: users pointing to location must be moved to same org
+    await dbRun(env, "UPDATE users SET org_id=? WHERE default_location_id=?", [org_id, locationId]);
+  }
+
+  await dbRun(env, "UPDATE locations SET org_id=?, name=? WHERE id=?", [org_id, name, locationId]);
+  return jsonResponse({ ok:true }, 200, extraHeaders);
+}
+
+async function suTablesWithLocationId(env) {
+  // Enumerate all user tables that contain a location_id column.
+  const tables = await dbAll(env, "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'", []);
+  const out = [];
+  for (const t of tables) {
+    const name = t.name;
+    if (["orgs","locations","users"].includes(name)) continue;
+    try {
+      const cols = await dbAll(env, `PRAGMA table_info(${name})`, []);
+      const hasLoc = cols.some(c => c.name === "location_id");
+      if (hasLoc) out.push(name);
+    } catch {}
+  }
+  return out;
+}
+
+async function handleSuWipeLocation(request, env, extraHeaders, locationId) {
+  const body = await readJson(request);
+  const deleteUsers = parseIntOrNull(body.delete_users) ? 1 : 0;
+
+  const loc = await dbFirst(env, "SELECT id, org_id FROM locations WHERE id=?", [locationId]);
+  if (!loc) return jsonResponse({ ok:false, error:"location not found" }, 404, extraHeaders);
+
+  const tables = await suTablesWithLocationId(env);
+  for (const t of tables) {
+    // delete rows scoped to location
+    try { await dbRun(env, `DELETE FROM ${t} WHERE location_id=?`, [locationId]); } catch {}
+  }
+  if (deleteUsers) {
+    try { await dbRun(env, "DELETE FROM sessions WHERE user_id IN (SELECT id FROM users WHERE default_location_id=?)", [locationId]); } catch {}
+    await dbRun(env, "DELETE FROM users WHERE default_location_id=?", [locationId]);
+  }
+  return jsonResponse({ ok:true, wiped_tables: tables }, 200, extraHeaders);
+}
+
+async function handleSuDeleteLocation(request, env, extraHeaders, locationId) {
+  const loc = await dbFirst(env, "SELECT id FROM locations WHERE id=?", [locationId]);
+  if (!loc) return jsonResponse({ ok:false, error:"location not found" }, 404, extraHeaders);
+  // This may fail if foreign keys exist; caller can wipe first.
+  await dbRun(env, "DELETE FROM locations WHERE id=?", [locationId]);
+  return jsonResponse({ ok:true }, 200, extraHeaders);
+}
+
+async function readJson(request) {
+  const ct = request.headers.get("Content-Type") || "";
+  // Be tolerant of missing/incorrect Content-Type (some clients omit it). Still log loudly for debugging.
+  if (!ct.toLowerCase().includes("application/json")) {
+    try {
+      const txt = await request.clone().text();
       try {
-        var wk2 = {};
-        for (var d=0; d<7; d++){
-          var cb = E.q("#ss-w"+d+"-closed",m);
-          var op = E.q("#ss-w"+d+"-open",m);
-          var cl = E.q("#ss-w"+d+"-close",m);
-          wk2[d] = {
-            closed: cb ? !!cb.checked : false,
-            open:  op ? op.value : "07:30",
-            close: cl ? cl.value : "19:30"
-          };
-          // basic sanity: if not closed, ensure times present
-          if(!wk2[d].closed){
-            if(!wk2[d].open) wk2[d].open = "07:30";
-            if(!wk2[d].close) wk2[d].close = "19:30";
-          }
-        }
-        S.openingHours.weekly = wk2;
-        normalizeOpeningHours();
-        console.log("[shifts][hours] save weekly", JSON.parse(JSON.stringify(S.openingHours.weekly)));
-        apiOp("/shifts/opening-hours",{method:"PUT",body:JSON.stringify(S.openingHours)},function(){toast("Opening hours saved.");});
-      } catch(e) {
-        console.error("[shifts][hours] save failed", e);
-        toast("Failed to save hours","error");
+        const obj = JSON.parse(txt || "{}");
+        console.warn("[shifts][readJson] Non-JSON Content-Type:", ct, " — body still parsed as JSON.");
+        return obj;
+      } catch (pe) {
+        console.error("[shifts][readJson] Failed to parse JSON. Content-Type:", ct, "Body preview:", (txt || "").slice(0, 400));
+        throw new Error("Expected application/json (got " + ct + ")");
       }
-    };
-
-    E.q("#ss-addov",m).onclick=function(){
-      var d=E.q("#ss-ovd",m).value; if(!d){toast("Select a date","error");return;}
-      var cl=E.q("#ss-ovt",m).value==="closed";
-      S.openingHours.overrides[d]=cl
-        ?{closed:true,note:E.q("#ss-ovn",m).value.trim()}
-        :{open:E.q("#ss-ovo",m).value,close:E.q("#ss-ovc",m).value,closed:false,note:E.q("#ss-ovn",m).value.trim()};
-      apiOp("/shifts/opening-hours",{method:"PUT",body:JSON.stringify(S.openingHours)},function(){toast("Override added."); vSettings(m);});
-    };
-
-    E.q("#ss-saverules",m).onclick=function(){
-      S.settings.pharmacistRequired=E.q("#ss-rph",m).value==="1";
-      S.settings.minPharmacists=parseInt(E.q("#ss-mph",m).value)||1;
-      apiOp("/shifts/settings",{method:"PUT",body:JSON.stringify(S.settings)},function(){toast("Rules saved.");});
-    };
-
-    var eb = E.q("#ss-editmalta", m);
-    if (eb) eb.onclick=function(){ maltaLawModal(yrNow, function(){ vSettings(m); }); };
-
-    m.querySelectorAll(".sh-rm-ov").forEach(function(btn){
-      btn.onclick=function(){
-        var d=btn.getAttribute("data-d"); delete S.openingHours.overrides[d];
-        apiOp("/shifts/opening-hours",{method:"PUT",body:JSON.stringify(S.openingHours)},function(){toast("Override removed."); vSettings(m);});
-      };
-    });
-  }
-
-  function maltaRefHTML(yrNow) {
-    var yd = maltaYear(yrNow);
-    var alNow = MALTA.annualLeaveHours[yrNow] || MALTA.annualLeaveHours[lastKnownYear(MALTA.annualLeaveHours, yrNow)] || 216;
-
-    // show current year + previous 2 years if present
-    var yrs=[yrNow, yrNow-1, yrNow-2].filter(function(y){ return MALTA.annualLeaveHours[y]!=null; });
-
-    var cards = '';
-    cards += yrs.map(function(y){
-      return rcard("Annual Leave FT "+y, String(MALTA.annualLeaveHours[y])+"h", "#5aa2ff");
-    }).join("");
-
-    cards += rcard("Sick Leave Paid",""+(MALTA.sickLeavePaidHours||80)+"h (10 days)","#fb923c");
-    cards += rcard("Sick Leave ½ Pay",""+(MALTA.sickLeaveHalfPayHours||80)+"h (10 days)","#fb923c");
-    cards += rcard("Urgent Family Leave",""+(MALTA.urgentFamilyLeaveHours||32)+"h / year","#43d17a");
-    cards += rcard("Maternity Leave","18 weeks","#f472b6");
-    cards += rcard("Paternity Leave","10 working days","#38bdf8");
-    cards += rcard("Parental Leave","4 months (2 paid)","#a78bfa");
-    if (yd.miscarriageLeaveDays) cards += rcard("Miscarriage Leave",""+yd.miscarriageLeaveDays+" calendar days","#94a3b8");
-    cards += rcard("Max Weekly Hours",""+(MALTA.maxWeeklyHours||48)+"h (EU WTD)","#ff5a7a");
-    if (yd.colaWeekly) cards += rcard("COLA "+yrNow,"€"+Number(yd.colaWeekly).toFixed(2)+"/week","#43d17a");
-    if (yd.minWageWeekly) cards += rcard("Min Wage "+yrNow,"€"+Number(yd.minWageWeekly).toFixed(2)+"/wk","#43d17a");
-    cards += rcard("Part-time Leave","Pro-rata (avg hrs / 40)","#64748b");
-
-    return ''+
-      '<div class="eikon-card">'+
-      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'+
-      '<div style="font-weight:900;font-size:15px;">📋 Malta Employment Law Reference '+yrNow+'</div>'+
-      '<button class="eikon-btn" id="ss-editmalta" style="font-size:12px;padding:6px 10px;">Edit</button>'+
-      '</div>'+
-      '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;">'+cards+'</div>'+
-      '<div style="margin-top:10px;font-size:11px;color:var(--muted);">These figures are a reference. Edit to match the current year and your internal policy.</div>'+
-      '</div>';
-  }
-
-  function maltaLawModal(yrNow, done) {
-    setMaltaFromSettings();
-    var ySel = yrNow;
-    var cfg = (S.settings.maltaLaw && typeof S.settings.maltaLaw==="object") ? S.settings.maltaLaw : {};
-    var yd = Object.assign({}, maltaYear(ySel));
-    var al = (cfg.annualLeaveHours && cfg.annualLeaveHours[ySel]!=null) ? cfg.annualLeaveHours[ySel] : (MALTA.annualLeaveHours[ySel] || MALTA.annualLeaveHours[lastKnownYear(MALTA.annualLeaveHours, ySel)] || 216);
-
-    var years = [];
-    for (var y=yrNow-2; y<=yrNow+2; y++) years.push(y);
-
-    var body =
-      '<div class="eikon-row">'+
-      '<div class="eikon-field"><div class="eikon-label">Year</div>'+
-      '<select class="eikon-select" id="ml-year">'+years.map(function(y){ return '<option value="'+y+'"'+(y===ySel?' selected':'')+'>'+y+'</option>'; }).join("")+'</select></div>'+
-      '<div class="eikon-field"><div class="eikon-label">Annual Leave FT (hours)</div>'+
-      '<input class="eikon-input" id="ml-al" type="number" min="0" value="'+esc(al)+'" style="min-width:110px;"/></div>'+
-      '<div class="eikon-field"><div class="eikon-label">Public Holidays (count)</div>'+
-      '<input class="eikon-input" id="ml-ph" type="number" min="0" value="'+esc(yd.publicHolidays||"")+'" style="min-width:110px;"/></div>'+
-      '</div>'+
-      '<div class="eikon-row" style="margin-top:10px;">'+
-      '<div class="eikon-field"><div class="eikon-label">COLA (€/week)</div>'+
-      '<input class="eikon-input" id="ml-cola" type="number" step="0.01" min="0" value="'+esc(yd.colaWeekly||"")+'" style="min-width:110px;"/></div>'+
-      '<div class="eikon-field"><div class="eikon-label">Min Wage (€/week)</div>'+
-      '<input class="eikon-input" id="ml-mw" type="number" step="0.01" min="0" value="'+esc(yd.minWageWeekly||"")+'" style="min-width:110px;"/></div>'+
-      '<div class="eikon-field"><div class="eikon-label">Miscarriage Leave (days)</div>'+
-      '<input class="eikon-input" id="ml-ml" type="number" min="0" value="'+esc(yd.miscarriageLeaveDays||"")+'" style="min-width:110px;"/></div>'+
-      '</div>'+
-      '<hr style="border-color:var(--border);margin:12px 0;"/>'+
-      '<div style="font-weight:800;margin-bottom:8px;">Core values</div>'+
-      '<div class="eikon-row">'+
-      '<div class="eikon-field"><div class="eikon-label">Sick paid (hours)</div><input class="eikon-input" id="ml-sp" type="number" min="0" value="'+esc(MALTA.sickLeavePaidHours||80)+'"/></div>'+
-      '<div class="eikon-field"><div class="eikon-label">Sick ½ pay (hours)</div><input class="eikon-input" id="ml-sh" type="number" min="0" value="'+esc(MALTA.sickLeaveHalfPayHours||80)+'"/></div>'+
-      '<div class="eikon-field"><div class="eikon-label">Urgent family (hours)</div><input class="eikon-input" id="ml-uf" type="number" min="0" value="'+esc(MALTA.urgentFamilyLeaveHours||32)+'"/></div>'+
-      '</div>'+
-      '<div class="eikon-row" style="margin-top:10px;">'+
-      '<div class="eikon-field"><div class="eikon-label">Full-time week (hours)</div><input class="eikon-input" id="ml-ft" type="number" min="1" max="48" value="'+esc(MALTA.fullTimeWeeklyHours||40)+'"/></div>'+
-      '<div class="eikon-field"><div class="eikon-label">Max weekly (hours)</div><input class="eikon-input" id="ml-mx" type="number" min="1" max="80" value="'+esc(MALTA.maxWeeklyHours||48)+'"/></div>'+
-      '</div>';
-
-    E.modal.show("Malta Employment Law Reference", body, [
-      {label:"Cancel", onClick:function(){E.modal.hide();}},
-      {label:"Save", primary:true, onClick:function(){
-        var y = parseInt(E.q("#ml-year").value,10) || yrNow;
-        var next = (S.settings.maltaLaw && typeof S.settings.maltaLaw==="object") ? JSON.parse(JSON.stringify(S.settings.maltaLaw)) : {};
-        if (!next.annualLeaveHours) next.annualLeaveHours = {};
-        if (!next.yearData) next.yearData = {};
-
-        next.annualLeaveHours[y] = parseInt(E.q("#ml-al").value,10) || 0;
-
-        next.yearData[y] = Object.assign({}, next.yearData[y]||{}, {
-          publicHolidays: parseInt(E.q("#ml-ph").value,10) || 0,
-          colaWeekly: parseFloat(E.q("#ml-cola").value) || 0,
-          minWageWeekly: parseFloat(E.q("#ml-mw").value) || 0,
-          miscarriageLeaveDays: parseInt(E.q("#ml-ml").value,10) || 0
-        });
-
-        next.sickLeavePaidHours = parseInt(E.q("#ml-sp").value,10) || 0;
-        next.sickLeaveHalfPayHours = parseInt(E.q("#ml-sh").value,10) || 0;
-        next.urgentFamilyLeaveHours = parseInt(E.q("#ml-uf").value,10) || 0;
-        next.fullTimeWeeklyHours = parseInt(E.q("#ml-ft").value,10) || 40;
-        next.maxWeeklyHours = parseInt(E.q("#ml-mx").value,10) || 48;
-
-        S.settings.maltaLaw = next;
-        apiOp("/shifts/settings",{method:"PUT",body:JSON.stringify(S.settings)},function(){
-          setMaltaFromSettings();
-          toast("Malta reference saved.");
-          E.modal.hide();
-          done && done();
-        });
-      }}
-    ]);
-  }
-function rcard(l,v,c){
-    return '<div style="padding:10px 12px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;">'+
-      '<div style="font-size:11px;color:var(--muted);margin-bottom:4px;">'+esc(l)+'</div>'+
-      '<div style="font-weight:700;color:'+c+';">'+esc(v)+'</div></div>';
-  }
-
-  /* ══════════════════════════════════════════════════════════════
-     VIEW: CALENDAR
-  ══════════════════════════════════════════════════════════════ */
-  function vCalendar(m) {
-    var y=S.year, mo=S.month, days=dim(y,mo);
-    var firstDow=dow(y,mo,1);
-    var cells="";
-    var cellDay=1-firstDow;
-
-    function dateFromCellDay(n){
-      var dt=new Date(y,mo,n);
-      return dt.getFullYear()+"-"+pad(dt.getMonth()+1)+"-"+pad(dt.getDate());
+    } catch (e) {
+      console.error("[shifts][readJson] Failed reading request body. Content-Type:", ct, e);
+      throw new Error("Expected application/json (got " + ct + ")");
     }
-    function addDaysYMD(ds, n){
-      var dt=new Date(ds); dt.setDate(dt.getDate()+n);
-      return dt.getFullYear()+"-"+pad(dt.getMonth()+1)+"-"+pad(dt.getDate());
+  }
+  return await request.json();
+}
+
+async function dbFirst(env, sql, bind = []) {
+  const stmt = env.DB.prepare(sql);
+  const res = bind.length ? await stmt.bind(...bind).first() : await stmt.first();
+  return res || null;
+}
+
+async function dbAll(env, sql, bind = []) {
+  const stmt = env.DB.prepare(sql);
+  const res = bind.length ? await stmt.bind(...bind).all() : await stmt.all();
+  return res.results || [];
+}
+
+async function dbRun(env, sql, bind = []) {
+  const stmt = env.DB.prepare(sql);
+  const res = bind.length ? await stmt.bind(...bind).run() : await stmt.run();
+  return res;
+}
+
+async function writeAudit(env, orgId, userId, action, entityType, entityId, detailsObj) {
+  const detailsJson = JSON.stringify(detailsObj || {});
+  await dbRun(
+    env,
+    `INSERT INTO audit_log (org_id, user_id, action, entity_type, entity_id, details_json, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`,
+    [orgId, userId || null, action, entityType, entityId || "", detailsJson]
+  );
+}
+
+function requireRole(user, roles) {
+  return user && roles.includes(user.role);
+}
+
+async function authFromRequest(request, env) {
+  const auth = request.headers.get("Authorization") || "";
+  const m = auth.match(/^Bearer\s+(.+)$/i);
+  if (!m) return null;
+
+  const token = m[1].trim();
+  if (!token) return null;
+
+  const tokenHashB64 = await sha256B64FromString(token);
+
+  const sess = await dbFirst(
+    env,
+    `SELECT
+       s.id AS session_id,
+       s.user_id,
+       s.expires_at,
+       u.org_id,
+       u.email,
+       u.full_name,
+       u.role,
+       u.is_active,
+       u.default_location_id
+     FROM sessions s
+     JOIN users u ON u.id = s.user_id
+     WHERE s.token_hash_b64 = ?`,
+    [tokenHashB64]
+  );
+
+  if (!sess) return null;
+  if (sess.is_active !== 1) return null;
+
+  const now = new Date();
+  const exp = new Date(sess.expires_at);
+  if (!(exp > now)) return null;
+
+  const locId = sess.default_location_id ? Number(sess.default_location_id) : null;
+  if (!locId) return null;
+
+  const loc = await dbFirst(env, "SELECT id, name FROM locations WHERE id = ? AND org_id = ?", [locId, sess.org_id]);
+  if (!loc) return null;
+
+  const org = await dbFirst(env, "SELECT id, name FROM orgs WHERE id = ?", [sess.org_id]);
+
+  return {
+    session_id: sess.session_id,
+    user_id: sess.user_id,
+    org_id: sess.org_id,
+    org_name: org ? org.name : "",
+    email: sess.email,
+    full_name: sess.full_name,
+    role: sess.role,
+    location_id: loc.id,
+    location_name: loc.name
+  };
+}
+
+function htmlPage(title, bodyHtml) {
+  return new Response(
+    `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>${escapeHtml(title)}</title>
+<style>
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:820px;margin:40px auto;padding:0 16px;}
+  .card{border:1px solid #ddd;border-radius:12px;padding:18px;margin-top:16px;}
+  label{display:block;margin-top:10px;font-weight:700;}
+  input{width:100%;padding:10px;border:1px solid #ccc;border-radius:10px;margin-top:6px;}
+  button{margin-top:16px;padding:10px 14px;border:0;border-radius:10px;background:#111;color:#fff;font-weight:800;cursor:pointer;}
+  code{background:#f6f6f6;padding:2px 6px;border-radius:6px;}
+  .ok{color:green;font-weight:800;}
+  .err{color:#b00020;font-weight:800;}
+</style>
+</head>
+<body>
+${bodyHtml}
+</body>
+</html>`,
+    { headers: { "Content-Type": "text/html; charset=utf-8" } }
+  );
+}
+
+async function parseForm(request) {
+  const ct = (request.headers.get("Content-Type") || "").toLowerCase();
+  if (!ct.includes("application/x-www-form-urlencoded") && !ct.includes("multipart/form-data")) {
+    return null;
+  }
+  const form = await request.formData();
+  const obj = {};
+  for (const [k, v] of form.entries()) obj[k] = String(v);
+  return obj;
+}
+
+async function handleBootstrapGet(request, env) {
+  const usersCountRow = await dbFirst(env, "SELECT COUNT(*) AS c FROM users", []);
+  const hasUsers = usersCountRow && usersCountRow.c > 0;
+
+  const body = `
+<h1>Eikon API Bootstrap</h1>
+<div class="card">
+  <p>This creates the <b>first</b> org, location, and admin user.</p>
+  <p>Status: ${hasUsers ? `<span class="err">Bootstrap disabled (users already exist)</span>` : `<span class="ok">Ready</span>`}</p>
+  <form method="POST" action="/bootstrap">
+    <label>Bootstrap Token</label>
+    <input name="bootstrap_token" required />
+    <label>Org / Client Name</label>
+    <input name="org_name" required value="Demo Pharmacy"/>
+    <label>Default Location Name</label>
+    <input name="location_name" required value="Main Branch"/>
+    <label>Admin Email</label>
+    <input name="admin_email" required value="admin@example.com"/>
+    <label>Admin Full Name</label>
+    <input name="admin_full_name" required value="Admin"/>
+    <label>Admin Password</label>
+    <input name="admin_password" type="password" required />
+    <button type="submit" ${hasUsers ? "disabled" : ""}>Create Admin</button>
+  </form>
+  <p style="margin-top:12px;color:#555;">Note: location is tied to account (no switching).</p>
+</div>`;
+  return htmlPage("Bootstrap", body);
+}
+
+async function handleBootstrapPost(request, env) {
+  try {
+    const usersCountRow = await dbFirst(env, "SELECT COUNT(*) AS c FROM users", []);
+    const hasUsers = usersCountRow && usersCountRow.c > 0;
+    if (hasUsers) {
+      return htmlPage("Bootstrap", `<h1>Bootstrap disabled</h1><p class="err">Users already exist.</p>`);
     }
 
-    for(var r=0;r<6;r++){
-      var rowStartCell = cellDay; // Sunday for this row
-      var ws = dateFromCellDay(rowStartCell);
-      var we = addDaysYMD(ws, 6);
+    let payload = await parseForm(request);
+    if (!payload) {
+      try { payload = await readJson(request); } catch { payload = {}; }
+    }
 
-      var row='<tr>';
-      var anyReal=false;
+    const bootstrapToken = (payload.bootstrap_token || "").trim();
+    const orgName = (payload.org_name || "").trim();
+    const locationName = (payload.location_name || "").trim();
+    const adminEmail = (payload.admin_email || "").trim().toLowerCase();
+    const adminFullName = (payload.admin_full_name || "").trim();
+    const adminPassword = (payload.admin_password || "").trim();
 
-      // Week action column
-      row += '<td style="background:rgba(0,0,0,.04);border:1px solid var(--border);vertical-align:top;padding:6px;width:70px;min-width:70px;">'+
-             '<button class="eikon-btn sh-week-apply" data-ws="'+esc(ws)+'" data-we="'+esc(we)+'" style="font-size:11px;padding:6px 8px;width:100%;">↻ Pattern</button>'+
-             '<div style="margin-top:6px;font-size:9px;color:var(--muted);text-align:center;">'+esc(ws.slice(5))+'–'+esc(we.slice(5))+'</div>'+
-             '</td>';
+    if (!bootstrapToken || !orgName || !locationName || !adminEmail || !adminPassword) {
+      return htmlPage("Bootstrap error", `<h1>Bootstrap error</h1><p class="err">Missing required fields.</p>`);
+    }
 
-      for(var c=0;c<7;c++,cellDay++){
-        if(cellDay<1||cellDay>days){
-          row+='<td style="background:rgba(0,0,0,.12);height:84px;border:1px solid var(--border);"></td>';
-        } else {
-          anyReal=true;
-          var ds=ymd(y,mo,cellDay);
-          var oh=ohFor(ds);
-          var ph=isPH(ds);
-          var cov=checkCov(ds);
-          var dayShifts=S.shifts.filter(function(s){return s.shift_date===ds;});
-          var dayLeaves=S.leaves.filter(function(l){return l.status==="approved"&&l.start_date<=ds&&l.end_date>=ds;});
-          var onLeaveMap={};
-          dayLeaves.forEach(function(l){onLeaveMap[l.staff_id]=l;});
-          var bg=ph?"rgba(90,162,255,.06)":oh.closed?"rgba(0,0,0,.18)":"rgba(255,255,255,.02)";
-          var bc=(!oh.closed&&!cov.ok)?"rgba(255,90,122,.6)":"var(--border)";
-          var wd=new Date(ds).getDay(); var isWknd=wd===0||wd===6;
+    if ((env.BOOTSTRAP_TOKEN || "").trim() !== bootstrapToken) {
+      return htmlPage("Bootstrap error", `<h1>Bootstrap error</h1><p class="err">Invalid bootstrap token.</p>`);
+    }
 
-          var pills=dayShifts.map(function(s){
-            var e=emp(s.staff_id); if(!e)return"";
-            var lv=onLeaveMap[s.staff_id];
-            var col=dc(e.designation);
-            var extra=lv?"opacity:0.35;text-decoration:line-through;":"";
-            return '<div style="font-size:10px;padding:2px 5px;border-radius:5px;margin-top:2px;background:'+col+'1a;border:1px solid '+col+'55;color:'+col+';'+extra+'overflow:hidden;white-space:nowrap;text-overflow:ellipsis;" title="'+esc(e.full_name)+(lv?" (on leave)":"")+'">'+esc((e.full_name||"").split(" ")[0])+(s.start_time?" "+s.start_time.slice(0,5):"")+'</div>';
-          }).join("");
+    const orgRow = await dbFirst(
+      env,
+      "INSERT INTO orgs (name, created_at) VALUES (?, datetime('now')) RETURNING id",
+      [orgName]
+    );
+    const orgId = orgRow.id;
 
-          var lvPills=Object.keys(onLeaveMap).filter(function(sid){
-            return !dayShifts.some(function(s){return s.staff_id==sid;});
-          }).map(function(sid){
-            var e=emp(+sid); if(!e)return"";
-            return '<div style="font-size:10px;padding:2px 5px;border-radius:5px;margin-top:2px;background:rgba(255,90,122,.12);border:1px solid rgba(255,90,122,.3);color:var(--danger);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">🏖'+esc((e.full_name||"").split(" ")[0])+'</div>';
-          }).join("");
+    const locRow = await dbFirst(
+      env,
+      "INSERT INTO locations (org_id, name, created_at) VALUES (?, ?, datetime('now')) RETURNING id",
+      [orgId, locationName]
+    );
+    const locationId = locRow.id;
 
-          var warn = (!cov.ok && !oh.closed) ? (cov.gaps && cov.gaps.length && (cov.gaps[0].start===t2m(oh.open||"") && cov.gaps[0].end===t2m(oh.close||"")) ? "⚠ No pharm." : "⚠ Pharm gap") : "";
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const iters = 100000;
+    const hash = await pbkdf2Hash(adminPassword, salt, iters);
+    const saltB64 = base64FromBytes(salt);
+    const hashB64 = base64FromBytes(hash);
 
-          row+='<td style="vertical-align:top;padding:6px;background:'+bg+';border:1px solid '+bc+';cursor:pointer;height:84px;width:14.28%;position:relative;" data-date="'+ds+'">'+
-            '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:2px;">'+
-            '<span style="font-weight:700;font-size:13px;color:'+(isWknd?"var(--muted)":"var(--text)")+';">'+cellDay+'</span>'+
-            (ph?'<span style="font-size:9px;background:rgba(90,162,255,.2);color:var(--accent);border-radius:3px;padding:1px 3px;">PH</span>':"")+'</div>'+
-            '<div style="font-size:9px;color:var(--muted);margin-bottom:2px;">'+(oh.closed?"CLOSED":(oh.open||"")+"–"+(oh.close||""))+'</div>'+
-            (warn?'<div style="font-size:9px;color:var(--danger);font-weight:700;">'+warn+'</div>':"")+
-            pills+lvPills+'</td>';
-        }
+    const userRow = await dbFirst(
+      env,
+      `INSERT INTO users (org_id, email, full_name, role, pass_salt_b64, pass_hash_b64, pass_iters, is_active, default_location_id, created_at)
+       VALUES (?, ?, ?, 'admin', ?, ?, ?, 1, ?, datetime('now'))
+       RETURNING id`,
+      [orgId, adminEmail, adminFullName, saltB64, hashB64, iters, locationId]
+    );
+    const userId = userRow.id;
+
+    await writeAudit(env, orgId, userId, "BOOTSTRAP_CREATE", "org", String(orgId), { org_name: orgName });
+    await writeAudit(env, orgId, userId, "BOOTSTRAP_CREATE", "location", String(locationId), { location_name: locationName });
+    await writeAudit(env, orgId, userId, "BOOTSTRAP_CREATE", "user", String(userId), { email: adminEmail, role: "admin", default_location_id: locationId });
+
+    return htmlPage(
+      "Bootstrap complete",
+      `<h1>Bootstrap complete</h1>
+<div class="card">
+  <p class="ok">Created org, location, and admin user.</p>
+  <p><b>Org ID:</b> ${orgId}</p>
+  <p><b>Location ID:</b> ${locationId}</p>
+  <p><b>Admin Email:</b> ${escapeHtml(adminEmail)}</p>
+  <p>Next: log in via <code>POST /auth/login</code>.</p>
+</div>`
+    );
+  } catch (e) {
+    return htmlPage(
+      "Bootstrap error",
+      `<h1>Bootstrap error</h1>
+<p class="err">The Worker caught an exception.</p>
+<pre style="white-space:pre-wrap;background:#f6f6f6;padding:12px;border-radius:10px;border:1px solid #ddd;">${escapeHtml(e && (e.stack || e.message || String(e)))}</pre>`
+    );
+  }
+}
+
+async function handleLogin(request, env, corsOkHeaders) {
+  const body = await readJson(request);
+  const email = (body.email || "").trim().toLowerCase();
+  const password = (body.password || "").trim();
+
+  if (!email || !password) {
+    return jsonResponse({ ok: false, error: "Missing email or password" }, 400, corsOkHeaders);
+  }
+
+  const user = await dbFirst(
+    env,
+    `SELECT id, org_id, email, full_name, role, pass_salt_b64, pass_hash_b64, pass_iters, is_active, default_location_id
+     FROM users WHERE email = ?`,
+    [email]
+  );
+
+  if (!user || user.is_active !== 1) {
+    return jsonResponse({ ok: false, error: "Invalid credentials" }, 401, corsOkHeaders);
+  }
+
+  const saltBytes = bytesFromBase64(user.pass_salt_b64);
+  const derived = await pbkdf2Hash(password, saltBytes, user.pass_iters);
+  const stored = bytesFromBase64(user.pass_hash_b64);
+
+  if (!constantTimeEqual(derived, stored)) {
+    return jsonResponse({ ok: false, error: "Invalid credentials" }, 401, corsOkHeaders);
+  }
+
+  const locId = user.default_location_id ? Number(user.default_location_id) : null;
+  if (!locId) return jsonResponse({ ok: false, error: "Account has no assigned location" }, 403, corsOkHeaders);
+
+  const loc = await dbFirst(env, "SELECT id, name FROM locations WHERE id = ? AND org_id = ?", [locId, user.org_id]);
+  if (!loc) return jsonResponse({ ok: false, error: "Assigned location invalid" }, 403, corsOkHeaders);
+
+  const ttl = parseInt(env.SESSION_TTL_SECONDS || "2592000", 10);
+  const tokenRaw = crypto.getRandomValues(new Uint8Array(32));
+  const token = base64UrlFromBytes(tokenRaw);
+  const tokenHashB64 = await sha256B64FromString(token);
+  const exp = new Date(Date.now() + ttl * 1000).toISOString();
+
+  await dbRun(
+    env,
+    "INSERT INTO sessions (user_id, token_hash_b64, expires_at, created_at) VALUES (?, ?, ?, datetime('now'))",
+    [user.id, tokenHashB64, exp]
+  );
+
+  await writeAudit(env, user.org_id, user.id, "LOGIN", "user", String(user.id), { email: user.email });
+
+  return jsonResponse(
+    {
+      ok: true,
+      token,
+      user: {
+        id: user.id,
+        org_id: user.org_id,
+        email: user.email,
+        full_name: user.full_name,
+        role: user.role,
+        location_id: loc.id,
+        location_name: loc.name,
+        org_name: (await dbFirst(env, "SELECT name FROM orgs WHERE id = ?", [user.org_id]))?.name || ""
       }
-      row+="</tr>";
-      if(anyReal||r<5) cells+=row;
-    }
+    },
+    200,
+    corsOkHeaders
+  );
+}
 
-    m.innerHTML=
-      '<div class="eikon-card">'+
-      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;">'+
-      '<button class="eikon-btn" id="sh-cp">◀</button>'+
-      '<div style="font-weight:900;font-size:17px;min-width:180px;text-align:center;">'+MONTHS[mo]+" "+y+'</div>'+
-      '<button class="eikon-btn" id="sh-cn">▶</button>'+
-      '<button class="eikon-btn" id="sh-ct">Today</button>'+'<button class="eikon-btn" id="sh-exp">Export / Print</button>'+
-      '<div style="flex:1;"></div>'+
-      '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:11px;">'+
-      Object.keys(DESIG).slice(0,5).map(function(k){
-        return '<span style="display:flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:'+dc(k)+';display:inline-block;"></span>'+DESIG[k]+'</span>';
-      }).join("")+'</div></div>'+
-      '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;min-width:640px;">'+
-      '<thead><tr><th style="text-align:center;padding:8px;font-size:12px;color:var(--muted);">Week</th>'+DSHORT.map(function(d){return '<th style="text-align:center;padding:8px;font-size:12px;color:var(--muted);">'+d+'</th>';}).join("")+'</tr></thead>'+
-      '<tbody>'+cells+'</tbody></table></div>'+
-      '<div style="margin-top:8px;font-size:11px;color:var(--muted);">💡 Click any day to manage shifts. <span style="color:var(--danger)">Red border</span> = pharmacist uncovered hours. <span style="color:var(--accent)">PH</span> = Public Holiday.</div>'+
-      '</div>';
+async function handleMe(env, corsOkHeaders, authUser) {
+  return jsonResponse({ ok: true, user: authUser }, 200, corsOkHeaders);
+}
 
-    E.q("#sh-cp",m).onclick=function(){ S.month--; if(S.month<0){S.month=11;S.year--;} loadMonth().then(function(){vCalendar(m);}); };
-    E.q("#sh-cn",m).onclick=function(){ S.month++; if(S.month>11){S.month=0;S.year++;} loadMonth().then(function(){vCalendar(m);}); };
-    E.q("#sh-ct",m).onclick=function(){ var n=new Date(); S.year=n.getFullYear(); S.month=n.getMonth(); loadMonth().then(function(){vCalendar(m);}); };
-    var expBtn = E.q("#sh-exp",m); if(expBtn) expBtn.onclick=function(){ exportPrintModal(); };
+function isValidYmd(s) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(s || "").trim());
+}
 
-    m.querySelectorAll("td[data-date]").forEach(function(td){
-      td.onclick=function(){ dayModal(td.getAttribute("data-date"), function(){vCalendar(m);}); };
-    });
+function isValidYm(s) {
+  return /^\d{4}-\d{2}$/.test(String(s || "").trim());
+}
 
-    m.querySelectorAll(".sh-week-apply").forEach(function(btn){
-      btn.onclick=function(ev){
-        ev && ev.stopPropagation();
-        weekApplyModal(btn.getAttribute("data-ws"), btn.getAttribute("data-we"), function(){
-          loadMonth().then(function(){vCalendar(m);});
-        });
-      };
-    });
-  } 
+function isValidHm(s) {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(String(s || "").trim());
+}
 
-  function externalLocumModal(onCreated){
-    var body =
-      '<div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Add a one-off external locum (not part of your regular team). This creates a staff entry with Employment Type = External.</div>'+
-      '<div class="eikon-field"><div class="eikon-label">Full name</div><input class="eikon-input" id="exl-name" type="text" placeholder="e.g. Dr John Doe"/></div>'+
-      '<div class="eikon-field" style="margin-top:10px;"><div class="eikon-label">Role</div>'+
-        '<select class="eikon-select" id="exl-role">'+
-          '<option value="locum" selected>Locum Pharmacist</option>'+
-          '<option value="assistant">Assistant</option>'+
-        '</select>'+
-      '</div>'+
-      '<div style="margin-top:10px;font-size:11px;color:var(--muted);">Tip: you can later set this external person to Inactive from the Staff tab.</div>';
+async function ensureEndOfDaySchema(env) { await dbRun(env, "CREATE TABLE IF NOT EXISTS end_of_day (id INTEGER PRIMARY KEY AUTOINCREMENT, org_id INTEGER NOT NULL, location_id INTEGER NOT NULL, eod_date TEXT NOT NULL, time_of_day TEXT NOT NULL DEFAULT 'AM', staff_name TEXT NOT NULL, float_amount REAL NOT NULL DEFAULT 500, x_json TEXT NOT NULL DEFAULT '[]', epos_json TEXT NOT NULL DEFAULT '[]', cheques_json TEXT NOT NULL DEFAULT '[]', paid_outs_json TEXT NOT NULL DEFAULT '[]', cash_json TEXT NOT NULL DEFAULT '{}', bov_deposit_json TEXT NOT NULL DEFAULT '{}', bov_bag_number TEXT NOT NULL DEFAULT '', bov_contact_id INTEGER, notes TEXT NOT NULL DEFAULT '', saved_at TEXT, locked_at TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')), created_by INTEGER, updated_by INTEGER, UNIQUE(org_id, location_id, eod_date))", []); await dbRun(env, "CREATE TABLE IF NOT EXISTS end_of_day_contacts (id INTEGER PRIMARY KEY AUTOINCREMENT, org_id INTEGER NOT NULL, location_id INTEGER NOT NULL, display_name TEXT NOT NULL, phone TEXT NOT NULL DEFAULT '', email TEXT NOT NULL DEFAULT '', is_active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')), created_by INTEGER, updated_by INTEGER, UNIQUE(org_id, location_id, display_name))", []); await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_end_of_day_org_loc_date ON end_of_day (org_id, location_id, eod_date)", []); await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_end_of_day_contacts_org_loc_active ON end_of_day_contacts (org_id, location_id, is_active, display_name)", []); try { await dbRun(env, "ALTER TABLE end_of_day_contacts ADD COLUMN email TEXT NOT NULL DEFAULT ''", []); } catch (e) { /* column may already exist */ } }
 
-    E.modal.show("Add External Locum", body, [
-      {label:"Cancel", onClick:function(){ E.modal.hide(); }},
-      {label:"Create", primary:true, onClick:async function(){
-        try {
-          var name = (document.getElementById("exl-name").value||"").trim();
-          if(!name){ toast("Enter name","error"); return; }
-          var role = document.getElementById("exl-role").value;
-          var payload = {
-            full_name: name,
-            designation: role==="assistant" ? "assistant" : "locum",
-            employment_type: "external",
-            contracted_hours: 40,
-            is_active: 1,
-            patterns_json: "{\"patterns\":[],\"provisionalId\":null}"
-          };
-          console.groupCollapsed("[shifts][externalLocum] create", payload);
-          apiOp("/shifts/staff", {method:"POST", body: JSON.stringify(payload)}, async function(r){
-            console.log("[shifts][externalLocum] created", r);
-            try {
-              var staffRes = await E.apiFetch("/shifts/staff?include_inactive=1", {method:"GET"});
-              S.staff = staffRes.staff || S.staff;
-              lsSync();
-              console.log("[shifts][externalLocum] staff reloaded", S.staff.length);
-            } catch(e) {
-              console.error("[shifts][externalLocum] reload failed", e);
-            }
-            console.groupEnd();
-            E.modal.hide();
-            toast("External locum added.");
-            if (onCreated) onCreated(r && r.staff_id ? r.staff_id : null);
-          });
-        } catch(e) {
-          console.groupEnd();
-          console.error("[shifts][externalLocum] failed", e);
-          toast("Failed to add locum","error");
-        }
-      }}
-    ]);
+function clampToOneDecimal(n) {
+  if (n === null || n === undefined) return null;
+  if (n === "") return null;
+  const v = Number(n);
+  if (!Number.isFinite(v)) return null;
+  return Math.round(v * 10) / 10;
+}
+
+function monthRange(yyyyMm) {
+  const m = String(yyyyMm || "").trim();
+  if (!/^\d{4}-\d{2}$/.test(m)) return null;
+  const [y, mo] = m.split("-").map(n => parseInt(n, 10));
+  const start = new Date(Date.UTC(y, mo - 1, 1));
+  const end = new Date(Date.UTC(y, mo, 1));
+  return {
+    startStr: start.toISOString().slice(0, 10),
+    endStr: end.toISOString().slice(0, 10)
+  };
+}
+
+async function ensureDefaultTempDevicesIfMissing(env, authUser) {
+  const existing = await dbAll(
+    env,
+    "SELECT id FROM temperature_devices WHERE org_id = ? AND location_id = ? AND active = 1",
+    [authUser.org_id, authUser.location_id]
+  );
+  if (existing.length > 0) return;
+
+  if (!requireRole(authUser, ["admin"])) return;
+
+  const defaults = [
+    { name: "Pharmacy", device_type: "room", min_limit: 15, max_limit: 25 },
+    { name: "Pharmacy Fridge", device_type: "fridge", min_limit: 2, max_limit: 8 }
+  ];
+
+  for (const d of defaults) {
+    await dbRun(
+      env,
+      `INSERT INTO temperature_devices (org_id, location_id, name, device_type, min_limit, max_limit, active, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'))`,
+      [authUser.org_id, authUser.location_id, d.name, d.device_type, d.min_limit, d.max_limit]
+    );
   }
 
-  function dayModal(ds, onSave) {
-    var oh=ohFor(ds);
-    var dayShifts=S.shifts.filter(function(s){return s.shift_date===ds;});
-    var dayLeaves=S.leaves.filter(function(l){return l.status==="approved"&&l.start_date<=ds&&l.end_date>=ds;});
-    var onLeaveMap={}; dayLeaves.forEach(function(l){onLeaveMap[l.staff_id]=l;});
-    var cov=checkCov(ds);
-    var ph=isPH(ds);
-    var allPharm=pharmStaff();
+  await writeAudit(env, authUser.org_id, authUser.user_id, "TEMP_DEFAULT_DEVICES_CREATE", "location", String(authUser.location_id), {});
+}
 
-    var staffOpts=actStaff().map(function(s){ return '<option value="'+s.id+'">'+esc(s.full_name)+' ('+esc(dl(s.designation))+')</option>'; }).join("");
+async function handleTempDevicesList(request, env, corsOkHeaders, authUser) {
+  await ensureDefaultTempDevicesIfMissing(env, authUser);
 
-    // Coverage banner (supports partial gaps)
-    var covBanner="";
-    if(S.settings.pharmacistRequired && !cov.ok && !oh.closed){
-      var gapTxt = (cov.gaps||[]).slice(0,4).map(function(g){ return m2t(g.start)+"–"+m2t(g.end); }).join(", ");
-      var alts=allPharm.filter(function(p){ return !dayShifts.some(function(s){return s.staff_id===p.id;}); });
-      var hint = alts.length ? (" Assign: "+alts.slice(0,3).map(function(a){return esc(a.full_name);}).join(", ")+".") : "";
-      covBanner='<div style="padding:8px 10px;background:rgba(255,90,122,.1);border:1px solid rgba(255,90,122,.35);border-radius:8px;font-size:12px;margin-bottom:10px;">'+
-        '⚠️ <b>Pharmacist uncovered hours:</b> '+esc(gapTxt||"")+hint+'</div>';
-    }
+  const includeInactive = (new URL(request.url)).searchParams.get("include_inactive") === "1";
 
-    var shiftRows=dayShifts.length
-      ? dayShifts.map(function(s){
-          var e=emp(s.staff_id); var lv=onLeaveMap[s.staff_id]; var col=dc(e&&e.designation);
-          return '<div style="display:flex;align-items:center;gap:8px;padding:8px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-left:3px solid '+col+';border-radius:8px;margin-bottom:6px;">'+
-            '<span style="flex:1;font-size:13px;">'+esc(e?e.full_name:"?")+' <span style="color:var(--muted);font-size:11px;">'+esc(s.start_time||"")+'–'+esc(s.end_time||"")+'</span>'+
-            (lv?'<span style="color:var(--danger);font-size:11px;margin-left:6px;">⚠ On leave</span>':"")+'</span>'+
-            '<button class="eikon-btn" style="font-size:11px;padding:5px 8px;" data-edit-sh="'+s.id+'">Edit</button>'+
-            '<button class="eikon-btn danger" style="font-size:11px;padding:5px 8px;" data-del-sh="'+s.id+'">✕</button></div>';
-        }).join("")
-      : '<div style="color:var(--muted);font-size:12px;padding:6px 0;">No shifts assigned yet.</div>';
+  const devices = await dbAll(
+    env,
+    `SELECT id, name, device_type, min_limit, max_limit, active, created_at, updated_at
+     FROM temperature_devices
+     WHERE org_id = ? AND location_id = ?
+       ${includeInactive ? "" : "AND active = 1"}
+     ORDER BY active DESC, id ASC`,
+    [authUser.org_id, authUser.location_id]
+  );
 
-    var lvRow=dayLeaves.length
-      ? '<div style="margin-bottom:10px;">'+dayLeaves.map(function(l){ var e=emp(l.staff_id); return '<span class="eikon-pill" style="font-size:11px;color:var(--danger);border-color:rgba(255,90,122,.4);">🏖 '+esc(e?e.full_name:"?")+'</span> '; }).join("")+'</div>':"";
+  return jsonResponse({ ok: true, devices }, 200, corsOkHeaders);
+}
 
-    var defaultSt = oh.open||"07:30";
-    var defaultEt = oh.close||"19:30";
-
-    var body=
-      '<div style="font-size:12px;color:var(--muted);margin-bottom:8px;">'+esc(ds)+
-      (ph?' <span style="color:var(--accent);font-weight:700;">— Public Holiday</span>':"")+
-      ' | '+(oh.closed?'<span style="color:var(--danger)">CLOSED</span>':esc(oh.open||"")+'–'+esc(oh.close||""))+'</div>'+
-      covBanner+lvRow+
-      '<div style="font-weight:700;margin-bottom:8px;">Current Shifts</div>'+
-      '<div id="dm-shifts">'+shiftRows+'</div>'+
-      '<hr style="border-color:var(--border);margin:12px 0;"/>'+
-      '<div style="font-weight:700;margin-bottom:8px;">Add Shift</div>'+
-      (oh.closed?'<div style="padding:10px;border:1px solid var(--border);border-radius:10px;color:var(--muted);font-size:12px;">This day is marked as closed in Opening Hours.</div>':(
-        '<div class="eikon-row">'+
-        '<div class="eikon-field"><div class="eikon-label">Employee</div><select class="eikon-select" id="dm-emp">'+staffOpts+'</select><div style="margin-top:6px;"><button class="eikon-btn" id="dm-addloc" style="font-size:11px;padding:6px 8px;">+ External Locum</button></div></div>'+
-        '<div class="eikon-field"><div class="eikon-label">Start</div><input class="eikon-input" id="dm-st" type="time" value="'+esc(defaultSt)+'"/></div>'+
-        '<div class="eikon-field"><div class="eikon-label">End</div><input class="eikon-input" id="dm-et" type="time" value="'+esc(defaultEt)+'"/></div>'+
-        '</div>'+
-        '<div class="eikon-field" style="margin-top:8px;"><div class="eikon-label">Notes</div><input class="eikon-input" id="dm-nt" type="text" placeholder="optional"/></div>'+
-        (S.settings.pharmacistRequired && cov.gaps && cov.gaps.length ? '<div style="margin-top:8px;font-size:11px;color:var(--muted);">Suggestion: cover '+esc(m2t(cov.gaps[0].start))+'–'+esc(m2t(cov.gaps[0].end))+' (uncovered).</div>':"")
-      ));
-
-    E.modal.show("Shifts — "+ds, body, [
-      {label:"Close", onClick:function(){E.modal.hide();}},
-      {label:"Add Shift", primary:true, onClick:function(){
-        if(oh.closed){ E.modal.hide(); return; }
-        var sid=parseInt(E.q("#dm-emp").value);
-        var st=E.q("#dm-st").value; var et=E.q("#dm-et").value;
-        if(!sid||!st||!et){toast("Fill all fields","error");return;}
-        if(t2m(et)<=t2m(st)){toast("End must be after start","error");return;}
-        var p={staff_id:sid,shift_date:ds,start_time:st,end_time:et,notes:E.q("#dm-nt").value.trim()};
-        p.id=lsNextId(); S.shifts.push(p);
-        apiOp("/shifts/assignments",{method:"POST",body:JSON.stringify(p)},function(r){
-          if(r.shift_id)p.id=r.shift_id;
-          E.modal.hide();
-          toast("Shift added.");
-          onSave&&onSave();
-        });
-      }}
-    ]);
-
-    setTimeout(function(){
-      // Suggest uncovered times for pharmacists/locums
-      function applyGapSuggestionIfPharm(){
-        var empSel = document.getElementById("dm-emp");
-        if(!empSel) return;
-        var sid = parseInt(empSel.value,10);
-        var e = emp(sid);
-        if(!e) return;
-        var isPh = (e.designation==="pharmacist" || e.designation==="locum");
-        if(isPh && cov.gaps && cov.gaps.length){
-          var stEl = document.getElementById("dm-st");
-          var etEl = document.getElementById("dm-et");
-          if(stEl && etEl){
-            stEl.value = m2t(cov.gaps[0].start);
-            etEl.value = m2t(cov.gaps[0].end);
-          }
-        }
-      }
-      var empSel = document.getElementById("dm-emp");
-      if(empSel) empSel.onchange = applyGapSuggestionIfPharm;
-      applyGapSuggestionIfPharm();
-
-      // External locum quick-add
-      var addLoc = document.getElementById("dm-addloc");
-      if(addLoc) addLoc.onclick=function(){
-        externalLocumModal(function(newId){
-          try {
-            if(newId){
-              // refresh options
-              var opts = actStaff().map(function(s){ return '<option value="'+s.id+'">'+esc(s.full_name)+' ('+esc(dl(s.designation))+')</option>'; }).join("");
-              var sel = document.getElementById("dm-emp");
-              if(sel){ sel.innerHTML = opts; sel.value = String(newId); }
-            }
-          } catch(e){ console.error("[shifts][externalLocum] ui refresh failed", e); }
-        });
-      };
-
-      document.querySelectorAll("[data-del-sh]").forEach(function(btn){
-        btn.onclick=function(){
-          var id=parseInt(btn.getAttribute("data-del-sh"));
-          S.shifts=S.shifts.filter(function(s){return s.id!==id;});
-          apiOp("/shifts/assignments/"+id,{method:"DELETE"},function(){ lsSync(); E.modal.hide(); toast("Shift removed."); onSave&&onSave(); });
-        };
-      });
-      document.querySelectorAll("[data-edit-sh]").forEach(function(btn){
-        btn.onclick=function(){
-          var id=parseInt(btn.getAttribute("data-edit-sh"));
-          var sh=S.shifts.find(function(s){return s.id===id;});
-          if(!sh) return;
-          var e2=emp(sh.staff_id);
-          E.modal.hide();
-          singleShiftModal(e2, ds, sh, onSave);
-        };
-      });
-    },80);
-  }
-  function weekApplyModal(ws, we, done) {
-    var staff = actStaff();
-    if (!staff.length) { toast("No staff available","error"); return; }
-
-    // helpers
-    function weekDates(start) {
-      var out=[]; for(var i=0;i<7;i++) out.push(addD(start,i));
-      return out;
-    }
-
-    var staffOpts = staff.map(function(s){ return '<option value="'+s.id+'">'+esc(s.full_name)+' ('+esc(dl(s.designation))+')</option>'; }).join("");
-
-    var body =
-      '<div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Apply a weekly pattern for <b>'+esc(ws)+'</b> to <b>'+esc(we)+'</b>.</div>'+
-      '<div class="eikon-row">'+
-        '<div class="eikon-field"><div class="eikon-label">Employee</div><select class="eikon-select" id="wa-emp">'+staffOpts+'</select></div>'+
-        '<div class="eikon-field"><div class="eikon-label">Start from</div><select class="eikon-select" id="wa-pat"></select></div>'+
-        '<div class="eikon-field"><div class="eikon-label">Mode</div>'+
-          '<select class="eikon-select" id="wa-mode"><option value="overwrite">Overwrite</option><option value="fill">Fill empty only</option></select>'+
-        '</div>'+
-      '</div>'+
-      '<div id="wa-owarn" style="margin-top:10px;padding:10px;border:1px solid rgba(255,90,122,.45);border-radius:10px;background:rgba(255,90,122,.06);font-size:11px;color:var(--text);display:none;">'+
-      '<div style="font-weight:800;margin-bottom:6px;">Overwrite confirmation</div>'+
-      '<label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="wa-oconf"/> I understand this will overwrite shifts in this week.</label>'+
-      '</div>'+
-      '<div id="wa-week" style="margin-top:10px;"></div>'+
-      '<div style="margin-top:10px;font-size:11px;color:var(--muted);">'+
-      'This will also save the confirmed week as a new pattern for the employee.</div>';
-
-    E.modal.show("Apply Pattern — Week", body, [
-      {label:"Cancel", onClick:function(){E.modal.hide();}},
-      {label:"Apply", primary:true, onClick:function(){
-        var sid = parseInt(E.q("#wa-emp").value,10);
-        var e = emp(sid);
-        if(!e){ toast("Select employee","error"); return; }
-
-        var mode = E.q("#wa-mode").value;
-        if (mode==="overwrite") {
-          var c = E.q("#wa-oconf");
-          if (!c || !c.checked) { toast("Please confirm overwrite.","error"); return; }
-        }
-
-        // Collect dates payload
-        var ds = weekDates(ws);
-        var dates = [];
-        for (var i=0;i<ds.length;i++){
-          var off = !!E.q("#wa-off-"+i).checked;
-          var st = (E.q("#wa-st-"+i).value||"").trim();
-          var et = (E.q("#wa-et-"+i).value||"").trim();
-          if (off || !st || !et) continue;
-          if (t2m(et) <= t2m(st)) { toast(ds[i]+": end must be after start","error"); return; }
-          dates.push({ date: ds[i], start_time: st, end_time: et });
-        }
-
-        apiOp("/shifts/apply-pattern", {method:"POST", body: JSON.stringify({
-          staff_id: sid,
-          start_date: ws,
-          end_date: we,
-          mode: mode,
-          dates: dates
-        })}, function(r){
-          // Save as new pattern (always)
-          var pState = getPatternState(e);
-          var week = [];
-          for (var d=0; d<7; d++) week[d] = {off:true};
-          for (var i=0;i<ds.length;i++){
-            var dt = new Date(ds[i]);
-            var dow2 = dt.getDay();
-            var off2 = !!E.q("#wa-off-"+i).checked;
-            var st2 = (E.q("#wa-st-"+i).value||"").trim();
-            var et2 = (E.q("#wa-et-"+i).value||"").trim();
-            if (off2 || !st2 || !et2) week[dow2] = {off:true};
-            else week[dow2] = {off:false, start: st2, end: et2};
-          }
-          var newPat = normalizePattern({ id:"pat_"+Date.now()+"_"+Math.random().toString(16).slice(2), name:"Week "+ws, week:week, createdAt: Date.now() });
-          pState.patterns.push(newPat);
-
-          // persist staff with updated patterns_json
-          var payload = Object.assign({}, e, {
-            patterns_json: JSON.stringify({patterns: pState.patterns, provisionalId: pState.provisionalId || null})
-          });
-          saveEmp(e.id, payload, function(){
-            E.modal.hide();
-            toast("Applied. Inserted: "+(r&&r.inserted!=null?r.inserted:"")+"");
-            done && done();
-          });
-        });
-      }}
-    ]);
-
-    setTimeout(function(){
-      var empSel = document.getElementById("wa-emp");
-      var patSel = document.getElementById("wa-pat");
-      var weekWrap = document.getElementById("wa-week");
-      if(!empSel || !patSel || !weekWrap) return;
-
-      function renderWeekFromPattern(pattern) {
-        var ds = weekDates(ws);
-        var DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-        var rows = ds.map(function(dateStr, i){
-          var d = new Date(dateStr).getDay();
-          var entry = (pattern && pattern.week && pattern.week[d]) ? pattern.week[d] : {off:true};
-          var off = isOffEntry(entry);
-          return ''+
-            '<tr>'+
-              '<td style="padding:6px 8px;font-weight:700;white-space:nowrap;">'+DAYS[d]+' <span style="color:var(--muted);font-weight:600;">'+esc(dateStr.slice(5))+'</span></td>'+
-              '<td style="padding:6px 8px;"><label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);"><input type="checkbox" id="wa-off-'+i+'" '+(off?'checked':'')+'/> Off</label></td>'+
-              '<td style="padding:6px 8px;"><input class="eikon-input" id="wa-st-'+i+'" type="time" value="'+esc(off?"":(entry.start||""))+'" style="min-width:110px;"/></td>'+
-              '<td style="padding:6px 8px;"><input class="eikon-input" id="wa-et-'+i+'" type="time" value="'+esc(off?"":(entry.end||""))+'" style="min-width:110px;"/></td>'+
-            '</tr>';
-        }).join("");
-
-        weekWrap.innerHTML =
-          '<div class="eikon-table-wrap"><table class="eikon-table">'+
-          '<thead><tr><th>Day</th><th>Off</th><th>Start</th><th>End</th></tr></thead>'+
-          '<tbody>'+rows+'</tbody></table></div>';
-
-        // wa-auto-off-sync: Off checkbox reflects time inputs
-        ds.forEach(function(_, i){
-          var offEl = document.getElementById("wa-off-"+i);
-          var stEl  = document.getElementById("wa-st-"+i);
-          var etEl  = document.getElementById("wa-et-"+i);
-          if(!offEl || !stEl || !etEl) return;
-
-          function sync(){
-            var off = !!offEl.checked;
-            stEl.disabled = off;
-            etEl.disabled = off;
-            if(off){ stEl.value=""; etEl.value=""; }
-          }
-
-          offEl.onchange = sync;
-
-          function bump(){
-            if ((stEl.value||"").trim() || (etEl.value||"").trim()){
-              offEl.checked = false;
-              stEl.disabled = false;
-              etEl.disabled = false;
-            }
-          }
-          stEl.oninput = bump;
-          etEl.oninput = bump;
-
-          // initial
-          sync();
-        });
-      }
-
-      function refreshPatternChoices() {
-        var sid = parseInt(empSel.value,10);
-        var e = emp(sid);
-        var st = getPatternState(e);
-        var pats = st.patterns || [];
-        var prov = st.provisionalId;
-        if (!pats.length) {
-          // offer blank
-          patSel.innerHTML = '<option value="__blank">Blank</option>';
-          renderWeekFromPattern(null);
-          return;
-        }
-        patSel.innerHTML = pats.map(function(p){
-          return '<option value="'+esc(p.id)+'"'+(p.id===prov?' selected':'')+'>'+esc(p.name)+(p.id===prov?' (provisional)':'')+'</option>';
-        }).join("");
-        var selPat = findPattern(st, patSel.value) || findPattern(st, prov) || pats[0];
-        renderWeekFromPattern(selPat);
-      }
-
-      empSel.onchange = refreshPatternChoices;
-      patSel.onchange = refreshPatternChoices;
-      refreshPatternChoices();
-      try{
-        var modeSel = document.getElementById("wa-mode");
-        var ow = document.getElementById("wa-owarn");
-        var oc = document.getElementById("wa-oconf");
-        function syncOverwriteConfirm(){
-          if(!modeSel || !ow) return;
-          var isOw = String(modeSel.value||"") === "overwrite";
-          ow.style.display = isOw ? "block" : "none";
-          if(!isOw && oc) oc.checked = false;
-        }
-        if(modeSel) modeSel.onchange = syncOverwriteConfirm;
-        syncOverwriteConfirm();
-      } catch(e) { console.error("[shifts][weekApply] overwrite sync error", e); }
-
-    }, 50);
+async function handleTempDevicesCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
   }
 
-function singleShiftModal(e2, ds, existing, onSave) {
-    var oh=ohFor(ds);
-    var body=
-      '<div style="margin-bottom:10px;font-size:13px;"><b>'+esc(e2?e2.full_name:"?")+' — '+esc(ds)+'</b></div>'+
-      '<div class="eikon-row">'+
-      '<div class="eikon-field"><div class="eikon-label">Start</div><input class="eikon-input" id="ssm-st" type="time" value="'+(existing&&existing.start_time||oh.open||"09:00")+'"/></div>'+
-      '<div class="eikon-field"><div class="eikon-label">End</div><input class="eikon-input" id="ssm-et" type="time" value="'+(existing&&existing.end_time||oh.close||"18:00")+'"/></div>'+
-      '</div>'+
-      '<div class="eikon-field" style="margin-top:8px;"><div class="eikon-label">Notes</div><input class="eikon-input" id="ssm-nt" type="text" value="'+(existing&&existing.notes||"")+'"/></div>';
-    var actions=[{label:"Cancel",onClick:function(){E.modal.hide();}}];
-    if(existing) actions.push({label:"Remove",danger:true,onClick:function(){
-      S.shifts=S.shifts.filter(function(s){return s.id!==existing.id;});
-      apiOp("/shifts/assignments/"+existing.id,{method:"DELETE"},function(){ E.modal.hide(); toast("Removed."); onSave&&onSave(); });
-    }});
-    actions.push({label:existing?"Update":"Add Shift",primary:true,onClick:function(){
-      var st=E.q("#ssm-st").value; var et=E.q("#ssm-et").value;
-      if(!st||!et){toast("Fill times","error");return;}
-      if(t2m(et)<=t2m(st)){toast("End must be after start","error");return;}
-      if(existing){ Object.assign(existing,{start_time:st,end_time:et,notes:E.q("#ssm-nt").value.trim()});
-        apiOp("/shifts/assignments/"+existing.id,{method:"PUT",body:JSON.stringify(existing)},function(){ E.modal.hide(); toast("Updated."); onSave&&onSave(); });
-      } else {
-        var p={staff_id:e2.id,shift_date:ds,start_time:st,end_time:et,notes:E.q("#ssm-nt").value.trim()};
-        p.id=lsNextId(); S.shifts.push(p);
-        apiOp("/shifts/assignments",{method:"POST",body:JSON.stringify(p)},function(r){ if(r.shift_id)p.id=r.shift_id; E.modal.hide(); toast("Shift added."); onSave&&onSave(); });
-      }
-    }});
-    E.modal.show((existing?"Edit":"Assign")+" Shift",body,actions);
+  const body = await readJson(request);
+  const name = (body.name || "").trim();
+  const deviceType = (body.device_type || "other").trim();
+  const minLimit = body.min_limit === null || body.min_limit === undefined ? null : Number(body.min_limit);
+  const maxLimit = body.max_limit === null || body.max_limit === undefined ? null : Number(body.max_limit);
+
+  if (!name) return jsonResponse({ ok: false, error: "Missing name" }, 400, corsOkHeaders);
+  if (!["room", "fridge", "other"].includes(deviceType)) return jsonResponse({ ok: false, error: "Invalid device_type" }, 400, corsOkHeaders);
+
+  const row = await dbFirst(
+    env,
+    `INSERT INTO temperature_devices (org_id, location_id, name, device_type, min_limit, max_limit, active, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'))
+     RETURNING id`,
+    [authUser.org_id, authUser.location_id, name, deviceType, minLimit, maxLimit]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "TEMP_DEVICE_CREATE", "temperature_devices", String(row.id), { name, device_type: deviceType });
+
+  return jsonResponse({ ok: true, device_id: row.id }, 200, corsOkHeaders);
+}
+
+async function handleTempDevicesUpdate(request, env, corsOkHeaders, authUser, deviceId) {
+  if (!requireRole(authUser, ["admin"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
   }
 
-  /* ══════════════════════════════════════════════════════════════
-     VIEW: SCHEDULE GRID
-  ══════════════════════════════════════════════════════════════ */
-  function vSchedule(m) {
-    var y=S.year, mo=S.month, days=dim(y,mo);
-    var all=actStaff();
-    var hdr='<th style="min-width:130px;position:sticky;left:0;background:var(--panel2);z-index:1;">Employee</th>';
-    for(var d=1;d<=days;d++){
-      var ds=ymd(y,mo,d); var wd=new Date(ds).getDay(); var wk=wd===0||wd===6; var ph=isPH(ds);
-      hdr+='<th style="text-align:center;font-size:11px;min-width:44px;'+(wk?"color:var(--muted)":"")+'">';
-      hdr+=DSHORT[wd]+'<br><b>'+d+'</b>'+(ph?'<br><span style="color:var(--accent);font-size:9px;">PH</span>':'')+' </th>';
-    }
-    var rows="";
-    if(!all.length){ rows='<tr><td colspan="'+(days+1)+'" style="text-align:center;color:var(--muted);padding:20px;">No active staff. Add employees first.</td></tr>'; }
-    else all.forEach(function(e){
-      var col=dc(e.designation);
-      var cells='<td style="font-size:12px;font-weight:700;white-space:nowrap;padding:8px;border-right:1px solid var(--border);position:sticky;left:0;background:var(--panel);z-index:1;">'+
-        '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+col+';margin-right:5px;vertical-align:middle;"></span>'+
-        esc(e.full_name)+'<br><span style="font-size:10px;color:var(--muted);font-weight:400;">'+esc(dl(e.designation))+'</span></td>';
-      for(var d2=1;d2<=days;d2++){
-        var ds2=ymd(y,mo,d2); var oh=ohFor(ds2);
-        var sh=S.shifts.find(function(s){return s.staff_id===e.id&&s.shift_date===ds2;});
-        var lv=S.leaves.find(function(l){return l.staff_id===e.id&&l.status==="approved"&&l.start_date<=ds2&&l.end_date>=ds2;});
-        var wd2=new Date(ds2).getDay(); var wk2=wd2===0||wd2===6;
-        var bg=oh.closed?"rgba(0,0,0,.15)":wk2?"rgba(0,0,0,.06)":"transparent";
-        var ct="";
-        if(lv) ct='<div style="font-size:10px;color:var(--danger);text-align:center;font-weight:700;">🏖<br>Leave</div>';
-        else if(sh) ct='<div style="font-size:10px;text-align:center;color:'+col+';font-weight:700;">'+(sh.start_time||"").slice(0,5)+'<br>'+(sh.end_time||"").slice(0,5)+'</div>';
-        cells+='<td style="background:'+bg+';text-align:center;border:1px solid rgba(255,255,255,.03);cursor:pointer;vertical-align:middle;padding:3px;" data-empid="'+e.id+'" data-ds="'+ds2+'">'+ct+'</td>';
-      }
-      rows+="<tr>"+cells+"</tr>";
-    });
+  const body = await readJson(request);
+  const name = body.name !== undefined ? String(body.name || "").trim() : undefined;
+  const deviceType = body.device_type !== undefined ? String(body.device_type || "").trim() : undefined;
+  const minLimit = body.min_limit !== undefined ? (body.min_limit === null ? null : Number(body.min_limit)) : undefined;
+  const maxLimit = body.max_limit !== undefined ? (body.max_limit === null ? null : Number(body.max_limit)) : undefined;
+  const active = body.active !== undefined ? (body.active ? 1 : 0) : undefined;
 
-    m.innerHTML=
-      '<div class="eikon-card">'+
-      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">'+
-      '<div style="font-weight:900;font-size:15px;">📋 Monthly Schedule — '+MONTHS[mo]+' '+y+'</div>'+
-      '<div style="flex:1;"></div>'+
-      '<button class="eikon-btn" id="sh-sgp">◀</button>'+
-      '<button class="eikon-btn" id="sh-sgn">▶</button>'+
-      '</div>'+
-      '<div class="eikon-table-wrap">'+
-      '<table class="eikon-table" style="min-width:'+(days*44+160)+'px;"><thead><tr>'+hdr+'</tr></thead>'+
-      '<tbody>'+rows+'</tbody></table></div>'+
-      '<div style="margin-top:8px;font-size:11px;color:var(--muted);">Click any cell to assign/edit shifts for that employee on that day.</div>'+
-      '</div>';
-
-    E.q("#sh-sgp",m).onclick=function(){ S.month--; if(S.month<0){S.month=11;S.year--;} loadMonth().then(function(){vSchedule(m);}); };
-    E.q("#sh-sgn",m).onclick=function(){ S.month++; if(S.month>11){S.month=0;S.year++;} loadMonth().then(function(){vSchedule(m);}); };
-
-    m.querySelectorAll("td[data-empid]").forEach(function(td){
-      td.onclick=function(){
-        var eid=parseInt(td.getAttribute("data-empid")), ds=td.getAttribute("data-ds");
-        var e2=emp(eid); if(!e2)return;
-        var sh=S.shifts.find(function(s){return s.staff_id===eid&&s.shift_date===ds;});
-        singleShiftModal(e2, ds, sh||null, function(){vSchedule(m);});
-      };
-    });
+  const existing = await dbFirst(
+    env,
+    `SELECT id, name, device_type, min_limit, max_limit, active
+     FROM temperature_devices
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [deviceId, authUser.org_id, authUser.location_id]
+  );
+  if (!existing) {
+    const wantDebug = (request.headers.get("X-Eikon-Debug") || "") === "1";
+    const payload = { ok: false, error: "Not found" };
+    if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
+    return jsonResponse(payload, 404, corsOkHeaders);
   }
 
-  /* ══════════════════════════════════════════════════════════════
-     VIEW: LEAVE
-  ══════════════════════════════════════════════════════════════ */
-  function vLeave(m) {
-    var pending=S.leaves.filter(function(l){return l.status==="pending";});
-    var history=S.leaves.filter(function(l){return l.status!=="pending";}).slice().reverse().slice(0,50);
-    var staffOpts=actStaff().map(function(s){return '<option value="'+s.id+'">'+esc(s.full_name)+'</option>';}).join("");
+  const newName = name !== undefined ? name : existing.name;
+  const newType = deviceType !== undefined ? deviceType : existing.device_type;
+  const newMin = minLimit !== undefined ? minLimit : existing.min_limit;
+  const newMax = maxLimit !== undefined ? maxLimit : existing.max_limit;
+  const newActive = active !== undefined ? active : existing.active;
 
-    m.innerHTML=
-      '<div style="display:flex;flex-direction:column;gap:14px;">'+
-      '<div class="eikon-card">'+
-      '<div style="font-weight:900;font-size:15px;margin-bottom:12px;">📝 Submit Leave Request</div>'+
-      '<div class="eikon-row">'+
-      '<div class="eikon-field"><div class="eikon-label">Employee</div><select class="eikon-select" id="sl-emp">'+staffOpts+'</select></div>'+
-      '<div class="eikon-field"><div class="eikon-label">Leave Type</div>'+
-      '<select class="eikon-select" id="sl-type">'+
-      '<option value="annual">Annual Leave</option>'+
-      '<option value="sick">Sick Leave</option>'+
-      '<option value="urgent_family">Urgent Family (force majeure)</option>'+
-      '<option value="maternity">Maternity Leave</option>'+
-      '<option value="paternity">Paternity Leave</option>'+
-      '<option value="parental">Parental Leave</option>'+
-      '<option value="miscarriage">Miscarriage Leave</option>'+
-      '<option value="other">Other</option>'+
-      '</select></div></div>'+
-      '<div class="eikon-row" style="margin-top:10px;">'+
-      '<div class="eikon-field"><div class="eikon-label">Start Date</div><input class="eikon-input" id="sl-sd" type="date"/></div>'+
-      '<div class="eikon-field"><div class="eikon-label">Start Time <span style="font-size:10px;color:var(--muted);">(partial day)</span></div><input class="eikon-input" id="sl-st" type="time" placeholder="leave blank = full day"/></div>'+
-      '<div class="eikon-field"><div class="eikon-label">End Date</div><input class="eikon-input" id="sl-ed" type="date"/></div>'+
-      '<div class="eikon-field"><div class="eikon-label">End Time <span style="font-size:10px;color:var(--muted);">(partial day)</span></div><input class="eikon-input" id="sl-et" type="time" placeholder="leave blank = full day"/></div>'+
-      '</div>'+
-      '<div class="eikon-row" style="margin-top:10px;">'+
-      '<div class="eikon-field" style="flex:1;"><div class="eikon-label">Reason</div><input class="eikon-input" id="sl-rsn" type="text" placeholder="Optional"/></div>'+
-      '<div class="eikon-field"><div class="eikon-label">&nbsp;</div><button class="eikon-btn primary" id="sl-submit">Submit Request</button></div>'+
-      '</div>'+
-      '<div id="sl-balinfo" style="margin-top:10px;"></div>'+
-      '</div>'+
+  if (!newName) return jsonResponse({ ok: false, error: "Name cannot be empty" }, 400, corsOkHeaders);
+  if (!["room", "fridge", "other"].includes(newType)) return jsonResponse({ ok: false, error: "Invalid device_type" }, 400, corsOkHeaders);
 
-      '<div class="eikon-card">'+
-      '<div style="font-weight:900;font-size:15px;margin-bottom:10px;">⏳ Pending — '+(pending.length)+' request'+(pending.length!==1?"s":"")+'</div>'+
-      '<div class="eikon-table-wrap"><table class="eikon-table"><thead><tr>'+
-      '<th>Employee</th><th>Type</th><th>From</th><th>To</th><th>Hours</th><th>Reason</th><th>Coverage</th><th>Actions</th>'+
-      '</tr></thead><tbody id="sl-ptb">'+
-      (pending.length?pending.map(function(l){return lvRow(l,true);}).join(""):'<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:16px;">No pending requests.</td></tr>')+
-      '</tbody></table></div></div>'+
+  await dbRun(
+    env,
+    `UPDATE temperature_devices
+     SET name = ?, device_type = ?, min_limit = ?, max_limit = ?, active = ?, updated_at = datetime('now')
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [newName, newType, newMin, newMax, newActive, deviceId, authUser.org_id, authUser.location_id]
+  );
 
-      '<div class="eikon-card">'+
-      '<div style="font-weight:900;font-size:15px;margin-bottom:10px;">📋 Leave History</div>'+
-      '<div class="eikon-table-wrap"><table class="eikon-table"><thead><tr>'+
-      '<th>Employee</th><th>Type</th><th>From</th><th>To</th><th>Hours</th><th>Reason</th><th>Coverage</th><th>Status</th>'+
-      '</tr></thead><tbody>'+
-      (history.length?history.map(function(l){return lvRow(l,false);}).join(""):'<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:16px;">No history yet.</td></tr>')+
-      '</tbody></table></div></div></div>';
-
-    function showBal(){
-      var id=parseInt(E.q("#sl-emp",m).value); var b=bal(id); if(!b)return;
-      E.q("#sl-balinfo",m).innerHTML=
-        '<div style="display:flex;gap:8px;flex-wrap:wrap;">'+
-        bb("Annual Leave",b.annualUsed+"h used / "+b.annualLeft+"h left",b.annualLeft<24?"#ff5a7a":"#43d17a")+
-        bb("Sick Leave",b.sickUsed+"h used / "+b.sickLeft+"h left","#fb923c")+
-        bb("Urgent Family",b.ufEnt+"h/yr","#a78bfa")+
-        '</div>';
-    }
-    E.q("#sl-emp",m).onchange=function(){showBal();};
-    showBal();
-
-    E.q("#sl-submit",m).onclick=function(){submitLeave(m);};
-
-    setTimeout(function(){
-      m.querySelectorAll("[data-lv-app]").forEach(function(btn){
-        btn.onclick=function(){ approveLeave(parseInt(btn.getAttribute("data-lv-app")),function(){vLeave(m);}); };
-      });
-      m.querySelectorAll("[data-lv-rej]").forEach(function(btn){
-        btn.onclick=function(){ rejectLeave(parseInt(btn.getAttribute("data-lv-rej")),function(){vLeave(m);}); };
-      });
-    },60);
-  }
-
-  function bb(l,v,c){
-    return '<div style="padding:8px 12px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:8px;">'+
-      '<div style="font-size:11px;color:var(--muted);">'+esc(l)+'</div>'+
-      '<div style="font-weight:700;color:'+c+';font-size:13px;">'+esc(v)+'</div></div>';
-  }
-
-  function lvRow(l, showAct){
-    var e2=emp(l.staff_id);
-    var nm=e2?e2.full_name:"?";
-    var partial=(l.start_time||l.end_time)?" ("+(l.start_time||"")+"–"+(l.end_time||"")+")":"";
-    var covHtml="";
-    if(e2&&(e2.designation==="pharmacist")&&l.status==="pending"){
-      var alts=pharmStaff().filter(function(p){return p.id!==e2.id;});
-      var locAvail=actStaff().some(function(s){return s.designation==="locum";});
-      if(alts.length) covHtml='<span style="color:var(--ok);font-size:11px;">✓ '+alts.length+' alt pharmacist</span>';
-      else if(locAvail) covHtml='<span style="color:#fb923c;font-size:11px;">⚠ Locum available</span>';
-      else covHtml='<span style="color:var(--danger);font-size:11px;font-weight:700;">⚠ Book a locum!</span>';
-    }
-    var stCol=l.status==="approved"?"var(--ok)":l.status==="rejected"?"var(--danger)":"#f59e0b";
-    var actTd=showAct
-      ?'<td><button class="eikon-btn primary" style="font-size:11px;padding:5px 8px;" data-lv-app="'+l.id+'">✓ Approve</button> <button class="eikon-btn danger" style="font-size:11px;padding:5px 8px;" data-lv-rej="'+l.id+'">✗ Reject</button></td>'
-      :'<td><b style="color:'+stCol+';font-size:12px;">'+esc(l.status.toUpperCase())+'</b></td>';
-    return '<tr>'+
-      '<td><b>'+esc(nm)+'</b></td>'+
-      '<td><span class="eikon-pill" style="font-size:11px;">'+esc(l.leave_type||"")+'</span></td>'+
-      '<td>'+esc(l.start_date||"")+'</td>'+
-      '<td>'+esc(l.end_date||"")+esc(partial)+'</td>'+
-      '<td>'+esc(String(l.hours_requested||"—"))+'h</td>'+
-      '<td style="font-size:12px;color:var(--muted);max-width:100px;">'+esc(l.reason||"—")+'</td>'+
-      '<td>'+covHtml+'</td>'+actTd+'</tr>';
-  }
-
-  function submitLeave(m){
-    var sid=parseInt(E.q("#sl-emp",m).value);
-    var lt=E.q("#sl-type",m).value;
-    var sd=E.q("#sl-sd",m).value; if(!sd){toast("Start date required","error");return;}
-    var st=E.q("#sl-st",m).value;
-    var ed=E.q("#sl-ed",m).value||sd;
-    var et=E.q("#sl-et",m).value;
-    var rsn=E.q("#sl-rsn",m).value.trim();
-    var hrs=0;
-    if(st&&et){ hrs=(t2m(et)-t2m(st))/60; }
-    else { hrs=wdCount(sd,ed)*8; }
-    var b=bal(sid);
-    if(b&&lt==="annual"&&hrs>b.annualLeft){ toast("Warning: Exceeds remaining annual leave ("+b.annualLeft+"h)","error"); }
-    var p={staff_id:sid,leave_type:lt,start_date:sd,start_time:st||null,end_date:ed,end_time:et||null,hours_requested:Math.max(0,+hrs.toFixed(1)),reason:rsn,status:"pending"};
-    p.id=lsNextId(); S.leaves.push(p);
-    apiOp("/shifts/leaves",{method:"POST",body:JSON.stringify(p)},function(r){ if(r.leave_id)p.id=r.leave_id; toast("Leave request submitted."); vLeave(m); });
-  }
-
-  function approveLeave(id, cb){
-    var l=S.leaves.find(function(x){return x.id===id;}); if(!l)return;
-    var e2=emp(l.staff_id);
-    var isPharm=e2&&e2.designation==="pharmacist";
-    var alts=isPharm?pharmStaff().filter(function(p){return p.id!==e2.id;}):[];
-    var locAvail=actStaff().some(function(s){return s.designation==="locum";});
-
-    function doApprove(){
-      l.status="approved"; adjustShifts(l);
-      apiOp("/shifts/leaves/"+id+"/approve",{method:"POST"},function(){ toast("Leave approved."); cb&&cb(); });
-    }
-    if(isPharm&&alts.length===0&&!locAvail){
-      E.modal.show("⚠ Coverage Gap",
-        '<div class="eikon-alert">Approving this leave creates a pharmacist coverage gap with no alternative pharmacist or locum in the team. Consider booking a locum.</div>',
-        [{label:"Cancel",onClick:function(){E.modal.hide();}},{label:"Approve Anyway",danger:true,onClick:function(){E.modal.hide();doApprove();}}]);
-    } else if(isPharm&&alts.length===0&&locAvail){
-      E.modal.show("Locum Required",
-        '<div style="padding:10px;background:rgba(247,144,9,.1);border:1px solid rgba(247,144,9,.4);border-radius:8px;font-size:13px;">A locum is in your team. Please ensure a locum shift is assigned for these dates.</div>',
-        [{label:"Cancel",onClick:function(){E.modal.hide();}},{label:"Approve & Schedule Locum",primary:true,onClick:function(){E.modal.hide();doApprove();}}]);
-    } else { doApprove(); }
-  }
-
-  function rejectLeave(id,cb){
-    var l=S.leaves.find(function(x){return x.id===id;}); if(!l)return;
-    l.status="rejected";
-    apiOp("/shifts/leaves/"+id+"/reject",{method:"POST"},function(){ toast("Leave rejected."); cb&&cb(); });
-  }
-
-  function adjustShifts(l){
-    S.shifts.forEach(function(s){
-      if(s.staff_id!==l.staff_id) return;
-      if(s.shift_date<l.start_date||s.shift_date>l.end_date) return;
-      if(!l.start_time&&!l.end_time){ s._leaveRemove=true; return; }
-      // Partial day adjustment
-      if(l.start_time){ var shEnd=t2m(l.start_time); if(t2m(s.start_time)<shEnd) s.end_time=l.start_time; }
-      if(l.end_time){ var shSt=t2m(l.end_time); if(t2m(s.end_time)>shSt) s.start_time=l.end_time; }
-    });
-    S.shifts=S.shifts.filter(function(s){return !s._leaveRemove;});
-    lsSync();
-  }
-
-  /* ══════════════════════════════════════════════════════════════
-     VIEW: INTEGRATION (iCal / Google Calendar)
-  ══════════════════════════════════════════════════════════════ */
-  
-  /* ── Export / Print ─────────────────────────────────────────── */
-  function genToken(len){
-    len = len || 32;
-    var alpha = "abcdefghijklmnopqrstuvwxyz234567";
-    try {
-      var a = new Uint8Array(len);
-      (window.crypto||window.msCrypto).getRandomValues(a);
-      var out = "";
-      for (var i=0;i<len;i++) out += alpha[a[i] % alpha.length];
-      return out;
-    } catch(e) {
-      // fallback (less random)
-      var s=""; while(s.length<len) s += Math.random().toString(36).slice(2);
-      return s.slice(0,len).replace(/[^a-z0-9]/g,"a");
-    }
-  }
-
-  function csvEsc(v){
-    if (v == null) v = "";
-    var s = String(v);
-    if (/[",\r\n]/.test(s)) s = '"' + s.replace(/"/g,'""') + '"';
-    return s;
-  }
-
-  function downloadText(filename, mime, text) {
-    try {
-      var blob = new Blob([text], { type: mime || "text/plain" });
-      var url = URL.createObjectURL(blob);
-      var a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(function(){ URL.revokeObjectURL(url); a.remove(); }, 300);
-      console.log("[shifts][export] download", filename, "bytes=", (text||"").length);
-    } catch(e) {
-      console.error("[shifts][export] download failed", e);
-      toast("Download failed","error");
-    }
-  }
-
-  async function fetchShiftRange(from, to, staffId){
-    var u = "/shifts/assignments-range?from="+encodeURIComponent(from)+"&to="+encodeURIComponent(to);
-    if (staffId) u += "&staff_id="+encodeURIComponent(staffId);
-    console.groupCollapsed("[shifts][export] fetch range", from, "→", to, "staff=", staffId||"ALL");
-    try {
-      var r = await E.apiFetch(u, {method:"GET"});
-      var shifts = (r && r.shifts) ? r.shifts : [];
-      console.log("[shifts][export] range shifts=", shifts.length, "sample=", shifts.slice(0,3));
-      console.groupEnd();
-      return shifts;
-    } catch(e) {
-      console.error("[shifts][export] range fetch failed", e);
-      console.groupEnd();
-      throw e;
-    }
-  }
-
-  function shiftsToCsv(shifts){
-    var rows = [];
-    rows.push(["Date","Start","End","Employee","Role","Notes"].map(csvEsc).join(","));
-    (shifts||[]).forEach(function(s){
-      var e = emp(s.staff_id);
-      rows.push([
-        s.shift_date || "",
-        s.start_time || "",
-        s.end_time || "",
-        (e && e.full_name) ? e.full_name : ("#"+s.staff_id),
-        (e && e.designation) ? dl(e.designation) : (s.role_override||""),
-        s.notes || ""
-      ].map(csvEsc).join(","));
-    });
-    return rows.join("\r\n");
-  }
-
-  function buildPrintHtml(shifts, title, from, to, staffId){
-    var by = {};
-    (shifts||[]).forEach(function(s){
-      var d = s.shift_date || "—";
-      (by[d] = by[d] || []).push(s);
-    });
-    var days = Object.keys(by).sort();
-    var h = '';
-    h += '<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;padding:18px;">';
-    h += '<div style="font-size:18px;font-weight:900;margin-bottom:6px;">'+esc(title)+'</div>';
-    h += '<div style="color:#555;font-size:12px;margin-bottom:14px;">Range: '+esc(from)+' → '+esc(to)+(staffId?(' | Staff #'+esc(staffId)):"")+'</div>';
-    days.forEach(function(d){
-      var list = by[d] || [];
-      list.sort(function(a,b){ return String(a.start_time||"").localeCompare(String(b.start_time||"")); });
-      h += '<div style="margin-top:14px;font-weight:900;">'+esc(d)+'</div>';
-      h += '<table style="width:100%;border-collapse:collapse;margin-top:6px;font-size:12px;">';
-      h += '<thead><tr>'+
-           '<th style="text-align:left;border:1px solid #ddd;padding:6px;background:#f6f7fb;">Time</th>'+
-           '<th style="text-align:left;border:1px solid #ddd;padding:6px;background:#f6f7fb;">Employee</th>'+
-           '<th style="text-align:left;border:1px solid #ddd;padding:6px;background:#f6f7fb;">Role</th>'+
-           '<th style="text-align:left;border:1px solid #ddd;padding:6px;background:#f6f7fb;">Notes</th>'+
-           '</tr></thead><tbody>';
-      list.forEach(function(s){
-        var e = emp(s.staff_id);
-        h += '<tr>'+
-             '<td style="border:1px solid #ddd;padding:6px;">'+esc((s.start_time||"")+"–"+(s.end_time||""))+'</td>'+
-             '<td style="border:1px solid #ddd;padding:6px;">'+esc(e?e.full_name:("#"+s.staff_id))+'</td>'+
-             '<td style="border:1px solid #ddd;padding:6px;">'+esc(e?dl(e.designation):(s.role_override||""))+'</td>'+
-             '<td style="border:1px solid #ddd;padding:6px;">'+esc(s.notes||"")+'</td>'+
-             '</tr>';
-      });
-      h += '</tbody></table>';
-    });
-    if (!days.length) h += '<div style="margin-top:12px;color:#777;">No shifts in this range.</div>';
-    h += '</div>';
-    return h;
-  }
-
-  function printHtml(title, htmlBody){
-    console.log("[shifts][print] start", title);
-    try {
-      var f = document.createElement("iframe");
-      f.style.position="fixed";
-      f.style.right="0";
-      f.style.bottom="0";
-      f.style.width="0";
-      f.style.height="0";
-      f.style.border="0";
-      document.body.appendChild(f);
-
-      var doc = f.contentDocument || f.contentWindow.document;
-      doc.open();
-      doc.write('<!doctype html><html><head><meta charset="utf-8"/><title>'+esc(title)+'</title></head><body>'+htmlBody+'</body></html>');
-      doc.close();
-
-      setTimeout(function(){
-        try {
-          f.contentWindow.focus();
-          f.contentWindow.print();
-        } catch(e) { console.error("[shifts][print] print failed", e); }
-        setTimeout(function(){ try{ f.remove(); } catch(_){} }, 1200);
-      }, 250);
-    } catch(e) {
-      console.error("[shifts][print] failed", e);
-      toast("Print failed","error");
-    }
-  }
-
-  function exportPrintModal(){
-    var today = new Date();
-    var dsToday = today.getFullYear()+"-"+pad(today.getMonth()+1)+"-"+pad(today.getDate());
-    var monthVal = S.year+"-"+pad(S.month+1);
-
-    var staffOpts = '<option value="">All Staff</option>' + actStaff().map(function(s){
-      return '<option value="'+s.id+'">'+esc(s.full_name)+' ('+esc(dl(s.designation))+')</option>';
-    }).join("");
-
-    var body =
-      '<div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Export shifts to CSV or print a report (day / month / year / custom range).</div>'+
-      '<div class="eikon-row">'+
-        '<div class="eikon-field"><div class="eikon-label">Scope</div>'+
-          '<select class="eikon-select" id="xp-scope">'+
-            '<option value="day">Day</option>'+
-            '<option value="month" selected>Month</option>'+
-            '<option value="year">Year</option>'+
-            '<option value="range">Range</option>'+
-          '</select>'+
-        '</div>'+
-        '<div class="eikon-field"><div class="eikon-label">Staff</div><select class="eikon-select" id="xp-staff">'+staffOpts+'</select></div>'+
-      '</div>'+
-      '<div class="eikon-row" id="xp-row-day" style="margin-top:6px;">'+
-        '<div class="eikon-field"><div class="eikon-label">Date</div><input class="eikon-input" id="xp-day" type="date" value="'+esc(dsToday)+'"/></div>'+
-      '</div>'+
-      '<div class="eikon-row" id="xp-row-month" style="margin-top:6px;display:none;">'+
-        '<div class="eikon-field"><div class="eikon-label">Month</div><input class="eikon-input" id="xp-month" type="month" value="'+esc(monthVal)+'"/></div>'+
-      '</div>'+
-      '<div class="eikon-row" id="xp-row-year" style="margin-top:6px;display:none;">'+
-        '<div class="eikon-field"><div class="eikon-label">Year</div><input class="eikon-input" id="xp-year" type="number" min="2000" max="2100" value="'+esc(String(S.year))+'"/></div>'+
-      '</div>'+
-      '<div class="eikon-row" id="xp-row-range" style="margin-top:6px;display:none;">'+
-        '<div class="eikon-field"><div class="eikon-label">From</div><input class="eikon-input" id="xp-from" type="date" value="'+esc(dsToday)+'"/></div>'+
-        '<div class="eikon-field"><div class="eikon-label">To</div><input class="eikon-input" id="xp-to" type="date" value="'+esc(dsToday)+'"/></div>'+
-      '</div>'+
-      '<div id="xp-hint" style="margin-top:10px;font-size:11px;color:var(--muted);"></div>';
-
-    E.modal.show("Export / Print", body, [
-      {label:"Close", onClick:function(){ E.modal.hide(); }},
-      {label:"Download CSV", primary:true, onClick:async function(){
-        try {
-          var r = await xpDo("csv");
-          if (!r) return;
-          downloadText(r.filename, "text/csv;charset=utf-8", r.csv);
-          toast("CSV downloaded.");
-        } catch(e) { console.error(e); toast("Export failed","error"); }
-      }},
-      {label:"Print", onClick:async function(){
-        try {
-          var r = await xpDo("print");
-          if (!r) return;
-          printHtml(r.title, r.html);
-        } catch(e) { console.error(e); toast("Print failed","error"); }
-      }}
-    ]);
-
-    function showRow(id, show){
-      var el = document.getElementById(id);
-      if (el) el.style.display = show ? "" : "none";
-    }
-
-    function scopeChanged(){
-      var sc = document.getElementById("xp-scope").value;
-      showRow("xp-row-day",   sc==="day");
-      showRow("xp-row-month", sc==="month");
-      showRow("xp-row-year",  sc==="year");
-      showRow("xp-row-range", sc==="range");
-      var hint = document.getElementById("xp-hint");
-      if (hint) hint.textContent = (sc==="day")?"Single date export/print.":
-        (sc==="month")?"Whole month export/print.":
-        (sc==="year")?"Whole year export/print. (May be large.)":
-        "Custom date range export/print.";
-    }
-
-    async function xpDo(kind){
-      var scope = document.getElementById("xp-scope").value;
-      var staffId = document.getElementById("xp-staff").value;
-      staffId = staffId ? parseInt(staffId,10) : null;
-
-      var from="", to="", title="Shifts";
-      if (scope==="day"){
-        from = document.getElementById("xp-day").value;
-        to = from;
-        title = "Shifts — "+from;
-      } else if (scope==="month"){
-        var mv = document.getElementById("xp-month").value; // YYYY-MM
-        if(!mv){ toast("Select a month","error"); return null; }
-        var parts = mv.split("-");
-        var yy = parseInt(parts[0],10), mm = parseInt(parts[1],10);
-        from = yy+"-"+pad(mm)+"-01";
-        var last = new Date(yy, mm, 0).getDate();
-        to = yy+"-"+pad(mm)+"-"+pad(last);
-        title = "Shifts — "+mv;
-      } else if (scope==="year"){
-        var yy2 = parseInt(document.getElementById("xp-year").value,10);
-        if(!yy2){ toast("Select a year","error"); return null; }
-        from = yy2+"-01-01";
-        to = yy2+"-12-31";
-        title = "Shifts — "+yy2;
-      } else {
-        from = document.getElementById("xp-from").value;
-        to = document.getElementById("xp-to").value;
-        if(!from||!to){ toast("Select range","error"); return null; }
-        if(from>to){ var t=from; from=to; to=t; }
-        title = "Shifts — "+from+" → "+to;
-      }
-
-      var shifts = await fetchShiftRange(from, to, staffId);
-      if (kind==="csv"){
-        var csv = shiftsToCsv(shifts);
-        var fn = "shifts_"+from+"_to_"+to+(staffId?("_staff"+staffId):"")+".csv";
-        return { filename: fn, csv: csv };
-      }
-      // print
-      var html = buildPrintHtml(shifts, title, from, to, staffId);
-      return { title: title, html: html };
-    }
-
-    setTimeout(function(){
-      var sc = document.getElementById("xp-scope");
-      if (sc) sc.onchange = scopeChanged;
-      // default month view
-      document.getElementById("xp-scope").value = "month";
-      scopeChanged();
-    }, 30);
-  }
-
-function vIntegration(m){
-    var token = (S.settings && S.settings.calendarToken) ? String(S.settings.calendarToken) : "";
-    var origin = (window.location && window.location.origin) ? window.location.origin : "";
-    var staffOpts = '<option value="">All Staff</option>' + actStaff().map(function(s){
-      return '<option value="'+s.id+'">'+esc(s.full_name)+' ('+esc(dl(s.designation))+')</option>';
-    }).join("");
-
-    function urlFor(){
-      var staffId = E.q("#si-live-emp",m) ? E.q("#si-live-emp",m).value : "";
-      var past = E.q("#si-live-past",m) ? (parseInt(E.q("#si-live-past",m).value,10)||30) : 30;
-      var future = E.q("#si-live-fut",m) ? (parseInt(E.q("#si-live-fut",m).value,10)||180) : 180;
-
-      if (!token) return "";
-      var u = origin + "/shifts/ical?token=" + encodeURIComponent(token);
-      if (staffId) u += "&staff_id=" + encodeURIComponent(staffId);
-      if (past!=null) u += "&past=" + encodeURIComponent(past);
-      if (future!=null) u += "&future=" + encodeURIComponent(future);
-      return u;
-    }
-
-    m.innerHTML =
-      '<div style="display:flex;flex-direction:column;gap:14px;">'+
-
-      '<div class="eikon-card">'+
-        '<div style="font-weight:900;font-size:15px;margin-bottom:8px;">🔗 Live Calendar Feed (Google Calendar / iCal)</div>'+
-        '<div class="eikon-help" style="margin-bottom:12px;">Subscribe to a live-updating calendar URL. Google Calendar refreshes subscriptions periodically. Use: Google Calendar → Other calendars → From URL.</div>'+
-        '<div class="eikon-row">'+
-          '<div class="eikon-field"><div class="eikon-label">Employee filter</div><select class="eikon-select" id="si-live-emp">'+staffOpts+'</select></div>'+
-          '<div class="eikon-field"><div class="eikon-label">Past days</div><input class="eikon-input" id="si-live-past" type="number" min="0" max="365" value="30"/></div>'+
-          '<div class="eikon-field"><div class="eikon-label">Future days</div><input class="eikon-input" id="si-live-fut" type="number" min="1" max="730" value="180"/></div>'+
-        '</div>'+
-        '<div class="eikon-field" style="margin-top:10px;">'+
-          '<div class="eikon-label">Live URL</div>'+
-          '<input class="eikon-input" id="si-live-url" type="text" readonly value="'+esc(token?urlFor():"")+'" />'+
-          '<div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;">'+
-            '<button class="eikon-btn '+(token?"":"primary")+'" id="si-live-gen">'+(token?"Regenerate Token":"Generate Token")+'</button>'+
-            '<button class="eikon-btn" id="si-live-copy"'+(token?"":" disabled")+'>📋 Copy URL</button>'+
-            '<button class="eikon-btn" id="si-live-copyweb"'+(token?"":" disabled")+'>📋 Copy webcal:// URL</button>'+
-          '</div>'+
-          '<div style="margin-top:8px;font-size:11px;color:var(--muted);">'+
-            (token?('Token: <code style="font-size:11px;">'+esc(token)+'</code>'):'No token yet. Click <b>Generate Token</b>.')+
-          '</div>'+
-        '</div>'+
-      '</div>'+
-
-      '<div class="eikon-card">'+
-        '<div style="font-weight:900;font-size:15px;margin-bottom:8px;">🧾 Export / Print</div>'+
-        '<div class="eikon-help" style="margin-bottom:12px;">Download CSV or print reports (day / month / year / range).</div>'+
-        '<button class="eikon-btn primary" id="si-export">Open Export / Print</button>'+
-      '</div>'+
-
-      '<div class="eikon-card">'+
-        '<div style="font-weight:900;font-size:15px;margin-bottom:8px;">📆 Static .ics Download (manual import)</div>'+
-        '<div class="eikon-help" style="margin-bottom:14px;">Download an .ics file for a selected month. This is a one-time import (not live).</div>'+
-        '<div class="eikon-row" style="margin-bottom:14px;">'+
-          '<div class="eikon-field"><div class="eikon-label">Filter Employee</div>'+
-            '<select class="eikon-select" id="si-emp">'+
-              '<option value="">All Staff</option>'+
-              actStaff().map(function(s){return '<option value="'+s.id+'">'+esc(s.full_name)+'</option>';}).join("")+
-            '</select>'+
-          '</div>'+
-          '<div class="eikon-field"><div class="eikon-label">Month Filter</div>'+
-            '<input class="eikon-input" id="si-month" type="month" value="'+S.year+"-"+pad(S.month+1)+'"/>'+
-          '</div>'+
-        '</div>'+
-        '<div style="display:flex;gap:10px;flex-wrap:wrap;">'+
-          '<a id="si-dl" href="#" download="eikon-shifts.ics" class="eikon-btn primary">⬇ Download .ics</a>'+
-          '<button class="eikon-btn" id="si-copy">📋 Copy webcal:// Instructions</button>'+
-        '</div>'+
-        '<div id="si-hint" style="margin-top:10px;"></div>'+
-      '</div>'+
-
-      '</div>';
-
-    // Handlers
-    function refreshLiveUrl(){
-      var u = urlFor();
-      var inp = document.getElementById("si-live-url");
-      if (inp) inp.value = u;
-      console.log("[shifts][ical] live url updated:", u);
-    }
-
-    function saveToken(newTok){
-      S.settings = S.settings || {};
-      S.settings.calendarToken = newTok;
-      token = newTok;
-      console.log("[shifts][ical] saving token…", newTok);
-      apiOp("/shifts/settings", {method:"PUT", body: JSON.stringify(S.settings)}, function(){
-        toast("Calendar token saved.");
-        vIntegration(m);
-      });
-    }
-
-    var genBtn = document.getElementById("si-live-gen");
-    if (genBtn) genBtn.onclick=function(){
-      var t = genToken(32);
-      saveToken(t);
-    };
-    var copyBtn = document.getElementById("si-live-copy");
-    if (copyBtn) copyBtn.onclick=function(){
-      var u = urlFor();
-      if (!u) { toast("No URL","error"); return; }
-      navigator.clipboard.writeText(u).then(function(){ toast("Copied."); }).catch(function(e){ console.error(e); toast("Copy failed","error"); });
-    };
-    var copyWeb = document.getElementById("si-live-copyweb");
-    if (copyWeb) copyWeb.onclick=function(){
-      var u = urlFor();
-      if (!u) { toast("No URL","error"); return; }
-      var w = u.replace(/^https?:\/\//, "webcal://");
-      navigator.clipboard.writeText(w).then(function(){ toast("Copied webcal:// URL."); }).catch(function(e){ console.error(e); toast("Copy failed","error"); });
-    };
-
-    ["si-live-emp","si-live-past","si-live-fut"].forEach(function(id){
-      var el = document.getElementById(id);
-      if (el) el.onchange = refreshLiveUrl;
-      if (el) el.oninput = refreshLiveUrl;
-    });
-    refreshLiveUrl();
-
-    var exBtn = document.getElementById("si-export");
-    if (exBtn) exBtn.onclick=function(){ exportPrintModal(); };
-
-    // Existing .ics download logic
-    function rebuild(){
-      var empId = E.q("#si-emp",m).value;
-      var mv = E.q("#si-month",m).value;
-      var y = parseInt((mv||"").split("-")[0]||S.year,10);
-      var mm = parseInt((mv||"").split("-")[1]||S.month+1,10)-1;
-      var ics = buildICal(y, mm, empId?parseInt(empId,10):null);
-      var blob = new Blob([ics], {type:"text/calendar;charset=utf-8"});
-      var url = URL.createObjectURL(blob);
-      var a = E.q("#si-dl",m);
-      a.href=url;
-      a.download="eikon-shifts-"+(mv||"month")+(empId?("-staff"+empId):"")+".ics";
-      E.q("#si-hint",m).innerHTML='<div class="eikon-help">Generated '+(ics.split("BEGIN:VEVENT").length-1)+' events.</div>';
-    }
-    E.q("#si-month",m).onchange=rebuild;
-    E.q("#si-emp",m).onchange=rebuild;
-    E.q("#si-copy",m).onclick=function(){
-      var txt = "Google Calendar → Other calendars → From URL. Paste a webcal:// URL to subscribe.\n\nFor live: use the Live URL above (webcal://).";
-      navigator.clipboard.writeText(txt).then(function(){ toast("Copied instructions."); }).catch(function(e){ console.error(e); toast("Copy failed","error"); });
-    };
-    rebuild();
-  }
-
-  function buildICal(yr,mo2,empFilter){
-    var y=yr!==undefined?yr:S.year, mo=mo2!==undefined?mo2:S.month;
-    var lines=[
-      "BEGIN:VCALENDAR","VERSION:2.0",
-      "PRODID:-//Eikon Pharmacy//ShiftMgmt//EN",
-      "CALSCALE:GREGORIAN","METHOD:PUBLISH",
-      "X-WR-CALNAME:Eikon Pharmacy Shifts",
-      "X-WR-TIMEZONE:Europe/Malta"
-    ];
-    S.shifts.forEach(function(s){
-      var dt=s.shift_date||""; var p=dt.split("-");
-      if(p.length!==3)return;
-      if(+p[0]!==y||+p[1]-1!==mo)return;
-      if(empFilter&&s.staff_id!==empFilter)return;
-      var e2=emp(s.staff_id); var nm=e2?e2.full_name:"Staff";
-      var dsStart=p[0]+p[1]+p[2]+"T"+(s.start_time||"09:00").replace(":","")+"00";
-      var dsEnd=p[0]+p[1]+p[2]+"T"+(s.end_time||"18:00").replace(":","")+"00";
-      lines.push("BEGIN:VEVENT","UID:eikon-sh-"+s.id+"@pharmacy.mt",
-        "DTSTAMP:"+new Date().toISOString().replace(/[-:]/g,"").slice(0,15)+"Z",
-        "DTSTART;TZID=Europe/Malta:"+dsStart,
-        "DTEND;TZID=Europe/Malta:"+dsEnd,
-        "SUMMARY:"+icalEsc(nm+(e2?" ("+dl(e2.designation)+")" : "")),
-        "DESCRIPTION:"+icalEsc((s.start_time||"")+"–"+(s.end_time||"")+(s.notes?" | "+s.notes:"")),
-        "END:VEVENT");
-    });
-    S.leaves.filter(function(l){return l.status==="approved";}).forEach(function(l){
-      var e2=emp(l.staff_id); var nm=e2?e2.full_name:"Staff";
-      lines.push("BEGIN:VEVENT","UID:eikon-lv-"+l.id+"@pharmacy.mt",
-        "DTSTAMP:"+new Date().toISOString().replace(/[-:]/g,"").slice(0,15)+"Z",
-        "DTSTART;VALUE=DATE:"+l.start_date.replace(/-/g,""),
-        "DTEND;VALUE=DATE:"+addD(l.end_date,1).replace(/-/g,""),
-        "SUMMARY:"+icalEsc(nm+" — "+l.leave_type+" leave"),
-        "DESCRIPTION:"+icalEsc((l.reason||l.leave_type)+" | "+l.hours_requested+"h"),
-        "TRANSP:TRANSPARENT","END:VEVENT");
-    });
-    lines.push("END:VCALENDAR");
-    return lines.join("\r\n");
-  }
-  function icalEsc(s){ return String(s).replace(/\\/g,"\\\\").replace(/;/g,"\\;").replace(/,/g,"\\,").replace(/\n/g,"\\n"); }
-
-  /* ══════════════════════════════════════════════════════════════
-     MAIN RENDER
-  ══════════════════════════════════════════════════════════════ */
-  async function render(ctx) {
-    var mount=ctx.mount;
-    E.dbg&&E.dbg("[shifts] render()");
-    mount.innerHTML='<div style="padding:20px;color:var(--muted);">Loading shift data…</div>';
-    try { await loadAll(); } catch(e){ E.warn&&E.warn("[shifts]",e); }
-
-    function go(){
-      var TABS=[
-        {id:"calendar",    label:"📅 Calendar"},
-        {id:"schedule",    label:"📋 Schedule"},
-        {id:"staff",       label:"👥 Staff"},
-        {id:"leave",       label:"🏖 Leave"},
-        {id:"integration", label:"🔗 Integration"},
-        {id:"settings",    label:"⚙️ Settings"}
-      ];
-      var tabBar=TABS.map(function(t){
-        return '<button class="eikon-btn'+(t.id===S.tab?" primary":"")+'" data-tab="'+t.id+'" style="font-size:12px;padding:7px 11px;">'+t.label+'</button>';
-      }).join("");
-
-      // Today coverage banner
-      var tn=new Date(); var tds=tn.getFullYear()+"-"+pad(tn.getMonth()+1)+"-"+pad(tn.getDate());
-      var tc=checkCov(tds);
-      var banner=(!tc.ok)?'<div style="margin-bottom:10px;padding:10px 14px;background:rgba(255,90,122,.12);border:1px solid rgba(255,90,122,.4);border-radius:10px;font-size:13px;font-weight:700;color:var(--danger);">⚠️ '+esc(tc.issues.join(" | "))+'</div>':"";
-
-      mount.innerHTML=banner+
-        '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;" id="sh-tabbar">'+tabBar+'</div>'+
-        '<div id="sh-content"></div>';
-
-      mount.querySelectorAll("[data-tab]").forEach(function(btn){
-        btn.onclick=function(){ S.tab=btn.getAttribute("data-tab"); go(); };
-      });
-
-      var c=E.q("#sh-content",mount);
-      if(S.tab==="calendar")    vCalendar(c);
-      else if(S.tab==="schedule")    vSchedule(c);
-      else if(S.tab==="staff")       vStaff(c);
-      else if(S.tab==="leave")       vLeave(c);
-      else if(S.tab==="integration") vIntegration(c);
-      else if(S.tab==="settings")    vSettings(c);
-    }
-    go();
-    E.dbg&&E.dbg("[shifts] render() done");
-  }
-
-  E.registerModule({
-    id:    "shifts",
-    title: "Shifts",
-    order: 3,
-    icon:  "📅",
-    render: render
+  await writeAudit(env, authUser.org_id, authUser.user_id, "TEMP_DEVICE_UPDATE", "temperature_devices", String(deviceId), {
+    name: newName,
+    device_type: newType,
+    min_limit: newMin,
+    max_limit: newMax,
+    active: newActive
   });
 
-  E.dbg&&E.dbg("[shifts] module loaded");
-})();
+  const out = { ok: true };
+  if (isDebugEnabled(request)) out.debug = { entryId: entryId };
+  return jsonResponse(out, 200, corsOkHeaders);
+}
+
+async function assertDeviceBelongsActive(env, orgId, locationId, deviceId) {
+  const row = await dbFirst(
+    env,
+    `SELECT id, name, device_type, min_limit, max_limit, active
+     FROM temperature_devices
+     WHERE id = ? AND org_id = ? AND location_id = ? AND active = 1`,
+    [deviceId, orgId, locationId]
+  );
+  return row || null;
+}
+
+async function handleTempEntriesList(request, env, corsOkHeaders, authUser, url) {
+  const month = (url.searchParams.get("month") || "").trim();
+  const range = monthRange(month);
+  if (!range) return jsonResponse({ ok: false, error: "Missing/invalid month (YYYY-MM)" }, 400, corsOkHeaders);
+
+  const entries = await dbAll(
+    env,
+    `SELECT
+       e.id,
+       e.entry_date,
+       e.min_temp,
+       e.max_temp,
+       e.notes,
+       e.created_by,
+       e.created_at,
+       e.updated_at,
+       d.id AS device_id,
+       d.name AS device_name,
+       d.device_type,
+       d.min_limit,
+       d.max_limit,
+       d.active AS device_active
+     FROM temperature_entries e
+     JOIN temperature_devices d ON d.id = e.device_id
+     WHERE e.org_id = ?
+       AND e.location_id = ?
+       AND e.entry_date >= ?
+       AND e.entry_date < ?
+     ORDER BY e.entry_date DESC, d.id ASC`,
+    [authUser.org_id, authUser.location_id, range.startStr, range.endStr]
+  );
+
+  return jsonResponse({ ok: true, entries }, 200, corsOkHeaders);
+}
+
+async function handleTempEntriesUpsert(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDefaultTempDevicesIfMissing(env, authUser);
+
+  const body = await readJson(request);
+  const deviceId = parseInt(body.device_id, 10);
+  const entryDate = (body.entry_date || "").trim();
+  const minTemp = clampToOneDecimal(body.min_temp);
+  const maxTemp = clampToOneDecimal(body.max_temp);
+  const notes = (body.notes || "").trim();
+
+  if (!deviceId) return jsonResponse({ ok: false, error: "Missing device_id" }, 400, corsOkHeaders);
+  if (!isValidYmd(entryDate)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+
+  const dev = await assertDeviceBelongsActive(env, authUser.org_id, authUser.location_id, deviceId);
+  if (!dev) return jsonResponse({ ok: false, error: "Invalid device" }, 400, corsOkHeaders);
+
+  const row = await dbFirst(
+    env,
+    `INSERT INTO temperature_entries
+       (org_id, location_id, device_id, entry_date, min_temp, max_temp, notes, created_by, created_at, updated_at)
+     VALUES
+       (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+     ON CONFLICT(org_id, location_id, device_id, entry_date)
+     DO UPDATE SET
+       min_temp = excluded.min_temp,
+       max_temp = excluded.max_temp,
+       notes = excluded.notes,
+       updated_at = datetime('now')
+     RETURNING id`,
+    [authUser.org_id, authUser.location_id, deviceId, entryDate, minTemp, maxTemp, notes, authUser.user_id]
+  );
+
+  await dbRun(
+    env,
+    `INSERT INTO sync_jobs (org_id, module, op, payload_json, status, attempts, next_run_at, created_at, updated_at)
+     VALUES (?, 'temperature', 'upsert_entry', ?, 'pending', 0, datetime('now'), datetime('now'), datetime('now'))`,
+    [authUser.org_id, JSON.stringify({ entry_id: row.id })]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "TEMP_ENTRY_UPSERT", "temperature_entries", String(row.id), {
+    entry_date: entryDate,
+    device_id: deviceId,
+    min_temp: minTemp,
+    max_temp: maxTemp
+  });
+
+  return jsonResponse({ ok: true, entry_id: row.id }, 200, corsOkHeaders);
+}
+
+async function handleTempEntryDelete(request, env, corsOkHeaders, authUser, entryId) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  const existing = await dbFirst(
+    env,
+    `SELECT id, device_id, entry_date
+     FROM temperature_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  await dbRun(
+    env,
+    `DELETE FROM temperature_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+
+  await dbRun(
+    env,
+    `INSERT INTO sync_jobs (org_id, module, op, payload_json, status, attempts, next_run_at, created_at, updated_at)
+     VALUES (?, 'temperature', 'delete_entry', ?, 'pending', 0, datetime('now'), datetime('now'), datetime('now'))`,
+    [authUser.org_id, JSON.stringify({ entry_id: entryId })]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "TEMP_ENTRY_DELETE", "temperature_entries", String(entryId), {
+    entry_date: existing.entry_date,
+    device_id: existing.device_id
+  });
+
+    const payload = { ok: true };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
+  return jsonResponse(payload, 200, corsOkHeaders);
+}
+
+
+async function handleTempReport(request, env, corsOkHeaders, authUser, url) {
+  const from = (url.searchParams.get("from") || "").trim();
+  const to = (url.searchParams.get("to") || "").trim();
+  if (!isValidYmd(from) || !isValidYmd(to)) {
+    return jsonResponse({ ok: false, error: "Invalid from/to (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  }
+  if (to < from) {
+    return jsonResponse({ ok: false, error: "to must be >= from" }, 400, corsOkHeaders);
+  }
+
+  const devices = await dbAll(
+    env,
+    `SELECT d.id, d.name, d.device_type, d.min_limit, d.max_limit, d.active
+     FROM temperature_devices d
+     WHERE d.org_id = ? AND d.location_id = ?
+       AND (
+         d.active = 1
+         OR EXISTS (
+           SELECT 1 FROM temperature_entries e
+           WHERE e.device_id = d.id
+             AND e.org_id = d.org_id
+             AND e.location_id = d.location_id
+             AND e.entry_date >= ?
+             AND e.entry_date <= ?
+         )
+       )
+     ORDER BY d.id ASC`,
+    [authUser.org_id, authUser.location_id, from, to]
+  );
+
+  const entries = await dbAll(
+    env,
+    `SELECT id, entry_date, device_id, min_temp, max_temp, notes
+     FROM temperature_entries
+     WHERE org_id = ? AND location_id = ?
+       AND entry_date >= ?
+       AND entry_date <= ?
+     ORDER BY entry_date ASC, device_id ASC`,
+    [authUser.org_id, authUser.location_id, from, to]
+  );
+
+  return jsonResponse(
+    {
+      ok: true,
+      org_name: authUser.org_name,
+      location_name: authUser.location_name,
+      from,
+      to,
+      devices,
+      entries
+    },
+    200,
+    corsOkHeaders
+  );
+}
+
+function ymFromYmd(ymd) {
+  return String(ymd || "").slice(0, 7);
+}
+
+function htmlReportPage(title, htmlBody) {
+  return new Response(
+    `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>${escapeHtml(title)}</title>
+<style>
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:22px;color:#111;}
+  h1{margin:0 0 6px 0;font-size:20px;}
+  .meta{color:#444;margin:0 0 16px 0;font-size:13px;}
+  h2{margin:18px 0 8px 0;font-size:16px;}
+  table{width:100%;border-collapse:collapse;margin-top:8px;}
+  th,td{border:1px solid #bbb;padding:6px 8px;font-size:12px;vertical-align:top;}
+  th{background:#f2f2f2;}
+  .small{font-size:11px;color:#444;}
+  @media print{
+    .no-print{display:none;}
+    body{margin:0;}
+  }
+</style>
+</head>
+<body>
+<div class="no-print" style="margin-bottom:10px;">
+  <button onclick="window.print()" style="padding:8px 12px;font-weight:700;">Print</button>
+</div>
+${htmlBody}
+</body>
+</html>`,
+    {
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "no-store"
+      }
+    }
+  );
+}
+
+async function handleTempReportHtml(request, env, corsOkHeaders, authUser, url) {
+  const out = await handleTempReport(request, env, corsOkHeaders, authUser, url);
+  const data = await out.json();
+
+  if (!data.ok) return out;
+
+  const devices = data.devices || [];
+  const entries = data.entries || [];
+
+  // Build map by date -> device_id -> {min,max}
+  const map = new Map(); // date -> Map(device_id -> cell)
+  for (const e of entries) {
+    const d = e.entry_date;
+    if (!map.has(d)) map.set(d, new Map());
+    map.get(d).set(Number(e.device_id), {
+      min: e.min_temp,
+      max: e.max_temp
+    });
+  }
+
+  // Group dates by month
+  const dates = Array.from(map.keys()).sort();
+  const byMonth = new Map();
+  for (const d of dates) {
+    const ym = ymFromYmd(d);
+    if (!byMonth.has(ym)) byMonth.set(ym, []);
+    byMonth.get(ym).push(d);
+  }
+
+  let body = "";
+  body += `<h1>${escapeHtml(data.org_name || "Pharmacy")} — Temperature Report</h1>`;
+  body += `<p class="meta">Location: ${escapeHtml(data.location_name || "")}<br/>Range: ${escapeHtml(data.from)} to ${escapeHtml(data.to)}</p>`;
+
+  for (const [ym, dlist] of byMonth.entries()) {
+    body += `<h2>${escapeHtml(ym)}</h2>`;
+    body += `<table><thead><tr><th>Date</th>`;
+    for (const dev of devices) {
+      body += `<th>${escapeHtml(dev.name)}<div class="small">${escapeHtml(dev.device_type)}</div></th>`;
+    }
+    body += `</tr></thead><tbody>`;
+    for (const d of dlist) {
+      body += `<tr><td>${escapeHtml(d)}</td>`;
+      const rowMap = map.get(d) || new Map();
+      for (const dev of devices) {
+        const cell = rowMap.get(Number(dev.id));
+        if (!cell) body += `<td></td>`;
+        else {
+          const min = (cell.min === null || cell.min === undefined) ? "" : Number(cell.min).toFixed(1);
+          const max = (cell.max === null || cell.max === undefined) ? "" : Number(cell.max).toFixed(1);
+          body += `<td>${escapeHtml(min)}${min && max ? " / " : ""}${escapeHtml(max)}</td>`;
+        }
+      }
+      body += `</tr>`;
+    }
+    body += `</tbody></table>`;
+  }
+
+  return htmlReportPage("Temperature Report", body);
+}
+
+/* =========================
+   CLIENT ORDERS MODULE (API)
+   ========================= */
+
+async function ensureClientOrdersSchema(env) {
+  await dbRun(
+    env,
+    `CREATE TABLE IF NOT EXISTS client_orders_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+
+      order_date TEXT NOT NULL,               -- YYYY-MM-DD
+      client_name TEXT NOT NULL,
+      client_phone TEXT NOT NULL DEFAULT '',
+      client_alt_phone TEXT NOT NULL DEFAULT '',
+      client_email TEXT NOT NULL DEFAULT '',
+      client_address TEXT NOT NULL DEFAULT '',
+
+      items_text TEXT NOT NULL,               -- free text (what they ordered)
+      priority INTEGER NOT NULL DEFAULT 2,     -- 1=high,2=normal,3=low
+      needed_by TEXT,                         -- YYYY-MM-DD or NULL
+      pickup_date TEXT,                       -- YYYY-MM-DD or NULL
+      deposit_amount REAL NOT NULL DEFAULT 0,  -- optional
+
+      fulfilled INTEGER NOT NULL DEFAULT 0,    -- 0/1
+      fulfilled_at TEXT,                      -- datetime when marked fulfilled
+
+      notes TEXT NOT NULL DEFAULT '',
+
+      created_by INTEGER,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )`,
+    []
+  );
+
+  await dbRun(
+    env,
+    "CREATE INDEX IF NOT EXISTS idx_client_orders_org_loc_date ON client_orders_entries (org_id, location_id, order_date)",
+    []
+  );
+  await dbRun(
+    env,
+    "CREATE INDEX IF NOT EXISTS idx_client_orders_org_loc_fulfilled ON client_orders_entries (org_id, location_id, fulfilled, order_date)",
+    []
+  );
+  await dbRun(
+    env,
+    "CREATE INDEX IF NOT EXISTS idx_client_orders_org_loc_client ON client_orders_entries (org_id, location_id, client_name)",
+    []
+  );
+  await dbRun(
+    env,
+    "CREATE INDEX IF NOT EXISTS idx_client_orders_org_loc_priority ON client_orders_entries (org_id, location_id, priority)",
+    []
+  );
+
+  // Backfill schema for existing deployments (safe if column already exists)
+  const adds = [
+    "ALTER TABLE client_orders_entries ADD COLUMN client_phone TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE client_orders_entries ADD COLUMN client_alt_phone TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE client_orders_entries ADD COLUMN client_email TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE client_orders_entries ADD COLUMN client_address TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE client_orders_entries ADD COLUMN items_text TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE client_orders_entries ADD COLUMN pickup_date TEXT",
+    "ALTER TABLE client_orders_entries ADD COLUMN deposit_amount REAL NOT NULL DEFAULT 0"
+  ];
+
+  for (const sql of adds) {
+    try { await dbRun(env, sql, []); } catch (e) { /* ignore duplicate column */ }
+  }
+
+}
+
+function normalizePriority(p) {
+  const n = Number(p);
+  if (!Number.isFinite(n)) return 2;
+  const i = Math.floor(n);
+  if (i === 1 || i === 2 || i === 3) return i;
+  return 2;
+}
+
+function normalizeMoney(n) {
+  if (n === null || n === undefined || n === "") return 0;
+  const v = Number(n);
+  if (!Number.isFinite(v) || v < 0) return null;
+  // keep 2dp-ish
+  return Math.round(v * 100) / 100;
+}
+
+function normalizeMaybeYmd(s) {
+  const t = String(s ?? "").trim();
+  if (!t) return null;
+  return isValidYmd(t) ? t : "__INVALID__";
+}
+
+function clientOrderRowToUi(r) {
+  if (!r) return r;
+  const phone = r.client_phone || "";
+  const alt = r.client_alt_phone || "";
+  const email = r.client_email || "";
+  const addr = r.client_address || "";
+  const items = r.items_text || "";
+  const orderDate = r.order_date || "";
+  const pickup = r.pickup_date || null;
+  const deposit = (r.deposit_amount === null || r.deposit_amount === undefined) ? 0 : r.deposit_amount;
+
+  return {
+    // DB names (keep for compatibility)
+    ...r,
+
+    // UI aliases (what your front-end likely expects)
+    entry_date: orderDate,
+    contact: phone,
+    alternate: alt,
+    email,
+    address: addr,
+    items,
+    pick_up_date: pickup,
+    deposit
+  };
+}
+
+
+function nearExpiryRowToUi(r) {
+  if (!r) return null;
+  return {
+    id: r.id,
+    product_name: r.product_name,
+    expiry_date: r.expiry_date,
+    location: r.location || "",
+    notes: r.notes || "",
+    created_by: r.created_by,
+    created_at: r.created_at,
+    updated_at: r.updated_at,
+    updated_by: r.updated_by
+  };
+}
+
+
+async function ensureNearExpirySchema(env) {
+  await dbRun(
+    env,
+    `CREATE TABLE IF NOT EXISTS near_expiry_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+
+      product_name TEXT NOT NULL,
+      expiry_date TEXT NOT NULL, -- YYYY-MM-DD
+
+      location TEXT NOT NULL DEFAULT '',
+      notes TEXT NOT NULL DEFAULT '',
+
+      created_by INTEGER,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_by INTEGER
+    )`,
+    []
+  );
+
+  await dbRun(
+    env,
+    "CREATE INDEX IF NOT EXISTS idx_near_expiry_org_loc_expiry ON near_expiry_entries (org_id, location_id, expiry_date)",
+    []
+  );
+  await dbRun(
+    env,
+    "CREATE INDEX IF NOT EXISTS idx_near_expiry_org_loc_name ON near_expiry_entries (org_id, location_id, product_name)",
+    []
+  );
+}
+
+async function handleClientOrdersEntriesList(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureClientOrdersSchema(env);
+
+  const month = (url.searchParams.get("month") || "").trim();
+  const range = monthRange(month);
+  if (!range) return jsonResponse({ ok: false, error: "Missing/invalid month (YYYY-MM)" }, 400, corsOkHeaders);
+
+  const q = (url.searchParams.get("q") || "").trim();
+  const hasQ = !!q;
+  const qLike = `%${q}%`;
+
+  // fulfilled filter: "0", "1", or omit for all
+  const fulfilledParam = (url.searchParams.get("fulfilled") || "").trim();
+  const hasFulfilled = fulfilledParam === "0" || fulfilledParam === "1";
+  const fulfilledVal = hasFulfilled ? Number(fulfilledParam) : null;
+
+  const sql = `
+    SELECT
+      id,
+      order_date,
+      client_name,
+      client_phone,
+      client_alt_phone,
+      client_email,
+      client_address,
+      items_text,
+      priority,
+      needed_by,
+      pickup_date,
+      deposit_amount,
+      fulfilled,
+      fulfilled_at,
+      notes,
+      created_by,
+      created_at,
+      updated_at
+    FROM client_orders_entries
+    WHERE org_id = ?
+      AND location_id = ?
+      AND order_date >= ?
+      AND order_date < ?
+      ${hasFulfilled ? "AND fulfilled = ?" : ""}
+      ${hasQ ? `AND (
+        order_date LIKE ?
+        OR client_name LIKE ?
+        OR client_phone LIKE ?
+        OR client_email LIKE ?
+        OR client_address LIKE ?
+        OR items_text LIKE ?
+        OR notes LIKE ?
+      )` : ""}
+    ORDER BY fulfilled ASC, order_date DESC, priority ASC, id DESC
+  `;
+
+  const bind = [authUser.org_id, authUser.location_id, range.startStr, range.endStr];
+  if (hasFulfilled) bind.push(fulfilledVal);
+  if (hasQ) bind.push(qLike, qLike, qLike, qLike, qLike, qLike, qLike);
+
+  const rows = await dbAll(env, sql, bind);
+  const entries = rows.map(clientOrderRowToUi);
+  return jsonResponse({ ok: true, entries }, 200, corsOkHeaders);
+}
+
+async function handleClientOrdersEntryCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureClientOrdersSchema(env);
+
+  const body = await readJson(request);
+
+  const orderDate = String(body.order_date || body.entry_date || "").trim();
+  const clientName = String(body.client_name || "").trim();
+  const clientPhone = String(body.client_phone || "").trim();
+  const clientAltPhone = String(body.client_alt_phone ?? body.alternate ?? "").trim();
+  const clientEmail = String(body.client_email || "").trim();
+  const clientAddress = String(body.client_address || "").trim();
+  const itemsText = String(body.items_text || body.items || "").trim();
+  const priority = normalizePriority(body.priority);
+  const neededBy = normalizeMaybeYmd(body.needed_by);
+  const pickupDate = normalizeMaybeYmd(body.pickup_date);
+  const depositAmount = normalizeMoney(body.deposit_amount);
+  const fulfilled = body.fulfilled ? 1 : 0;
+  const notes = String(body.notes || "").trim();
+
+  if (!isValidYmd(orderDate)) return jsonResponse({ ok: false, error: "Invalid order_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (!clientName) return jsonResponse({ ok: false, error: "Missing client_name" }, 400, corsOkHeaders);
+  if (!itemsText) return jsonResponse({ ok: false, error: "Missing items_text" }, 400, corsOkHeaders);
+
+  if (neededBy === "__INVALID__") return jsonResponse({ ok: false, error: "Invalid needed_by (YYYY-MM-DD or empty)" }, 400, corsOkHeaders);
+  if (pickupDate === "__INVALID__") return jsonResponse({ ok: false, error: "Invalid pickup_date (YYYY-MM-DD or empty)" }, 400, corsOkHeaders);
+  if (depositAmount === null) return jsonResponse({ ok: false, error: "Invalid deposit_amount (>= 0)" }, 400, corsOkHeaders);
+
+  const row = await dbFirst(
+    env,
+    `INSERT INTO client_orders_entries
+    (org_id, location_id, order_date, client_name, client_phone, client_alt_phone, client_email, client_address,
+    items_text, priority, needed_by, pickup_date, deposit_amount, fulfilled, fulfilled_at, notes, created_by, created_at, updated_at)
+     VALUES
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? THEN datetime('now') ELSE NULL END, ?, ?, datetime('now'), datetime('now'))
+     RETURNING id`,
+    [
+      authUser.org_id,
+      authUser.location_id,
+      orderDate,
+      clientName,
+      clientPhone,
+      clientAltPhone,
+      clientEmail,
+      clientAddress,
+      itemsText,
+      priority,
+      neededBy,
+      pickupDate,
+      depositAmount,
+      fulfilled,
+      fulfilled ? 1 : 0,
+      notes,
+      authUser.user_id
+    ]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CLIENT_ORDER_CREATE", "client_orders_entries", String(row.id), {
+    order_date: orderDate,
+    client_name: clientName,
+    priority,
+    fulfilled
+  });
+
+  return jsonResponse({ ok: true, entry_id: row.id }, 200, corsOkHeaders);
+}
+
+async function handleClientOrdersEntryUpdate(request, env, corsOkHeaders, authUser, entryId) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureClientOrdersSchema(env);
+
+  // Parse + validate id (be strict, but accept numeric strings)
+  const id = Number(entryId);
+  if (!Number.isFinite(id) || id % 1 !== 0 || id <= 0) {
+    return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+  }
+
+  // Load existing row first (enables partial updates safely)
+  const existing = await dbFirst(
+    env,
+    "SELECT * FROM client_orders_entries WHERE org_id = ? AND location_id = ? AND id = ?",
+    [authUser.org_id, authUser.location_id, id]
+  );
+
+  if (!existing) {
+    return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+  }
+
+  let body = null;
+  try {
+    body = await readJson(request);
+  } catch (e) {
+    return jsonResponse({ ok: false, error: "Invalid JSON body" }, 400, corsOkHeaders);
+  }
+  if (!body || typeof body !== "object") body = {};
+
+  const has = (k) => Object.prototype.hasOwnProperty.call(body, k);
+
+  // Merge fields: if caller didn’t send a field, keep existing DB value.
+  const orderDate = has("order_date") ? String(body.order_date || "").trim() : String(existing.order_date || "").trim();
+  const clientName = has("client_name") ? String(body.client_name || "").trim() : String(existing.client_name || "").trim();
+  const clientPhone = has("client_phone") ? String(body.client_phone || "").trim() : String(existing.client_phone || "").trim();
+
+  const clientAltPhone = has("client_alt_phone")
+    ? String(body.client_alt_phone || "").trim()
+    : String(existing.client_alt_phone || "").trim();
+
+  const clientEmail = has("client_email")
+    ? String(body.client_email || "").trim()
+    : String(existing.client_email || "").trim();
+
+  const clientAddress = has("client_address")
+    ? String(body.client_address || "").trim()
+    : String(existing.client_address || "").trim();
+
+  const itemsText = has("items_text") ? String(body.items_text || "").trim() : String(existing.items_text || "").trim();
+
+  const priority = has("priority") ? normalizePriority(body.priority) : Number(existing.priority);
+  const neededBy = has("needed_by") ? String(body.needed_by || "").trim() : String(existing.needed_by || "").trim();
+  const pickupDate = has("pickup_date") ? String(body.pickup_date || "").trim() : String(existing.pickup_date || "").trim();
+  const notes = has("notes") ? String(body.notes || "").trim() : String(existing.notes || "").trim();
+
+  // deposit_amount is NOT NULL in your schema: NEVER allow null through.
+  // - If caller sends deposit_amount: normalize it (null/"" => 0)
+  // - If caller doesn't send it: keep existing
+  let depositAmount;
+  if (has("deposit_amount")) {
+    depositAmount = normalizeMoney(body.deposit_amount);
+    // normalizeMoney returns null only for invalid non-empty input
+    if (depositAmount === null) {
+      return jsonResponse({ ok: false, error: "Invalid deposit_amount" }, 400, corsOkHeaders);
+    }
+  } else {
+    depositAmount = normalizeMoney(existing.deposit_amount);
+    if (depositAmount === null) depositAmount = 0;
+  }
+
+  // Fulfilled can be partial too
+  const nextFulfilled = has("fulfilled") ? !!body.fulfilled : !!existing.fulfilled;
+
+  let fulfilledAt = null;
+  if (nextFulfilled) {
+    if (has("fulfilled_at")) {
+      // if caller sends a value use it; if they send null/"" fallback to now
+      const raw = body.fulfilled_at;
+      fulfilledAt = raw ? String(raw) : nowIso();
+    } else {
+      // keep existing if present, otherwise set now
+      fulfilledAt = existing.fulfilled_at ? String(existing.fulfilled_at) : nowIso();
+    }
+  } else {
+    // unfulfilled means no timestamp
+    fulfilledAt = null;
+  }
+
+  // Validate required + formats (after merge)
+  if (!isValidYmd(orderDate)) {
+    return jsonResponse({ ok: false, error: "Invalid order_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  }
+  if (!clientName) {
+    return jsonResponse({ ok: false, error: "client_name is required" }, 400, corsOkHeaders);
+  }
+  if (!clientPhone) {
+    return jsonResponse({ ok: false, error: "client_phone is required" }, 400, corsOkHeaders);
+  }
+  if (!itemsText) {
+    return jsonResponse({ ok: false, error: "items_text is required" }, 400, corsOkHeaders);
+  }
+  if (![1, 2, 3].includes(priority)) {
+    return jsonResponse({ ok: false, error: "priority must be 1, 2, or 3" }, 400, corsOkHeaders);
+  }
+  if (neededBy && !isValidYmd(neededBy)) {
+    return jsonResponse({ ok: false, error: "Invalid needed_by (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  }
+  if (pickupDate && !isValidYmd(pickupDate)) {
+    return jsonResponse({ ok: false, error: "Invalid pickup_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  }
+
+  // Perform update
+  await dbRun(
+    env,
+    `UPDATE client_orders_entries
+       SET order_date = ?,
+           client_name = ?,
+           client_phone = ?,
+           client_alt_phone = ?,
+           client_email = ?,
+           client_address = ?,
+           items_text = ?,
+           priority = ?,
+           needed_by = ?,
+           pickup_date = ?,
+           deposit_amount = ?,
+           notes = ?,
+           fulfilled = ?,
+           fulfilled_at = ?,
+           updated_at = datetime('now')
+     WHERE org_id = ? AND location_id = ? AND id = ?`,
+    [
+      orderDate,
+      clientName,
+      clientPhone,
+      clientAltPhone,
+      clientEmail,
+      clientAddress,
+      itemsText,
+      priority,
+      neededBy,
+      pickupDate,
+      depositAmount,         // ALWAYS a number (0+), never null
+      notes,
+      nextFulfilled ? 1 : 0,
+      fulfilledAt,           // ok to be null when not fulfilled
+      authUser.org_id,
+      authUser.location_id,
+      id
+    ]
+  );
+
+  const updated = await dbFirst(
+    env,
+    "SELECT * FROM client_orders_entries WHERE org_id = ? AND location_id = ? AND id = ?",
+    [authUser.org_id, authUser.location_id, id]
+  );
+
+  return jsonResponse({ ok: true, entry: clientOrderRowToUi(updated) }, 200, corsOkHeaders);
+}
+
+async function handleClientOrdersEntryDelete(request, env, corsOkHeaders, authUser, entryId) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureClientOrdersSchema(env);
+
+  const entryIdNum = parseInt(String(entryId || ""), 10);
+  if (!entryIdNum || isNaN(entryIdNum)) {
+    return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+  }
+
+  // IMPORTANT:
+  // Client Orders list is org-wide (can include multiple locations),
+  // so deletes must not require the caller's current location_id to match.
+  const existing = await dbFirst(
+    env,
+    "SELECT id FROM client_orders_entries WHERE org_id = ? AND id = ?",
+    [authUser.org_id, entryIdNum]
+  );
+
+  if (!existing) {
+    return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+  }
+
+  await dbRun(env, "DELETE FROM client_orders_entries WHERE org_id = ? AND id = ?", [authUser.org_id, entryIdNum]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CLIENT_ORDER_DELETE", "client_orders_entries", String(entryIdNum), {});
+
+    const payload = { ok: true };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
+  return jsonResponse(payload, 200, corsOkHeaders);
+}
+
+
+
+
+async function ensureClientTicketsSchema(env) {
+  await dbRun(
+    env,
+    `CREATE TABLE IF NOT EXISTS client_tickets_entries (
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id         INTEGER NOT NULL,
+      location_id    INTEGER NOT NULL,
+
+      ticket_id      TEXT    NOT NULL DEFAULT '',   -- e.g. TKT-00047 (generated client-side)
+      open_date      TEXT    NOT NULL,              -- YYYY-MM-DD
+      client_name    TEXT    NOT NULL,
+      phone          TEXT    NOT NULL DEFAULT '',
+      email          TEXT    NOT NULL DEFAULT '',
+
+      category       TEXT    NOT NULL DEFAULT '',   -- Billing | Prescription | … | custom
+      priority       INTEGER NOT NULL DEFAULT 2,    -- 1=High(red) 2=Medium(orange) 3=Low(green)
+      status         TEXT    NOT NULL DEFAULT 'Open',
+        -- Open | In Progress | Awaiting Client | Resolved | Closed
+
+      issue          TEXT    NOT NULL DEFAULT '',   -- main description
+      assigned_to    TEXT    NOT NULL DEFAULT '',   -- staff name free-text
+      followup_date  TEXT,                          -- YYYY-MM-DD or NULL
+      notes_log      TEXT    NOT NULL DEFAULT '[]', -- JSON array of {ts,author,text}
+
+      resolved       INTEGER NOT NULL DEFAULT 0,    -- 0/1 derived flag
+      resolved_at    TEXT,                          -- ISO datetime or NULL
+
+      created_by     INTEGER,
+      created_at     TEXT    NOT NULL DEFAULT (datetime('now')),
+      updated_at     TEXT    NOT NULL DEFAULT (datetime('now'))
+    )`,
+    []
+  );
+
+  // Indexes — covering the most common query patterns
+  const indexes = [
+    "CREATE INDEX IF NOT EXISTS idx_client_tickets_org_loc_date     ON client_tickets_entries (org_id, location_id, open_date)",
+    "CREATE INDEX IF NOT EXISTS idx_client_tickets_org_loc_status   ON client_tickets_entries (org_id, location_id, resolved, open_date)",
+    "CREATE INDEX IF NOT EXISTS idx_client_tickets_org_loc_priority ON client_tickets_entries (org_id, location_id, priority)",
+    "CREATE INDEX IF NOT EXISTS idx_client_tickets_org_loc_client   ON client_tickets_entries (org_id, location_id, client_name)",
+    "CREATE INDEX IF NOT EXISTS idx_client_tickets_ticket_id        ON client_tickets_entries (org_id, ticket_id)"
+  ];
+  for (const sql of indexes) {
+    await dbRun(env, sql, []);
+  }
+}
+
+// Map a DB row to the shape the UI expects
+function clientTicketRowToUi(r) {
+  if (!r) return r;
+  return {
+    id:            r.id,
+    ticket_id:     r.ticket_id     || "",
+    open_date:     r.open_date     || "",
+    client_name:   r.client_name   || "",
+    phone:         r.phone         || "",
+    email:         r.email         || "",
+    category:      r.category      || "",
+    priority:      Number(r.priority) || 2,
+    status:        r.status        || "Open",
+    issue:         r.issue         || "",
+    assigned_to:   r.assigned_to   || "",
+    followup_date: r.followup_date || null,
+    notes_log:     r.notes_log     || "[]",
+    resolved:      !!r.resolved,
+    resolved_at:   r.resolved_at   || null,
+    created_by:    r.created_by,
+    created_at:    r.created_at,
+    updated_at:    r.updated_at
+  };
+}
+
+function normalizeTicketPriority(p) {
+  const n = Number(p);
+  if (!Number.isFinite(n)) return 2;
+  const i = Math.floor(n);
+  if (i === 1 || i === 2 || i === 3) return i;
+  return 2;
+}
+
+const VALID_TICKET_STATUSES = ["Open", "In Progress", "Awaiting Client", "Resolved", "Closed"];
+
+function normalizeTicketStatus(s) {
+  const v = String(s || "").trim();
+  return VALID_TICKET_STATUSES.includes(v) ? v : "Open";
+}
+
+// --------------- LIST ----------------------------------------
+
+async function handleClientTicketsEntriesList(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureClientTicketsSchema(env);
+
+  // Optional filters
+  const resolvedParam = (url.searchParams.get("resolved") || "").trim(); // "0" | "1" | "" (all)
+  const hasResolved   = resolvedParam === "0" || resolvedParam === "1";
+  const resolvedVal   = hasResolved ? Number(resolvedParam) : null;
+
+  const q     = (url.searchParams.get("q") || "").trim();
+  const hasQ  = !!q;
+  const qLike = `%${q}%`;
+
+  const sql = `
+    SELECT
+      id, ticket_id, open_date, client_name, phone, email,
+      category, priority, status, issue, assigned_to,
+      followup_date, notes_log, resolved, resolved_at,
+      created_by, created_at, updated_at
+    FROM client_tickets_entries
+    WHERE org_id = ?
+      AND location_id = ?
+      ${hasResolved ? "AND resolved = ?" : ""}
+      ${hasQ ? `AND (
+        ticket_id    LIKE ?
+        OR client_name   LIKE ?
+        OR phone         LIKE ?
+        OR email         LIKE ?
+        OR category      LIKE ?
+        OR issue         LIKE ?
+        OR assigned_to   LIKE ?
+        OR notes_log     LIKE ?
+      )` : ""}
+    ORDER BY resolved ASC, priority ASC, open_date DESC, id DESC
+  `;
+
+  const bind = [authUser.org_id, authUser.location_id];
+  if (hasResolved) bind.push(resolvedVal);
+  if (hasQ)        bind.push(qLike, qLike, qLike, qLike, qLike, qLike, qLike, qLike);
+
+  const rows    = await dbAll(env, sql, bind);
+  const entries = rows.map(clientTicketRowToUi);
+
+  return jsonResponse({ ok: true, entries }, 200, corsOkHeaders);
+}
+
+// --------------- CREATE ---------------------------------------
+
+async function handleClientTicketsEntryCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureClientTicketsSchema(env);
+
+  let body;
+  try   { body = await readJson(request); }
+  catch { return jsonResponse({ ok: false, error: "Invalid JSON body" }, 400, corsOkHeaders); }
+  if (!body || typeof body !== "object") body = {};
+
+  const ticketId    = String(body.ticket_id    || "").trim();
+  const openDate    = String(body.open_date    || "").trim();
+  const clientName  = String(body.client_name  || "").trim();
+  const phone       = String(body.phone        || "").trim();
+  const email       = String(body.email        || "").trim();
+  const category    = String(body.category     || "").trim();
+  const priority    = normalizeTicketPriority(body.priority);
+  const status      = normalizeTicketStatus(body.status);
+  const issue       = String(body.issue        || "").trim();
+  const assignedTo  = String(body.assigned_to  || "").trim();
+  const followupDate= String(body.followup_date|| "").trim() || null;
+  const notesLog    = String(body.notes_log    || "[]").trim();
+  const resolved    = (status === "Resolved" || status === "Closed") ? 1 : 0;
+  const resolvedAt  = resolved ? (String(body.resolved_at || "").trim() || nowIso()) : null;
+
+  // Validation
+  if (!isValidYmd(openDate))   return jsonResponse({ ok: false, error: "Invalid open_date (YYYY-MM-DD)" },  400, corsOkHeaders);
+  if (!clientName)             return jsonResponse({ ok: false, error: "client_name is required" },         400, corsOkHeaders);
+  if (!issue)                  return jsonResponse({ ok: false, error: "issue is required" },               400, corsOkHeaders);
+  if (!category)               return jsonResponse({ ok: false, error: "category is required" },            400, corsOkHeaders);
+  if (followupDate && !isValidYmd(followupDate))
+    return jsonResponse({ ok: false, error: "Invalid followup_date (YYYY-MM-DD or empty)" }, 400, corsOkHeaders);
+
+  // Validate notes_log is parseable JSON array
+  try {
+    const parsed = JSON.parse(notesLog);
+    if (!Array.isArray(parsed)) throw new Error("not array");
+  } catch {
+    return jsonResponse({ ok: false, error: "notes_log must be a JSON array string" }, 400, corsOkHeaders);
+  }
+
+  const row = await dbFirst(
+    env,
+    `INSERT INTO client_tickets_entries
+      (org_id, location_id, ticket_id, open_date, client_name, phone, email,
+       category, priority, status, issue, assigned_to, followup_date,
+       notes_log, resolved, resolved_at, created_by, created_at, updated_at)
+     VALUES
+      (?, ?, ?, ?, ?, ?, ?,  ?, ?, ?, ?, ?, ?,  ?, ?, ?, ?, datetime('now'), datetime('now'))
+     RETURNING id`,
+    [
+      authUser.org_id, authUser.location_id, ticketId, openDate, clientName, phone, email,
+      category, priority, status, issue, assignedTo, followupDate,
+      notesLog, resolved, resolvedAt, authUser.user_id
+    ]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CLIENT_TICKET_CREATE", "client_tickets_entries", String(row.id), {
+    ticket_id: ticketId, client_name: clientName, priority, status
+  });
+
+  return jsonResponse({ ok: true, entry_id: row.id }, 200, corsOkHeaders);
+}
+
+// --------------- UPDATE ---------------------------------------
+
+async function handleClientTicketsEntryUpdate(request, env, corsOkHeaders, authUser, entryId) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureClientTicketsSchema(env);
+
+  const id = Number(entryId);
+  if (!Number.isFinite(id) || id % 1 !== 0 || id <= 0) {
+    return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+  }
+
+  const existing = await dbFirst(
+    env,
+    "SELECT * FROM client_tickets_entries WHERE org_id = ? AND location_id = ? AND id = ?",
+    [authUser.org_id, authUser.location_id, id]
+  );
+  if (!existing) {
+    return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+  }
+
+  let body;
+  try   { body = await readJson(request); }
+  catch { return jsonResponse({ ok: false, error: "Invalid JSON body" }, 400, corsOkHeaders); }
+  if (!body || typeof body !== "object") body = {};
+
+  const has = (k) => Object.prototype.hasOwnProperty.call(body, k);
+
+  // Merge — if not sent, keep existing DB value
+  const openDate    = has("open_date")     ? String(body.open_date    || "").trim() : String(existing.open_date   || "");
+  const clientName  = has("client_name")   ? String(body.client_name  || "").trim() : String(existing.client_name || "");
+  const phone       = has("phone")         ? String(body.phone        || "").trim() : String(existing.phone       || "");
+  const email       = has("email")         ? String(body.email        || "").trim() : String(existing.email       || "");
+  const category    = has("category")      ? String(body.category     || "").trim() : String(existing.category    || "");
+  const priority    = has("priority")      ? normalizeTicketPriority(body.priority) : Number(existing.priority);
+  const status      = has("status")        ? normalizeTicketStatus(body.status)     : normalizeTicketStatus(existing.status);
+  const issue       = has("issue")         ? String(body.issue        || "").trim() : String(existing.issue       || "");
+  const assignedTo  = has("assigned_to")   ? String(body.assigned_to  || "").trim() : String(existing.assigned_to || "");
+  const followupDate= has("followup_date") ? (String(body.followup_date || "").trim() || null) : (existing.followup_date || null);
+  const notesLog    = has("notes_log")     ? String(body.notes_log    || "[]")      : String(existing.notes_log   || "[]");
+
+  const resolved = (status === "Resolved" || status === "Closed") ? 1 : 0;
+  let resolvedAt;
+  if (resolved) {
+    if (has("resolved_at")) {
+      resolvedAt = String(body.resolved_at || "").trim() || nowIso();
+    } else {
+      resolvedAt = existing.resolved_at ? String(existing.resolved_at) : nowIso();
+    }
+  } else {
+    resolvedAt = null;
+  }
+
+  // Validate after merge
+  if (!isValidYmd(openDate))  return jsonResponse({ ok: false, error: "Invalid open_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (!clientName)            return jsonResponse({ ok: false, error: "client_name is required" },        400, corsOkHeaders);
+  if (!issue)                 return jsonResponse({ ok: false, error: "issue is required" },              400, corsOkHeaders);
+  if (!category)              return jsonResponse({ ok: false, error: "category is required" },           400, corsOkHeaders);
+  if (followupDate && !isValidYmd(followupDate))
+    return jsonResponse({ ok: false, error: "Invalid followup_date (YYYY-MM-DD or empty)" }, 400, corsOkHeaders);
+  try {
+    const p = JSON.parse(notesLog);
+    if (!Array.isArray(p)) throw new Error("not array");
+  } catch {
+    return jsonResponse({ ok: false, error: "notes_log must be a JSON array string" }, 400, corsOkHeaders);
+  }
+
+  await dbRun(
+    env,
+    `UPDATE client_tickets_entries
+        SET open_date     = ?,
+            client_name   = ?,
+            phone         = ?,
+            email         = ?,
+            category      = ?,
+            priority      = ?,
+            status        = ?,
+            issue         = ?,
+            assigned_to   = ?,
+            followup_date = ?,
+            notes_log     = ?,
+            resolved      = ?,
+            resolved_at   = ?,
+            updated_at    = datetime('now')
+      WHERE org_id = ? AND location_id = ? AND id = ?`,
+    [
+      openDate, clientName, phone, email, category,
+      priority, status, issue, assignedTo, followupDate,
+      notesLog, resolved, resolvedAt,
+      authUser.org_id, authUser.location_id, id
+    ]
+  );
+
+  const updated = await dbFirst(
+    env,
+    "SELECT * FROM client_tickets_entries WHERE org_id = ? AND location_id = ? AND id = ?",
+    [authUser.org_id, authUser.location_id, id]
+  );
+
+  return jsonResponse({ ok: true, entry: clientTicketRowToUi(updated) }, 200, corsOkHeaders);
+}
+
+// --------------- DELETE ---------------------------------------
+
+async function handleClientTicketsEntryDelete(request, env, corsOkHeaders, authUser, entryId) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureClientTicketsSchema(env);
+
+  const id = parseInt(String(entryId || ""), 10);
+  if (!id || isNaN(id)) {
+    return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+  }
+
+  // Delete is org-wide (not location-scoped) so a staff member at any
+  // location can clean up tickets — consistent with client-orders behaviour.
+  const existing = await dbFirst(
+    env,
+    "SELECT id FROM client_tickets_entries WHERE org_id = ? AND id = ?",
+    [authUser.org_id, id]
+  );
+  if (!existing) {
+    return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+  }
+
+  await dbRun(env, "DELETE FROM client_tickets_entries WHERE org_id = ? AND id = ?", [authUser.org_id, id]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CLIENT_TICKET_DELETE", "client_tickets_entries", String(id), {});
+
+
+  // Keep calendar token mapping table in sync for public iCal feed
+  try {
+    const tok = (body && body.calendarToken != null) ? String(body.calendarToken).trim() : "";
+    if (tok === "") {
+      await dbRun(env, `DELETE FROM shift_calendar_tokens WHERE org_id=? AND location_id=?`, [authUser.org_id, authUser.location_id]);
+    } else if (tok) {
+      await dbRun(env,
+        `INSERT INTO shift_calendar_tokens (org_id, location_id, token, updated_at, updated_by) VALUES (?,?,?,datetime('now'),?)
+         ON CONFLICT(org_id, location_id) DO UPDATE SET token=excluded.token, updated_at=excluded.updated_at, updated_by=excluded.updated_by`,
+        [authUser.org_id, authUser.location_id, tok, authUser.user_id]);
+    }
+  } catch (e) {
+    console.log("[shifts][settings] token sync failed", e && (e.message || String(e)));
+  }
+  
+  // Keep calendar token mapping table in sync for public iCal feed
+  try {
+    const tok = (body && body.calendarToken != null) ? String(body.calendarToken).trim() : "";
+    if (tok === "") {
+      await dbRun(env, `DELETE FROM shift_calendar_tokens WHERE org_id=? AND location_id=?`, [authUser.org_id, authUser.location_id]);
+    } else if (tok) {
+      await dbRun(env,
+        `INSERT INTO shift_calendar_tokens (org_id, location_id, token, updated_at, updated_by) VALUES (?,?,?,datetime('now'),?)
+         ON CONFLICT(org_id, location_id) DO UPDATE SET token=excluded.token, updated_at=excluded.updated_at, updated_by=excluded.updated_by`,
+        [authUser.org_id, authUser.location_id, tok, authUser.user_id]);
+    }
+  } catch (e) {
+    console.log("[shifts][settings] token sync failed", e && (e.message || String(e)));
+  }
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+
+/* =========================
+   END OF DAY (EOD) MODULE (API)
+   ========================= */
+
+function eodRowToUi(row) {
+  if (!row) return null;
+  function safeParse(s, fallback) { try { return JSON.parse(s); } catch (e) { return fallback; } }
+  return {
+    id: row.id,
+    date: row.eod_date,
+    eod_date: row.eod_date,
+    time_of_day: row.time_of_day || "AM",
+    staff: row.staff_name || "",
+    staff_name: row.staff_name || "",
+    float_amount: row.float_amount != null ? String(row.float_amount) : "500",
+    x: safeParse(row.x_json, []),
+    epos: safeParse(row.epos_json, []),
+    cheques: safeParse(row.cheques_json, []),
+    paid_outs: safeParse(row.paid_outs_json, []),
+    cash: safeParse(row.cash_json, {}),
+    deposit: safeParse(row.bov_deposit_json, {}),
+    bov_deposit: safeParse(row.bov_deposit_json, {}),
+    bag_number: row.bov_bag_number || "",
+    bov_bag_number: row.bov_bag_number || "",
+    contact_id: row.bov_contact_id != null ? String(row.bov_contact_id) : "",
+    bov_contact_id: row.bov_contact_id,
+    notes: row.notes || "",
+    saved_at: row.saved_at || "",
+    locked_at: row.locked_at || "",
+    created_at: row.created_at || "",
+    updated_at: row.updated_at || "",
+    location_name: row.location_name || "",
+    org_id: row.org_id,
+    location_id: row.location_id
+  };
+}
+
+async function handleEodGet(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureEndOfDaySchema(env);
+  const date = String(url.searchParams.get("date") || "").trim();
+  if (!isValidYmd(date)) return jsonResponse({ ok: false, error: "Invalid date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  const row = await dbFirst(env, "SELECT e.*, l.name AS location_name FROM end_of_day e LEFT JOIN locations l ON l.id = e.location_id AND l.org_id = e.org_id WHERE e.org_id = ? AND e.location_id = ? AND e.eod_date = ?", [authUser.org_id, authUser.location_id, date]);
+  const uiRow = eodRowToUi(row);
+  if (uiRow && !uiRow.location_name && authUser.location_name) uiRow.location_name = authUser.location_name;
+  return jsonResponse({ ok: true, eod: uiRow, record: uiRow, item: uiRow }, 200, corsOkHeaders);
+}
+
+async function handleEodUpsert(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureEndOfDaySchema(env);
+
+  let body = await readJson(request); // UI sends { record: { ... } }
+  if (body && typeof body === "object" && body.record && typeof body.record === "object") {
+    body = body.record;
+  }
+
+  const date = String(body.eod_date || body.date || "").trim();
+  if (!isValidYmd(date)) {
+    return jsonResponse({ ok: false, error: "Invalid date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  }
+
+  // Read locked_at intent (explicit)
+  const hasLockedAtField =
+    body &&
+    typeof body === "object" &&
+    (Object.prototype.hasOwnProperty.call(body, "locked_at") ||
+      Object.prototype.hasOwnProperty.call(body, "lockedAt"));
+
+  const lockedAtRaw = hasLockedAtField
+    ? (Object.prototype.hasOwnProperty.call(body, "locked_at") ? body.locked_at : body.lockedAt)
+    : undefined;
+
+  const wantsLock = !!(lockedAtRaw && String(lockedAtRaw).trim());
+
+  // Load existing early so we can allow UNLOCK without requiring staff/float validation
+  const existing = await dbFirst(
+    env,
+    "SELECT id, locked_at FROM end_of_day WHERE org_id = ? AND location_id = ? AND eod_date = ?",
+    [authUser.org_id, authUser.location_id, date]
+  );
+
+  const wantsUnlock =
+    !!(existing && existing.locked_at) &&
+    (
+      lockedAtRaw === "" ||
+      lockedAtRaw === null ||
+      body.unlock === true ||
+      body.action === "UNLOCK"
+    );
+
+  // ✅ PATCH: allow explicit unlock for locked records
+  if (existing && existing.locked_at) {
+    if (wantsUnlock) {
+      await dbRun(
+        env,
+        `UPDATE end_of_day
+         SET locked_at = NULL,
+             updated_at = datetime('now'),
+             updated_by = ?
+         WHERE id = ? AND org_id = ? AND location_id = ?`,
+        [authUser.user_id, existing.id, authUser.org_id, authUser.location_id]
+      );
+
+      await writeAudit(
+        env,
+        authUser.org_id,
+        authUser.user_id,
+        "EOD_UNLOCK",
+        "end_of_day",
+        String(existing.id),
+        { eod_date: date }
+      );
+
+      const row = await dbFirst(
+        env,
+        "SELECT e.*, l.name AS location_name FROM end_of_day e LEFT JOIN locations l ON l.id = e.location_id AND l.org_id = e.org_id WHERE e.org_id = ? AND e.location_id = ? AND e.eod_date = ?",
+        [authUser.org_id, authUser.location_id, date]
+      );
+      const uiRow = eodRowToUi(row);
+      if (uiRow && !uiRow.location_name && authUser.location_name) uiRow.location_name = authUser.location_name;
+
+      return jsonResponse({ ok: true, eod: uiRow, record: uiRow, item: uiRow }, 200, corsOkHeaders);
+    }
+
+    // idempotent lock call: return existing locked state
+    if (wantsLock) {
+      return jsonResponse({ ok: true, id: existing.id, locked_at: existing.locked_at }, 200, corsOkHeaders);
+    }
+
+    // still block normal updates while locked
+    return jsonResponse({ ok: false, error: "Locked - cannot update" }, 409, corsOkHeaders);
+  }
+
+  // Normal validation for create/update (unlocked)
+  const staffName = String(body.staff_name || body.staff || "").trim();
+  const floatAmount = Number(body.float_amount ?? body.float ?? body.floatAmount ?? 500);
+
+  if (!staffName) {
+    return jsonResponse({ ok: false, error: "Missing staff/staff_name" }, 400, corsOkHeaders);
+  }
+  if (!Number.isFinite(floatAmount) || floatAmount < 0) {
+    return jsonResponse({ ok: false, error: "Invalid float_amount (>= 0)" }, 400, corsOkHeaders);
+  }
+
+  const timeOfDay = String(body.time_of_day || "AM").trim() || "AM";
+
+  const xJson = JSON.stringify(Array.isArray(body.x) ? body.x : []);
+  const eposJson = JSON.stringify(Array.isArray(body.epos) ? body.epos : []);
+  const chequesJson = JSON.stringify(Array.isArray(body.cheques) ? body.cheques : []);
+  const paidOutsJson = JSON.stringify(Array.isArray(body.paid_outs) ? body.paid_outs : []);
+  const cashJson = JSON.stringify(body.cash && typeof body.cash === "object" ? body.cash : {});
+
+  const bovDeposit = body.bov_deposit || body.deposit || {};
+  const bovDepositJson = JSON.stringify(bovDeposit && typeof bovDeposit === "object" ? bovDeposit : {});
+  const bovBagNumber = String(body.bov_bag_number || body.bag_number || "").trim();
+  const bovContactId = body.bov_contact_id != null ? body.bov_contact_id : (body.contact_id != null ? body.contact_id : null);
+
+  const notes = String(body.notes || "").trim();
+
+  // Insert or update
+  if (!existing) {
+    const row = await dbFirst(
+      env,
+      `INSERT INTO end_of_day
+       (org_id, location_id, eod_date, time_of_day, staff_name, float_amount,
+        x_json, epos_json, cheques_json, paid_outs_json, cash_json,
+        bov_deposit_json, bov_bag_number, bov_contact_id, notes,
+        saved_at, locked_at, created_at, updated_at, updated_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), CASE WHEN ? THEN datetime('now') ELSE NULL END, datetime('now'), datetime('now'), ?)
+       RETURNING id`,
+      [
+        authUser.org_id, authUser.location_id, date, timeOfDay, staffName, floatAmount,
+        xJson, eposJson, chequesJson, paidOutsJson, cashJson,
+        bovDepositJson, bovBagNumber || null, bovContactId, notes || null,
+        wantsLock ? 1 : 0, // NOTE: kept original behavior pattern
+        authUser.user_id
+      ]
+    );
+
+    await writeAudit(env, authUser.org_id, authUser.user_id, "EOD_CREATE", "end_of_day", String(row.id), { eod_date: date, locked: wantsLock });
+
+  } else {
+    await dbRun(
+      env,
+      `UPDATE end_of_day SET
+         time_of_day = ?,
+         staff_name = ?,
+         float_amount = ?,
+         x_json = ?,
+         epos_json = ?,
+         cheques_json = ?,
+         paid_outs_json = ?,
+         cash_json = ?,
+         bov_deposit_json = ?,
+         bov_bag_number = ?,
+         bov_contact_id = ?,
+         notes = ?,
+         saved_at = datetime('now'),
+         locked_at = CASE WHEN ? THEN datetime('now') ELSE locked_at END,
+         updated_at = datetime('now'),
+         updated_by = ?
+       WHERE id = ? AND org_id = ? AND location_id = ?`,
+      [
+        timeOfDay,
+        staffName,
+        floatAmount,
+        xJson,
+        eposJson,
+        chequesJson,
+        paidOutsJson,
+        cashJson,
+        bovDepositJson,
+        bovBagNumber || null,
+        bovContactId,
+        notes || null,
+        wantsLock ? 1 : 0,
+        authUser.user_id,
+        existing.id,
+        authUser.org_id,
+        authUser.location_id
+      ]
+    );
+
+    await writeAudit(env, authUser.org_id, authUser.user_id, wantsLock ? "EOD_LOCK" : "EOD_UPDATE", "end_of_day", String(existing.id), { eod_date: date });
+  }
+
+  const row = await dbFirst(
+    env,
+    "SELECT e.*, l.name AS location_name FROM end_of_day e LEFT JOIN locations l ON l.id = e.location_id AND l.org_id = e.org_id WHERE e.org_id = ? AND e.location_id = ? AND e.eod_date = ?",
+    [authUser.org_id, authUser.location_id, date]
+  );
+
+  const uiRow = eodRowToUi(row);
+  if (uiRow && !uiRow.location_name && authUser.location_name) uiRow.location_name = authUser.location_name;
+
+  return jsonResponse({ ok: true, eod: uiRow, record: uiRow, item: uiRow }, 200, corsOkHeaders);
+}
+
+async function handleEodLock(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureEndOfDaySchema(env);
+
+  const body = await readJson(request);
+  const date = String(body.eod_date || "").trim();
+  if (!isValidYmd(date)) return jsonResponse({ ok: false, error: "Invalid eod_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+
+  const existing = await dbFirst(env, "SELECT id, locked_at FROM end_of_day WHERE org_id = ? AND location_id = ? AND eod_date = ?", [authUser.org_id, authUser.location_id, date]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+  if (existing.locked_at) return jsonResponse({ ok: true, id: existing.id, locked_at: existing.locked_at }, 200, corsOkHeaders);
+
+  await dbRun(env, "UPDATE end_of_day SET locked_at = datetime('now'), updated_at = datetime('now'), updated_by = ? WHERE id = ? AND org_id = ? AND location_id = ?", [authUser.user_id, existing.id, authUser.org_id, authUser.location_id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "EOD_LOCK", "end_of_day", String(existing.id), { eod_date: date });
+
+  const locked = await dbFirst(env, "SELECT locked_at FROM end_of_day WHERE id = ? AND org_id = ? AND location_id = ?", [existing.id, authUser.org_id, authUser.location_id]);
+  return jsonResponse({ ok: true, id: existing.id, locked_at: locked ? locked.locked_at : null }, 200, corsOkHeaders);
+}
+
+async function handleEodListDates(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureEndOfDaySchema(env);
+  const month = String(url.searchParams.get("month") || "").trim();
+  if (!isValidYm(month)) return jsonResponse({ ok: false, error: "Missing/invalid month (YYYY-MM)" }, 400, corsOkHeaders);
+  const range = monthRange(month);
+  if (!range) return jsonResponse({ ok: false, error: "Invalid month" }, 400, corsOkHeaders);
+  const rows = await dbAll(env, "SELECT eod_date FROM end_of_day WHERE org_id = ? AND location_id = ? AND eod_date >= ? AND eod_date < ? ORDER BY eod_date ASC", [authUser.org_id, authUser.location_id, range.startStr, range.endStr]);
+  const dates = rows.map(r => r.eod_date);
+  return jsonResponse({ ok: true, dates: dates, items: dates, records: dates }, 200, corsOkHeaders);
+}
+
+async function handleEodContactsList(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureEndOfDaySchema(env);
+  const rows = await dbAll(env, "SELECT id, display_name, phone, email FROM end_of_day_contacts WHERE org_id = ? AND location_id = ? AND is_active = 1 ORDER BY display_name ASC", [authUser.org_id, authUser.location_id]);
+  return jsonResponse({ ok: true, contacts: rows }, 200, corsOkHeaders);
+}
+
+async function handleEodContactsCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureEndOfDaySchema(env);
+
+  const body = await readJson(request);
+
+  // UI sends { contacts: [...] } for bulk save — handle that case
+  if (Array.isArray(body.contacts)) {
+    return await handleEodContactsBulkSave(body.contacts, env, corsOkHeaders, authUser);
+  }
+
+  const name = String(body.display_name || body.name || "").trim();
+  const phone = String(body.phone || "").trim();
+  const email = String(body.email || "").trim();
+  if (!name) return jsonResponse({ ok: false, error: "Missing display_name" }, 400, corsOkHeaders);
+
+  const row = await dbFirst(env, "INSERT INTO end_of_day_contacts (org_id, location_id, display_name, phone, email, is_active, created_at, updated_at, created_by, updated_by) VALUES (?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'), ?, ?) RETURNING id", [authUser.org_id, authUser.location_id, name, phone, email, authUser.user_id, authUser.user_id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "EOD_CONTACT_CREATE", "end_of_day_contacts", String(row.id), { display_name: name });
+
+  return jsonResponse({ ok: true, id: row.id }, 200, corsOkHeaders);
+}
+
+async function handleEodContactsBulkSave(contacts, env, corsOkHeaders, authUser) {
+  // Bulk save: deactivate all existing, then upsert each contact from the UI list
+  await ensureEndOfDaySchema(env);
+
+  // Mark all existing contacts inactive
+  await dbRun(env, "UPDATE end_of_day_contacts SET is_active = 0, updated_at = datetime('now'), updated_by = ? WHERE org_id = ? AND location_id = ?", [authUser.user_id, authUser.org_id, authUser.location_id]);
+
+  const ids = [];
+  for (const c of contacts) {
+    const name = String(c.display_name || c.name || "").trim();
+    const phone = String(c.phone || "").trim();
+    const email = String(c.email || "").trim();
+    if (!name) continue;
+
+    // Try to re-activate existing by name, or insert new
+    const existing = await dbFirst(env, "SELECT id FROM end_of_day_contacts WHERE org_id = ? AND location_id = ? AND display_name = ?", [authUser.org_id, authUser.location_id, name]);
+    if (existing) {
+      await dbRun(env, "UPDATE end_of_day_contacts SET phone = ?, email = ?, is_active = 1, updated_at = datetime('now'), updated_by = ? WHERE id = ?", [phone, email, authUser.user_id, existing.id]);
+      ids.push(existing.id);
+    } else {
+      const row = await dbFirst(env, "INSERT INTO end_of_day_contacts (org_id, location_id, display_name, phone, email, is_active, created_at, updated_at, created_by, updated_by) VALUES (?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'), ?, ?) RETURNING id", [authUser.org_id, authUser.location_id, name, phone, email, authUser.user_id, authUser.user_id]);
+      ids.push(row.id);
+    }
+  }
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "EOD_CONTACTS_BULK_SAVE", "end_of_day_contacts", "", { count: ids.length });
+  return jsonResponse({ ok: true, ids: ids }, 200, corsOkHeaders);
+}
+
+async function handleEodContactsBulkPut(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureEndOfDaySchema(env);
+
+  const body = await readJson(request);
+  const contacts = body.contacts || body;
+  if (!Array.isArray(contacts)) return jsonResponse({ ok: false, error: "Expected contacts array" }, 400, corsOkHeaders);
+  return await handleEodContactsBulkSave(contacts, env, corsOkHeaders, authUser);
+}
+
+async function handleEodContactsUpdate(request, env, corsOkHeaders, authUser, contactId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureEndOfDaySchema(env);
+
+  const existing = await dbFirst(env, "SELECT id FROM end_of_day_contacts WHERE id = ? AND org_id = ? AND location_id = ?", [contactId, authUser.org_id, authUser.location_id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+  const name = String(body.display_name || body.name || "").trim();
+  const phone = String(body.phone || "").trim();
+  const email = String(body.email || "").trim();
+  if (!name) return jsonResponse({ ok: false, error: "Missing display_name" }, 400, corsOkHeaders);
+
+  await dbRun(env, "UPDATE end_of_day_contacts SET display_name = ?, phone = ?, email = ?, updated_at = datetime('now'), updated_by = ? WHERE id = ? AND org_id = ? AND location_id = ?", [name, phone, email, authUser.user_id, contactId, authUser.org_id, authUser.location_id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "EOD_CONTACT_UPDATE", "end_of_day_contacts", String(contactId), { display_name: name });
+
+    const payload = { ok: true };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
+  return jsonResponse(payload, 200, corsOkHeaders);
+}
+
+
+async function handleEodContactsDeactivate(request, env, corsOkHeaders, authUser, contactId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureEndOfDaySchema(env);
+
+  const existing = await dbFirst(env, "SELECT id, display_name FROM end_of_day_contacts WHERE id = ? AND org_id = ? AND location_id = ?", [contactId, authUser.org_id, authUser.location_id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  await dbRun(env, "UPDATE end_of_day_contacts SET is_active = 0, updated_at = datetime('now'), updated_by = ? WHERE id = ? AND org_id = ? AND location_id = ?", [authUser.user_id, contactId, authUser.org_id, authUser.location_id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "EOD_CONTACT_DEACTIVATE", "end_of_day_contacts", String(contactId), { display_name: existing.display_name });
+
+    const payload = { ok: true };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
+  return jsonResponse(payload, 200, corsOkHeaders);
+}
+
+
+/* =========================
+   CLEANING MODULE (API)
+   ========================= */
+
+
+// ------------------------------------------------------------
+// Near Expiry
+// ------------------------------------------------------------
+async function handleNearExpiryEntriesList(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureNearExpirySchema(env);
+
+  const q = (url.searchParams.get("q") || "").trim();
+  const hasQ = !!q;
+  const qLike = `%${q}%`;
+
+  const sql = `
+    SELECT
+      id,
+      product_name,
+      expiry_date,
+      location,
+      notes,
+      created_by,
+      created_at,
+      updated_at,
+      updated_by
+    FROM near_expiry_entries
+    WHERE org_id = ?
+      AND location_id = ?
+      ${hasQ ? `AND (
+        product_name LIKE ?
+        OR expiry_date LIKE ?
+        OR location LIKE ?
+        OR notes LIKE ?
+      )` : ""}
+    ORDER BY expiry_date ASC, product_name ASC, id DESC
+  `;
+
+  const bind = [authUser.org_id, authUser.location_id];
+  if (hasQ) bind.push(qLike, qLike, qLike, qLike);
+
+  const rows = await dbAll(env, sql, bind);
+  const entries = rows.map(nearExpiryRowToUi);
+  return jsonResponse({ ok: true, entries }, 200, corsOkHeaders);
+}
+
+async function handleNearExpiryEntryCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureNearExpirySchema(env);
+
+  const body = await readJson(request);
+
+  const productName = String(body.product_name || body.name || "").trim();
+  const expiryDate = String(body.expiry_date || "").trim();
+  const location = String(body.location || "").trim();
+  const notes = String(body.notes || "").trim();
+
+  if (!productName) return jsonResponse({ ok: false, error: "Missing product_name" }, 400, corsOkHeaders);
+  if (!isValidYmd(expiryDate)) return jsonResponse({ ok: false, error: "Missing/invalid expiry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+
+  const row = await dbFirst(
+    env,
+    `INSERT INTO near_expiry_entries
+      (org_id, location_id, product_name, expiry_date, location, notes, created_by, updated_by, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+     RETURNING id`,
+    [authUser.org_id, authUser.location_id, productName, expiryDate, location, notes, authUser.user_id, authUser.user_id]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "NEAR_EXPIRY_CREATE", "near_expiry_entries", String(row.id), {
+    product_name: productName,
+    expiry_date: expiryDate
+  });
+
+  const saved = await dbFirst(
+    env,
+    `SELECT id, product_name, expiry_date, location, notes, created_by, created_at, updated_at, updated_by
+     FROM near_expiry_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [row.id, authUser.org_id, authUser.location_id]
+  );
+
+  return jsonResponse({ ok: true, entry: nearExpiryRowToUi(saved) }, 200, corsOkHeaders);
+}
+
+async function handleNearExpiryEntryUpdate(request, env, corsOkHeaders, authUser, id) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureNearExpirySchema(env);
+
+  const existing = await dbFirst(
+    env,
+    "SELECT id FROM near_expiry_entries WHERE id = ? AND org_id = ? AND location_id = ?",
+    [id, authUser.org_id, authUser.location_id]
+  );
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+
+  const productName = String(body.product_name || body.name || "").trim();
+  const expiryDate = String(body.expiry_date || "").trim();
+  const location = String(body.location || "").trim();
+  const notes = String(body.notes || "").trim();
+
+  if (!productName) return jsonResponse({ ok: false, error: "Missing product_name" }, 400, corsOkHeaders);
+  if (!isValidYmd(expiryDate)) return jsonResponse({ ok: false, error: "Missing/invalid expiry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+
+  await dbRun(
+    env,
+    `UPDATE near_expiry_entries
+     SET product_name = ?, expiry_date = ?, location = ?, notes = ?, updated_by = ?, updated_at = datetime('now')
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [productName, expiryDate, location, notes, authUser.user_id, id, authUser.org_id, authUser.location_id]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "NEAR_EXPIRY_UPDATE", "near_expiry_entries", String(id), {
+    product_name: productName,
+    expiry_date: expiryDate
+  });
+
+  const saved = await dbFirst(
+    env,
+    `SELECT id, product_name, expiry_date, location, notes, created_by, created_at, updated_at, updated_by
+     FROM near_expiry_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [id, authUser.org_id, authUser.location_id]
+  );
+
+  return jsonResponse({ ok: true, entry: nearExpiryRowToUi(saved) }, 200, corsOkHeaders);
+}
+
+async function handleNearExpiryEntryDelete(request, env, corsOkHeaders, authUser, id) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureNearExpirySchema(env);
+
+  const existing = await dbFirst(
+    env,
+    "SELECT id, product_name, expiry_date FROM near_expiry_entries WHERE id = ? AND org_id = ? AND location_id = ?",
+    [id, authUser.org_id, authUser.location_id]
+  );
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  await dbRun(
+    env,
+    "DELETE FROM near_expiry_entries WHERE id = ? AND org_id = ? AND location_id = ?",
+    [id, authUser.org_id, authUser.location_id]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "NEAR_EXPIRY_DELETE", "near_expiry_entries", String(id), {
+    product_name: existing.product_name,
+    expiry_date: existing.expiry_date
+  });
+
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleCleaningEntriesList(request, env, corsOkHeaders, authUser, url) {
+  const month = (url.searchParams.get("month") || "").trim();
+  const range = monthRange(month);
+  if (!range) return jsonResponse({ ok: false, error: "Missing/invalid month (YYYY-MM)" }, 400, corsOkHeaders);
+
+  const entries = await dbAll(
+    env,
+    `SELECT
+       id,
+       entry_date,
+       time_in,
+       time_out,
+       cleaner_name,
+       staff_name,
+       notes,
+       created_by,
+       created_at,
+       updated_at
+     FROM cleaning_entries
+     WHERE org_id = ?
+       AND location_id = ?
+       AND entry_date >= ?
+       AND entry_date < ?
+     ORDER BY entry_date DESC, time_in DESC, id DESC`,
+    [authUser.org_id, authUser.location_id, range.startStr, range.endStr]
+  );
+
+  return jsonResponse({ ok: true, entries }, 200, corsOkHeaders);
+}
+
+async function handleCleaningEntryCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  const body = await readJson(request);
+
+  const entryDate = String(body.entry_date || "").trim();
+  const timeIn = String(body.time_in || "").trim();
+  const timeOut = String(body.time_out || "").trim();
+  const cleanerName = String(body.cleaner_name || "").trim();
+  const staffName = String(body.staff_name || "").trim();
+  const notes = String(body.notes || "").trim();
+
+  if (!isValidYmd(entryDate)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (!isValidHm(timeIn)) return jsonResponse({ ok: false, error: "Invalid time_in (HH:mm)" }, 400, corsOkHeaders);
+  if (timeOut && !isValidHm(timeOut)) return jsonResponse({ ok: false, error: "Invalid time_out (HH:mm or empty)" }, 400, corsOkHeaders);
+  if (!cleanerName) return jsonResponse({ ok: false, error: "Missing cleaner_name" }, 400, corsOkHeaders);
+  if (!staffName) return jsonResponse({ ok: false, error: "Missing staff_name" }, 400, corsOkHeaders);
+
+  const row = await dbFirst(
+    env,
+    `INSERT INTO cleaning_entries
+       (org_id, location_id, entry_date, time_in, time_out, cleaner_name, staff_name, notes, created_by, created_at, updated_at)
+     VALUES
+       (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+     RETURNING id`,
+    [authUser.org_id, authUser.location_id, entryDate, timeIn, timeOut || "", cleanerName, staffName, notes, authUser.user_id]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CLEANING_ENTRY_CREATE", "cleaning_entries", String(row.id), {
+    entry_date: entryDate,
+    time_in: timeIn,
+    time_out: timeOut || "",
+    cleaner_name: cleanerName,
+    staff_name: staffName
+  });
+
+  return jsonResponse({ ok: true, entry_id: row.id }, 200, corsOkHeaders);
+}
+
+async function handleCleaningEntryUpdate(request, env, corsOkHeaders, authUser, entryId) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  const existing = await dbFirst(
+    env,
+    `SELECT id
+     FROM cleaning_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+
+  const entryDate = String(body.entry_date || "").trim();
+  const timeIn = String(body.time_in || "").trim();
+  const timeOut = String(body.time_out || "").trim();
+  const cleanerName = String(body.cleaner_name || "").trim();
+  const staffName = String(body.staff_name || "").trim();
+  const notes = String(body.notes || "").trim();
+
+  if (!isValidYmd(entryDate)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (!isValidHm(timeIn)) return jsonResponse({ ok: false, error: "Invalid time_in (HH:mm)" }, 400, corsOkHeaders);
+  if (timeOut && !isValidHm(timeOut)) return jsonResponse({ ok: false, error: "Invalid time_out (HH:mm or empty)" }, 400, corsOkHeaders);
+  if (!cleanerName) return jsonResponse({ ok: false, error: "Missing cleaner_name" }, 400, corsOkHeaders);
+  if (!staffName) return jsonResponse({ ok: false, error: "Missing staff_name" }, 400, corsOkHeaders);
+
+  await dbRun(
+    env,
+    `UPDATE cleaning_entries
+     SET entry_date = ?, time_in = ?, time_out = ?, cleaner_name = ?, staff_name = ?, notes = ?, updated_at = datetime('now')
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryDate, timeIn, timeOut || "", cleanerName, staffName, notes, entryId, authUser.org_id, authUser.location_id]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CLEANING_ENTRY_UPDATE", "cleaning_entries", String(entryId), {
+    entry_date: entryDate,
+    time_in: timeIn,
+    time_out: timeOut || "",
+    cleaner_name: cleanerName,
+    staff_name: staffName
+  });
+
+    const payload = { ok: true };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
+  return jsonResponse(payload, 200, corsOkHeaders);
+}
+
+
+async function handleCleaningEntryDelete(request, env, corsOkHeaders, authUser, entryId) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  const existing = await dbFirst(
+    env,
+    `SELECT id
+     FROM cleaning_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  await dbRun(
+    env,
+    `DELETE FROM cleaning_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CLEANING_ENTRY_DELETE", "cleaning_entries", String(entryId), {});
+
+    const payload = { ok: true };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
+  return jsonResponse(payload, 200, corsOkHeaders);
+}
+
+
+async function handleCleaningReport(request, env, corsOkHeaders, authUser, url) {
+  const from = (url.searchParams.get("from") || "").trim();
+  const to = (url.searchParams.get("to") || "").trim();
+
+  if (!isValidYmd(from) || !isValidYmd(to)) {
+    return jsonResponse({ ok: false, error: "Invalid from/to (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  }
+  if (to < from) {
+    return jsonResponse({ ok: false, error: "to must be >= from" }, 400, corsOkHeaders);
+  }
+
+  const entries = await dbAll(
+    env,
+    `SELECT
+       id,
+       entry_date,
+       time_in,
+       time_out,
+       cleaner_name,
+       staff_name,
+       notes
+     FROM cleaning_entries
+     WHERE org_id = ?
+       AND location_id = ?
+       AND entry_date >= ?
+       AND entry_date <= ?
+     ORDER BY entry_date ASC, time_in ASC, id ASC`,
+    [authUser.org_id, authUser.location_id, from, to]
+  );
+
+  return jsonResponse(
+    {
+      ok: true,
+      org_name: authUser.org_name,
+      location_name: authUser.location_name,
+      from,
+      to,
+      entries
+    },
+    200,
+    corsOkHeaders
+  );
+}
+
+async function handleCleaningReportHtml(request, env, corsOkHeaders, authUser, url) {
+  const out = await handleCleaningReport(request, env, corsOkHeaders, authUser, url);
+  const data = await out.json();
+  if (!data.ok) return out;
+
+  const entries = data.entries || [];
+
+  // Group by month
+  const byMonth = new Map();
+  for (const e of entries) {
+    const ym = ymFromYmd(e.entry_date);
+    if (!byMonth.has(ym)) byMonth.set(ym, []);
+    byMonth.get(ym).push(e);
+  }
+
+  let body = "";
+  body += `<h1>${escapeHtml(data.org_name || "Pharmacy")} — Cleaning Report</h1>`;
+  body += `<p class="meta">Location: ${escapeHtml(data.location_name || "")}<br/>Range: ${escapeHtml(data.from)} to ${escapeHtml(data.to)}</p>`;
+
+  for (const [ym, list] of byMonth.entries()) {
+    body += `<h2>${escapeHtml(ym)}</h2>`;
+    body += `<table><thead><tr><th>Date</th><th>Time in</th><th>Time out</th><th>Cleaner</th><th>Staff</th><th>Notes</th></tr></thead><tbody>`;
+    for (const r of list) {
+      body += `<tr>
+        <td>${escapeHtml(r.entry_date)}</td>
+        <td>${escapeHtml(r.time_in)}</td>
+        <td>${escapeHtml(r.time_out || "")}</td>
+        <td>${escapeHtml(r.cleaner_name)}</td>
+        <td>${escapeHtml(r.staff_name)}</td>
+        <td>${escapeHtml(r.notes || "")}</td>
+      </tr>`;
+    }
+    body += `</tbody></table>`;
+  }
+
+  return htmlReportPage("Cleaning Report", body);
+}
+
+/* =========================
+   LOCUM REGISTER MODULE (API)
+   ========================= */
+
+async function ensureLocumRegisterSchema(env) {
+  // Table may already exist (you created it), but this is safe.
+  await dbRun(
+    env,
+    `CREATE TABLE IF NOT EXISTS locum_register_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+      entry_date TEXT NOT NULL,
+      time_in TEXT NOT NULL,
+      time_out TEXT NOT NULL,
+      locum_full_name TEXT NOT NULL,
+      registration_number TEXT NOT NULL,
+      created_by INTEGER,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )`,
+    []
+  );
+
+  await dbRun(
+    env,
+    "CREATE INDEX IF NOT EXISTS idx_locum_register_org_loc_date ON locum_register_entries (org_id, location_id, entry_date)",
+    []
+  );
+
+  await dbRun(
+    env,
+    "CREATE INDEX IF NOT EXISTS idx_locum_register_org_loc_regno ON locum_register_entries (org_id, location_id, registration_number)",
+    []
+  );
+}
+
+async function handleLocumRegisterEntriesList(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureLocumRegisterSchema(env);
+
+  const month = (url.searchParams.get("month") || "").trim();
+  const range = monthRange(month);
+  if (!range) return jsonResponse({ ok: false, error: "Missing/invalid month (YYYY-MM)" }, 400, corsOkHeaders);
+
+  const entries = await dbAll(
+    env,
+    `SELECT
+       id,
+       entry_date,
+       time_in,
+       time_out,
+       locum_full_name,
+       registration_number,
+       created_by,
+       created_at,
+       updated_at
+     FROM locum_register_entries
+     WHERE org_id = ?
+       AND location_id = ?
+       AND entry_date >= ?
+       AND entry_date < ?
+     ORDER BY entry_date DESC, time_in DESC, id DESC`,
+    [authUser.org_id, authUser.location_id, range.startStr, range.endStr]
+  );
+
+  return jsonResponse({ ok: true, entries }, 200, corsOkHeaders);
+}
+
+async function handleLocumRegisterEntryCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureLocumRegisterSchema(env);
+
+  const body = await readJson(request);
+
+  const entryDate = String(body.entry_date || "").trim();
+  const timeIn = String(body.time_in || "").trim();
+  const timeOut = String(body.time_out || "").trim();
+  const fullName = String(body.locum_full_name || "").trim();
+  const regNo = String(body.registration_number || "").trim();
+
+  if (!isValidYmd(entryDate)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (!isValidHm(timeIn)) return jsonResponse({ ok: false, error: "Invalid time_in (HH:mm)" }, 400, corsOkHeaders);
+  if (timeOut && !isValidHm(timeOut)) return jsonResponse({ ok: false, error: "Invalid time_out (HH:mm or empty)" }, 400, corsOkHeaders);
+  if (!fullName) return jsonResponse({ ok: false, error: "Missing locum_full_name" }, 400, corsOkHeaders);
+  if (!regNo) return jsonResponse({ ok: false, error: "Missing registration_number" }, 400, corsOkHeaders);
+
+  const row = await dbFirst(
+    env,
+    `INSERT INTO locum_register_entries
+       (org_id, location_id, entry_date, time_in, time_out, locum_full_name, registration_number, created_by, created_at, updated_at)
+     VALUES
+       (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+     RETURNING id`,
+    [authUser.org_id, authUser.location_id, entryDate, timeIn, timeOut || "", fullName, regNo, authUser.user_id]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "LOCUM_REGISTER_ENTRY_CREATE", "locum_register_entries", String(row.id), {
+    entry_date: entryDate,
+    time_in: timeIn,
+    time_out: timeOut || "",
+    locum_full_name: fullName,
+    registration_number: regNo
+  });
+
+  return jsonResponse({ ok: true, entry_id: row.id }, 200, corsOkHeaders);
+}
+
+async function handleLocumRegisterEntryUpdate(request, env, corsOkHeaders, authUser, entryId) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureLocumRegisterSchema(env);
+
+  const existing = await dbFirst(
+    env,
+    `SELECT id
+     FROM locum_register_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+
+  const entryDate = String(body.entry_date || "").trim();
+  const timeIn = String(body.time_in || "").trim();
+  const timeOut = String(body.time_out || "").trim();
+  const fullName = String(body.locum_full_name || "").trim();
+  const regNo = String(body.registration_number || "").trim();
+
+  if (!isValidYmd(entryDate)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (!isValidHm(timeIn)) return jsonResponse({ ok: false, error: "Invalid time_in (HH:mm)" }, 400, corsOkHeaders);
+  if (timeOut && !isValidHm(timeOut)) return jsonResponse({ ok: false, error: "Invalid time_out (HH:mm or empty)" }, 400, corsOkHeaders);
+  if (!fullName) return jsonResponse({ ok: false, error: "Missing locum_full_name" }, 400, corsOkHeaders);
+  if (!regNo) return jsonResponse({ ok: false, error: "Missing registration_number" }, 400, corsOkHeaders);
+
+  await dbRun(
+    env,
+    `UPDATE locum_register_entries
+     SET entry_date = ?, time_in = ?, time_out = ?, locum_full_name = ?, registration_number = ?, updated_at = datetime('now')
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryDate, timeIn, timeOut || "", fullName, regNo, entryId, authUser.org_id, authUser.location_id]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "LOCUM_REGISTER_ENTRY_UPDATE", "locum_register_entries", String(entryId), {
+    entry_date: entryDate,
+    time_in: timeIn,
+    time_out: timeOut || "",
+    locum_full_name: fullName,
+    registration_number: regNo
+  });
+
+    const payload = { ok: true };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
+  return jsonResponse(payload, 200, corsOkHeaders);
+}
+
+
+async function handleLocumRegisterEntryDelete(request, env, corsOkHeaders, authUser, entryId) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureLocumRegisterSchema(env);
+
+  const existing = await dbFirst(
+    env,
+    `SELECT id
+     FROM locum_register_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  await dbRun(
+    env,
+    `DELETE FROM locum_register_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "LOCUM_REGISTER_ENTRY_DELETE", "locum_register_entries", String(entryId), {});
+
+    const payload = { ok: true };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
+  return jsonResponse(payload, 200, corsOkHeaders);
+}
+
+
+
+
+
+/* =========================
+   LOCUM RECEIPTS MODULE (API)
+   ========================= */
+
+const LOCUM_RECEIPTS_REPORT_PASS = "Report1234!";
+const LOCUM_RECEIPTS_EDIT_PASS = "!4321";
+
+function round2(n) {
+  const x = Number(n);
+  if (!Number.isFinite(x)) return 0;
+  return Math.round(x * 100) / 100;
+}
+
+function isValidYear(s) {
+  return /^\d{4}$/.test(String(s || "").trim());
+}
+
+function yearRange(yyyy) {
+  const y = String(yyyy || "").trim();
+  if (!isValidYear(y)) return null;
+  const yNum = parseInt(y, 10);
+  const start = new Date(Date.UTC(yNum, 0, 1));
+  const end = new Date(Date.UTC(yNum + 1, 0, 1));
+  return { startStr: start.toISOString().slice(0, 10), endStr: end.toISOString().slice(0, 10) };
+}
+
+function isValidDayType(s) {
+  const v = String(s || "").trim().toLowerCase();
+  return v === "normal" || v === "holiday";
+}
+
+function requireHeaderPass(request, headerName, expected) {
+  try {
+    return String(request.headers.get(headerName) || "") === String(expected);
+  } catch (e) {
+    return false;
+  }
+}
+
+async function ensureLocumReceiptsSchema(env) {
+  // One-line queries (easy to copy/paste into D1 console)
+  await dbRun(env, "CREATE TABLE IF NOT EXISTS locum_receipts (id INTEGER PRIMARY KEY AUTOINCREMENT, org_id INTEGER NOT NULL, location_id INTEGER NOT NULL, receipt_date TEXT NOT NULL, hours REAL NOT NULL, locum_full_name TEXT NOT NULL, registration_number TEXT NOT NULL, day_type TEXT NOT NULL DEFAULT 'normal', fee_per_hour REAL NOT NULL, total_fee REAL NOT NULL, created_by INTEGER, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')))", []);
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_locum_receipts_org_loc_date ON locum_receipts (org_id, location_id, receipt_date)", []);
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_locum_receipts_org_loc_name ON locum_receipts (org_id, location_id, locum_full_name)", []);
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_locum_receipts_org_loc_regno ON locum_receipts (org_id, location_id, registration_number)", []);
+}
+
+async function handleLocumReceiptsList(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureLocumReceiptsSchema(env);
+
+  const month = (url.searchParams.get("month") || "").trim();
+  const year = (url.searchParams.get("year") || "").trim();
+
+  let range = null;
+  let label = "";
+  if (month) {
+    range = monthRange(month);
+    label = "month";
+    if (!range) return jsonResponse({ ok: false, error: "Missing/invalid month (YYYY-MM)" }, 400, corsOkHeaders);
+  } else if (year) {
+    range = yearRange(year);
+    label = "year";
+    if (!range) return jsonResponse({ ok: false, error: "Missing/invalid year (YYYY)" }, 400, corsOkHeaders);
+  } else {
+    return jsonResponse({ ok: false, error: "Missing month or year" }, 400, corsOkHeaders);
+  }
+
+  const receipts = await dbAll(
+    env,
+    `SELECT
+       id,
+       receipt_date,
+       hours,
+       locum_full_name,
+       registration_number,
+       day_type,
+       fee_per_hour,
+       total_fee,
+       created_by,
+       created_at,
+       updated_at
+     FROM locum_receipts
+     WHERE org_id = ?
+       AND location_id = ?
+       AND receipt_date >= ?
+       AND receipt_date < ?
+     ORDER BY receipt_date DESC, id DESC`,
+    [authUser.org_id, authUser.location_id, range.startStr, range.endStr]
+  );
+
+  const payload = { ok: true, receipts };
+  if (isDebugEnabled(request)) payload.debug = { range, label };
+  return jsonResponse(payload, 200, corsOkHeaders);
+}
+
+async function handleLocumReceiptCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureLocumReceiptsSchema(env);
+
+  const body = await readJson(request);
+
+  const receiptDate = String(body.receipt_date || "").trim();
+  const hours = Number(body.hours);
+  const fullName = String(body.locum_full_name || "").trim();
+  const regNo = String(body.registration_number || "").trim();
+  const dayType = String(body.day_type || "normal").trim().toLowerCase();
+  const feePerHour = Number(body.fee_per_hour);
+
+  if (!isValidYmd(receiptDate)) return jsonResponse({ ok: false, error: "Invalid receipt_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (!Number.isFinite(hours) || hours <= 0) return jsonResponse({ ok: false, error: "Invalid hours" }, 400, corsOkHeaders);
+  if (hours > 24) return jsonResponse({ ok: false, error: "Hours cannot exceed 24" }, 400, corsOkHeaders);
+  if (!fullName) return jsonResponse({ ok: false, error: "Missing locum_full_name" }, 400, corsOkHeaders);
+  if (!regNo) return jsonResponse({ ok: false, error: "Missing registration_number" }, 400, corsOkHeaders);
+  if (!isValidDayType(dayType)) return jsonResponse({ ok: false, error: "Invalid day_type (normal|holiday)" }, 400, corsOkHeaders);
+  if (!Number.isFinite(feePerHour) || feePerHour < 0) return jsonResponse({ ok: false, error: "Invalid fee_per_hour" }, 400, corsOkHeaders);
+
+  const totalFee = round2(hours * feePerHour);
+
+  const row = await dbFirst(
+    env,
+    `INSERT INTO locum_receipts
+       (org_id, location_id, receipt_date, hours, locum_full_name, registration_number, day_type, fee_per_hour, total_fee, created_by, created_at, updated_at)
+     VALUES
+       (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+     RETURNING id, receipt_date, hours, locum_full_name, registration_number, day_type, fee_per_hour, total_fee, created_by, created_at, updated_at`,
+    [authUser.org_id, authUser.location_id, receiptDate, hours, fullName, regNo, dayType, feePerHour, totalFee, authUser.user_id]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "LOCUM_RECEIPT_CREATE", "locum_receipts", String(row.id), {
+    receipt_date: receiptDate,
+    hours,
+    locum_full_name: fullName,
+    registration_number: regNo,
+    day_type: dayType,
+    fee_per_hour: feePerHour,
+    total_fee: totalFee
+  });
+
+  const payload = { ok: true, receipt: row, id: row.id };
+  if (isDebugEnabled(request)) payload.debug = { row };
+  return jsonResponse(payload, 200, corsOkHeaders);
+}
+
+async function handleLocumReceiptUpdate(request, env, corsOkHeaders, authUser, receiptId) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  // extra protection as requested
+  if (!requireHeaderPass(request, "X-Eikon-Edit-Pass", LOCUM_RECEIPTS_EDIT_PASS)) {
+    return jsonResponse({ ok: false, error: "Edit password required" }, 403, corsOkHeaders);
+  }
+
+  await ensureLocumReceiptsSchema(env);
+
+  const existing = await dbFirst(
+    env,
+    `SELECT id
+     FROM locum_receipts
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [receiptId, authUser.org_id, authUser.location_id]
+  );
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+
+  const receiptDate = String(body.receipt_date || "").trim();
+  const hours = Number(body.hours);
+  const fullName = String(body.locum_full_name || "").trim();
+  const regNo = String(body.registration_number || "").trim();
+  const dayType = String(body.day_type || "normal").trim().toLowerCase();
+  const feePerHour = Number(body.fee_per_hour);
+
+  if (!isValidYmd(receiptDate)) return jsonResponse({ ok: false, error: "Invalid receipt_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (!Number.isFinite(hours) || hours <= 0) return jsonResponse({ ok: false, error: "Invalid hours" }, 400, corsOkHeaders);
+  if (hours > 24) return jsonResponse({ ok: false, error: "Hours cannot exceed 24" }, 400, corsOkHeaders);
+  if (!fullName) return jsonResponse({ ok: false, error: "Missing locum_full_name" }, 400, corsOkHeaders);
+  if (!regNo) return jsonResponse({ ok: false, error: "Missing registration_number" }, 400, corsOkHeaders);
+  if (!isValidDayType(dayType)) return jsonResponse({ ok: false, error: "Invalid day_type (normal|holiday)" }, 400, corsOkHeaders);
+  if (!Number.isFinite(feePerHour) || feePerHour < 0) return jsonResponse({ ok: false, error: "Invalid fee_per_hour" }, 400, corsOkHeaders);
+
+  const totalFee = round2(hours * feePerHour);
+
+  await dbRun(
+    env,
+    `UPDATE locum_receipts
+     SET receipt_date = ?,
+         hours = ?,
+         locum_full_name = ?,
+         registration_number = ?,
+         day_type = ?,
+         fee_per_hour = ?,
+         total_fee = ?,
+         updated_at = datetime('now')
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [receiptDate, hours, fullName, regNo, dayType, feePerHour, totalFee, receiptId, authUser.org_id, authUser.location_id]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "LOCUM_RECEIPT_UPDATE", "locum_receipts", String(receiptId), {
+    receipt_date: receiptDate,
+    hours,
+    locum_full_name: fullName,
+    registration_number: regNo,
+    day_type: dayType,
+    fee_per_hour: feePerHour,
+    total_fee: totalFee
+  });
+
+  const payload = { ok: true };
+  if (isDebugEnabled(request)) payload.debug = { receiptId };
+  return jsonResponse(payload, 200, corsOkHeaders);
+}
+
+async function handleLocumReceiptDelete(request, env, corsOkHeaders, authUser, receiptId) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  // extra protection as requested
+  if (!requireHeaderPass(request, "X-Eikon-Edit-Pass", LOCUM_RECEIPTS_EDIT_PASS)) {
+    return jsonResponse({ ok: false, error: "Edit password required" }, 403, corsOkHeaders);
+  }
+
+  await ensureLocumReceiptsSchema(env);
+
+  const existing = await dbFirst(
+    env,
+    `SELECT id
+     FROM locum_receipts
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [receiptId, authUser.org_id, authUser.location_id]
+  );
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  await dbRun(
+    env,
+    "DELETE FROM locum_receipts WHERE id = ? AND org_id = ? AND location_id = ?",
+    [receiptId, authUser.org_id, authUser.location_id]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "LOCUM_RECEIPT_DELETE", "locum_receipts", String(receiptId), {});
+
+  const payload = { ok: true };
+  if (isDebugEnabled(request)) payload.debug = { receiptId };
+  return jsonResponse(payload, 200, corsOkHeaders);
+}
+
+async function handleLocumReceiptsReport(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  // extra protection as requested
+  if (!requireHeaderPass(request, "X-Eikon-Report-Pass", LOCUM_RECEIPTS_REPORT_PASS)) {
+    return jsonResponse({ ok: false, error: "Report password required" }, 403, corsOkHeaders);
+  }
+
+  await ensureLocumReceiptsSchema(env);
+
+  const month = (url.searchParams.get("month") || "").trim();
+  const year = (url.searchParams.get("year") || "").trim();
+
+  let range = null;
+  let periodLabel = "";
+  if (month) {
+    range = monthRange(month);
+    if (!range) return jsonResponse({ ok: false, error: "Missing/invalid month (YYYY-MM)" }, 400, corsOkHeaders);
+    periodLabel = "Month • " + month;
+  } else if (year) {
+    range = yearRange(year);
+    if (!range) return jsonResponse({ ok: false, error: "Missing/invalid year (YYYY)" }, 400, corsOkHeaders);
+    periodLabel = "Year • " + year;
+  } else {
+    return jsonResponse({ ok: false, error: "Missing month or year" }, 400, corsOkHeaders);
+  }
+
+  const rows = await dbAll(
+    env,
+    `SELECT
+       id,
+       receipt_date,
+       hours,
+       locum_full_name,
+       registration_number,
+       day_type,
+       fee_per_hour,
+       total_fee
+     FROM locum_receipts
+     WHERE org_id = ?
+       AND location_id = ?
+       AND receipt_date >= ?
+       AND receipt_date < ?
+     ORDER BY locum_full_name ASC, registration_number ASC, receipt_date ASC, id ASC`,
+    [authUser.org_id, authUser.location_id, range.startStr, range.endStr]
+  );
+
+  // Group by locum (name + reg)
+  const byKey = new Map();
+  for (const r of rows) {
+    const name = String(r.locum_full_name || "");
+    const reg = String(r.registration_number || "");
+    const key = name + "||" + reg;
+    if (!byKey.has(key)) {
+      byKey.set(key, { locum_full_name: name, registration_number: reg, entries: [], total_hours: 0, total_fees: 0 });
+    }
+    const g = byKey.get(key);
+    const h = Number(r.hours);
+    const tf = Number(r.total_fee);
+    g.entries.push({
+      id: r.id,
+      receipt_date: r.receipt_date,
+      hours: Number.isFinite(h) ? h : 0,
+      locum_full_name: name,
+      registration_number: reg,
+      day_type: r.day_type,
+      fee_per_hour: Number(r.fee_per_hour),
+      total_fee: Number.isFinite(tf) ? tf : 0
+    });
+    g.total_hours = round2(g.total_hours + (Number.isFinite(h) ? h : 0));
+    g.total_fees = round2(g.total_fees + (Number.isFinite(tf) ? tf : 0));
+  }
+
+  const locums = Array.from(byKey.values());
+
+  // Overall table
+  const overall = locums.map(l => ({
+    locum_full_name: l.locum_full_name,
+    registration_number: l.registration_number,
+    total_hours: l.total_hours,
+    total_fees: l.total_fees
+  }));
+
+  const overallTotals = overall.reduce(
+    (acc, r) => {
+      acc.total_hours = round2(acc.total_hours + (Number(r.total_hours) || 0));
+      acc.total_fees = round2(acc.total_fees + (Number(r.total_fees) || 0));
+      return acc;
+    },
+    { total_hours: 0, total_fees: 0 }
+  );
+
+  const report = {
+    location_name: authUser.location_name || "",
+    period_label: periodLabel,
+    generated_at: new Date().toISOString().replace("T", " ").slice(0, 19),
+    locums,
+    overall,
+    overall_totals: overallTotals
+  };
+
+  const payload = { ok: true, report };
+  if (isDebugEnabled(request)) payload.debug = { range, rowCount: rows.length };
+  return jsonResponse(payload, 200, corsOkHeaders);
+}
+
+/* =========================
+   DAILY REGISTER MODULE (API)
+   ========================= */
+
+async function ensureDailyRegisterSchema(env) {
+  await dbRun(
+    env,
+    `CREATE TABLE IF NOT EXISTS daily_register_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+      entry_date TEXT NOT NULL,
+      client_name TEXT NOT NULL,
+      client_id TEXT NOT NULL,
+      medicine_name_dose TEXT NOT NULL,
+      posology TEXT NOT NULL,
+      prescriber_name TEXT NOT NULL,
+      prescriber_reg_no TEXT NOT NULL,
+      created_by INTEGER,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )`,
+    []
+  );
+
+  await dbRun(
+    env,
+    "CREATE INDEX IF NOT EXISTS idx_daily_register_org_loc_date ON daily_register_entries (org_id, location_id, entry_date)",
+    []
+  );
+
+  await dbRun(
+    env,
+    "CREATE INDEX IF NOT EXISTS idx_daily_register_org_loc_client ON daily_register_entries (org_id, location_id, client_id)",
+    []
+  );
+}
+
+async function handleDailyRegisterEntriesList(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDailyRegisterSchema(env);
+
+  const month = (url.searchParams.get("month") || "").trim();
+  const range = monthRange(month);
+  if (!range) return jsonResponse({ ok: false, error: "Missing/invalid month (YYYY-MM)" }, 400, corsOkHeaders);
+
+  const q = (url.searchParams.get("q") || "").trim();
+  const hasQ = !!q;
+  const qLike = `%${q}%`;
+
+  const sql = `
+    SELECT
+      id,
+      entry_date,
+      client_name,
+      client_id,
+      medicine_name_dose,
+      posology,
+      prescriber_name,
+      prescriber_reg_no,
+      created_by,
+      created_at,
+      updated_at
+    FROM daily_register_entries
+    WHERE org_id = ?
+      AND location_id = ?
+      AND entry_date >= ?
+      AND entry_date < ?
+      ${hasQ ? `AND (
+        entry_date LIKE ?
+        OR client_name LIKE ?
+        OR client_id LIKE ?
+        OR medicine_name_dose LIKE ?
+        OR posology LIKE ?
+        OR prescriber_name LIKE ?
+        OR prescriber_reg_no LIKE ?
+      )` : ""}
+    ORDER BY entry_date DESC, id DESC
+  `;
+
+  const bind = [authUser.org_id, authUser.location_id, range.startStr, range.endStr];
+  if (hasQ) {
+    bind.push(qLike, qLike, qLike, qLike, qLike, qLike, qLike);
+  }
+
+  const entries = await dbAll(env, sql, bind);
+
+  return jsonResponse({ ok: true, entries }, 200, corsOkHeaders);
+}
+
+async function handleDailyRegisterEntryCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDailyRegisterSchema(env);
+
+  const body = await readJson(request);
+
+  const entryDate = String(body.entry_date || "").trim();
+  const clientName = String(body.client_name || "").trim();
+  const clientId = String(body.client_id || "").trim();
+  const medicineNameDose = String(body.medicine_name_dose || "").trim();
+  const posology = String(body.posology || "").trim();
+  const prescriberName = String(body.prescriber_name || "").trim();
+  const prescriberRegNo = String(body.prescriber_reg_no || "").trim();
+
+  if (!isValidYmd(entryDate)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (!clientName) return jsonResponse({ ok: false, error: "Missing client_name" }, 400, corsOkHeaders);
+  if (!clientId) return jsonResponse({ ok: false, error: "Missing client_id" }, 400, corsOkHeaders);
+  if (!medicineNameDose) return jsonResponse({ ok: false, error: "Missing medicine_name_dose" }, 400, corsOkHeaders);
+  if (!posology) return jsonResponse({ ok: false, error: "Missing posology" }, 400, corsOkHeaders);
+  if (!prescriberName) return jsonResponse({ ok: false, error: "Missing prescriber_name" }, 400, corsOkHeaders);
+  if (!prescriberRegNo) return jsonResponse({ ok: false, error: "Missing prescriber_reg_no" }, 400, corsOkHeaders);
+
+  const row = await dbFirst(
+    env,
+    `INSERT INTO daily_register_entries
+      (org_id, location_id, entry_date, client_name, client_id, medicine_name_dose, posology, prescriber_name, prescriber_reg_no, created_by, created_at, updated_at)
+     VALUES
+      (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+     RETURNING id`,
+    [
+      authUser.org_id,
+      authUser.location_id,
+      entryDate,
+      clientName,
+      clientId,
+      medicineNameDose,
+      posology,
+      prescriberName,
+      prescriberRegNo,
+      authUser.user_id
+    ]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DAILY_REGISTER_ENTRY_CREATE", "daily_register_entries", String(row.id), {
+    entry_date: entryDate,
+    client_id: clientId,
+    medicine_name_dose: medicineNameDose
+  });
+
+  return jsonResponse({ ok: true, entry_id: row.id }, 200, corsOkHeaders);
+}
+
+async function handleDailyRegisterEntryUpdate(request, env, corsOkHeaders, authUser, entryId) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDailyRegisterSchema(env);
+
+  const existing = await dbFirst(
+    env,
+    `SELECT id
+     FROM daily_register_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+
+  const entryDate = String(body.entry_date || "").trim();
+  const clientName = String(body.client_name || "").trim();
+  const clientId = String(body.client_id || "").trim();
+  const medicineNameDose = String(body.medicine_name_dose || "").trim();
+  const posology = String(body.posology || "").trim();
+  const prescriberName = String(body.prescriber_name || "").trim();
+  const prescriberRegNo = String(body.prescriber_reg_no || "").trim();
+
+  if (!isValidYmd(entryDate)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (!clientName) return jsonResponse({ ok: false, error: "Missing client_name" }, 400, corsOkHeaders);
+  if (!clientId) return jsonResponse({ ok: false, error: "Missing client_id" }, 400, corsOkHeaders);
+  if (!medicineNameDose) return jsonResponse({ ok: false, error: "Missing medicine_name_dose" }, 400, corsOkHeaders);
+  if (!posology) return jsonResponse({ ok: false, error: "Missing posology" }, 400, corsOkHeaders);
+  if (!prescriberName) return jsonResponse({ ok: false, error: "Missing prescriber_name" }, 400, corsOkHeaders);
+  if (!prescriberRegNo) return jsonResponse({ ok: false, error: "Missing prescriber_reg_no" }, 400, corsOkHeaders);
+
+  await dbRun(
+    env,
+    `UPDATE daily_register_entries
+     SET entry_date = ?, client_name = ?, client_id = ?, medicine_name_dose = ?, posology = ?, prescriber_name = ?, prescriber_reg_no = ?, updated_at = datetime('now')
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [
+      entryDate,
+      clientName,
+      clientId,
+      medicineNameDose,
+      posology,
+      prescriberName,
+      prescriberRegNo,
+      entryId,
+      authUser.org_id,
+      authUser.location_id
+    ]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DAILY_REGISTER_ENTRY_UPDATE", "daily_register_entries", String(entryId), {
+    entry_date: entryDate,
+    client_id: clientId,
+    medicine_name_dose: medicineNameDose
+  });
+
+    const payload = { ok: true };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
+  return jsonResponse(payload, 200, corsOkHeaders);
+}
+
+
+async function handleDailyRegisterEntryDelete(request, env, corsOkHeaders, authUser, entryId) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDailyRegisterSchema(env);
+
+  const existing = await dbFirst(
+    env,
+    `SELECT id, entry_date, client_id
+     FROM daily_register_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  await dbRun(
+    env,
+    `DELETE FROM daily_register_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DAILY_REGISTER_ENTRY_DELETE", "daily_register_entries", String(entryId), {
+    entry_date: existing.entry_date,
+    client_id: existing.client_id
+  });
+
+    const payload = { ok: true };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
+  return jsonResponse(payload, 200, corsOkHeaders);
+}
+
+
+async function handleDailyRegisterReport(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDailyRegisterSchema(env);
+
+  const from = (url.searchParams.get("from") || "").trim();
+  const to = (url.searchParams.get("to") || "").trim();
+
+  if (!isValidYmd(from) || !isValidYmd(to)) {
+    return jsonResponse({ ok: false, error: "Invalid from/to (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  }
+  if (to < from) {
+    return jsonResponse({ ok: false, error: "to must be >= from" }, 400, corsOkHeaders);
+  }
+
+  const entries = await dbAll(
+    env,
+    `SELECT
+       id,
+       entry_date,
+       client_name,
+       client_id,
+       medicine_name_dose,
+       posology,
+       prescriber_name,
+       prescriber_reg_no
+     FROM daily_register_entries
+     WHERE org_id = ?
+       AND location_id = ?
+       AND entry_date >= ?
+       AND entry_date <= ?
+     ORDER BY entry_date ASC, id ASC`,
+    [authUser.org_id, authUser.location_id, from, to]
+  );
+
+  return jsonResponse(
+    {
+      ok: true,
+      org_name: authUser.org_name,
+      location_name: authUser.location_name,
+      from,
+      to,
+      entries
+    },
+    200,
+    corsOkHeaders
+  );
+}
+
+async function handleDailyRegisterReportHtml(request, env, corsOkHeaders, authUser, url) {
+  const out = await handleDailyRegisterReport(request, env, corsOkHeaders, authUser, url);
+  const data = await out.json();
+  if (!data.ok) return out;
+
+  const entries = data.entries || [];
+
+  // Group by month
+  const byMonth = new Map();
+  for (const e of entries) {
+    const ym = ymFromYmd(e.entry_date);
+    if (!byMonth.has(ym)) byMonth.set(ym, []);
+    byMonth.get(ym).push(e);
+  }
+
+  let body = "";
+  body += `<h1>${escapeHtml(data.org_name || "Pharmacy")} — Daily Register Report</h1>`;
+  body += `<p class="meta">Location: ${escapeHtml(data.location_name || "")}<br/>Range: ${escapeHtml(data.from)} to ${escapeHtml(data.to)}</p>`;
+
+  for (const [ym, list] of byMonth.entries()) {
+    body += `<h2>${escapeHtml(ym)}</h2>`;
+    body += `<table><thead><tr>
+      <th>Date</th>
+      <th>Client Name &amp; Surname</th>
+      <th>Client ID</th>
+      <th>Medicine Name &amp; Dose</th>
+      <th>Posology</th>
+      <th>Prescriber Name</th>
+      <th>Prescriber Reg No.</th>
+    </tr></thead><tbody>`;
+
+    for (const r of list) {
+      body += `<tr>
+        <td>${escapeHtml(r.entry_date)}</td>
+        <td>${escapeHtml(r.client_name)}</td>
+        <td>${escapeHtml(r.client_id)}</td>
+        <td>${escapeHtml(r.medicine_name_dose)}</td>
+        <td>${escapeHtml(r.posology)}</td>
+        <td>${escapeHtml(r.prescriber_name)}</td>
+        <td>${escapeHtml(r.prescriber_reg_no)}</td>
+      </tr>`;
+    }
+
+    body += `</tbody></table>`;
+  }
+
+  return htmlReportPage("Daily Register Report", body);
+}
+
+/* =========================
+   REPEAT PRESCRIPTIONS MODULE (API)
+   ========================= */
+
+async function ensureRepeatPrescriptionsSchema(env) {
+  await dbRun(
+    env,
+    `CREATE TABLE IF NOT EXISTS repeat_prescription_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+      entry_date TEXT NOT NULL,
+      expires_date TEXT NOT NULL,
+      client_name TEXT NOT NULL,
+      client_id TEXT NOT NULL,
+      medicine_name_dose TEXT NOT NULL,
+      posology TEXT NOT NULL,
+      prescriber_name TEXT NOT NULL,
+      prescriber_reg_no TEXT NOT NULL,
+      created_by INTEGER,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )`,
+    []
+  );
+
+  const cols = await dbAll(env, "PRAGMA table_info(repeat_prescription_entries)", []);
+  let hasExpires = false;
+  for (const c of cols) {
+    if (String(c.name || "") === "expires_date") { hasExpires = true; break; }
+  }
+  if (!hasExpires) {
+    await dbRun(env, "ALTER TABLE repeat_prescription_entries ADD COLUMN expires_date TEXT", []);
+  }
+
+  await dbRun(
+    env,
+    "UPDATE repeat_prescription_entries SET expires_date = date(entry_date, '+6 months') WHERE expires_date IS NULL OR expires_date = ''",
+    []
+  );
+
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_repeat_rx_org_loc_date ON repeat_prescription_entries (org_id, location_id, entry_date)", []);
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_repeat_rx_org_loc_client ON repeat_prescription_entries (org_id, location_id, client_id)", []);
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_repeat_rx_org_loc_expires ON repeat_prescription_entries (org_id, location_id, expires_date)", []);
+}
+
+async function handleRepeatPrescriptionsEntriesList(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureRepeatPrescriptionsSchema(env);
+
+  const q = (url.searchParams.get("q") || "").trim();
+  const hasQ = !!q;
+  const qLike = `%${q}%`;
+
+  // NEW: support either month=YYYY-MM (legacy) OR from/to=YYYY-MM-DD (range)
+  const from = (url.searchParams.get("from") || "").trim();
+  const to = (url.searchParams.get("to") || "").trim();
+
+  let startStr = "";
+  let endStr = "";
+  let endOp = "<"; // month mode uses exclusive end
+
+  if (from || to) {
+    if (!isValidYmd(from) || !isValidYmd(to)) {
+      return jsonResponse({ ok: false, error: "Invalid from/to (YYYY-MM-DD)" }, 400, corsOkHeaders);
+    }
+    if (to < from) {
+      return jsonResponse({ ok: false, error: "to must be >= from" }, 400, corsOkHeaders);
+    }
+    startStr = from;
+    endStr = to;
+    endOp = "<="; // range mode uses inclusive end
+  } else {
+    const month = (url.searchParams.get("month") || "").trim();
+    const range = monthRange(month);
+    if (!range) return jsonResponse({ ok: false, error: "Missing/invalid month (YYYY-MM)" }, 400, corsOkHeaders);
+    startStr = range.startStr;
+    endStr = range.endStr;
+    endOp = "<";
+  }
+
+  // IMPORTANT: do NOT filter out expired rows here. We always return them; UI highlights them red.
+  const sql = `
+    SELECT
+      id, entry_date, expires_date,
+      client_name, client_id, medicine_name_dose, posology,
+      prescriber_name, prescriber_reg_no,
+      created_by, created_at, updated_at
+    FROM repeat_prescription_entries
+    WHERE org_id = ?
+      AND location_id = ?
+      AND entry_date >= ?
+      AND entry_date ${endOp} ?
+      ${hasQ ? `AND (
+        entry_date LIKE ?
+        OR expires_date LIKE ?
+        OR client_name LIKE ?
+        OR client_id LIKE ?
+        OR medicine_name_dose LIKE ?
+        OR posology LIKE ?
+        OR prescriber_name LIKE ?
+        OR prescriber_reg_no LIKE ?
+      )` : ""}
+    ORDER BY entry_date DESC, id DESC
+  `;
+
+  const bind = [authUser.org_id, authUser.location_id, startStr, endStr];
+  if (hasQ) bind.push(qLike, qLike, qLike, qLike, qLike, qLike, qLike, qLike);
+
+  const entries = await dbAll(env, sql, bind);
+  return jsonResponse({ ok: true, entries }, 200, corsOkHeaders);
+}
+
+async function handleRepeatPrescriptionsEntryCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureRepeatPrescriptionsSchema(env);
+
+  const body = await readJson(request);
+
+  const entryDate = String(body.entry_date || "").trim();
+  let expiresDate = String(body.expires_date || "").trim();
+
+  const clientName = String(body.client_name || "").trim();
+  const clientId = String(body.client_id || "").trim();
+  const medicineNameDose = String(body.medicine_name_dose || "").trim();
+  const posology = String(body.posology || "").trim();
+  const prescriberName = String(body.prescriber_name || "").trim();
+  const prescriberRegNo = String(body.prescriber_reg_no || "").trim();
+
+  if (!isValidYmd(entryDate)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+
+  if (!expiresDate) expiresDate = addMonthsToYmd(entryDate, 6) || "";
+  if (!isValidYmd(expiresDate)) return jsonResponse({ ok: false, error: "Invalid expires_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+
+  if (!clientName) return jsonResponse({ ok: false, error: "Missing client_name" }, 400, corsOkHeaders);
+  if (!clientId) return jsonResponse({ ok: false, error: "Missing client_id" }, 400, corsOkHeaders);
+  if (!medicineNameDose) return jsonResponse({ ok: false, error: "Missing medicine_name_dose" }, 400, corsOkHeaders);
+  if (!posology) return jsonResponse({ ok: false, error: "Missing posology" }, 400, corsOkHeaders);
+  if (!prescriberName) return jsonResponse({ ok: false, error: "Missing prescriber_name" }, 400, corsOkHeaders);
+  if (!prescriberRegNo) return jsonResponse({ ok: false, error: "Missing prescriber_reg_no" }, 400, corsOkHeaders);
+
+  const row = await dbFirst(
+    env,
+    `INSERT INTO repeat_prescription_entries
+      (org_id, location_id, entry_date, expires_date, client_name, client_id, medicine_name_dose, posology, prescriber_name, prescriber_reg_no, created_by, created_at, updated_at)
+     VALUES
+      (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+     RETURNING id`,
+    [
+      authUser.org_id,
+      authUser.location_id,
+      entryDate,
+      expiresDate,
+      clientName,
+      clientId,
+      medicineNameDose,
+      posology,
+      prescriberName,
+      prescriberRegNo,
+      authUser.user_id
+    ]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "REPEAT_RX_ENTRY_CREATE", "repeat_prescription_entries", String(row.id), {
+    entry_date: entryDate,
+    expires_date: expiresDate,
+    client_id: clientId,
+    medicine_name_dose: medicineNameDose
+  });
+
+  return jsonResponse({ ok: true, entry_id: row.id }, 200, corsOkHeaders);
+}
+
+async function handleRepeatPrescriptionsEntryUpdate(request, env, corsOkHeaders, authUser, entryId) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureRepeatPrescriptionsSchema(env);
+
+  const existing = await dbFirst(
+    env,
+    `SELECT id FROM repeat_prescription_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+
+  const entryDate = String(body.entry_date || "").trim();
+  let expiresDate = String(body.expires_date || "").trim();
+
+  const clientName = String(body.client_name || "").trim();
+  const clientId = String(body.client_id || "").trim();
+  const medicineNameDose = String(body.medicine_name_dose || "").trim();
+  const posology = String(body.posology || "").trim();
+  const prescriberName = String(body.prescriber_name || "").trim();
+  const prescriberRegNo = String(body.prescriber_reg_no || "").trim();
+
+  if (!isValidYmd(entryDate)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+
+  if (!expiresDate) expiresDate = addMonthsToYmd(entryDate, 6) || "";
+  if (!isValidYmd(expiresDate)) return jsonResponse({ ok: false, error: "Invalid expires_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+
+  if (!clientName) return jsonResponse({ ok: false, error: "Missing client_name" }, 400, corsOkHeaders);
+  if (!clientId) return jsonResponse({ ok: false, error: "Missing client_id" }, 400, corsOkHeaders);
+  if (!medicineNameDose) return jsonResponse({ ok: false, error: "Missing medicine_name_dose" }, 400, corsOkHeaders);
+  if (!posology) return jsonResponse({ ok: false, error: "Missing posology" }, 400, corsOkHeaders);
+  if (!prescriberName) return jsonResponse({ ok: false, error: "Missing prescriber_name" }, 400, corsOkHeaders);
+  if (!prescriberRegNo) return jsonResponse({ ok: false, error: "Missing prescriber_reg_no" }, 400, corsOkHeaders);
+
+  await dbRun(
+    env,
+    `UPDATE repeat_prescription_entries
+     SET entry_date = ?, expires_date = ?, client_name = ?, client_id = ?, medicine_name_dose = ?, posology = ?, prescriber_name = ?, prescriber_reg_no = ?, updated_at = datetime('now')
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [
+      entryDate,
+      expiresDate,
+      clientName,
+      clientId,
+      medicineNameDose,
+      posology,
+      prescriberName,
+      prescriberRegNo,
+      entryId,
+      authUser.org_id,
+      authUser.location_id
+    ]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "REPEAT_RX_ENTRY_UPDATE", "repeat_prescription_entries", String(entryId), {
+    entry_date: entryDate,
+    expires_date: expiresDate,
+    client_id: clientId,
+    medicine_name_dose: medicineNameDose
+  });
+
+    const payload = { ok: true };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
+  return jsonResponse(payload, 200, corsOkHeaders);
+}
+
+
+async function handleRepeatPrescriptionsEntryDelete(request, env, corsOkHeaders, authUser, entryId) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureRepeatPrescriptionsSchema(env);
+
+  const existing = await dbFirst(
+    env,
+    `SELECT id, entry_date, expires_date, client_id
+     FROM repeat_prescription_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  await dbRun(
+    env,
+    `DELETE FROM repeat_prescription_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "REPEAT_RX_ENTRY_DELETE", "repeat_prescription_entries", String(entryId), {
+    entry_date: existing.entry_date,
+    expires_date: existing.expires_date,
+    client_id: existing.client_id
+  });
+
+    const payload = { ok: true };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
+  return jsonResponse(payload, 200, corsOkHeaders);
+}
+
+
+/* ========================= ALERTS (Recall / Quarantine) ========================= */
+
+async function ensureAlertsSchema(env) {
+  await dbRun(env, `
+    CREATE TABLE IF NOT EXISTS alerts_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+
+      entry_date TEXT NOT NULL,
+      alert_type TEXT NOT NULL,
+      status TEXT NOT NULL,
+
+      item_name TEXT NOT NULL,
+      batch TEXT,
+      expiry TEXT,
+      quantity TEXT,
+      reason TEXT,
+      storage_location TEXT NOT NULL,
+      supplier TEXT,
+      notes TEXT,
+
+      team_informed INTEGER NOT NULL DEFAULT 0,
+      supplier_informed INTEGER NOT NULL DEFAULT 0,
+      authorities_informed INTEGER NOT NULL DEFAULT 0,
+      return_arranged INTEGER NOT NULL DEFAULT 0,
+      handed_over INTEGER NOT NULL DEFAULT 0,
+      collection_note_received INTEGER NOT NULL DEFAULT 0,
+      credit_note_received INTEGER NOT NULL DEFAULT 0,
+
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      created_by INTEGER,
+      updated_by INTEGER
+    )
+  `);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_alerts_entries_org_loc_date ON alerts_entries(org_id, location_id, entry_date)`);
+}
+
+function normalizeAlertType(x) {
+  const s = String(x || "").trim().toLowerCase();
+  if (s === "recall") return "recall";
+  if (s === "quarantine") return "quarantine";
+  return "";
+}
+function normalizeAlertStatus(x) {
+  const s = String(x || "").trim().toLowerCase();
+  if (s === "open") return "open";
+  if (s === "in_progress" || s === "in progress") return "in_progress";
+  if (s === "closed") return "closed";
+  return "";
+}
+function to01(v) { return (v === 1 || v === "1" || v === true) ? 1 : 0; }
+
+async function handleAlertsEntriesList(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureAlertsSchema(env);
+
+  const month = String(url.searchParams.get("month") || "").trim(); // YYYY-MM
+  const bind = [authUser.org_id, authUser.location_id];
+  let where = `WHERE org_id = ? AND location_id = ?`;
+  if (month) { where += ` AND substr(entry_date, 1, 7) = ?`; bind.push(month); }
+
+  const rows = await dbAll(env, `
+    SELECT *
+    FROM alerts_entries
+    ${where}
+    ORDER BY entry_date DESC, id DESC
+  `, bind);
+
+  return jsonResponse({ ok: true, entries: rows }, 200, corsOkHeaders);
+}
+
+async function handleAlertsEntryCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureAlertsSchema(env);
+
+  const body = await readJson(request);
+  const entry_date = String(body.entry_date || "").trim();
+  const alert_type = normalizeAlertType(body.alert_type);
+  const status = normalizeAlertStatus(body.status);
+  const item_name = String(body.item_name || "").trim();
+  const batch = String(body.batch || "").trim();
+  const expiry = String(body.expiry || "").trim();
+  const quantity = String(body.quantity || "").trim();
+  const reason = String(body.reason || "").trim();
+  const storage_location = String(body.storage_location || "").trim().toLowerCase();
+  const supplier = String(body.supplier || "").trim();
+  const notes = String(body.notes || "").trim();
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(entry_date)) return jsonResponse({ ok: false, error: "Invalid date" }, 400, corsOkHeaders);
+  if (!alert_type) return jsonResponse({ ok: false, error: "Invalid type" }, 400, corsOkHeaders);
+  if (!status) return jsonResponse({ ok: false, error: "Invalid status" }, 400, corsOkHeaders);
+  if (!item_name) return jsonResponse({ ok: false, error: "Item name required" }, 400, corsOkHeaders);
+  if (!(storage_location === "room" || storage_location === "fridge")) return jsonResponse({ ok: false, error: "Room/Fridge required" }, 400, corsOkHeaders);
+  if (expiry && !/^\d{4}-\d{2}-\d{2}$/.test(expiry)) return jsonResponse({ ok: false, error: "Invalid expiry" }, 400, corsOkHeaders);
+
+  const team_informed = to01(body.team_informed);
+  const supplier_informed = to01(body.supplier_informed);
+  const authorities_informed = to01(body.authorities_informed);
+  const return_arranged = to01(body.return_arranged);
+  const handed_over = to01(body.handed_over);
+  const collection_note_received = to01(body.collection_note_received);
+  const credit_note_received = to01(body.credit_note_received);
+
+  const res = await dbRun(env, `
+    INSERT INTO alerts_entries (
+      org_id, location_id,
+      entry_date, alert_type, status,
+      item_name, batch, expiry, quantity, reason, storage_location, supplier, notes,
+      team_informed, supplier_informed, authorities_informed, return_arranged, handed_over, collection_note_received, credit_note_received,
+      created_at, updated_at, created_by, updated_by
+    ) VALUES (
+      ?, ?,
+      ?, ?, ?,
+      ?, ?, ?, ?, ?, ?, ?, ?,
+      ?, ?, ?, ?, ?, ?, ?,
+      datetime('now'), datetime('now'), ?, ?
+    )
+  `, [
+    authUser.org_id, authUser.location_id,
+    entry_date, alert_type, status,
+    item_name, batch || null, expiry || null, quantity || null, reason || null, storage_location, supplier || null, notes || null,
+    team_informed, supplier_informed, authorities_informed, return_arranged, handed_over, collection_note_received, credit_note_received,
+    authUser.user_id, authUser.user_id
+  ]);
+
+  const newId = (res && res.meta && res.meta.last_row_id) ? Number(res.meta.last_row_id) : null;
+  await writeAudit(env, authUser.org_id, authUser.user_id, "ALERT_CREATE", "alerts_entries", String(newId || ""), { entry_date, alert_type, status, item_name });
+
+  return jsonResponse({ ok: true, id: newId }, 200, corsOkHeaders);
+}
+
+async function handleAlertsEntryUpdate(request, env, corsOkHeaders, authUser, id) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureAlertsSchema(env);
+
+  const existing = await dbFirst(env, `
+    SELECT id FROM alerts_entries
+    WHERE id = ? AND org_id = ? AND location_id = ?
+  `, [id, authUser.org_id, authUser.location_id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+  const entry_date = String(body.entry_date || "").trim();
+  const alert_type = normalizeAlertType(body.alert_type);
+  const status = normalizeAlertStatus(body.status);
+  const item_name = String(body.item_name || "").trim();
+  const batch = String(body.batch || "").trim();
+  const expiry = String(body.expiry || "").trim();
+  const quantity = String(body.quantity || "").trim();
+  const reason = String(body.reason || "").trim();
+  const storage_location = String(body.storage_location || "").trim().toLowerCase();
+  const supplier = String(body.supplier || "").trim();
+  const notes = String(body.notes || "").trim();
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(entry_date)) return jsonResponse({ ok: false, error: "Invalid date" }, 400, corsOkHeaders);
+  if (!alert_type) return jsonResponse({ ok: false, error: "Invalid type" }, 400, corsOkHeaders);
+  if (!status) return jsonResponse({ ok: false, error: "Invalid status" }, 400, corsOkHeaders);
+  if (!item_name) return jsonResponse({ ok: false, error: "Item name required" }, 400, corsOkHeaders);
+  if (!(storage_location === "room" || storage_location === "fridge")) return jsonResponse({ ok: false, error: "Room/Fridge required" }, 400, corsOkHeaders);
+  if (expiry && !/^\d{4}-\d{2}-\d{2}$/.test(expiry)) return jsonResponse({ ok: false, error: "Invalid expiry" }, 400, corsOkHeaders);
+
+  const team_informed = to01(body.team_informed);
+  const supplier_informed = to01(body.supplier_informed);
+  const authorities_informed = to01(body.authorities_informed);
+  const return_arranged = to01(body.return_arranged);
+  const handed_over = to01(body.handed_over);
+  const collection_note_received = to01(body.collection_note_received);
+  const credit_note_received = to01(body.credit_note_received);
+
+  await dbRun(env, `
+    UPDATE alerts_entries
+    SET
+      entry_date = ?, alert_type = ?, status = ?,
+      item_name = ?, batch = ?, expiry = ?, quantity = ?, reason = ?, storage_location = ?, supplier = ?, notes = ?,
+      team_informed = ?, supplier_informed = ?, authorities_informed = ?, return_arranged = ?, handed_over = ?, collection_note_received = ?, credit_note_received = ?,
+      updated_at = datetime('now'), updated_by = ?
+    WHERE id = ? AND org_id = ? AND location_id = ?
+  `, [
+    entry_date, alert_type, status,
+    item_name, batch || null, expiry || null, quantity || null, reason || null, storage_location, supplier || null, notes || null,
+    team_informed, supplier_informed, authorities_informed, return_arranged, handed_over, collection_note_received, credit_note_received,
+    authUser.user_id,
+    id, authUser.org_id, authUser.location_id
+  ]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "ALERT_UPDATE", "alerts_entries", String(id), { entry_date, alert_type, status, item_name });
+    const payload = { ok: true };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
+  return jsonResponse(payload, 200, corsOkHeaders);
+}
+
+
+async function handleAlertsEntryDelete(request, env, corsOkHeaders, authUser, id) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureAlertsSchema(env);
+
+  const existing = await dbFirst(env, `
+    SELECT id, entry_date, alert_type, item_name
+    FROM alerts_entries
+    WHERE id = ? AND org_id = ? AND location_id = ?
+  `, [id, authUser.org_id, authUser.location_id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  await dbRun(env, `DELETE FROM alerts_entries WHERE id = ? AND org_id = ? AND location_id = ?`, [id, authUser.org_id, authUser.location_id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "ALERT_DELETE", "alerts_entries", String(id), existing);
+
+    const payload = { ok: true };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
+  return jsonResponse(payload, 200, corsOkHeaders);
+}
+
+
+
+/* ========================= RETURNS (Supplier Returns) ========================= */
+
+async function ensureReturnsSchema(env) {
+  await dbRun(env, `
+    CREATE TABLE IF NOT EXISTS returns_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+
+      entry_date TEXT NOT NULL,
+      description TEXT NOT NULL,
+
+      expiry TEXT,
+      batch TEXT,
+      quantity TEXT,
+      supplier TEXT,
+      invoice_number TEXT,
+      remarks TEXT,
+      location_stored TEXT,
+
+      return_arranged INTEGER NOT NULL DEFAULT 0,
+      handed_over INTEGER NOT NULL DEFAULT 0,
+      collection_note_received INTEGER NOT NULL DEFAULT 0,
+      credit_note_received INTEGER NOT NULL DEFAULT 0,
+
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      created_by INTEGER,
+      updated_by INTEGER
+    )
+  `);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_returns_entries_org_loc_date ON returns_entries(org_id, location_id, entry_date)`);
+}
+
+async function handleReturnsEntriesList(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureReturnsSchema(env);
+
+  const month = String(url.searchParams.get("month") || "").trim(); // YYYY-MM
+  const qRaw = String(url.searchParams.get("q") || "").trim().toLowerCase();
+
+  const bind = [authUser.org_id, authUser.location_id];
+  let where = "WHERE org_id=? AND location_id=?";
+
+  if (month && /^\d{4}-\d{2}$/.test(month)) {
+    where += " AND entry_date LIKE ?";
+    bind.push(month + "-%");
+  }
+
+  if (qRaw) {
+    const like = "%" + qRaw + "%";
+    where += " AND (lower(description) LIKE ? OR lower(batch) LIKE ? OR lower(quantity) LIKE ? OR lower(supplier) LIKE ? OR lower(invoice_number) LIKE ? OR lower(remarks) LIKE ? OR lower(location_stored) LIKE ?)";
+    bind.push(like, like, like, like, like, like, like);
+  }
+
+  const rows = await dbAll(env, `
+    SELECT
+      id, entry_date, description,
+      expiry, batch, quantity, supplier, invoice_number, remarks, location_stored,
+      return_arranged, handed_over, collection_note_received, credit_note_received
+    FROM returns_entries
+    ${where}
+    ORDER BY entry_date DESC, id DESC
+    LIMIT 800
+  `, bind);
+
+  const payload = { ok: true, entries: rows || [] };
+  if (isDebugEnabled(request)) payload.debug = { month, q: qRaw, count: (rows || []).length };
+  return jsonResponse(payload, 200, corsOkHeaders);
+}
+
+async function handleReturnsEntryCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureReturnsSchema(env);
+
+  const body = await readJson(request);
+  const entry_date = String(body.entry_date || "").trim();
+  const description = String(body.description || "").trim();
+
+  const expiry = String(body.expiry || "").trim();
+  const batch = String(body.batch || "").trim();
+  const quantity = String(body.quantity || "").trim();
+  const supplier = String(body.supplier || "").trim();
+  const invoice_number = String(body.invoice_number || "").trim();
+  const remarks = String(body.remarks || "").trim();
+  const location_stored = String(body.location_stored || "").trim();
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(entry_date)) return jsonResponse({ ok: false, error: "Invalid date" }, 400, corsOkHeaders);
+  if (!description) return jsonResponse({ ok: false, error: "Description required" }, 400, corsOkHeaders);
+  if (expiry && !/^\d{4}-\d{2}-\d{2}$/.test(expiry)) return jsonResponse({ ok: false, error: "Invalid expiry" }, 400, corsOkHeaders);
+
+  const return_arranged = to01(body.return_arranged);
+  const handed_over = to01(body.handed_over);
+  const collection_note_received = to01(body.collection_note_received);
+  const credit_note_received = to01(body.credit_note_received);
+
+  const res = await dbRun(env, `
+    INSERT INTO returns_entries (
+      org_id, location_id,
+      entry_date, description,
+      expiry, batch, quantity, supplier, invoice_number, remarks, location_stored,
+      return_arranged, handed_over, collection_note_received, credit_note_received,
+      created_at, updated_at, created_by, updated_by
+    ) VALUES (
+      ?, ?,
+      ?, ?,
+      ?, ?, ?, ?, ?, ?, ?,
+      ?, ?, ?, ?,
+      datetime('now'), datetime('now'), ?, ?
+    )
+  `, [
+    authUser.org_id, authUser.location_id,
+    entry_date, description,
+    expiry || null, batch || null, quantity || null, supplier || null, invoice_number || null, remarks || null, location_stored || null,
+    return_arranged, handed_over, collection_note_received, credit_note_received,
+    authUser.user_id, authUser.user_id
+  ]);
+
+  const newId = (res && res.meta && res.meta.last_row_id) ? Number(res.meta.last_row_id) : null;
+  await writeAudit(env, authUser.org_id, authUser.user_id, "RETURNS_CREATE", "returns_entries", String(newId || ""), { entry_date, description });
+
+  return jsonResponse({ ok: true, id: newId }, 200, corsOkHeaders);
+}
+
+async function handleReturnsEntryUpdate(request, env, corsOkHeaders, authUser, id) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureReturnsSchema(env);
+
+  const existing = await dbFirst(env, `
+    SELECT id, entry_date, description
+    FROM returns_entries
+    WHERE id=? AND org_id=? AND location_id=?
+  `, [id, authUser.org_id, authUser.location_id]);
+
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+  const entry_date = String(body.entry_date || "").trim();
+  const description = String(body.description || "").trim();
+
+  const expiry = String(body.expiry || "").trim();
+  const batch = String(body.batch || "").trim();
+  const quantity = String(body.quantity || "").trim();
+  const supplier = String(body.supplier || "").trim();
+  const invoice_number = String(body.invoice_number || "").trim();
+  const remarks = String(body.remarks || "").trim();
+  const location_stored = String(body.location_stored || "").trim();
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(entry_date)) return jsonResponse({ ok: false, error: "Invalid date" }, 400, corsOkHeaders);
+  if (!description) return jsonResponse({ ok: false, error: "Description required" }, 400, corsOkHeaders);
+  if (expiry && !/^\d{4}-\d{2}-\d{2}$/.test(expiry)) return jsonResponse({ ok: false, error: "Invalid expiry" }, 400, corsOkHeaders);
+
+  const return_arranged = to01(body.return_arranged);
+  const handed_over = to01(body.handed_over);
+  const collection_note_received = to01(body.collection_note_received);
+  const credit_note_received = to01(body.credit_note_received);
+
+  await dbRun(env, `
+    UPDATE returns_entries SET
+      entry_date=?,
+      description=?,
+      expiry=?,
+      batch=?,
+      quantity=?,
+      supplier=?,
+      invoice_number=?,
+      remarks=?,
+      location_stored=?,
+      return_arranged=?,
+      handed_over=?,
+      collection_note_received=?,
+      credit_note_received=?,
+      updated_at=datetime('now'),
+      updated_by=?
+    WHERE id=? AND org_id=? AND location_id=?
+  `, [
+    entry_date,
+    description,
+    expiry || null,
+    batch || null,
+    quantity || null,
+    supplier || null,
+    invoice_number || null,
+    remarks || null,
+    location_stored || null,
+    return_arranged,
+    handed_over,
+    collection_note_received,
+    credit_note_received,
+    authUser.user_id,
+    id, authUser.org_id, authUser.location_id
+  ]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "RETURNS_UPDATE", "returns_entries", String(id), { entry_date, description });
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleReturnsEntryDelete(request, env, corsOkHeaders, authUser, id) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureReturnsSchema(env);
+
+  const existing = await dbFirst(env, `
+    SELECT id, entry_date, description
+    FROM returns_entries
+    WHERE id=? AND org_id=? AND location_id=?
+  `, [id, authUser.org_id, authUser.location_id]);
+
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  await dbRun(env, `DELETE FROM returns_entries WHERE id=? AND org_id=? AND location_id=?`, [id, authUser.org_id, authUser.location_id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "RETURNS_DELETE", "returns_entries", String(id), { entry_date: existing.entry_date, description: existing.description });
+
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+
+/* ========================= CLIENT DELIVERIES ========================= */
+
+async function ensureDeliveriesSchema(env) {
+  await dbRun(env, `
+    CREATE TABLE IF NOT EXISTS client_deliveries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+
+      delivery_id TEXT NOT NULL DEFAULT '',
+      order_date TEXT NOT NULL,
+      scheduled_date TEXT NOT NULL DEFAULT '',
+      scheduled_time_slot TEXT NOT NULL DEFAULT '',
+      actual_delivery_date TEXT NOT NULL DEFAULT '',
+      actual_delivery_time TEXT NOT NULL DEFAULT '',
+
+      client_name TEXT NOT NULL,
+      phone TEXT NOT NULL DEFAULT '',
+      email TEXT NOT NULL DEFAULT '',
+      delivery_address TEXT NOT NULL,
+      address_notes TEXT NOT NULL DEFAULT '',
+      id_doc_ref TEXT NOT NULL DEFAULT '',
+
+      delivery_method TEXT NOT NULL DEFAULT 'In-house Driver',
+      priority INTEGER NOT NULL DEFAULT 2,
+      assigned_driver TEXT NOT NULL DEFAULT '',
+      tracking_number TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'Scheduled',
+
+      signature_required INTEGER NOT NULL DEFAULT 0,
+      signature_obtained INTEGER NOT NULL DEFAULT 0,
+      recipient_name TEXT NOT NULL DEFAULT '',
+      proof_of_delivery TEXT NOT NULL DEFAULT '',
+      delivery_attempts INTEGER NOT NULL DEFAULT 0,
+      failure_reason TEXT NOT NULL DEFAULT '',
+
+      contains_controlled INTEGER NOT NULL DEFAULT 0,
+      cold_chain_required INTEGER NOT NULL DEFAULT 0,
+
+      ticket_ref TEXT NOT NULL DEFAULT '',
+      items TEXT NOT NULL DEFAULT '[]',
+      delivery_log TEXT NOT NULL DEFAULT '[]',
+      internal_notes TEXT NOT NULL DEFAULT '',
+
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      created_by INTEGER,
+      updated_by INTEGER
+    )
+  `);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_client_deliveries_org_loc ON client_deliveries(org_id, location_id)`);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_client_deliveries_org_loc_status ON client_deliveries(org_id, location_id, status)`);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_client_deliveries_org_loc_order_date ON client_deliveries(org_id, location_id, order_date)`);
+}
+
+async function handleDeliveriesEntriesList(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureDeliveriesSchema(env);
+
+  const rows = await dbAll(env, `
+    SELECT
+      id, delivery_id, order_date, scheduled_date, scheduled_time_slot,
+      actual_delivery_date, actual_delivery_time,
+      client_name, phone, email, delivery_address, address_notes, id_doc_ref,
+      delivery_method, priority, assigned_driver, tracking_number, status,
+      signature_required, signature_obtained, recipient_name, proof_of_delivery,
+      delivery_attempts, failure_reason,
+      contains_controlled, cold_chain_required,
+      ticket_ref, items, delivery_log, internal_notes,
+      created_at, updated_at
+    FROM client_deliveries
+    WHERE org_id=? AND location_id=?
+    ORDER BY
+      CASE WHEN status IN ('Scheduled','Dispatched','Out for Delivery') THEN 0 ELSE 1 END ASC,
+      priority ASC,
+      order_date DESC,
+      id DESC
+    LIMIT 2000
+  `, [authUser.org_id, authUser.location_id]);
+
+  return jsonResponse({ ok: true, entries: rows || [] }, 200, corsOkHeaders);
+}
+
+async function handleDeliveriesEntryCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureDeliveriesSchema(env);
+
+  const body = await readJson(request);
+
+  const delivery_id          = String(body.delivery_id || "").trim();
+  const order_date           = String(body.order_date || "").trim();
+  const scheduled_date       = String(body.scheduled_date || "").trim();
+  const scheduled_time_slot  = String(body.scheduled_time_slot || "").trim();
+  const actual_delivery_date = String(body.actual_delivery_date || "").trim();
+  const actual_delivery_time = String(body.actual_delivery_time || "").trim();
+  const client_name          = String(body.client_name || "").trim();
+  const phone                = String(body.phone || "").trim();
+  const email                = String(body.email || "").trim();
+  const delivery_address     = String(body.delivery_address || "").trim();
+  const address_notes        = String(body.address_notes || "").trim();
+  const id_doc_ref           = String(body.id_doc_ref || "").trim();
+  const delivery_method      = String(body.delivery_method || "In-house Driver").trim();
+  const priority             = Math.max(1, Math.min(3, parseInt(body.priority || 2, 10) || 2));
+  const assigned_driver      = String(body.assigned_driver || "").trim();
+  const tracking_number      = String(body.tracking_number || "").trim();
+  const status               = String(body.status || "Scheduled").trim();
+  const recipient_name       = String(body.recipient_name || "").trim();
+  const proof_of_delivery    = String(body.proof_of_delivery || "").trim();
+  const delivery_attempts    = Math.max(0, parseInt(body.delivery_attempts || 0, 10) || 0);
+  const failure_reason       = String(body.failure_reason || "").trim();
+  const ticket_ref           = String(body.ticket_ref || "").trim();
+  const items                = String(body.items || "[]").trim();
+  const delivery_log         = String(body.delivery_log || "[]").trim();
+  const internal_notes       = String(body.internal_notes || "").trim();
+
+  const signature_required   = to01(body.signature_required);
+  const signature_obtained   = to01(body.signature_obtained);
+  const contains_controlled  = to01(body.contains_controlled);
+  const cold_chain_required  = to01(body.cold_chain_required);
+
+  if (!client_name) return jsonResponse({ ok: false, error: "Client name required" }, 400, corsOkHeaders);
+  if (!delivery_address) return jsonResponse({ ok: false, error: "Delivery address required" }, 400, corsOkHeaders);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(order_date)) return jsonResponse({ ok: false, error: "Invalid order_date" }, 400, corsOkHeaders);
+
+  const res = await dbRun(env, `
+    INSERT INTO client_deliveries (
+      org_id, location_id,
+      delivery_id, order_date, scheduled_date, scheduled_time_slot,
+      actual_delivery_date, actual_delivery_time,
+      client_name, phone, email, delivery_address, address_notes, id_doc_ref,
+      delivery_method, priority, assigned_driver, tracking_number, status,
+      signature_required, signature_obtained, recipient_name, proof_of_delivery,
+      delivery_attempts, failure_reason,
+      contains_controlled, cold_chain_required,
+      ticket_ref, items, delivery_log, internal_notes,
+      created_at, updated_at, created_by, updated_by
+    ) VALUES (
+      ?, ?,
+      ?, ?, ?, ?,
+      ?, ?,
+      ?, ?, ?, ?, ?, ?,
+      ?, ?, ?, ?, ?,
+      ?, ?, ?, ?,
+      ?, ?,
+      ?, ?,
+      ?, ?, ?, ?,
+      datetime('now'), datetime('now'), ?, ?
+    )
+  `, [
+    authUser.org_id, authUser.location_id,
+    delivery_id, order_date, scheduled_date, scheduled_time_slot,
+    actual_delivery_date, actual_delivery_time,
+    client_name, phone, email, delivery_address, address_notes, id_doc_ref,
+    delivery_method, priority, assigned_driver, tracking_number, status,
+    signature_required, signature_obtained, recipient_name, proof_of_delivery,
+    delivery_attempts, failure_reason,
+    contains_controlled, cold_chain_required,
+    ticket_ref, items, delivery_log, internal_notes,
+    authUser.user_id, authUser.user_id
+  ]);
+
+  const newId = (res && res.meta && res.meta.last_row_id) ? Number(res.meta.last_row_id) : null;
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DELIVERY_CREATE", "client_deliveries", String(newId || ""), { delivery_id, client_name, status });
+
+  return jsonResponse({ ok: true, id: newId }, 200, corsOkHeaders);
+}
+
+async function handleDeliveriesEntryUpdate(request, env, corsOkHeaders, authUser, id) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureDeliveriesSchema(env);
+
+  const existing = await dbFirst(env, `
+    SELECT id, delivery_id, client_name, status
+    FROM client_deliveries
+    WHERE id=? AND org_id=? AND location_id=?
+  `, [id, authUser.org_id, authUser.location_id]);
+
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+
+  const delivery_id          = String(body.delivery_id || "").trim();
+  const order_date           = String(body.order_date || "").trim();
+  const scheduled_date       = String(body.scheduled_date || "").trim();
+  const scheduled_time_slot  = String(body.scheduled_time_slot || "").trim();
+  const actual_delivery_date = String(body.actual_delivery_date || "").trim();
+  const actual_delivery_time = String(body.actual_delivery_time || "").trim();
+  const client_name          = String(body.client_name || "").trim();
+  const phone                = String(body.phone || "").trim();
+  const email                = String(body.email || "").trim();
+  const delivery_address     = String(body.delivery_address || "").trim();
+  const address_notes        = String(body.address_notes || "").trim();
+  const id_doc_ref           = String(body.id_doc_ref || "").trim();
+  const delivery_method      = String(body.delivery_method || "In-house Driver").trim();
+  const priority             = Math.max(1, Math.min(3, parseInt(body.priority || 2, 10) || 2));
+  const assigned_driver      = String(body.assigned_driver || "").trim();
+  const tracking_number      = String(body.tracking_number || "").trim();
+  const status               = String(body.status || "Scheduled").trim();
+  const recipient_name       = String(body.recipient_name || "").trim();
+  const proof_of_delivery    = String(body.proof_of_delivery || "").trim();
+  const delivery_attempts    = Math.max(0, parseInt(body.delivery_attempts || 0, 10) || 0);
+  const failure_reason       = String(body.failure_reason || "").trim();
+  const ticket_ref           = String(body.ticket_ref || "").trim();
+  const items                = String(body.items || "[]").trim();
+  const delivery_log         = String(body.delivery_log || "[]").trim();
+  const internal_notes       = String(body.internal_notes || "").trim();
+
+  const signature_required   = to01(body.signature_required);
+  const signature_obtained   = to01(body.signature_obtained);
+  const contains_controlled  = to01(body.contains_controlled);
+  const cold_chain_required  = to01(body.cold_chain_required);
+
+  if (!client_name) return jsonResponse({ ok: false, error: "Client name required" }, 400, corsOkHeaders);
+  if (!delivery_address) return jsonResponse({ ok: false, error: "Delivery address required" }, 400, corsOkHeaders);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(order_date)) return jsonResponse({ ok: false, error: "Invalid order_date" }, 400, corsOkHeaders);
+
+  await dbRun(env, `
+    UPDATE client_deliveries SET
+      delivery_id=?, order_date=?, scheduled_date=?, scheduled_time_slot=?,
+      actual_delivery_date=?, actual_delivery_time=?,
+      client_name=?, phone=?, email=?, delivery_address=?, address_notes=?, id_doc_ref=?,
+      delivery_method=?, priority=?, assigned_driver=?, tracking_number=?, status=?,
+      signature_required=?, signature_obtained=?, recipient_name=?, proof_of_delivery=?,
+      delivery_attempts=?, failure_reason=?,
+      contains_controlled=?, cold_chain_required=?,
+      ticket_ref=?, items=?, delivery_log=?, internal_notes=?,
+      updated_at=datetime('now'), updated_by=?
+    WHERE id=? AND org_id=? AND location_id=?
+  `, [
+    delivery_id, order_date, scheduled_date, scheduled_time_slot,
+    actual_delivery_date, actual_delivery_time,
+    client_name, phone, email, delivery_address, address_notes, id_doc_ref,
+    delivery_method, priority, assigned_driver, tracking_number, status,
+    signature_required, signature_obtained, recipient_name, proof_of_delivery,
+    delivery_attempts, failure_reason,
+    contains_controlled, cold_chain_required,
+    ticket_ref, items, delivery_log, internal_notes,
+    authUser.user_id,
+    id, authUser.org_id, authUser.location_id
+  ]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DELIVERY_UPDATE", "client_deliveries", String(id), { delivery_id, client_name, status });
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleDeliveriesEntryDelete(request, env, corsOkHeaders, authUser, id) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureDeliveriesSchema(env);
+
+  const existing = await dbFirst(env, `
+    SELECT id, delivery_id, client_name, status
+    FROM client_deliveries
+    WHERE id=? AND org_id=? AND location_id=?
+  `, [id, authUser.org_id, authUser.location_id]);
+
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  await dbRun(env, `DELETE FROM client_deliveries WHERE id=? AND org_id=? AND location_id=?`, [id, authUser.org_id, authUser.location_id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DELIVERY_DELETE", "client_deliveries", String(id), { delivery_id: existing.delivery_id, client_name: existing.client_name });
+
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+
+/* ========================= CREDIT NOTES ========================= */
+
+async function ensureCreditNotesSchema(env) {
+  await dbRun(env, `
+    CREATE TABLE IF NOT EXISTS credit_notes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+      issue_date TEXT NOT NULL,
+      client_name TEXT NOT NULL,
+      client_surname TEXT NOT NULL,
+      telephone TEXT NOT NULL,
+      email TEXT,
+      receipt_number TEXT,
+      amount REAL NOT NULL,
+      expiry_date TEXT,
+      no_expiry INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      created_by INTEGER,
+      updated_by INTEGER
+    )
+  `);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_credit_notes_org_loc ON credit_notes(org_id, location_id)`);
+
+  await dbRun(env, `
+    CREATE TABLE IF NOT EXISTS credit_note_purchases (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      credit_note_id INTEGER NOT NULL,
+      org_id INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+      amount REAL NOT NULL,
+      receipt_number TEXT,
+      timestamp TEXT NOT NULL DEFAULT (datetime('now')),
+      created_by INTEGER
+    )
+  `);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_cn_purchases_cn_id ON credit_note_purchases(credit_note_id)`);
+
+  await dbRun(env, `
+    CREATE TABLE IF NOT EXISTS credit_note_notes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      credit_note_id INTEGER NOT NULL,
+      org_id INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+      text TEXT NOT NULL,
+      timestamp TEXT NOT NULL DEFAULT (datetime('now')),
+      created_by INTEGER
+    )
+  `);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_cn_notes_cn_id ON credit_note_notes(credit_note_id)`);
+}
+
+async function handleCreditNotesList(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureCreditNotesSchema(env);
+
+  const rows = await dbAll(env, `
+    SELECT id, issue_date, client_name, client_surname, telephone, email,
+           receipt_number, amount, expiry_date, no_expiry
+    FROM credit_notes
+    WHERE org_id=? AND location_id=?
+    ORDER BY issue_date DESC, id DESC
+    LIMIT 1000
+  `, [authUser.org_id, authUser.location_id]);
+
+  const ids = (rows || []).map(r => r.id);
+  let purchases = [];
+  let notes = [];
+  if (ids.length) {
+    const placeholders = ids.map(() => "?").join(",");
+    purchases = await dbAll(env, `SELECT id, credit_note_id, amount, receipt_number, timestamp FROM credit_note_purchases WHERE credit_note_id IN (${placeholders}) AND org_id=? ORDER BY timestamp ASC`, [...ids, authUser.org_id]) || [];
+    notes = await dbAll(env, `SELECT id, credit_note_id, text, timestamp FROM credit_note_notes WHERE credit_note_id IN (${placeholders}) AND org_id=? ORDER BY timestamp ASC`, [...ids, authUser.org_id]) || [];
+  }
+
+  const purchaseMap = {};
+  for (const p of purchases) { if (!purchaseMap[p.credit_note_id]) purchaseMap[p.credit_note_id] = []; purchaseMap[p.credit_note_id].push(p); }
+  const notesMap = {};
+  for (const n of notes) { if (!notesMap[n.credit_note_id]) notesMap[n.credit_note_id] = []; notesMap[n.credit_note_id].push(n); }
+
+  const entries = (rows || []).map(r => ({
+    ...r,
+    no_expiry: r.no_expiry === 1 || r.no_expiry === true,
+    purchase_entries: purchaseMap[r.id] || [],
+    notes: notesMap[r.id] || []
+  }));
+
+  return jsonResponse({ ok: true, entries }, 200, corsOkHeaders);
+}
+
+async function handleCreditNoteCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureCreditNotesSchema(env);
+  const body = await readJson(request);
+  const issue_date = String(body.issue_date || "").trim();
+  const client_name = String(body.client_name || "").trim();
+  const client_surname = String(body.client_surname || "").trim();
+  const telephone = String(body.telephone || "").trim();
+  const email = String(body.email || "").trim();
+  const receipt_number = String(body.receipt_number || "").trim();
+  const amount = parseFloat(body.amount) || 0;
+  const expiry_date = String(body.expiry_date || "").trim();
+  const no_expiry = body.no_expiry ? 1 : 0;
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(issue_date)) return jsonResponse({ ok: false, error: "Invalid issue date" }, 400, corsOkHeaders);
+  if (!client_name) return jsonResponse({ ok: false, error: "Client name required" }, 400, corsOkHeaders);
+  if (!client_surname) return jsonResponse({ ok: false, error: "Client surname required" }, 400, corsOkHeaders);
+  if (!telephone) return jsonResponse({ ok: false, error: "Telephone required" }, 400, corsOkHeaders);
+  if (amount <= 0) return jsonResponse({ ok: false, error: "Amount must be > 0" }, 400, corsOkHeaders);
+  if (!no_expiry && expiry_date && !/^\d{4}-\d{2}-\d{2}$/.test(expiry_date)) return jsonResponse({ ok: false, error: "Invalid expiry date" }, 400, corsOkHeaders);
+
+  const res = await dbRun(env, `
+    INSERT INTO credit_notes (org_id, location_id, issue_date, client_name, client_surname, telephone, email, receipt_number, amount, expiry_date, no_expiry, created_at, updated_at, created_by, updated_by)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,datetime('now'),datetime('now'),?,?)
+  `, [authUser.org_id, authUser.location_id, issue_date, client_name, client_surname, telephone, email||null, receipt_number||null, amount, (no_expiry ? null : expiry_date||null), no_expiry, authUser.user_id, authUser.user_id]);
+
+  const newId = (res && res.meta && res.meta.last_row_id) ? Number(res.meta.last_row_id) : null;
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CREDITNOTE_CREATE", "credit_notes", String(newId||""), { issue_date, client_name, client_surname });
+  return jsonResponse({ ok: true, id: newId }, 200, corsOkHeaders);
+}
+
+async function handleCreditNoteUpdate(request, env, corsOkHeaders, authUser, id) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureCreditNotesSchema(env);
+  const existing = await dbFirst(env, `SELECT id FROM credit_notes WHERE id=? AND org_id=? AND location_id=?`, [id, authUser.org_id, authUser.location_id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+  const issue_date = String(body.issue_date || "").trim();
+  const client_name = String(body.client_name || "").trim();
+  const client_surname = String(body.client_surname || "").trim();
+  const telephone = String(body.telephone || "").trim();
+  const email = String(body.email || "").trim();
+  const receipt_number = String(body.receipt_number || "").trim();
+  const amount = parseFloat(body.amount) || 0;
+  const expiry_date = String(body.expiry_date || "").trim();
+  const no_expiry = body.no_expiry ? 1 : 0;
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(issue_date)) return jsonResponse({ ok: false, error: "Invalid issue date" }, 400, corsOkHeaders);
+  if (!client_name) return jsonResponse({ ok: false, error: "Client name required" }, 400, corsOkHeaders);
+  if (!client_surname) return jsonResponse({ ok: false, error: "Client surname required" }, 400, corsOkHeaders);
+  if (!telephone) return jsonResponse({ ok: false, error: "Telephone required" }, 400, corsOkHeaders);
+  if (amount <= 0) return jsonResponse({ ok: false, error: "Amount must be > 0" }, 400, corsOkHeaders);
+  if (!no_expiry && expiry_date && !/^\d{4}-\d{2}-\d{2}$/.test(expiry_date)) return jsonResponse({ ok: false, error: "Invalid expiry date" }, 400, corsOkHeaders);
+
+  await dbRun(env, `
+    UPDATE credit_notes SET issue_date=?,client_name=?,client_surname=?,telephone=?,email=?,receipt_number=?,amount=?,expiry_date=?,no_expiry=?,updated_at=datetime('now'),updated_by=?
+    WHERE id=? AND org_id=? AND location_id=?
+  `, [issue_date, client_name, client_surname, telephone, email||null, receipt_number||null, amount, (no_expiry ? null : expiry_date||null), no_expiry, authUser.user_id, id, authUser.org_id, authUser.location_id]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CREDITNOTE_UPDATE", "credit_notes", String(id), { issue_date, client_name, client_surname });
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleCreditNoteDelete(request, env, corsOkHeaders, authUser, id) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureCreditNotesSchema(env);
+  const existing = await dbFirst(env, `SELECT id, client_name, client_surname FROM credit_notes WHERE id=? AND org_id=? AND location_id=?`, [id, authUser.org_id, authUser.location_id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  await dbRun(env, `DELETE FROM credit_note_purchases WHERE credit_note_id=? AND org_id=?`, [id, authUser.org_id]);
+  await dbRun(env, `DELETE FROM credit_note_notes WHERE credit_note_id=? AND org_id=?`, [id, authUser.org_id]);
+  await dbRun(env, `DELETE FROM credit_notes WHERE id=? AND org_id=? AND location_id=?`, [id, authUser.org_id, authUser.location_id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CREDITNOTE_DELETE", "credit_notes", String(id), { client_name: existing.client_name, client_surname: existing.client_surname });
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleCreditNotePurchaseAdd(request, env, corsOkHeaders, authUser, creditNoteId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureCreditNotesSchema(env);
+  const cn = await dbFirst(env, `SELECT id FROM credit_notes WHERE id=? AND org_id=? AND location_id=?`, [creditNoteId, authUser.org_id, authUser.location_id]);
+  if (!cn) return jsonResponse({ ok: false, error: "Credit note not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+  const amount = parseFloat(body.amount) || 0;
+  const receipt_number = String(body.receipt_number || "").trim();
+  if (amount <= 0) return jsonResponse({ ok: false, error: "Amount must be > 0" }, 400, corsOkHeaders);
+
+  const res = await dbRun(env, `
+    INSERT INTO credit_note_purchases (credit_note_id, org_id, location_id, amount, receipt_number, timestamp, created_by)
+    VALUES (?,?,?,?,?,datetime('now'),?)
+  `, [creditNoteId, authUser.org_id, authUser.location_id, amount, receipt_number||null, authUser.user_id]);
+
+  const newId = (res && res.meta && res.meta.last_row_id) ? Number(res.meta.last_row_id) : null;
+  return jsonResponse({ ok: true, id: newId }, 200, corsOkHeaders);
+}
+
+async function handleCreditNotePurchaseDelete(request, env, corsOkHeaders, authUser, creditNoteId, purchaseId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureCreditNotesSchema(env);
+  const existing = await dbFirst(env, `SELECT id FROM credit_note_purchases WHERE id=? AND credit_note_id=? AND org_id=?`, [purchaseId, creditNoteId, authUser.org_id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+  await dbRun(env, `DELETE FROM credit_note_purchases WHERE id=? AND org_id=?`, [purchaseId, authUser.org_id]);
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleCreditNoteNoteAdd(request, env, corsOkHeaders, authUser, creditNoteId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureCreditNotesSchema(env);
+  const cn = await dbFirst(env, `SELECT id FROM credit_notes WHERE id=? AND org_id=? AND location_id=?`, [creditNoteId, authUser.org_id, authUser.location_id]);
+  if (!cn) return jsonResponse({ ok: false, error: "Credit note not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+  const text = String(body.text || "").trim();
+  if (!text) return jsonResponse({ ok: false, error: "Note text required" }, 400, corsOkHeaders);
+
+  const res = await dbRun(env, `
+    INSERT INTO credit_note_notes (credit_note_id, org_id, location_id, text, timestamp, created_by)
+    VALUES (?,?,?,?,datetime('now'),?)
+  `, [creditNoteId, authUser.org_id, authUser.location_id, text, authUser.user_id]);
+
+  const newId = (res && res.meta && res.meta.last_row_id) ? Number(res.meta.last_row_id) : null;
+  return jsonResponse({ ok: true, id: newId }, 200, corsOkHeaders);
+}
+
+async function handleCreditNoteNoteDelete(request, env, corsOkHeaders, authUser, creditNoteId, noteId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureCreditNotesSchema(env);
+  const existing = await dbFirst(env, `SELECT id FROM credit_note_notes WHERE id=? AND credit_note_id=? AND org_id=?`, [noteId, creditNoteId, authUser.org_id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+  await dbRun(env, `DELETE FROM credit_note_notes WHERE id=? AND org_id=?`, [noteId, authUser.org_id]);
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+/* =========================
+   DDA SALES MODULE (API)  <-- ADDED
+   ========================= */
+
+async function ensureDdaSalesSchema(env) {
+  await dbRun(
+    env,
+    `CREATE TABLE IF NOT EXISTS dda_sales_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+      entry_date TEXT NOT NULL,
+      client_name TEXT NOT NULL,
+      client_id_card TEXT NOT NULL,
+      client_address TEXT NOT NULL,
+      medicine_name_dose TEXT NOT NULL,
+      quantity INTEGER NOT NULL,
+      doctor_name TEXT NOT NULL,
+      doctor_reg_no TEXT NOT NULL,
+      prescription_serial_no TEXT NOT NULL,
+      urgent INTEGER NOT NULL DEFAULT 0,
+      created_by INTEGER,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )`,
+    []
+  );
+
+  const cols = await dbAll(env, "PRAGMA table_info(dda_sales_entries)", []);
+  let hasUrgent = false;
+  for (const c of cols) {
+    if (String(c.name || "") === "urgent") { hasUrgent = true; break; }
+  }
+  if (!hasUrgent) {
+    await dbRun(env, "ALTER TABLE dda_sales_entries ADD COLUMN urgent INTEGER NOT NULL DEFAULT 0", []);
+  }
+  await dbRun(env, "UPDATE dda_sales_entries SET urgent = 0 WHERE urgent IS NULL", []);
+
+  await dbRun(
+    env,
+    "CREATE INDEX IF NOT EXISTS idx_dda_sales_org_loc_date ON dda_sales_entries (org_id, location_id, entry_date)",
+    []
+  );
+
+  await dbRun(
+    env,
+    "CREATE INDEX IF NOT EXISTS idx_dda_sales_org_loc_client ON dda_sales_entries (org_id, location_id, client_id_card)",
+    []
+  );
+
+  await dbRun(
+    env,
+    "CREATE INDEX IF NOT EXISTS idx_dda_sales_org_loc_serial ON dda_sales_entries (org_id, location_id, prescription_serial_no)",
+    []
+  );
+}
+
+
+
+function normalizeIntPositive(n) {
+  if (n === null || n === undefined) return null;
+  if (n === "") return null;
+  const v = Number(n);
+  if (!Number.isFinite(v)) return null;
+  const i = Math.floor(v);
+  if (String(i) !== String(v) && v !== i) {
+    // If they send 3.0, Number(v) is 3; still okay. If they send 3.2, reject.
+    if (!Number.isInteger(v)) return null;
+  }
+  return i;
+}
+
+function normalizeBool01(v) {
+  if (v === null || v === undefined) return 0;
+  if (v === true) return 1;
+  if (v === false) return 0;
+  if (v === 1 || v === 0) return v;
+  const s = String(v).trim().toLowerCase();
+  if (!s) return 0;
+  if (s === "1" || s === "true" || s === "yes" || s === "y" || s === "on") return 1;
+  return 0;
+}
+
+// ✅ PATCH: normalize Maltese ID card numbers
+// - always uppercase
+// - if pattern is 1-7 digits + 1 letter => left-pad zeros to 7 digits, keep letter
+//   e.g. 789M => 0000789M
+function normalizeMtIdCard(raw) {
+  const s = String(raw || "").replace(/\s+/g, "").toUpperCase();
+  if (!s) return "";
+  const m = /^(\d{1,7})([A-Z])$/.exec(s);
+  if (m) {
+    let digits = m[1];
+    while (digits.length < 7) digits = "0" + digits;
+    return digits + m[2];
+  }
+  return s;
+}
+
+function mtIdCardLookupKeys(raw) {
+  const key = String(raw || "").replace(/\s+/g, "").toUpperCase();
+  const norm = normalizeMtIdCard(key);
+  const out = [];
+  if (norm) out.push(norm);
+  if (key && !out.includes(key)) out.push(key);
+
+  const m = /^(\d{1,7})([A-Z])$/.exec(key);
+  if (m) {
+    const digits = String(parseInt(m[1], 10)); // strips leading zeros
+    const unpadded = digits + m[2];
+    if (unpadded && !out.includes(unpadded)) out.push(unpadded);
+  }
+  return out;
+}
+
+
+
+async function handleDdaSalesEntriesList(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDdaSalesSchema(env);
+
+  const month = (url.searchParams.get("month") || "").trim();
+  const range = monthRange(month);
+  if (!range) return jsonResponse({ ok: false, error: "Missing/invalid month (YYYY-MM)" }, 400, corsOkHeaders);
+
+  const q = (url.searchParams.get("q") || "").trim();
+  const hasQ = !!q;
+  const qLike = `%${q}%`;
+
+  const sql = `
+    SELECT
+      id,
+      entry_date,
+      client_name,
+      client_id_card,
+      client_address,
+      medicine_name_dose,
+      quantity,
+      doctor_name,
+      doctor_reg_no,
+      prescription_serial_no,
+      urgent,
+      created_by,
+      created_at,
+      updated_at
+    FROM dda_sales_entries
+    WHERE org_id = ?
+      AND location_id = ?
+      AND entry_date >= ?
+      AND entry_date < ?
+      ${hasQ ? `AND (
+        entry_date LIKE ?
+        OR client_name LIKE ?
+        OR client_id_card LIKE ?
+        OR client_address LIKE ?
+        OR medicine_name_dose LIKE ?
+        OR doctor_name LIKE ?
+        OR doctor_reg_no LIKE ?
+        OR prescription_serial_no LIKE ?
+      )` : ""}
+    ORDER BY entry_date DESC, id DESC
+  `;
+
+  const bind = [authUser.org_id, authUser.location_id, range.startStr, range.endStr];
+  if (hasQ) {
+    bind.push(qLike, qLike, qLike, qLike, qLike, qLike, qLike, qLike);
+  }
+
+  const entries = await dbAll(env, sql, bind);
+
+  return jsonResponse({ ok: true, entries }, 200, corsOkHeaders);
+}
+
+
+
+async function handleDdaSalesClientLookup(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDdaSalesSchema(env);
+
+  const clientIdCardRaw = String(url.searchParams.get("client_id_card") || "").trim();
+  const clientIdCard = normalizeMtIdCard(clientIdCardRaw);
+  if (!clientIdCard) return jsonResponse({ ok: false, error: "Missing client_id_card" }, 400, corsOkHeaders);
+
+  const keys = mtIdCardLookupKeys(clientIdCardRaw);
+  const placeholders = keys.map(() => "?").join(", ");
+
+  const row = await dbFirst(
+    env,
+    `SELECT client_name, client_address, client_id_card
+     FROM dda_sales_entries
+     WHERE org_id = ?
+       AND location_id = ?
+       AND upper(replace(client_id_card, ' ', '')) IN (${placeholders})
+     ORDER BY entry_date DESC, id DESC
+     LIMIT 1`,
+    [authUser.org_id, authUser.location_id].concat(keys)
+  );
+
+  if (!row) return jsonResponse({ ok: true, found: false, client_id_card: clientIdCard }, 200, corsOkHeaders);
+
+  if (row && row.client_id_card && row.client_id_card !== clientIdCard) {
+    // normalize existing historical records to prevent duplicates going forward
+    await dbRun(
+      env,
+      `UPDATE dda_sales_entries
+       SET client_id_card = ?
+       WHERE org_id = ?
+         AND location_id = ?
+         AND upper(replace(client_id_card, ' ', '')) IN (${placeholders})`,
+      [clientIdCard, authUser.org_id, authUser.location_id].concat(keys)
+    );
+  }
+
+  return jsonResponse(
+    { ok: true, found: true, client_id_card: row.client_id_card, client_name: row.client_name, client_address: row.client_address },
+    200,
+    corsOkHeaders
+  );
+}
+
+async function handleDdaSalesDoctorsLookup(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDdaSalesSchema(env);
+
+  const qRaw = String((url && url.searchParams ? url.searchParams.get("q") : "") || "").trim();
+  const limitRaw = parseInt(String((url && url.searchParams ? url.searchParams.get("limit") : "") || "12"), 10);
+  const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(50, limitRaw)) : 12;
+
+  let sql = `
+    SELECT doctor_name, doctor_reg_no, COUNT(*) AS c, MAX(entry_date) AS last_date
+    FROM dda_sales_entries
+    WHERE org_id = ? AND location_id = ?
+      AND doctor_name IS NOT NULL AND doctor_reg_no IS NOT NULL
+      AND TRIM(doctor_name) <> '' AND TRIM(doctor_reg_no) <> ''
+  `;
+  const bind = [authUser.org_id, authUser.location_id];
+
+  if (qRaw) {
+    const q = "%" + qRaw.toLowerCase() + "%";
+    sql += " AND (LOWER(doctor_name) LIKE ? OR LOWER(doctor_reg_no) LIKE ?) ";
+    bind.push(q, q);
+  }
+
+  sql += `
+    GROUP BY doctor_name, doctor_reg_no
+    ORDER BY c DESC, last_date DESC
+    LIMIT ?
+  `;
+  bind.push(limit);
+
+  const rows = await dbAll(env, sql, bind);
+
+  const out = [];
+  for (const r of rows) {
+    out.push({
+      doctor_name: r.doctor_name || "",
+      doctor_reg_no: r.doctor_reg_no || "",
+      count: r.c == null ? 0 : Number(r.c)
+    });
+  }
+
+  return jsonResponse({ ok: true, doctors: out }, 200, corsOkHeaders);
+}
+
+
+async function handleDdaSalesEntryCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDdaSalesSchema(env);
+
+  const body = await readJson(request);
+
+  const entryDate = String(body.entry_date || "").trim();
+  const clientName = String(body.client_name || "").trim();
+  const clientIdCard = String(body.client_id_card || "").trim();
+  const clientIdCardNorm = normalizeMtIdCard(clientIdCard);
+  const keys = mtIdCardLookupKeys(clientIdCard);
+  const placeholders = keys.map(() => "?").join(", ");
+
+  // normalize existing historical records for this client_id_card to prevent duplicates
+  if (clientIdCardNorm && keys.length) {
+  await dbRun(
+      env,
+      `UPDATE dda_sales_entries
+       SET client_id_card = ?
+       WHERE org_id = ?
+         AND location_id = ?
+         AND upper(replace(client_id_card, ' ', '')) IN (${placeholders})`,
+      [clientIdCardNorm, authUser.org_id, authUser.location_id].concat(keys)
+    );
+    }
+  const clientAddress = String(body.client_address || "").trim();
+  const medicineNameDose = String(body.medicine_name_dose || "").trim();
+  const quantity = normalizeIntPositive(body.quantity);
+  const doctorName = String(body.doctor_name || "").trim();
+  const doctorRegNo = String(body.doctor_reg_no || "").trim();
+  const prescriptionSerialNo = String(body.prescription_serial_no || "").trim();
+  const urgent = normalizeBool01(body.urgent);
+
+  if (!isValidYmd(entryDate)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (!clientName) return jsonResponse({ ok: false, error: "Missing client_name" }, 400, corsOkHeaders);
+  if (!clientIdCardNorm) return jsonResponse({ ok: false, error: "Missing client_id_card" }, 400, corsOkHeaders);
+  if (!clientAddress) return jsonResponse({ ok: false, error: "Missing client_address" }, 400, corsOkHeaders);
+  if (!medicineNameDose) return jsonResponse({ ok: false, error: "Missing medicine_name_dose" }, 400, corsOkHeaders);
+  if (!quantity || quantity < 1) return jsonResponse({ ok: false, error: "Invalid quantity (must be >= 1)" }, 400, corsOkHeaders);
+  if (!doctorName) return jsonResponse({ ok: false, error: "Missing doctor_name" }, 400, corsOkHeaders);
+  if (!doctorRegNo) return jsonResponse({ ok: false, error: "Missing doctor_reg_no" }, 400, corsOkHeaders);
+  if (!prescriptionSerialNo) return jsonResponse({ ok: false, error: "Missing prescription_serial_no" }, 400, corsOkHeaders);
+
+  const row = await dbFirst(
+    env,
+    `INSERT INTO dda_sales_entries
+      (org_id, location_id, entry_date, client_name, client_id_card, client_address, medicine_name_dose, quantity, doctor_name, doctor_reg_no, prescription_serial_no, urgent, created_by, created_at, updated_at)
+     VALUES
+      (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+     RETURNING id`,
+    [
+      authUser.org_id,
+      authUser.location_id,
+      entryDate,
+      clientName,
+      clientIdCardNorm,
+      clientAddress,
+      medicineNameDose,
+      quantity,
+      doctorName,
+      doctorRegNo,
+      prescriptionSerialNo,
+      urgent,
+      authUser.user_id
+    ]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_SALES_ENTRY_CREATE", "dda_sales_entries", String(row.id), {
+    entry_date: entryDate,
+    client_id_card: clientIdCardNorm,
+    prescription_serial_no: prescriptionSerialNo,
+    quantity: quantity,
+    urgent: urgent
+  });
+
+  return jsonResponse({ ok: true, entry_id: row.id }, 200, corsOkHeaders);
+}
+
+async function handleDdaSalesEntryUpdate(request, env, corsOkHeaders, authUser, entryId) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDdaSalesSchema(env);
+
+  const existing = await dbFirst(
+    env,
+    `SELECT id
+     FROM dda_sales_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+
+  const entryDate = String(body.entry_date || "").trim();
+  const clientName = String(body.client_name || "").trim();
+  const clientIdCard = String(body.client_id_card || "").trim();
+  const clientIdCardNorm = normalizeMtIdCard(clientIdCard);
+  const keys = mtIdCardLookupKeys(clientIdCard);
+  const placeholders = keys.map(() => "?").join(", ");
+
+  // normalize existing historical records for this client_id_card to prevent duplicates
+  if (clientIdCardNorm && keys.length) {
+  await dbRun(
+      env,
+      `UPDATE dda_sales_entries
+       SET client_id_card = ?
+       WHERE org_id = ?
+         AND location_id = ?
+         AND upper(replace(client_id_card, ' ', '')) IN (${placeholders})`,
+      [clientIdCardNorm, authUser.org_id, authUser.location_id].concat(keys)
+    );
+    }
+  const clientAddress = String(body.client_address || "").trim();
+  const medicineNameDose = String(body.medicine_name_dose || "").trim();
+  const quantity = normalizeIntPositive(body.quantity);
+  const doctorName = String(body.doctor_name || "").trim();
+  const doctorRegNo = String(body.doctor_reg_no || "").trim();
+  const prescriptionSerialNo = String(body.prescription_serial_no || "").trim();
+  const urgent = normalizeBool01(body.urgent);
+
+  if (!isValidYmd(entryDate)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (!clientName) return jsonResponse({ ok: false, error: "Missing client_name" }, 400, corsOkHeaders);
+  if (!clientIdCardNorm) return jsonResponse({ ok: false, error: "Missing client_id_card" }, 400, corsOkHeaders);
+  if (!clientAddress) return jsonResponse({ ok: false, error: "Missing client_address" }, 400, corsOkHeaders);
+  if (!medicineNameDose) return jsonResponse({ ok: false, error: "Missing medicine_name_dose" }, 400, corsOkHeaders);
+  if (!quantity || quantity < 1) return jsonResponse({ ok: false, error: "Invalid quantity (must be >= 1)" }, 400, corsOkHeaders);
+  if (!doctorName) return jsonResponse({ ok: false, error: "Missing doctor_name" }, 400, corsOkHeaders);
+  if (!doctorRegNo) return jsonResponse({ ok: false, error: "Missing doctor_reg_no" }, 400, corsOkHeaders);
+  if (!prescriptionSerialNo) return jsonResponse({ ok: false, error: "Missing prescription_serial_no" }, 400, corsOkHeaders);
+
+  const updRes = await dbRun(
+    env,
+    `UPDATE dda_sales_entries
+     SET entry_date = ?, client_name = ?, client_id_card = ?, client_address = ?, medicine_name_dose = ?, quantity = ?, doctor_name = ?, doctor_reg_no = ?, prescription_serial_no = ?, urgent = ?, updated_at = datetime('now')
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [
+      entryDate,
+      clientName,
+      clientIdCardNorm,
+      clientAddress,
+      medicineNameDose,
+      quantity,
+      doctorName,
+      doctorRegNo,
+      prescriptionSerialNo,
+      urgent,
+      entryId,
+      authUser.org_id,
+      authUser.location_id
+    ]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_SALES_ENTRY_UPDATE", "dda_sales_entries", String(entryId), {
+    entry_date: entryDate,
+    client_id_card: clientIdCardNorm,
+    prescription_serial_no: prescriptionSerialNo,
+    quantity: quantity,
+    urgent: urgent
+  });
+
+  const changes = updRes && updRes.meta && typeof updRes.meta.changes === "number" ? updRes.meta.changes : null;
+  const wantDebug = (request.headers.get("X-Eikon-Debug") || "") === "1";
+
+  const payload = { ok: true };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
+  return jsonResponse(payload, 200, corsOkHeaders);
+}
+
+
+async function handleDdaSalesEntryDeleteByBody(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDdaSalesSchema(env);
+
+  let body = null;
+  try { body = await request.json(); } catch (e) { body = null; }
+  const entryId = parseInt(body && body.id, 10);
+  if (!entryId) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+
+  // Reuse the canonical delete handler
+  return await handleDdaSalesEntryDelete(request, env, corsOkHeaders, authUser, entryId);
+}
+
+async function handleDdaSalesEntryDelete(request, env, corsOkHeaders, authUser, entryId) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDdaSalesSchema(env);
+
+  const existing = await dbFirst(
+    env,
+    `SELECT id, entry_date, client_id_card, prescription_serial_no
+     FROM dda_sales_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  const delRes = await dbRun(
+    env,
+    `DELETE FROM dda_sales_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+
+  const changes = delRes && delRes.meta && typeof delRes.meta.changes === "number" ? delRes.meta.changes : null;
+  const wantDebug = (request.headers.get("X-Eikon-Debug") || "") === "1";
+  if (changes === 0) {
+    const payload = { ok: false, error: "Delete failed (no rows changed)" };
+    if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
+    return jsonResponse(payload, 500, corsOkHeaders);
+  }
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_SALES_ENTRY_DELETE", "dda_sales_entries", String(entryId), {
+    entry_date: existing.entry_date,
+    client_id_card: existing.client_id_card,
+    prescription_serial_no: existing.prescription_serial_no
+  });
+
+    const payload = { ok: true };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
+  return jsonResponse(payload, 200, corsOkHeaders);
+}
+
+
+async function handleDdaSalesReport(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDdaSalesSchema(env);
+
+  const from = (url.searchParams.get("from") || "").trim();
+  const to = (url.searchParams.get("to") || "").trim();
+
+  if (!isValidYmd(from) || !isValidYmd(to)) {
+    return jsonResponse({ ok: false, error: "Invalid from/to (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  }
+  if (to < from) {
+    return jsonResponse({ ok: false, error: "to must be >= from" }, 400, corsOkHeaders);
+  }
+
+  const entries = await dbAll(
+    env,
+    `SELECT
+       id,
+       entry_date,
+       client_name,
+       client_id_card,
+       client_address,
+       medicine_name_dose,
+       quantity,
+       doctor_name,
+       doctor_reg_no,
+       prescription_serial_no,
+       urgent
+     FROM dda_sales_entries
+     WHERE org_id = ?
+       AND location_id = ?
+       AND entry_date >= ?
+       AND entry_date <= ?
+     ORDER BY entry_date ASC, id ASC`,
+    [authUser.org_id, authUser.location_id, from, to]
+  );
+
+  return jsonResponse(
+    {
+      ok: true,
+      org_name: authUser.org_name,
+      location_name: authUser.location_name,
+      from,
+      to,
+      entries
+    },
+    200,
+    corsOkHeaders
+  );
+}
+
+async function handleDdaSalesReportHtml(request, env, corsOkHeaders, authUser, url) {
+  const out = await handleDdaSalesReport(request, env, corsOkHeaders, authUser, url);
+  const data = await out.json();
+  if (!data.ok) return out;
+
+  const entries = data.entries || [];
+
+  const byMonth = new Map();
+  for (const e of entries) {
+    const ym = ymFromYmd(e.entry_date);
+    if (!byMonth.has(ym)) byMonth.set(ym, []);
+    byMonth.get(ym).push(e);
+  }
+
+  let body = "";
+  body += `<h1>${escapeHtml(data.org_name || "Pharmacy")} — DDA Sales Report</h1>`;
+  body += `<p class="meta">Location: ${escapeHtml(data.location_name || "")}<br/>Range: ${escapeHtml(data.from)} to ${escapeHtml(data.to)}</p>`;
+
+  for (const [ym, list] of byMonth.entries()) {
+    body += `<h2>${escapeHtml(ym)}</h2>`;
+    body += `<table><thead><tr>
+      <th>Date</th>
+      <th>Client Name</th>
+      <th>ID Card</th>
+      <th>Address</th>
+      <th>Medicine Name &amp; Dose</th>
+      <th>Qty</th>
+      <th>Doctor Name</th>
+      <th>Doctor Reg No.</th>
+      <th>Prescription Serial No.</th>
+      <th>Urgent</th>
+    </tr></thead><tbody>`;
+
+    for (const r of list) {
+      body += `<tr>
+        <td>${escapeHtml(r.entry_date)}</td>
+        <td>${escapeHtml(r.client_name)}</td>
+        <td>${escapeHtml(r.client_id_card)}</td>
+        <td>${escapeHtml(r.client_address)}</td>
+        <td>${escapeHtml(r.medicine_name_dose)}</td>
+        <td>${escapeHtml(String(r.quantity))}</td>
+        <td>${escapeHtml(r.doctor_name)}</td>
+        <td>${escapeHtml(r.doctor_reg_no)}</td>
+        <td>${escapeHtml(r.prescription_serial_no)}</td>
+        <td>${(r && (r.urgent === 1 || r.urgent === true)) ? "URGENT" : ""}</td>
+      </tr>`;
+    }
+
+    body += `</tbody></table>`;
+  }
+
+  return htmlReportPage("DDA Sales Report", body);
+}
+
+/* =========================
+   DDA POYC MODULE (API)  <-- ADDED (NEW)
+   ========================= */
+
+async function ensureDdaPoycSchema(env) {
+  await dbRun(
+    env,
+    `CREATE TABLE IF NOT EXISTS dda_poyc_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+      entry_date TEXT NOT NULL,
+      client_name TEXT NOT NULL,
+      client_id_card TEXT NOT NULL,
+      client_address TEXT NOT NULL,
+      medicine_name_dose TEXT NOT NULL,
+      quantity INTEGER NOT NULL,
+      doctor_name TEXT NOT NULL,
+      doctor_reg_no TEXT NOT NULL,
+      prescription_serial_no TEXT NOT NULL,
+      created_by INTEGER,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )`,
+    []
+  );
+
+  await dbRun(
+    env,
+    "CREATE INDEX IF NOT EXISTS idx_dda_poyc_org_loc_date ON dda_poyc_entries (org_id, location_id, entry_date)",
+    []
+  );
+
+  await dbRun(
+    env,
+    "CREATE INDEX IF NOT EXISTS idx_dda_poyc_org_loc_client ON dda_poyc_entries (org_id, location_id, client_id_card)",
+    []
+  );
+
+  await dbRun(
+    env,
+    "CREATE INDEX IF NOT EXISTS idx_dda_poyc_org_loc_serial ON dda_poyc_entries (org_id, location_id, prescription_serial_no)",
+    []
+  );
+}
+
+async function handleDdaPoycEntriesList(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDdaPoycSchema(env);
+
+  const month = (url.searchParams.get("month") || "").trim();
+  const range = monthRange(month);
+  if (!range) return jsonResponse({ ok: false, error: "Missing/invalid month (YYYY-MM)" }, 400, corsOkHeaders);
+
+  const q = (url.searchParams.get("q") || "").trim();
+  const hasQ = !!q;
+  const qLike = `%${q}%`;
+
+  const sql = `
+    SELECT
+      id,
+      entry_date,
+      client_name,
+      client_id_card,
+      client_address,
+      medicine_name_dose,
+      quantity,
+      doctor_name,
+      doctor_reg_no,
+      prescription_serial_no,
+      created_by,
+      created_at,
+      updated_at
+    FROM dda_poyc_entries
+    WHERE org_id = ?
+      AND location_id = ?
+      AND entry_date >= ?
+      AND entry_date < ?
+      ${hasQ ? `AND (
+        entry_date LIKE ?
+        OR client_name LIKE ?
+        OR client_id_card LIKE ?
+        OR client_address LIKE ?
+        OR medicine_name_dose LIKE ?
+        OR doctor_name LIKE ?
+        OR doctor_reg_no LIKE ?
+        OR prescription_serial_no LIKE ?
+      )` : ""}
+    ORDER BY entry_date DESC, id DESC
+  `;
+
+  const bind = [authUser.org_id, authUser.location_id, range.startStr, range.endStr];
+  if (hasQ) {
+    bind.push(qLike, qLike, qLike, qLike, qLike, qLike, qLike, qLike);
+  }
+
+  const entries = await dbAll(env, sql, bind);
+
+  return jsonResponse({ ok: true, entries }, 200, corsOkHeaders);
+}
+
+async function handleDdaPoycEntryCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDdaPoycSchema(env);
+
+  const body = await readJson(request);
+
+  const entryDate = String(body.entry_date || "").trim();
+  const clientName = String(body.client_name || "").trim();
+  const clientIdCard = String(body.client_id_card || "").trim();
+  const clientAddress = String(body.client_address || "").trim();
+  const medicineNameDose = String(body.medicine_name_dose || "").trim();
+  const quantity = normalizeIntPositive(body.quantity);
+  const doctorName = String(body.doctor_name || "").trim();
+  const doctorRegNo = String(body.doctor_reg_no || "").trim();
+  const prescriptionSerialNo = String(body.prescription_serial_no || "").trim();
+
+  if (!isValidYmd(entryDate)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (!clientName) return jsonResponse({ ok: false, error: "Missing client_name" }, 400, corsOkHeaders);
+  if (!clientIdCard) return jsonResponse({ ok: false, error: "Missing client_id_card" }, 400, corsOkHeaders);
+  if (!clientAddress) return jsonResponse({ ok: false, error: "Missing client_address" }, 400, corsOkHeaders);
+  if (!medicineNameDose) return jsonResponse({ ok: false, error: "Missing medicine_name_dose" }, 400, corsOkHeaders);
+  if (!quantity || quantity < 1) return jsonResponse({ ok: false, error: "Invalid quantity (must be >= 1)" }, 400, corsOkHeaders);
+  if (!doctorName) return jsonResponse({ ok: false, error: "Missing doctor_name" }, 400, corsOkHeaders);
+  if (!doctorRegNo) return jsonResponse({ ok: false, error: "Missing doctor_reg_no" }, 400, corsOkHeaders);
+  if (!prescriptionSerialNo) return jsonResponse({ ok: false, error: "Missing prescription_serial_no" }, 400, corsOkHeaders);
+
+  const row = await dbFirst(
+    env,
+    `INSERT INTO dda_poyc_entries
+      (org_id, location_id, entry_date, client_name, client_id_card, client_address, medicine_name_dose, quantity, doctor_name, doctor_reg_no, prescription_serial_no, created_by, created_at, updated_at)
+     VALUES
+      (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+     RETURNING id`,
+    [
+      authUser.org_id,
+      authUser.location_id,
+      entryDate,
+      clientName,
+      clientIdCard,
+      clientAddress,
+      medicineNameDose,
+      quantity,
+      doctorName,
+      doctorRegNo,
+      prescriptionSerialNo,
+      authUser.user_id
+    ]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_POYC_ENTRY_CREATE", "dda_poyc_entries", String(row.id), {
+    entry_date: entryDate,
+    client_id_card: clientIdCard,
+    prescription_serial_no: prescriptionSerialNo,
+    quantity: quantity
+  });
+
+  return jsonResponse({ ok: true, entry_id: row.id }, 200, corsOkHeaders);
+}
+
+async function handleDdaPoycEntryUpdate(request, env, corsOkHeaders, authUser, entryId) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDdaPoycSchema(env);
+
+  const existing = await dbFirst(
+    env,
+    `SELECT id
+     FROM dda_poyc_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+
+  const entryDate = String(body.entry_date || "").trim();
+  const clientName = String(body.client_name || "").trim();
+  const clientIdCard = String(body.client_id_card || "").trim();
+  const clientAddress = String(body.client_address || "").trim();
+  const medicineNameDose = String(body.medicine_name_dose || "").trim();
+  const quantity = normalizeIntPositive(body.quantity);
+  const doctorName = String(body.doctor_name || "").trim();
+  const doctorRegNo = String(body.doctor_reg_no || "").trim();
+  const prescriptionSerialNo = String(body.prescription_serial_no || "").trim();
+
+  if (!isValidYmd(entryDate)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (!clientName) return jsonResponse({ ok: false, error: "Missing client_name" }, 400, corsOkHeaders);
+  if (!clientIdCard) return jsonResponse({ ok: false, error: "Missing client_id_card" }, 400, corsOkHeaders);
+  if (!clientAddress) return jsonResponse({ ok: false, error: "Missing client_address" }, 400, corsOkHeaders);
+  if (!medicineNameDose) return jsonResponse({ ok: false, error: "Missing medicine_name_dose" }, 400, corsOkHeaders);
+  if (!quantity || quantity < 1) return jsonResponse({ ok: false, error: "Invalid quantity (must be >= 1)" }, 400, corsOkHeaders);
+  if (!doctorName) return jsonResponse({ ok: false, error: "Missing doctor_name" }, 400, corsOkHeaders);
+  if (!doctorRegNo) return jsonResponse({ ok: false, error: "Missing doctor_reg_no" }, 400, corsOkHeaders);
+  if (!prescriptionSerialNo) return jsonResponse({ ok: false, error: "Missing prescription_serial_no" }, 400, corsOkHeaders);
+
+  await dbRun(
+    env,
+    `UPDATE dda_poyc_entries
+     SET entry_date = ?, client_name = ?, client_id_card = ?, client_address = ?, medicine_name_dose = ?, quantity = ?, doctor_name = ?, doctor_reg_no = ?, prescription_serial_no = ?, updated_at = datetime('now')
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [
+      entryDate,
+      clientName,
+      clientIdCard,
+      clientAddress,
+      medicineNameDose,
+      quantity,
+      doctorName,
+      doctorRegNo,
+      prescriptionSerialNo,
+      entryId,
+      authUser.org_id,
+      authUser.location_id
+    ]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_POYC_ENTRY_UPDATE", "dda_poyc_entries", String(entryId), {
+    entry_date: entryDate,
+    client_id_card: clientIdCard,
+    prescription_serial_no: prescriptionSerialNo,
+    quantity: quantity
+  });
+
+    const payload = { ok: true };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
+  return jsonResponse(payload, 200, corsOkHeaders);
+}
+
+
+async function handleDdaPoycEntryDelete(request, env, corsOkHeaders, authUser, entryId) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDdaPoycSchema(env);
+
+  const existing = await dbFirst(
+    env,
+    `SELECT id, entry_date, client_id_card, prescription_serial_no
+     FROM dda_poyc_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  await dbRun(
+    env,
+    `DELETE FROM dda_poyc_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_POYC_ENTRY_DELETE", "dda_poyc_entries", String(entryId), {
+    entry_date: existing.entry_date,
+    client_id_card: existing.client_id_card,
+    prescription_serial_no: existing.prescription_serial_no
+  });
+
+    const payload = { ok: true };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
+  return jsonResponse(payload, 200, corsOkHeaders);
+}
+
+
+async function handleDdaPoycReport(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDdaPoycSchema(env);
+
+  const from = (url.searchParams.get("from") || "").trim();
+  const to = (url.searchParams.get("to") || "").trim();
+
+  if (!isValidYmd(from) || !isValidYmd(to)) {
+    return jsonResponse({ ok: false, error: "Invalid from/to (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  }
+  if (to < from) {
+    return jsonResponse({ ok: false, error: "to must be >= from" }, 400, corsOkHeaders);
+  }
+
+  const entries = await dbAll(
+    env,
+    `SELECT
+       id,
+       entry_date,
+       client_name,
+       client_id_card,
+       client_address,
+       medicine_name_dose,
+       quantity,
+       doctor_name,
+       doctor_reg_no,
+       prescription_serial_no
+     FROM dda_poyc_entries
+     WHERE org_id = ?
+       AND location_id = ?
+       AND entry_date >= ?
+       AND entry_date <= ?
+     ORDER BY entry_date ASC, id ASC`,
+    [authUser.org_id, authUser.location_id, from, to]
+  );
+
+  return jsonResponse(
+    {
+      ok: true,
+      org_name: authUser.org_name,
+      location_name: authUser.location_name,
+      from,
+      to,
+      entries
+    },
+    200,
+    corsOkHeaders
+  );
+}
+
+async function handleDdaPoycReportHtml(request, env, corsOkHeaders, authUser, url) {
+  const out = await handleDdaPoycReport(request, env, corsOkHeaders, authUser, url);
+  const data = await out.json();
+  if (!data.ok) return out;
+
+  const entries = data.entries || [];
+
+  const byMonth = new Map();
+  for (const e of entries) {
+    const ym = ymFromYmd(e.entry_date);
+    if (!byMonth.has(ym)) byMonth.set(ym, []);
+    byMonth.get(ym).push(e);
+  }
+
+  let body = "";
+  body += `<h1>${escapeHtml(data.org_name || "Pharmacy")} — DDA POYC Report</h1>`;
+  body += `<p class="meta">Location: ${escapeHtml(data.location_name || "")}<br/>Range: ${escapeHtml(data.from)} to ${escapeHtml(data.to)}</p>`;
+
+  for (const [ym, list] of byMonth.entries()) {
+    body += `<h2>${escapeHtml(ym)}</h2>`;
+    body += `<table><thead><tr>
+      <th>Date</th>
+      <th>Client Name</th>
+      <th>ID Card</th>
+      <th>Address</th>
+      <th>Medicine Name &amp; Dose</th>
+      <th>Qty</th>
+      <th>Doctor Name</th>
+      <th>Doctor Reg No.</th>
+      <th>Prescription Serial No.</th>
+    </tr></thead><tbody>`;
+
+    for (const r of list) {
+      body += `<tr>
+        <td>${escapeHtml(r.entry_date)}</td>
+        <td>${escapeHtml(r.client_name)}</td>
+        <td>${escapeHtml(r.client_id_card)}</td>
+        <td>${escapeHtml(r.client_address)}</td>
+        <td>${escapeHtml(r.medicine_name_dose)}</td>
+        <td>${escapeHtml(String(r.quantity))}</td>
+        <td>${escapeHtml(r.doctor_name)}</td>
+        <td>${escapeHtml(r.doctor_reg_no)}</td>
+        <td>${escapeHtml(r.prescription_serial_no)}</td>
+      </tr>`;
+    }
+
+    body += `</tbody></table>`;
+  }
+
+  return htmlReportPage("DDA POYC Report", body);
+}
+
+/* =========================
+   DDA PURCHASES MODULE (API)  <-- NEW
+   ========================= */
+
+async function ensureDdaPurchasesSchema(env) {
+  await dbRun(
+    env,
+    `CREATE TABLE IF NOT EXISTS dda_purchases_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+      entry_date TEXT NOT NULL,
+      dda_name_dose TEXT NOT NULL,
+      quantity INTEGER NOT NULL,
+      agent TEXT NOT NULL,
+      invoice_number TEXT NOT NULL,
+      created_by INTEGER,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )`,
+    []
+  );
+
+  await dbRun(
+    env,
+    "CREATE INDEX IF NOT EXISTS idx_dda_purchases_org_loc_date ON dda_purchases_entries (org_id, location_id, entry_date)",
+    []
+  );
+  await dbRun(
+    env,
+    "CREATE INDEX IF NOT EXISTS idx_dda_purchases_org_loc_invoice ON dda_purchases_entries (org_id, location_id, invoice_number)",
+    []
+  );
+  await dbRun(
+    env,
+    "CREATE INDEX IF NOT EXISTS idx_dda_purchases_org_loc_dda ON dda_purchases_entries (org_id, location_id, dda_name_dose)",
+    []
+  );
+}
+
+async function handleDdaPurchasesEntriesList(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDdaPurchasesSchema(env);
+
+  const month = (url.searchParams.get("month") || "").trim();
+  const range = monthRange(month);
+  if (!range) return jsonResponse({ ok: false, error: "Missing/invalid month (YYYY-MM)" }, 400, corsOkHeaders);
+
+  const q = (url.searchParams.get("q") || "").trim();
+  const hasQ = !!q;
+  const qLike = `%${q}%`;
+
+  const sql = `
+    SELECT
+      id,
+      entry_date,
+      dda_name_dose,
+      quantity,
+      agent,
+      invoice_number,
+      created_by,
+      created_at,
+      updated_at
+    FROM dda_purchases_entries
+    WHERE org_id = ?
+      AND location_id = ?
+      AND entry_date >= ?
+      AND entry_date < ?
+      ${hasQ ? `AND (
+        entry_date LIKE ?
+        OR dda_name_dose LIKE ?
+        OR agent LIKE ?
+        OR invoice_number LIKE ?
+      )` : ""}
+    ORDER BY entry_date DESC, id DESC
+  `;
+
+  const bind = [authUser.org_id, authUser.location_id, range.startStr, range.endStr];
+  if (hasQ) bind.push(qLike, qLike, qLike, qLike);
+
+  const entries = await dbAll(env, sql, bind);
+  return jsonResponse({ ok: true, entries }, 200, corsOkHeaders);
+}
+
+async function handleDdaPurchasesEntryCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDdaPurchasesSchema(env);
+
+  const body = await readJson(request);
+
+  const entryDate = String(body.entry_date || "").trim();
+  const ddaNameDose = String(body.dda_name_dose || "").trim();
+  const quantity = normalizeIntPositive(body.quantity);
+  const agent = String(body.agent || "").trim();
+  const invoiceNumber = String(body.invoice_number || "").trim();
+
+  if (!isValidYmd(entryDate)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (!ddaNameDose) return jsonResponse({ ok: false, error: "Missing dda_name_dose" }, 400, corsOkHeaders);
+  if (!quantity || quantity < 1) return jsonResponse({ ok: false, error: "Invalid quantity (must be >= 1)" }, 400, corsOkHeaders);
+  if (!agent) return jsonResponse({ ok: false, error: "Missing agent" }, 400, corsOkHeaders);
+  if (!invoiceNumber) return jsonResponse({ ok: false, error: "Missing invoice_number" }, 400, corsOkHeaders);
+
+  const row = await dbFirst(
+    env,
+    `INSERT INTO dda_purchases_entries
+      (org_id, location_id, entry_date, dda_name_dose, quantity, agent, invoice_number, created_by, created_at, updated_at)
+     VALUES
+      (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+     RETURNING id`,
+    [
+      authUser.org_id,
+      authUser.location_id,
+      entryDate,
+      ddaNameDose,
+      quantity,
+      agent,
+      invoiceNumber,
+      authUser.user_id
+    ]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_PURCHASES_ENTRY_CREATE", "dda_purchases_entries", String(row.id), {
+    entry_date: entryDate,
+    dda_name_dose: ddaNameDose,
+    invoice_number: invoiceNumber,
+    quantity
+  });
+
+  return jsonResponse({ ok: true, entry_id: row.id }, 200, corsOkHeaders);
+}
+
+async function handleDdaPurchasesEntryUpdate(request, env, corsOkHeaders, authUser, entryId) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDdaPurchasesSchema(env);
+
+  const existing = await dbFirst(
+    env,
+    `SELECT id
+     FROM dda_purchases_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+
+  const entryDate = String(body.entry_date || "").trim();
+  const ddaNameDose = String(body.dda_name_dose || "").trim();
+  const quantity = normalizeIntPositive(body.quantity);
+  const agent = String(body.agent || "").trim();
+  const invoiceNumber = String(body.invoice_number || "").trim();
+
+  if (!isValidYmd(entryDate)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (!ddaNameDose) return jsonResponse({ ok: false, error: "Missing dda_name_dose" }, 400, corsOkHeaders);
+  if (!quantity || quantity < 1) return jsonResponse({ ok: false, error: "Invalid quantity (must be >= 1)" }, 400, corsOkHeaders);
+  if (!agent) return jsonResponse({ ok: false, error: "Missing agent" }, 400, corsOkHeaders);
+  if (!invoiceNumber) return jsonResponse({ ok: false, error: "Missing invoice_number" }, 400, corsOkHeaders);
+
+  await dbRun(
+    env,
+    `UPDATE dda_purchases_entries
+     SET entry_date = ?, dda_name_dose = ?, quantity = ?, agent = ?, invoice_number = ?, updated_at = datetime('now')
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [
+      entryDate,
+      ddaNameDose,
+      quantity,
+      agent,
+      invoiceNumber,
+      entryId,
+      authUser.org_id,
+      authUser.location_id
+    ]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_PURCHASES_ENTRY_UPDATE", "dda_purchases_entries", String(entryId), {
+    entry_date: entryDate,
+    dda_name_dose: ddaNameDose,
+    invoice_number: invoiceNumber,
+    quantity
+  });
+
+    const payload = { ok: true };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
+  return jsonResponse(payload, 200, corsOkHeaders);
+}
+
+
+async function handleDdaPurchasesEntryDelete(request, env, corsOkHeaders, authUser, entryId) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDdaPurchasesSchema(env);
+
+  const existing = await dbFirst(
+    env,
+    `SELECT id, entry_date, dda_name_dose, invoice_number
+     FROM dda_purchases_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  await dbRun(
+    env,
+    `DELETE FROM dda_purchases_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_PURCHASES_ENTRY_DELETE", "dda_purchases_entries", String(entryId), {
+    entry_date: existing.entry_date,
+    dda_name_dose: existing.dda_name_dose,
+    invoice_number: existing.invoice_number
+  });
+
+    const payload = { ok: true };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
+  return jsonResponse(payload, 200, corsOkHeaders);
+}
+
+
+async function handleDdaPurchasesReport(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDdaPurchasesSchema(env);
+
+  const from = (url.searchParams.get("from") || "").trim();
+  const to = (url.searchParams.get("to") || "").trim();
+
+  if (!isValidYmd(from) || !isValidYmd(to)) {
+    return jsonResponse({ ok: false, error: "Invalid from/to (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  }
+  if (to < from) {
+    return jsonResponse({ ok: false, error: "to must be >= from" }, 400, corsOkHeaders);
+  }
+
+  const entries = await dbAll(
+    env,
+    `SELECT
+       id,
+       entry_date,
+       dda_name_dose,
+       quantity,
+       agent,
+       invoice_number
+     FROM dda_purchases_entries
+     WHERE org_id = ?
+       AND location_id = ?
+       AND entry_date >= ?
+       AND entry_date <= ?
+     ORDER BY entry_date ASC, id ASC`,
+    [authUser.org_id, authUser.location_id, from, to]
+  );
+
+  return jsonResponse(
+    {
+      ok: true,
+      org_name: authUser.org_name,
+      location_name: authUser.location_name,
+      from,
+      to,
+      entries
+    },
+    200,
+    corsOkHeaders
+  );
+}
+
+async function handleDdaPurchasesReportHtml(request, env, corsOkHeaders, authUser, url) {
+  const out = await handleDdaPurchasesReport(request, env, corsOkHeaders, authUser, url);
+  const data = await out.json();
+  if (!data.ok) return out;
+
+  const entries = data.entries || [];
+
+  const byMonth = new Map();
+  for (const e of entries) {
+    const ym = ymFromYmd(e.entry_date);
+    if (!byMonth.has(ym)) byMonth.set(ym, []);
+    byMonth.get(ym).push(e);
+  }
+
+  let body = "";
+  body += `<h1>${escapeHtml(data.org_name || "Pharmacy")} — DDA Purchases Report</h1>`;
+  body += `<p class="meta">Location: ${escapeHtml(data.location_name || "")}<br/>Range: ${escapeHtml(data.from)} to ${escapeHtml(data.to)}</p>`;
+
+  for (const [ym, list] of byMonth.entries()) {
+    body += `<h2>${escapeHtml(ym)}</h2>`;
+    body += `<table><thead><tr>
+      <th>Date</th>
+      <th>DDA Name &amp; Dose</th>
+      <th>Qty</th>
+      <th>Agent</th>
+      <th>Invoice No.</th>
+    </tr></thead><tbody>`;
+
+    for (const r of list) {
+      body += `<tr>
+        <td>${escapeHtml(r.entry_date)}</td>
+        <td>${escapeHtml(r.dda_name_dose)}</td>
+        <td>${escapeHtml(String(r.quantity))}</td>
+        <td>${escapeHtml(r.agent)}</td>
+        <td>${escapeHtml(r.invoice_number)}</td>
+      </tr>`;
+    }
+
+    body += `</tbody></table>`;
+  }
+
+  return htmlReportPage("DDA Purchases Report", body);
+}
+
+/* ========================= DDA STOCK TAKES MODULE (API) ========================= */
+async function ensureDdaStockTakesSchema(env) {
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS dda_stocktakes (id INTEGER PRIMARY KEY AUTOINCREMENT, org_id INTEGER NOT NULL, location_id INTEGER NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')), created_by INTEGER, closed_at TEXT, updated_at TEXT NOT NULL DEFAULT (datetime('now')))`, []);
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS dda_stocktake_items (id INTEGER PRIMARY KEY AUTOINCREMENT, org_id INTEGER NOT NULL, location_id INTEGER NOT NULL, stocktake_id INTEGER NOT NULL, item_name TEXT NOT NULL, dosage TEXT, qty_tablets INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')))`, []);
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_dda_stocktakes_org_loc_created ON dda_stocktakes (org_id, location_id, created_at)", []);
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_dda_stocktake_items_stocktake ON dda_stocktake_items (org_id, location_id, stocktake_id)", []);
+}
+
+async function handleDdaStockTakesList(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureDdaStockTakesSchema(env);
+
+  const stocktakes = await dbAll(env, `
+    SELECT s.id, s.created_at, s.closed_at, s.updated_at,
+      (SELECT COUNT(*) FROM dda_stocktake_items i
+        WHERE i.org_id=s.org_id AND i.location_id=s.location_id AND i.stocktake_id=s.id) AS item_count
+    FROM dda_stocktakes s
+    WHERE s.org_id = ? AND s.location_id = ?
+    ORDER BY s.created_at DESC, s.id DESC
+  `, [authUser.org_id, authUser.location_id]);
+
+  return jsonResponse({ ok: true, stocktakes }, 200, corsOkHeaders);
+}
+
+async function handleDdaStockTakeCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureDdaStockTakesSchema(env);
+
+  const row = await dbFirst(env, `
+    INSERT INTO dda_stocktakes (org_id, location_id, created_by, created_at, updated_at)
+    VALUES (?, ?, ?, datetime('now'), datetime('now'))
+    RETURNING id, created_at
+  `, [authUser.org_id, authUser.location_id, authUser.user_id]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_STOCKTAKE_CREATE", "dda_stocktakes", String(row.id), { created_at: row.created_at });
+  return jsonResponse({ ok: true, stocktake_id: row.id, created_at: row.created_at }, 200, corsOkHeaders);
+}
+
+async function handleDdaStockTakeGet(request, env, corsOkHeaders, authUser, stocktakeId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureDdaStockTakesSchema(env);
+
+  const st = await dbFirst(env, `
+    SELECT id, created_at, created_by, closed_at, updated_at
+    FROM dda_stocktakes
+    WHERE id = ? AND org_id = ? AND location_id = ?
+  `, [stocktakeId, authUser.org_id, authUser.location_id]);
+
+  if (!st) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  const items = await dbAll(env, `
+    SELECT id, stocktake_id, item_name, dosage, qty_tablets, created_at, updated_at
+    FROM dda_stocktake_items
+    WHERE stocktake_id = ? AND org_id = ? AND location_id = ?
+    ORDER BY item_name COLLATE NOCASE ASC, id ASC
+  `, [stocktakeId, authUser.org_id, authUser.location_id]);
+
+  return jsonResponse({ ok: true, stocktake: st, items }, 200, corsOkHeaders);
+}
+
+async function handleDdaStockTakeUpdate(request, env, corsOkHeaders, authUser, stocktakeId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureDdaStockTakesSchema(env);
+
+  const st = await dbFirst(env, `SELECT id, closed_at FROM dda_stocktakes WHERE id = ? AND org_id = ? AND location_id = ?`, [stocktakeId, authUser.org_id, authUser.location_id]);
+  if (!st) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+  const close = body && (body.closed === 1 || body.closed === true);
+  const reopen = body && (body.closed === 0 || body.closed === false);
+
+  if (close) {
+    await dbRun(env, `
+      UPDATE dda_stocktakes
+      SET closed_at = COALESCE(closed_at, datetime('now')),
+          updated_at = datetime('now')
+      WHERE id = ? AND org_id = ? AND location_id = ?
+    `, [stocktakeId, authUser.org_id, authUser.location_id]);
+
+    await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_STOCKTAKE_CLOSE", "dda_stocktakes", String(stocktakeId), {});
+  } else if (reopen) {
+    await dbRun(env, `
+      UPDATE dda_stocktakes
+      SET closed_at = NULL,
+          updated_at = datetime('now')
+      WHERE id = ? AND org_id = ? AND location_id = ?
+    `, [stocktakeId, authUser.org_id, authUser.location_id]);
+
+    await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_STOCKTAKE_REOPEN", "dda_stocktakes", String(stocktakeId), {});
+  }
+
+    const payload = { ok: true };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
+  return jsonResponse(payload, 200, corsOkHeaders);
+}
+
+
+async function handleDdaStockTakeItemAdd(request, env, corsOkHeaders, authUser, stocktakeId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureDdaStockTakesSchema(env);
+
+  const st = await dbFirst(env, `SELECT id FROM dda_stocktakes WHERE id = ? AND org_id = ? AND location_id = ?`, [stocktakeId, authUser.org_id, authUser.location_id]);
+  if (!st) return jsonResponse({ ok: false, error: "Stock take not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+  const name = String(body.item_name || "").trim();
+  const dosage = String(body.dosage || "").trim();
+  const qty = Number(body.qty_tablets);
+
+  if (!name) return jsonResponse({ ok: false, error: "Missing item_name" }, 400, corsOkHeaders);
+  if (!Number.isFinite(qty) || qty < 0) return jsonResponse({ ok: false, error: "Invalid qty_tablets (>= 0)" }, 400, corsOkHeaders);
+
+  const row = await dbFirst(env, `
+    INSERT INTO dda_stocktake_items (org_id, location_id, stocktake_id, item_name, dosage, qty_tablets, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+    RETURNING id
+  `, [authUser.org_id, authUser.location_id, stocktakeId, name, dosage, Math.floor(qty)]);
+
+  await dbRun(env, `UPDATE dda_stocktakes SET updated_at = datetime('now') WHERE id = ? AND org_id = ? AND location_id = ?`, [stocktakeId, authUser.org_id, authUser.location_id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_STOCKTAKE_ITEM_ADD", "dda_stocktake_items", String(row.id), { stocktake_id: stocktakeId, item_name: name, dosage, qty_tablets: Math.floor(qty) });
+
+  return jsonResponse({ ok: true, item_id: row.id }, 200, corsOkHeaders);
+}
+
+async function handleDdaStockTakeItemUpdate(request, env, corsOkHeaders, authUser, itemId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureDdaStockTakesSchema(env);
+
+  const existing = await dbFirst(env, `
+    SELECT id, stocktake_id
+    FROM dda_stocktake_items
+    WHERE id = ? AND org_id = ? AND location_id = ?
+  `, [itemId, authUser.org_id, authUser.location_id]);
+
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+  const name = String(body.item_name || "").trim();
+  const dosage = String(body.dosage || "").trim();
+  const qty = Number(body.qty_tablets);
+
+  if (!name) return jsonResponse({ ok: false, error: "Missing item_name" }, 400, corsOkHeaders);
+  if (!Number.isFinite(qty) || qty < 0) return jsonResponse({ ok: false, error: "Invalid qty_tablets (>= 0)" }, 400, corsOkHeaders);
+
+  await dbRun(env, `
+    UPDATE dda_stocktake_items
+    SET item_name = ?, dosage = ?, qty_tablets = ?, updated_at = datetime('now')
+    WHERE id = ? AND org_id = ? AND location_id = ?
+  `, [name, dosage, Math.floor(qty), itemId, authUser.org_id, authUser.location_id]);
+
+  await dbRun(env, `UPDATE dda_stocktakes SET updated_at = datetime('now') WHERE id = ? AND org_id = ? AND location_id = ?`, [existing.stocktake_id, authUser.org_id, authUser.location_id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_STOCKTAKE_ITEM_UPDATE", "dda_stocktake_items", String(itemId), { item_name: name, dosage, qty_tablets: Math.floor(qty) });
+
+    const payload = { ok: true };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
+  return jsonResponse(payload, 200, corsOkHeaders);
+}
+
+
+async function handleDdaStockTakeItemDelete(request, env, corsOkHeaders, authUser, itemId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureDdaStockTakesSchema(env);
+
+  const existing = await dbFirst(env, `
+    SELECT id, stocktake_id, item_name
+    FROM dda_stocktake_items
+    WHERE id = ? AND org_id = ? AND location_id = ?
+  `, [itemId, authUser.org_id, authUser.location_id]);
+
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  await dbRun(env, `DELETE FROM dda_stocktake_items WHERE id = ? AND org_id = ? AND location_id = ?`, [itemId, authUser.org_id, authUser.location_id]);
+  await dbRun(env, `UPDATE dda_stocktakes SET updated_at = datetime('now') WHERE id = ? AND org_id = ? AND location_id = ?`, [existing.stocktake_id, authUser.org_id, authUser.location_id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_STOCKTAKE_ITEM_DELETE", "dda_stocktake_items", String(itemId), { item_name: existing.item_name });
+
+    const payload = { ok: true };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
+  return jsonResponse(payload, 200, corsOkHeaders);
+}
+
+
+async function handleDdaStockTakeReportHtml(request, env, corsOkHeaders, authUser, stocktakeId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureDdaStockTakesSchema(env);
+
+  const st = await dbFirst(env, `
+    SELECT id, created_at, closed_at
+    FROM dda_stocktakes
+    WHERE id = ? AND org_id = ? AND location_id = ?
+  `, [stocktakeId, authUser.org_id, authUser.location_id]);
+
+  if (!st) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  const items = await dbAll(env, `
+    SELECT item_name, dosage, qty_tablets
+    FROM dda_stocktake_items
+    WHERE stocktake_id = ? AND org_id = ? AND location_id = ?
+    ORDER BY item_name COLLATE NOCASE ASC, id ASC
+  `, [stocktakeId, authUser.org_id, authUser.location_id]);
+
+  let body = "";
+  body += `<h1>${escapeHtml(authUser.org_name || "Pharmacy")} — DDA Stock Take</h1>`;
+  body += `<div class="meta">Location: ${escapeHtml(authUser.location_name || "")}<br>
+    Stock Take ID: ${escapeHtml(String(st.id))}<br>
+    Created: ${escapeHtml(String(st.created_at || ""))}${st.closed_at ? `<br>Closed: ${escapeHtml(String(st.closed_at))}` : ""}</div>`;
+
+  body += `<table><thead><tr><th>Name</th><th>Dosage</th><th>Quantity of Tablets</th></tr></thead><tbody>`;
+  if (!items.length) {
+    body += `<tr><td colspan="3">No items.</td></tr>`;
+  } else {
+    for (const it of items) {
+      body += `<tr><td>${escapeHtml(it.item_name || "")}</td><td>${escapeHtml(it.dosage || "")}</td><td>${escapeHtml(String(it.qty_tablets == null ? "" : it.qty_tablets))}</td></tr>`;
+    }
+  }
+  body += `</tbody></table>`;
+
+  body += `<div class="meta">Generated: ${escapeHtml(nowIso())}</div>`;
+  return htmlReportPage("DDA Stock Take", body);
+}
+
+
+/* =========================
+   CERTIFICATES MODULE (API)
+   ========================= */
+
+function addMonthsToYmd(ymd, months) {
+  const s = String(ymd || "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+
+  const y = parseInt(s.slice(0, 4), 10);
+  const m = parseInt(s.slice(5, 7), 10);
+  const d = parseInt(s.slice(8, 10), 10);
+
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
+
+  const targetMonthIndex = (m - 1) + Number(months || 0);
+  const ty = y + Math.floor(targetMonthIndex / 12);
+  const tm = (targetMonthIndex % 12 + 12) % 12; // 0..11
+
+  // Clamp day to end of month
+  const lastDay = new Date(Date.UTC(ty, tm + 1, 0)).getUTCDate();
+  const td = Math.min(d, lastDay);
+
+  const dt = new Date(Date.UTC(ty, tm, td));
+  return dt.toISOString().slice(0, 10);
+}
+
+async function ensureCertificatesSchema(env) {
+  console.log("[certificates] ensureCertificatesSchema() start");
+
+  await dbRun(
+    env,
+    `CREATE TABLE IF NOT EXISTS certificates_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+      item_key TEXT NOT NULL,
+      title TEXT NOT NULL,
+      subtitle TEXT NOT NULL,
+      last_label TEXT NOT NULL,
+      next_label TEXT NOT NULL,
+      interval_months INTEGER NOT NULL DEFAULT 12,
+      last_date TEXT,
+      certified_person TEXT,
+      requires_person INTEGER NOT NULL DEFAULT 0,
+      file_name TEXT,
+      file_mime TEXT,
+      file_size INTEGER,
+      file_uploaded_at TEXT,
+      file_r2_key TEXT,
+      file_b64 TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      created_by INTEGER,
+      updated_by INTEGER,
+      UNIQUE(org_id, location_id, item_key)
+    )`,
+    []
+  );
+
+  await dbRun(
+    env,
+    "CREATE INDEX IF NOT EXISTS idx_certificates_items_org_loc ON certificates_items (org_id, location_id)",
+    []
+  );
+
+  console.log("[certificates] ensureCertificatesSchema() done");
+}
+
+async function ensureDefaultCertificatesIfMissing(env, authUser) {
+  await ensureCertificatesSchema(env);
+
+  const existing = await dbFirst(
+    env,
+    "SELECT COUNT(*) AS c FROM certificates_items WHERE org_id = ? AND location_id = ?",
+    [authUser.org_id, authUser.location_id]
+  );
+
+  const c = existing && existing.c ? Number(existing.c) : 0;
+  console.log("[certificates] ensureDefaultCertificatesIfMissing() existing count=", c);
+
+  if (c > 0) return;
+
+  if (!requireRole(authUser, ["admin"])) return;
+
+  const defaults = [
+    {
+      item_key: "thermometer_calibration",
+      title: "Thermometer Calibration",
+      subtitle: "Yearly calibration",
+      last_label: "Last Calibration",
+      next_label: "Next Due",
+      interval_months: 12,
+      requires_person: 0
+    },
+    {
+      item_key: "ac_maintenance",
+      title: "AC Maintenance",
+      subtitle: "Yearly service",
+      last_label: "Last Service",
+      next_label: "Next Due",
+      interval_months: 12,
+      requires_person: 0
+    },
+    {
+      item_key: "first_aid_certificate",
+      title: "First Aid Certificate",
+      subtitle: "3 year renewal",
+      last_label: "Issued / Last Renewal",
+      next_label: "Renew By",
+      interval_months: 36,
+      requires_person: 1
+    },
+    {
+      item_key: "dispensary_licence",
+      title: "Dispensary Licence",
+      subtitle: "Yearly renewal",
+      last_label: "Last Renewal",
+      next_label: "Renew By",
+      interval_months: 12,
+      requires_person: 0
+    },
+    {
+      item_key: "fire_extinguisher",
+      title: "Fire Extinguisher",
+      subtitle: "Yearly renewal",
+      last_label: "Last Renewal",
+      next_label: "Renew By",
+      interval_months: 12,
+      requires_person: 0
+    },
+    {
+      item_key: "pest_control",
+      title: "Pest Control",
+      subtitle: "Yearly service",
+      last_label: "Last Service",
+      next_label: "Next Due",
+      interval_months: 12,
+      requires_person: 0
+    },
+    {
+      item_key: "fire_training",
+      title: "Fire Training",
+      subtitle: "3 year renewal",
+      last_label: "Issued / Last Renewal",
+      next_label: "Renew By",
+      interval_months: 36,
+      requires_person: 1
+    },
+    {
+      item_key: "reverse_osmosis_system",
+      title: "Reverse Osmmosis System",
+      subtitle: "Yearly service",
+      last_label: "Last Service",
+      next_label: "Next Due",
+      interval_months: 12,
+      requires_person: 0
+    }
+  ];
+
+  for (const it of defaults) {
+    console.log("[certificates] inserting default item", it.item_key);
+    await dbRun(
+      env,
+      `INSERT INTO certificates_items
+        (org_id, location_id, item_key, title, subtitle, last_label, next_label, interval_months, requires_person, created_at, updated_at, created_by, updated_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), ?, ?)
+       ON CONFLICT(org_id, location_id, item_key)
+       DO NOTHING`,
+      [
+        authUser.org_id,
+        authUser.location_id,
+        it.item_key,
+        it.title,
+        it.subtitle,
+        it.last_label,
+        it.next_label,
+        it.interval_months,
+        it.requires_person ? 1 : 0,
+        authUser.user_id,
+        authUser.user_id
+      ]
+    );
+  }
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CERT_DEFAULT_ITEMS_CREATE", "location", String(authUser.location_id), {});
+  console.log("[certificates] default items ensured");
+}
+
+async function getCertificateItemByIdOrKey(env, authUser, idOrKey) {
+  const raw = String(idOrKey || "").trim();
+  if (!raw) return null;
+
+  let row = null;
+
+  if (/^\d+$/.test(raw)) {
+    const id = parseInt(raw, 10);
+    row = await dbFirst(
+      env,
+      `SELECT *
+       FROM certificates_items
+       WHERE id = ? AND org_id = ? AND location_id = ?`,
+      [id, authUser.org_id, authUser.location_id]
+    );
+    if (row) return row;
+  }
+
+  row = await dbFirst(
+    env,
+    `SELECT *
+     FROM certificates_items
+     WHERE item_key = ? AND org_id = ? AND location_id = ?`,
+    [raw, authUser.org_id, authUser.location_id]
+  );
+
+  return row || null;
+}
+
+async function handleCertificatesItemsList(request, env, corsOkHeaders, authUser) {
+  console.log("[certificates] LIST start", { org_id: authUser.org_id, location_id: authUser.location_id });
+
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDefaultCertificatesIfMissing(env, authUser);
+
+  const items = await dbAll(
+    env,
+    `SELECT
+       id,
+       item_key,
+       title,
+       subtitle,
+       last_label,
+       next_label,
+       interval_months,
+       last_date,
+       certified_person,
+       requires_person,
+       file_name,
+       file_mime,
+       file_size,
+       file_uploaded_at,
+       file_r2_key,
+       created_at,
+       updated_at
+     FROM certificates_items
+     WHERE org_id = ? AND location_id = ?
+     ORDER BY id ASC`,
+    [authUser.org_id, authUser.location_id]
+  );
+
+  const out = [];
+  for (const it of items) {
+    const next_due = (it.last_date && it.interval_months)
+      ? addMonthsToYmd(it.last_date, Number(it.interval_months))
+      : null;
+
+    out.push({
+      id: it.id,
+      item_key: it.item_key,
+      title: it.title,
+      subtitle: it.subtitle,
+      last_label: it.last_label,
+      next_label: it.next_label,
+      interval_months: Number(it.interval_months || 12),
+      last_date: it.last_date || null,
+      next_due: next_due,
+      certified_person: it.certified_person || "",
+      requires_person: it.requires_person ? 1 : 0,
+      file_name: it.file_name || "",
+      file_uploaded_at: it.file_uploaded_at || "",
+      file_mime: it.file_mime || "",
+      file_size: it.file_size === null || it.file_size === undefined ? null : Number(it.file_size),
+      file_r2_key: it.file_r2_key || ""
+    });
+  }
+
+  console.log("[certificates] LIST done count=", out.length);
+  return jsonResponse({ ok: true, items: out }, 200, corsOkHeaders);
+}
+
+async function handleCertificatesItemUpdate(request, env, corsOkHeaders, authUser, idOrKey) {
+  console.log("[certificates] UPDATE start", { idOrKey: String(idOrKey), org_id: authUser.org_id, location_id: authUser.location_id });
+
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDefaultCertificatesIfMissing(env, authUser);
+
+  const existing = await getCertificateItemByIdOrKey(env, authUser, idOrKey);
+  if (!existing) {
+    console.log("[certificates] UPDATE not found", { idOrKey: String(idOrKey) });
+    return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+  }
+
+  const body = await readJson(request);
+
+  const lastDate = body.last_date === null || body.last_date === undefined ? undefined : String(body.last_date || "").trim();
+  const intervalMonths = body.interval_months === null || body.interval_months === undefined ? undefined : parseInt(body.interval_months, 10);
+  const certifiedPerson = body.certified_person === undefined ? undefined : String(body.certified_person || "").trim();
+
+  if (lastDate !== undefined) {
+    if (lastDate && !isValidYmd(lastDate)) {
+      return jsonResponse({ ok: false, error: "Invalid last_date (YYYY-MM-DD or null)" }, 400, corsOkHeaders);
+    }
+  }
+
+  let newInterval = existing.interval_months;
+  if (intervalMonths !== undefined) {
+    if (!Number.isFinite(intervalMonths) || intervalMonths < 1 || intervalMonths > 240) {
+      return jsonResponse({ ok: false, error: "Invalid interval_months (1..240)" }, 400, corsOkHeaders);
+    }
+    newInterval = intervalMonths;
+  }
+
+  let newLast = existing.last_date;
+  if (lastDate !== undefined) {
+    newLast = lastDate ? lastDate : null;
+  }
+
+  let newPerson = existing.certified_person;
+  if (existing.requires_person === 1) {
+    if (certifiedPerson !== undefined) newPerson = certifiedPerson;
+  } else {
+    if (certifiedPerson !== undefined) {
+      console.log("[certificates] UPDATE: ignoring certified_person (requires_person=0)");
+    }
+  }
+
+  await dbRun(
+    env,
+    `UPDATE certificates_items
+     SET last_date = ?, interval_months = ?, certified_person = ?, updated_at = datetime('now'), updated_by = ?
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [
+      newLast,
+      newInterval,
+      existing.requires_person === 1 ? (newPerson || "") : (existing.certified_person || ""),
+      authUser.user_id,
+      existing.id,
+      authUser.org_id,
+      authUser.location_id
+    ]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CERT_ITEM_UPDATE", "certificates_items", String(existing.id), {
+    id: existing.id,
+    item_key: existing.item_key,
+    last_date: newLast,
+    interval_months: newInterval,
+    certified_person: (existing.requires_person === 1 ? (newPerson || "") : "")
+  });
+
+  console.log("[certificates] UPDATE done", { id: existing.id, item_key: existing.item_key });
+    const payload = { ok: true };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
+  return jsonResponse(payload, 200, corsOkHeaders);
+}
+
+
+async function handleCertificatesUpload(request, env, corsOkHeaders, authUser, idOrKey) {
+  console.log("[certificates] UPLOAD start", { idOrKey: String(idOrKey), ct: request.headers.get("Content-Type") || "" });
+
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDefaultCertificatesIfMissing(env, authUser);
+
+  const existing = await getCertificateItemByIdOrKey(env, authUser, idOrKey);
+  if (!existing) {
+    console.log("[certificates] UPLOAD not found", { idOrKey: String(idOrKey) });
+    return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+  }
+
+  const ct = (request.headers.get("Content-Type") || "").toLowerCase();
+
+  let fileName = "";
+  let fileMime = "application/octet-stream";
+  let fileSize = 0;
+  let bytes = null;
+
+  if (ct.includes("multipart/form-data")) {
+    const form = await request.formData();
+    const f = form.get("file");
+
+    if (!f) return jsonResponse({ ok: false, error: "Missing form field: file" }, 400, corsOkHeaders);
+    if (!(f instanceof File)) return jsonResponse({ ok: false, error: "Invalid file upload" }, 400, corsOkHeaders);
+
+    fileName = String(f.name || "upload.bin");
+    fileMime = String(f.type || "application/octet-stream");
+    fileSize = Number(f.size || 0);
+
+    const ab = await f.arrayBuffer();
+    bytes = new Uint8Array(ab);
+
+    console.log("[certificates] UPLOAD multipart received", { fileName, fileMime, fileSize });
+  } else if (ct.includes("application/json")) {
+    const body = await readJson(request);
+
+    fileName = String(body.file_name || "").trim();
+    fileMime = String(body.file_mime || "application/octet-stream").trim() || "application/octet-stream";
+    const b64 = String(body.file_b64 || "").trim();
+
+    if (!fileName) return jsonResponse({ ok: false, error: "Missing file_name" }, 400, corsOkHeaders);
+    if (!b64) return jsonResponse({ ok: false, error: "Missing file_b64" }, 400, corsOkHeaders);
+
+    try {
+      bytes = bytesFromBase64(b64);
+    } catch (e) {
+      console.log("[certificates] UPLOAD json base64 decode failed", e && (e.stack || e.message || String(e)));
+      return jsonResponse({ ok: false, error: "Invalid base64" }, 400, corsOkHeaders);
+    }
+
+    fileSize = bytes.length;
+
+    console.log("[certificates] UPLOAD json received", { fileName, fileMime, fileSize });
+  } else {
+    return jsonResponse({ ok: false, error: "Unsupported Content-Type for upload" }, 415, corsOkHeaders);
+  }
+
+  const maxBytes = parseInt((env.CERT_UPLOAD_MAX_BYTES || "800000").trim(), 10);
+  const hasR2 = !!env.CERTS_R2;
+
+  if (!hasR2 && fileSize > maxBytes) {
+    console.log("[certificates] UPLOAD too large for D1 base64", { fileSize, maxBytes });
+    return jsonResponse({ ok: false, error: `File too large (${fileSize} bytes). Max without R2 is ${maxBytes}.` }, 413, corsOkHeaders);
+  }
+
+  let fileR2Key = null;
+  let fileB64 = null;
+
+  if (hasR2) {
+    const safeName = fileName.replace(/[^\w.\-() ]+/g, "_").slice(0, 120) || "upload.bin";
+    fileR2Key = `certificates/org_${authUser.org_id}/loc_${authUser.location_id}/${existing.item_key}/${Date.now()}_${safeName}`;
+
+    console.log("[certificates] UPLOAD storing in R2", { fileR2Key });
+
+    await env.CERTS_R2.put(fileR2Key, bytes, {
+      httpMetadata: {
+        contentType: fileMime
+      }
+    });
+
+    fileB64 = null;
+  } else {
+    fileB64 = base64FromBytes(bytes);
+    fileR2Key = null;
+
+    console.log("[certificates] UPLOAD storing in D1 (base64)", { fileSize });
+  }
+
+  await dbRun(
+    env,
+    `UPDATE certificates_items
+     SET file_name = ?, file_mime = ?, file_size = ?, file_uploaded_at = datetime('now'),
+         file_r2_key = ?, file_b64 = ?, updated_at = datetime('now'), updated_by = ?
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [
+      fileName,
+      fileMime,
+      fileSize,
+      fileR2Key,
+      fileB64,
+      authUser.user_id,
+      existing.id,
+      authUser.org_id,
+      authUser.location_id
+    ]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CERT_FILE_UPLOAD", "certificates_items", String(existing.id), {
+    id: existing.id,
+    item_key: existing.item_key,
+    file_name: fileName,
+    file_mime: fileMime,
+    file_size: fileSize,
+    stored: hasR2 ? "r2" : "d1_base64"
+  });
+
+  console.log("[certificates] UPLOAD done", { id: existing.id, item_key: existing.item_key });
+    const payload = { ok: true };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
+  return jsonResponse(payload, 200, corsOkHeaders);
+}
+
+
+/* ===== CERTIFICATES: DOWNLOAD ENDPOINT PATCH ===== */
+
+function sanitizeFilenameForHeader(name) {
+  let s = String(name || "").trim();
+  if (!s) s = "download.bin";
+  s = s.replace(/[/\\]+/g, "_");
+  s = s.replace(/[\x00-\x1F\x7F]/g, "_");
+  s = s.replace(/\s+/g, " ").trim();
+  if (s.length > 180) s = s.slice(0, 180);
+  return s;
+}
+
+function contentDispositionHeader(filename, inline) {
+  const safe = sanitizeFilenameForHeader(filename);
+  const asciiFallback = safe.replace(/[^A-Za-z0-9._-]/g, "_") || "download.bin";
+  const utf8 = encodeURIComponent(safe)
+    .replace(/'/g, "%27")
+    .replace(/\(/g, "%28")
+    .replace(/\)/g, "%29")
+    .replace(/\*/g, "%2A");
+
+  return `${inline ? "inline" : "attachment"}; filename="${asciiFallback}"; filename*=UTF-8''${utf8}`;
+}
+
+async function handleCertificatesDownload(request, env, corsOkHeaders, authUser, idOrKey) {
+  console.log("[certificates] DOWNLOAD start", { idOrKey: String(idOrKey), org_id: authUser.org_id, location_id: authUser.location_id });
+
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDefaultCertificatesIfMissing(env, authUser);
+
+  const existing = await getCertificateItemByIdOrKey(env, authUser, idOrKey);
+  if (!existing) {
+    console.log("[certificates] DOWNLOAD not found item", { idOrKey: String(idOrKey) });
+    return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+  }
+
+  const hasFile = !!(existing.file_r2_key || existing.file_b64);
+  if (!hasFile) {
+    return jsonResponse({ ok: false, error: "No file uploaded" }, 404, corsOkHeaders);
+  }
+
+  const url = new URL(request.url);
+  const inline = url.searchParams.get("inline") === "1";
+
+  const fileName = existing.file_name || `${existing.item_key || "certificate"}.bin`;
+  const fileMime = (existing.file_mime || "application/octet-stream").trim() || "application/octet-stream";
+
+  const headers = {
+    ...corsOkHeaders,
+    "Content-Type": fileMime,
+    "Content-Disposition": contentDispositionHeader(fileName, inline),
+    "Cache-Control": "no-store",
+    "X-Content-Type-Options": "nosniff",
+    "Access-Control-Expose-Headers": "Content-Disposition, Content-Type, Content-Length"
+  };
+
+  // Prefer R2
+  if (existing.file_r2_key && env.CERTS_R2) {
+    const obj = await env.CERTS_R2.get(existing.file_r2_key);
+    if (!obj) {
+      console.log("[certificates] DOWNLOAD missing R2 object", { key: existing.file_r2_key });
+      return jsonResponse({ ok: false, error: "File missing" }, 404, corsOkHeaders);
+    }
+    return new Response(obj.body, { status: 200, headers });
+  }
+
+  // Fallback to D1 base64
+  if (existing.file_b64) {
+    let bytes;
+    try {
+      bytes = bytesFromBase64(String(existing.file_b64 || "").trim());
+    } catch (e) {
+      console.log("[certificates] DOWNLOAD base64 decode failed", e && (e.stack || e.message || String(e)));
+      return jsonResponse({ ok: false, error: "Corrupt stored file" }, 500, corsOkHeaders);
+    }
+
+    headers["Content-Length"] = String(bytes.length);
+    return new Response(bytes, { status: 200, headers });
+  }
+
+  return jsonResponse({ ok: false, error: "File missing" }, 404, corsOkHeaders);
+}
+
+/* =========================
+   UI FILE SERVING (/ui/*)
+   ========================= */
+
+function contentTypeForPath(pathname) {
+  const p = String(pathname || "").toLowerCase();
+  if (p.endsWith(".css")) return "text/css; charset=utf-8";
+  if (p.endsWith(".js")) return "application/javascript; charset=utf-8";
+  if (p.endsWith(".html")) return "text/html; charset=utf-8";
+  if (p.endsWith(".json")) return "application/json; charset=utf-8";
+  if (p.endsWith(".svg")) return "image/svg+xml";
+  if (p.endsWith(".png")) return "image/png";
+  if (p.endsWith(".jpg") || p.endsWith(".jpeg")) return "image/jpeg";
+  if (p.endsWith(".webp")) return "image/webp";
+  if (p.endsWith(".txt")) return "text/plain; charset=utf-8";
+  return "application/octet-stream";
+}
+
+function buildGithubRawUrl(env, uiPath) {
+  const owner = (env.UI_GITHUB_OWNER || "").trim() || "johnagius";
+  const repo = (env.UI_GITHUB_REPO || "").trim() || "eikon-ui";
+  const branch = (env.UI_GITHUB_BRANCH || "").trim() || "main";
+  const dir = (env.UI_GITHUB_DIR || "").trim() || "ui";
+
+  const safe = uiPath.replace(/^\/+/, "").replace(/\.\.+/g, ".");
+  return `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${dir}/${safe}`;
+}
+
+function sanitizeJsSourceText(s) {
+  return String(s || "")
+    .replace(/\uFEFF/g, "")
+    .replace(/\u0000/g, "")
+    .replace(/\u2028/g, "\n")
+    .replace(/\u2029/g, "\n");
+}
+
+async function handleUiAsset(request, env, url) {
+  const p = url.pathname;
+  const rel = p.replace(/^\/ui\/?/, "");
+  if (!rel || rel.endsWith("/")) {
+    return new Response("Not found", { status: 404, headers: { "Content-Type": "text/plain; charset=utf-8" } });
+  }
+
+  const cacheSeconds = parseInt((env.UI_CACHE_SECONDS || "300").trim(), 10);
+  const ct = contentTypeForPath(rel);
+
+  const cache = caches.default;
+
+  const cachingEnabled = Number.isFinite(cacheSeconds) && cacheSeconds > 0;
+
+  if (cachingEnabled) {
+    const cached = await cache.match(request);
+    if (cached) return cached;
+  }
+
+  const ghUrl = buildGithubRawUrl(env, rel);
+  const ghRes = await fetch(ghUrl, {
+    method: "GET",
+    headers: {
+      "User-Agent": "eikon-worker-ui-proxy",
+      "Cache-Control": "no-cache"
+    }
+  });
+
+  if (!ghRes.ok) {
+    return new Response("Not found", {
+      status: 404,
+      headers: { "Content-Type": "text/plain; charset=utf-8" }
+    });
+  }
+
+  let body = await ghRes.arrayBuffer();
+
+  // Patch: sanitize problematic Unicode that can cause "Invalid or unexpected token"
+  if (rel.toLowerCase().endsWith(".js")) {
+    try {
+      const dec = new TextDecoder("utf-8");
+      const txt = dec.decode(body);
+      const clean = sanitizeJsSourceText(txt);
+      if (clean !== txt) {
+        body = new TextEncoder().encode(clean).buffer;
+      }
+    } catch (e) {
+      // serve original bytes if sanitize fails
+    }
+  }
+
+  const headers = new Headers();
+  headers.set("Content-Type", ct);
+  headers.set("Cache-Control", cachingEnabled ? `public, max-age=${cacheSeconds}` : "no-store");
+  headers.set("X-Source", "github-raw");
+  headers.set("Access-Control-Allow-Origin", "*");
+
+  const out = new Response(body, { status: 200, headers });
+
+  if (cachingEnabled) {
+    await cache.put(request, out.clone());
+  }
+
+  return out;
+}
+
+
+// ------------------------------------------------------------
+// POCT (Point of Care Testing) — Cloud state sync (D1)
+// Endpoints:
+//   GET  /poct/state  -> { ok:true, state:{records:[], patients:[]} }
+//   PUT  /poct/state  -> replace/upsert state for org+location
+// ------------------------------------------------------------
+
+async function ensurePoctSchema(env) {
+  // Safe even if you already created the tables manually.
+  await dbRun(
+    env,
+    `CREATE TABLE IF NOT EXISTS poct_patients (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+      patient_id TEXT NOT NULL,
+      name TEXT NOT NULL DEFAULT '',
+      phone TEXT NOT NULL DEFAULT '',
+      age REAL,
+      address TEXT NOT NULL DEFAULT '',
+      created_at_iso TEXT NOT NULL DEFAULT '',
+      updated_at_iso TEXT NOT NULL DEFAULT '',
+      last_seen_iso TEXT NOT NULL DEFAULT '',
+      conflicts_json TEXT NOT NULL DEFAULT '[]',
+      patient_json TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      created_by INTEGER,
+      updated_by INTEGER,
+      UNIQUE(org_id, location_id, patient_id)
+    )`
+  );
+
+  await dbRun(
+    env,
+    `CREATE TABLE IF NOT EXISTS poct_records (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+      record_id TEXT NOT NULL,
+      test_type TEXT NOT NULL,
+      test_label TEXT NOT NULL DEFAULT '',
+      performed_at_iso TEXT NOT NULL,
+      performed_at_local TEXT NOT NULL DEFAULT '',
+      patient_id TEXT NOT NULL DEFAULT '',
+      patient_name TEXT NOT NULL DEFAULT '',
+      patient_phone TEXT NOT NULL DEFAULT '',
+      patient_age REAL,
+      patient_address TEXT NOT NULL DEFAULT '',
+      fee_due REAL NOT NULL DEFAULT 0,
+      notes TEXT NOT NULL DEFAULT '',
+      intervention TEXT NOT NULL DEFAULT '',
+      bp_sys REAL,
+      bp_dia REAL,
+      bp_pulse REAL,
+      bp_arm TEXT,
+      bp_position TEXT,
+      urine_leu TEXT,
+      urine_nit TEXT,
+      urine_uro TEXT,
+      urine_pro TEXT,
+      urine_ph TEXT,
+      urine_bld TEXT,
+      urine_ket TEXT,
+      urine_glu TEXT,
+      urine_appearance TEXT,
+      hba1c_pct REAL,
+      hba1c_mmol REAL,
+      bg_glucose REAL,
+      bg_timing TEXT,
+      chol_tc REAL,
+      chol_hdl REAL,
+      chol_ldl REAL,
+      chol_tg REAL,
+      chol_ratio REAL,
+      chol_fasting TEXT,
+      bmi_weight REAL,
+      bmi_height REAL,
+      bmi_bmi REAL,
+      bmi_category TEXT,
+      bmi_waist REAL,
+      results_json TEXT NOT NULL DEFAULT '{}',
+      record_json TEXT NOT NULL,
+      updated_at_iso TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      created_by INTEGER,
+      updated_by INTEGER,
+      UNIQUE(org_id, location_id, record_id)
+    )`
+  );
+
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_poct_records_org_loc_dt ON poct_records(org_id, location_id, performed_at_iso)`);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_poct_records_org_loc_type_dt ON poct_records(org_id, location_id, test_type, performed_at_iso)`);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_poct_records_org_loc_patient ON poct_records(org_id, location_id, patient_id)`);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_poct_records_org_loc_phone ON poct_records(org_id, location_id, patient_phone)`);
+
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_poct_patients_org_loc_lastseen ON poct_patients(org_id, location_id, last_seen_iso)`);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_poct_patients_org_loc_name ON poct_patients(org_id, location_id, name)`);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_poct_patients_org_loc_phone ON poct_patients(org_id, location_id, phone)`);
+}
+
+function poctText(v, maxLen = 4000) {
+  let s = String(v == null ? "" : v).trim();
+  if (s.length > maxLen) s = s.slice(0, maxLen);
+  return s;
+}
+function poctNumOrNull(v) {
+  if (v == null) return null;
+  if (typeof v === "number") return Number.isFinite(v) ? v : null;
+  const s = String(v).trim();
+  if (!s) return null;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+}
+function poctJsonString(v, fallback) {
+  try {
+    return JSON.stringify(v == null ? fallback : v);
+  } catch (e) {
+    return JSON.stringify(fallback);
+  }
+}
+
+function poctExtractRecordColumns(rec) {
+  const r = rec && typeof rec === "object" ? rec : {};
+  const p = r.patient && typeof r.patient === "object" ? r.patient : {};
+  const res = r.results && typeof r.results === "object" ? r.results : {};
+
+  const testType = poctText(r.testType, 30);
+  const out = {
+    record_id: poctText(r.id, 120),
+    test_type: testType || "unknown",
+    test_label: poctText(r.testLabel, 80),
+    performed_at_iso: poctText(r.performedAtIso, 60),
+    performed_at_local: poctText(r.performedAtLocal, 60),
+
+    patient_id: poctText(p.patientId, 120),
+    patient_name: poctText(p.name, 200),
+    patient_phone: poctText(p.phone, 80),
+    patient_age: poctNumOrNull(p.age),
+    patient_address: poctText(p.address, 500),
+
+    fee_due: poctNumOrNull(r.feeDue) || 0,
+    notes: poctText(r.notes, 2000),
+    intervention: poctText(r.intervention, 2000),
+
+    bp_sys: null,
+    bp_dia: null,
+    bp_pulse: null,
+    bp_arm: null,
+    bp_position: null,
+
+    urine_leu: null,
+    urine_nit: null,
+    urine_uro: null,
+    urine_pro: null,
+    urine_ph: null,
+    urine_bld: null,
+    urine_ket: null,
+    urine_glu: null,
+    urine_appearance: null,
+
+    hba1c_pct: null,
+    hba1c_mmol: null,
+
+    bg_glucose: null,
+    bg_timing: null,
+
+    chol_tc: null,
+    chol_hdl: null,
+    chol_ldl: null,
+    chol_tg: null,
+    chol_ratio: null,
+    chol_fasting: null,
+
+    bmi_weight: null,
+    bmi_height: null,
+    bmi_bmi: null,
+    bmi_category: null,
+    bmi_waist: null,
+
+    results_json: poctJsonString(res, {}),
+    record_json: poctJsonString(r, {}),
+    updated_at_iso: poctText(r.updatedAtIso, 60) || nowIso() };
+
+  // Map typed result fields (best-effort; record_json remains source-of-truth).
+  if (testType === "bp") {
+    out.bp_sys = poctNumOrNull(res.sys);
+    out.bp_dia = poctNumOrNull(res.dia);
+    out.bp_pulse = poctNumOrNull(res.pulse);
+    out.bp_arm = poctText(res.arm, 40) || null;
+    out.bp_position = poctText(res.position, 40) || null;
+  } else if (testType === "urine") {
+    out.urine_leu = poctText(res.leu, 60) || null;
+    out.urine_nit = poctText(res.nit, 60) || null;
+    out.urine_uro = poctText(res.uro, 60) || null;
+    out.urine_pro = poctText(res.pro, 60) || null;
+    out.urine_ph = poctText(res.ph, 60) || null;
+    out.urine_bld = poctText(res.bld, 60) || null;
+    out.urine_ket = poctText(res.ket, 60) || null;
+    out.urine_glu = poctText(res.glu, 60) || null;
+    out.urine_appearance = poctText(res.appearance, 120) || null;
+  } else if (testType === "hba1c") {
+    out.hba1c_pct = poctNumOrNull(res.pct);
+    out.hba1c_mmol = poctNumOrNull(res.mmol);
+  } else if (testType === "bg") {
+    out.bg_glucose = poctNumOrNull(res.glucose);
+    out.bg_timing = poctText(res.timing, 40) || null;
+  } else if (testType === "chol") {
+    out.chol_tc = poctNumOrNull(res.tc);
+    out.chol_hdl = poctNumOrNull(res.hdl);
+    out.chol_ldl = poctNumOrNull(res.ldl);
+    out.chol_tg = poctNumOrNull(res.tg);
+    out.chol_ratio = poctNumOrNull(res.ratio);
+    out.chol_fasting = poctText(res.fasting, 40) || null;
+  } else if (testType === "bmi") {
+    out.bmi_weight = poctNumOrNull(res.weight);
+    out.bmi_height = poctNumOrNull(res.height);
+    out.bmi_bmi = poctNumOrNull(res.bmi);
+    out.bmi_category = poctText(res.category, 80) || null;
+    out.bmi_waist = poctNumOrNull(res.waist);
+  }
+
+  return out;
+}
+
+function poctExtractPatientColumns(pat) {
+  const p = pat && typeof pat === "object" ? pat : {};
+  const pid = poctText(p.patientId, 120);
+  const conflicts = Array.isArray(p.conflicts) ? p.conflicts : [];
+  return {
+    patient_id: pid,
+    name: poctText(p.name, 200),
+    phone: poctText(p.phone, 80),
+    age: poctNumOrNull(p.age),
+    address: poctText(p.address, 500),
+    created_at_iso: poctText(p.createdAtIso, 60) || nowIso(),
+    updated_at_iso: poctText(p.updatedAtIso, 60) || nowIso(),
+    last_seen_iso: poctText(p.lastSeenIso, 60),
+    conflicts_json: poctJsonString(conflicts, []),
+    patient_json: poctJsonString(p, {}) };
+}
+
+function poctChunk(arr, size) {
+  const out = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
+async function handlePoctStateGet(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensurePoctSchema(env);
+
+  const orgId = authUser.org_id;
+  const locId = authUser.location_id;
+
+  const recRows = await dbAll(
+    env,
+    `SELECT record_json FROM poct_records
+     WHERE org_id = ? AND location_id = ?
+     ORDER BY performed_at_iso DESC, id DESC`,
+    [orgId, locId]
+  );
+
+  const patRows = await dbAll(
+    env,
+    `SELECT patient_json FROM poct_patients
+     WHERE org_id = ? AND location_id = ?
+     ORDER BY name ASC, patient_id ASC`,
+    [orgId, locId]
+  );
+
+  const records = [];
+  for (let i = 0; i < recRows.length; i++) {
+    const s = recRows[i] ? recRows[i].record_json : null;
+    if (!s) continue;
+    try {
+      const v = JSON.parse(String(s));
+      if (v && typeof v === "object") records.push(v);
+    } catch (e) {}
+  }
+
+  const patients = [];
+  for (let j = 0; j < patRows.length; j++) {
+    const s2 = patRows[j] ? patRows[j].patient_json : null;
+    if (!s2) continue;
+    try {
+      const v2 = JSON.parse(String(s2));
+      if (v2 && typeof v2 === "object") patients.push(v2);
+    } catch (e) {}
+  }
+
+  // compatibility with modules.poct.js cloudLoad()
+  return jsonResponse({ ok: true, state: { records, patients }, records, patients }, 200, corsOkHeaders);
+}
+
+async function handlePoctStatePut(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensurePoctSchema(env);
+
+  const body = await readJson(request);
+  const st = body && (body.state || body.data) ? (body.state || body.data) : body;
+
+  const recordsIn = st && (st.records || st.entries) ? (st.records || st.entries) : [];
+  const patientsIn = st && st.patients ? st.patients : [];
+
+  const records = Array.isArray(recordsIn) ? recordsIn : [];
+  const patients = Array.isArray(patientsIn) ? patientsIn : [];
+
+  const orgId = authUser.org_id;
+  const locId = authUser.location_id;
+  const userId = authUser.user_id;
+
+  // Build sets of IDs (also filters out invalid items).
+  const recIds = [];
+  const recIdSet = new Set();
+  const cleanedRecords = [];
+  for (let i = 0; i < records.length; i++) {
+    const r = records[i];
+    const id = r && r.id ? String(r.id).trim() : "";
+    if (!id) continue;
+    if (!recIdSet.has(id)) {
+      recIdSet.add(id);
+      recIds.push(id);
+    }
+    cleanedRecords.push(r);
+  }
+
+  const patIds = [];
+  const patIdSet = new Set();
+  const cleanedPatients = [];
+  for (let j = 0; j < patients.length; j++) {
+    const p = patients[j];
+    const id2 = p && p.patientId ? String(p.patientId).trim() : "";
+    if (!id2) continue;
+    if (!patIdSet.has(id2)) {
+      patIdSet.add(id2);
+      patIds.push(id2);
+    }
+    cleanedPatients.push(p);
+  }
+
+  // Apply as an authoritative replace (no explicit SQL transaction).
+  // NOTE: Cloudflare may reject BEGIN/COMMIT in some contexts; we keep writes idempotent and safe.
+  let counts = {
+    patients_upserted: 0,
+    records_upserted: 0,
+    patients_deleted: 0,
+    records_deleted: 0 };
+
+  try {
+// Upsert patients
+    const upPatSql = `
+      INSERT INTO poct_patients (
+        org_id, location_id, patient_id, name, phone, age, address,
+        created_at_iso, updated_at_iso, last_seen_iso, conflicts_json, patient_json,
+        created_by, updated_by, updated_at
+      ) VALUES (
+        ?,?,?,?,?,?,?,?,?,?,?,?,?,?, datetime('now')
+      )
+      ON CONFLICT(org_id, location_id, patient_id) DO UPDATE SET
+        name = excluded.name,
+        phone = excluded.phone,
+        age = excluded.age,
+        address = excluded.address,
+        created_at_iso = CASE WHEN poct_patients.created_at_iso = '' THEN excluded.created_at_iso ELSE poct_patients.created_at_iso END,
+        updated_at_iso = excluded.updated_at_iso,
+        last_seen_iso = excluded.last_seen_iso,
+        conflicts_json = excluded.conflicts_json,
+        patient_json = excluded.patient_json,
+        updated_by = excluded.updated_by,
+        updated_at = datetime('now')
+    `;
+    const upPat = env.DB.prepare(upPatSql);
+
+    for (let i = 0; i < cleanedPatients.length; i++) {
+      const cols = poctExtractPatientColumns(cleanedPatients[i]);
+      if (!cols.patient_id) continue;
+      await upPat
+        .bind(
+          orgId,
+          locId,
+          cols.patient_id,
+          cols.name,
+          cols.phone,
+          cols.age,
+          cols.address,
+          cols.created_at_iso,
+          cols.updated_at_iso,
+          cols.last_seen_iso,
+          cols.conflicts_json,
+          cols.patient_json,
+          userId,
+          userId
+        )
+        .run();
+      counts.patients_upserted++;
+    }
+
+    // Upsert records
+    const upRecSql = `
+      INSERT INTO poct_records (
+        org_id, location_id, record_id, test_type, test_label, performed_at_iso, performed_at_local,
+        patient_id, patient_name, patient_phone, patient_age, patient_address,
+        fee_due, notes, intervention,
+        bp_sys, bp_dia, bp_pulse, bp_arm, bp_position,
+        urine_leu, urine_nit, urine_uro, urine_pro, urine_ph, urine_bld, urine_ket, urine_glu, urine_appearance,
+        hba1c_pct, hba1c_mmol,
+        bg_glucose, bg_timing,
+        chol_tc, chol_hdl, chol_ldl, chol_tg, chol_ratio, chol_fasting,
+        bmi_weight, bmi_height, bmi_bmi, bmi_category, bmi_waist,
+        results_json, record_json, updated_at_iso,
+        created_by, updated_by
+      ) VALUES (
+        ?,?,?,?,?,?,?,?,
+        ?,?,?,?,
+        ?,?,?,
+        ?,?,?,?,?,
+        ?,?,?,?,?,?,?,?,?,
+        ?,?,
+        ?,?,
+        ?,?,?,?,?,?,
+        ?,?,?,?,?,
+        ?,?,?,
+        ?,?
+      )
+      ON CONFLICT(org_id, location_id, record_id) DO UPDATE SET
+        test_type=excluded.test_type,
+        test_label=excluded.test_label,
+        performed_at_iso=excluded.performed_at_iso,
+        performed_at_local=excluded.performed_at_local,
+        patient_id=excluded.patient_id,
+        patient_name=excluded.patient_name,
+        patient_phone=excluded.patient_phone,
+        patient_age=excluded.patient_age,
+        patient_address=excluded.patient_address,
+        fee_due=excluded.fee_due,
+        notes=excluded.notes,
+        intervention=excluded.intervention,
+        bp_sys=excluded.bp_sys,
+        bp_dia=excluded.bp_dia,
+        bp_pulse=excluded.bp_pulse,
+        bp_arm=excluded.bp_arm,
+        bp_position=excluded.bp_position,
+        urine_leu=excluded.urine_leu,
+        urine_nit=excluded.urine_nit,
+        urine_uro=excluded.urine_uro,
+        urine_pro=excluded.urine_pro,
+        urine_ph=excluded.urine_ph,
+        urine_bld=excluded.urine_bld,
+        urine_ket=excluded.urine_ket,
+        urine_glu=excluded.urine_glu,
+        urine_appearance=excluded.urine_appearance,
+        hba1c_pct=excluded.hba1c_pct,
+        hba1c_mmol=excluded.hba1c_mmol,
+        bg_glucose=excluded.bg_glucose,
+        bg_timing=excluded.bg_timing,
+        chol_tc=excluded.chol_tc,
+        chol_hdl=excluded.chol_hdl,
+        chol_ldl=excluded.chol_ldl,
+        chol_tg=excluded.chol_tg,
+        chol_ratio=excluded.chol_ratio,
+        chol_fasting=excluded.chol_fasting,
+        bmi_weight=excluded.bmi_weight,
+        bmi_height=excluded.bmi_height,
+        bmi_bmi=excluded.bmi_bmi,
+        bmi_category=excluded.bmi_category,
+        bmi_waist=excluded.bmi_waist,
+        results_json=excluded.results_json,
+        record_json=excluded.record_json,
+        updated_at_iso=excluded.updated_at_iso,
+        updated_by=excluded.updated_by,
+        updated_at=datetime('now')
+    `;
+    const upRec = env.DB.prepare(upRecSql);
+
+    for (let k = 0; k < cleanedRecords.length; k++) {
+      const cols = poctExtractRecordColumns(cleanedRecords[k]);
+      if (!cols.record_id) continue;
+      // performed_at_iso is required in schema; best-effort fallback
+      if (!cols.performed_at_iso) cols.performed_at_iso = nowIso();
+
+      await upRec
+        .bind(
+          orgId,
+          locId,
+          cols.record_id,
+          cols.test_type,
+          cols.test_label,
+          cols.performed_at_iso,
+          cols.performed_at_local,
+
+          cols.patient_id,
+          cols.patient_name,
+          cols.patient_phone,
+          cols.patient_age,
+          cols.patient_address,
+
+          cols.fee_due,
+          cols.notes,
+          cols.intervention,
+
+          cols.bp_sys,
+          cols.bp_dia,
+          cols.bp_pulse,
+          cols.bp_arm,
+          cols.bp_position,
+
+          cols.urine_leu,
+          cols.urine_nit,
+          cols.urine_uro,
+          cols.urine_pro,
+          cols.urine_ph,
+          cols.urine_bld,
+          cols.urine_ket,
+          cols.urine_glu,
+          cols.urine_appearance,
+
+          cols.hba1c_pct,
+          cols.hba1c_mmol,
+
+          cols.bg_glucose,
+          cols.bg_timing,
+
+          cols.chol_tc,
+          cols.chol_hdl,
+          cols.chol_ldl,
+          cols.chol_tg,
+          cols.chol_ratio,
+          cols.chol_fasting,
+
+          cols.bmi_weight,
+          cols.bmi_height,
+          cols.bmi_bmi,
+          cols.bmi_category,
+          cols.bmi_waist,
+
+          cols.results_json,
+          cols.record_json,
+          cols.updated_at_iso,
+
+          userId,
+          userId
+        )
+        .run();
+
+      counts.records_upserted++;
+    }
+
+    // Delete records that no longer exist (authoritative replace)
+    const existingRec = await dbAll(
+      env,
+      `SELECT record_id AS id FROM poct_records WHERE org_id = ? AND location_id = ?`,
+      [orgId, locId]
+    );
+    const toDeleteRec = [];
+    for (let i = 0; i < existingRec.length; i++) {
+      const id = existingRec[i] ? String(existingRec[i].id || "") : "";
+      if (!id) continue;
+      if (!recIdSet.has(id)) toDeleteRec.push(id);
+    }
+    const recChunks = poctChunk(toDeleteRec, 800);
+    for (let c = 0; c < recChunks.length; c++) {
+      const chunk = recChunks[c];
+      if (!chunk.length) continue;
+      const qs = chunk.map(() => "?").join(",");
+      await dbRun(
+        env,
+        `DELETE FROM poct_records WHERE org_id = ? AND location_id = ? AND record_id IN (${qs})`,
+        [orgId, locId, ...chunk]
+      );
+      counts.records_deleted += chunk.length;
+    }
+
+    // Delete patients that no longer exist
+    const existingPat = await dbAll(
+      env,
+      `SELECT patient_id AS id FROM poct_patients WHERE org_id = ? AND location_id = ?`,
+      [orgId, locId]
+    );
+    const toDeletePat = [];
+    for (let j2 = 0; j2 < existingPat.length; j2++) {
+      const id2 = existingPat[j2] ? String(existingPat[j2].id || "") : "";
+      if (!id2) continue;
+      if (!patIdSet.has(id2)) toDeletePat.push(id2);
+    }
+    const patChunks = poctChunk(toDeletePat, 800);
+    for (let d = 0; d < patChunks.length; d++) {
+      const chunk2 = patChunks[d];
+      if (!chunk2.length) continue;
+      const qs2 = chunk2.map(() => "?").join(",");
+      await dbRun(
+        env,
+        `DELETE FROM poct_patients WHERE org_id = ? AND location_id = ? AND patient_id IN (${qs2})`,
+        [orgId, locId, ...chunk2]
+      );
+      counts.patients_deleted += chunk2.length;
+    }
+  } catch (e) {
+    // Best-effort failure response; partial progress is possible but safe (upserts happen before deletes).
+    throw e;
+  }
+
+  return jsonResponse({ ok: true, ...counts }, 200, corsOkHeaders);
+}
+
+
+async function handleInstructionsGlobalGet(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  const row = await dbFirst(
+    env,
+    `SELECT data_json, created_at, created_by, updated_at, updated_by
+     FROM instructions_global
+     WHERE org_id = ? AND location_id = ?`,
+    [authUser.org_id, authUser.location_id]
+  );
+
+  if (!row) {
+    return jsonResponse({ ok: true, global: null }, 200, corsOkHeaders);
+  }
+
+  let data = null;
+  try { data = JSON.parse(String(row.data_json || "null")); } catch (e) { data = null; }
+
+  return jsonResponse({
+    ok: true,
+    global: (data && typeof data === "object") ? data : null,
+    meta: {
+      created_at: String(row.created_at || ""),
+      created_by: row.created_by || null,
+      updated_at: String(row.updated_at || ""),
+      updated_by: row.updated_by || null
+    }
+  }, 200, corsOkHeaders);
+}
+
+async function handleInstructionsGlobalPut(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  const body = await readJson(request);
+  const global = (body && (body.global || body.data)) || null;
+
+  if (!global || typeof global !== "object") {
+    return jsonResponse({ ok: false, error: "Missing/invalid global payload" }, 400, corsOkHeaders);
+  }
+
+  const now = nowIso();
+  const dataJson = JSON.stringify(global);
+
+  await env.DB.prepare(
+    `INSERT INTO instructions_global
+       (org_id, location_id, data_json, created_at, created_by, updated_at, updated_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(org_id, location_id) DO UPDATE SET
+       data_json = excluded.data_json,
+       updated_at = excluded.updated_at,
+       updated_by = excluded.updated_by`
+  ).bind(
+    authUser.org_id,
+    authUser.location_id,
+    dataJson,
+    now,
+    authUser.user_id,
+    now,
+    authUser.user_id
+  ).run();
+
+  return jsonResponse({ ok: true, updated_at: now }, 200, corsOkHeaders);
+}
+
+function parseHandoverJson(s) {
+  try {
+    const v = JSON.parse(String(s || "[]"));
+    return Array.isArray(v) ? v : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+async function handleInstructionsDailyGetOrList(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  const ymd = String(url.searchParams.get("ymd") || "").trim();
+  const month = String(url.searchParams.get("month") || "").trim();
+
+  if (ymd) {
+    if (!isValidYmd(ymd)) return jsonResponse({ ok: false, error: "Invalid ymd (YYYY-MM-DD)" }, 400, corsOkHeaders);
+
+    const row = await dbFirst(
+      env,
+      `SELECT ymd, notes, handover_json, created_at, created_by, updated_at, updated_by
+       FROM instructions_daily
+       WHERE org_id = ? AND location_id = ? AND ymd = ?`,
+      [authUser.org_id, authUser.location_id, ymd]
+    );
+
+    if (!row) {
+      return jsonResponse({ ok: true, record: null }, 200, corsOkHeaders);
+    }
+
+    return jsonResponse({
+      ok: true,
+      record: {
+        ymd: String(row.ymd),
+        notes: String(row.notes || ""),
+        handover_out: parseHandoverJson(row.handover_json),
+        created_at: String(row.created_at || ""),
+        created_by: row.created_by || null,
+        updated_at: String(row.updated_at || ""),
+        updated_by: row.updated_by || null
+      }
+    }, 200, corsOkHeaders);
+  }
+
+  // Month list
+  if (!month || !isValidYm(month)) return jsonResponse({ ok: false, error: "Missing/invalid month (YYYY-MM)" }, 400, corsOkHeaders);
+  const range = monthRange(month);
+  if (!range) return jsonResponse({ ok: false, error: "Missing/invalid month (YYYY-MM)" }, 400, corsOkHeaders);
+
+  const rows = await dbAll(
+    env,
+    `SELECT ymd, notes, handover_json, updated_at, updated_by
+     FROM instructions_daily
+     WHERE org_id = ?
+       AND location_id = ?
+       AND ymd >= ?
+       AND ymd < ?
+     ORDER BY ymd ASC`,
+    [authUser.org_id, authUser.location_id, range.startStr, range.endStr]
+  );
+
+  const records = (rows || []).map(r => ({
+    ymd: String(r.ymd),
+    notes: String(r.notes || ""),
+    handover_out: parseHandoverJson(r.handover_json),
+    updated_at: String(r.updated_at || ""),
+    updated_by: r.updated_by || null
+  }));
+
+  return jsonResponse({ ok: true, records }, 200, corsOkHeaders);
+}
+
+async function handleInstructionsDailyPut(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  const body = await readJson(request);
+
+  const ymd = String(body.ymd || "").trim();
+  if (!isValidYmd(ymd)) return jsonResponse({ ok: false, error: "Invalid ymd (YYYY-MM-DD)" }, 400, corsOkHeaders);
+
+  const notes = String(body.notes || "");
+  const handover = Array.isArray(body.handover_out) ? body.handover_out : [];
+  const handoverJson = JSON.stringify(handover);
+
+  const now = nowIso();
+
+  // If cleared, delete the day row to keep month lists clean
+  if ((notes || "").trim() === "" && (!handover || handover.length === 0)) {
+    await env.DB.prepare(
+      `DELETE FROM instructions_daily
+       WHERE org_id = ? AND location_id = ? AND ymd = ?`
+    ).bind(authUser.org_id, authUser.location_id, ymd).run();
+
+    return jsonResponse({ ok: true, deleted: true, updated_at: now }, 200, corsOkHeaders);
+  }
+
+  await env.DB.prepare(
+    `INSERT INTO instructions_daily
+       (org_id, location_id, ymd, notes, handover_json, created_at, created_by, updated_at, updated_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(org_id, location_id, ymd) DO UPDATE SET
+       notes = excluded.notes,
+       handover_json = excluded.handover_json,
+       updated_at = excluded.updated_at,
+       updated_by = excluded.updated_by`
+  ).bind(
+    authUser.org_id,
+    authUser.location_id,
+    ymd,
+    notes,
+    handoverJson,
+    now,
+    authUser.user_id,
+    now,
+    authUser.user_id
+  ).run();
+
+  return jsonResponse({ ok: true, updated_at: now }, 200, corsOkHeaders);
+}
+
+
+
+
+
+
+// ============================================================
+// Scarce Stock
+// ============================================================
+async function ensureScarceStockSchema(env) {
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS scarce_stock_offers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id INTEGER NOT NULL,
+    location_id INTEGER NOT NULL,
+    entry_date TEXT NOT NULL,
+    item_name TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    batch TEXT NOT NULL DEFAULT '',
+    expiry_date TEXT,
+    quantity_available INTEGER NOT NULL DEFAULT 0,
+    is_closed INTEGER NOT NULL DEFAULT 0,
+    created_by INTEGER,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_by INTEGER
+  )`, []);
+
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS scarce_stock_offer_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    offer_id INTEGER NOT NULL,
+    requester_org_id INTEGER NOT NULL,
+    requester_location_id INTEGER NOT NULL,
+    quantity_requested INTEGER NOT NULL DEFAULT 0,
+    note TEXT NOT NULL DEFAULT '',
+    created_by INTEGER,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_by INTEGER
+  )`, []);
+
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS scarce_stock_needs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id INTEGER NOT NULL,
+    location_id INTEGER NOT NULL,
+    entry_date TEXT NOT NULL,
+    item_name TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    needed_by TEXT,
+    quantity_needed INTEGER NOT NULL DEFAULT 0,
+    is_closed INTEGER NOT NULL DEFAULT 0,
+    created_by INTEGER,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_by INTEGER
+  )`, []);
+
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS scarce_stock_need_offers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    need_id INTEGER NOT NULL,
+    offerer_org_id INTEGER NOT NULL,
+    offerer_location_id INTEGER NOT NULL,
+    quantity_offered INTEGER NOT NULL DEFAULT 0,
+    note TEXT NOT NULL DEFAULT '',
+    created_by INTEGER,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_by INTEGER
+  )`, []);
+
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_ss_offers_org_loc_date ON scarce_stock_offers (org_id, location_id, entry_date)", []);
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_ss_offers_item ON scarce_stock_offers (item_name)", []);
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_ss_offer_requests_offer ON scarce_stock_offer_requests (offer_id)", []);
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_ss_offer_requests_req_loc ON scarce_stock_offer_requests (requester_org_id, requester_location_id)", []);
+
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_ss_needs_org_loc_date ON scarce_stock_needs (org_id, location_id, entry_date)", []);
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_ss_needs_item ON scarce_stock_needs (item_name)", []);
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_ss_need_offers_need ON scarce_stock_need_offers (need_id)", []);
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_ss_need_offers_offer_loc ON scarce_stock_need_offers (offerer_org_id, offerer_location_id)", []);
+}
+
+function ssIntNonNeg(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return null;
+  const i = Math.floor(n);
+  return i < 0 ? null : i;
+}
+function ssText(v, max) {
+  let s = String(v ?? "").trim();
+  if (max && s.length > max) s = s.slice(0, max);
+  return s;
+}
+function ssBool01(v) { return (v === 1 || v === "1" || v === true) ? 1 : 0; }
+
+function ssCanSeeSensitive(authUser, aOrg, aLoc, bOrg, bLoc) {
+  const uOrg = authUser.org_id, uLoc = authUser.location_id;
+  const isA = (uOrg === aOrg && uLoc === aLoc);
+  const isB = (uOrg === bOrg && uLoc === bLoc);
+  return isA || isB;
+}
+
+// ----- Offers list
+async function handleScarceOffersList(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureScarceStockSchema(env);
+
+  const offersBase = await dbAll(env, `
+    SELECT
+      o.id, o.org_id, o.location_id, o.entry_date, o.item_name, o.description, o.batch, o.expiry_date,
+      o.quantity_available, o.is_closed,
+      org.name AS org_name,
+      loc.name AS location_name,
+      COALESCE(SUM(r.quantity_requested), 0) AS total_requested
+    FROM scarce_stock_offers o
+    JOIN orgs org ON org.id = o.org_id
+    JOIN locations loc ON loc.id = o.location_id
+    LEFT JOIN scarce_stock_offer_requests r ON r.offer_id = o.id
+    GROUP BY o.id
+    ORDER BY o.is_closed ASC, o.entry_date DESC, o.id DESC
+  `, []);
+
+  const offerIds = offersBase.map(x => Number(x.id)).filter(n => Number.isFinite(n) && n > 0);
+  let reqRows = [];
+  if (offerIds.length) {
+    const qs = offerIds.map(() => "?").join(",");
+    reqRows = await dbAll(env, `
+      SELECT
+        r.id, r.offer_id, r.requester_org_id, r.requester_location_id, r.quantity_requested, r.note,
+        org.name AS requester_org_name,
+        loc.name AS requester_location_name
+      FROM scarce_stock_offer_requests r
+      JOIN orgs org ON org.id = r.requester_org_id
+      JOIN locations loc ON loc.id = r.requester_location_id
+      WHERE r.offer_id IN (${qs})
+      ORDER BY r.created_at ASC, r.id ASC
+    `, offerIds);
+  }
+
+  const reqByOffer = new Map();
+  for (const rr of reqRows) {
+    const oid = Number(rr.offer_id);
+    if (!reqByOffer.has(oid)) reqByOffer.set(oid, []);
+    reqByOffer.get(oid).push(rr);
+  }
+
+  const offers = [];
+  for (const o of offersBase) {
+    const mineOwner = (authUser.org_id === o.org_id && authUser.location_id === o.location_id);
+    const requestsIn = reqByOffer.get(Number(o.id)) || [];
+    const requestsOut = [];
+
+    for (const rr of requestsIn) {
+      const canSee = ssCanSeeSensitive(
+        authUser,
+        Number(o.org_id), Number(o.location_id),
+        Number(rr.requester_org_id), Number(rr.requester_location_id)
+      );
+      const mine = (authUser.org_id === rr.requester_org_id && authUser.location_id === rr.requester_location_id);
+
+      requestsOut.push({
+        id: rr.id,
+        offer_id: rr.offer_id,
+        quantity_requested: Number(rr.quantity_requested || 0),
+        is_private: canSee ? 0 : 1,
+        requester_display: canSee ? ((rr.requester_org_name || "") + " — " + (rr.requester_location_name || "")) : "",
+        note: canSee ? (rr.note || "") : "",
+        mine: mine ? 1 : 0
+      });
+    }
+
+    offers.push({
+      id: o.id,
+      org_id: o.org_id,
+      org_name: o.org_name || "",
+      location_id: o.location_id,
+      location_name: o.location_name || "",
+      entry_date: o.entry_date,
+      item_name: o.item_name,
+      description: o.description || "",
+      batch: o.batch || "",
+      expiry_date: o.expiry_date || null,
+      quantity_available: Number(o.quantity_available || 0),
+      is_closed: Number(o.is_closed || 0),
+      total_requested: Number(o.total_requested || 0),
+      remaining_quantity: Number(o.quantity_available || 0) - Number(o.total_requested || 0),
+      mine_owner: mineOwner ? 1 : 0,
+      requests: requestsOut
+    });
+  }
+
+  return jsonResponse({ ok: true, offers }, 200, corsOkHeaders);
+}
+
+// ----- Offers create/update/delete
+async function handleScarceOfferCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureScarceStockSchema(env);
+
+  const body = await readJson(request);
+  const entry_date = ssText(body.entry_date, 40);
+  const item_name = ssText(body.item_name, 220);
+  const description = ssText(body.description, 2000);
+  const batch = ssText(body.batch, 120);
+  const expiry_date = ssText(body.expiry_date, 40);
+  const qty = ssIntNonNeg(body.quantity_available);
+  const is_closed = ssBool01(body.is_closed);
+
+  if (!isValidYmd(entry_date)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (!item_name) return jsonResponse({ ok: false, error: "Missing item_name" }, 400, corsOkHeaders);
+  if (expiry_date && !isValidYmd(expiry_date)) return jsonResponse({ ok: false, error: "Invalid expiry_date (YYYY-MM-DD or empty)" }, 400, corsOkHeaders);
+  if (qty === null) return jsonResponse({ ok: false, error: "Invalid quantity_available (>= 0)" }, 400, corsOkHeaders);
+
+  const res = await dbRun(env, `
+    INSERT INTO scarce_stock_offers
+      (org_id, location_id, entry_date, item_name, description, batch, expiry_date, quantity_available, is_closed, created_by, created_at, updated_at, updated_by)
+    VALUES
+      (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), ?)
+  `, [
+    authUser.org_id, authUser.location_id,
+    entry_date, item_name, description, batch,
+    expiry_date || null,
+    qty, is_closed ? 1 : 0,
+    authUser.user_id, authUser.user_id
+  ]);
+
+  const insertedId = res?.meta?.last_row_id || null;
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_OFFER_CREATE", "scarce_stock_offers", String(insertedId || ""), { item_name, quantity_available: qty });
+  return jsonResponse({ ok: true, id: insertedId }, 200, corsOkHeaders);
+}
+
+async function handleScarceOfferUpdate(request, env, corsOkHeaders, authUser, offerId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureScarceStockSchema(env);
+
+  const id = Number(offerId);
+  if (!Number.isFinite(id) || id <= 0) return jsonResponse({ ok: false, error: "Invalid offer id" }, 400, corsOkHeaders);
+
+  const existing = await dbFirst(env, `SELECT id, org_id, location_id FROM scarce_stock_offers WHERE id = ?`, [id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  if (!(existing.org_id === authUser.org_id && existing.location_id === authUser.location_id)) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  const body = await readJson(request);
+  const entry_date = ssText(body.entry_date, 40);
+  const item_name = ssText(body.item_name, 220);
+  const description = ssText(body.description, 2000);
+  const batch = ssText(body.batch, 120);
+  const expiry_date = ssText(body.expiry_date, 40);
+  const qty = ssIntNonNeg(body.quantity_available);
+  const is_closed = ssBool01(body.is_closed);
+
+  if (!isValidYmd(entry_date)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (!item_name) return jsonResponse({ ok: false, error: "Missing item_name" }, 400, corsOkHeaders);
+  if (expiry_date && !isValidYmd(expiry_date)) return jsonResponse({ ok: false, error: "Invalid expiry_date (YYYY-MM-DD or empty)" }, 400, corsOkHeaders);
+  if (qty === null) return jsonResponse({ ok: false, error: "Invalid quantity_available (>= 0)" }, 400, corsOkHeaders);
+
+  await dbRun(env, `
+    UPDATE scarce_stock_offers
+    SET entry_date = ?, item_name = ?, description = ?, batch = ?, expiry_date = ?, quantity_available = ?, is_closed = ?,
+        updated_at = datetime('now'), updated_by = ?
+    WHERE id = ?
+  `, [
+    entry_date, item_name, description, batch, (expiry_date || null), qty, (is_closed ? 1 : 0),
+    authUser.user_id, id
+  ]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_OFFER_UPDATE", "scarce_stock_offers", String(id), { item_name, quantity_available: qty, is_closed: is_closed ? 1 : 0 });
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleScarceOfferDelete(request, env, corsOkHeaders, authUser, offerId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureScarceStockSchema(env);
+
+  const id = Number(offerId);
+  if (!Number.isFinite(id) || id <= 0) return jsonResponse({ ok: false, error: "Invalid offer id" }, 400, corsOkHeaders);
+
+  const existing = await dbFirst(env, `SELECT id, org_id, location_id, item_name FROM scarce_stock_offers WHERE id = ?`, [id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  if (!(existing.org_id === authUser.org_id && existing.location_id === authUser.location_id)) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await dbRun(env, `DELETE FROM scarce_stock_offer_requests WHERE offer_id = ?`, [id]);
+  await dbRun(env, `DELETE FROM scarce_stock_offers WHERE id = ?`, [id]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_OFFER_DELETE", "scarce_stock_offers", String(id), { item_name: existing.item_name || "" });
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+// ----- Offer requests (create/update/delete)
+async function handleScarceOfferRequestCreate(request, env, corsOkHeaders, authUser, offerId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureScarceStockSchema(env);
+
+  const id = Number(offerId);
+  if (!Number.isFinite(id) || id <= 0) return jsonResponse({ ok: false, error: "Invalid offer id" }, 400, corsOkHeaders);
+
+  const offer = await dbFirst(env, `SELECT id, is_closed FROM scarce_stock_offers WHERE id = ?`, [id]);
+  if (!offer) return jsonResponse({ ok: false, error: "Offer not found" }, 404, corsOkHeaders);
+  if (Number(offer.is_closed || 0) === 1) return jsonResponse({ ok: false, error: "Offer is closed" }, 400, corsOkHeaders);
+
+  const body = await readJson(request);
+  const qty = ssIntNonNeg(body.quantity_requested);
+  const note = ssText(body.note, 4000);
+
+  if (qty === null || qty <= 0) return jsonResponse({ ok: false, error: "Invalid quantity_requested (>= 1)" }, 400, corsOkHeaders);
+
+  const res = await dbRun(env, `
+    INSERT INTO scarce_stock_offer_requests
+      (offer_id, requester_org_id, requester_location_id, quantity_requested, note, created_by, created_at, updated_at, updated_by)
+    VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), ?)
+  `, [
+    id, authUser.org_id, authUser.location_id,
+    qty, note,
+    authUser.user_id, authUser.user_id
+  ]);
+
+  const insertedId = res?.meta?.last_row_id || null;
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_REQUEST_CREATE", "scarce_stock_offer_requests", String(insertedId || ""), { offer_id: id, quantity_requested: qty });
+  return jsonResponse({ ok: true, id: insertedId }, 200, corsOkHeaders);
+}
+
+async function handleScarceOfferRequestUpdate(request, env, corsOkHeaders, authUser, requestId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureScarceStockSchema(env);
+
+  const id = Number(requestId);
+  if (!Number.isFinite(id) || id <= 0) return jsonResponse({ ok: false, error: "Invalid request id" }, 400, corsOkHeaders);
+
+  const existing = await dbFirst(env, `SELECT id, requester_org_id, requester_location_id FROM scarce_stock_offer_requests WHERE id = ?`, [id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  if (!(existing.requester_org_id === authUser.org_id && existing.requester_location_id === authUser.location_id)) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  const body = await readJson(request);
+  const qty = ssIntNonNeg(body.quantity_requested);
+  const note = ssText(body.note, 4000);
+
+  if (qty === null || qty <= 0) return jsonResponse({ ok: false, error: "Invalid quantity_requested (>= 1)" }, 400, corsOkHeaders);
+
+  await dbRun(env, `
+    UPDATE scarce_stock_offer_requests
+    SET quantity_requested = ?, note = ?, updated_at = datetime('now'), updated_by = ?
+    WHERE id = ?
+  `, [qty, note, authUser.user_id, id]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_REQUEST_UPDATE", "scarce_stock_offer_requests", String(id), { quantity_requested: qty });
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleScarceOfferRequestDelete(request, env, corsOkHeaders, authUser, requestId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureScarceStockSchema(env);
+
+  const id = Number(requestId);
+  if (!Number.isFinite(id) || id <= 0) return jsonResponse({ ok: false, error: "Invalid request id" }, 400, corsOkHeaders);
+
+  const existing = await dbFirst(env, `SELECT id, requester_org_id, requester_location_id, offer_id FROM scarce_stock_offer_requests WHERE id = ?`, [id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  if (!(existing.requester_org_id === authUser.org_id && existing.requester_location_id === authUser.location_id)) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await dbRun(env, `DELETE FROM scarce_stock_offer_requests WHERE id = ?`, [id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_REQUEST_DELETE", "scarce_stock_offer_requests", String(id), { offer_id: existing.offer_id });
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+// ----- Needs list
+async function handleScarceNeedsList(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureScarceStockSchema(env);
+
+  const needsBase = await dbAll(env, `
+    SELECT
+      n.id, n.org_id, n.location_id, n.entry_date, n.item_name, n.description, n.needed_by,
+      n.quantity_needed, n.is_closed,
+      org.name AS org_name,
+      loc.name AS location_name,
+      COALESCE(SUM(o.quantity_offered), 0) AS total_offered
+    FROM scarce_stock_needs n
+    JOIN orgs org ON org.id = n.org_id
+    JOIN locations loc ON loc.id = n.location_id
+    LEFT JOIN scarce_stock_need_offers o ON o.need_id = n.id
+    GROUP BY n.id
+    ORDER BY n.is_closed ASC, n.entry_date DESC, n.id DESC
+  `, []);
+
+  const needIds = needsBase.map(x => Number(x.id)).filter(n => Number.isFinite(n) && n > 0);
+  let offRows = [];
+  if (needIds.length) {
+    const qs = needIds.map(() => "?").join(",");
+    offRows = await dbAll(env, `
+      SELECT
+        o.id, o.need_id, o.offerer_org_id, o.offerer_location_id, o.quantity_offered, o.note,
+        org.name AS offerer_org_name,
+        loc.name AS offerer_location_name
+      FROM scarce_stock_need_offers o
+      JOIN orgs org ON org.id = o.offerer_org_id
+      JOIN locations loc ON loc.id = o.offerer_location_id
+      WHERE o.need_id IN (${qs})
+      ORDER BY o.created_at ASC, o.id ASC
+    `, needIds);
+  }
+
+  const offByNeed = new Map();
+  for (const rr of offRows) {
+    const nid = Number(rr.need_id);
+    if (!offByNeed.has(nid)) offByNeed.set(nid, []);
+    offByNeed.get(nid).push(rr);
+  }
+
+  const needs = [];
+  for (const n of needsBase) {
+    const mineOwner = (authUser.org_id === n.org_id && authUser.location_id === n.location_id);
+    const offersIn = offByNeed.get(Number(n.id)) || [];
+    const offersOut = [];
+
+    for (const rr of offersIn) {
+      const canSee = ssCanSeeSensitive(
+        authUser,
+        Number(n.org_id), Number(n.location_id),
+        Number(rr.offerer_org_id), Number(rr.offerer_location_id)
+      );
+      const mine = (authUser.org_id === rr.offerer_org_id && authUser.location_id === rr.offerer_location_id);
+
+      offersOut.push({
+        id: rr.id,
+        need_id: rr.need_id,
+        quantity_offered: Number(rr.quantity_offered || 0),
+        is_private: canSee ? 0 : 1,
+        offerer_display: canSee ? ((rr.offerer_org_name || "") + " — " + (rr.offerer_location_name || "")) : "",
+        note: canSee ? (rr.note || "") : "",
+        mine: mine ? 1 : 0
+      });
+    }
+
+    needs.push({
+      id: n.id,
+      org_id: n.org_id,
+      org_name: n.org_name || "",
+      location_id: n.location_id,
+      location_name: n.location_name || "",
+      entry_date: n.entry_date,
+      item_name: n.item_name,
+      description: n.description || "",
+      needed_by: n.needed_by || null,
+      quantity_needed: Number(n.quantity_needed || 0),
+      is_closed: Number(n.is_closed || 0),
+      total_offered: Number(n.total_offered || 0),
+      remaining_quantity: Number(n.quantity_needed || 0) - Number(n.total_offered || 0),
+      mine_owner: mineOwner ? 1 : 0,
+      offers: offersOut
+    });
+  }
+
+  return jsonResponse({ ok: true, needs }, 200, corsOkHeaders);
+}
+
+// ----- Needs create/update/delete
+async function handleScarceNeedCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureScarceStockSchema(env);
+
+  const body = await readJson(request);
+  const entry_date = ssText(body.entry_date, 40);
+  const item_name = ssText(body.item_name, 220);
+  const description = ssText(body.description, 2000);
+  const needed_by = ssText(body.needed_by, 40);
+  const qty = ssIntNonNeg(body.quantity_needed);
+  const is_closed = ssBool01(body.is_closed);
+
+  if (!isValidYmd(entry_date)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (!item_name) return jsonResponse({ ok: false, error: "Missing item_name" }, 400, corsOkHeaders);
+  if (needed_by && !isValidYmd(needed_by)) return jsonResponse({ ok: false, error: "Invalid needed_by (YYYY-MM-DD or empty)" }, 400, corsOkHeaders);
+  if (qty === null) return jsonResponse({ ok: false, error: "Invalid quantity_needed (>= 0)" }, 400, corsOkHeaders);
+
+  const res = await dbRun(env, `
+    INSERT INTO scarce_stock_needs
+      (org_id, location_id, entry_date, item_name, description, needed_by, quantity_needed, is_closed, created_by, created_at, updated_at, updated_by)
+    VALUES
+      (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), ?)
+  `, [
+    authUser.org_id, authUser.location_id,
+    entry_date, item_name, description,
+    (needed_by || null),
+    qty, is_closed ? 1 : 0,
+    authUser.user_id, authUser.user_id
+  ]);
+
+  const insertedId = res?.meta?.last_row_id || null;
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_NEED_CREATE", "scarce_stock_needs", String(insertedId || ""), { item_name, quantity_needed: qty });
+  return jsonResponse({ ok: true, id: insertedId }, 200, corsOkHeaders);
+}
+
+async function handleScarceNeedUpdate(request, env, corsOkHeaders, authUser, needId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureScarceStockSchema(env);
+
+  const id = Number(needId);
+  if (!Number.isFinite(id) || id <= 0) return jsonResponse({ ok: false, error: "Invalid need id" }, 400, corsOkHeaders);
+
+  const existing = await dbFirst(env, `SELECT id, org_id, location_id FROM scarce_stock_needs WHERE id = ?`, [id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  if (!(existing.org_id === authUser.org_id && existing.location_id === authUser.location_id)) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  const body = await readJson(request);
+  const entry_date = ssText(body.entry_date, 40);
+  const item_name = ssText(body.item_name, 220);
+  const description = ssText(body.description, 2000);
+  const needed_by = ssText(body.needed_by, 40);
+  const qty = ssIntNonNeg(body.quantity_needed);
+  const is_closed = ssBool01(body.is_closed);
+
+  if (!isValidYmd(entry_date)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (!item_name) return jsonResponse({ ok: false, error: "Missing item_name" }, 400, corsOkHeaders);
+  if (needed_by && !isValidYmd(needed_by)) return jsonResponse({ ok: false, error: "Invalid needed_by (YYYY-MM-DD or empty)" }, 400, corsOkHeaders);
+  if (qty === null) return jsonResponse({ ok: false, error: "Invalid quantity_needed (>= 0)" }, 400, corsOkHeaders);
+
+  await dbRun(env, `
+    UPDATE scarce_stock_needs
+    SET entry_date = ?, item_name = ?, description = ?, needed_by = ?, quantity_needed = ?, is_closed = ?,
+        updated_at = datetime('now'), updated_by = ?
+    WHERE id = ?
+  `, [
+    entry_date, item_name, description,
+    (needed_by || null),
+    qty, (is_closed ? 1 : 0),
+    authUser.user_id, id
+  ]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_NEED_UPDATE", "scarce_stock_needs", String(id), { item_name, quantity_needed: qty, is_closed: is_closed ? 1 : 0 });
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleScarceNeedDelete(request, env, corsOkHeaders, authUser, needId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureScarceStockSchema(env);
+
+  const id = Number(needId);
+  if (!Number.isFinite(id) || id <= 0) return jsonResponse({ ok: false, error: "Invalid need id" }, 400, corsOkHeaders);
+
+  const existing = await dbFirst(env, `SELECT id, org_id, location_id, item_name FROM scarce_stock_needs WHERE id = ?`, [id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  if (!(existing.org_id === authUser.org_id && existing.location_id === authUser.location_id)) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await dbRun(env, `DELETE FROM scarce_stock_need_offers WHERE need_id = ?`, [id]);
+  await dbRun(env, `DELETE FROM scarce_stock_needs WHERE id = ?`, [id]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_NEED_DELETE", "scarce_stock_needs", String(id), { item_name: existing.item_name || "" });
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+// ----- Need offers (create/update/delete)
+async function handleScarceNeedOfferCreate(request, env, corsOkHeaders, authUser, needId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureScarceStockSchema(env);
+
+  const id = Number(needId);
+  if (!Number.isFinite(id) || id <= 0) return jsonResponse({ ok: false, error: "Invalid need id" }, 400, corsOkHeaders);
+
+  const need = await dbFirst(env, `SELECT id, is_closed FROM scarce_stock_needs WHERE id = ?`, [id]);
+  if (!need) return jsonResponse({ ok: false, error: "Need not found" }, 404, corsOkHeaders);
+  if (Number(need.is_closed || 0) === 1) return jsonResponse({ ok: false, error: "Need is closed" }, 400, corsOkHeaders);
+
+  const body = await readJson(request);
+  const qty = ssIntNonNeg(body.quantity_offered);
+  const note = ssText(body.note, 4000);
+
+  if (qty === null || qty <= 0) return jsonResponse({ ok: false, error: "Invalid quantity_offered (>= 1)" }, 400, corsOkHeaders);
+
+  const res = await dbRun(env, `
+    INSERT INTO scarce_stock_need_offers
+      (need_id, offerer_org_id, offerer_location_id, quantity_offered, note, created_by, created_at, updated_at, updated_by)
+    VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), ?)
+  `, [
+    id, authUser.org_id, authUser.location_id,
+    qty, note,
+    authUser.user_id, authUser.user_id
+  ]);
+
+  const insertedId = res?.meta?.last_row_id || null;
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_NEED_OFFER_CREATE", "scarce_stock_need_offers", String(insertedId || ""), { need_id: id, quantity_offered: qty });
+  return jsonResponse({ ok: true, id: insertedId }, 200, corsOkHeaders);
+}
+
+async function handleScarceNeedOfferUpdate(request, env, corsOkHeaders, authUser, offerId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureScarceStockSchema(env);
+
+  const id = Number(offerId);
+  if (!Number.isFinite(id) || id <= 0) return jsonResponse({ ok: false, error: "Invalid offer id" }, 400, corsOkHeaders);
+
+  const existing = await dbFirst(env, `SELECT id, offerer_org_id, offerer_location_id FROM scarce_stock_need_offers WHERE id = ?`, [id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  if (!(existing.offerer_org_id === authUser.org_id && existing.offerer_location_id === authUser.location_id)) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  const body = await readJson(request);
+  const qty = ssIntNonNeg(body.quantity_offered);
+  const note = ssText(body.note, 4000);
+
+  if (qty === null || qty <= 0) return jsonResponse({ ok: false, error: "Invalid quantity_offered (>= 1)" }, 400, corsOkHeaders);
+
+  await dbRun(env, `
+    UPDATE scarce_stock_need_offers
+    SET quantity_offered = ?, note = ?, updated_at = datetime('now'), updated_by = ?
+    WHERE id = ?
+  `, [qty, note, authUser.user_id, id]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_NEED_OFFER_UPDATE", "scarce_stock_need_offers", String(id), { quantity_offered: qty });
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleScarceNeedOfferDelete(request, env, corsOkHeaders, authUser, offerId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureScarceStockSchema(env);
+
+  const id = Number(offerId);
+  if (!Number.isFinite(id) || id <= 0) return jsonResponse({ ok: false, error: "Invalid offer id" }, 400, corsOkHeaders);
+
+  const existing = await dbFirst(env, `SELECT id, offerer_org_id, offerer_location_id, need_id FROM scarce_stock_need_offers WHERE id = ?`, [id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  if (!(existing.offerer_org_id === authUser.org_id && existing.offerer_location_id === authUser.location_id)) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await dbRun(env, `DELETE FROM scarce_stock_need_offers WHERE id = ?`, [id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_NEED_OFFER_DELETE", "scarce_stock_need_offers", String(id), { need_id: existing.need_id });
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+
+// ------------------------------------------------------------
+// Vaccines (Catalog + Orders + Stock)
+// ------------------------------------------------------------
+async function ensureVaccinesSchema(env) {
+  await dbRun(
+    env,
+    `CREATE TABLE IF NOT EXISTS vaccines_catalog (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id INTEGER NOT NULL DEFAULT 0,
+      location_id INTEGER NOT NULL DEFAULT 0,
+
+      brand_name TEXT NOT NULL,
+      vaccinates_for TEXT NOT NULL DEFAULT '',
+      dosing_schedule TEXT NOT NULL DEFAULT '',
+      routine_in_malta TEXT NOT NULL DEFAULT '',
+      travel_always TEXT NOT NULL DEFAULT '',
+      travel_highrisk TEXT NOT NULL DEFAULT '',
+
+      created_at TEXT NOT NULL DEFAULT ''
+    )`
+  );
+
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_vax_catalog_brand ON vaccines_catalog(brand_name)`);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_vax_catalog_org_loc ON vaccines_catalog(org_id, location_id)`);
+
+  await dbRun(
+    env,
+    `CREATE TABLE IF NOT EXISTS vaccines_orders (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+
+      created_at TEXT NOT NULL,
+      section TEXT NOT NULL DEFAULT '',         -- 'travel' | 'other'
+      country_code TEXT NOT NULL DEFAULT '',
+      country_name TEXT NOT NULL DEFAULT '',
+
+      client_first TEXT NOT NULL,
+      client_last TEXT NOT NULL,
+      phone TEXT NOT NULL DEFAULT '',
+      email TEXT NOT NULL DEFAULT ''
+    )`
+  );
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_vax_orders_org_loc_created ON vaccines_orders(org_id, location_id, created_at)`);
+
+  await dbRun(
+    env,
+    `CREATE TABLE IF NOT EXISTS vaccines_order_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+      order_id INTEGER NOT NULL,
+
+      vaccine_name TEXT NOT NULL,
+      qty INTEGER NOT NULL DEFAULT 1
+    )`
+  );
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_vax_items_order ON vaccines_order_items(order_id)`);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_vax_items_name ON vaccines_order_items(vaccine_name)`);
+
+  await dbRun(
+    env,
+    `CREATE TABLE IF NOT EXISTS vaccines_stock (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+
+      vaccine_name TEXT NOT NULL,
+      qty INTEGER NOT NULL DEFAULT 0,
+      batch TEXT NOT NULL DEFAULT '',
+      expiry_date TEXT NOT NULL DEFAULT '',     -- YYYY-MM-DD (optional)
+      updated_at TEXT NOT NULL
+    )`
+  );
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_vax_stock_org_loc_name ON vaccines_stock(org_id, location_id, vaccine_name)`);
+}
+
+function vaxNormName(s) {
+  return String(s == null ? "" : s).trim();
+}
+function vaxNormText(s) {
+  return String(s == null ? "" : s);
+}
+function vaxNormCsv(s) {
+  return String(s == null ? "" : s).trim();
+}
+function vaxInt(v, def = 0) {
+  const n = parseInt(String(v == null ? "" : v), 10);
+  return Number.isFinite(n) ? n : def;
+}
+
+async function handleVaccinesCatalogList(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureVaccinesSchema(env);
+
+  const q = (url.searchParams.get("q") || "").trim();
+  const hasQ = !!q;
+  const qLike = `%${q}%`;
+
+  // Return global (org=0,loc=0) plus org/location scoped (org=auth, loc=0 or loc=current)
+  const baseWhere = `(org_id = 0 AND location_id = 0) OR (org_id = ? AND (location_id = 0 OR location_id = ?))`;
+
+  const sql = hasQ
+    ? `SELECT id, org_id, location_id, brand_name, vaccinates_for, dosing_schedule, routine_in_malta, travel_always, travel_highrisk, created_at
+       FROM vaccines_catalog
+       WHERE (${baseWhere})
+         AND (brand_name LIKE ? OR vaccinates_for LIKE ? OR dosing_schedule LIKE ?)
+       ORDER BY brand_name COLLATE NOCASE ASC, id ASC`
+    : `SELECT id, org_id, location_id, brand_name, vaccinates_for, dosing_schedule, routine_in_malta, travel_always, travel_highrisk, created_at
+       FROM vaccines_catalog
+       WHERE (${baseWhere})
+       ORDER BY brand_name COLLATE NOCASE ASC, id ASC`;
+
+  const bind = hasQ
+    ? [authUser.org_id, authUser.location_id, qLike, qLike, qLike]
+    : [authUser.org_id, authUser.location_id];
+
+  const stmt = env.DB.prepare(sql);
+  const res = await stmt.bind(...bind).all();
+  const items = (res && res.results) ? res.results : [];
+
+  return jsonResponse({ ok: true, items }, 200, corsOkHeaders);
+}
+
+async function handleVaccinesCatalogCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureVaccinesSchema(env);
+
+  let body = null;
+  try { body = await readJson(request); } catch (e) { body = null; }
+  const brand_name = vaxNormName(body && body.brand_name);
+  if (!brand_name) return jsonResponse({ ok: false, error: "Missing brand_name" }, 400, corsOkHeaders);
+
+  const created_at = nowIso();
+
+  const res = await dbRun(
+    env,
+    `INSERT INTO vaccines_catalog (org_id, location_id, brand_name, vaccinates_for, dosing_schedule, routine_in_malta, travel_always, travel_highrisk, created_at)
+     VALUES (?, ?, ?, '', '', '', '', '', ?)`,
+    [authUser.org_id, authUser.location_id, brand_name, created_at]
+  );
+
+  const newId = (res && res.meta && res.meta.last_row_id) ? Number(res.meta.last_row_id) : null;
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "VAX_CATALOG_ADD", "vaccines_catalog", String(newId || ""), {
+    brand_name
+  });
+
+  return jsonResponse({ ok: true, id: newId, created_at }, 200, corsOkHeaders);
+}
+
+async function handleVaccinesOrdersList(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureVaccinesSchema(env);
+
+  const month = (url.searchParams.get("month") || "").trim();
+  const range = month ? monthRange(month) : null;
+
+  let ordersSql =
+    `SELECT id, created_at, section, country_code, country_name, client_first, client_last, phone, email
+     FROM vaccines_orders
+     WHERE org_id = ? AND location_id = ?`;
+
+  const bind = [authUser.org_id, authUser.location_id];
+
+  if (range) {
+    ordersSql += ` AND created_at >= ? AND created_at < ?`;
+    bind.push(range.startStr, range.endStr);
+  }
+
+  ordersSql += ` ORDER BY id DESC LIMIT 200`;
+
+  const ordersRes = await env.DB.prepare(ordersSql).bind(...bind).all();
+  const orders = (ordersRes && ordersRes.results) ? ordersRes.results : [];
+
+  // Items
+  const ids = orders.map(o => o.id);
+  let itemsByOrder = {};
+  if (ids.length) {
+    const placeholders = ids.map(() => "?").join(",");
+    const itemsRes = await env.DB.prepare(
+      `SELECT order_id, vaccine_name, qty FROM vaccines_order_items WHERE org_id = ? AND location_id = ? AND order_id IN (${placeholders}) ORDER BY id ASC`
+    ).bind(authUser.org_id, authUser.location_id, ...ids).all();
+    const items = (itemsRes && itemsRes.results) ? itemsRes.results : [];
+    items.forEach(it => {
+      const k = String(it.order_id);
+      if (!itemsByOrder[k]) itemsByOrder[k] = [];
+      itemsByOrder[k].push({ name: it.vaccine_name, qty: it.qty });
+    });
+  }
+
+  orders.forEach(o => { o.items = itemsByOrder[String(o.id)] || []; });
+
+  return jsonResponse({ ok: true, orders }, 200, corsOkHeaders);
+}
+
+async function applyVaccineStockDelta(env, orgId, locationId, vaccineName, deltaQty) {
+  const name = vaxNormName(vaccineName);
+  if (!name) return null;
+  const delta = vaxInt(deltaQty, 0);
+  if (!delta) return null;
+
+  // Pick earliest expiry row first (expiry_date '' goes last). If none exists, create a default row.
+  const row = await dbFirst(
+    env,
+    `SELECT id, qty, expiry_date
+     FROM vaccines_stock
+     WHERE org_id = ? AND location_id = ? AND vaccine_name = ?
+     ORDER BY CASE WHEN expiry_date = '' THEN 1 ELSE 0 END, expiry_date ASC, id ASC
+     LIMIT 1`,
+    [orgId, locationId, name]
+  );
+
+  const ts = nowIso();
+
+  if (!row) {
+    const ins = await dbRun(
+      env,
+      `INSERT INTO vaccines_stock (org_id, location_id, vaccine_name, qty, batch, expiry_date, updated_at)
+       VALUES (?, ?, ?, ?, '', '', ?)`,
+      [orgId, locationId, name, delta, ts]
+    );
+    return { id: (ins && ins.meta && ins.meta.last_row_id) ? Number(ins.meta.last_row_id) : null, qty: delta };
+  }
+
+  const newQty = vaxInt(row.qty, 0) + delta;
+
+  await dbRun(
+    env,
+    `UPDATE vaccines_stock SET qty = ?, updated_at = ? WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [newQty, ts, row.id, orgId, locationId]
+  );
+
+  return { id: row.id, qty: newQty };
+}
+
+async function handleVaccinesOrdersCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureVaccinesSchema(env);
+
+  const body = await readJson(request);
+
+  const section = vaxNormName(body.section || "");
+  const country_code = vaxNormName(body.country_code || "");
+  const country_name = vaxNormName(body.country_name || "");
+
+  const client_first = vaxNormName(body.client_first || "");
+  const client_last = vaxNormName(body.client_last || "");
+  const phone = vaxNormName(body.phone || "");
+  const email = vaxNormName(body.email || "");
+
+  if (!client_first || !client_last) return jsonResponse({ ok: false, error: "Missing client name" }, 400, corsOkHeaders);
+  if (!phone) return jsonResponse({ ok: false, error: "Missing phone" }, 400, corsOkHeaders);
+
+  const itemsIn = Array.isArray(body.items) ? body.items : [];
+  if (!itemsIn.length) return jsonResponse({ ok: false, error: "No items" }, 400, corsOkHeaders);
+
+  // Normalize + aggregate duplicate vaccine names
+  const agg = {};
+  const items = [];
+  itemsIn.forEach(it => {
+    const nm = vaxNormName(it && (it.name || it.vaccine_name));
+    if (!nm) return;
+    let q = vaxInt(it.qty, 1);
+    if (q <= 0) q = 1;
+    agg[nm] = (agg[nm] || 0) + q;
+  });
+
+  Object.keys(agg).sort((a, b) => String(a).localeCompare(String(b))).forEach(nm => {
+    items.push({ name: nm, qty: agg[nm] });
+  });
+
+  if (!items.length) return jsonResponse({ ok: false, error: "No valid items" }, 400, corsOkHeaders);
+
+  const created_at = nowIso();
+
+  const res = await dbRun(
+    env,
+    `INSERT INTO vaccines_orders (org_id, location_id, created_at, section, country_code, country_name, client_first, client_last, phone, email)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [authUser.org_id, authUser.location_id, created_at, section, country_code, country_name, client_first, client_last, phone, email]
+  );
+
+  const orderId = (res && res.meta && res.meta.last_row_id) ? Number(res.meta.last_row_id) : null;
+  if (!orderId) return jsonResponse({ ok: false, error: "Failed to create order" }, 500, corsOkHeaders);
+
+  // Insert items
+  for (const it of items) {
+    await dbRun(
+      env,
+      `INSERT INTO vaccines_order_items (org_id, location_id, order_id, vaccine_name, qty)
+       VALUES (?, ?, ?, ?, ?)`,
+      [authUser.org_id, authUser.location_id, orderId, it.name, it.qty]
+    );
+  }
+
+  // Apply stock subtraction (negative delta). This must never crash the order if stock is missing.
+  let stockTouches = [];
+  try {
+    for (const it of items) {
+      const upd = await applyVaccineStockDelta(env, authUser.org_id, authUser.location_id, it.name, -Math.abs(vaxInt(it.qty, 1)));
+      if (upd) stockTouches.push(upd);
+    }
+  } catch (e) {
+    // Ignore stock errors; orders must still be saved.
+  }
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "VAX_ORDER_CREATE", "vaccines_orders", String(orderId), {
+    section, country_code, country_name, client_first, client_last, phone, email, items
+  });
+
+  return jsonResponse({
+    ok: true,
+    order: {
+      id: orderId,
+      created_at,
+      section,
+      country_code,
+      country_name,
+      client_first,
+      client_last,
+      phone,
+      email,
+      items
+    },
+    stock: stockTouches
+  }, 200, corsOkHeaders);
+}
+
+async function handleVaccinesStockRowsList(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureVaccinesSchema(env);
+
+  const q = (url.searchParams.get("q") || "").trim();
+  const hasQ = !!q;
+  const qLike = `%${q}%`;
+
+  const sql = hasQ
+    ? `SELECT id, vaccine_name, qty, batch, expiry_date, updated_at
+       FROM vaccines_stock
+       WHERE org_id = ? AND location_id = ?
+         AND (vaccine_name LIKE ? OR batch LIKE ? OR expiry_date LIKE ?)
+       ORDER BY vaccine_name COLLATE NOCASE ASC, expiry_date ASC, id ASC`
+    : `SELECT id, vaccine_name, qty, batch, expiry_date, updated_at
+       FROM vaccines_stock
+       WHERE org_id = ? AND location_id = ?
+       ORDER BY vaccine_name COLLATE NOCASE ASC, expiry_date ASC, id ASC`;
+
+  const bind = hasQ
+    ? [authUser.org_id, authUser.location_id, qLike, qLike, qLike]
+    : [authUser.org_id, authUser.location_id];
+
+  const res = await env.DB.prepare(sql).bind(...bind).all();
+  const rows = (res && res.results) ? res.results : [];
+
+  return jsonResponse({ ok: true, rows }, 200, corsOkHeaders);
+}
+
+async function handleVaccinesStockRowCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureVaccinesSchema(env);
+
+  const body = await readJson(request);
+
+  const vaccine_name = vaxNormName(body.vaccine_name || body.name || "");
+  if (!vaccine_name) return jsonResponse({ ok: false, error: "Missing vaccine_name" }, 400, corsOkHeaders);
+
+  const qty = vaxInt(body.qty, 0);
+  const batch = vaxNormText(body.batch || "").trim();
+  const expiry_date = vaxNormText(body.expiry_date || "").trim();
+  const updated_at = nowIso();
+
+  const res = await dbRun(
+    env,
+    `INSERT INTO vaccines_stock (org_id, location_id, vaccine_name, qty, batch, expiry_date, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [authUser.org_id, authUser.location_id, vaccine_name, qty, batch, expiry_date, updated_at]
+  );
+
+  const id = (res && res.meta && res.meta.last_row_id) ? Number(res.meta.last_row_id) : null;
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "VAX_STOCK_CREATE", "vaccines_stock", String(id || ""), {
+    vaccine_name, qty, batch, expiry_date
+  });
+
+  return jsonResponse({ ok: true, id, updated_at }, 200, corsOkHeaders);
+}
+
+async function handleVaccinesStockRowUpdate(request, env, corsOkHeaders, authUser, id) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureVaccinesSchema(env);
+
+  const row = await dbFirst(env, `SELECT id, vaccine_name FROM vaccines_stock WHERE id = ? AND org_id = ? AND location_id = ?`, [id, authUser.org_id, authUser.location_id]);
+  if (!row) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+
+  const qty = vaxInt(body.qty, 0);
+  const batch = vaxNormText(body.batch || "").trim();
+  const expiry_date = vaxNormText(body.expiry_date || "").trim();
+  const updated_at = nowIso();
+
+  await dbRun(
+    env,
+    `UPDATE vaccines_stock
+     SET qty = ?, batch = ?, expiry_date = ?, updated_at = ?
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [qty, batch, expiry_date, updated_at, id, authUser.org_id, authUser.location_id]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "VAX_STOCK_UPDATE", "vaccines_stock", String(id), {
+    vaccine_name: row.vaccine_name, qty, batch, expiry_date
+  });
+
+  return jsonResponse({ ok: true, id, updated_at }, 200, corsOkHeaders);
+}
+
+// ── Pharmacy Calculators ────────────────────────────────────────────────────
+
+async function ensurePharmacyCalcSchema(env) {
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS pharmacy_calc_patients (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id       INTEGER NOT NULL,
+    location_id  INTEGER NOT NULL,
+    patient_name TEXT    NOT NULL DEFAULT '',
+    id_card      TEXT    NOT NULL DEFAULT '',
+    created_at   TEXT    NOT NULL DEFAULT (datetime('now')),
+    updated_at   TEXT    NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(org_id, location_id, id_card)
+  )`, []);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_pharm_calc_patients_org_loc
+    ON pharmacy_calc_patients (org_id, location_id, id_card)`, []);
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS pharmacy_calc_records (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id           INTEGER NOT NULL,
+    location_id      INTEGER NOT NULL,
+    patient_name     TEXT    NOT NULL DEFAULT '',
+    id_card          TEXT    NOT NULL DEFAULT '',
+    start_date       TEXT    NOT NULL DEFAULT '',
+    calc_type        TEXT    NOT NULL DEFAULT '',
+    calc_data_json   TEXT    NOT NULL DEFAULT '{}',
+    created_at       TEXT    NOT NULL DEFAULT (datetime('now')),
+    created_by       INTEGER
+  )`, []);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_pharm_calc_records_org_loc
+    ON pharmacy_calc_records (org_id, location_id, created_at DESC)`, []);
+}
+
+async function handlePharmacyCalcPatientsList(request, env, corsOkHeaders, authUser) {
+  await ensurePharmacyCalcSchema(env);
+  const rows = await dbAll(env,
+    `SELECT id, patient_name, id_card FROM pharmacy_calc_patients
+     WHERE org_id = ? AND location_id = ?
+     ORDER BY patient_name ASC`,
+    [authUser.org_id, authUser.location_id]
+  );
+  return jsonResponse({ ok: true, patients: rows || [] }, 200, corsOkHeaders);
+}
+
+async function handlePharmacyCalcRecordsList(request, env, corsOkHeaders, authUser) {
+  await ensurePharmacyCalcSchema(env);
+  const rows = await dbAll(env,
+    `SELECT id, patient_name, id_card, start_date, calc_type, created_at
+     FROM pharmacy_calc_records
+     WHERE org_id = ? AND location_id = ?
+     ORDER BY created_at DESC
+     LIMIT 200`,
+    [authUser.org_id, authUser.location_id]
+  );
+  return jsonResponse({ ok: true, records: rows || [] }, 200, corsOkHeaders);
+}
+
+async function handlePharmacyCalcRecordsCreate(request, env, corsOkHeaders, authUser) {
+  await ensurePharmacyCalcSchema(env);
+  const body = await request.json().catch(() => ({}));
+  const patientName  = String(body.patient_name  || "").trim();
+  const idCard       = String(body.id_card        || "").trim();
+  const startDate    = String(body.start_date     || "").trim();
+  const calcType     = String(body.calc_type      || "").trim();
+  const calcDataJson = typeof body.calc_data_json === "string"
+    ? body.calc_data_json
+    : JSON.stringify(body.calc_data_json || {});
+
+  if (!patientName) return jsonResponse({ ok: false, error: "patient_name is required" }, 400, corsOkHeaders);
+  if (!idCard)      return jsonResponse({ ok: false, error: "id_card is required" },      400, corsOkHeaders);
+  if (!calcType)    return jsonResponse({ ok: false, error: "calc_type is required" },    400, corsOkHeaders);
+
+  // Upsert patient — unique key is (org_id, location_id, id_card)
+  await dbRun(env,
+    `INSERT INTO pharmacy_calc_patients
+       (org_id, location_id, patient_name, id_card, created_at, updated_at)
+     VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))
+     ON CONFLICT(org_id, location_id, id_card) DO UPDATE SET
+       patient_name = excluded.patient_name,
+       updated_at   = datetime('now')`,
+    [authUser.org_id, authUser.location_id, patientName, idCard]
+  );
+
+  const row = await dbFirst(env,
+    `INSERT INTO pharmacy_calc_records
+       (org_id, location_id, patient_name, id_card, start_date, calc_type, calc_data_json, created_at, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)
+     RETURNING id`,
+    [authUser.org_id, authUser.location_id, patientName, idCard, startDate, calcType, calcDataJson, authUser.user_id]
+  );
+
+  return jsonResponse({ ok: true, id: row ? row.id : null }, 201, corsOkHeaders);
+}
+
+async function handlePharmacyCalcRecordDelete(request, env, corsOkHeaders, authUser, recordId) {
+  await ensurePharmacyCalcSchema(env);
+  const existing = await dbFirst(env,
+    `SELECT id FROM pharmacy_calc_records WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [recordId, authUser.org_id, authUser.location_id]
+  );
+  if (!existing) return jsonResponse({ ok: false, error: "Record not found" }, 404, corsOkHeaders);
+  await dbRun(env,
+    `DELETE FROM pharmacy_calc_records WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [recordId, authUser.org_id, authUser.location_id]
+  );
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handlePharmacyCalcRecordGet(request, env, corsOkHeaders, authUser, recordId) {
+  await ensurePharmacyCalcSchema(env);
+  const row = await dbFirst(env,
+    `SELECT id, patient_name, id_card, start_date, calc_type, calc_data_json, created_at, created_by
+     FROM pharmacy_calc_records
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [recordId, authUser.org_id, authUser.location_id]
+  );
+  if (!row) return jsonResponse({ ok: false, error: "Record not found" }, 404, corsOkHeaders);
+  return jsonResponse({ ok: true, record: row }, 200, corsOkHeaders);
+}
+
+
+
+// ── SHIFTS MODULE FUNCTIONS ────────────────────────────────────
+async function ensureShiftsSchema(env) {
+  // Staff roster
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS shift_staff (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id INTEGER NOT NULL,
+    location_id INTEGER NOT NULL,
+    full_name TEXT NOT NULL,
+    designation TEXT NOT NULL DEFAULT 'other',
+    employment_type TEXT NOT NULL DEFAULT 'fulltime',
+    contracted_hours REAL NOT NULL DEFAULT 40,
+    email TEXT NOT NULL DEFAULT '',
+    phone TEXT NOT NULL DEFAULT '',
+    registration_number TEXT NOT NULL DEFAULT '',
+    is_active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    created_by INTEGER
+  )`, []);
+
+  
+// Migrations: add patterns_json if missing (older deployments)
+try {
+  const cols = await dbAll(env, `PRAGMA table_info(shift_staff)`, []);
+  const has = cols && cols.some(c => c.name === "patterns_json");
+  if (!has) {
+    await dbRun(env, `ALTER TABLE shift_staff ADD COLUMN patterns_json TEXT NOT NULL DEFAULT '[]'`, []);
+  }
+} catch (e) { /* ignore */ }
+
+// Shift assignments
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS shift_assignments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id INTEGER NOT NULL,
+    location_id INTEGER NOT NULL,
+    staff_id INTEGER NOT NULL REFERENCES shift_staff(id),
+    shift_date TEXT NOT NULL,
+    start_time TEXT NOT NULL DEFAULT '09:00',
+    end_time TEXT NOT NULL DEFAULT '18:00',
+    role_override TEXT NOT NULL DEFAULT '',
+    notes TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    created_by INTEGER
+  )`, []);
+
+  // Leave requests
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS shift_leaves (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id INTEGER NOT NULL,
+    location_id INTEGER NOT NULL,
+    staff_id INTEGER NOT NULL REFERENCES shift_staff(id),
+    leave_type TEXT NOT NULL DEFAULT 'annual',
+    start_date TEXT NOT NULL,
+    start_time TEXT,
+    end_date TEXT NOT NULL,
+    end_time TEXT,
+    hours_requested REAL NOT NULL DEFAULT 8,
+    reason TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'pending',
+    reviewed_by INTEGER,
+    reviewed_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    created_by INTEGER
+  )`, []);
+
+  // Opening hours (stored as single JSON row per location)
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS shift_opening_hours (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id INTEGER NOT NULL,
+    location_id INTEGER NOT NULL,
+    hours_json TEXT NOT NULL DEFAULT '{}',
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_by INTEGER,
+    UNIQUE(org_id, location_id)
+  )`, []);
+
+  // Settings (stored as single JSON row per location)
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS shift_settings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id INTEGER NOT NULL,
+    location_id INTEGER NOT NULL,
+    settings_json TEXT NOT NULL DEFAULT '{}',
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_by INTEGER,
+    UNIQUE(org_id, location_id)
+  )`, []);
+
+
+  // Calendar feed tokens (public iCal subscription)
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS shift_calendar_tokens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id INTEGER NOT NULL,
+    location_id INTEGER NOT NULL,
+    token TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_by INTEGER,
+    UNIQUE(org_id, location_id),
+    UNIQUE(token)
+  )`, []);
+  // Indexes
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_shift_staff_org_loc ON shift_staff (org_id, location_id, is_active)`, []);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_shift_assign_org_date ON shift_assignments (org_id, location_id, shift_date)`, []);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_shift_leaves_org ON shift_leaves (org_id, location_id, status, start_date)`, []);
+}
+
+/* ── 2. HANDLER FUNCTIONS ────────────────────────────────────────
+   Paste these near the other handler functions                    */
+
+// ── Staff ─────────────────────────────────────────────────────────
+
+async function handleShiftStaffList(request, env, corsOkHeaders, authUser, url) {
+  await ensureShiftsSchema(env);
+  const includeInactive = (url.searchParams.get("include_inactive") || "") === "1";
+  const staff = await dbAll(env,
+    `SELECT id, full_name, designation, employment_type, contracted_hours,
+            email, phone, registration_number, patterns_json, is_active, created_at, updated_at
+     FROM shift_staff
+     WHERE org_id = ? AND location_id = ?
+     ${includeInactive ? "" : "AND is_active = 1"}
+     ORDER BY full_name ASC`,
+    [authUser.org_id, authUser.location_id]);
+  return jsonResponse({ ok: true, staff }, 200, corsOkHeaders);
+}
+
+async function handleShiftStaffCreate(request, env, corsOkHeaders, authUser) {
+  await ensureShiftsSchema(env);
+  const body = await readJson(request);
+  try {
+    console.log("[shifts][staff-create] org:", authUser && authUser.org_id, "loc:", authUser && authUser.location_id);
+    const pj = body && body.patterns_json;
+    if (pj != null) console.log("[shifts][staff-create] patterns_json type:", typeof pj, "len:", String(pj).length);
+  } catch(e) {}
+  const fullName = String(body.full_name || "").trim();
+  if (!fullName) return jsonResponse({ ok: false, error: "Missing full_name" }, 400, corsOkHeaders);
+  const designation = String(body.designation || "other").trim();
+  const empType = String(body.employment_type || "fulltime").trim();
+  const hours = Math.max(1, Math.min(48, parseFloat(body.contracted_hours) || 40));
+  const isActive = (body.is_active == null) ? 1 : ((parseInt(body.is_active,10) ? 1 : 0));
+  const row = await dbFirst(env,
+    `INSERT INTO shift_staff (org_id, location_id, full_name, designation, employment_type,
+       contracted_hours, email, phone, registration_number, patterns_json, is_active, created_at, updated_at, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), ?) RETURNING id`,
+    [authUser.org_id, authUser.location_id, fullName, designation, empType, hours,
+     String(body.email || "").trim(), String(body.phone || "").trim(),
+     String(body.registration_number || "").trim(),
+     typeof body.patterns_json === "string" ? body.patterns_json : JSON.stringify(body.patterns || body.week_patterns || []),
+     isActive,
+     authUser.user_id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SHIFT_STAFF_CREATE", "shift_staff", String(row.id), { full_name: fullName });
+  return jsonResponse({ ok: true, staff_id: row.id }, 200, corsOkHeaders);
+}
+
+async function handleShiftStaffUpdate(request, env, corsOkHeaders, authUser, staffId) {
+  await ensureShiftsSchema(env);
+  const ex = await dbFirst(env, `SELECT id FROM shift_staff WHERE id=? AND org_id=? AND location_id=?`, [staffId, authUser.org_id, authUser.location_id]);
+  if (!ex) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+  const body = await readJson(request);
+  try {
+    console.log("[shifts][staff-update] staffId:", staffId, "org:", authUser && authUser.org_id, "loc:", authUser && authUser.location_id);
+  } catch(e) {}
+  const fullName = String(body.full_name || "").trim();
+  try {
+    const pj = (body && body.patterns_json);
+    if (pj != null) console.log("[shifts][staff-update] patterns_json type:", typeof pj, "len:", String(pj).length);
+  } catch(e) {}
+  if (!fullName) return jsonResponse({ ok: false, error: "Missing full_name" }, 400, corsOkHeaders);
+  await dbRun(env,
+    `UPDATE shift_staff SET full_name=?, designation=?, employment_type=?, contracted_hours=?,
+       email=?, phone=?, registration_number=?, patterns_json=?, is_active=?, updated_at=datetime('now')
+     WHERE id=? AND org_id=? AND location_id=?`,
+    [fullName, String(body.designation||"other"), String(body.employment_type||"fulltime"),
+     Math.max(1,Math.min(48,parseFloat(body.contracted_hours)||40)),
+     String(body.email||"").trim(), String(body.phone||"").trim(),
+     String(body.registration_number||"").trim(),
+     typeof body.patterns_json === "string" ? body.patterns_json : JSON.stringify(body.patterns || body.week_patterns || []),
+     body.is_active === 0 ? 0 : 1,
+     staffId, authUser.org_id, authUser.location_id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SHIFT_STAFF_UPDATE", "shift_staff", String(staffId), {});
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+// ── Assignments ───────────────────────────────────────────────────
+
+async function handleShiftAssignmentsList(request, env, corsOkHeaders, authUser, url) {
+  await ensureShiftsSchema(env);
+  const year = parseInt(url.searchParams.get("year") || new Date().getFullYear());
+  const month = parseInt(url.searchParams.get("month") || new Date().getMonth() + 1);
+  if (!year || !month) return jsonResponse({ ok: false, error: "year and month required" }, 400, corsOkHeaders);
+  const from = `${year}-${String(month).padStart(2,"0")}-01`;
+  const nextM = month === 12 ? `${year+1}-01-01` : `${year}-${String(month+1).padStart(2,"0")}-01`;
+  const shifts = await dbAll(env,
+    `SELECT id, staff_id, shift_date, start_time, end_time, role_override, notes
+     FROM shift_assignments
+     WHERE org_id=? AND location_id=? AND shift_date>=? AND shift_date<?
+     ORDER BY shift_date ASC, start_time ASC`,
+    [authUser.org_id, authUser.location_id, from, nextM]);
+  return jsonResponse({ ok: true, shifts }, 200, corsOkHeaders);
+}
+
+async function handleShiftAssignmentCreate(request, env, corsOkHeaders, authUser) {
+  await ensureShiftsSchema(env);
+  const body = await readJson(request);
+  const staffId = parseInt(body.staff_id);
+  const shiftDate = String(body.shift_date || "").trim();
+  const startTime = String(body.start_time || "09:00").trim();
+  const endTime = String(body.end_time || "18:00").trim();
+  if (!staffId || !shiftDate) return jsonResponse({ ok: false, error: "staff_id and shift_date required" }, 400, corsOkHeaders);
+  const row = await dbFirst(env,
+    `INSERT INTO shift_assignments (org_id, location_id, staff_id, shift_date, start_time, end_time,
+       role_override, notes, created_at, updated_at, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), ?) RETURNING id`,
+    [authUser.org_id, authUser.location_id, staffId, shiftDate, startTime, endTime,
+     String(body.role_override||""), String(body.notes||""), authUser.user_id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SHIFT_ASSIGN_CREATE", "shift_assignments", String(row.id), { shift_date: shiftDate });
+  return jsonResponse({ ok: true, shift_id: row.id }, 200, corsOkHeaders);
+}
+
+async function handleShiftAssignmentUpdate(request, env, corsOkHeaders, authUser, shiftId) {
+  await ensureShiftsSchema(env);
+  const ex = await dbFirst(env, `SELECT id FROM shift_assignments WHERE id=? AND org_id=? AND location_id=?`, [shiftId, authUser.org_id, authUser.location_id]);
+  if (!ex) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+  const body = await readJson(request);
+  await dbRun(env,
+    `UPDATE shift_assignments SET start_time=?, end_time=?, role_override=?, notes=?, updated_at=datetime('now')
+     WHERE id=? AND org_id=? AND location_id=?`,
+    [String(body.start_time||"09:00"), String(body.end_time||"18:00"),
+     String(body.role_override||""), String(body.notes||""),
+     shiftId, authUser.org_id, authUser.location_id]);
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleShiftAssignmentDelete(request, env, corsOkHeaders, authUser, shiftId) {
+  await ensureShiftsSchema(env);
+  await dbRun(env, `DELETE FROM shift_assignments WHERE id=? AND org_id=? AND location_id=?`, [shiftId, authUser.org_id, authUser.location_id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SHIFT_ASSIGN_DELETE", "shift_assignments", String(shiftId), {});
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+
+async function handleShiftApplyPattern(request, env, corsOkHeaders, authUser) {
+  await ensureShiftsSchema(env);
+  const body = await readJson(request);
+
+  const staffId = parseInt(body.staff_id || body.staffId);
+  if (!staffId) return jsonResponse({ ok:false, error:"staff_id required" }, 400, corsOkHeaders);
+
+  // verify staff belongs to org/location
+  const st = await dbFirst(env, `SELECT id FROM shift_staff WHERE id=? AND org_id=? AND location_id=?`, [staffId, authUser.org_id, authUser.location_id]);
+  if (!st) return jsonResponse({ ok:false, error:"Staff not found" }, 404, corsOkHeaders);
+
+  const mode = String(body.mode || "overwrite"); // overwrite | fill
+  const start = String(body.start_date || body.startDate || "").trim();
+  const end = String(body.end_date || body.endDate || "").trim();
+  try {
+    const pat = body && (body.pattern || body.week_pattern || {});
+    const week = pat && pat.week;
+    console.log("[shifts][apply-pattern] staffId:", staffId, "mode:", mode, "start:", start, "end:", end,
+                "hasDates:", Array.isArray(body.dates) ? body.dates.length : 0,
+                "weekLen:", Array.isArray(week) ? week.length : 0);
+  } catch(e) {}
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end)) {
+    return jsonResponse({ ok:false, error:"start_date and end_date required (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  }
+  if (end < start) return jsonResponse({ ok:false, error:"end_date must be >= start_date" }, 400, corsOkHeaders);
+
+  // Normalize inputs
+  const explicitDates = Array.isArray(body.dates) ? body.dates : null;
+  const week = body.pattern && Array.isArray(body.pattern.week) ? body.pattern.week : (body.week && Array.isArray(body.week) ? body.week : null);
+
+  function dow(dateStr) {
+    const [Y,M,D] = dateStr.split("-").map(n=>parseInt(n,10));
+    const dt = new Date(Date.UTC(Y, M-1, D));
+    return dt.getUTCDay(); // 0 Sun .. 6 Sat
+  }
+  function addDays(dateStr, n) {
+    const [Y,M,D] = dateStr.split("-").map(n=>parseInt(n,10));
+    const dt = new Date(Date.UTC(Y, M-1, D));
+    dt.setUTCDate(dt.getUTCDate()+n);
+    const yy = dt.getUTCFullYear();
+    const mm = String(dt.getUTCMonth()+1).padStart(2,"0");
+    const dd = String(dt.getUTCDate()).padStart(2,"0");
+    return `${yy}-${mm}-${dd}`;
+  }
+
+  // Build list of candidate rows
+  const rows = [];
+  if (explicitDates) {
+    for (const it of explicitDates) {
+      const date = String(it.date || it.shift_date || "").trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+      if (date < start || date > end) continue;
+      const stt = String(it.start_time || it.start || "").trim();
+      const ett = String(it.end_time || it.end || "").trim();
+      if (!stt || !ett) continue;
+      rows.push({ date, start_time: stt, end_time: ett, role_override: String(it.role_override||"").trim(), notes: String(it.notes||"").trim() });
+    }
+  } else if (week) {
+    // Week array indexed 0..6; each entry {off,start,end}
+    let cur = start;
+    while (cur <= end) {
+      const d = dow(cur);
+      const entry = week[d] || {};
+      const off = !!entry.off;
+      const stt = String(entry.start || entry.start_time || "").trim();
+      const ett = String(entry.end || entry.end_time || "").trim();
+      if (!off && stt && ett) {
+        rows.push({ date: cur, start_time: stt, end_time: ett, role_override: String(entry.role_override||"").trim(), notes: String(entry.notes||"").trim() });
+      }
+      cur = addDays(cur, 1);
+    }
+  } else {
+    return jsonResponse({ ok:false, error:"Provide either body.dates[] or body.pattern.week[]" }, 400, corsOkHeaders);
+  }
+
+  // Determine which dates already have shifts (for fill mode)
+  let existing = new Set();
+  if (mode === "fill") {
+    const ex = await dbAll(env, `SELECT shift_date FROM shift_assignments WHERE org_id=? AND location_id=? AND staff_id=? AND shift_date>=? AND shift_date<=?`,
+      [authUser.org_id, authUser.location_id, staffId, start, end]);
+    for (const r of ex) existing.add(r.shift_date);
+  } else {
+    // overwrite
+    await dbRun(env, `DELETE FROM shift_assignments WHERE org_id=? AND location_id=? AND staff_id=? AND shift_date>=? AND shift_date<=?`,
+      [authUser.org_id, authUser.location_id, staffId, start, end]);
+  }
+
+  let inserted = 0;
+  for (const r of rows) {
+    if (mode === "fill" && existing.has(r.date)) continue;
+    await dbRun(env,
+      `INSERT INTO shift_assignments (org_id, location_id, staff_id, shift_date, start_time, end_time, role_override, notes, created_at, updated_at, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), ?)`,
+      [authUser.org_id, authUser.location_id, staffId, r.date, r.start_time, r.end_time, r.role_override || "", r.notes || "", authUser.user_id]);
+    inserted++;
+  }
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SHIFT_APPLY_PATTERN", "shift_assignments", String(staffId), { mode, start, end, inserted });
+
+  try { console.log("[shifts][apply-pattern] done staffId:", staffId, "inserted:", inserted); } catch(e) {}
+  return jsonResponse({ ok:true, inserted }, 200, corsOkHeaders);
+}
+
+// ── Leaves ────────────────────────────────────────────────────────
+
+async function handleShiftLeavesList(request, env, corsOkHeaders, authUser, url) {
+  await ensureShiftsSchema(env);
+  const year = parseInt(url.searchParams.get("year") || new Date().getFullYear());
+  const from = `${year}-01-01`, to = `${year}-12-31`;
+  const leaves = await dbAll(env,
+    `SELECT id, staff_id, leave_type, start_date, start_time, end_date, end_time,
+            hours_requested, reason, status, reviewed_by, reviewed_at, created_at
+     FROM shift_leaves
+     WHERE org_id=? AND location_id=? AND start_date>=? AND start_date<=?
+     ORDER BY start_date DESC`,
+    [authUser.org_id, authUser.location_id, from, to]);
+  return jsonResponse({ ok: true, leaves }, 200, corsOkHeaders);
+}
+
+async function handleShiftLeaveCreate(request, env, corsOkHeaders, authUser) {
+  await ensureShiftsSchema(env);
+  const body = await readJson(request);
+  const staffId = parseInt(body.staff_id);
+  const startDate = String(body.start_date || "").trim();
+  const endDate = String(body.end_date || startDate).trim();
+  if (!staffId || !startDate) return jsonResponse({ ok: false, error: "staff_id and start_date required" }, 400, corsOkHeaders);
+  const row = await dbFirst(env,
+    `INSERT INTO shift_leaves (org_id, location_id, staff_id, leave_type, start_date, start_time,
+       end_date, end_time, hours_requested, reason, status, created_at, updated_at, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', datetime('now'), datetime('now'), ?) RETURNING id`,
+    [authUser.org_id, authUser.location_id, staffId,
+     String(body.leave_type||"annual"), startDate, body.start_time||null,
+     endDate, body.end_time||null, parseFloat(body.hours_requested)||8,
+     String(body.reason||""), authUser.user_id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SHIFT_LEAVE_CREATE", "shift_leaves", String(row.id), { start_date: startDate });
+  return jsonResponse({ ok: true, leave_id: row.id }, 200, corsOkHeaders);
+}
+
+async function handleShiftLeaveApprove(request, env, corsOkHeaders, authUser, leaveId) {
+  await ensureShiftsSchema(env);
+  await dbRun(env,
+    `UPDATE shift_leaves SET status='approved', reviewed_by=?, reviewed_at=datetime('now'), updated_at=datetime('now')
+     WHERE id=? AND org_id=? AND location_id=?`,
+    [authUser.user_id, leaveId, authUser.org_id, authUser.location_id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SHIFT_LEAVE_APPROVE", "shift_leaves", String(leaveId), {});
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleShiftLeaveReject(request, env, corsOkHeaders, authUser, leaveId) {
+  await ensureShiftsSchema(env);
+  await dbRun(env,
+    `UPDATE shift_leaves SET status='rejected', reviewed_by=?, reviewed_at=datetime('now'), updated_at=datetime('now')
+     WHERE id=? AND org_id=? AND location_id=?`,
+    [authUser.user_id, leaveId, authUser.org_id, authUser.location_id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SHIFT_LEAVE_REJECT", "shift_leaves", String(leaveId), {});
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+// ── Opening Hours & Settings ──────────────────────────────────────
+
+async function handleShiftOpeningHoursGet(request, env, corsOkHeaders, authUser) {
+  await ensureShiftsSchema(env);
+  const row = await dbFirst(env, `SELECT hours_json FROM shift_opening_hours WHERE org_id=? AND location_id=?`, [authUser.org_id, authUser.location_id]);
+  const hours = row ? JSON.parse(row.hours_json || "{}") : { default: { open:"07:30", close:"19:30", closed:false }, openSaturday:true, openSunday:false, overrides:{} };
+  return jsonResponse({ ok: true, hours }, 200, corsOkHeaders);
+}
+
+async function handleShiftOpeningHoursPut(request, env, corsOkHeaders, authUser) {
+  await ensureShiftsSchema(env);
+  const body = await readJson(request);
+  const json = JSON.stringify(body);
+  await dbRun(env,
+    `INSERT INTO shift_opening_hours (org_id, location_id, hours_json, updated_at, updated_by) VALUES (?,?,?,datetime('now'),?)
+     ON CONFLICT(org_id, location_id) DO UPDATE SET hours_json=excluded.hours_json, updated_at=excluded.updated_at, updated_by=excluded.updated_by`,
+    [authUser.org_id, authUser.location_id, json, authUser.user_id]);
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleShiftSettingsGet(request, env, corsOkHeaders, authUser) {
+  await ensureShiftsSchema(env);
+  const row = await dbFirst(env, `SELECT settings_json FROM shift_settings WHERE org_id=? AND location_id=?`, [authUser.org_id, authUser.location_id]);
+  const settings = row ? JSON.parse(row.settings_json || "{}") : { pharmacistRequired: true, minPharmacists: 1 };
+  return jsonResponse({ ok: true, settings }, 200, corsOkHeaders);
+}
+
+async function handleShiftSettingsPut(request, env, corsOkHeaders, authUser) {
+  await ensureShiftsSchema(env);
+  const body = await readJson(request);
+
+  await dbRun(env,
+    `INSERT INTO shift_settings (org_id, location_id, settings_json, updated_at, updated_by) VALUES (?,?,?,datetime('now'),?)
+     ON CONFLICT(org_id, location_id) DO UPDATE SET settings_json=excluded.settings_json, updated_at=excluded.updated_at, updated_by=excluded.updated_by`,
+    [authUser.org_id, authUser.location_id, JSON.stringify(body), authUser.user_id]);
+
+  // --- Sync calendarToken (stored in settings_json by UI) into shift_calendar_tokens table for public iCal feed ---
+  try {
+    const tok = String((body && (body.calendarToken || body.calendar_token)) || "").trim();
+    if (tok) {
+      const ok = /^[a-z0-9]{12,128}$/i.test(tok);
+      if (!ok) {
+        console.log("[shifts][settings] calendarToken ignored (invalid)", tok);
+      } else {
+        console.log("[shifts][settings] syncing calendarToken -> shift_calendar_tokens", authUser.org_id, authUser.location_id, tok.slice(0, 6) + "…");
+        await dbRun(env, `DELETE FROM shift_calendar_tokens WHERE org_id=? AND location_id=?`, [authUser.org_id, authUser.location_id]);
+        await dbRun(env, `INSERT INTO shift_calendar_tokens (org_id, location_id, token) VALUES (?,?,?)`, [authUser.org_id, authUser.location_id, tok]);
+      }
+    }
+  } catch (e) {
+    console.log("[shifts][settings] calendarToken sync failed", e && (e.stack || e));
+  }
+
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+
+function ymdFromDate(dt){
+  const y = dt.getFullYear();
+  const m = String(dt.getMonth()+1).padStart(2,"0");
+  const d = String(dt.getDate()).padStart(2,"0");
+  return `${y}-${m}-${d}`;
+}
+function addDaysYmdStr(ds, n){
+  const dt = new Date(ds+"T00:00:00Z");
+  dt.setUTCDate(dt.getUTCDate()+n);
+  return ymdFromDate(new Date(Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth(), dt.getUTCDate())));
+}
+function icsEscape(s){
+  return String(s||"")
+    .replace(/\\/g,"\\\\")
+    .replace(/\n/g,"\\n")
+    .replace(/\r/g,"")
+    .replace(/;/g,"\\;")
+    .replace(/,/g,"\\,");
+}
+function icsDtLocal(ds, time){
+  // ds = YYYY-MM-DD, time = HH:MM
+  const p = String(ds).split("-");
+  const t = String(time||"00:00").split(":");
+  const y=p[0], m=p[1], d=p[2];
+  const hh = String(t[0]||"00").padStart(2,"0");
+  const mm = String(t[1]||"00").padStart(2,"0");
+  return `${y}${m}${d}T${hh}${mm}00`;
+}
+
+async function handleShiftAssignmentsRangeList(request, env, corsOkHeaders, authUser, url) {
+  await ensureShiftsSchema(env);
+  const from = String(url.searchParams.get("from")||"").trim();
+  const to   = String(url.searchParams.get("to")||"").trim();
+  const staffId = url.searchParams.get("staff_id") ? parseInt(url.searchParams.get("staff_id")) : null;
+  if (!isValidYmd(from) || !isValidYmd(to)) return jsonResponse({ ok:false, error:"from and to (YYYY-MM-DD) required" }, 400, corsOkHeaders);
+
+  console.log("[shifts][range] org", authUser.org_id, "loc", authUser.location_id, "from", from, "to", to, "staff", staffId||"ALL");
+
+  const params = [authUser.org_id, authUser.location_id, from, to];
+  let sql = `SELECT id, staff_id, shift_date, start_time, end_time, role_override, notes
+             FROM shift_assignments
+             WHERE org_id=? AND location_id=? AND shift_date>=? AND shift_date<=?`;
+  if (staffId) { sql += ` AND staff_id=?`; params.push(staffId); }
+  sql += ` ORDER BY shift_date ASC, start_time ASC`;
+
+  const shifts = await dbAll(env, sql, params);
+  return jsonResponse({ ok:true, shifts }, 200, corsOkHeaders);
+}
+
+async function handleShiftIcalPublic(request, env, corsOkHeaders, url) {
+  await ensureShiftsSchema(env);
+  const token = String(url.searchParams.get("token")||"").trim();
+  if (!token) return new Response("Missing token", { status: 400, headers: { "Content-Type":"text/plain; charset=utf-8" } });
+
+  let map = await dbFirst(env, `SELECT org_id, location_id FROM shift_calendar_tokens WHERE token=?`, [token]);
+
+  // Backward-compat fallback: if token table not populated yet, try settings_json.calendarToken
+  if (!map && /^[a-z0-9]{12,128}$/i.test(token)) {
+    try {
+      const like = '%"calendarToken":"' + token + '"%';
+      const row = await dbFirst(env, `SELECT org_id, location_id, settings_json FROM shift_settings WHERE settings_json LIKE ? LIMIT 5`, [like]);
+      if (row) {
+        try {
+          const st = JSON.parse(row.settings_json || '{}');
+          if (st && String(st.calendarToken || '').trim() === token) {
+            map = { org_id: row.org_id, location_id: row.location_id };
+            console.log("[shifts][ical] token resolved via settings_json for org", map.org_id, "loc", map.location_id);
+          }
+        } catch (e2) {}
+      }
+    } catch (e) {
+      console.log("[shifts][ical] fallback token lookup failed", e && (e.stack || e));
+    }
+  }
+
+  if (!map) return new Response("Not found", { status: 404, headers: { "Content-Type":"text/plain; charset=utf-8" } });
+
+  const staffId = url.searchParams.get("staff_id") ? parseInt(url.searchParams.get("staff_id")) : null;
+  const past = Math.max(0, Math.min(365, parseInt(url.searchParams.get("past")||"30",10)||30));
+  const future = Math.max(1, Math.min(730, parseInt(url.searchParams.get("future")||"180",10)||180));
+
+  const today = new Date();
+  // Use UTC date boundaries; times are emitted as Europe/Malta local in ICS
+  const from = ymdFromDate(new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() - past)));
+  const to   = ymdFromDate(new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() + future)));
+
+  console.log("[shifts][ical] token ok org", map.org_id, "loc", map.location_id, "from", from, "to", to, "staff", staffId||"ALL");
+
+  const params = [map.org_id, map.location_id, from, to];
+  let sql = `SELECT a.id, a.staff_id, a.shift_date, a.start_time, a.end_time, a.role_override, a.notes,
+                    s.full_name AS staff_name, s.designation AS staff_designation
+             FROM shift_assignments a
+             LEFT JOIN shift_staff s ON s.id=a.staff_id AND s.org_id=a.org_id AND s.location_id=a.location_id
+             WHERE a.org_id=? AND a.location_id=? AND a.shift_date>=? AND a.shift_date<=?`;
+  if (staffId) { sql += ` AND a.staff_id=?`; params.push(staffId); }
+  sql += ` ORDER BY a.shift_date ASC, a.start_time ASC`;
+
+  const rows = await dbAll(env, sql, params);
+
+  const now = new Date();
+  const dtstamp = now.toISOString().replace(/[-:]/g,"").replace(/\.\d+Z$/,"Z");
+
+  const lines = [];
+  lines.push("BEGIN:VCALENDAR");
+  lines.push("VERSION:2.0");
+  lines.push("PRODID:-//EIKON//Shifts//EN");
+  lines.push("CALSCALE:GREGORIAN");
+  lines.push("METHOD:PUBLISH");
+  lines.push("X-WR-CALNAME:EIKON Shifts");
+  lines.push("X-WR-TIMEZONE:Europe/Malta");
+
+  // Minimal TZ rules for Europe/Malta (CET/CEST)
+  lines.push("BEGIN:VTIMEZONE");
+  lines.push("TZID:Europe/Malta");
+  lines.push("X-LIC-LOCATION:Europe/Malta");
+  lines.push("BEGIN:DAYLIGHT");
+  lines.push("TZOFFSETFROM:+0100");
+  lines.push("TZOFFSETTO:+0200");
+  lines.push("TZNAME:CEST");
+  lines.push("DTSTART:19700329T020000");
+  lines.push("RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU");
+  lines.push("END:DAYLIGHT");
+  lines.push("BEGIN:STANDARD");
+  lines.push("TZOFFSETFROM:+0200");
+  lines.push("TZOFFSETTO:+0100");
+  lines.push("TZNAME:CET");
+  lines.push("DTSTART:19701025T030000");
+  lines.push("RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU");
+  lines.push("END:STANDARD");
+  lines.push("END:VTIMEZONE");
+
+  for (const r of rows) {
+    const uid = `shift-${r.id}@eikon`;
+    const summary = `${r.staff_name||("Staff #"+r.staff_id)}${r.staff_designation?(" ("+r.staff_designation+")"):""}`;
+    const desc = r.notes ? String(r.notes) : "";
+    const dtStart = icsDtLocal(r.shift_date, r.start_time);
+    const dtEnd   = icsDtLocal(r.shift_date, r.end_time);
+
+    lines.push("BEGIN:VEVENT");
+    lines.push("UID:"+icsEscape(uid));
+    lines.push("DTSTAMP:"+dtstamp);
+    lines.push("DTSTART;TZID=Europe/Malta:"+dtStart);
+    lines.push("DTEND;TZID=Europe/Malta:"+dtEnd);
+    lines.push("SUMMARY:"+icsEscape(summary));
+    if (desc) lines.push("DESCRIPTION:"+icsEscape(desc));
+    lines.push("END:VEVENT");
+  }
+
+  lines.push("END:VCALENDAR");
+
+  const ics = lines.join("\r\n") + "\r\n";
+  const headers = {
+    "Content-Type": "text/calendar; charset=utf-8",
+    "Cache-Control": "public, max-age=300",
+    "Pragma": "no-cache"
+  };
+  return new Response(ics, { status: 200, headers });
+}
+// ── END SHIFTS MODULE FUNCTIONS ────────────────────────────────
+
+export default {
+  async fetch(request, env, ctx) {
+    try {
+      const url = new URL(request.url);
+
+    // UI assets
+    if (url.pathname.startsWith("/ui/")) {
+      return await handleUiAsset(request, env, url);
+    }
+
+    if (url.pathname === "/health") {
+      return jsonResponse({ ok: true, time: nowIso() }, 200, { "Cache-Control": "no-store" });
+    }
+
+    if (url.pathname === "/bootstrap" && request.method === "GET") return await handleBootstrapGet(request, env);
+    if (url.pathname === "/bootstrap" && request.method === "POST") return await handleBootstrapPost(request, env);
+
+    if (url.pathname === "/su" && request.method === "GET") return await handleSuPage(request, env);
+
+    const cors = corsHeadersForRequest(request, env);
+    if (request.method === "OPTIONS") {
+      return new Response(null, { status: 204, headers: cors.headers });
+    }
+    const corsOkHeaders = cors.ok ? cors.headers : { "Vary": "Origin" };
+
+    if (url.pathname === "/auth/login" && request.method === "POST") {
+      if (!cors.ok) return jsonResponse({ ok: false, error: "CORS blocked" }, 403, corsOkHeaders);
+      return await handleLogin(request, env, corsOkHeaders);
+    }
+
+    // Superuser admin API (requires Bearer token of allowlisted superuser)
+    if (url.pathname.startsWith("/su/api/")) {
+      if (!cors.ok) return jsonResponse({ ok: false, error: "CORS blocked" }, 403, corsOkHeaders);
+      const su = await requireSuperuser(request, env, corsOkHeaders);
+      if (!su.ok) return su.res;
+
+      const path = url.pathname.replace(/^\/su\/api\//, "");
+      const parts = path.split("/").filter(Boolean);
+
+      if (parts.length === 1 && parts[0] === "overview" && request.method === "GET") {
+        return await handleSuOverview(request, env, corsOkHeaders);
+      }
+      if (parts.length === 1 && parts[0] === "account" && request.method === "POST") {
+        return await handleSuCreateAccount(request, env, corsOkHeaders);
+      }
+
+      
+      // Orgs
+      if (parts.length === 2 && parts[0] === "orgs") {
+        const orgId = Number(parts[1]);
+        if (!Number.isInteger(orgId) || orgId <= 0) return jsonResponse({ ok:false, error:"invalid org id" }, 400, corsOkHeaders);
+        if (request.method === "GET") return await handleSuGetOrg(request, env, corsOkHeaders, orgId);
+        if (request.method === "PUT") return await handleSuUpdateOrg(request, env, corsOkHeaders, orgId);
+        if (request.method === "DELETE") {
+          const force = url.searchParams.get("force") === "1";
+          return await handleSuDeleteOrg(request, env, corsOkHeaders, orgId, force);
+        }
+      }
+
+// Users
+      if (parts.length === 2 && parts[0] === "users") {
+        const userId = Number(parts[1]);
+        if (!Number.isInteger(userId) || userId <= 0) return jsonResponse({ ok:false, error:"invalid user id" }, 400, corsOkHeaders);
+        if (request.method === "GET") return await handleSuGetUser(request, env, corsOkHeaders, userId);
+        if (request.method === "PUT") return await handleSuUpdateUser(request, env, corsOkHeaders, userId);
+        if (request.method === "DELETE") return await handleSuDeleteUser(request, env, corsOkHeaders, userId);
+      }
+      if (parts.length === 3 && parts[0] === "users" && parts[2] === "password" && request.method === "POST") {
+        const userId = Number(parts[1]);
+        if (!Number.isInteger(userId) || userId <= 0) return jsonResponse({ ok:false, error:"invalid user id" }, 400, corsOkHeaders);
+        return await handleSuResetPassword(request, env, corsOkHeaders, userId);
+      }
+
+      // Locations
+      if (parts.length === 2 && parts[0] === "locations") {
+        const locationId = Number(parts[1]);
+        if (!Number.isInteger(locationId) || locationId <= 0) return jsonResponse({ ok:false, error:"invalid location id" }, 400, corsOkHeaders);
+        if (request.method === "GET") return await handleSuGetLocation(request, env, corsOkHeaders, locationId);
+        if (request.method === "PUT") return await handleSuUpdateLocation(request, env, corsOkHeaders, locationId);
+        if (request.method === "DELETE") return await handleSuDeleteLocation(request, env, corsOkHeaders, locationId);
+      }
+      if (parts.length === 3 && parts[0] === "locations" && parts[2] === "wipe" && request.method === "POST") {
+        const locationId = Number(parts[1]);
+        if (!Number.isInteger(locationId) || locationId <= 0) return jsonResponse({ ok:false, error:"invalid location id" }, 400, corsOkHeaders);
+        return await handleSuWipeLocation(request, env, corsOkHeaders, locationId);
+      }
+
+      return jsonResponse({ ok:false, error:"Not found" }, 404, corsOkHeaders);
+    }
+
+
+    // Public iCal feed (no auth; uses token query param)
+    if (url.pathname === "/shifts/ical" && request.method === "GET") {
+      return await handleShiftIcalPublic(request, env, corsOkHeaders, url);
+    }
+
+    const authUser = await authFromRequest(request, env);
+    if (!authUser) return jsonResponse({ ok: false, error: "Unauthorized" }, 401, corsOkHeaders);
+    if (!cors.ok) return jsonResponse({ ok: false, error: "CORS blocked" }, 403, corsOkHeaders);
+
+    if (url.pathname === "/auth/me" && request.method === "GET") {
+      return await handleMe(env, corsOkHeaders, authUser);
+    }
+
+    // End Of Day (EOD) — GET record (all paths the UI may try)
+    if (request.method === "GET" && (url.pathname === "/eod/get" || url.pathname === "/eod/record" || url.pathname === "/eod" || url.pathname === "/endofday/record" || url.pathname === "/endofday")) {
+      return await handleEodGet(request, env, corsOkHeaders, authUser, url);
+    }
+    // EOD — upsert record (POST or PUT, all paths the UI may try)
+    if ((request.method === "POST" || request.method === "PUT") && (url.pathname === "/eod/upsert" || url.pathname === "/eod/record" || url.pathname === "/eod" || url.pathname === "/endofday/record" || url.pathname === "/endofday")) {
+      return await handleEodUpsert(request, env, corsOkHeaders, authUser);
+    }
+    // EOD — lock
+    if (url.pathname === "/eod/lock" && request.method === "POST") return await handleEodLock(request, env, corsOkHeaders, authUser);
+    // EOD — list dates for month (all paths the UI may try)
+    if (request.method === "GET" && (url.pathname === "/eod/dates" || url.pathname === "/eod/month" || url.pathname === "/eod/list" || url.pathname === "/endofday/dates" || url.pathname === "/endofday/month" || url.pathname === "/endofday/list")) {
+      return await handleEodListDates(request, env, corsOkHeaders, authUser, url);
+    }
+    // EOD Contacts — list (GET, all paths the UI may try)
+    if (request.method === "GET" && (url.pathname === "/eod/contacts" || url.pathname === "/endofday/contacts" || url.pathname === "/eod/contact" || url.pathname === "/endofday/contact")) {
+      return await handleEodContactsList(request, env, corsOkHeaders, authUser);
+    }
+    // EOD Contacts — bulk save (PUT, all paths)
+    if (request.method === "PUT" && (url.pathname === "/eod/contacts" || url.pathname === "/endofday/contacts")) {
+      return await handleEodContactsBulkPut(request, env, corsOkHeaders, authUser);
+    }
+    // EOD Contacts — create (POST, all paths)
+    if (request.method === "POST" && (url.pathname === "/eod/contacts" || url.pathname === "/endofday/contacts")) {
+      return await handleEodContactsCreate(request, env, corsOkHeaders, authUser);
+    }
+    // EOD Contacts — update/delete individual
+    { const m = url.pathname.match(/^\/(?:eod|endofday)\/contacts\/(\d+)$/); if (m && request.method === "PUT") return await handleEodContactsUpdate(request, env, corsOkHeaders, authUser, Number(m[1])); if (m && request.method === "DELETE") return await handleEodContactsDeactivate(request, env, corsOkHeaders, authUser, Number(m[1])); }
+
+
+    // Instructions (global + daily handover)
+    if (url.pathname === "/instructions/global" && request.method === "GET") {
+      return await handleInstructionsGlobalGet(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname === "/instructions/global" && request.method === "PUT") {
+      return await handleInstructionsGlobalPut(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname === "/instructions/daily" && request.method === "GET") {
+      return await handleInstructionsDailyGetOrList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/instructions/daily" && request.method === "PUT") {
+      return await handleInstructionsDailyPut(request, env, corsOkHeaders, authUser);
+    }
+
+
+    // Scarce Stock
+    if (url.pathname === "/scarce-stock/offers" && request.method === "GET") {
+      return await handleScarceOffersList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/scarce-stock/offers" && request.method === "POST") {
+      return await handleScarceOfferCreate(request, env, corsOkHeaders, authUser);
+    }
+
+    // Offer requests
+    if (url.pathname.startsWith("/scarce-stock/offers/") && url.pathname.endsWith("/requests") && request.method === "POST") {
+      const parts = url.pathname.split("/").filter(Boolean); // scarce-stock, offers, :id, requests
+      const offerId = parseInt(parts[2], 10);
+      if (!Number.isInteger(offerId) || offerId <= 0) return jsonResponse({ ok: false, error: "Invalid offer id" }, 400, corsOkHeaders);
+      return await handleScarceOfferRequestCreate(request, env, corsOkHeaders, authUser, offerId);
+    }
+    if (url.pathname.startsWith("/scarce-stock/offer-requests/") && request.method === "PUT") {
+      const parts = url.pathname.split("/").filter(Boolean); // scarce-stock, offer-requests, :id
+      const reqId = parseInt(parts[2], 10);
+      if (!Number.isInteger(reqId) || reqId <= 0) return jsonResponse({ ok: false, error: "Invalid request id" }, 400, corsOkHeaders);
+      return await handleScarceOfferRequestUpdate(request, env, corsOkHeaders, authUser, reqId);
+    }
+    if (url.pathname.startsWith("/scarce-stock/offer-requests/") && request.method === "DELETE") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const reqId = parseInt(parts[2], 10);
+      if (!Number.isInteger(reqId) || reqId <= 0) return jsonResponse({ ok: false, error: "Invalid request id" }, 400, corsOkHeaders);
+      return await handleScarceOfferRequestDelete(request, env, corsOkHeaders, authUser, reqId);
+    }
+
+    // Offer update/delete
+    if (url.pathname.startsWith("/scarce-stock/offers/") && request.method === "PUT") {
+      const parts = url.pathname.split("/").filter(Boolean); // scarce-stock, offers, :id
+      const offerId = parseInt(parts[2], 10);
+      if (!Number.isInteger(offerId) || offerId <= 0) return jsonResponse({ ok: false, error: "Invalid offer id" }, 400, corsOkHeaders);
+      return await handleScarceOfferUpdate(request, env, corsOkHeaders, authUser, offerId);
+    }
+    if (url.pathname.startsWith("/scarce-stock/offers/") && request.method === "DELETE") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const offerId = parseInt(parts[2], 10);
+      if (!Number.isInteger(offerId) || offerId <= 0) return jsonResponse({ ok: false, error: "Invalid offer id" }, 400, corsOkHeaders);
+      return await handleScarceOfferDelete(request, env, corsOkHeaders, authUser, offerId);
+    }
+
+    // Needs
+    if (url.pathname === "/scarce-stock/needs" && request.method === "GET") {
+      return await handleScarceNeedsList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/scarce-stock/needs" && request.method === "POST") {
+      return await handleScarceNeedCreate(request, env, corsOkHeaders, authUser);
+    }
+
+    // Need offers
+    if (url.pathname.startsWith("/scarce-stock/needs/") && url.pathname.endsWith("/offers") && request.method === "POST") {
+      const parts = url.pathname.split("/").filter(Boolean); // scarce-stock, needs, :id, offers
+      const needId = parseInt(parts[2], 10);
+      if (!Number.isInteger(needId) || needId <= 0) return jsonResponse({ ok: false, error: "Invalid need id" }, 400, corsOkHeaders);
+      return await handleScarceNeedOfferCreate(request, env, corsOkHeaders, authUser, needId);
+    }
+    if (url.pathname.startsWith("/scarce-stock/need-offers/") && request.method === "PUT") {
+      const parts = url.pathname.split("/").filter(Boolean); // scarce-stock, need-offers, :id
+      const offerId = parseInt(parts[2], 10);
+      if (!Number.isInteger(offerId) || offerId <= 0) return jsonResponse({ ok: false, error: "Invalid offer id" }, 400, corsOkHeaders);
+      return await handleScarceNeedOfferUpdate(request, env, corsOkHeaders, authUser, offerId);
+    }
+    if (url.pathname.startsWith("/scarce-stock/need-offers/") && request.method === "DELETE") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const offerId = parseInt(parts[2], 10);
+      if (!Number.isInteger(offerId) || offerId <= 0) return jsonResponse({ ok: false, error: "Invalid offer id" }, 400, corsOkHeaders);
+      return await handleScarceNeedOfferDelete(request, env, corsOkHeaders, authUser, offerId);
+    }
+
+    // Need update/delete
+    if (url.pathname.startsWith("/scarce-stock/needs/") && request.method === "PUT") {
+      const parts = url.pathname.split("/").filter(Boolean); // scarce-stock, needs, :id
+      const needId = parseInt(parts[2], 10);
+      if (!Number.isInteger(needId) || needId <= 0) return jsonResponse({ ok: false, error: "Invalid need id" }, 400, corsOkHeaders);
+      return await handleScarceNeedUpdate(request, env, corsOkHeaders, authUser, needId);
+    }
+    if (url.pathname.startsWith("/scarce-stock/needs/") && request.method === "DELETE") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const needId = parseInt(parts[2], 10);
+      if (!Number.isInteger(needId) || needId <= 0) return jsonResponse({ ok: false, error: "Invalid need id" }, 400, corsOkHeaders);
+      return await handleScarceNeedDelete(request, env, corsOkHeaders, authUser, needId);
+    }
+
+
+    // Temperature
+    if (url.pathname === "/temperature/devices" && request.method === "GET") {
+      return await handleTempDevicesList(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname === "/temperature/devices" && request.method === "POST") {
+      return await handleTempDevicesCreate(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname.startsWith("/temperature/devices/") && request.method === "PUT") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const id = parseInt(parts[2], 10);
+      if (!id) return jsonResponse({ ok: false, error: "Invalid device id" }, 400, corsOkHeaders);
+      return await handleTempDevicesUpdate(request, env, corsOkHeaders, authUser, id);
+    }
+
+    if (url.pathname === "/temperature/entries" && request.method === "GET") {
+      return await handleTempEntriesList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/temperature/entries" && request.method === "POST") {
+      return await handleTempEntriesUpsert(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname.startsWith("/temperature/entries/") && request.method === "DELETE") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const id = parseInt(parts[2], 10);
+      if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+      return await handleTempEntryDelete(request, env, corsOkHeaders, authUser, id);
+    }
+
+    if (url.pathname === "/temperature/report" && request.method === "GET") {
+      return await handleTempReport(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/temperature/report/html" && request.method === "GET") {
+      return await handleTempReportHtml(request, env, corsOkHeaders, authUser, url);
+    }
+
+// Vaccines
+if (url.pathname === "/vaccines/catalog" && request.method === "GET") {
+  return await handleVaccinesCatalogList(request, env, corsOkHeaders, authUser, url);
+}
+if (url.pathname === "/vaccines/catalog" && request.method === "POST") {
+  return await handleVaccinesCatalogCreate(request, env, corsOkHeaders, authUser);
+}
+if (url.pathname === "/vaccines/orders" && request.method === "GET") {
+  return await handleVaccinesOrdersList(request, env, corsOkHeaders, authUser, url);
+}
+if (url.pathname === "/vaccines/orders" && request.method === "POST") {
+  return await handleVaccinesOrdersCreate(request, env, corsOkHeaders, authUser);
+}
+if (url.pathname === "/vaccines/stock/rows" && request.method === "GET") {
+  return await handleVaccinesStockRowsList(request, env, corsOkHeaders, authUser, url);
+}
+if (url.pathname === "/vaccines/stock/rows" && request.method === "POST") {
+  return await handleVaccinesStockRowCreate(request, env, corsOkHeaders, authUser);
+}
+if (url.pathname.startsWith("/vaccines/stock/rows/") && request.method === "PUT") {
+  const parts = url.pathname.split("/").filter(Boolean);
+  const id = parseInt(parts[3], 10);
+  if (!id) return jsonResponse({ ok: false, error: "Invalid stock row id" }, 400, corsOkHeaders);
+  return await handleVaccinesStockRowUpdate(request, env, corsOkHeaders, authUser, id);
+}
+
+
+// Client Orders
+if (url.pathname === "/client-orders/entries" && request.method === "GET") {
+  return await handleClientOrdersEntriesList(request, env, corsOkHeaders, authUser, url);
+}
+if (url.pathname === "/client-orders/entries" && request.method === "POST") {
+  return await handleClientOrdersEntryCreate(request, env, corsOkHeaders, authUser);
+}
+if (url.pathname.startsWith("/client-orders/entries/") && request.method === "PUT") {
+  const parts = url.pathname.split("/").filter(Boolean);
+  const id = parseInt(parts[2], 10);
+  if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+  return await handleClientOrdersEntryUpdate(request, env, corsOkHeaders, authUser, id);
+}
+if (url.pathname.startsWith("/client-orders/entries/") && request.method === "DELETE") {
+  const parts = url.pathname.split("/").filter(Boolean);
+  const id = parseInt(parts[2], 10);
+  if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+  return await handleClientOrdersEntryDelete(request, env, corsOkHeaders, authUser, id);
+}
+
+// Client Tickets
+if (url.pathname === "/client-tickets/entries" && request.method === "GET") {
+  return await handleClientTicketsEntriesList(request, env, corsOkHeaders, authUser, url);
+}
+if (url.pathname === "/client-tickets/entries" && request.method === "POST") {
+  return await handleClientTicketsEntryCreate(request, env, corsOkHeaders, authUser);
+}
+if (url.pathname.startsWith("/client-tickets/entries/") && request.method === "PUT") {
+  const parts = url.pathname.split("/").filter(Boolean);
+  const id = parseInt(parts[2], 10);
+  if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+  return await handleClientTicketsEntryUpdate(request, env, corsOkHeaders, authUser, id);
+}
+if (url.pathname.startsWith("/client-tickets/entries/") && request.method === "DELETE") {
+  const parts = url.pathname.split("/").filter(Boolean);
+  const id = parseInt(parts[2], 10);
+  if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+  return await handleClientTicketsEntryDelete(request, env, corsOkHeaders, authUser, id);
+}
+
+// Near Expiry
+if (url.pathname === "/near-expiry/entries" && request.method === "GET") {
+  return await handleNearExpiryEntriesList(request, env, corsOkHeaders, authUser, url);
+}
+if (url.pathname === "/near-expiry/entries" && request.method === "POST") {
+  return await handleNearExpiryEntryCreate(request, env, corsOkHeaders, authUser);
+}
+if (url.pathname.startsWith("/near-expiry/entries/") && request.method === "PUT") {
+  const parts = url.pathname.split("/").filter(Boolean);
+  const id = parseInt(parts[2], 10);
+  if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+  return await handleNearExpiryEntryUpdate(request, env, corsOkHeaders, authUser, id);
+}
+if (url.pathname.startsWith("/near-expiry/entries/") && request.method === "DELETE") {
+  const parts = url.pathname.split("/").filter(Boolean);
+  const id = parseInt(parts[2], 10);
+  if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+  return await handleNearExpiryEntryDelete(request, env, corsOkHeaders, authUser, id);
+}
+
+
+
+    // Cleaning
+    if (url.pathname === "/cleaning/entries" && request.method === "GET") {
+      return await handleCleaningEntriesList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/cleaning/entries" && request.method === "POST") {
+      return await handleCleaningEntryCreate(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname.startsWith("/cleaning/entries/") && request.method === "PUT") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const id = parseInt(parts[2], 10);
+      if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+      return await handleCleaningEntryUpdate(request, env, corsOkHeaders, authUser, id);
+    }
+    if (url.pathname.startsWith("/cleaning/entries/") && request.method === "DELETE") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const id = parseInt(parts[2], 10);
+      if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+      return await handleCleaningEntryDelete(request, env, corsOkHeaders, authUser, id);
+    }
+    if (url.pathname === "/cleaning/report" && request.method === "GET") {
+      return await handleCleaningReport(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/cleaning/report/html" && request.method === "GET") {
+      return await handleCleaningReportHtml(request, env, corsOkHeaders, authUser, url);
+    }
+
+    // Locum Register
+    if (url.pathname === "/locumregister/entries" && request.method === "GET") {
+      return await handleLocumRegisterEntriesList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/locumregister/entries" && request.method === "POST") {
+      return await handleLocumRegisterEntryCreate(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname.startsWith("/locumregister/entries/") && request.method === "PUT") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const id = parseInt(parts[2], 10);
+      if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+      return await handleLocumRegisterEntryUpdate(request, env, corsOkHeaders, authUser, id);
+    }
+    if (url.pathname.startsWith("/locumregister/entries/") && request.method === "DELETE") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const id = parseInt(parts[2], 10);
+      if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+      return await handleLocumRegisterEntryDelete(request, env, corsOkHeaders, authUser, id);
+    }
+
+
+    
+
+    // Locum Receipts
+    if (url.pathname === "/locumreceipts/receipts" && request.method === "GET") {
+      return await handleLocumReceiptsList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/locumreceipts/receipts" && request.method === "POST") {
+      return await handleLocumReceiptCreate(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname.startsWith("/locumreceipts/receipts/") && request.method === "PUT") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const id = parseInt(parts[2], 10);
+      if (!id) return jsonResponse({ ok: false, error: "Invalid receipt id" }, 400, corsOkHeaders);
+      return await handleLocumReceiptUpdate(request, env, corsOkHeaders, authUser, id);
+    }
+    if (url.pathname.startsWith("/locumreceipts/receipts/") && request.method === "DELETE") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const id = parseInt(parts[2], 10);
+      if (!id) return jsonResponse({ ok: false, error: "Invalid receipt id" }, 400, corsOkHeaders);
+      return await handleLocumReceiptDelete(request, env, corsOkHeaders, authUser, id);
+    }
+    if (url.pathname === "/locumreceipts/report" && request.method === "GET") {
+      return await handleLocumReceiptsReport(request, env, corsOkHeaders, authUser, url);
+    }
+
+    // POCT (Point of Care Testing) — cloud state sync
+    if (url.pathname === "/poct/state" && request.method === "GET") {
+      return await handlePoctStateGet(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/poct/state" && request.method === "PUT") {
+      return await handlePoctStatePut(request, env, corsOkHeaders, authUser);
+    }
+
+// Daily Register (PATCH: use /daily-register/* not /daily_register/*)
+    if (url.pathname === "/daily-register/entries" && request.method === "GET") {
+      return await handleDailyRegisterEntriesList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/daily-register/entries" && request.method === "POST") {
+      return await handleDailyRegisterEntryCreate(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname.startsWith("/daily-register/entries/") && request.method === "PUT") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const id = parseInt(parts[2], 10);
+      if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+      return await handleDailyRegisterEntryUpdate(request, env, corsOkHeaders, authUser, id);
+    }
+    if (url.pathname.startsWith("/daily-register/entries/") && request.method === "DELETE") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const id = parseInt(parts[2], 10);
+      if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+      return await handleDailyRegisterEntryDelete(request, env, corsOkHeaders, authUser, id);
+    }
+    if (url.pathname === "/daily-register/report" && request.method === "GET") {
+      return await handleDailyRegisterReport(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/daily-register/report/html" && request.method === "GET") {
+      return await handleDailyRegisterReportHtml(request, env, corsOkHeaders, authUser, url);
+    }
+
+// Alerts
+if (url.pathname === "/alerts/entries" && request.method === "GET") {
+  return await handleAlertsEntriesList(request, env, corsOkHeaders, authUser, url);
+}
+if (url.pathname === "/alerts/entries" && request.method === "POST") {
+  return await handleAlertsEntryCreate(request, env, corsOkHeaders, authUser);
+}
+if (url.pathname.startsWith("/alerts/entries/")) {
+  const parts = url.pathname.split("/").filter(Boolean);
+  const id = parseInt(parts[2], 10);
+  if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+  if (request.method === "PUT") return await handleAlertsEntryUpdate(request, env, corsOkHeaders, authUser, id);
+  if (request.method === "DELETE") return await handleAlertsEntryDelete(request, env, corsOkHeaders, authUser, id);
+}
+
+    // Returns
+    if (url.pathname === "/returns/entries" && request.method === "GET") {
+      return await handleReturnsEntriesList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/returns/entries" && request.method === "POST") {
+      return await handleReturnsEntryCreate(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname.startsWith("/returns/entries/")) {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const id = parseInt(parts[2], 10);
+      if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+      if (request.method === "PUT") return await handleReturnsEntryUpdate(request, env, corsOkHeaders, authUser, id);
+      if (request.method === "DELETE") return await handleReturnsEntryDelete(request, env, corsOkHeaders, authUser, id);
+    }
+
+
+
+    // DDA Sales  <-- ADDED ROUTES
+    if (url.pathname === "/dda-sales/client" && request.method === "GET") {
+      return await handleDdaSalesClientLookup(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/dda-sales/doctors" && request.method === "GET") {
+      return await handleDdaSalesDoctorsLookup(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/dda-sales/entries" && request.method === "GET") {
+      return await handleDdaSalesEntriesList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/dda-sales/entries" && request.method === "POST") {
+      return await handleDdaSalesEntryCreate(request, env, corsOkHeaders, authUser);
+    }
+        if (url.pathname === "/dda-sales/entries/delete" && request.method === "POST") {
+      return await handleDdaSalesEntryDeleteByBody(request, env, corsOkHeaders, authUser);
+    }
+if (url.pathname.startsWith("/dda-sales/entries/") && request.method === "PUT") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const id = parseInt(parts[2], 10);
+      if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+      return await handleDdaSalesEntryUpdate(request, env, corsOkHeaders, authUser, id);
+    }
+    if (url.pathname.startsWith("/dda-sales/entries/") && request.method === "DELETE") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const id = parseInt(parts[2], 10);
+      if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+      return await handleDdaSalesEntryDelete(request, env, corsOkHeaders, authUser, id);
+    }
+    // Fallback: some environments may block DELETE; allow POST /dda-sales/entries/:id/delete
+    if (url.pathname.startsWith("/dda-sales/entries/") && request.method === "POST") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const id = parseInt(parts[2], 10);
+      const action = parts[3] || "";
+      if (action !== "delete") return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+      if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+      return await handleDdaSalesEntryDelete(request, env, corsOkHeaders, authUser, id);
+    }
+    if (url.pathname === "/dda-sales/report" && request.method === "GET") {
+      return await handleDdaSalesReport(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/dda-sales/report/html" && request.method === "GET") {
+      return await handleDdaSalesReportHtml(request, env, corsOkHeaders, authUser, url);
+    }
+
+    // Repeat Prescriptions
+    if (url.pathname === "/repeat-prescriptions/entries" && request.method === "GET") {
+      return await handleRepeatPrescriptionsEntriesList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/repeat-prescriptions/entries" && request.method === "POST") {
+      return await handleRepeatPrescriptionsEntryCreate(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname.startsWith("/repeat-prescriptions/entries/") && request.method === "PUT") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const id = parseInt(parts[2], 10);
+      if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+      return await handleRepeatPrescriptionsEntryUpdate(request, env, corsOkHeaders, authUser, id);
+    }
+    if (url.pathname.startsWith("/repeat-prescriptions/entries/") && request.method === "DELETE") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const id = parseInt(parts[2], 10);
+      if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+      return await handleRepeatPrescriptionsEntryDelete(request, env, corsOkHeaders, authUser, id);
+    }
+
+
+    // DDA POYC  <-- ADDED ROUTES (NEW)
+    if (url.pathname === "/dda-poyc/entries" && request.method === "GET") {
+      return await handleDdaPoycEntriesList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/dda-poyc/entries" && request.method === "POST") {
+      return await handleDdaPoycEntryCreate(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname.startsWith("/dda-poyc/entries/") && request.method === "PUT") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const id = parseInt(parts[2], 10);
+      if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+      return await handleDdaPoycEntryUpdate(request, env, corsOkHeaders, authUser, id);
+    }
+    if (url.pathname.startsWith("/dda-poyc/entries/") && request.method === "DELETE") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const id = parseInt(parts[2], 10);
+      if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+      return await handleDdaPoycEntryDelete(request, env, corsOkHeaders, authUser, id);
+    }
+    if (url.pathname === "/dda-poyc/report" && request.method === "GET") {
+      return await handleDdaPoycReport(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/dda-poyc/report/html" && request.method === "GET") {
+      return await handleDdaPoycReportHtml(request, env, corsOkHeaders, authUser, url);
+    }
+
+    // DDA Purchases  <-- NEW ROUTES
+if (url.pathname === "/dda-purchases/entries" && request.method === "GET") {
+  return await handleDdaPurchasesEntriesList(request, env, corsOkHeaders, authUser, url);
+}
+if (url.pathname === "/dda-purchases/entries" && request.method === "POST") {
+  return await handleDdaPurchasesEntryCreate(request, env, corsOkHeaders, authUser);
+}
+if (url.pathname.startsWith("/dda-purchases/entries/") && request.method === "PUT") {
+  const parts = url.pathname.split("/").filter(Boolean);
+  const id = parseInt(parts[2], 10);
+  if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+  return await handleDdaPurchasesEntryUpdate(request, env, corsOkHeaders, authUser, id);
+}
+if (url.pathname.startsWith("/dda-purchases/entries/") && request.method === "DELETE") {
+  const parts = url.pathname.split("/").filter(Boolean);
+  const id = parseInt(parts[2], 10);
+  if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+  return await handleDdaPurchasesEntryDelete(request, env, corsOkHeaders, authUser, id);
+}
+if (url.pathname === "/dda-purchases/report" && request.method === "GET") {
+  return await handleDdaPurchasesReport(request, env, corsOkHeaders, authUser, url);
+}
+if (url.pathname === "/dda-purchases/report/html" && request.method === "GET") {
+  return await handleDdaPurchasesReportHtml(request, env, corsOkHeaders, authUser, url);
+}
+
+    // ✅ DDA Stock Takes (NEW)
+if (url.pathname === "/dda-stocktakes/stocktakes" && request.method === "GET")
+  return await handleDdaStockTakesList(request, env, corsOkHeaders, authUser);
+
+if (url.pathname === "/dda-stocktakes/stocktakes" && request.method === "POST")
+  return await handleDdaStockTakeCreate(request, env, corsOkHeaders, authUser);
+
+if (url.pathname.startsWith("/dda-stocktakes/stocktakes/")) {
+  const parts = url.pathname.split("/").filter(Boolean); // ["dda-stocktakes","stocktakes",":id", ...]
+  const id = parseInt(parts[2], 10);
+  if (!id) return jsonResponse({ ok: false, error: "Invalid stocktake id" }, 400, corsOkHeaders);
+
+  // /dda-stocktakes/stocktakes/:id
+  if (parts.length === 3 && request.method === "GET")
+    return await handleDdaStockTakeGet(request, env, corsOkHeaders, authUser, id);
+
+  if (parts.length === 3 && request.method === "PUT")
+    return await handleDdaStockTakeUpdate(request, env, corsOkHeaders, authUser, id);
+
+  // /dda-stocktakes/stocktakes/:id/items
+  if (parts.length === 4 && parts[3] === "items" && request.method === "POST")
+    return await handleDdaStockTakeItemAdd(request, env, corsOkHeaders, authUser, id);
+
+  // /dda-stocktakes/stocktakes/:id/report/html
+  if (parts.length === 5 && parts[3] === "report" && parts[4] === "html" && request.method === "GET")
+    return await handleDdaStockTakeReportHtml(request, env, corsOkHeaders, authUser, id);
+}
+
+if (url.pathname.startsWith("/dda-stocktakes/items/")) {
+  const parts = url.pathname.split("/").filter(Boolean); // ["dda-stocktakes","items",":itemId"]
+  const itemId = parseInt(parts[2], 10);
+  if (!itemId) return jsonResponse({ ok: false, error: "Invalid item id" }, 400, corsOkHeaders);
+
+  if (request.method === "PUT")
+    return await handleDdaStockTakeItemUpdate(request, env, corsOkHeaders, authUser, itemId);
+
+  if (request.method === "DELETE")
+    return await handleDdaStockTakeItemDelete(request, env, corsOkHeaders, authUser, itemId);
+}
+
+
+    // Certificates (DOWNLOAD) - PATCH
+    if (url.pathname.startsWith("/certificates/items/") && (request.method === "GET" || request.method === "HEAD")) {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const idOrKey = parts[2];
+      const tail = parts[3] || "";
+
+      if ((tail === "download" || tail === "file") && idOrKey) {
+        const res = await handleCertificatesDownload(request, env, corsOkHeaders, authUser, idOrKey);
+        if (request.method === "HEAD") {
+          const h = new Headers(res.headers);
+          return new Response(null, { status: res.status, headers: h });
+        }
+        return res;
+      }
+    }
+
+    // Certificates
+    if (url.pathname === "/certificates/items" && request.method === "GET") {
+      return await handleCertificatesItemsList(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname.startsWith("/certificates/items/") && request.method === "PUT") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const idOrKey = parts[2]; // /certificates/items/:idOrKey
+      if (!idOrKey) return jsonResponse({ ok: false, error: "Invalid item id/key" }, 400, corsOkHeaders);
+      return await handleCertificatesItemUpdate(request, env, corsOkHeaders, authUser, idOrKey);
+    }
+    if (url.pathname.startsWith("/certificates/items/") && request.method === "POST") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const idOrKey = parts[2]; // /certificates/items/:idOrKey/upload
+      const tail = parts[3] || "";
+      if (tail !== "upload") return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+      if (!idOrKey) return jsonResponse({ ok: false, error: "Invalid item id/key" }, 400, corsOkHeaders);
+      return await handleCertificatesUpload(request, env, corsOkHeaders, authUser, idOrKey);
+    }
+
+    // ── Pharmacy Calculators ─────────────────────────────────────────────────
+    if (url.pathname === "/pharmacy-calc/patients" && request.method === "GET")
+      return await handlePharmacyCalcPatientsList(request, env, corsOkHeaders, authUser);
+
+    if (url.pathname === "/pharmacy-calc/records" && request.method === "GET")
+      return await handlePharmacyCalcRecordsList(request, env, corsOkHeaders, authUser);
+
+    if (url.pathname === "/pharmacy-calc/records" && request.method === "POST")
+      return await handlePharmacyCalcRecordsCreate(request, env, corsOkHeaders, authUser);
+
+    if (url.pathname.startsWith("/pharmacy-calc/records/")) {
+  const parts = url.pathname.split("/").filter(Boolean);
+  const recId = parseInt(parts[2], 10);
+  if (!recId) return jsonResponse({ ok: false, error: "Invalid record id" }, 400, corsOkHeaders);
+  if (request.method === "GET")
+    return await handlePharmacyCalcRecordGet(request, env, corsOkHeaders, authUser, recId);
+  if (request.method === "DELETE")
+    return await handlePharmacyCalcRecordDelete(request, env, corsOkHeaders, authUser, recId);
+}
+
+    // ── Credit Notes ─────────────────────────────────────────────────────────
+    if (url.pathname === "/creditnotes/list" && request.method === "GET")
+      return await handleCreditNotesList(request, env, corsOkHeaders, authUser, url);
+
+    if (url.pathname === "/creditnotes/entries" && request.method === "POST")
+      return await handleCreditNoteCreate(request, env, corsOkHeaders, authUser);
+
+    if (url.pathname.startsWith("/creditnotes/entries/")) {
+      const cnParts = url.pathname.split("/").filter(Boolean);
+      const cnId = parseInt(cnParts[2], 10);
+      if (!cnId) return jsonResponse({ ok: false, error: "Invalid credit note id" }, 400, corsOkHeaders);
+      if (cnParts.length === 3 && request.method === "PUT")
+        return await handleCreditNoteUpdate(request, env, corsOkHeaders, authUser, cnId);
+      if (cnParts.length === 3 && request.method === "DELETE")
+        return await handleCreditNoteDelete(request, env, corsOkHeaders, authUser, cnId);
+      if (cnParts.length === 4 && cnParts[3] === "purchases" && request.method === "POST")
+        return await handleCreditNotePurchaseAdd(request, env, corsOkHeaders, authUser, cnId);
+      if (cnParts.length === 5 && cnParts[3] === "purchases" && request.method === "DELETE") {
+        const pid = parseInt(cnParts[4], 10);
+        if (!pid) return jsonResponse({ ok: false, error: "Invalid purchase id" }, 400, corsOkHeaders);
+        return await handleCreditNotePurchaseDelete(request, env, corsOkHeaders, authUser, cnId, pid);
+      }
+      if (cnParts.length === 4 && cnParts[3] === "notes" && request.method === "POST")
+        return await handleCreditNoteNoteAdd(request, env, corsOkHeaders, authUser, cnId);
+      if (cnParts.length === 5 && cnParts[3] === "notes" && request.method === "DELETE") {
+        const nid = parseInt(cnParts[4], 10);
+        if (!nid) return jsonResponse({ ok: false, error: "Invalid note id" }, 400, corsOkHeaders);
+        return await handleCreditNoteNoteDelete(request, env, corsOkHeaders, authUser, cnId, nid);
+      }
+    }
+
+    // CLIENT DELIVERIES
+    if (url.pathname === "/client-deliveries/entries" && request.method === "GET") {
+      return await handleDeliveriesEntriesList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/client-deliveries/entries" && request.method === "POST") {
+      return await handleDeliveriesEntryCreate(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname.startsWith("/client-deliveries/entries/")) {
+      const dvId = parseInt(url.pathname.split("/")[3], 10);
+      if (!dvId) return jsonResponse({ ok: false, error: "Invalid id" }, 400, corsOkHeaders);
+      if (request.method === "PUT") return await handleDeliveriesEntryUpdate(request, env, corsOkHeaders, authUser, dvId);
+      if (request.method === "DELETE") return await handleDeliveriesEntryDelete(request, env, corsOkHeaders, authUser, dvId);
+    }
+
+    // ── LOYALTY ───────────────────────────────────────────────────────────────
+    // Campaigns
+    if (url.pathname === "/loyalty/campaigns" && request.method === "GET") {
+      return await handleLoyaltyCampaignsList(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname === "/loyalty/campaigns" && request.method === "POST") {
+      return await handleLoyaltyCampaignCreate(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname.startsWith("/loyalty/campaigns/")) {
+      const campId = url.pathname.split("/")[3];
+      if (!campId) return jsonResponse({ ok: false, error: "Invalid campaign id" }, 400, corsOkHeaders);
+      if (request.method === "PUT")    return await handleLoyaltyCampaignUpdate(request, env, corsOkHeaders, authUser, campId);
+      if (request.method === "DELETE") return await handleLoyaltyCampaignDelete(request, env, corsOkHeaders, authUser, campId);
+    }
+    // Clients
+    if (url.pathname === "/loyalty/clients" && request.method === "GET") {
+      return await handleLoyaltyClientsList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/loyalty/clients" && request.method === "POST") {
+      return await handleLoyaltyClientUpsert(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname.startsWith("/loyalty/clients/") && request.method === "DELETE") {
+      const clientId = decodeURIComponent(url.pathname.split("/")[3] || "");
+      if (!clientId) return jsonResponse({ ok: false, error: "Invalid client id" }, 400, corsOkHeaders);
+      return await handleLoyaltyClientDelete(request, env, corsOkHeaders, authUser, clientId);
+    }
+    // Known items (autocomplete dictionary)
+    if (url.pathname === "/loyalty/items" && request.method === "GET") {
+      return await handleLoyaltyItemsList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/loyalty/items" && request.method === "POST") {
+      return await handleLoyaltyItemUpsert(request, env, corsOkHeaders, authUser);
+    }
+    // Transactions
+    if (url.pathname === "/loyalty/transactions" && request.method === "GET") {
+      return await handleLoyaltyTransactionsList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/loyalty/transactions" && request.method === "POST") {
+      return await handleLoyaltyTransactionCreate(request, env, corsOkHeaders, authUser);
+    }
+
+
+    // ── Shifts Module ──────────────────────────────────────────────
+// ── Shifts Module ──────────────────────────────────────────────
+    if (url.pathname === "/shifts/staff" && request.method === "GET") {
+      return await handleShiftStaffList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/shifts/staff" && request.method === "POST") {
+      return await handleShiftStaffCreate(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname.startsWith("/shifts/staff/") && request.method === "PUT") {
+      const id = parseInt(url.pathname.split("/")[3]);
+      if (!id) return jsonResponse({ ok: false, error: "Invalid staff id" }, 400, corsOkHeaders);
+      return await handleShiftStaffUpdate(request, env, corsOkHeaders, authUser, id);
+    }
+    if (url.pathname === "/shifts/assignments" && request.method === "GET") {
+      return await handleShiftAssignmentsList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/shifts/assignments" && request.method === "POST") {
+      return await handleShiftAssignmentCreate(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname === "/shifts/assignments-range" && request.method === "GET") {
+      return await handleShiftAssignmentsRangeList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/shifts/apply-pattern" && request.method === "POST") {
+      return await handleShiftApplyPattern(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname.startsWith("/shifts/assignments/") && request.method === "PUT") {
+      const id = parseInt(url.pathname.split("/")[3]);
+      if (!id) return jsonResponse({ ok: false, error: "Invalid shift id" }, 400, corsOkHeaders);
+      return await handleShiftAssignmentUpdate(request, env, corsOkHeaders, authUser, id);
+    }
+    if (url.pathname.startsWith("/shifts/assignments/") && request.method === "DELETE") {
+      const id = parseInt(url.pathname.split("/")[3]);
+      if (!id) return jsonResponse({ ok: false, error: "Invalid shift id" }, 400, corsOkHeaders);
+      return await handleShiftAssignmentDelete(request, env, corsOkHeaders, authUser, id);
+    }
+    if (url.pathname === "/shifts/leaves" && request.method === "GET") {
+      return await handleShiftLeavesList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/shifts/leaves" && request.method === "POST") {
+      return await handleShiftLeaveCreate(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname.startsWith("/shifts/leaves/") && request.method === "POST") {
+      const parts = url.pathname.split("/"); // ["","shifts","leaves","ID","approve|reject"]
+      const id = parseInt(parts[3]);
+      if (!id) return jsonResponse({ ok: false, error: "Invalid leave id" }, 400, corsOkHeaders);
+      if (parts[4] === "approve") return await handleShiftLeaveApprove(request, env, corsOkHeaders, authUser, id);
+      if (parts[4] === "reject")  return await handleShiftLeaveReject(request, env, corsOkHeaders, authUser, id);
+    }
+    if (url.pathname === "/shifts/opening-hours" && request.method === "GET") {
+      return await handleShiftOpeningHoursGet(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname === "/shifts/opening-hours" && request.method === "PUT") {
+      return await handleShiftOpeningHoursPut(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname === "/shifts/settings" && request.method === "GET") {
+      return await handleShiftSettingsGet(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname === "/shifts/settings" && request.method === "PUT") {
+      return await handleShiftSettingsPut(request, env, corsOkHeaders, authUser);
+    }
+    // ── End Shifts Module ───────────────────────────────────────────
+
+    return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+    } catch (e) {
+      // Never let an exception become Cloudflare 1101 HTML again.
+      console.log("[worker] exception", e && (e.stack || e.message || String(e)));
+
+      let corsHeaders = { "Vary": "Origin" };
+      try {
+        const cors = corsHeadersForRequest(request, env);
+        corsHeaders = cors.ok ? cors.headers : { "Vary": "Origin" };
+      } catch {}
+
+      const debugStack = String(env.DEBUG_STACK || "").trim() === "1";
+      const payload = {
+        ok: false,
+        error: "Worker threw exception",
+        message: (e && e.message) ? e.message : String(e)
+      };
+      if (debugStack) payload.stack = e && e.stack ? e.stack : "";
+
+      return jsonResponse(payload, 500, corsHeaders);
+    }
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LOYALTY MODULE
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ─── Schema ──────────────────────────────────────────────────────────────────
+
+async function ensureLoyaltySchema(env) {
+  // Campaigns
+  await dbRun(env, `
+    CREATE TABLE IF NOT EXISTS loyalty_campaigns (
+      id          TEXT PRIMARY KEY,
+      org_id      INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+      name        TEXT NOT NULL,
+      type        TEXT NOT NULL DEFAULT 'stamp_card',
+      brand       TEXT NOT NULL DEFAULT '',
+      items       TEXT NOT NULL DEFAULT '',
+      description TEXT NOT NULL DEFAULT '',
+      active      INTEGER NOT NULL DEFAULT 1,
+      open_ended  INTEGER NOT NULL DEFAULT 1,
+      start_date  TEXT,
+      end_date    TEXT,
+      -- stamp_card
+      stamp_target    INTEGER NOT NULL DEFAULT 10,
+      reward          TEXT NOT NULL DEFAULT '',
+      -- points
+      points_per_unit REAL NOT NULL DEFAULT 1,
+      redeem_threshold INTEGER NOT NULL DEFAULT 100,
+      -- discount
+      discount_pct    REAL NOT NULL DEFAULT 10,
+      discount_scope  TEXT NOT NULL DEFAULT '',
+      -- event
+      event_name  TEXT NOT NULL DEFAULT '',
+      event_offer TEXT NOT NULL DEFAULT '',
+      -- buy_x_get_y
+      buy_qty     INTEGER NOT NULL DEFAULT 3,
+      get_qty     INTEGER NOT NULL DEFAULT 1,
+      -- tiered (stored as JSON array)
+      tiers_json  TEXT NOT NULL DEFAULT '[]',
+      created_by  INTEGER,
+      created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    )`, []);
+
+  await dbRun(env,
+    `CREATE INDEX IF NOT EXISTS idx_loyalty_campaigns_org_loc
+     ON loyalty_campaigns (org_id, location_id, active)`, []);
+
+  // Clients
+  await dbRun(env, `
+    CREATE TABLE IF NOT EXISTS loyalty_clients (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id      INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+      id_card     TEXT NOT NULL,
+      name        TEXT NOT NULL DEFAULT '',
+      created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(org_id, location_id, id_card)
+    )`, []);
+
+  await dbRun(env,
+    `CREATE INDEX IF NOT EXISTS idx_loyalty_clients_org_loc_card
+     ON loyalty_clients (org_id, location_id, id_card)`, []);
+
+  // Known item descriptions (autocomplete)
+  await dbRun(env, `
+    CREATE TABLE IF NOT EXISTS loyalty_items (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id      INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+      description TEXT NOT NULL,
+      use_count   INTEGER NOT NULL DEFAULT 1,
+      created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(org_id, location_id, description)
+    )`, []);
+
+  await dbRun(env,
+    `CREATE INDEX IF NOT EXISTS idx_loyalty_items_org_loc
+     ON loyalty_items (org_id, location_id, use_count DESC)`, []);
+
+  // Transactions
+  await dbRun(env, `
+    CREATE TABLE IF NOT EXISTS loyalty_transactions (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id          INTEGER NOT NULL,
+      location_id     INTEGER NOT NULL,
+      client_id_card  TEXT NOT NULL,
+      client_name     TEXT NOT NULL DEFAULT '',
+      campaign_id     TEXT NOT NULL,
+      receipt_no      TEXT NOT NULL DEFAULT '',
+      items_json      TEXT NOT NULL DEFAULT '[]',
+      total           REAL NOT NULL DEFAULT 0,
+      notes           TEXT NOT NULL DEFAULT '',
+      stamps_awarded  INTEGER NOT NULL DEFAULT 0,
+      points_awarded  INTEGER NOT NULL DEFAULT 0,
+      action_label    TEXT NOT NULL DEFAULT '',
+      txn_date        TEXT NOT NULL,
+      created_by      INTEGER,
+      created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+    )`, []);
+
+  await dbRun(env,
+    `CREATE INDEX IF NOT EXISTS idx_loyalty_txns_org_loc_date
+     ON loyalty_transactions (org_id, location_id, txn_date DESC)`, []);
+
+  await dbRun(env,
+    `CREATE INDEX IF NOT EXISTS idx_loyalty_txns_org_loc_client
+     ON loyalty_transactions (org_id, location_id, client_id_card)`, []);
+
+  await dbRun(env,
+    `CREATE INDEX IF NOT EXISTS idx_loyalty_txns_org_loc_campaign
+     ON loyalty_transactions (org_id, location_id, campaign_id)`, []);
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function normMtIdCard(raw) {
+  // Pad Maltese-style ID cards: numeric part to 7 digits, preserve trailing letter
+  const s = String(raw ?? "").trim().toUpperCase();
+  if (!s) return s;
+  const m = s.match(/^(\d+)([A-Z]?)$/);
+  if (!m) return s;
+  return m[1].padStart(7, "0") + m[2];
+}
+
+function campaignRowToUi(r) {
+  if (!r) return null;
+  return {
+    id:              r.id,
+    name:            r.name,
+    type:            r.type,
+    brand:           r.brand || "",
+    items:           r.items || "",
+    description:     r.description || "",
+    active:          !!r.active,
+    open_ended:      !!r.open_ended,
+    start_date:      r.start_date || "",
+    end_date:        r.end_date || "",
+    stamp_target:    r.stamp_target ?? 10,
+    reward:          r.reward || "",
+    points_per_unit: r.points_per_unit ?? 1,
+    redeem_threshold:r.redeem_threshold ?? 100,
+    discount_pct:    r.discount_pct ?? 10,
+    discount_scope:  r.discount_scope || "",
+    event_name:      r.event_name || "",
+    event_offer:     r.event_offer || "",
+    buy_qty:         r.buy_qty ?? 3,
+    get_qty:         r.get_qty ?? 1,
+    tiers:           (() => { try { return JSON.parse(r.tiers_json || "[]"); } catch { return []; } })(),
+    created_at:      r.created_at,
+    updated_at:      r.updated_at,
+  };
+}
+
+function txnRowToUi(r) {
+  if (!r) return null;
+  return {
+    id:             r.id,
+    client_id:      r.client_id_card,
+    client_name:    r.client_name || "",
+    campaign_id:    r.campaign_id,
+    receipt_no:     r.receipt_no || "",
+    items:          (() => { try { return JSON.parse(r.items_json || "[]"); } catch { return []; } })(),
+    total:          r.total ?? 0,
+    notes:          r.notes || "",
+    stamps_awarded: r.stamps_awarded ?? 0,
+    points_awarded: r.points_awarded ?? 0,
+    action_label:   r.action_label || "",
+    date:           r.txn_date,
+    created_at:     r.created_at,
+  };
+}
+
+// ─── Campaigns ────────────────────────────────────────────────────────────────
+
+async function handleLoyaltyCampaignsList(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureLoyaltySchema(env);
+
+  const rows = await dbAll(env,
+    `SELECT * FROM loyalty_campaigns
+     WHERE org_id = ? AND location_id = ?
+     ORDER BY active DESC, created_at DESC`,
+    [authUser.org_id, authUser.location_id]);
+
+  return jsonResponse({ ok: true, campaigns: rows.map(campaignRowToUi) }, 200, corsOkHeaders);
+}
+
+async function handleLoyaltyCampaignCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureLoyaltySchema(env);
+
+  const body = await readJson(request);
+  const id   = String(body.id || "").trim() || `ly_${Date.now().toString(36)}_${Math.random().toString(36).slice(2,7)}`;
+  const name = String(body.name || "").trim();
+  if (!name) return jsonResponse({ ok: false, error: "Missing name" }, 400, corsOkHeaders);
+
+  const type = ["stamp_card","points","discount","event","buy_x_get_y","tiered"].includes(body.type)
+    ? body.type : "stamp_card";
+
+  const tiersJson = (() => {
+    try { return JSON.stringify(Array.isArray(body.tiers) ? body.tiers : []); } catch { return "[]"; }
+  })();
+
+  const startDate = body.open_ended ? null : (String(body.start_date || "").trim() || null);
+  const endDate   = body.open_ended ? null : (String(body.end_date   || "").trim() || null);
+
+  if (startDate && !isValidYmd(startDate)) return jsonResponse({ ok: false, error: "Invalid start_date" }, 400, corsOkHeaders);
+  if (endDate   && !isValidYmd(endDate))   return jsonResponse({ ok: false, error: "Invalid end_date"   }, 400, corsOkHeaders);
+
+  await dbRun(env, `
+    INSERT INTO loyalty_campaigns
+      (id, org_id, location_id, name, type, brand, items, description,
+       active, open_ended, start_date, end_date,
+       stamp_target, reward, points_per_unit, redeem_threshold,
+       discount_pct, discount_scope, event_name, event_offer,
+       buy_qty, get_qty, tiers_json, created_by, created_at, updated_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'),datetime('now'))
+    ON CONFLICT(id) DO UPDATE SET
+      name=excluded.name, type=excluded.type, brand=excluded.brand,
+      items=excluded.items, description=excluded.description, active=excluded.active,
+      open_ended=excluded.open_ended, start_date=excluded.start_date, end_date=excluded.end_date,
+      stamp_target=excluded.stamp_target, reward=excluded.reward,
+      points_per_unit=excluded.points_per_unit, redeem_threshold=excluded.redeem_threshold,
+      discount_pct=excluded.discount_pct, discount_scope=excluded.discount_scope,
+      event_name=excluded.event_name, event_offer=excluded.event_offer,
+      buy_qty=excluded.buy_qty, get_qty=excluded.get_qty, tiers_json=excluded.tiers_json,
+      updated_at=datetime('now')`,
+    [
+      id, authUser.org_id, authUser.location_id,
+      name, type,
+      String(body.brand || "").trim(),
+      String(body.items || "").trim(),
+      String(body.description || "").trim(),
+      body.active ? 1 : 0,
+      body.open_ended ? 1 : 0,
+      startDate, endDate,
+      parseInt(body.stamp_target) || 10,
+      String(body.reward || "").trim(),
+      parseFloat(body.points_per_unit) || 1,
+      parseInt(body.redeem_threshold) || 100,
+      parseFloat(body.discount_pct) || 10,
+      String(body.discount_scope || "").trim(),
+      String(body.event_name || "").trim(),
+      String(body.event_offer || "").trim(),
+      parseInt(body.buy_qty) || 3,
+      parseInt(body.get_qty) || 1,
+      tiersJson,
+      authUser.user_id
+    ]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "LOYALTY_CAMPAIGN_CREATE", "loyalty_campaigns", id, { name, type });
+  return jsonResponse({ ok: true, id }, 200, corsOkHeaders);
+}
+
+async function handleLoyaltyCampaignUpdate(request, env, corsOkHeaders, authUser, campId) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureLoyaltySchema(env);
+
+  const existing = await dbFirst(env,
+    `SELECT id FROM loyalty_campaigns WHERE id=? AND org_id=? AND location_id=?`,
+    [campId, authUser.org_id, authUser.location_id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Campaign not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+  const name = String(body.name || "").trim();
+  if (!name) return jsonResponse({ ok: false, error: "Missing name" }, 400, corsOkHeaders);
+
+  const type = ["stamp_card","points","discount","event","buy_x_get_y","tiered"].includes(body.type)
+    ? body.type : "stamp_card";
+
+  const tiersJson = (() => {
+    try { return JSON.stringify(Array.isArray(body.tiers) ? body.tiers : []); } catch { return "[]"; }
+  })();
+
+  const startDate = body.open_ended ? null : (String(body.start_date || "").trim() || null);
+  const endDate   = body.open_ended ? null : (String(body.end_date   || "").trim() || null);
+
+  if (startDate && !isValidYmd(startDate)) return jsonResponse({ ok: false, error: "Invalid start_date" }, 400, corsOkHeaders);
+  if (endDate   && !isValidYmd(endDate))   return jsonResponse({ ok: false, error: "Invalid end_date"   }, 400, corsOkHeaders);
+
+  await dbRun(env, `
+    UPDATE loyalty_campaigns SET
+      name=?, type=?, brand=?, items=?, description=?,
+      active=?, open_ended=?, start_date=?, end_date=?,
+      stamp_target=?, reward=?, points_per_unit=?, redeem_threshold=?,
+      discount_pct=?, discount_scope=?, event_name=?, event_offer=?,
+      buy_qty=?, get_qty=?, tiers_json=?, updated_at=datetime('now')
+    WHERE id=? AND org_id=? AND location_id=?`,
+    [
+      name, type,
+      String(body.brand || "").trim(),
+      String(body.items || "").trim(),
+      String(body.description || "").trim(),
+      body.active ? 1 : 0,
+      body.open_ended ? 1 : 0,
+      startDate, endDate,
+      parseInt(body.stamp_target) || 10,
+      String(body.reward || "").trim(),
+      parseFloat(body.points_per_unit) || 1,
+      parseInt(body.redeem_threshold) || 100,
+      parseFloat(body.discount_pct) || 10,
+      String(body.discount_scope || "").trim(),
+      String(body.event_name || "").trim(),
+      String(body.event_offer || "").trim(),
+      parseInt(body.buy_qty) || 3,
+      parseInt(body.get_qty) || 1,
+      tiersJson,
+      campId, authUser.org_id, authUser.location_id
+    ]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "LOYALTY_CAMPAIGN_UPDATE", "loyalty_campaigns", campId, { name, type });
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleLoyaltyCampaignDelete(request, env, corsOkHeaders, authUser, campId) {
+  if (!requireRole(authUser, ["admin"])) {
+    return jsonResponse({ ok: false, error: "Forbidden – admin only" }, 403, corsOkHeaders);
+  }
+  await ensureLoyaltySchema(env);
+
+  const existing = await dbFirst(env,
+    `SELECT id FROM loyalty_campaigns WHERE id=? AND org_id=? AND location_id=?`,
+    [campId, authUser.org_id, authUser.location_id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Campaign not found" }, 404, corsOkHeaders);
+
+  await dbRun(env,
+    `DELETE FROM loyalty_campaigns WHERE id=? AND org_id=? AND location_id=?`,
+    [campId, authUser.org_id, authUser.location_id]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "LOYALTY_CAMPAIGN_DELETE", "loyalty_campaigns", campId, {});
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+// ─── Clients ──────────────────────────────────────────────────────────────────
+
+async function handleLoyaltyClientsList(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureLoyaltySchema(env);
+
+  const q = (url.searchParams.get("q") || "").trim();
+  let rows;
+  if (q) {
+    const like = `%${q}%`;
+    rows = await dbAll(env,
+      `SELECT id, id_card, name, created_at, updated_at
+       FROM loyalty_clients
+       WHERE org_id=? AND location_id=? AND (id_card LIKE ? OR name LIKE ?)
+       ORDER BY name ASC LIMIT 200`,
+      [authUser.org_id, authUser.location_id, like, like]);
+  } else {
+    rows = await dbAll(env,
+      `SELECT id, id_card, name, created_at, updated_at
+       FROM loyalty_clients
+       WHERE org_id=? AND location_id=?
+       ORDER BY name ASC`,
+      [authUser.org_id, authUser.location_id]);
+  }
+
+  return jsonResponse({ ok: true, clients: rows }, 200, corsOkHeaders);
+}
+
+async function handleLoyaltyClientUpsert(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureLoyaltySchema(env);
+
+  const body = await readJson(request);
+  const rawCard = String(body.id_card || "").trim();
+  if (!rawCard) return jsonResponse({ ok: false, error: "Missing id_card" }, 400, corsOkHeaders);
+
+  const idCard = normMtIdCard(rawCard);
+  const name   = String(body.name || "").trim();
+
+  await dbRun(env, `
+    INSERT INTO loyalty_clients (org_id, location_id, id_card, name, created_at, updated_at)
+    VALUES (?,?,?,?,datetime('now'),datetime('now'))
+    ON CONFLICT(org_id, location_id, id_card) DO UPDATE SET
+      name = CASE WHEN excluded.name != '' THEN excluded.name ELSE name END,
+      updated_at = datetime('now')`,
+    [authUser.org_id, authUser.location_id, idCard, name]);
+
+  const row = await dbFirst(env,
+    `SELECT id, id_card, name FROM loyalty_clients WHERE org_id=? AND location_id=? AND id_card=?`,
+    [authUser.org_id, authUser.location_id, idCard]);
+
+  return jsonResponse({ ok: true, client: row }, 200, corsOkHeaders);
+}
+
+async function handleLoyaltyClientDelete(request, env, corsOkHeaders, authUser, rawCard) {
+  if (!requireRole(authUser, ["admin"])) {
+    return jsonResponse({ ok: false, error: "Forbidden – admin only" }, 403, corsOkHeaders);
+  }
+  await ensureLoyaltySchema(env);
+
+  const idCard = normMtIdCard(rawCard) || rawCard;
+
+  await dbRun(env,
+    `DELETE FROM loyalty_clients WHERE org_id=? AND location_id=? AND id_card=?`,
+    [authUser.org_id, authUser.location_id, idCard]);
+
+  // Also delete their transactions
+  await dbRun(env,
+    `DELETE FROM loyalty_transactions WHERE org_id=? AND location_id=? AND client_id_card=?`,
+    [authUser.org_id, authUser.location_id, idCard]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "LOYALTY_CLIENT_DELETE", "loyalty_clients", idCard, {});
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+// ─── Known items ──────────────────────────────────────────────────────────────
+
+async function handleLoyaltyItemsList(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureLoyaltySchema(env);
+
+  const q = (url.searchParams.get("q") || "").trim();
+  let rows;
+  if (q) {
+    rows = await dbAll(env,
+      `SELECT description, use_count FROM loyalty_items
+       WHERE org_id=? AND location_id=? AND description LIKE ?
+       ORDER BY use_count DESC LIMIT 20`,
+      [authUser.org_id, authUser.location_id, `%${q}%`]);
+  } else {
+    rows = await dbAll(env,
+      `SELECT description, use_count FROM loyalty_items
+       WHERE org_id=? AND location_id=?
+       ORDER BY use_count DESC LIMIT 300`,
+      [authUser.org_id, authUser.location_id]);
+  }
+
+  return jsonResponse({ ok: true, items: rows.map(r => r.description) }, 200, corsOkHeaders);
+}
+
+async function handleLoyaltyItemUpsert(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureLoyaltySchema(env);
+
+  const body = await readJson(request);
+  const desc = String(body.description || "").trim();
+  if (!desc) return jsonResponse({ ok: false, error: "Missing description" }, 400, corsOkHeaders);
+
+  await dbRun(env, `
+    INSERT INTO loyalty_items (org_id, location_id, description, use_count, created_at, updated_at)
+    VALUES (?,?,?,1,datetime('now'),datetime('now'))
+    ON CONFLICT(org_id, location_id, description) DO UPDATE SET
+      use_count  = use_count + 1,
+      updated_at = datetime('now')`,
+    [authUser.org_id, authUser.location_id, desc]);
+
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+// ─── Transactions ─────────────────────────────────────────────────────────────
+
+async function handleLoyaltyTransactionsList(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureLoyaltySchema(env);
+
+  const clientCard = (url.searchParams.get("client") || "").trim();
+  const campaignId = (url.searchParams.get("campaign") || "").trim();
+  const month      = (url.searchParams.get("month") || "").trim();
+
+  const conditions = ["org_id = ?", "location_id = ?"];
+  const bind = [authUser.org_id, authUser.location_id];
+
+  if (clientCard) {
+    conditions.push("client_id_card = ?");
+    bind.push(normMtIdCard(clientCard) || clientCard);
+  }
+  if (campaignId) {
+    conditions.push("campaign_id = ?");
+    bind.push(campaignId);
+  }
+  if (month) {
+    const range = monthRange(month);
+    if (!range) return jsonResponse({ ok: false, error: "Invalid month (YYYY-MM)" }, 400, corsOkHeaders);
+    conditions.push("txn_date >= ?", "txn_date < ?");
+    bind.push(range.startStr, range.endStr);
+  }
+
+  const rows = await dbAll(env,
+    `SELECT * FROM loyalty_transactions
+     WHERE ${conditions.join(" AND ")}
+     ORDER BY created_at DESC
+     LIMIT 500`,
+    bind);
+
+  return jsonResponse({ ok: true, transactions: rows.map(txnRowToUi) }, 200, corsOkHeaders);
+}
+
+async function handleLoyaltyTransactionCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureLoyaltySchema(env);
+
+  const body = await readJson(request);
+
+  const rawCard = String(body.client_id || body.client_id_card || "").trim();
+  if (!rawCard) return jsonResponse({ ok: false, error: "Missing client_id" }, 400, corsOkHeaders);
+
+  const idCard     = normMtIdCard(rawCard) || rawCard;
+  const clientName = String(body.client_name || "").trim();
+  const campaignId = String(body.campaign_id || "").trim();
+  if (!campaignId) return jsonResponse({ ok: false, error: "Missing campaign_id" }, 400, corsOkHeaders);
+
+  // Verify campaign belongs to this org/location
+  const camp = await dbFirst(env,
+    `SELECT id FROM loyalty_campaigns WHERE id=? AND org_id=? AND location_id=?`,
+    [campaignId, authUser.org_id, authUser.location_id]);
+  if (!camp) return jsonResponse({ ok: false, error: "Campaign not found" }, 404, corsOkHeaders);
+
+  const txnDate    = String(body.date || body.txn_date || "").trim() || new Date().toISOString().slice(0,10);
+  if (!isValidYmd(txnDate)) return jsonResponse({ ok: false, error: "Invalid date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+
+  const itemsJson = (() => {
+    try { return JSON.stringify(Array.isArray(body.items) ? body.items : []); } catch { return "[]"; }
+  })();
+
+  const total         = Math.max(0, parseFloat(body.total) || 0);
+  const stampsAwarded = Math.max(0, parseInt(body.stamps_awarded) || 0);
+  const pointsAwarded = Math.max(0, parseInt(body.points_awarded) || 0);
+  const receiptNo     = String(body.receipt_no || "").trim();
+  const notes         = String(body.notes || "").trim();
+  const actionLabel   = String(body.action_label || "").trim();
+
+  const row = await dbFirst(env, `
+    INSERT INTO loyalty_transactions
+      (org_id, location_id, client_id_card, client_name, campaign_id,
+       receipt_no, items_json, total, notes, stamps_awarded, points_awarded,
+       action_label, txn_date, created_by, created_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'))
+    RETURNING id`,
+    [
+      authUser.org_id, authUser.location_id,
+      idCard, clientName, campaignId,
+      receiptNo, itemsJson, total, notes,
+      stampsAwarded, pointsAwarded,
+      actionLabel, txnDate, authUser.user_id
+    ]);
+
+  // Auto-upsert client record so they're in the clients table
+  await dbRun(env, `
+    INSERT INTO loyalty_clients (org_id, location_id, id_card, name, created_at, updated_at)
+    VALUES (?,?,?,?,datetime('now'),datetime('now'))
+    ON CONFLICT(org_id, location_id, id_card) DO UPDATE SET
+      name = CASE WHEN excluded.name != '' THEN excluded.name ELSE name END,
+      updated_at = datetime('now')`,
+    [authUser.org_id, authUser.location_id, idCard, clientName]);
+
+  // Auto-bump use_count for every item description
+  try {
+    const items = JSON.parse(itemsJson);
+    for (const item of items) {
+      const desc = String(item.desc || item.description || "").trim();
+      if (!desc) continue;
+      await dbRun(env, `
+        INSERT INTO loyalty_items (org_id, location_id, description, use_count, created_at, updated_at)
+        VALUES (?,?,?,1,datetime('now'),datetime('now'))
+        ON CONFLICT(org_id, location_id, description) DO UPDATE SET
+          use_count=use_count+1, updated_at=datetime('now')`,
+        [authUser.org_id, authUser.location_id, desc]);
+    }
+  } catch { /* non-fatal */ }
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "LOYALTY_TXN_CREATE", "loyalty_transactions", String(row.id), {
+    client_id_card: idCard, campaign_id: campaignId, action_label: actionLabel
+  });
+
+  return jsonResponse({ ok: true, id: row.id }, 200, corsOkHeaders);
+}
+
+ 
