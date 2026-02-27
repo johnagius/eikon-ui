@@ -172,6 +172,99 @@
 
   // apptsForDate is used by renderDay; ensure it is always defined in this module scope
   function apptsForDate(dateKey) { return loadAppointments(dateKey); }
+  function timeToMins(t) {
+    try {
+      t = String(t||"");
+      var h = parseInt(t.slice(0,2),10)||0;
+      var m = parseInt(t.slice(3,5),10)||0;
+      return h*60+m;
+    } catch(e) { return 0; }
+  }
+  function minsToTime(m) {
+    m = Math.max(0, Math.min(24*60-1, parseInt(m,10)||0));
+    var h = Math.floor(m/60); var mm = m%60;
+    return pad2(h)+":"+pad2(mm);
+  }
+  function apptDuration(a) {
+    return parseInt(a.durationMins || a.duration_mins || a.duration || 0, 10) || 0;
+  }
+  function apptStartMins(a) { return timeToMins(a.time || a.startTime || "00:00"); }
+
+  async function ensureSchedulesLoaded() {
+    try {
+      if (loadSchedules().length) return;
+      apptLog("ensureSchedulesLoaded:fetch");
+      var s = await apiLoadSchedules();
+      saveSchedules(s);
+    } catch(e) { apptWarn("ensureSchedulesLoaded:error", e); }
+  }
+
+  async function ensureAppointmentsLoaded(dateKey) {
+    try {
+      if (!dateKey) return;
+      var k = String(dateKey);
+      if (Array.isArray(APPT_MEM.apptByDate[k])) return;
+      apptLog("ensureAppointmentsLoaded:fetch", k);
+      var arr = await apiLoadAppts({ date: k });
+      // apiLoadAppts may return local-shape; keep as-is
+      saveAppointments(k, arr);
+    } catch(e) { apptWarn("ensureAppointmentsLoaded:error", e); }
+  }
+
+  function schedulesForDate(dateKey, doctorId, clinicId) {
+    var d = String(dateKey||"");
+    var dow = dayOfWeek(d);
+    return loadSchedules().filter(function(s){
+      if (s.cancelled) return false;
+      if (doctorId && String(s.doctorId||s.doctor_id||"") !== String(doctorId)) return false;
+      if (clinicId && String(s.clinicId||s.clinic_id||"") !== String(clinicId)) return false;
+      if (s.isOneOff || s.is_one_off) {
+        return String(s.date||"") === d;
+      }
+      var sdow = s.dayOfWeek!=null ? s.dayOfWeek : s.day_of_week;
+      if (sdow==null) return false;
+      if (Number(sdow) !== Number(dow)) return false;
+      if (s.validFrom && String(s.validFrom) > d) return false;
+      if (s.validUntil && String(s.validUntil) < d) return false;
+      if (s.valid_from && String(s.valid_from) > d) return false;
+      if (s.valid_until && String(s.valid_until) < d) return false;
+      return true;
+    });
+  }
+
+  function computeAvailableStartTimes(dateKey, doctorId, clinicId, durationMins) {
+    var d = String(dateKey||"");
+    var dur = parseInt(durationMins,10)||10;
+    var appts = loadAppointments(d) || [];
+    var scheds = schedulesForDate(d, doctorId, clinicId);
+    if (!scheds.length) return [];
+    // union of all schedules for that day
+    var slots = [];
+    scheds.forEach(function(s){
+      var st = String(s.startTime||s.start_time||"09:00");
+      var et = String(s.endTime||s.end_time||"17:00");
+      var slotDur = parseInt(s.slotDuration||s.slot_duration||10,10)||10;
+      var startM = timeToMins(st);
+      var endM = timeToMins(et);
+      for (var m=startM; m+dur<=endM; m+=slotDur){
+        var ok=true;
+        for (var i=0;i<appts.length;i++){
+          var a=appts[i];
+          if (String(a.doctorId||a.doctor_id||"") !== String(doctorId)) continue;
+          if (String(a.clinicId||a.clinic_id||"") !== String(clinicId)) continue;
+          if (String(a.status||"").toLowerCase()==="cancelled") continue;
+          var aStart=apptStartMins(a);
+          var aEnd=aStart+apptDuration(a);
+          if (aStart < m+dur && aEnd > m){ ok=false; break; }
+        }
+        if (ok) slots.push(minsToTime(m));
+      }
+    });
+    // de-dup + sort
+    slots = slots.filter(function(v,i,a){ return a.indexOf(v)===i; }).sort();
+    return slots;
+  }
+
 
 
   // Alias used by day render; keep name stable
@@ -770,7 +863,18 @@
     return days.map(function(d,i){
       return "<option value='"+i+"'"+(String(i)===String(selected)?" selected":"")+">"+d+"</option>";
     }).join("");
+  
+  function buildDowCheckboxes(selectedArr) {
+    var sel = {};
+    try { (selectedArr||[]).forEach(function(v){ sel[String(v)] = true; }); } catch(e){}
+    var days=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+    return days.map(function(lbl,i){
+      var chk = sel[String(i)] ? " checked" : "";
+      return "<label style='display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:4px 6px;border:1px solid rgba(255,255,255,.12);border-radius:8px;cursor:pointer;'>" +
+             "<input class='ap-dowchk' type='checkbox' value='"+i+"'"+chk+">" + lbl + "</label>";
+    }).join("");
   }
+}
 
   // -- Print Functions -------------------------------------------------------
   function printApptList(list, title, filterDesc) {
@@ -1120,7 +1224,7 @@
         "<option value='oneoff'"+(isOneOff?" selected":"")+">One-off date</option>" +
         "</select></div>" +
         "<div id='ap-sch-recurring' style='display:"+(isOneOff?"none":"block")+"'>" +
-        "<div class='eikon-field'><div class='eikon-label'>Day of Week</div><select class='ap-select' id='ap-schmod-dow'>"+buildDowOptions(s.dayOfWeek!=null?s.dayOfWeek:1)+"</select></div>" +
+        "<div class='eikon-field'><div class='eikon-label'>Days of Week</div><div id='ap-schmod-dows' style='display:flex;flex-wrap:wrap;gap:6px;'>"+buildDowCheckboxes((s.dayOfWeek!=null)?[s.dayOfWeek]:[1])+"</div><div style='font-size:11px;color:rgba(233,238,247,.55);margin-top:6px;'>Select one or more days (creates one schedule per day).</div></div>" +
         "<div class='ap-form-grid'>" +
         "<div class='eikon-field'><div class='eikon-label'>Valid From (optional)</div><input class='ap-input' id='ap-schmod-from' type='date' value='"+esc(s.validFrom||"")+"'></div>" +
         "<div class='eikon-field'><div class='eikon-label'>Valid Until (optional)</div><input class='ap-input' id='ap-schmod-until' type='date' value='"+esc(s.validUntil||"")+"'></div>" +
@@ -1132,7 +1236,7 @@
         "<div class='eikon-field'><div class='eikon-label'>Start Time</div><input class='ap-input' id='ap-schmod-start' type='time' value='"+esc(s.startTime||"09:00")+"'></div>" +
         "<div class='eikon-field'><div class='eikon-label'>End Time</div><input class='ap-input' id='ap-schmod-end' type='time' value='"+esc(s.endTime||"17:00")+"'></div>" +
         "</div>" +
-        "<div class='eikon-field'><div class='eikon-label'>Default Slot Duration (minutes)</div><input class='ap-input' id='ap-schmod-slot' type='number' min='5' max='180' step='5' value='"+esc(s.slotDuration||30)+"'></div>";
+        "<div class='eikon-field'><div class='eikon-label'>Default Slot Duration (minutes)</div><input class='ap-input' id='ap-schmod-slot' type='number' min='5' max='180' step='5' value='"+esc(s.slotDuration||10)+"'></div>";
 
       E.modal.show(isEdit?"Edit Schedule":"Add Schedule", body, [
         {label:"Cancel", onClick:async function(){openSchedulesModal(onDone);}},
@@ -1152,11 +1256,26 @@
           if(isOO){
             payload.date = (E.q("#ap-schmod-date")||{}).value||todayYmd();
           } else {
-            payload.dayOfWeek = parseInt((E.q("#ap-schmod-dow")||{}).value||"1",10);
-            payload.validFrom = (E.q("#ap-schmod-from")||{}).value||"";
-            payload.validUntil = (E.q("#ap-schmod-until")||{}).value||"";
+            var dows = [].slice.call((E.qAll && E.qAll('#ap-schmod-dows .ap-dowchk:checked')) || document.querySelectorAll('#ap-schmod-dows .ap-dowchk:checked')).map(function(el){return parseInt(el.value,10);});
+            if(!dows.length) throw new Error('Please select at least one day of week.');
+            payload.validFrom = (E.q('#ap-schmod-from')||{}).value||'';
+            payload.validUntil = (E.q('#ap-schmod-until')||{}).value||'';
+            payload.dayOfWeek = dows[0];
+
           }
-          if(isEdit) await apiUpdateSchedule(s.id, payload); else await apiCreateSchedule(payload);
+          if(isEdit){
+            await apiUpdateSchedule(s.id, payload);
+            if(!isOneOff){
+              // Create additional schedules for extra selected days
+              var extraDows = (typeof dows!=='undefined' && dows && dows.length>1) ? dows.slice(1) : [];
+              for(var i=0;i<extraDows.length;i++){ var dd=extraDows[i]; await apiCreateSchedule(Object.assign({}, payload, {dayOfWeek: dd})); }
+            }
+          } else {
+            if(isOneOff){ await apiCreateSchedule(payload); }
+            else {
+              for(var j=0;j<dows.length;j++){ var d=dows[j]; await apiCreateSchedule(Object.assign({}, payload, {dayOfWeek:d})); }
+            }
+          }
           if(typeof onDone==="function") onDone();
           openSchedulesModal(onDone);
         }}
@@ -1188,7 +1307,7 @@
           var btn=ev.target; var id=btn.getAttribute("data-id");
           if(!id) return;
           var scheds=loadSchedules();
-          var sch=scheds.filter(function(s){return s.id===id;})[0];
+          var sch=scheds.filter(function(s){return String(s.id)===String(id);})[0];
           if(btn.classList.contains("ap-sch-edit")){if(sch)showSchForm(sch);}
           if(btn.classList.contains("ap-sch-toggle")){
             if(sch){await apiUpdateSchedule(id,{cancelled:!sch.cancelled});if(typeof onDone==="function")onDone();openSchedulesModal(onDone);}
@@ -1259,7 +1378,7 @@
       "<div class='eikon-field'><div class='eikon-label'>Date</div>" +
       "<input class='ap-input' id='ap-mod-date' type='date' value='"+esc(init.date)+"' style='width:100%;'></div>" +
       "<div class='eikon-field'><div class='eikon-label'>Time</div>" +
-      "<input class='ap-input' id='ap-mod-time' type='time' value='"+esc(init.time)+"' style='width:100%;'></div>" +
+      "<select class='ap-select' id='ap-mod-time' style='width:100%;'></select></div>" +
       "<div class='eikon-field'><div class='eikon-label'>Duration (min)</div>" +
       "<input class='ap-input' id='ap-mod-dur' type='number' min='5' max='180' step='5' value='"+esc(init.durationMins)+"' style='width:100%;'></div>" +
       "<div class='eikon-field'><div class='eikon-label'>Status</div>" +
@@ -1298,10 +1417,31 @@
           if(!patient) throw new Error("Patient name is required.");
           var date = ((E.q("#ap-mod-date")||{}).value||"").trim();
           if(!isYmd(date)) throw new Error("Please enter a valid date.");
-          var time = ((E.q("#ap-mod-time")||{}).value||"").trim();
-          if(!time) throw new Error("Please enter a time.");
+          var time = ((E.q('#ap-mod-time')||{}).value||'').trim();
+          if(!time) throw new Error("Please select an available time slot.");
           var drId = ((E.q("#ap-mod-dr")||{}).value||"").trim();
           if(!drId) throw new Error("Please select a doctor.");
+          var clIdSel = ((E.q("#ap-mod-cl")||{}).value||"").trim();
+          if(!clIdSel) throw new Error("Please select a clinic.");
+          var durM = parseInt(((E.q("#ap-mod-dur")||{}).value||"10"),10) || 10;
+          if(durM < 5) durM = 5;
+          // Enforce booking only on available schedule slots; refresh latest bookings to avoid double-booking
+          await ensureSchedulesLoaded();
+          var latestAppts = await apiLoadAppts({ date: date });
+          saveAppointments(date, latestAppts);
+          var slotsNow = computeAvailableStartTimes(date, drId, clIdSel, durM);
+          apptLog('submit:slots', {date:date, doctorId:drId, clinicId:clIdSel, dur:durM, slots:slotsNow.length});
+          if(!slotsNow.length){
+            // fully booked: add to waiting list automatically
+            await apiCreateWaitlist({ patientName: patient, patientPhone: ((E.q("#ap-mod-phone")||{}).value||"").trim(), doctorId: drId, clinicId: clIdSel, date: date, notes: ((E.q("#ap-mod-notes")||{}).value||"").trim() });
+            await refreshAll('waitlist-auto');
+            E.modal.hide();
+            return;
+          }
+          if(slotsNow.indexOf(time) < 0){
+            throw new Error("Selected time is no longer available. Please choose another slot.");
+          }
+
           var df = parseFloat((E.q("#ap-mod-drfee")||{}).value||"")||0;
           var cf = parseFloat((E.q("#ap-mod-clfee")||{}).value||"")||0;
           var mf = parseFloat((E.q("#ap-mod-medfee")||{}).value||"")||0;
@@ -1333,6 +1473,39 @@
 
     // Wire: auto-fill fees when doctor/clinic changes; update total preview
     setTimeout(function(){
+      async function refreshTimeOptions(){
+        try {
+          var date = ((E.q('#ap-mod-date')||{}).value||'').trim();
+          var drId = parseInt(((E.q('#ap-mod-dr')||{}).value||''),10)||0;
+          var clId = parseInt(((E.q('#ap-mod-cl')||{}).value||''),10)||0;
+          var dur = parseInt(((E.q('#ap-mod-dur')||{}).value||''),10)||10;
+          var sel = E.q('#ap-mod-time');
+          if(!sel) return;
+          if(!date || !drId || !clId){
+            sel.innerHTML = "<option value=''>Select doctor, clinic and date</option>";
+            sel.disabled = true;
+            return;
+          }
+          sel.disabled = true;
+          sel.innerHTML = "<option value=''>Loading available slots...</option>";
+          await ensureSchedulesLoaded();
+          await ensureAppointmentsLoaded(date);
+          var slots = computeAvailableStartTimes(date, drId, clId, dur);
+          apptLog('refreshTimeOptions', {date:date, doctorId:drId, clinicId:clId, dur:dur, slots:slots.length});
+          if(!slots.length){
+            sel.innerHTML = "<option value=''>No available slots (will add to waiting list)</option>";
+            sel.disabled = true;
+            return;
+          }
+          sel.innerHTML = slots.map(function(t){ return "<option value='"+t+"'>"+t+"</option>"; }).join('');
+          // try keep previous selection
+          var prev = String(sel.getAttribute('data-prev')||'');
+          if(prev && slots.indexOf(prev)>=0) sel.value = prev;
+          sel.disabled = false;
+        } catch(ex) {
+          apptWarn('refreshTimeOptions:error', ex);
+        }
+      }
       function updateTotal(){
         var df=parseFloat((E.q("#ap-mod-drfee")||{}).value||"")||0;
         var cf=parseFloat((E.q("#ap-mod-clfee")||{}).value||"")||0;
@@ -1366,6 +1539,17 @@
       }
       // Initial auto-fill
       autoFillFees();
+      // Slot-time options (based on schedules + existing bookings)
+      try {
+        var timeSel = E.q('#ap-mod-time');
+        if(timeSel){ timeSel.addEventListener('change', function(){ try{ timeSel.setAttribute('data-prev', String(timeSel.value||'')); }catch(_e){} }); }
+        var drSel2 = E.q('#ap-mod-dr'); var clSel2 = E.q('#ap-mod-cl'); var dtEl2 = E.q('#ap-mod-date'); var durEl2 = E.q('#ap-mod-dur');
+        if(drSel2) drSel2.addEventListener('change', function(){ refreshTimeOptions(); });
+        if(clSel2) clSel2.addEventListener('change', function(){ refreshTimeOptions(); });
+        if(dtEl2)  dtEl2.addEventListener('change', function(){ refreshTimeOptions(); });
+        if(durEl2) durEl2.addEventListener('change', function(){ refreshTimeOptions(); });
+        refreshTimeOptions();
+      } catch(ex) { apptWarn('time wiring error', ex); }
     },60);
   }
 
