@@ -2904,7 +2904,7 @@ function renderBP(){
   E.registerModule({
     id: "poct",
     title: "POCT",
-    order: 23,
+    order: 370,
     icon: "🧪",
     render: render,
   });
