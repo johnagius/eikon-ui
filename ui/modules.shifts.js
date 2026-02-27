@@ -431,30 +431,35 @@
     try{
       if(!e || !e.id){ console.warn("[shifts][staffDelete] missing staff", e); return; }
       console.groupCollapsed("[shifts][staffDelete] confirm", {id:e.id, name:e.full_name, active:e.is_active});
+
       var body =
         '<div style="display:flex;flex-direction:column;gap:10px">' +
           '<div style="padding:10px;border:1px solid rgba(255,90,122,.35);background:rgba(255,90,122,.08);border-radius:10px">' +
-            '<b>Delete staff member?</b><br/>' +
-            'Delete <b>'+esc(e.full_name)+'</b> permanently?<br/>' +
-            '<span style="opacity:.85">This will also remove their shifts and leave entries. This cannot be undone.</span>' +
+            '<b>Delete staff member</b><br/>' +
+            'This will permanently remove <b>'+esc(e.full_name)+'</b> and also remove any shifts and leave entries linked to them.<br/>' +
+            '<span style="opacity:.85">This cannot be undone.</span>' +
           '</div>' +
+          '<div style="font-size:12px;opacity:.9">Are you sure you want to delete this staff member?</div>' +
         '</div>';
 
-      E.modal.show("Delete Staff", body, [
-        {label:"No", onClick:function(){ E.modal.hide(); try{ console.groupEnd(); }catch(_){ } }},
+      E.modal.show("Confirm delete", body, [
+        {label:"No", onClick:function(){ try{ console.groupEnd(); }catch(_){ } E.modal.hide(); }},
         {label:"Yes, delete", primary:true, onClick:function(){
           E.modal.hide();
-          try{ console.log("[shifts][staffDelete] confirmed"); }catch(_){}
-          try{ console.groupEnd(); }catch(_){}
-          deleteStaff(e, cb);
+          deleteStaff(e, function(){
+            try{ console.groupEnd(); }catch(_){}
+            cb && cb();
+          });
         }}
       ]);
     }catch(err){
-      console.error("[shifts][staffDelete] confirm failed", err);
-      toast("Delete failed (see console)","error");
       try{ console.groupEnd(); }catch(_){}
+      console.error("[shifts][staffDelete] confirm failed", err);
+      toast("Delete failed","error");
     }
   }
+
+
 
 
   // Clipboard helper (sandbox-safe): tries navigator.clipboard, then execCommand, then manual copy modal
@@ -540,33 +545,25 @@
       var b=bal(e.id);
       var col=dc(e.designation);
       var tr=document.createElement("tr");
+      var dim = e.is_active===0 ? 'opacity:0.4;' : '';
       tr.innerHTML=
-        '<td><b>'+esc(e.full_name||"")+'</b></td>'+
-        '<td><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+col+';margin-right:5px;"></span>'+esc(dl(e.designation))+'</td>'+
-        '<td><span class="eikon-pill" style="font-size:11px;">'+etl(e.employment_type)+'</span></td>'+
-        '<td>'+(e.contracted_hours||"—")+'h</td>'+
-        '<td style="font-size:12px;color:var(--muted);">'+esc(e.email||"")+(e.phone?"<br>"+esc(e.phone):"")+'</td>'+
-        '<td>'+(b?'<span style="color:'+(b.annualLeft<24?"var(--danger)":"var(--ok)")+'">'+b.annualLeft+'h / '+b.annualEnt+'h</span>':"—")+'</td>'+
-        '<td>'+(b?b.sickLeft+'h':"—")+'</td>'+
-        '<td><span class="eikon-pill" style="font-size:11px;'+(e.is_active===0?"color:var(--danger);border-color:rgba(255,90,122,.4);":"color:var(--ok);border-color:rgba(67,209,122,.4);")+'">'+(e.is_active===0?"Inactive":"Active")+'</span></td>'+
+        '<td style="'+dim+'"><b>'+esc(e.full_name||"")+'</b></td>'+
+        '<td style="'+dim+'"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+col+';margin-right:5px;"></span>'+esc(dl(e.designation))+'</td>'+
+        '<td style="'+dim+'"><span class="eikon-pill" style="font-size:11px;">'+etl(e.employment_type)+'</span></td>'+
+        '<td style="'+dim+'">'+(e.contracted_hours||"—")+'h</td>'+
+        '<td style="'+dim+'font-size:12px;color:var(--muted);">'+esc(e.email||"")+(e.phone?"<br>"+esc(e.phone):"")+'</td>'+
+        '<td style="'+dim+'">'+(b?'<span style="color:'+(b.annualLeft<24?"var(--danger)":"var(--ok)")+'">'+b.annualLeft+'h / '+b.annualEnt+'h</span>':"—")+'</td>'+
+        '<td style="'+dim+'">'+(b?b.sickLeft+'h':"—")+'</td>'+
+        '<td style="'+dim+'"><span class="eikon-pill" style="font-size:11px;'+(e.is_active===0?"color:var(--danger);border-color:rgba(255,90,122,.4);":"color:var(--ok);border-color:rgba(67,209,122,.4);")+'">'+(e.is_active===0?"Inactive":"Active")+'</span></td>'+
         '<td></td>';
       var act=tr.querySelectorAll("td")[8];
-      try{ act.style.opacity="1"; act.style.pointerEvents="auto"; }catch(_){ }
-
-      if(e.is_active===0){
-        try{
-          var tds=tr.querySelectorAll("td");
-          for(var i=0;i<tds.length;i++){ if(i<8) tds[i].style.opacity="0.4"; }
-        }catch(_){ }
-      }
-
       var eb=document.createElement("button"); eb.className="eikon-btn"; eb.textContent="Edit";
       eb.onclick=function(){ empModal(e,m); };
       var tb2=document.createElement("button"); tb2.className="eikon-btn "+(e.is_active===0?"primary":"danger"); tb2.style.marginLeft="6px";
       tb2.textContent=e.is_active===0?"Activate":"Deactivate";
       tb2.onclick=function(){ toggleActive(e,function(){renderEmpRows(m);}); };
       act.appendChild(eb); act.appendChild(tb2);
-      var db=document.createElement("button"); db.className="eikon-btn danger"; db.style.marginLeft="6px"; db.style.opacity="1"; db.textContent="Delete";
+      var db=document.createElement("button"); db.className="eikon-btn danger"; db.style.marginLeft="6px"; db.textContent="Delete";
       db.onclick=function(){ safeConfirmDeleteStaff(e,function(){ renderEmpRows(m); }); };
       act.appendChild(db);
       tb.appendChild(tr);
@@ -1058,22 +1055,19 @@ function saveEmp(id, p, cb) {
     e.is_active=e.is_active===0?1:0;
     saveEmp(e.id, Object.assign({},e), cb);
   
-  }
-
-  
   function deleteStaff(e, cb){
     if(!e || !e.id) return;
     var id = e.id;
     console.groupCollapsed("[shifts][staffDelete] DELETE /shifts/staff/"+id, {id:id, name:e.full_name, active:e.is_active});
     apiOp("/shifts/staff/"+id, {method:"DELETE"}, function(r){
       try { console.log("[shifts][staffDelete] resp", r); } catch(_){}
-      // Optimistic local removal (instant UI)
+      // Optimistic local removal
       S.staff = (S.staff||[]).filter(function(s){ return s.id !== id; });
       S.shifts = (S.shifts||[]).filter(function(s){ return s.staff_id !== id; });
       S.leaves = (S.leaves||[]).filter(function(l){ return l.staff_id !== id; });
       lsSync();
 
-      // ✅ Refresh staff list from server to ensure UI stays in sync (incl. inactive)
+      // Refresh staff list from server (incl. inactive) to keep UI in sync
       E.apiFetch("/shifts/staff?include_inactive=1", {method:"GET"}).then(function(res){
         if(res && res.staff){ S.staff = res.staff; lsSync(); }
         console.log("[shifts][staffDelete] staff refreshed", (S.staff||[]).length);
@@ -1088,36 +1082,13 @@ function saveEmp(id, p, cb) {
   }
 
   function confirmDeleteStaff(e, cb){
-    if(!e || !e.id) return;
-    var body =
-      '<div style="display:flex;flex-direction:column;gap:10px">' +
-        '<div style="padding:10px;border:1px solid rgba(255,90,122,.35);background:rgba(255,90,122,.08);border-radius:10px">' +
-          '<b>Delete staff member</b><br/>' +
-          'This will permanently remove <b>'+esc(e.full_name)+'</b> and will also remove any shifts and leave entries linked to them.<br/>' +
-          '<span style="opacity:.85">This cannot be undone.</span>' +
-        '</div>' +
-        '<div class="eikon-field">' +
-          '<div class="eikon-label">Type <b>DELETE</b> to confirm</div>' +
-          '<input class="eikon-input" id="sd-confirm" placeholder="DELETE" />' +
-        '</div>' +
-      '</div>';
-
-    E.modal.show("Confirm delete", body, [
-      {label:"Cancel", onClick:function(){ E.modal.hide(); }},
-      {label:"Delete", primary:true, onClick:function(){
-        var v = (document.getElementById("sd-confirm")||{}).value || "";
-        if(String(v).trim().toUpperCase() !== "DELETE"){
-          toast("Type DELETE to confirm","error");
-          return;
-        }
-        E.modal.hide();
-        deleteStaff(e, cb);
-      }}
-    ]);
+    // Backwards compatibility
+    safeConfirmDeleteStaff(e, cb);
   }
 
 
 }
+
 
   /* ══════════════════════════════════════════════════════════════
      VIEW: SETTINGS
