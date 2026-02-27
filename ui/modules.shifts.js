@@ -503,6 +503,19 @@
       var _patSaveT = null;
       var _patLastToast = 0;
 
+      // sandbox-safe delete confirm (no window.confirm)
+      var _patDel = { id:null, until:0 };
+      function confirmDeletePattern(id){
+        var now = Date.now();
+        if (_patDel.id === id && now < _patDel.until) { _patDel.id = null; _patDel.until = 0; return true; }
+        _patDel.id = id;
+        _patDel.until = now + 5000;
+        toast("Click Delete again to confirm.", "warn");
+        setTimeout(function(){ try{ if(_patDel.id===id && Date.now()>=_patDel.until) _patDel.id=null; } catch(e){} }, 5200);
+        return false;
+      }
+
+
       function buildEmpPayloadForPersist() {
         // Build a payload that satisfies worker validation (full_name required)
         return {
@@ -577,7 +590,7 @@
         list.querySelectorAll("[data-pat-del]").forEach(function(btn){
           btn.onclick=function(){
             var id=btn.getAttribute("data-pat-del");
-            if(!confirm("Delete this pattern?")) return;
+            if(!confirmDeletePattern(id)) return;
             patState.patterns = patState.patterns.filter(function(x){return x.id!==id;});
             if(patState.provisionalId===id) patState.provisionalId = patState.patterns[0]?patState.patterns[0].id:null;
             schedulePersistPatterns("pattern-delete");
@@ -632,7 +645,30 @@
     return out;
   }
 
-  function normalizePattern(p) {
+  
+  function parseBool(v){
+    try{
+      if (v === true || v === 1) return true;
+      if (v === false || v === 0 || v == null) return false;
+      if (typeof v === "string") {
+        var s = v.trim().toLowerCase();
+        if (!s) return false;
+        if (s === "true" || s === "1" || s === "yes" || s === "y" || s === "on") return true;
+        if (s === "false" || s === "0" || s === "no" || s === "n" || s === "off") return false;
+      }
+      return !!v;
+    } catch(e){ return !!v; }
+  }
+
+  function isOffEntry(e){
+    e = e && typeof e==="object" ? e : {};
+    if (parseBool(e.off)) return true;
+    var st = String(e.start || e.start_time || "").trim();
+    var et = String(e.end || e.end_time || "").trim();
+    return (!st || !et);
+  }
+
+function normalizePattern(p) {
     p = p && typeof p==="object" ? p : {};
     var id = String(p.id || ("pat_"+Math.random().toString(16).slice(2)));
     var name = String(p.name || "Pattern");
@@ -640,7 +676,7 @@
     while (week.length < 7) week.push({off:true});
     week = week.map(function(d){
       d = d && typeof d==="object" ? d : {};
-      var off = !!d.off;
+      var off = isOffEntry(d);
       var st = String(d.start || d.start_time || "").trim();
       var et = String(d.end || d.end_time || "").trim();
       var ro = String(d.role_override||"").trim();
@@ -694,7 +730,7 @@
 
     var rows = uiOrder.map(function(d){
       var x = p.week[d] || {off:true};
-      var off = !!x.off;
+      var off = isOffEntry(x);
       return ''+
         '<tr>'+
           '<td style="padding:6px 8px;font-weight:700;">'+DAYS[d]+'</td>'+
@@ -731,7 +767,44 @@
         E.modal.hide();
         onDone && onDone(out);
       }}
-    ]);
+    
+    // pe-auto-off-sync: make Off checkbox reflect time inputs (sandbox-safe, no browser confirm))
+    setTimeout(function(){
+      try{
+        for (var d=0; d<7; d++){
+          (function(di){
+            var offEl = document.getElementById("pe-off-"+di);
+            var stEl  = document.getElementById("pe-st-"+di);
+            var etEl  = document.getElementById("pe-et-"+di);
+            if(!offEl || !stEl || !etEl) return;
+
+            function sync(){
+              var off = !!offEl.checked;
+              stEl.disabled = off;
+              etEl.disabled = off;
+              if(off){ stEl.value=""; etEl.value=""; }
+            }
+
+            offEl.onchange = function(){ sync(); };
+
+            function bump(){
+              if ((stEl.value||"").trim() || (etEl.value||"").trim()){
+                offEl.checked = false;
+                stEl.disabled = false;
+                etEl.disabled = false;
+              }
+            }
+            stEl.oninput = bump;
+            etEl.oninput = bump;
+
+            // initial state
+            if(offEl.checked){ stEl.disabled = true; etEl.disabled = true; }
+          })(d);
+        }
+      } catch(e) { console.error("[shifts][patterns] pe sync error", e); }
+    }, 30);
+
+]);
   }
 
   function applyPatternModal(staffObj, pattern, done) {
@@ -760,6 +833,10 @@
             '<option value="fill">Fill empty days only (keep existing)</option>'+
           '</select></div>'+
       '</div>'+
+      '<div id="ap-owarn" style="margin-top:10px;padding:10px;border:1px solid rgba(255,90,122,.45);border-radius:10px;background:rgba(255,90,122,.06);font-size:11px;color:var(--text);display:none;">'+
+      '<div style="font-weight:800;margin-bottom:6px;">Overwrite confirmation</div>'+
+      '<label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="ap-oconf"/> I understand this will overwrite shifts in the selected range.</label>'+
+      '</div>'+
       '<div style="margin-top:10px;padding:10px;border:1px solid var(--border);border-radius:10px;background:rgba(255,255,255,.02);font-size:11px;color:var(--muted);">'+
       '<b>Overwrite</b> clears this employee’s shifts in the selected date range and re-applies the pattern. <b>Fill</b> only adds shifts to days where the employee has no shift.</div>';
 
@@ -772,7 +849,10 @@
         var mode  = E.q("#ap-mode").value;
         if(!start || !end){ toast("Select dates","error"); return; }
         if(end < start){ toast("End must be after start","error"); return; }
-        if(mode==="overwrite" && !confirm("Overwrite all shifts for "+staffObj.full_name+" from "+start+" to "+end+"?")) return;
+        if (mode==="overwrite") {
+          var c = E.q("#ap-oconf");
+          if (!c || !c.checked) { toast("Please confirm overwrite.","error"); return; }
+        }
 
         apiOp("/shifts/apply-pattern", {method:"POST", body: JSON.stringify({
           staff_id: staffObj.id,
@@ -803,6 +883,20 @@
         else if(sel.value==="fullyear"){ st.value = startOfYear; en.value = endOfYear; }
       };
       sel.onchange();
+      try{
+        var modeSel = document.getElementById("ap-mode");
+        var ow = document.getElementById("ap-owarn");
+        var oc = document.getElementById("ap-oconf");
+        function syncOverwriteConfirm(){
+          if(!modeSel || !ow) return;
+          var isOw = String(modeSel.value||"") === "overwrite";
+          ow.style.display = isOw ? "block" : "none";
+          if(!isOw && oc) oc.checked = false;
+        }
+        if(modeSel) modeSel.onchange = syncOverwriteConfirm;
+        syncOverwriteConfirm();
+      } catch(e) { console.error("[shifts][patterns] ap overwrite sync error", e); }
+
     }, 30);
   }
 function saveEmp(id, p, cb) {
@@ -1296,6 +1390,10 @@ function rcard(l,v,c){
           '<select class="eikon-select" id="wa-mode"><option value="overwrite">Overwrite</option><option value="fill">Fill empty only</option></select>'+
         '</div>'+
       '</div>'+
+      '<div id="wa-owarn" style="margin-top:10px;padding:10px;border:1px solid rgba(255,90,122,.45);border-radius:10px;background:rgba(255,90,122,.06);font-size:11px;color:var(--text);display:none;">'+
+      '<div style="font-weight:800;margin-bottom:6px;">Overwrite confirmation</div>'+
+      '<label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="wa-oconf"/> I understand this will overwrite shifts in this week.</label>'+
+      '</div>'+
       '<div id="wa-week" style="margin-top:10px;"></div>'+
       '<div style="margin-top:10px;font-size:11px;color:var(--muted);">'+
       'This will also save the confirmed week as a new pattern for the employee.</div>';
@@ -1308,7 +1406,10 @@ function rcard(l,v,c){
         if(!e){ toast("Select employee","error"); return; }
 
         var mode = E.q("#wa-mode").value;
-        if(mode==="overwrite" && !confirm("Overwrite shifts for "+e.full_name+" from "+ws+" to "+we+"?")) return;
+        if (mode==="overwrite") {
+          var c = E.q("#wa-oconf");
+          if (!c || !c.checked) { toast("Please confirm overwrite.","error"); return; }
+        }
 
         // Collect dates payload
         var ds = weekDates(ws);
@@ -1370,7 +1471,7 @@ function rcard(l,v,c){
         var rows = ds.map(function(dateStr, i){
           var d = new Date(dateStr).getDay();
           var entry = (pattern && pattern.week && pattern.week[d]) ? pattern.week[d] : {off:true};
-          var off = !!entry.off || !entry.start || !entry.end;
+          var off = isOffEntry(entry);
           return ''+
             '<tr>'+
               '<td style="padding:6px 8px;font-weight:700;white-space:nowrap;">'+DAYS[d]+' <span style="color:var(--muted);font-weight:600;">'+esc(dateStr.slice(5))+'</span></td>'+
@@ -1385,17 +1486,34 @@ function rcard(l,v,c){
           '<thead><tr><th>Day</th><th>Off</th><th>Start</th><th>End</th></tr></thead>'+
           '<tbody>'+rows+'</tbody></table></div>';
 
-        // disable start/end when off toggled
+        // wa-auto-off-sync: Off checkbox reflects time inputs
         ds.forEach(function(_, i){
           var offEl = document.getElementById("wa-off-"+i);
-          if(!offEl) return;
-          offEl.onchange = function(){
-            var stEl = document.getElementById("wa-st-"+i);
-            var etEl = document.getElementById("wa-et-"+i);
-            if(stEl && etEl){
-              if(offEl.checked){ stEl.value=""; etEl.value=""; }
+          var stEl  = document.getElementById("wa-st-"+i);
+          var etEl  = document.getElementById("wa-et-"+i);
+          if(!offEl || !stEl || !etEl) return;
+
+          function sync(){
+            var off = !!offEl.checked;
+            stEl.disabled = off;
+            etEl.disabled = off;
+            if(off){ stEl.value=""; etEl.value=""; }
+          }
+
+          offEl.onchange = sync;
+
+          function bump(){
+            if ((stEl.value||"").trim() || (etEl.value||"").trim()){
+              offEl.checked = false;
+              stEl.disabled = false;
+              etEl.disabled = false;
             }
-          };
+          }
+          stEl.oninput = bump;
+          etEl.oninput = bump;
+
+          // initial
+          sync();
         });
       }
 
@@ -1421,6 +1539,20 @@ function rcard(l,v,c){
       empSel.onchange = refreshPatternChoices;
       patSel.onchange = refreshPatternChoices;
       refreshPatternChoices();
+      try{
+        var modeSel = document.getElementById("wa-mode");
+        var ow = document.getElementById("wa-owarn");
+        var oc = document.getElementById("wa-oconf");
+        function syncOverwriteConfirm(){
+          if(!modeSel || !ow) return;
+          var isOw = String(modeSel.value||"") === "overwrite";
+          ow.style.display = isOw ? "block" : "none";
+          if(!isOw && oc) oc.checked = false;
+        }
+        if(modeSel) modeSel.onchange = syncOverwriteConfirm;
+        syncOverwriteConfirm();
+      } catch(e) { console.error("[shifts][weekApply] overwrite sync error", e); }
+
     }, 50);
   }
 
