@@ -1,5 +1,12 @@
 (function () {
   "use strict";
+  // Always-on debugging for appointments module (no URL flags required)
+  var APPT_DBG_ALWAYS = true;
+  function apptNow() { try { return new Date().toISOString(); } catch (e) { return ""; } }
+  function apptLog() { if (!APPT_DBG_ALWAYS) return; try { console.log.apply(console, ["[APPT]", apptNow()].concat([].slice.call(arguments))); } catch (e) {} }
+  function apptWarn() { if (!APPT_DBG_ALWAYS) return; try { console.warn.apply(console, ["[APPT]", apptNow()].concat([].slice.call(arguments))); } catch (e) {} }
+  function apptErr() { try { console.error.apply(console, ["[APPT]", apptNow()].concat([].slice.call(arguments))); } catch (e) {} }
+
 
   var E = window.EIKON;
   if (!E) return;
@@ -146,9 +153,11 @@
     return Array.isArray(a) ? a : [];
   }
 
+  // apptsForDate is used by renderDay; ensure it is always defined in this module scope
+  function apptsForDate(dateKey) { return loadAppointments(dateKey); }
+
 
   // Alias used by day render; keep name stable
-  function apptsForDate(dateKey) { return loadAppointments(dateKey); }
   function saveAppointments(dateKey, arr) {
     if (!dateKey) return;
     APPT_MEM.apptByDate[String(dateKey)] = Array.isArray(arr) ? arr : [];
