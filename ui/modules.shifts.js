@@ -2469,7 +2469,43 @@ function singleShiftModal(e2, ds, existing, onSave) {
     return rows.join("\r\n");
   }
 
+
   function buildPrintHtml(shifts, title, from, to, staffId){
+    // Mark printed shifts that clash with approved leave (strike-through + "(on leave)")
+    function leaveHit(shift){
+      try{
+        var ds = shift && shift.shift_date;
+        if(!ds) return null;
+        var sid = shift.staff_id;
+        var stM = t2m(shift.start_time||"");
+        var etM = t2m(shift.end_time||"");
+        if(!isFinite(stM)) stM = 0;
+        if(!isFinite(etM)) etM = 0;
+
+        var leaves = (S && S.leaves) ? S.leaves : [];
+        for(var i=0;i<leaves.length;i++){
+          var l = leaves[i];
+          if(!l || l.status!=="approved") continue;
+          if(l.staff_id !== sid) continue;
+          if((l.start_date||"") > ds || (l.end_date||"") < ds) continue;
+
+          // Derive leave window for this specific day (supports partial-day endpoints)
+          var ls = 0, le = 1440;
+          if(l.start_date === ds && l.start_time) ls = t2m(l.start_time);
+          if(l.end_date === ds && l.end_time)   le = t2m(l.end_time);
+          if(!isFinite(ls)) ls = 0;
+          if(!isFinite(le)) le = 1440;
+
+          // Safety: if bad times, treat as full-day leave
+          if(le <= ls) { ls = 0; le = 1440; }
+
+          // Overlap check
+          if(etM > ls && stM < le) return l;
+        }
+      } catch(e){}
+      return null;
+    }
+
     var by = {};
     (shifts||[]).forEach(function(s){
       var d = s.shift_date || "—";
@@ -2493,11 +2529,16 @@ function singleShiftModal(e2, ds, existing, onSave) {
            '</tr></thead><tbody>';
       list.forEach(function(s){
         var e = emp(s.staff_id);
+        var lv = leaveHit(s);
+        var a = lv ? "<span style=\"text-decoration:line-through;opacity:0.55;\">" : "";
+        var b = lv ? "</span>" : "";
+        var tag = lv ? " <span style=\"color:#c00;font-weight:700;\">(on leave)</span>" : "";
+
         h += '<tr>'+
-             '<td style="border:1px solid #ddd;padding:6px;">'+esc((s.start_time||"")+"–"+(s.end_time||""))+'</td>'+
-             '<td style="border:1px solid #ddd;padding:6px;">'+esc(e?e.full_name:("#"+s.staff_id))+'</td>'+
-             '<td style="border:1px solid #ddd;padding:6px;">'+esc(e?dl(e.designation):(s.role_override||""))+'</td>'+
-             '<td style="border:1px solid #ddd;padding:6px;">'+esc(s.notes||"")+'</td>'+
+             '<td style="border:1px solid #ddd;padding:6px;">'+a+esc((s.start_time||"")+"–"+(s.end_time||""))+b+'</td>'+
+             '<td style="border:1px solid #ddd;padding:6px;">'+a+esc(e?e.full_name:("#"+s.staff_id))+b+tag+'</td>'+
+             '<td style="border:1px solid #ddd;padding:6px;">'+a+esc(e?dl(e.designation):(s.role_override||""))+b+'</td>'+
+             '<td style="border:1px solid #ddd;padding:6px;">'+a+esc(s.notes||"")+b+'</td>'+
              '</tr>';
       });
       h += '</tbody></table>';
