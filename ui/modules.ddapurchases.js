@@ -992,6 +992,7 @@
     return {
       id: "dda-purchases",
       key: "dda-purchases",
+      order: 30,
       slug: "dda-purchases",
       title: "DDA Purchases",
       navTitle: "DDA Purchases",
