@@ -1956,7 +1956,7 @@
           wlDetailActions.appendChild(mkBtn(" Book Appointment",async function(){
             // Promote: open appt modal pre-filled from waiting list
             E.modal.hide();
-            openApptModal({date:todayYmd(), fromWaitlist:w}, function(){
+            openApptModal({date:todayYmd(), fromWaitlist:w}, async function(){
               // Mark as promoted
               await apiUpdateWaitlistEntry(w.id,{status:"Promoted"});
               toast("Promoted","Patient moved from waiting list to appointments.","good");
