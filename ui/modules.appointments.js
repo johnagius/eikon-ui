@@ -4,8 +4,9 @@
   var E = window.EIKON;
   if (!E) return;
 
-  function log()  { E.log.apply(E,  ["[appt]"].concat([].slice.call(arguments))); }
-  function warn() { E.warn.apply(E, ["[appt]"].concat([].slice.call(arguments))); }
+    var APPT_DEBUG_ALWAYS = true;
+  function log(){ try { if(APPT_DEBUG_ALWAYS){ console.log.apply(console, ["[appt]"].concat([].slice.call(arguments))); } } catch(e){} try{ E.log.apply(E, ["[appt]"].concat([].slice.call(arguments))); }catch(e2){} }
+  function warn(){ try { console.warn.apply(console, ["[appt]"].concat([].slice.call(arguments))); } catch(e){} try{ E.warn.apply(E, ["[appt]"].concat([].slice.call(arguments))); }catch(e2){} }
   function err()  { E.error.apply(E,["[appt]"].concat([].slice.call(arguments))); }
 
   // -- Utilities --------------------------------------------------------------
@@ -144,6 +145,10 @@
     var a = APPT_MEM.apptByDate[String(dateKey)];
     return Array.isArray(a) ? a : [];
   }
+
+
+  // Alias used by day render; keep name stable
+  function apptsForDate(dateKey) { return loadAppointments(dateKey); }
   function saveAppointments(dateKey, arr) {
     if (!dateKey) return;
     APPT_MEM.apptByDate[String(dateKey)] = Array.isArray(arr) ? arr : [];
@@ -1765,6 +1770,8 @@
 
     // -- Day View rendering --------------------------------------------------
     function renderDay() {
+    try {
+
       var ymd=state.currentDate;
       if(dayLabel) dayLabel.textContent=fmtDmy(ymd)+" - "+dayName(ymd);
       if(daySub){ var isToday=(ymd===todayYmd()); daySub.textContent=isToday?"Today":""; }
@@ -1826,7 +1833,13 @@
 
       // Update wl badge
       updateWlBadge();
+    
+    } catch(e){
+      warn('renderDay crash', e);
+      try{ warn('state snapshot', JSON.stringify({date: state&&state.currentDate, clinic: state&&state.filterClinicId, doctor: state&&state.filterDoctorId})); }catch(e2){}
+      try{ toast('Appointments','Render day crashed: '+(e&&e.message?e.message:String(e)),'bad'); }catch(e3){}
     }
+  }
 
     // -- List table rendering -----------------------------------------------
     function renderListTable() {
