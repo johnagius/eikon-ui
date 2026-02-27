@@ -2,6 +2,9 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+
+
+const WORKER_VERSION = "2026-02-27-icalfix3";
 function isDebugEnabled(request) {
   try {
     return (request && request.headers && (request.headers.get("X-Eikon-Debug") || "") === "1");
@@ -9884,6 +9887,26 @@ async function handleShiftStaffUpdate(request, env, corsOkHeaders, authUser, sta
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
+
+async function handleShiftStaffDelete(request, env, corsOkHeaders, authUser, staffId) {
+  await ensureShiftsSchema(env);
+  const ex = await dbFirst(env, `SELECT id, full_name FROM shift_staff WHERE id=? AND org_id=? AND location_id=?`, [staffId, authUser.org_id, authUser.location_id]);
+  if (!ex) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  try {
+    console.log("[shifts][staff-delete] staffId:", staffId, "name:", ex.full_name, "org:", authUser.org_id, "loc:", authUser.location_id);
+  } catch (e) {}
+
+  // Remove linked data first
+  await dbRun(env, `DELETE FROM shift_assignments WHERE staff_id=? AND org_id=? AND location_id=?`, [staffId, authUser.org_id, authUser.location_id]);
+  await dbRun(env, `DELETE FROM shift_leaves WHERE staff_id=? AND org_id=? AND location_id=?`, [staffId, authUser.org_id, authUser.location_id]);
+
+  await dbRun(env, `DELETE FROM shift_staff WHERE id=? AND org_id=? AND location_id=?`, [staffId, authUser.org_id, authUser.location_id]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SHIFT_STAFF_DELETE", "shift_staff", String(staffId), { full_name: ex.full_name });
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
 // ── Assignments ───────────────────────────────────────────────────
 
 async function handleShiftAssignmentsList(request, env, corsOkHeaders, authUser, url) {
@@ -10138,7 +10161,12 @@ async function handleShiftSettingsPut(request, env, corsOkHeaders, authUser) {
 
   // --- Sync calendarToken (stored in settings_json by UI) into shift_calendar_tokens table for public iCal feed ---
   try {
-    const tok = String((body && (body.calendarToken || body.calendar_token)) || "").trim();
+    const tok = String((body && (
+      body.calendarToken || body.calendar_token ||
+      (body.integration && (body.integration.calendarToken || body.integration.calendar_token)) ||
+      (body.shifts && (body.shifts.calendarToken || body.shifts.calendar_token)) ||
+      (body.settings && (body.settings.calendarToken || body.settings.calendar_token))
+    )) || "").trim();
     if (tok) {
       const ok = /^[a-z0-9]{12,128}$/i.test(tok);
       if (!ok) {
@@ -10215,7 +10243,35 @@ async function handleShiftIcalPublic(request, env, corsOkHeaders, url) {
     token = decodeURIComponent(url.pathname.slice("/shifts/ical/".length)).replace(/\.ics$/i,"").trim();
   }
   if (!token) return new Response("Missing token", { status: 400, headers: { "Content-Type":"text/plain; charset=utf-8" } });
+  console.log("[shifts][ical] request", url.pathname, "token=", token.slice(0,6)+"…", "debug=", debug);
+
   let map = await dbFirst(env, `SELECT org_id, location_id FROM shift_calendar_tokens WHERE token=?`, [token]);
+  // If not found in token table, try a fast LIKE scan of shift_settings (handles legacy storage / missing token table sync).
+  if (!map) {
+    try {
+      const likeRows = await dbAll(env, `SELECT org_id, location_id, settings_json FROM shift_settings WHERE settings_json LIKE ? LIMIT 50`, ["%"+token+"%"]);
+      for (const row of (likeRows||[])) {
+        try {
+          const st = JSON.parse(row.settings_json || "{}");
+          const cand = String(
+            (st && (st.calendarToken || st.calendar_token)) ||
+            (st && st.settings && (st.settings.calendarToken || st.settings.calendar_token)) ||
+            (st && st.integration && (st.integration.calendarToken || st.integration.calendar_token)) ||
+            (st && st.shifts && (st.shifts.calendarToken || st.shifts.calendar_token)) ||
+            ""
+          ).trim();
+          if (cand && cand === token) {
+            map = { org_id: row.org_id, location_id: row.location_id };
+            console.log("[shifts][ical] token resolved via shift_settings LIKE for org", map.org_id, "loc", map.location_id);
+            break;
+          }
+        } catch(e2) {}
+      }
+    } catch(e) {
+      console.log("[shifts][ical] LIKE scan failed", e && (e.stack || e));
+    }
+  }
+
 
   // Backward-compat fallback: if token table not populated yet, scan shift_settings JSON.
   if (!map) {
@@ -10243,12 +10299,16 @@ async function handleShiftIcalPublic(request, env, corsOkHeaders, url) {
   }
 
   if (!map) {
-    if (debug) {
+    const accept = String(request.headers.get("Accept")||"");
+    const wantJson = debug || accept.indexOf("application/json") >= 0;
+    if (wantJson) {
       let tokenRows = [];
-      try { tokenRows = await dbAll(env, `SELECT token, org_id, location_id FROM shift_calendar_tokens ORDER BY created_at DESC LIMIT 20`, []); } catch(e) {}
-      return jsonResponse({ ok:false, error:"Not found", token: token, tokenTableSample: tokenRows }, 404, corsOkHeaders);
+      let settingsRows = [];
+      try { tokenRows = await dbAll(env, `SELECT token, org_id, location_id, created_at FROM shift_calendar_tokens ORDER BY created_at DESC LIMIT 20`, []); } catch(e) {}
+      try { settingsRows = await dbAll(env, `SELECT org_id, location_id, substr(settings_json,1,200) AS settings_head FROM shift_settings ORDER BY updated_at DESC LIMIT 10`, []); } catch(e) {}
+      return jsonResponse({ ok:false, error:"Not found", hint:"Ensure token was saved via PUT /shifts/settings. Add &debug=1 to this URL for diagnostics.", token: token, worker: WORKER_VERSION, tokenTableSample: tokenRows, recentSettingsSample: settingsRows }, 404, { ...corsOkHeaders, "X-Eikon-Worker-Version": WORKER_VERSION });
     }
-    return new Response("Not found", { status: 404, headers: { "Content-Type":"text/plain; charset=utf-8" } });
+    return new Response("Not found. (EIKON iCal) Add &debug=1 for diagnostics.", { status: 404, headers: { "Content-Type":"text/plain; charset=utf-8", "X-Eikon-Worker-Version": WORKER_VERSION } });
   }
   const staffId = url.searchParams.get("staff_id") ? parseInt(url.searchParams.get("staff_id")) : null;
   const past = Math.max(0, Math.min(365, parseInt(url.searchParams.get("past")||"30",10)||30));
@@ -10327,7 +10387,8 @@ async function handleShiftIcalPublic(request, env, corsOkHeaders, url) {
   const headers = {
     "Content-Type": "text/calendar; charset=utf-8",
     "Cache-Control": "public, max-age=300",
-    "Pragma": "no-cache"
+    "Pragma": "no-cache",
+    "X-Eikon-Worker-Version": WORKER_VERSION
   };
   return new Response(ics, { status: 200, headers });
 }
@@ -10344,7 +10405,7 @@ export default {
     }
 
     if (url.pathname === "/health") {
-      return jsonResponse({ ok: true, time: nowIso() }, 200, { "Cache-Control": "no-store" });
+      return jsonResponse({ ok: true, time: nowIso(), version: WORKER_VERSION }, 200, { "Cache-Control": "no-store", "X-Eikon-Worker-Version": WORKER_VERSION });
     }
 
     if (url.pathname === "/bootstrap" && request.method === "GET") return await handleBootstrapGet(request, env);
@@ -11139,6 +11200,11 @@ if (url.pathname.startsWith("/dda-stocktakes/items/")) {
       const id = parseInt(url.pathname.split("/")[3]);
       if (!id) return jsonResponse({ ok: false, error: "Invalid staff id" }, 400, corsOkHeaders);
       return await handleShiftStaffUpdate(request, env, corsOkHeaders, authUser, id);
+    }
+    if (url.pathname.startsWith("/shifts/staff/") && request.method === "DELETE") {
+      const id = parseInt(url.pathname.split("/")[3]);
+      if (!id) return jsonResponse({ ok: false, error: "Invalid staff id" }, 400, corsOkHeaders);
+      return await handleShiftStaffDelete(request, env, corsOkHeaders, authUser, id);
     }
     if (url.pathname === "/shifts/assignments" && request.method === "GET") {
       return await handleShiftAssignmentsList(request, env, corsOkHeaders, authUser, url);
