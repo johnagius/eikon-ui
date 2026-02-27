@@ -767,7 +767,8 @@ function normalizePattern(p) {
         E.modal.hide();
         onDone && onDone(out);
       }}
-    
+    ]);
+
     // pe-auto-off-sync: make Off checkbox reflect time inputs (sandbox-safe, no browser confirm))
     setTimeout(function(){
       try{
@@ -804,7 +805,6 @@ function normalizePattern(p) {
       } catch(e) { console.error("[shifts][patterns] pe sync error", e); }
     }, 30);
 
-]);
   }
 
   function applyPatternModal(staffObj, pattern, done) {
