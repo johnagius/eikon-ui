@@ -551,6 +551,8 @@
         '<td><span class="eikon-pill" style="font-size:11px;'+(e.is_active===0?"color:var(--danger);border-color:rgba(255,90,122,.4);":"color:var(--ok);border-color:rgba(67,209,122,.4);")+'">'+(e.is_active===0?"Inactive":"Active")+'</span></td>'+
         '<td></td>';
       var act=tr.querySelectorAll("td")[8];
+      try{ act.style.opacity="1"; act.style.pointerEvents="auto"; }catch(_){ }
+
       if(e.is_active===0){
         try{
           var tds=tr.querySelectorAll("td");
@@ -564,7 +566,7 @@
       tb2.textContent=e.is_active===0?"Activate":"Deactivate";
       tb2.onclick=function(){ toggleActive(e,function(){renderEmpRows(m);}); };
       act.appendChild(eb); act.appendChild(tb2);
-      var db=document.createElement("button"); db.className="eikon-btn danger"; db.style.marginLeft="6px"; db.textContent="Delete";
+      var db=document.createElement("button"); db.className="eikon-btn danger"; db.style.marginLeft="6px"; db.style.opacity="1"; db.textContent="Delete";
       db.onclick=function(){ safeConfirmDeleteStaff(e,function(){ renderEmpRows(m); }); };
       act.appendChild(db);
       tb.appendChild(tr);
@@ -1055,6 +1057,9 @@ function saveEmp(id, p, cb) {
   function toggleActive(e,cb){
     e.is_active=e.is_active===0?1:0;
     saveEmp(e.id, Object.assign({},e), cb);
+  
+  }
+
   
   function deleteStaff(e, cb){
     if(!e || !e.id) return;
