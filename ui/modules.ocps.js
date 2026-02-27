@@ -544,7 +544,7 @@
   E.registerModule({
     id: "ocps",
     title: "OCP Finder",
-    order: 30,
+    order: 390,
     icon: "💊",
     render: render
   });
