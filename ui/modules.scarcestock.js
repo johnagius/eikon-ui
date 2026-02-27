@@ -1160,7 +1160,7 @@
     id: "scarcestock",
     title: "Scarce Stock",
     icon: "📦",
-    order: 23,
+    order: 280,
     render: render
   });
 })();
