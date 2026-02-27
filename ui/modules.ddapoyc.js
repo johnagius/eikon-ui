@@ -1164,6 +1164,7 @@
     api.registerModule({
       id: mod.id,
       key: mod.id,
+      order: 60,
       slug: "dda-poyc",
       title: mod.title,
       navTitle: "DDA POYC",
