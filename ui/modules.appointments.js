@@ -456,6 +456,8 @@
       var resp = await apiFetch("/appointments/entries" + qs, { method: "GET" });
       var arr  = Array.isArray(resp) ? resp : (resp && Array.isArray(resp.appointments) ? resp.appointments : null);
       if (arr) {
+        // Sync localStorage cache (always) so other views & offline stay fresh
+        try { saveAppts(arr.map(apiApptToLocal)); } catch(_e) {}
         // If loading all (no params), refresh localStorage cache
         if (!params) saveAppts(arr.map(apiApptToLocal));
         return arr;
@@ -553,6 +555,8 @@
       var resp = await apiFetch("/appointments/waitlist" + qs, { method: "GET" });
       var arr  = Array.isArray(resp) ? resp : (resp && Array.isArray(resp.waitlist) ? resp.waitlist : null);
       if (arr) {
+        // Sync localStorage cache (always) so other views & offline stay fresh
+        try { saveWaitlist(arr.map(apiWlToLocal)); } catch(_e) {}
         if (!params) saveWaitlist(arr.map(apiWlToLocal));
         return arr;
       }
@@ -656,7 +660,7 @@
 //  In render(), replace the first line after ensureStyles() with:
 //
 //    ensureStyles();
-//    initialLoad().then(function(){ if (state.refresh) state.refresh(); });
+//    initialLoad().then(async function(){ if (state.refresh) state.refresh(); });
 //
 //  In the modal save handlers, swap:
 //    createDoctor(payload)   →  await apiCreateDoctor(payload)
@@ -1089,7 +1093,8 @@
             defaultFee: parseFloat((E.q("#ap-drmod-fee")||{}).value||"0")||0,
             notes: ((E.q("#ap-drmod-notes")||{}).value||"").trim()
           };
-          if (isEdit) updateDoctor(d.id, payload); else createDoctor(payload);
+          if (isEdit) await apiUpdateDoctor(d.id, payload); else await apiCreateDoctor(payload);
+          await refreshAll("doctor-save");
           if (typeof onDone==="function") onDone();
           openDoctorsModal(onDone);
         }}
@@ -1112,7 +1117,7 @@
             var d=doctorById(id); if(d) showDrForm(d);
           }
           if (btn.classList.contains("ap-dr-del")) {
-            modalConfirm("Delete Doctor","Delete this doctor and their schedules?","Delete","Cancel").then(function(ok){
+            modalConfirm("Delete Doctor","Delete this doctor and their schedules?","Delete","Cancel").then(async function(ok){
               if(!ok) { openDoctorsModal(onDone); return; }
               deleteDoctor(id);
               // also delete their schedules
@@ -1167,7 +1172,8 @@
             fee: parseFloat((E.q("#ap-clmod-fee")||{}).value||"0")||0,
             notes: ((E.q("#ap-clmod-notes")||{}).value||"").trim()
           };
-          if (isEdit) updateClinic(c.id, payload); else createClinic(payload);
+          if (isEdit) await apiUpdateClinic(c.id, payload); else await apiCreateClinic(payload);
+          await refreshAll("clinic-save");
           if(typeof onDone==="function") onDone();
           openClinicsModal(onDone);
         }}
@@ -1186,7 +1192,7 @@
           if(!id) return;
           if(btn.classList.contains("ap-cl-edit")){var c=clinicById(id);if(c) showClForm(c);}
           if(btn.classList.contains("ap-cl-del")){
-            modalConfirm("Delete Clinic","Delete this clinic?","Delete","Cancel").then(function(ok){
+            modalConfirm("Delete Clinic","Delete this clinic?","Delete","Cancel").then(async function(ok){
               if(!ok){openClinicsModal(onDone);return;}
               deleteClinic(id);
               if(typeof onDone==="function") onDone();
@@ -1309,7 +1315,7 @@
             if(sch){updateSchedule(id,{cancelled:!sch.cancelled});if(typeof onDone==="function")onDone();openSchedulesModal(onDone);}
           }
           if(btn.classList.contains("ap-sch-del")){
-            modalConfirm("Delete Schedule","Remove this schedule?","Delete","Cancel").then(function(ok){
+            modalConfirm("Delete Schedule","Remove this schedule?","Delete","Cancel").then(async function(ok){
               if(!ok){openSchedulesModal(onDone);return;}
               deleteSchedule(id);
               if(typeof onDone==="function")onDone();
@@ -1608,6 +1614,12 @@
     ensureStyles();
     var mount = ctx.mount;
 
+    // Initial cloud sync for cross-browser consistency
+    if (!state.__didInitialSync) {
+      state.__didInitialSync = true;
+      refreshAll("initial-sync");
+    }
+
     function thHtml(label,key,sortSt){
       var on=sortSt.key===key;
       var arrow=on?(sortSt.dir==="asc"?"▲":"▼"):"⇅";
@@ -1868,7 +1880,7 @@
       }
       if(a.status!=="Cancelled"){
         detailActionsEl.appendChild(mkBtn("✗ Cancel","",function(){
-          modalConfirm("Cancel Appointment","Mark this appointment as cancelled?","Yes, Cancel","Keep").then(function(ok){
+          modalConfirm("Cancel Appointment","Mark this appointment as cancelled?","Yes, Cancel","Keep").then(async function(ok){
             if(!ok) return;
             updateAppt(a.id,{status:"Cancelled"}); toast("Cancelled","Appointment cancelled.","good"); refresh();
           });
@@ -1881,7 +1893,7 @@
       }
 
       detailActionsEl.appendChild(mkBtn("Delete","",function(){
-        modalConfirm("Delete Appointment","Permanently delete this appointment?","Delete","Cancel").then(function(ok){
+        modalConfirm("Delete Appointment","Permanently delete this appointment?","Delete","Cancel").then(async function(ok){
           if(!ok) return;
           deleteAppt(a.id);
           state.selectedApptId=null;
@@ -2101,7 +2113,7 @@
             });
           }));
           wlDetailActions.appendChild(mkBtn("✗ Cancel",function(){
-            modalConfirm("Cancel Entry","Remove this patient from the waiting list?","Yes, Cancel","Keep").then(function(ok){
+            modalConfirm("Cancel Entry","Remove this patient from the waiting list?","Yes, Cancel","Keep").then(async function(ok){
               if(!ok) return;
               updateWaitlistEntry(w.id,{status:"Cancelled"});
               toast("Cancelled","Waiting list entry cancelled.","good");
@@ -2110,9 +2122,10 @@
           }));
         }
         wlDetailActions.appendChild(mkBtn("Delete",function(){
-          modalConfirm("Delete Entry","Permanently delete this waiting list entry?","Delete","Cancel").then(function(ok){
+          modalConfirm("Delete Entry","Permanently delete this waiting list entry?","Delete","Cancel").then(async function(ok){
             if(!ok) return;
-            deleteWaitlistEntry(w.id);
+            await apiDeleteWaitlist(w.id);
+            await refreshAll("waitlist-delete");
             state.selectedWlId=null;
             wlDetailCard.style.display="none";
             toast("Deleted","Entry deleted.","good");
@@ -2282,3 +2295,40 @@
   });
 
 })();
+  // ── Cloud sync & refresh ───────────────────────────────────────────────────
+  async function refreshAll(reason) {
+    reason = reason || "unknown";
+    var dbgOn = (String(window.localStorage.getItem("eikon_appt_debug")||"") === "1") || (/[?&]appt_debug=1/.test(String(location.search||"")));
+    function dlog(){ if(dbgOn) log.apply(null, ["[refreshAll:"+reason+"]"].concat([].slice.call(arguments))); }
+    function derror(){ if(dbgOn) err.apply(null, ["[refreshAll:"+reason+"]"].concat([].slice.call(arguments))); }
+
+    try {
+      dlog("start", { view: state && state.view, date: state && state.currentDate, doctor: state && state.filterDoctorId, clinic: state && state.filterClinicId });
+    } catch(_e){}
+
+    // Always sync reference data first
+    try { await apiLoadDoctors(); } catch(e){ derror("apiLoadDoctors failed", e); }
+    try { await apiLoadClinics(); } catch(e){ derror("apiLoadClinics failed", e); }
+    try { await apiLoadSchedules(); } catch(e){ derror("apiLoadSchedules failed", e); }
+
+    // Then sync operational data (limit when possible)
+    try {
+      if (state && (state.view === "day" || state.view === "calendar")) {
+        await apiLoadAppts({ date: state.currentDate });
+      } else {
+        await apiLoadAppts();
+      }
+    } catch(e){ derror("apiLoadAppts failed", e); }
+
+    try {
+      if (state && state.view === "waitlist") {
+        await apiLoadWaitlist({ date: state.currentDate });
+      } else {
+        await apiLoadWaitlist();
+      }
+    } catch(e){ derror("apiLoadWaitlist failed", e); }
+
+    try { if (state && typeof state.refresh === "function") state.refresh(); } catch(e){ derror("state.refresh failed", e); }
+    dlog("done");
+  }
+
