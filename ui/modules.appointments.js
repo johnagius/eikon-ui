@@ -101,180 +101,91 @@
     });
   }
 
-  // ── localStorage: Doctors ─────────────────────────────────────────────────
-  var LS_DOCTORS  = "eikon_appt_doctors_v1";
-  var LS_CLINICS  = "eikon_appt_clinics_v1";
-  var LS_SCHEDS   = "eikon_appt_schedules_v1";
-  var LS_APPTS    = "eikon_appt_entries_v1";
-  var LS_WAITLIST = "eikon_appt_waitlist_v1";
-  var LS_SEQ      = "eikon_appt_seq_v1";
+  // ── In-memory data (cloud is source of truth) ─────────────────────────────
+  // NOTE: This module is intentionally "cloud-only". It does NOT persist
+  // doctors/clinics/schedules/appointments/waitlist in localStorage to avoid
+  // cross-browser / partitioned-storage divergence when running in iframes.
 
-  function lsGet(key) {
-    try { var r=window.localStorage.getItem(key); return r?JSON.parse(r):null; } catch(e){return null;}
-  }
-  function lsSet(key,val) {
-    try { window.localStorage.setItem(key,JSON.stringify(val)); } catch(e){}
+  var APPT_MEM = {
+    doctors:    [],
+    clinics:    [],
+    schedules:  [],
+    apptsAll:   [],
+    // appointments cached per-date; key = YYYY-MM-DD
+    apptByDate: {},
+    waitlist:   []
+  };
+
+  function loadDoctors()  { return Array.isArray(APPT_MEM.doctors)   ? APPT_MEM.doctors   : []; }
+  function saveDoctors(a) { APPT_MEM.doctors   = Array.isArray(a) ? a : []; }
+
+  function loadClinics()  { return Array.isArray(APPT_MEM.clinics)   ? APPT_MEM.clinics   : []; }
+  function saveClinics(a) { APPT_MEM.clinics   = Array.isArray(a) ? a : []; }
+
+  function loadSchedules()  { return Array.isArray(APPT_MEM.schedules) ? APPT_MEM.schedules : []; }
+  function saveSchedules(a) { APPT_MEM.schedules = Array.isArray(a) ? a : []; }
+
+  function loadAppts() { return Array.isArray(APPT_MEM.apptsAll) ? APPT_MEM.apptsAll : []; }
+  function saveAppts(arr) {
+    APPT_MEM.apptsAll = Array.isArray(arr) ? arr : [];
+    // rebuild per-date map
+    APPT_MEM.apptByDate = {};
+    (APPT_MEM.apptsAll||[]).forEach(function(a){
+      var d = a && (a.date || a.apptDate || a.appt_date);
+      if (!d) return;
+      d = String(d).slice(0,10);
+      if (!APPT_MEM.apptByDate[d]) APPT_MEM.apptByDate[d] = [];
+      APPT_MEM.apptByDate[d].push(a);
+    });
   }
 
-  // Sequence IDs
-  function nextId(prefix, seqKey) {
-    try {
-      var raw=window.localStorage.getItem(seqKey||LS_SEQ+prefix);
-      var seq=raw?(parseInt(raw,10)||0):0; seq++;
-      window.localStorage.setItem(seqKey||LS_SEQ+prefix, String(seq));
-      return prefix+String(seq).padStart(5,"0");
-    } catch(e){ return prefix+String(Date.now()).slice(-5); }
+  function loadAppointments(dateKey) {
+    if (!dateKey) return [];
+    var a = APPT_MEM.apptByDate[String(dateKey)];
+    return Array.isArray(a) ? a : [];
+  }
+  function saveAppointments(dateKey, arr) {
+    if (!dateKey) return;
+    APPT_MEM.apptByDate[String(dateKey)] = Array.isArray(arr) ? arr : [];
   }
 
-  // Doctors CRUD
-    // In-memory caches (avoid relying only on partitioned storage)
-  var APPT_MEM = { doctors: null, clinics: null, schedules: null, appointments: null, waitlist: null };
+  function loadWaitlist()  { return Array.isArray(APPT_MEM.waitlist) ? APPT_MEM.waitlist : []; }
+  function saveWaitlist(a) { APPT_MEM.waitlist = Array.isArray(a) ? a : []; }
 
-function loadDoctors() { try { if (APPT_MEM.doctors) return APPT_MEM.doctors; } catch(_e){} return lsGet(LS_DOCTORS)||[]; }
-  function saveDoctors(arr) { try { APPT_MEM.doctors = Array.isArray(arr)?arr:[]; } catch(_e){} lsSet(LS_DOCTORS, arr); }
-  function createDoctor(d) {
-    var arr=loadDoctors();
-    var id="DR-"+String(Date.now()).slice(-6);
-    arr.push(Object.assign({id:id,createdAt:new Date().toISOString()},d));
-    saveDoctors(arr); return id;
-  }
-  function updateDoctor(id,d) {
-    var arr=loadDoctors();
-    for(var i=0;i<arr.length;i++) if(arr[i].id===id){ arr[i]=Object.assign({},arr[i],d); break; }
-    saveDoctors(arr);
-  }
-  function deleteDoctor(id) {
-    saveDoctors(loadDoctors().filter(function(d){return d.id!==id;}));
-  }
-  function doctorById(id) { return loadDoctors().filter(function(d){return d.id===id;})[0]||null; }
+  function doctorById(id) { return loadDoctors().filter(function(d){return String(d.id)===String(id);})[0]||null; }
+  function clinicById(id) { return loadClinics().filter(function(c){return String(c.id)===String(id);})[0]||null; }
 
-  // Clinics CRUD
-  function loadClinics() { try { if (APPT_MEM.clinics) return APPT_MEM.clinics; } catch(_e){} return lsGet(LS_CLINICS)||[]; }
-  function saveClinics(arr) { try { APPT_MEM.clinics = Array.isArray(arr)?arr:[]; } catch(_e){} lsSet(LS_CLINICS, arr); }
-  function createClinic(c) {
-    var arr=loadClinics();
-    var id="CL-"+String(Date.now()).slice(-6);
-    arr.push(Object.assign({id:id,createdAt:new Date().toISOString()},c));
-    saveClinics(arr); return id;
-  }
-  function updateClinic(id,c) {
-    var arr=loadClinics();
-    for(var i=0;i<arr.length;i++) if(arr[i].id===id){ arr[i]=Object.assign({},arr[i],c); break; }
-    saveClinics(arr);
-  }
-  function deleteClinic(id) {
-    saveClinics(loadClinics().filter(function(c){return c.id!==id;}));
-  }
-  function clinicById(id) { return loadClinics().filter(function(c){return c.id===id;})[0]||null; }
-
-  // Schedules CRUD
-  function loadSchedules() { return lsGet(LS_SCHEDS)||[]; }
-  function saveSchedules(arr) { lsSet(LS_SCHEDS, arr); }
-  function createSchedule(s) {
-    var arr=loadSchedules();
-    var id="SCH-"+String(Date.now()).slice(-6);
-    arr.push(Object.assign({id:id,createdAt:new Date().toISOString()},s));
-    saveSchedules(arr); return id;
-  }
-  function updateSchedule(id,s) {
-    var arr=loadSchedules();
-    for(var i=0;i<arr.length;i++) if(arr[i].id===id){ arr[i]=Object.assign({},arr[i],s); break; }
-    saveSchedules(arr);
-  }
-  function deleteSchedule(id) {
-    saveSchedules(loadSchedules().filter(function(s){return s.id!==id;}));
-  }
-  // Check if a doctor is scheduled on a given date (returns matching schedule or null)
   function getSchedulesForDate(ymd) {
-    var dow = dayOfWeek(ymd);
+    // best-effort in-memory filter, used only when UI needs to compute slots
+    var dt = null;
+    try { dt = new Date(String(ymd).slice(0,10) + "T00:00:00"); } catch(e) { dt = null; }
+    var jsDow = dt ? dt.getDay() : null; // 0 Sun..6 Sat
+    var dow = jsDow==null ? null : (jsDow===0 ? 7 : jsDow); // 1 Mon..7 Sun
     return loadSchedules().filter(function(s){
-      if (s.cancelled) return false;
-      if (s.isOneOff) return s.date === ymd;
-      // Recurring
-      if (Number(s.dayOfWeek) !== dow) return false;
-      if (s.validFrom && ymd < s.validFrom) return false;
-      if (s.validUntil && ymd > s.validUntil) return false;
+      if (!s || s.cancelled) return false;
+      var isOneOff = !!(s.isOneOff || s.is_one_off || s.oneOff || s.one_off);
+      if (isOneOff) {
+        var sd = s.date || s.oneOffDate || s.one_off_date;
+        return String(sd||"").slice(0,10) === String(ymd).slice(0,10);
+      }
+      if (dow==null) return true;
+      if (s.dayOfWeek!=null) {
+        if (Number(s.dayOfWeek) !== Number(dow)) return false;
+      }
+      var vf = s.validFrom || s.valid_from;
+      var vu = s.validUntil || s.valid_until;
+      var y  = String(ymd).slice(0,10);
+      if (vf && String(vf).slice(0,10) > y) return false;
+      if (vu && String(vu).slice(0,10) < y) return false;
       return true;
     });
   }
+// ── API config
+ ─────────────────────────────────────────────────────────────
 
-  // Appointments CRUD
-  function loadAppts() { return lsGet(LS_APPTS)||[]; }
-  function saveAppts(arr) { lsSet(LS_APPTS, arr); }
-  function createAppt(a) {
-    var arr=loadAppts();
-    var id=nextId("APT-","eikon_appt_seq_apt");
-    var token=generateToken();
-    arr.push(Object.assign({id:id,token:token,createdAt:new Date().toISOString()},a));
-    saveAppts(arr); return {id:id,token:token};
-  }
-  function updateAppt(id,a) {
-    var arr=loadAppts();
-    for(var i=0;i<arr.length;i++) if(String(arr[i].id)===String(id)){ arr[i]=Object.assign({},arr[i],a,{updatedAt:new Date().toISOString()}); break; }
-    saveAppts(arr);
-  }
-  function deleteAppt(id) {
-    saveAppts(loadAppts().filter(function(a){return String(a.id)!==String(id);}));
-  }
-  function apptById(id) { return loadAppts().filter(function(a){return String(a.id)===String(id);})[0]||null; }
-  function apptsForDate(ymd) {
-    return loadAppts().filter(function(a){return a.date===ymd;}).sort(function(a,b){
-      return timeToMins(a.time) - timeToMins(b.time);
-    });
-  }
+  // Cloud-only mode: never fall back to localStorage.
+  function shouldFallback(_e) { return false; }
 
-  // Waiting list CRUD
-  function loadWaitlist() { try { if (APPT_MEM.waitlist) return APPT_MEM.waitlist; } catch(_e){} return lsGet(LS_WAITLIST)||[]; }
-  function saveWaitlist(arr) { try { APPT_MEM.waitlist = Array.isArray(arr)?arr:[]; } catch(_e){} lsSet(LS_WAITLIST, arr); }
-  function createWaitlistEntry(w) {
-    var arr=loadWaitlist();
-    var id=nextId("WL-","eikon_appt_seq_wl");
-    arr.unshift(Object.assign({id:id,status:"Waiting",addedDate:todayYmd(),createdAt:new Date().toISOString()},w));
-    saveWaitlist(arr); return id;
-  }
-  function updateWaitlistEntry(id,w) {
-    var arr=loadWaitlist();
-    for(var i=0;i<arr.length;i++) if(String(arr[i].id)===String(id)){ arr[i]=Object.assign({},arr[i],w); break; }
-    saveWaitlist(arr);
-  }
-  function deleteWaitlistEntry(id) {
-    saveWaitlist(loadWaitlist().filter(function(w){return String(w.id)!==String(id);}));
-  }
-
-// ============================================================================
-//  modules.appointments.api.js
-//  API layer — paste this block into modules.appointments.js immediately after
-//  the localStorage CRUD helpers (after deleteWaitlistEntry) and before
-//  the `computeTotal` function.
-//
-//  Then replace every direct localStorage call in openDoctorsModal,
-//  openClinicsModal, openSchedulesModal, openApptModal, openWaitlistModal,
-//  and the render() function with the api* functions below.
-//  The fallback behaviour mirrors modules.tickets.js exactly.
-// ============================================================================
-
-  // ── API config ─────────────────────────────────────────────────────────────
-  var LS_FALLBACK_KEY = "eikon_appt_api_fallback_v1";
-
-  function getAllowFallback() {
-    try {
-      var url = new URL(window.location.href);
-      var qp  = (url.searchParams.get("appt_allow_fallback")||"").trim();
-      if (qp==="1"||qp==="true")  return true;
-      if (qp==="0"||qp==="false") return false;
-    } catch(e){}
-    try { return String(window.localStorage.getItem(LS_FALLBACK_KEY)||"")==="1"; } catch(e){ return false; }
-  }
-
-  function shouldFallback(e) {
-    var st = e && typeof e.status === "number" ? e.status : null;
-    // Never fallback on auth/permission or "route missing" errors — those must be fixed server-side.
-    if (st === 401 || st === 403 || st === 404) return false;
-    // Only fallback on genuine network failures (no status) or optional 5xx when allowed.
-    if (!st)        return true;             // network error / offline
-    if (st >= 500)  return getAllowFallback();
-    return false;
-  }
 
   async function apiFetch(path, options) {
     return E.apiFetch(path, options || {});
@@ -292,10 +203,7 @@ function loadDoctors() { try { if (APPT_MEM.doctors) return APPT_MEM.doctors; } 
         return arr;
       }
       return loadDoctors();
-    } catch(e) {
-      if (shouldFallback(e)) { warn("[appt] doctors fallback local"); return loadDoctors(); }
-      throw e;
-    }
+    } catch(e) { throw e; }
   }
 
   async function apiCreateDoctor(payload) {
@@ -307,10 +215,7 @@ function loadDoctors() { try { if (APPT_MEM.doctors) return APPT_MEM.doctors; } 
       });
       await apiLoadDoctors(); // refresh local cache
       return resp;
-    } catch(e) {
-      if (shouldFallback(e)) { warn("[appt] createDoctor fallback local"); return createDoctor(payload); }
-      throw e;
-    }
+    } catch(e) { throw e; }
   }
 
   async function apiUpdateDoctor(id, payload) {
@@ -322,10 +227,7 @@ function loadDoctors() { try { if (APPT_MEM.doctors) return APPT_MEM.doctors; } 
       });
       await apiLoadDoctors();
       return resp;
-    } catch(e) {
-      if (shouldFallback(e)) { updateDoctor(id, payload); return { ok: true }; }
-      throw e;
-    }
+    } catch(e) { throw e; }
   }
 
   async function apiDeleteDoctor(id) {
@@ -333,10 +235,7 @@ function loadDoctors() { try { if (APPT_MEM.doctors) return APPT_MEM.doctors; } 
       var resp = await apiFetch("/appointments/doctors/" + encodeURIComponent(id), { method: "DELETE" });
       await apiLoadDoctors();
       return resp;
-    } catch(e) {
-      if (shouldFallback(e)) { deleteDoctor(id); return { ok: true }; }
-      throw e;
-    }
+    } catch(e) { throw e; }
   }
 
   // ── Clinics API ─────────────────────────────────────────────────────────────
@@ -347,10 +246,7 @@ function loadDoctors() { try { if (APPT_MEM.doctors) return APPT_MEM.doctors; } 
       var arr  = Array.isArray(resp) ? resp : (resp && Array.isArray(resp.clinics) ? resp.clinics : null);
       if (arr) { saveClinics(arr); return arr; }
       return loadClinics();
-    } catch(e) {
-      if (shouldFallback(e)) { warn("[appt] clinics fallback local"); return loadClinics(); }
-      throw e;
-    }
+    } catch(e) { throw e; }
   }
 
   async function apiCreateClinic(payload) {
@@ -359,10 +255,7 @@ function loadDoctors() { try { if (APPT_MEM.doctors) return APPT_MEM.doctors; } 
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
       });
       await apiLoadClinics(); return resp;
-    } catch(e) {
-      if (shouldFallback(e)) { createClinic(payload); return { ok: true }; }
-      throw e;
-    }
+    } catch(e) { throw e; }
   }
 
   async function apiUpdateClinic(id, payload) {
@@ -371,20 +264,14 @@ function loadDoctors() { try { if (APPT_MEM.doctors) return APPT_MEM.doctors; } 
         method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
       });
       await apiLoadClinics(); return resp;
-    } catch(e) {
-      if (shouldFallback(e)) { updateClinic(id, payload); return { ok: true }; }
-      throw e;
-    }
+    } catch(e) { throw e; }
   }
 
   async function apiDeleteClinic(id) {
     try {
       var resp = await apiFetch("/appointments/clinics/" + encodeURIComponent(id), { method: "DELETE" });
       await apiLoadClinics(); return resp;
-    } catch(e) {
-      if (shouldFallback(e)) { deleteClinic(id); return { ok: true }; }
-      throw e;
-    }
+    } catch(e) { throw e; }
   }
 
   // ── Schedules API ───────────────────────────────────────────────────────────
@@ -399,10 +286,7 @@ function loadDoctors() { try { if (APPT_MEM.doctors) return APPT_MEM.doctors; } 
         return arr;
       }
       return loadSchedules();
-    } catch(e) {
-      if (shouldFallback(e)) { warn("[appt] schedules fallback local"); return loadSchedules(); }
-      throw e;
-    }
+    } catch(e) { throw e; }
   }
 
   async function apiCreateSchedule(payload) {
@@ -411,10 +295,7 @@ function loadDoctors() { try { if (APPT_MEM.doctors) return APPT_MEM.doctors; } 
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
       });
       await apiLoadSchedules(); return resp;
-    } catch(e) {
-      if (shouldFallback(e)) { createSchedule(payload); return { ok: true }; }
-      throw e;
-    }
+    } catch(e) { throw e; }
   }
 
   async function apiUpdateSchedule(id, payload) {
@@ -423,20 +304,14 @@ function loadDoctors() { try { if (APPT_MEM.doctors) return APPT_MEM.doctors; } 
         method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
       });
       await apiLoadSchedules(); return resp;
-    } catch(e) {
-      if (shouldFallback(e)) { updateSchedule(id, payload); return { ok: true }; }
-      throw e;
-    }
+    } catch(e) { throw e; }
   }
 
-  async function apiDeleteSchedule(id) {
+  async function await apiDeleteSchedule(id) {
     try {
       var resp = await apiFetch("/appointments/schedules/" + encodeURIComponent(id), { method: "DELETE" });
       await apiLoadSchedules(); return resp;
-    } catch(e) {
-      if (shouldFallback(e)) { deleteSchedule(id); return { ok: true }; }
-      throw e;
-    }
+    } catch(e) { throw e; }
   }
 
   // Returns schedules active on a given YYYY-MM-DD date from the API
@@ -446,10 +321,7 @@ function loadDoctors() { try { if (APPT_MEM.doctors) return APPT_MEM.doctors; } 
       var arr  = Array.isArray(resp) ? resp : (resp && Array.isArray(resp.schedules) ? resp.schedules : null);
       if (arr) return arr;
       return getSchedulesForDate(ymd);
-    } catch(e) {
-      if (shouldFallback(e)) return getSchedulesForDate(ymd);
-      throw e;
-    }
+    } catch(e) { throw e; }
   }
 
   // ── Appointments API ────────────────────────────────────────────────────────
@@ -467,10 +339,7 @@ function loadDoctors() { try { if (APPT_MEM.doctors) return APPT_MEM.doctors; } 
         return arr;
       }
       return params ? [] : loadAppts();
-    } catch(e) {
-      if (shouldFallback(e)) { warn("[appt] appts fallback local"); return loadAppts(); }
-      throw e;
-    }
+    } catch(e) { throw e; }
   }
 
   // Map API response shape → localStorage shape (they differ slightly in field names)
@@ -499,7 +368,7 @@ function loadDoctors() { try { if (APPT_MEM.doctors) return APPT_MEM.doctors; } 
     };
   }
 
-  async function apiCreateAppt(payload) {
+  async function await apiCreateAppt(payload) {
     try {
       var resp = await apiFetch("/appointments/entries", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
@@ -512,16 +381,10 @@ function loadDoctors() { try { if (APPT_MEM.doctors) return APPT_MEM.doctors; } 
         saveAppts(arr);
       }
       return resp;
-    } catch(e) {
-      if (shouldFallback(e)) {
-        warn("[appt] createAppt fallback local");
-        return createAppt(payload);  // returns {id, token}
-      }
-      throw e;
-    }
+    } catch(e) { throw e; }
   }
 
-  async function apiUpdateAppt(id, payload) {
+  async function await apiUpdateAppt(id, payload) {
     try {
       var resp = await apiFetch("/appointments/entries/" + encodeURIComponent(id), {
         method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
@@ -534,21 +397,15 @@ function loadDoctors() { try { if (APPT_MEM.doctors) return APPT_MEM.doctors; } 
         saveAppts(arr);
       }
       return resp;
-    } catch(e) {
-      if (shouldFallback(e)) { updateAppt(id, payload); return { ok: true }; }
-      throw e;
-    }
+    } catch(e) { throw e; }
   }
 
-  async function apiDeleteAppt(id) {
+  async function await apiDeleteAppt(id) {
     try {
       var resp = await apiFetch("/appointments/entries/" + encodeURIComponent(id), { method: "DELETE" });
       saveAppts(loadAppts().filter(function(a){ return String(a.id) !== String(id); }));
       return resp;
-    } catch(e) {
-      if (shouldFallback(e)) { deleteAppt(id); return { ok: true }; }
-      throw e;
-    }
+    } catch(e) { throw e; }
   }
 
   // ── Waitlist API ────────────────────────────────────────────────────────────
@@ -565,10 +422,7 @@ function loadDoctors() { try { if (APPT_MEM.doctors) return APPT_MEM.doctors; } 
         return arr;
       }
       return loadWaitlist();
-    } catch(e) {
-      if (shouldFallback(e)) { warn("[appt] waitlist fallback local"); return loadWaitlist(); }
-      throw e;
-    }
+    } catch(e) { throw e; }
   }
 
   function apiWlToLocal(w) {
@@ -599,10 +453,7 @@ function loadDoctors() { try { if (APPT_MEM.doctors) return APPT_MEM.doctors; } 
         var arr = loadWaitlist(); arr.unshift(apiWlToLocal(resp.entry)); saveWaitlist(arr);
       }
       return resp;
-    } catch(e) {
-      if (shouldFallback(e)) { warn("[appt] createWl fallback local"); return { id: createWaitlistEntry(payload) }; }
-      throw e;
-    }
+    } catch(e) { throw e; }
   }
 
   async function apiUpdateWaitlist(id, payload) {
@@ -618,10 +469,7 @@ function loadDoctors() { try { if (APPT_MEM.doctors) return APPT_MEM.doctors; } 
         saveWaitlist(arr);
       }
       return resp;
-    } catch(e) {
-      if (shouldFallback(e)) { updateWaitlistEntry(id, payload); return { ok: true }; }
-      throw e;
-    }
+    } catch(e) { throw e; }
   }
 
   async function apiDeleteWaitlist(id) {
@@ -629,10 +477,7 @@ function loadDoctors() { try { if (APPT_MEM.doctors) return APPT_MEM.doctors; } 
       var resp = await apiFetch("/appointments/waitlist/" + encodeURIComponent(id), { method: "DELETE" });
       saveWaitlist(loadWaitlist().filter(function(w){ return String(w.id) !== String(id); }));
       return resp;
-    } catch(e) {
-      if (shouldFallback(e)) { deleteWaitlistEntry(id); return { ok: true }; }
-      throw e;
-    }
+    } catch(e) { throw e; }
   }
 
   // ── Initial data load ───────────────────────────────────────────────────────
@@ -673,15 +518,15 @@ function loadDoctors() { try { if (APPT_MEM.doctors) return APPT_MEM.doctors; } 
 //    createClinic(payload)   →  await apiCreateClinic(payload)
 //    updateClinic(id,p)      →  await apiUpdateClinic(id,p)
 //    deleteClinic(id)        →  await apiDeleteClinic(id)
-//    createSchedule(payload) →  await apiCreateSchedule(payload)
-//    updateSchedule(id,p)    →  await apiUpdateSchedule(id,p)
-//    deleteSchedule(id)      →  await apiDeleteSchedule(id)
-//    createAppt(payload)     →  await apiCreateAppt(payload)
-//    updateAppt(id,p)        →  await apiUpdateAppt(id,p)
-//    deleteAppt(id)          →  await apiDeleteAppt(id)
-//    createWaitlistEntry(p)  →  await apiCreateWaitlist(p)
-//    updateWaitlistEntry(i,p)→  await apiUpdateWaitlist(id,p)
-//    deleteWaitlistEntry(id) →  await apiDeleteWaitlist(id)
+//    apiCreateSchedule(payload) →  await apiCreateSchedule(payload)
+//    apiUpdateSchedule(id,p)    →  await apiUpdateSchedule(id,p)
+//    await apiDeleteSchedule(id)      →  await apiDeleteSchedule(id)
+//    await apiCreateAppt(payload)     →  await apiCreateAppt(payload)
+//    await apiUpdateAppt(id,p)        →  await apiUpdateAppt(id,p)
+//    await apiDeleteAppt(id)          →  await apiDeleteAppt(id)
+//    await apiCreateWaitlistEntry(p)  →  await apiCreateWaitlist(p)
+//    await apiUpdateWaitlistEntry(i,p)→  await apiUpdateWaitlist(id,p)
+//    await apiDeleteWaitlistEntry(id) →  await apiDeleteWaitlist(id)
 //
 //  In renderDay(), replace:
 //    var scheds = getSchedulesForDate(ymd);
@@ -1190,7 +1035,7 @@ function loadDoctors() { try { if (APPT_MEM.doctors) return APPT_MEM.doctors; } 
       var addBtn=E.q("#ap-cl-add"); var list=E.q("#ap-cl-list");
       if(addBtn) addBtn.addEventListener("click",function(){ showClForm(null); });
       if(list) {
-        list.addEventListener("click",function(ev){
+        list.addEventListener("click",async function(ev){
           var btn=ev.target; var id=btn.getAttribute("data-id");
           if(!id) return;
           if(btn.classList.contains("ap-cl-edit")){var c=clinicById(id);if(c) showClForm(c);}
@@ -1280,7 +1125,7 @@ function loadDoctors() { try { if (APPT_MEM.doctors) return APPT_MEM.doctors; } 
             payload.validFrom = (E.q("#ap-schmod-from")||{}).value||"";
             payload.validUntil = (E.q("#ap-schmod-until")||{}).value||"";
           }
-          if(isEdit) updateSchedule(s.id, payload); else createSchedule(payload);
+          if(isEdit) await apiUpdateSchedule(s.id, payload); else await apiCreateSchedule(payload);
           if(typeof onDone==="function") onDone();
           openSchedulesModal(onDone);
         }}
@@ -1308,19 +1153,19 @@ function loadDoctors() { try { if (APPT_MEM.doctors) return APPT_MEM.doctors; } 
       var addBtn=E.q("#ap-sch-add"); var list=E.q("#ap-sch-list");
       if(addBtn) addBtn.addEventListener("click",function(){showSchForm(null);});
       if(list){
-        list.addEventListener("click",function(ev){
+        list.addEventListener("click",async function(ev){
           var btn=ev.target; var id=btn.getAttribute("data-id");
           if(!id) return;
           var scheds=loadSchedules();
           var sch=scheds.filter(function(s){return s.id===id;})[0];
           if(btn.classList.contains("ap-sch-edit")){if(sch)showSchForm(sch);}
           if(btn.classList.contains("ap-sch-toggle")){
-            if(sch){updateSchedule(id,{cancelled:!sch.cancelled});if(typeof onDone==="function")onDone();openSchedulesModal(onDone);}
+            if(sch){await apiUpdateSchedule(id,{cancelled:!sch.cancelled});if(typeof onDone==="function")onDone();openSchedulesModal(onDone);}
           }
           if(btn.classList.contains("ap-sch-del")){
             modalConfirm("Delete Schedule","Remove this schedule?","Delete","Cancel").then(async function(ok){
               if(!ok){openSchedulesModal(onDone);return;}
-              deleteSchedule(id);
+              await apiDeleteSchedule(id);
               if(typeof onDone==="function")onDone();
               openSchedulesModal(onDone);
             });
@@ -1447,8 +1292,8 @@ function loadDoctors() { try { if (APPT_MEM.doctors) return APPT_MEM.doctors; } 
             notes: ((E.q("#ap-mod-notes")||{}).value||"").trim(),
             cancellationReason: status==="Cancelled"?((E.q("#ap-mod-cancelreason")||{}).value||"").trim():""
           };
-          if(isEdit){ updateAppt(a.id, payload); toast("Saved","Appointment updated.","good"); }
-          else { var res=createAppt(payload); toast("Created","Appointment "+res.id+" created. Token: "+res.token,"good"); }
+          if(isEdit){ await apiUpdateAppt(a.id, payload); toast("Saved","Appointment updated.","good"); }
+          else { var res=await apiCreateAppt(payload); toast("Created","Appointment "+res.id+" created. Token: "+res.token,"good"); }
           E.modal.hide();
           if(typeof onSaved==="function") onSaved();
         } catch(ex) { modalError("Validation Error", ex); }
@@ -1541,10 +1386,10 @@ function loadDoctors() { try { if (APPT_MEM.doctors) return APPT_MEM.doctors; } 
         };
         if(isEdit){
           payload.status = ((E.q("#ap-wlmod-status")||{}).value||w.status||"Waiting").trim();
-          updateWaitlistEntry(w.id, payload);
+          await apiUpdateWaitlistEntry(w.id, payload);
           toast("Saved","Waiting list entry updated.","good");
         } else {
-          createWaitlistEntry(payload);
+          await apiCreateWaitlistEntry(payload);
           toast("Added","Patient added to waiting list.","good");
         }
         E.modal.hide();
@@ -1876,32 +1721,32 @@ function loadDoctors() { try { if (APPT_MEM.doctors) return APPT_MEM.doctors; } 
       // Quick status buttons
       if(a.status!=="Confirmed"&&a.status!=="Completed"&&a.status!=="Cancelled"){
         detailActionsEl.appendChild(mkBtn("✓ Confirm","",function(){
-          updateAppt(a.id,{status:"Confirmed"}); toast("Updated","Appointment confirmed.","good"); refresh();
+          await apiUpdateAppt(a.id,{status:"Confirmed"}); toast("Updated","Appointment confirmed.","good"); refresh();
         }));
       }
       if(a.status!=="Completed"){
         detailActionsEl.appendChild(mkBtn("✔ Complete","",function(){
-          updateAppt(a.id,{status:"Completed"}); toast("Updated","Appointment marked as complete.","good"); refresh();
+          await apiUpdateAppt(a.id,{status:"Completed"}); toast("Updated","Appointment marked as complete.","good"); refresh();
         }));
       }
       if(a.status!=="Cancelled"){
         detailActionsEl.appendChild(mkBtn("✗ Cancel","",function(){
           modalConfirm("Cancel Appointment","Mark this appointment as cancelled?","Yes, Cancel","Keep").then(async function(ok){
             if(!ok) return;
-            updateAppt(a.id,{status:"Cancelled"}); toast("Cancelled","Appointment cancelled.","good"); refresh();
+            await apiUpdateAppt(a.id,{status:"Cancelled"}); toast("Cancelled","Appointment cancelled.","good"); refresh();
           });
         }));
       }
       if(a.status!=="No Show"){
         detailActionsEl.appendChild(mkBtn("No Show","",function(){
-          updateAppt(a.id,{status:"No Show"}); toast("Updated","Marked as no show.","good"); refresh();
+          await apiUpdateAppt(a.id,{status:"No Show"}); toast("Updated","Marked as no show.","good"); refresh();
         }));
       }
 
       detailActionsEl.appendChild(mkBtn("Delete","",function(){
         modalConfirm("Delete Appointment","Permanently delete this appointment?","Delete","Cancel").then(async function(ok){
           if(!ok) return;
-          deleteAppt(a.id);
+          await apiDeleteAppt(a.id);
           state.selectedApptId=null;
           if(detailCardEl) detailCardEl.style.display="none";
           toast("Deleted","Appointment deleted.","good");
@@ -2113,7 +1958,7 @@ function loadDoctors() { try { if (APPT_MEM.doctors) return APPT_MEM.doctors; } 
             E.modal.hide();
             openApptModal({date:todayYmd(), fromWaitlist:w}, function(){
               // Mark as promoted
-              updateWaitlistEntry(w.id,{status:"Promoted"});
+              await apiUpdateWaitlistEntry(w.id,{status:"Promoted"});
               toast("Promoted","Patient moved from waiting list to appointments.","good");
               refresh();
             });
@@ -2121,7 +1966,7 @@ function loadDoctors() { try { if (APPT_MEM.doctors) return APPT_MEM.doctors; } 
           wlDetailActions.appendChild(mkBtn("✗ Cancel",function(){
             modalConfirm("Cancel Entry","Remove this patient from the waiting list?","Yes, Cancel","Keep").then(async function(ok){
               if(!ok) return;
-              updateWaitlistEntry(w.id,{status:"Cancelled"});
+              await apiUpdateWaitlistEntry(w.id,{status:"Cancelled"});
               toast("Cancelled","Waiting list entry cancelled.","good");
               refresh();
             });
@@ -2219,7 +2064,7 @@ function loadDoctors() { try { if (APPT_MEM.doctors) return APPT_MEM.doctors; } 
 
     // Sortable column headers — list
     if(listTable){
-      listTable.querySelector("thead").addEventListener("click",function(ev){
+      listTable.querySelector("thead").addEventListener("click",async function(ev){
         var el=ev.target.closest("[data-key]");
         if(!el) return;
         var key=el.getAttribute("data-key");
@@ -2237,7 +2082,7 @@ function loadDoctors() { try { if (APPT_MEM.doctors) return APPT_MEM.doctors; } 
     if(wlSearch) wlSearch.addEventListener("input",function(){state.wlQuery=wlSearch.value;state.selectedWlId=null;if(wlDetailCard)wlDetailCard.style.display="none";renderWlTable();});
     if(wlPrint) wlPrint.addEventListener("click",function(){printWaitlist(getFilteredWaitlist());});
     if(wlTable){
-      wlTable.querySelector("thead").addEventListener("click",function(ev){
+      wlTable.querySelector("thead").addEventListener("click",async function(ev){
         var el=ev.target.closest("[data-key]");
         if(!el) return;
         var key=el.getAttribute("data-key");
@@ -2264,11 +2109,11 @@ function loadDoctors() { try { if (APPT_MEM.doctors) return APPT_MEM.doctors; } 
 
     // Settings dropdown toggle
     if(settingsBtn&&settingsMenu){
-      settingsBtn.addEventListener("click",function(ev){
+      settingsBtn.addEventListener("click",async function(ev){
         ev.stopPropagation();
         settingsMenu.style.display=(settingsMenu.style.display==="none"?"block":"none");
       });
-      document.addEventListener("click",function(ev){
+      document.addEventListener("click",async function(ev){
         if(settingsMenu&&!settingsMenu.contains(ev.target)&&ev.target!==settingsBtn){
           settingsMenu.style.display="none";
         }
@@ -2294,7 +2139,7 @@ function loadDoctors() { try { if (APPT_MEM.doctors) return APPT_MEM.doctors; } 
   // ── Cloud sync & refresh ───────────────────────────────────────────────────
   async function refreshAll(reason) {
     reason = reason || "unknown";
-    var dbgOn = (String(window.localStorage.getItem("eikon_appt_debug")||"") === "1") || (/[?&]appt_debug=1/.test(String(location.search||"")));
+    var dbgOn = (/[?&]appt_debug=1/.test(String(location.search||"")));
     function dlog(){ if(dbgOn) log.apply(null, ["[refreshAll:"+reason+"]"].concat([].slice.call(arguments))); }
     function derror(){ if(dbgOn) err.apply(null, ["[refreshAll:"+reason+"]"].concat([].slice.call(arguments))); }
 
