@@ -1123,9 +1123,8 @@ function loadDoctors() { try { if (APPT_MEM.doctors) return APPT_MEM.doctors; } 
           if (btn.classList.contains("ap-dr-del")) {
             modalConfirm("Delete Doctor","Delete this doctor and their schedules?","Delete","Cancel").then(async function(ok){
               if(!ok) { openDoctorsModal(onDone); return; }
-              deleteDoctor(id);
-              // also delete their schedules
-              saveSchedules(loadSchedules().filter(function(s){return s.doctorId!==id;}));
+              await apiDeleteDoctor(id);
+              await refreshAll("doctor-delete");
               if(typeof onDone==="function") onDone();
               openDoctorsModal(onDone);
             });
