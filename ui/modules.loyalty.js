@@ -1411,7 +1411,7 @@
   E.registerModule({
     id:    "loyalty",
     title: "Loyalty & Campaigns",
-    order: 25,
+    order: 290,
     icon:  "✦",
     render: render
   });
