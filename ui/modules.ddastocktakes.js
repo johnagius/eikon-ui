@@ -503,7 +503,7 @@
     id: "dda_stocktakes",
     title: "DDA Stock Takes",
     icon: "📦",
-    order: 65,
+    order: 50,
     render: async function (ctx) {
       await render(ctx.mount);
     }
