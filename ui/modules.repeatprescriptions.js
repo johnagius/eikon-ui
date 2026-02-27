@@ -672,7 +672,7 @@
   E.registerModule({
     id: "repeatprescriptions",
     title: "Repeat Prescriptions",
-    order: 17,
+    order: 80,
     icon: "🔁",
     render: render,
   });
