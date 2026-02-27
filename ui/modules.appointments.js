@@ -238,6 +238,454 @@
     saveWaitlist(loadWaitlist().filter(function(w){return String(w.id)!==String(id);}));
   }
 
+// ============================================================================
+//  modules.appointments.api.js
+//  API layer — paste this block into modules.appointments.js immediately after
+//  the localStorage CRUD helpers (after deleteWaitlistEntry) and before
+//  the `computeTotal` function.
+//
+//  Then replace every direct localStorage call in openDoctorsModal,
+//  openClinicsModal, openSchedulesModal, openApptModal, openWaitlistModal,
+//  and the render() function with the api* functions below.
+//  The fallback behaviour mirrors modules.tickets.js exactly.
+// ============================================================================
+
+  // ── API config ─────────────────────────────────────────────────────────────
+  var LS_FALLBACK_KEY = "eikon_appt_api_fallback_v1";
+
+  function getAllowFallback() {
+    try {
+      var url = new URL(window.location.href);
+      var qp  = (url.searchParams.get("appt_allow_fallback")||"").trim();
+      if (qp==="1"||qp==="true")  return true;
+      if (qp==="0"||qp==="false") return false;
+    } catch(e){}
+    try { return String(window.localStorage.getItem(LS_FALLBACK_KEY)||"")==="1"; } catch(e){ return false; }
+  }
+
+  function shouldFallback(e) {
+    var st = e && typeof e.status === "number" ? e.status : null;
+    if (st === 401 || st === 403) return false;
+    if (st === 404) return true;
+    if (!st)        return true;             // network error
+    if (st >= 500)  return getAllowFallback();
+    return false;
+  }
+
+  async function apiFetch(path, options) {
+    return E.apiFetch(path, options || {});
+  }
+
+  // ── Doctors API ─────────────────────────────────────────────────────────────
+
+  async function apiLoadDoctors() {
+    try {
+      var resp = await apiFetch("/appointments/doctors", { method: "GET" });
+      var arr  = Array.isArray(resp) ? resp : (resp && Array.isArray(resp.doctors) ? resp.doctors : null);
+      if (arr) {
+        // Sync localStorage so offline fallback stays fresh
+        saveDoctors(arr);
+        return arr;
+      }
+      return loadDoctors();
+    } catch(e) {
+      if (shouldFallback(e)) { warn("[appt] doctors fallback local"); return loadDoctors(); }
+      throw e;
+    }
+  }
+
+  async function apiCreateDoctor(payload) {
+    try {
+      var resp = await apiFetch("/appointments/doctors", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify(payload)
+      });
+      await apiLoadDoctors(); // refresh local cache
+      return resp;
+    } catch(e) {
+      if (shouldFallback(e)) { warn("[appt] createDoctor fallback local"); return createDoctor(payload); }
+      throw e;
+    }
+  }
+
+  async function apiUpdateDoctor(id, payload) {
+    try {
+      var resp = await apiFetch("/appointments/doctors/" + encodeURIComponent(id), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify(payload)
+      });
+      await apiLoadDoctors();
+      return resp;
+    } catch(e) {
+      if (shouldFallback(e)) { updateDoctor(id, payload); return { ok: true }; }
+      throw e;
+    }
+  }
+
+  async function apiDeleteDoctor(id) {
+    try {
+      var resp = await apiFetch("/appointments/doctors/" + encodeURIComponent(id), { method: "DELETE" });
+      await apiLoadDoctors();
+      return resp;
+    } catch(e) {
+      if (shouldFallback(e)) { deleteDoctor(id); return { ok: true }; }
+      throw e;
+    }
+  }
+
+  // ── Clinics API ─────────────────────────────────────────────────────────────
+
+  async function apiLoadClinics() {
+    try {
+      var resp = await apiFetch("/appointments/clinics", { method: "GET" });
+      var arr  = Array.isArray(resp) ? resp : (resp && Array.isArray(resp.clinics) ? resp.clinics : null);
+      if (arr) { saveClinics(arr); return arr; }
+      return loadClinics();
+    } catch(e) {
+      if (shouldFallback(e)) { warn("[appt] clinics fallback local"); return loadClinics(); }
+      throw e;
+    }
+  }
+
+  async function apiCreateClinic(payload) {
+    try {
+      var resp = await apiFetch("/appointments/clinics", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
+      });
+      await apiLoadClinics(); return resp;
+    } catch(e) {
+      if (shouldFallback(e)) { createClinic(payload); return { ok: true }; }
+      throw e;
+    }
+  }
+
+  async function apiUpdateClinic(id, payload) {
+    try {
+      var resp = await apiFetch("/appointments/clinics/" + encodeURIComponent(id), {
+        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
+      });
+      await apiLoadClinics(); return resp;
+    } catch(e) {
+      if (shouldFallback(e)) { updateClinic(id, payload); return { ok: true }; }
+      throw e;
+    }
+  }
+
+  async function apiDeleteClinic(id) {
+    try {
+      var resp = await apiFetch("/appointments/clinics/" + encodeURIComponent(id), { method: "DELETE" });
+      await apiLoadClinics(); return resp;
+    } catch(e) {
+      if (shouldFallback(e)) { deleteClinic(id); return { ok: true }; }
+      throw e;
+    }
+  }
+
+  // ── Schedules API ───────────────────────────────────────────────────────────
+
+  async function apiLoadSchedules(params) {
+    try {
+      var qs = params ? ("?" + new URLSearchParams(params).toString()) : "";
+      var resp = await apiFetch("/appointments/schedules" + qs, { method: "GET" });
+      var arr  = Array.isArray(resp) ? resp : (resp && Array.isArray(resp.schedules) ? resp.schedules : null);
+      if (arr) {
+        if (!params) saveSchedules(arr); // full refresh
+        return arr;
+      }
+      return loadSchedules();
+    } catch(e) {
+      if (shouldFallback(e)) { warn("[appt] schedules fallback local"); return loadSchedules(); }
+      throw e;
+    }
+  }
+
+  async function apiCreateSchedule(payload) {
+    try {
+      var resp = await apiFetch("/appointments/schedules", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
+      });
+      await apiLoadSchedules(); return resp;
+    } catch(e) {
+      if (shouldFallback(e)) { createSchedule(payload); return { ok: true }; }
+      throw e;
+    }
+  }
+
+  async function apiUpdateSchedule(id, payload) {
+    try {
+      var resp = await apiFetch("/appointments/schedules/" + encodeURIComponent(id), {
+        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
+      });
+      await apiLoadSchedules(); return resp;
+    } catch(e) {
+      if (shouldFallback(e)) { updateSchedule(id, payload); return { ok: true }; }
+      throw e;
+    }
+  }
+
+  async function apiDeleteSchedule(id) {
+    try {
+      var resp = await apiFetch("/appointments/schedules/" + encodeURIComponent(id), { method: "DELETE" });
+      await apiLoadSchedules(); return resp;
+    } catch(e) {
+      if (shouldFallback(e)) { deleteSchedule(id); return { ok: true }; }
+      throw e;
+    }
+  }
+
+  // Returns schedules active on a given YYYY-MM-DD date from the API
+  async function apiGetSchedulesForDate(ymd) {
+    try {
+      var resp = await apiFetch("/appointments/schedules?date=" + encodeURIComponent(ymd), { method: "GET" });
+      var arr  = Array.isArray(resp) ? resp : (resp && Array.isArray(resp.schedules) ? resp.schedules : null);
+      if (arr) return arr;
+      return getSchedulesForDate(ymd);
+    } catch(e) {
+      if (shouldFallback(e)) return getSchedulesForDate(ymd);
+      throw e;
+    }
+  }
+
+  // ── Appointments API ────────────────────────────────────────────────────────
+
+  async function apiLoadAppts(params) {
+    try {
+      var qs = params ? ("?" + new URLSearchParams(params).toString()) : "";
+      var resp = await apiFetch("/appointments/entries" + qs, { method: "GET" });
+      var arr  = Array.isArray(resp) ? resp : (resp && Array.isArray(resp.appointments) ? resp.appointments : null);
+      if (arr) {
+        // If loading all (no params), refresh localStorage cache
+        if (!params) saveAppts(arr.map(apiApptToLocal));
+        return arr;
+      }
+      return params ? [] : loadAppts();
+    } catch(e) {
+      if (shouldFallback(e)) { warn("[appt] appts fallback local"); return loadAppts(); }
+      throw e;
+    }
+  }
+
+  // Map API response shape → localStorage shape (they differ slightly in field names)
+  function apiApptToLocal(a) {
+    return {
+      id:                 a.id,
+      apptRef:            a.apptRef            || a.appt_ref          || "",
+      token:              a.token              || a.patient_token      || "",
+      patientName:        a.patientName        || a.patient_name       || "",
+      patientIdCard:      a.patientIdCard      || a.patient_id_card    || "",
+      patientPhone:       a.patientPhone       || a.patient_phone      || "",
+      doctorId:           String(a.doctorId    || a.doctor_id          || ""),
+      clinicId:           String(a.clinicId    || a.clinic_id          || ""),
+      date:               a.date               || "",
+      time:               a.time               || "",
+      durationMins:       Number(a.durationMins|| a.duration_mins)     || 30,
+      status:             a.status             || "Scheduled",
+      doctorFee:          Number(a.doctorFee   || a.doctor_fee)        || 0,
+      clinicFee:          Number(a.clinicFee   || a.clinic_fee)        || 0,
+      medicines:          a.medicines          || "",
+      medicinesCost:      Number(a.medicinesCost|| a.medicines_cost)   || 0,
+      notes:              a.notes              || "",
+      cancellationReason: a.cancellationReason || a.cancellation_reason|| "",
+      createdAt:          a.createdAt          || a.created_at         || "",
+      updatedAt:          a.updatedAt          || a.updated_at         || ""
+    };
+  }
+
+  async function apiCreateAppt(payload) {
+    try {
+      var resp = await apiFetch("/appointments/entries", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
+      });
+      // resp contains { ok, id, apptRef, token, appointment }
+      // Update local cache for the new entry
+      if (resp && resp.appointment) {
+        var arr = loadAppts();
+        arr.push(apiApptToLocal(resp.appointment));
+        saveAppts(arr);
+      }
+      return resp;
+    } catch(e) {
+      if (shouldFallback(e)) {
+        warn("[appt] createAppt fallback local");
+        return createAppt(payload);  // returns {id, token}
+      }
+      throw e;
+    }
+  }
+
+  async function apiUpdateAppt(id, payload) {
+    try {
+      var resp = await apiFetch("/appointments/entries/" + encodeURIComponent(id), {
+        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
+      });
+      if (resp && resp.appointment) {
+        var arr = loadAppts();
+        for (var i = 0; i < arr.length; i++) {
+          if (String(arr[i].id) === String(id)) { arr[i] = apiApptToLocal(resp.appointment); break; }
+        }
+        saveAppts(arr);
+      }
+      return resp;
+    } catch(e) {
+      if (shouldFallback(e)) { updateAppt(id, payload); return { ok: true }; }
+      throw e;
+    }
+  }
+
+  async function apiDeleteAppt(id) {
+    try {
+      var resp = await apiFetch("/appointments/entries/" + encodeURIComponent(id), { method: "DELETE" });
+      saveAppts(loadAppts().filter(function(a){ return String(a.id) !== String(id); }));
+      return resp;
+    } catch(e) {
+      if (shouldFallback(e)) { deleteAppt(id); return { ok: true }; }
+      throw e;
+    }
+  }
+
+  // ── Waitlist API ────────────────────────────────────────────────────────────
+
+  async function apiLoadWaitlist(params) {
+    try {
+      var qs = params ? ("?" + new URLSearchParams(params).toString()) : "";
+      var resp = await apiFetch("/appointments/waitlist" + qs, { method: "GET" });
+      var arr  = Array.isArray(resp) ? resp : (resp && Array.isArray(resp.waitlist) ? resp.waitlist : null);
+      if (arr) {
+        if (!params) saveWaitlist(arr.map(apiWlToLocal));
+        return arr;
+      }
+      return loadWaitlist();
+    } catch(e) {
+      if (shouldFallback(e)) { warn("[appt] waitlist fallback local"); return loadWaitlist(); }
+      throw e;
+    }
+  }
+
+  function apiWlToLocal(w) {
+    return {
+      id:             w.id,
+      wlRef:          w.wlRef          || w.wl_ref          || "",
+      patientName:    w.patientName    || w.patient_name     || "",
+      patientIdCard:  w.patientIdCard  || w.patient_id_card  || "",
+      patientPhone:   w.patientPhone   || w.patient_phone    || "",
+      doctorId:       String(w.doctorId|| w.doctor_id        || ""),
+      clinicId:       String(w.clinicId|| w.clinic_id        || ""),
+      preferredDates: w.preferredDates || w.preferred_dates  || "",
+      flexibility:    w.flexibility    || "Flexible",
+      status:         w.status         || "Waiting",
+      promotedTo:     w.promotedTo     || w.promoted_to      || "",
+      notes:          w.notes          || "",
+      addedDate:      w.addedDate      || w.added_date        || "",
+      createdAt:      w.createdAt      || w.created_at        || ""
+    };
+  }
+
+  async function apiCreateWaitlist(payload) {
+    try {
+      var resp = await apiFetch("/appointments/waitlist", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
+      });
+      if (resp && resp.entry) {
+        var arr = loadWaitlist(); arr.unshift(apiWlToLocal(resp.entry)); saveWaitlist(arr);
+      }
+      return resp;
+    } catch(e) {
+      if (shouldFallback(e)) { warn("[appt] createWl fallback local"); return { id: createWaitlistEntry(payload) }; }
+      throw e;
+    }
+  }
+
+  async function apiUpdateWaitlist(id, payload) {
+    try {
+      var resp = await apiFetch("/appointments/waitlist/" + encodeURIComponent(id), {
+        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
+      });
+      if (resp && resp.entry) {
+        var arr = loadWaitlist();
+        for (var i = 0; i < arr.length; i++) {
+          if (String(arr[i].id) === String(id)) { arr[i] = apiWlToLocal(resp.entry); break; }
+        }
+        saveWaitlist(arr);
+      }
+      return resp;
+    } catch(e) {
+      if (shouldFallback(e)) { updateWaitlistEntry(id, payload); return { ok: true }; }
+      throw e;
+    }
+  }
+
+  async function apiDeleteWaitlist(id) {
+    try {
+      var resp = await apiFetch("/appointments/waitlist/" + encodeURIComponent(id), { method: "DELETE" });
+      saveWaitlist(loadWaitlist().filter(function(w){ return String(w.id) !== String(id); }));
+      return resp;
+    } catch(e) {
+      if (shouldFallback(e)) { deleteWaitlistEntry(id); return { ok: true }; }
+      throw e;
+    }
+  }
+
+  // ── Initial data load ───────────────────────────────────────────────────────
+  // Called once when the module mounts to hydrate localStorage from the API.
+  // After this, all UI reads from localStorage for speed; writes go to API + localStorage.
+
+  var initialLoadDone = false;
+  async function initialLoad() {
+    if (initialLoadDone) return;
+    initialLoadDone = true;
+    try {
+      await Promise.all([
+        apiLoadDoctors(),
+        apiLoadClinics(),
+        apiLoadSchedules(),
+        apiLoadAppts(),
+        apiLoadWaitlist()
+      ]);
+      log("[appt] initial load complete");
+    } catch(e) {
+      warn("[appt] initial load partial error:", e && e.message);
+      // Non-fatal — module continues with whatever is in localStorage
+    }
+  }
+
+// ============================================================================
+//  HOW TO USE THE API FUNCTIONS
+//  ─────────────────────────────
+//  In render(), replace the first line after ensureStyles() with:
+//
+//    ensureStyles();
+//    initialLoad().then(function(){ if (state.refresh) state.refresh(); });
+//
+//  In the modal save handlers, swap:
+//    createDoctor(payload)   →  await apiCreateDoctor(payload)
+//    updateDoctor(id,p)      →  await apiUpdateDoctor(id,p)
+//    deleteDoctor(id)        →  await apiDeleteDoctor(id)
+//    createClinic(payload)   →  await apiCreateClinic(payload)
+//    updateClinic(id,p)      →  await apiUpdateClinic(id,p)
+//    deleteClinic(id)        →  await apiDeleteClinic(id)
+//    createSchedule(payload) →  await apiCreateSchedule(payload)
+//    updateSchedule(id,p)    →  await apiUpdateSchedule(id,p)
+//    deleteSchedule(id)      →  await apiDeleteSchedule(id)
+//    createAppt(payload)     →  await apiCreateAppt(payload)
+//    updateAppt(id,p)        →  await apiUpdateAppt(id,p)
+//    deleteAppt(id)          →  await apiDeleteAppt(id)
+//    createWaitlistEntry(p)  →  await apiCreateWaitlist(p)
+//    updateWaitlistEntry(i,p)→  await apiUpdateWaitlist(id,p)
+//    deleteWaitlistEntry(id) →  await apiDeleteWaitlist(id)
+//
+//  In renderDay(), replace:
+//    var scheds = getSchedulesForDate(ymd);
+//  with:
+//    var scheds = await apiGetSchedulesForDate(ymd);  (make renderDay async)
+//
+//  All read operations (loadDoctors, loadClinics, etc.) stay reading from
+//  localStorage — the API layer keeps it in sync after every write + on mount.
+// ============================================================================
+
+
+
   // ── Compute total ─────────────────────────────────────────────────────────
   function computeTotal(a) {
     return (parseFloat(a.doctorFee)||0) + (parseFloat(a.clinicFee)||0) + (parseFloat(a.medicinesCost)||0);
@@ -1828,7 +2276,7 @@
   E.registerModule({
     id:    "appointments",
     title: "Appointments",
-    order: 189,
+    order: 215,
     icon:  "📅",
     render: render
   });
