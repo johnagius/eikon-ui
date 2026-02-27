@@ -1790,6 +1790,7 @@ wrap.appendChild(top);
     return {
       id: "dda-sales",
       key: "dda-sales",
+      order: 40,
       slug: "dda-sales",
       title: "DDA Sales",
       navTitle: "DDA Sales",
