@@ -525,7 +525,11 @@
       var tb2=document.createElement("button"); tb2.className="eikon-btn "+(e.is_active===0?"primary":"danger"); tb2.style.marginLeft="6px";
       tb2.textContent=e.is_active===0?"Activate":"Deactivate";
       tb2.onclick=function(){ toggleActive(e,function(){renderEmpRows(m);}); };
-      act.appendChild(eb); act.appendChild(tb2); tb.appendChild(tr);
+      act.appendChild(eb); act.appendChild(tb2);
+      var db=document.createElement("button"); db.className="eikon-btn danger"; db.style.marginLeft="6px"; db.textContent="Delete";
+      db.onclick=function(){ confirmDeleteStaff(e,function(){ renderEmpRows(m); }); };
+      act.appendChild(db);
+      tb.appendChild(tr);
     });
   }
 
@@ -1013,7 +1017,55 @@ function saveEmp(id, p, cb) {
   function toggleActive(e,cb){
     e.is_active=e.is_active===0?1:0;
     saveEmp(e.id, Object.assign({},e), cb);
+  
+  function deleteStaff(e, cb){
+    if(!e || !e.id) return;
+    var id = e.id;
+    console.groupCollapsed("[shifts][staffDelete] DELETE /shifts/staff/"+id, e);
+    apiOp("/shifts/staff/"+id, {method:"DELETE"}, function(r){
+      try { console.log("[shifts][staffDelete] resp", r); } catch(_){}
+      // Remove locally
+      S.staff = (S.staff||[]).filter(function(s){ return s.id !== id; });
+      S.shifts = (S.shifts||[]).filter(function(s){ return s.staff_id !== id; });
+      S.leaves = (S.leaves||[]).filter(function(l){ return l.staff_id !== id; });
+      lsSync();
+      console.groupEnd();
+      toast("Staff deleted.");
+      cb && cb();
+    });
   }
+
+  function confirmDeleteStaff(e, cb){
+    if(!e || !e.id) return;
+    var body =
+      '<div style="display:flex;flex-direction:column;gap:10px">' +
+        '<div style="padding:10px;border:1px solid rgba(255,90,122,.35);background:rgba(255,90,122,.08);border-radius:10px">' +
+          '<b>Delete staff member</b><br/>' +
+          'This will permanently remove <b>'+esc(e.full_name)+'</b> and will also remove any shifts and leave entries linked to them.<br/>' +
+          '<span style="opacity:.85">This cannot be undone.</span>' +
+        '</div>' +
+        '<div class="eikon-field">' +
+          '<div class="eikon-label">Type <b>DELETE</b> to confirm</div>' +
+          '<input class="eikon-input" id="sd-confirm" placeholder="DELETE" />' +
+        '</div>' +
+      '</div>';
+
+    E.modal.show("Confirm delete", body, [
+      {label:"Cancel", onClick:function(){ E.modal.hide(); }},
+      {label:"Delete", primary:true, onClick:function(){
+        var v = (document.getElementById("sd-confirm")||{}).value || "";
+        if(String(v).trim().toUpperCase() !== "DELETE"){
+          toast("Type DELETE to confirm","error");
+          return;
+        }
+        E.modal.hide();
+        deleteStaff(e, cb);
+      }}
+    ]);
+  }
+
+
+}
 
   /* ══════════════════════════════════════════════════════════════
      VIEW: SETTINGS
@@ -1425,101 +1477,248 @@ function rcard(l,v,c){
     });
   } 
 
-  function externalLocumModal(onCreated){
-    var creating = false;
+  
+function locumShiftModal(ds, defaultSt, defaultEt, onDone){
+    var saving = false;
+
+    function getLocums(includeInactive){
+      return (S.staff||[]).filter(function(s){
+        var isLocum = String(s.employment_type||"") === "external" || String(s.designation||"") === "locum";
+        if(!isLocum) return false;
+        if(includeInactive) return true;
+        return s.is_active !== 0;
+      }).sort(function(a,b){
+        return (String(a.full_name||"")).localeCompare(String(b.full_name||""));
+      });
+    }
+
+    var locums0 = getLocums(false);
+    var hasAny = locums0.length > 0;
 
     var body =
       '<div style="display:flex;flex-direction:column;gap:10px">' +
-        '<div><label style="font-weight:700;font-size:12px">Name</label>' +
-        '<input id="exl-name" class="eikon-input" placeholder="e.g. Dr John Locum" /></div>' +
-        '<div><label style="font-weight:700;font-size:12px">Role</label>' +
-        '<select id="exl-role" class="eikon-input">' +
-          '<option value="pharmacist">Locum Pharmacist</option>' +
-          '<option value="assistant">Assistant (external)</option>' +
-        '</select></div>' +
-        '<div style="font-size:12px;opacity:.8">Creates an external staff member so they can be assigned to shifts.</div>' +
+
+        '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">' +
+          (hasAny
+            ? ('<label style="display:flex;gap:6px;align-items:center;font-size:12px;"><input type="radio" name="ls-mode" id="ls-mode-existing" checked> Use existing locum</label>' +
+               '<label style="display:flex;gap:6px;align-items:center;font-size:12px;"><input type="radio" name="ls-mode" id="ls-mode-new"> Create new locum</label>')
+            : ('<div style="font-size:12px;opacity:.8">No saved locums found. Create one below.</div>')
+          ) +
+        '</div>' +
+
+        '<div id="ls-existing" style="display:'+(hasAny?'block':'none')+';">' +
+          '<div class="eikon-row">' +
+            '<div class="eikon-field" style="flex:1;min-width:220px;">' +
+              '<div class="eikon-label">Find locum</div>' +
+              '<input class="eikon-input" id="ls-search" placeholder="Type to filter…" />' +
+            '</div>' +
+            '<div class="eikon-field" style="flex:1;min-width:240px;">' +
+              '<div class="eikon-label">Select locum</div>' +
+              '<select class="eikon-select" id="ls-locum"></select>' +
+              '<div style="margin-top:6px;font-size:11px;color:var(--muted)"><label style="display:flex;gap:6px;align-items:center;"><input type="checkbox" id="ls-show-inactive"> Show inactive locums</label></div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+
+        '<div id="ls-new" style="display:'+(hasAny?'none':'block')+';">' +
+          '<div class="eikon-row">' +
+            '<div class="eikon-field" style="flex:1;min-width:220px;">' +
+              '<div class="eikon-label">Name</div>' +
+              '<input class="eikon-input" id="ls-name" placeholder="e.g. Dr John Locum" />' +
+            '</div>' +
+            '<div class="eikon-field" style="flex:1;min-width:220px;">' +
+              '<div class="eikon-label">Role</div>' +
+              '<select class="eikon-select" id="ls-role">' +
+                '<option value="locum">Locum Pharmacist</option>' +
+                '<option value="assistant">Assistant (external)</option>' +
+              '</select>' +
+            '</div>' +
+          '</div>' +
+          '<div class="eikon-row">' +
+            '<div class="eikon-field" style="flex:1;min-width:220px;">' +
+              '<div class="eikon-label">Email (optional)</div>' +
+              '<input class="eikon-input" id="ls-email" placeholder="optional" />' +
+            '</div>' +
+            '<div class="eikon-field" style="flex:1;min-width:220px;">' +
+              '<div class="eikon-label">Telephone (optional)</div>' +
+              '<input class="eikon-input" id="ls-phone" placeholder="optional" />' +
+            '</div>' +
+          '</div>' +
+          '<div class="eikon-row">' +
+            '<div class="eikon-field" style="flex:1;min-width:220px;">' +
+              '<div class="eikon-label">Registration No. (optional)</div>' +
+              '<input class="eikon-input" id="ls-reg" placeholder="optional" />' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+
+        '<div class="eikon-row">' +
+          '<div class="eikon-field" style="flex:1;min-width:160px;">' +
+            '<div class="eikon-label">Time in</div>' +
+            '<input class="eikon-input" id="ls-st" type="time" value="'+esc(defaultSt||"")+'" />' +
+          '</div>' +
+          '<div class="eikon-field" style="flex:1;min-width:160px;">' +
+            '<div class="eikon-label">Time out</div>' +
+            '<input class="eikon-input" id="ls-et" type="time" value="'+esc(defaultEt||"")+'" />' +
+          '</div>' +
+        '</div>' +
+
+        '<div class="eikon-field">' +
+          '<div class="eikon-label">Notes (optional)</div>' +
+          '<input class="eikon-input" id="ls-notes" placeholder="optional" />' +
+        '</div>' +
+
+        '<div style="font-size:11px;color:var(--muted)">This will add the locum directly to the calendar for <b>'+esc(ds)+'</b>.</div>' +
       '</div>';
 
-    E.modal.show("Add External Locum", body, [
-      {label:"Cancel", onClick:function(){ E.modal.hide(); }},
-      {label:"Create", primary:true, onClick:function(){
-        if (creating) {
-          toast("Creating locum…", "warn");
-          console.warn("[shifts][externalLocum] create ignored (already creating)");
-          return;
-        }
-        creating = true;
+    E.modal.show("Locum shift — "+ds, body, [
+      {label:"Back", onClick:function(){ try{E.modal.hide();}catch(e){} onDone && onDone(); }},
+      {label:"Save to calendar", primary:true, onClick:async function(){
+        if(saving){ toast("Saving…","warn"); return; }
+        saving = true;
 
         try {
-          var name = (document.getElementById("exl-name").value||"").trim();
-          if(!name){ toast("Enter name","error"); creating=false; return; }
+          var st = (document.getElementById("ls-st")||{}).value || "";
+          var et = (document.getElementById("ls-et")||{}).value || "";
+          if(!st || !et){ toast("Enter time in/out","error"); saving=false; return; }
+          if(t2m(et) <= t2m(st)){ toast("Time out must be after time in","error"); saving=false; return; }
 
-          var role = document.getElementById("exl-role").value;
-          var payload = {
-            full_name: name,
-            designation: role==="assistant" ? "assistant" : "locum",
-            employment_type: "external",
-            contracted_hours: 40,
-            is_active: 1,
-            patterns_json: '{"patterns":[],"provisionalId":null}'
-          };
+          var useExisting = hasAny ? !!(document.getElementById("ls-mode-existing") && document.getElementById("ls-mode-existing").checked) : false;
 
-          console.groupCollapsed("[shifts][externalLocum] POST /shifts/staff", payload);
+          async function resolveStaffId(){
+            if(useExisting){
+              var sid = parseInt((document.getElementById("ls-locum")||{}).value, 10);
+              if(!sid){ throw new Error("No locum selected"); }
+              return sid;
+            }
 
-          apiOp("/shifts/staff", {method:"POST",body:JSON.stringify(payload)}, function(r){
-            console.log("[shifts][externalLocum] create resp", r);
+            var name = (document.getElementById("ls-name")||{}).value || "";
+            name = String(name).trim();
+            if(!name){ throw new Error("Enter locum name"); }
+            var role = (document.getElementById("ls-role")||{}).value || "locum";
+            var payload = {
+              full_name: name,
+              designation: role === "assistant" ? "assistant" : "locum",
+              employment_type: "external",
+              contracted_hours: 40,
+              email: String((document.getElementById("ls-email")||{}).value||"").trim(),
+              phone: String((document.getElementById("ls-phone")||{}).value||"").trim(),
+              registration_number: String((document.getElementById("ls-reg")||{}).value||"").trim(),
+              is_active: 1,
+              patterns_json: "{\"patterns\":[],\"provisionalId\":null}"
+            };
 
-            // Reload staff list
-            E.apiFetch("/shifts/staff?include_inactive=1",{method:"GET"}).then(function(staffRes){
+            console.groupCollapsed("[shifts][locumShift] create staff", payload);
+            var created = await new Promise(function(res, rej){
+              apiOp("/shifts/staff", {method:"POST", body: JSON.stringify(payload)}, function(r){
+                try { console.log("[shifts][locumShift] staff create resp", r); } catch(e){}
+                if(r && (r.staff_id || r.id)) return res(r.staff_id || r.id);
+                return res(null);
+              });
+            });
+
+            // Reload staff and resolve by name if needed
+            try {
+              var staffRes = await E.apiFetch("/shifts/staff?include_inactive=1", {method:"GET"});
               S.staff = staffRes.staff || S.staff;
               lsSync();
-              console.log("[shifts][externalLocum] staff reloaded", S.staff.length);
+              console.log("[shifts][locumShift] staff reloaded", (S.staff||[]).length);
+            } catch(e) {
+              console.error("[shifts][locumShift] staff reload failed", e);
+            }
 
-              // Resolve the new ID robustly (worker may not return staff_id)
-              var newId = null;
-              if (r && (r.staff_id || r.id)) newId = (r.staff_id || r.id);
+            if(created) { console.groupEnd(); return created; }
 
-              if (!newId) {
-                var key = name.toLowerCase();
-                var matches = S.staff.filter(function(s){
-                  return String(s.employment_type||"") === "external"
-                    && String(s.full_name||"").trim().toLowerCase() === key;
-                });
-                if (matches.length) {
-                  matches.sort(function(a,b){ return (b.id||0) - (a.id||0); });
-                  newId = matches[0].id;
-                }
-              }
-
-              console.log("[shifts][externalLocum] resolved newId =", newId);
-              console.groupEnd();
-
-              creating = false;
-              E.modal.hide();
-              toast("External locum added.");
-
-              if (onCreated) onCreated(newId);
-            }).catch(function(e){
-              console.error("[shifts][externalLocum] staff reload failed", e);
-              console.groupEnd();
-              creating = false;
-              E.modal.hide();
-              toast("Locum created, but staff refresh failed.","warn");
-              if (onCreated) onCreated(null);
+            var key = name.toLowerCase();
+            var matches = (S.staff||[]).filter(function(s){
+              return String(s.employment_type||"")==="external"
+                && String(s.full_name||"").trim().toLowerCase()===key;
             });
+            if(matches.length){
+              matches.sort(function(a,b){ return (b.id||0)-(a.id||0); });
+              console.groupEnd();
+              return matches[0].id;
+            }
+
+            console.groupEnd();
+            throw new Error("Locum created but could not resolve ID. Please reopen the day.");
+          }
+
+          var staffId = await resolveStaffId();
+          var notes = String((document.getElementById("ls-notes")||{}).value||"").trim();
+
+          // Create shift assignment
+          var p = { staff_id: staffId, shift_date: ds, start_time: st, end_time: et, notes: notes };
+          p.id = lsNextId();
+          S.shifts.push(p);
+
+          console.groupCollapsed("[shifts][locumShift] create assignment", p);
+          apiOp("/shifts/assignments", {method:"POST", body: JSON.stringify(p)}, function(r){
+            try { console.log("[shifts][locumShift] assignment resp", r); } catch(e){}
+            if(r && r.shift_id) p.id = r.shift_id;
+
+            console.groupEnd();
+            saving = false;
+
+            toast("Locum shift saved.");
+            // Close modal then return to day modal
+            E.modal.hide();
+            onDone && onDone();
           });
 
-        } catch(e) {
-          creating = false;
-          try { console.groupEnd(); } catch(_){}
-          console.error("[shifts][externalLocum] failed", e);
-          toast("Failed to add locum","error");
+        } catch(err) {
+          saving = false;
+          console.error("[shifts][locumShift] failed", err);
+          toast(String(err && err.message ? err.message : err), "error");
         }
       }}
     ]);
+
+    setTimeout(function(){
+      function setMode(){
+        if(!hasAny) return;
+        var ex = document.getElementById("ls-mode-existing");
+        var nw = document.getElementById("ls-mode-new");
+        var exBox = document.getElementById("ls-existing");
+        var nwBox = document.getElementById("ls-new");
+        var useEx = ex && ex.checked;
+        if(exBox) exBox.style.display = useEx ? "block" : "none";
+        if(nwBox) nwBox.style.display = useEx ? "none" : "block";
+      }
+
+      function renderLocumOptions(){
+        var showIn = !!(document.getElementById("ls-show-inactive") && document.getElementById("ls-show-inactive").checked);
+        var list = getLocums(showIn);
+        var q = String((document.getElementById("ls-search")||{}).value||"").trim().toLowerCase();
+        if(q){
+          list = list.filter(function(s){ return String(s.full_name||"").toLowerCase().indexOf(q) >= 0; });
+        }
+        var sel = document.getElementById("ls-locum");
+        if(!sel) return;
+        sel.innerHTML = list.map(function(s){
+          var lab = String(s.full_name||"");
+          if(s.is_active===0) lab += " (inactive)";
+          return '<option value="'+s.id+'">'+esc(lab)+'</option>';
+        }).join("") || '<option value="">No locums found</option>';
+      }
+
+      var ex = document.getElementById("ls-mode-existing");
+      var nw = document.getElementById("ls-mode-new");
+      if(ex) ex.onchange = function(){ setMode(); };
+      if(nw) nw.onchange = function(){ setMode(); };
+
+      var si = document.getElementById("ls-show-inactive");
+      if(si) si.onchange = renderLocumOptions;
+      var sr = document.getElementById("ls-search");
+      if(sr) sr.oninput = renderLocumOptions;
+
+      setMode();
+      renderLocumOptions();
+    }, 0);
   }
 
-  function dayModal(ds, onSave) {
+
+function dayModal(ds, onSave) {
     var oh=ohFor(ds);
     var dayShifts=S.shifts.filter(function(s){return s.shift_date===ds;});
     var dayLeaves=S.leaves.filter(function(l){return l.status==="approved"&&l.start_date<=ds&&l.end_date>=ds;});
@@ -1571,7 +1770,7 @@ function rcard(l,v,c){
       '<div style="font-weight:700;margin-bottom:8px;">Add Shift</div>'+
       (oh.closed?'<div style="padding:10px;border:1px solid var(--border);border-radius:10px;color:var(--muted);font-size:12px;">This day is marked as closed in Opening Hours.</div>':(
         '<div class="eikon-row">'+
-        '<div class="eikon-field"><div class="eikon-label">Employee</div><select class="eikon-select" id="dm-emp">'+staffOpts+'</select><div style="margin-top:6px;"><button class="eikon-btn" id="dm-addloc" style="font-size:11px;padding:6px 8px;">+ External Locum</button></div></div>'+
+        '<div class="eikon-field"><div class="eikon-label">Employee</div><select class="eikon-select" id="dm-emp">'+staffOpts+'</select><div style="margin-top:6px;"><button class="eikon-btn" id="dm-addloc" style="font-size:11px;padding:6px 8px;">+ Locum Shift</button></div></div>'+
         '<div class="eikon-field"><div class="eikon-label">Start</div><input class="eikon-input" id="dm-st" type="time" value="'+esc(defaultSt)+'"/></div>'+
         '<div class="eikon-field"><div class="eikon-label">End</div><input class="eikon-input" id="dm-et" type="time" value="'+esc(defaultEt)+'"/></div>'+
         '</div>'+
@@ -1622,24 +1821,15 @@ function rcard(l,v,c){
       if(empSel) empSel.onchange = applyGapSuggestionIfPharm;
       applyGapSuggestionIfPharm();
 
-      // External locum quick-add
+      // Locum shift (select existing or create new + save shift)
       var addLoc = document.getElementById("dm-addloc");
       if(addLoc) addLoc.onclick=function(){
-        externalLocumModal(function(newId){
-          try {
-            if(newId){
-              // refresh options
-              var availableStaff2 = actStaff().filter(function(s){ return !onLeaveMap[s.id]; });
-              var opts = availableStaff2.map(function(s){ return '<option value="'+s.id+'">'+esc(s.full_name)+' ('+esc(dl(s.designation))+')</option>'; }).join("");
-              if(!opts) opts = '<option value="">No staff available</option>';
-              var sel = document.getElementById("dm-emp");
-              if(sel){ sel.innerHTML = opts; sel.value = String(newId); }
-              console.log("[shifts][externalLocum] selected new locum in dropdown", newId);
-            } else {
-              console.warn("[shifts][externalLocum] newId missing; cannot auto-select");
-              toast("Locum created, but could not auto-select. Reopen day modal.","warn");
-            }
-          } catch(e){ console.error("[shifts][externalLocum] ui refresh failed", e); }
+        var st0 = (document.getElementById("dm-st") && document.getElementById("dm-st").value) || defaultSt;
+        var et0 = (document.getElementById("dm-et") && document.getElementById("dm-et").value) || defaultEt;
+        console.log("[shifts][locumShift] open", { ds: ds, defaultSt: st0, defaultEt: et0 });
+        locumShiftModal(ds, st0, et0, function(){
+          // Return to day modal after creating locum shift
+          dayModal(ds, onSave);
         });
       };
 
