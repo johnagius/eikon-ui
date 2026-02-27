@@ -928,7 +928,7 @@
   E.registerModule({
     id: "creditnotes",
     title: "Credit Notes",
-    order: 20,
+    order: 230,
     icon: "🗒️",
     render: render
   });
