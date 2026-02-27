@@ -430,40 +430,23 @@
   function safeConfirmDeleteStaff(e, cb){
     try{
       if(!e || !e.id){ console.warn("[shifts][staffDelete] missing staff", e); return; }
-      console.groupCollapsed("[shifts][staffDelete] confirm", {id:e.id, name:e.full_name});
+      console.groupCollapsed("[shifts][staffDelete] confirm", {id:e.id, name:e.full_name, active:e.is_active});
       var body =
         '<div style="display:flex;flex-direction:column;gap:10px">' +
           '<div style="padding:10px;border:1px solid rgba(255,90,122,.35);background:rgba(255,90,122,.08);border-radius:10px">' +
-            '<b>Delete staff member</b><br/>' +
-            'This will permanently remove <b>'+esc(e.full_name)+'</b> and also remove any shifts and leave entries linked to them.<br/>' +
-            '<span style="opacity:.85">This cannot be undone.</span>' +
-          '</div>' +
-          '<div class="eikon-field">' +
-            '<div class="eikon-label">Type <b>DELETE</b> to confirm</div>' +
-            '<input class="eikon-input" id="sd-confirm" placeholder="DELETE" />' +
+            '<b>Delete staff member?</b><br/>' +
+            'Delete <b>'+esc(e.full_name)+'</b> permanently?<br/>' +
+            '<span style="opacity:.85">This will also remove their shifts and leave entries. This cannot be undone.</span>' +
           '</div>' +
         '</div>';
 
-      E.modal.show("Confirm delete", body, [
-        {label:"Cancel", onClick:function(){ console.groupEnd(); E.modal.hide(); }},
-        {label:"Delete", primary:true, onClick:function(){
-          var v = (document.getElementById("sd-confirm")||{}).value || "";
-          if(String(v).trim().toUpperCase() !== "DELETE"){
-            toast("Type DELETE to confirm","error");
-            return;
-          }
+      E.modal.show("Delete Staff", body, [
+        {label:"No", onClick:function(){ E.modal.hide(); try{ console.groupEnd(); }catch(_){ } }},
+        {label:"Yes, delete", primary:true, onClick:function(){
           E.modal.hide();
-          console.log("[shifts][staffDelete] confirmed, deleting…", e.id);
-          // Prefer deleteStaff() if present; fallback to API DELETE.
-          if (typeof deleteStaff === "function") {
-            deleteStaff(e, function(){ console.groupEnd(); cb && cb(); });
-          } else {
-            apiOp("/shifts/staff/"+e.id, {method:"DELETE"}, function(r){
-              console.log("[shifts][staffDelete] resp", r);
-              console.groupEnd();
-              cb && cb();
-            });
-          }
+          try{ console.log("[shifts][staffDelete] confirmed"); }catch(_){}
+          try{ console.groupEnd(); }catch(_){}
+          deleteStaff(e, cb);
         }}
       ]);
     }catch(err){
@@ -556,7 +539,7 @@
     all.forEach(function(e){
       var b=bal(e.id);
       var col=dc(e.designation);
-      var tr=document.createElement("tr"); tr.style.opacity=e.is_active===0?"0.4":"1";
+      var tr=document.createElement("tr");
       tr.innerHTML=
         '<td><b>'+esc(e.full_name||"")+'</b></td>'+
         '<td><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+col+';margin-right:5px;"></span>'+esc(dl(e.designation))+'</td>'+
@@ -568,6 +551,13 @@
         '<td><span class="eikon-pill" style="font-size:11px;'+(e.is_active===0?"color:var(--danger);border-color:rgba(255,90,122,.4);":"color:var(--ok);border-color:rgba(67,209,122,.4);")+'">'+(e.is_active===0?"Inactive":"Active")+'</span></td>'+
         '<td></td>';
       var act=tr.querySelectorAll("td")[8];
+      if(e.is_active===0){
+        try{
+          var tds=tr.querySelectorAll("td");
+          for(var i=0;i<tds.length;i++){ if(i<8) tds[i].style.opacity="0.4"; }
+        }catch(_){ }
+      }
+
       var eb=document.createElement("button"); eb.className="eikon-btn"; eb.textContent="Edit";
       eb.onclick=function(){ empModal(e,m); };
       var tb2=document.createElement("button"); tb2.className="eikon-btn "+(e.is_active===0?"primary":"danger"); tb2.style.marginLeft="6px";
@@ -1069,17 +1059,26 @@ function saveEmp(id, p, cb) {
   function deleteStaff(e, cb){
     if(!e || !e.id) return;
     var id = e.id;
-    console.groupCollapsed("[shifts][staffDelete] DELETE /shifts/staff/"+id, e);
+    console.groupCollapsed("[shifts][staffDelete] DELETE /shifts/staff/"+id, {id:id, name:e.full_name, active:e.is_active});
     apiOp("/shifts/staff/"+id, {method:"DELETE"}, function(r){
       try { console.log("[shifts][staffDelete] resp", r); } catch(_){}
-      // Remove locally
+      // Optimistic local removal (instant UI)
       S.staff = (S.staff||[]).filter(function(s){ return s.id !== id; });
       S.shifts = (S.shifts||[]).filter(function(s){ return s.staff_id !== id; });
       S.leaves = (S.leaves||[]).filter(function(l){ return l.staff_id !== id; });
       lsSync();
-      console.groupEnd();
-      toast("Staff deleted.");
-      cb && cb();
+
+      // ✅ Refresh staff list from server to ensure UI stays in sync (incl. inactive)
+      E.apiFetch("/shifts/staff?include_inactive=1", {method:"GET"}).then(function(res){
+        if(res && res.staff){ S.staff = res.staff; lsSync(); }
+        console.log("[shifts][staffDelete] staff refreshed", (S.staff||[]).length);
+      }, function(err){
+        console.warn("[shifts][staffDelete] staff refresh failed (using local state)", err);
+      }).then(function(){
+        try{ console.groupEnd(); }catch(_){}
+        toast("Staff deleted.");
+        cb && cb();
+      });
     });
   }
 
