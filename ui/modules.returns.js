@@ -667,7 +667,7 @@
   E.registerModule({
     id: "returns",
     title: "Returns",
-    order: 19,
+    order: 240,
     icon: "↩️",
     render: render
   });
