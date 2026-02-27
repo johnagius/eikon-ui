@@ -127,8 +127,11 @@
   }
 
   // Doctors CRUD
-  function loadDoctors() { return lsGet(LS_DOCTORS)||[]; }
-  function saveDoctors(arr) { lsSet(LS_DOCTORS, arr); }
+    // In-memory caches (avoid relying only on partitioned storage)
+  var APPT_MEM = { doctors: null, clinics: null, schedules: null, appointments: null, waitlist: null };
+
+function loadDoctors() { try { if (APPT_MEM.doctors) return APPT_MEM.doctors; } catch(_e){} return lsGet(LS_DOCTORS)||[]; }
+  function saveDoctors(arr) { try { APPT_MEM.doctors = Array.isArray(arr)?arr:[]; } catch(_e){} lsSet(LS_DOCTORS, arr); }
   function createDoctor(d) {
     var arr=loadDoctors();
     var id="DR-"+String(Date.now()).slice(-6);
@@ -146,8 +149,8 @@
   function doctorById(id) { return loadDoctors().filter(function(d){return d.id===id;})[0]||null; }
 
   // Clinics CRUD
-  function loadClinics() { return lsGet(LS_CLINICS)||[]; }
-  function saveClinics(arr) { lsSet(LS_CLINICS, arr); }
+  function loadClinics() { try { if (APPT_MEM.clinics) return APPT_MEM.clinics; } catch(_e){} return lsGet(LS_CLINICS)||[]; }
+  function saveClinics(arr) { try { APPT_MEM.clinics = Array.isArray(arr)?arr:[]; } catch(_e){} lsSet(LS_CLINICS, arr); }
   function createClinic(c) {
     var arr=loadClinics();
     var id="CL-"+String(Date.now()).slice(-6);
@@ -221,8 +224,8 @@
   }
 
   // Waiting list CRUD
-  function loadWaitlist() { return lsGet(LS_WAITLIST)||[]; }
-  function saveWaitlist(arr) { lsSet(LS_WAITLIST, arr); }
+  function loadWaitlist() { try { if (APPT_MEM.waitlist) return APPT_MEM.waitlist; } catch(_e){} return lsGet(LS_WAITLIST)||[]; }
+  function saveWaitlist(arr) { try { APPT_MEM.waitlist = Array.isArray(arr)?arr:[]; } catch(_e){} lsSet(LS_WAITLIST, arr); }
   function createWaitlistEntry(w) {
     var arr=loadWaitlist();
     var id=nextId("WL-","eikon_appt_seq_wl");
@@ -2308,9 +2311,9 @@
     } catch(_e){}
 
     // Always sync reference data first
-    try { await apiLoadDoctors(); } catch(e){ derror("apiLoadDoctors failed", e); }
-    try { await apiLoadClinics(); } catch(e){ derror("apiLoadClinics failed", e); }
-    try { await apiLoadSchedules(); } catch(e){ derror("apiLoadSchedules failed", e); }
+    try { await apiLoadDoctors(); dlog('doctors synced count=', loadDoctors().length); } catch(e){ derror("apiLoadDoctors failed", e); }
+    try { await apiLoadClinics(); dlog('clinics synced count=', loadClinics().length); } catch(e){ derror("apiLoadClinics failed", e); }
+    try { await apiLoadSchedules(); dlog('schedules synced count=', loadSchedules().length); } catch(e){ derror("apiLoadSchedules failed", e); }
 
     // Then sync operational data (limit when possible)
     try {
