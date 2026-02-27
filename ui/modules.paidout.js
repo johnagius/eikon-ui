@@ -998,7 +998,7 @@
   E.registerModule({
     id: "paidout",
     title: "Paid Out",
-    order: 21,
+    order: 250,
     icon: "💸",
     render: render,
   });
