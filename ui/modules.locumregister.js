@@ -434,7 +434,7 @@
   E.registerModule({
     id: "locumregister",
     title: "Locum Register",
-    order: 22,
+    order: 90,
     icon: "👨‍⚕️",
     render: render
   });
