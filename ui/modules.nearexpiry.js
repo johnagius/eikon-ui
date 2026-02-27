@@ -708,7 +708,7 @@ async function apiJson(path, options, tag) {
   E.registerModule({
     id: "nearexpiry",
     title: "Near Expiry",
-    order: 14,
+    order: 270,
     icon: "⏳",
     render: render
   });
