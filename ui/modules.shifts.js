@@ -293,6 +293,17 @@
     var ov = (S.openingHours && S.openingHours.overrides || {})[ds];
     if (ov) return ov;
 
+    // ✅ Public Holiday: default CLOSED unless explicitly opened via an Exceptional override.
+    // (Prevents pharmacist-gap warnings on PH unless you configured special opening hours.)
+    try {
+      if (typeof isPH === "function" && isPH(ds)) {
+        console.log("[shifts][ohFor] PH default CLOSED:", ds);
+        return { open: "", close: "", closed: true, note: "Public Holiday (default closed)" };
+      }
+    } catch (e) {
+      console.warn("[shifts][ohFor] PH check failed", ds, e);
+    }
+
     // normalize (in case settings were loaded after module init)
     if (!S.openingHours || (!S.openingHours.weekly && !S.openingHours["default"])) normalizeOpeningHours();
 
@@ -1415,23 +1426,34 @@ function rcard(l,v,c){
   } 
 
   function externalLocumModal(onCreated){
+    var creating = false;
+
     var body =
-      '<div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Add a one-off external locum (not part of your regular team). This creates a staff entry with Employment Type = External.</div>'+
-      '<div class="eikon-field"><div class="eikon-label">Full name</div><input class="eikon-input" id="exl-name" type="text" placeholder="e.g. Dr John Doe"/></div>'+
-      '<div class="eikon-field" style="margin-top:10px;"><div class="eikon-label">Role</div>'+
-        '<select class="eikon-select" id="exl-role">'+
-          '<option value="locum" selected>Locum Pharmacist</option>'+
-          '<option value="assistant">Assistant</option>'+
-        '</select>'+
-      '</div>'+
-      '<div style="margin-top:10px;font-size:11px;color:var(--muted);">Tip: you can later set this external person to Inactive from the Staff tab.</div>';
+      '<div style="display:flex;flex-direction:column;gap:10px">' +
+        '<div><label style="font-weight:700;font-size:12px">Name</label>' +
+        '<input id="exl-name" class="eikon-input" placeholder="e.g. Dr John Locum" /></div>' +
+        '<div><label style="font-weight:700;font-size:12px">Role</label>' +
+        '<select id="exl-role" class="eikon-input">' +
+          '<option value="pharmacist">Locum Pharmacist</option>' +
+          '<option value="assistant">Assistant (external)</option>' +
+        '</select></div>' +
+        '<div style="font-size:12px;opacity:.8">Creates an external staff member so they can be assigned to shifts.</div>' +
+      '</div>';
 
     E.modal.show("Add External Locum", body, [
       {label:"Cancel", onClick:function(){ E.modal.hide(); }},
-      {label:"Create", primary:true, onClick:async function(){
+      {label:"Create", primary:true, onClick:function(){
+        if (creating) {
+          toast("Creating locum…", "warn");
+          console.warn("[shifts][externalLocum] create ignored (already creating)");
+          return;
+        }
+        creating = true;
+
         try {
           var name = (document.getElementById("exl-name").value||"").trim();
-          if(!name){ toast("Enter name","error"); return; }
+          if(!name){ toast("Enter name","error"); creating=false; return; }
+
           var role = document.getElementById("exl-role").value;
           var payload = {
             full_name: name,
@@ -1439,26 +1461,57 @@ function rcard(l,v,c){
             employment_type: "external",
             contracted_hours: 40,
             is_active: 1,
-            patterns_json: "{\"patterns\":[],\"provisionalId\":null}"
+            patterns_json: '{"patterns":[],"provisionalId":null}'
           };
-          console.groupCollapsed("[shifts][externalLocum] create", payload);
-          apiOp("/shifts/staff", {method:"POST", body: JSON.stringify(payload)}, async function(r){
-            console.log("[shifts][externalLocum] created", r);
-            try {
-              var staffRes = await E.apiFetch("/shifts/staff?include_inactive=1", {method:"GET"});
+
+          console.groupCollapsed("[shifts][externalLocum] POST /shifts/staff", payload);
+
+          apiOp("/shifts/staff", {method:"POST",body:JSON.stringify(payload)}, function(r){
+            console.log("[shifts][externalLocum] create resp", r);
+
+            // Reload staff list
+            E.apiFetch("/shifts/staff?include_inactive=1",{method:"GET"}).then(function(staffRes){
               S.staff = staffRes.staff || S.staff;
               lsSync();
               console.log("[shifts][externalLocum] staff reloaded", S.staff.length);
-            } catch(e) {
-              console.error("[shifts][externalLocum] reload failed", e);
-            }
-            console.groupEnd();
-            E.modal.hide();
-            toast("External locum added.");
-            if (onCreated) onCreated(r && r.staff_id ? r.staff_id : null);
+
+              // Resolve the new ID robustly (worker may not return staff_id)
+              var newId = null;
+              if (r && (r.staff_id || r.id)) newId = (r.staff_id || r.id);
+
+              if (!newId) {
+                var key = name.toLowerCase();
+                var matches = S.staff.filter(function(s){
+                  return String(s.employment_type||"") === "external"
+                    && String(s.full_name||"").trim().toLowerCase() === key;
+                });
+                if (matches.length) {
+                  matches.sort(function(a,b){ return (b.id||0) - (a.id||0); });
+                  newId = matches[0].id;
+                }
+              }
+
+              console.log("[shifts][externalLocum] resolved newId =", newId);
+              console.groupEnd();
+
+              creating = false;
+              E.modal.hide();
+              toast("External locum added.");
+
+              if (onCreated) onCreated(newId);
+            }).catch(function(e){
+              console.error("[shifts][externalLocum] staff reload failed", e);
+              console.groupEnd();
+              creating = false;
+              E.modal.hide();
+              toast("Locum created, but staff refresh failed.","warn");
+              if (onCreated) onCreated(null);
+            });
           });
+
         } catch(e) {
-          console.groupEnd();
+          creating = false;
+          try { console.groupEnd(); } catch(_){}
           console.error("[shifts][externalLocum] failed", e);
           toast("Failed to add locum","error");
         }
@@ -1475,7 +1528,10 @@ function rcard(l,v,c){
     var ph=isPH(ds);
     var allPharm=pharmStaff();
 
-    var staffOpts=actStaff().map(function(s){ return '<option value="'+s.id+'">'+esc(s.full_name)+' ('+esc(dl(s.designation))+')</option>'; }).join("");
+    var availableStaff = actStaff().filter(function(s){ return !onLeaveMap[s.id]; });
+    console.log("[shifts][dayModal] available staff", ds, { totalActive: actStaff().length, onLeave: Object.keys(onLeaveMap).length, available: availableStaff.length });
+    var staffOpts = availableStaff.map(function(s){ return '<option value="'+s.id+'">'+esc(s.full_name)+' ('+esc(dl(s.designation))+')</option>'; }).join("");
+    if(!staffOpts) staffOpts = '<option value="">No staff available (all on leave)</option>';
 
     // Coverage banner (supports partial gaps)
     var covBanner="";
@@ -1528,6 +1584,8 @@ function rcard(l,v,c){
       {label:"Add Shift", primary:true, onClick:function(){
         if(oh.closed){ E.modal.hide(); return; }
         var sid=parseInt(E.q("#dm-emp").value);
+        if(onLeaveMap[sid]){ var ee=emp(sid); console.warn("[shifts][dayModal] blocked add shift: staff on leave", ds, sid, onLeaveMap[sid]); toast((ee?ee.full_name:"Employee")+" is on approved leave.","error"); return; }
+
         var st=E.q("#dm-st").value; var et=E.q("#dm-et").value;
         if(!sid||!st||!et){toast("Fill all fields","error");return;}
         if(t2m(et)<=t2m(st)){toast("End must be after start","error");return;}
@@ -1571,9 +1629,15 @@ function rcard(l,v,c){
           try {
             if(newId){
               // refresh options
-              var opts = actStaff().map(function(s){ return '<option value="'+s.id+'">'+esc(s.full_name)+' ('+esc(dl(s.designation))+')</option>'; }).join("");
+              var availableStaff2 = actStaff().filter(function(s){ return !onLeaveMap[s.id]; });
+              var opts = availableStaff2.map(function(s){ return '<option value="'+s.id+'">'+esc(s.full_name)+' ('+esc(dl(s.designation))+')</option>'; }).join("");
+              if(!opts) opts = '<option value="">No staff available</option>';
               var sel = document.getElementById("dm-emp");
               if(sel){ sel.innerHTML = opts; sel.value = String(newId); }
+              console.log("[shifts][externalLocum] selected new locum in dropdown", newId);
+            } else {
+              console.warn("[shifts][externalLocum] newId missing; cannot auto-select");
+              toast("Locum created, but could not auto-select. Reopen day modal.","warn");
             }
           } catch(e){ console.error("[shifts][externalLocum] ui refresh failed", e); }
         });
@@ -1787,6 +1851,23 @@ function rcard(l,v,c){
 
 function singleShiftModal(e2, ds, existing, onSave) {
     var oh=ohFor(ds);
+
+    // ✅ Block adding new shifts if employee is on approved leave for that day
+    try {
+      var lv = (S.leaves||[]).find(function(l){
+        return l && l.status==="approved" && l.staff_id=== (e2&&e2.id) && l.start_date<=ds && l.end_date>=ds;
+      }) || null;
+      if (lv && !existing) {
+        console.warn("[shifts][singleShiftModal] blocked: staff on approved leave", e2&&e2.id, ds, lv);
+        E.modal.show("On Approved Leave",
+          "<div style='padding:6px 0'>"+esc(e2.full_name)+" is on approved leave on <b>"+esc(ds)+"</b>.</div>",
+          [{ label:"Close", primary:true, onClick:function(){ E.modal.hide(); } }]
+        );
+        return;
+      }
+    } catch(e) {
+      console.warn("[shifts][singleShiftModal] leave check failed", e);
+    }
     var body=
       '<div style="margin-bottom:10px;font-size:13px;"><b>'+esc(e2?e2.full_name:"?")+' — '+esc(ds)+'</b></div>'+
       '<div class="eikon-row">'+
@@ -2386,7 +2467,6 @@ function vIntegration(m){
         '</div>'+
         '<div style="display:flex;gap:10px;flex-wrap:wrap;">'+
           '<a id="si-dl" href="#" download="eikon-shifts.ics" class="eikon-btn primary">⬇ Download .ics</a>'+
-          '<button class="eikon-btn" id="si-copy">📋 Copy webcal:// Instructions</button>'+
         '</div>'+
         '<div id="si-hint" style="margin-top:10px;"></div>'+
       '</div>'+
@@ -2467,10 +2547,6 @@ function saveToken(newTok){
     }
     E.q("#si-month",m).onchange=rebuild;
     E.q("#si-emp",m).onchange=rebuild;
-    E.q("#si-copy",m).onclick=function(){
-      var txt = "Google Calendar → Other calendars → From URL. Paste a webcal:// URL to subscribe.\n\nFor live: use the Live URL above (webcal://).";
-      copyText(txt, "Instructions");
-    };
     rebuild();
   }
 
