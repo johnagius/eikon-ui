@@ -181,7 +181,7 @@
     });
   }
 // -- API config
- -------------------------------------------------------------
+// -------------------------------------------------------------
 
   // Cloud-only mode: never fall back to localStorage.
   function shouldFallback(_e) { return false; }
