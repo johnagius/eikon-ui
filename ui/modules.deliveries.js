@@ -2256,7 +2256,7 @@
   E.registerModule({
     id:     "deliveries",
     title:  "Client Deliveries",
-    order:  19,
+    order:  210,
     icon:   "🚚",
     render: render
   });
