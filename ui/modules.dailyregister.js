@@ -611,7 +611,7 @@
   E.registerModule({
     id: "dailyregister",
     title: "Daily Register",
-    order: 16,
+    order: 70,
 
     // ✅ PATCH: restore sidebar icon
     icon: "🗓️",
