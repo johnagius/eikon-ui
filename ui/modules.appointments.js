@@ -1828,7 +1828,7 @@
   E.registerModule({
     id:    "appointments",
     title: "Appointments",
-    order: 215,
+    order: 189,
     icon:  "📅",
     render: render
   });
