@@ -90,13 +90,13 @@
   function modalError(title, e) {
     var msg=(e&&e.message)?e.message:String(e||"Unknown error");
     try { E.modal.show(title||"Error","<div style='white-space:pre-wrap;font-size:13px;color:rgba(255,90,122,.9);'>"+esc(msg)+"</div>",
-      [{label:"Close",primary:true,onClick:function(){E.modal.hide();}}]); } catch(e2){ toast(title||"Error",msg,"bad"); }
+      [{label:"Close",primary:true,onClick:async function(){E.modal.hide();}}]); } catch(e2){ toast(title||"Error",msg,"bad"); }
   }
   function modalConfirm(title, bodyText, okLabel, cancelLabel) {
     return new Promise(function(resolve){
       try { E.modal.show(title||"Confirm","<div class='eikon-mini'>"+esc(bodyText||"")+"</div>",[
-        {label:cancelLabel||"Cancel",onClick:function(){E.modal.hide();resolve(false);}},
-        {label:okLabel||"OK",danger:true,onClick:function(){E.modal.hide();resolve(true);}}
+        {label:cancelLabel||"Cancel",onClick:async function(){E.modal.hide();resolve(false);}},
+        {label:okLabel||"OK",danger:true,onClick:async function(){E.modal.hide();resolve(true);}}
       ]); } catch(e){ resolve(window.confirm(bodyText||"Are you sure?")); }
     });
   }
@@ -1081,8 +1081,8 @@
         "<div class='eikon-field'><div class='eikon-label'>Default Patient Fee (€)</div><input class='ap-input' id='ap-drmod-fee' type='number' step='0.01' min='0' value='"+esc(d.defaultFee!=null?d.defaultFee:"")+"' placeholder='e.g. 25.00'></div>" +
         "<div class='eikon-field'><div class='eikon-label'>Notes (optional)</div><textarea class='ap-textarea' id='ap-drmod-notes'>"+esc(d.notes||"")+"</textarea></div>";
       E.modal.show(isEdit?"Edit Doctor":"Add Doctor", body, [
-        {label:"Cancel", onClick:function(){openDoctorsModal(onDone);}},
-        {label:isEdit?"Save Changes":"Add Doctor", primary:true, onClick:function(){
+        {label:"Cancel", onClick:async function(){openDoctorsModal(onDone);}},
+        {label:isEdit?"Save Changes":"Add Doctor", primary:true, onClick:async function(){
           var name = (E.q("#ap-drmod-name")||{}).value||"";
           name = name.trim();
           if (!name) { toast("Error","Doctor name is required.","bad"); return; }
@@ -1102,7 +1102,7 @@
     }
 
     E.modal.show("Manage Doctors", renderBody(), [
-      {label:"Close", onClick:function(){E.modal.hide(); if(typeof onDone==="function") onDone();}}
+      {label:"Close", onClick:async function(){E.modal.hide(); if(typeof onDone==="function") onDone();}}
     ]);
 
     // Wire buttons after modal renders
@@ -1160,8 +1160,8 @@
         "<div class='eikon-field'><div class='eikon-label'>Standard Clinic Fee (€)</div><input class='ap-input' id='ap-clmod-fee' type='number' step='0.01' min='0' value='"+esc(c.fee!=null?c.fee:"")+"' placeholder='e.g. 15.00'></div>" +
         "<div class='eikon-field'><div class='eikon-label'>Notes (optional)</div><textarea class='ap-textarea' id='ap-clmod-notes'>"+esc(c.notes||"")+"</textarea></div>";
       E.modal.show(isEdit?"Edit Clinic":"Add Clinic", body, [
-        {label:"Cancel", onClick:function(){openClinicsModal(onDone);}},
-        {label:isEdit?"Save Changes":"Add Clinic", primary:true, onClick:function(){
+        {label:"Cancel", onClick:async function(){openClinicsModal(onDone);}},
+        {label:isEdit?"Save Changes":"Add Clinic", primary:true, onClick:async function(){
           var name = (E.q("#ap-clmod-name")||{}).value||""; name=name.trim();
           if (!name) { toast("Error","Clinic name is required.","bad"); return; }
           var payload = {
@@ -1181,7 +1181,7 @@
     }
 
     E.modal.show("Manage Clinics", renderBody(), [
-      {label:"Close", onClick:function(){E.modal.hide(); if(typeof onDone==="function") onDone();}}
+      {label:"Close", onClick:async function(){E.modal.hide(); if(typeof onDone==="function") onDone();}}
     ]);
     setTimeout(function(){
       var addBtn=E.q("#ap-cl-add"); var list=E.q("#ap-cl-list");
@@ -1256,8 +1256,8 @@
         "<div class='eikon-field'><div class='eikon-label'>Default Slot Duration (minutes)</div><input class='ap-input' id='ap-schmod-slot' type='number' min='5' max='180' step='5' value='"+esc(s.slotDuration||30)+"'></div>";
 
       E.modal.show(isEdit?"Edit Schedule":"Add Schedule", body, [
-        {label:"Cancel", onClick:function(){openSchedulesModal(onDone);}},
-        {label:isEdit?"Save Changes":"Add Schedule", primary:true, onClick:function(){
+        {label:"Cancel", onClick:async function(){openSchedulesModal(onDone);}},
+        {label:isEdit?"Save Changes":"Add Schedule", primary:true, onClick:async function(){
           var drId = (E.q("#ap-schmod-dr")||{}).value||"";
           if(!drId){toast("Error","Please select a doctor.","bad");return;}
           var type = (E.q("#ap-schmod-type")||{}).value||"recurring";
@@ -1298,7 +1298,7 @@
     }
 
     E.modal.show("Manage Schedules", renderBody(), [
-      {label:"Close", onClick:function(){E.modal.hide(); if(typeof onDone==="function") onDone();}}
+      {label:"Close", onClick:async function(){E.modal.hide(); if(typeof onDone==="function") onDone();}}
     ]);
 
     setTimeout(function(){
@@ -1412,8 +1412,8 @@
       "<input class='ap-input' id='ap-mod-cancelreason' type='text' value='"+esc(init.cancellationReason)+"' placeholder='Reason for cancellation' style='width:100%;'></div>";
 
     E.modal.show(isEdit?"Edit Appointment":"New Appointment", body, [
-      {label:"Cancel", onClick:function(){E.modal.hide();}},
-      {label:isEdit?"Save Changes":"Create Appointment", primary:true, onClick:function(){
+      {label:"Cancel", onClick:async function(){E.modal.hide();}},
+      {label:isEdit?"Save Changes":"Create Appointment", primary:true, onClick:async function(){
         try {
           var patient = ((E.q("#ap-mod-patient")||{}).value||"").trim();
           if(!patient) throw new Error("Patient name is required.");
@@ -1522,8 +1522,8 @@
       "<textarea class='ap-textarea' id='ap-wlmod-notes' style='min-height:55px;'>"+esc(w.notes||"")+"</textarea></div>";
 
     E.modal.show(isEdit?"Edit Waiting List Entry":"Add to Waiting List", body, [
-      {label:"Cancel", onClick:function(){E.modal.hide();}},
-      {label:isEdit?"Save Changes":"Add to Waiting List", primary:true, onClick:function(){
+      {label:"Cancel", onClick:async function(){E.modal.hide();}},
+      {label:isEdit?"Save Changes":"Add to Waiting List", primary:true, onClick:async function(){
         var name = ((E.q("#ap-wlmod-name")||{}).value||"").trim();
         if(!name){toast("Error","Patient name is required.","bad");return;}
         var payload = {
