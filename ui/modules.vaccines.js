@@ -2001,7 +2001,7 @@
   E.registerModule({
     id: "vaccines",
     title: "Vaccines",
-    order: 24,
+    order: 380,
     icon: "💉",
     render: render
   });
