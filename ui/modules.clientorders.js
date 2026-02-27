@@ -1568,7 +1568,7 @@
   E.registerModule({
     id: "clientorders",
     title: "Client Orders",
-    order: 17,
+    order: 200,
     icon: "📦",
     render: render
   });
