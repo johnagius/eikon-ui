@@ -2398,18 +2398,41 @@ function vIntegration(m){
       var u = urlFor();
       var inp = document.getElementById("si-live-url");
       if (inp) inp.value = u;
-      if (inp){ inp.onclick=function(){ try{ this.select(); }catch(e){} }; }
+      if (inp){ inp.onclick=function(){ try{ this.select(); }catch(e){} }; inp.onfocus=function(){ try{ this.select(); }catch(e){} }; }
 console.log("[shifts][ical] live url updated:", u);
     }
 
-    function saveToken(newTok){
+    
+    function testLiveFeed(){
+      var u = urlFor();
+      if (!u) { console.log("[shifts][ical] test skipped (no url)"); return; }
+      var tu = u + (u.indexOf("?")>=0 ? "&" : "?") + "debug=1";
+      console.log("[shifts][ical] test fetch ->", tu);
+      fetch(tu, { method:"GET" }).then(function(r){
+        var ct = (r.headers && r.headers.get) ? (r.headers.get("content-type")||"") : "";
+        return r.text().then(function(t){
+          console.log("[shifts][ical] test resp <- status=", r.status, "ct=", ct, "sample=", String(t||"").slice(0,220));
+          if (r.status === 200 && ct.indexOf("text/calendar") >= 0) {
+            toast("Live calendar feed OK.");
+          } else {
+            toast("Live calendar feed not ready ("+r.status+"). Check console.");
+          }
+        });
+      }).catch(function(e){
+        console.error("[shifts][ical] test fetch failed", e);
+        toast("Live calendar feed test failed. Check console.");
+      });
+    }
+function saveToken(newTok){
       S.settings = S.settings || {};
       S.settings.calendarToken = newTok;
       token = newTok;
       console.log("[shifts][ical] saving token…", newTok);
-      apiOp("/shifts/settings", {method:"PUT", body: JSON.stringify(S.settings)}, function(){
+      apiOp("/shifts/settings", {method:"PUT", body: JSON.stringify(S.settings)}, function(resp){
+        console.log("[shifts][ical] token save resp", resp);
         toast("Calendar token saved.");
-        vIntegration(m);
+        try{ refreshLiveUrl(); }catch(e){}
+        try{ testLiveFeed(); }catch(e){}
       });
     }
 
