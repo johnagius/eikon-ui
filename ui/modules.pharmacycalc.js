@@ -1979,7 +1979,7 @@ var meta = { pharmacyName: (user && user.location_name) || (user && user.org_nam
   E.registerModule({
     id: "pharmacycalc",
     title: "Pharmacy Calculators",
-    order: 55,
+    order: 400,
     icon: "💊",
     render: render
   });
