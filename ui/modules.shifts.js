@@ -1383,7 +1383,7 @@ function rcard(l,v,c){
       '<button class="eikon-btn" id="sh-cp">◀</button>'+
       '<div style="font-weight:900;font-size:17px;min-width:180px;text-align:center;">'+MONTHS[mo]+" "+y+'</div>'+
       '<button class="eikon-btn" id="sh-cn">▶</button>'+
-      '<button class="eikon-btn" id="sh-ct">Today</button>'+'<button class="eikon-btn" id="sh-print">Print</button>'+
+      '<button class="eikon-btn" id="sh-ct">Today</button>'+'<button class="eikon-btn" id="sh-exp">Print</button>'+
       '<div style="flex:1;"></div>'+
       '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:11px;">'+
       Object.keys(DESIG).slice(0,5).map(function(k){
@@ -1398,7 +1398,7 @@ function rcard(l,v,c){
     E.q("#sh-cp",m).onclick=function(){ S.month--; if(S.month<0){S.month=11;S.year--;} loadMonth().then(function(){vCalendar(m);}); };
     E.q("#sh-cn",m).onclick=function(){ S.month++; if(S.month>11){S.month=0;S.year++;} loadMonth().then(function(){vCalendar(m);}); };
     E.q("#sh-ct",m).onclick=function(){ var n=new Date(); S.year=n.getFullYear(); S.month=n.getMonth(); loadMonth().then(function(){vCalendar(m);}); };
-    var expBtn = E.q("#sh-print",m); if(expBtn) expBtn.onclick=function(){ openPrintModal(); };
+    var expBtn = E.q("#sh-exp",m); if(expBtn) expBtn.onclick=function(){ exportPrintModal(); };
 
     m.querySelectorAll("td[data-date]").forEach(function(td){
       td.onclick=function(){ dayModal(td.getAttribute("data-date"), function(){vCalendar(m);}); };
@@ -2081,9 +2081,9 @@ function singleShiftModal(e2, ds, existing, onSave) {
       document.body.appendChild(a);
       a.click();
       setTimeout(function(){ URL.revokeObjectURL(url); a.remove(); }, 300);
-      console.log("[shifts][print] download", filename, "bytes=", (text||"").length);
+      console.log("[shifts][export] download", filename, "bytes=", (text||"").length);
     } catch(e) {
-      console.error("[shifts][print] download failed", e);
+      console.error("[shifts][export] download failed", e);
       toast("Download failed","error");
     }
   }
@@ -2091,15 +2091,15 @@ function singleShiftModal(e2, ds, existing, onSave) {
   async function fetchShiftRange(from, to, staffId){
     var u = "/shifts/assignments-range?from="+encodeURIComponent(from)+"&to="+encodeURIComponent(to);
     if (staffId) u += "&staff_id="+encodeURIComponent(staffId);
-    console.groupCollapsed("[shifts][print] fetch range", from, "→", to, "staff=", staffId||"ALL");
+    console.groupCollapsed("[shifts][export] fetch range", from, "→", to, "staff=", staffId||"ALL");
     try {
       var r = await E.apiFetch(u, {method:"GET"});
       var shifts = (r && r.shifts) ? r.shifts : [];
-      console.log("[shifts][print] range shifts=", shifts.length, "sample=", shifts.slice(0,3));
+      console.log("[shifts][export] range shifts=", shifts.length, "sample=", shifts.slice(0,3));
       console.groupEnd();
       return shifts;
     } catch(e) {
-      console.error("[shifts][print] range fetch failed", e);
+      console.error("[shifts][export] range fetch failed", e);
       console.groupEnd();
       throw e;
     }
@@ -2205,7 +2205,7 @@ function singleShiftModal(e2, ds, existing, onSave) {
     }
   }
 
-  function openPrintModal(){
+  function exportPrintModal(){
     var today = new Date();
     var dsToday = today.getFullYear()+"-"+pad(today.getMonth()+1)+"-"+pad(today.getDate());
     var monthVal = S.year+"-"+pad(S.month+1);
@@ -2265,10 +2265,10 @@ function singleShiftModal(e2, ds, existing, onSave) {
       showRow("xp-row-year",  sc==="year");
       showRow("xp-row-range", sc==="range");
       var hint = document.getElementById("xp-hint");
-      if (hint) hint.textContent = (sc==="day")?"Single date print/print.":
-        (sc==="month")?"Whole month print/print.":
-        (sc==="year")?"Whole year print/print. (May be large.)":
-        "Custom date range print/print.";
+      if (hint) hint.textContent = (sc==="day")?"Single date export/print.":
+        (sc==="month")?"Whole month export/print.":
+        (sc==="year")?"Whole year export/print. (May be large.)":
+        "Custom date range export/print.";
     }
 
     async function xpDo(){
@@ -2355,8 +2355,8 @@ function vIntegration(m){
           '<input class="eikon-input" id="si-live-url" type="text" readonly value="'+esc(token?urlFor():"")+'" />'+
           '<div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;">'+
             '<button class="eikon-btn '+(token?"":"primary")+'" id="si-live-gen">'+(token?"Regenerate Token":"Generate Token")+'</button>'+
-            '<button class="eikon-btn" id="si-live-copy"'+(token?"":" disabled")+'>📋 Copy URL</button>'+
-            '<button class="eikon-btn" id="si-live-copyweb"'+(token?"":" disabled")+'>📋 Copy webcal:// URL</button>'+
+            ''+
+            ''+
           '</div>'+
           '<div style="margin-top:8px;font-size:11px;color:var(--muted);">'+
             (token?('Token: <code style="font-size:11px;">'+esc(token)+'</code>'):'No token yet. Click <b>Generate Token</b>.')+
@@ -2367,7 +2367,7 @@ function vIntegration(m){
       '<div class="eikon-card">'+
         '<div style="font-weight:900;font-size:15px;margin-bottom:8px;">🖨️ Print</div>'+
         '<div class="eikon-help" style="margin-bottom:12px;">Print reports (day / month / year / range).</div>'+
-        '<button class="eikon-btn primary" id="si-print">Print</button>'+
+        '<button class="eikon-btn primary" id="si-export">Open Print</button>'+
       '</div>'+
 
       '<div class="eikon-card">'+
@@ -2398,7 +2398,8 @@ function vIntegration(m){
       var u = urlFor();
       var inp = document.getElementById("si-live-url");
       if (inp) inp.value = u;
-      console.log("[shifts][ical] live url updated:", u);
+      if (inp){ inp.onclick=function(){ try{ this.select(); }catch(e){} }; }
+console.log("[shifts][ical] live url updated:", u);
     }
 
     function saveToken(newTok){
@@ -2417,29 +2418,15 @@ function vIntegration(m){
       var t = genToken(32);
       saveToken(t);
     };
-    var copyBtn = document.getElementById("si-live-copy");
-    if (copyBtn) copyBtn.onclick=function(){
-      var u = urlFor();
-      if (!u) { toast("No URL","error"); return; }
-      copyText(u, "Live URL");
-    };
-    var copyWeb = document.getElementById("si-live-copyweb");
-    if (copyWeb) copyWeb.onclick=function(){
-      var u = urlFor();
-      if (!u) { toast("No URL","error"); return; }
-      var w = u.replace(/^https?:\/\//, "webcal://");
-      copyText(w, "webcal URL");
-    };
-
-    ["si-live-emp","si-live-past","si-live-fut"].forEach(function(id){
+["si-live-emp","si-live-past","si-live-fut"].forEach(function(id){
       var el = document.getElementById(id);
       if (el) el.onchange = refreshLiveUrl;
       if (el) el.oninput = refreshLiveUrl;
     });
     refreshLiveUrl();
 
-    var exBtn = document.getElementById("si-print");
-    if (exBtn) exBtn.onclick=function(){ openPrintModal(); };
+    var exBtn = document.getElementById("si-export");
+    if (exBtn) exBtn.onclick=function(){ exportPrintModal(); };
 
     // Existing .ics download logic
     function rebuild(){
