@@ -849,7 +849,7 @@
   E.registerModule({
     id: "certificates",
     title: "Certificates",
-    order: 18,
+    order: 100,
     icon: "📄",
     render: render
   });
