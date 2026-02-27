@@ -2947,7 +2947,7 @@ function saveToken(newTok){
   E.registerModule({
     id:    "shifts",
     title: "Shifts",
-    order: 3,
+    order: 190,
     icon:  "📅",
     render: render
   });
