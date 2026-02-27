@@ -265,9 +265,10 @@
 
   function shouldFallback(e) {
     var st = e && typeof e.status === "number" ? e.status : null;
-    if (st === 401 || st === 403) return false;
-    if (st === 404) return true;
-    if (!st)        return true;             // network error
+    // Never fallback on auth/permission or "route missing" errors — those must be fixed server-side.
+    if (st === 401 || st === 403 || st === 404) return false;
+    // Only fallback on genuine network failures (no status) or optional 5xx when allowed.
+    if (!st)        return true;             // network error / offline
     if (st >= 500)  return getAllowFallback();
     return false;
   }
