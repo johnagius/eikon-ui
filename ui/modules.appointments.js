@@ -1615,6 +1615,9 @@ function loadDoctors() { try { if (APPT_MEM.doctors) return APPT_MEM.doctors; } 
 
   // ── Main render ────────────────────────────────────────────────────────────
   function render(ctx) {
+    // Auto-sync on module render
+    try { refreshAll('render').catch(function(e){ console.error('[appt] refreshAll(render) failed', e); }); } catch(_e){}
+
     ensureStyles();
     var mount = ctx.mount;
 
@@ -2289,16 +2292,6 @@ function loadDoctors() { try { if (APPT_MEM.doctors) return APPT_MEM.doctors; } 
     }
   }
 
-  // ── Register module ───────────────────────────────────────────────────────
-  E.registerModule({
-    id:    "appointments",
-    title: "Appointments",
-    order: 215,
-    icon:  "📅",
-    render: render
-  });
-
-})();
   // ── Cloud sync & refresh ───────────────────────────────────────────────────
   async function refreshAll(reason) {
     reason = reason || "unknown";
@@ -2336,3 +2329,16 @@ function loadDoctors() { try { if (APPT_MEM.doctors) return APPT_MEM.doctors; } 
     dlog("done");
   }
 
+
+
+// ── Register module ───────────────────────────────────────────────────────
+  E.registerModule({
+    id:    "appointments",
+    title: "Appointments",
+    order: 215,
+    icon:  "📅",
+    render: render
+  });
+
+})();
+  
