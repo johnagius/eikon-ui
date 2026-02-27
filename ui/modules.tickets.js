@@ -1428,7 +1428,7 @@
   E.registerModule({
     id:     "tickets",
     title:  "Client Tickets",
-    order:  18,
+    order:  220,
     icon:   "🎟",
     render: render
   });
