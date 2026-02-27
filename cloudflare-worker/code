@@ -884,24 +884,25 @@ async function handleSuDeleteLocation(request, env, extraHeaders, locationId) {
 }
 
 async function readJson(request) {
-  // Be tolerant: try to parse JSON even if Content-Type is missing/wrong.
-  // (This avoids silent failures when a client forgets the header.)
-  const ct = String(request.headers.get("Content-Type") || "");
-  const dbg = isDebugEnabled(request);
-  let txt = "";
-  try { txt = await request.text(); } catch (e) { txt = ""; }
-  if (dbg) {
-    try { console.log("[DBG][readJson] ct=", ct, "len=", (txt||"").length); } catch(e2) {}
-  }
-  if (!txt) return {};
-  try {
-    return JSON.parse(txt);
-  } catch (e3) {
-    if (dbg) {
-      try { console.log("[DBG][readJson] JSON parse failed:", e3 && e3.message, "body=", txt.slice(0, 500)); } catch(e4) {}
+  const ct = request.headers.get("Content-Type") || "";
+  // Be tolerant of missing/incorrect Content-Type (some clients omit it). Still log loudly for debugging.
+  if (!ct.toLowerCase().includes("application/json")) {
+    try {
+      const txt = await request.clone().text();
+      try {
+        const obj = JSON.parse(txt || "{}");
+        console.warn("[shifts][readJson] Non-JSON Content-Type:", ct, " — body still parsed as JSON.");
+        return obj;
+      } catch (pe) {
+        console.error("[shifts][readJson] Failed to parse JSON. Content-Type:", ct, "Body preview:", (txt || "").slice(0, 400));
+        throw new Error("Expected application/json (got " + ct + ")");
+      }
+    } catch (e) {
+      console.error("[shifts][readJson] Failed reading request body. Content-Type:", ct, e);
+      throw new Error("Expected application/json (got " + ct + ")");
     }
-    throw new Error("Invalid JSON body");
   }
+  return await request.json();
 }
 
 async function dbFirst(env, sql, bind = []) {
@@ -2525,6 +2526,36 @@ async function handleClientTicketsEntryDelete(request, env, corsOkHeaders, authU
 
   await writeAudit(env, authUser.org_id, authUser.user_id, "CLIENT_TICKET_DELETE", "client_tickets_entries", String(id), {});
 
+
+  // Keep calendar token mapping table in sync for public iCal feed
+  try {
+    const tok = (body && body.calendarToken != null) ? String(body.calendarToken).trim() : "";
+    if (tok === "") {
+      await dbRun(env, `DELETE FROM shift_calendar_tokens WHERE org_id=? AND location_id=?`, [authUser.org_id, authUser.location_id]);
+    } else if (tok) {
+      await dbRun(env,
+        `INSERT INTO shift_calendar_tokens (org_id, location_id, token, updated_at, updated_by) VALUES (?,?,?,datetime('now'),?)
+         ON CONFLICT(org_id, location_id) DO UPDATE SET token=excluded.token, updated_at=excluded.updated_at, updated_by=excluded.updated_by`,
+        [authUser.org_id, authUser.location_id, tok, authUser.user_id]);
+    }
+  } catch (e) {
+    console.log("[shifts][settings] token sync failed", e && (e.message || String(e)));
+  }
+  
+  // Keep calendar token mapping table in sync for public iCal feed
+  try {
+    const tok = (body && body.calendarToken != null) ? String(body.calendarToken).trim() : "";
+    if (tok === "") {
+      await dbRun(env, `DELETE FROM shift_calendar_tokens WHERE org_id=? AND location_id=?`, [authUser.org_id, authUser.location_id]);
+    } else if (tok) {
+      await dbRun(env,
+        `INSERT INTO shift_calendar_tokens (org_id, location_id, token, updated_at, updated_by) VALUES (?,?,?,datetime('now'),?)
+         ON CONFLICT(org_id, location_id) DO UPDATE SET token=excluded.token, updated_at=excluded.updated_at, updated_by=excluded.updated_by`,
+        [authUser.org_id, authUser.location_id, tok, authUser.user_id]);
+    }
+  } catch (e) {
+    console.log("[shifts][settings] token sync failed", e && (e.message || String(e)));
+  }
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -9758,6 +9789,19 @@ try {
     UNIQUE(org_id, location_id)
   )`, []);
 
+
+  // Calendar feed tokens (public iCal subscription)
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS shift_calendar_tokens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id INTEGER NOT NULL,
+    location_id INTEGER NOT NULL,
+    token TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_by INTEGER,
+    UNIQUE(org_id, location_id),
+    UNIQUE(token)
+  )`, []);
   // Indexes
   await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_shift_staff_org_loc ON shift_staff (org_id, location_id, is_active)`, []);
   await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_shift_assign_org_date ON shift_assignments (org_id, location_id, shift_date)`, []);
@@ -9786,19 +9830,26 @@ async function handleShiftStaffList(request, env, corsOkHeaders, authUser, url) 
 async function handleShiftStaffCreate(request, env, corsOkHeaders, authUser) {
   await ensureShiftsSchema(env);
   const body = await readJson(request);
+  try {
+    console.log("[shifts][staff-create] org:", authUser && authUser.org_id, "loc:", authUser && authUser.location_id);
+    const pj = body && body.patterns_json;
+    if (pj != null) console.log("[shifts][staff-create] patterns_json type:", typeof pj, "len:", String(pj).length);
+  } catch(e) {}
   const fullName = String(body.full_name || "").trim();
   if (!fullName) return jsonResponse({ ok: false, error: "Missing full_name" }, 400, corsOkHeaders);
   const designation = String(body.designation || "other").trim();
   const empType = String(body.employment_type || "fulltime").trim();
   const hours = Math.max(1, Math.min(48, parseFloat(body.contracted_hours) || 40));
+  const isActive = (body.is_active == null) ? 1 : ((parseInt(body.is_active,10) ? 1 : 0));
   const row = await dbFirst(env,
     `INSERT INTO shift_staff (org_id, location_id, full_name, designation, employment_type,
        contracted_hours, email, phone, registration_number, patterns_json, is_active, created_at, updated_at, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'), ?) RETURNING id`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), ?) RETURNING id`,
     [authUser.org_id, authUser.location_id, fullName, designation, empType, hours,
      String(body.email || "").trim(), String(body.phone || "").trim(),
      String(body.registration_number || "").trim(),
      typeof body.patterns_json === "string" ? body.patterns_json : JSON.stringify(body.patterns || body.week_patterns || []),
+     isActive,
      authUser.user_id]);
   await writeAudit(env, authUser.org_id, authUser.user_id, "SHIFT_STAFF_CREATE", "shift_staff", String(row.id), { full_name: fullName });
   return jsonResponse({ ok: true, staff_id: row.id }, 200, corsOkHeaders);
@@ -9809,7 +9860,14 @@ async function handleShiftStaffUpdate(request, env, corsOkHeaders, authUser, sta
   const ex = await dbFirst(env, `SELECT id FROM shift_staff WHERE id=? AND org_id=? AND location_id=?`, [staffId, authUser.org_id, authUser.location_id]);
   if (!ex) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
   const body = await readJson(request);
+  try {
+    console.log("[shifts][staff-update] staffId:", staffId, "org:", authUser && authUser.org_id, "loc:", authUser && authUser.location_id);
+  } catch(e) {}
   const fullName = String(body.full_name || "").trim();
+  try {
+    const pj = (body && body.patterns_json);
+    if (pj != null) console.log("[shifts][staff-update] patterns_json type:", typeof pj, "len:", String(pj).length);
+  } catch(e) {}
   if (!fullName) return jsonResponse({ ok: false, error: "Missing full_name" }, 400, corsOkHeaders);
   await dbRun(env,
     `UPDATE shift_staff SET full_name=?, designation=?, employment_type=?, contracted_hours=?,
@@ -9898,6 +9956,13 @@ async function handleShiftApplyPattern(request, env, corsOkHeaders, authUser) {
   const mode = String(body.mode || "overwrite"); // overwrite | fill
   const start = String(body.start_date || body.startDate || "").trim();
   const end = String(body.end_date || body.endDate || "").trim();
+  try {
+    const pat = body && (body.pattern || body.week_pattern || {});
+    const week = pat && pat.week;
+    console.log("[shifts][apply-pattern] staffId:", staffId, "mode:", mode, "start:", start, "end:", end,
+                "hasDates:", Array.isArray(body.dates) ? body.dates.length : 0,
+                "weekLen:", Array.isArray(week) ? week.length : 0);
+  } catch(e) {}
   if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end)) {
     return jsonResponse({ ok:false, error:"start_date and end_date required (YYYY-MM-DD)" }, 400, corsOkHeaders);
   }
@@ -9976,6 +10041,7 @@ async function handleShiftApplyPattern(request, env, corsOkHeaders, authUser) {
 
   await writeAudit(env, authUser.org_id, authUser.user_id, "SHIFT_APPLY_PATTERN", "shift_assignments", String(staffId), { mode, start, end, inserted });
 
+  try { console.log("[shifts][apply-pattern] done staffId:", staffId, "inserted:", inserted); } catch(e) {}
   return jsonResponse({ ok:true, inserted }, 200, corsOkHeaders);
 }
 
@@ -10064,11 +10130,202 @@ async function handleShiftSettingsGet(request, env, corsOkHeaders, authUser) {
 async function handleShiftSettingsPut(request, env, corsOkHeaders, authUser) {
   await ensureShiftsSchema(env);
   const body = await readJson(request);
+
   await dbRun(env,
     `INSERT INTO shift_settings (org_id, location_id, settings_json, updated_at, updated_by) VALUES (?,?,?,datetime('now'),?)
      ON CONFLICT(org_id, location_id) DO UPDATE SET settings_json=excluded.settings_json, updated_at=excluded.updated_at, updated_by=excluded.updated_by`,
     [authUser.org_id, authUser.location_id, JSON.stringify(body), authUser.user_id]);
+
+  // --- Sync calendarToken (stored in settings_json by UI) into shift_calendar_tokens table for public iCal feed ---
+  try {
+    const tok = String((body && (body.calendarToken || body.calendar_token)) || "").trim();
+    if (tok) {
+      const ok = /^[a-z0-9]{12,128}$/i.test(tok);
+      if (!ok) {
+        console.log("[shifts][settings] calendarToken ignored (invalid)", tok);
+      } else {
+        console.log("[shifts][settings] syncing calendarToken -> shift_calendar_tokens", authUser.org_id, authUser.location_id, tok.slice(0, 6) + "…");
+        await dbRun(env, `DELETE FROM shift_calendar_tokens WHERE org_id=? AND location_id=?`, [authUser.org_id, authUser.location_id]);
+        await dbRun(env, `INSERT INTO shift_calendar_tokens (org_id, location_id, token) VALUES (?,?,?)`, [authUser.org_id, authUser.location_id, tok]);
+      }
+    }
+  } catch (e) {
+    console.log("[shifts][settings] calendarToken sync failed", e && (e.stack || e));
+  }
+
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+
+function ymdFromDate(dt){
+  const y = dt.getFullYear();
+  const m = String(dt.getMonth()+1).padStart(2,"0");
+  const d = String(dt.getDate()).padStart(2,"0");
+  return `${y}-${m}-${d}`;
+}
+function addDaysYmdStr(ds, n){
+  const dt = new Date(ds+"T00:00:00Z");
+  dt.setUTCDate(dt.getUTCDate()+n);
+  return ymdFromDate(new Date(Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth(), dt.getUTCDate())));
+}
+function icsEscape(s){
+  return String(s||"")
+    .replace(/\\/g,"\\\\")
+    .replace(/\n/g,"\\n")
+    .replace(/\r/g,"")
+    .replace(/;/g,"\\;")
+    .replace(/,/g,"\\,");
+}
+function icsDtLocal(ds, time){
+  // ds = YYYY-MM-DD, time = HH:MM
+  const p = String(ds).split("-");
+  const t = String(time||"00:00").split(":");
+  const y=p[0], m=p[1], d=p[2];
+  const hh = String(t[0]||"00").padStart(2,"0");
+  const mm = String(t[1]||"00").padStart(2,"0");
+  return `${y}${m}${d}T${hh}${mm}00`;
+}
+
+async function handleShiftAssignmentsRangeList(request, env, corsOkHeaders, authUser, url) {
+  await ensureShiftsSchema(env);
+  const from = String(url.searchParams.get("from")||"").trim();
+  const to   = String(url.searchParams.get("to")||"").trim();
+  const staffId = url.searchParams.get("staff_id") ? parseInt(url.searchParams.get("staff_id")) : null;
+  if (!isValidYmd(from) || !isValidYmd(to)) return jsonResponse({ ok:false, error:"from and to (YYYY-MM-DD) required" }, 400, corsOkHeaders);
+
+  console.log("[shifts][range] org", authUser.org_id, "loc", authUser.location_id, "from", from, "to", to, "staff", staffId||"ALL");
+
+  const params = [authUser.org_id, authUser.location_id, from, to];
+  let sql = `SELECT id, staff_id, shift_date, start_time, end_time, role_override, notes
+             FROM shift_assignments
+             WHERE org_id=? AND location_id=? AND shift_date>=? AND shift_date<=?`;
+  if (staffId) { sql += ` AND staff_id=?`; params.push(staffId); }
+  sql += ` ORDER BY shift_date ASC, start_time ASC`;
+
+  const shifts = await dbAll(env, sql, params);
+  return jsonResponse({ ok:true, shifts }, 200, corsOkHeaders);
+}
+
+async function handleShiftIcalPublic(request, env, corsOkHeaders, url) {
+  await ensureShiftsSchema(env);
+  const token = String(url.searchParams.get("token")||"").trim();
+  if (!token) return new Response("Missing token", { status: 400, headers: { "Content-Type":"text/plain; charset=utf-8" } });
+
+  console.log("[shifts][ical] request", url.pathname, "tokenLen=", token.length, "staff_id=", url.searchParams.get("staff_id")||"", "past=", url.searchParams.get("past")||"", "future=", url.searchParams.get("future")||"", "debug=", url.searchParams.get("debug")||"0");
+
+  let resolvedViaSettings = false;
+  let map = await dbFirst(env, `SELECT org_id, location_id FROM shift_calendar_tokens WHERE token=?`, [token]);
+
+  // Backward-compat fallback: if token table not populated yet, try settings_json.calendarToken
+  if (!map && /^[a-z0-9]{12,128}$/i.test(token)) {
+    try {
+      const like = '%"calendarToken":"' + token + '"%';
+      const row = await dbFirst(env, `SELECT org_id, location_id, settings_json FROM shift_settings WHERE settings_json LIKE ? LIMIT 5`, [like]);
+      if (row) {
+        try {
+          const st = JSON.parse(row.settings_json || '{}');
+          if (st && String(st.calendarToken || '').trim() === token) {
+            map = { org_id: row.org_id, location_id: row.location_id };
+            resolvedViaSettings = true;
+            console.log("[shifts][ical] token resolved via settings_json for org", map.org_id, "loc", map.location_id);
+          }
+        } catch (e2) {}
+      }
+    } catch (e) {
+      console.log("[shifts][ical] fallback token lookup failed", e && (e.stack || e));
+    }
+  }
+
+  if (!map) {
+    const dbg = url.searchParams.get("debug") === "1";
+    if (dbg) {
+      // Do not leak org/location details; only show whether token exists in DB or settings.
+      const info = { ok:false, error:"token_not_found", token_prefix: token.slice(0,6), token_len: token.length, has_token_row: false, resolved_via_settings: false };
+      return jsonResponse(info, 404, { "Content-Type":"application/json; charset=utf-8", "Cache-Control":"no-store" });
+    }
+    return new Response("Not found", { status: 404, headers: { "Content-Type":"text/plain; charset=utf-8" } });
+  }
+
+  const staffId = url.searchParams.get("staff_id") ? parseInt(url.searchParams.get("staff_id")) : null;
+  const past = Math.max(0, Math.min(365, parseInt(url.searchParams.get("past")||"30",10)||30));
+  const future = Math.max(1, Math.min(730, parseInt(url.searchParams.get("future")||"180",10)||180));
+
+  const today = new Date();
+  // Use UTC date boundaries; times are emitted as Europe/Malta local in ICS
+  const from = ymdFromDate(new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() - past)));
+  const to   = ymdFromDate(new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() + future)));
+
+  console.log("[shifts][ical] token ok org", map.org_id, "loc", map.location_id, "from", from, "to", to, "staff", staffId||"ALL");
+
+  const params = [map.org_id, map.location_id, from, to];
+  let sql = `SELECT a.id, a.staff_id, a.shift_date, a.start_time, a.end_time, a.role_override, a.notes,
+                    s.full_name AS staff_name, s.designation AS staff_designation
+             FROM shift_assignments a
+             LEFT JOIN shift_staff s ON s.id=a.staff_id AND s.org_id=a.org_id AND s.location_id=a.location_id
+             WHERE a.org_id=? AND a.location_id=? AND a.shift_date>=? AND a.shift_date<=?`;
+  if (staffId) { sql += ` AND a.staff_id=?`; params.push(staffId); }
+  sql += ` ORDER BY a.shift_date ASC, a.start_time ASC`;
+
+  const rows = await dbAll(env, sql, params);
+
+  const now = new Date();
+  const dtstamp = now.toISOString().replace(/[-:]/g,"").replace(/\.\d+Z$/,"Z");
+
+  const lines = [];
+  lines.push("BEGIN:VCALENDAR");
+  lines.push("VERSION:2.0");
+  lines.push("PRODID:-//EIKON//Shifts//EN");
+  lines.push("CALSCALE:GREGORIAN");
+  lines.push("METHOD:PUBLISH");
+  lines.push("X-WR-CALNAME:EIKON Shifts");
+  lines.push("X-WR-TIMEZONE:Europe/Malta");
+
+  // Minimal TZ rules for Europe/Malta (CET/CEST)
+  lines.push("BEGIN:VTIMEZONE");
+  lines.push("TZID:Europe/Malta");
+  lines.push("X-LIC-LOCATION:Europe/Malta");
+  lines.push("BEGIN:DAYLIGHT");
+  lines.push("TZOFFSETFROM:+0100");
+  lines.push("TZOFFSETTO:+0200");
+  lines.push("TZNAME:CEST");
+  lines.push("DTSTART:19700329T020000");
+  lines.push("RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU");
+  lines.push("END:DAYLIGHT");
+  lines.push("BEGIN:STANDARD");
+  lines.push("TZOFFSETFROM:+0200");
+  lines.push("TZOFFSETTO:+0100");
+  lines.push("TZNAME:CET");
+  lines.push("DTSTART:19701025T030000");
+  lines.push("RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU");
+  lines.push("END:STANDARD");
+  lines.push("END:VTIMEZONE");
+
+  for (const r of rows) {
+    const uid = `shift-${r.id}@eikon`;
+    const summary = `${r.staff_name||("Staff #"+r.staff_id)}${r.staff_designation?(" ("+r.staff_designation+")"):""}`;
+    const desc = r.notes ? String(r.notes) : "";
+    const dtStart = icsDtLocal(r.shift_date, r.start_time);
+    const dtEnd   = icsDtLocal(r.shift_date, r.end_time);
+
+    lines.push("BEGIN:VEVENT");
+    lines.push("UID:"+icsEscape(uid));
+    lines.push("DTSTAMP:"+dtstamp);
+    lines.push("DTSTART;TZID=Europe/Malta:"+dtStart);
+    lines.push("DTEND;TZID=Europe/Malta:"+dtEnd);
+    lines.push("SUMMARY:"+icsEscape(summary));
+    if (desc) lines.push("DESCRIPTION:"+icsEscape(desc));
+    lines.push("END:VEVENT");
+  }
+
+  lines.push("END:VCALENDAR");
+
+  const ics = lines.join("\r\n") + "\r\n";
+  const headers = {
+    "Content-Type": "text/calendar; charset=utf-8",
+    "Cache-Control": "public, max-age=300",
+    "Pragma": "no-cache"
+  };
+  return new Response(ics, { status: 200, headers });
 }
 // ── END SHIFTS MODULE FUNCTIONS ────────────────────────────────
 
@@ -10160,6 +10417,26 @@ export default {
       }
 
       return jsonResponse({ ok:false, error:"Not found" }, 404, corsOkHeaders);
+    }
+
+
+    // Public iCal feed (no auth; uses token query param)
+    // Supports:
+    //   /shifts/ical?token=...
+    //   /shifts/ical.ics?token=...
+    //   /shifts/ical/<token>
+    //   /shifts/ical.ics/<token>
+    if (request.method === "GET") {
+      const mIcal = url.pathname.match(/^\/shifts\/ical(?:\.ics)?(?:\/([A-Za-z0-9]{12,128}))?\/?$/);
+      if (mIcal) {
+        if (!url.searchParams.get("token") && mIcal[1]) {
+          // create a new URL so we can pass token as query param
+          const u2 = new URL(url.toString());
+          u2.searchParams.set("token", mIcal[1]);
+          return await handleShiftIcalPublic(request, env, corsOkHeaders, u2);
+        }
+        return await handleShiftIcalPublic(request, env, corsOkHeaders, url);
+      }
     }
 
     const authUser = await authFromRequest(request, env);
@@ -10879,6 +11156,9 @@ if (url.pathname.startsWith("/dda-stocktakes/items/")) {
     }
     if (url.pathname === "/shifts/assignments" && request.method === "POST") {
       return await handleShiftAssignmentCreate(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname === "/shifts/assignments-range" && request.method === "GET") {
+      return await handleShiftAssignmentsRangeList(request, env, corsOkHeaders, authUser, url);
     }
     if (url.pathname === "/shifts/apply-pattern" && request.method === "POST") {
       return await handleShiftApplyPattern(request, env, corsOkHeaders, authUser);
