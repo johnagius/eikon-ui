@@ -307,7 +307,7 @@
     } catch(e) { throw e; }
   }
 
-  async function await apiDeleteSchedule(id) {
+  async function apiDeleteSchedule(id) {
     try {
       var resp = await apiFetch("/appointments/schedules/" + encodeURIComponent(id), { method: "DELETE" });
       await apiLoadSchedules(); return resp;
@@ -368,7 +368,7 @@
     };
   }
 
-  async function await apiCreateAppt(payload) {
+  async function apiCreateAppt(payload) {
     try {
       var resp = await apiFetch("/appointments/entries", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
@@ -384,7 +384,7 @@
     } catch(e) { throw e; }
   }
 
-  async function await apiUpdateAppt(id, payload) {
+  async function apiUpdateAppt(id, payload) {
     try {
       var resp = await apiFetch("/appointments/entries/" + encodeURIComponent(id), {
         method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
@@ -400,7 +400,7 @@
     } catch(e) { throw e; }
   }
 
-  async function await apiDeleteAppt(id) {
+  async function apiDeleteAppt(id) {
     try {
       var resp = await apiFetch("/appointments/entries/" + encodeURIComponent(id), { method: "DELETE" });
       saveAppts(loadAppts().filter(function(a){ return String(a.id) !== String(id); }));
