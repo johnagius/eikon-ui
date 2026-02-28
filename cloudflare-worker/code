@@ -13,6 +13,46 @@ function isDebugEnabled(request) {
   }
 }
 
+
+function getReqId(request) {
+  try { return (request && request.headers && request.headers.get("X-Eikon-ReqId")) || ""; } catch(e){ return ""; }
+}
+function dbgLog(request, ...args) {
+  try {
+    const rid = getReqId(request) || "no-rid";
+    let on = false;
+    try {
+      const u = new URL(request.url);
+      if (u.pathname.startsWith("/appointments") || u.pathname.startsWith("/api/appointments")) on = true;
+    } catch(e) {}
+    if (!on) on = isDebugEnabled(request);
+    if (on) console.log(`[${rid}]`, ...args);
+  } catch(e) {}
+}
+function dbgWarn(request, ...args) {
+  try {
+    const rid = getReqId(request) || "no-rid";
+    let on = false;
+    try {
+      const u = new URL(request.url);
+      if (u.pathname.startsWith("/appointments") || u.pathname.startsWith("/api/appointments")) on = true;
+    } catch(e) {}
+    if (!on) on = isDebugEnabled(request);
+    if (on) console.warn(`[${rid}]`, ...args);
+  } catch(e) {}
+}
+function dbgErr(request, ...args) {
+  try {
+    const rid = getReqId(request) || "no-rid";
+    let on = false;
+    try {
+      const u = new URL(request.url);
+      if (u.pathname.startsWith("/appointments") || u.pathname.startsWith("/api/appointments")) on = true;
+    } catch(e) {}
+    if (!on) on = isDebugEnabled(request);
+    if (on) console.error(`[${rid}]`, ...args);
+  } catch(e) {}
+}
 function jsonResponse(data, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(data), {
     status,
@@ -7555,6 +7595,15 @@ async function handleCertificatesDownload(request, env, corsOkHeaders, authUser,
   }
 
   const url = new URL(request.url);
+const __t0 = Date.now();
+      const requestId = (globalThis.crypto && crypto.randomUUID) ? crypto.randomUUID() : ("rid-" + Math.random().toString(16).slice(2) + "-" + Date.now());
+      try {
+        const h = new Headers(request.headers);
+        h.set("X-Eikon-ReqId", requestId);
+        request = new Request(request, { headers: h });
+      } catch(e) {}
+      // Always log a one-line trace; verbose logs enabled with header X-Eikon-Debug: 1
+      try { console.log(`[${requestId}] --> ${request.method} ${url.pathname}${url.search}`); } catch(e) {}
   const inline = url.searchParams.get("inline") === "1";
 
   const fileName = existing.file_name || `${existing.item_key || "certificate"}.bin`;
@@ -10394,6 +10443,1110 @@ async function handleShiftIcalPublic(request, env, corsOkHeaders, url) {
 }
 // ── END SHIFTS MODULE FUNCTIONS ────────────────────────────────
 
+// ============================================================================
+//  EIKON — Appointments Module — Cloudflare Worker Addition
+//  Paste the SCHEMA + HANDLERS section before `export default {`
+//  Paste the ROUTER section inside the fetch() handler, before the final 404.
+// ============================================================================
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  SECTION 1 — SCHEMA + HANDLERS  (paste before `export default {`)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── Schema ───────────────────────────────────────────────────────────────────
+
+let apptSchemaEnsured = false;
+
+async function ensureApptSchema(env) {
+  if (apptSchemaEnsured) return;
+
+  const tables = [
+    // Doctors
+    `CREATE TABLE IF NOT EXISTS appt_doctors (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id        INTEGER NOT NULL,
+      location_id   INTEGER NOT NULL,
+      name          TEXT    NOT NULL,
+      specialty     TEXT    NOT NULL DEFAULT '',
+      phone         TEXT    NOT NULL DEFAULT '',
+      default_fee   REAL    NOT NULL DEFAULT 0,
+      notes         TEXT    NOT NULL DEFAULT '',
+      created_by    INTEGER,
+      created_at    TEXT    NOT NULL DEFAULT (datetime('now')),
+      updated_at    TEXT    NOT NULL DEFAULT (datetime('now'))
+    )`,
+
+    // Clinics
+    `CREATE TABLE IF NOT EXISTS appt_clinics (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id        INTEGER NOT NULL,
+      location_id   INTEGER NOT NULL,
+      name          TEXT    NOT NULL,
+      locality      TEXT    NOT NULL DEFAULT '',
+      address       TEXT    NOT NULL DEFAULT '',
+      phone         TEXT    NOT NULL DEFAULT '',
+      fee           REAL    NOT NULL DEFAULT 0,
+      notes         TEXT    NOT NULL DEFAULT '',
+      created_by    INTEGER,
+      created_at    TEXT    NOT NULL DEFAULT (datetime('now')),
+      updated_at    TEXT    NOT NULL DEFAULT (datetime('now'))
+    )`,
+
+    // Schedules — recurring (weekly) or one-off sessions
+    `CREATE TABLE IF NOT EXISTS appt_schedules (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id        INTEGER NOT NULL,
+      location_id   INTEGER NOT NULL,
+      doctor_id     INTEGER NOT NULL REFERENCES appt_doctors(id) ON DELETE CASCADE,
+      clinic_id     INTEGER,                         -- NULL = no fixed clinic
+      is_one_off    INTEGER NOT NULL DEFAULT 0,      -- 0=recurring, 1=one-off
+      -- Recurring fields
+      day_of_week   INTEGER,                         -- 0=Sun … 6=Sat; NULL if one-off
+      valid_from    TEXT,                            -- YYYY-MM-DD or NULL
+      valid_until   TEXT,                            -- YYYY-MM-DD or NULL
+      -- One-off fields
+      date          TEXT,                            -- YYYY-MM-DD or NULL
+      -- Common
+      start_time    TEXT    NOT NULL DEFAULT '09:00',
+      end_time      TEXT    NOT NULL DEFAULT '17:00',
+      slot_duration INTEGER NOT NULL DEFAULT 30,     -- minutes
+      cancelled     INTEGER NOT NULL DEFAULT 0,      -- 0/1
+      cancel_reason TEXT    NOT NULL DEFAULT '',
+      created_by    INTEGER,
+      created_at    TEXT    NOT NULL DEFAULT (datetime('now')),
+      updated_at    TEXT    NOT NULL DEFAULT (datetime('now'))
+    )`,
+
+    // Appointments
+    `CREATE TABLE IF NOT EXISTS appt_appointments (
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id           INTEGER NOT NULL,
+      location_id      INTEGER NOT NULL,
+      appt_ref         TEXT    NOT NULL DEFAULT '',  -- e.g. APT-00001 (client-generated or server)
+      patient_token    TEXT    NOT NULL DEFAULT '',  -- 4-char alphanumeric for patient portal
+      patient_name     TEXT    NOT NULL,
+      patient_id_card  TEXT    NOT NULL DEFAULT '',
+      patient_phone    TEXT    NOT NULL DEFAULT '',
+      doctor_id        INTEGER REFERENCES appt_doctors(id) ON DELETE SET NULL,
+      clinic_id        INTEGER REFERENCES appt_clinics(id) ON DELETE SET NULL,
+      date             TEXT    NOT NULL,             -- YYYY-MM-DD
+      time             TEXT    NOT NULL,             -- HH:MM
+      duration_mins    INTEGER NOT NULL DEFAULT 30,
+      status           TEXT    NOT NULL DEFAULT 'Scheduled',
+        -- Scheduled | Confirmed | Completed | Cancelled | No Show
+      doctor_fee       REAL    NOT NULL DEFAULT 0,
+      clinic_fee       REAL    NOT NULL DEFAULT 0,
+      medicines        TEXT    NOT NULL DEFAULT '',
+      medicines_cost   REAL    NOT NULL DEFAULT 0,
+      notes            TEXT    NOT NULL DEFAULT '',
+      cancellation_reason TEXT NOT NULL DEFAULT '',
+      created_by       INTEGER,
+      created_at       TEXT    NOT NULL DEFAULT (datetime('now')),
+      updated_at       TEXT    NOT NULL DEFAULT (datetime('now'))
+    )`,
+
+    // Waiting list
+    `CREATE TABLE IF NOT EXISTS appt_waitlist (
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id           INTEGER NOT NULL,
+      location_id      INTEGER NOT NULL,
+      wl_ref           TEXT    NOT NULL DEFAULT '',  -- e.g. WL-00001
+      patient_name     TEXT    NOT NULL,
+      patient_id_card  TEXT    NOT NULL DEFAULT '',
+      patient_phone    TEXT    NOT NULL DEFAULT '',
+      doctor_id        INTEGER REFERENCES appt_doctors(id) ON DELETE SET NULL,
+      clinic_id        INTEGER REFERENCES appt_clinics(id) ON DELETE SET NULL,
+      preferred_dates  TEXT    NOT NULL DEFAULT '',
+      flexibility      TEXT    NOT NULL DEFAULT 'Flexible',
+        -- Flexible | Fixed | Urgent
+      status           TEXT    NOT NULL DEFAULT 'Waiting',
+        -- Waiting | Promoted | Cancelled
+      promoted_to      TEXT    NOT NULL DEFAULT '',  -- appt_ref if promoted
+      notes            TEXT    NOT NULL DEFAULT '',
+      added_date       TEXT    NOT NULL DEFAULT (date('now')),
+      created_by       INTEGER,
+      created_at       TEXT    NOT NULL DEFAULT (datetime('now')),
+      updated_at       TEXT    NOT NULL DEFAULT (datetime('now'))
+    )`
+  ];
+
+  const indexes = [
+    "CREATE INDEX IF NOT EXISTS idx_appt_doctors_org_loc    ON appt_doctors      (org_id, location_id)",
+    "CREATE INDEX IF NOT EXISTS idx_appt_clinics_org_loc    ON appt_clinics      (org_id, location_id)",
+    "CREATE INDEX IF NOT EXISTS idx_appt_scheds_org_loc     ON appt_schedules    (org_id, location_id)",
+    "CREATE INDEX IF NOT EXISTS idx_appt_scheds_doctor      ON appt_schedules    (org_id, location_id, doctor_id)",
+    "CREATE INDEX IF NOT EXISTS idx_appt_scheds_dow         ON appt_schedules    (org_id, location_id, day_of_week, cancelled)",
+    "CREATE INDEX IF NOT EXISTS idx_appt_scheds_date        ON appt_schedules    (org_id, location_id, date)",
+    "CREATE INDEX IF NOT EXISTS idx_appt_appts_org_loc_date ON appt_appointments (org_id, location_id, date)",
+    "CREATE INDEX IF NOT EXISTS idx_appt_appts_doctor_date  ON appt_appointments (org_id, location_id, doctor_id, date)",
+    "CREATE INDEX IF NOT EXISTS idx_appt_appts_patient      ON appt_appointments (org_id, patient_name)",
+    "CREATE INDEX IF NOT EXISTS idx_appt_appts_idcard       ON appt_appointments (org_id, patient_id_card)",
+    "CREATE INDEX IF NOT EXISTS idx_appt_appts_token        ON appt_appointments (org_id, patient_token)",
+    "CREATE INDEX IF NOT EXISTS idx_appt_appts_status       ON appt_appointments (org_id, location_id, status, date)",
+    "CREATE INDEX IF NOT EXISTS idx_appt_wl_org_loc         ON appt_waitlist     (org_id, location_id, status)",
+    "CREATE INDEX IF NOT EXISTS idx_appt_wl_idcard          ON appt_waitlist     (org_id, patient_id_card)"
+  ];
+
+  for (const sql of tables)  await dbRun(env, sql, []);
+  for (const sql of indexes) await dbRun(env, sql, []);
+
+  apptSchemaEnsured = true;
+}
+
+// ── Row → UI mappers ──────────────────────────────────────────────────────────
+
+function doctorRowToUi(r) {
+  if (!r) return null;
+  return {
+    id:          r.id,
+    name:        r.name         || "",
+    specialty:   r.specialty    || "",
+    phone:       r.phone        || "",
+    defaultFee:  Number(r.default_fee) || 0,
+    notes:       r.notes        || "",
+    createdAt:   r.created_at   || "",
+    updatedAt:   r.updated_at   || ""
+  };
+}
+
+function clinicRowToUi(r) {
+  if (!r) return null;
+  return {
+    id:        r.id,
+    name:      r.name       || "",
+    locality:  r.locality   || "",
+    address:   r.address    || "",
+    phone:     r.phone      || "",
+    fee:       Number(r.fee) || 0,
+    notes:     r.notes      || "",
+    createdAt: r.created_at || "",
+    updatedAt: r.updated_at || ""
+  };
+}
+
+function scheduleRowToUi(r) {
+  if (!r) return null;
+  return {
+    id:           r.id,
+    doctorId:     r.doctor_id,
+    clinicId:     r.clinic_id  || null,
+    isOneOff:     !!r.is_one_off,
+    dayOfWeek:    r.day_of_week != null ? Number(r.day_of_week) : null,
+    validFrom:    r.valid_from  || "",
+    validUntil:   r.valid_until || "",
+    date:         r.date        || "",
+    startTime:    r.start_time  || "09:00",
+    endTime:      r.end_time    || "17:00",
+    slotDuration: Number(r.slot_duration) || 30,
+    cancelled:    !!r.cancelled,
+    cancelReason: r.cancel_reason || "",
+    createdAt:    r.created_at    || "",
+    updatedAt:    r.updated_at    || ""
+  };
+}
+
+function apptRowToUi(r) {
+  if (!r) return null;
+  return {
+    id:                 r.id,
+    apptRef:            r.appt_ref             || "",
+    token:              r.patient_token        || "",
+    patientName:        r.patient_name         || "",
+    patientIdCard:      r.patient_id_card      || "",
+    patientPhone:       r.patient_phone        || "",
+    doctorId:           r.doctor_id            || null,
+    clinicId:           r.clinic_id            || null,
+    date:               r.date                 || "",
+    time:               r.time                 || "",
+    durationMins:       Number(r.duration_mins) || 30,
+    status:             r.status               || "Scheduled",
+    doctorFee:          Number(r.doctor_fee)   || 0,
+    clinicFee:          Number(r.clinic_fee)   || 0,
+    medicines:          r.medicines            || "",
+    medicinesCost:      Number(r.medicines_cost) || 0,
+    notes:              r.notes                || "",
+    cancellationReason: r.cancellation_reason  || "",
+    createdAt:          r.created_at           || "",
+    updatedAt:          r.updated_at           || ""
+  };
+}
+
+function waitlistRowToUi(r) {
+  if (!r) return null;
+  return {
+    id:             r.id,
+    wlRef:          r.wl_ref          || "",
+    patientName:    r.patient_name    || "",
+    patientIdCard:  r.patient_id_card || "",
+    patientPhone:   r.patient_phone   || "",
+    doctorId:       r.doctor_id       || null,
+    clinicId:       r.clinic_id       || null,
+    preferredDates: r.preferred_dates || "",
+    flexibility:    r.flexibility     || "Flexible",
+    status:         r.status          || "Waiting",
+    promotedTo:     r.promoted_to     || "",
+    notes:          r.notes           || "",
+    addedDate:      r.added_date      || "",
+    createdAt:      r.created_at      || "",
+    updatedAt:      r.updated_at      || ""
+  };
+}
+
+// ── Validation helpers ────────────────────────────────────────────────────────
+
+const VALID_APPT_STATUSES = ["Scheduled", "Confirmed", "Completed", "Cancelled", "No Show"];
+const VALID_WL_STATUSES   = ["Waiting", "Promoted", "Cancelled"];
+const VALID_FLEX          = ["Flexible", "Fixed", "Urgent"];
+
+function normApptStatus(s) {
+  const v = String(s || "").trim();
+  return VALID_APPT_STATUSES.includes(v) ? v : "Scheduled";
+}
+function normWlStatus(s) {
+  const v = String(s || "").trim();
+  return VALID_WL_STATUSES.includes(v) ? v : "Waiting";
+}
+function normFlex(s) {
+  const v = String(s || "").trim();
+  return VALID_FLEX.includes(v) ? v : "Flexible";
+}
+function isValidTime(s) {
+  return /^\d{2}:\d{2}$/.test(String(s || ""));
+}
+function generatePatientToken() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let t = "";
+  const arr = new Uint8Array(4);
+  crypto.getRandomValues(arr);
+  for (let i = 0; i < 4; i++) t += chars[arr[i] % chars.length];
+  return t;
+}
+function buildApptRef(id) {
+  return "APT-" + String(id).padStart(5, "0");
+}
+function buildWlRef(id) {
+  return "WL-" + String(id).padStart(5, "0");
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  DOCTORS
+// ══════════════════════════════════════════════════════════════════════════════
+
+async function handleApptDoctorsList(request, env, corsOkHeaders, authUser) {
+  dbgLog(request, "handleApptDoctorsList:start");
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureApptSchema(env);
+  const rows = await dbAll(env,
+    `SELECT * FROM appt_doctors WHERE org_id=? AND location_id=? ORDER BY name ASC`,
+    [authUser.org_id, authUser.location_id]);
+  return jsonResponse({ ok: true, doctors: rows.map(doctorRowToUi) }, 200, corsOkHeaders);
+}
+
+async function handleApptDoctorGet(request, env, corsOkHeaders, authUser, id) {
+  dbgLog(request, "handleApptDoctorGet:start");
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureApptSchema(env);
+  const row = await dbFirst(env,
+    `SELECT * FROM appt_doctors WHERE id=? AND org_id=? AND location_id=?`,
+    [id, authUser.org_id, authUser.location_id]);
+  if (!row) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+  return jsonResponse({ ok: true, doctor: doctorRowToUi(row) }, 200, corsOkHeaders);
+}
+
+async function handleApptDoctorCreate(request, env, corsOkHeaders, authUser) {
+  dbgLog(request, "handleApptDoctorCreate:start");
+  if (!requireRole(authUser, ["admin"])) {
+    return jsonResponse({ ok: false, error: "Forbidden – admin only" }, 403, corsOkHeaders);
+  }
+  await ensureApptSchema(env);
+  let body;
+  try   { body = await readJson(request); }
+  catch { return jsonResponse({ ok: false, error: "Invalid JSON body" }, 400, corsOkHeaders); }
+
+  const name       = String(body.name       || "").trim();
+  const specialty  = String(body.specialty  || "").trim();
+  const phone      = String(body.phone      || "").trim();
+  const defaultFee = Math.max(0, parseFloat(body.defaultFee || body.default_fee) || 0);
+  const notes      = String(body.notes      || "").trim();
+
+  if (!name) return jsonResponse({ ok: false, error: "name is required" }, 400, corsOkHeaders);
+
+  const row = await dbFirst(env,
+    `INSERT INTO appt_doctors (org_id, location_id, name, specialty, phone, default_fee, notes, created_by)
+     VALUES (?,?,?,?,?,?,?,?) RETURNING id`,
+    [authUser.org_id, authUser.location_id, name, specialty, phone, defaultFee, notes, authUser.user_id]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "APPT_DOCTOR_CREATE", "appt_doctors", String(row.id), { name });
+  return jsonResponse({ ok: true, id: row.id }, 201, corsOkHeaders);
+}
+
+async function handleApptDoctorUpdate(request, env, corsOkHeaders, authUser, id) {
+  dbgLog(request, "handleApptDoctorUpdate:start");
+  if (!requireRole(authUser, ["admin"])) {
+    return jsonResponse({ ok: false, error: "Forbidden – admin only" }, 403, corsOkHeaders);
+  }
+  await ensureApptSchema(env);
+  const existing = await dbFirst(env,
+    `SELECT id FROM appt_doctors WHERE id=? AND org_id=? AND location_id=?`,
+    [id, authUser.org_id, authUser.location_id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  let body;
+  try   { body = await readJson(request); }
+  catch { return jsonResponse({ ok: false, error: "Invalid JSON body" }, 400, corsOkHeaders); }
+
+  const name       = String(body.name       || "").trim();
+  if (!name) return jsonResponse({ ok: false, error: "name is required" }, 400, corsOkHeaders);
+  const specialty  = String(body.specialty  || "").trim();
+  const phone      = String(body.phone      || "").trim();
+  const defaultFee = Math.max(0, parseFloat(body.defaultFee || body.default_fee) || 0);
+  const notes      = String(body.notes      || "").trim();
+
+  await dbRun(env,
+    `UPDATE appt_doctors SET name=?, specialty=?, phone=?, default_fee=?, notes=?, updated_at=datetime('now')
+     WHERE id=? AND org_id=? AND location_id=?`,
+    [name, specialty, phone, defaultFee, notes, id, authUser.org_id, authUser.location_id]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "APPT_DOCTOR_UPDATE", "appt_doctors", String(id), { name });
+  const updated = await dbFirst(env, `SELECT * FROM appt_doctors WHERE id=?`, [id]);
+  return jsonResponse({ ok: true, doctor: doctorRowToUi(updated) }, 200, corsOkHeaders);
+}
+
+async function handleApptDoctorDelete(request, env, corsOkHeaders, authUser, id) {
+  dbgLog(request, "handleApptDoctorDelete:start");
+  if (!requireRole(authUser, ["admin"])) {
+    return jsonResponse({ ok: false, error: "Forbidden – admin only" }, 403, corsOkHeaders);
+  }
+  await ensureApptSchema(env);
+  const existing = await dbFirst(env,
+    `SELECT id, name FROM appt_doctors WHERE id=? AND org_id=? AND location_id=?`,
+    [id, authUser.org_id, authUser.location_id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  // Cascade: delete schedules for this doctor
+  await dbRun(env, `DELETE FROM appt_schedules WHERE doctor_id=? AND org_id=? AND location_id=?`,
+    [id, authUser.org_id, authUser.location_id]);
+  await dbRun(env, `DELETE FROM appt_doctors WHERE id=? AND org_id=? AND location_id=?`,
+    [id, authUser.org_id, authUser.location_id]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "APPT_DOCTOR_DELETE", "appt_doctors", String(id), { name: existing.name });
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  CLINICS
+// ══════════════════════════════════════════════════════════════════════════════
+
+async function handleApptClinicsList(request, env, corsOkHeaders, authUser) {
+  dbgLog(request, "handleApptClinicsList:start");
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureApptSchema(env);
+  const rows = await dbAll(env,
+    `SELECT * FROM appt_clinics WHERE org_id=? AND location_id=? ORDER BY name ASC`,
+    [authUser.org_id, authUser.location_id]);
+  return jsonResponse({ ok: true, clinics: rows.map(clinicRowToUi) }, 200, corsOkHeaders);
+}
+
+async function handleApptClinicGet(request, env, corsOkHeaders, authUser, id) {
+  dbgLog(request, "handleApptClinicGet:start");
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureApptSchema(env);
+  const row = await dbFirst(env,
+    `SELECT * FROM appt_clinics WHERE id=? AND org_id=? AND location_id=?`,
+    [id, authUser.org_id, authUser.location_id]);
+  if (!row) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+  return jsonResponse({ ok: true, clinic: clinicRowToUi(row) }, 200, corsOkHeaders);
+}
+
+async function handleApptClinicCreate(request, env, corsOkHeaders, authUser) {
+  dbgLog(request, "handleApptClinicCreate:start");
+  if (!requireRole(authUser, ["admin"])) {
+    return jsonResponse({ ok: false, error: "Forbidden – admin only" }, 403, corsOkHeaders);
+  }
+  await ensureApptSchema(env);
+  let body;
+  try   { body = await readJson(request); }
+  catch { return jsonResponse({ ok: false, error: "Invalid JSON body" }, 400, corsOkHeaders); }
+
+  const name     = String(body.name     || "").trim();
+  if (!name) return jsonResponse({ ok: false, error: "name is required" }, 400, corsOkHeaders);
+  const locality = String(body.locality || "").trim();
+  const address  = String(body.address  || "").trim();
+  const phone    = String(body.phone    || "").trim();
+  const fee      = Math.max(0, parseFloat(body.fee) || 0);
+  const notes    = String(body.notes    || "").trim();
+
+  const row = await dbFirst(env,
+    `INSERT INTO appt_clinics (org_id, location_id, name, locality, address, phone, fee, notes, created_by)
+     VALUES (?,?,?,?,?,?,?,?,?) RETURNING id`,
+    [authUser.org_id, authUser.location_id, name, locality, address, phone, fee, notes, authUser.user_id]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "APPT_CLINIC_CREATE", "appt_clinics", String(row.id), { name });
+  return jsonResponse({ ok: true, id: row.id }, 201, corsOkHeaders);
+}
+
+async function handleApptClinicUpdate(request, env, corsOkHeaders, authUser, id) {
+  dbgLog(request, "handleApptClinicUpdate:start");
+  if (!requireRole(authUser, ["admin"])) {
+    return jsonResponse({ ok: false, error: "Forbidden – admin only" }, 403, corsOkHeaders);
+  }
+  await ensureApptSchema(env);
+  const existing = await dbFirst(env,
+    `SELECT id FROM appt_clinics WHERE id=? AND org_id=? AND location_id=?`,
+    [id, authUser.org_id, authUser.location_id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  let body;
+  try   { body = await readJson(request); }
+  catch { return jsonResponse({ ok: false, error: "Invalid JSON body" }, 400, corsOkHeaders); }
+
+  const name     = String(body.name || "").trim();
+  if (!name) return jsonResponse({ ok: false, error: "name is required" }, 400, corsOkHeaders);
+  const locality = String(body.locality || "").trim();
+  const address  = String(body.address  || "").trim();
+  const phone    = String(body.phone    || "").trim();
+  const fee      = Math.max(0, parseFloat(body.fee) || 0);
+  const notes    = String(body.notes    || "").trim();
+
+  await dbRun(env,
+    `UPDATE appt_clinics SET name=?, locality=?, address=?, phone=?, fee=?, notes=?, updated_at=datetime('now')
+     WHERE id=? AND org_id=? AND location_id=?`,
+    [name, locality, address, phone, fee, notes, id, authUser.org_id, authUser.location_id]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "APPT_CLINIC_UPDATE", "appt_clinics", String(id), { name });
+  const updated = await dbFirst(env, `SELECT * FROM appt_clinics WHERE id=?`, [id]);
+  return jsonResponse({ ok: true, clinic: clinicRowToUi(updated) }, 200, corsOkHeaders);
+}
+
+async function handleApptClinicDelete(request, env, corsOkHeaders, authUser, id) {
+  dbgLog(request, "handleApptClinicDelete:start");
+  if (!requireRole(authUser, ["admin"])) {
+    return jsonResponse({ ok: false, error: "Forbidden – admin only" }, 403, corsOkHeaders);
+  }
+  await ensureApptSchema(env);
+  const existing = await dbFirst(env,
+    `SELECT id, name FROM appt_clinics WHERE id=? AND org_id=? AND location_id=?`,
+    [id, authUser.org_id, authUser.location_id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  await dbRun(env, `DELETE FROM appt_clinics WHERE id=? AND org_id=? AND location_id=?`,
+    [id, authUser.org_id, authUser.location_id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "APPT_CLINIC_DELETE", "appt_clinics", String(id), { name: existing.name });
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  SCHEDULES
+// ══════════════════════════════════════════════════════════════════════════════
+
+async function handleApptSchedulesList(request, env, corsOkHeaders, authUser, url) {
+  dbgLog(request, "handleApptSchedulesList:start");
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureApptSchema(env);
+
+  // Optional filters
+  const doctorId = url.searchParams.get("doctor_id") || "";
+  const date     = url.searchParams.get("date") || "";    // YYYY-MM-DD: returns schedules active on this date
+  const bind     = [authUser.org_id, authUser.location_id];
+  let whereClauses = ["org_id=?", "location_id=?"];
+
+  if (doctorId) {
+    whereClauses.push("doctor_id=?");
+    bind.push(Number(doctorId));
+  }
+
+  // If a specific date is requested, filter to schedules that apply on that date
+  if (date && isValidYmd(date)) {
+    // Get day of week (0=Sun…6=Sat) for the given date
+    // SQLite: strftime('%w', date) gives day of week 0=Sun..6=Sat
+    whereClauses.push(`(
+      (is_one_off=1 AND date=?)
+      OR (
+        is_one_off=0
+        AND cast(strftime('%w',?) AS INTEGER)=day_of_week
+        AND (valid_from IS NULL OR valid_from='' OR valid_from<=?)
+        AND (valid_until IS NULL OR valid_until='' OR valid_until>=?)
+      )
+    )`);
+    bind.push(date, date, date, date);
+  }
+
+  const rows = await dbAll(env,
+    `SELECT * FROM appt_schedules WHERE ${whereClauses.join(" AND ")} ORDER BY day_of_week ASC, date ASC`,
+    bind);
+  return jsonResponse({ ok: true, schedules: rows.map(scheduleRowToUi) }, 200, corsOkHeaders);
+}
+
+async function handleApptScheduleCreate(request, env, corsOkHeaders, authUser) {
+  dbgLog(request, "handleApptScheduleCreate:start");
+  if (!requireRole(authUser, ["admin"])) {
+    return jsonResponse({ ok: false, error: "Forbidden – admin only" }, 403, corsOkHeaders);
+  }
+  await ensureApptSchema(env);
+  let body;
+  try   { body = await readJson(request); }
+  catch { return jsonResponse({ ok: false, error: "Invalid JSON body" }, 400, corsOkHeaders); }
+
+  const doctorId     = Number(body.doctorId    || body.doctor_id)    || null;
+  const clinicId     = Number(body.clinicId    || body.clinic_id)    || null;
+  const isOneOff     = !!(body.isOneOff        || body.is_one_off);
+  const dayOfWeek    = body.dayOfWeek != null   ? Number(body.dayOfWeek  || body.day_of_week)  : null;
+  const validFrom    = String(body.validFrom    || body.valid_from   || "").trim() || null;
+  const validUntil   = String(body.validUntil   || body.valid_until  || "").trim() || null;
+  const date         = String(body.date         || "").trim()        || null;
+  const startTime    = String(body.startTime    || body.start_time   || "09:00").trim();
+  const endTime      = String(body.endTime      || body.end_time     || "17:00").trim();
+  const slotDuration = Number(body.slotDuration || body.slot_duration || 30) || 30;
+
+  if (!doctorId) return jsonResponse({ ok: false, error: "doctor_id is required" }, 400, corsOkHeaders);
+  if (!isValidTime(startTime)) return jsonResponse({ ok: false, error: "Invalid start_time (HH:MM)" }, 400, corsOkHeaders);
+  if (!isValidTime(endTime))   return jsonResponse({ ok: false, error: "Invalid end_time (HH:MM)" },   400, corsOkHeaders);
+  if (isOneOff && !date)       return jsonResponse({ ok: false, error: "date required for one-off schedule" }, 400, corsOkHeaders);
+  if (isOneOff && date && !isValidYmd(date)) return jsonResponse({ ok: false, error: "Invalid date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (!isOneOff && (dayOfWeek === null || dayOfWeek < 0 || dayOfWeek > 6)) {
+    return jsonResponse({ ok: false, error: "day_of_week required (0–6) for recurring schedule" }, 400, corsOkHeaders);
+  }
+
+  // Verify doctor belongs to this org/location
+  const doctor = await dbFirst(env,
+    `SELECT id FROM appt_doctors WHERE id=? AND org_id=? AND location_id=?`,
+    [doctorId, authUser.org_id, authUser.location_id]);
+  if (!doctor) return jsonResponse({ ok: false, error: "Doctor not found" }, 404, corsOkHeaders);
+
+  const row = await dbFirst(env,
+    `INSERT INTO appt_schedules
+      (org_id, location_id, doctor_id, clinic_id, is_one_off, day_of_week,
+       valid_from, valid_until, date, start_time, end_time, slot_duration, created_by)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING id`,
+    [authUser.org_id, authUser.location_id, doctorId, clinicId, isOneOff ? 1 : 0,
+     isOneOff ? null : dayOfWeek, validFrom, validUntil, isOneOff ? date : null,
+     startTime, endTime, slotDuration, authUser.user_id]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "APPT_SCHEDULE_CREATE", "appt_schedules", String(row.id), {
+    doctor_id: doctorId, is_one_off: isOneOff
+  });
+  const created = await dbFirst(env, `SELECT * FROM appt_schedules WHERE id=?`, [row.id]);
+  return jsonResponse({ ok: true, id: row.id, schedule: scheduleRowToUi(created) }, 201, corsOkHeaders);
+}
+
+async function handleApptScheduleUpdate(request, env, corsOkHeaders, authUser, id) {
+  dbgLog(request, "handleApptScheduleUpdate:start");
+  if (!requireRole(authUser, ["admin"])) {
+    return jsonResponse({ ok: false, error: "Forbidden – admin only" }, 403, corsOkHeaders);
+  }
+  await ensureApptSchema(env);
+  const existing = await dbFirst(env,
+    `SELECT * FROM appt_schedules WHERE id=? AND org_id=? AND location_id=?`,
+    [id, authUser.org_id, authUser.location_id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  let body;
+  try   { body = await readJson(request); }
+  catch { return jsonResponse({ ok: false, error: "Invalid JSON body" }, 400, corsOkHeaders); }
+
+  const has = (k) => Object.prototype.hasOwnProperty.call(body, k);
+
+  const doctorId     = has("doctorId")    || has("doctor_id")    ? (Number(body.doctorId    || body.doctor_id)    || existing.doctor_id) : existing.doctor_id;
+  const clinicId     = has("clinicId")    || has("clinic_id")    ? (Number(body.clinicId    || body.clinic_id)    || null)               : existing.clinic_id;
+  const isOneOff     = has("isOneOff")    || has("is_one_off")   ? !!(body.isOneOff        || body.is_one_off)                          : !!existing.is_one_off;
+  const dayOfWeek    = has("dayOfWeek")   || has("day_of_week")  ? (body.dayOfWeek != null ? Number(body.dayOfWeek  || body.day_of_week) : null)  : existing.day_of_week;
+  const validFrom    = has("validFrom")   || has("valid_from")   ? (String(body.validFrom   || body.valid_from   || "").trim() || null)           : existing.valid_from;
+  const validUntil   = has("validUntil")  || has("valid_until")  ? (String(body.validUntil  || body.valid_until  || "").trim() || null)           : existing.valid_until;
+  const date         = has("date")                               ? (String(body.date        || "").trim()        || null)                          : existing.date;
+  const startTime    = has("startTime")   || has("start_time")   ? String(body.startTime    || body.start_time   || "09:00").trim()               : existing.start_time;
+  const endTime      = has("endTime")     || has("end_time")     ? String(body.endTime      || body.end_time     || "17:00").trim()               : existing.end_time;
+  const slotDuration = has("slotDuration")|| has("slot_duration")? (Number(body.slotDuration|| body.slot_duration|| 30) || 30)                    : existing.slot_duration;
+  const cancelled    = has("cancelled")                          ? (body.cancelled ? 1 : 0)                                                        : existing.cancelled;
+  const cancelReason = has("cancelReason")|| has("cancel_reason")? String(body.cancelReason || body.cancel_reason || "").trim()                   : existing.cancel_reason;
+
+  await dbRun(env,
+    `UPDATE appt_schedules SET doctor_id=?, clinic_id=?, is_one_off=?, day_of_week=?,
+       valid_from=?, valid_until=?, date=?, start_time=?, end_time=?, slot_duration=?,
+       cancelled=?, cancel_reason=?, updated_at=datetime('now')
+     WHERE id=? AND org_id=? AND location_id=?`,
+    [doctorId, clinicId, isOneOff ? 1 : 0, isOneOff ? null : dayOfWeek,
+     validFrom, validUntil, isOneOff ? date : null, startTime, endTime, slotDuration,
+     cancelled, cancelReason, id, authUser.org_id, authUser.location_id]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "APPT_SCHEDULE_UPDATE", "appt_schedules", String(id), {});
+  const updated = await dbFirst(env, `SELECT * FROM appt_schedules WHERE id=?`, [id]);
+  return jsonResponse({ ok: true, schedule: scheduleRowToUi(updated) }, 200, corsOkHeaders);
+}
+
+async function handleApptScheduleDelete(request, env, corsOkHeaders, authUser, id) {
+  dbgLog(request, "handleApptScheduleDelete:start");
+  if (!requireRole(authUser, ["admin"])) {
+    return jsonResponse({ ok: false, error: "Forbidden – admin only" }, 403, corsOkHeaders);
+  }
+  await ensureApptSchema(env);
+  const existing = await dbFirst(env,
+    `SELECT id FROM appt_schedules WHERE id=? AND org_id=? AND location_id=?`,
+    [id, authUser.org_id, authUser.location_id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  await dbRun(env, `DELETE FROM appt_schedules WHERE id=? AND org_id=? AND location_id=?`,
+    [id, authUser.org_id, authUser.location_id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "APPT_SCHEDULE_DELETE", "appt_schedules", String(id), {});
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  APPOINTMENTS
+// ══════════════════════════════════════════════════════════════════════════════
+
+async function handleApptList(request, env, corsOkHeaders, authUser, url) {
+  dbgLog(request, "handleApptList:start");
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureApptSchema(env);
+
+  const doctorId  = url.searchParams.get("doctor_id")  || "";
+  const clinicId  = url.searchParams.get("clinic_id")  || "";
+  const date      = url.searchParams.get("date")        || "";    // single date
+  const dateFrom  = url.searchParams.get("date_from")  || "";
+  const dateTo    = url.searchParams.get("date_to")    || "";
+  const status    = url.searchParams.get("status")     || "";
+  const q         = url.searchParams.get("q")          || "";
+  const limit     = Math.min(Math.max(parseInt(url.searchParams.get("limit") || "500"), 1), 2000);
+
+  const bind  = [authUser.org_id, authUser.location_id];
+  const where = ["org_id=?", "location_id=?"];
+
+  if (doctorId) { where.push("doctor_id=?");       bind.push(Number(doctorId)); }
+  if (clinicId) { where.push("clinic_id=?");        bind.push(Number(clinicId)); }
+  if (date && isValidYmd(date)) { where.push("date=?"); bind.push(date); }
+  else {
+    if (dateFrom && isValidYmd(dateFrom)) { where.push("date>=?"); bind.push(dateFrom); }
+    if (dateTo   && isValidYmd(dateTo))   { where.push("date<=?"); bind.push(dateTo);   }
+  }
+  if (status && VALID_APPT_STATUSES.includes(status)) { where.push("status=?"); bind.push(status); }
+  if (q) {
+    const qLike = `%${q}%`;
+    where.push("(patient_name LIKE ? OR patient_id_card LIKE ? OR patient_phone LIKE ? OR appt_ref LIKE ? OR medicines LIKE ? OR notes LIKE ?)");
+    bind.push(qLike, qLike, qLike, qLike, qLike, qLike);
+  }
+
+  bind.push(limit);
+  const rows = await dbAll(env,
+    `SELECT * FROM appt_appointments WHERE ${where.join(" AND ")} ORDER BY date ASC, time ASC LIMIT ?`,
+    bind);
+  return jsonResponse({ ok: true, appointments: rows.map(apptRowToUi) }, 200, corsOkHeaders);
+}
+
+async function handleApptGet(request, env, corsOkHeaders, authUser, id) {
+  dbgLog(request, "handleApptGet:start");
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureApptSchema(env);
+  const row = await dbFirst(env,
+    `SELECT * FROM appt_appointments WHERE id=? AND org_id=? AND location_id=?`,
+    [id, authUser.org_id, authUser.location_id]);
+  if (!row) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+  return jsonResponse({ ok: true, appointment: apptRowToUi(row) }, 200, corsOkHeaders);
+}
+
+async function handleApptCreate(request, env, corsOkHeaders, authUser) {
+  dbgLog(request, "handleApptCreate:start");
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureApptSchema(env);
+  let body;
+  try   { body = await readJson(request); }
+  catch { return jsonResponse({ ok: false, error: "Invalid JSON body" }, 400, corsOkHeaders); }
+
+  const patientName  = String(body.patientName  || body.patient_name  || "").trim();
+  const patientIdCard= String(body.patientIdCard|| body.patient_id_card|| "").trim();
+  const patientPhone = String(body.patientPhone || body.patient_phone || "").trim();
+  const doctorId     = Number(body.doctorId     || body.doctor_id)    || null;
+  const clinicId     = Number(body.clinicId     || body.clinic_id)    || null;
+  const date         = String(body.date         || "").trim();
+  const time         = String(body.time         || "").trim();
+  const durationMins = Number(body.durationMins || body.duration_mins || 30) || 30;
+  const status       = normApptStatus(body.status);
+  const doctorFee    = Math.max(0, parseFloat(body.doctorFee    || body.doctor_fee)    || 0);
+  const clinicFee    = Math.max(0, parseFloat(body.clinicFee    || body.clinic_fee)    || 0);
+  const medicines    = String(body.medicines    || "").trim();
+  const medicinesCost= Math.max(0, parseFloat(body.medicinesCost|| body.medicines_cost)|| 0);
+  const notes        = String(body.notes        || "").trim();
+  const cancellationReason = String(body.cancellationReason || body.cancellation_reason || "").trim();
+  // Accept client-provided ref and token (generated client-side) or generate server-side
+  const apptRef      = String(body.apptRef      || body.appt_ref      || "").trim();
+  let   token        = String(body.token        || "").trim().toUpperCase();
+
+  if (!patientName) return jsonResponse({ ok: false, error: "patient_name is required" }, 400, corsOkHeaders);
+  if (!date || !isValidYmd(date)) return jsonResponse({ ok: false, error: "Invalid date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (!time || !isValidTime(time)) return jsonResponse({ ok: false, error: "Invalid time (HH:MM)" }, 400, corsOkHeaders);
+
+  // Prevent double-booking (server-side). Overlap check for same doctor+clinic+date within org/location.
+  if (doctorId && clinicId) {
+    const newStart = (parseInt(time.slice(0,2),10)||0)*60 + (parseInt(time.slice(3,5),10)||0);
+    const newEnd   = newStart + durationMins;
+    const conflict = await dbFirst(env, `
+      SELECT id FROM appt_appointments
+      WHERE org_id=? AND location_id=? AND date=? AND doctor_id=? AND clinic_id=? AND status!='cancelled'
+        AND ((CAST(substr(time,1,2) AS INT)*60 + CAST(substr(time,4,2) AS INT)) < ?)
+        AND ((CAST(substr(time,1,2) AS INT)*60 + CAST(substr(time,4,2) AS INT) + duration_mins) > ?)
+      LIMIT 1
+    `, [authUser.org_id, authUser.location_id, date, doctorId, clinicId, newEnd, newStart]);
+    if (conflict) {
+      dbgLog(request, "handleApptCreate:conflict", { conflict_id: conflict.id, date, time, durationMins, doctorId, clinicId });
+      return jsonResponse({ ok: false, error: "Slot already booked" }, 409, corsOkHeaders);
+    }
+  }
+
+  // Generate token if not provided, or if it collides
+  if (!token || !/^[A-Z0-9]{4}$/.test(token)) {
+    token = generatePatientToken();
+  }
+  // Ensure token is unique within this org (retry once if collision)
+  const tokenConflict = await dbFirst(env,
+    `SELECT id FROM appt_appointments WHERE org_id=? AND patient_token=?`,
+    [authUser.org_id, token]);
+  if (tokenConflict) token = generatePatientToken();
+
+  const row = await dbFirst(env,
+    `INSERT INTO appt_appointments
+      (org_id, location_id, appt_ref, patient_token, patient_name, patient_id_card, patient_phone,
+       doctor_id, clinic_id, date, time, duration_mins, status,
+       doctor_fee, clinic_fee, medicines, medicines_cost, notes, cancellation_reason, created_by)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING id`,
+    [authUser.org_id, authUser.location_id, apptRef, token,
+     patientName, patientIdCard, patientPhone,
+     doctorId, clinicId, date, time, durationMins, status,
+     doctorFee, clinicFee, medicines, medicinesCost, notes, cancellationReason, authUser.user_id]);
+
+  // If no appt_ref was provided, generate one from the DB id
+  const finalRef = apptRef || buildApptRef(row.id);
+  if (!apptRef) {
+    await dbRun(env, `UPDATE appt_appointments SET appt_ref=? WHERE id=?`, [finalRef, row.id]);
+  }
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "APPT_CREATE", "appt_appointments", String(row.id), {
+    patient_name: patientName, date, status
+  });
+
+  const created = await dbFirst(env, `SELECT * FROM appt_appointments WHERE id=?`, [row.id]);
+  return jsonResponse({ ok: true, id: row.id, apptRef: finalRef, token, appointment: apptRowToUi(created) }, 201, corsOkHeaders);
+}
+
+async function handleApptUpdate(request, env, corsOkHeaders, authUser, id) {
+  dbgLog(request, "handleApptUpdate:start");
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureApptSchema(env);
+  const existing = await dbFirst(env,
+    `SELECT * FROM appt_appointments WHERE id=? AND org_id=? AND location_id=?`,
+    [id, authUser.org_id, authUser.location_id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  let body;
+  try   { body = await readJson(request); }
+  catch { return jsonResponse({ ok: false, error: "Invalid JSON body" }, 400, corsOkHeaders); }
+
+  const has = (k) => Object.prototype.hasOwnProperty.call(body, k);
+  function pick(keys, fallback) {
+    for (const k of keys) if (has(k)) return body[k];
+    return fallback;
+  }
+
+  const patientName  = String(pick(["patientName","patient_name"],      existing.patient_name)  || "").trim();
+  const patientIdCard= String(pick(["patientIdCard","patient_id_card"],  existing.patient_id_card)|| "").trim();
+  const patientPhone = String(pick(["patientPhone","patient_phone"],     existing.patient_phone) || "").trim();
+  const doctorId     = Number(pick(["doctorId","doctor_id"],             existing.doctor_id))    || null;
+  const clinicId     = Number(pick(["clinicId","clinic_id"],             existing.clinic_id))    || null;
+  const date         = String(pick(["date"],                             existing.date)          || "").trim();
+  const time         = String(pick(["time"],                             existing.time)          || "").trim();
+  const durationMins = Number(pick(["durationMins","duration_mins"],     existing.duration_mins) || 30) || 30;
+  const status       = normApptStatus(pick(["status"],                   existing.status));
+  const doctorFee    = Math.max(0, parseFloat(pick(["doctorFee","doctor_fee"],       existing.doctor_fee))    || 0);
+  const clinicFee    = Math.max(0, parseFloat(pick(["clinicFee","clinic_fee"],       existing.clinic_fee))    || 0);
+  const medicines    = String(pick(["medicines"],                        existing.medicines)     || "").trim();
+  const medicinesCost= Math.max(0, parseFloat(pick(["medicinesCost","medicines_cost"], existing.medicines_cost)) || 0);
+  const notes        = String(pick(["notes"],                            existing.notes)         || "").trim();
+  const cancellationReason = String(pick(["cancellationReason","cancellation_reason"], existing.cancellation_reason) || "").trim();
+
+  if (!patientName) return jsonResponse({ ok: false, error: "patient_name is required" }, 400, corsOkHeaders);
+  if (!date || !isValidYmd(date)) return jsonResponse({ ok: false, error: "Invalid date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (!time || !isValidTime(time)) return jsonResponse({ ok: false, error: "Invalid time (HH:MM)" }, 400, corsOkHeaders);
+
+  // Prevent double-booking on update (exclude current id)
+  if (doctorId && clinicId) {
+    const newStart = (parseInt(time.slice(0,2),10)||0)*60 + (parseInt(time.slice(3,5),10)||0);
+    const newEnd   = newStart + durationMins;
+    const conflict = await dbFirst(env, `
+      SELECT id FROM appt_appointments
+      WHERE org_id=? AND location_id=? AND date=? AND doctor_id=? AND clinic_id=? AND status!='cancelled' AND id!=?
+        AND ((CAST(substr(time,1,2) AS INT)*60 + CAST(substr(time,4,2) AS INT)) < ?)
+        AND ((CAST(substr(time,1,2) AS INT)*60 + CAST(substr(time,4,2) AS INT) + duration_mins) > ?)
+      LIMIT 1
+    `, [authUser.org_id, authUser.location_id, date, doctorId, clinicId, id, newEnd, newStart]);
+    if (conflict) {
+      dbgLog(request, "handleApptUpdate:conflict", { conflict_id: conflict.id, date, time, durationMins, doctorId, clinicId });
+      return jsonResponse({ ok: false, error: "Slot already booked" }, 409, corsOkHeaders);
+    }
+  }
+
+  await dbRun(env,
+    `UPDATE appt_appointments
+     SET patient_name=?, patient_id_card=?, patient_phone=?,
+         doctor_id=?, clinic_id=?, date=?, time=?, duration_mins=?, status=?,
+         doctor_fee=?, clinic_fee=?, medicines=?, medicines_cost=?, notes=?,
+         cancellation_reason=?, updated_at=datetime('now')
+     WHERE id=? AND org_id=? AND location_id=?`,
+    [patientName, patientIdCard, patientPhone,
+     doctorId, clinicId, date, time, durationMins, status,
+     doctorFee, clinicFee, medicines, medicinesCost, notes,
+     cancellationReason, id, authUser.org_id, authUser.location_id]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "APPT_UPDATE", "appt_appointments", String(id), {
+    patient_name: patientName, status, date
+  });
+  const updated = await dbFirst(env, `SELECT * FROM appt_appointments WHERE id=?`, [id]);
+  return jsonResponse({ ok: true, appointment: apptRowToUi(updated) }, 200, corsOkHeaders);
+}
+
+async function handleApptDelete(request, env, corsOkHeaders, authUser, id) {
+  dbgLog(request, "handleApptDelete:start");
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureApptSchema(env);
+  const existing = await dbFirst(env,
+    `SELECT id FROM appt_appointments WHERE id=? AND org_id=? AND location_id=?`,
+    [id, authUser.org_id, authUser.location_id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  await dbRun(env, `DELETE FROM appt_appointments WHERE id=? AND org_id=? AND location_id=?`,
+    [id, authUser.org_id, authUser.location_id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "APPT_DELETE", "appt_appointments", String(id), {});
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  WAITING LIST
+// ══════════════════════════════════════════════════════════════════════════════
+
+async function handleApptWaitlistList(request, env, corsOkHeaders, authUser, url) {
+  dbgLog(request, "handleApptWaitlistList:start");
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureApptSchema(env);
+
+  const status   = url.searchParams.get("status")    || "";
+  const doctorId = url.searchParams.get("doctor_id") || "";
+  const q        = url.searchParams.get("q")         || "";
+  const bind     = [authUser.org_id, authUser.location_id];
+  const where    = ["org_id=?", "location_id=?"];
+
+  if (status && VALID_WL_STATUSES.includes(status)) { where.push("status=?"); bind.push(status); }
+  if (doctorId) { where.push("doctor_id=?"); bind.push(Number(doctorId)); }
+  if (q) {
+    const qLike = `%${q}%`;
+    where.push("(patient_name LIKE ? OR patient_id_card LIKE ? OR patient_phone LIKE ? OR wl_ref LIKE ? OR preferred_dates LIKE ? OR notes LIKE ?)");
+    bind.push(qLike, qLike, qLike, qLike, qLike, qLike);
+  }
+
+  const rows = await dbAll(env,
+    `SELECT * FROM appt_waitlist WHERE ${where.join(" AND ")} ORDER BY created_at DESC`,
+    bind);
+  return jsonResponse({ ok: true, waitlist: rows.map(waitlistRowToUi) }, 200, corsOkHeaders);
+}
+
+async function handleApptWaitlistGet(request, env, corsOkHeaders, authUser, id) {
+  dbgLog(request, "handleApptWaitlistGet:start");
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureApptSchema(env);
+  const row = await dbFirst(env,
+    `SELECT * FROM appt_waitlist WHERE id=? AND org_id=? AND location_id=?`,
+    [id, authUser.org_id, authUser.location_id]);
+  if (!row) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+  return jsonResponse({ ok: true, entry: waitlistRowToUi(row) }, 200, corsOkHeaders);
+}
+
+async function handleApptWaitlistCreate(request, env, corsOkHeaders, authUser) {
+  dbgLog(request, "handleApptWaitlistCreate:start");
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureApptSchema(env);
+  let body;
+  try   { body = await readJson(request); }
+  catch { return jsonResponse({ ok: false, error: "Invalid JSON body" }, 400, corsOkHeaders); }
+
+  const patientName  = String(body.patientName  || body.patient_name   || "").trim();
+  const patientIdCard= String(body.patientIdCard|| body.patient_id_card|| "").trim();
+  const patientPhone = String(body.patientPhone || body.patient_phone  || "").trim();
+  const doctorId     = Number(body.doctorId     || body.doctor_id)     || null;
+  const clinicId     = Number(body.clinicId     || body.clinic_id)     || null;
+  const preferredDates = String(body.preferredDates || body.preferred_dates || "").trim();
+  const flexibility  = normFlex(body.flexibility);
+  const notes        = String(body.notes        || "").trim();
+  const addedDate    = (body.addedDate || body.added_date || "") ? String(body.addedDate || body.added_date).trim() : null;
+
+  if (!patientName) return jsonResponse({ ok: false, error: "patient_name is required" }, 400, corsOkHeaders);
+
+  const row = await dbFirst(env,
+    `INSERT INTO appt_waitlist
+      (org_id, location_id, wl_ref, patient_name, patient_id_card, patient_phone,
+       doctor_id, clinic_id, preferred_dates, flexibility, notes, added_date, created_by)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,COALESCE(?,date('now')),?) RETURNING id`,
+    [authUser.org_id, authUser.location_id, "",
+     patientName, patientIdCard, patientPhone,
+     doctorId, clinicId, preferredDates, flexibility, notes, addedDate, authUser.user_id]);
+
+  const wlRef = buildWlRef(row.id);
+  await dbRun(env, `UPDATE appt_waitlist SET wl_ref=? WHERE id=?`, [wlRef, row.id]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "APPT_WL_CREATE", "appt_waitlist", String(row.id), {
+    patient_name: patientName
+  });
+  const created = await dbFirst(env, `SELECT * FROM appt_waitlist WHERE id=?`, [row.id]);
+  return jsonResponse({ ok: true, id: row.id, wlRef, entry: waitlistRowToUi(created) }, 201, corsOkHeaders);
+}
+
+async function handleApptWaitlistUpdate(request, env, corsOkHeaders, authUser, id) {
+  dbgLog(request, "handleApptWaitlistUpdate:start");
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureApptSchema(env);
+  const existing = await dbFirst(env,
+    `SELECT * FROM appt_waitlist WHERE id=? AND org_id=? AND location_id=?`,
+    [id, authUser.org_id, authUser.location_id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  let body;
+  try   { body = await readJson(request); }
+  catch { return jsonResponse({ ok: false, error: "Invalid JSON body" }, 400, corsOkHeaders); }
+
+  const has = (k) => Object.prototype.hasOwnProperty.call(body, k);
+  function pick(keys, fallback) {
+    for (const k of keys) if (has(k)) return body[k];
+    return fallback;
+  }
+
+  const patientName   = String(pick(["patientName","patient_name"],       existing.patient_name)  || "").trim();
+  const patientIdCard = String(pick(["patientIdCard","patient_id_card"],  existing.patient_id_card)|| "").trim();
+  const patientPhone  = String(pick(["patientPhone","patient_phone"],     existing.patient_phone) || "").trim();
+  const doctorId      = Number(pick(["doctorId","doctor_id"],             existing.doctor_id))    || null;
+  const clinicId      = Number(pick(["clinicId","clinic_id"],             existing.clinic_id))    || null;
+  const preferredDates= String(pick(["preferredDates","preferred_dates"], existing.preferred_dates)|| "").trim();
+  const flexibility   = normFlex(pick(["flexibility"],                    existing.flexibility));
+  const status        = normWlStatus(pick(["status"],                     existing.status));
+  const promotedTo    = String(pick(["promotedTo","promoted_to"],         existing.promoted_to)   || "").trim();
+  const notes         = String(pick(["notes"],                            existing.notes)         || "").trim();
+
+  if (!patientName) return jsonResponse({ ok: false, error: "patient_name is required" }, 400, corsOkHeaders);
+
+  await dbRun(env,
+    `UPDATE appt_waitlist
+     SET patient_name=?, patient_id_card=?, patient_phone=?, doctor_id=?, clinic_id=?,
+         preferred_dates=?, flexibility=?, status=?, promoted_to=?, notes=?,
+         updated_at=datetime('now')
+     WHERE id=? AND org_id=? AND location_id=?`,
+    [patientName, patientIdCard, patientPhone, doctorId, clinicId,
+     preferredDates, flexibility, status, promotedTo, notes,
+     id, authUser.org_id, authUser.location_id]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "APPT_WL_UPDATE", "appt_waitlist", String(id), {
+    status, patient_name: patientName
+  });
+  const updated = await dbFirst(env, `SELECT * FROM appt_waitlist WHERE id=?`, [id]);
+  return jsonResponse({ ok: true, entry: waitlistRowToUi(updated) }, 200, corsOkHeaders);
+}
+
+async function handleApptWaitlistDelete(request, env, corsOkHeaders, authUser, id) {
+  dbgLog(request, "handleApptWaitlistDelete:start");
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureApptSchema(env);
+  const existing = await dbFirst(env,
+    `SELECT id FROM appt_waitlist WHERE id=? AND org_id=? AND location_id=?`,
+    [id, authUser.org_id, authUser.location_id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  await dbRun(env, `DELETE FROM appt_waitlist WHERE id=? AND org_id=? AND location_id=?`,
+    [id, authUser.org_id, authUser.location_id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "APPT_WL_DELETE", "appt_waitlist", String(id), {});
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  PUBLIC — Patient portal lookup (no auth — ID card + 4-char token)
+//  GET /appointments/public/lookup?id_card=XXX&token=XXXX
+// ══════════════════════════════════════════════════════════════════════════════
+
+async function handleApptPublicLookup(request, env, corsOkHeaders, url) {
+  dbgLog(request, "handleApptPublicLookup:start");
+  await ensureApptSchema(env);
+
+  const rawCard = String(url.searchParams.get("id_card") || "").trim().toUpperCase();
+  const token   = String(url.searchParams.get("token")   || "").trim().toUpperCase();
+
+  if (!rawCard || !token) {
+    return jsonResponse({ ok: false, error: "id_card and token are required" }, 400, corsOkHeaders);
+  }
+  if (!/^[A-Z0-9]{4}$/.test(token)) {
+    return jsonResponse({ ok: false, error: "Invalid token format" }, 400, corsOkHeaders);
+  }
+
+  // Find appointment by token (globally within the platform — token is unique per org)
+  // We deliberately return minimal info suitable for patient-facing view
+  const appt = await dbFirst(env,
+    `SELECT id, appt_ref, patient_token, patient_name, patient_id_card,
+            doctor_id, clinic_id, date, time, duration_mins,
+            status, notes, cancellation_reason
+     FROM appt_appointments
+     WHERE patient_token=? AND UPPER(patient_id_card)=?`,
+    [token, rawCard]);
+
+  if (!appt) {
+    // Don't reveal whether the token exists or the ID card is wrong — same error
+    return jsonResponse({ ok: false, error: "No appointment found for these credentials" }, 404, corsOkHeaders);
+  }
+
+  // Fetch doctor and clinic names (but not full records)
+  const doctor = appt.doctor_id ? await dbFirst(env,
+    `SELECT name, specialty FROM appt_doctors WHERE id=?`, [appt.doctor_id]) : null;
+  const clinic = appt.clinic_id ? await dbFirst(env,
+    `SELECT name, locality, address FROM appt_clinics WHERE id=?`, [appt.clinic_id]) : null;
+
+  return jsonResponse({
+    ok: true,
+    appointment: {
+      ref:         appt.appt_ref         || "",
+      date:        appt.date             || "",
+      time:        appt.time             || "",
+      durationMins:Number(appt.duration_mins) || 30,
+      status:      appt.status           || "Scheduled",
+      doctor:      doctor ? { name: doctor.name, specialty: doctor.specialty } : null,
+      clinic:      clinic ? { name: clinic.name, locality: clinic.locality, address: clinic.address } : null,
+      notes:       appt.notes            || "",
+      cancellationReason: appt.cancellation_reason || ""
+    }
+  }, 200, corsOkHeaders);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export default {
   async fetch(request, env, ctx) {
     try {
@@ -10489,8 +11642,109 @@ export default {
     if ((url.pathname === "/shifts/ical" || url.pathname === "/shifts/ical.ics" || url.pathname.startsWith("/shifts/ical/")) && request.method === "GET") {
       return await handleShiftIcalPublic(request, env, corsOkHeaders, url);
     }
+
+
+
+
+    // ── Public appointment lookup (no auth required — ID card + token) ────────
+    if ((url.pathname === "/appointments/public/lookup" || url.pathname === "/api/appointments/public/lookup") && request.method === "GET") {
+      return await handleApptPublicLookup(request, env, corsOkHeaders, url);
+    }
+
 const authUser = await authFromRequest(request, env);
     if (!authUser) return jsonResponse({ ok: false, error: "Unauthorized" }, 401, corsOkHeaders);
+
+//  SECTION 2 — ROUTER ENTRIES
+//  Paste these lines inside the fetch() handler, before the final 404 fallback.
+//  They go after auth is confirmed (after the `if (!authUser)` block).
+// ─────────────────────────────────────────────────────────────────────────────
+
+    // ── Doctors ───────────────────────────────────────────────────────────────
+    if ((url.pathname === "/appointments/doctors" || url.pathname === "/api/appointments/doctors") && request.method === "GET") {
+      return await handleApptDoctorsList(request, env, corsOkHeaders, authUser);
+    }
+    if ((url.pathname === "/appointments/doctors" || url.pathname === "/api/appointments/doctors") && request.method === "POST") {
+      return await handleApptDoctorCreate(request, env, corsOkHeaders, authUser);
+    }
+    { const m = url.pathname.match(/^\/appointments\/doctors\/(\d+)$/);
+      if (m) {
+        const id = Number(m[1]);
+        if (request.method === "GET")    return await handleApptDoctorGet(request, env, corsOkHeaders, authUser, id);
+        if (request.method === "PUT")    return await handleApptDoctorUpdate(request, env, corsOkHeaders, authUser, id);
+        if (request.method === "DELETE") {
+          try {
+            dbgLog(request, "route:/appointments/doctors/:id DELETE", { id });
+            return await handleApptDoctorDelete(request, env, corsOkHeaders, authUser, id);
+          } catch (e) {
+            dbgErr(request, "EXCEPTION in doctor delete", e && (e.stack || e.message || e));
+            return jsonResponse({ ok: false, error: "Worker threw exception", message: String(e && (e.message || e)) }, 500, corsOkHeaders);
+          }
+        }
+      }
+    }
+
+    // ── Clinics ───────────────────────────────────────────────────────────────
+    if ((url.pathname === "/appointments/clinics" || url.pathname === "/api/appointments/clinics") && request.method === "GET") {
+      return await handleApptClinicsList(request, env, corsOkHeaders, authUser);
+    }
+    if ((url.pathname === "/appointments/clinics" || url.pathname === "/api/appointments/clinics") && request.method === "POST") {
+      return await handleApptClinicCreate(request, env, corsOkHeaders, authUser);
+    }
+    { const m = url.pathname.match(/^\/appointments\/clinics\/(\d+)$/);
+      if (m) {
+        const id = Number(m[1]);
+        if (request.method === "GET")    return await handleApptClinicGet(request, env, corsOkHeaders, authUser, id);
+        if (request.method === "PUT")    return await handleApptClinicUpdate(request, env, corsOkHeaders, authUser, id);
+        if (request.method === "DELETE") return await handleApptClinicDelete(request, env, corsOkHeaders, authUser, id);
+      }
+    }
+
+    // ── Schedules ─────────────────────────────────────────────────────────────
+    if ((url.pathname === "/appointments/schedules" || url.pathname === "/api/appointments/schedules") && request.method === "GET") {
+      return await handleApptSchedulesList(request, env, corsOkHeaders, authUser, url);
+    }
+    if ((url.pathname === "/appointments/schedules" || url.pathname === "/api/appointments/schedules") && request.method === "POST") {
+      return await handleApptScheduleCreate(request, env, corsOkHeaders, authUser);
+    }
+    { const m = url.pathname.match(/^\/appointments\/schedules\/(\d+)$/);
+      if (m) {
+        const id = Number(m[1]);
+        if (request.method === "PUT")    return await handleApptScheduleUpdate(request, env, corsOkHeaders, authUser, id);
+        if (request.method === "DELETE") return await handleApptScheduleDelete(request, env, corsOkHeaders, authUser, id);
+      }
+    }
+
+    // ── Appointments ──────────────────────────────────────────────────────────
+    if ((url.pathname === "/appointments/entries" || url.pathname === "/api/appointments/entries") && request.method === "GET") {
+      return await handleApptList(request, env, corsOkHeaders, authUser, url);
+    }
+    if ((url.pathname === "/appointments/entries" || url.pathname === "/api/appointments/entries") && request.method === "POST") {
+      return await handleApptCreate(request, env, corsOkHeaders, authUser);
+    }
+    { const m = url.pathname.match(/^\/appointments\/entries\/(\d+)$/);
+      if (m) {
+        const id = Number(m[1]);
+        if (request.method === "GET")    return await handleApptGet(request, env, corsOkHeaders, authUser, id);
+        if (request.method === "PUT")    return await handleApptUpdate(request, env, corsOkHeaders, authUser, id);
+        if (request.method === "DELETE") return await handleApptDelete(request, env, corsOkHeaders, authUser, id);
+      }
+    }
+
+    // ── Waiting list ──────────────────────────────────────────────────────────
+    if ((url.pathname === "/appointments/waitlist" || url.pathname === "/api/appointments/waitlist") && request.method === "GET") {
+      return await handleApptWaitlistList(request, env, corsOkHeaders, authUser, url);
+    }
+    if ((url.pathname === "/appointments/waitlist" || url.pathname === "/api/appointments/waitlist") && request.method === "POST") {
+      return await handleApptWaitlistCreate(request, env, corsOkHeaders, authUser);
+    }
+    { const m = url.pathname.match(/^\/appointments\/waitlist\/(\d+)$/);
+      if (m) {
+        const id = Number(m[1]);
+        if (request.method === "GET")    return await handleApptWaitlistGet(request, env, corsOkHeaders, authUser, id);
+        if (request.method === "PUT")    return await handleApptWaitlistUpdate(request, env, corsOkHeaders, authUser, id);
+        if (request.method === "DELETE") return await handleApptWaitlistDelete(request, env, corsOkHeaders, authUser, id);
+      }
+    }
     if (!cors.ok) return jsonResponse({ ok: false, error: "CORS blocked" }, 403, corsOkHeaders);
 
     if (url.pathname === "/auth/me" && request.method === "GET") {
