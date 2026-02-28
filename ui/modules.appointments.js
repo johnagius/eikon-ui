@@ -863,7 +863,8 @@
     return days.map(function(d,i){
       return "<option value='"+i+"'"+(String(i)===String(selected)?" selected":"")+">"+d+"</option>";
     }).join("");
-  
+  }
+
   function buildDowCheckboxes(selectedArr) {
     var sel = {};
     try { (selectedArr||[]).forEach(function(v){ sel[String(v)] = true; }); } catch(e){}
@@ -874,7 +875,6 @@
              "<input class='ap-dowchk' type='checkbox' value='"+i+"'"+chk+">" + lbl + "</label>";
     }).join("");
   }
-}
 
   // -- Print Functions -------------------------------------------------------
   function printApptList(list, title, filterDesc) {
