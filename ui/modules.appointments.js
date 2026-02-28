@@ -70,6 +70,13 @@
   function dayNameShort(ymd) {
     return ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][dayOfWeek(ymd)] || "";
   }
+  function weekStartForDate(ymd) {
+    var d = new Date(ymd + "T12:00:00");
+    var dow = d.getDay(); // 0=Sun..6=Sat
+    var daysToMon = dow === 0 ? 6 : dow - 1;
+    d.setDate(d.getDate() - daysToMon);
+    return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
+  }
   function fmtMoney(v) { return "EUR " + (parseFloat(v) || 0).toFixed(2); }
   function generateToken() {
     var chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; var t = "";
@@ -823,7 +830,7 @@
     try { await apiLoadClinics();   apptLog("refreshAll: clinics="+loadClinics().length); }   catch (e) { apptWarn("refreshAll: clinics failed", e && e.message); }
     try { await apiLoadSchedules(); apptLog("refreshAll: schedules="+loadSchedules().length); } catch (e) { apptWarn("refreshAll: schedules failed", e && e.message); }
     try {
-      if (state && (state.view === "day" || state.view === "month")) {
+      if (state && (state.view === "day" || state.view === "week" || state.view === "month")) {
         if (state.view === "day") {
           await apiLoadAppts({ date: state.currentDate });
         } else {
@@ -1055,6 +1062,22 @@
       // ---- Schedule cascade hint ----
       ".ap-cascade-hint{font-size:11px;color:rgba(255,157,67,.8);background:rgba(255,157,67,.08);border:1px solid rgba(255,157,67,.2);border-radius:8px;padding:6px 10px;margin-top:4px;}" +
       ".ap-booked-badge{display:inline-block;background:rgba(255,90,122,.18);border:1px solid rgba(255,90,122,.4);color:#ff8ca4;border-radius:999px;font-size:10px;font-weight:900;padding:2px 8px;margin-left:6px;}" +
+
+      // ---- WEEK VIEW ----
+      ".ap-week-outer{overflow-x:auto;}" +
+      ".ap-week-wrap{display:flex;min-width:700px;position:relative;}" +
+      ".ap-week-axis{width:54px;flex-shrink:0;position:relative;}" +
+      ".ap-week-cols{display:flex;flex:1;position:relative;border-radius:0 0 10px 10px;overflow:hidden;}" +
+      ".ap-week-col{flex:1;min-width:100px;border-right:1px solid rgba(255,255,255,.06);position:relative;display:flex;flex-direction:column;}" +
+      ".ap-week-col:last-child{border-right:none;}" +
+      ".ap-week-col-hdr{position:sticky;top:0;z-index:10;background:rgba(12,20,32,.97);border-bottom:1px solid rgba(255,255,255,.1);padding:7px 6px;text-align:center;}" +
+      ".ap-week-col-hdr .wk-dn{font-size:11px;font-weight:900;color:rgba(233,238,247,.5);text-transform:uppercase;letter-spacing:.6px;}" +
+      ".ap-week-col-hdr .wk-dd{font-size:18px;font-weight:900;color:var(--text,#e9eef7);line-height:1.1;}" +
+      ".ap-week-col-hdr.today .wk-dd{color:#3aa0ff;background:rgba(58,160,255,.18);border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;margin:0 auto;}" +
+      ".ap-week-col-hdr.has-sched{border-top:2px solid rgba(58,160,255,.5);}" +
+      ".ap-week-col-hdr.weekend .wk-dn{color:rgba(255,157,67,.7);}" +
+      ".ap-week-col-body{position:relative;flex:1;}" +
+      ".ap-week-detail-panel{margin-top:12px;}" +
 
       // ---- Responsive ----
       "@media(max-width:980px){.ap-detail-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.ap-kv.wide{grid-column:1/-1;}.ap-kv.half{grid-column:1/-1;}}" +
@@ -2150,9 +2173,10 @@
   //  STATE
   // ============================================================
   var state = {
-    view:           "month",    // "month" | "day" | "list" | "waitlist"
+    view:           "month",    // "month" | "week" | "day" | "list" | "waitlist"
     currentDate:    todayYmd(),
     currentMonth:   todayYmd().slice(0, 7),   // "YYYY-MM"
+    currentWeekStart: weekStartForDate(todayYmd()), // Monday of current week
     filterDoctorId: "",
     filterClinicId: "",
     filterStatus:   "",
@@ -2352,6 +2376,7 @@
       "  <div class='ap-controls'>" +
       "    <div class='ap-tabs'>" +
       "      <button class='ap-tab" + (state.view === "month"    ? " active" : "") + "' data-view='month'    type='button'>📅 Month</button>" +
+      "      <button class='ap-tab" + (state.view === "week"     ? " active" : "") + "' data-view='week'     type='button'>🗓 Week</button>" +
       "      <button class='ap-tab" + (state.view === "day"      ? " active" : "") + "' data-view='day'      type='button'>🕐 Day Timeline</button>" +
       "      <button class='ap-tab" + (state.view === "list"     ? " active" : "") + "' data-view='list'     type='button'>📋 All Appointments</button>" +
       "      <button class='ap-tab" + (state.view === "waitlist" ? " active" : "") + "' data-view='waitlist' type='button'>⏳ Waiting List <span class='ap-wl-badge' id='ap-wl-badge'>0</span></button>" +
@@ -2425,6 +2450,30 @@
       "</div>" +
 
       // ================================================================
+      //  WEEK VIEW
+      // ================================================================
+      "<div id='ap-view-week' style='display:" + (state.view === "week" ? "block" : "none") + ";'>" +
+      "  <div class='ap-card'>" +
+      "    <div class='ap-card-head'>" +
+      "      <div class='ap-nav'>" +
+      "        <button class='ap-nav-btn' id='ap-week-prev'  type='button'>◀</button>" +
+      "        <div><div class='ap-nav-date' id='ap-week-label'></div><div class='ap-nav-sub' id='ap-week-sub'></div></div>" +
+      "        <button class='ap-nav-btn' id='ap-week-next'  type='button'>▶</button>" +
+      "        <button class='ap-nav-btn' id='ap-week-today' type='button' style='font-size:11px;padding:5px 8px;'>Today</button>" +
+      "      </div>" +
+      "      <div class='right'>" +
+      "        <button class='eikon-btn' id='ap-week-print' type='button'>🖨 Print Week</button>" +
+      "      </div>" +
+      "    </div>" +
+      "    <div id='ap-week-timeline'></div>" +
+      "  </div>" +
+      "  <div class='ap-card ap-week-detail-panel' id='ap-week-detail' style='display:none;'>" +
+      "    <div class='ap-card-head'><h3 id='ap-week-detail-title'>Appointment Details</h3><div class='right' id='ap-week-detail-actions'></div></div>" +
+      "    <div id='ap-week-detail-body'></div>" +
+      "  </div>" +
+      "</div>" +
+
+      // ================================================================
       //  LIST VIEW
       // ================================================================
       "<div id='ap-view-list' style='display:" + (state.view === "list" ? "block" : "none") + ";'>" +
@@ -2491,11 +2540,18 @@
 
     // ---- DOM refs ----
     var viewMonthEl   = E.q("#ap-view-month",    mount);
+    var viewWeekEl    = E.q("#ap-view-week",     mount);
     var viewDayEl     = E.q("#ap-view-day",      mount);
     var viewListEl    = E.q("#ap-view-list",     mount);
     var viewWlEl      = E.q("#ap-view-waitlist", mount);
     var wlBadge       = E.q("#ap-wl-badge",      mount);
     var lastRefreshEl = E.q("#ap-last-refresh",  mount);
+
+    var weekTimeline      = E.q("#ap-week-timeline",      mount);
+    var weekDetailCard    = E.q("#ap-week-detail",        mount);
+    var weekDetailTitle   = E.q("#ap-week-detail-title",  mount);
+    var weekDetailBody    = E.q("#ap-week-detail-body",   mount);
+    var weekDetailActions = E.q("#ap-week-detail-actions",mount);
 
     var dayLabel        = E.q("#ap-day-label",         mount);
     var daySub          = E.q("#ap-day-sub",           mount);
@@ -2537,11 +2593,13 @@
       apptLog("switchView", v);
       state.view = v;
       viewMonthEl.style.display   = v === "month"    ? "block" : "none";
+      viewWeekEl.style.display    = v === "week"     ? "block" : "none";
       viewDayEl.style.display     = v === "day"      ? "block" : "none";
       viewListEl.style.display    = v === "list"     ? "block" : "none";
       viewWlEl.style.display      = v === "waitlist" ? "block" : "none";
       mount.querySelectorAll(".ap-tab").forEach(function (t) { t.classList.toggle("active", t.getAttribute("data-view") === v); });
       if (v === "month")    renderMonth();
+      if (v === "week")     renderWeek();
       if (v === "day")      renderDay();
       if (v === "list")     renderListTable();
       if (v === "waitlist") renderWlTable();
@@ -2571,6 +2629,7 @@
         if (gfDr) { var prevDr = gfDr.value; gfDr.innerHTML = buildDoctorOptions("", "any"); gfDr.value = prevDr || state.filterDoctorId; }
         if (gfCl) { var prevCl = gfCl.value; gfCl.innerHTML = buildClinicOptions("", "any"); gfCl.value = prevCl || state.filterClinicId; }
         if (state.view === "month")    renderMonth();
+        if (state.view === "week")     renderWeek();
         if (state.view === "day")      renderDay();
         if (state.view === "list")     renderListTable();
         if (state.view === "waitlist") renderWlTable();
@@ -2982,6 +3041,239 @@
     }
 
     // ================================================================
+    //  RENDER: WEEK VIEW
+    // ================================================================
+    function renderWeek() {
+      try {
+        var weekStart = state.currentWeekStart;
+        var today     = todayYmd();
+
+        // Build the 7 day dates (Mon..Sun)
+        var weekDays = [];
+        for (var di = 0; di < 7; di++) weekDays.push(ymdAddDays(weekStart, di));
+
+        // Label: "Mon 24 Feb – Sun 2 Mar 2026" style
+        var DAY_NAMES_SHORT = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+        var MONTH_NAMES_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+        function dayFmt(ymd) {
+          var p = ymd.split("-");
+          return DAY_NAMES_SHORT[dayOfWeek(ymd)] + " " + parseInt(p[2], 10) + " " + MONTH_NAMES_SHORT[parseInt(p[1], 10) - 1];
+        }
+        var weekEnd = weekDays[6];
+        var wLabel  = dayFmt(weekStart) + " – " + dayFmt(weekEnd) + " " + weekEnd.slice(0, 4);
+        var weekLabelEl = E.q("#ap-week-label", mount);
+        var weekSubEl   = E.q("#ap-week-sub",   mount);
+        if (weekLabelEl) weekLabelEl.textContent = wLabel;
+        if (weekSubEl)   weekSubEl.textContent   = (weekDays.indexOf(today) >= 0) ? "This Week" : "";
+
+        if (!weekTimeline) return;
+        weekTimeline.innerHTML = "";
+
+        var fDr = state.filterDoctorId;
+        var fCl = state.filterClinicId;
+
+        // Gather all schedules across all 7 days to compute unified time range
+        var PX_PER_MIN = 2.0;   // slightly tighter than day view to fit 7 cols
+        var MIN_SLOT_PX = 22;
+        var rangeStartMin = 24 * 60; var rangeEndMin = 0;
+        var daySchedsMap = {}; // ymd → filtered schedules
+        weekDays.forEach(function (ymd) {
+          var scheds = getSchedulesForDate(ymd);
+          if (fDr) scheds = scheds.filter(function (s) { return String(s.doctorId || "") === fDr; });
+          if (fCl) scheds = scheds.filter(function (s) { return String(s.clinicId || "") === fCl; });
+          daySchedsMap[ymd] = scheds;
+          scheds.forEach(function (s) {
+            var sm = timeToMins(s.startTime || "09:00");
+            var em = timeToMins(s.endTime   || "17:00");
+            rangeStartMin = Math.min(rangeStartMin, sm);
+            rangeEndMin   = Math.max(rangeEndMin,   em);
+          });
+        });
+
+        // Fallback range if no schedules at all
+        if (rangeEndMin <= rangeStartMin) { rangeStartMin = 8 * 60; rangeEndMin = 18 * 60; }
+        rangeStartMin = Math.max(0,       Math.floor(rangeStartMin / 60) * 60);
+        rangeEndMin   = Math.min(24 * 60, Math.ceil(rangeEndMin   / 60) * 60);
+        var totalMins   = rangeEndMin - rangeStartMin;
+        var totalHeight = Math.max(totalMins * PX_PER_MIN, 180);
+
+        // Outer scroll + flex row
+        var outer = document.createElement("div"); outer.className = "ap-week-outer";
+        var wrap  = document.createElement("div"); wrap.className  = "ap-week-wrap";
+        outer.appendChild(wrap);
+
+        // Time axis
+        var axis = document.createElement("div"); axis.className = "ap-week-axis";
+        axis.style.height = (totalHeight + 48) + "px"; // +48 for col header
+        wrap.appendChild(axis);
+
+        // Column container
+        var colsWrap = document.createElement("div"); colsWrap.className = "ap-week-cols";
+        colsWrap.style.position = "relative";
+        wrap.appendChild(colsWrap);
+
+        // Shared hour/half-hour lines
+        var linesDiv = document.createElement("div");
+        linesDiv.style.cssText = "position:absolute;left:0;right:0;top:48px;pointer-events:none;height:" + totalHeight + "px;";
+        colsWrap.appendChild(linesDiv);
+
+        for (var hm = rangeStartMin; hm <= rangeEndMin; hm += 30) {
+          var topPx = (hm - rangeStartMin) * PX_PER_MIN;
+          if (hm % 60 === 0) {
+            var lbl = document.createElement("div"); lbl.className = "ap-time-label";
+            lbl.style.top = (48 + topPx) + "px";
+            lbl.textContent = minsToTime(hm);
+            axis.appendChild(lbl);
+            var hline = document.createElement("div"); hline.className = "ap-hour-line";
+            hline.style.top = topPx + "px";
+            linesDiv.appendChild(hline);
+          } else {
+            var hdash = document.createElement("div"); hdash.className = "ap-half-line";
+            hdash.style.top = topPx + "px";
+            linesDiv.appendChild(hdash);
+          }
+        }
+
+        // One column per day
+        weekDays.forEach(function (ymd, colIdx) {
+          var scheds  = daySchedsMap[ymd];
+          var appts   = apptsForDate(ymd);
+          var isToday = ymd === today;
+          var isWeekend = colIdx >= 5; // Sat=5, Sun=6
+
+          var col = document.createElement("div"); col.className = "ap-week-col";
+
+          // Column header
+          var colHdr = document.createElement("div");
+          var hdrClasses = "ap-week-col-hdr" + (isToday ? " today" : "") + (scheds.length ? " has-sched" : "") + (isWeekend ? " weekend" : "");
+          colHdr.className = hdrClasses;
+          var dayN  = document.createElement("div"); dayN.className  = "wk-dn";
+          dayN.textContent = DAY_NAMES_SHORT[dayOfWeek(ymd)];
+          var dayDd = document.createElement("div"); dayDd.className = "wk-dd";
+          dayDd.textContent = parseInt(ymd.split("-")[2], 10);
+          colHdr.appendChild(dayN); colHdr.appendChild(dayDd);
+          col.appendChild(colHdr);
+
+          // Column body
+          var colBody = document.createElement("div"); colBody.className = "ap-week-col-body";
+          colBody.style.cssText = "position:relative;height:" + totalHeight + "px;";
+          col.appendChild(colBody);
+
+          // Draw schedule sessions + slots
+          scheds.forEach(function (sched) {
+            var drId    = String(sched.doctorId || sched.doctor_id || "");
+            var clId    = String(sched.clinicId || sched.clinic_id || "");
+            var color   = drColor(drId);
+            var schedSt = timeToMins(sched.startTime || "09:00");
+            var schedEt = timeToMins(sched.endTime   || "17:00");
+            var slotDur = parseInt(sched.slotDuration || 10, 10) || 10;
+
+            // Light tinted session band
+            var bandTop  = (schedSt - rangeStartMin) * PX_PER_MIN;
+            var bandH    = (schedEt - schedSt) * PX_PER_MIN;
+            var band = document.createElement("div");
+            band.style.cssText = "position:absolute;left:0;right:0;top:" + bandTop + "px;height:" + bandH + "px;" +
+              "background:" + hexToRgba(color, 0.04) + ";border-left:2px solid " + hexToRgba(color, 0.35) + ";pointer-events:none;";
+            colBody.appendChild(band);
+
+            // Get appts for this doctor+clinic on this day
+            var colAppts = appts.filter(function (a) {
+              if (fDr && String(a.doctorId || "") !== fDr) return false;
+              if (fCl && String(a.clinicId || "") !== fCl) return false;
+              return String(a.doctorId || "") === drId && String(a.clinicId || "") === clId;
+            });
+
+            // Available slots
+            for (var sm2 = schedSt; sm2 < schedEt; sm2 += slotDur) {
+              var slotFree = true;
+              for (var ai = 0; ai < colAppts.length; ai++) {
+                var a2 = colAppts[ai];
+                if (String(a2.status || "").toLowerCase() === "cancelled") continue;
+                var aS = apptStartMins(a2); var aE = aS + apptDuration(a2);
+                if (aS < sm2 + slotDur && aE > sm2) { slotFree = false; break; }
+              }
+              if (!slotFree) continue;
+              var slotTop = (sm2 - rangeStartMin) * PX_PER_MIN;
+              var slotH   = Math.max(slotDur * PX_PER_MIN - 1, MIN_SLOT_PX);
+              var slotEl  = document.createElement("div");
+              slotEl.className = "ap-slot-available";
+              slotEl.style.top = slotTop + "px"; slotEl.style.height = slotH + "px";
+              slotEl.title = "Book " + minsToTime(sm2) + " (" + slotDur + " min)";
+              slotEl.innerHTML = "<span class='ap-slot-time'>" + minsToTime(sm2) + "</span><span class='ap-slot-plus'>+</span>";
+              (function (slotTime, slotDrId, slotClId, slotDate) {
+                slotEl.addEventListener("click", function () {
+                  openApptModal({ date: slotDate, doctorId: slotDrId, clinicId: slotClId, time: slotTime }, function () { refresh(); });
+                });
+              })(minsToTime(sm2), drId, clId, ymd);
+              colBody.appendChild(slotEl);
+            }
+
+            // Appointment blocks
+            colAppts.forEach(function (a) {
+              if (fDr && String(a.doctorId || "") !== fDr) return;
+              if (fCl && String(a.clinicId || "") !== fCl) return;
+              var aStartM = apptStartMins(a);
+              var aDurM   = apptDuration(a);
+              var aEndM   = aStartM + aDurM;
+              if (aEndM <= schedSt || aStartM >= schedEt) return;
+              var blockTop    = (aStartM - rangeStartMin) * PX_PER_MIN;
+              var blockH      = Math.max(aDurM * PX_PER_MIN - 1, MIN_SLOT_PX);
+              var isCancelled = String(a.status || "").toLowerCase() === "cancelled";
+              var isSelected  = state.selectedApptId && String(a.id) === String(state.selectedApptId);
+              var block = document.createElement("div");
+              block.className = "ap-appt-block" + (isCancelled ? " ap-appt-cancelled" : "") + (isSelected ? " selected" : "");
+              block.style.top        = blockTop + "px";
+              block.style.height     = blockH + "px";
+              block.style.background = isCancelled ? "rgba(255,90,122,.15)" : hexToRgba(color, 0.82);
+              block.style.border     = "1px solid " + (isCancelled ? "rgba(255,90,122,.3)" : hexToRgba(color, 1));
+              block.setAttribute("data-id", String(a.id));
+              var inner2 = document.createElement("div"); inner2.className = "ap-appt-inner";
+              inner2.innerHTML =
+                "<div class='ap-appt-name'>" + esc(a.patientName || "-") + "</div>" +
+                (blockH > 36 ? "<div class='ap-appt-meta'>" + esc(a.time || "") + "  " + esc(a.durationMins || "") + "m</div>" : "");
+              block.appendChild(inner2);
+              block.title = a.patientName + " | " + a.time + " (" + a.durationMins + " min) | " + a.status + (a.patientPhone ? " | " + a.patientPhone : "");
+              (function (apptObj) {
+                block.addEventListener("click", function (ev) {
+                  ev.stopPropagation();
+                  state.selectedApptId = String(apptObj.id);
+                  weekTimeline.querySelectorAll(".ap-appt-block").forEach(function (b) { b.classList.remove("selected"); });
+                  block.classList.add("selected");
+                  var fresh = apptById(apptObj.id) || apptObj;
+                  if (weekDetailCard) {
+                    weekDetailCard.style.display = "block";
+                    if (weekDetailTitle) weekDetailTitle.textContent = "Appointment — " + fmtDmy(fresh.date) + " " + (fresh.time || "") + " — " + (fresh.patientName || "");
+                    if (weekDetailBody) weekDetailBody.innerHTML = buildDetailHtml(fresh);
+                    buildDetailActions(fresh, weekDetailCard, weekDetailBody, weekDetailActions, function () { refresh(); });
+                    weekDetailCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                  }
+                });
+              })(a);
+              colBody.appendChild(block);
+            });
+          });
+
+          colsWrap.appendChild(col);
+        });
+
+        weekTimeline.appendChild(outer);
+        updateWlBadge();
+
+        // If there are no schedules at all this week, show a helpful message overlay
+        var hasAnyScheds = weekDays.some(function (ymd) { return daySchedsMap[ymd].length > 0; });
+        if (!hasAnyScheds) {
+          var emp = document.createElement("div"); emp.className = "ap-timeline-empty";
+          emp.textContent = "No scheduled sessions this week. Navigate to another week or add schedules in ⚙ Settings.";
+          weekTimeline.innerHTML = "";
+          weekTimeline.appendChild(emp);
+        }
+      } catch (e) {
+        apptErr("renderWeek crash", e);
+        try { toast("Calendar", "Week view error: " + (e && e.message), "bad"); } catch (e2) {}
+      }
+    }
+
+    // ================================================================
     //  RENDER: LIST TABLE
     // ================================================================
     function renderListTable() {
@@ -3196,6 +3488,46 @@
     });
 
     // ================================================================
+    //  WIRE: WEEK NAV
+    // ================================================================
+    var weekPrev  = E.q("#ap-week-prev",  mount);
+    var weekNext  = E.q("#ap-week-next",  mount);
+    var weekToday = E.q("#ap-week-today", mount);
+    var weekPrint = E.q("#ap-week-print", mount);
+    if (weekPrev) weekPrev.addEventListener("click", function () {
+      state.currentWeekStart = ymdAddDays(state.currentWeekStart, -7);
+      state.selectedApptId = null;
+      if (weekDetailCard) weekDetailCard.style.display = "none";
+      renderWeek();
+    });
+    if (weekNext) weekNext.addEventListener("click", function () {
+      state.currentWeekStart = ymdAddDays(state.currentWeekStart, 7);
+      state.selectedApptId = null;
+      if (weekDetailCard) weekDetailCard.style.display = "none";
+      renderWeek();
+    });
+    if (weekToday) weekToday.addEventListener("click", function () {
+      state.currentWeekStart = weekStartForDate(todayYmd());
+      state.selectedApptId = null;
+      if (weekDetailCard) weekDetailCard.style.display = "none";
+      renderWeek();
+    });
+    if (weekPrint) weekPrint.addEventListener("click", function () {
+      var ws = state.currentWeekStart;
+      var weekAppts = [];
+      for (var d = 0; d < 7; d++) {
+        var dYmd = ymdAddDays(ws, d);
+        weekAppts = weekAppts.concat(apptsForDate(dYmd));
+      }
+      var fDr = state.filterDoctorId; var fCl = state.filterClinicId;
+      if (fDr) weekAppts = weekAppts.filter(function (a) { return a.doctorId === fDr; });
+      if (fCl) weekAppts = weekAppts.filter(function (a) { return a.clinicId === fCl; });
+      var DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+      var weekLabel2 = "Week of " + fmtDmy(ws) + " – " + fmtDmy(ymdAddDays(ws, 6));
+      printApptList(weekAppts, weekLabel2);
+    });
+
+    // ================================================================
     //  WIRE: DAY NAV
     // ================================================================
     var dayPrev  = E.q("#ap-day-prev",  mount);
@@ -3300,6 +3632,7 @@
     // ================================================================
     apptLog("render: initial view="+state.view);
     if (state.view === "month")    renderMonth();
+    else if (state.view === "week") renderWeek();
     else if (state.view === "day") renderDay();
     else if (state.view === "list") renderListTable();
     else if (state.view === "waitlist") renderWlTable();
