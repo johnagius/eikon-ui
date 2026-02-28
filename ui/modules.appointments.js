@@ -333,25 +333,76 @@
     if (/^2\d{7}$/.test(p)) return "356" + p;
     return p.replace(/\D/g, "");
   }
-  function waUrl(phone, message) {
+  // ============================================================
+  //  WHATSAPP OPEN — escapes iframe CSP by injecting into window.top
+  // ============================================================
+  function openWhatsAppLink(phone) {
+    var p = waPhone(phone);
+    if (!p) return;
+    // Build URL — wa.me is the canonical WhatsApp universal link
+    var url = "https://wa.me/" + p;
+    // Strategy: inject a temporary <a> into window.top.document.body so the
+    // navigation originates from the top-level browsing context, bypassing any
+    // Content-Security-Policy or COOP restrictions on the inner frame.
+    try {
+      var topDoc = window.top.document;
+      var a = topDoc.createElement("a");
+      a.href = url;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      a.style.cssText = "position:fixed;left:-9999px;top:-9999px;opacity:0;pointer-events:none;";
+      topDoc.body.appendChild(a);
+      a.click();
+      setTimeout(function () { try { topDoc.body.removeChild(a); } catch (e2) {} }, 1500);
+      apptLog("openWhatsAppLink via window.top", url);
+    } catch (e) {
+      // Cross-origin top frame (unlikely in EIKON) — fall back to current window
+      apptWarn("openWhatsAppLink fallback", e);
+      try {
+        var a2 = document.createElement("a");
+        a2.href = url;
+        a2.target = "_blank";
+        a2.rel = "noopener noreferrer";
+        a2.style.cssText = "position:fixed;left:-9999px;top:-9999px;opacity:0;pointer-events:none;";
+        document.body.appendChild(a2);
+        a2.click();
+        setTimeout(function () { try { document.body.removeChild(a2); } catch (e3) {} }, 1500);
+      } catch (e4) { apptErr("openWhatsAppLink all methods failed", e4); }
+    }
+  }
+
+  function waUrl(phone) {
     var p = waPhone(phone); if (!p) return null;
-    // Use web.whatsapp.com/send directly to avoid COOP redirect issues with wa.me
-    var url = "https://web.whatsapp.com/send?phone=" + p;
-    if (message) url += "&text=" + encodeURIComponent(message);
-    return url;
+    return "https://wa.me/" + p;
   }
   function whatsappBtnHtml(phone, extraStyle) {
     var p = waPhone(phone);
     if (!p || !phone) return "";
-    var url = waUrl(phone);
-    // Use onclick + window.open with noopener,noreferrer to avoid COOP/COEP issues
-    var onclick = "event.stopPropagation();window.open('" + url.replace(/'/g, "\\'") + "','_blank','noopener,noreferrer');return false;";
-    return "<button type='button' class='ap-wa-btn' style='" + (extraStyle || "") + "' " +
-      "title='WhatsApp " + esc(phone) + "' onclick=\"" + onclick + "\">" +
+    // Store the normalised phone on a data attribute; JS listener reads it
+    return "<button type='button' class='ap-wa-btn ap-wa-trigger' data-waphone='" + esc(p) + "' " +
+      "style='" + (extraStyle || "") + "' title='Open WhatsApp for " + esc(phone) + "'>" +
       "<svg width='13' height='13' viewBox='0 0 24 24' fill='currentColor' style='vertical-align:middle;margin-right:3px;flex-shrink:0;'>" +
       "<path d='M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z'/>" +
       "</svg>WhatsApp</button>";
   }
+
+  // Global delegated listener for WhatsApp buttons (avoids inline onclick CSP issues)
+  document.addEventListener("click", function (ev) {
+    var btn = ev.target.closest ? ev.target.closest(".ap-wa-trigger") : null;
+    if (!btn) {
+      // Polyfill for browsers without closest
+      var el = ev.target;
+      while (el && el !== document) {
+        if (el.classList && el.classList.contains("ap-wa-trigger")) { btn = el; break; }
+        el = el.parentNode;
+      }
+    }
+    if (!btn) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    var phone = btn.getAttribute("data-waphone") || "";
+    if (phone) openWhatsAppLink(phone);
+  }, true);
 
   // ============================================================
   //  SCHEDULE-DRIVEN BOOKING HELPERS
