@@ -1425,7 +1425,7 @@
           "</div>";
       }).join("");
 
-      return "<div class='ap-mgmt-grid' id='ap-sc-list'>" + rows + "</div>" +
+      return "<div class='ap-mgmt-grid' id='ap-sc-list' style='max-height:420px;overflow-y:auto;padding-right:4px;'>" + rows + "</div>" +
         "<button class='ap-add-btn' id='ap-sc-add' type='button' style='margin-top:10px;width:100%;'>+ Add Schedule</button>";
     }
 
