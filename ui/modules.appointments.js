@@ -319,6 +319,87 @@
   }
 
   // ============================================================
+  //  WHATSAPP HELPERS
+  // ============================================================
+  function waPhone(raw) {
+    // Normalise phone to international digits only
+    var p = String(raw || "").replace(/[\s\-\(\)\.]/g, "");
+    if (!p) return "";
+    if (p.startsWith("+"))  return p.slice(1).replace(/\D/g, "");
+    if (p.startsWith("00")) return p.slice(2).replace(/\D/g, "");
+    // Malta local numbers (7xxxxxxx or 9xxxxxxx = 8 digits)
+    if (/^[79]\d{7}$/.test(p)) return "356" + p;
+    // European numbers starting 2x (Malta land)
+    if (/^2\d{7}$/.test(p)) return "356" + p;
+    return p.replace(/\D/g, "");
+  }
+  function waUrl(phone, message) {
+    var p = waPhone(phone); if (!p) return null;
+    var url = "https://wa.me/" + p;
+    if (message) url += "?text=" + encodeURIComponent(message);
+    return url;
+  }
+  function whatsappBtnHtml(phone, extraStyle) {
+    var url = waUrl(phone);
+    if (!url || !phone) return "";
+    return "<a href='" + url + "' target='_blank' rel='noopener' class='ap-wa-btn' style='" + (extraStyle || "") + "' " +
+      "title='WhatsApp " + esc(phone) + "' onclick='event.stopPropagation();'>" +
+      "<svg width='13' height='13' viewBox='0 0 24 24' fill='currentColor' style='vertical-align:middle;margin-right:3px;flex-shrink:0;'>" +
+      "<path d='M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z'/>" +
+      "</svg>WhatsApp</a>";
+  }
+
+  // ============================================================
+  //  SCHEDULE-DRIVEN BOOKING HELPERS
+  // ============================================================
+  // Returns clinics that a specific doctor has any schedule at
+  function clinicsForDoctor(doctorId) {
+    if (!doctorId) return loadClinics();
+    var scheds = loadSchedules().filter(function (s) {
+      return !s.cancelled && String(s.doctorId || s.doctor_id || "") === String(doctorId);
+    });
+    var clinicIds = {};
+    scheds.forEach(function (s) { clinicIds[String(s.clinicId || s.clinic_id || "")] = true; });
+    var result = loadClinics().filter(function (c) { return clinicIds[String(c.id)]; });
+    apptLog("clinicsForDoctor", doctorId, "→", result.length, "clinics");
+    return result;
+  }
+
+  // Returns upcoming dates (next daysAhead days from today) where doctor+clinic has a schedule
+  function upcomingScheduledDates(doctorId, clinicId, daysAhead) {
+    daysAhead = daysAhead || 90;
+    var result = [];
+    var today = todayYmd();
+    for (var i = 0; i <= daysAhead; i++) {
+      var d = ymdAddDays(today, i);
+      var scheds = schedulesForDate(d, doctorId, clinicId);
+      if (scheds.length) result.push({ ymd: d, scheds: scheds });
+    }
+    apptLog("upcomingScheduledDates", doctorId, clinicId, "→", result.length, "dates");
+    return result;
+  }
+
+  // Check if a specific shift (doctor+clinic+date) is fully booked (no slots at all)
+  function isShiftFullyBooked(dateKey, doctorId, clinicId) {
+    // Use smallest possible duration (5 min) to check if ANY slot remains
+    var slots = computeAvailableStartTimes(dateKey, doctorId, clinicId, 5);
+    return slots.length === 0;
+  }
+
+  // Build dropdown options for upcoming schedule dates
+  function buildScheduleDateOptions(doctorId, clinicId, selected) {
+    var dates = upcomingScheduledDates(doctorId, clinicId, 90);
+    if (!dates.length) return "<option value=''>No scheduled sessions found</option>";
+    return dates.map(function (item) {
+      var d = item.ymd;
+      var sched = item.scheds[0];
+      var timeRange = sched ? (sched.startTime + " – " + sched.endTime) : "";
+      var label = dayName(d) + " " + fmtDmy(d) + (timeRange ? "  (" + timeRange + ")" : "");
+      return "<option value='" + d + "'" + (d === selected ? " selected" : "") + ">" + label + "</option>";
+    }).join("");
+  }
+
+  // ============================================================
   //  API LAYER
   // ============================================================
   async function apiFetch(path, options) { return E.apiFetch(path, options || {}); }
@@ -731,6 +812,15 @@
       ".ap-sort .car{opacity:.45;font-size:10px;}" +
       ".ap-sort.on .car{opacity:1;}" +
 
+      // ---- WhatsApp Button ----
+      ".ap-wa-btn{display:inline-flex;align-items:center;gap:3px;padding:3px 10px;border-radius:999px;background:#25d366;color:#fff;" +
+      "font-size:11px;font-weight:900;text-decoration:none;cursor:pointer;transition:filter 120ms;white-space:nowrap;vertical-align:middle;border:none;}" +
+      ".ap-wa-btn:hover{filter:brightness(1.12);}" +
+
+      // ---- Schedule cascade hint ----
+      ".ap-cascade-hint{font-size:11px;color:rgba(255,157,67,.8);background:rgba(255,157,67,.08);border:1px solid rgba(255,157,67,.2);border-radius:8px;padding:6px 10px;margin-top:4px;}" +
+      ".ap-booked-badge{display:inline-block;background:rgba(255,90,122,.18);border:1px solid rgba(255,90,122,.4);color:#ff8ca4;border-radius:999px;font-size:10px;font-weight:900;padding:2px 8px;margin-left:6px;}" +
+
       // ---- Responsive ----
       "@media(max-width:980px){.ap-detail-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.ap-kv.wide{grid-column:1/-1;}.ap-kv.half{grid-column:1/-1;}}" +
       "@media(max-width:600px){.ap-detail-grid{grid-template-columns:1fr;}.ap-form-grid{grid-template-columns:1fr;}.ap-form-fee-grid{grid-template-columns:1fr;}.ap-month-day{min-height:60px;}}" +
@@ -1135,27 +1225,78 @@
       doctorId:           a.doctorId            || preDr,
       clinicId:           a.clinicId            || preCl,
       date:               a.date               || preDate,
-      time:               a.time               || "",
+      time:               a.time               || (opts && opts.time) || "",
       durationMins:       a.durationMins        || 30,
       status:             a.status             || "Scheduled",
-      doctorFee:          isEdit ? (a.doctorFee || "")   : "",
-      clinicFee:          isEdit ? (a.clinicFee || "")   : "",
-      medicinesCost:      isEdit ? (a.medicinesCost || "") : "",
+      doctorFee:          a.doctorFee           || "",
+      clinicFee:          a.clinicFee           || "",
+      medicinesCost:      a.medicinesCost       || "",
       medicines:          a.medicines           || "",
       notes:              a.notes              || (wl ? wl.notes : ""),
       cancellationReason: a.cancellationReason  || ""
     };
 
-    var body =
+    // Pre-seed doctor/clinic from opts (e.g. clicked slot on timeline)
+    if (opts && opts.doctorId) init.doctorId = opts.doctorId;
+    if (opts && opts.clinicId) init.clinicId = opts.clinicId;
+    if (opts && opts.date)     init.date     = opts.date;
+
+    // ---- Build form body ----
+    // NEW appointment: cascade doctor → clinic → date (from schedule) → time
+    // EDIT appointment: show all fields including fees/medicines
+
+    var bodyNew =
       "<div class='ap-form-section'>Patient Details</div>" +
       "<div class='ap-form-grid'>" +
       "<div class='eikon-field ap-form-full'><div class='eikon-label'>Patient Name &amp; Surname</div>" +
-      "<input class='ap-input' id='ap-mod-patient' type='text' value='" + esc(init.patientName) + "' placeholder='e.g. Maria Camilleri' style='width:100%;'></div>" +
+      "<input class='ap-input' id='ap-mod-patient' type='text' value='" + esc(init.patientName) + "' placeholder='e.g. Maria Camilleri' style='width:100%;' autocomplete='off'></div>" +
       "<div class='eikon-field'><div class='eikon-label'>ID Card No.</div>" +
       "<input class='ap-input' id='ap-mod-idcard' type='text' value='" + esc(init.patientIdCard) + "' style='width:100%;'></div>" +
       "<div class='eikon-field'><div class='eikon-label'>Phone</div>" +
       "<input class='ap-input' id='ap-mod-phone' type='tel' value='" + esc(init.patientPhone) + "' style='width:100%;'></div>" +
       "</div>" +
+
+      "<div class='ap-form-section' style='margin-top:10px;'>Schedule</div>" +
+      "<div style='font-size:11px;color:rgba(233,238,247,.5);margin-bottom:8px;'>Select a doctor first — the system will show only the clinics, dates and times from that doctor&rsquo;s schedule.</div>" +
+
+      // Step 1: Doctor
+      "<div class='eikon-field'><div class='eikon-label'>1. Doctor</div>" +
+      "<select class='ap-select' id='ap-mod-dr' style='width:100%;'>" +
+        "<option value=''>— Select a doctor —</option>" +
+        loadDoctors().map(function(d){ return "<option value='" + esc(d.id) + "'" + (String(d.id) === String(init.doctorId) ? " selected" : "") + ">" + esc(d.name) + (d.specialty ? " · " + esc(d.specialty) : "") + "</option>"; }).join("") +
+      "</select></div>" +
+
+      // Step 2: Clinic (populated by JS cascade)
+      "<div class='eikon-field' style='margin-top:8px;'><div class='eikon-label'>2. Clinic</div>" +
+      "<select class='ap-select' id='ap-mod-cl' style='width:100%;' disabled>" +
+      "<option value=''>— Select a doctor first —</option></select></div>" +
+
+      // Step 3: Date (populated by JS cascade - only scheduled dates)
+      "<div class='eikon-field' style='margin-top:8px;'><div class='eikon-label'>3. Session Date</div>" +
+      "<select class='ap-select' id='ap-mod-date-sel' style='width:100%;' disabled>" +
+      "<option value=''>— Select a clinic first —</option></select>" +
+      "<div id='ap-mod-date-hint' style='font-size:10px;color:rgba(233,238,247,.4);margin-top:3px;'>Only dates with scheduled sessions are shown.</div></div>" +
+
+      // Step 4: Time (available slots)
+      "<div class='eikon-field' style='margin-top:8px;'><div class='eikon-label'>4. Available Time Slot</div>" +
+      "<select class='ap-select' id='ap-mod-time' style='width:100%;' disabled>" +
+      "<option value=''>— Select a date first —</option></select>" +
+      "<div id='ap-mod-time-hint' style='font-size:10px;color:rgba(233,238,247,.4);margin-top:3px;'>Only unbooked slots shown. Checked live from server.</div></div>" +
+
+      "<div class='eikon-field' style='margin-top:8px;'><div class='eikon-label'>Internal Notes (optional)</div>" +
+      "<textarea class='ap-textarea' id='ap-mod-notes' style='min-height:50px;'>" + esc(init.notes) + "</textarea></div>";
+
+    var bodyEdit =
+      "<div class='ap-form-section'>Patient Details</div>" +
+      "<div class='ap-form-grid'>" +
+      "<div class='eikon-field ap-form-full'><div class='eikon-label'>Patient Name &amp; Surname</div>" +
+      "<input class='ap-input' id='ap-mod-patient' type='text' value='" + esc(init.patientName) + "' style='width:100%;' autocomplete='off'></div>" +
+      "<div class='eikon-field'><div class='eikon-label'>ID Card No.</div>" +
+      "<input class='ap-input' id='ap-mod-idcard' type='text' value='" + esc(init.patientIdCard) + "' style='width:100%;'></div>" +
+      "<div class='eikon-field'><div class='eikon-label'>Phone</div>" +
+      "<input class='ap-input' id='ap-mod-phone' type='tel' value='" + esc(init.patientPhone) + "' style='width:100%;'></div>" +
+      "</div>" +
+
       "<div class='ap-form-section' style='margin-top:10px;'>Appointment Details</div>" +
       "<div class='ap-form-grid'>" +
       "<div class='eikon-field'><div class='eikon-label'>Doctor</div>" +
@@ -1167,21 +1308,20 @@
       "<div class='eikon-field'><div class='eikon-label'>Duration (min)</div>" +
       "<input class='ap-input' id='ap-mod-dur' type='number' min='5' max='180' step='5' value='" + esc(init.durationMins) + "' style='width:100%;'></div>" +
       "</div>" +
-      "<div class='eikon-field' style='margin-top:8px;'>" +
-      "<div class='eikon-label'>Available Time Slot</div>" +
-      "<select class='ap-select' id='ap-mod-time' style='width:100%;'><option value=''>Select doctor, clinic and date first</option></select>" +
-      "<div id='ap-mod-time-hint' style='font-size:10px;color:rgba(233,238,247,.45);margin-top:3px;'>Slots are based on doctor schedule. Only available (un-booked) slots are shown. Slots refresh from server to prevent double-booking.</div>" +
-      "</div>" +
+      "<div class='eikon-field' style='margin-top:8px;'><div class='eikon-label'>Time Slot</div>" +
+      "<select class='ap-select' id='ap-mod-time' style='width:100%;'><option value=''>Loading slots...</option></select>" +
+      "<div id='ap-mod-time-hint' style='font-size:10px;color:rgba(233,238,247,.45);margin-top:3px;'></div></div>" +
       "<div class='ap-form-grid' style='margin-top:8px;'>" +
       "<div class='eikon-field'><div class='eikon-label'>Status</div>" +
       "<select class='ap-select' id='ap-mod-status' style='width:100%;'>" + buildStatusOptions(init.status, APPT_STATUSES) + "</select></div>" +
       "<div></div></div>" +
+
       "<div class='ap-form-section' style='margin-top:10px;'>Fees &amp; Medicines</div>" +
       "<div class='ap-form-fee-grid'>" +
       "<div class='eikon-field'><div class='eikon-label'>Doctor Fee (EUR)</div>" +
-      "<input class='ap-input' id='ap-mod-drfee' type='number' step='0.01' min='0' value='" + esc(init.doctorFee) + "' placeholder='Auto from doctor' style='width:100%;'></div>" +
+      "<input class='ap-input' id='ap-mod-drfee' type='number' step='0.01' min='0' value='" + esc(init.doctorFee) + "' placeholder='0.00' style='width:100%;'></div>" +
       "<div class='eikon-field'><div class='eikon-label'>Clinic Fee (EUR)</div>" +
-      "<input class='ap-input' id='ap-mod-clfee' type='number' step='0.01' min='0' value='" + esc(init.clinicFee) + "' placeholder='Auto from clinic' style='width:100%;'></div>" +
+      "<input class='ap-input' id='ap-mod-clfee' type='number' step='0.01' min='0' value='" + esc(init.clinicFee) + "' placeholder='0.00' style='width:100%;'></div>" +
       "<div class='eikon-field'><div class='eikon-label'>Medicines Cost (EUR)</div>" +
       "<input class='ap-input' id='ap-mod-medfee' type='number' step='0.01' min='0' value='" + esc(init.medicinesCost) + "' placeholder='0.00' style='width:100%;'></div>" +
       "</div>" +
@@ -1194,71 +1334,103 @@
       "<div class='eikon-label'>Cancellation Reason</div>" +
       "<input class='ap-input' id='ap-mod-cancelreason' type='text' value='" + esc(init.cancellationReason) + "' style='width:100%;'></div>";
 
+    var body = isEdit ? bodyEdit : bodyNew;
+
     E.modal.show(isEdit ? "Edit Appointment" : "New Appointment", body, [
       { label: "Cancel", onClick: async function () { E.modal.hide(); } },
       { label: isEdit ? "Save Changes" : "Create Appointment", primary: true, onClick: async function () {
         try {
           var patient = ((E.q("#ap-mod-patient") || {}).value || "").trim();
           if (!patient) throw new Error("Patient name is required.");
-          var date = ((E.q("#ap-mod-date") || {}).value || "").trim();
-          if (!isYmd(date)) throw new Error("Please enter a valid date.");
-          var drId = ((E.q("#ap-mod-dr") || {}).value || "").trim();
-          if (!drId) throw new Error("Please select a doctor.");
-          var clId = ((E.q("#ap-mod-cl") || {}).value || "").trim();
-          if (!clId) throw new Error("Please select a clinic.");
-          var time = ((E.q("#ap-mod-time") || {}).value || "").trim();
-          if (!time) throw new Error("Please select an available time slot.");
-          var durM = parseInt(((E.q("#ap-mod-dur") || {}).value || "30"), 10) || 30;
-          if (durM < 5) durM = 5;
 
-          // CRITICAL: Fetch latest appointments from server to prevent double-booking
-          apptLog("appt-modal:submit - fetching fresh appointments to check for double-booking", {date, drId, clId, time});
+          var drId, clId, date, time, durM, status;
+
+          if (isEdit) {
+            date = ((E.q("#ap-mod-date") || {}).value || "").trim();
+            if (!isYmd(date)) throw new Error("Please enter a valid date.");
+            drId = ((E.q("#ap-mod-dr") || {}).value || "").trim();
+            if (!drId) throw new Error("Please select a doctor.");
+            clId = ((E.q("#ap-mod-cl") || {}).value || "").trim();
+            if (!clId) throw new Error("Please select a clinic.");
+            time = ((E.q("#ap-mod-time") || {}).value || "").trim();
+            if (!time) throw new Error("Please select a time slot.");
+            durM = parseInt(((E.q("#ap-mod-dur") || {}).value || "30"), 10) || 30;
+            if (durM < 5) durM = 5;
+            status = ((E.q("#ap-mod-status") || {}).value || "Scheduled").trim();
+          } else {
+            drId = ((E.q("#ap-mod-dr") || {}).value || "").trim();
+            if (!drId) throw new Error("Please select a doctor.");
+            clId = ((E.q("#ap-mod-cl") || {}).value || "").trim();
+            if (!clId) throw new Error("Please select a clinic.");
+            var dateSel = E.q("#ap-mod-date-sel");
+            date = dateSel ? (dateSel.value || "").trim() : "";
+            if (!isYmd(date)) throw new Error("Please select a session date.");
+            time = ((E.q("#ap-mod-time") || {}).value || "").trim();
+            if (!time) throw new Error("Please select an available time slot.");
+            // Derive duration from schedule slot duration
+            var sched = schedulesForDate(date, drId, clId)[0];
+            durM = sched ? (parseInt(sched.slotDuration || 10, 10) || 10) : 10;
+            status = "Scheduled";
+          }
+
+          // CRITICAL: Fetch latest from server to prevent double-booking
+          apptLog("appt-modal:submit - fetching fresh appointments to check for double-booking", {date: date, drId: drId, clId: clId, time: time});
           await ensureSchedulesLoaded();
           var latestAppts = await apiLoadAppts({ date: date });
           saveAppointments(date, latestAppts);
           var slotsNow = computeAvailableStartTimes(date, drId, clId, durM);
           apptLog("appt-modal:submit - available slots after fresh check", slotsNow.length, "slots for time:", time);
 
-          if (!slotsNow.length) {
-            toast("Fully Booked", "No available slots for this doctor/clinic/date. Patient added to waiting list.", "bad", 5000);
-            await apiCreateWaitlist({ patientName: patient, patientPhone: ((E.q("#ap-mod-phone") || {}).value || "").trim(), doctorId: drId, clinicId: clId, notes: "Auto-added: no slots available on " + date });
+          if (!isEdit && !slotsNow.length) {
+            toast("Fully Booked", "This session is now fully booked. Patient added to waiting list.", "bad", 5000);
+            await apiCreateWaitlistEntry({
+              patientName: patient,
+              patientIdCard: ((E.q("#ap-mod-idcard") || {}).value || "").trim(),
+              patientPhone: ((E.q("#ap-mod-phone") || {}).value || "").trim(),
+              doctorId: drId, clinicId: clId,
+              preferredDates: date, flexibility: "Urgent",
+              notes: "Auto-added: session " + date + " was fully booked at time of booking."
+            });
             await refreshAll("waitlist-auto");
             E.modal.hide();
             return;
           }
 
           if (isEdit) {
-            // When editing, the original slot IS valid (it belongs to this appointment)
-            // But if time changed, validate new time
-            var origTime = String(init.time || "");
-            if (time !== origTime && slotsNow.indexOf(time) < 0) {
-              throw new Error("Selected time slot is no longer available (booked by someone else). Please choose another slot.");
+            if (time !== String(init.time || "") && slotsNow.indexOf(time) < 0) {
+              throw new Error("Selected time slot is no longer available. Please choose another.");
             }
           } else {
             if (slotsNow.indexOf(time) < 0) {
-              throw new Error("This time slot was just taken by another booking. Please choose another slot.");
+              throw new Error("This slot was just taken by another booking. Please choose another.");
             }
           }
 
-          var df = parseFloat((E.q("#ap-mod-drfee") || {}).value || "") || 0;
-          var cf = parseFloat((E.q("#ap-mod-clfee") || {}).value || "") || 0;
-          var mf = parseFloat((E.q("#ap-mod-medfee") || {}).value || "") || 0;
-          var status = ((E.q("#ap-mod-status") || {}).value || "Scheduled").trim();
           var payload = {
-            patientName: patient, patientIdCard: ((E.q("#ap-mod-idcard") || {}).value || "").trim(),
-            patientPhone: ((E.q("#ap-mod-phone") || {}).value || "").trim(),
-            doctorId: drId, clinicId: clId, date: date, time: time, durationMins: durM,
-            status: status, doctorFee: df, clinicFee: cf,
-            medicines: ((E.q("#ap-mod-meds") || {}).value || "").trim(), medicinesCost: mf,
-            notes: ((E.q("#ap-mod-notes") || {}).value || "").trim(),
-            cancellationReason: status === "Cancelled" ? ((E.q("#ap-mod-cancelreason") || {}).value || "").trim() : ""
+            patientName: patient,
+            patientIdCard: ((E.q("#ap-mod-idcard") || {}).value || "").trim(),
+            patientPhone:  ((E.q("#ap-mod-phone")  || {}).value || "").trim(),
+            doctorId: drId, clinicId: clId, date: date, time: time, durationMins: durM, status: status,
+            notes: ((E.q("#ap-mod-notes") || {}).value || "").trim()
           };
+
+          if (isEdit) {
+            var df = parseFloat((E.q("#ap-mod-drfee")  || {}).value || "") || 0;
+            var cf = parseFloat((E.q("#ap-mod-clfee")  || {}).value || "") || 0;
+            var mf = parseFloat((E.q("#ap-mod-medfee") || {}).value || "") || 0;
+            payload.doctorFee      = df;
+            payload.clinicFee      = cf;
+            payload.medicinesCost  = mf;
+            payload.medicines      = ((E.q("#ap-mod-meds") || {}).value || "").trim();
+            payload.cancellationReason = status === "Cancelled" ? ((E.q("#ap-mod-cancelreason") || {}).value || "").trim() : "";
+          }
+
           if (isEdit) {
             await apiUpdateAppt(a.id, payload);
             toast("Saved", "Appointment updated.", "good");
           } else {
             var res = await apiCreateAppt(payload);
-            toast("Created", "Appointment created. Token: " + (res && res.token ? res.token : ""), "good", 4000);
+            toast("Created", "Appointment booked! Token: " + (res && res.token ? res.token : ""), "good", 4000);
           }
           E.modal.hide();
           await refreshAll("appt-save");
@@ -1270,93 +1442,190 @@
       }}
     ]);
 
-    // Wire up slot refresher and fee auto-fill
+    // Wire up cascade (new appt) or slot refresher (edit)
     setTimeout(function () {
       var _slotRefreshPending = false;
-      async function refreshTimeOptions() {
-        try {
-          var date = ((E.q("#ap-mod-date") || {}).value || "").trim();
-          var drId = ((E.q("#ap-mod-dr")   || {}).value || "").trim();
-          var clId = ((E.q("#ap-mod-cl")   || {}).value || "").trim();
-          var dur  = parseInt(((E.q("#ap-mod-dur") || {}).value || "30"), 10) || 30;
-          var sel  = E.q("#ap-mod-time");
-          var hint = E.q("#ap-mod-time-hint");
-          if (!sel) return;
-          if (!date || !drId || !clId) {
-            sel.innerHTML = "<option value=''>Select doctor, clinic and date first</option>";
-            sel.disabled = true; return;
-          }
-          if (_slotRefreshPending) return;
-          _slotRefreshPending = true;
-          sel.disabled = true;
-          sel.innerHTML = "<option value=''>⟳ Fetching available slots from server...</option>";
-          if (hint) hint.textContent = "Fetching live schedule from server to prevent double-booking...";
+
+      // ---- EDIT MODE: standard slot refresher ----
+      if (isEdit) {
+        async function refreshTimeOptions() {
           try {
-            await ensureSchedulesLoaded();
-            // Always fetch LIVE from API - prevents double-booking across browsers
-            var liveAppts = await apiLoadAppts({ date: date });
-            saveAppointments(date, liveAppts);
-            var slots = computeAvailableStartTimes(date, drId, clId, dur);
-            apptLog("refreshTimeOptions", { date, drId, clId, dur, slots: slots.length });
-            if (!slots.length) {
-              var scheds = schedulesForDate(date, drId, clId);
-              if (!scheds.length) {
+            var date = ((E.q("#ap-mod-date") || {}).value || "").trim();
+            var drId = ((E.q("#ap-mod-dr")   || {}).value || "").trim();
+            var clId = ((E.q("#ap-mod-cl")   || {}).value || "").trim();
+            var dur  = parseInt(((E.q("#ap-mod-dur") || {}).value || "30"), 10) || 30;
+            var sel  = E.q("#ap-mod-time");
+            var hint = E.q("#ap-mod-time-hint");
+            if (!sel) return;
+            if (!date || !drId || !clId) { sel.innerHTML = "<option value=''>Select doctor, clinic and date first</option>"; sel.disabled = true; return; }
+            if (_slotRefreshPending) return;
+            _slotRefreshPending = true;
+            sel.disabled = true;
+            sel.innerHTML = "<option value=''>⟳ Loading slots...</option>";
+            try {
+              await ensureSchedulesLoaded();
+              var liveAppts = await apiLoadAppts({ date: date });
+              saveAppointments(date, liveAppts);
+              // Add back the ORIGINAL time so it appears as an option when editing
+              var slots = computeAvailableStartTimes(date, drId, clId, dur);
+              if (init.time && slots.indexOf(init.time) < 0) slots.unshift(init.time);
+              slots = slots.filter(function (v, i, arr) { return arr.indexOf(v) === i; }).sort();
+              apptLog("edit:refreshTimeOptions", { date: date, drId: drId, clId: clId, dur: dur, slots: slots.length });
+              if (!slots.length) {
                 sel.innerHTML = "<option value=''>No schedule defined for this doctor/clinic/date</option>";
-                if (hint) hint.textContent = "⚠ No schedule found. Set up schedules in Settings → Schedules.";
+                if (hint) hint.textContent = "⚠ No schedule found for this combination and date.";
+                sel.disabled = true;
               } else {
-                sel.innerHTML = "<option value=''>No available slots (all booked)</option>";
-                if (hint) hint.textContent = "All slots are booked. Patient will be added to waiting list if you proceed.";
+                sel.innerHTML = slots.map(function (t) { return "<option value='" + t + "'" + (t === init.time ? " selected" : "") + ">" + t + (t === init.time ? " (current)" : "") + "</option>"; }).join("");
+                if (!sel.value) sel.value = init.time || slots[0];
+                sel.disabled = false;
+                if (hint) hint.textContent = slots.length + " slot" + (slots.length === 1 ? "" : "s") + " available (current slot shown).";
               }
-              sel.disabled = true;
-            } else {
-              var prev = String(sel.getAttribute("data-prev") || "");
-              sel.innerHTML = slots.map(function (t) { return "<option value='" + t + "'>" + t + "</option>"; }).join("");
-              if (prev && slots.indexOf(prev) >= 0) sel.value = prev;
-              // If editing, keep original time if still valid
-              if (isEdit && init.time && slots.indexOf(init.time) >= 0) sel.value = init.time;
-              if (!sel.value && slots.length) sel.value = slots[0];
-              sel.disabled = false;
-              if (hint) hint.textContent = slots.length + " available slot" + (slots.length === 1 ? "" : "s") + " loaded live from server.";
-            }
-          } finally { _slotRefreshPending = false; }
-        } catch (ex) {
-          apptWarn("refreshTimeOptions:error", ex);
-          _slotRefreshPending = false;
-          var sel2 = E.q("#ap-mod-time");
-          if (sel2) { sel2.innerHTML = "<option value=''>Error loading slots – please retry</option>"; sel2.disabled = true; }
+            } finally { _slotRefreshPending = false; }
+          } catch (ex) {
+            apptWarn("edit:refreshTimeOptions error", ex);
+            _slotRefreshPending = false;
+            var sel2 = E.q("#ap-mod-time"); if (sel2) { sel2.innerHTML = "<option value=''>Error loading – retry</option>"; sel2.disabled = true; }
+          }
         }
-      }
 
-      function updateTotal() {
-        var df = parseFloat((E.q("#ap-mod-drfee") || {}).value || "") || 0;
-        var cf = parseFloat((E.q("#ap-mod-clfee") || {}).value || "") || 0;
-        var mf = parseFloat((E.q("#ap-mod-medfee") || {}).value || "") || 0;
-        var el = E.q("#ap-mod-total"); if (el) el.textContent = "Total: EUR " + (df + cf + mf).toFixed(2);
-      }
+        function updateTotal() {
+          var df = parseFloat((E.q("#ap-mod-drfee")  || {}).value || "") || 0;
+          var cf = parseFloat((E.q("#ap-mod-clfee")  || {}).value || "") || 0;
+          var mf = parseFloat((E.q("#ap-mod-medfee") || {}).value || "") || 0;
+          var el = E.q("#ap-mod-total"); if (el) el.textContent = "Total: EUR " + (df + cf + mf).toFixed(2);
+        }
 
-      function autoFillFees() {
         var drSel = E.q("#ap-mod-dr"); var clSel = E.q("#ap-mod-cl");
-        var drFeeEl = E.q("#ap-mod-drfee"); var clFeeEl = E.q("#ap-mod-clfee");
-        if (drSel && drFeeEl && !isEdit) { var dr = doctorById(drSel.value); if (dr && dr.defaultFee != null && !drFeeEl.value) drFeeEl.value = dr.defaultFee; }
-        if (clSel && clFeeEl && !isEdit) { var cl = clinicById(clSel.value); if (cl && cl.fee != null && !clFeeEl.value) clFeeEl.value = cl.fee; }
+        var dtEl  = E.q("#ap-mod-date"); var durEl = E.q("#ap-mod-dur");
+        var statusSel = E.q("#ap-mod-status"); var cancelWrap = E.q("#ap-cancel-reason-wrap");
+        if (drSel) drSel.addEventListener("change", refreshTimeOptions);
+        if (clSel) clSel.addEventListener("change", refreshTimeOptions);
+        if (dtEl)  dtEl.addEventListener("change",  refreshTimeOptions);
+        if (durEl) durEl.addEventListener("change",  refreshTimeOptions);
+        ["#ap-mod-drfee","#ap-mod-clfee","#ap-mod-medfee"].forEach(function (id) { var el = E.q(id); if (el) el.addEventListener("input", updateTotal); });
+        if (statusSel && cancelWrap) statusSel.addEventListener("change", function () { cancelWrap.style.display = statusSel.value === "Cancelled" ? "block" : "none"; });
         updateTotal();
+        refreshTimeOptions();
+        return;
       }
 
-      var drSel = E.q("#ap-mod-dr"); var clSel = E.q("#ap-mod-cl");
-      var dtEl = E.q("#ap-mod-date"); var durEl = E.q("#ap-mod-dur");
-      var timeSel = E.q("#ap-mod-time");
-      var statusSel = E.q("#ap-mod-status"); var cancelWrap = E.q("#ap-cancel-reason-wrap");
+      // ---- NEW MODE: cascade doctor → clinic → date → time ----
+      var drSel    = E.q("#ap-mod-dr");
+      var clSel    = E.q("#ap-mod-cl");
+      var dateSel  = E.q("#ap-mod-date-sel");
+      var dateHint = E.q("#ap-mod-date-hint");
+      var timeSel  = E.q("#ap-mod-time");
+      var timeHint = E.q("#ap-mod-time-hint");
 
-      if (drSel) drSel.addEventListener("change", function () { autoFillFees(); refreshTimeOptions(); });
-      if (clSel) clSel.addEventListener("change", function () { autoFillFees(); refreshTimeOptions(); });
-      if (dtEl)  dtEl.addEventListener("change",  function () { refreshTimeOptions(); });
-      if (durEl) durEl.addEventListener("change",  function () { refreshTimeOptions(); });
-      if (timeSel) timeSel.addEventListener("change", function () { timeSel.setAttribute("data-prev", timeSel.value || ""); });
-      ["#ap-mod-drfee","#ap-mod-clfee","#ap-mod-medfee"].forEach(function (id) { var el = E.q(id); if (el) el.addEventListener("input", updateTotal); });
-      if (statusSel && cancelWrap) statusSel.addEventListener("change", function () { cancelWrap.style.display = statusSel.value === "Cancelled" ? "block" : "none"; });
+      function cascadeClinic() {
+        var drId = drSel ? drSel.value : "";
+        if (!clSel) return;
+        if (!drId) {
+          clSel.innerHTML = "<option value=''>— Select a doctor first —</option>";
+          clSel.disabled = true;
+          cascadeDate();
+          return;
+        }
+        var clinics = clinicsForDoctor(drId);
+        if (!clinics.length) {
+          clSel.innerHTML = "<option value=''>No clinics scheduled for this doctor</option>";
+          clSel.disabled = true;
+        } else {
+          clSel.innerHTML = (clinics.length > 1 ? "<option value=''>— Select clinic —</option>" : "") +
+            clinics.map(function (c) {
+              var label = esc(c.name) + (c.locality ? " · " + esc(c.locality) : "");
+              return "<option value='" + esc(c.id) + "'" + (String(c.id) === String(init.clinicId) ? " selected" : "") + ">" + label + "</option>";
+            }).join("");
+          clSel.disabled = false;
+          // If only one clinic or pre-selected, auto-select
+          if (clinics.length === 1) clSel.value = String(clinics[0].id);
+        }
+        cascadeDate();
+      }
 
-      autoFillFees();
-      refreshTimeOptions();
+      function cascadeDate() {
+        var drId = drSel ? drSel.value : "";
+        var clId = clSel ? clSel.value : "";
+        if (!dateSel) return;
+        if (!drId || !clId) {
+          dateSel.innerHTML = "<option value=''>— Select a clinic first —</option>";
+          dateSel.disabled = true;
+          if (dateHint) dateHint.textContent = "Only dates with scheduled sessions are shown.";
+          cascadeTime();
+          return;
+        }
+        var dates = upcomingScheduledDates(drId, clId, 90);
+        if (!dates.length) {
+          dateSel.innerHTML = "<option value=''>No upcoming sessions for this doctor/clinic</option>";
+          dateSel.disabled = true;
+          if (dateHint) dateHint.textContent = "⚠ No scheduled sessions found in the next 90 days.";
+        } else {
+          dateSel.innerHTML = "<option value=''>— Pick a session date —</option>" +
+            dates.map(function (item) {
+              var d = item.ymd;
+              var sched = item.scheds[0];
+              var timeRange = sched ? sched.startTime + " – " + sched.endTime : "";
+              var label = dayName(d) + ", " + fmtDmy(d) + (timeRange ? "   " + timeRange : "");
+              return "<option value='" + d + "'" + (d === init.date ? " selected" : "") + ">" + label + "</option>";
+            }).join("");
+          dateSel.disabled = false;
+          if (init.date) dateSel.value = init.date;
+          if (dates.length === 1) dateSel.value = dates[0].ymd;
+          if (dateHint) dateHint.textContent = dates.length + " upcoming session" + (dates.length === 1 ? "" : "s") + " found.";
+        }
+        cascadeTime();
+      }
+
+      async function cascadeTime() {
+        var drId = drSel ? drSel.value : "";
+        var clId = clSel ? clSel.value : "";
+        var date = dateSel ? dateSel.value : "";
+        if (!timeSel) return;
+        if (!drId || !clId || !isYmd(date)) {
+          timeSel.innerHTML = "<option value=''>— Select a date first —</option>";
+          timeSel.disabled = true;
+          if (timeHint) timeHint.textContent = "Only unbooked slots shown. Checked live from server.";
+          return;
+        }
+        if (_slotRefreshPending) return;
+        _slotRefreshPending = true;
+        timeSel.disabled = true;
+        timeSel.innerHTML = "<option value=''>⟳ Checking availability...</option>";
+        if (timeHint) timeHint.textContent = "Fetching live schedule to prevent double-booking...";
+        try {
+          await ensureSchedulesLoaded();
+          var sched = schedulesForDate(date, drId, clId)[0];
+          var slotDur = sched ? (parseInt(sched.slotDuration || 10, 10) || 10) : 10;
+          var liveAppts = await apiLoadAppts({ date: date });
+          saveAppointments(date, liveAppts);
+          var slots = computeAvailableStartTimes(date, drId, clId, slotDur);
+          apptLog("cascadeTime", { date: date, drId: drId, clId: clId, slots: slots.length });
+          if (!slots.length) {
+            var scheds = schedulesForDate(date, drId, clId);
+            if (!scheds.length) {
+              timeSel.innerHTML = "<option value=''>No schedule on this date</option>";
+              if (timeHint) timeHint.textContent = "⚠ No schedule defined for this combination on this date.";
+            } else {
+              timeSel.innerHTML = "<option value=''>All slots fully booked</option>";
+              if (timeHint) timeHint.innerHTML = "⚠ This session is fully booked. Proceeding will add the patient to the <strong>waiting list</strong> instead.";
+            }
+            timeSel.disabled = true;
+          } else {
+            timeSel.innerHTML = slots.map(function (t) { return "<option value='" + t + "'" + (t === init.time ? " selected" : "") + ">" + t + "</option>"; }).join("");
+            if (!timeSel.value || slots.indexOf(timeSel.value) < 0) timeSel.value = slots[0];
+            timeSel.disabled = false;
+            if (timeHint) timeHint.textContent = slots.length + " slot" + (slots.length === 1 ? "" : "s") + " available · " + slotDur + " min each.";
+          }
+        } finally { _slotRefreshPending = false; }
+      }
+
+      if (drSel)   drSel.addEventListener("change",   function () { cascadeClinic(); });
+      if (clSel)   clSel.addEventListener("change",   function () { cascadeDate(); });
+      if (dateSel) dateSel.addEventListener("change", function () { cascadeTime(); });
+
+      // Initial cascade using pre-seeded values
+      cascadeClinic();
     }, 60);
   }
 
@@ -1365,43 +1634,86 @@
   // ============================================================
   function openWaitlistModal(opts, onSaved) {
     var isEdit = !!(opts && opts.entry);
+    var fromShift = (opts && opts.shift) || null; // { doctorId, clinicId, date }
     var w = (opts && opts.entry) || {};
-    var body =
+
+    // Pre-fill from shift context if provided
+    var prefillDr   = (fromShift && fromShift.doctorId) || w.doctorId || "";
+    var prefillCl   = (fromShift && fromShift.clinicId) || w.clinicId || "";
+    var prefillDate = (fromShift && fromShift.date)     || w.preferredDates || "";
+
+    var shiftBannerHtml = "";
+    if (fromShift) {
+      var shiftDr = doctorById(fromShift.doctorId); var shiftCl = clinicById(fromShift.clinicId);
+      shiftBannerHtml =
+        "<div style='background:rgba(255,157,67,.08);border:1px solid rgba(255,157,67,.25);border-radius:10px;padding:8px 12px;margin-bottom:10px;font-size:12px;color:rgba(255,180,80,.9);'>" +
+        "⏳ Adding to waiting list for <strong>" + esc(shiftDr ? shiftDr.name : "Doctor") + "</strong> at " +
+        "<strong>" + esc(shiftCl ? shiftCl.name : "Clinic") + "</strong>" +
+        (fromShift.date ? " on <strong>" + dayName(fromShift.date) + " " + fmtDmy(fromShift.date) + "</strong>" : "") +
+        " — session fully booked.</div>";
+    }
+
+    var body = shiftBannerHtml +
       "<div class='eikon-field'><div class='eikon-label'>Patient Name &amp; Surname</div>" +
       "<input class='ap-input' id='ap-wlmod-name' type='text' value='" + esc(w.patientName || "") + "' style='width:100%;'></div>" +
-      "<div class='ap-form-grid'>" +
+      "<div class='ap-form-grid' style='margin-top:6px;'>" +
       "<div class='eikon-field'><div class='eikon-label'>ID Card No.</div><input class='ap-input' id='ap-wlmod-id' type='text' value='" + esc(w.patientIdCard || "") + "' style='width:100%;'></div>" +
       "<div class='eikon-field'><div class='eikon-label'>Phone</div><input class='ap-input' id='ap-wlmod-phone' type='tel' value='" + esc(w.patientPhone || "") + "' style='width:100%;'></div>" +
       "</div>" +
-      "<div class='ap-form-grid' style='margin-top:4px;'>" +
-      "<div class='eikon-field'><div class='eikon-label'>Preferred Doctor</div><select class='ap-select' id='ap-wlmod-dr' style='width:100%;'>" + buildDoctorOptions(w.doctorId, "any") + "</select></div>" +
-      "<div class='eikon-field'><div class='eikon-label'>Preferred Clinic</div><select class='ap-select' id='ap-wlmod-cl' style='width:100%;'>" + buildClinicOptions(w.clinicId, "any") + "</select></div>" +
+
+      "<div class='ap-form-section' style='margin-top:10px;'>Doctor &amp; Clinic</div>" +
+
+      // Doctor – locked if coming from a shift
+      "<div class='ap-form-grid' style='margin-top:6px;'>" +
+      "<div class='eikon-field'><div class='eikon-label'>Doctor</div>" +
+      (fromShift && fromShift.doctorId
+        ? "<input class='ap-input' id='ap-wlmod-dr-display' type='text' value='" + esc(doctorById(fromShift.doctorId) ? doctorById(fromShift.doctorId).name : "") + "' disabled style='width:100%;'>" +
+          "<input type='hidden' id='ap-wlmod-dr' value='" + esc(fromShift.doctorId) + "'>"
+        : "<select class='ap-select' id='ap-wlmod-dr' style='width:100%;'>" + buildDoctorOptions(prefillDr, "any") + "</select>") +
       "</div>" +
-      "<div class='eikon-field' style='margin-top:4px;'><div class='eikon-label'>Preferred Dates / Days</div>" +
-      "<input class='ap-input' id='ap-wlmod-dates' type='text' value='" + esc(w.preferredDates || "") + "' placeholder='e.g. Monday mornings, ASAP' style='width:100%;'></div>" +
-      "<div class='eikon-field' style='margin-top:4px;'><div class='eikon-label'>Flexibility</div>" +
+      "<div class='eikon-field'><div class='eikon-label'>Clinic</div>" +
+      (fromShift && fromShift.clinicId
+        ? "<input class='ap-input' id='ap-wlmod-cl-display' type='text' value='" + esc(clinicById(fromShift.clinicId) ? clinicById(fromShift.clinicId).name : "") + "' disabled style='width:100%;'>" +
+          "<input type='hidden' id='ap-wlmod-cl' value='" + esc(fromShift.clinicId) + "'>"
+        : "<select class='ap-select' id='ap-wlmod-cl' style='width:100%;'>" + buildClinicOptions(prefillCl, "any") + "</select>") +
+      "</div></div>" +
+
+      // Date of the session they're waiting for
+      "<div class='eikon-field' style='margin-top:6px;'><div class='eikon-label'>Session Date They're Waiting For</div>" +
+      (fromShift && fromShift.date
+        ? "<input class='ap-input' type='text' value='" + esc(dayName(fromShift.date) + " " + fmtDmy(fromShift.date)) + "' disabled style='width:100%;'>" +
+          "<input type='hidden' id='ap-wlmod-dates' value='" + esc(fromShift.date) + "'>"
+        : "<input class='ap-input' id='ap-wlmod-dates' type='text' value='" + esc(w.preferredDates || "") + "' placeholder='e.g. 2026-03-12, Mondays, ASAP' style='width:100%;'>") +
+      "</div>" +
+
+      "<div class='eikon-field' style='margin-top:6px;'><div class='eikon-label'>Priority</div>" +
       "<select class='ap-select' id='ap-wlmod-flex' style='width:100%;'>" +
-      "<option value='Flexible'" + (w.flexibility === "Flexible" || !w.flexibility ? " selected" : "") + ">Flexible</option>" +
+      "<option value='Urgent'" + ((w.flexibility || (fromShift ? "Urgent" : "")) === "Urgent" ? " selected" : "") + ">Urgent – first available</option>" +
+      "<option value='Flexible'" + ((w.flexibility === "Flexible" && !fromShift) ? " selected" : "") + ">Flexible</option>" +
       "<option value='Fixed'" + (w.flexibility === "Fixed" ? " selected" : "") + ">Fixed dates only</option>" +
-      "<option value='Urgent'" + (w.flexibility === "Urgent" ? " selected" : "") + ">Urgent - first available</option>" +
       "</select></div>" +
-      (isEdit ? "<div class='eikon-field' style='margin-top:4px;'><div class='eikon-label'>Status</div><select class='ap-select' id='ap-wlmod-status' style='width:100%;'>" + buildStatusOptions(w.status || "Waiting", WL_STATUSES) + "</select></div>" : "") +
-      "<div class='eikon-field' style='margin-top:4px;'><div class='eikon-label'>Notes</div>" +
-      "<textarea class='ap-textarea' id='ap-wlmod-notes' style='min-height:55px;'>" + esc(w.notes || "") + "</textarea></div>";
+
+      (isEdit ? "<div class='eikon-field' style='margin-top:6px;'><div class='eikon-label'>Status</div><select class='ap-select' id='ap-wlmod-status' style='width:100%;'>" + buildStatusOptions(w.status || "Waiting", WL_STATUSES) + "</select></div>" : "") +
+
+      "<div class='eikon-field' style='margin-top:6px;'><div class='eikon-label'>Notes</div>" +
+      "<textarea class='ap-textarea' id='ap-wlmod-notes' style='min-height:50px;'>" + esc(w.notes || "") + "</textarea></div>";
 
     E.modal.show(isEdit ? "Edit Waiting List Entry" : "Add to Waiting List", body, [
       { label: "Cancel", onClick: async function () { E.modal.hide(); } },
       { label: isEdit ? "Save Changes" : "Add to Waiting List", primary: true, onClick: async function () {
         var name = ((E.q("#ap-wlmod-name") || {}).value || "").trim();
         if (!name) { toast("Error", "Patient name is required.", "bad"); return; }
+        var drInput = E.q("#ap-wlmod-dr") || E.q("[id='ap-wlmod-dr']");
+        var clInput = E.q("#ap-wlmod-cl") || E.q("[id='ap-wlmod-cl']");
         var payload = {
-          patientName: name, patientIdCard: ((E.q("#ap-wlmod-id") || {}).value || "").trim(),
-          patientPhone: ((E.q("#ap-wlmod-phone") || {}).value || "").trim(),
-          doctorId: ((E.q("#ap-wlmod-dr") || {}).value || "").trim(),
-          clinicId: ((E.q("#ap-wlmod-cl") || {}).value || "").trim(),
-          preferredDates: ((E.q("#ap-wlmod-dates") || {}).value || "").trim(),
-          flexibility: ((E.q("#ap-wlmod-flex") || {}).value || "Flexible").trim(),
-          notes: ((E.q("#ap-wlmod-notes") || {}).value || "").trim()
+          patientName:    name,
+          patientIdCard:  ((E.q("#ap-wlmod-id")    || {}).value || "").trim(),
+          patientPhone:   ((E.q("#ap-wlmod-phone")  || {}).value || "").trim(),
+          doctorId:       (drInput ? drInput.value : "").trim(),
+          clinicId:       (clInput ? clInput.value : "").trim(),
+          preferredDates: ((E.q("#ap-wlmod-dates")  || {}).value || "").trim(),
+          flexibility:    ((E.q("#ap-wlmod-flex")   || {}).value || "Urgent").trim(),
+          notes:          ((E.q("#ap-wlmod-notes")  || {}).value || "").trim()
         };
         if (isEdit) {
           payload.status = ((E.q("#ap-wlmod-status") || {}).value || w.status || "Waiting").trim();
@@ -1484,10 +1796,11 @@
   function buildDetailHtml(a) {
     var dr = doctorById(a.doctorId); var cl = clinicById(a.clinicId);
     var total = computeTotal(a);
+    var waBtn = a.patientPhone ? whatsappBtnHtml(a.patientPhone) : "";
     return "<div class='ap-detail-grid'>" +
       "<div class='ap-kv half'><div class='k'>Patient</div><div class='v'>" + esc(a.patientName || "-") + "</div></div>" +
       "<div class='ap-kv'><div class='k'>ID Card</div><div class='v'>" + esc(a.patientIdCard || "-") + "</div></div>" +
-      "<div class='ap-kv'><div class='k'>Phone</div><div class='v'>" + esc(a.patientPhone || "-") + "</div></div>" +
+      "<div class='ap-kv'><div class='k'>Phone</div><div class='v' style='display:flex;align-items:center;gap:8px;flex-wrap:wrap;'>" + esc(a.patientPhone || "-") + (waBtn ? "&ensp;" + waBtn : "") + "</div></div>" +
       "<div class='ap-kv'><div class='k'>Date</div><div class='v'>" + esc(fmtDmy(a.date)) + "</div></div>" +
       "<div class='ap-kv'><div class='k'>Time</div><div class='v'>" + esc(a.time || "-") + "</div></div>" +
       "<div class='ap-kv'><div class='k'>Duration</div><div class='v'>" + esc(a.durationMins || "-") + " min</div></div>" +
@@ -2069,9 +2382,20 @@
           // Column header
           var colHdr = document.createElement("div"); colHdr.className = "ap-col-header";
           colHdr.style.borderTop = "3px solid " + color;
+
+          // Check if this shift is fully booked
+          var shiftSlots = computeAvailableStartTimes(ymd, drId, clId, parseInt(sched.slotDuration || 10, 10) || 10);
+          var isFullyBooked = shiftSlots.length === 0;
+          var bookedBadge = isFullyBooked ? "<span class='ap-booked-badge'>FULL</span>" : "";
+          var wlBtnHtml = isFullyBooked
+            ? "<button class='ap-col-wl-btn' data-dr='" + esc(drId) + "' data-cl='" + esc(clId) + "' data-date='" + esc(ymd) + "' type='button' " +
+              "style='margin-top:4px;font-size:10px;padding:2px 8px;border-radius:6px;border:1px solid rgba(204,148,255,.4);background:rgba(204,148,255,.1);color:#d4a0ff;cursor:pointer;width:100%;display:block;'>⏳ Add to Waiting List</button>"
+            : "";
+
           colHdr.innerHTML =
-            "<div class='col-dr' style='color:" + color + ";'>" + esc(dr ? dr.name : "Unknown") + "</div>" +
-            "<div class='col-cl'>" + esc(cl ? cl.name : "Unknown") + (cl && cl.locality ? " · " + esc(cl.locality) : "") + "</div>";
+            "<div class='col-dr' style='color:" + color + ";'>" + esc(dr ? dr.name : "Unknown") + bookedBadge + "</div>" +
+            "<div class='col-cl'>" + esc(cl ? cl.name : "Unknown") + (cl && cl.locality ? " · " + esc(cl.locality) : "") + "</div>" +
+            wlBtnHtml;
           col.appendChild(colHdr);
 
           // Column body
@@ -2175,6 +2499,17 @@
           colsWrap.appendChild(col);
         });
 
+        // Wire "Add to Waiting List" buttons on fully-booked columns
+        dayTimeline.querySelectorAll(".ap-col-wl-btn").forEach(function (btn) {
+          btn.addEventListener("click", function (ev) {
+            ev.stopPropagation();
+            var shiftDrId = btn.getAttribute("data-dr");
+            var shiftClId = btn.getAttribute("data-cl");
+            var shiftDate = btn.getAttribute("data-date");
+            openWaitlistModal({ shift: { doctorId: shiftDrId, clinicId: shiftClId, date: shiftDate } }, function () { refresh(); });
+          });
+        });
+
         dayTimeline.appendChild(wrap);
         updateWlBadge();
       } catch (e) {
@@ -2208,7 +2543,11 @@
           tr.appendChild(mkTd(a.time || ""));
           tr.appendChild(mkTd(a.patientName || ""));
           tr.appendChild(mkTd(a.patientIdCard || ""));
-          tr.appendChild(mkTd(a.patientPhone || ""));
+          // Phone column with WhatsApp button
+          var phoneTd = document.createElement("td");
+          phoneTd.style.cssText = "white-space:nowrap;";
+          phoneTd.innerHTML = esc(a.patientPhone || "") + (a.patientPhone ? "&ensp;" + whatsappBtnHtml(a.patientPhone, "font-size:10px;padding:2px 7px;") : "");
+          tr.appendChild(phoneTd);
           tr.appendChild(mkTd(dr ? dr.name : ""));
           tr.appendChild(mkTd(cl ? cl.name : ""));
           var stTd = document.createElement("td"); stTd.appendChild(statusBadge(a.status)); tr.appendChild(stTd);
@@ -2255,7 +2594,11 @@
           function mkTd(txt) { var c = document.createElement("td"); c.textContent = txt; return c; }
           tr.appendChild(mkTd(w.patientName || ""));
           tr.appendChild(mkTd(w.patientIdCard || ""));
-          tr.appendChild(mkTd(w.patientPhone || ""));
+          // Phone with WhatsApp button
+          var wlPhoneTd = document.createElement("td");
+          wlPhoneTd.style.cssText = "white-space:nowrap;";
+          wlPhoneTd.innerHTML = esc(w.patientPhone || "") + (w.patientPhone ? "&ensp;" + whatsappBtnHtml(w.patientPhone, "font-size:10px;padding:2px 7px;") : "");
+          tr.appendChild(wlPhoneTd);
           tr.appendChild(mkTd(dr ? dr.name : "Any"));
           tr.appendChild(mkTd(cl ? cl.name : "Any"));
           tr.appendChild(mkTd(w.preferredDates || ""));
@@ -2282,15 +2625,17 @@
       var titleEl = E.q("#ap-wl-detail-title", mount);
       if (titleEl) titleEl.textContent = "Waiting List — " + w.id + "  " + w.patientName;
       if (wlDetailBody) {
+        var wDr = doctorById(w.doctorId); var wCl = clinicById(w.clinicId);
+        var wWaBtn = w.patientPhone ? whatsappBtnHtml(w.patientPhone) : "";
         wlDetailBody.innerHTML =
           "<div class='ap-detail-grid'>" +
           "<div class='ap-kv half'><div class='k'>Patient</div><div class='v'>" + esc(w.patientName || "-") + "</div></div>" +
           "<div class='ap-kv'><div class='k'>ID Card</div><div class='v'>" + esc(w.patientIdCard || "-") + "</div></div>" +
-          "<div class='ap-kv'><div class='k'>Phone</div><div class='v'>" + esc(w.patientPhone || "-") + "</div></div>" +
-          "<div class='ap-kv'><div class='k'>Doctor Pref.</div><div class='v'>" + esc(dr ? dr.name : "Any") + "</div></div>" +
-          "<div class='ap-kv'><div class='k'>Clinic Pref.</div><div class='v'>" + esc(cl ? cl.name : "Any") + "</div></div>" +
-          "<div class='ap-kv'><div class='k'>Flexibility</div><div class='v'>" + esc(w.flexibility || "-") + "</div></div>" +
-          "<div class='ap-kv wide'><div class='k'>Preferred Dates / Days</div><div class='v'>" + esc(w.preferredDates || "-") + "</div></div>" +
+          "<div class='ap-kv'><div class='k'>Phone</div><div class='v' style='display:flex;align-items:center;gap:8px;flex-wrap:wrap;'>" + esc(w.patientPhone || "-") + (wWaBtn ? "&ensp;" + wWaBtn : "") + "</div></div>" +
+          "<div class='ap-kv'><div class='k'>Doctor</div><div class='v'>" + esc(wDr ? wDr.name : "Any") + "</div></div>" +
+          "<div class='ap-kv'><div class='k'>Clinic</div><div class='v'>" + esc(wCl ? wCl.name : "Any") + "</div></div>" +
+          "<div class='ap-kv'><div class='k'>Priority</div><div class='v'>" + esc(w.flexibility || "-") + "</div></div>" +
+          "<div class='ap-kv wide'><div class='k'>Session / Preferred Date</div><div class='v'>" + esc(w.preferredDates || "-") + "</div></div>" +
           (w.notes ? "<div class='ap-kv wide'><div class='k'>Notes</div><div class='v'>" + esc(w.notes) + "</div></div>" : "") +
           "<div class='ap-kv'><div class='k'>Added</div><div class='v'>" + esc(fmtDmy(w.addedDate || "")) + "</div></div>" +
           "<div class='ap-kv'><div class='k'>Status</div><div class='v'>" + esc(w.status || "Waiting") + "</div></div>" +
