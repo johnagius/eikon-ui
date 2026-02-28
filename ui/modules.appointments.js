@@ -334,40 +334,32 @@
     return p.replace(/\D/g, "");
   }
   // ============================================================
-  //  WHATSAPP OPEN — escapes iframe CSP by injecting into window.top
+  //  WHATSAPP OPEN — uses whatsapp:// OS protocol (bypasses all CSP/COOP)
   // ============================================================
   function openWhatsAppLink(phone) {
     var p = waPhone(phone);
-    if (!p) return;
-    // Build URL — wa.me is the canonical WhatsApp universal link
-    var url = "https://wa.me/" + p;
-    // Strategy: inject a temporary <a> into window.top.document.body so the
-    // navigation originates from the top-level browsing context, bypassing any
-    // Content-Security-Policy or COOP restrictions on the inner frame.
+    if (!p) { toast("WhatsApp", "No phone number available.", "bad"); return; }
+
+    // whatsapp:// is a custom URI scheme registered by WhatsApp Desktop at the OS level.
+    // The browser hands it to the OS directly — no HTTP request is made, so CSP,
+    // COOP, X-Frame-Options and ERR_BLOCKED_BY_RESPONSE headers never apply.
+    var url = "whatsapp://send?phone=" + p;
+    apptLog("openWhatsAppLink via whatsapp:// protocol", url);
+
+    // Create a hidden <a> in THIS document and click it.
+    // Custom protocol anchors always work from inside iframes — browsers exempt
+    // mailto:, tel:, whatsapp:// etc. from frame navigation restrictions.
     try {
-      var topDoc = window.top.document;
-      var a = topDoc.createElement("a");
+      var a = document.createElement("a");
       a.href = url;
-      a.target = "_blank";
-      a.rel = "noopener noreferrer";
+      // No target="_blank" for protocol links — let the OS handle it
       a.style.cssText = "position:fixed;left:-9999px;top:-9999px;opacity:0;pointer-events:none;";
-      topDoc.body.appendChild(a);
+      document.body.appendChild(a);
       a.click();
-      setTimeout(function () { try { topDoc.body.removeChild(a); } catch (e2) {} }, 1500);
-      apptLog("openWhatsAppLink via window.top", url);
-    } catch (e) {
-      // Cross-origin top frame (unlikely in EIKON) — fall back to current window
-      apptWarn("openWhatsAppLink fallback", e);
-      try {
-        var a2 = document.createElement("a");
-        a2.href = url;
-        a2.target = "_blank";
-        a2.rel = "noopener noreferrer";
-        a2.style.cssText = "position:fixed;left:-9999px;top:-9999px;opacity:0;pointer-events:none;";
-        document.body.appendChild(a2);
-        a2.click();
-        setTimeout(function () { try { document.body.removeChild(a2); } catch (e3) {} }, 1500);
-      } catch (e4) { apptErr("openWhatsAppLink all methods failed", e4); }
+      setTimeout(function () { try { document.body.removeChild(a); } catch (e) {} }, 1000);
+    } catch (ex) {
+      apptErr("openWhatsAppLink error", ex);
+      toast("WhatsApp", "Could not open WhatsApp. Is WhatsApp Desktop installed?", "bad", 5000);
     }
   }
 
