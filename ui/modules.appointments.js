@@ -335,18 +335,22 @@
   }
   function waUrl(phone, message) {
     var p = waPhone(phone); if (!p) return null;
-    var url = "https://wa.me/" + p;
-    if (message) url += "?text=" + encodeURIComponent(message);
+    // Use web.whatsapp.com/send directly to avoid COOP redirect issues with wa.me
+    var url = "https://web.whatsapp.com/send?phone=" + p;
+    if (message) url += "&text=" + encodeURIComponent(message);
     return url;
   }
   function whatsappBtnHtml(phone, extraStyle) {
+    var p = waPhone(phone);
+    if (!p || !phone) return "";
     var url = waUrl(phone);
-    if (!url || !phone) return "";
-    return "<a href='" + url + "' target='_blank' rel='noopener' class='ap-wa-btn' style='" + (extraStyle || "") + "' " +
-      "title='WhatsApp " + esc(phone) + "' onclick='event.stopPropagation();'>" +
+    // Use onclick + window.open with noopener,noreferrer to avoid COOP/COEP issues
+    var onclick = "event.stopPropagation();window.open('" + url.replace(/'/g, "\\'") + "','_blank','noopener,noreferrer');return false;";
+    return "<button type='button' class='ap-wa-btn' style='" + (extraStyle || "") + "' " +
+      "title='WhatsApp " + esc(phone) + "' onclick=\"" + onclick + "\">" +
       "<svg width='13' height='13' viewBox='0 0 24 24' fill='currentColor' style='vertical-align:middle;margin-right:3px;flex-shrink:0;'>" +
       "<path d='M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z'/>" +
-      "</svg>WhatsApp</a>";
+      "</svg>WhatsApp</button>";
   }
 
   // ============================================================
@@ -727,9 +731,14 @@
       ".ap-col-header .col-dr{font-size:12px;font-weight:900;color:var(--text,#e9eef7);}" +
       ".ap-col-header .col-cl{font-size:10px;color:rgba(233,238,247,.55);margin-top:1px;}" +
       ".ap-col-body{position:relative;}" +
-      ".ap-slot-available{position:absolute;left:3px;right:3px;border-radius:6px;border:1px dashed rgba(255,255,255,.15);background:rgba(255,255,255,.02);" +
-      "display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background 120ms;font-size:10px;color:rgba(233,238,247,.3);}" +
-      ".ap-slot-available:hover{background:rgba(58,160,255,.12);border-color:rgba(58,160,255,.4);color:rgba(58,160,255,.9);}" +
+      ".ap-slot-available{position:absolute;left:3px;right:3px;border-radius:5px;border:1px dashed rgba(255,255,255,.13);background:rgba(255,255,255,.02);" +
+      "display:flex;align-items:center;justify-content:space-between;padding:0 7px;" +
+      "cursor:pointer;transition:background 120ms,border-color 120ms;overflow:hidden;}" +
+      ".ap-slot-available:hover{background:rgba(58,160,255,.12);border-color:rgba(58,160,255,.5);}" +
+      ".ap-slot-time{font-size:10px;font-weight:800;color:rgba(233,238,247,.35);letter-spacing:.3px;transition:color 120ms;pointer-events:none;}" +
+      ".ap-slot-plus{font-size:14px;font-weight:900;color:rgba(233,238,247,.2);transition:color 120ms;pointer-events:none;}" +
+      ".ap-slot-available:hover .ap-slot-time{color:rgba(58,160,255,.9);}" +
+      ".ap-slot-available:hover .ap-slot-plus{color:rgba(58,160,255,.7);}" +
       ".ap-appt-block{position:absolute;left:3px;right:3px;border-radius:8px;overflow:hidden;cursor:pointer;transition:filter 120ms,box-shadow 120ms;}" +
       ".ap-appt-block:hover{filter:brightness(1.1);box-shadow:0 4px 16px rgba(0,0,0,.35);}" +
       ".ap-appt-block.selected{box-shadow:0 0 0 2px #fff;}" +
@@ -2311,7 +2320,8 @@
         }
 
         // Determine time range
-        var PX_PER_MIN = 1.6;
+        var PX_PER_MIN = 3.2;  // Increased from 1.6 – gives 32px per 10min slot, much more readable
+        var MIN_SLOT_PX = 28;  // Minimum visible height for available slots
         var rangeStartMin = 24 * 60; var rangeEndMin = 0;
         scheds.forEach(function (s) {
           var sm = timeToMins(s.startTime || "09:00");
@@ -2426,14 +2436,15 @@
             if (!slotFree) continue;
 
             var slotTop  = (sm2 - rangeStartMin) * PX_PER_MIN;
-            var slotH    = Math.max(slotDur * PX_PER_MIN - 1, 12);
+            var slotH    = Math.max(slotDur * PX_PER_MIN - 2, MIN_SLOT_PX);
 
             var slotEl = document.createElement("div");
             slotEl.className = "ap-slot-available";
             slotEl.style.top    = slotTop + "px";
             slotEl.style.height = slotH + "px";
             slotEl.title = "Book " + minsToTime(sm2) + " (" + slotDur + " min slot)";
-            slotEl.textContent = slotH > 22 ? ("+ " + minsToTime(sm2)) : "+";
+            // Always show the time in the slot for clarity
+            slotEl.innerHTML = "<span class='ap-slot-time'>" + minsToTime(sm2) + "</span><span class='ap-slot-plus'>+</span>";
 
             (function (slotTime, slotDrId, slotClId) {
               slotEl.addEventListener("click", function () {
@@ -2455,7 +2466,7 @@
             if (aEndM <= schedStartM || aStartM >= schedEndM) return;
 
             var blockTop = (aStartM - rangeStartMin) * PX_PER_MIN;
-            var blockH   = Math.max(aDurM * PX_PER_MIN - 2, 20);
+            var blockH   = Math.max(aDurM * PX_PER_MIN - 2, MIN_SLOT_PX);
             var isCancelled = String(a.status || "").toLowerCase() === "cancelled";
             var isSelected  = state.selectedApptId && String(a.id) === String(state.selectedApptId);
 
@@ -2470,7 +2481,7 @@
             var inner2 = document.createElement("div"); inner2.className = "ap-appt-inner";
             inner2.innerHTML =
               "<div class='ap-appt-name'>" + esc(a.patientName || "-") + "</div>" +
-              (blockH > 38 ? "<div class='ap-appt-meta'>" + esc(a.time || "") + "  " + esc(a.durationMins || "") + "min  " + esc(a.status || "") + "</div>" : "");
+              (blockH > 42 ? "<div class='ap-appt-meta'>" + esc(a.time || "") + "  " + esc(a.durationMins || "") + "min  " + esc(a.status || "") + "</div>" : "");
             block.appendChild(inner2);
             block.title = a.patientName + " | " + a.time + " (" + a.durationMins + " min) | " + a.status + (a.patientPhone ? " | " + a.patientPhone : "");
 
