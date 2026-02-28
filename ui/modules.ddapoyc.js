@@ -920,8 +920,13 @@
 
     async function doDelete(row) {
       if (!ctx) return;
-      var id = row && row.id;
-      if (!id) return;
+      setMsg("", "");
+
+      var id = row && row.id != null ? Number(row.id) : null;
+      if (!id) {
+        setMsg("err", "Invalid entry id.");
+        return;
+      }
 
       var ok = true;
       try {
@@ -931,20 +936,88 @@
       }
       if (!ok) return;
 
+      setMsg("info", "Deleting…");
+      setLoading(true);
+
+      var attempts = [];
+      var data = null;
+
+      async function tryCall(name, path, opts) {
+        try {
+          var out = await apiJson(ctx.win, path, opts || {});
+          attempts.push({ name: name, ok: true, status: 200 });
+          return out;
+        } catch (e) {
+          attempts.push({
+            name: name,
+            ok: false,
+            status: e && e.status != null ? e.status : null,
+            message: e && e.message ? String(e.message) : String(e || "Error")
+          });
+          throw e;
+        }
+      }
+
+      function summarizeAttempts(list) {
+        try {
+          return (list || []).map(function (a) {
+            if (!a) return "";
+            if (a.ok) return a.name + " => ok";
+            var s = a.status != null ? String(a.status) : "ERR";
+            var em = a.message ? String(a.message) : "";
+            return a.name + " => " + s + (em ? " (" + em + ")" : "");
+          }).filter(Boolean).join(" | ");
+        } catch (e) {
+          return "";
+        }
+      }
+
       try {
-        setMsg("", "");
-        setLoading(true);
-        var data = await apiJson(ctx.win, "/dda-poyc/entries/" + encodeURIComponent(String(id)), { method: "DELETE" });
-        if (!data || data.ok !== true)
-          throw new Error(data && data.error ? String(data.error) : "Unexpected response");
+        // Most compatible: POST fixed path (works even if proxies block DELETE)
+        try {
+          data = await tryCall("POST /dda-poyc/entries/delete", "/dda-poyc/entries/delete", {
+            method: "POST",
+            body: JSON.stringify({ id: id })
+          });
+        } catch (ePostFixed) {
+          data = null;
+        }
+
+        // Canonical: DELETE /dda-poyc/entries/:id
+        if (!data) {
+          var url = "/dda-poyc/entries/" + encodeURIComponent(String(id));
+          try {
+            data = await tryCall("DELETE " + url, url, { method: "DELETE" });
+          } catch (eDel) {
+            data = null;
+          }
+        }
+
+        // Fallback: POST /dda-poyc/entries/:id/delete
+        if (!data) {
+          var url2 = "/dda-poyc/entries/" + encodeURIComponent(String(id)) + "/delete";
+          try {
+            data = await tryCall("POST " + url2, url2, { method: "POST" });
+          } catch (ePost) {
+            data = null;
+          }
+        }
+
+        if (!data || data.ok !== true) {
+          throw new Error(data && data.error ? String(data.error) : "Delete failed.");
+        }
+
+        setMsg("ok", "Deleted.");
+        setLoading(false);
         await refresh();
       } catch (e) {
+        setLoading(false);
         var msg = e && e.message ? e.message : String(e || "Error");
         if (e && e.status === 401) msg = "Unauthorized (missing/invalid token).\nLog in again.";
+        var extra = summarizeAttempts(attempts);
+        if (extra) msg += "\n\nDebug: " + extra;
         setMsg("err", msg);
-        warn("delete failed:", e);
-      } finally {
-        setLoading(false);
+        warn("delete failed:", e, { attempts: attempts });
       }
     }
 
