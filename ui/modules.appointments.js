@@ -891,6 +891,22 @@
       ".ap-filter-field{display:flex;flex-direction:column;gap:3px;}" +
       ".ap-filter-field label{font-size:11px;font-weight:900;color:var(--muted,rgba(233,238,247,.6));text-transform:uppercase;letter-spacing:.5px;}" +
 
+      // ---- Schedule day badges & checkboxes ----
+      ".ap-dow-row{display:flex;flex-wrap:wrap;gap:4px;margin-top:2px;}" +
+      ".ap-dow-badge{font-size:10px;font-weight:900;padding:2px 7px;border-radius:5px;letter-spacing:.4px;}" +
+      ".ap-dow-active{background:rgba(58,160,255,.2);border:1px solid rgba(58,160,255,.4);color:#7dc8ff;}" +
+      ".ap-dow-inactive{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);color:rgba(233,238,247,.2);}" +
+      ".ap-dow-oneoff{background:rgba(204,148,255,.15);border:1px solid rgba(204,148,255,.3);color:#d4a0ff;}" +
+      ".ap-dow-checkbox-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}" +
+      ".ap-dow-checkbox-label{display:flex;align-items:center;gap:5px;cursor:pointer;padding:6px 10px;" +
+      "border:1px solid rgba(255,255,255,.1);border-radius:8px;background:rgba(10,16,24,.3);" +
+      "transition:background 100ms,border-color 100ms;user-select:none;}" +
+      ".ap-dow-checkbox-label:hover{background:rgba(58,160,255,.1);border-color:rgba(58,160,255,.3);}" +
+      ".ap-dow-checkbox-label input[type=checkbox]{width:14px;height:14px;accent-color:#3aa0ff;cursor:pointer;flex-shrink:0;}" +
+      ".ap-dow-checkbox-label input[type=checkbox]:checked + .ap-dow-cb-text{color:#7dc8ff;font-weight:900;}" +
+      ".ap-dow-checkbox-label:has(input:checked){background:rgba(58,160,255,.15);border-color:rgba(58,160,255,.45);}" +
+      ".ap-dow-cb-text{font-size:12px;font-weight:800;color:rgba(233,238,247,.7);letter-spacing:.3px;}" +
+
       // ---- Mgmt modals ----
       ".ap-mgmt-grid{display:grid;gap:6px;}" +
       ".ap-mgmt-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid rgba(255,255,255,.07);border-radius:10px;background:rgba(10,16,24,.2);}" +
@@ -1193,82 +1209,231 @@
   // ============================================================
   //  MODALS: SCHEDULE MANAGEMENT
   // ============================================================
+  // ============================================================
+  //  HELPERS — schedule grouping
+  // ============================================================
+  // Group recurring schedules by (doctorId, clinicId, startTime, endTime, slotDuration,
+  // validFrom, validUntil) so multiple days can be shown/edited as one row.
+  function groupSchedules(scheds) {
+    var groups = [];
+    var map = {};
+    scheds.forEach(function (s) {
+      if (s.isOneOff || s.is_one_off) {
+        // One-off schedules are never grouped
+        groups.push({ key: "oo_" + s.id, isOneOff: true, records: [s] });
+        return;
+      }
+      var key = [
+        String(s.doctorId  || s.doctor_id  || ""),
+        String(s.clinicId  || s.clinic_id  || ""),
+        String(s.startTime || s.start_time || ""),
+        String(s.endTime   || s.end_time   || ""),
+        String(s.slotDuration || s.slot_duration || "10"),
+        String(s.validFrom  || s.valid_from  || ""),
+        String(s.validUntil || s.valid_until || "")
+      ].join("|");
+      if (!map[key]) {
+        map[key] = { key: key, isOneOff: false, records: [] };
+        groups.push(map[key]);
+      }
+      map[key].records.push(s);
+    });
+    return groups;
+  }
+
+  // ============================================================
+  //  MODAL: SCHEDULE MANAGEMENT (rewritten)
+  // ============================================================
   function openSchedulesModal(onDone) {
+    var DOW_LABELS  = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+    var DOW_FULL    = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+    // Display order: Mon(1)…Sun(0)
+    var DOW_ORDER   = [1,2,3,4,5,6,0];
+
+    // ── List view ───────────────────────────────────────────────
     function renderBody() {
       var scheds = loadSchedules();
-      var days = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-      var rows = scheds.length ? scheds.map(function (s) {
-        var dr = doctorById(s.doctorId); var cl = clinicById(s.clinicId);
-        var desc = s.isOneOff ? "One-off: " + fmtDmy(s.date) : days[Number(s.dayOfWeek)] + "s" + (s.validFrom ? " from " + fmtDmy(s.validFrom) : "") + (s.validUntil ? " until " + fmtDmy(s.validUntil) : "");
-        return "<div class='ap-mgmt-row'>" +
-          "<div style='flex:1'>" +
-          "<div class='mgmt-name'>" + esc(dr ? dr.name : "Unknown Dr") + " at " + esc(cl ? cl.name : "Unknown Clinic") + "</div>" +
-          "<div class='mgmt-sub'>" + esc(desc) + "  " + esc(s.startTime || "") + "-" + esc(s.endTime || "") + "  Slot: " + esc(s.slotDuration || 10) + "min</div></div>" +
+      var groups = groupSchedules(scheds);
+
+      if (!groups.length) {
+        return "<div style='font-size:12px;color:rgba(233,238,247,.45);padding:8px 0;'>No schedules yet.</div>" +
+          "<button class='ap-add-btn' id='ap-sc-add' type='button' style='margin-top:10px;width:100%;'>+ Add Schedule</button>";
+      }
+
+      var rows = groups.map(function (g) {
+        var s0 = g.records[0];
+        var dr = doctorById(s0.doctorId || s0.doctor_id);
+        var cl = clinicById(s0.clinicId || s0.clinic_id);
+
+        var dayBadges = "";
+        if (g.isOneOff) {
+          dayBadges = "<span class='ap-dow-badge ap-dow-oneoff'>One-off: " + esc(fmtDmy(s0.date || "")) + "</span>";
+        } else {
+          // Collect all days in this group, display in Mon→Sun order
+          var activeDows = {};
+          g.records.forEach(function(r){ activeDows[Number(r.dayOfWeek != null ? r.dayOfWeek : r.day_of_week)] = true; });
+          dayBadges = DOW_ORDER.map(function(d){
+            return activeDows[d]
+              ? "<span class='ap-dow-badge ap-dow-active'>" + DOW_LABELS[d] + "</span>"
+              : "<span class='ap-dow-badge ap-dow-inactive'>" + DOW_LABELS[d] + "</span>";
+          }).join("");
+        }
+
+        var validity = "";
+        if (!g.isOneOff && (s0.validFrom || s0.validUntil || s0.valid_from || s0.valid_until)) {
+          var vf = s0.validFrom || s0.valid_from; var vu = s0.validUntil || s0.valid_until;
+          validity = (vf ? " from " + fmtDmy(vf) : "") + (vu ? " until " + fmtDmy(vu) : "");
+        }
+
+        // Encode group key safely for data attribute
+        var groupKey = esc(g.key);
+
+        return "<div class='ap-mgmt-row' style='flex-direction:column;align-items:flex-start;gap:6px;'>" +
+          "<div style='display:flex;width:100%;align-items:center;gap:8px;'>" +
+          "<div style='flex:1;'>" +
+          "<div class='mgmt-name'>" + esc(dr ? dr.name : "Unknown Dr") + " &rarr; " + esc(cl ? cl.name : "Unknown Clinic") + "</div>" +
+          "<div class='mgmt-sub'>" + esc(s0.startTime || "") + " – " + esc(s0.endTime || "") +
+          "  ·  Slot: " + esc(s0.slotDuration || 10) + " min" +
+          (validity ? "  ·  " + esc(validity) : "") + "</div>" +
+          "</div>" +
           "<div class='mgmt-actions'>" +
-          "<button class='eikon-btn ap-sc-edit' data-id='" + esc(s.id) + "' type='button'>Edit</button>" +
-          "<button class='eikon-btn ap-sc-del'  data-id='" + esc(s.id) + "' type='button' style='color:rgba(255,90,122,.85);'>Delete</button>" +
-          "</div></div>";
-      }).join("") : "<div style='font-size:12px;color:rgba(233,238,247,.45);padding:8px 0;'>No schedules yet.</div>";
+          "<button class='eikon-btn ap-sc-edit' data-gkey='" + groupKey + "' type='button'>Edit</button>" +
+          "<button class='eikon-btn ap-sc-del'  data-gkey='" + groupKey + "' type='button' style='color:rgba(255,90,122,.85);'>Delete</button>" +
+          "</div></div>" +
+          "<div class='ap-dow-row'>" + dayBadges + "</div>" +
+          "</div>";
+      }).join("");
+
       return "<div class='ap-mgmt-grid' id='ap-sc-list'>" + rows + "</div>" +
         "<button class='ap-add-btn' id='ap-sc-add' type='button' style='margin-top:10px;width:100%;'>+ Add Schedule</button>";
     }
-    function showScForm(existing) {
-      var isEdit = !!existing; var s = existing || {};
-      var isOneOff = !!(s.isOneOff || s.is_one_off);
+
+    // ── Form (add or edit a group) ───────────────────────────────
+    // existingGroup = null for new, or a group object for edit
+    function showScForm(existingGroup) {
+      var isEdit   = !!existingGroup;
+      var s0       = isEdit ? existingGroup.records[0] : {};
+      var isOneOff = isEdit ? existingGroup.isOneOff : false;
+
+      // Which days are already set in this group?
+      var checkedDows = {};
+      if (isEdit && !isOneOff) {
+        existingGroup.records.forEach(function(r){
+          var d = r.dayOfWeek != null ? r.dayOfWeek : r.day_of_week;
+          if (d != null) checkedDows[Number(d)] = true;
+        });
+      }
+
+      // Day-of-week checkboxes in Mon→Sun order
+      var dowCheckboxes = DOW_ORDER.map(function(d){
+        var checked = checkedDows[d] ? " checked" : "";
+        return "<label class='ap-dow-checkbox-label'>" +
+          "<input type='checkbox' class='ap-dow-cb' value='" + d + "'" + checked + ">" +
+          "<span class='ap-dow-cb-text'>" + DOW_LABELS[d] + "</span>" +
+          "</label>";
+      }).join("");
+
       var body =
         "<div class='ap-form-grid'>" +
-        "<div class='eikon-field'><div class='eikon-label'>Doctor</div><select class='ap-select' id='ap-scmod-dr' style='width:100%;'>" + buildDoctorOptions(s.doctorId) + "</select></div>" +
-        "<div class='eikon-field'><div class='eikon-label'>Clinic</div><select class='ap-select' id='ap-scmod-cl' style='width:100%;'>" + buildClinicOptions(s.clinicId) + "</select></div>" +
+        "<div class='eikon-field'><div class='eikon-label'>Doctor</div>" +
+        "<select class='ap-select' id='ap-scmod-dr' style='width:100%;'>" + buildDoctorOptions(s0.doctorId) + "</select></div>" +
+        "<div class='eikon-field'><div class='eikon-label'>Clinic</div>" +
+        "<select class='ap-select' id='ap-scmod-cl' style='width:100%;'>" + buildClinicOptions(s0.clinicId) + "</select></div>" +
         "</div>" +
-        "<div class='eikon-field' style='margin-top:8px;'><div class='eikon-label'>Schedule Type</div>" +
+
+        "<div class='eikon-field' style='margin-top:10px;'><div class='eikon-label'>Schedule Type</div>" +
         "<select class='ap-select' id='ap-scmod-type' style='width:100%;'>" +
         "<option value='recurring'" + (!isOneOff ? " selected" : "") + ">Recurring (weekly)</option>" +
-        "<option value='oneoff'" + (isOneOff ? " selected" : "") + ">One-off (specific date)</option>" +
+        "<option value='oneoff'"    + ( isOneOff ? " selected" : "") + ">One-off (specific date)</option>" +
         "</select></div>" +
-        "<div id='ap-scmod-rec' style='margin-top:8px;" + (isOneOff ? "display:none;" : "") + "'>" +
-        "<div class='eikon-field'><div class='eikon-label'>Day of Week</div><select class='ap-select' id='ap-scmod-dow' style='width:100%;'>" + buildDowOptions(s.dayOfWeek != null ? s.dayOfWeek : "") + "</select></div>" +
-        "<div class='ap-form-grid' style='margin-top:8px;'>" +
-        "<div class='eikon-field'><div class='eikon-label'>Valid From (optional)</div><input class='ap-input' id='ap-scmod-vf' type='date' value='" + esc(s.validFrom || "") + "' style='width:100%;'></div>" +
-        "<div class='eikon-field'><div class='eikon-label'>Valid Until (optional)</div><input class='ap-input' id='ap-scmod-vu' type='date' value='" + esc(s.validUntil || "") + "' style='width:100%;'></div>" +
-        "</div></div>" +
-        "<div id='ap-scmod-oo' style='margin-top:8px;" + (!isOneOff ? "display:none;" : "") + "'>" +
-        "<div class='eikon-field'><div class='eikon-label'>Date</div><input class='ap-input' id='ap-scmod-date' type='date' value='" + esc(s.date || "") + "' style='width:100%;'></div></div>" +
-        "<div class='ap-form-grid' style='margin-top:8px;'>" +
-        "<div class='eikon-field'><div class='eikon-label'>Start Time</div><input class='ap-input' id='ap-scmod-start' type='time' value='" + esc(s.startTime || "09:00") + "' style='width:100%;'></div>" +
-        "<div class='eikon-field'><div class='eikon-label'>End Time</div><input class='ap-input' id='ap-scmod-end' type='time' value='" + esc(s.endTime || "17:00") + "' style='width:100%;'></div>" +
+
+        // ── Recurring section ──
+        "<div id='ap-scmod-rec' style='margin-top:10px;" + (isOneOff ? "display:none;" : "") + "'>" +
+        "<div class='eikon-field'><div class='eikon-label'>Days of Week</div>" +
+        "<div class='ap-dow-checkbox-row'>" + dowCheckboxes + "</div>" +
+        "<div style='font-size:11px;color:rgba(233,238,247,.4);margin-top:5px;'>Tick all days this schedule runs. Each day creates its own record automatically.</div>" +
         "</div>" +
-        "<div class='eikon-field' style='margin-top:8px;'><div class='eikon-label'>Slot Duration (minutes)</div>" +
-        "<input class='ap-input' id='ap-scmod-slot' type='number' min='5' max='120' step='5' value='" + esc(s.slotDuration || 10) + "' style='width:100%;'></div>";
+        "<div class='ap-form-grid' style='margin-top:8px;'>" +
+        "<div class='eikon-field'><div class='eikon-label'>Valid From (optional)</div>" +
+        "<input class='ap-input' id='ap-scmod-vf' type='date' value='" + esc(s0.validFrom || s0.valid_from || "") + "' style='width:100%;'></div>" +
+        "<div class='eikon-field'><div class='eikon-label'>Valid Until (optional)</div>" +
+        "<input class='ap-input' id='ap-scmod-vu' type='date' value='" + esc(s0.validUntil || s0.valid_until || "") + "' style='width:100%;'></div>" +
+        "</div></div>" +
+
+        // ── One-off section ──
+        "<div id='ap-scmod-oo' style='margin-top:10px;" + (!isOneOff ? "display:none;" : "") + "'>" +
+        "<div class='eikon-field'><div class='eikon-label'>Date</div>" +
+        "<input class='ap-input' id='ap-scmod-date' type='date' value='" + esc(s0.date || "") + "' style='width:100%;'></div></div>" +
+
+        // ── Times & slot (always visible) ──
+        "<div class='ap-form-grid' style='margin-top:10px;'>" +
+        "<div class='eikon-field'><div class='eikon-label'>Start Time</div>" +
+        "<input class='ap-input' id='ap-scmod-start' type='time' value='" + esc(s0.startTime || s0.start_time || "09:00") + "' style='width:100%;'></div>" +
+        "<div class='eikon-field'><div class='eikon-label'>End Time</div>" +
+        "<input class='ap-input' id='ap-scmod-end' type='time' value='" + esc(s0.endTime || s0.end_time || "17:00") + "' style='width:100%;'></div>" +
+        "</div>" +
+        "<div class='eikon-field' style='margin-top:8px;'><div class='eikon-label'>Appointment Slot Duration (minutes)</div>" +
+        "<input class='ap-input' id='ap-scmod-slot' type='number' min='5' max='120' step='5' value='" + esc(s0.slotDuration || s0.slot_duration || 10) + "' style='width:100%;'></div>";
 
       E.modal.show(isEdit ? "Edit Schedule" : "Add Schedule", body, [
-        { label: "Cancel", onClick: async function () { openSchedulesModal(onDone); } },
+        { label: "Back", onClick: async function () { openSchedulesModal(onDone); } },
         { label: isEdit ? "Save Changes" : "Add Schedule", primary: true, onClick: async function () {
           var drId = ((E.q("#ap-scmod-dr") || {}).value || "").trim();
           var clId = ((E.q("#ap-scmod-cl") || {}).value || "").trim();
           if (!drId) { toast("Error", "Select a doctor.", "bad"); return; }
           if (!clId) { toast("Error", "Select a clinic.", "bad"); return; }
-          var type = ((E.q("#ap-scmod-type") || {}).value || "recurring");
-          var st = ((E.q("#ap-scmod-start") || {}).value || "09:00").trim();
-          var et = ((E.q("#ap-scmod-end") || {}).value || "17:00").trim();
+          var type    = ((E.q("#ap-scmod-type")  || {}).value || "recurring");
+          var st      = ((E.q("#ap-scmod-start") || {}).value || "09:00").trim();
+          var et      = ((E.q("#ap-scmod-end")   || {}).value || "17:00").trim();
           var slotDur = parseInt((E.q("#ap-scmod-slot") || {}).value || "10", 10) || 10;
-          var payload = { doctorId: drId, clinicId: clId, startTime: st, endTime: et, slotDuration: slotDur };
+
           if (type === "oneoff") {
             var oDate = ((E.q("#ap-scmod-date") || {}).value || "").trim();
             if (!isYmd(oDate)) { toast("Error", "Enter a valid date.", "bad"); return; }
-            payload.isOneOff = true; payload.date = oDate;
+            var payload = { doctorId: drId, clinicId: clId, startTime: st, endTime: et,
+              slotDuration: slotDur, isOneOff: true, date: oDate };
+            if (isEdit) {
+              // Delete all records in group then recreate
+              for (var ri = 0; ri < existingGroup.records.length; ri++) {
+                await apiDeleteSchedule(existingGroup.records[ri].id);
+              }
+              await apiCreateSchedule(payload);
+            } else {
+              await apiCreateSchedule(payload);
+            }
           } else {
-            var dow = (E.q("#ap-scmod-dow") || {}).value;
-            if (dow === "" || dow == null) { toast("Error", "Select a day of week.", "bad"); return; }
-            payload.dayOfWeek = parseInt(dow, 10);
-            payload.validFrom  = ((E.q("#ap-scmod-vf") || {}).value || "").trim() || null;
-            payload.validUntil = ((E.q("#ap-scmod-vu") || {}).value || "").trim() || null;
+            // Recurring — collect checked days
+            var cbs = document.querySelectorAll(".ap-dow-cb");
+            var selectedDows = [];
+            cbs.forEach(function(cb){ if (cb.checked) selectedDows.push(parseInt(cb.value, 10)); });
+            if (!selectedDows.length) { toast("Error", "Select at least one day of the week.", "bad"); return; }
+
+            var vf = ((E.q("#ap-scmod-vf") || {}).value || "").trim() || null;
+            var vu = ((E.q("#ap-scmod-vu") || {}).value || "").trim() || null;
+
+            if (isEdit) {
+              // Delete all existing records in this group
+              for (var rj = 0; rj < existingGroup.records.length; rj++) {
+                await apiDeleteSchedule(existingGroup.records[rj].id);
+              }
+            }
+            // Create one record per selected day
+            for (var di = 0; di < selectedDows.length; di++) {
+              await apiCreateSchedule({
+                doctorId: drId, clinicId: clId, startTime: st, endTime: et,
+                slotDuration: slotDur, dayOfWeek: selectedDows[di],
+                validFrom: vf, validUntil: vu
+              });
+            }
           }
-          if (isEdit) await apiUpdateSchedule(s.id, payload); else await apiCreateSchedule(payload);
+
           await refreshAll("schedule-save");
           if (typeof onDone === "function") onDone();
           openSchedulesModal(onDone);
         }}
       ]);
+
+      // Toggle recurring/one-off sections
       setTimeout(function () {
         var typeSel = E.q("#ap-scmod-type");
         var recDiv  = E.q("#ap-scmod-rec");
@@ -1282,20 +1447,44 @@
         }
       }, 60);
     }
+
+    // ── Show list modal ──────────────────────────────────────────
     E.modal.show("Manage Schedules", renderBody(), [
       { label: "Close", onClick: async function () { E.modal.hide(); if (typeof onDone === "function") onDone(); } }
     ]);
+
     setTimeout(function () {
-      var addBtn = E.q("#ap-sc-add"); var list = E.q("#ap-sc-list");
+      var addBtn = E.q("#ap-sc-add");
+      var list   = E.q("#ap-sc-list");
       if (addBtn) addBtn.addEventListener("click", function () { showScForm(null); });
       if (list) {
         list.addEventListener("click", function (ev) {
-          var btn = ev.target; var id = btn.getAttribute("data-id"); if (!id) return;
-          if (btn.classList.contains("ap-sc-edit")) { var s = loadSchedules().filter(function (x) { return String(x.id) === String(id); })[0]; if (s) showScForm(s); }
+          var btn = ev.target;
+          var gkey = btn.getAttribute("data-gkey");
+          if (!gkey) return;
+
+          // Re-build groups to find the right one
+          var groups = groupSchedules(loadSchedules());
+          var group  = null;
+          for (var i = 0; i < groups.length; i++) {
+            if (groups[i].key === gkey) { group = groups[i]; break; }
+          }
+
+          if (btn.classList.contains("ap-sc-edit")) {
+            if (group) showScForm(group);
+          }
           if (btn.classList.contains("ap-sc-del")) {
-            modalConfirm("Delete Schedule", "Delete this schedule?", "Delete", "Cancel").then(async function (ok) {
+            var daysDesc = group && !group.isOneOff
+              ? group.records.map(function(r){ return DOW_FULL[Number(r.dayOfWeek != null ? r.dayOfWeek : r.day_of_week)]; }).join(", ")
+              : "this schedule";
+            modalConfirm("Delete Schedule", "Delete " + daysDesc + "?", "Delete", "Cancel").then(async function (ok) {
               if (!ok) { openSchedulesModal(onDone); return; }
-              await apiDeleteSchedule(id); await refreshAll("schedule-delete");
+              if (group) {
+                for (var ri = 0; ri < group.records.length; ri++) {
+                  await apiDeleteSchedule(group.records[ri].id);
+                }
+              }
+              await refreshAll("schedule-delete");
               if (typeof onDone === "function") onDone();
               openSchedulesModal(onDone);
             });
