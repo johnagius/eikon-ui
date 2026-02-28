@@ -385,6 +385,7 @@
     var monthInput = null;
     var qInput = null;
     var addBtn = null;
+    var refreshBtn = null;
 
     var reportFromInput = null;
     var reportToInput = null;
@@ -396,6 +397,8 @@
     var modalBackdrop = null;
     var modalTitle = null;
     var formEls = null;
+    var modalSaveBtn = null;
+    var modalOnSave = null;
 
     // live search debounce (same behavior as dda-sales)
     var searchTimer = null;
@@ -413,6 +416,7 @@
     function setLoading(v) {
       state.loading = !!v;
       var disabled = state.loading || state.report_loading;
+      if (refreshBtn) refreshBtn.disabled = disabled;
       if (addBtn) addBtn.disabled = disabled;
       if (monthInput) monthInput.disabled = disabled;
 
@@ -754,6 +758,9 @@
     function openModal(title, initial, onSave) {
       if (!ctx) return;
 
+      // IMPORTANT: modal DOM is built once, so we MUST refresh the Save handler each time.
+      modalOnSave = typeof onSave === "function" ? onSave : null;
+
       if (!modalBackdrop) {
         modalBackdrop = el(ctx.doc, "div", { class: "eikon-dda-modal-backdrop" }, []);
         var modal = el(ctx.doc, "div", { class: "eikon-dda-modal" }, []);
@@ -798,20 +805,9 @@
           { style: "display:flex;gap:10px;justify-content:flex-end;margin-top:12px;" },
           []
         );
-        var saveBtn = el(ctx.doc, "button", { class: "eikon-dda-btn", text: "Save" }, []);
-        saveBtn.onclick = async function () {
-          var payload = {};
-          for (var i = 0; i < formEls.length; i++) {
-            var k = formEls[i].key;
-            var v = formEls[i].input.value;
-            payload[k] = v;
-          }
-          // normalize qty
-          if (payload.quantity !== "" && payload.quantity != null) payload.quantity = Number(payload.quantity);
-          if (payload.quantity === "" || payload.quantity == null) delete payload.quantity;
-          await onSave(payload);
-        };
-        footer.appendChild(saveBtn);
+
+        modalSaveBtn = el(ctx.doc, "button", { class: "eikon-dda-btn", text: "Save" }, []);
+        footer.appendChild(modalSaveBtn);
 
         body.appendChild(grid);
         body.appendChild(footer);
@@ -826,6 +822,23 @@
         };
 
         ctx.doc.body.appendChild(modalBackdrop);
+      }
+
+      // Always update Save handler (modal is built once)
+      if (modalSaveBtn) {
+        modalSaveBtn.onclick = async function () {
+          if (!modalOnSave) return;
+          var payload = {};
+          for (var i = 0; i < formEls.length; i++) {
+            var k = formEls[i].key;
+            var v = formEls[i].input.value;
+            payload[k] = v;
+          }
+          // normalize qty
+          if (payload.quantity !== "" && payload.quantity != null) payload.quantity = Number(payload.quantity);
+          if (payload.quantity === "" || payload.quantity == null) delete payload.quantity;
+          await modalOnSave(payload);
+        };
       }
 
       modalTitle.textContent = title;
@@ -972,57 +985,18 @@
       titleRow.appendChild(msgBox);
       layout.appendChild(titleRow);
 
-      // ✅ Single top card (full width): Report controls + Month/Search/New Entry in one neat block
+      // ✅ Top card (full width): match DDA Sales layout (consistent look)
       var topCard = el(ctx.doc, "div", { class: "eikon-dda-card eikon-dda-topcard" }, []);
       var topHead = el(ctx.doc, "div", { class: "eikon-dda-card-head" }, []);
       topHead.appendChild(el(ctx.doc, "h3", { text: "Report & Filters" }, []));
       topCard.appendChild(topHead);
 
-      var topGrid = el(ctx.doc, "div", { class: "eikon-dda-topgrid" }, []);
-
-      // Left: Report controls
-      var left = el(ctx.doc, "div", { style: "min-width:0;" }, []);
-
       reportMsg = el(ctx.doc, "div", { class: "eikon-dda-msg", style: "display:none;" }, []);
-      left.appendChild(reportMsg);
+      topCard.appendChild(reportMsg);
 
-      var reportControls = el(ctx.doc, "div", { class: "eikon-dda-controls" }, []);
-
-      var fromField = el(ctx.doc, "div", { class: "eikon-dda-field", style: "min-width:220px;" }, []);
-      fromField.appendChild(el(ctx.doc, "label", { text: "From" }, []));
-      reportFromInput = el(ctx.doc, "input", { type: "date", value: state.report_from }, []);
-      fromField.appendChild(reportFromInput);
-
-      var toField = el(ctx.doc, "div", { class: "eikon-dda-field", style: "min-width:220px;" }, []);
-      toField.appendChild(el(ctx.doc, "label", { text: "To" }, []));
-      reportToInput = el(ctx.doc, "input", { type: "date", value: state.report_to }, []);
-      toField.appendChild(reportToInput);
-
-      generateBtn = el(ctx.doc, "button", { class: "eikon-dda-btn", text: "Generate", style: "align-self:end;min-width:140px;" }, []);
-      generateBtn.onclick = function () {
-        generateReport();
-      };
-
-      printBtn = el(ctx.doc, "button", { class: "eikon-dda-btn secondary", text: "Print", style: "align-self:end;min-width:120px;" }, []);
-      printBtn.onclick = function () {
-        if (!state.report || state.report.ok !== true) {
-          setReportMsg("err", "No report loaded. Click Generate.");
-          return;
-        }
-        var html = buildPrintableHtml(state.report);
-        openPrintTabWithHtml(html);
-      };
-
-      reportControls.appendChild(fromField);
-      reportControls.appendChild(toField);
-      reportControls.appendChild(generateBtn);
-      reportControls.appendChild(printBtn);
-
-      left.appendChild(reportControls);
-
-      // Right: Month/Search/New Entry
-      var right = el(ctx.doc, "div", { style: "min-width:0;" }, []);
-      var sideControls = el(ctx.doc, "div", { class: "eikon-dda-controls vertical" }, []);
+      var controls = el(ctx.doc, "div", {}, []);
+      var controlsTop = el(ctx.doc, "div", { class: "eikon-dda-controls" }, []);
+      var controlsBottom = el(ctx.doc, "div", { class: "eikon-dda-controls" }, []);
 
       // Month
       var monthField = el(ctx.doc, "div", { class: "eikon-dda-field" }, []);
@@ -1034,25 +1008,24 @@
         refresh();
       };
       monthField.appendChild(monthInput);
+      try { monthField.style.minWidth = "170px"; } catch (e0) {}
 
       // Search (live)
       var qField = el(ctx.doc, "div", { class: "eikon-dda-field" }, []);
       qField.appendChild(el(ctx.doc, "label", { text: "Search" }, []));
-      qInput = el(
-        ctx.doc,
-        "input",
-        {
-          type: "text",
-          value: state.q,
-          placeholder: "Client / ID / medicine / doctor / serial…",
-        },
-        []
-      );
+      qInput = el(ctx.doc, "input", { type: "text", value: state.q, placeholder: "Client / ID / medicine / doctor / serial…" }, []);
       qInput.oninput = function () {
         state.q = String(qInput.value || "");
         scheduleLiveSearch();
       };
+      qInput.onkeydown = function (e) { if (e && e.key === "Enter") refresh(); };
       qField.appendChild(qInput);
+      try { qField.style.minWidth = "260px"; qField.style.flex = "1 1 320px"; } catch (e1) {}
+
+      refreshBtn = el(ctx.doc, "button", { class: "eikon-dda-btn secondary", text: "Refresh" }, []);
+      refreshBtn.onclick = function () {
+        refresh();
+      };
 
       // New Entry
       addBtn = el(ctx.doc, "button", { class: "eikon-dda-btn", text: "New Entry" }, []);
@@ -1060,18 +1033,50 @@
         openModalForNew();
       };
 
-      sideControls.appendChild(monthField);
-      sideControls.appendChild(qField);
-      sideControls.appendChild(addBtn);
+      controlsTop.appendChild(monthField);
+      controlsTop.appendChild(qField);
+      controlsTop.appendChild(refreshBtn);
+      controlsTop.appendChild(addBtn);
 
-      right.appendChild(sideControls);
+      // Report controls (From/To/Generate/Print)
+      var fromField = el(ctx.doc, "div", { class: "eikon-dda-field" }, []);
+      fromField.appendChild(el(ctx.doc, "label", { text: "From" }, []));
+      reportFromInput = el(ctx.doc, "input", { type: "date", value: state.report_from }, []);
+      fromField.appendChild(reportFromInput);
+      try { fromField.style.minWidth = "170px"; } catch (e2) {}
 
-      topGrid.appendChild(left);
-      topGrid.appendChild(right);
-      topCard.appendChild(topGrid);
+      var toField = el(ctx.doc, "div", { class: "eikon-dda-field" }, []);
+      toField.appendChild(el(ctx.doc, "label", { text: "To" }, []));
+      reportToInput = el(ctx.doc, "input", { type: "date", value: state.report_to }, []);
+      toField.appendChild(reportToInput);
+      try { toField.style.minWidth = "170px"; } catch (e3) {}
+
+      generateBtn = el(ctx.doc, "button", { class: "eikon-dda-btn secondary", text: "Generate" }, []);
+      generateBtn.onclick = function () {
+        generateReport();
+      };
+
+      printBtn = el(ctx.doc, "button", { class: "eikon-dda-btn secondary", text: "Print" }, []);
+      printBtn.onclick = function () {
+        if (!state.report || state.report.ok !== true) {
+          setReportMsg("err", "No report loaded. Click Generate.");
+          return;
+        }
+        var html = buildPrintableHtml(state.report);
+        openPrintTabWithHtml(html);
+      };
+
+      controlsBottom.appendChild(fromField);
+      controlsBottom.appendChild(toField);
+      controlsBottom.appendChild(generateBtn);
+      controlsBottom.appendChild(printBtn);
+
+      controls.appendChild(controlsTop);
+      controls.appendChild(controlsBottom);
+      topCard.appendChild(controls);
       layout.appendChild(topCard);
 
-      // Entries card (full width)
+// Entries card (full width)
       var cardEntries = el(ctx.doc, "div", { class: "eikon-dda-card eikon-dda-span-all" }, []);
       var headEntries = el(ctx.doc, "div", { class: "eikon-dda-card-head" }, []);
       headEntries.appendChild(el(ctx.doc, "h3", { text: "Entries" }, []));
@@ -1132,12 +1137,15 @@
       modalBackdrop = null;
       modalTitle = null;
       formEls = null;
+      modalSaveBtn = null;
+      modalOnSave = null;
 
       msgBox = null;
       tableBody = null;
       monthInput = null;
       qInput = null;
       addBtn = null;
+      refreshBtn = null;
 
       reportFromInput = null;
       reportToInput = null;
