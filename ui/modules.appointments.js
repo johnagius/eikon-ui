@@ -269,6 +269,16 @@
     var scheds = schedulesForDate(d, doctorId, clinicId);
     apptLog("computeAvailableStartTimes", {date:d, doctorId:doctorId, clinicId:clinicId, dur:dur, schedCount:scheds.length, apptCount:appts.length});
     if (!scheds.length) return [];
+
+    // If booking for today, reject any slot whose start time has already passed.
+    // Add a 5-minute buffer so a slot starting right now isn't offered.
+    var isToday = (d === todayYmd());
+    var nowMins = 0;
+    if (isToday) {
+      var now = new Date();
+      nowMins = now.getHours() * 60 + now.getMinutes() + 5; // +5 min buffer
+    }
+
     var slots = [];
     scheds.forEach(function (s) {
       var st = String(s.startTime || s.start_time || "09:00");
@@ -277,6 +287,8 @@
       var startM = timeToMins(st);
       var endM   = timeToMins(et);
       for (var m = startM; m + dur <= endM; m += slotDur) {
+        // Skip slots that are in the past (or within the buffer) for today
+        if (isToday && m < nowMins) continue;
         var ok = true;
         for (var i = 0; i < appts.length; i++) {
           var a = appts[i];
@@ -291,7 +303,7 @@
       }
     });
     slots = slots.filter(function (v, i, a) { return a.indexOf(v) === i; }).sort();
-    apptLog("computeAvailableStartTimes result", slots.length, "slots");
+    apptLog("computeAvailableStartTimes result", slots.length, "slots" + (isToday ? " (today, now=" + minsToTime(nowMins) + ")" : ""));
     return slots;
   }
 
@@ -459,6 +471,7 @@
   }
 
   // Returns upcoming dates (next daysAhead days from today) where doctor+clinic has a schedule
+  // and at least one slot is still bookable (future slots only for today).
   function upcomingScheduledDates(doctorId, clinicId, daysAhead) {
     daysAhead = daysAhead || 90;
     var result = [];
@@ -466,7 +479,15 @@
     for (var i = 0; i <= daysAhead; i++) {
       var d = ymdAddDays(today, i);
       var scheds = schedulesForDate(d, doctorId, clinicId);
-      if (scheds.length) result.push({ ymd: d, scheds: scheds });
+      if (!scheds.length) continue;
+      // For today: only include if there are future slots remaining
+      // computeAvailableStartTimes already filters past times for today,
+      // so we use a minimal duration to check if anything is left.
+      if (d === today) {
+        var remaining = computeAvailableStartTimes(d, doctorId, clinicId, 5);
+        if (!remaining.length) continue; // All slots passed — skip today
+      }
+      result.push({ ymd: d, scheds: scheds });
     }
     apptLog("upcomingScheduledDates", doctorId, clinicId, "→", result.length, "dates");
     return result;
