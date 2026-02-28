@@ -10527,6 +10527,7 @@ async function ensureApptSchema(env) {
       patient_name     TEXT    NOT NULL,
       patient_id_card  TEXT    NOT NULL DEFAULT '',
       patient_phone    TEXT    NOT NULL DEFAULT '',
+      patient_email    TEXT    NOT NULL DEFAULT '',
       doctor_id        INTEGER REFERENCES appt_doctors(id) ON DELETE SET NULL,
       clinic_id        INTEGER REFERENCES appt_clinics(id) ON DELETE SET NULL,
       date             TEXT    NOT NULL,             -- YYYY-MM-DD
@@ -10534,6 +10535,7 @@ async function ensureApptSchema(env) {
       duration_mins    INTEGER NOT NULL DEFAULT 30,
       status           TEXT    NOT NULL DEFAULT 'Scheduled',
         -- Scheduled | Confirmed | Completed | Cancelled | No Show
+      booking_confirmed INTEGER NOT NULL DEFAULT 0,  -- 0/1 — patient confirmed the booking
       doctor_fee       REAL    NOT NULL DEFAULT 0,
       clinic_fee       REAL    NOT NULL DEFAULT 0,
       medicines        TEXT    NOT NULL DEFAULT '',
@@ -10554,6 +10556,7 @@ async function ensureApptSchema(env) {
       patient_name     TEXT    NOT NULL,
       patient_id_card  TEXT    NOT NULL DEFAULT '',
       patient_phone    TEXT    NOT NULL DEFAULT '',
+      patient_email    TEXT    NOT NULL DEFAULT '',
       doctor_id        INTEGER REFERENCES appt_doctors(id) ON DELETE SET NULL,
       clinic_id        INTEGER REFERENCES appt_clinics(id) ON DELETE SET NULL,
       preferred_dates  TEXT    NOT NULL DEFAULT '',
@@ -10589,6 +10592,16 @@ async function ensureApptSchema(env) {
 
   for (const sql of tables)  await dbRun(env, sql, []);
   for (const sql of indexes) await dbRun(env, sql, []);
+
+  // ── Column migrations (safe no-ops if already present) ─────────────────────
+  const migrations = [
+    `ALTER TABLE appt_appointments ADD COLUMN patient_email    TEXT    NOT NULL DEFAULT ''`,
+    `ALTER TABLE appt_appointments ADD COLUMN booking_confirmed INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE appt_waitlist     ADD COLUMN patient_email    TEXT    NOT NULL DEFAULT ''`
+  ];
+  for (const sql of migrations) {
+    try { await dbRun(env, sql, []); } catch (_) { /* column already exists — ignore */ }
+  }
 
   apptSchemaEnsured = true;
 }
@@ -10654,12 +10667,14 @@ function apptRowToUi(r) {
     patientName:        r.patient_name         || "",
     patientIdCard:      r.patient_id_card      || "",
     patientPhone:       r.patient_phone        || "",
+    patientEmail:       r.patient_email        || "",
     doctorId:           r.doctor_id            || null,
     clinicId:           r.clinic_id            || null,
     date:               r.date                 || "",
     time:               r.time                 || "",
     durationMins:       Number(r.duration_mins) || 30,
     status:             r.status               || "Scheduled",
+    bookingConfirmed:   !!r.booking_confirmed,
     doctorFee:          Number(r.doctor_fee)   || 0,
     clinicFee:          Number(r.clinic_fee)   || 0,
     medicines:          r.medicines            || "",
@@ -10679,6 +10694,7 @@ function waitlistRowToUi(r) {
     patientName:    r.patient_name    || "",
     patientIdCard:  r.patient_id_card || "",
     patientPhone:   r.patient_phone   || "",
+    patientEmail:   r.patient_email   || "",
     doctorId:       r.doctor_id       || null,
     clinicId:       r.clinic_id       || null,
     preferredDates: r.preferred_dates || "",
@@ -11170,6 +11186,7 @@ async function handleApptCreate(request, env, corsOkHeaders, authUser) {
   const patientName  = String(body.patientName  || body.patient_name  || "").trim();
   const patientIdCard= String(body.patientIdCard|| body.patient_id_card|| "").trim();
   const patientPhone = String(body.patientPhone || body.patient_phone || "").trim();
+  const patientEmail = String(body.patientEmail || body.patient_email || "").trim();
   const doctorId     = Number(body.doctorId     || body.doctor_id)    || null;
   const clinicId     = Number(body.clinicId     || body.clinic_id)    || null;
   const date         = String(body.date         || "").trim();
@@ -11182,6 +11199,7 @@ async function handleApptCreate(request, env, corsOkHeaders, authUser) {
   const medicinesCost= Math.max(0, parseFloat(body.medicinesCost|| body.medicines_cost)|| 0);
   const notes        = String(body.notes        || "").trim();
   const cancellationReason = String(body.cancellationReason || body.cancellation_reason || "").trim();
+  const bookingConfirmed   = body.bookingConfirmed || body.booking_confirmed ? 1 : 0;
   // Accept client-provided ref and token (generated client-side) or generate server-side
   const apptRef      = String(body.apptRef      || body.appt_ref      || "").trim();
   let   token        = String(body.token        || "").trim().toUpperCase();
@@ -11219,13 +11237,13 @@ async function handleApptCreate(request, env, corsOkHeaders, authUser) {
 
   const row = await dbFirst(env,
     `INSERT INTO appt_appointments
-      (org_id, location_id, appt_ref, patient_token, patient_name, patient_id_card, patient_phone,
-       doctor_id, clinic_id, date, time, duration_mins, status,
+      (org_id, location_id, appt_ref, patient_token, patient_name, patient_id_card, patient_phone, patient_email,
+       doctor_id, clinic_id, date, time, duration_mins, status, booking_confirmed,
        doctor_fee, clinic_fee, medicines, medicines_cost, notes, cancellation_reason, created_by)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING id`,
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING id`,
     [authUser.org_id, authUser.location_id, apptRef, token,
-     patientName, patientIdCard, patientPhone,
-     doctorId, clinicId, date, time, durationMins, status,
+     patientName, patientIdCard, patientPhone, patientEmail,
+     doctorId, clinicId, date, time, durationMins, status, bookingConfirmed,
      doctorFee, clinicFee, medicines, medicinesCost, notes, cancellationReason, authUser.user_id]);
 
   // If no appt_ref was provided, generate one from the DB id
@@ -11266,6 +11284,7 @@ async function handleApptUpdate(request, env, corsOkHeaders, authUser, id) {
   const patientName  = String(pick(["patientName","patient_name"],      existing.patient_name)  || "").trim();
   const patientIdCard= String(pick(["patientIdCard","patient_id_card"],  existing.patient_id_card)|| "").trim();
   const patientPhone = String(pick(["patientPhone","patient_phone"],     existing.patient_phone) || "").trim();
+  const patientEmail = String(pick(["patientEmail","patient_email"],     existing.patient_email) || "").trim();
   const doctorId     = Number(pick(["doctorId","doctor_id"],             existing.doctor_id))    || null;
   const clinicId     = Number(pick(["clinicId","clinic_id"],             existing.clinic_id))    || null;
   const date         = String(pick(["date"],                             existing.date)          || "").trim();
@@ -11278,6 +11297,9 @@ async function handleApptUpdate(request, env, corsOkHeaders, authUser, id) {
   const medicinesCost= Math.max(0, parseFloat(pick(["medicinesCost","medicines_cost"], existing.medicines_cost)) || 0);
   const notes        = String(pick(["notes"],                            existing.notes)         || "").trim();
   const cancellationReason = String(pick(["cancellationReason","cancellation_reason"], existing.cancellation_reason) || "").trim();
+  const bookingConfirmed   = has("bookingConfirmed") || has("booking_confirmed")
+    ? (body.bookingConfirmed || body.booking_confirmed ? 1 : 0)
+    : (existing.booking_confirmed ? 1 : 0);
 
   if (!patientName) return jsonResponse({ ok: false, error: "patient_name is required" }, 400, corsOkHeaders);
   if (!date || !isValidYmd(date)) return jsonResponse({ ok: false, error: "Invalid date (YYYY-MM-DD)" }, 400, corsOkHeaders);
@@ -11302,13 +11324,13 @@ async function handleApptUpdate(request, env, corsOkHeaders, authUser, id) {
 
   await dbRun(env,
     `UPDATE appt_appointments
-     SET patient_name=?, patient_id_card=?, patient_phone=?,
-         doctor_id=?, clinic_id=?, date=?, time=?, duration_mins=?, status=?,
+     SET patient_name=?, patient_id_card=?, patient_phone=?, patient_email=?,
+         doctor_id=?, clinic_id=?, date=?, time=?, duration_mins=?, status=?, booking_confirmed=?,
          doctor_fee=?, clinic_fee=?, medicines=?, medicines_cost=?, notes=?,
          cancellation_reason=?, updated_at=datetime('now')
      WHERE id=? AND org_id=? AND location_id=?`,
-    [patientName, patientIdCard, patientPhone,
-     doctorId, clinicId, date, time, durationMins, status,
+    [patientName, patientIdCard, patientPhone, patientEmail,
+     doctorId, clinicId, date, time, durationMins, status, bookingConfirmed,
      doctorFee, clinicFee, medicines, medicinesCost, notes,
      cancellationReason, id, authUser.org_id, authUser.location_id]);
 
@@ -11393,6 +11415,7 @@ async function handleApptWaitlistCreate(request, env, corsOkHeaders, authUser) {
   const patientName  = String(body.patientName  || body.patient_name   || "").trim();
   const patientIdCard= String(body.patientIdCard|| body.patient_id_card|| "").trim();
   const patientPhone = String(body.patientPhone || body.patient_phone  || "").trim();
+  const patientEmail = String(body.patientEmail || body.patient_email  || "").trim();
   const doctorId     = Number(body.doctorId     || body.doctor_id)     || null;
   const clinicId     = Number(body.clinicId     || body.clinic_id)     || null;
   const preferredDates = String(body.preferredDates || body.preferred_dates || "").trim();
@@ -11404,11 +11427,11 @@ async function handleApptWaitlistCreate(request, env, corsOkHeaders, authUser) {
 
   const row = await dbFirst(env,
     `INSERT INTO appt_waitlist
-      (org_id, location_id, wl_ref, patient_name, patient_id_card, patient_phone,
+      (org_id, location_id, wl_ref, patient_name, patient_id_card, patient_phone, patient_email,
        doctor_id, clinic_id, preferred_dates, flexibility, notes, added_date, created_by)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,COALESCE(?,date('now')),?) RETURNING id`,
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,COALESCE(?,date('now')),?) RETURNING id`,
     [authUser.org_id, authUser.location_id, "",
-     patientName, patientIdCard, patientPhone,
+     patientName, patientIdCard, patientPhone, patientEmail,
      doctorId, clinicId, preferredDates, flexibility, notes, addedDate, authUser.user_id]);
 
   const wlRef = buildWlRef(row.id);
@@ -11445,6 +11468,7 @@ async function handleApptWaitlistUpdate(request, env, corsOkHeaders, authUser, i
   const patientName   = String(pick(["patientName","patient_name"],       existing.patient_name)  || "").trim();
   const patientIdCard = String(pick(["patientIdCard","patient_id_card"],  existing.patient_id_card)|| "").trim();
   const patientPhone  = String(pick(["patientPhone","patient_phone"],     existing.patient_phone) || "").trim();
+  const patientEmail  = String(pick(["patientEmail","patient_email"],     existing.patient_email) || "").trim();
   const doctorId      = Number(pick(["doctorId","doctor_id"],             existing.doctor_id))    || null;
   const clinicId      = Number(pick(["clinicId","clinic_id"],             existing.clinic_id))    || null;
   const preferredDates= String(pick(["preferredDates","preferred_dates"], existing.preferred_dates)|| "").trim();
@@ -11457,11 +11481,11 @@ async function handleApptWaitlistUpdate(request, env, corsOkHeaders, authUser, i
 
   await dbRun(env,
     `UPDATE appt_waitlist
-     SET patient_name=?, patient_id_card=?, patient_phone=?, doctor_id=?, clinic_id=?,
+     SET patient_name=?, patient_id_card=?, patient_phone=?, patient_email=?, doctor_id=?, clinic_id=?,
          preferred_dates=?, flexibility=?, status=?, promoted_to=?, notes=?,
          updated_at=datetime('now')
      WHERE id=? AND org_id=? AND location_id=?`,
-    [patientName, patientIdCard, patientPhone, doctorId, clinicId,
+    [patientName, patientIdCard, patientPhone, patientEmail, doctorId, clinicId,
      preferredDates, flexibility, status, promotedTo, notes,
      id, authUser.org_id, authUser.location_id]);
 
