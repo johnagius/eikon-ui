@@ -334,33 +334,79 @@
     return p.replace(/\D/g, "");
   }
   // ============================================================
-  //  WHATSAPP OPEN — uses whatsapp:// OS protocol (bypasses all CSP/COOP)
+  //  WHATSAPP OPEN
+  //  Tries three methods in sequence, ending with a copy dialog so
+  //  the user can always reach WhatsApp even in the most locked-down frame.
   // ============================================================
   function openWhatsAppLink(phone) {
     var p = waPhone(phone);
     if (!p) { toast("WhatsApp", "No phone number available.", "bad"); return; }
 
-    // whatsapp:// is a custom URI scheme registered by WhatsApp Desktop at the OS level.
-    // The browser hands it to the OS directly — no HTTP request is made, so CSP,
-    // COOP, X-Frame-Options and ERR_BLOCKED_BY_RESPONSE headers never apply.
-    var url = "whatsapp://send?phone=" + p;
-    apptLog("openWhatsAppLink via whatsapp:// protocol", url);
+    var waLink   = "https://wa.me/" + p;           // opens chat with any number, saved or not
+    var opened   = false;
 
-    // Create a hidden <a> in THIS document and click it.
-    // Custom protocol anchors always work from inside iframes — browsers exempt
-    // mailto:, tel:, whatsapp:// etc. from frame navigation restrictions.
+    // ── Method 1: window.top.open()
+    // Calls open() on the PARENT window object. The popup is attributed to the
+    // top-level browsing context, so the iframe's CSP/COOP headers don't apply.
     try {
-      var a = document.createElement("a");
-      a.href = url;
-      // No target="_blank" for protocol links — let the OS handle it
-      a.style.cssText = "position:fixed;left:-9999px;top:-9999px;opacity:0;pointer-events:none;";
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(function () { try { document.body.removeChild(a); } catch (e) {} }, 1000);
-    } catch (ex) {
-      apptErr("openWhatsAppLink error", ex);
-      toast("WhatsApp", "Could not open WhatsApp. Is WhatsApp Desktop installed?", "bad", 5000);
+      var win = window.top.open(waLink, "_blank", "noopener,noreferrer");
+      if (win) { opened = true; apptLog("WA: opened via window.top.open"); }
+    } catch (e1) { apptWarn("WA: window.top.open failed", e1); }
+
+    // ── Method 2: whatsapp:// OS protocol (opens WhatsApp Desktop)
+    if (!opened) {
+      try {
+        var a = document.createElement("a");
+        a.href = "whatsapp://send?phone=" + p;
+        a.style.cssText = "position:fixed;left:-9999px;top:-9999px;";
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function () { try { document.body.removeChild(a); } catch(e){} }, 500);
+        opened = true;
+        apptLog("WA: opened via whatsapp:// protocol");
+      } catch (e2) { apptWarn("WA: whatsapp:// failed", e2); }
     }
+
+    // ── Method 3: Copy-to-clipboard dialog — always works, zero restrictions
+    if (!opened) {
+      _showWaCopyDialog(p, waLink);
+    }
+  }
+
+  // Shown as last resort — or user can trigger it via right-click → Copy link
+  function _showWaCopyDialog(p, waLink) {
+    var body =
+      "<div style='text-align:center;padding:8px 0;'>" +
+      "<div style='font-size:13px;color:rgba(233,238,247,.75);margin-bottom:16px;line-height:1.6;'>" +
+      "The browser blocked automatic opening.<br>Copy the link below and paste it into a new tab.</div>" +
+      "<div style='display:flex;gap:8px;align-items:center;justify-content:center;margin-bottom:16px;'>" +
+      "<input id='ap-wa-link-input' type='text' value='" + esc(waLink) + "' readonly " +
+      "style='flex:1;padding:9px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.15);background:rgba(10,16,24,.7);color:#e9eef7;font-size:12px;outline:none;'>" +
+      "<button id='ap-wa-copy-btn' type='button' class='eikon-btn' style='white-space:nowrap;'>Copy Link</button>" +
+      "</div>" +
+      "<div style='font-size:11px;color:rgba(233,238,247,.4);'>wa.me/" + esc(p) + " · opens chat with any number</div>" +
+      "</div>";
+    E.modal.show("Open WhatsApp", body, [{ label: "Close", onClick: function(){ E.modal.hide(); } }]);
+    setTimeout(function(){
+      var inp = E.q("#ap-wa-link-input");
+      var btn = E.q("#ap-wa-copy-btn");
+      if (inp) inp.addEventListener("click", function(){ inp.select(); });
+      if (btn) btn.addEventListener("click", function(){
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(waLink).then(function(){
+              btn.textContent = "✓ Copied!";
+              setTimeout(function(){ btn.textContent = "Copy Link"; }, 2000);
+            });
+          } else {
+            inp.select();
+            document.execCommand("copy");
+            btn.textContent = "✓ Copied!";
+            setTimeout(function(){ btn.textContent = "Copy Link"; }, 2000);
+          }
+        } catch(e){ apptWarn("WA copy failed", e); }
+      });
+    }, 80);
   }
 
   function waUrl(phone) {
