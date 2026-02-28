@@ -269,6 +269,16 @@
     var scheds = schedulesForDate(d, doctorId, clinicId);
     apptLog("computeAvailableStartTimes", {date:d, doctorId:doctorId, clinicId:clinicId, dur:dur, schedCount:scheds.length, apptCount:appts.length});
     if (!scheds.length) return [];
+
+    // If booking for today, reject any slot whose start time has already passed.
+    // Add a 5-minute buffer so a slot starting right now isn't offered.
+    var isToday = (d === todayYmd());
+    var nowMins = 0;
+    if (isToday) {
+      var now = new Date();
+      nowMins = now.getHours() * 60 + now.getMinutes() + 5; // +5 min buffer
+    }
+
     var slots = [];
     scheds.forEach(function (s) {
       var st = String(s.startTime || s.start_time || "09:00");
@@ -277,6 +287,8 @@
       var startM = timeToMins(st);
       var endM   = timeToMins(et);
       for (var m = startM; m + dur <= endM; m += slotDur) {
+        // Skip slots that are in the past (or within the buffer) for today
+        if (isToday && m < nowMins) continue;
         var ok = true;
         for (var i = 0; i < appts.length; i++) {
           var a = appts[i];
@@ -291,7 +303,7 @@
       }
     });
     slots = slots.filter(function (v, i, a) { return a.indexOf(v) === i; }).sort();
-    apptLog("computeAvailableStartTimes result", slots.length, "slots");
+    apptLog("computeAvailableStartTimes result", slots.length, "slots" + (isToday ? " (today, now=" + minsToTime(nowMins) + ")" : ""));
     return slots;
   }
 
@@ -333,25 +345,207 @@
     if (/^2\d{7}$/.test(p)) return "356" + p;
     return p.replace(/\D/g, "");
   }
-  function waUrl(phone, message) {
+  // ============================================================
+  //  WHATSAPP OPEN
+  //  Tries three methods in sequence, ending with a copy dialog so
+  //  the user can always reach WhatsApp even in the most locked-down frame.
+  // ============================================================
+  function openWhatsAppLink(phone) {
+    var p = waPhone(phone);
+    if (!p) { toast("WhatsApp", "No phone number available.", "bad"); return; }
+
+    var waLink   = "https://wa.me/" + p;           // opens chat with any number, saved or not
+    var opened   = false;
+
+    // ── Method 1: window.top.open()
+    // Calls open() on the PARENT window object. The popup is attributed to the
+    // top-level browsing context, so the iframe's CSP/COOP headers don't apply.
+    try {
+      var win = window.top.open(waLink, "_blank", "noopener,noreferrer");
+      if (win) { opened = true; apptLog("WA: opened via window.top.open"); }
+    } catch (e1) { apptWarn("WA: window.top.open failed", e1); }
+
+    // ── Method 2: whatsapp:// OS protocol (opens WhatsApp Desktop)
+    if (!opened) {
+      try {
+        var a = document.createElement("a");
+        a.href = "whatsapp://send?phone=" + p;
+        a.style.cssText = "position:fixed;left:-9999px;top:-9999px;";
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function () { try { document.body.removeChild(a); } catch(e){} }, 500);
+        opened = true;
+        apptLog("WA: opened via whatsapp:// protocol");
+      } catch (e2) { apptWarn("WA: whatsapp:// failed", e2); }
+    }
+
+    // ── Method 3: Copy-to-clipboard dialog — always works, zero restrictions
+    if (!opened) {
+      _showWaCopyDialog(p, waLink);
+    }
+  }
+
+  // Shown as last resort — or user can trigger it via right-click → Copy link
+  function _showWaCopyDialog(p, waLink) {
+    var body =
+      "<div style='text-align:center;padding:8px 0;'>" +
+      "<div style='font-size:13px;color:rgba(233,238,247,.75);margin-bottom:16px;line-height:1.6;'>" +
+      "The browser blocked automatic opening.<br>Copy the link below and paste it into a new tab.</div>" +
+      "<div style='display:flex;gap:8px;align-items:center;justify-content:center;margin-bottom:16px;'>" +
+      "<input id='ap-wa-link-input' type='text' value='" + esc(waLink) + "' readonly " +
+      "style='flex:1;padding:9px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.15);background:rgba(10,16,24,.7);color:#e9eef7;font-size:12px;outline:none;'>" +
+      "<button id='ap-wa-copy-btn' type='button' class='eikon-btn' style='white-space:nowrap;'>Copy Link</button>" +
+      "</div>" +
+      "<div style='font-size:11px;color:rgba(233,238,247,.4);'>wa.me/" + esc(p) + " · opens chat with any number</div>" +
+      "</div>";
+    E.modal.show("Open WhatsApp", body, [{ label: "Close", onClick: function(){ E.modal.hide(); } }]);
+    setTimeout(function(){
+      var inp = E.q("#ap-wa-link-input");
+      var btn = E.q("#ap-wa-copy-btn");
+      if (inp) inp.addEventListener("click", function(){ inp.select(); });
+      if (btn) btn.addEventListener("click", function(){
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(waLink).then(function(){
+              btn.textContent = "✓ Copied!";
+              setTimeout(function(){ btn.textContent = "Copy Link"; }, 2000);
+            });
+          } else {
+            inp.select();
+            document.execCommand("copy");
+            btn.textContent = "✓ Copied!";
+            setTimeout(function(){ btn.textContent = "Copy Link"; }, 2000);
+          }
+        } catch(e){ apptWarn("WA copy failed", e); }
+      });
+    }, 80);
+  }
+
+  function waUrl(phone) {
     var p = waPhone(phone); if (!p) return null;
-    // Use web.whatsapp.com/send directly to avoid COOP redirect issues with wa.me
-    var url = "https://web.whatsapp.com/send?phone=" + p;
-    if (message) url += "&text=" + encodeURIComponent(message);
-    return url;
+    return "https://wa.me/" + p;
   }
   function whatsappBtnHtml(phone, extraStyle) {
     var p = waPhone(phone);
     if (!p || !phone) return "";
-    var url = waUrl(phone);
-    // Use onclick + window.open with noopener,noreferrer to avoid COOP/COEP issues
-    var onclick = "event.stopPropagation();window.open('" + url.replace(/'/g, "\\'") + "','_blank','noopener,noreferrer');return false;";
-    return "<button type='button' class='ap-wa-btn' style='" + (extraStyle || "") + "' " +
-      "title='WhatsApp " + esc(phone) + "' onclick=\"" + onclick + "\">" +
+    // Store the normalised phone on a data attribute; JS listener reads it
+    return "<button type='button' class='ap-wa-btn ap-wa-trigger' data-waphone='" + esc(p) + "' " +
+      "style='" + (extraStyle || "") + "' title='Open WhatsApp for " + esc(phone) + "'>" +
       "<svg width='13' height='13' viewBox='0 0 24 24' fill='currentColor' style='vertical-align:middle;margin-right:3px;flex-shrink:0;'>" +
       "<path d='M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z'/>" +
       "</svg>WhatsApp</button>";
   }
+
+  // ============================================================
+  //  EMAIL HELPERS
+  // ============================================================
+  function openEmailBlank(email) {
+    if (!email) { toast("Email", "No email address available.", "bad"); return; }
+    var link = "mailto:" + encodeURIComponent(email);
+    try { window.open(link, "_blank"); } catch (e) { window.location.href = link; }
+  }
+
+  function buildApptEmailBody(a) {
+    var dr = doctorById(a.doctorId); var cl = clinicById(a.clinicId);
+    return [
+      "Dear " + (a.patientName || "Patient") + ",",
+      "",
+      "We are pleased to confirm your appointment details:",
+      "",
+      "  Patient Name : " + (a.patientName   || "-"),
+      "  ID Card      : " + (a.patientIdCard || "-"),
+      "  Date         : " + fmtDmy(a.date),
+      "  Time         : " + (a.time || "-"),
+      "  Doctor       : " + (dr ? dr.name : "-"),
+      "  Clinic       : " + (cl ? cl.name + (cl.locality ? ", " + cl.locality : "") : "-"),
+      "  Duration     : " + (a.durationMins || "-") + " min",
+      "  Ref. Token   : " + (a.token || "-"),
+      "",
+      "Please arrive 10 minutes before your scheduled appointment.",
+      "",
+      "If you need to reschedule or cancel, please contact us as soon as possible.",
+      "",
+      "Kind regards"
+    ].join("\n");
+  }
+
+  function openBookingEmail(a) {
+    var email = a.patientEmail;
+    if (!email) { toast("Email", "No email address on file for this patient.", "bad"); return; }
+    var subject = "Appointment Confirmation – " + fmtDmy(a.date) + " at " + (a.time || "");
+    var link = "mailto:" + encodeURIComponent(email) + "?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(buildApptEmailBody(a));
+    try { window.open(link, "_blank"); } catch (e) { window.location.href = link; }
+  }
+
+  function openReminderEmail(a) {
+    var email = a.patientEmail;
+    if (!email) { toast("Email", "No email address on file for this patient.", "bad"); return; }
+    var dr = doctorById(a.doctorId); var cl = clinicById(a.clinicId);
+    var subject = "Appointment Reminder – " + fmtDmy(a.date) + " at " + (a.time || "");
+    var body = [
+      "Dear " + (a.patientName || "Patient") + ",",
+      "",
+      "This is a friendly reminder of your upcoming appointment:",
+      "",
+      "  Patient Name : " + (a.patientName   || "-"),
+      "  ID Card      : " + (a.patientIdCard || "-"),
+      "  Date         : " + fmtDmy(a.date),
+      "  Time         : " + (a.time || "-"),
+      "  Doctor       : " + (dr ? dr.name : "-"),
+      "  Clinic       : " + (cl ? cl.name + (cl.locality ? ", " + cl.locality : "") : "-"),
+      "",
+      "Please remember to bring any relevant documents or previous test results.",
+      "Arrive 10 minutes early to complete any necessary paperwork.",
+      "",
+      "If you need to reschedule, please contact us promptly.",
+      "",
+      "Kind regards"
+    ].join("\n");
+    var link = "mailto:" + encodeURIComponent(email) + "?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
+    try { window.open(link, "_blank"); } catch (e) { window.location.href = link; }
+  }
+
+  function emailBtnHtml(email, extraStyle) {
+    if (!email) return "";
+    return "<button type='button' class='ap-email-btn ap-email-trigger' data-email='" + esc(email) + "' " +
+      "style='" + (extraStyle || "") + "' title='Open empty email to " + esc(email) + "'>" +
+      "<svg width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' style='vertical-align:middle;margin-right:3px;flex-shrink:0;'>" +
+      "<path d='M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z'/><polyline points='22,6 12,13 2,6'/>" +
+      "</svg>Email</button>";
+  }
+
+  // Global delegated listener for email (blank) buttons
+  document.addEventListener("click", function (ev) {
+    var btn = ev.target.closest ? ev.target.closest(".ap-email-trigger") : null;
+    if (!btn) {
+      var el = ev.target;
+      while (el && el !== document) {
+        if (el.classList && el.classList.contains("ap-email-trigger")) { btn = el; break; }
+        el = el.parentNode;
+      }
+    }
+    if (!btn) return;
+    ev.preventDefault(); ev.stopPropagation();
+    openEmailBlank(btn.getAttribute("data-email") || "");
+  }, true);
+
+  // Global delegated listener for WhatsApp buttons (avoids inline onclick CSP issues)
+  document.addEventListener("click", function (ev) {
+    var btn = ev.target.closest ? ev.target.closest(".ap-wa-trigger") : null;
+    if (!btn) {
+      // Polyfill for browsers without closest
+      var el = ev.target;
+      while (el && el !== document) {
+        if (el.classList && el.classList.contains("ap-wa-trigger")) { btn = el; break; }
+        el = el.parentNode;
+      }
+    }
+    if (!btn) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    var phone = btn.getAttribute("data-waphone") || "";
+    if (phone) openWhatsAppLink(phone);
+  }, true);
 
   // ============================================================
   //  SCHEDULE-DRIVEN BOOKING HELPERS
@@ -370,6 +564,7 @@
   }
 
   // Returns upcoming dates (next daysAhead days from today) where doctor+clinic has a schedule
+  // and at least one slot is still bookable (future slots only for today).
   function upcomingScheduledDates(doctorId, clinicId, daysAhead) {
     daysAhead = daysAhead || 90;
     var result = [];
@@ -377,7 +572,15 @@
     for (var i = 0; i <= daysAhead; i++) {
       var d = ymdAddDays(today, i);
       var scheds = schedulesForDate(d, doctorId, clinicId);
-      if (scheds.length) result.push({ ymd: d, scheds: scheds });
+      if (!scheds.length) continue;
+      // For today: only include if there are future slots remaining
+      // computeAvailableStartTimes already filters past times for today,
+      // so we use a minimal duration to check if anything is left.
+      if (d === today) {
+        var remaining = computeAvailableStartTimes(d, doctorId, clinicId, 5);
+        if (!remaining.length) continue; // All slots passed — skip today
+      }
+      result.push({ ymd: d, scheds: scheds });
     }
     apptLog("upcomingScheduledDates", doctorId, clinicId, "→", result.length, "dates");
     return result;
@@ -495,6 +698,8 @@
       medicines:          a.medicines         || "",
       notes:              a.notes             || "",
       cancellationReason: a.cancellationReason || a.cancellation_reason || "",
+      patientEmail:       a.patientEmail       || a.patient_email       || "",
+      bookingConfirmed:   !!(a.bookingConfirmed || a.booking_confirmed  || false),
       createdAt:          a.createdAt         || a.created_at           || "",
       updatedAt:          a.updatedAt         || a.updated_at           || ""
     };
@@ -802,6 +1007,22 @@
       ".ap-filter-field{display:flex;flex-direction:column;gap:3px;}" +
       ".ap-filter-field label{font-size:11px;font-weight:900;color:var(--muted,rgba(233,238,247,.6));text-transform:uppercase;letter-spacing:.5px;}" +
 
+      // ---- Schedule day badges & checkboxes ----
+      ".ap-dow-row{display:flex;flex-wrap:wrap;gap:4px;margin-top:2px;}" +
+      ".ap-dow-badge{font-size:10px;font-weight:900;padding:2px 7px;border-radius:5px;letter-spacing:.4px;}" +
+      ".ap-dow-active{background:rgba(58,160,255,.2);border:1px solid rgba(58,160,255,.4);color:#7dc8ff;}" +
+      ".ap-dow-inactive{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);color:rgba(233,238,247,.2);}" +
+      ".ap-dow-oneoff{background:rgba(204,148,255,.15);border:1px solid rgba(204,148,255,.3);color:#d4a0ff;}" +
+      ".ap-dow-checkbox-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}" +
+      ".ap-dow-checkbox-label{display:flex;align-items:center;gap:5px;cursor:pointer;padding:6px 10px;" +
+      "border:1px solid rgba(255,255,255,.1);border-radius:8px;background:rgba(10,16,24,.3);" +
+      "transition:background 100ms,border-color 100ms;user-select:none;}" +
+      ".ap-dow-checkbox-label:hover{background:rgba(58,160,255,.1);border-color:rgba(58,160,255,.3);}" +
+      ".ap-dow-checkbox-label input[type=checkbox]{width:14px;height:14px;accent-color:#3aa0ff;cursor:pointer;flex-shrink:0;}" +
+      ".ap-dow-checkbox-label input[type=checkbox]:checked + .ap-dow-cb-text{color:#7dc8ff;font-weight:900;}" +
+      ".ap-dow-checkbox-label:has(input:checked){background:rgba(58,160,255,.15);border-color:rgba(58,160,255,.45);}" +
+      ".ap-dow-cb-text{font-size:12px;font-weight:800;color:rgba(233,238,247,.7);letter-spacing:.3px;}" +
+
       // ---- Mgmt modals ----
       ".ap-mgmt-grid{display:grid;gap:6px;}" +
       ".ap-mgmt-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid rgba(255,255,255,.07);border-radius:10px;background:rgba(10,16,24,.2);}" +
@@ -825,6 +1046,11 @@
       ".ap-wa-btn{display:inline-flex;align-items:center;gap:3px;padding:3px 10px;border-radius:999px;background:#25d366;color:#fff;" +
       "font-size:11px;font-weight:900;text-decoration:none;cursor:pointer;transition:filter 120ms;white-space:nowrap;vertical-align:middle;border:none;}" +
       ".ap-wa-btn:hover{filter:brightness(1.12);}" +
+
+      // ---- Email Button ----
+      ".ap-email-btn{display:inline-flex;align-items:center;gap:3px;padding:3px 10px;border-radius:999px;background:#3a7bd5;color:#fff;" +
+      "font-size:11px;font-weight:900;text-decoration:none;cursor:pointer;transition:filter 120ms;white-space:nowrap;vertical-align:middle;border:none;}" +
+      ".ap-email-btn:hover{filter:brightness(1.12);}" +
 
       // ---- Schedule cascade hint ----
       ".ap-cascade-hint{font-size:11px;color:rgba(255,157,67,.8);background:rgba(255,157,67,.08);border:1px solid rgba(255,157,67,.2);border-radius:8px;padding:6px 10px;margin-top:4px;}" +
@@ -1104,82 +1330,231 @@
   // ============================================================
   //  MODALS: SCHEDULE MANAGEMENT
   // ============================================================
+  // ============================================================
+  //  HELPERS — schedule grouping
+  // ============================================================
+  // Group recurring schedules by (doctorId, clinicId, startTime, endTime, slotDuration,
+  // validFrom, validUntil) so multiple days can be shown/edited as one row.
+  function groupSchedules(scheds) {
+    var groups = [];
+    var map = {};
+    scheds.forEach(function (s) {
+      if (s.isOneOff || s.is_one_off) {
+        // One-off schedules are never grouped
+        groups.push({ key: "oo_" + s.id, isOneOff: true, records: [s] });
+        return;
+      }
+      var key = [
+        String(s.doctorId  || s.doctor_id  || ""),
+        String(s.clinicId  || s.clinic_id  || ""),
+        String(s.startTime || s.start_time || ""),
+        String(s.endTime   || s.end_time   || ""),
+        String(s.slotDuration || s.slot_duration || "10"),
+        String(s.validFrom  || s.valid_from  || ""),
+        String(s.validUntil || s.valid_until || "")
+      ].join("|");
+      if (!map[key]) {
+        map[key] = { key: key, isOneOff: false, records: [] };
+        groups.push(map[key]);
+      }
+      map[key].records.push(s);
+    });
+    return groups;
+  }
+
+  // ============================================================
+  //  MODAL: SCHEDULE MANAGEMENT (rewritten)
+  // ============================================================
   function openSchedulesModal(onDone) {
+    var DOW_LABELS  = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+    var DOW_FULL    = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+    // Display order: Mon(1)…Sun(0)
+    var DOW_ORDER   = [1,2,3,4,5,6,0];
+
+    // ── List view ───────────────────────────────────────────────
     function renderBody() {
       var scheds = loadSchedules();
-      var days = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-      var rows = scheds.length ? scheds.map(function (s) {
-        var dr = doctorById(s.doctorId); var cl = clinicById(s.clinicId);
-        var desc = s.isOneOff ? "One-off: " + fmtDmy(s.date) : days[Number(s.dayOfWeek)] + "s" + (s.validFrom ? " from " + fmtDmy(s.validFrom) : "") + (s.validUntil ? " until " + fmtDmy(s.validUntil) : "");
-        return "<div class='ap-mgmt-row'>" +
-          "<div style='flex:1'>" +
-          "<div class='mgmt-name'>" + esc(dr ? dr.name : "Unknown Dr") + " at " + esc(cl ? cl.name : "Unknown Clinic") + "</div>" +
-          "<div class='mgmt-sub'>" + esc(desc) + "  " + esc(s.startTime || "") + "-" + esc(s.endTime || "") + "  Slot: " + esc(s.slotDuration || 10) + "min</div></div>" +
+      var groups = groupSchedules(scheds);
+
+      if (!groups.length) {
+        return "<div style='font-size:12px;color:rgba(233,238,247,.45);padding:8px 0;'>No schedules yet.</div>" +
+          "<button class='ap-add-btn' id='ap-sc-add' type='button' style='margin-top:10px;width:100%;'>+ Add Schedule</button>";
+      }
+
+      var rows = groups.map(function (g) {
+        var s0 = g.records[0];
+        var dr = doctorById(s0.doctorId || s0.doctor_id);
+        var cl = clinicById(s0.clinicId || s0.clinic_id);
+
+        var dayBadges = "";
+        if (g.isOneOff) {
+          dayBadges = "<span class='ap-dow-badge ap-dow-oneoff'>One-off: " + esc(fmtDmy(s0.date || "")) + "</span>";
+        } else {
+          // Collect all days in this group, display in Mon→Sun order
+          var activeDows = {};
+          g.records.forEach(function(r){ activeDows[Number(r.dayOfWeek != null ? r.dayOfWeek : r.day_of_week)] = true; });
+          dayBadges = DOW_ORDER.map(function(d){
+            return activeDows[d]
+              ? "<span class='ap-dow-badge ap-dow-active'>" + DOW_LABELS[d] + "</span>"
+              : "<span class='ap-dow-badge ap-dow-inactive'>" + DOW_LABELS[d] + "</span>";
+          }).join("");
+        }
+
+        var validity = "";
+        if (!g.isOneOff && (s0.validFrom || s0.validUntil || s0.valid_from || s0.valid_until)) {
+          var vf = s0.validFrom || s0.valid_from; var vu = s0.validUntil || s0.valid_until;
+          validity = (vf ? " from " + fmtDmy(vf) : "") + (vu ? " until " + fmtDmy(vu) : "");
+        }
+
+        // Encode group key safely for data attribute
+        var groupKey = esc(g.key);
+
+        return "<div class='ap-mgmt-row' style='flex-direction:column;align-items:flex-start;gap:6px;'>" +
+          "<div style='display:flex;width:100%;align-items:center;gap:8px;'>" +
+          "<div style='flex:1;'>" +
+          "<div class='mgmt-name'>" + esc(dr ? dr.name : "Unknown Dr") + " &rarr; " + esc(cl ? cl.name : "Unknown Clinic") + "</div>" +
+          "<div class='mgmt-sub'>" + esc(s0.startTime || "") + " – " + esc(s0.endTime || "") +
+          "  ·  Slot: " + esc(s0.slotDuration || 10) + " min" +
+          (validity ? "  ·  " + esc(validity) : "") + "</div>" +
+          "</div>" +
           "<div class='mgmt-actions'>" +
-          "<button class='eikon-btn ap-sc-edit' data-id='" + esc(s.id) + "' type='button'>Edit</button>" +
-          "<button class='eikon-btn ap-sc-del'  data-id='" + esc(s.id) + "' type='button' style='color:rgba(255,90,122,.85);'>Delete</button>" +
-          "</div></div>";
-      }).join("") : "<div style='font-size:12px;color:rgba(233,238,247,.45);padding:8px 0;'>No schedules yet.</div>";
+          "<button class='eikon-btn ap-sc-edit' data-gkey='" + groupKey + "' type='button'>Edit</button>" +
+          "<button class='eikon-btn ap-sc-del'  data-gkey='" + groupKey + "' type='button' style='color:rgba(255,90,122,.85);'>Delete</button>" +
+          "</div></div>" +
+          "<div class='ap-dow-row'>" + dayBadges + "</div>" +
+          "</div>";
+      }).join("");
+
       return "<div class='ap-mgmt-grid' id='ap-sc-list'>" + rows + "</div>" +
         "<button class='ap-add-btn' id='ap-sc-add' type='button' style='margin-top:10px;width:100%;'>+ Add Schedule</button>";
     }
-    function showScForm(existing) {
-      var isEdit = !!existing; var s = existing || {};
-      var isOneOff = !!(s.isOneOff || s.is_one_off);
+
+    // ── Form (add or edit a group) ───────────────────────────────
+    // existingGroup = null for new, or a group object for edit
+    function showScForm(existingGroup) {
+      var isEdit   = !!existingGroup;
+      var s0       = isEdit ? existingGroup.records[0] : {};
+      var isOneOff = isEdit ? existingGroup.isOneOff : false;
+
+      // Which days are already set in this group?
+      var checkedDows = {};
+      if (isEdit && !isOneOff) {
+        existingGroup.records.forEach(function(r){
+          var d = r.dayOfWeek != null ? r.dayOfWeek : r.day_of_week;
+          if (d != null) checkedDows[Number(d)] = true;
+        });
+      }
+
+      // Day-of-week checkboxes in Mon→Sun order
+      var dowCheckboxes = DOW_ORDER.map(function(d){
+        var checked = checkedDows[d] ? " checked" : "";
+        return "<label class='ap-dow-checkbox-label'>" +
+          "<input type='checkbox' class='ap-dow-cb' value='" + d + "'" + checked + ">" +
+          "<span class='ap-dow-cb-text'>" + DOW_LABELS[d] + "</span>" +
+          "</label>";
+      }).join("");
+
       var body =
         "<div class='ap-form-grid'>" +
-        "<div class='eikon-field'><div class='eikon-label'>Doctor</div><select class='ap-select' id='ap-scmod-dr' style='width:100%;'>" + buildDoctorOptions(s.doctorId) + "</select></div>" +
-        "<div class='eikon-field'><div class='eikon-label'>Clinic</div><select class='ap-select' id='ap-scmod-cl' style='width:100%;'>" + buildClinicOptions(s.clinicId) + "</select></div>" +
+        "<div class='eikon-field'><div class='eikon-label'>Doctor</div>" +
+        "<select class='ap-select' id='ap-scmod-dr' style='width:100%;'>" + buildDoctorOptions(s0.doctorId) + "</select></div>" +
+        "<div class='eikon-field'><div class='eikon-label'>Clinic</div>" +
+        "<select class='ap-select' id='ap-scmod-cl' style='width:100%;'>" + buildClinicOptions(s0.clinicId) + "</select></div>" +
         "</div>" +
-        "<div class='eikon-field' style='margin-top:8px;'><div class='eikon-label'>Schedule Type</div>" +
+
+        "<div class='eikon-field' style='margin-top:10px;'><div class='eikon-label'>Schedule Type</div>" +
         "<select class='ap-select' id='ap-scmod-type' style='width:100%;'>" +
         "<option value='recurring'" + (!isOneOff ? " selected" : "") + ">Recurring (weekly)</option>" +
-        "<option value='oneoff'" + (isOneOff ? " selected" : "") + ">One-off (specific date)</option>" +
+        "<option value='oneoff'"    + ( isOneOff ? " selected" : "") + ">One-off (specific date)</option>" +
         "</select></div>" +
-        "<div id='ap-scmod-rec' style='margin-top:8px;" + (isOneOff ? "display:none;" : "") + "'>" +
-        "<div class='eikon-field'><div class='eikon-label'>Day of Week</div><select class='ap-select' id='ap-scmod-dow' style='width:100%;'>" + buildDowOptions(s.dayOfWeek != null ? s.dayOfWeek : "") + "</select></div>" +
-        "<div class='ap-form-grid' style='margin-top:8px;'>" +
-        "<div class='eikon-field'><div class='eikon-label'>Valid From (optional)</div><input class='ap-input' id='ap-scmod-vf' type='date' value='" + esc(s.validFrom || "") + "' style='width:100%;'></div>" +
-        "<div class='eikon-field'><div class='eikon-label'>Valid Until (optional)</div><input class='ap-input' id='ap-scmod-vu' type='date' value='" + esc(s.validUntil || "") + "' style='width:100%;'></div>" +
-        "</div></div>" +
-        "<div id='ap-scmod-oo' style='margin-top:8px;" + (!isOneOff ? "display:none;" : "") + "'>" +
-        "<div class='eikon-field'><div class='eikon-label'>Date</div><input class='ap-input' id='ap-scmod-date' type='date' value='" + esc(s.date || "") + "' style='width:100%;'></div></div>" +
-        "<div class='ap-form-grid' style='margin-top:8px;'>" +
-        "<div class='eikon-field'><div class='eikon-label'>Start Time</div><input class='ap-input' id='ap-scmod-start' type='time' value='" + esc(s.startTime || "09:00") + "' style='width:100%;'></div>" +
-        "<div class='eikon-field'><div class='eikon-label'>End Time</div><input class='ap-input' id='ap-scmod-end' type='time' value='" + esc(s.endTime || "17:00") + "' style='width:100%;'></div>" +
+
+        // ── Recurring section ──
+        "<div id='ap-scmod-rec' style='margin-top:10px;" + (isOneOff ? "display:none;" : "") + "'>" +
+        "<div class='eikon-field'><div class='eikon-label'>Days of Week</div>" +
+        "<div class='ap-dow-checkbox-row'>" + dowCheckboxes + "</div>" +
+        "<div style='font-size:11px;color:rgba(233,238,247,.4);margin-top:5px;'>Tick all days this schedule runs. Each day creates its own record automatically.</div>" +
         "</div>" +
-        "<div class='eikon-field' style='margin-top:8px;'><div class='eikon-label'>Slot Duration (minutes)</div>" +
-        "<input class='ap-input' id='ap-scmod-slot' type='number' min='5' max='120' step='5' value='" + esc(s.slotDuration || 10) + "' style='width:100%;'></div>";
+        "<div class='ap-form-grid' style='margin-top:8px;'>" +
+        "<div class='eikon-field'><div class='eikon-label'>Valid From (optional)</div>" +
+        "<input class='ap-input' id='ap-scmod-vf' type='date' value='" + esc(s0.validFrom || s0.valid_from || "") + "' style='width:100%;'></div>" +
+        "<div class='eikon-field'><div class='eikon-label'>Valid Until (optional)</div>" +
+        "<input class='ap-input' id='ap-scmod-vu' type='date' value='" + esc(s0.validUntil || s0.valid_until || "") + "' style='width:100%;'></div>" +
+        "</div></div>" +
+
+        // ── One-off section ──
+        "<div id='ap-scmod-oo' style='margin-top:10px;" + (!isOneOff ? "display:none;" : "") + "'>" +
+        "<div class='eikon-field'><div class='eikon-label'>Date</div>" +
+        "<input class='ap-input' id='ap-scmod-date' type='date' value='" + esc(s0.date || "") + "' style='width:100%;'></div></div>" +
+
+        // ── Times & slot (always visible) ──
+        "<div class='ap-form-grid' style='margin-top:10px;'>" +
+        "<div class='eikon-field'><div class='eikon-label'>Start Time</div>" +
+        "<input class='ap-input' id='ap-scmod-start' type='time' value='" + esc(s0.startTime || s0.start_time || "09:00") + "' style='width:100%;'></div>" +
+        "<div class='eikon-field'><div class='eikon-label'>End Time</div>" +
+        "<input class='ap-input' id='ap-scmod-end' type='time' value='" + esc(s0.endTime || s0.end_time || "17:00") + "' style='width:100%;'></div>" +
+        "</div>" +
+        "<div class='eikon-field' style='margin-top:8px;'><div class='eikon-label'>Appointment Slot Duration (minutes)</div>" +
+        "<input class='ap-input' id='ap-scmod-slot' type='number' min='5' max='120' step='5' value='" + esc(s0.slotDuration || s0.slot_duration || 10) + "' style='width:100%;'></div>";
 
       E.modal.show(isEdit ? "Edit Schedule" : "Add Schedule", body, [
-        { label: "Cancel", onClick: async function () { openSchedulesModal(onDone); } },
+        { label: "Back", onClick: async function () { openSchedulesModal(onDone); } },
         { label: isEdit ? "Save Changes" : "Add Schedule", primary: true, onClick: async function () {
           var drId = ((E.q("#ap-scmod-dr") || {}).value || "").trim();
           var clId = ((E.q("#ap-scmod-cl") || {}).value || "").trim();
           if (!drId) { toast("Error", "Select a doctor.", "bad"); return; }
           if (!clId) { toast("Error", "Select a clinic.", "bad"); return; }
-          var type = ((E.q("#ap-scmod-type") || {}).value || "recurring");
-          var st = ((E.q("#ap-scmod-start") || {}).value || "09:00").trim();
-          var et = ((E.q("#ap-scmod-end") || {}).value || "17:00").trim();
+          var type    = ((E.q("#ap-scmod-type")  || {}).value || "recurring");
+          var st      = ((E.q("#ap-scmod-start") || {}).value || "09:00").trim();
+          var et      = ((E.q("#ap-scmod-end")   || {}).value || "17:00").trim();
           var slotDur = parseInt((E.q("#ap-scmod-slot") || {}).value || "10", 10) || 10;
-          var payload = { doctorId: drId, clinicId: clId, startTime: st, endTime: et, slotDuration: slotDur };
+
           if (type === "oneoff") {
             var oDate = ((E.q("#ap-scmod-date") || {}).value || "").trim();
             if (!isYmd(oDate)) { toast("Error", "Enter a valid date.", "bad"); return; }
-            payload.isOneOff = true; payload.date = oDate;
+            var payload = { doctorId: drId, clinicId: clId, startTime: st, endTime: et,
+              slotDuration: slotDur, isOneOff: true, date: oDate };
+            if (isEdit) {
+              // Delete all records in group then recreate
+              for (var ri = 0; ri < existingGroup.records.length; ri++) {
+                await apiDeleteSchedule(existingGroup.records[ri].id);
+              }
+              await apiCreateSchedule(payload);
+            } else {
+              await apiCreateSchedule(payload);
+            }
           } else {
-            var dow = (E.q("#ap-scmod-dow") || {}).value;
-            if (dow === "" || dow == null) { toast("Error", "Select a day of week.", "bad"); return; }
-            payload.dayOfWeek = parseInt(dow, 10);
-            payload.validFrom  = ((E.q("#ap-scmod-vf") || {}).value || "").trim() || null;
-            payload.validUntil = ((E.q("#ap-scmod-vu") || {}).value || "").trim() || null;
+            // Recurring — collect checked days
+            var cbs = document.querySelectorAll(".ap-dow-cb");
+            var selectedDows = [];
+            cbs.forEach(function(cb){ if (cb.checked) selectedDows.push(parseInt(cb.value, 10)); });
+            if (!selectedDows.length) { toast("Error", "Select at least one day of the week.", "bad"); return; }
+
+            var vf = ((E.q("#ap-scmod-vf") || {}).value || "").trim() || null;
+            var vu = ((E.q("#ap-scmod-vu") || {}).value || "").trim() || null;
+
+            if (isEdit) {
+              // Delete all existing records in this group
+              for (var rj = 0; rj < existingGroup.records.length; rj++) {
+                await apiDeleteSchedule(existingGroup.records[rj].id);
+              }
+            }
+            // Create one record per selected day
+            for (var di = 0; di < selectedDows.length; di++) {
+              await apiCreateSchedule({
+                doctorId: drId, clinicId: clId, startTime: st, endTime: et,
+                slotDuration: slotDur, dayOfWeek: selectedDows[di],
+                validFrom: vf, validUntil: vu
+              });
+            }
           }
-          if (isEdit) await apiUpdateSchedule(s.id, payload); else await apiCreateSchedule(payload);
+
           await refreshAll("schedule-save");
           if (typeof onDone === "function") onDone();
           openSchedulesModal(onDone);
         }}
       ]);
+
+      // Toggle recurring/one-off sections
       setTimeout(function () {
         var typeSel = E.q("#ap-scmod-type");
         var recDiv  = E.q("#ap-scmod-rec");
@@ -1193,20 +1568,44 @@
         }
       }, 60);
     }
+
+    // ── Show list modal ──────────────────────────────────────────
     E.modal.show("Manage Schedules", renderBody(), [
       { label: "Close", onClick: async function () { E.modal.hide(); if (typeof onDone === "function") onDone(); } }
     ]);
+
     setTimeout(function () {
-      var addBtn = E.q("#ap-sc-add"); var list = E.q("#ap-sc-list");
+      var addBtn = E.q("#ap-sc-add");
+      var list   = E.q("#ap-sc-list");
       if (addBtn) addBtn.addEventListener("click", function () { showScForm(null); });
       if (list) {
         list.addEventListener("click", function (ev) {
-          var btn = ev.target; var id = btn.getAttribute("data-id"); if (!id) return;
-          if (btn.classList.contains("ap-sc-edit")) { var s = loadSchedules().filter(function (x) { return String(x.id) === String(id); })[0]; if (s) showScForm(s); }
+          var btn = ev.target;
+          var gkey = btn.getAttribute("data-gkey");
+          if (!gkey) return;
+
+          // Re-build groups to find the right one
+          var groups = groupSchedules(loadSchedules());
+          var group  = null;
+          for (var i = 0; i < groups.length; i++) {
+            if (groups[i].key === gkey) { group = groups[i]; break; }
+          }
+
+          if (btn.classList.contains("ap-sc-edit")) {
+            if (group) showScForm(group);
+          }
           if (btn.classList.contains("ap-sc-del")) {
-            modalConfirm("Delete Schedule", "Delete this schedule?", "Delete", "Cancel").then(async function (ok) {
+            var daysDesc = group && !group.isOneOff
+              ? group.records.map(function(r){ return DOW_FULL[Number(r.dayOfWeek != null ? r.dayOfWeek : r.day_of_week)]; }).join(", ")
+              : "this schedule";
+            modalConfirm("Delete Schedule", "Delete " + daysDesc + "?", "Delete", "Cancel").then(async function (ok) {
               if (!ok) { openSchedulesModal(onDone); return; }
-              await apiDeleteSchedule(id); await refreshAll("schedule-delete");
+              if (group) {
+                for (var ri = 0; ri < group.records.length; ri++) {
+                  await apiDeleteSchedule(group.records[ri].id);
+                }
+              }
+              await refreshAll("schedule-delete");
               if (typeof onDone === "function") onDone();
               openSchedulesModal(onDone);
             });
@@ -1242,7 +1641,9 @@
       medicinesCost:      a.medicinesCost       || "",
       medicines:          a.medicines           || "",
       notes:              a.notes              || (wl ? wl.notes : ""),
-      cancellationReason: a.cancellationReason  || ""
+      cancellationReason: a.cancellationReason  || "",
+      patientEmail:       a.patientEmail        || "",
+      bookingConfirmed:   !!(a.bookingConfirmed)
     };
 
     // Pre-seed doctor/clinic from opts (e.g. clicked slot on timeline)
@@ -1263,6 +1664,8 @@
       "<input class='ap-input' id='ap-mod-idcard' type='text' value='" + esc(init.patientIdCard) + "' style='width:100%;'></div>" +
       "<div class='eikon-field'><div class='eikon-label'>Phone</div>" +
       "<input class='ap-input' id='ap-mod-phone' type='tel' value='" + esc(init.patientPhone) + "' style='width:100%;'></div>" +
+      "<div class='eikon-field'><div class='eikon-label'>Email (optional)</div>" +
+      "<input class='ap-input' id='ap-mod-email' type='email' value='" + esc(init.patientEmail) + "' placeholder='patient@example.com' style='width:100%;'></div>" +
       "</div>" +
 
       "<div class='ap-form-section' style='margin-top:10px;'>Schedule</div>" +
@@ -1304,6 +1707,8 @@
       "<input class='ap-input' id='ap-mod-idcard' type='text' value='" + esc(init.patientIdCard) + "' style='width:100%;'></div>" +
       "<div class='eikon-field'><div class='eikon-label'>Phone</div>" +
       "<input class='ap-input' id='ap-mod-phone' type='tel' value='" + esc(init.patientPhone) + "' style='width:100%;'></div>" +
+      "<div class='eikon-field'><div class='eikon-label'>Email (optional)</div>" +
+      "<input class='ap-input' id='ap-mod-email' type='email' value='" + esc(init.patientEmail) + "' placeholder='patient@example.com' style='width:100%;'></div>" +
       "</div>" +
 
       "<div class='ap-form-section' style='margin-top:10px;'>Appointment Details</div>" +
@@ -1396,6 +1801,7 @@
               patientName: patient,
               patientIdCard: ((E.q("#ap-mod-idcard") || {}).value || "").trim(),
               patientPhone: ((E.q("#ap-mod-phone") || {}).value || "").trim(),
+              patientEmail: ((E.q("#ap-mod-email") || {}).value || "").trim(),
               doctorId: drId, clinicId: clId,
               preferredDates: date, flexibility: "Urgent",
               notes: "Auto-added: session " + date + " was fully booked at time of booking."
@@ -1419,6 +1825,7 @@
             patientName: patient,
             patientIdCard: ((E.q("#ap-mod-idcard") || {}).value || "").trim(),
             patientPhone:  ((E.q("#ap-mod-phone")  || {}).value || "").trim(),
+            patientEmail:  ((E.q("#ap-mod-email")  || {}).value || "").trim(),
             doctorId: drId, clinicId: clId, date: date, time: time, durationMins: durM, status: status,
             notes: ((E.q("#ap-mod-notes") || {}).value || "").trim()
           };
@@ -1806,10 +2213,19 @@
     var dr = doctorById(a.doctorId); var cl = clinicById(a.clinicId);
     var total = computeTotal(a);
     var waBtn = a.patientPhone ? whatsappBtnHtml(a.patientPhone) : "";
+    var emBtn = a.patientEmail ? emailBtnHtml(a.patientEmail) : "";
+    var confirmedChk = "<label style='display:inline-flex;align-items:center;gap:7px;cursor:pointer;padding:4px 10px 4px 8px;" +
+      "border:1px solid " + (a.bookingConfirmed ? "rgba(67,209,122,.45)" : "rgba(255,255,255,.12)") + ";" +
+      "border-radius:999px;background:" + (a.bookingConfirmed ? "rgba(67,209,122,.12)" : "rgba(10,16,24,.3)") + ";'>" +
+      "<input type='checkbox' class='ap-confirmed-chk' data-apptid='" + esc(a.id) + "'" + (a.bookingConfirmed ? " checked" : "") +
+      " style='width:14px;height:14px;accent-color:#43d17a;cursor:pointer;flex-shrink:0;'>" +
+      "<span style='font-size:11px;font-weight:900;color:" + (a.bookingConfirmed ? "#6de0a0" : "rgba(233,238,247,.6)") + ";'>" +
+      (a.bookingConfirmed ? "✓ Booking Confirmed" : "Booking Confirmed?") + "</span></label>";
     return "<div class='ap-detail-grid'>" +
       "<div class='ap-kv half'><div class='k'>Patient</div><div class='v'>" + esc(a.patientName || "-") + "</div></div>" +
       "<div class='ap-kv'><div class='k'>ID Card</div><div class='v'>" + esc(a.patientIdCard || "-") + "</div></div>" +
       "<div class='ap-kv'><div class='k'>Phone</div><div class='v' style='display:flex;align-items:center;gap:8px;flex-wrap:wrap;'>" + esc(a.patientPhone || "-") + (waBtn ? "&ensp;" + waBtn : "") + "</div></div>" +
+      "<div class='ap-kv'><div class='k'>Email</div><div class='v' style='display:flex;align-items:center;gap:8px;flex-wrap:wrap;'>" + esc(a.patientEmail || "-") + (emBtn ? "&ensp;" + emBtn : "") + "</div></div>" +
       "<div class='ap-kv'><div class='k'>Date</div><div class='v'>" + esc(fmtDmy(a.date)) + "</div></div>" +
       "<div class='ap-kv'><div class='k'>Time</div><div class='v'>" + esc(a.time || "-") + "</div></div>" +
       "<div class='ap-kv'><div class='k'>Duration</div><div class='v'>" + esc(a.durationMins || "-") + " min</div></div>" +
@@ -1825,6 +2241,7 @@
       "<div class='ap-kv'><div class='k'>Patient Token</div><div class='v'><span class='ap-token-box'>" + esc(a.token || "-") + "</span></div></div>" +
       "<div class='ap-kv'><div class='k'>Appointment ID</div><div class='v'>" + esc(a.id || "-") + "</div></div>" +
       "<div class='ap-kv'><div class='k'>Created</div><div class='v'>" + esc(fmtTs(a.createdAt || "")) + "</div></div>" +
+      "<div class='ap-kv wide'><div class='k'>Booking Confirmation</div><div class='v'>" + confirmedChk + "</div></div>" +
       "</div>";
   }
 
@@ -1837,6 +2254,14 @@
     }
     detailActionsEl.appendChild(mkBtn("✏ Edit", "", function () { var fresh = apptById(a.id); openApptModal({ appt: fresh || a }, function () { if (typeof onActionDone === "function") onActionDone(); }); }));
     detailActionsEl.appendChild(mkBtn("🖨 Print", "", function () { var fresh = apptById(a.id); printSingleAppt(fresh || a); }));
+
+    // Email buttons
+    if (a.patientEmail) {
+      detailActionsEl.appendChild(mkBtn("📧 Email", "", function () { openEmailBlank(a.patientEmail); }));
+      detailActionsEl.appendChild(mkBtn("📧 Send Booking", "", function () { var fresh = apptById(a.id) || a; openBookingEmail(fresh); }));
+      detailActionsEl.appendChild(mkBtn("📧 Send Reminder", "", function () { var fresh = apptById(a.id) || a; openReminderEmail(fresh); }));
+    }
+
     if (a.status !== "Confirmed" && a.status !== "Completed" && a.status !== "Cancelled") {
       detailActionsEl.appendChild(mkBtn("✓ Confirm", "", async function () { await apiUpdateAppt(a.id, { status: "Confirmed" }); toast("Updated", "Confirmed.", "good"); await refreshAll("status-change"); if (typeof onActionDone === "function") onActionDone(); }));
     }
@@ -1864,6 +2289,33 @@
         await refreshAll("appt-delete"); if (typeof onActionDone === "function") onActionDone();
       });
     }));
+
+    // Wire the booking confirmed checkbox (rendered inside detailBodyEl)
+    setTimeout(function () {
+      var chk = detailBodyEl ? detailBodyEl.querySelector(".ap-confirmed-chk") : null;
+      if (chk) {
+        chk.addEventListener("change", async function () {
+          var confirmed = chk.checked;
+          try {
+            await apiUpdateAppt(a.id, { bookingConfirmed: confirmed });
+            toast("Saved", confirmed ? "Booking marked as confirmed." : "Confirmation removed.", "good");
+            // Update local in-memory record
+            var arr = loadAppts();
+            for (var i = 0; i < arr.length; i++) {
+              if (String(arr[i].id) === String(a.id)) { arr[i].bookingConfirmed = confirmed; break; }
+            }
+            saveAppts(arr);
+            a.bookingConfirmed = confirmed;
+            // Re-render detail body and re-wire
+            if (detailBodyEl) detailBodyEl.innerHTML = buildDetailHtml(a);
+            buildDetailActions(a, detailCardEl, detailBodyEl, detailActionsEl, onActionDone);
+          } catch (ex) {
+            apptErr("bookingConfirmed update error", ex);
+            toast("Error", "Could not save confirmation status.", "bad");
+          }
+        });
+      }
+    }, 60);
   }
 
   // ============================================================
@@ -2561,7 +3013,15 @@
           tr.appendChild(phoneTd);
           tr.appendChild(mkTd(dr ? dr.name : ""));
           tr.appendChild(mkTd(cl ? cl.name : ""));
-          var stTd = document.createElement("td"); stTd.appendChild(statusBadge(a.status)); tr.appendChild(stTd);
+          var stTd = document.createElement("td"); stTd.appendChild(statusBadge(a.status));
+          if (a.bookingConfirmed) {
+            var confBadge = document.createElement("span");
+            confBadge.title = "Booking Confirmed";
+            confBadge.style.cssText = "display:inline-block;margin-left:5px;background:rgba(67,209,122,.15);border:1px solid rgba(67,209,122,.4);color:#6de0a0;border-radius:999px;font-size:10px;font-weight:900;padding:2px 7px;";
+            confBadge.textContent = "✓ Confirmed";
+            stTd.appendChild(confBadge);
+          }
+          tr.appendChild(stTd);
           tr.appendChild(mkTd(fmtMoney(computeTotal(a))));
           tr.addEventListener("click", function () {
             state.selectedApptId = String(a.id);
