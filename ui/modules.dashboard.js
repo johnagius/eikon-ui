@@ -4,6 +4,7 @@
    - Compact, actionable overview across modules
    - Quick-entry modals for: Temperature, Cleaning, Daily Register
    - FAST LOAD: parallel fetch + incremental render + timeouts
+   - DEBUG: console + diagnostics modal (dbg>=1)
    ============================================================ */
 (function () {
   "use strict";
@@ -95,6 +96,39 @@
   }
 
   // ----------------------------
+  // Dashboard debug (respects core.js dbg setting)
+  // ----------------------------
+  var DASH_DEBUG = (typeof E.DEBUG === "number") ? E.DEBUG : (typeof E.DBG === "number" ? E.DBG : 0);
+
+  function dashNowIso() {
+    try { return new Date().toISOString(); } catch (e) { return ""; }
+  }
+
+  function dlog(level /* 'log'|'warn'|'error'|'dbg' */, args) {
+    try {
+      var lv = String(level || "log");
+      if (lv === "log" && DASH_DEBUG < 1) return;
+      if (lv === "dbg" && DASH_DEBUG < 2) return;
+
+      var a = Array.prototype.slice.call(args || []);
+      a.unshift("[dash]");
+      if (lv === "warn") console.warn.apply(console, a);
+      else if (lv === "error") console.error.apply(console, a);
+      else console.log.apply(console, a);
+    } catch (e) {}
+  }
+
+  function dgroup(label, fn) {
+    if (DASH_DEBUG < 1) { try { fn && fn(); } catch (e) {} return; }
+    try {
+      if (console.groupCollapsed) console.groupCollapsed(label);
+      else console.log(label);
+      try { fn && fn(); } catch (e2) {}
+      if (console.groupEnd) console.groupEnd();
+    } catch (e3) { try { fn && fn(); } catch (e4) {} }
+  }
+
+  // ----------------------------
   // Compact UI builders
   // ----------------------------
   function pill(type, text) {
@@ -178,6 +212,7 @@
     loading: false,
     lastUpdated: "",
     refreshToken: 0,
+    diag: null,
     data: {
       temp: null,
       cleaning: null,
@@ -476,18 +511,12 @@
     return { expired: expired, soon: soon };
   }
 
-  function computeInstructions(records, today, yesterday) {
-    records = Array.isArray(records) ? records : [];
-    var byYmd = Object.create(null);
-    for (var i = 0; i < records.length; i++) {
-      var r = records[i] || {};
-      var ds = safeStr(r.ymd);
-      if (!ds) continue;
-      byYmd[ds] = r;
-    }
+  function computeInstructions(dailyMap, today, yesterday) {
+    // API returns a keyed object: { "YYYY-MM-DD": { notes:"...", handover_out:[] } }
+    dailyMap = (dailyMap && typeof dailyMap === "object") ? dailyMap : {};
 
-    var t = byYmd[today] || null;
-    var y = byYmd[yesterday] || null;
+    var t = dailyMap[today] || null;
+    var y = dailyMap[yesterday] || null;
 
     var notes = t && safeStr(t.notes);
     var handover = (y && Array.isArray(y.handover_out)) ? y.handover_out : [];
@@ -773,12 +802,25 @@
   // ----------------------------
   function setResult(token, key, ok, dataOrErr) {
     if (token !== state.refreshToken) return; // stale refresh
-    state.data[key] = ok ? { ok: true, data: dataOrErr } : { ok: false, error: String(dataOrErr || "Error") };
+
+    if (ok) {
+      state.data[key] = { ok: true, data: dataOrErr };
+    } else {
+      var msg = String(dataOrErr || "Error");
+      state.data[key] = { ok: false, error: msg };
+      dlog("warn", ["#" + token, key, "error:", msg]);
+    }
+
     renderAll();
   }
 
-  async function refreshAll() {
-    if (state.loading) return;
+  async function refreshAll(opts) {
+    opts = opts || {};
+    var force = !!opts.force;
+    if (state.loading && !force) {
+      dlog("warn", ["refreshAll skipped (already loading)."]);
+      return;
+    }
 
     state.loading = true;
     state.lastUpdated = "";
@@ -792,6 +834,12 @@
     var tYm = todayYm();
     var yYmd = ymdAdd(tYmd, -1);
     var yYm = ymFromDate(parseYmd(yYmd) || new Date());
+
+    // Diagnostics
+    state.diag = { token: token, startedAt: Date.now(), startedIso: dashNowIso(), tasks: {} };
+    dgroup("[dash] refresh #" + token + " " + (state.diag.startedIso || ""), function () {
+      dlog("log", ["today=", tYmd, "month=", tYm, "force=", force, "debug=", DASH_DEBUG]);
+    });
 
     // Build recent months list (light scan)
     function recentMonths(n) {
@@ -810,14 +858,34 @@
     var tasks = [];
 
     function run(key, fn) {
+      var started = Date.now();
+      if (state.diag && state.diag.tasks) state.diag.tasks[key] = { status: "running", startedAt: started };
+
+      dlog("dbg", ["#" + token, key, "start"]);
+
       var p = (async function () {
         try {
           var out = await fn();
+          var ms = Date.now() - started;
+          if (state.diag && state.diag.tasks && state.diag.tasks[key]) {
+            state.diag.tasks[key].status = "ok";
+            state.diag.tasks[key].ms = ms;
+          }
+          dlog("dbg", ["#" + token, key, "ok", ms + "ms"]);
           setResult(token, key, true, out);
         } catch (e) {
-          setResult(token, key, false, (e && (e.message || e.bodyText || e)) || "Error");
+          var ms2 = Date.now() - started;
+          var emsg = String(e && (e.message || e.bodyText || e) || "Error");
+          if (state.diag && state.diag.tasks && state.diag.tasks[key]) {
+            state.diag.tasks[key].status = "error";
+            state.diag.tasks[key].ms = ms2;
+            state.diag.tasks[key].error = emsg;
+          }
+          dlog("warn", ["#" + token, key, "fail", ms2 + "ms", emsg]);
+          setResult(token, key, false, emsg);
         }
       })();
+
       tasks.push(p);
       return p;
     }
@@ -845,22 +913,42 @@
       for (var i = 0; i < ent.length; i++) {
         var e = ent[i] || {};
         if (safeStr(e.entry_date) !== tYmd) continue;
-        var v = Number(e.fee);
+        var v = Number(e.amount != null ? e.amount : e.fee);
         if (isFinite(v)) total += v;
       }
       return { totalToday: total };
     });
 
     run("instructions", async function () {
-      var recs = [];
+      // Merge current month and (if needed) previous-month daily map.
+      // Primary format: { ok:true, daily: { "YYYY-MM-DD": { notes:"", handover_out:[] } } }
+      function toDailyMap(resp) {
+        if (resp && resp.daily && typeof resp.daily === "object") return resp.daily;
+        // Back-compat: accept array forms if ever returned
+        var out = {};
+        var arr = (resp && (resp.records || resp.entries));
+        if (Array.isArray(arr)) {
+          for (var i = 0; i < arr.length; i++) {
+            var r = arr[i] || {};
+            var ds = safeStr(r.ymd || r.entry_date || r.date);
+            if (!ds) continue;
+            out[ds] = r;
+          }
+        }
+        return out;
+      }
+
       var r1 = await api("/instructions/daily?month=" + encodeURIComponent(tYm), { method: "GET" }, 7000, "instructions month");
       if (!r1 || r1.ok !== true) throw new Error((r1 && r1.error) ? r1.error : "Failed to load instructions");
-      recs = recs.concat(r1.records || []);
+
+      var dailyMap = Object.assign({}, toDailyMap(r1));
+
       if (yYm !== tYm) {
         var r2 = await api("/instructions/daily?month=" + encodeURIComponent(yYm), { method: "GET" }, 7000, "instructions prev month");
-        if (r2 && r2.ok === true) recs = recs.concat(r2.records || []);
+        if (r2 && r2.ok === true) Object.assign(dailyMap, toDailyMap(r2));
       }
-      return computeInstructions(recs, tYmd, yYmd);
+
+      return computeInstructions(dailyMap, tYmd, yYmd);
     });
 
     // --- ATTENTION ---
@@ -942,10 +1030,9 @@
     });
 
     run("shifts", async function () {
-      // Check this month + next month using existing endpoints
       var now = new Date();
       var year1 = now.getFullYear();
-      var month1 = now.getMonth() + 1; // 1-12
+      var month1 = now.getMonth() + 1;
       var next = new Date(now.getFullYear(), now.getMonth() + 1, 1);
       var year2 = next.getFullYear();
       var month2 = next.getMonth() + 1;
@@ -975,7 +1062,6 @@
           .concat((a2 && a2.shifts) ? a2.shifts : [])
       };
 
-      // Build date span: first of current month to last day of next month
       var fromD = new Date(now.getFullYear(), now.getMonth(), 1);
       var toD = new Date(now.getFullYear(), now.getMonth() + 2, 0);
       var from = ymdFromDate(fromD);
@@ -994,10 +1080,15 @@
       return { issueDays: issueDays, from: from, to: to };
     });
 
-    // finalize: when everything settles, mark not-loading and timestamp
     Promise.allSettled(tasks).then(function () {
       if (token !== state.refreshToken) return;
       state.loading = false;
+      if (state.diag && state.diag.token === token) {
+        state.diag.finishedAt = Date.now();
+        state.diag.totalMs = state.diag.finishedAt - (state.diag.startedAt || state.diag.finishedAt);
+      }
+      dlog("log", ["#" + token, "refresh done", (state.diag && state.diag.totalMs != null) ? (state.diag.totalMs + "ms") : ""]);
+
       try {
         var now = new Date();
         state.lastUpdated = pad2(now.getHours()) + ":" + pad2(now.getMinutes());
@@ -1216,7 +1307,6 @@
     ]);
   }
 
-  // Details modals (unchanged content style)
   function showCertDetails() {
     var ce = state.data.certificates && state.data.certificates.ok ? state.data.certificates.data : null;
     if (!ce) return showError("Certificates", "Certificates data not available.");
@@ -1412,6 +1502,44 @@
     ]);
   }
 
+  function showDiagnostics() {
+    try {
+      var d = state.diag || null;
+      if (!d) return showError("Diagnostics", "No diagnostics available yet. Click Refresh and try again.");
+
+      var tasks = d.tasks || {};
+      var keys = Object.keys(tasks);
+      keys.sort();
+
+      var rows = "";
+      for (var i = 0; i < keys.length; i++) {
+        var k = keys[i];
+        var t = tasks[k] || {};
+        var st = t.status || "—";
+        var ms = (t.ms != null) ? (String(t.ms) + "ms") : "";
+        var err = t.error ? String(t.error) : "";
+        rows += "<tr><td>" + esc(k) + "</td><td>" + esc(st) + "</td><td>" + esc(ms) + "</td><td>" + esc(err) + "</td></tr>";
+      }
+      if (!rows) rows = "<tr><td colspan='4'>No task data.</td></tr>";
+
+      var body =
+        '<div class="eikon-dash-detail">' +
+          '<div class="eikon-help">Refresh #' + esc(d.token) + " • started " + esc(d.startedIso || "") + "</div>" +
+          '<div class="eikon-help">Tip: use dbg=2 for verbose API logs. (Example: add <b>?dbg=2</b> to the iframe URL)</div>' +
+          '<table class="eikon-dash-mini-table">' +
+            "<thead><tr><th>Section</th><th>Status</th><th>Time</th><th>Last error</th></tr></thead>" +
+            "<tbody>" + rows + "</tbody>" +
+          "</table>" +
+        "</div>";
+
+      E.modal.show("Dashboard diagnostics", body, [
+        { label: "Close", primary: true, onClick: function () { E.modal.hide(); } }
+      ]);
+    } catch (e) {
+      showError("Diagnostics", String(e && (e.message || e) || "Error"));
+    }
+  }
+
   // ----------------------------
   // Click handler
   // ----------------------------
@@ -1426,6 +1554,8 @@
     if (!act) return;
 
     if (act === "dash-refresh") return refreshAll();
+
+    if (act === "dash-diag") return showDiagnostics();
 
     if (act === "dash-temp-quick") return openTempQuickModal();
     if (act === "dash-clean-quick") return openCleaningQuickModal();
@@ -1470,6 +1600,7 @@
           '<div class="eikon-dash-meta">' +
             '<span class="eikon-help" id="dash-updated"></span>' +
             btn("dash-refresh", "Refresh", { small: true, title: "Refresh all dashboard checks" }) +
+            (DASH_DEBUG >= 1 ? btn("dash-diag", "Diag", { small: true, title: "Dashboard diagnostics" }) : "") +
           "</div>" +
         "</div>" +
 
@@ -1497,11 +1628,13 @@
       mount.__eikonDashBound = true;
     }
 
-    state.loading = true;
+    // ✅ BUG 1 FIX: do NOT set loading=true here (refreshAll would bail out)
+    state.loading = false; // ensure refreshAll() can run (avoid deadlock)
     setLoadingPlaceholders();
+    state.lastUpdated = "";
     renderAll();
 
-    refreshAll();
+    refreshAll({ force: true });
   }
 
   // Register module (order 1)
