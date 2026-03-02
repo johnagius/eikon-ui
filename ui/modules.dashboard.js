@@ -3,7 +3,7 @@
    - Order 1 (first in sidebar)
    - Compact, actionable overview across modules
    - Quick-entry modals for: Temperature, Cleaning, Daily Register
-   - No Cloudflare worker changes required
+   - FAST LOAD: parallel fetch + incremental render + timeouts
    ============================================================ */
 (function () {
   "use strict";
@@ -29,7 +29,6 @@
   function parseYmd(s) {
     s = String(s || "").trim();
     if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
-    // local midnight
     var d = new Date(s + "T00:00:00");
     if (!isFinite(d.getTime())) return null;
     return d;
@@ -58,17 +57,9 @@
     return ymdFromDate(addDays(d, n));
   }
 
-  function daysBetween(aYmd, bYmd) {
-    var a = parseYmd(aYmd), b = parseYmd(bYmd);
-    if (!a || !b) return NaN;
-    var ms = b.getTime() - a.getTime();
-    return Math.floor(ms / 86400000);
-  }
-
   function moneyEUR(v) {
     var n = Number(v);
     if (!isFinite(n)) n = 0;
-    // Keep simple formatting; UI is compact
     return "€" + n.toFixed(2);
   }
 
@@ -79,6 +70,29 @@
   function safeStr(v) { return String(v == null ? "" : v).trim(); }
 
   function q(sel, root) { return (root || document).querySelector(sel); }
+
+  // ----------------------------
+  // Fast API (timeout wrapper)
+  // ----------------------------
+  var REQ_TIMEOUT_MS = 8000;
+
+  function withTimeout(promise, ms, label) {
+    ms = ms || REQ_TIMEOUT_MS;
+    return Promise.race([
+      promise,
+      new Promise(function (_, reject) {
+        setTimeout(function () {
+          var err = new Error((label ? (label + ": ") : "") + "Request timeout");
+          err.code = "timeout";
+          reject(err);
+        }, ms);
+      })
+    ]);
+  }
+
+  async function api(path, options, timeoutMs, label) {
+    return withTimeout(E.apiFetch(path, options || { method: "GET" }), timeoutMs, label || path);
+  }
 
   // ----------------------------
   // Compact UI builders
@@ -163,6 +177,7 @@
     mount: null,
     loading: false,
     lastUpdated: "",
+    refreshToken: 0,
     data: {
       temp: null,
       cleaning: null,
@@ -179,18 +194,19 @@
     }
   };
 
-  // ----------------------------
-  // Data fetch wrappers (never crash dashboard)
-  // ----------------------------
-  async function safeCall(name, fn) {
-    try {
-      var out = await fn();
-      return { ok: true, data: out };
-    } catch (e) {
-      var msg = String(e && (e.message || e.bodyText || e.error || e) || "Error");
-      E.warn && E.warn("[dashboard] " + name + " failed:", e);
-      return { ok: false, error: msg };
-    }
+  function setLoadingPlaceholders() {
+    state.data.temp = null;
+    state.data.cleaning = null;
+    state.data.dailyregister = null;
+    state.data.certificates = null;
+    state.data.alerts = null;
+    state.data.shifts = null;
+    state.data.clientorders = null;
+    state.data.tickets = null;
+    state.data.returns = null;
+    state.data.paidout = null;
+    state.data.nearexpiry = null;
+    state.data.instructions = null;
   }
 
   // ----------------------------
@@ -226,12 +242,7 @@
       if (!byDev[id]) missing.push(dev);
     }
 
-    return {
-      total: active.length,
-      missing: missing,
-      byDev: byDev,
-      devices: active
-    };
+    return { total: active.length, missing: missing, byDev: byDev, devices: active };
   }
 
   function computeCleaning(entries, today) {
@@ -239,9 +250,8 @@
     var last = "";
     var hasRecent = false;
 
-    var t0 = parseYmd(today);
-    if (!t0) t0 = new Date();
-    var threshold = ymdFromDate(addDays(t0, -13)); // inclusive window: today + previous 13 days = 14 days
+    var t0 = parseYmd(today) || new Date();
+    var threshold = ymdFromDate(addDays(t0, -13)); // 14-day window inclusive
 
     for (var i = 0; i < entries.length; i++) {
       var e = entries[i] || {};
@@ -269,9 +279,9 @@
     var expired = [];
     var due = [];
 
-    var t = parseYmd(today);
-    var tTs = t ? t.getTime() : new Date().getTime();
-    var t30 = addDays(t ? t : new Date(), 30).getTime();
+    var t = parseYmd(today) || new Date();
+    var tTs = t.getTime();
+    var t30 = addDays(t, 30).getTime();
 
     for (var i = 0; i < items.length; i++) {
       var it = items[i] || {};
@@ -314,7 +324,7 @@
     return { incomplete: incomplete };
   }
 
-  // --- Shifts coverage (reusing the same core logic style as shifts module) ---
+  // --- Shifts coverage (lightweight; uses existing assignments endpoints) ---
   function t2m(hhmm) {
     hhmm = String(hhmm || "").trim();
     var m = /^(\d{1,2}):(\d{2})$/.exec(hhmm);
@@ -339,9 +349,8 @@
       closed: !!((ovr && ovr.closed) || def.closed)
     };
 
-    // Weekend flags (common in your shifts state)
     try {
-      var wd = new Date(ds + "T00:00:00").getDay(); // 0 Sun .. 6 Sat
+      var wd = new Date(ds + "T00:00:00").getDay();
       if (!out.closed) {
         if (wd === 6 && hours.openSaturday === false) out.closed = true;
         if (wd === 0 && hours.openSunday === false) out.closed = true;
@@ -409,7 +418,7 @@
       return { ok: issues0.length === 0, issues: issues0, open: oh.open, close: oh.close };
     }
 
-    events.sort(function (a, b) { return a.t - b.t || b.d - a.d; }); // starts before ends at same time
+    events.sort(function (a, b) { return a.t - b.t || b.d - a.d; });
     var gaps = [];
     var count = 0;
     var cur = openM;
@@ -446,9 +455,9 @@
     var expired = [];
     var soon = [];
 
-    var t = parseYmd(today);
-    var tTs = t ? t.getTime() : new Date().getTime();
-    var t30 = addDays(t ? t : new Date(), 30).getTime();
+    var t = parseYmd(today) || new Date();
+    var tTs = t.getTime();
+    var t30 = addDays(t, 30).getTime();
 
     for (var i = 0; i < entries.length; i++) {
       var e = entries[i] || {};
@@ -483,10 +492,7 @@
     var notes = t && safeStr(t.notes);
     var handover = (y && Array.isArray(y.handover_out)) ? y.handover_out : [];
 
-    return {
-      todayNotes: notes || "",
-      yesterdayHandover: handover
-    };
+    return { todayNotes: notes || "", yesterdayHandover: handover };
   }
 
   function computeReturns(entries) {
@@ -527,7 +533,7 @@
     // --- Temperature ---
     var tempRow = "";
     if (!state.data.temp) tempRow = row("🌡", "Temperature (today)", "Loading…", pill("info", "…"), "");
-    else if (!state.data.temp.ok) tempRow = row("🌡", "Temperature (today)", state.data.temp.error || "Unavailable", showNA("N/A"), btn("dash-open-temperature", "Open", { small: true, title: "Open Temperature module" }));
+    else if (!state.data.temp.ok) tempRow = row("🌡", "Temperature (today)", state.data.temp.error || "Unavailable", showNA("N/A"), btn("dash-open-temperature", "Open", { small: true }));
     else {
       var t = state.data.temp.data;
       if (!t.total) {
@@ -540,7 +546,7 @@
           "Temperature (today)",
           t.missing.length + " missing / " + t.total + " devices",
           pill("danger", "Missing"),
-          btn("dash-temp-quick", "Quick enter", { primary: true, small: true, title: "Enter today's temperatures" }) +
+          btn("dash-temp-quick", "Quick enter", { primary: true, small: true }) +
           btn("dash-open-temperature", "Open", { small: true })
         );
       }
@@ -620,7 +626,7 @@
       }
     }
 
-    // --- Certificates due/expired ---
+    // --- Certificates ---
     var certRow = "";
     if (!state.data.certificates) certRow = row("📄", "Certificates (due/expired)", "Loading…", pill("info", "…"), "");
     else if (!state.data.certificates.ok) certRow = row("📄", "Certificates (due/expired)", state.data.certificates.error || "Unavailable", showNA("N/A"), btn("dash-open-certificates", "Open", { small: true }));
@@ -645,7 +651,7 @@
       }
     }
 
-    // --- Alerts incomplete ---
+    // --- Alerts ---
     var alRow = "";
     if (!state.data.alerts) alRow = row("🚨", "Alerts (incomplete)", "Loading…", pill("info", "…"), "");
     else if (!state.data.alerts.ok) alRow = row("🚨", "Alerts (incomplete)", state.data.alerts.error || "Unavailable", showNA("N/A"), btn("dash-open-alerts", "Open", { small: true }));
@@ -665,19 +671,19 @@
       }
     }
 
-    // --- Returns incomplete ---
+    // --- Returns ---
     var rtRow = "";
     if (!state.data.returns) rtRow = row("↩️", "Returns (incomplete)", "Loading…", pill("info", "…"), "");
     else if (!state.data.returns.ok) rtRow = row("↩️", "Returns (incomplete)", state.data.returns.error || "Unavailable", showNA("N/A"), btn("dash-open-returns", "Open", { small: true }));
     else {
       var rr = state.data.returns.data;
       var rn = rr.incomplete.length;
-      if (!rn) rtRow = row("↩️", "Returns (incomplete)", "All returns completed", pill("ok", "OK"), btn("dash-open-returns", "Open", { small: true }));
+      if (!rn) rtRow = row("↩️", "Returns (incomplete)", "All returns completed (recent months)", pill("ok", "OK"), btn("dash-open-returns", "Open", { small: true }));
       else {
         rtRow = row(
           "↩️",
           "Returns (incomplete)",
-          rn + " return(s) need checkboxes",
+          rn + " return(s) need checkboxes (recent months)",
           pill("warn", "Action"),
           btn("dash-returns-details", "Details", { primary: true, small: true }) +
           btn("dash-open-returns", "Open", { small: true })
@@ -731,7 +737,7 @@
       }
     }
 
-    // --- Client orders active ---
+    // --- Client orders ---
     var coRow = "";
     if (!state.data.clientorders) coRow = row("🧾", "Client orders (active)", "Loading…", pill("info", "…"), "");
     else if (!state.data.clientorders.ok) coRow = row("🧾", "Client orders (active)", state.data.clientorders.error || "Unavailable", showNA("N/A"), btn("dash-open-clientorders", "Open", { small: true }));
@@ -744,7 +750,7 @@
       }
     }
 
-    // --- Client tickets open ---
+    // --- Tickets ---
     var tkRow = "";
     if (!state.data.tickets) tkRow = row("🎫", "Client tickets (open)", "Loading…", pill("info", "…"), "");
     else if (!state.data.tickets.ok) tkRow = row("🎫", "Client tickets (open)", state.data.tickets.error || "Unavailable", showNA("N/A"), btn("dash-open-tickets", "Open", { small: true }));
@@ -763,11 +769,23 @@
   }
 
   // ----------------------------
-  // Refresh (pull everything)
+  // Incremental refresh (PARALLEL)
   // ----------------------------
+  function setResult(token, key, ok, dataOrErr) {
+    if (token !== state.refreshToken) return; // stale refresh
+    state.data[key] = ok ? { ok: true, data: dataOrErr } : { ok: false, error: String(dataOrErr || "Error") };
+    renderAll();
+  }
+
   async function refreshAll() {
     if (state.loading) return;
+
     state.loading = true;
+    state.lastUpdated = "";
+    state.refreshToken++;
+    var token = state.refreshToken;
+
+    setLoadingPlaceholders();
     renderAll();
 
     var tYmd = todayYmd();
@@ -775,148 +793,52 @@
     var yYmd = ymdAdd(tYmd, -1);
     var yYm = ymFromDate(parseYmd(yYmd) || new Date());
 
-    // Temperature: devices + current month entries
-    state.data.temp = await safeCall("temperature", async function () {
-      var dev = await E.apiFetch("/temperature/devices", { method: "GET" });
-      var ent = await E.apiFetch("/temperature/entries?month=" + encodeURIComponent(tYm), { method: "GET" });
+    // Build recent months list (light scan)
+    function recentMonths(n) {
+      n = parseInt(n, 10) || 6;
+      var months = [];
+      var base = parseYm(tYm) || new Date();
+      base = new Date(base.getFullYear(), base.getMonth(), 1);
+      for (var i = 0; i < n; i++) {
+        var d = new Date(base.getFullYear(), base.getMonth() - i, 1);
+        months.push(ymFromDate(d));
+      }
+      return months;
+    }
+
+    // Task runner
+    var tasks = [];
+
+    function run(key, fn) {
+      var p = (async function () {
+        try {
+          var out = await fn();
+          setResult(token, key, true, out);
+        } catch (e) {
+          setResult(token, key, false, (e && (e.message || e.bodyText || e)) || "Error");
+        }
+      })();
+      tasks.push(p);
+      return p;
+    }
+
+    // --- TODAY (high priority) ---
+    run("temp", async function () {
+      var dev = await api("/temperature/devices?include_inactive=1", { method: "GET" }, 7000, "temperature devices");
+      var ent = await api("/temperature/entries?month=" + encodeURIComponent(tYm), { method: "GET" }, 7000, "temperature entries");
       var devices = (dev && dev.devices) ? dev.devices : [];
       var entries = (ent && ent.entries) ? ent.entries : [];
       return computeTemperature(devices, entries, tYmd);
     });
 
-    // Cleaning: current month + maybe previous month (to cover 14 days across boundary)
-    state.data.cleaning = await safeCall("cleaning", async function () {
-      var months = [tYm];
-      var td = parseYmd(tYmd) || new Date();
-      if ((td.getDate() || 1) <= 14) {
-        var prev = new Date(td.getFullYear(), td.getMonth() - 1, 1);
-        months.push(ymFromDate(prev));
-      }
-      var all = [];
-      for (var i = 0; i < months.length; i++) {
-        var r = await E.apiFetch("/cleaning/entries?month=" + encodeURIComponent(months[i]), { method: "GET" });
-        var ent = (r && r.entries) ? r.entries : [];
-        all = all.concat(ent);
-      }
-      return computeCleaning(all, tYmd);
-    });
-
-    // Daily register: current month entries
-    state.data.dailyregister = await safeCall("dailyregister", async function () {
-      var r = await E.apiFetch("/daily-register/entries?month=" + encodeURIComponent(tYm), { method: "GET" });
+    run("dailyregister", async function () {
+      var r = await api("/daily-register/entries?month=" + encodeURIComponent(tYm), { method: "GET" }, 7000, "daily register");
       var ent = (r && r.entries) ? r.entries : [];
       return computeDailyRegister(ent, tYmd);
     });
 
-    // Certificates: list items
-    state.data.certificates = await safeCall("certificates", async function () {
-      var r = await E.apiFetch("/certificates/items", { method: "GET" });
-      if (!r || r.ok !== true) throw new Error((r && r.error) ? r.error : "Failed to load certificates");
-      var items = r.items || [];
-      return computeCertificates(items, tYmd);
-    });
-
-    // Alerts: list entries
-    state.data.alerts = await safeCall("alerts", async function () {
-      var r = await E.apiFetch("/alerts/entries?ts=" + Date.now(), { method: "GET" });
-      var ent = (r && r.entries) ? r.entries : [];
-      return computeAlerts(ent);
-    });
-
-    // Shifts: this month + next month coverage issues
-    state.data.shifts = await safeCall("shifts", async function () {
-      var now = new Date();
-      var fromD = new Date(now.getFullYear(), now.getMonth(), 1);
-      var toD = new Date(now.getFullYear(), now.getMonth() + 2, 0); // last day of next month
-      var from = ymdFromDate(fromD);
-      var to = ymdFromDate(toD);
-
-      // Pull required shifts data
-      var staffResp = await E.apiFetch("/shifts/staff?include_inactive=1", { method: "GET" });
-      var hoursResp = await E.apiFetch("/shifts/opening-hours", { method: "GET" });
-      var setResp = await E.apiFetch("/shifts/settings", { method: "GET" });
-
-      // Leaves may be year-scoped
-      var years = Object.create(null);
-      years[fromD.getFullYear()] = true;
-      years[toD.getFullYear()] = true;
-
-      var allLeaves = [];
-      for (var y in years) {
-        var lr = await E.apiFetch("/shifts/leaves?year=" + encodeURIComponent(String(y)), { method: "GET" });
-        allLeaves = allLeaves.concat((lr && lr.leaves) ? lr.leaves : []);
-      }
-
-      var rangeResp = await E.apiFetch(
-        "/shifts/assignments-range?from=" + encodeURIComponent(from) + "&to=" + encodeURIComponent(to),
-        { method: "GET" }
-      );
-
-      var payload = {
-        staff: (staffResp && staffResp.staff) ? staffResp.staff : [],
-        openingHours: (hoursResp && hoursResp.hours) ? hoursResp.hours : {},
-        settings: (setResp && setResp.settings) ? setResp.settings : {},
-        leaves: allLeaves,
-        shifts: (rangeResp && rangeResp.shifts) ? rangeResp.shifts : []
-      };
-
-      // Iterate day-by-day
-      var issueDays = [];
-      var cur = parseYmd(from);
-      var end = parseYmd(to);
-      if (!cur || !end) return { issueDays: issueDays };
-
-      while (cur.getTime() <= end.getTime()) {
-        var ds = ymdFromDate(cur);
-        var cov = checkCoverage(ds, payload);
-        if (cov && cov.ok === false) {
-          issueDays.push({ ymd: ds, issues: cov.issues || [] });
-        }
-        cur = addDays(cur, 1);
-      }
-
-      return { issueDays: issueDays, from: from, to: to };
-    });
-
-    // Client orders: "active" (recent months) — month is required by API
-    state.data.clientorders = await safeCall("clientorders", async function () {
-      // Keep light for dashboard: last 6 months only (still meets "do you have active client orders")
-      var months = [];
-      var base = parseYm(tYm) || new Date();
-      base = new Date(base.getFullYear(), base.getMonth(), 1);
-
-      for (var i = 0; i < 6; i++) {
-        var d = new Date(base.getFullYear(), base.getMonth() - i, 1);
-        months.push(ymFromDate(d));
-      }
-
-      var active = 0;
-      for (var m = 0; m < months.length; m++) {
-        var r = await E.apiFetch("/client-orders/entries?month=" + encodeURIComponent(months[m]) + "&fulfilled=0", { method: "GET" });
-        var ent = (r && r.entries) ? r.entries : [];
-        active += ent.length;
-      }
-
-      return { activeCount: active, monthsScanned: months };
-    });
-
-    // Client tickets: open tickets
-    state.data.tickets = await safeCall("tickets", async function () {
-      var r = await E.apiFetch("/client-tickets/entries?resolved=0&_ts=" + Date.now(), { method: "GET" });
-      var ent = (r && r.entries) ? r.entries : [];
-      return { openCount: ent.length, entries: ent };
-    });
-
-    // Returns: incomplete checkboxes
-    state.data.returns = await safeCall("returns", async function () {
-      var r = await E.apiFetch("/returns/entries?_ts=" + Date.now(), { method: "GET" });
-      var ent = (r && r.entries) ? r.entries : [];
-      return computeReturns(ent);
-    });
-
-    // Paid out: today's total
-    state.data.paidout = await safeCall("paidout", async function () {
-      var r = await E.apiFetch("/paid-out/entries?month=" + encodeURIComponent(tYm) + "&_ts=" + Date.now(), { method: "GET" });
+    run("paidout", async function () {
+      var r = await api("/paid-out/entries?month=" + encodeURIComponent(tYm) + "&_ts=" + Date.now(), { method: "GET" }, 7000, "paid out");
       if (!r || r.ok !== true) throw new Error((r && r.error) ? r.error : "Failed to load paid out entries");
       var ent = Array.isArray(r.entries) ? r.entries : [];
       var total = 0;
@@ -929,38 +851,161 @@
       return { totalToday: total };
     });
 
-    // Near expiry: expired + ≤30d
-    state.data.nearexpiry = await safeCall("nearexpiry", async function () {
-      var r = await E.apiFetch("/near-expiry/entries", { method: "GET" });
+    run("instructions", async function () {
+      var recs = [];
+      var r1 = await api("/instructions/daily?month=" + encodeURIComponent(tYm), { method: "GET" }, 7000, "instructions month");
+      if (!r1 || r1.ok !== true) throw new Error((r1 && r1.error) ? r1.error : "Failed to load instructions");
+      recs = recs.concat(r1.records || []);
+      if (yYm !== tYm) {
+        var r2 = await api("/instructions/daily?month=" + encodeURIComponent(yYm), { method: "GET" }, 7000, "instructions prev month");
+        if (r2 && r2.ok === true) recs = recs.concat(r2.records || []);
+      }
+      return computeInstructions(recs, tYmd, yYmd);
+    });
+
+    // --- ATTENTION ---
+    run("cleaning", async function () {
+      var months = [tYm];
+      var td = parseYmd(tYmd) || new Date();
+      if ((td.getDate() || 1) <= 14) {
+        var prev = new Date(td.getFullYear(), td.getMonth() - 1, 1);
+        months.push(ymFromDate(prev));
+      }
+      var reqs = months.map(function (m) {
+        return api("/cleaning/entries?month=" + encodeURIComponent(m), { method: "GET" }, 7000, "cleaning " + m);
+      });
+      var res = await Promise.all(reqs);
+      var all = [];
+      for (var i = 0; i < res.length; i++) all = all.concat((res[i] && res[i].entries) ? res[i].entries : []);
+      return computeCleaning(all, tYmd);
+    });
+
+    run("certificates", async function () {
+      var r = await api("/certificates/items", { method: "GET" }, 7000, "certificates");
+      if (!r || r.ok !== true) throw new Error((r && r.error) ? r.error : "Failed to load certificates");
+      return computeCertificates(r.items || [], tYmd);
+    });
+
+    run("alerts", async function () {
+      var r = await api("/alerts/entries?ts=" + Date.now(), { method: "GET" }, 8000, "alerts");
+      var ent = (r && r.entries) ? r.entries : [];
+      return computeAlerts(ent);
+    });
+
+    run("nearexpiry", async function () {
+      var r = await api("/near-expiry/entries", { method: "GET" }, 9000, "near expiry");
       var ent = (r && r.entries) ? r.entries : [];
       return computeNearExpiry(ent, tYmd);
     });
 
-    // Instructions: month for today + month for yesterday (if different)
-    state.data.instructions = await safeCall("instructions", async function () {
-      var recs = [];
-      var r1 = await E.apiFetch("/instructions/daily?month=" + encodeURIComponent(tYm), { method: "GET" });
-      if (!r1 || r1.ok !== true) throw new Error((r1 && r1.error) ? r1.error : "Failed to load instructions");
-      recs = recs.concat(r1.records || []);
-
-      if (yYm !== tYm) {
-        var r2 = await E.apiFetch("/instructions/daily?month=" + encodeURIComponent(yYm), { method: "GET" });
-        if (r2 && r2.ok === true) recs = recs.concat(r2.records || []);
-      }
-
-      return computeInstructions(recs, tYmd, yYmd);
+    run("returns", async function () {
+      var months = recentMonths(6);
+      var reqs = months.map(function (m) {
+        return api("/returns/entries?month=" + encodeURIComponent(m), { method: "GET" }, 8000, "returns " + m);
+      });
+      var res = await Promise.all(reqs);
+      var all = [];
+      for (var i = 0; i < res.length; i++) all = all.concat((res[i] && res[i].entries) ? res[i].entries : []);
+      return computeReturns(all);
     });
 
-    // Update timestamp
-    try {
-      var now = new Date();
-      state.lastUpdated = pad2(now.getHours()) + ":" + pad2(now.getMinutes());
-    } catch (e) {
-      state.lastUpdated = "";
-    }
+    // --- OPERATIONS ---
+    run("clientorders", async function () {
+      var months = recentMonths(6);
+      var reqs = months.map(function (m) {
+        return api("/client-orders/entries?month=" + encodeURIComponent(m), { method: "GET" }, 8000, "client orders " + m);
+      });
+      var res = await Promise.all(reqs);
 
-    state.loading = false;
-    renderAll();
+      var active = 0;
+      for (var i = 0; i < res.length; i++) {
+        var ent = (res[i] && res[i].entries) ? res[i].entries : [];
+        for (var j = 0; j < ent.length; j++) {
+          var e = ent[j] || {};
+          if (!truthy01(e.fulfilled)) active++;
+        }
+      }
+
+      return { activeCount: active, monthsScanned: months };
+    });
+
+    run("tickets", async function () {
+      var r = await api("/client-tickets/entries?_ts=" + Date.now(), { method: "GET" }, 8000, "client tickets");
+      var ent = Array.isArray(r) ? r : ((r && Array.isArray(r.entries)) ? r.entries : []);
+      var open = 0;
+      for (var i = 0; i < ent.length; i++) {
+        var e = ent[i] || {};
+        var resolved = truthy01(e.resolved) || String(e.status || "").toLowerCase() === "resolved";
+        if (!resolved) open++;
+      }
+      return { openCount: open };
+    });
+
+    run("shifts", async function () {
+      // Check this month + next month using existing endpoints
+      var now = new Date();
+      var year1 = now.getFullYear();
+      var month1 = now.getMonth() + 1; // 1-12
+      var next = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      var year2 = next.getFullYear();
+      var month2 = next.getMonth() + 1;
+
+      var staffP = api("/shifts/staff?include_inactive=1", { method: "GET" }, 8000, "shifts staff");
+      var hoursP = api("/shifts/opening-hours", { method: "GET" }, 8000, "opening hours");
+      var setP = api("/shifts/settings", { method: "GET" }, 8000, "shifts settings");
+      var leavesP1 = api("/shifts/leaves?year=" + encodeURIComponent(String(year1)), { method: "GET" }, 8000, "leaves " + year1);
+      var leavesP2 = (year2 === year1) ? Promise.resolve({ ok: true, leaves: [] }) : api("/shifts/leaves?year=" + encodeURIComponent(String(year2)), { method: "GET" }, 8000, "leaves " + year2);
+
+      var assP1 = api("/shifts/assignments?year=" + encodeURIComponent(String(year1)) + "&month=" + encodeURIComponent(String(month1)), { method: "GET" }, 9000, "assignments " + year1 + "-" + month1);
+      var assP2 = api("/shifts/assignments?year=" + encodeURIComponent(String(year2)) + "&month=" + encodeURIComponent(String(month2)), { method: "GET" }, 9000, "assignments " + year2 + "-" + month2);
+
+      var out = await Promise.all([staffP, hoursP, setP, leavesP1, leavesP2, assP1, assP2]);
+
+      var staffResp = out[0], hoursResp = out[1], setResp = out[2], l1 = out[3], l2 = out[4], a1 = out[5], a2 = out[6];
+
+      var payload = {
+        staff: (staffResp && staffResp.staff) ? staffResp.staff : [],
+        openingHours: (hoursResp && hoursResp.hours) ? hoursResp.hours : {},
+        settings: (setResp && setResp.settings) ? setResp.settings : {},
+        leaves: []
+          .concat((l1 && l1.leaves) ? l1.leaves : [])
+          .concat((l2 && l2.leaves) ? l2.leaves : []),
+        shifts: []
+          .concat((a1 && a1.shifts) ? a1.shifts : [])
+          .concat((a2 && a2.shifts) ? a2.shifts : [])
+      };
+
+      // Build date span: first of current month to last day of next month
+      var fromD = new Date(now.getFullYear(), now.getMonth(), 1);
+      var toD = new Date(now.getFullYear(), now.getMonth() + 2, 0);
+      var from = ymdFromDate(fromD);
+      var to = ymdFromDate(toD);
+
+      var issueDays = [];
+      var cur = parseYmd(from);
+      var end = parseYmd(to);
+      while (cur && end && cur.getTime() <= end.getTime()) {
+        var ds = ymdFromDate(cur);
+        var cov = checkCoverage(ds, payload);
+        if (cov && cov.ok === false) issueDays.push({ ymd: ds, issues: cov.issues || [] });
+        cur = addDays(cur, 1);
+      }
+
+      return { issueDays: issueDays, from: from, to: to };
+    });
+
+    // finalize: when everything settles, mark not-loading and timestamp
+    Promise.allSettled(tasks).then(function () {
+      if (token !== state.refreshToken) return;
+      state.loading = false;
+      try {
+        var now = new Date();
+        state.lastUpdated = pad2(now.getHours()) + ":" + pad2(now.getMinutes());
+      } catch (e) {
+        state.lastUpdated = "";
+      }
+      renderAll();
+    });
   }
 
   // ----------------------------
@@ -1029,11 +1074,9 @@
               var maxV = Number((maxEl && maxEl.value || "").trim());
               var notes = (noteEl && noteEl.value || "").trim();
 
-              if (!isFinite(minV) || !isFinite(maxV)) {
-                throw new Error("Please enter valid Min/Max for all devices.");
-              }
+              if (!isFinite(minV) || !isFinite(maxV)) throw new Error("Please enter valid Min/Max for all devices.");
 
-              await E.apiFetch("/temperature/entries", {
+              await api("/temperature/entries", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -1043,12 +1086,12 @@
                   max_temp: maxV,
                   notes: notes
                 })
-              });
+              }, 8000, "temperature save");
             }
 
             E.modal.hide();
             E.showToast && E.showToast("Temperature saved");
-            await refreshAll();
+            refreshAll();
           } catch (e) {
             showError("Temperature save failed", String(e && (e.message || e.bodyText || e) || "Error"));
           }
@@ -1094,15 +1137,15 @@
 
             if (!/^\d{4}-\d{2}-\d{2}$/.test(payload.entry_date)) throw new Error("Invalid date. Use YYYY-MM-DD.");
 
-            await E.apiFetch("/cleaning/entries", {
+            await api("/cleaning/entries", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(payload)
-            });
+            }, 8000, "cleaning save");
 
             E.modal.hide();
             E.showToast && E.showToast("Cleaning saved");
-            await refreshAll();
+            refreshAll();
           } catch (e) {
             showError("Cleaning save failed", String(e && (e.message || e.bodyText || e) || "Error"));
           }
@@ -1156,15 +1199,15 @@
             if (!payload.prescriber_name) throw new Error("Prescriber name is required.");
             if (!payload.prescriber_reg_no) throw new Error("Prescriber reg no is required.");
 
-            await E.apiFetch("/daily-register/entries", {
+            await api("/daily-register/entries", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(payload)
-            });
+            }, 8000, "daily register save");
 
             E.modal.hide();
             E.showToast && E.showToast("Daily register saved");
-            await refreshAll();
+            refreshAll();
           } catch (e) {
             showError("Daily register save failed", String(e && (e.message || e.bodyText || e) || "Error"));
           }
@@ -1173,6 +1216,7 @@
     ]);
   }
 
+  // Details modals (unchanged content style)
   function showCertDetails() {
     var ce = state.data.certificates && state.data.certificates.ok ? state.data.certificates.data : null;
     if (!ce) return showError("Certificates", "Certificates data not available.");
@@ -1181,12 +1225,8 @@
 
     var rows = "";
     var i;
-    for (i = 0; i < ce.expired.length; i++) {
-      rows += "<tr><td>" + esc(nameOf(ce.expired[i])) + "</td><td>" + esc(safeStr(ce.expired[i].next_due)) + "</td><td><b>Expired</b></td></tr>";
-    }
-    for (i = 0; i < ce.dueSoon.length; i++) {
-      rows += "<tr><td>" + esc(nameOf(ce.dueSoon[i])) + "</td><td>" + esc(safeStr(ce.dueSoon[i].next_due)) + "</td><td>Due ≤30d</td></tr>";
-    }
+    for (i = 0; i < ce.expired.length; i++) rows += "<tr><td>" + esc(nameOf(ce.expired[i])) + "</td><td>" + esc(safeStr(ce.expired[i].next_due)) + "</td><td><b>Expired</b></td></tr>";
+    for (i = 0; i < ce.dueSoon.length; i++) rows += "<tr><td>" + esc(nameOf(ce.dueSoon[i])) + "</td><td>" + esc(safeStr(ce.dueSoon[i].next_due)) + "</td><td>Due ≤30d</td></tr>";
 
     var body =
       '<div class="eikon-dash-detail">' +
@@ -1218,14 +1258,8 @@
       ["credit_note_received", "Credit note"]
     ];
 
-    function labelOf(r) {
-      var t = safeStr(r.title || r.product_name || r.description || r.item || r.notes || "");
-      if (t) return t;
-      return "Alert #" + (r.id || "");
-    }
-    function dateOf(r) {
-      return safeStr(r.alert_date || r.entry_date || r.date || r.created_at || "");
-    }
+    function labelOf(r) { return safeStr(r.title || r.product_name || r.description || r.item || r.notes || "") || ("Alert #" + (r.id || "")); }
+    function dateOf(r) { return safeStr(r.alert_date || r.entry_date || r.date || r.created_at || ""); }
     function missingOf(r) {
       var miss = [];
       for (var i = 0; i < keys.length; i++) if (!truthy01(r[keys[i][0]])) miss.push(keys[i][1]);
@@ -1233,9 +1267,7 @@
     }
 
     var rows = "";
-    for (var i = 0; i < Math.min(25, list.length); i++) {
-      rows += "<tr><td>" + esc(dateOf(list[i])) + "</td><td>" + esc(labelOf(list[i])) + "</td><td>" + esc(missingOf(list[i])) + "</td></tr>";
-    }
+    for (var i = 0; i < Math.min(25, list.length); i++) rows += "<tr><td>" + esc(dateOf(list[i])) + "</td><td>" + esc(labelOf(list[i])) + "</td><td>" + esc(missingOf(list[i])) + "</td></tr>";
     if (!rows) rows = "<tr><td colspan='3'>No incomplete alerts.</td></tr>";
 
     var body =
@@ -1259,11 +1291,7 @@
 
     var list = rr.incomplete || [];
 
-    function labelOf(r) {
-      var t = safeStr(r.description || r.item_name || r.product || r.supplier || "");
-      if (t) return t;
-      return "Return #" + (r.id || "");
-    }
+    function labelOf(r) { return safeStr(r.description || r.item_name || r.product || r.supplier || "") || ("Return #" + (r.id || "")); }
     function dateOf(r) { return safeStr(r.entry_date || r.date || r.created_at || ""); }
     function missingOf(r) {
       var miss = [];
@@ -1275,9 +1303,7 @@
     }
 
     var rows = "";
-    for (var i = 0; i < Math.min(25, list.length); i++) {
-      rows += "<tr><td>" + esc(dateOf(list[i])) + "</td><td>" + esc(labelOf(list[i])) + "</td><td>" + esc(missingOf(list[i])) + "</td></tr>";
-    }
+    for (var i = 0; i < Math.min(25, list.length); i++) rows += "<tr><td>" + esc(dateOf(list[i])) + "</td><td>" + esc(labelOf(list[i])) + "</td><td>" + esc(missingOf(list[i])) + "</td></tr>";
     if (!rows) rows = "<tr><td colspan='3'>No incomplete returns.</td></tr>";
 
     var body =
@@ -1299,20 +1325,12 @@
     var nx = state.data.nearexpiry && state.data.nearexpiry.ok ? state.data.nearexpiry.data : null;
     if (!nx) return showError("Near expiry", "Near expiry data not available.");
 
-    function labelOf(r) {
-      var t = safeStr(r.item_name || r.product_name || r.name || r.description || r.sku || "");
-      if (t) return t;
-      return "Item #" + (r.id || "");
-    }
+    function labelOf(r) { return safeStr(r.item_name || r.product_name || r.name || r.description || r.sku || "") || ("Item #" + (r.id || "")); }
 
     var rows = "";
     var i;
-    for (i = 0; i < Math.min(15, nx.expired.length); i++) {
-      rows += "<tr><td>" + esc(labelOf(nx.expired[i])) + "</td><td>" + esc(safeStr(nx.expired[i].expiry_date)) + "</td><td><b>Expired</b></td></tr>";
-    }
-    for (i = 0; i < Math.min(15, nx.soon.length); i++) {
-      rows += "<tr><td>" + esc(labelOf(nx.soon[i])) + "</td><td>" + esc(safeStr(nx.soon[i].expiry_date)) + "</td><td>Due ≤30d</td></tr>";
-    }
+    for (i = 0; i < Math.min(15, nx.expired.length); i++) rows += "<tr><td>" + esc(labelOf(nx.expired[i])) + "</td><td>" + esc(safeStr(nx.expired[i].expiry_date)) + "</td><td><b>Expired</b></td></tr>";
+    for (i = 0; i < Math.min(15, nx.soon.length); i++) rows += "<tr><td>" + esc(labelOf(nx.soon[i])) + "</td><td>" + esc(safeStr(nx.soon[i].expiry_date)) + "</td><td>Due ≤30d</td></tr>";
     if (!rows) rows = "<tr><td colspan='3'>No items.</td></tr>";
 
     var body =
@@ -1336,9 +1354,7 @@
 
     var list = sh.issueDays || [];
     var rows = "";
-    for (var i = 0; i < Math.min(31, list.length); i++) {
-      rows += "<tr><td>" + esc(list[i].ymd) + "</td><td>" + esc((list[i].issues || []).join(" | ") || "Coverage issue") + "</td></tr>";
-    }
+    for (var i = 0; i < Math.min(31, list.length); i++) rows += "<tr><td>" + esc(list[i].ymd) + "</td><td>" + esc((list[i].issues || []).join(" | ") || "Coverage issue") + "</td></tr>";
     if (!rows) rows = "<tr><td colspan='2'>No issues found.</td></tr>";
 
     var body =
@@ -1422,7 +1438,6 @@
     if (act === "dash-shifts-details") return showShiftsDetails();
     if (act === "dash-instructions-details") return showInstructionsDetails();
 
-    // Open module shortcuts
     if (act === "dash-open-temperature") window.location.hash = "#temperature";
     else if (act === "dash-open-cleaning") window.location.hash = "#cleaning";
     else if (act === "dash-open-dailyregister") window.location.hash = "#dailyregister";
@@ -1476,15 +1491,17 @@
         "</div>" +
       "</div>";
 
-    // Bind click handler
-    mount.addEventListener("click", handleClick);
+    // bind only once per mount
+    if (!mount.__eikonDashBound) {
+      mount.addEventListener("click", handleClick);
+      mount.__eikonDashBound = true;
+    }
 
-    // Initial placeholder
     state.loading = true;
+    setLoadingPlaceholders();
     renderAll();
 
-    // Load everything
-    await refreshAll();
+    refreshAll();
   }
 
   // Register module (order 1)
