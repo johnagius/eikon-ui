@@ -369,42 +369,65 @@
     return err;
   }
 
-  async function apiJson(win, url, opts) {
+  async function apiJson(win, path, opts) {
     opts = opts || {};
+    var headers = new Headers(opts.headers || {});
+    headers.set("Accept", "application/json");
     var token = getStoredToken(win);
-    var headers = {};
-    try {
-      headers["Content-Type"] = "application/json";
-    } catch (e) {}
-    if (token) headers["Authorization"] = "Bearer " + token;
-    if (opts.headers) {
-      Object.keys(opts.headers).forEach(function (k) {
-        headers[k] = opts.headers[k];
-      });
-    }
+    if (token && !headers.has("Authorization")) headers.set("Authorization", "Bearer " + token);
+    if (opts.body != null && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
 
-    var res = await (win || window).fetch(url, {
+    var res = await fetch(path, {
       method: opts.method || "GET",
       headers: headers,
-      body: opts.body,
+      body: opts.body != null ? opts.body : undefined,
     });
 
-    var txt = "";
-    try {
-      txt = await res.text();
-    } catch (e2) {
-      txt = "";
-    }
-
+    var ct = (res.headers.get("Content-Type") || "").toLowerCase();
     var data = null;
-    try {
-      data = txt ? JSON.parse(txt) : null;
-    } catch (e3) {
-      data = txt;
+    if (ct.indexOf("application/json") >= 0) {
+      try {
+        data = await res.json();
+      } catch (e) {
+        data = null;
+      }
+    } else {
+      try {
+        data = await res.text();
+      } catch (e2) {
+        data = null;
+      }
     }
-
     if (!res.ok) throw makeHttpError(res.status, data);
     return data;
+  }
+
+  function openPrintTabWithHtml(html) {
+    var blob = new Blob([html], { type: "text/html" });
+    var url = URL.createObjectURL(blob);
+    var w = null;
+    try {
+      w = window.open(url, "_blank", "noopener");
+    } catch (e) {
+      w = null;
+    }
+    if (!w) {
+      try {
+        var a = document.createElement("a");
+        a.href = url;
+        a.target = "_blank";
+        a.rel = "noopener";
+        a.style.display = "none";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      } catch (e2) {}
+    }
+    setTimeout(function () {
+      try {
+        URL.revokeObjectURL(url);
+      } catch (e3) {}
+    }, 60000);
   }
 
   function buildModule() {
@@ -446,9 +469,154 @@
     // ✅ PATCH: preserve search focus/caret across loading toggles
     var qFocusRestore = null;
 
+
     // ✅ Autosuggest (clients + medicines) — keeps UI the same, just adds type-ahead.
     var _suggestUi = null;
     var _suggestSeq = 0;
+    // ✅ Client autosuggest cache/index for speed
+    // We build a local "recent clients" index from:
+    //  1) whatever months we already loaded (table refresh),
+    //  2) any months we queried for autosuggest.
+    // This makes suggestions instant after the first few lookups, and reduces cloud calls.
+    var _clientIndex = [];
+    var _clientIndexMap = Object.create(null); // key -> client object
+    var _clientSearchCache = Object.create(null); // qNorm -> { ts, items }
+    var _clientSearchInFlight = Object.create(null); // qNorm -> Promise
+    var _CLIENT_CACHE_TTL_MS = 10 * 60 * 1000;
+
+    function _ymdToInt(s) {
+      var v = String(s || "").trim();
+      if (!isYmd(v)) return 0;
+      try {
+        return parseInt(v.replace(/-/g, ""), 10) || 0;
+      } catch (e) {
+        return 0;
+      }
+    }
+
+    function upsertClientFromEntry(r) {
+      r = r || {};
+      var name = String(r.client_name || "").trim();
+      var idc = String(r.client_id_card || "").trim();
+      var addr = String(r.client_address || "").trim();
+      if (!name && !idc && !addr) return;
+
+      var key = _normKey(idc ? ("id:" + idc) : ("name:" + name));
+      if (!key || key === "id:" || key === "name:") return;
+
+      var seenInt = _ymdToInt(r.entry_date) || 0;
+      var existing = _clientIndexMap[key];
+      if (existing) {
+        if (name && !existing.client_name) existing.client_name = name;
+        if (idc && !existing.client_id_card) existing.client_id_card = idc;
+        if (addr && (!existing.client_address || existing.client_address.length < addr.length)) existing.client_address = addr;
+        if (seenInt && seenInt >= (existing._seenInt || 0)) existing._seenInt = seenInt;
+        existing._t = Date.now();
+        return;
+      }
+
+      var obj = {
+        client_name: name,
+        client_id_card: idc,
+        client_address: addr,
+        _seenInt: seenInt,
+        _t: Date.now(),
+      };
+      _clientIndexMap[key] = obj;
+      _clientIndex.push(obj);
+    }
+
+    function indexClientsFromEntries(entries) {
+      if (!entries || !entries.length) return;
+      for (var i = 0; i < entries.length; i++) upsertClientFromEntry(entries[i]);
+    }
+
+    function buildClientSuggestion(c) {
+      c = c || {};
+      var name = String(c.client_name || "").trim();
+      var idc = String(c.client_id_card || "").trim();
+      var addr = String(c.client_address || "").trim();
+      var secondaryParts = [];
+      if (idc) secondaryParts.push(idc);
+      if (addr) secondaryParts.push(addr);
+      return {
+        kind: "client",
+        primary: name || idc || addr,
+        secondary: secondaryParts.join(" • "),
+        client_name: name,
+        client_id_card: idc,
+        client_address: addr,
+      };
+    }
+
+    function scoreClient(c, qn) {
+      var name = _normKey(c.client_name);
+      var idc = _normKey(c.client_id_card);
+      var addr = _normKey(c.client_address);
+
+      if (idc && idc.indexOf(qn) === 0) return 0;
+      if (name && name.indexOf(qn) === 0) return 1;
+      if (idc && idc.indexOf(qn) !== -1) return 2;
+      if (name && name.indexOf(qn) !== -1) return 3;
+      if (addr && addr.indexOf(qn) !== -1) return 4;
+      return 99;
+    }
+
+    function findClientsInIndex(qn, limit) {
+      var out = [];
+      if (!qn) return out;
+
+      for (var i = 0; i < _clientIndex.length; i++) {
+        var c = _clientIndex[i];
+        if (!c) continue;
+        var s = scoreClient(c, qn);
+        if (s === 99) continue;
+        out.push({ c: c, s: s });
+      }
+
+      out.sort(function (a, b) {
+        if (a.s !== b.s) return a.s - b.s;
+        var as = a.c && a.c._seenInt ? a.c._seenInt : 0;
+        var bs = b.c && b.c._seenInt ? b.c._seenInt : 0;
+        if (bs !== as) return bs - as;
+        var at = a.c && a.c._t ? a.c._t : 0;
+        var bt = b.c && b.c._t ? b.c._t : 0;
+        return bt - at;
+      });
+
+      var items = [];
+      var seen = Object.create(null);
+      for (var j = 0; j < out.length && items.length < limit; j++) {
+        var it = buildClientSuggestion(out[j].c);
+        var k = _normKey((it.client_id_card ? "id:" + it.client_id_card : "name:" + it.client_name) || it.primary);
+        if (seen[k]) continue;
+        seen[k] = 1;
+        items.push(it);
+      }
+      return items;
+    }
+
+    function mergeUniqueClientSuggestions(a, b, limit) {
+      var out = [];
+      var seen = Object.create(null);
+
+      function pushList(list) {
+        if (!list) return;
+        for (var i = 0; i < list.length && out.length < limit; i++) {
+          var it = list[i];
+          if (!it) continue;
+          var k = _normKey((it.client_id_card ? "id:" + it.client_id_card : "name:" + it.client_name) || it.primary);
+          if (seen[k]) continue;
+          seen[k] = 1;
+          out.push(it);
+        }
+      }
+
+      pushList(a);
+      pushList(b);
+      return out;
+    }
+
 
     function _normKey(s) {
       return String(s || "")
@@ -637,49 +805,92 @@
       try { inputEl.addEventListener("blur", function () { setTimeout(function () { var ui = ensureSuggestUi(); if (ui) ui.hide(); }, 220); }); } catch (e4) {}
     }
 
-    async function suggestPoycClients(term, limit) {
+    
+async function suggestPoycClients(term, limit) {
       if (!ctx) return [];
-      var q = String(term || "").trim();
-      if (!q) return [];
+      var qRaw = String(term || "").trim();
+      if (!qRaw) return [];
+      limit = Number.isFinite(limit) ? limit : 10;
+
+      var qn = _normKey(qRaw);
+      if (!qn) return [];
+
+      // 1) Instant results from local index
+      var local = findClientsInIndex(qn, limit);
+      if (local.length >= limit || qn.length < 2) return local;
+
+      // 2) Cache
+      var now = Date.now();
+      var cached = _clientSearchCache[qn];
+      if (cached && cached.items && (now - cached.ts) < _CLIENT_CACHE_TTL_MS) {
+        return mergeUniqueClientSuggestions(local, cached.items, limit);
+      }
+
+      // 3) De-duplicate in-flight searches for the same query
+      if (_clientSearchInFlight[qn]) {
+        try {
+          var inflightItems = await _clientSearchInFlight[qn];
+          return mergeUniqueClientSuggestions(local, inflightItems, limit);
+        } catch (e0) {
+          // ignore and fall through to new request
+        }
+      }
 
       var baseYm = String(state.month || "").trim();
       if (!isYm(baseYm)) baseYm = todayYm();
 
-      var maxMonthsBack = 18; // search up to ~18 months back
-      var out = [];
-      var seen = {};
+      // We query months in small parallel batches (fast), expanding only if needed.
+      var batches = [
+        [0, 1, 2, 3, 4, 5],
+        [6, 7, 8, 9, 10, 11],
+        [12, 13, 14, 15, 16, 17],
+      ];
 
-      for (var i = 0; i < maxMonthsBack && out.length < limit; i++) {
-        var ym = shiftYm(baseYm, -i);
-        var url = "/dda-poyc/entries?month=" + encodeURIComponent(ym) + "&q=" + encodeURIComponent(q);
+      var promise = (async function () {
+        for (var bi = 0; bi < batches.length; bi++) {
+          var deltas = batches[bi];
+          var months = [];
+          for (var i = 0; i < deltas.length; i++) months.push(shiftYm(baseYm, -deltas[i]));
 
-        var data = null;
-        try { data = await apiJson(ctx.win, url, { method: "GET" }); } catch (e1) { data = null; }
-        if (!data || data.ok !== true) continue;
-
-        var entries = Array.isArray(data.entries) ? data.entries : [];
-        for (var j = 0; j < entries.length && out.length < limit; j++) {
-          var r = entries[j] || {};
-          var name = String(r.client_name || "").trim();
-          var idc = String(r.client_id_card || "").trim();
-          if (!name && !idc) continue;
-
-          var k = _normKey(idc ? ("id:" + idc) : ("name:" + name));
-          if (seen[k]) continue;
-          seen[k] = 1;
-
-          out.push({
-            kind: "client",
-            primary: name || idc,
-            secondary: name && idc ? idc : "",
-            client_name: name,
-            client_id_card: idc
+          var reqs = months.map(function (ym) {
+            var url = "/dda-poyc/entries?month=" + encodeURIComponent(ym) + "&q=" + encodeURIComponent(qRaw);
+            return apiJson(ctx.win, url, { method: "GET" }).catch(function () { return null; });
           });
-        }
-      }
 
-      return out;
+          var resps = await Promise.all(reqs);
+
+          for (var ri = 0; ri < resps.length; ri++) {
+            var data = resps[ri];
+            if (!data || data.ok !== true) continue;
+            var entries = Array.isArray(data.entries) ? data.entries : [];
+            indexClientsFromEntries(entries);
+          }
+
+          // After each batch, see if we have enough results now
+          var itemsNow = findClientsInIndex(qn, limit);
+          if (itemsNow.length >= limit) return itemsNow;
+
+          // If query is short, don't over-fetch too much
+          if (qn.length < 3) return itemsNow;
+        }
+
+        return findClientsInIndex(qn, limit);
+      })();
+
+      _clientSearchInFlight[qn] = promise;
+
+      try {
+        var items = await promise;
+        _clientSearchCache[qn] = { ts: Date.now(), items: items || [] };
+        return mergeUniqueClientSuggestions(local, items, limit);
+      } finally {
+        // Clean up in-flight record (only if still the same promise)
+        try {
+          if (_clientSearchInFlight[qn] === promise) delete _clientSearchInFlight[qn];
+        } catch (e1) {}
+      }
     }
+
 
     function suggestPoycMedicines(term, limit) {
       var q = _normKey(term);
@@ -713,41 +924,33 @@
         // ✅ PATCH: if disabling while focused, remember caret/selection so we can restore it after loading.
         try {
           if (v && ctx && ctx.doc && ctx.doc.activeElement === qInput) {
-            qFocusRestore = {
-              start: qInput.selectionStart,
-              end: qInput.selectionEnd,
-              dir: qInput.selectionDirection || "none"
-            };
+            qFocusRestore = { s: qInput.selectionStart, e: qInput.selectionEnd };
           }
         } catch (e0) {}
-
         qInput.disabled = disabled;
-
-        // ✅ PATCH: restore focus + caret after loading finishes
-        try {
-          if (!v && qFocusRestore && ctx && ctx.doc) {
-            // restore on next tick (after DOM updates)
-            setTimeout(function () {
-              try {
-                if (!qInput || qInput.disabled) return;
-                qInput.focus();
-                var s = qFocusRestore.start;
-                var e = qFocusRestore.end;
-                if (typeof s === "number" && typeof e === "number") {
-                  qInput.setSelectionRange(s, e, qFocusRestore.dir || "none");
-                }
-              } catch (e1) {}
-              qFocusRestore = null;
-            }, 0);
-          }
-        } catch (e2) {}
       }
 
-      if (reportFromInput) reportFromInput.disabled = disabled;
-      if (reportToInput) reportToInput.disabled = disabled;
       if (generateBtn) generateBtn.disabled = disabled;
       if (printBtn) printBtn.disabled = disabled;
-      if (modalSaveBtn) modalSaveBtn.disabled = disabled;
+      if (reportFromInput) reportFromInput.disabled = disabled;
+      if (reportToInput) reportToInput.disabled = disabled;
+
+      // ✅ PATCH: restore focus/caret after re-enabling to prevent live-search blur.
+      if (!v && qInput && qFocusRestore && !qInput.disabled) {
+        try {
+          qInput.focus();
+          if (
+            typeof qInput.setSelectionRange === "function" &&
+            qFocusRestore.s != null &&
+            qFocusRestore.e != null
+          ) {
+            qInput.setSelectionRange(qFocusRestore.s, qFocusRestore.e);
+          }
+        } catch (e1) {}
+        qFocusRestore = null;
+      } else if (!v) {
+        qFocusRestore = null;
+      }
     }
 
     function setReportMsg(kind, text) {
@@ -757,25 +960,13 @@
       reportMsg.style.display = text ? "block" : "none";
     }
 
-    function setReportDefaultsForMonth(ym) {
-      var se = monthStartEnd(ym) || monthStartEnd(todayYm());
-      if (!se) return;
-      state.report_from = se.from;
-      state.report_to = se.to;
-      if (reportFromInput) reportFromInput.value = se.from;
-      if (reportToInput) reportToInput.value = se.to;
-    }
-
-    function scheduleLiveSearch() {
-      if (searchTimer) {
-        try {
-          clearTimeout(searchTimer);
-        } catch (e) {}
-      }
-      // same feel as dda-sales: debounce a little as user types
-      searchTimer = setTimeout(function () {
-        refresh();
-      }, 220);
+    function setReportDefaultsForMonth(m) {
+      var r = monthStartEnd(m);
+      if (!r) return;
+      state.report_from = r.from;
+      state.report_to = r.to;
+      if (reportFromInput) reportFromInput.value = r.from;
+      if (reportToInput) reportToInput.value = r.to;
     }
 
     function renderRows() {
@@ -838,6 +1029,7 @@
         var data = await apiJson(ctx.win, url, { method: "GET" });
         if (!data || data.ok !== true) throw new Error(data && data.error ? String(data.error) : "Unexpected response");
         state.entries = Array.isArray(data.entries) ? data.entries : [];
+        try { indexClientsFromEntries(state.entries); } catch (e0) {}
         renderRows();
         setLoading(false);
       } catch (e) {
@@ -897,10 +1089,12 @@
         var ym = monthKeys[mi];
         var list = byMonth.get(ym) || [];
 
-        reportPreview.appendChild(el(ctx.doc, "h3", { text: ym, style: "margin:12px 0 8px 0;font-size:14px;font-weight:1000;" }, []));
+        reportPreview.appendChild(
+          el(ctx.doc, "h3", { text: ym, style: "margin:14px 0 8px 0;font-size:14px;font-weight:1000;" }, [])
+        );
 
         var tableWrap = el(ctx.doc, "div", { class: "eikon-dda-table-wrap" }, []);
-        var table = el(ctx.doc, "table", { class: "eikon-dda-table", style: "min-width:980px;" }, []);
+        var table = el(ctx.doc, "table", { class: "eikon-dda-table", style: "min-width:1100px;" }, []);
         var thead = el(ctx.doc, "thead", {}, []);
         thead.appendChild(
           el(ctx.doc, "tr", {}, [
@@ -919,21 +1113,20 @@
 
         var tbody = el(ctx.doc, "tbody", {}, []);
         for (var i = 0; i < list.length; i++) {
-          (function (r) {
-            tbody.appendChild(
-              el(ctx.doc, "tr", {}, [
-                el(ctx.doc, "td", { text: String(r.entry_date || "") }, []),
-                el(ctx.doc, "td", { text: String(r.client_name || "") }, []),
-                el(ctx.doc, "td", { text: String(r.client_id_card || "") }, []),
-                el(ctx.doc, "td", { text: String(r.client_address || "") }, []),
-                el(ctx.doc, "td", { text: String(r.medicine_name_dose || "") }, []),
-                el(ctx.doc, "td", { text: String(r.quantity == null ? "" : r.quantity) }, []),
-                el(ctx.doc, "td", { text: String(r.doctor_name || "") }, []),
-                el(ctx.doc, "td", { text: String(r.doctor_reg_no || "") }, []),
-                el(ctx.doc, "td", { text: String(r.prescription_serial_no || "") }, []),
-              ])
-            );
-          })(list[i]);
+          var r = list[i] || {};
+          tbody.appendChild(
+            el(ctx.doc, "tr", {}, [
+              el(ctx.doc, "td", { text: String(r.entry_date || "") }, []),
+              el(ctx.doc, "td", { text: String(r.client_name || "") }, []),
+              el(ctx.doc, "td", { text: String(r.client_id_card || "") }, []),
+              el(ctx.doc, "td", { text: String(r.client_address || "") }, []),
+              el(ctx.doc, "td", { text: String(r.medicine_name_dose || "") }, []),
+              el(ctx.doc, "td", { text: String(r.quantity == null ? "" : r.quantity) }, []),
+              el(ctx.doc, "td", { text: String(r.doctor_name || "") }, []),
+              el(ctx.doc, "td", { text: String(r.doctor_reg_no || "") }, []),
+              el(ctx.doc, "td", { text: String(r.prescription_serial_no || "") }, []),
+            ])
+          );
         }
         table.appendChild(tbody);
         tableWrap.appendChild(table);
@@ -1063,27 +1256,6 @@
       return html;
     }
 
-    function openPrintTabWithHtml(html) {
-      var w = window.open("", "_blank");
-      if (!w) {
-        setReportMsg("err", "Popup blocked. Allow popups to print.");
-        return;
-      }
-      try {
-        w.document.open();
-        w.document.write(html);
-        w.document.close();
-        w.focus();
-        setTimeout(function () {
-          try {
-            w.print();
-          } catch (e) {}
-        }, 350);
-      } catch (e2) {
-        setReportMsg("err", "Failed to open print view.");
-      }
-    }
-
     function openModal(title, initial, onSave) {
       if (!ctx) return;
 
@@ -1137,8 +1309,9 @@
             if (!it) return;
             if (it.client_name) f_client.input.value = it.client_name;
             if (it.client_id_card) f_id.input.value = it.client_id_card;
+            if (it.client_address) f_addr.input.value = it.client_address;
           },
-          { minChars: 1, debounceMs: 160, limit: 12 }
+          { minChars: 1, debounceMs: 80, limit: 12 }
         );
 
         attachSuggest(
@@ -1148,8 +1321,9 @@
             if (!it) return;
             if (it.client_name) f_client.input.value = it.client_name;
             if (it.client_id_card) f_id.input.value = it.client_id_card;
+            if (it.client_address) f_addr.input.value = it.client_address;
           },
-          { minChars: 1, debounceMs: 160, limit: 12 }
+          { minChars: 1, debounceMs: 80, limit: 12 }
         );
 
         attachSuggest(
@@ -1167,7 +1341,7 @@
         var footer = el(
           ctx.doc,
           "div",
-          { style: "display:flex;gap:10px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap;" },
+          { style: "display:flex;gap:10px;justify-content:flex-end;margin-top:12px;" },
           []
         );
 
@@ -1283,6 +1457,7 @@
       });
     }
 
+    
     // ✅ DDA Sales-style confirm dialog (window.confirm is blocked in sandboxed iframes without allow-modals)
     var _confirmBackdrop = null;
     function uiConfirm(message, opts) {
@@ -1292,14 +1467,14 @@
 
       if (!_confirmBackdrop) {
         var bd = doc.createElement("div");
-        bd.style.cssText = "position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,55);z-index:11000;padding:16px;";
+        bd.style.cssText = "position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55);z-index:11000;padding:16px;";
         var card = doc.createElement("div");
-        card.style.cssText = "width:min(420px,calc(100vw - 32px));background:rgba(10,16,24,94);border:1px solid rgba(255,255,255,12);border-radius:16px;box-shadow:0 30px 80px rgba(0,0,0,60);padding:14px;color:var(--text,#e9eef7);";
+        card.style.cssText = "width:min(420px,calc(100vw - 32px));background:rgba(10,16,24,.94);border:1px solid rgba(255,255,255,.12);border-radius:16px;box-shadow:0 30px 80px rgba(0,0,0,.60);padding:14px;color:var(--text,#e9eef7);";
         var title = doc.createElement("div");
         title.style.cssText = "font-weight:1000;font-size:14px;margin:0 0 8px 0;";
         title.textContent = "Confirm";
         var msg = doc.createElement("div");
-        msg.style.cssText = "font-size:13px;line-height:1.35;color:rgba(233,238,247,86);white-space:pre-wrap;";
+        msg.style.cssText = "font-size:13px;line-height:1.35;color:rgba(233,238,247,.86);white-space:pre-wrap;";
         var row = doc.createElement("div");
         row.style.cssText = "display:flex;gap:10px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap;";
         var cancelBtn = doc.createElement("button");
@@ -1364,7 +1539,7 @@
       });
     }
 
-    async function doDelete(row) {
+async function doDelete(row) {
       if (!ctx) return;
       setMsg("", "");
 
@@ -1399,13 +1574,21 @@
         }
       }
 
-      async function tryCall(name, url, opts) {
+      async function tryCall(name, path, opts) {
+        opts = opts || {};
+        opts.headers = opts.headers || {};
+        try { opts.headers["X-Eikon-Debug"] = "1"; } catch (e0) {}
         try {
-          var data = await apiJson(ctx.win, url, opts);
+          var out = await apiJson(ctx.win, path, opts);
           attempts.push({ name: name, ok: true, status: 200 });
-          return data;
+          return out;
         } catch (e) {
-          attempts.push({ name: name, ok: false, status: e && e.status, message: e && e.message });
+          attempts.push({
+            name: name,
+            ok: false,
+            status: e && e.status != null ? e.status : null,
+            message: e && e.message ? e.message : String(e || "Error"),
+          });
           return null;
         }
       }
@@ -1448,6 +1631,20 @@
       } finally {
         setLoading(false);
       }
+    }
+
+
+
+    function scheduleLiveSearch() {
+      if (searchTimer) {
+        try {
+          clearTimeout(searchTimer);
+        } catch (e) {}
+      }
+      // same feel as dda-sales: debounce a little as user types
+      searchTimer = setTimeout(function () {
+        refresh();
+      }, 220);
     }
 
     function renderInto(container) {
@@ -1500,18 +1697,18 @@
       monthField.appendChild(monthInput);
       try { monthField.style.minWidth = "170px"; } catch (e0) {}
 
-      // Search
+      // Search (live)
       var qField = el(ctx.doc, "div", { class: "eikon-dda-field" }, []);
       qField.appendChild(el(ctx.doc, "label", { text: "Search" }, []));
-      qInput = el(ctx.doc, "input", { type: "text", value: state.q, placeholder: "Search entries…" }, []);
+      qInput = el(ctx.doc, "input", { type: "text", value: state.q, placeholder: "Client / ID / medicine / doctor / serial…" }, []);
       qInput.oninput = function () {
         state.q = String(qInput.value || "");
         scheduleLiveSearch();
       };
+      qInput.onkeydown = function (e) { if (e && e.key === "Enter") refresh(); };
       qField.appendChild(qInput);
-      try { qField.style.minWidth = "280px"; } catch (e1) {}
+      try { qField.style.minWidth = "260px"; qField.style.flex = "1 1 320px"; } catch (e1) {}
 
-      // Refresh
       refreshBtn = el(ctx.doc, "button", { class: "eikon-dda-btn secondary", text: "Refresh" }, []);
       refreshBtn.onclick = function () {
         refresh();
@@ -1566,7 +1763,7 @@
       topCard.appendChild(controls);
       layout.appendChild(topCard);
 
-      // Entries card (full width)
+// Entries card (full width)
       var cardEntries = el(ctx.doc, "div", { class: "eikon-dda-card eikon-dda-span-all" }, []);
       var headEntries = el(ctx.doc, "div", { class: "eikon-dda-card-head" }, []);
       headEntries.appendChild(el(ctx.doc, "h3", { text: "Entries" }, []));
@@ -1618,6 +1815,7 @@
       renderReportPreview();
       refresh();
     }
+
 
     function destroy() {
       try {
