@@ -406,104 +406,6 @@
     // ✅ PATCH: preserve search focus/caret across loading toggles
     var qFocusRestore = null;
 
-
-    // ✅ DDA Sales-style confirm dialog (window.confirm is blocked in sandboxed iframes without allow-modals)
-    var _confirmBackdrop = null;
-    function uiConfirm(message, opts) {
-      opts = opts || {};
-      if (!ctx || !ctx.doc || !ctx.win) return Promise.resolve(true);
-      var doc = ctx.doc;
-
-      // Build once
-      if (!_confirmBackdrop) {
-        var bd = doc.createElement("div");
-        bd.className = "eikon-dda-confirm-backdrop";
-        bd.style.cssText =
-          "position:fixed;inset:0;display:none;align-items:center;justify-content:center;" +
-          "background:rgba(0,0,0,.55);z-index:1100;";
-        var card = doc.createElement("div");
-        card.className = "eikon-dda-confirm-card";
-        card.style.cssText =
-          "width:min(420px,calc(100vw - 32px));background:rgba(12,19,29,.98);" +
-          "border:1px solid rgba(255,255,255,.12);border-radius:14px;" +
-          "box-shadow:0 20px 80px rgba(0,0,0,.55);padding:14px 14px 12px 14px;" +
-          "color:rgba(233,238,247,.92);";
-        var title = doc.createElement("div");
-        title.className = "eikon-dda-confirm-title";
-        title.style.cssText = "font-weight:900;font-size:14px;letter-spacing:.2px;margin-bottom:8px;";
-        title.textContent = "Confirm";
-        var msg = doc.createElement("div");
-        msg.className = "eikon-dda-confirm-message";
-        msg.style.cssText = "font-size:13px;line-height:1.35;color:rgba(233,238,247,.86);white-space:pre-wrap;";
-        var btnRow = doc.createElement("div");
-        btnRow.style.cssText = "display:flex;gap:10px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap;";
-        var cancelBtn = doc.createElement("button");
-        cancelBtn.type = "button";
-        cancelBtn.className = "eikon-dda-btn secondary";
-        cancelBtn.textContent = "Cancel";
-        cancelBtn.style.minWidth = "96px";
-        var okBtn = doc.createElement("button");
-        okBtn.type = "button";
-        okBtn.className = "eikon-dda-btn danger";
-        okBtn.textContent = "OK";
-        okBtn.style.minWidth = "96px";
-
-        btnRow.appendChild(cancelBtn);
-        btnRow.appendChild(okBtn);
-
-        card.appendChild(title);
-        card.appendChild(msg);
-        card.appendChild(btnRow);
-        bd.appendChild(card);
-
-        // Click outside = cancel
-        bd.addEventListener("click", function (ev) {
-          try {
-            if (ev && ev.target === bd) {
-              ev.preventDefault();
-              ev.stopPropagation();
-              cancelBtn.click();
-            }
-          } catch (e) {}
-        });
-
-        doc.body.appendChild(bd);
-        _confirmBackdrop = { bd: bd, title: title, msg: msg, cancelBtn: cancelBtn, okBtn: okBtn };
-      }
-
-      return new Promise(function (resolve) {
-        var bd = _confirmBackdrop.bd;
-        var titleEl = _confirmBackdrop.title;
-        var msgEl = _confirmBackdrop.msg;
-        var cancelBtn = _confirmBackdrop.cancelBtn;
-        var okBtn = _confirmBackdrop.okBtn;
-
-        titleEl.textContent = opts.title ? String(opts.title) : "Confirm";
-        msgEl.textContent = String(message || "");
-        cancelBtn.textContent = opts.cancelText ? String(opts.cancelText) : "Cancel";
-        okBtn.textContent = opts.confirmText ? String(opts.confirmText) : "OK";
-        if (opts.danger === false) okBtn.className = "eikon-dda-btn";
-        else okBtn.className = "eikon-dda-btn danger";
-
-        function cleanup(val) {
-          try { bd.style.display = "none"; } catch (e) {}
-          try { cancelBtn.onclick = null; okBtn.onclick = null; } catch (e2) {}
-          resolve(!!val);
-        }
-
-        cancelBtn.onclick = function (ev) {
-          try { if (ev) { ev.preventDefault(); ev.stopPropagation(); } } catch (e) {}
-          cleanup(false);
-        };
-        okBtn.onclick = function (ev) {
-          try { if (ev) { ev.preventDefault(); ev.stopPropagation(); } } catch (e) {}
-          cleanup(true);
-        };
-
-        try { bd.style.display = "flex"; } catch (e) {}
-      });
-    }
-
     function setMsg(kind, text) {
       if (!msgBox) return;
       msgBox.className = "eikon-dda-msg " + (kind === "ok" ? "ok" : kind === "err" ? "err" : "");
@@ -1016,31 +918,118 @@
       });
     }
 
-    async function doDelete(row) {
+    
+    // ✅ DDA Sales-style confirm dialog (window.confirm is blocked in sandboxed iframes without allow-modals)
+    var _confirmBackdrop = null;
+    function uiConfirm(message, opts) {
+      opts = opts || {};
+      if (!ctx || !ctx.doc) return Promise.resolve(true);
+      var doc = ctx.doc;
+
+      if (!_confirmBackdrop) {
+        var bd = doc.createElement("div");
+        bd.style.cssText = "position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55);z-index:11000;padding:16px;";
+        var card = doc.createElement("div");
+        card.style.cssText = "width:min(420px,calc(100vw - 32px));background:rgba(10,16,24,.94);border:1px solid rgba(255,255,255,.12);border-radius:16px;box-shadow:0 30px 80px rgba(0,0,0,.60);padding:14px;color:var(--text,#e9eef7);";
+        var title = doc.createElement("div");
+        title.style.cssText = "font-weight:1000;font-size:14px;margin:0 0 8px 0;";
+        title.textContent = "Confirm";
+        var msg = doc.createElement("div");
+        msg.style.cssText = "font-size:13px;line-height:1.35;color:rgba(233,238,247,.86);white-space:pre-wrap;";
+        var row = doc.createElement("div");
+        row.style.cssText = "display:flex;gap:10px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap;";
+        var cancelBtn = doc.createElement("button");
+        cancelBtn.type = "button";
+        cancelBtn.className = "eikon-dda-btn secondary";
+        cancelBtn.textContent = "Cancel";
+        var okBtn = doc.createElement("button");
+        okBtn.type = "button";
+        okBtn.className = "eikon-dda-btn danger";
+        okBtn.textContent = "OK";
+        row.appendChild(cancelBtn);
+        row.appendChild(okBtn);
+
+        card.appendChild(title);
+        card.appendChild(msg);
+        card.appendChild(row);
+        bd.appendChild(card);
+
+        bd.addEventListener("click", function (ev) {
+          try {
+            if (ev && ev.target === bd) {
+              ev.preventDefault();
+              ev.stopPropagation();
+              cancelBtn.click();
+            }
+          } catch (e) {}
+        });
+
+        doc.body.appendChild(bd);
+        _confirmBackdrop = { bd: bd, title: title, msg: msg, cancelBtn: cancelBtn, okBtn: okBtn };
+      }
+
+      return new Promise(function (resolve) {
+        var bd = _confirmBackdrop.bd;
+        var titleEl = _confirmBackdrop.title;
+        var msgEl = _confirmBackdrop.msg;
+        var cancelBtn = _confirmBackdrop.cancelBtn;
+        var okBtn = _confirmBackdrop.okBtn;
+
+        titleEl.textContent = opts.title ? String(opts.title) : "Confirm";
+        msgEl.textContent = String(message || "");
+        cancelBtn.textContent = opts.cancelText ? String(opts.cancelText) : "Cancel";
+        okBtn.textContent = opts.confirmText ? String(opts.confirmText) : "OK";
+        okBtn.className = "eikon-dda-btn " + (opts.danger === false ? "" : "danger");
+
+        function cleanup(val) {
+          try { bd.style.display = "none"; } catch (e) {}
+          try { cancelBtn.onclick = null; okBtn.onclick = null; } catch (e2) {}
+          resolve(!!val);
+        }
+
+        cancelBtn.onclick = function (ev) {
+          try { if (ev) { ev.preventDefault(); ev.stopPropagation(); } } catch (e) {}
+          cleanup(false);
+        };
+        okBtn.onclick = function (ev) {
+          try { if (ev) { ev.preventDefault(); ev.stopPropagation(); } } catch (e) {}
+          cleanup(true);
+        };
+
+        try { bd.style.display = "flex"; } catch (e) {}
+      });
+    }
+
+async function doDelete(row) {
       if (!ctx) return;
       setMsg("", "");
-      var id = row && row.id != null ? Number(row.id) : null;
-      if (!id) { setMsg("err", "Invalid entry id."); return; }
 
-      // window.confirm() is blocked inside sandboxed iframes (no allow-modals)
-      var ok = await uiConfirm("Delete this DDA POYC entry?", { title: "Delete entry", confirmText: "Delete", cancelText: "Cancel", danger: true });
+      var id = row && row.id != null ? Number(row.id) : null;
+      if (!id) {
+        setMsg("err", "Invalid entry id.");
+        return;
+      }
+
+      var ok = await uiConfirm("Delete this entry?", { title: "Delete entry", confirmText: "Delete", cancelText: "Cancel", danger: true });
       if (!ok) return;
 
-      setMsg("info", "Deleting…");
+      setMsg("", "Deleting…");
       setLoading(true);
 
       var attempts = [];
-      var data = null;
 
-      function summarizeAttempts(list) {
+      function summarize(list) {
         try {
-          return (list || []).map(function (a) {
-            if (!a) return "";
-            if (a.ok) return a.name + " => ok";
-            var s = a.status != null ? String(a.status) : "ERR";
-            var em = a.message ? String(a.message) : "";
-            return a.name + " => " + s + (em ? " (" + em + ")" : "");
-          }).filter(Boolean).join(" | ");
+          return (list || [])
+            .map(function (a) {
+              if (!a) return "";
+              if (a.ok) return a.name + " => ok";
+              var s = a.status != null ? String(a.status) : "ERR";
+              var em = a.message ? String(a.message) : "";
+              return a.name + " => " + s + (em ? " (" + em + ")" : "");
+            })
+            .filter(Boolean)
+            .join(" | ");
         } catch (e) {
           return "";
         }
@@ -1049,79 +1038,62 @@
       async function tryCall(name, path, opts) {
         opts = opts || {};
         opts.headers = opts.headers || {};
-        // ask the API to include extra debug info in JSON responses
         try { opts.headers["X-Eikon-Debug"] = "1"; } catch (e0) {}
         try {
           var out = await apiJson(ctx.win, path, opts);
-          attempts.push({ name: name, ok: true, status: 200, data: out });
+          attempts.push({ name: name, ok: true, status: 200 });
           return out;
         } catch (e) {
           attempts.push({
             name: name,
             ok: false,
             status: e && e.status != null ? e.status : null,
-            payload: e && e.payload ? e.payload : null,
             message: e && e.message ? e.message : String(e || "Error"),
           });
-          throw e;
+          return null;
         }
       }
 
       try {
-        // Most compatible: POST to a fixed path (works even if proxies block DELETE or path-params)
-        try {
-          data = await tryCall("POST /dda-poyc/entries/delete", "/dda-poyc/entries/delete", {
-            method: "POST",
-            body: JSON.stringify({ id: id }),
-          });
-        } catch (ePostFixed) {
-          data = null;
+        // Prefer POST fallback (works even when DELETE is blocked by some proxies/iframes)
+        var data = await tryCall("POST /dda-poyc/entries/delete", "/dda-poyc/entries/delete", {
+          method: "POST",
+          body: JSON.stringify({ id: id }),
+        });
+
+        // Canonical DELETE
+        if (!data) {
+          var u1 = "/dda-poyc/entries/" + encodeURIComponent(String(id));
+          data = await tryCall("DELETE " + u1, u1, { method: "DELETE" });
         }
 
-        // Canonical: DELETE /dda-poyc/entries/:id
+        // Fallback POST /:id/delete
         if (!data) {
-          var url = "/dda-poyc/entries/" + encodeURIComponent(String(id));
-          try {
-            data = await tryCall("DELETE " + url, url, { method: "DELETE" });
-          } catch (eDel) {
-            data = null;
-          }
-        }
-
-        // Fallback: POST /dda-poyc/entries/:id/delete
-        if (!data) {
-          var url2 = "/dda-poyc/entries/" + encodeURIComponent(String(id)) + "/delete";
-          try {
-            data = await tryCall("POST " + url2, url2, { method: "POST" });
-          } catch (ePost) {
-            data = null;
-          }
+          var u2 = "/dda-poyc/entries/" + encodeURIComponent(String(id)) + "/delete";
+          data = await tryCall("POST " + u2, u2, { method: "POST" });
         }
 
         if (!data || data.ok !== true) {
-          var errMsg = data && data.error ? String(data.error) : "Delete failed.";
-          var err = new Error(errMsg);
-          err.attempts = attempts;
-          throw err;
+          var msg = (data && data.error) ? String(data.error) : "Delete failed.";
+          var dbg = summarize(attempts);
+          if (dbg) msg += "  Debug: " + dbg;
+          throw new Error(msg);
         }
 
         setMsg("ok", "Deleted.");
-        setLoading(false);
         await refresh();
       } catch (e) {
+        var msg2 = e && e.message ? e.message : String(e || "Error");
+        var dbg2 = summarize(attempts);
+        if (dbg2 && msg2.indexOf("Debug:") === -1) msg2 += "  Debug: " + dbg2;
+        if (e && e.status === 401) msg2 = "Unauthorized (missing/invalid token). Log in again.";
+        setMsg("err", msg2);
+        warn("delete failed:", e);
+      } finally {
         setLoading(false);
-        var msg = e && e.message ? e.message : String(e || "Error");
-        if (e && e.status === 401) msg = "Unauthorized (missing/invalid token).
-Log in again.";
-        var at = e && e.attempts ? e.attempts : attempts;
-        var extra = summarizeAttempts(at);
-        if (extra) msg += "
-
-Debug: " + extra;
-        setMsg("err", msg);
-        warn("delete failed:", e, { attempts: at });
       }
     }
+
 
 
     function scheduleLiveSearch() {
