@@ -12238,6 +12238,19 @@ if (url.pathname.startsWith("/dda-sales/entries/") && request.method === "PUT") 
     if (url.pathname === "/dda-poyc/entries" && request.method === "POST") {
       return await handleDdaPoycEntryCreate(request, env, corsOkHeaders, authUser);
     }
+    if (url.pathname === "/dda-poyc/entries/delete" && request.method === "POST") {
+      const body = await readJson(request);
+      const id = parseInt(body && body.id, 10);
+      if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+      return await handleDdaPoycEntryDelete(request, env, corsOkHeaders, authUser, id);
+    }
+    if (url.pathname.startsWith("/dda-poyc/entries/") && url.pathname.endsWith("/delete") && request.method === "POST") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      if (parts.length < 4) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+      const id = parseInt(parts[2], 10);
+      if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+      return await handleDdaPoycEntryDelete(request, env, corsOkHeaders, authUser, id);
+    }
     if (url.pathname.startsWith("/dda-poyc/entries/") && request.method === "PUT") {
       const parts = url.pathname.split("/").filter(Boolean);
       const id = parseInt(parts[2], 10);
