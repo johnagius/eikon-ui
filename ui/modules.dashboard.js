@@ -374,25 +374,105 @@
     var m = mins % 60;
     return pad2(h) + ":" + pad2(m);
   }
-  function ohFor(ds, hours) {
-    hours = hours || {};
+  function boolVal(v, dflt) {
+    if (v == null) return !!dflt;
+    // allow explicit false-ish values to override defaults
+    if (v === false || v === 0 || v === "0" || String(v).toLowerCase() === "false" || String(v).toLowerCase() === "no") return false;
+    return truthy01(v);
+  }
+
+  // Malta public holidays (default CLOSED unless explicitly opened via an override)
+  var PH = [
+    "2026-01-01","2026-02-10","2026-03-19","2026-03-31",
+    "2026-05-01","2026-06-07","2026-06-29","2026-08-15",
+    "2026-09-08","2026-09-21","2026-12-08","2026-12-13","2026-12-25",
+    "2025-01-01","2025-02-10","2025-03-19","2025-04-18",
+    "2025-05-01","2025-06-07","2025-06-29","2025-08-15",
+    "2025-09-08","2025-09-21","2025-12-08","2025-12-13","2025-12-25"
+  ];
+  function isPH(d) { return PH.indexOf(safeStr(d)) >= 0; }
+
+  function normalizeOpeningHoursForCov(hours) {
+    hours = (hours && typeof hours === "object") ? hours : {};
+    if (!hours["default"]) hours["default"] = { open: "07:30", close: "19:30", closed: false };
+    if (!hours.overrides) hours.overrides = {};
+
+    // Legacy weekend flags
+    if (typeof hours.weekends === "boolean") {
+      if (hours.openSaturday == null) hours.openSaturday = hours.weekends;
+      if (hours.openSunday == null) hours.openSunday = hours.weekends;
+    }
+    if (hours.openSaturday == null) hours.openSaturday = true;
+    if (hours.openSunday == null) hours.openSunday = false;
+
     var def = hours["default"] || { open: "07:30", close: "19:30", closed: false };
-    var ovr = (hours.overrides && hours.overrides[ds]) ? hours.overrides[ds] : null;
-    var out = {
-      open: safeStr((ovr && ovr.open) || def.open || "07:30"),
-      close: safeStr((ovr && ovr.close) || def.close || "19:30"),
-      closed: !!((ovr && ovr.closed) || def.closed)
-    };
 
-    try {
-      var wd = new Date(ds + "T00:00:00").getDay();
-      if (!out.closed) {
-        if (wd === 6 && hours.openSaturday === false) out.closed = true;
-        if (wd === 0 && hours.openSunday === false) out.closed = true;
+    // New structure: weekly hours by day-of-week (0=Sun..6=Sat)
+    if (!hours.weekly || typeof hours.weekly !== "object") {
+      hours.weekly = {};
+      for (var d = 0; d < 7; d++) {
+        hours.weekly[d] = {
+          open: safeStr(def.open || "07:30"),
+          close: safeStr(def.close || "19:30"),
+          closed: boolVal(def.closed, false)
+        };
       }
-    } catch (e) {}
+      if (hours.openSaturday === false) hours.weekly[6].closed = true;
+      if (hours.openSunday === false) hours.weekly[0].closed = true;
+    } else {
+      // Normalize weekly entries (support string keys)
+      var wk = {};
+      for (var d2 = 0; d2 < 7; d2++) {
+        var e = hours.weekly[d2] || hours.weekly[String(d2)] || {};
+        wk[d2] = {
+          open: safeStr(e.open || def.open || "07:30"),
+          close: safeStr(e.close || def.close || "19:30"),
+          closed: (e.closed == null) ? boolVal(def.closed, false) : boolVal(e.closed, false),
+          note: e.note
+        };
+      }
+      hours.weekly = wk;
+    }
 
-    return out;
+    // Keep legacy flags aligned (older code may rely on these)
+    hours.openSaturday = !hours.weekly[6].closed;
+    hours.openSunday = !hours.weekly[0].closed;
+    if (hours.weekends == null) hours.weekends = (hours.openSaturday && hours.openSunday);
+
+    // Ensure default mirrors Monday (helps older UI assumptions)
+    hours["default"] = Object.assign({}, hours.weekly[1] || def);
+
+    return hours;
+  }
+
+  function ohFor(ds, hours) {
+    hours = normalizeOpeningHoursForCov(hours || {});
+    ds = safeStr(ds);
+
+    // Explicit day override always wins (including exceptional openings on normally-closed days)
+    var ovr = (hours.overrides && hours.overrides[ds]) ? hours.overrides[ds] : null;
+    if (ovr) {
+      return {
+        open: safeStr(ovr.open || ""),
+        close: safeStr(ovr.close || ""),
+        closed: (ovr.closed == null) ? false : boolVal(ovr.closed, false),
+        note: safeStr(ovr.note || ovr.type || "")
+      };
+    }
+
+    // Public Holiday: default CLOSED unless explicitly opened via an override
+    if (isPH(ds)) return { open: "", close: "", closed: true, note: "Public Holiday (default closed)" };
+
+    var wd = 0;
+    try { wd = new Date(ds + "T00:00:00").getDay(); } catch (e) {}
+
+    var base = (hours.weekly && (hours.weekly[wd] || hours.weekly[String(wd)])) || hours["default"] || { open: "07:30", close: "19:30", closed: false };
+    return {
+      open: safeStr(base.open || "07:30"),
+      close: safeStr(base.close || "19:30"),
+      closed: boolVal(base.closed, false),
+      note: base.note
+    };
   }
   function emp(staffId, staff) {
     staffId = String(staffId || "");
