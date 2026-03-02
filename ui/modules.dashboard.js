@@ -1,1215 +1,1498 @@
+/* ============================================================
+   EIKON — Dashboard Module  (modules.dashboard.js)
+   - Order 1 (first in sidebar)
+   - Compact, actionable overview across modules
+   - Quick-entry modals for: Temperature, Cleaning, Daily Register
+   - No Cloudflare worker changes required
+   ============================================================ */
 (function () {
   "use strict";
 
   var E = window.EIKON;
   if (!E) return;
 
-  // ── Logging ─────────────────────────────────────────────────────
-  function log()  { E.log.apply(E,  ["[dash]"].concat([].slice.call(arguments))); }
-  function dbg()  { E.dbg.apply(E,  ["[dash]"].concat([].slice.call(arguments))); }
-  function warn() { E.warn.apply(E, ["[dash]"].concat([].slice.call(arguments))); }
-  function err()  { (E.error||E.log).apply(E, ["[dash]"].concat([].slice.call(arguments))); }
+  // ----------------------------
+  // Helpers
+  // ----------------------------
+  function esc(s) { return E.escapeHtml(String(s == null ? "" : s)); }
 
-  function escHtml(s) { return E.escapeHtml(String(s == null ? "" : s)); }
+  function pad2(n) { n = parseInt(n, 10) || 0; return (n < 10 ? "0" : "") + n; }
 
-  // ── Date helpers ─────────────────────────────────────────────────
-  function todayYmd() {
-    var d = new Date();
-    var y = d.getFullYear();
-    var m = String(d.getMonth() + 1).padStart(2, "0");
-    var dd = String(d.getDate()).padStart(2, "0");
-    return y + "-" + m + "-" + dd;
+  function ymdFromDate(d) {
+    return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
   }
 
-  function currentYm() {
-    return todayYmd().slice(0, 7);
+  function ymFromDate(d) {
+    return d.getFullYear() + "-" + pad2(d.getMonth() + 1);
   }
 
-  function prevYm(ym) {
-    var y = parseInt(ym.slice(0, 4), 10);
-    var m = parseInt(ym.slice(5, 7), 10);
-    m -= 1;
-    if (m < 1) { m = 12; y -= 1; }
-    return y + "-" + String(m).padStart(2, "0");
-  }
-
-  function nextYm(ym) {
-    var y = parseInt(ym.slice(0, 4), 10);
-    var m = parseInt(ym.slice(5, 7), 10);
-    m += 1;
-    if (m > 12) { m = 1; y += 1; }
-    return y + "-" + String(m).padStart(2, "0");
-  }
-
-  function addDaysYmd(ymd, n) {
-    var parts = ymd.split("-");
-    var d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
-    d.setDate(d.getDate() + n);
-    var y = d.getFullYear();
-    var mo = String(d.getMonth() + 1).padStart(2, "0");
-    var dd = String(d.getDate()).padStart(2, "0");
-    return y + "-" + mo + "-" + dd;
-  }
-
-  function daysUntil(ymd) {
-    var s = String(ymd || "").trim();
+  function parseYmd(s) {
+    s = String(s || "").trim();
     if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
-    var parts = s.split("-");
-    var exp = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
-    exp.setHours(0, 0, 0, 0);
-    var now = new Date(); now.setHours(0, 0, 0, 0);
-    return Math.round((exp.getTime() - now.getTime()) / 86400000);
+    // local midnight
+    var d = new Date(s + "T00:00:00");
+    if (!isFinite(d.getTime())) return null;
+    return d;
   }
 
-  // ── Styles ───────────────────────────────────────────────────────
-  var styleInstalled = false;
-  function ensureStyles() {
-    if (styleInstalled) return;
-    styleInstalled = true;
-    if (document.getElementById("eikon-dashboard-style")) return;
+  function parseYm(s) {
+    s = String(s || "").trim();
+    if (!/^\d{4}-\d{2}$/.test(s)) return null;
+    var d = new Date(s + "-01T00:00:00");
+    if (!isFinite(d.getTime())) return null;
+    return d;
+  }
+
+  function addDays(d, n) {
+    var x = new Date(d.getTime());
+    x.setDate(x.getDate() + (parseInt(n, 10) || 0));
+    return x;
+  }
+
+  function todayYmd() { return ymdFromDate(new Date()); }
+  function todayYm() { return ymFromDate(new Date()); }
+
+  function ymdAdd(ymd, n) {
+    var d = parseYmd(ymd);
+    if (!d) return ymd;
+    return ymdFromDate(addDays(d, n));
+  }
+
+  function daysBetween(aYmd, bYmd) {
+    var a = parseYmd(aYmd), b = parseYmd(bYmd);
+    if (!a || !b) return NaN;
+    var ms = b.getTime() - a.getTime();
+    return Math.floor(ms / 86400000);
+  }
+
+  function moneyEUR(v) {
+    var n = Number(v);
+    if (!isFinite(n)) n = 0;
+    // Keep simple formatting; UI is compact
+    return "€" + n.toFixed(2);
+  }
+
+  function truthy01(v) {
+    return v === true || v === 1 || v === "1" || String(v).toLowerCase() === "true" || String(v).toLowerCase() === "yes";
+  }
+
+  function safeStr(v) { return String(v == null ? "" : v).trim(); }
+
+  function q(sel, root) { return (root || document).querySelector(sel); }
+
+  // ----------------------------
+  // Compact UI builders
+  // ----------------------------
+  function pill(type, text) {
+    return '<span class="eikon-pill eikon-dash-pill eikon-dash-pill-' + esc(type) + '">' + esc(text) + "</span>";
+  }
+
+  function btn(action, label, opts) {
+    opts = opts || {};
+    var cls = "eikon-btn eikon-dash-btn";
+    if (opts.primary) cls += " primary";
+    if (opts.danger) cls += " danger";
+    if (opts.small) cls += " eikon-dash-btn-small";
+    var title = opts.title ? ' title="' + esc(opts.title) + '"' : "";
+    return '<button class="' + cls + '" data-action="' + esc(action) + '"' + title + ">" + esc(label) + "</button>";
+  }
+
+  function row(icon, title, sub, pillHtml, actionsHtml) {
+    return (
+      '<div class="eikon-dash-item">' +
+        '<div class="eikon-dash-left">' +
+          '<div class="eikon-dash-ico" aria-hidden="true">' + esc(icon) + "</div>" +
+          '<div class="eikon-dash-txt">' +
+            '<div class="eikon-dash-label">' + esc(title) + "</div>" +
+            (sub ? '<div class="eikon-dash-sub">' + esc(sub) + "</div>" : "") +
+          "</div>" +
+        "</div>" +
+        '<div class="eikon-dash-right">' +
+          (pillHtml || "") +
+          (actionsHtml || "") +
+        "</div>" +
+      "</div>"
+    );
+  }
+
+  function injectCssOnce() {
+    if (document.getElementById("eikon-dash-style")) return;
     var st = document.createElement("style");
-    st.id = "eikon-dashboard-style";
+    st.id = "eikon-dash-style";
     st.textContent =
-      /* Layout */
-      ".db-wrap{padding:18px 20px;max-width:1200px;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;}" +
-      ".db-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:10px;flex-wrap:wrap;}" +
-      ".db-title{font-size:17px;font-weight:900;color:var(--text,#e9eef7);letter-spacing:.2px;}" +
-      ".db-refresh{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:var(--muted,#a8b3c7);border-radius:8px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;transition:background .15s;}" +
-      ".db-refresh:hover{background:rgba(255,255,255,.10);}" +
-      ".db-ts{font-size:11px;color:var(--muted,#a8b3c7);opacity:.7;}" +
-
-      /* Grid */
-      ".db-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}" +
-      "@media(max-width:900px){.db-grid{grid-template-columns:repeat(2,1fr);}}" +
-      "@media(max-width:560px){.db-grid{grid-template-columns:1fr;}}" +
-
-      /* Card */
-      ".db-card{border:1px solid var(--border,#263246);border-radius:14px;background:rgba(255,255,255,.025);padding:12px 14px;display:flex;flex-direction:column;gap:6px;transition:border-color .2s;position:relative;overflow:hidden;}" +
-      ".db-card.db-ok{border-color:rgba(67,209,122,.20);background:rgba(67,209,122,.03);}" +
-      ".db-card.db-warn{border-color:rgba(255,200,90,.30);background:rgba(255,200,90,.04);}" +
-      ".db-card.db-danger{border-color:rgba(255,90,122,.30);background:rgba(255,90,122,.04);}" +
-      ".db-card.db-info{border-color:rgba(90,162,255,.22);background:rgba(90,162,255,.03);}" +
-      ".db-card.db-loading{opacity:.6;}" +
-
-      /* Card header */
-      ".db-card-head{display:flex;align-items:center;gap:7px;}" +
-      ".db-card-icon{font-size:15px;line-height:1;flex-shrink:0;}" +
-      ".db-card-name{font-size:12px;font-weight:900;color:var(--muted,#a8b3c7);text-transform:uppercase;letter-spacing:.4px;flex:1;}" +
-      ".db-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}" +
-      ".db-dot-ok{background:#43d17a;box-shadow:0 0 6px rgba(67,209,122,.5);}" +
-      ".db-dot-warn{background:#ffc85a;box-shadow:0 0 6px rgba(255,200,90,.5);}" +
-      ".db-dot-danger{background:#ff5a7a;box-shadow:0 0 6px rgba(255,90,122,.5);}" +
-      ".db-dot-info{background:#5aa2ff;box-shadow:0 0 6px rgba(90,162,255,.5);}" +
-      ".db-dot-idle{background:#555;}" +
-
-      /* Card body */
-      ".db-card-body{font-size:12px;color:var(--text,#e9eef7);line-height:1.4;}" +
-      ".db-card-body strong{font-weight:900;}" +
-      ".db-card-sub{font-size:11px;color:var(--muted,#a8b3c7);line-height:1.3;margin-top:2px;}" +
-
-      /* Card actions */
-      ".db-card-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:2px;}" +
-      ".db-btn{display:inline-flex;align-items:center;gap:4px;padding:5px 10px;font-size:11px;font-weight:800;border-radius:8px;cursor:pointer;border:1px solid;transition:background .15s,opacity .15s;white-space:nowrap;}" +
-      ".db-btn-primary{background:rgba(90,162,255,.18);border-color:rgba(90,162,255,.45);color:#7dc8ff;}" +
-      ".db-btn-primary:hover{background:rgba(90,162,255,.28);}" +
-      ".db-btn-action{background:rgba(255,200,90,.14);border-color:rgba(255,200,90,.38);color:#ffd97a;}" +
-      ".db-btn-action:hover{background:rgba(255,200,90,.22);}" +
-      ".db-btn-ok{background:rgba(67,209,122,.12);border-color:rgba(67,209,122,.30);color:#6de0a0;}" +
-      ".db-btn-ok:hover{background:rgba(67,209,122,.20);}" +
-
-      /* Instructions banner */
-      ".db-instr-banner{border:1px solid rgba(90,162,255,.20);border-radius:14px;background:rgba(90,162,255,.04);padding:12px 14px;margin-top:10px;}" +
-      ".db-instr-title{font-size:12px;font-weight:900;color:var(--muted,#a8b3c7);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;display:flex;align-items:center;gap:6px;}" +
-      ".db-instr-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}" +
-      "@media(max-width:640px){.db-instr-row{grid-template-columns:1fr;}}" +
-      ".db-instr-section{}" +
-      ".db-instr-label{font-size:11px;font-weight:900;color:var(--muted,#a8b3c7);text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;}" +
-      ".db-instr-text{font-size:12px;color:var(--text,#e9eef7);white-space:pre-wrap;line-height:1.5;background:rgba(0,0,0,.15);border:1px solid rgba(255,255,255,.06);border-radius:8px;padding:8px 10px;max-height:120px;overflow-y:auto;}" +
-      ".db-instr-empty{font-size:12px;color:var(--muted,#a8b3c7);font-style:italic;}" +
-      ".db-bullet{display:flex;gap:6px;margin-bottom:4px;}" +
-      ".db-bullet-sev{font-size:10px;font-weight:900;padding:2px 6px;border-radius:4px;flex-shrink:0;margin-top:1px;}" +
-      ".db-bullet-sev-high{background:rgba(255,90,122,.22);color:#ff8fa3;border:1px solid rgba(255,90,122,.3);}" +
-      ".db-bullet-sev-med{background:rgba(255,200,90,.16);color:#ffd97a;border:1px solid rgba(255,200,90,.28);}" +
-      ".db-bullet-sev-low{background:rgba(90,162,255,.14);color:#7dc8ff;border:1px solid rgba(90,162,255,.25);}" +
-      ".db-bullet-text{font-size:12px;color:var(--text,#e9eef7);line-height:1.4;}" +
-
-      /* Modal quick-forms */
-      ".db-form{display:flex;flex-direction:column;gap:10px;min-width:min(400px,90vw);}" +
-      ".db-form-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;}" +
-      ".db-form label{font-size:12px;font-weight:900;color:var(--muted,#a8b3c7);display:block;margin-bottom:3px;}" +
-      ".db-device-row{border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:10px;background:rgba(0,0,0,.12);margin-bottom:4px;}" +
-      ".db-device-name{font-size:12px;font-weight:900;margin-bottom:6px;color:var(--text,#e9eef7);}" +
-      ".db-spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.15);border-top-color:var(--accent,#5aa2ff);border-radius:50%;animation:db-spin .7s linear infinite;vertical-align:middle;margin-right:6px;}" +
-      "@keyframes db-spin{to{transform:rotate(360deg);}}" +
-      ".db-nav-hint{font-size:11px;color:var(--muted);text-align:center;margin-top:8px;opacity:.7;}" +
-      ".db-err{color:var(--danger,#ff5a7a);font-size:12px;font-weight:700;padding:6px 8px;background:rgba(255,90,122,.08);border:1px solid rgba(255,90,122,.2);border-radius:8px;}" +
-      ".db-section-sep{grid-column:1/-1;margin:4px 0 2px 0;}" +
-      ".db-section-sep hr{border:none;border-top:1px solid rgba(255,255,255,.06);margin:0;}" +
-      ".db-section-label{font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.5px;color:var(--muted,#a8b3c7);opacity:.7;margin-bottom:6px;}" +
-
-      /* Paid Out value display */
-      ".db-big-val{font-size:22px;font-weight:900;color:var(--text,#e9eef7);line-height:1;}" +
-      ".db-big-sub{font-size:11px;color:var(--muted,#a8b3c7);margin-top:2px;}";
-
+      ".eikon-dash-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap}" +
+      ".eikon-dash-title{font-weight:950;font-size:16px;letter-spacing:.2px}" +
+      ".eikon-dash-meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap}" +
+      ".eikon-dash-grid{display:flex;gap:12px;flex-wrap:wrap}" +
+      ".eikon-dash-card{flex:1 1 360px;min-width:320px}" +
+      ".eikon-dash-card-wide{flex:1 1 100%}" +
+      ".eikon-dash-card-title{font-weight:950;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:10px}" +
+      ".eikon-dash-list{display:flex;flex-direction:column;gap:8px}" +
+      ".eikon-dash-item{display:flex;align-items:center;justify-content:space-between;gap:12px;" +
+        "padding:10px 12px;border-radius:14px;border:1px solid var(--border);background:rgba(0,0,0,.18)}" +
+      ".eikon-dash-left{display:flex;align-items:flex-start;gap:10px;min-width:0}" +
+      ".eikon-dash-ico{width:26px;height:26px;display:flex;align-items:center;justify-content:center;" +
+        "border-radius:10px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.06);flex:0 0 auto}" +
+      ".eikon-dash-txt{min-width:0}" +
+      ".eikon-dash-label{font-weight:900;font-size:13px;line-height:1.1}" +
+      ".eikon-dash-sub{font-size:12px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:58vw}" +
+      ".eikon-dash-right{display:flex;align-items:center;gap:8px;flex:0 0 auto}" +
+      ".eikon-dash-btn{padding:8px 10px;border-radius:999px;font-size:12px;line-height:1}" +
+      ".eikon-dash-btn-small{padding:6px 9px}" +
+      ".eikon-dash-pill{font-weight:900}" +
+      ".eikon-dash-pill-ok{border-color:rgba(80,200,120,.35);background:rgba(80,200,120,.10)}" +
+      ".eikon-dash-pill-warn{border-color:rgba(255,196,0,.35);background:rgba(255,196,0,.10)}" +
+      ".eikon-dash-pill-danger{border-color:rgba(255,90,122,.45);background:rgba(255,90,122,.12)}" +
+      ".eikon-dash-pill-info{border-color:rgba(90,162,255,.35);background:rgba(90,162,255,.10)}" +
+      ".eikon-dash-pill-na{border-color:rgba(255,255,255,.14);background:rgba(255,255,255,.04);opacity:.9}" +
+      ".eikon-dash-detail{font-size:13px;line-height:1.35}" +
+      ".eikon-dash-detail .eikon-help{margin-top:6px}" +
+      ".eikon-dash-detail ul{margin:10px 0 0 18px;padding:0}" +
+      ".eikon-dash-detail li{margin:6px 0}" +
+      ".eikon-dash-mini-table{width:100%;border-collapse:collapse;margin-top:10px}" +
+      ".eikon-dash-mini-table th,.eikon-dash-mini-table td{padding:8px 8px;border-bottom:1px solid rgba(255,255,255,.06);text-align:left;font-size:12px}" +
+      ".eikon-dash-mini-table th{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.2px}" +
+      "@media (max-width:520px){.eikon-dash-sub{max-width:78vw}.eikon-dash-right{gap:6px}.eikon-dash-btn{padding:7px 9px}}";
     document.head.appendChild(st);
   }
 
-  // ── API helpers ──────────────────────────────────────────────────
-  async function apiGet(path) {
+  // ----------------------------
+  // State
+  // ----------------------------
+  var state = {
+    mount: null,
+    loading: false,
+    lastUpdated: "",
+    data: {
+      temp: null,
+      cleaning: null,
+      dailyregister: null,
+      certificates: null,
+      alerts: null,
+      shifts: null,
+      clientorders: null,
+      tickets: null,
+      returns: null,
+      paidout: null,
+      nearexpiry: null,
+      instructions: null
+    }
+  };
+
+  // ----------------------------
+  // Data fetch wrappers (never crash dashboard)
+  // ----------------------------
+  async function safeCall(name, fn) {
     try {
-      var r = await E.apiFetch(path, { method: "GET" });
-      return r;
+      var out = await fn();
+      return { ok: true, data: out };
     } catch (e) {
-      warn("[dash] apiGet failed:", path, e && e.message);
-      return null;
+      var msg = String(e && (e.message || e.bodyText || e.error || e) || "Error");
+      E.warn && E.warn("[dashboard] " + name + " failed:", e);
+      return { ok: false, error: msg };
     }
   }
 
-  // ── Navigate to module ───────────────────────────────────────────
-  function goTo(moduleId) {
-    try {
-      window.location.hash = "#" + moduleId;
-    } catch (e) {}
-  }
+  // ----------------------------
+  // Checks
+  // ----------------------------
+  function computeTemperature(devices, entries, ymd) {
+    devices = Array.isArray(devices) ? devices : [];
+    entries = Array.isArray(entries) ? entries : [];
 
-  // ── Toast (minimal inline) ───────────────────────────────────────
-  function toast(msg, kind) {
-    try {
-      var wrap = document.getElementById("db-toast-wrap");
-      if (!wrap) {
-        wrap = document.createElement("div");
-        wrap.id = "db-toast-wrap";
-        wrap.style.cssText = "position:fixed;right:14px;bottom:14px;z-index:999998;display:flex;flex-direction:column;gap:8px;pointer-events:none;";
-        document.body.appendChild(wrap);
-      }
-      var t = document.createElement("div");
-      t.style.cssText = "background:rgba(15,22,34,.96);border:1px solid " +
-        (kind === "ok" ? "rgba(67,209,122,.4)" : kind === "bad" ? "rgba(255,90,122,.4)" : "rgba(255,200,90,.4)") +
-        ";color:#e9eef7;border-radius:12px;padding:9px 13px;font-size:12px;font-weight:700;font-family:system-ui;box-shadow:0 8px 24px rgba(0,0,0,.35);pointer-events:all;";
-      t.textContent = msg;
-      wrap.appendChild(t);
-      setTimeout(function () { try { wrap.removeChild(t); } catch (e2) {} }, 3000);
-    } catch (e) {}
-  }
-
-  // ════════════════════════════════════════════════════════════════
-  //  DATA FETCHERS  (each returns a structured result object)
-  // ════════════════════════════════════════════════════════════════
-
-  async function fetchTemperature() {
-    var today = todayYmd();
-    var ym = currentYm();
-    try {
-      var r = await apiGet("/temperature/entries?month=" + encodeURIComponent(ym));
-      var entries = (r && Array.isArray(r.entries)) ? r.entries : [];
-      var todayEntries = entries.filter(function (e) { return String(e.entry_date || "") === today; });
-
-      // Also get devices to know how many are active
-      var dr = await apiGet("/temperature/devices");
-      var devices = (dr && Array.isArray(dr.devices)) ? dr.devices.filter(function (d) { return !d.inactive; }) : [];
-
-      if (devices.length === 0) {
-        return { ok: true, status: "no_devices", msg: "No devices configured" };
-      }
-      if (todayEntries.length === 0) {
-        return { ok: false, status: "missing", msg: "Not entered for today", deviceCount: devices.length, devices: devices };
-      }
-      return { ok: true, status: "done", msg: "Entered (" + todayEntries.length + " reading" + (todayEntries.length !== 1 ? "s" : "") + ")", entries: todayEntries };
-    } catch (e) {
-      return { ok: null, status: "error", msg: "Failed to load" };
+    function isActiveDev(d) {
+      if (!d) return false;
+      if (truthy01(d.inactive) || truthy01(d.is_inactive)) return false;
+      if (String(d.status || "").toLowerCase() === "inactive") return false;
+      if (d.is_active === 0 || d.active === 0 || d.enabled === 0) return false;
+      return true;
     }
-  }
 
-  async function fetchCleaning() {
-    var today = todayYmd();
-    var ym = currentYm();
-    // Load current month and previous month to cover 14 day lookback
-    try {
-      var [r1, r2] = await Promise.all([
-        apiGet("/cleaning/entries?month=" + encodeURIComponent(ym)),
-        apiGet("/cleaning/entries?month=" + encodeURIComponent(prevYm(ym)))
-      ]);
-      var entries = (r1 && Array.isArray(r1.entries) ? r1.entries : []).concat(
-        r2 && Array.isArray(r2.entries) ? r2.entries : []
-      );
-      // Check last 14 days
-      var cutoff = addDaysYmd(today, -14);
-      var recent = entries.filter(function (e) {
-        var d = String(e.entry_date || "");
-        return d >= cutoff && d <= today;
-      });
-      if (recent.length === 0) {
-        var lastEntry = entries.slice().sort(function (a, b) {
-          return String(b.entry_date || "").localeCompare(String(a.entry_date || ""));
-        })[0];
-        var lastMsg = lastEntry ? ("Last: " + lastEntry.entry_date) : "No records found";
-        return { ok: false, status: "missing", msg: "No record in last 14 days", lastMsg: lastMsg };
-      }
-      var newest = recent.sort(function (a, b) {
-        return String(b.entry_date || "").localeCompare(String(a.entry_date || ""));
-      })[0];
-      var d = daysUntil(newest.entry_date);
-      var ago = d === 0 ? "today" : (Math.abs(d) === 1 ? "yesterday" : Math.abs(d) + " days ago");
-      return { ok: true, status: "done", msg: "Last record: " + ago };
-    } catch (e) {
-      return { ok: null, status: "error", msg: "Failed to load" };
+    var active = devices.filter(isActiveDev);
+
+    var byDev = Object.create(null);
+    for (var i = 0; i < entries.length; i++) {
+      var e = entries[i] || {};
+      if (safeStr(e.entry_date) !== ymd) continue;
+      var did = String(e.device_id || "");
+      if (did) byDev[did] = e;
     }
-  }
 
-  async function fetchDailyRegister() {
-    var today = todayYmd();
-    var ym = currentYm();
-    try {
-      var r = await apiGet("/daily-register/entries?month=" + encodeURIComponent(ym));
-      var entries = (r && Array.isArray(r.entries)) ? r.entries : [];
-      var todayEntries = entries.filter(function (e) { return String(e.entry_date || "") === today; });
-      if (todayEntries.length === 0) {
-        return { ok: false, status: "missing", msg: "No entry for today" };
-      }
-      return { ok: true, status: "done", msg: todayEntries.length + " entr" + (todayEntries.length === 1 ? "y" : "ies") + " today" };
-    } catch (e) {
-      return { ok: null, status: "error", msg: "Failed to load" };
+    var missing = [];
+    for (var j = 0; j < active.length; j++) {
+      var dev = active[j];
+      var id = String(dev.id || "");
+      if (!id) continue;
+      if (!byDev[id]) missing.push(dev);
     }
+
+    return {
+      total: active.length,
+      missing: missing,
+      byDev: byDev,
+      devices: active
+    };
   }
 
-  async function fetchCertificates() {
-    try {
-      var r = await apiGet("/certificates/items");
-      var items = (r && Array.isArray(r.items)) ? r.items : [];
-      var expired = [], soonList = [];
-      items.forEach(function (it) {
-        var nd = String(it.next_due || "").trim();
-        if (!nd) return;
-        var d = daysUntil(nd);
-        if (d === null) return;
-        if (d < 0) expired.push({ name: String(it.title || it.subtitle || "Certificate"), days: d });
-        else if (d <= 30) soonList.push({ name: String(it.title || it.subtitle || "Certificate"), days: d });
-      });
-      if (expired.length === 0 && soonList.length === 0) {
-        return { ok: true, status: "ok", msg: items.length + " certificate" + (items.length !== 1 ? "s" : "") + " — all current" };
-      }
-      var parts = [];
-      if (expired.length) parts.push(expired.length + " expired");
-      if (soonList.length) parts.push(soonList.length + " due within 30d");
-      return {
-        ok: false,
-        status: expired.length > 0 ? "danger" : "warn",
-        msg: parts.join(", "),
-        expired: expired,
-        soon: soonList
-      };
-    } catch (e) {
-      return { ok: null, status: "error", msg: "Failed to load" };
+  function computeCleaning(entries, today) {
+    entries = Array.isArray(entries) ? entries : [];
+    var last = "";
+    var hasRecent = false;
+
+    var t0 = parseYmd(today);
+    if (!t0) t0 = new Date();
+    var threshold = ymdFromDate(addDays(t0, -13)); // inclusive window: today + previous 13 days = 14 days
+
+    for (var i = 0; i < entries.length; i++) {
+      var e = entries[i] || {};
+      var d = safeStr(e.entry_date);
+      if (!d) continue;
+      if (!last || d > last) last = d;
+      if (d >= threshold && d <= today) hasRecent = true;
     }
+
+    return { lastDate: last, hasRecent: hasRecent, threshold: threshold };
   }
 
-  async function fetchAlerts() {
-    try {
-      var r = await apiGet("/alerts/entries?ts=" + Date.now());
-      var entries = (r && Array.isArray(r.entries)) ? r.entries : [];
-      var incomplete = entries.filter(function (e) {
-        if (e.status === "closed") return false;
-        return !(e.team_informed && e.supplier_informed && e.authorities_informed &&
-          e.return_arranged && e.handed_over && e.collection_note_received && e.credit_note_received);
-      });
-      if (incomplete.length === 0) {
-        return { ok: true, status: "ok", msg: entries.length > 0 ? "All alerts resolved" : "No alerts" };
-      }
-      return { ok: false, status: "warn", msg: incomplete.length + " incomplete alert" + (incomplete.length !== 1 ? "s" : ""), count: incomplete.length };
-    } catch (e) {
-      return { ok: null, status: "error", msg: "Failed to load" };
+  function computeDailyRegister(entries, today) {
+    entries = Array.isArray(entries) ? entries : [];
+    var count = 0;
+    for (var i = 0; i < entries.length; i++) {
+      var e = entries[i] || {};
+      if (safeStr(e.entry_date) === today) count++;
     }
+    return { countToday: count };
   }
 
-  async function fetchShifts() {
-    var today = todayYmd();
-    var y = parseInt(today.slice(0, 4), 10);
-    var mo = parseInt(today.slice(5, 7), 10); // 1-based
+  function computeCertificates(items, today) {
+    items = Array.isArray(items) ? items : [];
+    var expired = [];
+    var due = [];
 
-    // Build list of months to check: this month + next month
-    var months = [
-      { year: y, month: mo },
-      mo === 12 ? { year: y + 1, month: 1 } : { year: y, month: mo + 1 }
+    var t = parseYmd(today);
+    var tTs = t ? t.getTime() : new Date().getTime();
+    var t30 = addDays(t ? t : new Date(), 30).getTime();
+
+    for (var i = 0; i < items.length; i++) {
+      var it = items[i] || {};
+      var nd = safeStr(it.next_due);
+      if (!nd) continue;
+      var d = parseYmd(nd);
+      if (!d) continue;
+      var ts = d.getTime();
+      if (ts < tTs) expired.push(it);
+      else if (ts <= t30) due.push(it);
+    }
+
+    expired.sort(function (a, b) { return safeStr(a.next_due) < safeStr(b.next_due) ? -1 : 1; });
+    due.sort(function (a, b) { return safeStr(a.next_due) < safeStr(b.next_due) ? -1 : 1; });
+
+    return { expired: expired, dueSoon: due };
+  }
+
+  function computeAlerts(entries) {
+    entries = Array.isArray(entries) ? entries : [];
+    var keys = [
+      "team_informed",
+      "supplier_informed",
+      "authorities_informed",
+      "return_arranged",
+      "handed_over",
+      "collection_note_received",
+      "credit_note_received"
     ];
 
-    try {
-      // Load staff + settings + opening hours once, then assignments per month
-      var [staffR, settingsR, ohR] = await Promise.all([
-        apiGet("/shifts/staff?include_inactive=1"),
-        apiGet("/shifts/settings"),
-        apiGet("/shifts/opening-hours")
-      ]);
-
-      var staff = (staffR && Array.isArray(staffR.staff)) ? staffR.staff : [];
-      var settings = (settingsR && settingsR.settings) ? settingsR.settings : { pharmacistRequired: true, minPharmacists: 1 };
-      var openingHours = (ohR && ohR.opening_hours) ? ohR.opening_hours : { "default": { open: "07:30", close: "19:30", closed: false } };
-
-      // Helper: get employee
-      function emp(sid) { return staff.find(function (s) { return String(s.id) === String(sid); }) || null; }
-
-      // Helper: parse time HH:MM → minutes
-      function t2m(t) {
-        var p = String(t || "").split(":");
-        return (parseInt(p[0], 10) || 0) * 60 + (parseInt(p[1], 10) || 0);
+    var incomplete = [];
+    for (var i = 0; i < entries.length; i++) {
+      var e = entries[i] || {};
+      var ok = true;
+      for (var k = 0; k < keys.length; k++) {
+        if (!truthy01(e[keys[k]])) { ok = false; break; }
       }
-      function m2t(m) {
-        return String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0");
-      }
-
-      // Helper: opening hours for a day-string YYYY-MM-DD
-      function ohFor(ds) {
-        var overrides = (openingHours && openingHours.overrides) ? openingHours.overrides : {};
-        if (overrides[ds]) return Object.assign({}, overrides[ds]);
-        var base = (openingHours && openingHours["default"]) ? openingHours["default"] : { open: "07:30", close: "19:30", closed: false };
-        var dow = new Date(ds + "T00:00:00").getDay(); // 0=Sun
-        if (dow === 0 && !(openingHours && openingHours.openSunday)) return { closed: true };
-        if (dow === 6 && !(openingHours && openingHours.openSaturday) && !(openingHours && openingHours.weekends)) return { closed: true };
-        return { open: base.open || "07:30", close: base.close || "19:30", closed: !!base.closed };
-      }
-
-      // Helper: check coverage for a day
-      function checkCov(ds, shifts, leaves) {
-        var oh = ohFor(ds);
-        if (oh.closed) return { ok: true, issues: [] };
-        var min = parseInt(settings.minPharmacists, 10) || 1;
-        var need = !!settings.pharmacistRequired;
-        var onLeave = {};
-        (leaves || []).filter(function (l) {
-          return l.status === "approved" && l.start_date <= ds && l.end_date >= ds;
-        }).forEach(function (l) { onLeave[l.staff_id] = true; });
-        var openM = t2m(oh.open);
-        var closeM = t2m(oh.close);
-        if (closeM <= openM) return { ok: true, issues: [] };
-        var events = [];
-        (shifts || []).filter(function (s) { return s.shift_date === ds; }).forEach(function (s) {
-          if (onLeave[s.staff_id]) return;
-          var e = emp(s.staff_id);
-          var isPh = (e && (e.designation === "pharmacist" || e.designation === "locum")) || (s.role_override === "pharmacist");
-          if (!isPh) return;
-          var st = Math.max(openM, t2m(s.start_time));
-          var et = Math.min(closeM, t2m(s.end_time));
-          if (et <= st) return;
-          events.push({ t: st, d: +1 });
-          events.push({ t: et, d: -1 });
-        });
-        if (!events.length) {
-          return need
-            ? { ok: false, issues: ["No pharmacist coverage: " + m2t(openM) + "–" + m2t(closeM)] }
-            : { ok: true, issues: [] };
-        }
-        events.sort(function (a, b) { return a.t - b.t || b.d - a.d; });
-        var gaps = [], count = 0, cur = openM, i = 0;
-        while (i < events.length && events[i].t <= openM) { count += events[i].d; i++; }
-        while (cur < closeM) {
-          var nextT = (i < events.length) ? Math.min(events[i].t, closeM) : closeM;
-          if (nextT > cur) {
-            if (need && count < min) gaps.push(cur + "–" + nextT);
-            cur = nextT;
-          }
-          while (i < events.length && events[i].t === cur) { count += events[i].d; i++; }
-          if (i >= events.length) {
-            if (cur < closeM && need && count < min) gaps.push(cur + "–" + closeM);
-            break;
-          }
-        }
-        return gaps.length > 0 ? { ok: false, issues: ["Gap on " + ds] } : { ok: true, issues: [] };
-      }
-
-      var allGapDays = [];
-
-      for (var mi = 0; mi < months.length; mi++) {
-        var mc = months[mi];
-        var [assignR, leaveR] = await Promise.all([
-          apiGet("/shifts/assignments?year=" + mc.year + "&month=" + mc.month),
-          apiGet("/shifts/leaves?year=" + mc.year)
-        ]);
-        var shifts = (assignR && Array.isArray(assignR.shifts)) ? assignR.shifts : [];
-        var leaves = (leaveR && Array.isArray(leaveR.leaves)) ? leaveR.leaves : [];
-
-        // Check every working day in the month
-        var daysInMonth = new Date(mc.year, mc.month, 0).getDate();
-        for (var day = 1; day <= daysInMonth; day++) {
-          var ds = mc.year + "-" + String(mc.month).padStart(2, "0") + "-" + String(day).padStart(2, "0");
-          if (ds < today) continue; // past days
-          var cov = checkCov(ds, shifts, leaves);
-          if (!cov.ok) allGapDays.push(ds);
-        }
-      }
-
-      if (allGapDays.length === 0) {
-        return { ok: true, status: "ok", msg: "No pharmacist gaps this/next month" };
-      }
-      return {
-        ok: false,
-        status: "warn",
-        msg: allGapDays.length + " day" + (allGapDays.length !== 1 ? "s" : "") + " with pharmacist gap",
-        days: allGapDays.slice(0, 5)
-      };
-    } catch (e) {
-      return { ok: null, status: "error", msg: "Failed to load" };
+      if (!ok) incomplete.push(e);
     }
+    return { incomplete: incomplete };
   }
 
-  async function fetchClientOrders() {
-    var ym = currentYm();
+  // --- Shifts coverage (reusing the same core logic style as shifts module) ---
+  function t2m(hhmm) {
+    hhmm = String(hhmm || "").trim();
+    var m = /^(\d{1,2}):(\d{2})$/.exec(hhmm);
+    if (!m) return NaN;
+    var h = parseInt(m[1], 10), mm = parseInt(m[2], 10);
+    if (!isFinite(h) || !isFinite(mm)) return NaN;
+    return h * 60 + mm;
+  }
+  function m2t(mins) {
+    mins = Math.max(0, parseInt(mins, 10) || 0);
+    var h = Math.floor(mins / 60);
+    var m = mins % 60;
+    return pad2(h) + ":" + pad2(m);
+  }
+  function ohFor(ds, hours) {
+    hours = hours || {};
+    var def = hours["default"] || { open: "07:30", close: "19:30", closed: false };
+    var ovr = (hours.overrides && hours.overrides[ds]) ? hours.overrides[ds] : null;
+    var out = {
+      open: safeStr((ovr && ovr.open) || def.open || "07:30"),
+      close: safeStr((ovr && ovr.close) || def.close || "19:30"),
+      closed: !!((ovr && ovr.closed) || def.closed)
+    };
+
+    // Weekend flags (common in your shifts state)
     try {
-      // Load current + previous month to catch active orders
-      var [r1, r2] = await Promise.all([
-        apiGet("/client-orders/entries?month=" + encodeURIComponent(ym) + "&fulfilled=0"),
-        apiGet("/client-orders/entries?month=" + encodeURIComponent(prevYm(ym)) + "&fulfilled=0")
-      ]);
-      var entries = (r1 && Array.isArray(r1.entries) ? r1.entries : []).concat(
-        r2 && Array.isArray(r2.entries) ? r2.entries : []
-      );
-      var active = entries.filter(function (e) { return !e.fulfilled; });
-      if (active.length === 0) {
-        return { ok: true, status: "ok", msg: "No active orders" };
+      var wd = new Date(ds + "T00:00:00").getDay(); // 0 Sun .. 6 Sat
+      if (!out.closed) {
+        if (wd === 6 && hours.openSaturday === false) out.closed = true;
+        if (wd === 0 && hours.openSunday === false) out.closed = true;
       }
-      return { ok: false, status: "info", msg: active.length + " active order" + (active.length !== 1 ? "s" : ""), count: active.length };
-    } catch (e) {
-      return { ok: null, status: "error", msg: "Failed to load" };
+    } catch (e) {}
+
+    return out;
+  }
+  function emp(staffId, staff) {
+    staffId = String(staffId || "");
+    staff = Array.isArray(staff) ? staff : [];
+    for (var i = 0; i < staff.length; i++) {
+      if (String((staff[i] || {}).id) === staffId) return staff[i];
     }
+    return null;
+  }
+  function checkCoverage(ds, payload) {
+    payload = payload || {};
+    var hours = payload.openingHours || {};
+    var settings = payload.settings || {};
+    var staff = payload.staff || [];
+    var shifts = payload.shifts || [];
+    var leaves = payload.leaves || [];
+
+    var oh = ohFor(ds, hours);
+    if (oh.closed) return { ok: true, issues: [], open: oh.open, close: oh.close };
+
+    var min = parseInt(settings.minPharmacists, 10) || 1;
+    var need = !!settings.pharmacistRequired;
+
+    var onLeave = Object.create(null);
+    for (var i = 0; i < leaves.length; i++) {
+      var l = leaves[i] || {};
+      if (String(l.status || "") !== "approved") continue;
+      if (safeStr(l.start_date) <= ds && safeStr(l.end_date) >= ds) onLeave[String(l.staff_id || "")] = true;
+    }
+
+    var openM = t2m(oh.open || "07:30");
+    var closeM = t2m(oh.close || "19:30");
+    if (!isFinite(openM) || !isFinite(closeM) || closeM <= openM) return { ok: true, issues: [], open: oh.open, close: oh.close };
+
+    var events = [];
+    for (var s = 0; s < shifts.length; s++) {
+      var sh = shifts[s] || {};
+      if (safeStr(sh.shift_date) !== ds) continue;
+
+      var sid = String(sh.staff_id || "");
+      if (onLeave[sid]) continue;
+
+      var e = emp(sid, staff);
+      var des = String((e && e.designation) || "").toLowerCase();
+      var isPh = (des === "pharmacist" || des === "locum") || (String(sh.role_override || "").toLowerCase() === "pharmacist");
+      if (!isPh) continue;
+
+      var st = Math.max(openM, t2m(sh.start_time));
+      var et = Math.min(closeM, t2m(sh.end_time));
+      if (!isFinite(st) || !isFinite(et) || et <= st) continue;
+
+      events.push({ t: st, d: +1 });
+      events.push({ t: et, d: -1 });
+    }
+
+    if (!events.length) {
+      var issues0 = need ? ["No pharmacist coverage: " + m2t(openM) + "–" + m2t(closeM)] : [];
+      return { ok: issues0.length === 0, issues: issues0, open: oh.open, close: oh.close };
+    }
+
+    events.sort(function (a, b) { return a.t - b.t || b.d - a.d; }); // starts before ends at same time
+    var gaps = [];
+    var count = 0;
+    var cur = openM;
+
+    var idx = 0;
+    while (idx < events.length && events[idx].t <= openM) { count += events[idx].d; idx++; }
+
+    while (cur < closeM) {
+      var nextT = (idx < events.length) ? Math.min(events[idx].t, closeM) : closeM;
+      if (nextT > cur) {
+        if (need && count < min) gaps.push({ start: cur, end: nextT, count: count });
+        cur = nextT;
+      }
+      while (idx < events.length && events[idx].t === cur) { count += events[idx].d; idx++; }
+      if (idx >= events.length) {
+        if (cur < closeM && need && count < min) gaps.push({ start: cur, end: closeM, count: count });
+        break;
+      }
+    }
+
+    var issues = [];
+    if (need && gaps.length) {
+      for (var g = 0; g < Math.min(3, gaps.length); g++) {
+        issues.push("Pharmacist gap: " + m2t(gaps[g].start) + "–" + m2t(gaps[g].end));
+      }
+      if (gaps.length > 3) issues.push("+" + (gaps.length - 3) + " more gap(s)");
+    }
+
+    return { ok: issues.length === 0, issues: issues, open: oh.open, close: oh.close, min: min };
   }
 
-  async function fetchTickets() {
-    try {
-      var r = await apiGet("/client-tickets/entries");
-      var entries = (r && Array.isArray(r.entries)) ? r.entries : [];
-      var open = entries.filter(function (e) {
-        return !e.resolved && e.status !== "Resolved" && e.status !== "Closed";
-      });
-      if (open.length === 0) {
-        return { ok: true, status: "ok", msg: "No open tickets" };
-      }
-      return { ok: false, status: "info", msg: open.length + " open ticket" + (open.length !== 1 ? "s" : ""), count: open.length };
-    } catch (e) {
-      return { ok: null, status: "error", msg: "Failed to load" };
+  function computeNearExpiry(entries, today) {
+    entries = Array.isArray(entries) ? entries : [];
+    var expired = [];
+    var soon = [];
+
+    var t = parseYmd(today);
+    var tTs = t ? t.getTime() : new Date().getTime();
+    var t30 = addDays(t ? t : new Date(), 30).getTime();
+
+    for (var i = 0; i < entries.length; i++) {
+      var e = entries[i] || {};
+      var ex = safeStr(e.expiry_date);
+      if (!ex) continue;
+      var d = parseYmd(ex);
+      if (!d) continue;
+      var ts = d.getTime();
+      if (ts < tTs) expired.push(e);
+      else if (ts <= t30) soon.push(e);
     }
+
+    expired.sort(function (a, b) { return safeStr(a.expiry_date) < safeStr(b.expiry_date) ? -1 : 1; });
+    soon.sort(function (a, b) { return safeStr(a.expiry_date) < safeStr(b.expiry_date) ? -1 : 1; });
+
+    return { expired: expired, soon: soon };
   }
 
-  async function fetchReturns() {
-    var ym = currentYm();
-    function from01(v) { return v === 1 || v === true || v === "1"; }
-    try {
-      var [r1, r2] = await Promise.all([
-        apiGet("/returns/entries?month=" + encodeURIComponent(ym)),
-        apiGet("/returns/entries?month=" + encodeURIComponent(prevYm(ym)))
-      ]);
-      var entries = (r1 && Array.isArray(r1.entries) ? r1.entries : []).concat(
-        r2 && Array.isArray(r2.entries) ? r2.entries : []
-      );
-      var incomplete = entries.filter(function (e) {
-        return !(from01(e.return_arranged) && from01(e.handed_over) &&
-          from01(e.collection_note_received) && from01(e.credit_note_received));
-      });
-      if (incomplete.length === 0) {
-        return { ok: true, status: "ok", msg: entries.length > 0 ? "All returns complete" : "No returns" };
-      }
-      return { ok: false, status: "warn", msg: incomplete.length + " return" + (incomplete.length !== 1 ? "s" : "") + " incomplete", count: incomplete.length };
-    } catch (e) {
-      return { ok: null, status: "error", msg: "Failed to load" };
+  function computeInstructions(records, today, yesterday) {
+    records = Array.isArray(records) ? records : [];
+    var byYmd = Object.create(null);
+    for (var i = 0; i < records.length; i++) {
+      var r = records[i] || {};
+      var ds = safeStr(r.ymd);
+      if (!ds) continue;
+      byYmd[ds] = r;
     }
+
+    var t = byYmd[today] || null;
+    var y = byYmd[yesterday] || null;
+
+    var notes = t && safeStr(t.notes);
+    var handover = (y && Array.isArray(y.handover_out)) ? y.handover_out : [];
+
+    return {
+      todayNotes: notes || "",
+      yesterdayHandover: handover
+    };
   }
 
-  async function fetchPaidOut() {
+  function computeReturns(entries) {
+    entries = Array.isArray(entries) ? entries : [];
+    var incomplete = [];
+    for (var i = 0; i < entries.length; i++) {
+      var e = entries[i] || {};
+      var ok =
+        truthy01(e.return_arranged) &&
+        truthy01(e.handed_over) &&
+        truthy01(e.collection_note_received) &&
+        truthy01(e.credit_note_received);
+      if (!ok) incomplete.push(e);
+    }
+    return { incomplete: incomplete };
+  }
+
+  // ----------------------------
+  // Rendering
+  // ----------------------------
+  function renderAll() {
+    var mount = state.mount;
+    if (!mount) return;
+
     var today = todayYmd();
-    var ym = currentYm();
-    try {
-      var r = await apiGet("/paid-out/entries?month=" + encodeURIComponent(ym));
-      var entries = (r && Array.isArray(r.entries)) ? r.entries : [];
-      var todayEntries = entries.filter(function (e) { return String(e.entry_date || "") === today; });
+
+    function showNA(msg) { return pill("na", msg || "Unavailable"); }
+
+    var todayList = q("#dash-today", mount);
+    var attnList = q("#dash-attn", mount);
+    var opsList = q("#dash-ops", mount);
+    var meta = q("#dash-updated", mount);
+    var refreshBtn = q('[data-action="dash-refresh"]', mount);
+
+    if (meta) meta.textContent = state.lastUpdated ? ("Updated: " + state.lastUpdated) : "";
+    if (refreshBtn) refreshBtn.disabled = !!state.loading;
+
+    // --- Temperature ---
+    var tempRow = "";
+    if (!state.data.temp) tempRow = row("🌡", "Temperature (today)", "Loading…", pill("info", "…"), "");
+    else if (!state.data.temp.ok) tempRow = row("🌡", "Temperature (today)", state.data.temp.error || "Unavailable", showNA("N/A"), btn("dash-open-temperature", "Open", { small: true, title: "Open Temperature module" }));
+    else {
+      var t = state.data.temp.data;
+      if (!t.total) {
+        tempRow = row("🌡", "Temperature (today)", "No active devices", pill("info", "Info"), btn("dash-open-temperature", "Open", { small: true }));
+      } else if (!t.missing.length) {
+        tempRow = row("🌡", "Temperature (today)", "All devices recorded", pill("ok", "OK"), btn("dash-open-temperature", "Open", { small: true }));
+      } else {
+        tempRow = row(
+          "🌡",
+          "Temperature (today)",
+          t.missing.length + " missing / " + t.total + " devices",
+          pill("danger", "Missing"),
+          btn("dash-temp-quick", "Quick enter", { primary: true, small: true, title: "Enter today's temperatures" }) +
+          btn("dash-open-temperature", "Open", { small: true })
+        );
+      }
+    }
+
+    // --- Daily Register ---
+    var drRow = "";
+    if (!state.data.dailyregister) drRow = row("📘", "Daily register (today)", "Loading…", pill("info", "…"), "");
+    else if (!state.data.dailyregister.ok) drRow = row("📘", "Daily register (today)", state.data.dailyregister.error || "Unavailable", showNA("N/A"), btn("dash-open-dailyregister", "Open", { small: true }));
+    else {
+      var dr = state.data.dailyregister.data;
+      if (dr.countToday > 0) {
+        drRow = row("📘", "Daily register (today)", dr.countToday + " record(s) today", pill("ok", "OK"), btn("dash-open-dailyregister", "Open", { small: true }));
+      } else {
+        drRow = row(
+          "📘",
+          "Daily register (today)",
+          "No record for " + today,
+          pill("danger", "Missing"),
+          btn("dash-dr-quick", "Quick enter", { primary: true, small: true }) +
+          btn("dash-open-dailyregister", "Open", { small: true })
+        );
+      }
+    }
+
+    // --- Paid out today ---
+    var poRow = "";
+    if (!state.data.paidout) poRow = row("💸", "Paid out (today)", "Loading…", pill("info", "…"), "");
+    else if (!state.data.paidout.ok) poRow = row("💸", "Paid out (today)", state.data.paidout.error || "Unavailable", showNA("N/A"), btn("dash-open-paidout", "Open", { small: true }));
+    else {
+      var po = state.data.paidout.data;
+      poRow = row("💸", "Paid out (today)", moneyEUR(po.totalToday) + " total", pill("info", moneyEUR(po.totalToday)), btn("dash-open-paidout", "Open", { small: true }));
+    }
+
+    // --- Instructions (today + previous day handover) ---
+    var insRow = "";
+    if (!state.data.instructions) insRow = row("📝", "Instructions & handover", "Loading…", pill("info", "…"), "");
+    else if (!state.data.instructions.ok) insRow = row("📝", "Instructions & handover", state.data.instructions.error || "Unavailable", showNA("N/A"), btn("dash-open-instructions", "Open", { small: true }));
+    else {
+      var ins = state.data.instructions.data;
+      var hasNotes = !!safeStr(ins.todayNotes);
+      var hasHandover = Array.isArray(ins.yesterdayHandover) && ins.yesterdayHandover.length > 0;
+      if (!hasNotes && !hasHandover) {
+        insRow = row("📝", "Instructions & handover", "No day-specific notes / handover", pill("ok", "OK"), btn("dash-open-instructions", "Open", { small: true }));
+      } else {
+        var sub = [];
+        if (hasNotes) sub.push("Today: notes");
+        if (hasHandover) sub.push("Prev day: " + ins.yesterdayHandover.length + " handover item(s)");
+        insRow = row(
+          "📝",
+          "Instructions & handover",
+          sub.join(" • "),
+          pill("warn", "Review"),
+          btn("dash-instructions-details", "View", { primary: true, small: true }) +
+          btn("dash-open-instructions", "Open", { small: true })
+        );
+      }
+    }
+
+    // --- Cleaning 14 days ---
+    var clRow = "";
+    if (!state.data.cleaning) clRow = row("🧽", "Cleaning (14 days)", "Loading…", pill("info", "…"), "");
+    else if (!state.data.cleaning.ok) clRow = row("🧽", "Cleaning (14 days)", state.data.cleaning.error || "Unavailable", showNA("N/A"), btn("dash-open-cleaning", "Open", { small: true }));
+    else {
+      var cl = state.data.cleaning.data;
+      if (cl.hasRecent) {
+        clRow = row("🧽", "Cleaning (14 days)", "Last record: " + (cl.lastDate || "—"), pill("ok", "OK"), btn("dash-open-cleaning", "Open", { small: true }));
+      } else {
+        clRow = row(
+          "🧽",
+          "Cleaning (14 days)",
+          "No record since " + (cl.lastDate || "—"),
+          pill("danger", "Overdue"),
+          btn("dash-clean-quick", "Quick enter", { primary: true, small: true }) +
+          btn("dash-open-cleaning", "Open", { small: true })
+        );
+      }
+    }
+
+    // --- Certificates due/expired ---
+    var certRow = "";
+    if (!state.data.certificates) certRow = row("📄", "Certificates (due/expired)", "Loading…", pill("info", "…"), "");
+    else if (!state.data.certificates.ok) certRow = row("📄", "Certificates (due/expired)", state.data.certificates.error || "Unavailable", showNA("N/A"), btn("dash-open-certificates", "Open", { small: true }));
+    else {
+      var ce = state.data.certificates.data;
+      var exN = ce.expired.length;
+      var dueN = ce.dueSoon.length;
+      if (exN === 0 && dueN === 0) {
+        certRow = row("📄", "Certificates (due/expired)", "Nothing due in 30 days", pill("ok", "OK"), btn("dash-open-certificates", "Open", { small: true }));
+      } else {
+        var subc = [];
+        if (exN) subc.push(exN + " expired");
+        if (dueN) subc.push(dueN + " due ≤30d");
+        certRow = row(
+          "📄",
+          "Certificates (due/expired)",
+          subc.join(" • "),
+          pill(exN ? "danger" : "warn", exN ? "Expired" : "Due soon"),
+          btn("dash-cert-details", "Details", { primary: true, small: true }) +
+          btn("dash-open-certificates", "Open", { small: true })
+        );
+      }
+    }
+
+    // --- Alerts incomplete ---
+    var alRow = "";
+    if (!state.data.alerts) alRow = row("🚨", "Alerts (incomplete)", "Loading…", pill("info", "…"), "");
+    else if (!state.data.alerts.ok) alRow = row("🚨", "Alerts (incomplete)", state.data.alerts.error || "Unavailable", showNA("N/A"), btn("dash-open-alerts", "Open", { small: true }));
+    else {
+      var al = state.data.alerts.data;
+      var n = al.incomplete.length;
+      if (!n) alRow = row("🚨", "Alerts (incomplete)", "All alerts completed", pill("ok", "OK"), btn("dash-open-alerts", "Open", { small: true }));
+      else {
+        alRow = row(
+          "🚨",
+          "Alerts (incomplete)",
+          n + " alert(s) need attention",
+          pill("warn", "Action"),
+          btn("dash-alerts-details", "Details", { primary: true, small: true }) +
+          btn("dash-open-alerts", "Open", { small: true })
+        );
+      }
+    }
+
+    // --- Returns incomplete ---
+    var rtRow = "";
+    if (!state.data.returns) rtRow = row("↩️", "Returns (incomplete)", "Loading…", pill("info", "…"), "");
+    else if (!state.data.returns.ok) rtRow = row("↩️", "Returns (incomplete)", state.data.returns.error || "Unavailable", showNA("N/A"), btn("dash-open-returns", "Open", { small: true }));
+    else {
+      var rr = state.data.returns.data;
+      var rn = rr.incomplete.length;
+      if (!rn) rtRow = row("↩️", "Returns (incomplete)", "All returns completed", pill("ok", "OK"), btn("dash-open-returns", "Open", { small: true }));
+      else {
+        rtRow = row(
+          "↩️",
+          "Returns (incomplete)",
+          rn + " return(s) need checkboxes",
+          pill("warn", "Action"),
+          btn("dash-returns-details", "Details", { primary: true, small: true }) +
+          btn("dash-open-returns", "Open", { small: true })
+        );
+      }
+    }
+
+    // --- Near expiry ---
+    var neRow = "";
+    if (!state.data.nearexpiry) neRow = row("⏳", "Near expiry", "Loading…", pill("info", "…"), "");
+    else if (!state.data.nearexpiry.ok) neRow = row("⏳", "Near expiry", state.data.nearexpiry.error || "Unavailable", showNA("N/A"), btn("dash-open-nearexpiry", "Open", { small: true }));
+    else {
+      var nx = state.data.nearexpiry.data;
+      var ex = nx.expired.length;
+      var so = nx.soon.length;
+      if (!ex && !so) {
+        neRow = row("⏳", "Near expiry", "No expired / due ≤30d items", pill("ok", "OK"), btn("dash-open-nearexpiry", "Open", { small: true }));
+      } else {
+        var subn = [];
+        if (ex) subn.push(ex + " expired");
+        if (so) subn.push(so + " due ≤30d");
+        neRow = row(
+          "⏳",
+          "Near expiry",
+          subn.join(" • "),
+          pill(ex ? "danger" : "warn", ex ? "Expired" : "Due soon"),
+          btn("dash-ne-details", "Details", { primary: true, small: true }) +
+          btn("dash-open-nearexpiry", "Open", { small: true })
+        );
+      }
+    }
+
+    // --- Shifts coverage ---
+    var shRow = "";
+    if (!state.data.shifts) shRow = row("📅", "Shifts (coverage)", "Loading…", pill("info", "…"), "");
+    else if (!state.data.shifts.ok) shRow = row("📅", "Shifts (coverage)", state.data.shifts.error || "Unavailable", showNA("N/A"), btn("dash-open-shifts", "Open", { small: true }));
+    else {
+      var sh = state.data.shifts.data;
+      var cn = sh.issueDays.length;
+      if (!cn) {
+        shRow = row("📅", "Shifts (coverage)", "No pharmacist coverage warnings (this & next month)", pill("ok", "OK"), btn("dash-open-shifts", "Open", { small: true }));
+      } else {
+        shRow = row(
+          "📅",
+          "Shifts (coverage)",
+          cn + " day(s) with pharmacist coverage issue",
+          pill("danger", "Warning"),
+          btn("dash-shifts-details", "Details", { primary: true, small: true }) +
+          btn("dash-open-shifts", "Open", { small: true })
+        );
+      }
+    }
+
+    // --- Client orders active ---
+    var coRow = "";
+    if (!state.data.clientorders) coRow = row("🧾", "Client orders (active)", "Loading…", pill("info", "…"), "");
+    else if (!state.data.clientorders.ok) coRow = row("🧾", "Client orders (active)", state.data.clientorders.error || "Unavailable", showNA("N/A"), btn("dash-open-clientorders", "Open", { small: true }));
+    else {
+      var co = state.data.clientorders.data;
+      if (!co.activeCount) {
+        coRow = row("🧾", "Client orders (active)", "No active orders (recent months)", pill("ok", "OK"), btn("dash-open-clientorders", "Open", { small: true }));
+      } else {
+        coRow = row("🧾", "Client orders (active)", co.activeCount + " active order(s) (recent months)", pill("warn", "Review"), btn("dash-open-clientorders", "Open", { primary: true, small: true }));
+      }
+    }
+
+    // --- Client tickets open ---
+    var tkRow = "";
+    if (!state.data.tickets) tkRow = row("🎫", "Client tickets (open)", "Loading…", pill("info", "…"), "");
+    else if (!state.data.tickets.ok) tkRow = row("🎫", "Client tickets (open)", state.data.tickets.error || "Unavailable", showNA("N/A"), btn("dash-open-tickets", "Open", { small: true }));
+    else {
+      var tk = state.data.tickets.data;
+      if (!tk.openCount) {
+        tkRow = row("🎫", "Client tickets (open)", "No open tickets", pill("ok", "OK"), btn("dash-open-tickets", "Open", { small: true }));
+      } else {
+        tkRow = row("🎫", "Client tickets (open)", tk.openCount + " open ticket(s)", pill("warn", "Action"), btn("dash-open-tickets", "Open", { primary: true, small: true }));
+      }
+    }
+
+    if (todayList) todayList.innerHTML = tempRow + drRow + poRow + insRow;
+    if (attnList) attnList.innerHTML = clRow + certRow + alRow + rtRow + neRow;
+    if (opsList) opsList.innerHTML = shRow + coRow + tkRow;
+  }
+
+  // ----------------------------
+  // Refresh (pull everything)
+  // ----------------------------
+  async function refreshAll() {
+    if (state.loading) return;
+    state.loading = true;
+    renderAll();
+
+    var tYmd = todayYmd();
+    var tYm = todayYm();
+    var yYmd = ymdAdd(tYmd, -1);
+    var yYm = ymFromDate(parseYmd(yYmd) || new Date());
+
+    // Temperature: devices + current month entries
+    state.data.temp = await safeCall("temperature", async function () {
+      var dev = await E.apiFetch("/temperature/devices", { method: "GET" });
+      var ent = await E.apiFetch("/temperature/entries?month=" + encodeURIComponent(tYm), { method: "GET" });
+      var devices = (dev && dev.devices) ? dev.devices : [];
+      var entries = (ent && ent.entries) ? ent.entries : [];
+      return computeTemperature(devices, entries, tYmd);
+    });
+
+    // Cleaning: current month + maybe previous month (to cover 14 days across boundary)
+    state.data.cleaning = await safeCall("cleaning", async function () {
+      var months = [tYm];
+      var td = parseYmd(tYmd) || new Date();
+      if ((td.getDate() || 1) <= 14) {
+        var prev = new Date(td.getFullYear(), td.getMonth() - 1, 1);
+        months.push(ymFromDate(prev));
+      }
+      var all = [];
+      for (var i = 0; i < months.length; i++) {
+        var r = await E.apiFetch("/cleaning/entries?month=" + encodeURIComponent(months[i]), { method: "GET" });
+        var ent = (r && r.entries) ? r.entries : [];
+        all = all.concat(ent);
+      }
+      return computeCleaning(all, tYmd);
+    });
+
+    // Daily register: current month entries
+    state.data.dailyregister = await safeCall("dailyregister", async function () {
+      var r = await E.apiFetch("/daily-register/entries?month=" + encodeURIComponent(tYm), { method: "GET" });
+      var ent = (r && r.entries) ? r.entries : [];
+      return computeDailyRegister(ent, tYmd);
+    });
+
+    // Certificates: list items
+    state.data.certificates = await safeCall("certificates", async function () {
+      var r = await E.apiFetch("/certificates/items", { method: "GET" });
+      if (!r || r.ok !== true) throw new Error((r && r.error) ? r.error : "Failed to load certificates");
+      var items = r.items || [];
+      return computeCertificates(items, tYmd);
+    });
+
+    // Alerts: list entries
+    state.data.alerts = await safeCall("alerts", async function () {
+      var r = await E.apiFetch("/alerts/entries?ts=" + Date.now(), { method: "GET" });
+      var ent = (r && r.entries) ? r.entries : [];
+      return computeAlerts(ent);
+    });
+
+    // Shifts: this month + next month coverage issues
+    state.data.shifts = await safeCall("shifts", async function () {
+      var now = new Date();
+      var fromD = new Date(now.getFullYear(), now.getMonth(), 1);
+      var toD = new Date(now.getFullYear(), now.getMonth() + 2, 0); // last day of next month
+      var from = ymdFromDate(fromD);
+      var to = ymdFromDate(toD);
+
+      // Pull required shifts data
+      var staffResp = await E.apiFetch("/shifts/staff?include_inactive=1", { method: "GET" });
+      var hoursResp = await E.apiFetch("/shifts/opening-hours", { method: "GET" });
+      var setResp = await E.apiFetch("/shifts/settings", { method: "GET" });
+
+      // Leaves may be year-scoped
+      var years = Object.create(null);
+      years[fromD.getFullYear()] = true;
+      years[toD.getFullYear()] = true;
+
+      var allLeaves = [];
+      for (var y in years) {
+        var lr = await E.apiFetch("/shifts/leaves?year=" + encodeURIComponent(String(y)), { method: "GET" });
+        allLeaves = allLeaves.concat((lr && lr.leaves) ? lr.leaves : []);
+      }
+
+      var rangeResp = await E.apiFetch(
+        "/shifts/assignments-range?from=" + encodeURIComponent(from) + "&to=" + encodeURIComponent(to),
+        { method: "GET" }
+      );
+
+      var payload = {
+        staff: (staffResp && staffResp.staff) ? staffResp.staff : [],
+        openingHours: (hoursResp && hoursResp.hours) ? hoursResp.hours : {},
+        settings: (setResp && setResp.settings) ? setResp.settings : {},
+        leaves: allLeaves,
+        shifts: (rangeResp && rangeResp.shifts) ? rangeResp.shifts : []
+      };
+
+      // Iterate day-by-day
+      var issueDays = [];
+      var cur = parseYmd(from);
+      var end = parseYmd(to);
+      if (!cur || !end) return { issueDays: issueDays };
+
+      while (cur.getTime() <= end.getTime()) {
+        var ds = ymdFromDate(cur);
+        var cov = checkCoverage(ds, payload);
+        if (cov && cov.ok === false) {
+          issueDays.push({ ymd: ds, issues: cov.issues || [] });
+        }
+        cur = addDays(cur, 1);
+      }
+
+      return { issueDays: issueDays, from: from, to: to };
+    });
+
+    // Client orders: "active" (recent months) — month is required by API
+    state.data.clientorders = await safeCall("clientorders", async function () {
+      // Keep light for dashboard: last 6 months only (still meets "do you have active client orders")
+      var months = [];
+      var base = parseYm(tYm) || new Date();
+      base = new Date(base.getFullYear(), base.getMonth(), 1);
+
+      for (var i = 0; i < 6; i++) {
+        var d = new Date(base.getFullYear(), base.getMonth() - i, 1);
+        months.push(ymFromDate(d));
+      }
+
+      var active = 0;
+      for (var m = 0; m < months.length; m++) {
+        var r = await E.apiFetch("/client-orders/entries?month=" + encodeURIComponent(months[m]) + "&fulfilled=0", { method: "GET" });
+        var ent = (r && r.entries) ? r.entries : [];
+        active += ent.length;
+      }
+
+      return { activeCount: active, monthsScanned: months };
+    });
+
+    // Client tickets: open tickets
+    state.data.tickets = await safeCall("tickets", async function () {
+      var r = await E.apiFetch("/client-tickets/entries?resolved=0&_ts=" + Date.now(), { method: "GET" });
+      var ent = (r && r.entries) ? r.entries : [];
+      return { openCount: ent.length, entries: ent };
+    });
+
+    // Returns: incomplete checkboxes
+    state.data.returns = await safeCall("returns", async function () {
+      var r = await E.apiFetch("/returns/entries?_ts=" + Date.now(), { method: "GET" });
+      var ent = (r && r.entries) ? r.entries : [];
+      return computeReturns(ent);
+    });
+
+    // Paid out: today's total
+    state.data.paidout = await safeCall("paidout", async function () {
+      var r = await E.apiFetch("/paid-out/entries?month=" + encodeURIComponent(tYm) + "&_ts=" + Date.now(), { method: "GET" });
+      if (!r || r.ok !== true) throw new Error((r && r.error) ? r.error : "Failed to load paid out entries");
+      var ent = Array.isArray(r.entries) ? r.entries : [];
       var total = 0;
-      todayEntries.forEach(function (e) {
-        var v = parseFloat(String(e.amount || e.fee || 0));
+      for (var i = 0; i < ent.length; i++) {
+        var e = ent[i] || {};
+        if (safeStr(e.entry_date) !== tYmd) continue;
+        var v = Number(e.fee);
         if (isFinite(v)) total += v;
-      });
-      return {
-        ok: true,
-        status: "info",
-        msg: "€" + total.toFixed(2) + " today",
-        count: todayEntries.length,
-        total: total
-      };
-    } catch (e) {
-      return { ok: null, status: "error", msg: "Failed to load" };
-    }
-  }
-
-  async function fetchNearExpiry() {
-    function daysUntilLocal(ymd) {
-      var s = String(ymd || "").trim();
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
-      var parts = s.split("-");
-      var exp = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
-      exp.setHours(0, 0, 0, 0);
-      var now = new Date(); now.setHours(0, 0, 0, 0);
-      return Math.round((exp.getTime() - now.getTime()) / 86400000);
-    }
-    try {
-      var r = await apiGet("/near-expiry/entries");
-      var entries = (r && Array.isArray(r.entries)) ? r.entries : [];
-      var expired = [], expiring = [];
-      entries.forEach(function (e) {
-        var d = daysUntilLocal(e.expiry_date);
-        if (d === null) return;
-        if (d < 0) expired.push(e);
-        else if (d <= 30) expiring.push(e);
-      });
-      if (expired.length === 0 && expiring.length === 0) {
-        return { ok: true, status: "ok", msg: entries.length > 0 ? "No expired/near-expiry items" : "No items tracked" };
       }
-      var parts = [];
-      if (expired.length) parts.push(expired.length + " expired");
-      if (expiring.length) parts.push(expiring.length + " expiring ≤30d");
-      return {
-        ok: false,
-        status: expired.length > 0 ? "danger" : "warn",
-        msg: parts.join(", "),
-        expired: expired.length,
-        expiring: expiring.length
-      };
+      return { totalToday: total };
+    });
+
+    // Near expiry: expired + ≤30d
+    state.data.nearexpiry = await safeCall("nearexpiry", async function () {
+      var r = await E.apiFetch("/near-expiry/entries", { method: "GET" });
+      var ent = (r && r.entries) ? r.entries : [];
+      return computeNearExpiry(ent, tYmd);
+    });
+
+    // Instructions: month for today + month for yesterday (if different)
+    state.data.instructions = await safeCall("instructions", async function () {
+      var recs = [];
+      var r1 = await E.apiFetch("/instructions/daily?month=" + encodeURIComponent(tYm), { method: "GET" });
+      if (!r1 || r1.ok !== true) throw new Error((r1 && r1.error) ? r1.error : "Failed to load instructions");
+      recs = recs.concat(r1.records || []);
+
+      if (yYm !== tYm) {
+        var r2 = await E.apiFetch("/instructions/daily?month=" + encodeURIComponent(yYm), { method: "GET" });
+        if (r2 && r2.ok === true) recs = recs.concat(r2.records || []);
+      }
+
+      return computeInstructions(recs, tYmd, yYmd);
+    });
+
+    // Update timestamp
+    try {
+      var now = new Date();
+      state.lastUpdated = pad2(now.getHours()) + ":" + pad2(now.getMinutes());
     } catch (e) {
-      return { ok: null, status: "error", msg: "Failed to load" };
+      state.lastUpdated = "";
     }
+
+    state.loading = false;
+    renderAll();
   }
 
-  async function fetchInstructions() {
+  // ----------------------------
+  // Modals (Quick entry + Details)
+  // ----------------------------
+  function showError(title, msg) {
+    E.modal.show(title || "Error", '<div class="eikon-alert">' + esc(msg || "Something went wrong") + "</div>", [
+      { label: "Close", primary: true, onClick: function () { E.modal.hide(); } }
+    ]);
+  }
+
+  function openTempQuickModal() {
+    var t = state.data.temp && state.data.temp.ok ? state.data.temp.data : null;
+    if (!t) return showError("Temperature", "Temperature data not available yet. Please refresh.");
+
+    var missing = Array.isArray(t.missing) ? t.missing : [];
     var today = todayYmd();
-    var yesterday = addDaysYmd(today, -1);
-    var ym = currentYm();
-    var prevM = prevYm(ym);
-    var needPrevMonth = yesterday.slice(0, 7) !== ym;
 
-    try {
-      var fetches = [
-        apiGet("/instructions/global"),
-        apiGet("/instructions/daily?month=" + encodeURIComponent(ym))
-      ];
-      if (needPrevMonth) {
-        fetches.push(apiGet("/instructions/daily?month=" + encodeURIComponent(prevM)));
-      }
-      var results = await Promise.all(fetches);
-      var globalR = results[0];
-      var dailyR  = results[1];
-      var daily2R = results[2] || null;
-
-      // Merge daily records
-      var dailyMap = {};
-      function mergeDailyR(dr) {
-        if (!dr) return;
-        var records = dr.records || dr.daily || {};
-        Object.keys(records).forEach(function (k) { dailyMap[k] = records[k]; });
-      }
-      mergeDailyR(dailyR);
-      if (daily2R) mergeDailyR(daily2R);
-
-      var todayRec = dailyMap[today] || null;
-      var yesterdayRec = dailyMap[yesterday] || null;
-
-      var todayNotes = todayRec && typeof todayRec.notes === "string" ? todayRec.notes.trim() : "";
-      var handoverIn = yesterdayRec && Array.isArray(yesterdayRec.handover_out) ? yesterdayRec.handover_out : [];
-
-      var permanentHandover = (globalR && globalR.global && globalR.global.permanent_handover)
-        ? String(globalR.global.permanent_handover.text || "").trim()
-        : "";
-
-      return {
-        ok: true,
-        status: "info",
-        todayNotes: todayNotes,
-        handoverIn: handoverIn,
-        permanentHandover: permanentHandover,
-        yesterday: yesterday
-      };
-    } catch (e) {
-      return { ok: null, status: "error", todayNotes: "", handoverIn: [], permanentHandover: "" };
-    }
-  }
-
-  // ════════════════════════════════════════════════════════════════
-  //  QUICK-ENTRY MODALS
-  // ════════════════════════════════════════════════════════════════
-
-  // ── Temperature quick-entry ──────────────────────────────────────
-  async function openTempModal(onSaved) {
-    var today = todayYmd();
-    try {
-      var dr = await apiGet("/temperature/devices");
-      var devices = (dr && Array.isArray(dr.devices)) ? dr.devices.filter(function (d) { return !d.inactive; }) : [];
-      if (devices.length === 0) {
-        E.modal.show("Quick Temperature Entry",
-          "<div class='db-form'><p class='db-err'>No active devices configured. Go to Temperature to add devices first.</p></div>",
-          [{ label: "Close", onClick: function () { E.modal.hide(); } }]);
-        return;
-      }
-
-      var deviceRows = devices.map(function (dev) {
-        return "<div class='db-device-row'>" +
-          "<div class='db-device-name'>" + escHtml(dev.name || dev.device_name || "Device") +
-          (dev.device_type ? " <span style='opacity:.6;font-weight:500;'>(" + escHtml(dev.device_type) + ")</span>" : "") +
-          "</div>" +
-          "<div style='display:grid;grid-template-columns:1fr 1fr 2fr;gap:6px;align-items:end;'>" +
-          "<div><label>Min °C</label><input class='eikon-input' id='db-temp-min-" + escHtml(String(dev.id)) + "' type='number' step='0.1' placeholder='e.g. 2' style='width:100%;' /></div>" +
-          "<div><label>Max °C</label><input class='eikon-input' id='db-temp-max-" + escHtml(String(dev.id)) + "' type='number' step='0.1' placeholder='e.g. 8' style='width:100%;' /></div>" +
-          "<div><label>Notes</label><input class='eikon-input' id='db-temp-notes-" + escHtml(String(dev.id)) + "' type='text' placeholder='optional' style='width:100%;' /></div>" +
-          "</div></div>";
-      }).join("");
-
-      var body =
-        "<div class='db-form'>" +
-        "<div style='display:flex;align-items:center;gap:8px;margin-bottom:4px;'>" +
-        "<label style='font-size:12px;font-weight:900;color:var(--muted);'>Date</label>" +
-        "<input class='eikon-input' id='db-temp-date' type='date' value='" + escHtml(today) + "' style='max-width:160px;' />" +
-        "</div>" +
-        deviceRows +
-        "</div>";
-
-      E.modal.show("Quick Temperature Entry", body, [
-        { label: "Cancel", onClick: function () { E.modal.hide(); } },
-        {
-          label: "Save All", primary: true, onClick: async function () {
-            var d = document.getElementById("db-temp-date");
-            var dateVal = d ? d.value.trim() : today;
-            if (!/^\d{4}-\d{2}-\d{2}$/.test(dateVal)) {
-              toast("Invalid date", "warn"); return;
-            }
-            var jobs = [];
-            var missing = false;
-            for (var i = 0; i < devices.length; i++) {
-              var dev = devices[i];
-              var minEl = document.getElementById("db-temp-min-" + dev.id);
-              var maxEl = document.getElementById("db-temp-max-" + dev.id);
-              var notesEl = document.getElementById("db-temp-notes-" + dev.id);
-              var minV = minEl ? parseFloat(minEl.value) : NaN;
-              var maxV = maxEl ? parseFloat(maxEl.value) : NaN;
-              if (!isFinite(minV) || !isFinite(maxV)) { missing = true; break; }
-              jobs.push({ device_id: dev.id, entry_date: dateVal, min_temp: minV, max_temp: maxV, notes: notesEl ? notesEl.value.trim() : "" });
-            }
-            if (missing) { toast("Fill Min and Max for all devices", "warn"); return; }
-            try {
-              for (var j = 0; j < jobs.length; j++) {
-                await E.apiFetch("/temperature/entries", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(jobs[j]) });
-              }
-              E.modal.hide();
-              toast("Temperature saved", "ok");
-              if (typeof onSaved === "function") onSaved();
-            } catch (e2) {
-              toast("Save failed: " + (e2 && e2.message ? e2.message : "error"), "bad");
-            }
-          }
-        }
+    if (!missing.length) {
+      E.modal.show("Temperature (today)", '<div class="eikon-help">All devices already have an entry for ' + esc(today) + ".</div>", [
+        { label: "Close", primary: true, onClick: function () { E.modal.hide(); } }
       ]);
-    } catch (e) {
-      toast("Could not load devices", "bad");
+      return;
     }
-  }
 
-  // ── Cleaning quick-entry ─────────────────────────────────────────
-  function openCleaningModal(onSaved) {
-    var today = todayYmd();
+    var rows = "";
+    for (var i = 0; i < missing.length; i++) {
+      var d = missing[i] || {};
+      var id = String(d.id || "");
+      var name = String(d.name || ("Device " + id));
+
+      rows +=
+        "<tr>" +
+          "<td>" + esc(name) + "</td>" +
+          '<td><input class="eikon-input" style="min-width:110px" id="dash-tmin-' + esc(id) + '" placeholder="min" /></td>' +
+          '<td><input class="eikon-input" style="min-width:110px" id="dash-tmax-' + esc(id) + '" placeholder="max" /></td>' +
+          '<td><input class="eikon-input" style="min-width:160px" id="dash-tnote-' + esc(id) + '" placeholder="notes (optional)" /></td>' +
+        "</tr>";
+    }
+
     var body =
-      "<div class='db-form'>" +
-      "<div class='db-form-row'>" +
-      "<div><label>Date</label><input class='eikon-input' id='db-cl-date' type='date' value='" + escHtml(today) + "' /></div>" +
-      "<div><label>Cleaner Name</label><input class='eikon-input' id='db-cl-cleaner' type='text' placeholder='Cleaner name' /></div>" +
-      "</div>" +
-      "<div class='db-form-row'>" +
-      "<div><label>Time In</label><input class='eikon-input' id='db-cl-in' type='time' /></div>" +
-      "<div><label>Time Out</label><input class='eikon-input' id='db-cl-out' type='time' /></div>" +
-      "</div>" +
-      "<div><label>Staff Name</label><input class='eikon-input' id='db-cl-staff' type='text' placeholder='Staff who witnessed' /></div>" +
-      "<div><label>Notes</label><input class='eikon-input' id='db-cl-notes' type='text' placeholder='Optional notes' /></div>" +
+      '<div class="eikon-dash-detail">' +
+        '<div class="eikon-help">Quick enter missing temperatures for <b>' + esc(today) + "</b>.</div>" +
+        '<div class="eikon-help">This will create entries for the missing devices only.</div>' +
+        '<table class="eikon-dash-mini-table" aria-label="Temperature quick entry">' +
+          "<thead><tr><th>Device</th><th>Min</th><th>Max</th><th>Notes</th></tr></thead>" +
+          "<tbody>" + rows + "</tbody>" +
+        "</table>" +
       "</div>";
 
-    E.modal.show("Quick Cleaning Record", body, [
+    E.modal.show("Temperature — Quick entry", body, [
       { label: "Cancel", onClick: function () { E.modal.hide(); } },
       {
-        label: "Save", primary: true, onClick: async function () {
-          var payload = {
-            entry_date: (document.getElementById("db-cl-date") || {}).value || today,
-            time_in: (document.getElementById("db-cl-in") || {}).value || "",
-            time_out: (document.getElementById("db-cl-out") || {}).value || "",
-            cleaner_name: ((document.getElementById("db-cl-cleaner") || {}).value || "").trim(),
-            staff_name: ((document.getElementById("db-cl-staff") || {}).value || "").trim(),
-            notes: ((document.getElementById("db-cl-notes") || {}).value || "").trim()
-          };
-          if (!payload.entry_date || !/^\d{4}-\d{2}-\d{2}$/.test(payload.entry_date)) {
-            toast("Invalid date", "warn"); return;
-          }
+        label: "Save",
+        primary: true,
+        onClick: async function () {
           try {
-            await E.apiFetch("/cleaning/entries", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+            for (var j = 0; j < missing.length; j++) {
+              var dev = missing[j] || {};
+              var did = String(dev.id || "");
+              var minEl = document.getElementById("dash-tmin-" + did);
+              var maxEl = document.getElementById("dash-tmax-" + did);
+              var noteEl = document.getElementById("dash-tnote-" + did);
+
+              var minV = Number((minEl && minEl.value || "").trim());
+              var maxV = Number((maxEl && maxEl.value || "").trim());
+              var notes = (noteEl && noteEl.value || "").trim();
+
+              if (!isFinite(minV) || !isFinite(maxV)) {
+                throw new Error("Please enter valid Min/Max for all devices.");
+              }
+
+              await E.apiFetch("/temperature/entries", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  device_id: dev.id,
+                  entry_date: today,
+                  min_temp: minV,
+                  max_temp: maxV,
+                  notes: notes
+                })
+              });
+            }
+
             E.modal.hide();
-            toast("Cleaning record saved", "ok");
-            if (typeof onSaved === "function") onSaved();
+            E.showToast && E.showToast("Temperature saved");
+            await refreshAll();
           } catch (e) {
-            toast("Save failed: " + (e && e.message ? e.message : "error"), "bad");
+            showError("Temperature save failed", String(e && (e.message || e.bodyText || e) || "Error"));
           }
         }
       }
     ]);
   }
 
-  // ── Daily Register quick-entry ───────────────────────────────────
-  function openDailyRegisterModal(onSaved) {
+  function openCleaningQuickModal() {
     var today = todayYmd();
     var body =
-      "<div class='db-form'>" +
-      "<div class='db-form-row'>" +
-      "<div><label>Date</label><input class='eikon-input' id='db-dr-date' type='date' value='" + escHtml(today) + "' /></div>" +
-      "<div><label>Client ID (ID No.)</label><input class='eikon-input' id='db-dr-clientid' type='text' placeholder='ID number' /></div>" +
-      "</div>" +
-      "<div><label>Client Name &amp; Surname</label><input class='eikon-input' id='db-dr-client' type='text' placeholder='Full name' /></div>" +
-      "<div><label>Medicine Name &amp; Dose</label><input class='eikon-input' id='db-dr-medicine' type='text' placeholder='e.g. Methadone 40mg' /></div>" +
-      "<div><label>Posology</label><input class='eikon-input' id='db-dr-posology' type='text' placeholder='e.g. 1 daily' /></div>" +
-      "<div class='db-form-row'>" +
-      "<div><label>Prescriber Name</label><input class='eikon-input' id='db-dr-prescriber' type='text' placeholder='Dr. name' /></div>" +
-      "<div><label>Prescriber Reg No.</label><input class='eikon-input' id='db-dr-prescreg' type='text' placeholder='Reg no.' /></div>" +
-      "</div>" +
+      '<div class="eikon-dash-detail">' +
+        '<div class="eikon-help">Quick add a cleaning record (saves to the Cleaning module).</div>' +
+        '<div class="eikon-row" style="margin-top:10px">' +
+          '<div class="eikon-field"><div class="eikon-label">Date</div><input class="eikon-input" id="dash-cl-date" value="' + esc(today) + '" /></div>' +
+          '<div class="eikon-field"><div class="eikon-label">Time in</div><input class="eikon-input" id="dash-cl-in" placeholder="HH:MM" /></div>' +
+          '<div class="eikon-field"><div class="eikon-label">Time out</div><input class="eikon-input" id="dash-cl-out" placeholder="HH:MM" /></div>' +
+        "</div>" +
+        '<div class="eikon-row" style="margin-top:10px">' +
+          '<div class="eikon-field"><div class="eikon-label">Cleaner name</div><input class="eikon-input" id="dash-cl-cleaner" placeholder="Name" /></div>' +
+          '<div class="eikon-field"><div class="eikon-label">Staff name</div><input class="eikon-input" id="dash-cl-staff" placeholder="Name" /></div>' +
+        "</div>" +
+        '<div class="eikon-field" style="margin-top:10px">' +
+          '<div class="eikon-label">Notes</div><input class="eikon-input" id="dash-cl-notes" placeholder="Optional" style="min-width:260px" />' +
+        "</div>" +
       "</div>";
 
-    E.modal.show("Quick Daily Register Entry", body, [
+    E.modal.show("Cleaning — Quick entry", body, [
       { label: "Cancel", onClick: function () { E.modal.hide(); } },
       {
-        label: "Save", primary: true, onClick: async function () {
-          var payload = {
-            entry_date: (document.getElementById("db-dr-date") || {}).value || today,
-            client_name: ((document.getElementById("db-dr-client") || {}).value || "").trim(),
-            client_id: ((document.getElementById("db-dr-clientid") || {}).value || "").trim(),
-            medicine_name_dose: ((document.getElementById("db-dr-medicine") || {}).value || "").trim(),
-            posology: ((document.getElementById("db-dr-posology") || {}).value || "").trim(),
-            prescriber_name: ((document.getElementById("db-dr-prescriber") || {}).value || "").trim(),
-            prescriber_reg_no: ((document.getElementById("db-dr-prescreg") || {}).value || "").trim()
-          };
-          if (!payload.entry_date || !/^\d{4}-\d{2}-\d{2}$/.test(payload.entry_date)) {
-            toast("Invalid date", "warn"); return;
-          }
-          if (!payload.client_name) { toast("Client name required", "warn"); return; }
-          if (!payload.client_id) { toast("Client ID required", "warn"); return; }
-          if (!payload.medicine_name_dose) { toast("Medicine name required", "warn"); return; }
-          if (!payload.posology) { toast("Posology required", "warn"); return; }
+        label: "Save",
+        primary: true,
+        onClick: async function () {
           try {
-            await E.apiFetch("/daily-register/entries", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+            var payload = {
+              entry_date: (document.getElementById("dash-cl-date").value || "").trim(),
+              time_in: (document.getElementById("dash-cl-in").value || "").trim(),
+              time_out: (document.getElementById("dash-cl-out").value || "").trim(),
+              cleaner_name: (document.getElementById("dash-cl-cleaner").value || "").trim(),
+              staff_name: (document.getElementById("dash-cl-staff").value || "").trim(),
+              notes: (document.getElementById("dash-cl-notes").value || "").trim()
+            };
+
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(payload.entry_date)) throw new Error("Invalid date. Use YYYY-MM-DD.");
+
+            await E.apiFetch("/cleaning/entries", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload)
+            });
+
             E.modal.hide();
-            toast("Daily register entry saved", "ok");
-            if (typeof onSaved === "function") onSaved();
+            E.showToast && E.showToast("Cleaning saved");
+            await refreshAll();
           } catch (e) {
-            toast("Save failed: " + (e && e.message ? e.message : "error"), "bad");
+            showError("Cleaning save failed", String(e && (e.message || e.bodyText || e) || "Error"));
           }
         }
       }
     ]);
   }
 
-  // ════════════════════════════════════════════════════════════════
-  //  CARD RENDERERS
-  // ════════════════════════════════════════════════════════════════
+  function openDailyRegisterQuickModal() {
+    var today = todayYmd();
 
-  function dotHtml(level) {
-    // level: "ok"|"warn"|"danger"|"info"|"idle"
-    return "<span class='db-dot db-dot-" + level + "'></span>";
-  }
-
-  function cardClass(level) {
-    if (level === "ok") return "db-card db-ok";
-    if (level === "warn") return "db-card db-warn";
-    if (level === "danger") return "db-card db-danger";
-    if (level === "info") return "db-card db-info";
-    return "db-card";
-  }
-
-  function loadingCard(icon, name) {
-    return "<div class='db-card db-loading'>" +
-      "<div class='db-card-head'><span class='db-card-icon'>" + icon + "</span>" +
-      "<span class='db-card-name'>" + escHtml(name) + "</span>" +
-      "<span class='db-dot db-dot-idle'></span></div>" +
-      "<div class='db-card-body'><span class='db-spinner'></span>Loading…</div>" +
+    var body =
+      '<div class="eikon-dash-detail">' +
+        '<div class="eikon-help">Quick add a Daily Register record for today.</div>' +
+        '<div class="eikon-row" style="margin-top:10px">' +
+          '<div class="eikon-field"><div class="eikon-label">Date</div><input class="eikon-input" id="dash-dr-date" value="' + esc(today) + '" /></div>' +
+          '<div class="eikon-field"><div class="eikon-label">Client name</div><input class="eikon-input" id="dash-dr-client" placeholder="Client" /></div>' +
+          '<div class="eikon-field"><div class="eikon-label">Client ID</div><input class="eikon-input" id="dash-dr-clientid" placeholder="ID" /></div>' +
+        "</div>" +
+        '<div class="eikon-row" style="margin-top:10px">' +
+          '<div class="eikon-field" style="flex:1 1 260px"><div class="eikon-label">Medicine name & dose</div><input class="eikon-input" id="dash-dr-med" placeholder="Medicine" style="min-width:260px" /></div>' +
+          '<div class="eikon-field" style="flex:1 1 260px"><div class="eikon-label">Posology</div><input class="eikon-input" id="dash-dr-pos" placeholder="Posology" style="min-width:260px" /></div>' +
+        "</div>" +
+        '<div class="eikon-row" style="margin-top:10px">' +
+          '<div class="eikon-field" style="flex:1 1 260px"><div class="eikon-label">Prescriber name</div><input class="eikon-input" id="dash-dr-presc" placeholder="Prescriber" style="min-width:260px" /></div>' +
+          '<div class="eikon-field"><div class="eikon-label">Prescriber reg no</div><input class="eikon-input" id="dash-dr-reg" placeholder="Reg no" /></div>' +
+        "</div>" +
       "</div>";
+
+    E.modal.show("Daily Register — Quick entry", body, [
+      { label: "Cancel", onClick: function () { E.modal.hide(); } },
+      {
+        label: "Save",
+        primary: true,
+        onClick: async function () {
+          try {
+            var payload = {
+              entry_date: (document.getElementById("dash-dr-date").value || "").trim(),
+              client_name: (document.getElementById("dash-dr-client").value || "").trim(),
+              client_id: (document.getElementById("dash-dr-clientid").value || "").trim(),
+              medicine_name_dose: (document.getElementById("dash-dr-med").value || "").trim(),
+              posology: (document.getElementById("dash-dr-pos").value || "").trim(),
+              prescriber_name: (document.getElementById("dash-dr-presc").value || "").trim(),
+              prescriber_reg_no: (document.getElementById("dash-dr-reg").value || "").trim()
+            };
+
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(payload.entry_date)) throw new Error("Invalid date. Use YYYY-MM-DD.");
+            if (!payload.client_name) throw new Error("Client name is required.");
+            if (!payload.medicine_name_dose) throw new Error("Medicine name & dose is required.");
+            if (!payload.posology) throw new Error("Posology is required.");
+            if (!payload.prescriber_name) throw new Error("Prescriber name is required.");
+            if (!payload.prescriber_reg_no) throw new Error("Prescriber reg no is required.");
+
+            await E.apiFetch("/daily-register/entries", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload)
+            });
+
+            E.modal.hide();
+            E.showToast && E.showToast("Daily register saved");
+            await refreshAll();
+          } catch (e) {
+            showError("Daily register save failed", String(e && (e.message || e.bodyText || e) || "Error"));
+          }
+        }
+      }
+    ]);
   }
 
-  function renderTemperatureCard(data, onAction) {
-    var level = data.ok === null ? "idle" : (data.ok ? "ok" : "danger");
-    var actBtn = "";
-    if (!data.ok && data.status === "missing") {
-      actBtn = "<button class='db-btn db-btn-action' id='db-temp-enter-btn'>+ Enter Now</button>";
+  function showCertDetails() {
+    var ce = state.data.certificates && state.data.certificates.ok ? state.data.certificates.data : null;
+    if (!ce) return showError("Certificates", "Certificates data not available.");
+
+    function nameOf(it) { return safeStr(it.title || it.name || it.certificate_name || ("Item #" + (it.id || ""))) || "Certificate"; }
+
+    var rows = "";
+    var i;
+    for (i = 0; i < ce.expired.length; i++) {
+      rows += "<tr><td>" + esc(nameOf(ce.expired[i])) + "</td><td>" + esc(safeStr(ce.expired[i].next_due)) + "</td><td><b>Expired</b></td></tr>";
     }
-    var viewBtn = "<button class='db-btn db-btn-primary' id='db-temp-view-btn'>View</button>";
-    var sub = data.status === "missing" && data.deviceCount
-      ? "<div class='db-card-sub'>" + data.deviceCount + " device" + (data.deviceCount !== 1 ? "s" : "") + " configured</div>"
-      : "";
-    return "<div class='" + cardClass(level) + "' id='db-card-temperature'>" +
-      "<div class='db-card-head'><span class='db-card-icon'>🌡</span><span class='db-card-name'>Temperature</span>" + dotHtml(level) + "</div>" +
-      "<div class='db-card-body'>" + escHtml(data.msg) + "</div>" +
-      sub +
-      "<div class='db-card-actions'>" + actBtn + viewBtn + "</div>" +
-      "</div>";
-  }
-
-  function renderCleaningCard(data) {
-    var level = data.ok === null ? "idle" : (data.ok ? "ok" : "danger");
-    var actBtn = "";
-    if (!data.ok && data.status === "missing") {
-      actBtn = "<button class='db-btn db-btn-action' id='db-clean-enter-btn'>+ Enter Now</button>";
+    for (i = 0; i < ce.dueSoon.length; i++) {
+      rows += "<tr><td>" + esc(nameOf(ce.dueSoon[i])) + "</td><td>" + esc(safeStr(ce.dueSoon[i].next_due)) + "</td><td>Due ≤30d</td></tr>";
     }
-    var sub = data.lastMsg ? "<div class='db-card-sub'>" + escHtml(data.lastMsg) + "</div>" : "";
-    return "<div class='" + cardClass(level) + "' id='db-card-cleaning'>" +
-      "<div class='db-card-head'><span class='db-card-icon'>🧼</span><span class='db-card-name'>Cleaning</span>" + dotHtml(level) + "</div>" +
-      "<div class='db-card-body'>" + escHtml(data.msg) + "</div>" +
-      sub +
-      "<div class='db-card-actions'>" + actBtn +
-      "<button class='db-btn db-btn-primary' id='db-clean-view-btn'>View</button></div>" +
+
+    var body =
+      '<div class="eikon-dash-detail">' +
+        '<div class="eikon-help">Expired or due within 30 days.</div>' +
+        '<table class="eikon-dash-mini-table">' +
+          "<thead><tr><th>Certificate</th><th>Next due</th><th>Status</th></tr></thead>" +
+          "<tbody>" + (rows || "<tr><td colspan='3'>No items.</td></tr>") + "</tbody>" +
+        "</table>" +
       "</div>";
+
+    E.modal.show("Certificates — Details", body, [
+      { label: "Close", onClick: function () { E.modal.hide(); } },
+      { label: "Open module", primary: true, onClick: function () { E.modal.hide(); window.location.hash = "#certificates"; } }
+    ]);
   }
 
-  function renderDailyRegCard(data) {
-    var level = data.ok === null ? "idle" : (data.ok ? "ok" : "danger");
-    var actBtn = "";
-    if (!data.ok && data.status === "missing") {
-      actBtn = "<button class='db-btn db-btn-action' id='db-dr-enter-btn'>+ Enter Now</button>";
+  function showAlertsDetails() {
+    var al = state.data.alerts && state.data.alerts.ok ? state.data.alerts.data : null;
+    if (!al) return showError("Alerts", "Alerts data not available.");
+
+    var list = al.incomplete || [];
+    var keys = [
+      ["team_informed", "Team"],
+      ["supplier_informed", "Supplier"],
+      ["authorities_informed", "Authorities"],
+      ["return_arranged", "Return"],
+      ["handed_over", "Handover"],
+      ["collection_note_received", "Collection note"],
+      ["credit_note_received", "Credit note"]
+    ];
+
+    function labelOf(r) {
+      var t = safeStr(r.title || r.product_name || r.description || r.item || r.notes || "");
+      if (t) return t;
+      return "Alert #" + (r.id || "");
     }
-    return "<div class='" + cardClass(level) + "' id='db-card-dailyreg'>" +
-      "<div class='db-card-head'><span class='db-card-icon'>📓</span><span class='db-card-name'>Daily Register</span>" + dotHtml(level) + "</div>" +
-      "<div class='db-card-body'>" + escHtml(data.msg) + "</div>" +
-      "<div class='db-card-actions'>" + actBtn +
-      "<button class='db-btn db-btn-primary' id='db-dr-view-btn'>View</button></div>" +
-      "</div>";
-  }
-
-  function renderCertificatesCard(data) {
-    var level = data.ok === null ? "idle" : (data.ok ? "ok" : (data.status === "danger" ? "danger" : "warn"));
-    var sub = "";
-    if (!data.ok && (data.expired || data.soon)) {
-      var lines = [];
-      if (data.expired) data.expired.slice(0, 2).forEach(function (c) { lines.push("❌ " + c.name); });
-      if (data.soon) data.soon.slice(0, 2).forEach(function (c) { lines.push("⏳ " + c.name + " (" + c.days + "d)"); });
-      if (lines.length) sub = "<div class='db-card-sub'>" + lines.map(escHtml).join("<br>") + "</div>";
+    function dateOf(r) {
+      return safeStr(r.alert_date || r.entry_date || r.date || r.created_at || "");
     }
-    return "<div class='" + cardClass(level) + "' id='db-card-certs'>" +
-      "<div class='db-card-head'><span class='db-card-icon'>📄</span><span class='db-card-name'>Certificates</span>" + dotHtml(level) + "</div>" +
-      "<div class='db-card-body'>" + escHtml(data.msg) + "</div>" +
-      sub +
-      "<div class='db-card-actions'><button class='db-btn db-btn-primary' id='db-certs-view-btn'>View</button></div>" +
-      "</div>";
-  }
-
-  function renderAlertsCard(data) {
-    var level = data.ok === null ? "idle" : (data.ok ? "ok" : "warn");
-    return "<div class='" + cardClass(level) + "' id='db-card-alerts'>" +
-      "<div class='db-card-head'><span class='db-card-icon'>⚠️</span><span class='db-card-name'>Alerts</span>" + dotHtml(level) + "</div>" +
-      "<div class='db-card-body'>" + escHtml(data.msg) + "</div>" +
-      "<div class='db-card-actions'><button class='db-btn db-btn-primary' id='db-alerts-view-btn'>View</button></div>" +
-      "</div>";
-  }
-
-  function renderShiftsCard(data) {
-    var level = data.ok === null ? "idle" : (data.ok ? "ok" : "warn");
-    var sub = "";
-    if (!data.ok && data.days && data.days.length) {
-      sub = "<div class='db-card-sub'>" + data.days.slice(0, 3).map(escHtml).join(", ") +
-        (data.days.length > 3 ? "…" : "") + "</div>";
+    function missingOf(r) {
+      var miss = [];
+      for (var i = 0; i < keys.length; i++) if (!truthy01(r[keys[i][0]])) miss.push(keys[i][1]);
+      return miss.join(", ");
     }
-    return "<div class='" + cardClass(level) + "' id='db-card-shifts'>" +
-      "<div class='db-card-head'><span class='db-card-icon'>📅</span><span class='db-card-name'>Shifts</span>" + dotHtml(level) + "</div>" +
-      "<div class='db-card-body'>" + escHtml(data.msg) + "</div>" +
-      sub +
-      "<div class='db-card-actions'><button class='db-btn db-btn-primary' id='db-shifts-view-btn'>View</button></div>" +
+
+    var rows = "";
+    for (var i = 0; i < Math.min(25, list.length); i++) {
+      rows += "<tr><td>" + esc(dateOf(list[i])) + "</td><td>" + esc(labelOf(list[i])) + "</td><td>" + esc(missingOf(list[i])) + "</td></tr>";
+    }
+    if (!rows) rows = "<tr><td colspan='3'>No incomplete alerts.</td></tr>";
+
+    var body =
+      '<div class="eikon-dash-detail">' +
+        '<div class="eikon-help">Showing up to 25 incomplete alerts.</div>' +
+        '<table class="eikon-dash-mini-table">' +
+          "<thead><tr><th>Date</th><th>Alert</th><th>Missing</th></tr></thead>" +
+          "<tbody>" + rows + "</tbody>" +
+        "</table>" +
       "</div>";
+
+    E.modal.show("Alerts — Incomplete", body, [
+      { label: "Close", onClick: function () { E.modal.hide(); } },
+      { label: "Open module", primary: true, onClick: function () { E.modal.hide(); window.location.hash = "#alerts"; } }
+    ]);
   }
 
-  function renderOrdersCard(data) {
-    var level = data.ok === null ? "idle" : (data.ok ? "ok" : "info");
-    return "<div class='" + cardClass(level) + "' id='db-card-orders'>" +
-      "<div class='db-card-head'><span class='db-card-icon'>📦</span><span class='db-card-name'>Client Orders</span>" + dotHtml(level) + "</div>" +
-      "<div class='db-card-body'>" + escHtml(data.msg) + "</div>" +
-      "<div class='db-card-actions'><button class='db-btn db-btn-primary' id='db-orders-view-btn'>View</button></div>" +
+  function showReturnsDetails() {
+    var rr = state.data.returns && state.data.returns.ok ? state.data.returns.data : null;
+    if (!rr) return showError("Returns", "Returns data not available.");
+
+    var list = rr.incomplete || [];
+
+    function labelOf(r) {
+      var t = safeStr(r.description || r.item_name || r.product || r.supplier || "");
+      if (t) return t;
+      return "Return #" + (r.id || "");
+    }
+    function dateOf(r) { return safeStr(r.entry_date || r.date || r.created_at || ""); }
+    function missingOf(r) {
+      var miss = [];
+      if (!truthy01(r.return_arranged)) miss.push("Return arranged");
+      if (!truthy01(r.handed_over)) miss.push("Handed over");
+      if (!truthy01(r.collection_note_received)) miss.push("Collection note");
+      if (!truthy01(r.credit_note_received)) miss.push("Credit note");
+      return miss.join(", ");
+    }
+
+    var rows = "";
+    for (var i = 0; i < Math.min(25, list.length); i++) {
+      rows += "<tr><td>" + esc(dateOf(list[i])) + "</td><td>" + esc(labelOf(list[i])) + "</td><td>" + esc(missingOf(list[i])) + "</td></tr>";
+    }
+    if (!rows) rows = "<tr><td colspan='3'>No incomplete returns.</td></tr>";
+
+    var body =
+      '<div class="eikon-dash-detail">' +
+        '<div class="eikon-help">Showing up to 25 incomplete returns.</div>' +
+        '<table class="eikon-dash-mini-table">' +
+          "<thead><tr><th>Date</th><th>Return</th><th>Missing</th></tr></thead>" +
+          "<tbody>" + rows + "</tbody>" +
+        "</table>" +
       "</div>";
+
+    E.modal.show("Returns — Incomplete", body, [
+      { label: "Close", onClick: function () { E.modal.hide(); } },
+      { label: "Open module", primary: true, onClick: function () { E.modal.hide(); window.location.hash = "#returns"; } }
+    ]);
   }
 
-  function renderTicketsCard(data) {
-    var level = data.ok === null ? "idle" : (data.ok ? "ok" : "info");
-    return "<div class='" + cardClass(level) + "' id='db-card-tickets'>" +
-      "<div class='db-card-head'><span class='db-card-icon'>🎟</span><span class='db-card-name'>Client Tickets</span>" + dotHtml(level) + "</div>" +
-      "<div class='db-card-body'>" + escHtml(data.msg) + "</div>" +
-      "<div class='db-card-actions'><button class='db-btn db-btn-primary' id='db-tickets-view-btn'>View</button></div>" +
+  function showNearExpiryDetails() {
+    var nx = state.data.nearexpiry && state.data.nearexpiry.ok ? state.data.nearexpiry.data : null;
+    if (!nx) return showError("Near expiry", "Near expiry data not available.");
+
+    function labelOf(r) {
+      var t = safeStr(r.item_name || r.product_name || r.name || r.description || r.sku || "");
+      if (t) return t;
+      return "Item #" + (r.id || "");
+    }
+
+    var rows = "";
+    var i;
+    for (i = 0; i < Math.min(15, nx.expired.length); i++) {
+      rows += "<tr><td>" + esc(labelOf(nx.expired[i])) + "</td><td>" + esc(safeStr(nx.expired[i].expiry_date)) + "</td><td><b>Expired</b></td></tr>";
+    }
+    for (i = 0; i < Math.min(15, nx.soon.length); i++) {
+      rows += "<tr><td>" + esc(labelOf(nx.soon[i])) + "</td><td>" + esc(safeStr(nx.soon[i].expiry_date)) + "</td><td>Due ≤30d</td></tr>";
+    }
+    if (!rows) rows = "<tr><td colspan='3'>No items.</td></tr>";
+
+    var body =
+      '<div class="eikon-dash-detail">' +
+        '<div class="eikon-help">Showing up to 30 items total (15 expired + 15 due ≤30d).</div>' +
+        '<table class="eikon-dash-mini-table">' +
+          "<thead><tr><th>Item</th><th>Expiry</th><th>Status</th></tr></thead>" +
+          "<tbody>" + rows + "</tbody>" +
+        "</table>" +
       "</div>";
+
+    E.modal.show("Near expiry — Details", body, [
+      { label: "Close", onClick: function () { E.modal.hide(); } },
+      { label: "Open module", primary: true, onClick: function () { E.modal.hide(); window.location.hash = "#nearexpiry"; } }
+    ]);
   }
 
-  function renderReturnsCard(data) {
-    var level = data.ok === null ? "idle" : (data.ok ? "ok" : "warn");
-    return "<div class='" + cardClass(level) + "' id='db-card-returns'>" +
-      "<div class='db-card-head'><span class='db-card-icon'>↩️</span><span class='db-card-name'>Returns</span>" + dotHtml(level) + "</div>" +
-      "<div class='db-card-body'>" + escHtml(data.msg) + "</div>" +
-      "<div class='db-card-actions'><button class='db-btn db-btn-primary' id='db-returns-view-btn'>View</button></div>" +
+  function showShiftsDetails() {
+    var sh = state.data.shifts && state.data.shifts.ok ? state.data.shifts.data : null;
+    if (!sh) return showError("Shifts", "Shifts data not available.");
+
+    var list = sh.issueDays || [];
+    var rows = "";
+    for (var i = 0; i < Math.min(31, list.length); i++) {
+      rows += "<tr><td>" + esc(list[i].ymd) + "</td><td>" + esc((list[i].issues || []).join(" | ") || "Coverage issue") + "</td></tr>";
+    }
+    if (!rows) rows = "<tr><td colspan='2'>No issues found.</td></tr>";
+
+    var body =
+      '<div class="eikon-dash-detail">' +
+        '<div class="eikon-help">Coverage issues from <b>' + esc(sh.from || "") + "</b> to <b>" + esc(sh.to || "") + "</b>. (Showing up to 31 days)</div>" +
+        '<table class="eikon-dash-mini-table">' +
+          "<thead><tr><th>Date</th><th>Issue</th></tr></thead>" +
+          "<tbody>" + rows + "</tbody>" +
+        "</table>" +
       "</div>";
+
+    E.modal.show("Shifts — Coverage issues", body, [
+      { label: "Close", onClick: function () { E.modal.hide(); } },
+      { label: "Open module", primary: true, onClick: function () { E.modal.hide(); window.location.hash = "#shifts"; } }
+    ]);
   }
 
-  function renderPaidOutCard(data) {
-    var level = "info";
-    return "<div class='" + cardClass(level) + "' id='db-card-paidout'>" +
-      "<div class='db-card-head'><span class='db-card-icon'>💸</span><span class='db-card-name'>Paid Out</span>" + dotHtml(level) + "</div>" +
-      "<div class='db-big-val'>" + escHtml(data.ok === null ? "—" : ("€" + (data.total || 0).toFixed(2))) + "</div>" +
-      "<div class='db-big-sub'>Today" + (data.count ? " · " + data.count + " entr" + (data.count === 1 ? "y" : "ies") : "") + "</div>" +
-      "<div class='db-card-actions'><button class='db-btn db-btn-primary' id='db-paidout-view-btn'>View</button></div>" +
-      "</div>";
-  }
+  function showInstructionsDetails() {
+    var ins = state.data.instructions && state.data.instructions.ok ? state.data.instructions.data : null;
+    if (!ins) return showError("Instructions", "Instructions data not available.");
 
-  function renderNearExpiryCard(data) {
-    var level = data.ok === null ? "idle" : (data.ok ? "ok" : (data.expired > 0 ? "danger" : "warn"));
-    return "<div class='" + cardClass(level) + "' id='db-card-nearexpiry'>" +
-      "<div class='db-card-head'><span class='db-card-icon'>⏳</span><span class='db-card-name'>Near Expiry</span>" + dotHtml(level) + "</div>" +
-      "<div class='db-card-body'>" + escHtml(data.msg) + "</div>" +
-      "<div class='db-card-actions'><button class='db-btn db-btn-primary' id='db-nearexpiry-view-btn'>View</button></div>" +
-      "</div>";
-  }
+    var today = todayYmd();
+    var yday = ymdAdd(today, -1);
 
-  function renderInstructionsBanner(data) {
-    if (!data || data.ok === null) return "";
+    var notes = safeStr(ins.todayNotes);
+    var ho = Array.isArray(ins.yesterdayHandover) ? ins.yesterdayHandover : [];
 
-    var hasNotes = data.todayNotes && data.todayNotes.length > 0;
-    var hasHandover = data.handoverIn && data.handoverIn.length > 0;
-    var hasPermanent = data.permanentHandover && data.permanentHandover.length > 0;
-
-    if (!hasNotes && !hasHandover && !hasPermanent) return "";
-
-    var notesHtml = hasNotes
-      ? "<div class='db-instr-text'>" + escHtml(data.todayNotes) + "</div>"
-      : "<div class='db-instr-empty'>No notes for today</div>";
-
-    var handoverHtml = "";
-    if (hasHandover) {
-      handoverHtml = data.handoverIn.slice(0, 8).map(function (b) {
-        var sev = String(b.severity || b.sev || "low").toLowerCase();
-        var sevClass = sev === "high" ? "db-bullet-sev-high" : (sev === "medium" || sev === "med" ? "db-bullet-sev-med" : "db-bullet-sev-low");
-        return "<div class='db-bullet'><span class='db-bullet-sev " + sevClass + "'>" + escHtml(sev.toUpperCase().slice(0, 3)) + "</span><span class='db-bullet-text'>" + escHtml(b.text || "") + "</span></div>";
-      }).join("");
+    var listHtml = "";
+    if (ho.length) {
+      listHtml += "<ul>";
+      for (var i = 0; i < Math.min(20, ho.length); i++) {
+        var it = ho[i] || {};
+        var sev = safeStr(it.sev || it.severity || "");
+        var txt = safeStr(it.text || it.note || it.message || "");
+        var line = (sev ? ("[" + sev + "] ") : "") + (txt || ("Item #" + (it.id || "")));
+        listHtml += "<li>" + esc(line) + "</li>";
+      }
+      if (ho.length > 20) listHtml += "<li>+" + (ho.length - 20) + " more…</li>";
+      listHtml += "</ul>";
     } else {
-      handoverHtml = "<div class='db-instr-empty'>No incoming handover from " + escHtml(data.yesterday) + "</div>";
+      listHtml += '<div class="eikon-help" style="margin-top:10px">No handover items.</div>';
     }
 
-    var permanentHtml = hasPermanent
-      ? "<div class='db-instr-text'>" + escHtml(data.permanentHandover) + "</div>"
-      : "";
-
-    // Show 2-col layout for notes + handover; permanent below if present
-    var cols = 2;
-    var rowHtml =
-      "<div class='db-instr-row'>" +
-      "<div class='db-instr-section'><div class='db-instr-label'>📝 Today's Notes</div>" + notesHtml + "</div>" +
-      "<div class='db-instr-section'><div class='db-instr-label'>📨 Incoming Handover (from " + escHtml(data.yesterday) + ")</div>" + handoverHtml + "</div>" +
+    var body =
+      '<div class="eikon-dash-detail">' +
+        '<div><b>Today (' + esc(today) + ") — Day specific instructions</b></div>" +
+        (notes ? ('<div style="margin-top:8px;white-space:pre-wrap">' + esc(notes) + "</div>") : '<div class="eikon-help" style="margin-top:6px">No notes for today.</div>') +
+        '<div style="margin-top:14px"><b>Previous day (' + esc(yday) + ") — Handover from previous day</b></div>" +
+        listHtml +
       "</div>";
 
-    var permanentRow = hasPermanent
-      ? "<div style='margin-top:10px;'><div class='db-instr-label'>📌 Permanent Handover</div>" + permanentHtml + "</div>"
-      : "";
-
-    return "<div class='db-instr-banner'>" +
-      "<div class='db-instr-title'><span>📋</span> Instructions &amp; Handover</div>" +
-      rowHtml +
-      permanentRow +
-      "<div style='margin-top:8px;text-align:right;'><button class='db-btn db-btn-primary' id='db-instr-view-btn'>View Instructions</button></div>" +
-      "</div>";
+    E.modal.show("Instructions & handover", body, [
+      { label: "Close", onClick: function () { E.modal.hide(); } },
+      { label: "Open module", primary: true, onClick: function () { E.modal.hide(); window.location.hash = "#instructions"; } }
+    ]);
   }
 
-  // ════════════════════════════════════════════════════════════════
-  //  MAIN RENDER
-  // ════════════════════════════════════════════════════════════════
+  // ----------------------------
+  // Click handler
+  // ----------------------------
+  function handleClick(e) {
+    var t = e.target;
+    if (!t) return;
 
-  async function render({ E: _E, mount, user }) {
-    ensureStyles();
-    mount.innerHTML = "";
+    var btnEl = t.closest ? t.closest("[data-action]") : null;
+    if (!btnEl) return;
 
-    var wrap = document.createElement("div");
-    wrap.className = "db-wrap";
-    mount.appendChild(wrap);
+    var act = btnEl.getAttribute("data-action") || "";
+    if (!act) return;
 
-    // ── Header ─────────────────────────────────────────────────────
-    var header = document.createElement("div");
-    header.className = "db-header";
-    header.innerHTML =
-      "<div class='db-title'>Dashboard</div>" +
-      "<div style='display:flex;align-items:center;gap:10px;'>" +
-      "<span class='db-ts' id='db-ts'>Loading…</span>" +
-      "<button class='db-refresh' id='db-refresh-btn'>↻ Refresh</button>" +
-      "</div>";
-    wrap.appendChild(header);
+    if (act === "dash-refresh") return refreshAll();
 
-    // ── Grid placeholder (loading state) ───────────────────────────
-    var gridEl = document.createElement("div");
-    gridEl.className = "db-grid";
-    gridEl.id = "db-grid";
-    gridEl.innerHTML =
-      loadingCard("🌡", "Temperature") +
-      loadingCard("🧼", "Cleaning") +
-      loadingCard("📓", "Daily Register") +
-      loadingCard("📄", "Certificates") +
-      loadingCard("⚠️", "Alerts") +
-      loadingCard("📅", "Shifts") +
-      loadingCard("📦", "Client Orders") +
-      loadingCard("🎟", "Client Tickets") +
-      loadingCard("↩️", "Returns") +
-      loadingCard("💸", "Paid Out") +
-      loadingCard("⏳", "Near Expiry");
-    wrap.appendChild(gridEl);
+    if (act === "dash-temp-quick") return openTempQuickModal();
+    if (act === "dash-clean-quick") return openCleaningQuickModal();
+    if (act === "dash-dr-quick") return openDailyRegisterQuickModal();
 
-    // ── Instructions placeholder ────────────────────────────────────
-    var instrEl = document.createElement("div");
-    instrEl.id = "db-instr-area";
-    wrap.appendChild(instrEl);
+    if (act === "dash-cert-details") return showCertDetails();
+    if (act === "dash-alerts-details") return showAlertsDetails();
+    if (act === "dash-returns-details") return showReturnsDetails();
+    if (act === "dash-ne-details") return showNearExpiryDetails();
+    if (act === "dash-shifts-details") return showShiftsDetails();
+    if (act === "dash-instructions-details") return showInstructionsDetails();
 
-    // ── Run all fetches ─────────────────────────────────────────────
-    async function loadAll() {
-      var ts = new Date();
-      var tsEl = document.getElementById("db-ts");
-      if (tsEl) tsEl.textContent = "Loading…";
-
-      // Reset grid to loading state
-      var g = document.getElementById("db-grid");
-      if (g) {
-        g.innerHTML =
-          loadingCard("🌡", "Temperature") +
-          loadingCard("🧼", "Cleaning") +
-          loadingCard("📓", "Daily Register") +
-          loadingCard("📄", "Certificates") +
-          loadingCard("⚠️", "Alerts") +
-          loadingCard("📅", "Shifts") +
-          loadingCard("📦", "Client Orders") +
-          loadingCard("🎟", "Client Tickets") +
-          loadingCard("↩️", "Returns") +
-          loadingCard("💸", "Paid Out") +
-          loadingCard("⏳", "Near Expiry");
-      }
-      var ia = document.getElementById("db-instr-area");
-      if (ia) ia.innerHTML = "";
-
-      try {
-        // Run all fetches in parallel
-        var [tempD, cleanD, drD, certD, alertsD, shiftsD, ordersD, ticketsD, returnsD, paidoutD, nearexpiryD, instrD] =
-          await Promise.all([
-            fetchTemperature(),
-            fetchCleaning(),
-            fetchDailyRegister(),
-            fetchCertificates(),
-            fetchAlerts(),
-            fetchShifts(),
-            fetchClientOrders(),
-            fetchTickets(),
-            fetchReturns(),
-            fetchPaidOut(),
-            fetchNearExpiry(),
-            fetchInstructions()
-          ]);
-
-        // Update timestamp
-        var now = new Date();
-        var h = String(now.getHours()).padStart(2, "0");
-        var m = String(now.getMinutes()).padStart(2, "0");
-        if (tsEl) tsEl.textContent = "Updated " + h + ":" + m;
-
-        // Re-render grid
-        var g2 = document.getElementById("db-grid");
-        if (!g2) return;
-        g2.innerHTML =
-          renderTemperatureCard(tempD) +
-          renderCleaningCard(cleanD) +
-          renderDailyRegCard(drD) +
-          renderCertificatesCard(certD) +
-          renderAlertsCard(alertsD) +
-          renderShiftsCard(shiftsD) +
-          renderOrdersCard(ordersD) +
-          renderTicketsCard(ticketsD) +
-          renderReturnsCard(returnsD) +
-          renderPaidOutCard(paidoutD) +
-          renderNearExpiryCard(nearexpiryD);
-
-        // Instructions banner
-        var ia2 = document.getElementById("db-instr-area");
-        if (ia2) ia2.innerHTML = renderInstructionsBanner(instrD);
-
-        // ── Bind button events ──────────────────────────────────────
-        // Temperature
-        var tempEnterBtn = document.getElementById("db-temp-enter-btn");
-        if (tempEnterBtn) tempEnterBtn.addEventListener("click", function () {
-          openTempModal(function () { loadAll(); });
-        });
-        var tempViewBtn = document.getElementById("db-temp-view-btn");
-        if (tempViewBtn) tempViewBtn.addEventListener("click", function () { goTo("temperature"); });
-
-        // Cleaning
-        var cleanEnterBtn = document.getElementById("db-clean-enter-btn");
-        if (cleanEnterBtn) cleanEnterBtn.addEventListener("click", function () {
-          openCleaningModal(function () { loadAll(); });
-        });
-        var cleanViewBtn = document.getElementById("db-clean-view-btn");
-        if (cleanViewBtn) cleanViewBtn.addEventListener("click", function () { goTo("cleaning"); });
-
-        // Daily Register
-        var drEnterBtn = document.getElementById("db-dr-enter-btn");
-        if (drEnterBtn) drEnterBtn.addEventListener("click", function () {
-          openDailyRegisterModal(function () { loadAll(); });
-        });
-        var drViewBtn = document.getElementById("db-dr-view-btn");
-        if (drViewBtn) drViewBtn.addEventListener("click", function () { goTo("dailyregister"); });
-
-        // Certificates
-        var certsViewBtn = document.getElementById("db-certs-view-btn");
-        if (certsViewBtn) certsViewBtn.addEventListener("click", function () { goTo("certificates"); });
-
-        // Alerts
-        var alertsViewBtn = document.getElementById("db-alerts-view-btn");
-        if (alertsViewBtn) alertsViewBtn.addEventListener("click", function () { goTo("alerts"); });
-
-        // Shifts
-        var shiftsViewBtn = document.getElementById("db-shifts-view-btn");
-        if (shiftsViewBtn) shiftsViewBtn.addEventListener("click", function () { goTo("shifts"); });
-
-        // Client Orders
-        var ordersViewBtn = document.getElementById("db-orders-view-btn");
-        if (ordersViewBtn) ordersViewBtn.addEventListener("click", function () { goTo("clientorders"); });
-
-        // Tickets
-        var ticketsViewBtn = document.getElementById("db-tickets-view-btn");
-        if (ticketsViewBtn) ticketsViewBtn.addEventListener("click", function () { goTo("tickets"); });
-
-        // Returns
-        var returnsViewBtn = document.getElementById("db-returns-view-btn");
-        if (returnsViewBtn) returnsViewBtn.addEventListener("click", function () { goTo("returns"); });
-
-        // Paid Out
-        var paidoutViewBtn = document.getElementById("db-paidout-view-btn");
-        if (paidoutViewBtn) paidoutViewBtn.addEventListener("click", function () { goTo("paidout"); });
-
-        // Near Expiry
-        var nearexpiryViewBtn = document.getElementById("db-nearexpiry-view-btn");
-        if (nearexpiryViewBtn) nearexpiryViewBtn.addEventListener("click", function () { goTo("nearexpiry"); });
-
-        // Instructions
-        var instrViewBtn = document.getElementById("db-instr-view-btn");
-        if (instrViewBtn) instrViewBtn.addEventListener("click", function () { goTo("instructions"); });
-
-      } catch (e) {
-        err("[dash] loadAll error:", e);
-        var g3 = document.getElementById("db-grid");
-        if (g3) g3.innerHTML = "<div style='grid-column:1/-1;padding:16px;color:var(--danger);font-size:13px;'>Failed to load dashboard data: " + escHtml(String(e && (e.message || e))) + "</div>";
-      }
-    }
-
-    // ── Refresh button ──────────────────────────────────────────────
-    var refreshBtn = document.getElementById("db-refresh-btn");
-    if (refreshBtn) {
-      refreshBtn.addEventListener("click", function () {
-        loadAll();
-      });
-    }
-
-    // Initial load
-    await loadAll();
+    // Open module shortcuts
+    if (act === "dash-open-temperature") window.location.hash = "#temperature";
+    else if (act === "dash-open-cleaning") window.location.hash = "#cleaning";
+    else if (act === "dash-open-dailyregister") window.location.hash = "#dailyregister";
+    else if (act === "dash-open-certificates") window.location.hash = "#certificates";
+    else if (act === "dash-open-alerts") window.location.hash = "#alerts";
+    else if (act === "dash-open-shifts") window.location.hash = "#shifts";
+    else if (act === "dash-open-clientorders") window.location.hash = "#clientorders";
+    else if (act === "dash-open-tickets") window.location.hash = "#tickets";
+    else if (act === "dash-open-returns") window.location.hash = "#returns";
+    else if (act === "dash-open-paidout") window.location.hash = "#paidout";
+    else if (act === "dash-open-nearexpiry") window.location.hash = "#nearexpiry";
+    else if (act === "dash-open-instructions") window.location.hash = "#instructions";
   }
 
-  // ── Register module ─────────────────────────────────────────────
+  // ----------------------------
+  // Render
+  // ----------------------------
+  async function render(ctx) {
+    injectCssOnce();
+
+    var mount = ctx && ctx.mount ? ctx.mount : null;
+    if (!mount) return;
+
+    state.mount = mount;
+
+    mount.innerHTML =
+      '<div class="eikon-dash">' +
+        '<div class="eikon-dash-top">' +
+          '<div class="eikon-dash-title">Dashboard</div>' +
+          '<div class="eikon-dash-meta">' +
+            '<span class="eikon-help" id="dash-updated"></span>' +
+            btn("dash-refresh", "Refresh", { small: true, title: "Refresh all dashboard checks" }) +
+          "</div>" +
+        "</div>" +
+
+        '<div class="eikon-dash-grid">' +
+          '<div class="eikon-card eikon-dash-card">' +
+            '<div class="eikon-dash-card-title">Today</div>' +
+            '<div class="eikon-dash-list" id="dash-today"></div>' +
+          "</div>" +
+
+          '<div class="eikon-card eikon-dash-card">' +
+            '<div class="eikon-dash-card-title">Attention</div>' +
+            '<div class="eikon-dash-list" id="dash-attn"></div>' +
+          "</div>" +
+
+          '<div class="eikon-card eikon-dash-card eikon-dash-card-wide">' +
+            '<div class="eikon-dash-card-title">Operations</div>' +
+            '<div class="eikon-dash-list" id="dash-ops"></div>' +
+          "</div>" +
+        "</div>" +
+      "</div>";
+
+    // Bind click handler
+    mount.addEventListener("click", handleClick);
+
+    // Initial placeholder
+    state.loading = true;
+    renderAll();
+
+    // Load everything
+    await refreshAll();
+  }
+
+  // Register module (order 1)
   E.registerModule({
     id: "dashboard",
     title: "Dashboard",
     order: 1,
-    icon: "🏠",
+    icon: "📊",
     render: render
   });
 
