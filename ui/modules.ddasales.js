@@ -310,10 +310,10 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
     var css =
       "" +
       ".eikon-dda-wrap{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:1100px;margin:0 auto;padding:16px;}" +
-      ".eikon-dda-top{display:flex;flex-wrap:wrap;gap:10px;align-items:end;justify-content:space-between;margin-bottom:12px;}" +
+      ".eikon-dda-top{display:flex;flex-direction:column;gap:12px;align-items:stretch;justify-content:flex-start;margin-bottom:12px;}" +
       ".eikon-dda-title{font-size:18px;font-weight:900;margin:0;display:flex;align-items:center;gap:10px;color:var(--text,#e9eef7);}" +
       ".eikon-dda-title .icon{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;color:var(--text,#e9eef7);opacity:.95;}" +
-      ".eikon-dda-controls{display:flex;flex-direction:column;gap:10px;align-items:stretch;}.eikon-dda-controls-row{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;}" +
+      ".eikon-dda-controls{display:flex;flex-direction:column;gap:10px;align-items:stretch;border:1px solid var(--line,rgba(255,255,255,.10));border-radius:16px;padding:12px;background:var(--panel,rgba(16,24,36,.66));box-shadow:0 18px 50px rgba(0,0,0,.38);backdrop-filter:blur(10px);}.eikon-dda-controls-row{display:flex;flex-wrap:wrap;gap:10px;align-items:end;justify-content:flex-start;}" +
 
       ".eikon-dda-field{display:flex;flex-direction:column;gap:4px;}" +
       ".eikon-dda-field label{font-size:12px;font-weight:800;color:var(--muted,rgba(233,238,247,.68));letter-spacing:.2px;}" +
