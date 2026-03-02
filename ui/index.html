@@ -25,31 +25,25 @@
         try { console.warn.apply(console, arguments); } catch (e) {}
       }
 
-      var url = new URL(window.location.href);
-      var dbg = url.searchParams.get("dbg") || "";
-      var v = url.searchParams.get("v") || String(Date.now());
-
-      function withParams(path) {
-        var qs = new URLSearchParams();
-        qs.set("v", v);
-        if (dbg) qs.set("dbg", dbg);
-        return path + "?" + qs.toString();
+      function withParams(src) {
+        var sep = src.indexOf("?") >= 0 ? "&" : "?";
+        return src + sep + "v=" + encodeURIComponent(Date.now());
       }
 
       function loadCss(href) {
         return new Promise(function (resolve, reject) {
-          var link = document.createElement("link");
-          link.rel = "stylesheet";
-          link.href = href;
-          link.onload = function () {
+          var l = document.createElement("link");
+          l.rel = "stylesheet";
+          l.href = href;
+          l.onload = function () {
             log("[EIKON][boot] CSS loaded:", href);
             resolve();
           };
-          link.onerror = function (e) {
+          l.onerror = function (e) {
             warn("[EIKON][boot] CSS FAILED:", href, e);
             reject(e);
           };
-          document.head.appendChild(link);
+          document.head.appendChild(l);
         });
       }
 
@@ -84,6 +78,7 @@
       // Load in strict order
       loadCss(withParams("./app.css"))
         .then(function () { return loadScript(withParams("./core.js")); })
+        .then(function () { return loadScript(withParams("./modules.dashboard.js")); })
 		.then(function () { return loadScript(withParams("./modules.alerts.js")); })
 		.then(function () { return loadScript(withParams("./modules.shifts.js")); })
 		.then(function () { return loadScript(withParams("./modules.ocps.js")); })

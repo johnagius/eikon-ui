@@ -634,7 +634,7 @@
 
   E.getHashModuleId = function () {
     var h = String(window.location.hash || "").replace(/^#/, "").trim();
-    if (!h) return "temperature";
+    if (!h) return "dashboard";
     return h;
   };
 
@@ -644,9 +644,9 @@
 
     var id = E.getHashModuleId();
     if (!E.modules[id]) {
-      E.warn("[router] unknown module:", id, "falling back to temperature");
-      id = "temperature";
-      window.location.hash = "#temperature";
+      E.warn("[router] unknown module:", id, "falling back to dashboard");
+      id = "dashboard";
+      window.location.hash = "#dashboard";
     }
 
     E.state.activeModuleId = id;
@@ -706,7 +706,7 @@
     try { E.showIntroOverlayOnce(); } catch (e) {}
 
     // If hash missing, default
-    if (!window.location.hash) window.location.hash = "#temperature";
+    if (!window.location.hash) window.location.hash = "#dashboard";
 
     // Router
     window.addEventListener("hashchange", function () {
