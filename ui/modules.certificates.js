@@ -39,6 +39,33 @@
     return v;
   }
 
+
+  function todayYmdLocal() {
+    try {
+      var d = new Date();
+      var y = String(d.getFullYear());
+      var m = String(d.getMonth() + 1).padStart(2, "0");
+      var dd = String(d.getDate()).padStart(2, "0");
+      return y + "-" + m + "-" + dd;
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function isCertificateExpired(item) {
+    try {
+      var nd = String(item && item.next_due ? item.next_due : "").trim();
+      if (!isYmd(nd)) return false;
+      var today = todayYmdLocal();
+      if (!today || !isYmd(today)) return false;
+      // Treat as expired only if due date is BEFORE today.
+      return nd < today;
+    } catch (e) {
+      return false;
+    }
+  }
+
+
   function fileToBase64Payload(file) {
     return new Promise(function (resolve, reject) {
       try {
@@ -353,6 +380,25 @@
     mounted: false
   };
 
+
+  function ensureCertificatesCss() {
+    try {
+      if (document.getElementById("eikon-certificates-expired-css")) return;
+
+      var css =
+        "/* Certificates module: expired badge */\n" +
+        ".eikon-cert-expired-badge{display:inline-flex;align-items:center;gap:6px;margin-left:8px;padding:2px 10px;border-radius:999px;border:1px solid rgba(176,0,32,.35);background:rgba(176,0,32,.08);color:#b00020;font-weight:900;font-size:11px;letter-spacing:.04em;text-transform:uppercase;line-height:1.4;vertical-align:middle;}\n" +
+        ".eikon-cert-expired-badge::before{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;background:#b00020;box-shadow:0 0 0 2px rgba(176,0,32,.15);}\n";
+
+      var st = document.createElement("style");
+      st.id = "eikon-certificates-expired-css";
+      st.type = "text/css";
+      st.appendChild(document.createTextNode(css));
+      document.head.appendChild(st);
+    } catch (e) {}
+  }
+
+
   async function loadItems() {
     dbg("[certificates] loadItems() start");
     var resp = await E.apiFetch("/certificates/items", { method: "GET" });
@@ -419,6 +465,8 @@
     card.style.flex = "1";
     card.style.minWidth = "340px";
 
+    var expired = isCertificateExpired(item);
+
     var head = document.createElement("div");
     head.style.display = "flex";
     head.style.alignItems = "flex-start";
@@ -431,6 +479,16 @@
     title.style.fontWeight = "900";
     title.style.fontSize = "16px";
     title.textContent = item.title || "";
+
+    if (expired) {
+      var badge = document.createElement("span");
+      badge.className = "eikon-cert-expired-badge";
+      badge.textContent = "EXPIRED";
+      badge.setAttribute("title", "Expired certificate");
+      badge.setAttribute("aria-label", "Expired certificate");
+      title.appendChild(badge);
+    }
+
 
     var sub = document.createElement("div");
     sub.style.color = "#666";
@@ -502,6 +560,11 @@
     nextVal.style.fontWeight = "900";
     nextVal.style.color = "#1a57c6";
     nextVal.textContent = item.next_due ? fmtDmyFromYmd(item.next_due) : "-";
+
+    if (expired) {
+      nextVal.style.color = "#b00020";
+    }
+
 
     body.appendChild(lastLabel);
     body.appendChild(lastVal);
@@ -776,6 +839,8 @@
   async function render(ctx) {
     var mount = ctx.mount;
     dbg("[certificates] render() start", ctx);
+
+    ensureCertificatesCss();
 
     mount.innerHTML =
       '<div class="eikon-card">' +
