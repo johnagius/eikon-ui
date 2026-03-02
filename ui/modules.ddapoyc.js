@@ -484,6 +484,13 @@
     var _clientSearchInFlight = Object.create(null); // qNorm -> Promise
     var _CLIENT_CACHE_TTL_MS = 10 * 60 * 1000;
 
+    // ✅ Doctor autosuggest cache/index for speed
+    var _doctorIndex = [];
+    var _doctorIndexMap = Object.create(null); // key -> doctor object
+    var _doctorSearchCache = Object.create(null); // qNorm -> { ts, items }
+    var _doctorSearchInFlight = Object.create(null); // qNorm -> Promise
+    var _DOCTOR_CACHE_TTL_MS = 10 * 60 * 1000;
+
     function _ymdToInt(s) {
       var v = String(s || "").trim();
       if (!isYmd(v)) return 0;
@@ -617,6 +624,129 @@
       return out;
     }
 
+
+
+    function upsertDoctorFromEntry(r) {
+      r = r || {};
+      var name = String(r.doctor_name || "").trim();
+      var reg = String(r.doctor_reg_no || "").trim();
+      if (!name && !reg) return;
+
+      var key = _normKey(reg ? "reg:" + reg : "name:" + name);
+      if (!key || key === "reg:" || key === "name:") return;
+
+      var seenInt = _ymdToInt(r.entry_date) || 0;
+      var existing = _doctorIndexMap[key];
+      if (existing) {
+        if (name && !existing.doctor_name) existing.doctor_name = name;
+        if (reg && !existing.doctor_reg_no) existing.doctor_reg_no = reg;
+        if (seenInt && seenInt >= (existing._seenInt || 0)) existing._seenInt = seenInt;
+        existing._t = Date.now();
+        return;
+      }
+
+      var obj = {
+        doctor_name: name,
+        doctor_reg_no: reg,
+        _seenInt: seenInt,
+        _t: Date.now(),
+      };
+      _doctorIndexMap[key] = obj;
+      _doctorIndex.push(obj);
+    }
+
+    function indexDoctorsFromEntries(entries) {
+      if (!entries || !entries.length) return;
+      for (var i = 0; i < entries.length; i++) upsertDoctorFromEntry(entries[i]);
+    }
+
+    function buildDoctorSuggestion(d) {
+      d = d || {};
+      var name = String(d.doctor_name || "").trim();
+      var reg = String(d.doctor_reg_no || "").trim();
+
+      var primary = name || reg;
+      var secondary = "";
+      if (name && reg) secondary = reg;
+      else if (!name && reg) secondary = "";
+      else if (name && !reg) secondary = "";
+
+      // If user typed reg, it is still useful to show reg as primary sometimes in the list,
+      // but we keep primary as name when available (matches client behavior).
+      return {
+        kind: "doctor",
+        primary: primary,
+        secondary: secondary,
+        doctor_name: name,
+        doctor_reg_no: reg,
+      };
+    }
+
+    function scoreDoctor(d, qn) {
+      var name = _normKey(d.doctor_name);
+      var reg = _normKey(d.doctor_reg_no);
+
+      if (reg && reg.indexOf(qn) === 0) return 0;
+      if (name && name.indexOf(qn) === 0) return 1;
+      if (reg && reg.indexOf(qn) !== -1) return 2;
+      if (name && name.indexOf(qn) !== -1) return 3;
+      return 99;
+    }
+
+    function findDoctorsInIndex(qn, limit) {
+      var out = [];
+      if (!qn) return out;
+
+      for (var i = 0; i < _doctorIndex.length; i++) {
+        var d = _doctorIndex[i];
+        if (!d) continue;
+        var s = scoreDoctor(d, qn);
+        if (s === 99) continue;
+        out.push({ d: d, s: s });
+      }
+
+      out.sort(function (a, b) {
+        if (a.s !== b.s) return a.s - b.s;
+        var as = a.d && a.d._seenInt ? a.d._seenInt : 0;
+        var bs = b.d && b.d._seenInt ? b.d._seenInt : 0;
+        if (bs !== as) return bs - as;
+        var at = a.d && a.d._t ? a.d._t : 0;
+        var bt = b.d && b.d._t ? b.d._t : 0;
+        return bt - at;
+      });
+
+      var items = [];
+      var seen = Object.create(null);
+      for (var j = 0; j < out.length && items.length < limit; j++) {
+        var it = buildDoctorSuggestion(out[j].d);
+        var k = _normKey((it.doctor_reg_no ? "reg:" + it.doctor_reg_no : "name:" + it.doctor_name) || it.primary);
+        if (seen[k]) continue;
+        seen[k] = 1;
+        items.push(it);
+      }
+      return items;
+    }
+
+    function mergeUniqueDoctorSuggestions(a, b, limit) {
+      var out = [];
+      var seen = Object.create(null);
+
+      function pushList(list) {
+        if (!list) return;
+        for (var i = 0; i < list.length && out.length < limit; i++) {
+          var it = list[i];
+          if (!it) continue;
+          var k = _normKey((it.doctor_reg_no ? "reg:" + it.doctor_reg_no : "name:" + it.doctor_name) || it.primary);
+          if (seen[k]) continue;
+          seen[k] = 1;
+          out.push(it);
+        }
+      }
+
+      pushList(a);
+      pushList(b);
+      return out;
+    }
 
     function _normKey(s) {
       return String(s || "")
@@ -864,6 +994,7 @@ async function suggestPoycClients(term, limit) {
             if (!data || data.ok !== true) continue;
             var entries = Array.isArray(data.entries) ? data.entries : [];
             indexClientsFromEntries(entries);
+            indexDoctorsFromEntries(entries);
           }
 
           // After each batch, see if we have enough results now
@@ -887,6 +1018,94 @@ async function suggestPoycClients(term, limit) {
         // Clean up in-flight record (only if still the same promise)
         try {
           if (_clientSearchInFlight[qn] === promise) delete _clientSearchInFlight[qn];
+        } catch (e1) {}
+      }
+    }
+
+
+
+    async function suggestPoycDoctors(term, limit) {
+      if (!ctx) return [];
+      var qRaw = String(term || "").trim();
+      if (!qRaw) return [];
+      limit = Number.isFinite(limit) ? limit : 10;
+
+      var qn = _normKey(qRaw);
+      if (!qn) return [];
+
+      // 1) Instant results from local index
+      var local = findDoctorsInIndex(qn, limit);
+      if (local.length >= limit || qn.length < 2) return local;
+
+      // 2) Cache
+      var now = Date.now();
+      var cached = _doctorSearchCache[qn];
+      if (cached && cached.items && now - cached.ts < _DOCTOR_CACHE_TTL_MS) {
+        return mergeUniqueDoctorSuggestions(local, cached.items, limit);
+      }
+
+      // 3) De-duplicate in-flight searches for the same query
+      if (_doctorSearchInFlight[qn]) {
+        try {
+          var inflightItems = await _doctorSearchInFlight[qn];
+          return mergeUniqueDoctorSuggestions(local, inflightItems, limit);
+        } catch (e0) {
+          // ignore and fall through
+        }
+      }
+
+      var baseYm = String(state.month || "").trim();
+      if (!isYm(baseYm)) baseYm = todayYm();
+
+      // Parallel month batches (same pattern as client autosuggest)
+      var batches = [
+        [0, 1, 2, 3, 4, 5],
+        [6, 7, 8, 9, 10, 11],
+        [12, 13, 14, 15, 16, 17],
+      ];
+
+      var promise = (async function () {
+        for (var bi = 0; bi < batches.length; bi++) {
+          var deltas = batches[bi];
+          var months = [];
+          for (var i = 0; i < deltas.length; i++) months.push(shiftYm(baseYm, -deltas[i]));
+
+          var reqs = months.map(function (ym) {
+            var url = "/dda-poyc/entries?month=" + encodeURIComponent(ym) + "&q=" + encodeURIComponent(qRaw);
+            return apiJson(ctx.win, url, { method: "GET" }).catch(function () {
+              return null;
+            });
+          });
+
+          var resps = await Promise.all(reqs);
+
+          for (var ri = 0; ri < resps.length; ri++) {
+            var data = resps[ri];
+            if (!data || data.ok !== true) continue;
+            var entries = Array.isArray(data.entries) ? data.entries : [];
+            indexDoctorsFromEntries(entries);
+            // also warm the client index for free (helps overall UX)
+            indexClientsFromEntries(entries);
+          }
+
+          var itemsNow = findDoctorsInIndex(qn, limit);
+          if (itemsNow.length >= limit) return itemsNow;
+
+          if (qn.length < 3) return itemsNow;
+        }
+
+        return findDoctorsInIndex(qn, limit);
+      })();
+
+      _doctorSearchInFlight[qn] = promise;
+
+      try {
+        var items = await promise;
+        _doctorSearchCache[qn] = { ts: Date.now(), items: items || [] };
+        return mergeUniqueDoctorSuggestions(local, items, limit);
+      } finally {
+        try {
+          if (_doctorSearchInFlight[qn] === promise) delete _doctorSearchInFlight[qn];
         } catch (e1) {}
       }
     }
@@ -1030,6 +1249,7 @@ async function suggestPoycClients(term, limit) {
         if (!data || data.ok !== true) throw new Error(data && data.error ? String(data.error) : "Unexpected response");
         state.entries = Array.isArray(data.entries) ? data.entries : [];
         try { indexClientsFromEntries(state.entries); } catch (e0) {}
+        try { indexDoctorsFromEntries(state.entries); } catch (e1) {}
         renderRows();
         setLoading(false);
       } catch (e) {
@@ -1322,6 +1542,28 @@ async function suggestPoycClients(term, limit) {
             if (it.client_name) f_client.input.value = it.client_name;
             if (it.client_id_card) f_id.input.value = it.client_id_card;
             if (it.client_address) f_addr.input.value = it.client_address;
+          },
+          { minChars: 1, debounceMs: 80, limit: 12 }
+        );
+
+        attachSuggest(
+          f_doc.input,
+          suggestPoycDoctors,
+          function (it) {
+            if (!it) return;
+            if (it.doctor_name) f_doc.input.value = it.doctor_name;
+            if (it.doctor_reg_no) f_reg.input.value = it.doctor_reg_no;
+          },
+          { minChars: 1, debounceMs: 80, limit: 12 }
+        );
+
+        attachSuggest(
+          f_reg.input,
+          suggestPoycDoctors,
+          function (it) {
+            if (!it) return;
+            if (it.doctor_name) f_doc.input.value = it.doctor_name;
+            if (it.doctor_reg_no) f_reg.input.value = it.doctor_reg_no;
           },
           { minChars: 1, debounceMs: 80, limit: 12 }
         );
