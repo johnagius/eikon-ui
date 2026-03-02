@@ -59,6 +59,69 @@
     return String(ymd || "").slice(0, 7);
   }
 
+  // ✅ Helper: shift YYYY-MM by delta months (negative = past)
+  function shiftYm(ym, deltaMonths) {
+    var s = String(ym || "").trim();
+    if (!isYm(s)) s = todayYm();
+    var y = parseInt(s.slice(0, 4), 10);
+    var m = parseInt(s.slice(5, 7), 10);
+    if (!Number.isFinite(y) || !Number.isFinite(m)) return todayYm();
+    var d = new Date(y, (m - 1) + Number(deltaMonths || 0), 1);
+    return d.getFullYear() + "-" + pad2(d.getMonth() + 1);
+  }
+
+  // ✅ Fixed medicine autosuggest list (DDA POYC)
+  var POYC_MEDICINE_SUGGESTIONS = [
+    "Alprazolam 0.25mg tablets",
+    "Alprazolam 0.5mg tablets",
+    "Bromazepam 1.5mg tablets",
+    "Bromazepam 3mg tablets",
+    "Bromazepam 6mg tablets",
+    "Chloral Hydrate 500mg/5ml 200ml oral solution",
+    "Chlordiazepoxide 5mg capsules",
+    "Clobazam 10mg tablets",
+    "Clonazepam 0.5mg scored tablets",
+    "Clonazepam 0.5mg/5ml oral solution",
+    "Clonazepam 2.5mg/5ml oral solution",
+    "Clonazepam 2mg cross scored tablets",
+    "Dexamfetamine Sulphate 5mg tablets",
+    "Diazepam 10mg/2ml injections",
+    "Diazepam 2mg tablets",
+    "Diazepam 5mg tablets",
+    "Diazepam rectal tubes 10mg/2.5ml",
+    "Diazepam rectal tubes 5mg/2.5ml",
+    "Diazepam syrup 2mg/5ml",
+    "Fentanyl 25mcg/hour transdermal patches",
+    "Fentanyl 50mcg/hour transdermal patches",
+    "Lorazepam 1mg tablets",
+    "Lorazepam 2mg tablets",
+    "Lormetazepam 1mg tablets",
+    "Methylphenidate 10mg tablets",
+    "Methylphenidate 18mg PR tablets",
+    "Methylphenidate 27mg PR tablets",
+    "Methylphenidate 36mg PR tablets",
+    "Midazolam 10mg 2ml IV injections",
+    "Midazolam 10mg 5ml IV injections",
+    "Morphine 10mg/ml 1ml injections IV/SC",
+    "Morphine Sulphate 10mg/5ml solution",
+    "Morphine Sulphate 10mg SR tablets",
+    "Morphine Sulphate 30mg SR tablets",
+    "Morphine Sulphate 60mg SR tablets",
+    "Morphine Sulphate 100mg SR tablets",
+    "Morphine Sulphate 15mg 1ml injections IV/SC",
+    "Morphine Sulphate 20mg/ml injections",
+    "Morphine Sulphate 30mg/ml 1ml injections",
+    "Nitrazepam 2.5mg/5ml solution",
+    "Nitrazepam 5mg tablets",
+    "Pethidine Hydrochloride 50mg tablets",
+    "Pethidine Hydrochloride 50mg/ml injections",
+    "Pethidine Hydrochloride 100mg/2ml injections",
+    "Phenobarbital 30mg tablets",
+    "Phenobarbitone Sodium 25g - 50g powder crystalline",
+    "Temazepam 10mg tablets",
+    "Tramadol 50mg capsules"
+  ];
+
   function isWindowLike(x) {
     try {
       return !!(x && x.window === x && x.document && x.document.nodeType === 9);
@@ -306,65 +369,42 @@
     return err;
   }
 
-  async function apiJson(win, path, opts) {
+  async function apiJson(win, url, opts) {
     opts = opts || {};
-    var headers = new Headers(opts.headers || {});
-    headers.set("Accept", "application/json");
     var token = getStoredToken(win);
-    if (token && !headers.has("Authorization")) headers.set("Authorization", "Bearer " + token);
-    if (opts.body != null && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+    var headers = {};
+    try {
+      headers["Content-Type"] = "application/json";
+    } catch (e) {}
+    if (token) headers["Authorization"] = "Bearer " + token;
+    if (opts.headers) {
+      Object.keys(opts.headers).forEach(function (k) {
+        headers[k] = opts.headers[k];
+      });
+    }
 
-    var res = await fetch(path, {
+    var res = await (win || window).fetch(url, {
       method: opts.method || "GET",
       headers: headers,
-      body: opts.body != null ? opts.body : undefined,
+      body: opts.body,
     });
 
-    var ct = (res.headers.get("Content-Type") || "").toLowerCase();
-    var data = null;
-    if (ct.indexOf("application/json") >= 0) {
-      try {
-        data = await res.json();
-      } catch (e) {
-        data = null;
-      }
-    } else {
-      try {
-        data = await res.text();
-      } catch (e2) {
-        data = null;
-      }
+    var txt = "";
+    try {
+      txt = await res.text();
+    } catch (e2) {
+      txt = "";
     }
+
+    var data = null;
+    try {
+      data = txt ? JSON.parse(txt) : null;
+    } catch (e3) {
+      data = txt;
+    }
+
     if (!res.ok) throw makeHttpError(res.status, data);
     return data;
-  }
-
-  function openPrintTabWithHtml(html) {
-    var blob = new Blob([html], { type: "text/html" });
-    var url = URL.createObjectURL(blob);
-    var w = null;
-    try {
-      w = window.open(url, "_blank", "noopener");
-    } catch (e) {
-      w = null;
-    }
-    if (!w) {
-      try {
-        var a = document.createElement("a");
-        a.href = url;
-        a.target = "_blank";
-        a.rel = "noopener";
-        a.style.display = "none";
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-      } catch (e2) {}
-    }
-    setTimeout(function () {
-      try {
-        URL.revokeObjectURL(url);
-      } catch (e3) {}
-    }, 60000);
   }
 
   function buildModule() {
@@ -406,6 +446,255 @@
     // ✅ PATCH: preserve search focus/caret across loading toggles
     var qFocusRestore = null;
 
+    // ✅ Autosuggest (clients + medicines) — keeps UI the same, just adds type-ahead.
+    var _suggestUi = null;
+    var _suggestSeq = 0;
+
+    function _normKey(s) {
+      return String(s || "")
+        .toLowerCase()
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+
+    function ensureSuggestUi() {
+      if (_suggestUi && _suggestUi.root && _suggestUi.root.ownerDocument) return _suggestUi;
+      if (!ctx || !ctx.doc) return null;
+
+      var doc = ctx.doc;
+
+      var root = doc.createElement("div");
+      root.setAttribute("data-eikon-suggest", "1");
+      root.style.cssText =
+        "position:fixed;left:0;top:0;display:none;min-width:120px;max-width:720px;max-height:280px;overflow:auto;" +
+        "background:rgba(10,16,24,.96);border:1px solid rgba(255,255,255,.14);border-radius:12px;" +
+        "box-shadow:0 28px 80px rgba(0,0,0,.55);backdrop-filter:blur(10px);z-index:12050;" +
+        "padding:6px;box-sizing:border-box;color:var(--text,#e9eef7);";
+
+      var list = doc.createElement("div");
+      root.appendChild(list);
+
+      function hide() {
+        try { root.style.display = "none"; } catch (e) {}
+        try { list.innerHTML = ""; } catch (e2) {}
+        try { root._anchor = null; root._onPick = null; } catch (e3) {}
+      }
+
+      function show(anchorEl, items, onPick) {
+        if (!anchorEl || !items || !items.length) return hide();
+
+        // position below the input (fixed, so based on viewport)
+        var r = null;
+        try { r = anchorEl.getBoundingClientRect(); } catch (e) { r = null; }
+        if (!r) return hide();
+
+        var left = Math.max(8, Math.min(r.left, (doc.documentElement ? doc.documentElement.clientWidth : 9999) - 8));
+        var top = r.bottom + 6;
+        var width = Math.max(220, Math.min(r.width, 720));
+
+        try {
+          root.style.left = left + "px";
+          root.style.top = top + "px";
+          root.style.width = width + "px";
+        } catch (e0) {}
+
+        list.innerHTML = "";
+
+        for (var i = 0; i < items.length; i++) {
+          (function (it) {
+            var row = doc.createElement("div");
+            row.style.cssText =
+              "display:flex;gap:10px;align-items:flex-start;justify-content:space-between;" +
+              "padding:8px 10px;border-radius:10px;cursor:pointer;" +
+              "border:1px solid rgba(255,255,255,0);";
+
+            row.onmouseenter = function () {
+              row.style.background = "rgba(255,255,255,.06)";
+              row.style.borderColor = "rgba(255,255,255,.10)";
+            };
+            row.onmouseleave = function () {
+              row.style.background = "transparent";
+              row.style.borderColor = "rgba(255,255,255,0)";
+            };
+
+            // prevent input blur before click
+            row.onmousedown = function (ev) {
+              try { if (ev) { ev.preventDefault(); ev.stopPropagation(); } } catch (e1) {}
+            };
+
+            var leftCol = doc.createElement("div");
+            leftCol.style.cssText = "min-width:0;flex:1 1 auto;";
+            var primary = doc.createElement("div");
+            primary.style.cssText = "font-weight:900;font-size:13px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;";
+            primary.textContent = String(it.primary || it.value || "");
+            leftCol.appendChild(primary);
+
+            if (it.secondary) {
+              var secondary = doc.createElement("div");
+              secondary.style.cssText = "margin-top:2px;font-size:12px;color:rgba(233,238,247,.68);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;";
+              secondary.textContent = String(it.secondary || "");
+              leftCol.appendChild(secondary);
+            }
+
+            row.appendChild(leftCol);
+
+            row.onclick = function (ev2) {
+              try { if (ev2) { ev2.preventDefault(); ev2.stopPropagation(); } } catch (e2) {}
+              try { if (typeof onPick === "function") onPick(it); } catch (e3) {}
+              hide();
+            };
+
+            list.appendChild(row);
+          })(items[i]);
+        }
+
+        try { root._anchor = anchorEl; root._onPick = onPick; } catch (e4) {}
+
+        try { root.style.display = "block"; } catch (e5) {}
+      }
+
+      // Hide when clicking anywhere outside
+      function onDocDown(ev) {
+        try {
+          if (!root || root.style.display === "none") return;
+          var t = ev && ev.target;
+          if (!t) return;
+          if (t === root || root.contains(t)) return;
+          if (root._anchor && (t === root._anchor || (root._anchor.contains && root._anchor.contains(t)))) return;
+          hide();
+        } catch (e) {}
+      }
+
+      try {
+        doc.addEventListener("mousedown", onDocDown, true);
+        doc.addEventListener("touchstart", onDocDown, true);
+      } catch (e6) {}
+
+      // Hide on scroll/resize to avoid floating in wrong place
+      try {
+        doc.addEventListener("scroll", hide, true);
+      } catch (e7) {}
+      try {
+        (doc.defaultView || window).addEventListener("resize", hide, true);
+      } catch (e8) {}
+
+      try { doc.body.appendChild(root); } catch (e9) {}
+
+      _suggestUi = { root: root, list: list, show: show, hide: hide };
+      return _suggestUi;
+    }
+
+    function attachSuggest(inputEl, providerFn, onPickFn, opts) {
+      opts = opts || {};
+      var minChars = Number.isFinite(opts.minChars) ? opts.minChars : 1;
+      var debounceMs = Number.isFinite(opts.debounceMs) ? opts.debounceMs : 150;
+      var limit = Number.isFinite(opts.limit) ? opts.limit : 10;
+
+      var timer = null;
+
+      function run() {
+        if (!ctx) return;
+        var ui = ensureSuggestUi();
+        if (!ui) return;
+
+        var term = String(inputEl && inputEl.value != null ? inputEl.value : "").trim();
+        if (term.length < minChars) {
+          ui.hide();
+          return;
+        }
+
+        var seq = ++_suggestSeq;
+        Promise.resolve()
+          .then(function () { return providerFn(term, limit); })
+          .then(function (items) {
+            if (seq !== _suggestSeq) return;
+            if (!items || !items.length) { ui.hide(); return; }
+            ui.show(inputEl, items, function (item) { if (onPickFn) onPickFn(item); });
+          })
+          .catch(function () { try { ui.hide(); } catch (e) {} });
+      }
+
+      function schedule() {
+        if (timer) {
+          try { clearTimeout(timer); } catch (e) {}
+        }
+        timer = setTimeout(run, debounceMs);
+      }
+
+      try { inputEl.addEventListener("input", schedule); } catch (e1) {}
+      try { inputEl.addEventListener("focus", schedule); } catch (e2) {}
+      try {
+        inputEl.addEventListener("keydown", function (ev) {
+          if (!ev) return;
+          if (ev.key === "Escape") {
+            var ui = ensureSuggestUi();
+            if (ui) ui.hide();
+          }
+        });
+      } catch (e3) {}
+
+      // allow clicking suggestion list without it disappearing instantly
+      try { inputEl.addEventListener("blur", function () { setTimeout(function () { var ui = ensureSuggestUi(); if (ui) ui.hide(); }, 220); }); } catch (e4) {}
+    }
+
+    async function suggestPoycClients(term, limit) {
+      if (!ctx) return [];
+      var q = String(term || "").trim();
+      if (!q) return [];
+
+      var baseYm = String(state.month || "").trim();
+      if (!isYm(baseYm)) baseYm = todayYm();
+
+      var maxMonthsBack = 18; // search up to ~18 months back
+      var out = [];
+      var seen = {};
+
+      for (var i = 0; i < maxMonthsBack && out.length < limit; i++) {
+        var ym = shiftYm(baseYm, -i);
+        var url = "/dda-poyc/entries?month=" + encodeURIComponent(ym) + "&q=" + encodeURIComponent(q);
+
+        var data = null;
+        try { data = await apiJson(ctx.win, url, { method: "GET" }); } catch (e1) { data = null; }
+        if (!data || data.ok !== true) continue;
+
+        var entries = Array.isArray(data.entries) ? data.entries : [];
+        for (var j = 0; j < entries.length && out.length < limit; j++) {
+          var r = entries[j] || {};
+          var name = String(r.client_name || "").trim();
+          var idc = String(r.client_id_card || "").trim();
+          if (!name && !idc) continue;
+
+          var k = _normKey(idc ? ("id:" + idc) : ("name:" + name));
+          if (seen[k]) continue;
+          seen[k] = 1;
+
+          out.push({
+            kind: "client",
+            primary: name || idc,
+            secondary: name && idc ? idc : "",
+            client_name: name,
+            client_id_card: idc
+          });
+        }
+      }
+
+      return out;
+    }
+
+    function suggestPoycMedicines(term, limit) {
+      var q = _normKey(term);
+      if (!q) return [];
+      var out = [];
+      for (var i = 0; i < POYC_MEDICINE_SUGGESTIONS.length; i++) {
+        var med = POYC_MEDICINE_SUGGESTIONS[i];
+        if (_normKey(med).indexOf(q) !== -1) {
+          out.push({ kind: "medicine", primary: med, value: med });
+          if (out.length >= limit) break;
+        }
+      }
+      return out;
+    }
+
     function setMsg(kind, text) {
       if (!msgBox) return;
       msgBox.className = "eikon-dda-msg " + (kind === "ok" ? "ok" : kind === "err" ? "err" : "");
@@ -424,33 +713,41 @@
         // ✅ PATCH: if disabling while focused, remember caret/selection so we can restore it after loading.
         try {
           if (v && ctx && ctx.doc && ctx.doc.activeElement === qInput) {
-            qFocusRestore = { s: qInput.selectionStart, e: qInput.selectionEnd };
+            qFocusRestore = {
+              start: qInput.selectionStart,
+              end: qInput.selectionEnd,
+              dir: qInput.selectionDirection || "none"
+            };
           }
         } catch (e0) {}
+
         qInput.disabled = disabled;
+
+        // ✅ PATCH: restore focus + caret after loading finishes
+        try {
+          if (!v && qFocusRestore && ctx && ctx.doc) {
+            // restore on next tick (after DOM updates)
+            setTimeout(function () {
+              try {
+                if (!qInput || qInput.disabled) return;
+                qInput.focus();
+                var s = qFocusRestore.start;
+                var e = qFocusRestore.end;
+                if (typeof s === "number" && typeof e === "number") {
+                  qInput.setSelectionRange(s, e, qFocusRestore.dir || "none");
+                }
+              } catch (e1) {}
+              qFocusRestore = null;
+            }, 0);
+          }
+        } catch (e2) {}
       }
 
-      if (generateBtn) generateBtn.disabled = disabled;
-      if (printBtn) printBtn.disabled = disabled;
       if (reportFromInput) reportFromInput.disabled = disabled;
       if (reportToInput) reportToInput.disabled = disabled;
-
-      // ✅ PATCH: restore focus/caret after re-enabling to prevent live-search blur.
-      if (!v && qInput && qFocusRestore && !qInput.disabled) {
-        try {
-          qInput.focus();
-          if (
-            typeof qInput.setSelectionRange === "function" &&
-            qFocusRestore.s != null &&
-            qFocusRestore.e != null
-          ) {
-            qInput.setSelectionRange(qFocusRestore.s, qFocusRestore.e);
-          }
-        } catch (e1) {}
-        qFocusRestore = null;
-      } else if (!v) {
-        qFocusRestore = null;
-      }
+      if (generateBtn) generateBtn.disabled = disabled;
+      if (printBtn) printBtn.disabled = disabled;
+      if (modalSaveBtn) modalSaveBtn.disabled = disabled;
     }
 
     function setReportMsg(kind, text) {
@@ -460,13 +757,25 @@
       reportMsg.style.display = text ? "block" : "none";
     }
 
-    function setReportDefaultsForMonth(m) {
-      var r = monthStartEnd(m);
-      if (!r) return;
-      state.report_from = r.from;
-      state.report_to = r.to;
-      if (reportFromInput) reportFromInput.value = r.from;
-      if (reportToInput) reportToInput.value = r.to;
+    function setReportDefaultsForMonth(ym) {
+      var se = monthStartEnd(ym) || monthStartEnd(todayYm());
+      if (!se) return;
+      state.report_from = se.from;
+      state.report_to = se.to;
+      if (reportFromInput) reportFromInput.value = se.from;
+      if (reportToInput) reportToInput.value = se.to;
+    }
+
+    function scheduleLiveSearch() {
+      if (searchTimer) {
+        try {
+          clearTimeout(searchTimer);
+        } catch (e) {}
+      }
+      // same feel as dda-sales: debounce a little as user types
+      searchTimer = setTimeout(function () {
+        refresh();
+      }, 220);
     }
 
     function renderRows() {
@@ -588,12 +897,10 @@
         var ym = monthKeys[mi];
         var list = byMonth.get(ym) || [];
 
-        reportPreview.appendChild(
-          el(ctx.doc, "h3", { text: ym, style: "margin:14px 0 8px 0;font-size:14px;font-weight:1000;" }, [])
-        );
+        reportPreview.appendChild(el(ctx.doc, "h3", { text: ym, style: "margin:12px 0 8px 0;font-size:14px;font-weight:1000;" }, []));
 
         var tableWrap = el(ctx.doc, "div", { class: "eikon-dda-table-wrap" }, []);
-        var table = el(ctx.doc, "table", { class: "eikon-dda-table", style: "min-width:1100px;" }, []);
+        var table = el(ctx.doc, "table", { class: "eikon-dda-table", style: "min-width:980px;" }, []);
         var thead = el(ctx.doc, "thead", {}, []);
         thead.appendChild(
           el(ctx.doc, "tr", {}, [
@@ -612,20 +919,21 @@
 
         var tbody = el(ctx.doc, "tbody", {}, []);
         for (var i = 0; i < list.length; i++) {
-          var r = list[i] || {};
-          tbody.appendChild(
-            el(ctx.doc, "tr", {}, [
-              el(ctx.doc, "td", { text: String(r.entry_date || "") }, []),
-              el(ctx.doc, "td", { text: String(r.client_name || "") }, []),
-              el(ctx.doc, "td", { text: String(r.client_id_card || "") }, []),
-              el(ctx.doc, "td", { text: String(r.client_address || "") }, []),
-              el(ctx.doc, "td", { text: String(r.medicine_name_dose || "") }, []),
-              el(ctx.doc, "td", { text: String(r.quantity == null ? "" : r.quantity) }, []),
-              el(ctx.doc, "td", { text: String(r.doctor_name || "") }, []),
-              el(ctx.doc, "td", { text: String(r.doctor_reg_no || "") }, []),
-              el(ctx.doc, "td", { text: String(r.prescription_serial_no || "") }, []),
-            ])
-          );
+          (function (r) {
+            tbody.appendChild(
+              el(ctx.doc, "tr", {}, [
+                el(ctx.doc, "td", { text: String(r.entry_date || "") }, []),
+                el(ctx.doc, "td", { text: String(r.client_name || "") }, []),
+                el(ctx.doc, "td", { text: String(r.client_id_card || "") }, []),
+                el(ctx.doc, "td", { text: String(r.client_address || "") }, []),
+                el(ctx.doc, "td", { text: String(r.medicine_name_dose || "") }, []),
+                el(ctx.doc, "td", { text: String(r.quantity == null ? "" : r.quantity) }, []),
+                el(ctx.doc, "td", { text: String(r.doctor_name || "") }, []),
+                el(ctx.doc, "td", { text: String(r.doctor_reg_no || "") }, []),
+                el(ctx.doc, "td", { text: String(r.prescription_serial_no || "") }, []),
+              ])
+            );
+          })(list[i]);
         }
         table.appendChild(tbody);
         tableWrap.appendChild(table);
@@ -755,6 +1063,27 @@
       return html;
     }
 
+    function openPrintTabWithHtml(html) {
+      var w = window.open("", "_blank");
+      if (!w) {
+        setReportMsg("err", "Popup blocked. Allow popups to print.");
+        return;
+      }
+      try {
+        w.document.open();
+        w.document.write(html);
+        w.document.close();
+        w.focus();
+        setTimeout(function () {
+          try {
+            w.print();
+          } catch (e) {}
+        }, 350);
+      } catch (e2) {
+        setReportMsg("err", "Failed to open print view.");
+      }
+    }
+
     function openModal(title, initial, onSave) {
       if (!ctx) return;
 
@@ -797,12 +1126,48 @@
         var f_serial = field("Prescription Serial No.", "text", "prescription_serial_no", false, "Serial no.");
 
         formEls = [f_entry_date, f_client, f_id, f_addr, f_med, f_qty, f_doc, f_reg, f_serial];
+
+        // ✅ Autosuggest:
+        // - Client / ID Card: suggests from latest matching entries in the cloud (searching backwards by month)
+        // - Medicine: fixed list (provided)
+        attachSuggest(
+          f_client.input,
+          suggestPoycClients,
+          function (it) {
+            if (!it) return;
+            if (it.client_name) f_client.input.value = it.client_name;
+            if (it.client_id_card) f_id.input.value = it.client_id_card;
+          },
+          { minChars: 1, debounceMs: 160, limit: 12 }
+        );
+
+        attachSuggest(
+          f_id.input,
+          suggestPoycClients,
+          function (it) {
+            if (!it) return;
+            if (it.client_name) f_client.input.value = it.client_name;
+            if (it.client_id_card) f_id.input.value = it.client_id_card;
+          },
+          { minChars: 1, debounceMs: 160, limit: 12 }
+        );
+
+        attachSuggest(
+          f_med.input,
+          suggestPoycMedicines,
+          function (it) {
+            if (!it) return;
+            f_med.input.value = it.value || it.primary || "";
+          },
+          { minChars: 1, debounceMs: 80, limit: 20 }
+        );
+
         for (var i = 0; i < formEls.length; i++) grid.appendChild(formEls[i].wrap);
 
         var footer = el(
           ctx.doc,
           "div",
-          { style: "display:flex;gap:10px;justify-content:flex-end;margin-top:12px;" },
+          { style: "display:flex;gap:10px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap;" },
           []
         );
 
@@ -918,7 +1283,6 @@
       });
     }
 
-    
     // ✅ DDA Sales-style confirm dialog (window.confirm is blocked in sandboxed iframes without allow-modals)
     var _confirmBackdrop = null;
     function uiConfirm(message, opts) {
@@ -928,14 +1292,14 @@
 
       if (!_confirmBackdrop) {
         var bd = doc.createElement("div");
-        bd.style.cssText = "position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55);z-index:11000;padding:16px;";
+        bd.style.cssText = "position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,55);z-index:11000;padding:16px;";
         var card = doc.createElement("div");
-        card.style.cssText = "width:min(420px,calc(100vw - 32px));background:rgba(10,16,24,.94);border:1px solid rgba(255,255,255,.12);border-radius:16px;box-shadow:0 30px 80px rgba(0,0,0,.60);padding:14px;color:var(--text,#e9eef7);";
+        card.style.cssText = "width:min(420px,calc(100vw - 32px));background:rgba(10,16,24,94);border:1px solid rgba(255,255,255,12);border-radius:16px;box-shadow:0 30px 80px rgba(0,0,0,60);padding:14px;color:var(--text,#e9eef7);";
         var title = doc.createElement("div");
         title.style.cssText = "font-weight:1000;font-size:14px;margin:0 0 8px 0;";
         title.textContent = "Confirm";
         var msg = doc.createElement("div");
-        msg.style.cssText = "font-size:13px;line-height:1.35;color:rgba(233,238,247,.86);white-space:pre-wrap;";
+        msg.style.cssText = "font-size:13px;line-height:1.35;color:rgba(233,238,247,86);white-space:pre-wrap;";
         var row = doc.createElement("div");
         row.style.cssText = "display:flex;gap:10px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap;";
         var cancelBtn = doc.createElement("button");
@@ -1000,7 +1364,7 @@
       });
     }
 
-async function doDelete(row) {
+    async function doDelete(row) {
       if (!ctx) return;
       setMsg("", "");
 
@@ -1035,21 +1399,13 @@ async function doDelete(row) {
         }
       }
 
-      async function tryCall(name, path, opts) {
-        opts = opts || {};
-        opts.headers = opts.headers || {};
-        try { opts.headers["X-Eikon-Debug"] = "1"; } catch (e0) {}
+      async function tryCall(name, url, opts) {
         try {
-          var out = await apiJson(ctx.win, path, opts);
+          var data = await apiJson(ctx.win, url, opts);
           attempts.push({ name: name, ok: true, status: 200 });
-          return out;
+          return data;
         } catch (e) {
-          attempts.push({
-            name: name,
-            ok: false,
-            status: e && e.status != null ? e.status : null,
-            message: e && e.message ? e.message : String(e || "Error"),
-          });
+          attempts.push({ name: name, ok: false, status: e && e.status, message: e && e.message });
           return null;
         }
       }
@@ -1092,20 +1448,6 @@ async function doDelete(row) {
       } finally {
         setLoading(false);
       }
-    }
-
-
-
-    function scheduleLiveSearch() {
-      if (searchTimer) {
-        try {
-          clearTimeout(searchTimer);
-        } catch (e) {}
-      }
-      // same feel as dda-sales: debounce a little as user types
-      searchTimer = setTimeout(function () {
-        refresh();
-      }, 220);
     }
 
     function renderInto(container) {
@@ -1158,18 +1500,18 @@ async function doDelete(row) {
       monthField.appendChild(monthInput);
       try { monthField.style.minWidth = "170px"; } catch (e0) {}
 
-      // Search (live)
+      // Search
       var qField = el(ctx.doc, "div", { class: "eikon-dda-field" }, []);
       qField.appendChild(el(ctx.doc, "label", { text: "Search" }, []));
-      qInput = el(ctx.doc, "input", { type: "text", value: state.q, placeholder: "Client / ID / medicine / doctor / serial…" }, []);
+      qInput = el(ctx.doc, "input", { type: "text", value: state.q, placeholder: "Search entries…" }, []);
       qInput.oninput = function () {
         state.q = String(qInput.value || "");
         scheduleLiveSearch();
       };
-      qInput.onkeydown = function (e) { if (e && e.key === "Enter") refresh(); };
       qField.appendChild(qInput);
-      try { qField.style.minWidth = "260px"; qField.style.flex = "1 1 320px"; } catch (e1) {}
+      try { qField.style.minWidth = "280px"; } catch (e1) {}
 
+      // Refresh
       refreshBtn = el(ctx.doc, "button", { class: "eikon-dda-btn secondary", text: "Refresh" }, []);
       refreshBtn.onclick = function () {
         refresh();
@@ -1224,7 +1566,7 @@ async function doDelete(row) {
       topCard.appendChild(controls);
       layout.appendChild(topCard);
 
-// Entries card (full width)
+      // Entries card (full width)
       var cardEntries = el(ctx.doc, "div", { class: "eikon-dda-card eikon-dda-span-all" }, []);
       var headEntries = el(ctx.doc, "div", { class: "eikon-dda-card-head" }, []);
       headEntries.appendChild(el(ctx.doc, "h3", { text: "Entries" }, []));
@@ -1277,7 +1619,6 @@ async function doDelete(row) {
       refresh();
     }
 
-
     function destroy() {
       try {
         if (modalBackdrop && modalBackdrop.parentNode) modalBackdrop.parentNode.removeChild(modalBackdrop);
@@ -1287,6 +1628,12 @@ async function doDelete(row) {
       formEls = null;
       modalSaveBtn = null;
       modalOnSave = null;
+
+      // Autosuggest popup (cleanup)
+      try {
+        if (_suggestUi && _suggestUi.root && _suggestUi.root.parentNode) _suggestUi.root.parentNode.removeChild(_suggestUi.root);
+      } catch (e0) {}
+      _suggestUi = null;
 
       msgBox = null;
       tableBody = null;
