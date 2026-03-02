@@ -84,6 +84,7 @@
       // Load in strict order
       loadCss(withParams("./app.css"))
         .then(function () { return loadScript(withParams("./core.js")); })
+        .then(function () { return loadScript(withParams("./modules.dashboard.js")); })
 		.then(function () { return loadScript(withParams("./modules.alerts.js")); })
 		.then(function () { return loadScript(withParams("./modules.shifts.js")); })
 		.then(function () { return loadScript(withParams("./modules.ocps.js")); })
