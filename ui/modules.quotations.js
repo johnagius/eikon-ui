@@ -1122,9 +1122,8 @@
         "<div class='qt-bulk-section'>" +
           "<h3 class='qt-bulk-title'>Bulk Import via AI Invoice Extractor</h3>" +
           "<div class='qt-bulk-instr'>" +
-            "<p>1. Open the " +
-              "<button class='qt-bulk-link' id='qt-gpt-link'>Invoice Extractor GPT ↗</button>" +
-              "<span id='qt-gpt-copy-ok' class='qt-bulk-copy-ok'>⚠ Popup blocked — link copied! Open a new tab (Ctrl+T) and paste (Ctrl+V)</span>" +
+            "<p>1. Click <button class='qt-bulk-link' id='qt-gpt-link'>📋 Copy Invoice Extractor GPT link</button>" +
+              "<span id='qt-gpt-copy-ok' class='qt-bulk-copy-ok'>✓ Copied! Open a new tab (Ctrl+T) and paste (Ctrl+V)</span>" +
             "</p>" +
             "<input type='text' id='qt-gpt-url' class='qt-bulk-url' readonly " +
               "value='https://chatgpt.com/g/g-69a717442e348191950843c857f4801e-invoice-extractor'>" +
@@ -1212,48 +1211,33 @@
     refreshBtn.addEventListener("click", function () { if (state.refresh) state.refresh(); });
 
     // ── Bulk import handlers ──────────────────────────────────────────────────
-    // GPT link — opens about:blank with noopener first (truly severs opener at
-    // window-creation time), then navigates it to ChatGPT. Different from a
-    // plain target="_blank" anchor: the browser has no "opened by" context to
-    // enforce COOP against. Falls back to clipboard copy if popup is blocked.
+    // GPT link — copies the ChatGPT URL to clipboard; user opens a new tab and
+    // pastes it manually. This avoids Firefox's COOP interstitial which fires
+    // whenever a script-opened tab navigates to a page with COOP: same-origin.
     var gptLinkEl = mount.querySelector("#qt-gpt-link");
     if (gptLinkEl) {
-      gptLinkEl.addEventListener("click", function (ev) {
-        try { ev.preventDefault(); } catch (e) {}
+      gptLinkEl.addEventListener("click", function () {
         var url = "https://chatgpt.com/g/g-69a717442e348191950843c857f4801e-invoice-extractor";
         var okEl = mount.querySelector("#qt-gpt-copy-ok");
-
-        // Primary: open about:blank with noopener (no opener at creation time),
-        // then navigate it — avoids Firefox COOP interstitial.
-        try {
-          var w = window.open("about:blank", "_blank", "noopener,noreferrer");
-          if (w) {
-            try { w.opener = null; } catch (e0) {}
-            try { w.location.replace(url); } catch (e1) { w.location.href = url; }
-            return;
-          }
-        } catch (e2) {}
-
-        // Fallback (popup blocked): copy URL to clipboard and prompt user.
-        function showCopyOk() {
+        function showOk() {
           if (okEl) {
             okEl.style.display = "inline";
             setTimeout(function () { okEl.style.display = "none"; }, 6000);
           }
         }
-        function clipFallback() {
+        function fallback() {
           var ta = document.createElement("textarea");
           ta.value = url;
           ta.style.cssText = "position:fixed;top:-9999px;left:-9999px;opacity:0;";
           document.body.appendChild(ta);
           ta.focus(); ta.select();
-          try { document.execCommand("copy"); showCopyOk(); } catch (e3) {}
+          try { document.execCommand("copy"); showOk(); } catch (e2) {}
           document.body.removeChild(ta);
         }
         if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(url).then(showCopyOk).catch(clipFallback);
+          navigator.clipboard.writeText(url).then(showOk).catch(fallback);
         } else {
-          clipFallback();
+          fallback();
         }
       });
     }
