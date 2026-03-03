@@ -2982,6 +2982,428 @@ async function handleEodContactsDeactivate(request, env, corsOkHeaders, authUser
 }
 
 
+
+/* =========================
+   PAID OUT MODULE (API)
+   ========================= */
+
+function normalizeMoneyPositive(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  // Keep 2dp for storage (avoid floating junk)
+  return Math.round(n * 100) / 100;
+}
+
+function normalizePaidOutMethod(v) {
+  const s = String(v || "").trim().toLowerCase();
+  return (s === "cheque") ? "cheque" : "cash";
+}
+
+async function ensurePaidOutSchema(env) {
+  // Paid Out schema is created lazily on first use.
+  // IMPORTANT: D1 does not change an existing table when you update the CREATE TABLE statement.
+  // So we also run a tiny migration to add any missing columns (e.g. older deployments).
+  await dbRun(env, `
+    CREATE TABLE IF NOT EXISTS paid_out_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+      entry_date TEXT NOT NULL,
+      entry_time TEXT NOT NULL,
+      payee_name TEXT NOT NULL,
+      fee REAL NOT NULL,
+      payment_method TEXT NOT NULL DEFAULT 'cash',
+      invoice_no TEXT NOT NULL DEFAULT '',
+      cheque_no TEXT NOT NULL DEFAULT '',
+      reason TEXT NOT NULL DEFAULT '',
+      created_by INTEGER,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_by INTEGER
+    )
+  `, []);
+
+  // --- Migration: add missing columns safely (ignore "duplicate column name" errors) ---
+  const cols = await dbAll(env, "PRAGMA table_info(paid_out_entries)", []);
+  const colNames = new Set((cols || []).map((c) => String(c && c.name || "").trim()).filter(Boolean));
+
+  async function addColIfMissing(colName, colDefSql) {
+    if (colNames.has(colName)) return;
+    try {
+      await dbRun(env, `ALTER TABLE paid_out_entries ADD COLUMN ${colDefSql}`, []);
+    } catch (e) {
+      // In rare cases of concurrent requests, another request may add the column first.
+      // SQLite will then throw "duplicate column name" — safe to ignore.
+    }
+    colNames.add(colName);
+  }
+
+  // Keep this list minimal + backwards compatible.
+  await addColIfMissing("updated_by", "updated_by INTEGER");
+  await addColIfMissing("updated_at", "updated_at TEXT");
+
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_paid_out_org_loc_date ON paid_out_entries (org_id, location_id, entry_date)", []);
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_paid_out_org_loc_name ON paid_out_entries (org_id, location_id, payee_name)", []);
+}
+
+function paidOutRowToUi(r) {
+  if (!r) return null;
+  return {
+    id: r.id,
+    entry_date: r.entry_date,
+    entry_time: r.entry_time,
+    payee_name: r.payee_name,
+    fee: r.fee,
+    payment_method: r.payment_method || "cash",
+    invoice_no: r.invoice_no || "",
+    cheque_no: r.cheque_no || "",
+    reason: r.reason || "",
+    created_by: r.created_by,
+    created_at: r.created_at,
+    updated_at: r.updated_at
+  };
+}
+
+async function handlePaidOutEntriesList(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff", "user"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensurePaidOutSchema(env);
+
+  const month = (url.searchParams.get("month") || "").trim();
+  const range = monthRange(month);
+  if (!range) return jsonResponse({ ok: false, error: "Missing/invalid month (YYYY-MM)" }, 400, corsOkHeaders);
+
+  const q = (url.searchParams.get("q") || "").trim();
+  const hasQ = !!q;
+  const qLike = `%${q}%`;
+
+  const sql = `
+    SELECT
+      id,
+      entry_date,
+      entry_time,
+      payee_name,
+      fee,
+      payment_method,
+      invoice_no,
+      cheque_no,
+      reason,
+      created_by,
+      created_at,
+      updated_at
+    FROM paid_out_entries
+    WHERE org_id = ?
+      AND location_id = ?
+      AND entry_date >= ?
+      AND entry_date < ?
+      ${hasQ ? `AND (
+        entry_date LIKE ?
+        OR entry_time LIKE ?
+        OR payee_name LIKE ?
+        OR invoice_no LIKE ?
+        OR cheque_no LIKE ?
+        OR reason LIKE ?
+      )` : ""}
+    ORDER BY entry_date DESC, id DESC
+  `;
+
+  const bind = [authUser.org_id, authUser.location_id, range.startStr, range.endStr];
+  if (hasQ) bind.push(qLike, qLike, qLike, qLike, qLike, qLike);
+
+  const rows = await dbAll(env, sql, bind);
+  const entries = rows.map(paidOutRowToUi);
+
+  return jsonResponse({ ok: true, entries }, 200, corsOkHeaders);
+}
+
+async function handlePaidOutNames(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff", "user"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensurePaidOutSchema(env);
+
+  const q = (url.searchParams.get("q") || "").trim();
+  const hasQ = !!q;
+  const qLike = `%${q}%`;
+
+  const rows = await dbAll(
+    env,
+    `
+    SELECT payee_name, MAX(entry_date) AS last_date, COUNT(1) AS c
+    FROM paid_out_entries
+    WHERE org_id = ?
+      AND location_id = ?
+      ${hasQ ? "AND payee_name LIKE ?" : ""}
+    GROUP BY payee_name
+    ORDER BY last_date DESC, c DESC, payee_name ASC
+    LIMIT 25
+    `,
+    hasQ
+      ? [authUser.org_id, authUser.location_id, qLike]
+      : [authUser.org_id, authUser.location_id]
+  );
+
+  const names = rows.map(r => r.payee_name).filter(Boolean);
+  return jsonResponse({ ok: true, names }, 200, corsOkHeaders);
+}
+
+async function handlePaidOutEntryCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff", "user"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensurePaidOutSchema(env);
+
+  const body = await readJson(request);
+
+  const entryDate = String(body.entry_date || "").trim();
+  const entryTime = String(body.entry_time || "").trim();
+  const payeeName = String(body.payee_name || "").trim();
+  const fee = normalizeMoneyPositive(body.fee);
+  const method = normalizePaidOutMethod(body.payment_method);
+  const invoiceNo = String(body.invoice_no || "").trim();
+  let chequeNo = String(body.cheque_no || "").trim();
+  const reason = String(body.reason || "").trim();
+
+  if (!isValidYmd(entryDate)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (!isValidHm(entryTime)) return jsonResponse({ ok: false, error: "Invalid entry_time (HH:MM)" }, 400, corsOkHeaders);
+  if (!payeeName) return jsonResponse({ ok: false, error: "Missing payee_name" }, 400, corsOkHeaders);
+  if (!fee) return jsonResponse({ ok: false, error: "Invalid fee (must be > 0)" }, 400, corsOkHeaders);
+
+  if (method !== "cheque") chequeNo = "";
+
+  const row = await dbFirst(
+    env,
+    `
+    INSERT INTO paid_out_entries
+      (org_id, location_id, entry_date, entry_time, payee_name, fee, payment_method, invoice_no, cheque_no, reason, created_by, created_at, updated_at, updated_by)
+    VALUES
+      (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), ?)
+    RETURNING id
+    `,
+    [
+      authUser.org_id,
+      authUser.location_id,
+      entryDate,
+      entryTime,
+      payeeName,
+      fee,
+      method,
+      invoiceNo,
+      chequeNo,
+      reason,
+      authUser.user_id,
+      authUser.user_id
+    ]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "PAID_OUT_ENTRY_CREATE", "paid_out_entries", String(row.id), {
+    entry_date: entryDate,
+    payee_name: payeeName,
+    fee,
+    payment_method: method
+  });
+
+  const saved = await dbFirst(
+    env,
+    `
+    SELECT
+      id, entry_date, entry_time, payee_name, fee, payment_method, invoice_no, cheque_no, reason, created_by, created_at, updated_at
+    FROM paid_out_entries
+    WHERE id = ? AND org_id = ? AND location_id = ?
+    `,
+    [row.id, authUser.org_id, authUser.location_id]
+  );
+
+  const payload = { ok: true, entry: paidOutRowToUi(saved), entry_id: row.id };
+  if (isDebugEnabled(request)) payload.debug = { entryId: row.id };
+  return jsonResponse(payload, 200, corsOkHeaders);
+}
+
+async function handlePaidOutEntryUpdate(request, env, corsOkHeaders, authUser, entryId) {
+  if (!requireRole(authUser, ["admin", "staff", "user"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensurePaidOutSchema(env);
+
+  const existing = await dbFirst(
+    env,
+    `
+    SELECT id, entry_date, entry_time, payee_name, fee, payment_method
+    FROM paid_out_entries
+    WHERE id = ? AND org_id = ? AND location_id = ?
+    `,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+
+  const entryDate = String(body.entry_date || "").trim();
+  const entryTime = String(body.entry_time || "").trim();
+  const payeeName = String(body.payee_name || "").trim();
+  const fee = normalizeMoneyPositive(body.fee);
+  const method = normalizePaidOutMethod(body.payment_method);
+  const invoiceNo = String(body.invoice_no || "").trim();
+  let chequeNo = String(body.cheque_no || "").trim();
+  const reason = String(body.reason || "").trim();
+
+  if (!isValidYmd(entryDate)) return jsonResponse({ ok: false, error: "Invalid entry_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (!isValidHm(entryTime)) return jsonResponse({ ok: false, error: "Invalid entry_time (HH:MM)" }, 400, corsOkHeaders);
+  if (!payeeName) return jsonResponse({ ok: false, error: "Missing payee_name" }, 400, corsOkHeaders);
+  if (!fee) return jsonResponse({ ok: false, error: "Invalid fee (must be > 0)" }, 400, corsOkHeaders);
+
+  if (method !== "cheque") chequeNo = "";
+
+  await dbRun(
+    env,
+    `
+    UPDATE paid_out_entries
+    SET entry_date = ?,
+        entry_time = ?,
+        payee_name = ?,
+        fee = ?,
+        payment_method = ?,
+        invoice_no = ?,
+        cheque_no = ?,
+        reason = ?,
+        updated_at = datetime('now'),
+        updated_by = ?
+    WHERE id = ? AND org_id = ? AND location_id = ?
+    `,
+    [
+      entryDate,
+      entryTime,
+      payeeName,
+      fee,
+      method,
+      invoiceNo,
+      chequeNo,
+      reason,
+      authUser.user_id,
+      entryId,
+      authUser.org_id,
+      authUser.location_id
+    ]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "PAID_OUT_ENTRY_UPDATE", "paid_out_entries", String(entryId), {
+    entry_date: entryDate,
+    payee_name: payeeName,
+    fee,
+    payment_method: method
+  });
+
+  const saved = await dbFirst(
+    env,
+    `
+    SELECT
+      id, entry_date, entry_time, payee_name, fee, payment_method, invoice_no, cheque_no, reason, created_by, created_at, updated_at
+    FROM paid_out_entries
+    WHERE id = ? AND org_id = ? AND location_id = ?
+    `,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+
+  const payload = { ok: true, entry: paidOutRowToUi(saved) };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
+  return jsonResponse(payload, 200, corsOkHeaders);
+}
+
+async function handlePaidOutEntryDelete(request, env, corsOkHeaders, authUser, entryId) {
+  if (!requireRole(authUser, ["admin", "staff", "user"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensurePaidOutSchema(env);
+
+  const existing = await dbFirst(
+    env,
+    `SELECT id, entry_date, payee_name, fee FROM paid_out_entries WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  await dbRun(
+    env,
+    `DELETE FROM paid_out_entries WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "PAID_OUT_ENTRY_DELETE", "paid_out_entries", String(entryId), {
+    entry_date: existing.entry_date,
+    payee_name: existing.payee_name,
+    fee: existing.fee
+  });
+
+  const payload = { ok: true };
+  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
+  return jsonResponse(payload, 200, corsOkHeaders);
+}
+
+async function handlePaidOutReport(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff", "user"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensurePaidOutSchema(env);
+
+  const from = (url.searchParams.get("from") || "").trim();
+  const to = (url.searchParams.get("to") || "").trim();
+
+  if (!isValidYmd(from) || !isValidYmd(to)) {
+    return jsonResponse({ ok: false, error: "Invalid from/to (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  }
+  if (to < from) {
+    return jsonResponse({ ok: false, error: "to must be >= from" }, 400, corsOkHeaders);
+  }
+
+  const rows = await dbAll(
+    env,
+    `
+    SELECT
+      id,
+      entry_date,
+      entry_time,
+      payee_name,
+      fee,
+      payment_method,
+      invoice_no,
+      cheque_no,
+      reason,
+      created_by,
+      created_at,
+      updated_at
+    FROM paid_out_entries
+    WHERE org_id = ?
+      AND location_id = ?
+      AND entry_date >= ?
+      AND entry_date <= ?
+    ORDER BY entry_date ASC, id ASC
+    `,
+    [authUser.org_id, authUser.location_id, from, to]
+  );
+
+  return jsonResponse(
+    {
+      ok: true,
+      org_name: authUser.org_name,
+      location_name: authUser.location_name,
+      from,
+      to,
+      entries: rows.map(paidOutRowToUi)
+    },
+    200,
+    corsOkHeaders
+  );
+}
+
+
+
 /* =========================
    CLEANING MODULE (API)
    ========================= */
@@ -11805,7 +12227,26 @@ const authUser = await authFromRequest(request, env);
     { const m = url.pathname.match(/^\/(?:eod|endofday)\/contacts\/(\d+)$/); if (m && request.method === "PUT") return await handleEodContactsUpdate(request, env, corsOkHeaders, authUser, Number(m[1])); if (m && request.method === "DELETE") return await handleEodContactsDeactivate(request, env, corsOkHeaders, authUser, Number(m[1])); }
 
 
-    // Instructions (global + daily handover)
+    
+    // Paid Out
+    if (url.pathname === "/paid-out/entries" && request.method === "GET") {
+      return await handlePaidOutEntriesList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/paid-out/entries" && request.method === "POST") {
+      return await handlePaidOutEntryCreate(request, env, corsOkHeaders, authUser);
+    }
+    { const m = url.pathname.match(/^\/paid-out\/entries\/(\d+)$/);
+      if (m && request.method === "PUT") return await handlePaidOutEntryUpdate(request, env, corsOkHeaders, authUser, Number(m[1]));
+      if (m && request.method === "DELETE") return await handlePaidOutEntryDelete(request, env, corsOkHeaders, authUser, Number(m[1]));
+    }
+    if (url.pathname === "/paid-out/names" && request.method === "GET") {
+      return await handlePaidOutNames(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/paid-out/report" && request.method === "GET") {
+      return await handlePaidOutReport(request, env, corsOkHeaders, authUser, url);
+    }
+
+// Instructions (global + daily handover)
     if (url.pathname === "/instructions/global" && request.method === "GET") {
       return await handleInstructionsGlobalGet(request, env, corsOkHeaders, authUser);
     }
