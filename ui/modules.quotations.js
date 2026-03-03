@@ -264,7 +264,11 @@
   var state = {
     quotations: [],
     filtered: [],
-    query: "",
+    query: "",                  // kept for API compat (uses queries.keyword)
+    queries: { keyword: "", date: "", supplier: "", description: "" },
+    sort: { key: null, dir: "asc" },
+    selectedIds: {},            // id -> true for selected rows
+    _mount: null,               // stashed mount ref for event handlers
     showAllOrg: false,
     loading: false,
     colVis: defaultColVis(),
@@ -371,7 +375,27 @@
       ".qt-bulk-row{padding:3px 0;font-size:12px;border-bottom:1px solid rgba(255,255,255,.05);font-family:monospace;white-space:pre-wrap;word-break:break-word;}" +
       ".qt-bulk-row:last-child{border-bottom:none;}" +
       ".qt-bulk-row-ok{color:#43d17a;}" +
-      ".qt-bulk-row-err{color:#ff5a7a;}";
+      ".qt-bulk-row-err{color:#ff5a7a;}" +
+
+      // sort
+      ".qt-sortable{cursor:pointer;user-select:none;white-space:nowrap;}" +
+      ".qt-sortable:hover{color:var(--text,#e9eef7);background:rgba(255,255,255,.04);}" +
+      ".qt-sort-icon{margin-left:4px;opacity:.38;font-size:10px;}" +
+      ".qt-sortable.qt-sort-active .qt-sort-icon{opacity:1;color:#5aa2ff;}" +
+      ".qt-sortable.qt-sort-active{color:#5aa2ff;}" +
+
+      // checkbox column
+      ".qt-check-col{width:32px;text-align:center!important;padding:4px 6px!important;}" +
+      ".qt-check-col input[type=checkbox]{accent-color:rgba(58,160,255,.95);width:14px;height:14px;cursor:pointer;vertical-align:middle;}" +
+
+      // mass delete button
+      ".qt-del-sel-btn{padding:9px 14px;border:1px solid rgba(255,80,80,.35);border-radius:12px;" +
+        "background:rgba(255,60,60,.10);color:#ff6b6b;cursor:pointer;font-size:13px;font-weight:800;}" +
+      ".qt-del-sel-btn:hover{background:rgba(255,60,60,.20);border-color:rgba(255,80,80,.55);}" +
+
+      // multi-search row and hint
+      ".qt-search-row{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-bottom:4px;}" +
+      ".qt-search-hint{font-size:11px;color:rgba(233,238,247,.42);margin-bottom:8px;font-style:italic;}";
 
     document.head.appendChild(st);
   }
@@ -379,7 +403,7 @@
   // ─── API ──────────────────────────────────────────────────────────────────
   async function apiList() {
     var qs = [];
-    if (state.query) qs.push("q=" + encodeURIComponent(state.query));
+    if (state.queries.keyword) qs.push("q=" + encodeURIComponent(state.queries.keyword));
     if (state.showAllOrg) qs.push("all_org=1");
     return E.apiFetch("/quotations/entries" + (qs.length ? "?" + qs.join("&") : ""), { method: "GET" });
   }
@@ -946,18 +970,84 @@
   }
 
   // ─── Table rendering ──────────────────────────────────────────────────────
+
+  function getSortVal(row, key) {
+    switch (key) {
+      case "date":        return row.quote_date || "";
+      case "supplier":    return norm(row.supplier || "");
+      case "barcode":     return norm(row.barcode || "");
+      case "stock_code":  return norm(row.stock_code || "");
+      case "description": return norm(row.item_description || "");
+      case "qty":         return Number(row.qty_purchased) || 0;
+      case "qty_free":    return Number(row.qty_free) || 0;
+      case "vat":         return Number(row.vat_rate) || 0;
+      case "cost_excl":   return Number(row.cost_excl_vat) || 0;
+      case "cost_incl":   return Number(row.cost_incl_vat) || 0;
+      case "disc_pct":    return Number(row.discount_pct) || 0;
+      case "disc_euro":   return Number(row.discount_euro) || 0;
+      case "total":       return Number(row.total_incl_vat) || 0;
+      case "retail":      return Number(row.retail_price) || 0;
+      case "profit":      return Number(row.profit) || 0;
+      case "margin":      return Number(row.profit_margin) || 0;
+      case "notes":       return norm(row.notes || "");
+      default:            return "";
+    }
+  }
+
+  function hasActiveFilter() {
+    var q = state.queries;
+    return !!(q.keyword || q.date || q.supplier || q.description);
+  }
+
+  function selectedCount() {
+    return Object.keys(state.selectedIds).filter(function (k) { return !!state.selectedIds[k]; }).length;
+  }
+
+  function updateMassDeleteBtn() {
+    var mount = state._mount;
+    if (!mount) return;
+    var btn = mount.querySelector("#qt-del-selected");
+    if (!btn) return;
+    var cnt = selectedCount();
+    btn.style.display = cnt > 0 ? "" : "none";
+    btn.textContent = "Delete Selected (" + cnt + ")";
+  }
+
   function applyFilter() {
     var all = state.quotations || [];
-    if (!state.query) { state.filtered = all.slice(); return; }
-    var q = norm(state.query);
+    var qs = state.queries;
     state.filtered = all.filter(function (row) {
-      return norm(row.supplier).indexOf(q) >= 0 ||
-        norm(row.item_description).indexOf(q) >= 0 ||
-        norm(row.barcode).indexOf(q) >= 0 ||
-        norm(row.stock_code).indexOf(q) >= 0 ||
-        norm(row.quote_date).indexOf(q) >= 0 ||
-        norm(row.notes).indexOf(q) >= 0;
+      if (qs.keyword) {
+        var q = norm(qs.keyword);
+        var hit = norm(row.supplier).indexOf(q) >= 0 ||
+          norm(row.item_description).indexOf(q) >= 0 ||
+          norm(row.barcode).indexOf(q) >= 0 ||
+          norm(row.stock_code).indexOf(q) >= 0 ||
+          norm(row.quote_date).indexOf(q) >= 0 ||
+          norm(row.notes).indexOf(q) >= 0;
+        if (!hit) return false;
+      }
+      if (qs.date) {
+        var d = norm(qs.date);
+        if (norm(row.quote_date).indexOf(d) < 0 && norm(fmtDate(row.quote_date)).indexOf(d) < 0) return false;
+      }
+      if (qs.supplier) {
+        if (norm(row.supplier).indexOf(norm(qs.supplier)) < 0) return false;
+      }
+      if (qs.description) {
+        if (norm(row.item_description).indexOf(norm(qs.description)) < 0) return false;
+      }
+      return true;
     });
+    if (state.sort.key) {
+      var mul = state.sort.dir === "desc" ? -1 : 1;
+      var sk = state.sort.key;
+      state.filtered.sort(function (a, b) {
+        var av = getSortVal(a, sk), bv = getSortVal(b, sk);
+        if (typeof av === "number" && typeof bv === "number") return (av - bv) * mul;
+        return String(av).localeCompare(String(bv)) * mul;
+      });
+    }
   }
 
   function renderTable(tableWrap) {
@@ -968,30 +1058,41 @@
     var list = state.filtered || [];
     if (!list.length) {
       tableWrap.innerHTML = "<div class='qt-empty'>No entries found." +
-        (state.query ? " Try clearing the search." : " Click \"Add Entry\" to get started.") + "</div>";
+        (hasActiveFilter() ? " Try clearing the search filters." : " Click \"Add Entry\" to get started.") + "</div>";
       return;
+    }
+
+    var allChecked = list.length > 0 && list.every(function (row) { return !!state.selectedIds[String(row.id)]; });
+
+    function th(sortKey, label, extraCls) {
+      var isActive = state.sort.key === sortKey;
+      var arrow = isActive ? (state.sort.dir === "asc" ? "▲" : "▼") : "⇅";
+      var cls = "qt-sortable" + (isActive ? " qt-sort-active" : "") + (extraCls ? " " + extraCls : "");
+      return "<th data-col='" + sortKey + "' data-sort-key='" + sortKey + "' class='" + cls + "'>" +
+        label + "<span class='qt-sort-icon'>" + arrow + "</span></th>";
     }
 
     var html =
       "<div class='qt-table-wrap'><table class='qt-table'>" +
       "<thead><tr>" +
-        "<th data-col='date'>Date</th>" +
-        "<th data-col='supplier'>Supplier</th>" +
-        "<th data-col='barcode'>Barcode</th>" +
-        "<th data-col='stock_code'>Stock Code</th>" +
-        "<th data-col='description'>Description</th>" +
-        "<th data-col='qty' class='num'>Qty</th>" +
-        "<th data-col='qty_free' class='num'>Free</th>" +
-        "<th data-col='vat' class='num'>VAT</th>" +
-        "<th data-col='cost_excl' class='num'>Cost Excl</th>" +
-        "<th data-col='cost_incl' class='num'>Cost Incl</th>" +
-        "<th data-col='disc_pct' class='num'>Disc%</th>" +
-        "<th data-col='disc_euro' class='num'>Disc€</th>" +
-        "<th data-col='total' class='num'>Total Incl</th>" +
-        "<th data-col='retail' class='num'>Retail</th>" +
-        "<th data-col='profit' class='num'>Profit</th>" +
-        "<th data-col='margin' class='num'>Margin%</th>" +
-        "<th data-col='notes'>Notes</th>" +
+        "<th class='qt-check-col'><input type='checkbox' id='qt-sel-all'" + (allChecked ? " checked" : "") + " title='Select / deselect all visible rows'></th>" +
+        th("date", "Date") +
+        th("supplier", "Supplier") +
+        th("barcode", "Barcode") +
+        th("stock_code", "Stock Code") +
+        th("description", "Description") +
+        th("qty", "Qty", "num") +
+        th("qty_free", "Free", "num") +
+        th("vat", "VAT", "num") +
+        th("cost_excl", "Cost Excl", "num") +
+        th("cost_incl", "Cost Incl", "num") +
+        th("disc_pct", "Disc%", "num") +
+        th("disc_euro", "Disc€", "num") +
+        th("total", "Total Incl", "num") +
+        th("retail", "Retail", "num") +
+        th("profit", "Profit", "num") +
+        th("margin", "Margin%", "num") +
+        th("notes", "Notes") +
         "<th class='act'>Actions</th>" +
       "</tr></thead><tbody>";
 
@@ -999,8 +1100,10 @@
       var mc = profitMarginColor(row.profit_margin);
       var locBadge = (state.showAllOrg && row.location_name)
         ? " <span style='font-size:10px;opacity:.55;'>(" + esc(row.location_name) + ")</span>" : "";
+      var checked = !!state.selectedIds[String(row.id)];
       html +=
         "<tr data-id='" + row.id + "'>" +
+          "<td class='qt-check-col'><input type='checkbox' class='qt-row-chk' data-chk='" + row.id + "'" + (checked ? " checked" : "") + "></td>" +
           "<td data-col='date'>" + esc(fmtDate(row.quote_date)) + "</td>" +
           "<td data-col='supplier'>" + esc(row.supplier || "—") + locBadge + "</td>" +
           "<td data-col='barcode'>" + esc(row.barcode || "—") + "</td>" +
@@ -1031,6 +1134,44 @@
 
     html += "</tbody></table></div>";
     tableWrap.innerHTML = html;
+
+    // Wire sortable column headers
+    tableWrap.querySelectorAll("[data-sort-key]").forEach(function (thEl) {
+      thEl.addEventListener("click", function () {
+        var key = thEl.getAttribute("data-sort-key");
+        if (state.sort.key === key) {
+          state.sort.dir = state.sort.dir === "asc" ? "desc" : "asc";
+        } else {
+          state.sort.key = key;
+          state.sort.dir = "asc";
+        }
+        applyFilter();
+        renderTable(tableWrap);
+        applyColVisibility();
+        updateMassDeleteBtn();
+      });
+    });
+
+    // Wire select-all checkbox
+    var selAllEl = tableWrap.querySelector("#qt-sel-all");
+    if (selAllEl) {
+      selAllEl.addEventListener("change", function () {
+        list.forEach(function (row) { state.selectedIds[String(row.id)] = selAllEl.checked; });
+        tableWrap.querySelectorAll(".qt-row-chk").forEach(function (cb) { cb.checked = selAllEl.checked; });
+        updateMassDeleteBtn();
+      });
+    }
+
+    // Wire row checkboxes
+    tableWrap.querySelectorAll(".qt-row-chk").forEach(function (cb) {
+      cb.addEventListener("change", function () {
+        state.selectedIds[String(cb.getAttribute("data-chk"))] = cb.checked;
+        // Update select-all state
+        var allNowChecked = list.every(function (row) { return !!state.selectedIds[String(row.id)]; });
+        if (selAllEl) selAllEl.checked = allNowChecked;
+        updateMassDeleteBtn();
+      });
+    });
 
     // Wire edit/delete buttons
     tableWrap.querySelectorAll("[data-edit]").forEach(function (btn) {
@@ -1077,6 +1218,7 @@
   }
 
   function renderAll(mount) {
+    state._mount = mount;
     applyFilter();
     log("renderAll: loading=" + state.loading + " quotations=" + (state.quotations || []).length + " filtered=" + (state.filtered || []).length + " mountOk=" + !!mount + " tableWrapOk=" + !!(mount && mount.querySelector("#qt-table-container")));
     var tableWrap = mount.querySelector("#qt-table-container");
@@ -1092,6 +1234,7 @@
         ? total + " entr" + (total !== 1 ? "ies" : "y")
         : shown + " / " + total + " entries";
     }
+    updateMassDeleteBtn();
   }
 
   // ─── Main render ──────────────────────────────────────────────────────────
@@ -1103,15 +1246,27 @@
       "<div class='qt-wrap'>" +
         "<div class='qt-head'>" +
           "<div><h2 class='qt-title'>Quotations</h2><div class='qt-sub' id='qt-count'>Loading…</div></div>" +
-          "<div class='qt-controls'>" +
-            "<div class='qt-field'><label>Search</label>" +
-              "<input id='qt-search' type='text' placeholder='Supplier, description, barcode…' style='min-width:220px;'></div>" +
-            "<div style='display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap;'>" +
+          "<div class='qt-controls' style='width:100%;'>" +
+            // ── Row 1: search fields ──────────────────────────────────────────
+            "<div class='qt-search-row'>" +
+              "<div class='qt-field'><label>Keyword</label>" +
+                "<input id='qt-search' type='text' placeholder='Supplier, description, barcode, notes…' style='min-width:200px;'></div>" +
+              "<div class='qt-field'><label>Date</label>" +
+                "<input id='qt-search-date' type='text' placeholder='e.g. 2024-03 or 15/03…' style='min-width:140px;'></div>" +
+              "<div class='qt-field'><label>Supplier</label>" +
+                "<input id='qt-search-supplier' type='text' placeholder='Supplier name…' style='min-width:150px;'></div>" +
+              "<div class='qt-field'><label>Description</label>" +
+                "<input id='qt-search-desc' type='text' placeholder='Item description…' style='min-width:160px;'></div>" +
+            "</div>" +
+            "<div class='qt-search-hint'>Tip: combine multiple filters to narrow results — e.g. Date + Supplier, or Keyword + Description. All active filters work together (AND logic).</div>" +
+            // ── Row 2: action buttons ─────────────────────────────────────────
+            "<div style='display:flex;align-items:center;gap:8px;flex-wrap:wrap;'>" +
               "<button class='qt-toggle' id='qt-org-toggle'>My Location</button>" +
               "<button class='eikon-btn' id='qt-col-btn'>Columns ▾</button>" +
               "<button class='eikon-btn' id='qt-dup-btn'>Find Duplicates</button>" +
               "<button class='eikon-btn' id='qt-add-btn'>Add Entry</button>" +
               "<button class='eikon-btn' id='qt-refresh-btn'>Refresh</button>" +
+              "<button class='qt-del-sel-btn' id='qt-del-selected' style='display:none;'>Delete Selected (0)</button>" +
             "</div>" +
           "</div>" +
         "</div>" +
@@ -1148,21 +1303,81 @@
         "</div>" +
       "</div>";
 
-    var searchEl = mount.querySelector("#qt-search");
-    var toggleEl = mount.querySelector("#qt-org-toggle");
-    var colBtn = mount.querySelector("#qt-col-btn");
-    var dupBtn = mount.querySelector("#qt-dup-btn");
-    var addBtn = mount.querySelector("#qt-add-btn");
-    var refreshBtn = mount.querySelector("#qt-refresh-btn");
+    var searchEl         = mount.querySelector("#qt-search");
+    var searchDateEl     = mount.querySelector("#qt-search-date");
+    var searchSupplierEl = mount.querySelector("#qt-search-supplier");
+    var searchDescEl     = mount.querySelector("#qt-search-desc");
+    var toggleEl         = mount.querySelector("#qt-org-toggle");
+    var colBtn           = mount.querySelector("#qt-col-btn");
+    var dupBtn           = mount.querySelector("#qt-dup-btn");
+    var addBtn           = mount.querySelector("#qt-add-btn");
+    var refreshBtn       = mount.querySelector("#qt-refresh-btn");
+    var delSelBtn        = mount.querySelector("#qt-del-selected");
 
-    // Live search
+    // Live multi-param search (debounced, client-side only)
     var searchTimer = null;
-    searchEl.addEventListener("input", function () {
+    function onSearchInput() {
       clearTimeout(searchTimer);
       searchTimer = setTimeout(function () {
-        state.query = (searchEl.value || "").trim();
+        state.queries.keyword     = (searchEl.value         || "").trim();
+        state.queries.date        = (searchDateEl.value     || "").trim();
+        state.queries.supplier    = (searchSupplierEl.value || "").trim();
+        state.queries.description = (searchDescEl.value     || "").trim();
+        // keep legacy state.query in sync for API calls on next refresh
+        state.query = state.queries.keyword;
         renderAll(mount);
       }, 200);
+    }
+    searchEl.addEventListener("input", onSearchInput);
+    searchDateEl.addEventListener("input", onSearchInput);
+    searchSupplierEl.addEventListener("input", onSearchInput);
+    searchDescEl.addEventListener("input", onSearchInput);
+
+    // Mass delete selected
+    delSelBtn.addEventListener("click", function () {
+      var ids = Object.keys(state.selectedIds).filter(function (k) { return !!state.selectedIds[k]; });
+      if (!ids.length) return;
+      var entries = ids.map(function (id) {
+        return (state.filtered || []).find(function (r) { return String(r.id) === id; }) ||
+               (state.quotations || []).find(function (r) { return String(r.id) === id; });
+      }).filter(Boolean);
+      E.modal.show(
+        "Delete " + ids.length + " Selected " + (ids.length === 1 ? "Entry" : "Entries") + "?",
+        "<div style='margin-bottom:8px;'>This will permanently delete <b>" + ids.length + "</b> selected " +
+          (ids.length === 1 ? "entry" : "entries") + ".</div>" +
+          "<div style='max-height:160px;overflow-y:auto;font-size:12px;opacity:.75;'>" +
+          entries.slice(0, 8).map(function (e) {
+            return "<div style='padding:2px 0;border-bottom:1px solid rgba(255,255,255,.07);'>" +
+              esc(fmtDate(e.quote_date)) + " — " + esc(e.supplier || "?") + " — " + esc(e.item_description) + "</div>";
+          }).join("") +
+          (entries.length > 8 ? "<div style='padding-top:4px;opacity:.6;'>…and " + (entries.length - 8) + " more</div>" : "") +
+          "</div>",
+        [
+          { label: "Cancel", onClick: function () { E.modal.hide(); } },
+          {
+            label: "Delete All",
+            primary: true,
+            onClick: function () {
+              (async function () {
+                E.modal.hide();
+                var failed = 0;
+                for (var i = 0; i < ids.length; i++) {
+                  try {
+                    var r = await apiDelete(ids[i]);
+                    if (!r || !r.ok) throw new Error((r && r.error) || "Delete failed");
+                    delete state.selectedIds[ids[i]];
+                  } catch (ex) {
+                    failed++;
+                    warn("mass delete failed for id=" + ids[i], ex);
+                  }
+                }
+                if (failed > 0) showError("Mass Delete", failed + " deletion(s) failed. Refreshing…");
+                if (state.refresh) state.refresh();
+              })();
+            }
+          }
+        ]
+      );
     });
 
     // Org toggle
