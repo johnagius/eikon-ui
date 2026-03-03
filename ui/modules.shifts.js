@@ -293,6 +293,88 @@
   function actStaff() { return S.staff.filter(function(s){ return s.is_active!==0; }); }
   function pharmStaff() { return actStaff().filter(function(s){ return s.designation==="pharmacist"||s.designation==="locum"; }); }
 
+/* ── Locum worked-hours (YTD, this location) ────────────────── */
+function shiftMinutes(s){
+  try{
+    var st = t2m(s && s.start_time);
+    var et = t2m(s && s.end_time);
+    if(!isFinite(st) || !isFinite(et) || et <= st) return 0;
+    return et - st;
+  }catch(e){ return 0; }
+}
+
+function fmtHoursFromMinutes(mins){
+  var h = (mins||0) / 60;
+  if (!isFinite(h) || h < 0) h = 0;
+  var r = Math.round(h * 10) / 10;
+  var s = (Math.abs(r - Math.round(r)) < 1e-9) ? String(Math.round(r)) : String(r.toFixed(1));
+  return s + "h";
+}
+
+function ymdToday(){
+  var d = new Date();
+  return d.getFullYear() + "-" + pad(d.getMonth()+1) + "-" + pad(d.getDate());
+}
+
+async function ensureLocumWorkedHoursCache(){
+  try{
+    var locums = (S.staff||[]).filter(function(e){ return e && e.designation === "locum"; });
+    if(!locums.length) return null;
+
+    var now = new Date();
+    var yr = now.getFullYear();
+    var toMonth = now.getMonth() + 1; // 1..12
+    var upTo = ymdToday();
+
+    var c = S._locumWorkedHoursCache;
+    if (c && c.year === yr && c.toMonth === toMonth && c.loaded) return c;
+    if (c && c.year === yr && c.toMonth === toMonth && c.loading && c.promise) return await c.promise;
+
+    c = { year: yr, toMonth: toMonth, byStaff: {}, loaded: false, loading: true, promise: null };
+    locums.forEach(function(e){ c.byStaff[e.id] = 0; });
+
+    c.promise = (async function(){
+      var months = [];
+      for (var m=1; m<=toMonth; m++) months.push(m);
+
+      var reqs = months.map(function(mo){
+        return E.apiFetch("/shifts/assignments?year=" + yr + "&month=" + mo, {method:"GET"})
+          .then(function(r){ return (r && r.shifts) ? r.shifts : []; })
+          .catch(function(){ return []; });
+      });
+
+      var lists = await Promise.all(reqs);
+      lists.forEach(function(list){
+        (list||[]).forEach(function(s){
+          if(!s) return;
+          var sid = s.staff_id;
+          if (c.byStaff[sid] == null) return; // not a locum we track
+          if (s.shift_date && String(s.shift_date) > upTo) return; // exclude future shifts
+          c.byStaff[sid] += shiftMinutes(s);
+        });
+      });
+
+      c.loaded = true;
+      c.loading = false;
+      return c;
+    })();
+
+    S._locumWorkedHoursCache = c;
+    return await c.promise;
+  } catch(e){
+    try { if (S._locumWorkedHoursCache) S._locumWorkedHoursCache.loading = false; } catch(_){}
+    return null;
+  }
+}
+
+function locumWorkedMinutes(staffId){
+  try{
+    var c = S._locumWorkedHoursCache;
+    if (!c || !c.byStaff) return 0;
+    return c.byStaff[staffId] || 0;
+  } catch(e){ return 0; }
+}
+
 
   /* ── Pharmacist overlap warning helpers ─────────────────────── */
   function isPharmacistShift(staffObj, shiftObj){
@@ -629,6 +711,11 @@
 
     E.q("#sh-add-emp",m).onclick=function(){ empModal(null,m); };
     renderEmpRows(m);
+
+    // Locums: replace fixed hours with hours worked so far (current year, this location)
+    ensureLocumWorkedHoursCache().then(function(){
+      renderEmpRows(m);
+    });
   }
 
   function renderEmpRows(m) {
@@ -649,8 +736,8 @@
       tr.innerHTML=
         '<td style="'+dim+'"><b>'+esc(e.full_name||"")+'</b></td>'+
         '<td style="'+dim+'"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+col+';margin-right:5px;"></span>'+esc(dl(e.designation))+'</td>'+
-        '<td style="'+dim+'"><span class="eikon-pill" style="font-size:11px;">'+etl(e.employment_type)+'</span></td>'+
-        '<td style="'+dim+'">'+(e.contracted_hours||"—")+'h</td>'+
+        '<td style="'+dim+'"><span class="eikon-pill" style="font-size:11px;">'+etl(isLocum ? "external" : e.employment_type)+'</span></td>'+
+        '<td style="'+dim+'">'+(isLocum ? ('<span title="Hours worked so far this year at this location">'+fmtHoursFromMinutes(locumWorkedMinutes(e.id))+'</span>') : ((e.contracted_hours||"—")+"h"))+'</td>'+
         '<td style="'+dim+'font-size:12px;color:var(--muted);">'+esc(e.email||"")+(e.phone?"<br>"+esc(e.phone):"")+'</td>'+
         '<td style="'+dim+'">'+(isLocum?'<span style="color:var(--muted)">N/A</span>':(b?'<span style="color:'+(b.annualLeft<24?"var(--danger)":"var(--ok)")+'">'+b.annualLeft+'h / '+b.annualEnt+'h</span>':"—"))+'</td>'+
         '<td style="'+dim+'">'+(isLocum?'<span style="color:var(--muted)">N/A</span>':(b?b.sickLeft+'h':"—"))+'</td>'+
@@ -733,7 +820,7 @@
         var p={
           full_name:      E.q("#se-name").value.trim(),
           designation:    E.q("#se-desig").value,
-          employment_type:E.q("#se-type").value,
+          employment_type:(E.q("#se-desig").value==="locum" ? "external" : E.q("#se-type").value),
           contracted_hours:parseFloat(E.q("#se-hrs").value)||40,
           email:          E.q("#se-email").value.trim(),
           phone:          E.q("#se-phone").value.trim(),
@@ -749,6 +836,36 @@
         });
       }}
     ]);
+
+// Locum pharmacists: employment type is always External (hide other options)
+setTimeout(function(){
+  try{
+    var des = document.getElementById("se-desig");
+    var typeSel = document.getElementById("se-type");
+    if(!des || !typeSel) return;
+
+    var nonLocumHTML = typeSel.innerHTML; // current (Full-Time / Part-Time)
+    function sync(){
+      var isLoc = String(des.value||"") === "locum";
+      if(isLoc){
+        typeSel.innerHTML = '<option value="external" selected>External</option>';
+        typeSel.value = "external";
+        typeSel.disabled = true;
+      } else {
+        typeSel.disabled = false;
+        if (typeSel.innerHTML.indexOf('value="fulltime"') === -1 && typeSel.innerHTML.indexOf("value='fulltime'") === -1) {
+          typeSel.innerHTML = nonLocumHTML;
+        } else {
+          typeSel.innerHTML = nonLocumHTML;
+        }
+        if (String(typeSel.value||"") === "external") typeSel.value = "fulltime";
+      }
+    }
+    des.addEventListener("change", sync);
+    sync();
+  } catch(e){}
+}, 30);
+
 
     // Wire pattern manager
     setTimeout(function(){
