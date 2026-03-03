@@ -762,16 +762,16 @@
 
     // --- Alerts ---
     var alRow = "";
-    if (!state.data.alerts) alRow = row("🚨", "Alerts (incomplete)", "Loading…", pill("info", "…"), "");
-    else if (!state.data.alerts.ok) alRow = row("🚨", "Alerts (incomplete)", state.data.alerts.error || "Unavailable", showNA("N/A"), btn("dash-open-alerts", "Open", { small: true }));
+    if (!state.data.alerts) alRow = row("🚨", "Alerts", "Loading…", pill("info", "…"), "");
+    else if (!state.data.alerts.ok) alRow = row("🚨", "Alerts", state.data.alerts.error || "Unavailable", showNA("N/A"), btn("dash-open-alerts", "Open", { small: true }));
     else {
       var al = state.data.alerts.data;
       var n = al.incomplete.length;
-      if (!n) alRow = row("🚨", "Alerts (incomplete)", "All alerts completed", pill("ok", "OK"), btn("dash-open-alerts", "Open", { small: true }));
+      if (!n) alRow = row("🚨", "Alerts", "All alerts completed", pill("ok", "OK"), btn("dash-open-alerts", "Open", { small: true }));
       else {
         alRow = row(
           "🚨",
-          "Alerts (incomplete)",
+          "Alerts",
           n + " alert(s) need attention",
           pill("warn", "Action"),
           btn("dash-alerts-details", "Details", { primary: true, small: true }) +
@@ -782,16 +782,16 @@
 
     // --- Returns ---
     var rtRow = "";
-    if (!state.data.returns) rtRow = row("↩️", "Returns (incomplete)", "Loading…", pill("info", "…"), "");
-    else if (!state.data.returns.ok) rtRow = row("↩️", "Returns (incomplete)", state.data.returns.error || "Unavailable", showNA("N/A"), btn("dash-open-returns", "Open", { small: true }));
+    if (!state.data.returns) rtRow = row("↩️", "Returns", "Loading…", pill("info", "…"), "");
+    else if (!state.data.returns.ok) rtRow = row("↩️", "Returns", state.data.returns.error || "Unavailable", showNA("N/A"), btn("dash-open-returns", "Open", { small: true }));
     else {
       var rr = state.data.returns.data;
       var rn = rr.incomplete.length;
-      if (!rn) rtRow = row("↩️", "Returns (incomplete)", "All returns completed (recent months)", pill("ok", "OK"), btn("dash-open-returns", "Open", { small: true }));
+      if (!rn) rtRow = row("↩️", "Returns", "All returns completed (recent months)", pill("ok", "OK"), btn("dash-open-returns", "Open", { small: true }));
       else {
         rtRow = row(
           "↩️",
-          "Returns (incomplete)",
+          "Returns",
           rn + " return(s) need checkboxes (recent months)",
           pill("warn", "Action"),
           btn("dash-returns-details", "Details", { primary: true, small: true }) +
@@ -1727,3 +1727,4 @@
   });
 
 })();
+
