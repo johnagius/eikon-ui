@@ -92,6 +92,61 @@
   function loadTxns(){ return lsGet("txns") || []; }
   function saveTxns(v){ lsSet("txns",v); }
 
+  // ─── Cloud API helpers ────────────────────────────────────────
+  function apiFetch(path, opts){
+    return E.apiFetch(path, opts || {});
+  }
+
+  async function apiLoadCampaigns(){
+    try {
+      var resp = await apiFetch("/loyalty/campaigns", { method:"GET" });
+      var arr = resp && Array.isArray(resp.campaigns) ? resp.campaigns : null;
+      if(arr){ saveCampaigns(arr); return arr; }
+    } catch(e){ warn("apiLoadCampaigns failed", e && e.message); }
+    return loadCampaigns();
+  }
+
+  async function apiLoadClients(){
+    try {
+      var resp = await apiFetch("/loyalty/clients", { method:"GET" });
+      var arr = resp && Array.isArray(resp.clients) ? resp.clients : null;
+      if(arr){
+        var obj = {};
+        arr.forEach(function(c){ obj[c.id_card] = { id_card:c.id_card, name:c.name }; });
+        saveClients(obj);
+        return obj;
+      }
+    } catch(e){ warn("apiLoadClients failed", e && e.message); }
+    return loadClients();
+  }
+
+  async function apiLoadItems(){
+    try {
+      var resp = await apiFetch("/loyalty/items", { method:"GET" });
+      var arr = resp && Array.isArray(resp.items) ? resp.items : null;
+      if(arr){ saveItems(arr); return arr; }
+    } catch(e){ warn("apiLoadItems failed", e && e.message); }
+    return loadItems();
+  }
+
+  async function apiLoadTxns(){
+    try {
+      var resp = await apiFetch("/loyalty/transactions", { method:"GET" });
+      var arr = resp && Array.isArray(resp.transactions) ? resp.transactions : null;
+      if(arr){ saveTxns(arr); return arr; }
+    } catch(e){ warn("apiLoadTxns failed", e && e.message); }
+    return loadTxns();
+  }
+
+  async function refreshAll(){
+    await Promise.all([
+      apiLoadCampaigns(),
+      apiLoadClients(),
+      apiLoadItems(),
+      apiLoadTxns()
+    ]).catch(function(e){ warn("refreshAll error", e && e.message); });
+  }
+
   // Remember a new item description
   function rememberItem(desc){
     var d = String(desc||"").trim();
@@ -518,6 +573,14 @@
         if(idx>=0){ all[idx].active = !all[idx].active; saveCampaigns(all); }
         renderCampaigns(parentPanel);
         toast(all[idx] && all[idx].active ? "Campaign activated" : "Campaign deactivated", "ok");
+        // Sync to cloud
+        if(idx>=0){
+          apiFetch("/loyalty/campaigns/"+encodeURIComponent(id), {
+            method: "PUT",
+            headers: { "Content-Type":"application/json" },
+            body: JSON.stringify(all[idx])
+          }).catch(function(e){ err("campaign toggle cloud sync failed", e && e.message); });
+        }
       });
     });
     container.querySelectorAll("[data-camp-delete]").forEach(function(btn){
@@ -528,6 +591,9 @@
         saveCampaigns(all);
         renderCampaigns(parentPanel);
         toast("Campaign deleted", "info");
+        // Sync to cloud
+        apiFetch("/loyalty/campaigns/"+encodeURIComponent(id), { method:"DELETE" })
+          .catch(function(e){ err("campaign delete cloud sync failed", e && e.message); });
       });
     });
   }
@@ -632,6 +698,12 @@
       saveCampaigns(all);
       campModal.classList.remove("open");
       toast(isEdit?"Campaign updated":"Campaign created! 🎉","ok");
+      // Sync to cloud (POST handles both create and update via upsert)
+      apiFetch("/loyalty/campaigns", {
+        method: "POST",
+        headers: { "Content-Type":"application/json" },
+        body: JSON.stringify(data)
+      }).catch(function(e){ err("campaign cloud save failed", e && e.message); });
       if(onSave) onSave(data);
     });
   }
@@ -1194,6 +1266,13 @@
     txns.push(txn);
     saveTxns(txns);
 
+    // Sync to cloud
+    apiFetch("/loyalty/transactions", {
+      method: "POST",
+      headers: { "Content-Type":"application/json" },
+      body: JSON.stringify(txn)
+    }).catch(function(e){ err("transaction cloud save failed", e && e.message); });
+
     toast("Transaction recorded! "+actionLabel,"ok",4000);
     showReceiptModal(txn, camp, items);
     if(onDone) onDone(txn);
@@ -1350,6 +1429,9 @@
       overlay.remove();
       toast("Client removed","info");
       renderClients(panel);
+      // Sync to cloud
+      apiFetch("/loyalty/clients/"+encodeURIComponent(idCard), { method:"DELETE" })
+        .catch(function(e){ err("client delete cloud sync failed", e && e.message); });
     });
   }
 
@@ -1403,8 +1485,22 @@
       });
     });
 
-    // Initial render
+    // Initial render from localStorage (fast, no flicker)
     renderDashboard(document.getElementById("ly-tab-dashboard"));
+
+    // Then sync from cloud and refresh the active panel
+    refreshAll().then(function(){
+      var activeTab = el.querySelector(".ly-tab.active");
+      var tabName = activeTab ? activeTab.dataset.tab : "dashboard";
+      var panel = document.getElementById("ly-tab-"+tabName);
+      if(panel){
+        panel.innerHTML = "";
+        if(tabName==="dashboard") renderDashboard(panel);
+        if(tabName==="campaigns") renderCampaigns(panel);
+        if(tabName==="record")    renderRecord(panel);
+        if(tabName==="clients")   renderClients(panel);
+      }
+    }).catch(function(e){ warn("initial cloud sync failed", e && e.message); });
   }
 
   // ─── Register ─────────────────────────────────────────────────
