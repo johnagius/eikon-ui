@@ -54,8 +54,16 @@
     var retail = Math.max(0, Number(f.retail_price) || 0);
     var le = f._lastEdited || "";
 
-    // VAT cross-calc
-    if (vat === 0) {
+    // Reverse calc: user typed Total Incl VAT → derive cost_excl / cost_incl
+    if (le === "total_incl") {
+      var tiv = Math.max(0, Number(f.total_incl_vat) || 0);
+      var effInclUnit = qty > 0 ? tiv / qty : 0;
+      var effExclUnit = vat === 0 ? effInclUnit : (mult > 0 ? round2(effInclUnit / mult) : 0);
+      excl = round2(effExclUnit + discEuro);
+      incl = vat === 0 ? excl : round2(excl * mult);
+      discPct = excl > 0 ? round2(discEuro / excl * 100) : 0;
+    } else if (vat === 0) {
+      // VAT cross-calc
       if (le === "cost_excl" || le === "vat") incl = excl;
       else excl = incl;
     } else {
@@ -76,7 +84,8 @@
     var effIncl = vat === 0 ? effExcl : round2(effExcl * mult);
     var totalInclVat = round2(effIncl * qty);
     var totalRetail = round2(retail * (qty + free));
-    var profit = round2(totalRetail - totalInclVat);
+    // Profit uses cost EXCL VAT — input VAT is reclaimed by the business
+    var profit = round2(totalRetail - effExcl * qty);
     var margin = totalRetail > 0 ? round2(profit / totalRetail * 100) : 0;
 
     return {
@@ -412,7 +421,7 @@
       item_description: String(row.item_description || "").trim(),
       qty_purchased: String(row.qty_purchased || "1"),
       qty_free: String(row.qty_free || "0"),
-      vat_rate: String(row.vat_rate !== undefined ? row.vat_rate : "18"),
+      vat_rate: String(row.vat_rate !== undefined ? row.vat_rate : "0"),
       cost_excl_vat: row.cost_excl_vat ? fmt2(row.cost_excl_vat) : "",
       cost_incl_vat: row.cost_incl_vat ? fmt2(row.cost_incl_vat) : "",
       discount_pct: row.discount_pct ? fmt2(row.discount_pct) : "",
@@ -472,8 +481,8 @@
       "</div>" +
       // Row 6: total (auto) + retail
       "<div class='qt-form-grid-2'>" +
-        "<div class='qt-field'><label>Total Incl. VAT — auto</label>" +
-          "<input id='qt-i-total' class='qt-ro' type='text' readonly value='" + esc(iv.total_incl_vat) + "' placeholder='Auto'></div>" +
+        "<div class='qt-field'><label>Total Incl. VAT (€)</label>" +
+          "<input id='qt-i-total' type='number' min='0' step='0.01' value='" + esc(iv.total_incl_vat) + "' placeholder='0.00'></div>" +
         "<div class='qt-field'><label>Retail Price (€)</label>" +
           "<input id='qt-i-retail' type='number' min='0' step='0.01' value='" + esc(iv.retail_price) + "' placeholder='0.00'></div>" +
       "</div>" +
@@ -498,21 +507,31 @@
         onClick: function () {
           (async function () {
             try {
+              log("Save clicked — isEdit:", isEdit);
+
               var desc = (getEl("#qt-i-desc").value || "").trim();
-              if (!desc) throw new Error("Item Description is required");
+              if (!desc) { log("Validation fail: no description"); throw new Error("Item Description is required"); }
               var date = (getEl("#qt-i-date").value || "").trim();
-              if (!isYmd(date)) throw new Error("Valid date is required");
+              if (!isYmd(date)) { log("Validation fail: bad date:", date); throw new Error("Valid date is required"); }
 
               var qty = Math.max(1, parseInt(getEl("#qt-i-qty").value, 10) || 1);
               var free = Math.max(0, parseInt(getEl("#qt-i-free").value, 10) || 0);
-              var vatRate = Number(getEl("#qt-i-vat").value);
-              var exclVal = Number(getEl("#qt-i-excl").value) || 0;
-              var inclVal = Number(getEl("#qt-i-incl").value) || 0;
-              var dpct = Number(getEl("#qt-i-dpct").value) || 0;
+              // parseFloat to avoid Number("0")||default silently promoting 0% → 18%
+              var vatRate = parseFloat(getEl("#qt-i-vat").value);
+              if (isNaN(vatRate)) vatRate = 0;
+              var exclVal  = Number(getEl("#qt-i-excl").value)  || 0;
+              var inclVal  = Number(getEl("#qt-i-incl").value)  || 0;
+              var totalVal = Number(getEl("#qt-i-total").value) || 0;
+              var dpct  = Number(getEl("#qt-i-dpct").value)  || 0;
               var deuro = Number(getEl("#qt-i-deuro").value) || 0;
               var retail = Math.max(0, Number(getEl("#qt-i-retail").value) || 0);
 
-              // Use whichever cost field has a value, recalc the other
+              log("Raw fields: vat=" + vatRate + " excl=" + exclVal + " incl=" + inclVal + " total=" + totalVal + " disc%=" + dpct + " disc€=" + deuro + " qty=" + qty + " free=" + free + " retail=" + retail);
+
+              // Determine which cost field was the source of truth
+              var lastEdited = exclVal ? "cost_excl" : inclVal ? "cost_incl" : totalVal ? "total_incl" : "cost_excl";
+              log("lastEdited:", lastEdited);
+
               var calcInput = {
                 vat_rate: vatRate,
                 cost_excl_vat: exclVal,
@@ -522,9 +541,12 @@
                 qty_purchased: qty,
                 qty_free: free,
                 retail_price: retail,
-                _lastEdited: exclVal ? "cost_excl" : "cost_incl"
+                total_incl_vat: totalVal,
+                _lastEdited: lastEdited
               };
+              log("calcInput:", JSON.stringify(calcInput));
               var calc = recalcItem(calcInput);
+              log("recalcItem result:", JSON.stringify(calc));
 
               var payload = {
                 supplier: (getEl("#qt-i-supplier").value || "").trim(),
@@ -545,12 +567,18 @@
                 quote_date: date,
                 notes: (getEl("#qt-i-notes").value || "").trim()
               };
+              log("Payload to send:", JSON.stringify(payload));
+              log("Calling API:", isEdit ? "PUT /quotations/entries/" + row.id : "POST /quotations/entries");
 
               var resp = isEdit ? await apiUpdate(row.id, payload) : await apiCreate(payload);
-              if (!resp || !resp.ok) throw new Error((resp && resp.error) || "Save failed");
+              log("API response:", JSON.stringify(resp));
+
+              if (!resp || !resp.ok) throw new Error((resp && resp.error) || "Save failed — see console for details");
               E.modal.hide();
+              log("Save success, refreshing table…");
               if (state.refresh) state.refresh();
             } catch (e) {
+              warn("Save error:", e && (e.message || e));
               showError("Save failed", e);
             }
           })();
@@ -579,15 +607,18 @@
     }
 
     function gatherFields() {
+      // NOTE: use parseFloat for vat_rate — Number("0")||18 would give 18 when VAT is 0%
+      var vatEl = getEl("#qt-i-vat");
       return {
-        vat_rate: Number((getEl("#qt-i-vat") || {}).value) || 18,
+        vat_rate: vatEl ? parseFloat(vatEl.value) : 0,
         cost_excl_vat: Number((getEl("#qt-i-excl") || {}).value) || 0,
         cost_incl_vat: Number((getEl("#qt-i-incl") || {}).value) || 0,
         discount_pct: Number((getEl("#qt-i-dpct") || {}).value) || 0,
         discount_euro: Number((getEl("#qt-i-deuro") || {}).value) || 0,
         qty_purchased: Math.max(1, parseInt((getEl("#qt-i-qty") || {}).value, 10) || 1),
         qty_free: Math.max(0, parseInt((getEl("#qt-i-free") || {}).value, 10) || 0),
-        retail_price: Number((getEl("#qt-i-retail") || {}).value) || 0
+        retail_price: Number((getEl("#qt-i-retail") || {}).value) || 0,
+        total_incl_vat: Number((getEl("#qt-i-total") || {}).value) || 0
       };
     }
 
@@ -595,6 +626,7 @@
       var f = gatherFields();
       f._lastEdited = lastEdited;
       var r = recalcItem(f);
+      log("calc:", lastEdited, "→ excl=" + r.cost_excl_vat + " incl=" + r.cost_incl_vat + " total=" + r.total_incl_vat + " profit=" + r.profit + " margin=" + r.profit_margin + "%");
 
       // Update ONLY the opposite cross-fill field, never the active field
       if (lastEdited === "cost_excl")     setVal("#qt-i-incl",  r.cost_incl_vat);
@@ -605,8 +637,14 @@
         if (f.cost_excl_vat) setVal("#qt-i-incl", r.cost_incl_vat);
         else if (f.cost_incl_vat) setVal("#qt-i-excl", r.cost_excl_vat);
       }
+      // Reverse calc from total: update cost fields (setVal guards against active element)
+      if (lastEdited === "total_incl") {
+        setVal("#qt-i-excl", r.cost_excl_vat);
+        setVal("#qt-i-incl", r.cost_incl_vat);
+        setVal("#qt-i-dpct", r.discount_pct);
+      }
 
-      // Always update read-only outputs
+      // Always update outputs (setVal guards against overwriting the active/focused field)
       setVal("#qt-i-total",  r.total_incl_vat);
       setVal("#qt-i-profit", r.profit);
       updateMarginDisplay(r.profit_margin);
@@ -624,8 +662,9 @@
     on("#qt-i-qty",   "input",  "qty");
     on("#qt-i-free",  "input",  "qty");
     on("#qt-i-retail","input",  "retail");
+    on("#qt-i-total", "input",  "total_incl");
 
-    // Initial calculation (populate read-only outputs on open)
+    // Initial calculation (populate outputs on open)
     var f0 = gatherFields();
     if (f0.cost_excl_vat) calc("cost_excl");
     else if (f0.cost_incl_vat) calc("cost_incl");
