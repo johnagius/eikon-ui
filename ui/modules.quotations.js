@@ -1214,7 +1214,11 @@
     if (gptLinkEl) {
       gptLinkEl.addEventListener("click", function () {
         var a = document.createElement("a");
-        a.href = "https://chatgpt.com/g/g-69a717442e348191950843c857f4801e-invoice-extractor";
+        // Point at our own-origin shim rather than ChatGPT directly.
+        // A same-origin new tab never triggers the Firefox COOP interstitial;
+        // the shim page then JS-navigates (window.location.replace) to ChatGPT
+        // as a normal in-tab navigation — no popup/opener COOP check involved.
+        a.href = "/go/gpt-extractor";
         a.target = "_blank";
         a.rel = "noopener noreferrer";
         a.style.display = "none";
