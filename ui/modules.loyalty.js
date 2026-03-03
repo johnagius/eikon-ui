@@ -1309,8 +1309,91 @@
 
     document.body.appendChild(overlay);
     overlay.querySelector("#ly-receipt-close").addEventListener("click", function(){ overlay.remove(); });
-    overlay.querySelector("#ly-receipt-print").addEventListener("click", function(){ window.print(); });
+    overlay.querySelector("#ly-receipt-print").addEventListener("click", function(){ printReceipt(txn, camp, items); });
     overlay.addEventListener("click", function(e){ if(e.target===overlay) overlay.remove(); });
+  }
+
+  // ─── Print helpers ────────────────────────────────────────────
+  function printReceipt(txn, camp, items){
+    var w = window.open("","_blank");
+    if(!w){ toast("Popup blocked – allow popups and try again","err"); return; }
+    var conf = typeConf(camp.type);
+    function safe(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
+    var itemsHtml = items.map(function(it){
+      return '<div class="row"><span>'+safe(it.desc)+'</span><span>&times;'+safe(it.qty)+'</span></div>';
+    }).join("");
+    var html =
+      '<!doctype html><html><head><meta charset="utf-8"><title>Loyalty Receipt</title>'
+      + '<style>'
+      + 'body{font-family:"Courier New",monospace;margin:30px;font-size:13px;color:#111;}'
+      + 'button{position:fixed;right:14px;top:14px;padding:8px 12px;font-weight:800;font-size:13px;cursor:pointer;border-radius:8px;border:1px solid #ccc;background:#f5f5f5;}'
+      + '.receipt{max-width:380px;margin:0 auto;border:1px dashed #aaa;border-radius:10px;padding:20px;}'
+      + '.head{text-align:center;margin-bottom:14px;padding-bottom:12px;border-bottom:1px dashed #bbb;}'
+      + '.head .camp{font-size:15px;font-weight:bold;}'
+      + '.head .ts{font-size:11px;color:#666;}'
+      + '.row{display:flex;justify-content:space-between;gap:10px;margin:3px 0;}'
+      + '.divider{border-top:1px dashed #ccc;margin:8px 0;}'
+      + '.foot{text-align:center;margin-top:14px;padding-top:12px;border-top:1px dashed #bbb;font-size:12px;color:#555;}'
+      + '@media print{button{display:none!important;}}'
+      + '</style></head><body>'
+      + '<button onclick="window.print()">&#128424; Print</button>'
+      + '<div class="receipt">'
+      + '<div class="head"><b>Loyalty Transaction</b><br><span class="camp">'+safe(camp.name)+'</span><br><span class="ts">'+safe(fmtTs(txn.created_at))+'</span></div>'
+      + '<div class="row"><span>Client:</span><b>'+safe(txn.client_name||txn.client_id)+'</b></div>'
+      + '<div class="row"><span>ID Card:</span><span>'+safe(txn.client_id)+'</span></div>'
+      + (txn.receipt_no?'<div class="row"><span>Receipt No:</span><span>'+safe(txn.receipt_no)+'</span></div>':"")
+      + '<div class="divider"></div>'
+      + itemsHtml
+      + (txn.total?'<div class="divider"></div><div class="row"><b>Total:</b><b>&euro;'+safe(txn.total.toFixed(2))+'</b></div>':"")
+      + '<div class="divider"></div>'
+      + '<div class="row"><span>'+safe(conf.icon+' '+conf.label)+':</span><b>'+safe(txn.action_label)+'</b></div>'
+      + (txn.notes?'<div style="margin-top:6px;font-size:11px;color:#666;">Notes: '+safe(txn.notes)+'</div>':"")
+      + '<div class="foot">Thank you for your loyalty! &#x1F49B;</div>'
+      + '</div>'
+      + '<scr'+'ipt>setTimeout(function(){try{window.print()}catch(e){}},250);<\/scr'+'ipt>'
+      + '</body></html>';
+    w.document.open(); w.document.write(html); w.document.close();
+  }
+
+  function printClientHistory(client, ctxns, campMap){
+    var w = window.open("","_blank");
+    if(!w){ toast("Popup blocked – allow popups and try again","err"); return; }
+    function safe(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
+    var rowsHtml = ctxns.slice().reverse().map(function(t){
+      var camp = campMap[t.campaign_id];
+      var conf = camp ? typeConf(camp.type) : {icon:"",label:""};
+      var itemsText = (t.items||[]).map(function(i){ return i.desc+" \xd7"+i.qty; }).join(", ");
+      return '<tr>'
+        + '<td>'+safe(fmtTs(t.created_at||t.date))+'</td>'
+        + '<td>'+(camp?safe(conf.icon+" "+camp.name):"&mdash;")+'</td>'
+        + '<td>'+safe(itemsText)+'</td>'
+        + '<td>'+safe(t.action_label||"")+'</td>'
+        + '<td>'+safe(t.receipt_no||"")+'</td>'
+        + '</tr>';
+    }).join("");
+    var html =
+      '<!doctype html><html><head><meta charset="utf-8">'
+      + '<title>Loyalty History &ndash; '+safe(client.name||client.id_card)+'</title>'
+      + '<style>'
+      + 'body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:18px;color:#111;font-size:12px;}'
+      + 'button{position:fixed;right:14px;top:14px;padding:8px 12px;font-weight:800;font-size:13px;cursor:pointer;border-radius:8px;border:1px solid #ccc;background:#f5f5f5;}'
+      + 'h1{margin:0 0 4px 0;font-size:18px;}'
+      + '.meta{font-size:11px;color:#555;margin-bottom:12px;}'
+      + 'table{width:100%;border-collapse:collapse;}'
+      + 'th,td{border:1px solid #ddd;padding:5px 7px;font-size:11px;vertical-align:top;}'
+      + 'th{background:#f0f2f5;text-align:left;font-weight:800;}'
+      + 'tr:nth-child(even){background:#fafbfc;}'
+      + '@media print{button{display:none!important;}}'
+      + '</style></head><body>'
+      + '<button onclick="window.print()">&#128424; Print</button>'
+      + '<h1>Loyalty History &ndash; '+safe(client.name||client.id_card)+'</h1>'
+      + '<div class="meta">ID Card: '+safe(client.id_card)+' &nbsp;&middot;&nbsp; Transactions: '+safe(String(ctxns.length))+' &nbsp;&middot;&nbsp; Printed: '+safe(new Date().toLocaleString())+'</div>'
+      + (ctxns.length
+          ? '<table><thead><tr><th>Date</th><th>Campaign</th><th>Items</th><th>Action</th><th>Receipt</th></tr></thead><tbody>'+rowsHtml+'</tbody></table>'
+          : '<p>No transactions recorded for this client.</p>')
+      + '<scr'+'ipt>setTimeout(function(){try{window.print()}catch(e){}},250);<\/scr'+'ipt>'
+      + '</body></html>';
+    w.document.open(); w.document.write(html); w.document.close();
   }
 
   // ─── CLIENTS ─────────────────────────────────────────────────
@@ -1413,12 +1496,15 @@
         )
       + '<div class="ly-modal-actions">'
       + '<button class="ly-btn danger" id="cl-del-btn">🗑 Remove Client</button>'
+      + (ctxns.length ? '<button class="ly-btn" id="cl-print-btn">🖨 Print History</button>' : "")
       + '<button class="ly-btn primary" id="cl-close-btn">Close</button>'
       + '</div></div>';
 
     document.body.appendChild(overlay);
     overlay.querySelector("#cl-close-btn").addEventListener("click", function(){ overlay.remove(); });
     overlay.addEventListener("click", function(e){ if(e.target===overlay) overlay.remove(); });
+    var printBtn = overlay.querySelector("#cl-print-btn");
+    if(printBtn) printBtn.addEventListener("click", function(){ printClientHistory(client, ctxns, campMap); });
     overlay.querySelector("#cl-del-btn").addEventListener("click", function(){
       if(!confirm("Remove this client and all their loyalty history? This cannot be undone.")) return;
       var clients = loadClients();
