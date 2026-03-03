@@ -636,7 +636,11 @@
     tb.innerHTML="";
     var all = S.staff.slice().sort(function(a,b){ return (a.full_name||"").localeCompare(b.full_name||""); });
     if(!all.length){ tb.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px;">No staff yet. Click "+ Add Employee".</td></tr>'; return; }
-    all.forEach(function(e){
+
+    var regular = all.filter(function(e){ return e.designation !== "locum"; });
+    var locums  = all.filter(function(e){ return e.designation === "locum"; });
+
+    function appendEmpRow(e){
       var b=bal(e.id);
       var col=dc(e.designation);
       var tr=document.createElement("tr");
@@ -663,7 +667,17 @@
       db.onclick=function(){ safeConfirmDeleteStaff(e,function(){ renderEmpRows(m); }); };
       act.appendChild(db);
       tb.appendChild(tr);
-    });
+    
+    }
+
+    regular.forEach(appendEmpRow);
+
+    if(locums.length){
+      var sep=document.createElement("tr");
+      sep.innerHTML = '<td colspan="9" style="padding:10px 8px;color:var(--muted);font-weight:900;border-top:1px solid var(--border);background:rgba(255,255,255,.02);">Locum Pharmacists</td>';
+      tb.appendChild(sep);
+      locums.forEach(appendEmpRow);
+    }
   }
 
   function empModal(e, mountRef) {
