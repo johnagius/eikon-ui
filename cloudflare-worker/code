@@ -1848,7 +1848,8 @@ function computeItemProfitFields(body) {
   const effIncl = vatRate === 0 ? effExcl : effExcl * mult;
   const totalInclVat = Math.round(effIncl * qtyPurchased * 100) / 100;
   const totalRetail = retailPrice * (qtyPurchased + qtyFree);
-  const profit = Math.round((totalRetail - totalInclVat) * 100) / 100;
+  // Profit uses cost EXCL VAT — input VAT is reclaimed by the business
+  const profit = Math.round((totalRetail - effExcl * qtyPurchased) * 100) / 100;
   const profitMargin = totalRetail > 0 ? Math.round((profit / totalRetail) * 10000) / 100 : 0;
 
   return {

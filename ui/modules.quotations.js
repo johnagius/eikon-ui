@@ -927,6 +927,7 @@
 
   function renderAll(mount) {
     applyFilter();
+    log("renderAll: loading=" + state.loading + " quotations=" + (state.quotations || []).length + " filtered=" + (state.filtered || []).length + " mountOk=" + !!mount + " tableWrapOk=" + !!(mount && mount.querySelector("#qt-table-container")));
     var tableWrap = mount.querySelector("#qt-table-container");
     var colPanel = mount.querySelector("#qt-col-panel");
     var countEl = mount.querySelector("#qt-count");
@@ -1007,16 +1008,21 @@
 
     // Refresh
     state.refresh = async function () {
+      log("refresh: start, showAllOrg=" + state.showAllOrg + " query=" + JSON.stringify(state.query));
       state.loading = true;
       renderAll(mount);
       try {
         var resp = await apiList();
+        log("refresh: raw resp keys=" + (resp ? Object.keys(resp).join(",") : "null"));
+        log("refresh: resp.ok=" + (resp && resp.ok) + " entries=" + (resp && resp.entries ? resp.entries.length : "undefined"));
+        if (resp && resp.entries) log("refresh: first entry=" + JSON.stringify((resp.entries[0] || null)));
         state.quotations = (resp && resp.entries) || [];
+        log("refresh: state.quotations.length=" + state.quotations.length);
         state.loading = false;
         renderAll(mount);
       } catch (e) {
         state.loading = false;
-        warn("load failed", e);
+        warn("refresh load failed:", e && (e.message || e));
         renderAll(mount);
         showError("Failed to load quotations", e);
       }
