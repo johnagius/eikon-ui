@@ -308,7 +308,7 @@
       ".qt-col-item{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:800;color:var(--text,#e9eef7);cursor:pointer;user-select:none;}" +
       ".qt-col-item input[type=checkbox]{accent-color:rgba(58,160,255,.95);width:14px;height:14px;cursor:pointer;}" +
 
-      ".qt-table-wrap{overflow:auto;border:1px solid var(--line,rgba(255,255,255,.10));border-radius:14px;background:rgba(10,16,24,.18);}" +
+      ".qt-table-wrap{overflow:auto;max-height:220px;border:1px solid var(--line,rgba(255,255,255,.10));border-radius:14px;background:rgba(10,16,24,.18);}" +
       ".qt-table{border-collapse:collapse;min-width:100%;color:var(--text,#e9eef7);font-size:12px;}" +
       ".qt-table th,.qt-table td{border-bottom:1px solid var(--line,rgba(255,255,255,.10));padding:7px 10px;vertical-align:middle;white-space:nowrap;}" +
       ".qt-table th{background:rgba(12,19,29,.92);position:sticky;top:0;z-index:1;" +
@@ -358,7 +358,7 @@
       ".qt-bulk-title{margin:0 0 12px;font-size:15px;font-weight:900;color:var(--text,#e9eef7);letter-spacing:-.2px;}" +
       ".qt-bulk-instr{margin-bottom:14px;font-size:13px;color:rgba(233,238,247,.78);line-height:1.7;}" +
       ".qt-bulk-instr p{margin:3px 0;}" +
-      ".qt-bulk-link{color:#5aa2ff;text-decoration:underline;}" +
+      ".qt-bulk-link{color:#5aa2ff;text-decoration:underline;background:none;border:none;padding:0;cursor:pointer;font-size:inherit;font-family:inherit;}" +
       ".qt-bulk-note{font-size:11.5px;color:rgba(233,238,247,.50)!important;margin-top:6px!important;}" +
       "#qt-bulk-input{width:100%;box-sizing:border-box;font-family:monospace;font-size:11.5px;resize:vertical;min-height:140px;}" +
       ".qt-bulk-status{font-size:13px;margin:10px 0;line-height:1.5;}" +
@@ -1121,9 +1121,8 @@
           "<h3 class='qt-bulk-title'>Bulk Import via AI Invoice Extractor</h3>" +
           "<div class='qt-bulk-instr'>" +
             "<p>1. Upload your supplier invoice to the " +
-              "<a class='qt-bulk-link' " +
-                "href='https://chatgpt.com/g/g-69a717442e348191950843c857f4801e-invoice-extractor' " +
-                "target='_blank' rel='noopener'>Invoice Extractor GPT ↗</a></p>" +
+              "<button class='qt-bulk-link' id='qt-gpt-link'>Invoice Extractor GPT ↗</button>" +
+            "</p>" +
             "<p>2. Copy the entire table that ChatGPT produces</p>" +
             "<p>3. Paste it in the box below and click <b>Submit Bulk Import</b></p>" +
             "<p class='qt-bulk-note'>" +
@@ -1208,6 +1207,23 @@
     refreshBtn.addEventListener("click", function () { if (state.refresh) state.refresh(); });
 
     // ── Bulk import handlers ──────────────────────────────────────────────────
+    // GPT link — programmatic anchor click avoids sandbox popup-block and
+    // rel="noopener noreferrer" stops the Firefox COOP interstitial and
+    // removes the Referer header that ChatGPT blocks.
+    var gptLinkEl = mount.querySelector("#qt-gpt-link");
+    if (gptLinkEl) {
+      gptLinkEl.addEventListener("click", function () {
+        var a = document.createElement("a");
+        a.href = "https://chatgpt.com/g/g-69a717442e348191950843c857f4801e-invoice-extractor";
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        a.style.display = "none";
+        document.body.appendChild(a);
+        try { a.click(); } catch (e) {}
+        setTimeout(function () { try { document.body.removeChild(a); } catch (e2) {} }, 200);
+      });
+    }
+
     var bulkInputEl  = mount.querySelector("#qt-bulk-input");
     var bulkStatusEl = mount.querySelector("#qt-bulk-status");
     var bulkSubmitEl = mount.querySelector("#qt-bulk-submit");
