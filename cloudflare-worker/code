@@ -1797,23 +1797,12 @@ async function ensureClientOrdersSchema(env) {
    ========================= */
 
 async function ensureQuotationsSchema(env) {
-  await dbRun(env, `CREATE TABLE IF NOT EXISTS quotations (
+  // Flat table — each row is one quotation line (supplier is just a column)
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS quotation_entries (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     org_id INTEGER NOT NULL,
     location_id INTEGER NOT NULL,
-    supplier_name TEXT NOT NULL DEFAULT '',
-    quote_ref TEXT NOT NULL DEFAULT '',
-    quote_date TEXT NOT NULL,
-    notes TEXT NOT NULL DEFAULT '',
-    created_by INTEGER,
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-  )`, []);
-
-  await dbRun(env, `CREATE TABLE IF NOT EXISTS quotation_items (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    quotation_id INTEGER NOT NULL,
-    org_id INTEGER NOT NULL,
+    supplier TEXT NOT NULL DEFAULT '',
     barcode TEXT NOT NULL DEFAULT '',
     stock_code TEXT NOT NULL DEFAULT '',
     item_description TEXT NOT NULL DEFAULT '',
@@ -1828,13 +1817,14 @@ async function ensureQuotationsSchema(env) {
     retail_price REAL NOT NULL DEFAULT 0,
     profit REAL NOT NULL DEFAULT 0,
     profit_margin REAL NOT NULL DEFAULT 0,
-    sort_order INTEGER NOT NULL DEFAULT 0,
+    quote_date TEXT NOT NULL,
+    notes TEXT NOT NULL DEFAULT '',
+    created_by INTEGER,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   )`, []);
 
-  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_quotations_org_loc_date ON quotations (org_id, location_id, quote_date)`, []);
-  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_quotation_items_quotation ON quotation_items (quotation_id)`, []);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_quotation_entries_org_loc_date ON quotation_entries (org_id, location_id, quote_date)`, []);
 }
 
 function normalizeVatRate(v) {
@@ -1873,235 +1863,137 @@ function computeItemProfitFields(body) {
   };
 }
 
-async function handleQuotationsList(request, env, corsOkHeaders, authUser, url) {
+async function handleQuotationsEntriesList(request, env, corsOkHeaders, authUser, url) {
   await ensureQuotationsSchema(env);
 
   const q = (url.searchParams.get("q") || "").trim();
   const allOrg = url.searchParams.get("all_org") === "1";
 
-  const headerSql = allOrg
-    ? `SELECT q.*, l.name AS location_name, u.full_name AS created_by_name
-       FROM quotations q
-       LEFT JOIN locations l ON l.id = q.location_id
-       LEFT JOIN users u ON u.id = q.created_by
-       WHERE q.org_id = ?
-       ORDER BY q.quote_date DESC, q.id DESC`
-    : `SELECT q.*, l.name AS location_name, u.full_name AS created_by_name
-       FROM quotations q
-       LEFT JOIN locations l ON l.id = q.location_id
-       LEFT JOIN users u ON u.id = q.created_by
-       WHERE q.org_id = ? AND q.location_id = ?
-       ORDER BY q.quote_date DESC, q.id DESC`;
-  const headerBind = allOrg ? [authUser.org_id] : [authUser.org_id, authUser.location_id];
+  const sql = allOrg
+    ? `SELECT e.*, l.name AS location_name, u.full_name AS created_by_name
+       FROM quotation_entries e
+       LEFT JOIN locations l ON l.id = e.location_id
+       LEFT JOIN users u ON u.id = e.created_by
+       WHERE e.org_id = ?
+       ORDER BY e.quote_date DESC, e.id DESC`
+    : `SELECT e.*, l.name AS location_name, u.full_name AS created_by_name
+       FROM quotation_entries e
+       LEFT JOIN locations l ON l.id = e.location_id
+       LEFT JOIN users u ON u.id = e.created_by
+       WHERE e.org_id = ? AND e.location_id = ?
+       ORDER BY e.quote_date DESC, e.id DESC`;
+  const bind = allOrg ? [authUser.org_id] : [authUser.org_id, authUser.location_id];
 
-  const allHeaders = await dbAll(env, headerSql, headerBind);
+  let entries = await dbAll(env, sql, bind);
 
-  // Load all items for matching org (or location)
-  const itemSql = allOrg
-    ? `SELECT * FROM quotation_items WHERE org_id = ? ORDER BY quotation_id ASC, sort_order ASC, id ASC`
-    : `SELECT qi.* FROM quotation_items qi
-       INNER JOIN quotations q ON q.id = qi.quotation_id
-       WHERE qi.org_id = ? AND q.location_id = ?
-       ORDER BY qi.quotation_id ASC, qi.sort_order ASC, qi.id ASC`;
-  const itemBind = allOrg ? [authUser.org_id] : [authUser.org_id, authUser.location_id];
-  const allItems = await dbAll(env, itemSql, itemBind);
-
-  // Group items by quotation_id
-  const itemsByQid = {};
-  for (const item of allItems) {
-    if (!itemsByQid[item.quotation_id]) itemsByQid[item.quotation_id] = [];
-    itemsByQid[item.quotation_id].push(item);
-  }
-
-  // Attach items to headers
-  let quotations = allHeaders.map(h => ({ ...h, items: itemsByQid[h.id] || [] }));
-
-  // Search filter (client-side on loaded data)
   if (q) {
     const qLow = q.toLowerCase();
-    quotations = quotations.filter(row => {
-      if ((row.supplier_name || "").toLowerCase().includes(qLow)) return true;
-      if ((row.quote_ref || "").toLowerCase().includes(qLow)) return true;
-      if ((row.quote_date || "").toLowerCase().includes(qLow)) return true;
-      if ((row.notes || "").toLowerCase().includes(qLow)) return true;
-      return (row.items || []).some(it =>
-        (it.item_description || "").toLowerCase().includes(qLow) ||
-        (it.barcode || "").toLowerCase().includes(qLow) ||
-        (it.stock_code || "").toLowerCase().includes(qLow)
-      );
-    });
+    entries = entries.filter(row =>
+      (row.supplier || "").toLowerCase().includes(qLow) ||
+      (row.item_description || "").toLowerCase().includes(qLow) ||
+      (row.barcode || "").toLowerCase().includes(qLow) ||
+      (row.stock_code || "").toLowerCase().includes(qLow) ||
+      (row.quote_date || "").toLowerCase().includes(qLow) ||
+      (row.notes || "").toLowerCase().includes(qLow)
+    );
   }
 
-  return jsonResponse({ ok: true, quotations }, 200, corsOkHeaders);
+  return jsonResponse({ ok: true, entries }, 200, corsOkHeaders);
 }
 
-async function handleQuotationCreate(request, env, corsOkHeaders, authUser) {
+async function handleQuotationsEntryCreate(request, env, corsOkHeaders, authUser) {
   await ensureQuotationsSchema(env);
-
-  const body = await readJson(request);
-  const supplierName = String(body.supplier_name || "").trim();
-  const quoteRef = String(body.quote_ref || "").trim();
-  const quoteDate = String(body.quote_date || "").trim();
-  const notes = String(body.notes || "").trim();
-
-  if (!isValidYmd(quoteDate)) return jsonResponse({ ok: false, error: "Invalid quote_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
-
-  const row = await dbFirst(env,
-    `INSERT INTO quotations (org_id, location_id, supplier_name, quote_ref, quote_date, notes, created_by, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
-     RETURNING id`,
-    [authUser.org_id, authUser.location_id, supplierName, quoteRef, quoteDate, notes, authUser.user_id]
-  );
-
-  await writeAudit(env, authUser.org_id, authUser.user_id, "QUOTATION_CREATE", "quotations", String(row.id), { supplier_name: supplierName, quote_date: quoteDate });
-
-  return jsonResponse({ ok: true, id: row.id }, 200, corsOkHeaders);
-}
-
-async function handleQuotationUpdate(request, env, corsOkHeaders, authUser, quotationId) {
-  await ensureQuotationsSchema(env);
-
-  const existing = await dbFirst(env, "SELECT * FROM quotations WHERE org_id = ? AND id = ?", [authUser.org_id, quotationId]);
-  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
-
-  const body = await readJson(request);
-  const supplierName = String(body.supplier_name !== undefined ? body.supplier_name : existing.supplier_name).trim();
-  const quoteRef = String(body.quote_ref !== undefined ? body.quote_ref : existing.quote_ref).trim();
-  const quoteDate = String(body.quote_date !== undefined ? body.quote_date : existing.quote_date).trim();
-  const notes = String(body.notes !== undefined ? body.notes : existing.notes).trim();
-
-  if (!isValidYmd(quoteDate)) return jsonResponse({ ok: false, error: "Invalid quote_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
-
-  await dbRun(env,
-    `UPDATE quotations SET supplier_name=?, quote_ref=?, quote_date=?, notes=?, updated_at=datetime('now') WHERE org_id=? AND id=?`,
-    [supplierName, quoteRef, quoteDate, notes, authUser.org_id, quotationId]
-  );
-
-  return jsonResponse({ ok: true }, 200, corsOkHeaders);
-}
-
-async function handleQuotationDelete(request, env, corsOkHeaders, authUser, quotationId) {
-  await ensureQuotationsSchema(env);
-
-  const existing = await dbFirst(env, "SELECT id FROM quotations WHERE org_id = ? AND id = ?", [authUser.org_id, quotationId]);
-  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
-
-  await dbRun(env, "DELETE FROM quotation_items WHERE quotation_id = ?", [quotationId]);
-  await dbRun(env, "DELETE FROM quotations WHERE org_id = ? AND id = ?", [authUser.org_id, quotationId]);
-
-  await writeAudit(env, authUser.org_id, authUser.user_id, "QUOTATION_DELETE", "quotations", String(quotationId), {});
-
-  return jsonResponse({ ok: true }, 200, corsOkHeaders);
-}
-
-async function handleQuotationItemAdd(request, env, corsOkHeaders, authUser, quotationId) {
-  await ensureQuotationsSchema(env);
-
-  const existing = await dbFirst(env, "SELECT id FROM quotations WHERE org_id = ? AND id = ?", [authUser.org_id, quotationId]);
-  if (!existing) return jsonResponse({ ok: false, error: "Quotation not found" }, 404, corsOkHeaders);
 
   const body = await readJson(request);
   const itemDescription = String(body.item_description || "").trim();
   if (!itemDescription) return jsonResponse({ ok: false, error: "item_description is required" }, 400, corsOkHeaders);
+
+  const quoteDate = String(body.quote_date || "").trim();
+  if (!isValidYmd(quoteDate)) return jsonResponse({ ok: false, error: "Invalid quote_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
 
   const vatRate = normalizeVatRate(body.vat_rate);
   const qtyPurchased = Math.max(1, Math.round(Number(body.qty_purchased) || 1));
   const qtyFree = Math.max(0, Math.round(Number(body.qty_free) || 0));
   const computed = computeItemProfitFields(body);
 
-  const sortRow = await dbFirst(env, "SELECT MAX(sort_order) AS m FROM quotation_items WHERE quotation_id = ?", [quotationId]);
-  const sortOrder = ((sortRow && sortRow.m) || 0) + 1;
-
   const row = await dbFirst(env,
-    `INSERT INTO quotation_items
-     (quotation_id, org_id, barcode, stock_code, item_description,
+    `INSERT INTO quotation_entries
+     (org_id, location_id, supplier, barcode, stock_code, item_description,
       qty_purchased, qty_free, vat_rate, cost_excl_vat, cost_incl_vat,
       discount_pct, discount_euro, total_incl_vat, retail_price, profit, profit_margin,
-      sort_order, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+      quote_date, notes, created_by, created_at, updated_at)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'),datetime('now'))
      RETURNING id`,
     [
-      quotationId, authUser.org_id,
+      authUser.org_id, authUser.location_id,
+      String(body.supplier || "").trim(),
       String(body.barcode || "").trim(), String(body.stock_code || "").trim(), itemDescription,
       qtyPurchased, qtyFree, vatRate,
       computed.cost_excl_vat, computed.cost_incl_vat,
       computed.discount_pct, computed.discount_euro, computed.total_incl_vat,
       computed.retail_price, computed.profit, computed.profit_margin,
-      sortOrder
+      quoteDate, String(body.notes || "").trim(), authUser.user_id
     ]
   );
 
-  await dbRun(env, "UPDATE quotations SET updated_at=datetime('now') WHERE id=?", [quotationId]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "QUOTATION_CREATE", "quotation_entries", String(row.id), { item_description: itemDescription, quote_date: quoteDate });
 
   return jsonResponse({ ok: true, id: row.id }, 200, corsOkHeaders);
 }
 
-async function handleQuotationItemUpdate(request, env, corsOkHeaders, authUser, quotationId, itemId) {
+async function handleQuotationsEntryUpdate(request, env, corsOkHeaders, authUser, entryId) {
   await ensureQuotationsSchema(env);
 
-  const existing = await dbFirst(env,
-    "SELECT * FROM quotation_items WHERE id = ? AND quotation_id = ? AND org_id = ?",
-    [itemId, quotationId, authUser.org_id]
-  );
-  if (!existing) return jsonResponse({ ok: false, error: "Item not found" }, 404, corsOkHeaders);
+  const existing = await dbFirst(env, "SELECT * FROM quotation_entries WHERE org_id = ? AND id = ?", [authUser.org_id, entryId]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
 
   const body = await readJson(request);
   const itemDescription = String(body.item_description !== undefined ? body.item_description : existing.item_description).trim();
   if (!itemDescription) return jsonResponse({ ok: false, error: "item_description is required" }, 400, corsOkHeaders);
 
+  const quoteDate = String(body.quote_date !== undefined ? body.quote_date : existing.quote_date).trim();
+  if (!isValidYmd(quoteDate)) return jsonResponse({ ok: false, error: "Invalid quote_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+
   const vatRate = body.vat_rate !== undefined ? normalizeVatRate(body.vat_rate) : existing.vat_rate;
   const qtyPurchased = body.qty_purchased !== undefined ? Math.max(1, Math.round(Number(body.qty_purchased) || 1)) : existing.qty_purchased;
   const qtyFree = body.qty_free !== undefined ? Math.max(0, Math.round(Number(body.qty_free) || 0)) : existing.qty_free;
 
-  const merged = Object.assign({}, {
-    vat_rate: existing.vat_rate,
-    cost_excl_vat: existing.cost_excl_vat,
-    cost_incl_vat: existing.cost_incl_vat,
-    discount_pct: existing.discount_pct,
-    discount_euro: existing.discount_euro,
-    retail_price: existing.retail_price,
-    qty_purchased: existing.qty_purchased,
-    qty_free: existing.qty_free
-  }, body, { vat_rate: vatRate, qty_purchased: qtyPurchased, qty_free: qtyFree });
-
+  const merged = Object.assign({}, existing, body, { vat_rate: vatRate, qty_purchased: qtyPurchased, qty_free: qtyFree });
   const computed = computeItemProfitFields(merged);
 
   await dbRun(env,
-    `UPDATE quotation_items SET
-      barcode=?, stock_code=?, item_description=?,
+    `UPDATE quotation_entries SET
+      supplier=?, barcode=?, stock_code=?, item_description=?,
       qty_purchased=?, qty_free=?, vat_rate=?,
       cost_excl_vat=?, cost_incl_vat=?,
       discount_pct=?, discount_euro=?, total_incl_vat=?,
       retail_price=?, profit=?, profit_margin=?,
-      updated_at=datetime('now')
-     WHERE id=? AND quotation_id=? AND org_id=?`,
+      quote_date=?, notes=?, updated_at=datetime('now')
+     WHERE org_id=? AND id=?`,
     [
+      String(body.supplier !== undefined ? body.supplier : existing.supplier).trim(),
       String(body.barcode !== undefined ? body.barcode : existing.barcode).trim(),
       String(body.stock_code !== undefined ? body.stock_code : existing.stock_code).trim(),
       itemDescription, qtyPurchased, qtyFree, vatRate,
       computed.cost_excl_vat, computed.cost_incl_vat,
       computed.discount_pct, computed.discount_euro, computed.total_incl_vat,
       computed.retail_price, computed.profit, computed.profit_margin,
-      itemId, quotationId, authUser.org_id
+      quoteDate, String(body.notes !== undefined ? body.notes : existing.notes).trim(),
+      authUser.org_id, entryId
     ]
   );
-
-  await dbRun(env, "UPDATE quotations SET updated_at=datetime('now') WHERE id=?", [quotationId]);
 
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
-async function handleQuotationItemDelete(request, env, corsOkHeaders, authUser, quotationId, itemId) {
+async function handleQuotationsEntryDelete(request, env, corsOkHeaders, authUser, entryId) {
   await ensureQuotationsSchema(env);
 
-  const existing = await dbFirst(env,
-    "SELECT id FROM quotation_items WHERE id = ? AND quotation_id = ? AND org_id = ?",
-    [itemId, quotationId, authUser.org_id]
-  );
-  if (!existing) return jsonResponse({ ok: false, error: "Item not found" }, 404, corsOkHeaders);
+  const existing = await dbFirst(env, "SELECT id FROM quotation_entries WHERE org_id = ? AND id = ?", [authUser.org_id, entryId]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
 
-  await dbRun(env, "DELETE FROM quotation_items WHERE id = ?", [itemId]);
-  await dbRun(env, "UPDATE quotations SET updated_at=datetime('now') WHERE id=?", [quotationId]);
+  await dbRun(env, "DELETE FROM quotation_entries WHERE org_id = ? AND id = ?", [authUser.org_id, entryId]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "QUOTATION_DELETE", "quotation_entries", String(entryId), {});
 
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
@@ -12743,31 +12635,19 @@ if (url.pathname.startsWith("/client-orders/entries/") && request.method === "DE
   return await handleClientOrdersEntryDelete(request, env, corsOkHeaders, authUser, id);
 }
 
-// Quotations
+// Quotations (flat model)
 if (url.pathname === "/quotations/entries" && request.method === "GET") {
-  return await handleQuotationsList(request, env, corsOkHeaders, authUser, url);
+  return await handleQuotationsEntriesList(request, env, corsOkHeaders, authUser, url);
 }
 if (url.pathname === "/quotations/entries" && request.method === "POST") {
-  return await handleQuotationCreate(request, env, corsOkHeaders, authUser);
+  return await handleQuotationsEntryCreate(request, env, corsOkHeaders, authUser);
 }
 if (url.pathname.startsWith("/quotations/entries/")) {
   const qParts = url.pathname.split("/").filter(Boolean);
   const qId = parseInt(qParts[2], 10);
-  if (!qId) return jsonResponse({ ok: false, error: "Invalid quotation id" }, 400, corsOkHeaders);
-  if (qParts.length === 3) {
-    if (request.method === "PUT") return await handleQuotationUpdate(request, env, corsOkHeaders, authUser, qId);
-    if (request.method === "DELETE") return await handleQuotationDelete(request, env, corsOkHeaders, authUser, qId);
-  }
-  if (qParts.length >= 4 && qParts[3] === "items") {
-    if (qParts.length === 4 && request.method === "POST")
-      return await handleQuotationItemAdd(request, env, corsOkHeaders, authUser, qId);
-    if (qParts.length === 5) {
-      const itemId = parseInt(qParts[4], 10);
-      if (!itemId) return jsonResponse({ ok: false, error: "Invalid item id" }, 400, corsOkHeaders);
-      if (request.method === "PUT") return await handleQuotationItemUpdate(request, env, corsOkHeaders, authUser, qId, itemId);
-      if (request.method === "DELETE") return await handleQuotationItemDelete(request, env, corsOkHeaders, authUser, qId, itemId);
-    }
-  }
+  if (!qId) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+  if (request.method === "PUT") return await handleQuotationsEntryUpdate(request, env, corsOkHeaders, authUser, qId);
+  if (request.method === "DELETE") return await handleQuotationsEntryDelete(request, env, corsOkHeaders, authUser, qId);
 }
 
 // Client Tickets
