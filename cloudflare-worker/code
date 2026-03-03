@@ -12221,27 +12221,23 @@ export default {
 
     if (url.pathname === "/su" && request.method === "GET") return await handleSuPage(request, env);
 
-    // Redirect shim — opens ChatGPT in its own tab via an in-tab navigation
-    // so Firefox's COOP interstitial (triggered when EIKON opens chatgpt.com
-    // directly as a popup) is never hit.
+    // Hard 302 redirect to ChatGPT.
+    // A server-side redirect means the browser goes from "blank new tab" straight
+    // to ChatGPT without ever loading an intermediate page. Because no intermediate
+    // page loads, there is no COOP context established in the tab before ChatGPT
+    // arrives, so Firefox never detects a COOP change and never shows the
+    // "security configuration doesn't match" interstitial.
+    // (The JS-redirect shim we tried previously DID load an intermediate page first,
+    // which established COOP: unsafe-none in the tab; when ChatGPT then loaded with
+    // COOP: same-origin Firefox treated that as a disallowed COOP change.)
     if (url.pathname === "/go/gpt-extractor" && request.method === "GET") {
-      const GPT_URL = "https://chatgpt.com/g/g-69a717442e348191950843c857f4801e-invoice-extractor";
-      return new Response(
-        `<!DOCTYPE html><html><head><meta charset="utf-8">` +
-        `<title>Opening Invoice Extractor GPT\u2026</title>` +
-        `<script>window.location.replace(${JSON.stringify(GPT_URL)});</script>` +
-        `</head><body style="margin:0;background:#0a1018;color:#e9eef7;font-family:sans-serif;` +
-        `display:flex;align-items:center;justify-content:center;min-height:100vh;">` +
-        `<p>Opening Invoice Extractor GPT\u2026</p></body></html>`,
-        {
-          status: 200,
-          headers: {
-            "Content-Type": "text/html; charset=utf-8",
-            "Cross-Origin-Opener-Policy": "unsafe-none",
-            "Cache-Control": "no-store"
-          }
+      return new Response(null, {
+        status: 302,
+        headers: {
+          "Location": "https://chatgpt.com/g/g-69a717442e348191950843c857f4801e-invoice-extractor",
+          "Cache-Control": "no-store"
         }
-      );
+      });
     }
 
     const cors = corsHeadersForRequest(request, env);
