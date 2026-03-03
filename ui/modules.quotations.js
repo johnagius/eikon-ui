@@ -351,7 +351,25 @@
       ".qt-merge-btn{margin-top:7px;padding:5px 12px;border-radius:8px;border:none;cursor:pointer;" +
         "background:rgba(58,160,255,.22);color:#5aa2ff;font-size:12px;font-weight:900;}" +
 
-      "@media(max-width:900px){.qt-wrap{padding:10px;}.qt-form-grid{grid-template-columns:1fr 1fr;}.qt-controls{width:100%;}}";
+      "@media(max-width:900px){.qt-wrap{padding:10px;}.qt-form-grid{grid-template-columns:1fr 1fr;}.qt-controls{width:100%;}}" +
+
+      // bulk import section
+      ".qt-bulk-section{margin-top:24px;padding:20px;border:1px solid var(--line,rgba(255,255,255,.10));border-radius:14px;background:rgba(10,16,24,.22);}" +
+      ".qt-bulk-title{margin:0 0 12px;font-size:15px;font-weight:900;color:var(--text,#e9eef7);letter-spacing:-.2px;}" +
+      ".qt-bulk-instr{margin-bottom:14px;font-size:13px;color:rgba(233,238,247,.78);line-height:1.7;}" +
+      ".qt-bulk-instr p{margin:3px 0;}" +
+      ".qt-bulk-link{color:#5aa2ff;text-decoration:underline;}" +
+      ".qt-bulk-note{font-size:11.5px;color:rgba(233,238,247,.50)!important;margin-top:6px!important;}" +
+      "#qt-bulk-input{width:100%;box-sizing:border-box;font-family:monospace;font-size:11.5px;resize:vertical;min-height:140px;}" +
+      ".qt-bulk-status{font-size:13px;margin:10px 0;line-height:1.5;}" +
+      ".qt-bulk-ok{color:#43d17a;}" +
+      ".qt-bulk-err{color:#ff5a7a;}" +
+      ".qt-bulk-info{color:rgba(233,238,247,.68);}" +
+      ".qt-bulk-progress{margin-top:10px;max-height:280px;overflow-y:auto;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(0,0,0,.22);padding:8px 10px;}" +
+      ".qt-bulk-row{padding:3px 0;font-size:12px;border-bottom:1px solid rgba(255,255,255,.05);font-family:monospace;white-space:pre-wrap;word-break:break-word;}" +
+      ".qt-bulk-row:last-child{border-bottom:none;}" +
+      ".qt-bulk-row-ok{color:#43d17a;}" +
+      ".qt-bulk-row-err{color:#ff5a7a;}";
 
     document.head.appendChild(st);
   }
@@ -794,6 +812,137 @@
     return total;
   }
 
+  // ─── Bulk import ──────────────────────────────────────────────────────────
+  // Column order expected from the Invoice Extractor GPT output
+  var BULK_COLS = [
+    "quote_date", "supplier", "barcode", "stock_code", "item_description",
+    "qty_purchased", "qty_free", "vat_rate", "cost_excl_vat", "cost_incl_vat",
+    "discount_pct", "discount_euro", "total_incl_vat", "retail_price"
+  ];
+
+  function parseBulkTsv(text) {
+    var lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n")
+      .filter(function (l) { return l.trim(); });
+    if (!lines.length) return { rows: [], errors: ["No data found in the pasted text."] };
+
+    // Skip header row if first cell looks like a label rather than a date
+    var firstCell = lines[0].split("\t")[0].trim();
+    var looksLikeHeader = !/^\d{4}-\d{2}-\d{2}$/.test(firstCell) &&
+      /date|supplier|barcode|stock|desc|qty|vat|cost|disc|retail|item/i.test(lines[0]);
+    var dataLines = looksLikeHeader ? lines.slice(1) : lines;
+    if (!dataLines.length) return { rows: [], errors: ["No data rows found (only a header)."] };
+
+    var parseErrors = [];
+    var rows = [];
+
+    dataLines.forEach(function (line, idx) {
+      var lineNum = (looksLikeHeader ? idx + 2 : idx + 1); // 1-based, accounting for header
+      if (!line.trim()) return;
+      var cells = line.split("\t");
+      var raw = {};
+      BULK_COLS.forEach(function (col, ci) {
+        raw[col] = (cells[ci] !== undefined ? cells[ci] : "").trim();
+      });
+
+      // ── Critical field validation ──────────────────────────────────────────
+      var rowErrors = [];
+      var quoteDate = raw.quote_date;
+      if (!quoteDate) {
+        rowErrors.push("Date is missing");
+      } else if (!/^\d{4}-\d{2}-\d{2}$/.test(quoteDate)) {
+        rowErrors.push("Date must be YYYY-MM-DD (got \"" + quoteDate + "\")");
+      }
+      var desc = raw.item_description;
+      if (!desc) rowErrors.push("Description is missing");
+
+      if (rowErrors.length) {
+        parseErrors.push("Row " + lineNum + ": " + rowErrors.join("; "));
+        return;
+      }
+
+      // ── Parse numeric fields, fall back to 0 if empty ─────────────────────
+      var vatRate = Number(raw.vat_rate) || 0;
+      if (vatRate !== 0 && vatRate !== 5 && vatRate !== 18) vatRate = 18;
+      var costExcl = Number(raw.cost_excl_vat) || 0;
+      var costIncl = Number(raw.cost_incl_vat) || 0;
+      // Prefer excl as the authoritative input; fall back to incl if excl absent
+      var lastEdited = (costExcl > 0 || costIncl === 0) ? "cost_excl" : "cost_incl";
+
+      var f = {
+        vat_rate: vatRate,
+        cost_excl_vat: costExcl,
+        cost_incl_vat: costIncl,
+        discount_pct: Number(raw.discount_pct) || 0,
+        discount_euro: Number(raw.discount_euro) || 0,
+        qty_purchased: Math.max(1, Math.round(Number(raw.qty_purchased) || 1)),
+        qty_free: Math.max(0, Math.round(Number(raw.qty_free) || 0)),
+        retail_price: Number(raw.retail_price) || 0,
+        _lastEdited: lastEdited
+      };
+      var calc = recalcItem(f);
+
+      rows.push({
+        supplier: raw.supplier || "",
+        barcode: raw.barcode || "",
+        stock_code: raw.stock_code || "",
+        item_description: desc,
+        quote_date: quoteDate,
+        notes: "",
+        qty_purchased: f.qty_purchased,
+        qty_free: f.qty_free,
+        vat_rate: vatRate,
+        cost_excl_vat: calc.cost_excl_vat,
+        cost_incl_vat: calc.cost_incl_vat,
+        discount_pct: calc.discount_pct,
+        discount_euro: calc.discount_euro,
+        total_incl_vat: calc.total_incl_vat,
+        retail_price: f.retail_price,
+        profit: calc.profit,
+        profit_margin: calc.profit_margin
+      });
+    });
+
+    return { rows: rows, errors: parseErrors };
+  }
+
+  async function runBulkImport(rows, statusEl) {
+    var total = rows.length;
+    var ok = 0, fail = 0;
+    var resultLines = [];
+
+    for (var i = 0; i < rows.length; i++) {
+      var row = rows[i];
+      statusEl.className = "qt-bulk-status qt-bulk-info";
+      statusEl.textContent = "Uploading " + (i + 1) + " / " + total + "…";
+      try {
+        var resp = await apiCreate(row);
+        if (!resp || !resp.ok) throw new Error((resp && resp.error) || "Server error");
+        ok++;
+        resultLines.push("<div class='qt-bulk-row qt-bulk-row-ok'>✓ Row " + (i + 1) +
+          ": " + esc(row.item_description) +
+          (row.supplier ? " (" + esc(row.supplier) + ")" : "") + "</div>");
+      } catch (e) {
+        fail++;
+        resultLines.push("<div class='qt-bulk-row qt-bulk-row-err'>✗ Row " + (i + 1) +
+          ": " + esc(row.item_description) +
+          " — " + esc(String(e && (e.message || e))) + "</div>");
+      }
+    }
+
+    var summary = ok + " of " + total + " entr" + (total !== 1 ? "ies" : "y") + " imported" +
+      (fail > 0 ? " (" + fail + " failed)" : " successfully") + ".";
+    statusEl.className = "qt-bulk-status " + (ok > 0 ? "qt-bulk-ok" : "qt-bulk-err");
+    statusEl.innerHTML = summary +
+      "<div class='qt-bulk-progress'>" + resultLines.join("") + "</div>";
+
+    if (ok > 0 && state.refresh) {
+      await state.refresh();
+      // Scroll the table into view so the user sees the new entries
+      var tableEl = document.querySelector("#qt-table-container");
+      if (tableEl) tableEl.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
+
   // ─── Table rendering ──────────────────────────────────────────────────────
   function applyFilter() {
     var all = state.quotations || [];
@@ -966,6 +1115,34 @@
         "</div>" +
         "<div id='qt-col-panel' class='qt-col-panel' style='display:none;'></div>" +
         "<div id='qt-table-container'><div class='qt-loading'>Loading…</div></div>" +
+
+        // ── Bulk import section ────────────────────────────────────────────
+        "<div class='qt-bulk-section'>" +
+          "<h3 class='qt-bulk-title'>Bulk Import via AI Invoice Extractor</h3>" +
+          "<div class='qt-bulk-instr'>" +
+            "<p>1. Upload your supplier invoice to the " +
+              "<a class='qt-bulk-link' " +
+                "href='https://chatgpt.com/g/g-69a717442e348191950843c857f4801e-invoice-extractor' " +
+                "target='_blank' rel='noopener'>Invoice Extractor GPT ↗</a></p>" +
+            "<p>2. Copy the entire table that ChatGPT produces</p>" +
+            "<p>3. Paste it in the box below and click <b>Submit Bulk Import</b></p>" +
+            "<p class='qt-bulk-note'>" +
+              "Each row becomes a separate quotation entry. Missing calculated fields (Cost Incl VAT, " +
+              "Total, Profit) are auto-filled using the same formula as the single-entry form. " +
+              "A missing <b>Date</b> (YYYY-MM-DD) or <b>Description</b> will flag that row as an error." +
+            "</p>" +
+          "</div>" +
+          "<div class='qt-field' style='margin-bottom:10px;'>" +
+            "<label>Paste GPT Output Here</label>" +
+            "<textarea id='qt-bulk-input' rows='8' " +
+              "placeholder='Paste the tab-separated table from the Invoice Extractor GPT here…'></textarea>" +
+          "</div>" +
+          "<div id='qt-bulk-status' class='qt-bulk-status'></div>" +
+          "<div style='display:flex;gap:8px;align-items:center;flex-wrap:wrap;'>" +
+            "<button class='eikon-btn' id='qt-bulk-submit'>Submit Bulk Import</button>" +
+            "<button class='eikon-btn' id='qt-bulk-clear'>Clear</button>" +
+          "</div>" +
+        "</div>" +
       "</div>";
 
     var searchEl = mount.querySelector("#qt-search");
@@ -1029,6 +1206,57 @@
     };
 
     refreshBtn.addEventListener("click", function () { if (state.refresh) state.refresh(); });
+
+    // ── Bulk import handlers ──────────────────────────────────────────────────
+    var bulkInputEl  = mount.querySelector("#qt-bulk-input");
+    var bulkStatusEl = mount.querySelector("#qt-bulk-status");
+    var bulkSubmitEl = mount.querySelector("#qt-bulk-submit");
+    var bulkClearEl  = mount.querySelector("#qt-bulk-clear");
+
+    bulkClearEl.addEventListener("click", function () {
+      bulkInputEl.value = "";
+      bulkStatusEl.className = "qt-bulk-status";
+      bulkStatusEl.innerHTML = "";
+    });
+
+    bulkSubmitEl.addEventListener("click", function () {
+      var text = (bulkInputEl.value || "").trim();
+      if (!text) {
+        bulkStatusEl.className = "qt-bulk-status qt-bulk-err";
+        bulkStatusEl.textContent = "Please paste the GPT output into the box first.";
+        return;
+      }
+
+      var parsed = parseBulkTsv(text);
+
+      // Show parse errors (but still submit valid rows if any exist)
+      if (parsed.errors.length) {
+        bulkStatusEl.className = "qt-bulk-status qt-bulk-err";
+        bulkStatusEl.innerHTML =
+          "<b>" + parsed.errors.length + " row" + (parsed.errors.length !== 1 ? "s" : "") +
+          " could not be parsed:</b>" +
+          "<div class='qt-bulk-progress'>" +
+          parsed.errors.map(function (e) {
+            return "<div class='qt-bulk-row qt-bulk-row-err'>" + esc(e) + "</div>";
+          }).join("") +
+          "</div>" +
+          (parsed.rows.length
+            ? "<div style='margin-top:8px;font-size:12px;color:rgba(233,238,247,.68);'>" +
+              parsed.rows.length + " valid row" + (parsed.rows.length !== 1 ? "s" : "") +
+              " will still be imported.</div>"
+            : "");
+        if (!parsed.rows.length) return; // nothing valid to submit
+      }
+
+      bulkSubmitEl.disabled = true;
+      bulkSubmitEl.textContent = "Uploading…";
+      runBulkImport(parsed.rows, bulkStatusEl)
+        .catch(function (e) { warn("Bulk import unexpected error", e); })
+        .then(function () {
+          bulkSubmitEl.disabled = false;
+          bulkSubmitEl.textContent = "Submit Bulk Import";
+        });
+    });
 
     state.refresh();
   }
