@@ -359,6 +359,8 @@
       ".qt-bulk-instr{margin-bottom:14px;font-size:13px;color:rgba(233,238,247,.78);line-height:1.7;}" +
       ".qt-bulk-instr p{margin:3px 0;}" +
       ".qt-bulk-link{color:#5aa2ff;text-decoration:underline;background:none;border:none;padding:0;cursor:pointer;font-size:inherit;font-family:inherit;}" +
+      ".qt-bulk-copy-ok{color:#4caf50;font-size:12px;font-weight:600;margin-left:8px;display:none;}" +
+      ".qt-bulk-url{display:block;width:100%;margin-top:6px;font-size:11px;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.15);border-radius:6px;color:rgba(233,238,247,.6);padding:4px 8px;box-sizing:border-box;cursor:text;}" +
       ".qt-bulk-note{font-size:11.5px;color:rgba(233,238,247,.50)!important;margin-top:6px!important;}" +
       "#qt-bulk-input{width:100%;box-sizing:border-box;font-family:monospace;font-size:11.5px;resize:vertical;min-height:140px;}" +
       ".qt-bulk-status{font-size:13px;margin:10px 0;line-height:1.5;}" +
@@ -1120,10 +1122,12 @@
         "<div class='qt-bulk-section'>" +
           "<h3 class='qt-bulk-title'>Bulk Import via AI Invoice Extractor</h3>" +
           "<div class='qt-bulk-instr'>" +
-            "<p>1. Upload your supplier invoice to the " +
-              "<button class='qt-bulk-link' id='qt-gpt-link'>Invoice Extractor GPT ↗</button>" +
+            "<p>1. Click <button class='qt-bulk-link' id='qt-gpt-link'>📋 Copy Invoice Extractor GPT link</button>" +
+              "<span id='qt-gpt-copy-ok' class='qt-bulk-copy-ok'>✓ Copied! Open a new tab (Ctrl+T) and paste (Ctrl+V)</span>" +
             "</p>" +
-            "<p>2. Copy the entire table that ChatGPT produces</p>" +
+            "<input type='text' id='qt-gpt-url' class='qt-bulk-url' readonly " +
+              "value='https://chatgpt.com/g/g-69a717442e348191950843c857f4801e-invoice-extractor'>" +
+            "<p>2. Upload your supplier invoice to the GPT and copy the table it produces</p>" +
             "<p>3. Paste it in the box below and click <b>Submit Bulk Import</b></p>" +
             "<p class='qt-bulk-note'>" +
               "Each row becomes a separate quotation entry. Missing calculated fields (Cost Incl VAT, " +
@@ -1207,24 +1211,34 @@
     refreshBtn.addEventListener("click", function () { if (state.refresh) state.refresh(); });
 
     // ── Bulk import handlers ──────────────────────────────────────────────────
-    // GPT link — programmatic anchor click avoids sandbox popup-block and
-    // rel="noopener noreferrer" stops the Firefox COOP interstitial and
-    // removes the Referer header that ChatGPT blocks.
+    // GPT link — copies the ChatGPT URL to clipboard; user opens a new tab and
+    // pastes it manually. This avoids Firefox's COOP interstitial which fires
+    // whenever a script-opened tab navigates to a page with COOP: same-origin.
     var gptLinkEl = mount.querySelector("#qt-gpt-link");
     if (gptLinkEl) {
       gptLinkEl.addEventListener("click", function () {
-        var a = document.createElement("a");
-        // Point at our own-origin shim rather than ChatGPT directly.
-        // A same-origin new tab never triggers the Firefox COOP interstitial;
-        // the shim page then JS-navigates (window.location.replace) to ChatGPT
-        // as a normal in-tab navigation — no popup/opener COOP check involved.
-        a.href = "/go/gpt-extractor";
-        a.target = "_blank";
-        a.rel = "noopener noreferrer";
-        a.style.display = "none";
-        document.body.appendChild(a);
-        try { a.click(); } catch (e) {}
-        setTimeout(function () { try { document.body.removeChild(a); } catch (e2) {} }, 200);
+        var url = "https://chatgpt.com/g/g-69a717442e348191950843c857f4801e-invoice-extractor";
+        var okEl = mount.querySelector("#qt-gpt-copy-ok");
+        function showOk() {
+          if (okEl) {
+            okEl.style.display = "inline";
+            setTimeout(function () { okEl.style.display = "none"; }, 6000);
+          }
+        }
+        function fallback() {
+          var ta = document.createElement("textarea");
+          ta.value = url;
+          ta.style.cssText = "position:fixed;top:-9999px;left:-9999px;opacity:0;";
+          document.body.appendChild(ta);
+          ta.focus(); ta.select();
+          try { document.execCommand("copy"); showOk(); } catch (e2) {}
+          document.body.removeChild(ta);
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(url).then(showOk).catch(fallback);
+        } else {
+          fallback();
+        }
       });
     }
 
