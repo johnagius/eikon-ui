@@ -74,6 +74,11 @@
   }
 
   function calcEntitlement(emp) {
+    emp = emp || {};
+    // Locum pharmacists are self-employed: no leave entitlement.
+    if (emp.designation === "locum") {
+      return { annual:0, sick:0, urgentFamily:0, na:true };
+    }
     var yr = new Date().getFullYear();
     var lk = lastKnownYear(MALTA.annualLeaveHours, yr);
     var base = MALTA.annualLeaveHours[yr] || MALTA.annualLeaveHours[lk] || 216;
@@ -288,6 +293,48 @@
   function actStaff() { return S.staff.filter(function(s){ return s.is_active!==0; }); }
   function pharmStaff() { return actStaff().filter(function(s){ return s.designation==="pharmacist"||s.designation==="locum"; }); }
 
+
+  /* ── Pharmacist overlap warning helpers ─────────────────────── */
+  function isPharmacistShift(staffObj, shiftObj){
+    try{
+      if (shiftObj && String(shiftObj.role_override||"") === "pharmacist") return true;
+      var d = staffObj && staffObj.designation;
+      return d === "pharmacist" || d === "locum";
+    }catch(e){ return false; }
+  }
+
+  function pharmacistOverlaps(ds, st, et, excludeShiftId){
+    var out = [];
+    try{
+      var stM = t2m(st), etM = t2m(et);
+      if (!ds || !st || !et || !isFinite(stM) || !isFinite(etM) || etM <= stM) return out;
+      (S.shifts||[]).forEach(function(s){
+        if(!s || s.shift_date !== ds) return;
+        if (excludeShiftId != null && s.id === excludeShiftId) return;
+        var e = emp(s.staff_id);
+        if (!isPharmacistShift(e, s)) return;
+        var sSt = t2m(s.start_time), sEt = t2m(s.end_time);
+        if (!isFinite(sSt) || !isFinite(sEt) || sEt <= sSt) return;
+        if (sSt < etM && sEt > stM) out.push({ shift:s, staff:e });
+      });
+    } catch(e) {}
+    return out;
+  }
+
+  function pharmacistOverlapListHTML(items){
+    var ov = items || [];
+    if (!ov.length) return "";
+    var h = ov.slice(0,4).map(function(x){
+      var nm = (x.staff && x.staff.full_name) ? x.staff.full_name : ("Staff #"+(x.shift && x.shift.staff_id != null ? x.shift.staff_id : "?"));
+      var st = (x.shift && x.shift.start_time) ? x.shift.start_time : "";
+      var et = (x.shift && x.shift.end_time) ? x.shift.end_time : "";
+      return esc(nm) + ' <span style="color:var(--muted);font-size:11px;">(' + esc(st) + '–' + esc(et) + ')</span>';
+    }).join("<br>");
+    if (ov.length > 4) h += "<br><span style='color:var(--muted);font-size:11px;'>+"+(ov.length-4)+" more</span>";
+    return h;
+  }
+
+
   /* ── Opening hours ──────────────────────────────────────────── */
   function ohFor(ds) {
     var ov = (S.openingHours && S.openingHours.overrides || {})[ds];
@@ -397,6 +444,10 @@
   /* ── Leave balance ──────────────────────────────────────────── */
   function bal(id) {
     var e=emp(id); if(!e) return null;
+    // Locum pharmacists are self-employed: leave is N/A.
+    if (e.designation === "locum") {
+      return { annualEnt:0, annualUsed:0, annualLeft:0, sickEnt:0, sickUsed:0, sickLeft:0, ufEnt:0, na:true };
+    }
     var ent=calcEntitlement(e); var yr=new Date().getFullYear();
     var usedA=0, usedS=0;
     S.leaves.filter(function(l){ return l.staff_id===id&&(l.status==="approved"||l.status==="pending"); })
@@ -590,14 +641,15 @@
       var col=dc(e.designation);
       var tr=document.createElement("tr");
       var dim = e.is_active===0 ? 'opacity:0.4;' : '';
+      var isLocum = e.designation === "locum";
       tr.innerHTML=
         '<td style="'+dim+'"><b>'+esc(e.full_name||"")+'</b></td>'+
         '<td style="'+dim+'"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+col+';margin-right:5px;"></span>'+esc(dl(e.designation))+'</td>'+
         '<td style="'+dim+'"><span class="eikon-pill" style="font-size:11px;">'+etl(e.employment_type)+'</span></td>'+
         '<td style="'+dim+'">'+(e.contracted_hours||"—")+'h</td>'+
         '<td style="'+dim+'font-size:12px;color:var(--muted);">'+esc(e.email||"")+(e.phone?"<br>"+esc(e.phone):"")+'</td>'+
-        '<td style="'+dim+'">'+(b?'<span style="color:'+(b.annualLeft<24?"var(--danger)":"var(--ok)")+'">'+b.annualLeft+'h / '+b.annualEnt+'h</span>':"—")+'</td>'+
-        '<td style="'+dim+'">'+(b?b.sickLeft+'h':"—")+'</td>'+
+        '<td style="'+dim+'">'+(isLocum?'<span style="color:var(--muted)">N/A</span>':(b?'<span style="color:'+(b.annualLeft<24?"var(--danger)":"var(--ok)")+'">'+b.annualLeft+'h / '+b.annualEnt+'h</span>':"—"))+'</td>'+
+        '<td style="'+dim+'">'+(isLocum?'<span style="color:var(--muted)">N/A</span>':(b?b.sickLeft+'h':"—"))+'</td>'+
         '<td style="'+dim+'"><span class="eikon-pill" style="font-size:11px;'+(e.is_active===0?"color:var(--danger);border-color:rgba(255,90,122,.4);":"color:var(--ok);border-color:rgba(67,209,122,.4);")+'">'+(e.is_active===0?"Inactive":"Active")+'</span></td>'+
         '<td></td>';
       var act=tr.querySelectorAll("td")[8];
@@ -1608,6 +1660,12 @@ function locumShiftModal(ds, defaultSt, defaultEt, onDone){
           '<input class="eikon-input" id="ls-notes" placeholder="optional" />' +
         '</div>' +
 
+        '<div id="ls-phwarn" data-sig="" style="margin-top:10px;padding:10px;border:1px solid rgba(247,144,9,.45);border-radius:10px;background:rgba(247,144,9,.06);font-size:11px;color:var(--text);display:none;">' +
+          '<div style="font-weight:800;margin-bottom:6px;">⚠ Pharmacist already assigned</div>' +
+          '<div id="ls-phlist" style="font-size:11px;color:var(--muted);margin-bottom:8px;line-height:1.4;"></div>' +
+          '<label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="ls-phconf"/> Add anyway</label>' +
+        '</div>' +
+
         '<div style="font-size:11px;color:var(--muted)">This will add the locum directly to the calendar for <b>'+esc(ds)+'</b>.</div>' +
       '</div>';
 
@@ -1686,6 +1744,29 @@ function locumShiftModal(ds, defaultSt, defaultEt, onDone){
 
           var staffId = await resolveStaffId();
           var notes = String((document.getElementById("ls-notes")||{}).value||"").trim();
+
+          // Warn if adding a pharmacist/locum overlaps another pharmacist/locum
+          try {
+            var staffObj = emp(staffId);
+            var isPh = staffObj && (staffObj.designation==="pharmacist" || staffObj.designation==="locum");
+            var w = document.getElementById("ls-phwarn");
+            if (isPh) {
+              var ov = pharmacistOverlaps(ds, st, et, null);
+              if (ov && ov.length) {
+                var l = document.getElementById("ls-phlist");
+                var c = document.getElementById("ls-phconf");
+                if (w) w.style.display = "block";
+                if (l) l.innerHTML = pharmacistOverlapListHTML(ov);
+                var sig = ds+"|"+staffId+"|"+st+"|"+et+"|"+ov.map(function(x){return x.shift && x.shift.id;}).join(",");
+                if (w && w.getAttribute("data-sig") !== sig) { w.setAttribute("data-sig", sig); if (c) c.checked = false; }
+                if (!c || !c.checked) { toast("Another pharmacist is already scheduled for this time. Confirm to add anyway.","error"); saving = false; return; }
+              } else {
+                if (w) w.style.display = "none";
+              }
+            } else {
+              if (w) w.style.display = "none";
+            }
+          } catch(e) {}
 
           // Create shift assignment
           var p = { staff_id: staffId, shift_date: ds, start_time: st, end_time: et, notes: notes };
@@ -1815,7 +1896,12 @@ function dayModal(ds, onSave) {
         '<div class="eikon-field"><div class="eikon-label">End</div><input class="eikon-input" id="dm-et" type="time" value="'+esc(defaultEt)+'"/></div>'+
         '</div>'+
         '<div class="eikon-field" style="margin-top:8px;"><div class="eikon-label">Notes</div><input class="eikon-input" id="dm-nt" type="text" placeholder="optional"/></div>'+
-        (S.settings.pharmacistRequired && cov.gaps && cov.gaps.length ? '<div style="margin-top:8px;font-size:11px;color:var(--muted);">Suggestion: cover '+esc(m2t(cov.gaps[0].start))+'–'+esc(m2t(cov.gaps[0].end))+' (uncovered).</div>':"")
+        (S.settings.pharmacistRequired && cov.gaps && cov.gaps.length ? '<div style="margin-top:8px;font-size:11px;color:var(--muted);">Suggestion: cover '+esc(m2t(cov.gaps[0].start))+'–'+esc(m2t(cov.gaps[0].end))+' (uncovered).</div>':"")+
+        '<div id="dm-phwarn" data-sig="" style="margin-top:10px;padding:10px;border:1px solid rgba(247,144,9,.45);border-radius:10px;background:rgba(247,144,9,.06);font-size:11px;color:var(--text);display:none;">'+
+          '<div style="font-weight:800;margin-bottom:6px;">⚠ Pharmacist already assigned</div>'+
+          '<div id="dm-phlist" style="font-size:11px;color:var(--muted);margin-bottom:8px;line-height:1.4;"></div>'+
+          '<label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="dm-phconf"/> Add anyway</label>'+
+        '</div>'
       ));
 
     E.modal.show("Shifts — "+ds, body, [
@@ -1828,6 +1914,30 @@ function dayModal(ds, onSave) {
         var st=E.q("#dm-st").value; var et=E.q("#dm-et").value;
         if(!sid||!st||!et){toast("Fill all fields","error");return;}
         if(t2m(et)<=t2m(st)){toast("End must be after start","error");return;}
+
+        // Warn if adding a pharmacist/locum overlaps another pharmacist/locum
+        try {
+          var ee2 = emp(sid);
+          var isPh = ee2 && (ee2.designation==="pharmacist" || ee2.designation==="locum");
+          var w = document.getElementById("dm-phwarn");
+          if (isPh) {
+            var ov = pharmacistOverlaps(ds, st, et, null);
+            if (ov && ov.length) {
+              var l = document.getElementById("dm-phlist");
+              var c = document.getElementById("dm-phconf");
+              if (w) w.style.display = "block";
+              if (l) l.innerHTML = pharmacistOverlapListHTML(ov);
+              var sig = ds+"|"+sid+"|"+st+"|"+et+"|"+ov.map(function(x){return x.shift && x.shift.id;}).join(",");
+              if (w && w.getAttribute("data-sig") !== sig) { w.setAttribute("data-sig", sig); if (c) c.checked = false; }
+              if (!c || !c.checked) { toast("Another pharmacist is already scheduled for this time. Confirm to add anyway.","error"); return; }
+            } else {
+              if (w) w.style.display = "none";
+            }
+          } else {
+            if (w) w.style.display = "none";
+          }
+        } catch(e) {}
+
         var p={staff_id:sid,shift_date:ds,start_time:st,end_time:et,notes:E.q("#dm-nt").value.trim()};
         p.id=lsNextId(); S.shifts.push(p);
         apiOp("/shifts/assignments",{method:"POST",body:JSON.stringify(p)},function(r){
@@ -2140,7 +2250,12 @@ function singleShiftModal(e2, ds, existing, onSave) {
       '<div class="eikon-field"><div class="eikon-label">Start</div><input class="eikon-input" id="ssm-st" type="time" value="'+(existing&&existing.start_time||oh.open||"09:00")+'"/></div>'+
       '<div class="eikon-field"><div class="eikon-label">End</div><input class="eikon-input" id="ssm-et" type="time" value="'+(existing&&existing.end_time||oh.close||"18:00")+'"/></div>'+
       '</div>'+
-      '<div class="eikon-field" style="margin-top:8px;"><div class="eikon-label">Notes</div><input class="eikon-input" id="ssm-nt" type="text" value="'+(existing&&existing.notes||"")+'"/></div>';
+      '<div class="eikon-field" style="margin-top:8px;"><div class="eikon-label">Notes</div><input class="eikon-input" id="ssm-nt" type="text" value="'+(existing&&existing.notes||"")+'"/></div>'+
+      '<div id="ssm-phwarn" data-sig="" style="margin-top:10px;padding:10px;border:1px solid rgba(247,144,9,.45);border-radius:10px;background:rgba(247,144,9,.06);font-size:11px;color:var(--text);display:none;">'+
+        '<div style="font-weight:800;margin-bottom:6px;">⚠ Pharmacist already assigned</div>'+
+        '<div id="ssm-phlist" style="font-size:11px;color:var(--muted);margin-bottom:8px;line-height:1.4;"></div>'+
+        '<label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="ssm-phconf"/> Add anyway</label>'+
+      '</div>';
     var actions=[{label:"Cancel",onClick:function(){E.modal.hide();}}];
     if(existing) actions.push({label:"Remove",danger:true,onClick:function(){
       S.shifts=S.shifts.filter(function(s){return s.id!==existing.id;});
@@ -2150,6 +2265,29 @@ function singleShiftModal(e2, ds, existing, onSave) {
       var st=E.q("#ssm-st").value; var et=E.q("#ssm-et").value;
       if(!st||!et){toast("Fill times","error");return;}
       if(t2m(et)<=t2m(st)){toast("End must be after start","error");return;}
+
+      // Warn if adding/updating a pharmacist/locum overlaps another pharmacist/locum
+      try {
+        var isPh = e2 && (e2.designation==="pharmacist" || e2.designation==="locum");
+        var w = document.getElementById("ssm-phwarn");
+        if (isPh) {
+          var ov = pharmacistOverlaps(ds, st, et, existing ? existing.id : null);
+          if (ov && ov.length) {
+            var l = document.getElementById("ssm-phlist");
+            var c = document.getElementById("ssm-phconf");
+            if (w) w.style.display = "block";
+            if (l) l.innerHTML = pharmacistOverlapListHTML(ov);
+            var sig = ds+"|"+(e2&&e2.id)+"|"+st+"|"+et+"|"+ov.map(function(x){return x.shift && x.shift.id;}).join(",");
+            if (w && w.getAttribute("data-sig") !== sig) { w.setAttribute("data-sig", sig); if (c) c.checked = false; }
+            if (!c || !c.checked) { toast("Another pharmacist is already scheduled for this time. Confirm to add anyway.","error"); return; }
+          } else {
+            if (w) w.style.display = "none";
+          }
+        } else {
+          if (w) w.style.display = "none";
+        }
+      } catch(e) {}
+
       if(existing){ Object.assign(existing,{start_time:st,end_time:et,notes:E.q("#ssm-nt").value.trim()});
         apiOp("/shifts/assignments/"+existing.id,{method:"PUT",body:JSON.stringify(existing)},function(){ E.modal.hide(); toast("Updated."); onSave&&onSave(); });
       } else {
@@ -2276,7 +2414,27 @@ function singleShiftModal(e2, ds, existing, onSave) {
       '</tbody></table></div></div></div>';
 
     function showBal(){
-      var id=parseInt(E.q("#sl-emp",m).value); var b=bal(id); if(!b)return;
+      var id = parseInt(E.q("#sl-emp",m).value, 10);
+      var ee = emp(id);
+      var submitBtn = E.q("#sl-submit",m);
+
+      // Locum pharmacists are self-employed: leave is N/A (disable requests).
+      if (ee && ee.designation === "locum") {
+        if (submitBtn) { submitBtn.disabled = true; submitBtn.style.opacity = "0.5"; submitBtn.style.cursor = "not-allowed"; }
+        E.q("#sl-balinfo",m).innerHTML =
+          '<div style="display:flex;gap:8px;flex-wrap:wrap;">'+
+          bb("Annual Leave","N/A","var(--muted)")+
+          bb("Sick Leave","N/A","var(--muted)")+
+          bb("Urgent Family","N/A","var(--muted)")+
+          '</div>'+
+          '<div style="margin-top:8px;font-size:11px;color:var(--muted);">Locum pharmacists are self-employed and are not entitled to leave.</div>';
+        return;
+      } else {
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.style.opacity = "1"; submitBtn.style.cursor = "pointer"; }
+      }
+
+      var b = bal(id);
+      if(!b) return;
       E.q("#sl-balinfo",m).innerHTML=
         '<div style="display:flex;gap:8px;flex-wrap:wrap;">'+
         bb("Annual Leave",b.annualUsed+"h used / "+b.annualLeft+"h left",b.annualLeft<24?"#ff5a7a":"#43d17a")+
@@ -2333,6 +2491,8 @@ function singleShiftModal(e2, ds, existing, onSave) {
 
   function submitLeave(m){
     var sid=parseInt(E.q("#sl-emp",m).value);
+    var ee = emp(sid);
+    if (ee && ee.designation === "locum") { toast("Locum pharmacists are not entitled to leave.", "error"); return; }
     var lt=E.q("#sl-type",m).value;
     var sd=E.q("#sl-sd",m).value; if(!sd){toast("Start date required","error");return;}
     var st=E.q("#sl-st",m).value;
