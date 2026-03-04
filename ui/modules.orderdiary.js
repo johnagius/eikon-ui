@@ -329,7 +329,31 @@
       // Wrong pick modal
       ".od-wp-info{background:rgba(255,175,50,.06);border:1px solid rgba(255,175,50,.22);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:rgba(233,238,247,.72);line-height:1.5;}" +
 
-      "@media print{.od-no-print{display:none!important;}}";
+      "@media print{.od-no-print{display:none!important;}}" +
+
+      // ── Status flash animations
+      "@keyframes od-flash-ok  {0%{background:rgba(67,209,122,.28)}70%{background:rgba(67,209,122,.08)}100%{background:transparent}}" +
+      "@keyframes od-flash-bad {0%{background:rgba(255,90,122,.24)}70%{background:rgba(255,90,122,.07)}100%{background:transparent}}" +
+      "@keyframes od-flash-warn{0%{background:rgba(255,175,50,.22)}70%{background:rgba(255,175,50,.07)}100%{background:transparent}}" +
+      ".od-flash-ok   td{animation:od-flash-ok   .85s ease-out forwards}" +
+      ".od-flash-bad  td{animation:od-flash-bad  .85s ease-out forwards}" +
+      ".od-flash-warn td{animation:od-flash-warn .85s ease-out forwards}" +
+
+      // ── Qty inline edit
+      ".od-qty-cell{text-align:right;font-weight:700;color:#5aa2ff;cursor:pointer;user-select:none;}" +
+      ".od-qty-val{border-bottom:1px dotted rgba(90,162,255,.35);padding-bottom:1px;}" +
+      ".od-qty-cell:hover .od-qty-val{border-bottom-color:rgba(90,162,255,.75);}" +
+      ".od-qty-inline{width:52px;background:rgba(10,16,24,.90);border:1px solid rgba(58,160,255,.60);border-radius:5px;color:#5aa2ff;font-weight:700;font-size:12px;text-align:center;padding:2px 4px;outline:none;font-family:inherit;box-shadow:0 0 0 2px rgba(58,160,255,.15);}" +
+
+      // ── Richer empty state
+      ".od-empty-tips{display:flex;gap:7px;flex-wrap:wrap;justify-content:center;margin-top:14px;}" +
+      ".od-empty-tip{display:flex;align-items:center;gap:6px;padding:5px 10px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.08);border-radius:8px;font-size:11px;color:rgba(233,238,247,.42);}" +
+      ".od-empty-tip kbd{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;color:rgba(233,238,247,.65);font-family:inherit;}" +
+
+      // ── Mark All Received button (ok variant, smaller)
+      ".od-btn.ok-sm{padding:3px 9px;font-size:10px;background:rgba(67,209,122,.10);border-color:rgba(67,209,122,.32);color:#43d17a;}" +
+      ".od-btn.ok-sm:hover{background:rgba(67,209,122,.20);}";
+
     document.head.appendChild(st);
   }
 
@@ -399,6 +423,24 @@
       groups[key].push(e);
     });
     return {groups:groups,order:order};
+  }
+
+  // ─── Supplier colour palette ──────────────────────────────────────────────
+  var _SUPP_PALETTE = [
+    {border:"rgba(90,162,255,.60)",  bg:"rgba(58,130,255,.07)",  text:"#5aa2ff"},
+    {border:"rgba(67,209,122,.55)",  bg:"rgba(67,209,122,.06)",  text:"#43d17a"},
+    {border:"rgba(255,175,50,.55)",  bg:"rgba(255,175,50,.06)",  text:"#ffaf32"},
+    {border:"rgba(200,120,255,.55)", bg:"rgba(180,100,255,.06)", text:"#c87aff"},
+    {border:"rgba(255,100,160,.50)", bg:"rgba(255,90,140,.05)",  text:"#ff64a0"},
+    {border:"rgba(50,210,200,.50)",  bg:"rgba(50,210,200,.05)",  text:"#32d2c8"},
+    {border:"rgba(255,150,80,.50)",  bg:"rgba(255,150,80,.05)",  text:"#ff9650"},
+    {border:"rgba(140,220,255,.50)", bg:"rgba(120,200,255,.05)", text:"#8cdcff"},
+  ];
+  function supplierColor(key) {
+    if (!key || key === "__none__") return null;
+    var h = 0;
+    for (var i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
+    return _SUPP_PALETTE[h % _SUPP_PALETTE.length];
   }
 
   function profitColor(pct) {
@@ -500,11 +542,22 @@
 
     // Table or empty
     if (!entries.length) {
+      var _isToday=state.date===todayYmd();
       html+=
         "<div class='od-empty'>"+
           "<div class='od-empty-icon'>📦</div>"+
-          "<div class='od-empty-title'>No items for "+esc(fmtDateShort(state.date))+"</div>"+
-          "<div class='od-empty-sub'>Type an item name above and press Enter to add your first item.</div>"+
+          "<div class='od-empty-title'>No orders for "+esc(fmtDateShort(state.date))+"</div>"+
+          "<div class='od-empty-sub'>"+(_isToday
+            ?"Type an item name above and press <kbd style='background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.16);border-radius:4px;padding:1px 6px;font-size:10px;font-family:inherit;color:rgba(233,238,247,.7);'>Enter</kbd> to add your first item."
+            :"Navigate with the arrows to reach today, or browse past orders.")+
+          "</div>"+
+          "<div class='od-empty-tips'>"+
+            "<div class='od-empty-tip'><kbd>Enter</kbd> Add item instantly</div>"+
+            "<div class='od-empty-tip'><kbd>↑ ↓</kbd> Navigate suggestions</div>"+
+            "<div class='od-empty-tip'><kbd>Scroll</kbd> on Qty to adjust</div>"+
+            "<div class='od-empty-tip'><kbd>Click Qty</kbd> to edit inline</div>"+
+            "<div class='od-empty-tip'><kbd>✓ All</kbd> Mark supplier received</div>"+
+          "</div>"+
         "</div>";
     } else if (!visible.length) {
       html+="<div class='od-empty'><div class='od-empty-title'>No items for selected filter.</div></div>";
@@ -522,29 +575,36 @@
         var dispSupplier=key==="__none__"?"":key;
         var suppLabel=key==="__none__"?"⬜ Unassigned":"🏭 "+key;
         var firstClass=gi===0?" first":"";
+        var sc=supplierColor(key);
+        var headerBg=sc?"background:"+sc.bg+";border-left:3px solid "+sc.border+";":"";
+        var nameStyle=sc?"color:"+sc.text+";":"";
+        var unrecvCount=items.filter(function(e){return e.status!=="received";}).length;
 
         // Supplier group header row
         html+="<tr class='od-group-row"+firstClass+"'>"+
-          "<td colspan='4'>"+
+          "<td colspan='4' style='"+headerBg+"'>"+
             "<div class='od-group-inner'>"+
-              "<span class='od-group-name'>"+esc(suppLabel)+"</span>"+
+              "<span class='od-group-name' style='"+nameStyle+"'>"+esc(suppLabel)+"</span>"+
               "<span class='od-group-count'>"+items.length+" item"+(items.length===1?"":"s")+"</span>"+
-              "<button class='od-btn' style='margin-left:auto;' "+
-                "data-copy-supplier='"+esc(key)+"'>📋 Copy for Email</button>"+
+              (unrecvCount?"<button class='od-btn ok-sm' style='margin-left:auto;' "+
+                "data-mark-all-supplier='"+esc(key)+"'>✓ All Received ("+unrecvCount+")</button>":
+                "<span style='margin-left:auto'></span>")+
+              "<button class='od-btn' data-copy-supplier='"+esc(key)+"'>📋 Copy for Email</button>"+
             "</div>"+
           "</td>"+
         "</tr>";
 
         // Item rows
         items.forEach(function(entry) {
+          var rowBorder=sc?"border-left:3px solid "+sc.border+";":"";
           html+="<tr data-entry-id='"+entry.id+"'>"+
-            "<td>"+
+            "<td style='"+rowBorder+"'>"+
               "<div class='od-cell-name'>"+esc(entry.item_name)+
                 (entry.carried_from_id?"<span class='od-carried-badge'>↩ Carried</span>":"")+
               "</div>"+
               (entry.notes?"<div class='od-cell-note'>"+esc(entry.notes)+"</div>":"")+
             "</td>"+
-            "<td style='text-align:right;font-weight:700;color:#5aa2ff;'>"+esc(entry.qty)+"</td>"+
+            "<td class='od-qty-cell' data-qid='"+entry.id+"' data-qty='"+esc(entry.qty)+"' title='Click to edit quantity'><span class='od-qty-val'>"+esc(entry.qty)+"</span></td>"+
             "<td>"+pillHtml(entry.status)+"</td>"+
             "<td><div class='od-actions-cell'>"+
               (entry.status!=="received"?    "<button class='od-ia recv'  data-sid='"+entry.id+"' data-s='received'      title='Received'>✓</button>":"<span class='od-ia'></span>")+
@@ -613,6 +673,26 @@
       });
     });
 
+    // Mark all received for supplier group
+    m.querySelectorAll("[data-mark-all-supplier]").forEach(function(btn){
+      btn.addEventListener("click",function(){
+        var key=btn.getAttribute("data-mark-all-supplier");
+        var sg=buildSupplierGroups(state.entries);
+        var pending=(sg.groups[key]||[]).filter(function(e){return e.status!=="received";});
+        if(!pending.length) return;
+        btn.disabled=true;
+        Promise.all(pending.map(function(e){
+          return apiUpdate(e.id,{status:"received"}).then(function(){ e.status="received"; });
+        })).then(function(){
+          renderMain();
+          toast("good","All Received",pending.length+" item"+(pending.length===1?"":"s")+" marked received.");
+        }).catch(function(err){
+          toast("bad","Error",String(err&&err.message||err));
+          renderMain();
+        });
+      });
+    });
+
     // Copy for email (supplier group)
     m.querySelectorAll("[data-copy-supplier]").forEach(function(btn){
       btn.addEventListener("click",function(){
@@ -652,6 +732,42 @@
       });
     });
 
+    // Qty inline edit
+    m.querySelectorAll(".od-qty-cell").forEach(function(cell){
+      cell.addEventListener("click",function(){
+        var id=parseInt(cell.getAttribute("data-qid"),10);
+        var origQty=parseInt(cell.getAttribute("data-qty"),10)||1;
+        cell.innerHTML="<input class='od-qty-inline' type='number' min='1' value='"+origQty+"'>";
+        var inp=cell.querySelector(".od-qty-inline");
+        inp.focus(); inp.select();
+        var saved=false;
+        function saveQty(){
+          if(saved) return; saved=true;
+          var newQty=Math.max(1,parseInt(inp.value||"1",10)||1);
+          if(newQty===origQty){renderMain();return;}
+          apiUpdate(id,{qty:newQty}).then(function(){
+            var e=state.entries.find(function(e){return e.id===id;});
+            if(e) e.qty=newQty;
+            renderMain();
+            flashRow(id,"od-flash-ok");
+          }).catch(function(err){
+            toast("bad","Error",String(err&&err.message||err));
+            renderMain();
+          });
+        }
+        inp.addEventListener("keydown",function(ev){
+          if(ev.key==="Enter"){ev.preventDefault();saveQty();}
+          else if(ev.key==="Escape"){renderMain();}
+        });
+        inp.addEventListener("blur",function(){saveQty();});
+        inp.addEventListener("wheel",function(ev){
+          ev.preventDefault();
+          var v=parseInt(inp.value||"1",10)||1;
+          inp.value=Math.max(1,v+(ev.deltaY<0?1:-1));
+        },{passive:false});
+      });
+    });
+
     // Delete
     m.querySelectorAll("[data-did]").forEach(function(btn){
       btn.addEventListener("click",function(ev){
@@ -678,6 +794,7 @@
 
   // ─── Inline quick-add wiring ──────────────────────────────────────────────
   var _qaSugTimer=null, _qaSupSugTimer=null;
+  var _nameSugIdx=-1, _supSugIdx=-1;
 
   function wireInlineAdd() {
     var nameEl  = document.getElementById("od-qa-name");
@@ -691,19 +808,73 @@
     // ── Item name autocomplete (history + quotations merged)
     nameEl.addEventListener("input",function(){
       clearTimeout(_qaSugTimer);
+      _nameSugIdx=-1;
       var typed=(nameEl.value||"").trim();
       if(typed.length<2){hideSug(nameSug);return;}
       _qaSugTimer=setTimeout(function(){fetchMergedSuggestions(typed,nameSug,supEl);},220);
     });
-    nameEl.addEventListener("blur",function(){setTimeout(function(){hideSug(nameSug);},180);});
+    nameEl.addEventListener("blur",function(){setTimeout(function(){hideSug(nameSug);_nameSugIdx=-1;},180);});
+
+    // ── Name keyboard navigation
+    nameEl.addEventListener("keydown",function(ev){
+      var open=nameSug.style.display!=="none"&&nameSug.querySelectorAll(".od-sug-item").length>0;
+      if(ev.key==="ArrowDown"){
+        if(!open) return;
+        ev.preventDefault();
+        _nameSugIdx=Math.min(_nameSugIdx+1,nameSug.querySelectorAll(".od-sug-item").length-1);
+        updateSugHighlight(nameSug,_nameSugIdx);
+      } else if(ev.key==="ArrowUp"){
+        if(!open) return;
+        ev.preventDefault();
+        _nameSugIdx=Math.max(_nameSugIdx-1,-1);
+        updateSugHighlight(nameSug,_nameSugIdx);
+      } else if(ev.key==="Enter"){
+        ev.preventDefault();
+        if(open&&_nameSugIdx>=0){
+          var hi=nameSug.querySelectorAll(".od-sug-item")[_nameSugIdx];
+          if(hi){ hi.dispatchEvent(new MouseEvent("mousedown",{bubbles:true})); _nameSugIdx=-1; }
+        } else {
+          quickSubmit(nameEl,qtyEl,supEl,addBtn);
+        }
+      } else if(ev.key==="Escape"){
+        hideSug(nameSug); _nameSugIdx=-1;
+      }
+    });
 
     // ── Supplier autocomplete
     supEl.addEventListener("input",function(){
       clearTimeout(_qaSupSugTimer);
+      _supSugIdx=-1;
       var typed=(supEl.value||"").trim().toLowerCase();
       _qaSupSugTimer=setTimeout(function(){fetchSupplierSuggestions(typed,supSug,supEl);},200);
     });
-    supEl.addEventListener("blur",function(){setTimeout(function(){hideSug(supSug);},180);});
+    supEl.addEventListener("blur",function(){setTimeout(function(){hideSug(supSug);_supSugIdx=-1;},180);});
+
+    // ── Supplier keyboard navigation
+    supEl.addEventListener("keydown",function(ev){
+      var open=supSug.style.display!=="none"&&supSug.querySelectorAll(".od-sug-item").length>0;
+      if(ev.key==="ArrowDown"){
+        if(!open) return;
+        ev.preventDefault();
+        _supSugIdx=Math.min(_supSugIdx+1,supSug.querySelectorAll(".od-sug-item").length-1);
+        updateSugHighlight(supSug,_supSugIdx);
+      } else if(ev.key==="ArrowUp"){
+        if(!open) return;
+        ev.preventDefault();
+        _supSugIdx=Math.max(_supSugIdx-1,-1);
+        updateSugHighlight(supSug,_supSugIdx);
+      } else if(ev.key==="Enter"){
+        ev.preventDefault();
+        if(open&&_supSugIdx>=0){
+          var hi=supSug.querySelectorAll(".od-sug-item")[_supSugIdx];
+          if(hi){ hi.dispatchEvent(new MouseEvent("mousedown",{bubbles:true})); _supSugIdx=-1; }
+        } else {
+          quickSubmit(nameEl,qtyEl,supEl,addBtn);
+        }
+      } else if(ev.key==="Escape"){
+        hideSug(supSug); _supSugIdx=-1;
+      }
+    });
 
     // ── Scroll wheel on qty
     qtyEl.addEventListener("wheel",function(ev){
@@ -712,15 +883,20 @@
       qtyEl.value=Math.max(1,v+(ev.deltaY<0?1:-1));
     },{passive:false});
 
-    // ── Enter key on name or qty or supplier submits
-    function onEnter(ev){ if(ev.key==="Enter"){ev.preventDefault();quickSubmit(nameEl,qtyEl,supEl,addBtn);} }
-    nameEl.addEventListener("keydown",onEnter);
-    qtyEl.addEventListener("keydown",onEnter);
-    supEl.addEventListener("keydown",onEnter);
+    // ── Enter on qty submits
+    qtyEl.addEventListener("keydown",function(ev){
+      if(ev.key==="Enter"){ev.preventDefault();quickSubmit(nameEl,qtyEl,supEl,addBtn);}
+    });
     addBtn.addEventListener("click",function(){quickSubmit(nameEl,qtyEl,supEl,addBtn);});
   }
 
   function hideSug(el) { if(el){el.style.display="none";el.innerHTML="";} }
+
+  function updateSugHighlight(sugEl, idx) {
+    var items=sugEl.querySelectorAll(".od-sug-item");
+    items.forEach(function(el,i){ el.classList.toggle("hov",i===idx); });
+    if(idx>=0&&items[idx]) items[idx].scrollIntoView({block:"nearest"});
+  }
 
   function buildSugHtml(items, onSelect) {
     // items: [{name, meta, metaHtml, section, cost}]
@@ -876,12 +1052,22 @@
   }
 
   // ─── Set status ───────────────────────────────────────────────────────────
+  function flashRow(id, flashClass) {
+    setTimeout(function(){
+      var m=getMountEl();
+      var row=m&&m.querySelector("tr[data-entry-id='"+id+"']");
+      if(row){ row.classList.add(flashClass); setTimeout(function(){row.classList.remove(flashClass);},900); }
+    },10);
+  }
+
   async function setStatus(id,status) {
     try {
       await apiUpdate(id,{status:status});
       var e=state.entries.find(function(e){return e.id===id;});
       if(e) e.status=status;
       renderMain();
+      var fc=status==="received"?"od-flash-ok":status==="not_received"?"od-flash-bad":"od-flash-warn";
+      flashRow(id,fc);
     } catch(err){ toast("bad","Error",String(err&&err.message||err)); }
   }
 
@@ -1179,6 +1365,7 @@
           var idx=state.entries.findIndex(function(e){return e.id===entry.id;});
           if(idx>=0) state.entries[idx].status="wrong_pick";
           E.modal.hide(); renderMain();
+          flashRow(entry.id,"od-flash-warn");
           toast("good","Return Logged","Wrong pick recorded. Item marked ⚠.");
         }catch(err){toast("bad","Error",String(err&&err.message||err));}
       }},
