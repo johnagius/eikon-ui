@@ -439,35 +439,31 @@
       return { mode: "local", entries: localList(), lastError: eProbe || null, allow500Fallback: allow500Fallback };
     }
 
-    // If probe succeeded, load 3y window (batched).
+    // If probe succeeded, load 3y window (all months in parallel).
     var months = buildMonths3y();
     var byId = Object.create(null);
-    var BATCH = 6;
     var anyOk = false;
     var firstErr = null;
 
-    for (var i = 0; i < months.length; i += BATCH) {
-      var batch = months.slice(i, i + BATCH);
-      var settled = await Promise.allSettled(
-        batch.map(function (m) {
-          return apiMonthList(m, "", null);
-        })
-      );
+    var settled = await Promise.allSettled(
+      months.map(function (m) {
+        return apiMonthList(m, "", null);
+      })
+    );
 
-      for (var k = 0; k < settled.length; k++) {
-        var it = settled[k];
-        if (it.status === "fulfilled") {
-          anyOk = true;
-          var resp = it.value;
-          mergeById(byId, resp && resp.entries);
-        } else {
-          var e = it.reason;
-          if (!firstErr) firstErr = e;
-          // auth errors should hard-fail
-          if (e && (e.status === 401 || e.status === 403)) throw e;
-          // tolerate partial
-          dbg("[clientorders] month fetch failed (skipped)", { status: e && e.status, message: e && e.message });
-        }
+    for (var k = 0; k < settled.length; k++) {
+      var it = settled[k];
+      if (it.status === "fulfilled") {
+        anyOk = true;
+        var resp = it.value;
+        mergeById(byId, resp && resp.entries);
+      } else {
+        var e = it.reason;
+        if (!firstErr) firstErr = e;
+        // auth errors should hard-fail
+        if (e && (e.status === 401 || e.status === 403)) throw e;
+        // tolerate partial
+        dbg("[clientorders] month fetch failed (skipped)", { status: e && e.status, message: e && e.message });
       }
     }
 
