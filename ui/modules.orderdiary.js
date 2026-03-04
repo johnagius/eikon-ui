@@ -152,6 +152,7 @@
     date:           todayYmd(),
     entries:        [],
     filterSupplier: null,     // null = show all, "__none__" = unassigned
+    searchText:     "",       // free-text filter for table rows
     user:           null,     // stored from ctx.user on render
     loading:        false,
     _mount:         null
@@ -249,7 +250,7 @@
 
       // Main table
       ".od-table-wrap{border:1px solid rgba(255,255,255,.08);border-radius:12px;overflow:hidden;}" +
-      ".od-table-scroll{max-height:60vh;overflow-y:auto;}" +
+      ".od-table-scroll{height:calc(100vh - 360px);min-height:150px;overflow-y:auto;}" +
       ".od-table{width:100%;border-collapse:collapse;font-size:12px;}" +
       ".od-table thead th{position:sticky;top:0;z-index:3;background:rgba(10,15,24,.98);color:rgba(233,238,247,.45);font-size:10px;text-transform:uppercase;letter-spacing:.5px;font-weight:800;padding:7px 10px;border-bottom:1px solid rgba(255,255,255,.10);text-align:left;white-space:nowrap;}" +
       ".od-table thead th.r{text-align:right;}" +
@@ -291,7 +292,11 @@
       ".od-actions-cell{display:flex;gap:3px;align-items:center;justify-content:flex-end;}" +
 
       // Action bar (above table)
-      ".od-action-bar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;}" +
+      ".od-action-bar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px;}" +
+      ".od-search-wrap{flex:1;min-width:160px;max-width:280px;}" +
+      ".od-search-input{width:100%;background:rgba(10,16,24,.70);border:1px solid rgba(255,255,255,.13);border-radius:8px;color:#e9eef7;padding:5px 10px;font-size:12px;outline:none;box-sizing:border-box;font-family:inherit;transition:border-color .14s;}" +
+      ".od-search-input:focus{border-color:rgba(58,160,255,.55);}" +
+      ".od-search-input::placeholder{color:rgba(233,238,247,.28);}" +
 
       // Empty state
       ".od-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 24px;text-align:center;gap:10px;}" +
@@ -396,6 +401,14 @@
     return {groups:groups,order:order};
   }
 
+  function profitColor(pct) {
+    var p=Number(pct)||0;
+    if(!isFinite(p)||p<=0) return "#ff5a7a";
+    if(p>=35) return "#43d17a";
+    if(p<=20) return "#ff5a7a";
+    return "hsl("+Math.round((p-20)/15*120)+",88%,52%)";
+  }
+
   function pillHtml(status) {
     var m={pending:{i:"⏳",l:"Pending"},received:{i:"✓",l:"Received"},not_received:{i:"✗",l:"Not Received"},wrong_pick:{i:"⚠",l:"Wrong Pick"}};
     var v=m[status]||m.pending;
@@ -411,12 +424,17 @@
     // Collect all unique suppliers for filter tabs
     var allSG=buildSupplierGroups(entries);
 
-    // Apply filter
+    // Apply supplier filter
     var visible=state.filterSupplier===null ? entries :
       entries.filter(function(e){
         var k=(e.supplier||"").trim()||"__none__";
         return k===state.filterSupplier;
       });
+    // Apply search text filter
+    if (state.searchText) {
+      var _st=norm(state.searchText);
+      visible=visible.filter(function(e){ return norm(e.item_name).indexOf(_st)>=0; });
+    }
     var visSG=buildSupplierGroups(visible);
 
     var html="<div class='od-wrap'>";
@@ -446,6 +464,10 @@
     html+="<div class='od-action-bar'>"+
       "<button class='od-btn' id='od-print-btn'>🖨 Print</button>"+
       (outstanding?"<button class='od-btn warn' id='od-carry-btn'>↩ Carry Over "+outstanding+"</button>":"")+
+      "<div class='od-search-wrap'>"+
+        "<input id='od-search' class='od-search-input' type='text' "+
+          "placeholder='🔍 Search items…' autocomplete='off' value='"+esc(state.searchText||"")+"'>"+
+      "</div>"+
     "</div>";
 
     // Quick-add form (always visible at top)
@@ -555,6 +577,7 @@
         if(v===0) state.date=todayYmd();
         else state.date=addDays(state.date,v);
         state.filterSupplier=null;
+        state.searchText="";
         loadEntries();
       });
     });
@@ -566,6 +589,20 @@
     // Carry over
     var cb=m.querySelector("#od-carry-btn");
     if(cb) cb.addEventListener("click",doCarryOver);
+
+    // Search input
+    var searchEl=m.querySelector("#od-search");
+    if (searchEl) {
+      searchEl.addEventListener("input",function(){
+        state.searchText=(searchEl.value||"").trim();
+        renderMain();
+        // Restore focus and cursor after re-render
+        setTimeout(function(){
+          var el=document.getElementById("od-search");
+          if(el){el.focus();el.setSelectionRange(el.value.length,el.value.length);}
+        },0);
+      });
+    }
 
     // Filter tabs
     m.querySelectorAll("[data-filter]").forEach(function(btn){
@@ -686,16 +723,18 @@
   function hideSug(el) { if(el){el.style.display="none";el.innerHTML="";} }
 
   function buildSugHtml(items, onSelect) {
-    // items: [{name, meta, type}]
+    // items: [{name, meta, metaHtml, section, cost}]
     var html="", curSection="";
     items.forEach(function(item,idx){
       if(item.section&&item.section!==curSection){
         curSection=item.section;
         html+="<div class='od-sug-section'>"+esc(curSection)+"</div>";
       }
+      var metaPart=item.metaHtml||
+        (item.meta?"<span class='od-sug-meta"+(item.cost?" od-sug-cost":"")+"'>"+esc(item.meta)+"</span>":"");
       html+="<div class='od-sug-item' data-idx='"+idx+"'>"+
         "<span class='od-sug-name'>"+esc(item.name)+"</span>"+
-        (item.meta?"<span class='od-sug-meta"+(item.cost?" od-sug-cost":"")+"'>"+esc(item.meta)+"</span>":"")+
+        metaPart+
       "</div>";
     });
     return html;
@@ -736,12 +775,27 @@
         if(!d) return;
         // If same as something in history (by description similarity) skip
         if(historyNames[norm(d)]) return;
-        var cost=row.cost_excl_vat?"€"+Number(row.cost_excl_vat).toFixed(2)+" excl":(row.cost_incl_vat?"€"+Number(row.cost_incl_vat).toFixed(2)+" incl":"");
+
+        var margin=Number(row.profit_margin||0);
+        var qtyFree=Number(row.qty_free||0);
+        var discPct=Number(row.discount_pct||0);
+        var costExcl=row.cost_excl_vat?Number(row.cost_excl_vat):null;
+        var costIncl=row.cost_incl_vat?Number(row.cost_incl_vat):null;
+
+        // Build rich meta HTML
+        var parts=[];
+        if(row.supplier) parts.push("<span style='color:rgba(233,238,247,.55)'>"+esc(row.supplier)+"</span>");
+        if(costExcl!=null) parts.push("<span style='color:#43d17a'>€"+costExcl.toFixed(2)+"</span>");
+        if(margin>0) parts.push("<span style='color:"+profitColor(margin)+";font-weight:800'>"+Math.round(margin)+"%</span>");
+        if(qtyFree>0) parts.push("<span style='color:#5aa2ff'>+"+qtyFree+" free</span>");
+        if(discPct>0) parts.push("<span style='color:#ffaf32'>"+Math.round(discPct)+"% disc</span>");
+        var metaHtml=parts.length?
+          "<span class='od-sug-meta' style='display:flex;gap:5px;align-items:center;'>"+parts.join(" ")+"</span>":"";
+
         merged.push({
           section:"From Quotations",
           name: d,
-          meta: (row.supplier?row.supplier+" · ":"")+cost,
-          cost: !!cost,
+          metaHtml: metaHtml,
           fillName: d,
           fillSupplier: row.supplier||""
         });
@@ -1049,13 +1103,25 @@
       return;
     }
     var html="<table class='od-qt-table'><thead><tr>"+
-      "<th>Description</th><th>Supplier</th><th style='text-align:right'>Cost Excl.</th><th>Date</th>"+
+      "<th>Description</th><th>Supplier</th><th style='text-align:right'>Cost Excl.</th>"+
+      "<th style='text-align:right'>Margin</th><th>Extras</th><th>Date</th>"+
     "</tr></thead><tbody>";
     matches.forEach(function(row){
+      var margin=Number(row.profit_margin||0);
+      var qtyFree=Number(row.qty_free||0);
+      var discPct=Number(row.discount_pct||0);
+      var marginCell=margin>0
+        ? "<td style='text-align:right;font-weight:800;color:"+profitColor(margin)+"'>"+Math.round(margin)+"%</td>"
+        : "<td style='text-align:right;color:rgba(233,238,247,.25)'>—</td>";
+      var extras=[];
+      if(qtyFree>0) extras.push("<span style='color:#5aa2ff;font-size:10px'>+"+qtyFree+" free</span>");
+      if(discPct>0) extras.push("<span style='color:#ffaf32;font-size:10px'>"+Math.round(discPct)+"% disc</span>");
       html+="<tr data-s='"+esc(row.supplier||"")+"'>"+
         "<td>"+esc(row.item_description||"")+"</td>"+
         "<td>"+esc(row.supplier||"—")+"</td>"+
         "<td style='text-align:right'>€"+esc(Number(row.cost_excl_vat||0).toFixed(2))+"</td>"+
+        marginCell+
+        "<td>"+(extras.join(" ")||"—")+"</td>"+
         "<td>"+esc(fmtDateShort(row.quote_date||""))+"</td>"+
       "</tr>";
     });
