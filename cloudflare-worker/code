@@ -2001,6 +2001,200 @@ async function handleQuotationsEntryDelete(request, env, corsOkHeaders, authUser
 
 /* END QUOTATIONS MODULE */
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   ORDER DIARY MODULE
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+async function ensureOrderDiarySchema(env) {
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS order_diary_entries (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id          INTEGER NOT NULL,
+    location_id     INTEGER NOT NULL,
+    order_date      TEXT    NOT NULL,
+    item_name       TEXT    NOT NULL DEFAULT '',
+    qty             INTEGER NOT NULL DEFAULT 1,
+    supplier        TEXT    NOT NULL DEFAULT '',
+    status          TEXT    NOT NULL DEFAULT 'pending',
+    notes           TEXT    NOT NULL DEFAULT '',
+    carried_from_id INTEGER,
+    created_by      INTEGER,
+    created_at      TEXT    NOT NULL DEFAULT (datetime('now')),
+    updated_at      TEXT    NOT NULL DEFAULT (datetime('now'))
+  )`, []);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_ode_org_loc_date ON order_diary_entries (org_id, location_id, order_date)`, []);
+
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS order_diary_items (
+    id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id             INTEGER NOT NULL,
+    item_name          TEXT    NOT NULL DEFAULT '',
+    preferred_supplier TEXT    NOT NULL DEFAULT '',
+    last_used          TEXT    NOT NULL DEFAULT (datetime('now')),
+    use_count          INTEGER NOT NULL DEFAULT 1,
+    UNIQUE(org_id, item_name)
+  )`, []);
+}
+
+async function upsertOrderDiaryItem(env, orgId, itemName, supplier) {
+  if (!itemName) return;
+  await dbRun(env,
+    `INSERT INTO order_diary_items (org_id, item_name, preferred_supplier, last_used, use_count)
+     VALUES (?, ?, ?, datetime('now'), 1)
+     ON CONFLICT(org_id, item_name) DO UPDATE SET
+       preferred_supplier = excluded.preferred_supplier,
+       last_used          = excluded.last_used,
+       use_count          = use_count + 1`,
+    [orgId, itemName, supplier || ""]
+  );
+}
+
+async function handleOrderDiaryEntriesList(request, env, corsOkHeaders, authUser, url) {
+  await ensureOrderDiarySchema(env);
+  const date = String(url.searchParams.get("date") || "").trim();
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return jsonResponse({ ok: false, error: "date param required (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  }
+  const rows = await dbAll(env,
+    `SELECT * FROM order_diary_entries
+     WHERE org_id = ? AND location_id = ? AND order_date = ?
+     ORDER BY supplier, id`,
+    [authUser.org_id, authUser.location_id, date]
+  );
+  return jsonResponse({ ok: true, entries: rows || [] }, 200, corsOkHeaders);
+}
+
+async function handleOrderDiaryEntryCreate(request, env, corsOkHeaders, authUser) {
+  await ensureOrderDiarySchema(env);
+  const body = await readJson(request);
+  const order_date = String(body.order_date || "").trim();
+  const item_name  = String(body.item_name  || "").trim();
+  if (!item_name)  return jsonResponse({ ok: false, error: "item_name is required" }, 400, corsOkHeaders);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(order_date)) return jsonResponse({ ok: false, error: "Invalid order_date" }, 400, corsOkHeaders);
+
+  const qty      = Math.max(1, Math.round(Number(body.qty) || 1));
+  const supplier = String(body.supplier || "").trim();
+  const notes    = String(body.notes    || "").trim();
+  const carried_from_id = body.carried_from_id ? parseInt(body.carried_from_id, 10) || null : null;
+
+  const row = await dbFirst(env,
+    `INSERT INTO order_diary_entries
+       (org_id, location_id, order_date, item_name, qty, supplier, status, notes, carried_from_id, created_by, created_at, updated_at)
+     VALUES (?,?,?,?,?,?,'pending',?,?,?,datetime('now'),datetime('now'))
+     RETURNING id`,
+    [authUser.org_id, authUser.location_id, order_date, item_name, qty, supplier, notes, carried_from_id, authUser.user_id]
+  );
+
+  await upsertOrderDiaryItem(env, authUser.org_id, item_name, supplier);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "ORDER_DIARY_CREATE", "order_diary_entries", String(row.id), { item_name, order_date });
+  return jsonResponse({ ok: true, id: row.id }, 200, corsOkHeaders);
+}
+
+async function handleOrderDiaryEntryUpdate(request, env, corsOkHeaders, authUser, id) {
+  await ensureOrderDiarySchema(env);
+  const existing = await dbFirst(env,
+    `SELECT * FROM order_diary_entries WHERE org_id = ? AND id = ?`,
+    [authUser.org_id, id]
+  );
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+  const item_name  = String(body.item_name  !== undefined ? body.item_name  : existing.item_name).trim();
+  const qty        = body.qty      !== undefined ? Math.max(1, Math.round(Number(body.qty) || 1)) : existing.qty;
+  const supplier   = String(body.supplier  !== undefined ? body.supplier  : existing.supplier).trim();
+  const notes      = String(body.notes     !== undefined ? body.notes     : existing.notes).trim();
+  const validStatuses = ["pending", "received", "not_received", "wrong_pick"];
+  const status     = body.status && validStatuses.includes(body.status) ? body.status : existing.status;
+
+  await dbRun(env,
+    `UPDATE order_diary_entries SET
+       item_name=?, qty=?, supplier=?, status=?, notes=?, updated_at=datetime('now')
+     WHERE org_id=? AND id=?`,
+    [item_name, qty, supplier, status, notes, authUser.org_id, id]
+  );
+
+  if (supplier !== existing.supplier) {
+    await upsertOrderDiaryItem(env, authUser.org_id, item_name, supplier);
+  }
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "ORDER_DIARY_UPDATE", "order_diary_entries", String(id), { status });
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleOrderDiaryEntryDelete(request, env, corsOkHeaders, authUser, id) {
+  await ensureOrderDiarySchema(env);
+  const existing = await dbFirst(env,
+    `SELECT id FROM order_diary_entries WHERE org_id = ? AND id = ?`,
+    [authUser.org_id, id]
+  );
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+  await dbRun(env, `DELETE FROM order_diary_entries WHERE org_id = ? AND id = ?`, [authUser.org_id, id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "ORDER_DIARY_DELETE", "order_diary_entries", String(id), {});
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleOrderDiaryItemsSearch(request, env, corsOkHeaders, authUser, url) {
+  await ensureOrderDiarySchema(env);
+  const q = String(url.searchParams.get("q") || "").trim().toLowerCase();
+  let rows;
+  if (q) {
+    rows = await dbAll(env,
+      `SELECT item_name, preferred_supplier, use_count FROM order_diary_items
+       WHERE org_id = ? AND lower(item_name) LIKE ?
+       ORDER BY use_count DESC, last_used DESC LIMIT 10`,
+      [authUser.org_id, "%" + q + "%"]
+    );
+  } else {
+    rows = await dbAll(env,
+      `SELECT item_name, preferred_supplier, use_count FROM order_diary_items
+       WHERE org_id = ?
+       ORDER BY use_count DESC, last_used DESC LIMIT 10`,
+      [authUser.org_id]
+    );
+  }
+  return jsonResponse({ ok: true, items: rows || [] }, 200, corsOkHeaders);
+}
+
+async function handleOrderDiaryCarryOver(request, env, corsOkHeaders, authUser) {
+  await ensureOrderDiarySchema(env);
+  const body = await readJson(request);
+  const from_date = String(body.from_date || "").trim();
+  const to_date   = String(body.to_date   || "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(from_date)) return jsonResponse({ ok: false, error: "Invalid from_date" }, 400, corsOkHeaders);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(to_date))   return jsonResponse({ ok: false, error: "Invalid to_date" }, 400, corsOkHeaders);
+  if (to_date <= from_date) return jsonResponse({ ok: false, error: "to_date must be after from_date" }, 400, corsOkHeaders);
+
+  const outstanding = await dbAll(env,
+    `SELECT * FROM order_diary_entries
+     WHERE org_id = ? AND location_id = ? AND order_date = ? AND status IN ('pending','not_received','wrong_pick')`,
+    [authUser.org_id, authUser.location_id, from_date]
+  );
+  if (!outstanding || outstanding.length === 0) {
+    return jsonResponse({ ok: true, carried: 0, message: "No outstanding items to carry over" }, 200, corsOkHeaders);
+  }
+
+  let carried = 0;
+  for (const entry of outstanding) {
+    const existing = await dbFirst(env,
+      `SELECT id FROM order_diary_entries
+       WHERE org_id=? AND location_id=? AND order_date=? AND item_name=? AND supplier=?`,
+      [authUser.org_id, authUser.location_id, to_date, entry.item_name, entry.supplier]
+    );
+    if (existing) continue; // already exists for target date, skip duplicate
+    await dbRun(env,
+      `INSERT INTO order_diary_entries
+         (org_id, location_id, order_date, item_name, qty, supplier, status, notes, carried_from_id, created_by, created_at, updated_at)
+       VALUES (?,?,?,?,?,?,'pending',?,?,?,datetime('now'),datetime('now'))`,
+      [authUser.org_id, authUser.location_id, to_date, entry.item_name, entry.qty,
+       entry.supplier, entry.notes || "", entry.id, authUser.user_id]
+    );
+    carried++;
+  }
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "ORDER_DIARY_CARRY_OVER", "order_diary_entries", from_date, { from_date, to_date, carried });
+  return jsonResponse({ ok: true, carried, to_date }, 200, corsOkHeaders);
+}
+
+/* END ORDER DIARY MODULE */
+
 function normalizePriority(p) {
   const n = Number(p);
   if (!Number.isFinite(n)) return 2;
@@ -12668,6 +12862,27 @@ if (url.pathname.startsWith("/quotations/entries/")) {
   if (!qId) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
   if (request.method === "PUT") return await handleQuotationsEntryUpdate(request, env, corsOkHeaders, authUser, qId);
   if (request.method === "DELETE") return await handleQuotationsEntryDelete(request, env, corsOkHeaders, authUser, qId);
+}
+
+// Order Diary
+if (url.pathname === "/order-diary/entries" && request.method === "GET") {
+  return await handleOrderDiaryEntriesList(request, env, corsOkHeaders, authUser, url);
+}
+if (url.pathname === "/order-diary/entries" && request.method === "POST") {
+  return await handleOrderDiaryEntryCreate(request, env, corsOkHeaders, authUser);
+}
+if (url.pathname.startsWith("/order-diary/entries/")) {
+  const odParts = url.pathname.split("/").filter(Boolean);
+  const odId = parseInt(odParts[2], 10);
+  if (!odId) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+  if (request.method === "PUT")    return await handleOrderDiaryEntryUpdate(request, env, corsOkHeaders, authUser, odId);
+  if (request.method === "DELETE") return await handleOrderDiaryEntryDelete(request, env, corsOkHeaders, authUser, odId);
+}
+if (url.pathname === "/order-diary/items" && request.method === "GET") {
+  return await handleOrderDiaryItemsSearch(request, env, corsOkHeaders, authUser, url);
+}
+if (url.pathname === "/order-diary/carry-over" && request.method === "POST") {
+  return await handleOrderDiaryCarryOver(request, env, corsOkHeaders, authUser);
 }
 
 // Client Tickets
