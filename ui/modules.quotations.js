@@ -781,7 +781,8 @@
     }
 
     var html = "<div style='margin-bottom:10px;font-size:13px;color:var(--muted,rgba(233,238,247,.68));'>" +
-      "Found " + clusters.length + " group" + (clusters.length !== 1 ? "s" : "") + " of similar descriptions.</div>";
+      "Found " + clusters.length + " group" + (clusters.length !== 1 ? "s" : "") + " of similar descriptions.</div>" +
+      "<div style='max-height:420px;overflow-y:auto;padding-right:4px;'>";
 
     clusters.forEach(function (grp, gi) {
       var total = grp.counts.reduce(function (s, c) { return s + c; }, 0);
@@ -794,7 +795,7 @@
       html += "<input class='qt-merge-input' id='qt-mc-" + gi + "' type='text' value='" + esc(grp.canonical) + "'>" +
         "<button class='qt-merge-btn' id='qt-mb-" + gi + "'>Merge this group</button></div>";
     });
-    html += "<div id='qt-merge-status' style='font-size:12px;color:var(--muted,rgba(233,238,247,.68));margin-top:6px;'></div>";
+    html += "</div><div id='qt-merge-status' style='font-size:12px;color:var(--muted,rgba(233,238,247,.68));margin-top:6px;'></div>";
 
     E.modal.show("Find & Merge Duplicates", html, [
       { label: "Close", onClick: function () { E.modal.hide(); } },
