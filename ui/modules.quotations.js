@@ -273,7 +273,8 @@
     loading: false,
     colVis: defaultColVis(),
     showColPanel: false,
-    refresh: null
+    refresh: null,
+    bulkPreviewRows: null
   };
 
   // ─── Styles ───────────────────────────────────────────────────────────────
@@ -395,7 +396,27 @@
 
       // multi-search row and hint
       ".qt-search-row{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-bottom:4px;}" +
-      ".qt-search-hint{font-size:11px;color:rgba(233,238,247,.42);margin-bottom:8px;font-style:italic;}";
+      ".qt-search-hint{font-size:11px;color:rgba(233,238,247,.42);margin-bottom:8px;font-style:italic;}" +
+
+      // print modal
+      ".qt-print-count{font-size:12px;color:rgba(233,238,247,.55);margin-top:8px;}" +
+
+      // bulk preview / sanity-check table
+      ".qt-preview-section{margin-top:16px;padding:16px 20px;border:1px solid rgba(58,160,255,.22);border-radius:14px;background:rgba(10,16,24,.28);}" +
+      ".qt-preview-title{margin:0 0 3px;font-size:14px;font-weight:900;color:#5aa2ff;}" +
+      ".qt-preview-sub{font-size:12px;color:rgba(233,238,247,.55);margin-bottom:10px;}" +
+      ".qt-preview-table-wrap{overflow:auto;border:1px solid rgba(255,255,255,.08);border-radius:10px;max-height:420px;}" +
+      ".qt-preview-table{border-collapse:collapse;min-width:100%;color:var(--text,#e9eef7);font-size:11px;}" +
+      ".qt-preview-table th,.qt-preview-table td{border-bottom:1px solid rgba(255,255,255,.07);padding:3px 4px;vertical-align:middle;white-space:nowrap;}" +
+      ".qt-preview-table th{background:rgba(12,19,29,.95);position:sticky;top:0;z-index:2;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:rgba(233,238,247,.60);font-weight:900;text-align:left;}" +
+      ".qt-preview-table .num{text-align:right;}" +
+      ".qt-pv-input{background:rgba(10,16,24,.70);border:1px solid rgba(255,255,255,.12);border-radius:5px;color:var(--text,#e9eef7);padding:2px 5px;font-size:11px;outline:none;box-sizing:border-box;}" +
+      ".qt-pv-input:focus{border-color:rgba(58,160,255,.55);box-shadow:0 0 0 2px rgba(58,160,255,.18);}" +
+      ".qt-pv-ro{display:block;padding:2px 5px;font-size:11px;font-weight:700;text-align:right;white-space:nowrap;}" +
+      ".qt-pv-del{background:rgba(255,60,60,.10);border:1px solid rgba(255,80,80,.22);border-radius:5px;color:#ff7070;padding:2px 8px;cursor:pointer;font-size:11px;font-weight:800;line-height:1.4;}" +
+      ".qt-pv-del:hover{background:rgba(255,60,60,.22);}" +
+      ".qt-preview-footer{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;}" +
+      ".qt-pv-empty{padding:20px;text-align:center;color:rgba(233,238,247,.45);font-size:13px;}";
 
     document.head.appendChild(st);
   }
@@ -838,6 +859,179 @@
     return total;
   }
 
+  // ─── Print ────────────────────────────────────────────────────────────────
+  function openPrintModal() {
+    // Collect unique suppliers from loaded data
+    var suppliers = [];
+    var seen = Object.create(null);
+    (state.quotations || []).forEach(function (row) {
+      var s = String(row.supplier || "").trim();
+      if (s && !seen[s]) { seen[s] = 1; suppliers.push(s); }
+    });
+    suppliers.sort(function (a, b) { return String(a).localeCompare(String(b)); });
+
+    // Default date range: 3 years ago → today
+    var today = new Date();
+    var threeYearsAgo = new Date(today.getFullYear() - 3, today.getMonth(), today.getDate());
+    var defaultStart = toYmd(threeYearsAgo);
+    var defaultEnd   = todayYmd();
+
+    var supOpts = "<option value=''>All Suppliers</option>" +
+      suppliers.map(function (s) {
+        return "<option value='" + esc(s) + "'>" + esc(s) + "</option>";
+      }).join("");
+
+    var body =
+      "<div class='qt-form-grid-2' style='margin-bottom:14px;'>" +
+        "<div class='qt-field'><label>Date From</label>" +
+          "<input id='qt-print-from' type='date' value='" + defaultStart + "'></div>" +
+        "<div class='qt-field'><label>Date To</label>" +
+          "<input id='qt-print-to' type='date' value='" + defaultEnd + "'></div>" +
+      "</div>" +
+      "<div class='qt-field' style='margin-bottom:12px;'><label>Supplier</label>" +
+        "<select id='qt-print-supplier'>" + supOpts + "</select></div>" +
+      "<div id='qt-print-count' class='qt-print-count'></div>";
+
+    E.modal.show("Print Quotations", body, [
+      { label: "Cancel", onClick: function () { E.modal.hide(); } },
+      {
+        label: "Open Print View",
+        primary: true,
+        onClick: function () {
+          var from = (getEl("#qt-print-from")    || {}).value || "";
+          var to   = (getEl("#qt-print-to")      || {}).value || "";
+          var sup  = (getEl("#qt-print-supplier") || {}).value || "";
+          E.modal.hide();
+          doPrint(from, to, sup);
+        }
+      }
+    ]);
+
+    // Live row count as user changes filters
+    setTimeout(function () {
+      function updateCount() {
+        var fromEl   = getEl("#qt-print-from");
+        var toEl     = getEl("#qt-print-to");
+        var supEl    = getEl("#qt-print-supplier");
+        var countEl  = getEl("#qt-print-count");
+        if (!countEl) return;
+        var from = fromEl ? fromEl.value : "";
+        var to   = toEl   ? toEl.value   : "";
+        var sup  = supEl  ? supEl.value  : "";
+        var n = (state.quotations || []).filter(function (row) {
+          if (from && row.quote_date < from) return false;
+          if (to   && row.quote_date > to)   return false;
+          if (sup  && norm(row.supplier) !== norm(sup)) return false;
+          return true;
+        }).length;
+        countEl.textContent = n + " entr" + (n !== 1 ? "ies" : "y") + " match these filters.";
+      }
+      updateCount();
+      ["#qt-print-from", "#qt-print-to", "#qt-print-supplier"].forEach(function (id) {
+        var el = getEl(id);
+        if (el) el.addEventListener("change", updateCount);
+      });
+    }, 50);
+  }
+
+  function doPrint(from, to, supplierFilter) {
+    var rows = (state.quotations || []).filter(function (row) {
+      if (from && row.quote_date < from) return false;
+      if (to   && row.quote_date > to)   return false;
+      if (supplierFilter && norm(row.supplier) !== norm(supplierFilter)) return false;
+      return true;
+    });
+    rows = rows.slice().sort(function (a, b) {
+      var d = String(a.quote_date || "").localeCompare(String(b.quote_date || ""));
+      if (d !== 0) return d;
+      return String(a.supplier || "").localeCompare(String(b.supplier || ""));
+    });
+
+    if (!rows.length) {
+      E.modal.show("Print",
+        "<div style='padding:12px;'>No entries match the selected filters.</div>",
+        [{ label: "OK", primary: true, onClick: function () { E.modal.hide(); } }]);
+      return;
+    }
+
+    var filterParts = [];
+    if (supplierFilter) filterParts.push("Supplier: " + supplierFilter);
+    if (from) filterParts.push("From: " + fmtDate(from));
+    if (to)   filterParts.push("To: " + fmtDate(to));
+
+    var totalInvested = 0, totalRetail = 0;
+    rows.forEach(function (r) {
+      totalInvested += Number(r.total_incl_vat) || 0;
+      totalRetail   += (Number(r.retail_price)  || 0) *
+                       ((Number(r.qty_purchased) || 1) + (Number(r.qty_free) || 0));
+    });
+
+    var trs = rows.map(function (r) {
+      var mc = profitMarginColor(r.profit_margin);
+      return "<tr>" +
+        "<td>" + esc(fmtDate(r.quote_date)) + "</td>" +
+        "<td>" + esc(r.supplier || "\u2014") + "</td>" +
+        "<td>" + esc(r.item_description) + "</td>" +
+        "<td class='r'>" + esc(String(r.qty_purchased)) + "</td>" +
+        "<td class='r'>" + esc(String(r.vat_rate)) + "%</td>" +
+        "<td class='r'>\u20ac" + fmt2(r.cost_excl_vat) + "</td>" +
+        "<td class='r'>\u20ac" + fmt2(r.total_incl_vat) + "</td>" +
+        "<td class='r'>\u20ac" + fmt2(r.retail_price) + "</td>" +
+        "<td class='r' style='color:" + mc + "'>" + fmt2(r.profit_margin) + "%</td>" +
+        "<td style='font-size:10px;'>" + esc(r.notes || "") + "</td>" +
+        "</tr>";
+    }).join("");
+
+    var html =
+      "<!DOCTYPE html><html><head><meta charset='utf-8'><title>Quotations Print</title><style>" +
+      "body{font-family:Arial,Helvetica,sans-serif;font-size:11px;margin:14px 20px;color:#111;}" +
+      "h1{font-size:15px;margin:0 0 3px;}" +
+      ".meta{font-size:10px;color:#555;margin-bottom:10px;}" +
+      "table{border-collapse:collapse;width:100%;margin-bottom:10px;}" +
+      "th,td{border:1px solid #c8c8c8;padding:3px 6px;text-align:left;}" +
+      "th{background:#ebebeb;font-size:10px;font-weight:bold;text-transform:uppercase;}" +
+      ".r{text-align:right;}" +
+      "tr:nth-child(even){background:#f7f7f7;}" +
+      ".summary{font-size:12px;margin-top:6px;}" +
+      "@media print{@page{margin:10mm;}}" +
+      "</style></head><body>" +
+      "<h1>Quotations</h1>" +
+      "<div class='meta'>" +
+        (filterParts.length ? filterParts.join(" \u00b7 ") + " \u00b7 " : "") +
+        rows.length + " entr" + (rows.length !== 1 ? "ies" : "y") +
+        " \u00b7 Generated: " + fmtDate(todayYmd()) +
+      "</div>" +
+      "<table><thead><tr>" +
+        "<th>Date</th><th>Supplier</th><th>Description</th><th class='r'>Qty</th><th class='r'>VAT</th>" +
+        "<th class='r'>Cost Excl</th><th class='r'>Total Incl</th><th class='r'>Retail</th><th class='r'>Margin%</th><th>Notes</th>" +
+      "</tr></thead><tbody>" + trs + "</tbody></table>" +
+      "<div class='summary'>Total Invested (Incl VAT): <b>\u20ac" + fmt2(totalInvested) + "</b>" +
+        " &nbsp;&nbsp; Total Retail Value: <b>\u20ac" + fmt2(totalRetail) + "</b></div>" +
+      "<script>window.addEventListener('load',function(){setTimeout(function(){" +
+        "try{window.focus();}catch(e){}try{window.print();}catch(e){}},100);});" +
+        "window.addEventListener('afterprint',function(){setTimeout(function(){" +
+        "try{window.close();}catch(e){}},300);});<\/script>" +
+      "</body></html>";
+
+    var win = window.open("", "_blank", "width=1100,height=750,scrollbars=yes");
+    if (!win) {
+      E.modal.show("Pop-up Blocked",
+        "<div style='padding:12px;'>Please allow pop-ups for this page and try again.</div>",
+        [{ label: "OK", primary: true, onClick: function () { E.modal.hide(); } }]);
+      return;
+    }
+    try {
+      win.document.open();
+      win.document.write(html);
+      win.document.close();
+    } catch (e) {
+      try { win.close(); } catch (e2) {}
+      E.modal.show("Print Failed",
+        "<div style='padding:12px;'>Could not open print view: " + esc(String(e && (e.message || e))) + "</div>",
+        [{ label: "OK", primary: true, onClick: function () { E.modal.hide(); } }]);
+    }
+  }
+
   // ─── Bulk import ──────────────────────────────────────────────────────────
   // Column order expected from the Invoice Extractor GPT output
   var BULK_COLS = [
@@ -845,6 +1039,259 @@
     "qty_purchased", "qty_free", "vat_rate", "cost_excl_vat", "cost_incl_vat",
     "discount_pct", "discount_euro", "total_incl_vat", "retail_price"
   ];
+
+  // ─── Bulk Preview (Sanity Check) ──────────────────────────────────────────
+  function buildPreviewHtml(rows) {
+    if (!rows.length) {
+      return "<div class='qt-preview-section'>" +
+        "<h3 class='qt-preview-title'>Sanity Check</h3>" +
+        "<div class='qt-pv-empty'>No rows left. <b>Add a row</b> or <b>Cancel</b>.</div>" +
+        "<div class='qt-preview-footer'>" +
+          "<button class='eikon-btn' id='qt-pv-add-row'>+ Add Row</button>" +
+          "<button class='eikon-btn' id='qt-pv-cancel' style='opacity:.65;'>Cancel</button>" +
+        "</div></div>";
+    }
+
+    var html =
+      "<div class='qt-preview-section'>" +
+      "<h3 class='qt-preview-title'>Sanity Check \u2014 Review Before Uploading</h3>" +
+      "<div class='qt-preview-sub'>Review and edit the parsed data below. Fix any mistakes, " +
+        "then click <b>Confirm &amp; Upload</b>. You can also add or delete rows.</div>" +
+      "<div class='qt-preview-table-wrap'>" +
+      "<table class='qt-preview-table'><thead><tr>" +
+        "<th></th>" +
+        "<th>Date</th><th>Supplier</th><th>Barcode</th><th>Stock Code</th>" +
+        "<th style='min-width:156px;'>Description</th>" +
+        "<th class='num'>Qty</th><th class='num'>Free</th><th class='num'>VAT%</th>" +
+        "<th class='num'>Cost Excl</th><th class='num'>Cost Incl</th>" +
+        "<th class='num'>Disc%</th><th class='num'>Disc\u20ac</th>" +
+        "<th class='num'>Total Incl</th><th class='num'>Retail</th>" +
+        "<th class='num'>Profit</th><th class='num'>Margin%</th>" +
+      "</tr></thead><tbody>";
+
+    rows.forEach(function (row, ri) {
+      var mc  = profitMarginColor(row.profit_margin);
+      var pid = "qt-pv-" + ri + "-";
+
+      function inp(field, type, w, rawVal) {
+        var v = rawVal !== undefined ? rawVal : String(row[field] !== undefined ? row[field] : "");
+        return "<input id='" + pid + field + "' class='qt-pv-input'" +
+          " type='" + type + "' style='width:" + w + ";'" +
+          " data-ri='" + ri + "' data-field='" + field + "'" +
+          " value='" + esc(v) + "'>";
+      }
+
+      function vatSel(field) {
+        var v = Number(row[field]) || 0;
+        return "<select id='" + pid + field + "' class='qt-pv-input' style='width:56px;'" +
+          " data-ri='" + ri + "' data-field='" + field + "'>" +
+          "<option value='0'"  + (v === 0  ? " selected" : "") + ">0%</option>" +
+          "<option value='5'"  + (v === 5  ? " selected" : "") + ">5%</option>" +
+          "<option value='18'" + (v === 18 ? " selected" : "") + ">18%</option>" +
+          "</select>";
+      }
+
+      html +=
+        "<tr data-ri='" + ri + "'>" +
+          "<td><button class='qt-pv-del' data-del-ri='" + ri + "' title='Delete row'>\u2715</button></td>" +
+          "<td>" + inp("quote_date",      "date",   "110px") + "</td>" +
+          "<td>" + inp("supplier",        "text",   "100px") + "</td>" +
+          "<td>" + inp("barcode",         "text",    "76px") + "</td>" +
+          "<td>" + inp("stock_code",      "text",    "76px") + "</td>" +
+          "<td>" + inp("item_description","text",   "154px") + "</td>" +
+          "<td class='num'>" + inp("qty_purchased", "number", "48px") + "</td>" +
+          "<td class='num'>" + inp("qty_free",      "number", "44px") + "</td>" +
+          "<td class='num'>" + vatSel("vat_rate") + "</td>" +
+          "<td class='num'>" + inp("cost_excl_vat",  "number", "72px", fmt2(row.cost_excl_vat))  + "</td>" +
+          "<td class='num'>" + inp("cost_incl_vat",  "number", "72px", fmt2(row.cost_incl_vat))  + "</td>" +
+          "<td class='num'>" + inp("discount_pct",   "number", "54px", fmt2(row.discount_pct))   + "</td>" +
+          "<td class='num'>" + inp("discount_euro",  "number", "54px", fmt2(row.discount_euro))  + "</td>" +
+          "<td class='num'>" + inp("total_incl_vat", "number", "72px", fmt2(row.total_incl_vat)) + "</td>" +
+          "<td class='num'>" + inp("retail_price",   "number", "64px", fmt2(row.retail_price))   + "</td>" +
+          "<td class='num'><span id='" + pid + "profit' class='qt-pv-ro'>\u20ac" + fmt2(row.profit) + "</span></td>" +
+          "<td class='num'><span id='" + pid + "profit_margin' class='qt-pv-ro' style='color:" + mc + ";'>" +
+            fmt2(row.profit_margin) + "% (" + profitMarginLabel(row.profit_margin) + ")" +
+          "</span></td>" +
+        "</tr>";
+    });
+
+    html += "</tbody></table></div>" +
+      "<div class='qt-preview-footer'>" +
+        "<button class='eikon-btn' id='qt-pv-add-row'>+ Add Row</button>" +
+        "<button class='eikon-btn' id='qt-pv-confirm'>Confirm &amp; Upload (" + rows.length + " row" + (rows.length !== 1 ? "s" : "") + ")</button>" +
+        "<button class='eikon-btn' id='qt-pv-cancel' style='opacity:.65;'>Cancel</button>" +
+        "<div id='qt-pv-status' class='qt-bulk-status' style='flex:1;'></div>" +
+      "</div>" +
+    "</div>";
+
+    return html;
+  }
+
+  function renderBulkPreview(mount) {
+    var wrap = mount.querySelector("#qt-bulk-preview");
+    if (!wrap) return;
+
+    var rows = state.bulkPreviewRows;
+    if (!rows) { wrap.innerHTML = ""; return; }
+
+    wrap.innerHTML = buildPreviewHtml(rows);
+
+    // ── Event delegation: set up once per wrap instance (innerHTML replaced, listeners re-added) ──
+
+    // Input/change → recalculate row
+    function handleFieldChange(e) {
+      var el    = e.target;
+      var riStr = el.getAttribute("data-ri");
+      var field = el.getAttribute("data-field");
+      if (riStr === null || !field || !state.bulkPreviewRows) return;
+      var ri  = Number(riStr);
+      var row = state.bulkPreviewRows[ri];
+      if (!row) return;
+
+      var val = el.value;
+      if (field === "qty_purchased") {
+        row[field] = Math.max(1, parseInt(val, 10) || 1);
+      } else if (field === "qty_free") {
+        row[field] = Math.max(0, parseInt(val, 10) || 0);
+      } else if (field === "vat_rate" || field === "cost_excl_vat" || field === "cost_incl_vat" ||
+                 field === "discount_pct" || field === "discount_euro" ||
+                 field === "total_incl_vat" || field === "retail_price") {
+        row[field] = Number(val) || 0;
+      } else {
+        row[field] = val || "";
+      }
+
+      // Determine which field drove the recalculation
+      var leMap = {
+        cost_excl_vat: "cost_excl",   cost_incl_vat:  "cost_incl",
+        discount_pct:  "discount_pct", discount_euro: "discount_euro",
+        vat_rate:      "vat",          qty_purchased: "qty",
+        qty_free:      "qty",          retail_price:  "retail",
+        total_incl_vat: "total_incl"
+      };
+      var le = leMap[field] || "cost_excl";
+
+      var calc = recalcItem({
+        vat_rate:       row.vat_rate,
+        cost_excl_vat:  row.cost_excl_vat,
+        cost_incl_vat:  row.cost_incl_vat,
+        discount_pct:   row.discount_pct,
+        discount_euro:  row.discount_euro,
+        qty_purchased:  row.qty_purchased,
+        qty_free:       row.qty_free,
+        retail_price:   row.retail_price,
+        total_incl_vat: row.total_incl_vat,
+        _lastEdited:    le
+      });
+      for (var k in calc) { if (Object.prototype.hasOwnProperty.call(calc, k)) row[k] = calc[k]; }
+
+      // Update sibling cells without re-rendering (guard focused field)
+      var pid = "qt-pv-" + ri + "-";
+      var activeId = document.activeElement ? document.activeElement.id : "";
+
+      function setCell(f, displayVal) {
+        var eid = pid + f;
+        if (activeId === eid) return;
+        var cel = document.getElementById(eid);
+        if (!cel) return;
+        if (cel.tagName === "INPUT" || cel.tagName === "SELECT") cel.value = displayVal;
+        else cel.textContent = displayVal;
+      }
+
+      setCell("cost_excl_vat",  fmt2(row.cost_excl_vat));
+      setCell("cost_incl_vat",  fmt2(row.cost_incl_vat));
+      setCell("discount_pct",   fmt2(row.discount_pct));
+      setCell("discount_euro",  fmt2(row.discount_euro));
+      setCell("total_incl_vat", fmt2(row.total_incl_vat));
+
+      var profitEl  = document.getElementById(pid + "profit");
+      var marginEl  = document.getElementById(pid + "profit_margin");
+      if (profitEl) profitEl.textContent = "\u20ac" + fmt2(row.profit);
+      if (marginEl) {
+        var mc2 = profitMarginColor(row.profit_margin);
+        marginEl.style.color = mc2;
+        marginEl.textContent = fmt2(row.profit_margin) + "% (" + profitMarginLabel(row.profit_margin) + ")";
+      }
+    }
+
+    wrap.addEventListener("input",  handleFieldChange);
+    wrap.addEventListener("change", handleFieldChange);
+
+    // Click delegation: delete / add / confirm / cancel
+    wrap.addEventListener("click", function (e) {
+      var btn = e.target;
+
+      // Delete row
+      if (btn.hasAttribute("data-del-ri")) {
+        var ri = Number(btn.getAttribute("data-del-ri"));
+        if (state.bulkPreviewRows) {
+          state.bulkPreviewRows.splice(ri, 1);
+          renderBulkPreview(mount);
+        }
+        return;
+      }
+
+      // Add blank row
+      if (btn.id === "qt-pv-add-row") {
+        if (!state.bulkPreviewRows) state.bulkPreviewRows = [];
+        state.bulkPreviewRows.push({
+          quote_date: todayYmd(), supplier: "", barcode: "", stock_code: "",
+          item_description: "", qty_purchased: 1, qty_free: 0,
+          vat_rate: 0, cost_excl_vat: 0, cost_incl_vat: 0,
+          discount_pct: 0, discount_euro: 0, total_incl_vat: 0,
+          retail_price: 0, profit: 0, profit_margin: 0, notes: ""
+        });
+        renderBulkPreview(mount);
+        setTimeout(function () {
+          var tbl = wrap.querySelector(".qt-preview-table-wrap");
+          if (tbl) tbl.scrollTop = tbl.scrollHeight;
+        }, 50);
+        return;
+      }
+
+      // Confirm & Upload
+      if (btn.id === "qt-pv-confirm") {
+        var rows2    = state.bulkPreviewRows || [];
+        var statusEl = wrap.querySelector("#qt-pv-status");
+        var errs     = [];
+        rows2.forEach(function (r, i) {
+          if (!isYmd(r.quote_date))
+            errs.push("Row " + (i + 1) + ": invalid date (" + (r.quote_date || "blank") + ")");
+          if (!String(r.item_description || "").trim())
+            errs.push("Row " + (i + 1) + ": Description is required");
+        });
+        if (errs.length) {
+          if (statusEl) {
+            statusEl.className = "qt-bulk-status qt-bulk-err";
+            statusEl.innerHTML = "<b>Fix these before uploading:</b><br>" +
+              errs.map(function (e) { return esc(e); }).join("<br>");
+          }
+          return;
+        }
+        btn.disabled = true;
+        btn.textContent = "Uploading\u2026";
+        if (statusEl) { statusEl.className = "qt-bulk-status qt-bulk-info"; statusEl.textContent = "Starting upload\u2026"; }
+
+        // Use main bulk status element so results are visible after preview clears
+        var mainStatusEl = mount.querySelector("#qt-bulk-status");
+        runBulkImport(rows2, mainStatusEl || statusEl)
+          .then(function () {
+            state.bulkPreviewRows = null;
+            wrap.innerHTML = "";
+            if (mainStatusEl) mainStatusEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+          })
+          .catch(function (e) { warn("Preview upload error", e); });
+        return;
+      }
+
+      // Cancel
+      if (btn.id === "qt-pv-cancel") {
+        state.bulkPreviewRows = null;
+        wrap.innerHTML = "";
+        return;
+      }
+    });
+  }
 
   function parseBulkTsv(text) {
     var lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n")
@@ -1265,6 +1712,7 @@
               "<button class='eikon-btn' id='qt-col-btn'>Columns ▾</button>" +
               "<button class='eikon-btn' id='qt-dup-btn'>Find Duplicates</button>" +
               "<button class='eikon-btn' id='qt-add-btn'>Add Entry</button>" +
+              "<button class='eikon-btn' id='qt-print-btn'>Print</button>" +
               "<button class='eikon-btn' id='qt-refresh-btn'>Refresh</button>" +
               "<button class='qt-del-sel-btn' id='qt-del-selected' style='display:none;'>Delete Selected (0)</button>" +
             "</div>" +
@@ -1301,6 +1749,10 @@
             "<button class='eikon-btn' id='qt-bulk-clear'>Clear</button>" +
           "</div>" +
         "</div>" +
+
+        // Sanity-check preview table (populated after Submit, before actual upload)
+        "<div id='qt-bulk-preview'></div>" +
+
       "</div>";
 
     var searchEl         = mount.querySelector("#qt-search");
@@ -1401,6 +1853,10 @@
     // Add entry
     addBtn.addEventListener("click", function () { openEntryModal({ mode: "new" }); });
 
+    // Print
+    var printBtn = mount.querySelector("#qt-print-btn");
+    if (printBtn) printBtn.addEventListener("click", function () { openPrintModal(); });
+
     // Refresh
     state.refresh = async function () {
       log("refresh: start, showAllOrg=" + state.showAllOrg + " query=" + JSON.stringify(state.query));
@@ -1478,7 +1934,7 @@
 
       var parsed = parseBulkTsv(text);
 
-      // Show parse errors (but still submit valid rows if any exist)
+      // Show parse errors (but still proceed with valid rows if any exist)
       if (parsed.errors.length) {
         bulkStatusEl.className = "qt-bulk-status qt-bulk-err";
         bulkStatusEl.innerHTML =
@@ -1492,19 +1948,31 @@
           (parsed.rows.length
             ? "<div style='margin-top:8px;font-size:12px;color:rgba(233,238,247,.68);'>" +
               parsed.rows.length + " valid row" + (parsed.rows.length !== 1 ? "s" : "") +
-              " will still be imported.</div>"
+              " will proceed to the verification table below.</div>"
             : "");
-        if (!parsed.rows.length) return; // nothing valid to submit
+        if (!parsed.rows.length) return; // nothing valid to show
       }
 
-      bulkSubmitEl.disabled = true;
-      bulkSubmitEl.textContent = "Uploading…";
-      runBulkImport(parsed.rows, bulkStatusEl)
-        .catch(function (e) { warn("Bulk import unexpected error", e); })
-        .then(function () {
-          bulkSubmitEl.disabled = false;
-          bulkSubmitEl.textContent = "Submit Bulk Import";
-        });
+      // ── Clear the textarea ────────────────────────────────────────────────
+      bulkInputEl.value = "";
+
+      if (!parsed.errors.length) {
+        bulkStatusEl.className = "qt-bulk-status qt-bulk-info";
+        bulkStatusEl.textContent = parsed.rows.length + " row" +
+          (parsed.rows.length !== 1 ? "s" : "") + " parsed — review below before uploading.";
+      }
+
+      // ── Show sanity-check preview table ──────────────────────────────────
+      state.bulkPreviewRows = parsed.rows;
+      renderBulkPreview(mount);
+
+      // Scroll to the preview
+      var previewWrap = mount.querySelector("#qt-bulk-preview");
+      if (previewWrap) {
+        setTimeout(function () {
+          previewWrap.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 80);
+      }
     });
 
     state.refresh();
