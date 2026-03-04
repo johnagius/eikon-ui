@@ -1035,7 +1035,8 @@
     ensureStyles();
     _cachedQuotations = null; // reset on module mount
 
-    var container = ctx && ctx.el ? ctx.el : document.getElementById("eikon-module-view");
+    var container = (ctx && ctx.mount) || (ctx && ctx.el) || (ctx && ctx.container)
+      || document.getElementById("eikon-module-view");
     if (!container) { warn("No mount element"); return; }
 
     container.innerHTML = "<div id='od-mount'></div>";
