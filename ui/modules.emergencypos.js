@@ -256,43 +256,27 @@
     return E.apiFetch(path, opts || {});
   }
 
-  async function apiLoadCatalog(opts = {}) {
-  const limit = Number.isFinite(opts.limit) ? opts.limit : 2000;
-  const offset = Number.isFinite(opts.offset) ? opts.offset : 0;
-  const includeInactive = opts.include_inactive === true;
-
-  const qs = new URLSearchParams();
-  qs.set("limit", String(limit));
-  qs.set("offset", String(offset));
-  if (includeInactive) qs.set("include_inactive", "1");
-
-  const url = `/emergency-pos/catalog?${qs.toString()}`;
-  const t0 = Date.now();
-  log("apiLoadCatalog ->", { url });
-
-  const data = await apiFetch(url);
-
-  // Expect server shape: { ok:true, total, limit, offset, next_offset, last_upload_at, products:[] }
-  const products = Array.isArray(data.products) ? data.products : [];
-  state.catalogMeta = {
-    total: Number.isFinite(data.total) ? data.total : null,
-    limit: Number.isFinite(data.limit) ? data.limit : limit,
-    offset: Number.isFinite(data.offset) ? data.offset : offset,
-    next_offset: (data.next_offset === null || Number.isFinite(data.next_offset)) ? data.next_offset : null,
-    last_upload_at: data.last_upload_at || null,
-    include_inactive: includeInactive
-  };
-
-  log("apiLoadCatalog <-", {
-    ms: Date.now() - t0,
-    meta: state.catalogMeta,
-    returned: products.length,
-    sample: products.length ? products[0] : null
-  });
-
-  return products;
-}
-    } catch(e) { warn("catalog load failed", e && e.message); }
+  async function apiLoadCatalog() {
+    try {
+      console.log("[EIKON][epos][ui] catalog GET start");
+      var t0 = Date.now();
+      var resp = await apiFetch("/emergency-pos/catalog");
+      console.log("[EIKON][epos][ui] catalog GET resp", {
+        ms: Date.now() - t0,
+        ok: !!(resp && resp.ok),
+        status: resp && resp.status,
+        products: resp && Array.isArray(resp.products) ? resp.products.length : 0,
+        error: resp && (resp.error || resp.message)
+      });
+      if (resp && Array.isArray(resp.products)) {
+        state.catalog = resp.products;
+        lsSet(LS.CATALOG, resp.products);
+        return;
+      }
+    } catch(e) {
+      warn("catalog load failed", e && e.message);
+      try { console.warn("[EIKON][epos][ui] catalog GET exception", e && (e.stack || e.message || String(e))); } catch(_e) {}
+    }
     // Fallback to cached
     var cached = lsGet(LS.CATALOG);
     if (cached) state.catalog = cached;
@@ -550,6 +534,7 @@
       if (typeof pct === "number") el.dataset.pct = String(pct);
     }
 
+    console.log("[EIKON][epos][ui] upload start", { total: total, batchSize: batchSize, minBatchSize: minBatchSize, maxBatchSize: maxBatchSize });
     setProgress("Uploading 0 / " + total + " …", 0);
 
     while (done < total) {
@@ -557,17 +542,29 @@
       var end = Math.min(total, done + batchSize);
       var chunk = products.slice(done, end);
 
+      console.log("[EIKON][epos][ui] upload chunk start", {
+        done: done,
+        end: end,
+        size: chunk.length,
+        batchSize: batchSize,
+        sample: chunk[0] ? { barcode: chunk[0].barcode, name: chunk[0].name, price: chunk[0].price } : null
+      });
+
       // Retry loop for this chunk only
       var attempt = 0;
       var lastErr = null;
 
       while (attempt < 6) {
         try {
+          var tBatch0 = Date.now();
+          console.log("[EIKON][epos][ui] upload attempt", { attempt: attempt + 1, done: done, end: end, size: chunk.length, batchSize: batchSize });
           var resp = await apiFetch("/emergency-pos/catalog", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ products: chunk })
           });
+
+          console.log("[EIKON][epos][ui] upload resp", { ms: Date.now() - tBatch0, ok: !!(resp && resp.ok), status: resp && resp.status, inserted: resp && resp.inserted, error: resp && (resp.error || resp.message) });
 
           if (resp && resp.ok) {
             done += chunk.length;
@@ -590,7 +587,8 @@
 
           var looksLike1102 = bodyText && (bodyText.indexOf("Worker exceeded resource limits") >= 0 || bodyText.indexOf("1102") >= 0);
 
-          lastErr = new Error("Upload failed: HTTP " + status + (looksLike1102 ? " (CF 1102)" : ""));
+          console.warn("[EIKON][epos][ui] upload failed", { ms: Date.now() - tBatch0, status: status, looksLike1102: !!looksLike1102, body: (bodyText || "").slice(0, 500) });
+          lastErr = new Error("Upload failed: HTTP " + status + (looksLike1102 ? " (CF 1102)" : "") + (bodyText ? (" | body: " + bodyText.slice(0, 200)) : ""));
 
           // Backoff: on 429/503/5xx, retry; otherwise stop.
           if (is429 || is503 || looksLike1102 || is5xx) {
@@ -616,8 +614,8 @@
           throw lastErr;
 
         } catch (err) {
-      log("uploadProducts: ERROR", { chunkIndex, start: i, batchSize, message: String(err && err.message ? err.message : err), err });
           lastErr = err;
+          try { console.warn("[EIKON][epos][ui] upload exception", { attempt: attempt + 1, err: err && (err.stack || err.message || String(err)) }); } catch(_e) {}
           // Network or unexpected error; retry a few times with backoff
           attempt += 1;
           if (attempt >= 6) break;
