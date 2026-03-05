@@ -499,14 +499,24 @@
     var BATCH = 500;
     var total = products.length;
     var done = 0;
+
     for (var i = 0; i < total; i += BATCH) {
       var chunk = products.slice(i, i + BATCH);
       renderCatalogImportProgress(Math.round(done/total*100), "Uploading " + done + " / " + total + "…");
+
       try {
-        await apiFetch("/emergency-pos/catalog", {
+        var resp = await apiFetch("/emergency-pos/catalog", {
           method: "POST",
           body: JSON.stringify({ products: chunk })
         });
+
+        // IMPORTANT: EIKON apiFetch may return { ok:false, ... } without throwing.
+        // If we don't treat that as an error, uploads can "silently" stop part-way.
+        if (!resp || resp.ok !== true) {
+          var msg = (resp && (resp.message || resp.error)) ? (resp.message || resp.error) : "Unknown error";
+          throw new Error(msg);
+        }
+
         done += chunk.length;
       } catch(e) {
         showToast("Upload error at row " + i + ": " + (e && e.message), "err");
@@ -515,6 +525,7 @@
         return;
       }
     }
+
     renderCatalogImportProgress(100, "Finalising…");
     // Reload catalog
     await apiLoadCatalog();
