@@ -561,7 +561,7 @@
           var resp = await apiFetch("/emergency-pos/catalog", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ products: chunk })
+            body: JSON.stringify({ products: chunk, wipe: (offset === 0), file_name: (file && file.name) ? file.name : "", total_rows: total, chunk_index: (offset / batchSize) + 1 })
           });
 
           console.log("[EIKON][epos][ui] upload resp", { ms: Date.now() - tBatch0, ok: !!(resp && resp.ok), status: resp && resp.status, inserted: resp && resp.inserted, error: resp && (resp.error || resp.message) });
