@@ -449,28 +449,27 @@
     var colCategory = pick(["category","cat","group","dept"]);
     var colUnit     = pick(["unit","pack","size","uom"]);
 
-    if (!colBarcode || !colName) {
-      showToast("Could not detect barcode/name columns. Headers: " + Object.keys(rows[0]).join(", "), "err");
+    if (!colName) {
+      showToast("Could not detect description/name column. Headers: " + Object.keys(rows[0]).join(", "), "err");
       return [];
     }
 
     function toBarcode(v) {
-      // D1 schema requires NOT NULL and the worker enforces it.
-      // Prevent sending empty barcodes ("" / null) which cause SQLITE_CONSTRAINT.
       if (v == null) return "";
       // SheetJS often parses numeric codes as Numbers; normalise without scientific notation.
       if (typeof v === "number") {
         if (!isFinite(v)) return "";
-        // GTIN/EAN lengths (8–14) are safely representable as integers in JS.
         return String(Math.trunc(v));
       }
+      return String(v).trim();
+    }
 
     function pseudoBarcode(name, idx) {
       // Deterministic placeholder barcode for rows that have no EAN/GTIN.
       // This satisfies DB NOT NULL, and allows text-search POS usage.
       // Note: barcode scanning will not match these items.
-      var base = String(name || '').trim();
-      if (!base) base = 'ITEM';
+      var base = String(name || "").trim();
+      if (!base) base = "ITEM";
       // Simple 32-bit hash
       var h = 0;
       for (var i = 0; i < base.length; i++) {
@@ -478,27 +477,22 @@
         h |= 0;
       }
       h = Math.abs(h);
-      return 'NOBAR-' + String(h) + '-' + String(idx + 1);
-    }
-      return String(v).trim();
+      return "NOBAR-" + String(h) + "-" + String(idx + 1);
     }
 
     return rows.map(function(r, idx) {
       var b = colBarcode ? toBarcode(r[colBarcode]) : "";
-      if (!b) {
-        // If the file has no EAN/GTIN values, generate a placeholder.
-        // This prevents D1 NOT NULL failures and allows importing description/price-only catalogs.
-        b = pseudoBarcode(r[colName], idx);
-      }
+      if (!b) b = pseudoBarcode(r[colName], idx);
+
       return {
         barcode:  b,
-        name:     String(r[colName]     || "").trim(),
-        price:    parseFloat(r[colPrice]   || 0) || 0,
-        vat_rate: parseFloat(r[colVat]     || 0) || 0,
+        name:     String(r[colName] || "").trim(),
+        price:    parseFloat(r[colPrice] || 0) || 0,
+        vat_rate: parseFloat(r[colVat] || 0) || 0,
         category: colCategory ? String(r[colCategory] || "").trim() : "",
-        unit:     colUnit     ? String(r[colUnit]     || "").trim() : ""
+        unit:     colUnit ? String(r[colUnit] || "").trim() : ""
       };
-    }).filter(function(p){ return p.name && p.barcode; });  // barcode is required by DB schema
+    }).filter(function(p){ return p.name && p.barcode; });
   }  // barcode is required by DB schema
 
   async function uploadProducts(products) {
