@@ -454,16 +454,29 @@
       return [];
     }
 
+    function toBarcode(v) {
+      // D1 schema requires NOT NULL and the worker enforces it.
+      // Prevent sending empty barcodes ("" / null) which cause SQLITE_CONSTRAINT.
+      if (v == null) return "";
+      // SheetJS often parses numeric codes as Numbers; normalise without scientific notation.
+      if (typeof v === "number") {
+        if (!isFinite(v)) return "";
+        // GTIN/EAN lengths (8–14) are safely representable as integers in JS.
+        return String(Math.trunc(v));
+      }
+      return String(v).trim();
+    }
+
     return rows.map(function(r) {
       return {
-        barcode:  colBarcode ? String(r[colBarcode] || "").trim() : "",  // optional
+        barcode:  colBarcode ? toBarcode(r[colBarcode]) : "",
         name:     String(r[colName]     || "").trim(),
         price:    parseFloat(r[colPrice]   || 0) || 0,
         vat_rate: parseFloat(r[colVat]     || 0) || 0,
         category: colCategory ? String(r[colCategory] || "").trim() : "",
         unit:     colUnit     ? String(r[colUnit]     || "").trim() : ""
       };
-    }).filter(function(p){ return p.name; });  // only name is required
+    }).filter(function(p){ return p.name && p.barcode; });  // barcode is required by DB schema
   }
 
   async function uploadProducts(products) {
