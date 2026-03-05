@@ -14161,16 +14161,28 @@ async function handlePosCatalogList(request, env, corsOkHeaders, authUser, url) 
   await ensurePosSchema(env);
   const q = (url.searchParams.get("q") || "").toLowerCase().trim();
   const category = (url.searchParams.get("category") || "").trim();
+  const limit = Math.min(Math.max(1, parseInt(url.searchParams.get("limit")) || 2000), 5000);
+  const offset = Math.max(0, parseInt(url.searchParams.get("offset")) || 0);
   let sql = `SELECT id, barcode, name, price, vat_rate, category, unit, is_active, updated_at
              FROM pos_products WHERE org_id=? AND location_id=? AND is_active=1`;
   const bind = [authUser.org_id, authUser.location_id];
   if (q) { sql += ` AND (lower(barcode) LIKE ? OR lower(name) LIKE ? OR lower(category) LIKE ?)`; const like = `%${q}%`; bind.push(like, like, like); }
   if (category) { sql += ` AND category=?`; bind.push(category); }
-  sql += ` ORDER BY name LIMIT 2000`;
+
+  // Count total matching rows
+  const countRow = await dbFirst(env, `SELECT COUNT(*) as cnt FROM pos_products WHERE org_id=? AND location_id=? AND is_active=1` +
+    (q ? ` AND (lower(barcode) LIKE ? OR lower(name) LIKE ? OR lower(category) LIKE ?)` : "") +
+    (category ? ` AND category=?` : ""),
+    bind);
+  const total = countRow ? countRow.cnt : 0;
+
+  sql += ` ORDER BY name LIMIT ? OFFSET ?`;
+  bind.push(limit, offset);
   const rows = await dbAll(env, sql, bind);
   const meta = await dbFirst(env, `SELECT last_upload_at, file_name, total_rows FROM pos_catalog_meta WHERE org_id=? AND location_id=?`,
     [authUser.org_id, authUser.location_id]);
-  return jsonResponse({ ok: true, total: rows.length, limit: 2000, offset: 0, last_upload_at: meta ? meta.last_upload_at : null, products: rows }, 200, corsOkHeaders);
+  const nextOffset = offset + rows.length < total ? offset + rows.length : null;
+  return jsonResponse({ ok: true, total, limit, offset, next_offset: nextOffset, last_upload_at: meta ? meta.last_upload_at : null, products: rows }, 200, corsOkHeaders);
 }
 
 async function handlePosCatalogBatch(request, env, corsOkHeaders, authUser) {

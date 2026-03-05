@@ -260,17 +260,32 @@
     try {
       console.log("[EIKON][epos][ui] catalog GET start");
       var t0 = Date.now();
-      var resp = await apiFetch("/emergency-pos/catalog");
-      console.log("[EIKON][epos][ui] catalog GET resp", {
-        ms: Date.now() - t0,
-        ok: !!(resp && resp.ok),
-        status: resp && resp.status,
-        products: resp && Array.isArray(resp.products) ? resp.products.length : 0,
-        error: resp && (resp.error || resp.message)
-      });
-      if (resp && Array.isArray(resp.products)) {
-        state.catalog = resp.products;
-        lsSet(LS.CATALOG, resp.products);
+      var allProducts = [];
+      var offset = 0;
+      var limit = 2000;
+      while (true) {
+        var resp = await apiFetch("/emergency-pos/catalog?limit=" + limit + "&offset=" + offset);
+        console.log("[EIKON][epos][ui] catalog GET resp", {
+          ms: Date.now() - t0,
+          ok: !!(resp && resp.ok),
+          status: resp && resp.status,
+          products: resp && Array.isArray(resp.products) ? resp.products.length : 0,
+          total: resp && resp.total,
+          offset: offset,
+          error: resp && (resp.error || resp.message)
+        });
+        if (resp && Array.isArray(resp.products)) {
+          allProducts = allProducts.concat(resp.products);
+          if (resp.next_offset != null && resp.products.length > 0) {
+            offset = resp.next_offset;
+            continue;
+          }
+        }
+        break;
+      }
+      if (allProducts.length) {
+        state.catalog = allProducts;
+        lsSet(LS.CATALOG, allProducts);
         return;
       }
     } catch(e) {
@@ -1076,6 +1091,9 @@
     if (el2) el2.innerHTML = buildTotalsHtml();
     bindCartEvents();
     updateChange();
+    // Sync Complete Sale button disabled state with cart
+    var completeBtn = document.getElementById("epos-complete-btn");
+    if (completeBtn) completeBtn.disabled = !state.cart.length;
   }
 
   function buildCartHtml() {
@@ -1362,13 +1380,23 @@
 
     var clearBtn = document.getElementById("epos-clear-catalog-btn");
     if (clearBtn) clearBtn.addEventListener("click", function() {
-      if (!confirm("Clear ALL products from catalog? This cannot be undone.")) return;
-      apiFetch("/emergency-pos/catalog", { method: "DELETE" }).then(function() {
-        state.catalog = [];
-        lsSet(LS.CATALOG, []);
-        showToast("Catalog cleared.", "ok");
-        renderCatalogTab();
-      }).catch(function(e){ showToast("Clear failed: " + (e&&e.message), "err"); });
+      function doClear() {
+        apiFetch("/emergency-pos/catalog", { method: "DELETE" }).then(function() {
+          state.catalog = [];
+          lsSet(LS.CATALOG, []);
+          showToast("Catalog cleared.", "ok");
+          renderCatalogTab();
+        }).catch(function(e){ showToast("Clear failed: " + (e&&e.message), "err"); });
+      }
+      try {
+        E.modal.show("Clear Catalog", "<div style='font-size:13px;'>Clear ALL products from catalog?<br>This cannot be undone.</div>", [
+          { label: "Cancel", onClick: function(){ E.modal.hide(); } },
+          { label: "Clear All", danger: true, onClick: function(){ E.modal.hide(); doClear(); } }
+        ]);
+      } catch(e) {
+        // Fallback if modal unavailable
+        if (window.confirm("Clear ALL products from catalog? This cannot be undone.")) doClear();
+      }
     });
 
     var catSearch = document.getElementById("epos-cat-search");
