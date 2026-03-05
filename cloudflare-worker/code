@@ -14145,6 +14145,16 @@ async function ensurePosSchema(env) {
   )`, []);
   await dbRun(env, `CREATE UNIQUE INDEX IF NOT EXISTS idx_pos_sales_offline_id ON pos_sales (org_id, location_id, offline_id) WHERE offline_id IS NOT NULL`, []);
   await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_pos_sales_org_loc_date ON pos_sales (org_id, location_id, sale_date)`, []);
+
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS pos_catalog_meta (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id INTEGER NOT NULL,
+    location_id INTEGER NOT NULL,
+    last_upload_at TEXT,
+    file_name TEXT NOT NULL DEFAULT '',
+    total_rows INTEGER NOT NULL DEFAULT 0,
+    UNIQUE(org_id, location_id)
+  )`, []);
 }
 
 async function handlePosCatalogList(request, env, corsOkHeaders, authUser, url) {
@@ -14158,7 +14168,9 @@ async function handlePosCatalogList(request, env, corsOkHeaders, authUser, url) 
   if (category) { sql += ` AND category=?`; bind.push(category); }
   sql += ` ORDER BY name LIMIT 2000`;
   const rows = await dbAll(env, sql, bind);
-  return jsonResponse({ ok: true, products: rows }, 200, corsOkHeaders);
+  const meta = await dbFirst(env, `SELECT last_upload_at, file_name, total_rows FROM pos_catalog_meta WHERE org_id=? AND location_id=?`,
+    [authUser.org_id, authUser.location_id]);
+  return jsonResponse({ ok: true, total: rows.length, limit: 2000, offset: 0, last_upload_at: meta ? meta.last_upload_at : null, products: rows }, 200, corsOkHeaders);
 }
 
 async function handlePosCatalogBatch(request, env, corsOkHeaders, authUser) {
@@ -14167,6 +14179,12 @@ async function handlePosCatalogBatch(request, env, corsOkHeaders, authUser) {
   const products = Array.isArray(body.products) ? body.products : [];
   if (!products.length) return jsonResponse({ ok: false, error: "No products provided" }, 400, corsOkHeaders);
   if (products.length > 500) return jsonResponse({ ok: false, error: "Max 500 products per batch" }, 400, corsOkHeaders);
+
+  // On first chunk of a new upload, wipe existing catalog
+  if (body.wipe) {
+    await dbRun(env, `DELETE FROM pos_products WHERE org_id=? AND location_id=?`,
+      [authUser.org_id, authUser.location_id]);
+  }
 
   let upserted = 0;
   for (const p of products) {
@@ -14192,6 +14210,17 @@ async function handlePosCatalogBatch(request, env, corsOkHeaders, authUser) {
       [authUser.org_id, authUser.location_id, barcode, name, price, vatRate, category, unit]);
     upserted++;
   }
+  // Update catalog metadata
+  const fileName = String(body.file_name || "").trim();
+  const totalRows = parseInt(body.total_rows) || 0;
+  await dbRun(env, `INSERT INTO pos_catalog_meta (org_id, location_id, last_upload_at, file_name, total_rows)
+    VALUES (?,?,datetime('now'),?,?)
+    ON CONFLICT(org_id, location_id) DO UPDATE SET
+      last_upload_at = datetime('now'),
+      file_name = excluded.file_name,
+      total_rows = excluded.total_rows`,
+    [authUser.org_id, authUser.location_id, fileName, totalRows]);
+
   await writeAudit(env, authUser.org_id, authUser.user_id, "EPOS_CATALOG_BATCH", "pos_products", "", { count: upserted });
   return jsonResponse({ ok: true, upserted }, 200, corsOkHeaders);
 }
