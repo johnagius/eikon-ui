@@ -456,14 +456,14 @@
 
     return rows.map(function(r) {
       return {
-        barcode:  String(r[colBarcode]  || "").trim(),
+        barcode:  colBarcode ? String(r[colBarcode] || "").trim() : "",  // optional
         name:     String(r[colName]     || "").trim(),
         price:    parseFloat(r[colPrice]   || 0) || 0,
         vat_rate: parseFloat(r[colVat]     || 0) || 0,
         category: colCategory ? String(r[colCategory] || "").trim() : "",
         unit:     colUnit     ? String(r[colUnit]     || "").trim() : ""
       };
-    }).filter(function(p){ return p.barcode && p.name; });
+    }).filter(function(p){ return p.name; });  // only name is required
   }
 
   async function uploadProducts(products) {
@@ -544,6 +544,194 @@
     if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
   }
 
+  // ─── Photo OCR + Fuzzy Search ─────────────────────────────────────────────────
+  var TESSERACT_CDN = "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js";
+
+  var STOP_WORDS = { the:1,and:1,for:1,with:1,set:1,new:1,best:1,pack:1,size:1,value:1,
+    original:1,each:1,per:1,item:1,one:1,two:1,all:1,are:1,from:1,has:1,have:1,its:1 };
+
+  function tokenize(text) {
+    return String(text || "").toLowerCase()
+      .replace(/[^a-z0-9\s]/g, " ")
+      .split(/\s+/)
+      .filter(function(w){ return w.length >= 3 && !STOP_WORDS[w]; });
+  }
+
+  function fuzzyScore(ocrTokens, product) {
+    var prodTokens = tokenize(product.name + " " + (product.category || ""));
+    if (!prodTokens.length) return 0;
+    var matched = 0;
+    for (var i = 0; i < prodTokens.length; i++) {
+      var pt = prodTokens[i];
+      for (var j = 0; j < ocrTokens.length; j++) {
+        var ot = ocrTokens[j];
+        // Forgiving: match if either token starts with the other (handles truncation)
+        if (ot === pt || ot.indexOf(pt) === 0 || pt.indexOf(ot) === 0) {
+          matched++;
+          break;
+        }
+      }
+    }
+    return matched / prodTokens.length;
+  }
+
+  function loadTesseract(cb) {
+    if (window.Tesseract) { cb(); return; }
+    var s = document.createElement("script");
+    s.src = TESSERACT_CDN;
+    s.onload = function() { log("Tesseract.js loaded"); cb(); };
+    s.onerror = function() { showToast("Failed to load OCR library — check internet.", "err"); };
+    document.head.appendChild(s);
+  }
+
+  var _photoStream = null;
+
+  function startPhotoSearch() {
+    if (!state.catalog.length) { showToast("Load a catalog first (Catalog tab).", "warn"); return; }
+
+    // Build overlay
+    var overlay = document.createElement("div");
+    overlay.id = "epos-photo-overlay";
+    overlay.className = "epos-photo-overlay";
+    overlay.innerHTML =
+      "<div style='display:flex;align-items:center;justify-content:space-between;width:min(520px,94vw);margin-bottom:10px;'>" +
+        "<span style='color:#fff;font-size:15px;font-weight:700;'>🔍 Photo Search</span>" +
+        "<button id='epos-photo-close' class='epos-btn'>✕ Close</button>" +
+      "</div>" +
+      "<video id='epos-photo-video' class='epos-photo-video' autoplay muted playsinline></video>" +
+      "<canvas id='epos-photo-canvas' class='epos-photo-canvas'></canvas>" +
+      "<div style='display:flex;gap:10px;margin-top:8px;'>" +
+        "<button id='epos-photo-capture' class='epos-btn primary' style='font-size:14px;padding:8px 20px;'>📸 Capture</button>" +
+        "<button id='epos-photo-retake' class='epos-btn' style='display:none;font-size:14px;padding:8px 20px;'>🔄 Retake</button>" +
+      "</div>" +
+      "<div id='epos-photo-status' style='color:rgba(255,255,255,.6);font-size:12px;min-height:18px;'></div>" +
+      "<div id='epos-photo-results' style='width:min(520px,94vw);max-height:260px;overflow-y:auto;'></div>";
+    document.body.appendChild(overlay);
+
+    var videoEl   = document.getElementById("epos-photo-video");
+    var canvasEl  = document.getElementById("epos-photo-canvas");
+    var captureBtn= document.getElementById("epos-photo-capture");
+    var retakeBtn = document.getElementById("epos-photo-retake");
+    var statusEl  = document.getElementById("epos-photo-status");
+    var resultsEl = document.getElementById("epos-photo-results");
+
+    function closeOverlay() {
+      if (_photoStream) { try { _photoStream.getTracks().forEach(function(t){ t.stop(); }); } catch(e){} _photoStream = null; }
+      if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    }
+
+    document.getElementById("epos-photo-close").addEventListener("click", closeOverlay);
+
+    // Start camera
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
+      .then(function(stream) {
+        _photoStream = stream;
+        videoEl.srcObject = stream;
+      })
+      .catch(function(e) {
+        statusEl.textContent = "Camera access denied: " + (e && e.message);
+      });
+
+    captureBtn.addEventListener("click", function() {
+      // Draw current video frame to canvas
+      var w = videoEl.videoWidth  || 640;
+      var h = videoEl.videoHeight || 480;
+      canvasEl.width  = w;
+      canvasEl.height = h;
+      canvasEl.getContext("2d").drawImage(videoEl, 0, 0, w, h);
+
+      // Stop video stream, show canvas
+      if (_photoStream) { try { _photoStream.getTracks().forEach(function(t){ t.stop(); }); } catch(e){} _photoStream = null; }
+      videoEl.style.display = "none";
+      canvasEl.style.display = "block";
+      captureBtn.style.display = "none";
+      retakeBtn.style.display = "";
+      statusEl.innerHTML = "<span style='color:#a5b4fc;'>Analysing image… please wait</span>";
+      resultsEl.innerHTML = "";
+
+      // Run OCR
+      loadTesseract(function() {
+        (async function() {
+          try {
+            var worker = await window.Tesseract.createWorker("eng");
+            var result = await worker.recognize(canvasEl);
+            await worker.terminate();
+            var ocrText = (result && result.data && result.data.text) ? result.data.text : "";
+            log("OCR text:", ocrText.slice(0, 200));
+            showPhotoResults(ocrText, statusEl, resultsEl, closeOverlay);
+          } catch(e) {
+            err("OCR error", e);
+            statusEl.textContent = "OCR error: " + (e && e.message);
+          }
+        })();
+      });
+    });
+
+    retakeBtn.addEventListener("click", function() {
+      // Reset for another capture
+      canvasEl.style.display = "none";
+      videoEl.style.display = "";
+      captureBtn.style.display = "";
+      retakeBtn.style.display = "none";
+      statusEl.textContent = "";
+      resultsEl.innerHTML = "";
+      // Restart camera
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
+        .then(function(stream) { _photoStream = stream; videoEl.srcObject = stream; })
+        .catch(function(e) { statusEl.textContent = "Camera error: " + (e && e.message); });
+    });
+  }
+
+  function showPhotoResults(ocrText, statusEl, resultsEl, closeOverlay) {
+    var ocrTokens = tokenize(ocrText);
+    if (!ocrTokens.length) {
+      statusEl.textContent = "No text detected in image — try again with better lighting.";
+      return;
+    }
+    var preview = ocrText.replace(/\s+/g, " ").trim().slice(0, 120);
+    statusEl.innerHTML = "<span style='color:rgba(255,255,255,.5);'>OCR: </span><em style='color:rgba(255,255,255,.75);'>" + esc(preview) + (ocrText.length > 120 ? "…" : "") + "</em>";
+
+    // Score every catalog product
+    var scored = state.catalog.map(function(p) {
+      return { product: p, score: fuzzyScore(ocrTokens, p) };
+    }).filter(function(r){ return r.score > 0; });
+    scored.sort(function(a, b){ return b.score - a.score; });
+    var top = scored.slice(0, 10);
+
+    if (!top.length) {
+      resultsEl.innerHTML = "<div style='color:rgba(255,255,255,.4);padding:16px;text-align:center;'>No matches found — try another angle or better lighting.</div>";
+      return;
+    }
+
+    resultsEl.innerHTML = top.map(function(r) {
+      var pct = Math.round(r.score * 100);
+      var barW = Math.round(r.score * 100);
+      return "<div class='epos-match-row' data-name='" + esc(r.product.name) + "'>" +
+        "<div style='flex:1;min-width:0;'>" +
+          "<div style='font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'>" + esc(r.product.name) + "</div>" +
+          "<div class='epos-match-bar'><div class='epos-match-fill' style='width:" + barW + "%'></div></div>" +
+          "<div style='font-size:11px;color:rgba(255,255,255,.4);'>" + pct + "% match" + (r.product.barcode ? " · " + esc(r.product.barcode) : "") + "</div>" +
+        "</div>" +
+        "<div style='white-space:nowrap;margin-left:10px;text-align:right;'>" +
+          "<div style='font-size:13px;font-weight:700;color:#a5b4fc;'>€" + fmt2(r.product.price) + "</div>" +
+          "<button class='epos-btn primary epos-match-add' data-name='" + esc(r.product.name) + "' style='margin-top:4px;font-size:12px;padding:3px 10px;'>＋ Add</button>" +
+        "</div>" +
+        "</div>";
+    }).join("");
+
+    resultsEl.querySelectorAll(".epos-match-add").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        var name = btn.getAttribute("data-name");
+        var product = findProductByName(name);
+        if (product) {
+          addToCart(product, 1, null);
+          showToast("Added: " + product.name, "ok");
+          closeOverlay();
+        }
+      });
+    });
+  }
+
   function onBarcodeScanned(raw) {
     var gs1 = parseGs1(raw);
     var product = null;
@@ -572,8 +760,10 @@
 
   function findProduct(barcode) {
     var b = norm(barcode);
+    if (!b) return null;
     for (var i = 0; i < state.catalog.length; i++) {
-      if (norm(state.catalog[i].barcode) === b) return state.catalog[i];
+      var pb = norm(state.catalog[i].barcode);
+      if (pb && pb === b) return state.catalog[i];  // never match products with no barcode
     }
     return null;
   }
@@ -688,6 +878,14 @@
       ".epos-scan-overlay{position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;}",
       ".epos-scan-video{width:min(480px,92vw);height:min(360px,60vh);border-radius:12px;background:#000;object-fit:cover;}",
       ".epos-fmd-banner{background:rgba(99,102,241,.18);border:1px solid #6366f1;border-radius:8px;padding:8px 12px;font-size:12px;margin-top:6px;}",
+      /* Photo OCR overlay */
+      ".epos-photo-overlay{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:24px 12px;gap:8px;overflow-y:auto;}",
+      ".epos-photo-video{width:min(520px,94vw);height:min(320px,45vh);border-radius:12px;background:#111;object-fit:cover;}",
+      ".epos-photo-canvas{width:min(520px,94vw);height:min(320px,45vh);border-radius:12px;background:#111;object-fit:cover;display:none;}",
+      ".epos-match-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.07);cursor:pointer;}",
+      ".epos-match-row:hover{background:rgba(255,255,255,.04);}",
+      ".epos-match-bar{height:5px;background:rgba(255,255,255,.1);border-radius:99px;margin:3px 0;overflow:hidden;}",
+      ".epos-match-fill{height:100%;background:#6366f1;border-radius:99px;}",
       /* Catalog tab */
       ".epos-catalog{padding:12px;overflow-y:auto;width:100%;}",
       ".epos-import-bar{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;}",
@@ -868,15 +1066,16 @@
       "<div class='epos-search-panel'>" +
         "<div class='epos-search-bar'>" +
           "<button id='epos-scan-btn' class='epos-btn primary'>📷 Scan</button>" +
-          "<input id='epos-search-input' class='epos-input' placeholder='Search products…' style='flex:1' value='" + esc(state.catalogSearch) + "'>" +
+          "<button id='epos-photo-btn' class='epos-btn' title='Take a photo of the product to search by text'>🔍 Photo</button>" +
+          "<input id='epos-search-input' class='epos-input' placeholder='Search or type barcode + Enter…' style='flex:1' value='" + esc(state.catalogSearch) + "'>" +
         "</div>" +
         "<div id='epos-fmd-banner' class='epos-fmd-banner' style='display:none;margin-bottom:8px;'></div>" +
         "<div class='epos-product-grid' id='epos-product-grid'>" +
           products.slice(0, 200).map(function(p) {
-            return "<div class='epos-product-card' data-barcode='" + esc(p.barcode) + "'>" +
+            return "<div class='epos-product-card' data-pid='" + esc(p.id) + "' data-name='" + esc(p.name) + "'>" +
               "<div class='epos-product-card-name'>" + esc(p.name) + "</div>" +
               "<div class='epos-product-card-price'>€" + fmt2(p.price) + (p.vat_rate ? " <span style='font-size:10px;color:rgba(255,255,255,.4);'>VAT " + p.vat_rate + "%</span>" : "") + "</div>" +
-              "<div class='epos-product-card-barcode'>" + esc(p.barcode) + "</div>" +
+              (p.barcode ? "<div class='epos-product-card-barcode'>" + esc(p.barcode) + "</div>" : "") +
               "</div>";
           }).join("") +
           (products.length > 200 ? "<div style='color:rgba(255,255,255,.4);font-size:12px;padding:8px;grid-column:1/-1;'>Showing 200 of " + products.length + " — narrow your search</div>" : "") +
@@ -893,6 +1092,9 @@
     var scanBtn = document.getElementById("epos-scan-btn");
     if (scanBtn) scanBtn.addEventListener("click", startScan);
 
+    var photoBtn = document.getElementById("epos-photo-btn");
+    if (photoBtn) photoBtn.addEventListener("click", startPhotoSearch);
+
     var searchInput = document.getElementById("epos-search-input");
     if (searchInput) {
       searchInput.addEventListener("input", function() {
@@ -901,10 +1103,10 @@
         if (grid) {
           var products = filteredCatalog();
           grid.innerHTML = products.slice(0, 200).map(function(p) {
-            return "<div class='epos-product-card' data-barcode='" + esc(p.barcode) + "'>" +
+            return "<div class='epos-product-card' data-pid='" + esc(p.id) + "' data-name='" + esc(p.name) + "'>" +
               "<div class='epos-product-card-name'>" + esc(p.name) + "</div>" +
               "<div class='epos-product-card-price'>€" + fmt2(p.price) + (p.vat_rate ? " <span style='font-size:10px;color:rgba(255,255,255,.4);'>VAT " + p.vat_rate + "%</span>" : "") + "</div>" +
-              "<div class='epos-product-card-barcode'>" + esc(p.barcode) + "</div>" +
+              (p.barcode ? "<div class='epos-product-card-barcode'>" + esc(p.barcode) + "</div>" : "") +
               "</div>";
           }).join("");
           if (!products.length) grid.innerHTML = "<div style='color:rgba(255,255,255,.4);font-size:13px;padding:16px;grid-column:1/-1;'>No results for \"" + esc(state.catalogSearch) + "\"</div>";
@@ -954,13 +1156,21 @@
     if (completeBtn) completeBtn.addEventListener("click", function(){ completeSale(); });
   }
 
+  function findProductByName(name) {
+    var n = norm(name);
+    for (var i = 0; i < state.catalog.length; i++) {
+      if (norm(state.catalog[i].name) === n) return state.catalog[i];
+    }
+    return null;
+  }
+
   function bindProductCardEvents() {
     var grid = document.getElementById("epos-product-grid");
     if (!grid) return;
     grid.querySelectorAll(".epos-product-card").forEach(function(card) {
       card.addEventListener("click", function() {
-        var barcode = card.getAttribute("data-barcode");
-        var product = findProduct(barcode);
+        var name = card.getAttribute("data-name");
+        var product = findProductByName(name);
         if (product) addToCart(product, 1, null);
       });
     });
@@ -987,7 +1197,10 @@
       "</div>" +
       (filtered.length ? "<table class='epos-catalog-table'><thead><tr><th>Barcode</th><th>Name</th><th>Price</th><th>VAT%</th><th>Category</th><th>Unit</th></tr></thead><tbody>" +
         filtered.slice(0,500).map(function(p) {
-          return "<tr><td style='font-family:monospace;font-size:12px;'>" + esc(p.barcode) + "</td><td>" + esc(p.name) + "</td><td>€" + fmt2(p.price) + "</td><td>" + (p.vat_rate||0) + "%</td><td>" + esc(p.category||"") + "</td><td>" + esc(p.unit||"") + "</td></tr>";
+          var barcodeCell = p.barcode
+            ? "<td style='font-family:monospace;font-size:12px;'>" + esc(p.barcode) + "</td>"
+            : "<td style='color:rgba(255,255,255,.25);font-size:12px;'>—</td>";
+          return "<tr>" + barcodeCell + "<td>" + esc(p.name) + "</td><td>€" + fmt2(p.price) + "</td><td>" + (p.vat_rate||0) + "%</td><td>" + esc(p.category||"") + "</td><td>" + esc(p.unit||"") + "</td></tr>";
         }).join("") +
         (filtered.length > 500 ? "<tr><td colspan='6' style='color:rgba(255,255,255,.4);font-size:12px;'>Showing 500 of " + filtered.length + " — narrow search</td></tr>" : "") +
         "</tbody></table>"
