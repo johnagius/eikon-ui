@@ -1339,16 +1339,33 @@
       if (vatRate !== 0 && vatRate !== 5 && vatRate !== 18) vatRate = 18;
       var costExcl = Number(raw.cost_excl_vat) || 0;
       var costIncl = Number(raw.cost_incl_vat) || 0;
-      // Prefer excl as the authoritative input; fall back to incl if excl absent
-      var lastEdited = (costExcl > 0 || costIncl === 0) ? "cost_excl" : "cost_incl";
+      var rawDiscPct = Number(raw.discount_pct) || 0;
+      var rawDiscEuro = Number(raw.discount_euro) || 0;
+      var rawQty = Math.max(1, Math.round(Number(raw.qty_purchased) || 1));
+
+      // The GPT outputs Discount € as a total across all units, but recalcItem
+      // expects a per-unit value. When discount_pct is present, use it as the
+      // authority and let recalcItem derive discount_euro (per-unit) from it.
+      // When only discount_euro is given and it exceeds the unit cost, treat it
+      // as a total and divide by qty.
+      var lastEdited;
+      if (rawDiscPct > 0) {
+        lastEdited = "discount_pct";          // recalcItem will compute per-unit discEuro
+      } else if (rawDiscEuro > 0 && costExcl > 0 && rawDiscEuro > costExcl && rawQty > 1) {
+        rawDiscEuro = round2(rawDiscEuro / rawQty);  // normalise total → per-unit
+        lastEdited = (costExcl > 0 || costIncl === 0) ? "cost_excl" : "cost_incl";
+      } else {
+        // Prefer excl as the authoritative input; fall back to incl if excl absent
+        lastEdited = (costExcl > 0 || costIncl === 0) ? "cost_excl" : "cost_incl";
+      }
 
       var f = {
         vat_rate: vatRate,
         cost_excl_vat: costExcl,
         cost_incl_vat: costIncl,
-        discount_pct: Number(raw.discount_pct) || 0,
-        discount_euro: Number(raw.discount_euro) || 0,
-        qty_purchased: Math.max(1, Math.round(Number(raw.qty_purchased) || 1)),
+        discount_pct: rawDiscPct,
+        discount_euro: rawDiscEuro,
+        qty_purchased: rawQty,
         qty_free: Math.max(0, Math.round(Number(raw.qty_free) || 0)),
         retail_price: Number(raw.retail_price) || 0,
         _lastEdited: lastEdited
