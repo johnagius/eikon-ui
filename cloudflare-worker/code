@@ -13445,6 +13445,33 @@ if (url.pathname.startsWith("/dda-stocktakes/items/")) {
     }
     // ── End Shifts Module ───────────────────────────────────────────
 
+    // ── Emergency POS ─────────────────────────────────────────────────────────
+    if (url.pathname === "/emergency-pos/catalog" && request.method === "GET") {
+      return await handlePosCatalogList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/emergency-pos/catalog" && request.method === "POST") {
+      return await handlePosCatalogBatch(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname === "/emergency-pos/catalog" && request.method === "DELETE") {
+      return await handlePosCatalogClear(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname === "/emergency-pos/sales/sync" && request.method === "POST") {
+      return await handlePosSalesSync(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname === "/emergency-pos/sales" && request.method === "GET") {
+      return await handlePosSalesList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/emergency-pos/sales" && request.method === "POST") {
+      return await handlePosSaleCreate(request, env, corsOkHeaders, authUser);
+    }
+    { const m = url.pathname.match(/^\/emergency-pos\/sales\/(\d+)$/);
+      if (m) {
+        const id = Number(m[1]);
+        if (request.method === "DELETE") return await handlePosSaleVoid(request, env, corsOkHeaders, authUser, id);
+      }
+    }
+    // ── End Emergency POS ──────────────────────────────────────────────────────
+
     return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
     } catch (e) {
       // Never let an exception become Cloudflare 1101 HTML again.
@@ -14060,4 +14087,208 @@ async function handleLoyaltyTransactionCreate(request, env, corsOkHeaders, authU
   return jsonResponse({ ok: true, id: row.id }, 200, corsOkHeaders);
 }
 
- 
+// ─────────────────────────────────────────────────────────────────────────────
+// EMERGENCY POS — schema + handlers
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function ensurePosSchema(env) {
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS pos_products (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id INTEGER NOT NULL,
+    location_id INTEGER NOT NULL,
+    barcode TEXT NOT NULL,
+    name TEXT NOT NULL,
+    price REAL NOT NULL DEFAULT 0,
+    vat_rate REAL NOT NULL DEFAULT 18,
+    category TEXT NOT NULL DEFAULT '',
+    unit TEXT NOT NULL DEFAULT '',
+    is_active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(org_id, location_id, barcode)
+  )`, []);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_pos_products_org_loc ON pos_products (org_id, location_id, is_active)`, []);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_pos_products_barcode ON pos_products (org_id, location_id, barcode)`, []);
+
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS pos_sales (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id INTEGER NOT NULL,
+    location_id INTEGER NOT NULL,
+    sale_date TEXT NOT NULL,
+    receipt_no TEXT NOT NULL DEFAULT '',
+    items_json TEXT NOT NULL DEFAULT '[]',
+    subtotal REAL NOT NULL DEFAULT 0,
+    vat_total REAL NOT NULL DEFAULT 0,
+    total REAL NOT NULL DEFAULT 0,
+    payment_method TEXT NOT NULL DEFAULT '',
+    amount_tendered REAL,
+    change_given REAL,
+    notes TEXT NOT NULL DEFAULT '',
+    client_name TEXT NOT NULL DEFAULT '',
+    client_id TEXT NOT NULL DEFAULT '',
+    offline_id TEXT,
+    voided INTEGER NOT NULL DEFAULT 0,
+    voided_at TEXT,
+    voided_by INTEGER,
+    voided_reason TEXT NOT NULL DEFAULT '',
+    created_by INTEGER NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`, []);
+  await dbRun(env, `CREATE UNIQUE INDEX IF NOT EXISTS idx_pos_sales_offline_id ON pos_sales (org_id, location_id, offline_id) WHERE offline_id IS NOT NULL`, []);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_pos_sales_org_loc_date ON pos_sales (org_id, location_id, sale_date)`, []);
+}
+
+async function handlePosCatalogList(request, env, corsOkHeaders, authUser, url) {
+  await ensurePosSchema(env);
+  const q = (url.searchParams.get("q") || "").toLowerCase().trim();
+  const category = (url.searchParams.get("category") || "").trim();
+  let sql = `SELECT id, barcode, name, price, vat_rate, category, unit, is_active, updated_at
+             FROM pos_products WHERE org_id=? AND location_id=? AND is_active=1`;
+  const bind = [authUser.org_id, authUser.location_id];
+  if (q) { sql += ` AND (lower(barcode) LIKE ? OR lower(name) LIKE ? OR lower(category) LIKE ?)`; const like = `%${q}%`; bind.push(like, like, like); }
+  if (category) { sql += ` AND category=?`; bind.push(category); }
+  sql += ` ORDER BY name LIMIT 2000`;
+  const rows = await dbAll(env, sql, bind);
+  return jsonResponse({ ok: true, products: rows }, 200, corsOkHeaders);
+}
+
+async function handlePosCatalogBatch(request, env, corsOkHeaders, authUser) {
+  await ensurePosSchema(env);
+  const body = await readJson(request);
+  const products = Array.isArray(body.products) ? body.products : [];
+  if (!products.length) return jsonResponse({ ok: false, error: "No products provided" }, 400, corsOkHeaders);
+  if (products.length > 500) return jsonResponse({ ok: false, error: "Max 500 products per batch" }, 400, corsOkHeaders);
+
+  let upserted = 0;
+  for (const p of products) {
+    const barcode = String(p.barcode || "").trim();
+    const name = String(p.name || "").trim();
+    if (!barcode || !name) continue;
+    const price = Math.max(0, parseFloat(p.price) || 0);
+    const vatRate = parseFloat(p.vat_rate) || 0;
+    const category = String(p.category || "").trim().slice(0, 80);
+    const unit = String(p.unit || "").trim().slice(0, 40);
+    await dbRun(env, `INSERT INTO pos_products (org_id, location_id, barcode, name, price, vat_rate, category, unit, is_active, created_at, updated_at)
+      VALUES (?,?,?,?,?,?,?,?,1,datetime('now'),datetime('now'))
+      ON CONFLICT(org_id, location_id, barcode) DO UPDATE SET
+        name=excluded.name, price=excluded.price, vat_rate=excluded.vat_rate,
+        category=excluded.category, unit=excluded.unit, is_active=1, updated_at=datetime('now')`,
+      [authUser.org_id, authUser.location_id, barcode, name, price, vatRate, category, unit]);
+    upserted++;
+  }
+  await writeAudit(env, authUser.org_id, authUser.user_id, "EPOS_CATALOG_BATCH", "pos_products", "", { count: upserted });
+  return jsonResponse({ ok: true, upserted }, 200, corsOkHeaders);
+}
+
+async function handlePosCatalogClear(request, env, corsOkHeaders, authUser) {
+  await ensurePosSchema(env);
+  await dbRun(env, `DELETE FROM pos_products WHERE org_id=? AND location_id=?`,
+    [authUser.org_id, authUser.location_id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "EPOS_CATALOG_CLEAR", "pos_products", "", {});
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handlePosSalesList(request, env, corsOkHeaders, authUser, url) {
+  await ensurePosSchema(env);
+  const date = (url.searchParams.get("date") || "").trim() || new Date().toISOString().slice(0, 10);
+  const rows = await dbAll(env, `SELECT id, sale_date, receipt_no, items_json, subtotal, vat_total, total,
+    payment_method, amount_tendered, change_given, notes, client_name, client_id,
+    offline_id, voided, voided_at, voided_reason, created_by, created_at
+    FROM pos_sales WHERE org_id=? AND location_id=? AND sale_date=? ORDER BY created_at DESC`,
+    [authUser.org_id, authUser.location_id, date]);
+  return jsonResponse({ ok: true, sales: rows }, 200, corsOkHeaders);
+}
+
+async function handlePosSaleCreate(request, env, corsOkHeaders, authUser) {
+  await ensurePosSchema(env);
+  const body = await readJson(request);
+  const saleDate = String(body.sale_date || "").trim() || new Date().toISOString().slice(0, 10);
+  const receiptNo = String(body.receipt_no || "").trim();
+  const itemsJson = JSON.stringify(Array.isArray(body.items) ? body.items : []);
+  const subtotal = Math.max(0, parseFloat(body.subtotal) || 0);
+  const vatTotal = Math.max(0, parseFloat(body.vat_total) || 0);
+  const total = Math.max(0, parseFloat(body.total) || 0);
+  const paymentMethod = String(body.payment_method || "").trim();
+  const amountTendered = body.amount_tendered != null ? parseFloat(body.amount_tendered) || null : null;
+  const changeGiven = body.change_given != null ? parseFloat(body.change_given) || null : null;
+  const notes = String(body.notes || "").trim();
+  const clientName = String(body.client_name || "").trim();
+  const clientId = String(body.client_id || "").trim();
+  const offlineId = String(body.offline_id || "").trim() || null;
+
+  if (offlineId) {
+    const existing = await dbFirst(env, `SELECT id FROM pos_sales WHERE org_id=? AND location_id=? AND offline_id=?`,
+      [authUser.org_id, authUser.location_id, offlineId]);
+    if (existing) return jsonResponse({ ok: true, id: existing.id, duplicate: true }, 200, corsOkHeaders);
+  }
+
+  const row = await dbFirst(env, `INSERT INTO pos_sales
+    (org_id, location_id, sale_date, receipt_no, items_json, subtotal, vat_total, total,
+     payment_method, amount_tendered, change_given, notes, client_name, client_id,
+     offline_id, voided, created_by, created_at, updated_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,?,datetime('now'),datetime('now'))
+    RETURNING id`,
+    [authUser.org_id, authUser.location_id, saleDate, receiptNo, itemsJson,
+     subtotal, vatTotal, total, paymentMethod, amountTendered, changeGiven,
+     notes, clientName, clientId, offlineId, authUser.user_id]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "EPOS_SALE_CREATE", "pos_sales", String(row.id), { total, payment_method: paymentMethod });
+  return jsonResponse({ ok: true, id: row.id }, 200, corsOkHeaders);
+}
+
+async function handlePosSaleVoid(request, env, corsOkHeaders, authUser, saleId) {
+  await ensurePosSchema(env);
+  const existing = await dbFirst(env, `SELECT id FROM pos_sales WHERE id=? AND org_id=? AND location_id=?`,
+    [saleId, authUser.org_id, authUser.location_id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+  const body = await readJson(request).catch(() => ({}));
+  const reason = String(body.reason || "").trim();
+  await dbRun(env, `UPDATE pos_sales SET voided=1, voided_at=datetime('now'), voided_by=?, voided_reason=?, updated_at=datetime('now') WHERE id=?`,
+    [authUser.user_id, reason, saleId]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "EPOS_SALE_VOID", "pos_sales", String(saleId), { reason });
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handlePosSalesSync(request, env, corsOkHeaders, authUser) {
+  await ensurePosSchema(env);
+  const body = await readJson(request);
+  const sales = Array.isArray(body.sales) ? body.sales : [];
+  if (!sales.length) return jsonResponse({ ok: true, synced: 0, results: [] }, 200, corsOkHeaders);
+  const results = [];
+  for (const s of sales) {
+    try {
+      const offlineId = String(s.offline_id || "").trim() || null;
+      if (!offlineId) { results.push({ offline_id: null, ok: false, error: "Missing offline_id" }); continue; }
+      const existing = await dbFirst(env, `SELECT id FROM pos_sales WHERE org_id=? AND location_id=? AND offline_id=?`,
+        [authUser.org_id, authUser.location_id, offlineId]);
+      if (existing) { results.push({ offline_id: offlineId, ok: true, id: existing.id, duplicate: true }); continue; }
+      const saleDate = String(s.sale_date || "").trim() || new Date().toISOString().slice(0, 10);
+      const itemsJson = JSON.stringify(Array.isArray(s.items) ? s.items : []);
+      const row = await dbFirst(env, `INSERT INTO pos_sales
+        (org_id, location_id, sale_date, receipt_no, items_json, subtotal, vat_total, total,
+         payment_method, amount_tendered, change_given, notes, client_name, client_id,
+         offline_id, voided, created_by, created_at, updated_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,?,datetime('now'),datetime('now'))
+        RETURNING id`,
+        [authUser.org_id, authUser.location_id, saleDate,
+         String(s.receipt_no || "").trim(), itemsJson,
+         Math.max(0, parseFloat(s.subtotal) || 0),
+         Math.max(0, parseFloat(s.vat_total) || 0),
+         Math.max(0, parseFloat(s.total) || 0),
+         String(s.payment_method || "").trim(),
+         s.amount_tendered != null ? parseFloat(s.amount_tendered) || null : null,
+         s.change_given != null ? parseFloat(s.change_given) || null : null,
+         String(s.notes || "").trim(),
+         String(s.client_name || "").trim(),
+         String(s.client_id || "").trim(),
+         offlineId, authUser.user_id]);
+      results.push({ offline_id: offlineId, ok: true, id: row.id });
+    } catch (e) {
+      results.push({ offline_id: s.offline_id, ok: false, error: String(e && (e.message || e)) });
+    }
+  }
+  const synced = results.filter(r => r.ok && !r.duplicate).length;
+  await writeAudit(env, authUser.org_id, authUser.user_id, "EPOS_SALES_SYNC", "pos_sales", "", { synced, total: sales.length });
+  return jsonResponse({ ok: true, synced, results }, 200, corsOkHeaders);
+}
