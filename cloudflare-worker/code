@@ -14108,8 +14108,15 @@ async function ensurePosSchema(env) {
     UNIQUE(org_id, location_id, name)
   )`, []);
   await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_pos_products_org_loc ON pos_products (org_id, location_id, is_active)`, []);
-  // Partial unique index: only enforce barcode uniqueness when barcode is non-empty
-  await dbRun(env, `CREATE UNIQUE INDEX IF NOT EXISTS idx_pos_products_barcode ON pos_products (org_id, location_id, barcode) WHERE barcode != ''`, []);
+  // Migration: add unique name index — runs on both new and existing tables.
+  // Skipped (not failed) if duplicate names already exist.
+  try {
+    await dbRun(env, `CREATE UNIQUE INDEX IF NOT EXISTS idx_pos_products_name ON pos_products (org_id, location_id, name)`, []);
+  } catch(e) { /* duplicate names exist — skip */ }
+  // Partial unique index on barcode: NULL allowed to repeat (= no barcode), non-empty must be unique
+  try {
+    await dbRun(env, `CREATE UNIQUE INDEX IF NOT EXISTS idx_pos_products_barcode ON pos_products (org_id, location_id, barcode) WHERE barcode IS NOT NULL AND barcode != ''`, []);
+  } catch(e) { /* index may already exist with a different WHERE clause — skip */ }
 
   await dbRun(env, `CREATE TABLE IF NOT EXISTS pos_sales (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -14163,18 +14170,19 @@ async function handlePosCatalogBatch(request, env, corsOkHeaders, authUser) {
 
   let upserted = 0;
   for (const p of products) {
-    const barcode = String(p.barcode || "").trim();   // may be empty — that is fine
+    const barcodeRaw = String(p.barcode || "").trim();
+    const barcode = barcodeRaw || null;               // NULL = no barcode (SQLite UNIQUE allows multiple NULLs)
     const name = String(p.name || "").trim();
     if (!name) continue;                              // only name is required
     const price = Math.max(0, parseFloat(p.price) || 0);
     const vatRate = parseFloat(p.vat_rate) || 0;
     const category = String(p.category || "").trim().slice(0, 80);
     const unit = String(p.unit || "").trim().slice(0, 40);
-    // Upsert by name; preserve existing barcode when new row has none
+    // Upsert by name (idx_pos_products_name); preserve existing barcode when new row has none
     await dbRun(env, `INSERT INTO pos_products (org_id, location_id, barcode, name, price, vat_rate, category, unit, is_active, created_at, updated_at)
       VALUES (?,?,?,?,?,?,?,?,1,datetime('now'),datetime('now'))
       ON CONFLICT(org_id, location_id, name) DO UPDATE SET
-        barcode   = CASE WHEN excluded.barcode != '' THEN excluded.barcode ELSE barcode END,
+        barcode   = CASE WHEN excluded.barcode IS NOT NULL THEN excluded.barcode ELSE barcode END,
         price     = excluded.price,
         vat_rate  = excluded.vat_rate,
         category  = excluded.category,
