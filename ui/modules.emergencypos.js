@@ -495,43 +495,116 @@
     }).filter(function(p){ return p.name && p.barcode; });
   }  // barcode is required by DB schema
 
-  async function uploadProducts(products) {
-    var BATCH = 500;
+  async async function uploadProducts(products) {
+    // Cloudflare Workers can hit CPU/resource limits (1102) if we send very large batches.
+    // We therefore:
+    //  - send in smaller batches (adaptive)
+    //  - add short yielding delays
+    //  - retry with exponential backoff on 503 / 1102
+    //  - automatically reduce batch size if a 503 occurs mid-import
+    var batchSize = 250;          // starting batch size (tuned for reliability)
+    var minBatchSize = 50;        // never go below this
+    var maxBatchSize = 500;       // upper cap (server may still choke at this)
+    var yieldMs = 40;             // small delay between successful batches
+
+    function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
     var total = products.length;
     var done = 0;
 
-    for (var i = 0; i < total; i += BATCH) {
-      var chunk = products.slice(i, i + BATCH);
-      renderCatalogImportProgress(Math.round(done/total*100), "Uploading " + done + " / " + total + "…");
+    if (!total) return;
 
-      try {
-        var resp = await apiFetch("/emergency-pos/catalog", {
-          method: "POST",
-          body: JSON.stringify({ products: chunk })
-        });
+    // progress UI helper
+    function setProgress(msg, pct) {
+      var el = document.getElementById("eposUploadProgress");
+      if (!el) return;
+      el.textContent = msg;
+      if (typeof pct === "number") el.dataset.pct = String(pct);
+    }
 
-        // IMPORTANT: EIKON apiFetch may return { ok:false, ... } without throwing.
-        // If we don't treat that as an error, uploads can "silently" stop part-way.
-        if (!resp || resp.ok !== true) {
-          var msg = (resp && (resp.message || resp.error)) ? (resp.message || resp.error) : "Unknown error";
-          throw new Error(msg);
+    setProgress("Uploading 0 / " + total + " …", 0);
+
+    while (done < total) {
+      // Build the current chunk (batch size may change dynamically)
+      var end = Math.min(total, done + batchSize);
+      var chunk = products.slice(done, end);
+
+      // Retry loop for this chunk only
+      var attempt = 0;
+      var lastErr = null;
+
+      while (attempt < 6) {
+        try {
+          var resp = await apiFetch("/emergency-pos/catalog", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ products: chunk })
+          });
+
+          if (resp && resp.ok) {
+            done += chunk.length;
+            var pct = Math.round((done / total) * 100);
+            setProgress("Uploading " + done + " / " + total + " … (" + pct + "%)", pct);
+            // Yield a bit so the browser stays responsive and we avoid hammering the Worker.
+            await sleep(yieldMs);
+            break;
+          }
+
+          // If we get here, resp.ok is false
+          var status = resp && resp.status ? resp.status : 0;
+          var is503 = status === 503;
+          var is429 = status === 429;
+          var is5xx = status >= 500 && status < 600;
+
+          // Try to detect CF worker limit (1102) in response body
+          var bodyText = "";
+          try { bodyText = (resp && typeof resp.text === "function") ? await resp.text() : ""; } catch (e) {}
+
+          var looksLike1102 = bodyText && (bodyText.indexOf("Worker exceeded resource limits") >= 0 || bodyText.indexOf("1102") >= 0);
+
+          lastErr = new Error("Upload failed: HTTP " + status + (looksLike1102 ? " (CF 1102)" : ""));
+
+          // Backoff: on 429/503/5xx, retry; otherwise stop.
+          if (is429 || is503 || looksLike1102 || is5xx) {
+            // If the worker is choking, reduce batch size for next try.
+            if (is503 || looksLike1102) {
+              var newSize = Math.max(minBatchSize, Math.floor(batchSize / 2));
+              if (newSize < batchSize) {
+                batchSize = newSize;
+                // rebuild chunk with smaller batch
+                end = Math.min(total, done + batchSize);
+                chunk = products.slice(done, end);
+              }
+            }
+
+            attempt += 1;
+            var wait = Math.min(8000, 500 * Math.pow(2, attempt)); // cap at 8s
+            setProgress("Upload retry " + attempt + "/6 … (batch " + batchSize + ", waiting " + wait + "ms)", Math.round((done / total) * 100));
+            await sleep(wait);
+            continue;
+          }
+
+          // Non-retryable
+          throw lastErr;
+
+        } catch (err) {
+          lastErr = err;
+          // Network or unexpected error; retry a few times with backoff
+          attempt += 1;
+          if (attempt >= 6) break;
+          var wait2 = Math.min(8000, 500 * Math.pow(2, attempt));
+          setProgress("Upload error, retry " + attempt + "/6 … (waiting " + wait2 + "ms)", Math.round((done / total) * 100));
+          await sleep(wait2);
         }
+      }
 
-        done += chunk.length;
-      } catch(e) {
-        showToast("Upload error at row " + i + ": " + (e && e.message), "err");
-        state.importing = false;
-        renderCatalogTab();
-        return;
+      if (done < end) {
+        // Chunk ultimately failed
+        throw lastErr || new Error("Upload failed.");
       }
     }
 
-    renderCatalogImportProgress(100, "Finalising…");
-    // Reload catalog
-    await apiLoadCatalog();
-    state.importing = false;
-    showToast("Imported " + done + " products.", "ok");
-    renderCatalogTab();
+    setProgress("Upload complete: " + done + " / " + total, 100);
   }
 
   // ─── Camera / ZXing ──────────────────────────────────────────────────────────
