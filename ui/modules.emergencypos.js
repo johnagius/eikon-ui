@@ -495,7 +495,7 @@
     }).filter(function(p){ return p.name && p.barcode; });
   }  // barcode is required by DB schema
 
-  async async function uploadProducts(products) {
+  async function uploadProducts(products) {
     // Cloudflare Workers can hit CPU/resource limits (1102) if we send very large batches.
     // We therefore:
     //  - send in smaller batches (adaptive)
