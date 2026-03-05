@@ -500,7 +500,6 @@
       };
     }).filter(function(p){ return p.name && p.barcode; });  // barcode is required by DB schema
   }  // barcode is required by DB schema
-  }
 
   async function uploadProducts(products) {
     var BATCH = 500;
