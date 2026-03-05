@@ -256,14 +256,42 @@
     return E.apiFetch(path, opts || {});
   }
 
-  async function apiLoadCatalog() {
-    try {
-      var resp = await apiFetch("/emergency-pos/catalog");
-      if (resp && Array.isArray(resp.products)) {
-        state.catalog = resp.products;
-        lsSet(LS.CATALOG, resp.products);
-        return;
-      }
+  async function apiLoadCatalog(opts = {}) {
+  const limit = Number.isFinite(opts.limit) ? opts.limit : 2000;
+  const offset = Number.isFinite(opts.offset) ? opts.offset : 0;
+  const includeInactive = opts.include_inactive === true;
+
+  const qs = new URLSearchParams();
+  qs.set("limit", String(limit));
+  qs.set("offset", String(offset));
+  if (includeInactive) qs.set("include_inactive", "1");
+
+  const url = `/emergency-pos/catalog?${qs.toString()}`;
+  const t0 = Date.now();
+  log("apiLoadCatalog ->", { url });
+
+  const data = await apiFetch(url);
+
+  // Expect server shape: { ok:true, total, limit, offset, next_offset, last_upload_at, products:[] }
+  const products = Array.isArray(data.products) ? data.products : [];
+  state.catalogMeta = {
+    total: Number.isFinite(data.total) ? data.total : null,
+    limit: Number.isFinite(data.limit) ? data.limit : limit,
+    offset: Number.isFinite(data.offset) ? data.offset : offset,
+    next_offset: (data.next_offset === null || Number.isFinite(data.next_offset)) ? data.next_offset : null,
+    last_upload_at: data.last_upload_at || null,
+    include_inactive: includeInactive
+  };
+
+  log("apiLoadCatalog <-", {
+    ms: Date.now() - t0,
+    meta: state.catalogMeta,
+    returned: products.length,
+    sample: products.length ? products[0] : null
+  });
+
+  return products;
+}
     } catch(e) { warn("catalog load failed", e && e.message); }
     // Fallback to cached
     var cached = lsGet(LS.CATALOG);
@@ -588,6 +616,7 @@
           throw lastErr;
 
         } catch (err) {
+      log("uploadProducts: ERROR", { chunkIndex, start: i, batchSize, message: String(err && err.message ? err.message : err), err });
           lastErr = err;
           // Network or unexpected error; retry a few times with backoff
           attempt += 1;
