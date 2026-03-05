@@ -424,7 +424,7 @@
         if (!rows.length) { showToast("No rows found in XLSX.", "warn"); state.importing = false; renderCatalogTab(); return; }
         var products = mapXlsxRows(rows);
         log("Mapped products:", products.length);
-        uploadProducts(products);
+        uploadProducts(products, file);
       } catch(e) {
         err("XLSX parse error", e);
         showToast("XLSX parse error: " + (e && e.message), "err");
@@ -507,7 +507,7 @@
     }).filter(function(p){ return p.name && p.barcode; });
   }  // barcode is required by DB schema
 
-  async function uploadProducts(products) {
+  async function uploadProducts(products, file) {
     // Cloudflare Workers can hit CPU/resource limits (1102) if we send very large batches.
     // We therefore:
     //  - send in smaller batches (adaptive)
@@ -541,6 +541,9 @@
       // Build the current chunk (batch size may change dynamically)
       var end = Math.min(total, done + batchSize);
       var chunk = products.slice(done, end);
+      var offset = done; // used for wipe/telemetry; previously undefined
+      var file_name = (file && file.name) ? file.name : "";
+      var chunk_index = Math.floor(offset / batchSize) + 1;
 
       console.log("[EIKON][epos][ui] upload chunk start", {
         done: done,
@@ -558,10 +561,17 @@
         try {
           var tBatch0 = Date.now();
           console.log("[EIKON][epos][ui] upload attempt", { attempt: attempt + 1, done: done, end: end, size: chunk.length, batchSize: batchSize });
+          try {
+            var payloadStr = JSON.stringify({ products: chunk, wipe: (offset === 0), file_name: file_name, total_rows: total, chunk_index: chunk_index });
+            console.log("[EIKON][epos][ui] upload payload", { bytes: payloadStr.length, offset: offset, chunk_index: chunk_index, wipe: (offset === 0), file_name: file_name, first: chunk[0], last: chunk[chunk.length - 1] });
+          } catch(_pe) {
+            console.warn("[EIKON][epos][ui] upload payload stringify failed", { err: _pe && (_pe.stack || _pe.message || String(_pe)) });
+          }
+
           var resp = await apiFetch("/emergency-pos/catalog", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ products: chunk, wipe: (offset === 0), file_name: (file && file.name) ? file.name : "", total_rows: total, chunk_index: (offset / batchSize) + 1 })
+            body: (typeof payloadStr === "string" ? payloadStr : JSON.stringify({ products: chunk, wipe: (offset === 0), file_name: file_name, total_rows: total, chunk_index: chunk_index }))
           });
 
           console.log("[EIKON][epos][ui] upload resp", { ms: Date.now() - tBatch0, ok: !!(resp && resp.ok), status: resp && resp.status, inserted: resp && resp.inserted, error: resp && (resp.error || resp.message) });
