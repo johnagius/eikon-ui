@@ -806,6 +806,60 @@
     }
   }
 
+  // ─── Image preprocessing for barcode detection ──────────────────────────────
+  // Inverts canvas pixel colours in-place (for inverted/negative DataMatrix codes)
+  function invertCanvas(ctx, w, h) {
+    var imgData = ctx.getImageData(0, 0, w, h);
+    var d = imgData.data;
+    for (var i = 0; i < d.length; i += 4) {
+      d[i]     = 255 - d[i];     // R
+      d[i + 1] = 255 - d[i + 1]; // G
+      d[i + 2] = 255 - d[i + 2]; // B
+    }
+    ctx.putImageData(imgData, 0, 0);
+  }
+
+  // Enhances contrast by stretching histogram to full 0-255 range
+  function enhanceContrast(ctx, w, h) {
+    var imgData = ctx.getImageData(0, 0, w, h);
+    var d = imgData.data;
+    var minV = 255, maxV = 0;
+    // Find min/max luminance
+    for (var i = 0; i < d.length; i += 4) {
+      var lum = d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114;
+      if (lum < minV) minV = lum;
+      if (lum > maxV) maxV = lum;
+    }
+    var range = maxV - minV;
+    if (range < 30) return; // already very flat, skip
+    var scale = 255 / range;
+    for (var j = 0; j < d.length; j += 4) {
+      d[j]     = Math.min(255, Math.max(0, (d[j]     - minV) * scale));
+      d[j + 1] = Math.min(255, Math.max(0, (d[j + 1] - minV) * scale));
+      d[j + 2] = Math.min(255, Math.max(0, (d[j + 2] - minV) * scale));
+    }
+    ctx.putImageData(imgData, 0, 0);
+  }
+
+  // Converts to high-contrast black/white using adaptive threshold
+  function sharpenToBlackWhite(ctx, w, h) {
+    var imgData = ctx.getImageData(0, 0, w, h);
+    var d = imgData.data;
+    // Convert to grayscale and threshold at mean luminance
+    var sum = 0;
+    var grays = new Uint8Array(w * h);
+    for (var i = 0, p = 0; i < d.length; i += 4, p++) {
+      grays[p] = d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114;
+      sum += grays[p];
+    }
+    var mean = sum / grays.length;
+    for (var j = 0, q = 0; j < d.length; j += 4, q++) {
+      var v = grays[q] > mean ? 255 : 0;
+      d[j] = d[j+1] = d[j+2] = v;
+    }
+    ctx.putImageData(imgData, 0, 0);
+  }
+
   // ─── Native BarcodeDetector scanner (preferred) ────────────────────────────
   function startNativeScan(cartLineId) {
     var videoEl = document.getElementById("epos-scan-video");
@@ -817,33 +871,55 @@
         formats: ["data_matrix", "qr_code", "ean_13", "ean_8", "code_128", "code_39", "upc_a", "upc_e", "itf"]
       });
     } catch(e) {
-      // Some formats may not be supported — try with fewer
       try {
         detector = new BarcodeDetector({
           formats: ["data_matrix", "qr_code", "ean_13", "code_128"]
         });
       } catch(e2) {
         err("BarcodeDetector init failed", e2);
-        // Fall back to ZXing
         startZxingScan(cartLineId);
         return;
       }
     }
 
+    // Main canvas for normal frame, secondary for processed versions
     var canvas = document.createElement("canvas");
-    var ctx = canvas.getContext("2d");
+    var ctx = canvas.getContext("2d", { willReadFrequently: true });
+    var canvas2 = document.createElement("canvas");
+    var ctx2 = canvas2.getContext("2d", { willReadFrequently: true });
     var stopped = false;
+    var frameCount = 0;
 
     state._nativeScanCleanup = function() { stopped = true; };
 
-    // Start camera
+    // Start camera — request high resolution + autofocus for small codes
     navigator.mediaDevices.getUserMedia({
-      video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
+      video: {
+        facingMode: "environment",
+        width: { ideal: 1920 },
+        height: { ideal: 1080 },
+        focusMode: { ideal: "continuous" }
+      },
       audio: false
     }).then(function(stream) {
       state._scanStream = stream;
       videoEl.srcObject = stream;
       videoEl.play();
+
+      // Try to enable torch/flash if available for better contrast
+      try {
+        var track = stream.getVideoTracks()[0];
+        if (track && track.getCapabilities && track.getCapabilities().torch) {
+          track.applyConstraints({ advanced: [{ torch: true }] }).catch(function(){});
+        }
+      } catch(e) {}
+
+      function detectOn(cvs) {
+        return detector.detect(cvs).then(function(barcodes) {
+          if (barcodes.length > 0) return barcodes[0];
+          return null;
+        });
+      }
 
       function scanFrame() {
         if (stopped || !state.scanning) return;
@@ -851,26 +927,63 @@
           requestAnimationFrame(scanFrame);
           return;
         }
-        canvas.width = videoEl.videoWidth;
-        canvas.height = videoEl.videoHeight;
-        ctx.drawImage(videoEl, 0, 0);
 
-        detector.detect(canvas).then(function(barcodes) {
+        var vw = videoEl.videoWidth;
+        var vh = videoEl.videoHeight;
+        canvas.width = vw;
+        canvas.height = vh;
+        ctx.drawImage(videoEl, 0, 0);
+        frameCount++;
+
+        // Strategy: try normal frame first, then on alternating frames
+        // also try enhanced/inverted versions for difficult barcodes
+        var attempts = [detectOn(canvas)];
+
+        // Every 3rd frame: try contrast-enhanced version
+        if (frameCount % 3 === 0) {
+          canvas2.width = vw;
+          canvas2.height = vh;
+          ctx2.drawImage(canvas, 0, 0);
+          enhanceContrast(ctx2, vw, vh);
+          attempts.push(detectOn(canvas2));
+        }
+
+        // Every 3rd frame (offset): try inverted colours for inverted DataMatrix
+        if (frameCount % 3 === 1) {
+          canvas2.width = vw;
+          canvas2.height = vh;
+          ctx2.drawImage(canvas, 0, 0);
+          invertCanvas(ctx2, vw, vh);
+          attempts.push(detectOn(canvas2));
+        }
+
+        // Every 3rd frame (offset): try black/white threshold
+        if (frameCount % 3 === 2) {
+          canvas2.width = vw;
+          canvas2.height = vh;
+          ctx2.drawImage(canvas, 0, 0);
+          sharpenToBlackWhite(ctx2, vw, vh);
+          attempts.push(detectOn(canvas2));
+        }
+
+        Promise.all(attempts).then(function(results) {
           if (stopped || !state.scanning) return;
-          if (barcodes.length > 0) {
-            var text = barcodes[0].rawValue;
-            log("Native BarcodeDetector:", text, "format:", barcodes[0].format);
-            stopScan();
-            handleScanResult(text, cartLineId);
-          } else {
-            requestAnimationFrame(scanFrame);
+          for (var i = 0; i < results.length; i++) {
+            if (results[i]) {
+              var bc = results[i];
+              log("BarcodeDetector hit:", bc.rawValue, "format:", bc.format, "attempt:", i);
+              stopScan();
+              handleScanResult(bc.rawValue, cartLineId);
+              return;
+            }
           }
-        }).catch(function(e) {
+          requestAnimationFrame(scanFrame);
+        }).catch(function() {
           if (stopped || !state.scanning) return;
           requestAnimationFrame(scanFrame);
         });
       }
-      // Small delay for camera to stabilize
+
       setTimeout(scanFrame, 300);
     }).catch(function(e) {
       err("Camera access failed", e);
