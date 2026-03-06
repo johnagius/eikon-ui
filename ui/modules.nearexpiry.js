@@ -201,7 +201,7 @@ async function apiJson(path, options, tag) {
   function returnStatusHtml(e) {
     var rs = String(e.return_status || "");
     if (rs === "refused") return '<span class="ne-pill" style="font-size:11px;opacity:.55;">Supplier refused return</span>';
-    if (rs === "pending") return '<span class="ne-pill ne-pill-soon" style="font-size:11px;">Return pending</span>';
+    if (rs === "pending") return '<span class="ne-pill ne-pill-ok" style="font-size:11px;">Return pending</span>';
     if (rs === "handed_over") return '<span class="ne-pill ne-pill-ok" style="font-size:11px;">Returned</span>';
     return '<button class="eikon-btn" data-act="return" data-id="' + String(e.id) + '" style="font-size:11px;">Return</button>';
   }
@@ -211,7 +211,7 @@ async function apiJson(path, options, tag) {
     var d = (typeof e.days_to_expire === "number") ? e.days_to_expire : daysUntil(e.expiry_date);
     if (typeof d === "number" && d < 0) return '<span class="ne-pill" style="font-size:11px;opacity:.4;">Expired</span>';
     if (e.damaged) return '<span class="ne-pill" style="font-size:11px;opacity:.4;">Damaged</span>';
-    return '<button class="eikon-btn" data-act="add-stock" data-id="' + String(e.id) + '" style="font-size:11px;">Add to Stock</button>';
+    return '<button class="eikon-btn" data-act="add-stock" data-id="' + String(e.id) + '" style="font-size:11px;">Add to Scarce Stock</button>';
   }
 
   // ------------------------------------------------------------
