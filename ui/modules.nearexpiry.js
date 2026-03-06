@@ -200,9 +200,15 @@ async function apiJson(path, options, tag) {
   // ------------------------------------------------------------
   function returnStatusHtml(e) {
     var rs = String(e.return_status || "");
+    if (rs === "refused") return '<span class="ne-pill" style="font-size:11px;opacity:.55;">Supplier refused return</span>';
     if (rs === "pending") return '<span class="ne-pill ne-pill-soon" style="font-size:11px;">Return pending</span>';
     if (rs === "handed_over") return '<span class="ne-pill ne-pill-ok" style="font-size:11px;">Returned</span>';
     return '<button class="eikon-btn" data-act="return" data-id="' + String(e.id) + '" style="font-size:11px;">Return</button>';
+  }
+
+  function scarceStockStatusHtml(e) {
+    if (e.scarce_stock_offer_id) return '<span class="ne-pill ne-pill-ok" style="font-size:11px;">In Scarce Stock</span>';
+    return '<button class="eikon-btn" data-act="add-stock" data-id="' + String(e.id) + '" style="font-size:11px;">Add to Stock</button>';
   }
 
   // ------------------------------------------------------------
@@ -237,7 +243,7 @@ async function apiJson(path, options, tag) {
     var html = "";
 
     if (!list.length) {
-      html = '<tr><td colspan="7" style="color:var(--muted);padding:16px;">No items found.</td></tr>';
+      html = '<tr><td colspan="8" style="color:var(--muted);padding:16px;">No items found.</td></tr>';
       tbody.innerHTML = html;
       updateCount();
       return;
@@ -253,6 +259,7 @@ async function apiJson(path, options, tag) {
         '<td><div class="ne-muted">' + esc(e.location || "") + '</div></td>' +
         '<td><div class="ne-muted">' + esc(e.notes || "") + '</div></td>' +
         '<td>' + returnStatusHtml(e) + '</td>' +
+        '<td>' + scarceStockStatusHtml(e) + '</td>' +
         '<td class="ne-actions">' +
           '<button class="eikon-btn" data-act="edit" data-id="' + String(e.id) + '">Edit</button>' +
           '<button class="eikon-btn danger" data-act="del" data-id="' + String(e.id) + '">Delete</button>' +
@@ -603,6 +610,82 @@ async function apiJson(path, options, tag) {
   }
 
   // ------------------------------------------------------------
+  // Add to Scarce Stock
+  // ------------------------------------------------------------
+  function showAddToStockModal(entry) {
+    var e = entry;
+    var d = daysUntil(e.expiry_date);
+
+    var html =
+      '<div style="margin-bottom:12px;">' +
+        '<div style="font-weight:900;font-size:14px;margin-bottom:4px;">' + esc(e.product_name || "") + '</div>' +
+        '<div style="color:var(--muted);font-size:12px;">Expiry: <b>' + esc(ymdToDmyDash(e.expiry_date || "")) + '</b> ' + daysPillHtml(d) + '</div>' +
+      '</div>' +
+      '<div class="eikon-row" style="gap:12px;flex-wrap:wrap;">' +
+        '<div class="eikon-field" style="min-width:120px;">' +
+          '<div class="eikon-label">Quantity available</div>' +
+          '<input id="ne-stock-qty" class="eikon-input" type="number" min="1" value="1" style="max-width:100px;" />' +
+        '</div>' +
+        '<div class="eikon-field" style="min-width:180px;">' +
+          '<div class="eikon-label">Batch / Lot (optional)</div>' +
+          '<input id="ne-stock-batch" class="eikon-input" placeholder="e.g. LOT12345" />' +
+        '</div>' +
+      '</div>' +
+      '<div class="eikon-help" style="margin-top:10px;color:var(--muted);">This will list the item in Scarce Stock (Available Stock) so other locations can request it.</div>';
+
+    E.modal.show("Add to Scarce Stock", html, [
+      { label: "Cancel", onClick: function () { E.modal.hide(); } },
+      {
+        label: "Add to Stock",
+        primary: true,
+        onClick: function () {
+          (async function () {
+            try {
+              var qty = parseInt(String((E.q("#ne-stock-qty") || {}).value || "1"), 10);
+              if (!qty || qty < 1) qty = 1;
+              var batch = String((E.q("#ne-stock-batch") || {}).value || "").trim();
+
+              var payload = {
+                entry_date: todayLocalYmd(),
+                item_name: e.product_name,
+                expiry_date: e.expiry_date || "",
+                batch: batch,
+                quantity_available: qty,
+                is_closed: 0,
+                near_expiry_id: e.id
+              };
+
+              var j = await apiJson("/scarce-stock/offers", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+              }, "add-to-stock");
+
+              if (j && j.id) {
+                for (var i = 0; i < state.entries.length; i++) {
+                  if (Number(state.entries[i].id) === Number(e.id)) {
+                    state.entries[i].scarce_stock_offer_id = j.id;
+                    break;
+                  }
+                }
+                applyFilterSort();
+                renderTable();
+              }
+
+              E.modal.hide();
+              E.showToast && E.showToast("Added to Scarce Stock");
+            } catch (ex) {
+              E.modal.show("Failed", '<div style="color:var(--danger);font-weight:800;">' + esc(ex && (ex.message || ex)) + "</div>", [
+                { label: "OK", primary: true, onClick: function () { E.modal.hide(); } }
+              ]);
+            }
+          })();
+        }
+      }
+    ]);
+  }
+
+  // ------------------------------------------------------------
   // Print
   // ------------------------------------------------------------
   function openPrintWindow(entries, queryText) {
@@ -761,6 +844,7 @@ async function apiJson(path, options, tag) {
                 '<th data-key="location"><span class="ne-sort">Location <span class="car"></span></span></th>' +
                 '<th data-key="notes"><span class="ne-sort">Notes <span class="car"></span></span></th>' +
                 '<th>Return</th>' +
+                '<th>Scarce Stock</th>' +
                 '<th data-key="actions">Actions</th>' +
               '</tr></thead>' +
               '<tbody id="ne-tbody"></tbody>' +
@@ -855,6 +939,7 @@ async function apiJson(path, options, tag) {
         if (act === "edit") showEditModal(entry);
         if (act === "del") confirmDelete(entry);
         if (act === "return") showReturnModal(entry);
+        if (act === "add-stock") showAddToStockModal(entry);
       });
     }
 
