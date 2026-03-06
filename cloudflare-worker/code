@@ -10493,6 +10493,500 @@ async function handleScarceNeedOfferConfirm(request, env, corsOkHeaders, authUse
 
 
 // ------------------------------------------------------------
+// Stock Transfers
+// ------------------------------------------------------------
+async function ensureStockTransfersSchema(env) {
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS stock_transfer_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id INTEGER NOT NULL,
+    location_id INTEGER NOT NULL,
+    entry_date TEXT NOT NULL,
+    item_description TEXT NOT NULL,
+    batch TEXT NOT NULL DEFAULT '',
+    expiry_date TEXT,
+    quantity_available INTEGER NOT NULL DEFAULT 0,
+    is_closed INTEGER NOT NULL DEFAULT 0,
+    close_reason TEXT NOT NULL DEFAULT '',
+    source_module TEXT NOT NULL DEFAULT '',
+    source_id INTEGER,
+    placed_on_returns INTEGER NOT NULL DEFAULT 0,
+    placed_on_returns_id INTEGER,
+    placed_on_scarce_stock INTEGER NOT NULL DEFAULT 0,
+    placed_on_scarce_stock_id INTEGER,
+    created_by INTEGER,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_by INTEGER
+  )`, []);
+
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS stock_transfer_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    item_id INTEGER NOT NULL,
+    requester_org_id INTEGER NOT NULL,
+    requester_location_id INTEGER NOT NULL,
+    quantity_requested INTEGER NOT NULL DEFAULT 0,
+    note TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_by INTEGER,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_by INTEGER
+  )`, []);
+
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_st_items_org_loc ON stock_transfer_items (org_id, location_id)", []);
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_st_items_org ON stock_transfer_items (org_id)", []);
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_st_items_source ON stock_transfer_items (source_module, source_id)", []);
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_st_requests_item ON stock_transfer_requests (item_id)", []);
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_st_requests_requester ON stock_transfer_requests (requester_org_id, requester_location_id)", []);
+}
+
+function stText(v, max) {
+  let s = String(v ?? "").trim();
+  if (max && s.length > max) s = s.slice(0, max);
+  return s;
+}
+function stInt(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return null;
+  return Math.floor(n);
+}
+function isValidYmdSt(s) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(s || "").trim());
+}
+function todayYmdSt() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+// ----- List all transfer items (visible to same org)
+async function handleStockTransferItemsList(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureStockTransfersSchema(env);
+
+  const todayStr = todayYmdSt();
+
+  // Auto-close expired items owned by this location
+  await dbRun(env, `
+    UPDATE stock_transfer_items
+    SET is_closed = 1, close_reason = 'Expired', updated_at = datetime('now'), updated_by = ?
+    WHERE org_id = ? AND location_id = ? AND expiry_date IS NOT NULL AND expiry_date <> '' AND expiry_date < ? AND is_closed = 0
+  `, [authUser.user_id, authUser.org_id, authUser.location_id, todayStr]);
+
+  // Get all items in the same org (cross-location visibility)
+  const items = await dbAll(env, `
+    SELECT i.*,
+           o.name AS org_name,
+           l.name AS location_name
+    FROM stock_transfer_items i
+    LEFT JOIN orgs o ON o.id = i.org_id
+    LEFT JOIN locations l ON l.id = i.location_id
+    WHERE i.org_id = ?
+    ORDER BY i.is_closed ASC, i.entry_date DESC, i.id DESC
+  `, [authUser.org_id]);
+
+  // Get all requests grouped by item
+  const allRequests = await dbAll(env, `
+    SELECT r.*,
+           ro.name AS requester_org_name,
+           rl.name AS requester_location_name
+    FROM stock_transfer_requests r
+    LEFT JOIN orgs ro ON ro.id = r.requester_org_id
+    LEFT JOIN locations rl ON rl.id = r.requester_location_id
+    WHERE r.item_id IN (SELECT id FROM stock_transfer_items WHERE org_id = ?)
+    ORDER BY r.created_at ASC
+  `, [authUser.org_id]);
+
+  // Group requests by item_id
+  const reqMap = {};
+  for (const r of allRequests) {
+    if (!reqMap[r.item_id]) reqMap[r.item_id] = [];
+    reqMap[r.item_id].push(r);
+  }
+
+  // Build response
+  const result = items.map(item => {
+    const requests = (reqMap[item.id] || []).map(r => {
+      const canSee = ssCanSeeSensitive(authUser, item.org_id, item.location_id, r.requester_org_id, r.requester_location_id);
+      return {
+        id: r.id,
+        quantity_requested: r.quantity_requested,
+        status: r.status,
+        note: canSee ? (r.note || "") : "",
+        mine: (r.requester_org_id === authUser.org_id && r.requester_location_id === authUser.location_id),
+        requester_display: canSee ? ((r.requester_org_name || "") + " — " + (r.requester_location_name || "")) : "Another pharmacy",
+        created_at: r.created_at
+      };
+    });
+
+    const totalRequested = requests.reduce((sum, r) => {
+      if (r.status !== "rejected" && r.status !== "cancelled") return sum + (r.quantity_requested || 0);
+      return sum;
+    }, 0);
+
+    const totalDelivered = requests.reduce((sum, r) => {
+      if (r.status === "delivered") return sum + (r.quantity_requested || 0);
+      return sum;
+    }, 0);
+
+    const remaining = Math.max(0, (item.quantity_available || 0) - totalDelivered);
+
+    return {
+      id: item.id,
+      entry_date: item.entry_date,
+      item_description: item.item_description,
+      batch: item.batch || "",
+      expiry_date: item.expiry_date || "",
+      quantity_available: item.quantity_available,
+      remaining_quantity: remaining,
+      total_requested: totalRequested,
+      is_closed: item.is_closed,
+      close_reason: item.close_reason || "",
+      source_module: item.source_module || "",
+      source_id: item.source_id,
+      placed_on_returns: item.placed_on_returns,
+      placed_on_returns_id: item.placed_on_returns_id,
+      placed_on_scarce_stock: item.placed_on_scarce_stock,
+      placed_on_scarce_stock_id: item.placed_on_scarce_stock_id,
+      mine_owner: (item.org_id === authUser.org_id && item.location_id === authUser.location_id),
+      org_name: item.org_name || "",
+      location_name: item.location_name || "",
+      requests: requests
+    };
+  });
+
+  return jsonResponse({ ok: true, items: result }, 200, corsOkHeaders);
+}
+
+// ----- Create transfer item
+async function handleStockTransferItemCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureStockTransfersSchema(env);
+
+  const body = await readJson(request);
+  const entryDate = stText(body.entry_date, 10) || todayYmdSt();
+  const itemDesc = stText(body.item_description, 500);
+  const batch = stText(body.batch, 200);
+  const expiryDate = stText(body.expiry_date, 10);
+  const qty = stInt(body.quantity_available);
+  const sourceModule = stText(body.source_module, 50);
+  const sourceId = body.source_id ? stInt(body.source_id) : null;
+
+  if (!isValidYmdSt(entryDate)) return jsonResponse({ ok: false, error: "Invalid entry_date" }, 400, corsOkHeaders);
+  if (!itemDesc) return jsonResponse({ ok: false, error: "item_description is required" }, 400, corsOkHeaders);
+  if (expiryDate && !isValidYmdSt(expiryDate)) return jsonResponse({ ok: false, error: "Invalid expiry_date format" }, 400, corsOkHeaders);
+  if (expiryDate && expiryDate < todayYmdSt()) return jsonResponse({ ok: false, error: "Expired items cannot be placed for transfer" }, 400, corsOkHeaders);
+  if (qty === null || qty < 1) return jsonResponse({ ok: false, error: "quantity_available must be at least 1" }, 400, corsOkHeaders);
+
+  // Prevent duplicate source linking
+  if (sourceModule && sourceId) {
+    const dup = await dbFirst(env, `
+      SELECT id FROM stock_transfer_items
+      WHERE org_id = ? AND location_id = ? AND source_module = ? AND source_id = ? AND is_closed = 0
+    `, [authUser.org_id, authUser.location_id, sourceModule, sourceId]);
+    if (dup) return jsonResponse({ ok: false, error: "This item is already on the transfer list" }, 409, corsOkHeaders);
+  }
+
+  const res = await dbRun(env, `
+    INSERT INTO stock_transfer_items (org_id, location_id, entry_date, item_description, batch, expiry_date, quantity_available, source_module, source_id, created_by, updated_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `, [authUser.org_id, authUser.location_id, entryDate, itemDesc, batch, expiryDate || null, qty, sourceModule, sourceId, authUser.user_id, authUser.user_id]);
+
+  const newId = res.meta?.last_row_id || null;
+  await writeAudit(env, authUser.org_id, authUser.user_id, "STOCK_TRANSFER_CREATE", "stock_transfer_items", String(newId), { item_description: itemDesc, quantity: qty, source_module: sourceModule, source_id: sourceId });
+
+  return jsonResponse({ ok: true, id: newId }, 201, corsOkHeaders);
+}
+
+// ----- Update transfer item
+async function handleStockTransferItemUpdate(request, env, corsOkHeaders, authUser, itemId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureStockTransfersSchema(env);
+
+  const existing = await dbFirst(env, "SELECT * FROM stock_transfer_items WHERE id = ?", [itemId]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+  if (existing.org_id !== authUser.org_id || existing.location_id !== authUser.location_id) {
+    return jsonResponse({ ok: false, error: "Forbidden: not your item" }, 403, corsOkHeaders);
+  }
+
+  const body = await readJson(request);
+  const itemDesc = stText(body.item_description, 500) || existing.item_description;
+  const batch = body.batch !== undefined ? stText(body.batch, 200) : existing.batch;
+  const expiryDate = body.expiry_date !== undefined ? stText(body.expiry_date, 10) : existing.expiry_date;
+  const qty = body.quantity_available !== undefined ? stInt(body.quantity_available) : existing.quantity_available;
+  const isClosed = body.is_closed !== undefined ? (body.is_closed ? 1 : 0) : existing.is_closed;
+  const closeReason = body.close_reason !== undefined ? stText(body.close_reason, 500) : existing.close_reason;
+
+  if (expiryDate && !isValidYmdSt(expiryDate)) return jsonResponse({ ok: false, error: "Invalid expiry_date format" }, 400, corsOkHeaders);
+  if (qty !== null && qty < 0) return jsonResponse({ ok: false, error: "quantity_available cannot be negative" }, 400, corsOkHeaders);
+
+  await dbRun(env, `
+    UPDATE stock_transfer_items
+    SET item_description = ?, batch = ?, expiry_date = ?, quantity_available = ?,
+        is_closed = ?, close_reason = ?, updated_at = datetime('now'), updated_by = ?
+    WHERE id = ?
+  `, [itemDesc, batch, expiryDate || null, qty, isClosed, closeReason, authUser.user_id, itemId]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "STOCK_TRANSFER_UPDATE", "stock_transfer_items", String(itemId), { item_description: itemDesc });
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+// ----- Delete transfer item (cascades: removes linked returns/scarce stock entries, cancels pending requests)
+async function handleStockTransferItemDelete(request, env, corsOkHeaders, authUser, itemId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureStockTransfersSchema(env);
+
+  const existing = await dbFirst(env, "SELECT * FROM stock_transfer_items WHERE id = ?", [itemId]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+  if (existing.org_id !== authUser.org_id || existing.location_id !== authUser.location_id) {
+    return jsonResponse({ ok: false, error: "Forbidden: not your item" }, 403, corsOkHeaders);
+  }
+
+  // Remove linked returns entry if placed via transfer
+  if (existing.placed_on_returns && existing.placed_on_returns_id) {
+    await dbRun(env, "DELETE FROM returns_entries WHERE id = ? AND org_id = ? AND location_id = ?",
+      [existing.placed_on_returns_id, authUser.org_id, authUser.location_id]);
+    await writeAudit(env, authUser.org_id, authUser.user_id, "RETURNS_AUTO_DELETE", "returns_entries", String(existing.placed_on_returns_id), { reason: "transfer_item_removed", transfer_item_id: itemId });
+  }
+
+  // Remove linked scarce stock offer if placed via transfer
+  if (existing.placed_on_scarce_stock && existing.placed_on_scarce_stock_id) {
+    await dbRun(env, "DELETE FROM scarce_stock_offer_requests WHERE offer_id = ?", [existing.placed_on_scarce_stock_id]);
+    await dbRun(env, "DELETE FROM scarce_stock_offers WHERE id = ? AND org_id = ? AND location_id = ?",
+      [existing.placed_on_scarce_stock_id, authUser.org_id, authUser.location_id]);
+    await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_OFFER_AUTO_DELETE", "scarce_stock_offers", String(existing.placed_on_scarce_stock_id), { reason: "transfer_item_removed", transfer_item_id: itemId });
+  }
+
+  // Delete all requests for this item
+  await dbRun(env, "DELETE FROM stock_transfer_requests WHERE item_id = ?", [itemId]);
+  // Delete the item
+  await dbRun(env, "DELETE FROM stock_transfer_items WHERE id = ?", [itemId]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "STOCK_TRANSFER_DELETE", "stock_transfer_items", String(itemId), { item_description: existing.item_description });
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+// ----- Create transfer request
+async function handleStockTransferRequestCreate(request, env, corsOkHeaders, authUser, itemId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureStockTransfersSchema(env);
+
+  const item = await dbFirst(env, "SELECT * FROM stock_transfer_items WHERE id = ?", [itemId]);
+  if (!item) return jsonResponse({ ok: false, error: "Item not found" }, 404, corsOkHeaders);
+  if (item.is_closed) return jsonResponse({ ok: false, error: "Item is closed" }, 400, corsOkHeaders);
+
+  // Cannot request from own location
+  if (item.org_id === authUser.org_id && item.location_id === authUser.location_id) {
+    return jsonResponse({ ok: false, error: "Cannot request transfer from your own location" }, 400, corsOkHeaders);
+  }
+
+  // Must be same org
+  if (item.org_id !== authUser.org_id) {
+    return jsonResponse({ ok: false, error: "Item not visible to your organisation" }, 403, corsOkHeaders);
+  }
+
+  // Check expiry
+  if (item.expiry_date && item.expiry_date < todayYmdSt()) {
+    return jsonResponse({ ok: false, error: "Item is expired" }, 400, corsOkHeaders);
+  }
+
+  const body = await readJson(request);
+  const qty = stInt(body.quantity_requested);
+  const note = stText(body.note, 1000);
+
+  if (qty === null || qty < 1) return jsonResponse({ ok: false, error: "quantity_requested must be at least 1" }, 400, corsOkHeaders);
+
+  // Check remaining quantity (only count delivered as actually consumed)
+  const delivered = await dbFirst(env,
+    "SELECT COALESCE(SUM(quantity_requested), 0) AS total FROM stock_transfer_requests WHERE item_id = ? AND status = 'delivered'",
+    [itemId]);
+  const remaining = (item.quantity_available || 0) - (delivered?.total || 0);
+  if (qty > remaining) return jsonResponse({ ok: false, error: "Requested quantity exceeds available (" + remaining + " remaining)" }, 400, corsOkHeaders);
+
+  const res = await dbRun(env, `
+    INSERT INTO stock_transfer_requests (item_id, requester_org_id, requester_location_id, quantity_requested, note, status, created_by, updated_by)
+    VALUES (?, ?, ?, ?, ?, 'pending', ?, ?)
+  `, [itemId, authUser.org_id, authUser.location_id, qty, note, authUser.user_id, authUser.user_id]);
+
+  const newId = res.meta?.last_row_id || null;
+  await writeAudit(env, authUser.org_id, authUser.user_id, "STOCK_TRANSFER_REQUEST_CREATE", "stock_transfer_requests", String(newId), { item_id: itemId, quantity: qty });
+
+  return jsonResponse({ ok: true, id: newId }, 201, corsOkHeaders);
+}
+
+// ----- Accept transfer request (item owner accepts)
+async function handleStockTransferRequestAccept(request, env, corsOkHeaders, authUser, requestId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureStockTransfersSchema(env);
+
+  const req = await dbFirst(env, "SELECT r.*, i.org_id AS item_org_id, i.location_id AS item_location_id FROM stock_transfer_requests r JOIN stock_transfer_items i ON i.id = r.item_id WHERE r.id = ?", [requestId]);
+  if (!req) return jsonResponse({ ok: false, error: "Request not found" }, 404, corsOkHeaders);
+  if (req.item_org_id !== authUser.org_id || req.item_location_id !== authUser.location_id) {
+    return jsonResponse({ ok: false, error: "Forbidden: only the item owner can accept" }, 403, corsOkHeaders);
+  }
+  if (req.status !== "pending") return jsonResponse({ ok: false, error: "Request is not pending (current: " + req.status + ")" }, 400, corsOkHeaders);
+
+  await dbRun(env, "UPDATE stock_transfer_requests SET status = 'accepted', updated_at = datetime('now'), updated_by = ? WHERE id = ?", [authUser.user_id, requestId]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "STOCK_TRANSFER_REQUEST_ACCEPT", "stock_transfer_requests", String(requestId), { item_id: req.item_id });
+
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+// ----- Reject transfer request (item owner rejects)
+async function handleStockTransferRequestReject(request, env, corsOkHeaders, authUser, requestId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureStockTransfersSchema(env);
+
+  const req = await dbFirst(env, "SELECT r.*, i.org_id AS item_org_id, i.location_id AS item_location_id FROM stock_transfer_requests r JOIN stock_transfer_items i ON i.id = r.item_id WHERE r.id = ?", [requestId]);
+  if (!req) return jsonResponse({ ok: false, error: "Request not found" }, 404, corsOkHeaders);
+  if (req.item_org_id !== authUser.org_id || req.item_location_id !== authUser.location_id) {
+    return jsonResponse({ ok: false, error: "Forbidden: only the item owner can reject" }, 403, corsOkHeaders);
+  }
+  if (req.status !== "pending") return jsonResponse({ ok: false, error: "Request is not pending" }, 400, corsOkHeaders);
+
+  await dbRun(env, "UPDATE stock_transfer_requests SET status = 'rejected', updated_at = datetime('now'), updated_by = ? WHERE id = ?", [authUser.user_id, requestId]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "STOCK_TRANSFER_REQUEST_REJECT", "stock_transfer_requests", String(requestId), { item_id: req.item_id });
+
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+// ----- Confirm dispatch (item owner confirms item has been sent)
+async function handleStockTransferRequestDispatch(request, env, corsOkHeaders, authUser, requestId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureStockTransfersSchema(env);
+
+  const req = await dbFirst(env, "SELECT r.*, i.org_id AS item_org_id, i.location_id AS item_location_id FROM stock_transfer_requests r JOIN stock_transfer_items i ON i.id = r.item_id WHERE r.id = ?", [requestId]);
+  if (!req) return jsonResponse({ ok: false, error: "Request not found" }, 404, corsOkHeaders);
+  if (req.item_org_id !== authUser.org_id || req.item_location_id !== authUser.location_id) {
+    return jsonResponse({ ok: false, error: "Forbidden: only the item owner can confirm dispatch" }, 403, corsOkHeaders);
+  }
+  if (req.status !== "accepted") return jsonResponse({ ok: false, error: "Request must be accepted before dispatch (current: " + req.status + ")" }, 400, corsOkHeaders);
+
+  await dbRun(env, "UPDATE stock_transfer_requests SET status = 'dispatched', updated_at = datetime('now'), updated_by = ? WHERE id = ?", [authUser.user_id, requestId]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "STOCK_TRANSFER_REQUEST_DISPATCH", "stock_transfer_requests", String(requestId), { item_id: req.item_id });
+
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+// ----- Confirm delivery (requester confirms receipt)
+async function handleStockTransferRequestDelivery(request, env, corsOkHeaders, authUser, requestId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureStockTransfersSchema(env);
+
+  const req = await dbFirst(env, "SELECT r.*, i.org_id AS item_org_id, i.location_id AS item_location_id, i.id AS item_id, i.quantity_available FROM stock_transfer_requests r JOIN stock_transfer_items i ON i.id = r.item_id WHERE r.id = ?", [requestId]);
+  if (!req) return jsonResponse({ ok: false, error: "Request not found" }, 404, corsOkHeaders);
+  if (req.requester_org_id !== authUser.org_id || req.requester_location_id !== authUser.location_id) {
+    return jsonResponse({ ok: false, error: "Forbidden: only the requester can confirm delivery" }, 403, corsOkHeaders);
+  }
+  if (req.status !== "dispatched") return jsonResponse({ ok: false, error: "Request must be dispatched before confirming delivery (current: " + req.status + ")" }, 400, corsOkHeaders);
+
+  await dbRun(env, "UPDATE stock_transfer_requests SET status = 'delivered', updated_at = datetime('now'), updated_by = ? WHERE id = ?", [authUser.user_id, requestId]);
+
+  // Check if all quantity has been delivered — if so, close the item
+  const totalDelivered = await dbFirst(env,
+    "SELECT COALESCE(SUM(quantity_requested), 0) AS total FROM stock_transfer_requests WHERE item_id = ? AND status = 'delivered'",
+    [req.item_id]);
+  const delivered = (totalDelivered?.total || 0);
+  if (delivered >= req.quantity_available) {
+    await dbRun(env, "UPDATE stock_transfer_items SET is_closed = 1, close_reason = 'Fully transferred', updated_at = datetime('now'), updated_by = ? WHERE id = ?",
+      [authUser.user_id, req.item_id]);
+
+    // Also remove from scarce stock if linked and depleted
+    const item = await dbFirst(env, "SELECT * FROM stock_transfer_items WHERE id = ?", [req.item_id]);
+    if (item && item.placed_on_scarce_stock && item.placed_on_scarce_stock_id) {
+      await dbRun(env, "DELETE FROM scarce_stock_offer_requests WHERE offer_id = ?", [item.placed_on_scarce_stock_id]);
+      await dbRun(env, "DELETE FROM scarce_stock_offers WHERE id = ? AND org_id = ? AND location_id = ?",
+        [item.placed_on_scarce_stock_id, item.org_id, item.location_id]);
+    }
+  }
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "STOCK_TRANSFER_REQUEST_DELIVERY", "stock_transfer_requests", String(requestId), { item_id: req.item_id, quantity: req.quantity_requested });
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+// ----- Delete/cancel transfer request
+async function handleStockTransferRequestDelete(request, env, corsOkHeaders, authUser, requestId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureStockTransfersSchema(env);
+
+  const req = await dbFirst(env, "SELECT r.*, i.org_id AS item_org_id, i.location_id AS item_location_id FROM stock_transfer_requests r JOIN stock_transfer_items i ON i.id = r.item_id WHERE r.id = ?", [requestId]);
+  if (!req) return jsonResponse({ ok: false, error: "Request not found" }, 404, corsOkHeaders);
+
+  // Either the requester or the item owner can delete
+  const isRequester = (req.requester_org_id === authUser.org_id && req.requester_location_id === authUser.location_id);
+  const isOwner = (req.item_org_id === authUser.org_id && req.item_location_id === authUser.location_id);
+  if (!isRequester && !isOwner) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  if (req.status === "delivered") return jsonResponse({ ok: false, error: "Cannot cancel a delivered transfer" }, 400, corsOkHeaders);
+
+  await dbRun(env, "DELETE FROM stock_transfer_requests WHERE id = ?", [requestId]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "STOCK_TRANSFER_REQUEST_DELETE", "stock_transfer_requests", String(requestId), { item_id: req.item_id });
+
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+// ----- Place transfer item on Returns module
+async function handleStockTransferPlaceOnReturns(request, env, corsOkHeaders, authUser, itemId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureStockTransfersSchema(env);
+
+  const item = await dbFirst(env, "SELECT * FROM stock_transfer_items WHERE id = ?", [itemId]);
+  if (!item) return jsonResponse({ ok: false, error: "Item not found" }, 404, corsOkHeaders);
+  if (item.org_id !== authUser.org_id || item.location_id !== authUser.location_id) {
+    return jsonResponse({ ok: false, error: "Forbidden: not your item" }, 403, corsOkHeaders);
+  }
+  if (item.placed_on_returns) return jsonResponse({ ok: false, error: "Already placed on Returns" }, 409, corsOkHeaders);
+
+  // Create returns entry
+  const res = await dbRun(env, `
+    INSERT INTO returns_entries (org_id, location_id, entry_date, description, batch, expiry, quantity, remarks, created_by, updated_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `, [authUser.org_id, authUser.location_id, item.entry_date, item.item_description, item.batch || "", item.expiry_date || "", String(item.quantity_available), "From Stock Transfer", authUser.user_id, authUser.user_id]);
+
+  const returnsId = res.meta?.last_row_id || null;
+
+  // Update transfer item to mark as placed on returns
+  await dbRun(env, "UPDATE stock_transfer_items SET placed_on_returns = 1, placed_on_returns_id = ?, updated_at = datetime('now'), updated_by = ? WHERE id = ?",
+    [returnsId, authUser.user_id, itemId]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "STOCK_TRANSFER_PLACE_RETURNS", "stock_transfer_items", String(itemId), { returns_id: returnsId });
+  return jsonResponse({ ok: true, returns_id: returnsId }, 201, corsOkHeaders);
+}
+
+// ----- Place transfer item on Scarce Stock module
+async function handleStockTransferPlaceOnScarceStock(request, env, corsOkHeaders, authUser, itemId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureStockTransfersSchema(env);
+  await ensureScarceStockSchema(env);
+
+  const item = await dbFirst(env, "SELECT * FROM stock_transfer_items WHERE id = ?", [itemId]);
+  if (!item) return jsonResponse({ ok: false, error: "Item not found" }, 404, corsOkHeaders);
+  if (item.org_id !== authUser.org_id || item.location_id !== authUser.location_id) {
+    return jsonResponse({ ok: false, error: "Forbidden: not your item" }, 403, corsOkHeaders);
+  }
+  if (item.placed_on_scarce_stock) return jsonResponse({ ok: false, error: "Already placed on Scarce Stock" }, 409, corsOkHeaders);
+  if (item.expiry_date && item.expiry_date < todayYmdSt()) {
+    return jsonResponse({ ok: false, error: "Expired items cannot be placed on Scarce Stock" }, 400, corsOkHeaders);
+  }
+
+  // Create scarce stock offer
+  const res = await dbRun(env, `
+    INSERT INTO scarce_stock_offers (org_id, location_id, entry_date, item_name, batch, expiry_date, quantity_available, created_by, updated_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `, [authUser.org_id, authUser.location_id, item.entry_date, item.item_description, item.batch || "", item.expiry_date || null, item.quantity_available, authUser.user_id, authUser.user_id]);
+
+  const scarceId = res.meta?.last_row_id || null;
+
+  // Update transfer item to mark as placed on scarce stock
+  await dbRun(env, "UPDATE stock_transfer_items SET placed_on_scarce_stock = 1, placed_on_scarce_stock_id = ?, updated_at = datetime('now'), updated_by = ? WHERE id = ?",
+    [scarceId, authUser.user_id, itemId]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "STOCK_TRANSFER_PLACE_SCARCE", "stock_transfer_items", String(itemId), { scarce_stock_id: scarceId });
+  return jsonResponse({ ok: true, scarce_stock_id: scarceId }, 201, corsOkHeaders);
+}
+
+
+// ------------------------------------------------------------
 // Vaccines (Catalog + Orders + Stock)
 // ------------------------------------------------------------
 async function ensureVaccinesSchema(env) {
@@ -13337,6 +13831,81 @@ const authUser = await authFromRequest(request, env);
       return await handleScarceNeedDelete(request, env, corsOkHeaders, authUser, needId);
     }
 
+    // Stock Transfers
+    if (url.pathname === "/stock-transfers/items" && request.method === "GET") {
+      return await handleStockTransferItemsList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/stock-transfers/items" && request.method === "POST") {
+      return await handleStockTransferItemCreate(request, env, corsOkHeaders, authUser);
+    }
+
+    // Stock Transfer request actions (must be before generic item routes)
+    if (url.pathname.startsWith("/stock-transfers/requests/") && url.pathname.endsWith("/accept") && request.method === "POST") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const reqId = parseInt(parts[2], 10);
+      if (!Number.isInteger(reqId) || reqId <= 0) return jsonResponse({ ok: false, error: "Invalid request id" }, 400, corsOkHeaders);
+      return await handleStockTransferRequestAccept(request, env, corsOkHeaders, authUser, reqId);
+    }
+    if (url.pathname.startsWith("/stock-transfers/requests/") && url.pathname.endsWith("/reject") && request.method === "POST") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const reqId = parseInt(parts[2], 10);
+      if (!Number.isInteger(reqId) || reqId <= 0) return jsonResponse({ ok: false, error: "Invalid request id" }, 400, corsOkHeaders);
+      return await handleStockTransferRequestReject(request, env, corsOkHeaders, authUser, reqId);
+    }
+    if (url.pathname.startsWith("/stock-transfers/requests/") && url.pathname.endsWith("/confirm-dispatch") && request.method === "POST") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const reqId = parseInt(parts[2], 10);
+      if (!Number.isInteger(reqId) || reqId <= 0) return jsonResponse({ ok: false, error: "Invalid request id" }, 400, corsOkHeaders);
+      return await handleStockTransferRequestDispatch(request, env, corsOkHeaders, authUser, reqId);
+    }
+    if (url.pathname.startsWith("/stock-transfers/requests/") && url.pathname.endsWith("/confirm-delivery") && request.method === "POST") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const reqId = parseInt(parts[2], 10);
+      if (!Number.isInteger(reqId) || reqId <= 0) return jsonResponse({ ok: false, error: "Invalid request id" }, 400, corsOkHeaders);
+      return await handleStockTransferRequestDelivery(request, env, corsOkHeaders, authUser, reqId);
+    }
+    if (url.pathname.startsWith("/stock-transfers/requests/") && request.method === "DELETE") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const reqId = parseInt(parts[2], 10);
+      if (!Number.isInteger(reqId) || reqId <= 0) return jsonResponse({ ok: false, error: "Invalid request id" }, 400, corsOkHeaders);
+      return await handleStockTransferRequestDelete(request, env, corsOkHeaders, authUser, reqId);
+    }
+
+    // Stock Transfer item requests (create request on an item)
+    if (url.pathname.startsWith("/stock-transfers/items/") && url.pathname.endsWith("/requests") && request.method === "POST") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const itemId = parseInt(parts[2], 10);
+      if (!Number.isInteger(itemId) || itemId <= 0) return jsonResponse({ ok: false, error: "Invalid item id" }, 400, corsOkHeaders);
+      return await handleStockTransferRequestCreate(request, env, corsOkHeaders, authUser, itemId);
+    }
+
+    // Stock Transfer item cross-module placement
+    if (url.pathname.startsWith("/stock-transfers/items/") && url.pathname.endsWith("/place-on-returns") && request.method === "POST") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const itemId = parseInt(parts[2], 10);
+      if (!Number.isInteger(itemId) || itemId <= 0) return jsonResponse({ ok: false, error: "Invalid item id" }, 400, corsOkHeaders);
+      return await handleStockTransferPlaceOnReturns(request, env, corsOkHeaders, authUser, itemId);
+    }
+    if (url.pathname.startsWith("/stock-transfers/items/") && url.pathname.endsWith("/place-on-scarce-stock") && request.method === "POST") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const itemId = parseInt(parts[2], 10);
+      if (!Number.isInteger(itemId) || itemId <= 0) return jsonResponse({ ok: false, error: "Invalid item id" }, 400, corsOkHeaders);
+      return await handleStockTransferPlaceOnScarceStock(request, env, corsOkHeaders, authUser, itemId);
+    }
+
+    // Stock Transfer item update/delete
+    if (url.pathname.startsWith("/stock-transfers/items/") && request.method === "PUT") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const itemId = parseInt(parts[2], 10);
+      if (!Number.isInteger(itemId) || itemId <= 0) return jsonResponse({ ok: false, error: "Invalid item id" }, 400, corsOkHeaders);
+      return await handleStockTransferItemUpdate(request, env, corsOkHeaders, authUser, itemId);
+    }
+    if (url.pathname.startsWith("/stock-transfers/items/") && request.method === "DELETE") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const itemId = parseInt(parts[2], 10);
+      if (!Number.isInteger(itemId) || itemId <= 0) return jsonResponse({ ok: false, error: "Invalid item id" }, 400, corsOkHeaders);
+      return await handleStockTransferItemDelete(request, env, corsOkHeaders, authUser, itemId);
+    }
 
     // Temperature
     if (url.pathname === "/temperature/devices" && request.method === "GET") {
