@@ -370,7 +370,7 @@
   E.registerModule({
     id: "audit",
     title: "Audit Trail",
-    order: 115,
+    order: 101,
     icon: "\uD83D\uDCCB",
     render: render
   });
