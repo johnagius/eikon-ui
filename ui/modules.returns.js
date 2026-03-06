@@ -640,7 +640,10 @@
                 '<button id="re-refuse-btn" class="eikon-btn" style="display:none;background:rgba(255,90,122,.15);border-color:rgba(255,90,122,.35);">Mark as Refused</button>' +
               '</div>' +
               '<div style="height:16px;"></div>' +
-              '<button id="re-copy-email" class="eikon-btn" style="font-size:12px;">Copy for Email</button>' +
+              '<div class="eikon-row" style="gap:10px;flex-wrap:wrap;">' +
+                '<button id="re-copy-email" class="eikon-btn" style="font-size:12px;">Copy for Email</button>' +
+                '<button id="re-place-transfer" class="eikon-btn" style="font-size:12px;background:rgba(90,162,255,.12);border-color:rgba(90,162,255,.3);">Place on Transfer</button>' +
+              '</div>' +
               '<div class="re-mini" style="margin-top:10px;opacity:.75;">Tip: keep the table clean and use Details to view/edit.</div>' +
             '</div>' +
           '</div>' +
@@ -759,6 +762,51 @@
       }).catch(function () {
         toast("warn", "Copy failed", "Could not copy to clipboard.");
       });
+    });
+
+    var btnTransfer = document.getElementById("re-place-transfer");
+    if (btnTransfer) btnTransfer.addEventListener("click", function () {
+      if (!state.selectedId) {
+        toast("warn", "No selection", "Select a return entry first.");
+        return;
+      }
+      var sel = state.selected;
+      if (!sel) return;
+      if (sel.handed_over) {
+        toast("warn", "Already handed over", "This item has been handed over and cannot be placed for transfer.");
+        return;
+      }
+      E.modal.show(
+        "Place on Stock Transfer?",
+        "<div style='white-space:pre-wrap'>This will place the item on the Stock Transfers module as available for transfer to other pharmacies in your organisation.\n\n<b>" + esc(sel.description || "") + "</b>\nQuantity: " + esc(sel.quantity || "1") + "\n\nIf this item is later deleted from Returns or marked as handed over, it will be automatically removed from the transfer list.</div>",
+        [
+          { label: "Cancel", onClick: function () { E.modal.hide(); } },
+          {
+            label: "Place for Transfer",
+            primary: true,
+            onClick: function () {
+              E.modal.hide();
+              (async function () {
+                try {
+                  var res = await api("POST", "/stock-transfers/items", {
+                    entry_date: sel.entry_date || ymd(new Date()),
+                    item_description: sel.description || "",
+                    batch: sel.batch || "",
+                    expiry_date: sel.expiry || "",
+                    quantity_available: parseInt(sel.quantity, 10) || 1,
+                    source_module: "returns",
+                    source_id: sel.id
+                  });
+                  if (!res || !res.ok) throw new Error((res && res.error) || "Failed");
+                  toast("good", "Done", "Item placed on Stock Transfers.");
+                } catch (e) {
+                  modalError("Place on Transfer failed", e);
+                }
+              })();
+            }
+          }
+        ]
+      );
     });
 
     wireRemarksSuggest();

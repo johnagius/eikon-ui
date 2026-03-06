@@ -698,6 +698,40 @@
             }
           }
         }, []));
+        // Place on Transfer button (not expired items)
+        var offerExpired = o.expiry_date && isYmd(o.expiry_date) && o.expiry_date < todayYmd();
+        if (!offerExpired && !o.is_closed) {
+          tdAct.appendChild(el(doc, "button", {
+            class: "eikon-btn ss-mini",
+            style: "background:rgba(90,162,255,.12);border-color:rgba(90,162,255,.3);",
+            text: "Place on Transfer",
+            onclick: async function () {
+              var ok = await confirmYesNo(
+                "Place on Transfer?",
+                "This will place \"" + (o.item_name || "") + "\" on the Stock Transfers module as available for transfer.\n\nIf this item is later deleted from Scarce Stock, expires, or its quantity is depleted, it will be automatically removed from the transfer list.",
+                "Place for Transfer"
+              );
+              if (!ok) return;
+              try {
+                await E.apiFetch("/stock-transfers/items", {
+                  method: "POST",
+                  body: JSON.stringify({
+                    entry_date: todayYmd(),
+                    item_description: o.item_name || "",
+                    batch: o.batch || "",
+                    expiry_date: o.expiry_date || "",
+                    quantity_available: parseInt(o.quantity_available, 10) || 1,
+                    source_module: "scarcestock",
+                    source_id: o.id
+                  })
+                });
+                toast("Done", "Item placed on Stock Transfers.", "good");
+              } catch (e) {
+                showError("Place on Transfer", e);
+              }
+            }
+          }, []));
+        }
       }
 
       tr.appendChild(tdAct);
