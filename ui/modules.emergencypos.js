@@ -1398,13 +1398,13 @@
       ".epos-complete-btn:disabled{background:rgba(255,255,255,.08);color:rgba(255,255,255,.3);cursor:not-allowed;transform:none;}",
       ".epos-search-panel{flex:1;display:flex;flex-direction:column;padding:10px;overflow:hidden;}",
       ".epos-search-bar{display:flex;gap:6px;margin-bottom:8px;flex-shrink:0;}",
-      ".epos-product-grid{flex:1;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;align-content:start;}",
-      ".epos-product-card{padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);cursor:pointer;transition:background .12s,border-color .12s,transform .1s;}",
+      ".epos-product-grid{flex:1;overflow-y:auto;display:grid;grid-template-columns:repeat(3,1fr);gap:10px;align-content:start;}",
+      ".epos-product-card{padding:16px 18px;border-radius:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);cursor:pointer;transition:background .12s,border-color .12s,transform .1s;}",
       ".epos-product-card:hover,.epos-product-card:active{background:rgba(99,102,241,.2);border-color:rgba(99,102,241,.5);}",
       ".epos-product-card:active{transform:scale(.97);}",
-      ".epos-product-card-name{font-size:12px;font-weight:600;margin-bottom:4px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}",
-      ".epos-product-card-price{font-size:13px;color:#a5b4fc;font-weight:700;}",
-      ".epos-product-card-barcode{font-size:10px;color:rgba(255,255,255,.35);margin-top:2px;}",
+      ".epos-product-card-name{font-size:15px;font-weight:600;margin-bottom:6px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}",
+      ".epos-product-card-price{font-size:17px;color:#a5b4fc;font-weight:700;}",
+      ".epos-product-card-barcode{font-size:11px;color:rgba(255,255,255,.35);margin-top:4px;}",
       /* ── Scan overlay ── */
       ".epos-scan-overlay{position:fixed;inset:0;background:rgba(0,0,0,.96);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:16px;}",
       ".epos-scan-video{width:min(560px,96vw);height:min(420px,65vh);border-radius:16px;background:#000;object-fit:cover;border:2px solid rgba(99,102,241,.3);}",
@@ -1779,7 +1779,7 @@
   function buildPosTabHtml() {
     var products = filteredCatalog();
     var t = cartTotals();
-    var mobileLimit = isMobile() ? 8 : 200;
+    var mobileLimit = isMobile() ? 8 : 6;
     return "<div class='epos-pos'>" +
       /* Cart panel — on mobile this is a bottom sheet, starts EXPANDED */
       "<div class='epos-cart-panel' id='epos-cart-panel'>" +
@@ -1880,7 +1880,7 @@
         var grid = document.getElementById("epos-product-grid");
         if (grid) {
           var products = filteredCatalog();
-          var ml = isMobile() ? 8 : 200;
+          var ml = isMobile() ? 8 : 6;
           grid.innerHTML = products.slice(0, ml).map(function(p) {
             return "<div class='epos-product-card' data-pid='" + esc(p.id) + "' data-name='" + esc(p.name) + "'>" +
               "<div class='epos-product-card-name'>" + esc(p.name) + "</div>" +
