@@ -3053,6 +3053,7 @@ async function doPrintRangeReport(from, to) {
     // Lock behaviour
     if (isLocked()) {
       setDisabledDeep(bodyCard, true);
+      btnCopyDeposit.disabled = false; // clipboard copy is read-only, allow when locked
       var allHdrInputs = headerCard.querySelectorAll("input,select,button");
       for (var z = 0; z < allHdrInputs.length; z++) {
         var t = allHdrInputs[z];
