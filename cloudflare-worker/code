@@ -2262,6 +2262,8 @@ function nearExpiryRowToUi(r) {
     notes: r.notes || "",
     return_id: r.return_id || null,
     return_status: r.return_status || "",
+    supplier_refused: r.supplier_refused ? 1 : 0,
+    scarce_stock_offer_id: r.scarce_stock_offer_id || null,
     created_by: r.created_by,
     created_at: r.created_at,
     updated_at: r.updated_at,
@@ -2306,7 +2308,8 @@ async function ensureNearExpirySchema(env) {
   // Backfill columns for near-expiry ↔ returns integration
   const neAdds = [
     "ALTER TABLE near_expiry_entries ADD COLUMN return_id INTEGER DEFAULT NULL",
-    "ALTER TABLE near_expiry_entries ADD COLUMN return_status TEXT NOT NULL DEFAULT ''"
+    "ALTER TABLE near_expiry_entries ADD COLUMN return_status TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE near_expiry_entries ADD COLUMN scarce_stock_offer_id INTEGER DEFAULT NULL"
   ];
   for (const sql of neAdds) {
     try { await dbRun(env, sql, []); } catch (e) { /* ignore duplicate column */ }
@@ -3863,28 +3866,31 @@ async function handleNearExpiryEntriesList(request, env, corsOkHeaders, authUser
 
   const sql = `
     SELECT
-      id,
-      product_name,
-      expiry_date,
-      location,
-      notes,
-      return_id,
-      return_status,
-      created_by,
-      created_at,
-      updated_at,
-      updated_by
-    FROM near_expiry_entries
-    WHERE org_id = ?
-      AND location_id = ?
-      ${!includeReturned ? "AND return_status != 'handed_over'" : ""}
+      ne.id,
+      ne.product_name,
+      ne.expiry_date,
+      ne.location,
+      ne.notes,
+      ne.return_id,
+      ne.return_status,
+      ne.scarce_stock_offer_id,
+      COALESCE(ret.supplier_refused, 0) AS supplier_refused,
+      ne.created_by,
+      ne.created_at,
+      ne.updated_at,
+      ne.updated_by
+    FROM near_expiry_entries ne
+    LEFT JOIN returns_entries ret ON ret.id = ne.return_id
+    WHERE ne.org_id = ?
+      AND ne.location_id = ?
+      ${!includeReturned ? "AND ne.return_status != 'handed_over'" : ""}
       ${hasQ ? `AND (
-        product_name LIKE ?
-        OR expiry_date LIKE ?
-        OR location LIKE ?
-        OR notes LIKE ?
+        ne.product_name LIKE ?
+        OR ne.expiry_date LIKE ?
+        OR ne.location LIKE ?
+        OR ne.notes LIKE ?
       )` : ""}
-    ORDER BY expiry_date ASC, product_name ASC, id DESC
+    ORDER BY ne.expiry_date ASC, ne.product_name ASC, ne.id DESC
   `;
 
   const bind = [authUser.org_id, authUser.location_id];
@@ -3928,9 +3934,12 @@ async function handleNearExpiryEntryCreate(request, env, corsOkHeaders, authUser
 
   const saved = await dbFirst(
     env,
-    `SELECT id, product_name, expiry_date, location, notes, return_id, return_status, created_by, created_at, updated_at, updated_by
-     FROM near_expiry_entries
-     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    `SELECT ne.id, ne.product_name, ne.expiry_date, ne.location, ne.notes, ne.return_id, ne.return_status, ne.scarce_stock_offer_id,
+            COALESCE(ret.supplier_refused, 0) AS supplier_refused,
+            ne.created_by, ne.created_at, ne.updated_at, ne.updated_by
+     FROM near_expiry_entries ne
+     LEFT JOIN returns_entries ret ON ret.id = ne.return_id
+     WHERE ne.id = ? AND ne.org_id = ? AND ne.location_id = ?`,
     [row.id, authUser.org_id, authUser.location_id]
   );
 
@@ -3976,9 +3985,12 @@ async function handleNearExpiryEntryUpdate(request, env, corsOkHeaders, authUser
 
   const saved = await dbFirst(
     env,
-    `SELECT id, product_name, expiry_date, location, notes, return_id, return_status, created_by, created_at, updated_at, updated_by
-     FROM near_expiry_entries
-     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    `SELECT ne.id, ne.product_name, ne.expiry_date, ne.location, ne.notes, ne.return_id, ne.return_status, ne.scarce_stock_offer_id,
+            COALESCE(ret.supplier_refused, 0) AS supplier_refused,
+            ne.created_by, ne.created_at, ne.updated_at, ne.updated_by
+     FROM near_expiry_entries ne
+     LEFT JOIN returns_entries ret ON ret.id = ne.return_id
+     WHERE ne.id = ? AND ne.org_id = ? AND ne.location_id = ?`,
     [id, authUser.org_id, authUser.location_id]
   );
 
@@ -3994,7 +4006,7 @@ async function handleNearExpiryEntryDelete(request, env, corsOkHeaders, authUser
 
   const existing = await dbFirst(
     env,
-    "SELECT id, product_name, expiry_date FROM near_expiry_entries WHERE id = ? AND org_id = ? AND location_id = ?",
+    "SELECT id, product_name, expiry_date, return_id, scarce_stock_offer_id FROM near_expiry_entries WHERE id = ? AND org_id = ? AND location_id = ?",
     [id, authUser.org_id, authUser.location_id]
   );
   if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
@@ -4004,6 +4016,22 @@ async function handleNearExpiryEntryDelete(request, env, corsOkHeaders, authUser
     "DELETE FROM near_expiry_entries WHERE id = ? AND org_id = ? AND location_id = ?",
     [id, authUser.org_id, authUser.location_id]
   );
+
+  // Clear forward links
+  if (existing.return_id) {
+    await ensureReturnsSchema(env);
+    await dbRun(env,
+      "UPDATE returns_entries SET near_expiry_id=NULL, updated_at=datetime('now'), updated_by=? WHERE id=? AND org_id=? AND location_id=?",
+      [authUser.user_id, existing.return_id, authUser.org_id, authUser.location_id]
+    );
+  }
+  if (existing.scarce_stock_offer_id) {
+    await ensureScarceStockSchema(env);
+    await dbRun(env,
+      "UPDATE scarce_stock_offers SET near_expiry_id=NULL, updated_at=datetime('now'), updated_by=? WHERE id=?",
+      [authUser.user_id, existing.scarce_stock_offer_id]
+    );
+  }
 
   await writeAudit(env, authUser.org_id, authUser.user_id, "NEAR_EXPIRY_DELETE", "near_expiry_entries", String(id), {
     product_name: existing.product_name,
@@ -5843,8 +5871,14 @@ async function ensureReturnsSchema(env) {
   `);
   await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_returns_entries_org_loc_date ON returns_entries(org_id, location_id, entry_date)`);
 
-  // Backfill column for near-expiry ↔ returns integration
-  try { await dbRun(env, "ALTER TABLE returns_entries ADD COLUMN near_expiry_id INTEGER DEFAULT NULL", []); } catch (e) { /* ignore duplicate column */ }
+  // Backfill columns for near-expiry ↔ returns integration
+  const retAdds = [
+    "ALTER TABLE returns_entries ADD COLUMN near_expiry_id INTEGER DEFAULT NULL",
+    "ALTER TABLE returns_entries ADD COLUMN supplier_refused INTEGER NOT NULL DEFAULT 0"
+  ];
+  for (const sql of retAdds) {
+    try { await dbRun(env, sql, []); } catch (e) { /* ignore duplicate column */ }
+  }
 }
 
 async function handleReturnsEntriesList(request, env, corsOkHeaders, authUser, url) {
@@ -5874,7 +5908,8 @@ async function handleReturnsEntriesList(request, env, corsOkHeaders, authUser, u
     SELECT
       id, entry_date, description,
       expiry, batch, quantity, supplier, invoice_number, remarks, location_stored,
-      return_arranged, handed_over, collection_note_received, credit_note_received
+      return_arranged, handed_over, collection_note_received, credit_note_received,
+      near_expiry_id, supplier_refused
     FROM returns_entries
     ${where}
     ORDER BY entry_date DESC, id DESC
@@ -5975,6 +6010,7 @@ async function handleReturnsEntryUpdate(request, env, corsOkHeaders, authUser, i
   const handed_over = to01(body.handed_over);
   const collection_note_received = to01(body.collection_note_received);
   const credit_note_received = to01(body.credit_note_received);
+  const supplier_refused = to01(body.supplier_refused);
 
   await dbRun(env, `
     UPDATE returns_entries SET
@@ -5991,6 +6027,7 @@ async function handleReturnsEntryUpdate(request, env, corsOkHeaders, authUser, i
       handed_over=?,
       collection_note_received=?,
       credit_note_received=?,
+      supplier_refused=?,
       updated_at=datetime('now'),
       updated_by=?
     WHERE id=? AND org_id=? AND location_id=?
@@ -6008,11 +6045,12 @@ async function handleReturnsEntryUpdate(request, env, corsOkHeaders, authUser, i
     handed_over,
     collection_note_received,
     credit_note_received,
+    supplier_refused,
     authUser.user_id,
     id, authUser.org_id, authUser.location_id
   ]);
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "RETURNS_UPDATE", "returns_entries", String(id), { entry_date, description });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "RETURNS_UPDATE", "returns_entries", String(id), { entry_date, description, supplier_refused });
 
   // Sync near_expiry status if this return is linked to a near expiry entry
   const returnRow = await dbFirst(env,
@@ -6021,7 +6059,7 @@ async function handleReturnsEntryUpdate(request, env, corsOkHeaders, authUser, i
   );
   if (returnRow && returnRow.near_expiry_id) {
     await ensureNearExpirySchema(env);
-    const newStatus = handed_over ? "handed_over" : "pending";
+    const newStatus = supplier_refused ? "refused" : (handed_over ? "handed_over" : "pending");
     await dbRun(env,
       `UPDATE near_expiry_entries SET return_status = ?, updated_at = datetime('now'), updated_by = ?
        WHERE id = ? AND org_id = ? AND location_id = ?`,
@@ -9668,6 +9706,9 @@ async function ensureScarceStockSchema(env) {
   await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_ss_needs_item ON scarce_stock_needs (item_name)", []);
   await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_ss_need_offers_need ON scarce_stock_need_offers (need_id)", []);
   await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_ss_need_offers_offer_loc ON scarce_stock_need_offers (offerer_org_id, offerer_location_id)", []);
+
+  // Backfill column for scarce stock ↔ near expiry integration
+  try { await dbRun(env, "ALTER TABLE scarce_stock_offers ADD COLUMN near_expiry_id INTEGER DEFAULT NULL", []); } catch (e) { /* ignore duplicate column */ }
 }
 
 function ssIntNonNeg(v) {
@@ -9690,15 +9731,87 @@ function ssCanSeeSensitive(authUser, aOrg, aLoc, bOrg, bLoc) {
   return isA || isB;
 }
 
+// ----- Scarce stock depletion → auto-delete linked near expiry
+async function checkScarceStockDepletion(env, offerId, authUser) {
+  const offer = await dbFirst(env,
+    "SELECT id, org_id, location_id, quantity_available, near_expiry_id FROM scarce_stock_offers WHERE id=?",
+    [offerId]
+  );
+  if (!offer || !offer.near_expiry_id) return;
+
+  const totalReq = await dbFirst(env,
+    "SELECT COALESCE(SUM(quantity_requested), 0) AS total FROM scarce_stock_offer_requests WHERE offer_id=?",
+    [offerId]
+  );
+  const remaining = Number(offer.quantity_available || 0) - Number(totalReq?.total || 0);
+
+  if (remaining <= 0) {
+    // Stock fully requested — remove linked near expiry entry
+    await ensureNearExpirySchema(env);
+    const neRow = await dbFirst(env,
+      "SELECT id FROM near_expiry_entries WHERE id=? AND org_id=? AND location_id=?",
+      [offer.near_expiry_id, offer.org_id, offer.location_id]
+    );
+    if (neRow) {
+      await dbRun(env, "DELETE FROM near_expiry_entries WHERE id=? AND org_id=? AND location_id=?",
+        [offer.near_expiry_id, offer.org_id, offer.location_id]);
+      // Clear the backlink on the offer
+      await dbRun(env, "UPDATE scarce_stock_offers SET near_expiry_id=NULL, updated_at=datetime('now') WHERE id=?", [offerId]);
+      await writeAudit(env, offer.org_id, authUser.user_id,
+        "NEAR_EXPIRY_AUTO_DELETE", "near_expiry_entries", String(offer.near_expiry_id),
+        { reason: "scarce_stock_depleted", offer_id: offerId }
+      );
+    }
+  }
+}
+
 // ----- Offers list
 async function handleScarceOffersList(request, env, corsOkHeaders, authUser, url) {
   if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
   await ensureScarceStockSchema(env);
 
+  // Auto-migrate expired offers owned by this location into Near Expiry
+  await ensureNearExpirySchema(env);
+  const todayYmd = new Date().toISOString().slice(0, 10);
+  const expiredOwn = await dbAll(env, `
+    SELECT id, item_name, expiry_date, batch, near_expiry_id
+    FROM scarce_stock_offers
+    WHERE org_id=? AND location_id=? AND expiry_date IS NOT NULL AND expiry_date < ? AND is_closed=0
+  `, [authUser.org_id, authUser.location_id, todayYmd]);
+
+  for (const exp of expiredOwn) {
+    // Close the expired offer
+    await dbRun(env, "UPDATE scarce_stock_offers SET is_closed=1, updated_at=datetime('now'), updated_by=? WHERE id=?", [authUser.user_id, exp.id]);
+
+    // Only create near expiry entry if not already linked
+    if (!exp.near_expiry_id) {
+      // Check if a matching near expiry entry already exists
+      const existing = await dbFirst(env,
+        "SELECT id FROM near_expiry_entries WHERE product_name=? AND expiry_date=? AND org_id=? AND location_id=?",
+        [exp.item_name, exp.expiry_date, authUser.org_id, authUser.location_id]
+      );
+      if (!existing) {
+        const neRes = await dbRun(env, `
+          INSERT INTO near_expiry_entries (org_id, location_id, product_name, expiry_date, location, notes, scarce_stock_offer_id, created_by, updated_by, created_at, updated_at)
+          VALUES (?, ?, ?, ?, '', 'Auto-added from expired Scarce Stock offer', ?, ?, ?, datetime('now'), datetime('now'))
+        `, [authUser.org_id, authUser.location_id, exp.item_name, exp.expiry_date, exp.id, authUser.user_id, authUser.user_id]);
+        const neId = neRes?.meta?.last_row_id || null;
+        if (neId) {
+          await dbRun(env, "UPDATE scarce_stock_offers SET near_expiry_id=?, updated_at=datetime('now') WHERE id=?", [neId, exp.id]);
+        }
+        await writeAudit(env, authUser.org_id, authUser.user_id, "NEAR_EXPIRY_AUTO_CREATE", "near_expiry_entries", String(neId || ""), { source: "expired_scarce_stock", offer_id: exp.id, item_name: exp.item_name });
+      } else {
+        // Link existing near expiry entry to this offer
+        await dbRun(env, "UPDATE scarce_stock_offers SET near_expiry_id=?, updated_at=datetime('now') WHERE id=?", [existing.id, exp.id]);
+        await dbRun(env, "UPDATE near_expiry_entries SET scarce_stock_offer_id=?, updated_at=datetime('now') WHERE id=?", [exp.id, existing.id]);
+      }
+    }
+  }
+
   const offersBase = await dbAll(env, `
     SELECT
       o.id, o.org_id, o.location_id, o.entry_date, o.item_name, o.description, o.batch, o.expiry_date,
-      o.quantity_available, o.is_closed,
+      o.quantity_available, o.is_closed, o.near_expiry_id,
       org.name AS org_name,
       loc.name AS location_name,
       COALESCE(SUM(r.quantity_requested), 0) AS total_requested
@@ -9774,6 +9887,7 @@ async function handleScarceOffersList(request, env, corsOkHeaders, authUser, url
       is_closed: Number(o.is_closed || 0),
       total_requested: Number(o.total_requested || 0),
       remaining_quantity: Number(o.quantity_available || 0) - Number(o.total_requested || 0),
+      near_expiry_id: o.near_expiry_id || null,
       mine_owner: mineOwner ? 1 : 0,
       requests: requestsOut
     });
@@ -9801,21 +9915,43 @@ async function handleScarceOfferCreate(request, env, corsOkHeaders, authUser) {
   if (expiry_date && !isValidYmd(expiry_date)) return jsonResponse({ ok: false, error: "Invalid expiry_date (YYYY-MM-DD or empty)" }, 400, corsOkHeaders);
   if (qty === null) return jsonResponse({ ok: false, error: "Invalid quantity_available (>= 0)" }, 400, corsOkHeaders);
 
+  // Optional near_expiry_id linkage
+  const near_expiry_id = body.near_expiry_id ? Number(body.near_expiry_id) : null;
+  if (near_expiry_id) {
+    await ensureNearExpirySchema(env);
+    const neRow = await dbFirst(env,
+      "SELECT id, scarce_stock_offer_id FROM near_expiry_entries WHERE id=? AND org_id=? AND location_id=?",
+      [near_expiry_id, authUser.org_id, authUser.location_id]
+    );
+    if (!neRow) return jsonResponse({ ok: false, error: "Near expiry item not found" }, 404, corsOkHeaders);
+    if (neRow.scarce_stock_offer_id) return jsonResponse({ ok: false, error: "This item is already in Scarce Stock" }, 409, corsOkHeaders);
+  }
+
   const res = await dbRun(env, `
     INSERT INTO scarce_stock_offers
-      (org_id, location_id, entry_date, item_name, description, batch, expiry_date, quantity_available, is_closed, created_by, created_at, updated_at, updated_by)
+      (org_id, location_id, entry_date, item_name, description, batch, expiry_date, quantity_available, is_closed, near_expiry_id, created_by, created_at, updated_at, updated_by)
     VALUES
-      (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), ?)
+      (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), ?)
   `, [
     authUser.org_id, authUser.location_id,
     entry_date, item_name, description, batch,
     expiry_date || null,
     qty, is_closed ? 1 : 0,
+    near_expiry_id,
     authUser.user_id, authUser.user_id
   ]);
 
   const insertedId = res?.meta?.last_row_id || null;
-  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_OFFER_CREATE", "scarce_stock_offers", String(insertedId || ""), { item_name, quantity_available: qty });
+
+  // Set backlink on near expiry entry
+  if (near_expiry_id && insertedId) {
+    await dbRun(env,
+      "UPDATE near_expiry_entries SET scarce_stock_offer_id=?, updated_at=datetime('now'), updated_by=? WHERE id=? AND org_id=? AND location_id=?",
+      [insertedId, authUser.user_id, near_expiry_id, authUser.org_id, authUser.location_id]
+    );
+  }
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_OFFER_CREATE", "scarce_stock_offers", String(insertedId || ""), { item_name, quantity_available: qty, near_expiry_id });
   return jsonResponse({ ok: true, id: insertedId }, 200, corsOkHeaders);
 }
 
@@ -9868,7 +10004,7 @@ async function handleScarceOfferDelete(request, env, corsOkHeaders, authUser, of
   const id = Number(offerId);
   if (!Number.isFinite(id) || id <= 0) return jsonResponse({ ok: false, error: "Invalid offer id" }, 400, corsOkHeaders);
 
-  const existing = await dbFirst(env, `SELECT id, org_id, location_id, item_name FROM scarce_stock_offers WHERE id = ?`, [id]);
+  const existing = await dbFirst(env, `SELECT id, org_id, location_id, item_name, near_expiry_id FROM scarce_stock_offers WHERE id = ?`, [id]);
   if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
 
   if (!(existing.org_id === authUser.org_id && existing.location_id === authUser.location_id)) {
@@ -9877,6 +10013,15 @@ async function handleScarceOfferDelete(request, env, corsOkHeaders, authUser, of
 
   await dbRun(env, `DELETE FROM scarce_stock_offer_requests WHERE offer_id = ?`, [id]);
   await dbRun(env, `DELETE FROM scarce_stock_offers WHERE id = ?`, [id]);
+
+  // Clear backlink on near expiry entry
+  if (existing.near_expiry_id) {
+    await ensureNearExpirySchema(env);
+    await dbRun(env,
+      "UPDATE near_expiry_entries SET scarce_stock_offer_id=NULL, updated_at=datetime('now'), updated_by=? WHERE id=? AND org_id=? AND location_id=?",
+      [authUser.user_id, existing.near_expiry_id, existing.org_id, existing.location_id]
+    );
+  }
 
   await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_OFFER_DELETE", "scarce_stock_offers", String(id), { item_name: existing.item_name || "" });
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
@@ -9912,6 +10057,10 @@ async function handleScarceOfferRequestCreate(request, env, corsOkHeaders, authU
 
   const insertedId = res?.meta?.last_row_id || null;
   await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_REQUEST_CREATE", "scarce_stock_offer_requests", String(insertedId || ""), { offer_id: id, quantity_requested: qty });
+
+  // Check if stock is fully requested — auto-delete linked near expiry item
+  await checkScarceStockDepletion(env, id, authUser);
+
   return jsonResponse({ ok: true, id: insertedId }, 200, corsOkHeaders);
 }
 
@@ -9922,7 +10071,7 @@ async function handleScarceOfferRequestUpdate(request, env, corsOkHeaders, authU
   const id = Number(requestId);
   if (!Number.isFinite(id) || id <= 0) return jsonResponse({ ok: false, error: "Invalid request id" }, 400, corsOkHeaders);
 
-  const existing = await dbFirst(env, `SELECT id, requester_org_id, requester_location_id FROM scarce_stock_offer_requests WHERE id = ?`, [id]);
+  const existing = await dbFirst(env, `SELECT id, offer_id, requester_org_id, requester_location_id FROM scarce_stock_offer_requests WHERE id = ?`, [id]);
   if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
 
   if (!(existing.requester_org_id === authUser.org_id && existing.requester_location_id === authUser.location_id)) {
@@ -9942,6 +10091,10 @@ async function handleScarceOfferRequestUpdate(request, env, corsOkHeaders, authU
   `, [qty, note, authUser.user_id, id]);
 
   await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_REQUEST_UPDATE", "scarce_stock_offer_requests", String(id), { quantity_requested: qty });
+
+  // Check if stock is fully requested — auto-delete linked near expiry item
+  await checkScarceStockDepletion(env, existing.offer_id, authUser);
+
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 

@@ -1501,22 +1501,31 @@
 
     function actionHtml(item) {
       var rs = safeStr(item.return_status || "");
+      if (rs === "refused") return '<span style="font-size:11px;opacity:.55;font-weight:800;">Supplier refused</span>';
       if (rs === "pending") return '<span style="font-size:11px;color:var(--warn,orange);font-weight:800;">Return pending</span>';
       if (rs === "handed_over") return '<span style="font-size:11px;color:var(--ok,green);font-weight:800;">Returned</span>';
       return '<button class="eikon-btn" data-dash-ne-return="' + esc(String(item.id || "")) + '" style="font-size:11px;padding:4px 10px;">Return</button>';
     }
 
+    function stockActionHtml(item) {
+      if (item.scarce_stock_offer_id) return '<span style="font-size:11px;color:var(--ok,green);font-weight:800;">In Stock</span>';
+      return '<button class="eikon-btn" data-dash-ne-stock="' + esc(String(item.id || "")) + '" ' +
+        'data-name="' + esc(safeStr(item.product_name || item.item_name || item.name || "")) + '" ' +
+        'data-expiry="' + esc(safeStr(item.expiry_date || "")) + '" ' +
+        'style="font-size:11px;padding:4px 10px;">Add to Stock</button>';
+    }
+
     var rows = "";
     var i;
-    for (i = 0; i < Math.min(15, nx.expired.length); i++) rows += "<tr><td>" + esc(labelOf(nx.expired[i])) + "</td><td>" + esc(safeStr(nx.expired[i].expiry_date)) + "</td><td><b>Expired</b></td><td>" + actionHtml(nx.expired[i]) + "</td></tr>";
-    for (i = 0; i < Math.min(15, nx.soon.length); i++) rows += "<tr><td>" + esc(labelOf(nx.soon[i])) + "</td><td>" + esc(safeStr(nx.soon[i].expiry_date)) + "</td><td>Due ≤30d</td><td>" + actionHtml(nx.soon[i]) + "</td></tr>";
-    if (!rows) rows = "<tr><td colspan='4'>No items.</td></tr>";
+    for (i = 0; i < Math.min(15, nx.expired.length); i++) rows += "<tr><td>" + esc(labelOf(nx.expired[i])) + "</td><td>" + esc(safeStr(nx.expired[i].expiry_date)) + "</td><td><b>Expired</b></td><td>" + actionHtml(nx.expired[i]) + "</td><td>" + stockActionHtml(nx.expired[i]) + "</td></tr>";
+    for (i = 0; i < Math.min(15, nx.soon.length); i++) rows += "<tr><td>" + esc(labelOf(nx.soon[i])) + "</td><td>" + esc(safeStr(nx.soon[i].expiry_date)) + "</td><td>Due ≤30d</td><td>" + actionHtml(nx.soon[i]) + "</td><td>" + stockActionHtml(nx.soon[i]) + "</td></tr>";
+    if (!rows) rows = "<tr><td colspan='5'>No items.</td></tr>";
 
     var body =
       '<div class="eikon-dash-detail">' +
         '<div class="eikon-help">Showing up to 30 items total (15 expired + 15 due ≤30d).</div>' +
         '<table class="eikon-dash-mini-table">' +
-          "<thead><tr><th>Item</th><th>Expiry</th><th>Status</th><th>Action</th></tr></thead>" +
+          "<thead><tr><th>Item</th><th>Expiry</th><th>Status</th><th>Return</th><th>Stock</th></tr></thead>" +
           "<tbody>" + rows + "</tbody>" +
         "</table>" +
       "</div>";
@@ -1537,6 +1546,20 @@
             showDashNearExpiryReturnModal(neId, btn);
           });
         })(btns[b]);
+      }
+
+      // Wire stock buttons
+      var stockBtns = document.querySelectorAll("[data-dash-ne-stock]");
+      for (var s = 0; s < stockBtns.length; s++) {
+        (function (btn) {
+          btn.addEventListener("click", function () {
+            var neId = Number(btn.getAttribute("data-dash-ne-stock"));
+            var name = btn.getAttribute("data-name") || "";
+            var expiry = btn.getAttribute("data-expiry") || "";
+            if (!neId) return;
+            showDashAddToStockModal(neId, name, expiry, btn);
+          });
+        })(stockBtns[s]);
       }
     }, 50);
   }
@@ -1575,6 +1598,70 @@
               }
             } catch (ex) {
               E.modal.show("Return failed", "<div style='color:var(--danger);white-space:pre-wrap;'>" + esc((ex && (ex.message || ex.error)) || String(ex)) + "</div>", [
+                { label: "OK", primary: true, onClick: function () { E.modal.hide(); } }
+              ]);
+            }
+          })();
+        }
+      }
+    ]);
+  }
+
+  function showDashAddToStockModal(neId, name, expiry, btn) {
+    var html =
+      '<div style="margin-bottom:12px;">' +
+        '<div style="font-weight:900;font-size:14px;margin-bottom:4px;">' + esc(name) + '</div>' +
+        (expiry ? '<div style="color:var(--muted);font-size:12px;">Expiry: <b>' + esc(expiry) + '</b></div>' : '') +
+      '</div>' +
+      '<div style="display:flex;gap:12px;flex-wrap:wrap;">' +
+        '<div class="eikon-field" style="min-width:120px;">' +
+          '<div class="eikon-label">Quantity available</div>' +
+          '<input id="dash-ne-stock-qty" class="eikon-input" type="number" min="1" value="1" style="max-width:100px;" />' +
+        '</div>' +
+        '<div class="eikon-field" style="min-width:180px;">' +
+          '<div class="eikon-label">Batch / Lot (optional)</div>' +
+          '<input id="dash-ne-stock-batch" class="eikon-input" placeholder="e.g. LOT12345" />' +
+        '</div>' +
+      '</div>' +
+      '<div class="eikon-help" style="margin-top:10px;color:var(--muted);">This will list the item in Scarce Stock so other locations can request it.</div>';
+
+    E.modal.show("Add to Scarce Stock", html, [
+      { label: "Cancel", onClick: function () { E.modal.hide(); } },
+      {
+        label: "Add to Stock",
+        primary: true,
+        onClick: function () {
+          (async function () {
+            try {
+              var qty = parseInt(String((document.getElementById("dash-ne-stock-qty") || {}).value || "1"), 10);
+              if (!qty || qty < 1) qty = 1;
+              var batch = String((document.getElementById("dash-ne-stock-batch") || {}).value || "").trim();
+
+              var today = new Date().toISOString().slice(0, 10);
+              var j = await api("/scarce-stock/offers", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  entry_date: today,
+                  item_name: name,
+                  expiry_date: expiry || "",
+                  batch: batch,
+                  quantity_available: qty,
+                  is_closed: 0,
+                  near_expiry_id: neId
+                })
+              }, 10000, "dash-ne-add-stock");
+
+              if (!j || !j.ok) throw new Error((j && j.error) || "Failed");
+
+              E.modal.hide();
+              E.showToast && E.showToast("Added to Scarce Stock");
+
+              if (btn) {
+                btn.outerHTML = '<span style="font-size:11px;color:var(--ok,green);font-weight:800;">In Stock</span>';
+              }
+            } catch (ex) {
+              E.modal.show("Failed", "<div style='color:var(--danger);white-space:pre-wrap;'>" + esc((ex && (ex.message || ex.error)) || String(ex)) + "</div>", [
                 { label: "OK", primary: true, onClick: function () { E.modal.hide(); } }
               ]);
             }

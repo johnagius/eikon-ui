@@ -123,6 +123,7 @@
       handed_over: from01(r.handed_over),
       collection_note_received: from01(r.collection_note_received),
       credit_note_received: from01(r.credit_note_received),
+      supplier_refused: from01(r.supplier_refused),
       near_expiry_id: r.near_expiry_id || null
     };
   }
@@ -170,7 +171,8 @@
       return_arranged: to01(c("re-return-arranged")),
       handed_over: to01(c("re-handed-over")),
       collection_note_received: to01(c("re-collection-note")),
-      credit_note_received: to01(c("re-credit-note"))
+      credit_note_received: to01(c("re-credit-note")),
+      supplier_refused: to01(c("re-supplier-refused"))
     };
   }
 
@@ -196,18 +198,46 @@
       ["re-return-arranged", row.return_arranged],
       ["re-handed-over", row.handed_over],
       ["re-collection-note", row.collection_note_received],
-      ["re-credit-note", row.credit_note_received]
+      ["re-credit-note", row.credit_note_received],
+      ["re-supplier-refused", row.supplier_refused]
     ];
     cb.forEach(function (p) {
       var n = document.getElementById(p[0]);
       if (n) n.checked = !!p[1];
     });
 
+    // Show/hide refused button depending on state
+    var refusedBtn = document.getElementById("re-refuse-btn");
+    if (refusedBtn) {
+      if (row && row.id && !row.supplier_refused) {
+        refusedBtn.style.display = "";
+      } else {
+        refusedBtn.style.display = "none";
+      }
+    }
+
+    // Disable checkboxes if refused
+    var refusedNote = document.getElementById("re-refused-note");
+    if (row.supplier_refused) {
+      ["re-return-arranged", "re-handed-over", "re-collection-note", "re-credit-note"].forEach(function (cbId) {
+        var n = document.getElementById(cbId);
+        if (n) n.disabled = true;
+      });
+      if (refusedNote) refusedNote.style.display = "";
+    } else {
+      ["re-return-arranged", "re-handed-over", "re-collection-note", "re-credit-note"].forEach(function (cbId) {
+        var n = document.getElementById(cbId);
+        if (n) n.disabled = false;
+      });
+      if (refusedNote) refusedNote.style.display = "none";
+    }
+
     var meta = document.getElementById("re-sel-meta");
     if (meta) {
       if (row && row.id) {
         var flags = [];
         if (row.near_expiry_id) flags.push("From Near Expiry");
+        if (row.supplier_refused) flags.push("⛔ Supplier refused");
         if (row.return_arranged) flags.push("Return arranged");
         if (row.handed_over) flags.push("Handed over");
         if (row.collection_note_received) flags.push("Collection note");
@@ -451,6 +481,7 @@
 
         var meta = [];
         if (r.near_expiry_id) meta.push("From Near Expiry");
+        if (r.supplier_refused) meta.push("⛔ Supplier refused");
         if (r.quantity) meta.push("Qty: " + r.quantity);
         if (r.supplier) meta.push("Supplier: " + r.supplier);
         if (r.invoice_number) meta.push("Inv: " + r.invoice_number);
@@ -593,11 +624,14 @@
               '<label class="re-check"><input id="re-handed-over" type="checkbox"> Handed over</label>' +
               '<label class="re-check"><input id="re-collection-note" type="checkbox"> Collection note received</label>' +
               '<label class="re-check"><input id="re-credit-note" type="checkbox"> Credit note received</label>' +
+              '<input id="re-supplier-refused" type="checkbox" style="display:none;" />' +
+              '<div id="re-refused-note" style="display:none;margin:8px 0;padding:8px 12px;border:1px solid rgba(255,90,122,.4);border-radius:10px;background:rgba(255,90,122,.08);font-size:12px;font-weight:800;color:rgba(255,90,122,.9);">Supplier refused this return</div>' +
 
               '<div style="height:12px;"></div>' +
               '<div class="eikon-row" style="gap:10px;flex-wrap:wrap;">' +
                 '<button id="re-save" class="eikon-btn primary">Save</button>' +
                 '<button id="re-delete" class="eikon-btn danger">Delete</button>' +
+                '<button id="re-refuse-btn" class="eikon-btn" style="display:none;background:rgba(255,90,122,.15);border-color:rgba(255,90,122,.35);">Mark as Refused</button>' +
               '</div>' +
               '<div class="re-mini" style="margin-top:10px;opacity:.75;">Tip: keep the table clean and use Details to view/edit.</div>' +
             '</div>' +
@@ -657,6 +691,44 @@
 
     var btnDelete = document.getElementById("re-delete");
     if (btnDelete) btnDelete.addEventListener("click", function () { doDelete(); });
+
+    var btnRefuse = document.getElementById("re-refuse-btn");
+    if (btnRefuse) btnRefuse.addEventListener("click", function () {
+      if (!state.selectedId) { toast("warn", "No selection", "Select a return to refuse."); return; }
+      var id = state.selectedId;
+      E.modal.show(
+        "Mark as Refused?",
+        "<div style='white-space:pre-wrap'>The supplier has refused this return. This will close the return.\n\nThe linked near expiry item (if any) will remain in the Near Expiry list.</div>",
+        [
+          { label: "Cancel", onClick: function () { E.modal.hide(); } },
+          {
+            label: "Mark Refused",
+            danger: true,
+            primary: true,
+            onClick: function () {
+              E.modal.hide();
+              (async function () {
+                state.busy = true;
+                setBusyUI(true);
+                try {
+                  var body = readForm();
+                  body.supplier_refused = 1;
+                  var resU = await api("PUT", "/returns/entries/" + encodeURIComponent(id), body);
+                  if (!resU || !resU.ok) throw new Error((resU && resU.error) || "Update failed");
+                  toast("good", "Refused", "Return marked as refused by supplier.");
+                  await doRefresh();
+                } catch (e) {
+                  modalError("Failed", e);
+                } finally {
+                  state.busy = false;
+                  setBusyUI(false);
+                }
+              })();
+            }
+          }
+        ]
+      );
+    });
 
     wireRemarksSuggest();
 
