@@ -70,8 +70,7 @@
     tab: "pos",            // "pos" | "catalog" | "history"
     cart: [],              // [{id,product,qty,fmdInfo}]
     payment: { method: "cash", tendered: "" },
-    clientName: "",
-    clientId: "",
+    discount: 0,           // discount percentage 0-10
     catalog: [],           // all active products
     catalogSearch: "",
     sales: [],             // today's sales from server
@@ -179,7 +178,10 @@
         vatTotal = round2(vatTotal + vatPart);
       }
     });
-    return { subtotal: subtotal, vatTotal: vatTotal, total: subtotal };
+    var discPct = Math.min(10, Math.max(0, Number(state.discount) || 0));
+    var discountAmt = round2(subtotal * discPct / 100);
+    var total = round2(subtotal - discountAmt);
+    return { subtotal: subtotal, vatTotal: vatTotal, discountPct: discPct, discountAmt: discountAmt, total: total };
   }
 
   function fmtQty(q) {
@@ -306,13 +308,12 @@
   function clearCart() {
     state.cart = [];
     state.payment = { method: "cash", tendered: "" };
-    state.clientName = "";
-    state.clientId = "";
+    state.discount = 0;
     saveCart();
   }
 
   function saveCart() {
-    lsSet(LS.CART, { cart: state.cart, payment: state.payment, clientName: state.clientName, clientId: state.clientId });
+    lsSet(LS.CART, { cart: state.cart, payment: state.payment, discount: state.discount });
   }
 
   function loadCart() {
@@ -320,8 +321,7 @@
     if (saved && Array.isArray(saved.cart)) {
       state.cart = saved.cart;
       state.payment = saved.payment || { method: "cash", tendered: "" };
-      state.clientName = saved.clientName || "";
-      state.clientId = saved.clientId || "";
+      state.discount = Math.min(10, Math.max(0, Number(saved.discount) || 0));
     }
   }
 
@@ -422,8 +422,28 @@
     updateSyncBadge();
   }
 
-  async function completeSale() {
+  function completeSale() {
     if (!state.cart.length) { showToast("Cart is empty.", "warn"); return; }
+    var tots = cartTotals();
+    var itemCount = state.cart.reduce(function(s,l){ return s + l.qty; }, 0);
+    var summary = "<div style='font-size:14px;'>" +
+      "<div style='margin-bottom:8px;'><strong>" + state.cart.length + " item(s)</strong>, qty: " + fmtQty(itemCount) + "</div>" +
+      (tots.discountAmt > 0 ? "<div style='color:#f59e0b;'>Discount: " + tots.discountPct + "% (−€" + fmt2(tots.discountAmt) + ")</div>" : "") +
+      "<div style='font-size:18px;font-weight:800;margin-top:4px;'>Total: €" + fmt2(tots.total) + "</div>" +
+      "<div style='margin-top:4px;color:rgba(255,255,255,.6);'>" + esc(state.payment.method) + "</div>" +
+      "</div>";
+    try {
+      E.modal.show("Complete Sale?", summary, [
+        { label: "Cancel", onClick: function(){ E.modal.hide(); } },
+        { label: "Confirm Sale", onClick: function(){ E.modal.hide(); doCompleteSale(); } }
+      ]);
+    } catch(e) {
+      doCompleteSale();
+    }
+  }
+
+  async function doCompleteSale() {
+    if (!state.cart.length) return;
     var tots = cartTotals();
     var payMethod = state.payment.method || "cash";
     var tendered = parseFloat(state.payment.tendered) || 0;
@@ -449,23 +469,21 @@
       items: items,
       subtotal: tots.subtotal,
       vat_total: tots.vatTotal,
+      discount_pct: tots.discountPct,
+      discount_amt: tots.discountAmt,
       total: tots.total,
       payment_method: payMethod,
       amount_tendered: payMethod === "cash" ? tendered : null,
       change_given: payMethod === "cash" ? change : null,
-      client_name: state.clientName,
-      client_id: state.clientId,
       notes: ""
     };
 
     // Optimistic: save to pending first so we never lose data
     addPending(sale);
-    var savedCart = state.cart.slice();
 
     clearCart();
+    state.discount = 0;
     rerenderPosTab();
-    // Auto-collapse cart on mobile after sale
-    if (isMobile()) toggleCart(false);
 
     // Try to sync immediately
     try {
@@ -476,7 +494,6 @@
       if (resp && resp.ok) {
         removePending(offlineId);
         showToast("Sale saved. Receipt: " + receiptNo, "ok");
-        // Refresh history if on that tab
         if (state.tab === "history") {
           await apiLoadSales(state.salesDate);
           rerenderHistoryTab();
@@ -1132,7 +1149,8 @@
         "</tbody></table>" +
         "<div class='receipt-totals'>" +
           "<div><span>Subtotal</span><span>€" + fmt2(s.subtotal) + "</span></div>" +
-          "<div><span>VAT</span><span>€" + fmt2(s.vat_total) + "</span></div>" +
+          "<div><span>VAT (incl.)</span><span>€" + fmt2(s.vat_total) + "</span></div>" +
+          (s.discount_pct ? "<div style='color:#b45309;'><span>Discount (" + s.discount_pct + "%)</span><span>−€" + fmt2(s.discount_amt || 0) + "</span></div>" : "") +
           "<div class='grand'><span>TOTAL</span><span>€" + fmt2(s.total) + "</span></div>" +
         "</div>" +
         "</div>" +
@@ -1234,7 +1252,7 @@
       ".epos-pay-btn.active{background:#6366f1;color:#fff;}",
       ".epos-tendered-row{display:flex;align-items:center;gap:6px;margin-bottom:6px;font-size:13px;}",
       ".epos-client-row{display:flex;gap:6px;margin-bottom:8px;}",
-      ".epos-complete-btn{width:100%;padding:10px;border-radius:8px;border:none;background:#22c55e;color:#fff;font-size:14px;font-weight:700;cursor:pointer;}",
+      ".epos-complete-btn{padding:10px;border-radius:8px;border:none;background:#22c55e;color:#fff;font-size:14px;font-weight:700;cursor:pointer;}",
       ".epos-complete-btn:hover{background:#16a34a;}",
       ".epos-complete-btn:disabled{background:rgba(255,255,255,.1);color:rgba(255,255,255,.35);cursor:not-allowed;}",
       ".epos-search-panel{flex:1;display:flex;flex-direction:column;padding:10px;overflow:hidden;}",
@@ -1284,8 +1302,8 @@
       /* ── Mobile-first bottom sheet cart ── */
       ".epos-cart-toggle{display:none;}",  /* hidden on desktop */
       /* ── Mobile overrides: JS adds .epos-mobile on touch devices ── */
-      ".epos-mobile .epos-tabs{padding:6px 8px;gap:2px;}",
-      ".epos-mobile .epos-tab-btn{padding:10px 14px;font-size:15px;}",
+      ".epos-mobile .epos-tabs{padding:6px 8px;gap:4px;}",
+      ".epos-mobile .epos-tab-btn{padding:12px 16px;font-size:16px;flex:1;text-align:center;}",
       /* POS layout: stack vertically */
       ".epos-mobile .epos-pos{flex-direction:column-reverse;}",
       /* Cart panel becomes a bottom sheet */
@@ -1301,7 +1319,7 @@
       /* Search panel fills remaining space */
       ".epos-mobile .epos-search-panel{flex:1;padding:10px;padding-bottom:66px;}",
       ".epos-mobile .epos-search-bar{flex-wrap:wrap;gap:8px;}",
-      ".epos-mobile .epos-search-bar .epos-btn{padding:14px 18px;font-size:16px;border-radius:10px;flex:1;min-width:0;}",
+      ".epos-mobile .epos-search-bar .epos-btn{padding:16px 20px;font-size:17px;border-radius:12px;flex:1;min-width:0;font-weight:700;}",
       ".epos-mobile .epos-search-bar .epos-input{font-size:16px;padding:12px 14px;border-radius:10px;width:100%;flex:1 1 100%;}",
       /* Bigger product cards */
       ".epos-mobile .epos-product-grid{grid-template-columns:repeat(auto-fill,minmax(44%,1fr));gap:10px;}",
@@ -1313,11 +1331,11 @@
       ".epos-mobile .epos-scan-video{width:96vw;height:70vh;border-radius:10px;}",
       ".epos-mobile .epos-scan-overlay{gap:10px;padding:12px;}",
       /* Payment area on mobile */
-      ".epos-mobile .epos-pay-btn{padding:12px 8px;font-size:15px;border-radius:10px;}",
-      ".epos-mobile .epos-complete-btn{padding:16px;font-size:17px;border-radius:12px;margin-top:6px;}",
-      ".epos-mobile .epos-tendered-row{font-size:15px;}",
-      ".epos-mobile .epos-tendered-row .epos-input{font-size:16px;padding:10px 12px;}",
-      ".epos-mobile .epos-client-row .epos-input{font-size:15px;padding:10px 12px;border-radius:8px;}",
+      ".epos-mobile .epos-pay-btn{padding:14px 10px;font-size:16px;border-radius:10px;font-weight:700;}",
+      ".epos-mobile .epos-complete-btn{padding:18px;font-size:18px;border-radius:12px;margin-top:8px;}",
+      ".epos-mobile .epos-tendered-row{font-size:16px;}",
+      ".epos-mobile .epos-tendered-row .epos-input{font-size:16px;padding:12px 14px;}",
+      ".epos-mobile .epos-client-row .epos-input{font-size:16px;padding:12px 14px;border-radius:10px;}",
       ".epos-mobile .epos-client-row{gap:8px;margin-bottom:10px;}",
       /* Cart lines bigger touch targets */
       ".epos-mobile .epos-cart-line{padding:10px 0;gap:10px;font-size:15px;}",
@@ -1328,15 +1346,15 @@
       /* Catalog tab mobile */
       ".epos-mobile .epos-catalog{padding:10px;}",
       ".epos-mobile .epos-import-bar{gap:8px;}",
-      ".epos-mobile .epos-import-bar .epos-btn{padding:12px 16px;font-size:15px;border-radius:10px;}",
-      ".epos-mobile .epos-import-bar .epos-input{font-size:15px;padding:10px 12px;}",
+      ".epos-mobile .epos-import-bar .epos-btn{padding:14px 18px;font-size:16px;border-radius:10px;}",
+      ".epos-mobile .epos-import-bar .epos-input{font-size:16px;padding:12px 14px;}",
       ".epos-mobile .epos-catalog-table{font-size:13px;}",
       ".epos-mobile .epos-catalog-table th,.epos-mobile .epos-catalog-table td{padding:6px 8px;}",
       /* History tab mobile */
       ".epos-mobile .epos-history{padding:10px;}",
       ".epos-mobile .epos-history-bar{gap:8px;flex-wrap:wrap;}",
-      ".epos-mobile .epos-history-bar .epos-btn{padding:12px 16px;font-size:15px;border-radius:10px;}",
-      ".epos-mobile .epos-history-bar .epos-input{font-size:15px;padding:10px 12px;}",
+      ".epos-mobile .epos-history-bar .epos-btn{padding:14px 18px;font-size:16px;border-radius:10px;}",
+      ".epos-mobile .epos-history-bar .epos-input{font-size:16px;padding:12px 14px;}",
       ".epos-mobile .epos-history-table{font-size:13px;}",
       ".epos-mobile .epos-history-table th,.epos-mobile .epos-history-table td{padding:6px 8px;}",
       /* Photo overlay */
@@ -1344,10 +1362,12 @@
       ".epos-mobile .epos-match-row{padding:14px 12px;}",
       /* Toast above bottom sheet */
       ".epos-mobile .epos-toast{bottom:66px;}",
-      /* General inputs/buttons bigger on mobile */
-      ".epos-mobile .epos-input{font-size:15px;padding:10px 12px;border-radius:8px;}",
-      ".epos-mobile .epos-btn{padding:12px 16px;font-size:15px;border-radius:10px;}",
-      ".epos-mobile .epos-btn.sm{padding:10px 14px;font-size:14px;}"
+      /* General inputs/buttons bigger on mobile — 16px minimum prevents iOS zoom */
+      ".epos-mobile .epos-input{font-size:16px;padding:12px 14px;border-radius:10px;}",
+      ".epos-mobile .epos-btn{padding:14px 18px;font-size:16px;border-radius:10px;}",
+      ".epos-mobile .epos-btn.sm{padding:10px 14px;font-size:15px;}",
+      ".epos-mobile .epos-btn.primary{padding:14px 18px;font-size:16px;}",
+      ".epos-mobile .epos-btn.danger{padding:14px 18px;font-size:16px;}"
     ].join("\n");
     document.head.appendChild(style);
   }
@@ -1363,9 +1383,11 @@
     if (el2) el2.innerHTML = buildTotalsHtml();
     bindCartEvents();
     updateChange();
-    // Sync Complete Sale button disabled state with cart
+    // Sync button disabled states with cart
     var completeBtn = document.getElementById("epos-complete-btn");
     if (completeBtn) completeBtn.disabled = !state.cart.length;
+    var clearCartBtn = document.getElementById("epos-clear-cart-btn");
+    if (clearCartBtn) clearCartBtn.disabled = !state.cart.length;
     // Update mobile cart toggle badge and total
     updateCartToggle();
   }
@@ -1396,7 +1418,8 @@
   function buildTotalsHtml() {
     var t = cartTotals();
     return "<div class='epos-totals-row'><span>Subtotal</span><span>€" + fmt2(t.subtotal) + "</span></div>" +
-      "<div class='epos-totals-row'><span>VAT</span><span>€" + fmt2(t.vatTotal) + "</span></div>" +
+      "<div class='epos-totals-row'><span>VAT (incl.)</span><span>€" + fmt2(t.vatTotal) + "</span></div>" +
+      (t.discountAmt > 0 ? "<div class='epos-totals-row' style='color:#f59e0b;'><span>Discount (" + t.discountPct + "%)</span><span>−€" + fmt2(t.discountAmt) + "</span></div>" : "") +
       "<div class='epos-totals-row total'><span>TOTAL</span><span>€" + fmt2(t.total) + "</span></div>";
   }
 
@@ -1488,7 +1511,7 @@
   function buildPosTabHtml() {
     var products = filteredCatalog();
     var t = cartTotals();
-    var mobileLimit = isMobile() ? 50 : 200;
+    var mobileLimit = isMobile() ? 6 : 200;
     return "<div class='epos-pos'>" +
       /* Cart panel */
       "<div class='epos-cart-panel" + (isMobile() ? " collapsed" : "") + "' id='epos-cart-panel'>" +
@@ -1515,11 +1538,14 @@
             "<input id='epos-tendered' class='epos-input' type='number' step='0.01' min='0' placeholder='0.00' value='" + esc(state.payment.tendered) + "' style='width:90px;'>" +
             "<span id='epos-change-display' style='font-size:12px;font-weight:700;min-width:80px;text-align:right;'></span>" +
           "</div>" +
-          "<div class='epos-client-row'>" +
-            "<input id='epos-client-name' class='epos-input' placeholder='Client name (opt.)' style='flex:1' value='" + esc(state.clientName) + "'>" +
-            "<input id='epos-client-id' class='epos-input' placeholder='ID card (opt.)' style='width:110px' value='" + esc(state.clientId) + "'>" +
+          "<div class='epos-tendered-row'>" +
+            "<label style='flex:1'>Discount %</label>" +
+            "<input id='epos-discount' class='epos-input' type='number' step='0.1' min='0' max='10' placeholder='0' value='" + (state.discount || "") + "' style='width:70px;'>" +
           "</div>" +
-          "<button id='epos-complete-btn' class='epos-complete-btn'" + (state.cart.length ? "" : " disabled") + ">🧾 Complete Sale</button>" +
+          "<div style='display:flex;gap:6px;'>" +
+            "<button id='epos-clear-cart-btn' class='epos-btn danger' style='flex:1;padding:10px;font-size:14px;'" + (state.cart.length ? "" : " disabled") + ">Clear Cart</button>" +
+            "<button id='epos-complete-btn' class='epos-complete-btn' style='flex:2;'" + (state.cart.length ? "" : " disabled") + ">Complete Sale</button>" +
+          "</div>" +
         "</div>" +
         "</div>" + /* close epos-cart-inner-wrap */
       "</div>" +
@@ -1586,7 +1612,7 @@
         var grid = document.getElementById("epos-product-grid");
         if (grid) {
           var products = filteredCatalog();
-          var ml = isMobile() ? 50 : 200;
+          var ml = isMobile() ? 6 : 200;
           grid.innerHTML = products.slice(0, ml).map(function(p) {
             return "<div class='epos-product-card' data-pid='" + esc(p.id) + "' data-name='" + esc(p.name) + "'>" +
               "<div class='epos-product-card-name'>" + esc(p.name) + "</div>" +
@@ -1632,10 +1658,34 @@
       });
     }
 
-    var clientNameEl = document.getElementById("epos-client-name");
-    if (clientNameEl) clientNameEl.addEventListener("input", function(){ state.clientName = clientNameEl.value; saveCart(); });
-    var clientIdEl = document.getElementById("epos-client-id");
-    if (clientIdEl) clientIdEl.addEventListener("input", function(){ state.clientId = clientIdEl.value; saveCart(); });
+    var discountEl = document.getElementById("epos-discount");
+    if (discountEl) {
+      discountEl.addEventListener("input", function() {
+        var val = parseFloat(discountEl.value) || 0;
+        if (val > 10) { val = 10; discountEl.value = "10"; }
+        if (val < 0) { val = 0; discountEl.value = "0"; }
+        state.discount = val;
+        saveCart();
+        rerenderCart();
+        updateChange();
+      });
+    }
+
+    var clearCartBtn = document.getElementById("epos-clear-cart-btn");
+    if (clearCartBtn) {
+      clearCartBtn.addEventListener("click", function() {
+        if (!state.cart.length) return;
+        try {
+          E.modal.show("Clear Cart", "<div style='font-size:14px;'>Remove all items from cart?</div>", [
+            { label: "Cancel", onClick: function(){ E.modal.hide(); } },
+            { label: "Clear", danger: true, onClick: function(){ E.modal.hide(); clearCart(); rerenderPosTab(); } }
+          ]);
+        } catch(e) {
+          clearCart();
+          rerenderPosTab();
+        }
+      });
+    }
 
     var completeBtn = document.getElementById("epos-complete-btn");
     if (completeBtn) completeBtn.addEventListener("click", function(){ completeSale(); });
