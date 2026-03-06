@@ -1107,19 +1107,17 @@
       "<strong>FMD:</strong> " + esc(parts.join("")) + "</div>";
   }
 
-  // ─── Print day's receipts ──────────────────────────────────────────────────────
-  function printDayReceipts() {
-    if (!state.sales.length) { showToast("No sales to print.", "warn"); return; }
-    var win = window.open("", "_blank", "width=700,height=900");
-    if (!win) { showToast("Pop-up blocked — allow pop-ups to print.", "warn"); return; }
-
+  // ─── Generate day's receipts as shareable image ─────────────────────────────
+  function buildReceiptsHtml() {
     var salesHtml = "";
     var dayTotal = 0;
     var dayVat = 0;
+    var receiptCount = 0;
 
     for (var si = 0; si < state.sales.length; si++) {
       var s = state.sales[si];
       if (s.voided === 1) continue;
+      receiptCount++;
       var items;
       try { items = JSON.parse(s.items_json || "[]"); } catch(e) { items = s.items || []; }
 
@@ -1136,8 +1134,8 @@
           "</td>" +
           "<td style='text-align:center;vertical-align:top;width:50px;'>" + bc + "</td>" +
           "<td style='text-align:center;vertical-align:top;width:40px;'>" + (it.qty || 1) + "</td>" +
-          "<td style='text-align:right;vertical-align:top;width:65px;'>€" + fmt2(it.price || 0) + "</td>" +
-          "<td style='text-align:right;vertical-align:top;width:70px;font-weight:600;'>€" + fmt2(it.line_total || 0) + "</td>" +
+          "<td style='text-align:right;vertical-align:top;width:65px;'>&euro;" + fmt2(it.price || 0) + "</td>" +
+          "<td style='text-align:right;vertical-align:top;width:70px;font-weight:600;'>&euro;" + fmt2(it.line_total || 0) + "</td>" +
           "</tr>";
       }
 
@@ -1149,56 +1147,184 @@
           "<strong>" + esc(s.receipt_no || "") + "</strong>" +
           "<span>" + esc(fmtTime(s.created_at)) + "</span>" +
           "<span>" + esc(s.payment_method || "") + "</span>" +
-          (s.client_name ? "<span>Client: " + esc(s.client_name) + (s.client_id ? " (" + esc(s.client_id) + ")" : "") + "</span>" : "") +
         "</div>" +
         "<table><thead><tr><th style='text-align:left;'>Item</th><th>Barcode</th><th>Qty</th><th style='text-align:right;'>Price</th><th style='text-align:right;'>Total</th></tr></thead><tbody>" +
         itemRows +
         "</tbody></table>" +
         "<div class='receipt-totals'>" +
-          "<div><span>Subtotal</span><span>€" + fmt2(s.subtotal) + "</span></div>" +
-          "<div><span>VAT (incl.)</span><span>€" + fmt2(s.vat_total) + "</span></div>" +
-          (s.discount_pct ? "<div style='color:#b45309;'><span>Discount (" + s.discount_pct + "%)</span><span>−€" + fmt2(s.discount_amt || 0) + "</span></div>" : "") +
-          "<div class='grand'><span>TOTAL</span><span>€" + fmt2(s.total) + "</span></div>" +
+          "<div><span>Subtotal</span><span>&euro;" + fmt2(s.subtotal) + "</span></div>" +
+          (s.discount_pct ? "<div style='color:#b45309;'><span>Discount (" + s.discount_pct + "%)</span><span>&minus;&euro;" + fmt2(s.discount_amt || 0) + "</span></div>" : "") +
+          "<div class='grand'><span>TOTAL</span><span>&euro;" + fmt2(s.total) + "</span></div>" +
         "</div>" +
         "</div>" +
         "<hr class='separator'/>";
     }
 
-    var html = "<!doctype html><html><head><meta charset='utf-8'><title>Day Receipts — " + esc(state.salesDate) + "</title>" +
-      "<style>" +
-        "body{font-family:'Segoe UI',system-ui,sans-serif;font-size:12px;max-width:700px;margin:0 auto;padding:12px;color:#111;}" +
-        "h1{font-size:18px;margin:0 0 2px;}" +
-        ".date-line{font-size:13px;color:#555;margin-bottom:16px;}" +
-        "table{width:100%;border-collapse:collapse;margin-bottom:6px;}" +
-        "th{font-size:10px;text-transform:uppercase;color:#777;border-bottom:2px solid #333;padding:4px 6px;}" +
-        "td{padding:5px 6px;border-bottom:1px solid #ddd;}" +
-        ".receipt-block{margin-bottom:4px;}" +
-        ".receipt-header{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-size:12px;padding:6px 0;border-bottom:1px solid #ccc;margin-bottom:4px;}" +
-        ".receipt-header strong{font-size:13px;}" +
-        ".receipt-totals{text-align:right;font-size:12px;margin-top:4px;}" +
-        ".receipt-totals div{display:flex;justify-content:flex-end;gap:16px;padding:1px 0;}" +
-        ".receipt-totals .grand{font-weight:800;font-size:14px;border-top:2px solid #333;margin-top:2px;padding-top:3px;}" +
-        "hr.separator{border:none;border-top:2px dashed #999;margin:12px 0;}" +
-        ".day-summary{margin-top:8px;padding:10px;border:2px solid #333;border-radius:6px;font-size:14px;}" +
-        ".day-summary div{display:flex;justify-content:space-between;padding:2px 0;}" +
-        ".day-summary .grand{font-weight:800;font-size:16px;border-top:2px solid #333;margin-top:4px;padding-top:6px;}" +
-        "svg{display:block;}" +
-        "@media print{.no-print{display:none !important;}body{padding:4px;}}" +
-      "</style></head><body>" +
+    return {
+      html: salesHtml,
+      dayTotal: dayTotal,
+      dayVat: dayVat,
+      receiptCount: receiptCount
+    };
+  }
+
+  function receiptsCss() {
+    return "body{font-family:'Segoe UI',system-ui,sans-serif;font-size:12px;width:680px;margin:0;padding:16px;color:#111;background:#fff;}" +
+      "h1{font-size:18px;margin:0 0 2px;}" +
+      ".date-line{font-size:13px;color:#555;margin-bottom:16px;}" +
+      "table{width:100%;border-collapse:collapse;margin-bottom:6px;}" +
+      "th{font-size:10px;text-transform:uppercase;color:#777;border-bottom:2px solid #333;padding:4px 6px;}" +
+      "td{padding:5px 6px;border-bottom:1px solid #ddd;}" +
+      ".receipt-block{margin-bottom:4px;}" +
+      ".receipt-header{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-size:12px;padding:6px 0;border-bottom:1px solid #ccc;margin-bottom:4px;}" +
+      ".receipt-header strong{font-size:13px;}" +
+      ".receipt-totals{text-align:right;font-size:12px;margin-top:4px;}" +
+      ".receipt-totals div{display:flex;justify-content:flex-end;gap:16px;padding:1px 0;}" +
+      ".receipt-totals .grand{font-weight:800;font-size:14px;border-top:2px solid #333;margin-top:2px;padding-top:3px;}" +
+      "hr.separator{border:none;border-top:2px dashed #999;margin:12px 0;}" +
+      ".day-summary{margin-top:8px;padding:10px;border:2px solid #333;border-radius:6px;font-size:14px;}" +
+      ".day-summary div{display:flex;justify-content:space-between;padding:2px 0;}" +
+      ".day-summary .grand{font-weight:800;font-size:16px;border-top:2px solid #333;margin-top:4px;padding-top:6px;}" +
+      "svg{display:block;}";
+  }
+
+  function buildFullReceiptDoc() {
+    var data = buildReceiptsHtml();
+    return "<!doctype html><html><head><meta charset='utf-8'><style>" + receiptsCss() + "</style></head><body>" +
       "<h1>Eikon Emergency POS</h1>" +
-      "<div class='date-line'>Daily Sales Report — " + esc(state.salesDate) + "</div>" +
-      salesHtml +
+      "<div class='date-line'>Daily Sales Report &mdash; " + esc(state.salesDate) + "</div>" +
+      data.html +
       "<div class='day-summary'>" +
-        "<div><span>Total Sales (excl. voided)</span><span>" + state.sales.filter(function(s){ return s.voided !== 1; }).length + " receipts</span></div>" +
-        "<div><span>Total VAT</span><span>€" + fmt2(dayVat) + "</span></div>" +
-        "<div class='grand'><span>GRAND TOTAL</span><span>€" + fmt2(dayTotal) + "</span></div>" +
+        "<div><span>Total Sales (excl. voided)</span><span>" + data.receiptCount + " receipts</span></div>" +
+        "<div class='grand'><span>GRAND TOTAL</span><span>&euro;" + fmt2(data.dayTotal) + "</span></div>" +
       "</div>" +
-      "<br><div style='text-align:center;font-size:10px;color:#999;'>Generated by Eikon Emergency POS</div>" +
-      "<br><button class='no-print' onclick='window.print()' style='padding:10px 24px;font-size:14px;cursor:pointer;border-radius:6px;border:1px solid #ccc;'>Print</button>" +
-      "<script>window.onload=function(){window.print();}<\/script>" +
+      "<div style='text-align:center;font-size:10px;color:#999;margin-top:12px;'>Generated by Eikon Emergency POS</div>" +
       "</body></html>";
-    win.document.write(html);
-    win.document.close();
+  }
+
+  async function renderReceiptsToBlob() {
+    var htmlDoc = buildFullReceiptDoc();
+
+    // Create offscreen iframe to render
+    var iframe = document.createElement("iframe");
+    iframe.style.cssText = "position:fixed;left:-9999px;top:0;width:712px;height:100px;border:none;opacity:0;pointer-events:none;";
+    document.body.appendChild(iframe);
+
+    return new Promise(function(resolve, reject) {
+      iframe.onload = function() {
+        try {
+          var iDoc = iframe.contentDocument || iframe.contentWindow.document;
+          var body = iDoc.body;
+          // Wait a frame for layout
+          setTimeout(function() {
+            var fullH = body.scrollHeight;
+            var fullW = 712;
+            iframe.style.height = fullH + "px";
+
+            // Use html2canvas if available, else fallback to canvas rendering
+            renderIframeToCanvas(iframe, fullW, fullH).then(function(canvas) {
+              canvas.toBlob(function(blob) {
+                document.body.removeChild(iframe);
+                resolve(blob);
+              }, "image/png");
+            }).catch(function(e) {
+              document.body.removeChild(iframe);
+              reject(e);
+            });
+          }, 150);
+        } catch(e) {
+          document.body.removeChild(iframe);
+          reject(e);
+        }
+      };
+      var iDoc = iframe.contentDocument || iframe.contentWindow.document;
+      iDoc.open();
+      iDoc.write(htmlDoc);
+      iDoc.close();
+    });
+  }
+
+  function loadHtml2Canvas() {
+    return new Promise(function(resolve, reject) {
+      if (window.html2canvas) { resolve(window.html2canvas); return; }
+      var s = document.createElement("script");
+      s.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+      s.onload = function() { resolve(window.html2canvas); };
+      s.onerror = function() { reject(new Error("Failed to load html2canvas")); };
+      document.head.appendChild(s);
+    });
+  }
+
+  async function renderIframeToCanvas(iframe, w, h) {
+    var iDoc = iframe.contentDocument || iframe.contentWindow.document;
+    var h2c = await loadHtml2Canvas();
+    return h2c(iDoc.body, {
+      width: w,
+      height: h,
+      scale: 2,
+      useCORS: true,
+      backgroundColor: "#ffffff",
+      logging: false
+    });
+  }
+
+  async function printDayReceipts() {
+    if (!state.sales.length) { showToast("No sales to print.", "warn"); return; }
+    showToast("Generating receipts...", "ok");
+
+    try {
+      var blob = await renderReceiptsToBlob();
+      var fileName = "receipts-" + state.salesDate + ".png";
+      var file = new File([blob], fileName, { type: "image/png" });
+
+      // Try Web Share API first (mobile share sheet)
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            title: "Day Receipts — " + state.salesDate,
+            text: "Eikon Emergency POS receipts for " + state.salesDate,
+            files: [file]
+          });
+          showToast("Shared successfully", "ok");
+          return;
+        } catch(e) {
+          // User cancelled share or share failed — fall through to download
+          if (e.name === "AbortError") return;
+        }
+      }
+
+      // Fallback: direct download
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function() { URL.revokeObjectURL(url); document.body.removeChild(a); }, 1000);
+      showToast("Receipts downloaded as " + fileName, "ok");
+    } catch(e) {
+      warn("Receipt generation failed", e && e.message);
+      // Final fallback: open in new window for manual print/save
+      try {
+        var win = window.open("", "_blank", "width=720,height=900");
+        if (win) {
+          var html = buildFullReceiptDoc();
+          // Add print button and auto-print to the fallback
+          html = html.replace("</body>",
+            "<br><button onclick='window.print()' style='padding:12px 28px;font-size:16px;cursor:pointer;border-radius:8px;border:1px solid #ccc;font-weight:600;'>Print / Save PDF</button>" +
+            "<script>window.onload=function(){window.print();}<\/script></body>"
+          );
+          win.document.write(html);
+          win.document.close();
+          showToast("Opened in new window for printing", "ok");
+        } else {
+          showToast("Pop-up blocked — allow pop-ups.", "warn");
+        }
+      } catch(e2) {
+        showToast("Failed to generate receipts: " + (e2 && e2.message), "err");
+      }
+    }
   }
 
   // ─── Toast ───────────────────────────────────────────────────────────────────
