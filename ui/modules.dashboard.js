@@ -200,7 +200,9 @@
       ".eikon-dash-mini-table{width:100%;border-collapse:collapse;margin-top:10px}" +
       ".eikon-dash-mini-table th,.eikon-dash-mini-table td{padding:8px 8px;border-bottom:1px solid rgba(255,255,255,.06);text-align:left;font-size:12px}" +
       ".eikon-dash-mini-table th{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.2px}" +
-      "@media (max-width:520px){.eikon-dash-sub{max-width:78vw}.eikon-dash-right{gap:6px}.eikon-dash-btn{padding:7px 9px}}";
+      "@media (max-width:520px){.eikon-dash-sub{max-width:78vw}.eikon-dash-right{gap:6px}.eikon-dash-btn{padding:7px 9px}}" +
+      "@keyframes eikon-dash-flash{0%,100%{border-color:rgba(255,90,122,.55);box-shadow:0 0 8px rgba(255,90,122,.25)}50%{border-color:rgba(255,90,122,.15);box-shadow:none}}" +
+      ".eikon-dash-item-flash{animation:eikon-dash-flash 1s ease-in-out infinite}";
     document.head.appendChild(st);
   }
 
@@ -225,7 +227,8 @@
       returns: null,
       paidout: null,
       nearexpiry: null,
-      instructions: null
+      instructions: null,
+      scarcestock: null
     }
   };
 
@@ -242,6 +245,7 @@
     state.data.paidout = null;
     state.data.nearexpiry = null;
     state.data.instructions = null;
+    state.data.scarcestock = null;
   }
 
   // ----------------------------
@@ -874,8 +878,39 @@
       }
     }
 
+    // --- Scarce Stock (requested from other locations) ---
+    var ssRow = "";
+    if (!state.data.scarcestock) ssRow = row("📦", "Scarce stock requests", "Loading…", pill("info", "…"), "");
+    else if (!state.data.scarcestock.ok) ssRow = row("📦", "Scarce stock requests", state.data.scarcestock.error || "Unavailable", showNA("N/A"), btn("dash-open-scarcestock", "Open", { small: true }));
+    else {
+      var ss = state.data.scarcestock.data;
+      var ssOpenNeeds = ss.openNeeds || 0;
+      var ssUnaccepted = ss.unacceptedOffers || 0;
+
+      if (!ssOpenNeeds && !ssUnaccepted) {
+        ssRow = row("📦", "Scarce stock requests", "No open requests from other locations", pill("ok", "OK"), btn("dash-open-scarcestock", "Open", { small: true }));
+      } else {
+        var ssSub = [];
+        if (ssOpenNeeds) ssSub.push(ssOpenNeeds + " open request(s)");
+        if (ssUnaccepted) ssSub.push(ssUnaccepted + " offer(s) to review");
+        ssRow = '<div class="eikon-dash-item' + (ssUnaccepted ? " eikon-dash-item-flash" : "") + '">' +
+          '<div class="eikon-dash-left">' +
+            '<div class="eikon-dash-ico" aria-hidden="true">📦</div>' +
+            '<div class="eikon-dash-txt">' +
+              '<div class="eikon-dash-label">Scarce stock requests</div>' +
+              '<div class="eikon-dash-sub">' + esc(ssSub.join(" • ")) + '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="eikon-dash-right">' +
+            pill(ssUnaccepted ? "danger" : "warn", ssUnaccepted ? "Offers pending" : "Open") +
+            btn("dash-open-scarcestock", "Open", { primary: true, small: true }) +
+          '</div>' +
+        '</div>';
+      }
+    }
+
     if (todayList) todayList.innerHTML = tempRow + drRow + poRow + insRow;
-    if (attnList) attnList.innerHTML = clRow + certRow + alRow + rtRow + neRow;
+    if (attnList) attnList.innerHTML = clRow + certRow + alRow + rtRow + neRow + ssRow;
     if (opsList) opsList.innerHTML = shRow + coRow + tkRow;
   }
 
@@ -1109,6 +1144,34 @@
         if (!resolved) open++;
       }
       return { openCount: open };
+    });
+
+    run("scarcestock", async function () {
+      var r = await api("/scarce-stock/needs?ts=" + Date.now(), { method: "GET" }, 8000, "scarce stock needs");
+      var needs = (r && r.needs) ? r.needs : [];
+
+      var openNeeds = 0;
+      var unacceptedOffers = 0;
+
+      for (var i = 0; i < needs.length; i++) {
+        var need = needs[i] || {};
+        // Only show needs from OTHER locations (not our own)
+        if (need.mine_owner) {
+          // This is our request — check for offers we haven't accepted
+          var offers = Array.isArray(need.offers) ? need.offers : [];
+          for (var j = 0; j < offers.length; j++) {
+            var off = offers[j] || {};
+            if (!off.accepted && !off.confirmed && !off.is_private) {
+              unacceptedOffers++;
+            }
+          }
+        }
+        if (!need.mine_owner && !need.is_closed) {
+          openNeeds++;
+        }
+      }
+
+      return { openNeeds: openNeeds, unacceptedOffers: unacceptedOffers };
     });
 
     run("shifts", async function () {
@@ -1821,6 +1884,7 @@
     else if (act === "dash-open-paidout") window.location.hash = "#paidout";
     else if (act === "dash-open-nearexpiry") window.location.hash = "#nearexpiry";
     else if (act === "dash-open-instructions") window.location.hash = "#instructions";
+    else if (act === "dash-open-scarcestock") window.location.hash = "#scarcestock";
   }
 
   // ----------------------------
