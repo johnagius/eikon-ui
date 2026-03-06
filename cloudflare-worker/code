@@ -9949,11 +9949,15 @@ async function handleScarceOfferCreate(request, env, corsOkHeaders, authUser) {
   if (near_expiry_id) {
     await ensureNearExpirySchema(env);
     const neRow = await dbFirst(env,
-      "SELECT id, scarce_stock_offer_id FROM near_expiry_entries WHERE id=? AND org_id=? AND location_id=?",
+      "SELECT id, scarce_stock_offer_id, expiry_date FROM near_expiry_entries WHERE id=? AND org_id=? AND location_id=?",
       [near_expiry_id, authUser.org_id, authUser.location_id]
     );
     if (!neRow) return jsonResponse({ ok: false, error: "Near expiry item not found" }, 404, corsOkHeaders);
     if (neRow.scarce_stock_offer_id) return jsonResponse({ ok: false, error: "This item is already in Scarce Stock" }, 409, corsOkHeaders);
+    if (neRow.expiry_date) {
+      const today = new Date().toISOString().slice(0, 10);
+      if (neRow.expiry_date <= today) return jsonResponse({ ok: false, error: "Cannot add expired item to Scarce Stock" }, 400, corsOkHeaders);
+    }
   }
 
   const res = await dbRun(env, `

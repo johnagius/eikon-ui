@@ -209,7 +209,7 @@ async function apiJson(path, options, tag) {
   function scarceStockStatusHtml(e) {
     if (e.scarce_stock_offer_id) return '<span class="ne-pill ne-pill-ok" style="font-size:11px;">In Scarce Stock</span>';
     var d = (typeof e.days_to_expire === "number") ? e.days_to_expire : daysUntil(e.expiry_date);
-    if (typeof d === "number" && d < 0) return '<span class="ne-pill" style="font-size:11px;opacity:.4;">Expired</span>';
+    if (typeof d === "number" && d <= 0) return '<span class="ne-pill" style="font-size:11px;opacity:.4;">Expired</span>';
     if (e.damaged) return '<span class="ne-pill" style="font-size:11px;opacity:.4;">Damaged</span>';
     return '<button class="eikon-btn" data-act="add-stock" data-id="' + String(e.id) + '" style="font-size:11px;">Add to Scarce Stock</button>';
   }
