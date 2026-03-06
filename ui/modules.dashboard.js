@@ -1502,7 +1502,7 @@
     function actionHtml(item) {
       var rs = safeStr(item.return_status || "");
       if (rs === "refused") return '<span style="font-size:11px;opacity:.55;font-weight:800;">Supplier refused</span>';
-      if (rs === "pending") return '<span style="font-size:11px;color:var(--warn,orange);font-weight:800;">Return pending</span>';
+      if (rs === "pending") return '<span style="font-size:11px;color:var(--ok,green);font-weight:800;">Return pending</span>';
       if (rs === "handed_over") return '<span style="font-size:11px;color:var(--ok,green);font-weight:800;">Returned</span>';
       return '<button class="eikon-btn" data-dash-ne-return="' + esc(String(item.id || "")) + '" style="font-size:11px;padding:4px 10px;">Return</button>';
     }
@@ -1514,7 +1514,7 @@
       return '<button class="eikon-btn" data-dash-ne-stock="' + esc(String(item.id || "")) + '" ' +
         'data-name="' + esc(safeStr(item.product_name || item.item_name || item.name || "")) + '" ' +
         'data-expiry="' + esc(safeStr(item.expiry_date || "")) + '" ' +
-        'style="font-size:11px;padding:4px 10px;">Add to Stock</button>';
+        'style="font-size:11px;padding:4px 10px;">Add to Scarce Stock</button>';
     }
 
     var rows = "";
@@ -1526,10 +1526,12 @@
     var body =
       '<div class="eikon-dash-detail">' +
         '<div class="eikon-help">Showing up to 30 items total (15 expired + 15 due ≤30d).</div>' +
-        '<table class="eikon-dash-mini-table">' +
-          "<thead><tr><th>Item</th><th>Expiry</th><th>Status</th><th>Return</th><th>Stock</th></tr></thead>" +
-          "<tbody>" + rows + "</tbody>" +
-        "</table>" +
+        '<div style="max-height:420px;overflow-y:auto;">' +
+          '<table class="eikon-dash-mini-table">' +
+            "<thead><tr><th>Item</th><th>Expiry</th><th>Status</th><th>Return</th><th>Scarce Stock</th></tr></thead>" +
+            "<tbody>" + rows + "</tbody>" +
+          "</table>" +
+        "</div>" +
       "</div>";
 
     E.modal.show("Near expiry — Details", body, [
@@ -1603,7 +1605,7 @@
 
               // Update the button in the previous modal to show "Return pending"
               if (btn) {
-                btn.outerHTML = '<span style="font-size:11px;color:var(--warn,orange);font-weight:800;">Return pending</span>';
+                btn.outerHTML = '<span style="font-size:11px;color:var(--ok,green);font-weight:800;">Return pending</span>';
               }
             } catch (ex) {
               E.modal.show("Return failed", "<div style='color:var(--danger);white-space:pre-wrap;'>" + esc((ex && (ex.message || ex.error)) || String(ex)) + "</div>", [
