@@ -1143,7 +1143,26 @@
     return "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 " + w + " " + h + "' style='width:" + Math.round(w * 1.2) + "px;height:" + h + "px;'>" + bars + "</svg>";
   }
 
-  // ─── FMD DataMatrix 2D code (simple text representation for print) ──────────
+  // ─── FMD DataMatrix 2D code SVG for print ───────────────────────────────────
+  // Generates a DataMatrix-style 2D barcode SVG from a GS1 FMD string.
+  // Uses a simple Reed-Solomon-free visual encoding that preserves the full
+  // data as scannable text. For true GS1 DataMatrix we reconstruct the raw
+  // string with GS separators.
+  function fmdRawString(fmd) {
+    if (!fmd) return "";
+    // Rebuild the GS1 string with FNC1/GS separators as originally scanned
+    if (fmd.raw) return fmd.raw;
+    var s = "";
+    if (fmd.gtin)   s += "01" + fmd.gtin;
+    if (fmd.expiry) {
+      var exp = String(fmd.expiry).replace(/-/g, "").replace(/^20/, "");
+      s += "17" + exp;
+    }
+    if (fmd.batch)  s += "\x1d10" + fmd.batch;
+    if (fmd.serial) s += "\x1d21" + fmd.serial;
+    return s;
+  }
+
   function fmdCodeHtml(fmd) {
     if (!fmd) return "";
     // Build the GS1 string that was originally scanned
@@ -1153,8 +1172,60 @@
     if (fmd.batch) parts.push("(10)" + fmd.batch);
     if (fmd.serial) parts.push("(21)" + fmd.serial);
     if (!parts.length) return "";
-    return "<div style='margin-top:4px;padding:4px 6px;border:1px solid #999;border-radius:4px;font-family:monospace;font-size:9px;background:#f8f8f8;word-break:break-all;'>" +
-      "<strong>FMD:</strong> " + esc(parts.join("")) + "</div>";
+    // Render the FMD text AND a placeholder for the 2D barcode (filled by bwip-js)
+    var rawStr = fmdRawString(fmd);
+    var dataAttr = rawStr ? " data-fmd-raw='" + esc(btoa(rawStr)) + "'" : "";
+    return "<div style='margin-top:8px;padding:6px 8px;border:1px solid #999;border-radius:4px;background:#f8f8f8;'>" +
+      "<div class='fmd-barcode-container'" + dataAttr + " style='text-align:center;margin-bottom:4px;'></div>" +
+      "<div style='font-family:monospace;font-size:9px;word-break:break-all;'>" +
+      "<strong>FMD:</strong> " + esc(parts.join("")) + "</div></div>";
+  }
+
+  // ─── bwip-js DataMatrix barcode renderer ────────────────────────────────────
+  var BWIPJS_CDN = "https://cdn.jsdelivr.net/npm/bwip-js@4/dist/bwip-js-min.js";
+
+  function loadBwipJs() {
+    return new Promise(function(resolve, reject) {
+      if (window.bwipjs) { resolve(); return; }
+      var s = document.createElement("script");
+      s.src = BWIPJS_CDN;
+      s.onload = function() { resolve(); };
+      s.onerror = function() { reject(new Error("Failed to load bwip-js")); };
+      document.head.appendChild(s);
+    });
+  }
+
+  // Renders all .fmd-barcode-container elements within a root element
+  // that have data-fmd-raw attributes into DataMatrix SVG barcodes
+  async function renderFmdBarcodes(root) {
+    var containers = root.querySelectorAll(".fmd-barcode-container[data-fmd-raw]");
+    if (!containers.length) return;
+    try {
+      await loadBwipJs();
+    } catch(e) {
+      warn("bwip-js load failed", e && e.message);
+      return;
+    }
+    containers.forEach(function(el) {
+      try {
+        var raw = atob(el.getAttribute("data-fmd-raw"));
+        var canvas = document.createElement("canvas");
+        bwipjs.toCanvas(canvas, {
+          bcid: "datamatrix",
+          text: raw,
+          scale: 3,
+          padding: 2,
+          parsefnc: true
+        });
+        // Convert canvas to an img for cleaner rendering in receipt
+        var img = document.createElement("img");
+        img.src = canvas.toDataURL("image/png");
+        img.style.cssText = "width:" + Math.min(canvas.width, 120) + "px;height:auto;image-rendering:pixelated;";
+        el.appendChild(img);
+      } catch(e) {
+        warn("DataMatrix render error", e && e.message);
+      }
+    });
   }
 
   // ─── Generate day's receipts as shareable image ─────────────────────────────
@@ -1174,15 +1245,15 @@
       var itemRows = "";
       for (var ii = 0; ii < items.length; ii++) {
         var it = items[ii];
-        var bc = it.barcode ? barcodeC128Svg(String(it.barcode), 30) : "";
+        var bc = it.barcode ? barcodeC128Svg(String(it.barcode), 45) : "";
         var fmdHtml = fmdCodeHtml(it.fmd);
         itemRows += "<tr>" +
-          "<td style='vertical-align:top;'>" +
-            "<div style='font-weight:600;'>" + esc(it.name) + "</div>" +
-            (it.barcode ? "<div style='font-size:10px;color:#666;'>" + esc(it.barcode) + "</div>" : "") +
+          "<td style='vertical-align:top;padding-top:14px;padding-bottom:14px;'>" +
+            "<div style='font-weight:600;font-size:13px;'>" + esc(it.name) + "</div>" +
+            (it.barcode ? "<div style='font-size:10px;color:#666;margin-top:2px;'>" + esc(it.barcode) + "</div>" : "") +
             fmdHtml +
           "</td>" +
-          "<td style='text-align:center;vertical-align:top;width:50px;'>" + bc + "</td>" +
+          "<td style='text-align:center;vertical-align:top;width:80px;padding-top:14px;padding-bottom:14px;'>" + bc + "</td>" +
           "<td style='text-align:center;vertical-align:top;width:40px;'>" + (it.qty || 1) + "</td>" +
           "<td style='text-align:right;vertical-align:top;width:65px;'>&euro;" + fmt2(it.price || 0) + "</td>" +
           "<td style='text-align:right;vertical-align:top;width:70px;font-weight:600;'>&euro;" + fmt2(it.line_total || 0) + "</td>" +
@@ -1222,20 +1293,21 @@
     return "body{font-family:'Segoe UI',system-ui,sans-serif;font-size:12px;width:680px;margin:0;padding:16px;color:#111;background:#fff;}" +
       "h1{font-size:18px;margin:0 0 2px;}" +
       ".date-line{font-size:13px;color:#555;margin-bottom:16px;}" +
-      "table{width:100%;border-collapse:collapse;margin-bottom:6px;}" +
+      "table{width:100%;border-collapse:separate;border-spacing:0 8px;margin-bottom:6px;}" +
       "th{font-size:10px;text-transform:uppercase;color:#777;border-bottom:2px solid #333;padding:4px 6px;}" +
-      "td{padding:5px 6px;border-bottom:1px solid #ddd;}" +
-      ".receipt-block{margin-bottom:4px;}" +
-      ".receipt-header{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-size:12px;padding:6px 0;border-bottom:1px solid #ccc;margin-bottom:4px;}" +
+      "td{padding:10px 6px;border-bottom:1px solid #ddd;}" +
+      ".receipt-block{margin-bottom:8px;}" +
+      ".receipt-header{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-size:12px;padding:8px 0;border-bottom:1px solid #ccc;margin-bottom:6px;}" +
       ".receipt-header strong{font-size:13px;}" +
-      ".receipt-totals{text-align:right;font-size:12px;margin-top:4px;}" +
-      ".receipt-totals div{display:flex;justify-content:flex-end;gap:16px;padding:1px 0;}" +
-      ".receipt-totals .grand{font-weight:800;font-size:14px;border-top:2px solid #333;margin-top:2px;padding-top:3px;}" +
-      "hr.separator{border:none;border-top:2px dashed #999;margin:12px 0;}" +
-      ".day-summary{margin-top:8px;padding:10px;border:2px solid #333;border-radius:6px;font-size:14px;}" +
-      ".day-summary div{display:flex;justify-content:space-between;padding:2px 0;}" +
+      ".receipt-totals{text-align:right;font-size:12px;margin-top:8px;}" +
+      ".receipt-totals div{display:flex;justify-content:flex-end;gap:16px;padding:2px 0;}" +
+      ".receipt-totals .grand{font-weight:800;font-size:14px;border-top:2px solid #333;margin-top:4px;padding-top:4px;}" +
+      "hr.separator{border:none;border-top:2px dashed #999;margin:18px 0;}" +
+      ".day-summary{margin-top:12px;padding:12px;border:2px solid #333;border-radius:6px;font-size:14px;}" +
+      ".day-summary div{display:flex;justify-content:space-between;padding:3px 0;}" +
       ".day-summary .grand{font-weight:800;font-size:16px;border-top:2px solid #333;margin-top:4px;padding-top:6px;}" +
-      "svg{display:block;}";
+      "svg{display:block;}" +
+      ".fmd-barcode-container{text-align:center;margin:4px 0;}";
   }
 
   function buildFullReceiptDoc() {
@@ -1265,23 +1337,42 @@
         try {
           var iDoc = iframe.contentDocument || iframe.contentWindow.document;
           var body = iDoc.body;
-          // Wait a frame for layout
-          setTimeout(function() {
-            var fullH = body.scrollHeight;
-            var fullW = 712;
-            iframe.style.height = fullH + "px";
 
-            // Use html2canvas if available, else fallback to canvas rendering
-            renderIframeToCanvas(iframe, fullW, fullH).then(function(canvas) {
-              canvas.toBlob(function(blob) {
+          // Render FMD DataMatrix barcodes inside the iframe, then capture
+          renderFmdBarcodes(body).then(function() {
+            // Wait for images to render
+            setTimeout(function() {
+              var fullH = body.scrollHeight;
+              var fullW = 712;
+              iframe.style.height = fullH + "px";
+
+              renderIframeToCanvas(iframe, fullW, fullH).then(function(canvas) {
+                canvas.toBlob(function(blob) {
+                  document.body.removeChild(iframe);
+                  resolve(blob);
+                }, "image/png");
+              }).catch(function(e) {
                 document.body.removeChild(iframe);
-                resolve(blob);
-              }, "image/png");
-            }).catch(function(e) {
-              document.body.removeChild(iframe);
-              reject(e);
-            });
-          }, 150);
+                reject(e);
+              });
+            }, 200);
+          }).catch(function() {
+            // Even if FMD barcodes fail, still capture the receipt
+            setTimeout(function() {
+              var fullH = body.scrollHeight;
+              var fullW = 712;
+              iframe.style.height = fullH + "px";
+              renderIframeToCanvas(iframe, fullW, fullH).then(function(canvas) {
+                canvas.toBlob(function(blob) {
+                  document.body.removeChild(iframe);
+                  resolve(blob);
+                }, "image/png");
+              }).catch(function(e) {
+                document.body.removeChild(iframe);
+                reject(e);
+              });
+            }, 200);
+          });
         } catch(e) {
           document.body.removeChild(iframe);
           reject(e);
@@ -1360,10 +1451,25 @@
         var win = window.open("", "_blank", "width=720,height=900");
         if (win) {
           var html = buildFullReceiptDoc();
-          // Add print button and auto-print to the fallback
+          // Add bwip-js for DataMatrix rendering, print button, and auto-print
           html = html.replace("</body>",
+            "<script src='" + BWIPJS_CDN + "'><\/script>" +
+            "<script>" +
+            "window.onload=function(){" +
+              "var cs=document.querySelectorAll('.fmd-barcode-container[data-fmd-raw]');" +
+              "cs.forEach(function(el){try{" +
+                "var raw=atob(el.getAttribute('data-fmd-raw'));" +
+                "var cvs=document.createElement('canvas');" +
+                "bwipjs.toCanvas(cvs,{bcid:'datamatrix',text:raw,scale:3,padding:2,parsefnc:true});" +
+                "var img=document.createElement('img');" +
+                "img.src=cvs.toDataURL('image/png');" +
+                "img.style.cssText='width:'+Math.min(cvs.width,120)+'px;height:auto;image-rendering:pixelated;';" +
+                "el.appendChild(img);" +
+              "}catch(e){}});" +
+              "setTimeout(function(){window.print();},300);" +
+            "};<\/script>" +
             "<br><button onclick='window.print()' style='padding:12px 28px;font-size:16px;cursor:pointer;border-radius:8px;border:1px solid #ccc;font-weight:600;'>Print / Save PDF</button>" +
-            "<script>window.onload=function(){window.print();}<\/script></body>"
+            "</body>"
           );
           win.document.write(html);
           win.document.close();
