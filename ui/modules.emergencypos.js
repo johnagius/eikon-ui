@@ -400,9 +400,6 @@
     }
 
     updateSyncBadge();
-
-    // Print receipt
-    printReceipt(sale);
   }
 
   // ─── Catalog import (SheetJS) ─────────────────────────────────────────────────
@@ -937,39 +934,154 @@
     return null;
   }
 
-  // ─── Print receipt ────────────────────────────────────────────────────────────
-  function printReceipt(sale) {
-    var win = window.open("", "_blank", "width=420,height=600");
+  // ─── Code128 barcode SVG generator (subset B — ASCII 32-127) ────────────────
+  var C128B = [
+    "11011001100","11001101100","11001100110","10010011000","10010001100",
+    "10001001100","10011001000","10011000100","10001100100","11001001000",
+    "11001000100","11000100100","10110011100","10011011100","10011001110",
+    "10111001100","10011101100","10011100110","11001110010","11001011100",
+    "11001001110","11011100100","11001110100","11100101100","11100100110",
+    "11101100100","11100110100","11100110010","11011011000","11011000110",
+    "11000110110","10100011000","10001011000","10001000110","10110001000",
+    "10001101000","10001100010","11010001000","11000101000","11000100010",
+    "10110111000","10110001110","10001101110","10111011000","10111000110",
+    "10001110110","11101110110","11010001110","11000101110","11011101000",
+    "11011100010","11011101110","11101011000","11101000110","11100010110",
+    "11101101000","11101100010","11100011010","11101111010","11001000010",
+    "11110001010","10100110000","10100001100","10010110000","10010000110",
+    "10000101100","10000100110","10110010000","10110000100","10011010000",
+    "10011000010","10000110100","10000110010","11000010010","11001010000",
+    "11110111010","11000010100","10001111010","10100111100","10010111100",
+    "10010011110","10111100100","10011110100","10011110010","11110100100",
+    "11110010100","11110010010","11011011110","11011110110","11110110110",
+    "10101111000","10100011110","10001011110","10111101000","10111100010",
+    "11110101000","11110100010","10111011110","10111101110","11101011110",
+    "11110101110","11010000100","11010010000","11010011100","1100011101011"
+  ];
+
+  function barcodeC128Svg(text, h) {
+    h = h || 40;
+    if (!text) return "";
+    var codes = [C128B[104]]; // START B
+    var checksum = 104;
+    for (var i = 0; i < text.length; i++) {
+      var val = text.charCodeAt(i) - 32;
+      if (val < 0 || val > 94) val = 0;
+      codes.push(C128B[val]);
+      checksum += val * (i + 1);
+    }
+    codes.push(C128B[checksum % 103]);
+    codes.push(C128B[106]); // STOP
+    var bits = codes.join("");
+    var w = bits.length;
+    var bars = "";
+    for (var j = 0; j < bits.length; j++) {
+      if (bits[j] === "1") bars += "<rect x='" + j + "' y='0' width='1' height='" + h + "'/>";
+    }
+    return "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 " + w + " " + h + "' style='width:" + Math.round(w * 1.2) + "px;height:" + h + "px;'>" + bars + "</svg>";
+  }
+
+  // ─── FMD DataMatrix 2D code (simple text representation for print) ──────────
+  function fmdCodeHtml(fmd) {
+    if (!fmd) return "";
+    // Build the GS1 string that was originally scanned
+    var parts = [];
+    if (fmd.gtin) parts.push("(01)" + fmd.gtin);
+    if (fmd.expiry) parts.push("(17)" + fmd.expiry);
+    if (fmd.batch) parts.push("(10)" + fmd.batch);
+    if (fmd.serial) parts.push("(21)" + fmd.serial);
+    if (!parts.length) return "";
+    return "<div style='margin-top:4px;padding:4px 6px;border:1px solid #999;border-radius:4px;font-family:monospace;font-size:9px;background:#f8f8f8;word-break:break-all;'>" +
+      "<strong>FMD:</strong> " + esc(parts.join("")) + "</div>";
+  }
+
+  // ─── Print day's receipts ──────────────────────────────────────────────────────
+  function printDayReceipts() {
+    if (!state.sales.length) { showToast("No sales to print.", "warn"); return; }
+    var win = window.open("", "_blank", "width=700,height=900");
     if (!win) { showToast("Pop-up blocked — allow pop-ups to print.", "warn"); return; }
-    var lines = (sale.items || []).map(function(it) {
-      return "<tr><td>" + esc(it.name) + "</td><td style='text-align:center'>" + it.qty +
-        "</td><td style='text-align:right'>€" + fmt2(it.line_total) + "</td></tr>";
-    }).join("");
-    var fmdRows = (sale.items || []).filter(function(it){ return it.fmd; }).map(function(it) {
-      var f = it.fmd;
-      return "<tr><td>" + esc(it.name) + "</td>" +
-        "<td>" + esc(f.batch||"") + "</td>" +
-        "<td>" + esc(f.expiry||"") + "</td>" +
-        "<td>" + esc(f.serial||"") + "</td></tr>";
-    }).join("");
-    var html = "<!doctype html><html><head><meta charset='utf-8'><title>Receipt " + esc(sale.receipt_no) + "</title>" +
-      "<style>body{font-family:monospace;font-size:13px;max-width:380px;margin:0 auto;padding:8px}h2{margin:4px 0}table{width:100%;border-collapse:collapse}td,th{padding:3px 4px;border-bottom:1px solid #ddd}th{font-weight:bold;background:#f4f4f4}.total{font-weight:bold;font-size:15px}.fmd{margin-top:12px;font-size:11px}.fmd h4{margin:4px 0}@media print{button{display:none}}</style>" +
-      "</head><body>" +
-      "<h2>Eikon Emergency POS</h2>" +
-      "<div>" + esc(sale.receipt_no) + " &bull; " + esc(sale.sale_date) + "</div>" +
-      (sale.client_name ? "<div>Client: " + esc(sale.client_name) + (sale.client_id ? " (" + esc(sale.client_id) + ")" : "") + "</div>" : "") +
-      "<br><table><thead><tr><th>Item</th><th>Qty</th><th>Total</th></tr></thead><tbody>" +
-      lines + "</tbody></table>" +
-      "<br><table><tr><td>Subtotal</td><td style='text-align:right'>€" + fmt2(sale.subtotal) + "</td></tr>" +
-      "<tr><td>VAT</td><td style='text-align:right'>€" + fmt2(sale.vat_total) + "</td></tr>" +
-      "<tr class='total'><td>TOTAL</td><td style='text-align:right'>€" + fmt2(sale.total) + "</td></tr>" +
-      "<tr><td>Payment</td><td style='text-align:right'>" + esc(sale.payment_method) + "</td></tr>" +
-      (sale.amount_tendered != null ? "<tr><td>Tendered</td><td style='text-align:right'>€" + fmt2(sale.amount_tendered) + "</td></tr>" : "") +
-      (sale.change_given != null && sale.change_given > 0 ? "<tr><td>Change</td><td style='text-align:right'>€" + fmt2(sale.change_given) + "</td></tr>" : "") +
-      "</table>" +
-      (fmdRows ? "<div class='fmd'><h4>FMD / Traceability</h4><table><thead><tr><th>Item</th><th>Batch</th><th>Expiry</th><th>Serial</th></tr></thead><tbody>" + fmdRows + "</tbody></table></div>" : "") +
-      "<br><br><div style='text-align:center;font-size:11px;color:#999'>Thank you &mdash; Eikon Emergency POS</div>" +
-      "<br><button onclick='window.print()'>🖨 Print</button>" +
+
+    var salesHtml = "";
+    var dayTotal = 0;
+    var dayVat = 0;
+
+    for (var si = 0; si < state.sales.length; si++) {
+      var s = state.sales[si];
+      if (s.voided === 1) continue;
+      var items;
+      try { items = JSON.parse(s.items_json || "[]"); } catch(e) { items = s.items || []; }
+
+      var itemRows = "";
+      for (var ii = 0; ii < items.length; ii++) {
+        var it = items[ii];
+        var bc = it.barcode ? barcodeC128Svg(String(it.barcode), 30) : "";
+        var fmdHtml = fmdCodeHtml(it.fmd);
+        itemRows += "<tr>" +
+          "<td style='vertical-align:top;'>" +
+            "<div style='font-weight:600;'>" + esc(it.name) + "</div>" +
+            (it.barcode ? "<div style='font-size:10px;color:#666;'>" + esc(it.barcode) + "</div>" : "") +
+            fmdHtml +
+          "</td>" +
+          "<td style='text-align:center;vertical-align:top;width:50px;'>" + bc + "</td>" +
+          "<td style='text-align:center;vertical-align:top;width:40px;'>" + (it.qty || 1) + "</td>" +
+          "<td style='text-align:right;vertical-align:top;width:65px;'>€" + fmt2(it.price || 0) + "</td>" +
+          "<td style='text-align:right;vertical-align:top;width:70px;font-weight:600;'>€" + fmt2(it.line_total || 0) + "</td>" +
+          "</tr>";
+      }
+
+      dayTotal += Number(s.total) || 0;
+      dayVat += Number(s.vat_total) || 0;
+
+      salesHtml += "<div class='receipt-block'>" +
+        "<div class='receipt-header'>" +
+          "<strong>" + esc(s.receipt_no || "") + "</strong>" +
+          "<span>" + esc(fmtTime(s.created_at)) + "</span>" +
+          "<span>" + esc(s.payment_method || "") + "</span>" +
+          (s.client_name ? "<span>Client: " + esc(s.client_name) + (s.client_id ? " (" + esc(s.client_id) + ")" : "") + "</span>" : "") +
+        "</div>" +
+        "<table><thead><tr><th style='text-align:left;'>Item</th><th>Barcode</th><th>Qty</th><th style='text-align:right;'>Price</th><th style='text-align:right;'>Total</th></tr></thead><tbody>" +
+        itemRows +
+        "</tbody></table>" +
+        "<div class='receipt-totals'>" +
+          "<div><span>Subtotal</span><span>€" + fmt2(s.subtotal) + "</span></div>" +
+          "<div><span>VAT</span><span>€" + fmt2(s.vat_total) + "</span></div>" +
+          "<div class='grand'><span>TOTAL</span><span>€" + fmt2(s.total) + "</span></div>" +
+        "</div>" +
+        "</div>" +
+        "<hr class='separator'/>";
+    }
+
+    var html = "<!doctype html><html><head><meta charset='utf-8'><title>Day Receipts — " + esc(state.salesDate) + "</title>" +
+      "<style>" +
+        "body{font-family:'Segoe UI',system-ui,sans-serif;font-size:12px;max-width:700px;margin:0 auto;padding:12px;color:#111;}" +
+        "h1{font-size:18px;margin:0 0 2px;}" +
+        ".date-line{font-size:13px;color:#555;margin-bottom:16px;}" +
+        "table{width:100%;border-collapse:collapse;margin-bottom:6px;}" +
+        "th{font-size:10px;text-transform:uppercase;color:#777;border-bottom:2px solid #333;padding:4px 6px;}" +
+        "td{padding:5px 6px;border-bottom:1px solid #ddd;}" +
+        ".receipt-block{margin-bottom:4px;}" +
+        ".receipt-header{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-size:12px;padding:6px 0;border-bottom:1px solid #ccc;margin-bottom:4px;}" +
+        ".receipt-header strong{font-size:13px;}" +
+        ".receipt-totals{text-align:right;font-size:12px;margin-top:4px;}" +
+        ".receipt-totals div{display:flex;justify-content:flex-end;gap:16px;padding:1px 0;}" +
+        ".receipt-totals .grand{font-weight:800;font-size:14px;border-top:2px solid #333;margin-top:2px;padding-top:3px;}" +
+        "hr.separator{border:none;border-top:2px dashed #999;margin:12px 0;}" +
+        ".day-summary{margin-top:8px;padding:10px;border:2px solid #333;border-radius:6px;font-size:14px;}" +
+        ".day-summary div{display:flex;justify-content:space-between;padding:2px 0;}" +
+        ".day-summary .grand{font-weight:800;font-size:16px;border-top:2px solid #333;margin-top:4px;padding-top:6px;}" +
+        "svg{display:block;}" +
+        "@media print{.no-print{display:none !important;}body{padding:4px;}}" +
+      "</style></head><body>" +
+      "<h1>Eikon Emergency POS</h1>" +
+      "<div class='date-line'>Daily Sales Report — " + esc(state.salesDate) + "</div>" +
+      salesHtml +
+      "<div class='day-summary'>" +
+        "<div><span>Total Sales (excl. voided)</span><span>" + state.sales.filter(function(s){ return s.voided !== 1; }).length + " receipts</span></div>" +
+        "<div><span>Total VAT</span><span>€" + fmt2(dayVat) + "</span></div>" +
+        "<div class='grand'><span>GRAND TOTAL</span><span>€" + fmt2(dayTotal) + "</span></div>" +
+      "</div>" +
+      "<br><div style='text-align:center;font-size:10px;color:#999;'>Generated by Eikon Emergency POS</div>" +
+      "<br><button class='no-print' onclick='window.print()' style='padding:10px 24px;font-size:14px;cursor:pointer;border-radius:6px;border:1px solid #ccc;'>Print</button>" +
       "<script>window.onload=function(){window.print();}<\/script>" +
       "</body></html>";
     win.document.write(html);
@@ -1082,63 +1194,71 @@
       ".epos-toast{position:fixed;bottom:18px;right:18px;z-index:10000;display:none;}",
       /* ── Mobile-first bottom sheet cart ── */
       ".epos-cart-toggle{display:none;}",  /* hidden on desktop */
-      /* ── Mobile overrides (<768px) ── */
-      "@media(max-width:767px){",
-        ".epos-tabs{padding:6px 8px;gap:2px;}",
-        ".epos-tab-btn{padding:8px 12px;font-size:14px;}",
-        /* POS layout: stack vertically */
-        ".epos-pos{flex-direction:column-reverse;}",
-        /* Cart panel becomes a bottom sheet */
-        ".epos-cart-panel{flex:none;position:fixed;left:0;right:0;bottom:0;z-index:900;background:rgba(15,18,28,.98);border-top:2px solid rgba(99,102,241,.5);border-right:none;padding:0;max-height:70vh;transition:max-height .25s ease;}",
-        ".epos-cart-panel.collapsed{max-height:54px;overflow:hidden;}",
-        ".epos-cart-toggle{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;cursor:pointer;-webkit-tap-highlight-color:transparent;min-height:54px;gap:8px;}",
-        ".epos-cart-toggle-left{display:flex;align-items:center;gap:10px;font-weight:700;font-size:15px;}",
-        ".epos-cart-toggle-badge{background:#6366f1;color:#fff;border-radius:99px;min-width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;}",
-        ".epos-cart-toggle-chevron{font-size:18px;color:rgba(255,255,255,.5);transition:transform .2s;}",
-        ".epos-cart-panel:not(.collapsed) .epos-cart-toggle-chevron{transform:rotate(180deg);}",
-        ".epos-cart-panel.collapsed .epos-cart-inner-wrap{display:none;}",
-        ".epos-cart-inner-wrap{padding:0 12px 12px;display:flex;flex-direction:column;overflow-y:auto;max-height:calc(70vh - 54px);}",
-        /* Search panel fills remaining space */
-        ".epos-search-panel{flex:1;padding:8px;padding-bottom:62px;}",  /* bottom padding for collapsed cart */
-        ".epos-search-bar{flex-wrap:wrap;gap:6px;}",
-        ".epos-search-bar .epos-btn{padding:12px 16px;font-size:15px;border-radius:10px;flex:1;min-width:0;}",
-        ".epos-search-bar .epos-input{font-size:16px;padding:10px 12px;border-radius:10px;width:100%;flex:1 1 100%;}",
-        /* Bigger product cards */
-        ".epos-product-grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;}",
-        ".epos-product-card{padding:12px;border-radius:10px;}",
-        ".epos-product-card-name{font-size:13px;-webkit-line-clamp:2;}",
-        ".epos-product-card-price{font-size:15px;}",
-        /* Bigger scan overlay */
-        ".epos-scan-video{width:96vw;height:70vh;border-radius:10px;}",
-        ".epos-scan-overlay{gap:10px;padding:12px;}",
-        /* Payment area on mobile */
-        ".epos-pay-btn{padding:10px 8px;font-size:14px;border-radius:8px;}",
-        ".epos-complete-btn{padding:14px;font-size:16px;border-radius:10px;}",
-        ".epos-tendered-row{font-size:15px;}",
-        ".epos-tendered-row .epos-input{font-size:16px;padding:8px 10px;}",
-        ".epos-client-row .epos-input{font-size:14px;padding:8px 10px;}",
-        /* Cart lines bigger touch targets */
-        ".epos-cart-line{padding:8px 0;gap:8px;font-size:14px;}",
-        ".epos-qty-btn{width:34px;height:34px;font-size:18px;border-radius:8px;}",
-        ".epos-cart-remove{width:34px;height:34px;font-size:20px;}",
-        ".epos-cart-qty{width:28px;font-size:15px;}",
-        ".epos-cart-price{width:65px;font-size:14px;}",
-        /* Catalog tab mobile */
-        ".epos-catalog{padding:8px;}",
-        ".epos-import-bar .epos-btn{padding:10px 14px;font-size:14px;}",
-        ".epos-catalog-table{font-size:12px;}",
-        ".epos-catalog-table th,.epos-catalog-table td{padding:4px 6px;}",
-        /* History tab mobile */
-        ".epos-history{padding:8px;}",
-        ".epos-history-bar{gap:6px;}",
-        ".epos-history-table{font-size:12px;}",
-        ".epos-history-table th,.epos-history-table td{padding:4px 6px;}",
-        /* Photo overlay */
-        ".epos-photo-video,.epos-photo-canvas{width:96vw;height:50vh;}",
-        ".epos-match-row{padding:12px 10px;}",
-        /* Toast above bottom sheet */
-        ".epos-toast{bottom:66px;}",
-      "}"
+      /* ── Mobile overrides: JS adds .epos-mobile on touch devices ── */
+      ".epos-mobile .epos-tabs{padding:6px 8px;gap:2px;}",
+      ".epos-mobile .epos-tab-btn{padding:10px 14px;font-size:15px;}",
+      /* POS layout: stack vertically */
+      ".epos-mobile .epos-pos{flex-direction:column-reverse;}",
+      /* Cart panel becomes a bottom sheet */
+      ".epos-mobile .epos-cart-panel{flex:none;position:fixed;left:0;right:0;bottom:0;z-index:900;background:rgba(15,18,28,.98);border-top:2px solid rgba(99,102,241,.5);border-right:none;padding:0;max-height:70vh;transition:max-height .25s ease;}",
+      ".epos-mobile .epos-cart-panel.collapsed{max-height:54px;overflow:hidden;}",
+      ".epos-mobile .epos-cart-toggle{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;cursor:pointer;-webkit-tap-highlight-color:transparent;min-height:54px;gap:8px;}",
+      ".epos-mobile .epos-cart-toggle-left{display:flex;align-items:center;gap:10px;font-weight:700;font-size:16px;}",
+      ".epos-mobile .epos-cart-toggle-badge{background:#6366f1;color:#fff;border-radius:99px;min-width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;}",
+      ".epos-mobile .epos-cart-toggle-chevron{font-size:20px;color:rgba(255,255,255,.5);transition:transform .2s;}",
+      ".epos-mobile .epos-cart-panel:not(.collapsed) .epos-cart-toggle-chevron{transform:rotate(180deg);}",
+      ".epos-mobile .epos-cart-panel.collapsed .epos-cart-inner-wrap{display:none;}",
+      ".epos-mobile .epos-cart-inner-wrap{padding:0 14px 14px;display:flex;flex-direction:column;overflow-y:auto;max-height:calc(70vh - 54px);}",
+      /* Search panel fills remaining space */
+      ".epos-mobile .epos-search-panel{flex:1;padding:10px;padding-bottom:66px;}",
+      ".epos-mobile .epos-search-bar{flex-wrap:wrap;gap:8px;}",
+      ".epos-mobile .epos-search-bar .epos-btn{padding:14px 18px;font-size:16px;border-radius:10px;flex:1;min-width:0;}",
+      ".epos-mobile .epos-search-bar .epos-input{font-size:16px;padding:12px 14px;border-radius:10px;width:100%;flex:1 1 100%;}",
+      /* Bigger product cards */
+      ".epos-mobile .epos-product-grid{grid-template-columns:repeat(auto-fill,minmax(44%,1fr));gap:10px;}",
+      ".epos-mobile .epos-product-card{padding:14px;border-radius:12px;}",
+      ".epos-mobile .epos-product-card-name{font-size:14px;-webkit-line-clamp:2;}",
+      ".epos-mobile .epos-product-card-price{font-size:16px;}",
+      ".epos-mobile .epos-product-card-barcode{font-size:11px;}",
+      /* Bigger scan overlay */
+      ".epos-mobile .epos-scan-video{width:96vw;height:70vh;border-radius:10px;}",
+      ".epos-mobile .epos-scan-overlay{gap:10px;padding:12px;}",
+      /* Payment area on mobile */
+      ".epos-mobile .epos-pay-btn{padding:12px 8px;font-size:15px;border-radius:10px;}",
+      ".epos-mobile .epos-complete-btn{padding:16px;font-size:17px;border-radius:12px;margin-top:6px;}",
+      ".epos-mobile .epos-tendered-row{font-size:15px;}",
+      ".epos-mobile .epos-tendered-row .epos-input{font-size:16px;padding:10px 12px;}",
+      ".epos-mobile .epos-client-row .epos-input{font-size:15px;padding:10px 12px;border-radius:8px;}",
+      ".epos-mobile .epos-client-row{gap:8px;margin-bottom:10px;}",
+      /* Cart lines bigger touch targets */
+      ".epos-mobile .epos-cart-line{padding:10px 0;gap:10px;font-size:15px;}",
+      ".epos-mobile .epos-qty-btn{width:38px;height:38px;font-size:20px;border-radius:10px;}",
+      ".epos-mobile .epos-cart-remove{width:38px;height:38px;font-size:22px;}",
+      ".epos-mobile .epos-cart-qty{width:30px;font-size:16px;}",
+      ".epos-mobile .epos-cart-price{width:70px;font-size:15px;}",
+      /* Catalog tab mobile */
+      ".epos-mobile .epos-catalog{padding:10px;}",
+      ".epos-mobile .epos-import-bar{gap:8px;}",
+      ".epos-mobile .epos-import-bar .epos-btn{padding:12px 16px;font-size:15px;border-radius:10px;}",
+      ".epos-mobile .epos-import-bar .epos-input{font-size:15px;padding:10px 12px;}",
+      ".epos-mobile .epos-catalog-table{font-size:13px;}",
+      ".epos-mobile .epos-catalog-table th,.epos-mobile .epos-catalog-table td{padding:6px 8px;}",
+      /* History tab mobile */
+      ".epos-mobile .epos-history{padding:10px;}",
+      ".epos-mobile .epos-history-bar{gap:8px;flex-wrap:wrap;}",
+      ".epos-mobile .epos-history-bar .epos-btn{padding:12px 16px;font-size:15px;border-radius:10px;}",
+      ".epos-mobile .epos-history-bar .epos-input{font-size:15px;padding:10px 12px;}",
+      ".epos-mobile .epos-history-table{font-size:13px;}",
+      ".epos-mobile .epos-history-table th,.epos-mobile .epos-history-table td{padding:6px 8px;}",
+      /* Photo overlay */
+      ".epos-mobile .epos-photo-video,.epos-mobile .epos-photo-canvas{width:96vw;height:50vh;}",
+      ".epos-mobile .epos-match-row{padding:14px 12px;}",
+      /* Toast above bottom sheet */
+      ".epos-mobile .epos-toast{bottom:66px;}",
+      /* General inputs/buttons bigger on mobile */
+      ".epos-mobile .epos-input{font-size:15px;padding:10px 12px;border-radius:8px;}",
+      ".epos-mobile .epos-btn{padding:12px 16px;font-size:15px;border-radius:10px;}",
+      ".epos-mobile .epos-btn.sm{padding:10px 14px;font-size:14px;}"
     ].join("\n");
     document.head.appendChild(style);
   }
@@ -1270,7 +1390,10 @@
     bindPosTabEvents();
   }
 
-  function isMobile() { return window.innerWidth < 768; }
+  function isMobile() {
+    // Detect mobile: touch device OR narrow viewport (GoDaddy iframe may report wider width)
+    return ("ontouchstart" in window) || (navigator.maxTouchPoints > 0) || window.innerWidth < 768;
+  }
 
   function buildPosTabHtml() {
     var products = filteredCatalog();
@@ -1519,9 +1642,10 @@
         "<label style='font-size:13px;font-weight:600;'>Date</label>" +
         "<input id='epos-history-date' class='epos-input' type='date' value='" + esc(state.salesDate) + "'>" +
         "<button id='epos-history-load-btn' class='epos-btn'>Load</button>" +
+        (state.sales.length ? "<button id='epos-print-day-btn' class='epos-btn primary'>Print Day's Receipts</button>" : "") +
         "<span style='margin-left:auto;'></span>" +
         (pending ? "<span style='font-size:12px;color:#f59e0b;font-weight:700;'>⚠ " + pending + " pending sync</span>" : "") +
-        "<button id='epos-sync-now-btn' class='epos-btn primary" + (state.syncing?" disabled":"") + "'" + (state.syncing?" disabled":"") + ">" + (state.syncing ? "Syncing…" : "🔄 Sync Now") + "</button>" +
+        "<button id='epos-sync-now-btn' class='epos-btn primary" + (state.syncing?" disabled":"") + "'" + (state.syncing?" disabled":"") + ">" + (state.syncing ? "Syncing…" : "Sync Now") + "</button>" +
       "</div>" +
       (pending ? "<div style='background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.3);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:#fbbf24;'>" +
         pending + " sale(s) queued offline. Click <strong>Sync Now</strong> to upload when connected." +
@@ -1541,7 +1665,6 @@
             "<td>" + esc(s.client_name||"") + "</td>" +
             "<td style='white-space:nowrap;'>" +
               (voided ? "<span style='color:#f87171;font-size:11px;'>Voided</span>" :
-                "<button class='epos-btn sm' data-print-sale='" + esc(JSON.stringify(s)) + "'>🖨</button> " +
                 "<button class='epos-btn sm danger' data-void='" + s.id + "'>Void</button>") +
             "</td></tr>";
         }).join("") +
@@ -1566,30 +1689,40 @@
       });
     });
 
+    // Print Day's Receipts button
+    var printDayBtn = document.getElementById("epos-print-day-btn");
+    if (printDayBtn) printDayBtn.addEventListener("click", printDayReceipts);
+
     // Void buttons
     el.querySelectorAll("[data-void]").forEach(function(btn) {
       btn.addEventListener("click", function() {
         var id = Number(btn.getAttribute("data-void"));
-        var reason = prompt("Reason for voiding this sale:");
-        if (reason === null) return; // cancelled
-        apiFetch("/emergency-pos/sales/" + id, {
-          method: "DELETE",
-          body: JSON.stringify({ reason: reason })
-        }).then(function() {
-          showToast("Sale voided.", "ok");
-          apiLoadSales(state.salesDate).then(function(){ rerenderHistoryTab(); });
-        }).catch(function(e){ showToast("Void failed: " + (e&&e.message), "err"); });
-      });
-    });
-
-    // Print buttons
-    el.querySelectorAll("[data-print-sale]").forEach(function(btn) {
-      btn.addEventListener("click", function() {
         try {
-          var sale = JSON.parse(btn.getAttribute("data-print-sale"));
-          sale.items = JSON.parse(sale.items_json || "[]");
-          printReceipt(sale);
-        } catch(e) { showToast("Print error: " + (e&&e.message), "err"); }
+          E.modal.show("Void Sale", "<div style='font-size:13px;'><p>Enter reason for voiding this sale:</p><input id='epos-void-reason' class='epos-input' style='width:100%;margin-top:6px;' placeholder='Reason...'></div>", [
+            { label: "Cancel", onClick: function(){ E.modal.hide(); } },
+            { label: "Void Sale", danger: true, onClick: function(){
+              var reason = (document.getElementById("epos-void-reason")||{}).value || "";
+              E.modal.hide();
+              apiFetch("/emergency-pos/sales/" + id, {
+                method: "DELETE",
+                body: JSON.stringify({ reason: reason })
+              }).then(function() {
+                showToast("Sale voided.", "ok");
+                apiLoadSales(state.salesDate).then(function(){ rerenderHistoryTab(); });
+              }).catch(function(e){ showToast("Void failed: " + (e&&e.message), "err"); });
+            }}
+          ]);
+        } catch(e) {
+          var reason = prompt("Reason for voiding this sale:");
+          if (reason === null) return;
+          apiFetch("/emergency-pos/sales/" + id, {
+            method: "DELETE",
+            body: JSON.stringify({ reason: reason })
+          }).then(function() {
+            showToast("Sale voided.", "ok");
+            apiLoadSales(state.salesDate).then(function(){ rerenderHistoryTab(); });
+          }).catch(function(e2){ showToast("Void failed: " + (e2&&e2.message), "err"); });
+        }
       });
     });
   }
@@ -1607,8 +1740,9 @@
     loadPending();
 
     // Shell
+    var mobileClass = isMobile() ? " epos-mobile" : "";
     _mount.innerHTML =
-      "<div class='epos-wrap' id='epos-wrap'>" +
+      "<div class='epos-wrap" + mobileClass + "' id='epos-wrap'>" +
         "<div class='epos-tabs'>" +
           "<button class='epos-tab-btn" + (state.tab==="pos"?" active":"") + "' data-tab='pos'>🧾 POS</button>" +
           "<button class='epos-tab-btn" + (state.tab==="catalog"?" active":"") + "' data-tab='catalog'>📦 Catalog</button>" +
