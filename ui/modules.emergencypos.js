@@ -221,6 +221,13 @@
     rerenderCart();
     // Auto-expand cart on mobile when item added
     if (isMobile()) toggleCart(true);
+    // Flash the cart toggle badge
+    var badge = document.getElementById("epos-cart-badge");
+    if (badge) {
+      badge.classList.remove("epos-anim-flash");
+      void badge.offsetWidth;
+      badge.classList.add("epos-anim-flash");
+    }
   }
 
   function removeFromCart(lineId) {
@@ -865,18 +872,18 @@
     overlay.id = "epos-photo-overlay";
     overlay.className = "epos-photo-overlay";
     overlay.innerHTML =
-      "<div style='display:flex;align-items:center;justify-content:space-between;width:min(520px,94vw);margin-bottom:10px;'>" +
-        "<span style='color:#fff;font-size:15px;font-weight:700;'>🔍 Photo Search</span>" +
-        "<button id='epos-photo-close' class='epos-btn'>✕ Close</button>" +
+      "<div style='display:flex;align-items:center;justify-content:space-between;width:min(520px,96vw);margin-bottom:12px;'>" +
+        "<span style='color:#fff;font-size:20px;font-weight:700;'>Photo Search</span>" +
+        "<button id='epos-photo-close' class='epos-overlay-btn epos-overlay-btn-cancel'>Close</button>" +
       "</div>" +
       "<video id='epos-photo-video' class='epos-photo-video' autoplay muted playsinline></video>" +
       "<canvas id='epos-photo-canvas' class='epos-photo-canvas'></canvas>" +
-      "<div style='display:flex;gap:10px;margin-top:8px;'>" +
-        "<button id='epos-photo-capture' class='epos-btn primary' style='font-size:14px;padding:8px 20px;'>📸 Capture</button>" +
-        "<button id='epos-photo-retake' class='epos-btn' style='display:none;font-size:14px;padding:8px 20px;'>🔄 Retake</button>" +
+      "<div style='display:flex;gap:12px;margin-top:12px;width:min(520px,96vw);'>" +
+        "<button id='epos-photo-capture' class='epos-overlay-btn epos-overlay-btn-primary' style='flex:1;'>Capture</button>" +
+        "<button id='epos-photo-retake' class='epos-overlay-btn' style='display:none;flex:1;'>Retake</button>" +
       "</div>" +
-      "<div id='epos-photo-status' style='color:rgba(255,255,255,.6);font-size:12px;min-height:18px;'></div>" +
-      "<div id='epos-photo-results' style='width:min(520px,94vw);max-height:260px;overflow-y:auto;'></div>";
+      "<div id='epos-photo-status' style='color:rgba(255,255,255,.6);font-size:14px;min-height:22px;margin-top:8px;'></div>" +
+      "<div id='epos-photo-results' style='width:min(520px,96vw);max-height:280px;overflow-y:auto;'></div>";
     document.body.appendChild(overlay);
 
     var videoEl   = document.getElementById("epos-photo-video");
@@ -979,13 +986,13 @@
       var barW = Math.round(r.score * 100);
       return "<div class='epos-match-row' data-name='" + esc(r.product.name) + "'>" +
         "<div style='flex:1;min-width:0;'>" +
-          "<div style='font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'>" + esc(r.product.name) + "</div>" +
+          "<div style='font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'>" + esc(r.product.name) + "</div>" +
           "<div class='epos-match-bar'><div class='epos-match-fill' style='width:" + barW + "%'></div></div>" +
-          "<div style='font-size:11px;color:rgba(255,255,255,.4);'>" + pct + "% match" + (r.product.barcode ? " · " + esc(r.product.barcode) : "") + "</div>" +
+          "<div style='font-size:12px;color:rgba(255,255,255,.4);'>" + pct + "% match" + (r.product.barcode ? " · " + esc(r.product.barcode) : "") + "</div>" +
         "</div>" +
-        "<div style='white-space:nowrap;margin-left:10px;text-align:right;'>" +
-          "<div style='font-size:13px;font-weight:700;color:#a5b4fc;'>€" + fmt2(r.product.price) + "</div>" +
-          "<button class='epos-btn primary epos-match-add' data-name='" + esc(r.product.name) + "' style='margin-top:4px;font-size:12px;padding:3px 10px;'>＋ Add</button>" +
+        "<div style='white-space:nowrap;margin-left:12px;text-align:right;'>" +
+          "<div style='font-size:15px;font-weight:700;color:#a5b4fc;'>€" + fmt2(r.product.price) + "</div>" +
+          "<button class='epos-btn primary epos-match-add' data-name='" + esc(r.product.name) + "' style='margin-top:6px;padding:10px 16px;font-size:14px;'>Add</button>" +
         "</div>" +
         "</div>";
     }).join("");
@@ -1200,7 +1207,7 @@
     if (!container) return;
     clearTimeout(state.toastTimer);
     var color = type === "ok" ? "#22c55e" : type === "err" ? "#ef4444" : "#f59e0b";
-    container.innerHTML = "<div style='background:" + color + ";color:#fff;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:600;max-width:340px;'>" + esc(msg) + "</div>";
+    container.innerHTML = "<div style='background:" + color + ";color:#fff;padding:12px 18px;border-radius:12px;font-size:15px;font-weight:600;max-width:400px;box-shadow:0 4px 20px rgba(0,0,0,.4);animation:epos-slide-up .25s ease-out;'>" + esc(msg) + "</div>";
     container.style.display = "flex";
     state.toastTimer = setTimeout(function(){ if(container){ container.style.display="none"; container.innerHTML=""; } }, 4000);
   }
@@ -1272,17 +1279,48 @@
       ".epos-product-card-name{font-size:12px;font-weight:600;margin-bottom:4px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}",
       ".epos-product-card-price{font-size:13px;color:#a5b4fc;font-weight:700;}",
       ".epos-product-card-barcode{font-size:10px;color:rgba(255,255,255,.35);margin-top:2px;}",
-      ".epos-scan-overlay{position:fixed;inset:0;background:rgba(0,0,0,.95);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;}",
-      ".epos-scan-video{width:min(480px,92vw);height:min(360px,60vh);border-radius:12px;background:#000;object-fit:cover;}",
-      ".epos-fmd-banner{background:rgba(99,102,241,.18);border:1px solid #6366f1;border-radius:8px;padding:8px 12px;font-size:12px;margin-top:6px;}",
-      /* Photo OCR overlay */
-      ".epos-photo-overlay{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:24px 12px;gap:8px;overflow-y:auto;}",
-      ".epos-photo-video{width:min(520px,94vw);height:min(320px,45vh);border-radius:12px;background:#111;object-fit:cover;}",
-      ".epos-photo-canvas{width:min(520px,94vw);height:min(320px,45vh);border-radius:12px;background:#111;object-fit:cover;display:none;}",
-      ".epos-match-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.07);cursor:pointer;}",
-      ".epos-match-row:hover{background:rgba(255,255,255,.04);}",
-      ".epos-match-bar{height:5px;background:rgba(255,255,255,.1);border-radius:99px;margin:3px 0;overflow:hidden;}",
-      ".epos-match-fill{height:100%;background:#6366f1;border-radius:99px;}",
+      /* ── Scan overlay ── */
+      ".epos-scan-overlay{position:fixed;inset:0;background:rgba(0,0,0,.96);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:16px;}",
+      ".epos-scan-video{width:min(560px,96vw);height:min(420px,65vh);border-radius:16px;background:#000;object-fit:cover;border:2px solid rgba(99,102,241,.3);}",
+      ".epos-fmd-banner{background:rgba(99,102,241,.18);border:1px solid #6366f1;border-radius:12px;padding:10px 14px;font-size:14px;margin-top:6px;}",
+      /* ── Photo OCR overlay ── */
+      ".epos-photo-overlay{position:fixed;inset:0;background:rgba(0,0,0,.96);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:20px 12px;gap:10px;overflow-y:auto;}",
+      ".epos-photo-video{width:min(560px,96vw);height:min(380px,50vh);border-radius:16px;background:#111;object-fit:cover;border:2px solid rgba(99,102,241,.3);}",
+      ".epos-photo-canvas{width:min(560px,96vw);height:min(380px,50vh);border-radius:16px;background:#111;object-fit:cover;display:none;border:2px solid rgba(34,197,94,.4);}",
+      ".epos-match-row{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.07);cursor:pointer;transition:background .15s;border-radius:8px;}",
+      ".epos-match-row:hover,.epos-match-row:active{background:rgba(255,255,255,.06);}",
+      ".epos-match-bar{height:5px;background:rgba(255,255,255,.1);border-radius:99px;margin:4px 0;overflow:hidden;}",
+      ".epos-match-fill{height:100%;background:linear-gradient(90deg,#6366f1,#818cf8);border-radius:99px;}",
+      /* ── Overlay buttons (camera screens) ── */
+      ".epos-overlay-btn{" +
+        "padding:18px 32px;font-size:18px;font-weight:700;border-radius:14px;cursor:pointer;" +
+        "color:#fff;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);" +
+        "transition:background .15s,transform .1s,box-shadow .15s;-webkit-tap-highlight-color:transparent;" +
+      "}",
+      ".epos-overlay-btn:active{transform:scale(.95);}",
+      ".epos-overlay-btn-primary{background:linear-gradient(135deg,#6366f1,#4f46e5);border-color:transparent;box-shadow:0 4px 16px rgba(99,102,241,.4);}",
+      ".epos-overlay-btn-primary:active{box-shadow:0 2px 8px rgba(99,102,241,.3);}",
+      ".epos-overlay-btn-cancel{background:rgba(239,68,68,.15);color:#f87171;border-color:rgba(239,68,68,.3);}",
+      ".epos-overlay-btn-cancel:active{background:rgba(239,68,68,.3);}",
+      /* ── Animations ── */
+      "@keyframes epos-fade-in{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}",
+      "@keyframes epos-slide-up{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}",
+      "@keyframes epos-pop{0%{transform:scale(.92);opacity:0;}60%{transform:scale(1.02);}100%{transform:scale(1);opacity:1;}}",
+      "@keyframes epos-flash-green{0%{background:rgba(34,197,94,.2);}100%{background:transparent;}}",
+      "@keyframes epos-badge-pulse{0%{transform:scale(1);}30%{transform:scale(1.25);}100%{transform:scale(1);}}",
+      ".epos-anim-flash{animation:epos-badge-pulse .35s ease-out;}",
+      /* Overlay open animation */
+      ".epos-scan-overlay,.epos-photo-overlay{animation:epos-fade-in .2s ease-out;}",
+      /* Product card tap effect */
+      ".epos-product-card{position:relative;overflow:hidden;}",
+      ".epos-product-card::after{content:'';position:absolute;inset:0;background:rgba(99,102,241,.15);opacity:0;transition:opacity .25s;}",
+      ".epos-product-card:active::after{opacity:1;transition:opacity 0s;}",
+      /* Cart line enter animation */
+      ".epos-cart-line{animation:epos-slide-up .2s ease-out;}",
+      /* Button press highlight */
+      ".epos-btn::after,.epos-pay-btn::after,.epos-complete-btn::after{content:'';position:absolute;inset:0;background:rgba(255,255,255,.08);opacity:0;transition:opacity .2s;pointer-events:none;}",
+      ".epos-btn:active::after,.epos-pay-btn:active::after,.epos-complete-btn:active::after{opacity:1;transition:opacity 0s;}",
+      ".epos-btn,.epos-pay-btn,.epos-complete-btn{position:relative;overflow:hidden;}",
       /* Catalog tab */
       ".epos-catalog{padding:12px;overflow-y:auto;width:100%;}",
       ".epos-import-bar{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;}",
@@ -1439,8 +1477,13 @@
       ".epos-mobile .epos-product-card-barcode{font-size:11px;margin-top:4px;}",
 
       /* ── Scan overlay ── */
-      ".epos-mobile .epos-scan-video{width:96vw;height:70vh;border-radius:10px;}",
-      ".epos-mobile .epos-scan-overlay{gap:10px;padding:12px;}",
+      ".epos-mobile .epos-scan-video{width:96vw;height:72vh;border-radius:14px;}",
+      ".epos-mobile .epos-scan-overlay{gap:14px;padding:14px;}",
+      /* ── Photo overlay ── */
+      ".epos-mobile .epos-photo-video,.epos-mobile .epos-photo-canvas{width:96vw;height:55vh;border-radius:14px;}",
+      ".epos-mobile .epos-match-row{padding:16px 14px;}",
+      /* ── Overlay buttons mobile ── */
+      ".epos-mobile .epos-overlay-btn{padding:20px 28px;font-size:19px;border-radius:14px;}",
 
       /* ── FMD banner ── */
       ".epos-mobile .epos-fmd-banner{font-size:14px;padding:12px 16px;border-radius:12px;}",
@@ -1468,10 +1511,6 @@
       ".epos-mobile .epos-history-bar .epos-input{font-size:16px;padding:14px 16px;}",
       ".epos-mobile .epos-history-table{font-size:13px;}",
       ".epos-mobile .epos-history-table th,.epos-mobile .epos-history-table td{padding:8px;}",
-
-      /* ── Photo overlay mobile ── */
-      ".epos-mobile .epos-photo-video,.epos-mobile .epos-photo-canvas{width:96vw;height:50vh;}",
-      ".epos-mobile .epos-match-row{padding:14px 12px;}"
     ].join("\n");
     document.head.appendChild(style);
   }
@@ -1581,10 +1620,10 @@
     overlay.id = "epos-scan-overlay";
     overlay.className = "epos-scan-overlay";
     overlay.innerHTML =
-      "<div style='color:#fff;font-size:16px;font-weight:700;'>Scanning…</div>" +
+      "<div style='color:#fff;font-size:20px;font-weight:700;letter-spacing:.3px;'>Scanning...</div>" +
       "<video id='epos-scan-video' class='epos-scan-video' autoplay muted playsinline></video>" +
-      "<button id='epos-scan-stop' class='epos-btn' style='font-size:16px;padding:14px 32px;border-radius:10px;background:rgba(239,68,68,.3);color:#f87171;font-weight:700;'>Cancel</button>" +
-      "<div style='color:rgba(255,255,255,.55);font-size:13px;'>Point camera at barcode or DataMatrix</div>";
+      "<button id='epos-scan-stop' class='epos-overlay-btn epos-overlay-btn-cancel'>Cancel Scan</button>" +
+      "<div style='color:rgba(255,255,255,.45);font-size:15px;'>Point camera at barcode or DataMatrix</div>";
     document.body.appendChild(overlay);
     document.getElementById("epos-scan-stop").addEventListener("click", stopScan);
   }
