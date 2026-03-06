@@ -1216,6 +1216,13 @@
   // ─── CSS ─────────────────────────────────────────────────────────────────────
   function injectCss() {
     if (document.getElementById("epos-style")) return;
+    // Ensure viewport meta prevents zoom on input focus
+    if (!document.querySelector('meta[name="viewport"]')) {
+      var meta = document.createElement("meta");
+      meta.name = "viewport";
+      meta.content = "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no";
+      document.head.appendChild(meta);
+    }
     var style = document.createElement("style");
     style.id = "epos-style";
     style.textContent = [
@@ -1313,8 +1320,8 @@
          ══════════════════════════════════════════════════════════════ */
 
       /* ── Tab bar ── */
-      ".epos-mobile .epos-tabs{padding:6px 8px;gap:6px;}",
-      ".epos-mobile .epos-tab-btn{padding:14px 8px;font-size:15px;flex:1;text-align:center;border-radius:10px;font-weight:700;}",
+      ".epos-mobile .epos-tabs{padding:8px 10px;gap:8px;}",
+      ".epos-mobile .epos-tab-btn{padding:16px 8px;font-size:17px;flex:1;text-align:center;border-radius:12px;font-weight:700;}",
 
       /* ── POS: products on top, cart as bottom sheet ── */
       ".epos-mobile .epos-pos{flex-direction:column-reverse;}",
@@ -1355,19 +1362,19 @@
 
       /* ── Cart lines — large touch targets ── */
       ".epos-mobile .epos-cart-line{" +
-        "padding:12px 0;gap:10px;font-size:15px;" +
+        "padding:14px 0;gap:12px;font-size:16px;" +
         "border-bottom:1px solid rgba(255,255,255,.06);" +
       "}",
-      ".epos-mobile .epos-cart-name{font-size:14px;font-weight:500;}",
+      ".epos-mobile .epos-cart-name{font-size:15px;font-weight:500;}",
       ".epos-mobile .epos-qty-btn{" +
-        "width:44px;height:44px;font-size:22px;border-radius:12px;" +
+        "width:48px;height:48px;font-size:24px;border-radius:14px;" +
         "background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.25);" +
       "}",
       ".epos-mobile .epos-qty-btn:active{background:rgba(99,102,241,.35);transform:scale(.93);}",
-      ".epos-mobile .epos-cart-qty{min-width:40px;font-size:16px;padding:6px 8px;border-radius:8px;}",
-      ".epos-mobile .epos-cart-price{width:75px;font-size:15px;font-weight:600;}",
-      ".epos-mobile .epos-cart-remove{width:44px;height:44px;font-size:24px;}",
-      ".epos-mobile .epos-cart-empty{padding:20px 16px;font-size:15px;}",
+      ".epos-mobile .epos-cart-qty{min-width:44px;font-size:18px;padding:8px 10px;border-radius:10px;}",
+      ".epos-mobile .epos-cart-price{width:80px;font-size:16px;font-weight:700;}",
+      ".epos-mobile .epos-cart-remove{width:48px;height:48px;font-size:26px;}",
+      ".epos-mobile .epos-cart-empty{padding:20px 16px;font-size:16px;}",
 
       /* ── Totals ── */
       ".epos-mobile .epos-totals{padding:10px 0;font-size:15px;}",
@@ -1378,7 +1385,7 @@
       ".epos-mobile .epos-payment{margin-top:10px;padding-top:12px;}",
       ".epos-mobile .epos-pay-methods{gap:8px;margin-bottom:12px;}",
       ".epos-mobile .epos-pay-btn{" +
-        "padding:14px 8px;font-size:16px;border-radius:12px;font-weight:700;" +
+        "padding:16px 8px;font-size:17px;border-radius:14px;font-weight:700;" +
         "background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);" +
       "}",
       ".epos-mobile .epos-pay-btn.active{" +
@@ -1396,7 +1403,7 @@
       /* ── Action buttons ── */
       ".epos-mobile .epos-cart-actions{display:flex;gap:10px;margin-top:12px;}",
       ".epos-mobile .epos-complete-btn{" +
-        "padding:18px;font-size:18px;border-radius:14px;font-weight:800;" +
+        "padding:20px;font-size:20px;border-radius:14px;font-weight:800;" +
         "background:linear-gradient(135deg,#22c55e,#16a34a);" +
         "box-shadow:0 4px 16px rgba(34,197,94,.3);" +
         "letter-spacing:.3px;" +
@@ -1406,17 +1413,17 @@
         "background:rgba(255,255,255,.06);box-shadow:none;color:rgba(255,255,255,.25);" +
       "}",
       ".epos-mobile .epos-btn.danger{" +
-        "padding:18px 12px;font-size:16px;border-radius:14px;font-weight:700;" +
+        "padding:20px 12px;font-size:17px;border-radius:14px;font-weight:700;" +
       "}",
 
       /* ── Search panel ── */
       ".epos-mobile .epos-search-panel{flex:1;padding:12px;padding-bottom:72px;}",
       ".epos-mobile .epos-search-bar{flex-wrap:wrap;gap:10px;}",
       ".epos-mobile .epos-search-bar .epos-btn{" +
-        "padding:16px 10px;font-size:16px;border-radius:14px;flex:1;min-width:0;font-weight:700;" +
+        "padding:18px 10px;font-size:18px;border-radius:14px;flex:1;min-width:0;font-weight:700;" +
       "}",
       ".epos-mobile .epos-search-bar .epos-input{" +
-        "font-size:17px;padding:14px 16px;border-radius:14px;width:100%;flex:1 1 100%;" +
+        "font-size:18px;padding:16px 18px;border-radius:14px;width:100%;flex:1 1 100%;" +
         "background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);" +
       "}",
 
@@ -1515,7 +1522,6 @@
   function buildTotalsHtml() {
     var t = cartTotals();
     return "<div class='epos-totals-row'><span>Subtotal</span><span>€" + fmt2(t.subtotal) + "</span></div>" +
-      "<div class='epos-totals-row'><span>VAT (incl.)</span><span>€" + fmt2(t.vatTotal) + "</span></div>" +
       (t.discountAmt > 0 ? "<div class='epos-totals-row' style='color:#f59e0b;'><span>Discount (" + t.discountPct + "%)</span><span>−€" + fmt2(t.discountAmt) + "</span></div>" : "") +
       "<div class='epos-totals-row total'><span>TOTAL</span><span>€" + fmt2(t.total) + "</span></div>";
   }
@@ -1650,7 +1656,7 @@
       "<div class='epos-search-panel'>" +
         "<div class='epos-search-bar'>" +
           "<button id='epos-scan-btn' class='epos-btn primary'>Scan</button>" +
-          "<button id='epos-photo-btn' class='epos-btn' title='Take a photo of the product to search by text'>Photo</button>" +
+          "<button id='epos-photo-btn' class='epos-btn' title='Take a photo of the product to search by text'>Photo Search</button>" +
           "<input id='epos-search-input' class='epos-input' placeholder='Search product or barcode…' style='flex:1' value='" + esc(state.catalogSearch) + "'>" +
         "</div>" +
         "<div id='epos-fmd-banner' class='epos-fmd-banner' style='display:none;margin-bottom:8px;'></div>" +
@@ -1658,7 +1664,7 @@
           products.slice(0, mobileLimit).map(function(p) {
             return "<div class='epos-product-card' data-pid='" + esc(p.id) + "' data-name='" + esc(p.name) + "'>" +
               "<div class='epos-product-card-name'>" + esc(p.name) + "</div>" +
-              "<div class='epos-product-card-price'>€" + fmt2(p.price) + (p.vat_rate ? " <span style='font-size:10px;color:rgba(255,255,255,.4);'>VAT " + p.vat_rate + "%</span>" : "") + "</div>" +
+              "<div class='epos-product-card-price'>€" + fmt2(p.price) + "</div>" +
               (p.barcode ? "<div class='epos-product-card-barcode'>" + esc(p.barcode) + "</div>" : "") +
               "</div>";
           }).join("") +
@@ -1713,7 +1719,7 @@
           grid.innerHTML = products.slice(0, ml).map(function(p) {
             return "<div class='epos-product-card' data-pid='" + esc(p.id) + "' data-name='" + esc(p.name) + "'>" +
               "<div class='epos-product-card-name'>" + esc(p.name) + "</div>" +
-              "<div class='epos-product-card-price'>€" + fmt2(p.price) + (p.vat_rate ? " <span style='font-size:10px;color:rgba(255,255,255,.4);'>VAT " + p.vat_rate + "%</span>" : "") + "</div>" +
+              "<div class='epos-product-card-price'>€" + fmt2(p.price) + "</div>" +
               (p.barcode ? "<div class='epos-product-card-barcode'>" + esc(p.barcode) + "</div>" : "") +
               "</div>";
           }).join("");
@@ -1827,14 +1833,14 @@
         "Import an Excel / CSV file with columns: <em>barcode</em>, <em>name</em>, <em>price</em>, optional: vat_rate, category, unit.<br>" +
         "Column headers are matched automatically (e.g. \"EAN\", \"Description\", \"Retail Price\")." +
       "</div>" +
-      (filtered.length ? "<table class='epos-catalog-table'><thead><tr><th>Barcode</th><th>Name</th><th>Price</th><th>VAT%</th><th>Category</th><th>Unit</th></tr></thead><tbody>" +
+      (filtered.length ? "<table class='epos-catalog-table'><thead><tr><th>Barcode</th><th>Name</th><th>Price</th><th>Category</th></tr></thead><tbody>" +
         filtered.slice(0,500).map(function(p) {
           var barcodeCell = p.barcode
             ? "<td style='font-family:monospace;font-size:12px;'>" + esc(p.barcode) + "</td>"
             : "<td style='color:rgba(255,255,255,.25);font-size:12px;'>—</td>";
-          return "<tr>" + barcodeCell + "<td>" + esc(p.name) + "</td><td>€" + fmt2(p.price) + "</td><td>" + (p.vat_rate||0) + "%</td><td>" + esc(p.category||"") + "</td><td>" + esc(p.unit||"") + "</td></tr>";
+          return "<tr>" + barcodeCell + "<td>" + esc(p.name) + "</td><td>€" + fmt2(p.price) + "</td><td>" + esc(p.category||"") + "</td></tr>";
         }).join("") +
-        (filtered.length > 500 ? "<tr><td colspan='6' style='color:rgba(255,255,255,.4);font-size:12px;'>Showing 500 of " + filtered.length + " — narrow search</td></tr>" : "") +
+        (filtered.length > 500 ? "<tr><td colspan='4' style='color:rgba(255,255,255,.4);font-size:12px;'>Showing 500 of " + filtered.length + " — narrow search</td></tr>" : "") +
         "</tbody></table>"
       : "<div style='color:rgba(255,255,255,.4);padding:24px;text-align:center;'>No products. Import an XLSX to begin.</div>") +
       "</div>";
@@ -1874,20 +1880,16 @@
     var el = document.getElementById("epos-tab-body");
     if (!el) return;
     var pending = state.pendingSales.length;
+    var isToday = state.salesDate === todayYmd();
     el.innerHTML = "<div class='epos-history'>" +
       "<div class='epos-history-bar'>" +
-        "<label style='font-size:13px;font-weight:600;'>Date</label>" +
         "<input id='epos-history-date' class='epos-input' type='date' value='" + esc(state.salesDate) + "'>" +
-        "<button id='epos-history-load-btn' class='epos-btn'>Load</button>" +
-        (state.sales.length ? "<button id='epos-print-day-btn' class='epos-btn primary'>Print Day's Receipts</button>" : "") +
+        (!isToday ? "<button id='epos-history-today-btn' class='epos-btn'>Today</button>" : "") +
+        (state.sales.length ? "<button id='epos-print-day-btn' class='epos-btn primary'>Print Receipts</button>" : "") +
         "<span style='margin-left:auto;'></span>" +
-        (pending ? "<span style='font-size:12px;color:#f59e0b;font-weight:700;'>⚠ " + pending + " pending sync</span>" : "") +
-        "<button id='epos-sync-now-btn' class='epos-btn primary" + (state.syncing?" disabled":"") + "'" + (state.syncing?" disabled":"") + ">" + (state.syncing ? "Syncing…" : "Sync Now") + "</button>" +
+        (pending ? "<span style='font-size:13px;color:#f59e0b;font-weight:700;'>" + pending + " pending</span>" : "") +
       "</div>" +
-      (pending ? "<div style='background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.3);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:#fbbf24;'>" +
-        pending + " sale(s) queued offline. Click <strong>Sync Now</strong> to upload when connected." +
-        "</div>" : "") +
-      (state.sales.length ? "<table class='epos-history-table'><thead><tr><th>Time</th><th>Receipt</th><th>Items</th><th>Total</th><th>Payment</th><th>Client</th><th></th></tr></thead><tbody>" +
+      (state.sales.length ? "<table class='epos-history-table'><thead><tr><th>Time</th><th>Receipt</th><th>Items</th><th>Total</th><th>Pay</th><th></th></tr></thead><tbody>" +
         state.sales.map(function(s) {
           var items;
           try { items = JSON.parse(s.items_json); } catch(e){ items = []; }
@@ -1895,11 +1897,10 @@
           var voided = s.voided === 1;
           return "<tr" + (voided?" class='epos-voided'":"") + ">" +
             "<td style='white-space:nowrap'>" + esc(fmtTime(s.created_at)) + "</td>" +
-            "<td style='font-family:monospace;font-size:11px;'>" + esc(s.receipt_no) + "</td>" +
+            "<td style='font-family:monospace;font-size:12px;'>" + esc(s.receipt_no) + "</td>" +
             "<td style='max-width:200px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;'>" + itemSummary + "</td>" +
             "<td>€" + fmt2(s.total) + "</td>" +
             "<td>" + esc(s.payment_method) + "</td>" +
-            "<td>" + esc(s.client_name||"") + "</td>" +
             "<td style='white-space:nowrap;'>" +
               (voided ? "<span style='color:#f87171;font-size:11px;'>Voided</span>" :
                 "<button class='epos-btn sm danger' data-void='" + s.id + "'>Void</button>") +
@@ -1910,20 +1911,15 @@
       "</div>";
 
     var dateEl = document.getElementById("epos-history-date");
-    var loadBtn = document.getElementById("epos-history-load-btn");
-    if (loadBtn) loadBtn.addEventListener("click", function() {
-      state.salesDate = dateEl ? dateEl.value : state.salesDate;
-      apiLoadSales(state.salesDate).then(function(){ rerenderHistoryTab(); });
-    });
     if (dateEl) dateEl.addEventListener("change", function() {
       state.salesDate = dateEl.value;
+      apiLoadSales(state.salesDate).then(function(){ rerenderHistoryTab(); });
     });
 
-    var syncBtn = document.getElementById("epos-sync-now-btn");
-    if (syncBtn) syncBtn.addEventListener("click", function() {
-      apiSyncPending().then(function() {
-        apiLoadSales(state.salesDate).then(function(){ rerenderHistoryTab(); });
-      });
+    var todayBtn = document.getElementById("epos-history-today-btn");
+    if (todayBtn) todayBtn.addEventListener("click", function() {
+      state.salesDate = todayYmd();
+      apiLoadSales(state.salesDate).then(function(){ rerenderHistoryTab(); });
     });
 
     // Print Day's Receipts button
@@ -1981,9 +1977,9 @@
     _mount.innerHTML =
       "<div class='epos-wrap" + mobileClass + "' id='epos-wrap'>" +
         "<div class='epos-tabs'>" +
-          "<button class='epos-tab-btn" + (state.tab==="pos"?" active":"") + "' data-tab='pos'>🧾 POS</button>" +
-          "<button class='epos-tab-btn" + (state.tab==="catalog"?" active":"") + "' data-tab='catalog'>📦 Catalog</button>" +
-          "<button class='epos-tab-btn" + (state.tab==="history"?" active":"") + "' data-tab='history'>📋 History</button>" +
+          "<button class='epos-tab-btn" + (state.tab==="pos"?" active":"") + "' data-tab='pos'>POS</button>" +
+          "<button class='epos-tab-btn" + (state.tab==="catalog"?" active":"") + "' data-tab='catalog'>Catalog</button>" +
+          "<button class='epos-tab-btn" + (state.tab==="history"?" active":"") + "' data-tab='history'>Receipts</button>" +
           "<div class='epos-sync-wrap'>" +
             "<span id='epos-sync-badge' class='epos-badge'></span>" +
           "</div>" +
