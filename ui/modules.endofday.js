@@ -1025,9 +1025,46 @@
 
   async function writeAudit(locationName, dateStr, entry) {
     writeAuditLocal(entry);
+
+    if (_apiMode.ok) {
+      try {
+        var body = JSON.stringify({ audit: entry });
+        await apiTryFetch(
+          ["/endofday/audit", "/eod/audit"],
+          { method: "POST", headers: { "Content-Type": "application/json" }, body: body }
+        );
+      } catch (e) {
+        // Audit cloud sync is best-effort; local copy is the safety net.
+        // Do NOT set _apiMode.ok = false — record endpoints may still work.
+      }
+    }
   }
 
   async function auditFor(locationName, dateStr) {
+    if (_apiMode.ok) {
+      try {
+        var loc = encodeURIComponent(locationName);
+        var d = encodeURIComponent(dateStr);
+        var r = await apiTryFetch(
+          [
+            "/endofday/audit?location_name=" + loc + "&date=" + d,
+            "/eod/audit?location_name=" + loc + "&date=" + d
+          ],
+          { method: "GET" }
+        );
+        if (r && r.data && Array.isArray(r.data.audit)) {
+          return r.data.audit.sort(function (x, y) {
+            var xt = (x && x.ts) || "";
+            var yt = (y && y.ts) || "";
+            if (xt < yt) return 1;
+            if (xt > yt) return -1;
+            return 0;
+          });
+        }
+      } catch (e) {
+        // Fall through to local
+      }
+    }
     return auditForLocal(dateStr, locationName);
   }
 
@@ -1531,7 +1568,7 @@
     var html =
       "<!DOCTYPE html><html><head><meta charset='utf-8'><title>EOD (A4)</title>" +
       "<style>" +
-      "@media print{ @page{ size:A4; margin:0; } .printbar{display:none !important;} html,body{height:auto;overflow:visible !important;} .page{height:auto !important;min-height:297mm;} .sheet{margin:15mm auto !important;} .gap{height:6mm !important;} *{page-break-after:avoid !important;page-break-before:avoid !important;page-break-inside:avoid !important;} }" +
+      "@media print{ @page{ size:A4; margin:0; } .printbar{display:none !important;} html,body{height:auto;overflow:visible !important;margin:0;padding:0;} .page{height:auto !important;min-height:0;width:210mm;box-sizing:border-box;} .sheet{margin:15mm auto !important;} .gap{height:6mm !important;} *{page-break-after:avoid !important;page-break-before:avoid !important;page-break-inside:avoid !important;} }" +
       "html,body{margin:0;padding:0} body{font-family:Arial, sans-serif} .page{width:210mm;height:297mm;position:relative}" +
       ".sheet{width:170mm;margin:25mm auto} table{width:100%;border-collapse:collapse}" +
       "td{border:1px solid #000;padding:6px;font-size:12pt} .hdr td{font-weight:bold}" +
@@ -2838,7 +2875,7 @@ async function doPrintRangeReport(from, to) {
     var inBag = el("input", { class: "eikon-input", type: "text", value: state.bag_number || "", disabled: isLocked(), "data-focus-key": "bag_number" });
     inBag.oninput = function () { state.bag_number = inBag.value; _state.bag_number = state.bag_number; };
 
-    var btnCopyDeposit = el("button", { class: "eikon-btn primary", text: "Copy Deposit to Email (Outlook)", disabled: isLocked() });
+    var btnCopyDeposit = el("button", { class: "eikon-btn primary", text: "Copy Deposit to Email (Outlook)" });
     btnCopyDeposit.onclick = async function () {
       var c = contacts.filter(function (x) { return String(x.id) === String(state.contact_id); })[0] || null;
       await copyDepositToClipboard(state, c);
