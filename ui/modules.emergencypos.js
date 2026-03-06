@@ -2537,7 +2537,7 @@
     id: "emergency-pos",
     title: "Emergency POS",
     icon: "💊",
-    order: 35,
+    order: 109,
     render: render
   });
 
