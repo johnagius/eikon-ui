@@ -459,8 +459,14 @@
     var offlineId = uid();
     var receiptNo = "R-" + new Date().toISOString().replace(/[^0-9]/g,"").slice(0,14);
     var items = state.cart.map(function(l) {
+      // Use scanned barcode if available, otherwise fall back to DB barcode
+      var effectiveBarcode = l.scannedBarcode || l.product.barcode;
+      // If FMD was scanned, also extract GTIN as the barcode
+      if (l.fmdInfo && l.fmdInfo.gtin && !l.scannedBarcode) {
+        effectiveBarcode = l.fmdInfo.gtin;
+      }
       return {
-        barcode: l.product.barcode,
+        barcode: effectiveBarcode,
         name: l.product.name,
         qty: l.qty,
         price: l.product.price,
@@ -784,22 +790,44 @@
     document.head.appendChild(s);
   }
 
-  function startScan() {
+  function startScan(cartLineId) {
     if (state.scanning) return;
     state.scanning = true;
+    state._scanForCartLine = cartLineId || null;
     renderScanOverlay();
     loadZxing(function() {
       try {
-        var reader = new window.ZXing.BrowserMultiFormatReader();
+        // Configure hints for reliable DataMatrix / 2D code detection
+        var hints = new Map();
+        var formats = [
+          window.ZXing.BarcodeFormat.DATA_MATRIX,
+          window.ZXing.BarcodeFormat.QR_CODE,
+          window.ZXing.BarcodeFormat.EAN_13,
+          window.ZXing.BarcodeFormat.EAN_8,
+          window.ZXing.BarcodeFormat.CODE_128,
+          window.ZXing.BarcodeFormat.CODE_39,
+          window.ZXing.BarcodeFormat.UPC_A,
+          window.ZXing.BarcodeFormat.UPC_E,
+          window.ZXing.BarcodeFormat.ITF
+        ];
+        hints.set(window.ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
+        hints.set(window.ZXing.DecodeHintType.TRY_HARDER, true);
+        var reader = new window.ZXing.BrowserMultiFormatReader(hints);
         state.zxingReader = reader;
         var videoEl = document.getElementById("epos-scan-video");
         if (!videoEl) { stopScan(); return; }
         reader.decodeFromVideoDevice(null, "epos-scan-video", function(result, scanErr) {
           if (result) {
             var text = result.getText();
-            log("Scanned:", text);
+            var format = result.getBarcodeFormat();
+            log("Scanned:", text, "format:", format);
             stopScan();
-            onBarcodeScanned(text);
+            if (state._scanForCartLine) {
+              onCartBarcodeScan(state._scanForCartLine, text);
+              state._scanForCartLine = null;
+            } else {
+              onBarcodeScanned(text);
+            }
           }
         });
       } catch(e) {
@@ -1034,6 +1062,28 @@
       // Still add FMD info to toast area for manual lookup
       if (gs1 && gs1.gtin) renderFmdResult(gs1);
     }
+  }
+
+  function onCartBarcodeScan(lineId, raw) {
+    var gs1 = parseGs1(raw);
+    var line = null;
+    for (var i = 0; i < state.cart.length; i++) {
+      if (state.cart[i].id === lineId) { line = state.cart[i]; break; }
+    }
+    if (!line) { showToast("Cart item no longer exists.", "warn"); return; }
+
+    // Store the scanned barcode — this overrides the DB barcode for this line
+    line.scannedBarcode = raw;
+    if (gs1) {
+      line.fmdInfo = gs1;
+      var msg = line.product.name + " — barcode set";
+      if (gs1.batch) msg += " | Batch: " + gs1.batch;
+      if (gs1.expiry) msg += " | Exp: " + gs1.expiry;
+      showToast(msg, "ok");
+    } else {
+      showToast(line.product.name + " — barcode set: " + raw, "ok");
+    }
+    rerenderCart();
   }
 
   function findProduct(barcode) {
@@ -1377,6 +1427,9 @@
       ".epos-cart-line{display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:13px;}",
       ".epos-cart-name{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}",
       ".epos-cart-fmd{font-size:10px;color:#a5b4fc;margin-top:2px;}",
+      ".epos-cart-barcode{font-size:10px;color:rgba(255,255,255,.4);margin-top:1px;font-family:monospace;}",
+      ".epos-cart-scan-btn{font-size:10px;padding:2px 8px;margin-top:3px;border-radius:4px;border:1px solid rgba(99,102,241,.4);background:rgba(99,102,241,.12);color:#a5b4fc;cursor:pointer;transition:background .15s;}",
+      ".epos-cart-scan-btn:hover,.epos-cart-scan-btn:active{background:rgba(99,102,241,.3);}",
       ".epos-qty-btn{width:28px;height:28px;border-radius:6px;border:none;background:rgba(255,255,255,.12);color:#fff;cursor:pointer;font-size:16px;line-height:1;padding:0;display:flex;align-items:center;justify-content:center;}",
       ".epos-qty-btn:hover{background:rgba(255,255,255,.22);}",
       ".epos-cart-qty{min-width:28px;text-align:center;font-weight:700;padding:2px 4px;border-radius:4px;border:1px dashed rgba(255,255,255,.2);}",
@@ -1530,6 +1583,7 @@
         "border-bottom:1px solid rgba(255,255,255,.06);" +
       "}",
       ".epos-mobile .epos-cart-name{font-size:15px;font-weight:500;}",
+      ".epos-mobile .epos-cart-scan-btn{font-size:12px;padding:4px 12px;margin-top:4px;}",
       ".epos-mobile .epos-qty-btn{" +
         "width:48px;height:48px;font-size:24px;border-radius:14px;" +
         "background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.25);" +
@@ -1668,13 +1722,26 @@
       if (line.fmdInfo) {
         var f = line.fmdInfo;
         var parts = [];
+        if (f.gtin)   parts.push("GTIN: " + esc(f.gtin));
         if (f.batch)  parts.push("Batch: " + esc(f.batch));
         if (f.expiry) parts.push("Exp: " + esc(f.expiry));
         if (f.serial) parts.push("SN: " + esc(f.serial));
         if (parts.length) fmdHtml = "<div class='epos-cart-fmd'>" + parts.join(" &bull; ") + "</div>";
       }
+      // Show scanned barcode if different from DB barcode
+      var barcodeHtml = "";
+      var effectiveBarcode = line.scannedBarcode || (line.fmdInfo && line.fmdInfo.gtin) || line.product.barcode;
+      if (effectiveBarcode) {
+        barcodeHtml = "<div class='epos-cart-barcode'>" + esc(effectiveBarcode) + "</div>";
+      }
+      // Scan barcode button
+      var scanBtnLabel = (line.scannedBarcode || line.fmdInfo) ? "Re-scan" : "Scan";
       return "<div class='epos-cart-line' data-id='" + esc(line.id) + "'>" +
-        "<div style='flex:1;min-width:0'><div class='epos-cart-name'>" + esc(line.product.name) + "</div>" + fmdHtml + "</div>" +
+        "<div style='flex:1;min-width:0'>" +
+          "<div class='epos-cart-name'>" + esc(line.product.name) + "</div>" +
+          barcodeHtml + fmdHtml +
+          "<button class='epos-cart-scan-btn' data-action='scanbarcode' data-id='" + esc(line.id) + "'>" + scanBtnLabel + " Barcode</button>" +
+        "</div>" +
         "<button class='epos-qty-btn' data-action='dec' data-id='" + esc(line.id) + "'>−</button>" +
         "<span class='epos-cart-qty' data-action='frac' data-id='" + esc(line.id) + "' style='cursor:pointer;' title='Tap to enter fraction'>" + fmtQty(line.qty) + "</span>" +
         "<button class='epos-qty-btn' data-action='inc' data-id='" + esc(line.id) + "'>+</button>" +
@@ -1702,6 +1769,7 @@
         else if (action === "dec") changeQty(id, -1);
         else if (action === "remove") removeFromCart(id);
         else if (action === "frac") showFractionModal(id);
+        else if (action === "scanbarcode") startScan(id);
       });
     });
   }
@@ -1745,11 +1813,13 @@
     var overlay = document.createElement("div");
     overlay.id = "epos-scan-overlay";
     overlay.className = "epos-scan-overlay";
+    var title = state._scanForCartLine ? "Scan barcode for item" : "Scanning...";
+    var hint = "Point camera at barcode or DataMatrix (FMD)";
     overlay.innerHTML =
-      "<div style='color:#fff;font-size:20px;font-weight:700;letter-spacing:.3px;'>Scanning...</div>" +
+      "<div style='color:#fff;font-size:20px;font-weight:700;letter-spacing:.3px;'>" + esc(title) + "</div>" +
       "<video id='epos-scan-video' class='epos-scan-video' autoplay muted playsinline></video>" +
       "<button id='epos-scan-stop' class='epos-overlay-btn epos-overlay-btn-cancel'>Cancel Scan</button>" +
-      "<div style='color:rgba(255,255,255,.45);font-size:15px;'>Point camera at barcode or DataMatrix</div>";
+      "<div style='color:rgba(255,255,255,.45);font-size:15px;'>" + esc(hint) + "</div>";
     document.body.appendChild(overlay);
     document.getElementById("epos-scan-stop").addEventListener("click", stopScan);
   }
