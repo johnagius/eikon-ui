@@ -778,7 +778,10 @@
     setProgress("Upload complete: " + done + " / " + total, 100);
   }
 
-  // ─── Camera / ZXing ──────────────────────────────────────────────────────────
+  // ─── Camera barcode scanning ─────────────────────────────────────────────────
+  // Primary: native BarcodeDetector API (Chrome/Android, Safari 16.4+)
+  //   — reliably reads DataMatrix (FMD), QR, EAN-13, Code 128 etc.
+  // Fallback: ZXing-js for browsers without BarcodeDetector
   var ZXING_CDN = "https://cdn.jsdelivr.net/npm/@zxing/library@0.19.2/umd/index.min.js";
 
   function loadZxing(cb) {
@@ -790,44 +793,105 @@
     document.head.appendChild(s);
   }
 
-  function startScan(cartLineId) {
-    if (state.scanning) return;
-    state.scanning = true;
-    state._scanForCartLine = cartLineId || null;
-    renderScanOverlay();
+  function hasBarcodeDetector() {
+    return typeof window.BarcodeDetector !== "undefined";
+  }
+
+  function handleScanResult(text, cartLineId) {
+    log("Scanned:", text);
+    if (cartLineId) {
+      onCartBarcodeScan(cartLineId, text);
+    } else {
+      onBarcodeScanned(text);
+    }
+  }
+
+  // ─── Native BarcodeDetector scanner (preferred) ────────────────────────────
+  function startNativeScan(cartLineId) {
+    var videoEl = document.getElementById("epos-scan-video");
+    if (!videoEl) { stopScan(); return; }
+
+    var detector;
+    try {
+      detector = new BarcodeDetector({
+        formats: ["data_matrix", "qr_code", "ean_13", "ean_8", "code_128", "code_39", "upc_a", "upc_e", "itf"]
+      });
+    } catch(e) {
+      // Some formats may not be supported — try with fewer
+      try {
+        detector = new BarcodeDetector({
+          formats: ["data_matrix", "qr_code", "ean_13", "code_128"]
+        });
+      } catch(e2) {
+        err("BarcodeDetector init failed", e2);
+        // Fall back to ZXing
+        startZxingScan(cartLineId);
+        return;
+      }
+    }
+
+    var canvas = document.createElement("canvas");
+    var ctx = canvas.getContext("2d");
+    var stopped = false;
+
+    state._nativeScanCleanup = function() { stopped = true; };
+
+    // Start camera
+    navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: false
+    }).then(function(stream) {
+      state._scanStream = stream;
+      videoEl.srcObject = stream;
+      videoEl.play();
+
+      function scanFrame() {
+        if (stopped || !state.scanning) return;
+        if (videoEl.readyState < 2) {
+          requestAnimationFrame(scanFrame);
+          return;
+        }
+        canvas.width = videoEl.videoWidth;
+        canvas.height = videoEl.videoHeight;
+        ctx.drawImage(videoEl, 0, 0);
+
+        detector.detect(canvas).then(function(barcodes) {
+          if (stopped || !state.scanning) return;
+          if (barcodes.length > 0) {
+            var text = barcodes[0].rawValue;
+            log("Native BarcodeDetector:", text, "format:", barcodes[0].format);
+            stopScan();
+            handleScanResult(text, cartLineId);
+          } else {
+            requestAnimationFrame(scanFrame);
+          }
+        }).catch(function(e) {
+          if (stopped || !state.scanning) return;
+          requestAnimationFrame(scanFrame);
+        });
+      }
+      // Small delay for camera to stabilize
+      setTimeout(scanFrame, 300);
+    }).catch(function(e) {
+      err("Camera access failed", e);
+      showToast("Camera access denied: " + (e && e.message), "err");
+      stopScan();
+    });
+  }
+
+  // ─── ZXing fallback scanner ────────────────────────────────────────────────
+  function startZxingScan(cartLineId) {
     loadZxing(function() {
       try {
-        // Configure hints for reliable DataMatrix / 2D code detection
-        var hints = new Map();
-        var formats = [
-          window.ZXing.BarcodeFormat.DATA_MATRIX,
-          window.ZXing.BarcodeFormat.QR_CODE,
-          window.ZXing.BarcodeFormat.EAN_13,
-          window.ZXing.BarcodeFormat.EAN_8,
-          window.ZXing.BarcodeFormat.CODE_128,
-          window.ZXing.BarcodeFormat.CODE_39,
-          window.ZXing.BarcodeFormat.UPC_A,
-          window.ZXing.BarcodeFormat.UPC_E,
-          window.ZXing.BarcodeFormat.ITF
-        ];
-        hints.set(window.ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
-        hints.set(window.ZXing.DecodeHintType.TRY_HARDER, true);
-        var reader = new window.ZXing.BrowserMultiFormatReader(hints);
+        var reader = new window.ZXing.BrowserMultiFormatReader();
         state.zxingReader = reader;
         var videoEl = document.getElementById("epos-scan-video");
         if (!videoEl) { stopScan(); return; }
         reader.decodeFromVideoDevice(null, "epos-scan-video", function(result, scanErr) {
           if (result) {
             var text = result.getText();
-            var format = result.getBarcodeFormat();
-            log("Scanned:", text, "format:", format);
             stopScan();
-            if (state._scanForCartLine) {
-              onCartBarcodeScan(state._scanForCartLine, text);
-              state._scanForCartLine = null;
-            } else {
-              onBarcodeScanned(text);
-            }
+            handleScanResult(text, cartLineId);
           }
         });
       } catch(e) {
@@ -838,8 +902,28 @@
     });
   }
 
+  function startScan(cartLineId) {
+    if (state.scanning) return;
+    state.scanning = true;
+    state._scanForCartLine = cartLineId || null;
+    renderScanOverlay();
+
+    if (hasBarcodeDetector()) {
+      log("Using native BarcodeDetector (DataMatrix supported)");
+      startNativeScan(cartLineId);
+    } else {
+      log("BarcodeDetector not available, falling back to ZXing");
+      startZxingScan(cartLineId);
+    }
+  }
+
   function stopScan() {
     try {
+      if (state._nativeScanCleanup) { state._nativeScanCleanup(); state._nativeScanCleanup = null; }
+      if (state._scanStream) {
+        state._scanStream.getTracks().forEach(function(t) { t.stop(); });
+        state._scanStream = null;
+      }
       if (state.zxingReader) {
         state.zxingReader.reset();
         state.zxingReader = null;
