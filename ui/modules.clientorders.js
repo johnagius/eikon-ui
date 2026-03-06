@@ -664,6 +664,151 @@
   }
 
   // ------------------------------------------------------------
+  // Order Diary integration helpers
+  // ------------------------------------------------------------
+
+  /** Split multi-line items text into trimmed, non-empty lines */
+  function splitItemLines(itemsText) {
+    return String(itemsText || "").split(/\r?\n/).map(function (l) { return l.trim(); }).filter(Boolean);
+  }
+
+  /**
+   * After creating a new client order, ask the user whether to add
+   * the items to the Order Diary. Each line in the items field becomes
+   * a separate diary entry. Supplier is optional (empty = unassigned).
+   */
+  function promptAddToOrderDiary(payloadUi) {
+    var lines = splitItemLines(payloadUi.items);
+    if (!lines.length) return;
+
+    var orderDate = payloadUi.order_date || todayYmd();
+    var itemsPreview = lines.map(function (l) { return "• " + esc(l); }).join("<br>");
+
+    var body =
+      "<div style='margin-bottom:10px;'>The following item(s) were added to Client Orders:</div>" +
+      "<div style='margin-bottom:12px;font-weight:700;'>" + itemsPreview + "</div>" +
+      "<div style='margin-bottom:6px;'>Would you like to add them to the <b>Order Diary</b> for <b>" + esc(fmtDmyFromYmd(orderDate)) + "</b>?</div>" +
+      "<div class='eikon-field' style='margin-top:10px;'>" +
+      "  <div class='eikon-label'>Supplier (optional — leave empty for unassigned)</div>" +
+      "  <input id='co-od-supplier' type='text' placeholder='e.g. PharmaCo'>" +
+      "</div>";
+
+    E.modal.show("Add to Order Diary?", body, [
+      { label: "No", onClick: function () { E.modal.hide(); } },
+      {
+        label: "Yes, add",
+        primary: true,
+        onClick: function () {
+          (async function () {
+            try {
+              var supplier = "";
+              try { supplier = (E.q("#co-od-supplier").value || "").trim(); } catch (e) {}
+
+              for (var i = 0; i < lines.length; i++) {
+                await E.apiFetch("/order-diary/entries", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    order_date: orderDate,
+                    item_name: lines[i],
+                    qty: 1,
+                    supplier: supplier,
+                    notes: "",
+                  }),
+                });
+              }
+
+              E.modal.hide();
+              E.toast && E.toast(lines.length + " item(s) added to Order Diary");
+            } catch (e) {
+              modalError("Order Diary add failed", e);
+            }
+          })();
+        },
+      },
+    ]);
+  }
+
+  /**
+   * When deleting a client order, fetch the Order Diary for the same date,
+   * find entries whose item_name matches any line from the client order items,
+   * and offer to remove them.
+   */
+  async function promptRemoveFromOrderDiary(entry, afterDone) {
+    var lines = splitItemLines(entry.items);
+    if (!lines.length) { if (afterDone) afterDone(); return; }
+
+    var orderDate = entry.order_date || "";
+    if (!orderDate) { if (afterDone) afterDone(); return; }
+
+    // Fetch diary entries for the same date
+    var diaryEntries = [];
+    try {
+      var resp = await E.apiFetch("/order-diary/entries?date=" + encodeURIComponent(orderDate), { method: "GET" });
+      diaryEntries = (resp && resp.entries) ? resp.entries : [];
+    } catch (e) {
+      dbg("[clientorders] could not fetch order diary for date " + orderDate, e);
+      if (afterDone) afterDone();
+      return;
+    }
+
+    // Match: diary entry item_name matches (case-insensitive trim) any line from the client order
+    var linesLower = lines.map(function (l) { return l.toLowerCase(); });
+    var matched = [];
+    var usedLines = {};
+    for (var i = 0; i < diaryEntries.length; i++) {
+      var de = diaryEntries[i];
+      var deName = String(de.item_name || "").trim().toLowerCase();
+      for (var j = 0; j < linesLower.length; j++) {
+        // Only match each client-order line once to avoid removing duplicates unintentionally
+        var matchKey = j + ":" + de.id;
+        if (deName === linesLower[j] && !usedLines[j]) {
+          matched.push(de);
+          usedLines[j] = true;
+          break;
+        }
+      }
+    }
+
+    if (!matched.length) {
+      if (afterDone) afterDone();
+      return;
+    }
+
+    var preview = matched.map(function (m) {
+      return "• " + esc(m.item_name) + (m.supplier ? " (" + esc(m.supplier) + ")" : " (unassigned)");
+    }).join("<br>");
+
+    var body =
+      "<div style='margin-bottom:10px;'>The following matching item(s) were found in the <b>Order Diary</b> for <b>" + esc(fmtDmyFromYmd(orderDate)) + "</b>:</div>" +
+      "<div style='margin-bottom:12px;font-weight:700;'>" + preview + "</div>" +
+      "<div>Would you like to remove them from the Order Diary as well?</div>";
+
+    E.modal.show("Remove from Order Diary?", body, [
+      { label: "No, keep them", onClick: function () { E.modal.hide(); if (afterDone) afterDone(); } },
+      {
+        label: "Yes, remove",
+        primary: true,
+        onClick: function () {
+          (async function () {
+            try {
+              for (var k = 0; k < matched.length; k++) {
+                await E.apiFetch("/order-diary/entries/" + encodeURIComponent(String(matched[k].id)), { method: "DELETE" });
+              }
+              E.modal.hide();
+              E.toast && E.toast(matched.length + " item(s) removed from Order Diary");
+              if (afterDone) afterDone();
+            } catch (e) {
+              modalError("Order Diary removal failed", e);
+              if (afterDone) afterDone();
+            }
+          })();
+        },
+      },
+    ]);
+  }
+
+  // ------------------------------------------------------------
   // Modal: New / Edit
   // ------------------------------------------------------------
   function openOrderModal(opts) {
@@ -771,10 +916,17 @@
               var apiPayload = toApiPayload(payloadUi);
               dbg("[clientorders] modal save API payload", apiPayload);
 
-              if (isEdit) await apiUpdate(row.id, apiPayload);
-              else await apiCreate(apiPayload);
-
-              E.modal.hide();
+              if (isEdit) {
+                await apiUpdate(row.id, apiPayload);
+                E.modal.hide();
+              } else {
+                await apiCreate(apiPayload);
+                E.modal.hide();
+                if (state && typeof state.refresh === "function") state.refresh();
+                // Prompt user to optionally add items to the Order Diary
+                promptAddToOrderDiary(payloadUi);
+                return; // refresh already called above; skip the one below
+              }
               if (state && typeof state.refresh === "function") state.refresh();
             } catch (e) {
               modalError("Save failed", e);
@@ -817,6 +969,8 @@
               await apiDelete(entry.id);
               E.modal.hide();
               if (state && typeof state.refresh === "function") state.refresh();
+              // Offer to remove matching items from Order Diary
+              promptRemoveFromOrderDiary(entry);
             } catch (e) {
               modalError("Delete failed", e);
             }
