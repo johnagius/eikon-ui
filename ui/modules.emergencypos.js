@@ -1284,8 +1284,8 @@
       /* ── Mobile-first bottom sheet cart ── */
       ".epos-cart-toggle{display:none;}",  /* hidden on desktop */
       /* ── Mobile overrides: JS adds .epos-mobile on touch devices ── */
-      ".epos-mobile .epos-tabs{padding:6px 8px;gap:2px;}",
-      ".epos-mobile .epos-tab-btn{padding:10px 14px;font-size:15px;}",
+      ".epos-mobile .epos-tabs{padding:6px 8px;gap:4px;}",
+      ".epos-mobile .epos-tab-btn{padding:12px 16px;font-size:16px;flex:1;text-align:center;}",
       /* POS layout: stack vertically */
       ".epos-mobile .epos-pos{flex-direction:column-reverse;}",
       /* Cart panel becomes a bottom sheet */
@@ -1301,7 +1301,7 @@
       /* Search panel fills remaining space */
       ".epos-mobile .epos-search-panel{flex:1;padding:10px;padding-bottom:66px;}",
       ".epos-mobile .epos-search-bar{flex-wrap:wrap;gap:8px;}",
-      ".epos-mobile .epos-search-bar .epos-btn{padding:14px 18px;font-size:16px;border-radius:10px;flex:1;min-width:0;}",
+      ".epos-mobile .epos-search-bar .epos-btn{padding:16px 20px;font-size:17px;border-radius:12px;flex:1;min-width:0;font-weight:700;}",
       ".epos-mobile .epos-search-bar .epos-input{font-size:16px;padding:12px 14px;border-radius:10px;width:100%;flex:1 1 100%;}",
       /* Bigger product cards */
       ".epos-mobile .epos-product-grid{grid-template-columns:repeat(auto-fill,minmax(44%,1fr));gap:10px;}",
@@ -1313,11 +1313,11 @@
       ".epos-mobile .epos-scan-video{width:96vw;height:70vh;border-radius:10px;}",
       ".epos-mobile .epos-scan-overlay{gap:10px;padding:12px;}",
       /* Payment area on mobile */
-      ".epos-mobile .epos-pay-btn{padding:12px 8px;font-size:15px;border-radius:10px;}",
-      ".epos-mobile .epos-complete-btn{padding:16px;font-size:17px;border-radius:12px;margin-top:6px;}",
-      ".epos-mobile .epos-tendered-row{font-size:15px;}",
-      ".epos-mobile .epos-tendered-row .epos-input{font-size:16px;padding:10px 12px;}",
-      ".epos-mobile .epos-client-row .epos-input{font-size:15px;padding:10px 12px;border-radius:8px;}",
+      ".epos-mobile .epos-pay-btn{padding:14px 10px;font-size:16px;border-radius:10px;font-weight:700;}",
+      ".epos-mobile .epos-complete-btn{padding:18px;font-size:18px;border-radius:12px;margin-top:8px;}",
+      ".epos-mobile .epos-tendered-row{font-size:16px;}",
+      ".epos-mobile .epos-tendered-row .epos-input{font-size:16px;padding:12px 14px;}",
+      ".epos-mobile .epos-client-row .epos-input{font-size:16px;padding:12px 14px;border-radius:10px;}",
       ".epos-mobile .epos-client-row{gap:8px;margin-bottom:10px;}",
       /* Cart lines bigger touch targets */
       ".epos-mobile .epos-cart-line{padding:10px 0;gap:10px;font-size:15px;}",
@@ -1328,15 +1328,15 @@
       /* Catalog tab mobile */
       ".epos-mobile .epos-catalog{padding:10px;}",
       ".epos-mobile .epos-import-bar{gap:8px;}",
-      ".epos-mobile .epos-import-bar .epos-btn{padding:12px 16px;font-size:15px;border-radius:10px;}",
-      ".epos-mobile .epos-import-bar .epos-input{font-size:15px;padding:10px 12px;}",
+      ".epos-mobile .epos-import-bar .epos-btn{padding:14px 18px;font-size:16px;border-radius:10px;}",
+      ".epos-mobile .epos-import-bar .epos-input{font-size:16px;padding:12px 14px;}",
       ".epos-mobile .epos-catalog-table{font-size:13px;}",
       ".epos-mobile .epos-catalog-table th,.epos-mobile .epos-catalog-table td{padding:6px 8px;}",
       /* History tab mobile */
       ".epos-mobile .epos-history{padding:10px;}",
       ".epos-mobile .epos-history-bar{gap:8px;flex-wrap:wrap;}",
-      ".epos-mobile .epos-history-bar .epos-btn{padding:12px 16px;font-size:15px;border-radius:10px;}",
-      ".epos-mobile .epos-history-bar .epos-input{font-size:15px;padding:10px 12px;}",
+      ".epos-mobile .epos-history-bar .epos-btn{padding:14px 18px;font-size:16px;border-radius:10px;}",
+      ".epos-mobile .epos-history-bar .epos-input{font-size:16px;padding:12px 14px;}",
       ".epos-mobile .epos-history-table{font-size:13px;}",
       ".epos-mobile .epos-history-table th,.epos-mobile .epos-history-table td{padding:6px 8px;}",
       /* Photo overlay */
@@ -1344,10 +1344,12 @@
       ".epos-mobile .epos-match-row{padding:14px 12px;}",
       /* Toast above bottom sheet */
       ".epos-mobile .epos-toast{bottom:66px;}",
-      /* General inputs/buttons bigger on mobile */
-      ".epos-mobile .epos-input{font-size:15px;padding:10px 12px;border-radius:8px;}",
-      ".epos-mobile .epos-btn{padding:12px 16px;font-size:15px;border-radius:10px;}",
-      ".epos-mobile .epos-btn.sm{padding:10px 14px;font-size:14px;}"
+      /* General inputs/buttons bigger on mobile — 16px minimum prevents iOS zoom */
+      ".epos-mobile .epos-input{font-size:16px;padding:12px 14px;border-radius:10px;}",
+      ".epos-mobile .epos-btn{padding:14px 18px;font-size:16px;border-radius:10px;}",
+      ".epos-mobile .epos-btn.sm{padding:10px 14px;font-size:15px;}",
+      ".epos-mobile .epos-btn.primary{padding:14px 18px;font-size:16px;}",
+      ".epos-mobile .epos-btn.danger{padding:14px 18px;font-size:16px;}"
     ].join("\n");
     document.head.appendChild(style);
   }
@@ -1488,7 +1490,7 @@
   function buildPosTabHtml() {
     var products = filteredCatalog();
     var t = cartTotals();
-    var mobileLimit = isMobile() ? 50 : 200;
+    var mobileLimit = isMobile() ? 6 : 200;
     return "<div class='epos-pos'>" +
       /* Cart panel */
       "<div class='epos-cart-panel" + (isMobile() ? " collapsed" : "") + "' id='epos-cart-panel'>" +
@@ -1586,7 +1588,7 @@
         var grid = document.getElementById("epos-product-grid");
         if (grid) {
           var products = filteredCatalog();
-          var ml = isMobile() ? 50 : 200;
+          var ml = isMobile() ? 6 : 200;
           grid.innerHTML = products.slice(0, ml).map(function(p) {
             return "<div class='epos-product-card' data-pid='" + esc(p.id) + "' data-name='" + esc(p.name) + "'>" +
               "<div class='epos-product-card-name'>" + esc(p.name) + "</div>" +
