@@ -228,7 +228,8 @@
       paidout: null,
       nearexpiry: null,
       instructions: null,
-      scarcestock: null
+      scarcestock: null,
+      stocktransfers: null
     }
   };
 
@@ -246,6 +247,7 @@
     state.data.nearexpiry = null;
     state.data.instructions = null;
     state.data.scarcestock = null;
+    state.data.stocktransfers = null;
   }
 
   // ----------------------------
@@ -909,8 +911,40 @@
       }
     }
 
+    // --- Stock Transfers ---
+    var stRow = "";
+    if (!state.data.stocktransfers) stRow = row("🔄", "Stock transfers", "Loading…", pill("info", "…"), "");
+    else if (!state.data.stocktransfers.ok) stRow = row("🔄", "Stock transfers", state.data.stocktransfers.error || "Unavailable", showNA("N/A"), btn("dash-open-stocktransfers", "Open", { small: true }));
+    else {
+      var st = state.data.stocktransfers.data;
+      var stPending = st.pendingRequests || 0;
+      var stUnconfirmed = st.unconfirmedDeliveries || 0;
+      var stTotal = stPending + stUnconfirmed;
+
+      if (!stTotal) {
+        stRow = row("🔄", "Stock transfers", "No pending transfers", pill("ok", "OK"), btn("dash-open-stocktransfers", "Open", { small: true }));
+      } else {
+        var stSub = [];
+        if (stPending) stSub.push(stPending + " pending request(s)");
+        if (stUnconfirmed) stSub.push(stUnconfirmed + " awaiting delivery confirmation");
+        stRow = '<div class="eikon-dash-item eikon-dash-item-flash">' +
+          '<div class="eikon-dash-left">' +
+            '<div class="eikon-dash-ico" aria-hidden="true">🔄</div>' +
+            '<div class="eikon-dash-txt">' +
+              '<div class="eikon-dash-label">Stock transfers</div>' +
+              '<div class="eikon-dash-sub">' + esc(stSub.join(" • ")) + '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="eikon-dash-right">' +
+            pill("danger", "Action needed") +
+            btn("dash-open-stocktransfers", "Open", { primary: true, small: true }) +
+          '</div>' +
+        '</div>';
+      }
+    }
+
     if (todayList) todayList.innerHTML = tempRow + drRow + poRow + insRow;
-    if (attnList) attnList.innerHTML = clRow + certRow + alRow + rtRow + neRow + ssRow;
+    if (attnList) attnList.innerHTML = clRow + certRow + alRow + rtRow + neRow + ssRow + stRow;
     if (opsList) opsList.innerHTML = shRow + coRow + tkRow;
   }
 
@@ -1172,6 +1206,29 @@
       }
 
       return { openNeeds: openNeeds, unacceptedOffers: unacceptedOffers };
+    });
+
+    run("stocktransfers", async function () {
+      var r = await api("/stock-transfers/items?ts=" + Date.now(), { method: "GET" }, 8000, "stock transfers");
+      var items = (r && r.items) ? r.items : [];
+
+      var pendingRequests = 0;
+      var unconfirmedDeliveries = 0;
+
+      for (var i = 0; i < items.length; i++) {
+        var item = items[i] || {};
+        var requests = Array.isArray(item.requests) ? item.requests : [];
+        for (var j = 0; j < requests.length; j++) {
+          var req = requests[j] || {};
+          var status = safeStr(req.status).toLowerCase();
+          // Pending requests on items I own (need my acceptance)
+          if (item.mine_owner && status === "pending") pendingRequests++;
+          // Dispatched items I requested (need my delivery confirmation)
+          if (req.mine && status === "dispatched") unconfirmedDeliveries++;
+        }
+      }
+
+      return { pendingRequests: pendingRequests, unconfirmedDeliveries: unconfirmedDeliveries };
     });
 
     run("shifts", async function () {
@@ -1885,6 +1942,7 @@
     else if (act === "dash-open-nearexpiry") window.location.hash = "#nearexpiry";
     else if (act === "dash-open-instructions") window.location.hash = "#instructions";
     else if (act === "dash-open-scarcestock") window.location.hash = "#scarcestock";
+    else if (act === "dash-open-stocktransfers") window.location.hash = "#stocktransfers";
   }
 
   // ----------------------------
