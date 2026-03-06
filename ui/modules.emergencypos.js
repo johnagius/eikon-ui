@@ -50,6 +50,7 @@
   }
   function fmt2(n){ return (Math.round((Number(n)||0)*100)/100).toFixed(2); }
   function round2(n){ return Math.round((Number(n)||0)*100)/100; }
+  function round3(n){ return Math.round((Number(n)||0)*1000)/1000; }
   function uid(){
     return Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,9);
   }
@@ -181,14 +182,36 @@
     return { subtotal: subtotal, vatTotal: vatTotal, total: subtotal };
   }
 
+  function fmtQty(q) {
+    // Show up to 3 decimal places, but trim trailing zeros
+    q = Number(q) || 0;
+    if (q === Math.floor(q)) return String(q);
+    return q.toFixed(3).replace(/0+$/, "");
+  }
+
+  function parseFraction(input) {
+    // Accepts "1/6", "0.167", "2.5", etc.
+    if (!input) return null;
+    var s = String(input).trim();
+    if (s.indexOf("/") >= 0) {
+      var parts = s.split("/");
+      var num = parseFloat(parts[0]);
+      var den = parseFloat(parts[1]);
+      if (isNaN(num) || isNaN(den) || den === 0) return null;
+      return num / den;
+    }
+    var val = parseFloat(s);
+    return isNaN(val) ? null : val;
+  }
+
   function addToCart(product, qty, fmdInfo) {
-    qty = Math.max(1, parseInt(qty) || 1);
+    qty = Math.max(0.001, parseFloat(qty) || 1);
     var existing = null;
     for (var i = 0; i < state.cart.length; i++) {
       if (state.cart[i].product.barcode === product.barcode) { existing = state.cart[i]; break; }
     }
     if (existing && !fmdInfo) {
-      existing.qty += qty;
+      existing.qty = round3(existing.qty + qty);
     } else {
       state.cart.push({ id: uid(), product: product, qty: qty, fmdInfo: fmdInfo || null });
     }
@@ -207,12 +230,77 @@
   function changeQty(lineId, delta) {
     for (var i = 0; i < state.cart.length; i++) {
       if (state.cart[i].id === lineId) {
-        state.cart[i].qty = Math.max(1, state.cart[i].qty + delta);
+        state.cart[i].qty = round3(Math.max(0.001, state.cart[i].qty + delta));
         break;
       }
     }
     saveCart();
     rerenderCart();
+  }
+
+  function setQty(lineId, newQty) {
+    for (var i = 0; i < state.cart.length; i++) {
+      if (state.cart[i].id === lineId) {
+        state.cart[i].qty = round3(Math.max(0.001, newQty));
+        break;
+      }
+    }
+    saveCart();
+    rerenderCart();
+  }
+
+  function showFractionModal(lineId) {
+    var line = null;
+    for (var i = 0; i < state.cart.length; i++) {
+      if (state.cart[i].id === lineId) { line = state.cart[i]; break; }
+    }
+    if (!line) return;
+    try {
+      E.modal.show("Set Quantity", "<div style='font-size:14px;'>" +
+        "<div style='margin-bottom:10px;font-weight:600;'>" + esc(line.product.name) + "</div>" +
+        "<div style='margin-bottom:6px;color:rgba(255,255,255,.6);font-size:12px;'>Unit price: €" + fmt2(line.product.price) + "</div>" +
+        "<div style='margin-bottom:8px;font-size:13px;'>Enter quantity as a fraction (e.g. <strong>1/6</strong>) or decimal (e.g. <strong>0.167</strong>):</div>" +
+        "<input id='epos-frac-input' class='epos-input' style='width:100%;font-size:18px;padding:12px;text-align:center;' placeholder='e.g. 1/6 or 0.5' value='" + fmtQty(line.qty) + "'>" +
+        "<div id='epos-frac-preview' style='margin-top:8px;font-size:13px;color:#a5b4fc;text-align:center;'></div>" +
+        "</div>", [
+        { label: "Cancel", onClick: function(){ E.modal.hide(); } },
+        { label: "Set Qty", onClick: function(){
+          var inp = document.getElementById("epos-frac-input");
+          var val = inp ? parseFraction(inp.value) : null;
+          if (val === null || val <= 0) { showToast("Invalid quantity", "warn"); return; }
+          E.modal.hide();
+          setQty(lineId, val);
+        }}
+      ]);
+      // Live preview
+      setTimeout(function() {
+        var inp = document.getElementById("epos-frac-input");
+        var prev = document.getElementById("epos-frac-preview");
+        if (inp && prev) {
+          function updatePreview() {
+            var val = parseFraction(inp.value);
+            if (val !== null && val > 0) {
+              prev.textContent = "Qty: " + fmtQty(val) + " × €" + fmt2(line.product.price) + " = €" + fmt2(round2(val * line.product.price));
+              prev.style.color = "#a5b4fc";
+            } else {
+              prev.textContent = inp.value ? "Invalid — use format like 1/6 or 0.167" : "";
+              prev.style.color = "#f87171";
+            }
+          }
+          inp.addEventListener("input", updatePreview);
+          updatePreview();
+          inp.focus();
+          inp.select();
+        }
+      }, 50);
+    } catch(e) {
+      // Fallback if modal unavailable
+      var input = prompt("Enter quantity (fraction like 1/6 or decimal like 0.167):", fmtQty(line.qty));
+      if (input === null) return;
+      var val = parseFraction(input);
+      if (val === null || val <= 0) { showToast("Invalid quantity", "warn"); return; }
+      setQty(lineId, val);
+    }
   }
 
   function clearCart() {
@@ -1132,7 +1220,8 @@
       ".epos-cart-fmd{font-size:10px;color:#a5b4fc;margin-top:2px;}",
       ".epos-qty-btn{width:28px;height:28px;border-radius:6px;border:none;background:rgba(255,255,255,.12);color:#fff;cursor:pointer;font-size:16px;line-height:1;padding:0;display:flex;align-items:center;justify-content:center;}",
       ".epos-qty-btn:hover{background:rgba(255,255,255,.22);}",
-      ".epos-cart-qty{width:24px;text-align:center;font-weight:700;}",
+      ".epos-cart-qty{min-width:28px;text-align:center;font-weight:700;padding:2px 4px;border-radius:4px;border:1px dashed rgba(255,255,255,.2);}",
+      ".epos-cart-qty:hover{background:rgba(99,102,241,.15);border-color:#6366f1;}",
       ".epos-cart-price{width:60px;text-align:right;white-space:nowrap;}",
       ".epos-cart-remove{width:28px;height:28px;color:rgba(255,100,100,.7);cursor:pointer;font-size:18px;line-height:1;background:none;border:none;padding:0;flex-shrink:0;display:flex;align-items:center;justify-content:center;}",
       ".epos-cart-remove:hover{color:#ef4444;}",
@@ -1234,7 +1323,7 @@
       ".epos-mobile .epos-cart-line{padding:10px 0;gap:10px;font-size:15px;}",
       ".epos-mobile .epos-qty-btn{width:38px;height:38px;font-size:20px;border-radius:10px;}",
       ".epos-mobile .epos-cart-remove{width:38px;height:38px;font-size:22px;}",
-      ".epos-mobile .epos-cart-qty{width:30px;font-size:16px;}",
+      ".epos-mobile .epos-cart-qty{min-width:36px;font-size:15px;padding:4px 6px;border-radius:6px;}",
       ".epos-mobile .epos-cart-price{width:70px;font-size:15px;}",
       /* Catalog tab mobile */
       ".epos-mobile .epos-catalog{padding:10px;}",
@@ -1296,7 +1385,7 @@
       return "<div class='epos-cart-line' data-id='" + esc(line.id) + "'>" +
         "<div style='flex:1;min-width:0'><div class='epos-cart-name'>" + esc(line.product.name) + "</div>" + fmdHtml + "</div>" +
         "<button class='epos-qty-btn' data-action='dec' data-id='" + esc(line.id) + "'>−</button>" +
-        "<span class='epos-cart-qty'>" + line.qty + "</span>" +
+        "<span class='epos-cart-qty' data-action='frac' data-id='" + esc(line.id) + "' style='cursor:pointer;' title='Tap to enter fraction'>" + fmtQty(line.qty) + "</span>" +
         "<button class='epos-qty-btn' data-action='inc' data-id='" + esc(line.id) + "'>+</button>" +
         "<span class='epos-cart-price'>€" + fmt2(line.qty * line.product.price) + "</span>" +
         "<button class='epos-cart-remove' data-action='remove' data-id='" + esc(line.id) + "'>×</button>" +
@@ -1321,6 +1410,7 @@
         if (action === "inc") changeQty(id, 1);
         else if (action === "dec") changeQty(id, -1);
         else if (action === "remove") removeFromCart(id);
+        else if (action === "frac") showFractionModal(id);
       });
     });
   }
