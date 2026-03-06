@@ -12478,7 +12478,7 @@ async function handleAuditLogList(request, env, corsOkHeaders, authUser, url) {
   });
 
   // Get total count for pagination
-  const countSql = `SELECT COUNT(1) AS c FROM audit_log a WHERE ${where.slice(0, -0).join(" AND ")}`;
+  const countSql = `SELECT COUNT(1) AS c FROM audit_log a WHERE ${where.join(" AND ")}`;
   const countBind = bind.slice(0, bind.length - 2); // remove limit and offset
   const countRow = await dbFirst(env, countSql, countBind);
   const total = (countRow && countRow.c) || 0;
