@@ -1747,6 +1747,9 @@ async function ensureClientOrdersSchema(env) {
 
       notes TEXT NOT NULL DEFAULT '',
 
+      follow_up_status TEXT NOT NULL DEFAULT '',
+      order_code TEXT NOT NULL DEFAULT '',
+
       created_by INTEGER,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -1783,7 +1786,9 @@ async function ensureClientOrdersSchema(env) {
     "ALTER TABLE client_orders_entries ADD COLUMN client_address TEXT NOT NULL DEFAULT ''",
     "ALTER TABLE client_orders_entries ADD COLUMN items_text TEXT NOT NULL DEFAULT ''",
     "ALTER TABLE client_orders_entries ADD COLUMN pickup_date TEXT",
-    "ALTER TABLE client_orders_entries ADD COLUMN deposit_amount REAL NOT NULL DEFAULT 0"
+    "ALTER TABLE client_orders_entries ADD COLUMN deposit_amount REAL NOT NULL DEFAULT 0",
+    "ALTER TABLE client_orders_entries ADD COLUMN follow_up_status TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE client_orders_entries ADD COLUMN order_code TEXT NOT NULL DEFAULT ''"
   ];
 
   for (const sql of adds) {
@@ -2240,7 +2245,9 @@ function clientOrderRowToUi(r) {
     address: addr,
     items,
     pick_up_date: pickup,
-    deposit
+    deposit,
+    follow_up_status: r.follow_up_status || "",
+    order_code: r.order_code || ""
   };
 }
 
@@ -2332,6 +2339,8 @@ async function handleClientOrdersEntriesList(request, env, corsOkHeaders, authUs
       fulfilled,
       fulfilled_at,
       notes,
+      follow_up_status,
+      order_code,
       created_by,
       created_at,
       updated_at
@@ -2349,13 +2358,15 @@ async function handleClientOrdersEntriesList(request, env, corsOkHeaders, authUs
         OR client_address LIKE ?
         OR items_text LIKE ?
         OR notes LIKE ?
+        OR follow_up_status LIKE ?
+        OR order_code LIKE ?
       )` : ""}
     ORDER BY fulfilled ASC, order_date DESC, priority ASC, id DESC
   `;
 
   const bind = [authUser.org_id, authUser.location_id, range.startStr, range.endStr];
   if (hasFulfilled) bind.push(fulfilledVal);
-  if (hasQ) bind.push(qLike, qLike, qLike, qLike, qLike, qLike, qLike);
+  if (hasQ) bind.push(qLike, qLike, qLike, qLike, qLike, qLike, qLike, qLike, qLike);
 
   const rows = await dbAll(env, sql, bind);
   const entries = rows.map(clientOrderRowToUi);
@@ -2384,6 +2395,8 @@ async function handleClientOrdersEntryCreate(request, env, corsOkHeaders, authUs
   const depositAmount = normalizeMoney(body.deposit_amount);
   const fulfilled = body.fulfilled ? 1 : 0;
   const notes = String(body.notes || "").trim();
+  const followUpStatus = String(body.follow_up_status || "").trim();
+  const orderCode = String(body.order_code || "").trim();
 
   if (!isValidYmd(orderDate)) return jsonResponse({ ok: false, error: "Invalid order_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
   if (!clientName) return jsonResponse({ ok: false, error: "Missing client_name" }, 400, corsOkHeaders);
@@ -2397,9 +2410,9 @@ async function handleClientOrdersEntryCreate(request, env, corsOkHeaders, authUs
     env,
     `INSERT INTO client_orders_entries
     (org_id, location_id, order_date, client_name, client_phone, client_alt_phone, client_email, client_address,
-    items_text, priority, needed_by, pickup_date, deposit_amount, fulfilled, fulfilled_at, notes, created_by, created_at, updated_at)
+    items_text, priority, needed_by, pickup_date, deposit_amount, fulfilled, fulfilled_at, notes, follow_up_status, order_code, created_by, created_at, updated_at)
      VALUES
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? THEN datetime('now') ELSE NULL END, ?, ?, datetime('now'), datetime('now'))
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? THEN datetime('now') ELSE NULL END, ?, ?, ?, ?, datetime('now'), datetime('now'))
      RETURNING id`,
     [
       authUser.org_id,
@@ -2418,6 +2431,8 @@ async function handleClientOrdersEntryCreate(request, env, corsOkHeaders, authUs
       fulfilled,
       fulfilled ? 1 : 0,
       notes,
+      followUpStatus,
+      orderCode,
       authUser.user_id
     ]
   );
@@ -2489,6 +2504,9 @@ async function handleClientOrdersEntryUpdate(request, env, corsOkHeaders, authUs
   const neededBy = has("needed_by") ? String(body.needed_by || "").trim() : String(existing.needed_by || "").trim();
   const pickupDate = has("pickup_date") ? String(body.pickup_date || "").trim() : String(existing.pickup_date || "").trim();
   const notes = has("notes") ? String(body.notes || "").trim() : String(existing.notes || "").trim();
+
+  const followUpStatus = has("follow_up_status") ? String(body.follow_up_status || "").trim() : String(existing.follow_up_status || "").trim();
+  const orderCode = has("order_code") ? String(body.order_code || "").trim() : String(existing.order_code || "").trim();
 
   // deposit_amount is NOT NULL in your schema: NEVER allow null through.
   // - If caller sends deposit_amount: normalize it (null/"" => 0)
@@ -2562,6 +2580,8 @@ async function handleClientOrdersEntryUpdate(request, env, corsOkHeaders, authUs
            pickup_date = ?,
            deposit_amount = ?,
            notes = ?,
+           follow_up_status = ?,
+           order_code = ?,
            fulfilled = ?,
            fulfilled_at = ?,
            updated_at = datetime('now')
@@ -2579,6 +2599,8 @@ async function handleClientOrdersEntryUpdate(request, env, corsOkHeaders, authUs
       pickupDate,
       depositAmount,         // ALWAYS a number (0+), never null
       notes,
+      followUpStatus,
+      orderCode,
       nextFulfilled ? 1 : 0,
       fulfilledAt,           // ok to be null when not fulfilled
       authUser.org_id,
