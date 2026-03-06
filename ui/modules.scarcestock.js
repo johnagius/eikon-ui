@@ -153,6 +153,8 @@
       ".ss-badge.warn{border-color:rgba(255,200,90,.35);color:rgba(255,240,210,.95);background:rgba(255,200,90,.10);}" +
       ".ss-row-actions{white-space:nowrap;}" +
       ".ss-inline{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;}" +
+      "@keyframes ss-flash{0%,100%{background:rgba(255,90,122,.12);border-color:rgba(255,90,122,.45)}50%{background:rgba(255,90,122,.03);border-color:var(--border)}}" +
+      ".ss-flash-row{animation:ss-flash 1.2s ease-in-out infinite}" +
       "@media (max-width:860px){.ss-actions{justify-content:flex-start;width:100%;}}";
     document.head.appendChild(st);
   }
@@ -263,7 +265,20 @@
   // ------------------------------------------------------------
   // Data load
   // ------------------------------------------------------------
-  async function refreshAll() {
+  var autoRefreshTimer = null;
+
+  function stopAutoRefresh() {
+    if (autoRefreshTimer) { clearInterval(autoRefreshTimer); autoRefreshTimer = null; }
+  }
+
+  function startAutoRefresh() {
+    stopAutoRefresh();
+    autoRefreshTimer = setInterval(function () {
+      refreshAll(true);
+    }, 30000);
+  }
+
+  async function refreshAll(silent) {
     var btn = document.getElementById("ss-refresh");
     try {
       if (btn) { btn.disabled = true; btn.textContent = "Loading…"; }
@@ -276,7 +291,7 @@
 
       renderTables();
     } catch (e) {
-      showError("Scarce Stock", e);
+      if (!silent) showError("Scarce Stock", e);
     } finally {
       if (btn) { btn.disabled = false; btn.textContent = "Refresh"; }
     }
@@ -772,7 +787,16 @@
       var pharmacy = (n.org_name ? (n.org_name + " — ") : "") + (n.location_name || "");
       var isClosed = (n.is_closed === 1 || n.is_closed === true);
 
-      var tr = el(doc, "tr", {}, []);
+      // Check if this is my need and has unaccepted offers
+      var hasUnaccepted = false;
+      if (n.mine_owner) {
+        var offs2 = Array.isArray(n.offers) ? n.offers : [];
+        for (var oi = 0; oi < offs2.length; oi++) {
+          if (!offs2[oi].accepted && !offs2[oi].confirmed) { hasUnaccepted = true; break; }
+        }
+      }
+
+      var tr = el(doc, "tr", { class: hasUnaccepted ? "ss-flash-row" : "" }, []);
       tr.appendChild(el(doc, "td", { text: fmtDmy(n.entry_date) }, []));
       tr.appendChild(el(doc, "td", { html: "<b>" + esc(pharmacy) + "</b>" + (isClosed ? ("<div style='margin-top:6px'>" + badge("Closed", "warn") + "</div>") : "") }, []));
       tr.appendChild(el(doc, "td", {
@@ -797,11 +821,13 @@
         }
       }, []));
 
-      tdAct.appendChild(el(doc, "button", {
-        class: "eikon-btn primary ss-mini",
-        text: "Offer stock",
-        onclick: function () { modalNeedOffer("new", n, null); }
-      }, []));
+      if (!n.mine_owner) {
+        tdAct.appendChild(el(doc, "button", {
+          class: "eikon-btn primary ss-mini",
+          text: "Offer stock",
+          onclick: function () { modalNeedOffer("new", n, null); }
+        }, []));
+      }
 
       if (n.mine_owner) {
         tdAct.appendChild(el(doc, "button", { class: "eikon-btn ss-mini", text: "Edit", onclick: function () { modalNeed("edit", n); } }, []));
@@ -840,12 +866,13 @@
           panel.appendChild(el(doc, "div", { class: "eikon-muted", text: "No offers yet." }, []));
         } else {
           var tw = el(doc, "div", { class: "eikon-table-wrap" }, []);
-          var t = el(doc, "table", { class: "eikon-table", style: "min-width:760px" }, []);
+          var t = el(doc, "table", { class: "eikon-table", style: "min-width:860px" }, []);
           t.appendChild(el(doc, "thead", {}, [
             el(doc, "tr", {}, [
               el(doc, "th", { text: "Qty" }, []),
               el(doc, "th", { text: "Pharmacy" }, []),
               el(doc, "th", { text: "Note" }, []),
+              el(doc, "th", { text: "Status" }, []),
               el(doc, "th", { text: "Actions" }, [])
             ])
           ]));
@@ -856,8 +883,64 @@
             trr.appendChild(el(doc, "td", { text: o.is_private ? "Private" : (o.offerer_display || "") }, []));
             trr.appendChild(el(doc, "td", { class: "ss-note", text: o.is_private ? "Private" : (o.note || "") }, []));
 
-            var td = el(doc, "td", {}, []);
-            if (o.mine) {
+            // Status column
+            var statusTd = el(doc, "td", {}, []);
+            if (o.confirmed) {
+              statusTd.appendChild(el(doc, "span", { class: "ss-badge good", text: "Confirmed" }, []));
+            } else if (o.accepted) {
+              statusTd.appendChild(el(doc, "span", { class: "ss-badge warn", text: "Accepted" }, []));
+            } else {
+              statusTd.appendChild(el(doc, "span", { class: "ss-badge", text: "Pending" }, []));
+            }
+            trr.appendChild(statusTd);
+
+            var td = el(doc, "td", { class: "ss-row-actions" }, []);
+
+            // Need owner can accept unaccepted offers
+            if (n.mine_owner && !o.accepted && !o.confirmed) {
+              td.appendChild(el(doc, "button", {
+                class: "eikon-btn primary ss-mini",
+                text: "Accept",
+                onclick: async function () {
+                  try {
+                    await api("/scarce-stock/need-offers/" + encodeURIComponent(String(o.id)) + "/accept", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({})
+                    });
+                    toast("Accepted", "Offer accepted.", "good");
+                    await refreshAll();
+                  } catch (e) {
+                    showError("Accept offer", e);
+                  }
+                }
+              }, []));
+            }
+
+            // Offerer can confirm that stock was given (only after accepted)
+            if (o.mine && o.accepted && !o.confirmed) {
+              td.appendChild(el(doc, "button", {
+                class: "eikon-btn primary ss-mini",
+                text: "Confirm given",
+                onclick: async function () {
+                  var ok = await confirmYesNo("Confirm given", "Confirm that the stock has been given to the requesting pharmacy? This will deduct from their request.", "Confirm");
+                  if (!ok) return;
+                  try {
+                    await api("/scarce-stock/need-offers/" + encodeURIComponent(String(o.id)) + "/confirm", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({})
+                    });
+                    toast("Confirmed", "Stock confirmed as given.", "good");
+                    await refreshAll();
+                  } catch (e) {
+                    showError("Confirm given", e);
+                  }
+                }
+              }, []));
+            }
+
+            if (o.mine && !o.confirmed) {
               td.appendChild(el(doc, "button", { class: "eikon-btn ss-mini", text: "Edit", onclick: function () { modalNeedOffer("edit", n, o); } }, []));
               td.appendChild(el(doc, "button", {
                 class: "eikon-btn danger ss-mini",
@@ -874,7 +957,9 @@
                   }
                 }
               }, []));
-            } else {
+            }
+
+            if (!o.mine && !n.mine_owner) {
               td.appendChild(el(doc, "span", { class: "eikon-muted", text: "—" }, []));
             }
             trr.appendChild(td);
@@ -1154,6 +1239,7 @@
 
     setTab("offers");
     await refreshAll();
+    startAutoRefresh();
   }
 
   E.registerModule({
@@ -1161,6 +1247,7 @@
     title: "Scarce Stock",
     icon: "📦",
     order: 280,
-    render: render
+    render: render,
+    destroy: function () { stopAutoRefresh(); }
   });
 })();

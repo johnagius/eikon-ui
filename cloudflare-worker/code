@@ -9738,6 +9738,10 @@ async function ensureScarceStockSchema(env) {
 
   // Backfill column for scarce stock ↔ near expiry integration
   try { await dbRun(env, "ALTER TABLE scarce_stock_offers ADD COLUMN near_expiry_id INTEGER DEFAULT NULL", []); } catch (e) { /* ignore duplicate column */ }
+
+  // Backfill columns for accept/confirm workflow on need offers
+  try { await dbRun(env, "ALTER TABLE scarce_stock_need_offers ADD COLUMN accepted INTEGER NOT NULL DEFAULT 0", []); } catch (e) { /* ignore duplicate column */ }
+  try { await dbRun(env, "ALTER TABLE scarce_stock_need_offers ADD COLUMN confirmed INTEGER NOT NULL DEFAULT 0", []); } catch (e) { /* ignore duplicate column */ }
 }
 
 function ssIntNonNeg(v) {
@@ -10177,6 +10181,7 @@ async function handleScarceNeedsList(request, env, corsOkHeaders, authUser, url)
     offRows = await dbAll(env, `
       SELECT
         o.id, o.need_id, o.offerer_org_id, o.offerer_location_id, o.quantity_offered, o.note,
+        COALESCE(o.accepted, 0) AS accepted, COALESCE(o.confirmed, 0) AS confirmed,
         org.name AS offerer_org_name,
         loc.name AS offerer_location_name
       FROM scarce_stock_need_offers o
@@ -10215,7 +10220,9 @@ async function handleScarceNeedsList(request, env, corsOkHeaders, authUser, url)
         is_private: canSee ? 0 : 1,
         offerer_display: canSee ? ((rr.offerer_org_name || "") + " — " + (rr.offerer_location_name || "")) : "",
         note: canSee ? (rr.note || "") : "",
-        mine: mine ? 1 : 0
+        mine: mine ? 1 : 0,
+        accepted: Number(rr.accepted || 0),
+        confirmed: Number(rr.confirmed || 0)
       });
     }
 
@@ -10420,6 +10427,67 @@ async function handleScarceNeedOfferDelete(request, env, corsOkHeaders, authUser
 
   await dbRun(env, `DELETE FROM scarce_stock_need_offers WHERE id = ?`, [id]);
   await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_NEED_OFFER_DELETE", "scarce_stock_need_offers", String(id), { need_id: existing.need_id });
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+// ----- Need offer: accept (by the need owner — the one who requested stock)
+async function handleScarceNeedOfferAccept(request, env, corsOkHeaders, authUser, offerId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureScarceStockSchema(env);
+
+  const id = Number(offerId);
+  if (!Number.isFinite(id) || id <= 0) return jsonResponse({ ok: false, error: "Invalid offer id" }, 400, corsOkHeaders);
+
+  const existing = await dbFirst(env, `SELECT o.id, o.need_id, o.offerer_org_id, o.offerer_location_id, COALESCE(o.accepted, 0) AS accepted FROM scarce_stock_need_offers o WHERE o.id = ?`, [id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  // Only the need owner can accept
+  const need = await dbFirst(env, `SELECT id, org_id, location_id FROM scarce_stock_needs WHERE id = ?`, [existing.need_id]);
+  if (!need) return jsonResponse({ ok: false, error: "Need not found" }, 404, corsOkHeaders);
+  if (!(need.org_id === authUser.org_id && need.location_id === authUser.location_id)) {
+    return jsonResponse({ ok: false, error: "Forbidden: only the requesting location can accept" }, 403, corsOkHeaders);
+  }
+
+  await dbRun(env, `UPDATE scarce_stock_need_offers SET accepted = 1, updated_at = datetime('now'), updated_by = ? WHERE id = ?`, [authUser.user_id, id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_NEED_OFFER_ACCEPT", "scarce_stock_need_offers", String(id), { need_id: existing.need_id });
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+// ----- Need offer: confirm given (by the offerer — confirms client collected the stock)
+async function handleScarceNeedOfferConfirm(request, env, corsOkHeaders, authUser, offerId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureScarceStockSchema(env);
+
+  const id = Number(offerId);
+  if (!Number.isFinite(id) || id <= 0) return jsonResponse({ ok: false, error: "Invalid offer id" }, 400, corsOkHeaders);
+
+  const existing = await dbFirst(env, `SELECT o.id, o.need_id, o.offerer_org_id, o.offerer_location_id, o.quantity_offered, COALESCE(o.confirmed, 0) AS confirmed FROM scarce_stock_need_offers o WHERE o.id = ?`, [id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  // Only the offerer can confirm
+  if (!(existing.offerer_org_id === authUser.org_id && existing.offerer_location_id === authUser.location_id)) {
+    return jsonResponse({ ok: false, error: "Forbidden: only the offering location can confirm" }, 403, corsOkHeaders);
+  }
+
+  await dbRun(env, `UPDATE scarce_stock_need_offers SET confirmed = 1, updated_at = datetime('now'), updated_by = ? WHERE id = ?`, [authUser.user_id, id]);
+
+  // Deduct from the need's quantity or close the need if fully fulfilled
+  const need = await dbFirst(env, `SELECT id, quantity_needed, is_closed FROM scarce_stock_needs WHERE id = ?`, [existing.need_id]);
+  if (need) {
+    const confirmedTotal = await dbFirst(env, `SELECT COALESCE(SUM(quantity_offered), 0) AS total FROM scarce_stock_need_offers WHERE need_id = ? AND confirmed = 1`, [existing.need_id]);
+    const totalConfirmed = Number((confirmedTotal && confirmedTotal.total) || 0);
+    const qtyNeeded = Number(need.quantity_needed || 0);
+
+    if (totalConfirmed >= qtyNeeded) {
+      // Fully fulfilled — close the need and set remaining to 0
+      await dbRun(env, `UPDATE scarce_stock_needs SET quantity_needed = ?, is_closed = 1, updated_at = datetime('now'), updated_by = ? WHERE id = ?`, [totalConfirmed, authUser.user_id, existing.need_id]);
+    } else {
+      // Partially fulfilled — deduct from remaining (keep quantity_needed as-is; remaining is computed)
+      // No change needed — remaining_quantity is computed as quantity_needed - total_offered in the GET
+    }
+  }
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_NEED_OFFER_CONFIRM", "scarce_stock_need_offers", String(id), { need_id: existing.need_id, quantity_offered: existing.quantity_offered });
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -13228,6 +13296,19 @@ const authUser = await authFromRequest(request, env);
       const needId = parseInt(parts[2], 10);
       if (!Number.isInteger(needId) || needId <= 0) return jsonResponse({ ok: false, error: "Invalid need id" }, 400, corsOkHeaders);
       return await handleScarceNeedOfferCreate(request, env, corsOkHeaders, authUser, needId);
+    }
+    // Need offer accept/confirm (must be before generic PUT)
+    if (url.pathname.startsWith("/scarce-stock/need-offers/") && url.pathname.endsWith("/accept") && request.method === "POST") {
+      const parts = url.pathname.split("/").filter(Boolean); // scarce-stock, need-offers, :id, accept
+      const offerId = parseInt(parts[2], 10);
+      if (!Number.isInteger(offerId) || offerId <= 0) return jsonResponse({ ok: false, error: "Invalid offer id" }, 400, corsOkHeaders);
+      return await handleScarceNeedOfferAccept(request, env, corsOkHeaders, authUser, offerId);
+    }
+    if (url.pathname.startsWith("/scarce-stock/need-offers/") && url.pathname.endsWith("/confirm") && request.method === "POST") {
+      const parts = url.pathname.split("/").filter(Boolean); // scarce-stock, need-offers, :id, confirm
+      const offerId = parseInt(parts[2], 10);
+      if (!Number.isInteger(offerId) || offerId <= 0) return jsonResponse({ ok: false, error: "Invalid offer id" }, 400, corsOkHeaders);
+      return await handleScarceNeedOfferConfirm(request, env, corsOkHeaders, authUser, offerId);
     }
     if (url.pathname.startsWith("/scarce-stock/need-offers/") && request.method === "PUT") {
       const parts = url.pathname.split("/").filter(Boolean); // scarce-stock, need-offers, :id
