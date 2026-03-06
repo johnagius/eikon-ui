@@ -807,10 +807,9 @@
   }
 
   // ─── Image preprocessing for barcode detection ──────────────────────────────
-  // Works on smaller canvas to avoid memory issues on mobile
-  var SCAN_W = 640, SCAN_H = 480;
+  var SCAN_W = 960, SCAN_H = 720;
 
-  function invertCanvas(ctx, w, h) {
+  function invertPixels(ctx, w, h) {
     var imgData = ctx.getImageData(0, 0, w, h);
     var d = imgData.data;
     for (var i = 0; i < d.length; i += 4) {
@@ -821,21 +820,27 @@
     ctx.putImageData(imgData, 0, 0);
   }
 
-  function sharpenToBlackWhite(ctx, w, h) {
+  function toBlackWhite(ctx, w, h) {
     var imgData = ctx.getImageData(0, 0, w, h);
     var d = imgData.data;
-    var sum = 0;
-    var grays = new Uint8Array(w * h);
+    var sum = 0, len = w * h;
+    var grays = new Uint8Array(len);
     for (var i = 0, p = 0; i < d.length; i += 4, p++) {
       grays[p] = d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114;
       sum += grays[p];
     }
-    var mean = sum / grays.length;
+    var thresh = sum / len;
     for (var j = 0, q = 0; j < d.length; j += 4, q++) {
-      var v = grays[q] > mean ? 255 : 0;
+      var v = grays[q] > thresh ? 255 : 0;
       d[j] = d[j+1] = d[j+2] = v;
     }
     ctx.putImageData(imgData, 0, 0);
+  }
+
+  function makeCanvas() {
+    var c = document.createElement("canvas");
+    c.width = SCAN_W; c.height = SCAN_H;
+    return { canvas: c, ctx: c.getContext("2d", { willReadFrequently: true }) };
   }
 
   // ─── Native BarcodeDetector scanner (preferred) ────────────────────────────
@@ -860,23 +865,14 @@
       }
     }
 
-    // Small processing canvas to avoid memory pressure on mobile
-    var canvas = document.createElement("canvas");
-    canvas.width = SCAN_W;
-    canvas.height = SCAN_H;
-    var ctx = canvas.getContext("2d", { willReadFrequently: true });
-    var canvas2 = document.createElement("canvas");
-    canvas2.width = SCAN_W;
-    canvas2.height = SCAN_H;
-    var ctx2 = canvas2.getContext("2d", { willReadFrequently: true });
-
+    // Three canvases: normal, inverted, inverted+B&W — all run in parallel
+    var c1 = makeCanvas(), c2 = makeCanvas(), c3 = makeCanvas();
     var stopped = false;
-    var frameCount = 0;
-    var scanPending = false; // prevent overlapping detect() calls
+    var scanPending = false;
 
     state._nativeScanCleanup = function() { stopped = true; };
 
-    // Force rear camera with { exact: "environment" }
+    // Force rear camera
     navigator.mediaDevices.getUserMedia({
       video: {
         facingMode: { exact: "environment" },
@@ -885,7 +881,6 @@
       },
       audio: false
     }).catch(function() {
-      // If exact rear camera fails (e.g. desktop), fall back to any camera
       return navigator.mediaDevices.getUserMedia({
         video: { facingMode: "environment" },
         audio: false
@@ -896,10 +891,6 @@
       videoEl.srcObject = stream;
       videoEl.play();
 
-      function drawScaled() {
-        ctx.drawImage(videoEl, 0, 0, SCAN_W, SCAN_H);
-      }
-
       function detectOn(cvs) {
         return detector.detect(cvs).then(function(barcodes) {
           return barcodes.length > 0 ? barcodes[0] : null;
@@ -908,48 +899,42 @@
 
       function scanFrame() {
         if (stopped || !state.scanning || scanPending) return;
-        if (videoEl.readyState < 2) {
-          setTimeout(scanFrame, 100);
-          return;
-        }
+        if (videoEl.readyState < 2) { setTimeout(scanFrame, 100); return; }
 
         scanPending = true;
-        drawScaled();
-        frameCount++;
 
-        // Always try normal frame
-        var p1 = detectOn(canvas);
+        // Draw video frame to all three canvases
+        c1.ctx.drawImage(videoEl, 0, 0, SCAN_W, SCAN_H);
+        c2.ctx.drawImage(c1.canvas, 0, 0);
+        c3.ctx.drawImage(c1.canvas, 0, 0);
 
-        // Alternate: every other frame try a processed version
-        var p2;
-        if (frameCount % 2 === 0) {
-          // Inverted colours for inverted DataMatrix
-          ctx2.drawImage(canvas, 0, 0);
-          invertCanvas(ctx2, SCAN_W, SCAN_H);
-          p2 = detectOn(canvas2);
-        } else {
-          // B&W threshold for noisy/low-contrast
-          ctx2.drawImage(canvas, 0, 0);
-          sharpenToBlackWhite(ctx2, SCAN_W, SCAN_H);
-          p2 = detectOn(canvas2);
-        }
+        // Process c2: simple inversion
+        invertPixels(c2.ctx, SCAN_W, SCAN_H);
 
-        Promise.all([p1, p2]).then(function(results) {
+        // Process c3: invert then B&W threshold (cleanest for inverted codes)
+        invertPixels(c3.ctx, SCAN_W, SCAN_H);
+        toBlackWhite(c3.ctx, SCAN_W, SCAN_H);
+
+        // Run all three detections in parallel
+        Promise.all([
+          detectOn(c1.canvas),
+          detectOn(c2.canvas),
+          detectOn(c3.canvas)
+        ]).then(function(results) {
           scanPending = false;
           if (stopped || !state.scanning) return;
-          var hit = results[0] || results[1];
+          var hit = results[0] || results[1] || results[2];
           if (hit) {
             log("BarcodeDetector:", hit.rawValue, "format:", hit.format);
             stopScan();
             handleScanResult(hit.rawValue, cartLineId);
           } else {
-            // Throttle to ~15fps to avoid overloading mobile
-            setTimeout(scanFrame, 66);
+            setTimeout(scanFrame, 80);
           }
         }).catch(function() {
           scanPending = false;
           if (stopped || !state.scanning) return;
-          setTimeout(scanFrame, 100);
+          setTimeout(scanFrame, 120);
         });
       }
 
