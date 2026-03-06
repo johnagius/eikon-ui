@@ -196,6 +196,16 @@ async function apiJson(path, options, tag) {
   }
 
   // ------------------------------------------------------------
+  // Return status helpers
+  // ------------------------------------------------------------
+  function returnStatusHtml(e) {
+    var rs = String(e.return_status || "");
+    if (rs === "pending") return '<span class="ne-pill ne-pill-soon" style="font-size:11px;">Return pending</span>';
+    if (rs === "handed_over") return '<span class="ne-pill ne-pill-ok" style="font-size:11px;">Returned</span>';
+    return '<button class="eikon-btn" data-act="return" data-id="' + String(e.id) + '" style="font-size:11px;">Return</button>';
+  }
+
+  // ------------------------------------------------------------
   // Render table
   // ------------------------------------------------------------
   function daysPillHtml(d) {
@@ -227,7 +237,7 @@ async function apiJson(path, options, tag) {
     var html = "";
 
     if (!list.length) {
-      html = '<tr><td colspan="6" style="color:var(--muted);padding:16px;">No items found.</td></tr>';
+      html = '<tr><td colspan="7" style="color:var(--muted);padding:16px;">No items found.</td></tr>';
       tbody.innerHTML = html;
       updateCount();
       return;
@@ -242,6 +252,7 @@ async function apiJson(path, options, tag) {
         '<td>' + daysPillHtml(d) + '</td>' +
         '<td><div class="ne-muted">' + esc(e.location || "") + '</div></td>' +
         '<td><div class="ne-muted">' + esc(e.notes || "") + '</div></td>' +
+        '<td>' + returnStatusHtml(e) + '</td>' +
         '<td class="ne-actions">' +
           '<button class="eikon-btn" data-act="edit" data-id="' + String(e.id) + '">Edit</button>' +
           '<button class="eikon-btn danger" data-act="del" data-id="' + String(e.id) + '">Delete</button>' +
@@ -444,6 +455,154 @@ async function apiJson(path, options, tag) {
   }
 
   // ------------------------------------------------------------
+  // Return actions
+  // ------------------------------------------------------------
+  function showReturnModal(entry) {
+    var e = entry;
+    var d = daysUntil(e.expiry_date);
+
+    var html =
+      '<div style="margin-bottom:12px;">' +
+        '<div style="font-weight:900;font-size:14px;margin-bottom:4px;">' + esc(e.product_name || "") + '</div>' +
+        '<div style="color:var(--muted);font-size:12px;">Expiry: <b>' + esc(ymdToDmyDash(e.expiry_date || "")) + '</b> ' + daysPillHtml(d) + '</div>' +
+      '</div>' +
+      '<div class="eikon-field" style="max-width:360px;">' +
+        '<div class="eikon-label">Supplier (optional)</div>' +
+        '<input id="ne-ret-supplier" class="eikon-input" placeholder="e.g. Supplier name" />' +
+      '</div>' +
+      '<div class="eikon-help" style="margin-top:10px;color:var(--muted);">This will create a return entry in the Returns module.</div>';
+
+    E.modal.show("Create Return", html, [
+      { label: "Cancel", onClick: function () { E.modal.hide(); } },
+      {
+        label: "Create Return",
+        primary: true,
+        onClick: function () {
+          (async function () {
+            try {
+              var supplier = String((E.q("#ne-ret-supplier") || {}).value || "").trim();
+              var j = await apiJson("/near-expiry/entries/create-return", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ near_expiry_id: e.id, supplier: supplier })
+              }, "create-return");
+
+              // Update local state
+              if (j && j.near_expiry_entry) {
+                for (var i = 0; i < state.entries.length; i++) {
+                  if (Number(state.entries[i].id) === Number(e.id)) {
+                    state.entries[i] = computeDerived(j.near_expiry_entry);
+                    break;
+                  }
+                }
+                applyFilterSort();
+                renderTable();
+              } else {
+                await loadEntries();
+              }
+
+              E.modal.hide();
+              E.showToast && E.showToast("Return created");
+            } catch (ex) {
+              E.modal.show("Return failed", '<div style="color:var(--danger);font-weight:800;">' + esc(ex && (ex.message || ex)) + "</div>", [
+                { label: "OK", primary: true, onClick: function () { E.modal.hide(); } }
+              ]);
+            }
+          })();
+        }
+      }
+    ]);
+  }
+
+  function showBulkReturnModal() {
+    // Only show items without an existing return
+    var eligible = (state.entries || []).filter(function (e) { return !e.return_status; });
+
+    if (!eligible.length) {
+      E.modal.show("Bulk Return", '<div style="color:var(--muted);">All items already have a return or no items found.</div>', [
+        { label: "OK", primary: true, onClick: function () { E.modal.hide(); } }
+      ]);
+      return;
+    }
+
+    var rows = eligible.map(function (e) {
+      var d = (typeof e.days_to_expire === "number") ? e.days_to_expire : daysUntil(e.expiry_date);
+      return '<label style="display:flex;gap:10px;align-items:center;padding:8px 4px;border-bottom:1px solid rgba(255,255,255,.06);">' +
+        '<input type="checkbox" class="ne-bulk-cb" value="' + String(e.id) + '" checked />' +
+        '<span style="flex:1;font-weight:800;">' + esc(e.product_name || "") + '</span>' +
+        '<span style="font-size:12px;color:var(--muted);">' + esc(ymdToDmyDash(e.expiry_date || "")) + '</span>' +
+        '<span style="font-size:12px;">' + daysPillHtml(d) + '</span>' +
+      '</label>';
+    }).join("");
+
+    var html =
+      '<div class="eikon-field" style="max-width:360px;margin-bottom:12px;">' +
+        '<div class="eikon-label">Supplier (optional)</div>' +
+        '<input id="ne-bulk-supplier" class="eikon-input" placeholder="e.g. Supplier name" />' +
+      '</div>' +
+      '<div style="margin-bottom:8px;display:flex;gap:10px;align-items:center;">' +
+        '<button id="ne-bulk-all" class="eikon-btn" style="font-size:11px;">Select All</button>' +
+        '<button id="ne-bulk-none" class="eikon-btn" style="font-size:11px;">Deselect All</button>' +
+        '<span style="margin-left:auto;font-size:12px;color:var(--muted);">' + String(eligible.length) + ' eligible item(s)</span>' +
+      '</div>' +
+      '<div style="max-height:360px;overflow-y:auto;border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:4px 8px;">' +
+        rows +
+      '</div>' +
+      '<div class="eikon-help" style="margin-top:10px;color:var(--muted);">Each selected item will create a separate return entry.</div>';
+
+    E.modal.show("Bulk Return to Supplier", html, [
+      { label: "Cancel", onClick: function () { E.modal.hide(); } },
+      {
+        label: "Create Returns",
+        primary: true,
+        onClick: function () {
+          (async function () {
+            try {
+              var cbs = document.querySelectorAll(".ne-bulk-cb:checked");
+              var ids = [];
+              for (var i = 0; i < cbs.length; i++) ids.push(Number(cbs[i].value));
+
+              if (!ids.length) {
+                E.showToast && E.showToast("No items selected");
+                return;
+              }
+
+              var supplier = String((E.q("#ne-bulk-supplier") || {}).value || "").trim();
+              var j = await apiJson("/near-expiry/entries/create-returns-bulk", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ near_expiry_ids: ids, supplier: supplier })
+              }, "create-returns-bulk");
+
+              E.modal.hide();
+              await loadEntries();
+              E.showToast && E.showToast(String(j.created || 0) + " return(s) created" + (j.skipped ? " (" + j.skipped + " skipped)" : ""));
+            } catch (ex) {
+              E.modal.show("Bulk return failed", '<div style="color:var(--danger);font-weight:800;">' + esc(ex && (ex.message || ex)) + "</div>", [
+                { label: "OK", primary: true, onClick: function () { E.modal.hide(); } }
+              ]);
+            }
+          })();
+        }
+      }
+    ]);
+
+    // Wire select all / deselect all
+    setTimeout(function () {
+      var allBtn = E.q("#ne-bulk-all");
+      var noneBtn = E.q("#ne-bulk-none");
+      if (allBtn) allBtn.addEventListener("click", function () {
+        var cbs = document.querySelectorAll(".ne-bulk-cb");
+        for (var i = 0; i < cbs.length; i++) cbs[i].checked = true;
+      });
+      if (noneBtn) noneBtn.addEventListener("click", function () {
+        var cbs = document.querySelectorAll(".ne-bulk-cb");
+        for (var i = 0; i < cbs.length; i++) cbs[i].checked = false;
+      });
+    }, 50);
+  }
+
+  // ------------------------------------------------------------
   // Print
   // ------------------------------------------------------------
   function openPrintWindow(entries, queryText) {
@@ -589,6 +748,7 @@ async function apiJson(path, options, tag) {
               '<span class="eikon-pill" id="ne-count">0 items</span>' +
               '<button id="ne-refresh" class="eikon-btn">Refresh</button>' +
               '<button id="ne-print" class="eikon-btn">Print</button>' +
+              '<button id="ne-bulk-return" class="eikon-btn primary">Bulk Return</button>' +
             '</div>' +
           '</div>' +
           '<div style="height:10px"></div>' +
@@ -600,6 +760,7 @@ async function apiJson(path, options, tag) {
                 '<th data-key="days_to_expire"><span class="ne-sort">Days to expire <span class="car"></span></span></th>' +
                 '<th data-key="location"><span class="ne-sort">Location <span class="car"></span></span></th>' +
                 '<th data-key="notes"><span class="ne-sort">Notes <span class="car"></span></span></th>' +
+                '<th>Return</th>' +
                 '<th data-key="actions">Actions</th>' +
               '</tr></thead>' +
               '<tbody id="ne-tbody"></tbody>' +
@@ -615,6 +776,7 @@ async function apiJson(path, options, tag) {
     var addBtn = E.q("#ne-add");
     var refreshBtn = E.q("#ne-refresh");
     var printBtn = E.q("#ne-print");
+    var bulkReturnBtn = E.q("#ne-bulk-return");
     var searchEl = E.q("#ne-search");
     var tableEl = E.q("#ne-table");
     var tbody = E.q("#ne-tbody");
@@ -663,6 +825,12 @@ async function apiJson(path, options, tag) {
       });
     }
 
+    if (bulkReturnBtn) {
+      bulkReturnBtn.addEventListener("click", function () {
+        showBulkReturnModal();
+      });
+    }
+
     if (searchEl) {
       searchEl.addEventListener("input", function () {
         state.q = String(searchEl.value || "");
@@ -686,6 +854,7 @@ async function apiJson(path, options, tag) {
 
         if (act === "edit") showEditModal(entry);
         if (act === "del") confirmDelete(entry);
+        if (act === "return") showReturnModal(entry);
       });
     }
 
