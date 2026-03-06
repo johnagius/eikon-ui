@@ -3958,7 +3958,7 @@ async function handleNearExpiryEntryUpdate(request, env, corsOkHeaders, authUser
 
   const existing = await dbFirst(
     env,
-    "SELECT id FROM near_expiry_entries WHERE id = ? AND org_id = ? AND location_id = ?",
+    "SELECT id, return_id, scarce_stock_offer_id FROM near_expiry_entries WHERE id = ? AND org_id = ? AND location_id = ?",
     [id, authUser.org_id, authUser.location_id]
   );
   if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
@@ -3980,6 +3980,24 @@ async function handleNearExpiryEntryUpdate(request, env, corsOkHeaders, authUser
      WHERE id = ? AND org_id = ? AND location_id = ?`,
     [productName, expiryDate, location, notes, authUser.user_id, id, authUser.org_id, authUser.location_id]
   );
+
+  // Cascade expiry_date and product_name to linked returns entry
+  if (existing.return_id) {
+    await dbRun(
+      env,
+      `UPDATE returns_entries SET expiry = ?, description = ?, updated_at = datetime('now') WHERE id = ? AND org_id = ? AND location_id = ?`,
+      [expiryDate, productName, existing.return_id, authUser.org_id, authUser.location_id]
+    );
+  }
+
+  // Cascade expiry_date and item_name to linked scarce stock offer
+  if (existing.scarce_stock_offer_id) {
+    await dbRun(
+      env,
+      `UPDATE scarce_stock_offers SET expiry_date = ?, item_name = ?, updated_at = datetime('now') WHERE id = ? AND org_id = ? AND location_id = ?`,
+      [expiryDate, productName, existing.scarce_stock_offer_id, authUser.org_id, authUser.location_id]
+    );
+  }
 
   await writeAudit(env, authUser.org_id, authUser.user_id, "NEAR_EXPIRY_UPDATE", "near_expiry_entries", String(id), {
     product_name: productName,
