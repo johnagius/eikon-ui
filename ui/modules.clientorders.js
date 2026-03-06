@@ -125,6 +125,35 @@
     return (Math.round(n * 100) / 100).toFixed(2);
   }
 
+  // Follow-up status options
+  var FOLLOW_UP_OPTIONS = [
+    { value: "", label: "— None —" },
+    { value: "called", label: "Called" },
+    { value: "not_wanted", label: "Not Wanted" },
+    { value: "not_available", label: "Not Available" },
+    { value: "called_no_answer", label: "Called (No Answer)" },
+    { value: "wrong_number", label: "Wrong Number" }
+  ];
+
+  function followUpLabel(val) {
+    var v = String(val || "").trim();
+    if (!v) return "";
+    for (var i = 0; i < FOLLOW_UP_OPTIONS.length; i++) {
+      if (FOLLOW_UP_OPTIONS[i].value === v) return FOLLOW_UP_OPTIONS[i].label;
+    }
+    return v;
+  }
+
+  // Generate a unique 6-character alphanumeric order code
+  function generateOrderCode() {
+    var chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I to avoid confusion
+    var code = "";
+    for (var i = 0; i < 6; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
+  }
+
   function rowSearchBlob(r) {
     return (
       norm(r.order_date) +
@@ -139,7 +168,9 @@
       " | " + norm(r.pick_up_date) +
       " | " + norm(r.deposit) +
       " | " + norm(r.notes) +
-      " | " + norm(r.fulfilled ? "fulfilled" : "active")
+      " | " + norm(r.fulfilled ? "fulfilled" : "active") +
+      " | " + norm(r.follow_up_status || "") +
+      " | " + norm(r.order_code || "")
     );
   }
 
@@ -206,6 +237,13 @@
 
       ".co-clamp{max-width:320px;}" +
       ".co-clamp-inner{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:normal;}" +
+      ".co-fu{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:900;padding:3px 8px;border-radius:999px;border:1px solid rgba(255,255,255,.12);white-space:nowrap;}" +
+      ".co-fu.fu-called{border-color:rgba(67,209,122,.35);color:rgba(67,209,122,.95);}" +
+      ".co-fu.fu-not_wanted{border-color:rgba(255,90,122,.35);color:rgba(255,90,122,.95);}" +
+      ".co-fu.fu-not_available{border-color:rgba(255,200,90,.35);color:rgba(255,200,90,.95);}" +
+      ".co-fu.fu-called_no_answer{border-color:rgba(255,170,60,.35);color:rgba(255,170,60,.95);}" +
+      ".co-fu.fu-wrong_number{border-color:rgba(255,90,122,.35);color:rgba(255,90,122,.95);}" +
+      ".co-order-code{font-family:monospace;font-size:11px;font-weight:900;letter-spacing:1px;color:rgba(58,160,255,.95);}" +
       ".co-check{transform:scale(1.05);accent-color:rgba(58,160,255,.95);}" +
 
       ".co-mode{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:900;color:rgba(233,238,247,.78);}" +
@@ -227,11 +265,11 @@
       "width:100%;min-height:78px;resize:vertical;padding:10px 12px;border:1px solid var(--line,rgba(255,255,255,.10));border-radius:12px;" +
       "background:rgba(10,16,24,.64);color:var(--text,#e9eef7);outline:none;" +
       "}" +
-      "#co-priority{" +
+      "#co-priority,#co-follow-up{" +
       "width:100%;padding:10px 12px;border:1px solid var(--line,rgba(255,255,255,.10));border-radius:12px;" +
       "background:rgba(10,16,24,.64);color:var(--text,#e9eef7);outline:none;color-scheme:dark;" +
       "}" +
-      "#co-date:focus,#co-client:focus,#co-address:focus,#co-contact:focus,#co-alternate:focus,#co-email:focus,#co-items:focus,#co-priority:focus,#co-needed:focus,#co-pickup:focus,#co-deposit:focus,#co-notes:focus{" +
+      "#co-date:focus,#co-client:focus,#co-address:focus,#co-contact:focus,#co-alternate:focus,#co-email:focus,#co-items:focus,#co-priority:focus,#co-follow-up:focus,#co-needed:focus,#co-pickup:focus,#co-deposit:focus,#co-notes:focus{" +
       "border-color:rgba(58,160,255,.55);box-shadow:0 0 0 3px rgba(58,160,255,.22);background:rgba(10,16,24,.74);" +
       "}" +
       "#co-date,#co-needed,#co-pickup{color-scheme:dark;}" +
@@ -544,6 +582,8 @@
       notes: String(p.notes || "").trim(),
       fulfilled: !!p.fulfilled,
       fulfilled_at: String(p.fulfilled_at || "").trim(),
+      follow_up_status: String(p.follow_up_status || "").trim(),
+      order_code: String(p.order_code || "").trim(),
     };
 
     if (!out.order_date || !isYmd(out.order_date)) throw new Error("Date is required (YYYY-MM-DD)");
@@ -596,6 +636,8 @@
       notes: p.notes,
       fulfilled: p.fulfilled,
       fulfilled_at: p.fulfilled_at,
+      follow_up_status: p.follow_up_status,
+      order_code: p.order_code,
 
       // DB-ish aliases
       client_address: p.address,
@@ -644,6 +686,8 @@
       notes: String(row.notes || "").trim(),
       fulfilled: !!row.fulfilled,
       fulfilled_at: String(row.fulfilled_at || "").trim(),
+      follow_up_status: String(row.follow_up_status || "").trim(),
+      order_code: String(row.order_code || "").trim(),
     };
 
     if (!isYmd(initial.order_date)) initial.order_date = todayYmd();
@@ -672,7 +716,13 @@
       "<div class='eikon-field'><div class='eikon-label'>Needed by</div><input id='co-needed' type='date' value='" + esc(initial.needed_by) + "'></div>" +
       "<div class='eikon-field'><div class='eikon-label'>Pick Up Date</div><input id='co-pickup' type='date' value='" + esc(initial.pick_up_date) + "'></div>" +
       "<div class='eikon-field'><div class='eikon-label'>Deposit (2 decimals)</div><input id='co-deposit' type='number' step='0.01' value='" + esc(initial.deposit) + "' placeholder='e.g. 20.00'></div>" +
+      "<div class='eikon-field'><div class='eikon-label'>Follow-up Status</div>" +
+      "  <select id='co-follow-up'>" +
+      FOLLOW_UP_OPTIONS.map(function (o) { return "<option value='" + esc(o.value) + "'>" + esc(o.label) + "</option>"; }).join("") +
+      "  </select>" +
+      "</div>" +
       "<div class='eikon-field'><div class='eikon-label'>Additional Notes</div><textarea id='co-notes' placeholder='Optional…'>" + esc(initial.notes) + "</textarea></div>" +
+      (initial.order_code ? "<div class='eikon-field'><div class='eikon-label'>Order Code</div><div class='co-order-code' style='padding:6px 0;font-size:16px;'>" + esc(initial.order_code) + "</div></div>" : "") +
       "<div class='eikon-field' style='display:flex;flex-direction:row;align-items:center;gap:10px;margin-top:6px;'>" +
       "  <input id='co-fulfilled' type='checkbox' class='co-check' " + (initial.fulfilled ? "checked" : "") + ">" +
       "  <div class='eikon-label' style='margin:0;'>Mark as fulfilled</div>" +
@@ -686,6 +736,17 @@
         onClick: function () {
           (async function () {
             try {
+              var followUpVal = "";
+              try { followUpVal = (E.q("#co-follow-up").value || "").trim(); } catch (eFu) {}
+              // For "called_no_answer", auto-append today's date to notes if not already present
+              var notesVal = (E.q("#co-notes").value || "").trim();
+              if (followUpVal === "called_no_answer") {
+                var todayStr = todayYmd();
+                var dateSuffix = " — Called " + fmtDmyFromYmd(todayStr) + " no answer";
+                if (notesVal.indexOf(dateSuffix) < 0) {
+                  notesVal = notesVal ? (notesVal + dateSuffix) : dateSuffix.trim();
+                }
+              }
               var payloadUi = validatePayload({
                 order_date: (E.q("#co-date").value || "").trim(),
                 client_name: (E.q("#co-client").value || "").trim(),
@@ -698,9 +759,11 @@
                 needed_by: (E.q("#co-needed").value || "").trim(),
                 pick_up_date: (E.q("#co-pickup").value || "").trim(),
                 deposit: (E.q("#co-deposit").value || "").trim(),
-                notes: (E.q("#co-notes").value || "").trim(),
+                notes: notesVal,
                 fulfilled: !!(E.q("#co-fulfilled").checked),
                 fulfilled_at: String(row.fulfilled_at || "").trim(),
+                follow_up_status: followUpVal,
+                order_code: isEdit ? String(row.order_code || "").trim() : generateOrderCode(),
               });
 
               dbg("[clientorders] modal save UI payload", payloadUi);
@@ -725,6 +788,11 @@
       var pr = E.q("#co-priority");
       if (pr) pr.value = String(initial.priority);
     } catch (e1) {}
+
+    try {
+      var fu = E.q("#co-follow-up");
+      if (fu) fu.value = String(initial.follow_up_status || "");
+    } catch (e1fu) {}
   }
 
   function openConfirmDelete(entry) {
@@ -794,6 +862,7 @@
       var r = list[i] || {};
       rowsHtml +=
         "<tr>" +
+        "<td style='font-family:monospace;font-weight:bold;letter-spacing:1px;'>" + safe(r.order_code || "-") + "</td>" +
         "<td>" + safe(fmtDmyFromYmd(r.order_date || "")) + "</td>" +
         "<td>" + safe(r.client_name || "") + "</td>" +
         "<td>" + safe(r.address || "") + "</td>" +
@@ -805,6 +874,7 @@
         "<td>" + safe(fmtDmyFromYmd(r.needed_by || "")) + "</td>" +
         "<td>" + safe(fmtDmyFromYmd(r.pick_up_date || "")) + "</td>" +
         "<td style='text-align:right;white-space:nowrap;'>" + safe(r.deposit || "") + "</td>" +
+        "<td>" + safe(followUpLabel(r.follow_up_status) || "-") + "</td>" +
         "<td>" + safe(r.notes || "") + "</td>" +
         "<td>" + safe(r.fulfilled ? "Yes" : "No") + "</td>" +
         "</tr>";
@@ -827,11 +897,85 @@
       "<h1 style='margin:0 0 4px 0;font-size:18px;'>" + safe(t) + "</h1>" +
       "<div class='meta'>Rows: " + safe(String(list.length)) + "\nSearch: " + safe(q || "-") + "\nPrinted: " + safe(new Date().toLocaleString()) + "</div>" +
       "<table><thead><tr>" +
-      "<th>Date</th><th>Client</th><th>Address</th><th>Contact</th><th>Alternate</th><th>Email</th><th>Item/s</th><th>Priority</th><th>Needed by</th><th>Pick Up Date</th><th>Deposit</th><th>Additional Notes</th><th>Fulfilled</th>" +
+      "<th>Code</th><th>Date</th><th>Client</th><th>Address</th><th>Contact</th><th>Alternate</th><th>Email</th><th>Item/s</th><th>Priority</th><th>Needed by</th><th>Pick Up Date</th><th>Deposit</th><th>Follow-up</th><th>Additional Notes</th><th>Fulfilled</th>" +
       "</tr></thead><tbody>" +
       rowsHtml +
       "</tbody></table>" +
       "<script>setTimeout(function(){try{window.print()}catch(e){}},250);</script>" +
+      "</body></html>";
+
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+  }
+
+  // ------------------------------------------------------------
+  // Print Sticker / Chit (single order)
+  // ------------------------------------------------------------
+  function openPrintSticker(entry) {
+    if (!entry) return;
+
+    var w = window.open("", "_blank");
+    if (!w) {
+      E.modal.show("Print Sticker", "<div style='white-space:pre-wrap'>Popup blocked. Allow popups and try again.</div>",
+        [{ label: "Close", primary: true, onClick: function () { E.modal.hide(); } }]);
+      return;
+    }
+
+    function safe(s) {
+      return String(s == null ? "" : s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    var code = entry.order_code || "-";
+    var fuLabel = followUpLabel(entry.follow_up_status) || "-";
+
+    var html =
+      "<!doctype html><html><head><meta charset='utf-8'>" +
+      "<title>Order Sticker — " + safe(code) + "</title>" +
+      "<style>" +
+      "body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:0;padding:10mm;color:#111;}" +
+      "button.print-btn{position:fixed;right:14px;top:14px;padding:8px 10px;font-weight:800;}" +
+      ".sticker{border:2px solid #333;border-radius:8px;padding:12px 16px;max-width:80mm;}" +
+      ".sticker-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px;border-bottom:1px solid #ccc;padding-bottom:8px;}" +
+      ".sticker-code{font-family:monospace;font-size:22px;font-weight:900;letter-spacing:2px;}" +
+      ".sticker-qr{width:80px;height:80px;}" +
+      ".sticker-qr canvas{width:80px!important;height:80px!important;}" +
+      ".sticker-row{margin:4px 0;font-size:12px;}" +
+      ".sticker-row .lbl{font-weight:900;text-transform:uppercase;font-size:10px;color:#555;letter-spacing:.5px;}" +
+      ".sticker-row .val{font-size:13px;margin-top:1px;}" +
+      ".sticker-items{font-size:14px;font-weight:700;margin:6px 0;padding:6px 0;border-top:1px dashed #ccc;border-bottom:1px dashed #ccc;white-space:pre-wrap;}" +
+      "@media print{button.print-btn{display:none!important;}body{padding:0;margin:0;}.sticker{border:none;max-width:100%;}}" +
+      "</style>" +
+      "<script src='https://cdn.jsdelivr.net/npm/bwip-js@4/dist/bwip-js-min.js'></" + "script>" +
+      "</head><body>" +
+      "<button class='print-btn' onclick='window.print()'>Print</button>" +
+      "<div class='sticker'>" +
+      "  <div class='sticker-head'>" +
+      "    <div>" +
+      "      <div class='sticker-code'>" + safe(code) + "</div>" +
+      "      <div style='font-size:10px;color:#888;margin-top:2px;'>Order Code</div>" +
+      "    </div>" +
+      "    <div class='sticker-qr'><canvas id='qr-canvas'></canvas></div>" +
+      "  </div>" +
+      "  <div class='sticker-row'><div class='lbl'>Client</div><div class='val'>" + safe(entry.client_name || "") + "</div></div>" +
+      "  <div class='sticker-row'><div class='lbl'>Contact</div><div class='val'>" + safe(entry.contact || "") + "</div></div>" +
+      "  <div class='sticker-items'>" + safe(entry.items || "") + "</div>" +
+      "  <div class='sticker-row'><div class='lbl'>Needed By</div><div class='val'>" + safe(fmtDmyFromYmd(entry.needed_by || "")) + "</div></div>" +
+      "  <div class='sticker-row'><div class='lbl'>Pick Up</div><div class='val'>" + safe(fmtDmyFromYmd(entry.pick_up_date || "")) + "</div></div>" +
+      (fuLabel !== "-" ? "  <div class='sticker-row'><div class='lbl'>Follow-up</div><div class='val'>" + safe(fuLabel) + "</div></div>" : "") +
+      "  <div class='sticker-row'><div class='lbl'>Priority</div><div class='val'>" + safe(entry.priority === 1 ? "High" : entry.priority === 3 ? "Low" : "Medium") + "</div></div>" +
+      "</div>" +
+      "<script>" +
+      "try{" +
+      "  bwipjs.toCanvas('qr-canvas',{bcid:'qrcode',text:'" + safe(code) + "',scale:3,includetext:false});" +
+      "}catch(e){console.warn('QR generation failed',e);}" +
+      "setTimeout(function(){try{window.print()}catch(e){}},400);" +
+      "</" + "script>" +
       "</body></html>";
 
     w.document.open();
@@ -850,6 +994,7 @@
     if (key === "deposit") return Number(String(v || "0").replace(/,/g, "")) || 0;
     if (key === "fulfilled") return r && r.fulfilled ? 1 : 0;
     if (key === "order_date" || key === "needed_by" || key === "pick_up_date") return String(v || "");
+    if (key === "follow_up_status") return norm(followUpLabel(v) || "");
     return norm(v);
   }
 
@@ -920,6 +1065,13 @@
     }
 
     // Compact vital columns only:
+    var tdCode = document.createElement("td");
+    var codeSpan = document.createElement("span");
+    codeSpan.className = "co-order-code";
+    codeSpan.textContent = entry.order_code || "-";
+    tdCode.appendChild(codeSpan);
+    tr.appendChild(tdCode);
+
     tr.appendChild(td(fmtDmyFromYmd(entry.order_date || ""), "", entry.order_date || ""));
     tr.appendChild(td(entry.client_name || "", "", entry.client_name || ""));
     tr.appendChild(td(entry.contact || "", "", entry.contact || ""));
@@ -928,6 +1080,17 @@
     var tdPr = document.createElement("td");
     tdPr.appendChild(prBadge(entry.priority));
     tr.appendChild(tdPr);
+
+    // Follow-up status badge
+    var tdFu = document.createElement("td");
+    var fuVal = String(entry.follow_up_status || "").trim();
+    if (fuVal) {
+      var fuSpan = document.createElement("span");
+      fuSpan.className = "co-fu fu-" + fuVal;
+      fuSpan.textContent = followUpLabel(fuVal);
+      tdFu.appendChild(fuSpan);
+    }
+    tr.appendChild(tdFu);
 
     tr.appendChild(td(fmtDmyFromYmd(entry.needed_by || ""), "", entry.needed_by || ""));
 
@@ -976,11 +1139,13 @@
   };
 
   var COLS = [
+    { key: "order_code", label: "Code" },
     { key: "order_date", label: "Date" },
     { key: "client_name", label: "Client" },
     { key: "contact", label: "Contact" },
     { key: "items", label: "Item/s" },
     { key: "priority", label: "Priority" },
+    { key: "follow_up_status", label: "Follow-up" },
     { key: "needed_by", label: "Needed by" }
   ];
 
@@ -1153,6 +1318,8 @@
       "        <button id='co-sel-edit' class='eikon-btn' type='button' disabled>Edit</button>" +
       "        <button id='co-sel-del' class='eikon-btn' type='button' disabled>Delete</button>" +
       "        <button id='co-sel-toggle' class='eikon-btn' type='button' disabled>Mark Fulfilled</button>" +
+      "        <button id='co-sel-sticker' class='eikon-btn' type='button' disabled>Print Sticker</button>" +
+      "        <button id='co-sel-reorder' class='eikon-btn' type='button' disabled style='display:none;'>Re-order</button>" +
       "      </div>" +
       "    </div>" +
       "    <div class='co-selected-grid' id='co-selected-grid'></div>" +
@@ -1236,14 +1403,17 @@
     var selBtnEdit = E.q("#co-sel-edit", mount);
     var selBtnDel = E.q("#co-sel-del", mount);
     var selBtnToggle = E.q("#co-sel-toggle", mount);
+    var selBtnSticker = E.q("#co-sel-sticker", mount);
+    var selBtnReorder = E.q("#co-sel-reorder", mount);
 
-    if (!badge || !btnNew || !btnRefresh || !searchA || !searchD || !btnPrintA || !btnPrintD || !tbodyA || !tbodyD || !countA || !countD || !tableA || !tableD || !selMeta || !selGrid || !selBtnEdit || !selBtnDel || !selBtnToggle) {
+    if (!badge || !btnNew || !btnRefresh || !searchA || !searchD || !btnPrintA || !btnPrintD || !tbodyA || !tbodyD || !countA || !countD || !tableA || !tableD || !selMeta || !selGrid || !selBtnEdit || !selBtnDel || !selBtnToggle || !selBtnSticker || !selBtnReorder) {
       err("[clientorders] DOM missing", {
         badge: !!badge, btnNew: !!btnNew, btnRefresh: !!btnRefresh,
         searchA: !!searchA, searchD: !!searchD, btnPrintA: !!btnPrintA, btnPrintD: !!btnPrintD,
         tbodyA: !!tbodyA, tbodyD: !!tbodyD, countA: !!countA, countD: !!countD,
         tableA: !!tableA, tableD: !!tableD,
-        selMeta: !!selMeta, selGrid: !!selGrid, selBtnEdit: !!selBtnEdit, selBtnDel: !!selBtnDel, selBtnToggle: !!selBtnToggle
+        selMeta: !!selMeta, selGrid: !!selGrid, selBtnEdit: !!selBtnEdit, selBtnDel: !!selBtnDel, selBtnToggle: !!selBtnToggle,
+        selBtnSticker: !!selBtnSticker, selBtnReorder: !!selBtnReorder
       });
       throw new Error("Client Orders DOM incomplete (see console)");
     }
@@ -1284,6 +1454,9 @@
           selBtnDel.disabled = true;
           selBtnToggle.disabled = true;
           selBtnToggle.textContent = "Mark Fulfilled";
+          selBtnSticker.disabled = true;
+          selBtnReorder.disabled = true;
+          selBtnReorder.style.display = "none";
           return;
         }
 
@@ -1308,6 +1481,7 @@
           selGrid.appendChild(wrap);
         }
 
+        addKV("Order Code", entry.order_code || "-");
         addKV("Date", fmtDmyFromYmd(entry.order_date || ""));
         addKV("Client", entry.client_name || "");
         addKV("Contact", entry.contact || "");
@@ -1316,6 +1490,7 @@
         addKV("Email", entry.email || "");
         addKV("Item/s", entry.items || "");
         addKV("Priority", String(entry.priority || ""));
+        addKV("Follow-up", followUpLabel(entry.follow_up_status) || "-");
         addKV("Needed by", fmtDmyFromYmd(entry.needed_by || ""));
         addKV("Pick Up Date", fmtDmyFromYmd(entry.pick_up_date || ""));
         addKV("Deposit", entry.deposit || "");
@@ -1325,6 +1500,10 @@
         selBtnDel.disabled = false;
         selBtnToggle.disabled = false;
         selBtnToggle.textContent = entry.fulfilled ? "Mark Unfulfilled" : "Mark Fulfilled";
+        selBtnSticker.disabled = false;
+        // Show Re-order button only for fulfilled orders
+        selBtnReorder.disabled = false;
+        selBtnReorder.style.display = entry.fulfilled ? "" : "none";
       } catch (e) {}
     };
 
@@ -1383,7 +1562,9 @@
             deposit: String(raw.deposit || "").trim(),
             notes: String(raw.notes || "").trim(),
             fulfilled: !!raw.fulfilled,
-            fulfilled_at: String(raw.fulfilled_at || "").trim()
+            fulfilled_at: String(raw.fulfilled_at || "").trim(),
+            follow_up_status: String(raw.follow_up_status || "").trim(),
+            order_code: String(raw.order_code || "").trim()
           };
 
           if (!isYmd(r.order_date)) r.order_date = todayYmd();
@@ -1467,6 +1648,8 @@
         pickup_date: entry.pick_up_date || "",
         deposit_amount: depositAmount,
         notes: entry.notes || "",
+        follow_up_status: entry.follow_up_status || "",
+        order_code: entry.order_code || "",
         fulfilled: next,
         fulfilled_at: ts
       };
@@ -1521,6 +1704,47 @@
     });
 
     selBtnToggle.addEventListener("click", function () { panelToggleFulfilled(); });
+
+    selBtnSticker.addEventListener("click", function () {
+      var id = state && state.selectedId ? String(state.selectedId) : "";
+      if (!id) return;
+      for (var i = 0; i < (state.entries || []).length; i++) {
+        if (state.entries[i] && String(state.entries[i].id) === id) {
+          openPrintSticker(state.entries[i]);
+          return;
+        }
+      }
+    });
+
+    selBtnReorder.addEventListener("click", function () {
+      var id = state && state.selectedId ? String(state.selectedId) : "";
+      if (!id) return;
+      for (var i = 0; i < (state.entries || []).length; i++) {
+        if (state.entries[i] && String(state.entries[i].id) === id) {
+          var src = state.entries[i];
+          openOrderModal({
+            mode: "new",
+            entry: {
+              order_date: todayYmd(),
+              client_name: src.client_name || "",
+              address: src.address || "",
+              contact: src.contact || "",
+              alternate: src.alternate || "",
+              email: src.email || "",
+              items: src.items || "",
+              priority: src.priority || 2,
+              needed_by: addDaysYmd(2),
+              pick_up_date: addDaysYmd(2),
+              deposit: "",
+              notes: "",
+              follow_up_status: "",
+              fulfilled: false
+            }
+          });
+          return;
+        }
+      }
+    });
 
     searchA.addEventListener("input", function () {
       state.queryActive = String(searchA.value || "");
