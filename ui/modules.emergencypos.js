@@ -1219,7 +1219,8 @@
     var style = document.createElement("style");
     style.id = "epos-style";
     style.textContent = [
-      ".epos-wrap{display:flex;flex-direction:column;height:100%;font-size:14px;}",
+      /* ── Base / Desktop ─────────────────────────────────────────── */
+      ".epos-wrap{display:flex;flex-direction:column;height:100%;font-size:14px;-webkit-tap-highlight-color:transparent;}",
       ".epos-tabs{display:flex;gap:4px;padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.1);background:rgba(0,0,0,.2);flex-shrink:0;}",
       ".epos-tab-btn{padding:6px 16px;border-radius:6px;border:none;cursor:pointer;font-size:13px;font-weight:600;background:rgba(255,255,255,.08);color:rgba(255,255,255,.7);transition:background .15s;}",
       ".epos-tab-btn.active{background:rgba(99,102,241,.75);color:#fff;}",
@@ -1232,7 +1233,7 @@
       ".epos-pos{display:flex;width:100%;height:100%;overflow:hidden;position:relative;}",
       ".epos-cart-panel{flex:0 0 380px;display:flex;flex-direction:column;border-right:1px solid rgba(255,255,255,.08);padding:10px;}",
       ".epos-cart-scroll{flex:1;overflow-y:auto;margin-bottom:8px;}",
-      ".epos-cart-empty{color:rgba(255,255,255,.4);text-align:center;padding:32px 0;font-size:13px;}",
+      ".epos-cart-empty{color:rgba(255,255,255,.35);text-align:center;padding:28px 16px;font-size:14px;line-height:1.6;}",
       ".epos-cart-line{display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:13px;}",
       ".epos-cart-name{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}",
       ".epos-cart-fmd{font-size:10px;color:#a5b4fc;margin-top:2px;}",
@@ -1248,18 +1249,19 @@
       ".epos-totals-row.total{font-weight:800;font-size:15px;border-top:1px solid rgba(255,255,255,.15);margin-top:4px;padding-top:5px;}",
       ".epos-payment{margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08);}",
       ".epos-pay-methods{display:flex;gap:4px;margin-bottom:6px;}",
-      ".epos-pay-btn{flex:1;padding:5px 8px;border-radius:6px;border:none;cursor:pointer;font-size:12px;font-weight:600;background:rgba(255,255,255,.1);color:rgba(255,255,255,.7);}",
+      ".epos-pay-btn{flex:1;padding:5px 8px;border-radius:6px;border:none;cursor:pointer;font-size:12px;font-weight:600;background:rgba(255,255,255,.1);color:rgba(255,255,255,.7);transition:background .15s,color .15s;}",
       ".epos-pay-btn.active{background:#6366f1;color:#fff;}",
       ".epos-tendered-row{display:flex;align-items:center;gap:6px;margin-bottom:6px;font-size:13px;}",
-      ".epos-client-row{display:flex;gap:6px;margin-bottom:8px;}",
-      ".epos-complete-btn{padding:10px;border-radius:8px;border:none;background:#22c55e;color:#fff;font-size:14px;font-weight:700;cursor:pointer;}",
+      ".epos-complete-btn{padding:10px;border-radius:8px;border:none;background:#22c55e;color:#fff;font-size:14px;font-weight:700;cursor:pointer;transition:background .15s,transform .1s;}",
       ".epos-complete-btn:hover{background:#16a34a;}",
-      ".epos-complete-btn:disabled{background:rgba(255,255,255,.1);color:rgba(255,255,255,.35);cursor:not-allowed;}",
+      ".epos-complete-btn:active{transform:scale(.97);}",
+      ".epos-complete-btn:disabled{background:rgba(255,255,255,.08);color:rgba(255,255,255,.3);cursor:not-allowed;transform:none;}",
       ".epos-search-panel{flex:1;display:flex;flex-direction:column;padding:10px;overflow:hidden;}",
       ".epos-search-bar{display:flex;gap:6px;margin-bottom:8px;flex-shrink:0;}",
       ".epos-product-grid{flex:1;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;align-content:start;}",
-      ".epos-product-card{padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);cursor:pointer;transition:background .12s;}",
-      ".epos-product-card:hover,.epos-product-card:active{background:rgba(99,102,241,.25);border-color:#6366f1;}",
+      ".epos-product-card{padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);cursor:pointer;transition:background .12s,border-color .12s,transform .1s;}",
+      ".epos-product-card:hover,.epos-product-card:active{background:rgba(99,102,241,.2);border-color:rgba(99,102,241,.5);}",
+      ".epos-product-card:active{transform:scale(.97);}",
       ".epos-product-card-name{font-size:12px;font-weight:600;margin-bottom:4px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}",
       ".epos-product-card-price{font-size:13px;color:#a5b4fc;font-weight:700;}",
       ".epos-product-card-barcode{font-size:10px;color:rgba(255,255,255,.35);margin-top:2px;}",
@@ -1289,85 +1291,180 @@
       ".epos-history-table th{padding:6px 8px;text-align:left;border-bottom:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.55);font-size:11px;font-weight:600;text-transform:uppercase;}",
       ".epos-history-table td{padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.06);vertical-align:middle;}",
       ".epos-voided{opacity:.4;text-decoration:line-through;}",
-      ".epos-input{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:6px;padding:5px 8px;color:#fff;font-size:13px;outline:none;}",
-      ".epos-input:focus{border-color:#6366f1;}",
-      ".epos-btn{padding:5px 12px;border-radius:6px;border:none;cursor:pointer;font-size:13px;font-weight:600;background:rgba(255,255,255,.1);color:#fff;}",
+      /* Base input & button */
+      ".epos-input{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:6px;padding:5px 8px;color:#fff;font-size:13px;outline:none;transition:border-color .15s;}",
+      ".epos-input:focus{border-color:#818cf8;box-shadow:0 0 0 2px rgba(99,102,241,.2);}",
+      ".epos-btn{padding:5px 12px;border-radius:6px;border:none;cursor:pointer;font-size:13px;font-weight:600;background:rgba(255,255,255,.1);color:#fff;transition:background .15s,transform .1s;}",
       ".epos-btn:hover{background:rgba(255,255,255,.18);}",
-      ".epos-btn.primary{background:#6366f1;}",
-      ".epos-btn.primary:hover{background:#4f46e5;}",
-      ".epos-btn.danger{background:rgba(239,68,68,.2);color:#f87171;}",
-      ".epos-btn.danger:hover{background:rgba(239,68,68,.4);}",
+      ".epos-btn:active{transform:scale(.97);}",
+      ".epos-btn.primary{background:linear-gradient(135deg,#6366f1,#4f46e5);box-shadow:0 2px 8px rgba(99,102,241,.3);}",
+      ".epos-btn.primary:hover{background:linear-gradient(135deg,#818cf8,#6366f1);}",
+      ".epos-btn.danger{background:rgba(239,68,68,.15);color:#f87171;border:1px solid rgba(239,68,68,.25);}",
+      ".epos-btn.danger:hover{background:rgba(239,68,68,.3);}",
+      ".epos-btn.danger:disabled{opacity:.4;cursor:not-allowed;transform:none;}",
       ".epos-btn.sm{padding:3px 8px;font-size:12px;}",
       ".epos-toast{position:fixed;bottom:18px;right:18px;z-index:10000;display:none;}",
-      /* ── Mobile-first bottom sheet cart ── */
-      ".epos-cart-toggle{display:none;}",  /* hidden on desktop */
-      /* ── Mobile overrides: JS adds .epos-mobile on touch devices ── */
-      ".epos-mobile .epos-tabs{padding:6px 8px;gap:4px;}",
-      ".epos-mobile .epos-tab-btn{padding:12px 16px;font-size:16px;flex:1;text-align:center;}",
-      /* POS layout: stack vertically */
+
+      /* ── Cart toggle (hidden on desktop) ── */
+      ".epos-cart-toggle{display:none;}",
+
+      /* ══════════════════════════════════════════════════════════════
+         MOBILE — .epos-mobile (touch devices / width < 768)
+         ══════════════════════════════════════════════════════════════ */
+
+      /* ── Tab bar ── */
+      ".epos-mobile .epos-tabs{padding:6px 8px;gap:6px;}",
+      ".epos-mobile .epos-tab-btn{padding:14px 8px;font-size:15px;flex:1;text-align:center;border-radius:10px;font-weight:700;}",
+
+      /* ── POS: products on top, cart as bottom sheet ── */
       ".epos-mobile .epos-pos{flex-direction:column-reverse;}",
-      /* Cart panel becomes a bottom sheet */
-      ".epos-mobile .epos-cart-panel{flex:none;position:fixed;left:0;right:0;bottom:0;z-index:900;background:rgba(15,18,28,.98);border-top:2px solid rgba(99,102,241,.5);border-right:none;padding:0;max-height:70vh;transition:max-height .25s ease;}",
-      ".epos-mobile .epos-cart-panel.collapsed{max-height:54px;overflow:hidden;}",
-      ".epos-mobile .epos-cart-toggle{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;cursor:pointer;-webkit-tap-highlight-color:transparent;min-height:54px;gap:8px;}",
-      ".epos-mobile .epos-cart-toggle-left{display:flex;align-items:center;gap:10px;font-weight:700;font-size:16px;}",
-      ".epos-mobile .epos-cart-toggle-badge{background:#6366f1;color:#fff;border-radius:99px;min-width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;}",
-      ".epos-mobile .epos-cart-toggle-chevron{font-size:20px;color:rgba(255,255,255,.5);transition:transform .2s;}",
+
+      /* ── Cart bottom sheet ── */
+      ".epos-mobile .epos-cart-panel{" +
+        "flex:none;position:fixed;left:0;right:0;bottom:0;z-index:900;" +
+        "background:linear-gradient(180deg,rgba(20,22,36,.98) 0%,rgba(10,12,22,.99) 100%);" +
+        "border-top:2px solid rgba(99,102,241,.45);" +
+        "border-right:none;padding:0;" +
+        "max-height:75vh;transition:max-height .3s cubic-bezier(.4,0,.2,1);" +
+        "box-shadow:0 -8px 32px rgba(0,0,0,.5);" +
+        "border-radius:20px 20px 0 0;" +
+      "}",
+      ".epos-mobile .epos-cart-panel.collapsed{max-height:60px;overflow:hidden;}",
+
+      /* ── Cart toggle handle ── */
+      ".epos-mobile .epos-cart-toggle{" +
+        "display:flex;align-items:center;justify-content:space-between;" +
+        "padding:16px 20px;cursor:pointer;min-height:60px;gap:10px;" +
+      "}",
+      ".epos-mobile .epos-cart-toggle::before{" +
+        "content:'';position:absolute;top:8px;left:50%;transform:translateX(-50%);" +
+        "width:40px;height:4px;border-radius:99px;background:rgba(255,255,255,.2);" +
+      "}",
+      ".epos-mobile .epos-cart-toggle-left{display:flex;align-items:center;gap:12px;font-weight:700;font-size:18px;}",
+      ".epos-mobile .epos-cart-toggle-badge{" +
+        "background:linear-gradient(135deg,#6366f1,#818cf8);color:#fff;border-radius:99px;" +
+        "min-width:30px;height:30px;display:flex;align-items:center;justify-content:center;" +
+        "font-size:14px;font-weight:800;box-shadow:0 2px 8px rgba(99,102,241,.4);" +
+      "}",
+      ".epos-mobile .epos-cart-toggle-chevron{font-size:22px;color:rgba(255,255,255,.45);transition:transform .25s;}",
       ".epos-mobile .epos-cart-panel:not(.collapsed) .epos-cart-toggle-chevron{transform:rotate(180deg);}",
       ".epos-mobile .epos-cart-panel.collapsed .epos-cart-inner-wrap{display:none;}",
-      ".epos-mobile .epos-cart-inner-wrap{padding:0 14px 14px;display:flex;flex-direction:column;overflow-y:auto;max-height:calc(70vh - 54px);}",
-      /* Search panel fills remaining space */
-      ".epos-mobile .epos-search-panel{flex:1;padding:10px;padding-bottom:66px;}",
-      ".epos-mobile .epos-search-bar{flex-wrap:wrap;gap:8px;}",
-      ".epos-mobile .epos-search-bar .epos-btn{padding:16px 20px;font-size:17px;border-radius:12px;flex:1;min-width:0;font-weight:700;}",
-      ".epos-mobile .epos-search-bar .epos-input{font-size:16px;padding:12px 14px;border-radius:10px;width:100%;flex:1 1 100%;}",
-      /* Bigger product cards */
-      ".epos-mobile .epos-product-grid{grid-template-columns:repeat(auto-fill,minmax(44%,1fr));gap:10px;}",
-      ".epos-mobile .epos-product-card{padding:14px;border-radius:12px;}",
-      ".epos-mobile .epos-product-card-name{font-size:14px;-webkit-line-clamp:2;}",
-      ".epos-mobile .epos-product-card-price{font-size:16px;}",
-      ".epos-mobile .epos-product-card-barcode{font-size:11px;}",
-      /* Bigger scan overlay */
+
+      /* ── Cart inner content ── */
+      ".epos-mobile .epos-cart-inner-wrap{padding:0 16px 20px;display:flex;flex-direction:column;overflow-y:auto;max-height:calc(75vh - 60px);}",
+
+      /* ── Cart lines — large touch targets ── */
+      ".epos-mobile .epos-cart-line{" +
+        "padding:12px 0;gap:10px;font-size:15px;" +
+        "border-bottom:1px solid rgba(255,255,255,.06);" +
+      "}",
+      ".epos-mobile .epos-cart-name{font-size:14px;font-weight:500;}",
+      ".epos-mobile .epos-qty-btn{" +
+        "width:44px;height:44px;font-size:22px;border-radius:12px;" +
+        "background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.25);" +
+      "}",
+      ".epos-mobile .epos-qty-btn:active{background:rgba(99,102,241,.35);transform:scale(.93);}",
+      ".epos-mobile .epos-cart-qty{min-width:40px;font-size:16px;padding:6px 8px;border-radius:8px;}",
+      ".epos-mobile .epos-cart-price{width:75px;font-size:15px;font-weight:600;}",
+      ".epos-mobile .epos-cart-remove{width:44px;height:44px;font-size:24px;}",
+      ".epos-mobile .epos-cart-empty{padding:20px 16px;font-size:15px;}",
+
+      /* ── Totals ── */
+      ".epos-mobile .epos-totals{padding:10px 0;font-size:15px;}",
+      ".epos-mobile .epos-totals-row{padding:3px 0;}",
+      ".epos-mobile .epos-totals-row.total{font-size:18px;padding-top:8px;margin-top:6px;}",
+
+      /* ── Payment section ── */
+      ".epos-mobile .epos-payment{margin-top:10px;padding-top:12px;}",
+      ".epos-mobile .epos-pay-methods{gap:8px;margin-bottom:12px;}",
+      ".epos-mobile .epos-pay-btn{" +
+        "padding:14px 8px;font-size:16px;border-radius:12px;font-weight:700;" +
+        "background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);" +
+      "}",
+      ".epos-mobile .epos-pay-btn.active{" +
+        "background:linear-gradient(135deg,#6366f1,#4f46e5);" +
+        "border-color:transparent;color:#fff;" +
+        "box-shadow:0 2px 12px rgba(99,102,241,.35);" +
+      "}",
+
+      /* ── Tendered / Discount rows ── */
+      ".epos-mobile .epos-tendered-row{font-size:16px;margin-bottom:10px;gap:10px;}",
+      ".epos-mobile .epos-tendered-row label{font-weight:600;}",
+      ".epos-mobile .epos-tendered-row .epos-input{font-size:18px;padding:12px 14px;border-radius:12px;text-align:right;}",
+      ".epos-mobile #epos-change-display{font-size:15px;min-width:90px;}",
+
+      /* ── Action buttons ── */
+      ".epos-mobile .epos-cart-actions{display:flex;gap:10px;margin-top:12px;}",
+      ".epos-mobile .epos-complete-btn{" +
+        "padding:18px;font-size:18px;border-radius:14px;font-weight:800;" +
+        "background:linear-gradient(135deg,#22c55e,#16a34a);" +
+        "box-shadow:0 4px 16px rgba(34,197,94,.3);" +
+        "letter-spacing:.3px;" +
+      "}",
+      ".epos-mobile .epos-complete-btn:active{transform:scale(.97);box-shadow:0 2px 8px rgba(34,197,94,.2);}",
+      ".epos-mobile .epos-complete-btn:disabled{" +
+        "background:rgba(255,255,255,.06);box-shadow:none;color:rgba(255,255,255,.25);" +
+      "}",
+      ".epos-mobile .epos-btn.danger{" +
+        "padding:18px 12px;font-size:16px;border-radius:14px;font-weight:700;" +
+      "}",
+
+      /* ── Search panel ── */
+      ".epos-mobile .epos-search-panel{flex:1;padding:12px;padding-bottom:72px;}",
+      ".epos-mobile .epos-search-bar{flex-wrap:wrap;gap:10px;}",
+      ".epos-mobile .epos-search-bar .epos-btn{" +
+        "padding:16px 10px;font-size:16px;border-radius:14px;flex:1;min-width:0;font-weight:700;" +
+      "}",
+      ".epos-mobile .epos-search-bar .epos-input{" +
+        "font-size:17px;padding:14px 16px;border-radius:14px;width:100%;flex:1 1 100%;" +
+        "background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);" +
+      "}",
+
+      /* ── Product grid ── */
+      ".epos-mobile .epos-product-grid{grid-template-columns:repeat(2,1fr);gap:10px;}",
+      ".epos-mobile .epos-product-card{" +
+        "padding:16px;border-radius:14px;" +
+        "background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);" +
+      "}",
+      ".epos-mobile .epos-product-card:active{background:rgba(99,102,241,.25);border-color:rgba(99,102,241,.5);transform:scale(.97);}",
+      ".epos-mobile .epos-product-card-name{font-size:14px;font-weight:600;margin-bottom:6px;-webkit-line-clamp:2;}",
+      ".epos-mobile .epos-product-card-price{font-size:17px;font-weight:800;}",
+      ".epos-mobile .epos-product-card-barcode{font-size:11px;margin-top:4px;}",
+
+      /* ── Scan overlay ── */
       ".epos-mobile .epos-scan-video{width:96vw;height:70vh;border-radius:10px;}",
       ".epos-mobile .epos-scan-overlay{gap:10px;padding:12px;}",
-      /* Payment area on mobile */
-      ".epos-mobile .epos-pay-btn{padding:14px 10px;font-size:16px;border-radius:10px;font-weight:700;}",
-      ".epos-mobile .epos-complete-btn{padding:18px;font-size:18px;border-radius:12px;margin-top:8px;}",
-      ".epos-mobile .epos-tendered-row{font-size:16px;}",
-      ".epos-mobile .epos-tendered-row .epos-input{font-size:16px;padding:12px 14px;}",
-      ".epos-mobile .epos-client-row .epos-input{font-size:16px;padding:12px 14px;border-radius:10px;}",
-      ".epos-mobile .epos-client-row{gap:8px;margin-bottom:10px;}",
-      /* Cart lines bigger touch targets */
-      ".epos-mobile .epos-cart-line{padding:10px 0;gap:10px;font-size:15px;}",
-      ".epos-mobile .epos-qty-btn{width:38px;height:38px;font-size:20px;border-radius:10px;}",
-      ".epos-mobile .epos-cart-remove{width:38px;height:38px;font-size:22px;}",
-      ".epos-mobile .epos-cart-qty{min-width:36px;font-size:15px;padding:4px 6px;border-radius:6px;}",
-      ".epos-mobile .epos-cart-price{width:70px;font-size:15px;}",
-      /* Catalog tab mobile */
-      ".epos-mobile .epos-catalog{padding:10px;}",
-      ".epos-mobile .epos-import-bar{gap:8px;}",
-      ".epos-mobile .epos-import-bar .epos-btn{padding:14px 18px;font-size:16px;border-radius:10px;}",
-      ".epos-mobile .epos-import-bar .epos-input{font-size:16px;padding:12px 14px;}",
+
+      /* ── FMD banner ── */
+      ".epos-mobile .epos-fmd-banner{font-size:14px;padding:12px 16px;border-radius:12px;}",
+
+      /* ── Toast ── */
+      ".epos-mobile .epos-toast{bottom:72px;left:12px;right:12px;}",
+
+      /* ── General inputs/buttons — 16px min prevents iOS zoom ── */
+      ".epos-mobile .epos-input{font-size:16px;padding:14px 16px;border-radius:12px;}",
+      ".epos-mobile .epos-btn{padding:14px 18px;font-size:16px;border-radius:12px;}",
+      ".epos-mobile .epos-btn.sm{padding:10px 14px;font-size:15px;border-radius:10px;}",
+
+      /* ── Catalog tab mobile ── */
+      ".epos-mobile .epos-catalog{padding:12px;}",
+      ".epos-mobile .epos-import-bar{gap:10px;}",
+      ".epos-mobile .epos-import-bar .epos-btn{padding:14px 18px;font-size:16px;border-radius:12px;}",
+      ".epos-mobile .epos-import-bar .epos-input{font-size:16px;padding:14px 16px;}",
       ".epos-mobile .epos-catalog-table{font-size:13px;}",
-      ".epos-mobile .epos-catalog-table th,.epos-mobile .epos-catalog-table td{padding:6px 8px;}",
-      /* History tab mobile */
-      ".epos-mobile .epos-history{padding:10px;}",
-      ".epos-mobile .epos-history-bar{gap:8px;flex-wrap:wrap;}",
-      ".epos-mobile .epos-history-bar .epos-btn{padding:14px 18px;font-size:16px;border-radius:10px;}",
-      ".epos-mobile .epos-history-bar .epos-input{font-size:16px;padding:12px 14px;}",
+      ".epos-mobile .epos-catalog-table th,.epos-mobile .epos-catalog-table td{padding:8px;}",
+
+      /* ── History tab mobile ── */
+      ".epos-mobile .epos-history{padding:12px;}",
+      ".epos-mobile .epos-history-bar{gap:10px;flex-wrap:wrap;}",
+      ".epos-mobile .epos-history-bar .epos-btn{padding:14px 18px;font-size:16px;border-radius:12px;}",
+      ".epos-mobile .epos-history-bar .epos-input{font-size:16px;padding:14px 16px;}",
       ".epos-mobile .epos-history-table{font-size:13px;}",
-      ".epos-mobile .epos-history-table th,.epos-mobile .epos-history-table td{padding:6px 8px;}",
-      /* Photo overlay */
+      ".epos-mobile .epos-history-table th,.epos-mobile .epos-history-table td{padding:8px;}",
+
+      /* ── Photo overlay mobile ── */
       ".epos-mobile .epos-photo-video,.epos-mobile .epos-photo-canvas{width:96vw;height:50vh;}",
-      ".epos-mobile .epos-match-row{padding:14px 12px;}",
-      /* Toast above bottom sheet */
-      ".epos-mobile .epos-toast{bottom:66px;}",
-      /* General inputs/buttons bigger on mobile — 16px minimum prevents iOS zoom */
-      ".epos-mobile .epos-input{font-size:16px;padding:12px 14px;border-radius:10px;}",
-      ".epos-mobile .epos-btn{padding:14px 18px;font-size:16px;border-radius:10px;}",
-      ".epos-mobile .epos-btn.sm{padding:10px 14px;font-size:15px;}",
-      ".epos-mobile .epos-btn.primary{padding:14px 18px;font-size:16px;}",
-      ".epos-mobile .epos-btn.danger{padding:14px 18px;font-size:16px;}"
+      ".epos-mobile .epos-match-row{padding:14px 12px;}"
     ].join("\n");
     document.head.appendChild(style);
   }
@@ -1511,10 +1608,10 @@
   function buildPosTabHtml() {
     var products = filteredCatalog();
     var t = cartTotals();
-    var mobileLimit = isMobile() ? 6 : 200;
+    var mobileLimit = isMobile() ? 8 : 200;
     return "<div class='epos-pos'>" +
-      /* Cart panel */
-      "<div class='epos-cart-panel" + (isMobile() ? " collapsed" : "") + "' id='epos-cart-panel'>" +
+      /* Cart panel — on mobile this is a bottom sheet, starts EXPANDED */
+      "<div class='epos-cart-panel' id='epos-cart-panel'>" +
         /* Toggle bar (visible on mobile only) */
         "<div class='epos-cart-toggle' id='epos-cart-toggle'>" +
           "<div class='epos-cart-toggle-left'>" +
@@ -1529,21 +1626,21 @@
         "<div id='epos-cart-totals' class='epos-totals'>" + buildTotalsHtml() + "</div>" +
         "<div class='epos-payment'>" +
           "<div class='epos-pay-methods'>" +
-            "<button class='epos-pay-btn" + (state.payment.method==="cash"?" active":"") + "' data-pay='cash'>💵 Cash</button>" +
-            "<button class='epos-pay-btn" + (state.payment.method==="card"?" active":"") + "' data-pay='card'>💳 Card</button>" +
+            "<button class='epos-pay-btn" + (state.payment.method==="cash"?" active":"") + "' data-pay='cash'>Cash</button>" +
+            "<button class='epos-pay-btn" + (state.payment.method==="card"?" active":"") + "' data-pay='card'>Card</button>" +
             "<button class='epos-pay-btn" + (state.payment.method==="other"?" active":"") + "' data-pay='other'>Other</button>" +
           "</div>" +
           "<div class='epos-tendered-row'>" +
-            "<label style='flex:1'>Tendered €</label>" +
-            "<input id='epos-tendered' class='epos-input' type='number' step='0.01' min='0' placeholder='0.00' value='" + esc(state.payment.tendered) + "' style='width:90px;'>" +
-            "<span id='epos-change-display' style='font-size:12px;font-weight:700;min-width:80px;text-align:right;'></span>" +
+            "<label style='flex:1'>Tendered</label>" +
+            "<input id='epos-tendered' class='epos-input' type='number' step='0.01' min='0' placeholder='0.00' value='" + esc(state.payment.tendered) + "' style='width:100px;'>" +
+            "<span id='epos-change-display' style='font-weight:700;min-width:90px;text-align:right;'></span>" +
           "</div>" +
           "<div class='epos-tendered-row'>" +
             "<label style='flex:1'>Discount %</label>" +
-            "<input id='epos-discount' class='epos-input' type='number' step='0.1' min='0' max='10' placeholder='0' value='" + (state.discount || "") + "' style='width:70px;'>" +
+            "<input id='epos-discount' class='epos-input' type='number' step='0.1' min='0' max='10' placeholder='0' value='" + (state.discount || "") + "' style='width:80px;'>" +
           "</div>" +
-          "<div style='display:flex;gap:6px;'>" +
-            "<button id='epos-clear-cart-btn' class='epos-btn danger' style='flex:1;padding:10px;font-size:14px;'" + (state.cart.length ? "" : " disabled") + ">Clear Cart</button>" +
+          "<div class='epos-cart-actions'>" +
+            "<button id='epos-clear-cart-btn' class='epos-btn danger' style='flex:1;'" + (state.cart.length ? "" : " disabled") + ">Clear</button>" +
             "<button id='epos-complete-btn' class='epos-complete-btn' style='flex:2;'" + (state.cart.length ? "" : " disabled") + ">Complete Sale</button>" +
           "</div>" +
         "</div>" +
@@ -1552,9 +1649,9 @@
       /* Search / product panel */
       "<div class='epos-search-panel'>" +
         "<div class='epos-search-bar'>" +
-          "<button id='epos-scan-btn' class='epos-btn primary'>📷 Scan</button>" +
-          "<button id='epos-photo-btn' class='epos-btn' title='Take a photo of the product to search by text'>🔍 Photo</button>" +
-          "<input id='epos-search-input' class='epos-input' placeholder='Search or type barcode + Enter…' style='flex:1' value='" + esc(state.catalogSearch) + "'>" +
+          "<button id='epos-scan-btn' class='epos-btn primary'>Scan</button>" +
+          "<button id='epos-photo-btn' class='epos-btn' title='Take a photo of the product to search by text'>Photo</button>" +
+          "<input id='epos-search-input' class='epos-input' placeholder='Search product or barcode…' style='flex:1' value='" + esc(state.catalogSearch) + "'>" +
         "</div>" +
         "<div id='epos-fmd-banner' class='epos-fmd-banner' style='display:none;margin-bottom:8px;'></div>" +
         "<div class='epos-product-grid' id='epos-product-grid'>" +
@@ -1612,7 +1709,7 @@
         var grid = document.getElementById("epos-product-grid");
         if (grid) {
           var products = filteredCatalog();
-          var ml = isMobile() ? 6 : 200;
+          var ml = isMobile() ? 8 : 200;
           grid.innerHTML = products.slice(0, ml).map(function(p) {
             return "<div class='epos-product-card' data-pid='" + esc(p.id) + "' data-name='" + esc(p.name) + "'>" +
               "<div class='epos-product-card-name'>" + esc(p.name) + "</div>" +
