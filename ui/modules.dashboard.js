@@ -1603,10 +1603,8 @@
               E.modal.hide();
               E.showToast && E.showToast("Return created");
 
-              // Update the button in the previous modal to show "Return pending"
-              if (btn) {
-                btn.outerHTML = '<span style="font-size:11px;color:var(--ok,green);font-weight:800;">Return pending</span>';
-              }
+              // Refresh dashboard data so the change is visible immediately
+              refreshAll({ force: true });
             } catch (ex) {
               E.modal.show("Return failed", "<div style='color:var(--danger);white-space:pre-wrap;'>" + esc((ex && (ex.message || ex.error)) || String(ex)) + "</div>", [
                 { label: "OK", primary: true, onClick: function () { E.modal.hide(); } }
@@ -1668,9 +1666,8 @@
               E.modal.hide();
               E.showToast && E.showToast("Added to Scarce Stock");
 
-              if (btn) {
-                btn.outerHTML = '<span style="font-size:11px;color:var(--ok,green);font-weight:800;">In Stock</span>';
-              }
+              // Refresh dashboard data so the change is visible immediately
+              refreshAll({ force: true });
             } catch (ex) {
               E.modal.show("Failed", "<div style='color:var(--danger);white-space:pre-wrap;'>" + esc((ex && (ex.message || ex.error)) || String(ex)) + "</div>", [
                 { label: "OK", primary: true, onClick: function () { E.modal.hide(); } }
