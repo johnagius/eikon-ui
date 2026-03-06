@@ -124,6 +124,7 @@
       collection_note_received: from01(r.collection_note_received),
       credit_note_received: from01(r.credit_note_received),
       supplier_refused: from01(r.supplier_refused),
+      damaged: from01(r.damaged),
       near_expiry_id: r.near_expiry_id || null
     };
   }
@@ -172,7 +173,8 @@
       handed_over: to01(c("re-handed-over")),
       collection_note_received: to01(c("re-collection-note")),
       credit_note_received: to01(c("re-credit-note")),
-      supplier_refused: to01(c("re-supplier-refused"))
+      supplier_refused: to01(c("re-supplier-refused")),
+      damaged: to01(c("re-damaged"))
     };
   }
 
@@ -199,7 +201,8 @@
       ["re-handed-over", row.handed_over],
       ["re-collection-note", row.collection_note_received],
       ["re-credit-note", row.credit_note_received],
-      ["re-supplier-refused", row.supplier_refused]
+      ["re-supplier-refused", row.supplier_refused],
+      ["re-damaged", row.damaged]
     ];
     cb.forEach(function (p) {
       var n = document.getElementById(p[0]);
@@ -238,6 +241,7 @@
         var flags = [];
         if (row.near_expiry_id) flags.push("From Near Expiry");
         if (row.supplier_refused) flags.push("⛔ Supplier refused");
+        if (row.damaged) flags.push("⚠ Damaged");
         if (row.return_arranged) flags.push("Return arranged");
         if (row.handed_over) flags.push("Handed over");
         if (row.collection_note_received) flags.push("Collection note");
@@ -482,6 +486,7 @@
         var meta = [];
         if (r.near_expiry_id) meta.push("From Near Expiry");
         if (r.supplier_refused) meta.push("⛔ Supplier refused");
+        if (r.damaged) meta.push("⚠ Damaged");
         if (r.quantity) meta.push("Qty: " + r.quantity);
         if (r.supplier) meta.push("Supplier: " + r.supplier);
         if (r.invoice_number) meta.push("Inv: " + r.invoice_number);
@@ -624,6 +629,7 @@
               '<label class="re-check"><input id="re-handed-over" type="checkbox"> Handed over</label>' +
               '<label class="re-check"><input id="re-collection-note" type="checkbox"> Collection note received</label>' +
               '<label class="re-check"><input id="re-credit-note" type="checkbox"> Credit note received</label>' +
+              '<label class="re-check"><input id="re-damaged" type="checkbox"> Damaged item</label>' +
               '<input id="re-supplier-refused" type="checkbox" style="display:none;" />' +
               '<div id="re-refused-note" style="display:none;margin:8px 0;padding:8px 12px;border:1px solid rgba(255,90,122,.4);border-radius:10px;background:rgba(255,90,122,.08);font-size:12px;font-weight:800;color:rgba(255,90,122,.9);">Supplier refused this return</div>' +
 
@@ -633,6 +639,8 @@
                 '<button id="re-delete" class="eikon-btn danger">Delete</button>' +
                 '<button id="re-refuse-btn" class="eikon-btn" style="display:none;background:rgba(255,90,122,.15);border-color:rgba(255,90,122,.35);">Mark as Refused</button>' +
               '</div>' +
+              '<div style="height:16px;"></div>' +
+              '<button id="re-copy-email" class="eikon-btn" style="font-size:12px;">Copy for Email</button>' +
               '<div class="re-mini" style="margin-top:10px;opacity:.75;">Tip: keep the table clean and use Details to view/edit.</div>' +
             '</div>' +
           '</div>' +
@@ -728,6 +736,29 @@
           }
         ]
       );
+    });
+
+    var btnCopy = document.getElementById("re-copy-email");
+    if (btnCopy) btnCopy.addEventListener("click", function () {
+      var f = readForm();
+      var lines = [];
+      lines.push("Return Details");
+      lines.push("-------------------------------");
+      if (f.description) lines.push("Item: " + f.description);
+      if (f.entry_date) lines.push("Date: " + fmtDmyFromYmd(f.entry_date));
+      if (f.quantity) lines.push("Quantity: " + f.quantity);
+      if (f.batch) lines.push("Batch: " + f.batch);
+      if (f.expiry) lines.push("Expiry: " + fmtDmyFromYmd(f.expiry));
+      if (f.supplier) lines.push("Supplier: " + f.supplier);
+      if (f.invoice_number) lines.push("Invoice #: " + f.invoice_number);
+      if (f.remarks) lines.push("Remarks: " + f.remarks);
+      if (f.location_stored) lines.push("Location stored: " + f.location_stored);
+      var text = lines.join("\n");
+      navigator.clipboard.writeText(text).then(function () {
+        toast("good", "Copied", "Return details copied to clipboard.");
+      }).catch(function () {
+        toast("warn", "Copy failed", "Could not copy to clipboard.");
+      });
     });
 
     wireRemarksSuggest();

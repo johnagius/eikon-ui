@@ -208,6 +208,9 @@ async function apiJson(path, options, tag) {
 
   function scarceStockStatusHtml(e) {
     if (e.scarce_stock_offer_id) return '<span class="ne-pill ne-pill-ok" style="font-size:11px;">In Scarce Stock</span>';
+    var d = (typeof e.days_to_expire === "number") ? e.days_to_expire : daysUntil(e.expiry_date);
+    if (typeof d === "number" && d < 0) return '<span class="ne-pill" style="font-size:11px;opacity:.4;">Expired</span>';
+    if (e.damaged) return '<span class="ne-pill" style="font-size:11px;opacity:.4;">Damaged</span>';
     return '<button class="eikon-btn" data-act="add-stock" data-id="' + String(e.id) + '" style="font-size:11px;">Add to Stock</button>';
   }
 
@@ -473,9 +476,15 @@ async function apiJson(path, options, tag) {
         '<div style="font-weight:900;font-size:14px;margin-bottom:4px;">' + esc(e.product_name || "") + '</div>' +
         '<div style="color:var(--muted);font-size:12px;">Expiry: <b>' + esc(ymdToDmyDash(e.expiry_date || "")) + '</b> ' + daysPillHtml(d) + '</div>' +
       '</div>' +
-      '<div class="eikon-field" style="max-width:360px;">' +
-        '<div class="eikon-label">Supplier (optional)</div>' +
-        '<input id="ne-ret-supplier" class="eikon-input" placeholder="e.g. Supplier name" />' +
+      '<div class="eikon-row" style="gap:12px;flex-wrap:wrap;">' +
+        '<div class="eikon-field" style="flex:1;min-width:220px;">' +
+          '<div class="eikon-label">Supplier (optional)</div>' +
+          '<input id="ne-ret-supplier" class="eikon-input" placeholder="e.g. Supplier name" />' +
+        '</div>' +
+        '<div class="eikon-field" style="min-width:120px;">' +
+          '<div class="eikon-label">Quantity (optional)</div>' +
+          '<input id="ne-ret-qty" class="eikon-input" placeholder="e.g. 10" />' +
+        '</div>' +
       '</div>' +
       '<div class="eikon-help" style="margin-top:10px;color:var(--muted);">This will create a return entry in the Returns module.</div>';
 
@@ -488,10 +497,11 @@ async function apiJson(path, options, tag) {
           (async function () {
             try {
               var supplier = String((E.q("#ne-ret-supplier") || {}).value || "").trim();
+              var qty = String((E.q("#ne-ret-qty") || {}).value || "").trim();
               var j = await apiJson("/near-expiry/entries/create-return", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ near_expiry_id: e.id, supplier: supplier })
+                body: JSON.stringify({ near_expiry_id: e.id, supplier: supplier, quantity: qty })
               }, "create-return");
 
               // Update local state
@@ -543,9 +553,15 @@ async function apiJson(path, options, tag) {
     }).join("");
 
     var html =
-      '<div class="eikon-field" style="max-width:360px;margin-bottom:12px;">' +
-        '<div class="eikon-label">Supplier (optional)</div>' +
-        '<input id="ne-bulk-supplier" class="eikon-input" placeholder="e.g. Supplier name" />' +
+      '<div class="eikon-row" style="gap:12px;flex-wrap:wrap;margin-bottom:12px;">' +
+        '<div class="eikon-field" style="flex:1;min-width:220px;">' +
+          '<div class="eikon-label">Supplier (optional)</div>' +
+          '<input id="ne-bulk-supplier" class="eikon-input" placeholder="e.g. Supplier name" />' +
+        '</div>' +
+        '<div class="eikon-field" style="min-width:120px;">' +
+          '<div class="eikon-label">Quantity (optional)</div>' +
+          '<input id="ne-bulk-qty" class="eikon-input" placeholder="e.g. 10" />' +
+        '</div>' +
       '</div>' +
       '<div style="margin-bottom:8px;display:flex;gap:10px;align-items:center;">' +
         '<button id="ne-bulk-all" class="eikon-btn" style="font-size:11px;">Select All</button>' +
@@ -575,10 +591,11 @@ async function apiJson(path, options, tag) {
               }
 
               var supplier = String((E.q("#ne-bulk-supplier") || {}).value || "").trim();
+              var qty = String((E.q("#ne-bulk-qty") || {}).value || "").trim();
               var j = await apiJson("/near-expiry/entries/create-returns-bulk", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ near_expiry_ids: ids, supplier: supplier })
+                body: JSON.stringify({ near_expiry_ids: ids, supplier: supplier, quantity: qty })
               }, "create-returns-bulk");
 
               E.modal.hide();

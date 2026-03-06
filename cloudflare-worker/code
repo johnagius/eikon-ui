@@ -2263,6 +2263,7 @@ function nearExpiryRowToUi(r) {
     return_id: r.return_id || null,
     return_status: r.return_status || "",
     supplier_refused: r.supplier_refused ? 1 : 0,
+    damaged: r.damaged ? 1 : 0,
     scarce_stock_offer_id: r.scarce_stock_offer_id || null,
     created_by: r.created_by,
     created_at: r.created_at,
@@ -3875,6 +3876,7 @@ async function handleNearExpiryEntriesList(request, env, corsOkHeaders, authUser
       ne.return_status,
       ne.scarce_stock_offer_id,
       COALESCE(ret.supplier_refused, 0) AS supplier_refused,
+      COALESCE(ret.damaged, 0) AS damaged,
       ne.created_by,
       ne.created_at,
       ne.updated_at,
@@ -3936,6 +3938,7 @@ async function handleNearExpiryEntryCreate(request, env, corsOkHeaders, authUser
     env,
     `SELECT ne.id, ne.product_name, ne.expiry_date, ne.location, ne.notes, ne.return_id, ne.return_status, ne.scarce_stock_offer_id,
             COALESCE(ret.supplier_refused, 0) AS supplier_refused,
+            COALESCE(ret.damaged, 0) AS damaged,
             ne.created_by, ne.created_at, ne.updated_at, ne.updated_by
      FROM near_expiry_entries ne
      LEFT JOIN returns_entries ret ON ret.id = ne.return_id
@@ -3987,6 +3990,7 @@ async function handleNearExpiryEntryUpdate(request, env, corsOkHeaders, authUser
     env,
     `SELECT ne.id, ne.product_name, ne.expiry_date, ne.location, ne.notes, ne.return_id, ne.return_status, ne.scarce_stock_offer_id,
             COALESCE(ret.supplier_refused, 0) AS supplier_refused,
+            COALESCE(ret.damaged, 0) AS damaged,
             ne.created_by, ne.created_at, ne.updated_at, ne.updated_by
      FROM near_expiry_entries ne
      LEFT JOIN returns_entries ret ON ret.id = ne.return_id
@@ -4055,6 +4059,7 @@ async function handleNearExpiryCreateReturn(request, env, corsOkHeaders, authUse
   const body = await readJson(request);
   const nearExpiryId = Number(body.near_expiry_id || 0);
   const supplier = String(body.supplier || "").trim();
+  const quantity = String(body.quantity || "").trim();
 
   if (!nearExpiryId) return jsonResponse({ ok: false, error: "Missing near_expiry_id" }, 400, corsOkHeaders);
 
@@ -4083,7 +4088,7 @@ async function handleNearExpiryCreateReturn(request, env, corsOkHeaders, authUse
     ) VALUES (
       ?, ?,
       ?, ?,
-      ?, NULL, NULL, ?, NULL, ?, NULL,
+      ?, NULL, ?, ?, NULL, ?, NULL,
       0, 0, 0, 0,
       ?,
       datetime('now'), datetime('now'), ?, ?
@@ -4091,7 +4096,7 @@ async function handleNearExpiryCreateReturn(request, env, corsOkHeaders, authUse
   `, [
     authUser.org_id, authUser.location_id,
     entryDate, ne.product_name,
-    ne.expiry_date || null, supplier || null, "Expiring soon",
+    ne.expiry_date || null, quantity || null, supplier || null, "Expiring soon",
     nearExpiryId,
     authUser.user_id, authUser.user_id
   ]);
@@ -4130,6 +4135,7 @@ async function handleNearExpiryCreateReturnsBulk(request, env, corsOkHeaders, au
   const body = await readJson(request);
   const ids = Array.isArray(body.near_expiry_ids) ? body.near_expiry_ids.map(Number).filter(Boolean) : [];
   const supplier = String(body.supplier || "").trim();
+  const quantity = String(body.quantity || "").trim();
 
   if (!ids.length) return jsonResponse({ ok: false, error: "No items selected" }, 400, corsOkHeaders);
   if (ids.length > 100) return jsonResponse({ ok: false, error: "Too many items (max 100)" }, 400, corsOkHeaders);
@@ -4157,7 +4163,7 @@ async function handleNearExpiryCreateReturnsBulk(request, env, corsOkHeaders, au
       ) VALUES (
         ?, ?,
         ?, ?,
-        ?, NULL, NULL, ?, NULL, ?, NULL,
+        ?, NULL, ?, ?, NULL, ?, NULL,
         0, 0, 0, 0,
         ?,
         datetime('now'), datetime('now'), ?, ?
@@ -4165,7 +4171,7 @@ async function handleNearExpiryCreateReturnsBulk(request, env, corsOkHeaders, au
     `, [
       authUser.org_id, authUser.location_id,
       entryDate, ne.product_name,
-      ne.expiry_date || null, supplier || null, "Expiring soon",
+      ne.expiry_date || null, quantity || null, supplier || null, "Expiring soon",
       neId,
       authUser.user_id, authUser.user_id
     ]);
@@ -5874,7 +5880,8 @@ async function ensureReturnsSchema(env) {
   // Backfill columns for near-expiry ↔ returns integration
   const retAdds = [
     "ALTER TABLE returns_entries ADD COLUMN near_expiry_id INTEGER DEFAULT NULL",
-    "ALTER TABLE returns_entries ADD COLUMN supplier_refused INTEGER NOT NULL DEFAULT 0"
+    "ALTER TABLE returns_entries ADD COLUMN supplier_refused INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE returns_entries ADD COLUMN damaged INTEGER NOT NULL DEFAULT 0"
   ];
   for (const sql of retAdds) {
     try { await dbRun(env, sql, []); } catch (e) { /* ignore duplicate column */ }
@@ -5909,7 +5916,7 @@ async function handleReturnsEntriesList(request, env, corsOkHeaders, authUser, u
       id, entry_date, description,
       expiry, batch, quantity, supplier, invoice_number, remarks, location_stored,
       return_arranged, handed_over, collection_note_received, credit_note_received,
-      near_expiry_id, supplier_refused
+      near_expiry_id, supplier_refused, damaged
     FROM returns_entries
     ${where}
     ORDER BY entry_date DESC, id DESC
@@ -5947,26 +5954,27 @@ async function handleReturnsEntryCreate(request, env, corsOkHeaders, authUser) {
   const handed_over = to01(body.handed_over);
   const collection_note_received = to01(body.collection_note_received);
   const credit_note_received = to01(body.credit_note_received);
+  const damaged = to01(body.damaged);
 
   const res = await dbRun(env, `
     INSERT INTO returns_entries (
       org_id, location_id,
       entry_date, description,
       expiry, batch, quantity, supplier, invoice_number, remarks, location_stored,
-      return_arranged, handed_over, collection_note_received, credit_note_received,
+      return_arranged, handed_over, collection_note_received, credit_note_received, damaged,
       created_at, updated_at, created_by, updated_by
     ) VALUES (
       ?, ?,
       ?, ?,
       ?, ?, ?, ?, ?, ?, ?,
-      ?, ?, ?, ?,
+      ?, ?, ?, ?, ?,
       datetime('now'), datetime('now'), ?, ?
     )
   `, [
     authUser.org_id, authUser.location_id,
     entry_date, description,
     expiry || null, batch || null, quantity || null, supplier || null, invoice_number || null, remarks || null, location_stored || null,
-    return_arranged, handed_over, collection_note_received, credit_note_received,
+    return_arranged, handed_over, collection_note_received, credit_note_received, damaged,
     authUser.user_id, authUser.user_id
   ]);
 
@@ -6011,6 +6019,7 @@ async function handleReturnsEntryUpdate(request, env, corsOkHeaders, authUser, i
   const collection_note_received = to01(body.collection_note_received);
   const credit_note_received = to01(body.credit_note_received);
   const supplier_refused = to01(body.supplier_refused);
+  const damaged = to01(body.damaged);
 
   await dbRun(env, `
     UPDATE returns_entries SET
@@ -6028,6 +6037,7 @@ async function handleReturnsEntryUpdate(request, env, corsOkHeaders, authUser, i
       collection_note_received=?,
       credit_note_received=?,
       supplier_refused=?,
+      damaged=?,
       updated_at=datetime('now'),
       updated_by=?
     WHERE id=? AND org_id=? AND location_id=?
@@ -6046,6 +6056,7 @@ async function handleReturnsEntryUpdate(request, env, corsOkHeaders, authUser, i
     collection_note_received,
     credit_note_received,
     supplier_refused,
+    damaged,
     authUser.user_id,
     id, authUser.org_id, authUser.location_id
   ]);

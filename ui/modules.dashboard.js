@@ -1507,8 +1507,10 @@
       return '<button class="eikon-btn" data-dash-ne-return="' + esc(String(item.id || "")) + '" style="font-size:11px;padding:4px 10px;">Return</button>';
     }
 
-    function stockActionHtml(item) {
+    function stockActionHtml(item, isExpired) {
       if (item.scarce_stock_offer_id) return '<span style="font-size:11px;color:var(--ok,green);font-weight:800;">In Stock</span>';
+      if (isExpired) return '<span style="font-size:11px;opacity:.4;">Expired</span>';
+      if (item.damaged) return '<span style="font-size:11px;opacity:.4;">Damaged</span>';
       return '<button class="eikon-btn" data-dash-ne-stock="' + esc(String(item.id || "")) + '" ' +
         'data-name="' + esc(safeStr(item.product_name || item.item_name || item.name || "")) + '" ' +
         'data-expiry="' + esc(safeStr(item.expiry_date || "")) + '" ' +
@@ -1517,8 +1519,8 @@
 
     var rows = "";
     var i;
-    for (i = 0; i < Math.min(15, nx.expired.length); i++) rows += "<tr><td>" + esc(labelOf(nx.expired[i])) + "</td><td>" + esc(safeStr(nx.expired[i].expiry_date)) + "</td><td><b>Expired</b></td><td>" + actionHtml(nx.expired[i]) + "</td><td>" + stockActionHtml(nx.expired[i]) + "</td></tr>";
-    for (i = 0; i < Math.min(15, nx.soon.length); i++) rows += "<tr><td>" + esc(labelOf(nx.soon[i])) + "</td><td>" + esc(safeStr(nx.soon[i].expiry_date)) + "</td><td>Due ≤30d</td><td>" + actionHtml(nx.soon[i]) + "</td><td>" + stockActionHtml(nx.soon[i]) + "</td></tr>";
+    for (i = 0; i < Math.min(15, nx.expired.length); i++) rows += "<tr><td>" + esc(labelOf(nx.expired[i])) + "</td><td>" + esc(safeStr(nx.expired[i].expiry_date)) + "</td><td><b>Expired</b></td><td>" + actionHtml(nx.expired[i]) + "</td><td>" + stockActionHtml(nx.expired[i], true) + "</td></tr>";
+    for (i = 0; i < Math.min(15, nx.soon.length); i++) rows += "<tr><td>" + esc(labelOf(nx.soon[i])) + "</td><td>" + esc(safeStr(nx.soon[i].expiry_date)) + "</td><td>Due ≤30d</td><td>" + actionHtml(nx.soon[i]) + "</td><td>" + stockActionHtml(nx.soon[i], false) + "</td></tr>";
     if (!rows) rows = "<tr><td colspan='5'>No items.</td></tr>";
 
     var body =
@@ -1566,9 +1568,15 @@
 
   function showDashNearExpiryReturnModal(neId, btn) {
     var supplierHtml =
-      '<div style="margin-bottom:12px;">' +
-        '<div class="eikon-label">Supplier (optional)</div>' +
-        '<input id="dash-ne-ret-supplier" class="eikon-input" placeholder="e.g. Supplier name" style="max-width:300px;" />' +
+      '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px;">' +
+        '<div style="flex:1;min-width:200px;">' +
+          '<div class="eikon-label">Supplier (optional)</div>' +
+          '<input id="dash-ne-ret-supplier" class="eikon-input" placeholder="e.g. Supplier name" />' +
+        '</div>' +
+        '<div style="min-width:120px;">' +
+          '<div class="eikon-label">Quantity (optional)</div>' +
+          '<input id="dash-ne-ret-qty" class="eikon-input" placeholder="e.g. 10" />' +
+        '</div>' +
       '</div>' +
       '<div class="eikon-help" style="color:var(--muted);">This will create a return entry in the Returns module.</div>';
 
@@ -1581,10 +1589,11 @@
           (async function () {
             try {
               var supplier = String((document.getElementById("dash-ne-ret-supplier") || {}).value || "").trim();
+              var qty = String((document.getElementById("dash-ne-ret-qty") || {}).value || "").trim();
               var j = await api("/near-expiry/entries/create-return", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ near_expiry_id: neId, supplier: supplier })
+                body: JSON.stringify({ near_expiry_id: neId, supplier: supplier, quantity: qty })
               }, 10000, "dash-ne-create-return");
 
               if (!j || !j.ok) throw new Error((j && j.error) || "Failed");
