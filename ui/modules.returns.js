@@ -122,7 +122,8 @@
       return_arranged: from01(r.return_arranged),
       handed_over: from01(r.handed_over),
       collection_note_received: from01(r.collection_note_received),
-      credit_note_received: from01(r.credit_note_received)
+      credit_note_received: from01(r.credit_note_received),
+      near_expiry_id: r.near_expiry_id || null
     };
   }
 
@@ -206,6 +207,7 @@
     if (meta) {
       if (row && row.id) {
         var flags = [];
+        if (row.near_expiry_id) flags.push("From Near Expiry");
         if (row.return_arranged) flags.push("Return arranged");
         if (row.handed_over) flags.push("Handed over");
         if (row.collection_note_received) flags.push("Collection note");
@@ -448,6 +450,7 @@
         });
 
         var meta = [];
+        if (r.near_expiry_id) meta.push("From Near Expiry");
         if (r.quantity) meta.push("Qty: " + r.quantity);
         if (r.supplier) meta.push("Supplier: " + r.supplier);
         if (r.invoice_number) meta.push("Inv: " + r.invoice_number);

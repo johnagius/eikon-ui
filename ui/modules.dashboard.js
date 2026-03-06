@@ -576,6 +576,8 @@
 
     for (var i = 0; i < entries.length; i++) {
       var e = entries[i] || {};
+      // Skip items already handed over (picked up by supplier)
+      if (safeStr(e.return_status) === "handed_over") continue;
       var ex = safeStr(e.expiry_date);
       if (!ex) continue;
       var d = parseYmd(ex);
@@ -1497,17 +1499,24 @@
 
     function labelOf(r) { return safeStr(r.item_name || r.product_name || r.name || r.description || r.sku || "") || ("Item #" + (r.id || "")); }
 
+    function actionHtml(item) {
+      var rs = safeStr(item.return_status || "");
+      if (rs === "pending") return '<span style="font-size:11px;color:var(--warn,orange);font-weight:800;">Return pending</span>';
+      if (rs === "handed_over") return '<span style="font-size:11px;color:var(--ok,green);font-weight:800;">Returned</span>';
+      return '<button class="eikon-btn" data-dash-ne-return="' + esc(String(item.id || "")) + '" style="font-size:11px;padding:4px 10px;">Return</button>';
+    }
+
     var rows = "";
     var i;
-    for (i = 0; i < Math.min(15, nx.expired.length); i++) rows += "<tr><td>" + esc(labelOf(nx.expired[i])) + "</td><td>" + esc(safeStr(nx.expired[i].expiry_date)) + "</td><td><b>Expired</b></td></tr>";
-    for (i = 0; i < Math.min(15, nx.soon.length); i++) rows += "<tr><td>" + esc(labelOf(nx.soon[i])) + "</td><td>" + esc(safeStr(nx.soon[i].expiry_date)) + "</td><td>Due ≤30d</td></tr>";
-    if (!rows) rows = "<tr><td colspan='3'>No items.</td></tr>";
+    for (i = 0; i < Math.min(15, nx.expired.length); i++) rows += "<tr><td>" + esc(labelOf(nx.expired[i])) + "</td><td>" + esc(safeStr(nx.expired[i].expiry_date)) + "</td><td><b>Expired</b></td><td>" + actionHtml(nx.expired[i]) + "</td></tr>";
+    for (i = 0; i < Math.min(15, nx.soon.length); i++) rows += "<tr><td>" + esc(labelOf(nx.soon[i])) + "</td><td>" + esc(safeStr(nx.soon[i].expiry_date)) + "</td><td>Due ≤30d</td><td>" + actionHtml(nx.soon[i]) + "</td></tr>";
+    if (!rows) rows = "<tr><td colspan='4'>No items.</td></tr>";
 
     var body =
       '<div class="eikon-dash-detail">' +
         '<div class="eikon-help">Showing up to 30 items total (15 expired + 15 due ≤30d).</div>' +
         '<table class="eikon-dash-mini-table">' +
-          "<thead><tr><th>Item</th><th>Expiry</th><th>Status</th></tr></thead>" +
+          "<thead><tr><th>Item</th><th>Expiry</th><th>Status</th><th>Action</th></tr></thead>" +
           "<tbody>" + rows + "</tbody>" +
         "</table>" +
       "</div>";
@@ -1515,6 +1524,63 @@
     E.modal.show("Near expiry — Details", body, [
       { label: "Close", onClick: function () { E.modal.hide(); } },
       { label: "Open module", primary: true, onClick: function () { E.modal.hide(); window.location.hash = "#nearexpiry"; } }
+    ]);
+
+    // Wire return buttons in the modal
+    setTimeout(function () {
+      var btns = document.querySelectorAll("[data-dash-ne-return]");
+      for (var b = 0; b < btns.length; b++) {
+        (function (btn) {
+          btn.addEventListener("click", function () {
+            var neId = Number(btn.getAttribute("data-dash-ne-return"));
+            if (!neId) return;
+            showDashNearExpiryReturnModal(neId, btn);
+          });
+        })(btns[b]);
+      }
+    }, 50);
+  }
+
+  function showDashNearExpiryReturnModal(neId, btn) {
+    var supplierHtml =
+      '<div style="margin-bottom:12px;">' +
+        '<div class="eikon-label">Supplier (optional)</div>' +
+        '<input id="dash-ne-ret-supplier" class="eikon-input" placeholder="e.g. Supplier name" style="max-width:300px;" />' +
+      '</div>' +
+      '<div class="eikon-help" style="color:var(--muted);">This will create a return entry in the Returns module.</div>';
+
+    E.modal.show("Create Return", supplierHtml, [
+      { label: "Cancel", onClick: function () { E.modal.hide(); } },
+      {
+        label: "Create Return",
+        primary: true,
+        onClick: function () {
+          (async function () {
+            try {
+              var supplier = String((document.getElementById("dash-ne-ret-supplier") || {}).value || "").trim();
+              var j = await api("/near-expiry/entries/create-return", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ near_expiry_id: neId, supplier: supplier })
+              }, 10000, "dash-ne-create-return");
+
+              if (!j || !j.ok) throw new Error((j && j.error) || "Failed");
+
+              E.modal.hide();
+              E.showToast && E.showToast("Return created");
+
+              // Update the button in the previous modal to show "Return pending"
+              if (btn) {
+                btn.outerHTML = '<span style="font-size:11px;color:var(--warn,orange);font-weight:800;">Return pending</span>';
+              }
+            } catch (ex) {
+              E.modal.show("Return failed", "<div style='color:var(--danger);white-space:pre-wrap;'>" + esc((ex && (ex.message || ex.error)) || String(ex)) + "</div>", [
+                { label: "OK", primary: true, onClick: function () { E.modal.hide(); } }
+              ]);
+            }
+          })();
+        }
+      }
     ]);
   }
 
