@@ -12396,6 +12396,96 @@ async function handleApptPublicLookup(request, env, corsOkHeaders, url) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ── Audit Log Handler ─────────────────────────────────────────────────────
+async function handleAuditLogList(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin"])) {
+    return jsonResponse({ ok: false, error: "Forbidden – admin only" }, 403, corsOkHeaders);
+  }
+
+  const module = (url.searchParams.get("module") || "").trim();
+  const action = (url.searchParams.get("action") || "").trim();
+  const from   = (url.searchParams.get("from") || "").trim();
+  const to     = (url.searchParams.get("to") || "").trim();
+  const limit  = Math.min(Math.max(parseInt(url.searchParams.get("limit")) || 200, 1), 1000);
+  const offset = Math.max(parseInt(url.searchParams.get("offset")) || 0, 0);
+
+  // Map friendly module names to entity_type values used in writeAudit calls
+  const MODULE_ENTITY_MAP = {
+    "temperature":    ["temperature_devices", "temperature_entries"],
+    "dailyregister":  ["daily_register_entries"],
+    "ddasales":       ["dda_sales_entries"],
+    "ddapoyc":        ["dda_poyc_entries"],
+    "ddapurchases":   ["dda_purchases_entries"],
+    "ddastocktakes":  ["dda_stocktakes", "dda_stocktake_items"],
+    "cleaning":       ["cleaning_entries"],
+    "certificates":   ["certificates_items"],
+    "locumregister":  ["locum_register_entries"]
+  };
+
+  let where = ["a.org_id = ?"];
+  let bind  = [authUser.org_id];
+
+  if (module && MODULE_ENTITY_MAP[module]) {
+    const types = MODULE_ENTITY_MAP[module];
+    where.push("a.entity_type IN (" + types.map(() => "?").join(",") + ")");
+    bind.push(...types);
+  } else if (module) {
+    // If module not in map, filter by entity_type directly
+    where.push("a.entity_type = ?");
+    bind.push(module);
+  }
+
+  if (action) {
+    where.push("a.action LIKE ?");
+    bind.push("%" + action + "%");
+  }
+  if (from) {
+    where.push("a.created_at >= ?");
+    bind.push(from);
+  }
+  if (to) {
+    where.push("a.created_at <= ?");
+    bind.push(to + "T23:59:59");
+  }
+
+  const sql = `
+    SELECT a.id, a.user_id, a.action, a.entity_type, a.entity_id,
+           a.details_json, a.created_at,
+           u.full_name AS user_name, u.email AS user_email
+    FROM audit_log a
+    LEFT JOIN users u ON u.id = a.user_id
+    WHERE ${where.join(" AND ")}
+    ORDER BY a.created_at DESC
+    LIMIT ? OFFSET ?`;
+  bind.push(limit, offset);
+
+  const rows = await dbAll(env, sql, bind);
+
+  // Parse details_json for each row
+  const entries = rows.map(r => {
+    let details = {};
+    try { details = JSON.parse(r.details_json || "{}"); } catch (e) {}
+    return {
+      id: r.id,
+      user_id: r.user_id,
+      user_name: r.user_name || r.user_email || ("User #" + (r.user_id || "?")),
+      action: r.action,
+      entity_type: r.entity_type,
+      entity_id: r.entity_id,
+      details: details,
+      created_at: r.created_at
+    };
+  });
+
+  // Get total count for pagination
+  const countSql = `SELECT COUNT(1) AS c FROM audit_log a WHERE ${where.slice(0, -0).join(" AND ")}`;
+  const countBind = bind.slice(0, bind.length - 2); // remove limit and offset
+  const countRow = await dbFirst(env, countSql, countBind);
+  const total = (countRow && countRow.c) || 0;
+
+  return jsonResponse({ ok: true, entries, total, limit, offset }, 200, corsOkHeaders);
+}
+
 export default {
   async fetch(request, env, ctx) {
     try {
@@ -13471,6 +13561,12 @@ if (url.pathname.startsWith("/dda-stocktakes/items/")) {
       }
     }
     // ── End Emergency POS ──────────────────────────────────────────────────────
+
+    // ── Audit Log ─────────────────────────────────────────────────────────────
+    if (url.pathname === "/audit/log" && request.method === "GET") {
+      return await handleAuditLogList(request, env, corsOkHeaders, authUser, url);
+    }
+    // ── End Audit Log ─────────────────────────────────────────────────────────
 
     return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
     } catch (e) {
