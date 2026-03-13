@@ -13672,6 +13672,371 @@ async function handleAuditLogList(request, env, corsOkHeaders, authUser, url) {
   return jsonResponse({ ok: true, entries, total, limit, offset }, 200, corsOkHeaders);
 }
 
+
+/* ========================= PHARMACY BOARD (Messaging) ========================= */
+
+let _boardSchemaReady = false;
+let _boardLastCleanup = 0;
+
+async function ensureBoardSchema(env) {
+  if (_boardSchemaReady) return;
+
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS board_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id INTEGER NOT NULL,
+    location_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    user_name TEXT NOT NULL DEFAULT '',
+    location_name TEXT NOT NULL DEFAULT '',
+    org_name TEXT NOT NULL DEFAULT '',
+    body TEXT NOT NULL,
+    scope TEXT NOT NULL DEFAULT 'all',
+    is_pinned INTEGER NOT NULL DEFAULT 0,
+    pinned_at TEXT,
+    pinned_by INTEGER,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`, []);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_board_msg_scope_created ON board_messages(scope, created_at DESC)`, []);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_board_msg_org_created ON board_messages(org_id, scope, created_at DESC)`, []);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_board_msg_pinned ON board_messages(is_pinned, created_at DESC)`, []);
+
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS board_mentions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    message_id INTEGER NOT NULL,
+    mentioned_user_id INTEGER NOT NULL,
+    is_read INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`, []);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_board_mention_user ON board_mentions(mentioned_user_id, is_read)`, []);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_board_mention_msg ON board_mentions(message_id)`, []);
+
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS board_suggestions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id INTEGER NOT NULL,
+    message_id INTEGER,
+    title TEXT NOT NULL,
+    priority TEXT NOT NULL DEFAULT 'medium',
+    created_by INTEGER,
+    created_by_name TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'open',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`, []);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_board_sug_created ON board_suggestions(created_at DESC)`, []);
+
+  _boardSchemaReady = true;
+}
+
+async function boardCleanupOldMessages(env) {
+  const now = Date.now();
+  if (now - _boardLastCleanup < 5 * 60 * 1000) return; // at most every 5 min
+  _boardLastCleanup = now;
+  try {
+    await dbRun(env, `DELETE FROM board_messages WHERE is_pinned = 0 AND created_at < datetime('now', '-6 months')`, []);
+  } catch (e) {
+    console.log("[board] cleanup error", e && (e.message || e));
+  }
+}
+
+// --- List messages (cursor-based) ---
+async function handleBoardMessagesList(request, env, corsOkHeaders, authUser, url) {
+  await ensureBoardSchema(env);
+  await boardCleanupOldMessages(env);
+
+  const scope = (url.searchParams.get("scope") || "all").trim().toLowerCase();
+  const before = parseInt(url.searchParams.get("before")) || 0;
+  const after = parseInt(url.searchParams.get("after")) || 0;
+  const limit = Math.min(parseInt(url.searchParams.get("limit")) || 50, 100);
+  const pinnedOnly = url.searchParams.get("pinned") === "1";
+
+  let where = [];
+  let bind = [];
+
+  if (pinnedOnly) {
+    where.push("m.is_pinned = 1");
+  } else if (scope === "org") {
+    // Org view: show org-scoped messages for this org + all global messages
+    where.push("((m.scope = 'org' AND m.org_id = ?) OR m.scope = 'all')");
+    bind.push(authUser.org_id);
+  } else {
+    // All view: only global messages
+    where.push("m.scope = 'all'");
+  }
+
+  if (before > 0) {
+    where.push("m.id < ?");
+    bind.push(before);
+  }
+  if (after > 0) {
+    where.push("m.id > ?");
+    bind.push(after);
+  }
+
+  const whereClause = where.length ? "WHERE " + where.join(" AND ") : "";
+  const order = after > 0 ? "ASC" : "DESC";
+
+  const rows = await dbAll(env, `
+    SELECT m.id, m.org_id, m.location_id, m.user_id, m.user_name, m.location_name, m.org_name,
+           m.body, m.scope, m.is_pinned, m.pinned_at, m.pinned_by, m.created_at, m.updated_at
+    FROM board_messages m
+    ${whereClause}
+    ORDER BY m.id ${order}
+    LIMIT ?
+  `, [...bind, limit]);
+
+  // If we fetched with ASC (polling for new), reverse so newest is first
+  if (after > 0) rows.reverse();
+
+  return jsonResponse({ ok: true, messages: rows }, 200, corsOkHeaders);
+}
+
+// --- Create message ---
+async function handleBoardMessageCreate(request, env, corsOkHeaders, authUser) {
+  await ensureBoardSchema(env);
+  const body = await readJson(request);
+  const msgBody = String(body.body || "").trim();
+  if (!msgBody) return jsonResponse({ ok: false, error: "Message body is required" }, 400, corsOkHeaders);
+  if (msgBody.length > 2000) return jsonResponse({ ok: false, error: "Message too long (max 2000 characters)" }, 400, corsOkHeaders);
+
+  const scope = (String(body.scope || "all").trim().toLowerCase() === "org") ? "org" : "all";
+
+  const res = await dbRun(env, `
+    INSERT INTO board_messages (org_id, location_id, user_id, user_name, location_name, org_name, body, scope, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+  `, [authUser.org_id, authUser.location_id, authUser.user_id, authUser.full_name || "", authUser.location_name || "", authUser.org_name || "", msgBody, scope]);
+
+  const newId = (res && res.meta && res.meta.last_row_id) ? Number(res.meta.last_row_id) : null;
+
+  // Parse @mentions — match @Name patterns, look up users
+  const mentionMatches = msgBody.match(/@([A-Za-z][\w .'-]{1,50})/g);
+  if (mentionMatches && newId) {
+    const seen = new Set();
+    for (const raw of mentionMatches) {
+      const name = raw.slice(1).trim().toLowerCase();
+      if (!name || seen.has(name)) continue;
+      seen.add(name);
+
+      // Look up user by name (fuzzy)
+      const user = await dbFirst(env, `SELECT id FROM users WHERE is_active = 1 AND lower(full_name) = ? LIMIT 1`, [name]);
+      if (user && user.id !== authUser.user_id) {
+        await dbRun(env, `INSERT INTO board_mentions (message_id, mentioned_user_id, created_at) VALUES (?, ?, datetime('now'))`, [newId, user.id]);
+      }
+    }
+  }
+
+  // Parse #suggestion
+  if (newId && /#suggestion/i.test(msgBody)) {
+    // Use the message body (minus the #suggestion tag) as title, truncate to 500 chars
+    const sugTitle = msgBody.replace(/#suggestion/gi, "").trim().slice(0, 500) || msgBody.slice(0, 500);
+    await dbRun(env, `
+      INSERT INTO board_suggestions (org_id, message_id, title, priority, created_by, created_by_name, status, created_at, updated_at)
+      VALUES (?, ?, ?, 'medium', ?, ?, 'open', datetime('now'), datetime('now'))
+    `, [authUser.org_id, newId, sugTitle, authUser.user_id, authUser.full_name || ""]);
+  }
+
+  // Return the created message
+  const msg = await dbFirst(env, `SELECT * FROM board_messages WHERE id = ?`, [newId]);
+  return jsonResponse({ ok: true, id: newId, message: msg }, 200, corsOkHeaders);
+}
+
+// --- Pin/Unpin ---
+async function handleBoardMessagePin(request, env, corsOkHeaders, authUser, msgId) {
+  await ensureBoardSchema(env);
+  const existing = await dbFirst(env, `SELECT id, is_pinned FROM board_messages WHERE id = ?`, [msgId]);
+  if (!existing) return jsonResponse({ ok: false, error: "Message not found" }, 404, corsOkHeaders);
+
+  const newPinned = existing.is_pinned ? 0 : 1;
+
+  if (newPinned === 1) {
+    const countRow = await dbFirst(env, `SELECT COUNT(*) as c FROM board_messages WHERE is_pinned = 1`, []);
+    if (countRow && countRow.c >= 30) {
+      return jsonResponse({ ok: false, error: "Maximum 30 pinned messages reached. Unpin another message first." }, 400, corsOkHeaders);
+    }
+  }
+
+  await dbRun(env, `UPDATE board_messages SET is_pinned = ?, pinned_at = ?, pinned_by = ?, updated_at = datetime('now') WHERE id = ?`,
+    [newPinned, newPinned ? nowIso() : null, newPinned ? authUser.user_id : null, msgId]);
+
+  return jsonResponse({ ok: true, is_pinned: newPinned }, 200, corsOkHeaders);
+}
+
+// --- Delete message (own only) ---
+async function handleBoardMessageDelete(request, env, corsOkHeaders, authUser, msgId) {
+  await ensureBoardSchema(env);
+  const existing = await dbFirst(env, `SELECT id, user_id FROM board_messages WHERE id = ?`, [msgId]);
+  if (!existing) return jsonResponse({ ok: false, error: "Message not found" }, 404, corsOkHeaders);
+  if (existing.user_id !== authUser.user_id) return jsonResponse({ ok: false, error: "You can only delete your own messages" }, 403, corsOkHeaders);
+
+  await dbRun(env, `DELETE FROM board_mentions WHERE message_id = ?`, [msgId]);
+  await dbRun(env, `DELETE FROM board_messages WHERE id = ?`, [msgId]);
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+// --- Mentions list ---
+async function handleBoardMentionsList(request, env, corsOkHeaders, authUser, url) {
+  await ensureBoardSchema(env);
+  const unreadOnly = url.searchParams.get("unread") === "1";
+
+  let sql = `SELECT bm.id, bm.message_id, bm.is_read, bm.created_at,
+                    m.body, m.user_name, m.location_name, m.scope, m.created_at AS msg_created_at
+             FROM board_mentions bm
+             JOIN board_messages m ON m.id = bm.message_id
+             WHERE bm.mentioned_user_id = ?`;
+  const bind = [authUser.user_id];
+  if (unreadOnly) {
+    sql += ` AND bm.is_read = 0`;
+  }
+  sql += ` ORDER BY bm.created_at DESC LIMIT 50`;
+
+  const rows = await dbAll(env, sql, bind);
+  return jsonResponse({ ok: true, mentions: rows }, 200, corsOkHeaders);
+}
+
+// --- Mark mentions as read ---
+async function handleBoardMentionsMarkRead(request, env, corsOkHeaders, authUser) {
+  await ensureBoardSchema(env);
+  const body = await readJson(request).catch(() => ({}));
+  const messageId = body.message_id ? parseInt(body.message_id) : 0;
+
+  if (messageId) {
+    await dbRun(env, `UPDATE board_mentions SET is_read = 1 WHERE mentioned_user_id = ? AND message_id = ?`, [authUser.user_id, messageId]);
+  } else {
+    await dbRun(env, `UPDATE board_mentions SET is_read = 1 WHERE mentioned_user_id = ? AND is_read = 0`, [authUser.user_id]);
+  }
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+// --- Suggestions list ---
+async function handleBoardSuggestionsList(request, env, corsOkHeaders, authUser) {
+  await ensureBoardSchema(env);
+  const rows = await dbAll(env, `SELECT * FROM board_suggestions ORDER BY created_at DESC LIMIT 200`, []);
+  return jsonResponse({ ok: true, suggestions: rows }, 200, corsOkHeaders);
+}
+
+// --- Create suggestion (manual) ---
+async function handleBoardSuggestionCreate(request, env, corsOkHeaders, authUser) {
+  await ensureBoardSchema(env);
+  const body = await readJson(request);
+  const title = String(body.title || "").trim();
+  if (!title) return jsonResponse({ ok: false, error: "Suggestion title is required" }, 400, corsOkHeaders);
+  if (title.length > 500) return jsonResponse({ ok: false, error: "Title too long (max 500)" }, 400, corsOkHeaders);
+
+  const priority = ["low", "medium", "high"].includes(String(body.priority || "").toLowerCase()) ? String(body.priority).toLowerCase() : "medium";
+
+  const res = await dbRun(env, `
+    INSERT INTO board_suggestions (org_id, message_id, title, priority, created_by, created_by_name, status, created_at, updated_at)
+    VALUES (?, NULL, ?, ?, ?, ?, 'open', datetime('now'), datetime('now'))
+  `, [authUser.org_id, title, priority, authUser.user_id, authUser.full_name || ""]);
+
+  const newId = (res && res.meta && res.meta.last_row_id) ? Number(res.meta.last_row_id) : null;
+  return jsonResponse({ ok: true, id: newId }, 200, corsOkHeaders);
+}
+
+// --- Update suggestion ---
+async function handleBoardSuggestionUpdate(request, env, corsOkHeaders, authUser, sugId) {
+  await ensureBoardSchema(env);
+  const existing = await dbFirst(env, `SELECT id FROM board_suggestions WHERE id = ?`, [sugId]);
+  if (!existing) return jsonResponse({ ok: false, error: "Suggestion not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+  const sets = [];
+  const bind = [];
+
+  if (body.priority !== undefined) {
+    const p = ["low", "medium", "high"].includes(String(body.priority).toLowerCase()) ? String(body.priority).toLowerCase() : "medium";
+    sets.push("priority = ?"); bind.push(p);
+  }
+  if (body.status !== undefined) {
+    const s = ["open", "noted", "done"].includes(String(body.status).toLowerCase()) ? String(body.status).toLowerCase() : "open";
+    sets.push("status = ?"); bind.push(s);
+  }
+  if (body.title !== undefined) {
+    const t = String(body.title || "").trim().slice(0, 500);
+    if (t) { sets.push("title = ?"); bind.push(t); }
+  }
+
+  if (!sets.length) return jsonResponse({ ok: true }, 200, corsOkHeaders);
+
+  sets.push("updated_at = datetime('now')");
+  bind.push(sugId);
+  await dbRun(env, `UPDATE board_suggestions SET ${sets.join(", ")} WHERE id = ?`, bind);
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+// --- Export suggestions (superadmin only) ---
+async function handleBoardSuggestionsExport(request, env, corsOkHeaders, authUser) {
+  await ensureBoardSchema(env);
+  if (!isSuperuser(authUser, env)) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  const rows = await dbAll(env, `SELECT id, title, priority, status, created_by_name, created_at FROM board_suggestions ORDER BY created_at DESC`, []);
+
+  let csv = "ID,Title,Priority,Status,Created By,Date\n";
+  for (const r of rows) {
+    const title = String(r.title || "").replace(/"/g, '""');
+    csv += `${r.id},"${title}",${r.priority},${r.status},"${String(r.created_by_name || "").replace(/"/g, '""')}",${r.created_at}\n`;
+  }
+
+  return new Response(csv, {
+    status: 200,
+    headers: {
+      ...corsOkHeaders,
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": 'attachment; filename="board-suggestions.csv"'
+    }
+  });
+}
+
+// --- User search (for @mention autocomplete) ---
+async function handleBoardUserSearch(request, env, corsOkHeaders, authUser, url) {
+  await ensureBoardSchema(env);
+  const q = String(url.searchParams.get("q") || "").trim().toLowerCase();
+  const scope = (url.searchParams.get("scope") || "all").trim().toLowerCase();
+
+  let sql, bind;
+  if (scope === "org") {
+    sql = `SELECT id, full_name, email FROM users WHERE org_id = ? AND is_active = 1 AND id != ? AND lower(full_name) LIKE ? ORDER BY full_name LIMIT 15`;
+    bind = [authUser.org_id, authUser.user_id, "%" + q + "%"];
+  } else {
+    sql = `SELECT id, full_name, email FROM users WHERE is_active = 1 AND id != ? AND lower(full_name) LIKE ? ORDER BY full_name LIMIT 15`;
+    bind = [authUser.user_id, "%" + q + "%"];
+  }
+
+  const rows = await dbAll(env, sql, bind);
+  return jsonResponse({ ok: true, users: rows }, 200, corsOkHeaders);
+}
+
+// --- Dashboard summary ---
+async function handleBoardDashboard(request, env, corsOkHeaders, authUser) {
+  await ensureBoardSchema(env);
+
+  // Unread mention count
+  const countRow = await dbFirst(env, `SELECT COUNT(*) as c FROM board_mentions WHERE mentioned_user_id = ? AND is_read = 0`, [authUser.user_id]);
+  const unreadMentions = (countRow && countRow.c) || 0;
+
+  // Recent messages (org + all scope)
+  const recent = await dbAll(env, `
+    SELECT id, user_name, location_name, body, scope, created_at
+    FROM board_messages
+    WHERE scope = 'all' OR (scope = 'org' AND org_id = ?)
+    ORDER BY id DESC LIMIT 5
+  `, [authUser.org_id]);
+
+  // Recent mentions for this user
+  const recentMentions = await dbAll(env, `
+    SELECT bm.id, bm.message_id, m.body, m.user_name, m.created_at
+    FROM board_mentions bm
+    JOIN board_messages m ON m.id = bm.message_id
+    WHERE bm.mentioned_user_id = ? AND bm.is_read = 0
+    ORDER BY bm.created_at DESC LIMIT 5
+  `, [authUser.user_id]);
+
+  return jsonResponse({ ok: true, unread_mentions: unreadMentions, recent_messages: recent, recent_mentions: recentMentions }, 200, corsOkHeaders);
+}
+
+
 export default {
   async fetch(request, env, ctx) {
     try {
@@ -14861,6 +15226,51 @@ if (url.pathname.startsWith("/dda-stocktakes/items/")) {
       return await handleAuditLogList(request, env, corsOkHeaders, authUser, url);
     }
     // ── End Audit Log ─────────────────────────────────────────────────────────
+
+    // ── Pharmacy Board ────────────────────────────────────────────────────────
+    if (url.pathname === "/board/messages" && request.method === "GET") {
+      return await handleBoardMessagesList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/board/messages" && request.method === "POST") {
+      return await handleBoardMessageCreate(request, env, corsOkHeaders, authUser);
+    }
+    { const m = url.pathname.match(/^\/board\/messages\/(\d+)\/pin$/);
+      if (m && request.method === "PUT") {
+        return await handleBoardMessagePin(request, env, corsOkHeaders, authUser, Number(m[1]));
+      }
+    }
+    { const m = url.pathname.match(/^\/board\/messages\/(\d+)$/);
+      if (m && request.method === "DELETE") {
+        return await handleBoardMessageDelete(request, env, corsOkHeaders, authUser, Number(m[1]));
+      }
+    }
+    if (url.pathname === "/board/mentions" && request.method === "GET") {
+      return await handleBoardMentionsList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/board/mentions/read" && request.method === "PUT") {
+      return await handleBoardMentionsMarkRead(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname === "/board/suggestions/export" && request.method === "GET") {
+      return await handleBoardSuggestionsExport(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname === "/board/suggestions" && request.method === "GET") {
+      return await handleBoardSuggestionsList(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname === "/board/suggestions" && request.method === "POST") {
+      return await handleBoardSuggestionCreate(request, env, corsOkHeaders, authUser);
+    }
+    { const m = url.pathname.match(/^\/board\/suggestions\/(\d+)$/);
+      if (m && request.method === "PUT") {
+        return await handleBoardSuggestionUpdate(request, env, corsOkHeaders, authUser, Number(m[1]));
+      }
+    }
+    if (url.pathname === "/board/users/search" && request.method === "GET") {
+      return await handleBoardUserSearch(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/board/dashboard" && request.method === "GET") {
+      return await handleBoardDashboard(request, env, corsOkHeaders, authUser);
+    }
+    // ── End Pharmacy Board ────────────────────────────────────────────────────
 
     return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
     } catch (e) {
