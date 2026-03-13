@@ -183,7 +183,7 @@
       ".board-msg-loc{font-size:10.5px;color:var(--muted,rgba(255,255,255,.4))}" +
       ".board-msg-pin-btn{font-size:10px;cursor:pointer;opacity:.5;transition:opacity .15s;background:none;border:none;color:inherit;padding:0}" +
       ".board-msg-pin-btn:hover{opacity:1}" +
-      ".board-msg-del-btn{font-size:10px;cursor:pointer;opacity:.35;transition:opacity .15s;background:none;border:none;color:rgba(255,90,122,.8);padding:0}" +
+      ".board-msg-del-btn{font-size:10px;cursor:pointer;opacity:.55;transition:opacity .15s;background:none;border:none;color:rgba(255,90,122,.8);padding:2px 4px}" +
       ".board-msg-del-btn:hover{opacity:1}" +
       ".board-msg-scope{font-size:9px;padding:1px 5px;border-radius:4px;font-weight:800}" +
       ".board-msg-scope-org{background:rgba(155,89,182,.15);color:rgba(155,89,182,.8)}" +
@@ -208,7 +208,7 @@
       ".board-mention-item{padding:8px 12px;cursor:pointer;font-size:12.5px;display:flex;align-items:center;gap:8px;transition:background .1s}" +
       ".board-mention-item:hover,.board-mention-item.selected{background:rgba(58,160,255,.12)}" +
       ".board-mention-item-name{font-weight:800}" +
-      ".board-mention-item-email{font-size:11px;color:var(--muted,rgba(255,255,255,.4))}" +
+      ".board-mention-item-loc{font-size:11px;color:var(--muted,rgba(255,255,255,.4))}" +
       ".board-mention-empty{padding:10px 12px;font-size:12px;color:var(--muted,rgba(255,255,255,.4));text-align:center}" +
 
       /* Suggestions section */
@@ -594,10 +594,11 @@
   async function deleteMessage(msgId) {
     if (!confirm("Delete this message?")) return;
     try {
-      var res = await api("/board/messages/" + msgId, { method: "DELETE" });
+      console.log("[board] deleting message", msgId);
+      var res = await E.apiFetch("/board/messages/" + msgId, { method: "DELETE" });
       if (res.ok) {
-        state.messages = state.messages.filter(function (m) { return m.id !== msgId; });
-        state.pinnedMessages = state.pinnedMessages.filter(function (m) { return m.id !== msgId; });
+        state.messages = state.messages.filter(function (m) { return Number(m.id) !== Number(msgId); });
+        state.pinnedMessages = state.pinnedMessages.filter(function (m) { return Number(m.id) !== Number(msgId); });
         renderUI();
         toast("Deleted", "Message removed", "good", 2000);
       } else {
@@ -748,11 +749,11 @@
     var html = "";
     for (var i = 0; i < users.length; i++) {
       var u = users[i];
-      var locInfo = u.location_name ? (" \u00B7 " + esc(u.location_name)) : "";
-      var orgInfo = u.org_name ? (" \u00B7 " + esc(u.org_name)) : "";
+      var locLabel = u.location_name ? esc(u.location_name) : "";
+      var orgLabel = u.org_name ? (locLabel ? " \u00B7 " : "") + esc(u.org_name) : "";
       html += '<div class="board-mention-item" data-action="select-mention" data-user-name="' + esc(u.full_name) + '" data-idx="' + i + '">' +
         '<span class="board-mention-item-name">' + esc(u.full_name) + '</span>' +
-        '<span class="board-mention-item-email">' + esc(u.email) + locInfo + orgInfo + '</span>' +
+        '<span class="board-mention-item-loc">' + locLabel + orgLabel + '</span>' +
       '</div>';
     }
     drop.innerHTML = html;

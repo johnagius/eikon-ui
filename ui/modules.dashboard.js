@@ -952,7 +952,8 @@
     else {
       var bd = state.data.board.data;
       var boardSub = [];
-      if (bd.unread > 0) boardSub.push(bd.unread + " unread mention(s)");
+      if (bd.unread > 0) boardSub.push(bd.unread + " unread mention" + (bd.unread > 1 ? "s" : ""));
+      if (bd.unread_messages > 0) boardSub.push(bd.unread_messages + " unread message" + (bd.unread_messages > 1 ? "s" : ""));
       if (bd.recent && bd.recent.length > 0) {
         var latest = bd.recent[0];
         var preview = String(latest.body || "").substring(0, 60);
@@ -960,9 +961,27 @@
         boardSub.push(esc(latest.user_name) + ": " + esc(preview));
       }
       if (!boardSub.length) boardSub.push("No recent messages");
-      var boardPill = bd.unread > 0 ? pill("warn", bd.unread + " mention" + (bd.unread > 1 ? "s" : "")) : pill("ok", "OK");
-      boardRow = row("\uD83D\uDCAC", "Chat Board", boardSub[0], boardPill,
-        btn("dash-open-messageboard", "Open", { primary: bd.unread > 0, small: true }));
+
+      if (bd.unread > 0) {
+        // Flash when user has unread mentions (same pattern as scarce stock / stock transfers)
+        boardRow = '<div class="eikon-dash-item eikon-dash-item-flash">' +
+          '<div class="eikon-dash-left">' +
+            '<div class="eikon-dash-ico" aria-hidden="true">\uD83D\uDCAC</div>' +
+            '<div class="eikon-dash-txt">' +
+              '<div class="eikon-dash-label">Chat Board</div>' +
+              '<div class="eikon-dash-sub">' + esc(boardSub.join(" \u2022 ")) + '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="eikon-dash-right">' +
+            pill("danger", bd.unread + " mention" + (bd.unread > 1 ? "s" : "")) +
+            btn("dash-open-messageboard", "Open", { primary: true, small: true }) +
+          '</div>' +
+        '</div>';
+      } else {
+        var boardPill = bd.unread_messages > 0 ? pill("warn", bd.unread_messages + " new") : pill("ok", "OK");
+        boardRow = row("\uD83D\uDCAC", "Chat Board", boardSub.join(" \u2022 "), boardPill,
+          btn("dash-open-messageboard", "Open", { primary: bd.unread_messages > 0, small: true }));
+      }
     }
 
     if (todayList) todayList.innerHTML = tempRow + drRow + poRow + insRow + boardRow;
@@ -1256,7 +1275,7 @@
     run("board", async function () {
       var r = await api("/board/dashboard", { method: "GET" }, 6000, "board");
       if (!r || r.ok !== true) throw new Error((r && r.error) ? r.error : "Failed");
-      return { unread: r.unread_mentions || 0, recent: r.recent_messages || [], mentions: r.recent_mentions || [] };
+      return { unread: r.unread_mentions || 0, unread_messages: r.unread_messages || 0, recent: r.recent_messages || [], mentions: r.recent_mentions || [] };
     });
 
     run("shifts", async function () {
