@@ -16477,9 +16477,12 @@ async function ensureContactsSchema(env) {
       )
     `);
     await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_${def.db}_org ON ${def.db}(org_id)`);
+    /* migration: add any missing columns to existing tables */
+    for (const col of def.cols) {
+      try { await dbRun(env, `ALTER TABLE ${def.db} ADD COLUMN ${col} TEXT NOT NULL DEFAULT ''`); } catch(e) {}
+    }
     if (def.locScoped) {
       await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_${def.db}_org_loc ON ${def.db}(org_id, location_id)`);
-      /* migration: add location_id if table already exists without it */
       try { await dbRun(env, `ALTER TABLE ${def.db} ADD COLUMN location_id INTEGER NOT NULL DEFAULT 0`); } catch(e) {}
     }
   }
