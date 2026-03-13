@@ -15415,6 +15415,30 @@ if (url.pathname.startsWith("/dda-stocktakes/items/")) {
     }
     // ── End Pharmacovigilance ─────────────────────────────────────────────
 
+    // ── Contacts ────────────────────────────────────────────────────────
+    {
+      const ctMatch = url.pathname.match(/^\/contacts\/(suppliers|medreps|headoffice|orgpharmacies|poyc)(?:\/(\d+))?(?:\/bulk)?$/);
+      if (ctMatch) {
+        const ctTable = ctMatch[1];
+        const ctId = ctMatch[2] ? parseInt(ctMatch[2], 10) : null;
+        const isBulk = url.pathname.endsWith("/bulk");
+
+        if (request.method === "GET" && !ctId && !isBulk) {
+          return await handleContactsList(request, env, corsOkHeaders, authUser, ctTable);
+        }
+        if (request.method === "POST" && !ctId && isBulk) {
+          return await handleContactsBulk(request, env, corsOkHeaders, authUser, ctTable);
+        }
+        if (request.method === "POST" && !ctId && !isBulk) {
+          return await handleContactsSave(request, env, corsOkHeaders, authUser, ctTable);
+        }
+        if (request.method === "DELETE" && ctId) {
+          return await handleContactsDelete(request, env, corsOkHeaders, authUser, ctTable, ctId);
+        }
+      }
+    }
+    // ── End Contacts ────────────────────────────────────────────────────
+
     return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
     } catch (e) {
       // Never let an exception become Cloudflare 1101 HTML again.
@@ -16371,4 +16395,143 @@ async function handlePvStatePut(request, env, corsOkHeaders, authUser) {
 
   await writeAudit(env, orgId, userId, "PV_STATE_PUT", "pv_reports", "", { count: cleaned.length });
   return jsonResponse({ ok: true, saved: cleaned.length }, 200, corsOkHeaders);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CONTACTS MODULE  (org-scoped — shared across all locations)
+// Tables: contacts_suppliers, contacts_medreps, contacts_headoffice,
+//         contacts_orgpharmacies, contacts_poyc
+// ═══════════════════════════════════════════════════════════════════════════
+
+const CONTACTS_TABLES = {
+  suppliers:      { db: "contacts_suppliers",      cols: ["name", "phone", "email"] },
+  medreps:        { db: "contacts_medreps",        cols: ["name", "phone", "email"] },
+  headoffice:     { db: "contacts_headoffice",     cols: ["name", "phone"] },
+  orgpharmacies:  { db: "contacts_orgpharmacies",  cols: ["name", "phone"] },
+  poyc:           { db: "contacts_poyc",           cols: ["name", "phone"] }
+};
+
+async function ensureContactsSchema(env) {
+  for (const key of Object.keys(CONTACTS_TABLES)) {
+    const def = CONTACTS_TABLES[key];
+    const colDefs = def.cols.map(c => `${c} TEXT NOT NULL DEFAULT ''`).join(",\n      ");
+    await dbRun(env, `
+      CREATE TABLE IF NOT EXISTS ${def.db} (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        org_id INTEGER NOT NULL,
+        ${colDefs},
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        created_by INTEGER,
+        updated_by INTEGER
+      )
+    `);
+    await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_${def.db}_org ON ${def.db}(org_id)`);
+  }
+}
+
+async function handleContactsList(request, env, corsOkHeaders, authUser, tableKey) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureContactsSchema(env);
+  const def = CONTACTS_TABLES[tableKey];
+  if (!def) return jsonResponse({ ok: false, error: "Unknown table" }, 400, corsOkHeaders);
+
+  const rows = await dbAll(env,
+    `SELECT * FROM ${def.db} WHERE org_id = ? ORDER BY name ASC, id ASC`,
+    [authUser.org_id]);
+  return jsonResponse({ ok: true, rows: rows }, 200, corsOkHeaders);
+}
+
+async function handleContactsSave(request, env, corsOkHeaders, authUser, tableKey) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureContactsSchema(env);
+  const def = CONTACTS_TABLES[tableKey];
+  if (!def) return jsonResponse({ ok: false, error: "Unknown table" }, 400, corsOkHeaders);
+
+  const body = await request.json();
+  const id = body.id ? parseInt(body.id, 10) : null;
+
+  if (id) {
+    // Update existing
+    const existing = await dbFirst(env,
+      `SELECT id FROM ${def.db} WHERE id = ? AND org_id = ?`,
+      [id, authUser.org_id]);
+    if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+    const sets = def.cols.map(c => `${c} = ?`).concat(["updated_at = datetime('now')", "updated_by = ?"]);
+    const vals = def.cols.map(c => String(body[c] || "").trim());
+    vals.push(authUser.user_id);
+    vals.push(id, authUser.org_id);
+
+    await dbRun(env,
+      `UPDATE ${def.db} SET ${sets.join(", ")} WHERE id = ? AND org_id = ?`,
+      vals);
+    await writeAudit(env, authUser.org_id, authUser.user_id, "CONTACT_UPDATE", def.db, String(id), body);
+    return jsonResponse({ ok: true, id: id }, 200, corsOkHeaders);
+  } else {
+    // Insert new
+    const colNames = ["org_id"].concat(def.cols).concat(["created_by", "updated_by"]);
+    const placeholders = colNames.map(() => "?").join(", ");
+    const vals = [authUser.org_id].concat(def.cols.map(c => String(body[c] || "").trim())).concat([authUser.user_id, authUser.user_id]);
+
+    const res = await dbRun(env,
+      `INSERT INTO ${def.db} (${colNames.join(", ")}) VALUES (${placeholders})`,
+      vals);
+    const newId = res && res.meta ? res.meta.last_row_id : null;
+    await writeAudit(env, authUser.org_id, authUser.user_id, "CONTACT_CREATE", def.db, String(newId || ""), body);
+    return jsonResponse({ ok: true, id: newId }, 200, corsOkHeaders);
+  }
+}
+
+async function handleContactsDelete(request, env, corsOkHeaders, authUser, tableKey, id) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureContactsSchema(env);
+  const def = CONTACTS_TABLES[tableKey];
+  if (!def) return jsonResponse({ ok: false, error: "Unknown table" }, 400, corsOkHeaders);
+
+  const existing = await dbFirst(env,
+    `SELECT * FROM ${def.db} WHERE id = ? AND org_id = ?`,
+    [id, authUser.org_id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  await dbRun(env,
+    `DELETE FROM ${def.db} WHERE id = ? AND org_id = ?`,
+    [id, authUser.org_id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CONTACT_DELETE", def.db, String(id), existing);
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleContactsBulk(request, env, corsOkHeaders, authUser, tableKey) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureContactsSchema(env);
+  const def = CONTACTS_TABLES[tableKey];
+  if (!def) return jsonResponse({ ok: false, error: "Unknown table" }, 400, corsOkHeaders);
+
+  const body = await request.json();
+  const rows = Array.isArray(body.rows) ? body.rows : [];
+  if (rows.length === 0) return jsonResponse({ ok: false, error: "No rows" }, 400, corsOkHeaders);
+  if (rows.length > 500) return jsonResponse({ ok: false, error: "Max 500 rows per import" }, 400, corsOkHeaders);
+
+  const colNames = ["org_id"].concat(def.cols).concat(["created_by", "updated_by"]);
+  const placeholders = colNames.map(() => "?").join(", ");
+  const sql = `INSERT INTO ${def.db} (${colNames.join(", ")}) VALUES (${placeholders})`;
+  const stmt = env.DB.prepare(sql);
+
+  const ids = [];
+  for (const row of rows) {
+    const vals = [authUser.org_id].concat(def.cols.map(c => String(row[c] || "").trim())).concat([authUser.user_id, authUser.user_id]);
+    const res = await stmt.bind(...vals).run();
+    ids.push(res && res.meta ? res.meta.last_row_id : null);
+  }
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CONTACT_BULK_IMPORT", def.db, "", { count: rows.length });
+  return jsonResponse({ ok: true, ids: ids }, 200, corsOkHeaders);
 }
