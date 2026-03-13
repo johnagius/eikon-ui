@@ -16456,17 +16456,19 @@ const CONTACTS_TABLES = {
   locums:         { db: "contacts_locums",         cols: ["name", "phone"] },
   doctors:        { db: "contacts_doctors",        cols: ["name", "phone_personal", "phone_patient"] },
   specialists:    { db: "contacts_specialists",    cols: ["name", "specialty", "phone_personal", "phone_patient"] },
-  clients:        { db: "contacts_clients",        cols: ["name", "id_card", "address", "phone", "alt_phone"] }
+  clients:        { db: "contacts_clients",        cols: ["name", "id_card", "address", "phone", "alt_phone"], locScoped: true }
 };
 
 async function ensureContactsSchema(env) {
   for (const key of Object.keys(CONTACTS_TABLES)) {
     const def = CONTACTS_TABLES[key];
     const colDefs = def.cols.map(c => `${c} TEXT NOT NULL DEFAULT ''`).join(",\n      ");
+    const locCol = def.locScoped ? "location_id INTEGER NOT NULL DEFAULT 0," : "";
     await dbRun(env, `
       CREATE TABLE IF NOT EXISTS ${def.db} (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         org_id INTEGER NOT NULL,
+        ${locCol}
         ${colDefs},
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
         updated_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -16475,6 +16477,11 @@ async function ensureContactsSchema(env) {
       )
     `);
     await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_${def.db}_org ON ${def.db}(org_id)`);
+    if (def.locScoped) {
+      await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_${def.db}_org_loc ON ${def.db}(org_id, location_id)`);
+      /* migration: add location_id if table already exists without it */
+      try { await dbRun(env, `ALTER TABLE ${def.db} ADD COLUMN location_id INTEGER NOT NULL DEFAULT 0`); } catch(e) {}
+    }
   }
 }
 
@@ -16486,9 +16493,16 @@ async function handleContactsList(request, env, corsOkHeaders, authUser, tableKe
   const def = CONTACTS_TABLES[tableKey];
   if (!def) return jsonResponse({ ok: false, error: "Unknown table" }, 400, corsOkHeaders);
 
-  const rows = await dbAll(env,
-    `SELECT * FROM ${def.db} WHERE org_id = ? ORDER BY name ASC, id ASC`,
-    [authUser.org_id]);
+  let rows;
+  if (def.locScoped) {
+    rows = await dbAll(env,
+      `SELECT * FROM ${def.db} WHERE org_id = ? AND location_id = ? ORDER BY name ASC, id ASC`,
+      [authUser.org_id, authUser.location_id]);
+  } else {
+    rows = await dbAll(env,
+      `SELECT * FROM ${def.db} WHERE org_id = ? ORDER BY name ASC, id ASC`,
+      [authUser.org_id]);
+  }
   return jsonResponse({ ok: true, rows: rows }, 200, corsOkHeaders);
 }
 
@@ -16505,26 +16519,33 @@ async function handleContactsSave(request, env, corsOkHeaders, authUser, tableKe
 
   if (id) {
     // Update existing
-    const existing = await dbFirst(env,
-      `SELECT id FROM ${def.db} WHERE id = ? AND org_id = ?`,
-      [id, authUser.org_id]);
+    const whereClause = def.locScoped
+      ? `id = ? AND org_id = ? AND location_id = ?`
+      : `id = ? AND org_id = ?`;
+    const whereVals = def.locScoped
+      ? [id, authUser.org_id, authUser.location_id]
+      : [id, authUser.org_id];
+
+    const existing = await dbFirst(env, `SELECT id FROM ${def.db} WHERE ${whereClause}`, whereVals);
     if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
 
     const sets = def.cols.map(c => `${c} = ?`).concat(["updated_at = datetime('now')", "updated_by = ?"]);
     const vals = def.cols.map(c => String(body[c] || "").trim());
     vals.push(authUser.user_id);
-    vals.push(id, authUser.org_id);
+    vals.push(...whereVals);
 
-    await dbRun(env,
-      `UPDATE ${def.db} SET ${sets.join(", ")} WHERE id = ? AND org_id = ?`,
-      vals);
+    await dbRun(env, `UPDATE ${def.db} SET ${sets.join(", ")} WHERE ${whereClause}`, vals);
     await writeAudit(env, authUser.org_id, authUser.user_id, "CONTACT_UPDATE", def.db, String(id), body);
     return jsonResponse({ ok: true, id: id }, 200, corsOkHeaders);
   } else {
     // Insert new
-    const colNames = ["org_id"].concat(def.cols).concat(["created_by", "updated_by"]);
+    const colNames = def.locScoped
+      ? ["org_id", "location_id"].concat(def.cols).concat(["created_by", "updated_by"])
+      : ["org_id"].concat(def.cols).concat(["created_by", "updated_by"]);
     const placeholders = colNames.map(() => "?").join(", ");
-    const vals = [authUser.org_id].concat(def.cols.map(c => String(body[c] || "").trim())).concat([authUser.user_id, authUser.user_id]);
+    const vals = def.locScoped
+      ? [authUser.org_id, authUser.location_id].concat(def.cols.map(c => String(body[c] || "").trim())).concat([authUser.user_id, authUser.user_id])
+      : [authUser.org_id].concat(def.cols.map(c => String(body[c] || "").trim())).concat([authUser.user_id, authUser.user_id]);
 
     const res = await dbRun(env,
       `INSERT INTO ${def.db} (${colNames.join(", ")}) VALUES (${placeholders})`,
@@ -16543,14 +16564,17 @@ async function handleContactsDelete(request, env, corsOkHeaders, authUser, table
   const def = CONTACTS_TABLES[tableKey];
   if (!def) return jsonResponse({ ok: false, error: "Unknown table" }, 400, corsOkHeaders);
 
-  const existing = await dbFirst(env,
-    `SELECT * FROM ${def.db} WHERE id = ? AND org_id = ?`,
-    [id, authUser.org_id]);
+  const whereClause = def.locScoped
+    ? `id = ? AND org_id = ? AND location_id = ?`
+    : `id = ? AND org_id = ?`;
+  const whereVals = def.locScoped
+    ? [id, authUser.org_id, authUser.location_id]
+    : [id, authUser.org_id];
+
+  const existing = await dbFirst(env, `SELECT * FROM ${def.db} WHERE ${whereClause}`, whereVals);
   if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
 
-  await dbRun(env,
-    `DELETE FROM ${def.db} WHERE id = ? AND org_id = ?`,
-    [id, authUser.org_id]);
+  await dbRun(env, `DELETE FROM ${def.db} WHERE ${whereClause}`, whereVals);
   await writeAudit(env, authUser.org_id, authUser.user_id, "CONTACT_DELETE", def.db, String(id), existing);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
@@ -16568,14 +16592,19 @@ async function handleContactsBulk(request, env, corsOkHeaders, authUser, tableKe
   if (rows.length === 0) return jsonResponse({ ok: false, error: "No rows" }, 400, corsOkHeaders);
   if (rows.length > 500) return jsonResponse({ ok: false, error: "Max 500 rows per import" }, 400, corsOkHeaders);
 
-  const colNames = ["org_id"].concat(def.cols).concat(["created_by", "updated_by"]);
+  const colNames = def.locScoped
+    ? ["org_id", "location_id"].concat(def.cols).concat(["created_by", "updated_by"])
+    : ["org_id"].concat(def.cols).concat(["created_by", "updated_by"]);
   const placeholders = colNames.map(() => "?").join(", ");
   const sql = `INSERT INTO ${def.db} (${colNames.join(", ")}) VALUES (${placeholders})`;
   const stmt = env.DB.prepare(sql);
 
   const ids = [];
   for (const row of rows) {
-    const vals = [authUser.org_id].concat(def.cols.map(c => String(row[c] || "").trim())).concat([authUser.user_id, authUser.user_id]);
+    const baseVals = def.locScoped
+      ? [authUser.org_id, authUser.location_id]
+      : [authUser.org_id];
+    const vals = baseVals.concat(def.cols.map(c => String(row[c] || "").trim())).concat([authUser.user_id, authUser.user_id]);
     const res = await stmt.bind(...vals).run();
     ids.push(res && res.meta ? res.meta.last_row_id : null);
   }
