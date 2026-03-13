@@ -233,12 +233,11 @@
       ".ct-shared-badge{display:inline-flex;align-items:center;gap:4px;background:rgba(255,200,90,.12);color:#ffca5a;font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;}",
 
       /* search bar */
-      ".ct-search-wrap{margin-bottom:8px;}",
-      ".ct-search{width:100%;max-width:320px;background:rgba(0,0,0,.2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:12px;padding:7px 10px 7px 30px;outline:none;transition:border-color .15s;}",
+      ".ct-search-wrap{position:relative;display:inline-flex;align-items:center;margin-bottom:8px;}",
+      ".ct-search{width:100%;max-width:320px;background:rgba(0,0,0,.2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:12px;padding:7px 10px 7px 32px;outline:none;transition:border-color .15s;}",
       ".ct-search:focus{border-color:var(--accent);}",
-      ".ct-search-wrap{position:relative;display:inline-block;}",
-      ".ct-search-ico{position:absolute;left:9px;top:50%;transform:translateY(-50%);font-size:13px;opacity:.45;pointer-events:none;}",
-      ".ct-match-count{font-size:11px;color:var(--muted);margin-left:10px;}",
+      ".ct-search-ico{position:absolute;left:10px;top:50%;transform:translateY(-50%);width:14px;height:14px;opacity:.4;pointer-events:none;}",
+      ".ct-match-count{font-size:11px;color:var(--muted);margin-left:10px;white-space:nowrap;}",
 
       /* scrollable table body */
       ".ct-scroll-wrap{border:1px solid var(--border);border-radius:10px;overflow:hidden;}",
@@ -477,7 +476,7 @@
 
     /* ---- search bar ---- */
     var searchWrap = el("div", { class: "ct-search-wrap" });
-    searchWrap.innerHTML = '<span class="ct-search-ico">🔍</span>';
+    searchWrap.innerHTML = '<svg class="ct-search-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>';
     var searchInput = el("input", { class: "ct-search", type: "text", placeholder: "Search " + def.title.toLowerCase() + "…" });
     var matchCount = el("span", { class: "ct-match-count" });
     searchWrap.appendChild(searchInput);
