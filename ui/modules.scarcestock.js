@@ -698,9 +698,9 @@
             }
           }
         }, []));
-        // Place on Transfer button (not expired items)
+        // Place on Transfer button (not expired, not closed, not already on transfer)
         var offerExpired = o.expiry_date && isYmd(o.expiry_date) && o.expiry_date < todayYmd();
-        if (!offerExpired && !o.is_closed) {
+        if (!offerExpired && !o.is_closed && !o.transfer_item_id) {
           tdAct.appendChild(el(doc, "button", {
             class: "eikon-btn ss-mini",
             style: "background:rgba(90,162,255,.12);border-color:rgba(90,162,255,.3);",
@@ -713,21 +713,34 @@
               );
               if (!ok) return;
               try {
-                await E.apiFetch("/stock-transfers/items", {
-                  method: "POST",
-                  body: JSON.stringify({
-                    entry_date: todayYmd(),
-                    item_description: o.item_name || "",
-                    batch: o.batch || "",
-                    expiry_date: o.expiry_date || "",
-                    quantity_available: parseInt(o.quantity_available, 10) || 1,
-                    source_module: "scarcestock",
-                    source_id: o.id
-                  })
-                });
+                await api("/scarce-stock/offers/" + encodeURIComponent(String(o.id)) + "/place-on-transfer", { method: "POST" });
                 toast("Done", "Item placed on Stock Transfers.", "good");
+                await refreshAll();
               } catch (e) {
                 showError("Place on Transfer", e);
+              }
+            }
+          }, []));
+        }
+        // Place on Returns button (allowed even for expired items)
+        if (!o.placed_on_returns) {
+          tdAct.appendChild(el(doc, "button", {
+            class: "eikon-btn ss-mini",
+            style: "background:rgba(255,165,0,.12);border-color:rgba(255,165,0,.3);",
+            text: "Place on Returns",
+            onclick: async function () {
+              var ok = await confirmYesNo(
+                "Place on Returns?",
+                "This will place \"" + (o.item_name || "") + "\" on the Returns module.\n\nIf this item is later deleted from Scarce Stock, or its quantity is depleted via requests, it will be automatically removed from Returns.",
+                "Place on Returns"
+              );
+              if (!ok) return;
+              try {
+                await api("/scarce-stock/offers/" + encodeURIComponent(String(o.id)) + "/place-on-returns", { method: "POST" });
+                toast("Done", "Item placed on Returns.", "good");
+                await refreshAll();
+              } catch (e) {
+                showError("Place on Returns", e);
               }
             }
           }, []));
