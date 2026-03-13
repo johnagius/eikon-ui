@@ -232,6 +232,24 @@
       /* shared badge */
       ".ct-shared-badge{display:inline-flex;align-items:center;gap:4px;background:rgba(255,200,90,.12);color:#ffca5a;font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;}",
 
+      /* search bar */
+      ".ct-search-wrap{margin-bottom:8px;}",
+      ".ct-search{width:100%;max-width:320px;background:rgba(0,0,0,.2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:12px;padding:7px 10px 7px 30px;outline:none;transition:border-color .15s;}",
+      ".ct-search:focus{border-color:var(--accent);}",
+      ".ct-search-wrap{position:relative;display:inline-block;}",
+      ".ct-search-ico{position:absolute;left:9px;top:50%;transform:translateY(-50%);font-size:13px;opacity:.45;pointer-events:none;}",
+      ".ct-match-count{font-size:11px;color:var(--muted);margin-left:10px;}",
+
+      /* scrollable table body */
+      ".ct-scroll-wrap{border:1px solid var(--border);border-radius:10px;overflow:hidden;}",
+      ".ct-scroll-wrap table.eikon-table{margin:0;border:none;}",
+      ".ct-scroll-wrap thead{position:sticky;top:0;z-index:1;}",
+      ".ct-scroll-wrap thead th{background:var(--panel2);border-bottom:1px solid var(--border);}",
+      ".ct-scroll-body{max-height:calc(5 * 42px);overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border) transparent;}",
+      ".ct-scroll-body::-webkit-scrollbar{width:6px;}",
+      ".ct-scroll-body::-webkit-scrollbar-track{background:transparent;}",
+      ".ct-scroll-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}",
+
       /* empty state */
       ".ct-empty{text-align:center;padding:28px 14px;color:var(--muted);font-size:13px;}",
 
@@ -337,6 +355,16 @@
         { key: "phone", label: "Phone Number", placeholder: "e.g. 2344 5678" }
       ],
       hideable: false
+    },
+    locums: {
+      title: "Locum Contacts",
+      icon: "🧑‍⚕️",
+      apiTable: "locums",
+      columns: [
+        { key: "name", label: "Locum Name", placeholder: "e.g. Dr. Jane Doe" },
+        { key: "phone", label: "Phone Number", placeholder: "e.g. 7912 3456" }
+      ],
+      hideable: false
     }
   };
 
@@ -405,7 +433,7 @@
     /* ========================================
        SECTION 3–7 — Editable tables
        ======================================== */
-    var tableOrder = ["suppliers", "medreps", "headoffice", "orgpharmacies", "poyc"];
+    var tableOrder = ["suppliers", "medreps", "locums", "headoffice", "orgpharmacies", "poyc"];
 
     tableOrder.forEach(function (tableKey) {
       var def = TABLE_DEFS[tableKey];
@@ -447,6 +475,15 @@
       sec.appendChild(toggleWrap);
     }
 
+    /* ---- search bar ---- */
+    var searchWrap = el("div", { class: "ct-search-wrap" });
+    searchWrap.innerHTML = '<span class="ct-search-ico">🔍</span>';
+    var searchInput = el("input", { class: "ct-search", type: "text", placeholder: "Search " + def.title.toLowerCase() + "…" });
+    var matchCount = el("span", { class: "ct-match-count" });
+    searchWrap.appendChild(searchInput);
+    searchWrap.appendChild(matchCount);
+    sec.appendChild(searchWrap);
+
     /* ---- table container ---- */
     var tableContainer = el("div");
     sec.appendChild(tableContainer);
@@ -455,6 +492,7 @@
     /* ---- state ---- */
     var rows = [];
     var loading = true;
+    var searchQuery = "";
 
     /* ---- hide toggle handler ---- */
     if (def.hideable) {
@@ -465,6 +503,16 @@
         renderTable();
       });
     }
+
+    /* ---- search handler ---- */
+    var searchTimer = null;
+    searchInput.addEventListener("input", function () {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(function () {
+        searchQuery = (searchInput.value || "").trim().toLowerCase();
+        renderTable();
+      }, 120);
+    });
 
     /* ---- action buttons ---- */
     var btnAdd = el("button", { class: "ct-btn primary" });
@@ -488,24 +536,45 @@
       tableContainer.innerHTML = "";
 
       if (def.hideable && isHidden) {
+        searchWrap.style.display = "none";
         tableContainer.innerHTML = '<div class="ct-empty" style="opacity:.5;">Section hidden. Uncheck to show.</div>';
         return;
       }
+      searchWrap.style.display = "";
 
       if (loading) {
+        matchCount.textContent = "";
         tableContainer.innerHTML = '<div class="ct-empty">Loading…</div>';
         return;
       }
 
       if (rows.length === 0) {
+        matchCount.textContent = "";
         tableContainer.innerHTML = '<div class="ct-empty">No contacts yet. Click <strong>+ Add</strong> to get started.</div>';
         return;
       }
 
-      var wrap = el("div", { class: "eikon-table-wrap" });
-      var tbl = el("table", { class: "eikon-table" });
+      /* filter rows */
+      var filtered = rows;
+      if (searchQuery) {
+        filtered = rows.filter(function (row) {
+          return def.columns.some(function (col) {
+            return String(row[col.key] || "").toLowerCase().indexOf(searchQuery) !== -1;
+          });
+        });
+      }
+      matchCount.textContent = searchQuery ? (filtered.length + " of " + rows.length) : (rows.length + " total");
 
-      /* thead */
+      if (filtered.length === 0) {
+        tableContainer.innerHTML = '<div class="ct-empty">No matches for "' + esc(searchQuery) + '".</div>';
+        return;
+      }
+
+      /* outer scroll wrapper */
+      var scrollWrap = el("div", { class: "ct-scroll-wrap" });
+
+      /* header table (sticky) */
+      var headTbl = el("table", { class: "eikon-table", style: "margin:0;border:none;" });
       var thead = el("thead");
       var headTr = el("tr");
       headTr.appendChild(el("th", { text: "#", style: "width:40px;text-align:center;" }));
@@ -514,13 +583,18 @@
       });
       headTr.appendChild(el("th", { text: "Actions", style: "width:100px;text-align:center;" }));
       thead.appendChild(headTr);
-      tbl.appendChild(thead);
+      headTbl.appendChild(thead);
+      scrollWrap.appendChild(headTbl);
 
-      /* tbody */
+      /* scrollable body */
+      var scrollBody = el("div", { class: "ct-scroll-body" });
+      var bodyTbl = el("table", { class: "eikon-table", style: "margin:0;border:none;" });
       var tbody = el("tbody");
-      rows.forEach(function (row, idx) {
+
+      filtered.forEach(function (row, fIdx) {
+        var realIdx = rows.indexOf(row);
         var tr = el("tr");
-        tr.appendChild(el("td", { text: String(idx + 1), style: "text-align:center;color:var(--muted);font-size:12px;" }));
+        tr.appendChild(el("td", { text: String(realIdx + 1), style: "text-align:center;color:var(--muted);font-size:12px;width:40px;" }));
         def.columns.forEach(function (col) {
           var td = el("td");
           if (col.key === "email" && row[col.key]) {
@@ -534,21 +608,24 @@
         });
 
         /* action btns */
-        var actTd = el("td", { style: "text-align:center;white-space:nowrap;" });
+        var actTd = el("td", { style: "text-align:center;white-space:nowrap;width:100px;" });
         var editBtn = el("button", { class: "ct-btn", style: "padding:4px 8px;font-size:11px;", text: "Edit" });
         var delBtn = el("button", { class: "ct-btn danger", style: "padding:4px 8px;font-size:11px;margin-left:4px;", text: "Del" });
 
-        editBtn.addEventListener("click", function () { showEditModal(row, idx); });
-        delBtn.addEventListener("click", function () { doDelete(row, idx); });
+        (function (r, ri) {
+          editBtn.addEventListener("click", function () { showEditModal(r, ri); });
+          delBtn.addEventListener("click", function () { doDelete(r, ri); });
+        })(row, realIdx);
 
         actTd.appendChild(editBtn);
         actTd.appendChild(delBtn);
         tr.appendChild(actTd);
         tbody.appendChild(tr);
       });
-      tbl.appendChild(tbody);
-      wrap.appendChild(tbl);
-      tableContainer.appendChild(wrap);
+      bodyTbl.appendChild(tbody);
+      scrollBody.appendChild(bodyTbl);
+      scrollWrap.appendChild(scrollBody);
+      tableContainer.appendChild(scrollWrap);
     }
 
     /* ---- Add modal ---- */
