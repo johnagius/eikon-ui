@@ -66,7 +66,8 @@
   function timeAgo(isoStr) {
     if (!isoStr) return "";
     var d;
-    try { d = new Date(isoStr); } catch (e) { return ""; }
+    // Backend stores UTC via datetime('now') but without Z suffix — append Z
+    try { d = new Date(isoStr.endsWith("Z") ? isoStr : isoStr + "Z"); } catch (e) { return ""; }
     var diff = Math.max(0, Date.now() - d.getTime());
     var s = Math.floor(diff / 1000);
     if (s < 60) return "just now";
@@ -502,9 +503,15 @@
         if (msgs.length < 50) state.hasOlder = false;
         state.messages = msgs.concat(state.messages);
       } else if (opts.after) {
-        // Append newer (polling)
+        // Append newer (polling) — deduplicate by id
         if (msgs.length > 0) {
-          state.messages = state.messages.concat(msgs);
+          var existingIds = {};
+          for (var ei = 0; ei < state.messages.length; ei++) existingIds[state.messages[ei].id] = true;
+          var newMsgs = [];
+          for (var ni = 0; ni < msgs.length; ni++) {
+            if (!existingIds[msgs[ni].id]) newMsgs.push(msgs[ni]);
+          }
+          if (newMsgs.length > 0) state.messages = state.messages.concat(newMsgs);
         }
       } else {
         // Fresh load
@@ -572,7 +579,7 @@
     stopPolling();
     state.pollTimer = setInterval(function () {
       pollNewMessages();
-    }, 12000);
+    }, 30000);
   }
 
   function stopPolling() {
@@ -588,7 +595,7 @@
   function doSendMessage(scope) {
     var input = state.mount && state.mount.querySelector("#board-input");
     if (!input) return;
-    var body = input.value.trim();
+    var body = input.value.replace(/\u200B/g, "").trim();
     if (!body) return;
 
     var sendBtn = state.mount.querySelector("#board-send-btn");
@@ -922,15 +929,15 @@
   function getMentionContext(input) {
     var val = input.value;
     var pos = input.selectionStart;
-    // Find the @ before cursor
     var before = val.substring(0, pos);
     var atIdx = before.lastIndexOf("@");
     if (atIdx < 0) return null;
     // Make sure @ is at start or preceded by whitespace/newline
     if (atIdx > 0 && !/\s/.test(before[atIdx - 1])) return null;
     var query = before.substring(atIdx + 1);
-    // No spaces in query beyond 2 words
-    if (query.length > 40) return null;
+    if (query.length > 50) return null;
+    // Skip completed mentions: selectMention inserts a trailing \u200B marker
+    if (query.indexOf("\u200B") >= 0) return null;
     return { atIdx: atIdx, query: query };
   }
 
@@ -982,9 +989,11 @@
     if (!ctx) return;
     var before = input.value.substring(0, ctx.atIdx);
     var after = input.value.substring(input.selectionStart);
-    input.value = before + "@" + userName + " " + after;
+    // Insert mention with zero-width space marker to signal completion
+    var mention = "@" + userName + "\u200B ";
+    input.value = before + mention + after;
     input.focus();
-    var newPos = before.length + 1 + userName.length + 1;
+    var newPos = before.length + mention.length;
     input.setSelectionRange(newPos, newPos);
     hideMentionDropdown();
   }
