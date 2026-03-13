@@ -18,15 +18,20 @@
   // ── helpers ────────────────────────────────────────────────────────────
   function esc(s) { return E.escapeHtml(String(s == null ? "" : s)); }
   function uid() { return "pv_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8); }
-  function nowLocal() {
-    var d = new Date(), p = function (n) { return String(n).padStart(2, "0"); };
-    return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + "T" + p(d.getHours()) + ":" + p(d.getMinutes());
-  }
+  function todayStr() { var d = new Date(), p = function (n) { return String(n).padStart(2, "0"); }; return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()); }
   function fmtDate(v) {
     if (!v) return "-";
-    var d = new Date(v); if (isNaN(d)) return String(v);
+    var s = String(v);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    var d = new Date(v); if (isNaN(d)) return s;
     var p = function (n) { return String(n).padStart(2, "0"); };
-    return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + " " + p(d.getHours()) + ":" + p(d.getMinutes());
+    return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate());
+  }
+  function fmtDob(day, month, age) {
+    day = String(day || "").trim(); month = String(month || "").trim(); age = String(age || "").trim();
+    if (!day && !month) return "-";
+    var year = age ? String(new Date().getFullYear() - parseInt(age, 10)) : "????";
+    return (day || "??") + "/" + (month || "??") + "/" + year;
   }
   function norm(s) { return String(s || "").trim().toLowerCase(); }
   async function api(method, path, body) {
@@ -39,6 +44,7 @@
   var reports = [];
   var dirty = false;
   var syncing = false;
+  var currentUser = null;
 
   async function cloudLoad() {
     try {
@@ -63,6 +69,37 @@
   var CAUSALITY = ["Certain", "Probable/Likely", "Possible", "Unlikely", "Conditional/Unclassified", "Unassessable"];
   var REPORT_TYPES = ["Initial", "Follow-up", "Final"];
   var STATUS_LIST = ["Draft", "Submitted to MPA", "Submitted to EMA (EudraVigilance)", "Closed"];
+
+  // ── MedDRA preferred terms (common SOCs for pharmacy ADR reporting) ───
+  var MEDDRA_TERMS = [
+    "Abdominal pain", "Abdominal pain upper", "Acne", "Acute kidney injury", "Agranulocytosis",
+    "Alopecia", "Anaemia", "Anaphylactic reaction", "Anaphylactic shock", "Angioedema",
+    "Anxiety", "Appetite decreased", "Arrhythmia", "Arthralgia", "Asthenia",
+    "Asthma", "Atrial fibrillation", "Back pain", "Blood glucose increased", "Blood pressure increased",
+    "Bradycardia", "Bronchospasm", "Cardiac arrest", "Chest pain", "Chills",
+    "Cholestasis", "Confusional state", "Constipation", "Convulsion", "Cough",
+    "Cytolytic hepatitis", "Death", "Deep vein thrombosis", "Depression", "Dermatitis",
+    "Diarrhoea", "Dizziness", "Drug eruption", "Drug hypersensitivity", "Drug interaction",
+    "Dry mouth", "Dry skin", "Dyspepsia", "Dyspnoea", "Dysuria",
+    "Eczema", "Eosinophilia", "Epistaxis", "Erythema", "Erythema multiforme",
+    "Fatigue", "Feeling abnormal", "Flatulence", "Flushing", "Gastrointestinal haemorrhage",
+    "Haemorrhage", "Hallucination", "Headache", "Hepatic failure", "Hepatitis",
+    "Hepatotoxicity", "Hyperglycaemia", "Hyperkalaemia", "Hypersensitivity", "Hypertension",
+    "Hypoglycaemia", "Hypokalaemia", "Hyponatraemia", "Hypotension", "Hypothyroidism",
+    "Infection", "Infusion related reaction", "Injection site reaction", "Insomnia", "Interstitial lung disease",
+    "Jaundice", "Lactic acidosis", "Leukocytosis", "Leukopenia", "Liver injury",
+    "Malaise", "Medication error", "Methaemoglobinaemia", "Muscle spasms", "Myalgia",
+    "Myocardial infarction", "Nausea", "Nephritis", "Nephrotoxicity", "Neutropenia",
+    "Oedema", "Oedema peripheral", "Overdose", "Pain", "Pain in extremity",
+    "Palpitations", "Pancytopenia", "Pancreatitis", "Paraesthesia", "Photosensitivity reaction",
+    "Pneumonia", "Pruritus", "Pulmonary embolism", "Pyrexia", "QT prolongation",
+    "Rash", "Rash maculopapular", "Renal failure", "Respiratory failure", "Rhabdomyolysis",
+    "Rhinitis", "Seizure", "Sepsis", "Skin ulcer", "Somnolence",
+    "Stevens-Johnson syndrome", "Stomatitis", "Stroke", "Syncope", "Tachycardia",
+    "Tendinitis", "Thrombocytopenia", "Thrombosis", "Tinnitus", "Toxic epidermal necrolysis",
+    "Tremor", "Urticaria", "Ventricular tachycardia", "Vertigo", "Vision blurred",
+    "Vomiting", "Weight decreased", "Weight increased"
+  ];
 
   // ── styles ─────────────────────────────────────────────────────────────
   var stylesDone = false;
@@ -123,8 +160,16 @@
       ".pv .step.active{color:var(--txt);border-color:var(--ac)}",
       ".pv .step.done{color:var(--gd);border-color:var(--gd)}",
       ".pv .sec{display:none}.pv .sec.vis{display:block}",
+      // MedDRA autocomplete
+      ".pv .ac-wrap{position:relative}",
+      ".pv .ac-list{position:absolute;left:0;right:0;top:100%;z-index:9000;max-height:200px;overflow:auto;border:1px solid var(--bd);border-radius:var(--r2);background:rgba(11,18,32,.96);backdrop-filter:blur(8px);box-shadow:0 12px 30px rgba(0,0,0,.45);display:none}",
+      ".pv .ac-list.open{display:block}",
+      ".pv .ac-item{padding:8px 12px;font-size:12.5px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.05)}",
+      ".pv .ac-item:hover,.pv .ac-item.hl{background:rgba(108,140,255,.16)}",
+      ".pv .ac-item b{color:var(--ac)}",
       "@media(max-width:900px){.pv .row{grid-template-columns:repeat(6,1fr)}}",
-      "@media print{.pv{background:#fff;color:#111}.pv .hero,.pv .tabs,.pv .toast{display:none!important}.pv .card{box-shadow:none;border:1px solid #ddd}.pv .tbl th{background:#f5f5f5;color:#333}.pv .tbl td{border-color:#eee}}"
+      "@media print{.pv{background:#fff;color:#111}.pv .hero,.pv .tabs,.pv .toast,.pv .no-print{display:none!important}.pv .card{box-shadow:none;border:1px solid #ddd;break-inside:avoid}.pv .tbl th{background:#f5f5f5;color:#333}.pv .tbl td{border-color:#eee}.pv .tag{border-color:#ccc;color:#333;background:#f0f0f0}.pv .print-header{display:block!important}}",
+      ".pv .print-header{display:none}"
     ].join("\n");
     document.head.appendChild(s);
   }
@@ -136,11 +181,6 @@
     root.appendChild(t);
     setTimeout(function () { t.classList.add("show"); }, 20);
     setTimeout(function () { t.classList.remove("show"); setTimeout(function () { try { t.remove(); } catch (e) {} }, 300); }, 2200);
-  }
-
-  // ── build select options ───────────────────────────────────────────────
-  function opts(arr, selected) {
-    return arr.map(function (v) { return '<option value="' + esc(v) + '"' + (v === selected ? " selected" : "") + '>' + esc(v) + '</option>'; }).join("");
   }
 
   // ── form step wizard ───────────────────────────────────────────────────
@@ -160,6 +200,7 @@
   var formData = {};
 
   function newFormData() {
+    var loc = (currentUser && currentUser.location_name) ? currentUser.location_name : "";
     return {
       id: uid(),
       created_at: new Date().toISOString(),
@@ -168,8 +209,8 @@
       report_type: "Initial",
       // Patient
       pt_initials: "", pt_age: "", pt_sex: "", pt_weight: "", pt_height: "",
-      pt_dob: "", pt_id: "", pt_medical_history: "",
-      // Drugs (array of {name, dose, route, frequency, start_date, stop_date, indication, batch_no, mah})
+      pt_dob_day: "", pt_dob_month: "", pt_id: "", pt_medical_history: "",
+      // Drugs
       drugs: [{ name: "", dose: "", route: "Oral", frequency: "", start_date: "", stop_date: "", indication: "", batch_no: "", mah: "" }],
       // Reaction
       reaction_description: "", reaction_start: "", reaction_stop: "",
@@ -177,8 +218,8 @@
       reaction_causality: "Possible", reaction_meddra: "",
       // Reporter
       reporter_name: "", reporter_qualification: "Pharmacist", reporter_email: "",
-      reporter_phone: "", reporter_institution: "", reporter_address: "",
-      report_date: nowLocal(),
+      reporter_phone: "", reporter_institution: loc, reporter_address: "",
+      report_date: todayStr(),
       // Notes
       notes: ""
     };
@@ -187,6 +228,7 @@
   async function render(ctx) {
     ensureStyles();
     ROOT = ctx.mount;
+    currentUser = ctx.user || null;
     ROOT.innerHTML = '<div class="pv"><div id="pv-app"></div></div>';
     await cloudLoad();
     renderApp();
@@ -196,14 +238,12 @@
     var app = document.getElementById("pv-app");
     if (!app) return;
 
-    // KPIs
     var total = reports.length;
     var drafts = reports.filter(function (r) { return r.status === "Draft"; }).length;
     var submitted = reports.filter(function (r) { return r.status && r.status.indexOf("Submitted") === 0; }).length;
     var serious = reports.filter(function (r) { return r.reaction_seriousness && r.reaction_seriousness.indexOf("Serious") === 0; }).length;
 
     var h = '';
-    // Hero header
     h += '<div class="hero">';
     h += '<h2>Pharmacovigilance</h2>';
     h += '<div class="sub">Adverse Drug Reaction Reporting &bull; EU/Malta MPA Compliant &bull; Cloud-synced</div>';
@@ -218,12 +258,9 @@
     h += '<div class="tab' + (currentTab === "form" ? " on" : "") + '" data-pv-tab="form">' + (editId ? "Edit Report" : "New Report") + '</div>';
     h += '</div>';
     h += '</div>';
-
-    // Content
     h += '<div id="pv-content"></div>';
     app.innerHTML = h;
 
-    // Tab clicks
     app.querySelectorAll("[data-pv-tab]").forEach(function (el) {
       el.addEventListener("click", function () {
         var t = el.getAttribute("data-pv-tab");
@@ -244,7 +281,7 @@
 
     var h = '<div class="card"><div class="hd"><h3>ADR Reports</h3>';
     h += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">';
-    h += '<input class="btn sm" id="pv-search" type="text" placeholder="Search..." style="width:200px;background:rgba(0,0,0,.18);border:1px solid var(--bd);color:var(--txt);padding:7px 10px;border-radius:10px;font-size:12px;outline:none" />';
+    h += '<input id="pv-search" type="text" placeholder="Search..." style="width:200px;background:rgba(0,0,0,.18);border:1px solid var(--bd);color:var(--txt);padding:7px 10px;border-radius:10px;font-size:12px;outline:none" />';
     h += '<button class="btn pr sm" id="pv-new">+ New Report</button>';
     h += '</div></div><div class="bd">';
 
@@ -260,11 +297,9 @@
 
     if (reports.length) fillTable("");
 
-    // Bind search
     var si = document.getElementById("pv-search");
     if (si) si.addEventListener("input", function () { fillTable(si.value); });
 
-    // New report button
     var nb = document.getElementById("pv-new");
     if (nb) nb.addEventListener("click", function () { editId = null; formStep = 0; formData = newFormData(); currentTab = "form"; renderApp(); });
   }
@@ -276,7 +311,7 @@
     var sorted = reports.slice().sort(function (a, b) { return (b.report_date || b.created_at || "").localeCompare(a.report_date || a.created_at || ""); });
     var rows = sorted.filter(function (r) {
       if (!q) return true;
-      var hay = [r.pt_initials, r.reaction_description, r.status, r.reporter_name, r.reaction_seriousness]
+      var hay = [r.pt_initials, r.reaction_description, r.status, r.reporter_name, r.reaction_seriousness, r.reaction_meddra]
         .concat((r.drugs || []).map(function (d) { return d.name; })).join(" ");
       return norm(hay).indexOf(q) >= 0;
     });
@@ -292,19 +327,24 @@
         '<td style="white-space:nowrap">' + esc(fmtDate(r.report_date || r.created_at)) + '</td>' +
         '<td><b>' + esc(r.pt_initials || "-") + '</b><br><span style="font-size:11px;color:var(--mut)">' + esc(r.pt_sex || "") + (r.pt_age ? " " + r.pt_age + "y" : "") + '</span></td>' +
         '<td>' + (drugs || '<span style="color:var(--mut)">-</span>') + '</td>' +
-        '<td style="max-width:200px">' + esc(r.reaction_description || "-").slice(0, 80) + '</td>' +
+        '<td style="max-width:200px">' + esc((r.reaction_meddra || r.reaction_description || "-")).slice(0, 80) + '</td>' +
         '<td><span class="tag ' + tagCls + '">' + esc(ser) + '</span></td>' +
         '<td><span class="tag ' + stCls + '">' + esc(r.status || "Draft") + '</span></td>' +
-        '<td style="white-space:nowrap"><button class="btn sm" data-pv-edit="' + esc(r.id) + '">Edit</button> <button class="btn sm dn" data-pv-del="' + esc(r.id) + '">Del</button></td>' +
+        '<td style="white-space:nowrap"><button class="btn sm" data-pv-edit="' + esc(r.id) + '">Edit</button> <button class="btn sm pr" data-pv-print="' + esc(r.id) + '">Print</button> <button class="btn sm gd" data-pv-pdf="' + esc(r.id) + '">PDF</button> <button class="btn sm dn" data-pv-del="' + esc(r.id) + '">Del</button></td>' +
         '</tr>';
     }).join("");
 
-    // bind edit/delete
     tb.querySelectorAll("[data-pv-edit]").forEach(function (b) {
       b.addEventListener("click", function () { startEdit(b.getAttribute("data-pv-edit")); });
     });
     tb.querySelectorAll("[data-pv-del]").forEach(function (b) {
       b.addEventListener("click", function () { deleteReport(b.getAttribute("data-pv-del")); });
+    });
+    tb.querySelectorAll("[data-pv-print]").forEach(function (b) {
+      b.addEventListener("click", function () { printReport(b.getAttribute("data-pv-print")); });
+    });
+    tb.querySelectorAll("[data-pv-pdf]").forEach(function (b) {
+      b.addEventListener("click", function () { exportPdf(b.getAttribute("data-pv-pdf")); });
     });
   }
 
@@ -327,25 +367,112 @@
     renderApp();
   }
 
+  // ── print report ───────────────────────────────────────────────────────
+  function buildReportHtml(r) {
+    var drugs = (r.drugs || []).filter(function (d) { return d.name; });
+    var h = '';
+    h += '<div style="font-family:system-ui,Arial,sans-serif;color:#111;max-width:800px;margin:0 auto;padding:20px">';
+    h += '<div style="text-align:center;border-bottom:2px solid #333;padding-bottom:12px;margin-bottom:16px">';
+    h += '<div style="font-size:20px;font-weight:900;letter-spacing:1px">ADVERSE DRUG REACTION REPORT</div>';
+    h += '<div style="font-size:12px;color:#666;margin-top:4px">Individual Case Safety Report (ICSR) &bull; EU Pharmacovigilance</div>';
+    h += '<div style="font-size:11px;color:#888;margin-top:2px">Report ID: ' + esc(r.id) + ' &bull; Date: ' + esc(fmtDate(r.report_date)) + ' &bull; Type: ' + esc(r.report_type) + ' &bull; Status: ' + esc(r.status) + '</div>';
+    h += '</div>';
+
+    // Patient
+    h += '<div style="margin-bottom:14px"><div style="font-weight:800;font-size:13px;border-bottom:1px solid #ddd;padding-bottom:4px;margin-bottom:8px">A. PATIENT INFORMATION</div>';
+    h += '<table style="width:100%;font-size:12px;border-collapse:collapse">';
+    h += '<tr><td style="padding:3px 8px;color:#666;width:140px">Initials:</td><td style="padding:3px 8px;font-weight:600">' + esc(r.pt_initials || "-") + '</td>';
+    h += '<td style="padding:3px 8px;color:#666;width:140px">Age:</td><td style="padding:3px 8px;font-weight:600">' + esc(r.pt_age ? r.pt_age + " years" : "-") + '</td></tr>';
+    h += '<tr><td style="padding:3px 8px;color:#666">Sex:</td><td style="padding:3px 8px;font-weight:600">' + esc(r.pt_sex || "-") + '</td>';
+    h += '<td style="padding:3px 8px;color:#666">Date of Birth:</td><td style="padding:3px 8px;font-weight:600">' + esc(fmtDob(r.pt_dob_day, r.pt_dob_month, r.pt_age)) + '</td></tr>';
+    h += '<tr><td style="padding:3px 8px;color:#666">Weight:</td><td style="padding:3px 8px;font-weight:600">' + esc(r.pt_weight ? r.pt_weight + " kg" : "-") + '</td>';
+    h += '<td style="padding:3px 8px;color:#666">Height:</td><td style="padding:3px 8px;font-weight:600">' + esc(r.pt_height ? r.pt_height + " cm" : "-") + '</td></tr>';
+    if (r.pt_medical_history) h += '<tr><td style="padding:3px 8px;color:#666">Medical History:</td><td colspan="3" style="padding:3px 8px">' + esc(r.pt_medical_history) + '</td></tr>';
+    h += '</table></div>';
+
+    // Drugs
+    h += '<div style="margin-bottom:14px"><div style="font-weight:800;font-size:13px;border-bottom:1px solid #ddd;padding-bottom:4px;margin-bottom:8px">B. SUSPECTED DRUG(S)</div>';
+    if (drugs.length) {
+      h += '<table style="width:100%;font-size:12px;border-collapse:collapse;border:1px solid #ddd">';
+      h += '<tr style="background:#f5f5f5"><th style="padding:6px 8px;text-align:left;border:1px solid #ddd">Drug</th><th style="padding:6px 8px;text-align:left;border:1px solid #ddd">Dose</th><th style="padding:6px 8px;text-align:left;border:1px solid #ddd">Route</th><th style="padding:6px 8px;text-align:left;border:1px solid #ddd">Freq</th><th style="padding:6px 8px;text-align:left;border:1px solid #ddd">Start</th><th style="padding:6px 8px;text-align:left;border:1px solid #ddd">Stop</th><th style="padding:6px 8px;text-align:left;border:1px solid #ddd">Indication</th><th style="padding:6px 8px;text-align:left;border:1px solid #ddd">Batch</th><th style="padding:6px 8px;text-align:left;border:1px solid #ddd">MAH</th></tr>';
+      drugs.forEach(function (dr) {
+        h += '<tr><td style="padding:5px 8px;border:1px solid #ddd;font-weight:600">' + esc(dr.name) + '</td><td style="padding:5px 8px;border:1px solid #ddd">' + esc(dr.dose) + '</td><td style="padding:5px 8px;border:1px solid #ddd">' + esc(dr.route) + '</td><td style="padding:5px 8px;border:1px solid #ddd">' + esc(dr.frequency) + '</td><td style="padding:5px 8px;border:1px solid #ddd">' + esc(dr.start_date) + '</td><td style="padding:5px 8px;border:1px solid #ddd">' + esc(dr.stop_date) + '</td><td style="padding:5px 8px;border:1px solid #ddd">' + esc(dr.indication) + '</td><td style="padding:5px 8px;border:1px solid #ddd">' + esc(dr.batch_no) + '</td><td style="padding:5px 8px;border:1px solid #ddd">' + esc(dr.mah) + '</td></tr>';
+      });
+      h += '</table>';
+    } else { h += '<div style="font-size:12px;color:#888">No drugs recorded.</div>'; }
+    h += '</div>';
+
+    // Reaction
+    h += '<div style="margin-bottom:14px"><div style="font-weight:800;font-size:13px;border-bottom:1px solid #ddd;padding-bottom:4px;margin-bottom:8px">C. ADVERSE REACTION</div>';
+    h += '<table style="width:100%;font-size:12px;border-collapse:collapse">';
+    h += '<tr><td style="padding:3px 8px;color:#666;width:140px">MedDRA Term:</td><td style="padding:3px 8px;font-weight:600">' + esc(r.reaction_meddra || "-") + '</td></tr>';
+    h += '<tr><td style="padding:3px 8px;color:#666">Description:</td><td style="padding:3px 8px">' + esc(r.reaction_description || "-") + '</td></tr>';
+    h += '<tr><td style="padding:3px 8px;color:#666">Start Date:</td><td style="padding:3px 8px">' + esc(fmtDate(r.reaction_start)) + '</td></tr>';
+    h += '<tr><td style="padding:3px 8px;color:#666">Stop Date:</td><td style="padding:3px 8px">' + esc(fmtDate(r.reaction_stop)) + '</td></tr>';
+    h += '<tr><td style="padding:3px 8px;color:#666">Seriousness:</td><td style="padding:3px 8px;font-weight:700">' + esc(r.reaction_seriousness) + '</td></tr>';
+    h += '<tr><td style="padding:3px 8px;color:#666">Outcome:</td><td style="padding:3px 8px">' + esc(r.reaction_outcome) + '</td></tr>';
+    h += '<tr><td style="padding:3px 8px;color:#666">Causality:</td><td style="padding:3px 8px">' + esc(r.reaction_causality) + '</td></tr>';
+    h += '</table></div>';
+
+    // Reporter
+    h += '<div style="margin-bottom:14px"><div style="font-weight:800;font-size:13px;border-bottom:1px solid #ddd;padding-bottom:4px;margin-bottom:8px">D. REPORTER</div>';
+    h += '<table style="width:100%;font-size:12px;border-collapse:collapse">';
+    h += '<tr><td style="padding:3px 8px;color:#666;width:140px">Name:</td><td style="padding:3px 8px;font-weight:600">' + esc(r.reporter_name || "-") + '</td>';
+    h += '<td style="padding:3px 8px;color:#666;width:140px">Qualification:</td><td style="padding:3px 8px">' + esc(r.reporter_qualification) + '</td></tr>';
+    h += '<tr><td style="padding:3px 8px;color:#666">Institution:</td><td style="padding:3px 8px">' + esc(r.reporter_institution || "-") + '</td>';
+    h += '<td style="padding:3px 8px;color:#666">Phone:</td><td style="padding:3px 8px">' + esc(r.reporter_phone || "-") + '</td></tr>';
+    h += '<tr><td style="padding:3px 8px;color:#666">Email:</td><td style="padding:3px 8px">' + esc(r.reporter_email || "-") + '</td>';
+    h += '<td style="padding:3px 8px;color:#666">Address:</td><td style="padding:3px 8px">' + esc(r.reporter_address || "-") + '</td></tr>';
+    h += '</table></div>';
+
+    if (r.notes) {
+      h += '<div style="margin-bottom:14px"><div style="font-weight:800;font-size:13px;border-bottom:1px solid #ddd;padding-bottom:4px;margin-bottom:8px">E. ADDITIONAL NOTES</div>';
+      h += '<div style="font-size:12px">' + esc(r.notes) + '</div></div>';
+    }
+
+    h += '<div style="margin-top:20px;border-top:1px solid #ccc;padding-top:10px;font-size:10px;color:#888;text-align:center">Generated by Eikon Pharmacovigilance Module &bull; ' + esc(new Date().toLocaleDateString()) + '</div>';
+    h += '</div>';
+    return h;
+  }
+
+  function printReport(id) {
+    var r = reports.find(function (x) { return x.id === id; });
+    if (!r) return;
+    var w = window.open("", "_blank", "width=900,height=700");
+    if (!w) { toast("Pop-up blocked – please allow pop-ups"); return; }
+    w.document.write('<!DOCTYPE html><html><head><title>ADR Report – ' + esc(r.pt_initials || r.id) + '</title><style>body{margin:0;padding:0}@media print{body{padding:10mm}}</style></head><body>');
+    w.document.write(buildReportHtml(r));
+    w.document.write('</body></html>');
+    w.document.close();
+    setTimeout(function () { w.print(); }, 400);
+  }
+
+  function exportPdf(id) {
+    var r = reports.find(function (x) { return x.id === id; });
+    if (!r) return;
+    var w = window.open("", "_blank", "width=900,height=700");
+    if (!w) { toast("Pop-up blocked – please allow pop-ups"); return; }
+    w.document.write('<!DOCTYPE html><html><head><title>ADR Report – ' + esc(r.pt_initials || r.id) + '</title>');
+    w.document.write('<style>body{margin:0;padding:0}@media print{body{padding:10mm}}</style></head><body>');
+    w.document.write(buildReportHtml(r));
+    w.document.write('<div style="text-align:center;margin-top:20px;padding:14px"><button onclick="window.print()" style="padding:10px 28px;font-size:14px;font-weight:700;cursor:pointer;border-radius:8px;border:1px solid #ccc;background:#f0f0f0">Save as PDF (Print &rarr; Save as PDF)</button></div>');
+    w.document.write('</body></html>');
+    w.document.close();
+  }
+
   // ── form wizard ────────────────────────────────────────────────────────
   function renderForm() {
     var c = document.getElementById("pv-content");
     if (!c) return;
 
     var h = '';
-
-    // Step bar
     h += '<div class="card"><div class="bd"><div class="step-bar">';
     STEPS.forEach(function (s, i) {
       var cls = i === formStep ? "active" : (i < formStep ? "done" : "");
       h += '<div class="step ' + cls + '" data-pv-step="' + i + '">' + (i + 1) + '. ' + esc(s.label) + '</div>';
     });
     h += '</div>';
-
-    // Step content
     h += '<div id="pv-step-body"></div>';
-
-    // Navigation buttons
     h += '<div class="hr"></div>';
     h += '<div style="display:flex;gap:10px;justify-content:space-between;flex-wrap:wrap">';
     h += '<div>';
@@ -355,14 +482,11 @@
     if (formStep < STEPS.length - 1) h += '<button class="btn pr" id="pv-next">Next Step</button>';
     else h += '<button class="btn gd" id="pv-submit">Save Report</button>';
     h += '</div></div>';
-
     h += '</div></div>';
     c.innerHTML = h;
 
-    // Render current step content
     renderStepBody();
 
-    // Bind step bar clicks
     c.querySelectorAll("[data-pv-step]").forEach(function (el) {
       el.addEventListener("click", function () {
         collectStepData();
@@ -371,7 +495,6 @@
       });
     });
 
-    // Bind nav
     var prev = document.getElementById("pv-prev");
     var next = document.getElementById("pv-next");
     var cancel = document.getElementById("pv-cancel");
@@ -392,14 +515,23 @@
     if (key === "patient") {
       h += '<h3 style="margin:0 0 12px;font-size:15px">Patient Information</h3>';
       h += '<div class="row">';
-      h += field(3, "pt_initials", "Patient Initials", "text", "e.g. J.D.", "Use initials only – no full names for privacy");
-      h += field(2, "pt_age", "Age", "number", "e.g. 65");
+      h += field(3, "pt_initials", "Patient Initials", "text", "e.g. J.D.", "Use initials only - no full names for privacy");
+      h += field(2, "pt_age", "Age (years)", "number", "e.g. 65");
       h += field(2, "pt_sex", "Sex", "select", "", "", ["", "Male", "Female", "Other"]);
       h += field(2, "pt_weight", "Weight (kg)", "number", "e.g. 78");
       h += field(3, "pt_height", "Height (cm)", "number", "e.g. 175");
-      h += field(3, "pt_dob", "Date of Birth", "date");
-      h += field(3, "pt_id", "Patient ID (optional)", "text", "ID card / passport");
-      h += field(6, "pt_medical_history", "Relevant Medical History", "textarea", "Allergies, conditions, past ADRs...");
+      // DOB: day + month only, year is calculated from age
+      h += '<div class="fld" style="grid-column:span 2"><label>DOB Day</label>';
+      h += '<select data-pv-field="pt_dob_day"><option value="">--</option>';
+      for (var dd = 1; dd <= 31; dd++) h += '<option value="' + dd + '"' + (String(formData.pt_dob_day) === String(dd) ? ' selected' : '') + '>' + dd + '</option>';
+      h += '</select><div class="hint">Day of birth</div></div>';
+      h += '<div class="fld" style="grid-column:span 2"><label>DOB Month</label>';
+      h += '<select data-pv-field="pt_dob_month"><option value="">--</option>';
+      var months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      months.forEach(function (m, i) { h += '<option value="' + (i + 1) + '"' + (String(formData.pt_dob_month) === String(i + 1) ? ' selected' : '') + '>' + m + '</option>'; });
+      h += '</select><div class="hint">Year auto-calculated from age</div></div>';
+      h += field(2, "pt_id", "Patient ID", "text", "ID / passport");
+      h += field(12, "pt_medical_history", "Relevant Medical History", "textarea", "Allergies, conditions, past ADRs...");
       h += '</div>';
     } else if (key === "drug") {
       h += '<h3 style="margin:0 0 4px;font-size:15px">Suspected Drug(s)</h3>';
@@ -409,13 +541,17 @@
     } else if (key === "reaction") {
       h += '<h3 style="margin:0 0 12px;font-size:15px">Adverse Reaction Details</h3>';
       h += '<div class="row">';
-      h += field(12, "reaction_description", "Reaction Description", "textarea", "Describe the adverse reaction in detail...", "Include onset, symptoms, course, and any relevant lab results");
-      h += field(3, "reaction_start", "Reaction Start", "datetime-local");
-      h += field(3, "reaction_stop", "Reaction Stop", "datetime-local");
+      // MedDRA autocomplete field
+      h += '<div class="fld" style="grid-column:span 6"><label>MedDRA Preferred Term</label>';
+      h += '<div class="ac-wrap"><input type="text" id="pv-meddra-input" data-pv-field="reaction_meddra" placeholder="Start typing... e.g. Nausea, Rash, Headache" autocomplete="off" value="' + esc(formData.reaction_meddra || "") + '" />';
+      h += '<div class="ac-list" id="pv-meddra-list"></div></div>';
+      h += '<div class="hint">Click to browse or type to search common MedDRA terms</div></div>';
       h += field(3, "reaction_seriousness", "Seriousness", "select", "", "", SERIOUSNESS);
       h += field(3, "reaction_outcome", "Outcome", "select", "", "", OUTCOMES);
-      h += field(3, "reaction_causality", "Causality (WHO-UMC)", "select", "", "Assessment of causal relationship", CAUSALITY);
-      h += field(3, "reaction_meddra", "MedDRA Term (optional)", "text", "e.g. Rash, Nausea...");
+      h += field(12, "reaction_description", "Reaction Description", "textarea", "Describe the adverse reaction in detail...", "Include onset, symptoms, course, and any relevant lab results");
+      h += field(3, "reaction_start", "Reaction Start Date", "date");
+      h += field(3, "reaction_stop", "Reaction Stop Date", "date");
+      h += field(3, "reaction_causality", "Causality (WHO-UMC)", "select", "", "", CAUSALITY);
       h += field(3, "report_type", "Report Type", "select", "", "", REPORT_TYPES);
       h += field(3, "status", "Report Status", "select", "", "", STATUS_LIST);
       h += '</div>';
@@ -426,8 +562,9 @@
       h += field(4, "reporter_qualification", "Qualification", "select", "", "", ["Pharmacist", "Physician", "Nurse", "Patient/Consumer", "Other Healthcare Professional"]);
       h += field(4, "reporter_email", "Email", "email", "email@example.com");
       h += field(4, "reporter_phone", "Phone", "tel", "+356 ...");
-      h += field(4, "reporter_institution", "Pharmacy / Institution", "text", "Name of pharmacy");
+      h += field(4, "reporter_institution", "Pharmacy / Institution", "text", "");
       h += field(4, "reporter_address", "Address", "text", "Business address");
+      h += field(4, "report_date", "Report Date", "date");
       h += field(12, "notes", "Additional Notes", "textarea", "Any additional information...");
       h += '</div>';
     } else if (key === "review") {
@@ -442,8 +579,77 @@
     // Set field values from formData
     sb.querySelectorAll("[data-pv-field]").forEach(function (el) {
       var k = el.getAttribute("data-pv-field");
-      if (formData[k] != null) el.value = String(formData[k]);
+      if (formData[k] != null && el.id !== "pv-meddra-input") el.value = String(formData[k]);
     });
+
+    // MedDRA autocomplete binding
+    if (key === "reaction") bindMeddraAutocomplete();
+  }
+
+  // ── MedDRA autocomplete ────────────────────────────────────────────────
+  function bindMeddraAutocomplete() {
+    var inp = document.getElementById("pv-meddra-input");
+    var list = document.getElementById("pv-meddra-list");
+    if (!inp || !list) return;
+
+    var hlIdx = -1;
+    var filtered = [];
+
+    function showList(items) {
+      filtered = items;
+      hlIdx = -1;
+      if (!items.length) { list.classList.remove("open"); return; }
+      list.innerHTML = items.map(function (term, i) {
+        var q = norm(inp.value);
+        var display = esc(term);
+        if (q) {
+          var idx = norm(term).indexOf(q);
+          if (idx >= 0) display = esc(term.slice(0, idx)) + '<b>' + esc(term.slice(idx, idx + q.length)) + '</b>' + esc(term.slice(idx + q.length));
+        }
+        return '<div class="ac-item" data-pv-meddra-idx="' + i + '">' + display + '</div>';
+      }).join("");
+      list.classList.add("open");
+      // bind clicks
+      list.querySelectorAll(".ac-item").forEach(function (el) {
+        el.addEventListener("mousedown", function (e) {
+          e.preventDefault();
+          var idx2 = parseInt(el.getAttribute("data-pv-meddra-idx"), 10);
+          inp.value = filtered[idx2] || "";
+          list.classList.remove("open");
+        });
+      });
+    }
+
+    function filter() {
+      var q = norm(inp.value);
+      if (!q) { showList(MEDDRA_TERMS.slice(0, 30)); return; }
+      // starts-with first, then contains
+      var starts = []; var contains = [];
+      MEDDRA_TERMS.forEach(function (t) {
+        var n = norm(t);
+        if (n.indexOf(q) === 0) starts.push(t);
+        else if (n.indexOf(q) > 0) contains.push(t);
+      });
+      showList(starts.concat(contains).slice(0, 30));
+    }
+
+    inp.addEventListener("focus", filter);
+    inp.addEventListener("input", filter);
+    inp.addEventListener("blur", function () { setTimeout(function () { list.classList.remove("open"); }, 200); });
+    inp.addEventListener("keydown", function (e) {
+      if (!list.classList.contains("open")) return;
+      if (e.key === "ArrowDown") { e.preventDefault(); hlIdx = Math.min(hlIdx + 1, filtered.length - 1); updateHl(); }
+      else if (e.key === "ArrowUp") { e.preventDefault(); hlIdx = Math.max(hlIdx - 1, 0); updateHl(); }
+      else if (e.key === "Enter" && hlIdx >= 0) { e.preventDefault(); inp.value = filtered[hlIdx] || ""; list.classList.remove("open"); }
+      else if (e.key === "Escape") { list.classList.remove("open"); }
+    });
+
+    function updateHl() {
+      list.querySelectorAll(".ac-item").forEach(function (el, i) {
+        if (i === hlIdx) { el.classList.add("hl"); el.scrollIntoView({ block: "nearest" }); }
+        else el.classList.remove("hl");
+      });
+    }
   }
 
   function field(span, key, label, type, placeholder, hint, selectOptions) {
@@ -452,7 +658,7 @@
     if (type === "select") {
       h += '<select data-pv-field="' + key + '">';
       (selectOptions || []).forEach(function (v) {
-        h += '<option value="' + esc(v) + '"' + (formData[key] === v ? ' selected' : '') + '>' + esc(v || "– Select –") + '</option>';
+        h += '<option value="' + esc(v) + '"' + (formData[key] === v ? ' selected' : '') + '>' + esc(v || "- Select -") + '</option>';
       });
       h += '</select>';
     } else if (type === "textarea") {
@@ -487,7 +693,6 @@
       return h;
     }).join("");
 
-    // Bind remove
     wrap.querySelectorAll("[data-pv-rm-drug]").forEach(function (b) {
       b.addEventListener("click", function () {
         var idx = parseInt(b.getAttribute("data-pv-rm-drug"), 10);
@@ -497,7 +702,6 @@
       });
     });
 
-    // Bind add
     var addBtn = document.getElementById("pv-add-drug");
     if (addBtn) addBtn.addEventListener("click", function () {
       collectDrugData();
@@ -546,11 +750,12 @@
     h += '<div class="row">';
     h += reviewBlock(6, "Patient", [
       ["Initials", d.pt_initials], ["Age", d.pt_age ? d.pt_age + "y" : "-"], ["Sex", d.pt_sex || "-"],
+      ["DOB", fmtDob(d.pt_dob_day, d.pt_dob_month, d.pt_age)],
       ["Weight", d.pt_weight ? d.pt_weight + " kg" : "-"], ["Height", d.pt_height ? d.pt_height + " cm" : "-"]
     ]);
     h += reviewBlock(6, "Reporter", [
       ["Name", d.reporter_name], ["Qualification", d.reporter_qualification],
-      ["Email", d.reporter_email], ["Phone", d.reporter_phone]
+      ["Institution", d.reporter_institution], ["Phone", d.reporter_phone]
     ]);
     h += '</div>';
     h += '<div class="hr"></div>';
@@ -567,10 +772,11 @@
     h += '<div class="hr"></div>';
     h += '<div class="row">';
     h += reviewBlock(6, "Reaction", [
+      ["MedDRA Term", d.reaction_meddra || "-"],
       ["Description", (d.reaction_description || "-").slice(0, 120)],
       ["Start", fmtDate(d.reaction_start)], ["Stop", fmtDate(d.reaction_stop)],
       ["Seriousness", d.reaction_seriousness], ["Outcome", d.reaction_outcome],
-      ["Causality", d.reaction_causality], ["MedDRA", d.reaction_meddra || "-"]
+      ["Causality", d.reaction_causality]
     ]);
     h += reviewBlock(6, "Report", [
       ["Type", d.report_type], ["Status", d.status],
@@ -595,11 +801,10 @@
     collectStepData();
     formData.updated_at = new Date().toISOString();
 
-    // Validation
     if (!formData.pt_initials && !formData.pt_age) { toast("Please enter at least patient initials or age."); return; }
     var hasDrug = (formData.drugs || []).some(function (d) { return d.name; });
     if (!hasDrug) { toast("Please enter at least one suspected drug."); return; }
-    if (!formData.reaction_description) { toast("Please describe the adverse reaction."); return; }
+    if (!formData.reaction_description && !formData.reaction_meddra) { toast("Please describe the adverse reaction or select a MedDRA term."); return; }
 
     if (editId) {
       var idx = reports.findIndex(function (r) { return r.id === editId; });
