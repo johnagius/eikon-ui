@@ -1570,10 +1570,12 @@
     var body =
       '<div class="eikon-dash-detail">' +
         '<div class="eikon-help">Expired or due within 30 days.</div>' +
-        '<table class="eikon-dash-mini-table">' +
-          "<thead><tr><th>Certificate</th><th>Next due</th><th>Status</th></tr></thead>" +
-          "<tbody>" + (rows || "<tr><td colspan='3'>No items.</td></tr>") + "</tbody>" +
-        "</table>" +
+        '<div style="max-height:420px;overflow-y:auto;">' +
+          '<table class="eikon-dash-mini-table">' +
+            "<thead><tr><th>Certificate</th><th>Next due</th><th>Status</th></tr></thead>" +
+            "<tbody>" + (rows || "<tr><td colspan='3'>No items.</td></tr>") + "</tbody>" +
+          "</table>" +
+        "</div>" +
       "</div>";
 
     E.modal.show("Certificates — Details", body, [
@@ -1612,10 +1614,12 @@
     var body =
       '<div class="eikon-dash-detail">' +
         '<div class="eikon-help">Showing up to 25 incomplete alerts.</div>' +
-        '<table class="eikon-dash-mini-table">' +
-          "<thead><tr><th>Date</th><th>Alert</th><th>Missing</th></tr></thead>" +
-          "<tbody>" + rows + "</tbody>" +
-        "</table>" +
+        '<div style="max-height:420px;overflow-y:auto;">' +
+          '<table class="eikon-dash-mini-table">' +
+            "<thead><tr><th>Date</th><th>Alert</th><th>Missing</th></tr></thead>" +
+            "<tbody>" + rows + "</tbody>" +
+          "</table>" +
+        "</div>" +
       "</div>";
 
     E.modal.show("Alerts — Incomplete", body, [
@@ -1648,10 +1652,12 @@
     var body =
       '<div class="eikon-dash-detail">' +
         '<div class="eikon-help">Showing up to 25 incomplete returns.</div>' +
-        '<table class="eikon-dash-mini-table">' +
-          "<thead><tr><th>Date</th><th>Return</th><th>Missing</th></tr></thead>" +
-          "<tbody>" + rows + "</tbody>" +
-        "</table>" +
+        '<div style="max-height:420px;overflow-y:auto;">' +
+          '<table class="eikon-dash-mini-table">' +
+            "<thead><tr><th>Date</th><th>Return</th><th>Missing</th></tr></thead>" +
+            "<tbody>" + rows + "</tbody>" +
+          "</table>" +
+        "</div>" +
       "</div>";
 
     E.modal.show("Returns — Incomplete", body, [
@@ -1858,10 +1864,12 @@
     var body =
       '<div class="eikon-dash-detail">' +
         '<div class="eikon-help">Coverage issues from <b>' + esc(sh.from || "") + "</b> to <b>" + esc(sh.to || "") + "</b>. (Showing up to 31 days)</div>" +
-        '<table class="eikon-dash-mini-table">' +
-          "<thead><tr><th>Date</th><th>Issue</th></tr></thead>" +
-          "<tbody>" + rows + "</tbody>" +
-        "</table>" +
+        '<div style="max-height:420px;overflow-y:auto;">' +
+          '<table class="eikon-dash-mini-table">' +
+            "<thead><tr><th>Date</th><th>Issue</th></tr></thead>" +
+            "<tbody>" + rows + "</tbody>" +
+          "</table>" +
+        "</div>" +
       "</div>";
 
     E.modal.show("Shifts — Coverage issues", body, [
@@ -1898,10 +1906,12 @@
 
     var body =
       '<div class="eikon-dash-detail">' +
-        '<div><b>Today (' + esc(today) + ") — Day specific instructions</b></div>" +
-        (notes ? ('<div style="margin-top:8px;white-space:pre-wrap">' + esc(notes) + "</div>") : '<div class="eikon-help" style="margin-top:6px">No notes for today.</div>') +
-        '<div style="margin-top:14px"><b>Previous day (' + esc(yday) + ") — Handover from previous day</b></div>" +
-        listHtml +
+        '<div style="max-height:420px;overflow-y:auto;">' +
+          '<div><b>Today (' + esc(today) + ") — Day specific instructions</b></div>" +
+          (notes ? ('<div style="margin-top:8px;white-space:pre-wrap">' + esc(notes) + "</div>") : '<div class="eikon-help" style="margin-top:6px">No notes for today.</div>') +
+          '<div style="margin-top:14px"><b>Previous day (' + esc(yday) + ") — Handover from previous day</b></div>" +
+          listHtml +
+        "</div>" +
       "</div>";
 
     E.modal.show("Instructions & handover", body, [
