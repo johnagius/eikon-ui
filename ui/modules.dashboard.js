@@ -229,7 +229,8 @@
       nearexpiry: null,
       instructions: null,
       scarcestock: null,
-      stocktransfers: null
+      stocktransfers: null,
+      board: null
     }
   };
 
@@ -248,6 +249,7 @@
     state.data.instructions = null;
     state.data.scarcestock = null;
     state.data.stocktransfers = null;
+    state.data.board = null;
   }
 
   // ----------------------------
@@ -943,7 +945,27 @@
       }
     }
 
-    if (todayList) todayList.innerHTML = tempRow + drRow + poRow + insRow;
+    // --- Pharmacy Board ---
+    var boardRow = "";
+    if (!state.data.board) boardRow = row("\uD83D\uDCAC", "Pharmacy Board", "Loading\u2026", pill("info", "\u2026"), "");
+    else if (!state.data.board.ok) boardRow = row("\uD83D\uDCAC", "Pharmacy Board", state.data.board.error || "Unavailable", showNA("N/A"), btn("dash-open-messageboard", "Open", { small: true }));
+    else {
+      var bd = state.data.board.data;
+      var boardSub = [];
+      if (bd.unread > 0) boardSub.push(bd.unread + " unread mention(s)");
+      if (bd.recent && bd.recent.length > 0) {
+        var latest = bd.recent[0];
+        var preview = String(latest.body || "").substring(0, 60);
+        if (String(latest.body || "").length > 60) preview += "\u2026";
+        boardSub.push(esc(latest.user_name) + ": " + esc(preview));
+      }
+      if (!boardSub.length) boardSub.push("No recent messages");
+      var boardPill = bd.unread > 0 ? pill("warn", bd.unread + " mention" + (bd.unread > 1 ? "s" : "")) : pill("ok", "OK");
+      boardRow = row("\uD83D\uDCAC", "Pharmacy Board", boardSub[0], boardPill,
+        btn("dash-open-messageboard", "Open", { primary: bd.unread > 0, small: true }));
+    }
+
+    if (todayList) todayList.innerHTML = tempRow + drRow + poRow + insRow + boardRow;
     if (attnList) attnList.innerHTML = clRow + certRow + alRow + rtRow + neRow + ssRow + stRow;
     if (opsList) opsList.innerHTML = shRow + coRow + tkRow;
   }
@@ -1229,6 +1251,12 @@
       }
 
       return { pendingRequests: pendingRequests, unconfirmedDeliveries: unconfirmedDeliveries };
+    });
+
+    run("board", async function () {
+      var r = await api("/board/dashboard", { method: "GET" }, 6000, "board");
+      if (!r || r.ok !== true) throw new Error((r && r.error) ? r.error : "Failed");
+      return { unread: r.unread_mentions || 0, recent: r.recent_messages || [], mentions: r.recent_mentions || [] };
     });
 
     run("shifts", async function () {
@@ -1943,6 +1971,7 @@
     else if (act === "dash-open-instructions") window.location.hash = "#instructions";
     else if (act === "dash-open-scarcestock") window.location.hash = "#scarcestock";
     else if (act === "dash-open-stocktransfers") window.location.hash = "#stocktransfers";
+    else if (act === "dash-open-messageboard") window.location.hash = "#messageboard";
   }
 
   // ----------------------------
