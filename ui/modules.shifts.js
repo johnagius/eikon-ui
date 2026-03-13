@@ -1890,7 +1890,7 @@ function locumShiftModal(ds, defaultSt, defaultEt, onDone){
                 if (l) l.innerHTML = pharmacistOverlapListHTML(ov);
                 var sig = ds+"|"+staffId+"|"+st+"|"+et+"|"+ov.map(function(x){return x.shift && x.shift.id;}).join(",");
                 if (w && w.getAttribute("data-sig") !== sig) { w.setAttribute("data-sig", sig); if (c) c.checked = false; }
-                if (!c || !c.checked) { toast("Another pharmacist is already scheduled for this time. Confirm to add anyway.","error"); saving = false; return; }
+                if (!c || !c.checked) { w.scrollIntoView({behavior:"smooth",block:"center"}); toast("Another pharmacist is already scheduled for this time. Confirm to add anyway.","error"); saving = false; return; }
               } else {
                 if (w) w.style.display = "none";
               }
@@ -2060,7 +2060,7 @@ function dayModal(ds, onSave) {
               if (l) l.innerHTML = pharmacistOverlapListHTML(ov);
               var sig = ds+"|"+sid+"|"+st+"|"+et+"|"+ov.map(function(x){return x.shift && x.shift.id;}).join(",");
               if (w && w.getAttribute("data-sig") !== sig) { w.setAttribute("data-sig", sig); if (c) c.checked = false; }
-              if (!c || !c.checked) { toast("Another pharmacist is already scheduled for this time. Confirm to add anyway.","error"); return; }
+              if (!c || !c.checked) { w.scrollIntoView({behavior:"smooth",block:"center"}); toast("Another pharmacist is already scheduled for this time. Confirm to add anyway.","error"); return; }
             } else {
               if (w) w.style.display = "none";
             }
@@ -2410,7 +2410,7 @@ function singleShiftModal(e2, ds, existing, onSave) {
             if (l) l.innerHTML = pharmacistOverlapListHTML(ov);
             var sig = ds+"|"+(e2&&e2.id)+"|"+st+"|"+et+"|"+ov.map(function(x){return x.shift && x.shift.id;}).join(",");
             if (w && w.getAttribute("data-sig") !== sig) { w.setAttribute("data-sig", sig); if (c) c.checked = false; }
-            if (!c || !c.checked) { toast("Another pharmacist is already scheduled for this time. Confirm to add anyway.","error"); return; }
+            if (!c || !c.checked) { w.scrollIntoView({behavior:"smooth",block:"center"}); toast("Another pharmacist is already scheduled for this time. Confirm to add anyway.","error"); return; }
           } else {
             if (w) w.style.display = "none";
           }
