@@ -788,6 +788,12 @@
           matches.forEach(function (m, idx) {
             var btn = E._createNavBtn(m);
             btn.style.animationDelay = (idx * 40) + "ms";
+            btn.addEventListener("click", function () {
+              searchInput.value = "";
+              catsContainer.style.display = "";
+              searchResults.style.display = "none";
+              searchResults.innerHTML = "";
+            });
             searchResults.appendChild(btn);
           });
         }
