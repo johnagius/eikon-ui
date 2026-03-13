@@ -506,7 +506,10 @@
   }
 
   async function pollNewMessages() {
-    if (!state.mount) return;
+    if (!state.mount || !state.mount.isConnected) {
+      stopPolling();
+      return;
+    }
     var lastId = 0;
     if (state.messages.length > 0) {
       lastId = state.messages[state.messages.length - 1].id;
@@ -592,19 +595,19 @@
   }
 
   async function deleteMessage(msgId) {
+    msgId = Number(msgId);
+    if (!msgId) { console.error("[board] invalid msgId", msgId); return; }
     if (!confirm("Delete this message?")) return;
     try {
       console.log("[board] deleting message", msgId);
-      var res = await E.apiFetch("/board/messages/" + msgId, { method: "DELETE" });
-      if (res.ok) {
-        state.messages = state.messages.filter(function (m) { return Number(m.id) !== Number(msgId); });
-        state.pinnedMessages = state.pinnedMessages.filter(function (m) { return Number(m.id) !== Number(msgId); });
-        renderUI();
-        toast("Deleted", "Message removed", "good", 2000);
-      } else {
-        toast("Error", res.error || "Failed", "bad");
-      }
+      await E.apiFetch("/board/messages/" + msgId, { method: "DELETE" });
+      // E.apiFetch throws on non-ok, so if we get here it succeeded
+      state.messages = state.messages.filter(function (m) { return Number(m.id) !== msgId; });
+      state.pinnedMessages = state.pinnedMessages.filter(function (m) { return Number(m.id) !== msgId; });
+      renderUI();
+      toast("Deleted", "Message removed", "good", 2000);
     } catch (e) {
+      console.error("[board] delete error", e);
       toast("Error", e.message || "Failed to delete", "bad");
     }
   }
@@ -640,9 +643,8 @@
   }
 
   function openNewSuggestionModal() {
-    var html =
-      '<div style="min-width:360px;max-width:500px;">' +
-        '<div style="font-weight:950;font-size:16px;margin-bottom:12px;">New Suggestion</div>' +
+    var bodyHtml =
+      '<div style="min-width:320px;max-width:500px;">' +
         '<label style="display:block;font-size:12px;margin-bottom:4px;color:rgba(255,255,255,.6);">Suggestion</label>' +
         '<textarea id="board-sug-modal-title" rows="3" style="width:100%;padding:10px;border:1px solid rgba(255,255,255,.12);border-radius:10px;background:rgba(255,255,255,.04);color:#e9eef7;font-size:13px;font-family:inherit;resize:vertical;" placeholder="Describe your suggestion..."></textarea>' +
         '<label style="display:block;font-size:12px;margin:10px 0 4px;color:rgba(255,255,255,.6);">Priority</label>' +
@@ -651,18 +653,10 @@
           '<option value="medium" selected>Medium</option>' +
           '<option value="high">High</option>' +
         '</select>' +
-        '<div style="display:flex;gap:8px;margin-top:14px;">' +
-          '<button class="eikon-btn primary" id="board-sug-modal-save">Save</button>' +
-          '<button class="eikon-btn" id="board-sug-modal-cancel">Cancel</button>' +
-        '</div>' +
       '</div>';
 
-    E.modal.open(html);
-
-    setTimeout(function () {
-      var saveBtn = document.getElementById("board-sug-modal-save");
-      var cancelBtn = document.getElementById("board-sug-modal-cancel");
-      if (saveBtn) saveBtn.addEventListener("click", async function () {
+    E.modal.show("New Suggestion", bodyHtml, [
+      { label: "Save", primary: true, onClick: async function () {
         var titleEl = document.getElementById("board-sug-modal-title");
         var priEl = document.getElementById("board-sug-modal-pri");
         var title = titleEl ? titleEl.value.trim() : "";
@@ -671,7 +665,7 @@
         try {
           var res = await api("/board/suggestions", { method: "POST", body: JSON.stringify({ title: title, priority: priority }) });
           if (res.ok) {
-            E.modal.close();
+            E.modal.hide();
             await loadSuggestions();
             renderUI();
             toast("Saved", "Suggestion added", "good", 2000);
@@ -681,9 +675,9 @@
         } catch (e) {
           toast("Error", e.message || "Failed", "bad");
         }
-      });
-      if (cancelBtn) cancelBtn.addEventListener("click", function () { E.modal.close(); });
-    }, 50);
+      }},
+      { label: "Cancel", onClick: function () { E.modal.hide(); } }
+    ]);
   }
 
   async function exportSuggestions() {
