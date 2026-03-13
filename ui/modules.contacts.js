@@ -239,6 +239,12 @@
       ".ct-search-ico{position:absolute;left:10px;top:50%;transform:translateY(-50%);width:14px;height:14px;opacity:.4;pointer-events:none;}",
       ".ct-match-count{font-size:11px;color:var(--muted);margin-left:10px;white-space:nowrap;}",
 
+      /* specialty filter dropdown */
+      ".ct-filter-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;}",
+      ".ct-specialty-select{background:rgba(0,0,0,.2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:12px;padding:7px 10px;outline:none;transition:border-color .15s;max-width:360px;cursor:pointer;}",
+      ".ct-specialty-select:focus{border-color:var(--accent);}",
+      ".ct-specialty-select option{background:var(--panel);color:var(--text);}",
+
       /* scrollable table body */
       ".ct-scroll-wrap{border:1px solid var(--border);border-radius:10px;overflow:hidden;}",
       ".ct-scroll-wrap table.eikon-table{margin:0;border:none;}",
@@ -360,12 +366,105 @@
       icon: "🧑‍⚕️",
       apiTable: "locums",
       columns: [
-        { key: "name", label: "Locum Name", placeholder: "e.g. Dr. Jane Doe" },
+        { key: "name", label: "Locum Name", placeholder: "e.g. Jane Doe" },
         { key: "phone", label: "Phone Number", placeholder: "e.g. 7912 3456" }
       ],
       hideable: false
+    },
+    doctors: {
+      title: "Doctor Contacts",
+      icon: "🩺",
+      apiTable: "doctors",
+      columns: [
+        { key: "name", label: "Doctor Name", placeholder: "e.g. Dr. John Borg" },
+        { key: "phone", label: "Phone Number", placeholder: "e.g. 2123 4567" }
+      ],
+      hideable: false
+    },
+    specialists: {
+      title: "Specialist Contacts",
+      icon: "🔬",
+      apiTable: "specialists",
+      columns: [
+        { key: "name", label: "Specialist Name", placeholder: "e.g. Dr. Maria Vella" },
+        { key: "specialty", label: "Specialty", placeholder: "e.g. Cardiology", isSpecialty: true },
+        { key: "phone", label: "Phone Number", placeholder: "e.g. 2123 4567" }
+      ],
+      hideable: false,
+      hasSpecialtyFilter: true
     }
   };
+
+  /* ============================================================
+     SPECIALTY LIST — short (abbreviation) + long (full name)
+     ============================================================ */
+  var SPECIALTIES = [
+    { short: "Allergy & Immunology", long: "Allergy and Immunology" },
+    { short: "Anaesthesiology", long: "Anaesthesiology" },
+    { short: "Andrology", long: "Andrology (Male Reproductive Medicine)" },
+    { short: "Cardiology", long: "Cardiology (Heart & Cardiovascular)" },
+    { short: "Cardiac Surgery", long: "Cardiac Surgery (Heart Surgery)" },
+    { short: "Clinical Genetics", long: "Clinical Genetics (Medical Genetics)" },
+    { short: "Clinical Pharmacology", long: "Clinical Pharmacology" },
+    { short: "Colorectal Surgery", long: "Colorectal Surgery" },
+    { short: "Dentistry", long: "Dentistry (General Dental Practice)" },
+    { short: "Dermatology", long: "Dermatology (Skin)" },
+    { short: "Diabetology", long: "Diabetology (Diabetes & Metabolism)" },
+    { short: "Emergency Medicine", long: "Emergency Medicine (A&E)" },
+    { short: "Endocrinology", long: "Endocrinology (Hormones & Glands)" },
+    { short: "ENT", long: "ENT (Ears, Nose and Throat / Otorhinolaryngology)" },
+    { short: "Forensic Medicine", long: "Forensic Medicine (Legal Medicine)" },
+    { short: "Gastroenterology", long: "Gastroenterology (Digestive System)" },
+    { short: "General Practice", long: "General Practice (Family Medicine / GP)" },
+    { short: "General Surgery", long: "General Surgery" },
+    { short: "Geriatrics", long: "Geriatrics (Elderly Care Medicine)" },
+    { short: "Gynaecology", long: "Gynaecology (Women's Reproductive Health)" },
+    { short: "Haematology", long: "Haematology (Blood Disorders)" },
+    { short: "Hand Surgery", long: "Hand Surgery" },
+    { short: "Hepatology", long: "Hepatology (Liver)" },
+    { short: "Infectious Disease", long: "Infectious Disease" },
+    { short: "Internal Medicine", long: "Internal Medicine (General Medicine)" },
+    { short: "Intensive Care", long: "Intensive Care Medicine (ICU / Critical Care)" },
+    { short: "Maxillofacial Surgery", long: "Oral and Maxillofacial Surgery" },
+    { short: "Microbiology", long: "Microbiology (Medical Microbiology)" },
+    { short: "Neonatology", long: "Neonatology (Newborn Medicine)" },
+    { short: "Nephrology", long: "Nephrology (Kidneys)" },
+    { short: "Neurology", long: "Neurology (Brain & Nervous System)" },
+    { short: "Neurosurgery", long: "Neurosurgery (Brain & Spine Surgery)" },
+    { short: "Nuclear Medicine", long: "Nuclear Medicine" },
+    { short: "Obstetrics", long: "Obstetrics (Pregnancy & Childbirth)" },
+    { short: "Obs & Gynae", long: "Obstetrics and Gynaecology (O&G)" },
+    { short: "Occupational Medicine", long: "Occupational Medicine (Workplace Health)" },
+    { short: "Oncology", long: "Oncology (Cancer)" },
+    { short: "Ophthalmology", long: "Ophthalmology (Eyes)" },
+    { short: "Oral Surgery", long: "Oral Surgery" },
+    { short: "Orthodontics", long: "Orthodontics (Teeth Alignment)" },
+    { short: "Orthopaedics", long: "Orthopaedics (Bones, Joints & Muscles)" },
+    { short: "Paediatrics", long: "Paediatrics (Children's Medicine)" },
+    { short: "Paediatric Surgery", long: "Paediatric Surgery" },
+    { short: "Pain Medicine", long: "Pain Medicine (Pain Management)" },
+    { short: "Palliative Care", long: "Palliative Care (End-of-Life Care)" },
+    { short: "Pathology", long: "Pathology (Laboratory Medicine)" },
+    { short: "Plastic Surgery", long: "Plastic & Reconstructive Surgery" },
+    { short: "Podiatry", long: "Podiatry (Foot & Ankle)" },
+    { short: "Psychiatry", long: "Psychiatry (Mental Health)" },
+    { short: "Public Health", long: "Public Health Medicine" },
+    { short: "Pulmonology", long: "Pulmonology (Lungs & Respiratory)" },
+    { short: "Radiology", long: "Radiology (Diagnostic Imaging)" },
+    { short: "Radiotherapy", long: "Radiotherapy (Radiation Oncology)" },
+    { short: "Rehabilitation Medicine", long: "Rehabilitation Medicine (Physiatry)" },
+    { short: "Renal Medicine", long: "Renal Medicine (Kidney Care)" },
+    { short: "Rheumatology", long: "Rheumatology (Joints & Autoimmune)" },
+    { short: "Sexual Health", long: "Sexual Health (Genitourinary Medicine / GUM)" },
+    { short: "Sleep Medicine", long: "Sleep Medicine" },
+    { short: "Spinal Surgery", long: "Spinal Surgery" },
+    { short: "Sports Medicine", long: "Sports Medicine (Exercise Medicine)" },
+    { short: "Thoracic Surgery", long: "Thoracic Surgery (Chest Surgery)" },
+    { short: "Transplant Surgery", long: "Transplant Surgery" },
+    { short: "Trauma Surgery", long: "Trauma Surgery" },
+    { short: "Urology", long: "Urology (Urinary Tract & Male Reproductive)" },
+    { short: "Vascular Surgery", long: "Vascular Surgery (Blood Vessels)" }
+  ];
 
   /* ============================================================
      RENDER
@@ -432,7 +531,7 @@
     /* ========================================
        SECTION 3–7 — Editable tables
        ======================================== */
-    var tableOrder = ["suppliers", "medreps", "locums", "headoffice", "orgpharmacies", "poyc"];
+    var tableOrder = ["suppliers", "medreps", "doctors", "specialists", "locums", "headoffice", "orgpharmacies", "poyc"];
 
     tableOrder.forEach(function (tableKey) {
       var def = TABLE_DEFS[tableKey];
@@ -483,6 +582,20 @@
     searchWrap.appendChild(matchCount);
     sec.appendChild(searchWrap);
 
+    /* ---- specialty filter (only for specialists table) ---- */
+    var specialtyFilter = "";
+    var specialtySelect = null;
+    if (def.hasSpecialtyFilter) {
+      var filterRow = el("div", { class: "ct-filter-row" });
+      specialtySelect = el("select", { class: "ct-specialty-select" });
+      specialtySelect.appendChild(el("option", { value: "", text: "All Specialties" }));
+      SPECIALTIES.forEach(function (sp) {
+        specialtySelect.appendChild(el("option", { value: sp.short, text: sp.short + " — " + sp.long }));
+      });
+      filterRow.appendChild(specialtySelect);
+      sec.appendChild(filterRow);
+    }
+
     /* ---- table container ---- */
     var tableContainer = el("div");
     sec.appendChild(tableContainer);
@@ -513,6 +626,14 @@
       }, 120);
     });
 
+    /* ---- specialty filter handler ---- */
+    if (specialtySelect) {
+      specialtySelect.addEventListener("change", function () {
+        specialtyFilter = specialtySelect.value;
+        renderTable();
+      });
+    }
+
     /* ---- action buttons ---- */
     var btnAdd = el("button", { class: "ct-btn primary" });
     btnAdd.innerHTML = '<span class="btn-ico">+</span> Add';
@@ -536,10 +657,12 @@
 
       if (def.hideable && isHidden) {
         searchWrap.style.display = "none";
+        if (specialtySelect) specialtySelect.parentNode.style.display = "none";
         tableContainer.innerHTML = '<div class="ct-empty" style="opacity:.5;">Section hidden. Uncheck to show.</div>';
         return;
       }
       searchWrap.style.display = "";
+      if (specialtySelect) specialtySelect.parentNode.style.display = "";
 
       if (loading) {
         matchCount.textContent = "";
@@ -555,17 +678,25 @@
 
       /* filter rows */
       var filtered = rows;
+      if (specialtyFilter) {
+        filtered = filtered.filter(function (row) {
+          return String(row.specialty || "").toLowerCase() === specialtyFilter.toLowerCase();
+        });
+      }
       if (searchQuery) {
-        filtered = rows.filter(function (row) {
+        filtered = filtered.filter(function (row) {
           return def.columns.some(function (col) {
             return String(row[col.key] || "").toLowerCase().indexOf(searchQuery) !== -1;
           });
         });
       }
-      matchCount.textContent = searchQuery ? (filtered.length + " of " + rows.length) : (rows.length + " total");
+      matchCount.textContent = (searchQuery || specialtyFilter) ? (filtered.length + " of " + rows.length) : (rows.length + " total");
 
       if (filtered.length === 0) {
-        tableContainer.innerHTML = '<div class="ct-empty">No matches for "' + esc(searchQuery) + '".</div>';
+        var noMsg = "No matches";
+        if (searchQuery) noMsg += ' for "' + esc(searchQuery) + '"';
+        if (specialtyFilter) noMsg += (searchQuery ? " in " : " for ") + esc(specialtyFilter);
+        tableContainer.innerHTML = '<div class="ct-empty">' + noMsg + '.</div>';
         return;
       }
 
@@ -600,6 +731,8 @@
             td.innerHTML = '<a href="mailto:' + esc(row[col.key]) + '" style="color:var(--accent);text-decoration:none;">' + esc(row[col.key]) + '</a>';
           } else if (col.key === "phone" && row[col.key]) {
             td.innerHTML = '<span style="font-weight:600;letter-spacing:.3px;">' + esc(row[col.key]) + '</span>';
+          } else if (col.isSpecialty && row[col.key]) {
+            td.innerHTML = '<span style="display:inline-block;background:rgba(90,162,255,.12);color:var(--accent);font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;">' + esc(row[col.key]) + '</span>';
           } else {
             td.textContent = row[col.key] || "";
           }
@@ -627,13 +760,29 @@
       tableContainer.appendChild(scrollWrap);
     }
 
+    /* ---- build field HTML for modals ---- */
+    function buildFieldHtml(col, idPrefix, value) {
+      var html = '<div class="eikon-field" style="margin-bottom:10px;">' +
+        '<label class="eikon-label">' + esc(col.label) + '</label>';
+      if (col.isSpecialty) {
+        html += '<select class="eikon-input" id="' + idPrefix + col.key + '" style="cursor:pointer;">';
+        html += '<option value="">— Select specialty —</option>';
+        SPECIALTIES.forEach(function (sp) {
+          var sel = (value && value === sp.short) ? ' selected' : '';
+          html += '<option value="' + esc(sp.short) + '"' + sel + '>' + esc(sp.short) + ' — ' + esc(sp.long) + '</option>';
+        });
+        html += '</select>';
+      } else {
+        html += '<input class="eikon-input" id="' + idPrefix + col.key + '" value="' + esc(value || "") + '" placeholder="' + esc(col.placeholder || "") + '" />';
+      }
+      html += '</div>';
+      return html;
+    }
+
     /* ---- Add modal ---- */
     function showAddModal() {
       var fields = def.columns.map(function (col) {
-        return '<div class="eikon-field" style="margin-bottom:10px;">' +
-          '<label class="eikon-label">' + esc(col.label) + '</label>' +
-          '<input class="eikon-input" id="ct-add-' + col.key + '" placeholder="' + esc(col.placeholder || "") + '" />' +
-          '</div>';
+        return buildFieldHtml(col, "ct-add-", "");
       }).join("");
 
       E.modal.show(
@@ -673,10 +822,7 @@
     /* ---- Edit modal ---- */
     function showEditModal(row, idx) {
       var fields = def.columns.map(function (col) {
-        return '<div class="eikon-field" style="margin-bottom:10px;">' +
-          '<label class="eikon-label">' + esc(col.label) + '</label>' +
-          '<input class="eikon-input" id="ct-edit-' + col.key + '" value="' + esc(row[col.key] || "") + '" placeholder="' + esc(col.placeholder || "") + '" />' +
-          '</div>';
+        return buildFieldHtml(col, "ct-edit-", row[col.key] || "");
       }).join("");
 
       E.modal.show(
