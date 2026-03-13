@@ -300,11 +300,11 @@
     var pinBtn = '<button class="board-msg-pin-btn" data-action="pin" data-id="' + msg.id + '" title="' + (msg.is_pinned ? "Unpin" : "Pin") + '">' + (msg.is_pinned ? "Unpin" : "Pin") + '</button>';
     var delBtn = isOwn ? '<button class="board-msg-del-btn" data-action="delete-msg" data-id="' + msg.id + '" title="Delete">Delete</button>' : "";
 
-    var senderName = cleanDisplayName(msg.user_name);
+    var locName = msg.location_name || "";
     return '<div class="' + cls + '" data-msg-id="' + msg.id + '">' +
-      '<div class="board-msg-avatar" style="background:' + avatarColor(senderName) + '">' + esc(initial(senderName)) + '</div>' +
+      '<div class="board-msg-avatar" style="background:' + avatarColor(locName) + '">' + esc(initial(locName)) + '</div>' +
       '<div class="board-msg-content">' +
-        (!isOwn ? '<div><span class="board-msg-name">' + esc(senderName) + '</span> <span class="board-msg-loc">' + esc(msg.location_name) + (msg.org_name ? " \u00B7 " + esc(msg.org_name) : "") + '</span></div>' : '') +
+        (!isOwn ? '<div><span class="board-msg-name">' + esc(locName) + '</span></div>' : '') +
         '<div class="board-msg-bubble">' + highlightBody(msg.body) + '</div>' +
         '<div class="board-msg-meta">' +
           scopeLabel + ' ' +
@@ -317,7 +317,7 @@
 
   function renderPinnedMessage(msg) {
     return '<div class="board-pinned-msg" data-msg-id="' + msg.id + '">' +
-      '<div class="msg-meta"><b>' + esc(cleanDisplayName(msg.user_name)) + '</b> \u00B7 ' + esc(msg.location_name) + ' \u00B7 ' + esc(timeAgo(msg.created_at)) + '</div>' +
+      '<div class="msg-meta"><b>' + esc(msg.location_name || "") + '</b> \u00B7 ' + esc(timeAgo(msg.created_at)) + '</div>' +
       '<div class="msg-body">' + highlightBody(msg.body) + '</div>' +
       '<div class="msg-actions"><button class="board-msg-pin-btn" data-action="pin" data-id="' + msg.id + '" title="Unpin">Unpin</button></div>' +
     '</div>';
