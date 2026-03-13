@@ -16459,7 +16459,9 @@ const CONTACTS_TABLES = {
   clients:        { db: "contacts_clients",        cols: ["name", "id_card", "address", "phone", "alt_phone"], locScoped: true }
 };
 
+let _contactsSchemaReady = false;
 async function ensureContactsSchema(env) {
+  if (_contactsSchemaReady) return;
   for (const key of Object.keys(CONTACTS_TABLES)) {
     const def = CONTACTS_TABLES[key];
     const colDefs = def.cols.map(c => `${c} TEXT NOT NULL DEFAULT ''`).join(",\n      ");
@@ -16478,23 +16480,28 @@ async function ensureContactsSchema(env) {
     `);
     await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_${def.db}_org ON ${def.db}(org_id)`);
 
-    /* migration: check existing columns and add any that are missing */
-    const pragma = await dbAll(env, `PRAGMA table_info(${def.db})`, []);
-    const existingCols = new Set(pragma.map(r => r.name));
-
+    /* migration: add any missing columns to existing tables
+       D1 quirks: PRAGMA may not work via .prepare().all(), and
+       ALTER TABLE ADD COLUMN with NOT NULL can crash the worker.
+       So we use SELECT to probe columns and DEFAULT '' without NOT NULL. */
     for (const col of def.cols) {
-      if (!existingCols.has(col)) {
-        await dbRun(env, `ALTER TABLE ${def.db} ADD COLUMN ${col} TEXT NOT NULL DEFAULT ''`);
+      try {
+        await env.DB.prepare(`SELECT ${col} FROM ${def.db} LIMIT 0`).all();
+      } catch (e) {
+        /* column does not exist — add it */
+        await dbRun(env, `ALTER TABLE ${def.db} ADD COLUMN ${col} TEXT DEFAULT ''`);
       }
     }
-    if (def.locScoped && !existingCols.has("location_id")) {
-      await dbRun(env, `ALTER TABLE ${def.db} ADD COLUMN location_id INTEGER NOT NULL DEFAULT 0`);
-      await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_${def.db}_org_loc ON ${def.db}(org_id, location_id)`);
-    }
-    if (def.locScoped && existingCols.has("location_id")) {
+    if (def.locScoped) {
+      try {
+        await env.DB.prepare(`SELECT location_id FROM ${def.db} LIMIT 0`).all();
+      } catch (e) {
+        await dbRun(env, `ALTER TABLE ${def.db} ADD COLUMN location_id INTEGER DEFAULT 0`);
+      }
       await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_${def.db}_org_loc ON ${def.db}(org_id, location_id)`);
     }
   }
+  _contactsSchemaReady = true;
 }
 
 async function handleContactsList(request, env, corsOkHeaders, authUser, tableKey) {
