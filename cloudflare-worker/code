@@ -13725,6 +13725,11 @@ async function ensureBoardSchema(env) {
   )`, []);
   await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_board_sug_created ON board_suggestions(created_at DESC)`, []);
 
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS board_user_state (
+    user_id INTEGER PRIMARY KEY,
+    last_read_id INTEGER NOT NULL DEFAULT 0
+  )`, []);
+
   _boardSchemaReady = true;
 }
 
@@ -13787,6 +13792,18 @@ async function handleBoardMessagesList(request, env, corsOkHeaders, authUser, ur
 
   // If we fetched with ASC (polling for new), reverse so newest is first
   if (after > 0) rows.reverse();
+
+  // Track last-read message on initial load (no before/after = fresh page open)
+  if (!before && !after && !pinnedOnly && rows.length > 0) {
+    const maxId = rows[0].id; // rows are DESC, so first is newest
+    try {
+      await dbRun(env, `INSERT INTO board_user_state(user_id, last_read_id) VALUES(?, ?)
+        ON CONFLICT(user_id) DO UPDATE SET last_read_id = MAX(last_read_id, excluded.last_read_id)`,
+        [authUser.user_id, maxId]);
+    } catch (e) {
+      console.log("[board] last_read_id upsert error", e && (e.message || e));
+    }
+  }
 
   return jsonResponse({ ok: true, messages: rows }, 200, corsOkHeaders);
 }
@@ -13998,21 +14015,21 @@ async function handleBoardUserSearch(request, env, corsOkHeaders, authUser, url)
 
   let sql, bind;
   if (scope === "org") {
-    sql = `SELECT u.id, u.full_name, u.email, l.name AS location_name, o.name AS org_name
+    sql = `SELECT u.id, u.full_name, l.name AS location_name, o.name AS org_name
            FROM users u
            LEFT JOIN locations l ON l.id = u.default_location_id
            LEFT JOIN orgs o ON o.id = u.org_id
            WHERE u.org_id = ? AND u.is_active = 1
-             AND (lower(u.full_name) LIKE ? OR lower(u.email) LIKE ?)
+             AND (lower(u.full_name) LIKE ? OR lower(COALESCE(l.name,'')) LIKE ?)
            ORDER BY u.full_name LIMIT 15`;
     bind = [authUser.org_id, likeQ, likeQ];
   } else {
-    sql = `SELECT u.id, u.full_name, u.email, l.name AS location_name, o.name AS org_name
+    sql = `SELECT u.id, u.full_name, l.name AS location_name, o.name AS org_name
            FROM users u
            LEFT JOIN locations l ON l.id = u.default_location_id
            LEFT JOIN orgs o ON o.id = u.org_id
            WHERE u.is_active = 1
-             AND (lower(u.full_name) LIKE ? OR lower(u.email) LIKE ?)
+             AND (lower(u.full_name) LIKE ? OR lower(COALESCE(l.name,'')) LIKE ?)
            ORDER BY u.full_name LIMIT 15`;
     bind = [likeQ, likeQ];
   }
@@ -14046,7 +14063,15 @@ async function handleBoardDashboard(request, env, corsOkHeaders, authUser) {
     ORDER BY bm.created_at DESC LIMIT 5
   `, [authUser.user_id]);
 
-  return jsonResponse({ ok: true, unread_mentions: unreadMentions, recent_messages: recent, recent_mentions: recentMentions }, 200, corsOkHeaders);
+  // Unread messages count (messages since user last opened the board)
+  const unreadMsgRow = await dbFirst(env, `
+    SELECT COUNT(*) as c FROM board_messages
+    WHERE id > COALESCE((SELECT last_read_id FROM board_user_state WHERE user_id = ?), 0)
+      AND (scope = 'all' OR (scope = 'org' AND org_id = ?))
+  `, [authUser.user_id, authUser.org_id]);
+  const unreadMessages = (unreadMsgRow && unreadMsgRow.c) || 0;
+
+  return jsonResponse({ ok: true, unread_mentions: unreadMentions, unread_messages: unreadMessages, recent_messages: recent, recent_mentions: recentMentions }, 200, corsOkHeaders);
 }
 
 
