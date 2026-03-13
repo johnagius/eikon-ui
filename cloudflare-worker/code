@@ -6096,6 +6096,28 @@ async function handleReturnsEntryUpdate(request, env, corsOkHeaders, authUser, i
     );
   }
 
+  // If handed over, remove from Stock Transfer if this return was placed there via returns
+  if (handed_over) {
+    await ensureStockTransfersSchema(env);
+    const linkedTransfer = await dbFirst(env,
+      `SELECT id FROM stock_transfer_items WHERE source_module = 'returns' AND source_id = ? AND org_id = ? AND location_id = ? AND is_closed = 0`,
+      [id, authUser.org_id, authUser.location_id]
+    );
+    if (linkedTransfer) {
+      await dbRun(env, "UPDATE stock_transfer_items SET is_closed = 1, close_reason = 'Return handed over', updated_at = datetime('now'), updated_by = ? WHERE id = ?", [authUser.user_id, linkedTransfer.id]);
+      await writeAudit(env, authUser.org_id, authUser.user_id, "STOCK_TRANSFER_AUTO_CLOSE", "stock_transfer_items", String(linkedTransfer.id), { reason: "return_handed_over", returns_id: id });
+    }
+    // Also remove from transfer if this return was created BY a transfer item (placed_on_returns_id)
+    const linkedTransfer2 = await dbFirst(env,
+      `SELECT id FROM stock_transfer_items WHERE placed_on_returns_id = ? AND org_id = ? AND location_id = ? AND is_closed = 0`,
+      [id, authUser.org_id, authUser.location_id]
+    );
+    if (linkedTransfer2) {
+      await dbRun(env, "UPDATE stock_transfer_items SET is_closed = 1, close_reason = 'Return handed over', updated_at = datetime('now'), updated_by = ? WHERE id = ?", [authUser.user_id, linkedTransfer2.id]);
+      await writeAudit(env, authUser.org_id, authUser.user_id, "STOCK_TRANSFER_AUTO_CLOSE", "stock_transfer_items", String(linkedTransfer2.id), { reason: "return_handed_over", returns_id: id });
+    }
+  }
+
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -6124,6 +6146,26 @@ async function handleReturnsEntryDelete(request, env, corsOkHeaders, authUser, i
        WHERE id = ? AND org_id = ? AND location_id = ?`,
       [authUser.user_id, existing.near_expiry_id, authUser.org_id, authUser.location_id]
     );
+  }
+
+  // Remove from Stock Transfer if this return was placed there
+  await ensureStockTransfersSchema(env);
+  const linkedTransfer = await dbFirst(env,
+    `SELECT id FROM stock_transfer_items WHERE source_module = 'returns' AND source_id = ? AND org_id = ? AND location_id = ? AND is_closed = 0`,
+    [id, authUser.org_id, authUser.location_id]
+  );
+  if (linkedTransfer) {
+    await dbRun(env, "DELETE FROM stock_transfer_requests WHERE item_id = ?", [linkedTransfer.id]);
+    await dbRun(env, "DELETE FROM stock_transfer_items WHERE id = ?", [linkedTransfer.id]);
+    await writeAudit(env, authUser.org_id, authUser.user_id, "STOCK_TRANSFER_AUTO_DELETE", "stock_transfer_items", String(linkedTransfer.id), { reason: "return_deleted", returns_id: id });
+  }
+  // Also check if placed_on_returns_id links back
+  const linkedTransfer2 = await dbFirst(env,
+    `SELECT id FROM stock_transfer_items WHERE placed_on_returns_id = ? AND org_id = ? AND location_id = ? AND is_closed = 0`,
+    [id, authUser.org_id, authUser.location_id]
+  );
+  if (linkedTransfer2) {
+    await dbRun(env, "UPDATE stock_transfer_items SET placed_on_returns = 0, placed_on_returns_id = NULL, updated_at = datetime('now'), updated_by = ? WHERE id = ?", [authUser.user_id, linkedTransfer2.id]);
   }
 
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
@@ -9742,6 +9784,11 @@ async function ensureScarceStockSchema(env) {
   // Backfill columns for accept/confirm workflow on need offers
   try { await dbRun(env, "ALTER TABLE scarce_stock_need_offers ADD COLUMN accepted INTEGER NOT NULL DEFAULT 0", []); } catch (e) { /* ignore duplicate column */ }
   try { await dbRun(env, "ALTER TABLE scarce_stock_need_offers ADD COLUMN confirmed INTEGER NOT NULL DEFAULT 0", []); } catch (e) { /* ignore duplicate column */ }
+
+  // Backfill columns for scarce stock ↔ returns / transfer integration
+  try { await dbRun(env, "ALTER TABLE scarce_stock_offers ADD COLUMN placed_on_returns INTEGER NOT NULL DEFAULT 0", []); } catch (e) { /* ignore */ }
+  try { await dbRun(env, "ALTER TABLE scarce_stock_offers ADD COLUMN placed_on_returns_id INTEGER DEFAULT NULL", []); } catch (e) { /* ignore */ }
+  try { await dbRun(env, "ALTER TABLE scarce_stock_offers ADD COLUMN transfer_item_id INTEGER DEFAULT NULL", []); } catch (e) { /* ignore */ }
 }
 
 function ssIntNonNeg(v) {
@@ -9764,13 +9811,13 @@ function ssCanSeeSensitive(authUser, aOrg, aLoc, bOrg, bLoc) {
   return isA || isB;
 }
 
-// ----- Scarce stock depletion → auto-delete linked near expiry
+// ----- Scarce stock depletion → auto-delete linked near expiry, remove from transfer, remove from returns
 async function checkScarceStockDepletion(env, offerId, authUser) {
   const offer = await dbFirst(env,
-    "SELECT id, org_id, location_id, quantity_available, near_expiry_id FROM scarce_stock_offers WHERE id=?",
+    "SELECT id, org_id, location_id, quantity_available, near_expiry_id, placed_on_returns, placed_on_returns_id, transfer_item_id FROM scarce_stock_offers WHERE id=?",
     [offerId]
   );
-  if (!offer || !offer.near_expiry_id) return;
+  if (!offer) return;
 
   const totalReq = await dbFirst(env,
     "SELECT COALESCE(SUM(quantity_requested), 0) AS total FROM scarce_stock_offer_requests WHERE offer_id=?",
@@ -9780,18 +9827,55 @@ async function checkScarceStockDepletion(env, offerId, authUser) {
 
   if (remaining <= 0) {
     // Stock fully requested — remove linked near expiry entry
-    await ensureNearExpirySchema(env);
-    const neRow = await dbFirst(env,
-      "SELECT id FROM near_expiry_entries WHERE id=? AND org_id=? AND location_id=?",
-      [offer.near_expiry_id, offer.org_id, offer.location_id]
-    );
-    if (neRow) {
-      await dbRun(env, "DELETE FROM near_expiry_entries WHERE id=? AND org_id=? AND location_id=?",
-        [offer.near_expiry_id, offer.org_id, offer.location_id]);
-      // Clear the backlink on the offer
-      await dbRun(env, "UPDATE scarce_stock_offers SET near_expiry_id=NULL, updated_at=datetime('now') WHERE id=?", [offerId]);
+    if (offer.near_expiry_id) {
+      await ensureNearExpirySchema(env);
+      const neRow = await dbFirst(env,
+        "SELECT id FROM near_expiry_entries WHERE id=? AND org_id=? AND location_id=?",
+        [offer.near_expiry_id, offer.org_id, offer.location_id]
+      );
+      if (neRow) {
+        await dbRun(env, "DELETE FROM near_expiry_entries WHERE id=? AND org_id=? AND location_id=?",
+          [offer.near_expiry_id, offer.org_id, offer.location_id]);
+        await dbRun(env, "UPDATE scarce_stock_offers SET near_expiry_id=NULL, updated_at=datetime('now') WHERE id=?", [offerId]);
+        await writeAudit(env, offer.org_id, authUser.user_id,
+          "NEAR_EXPIRY_AUTO_DELETE", "near_expiry_entries", String(offer.near_expiry_id),
+          { reason: "scarce_stock_depleted", offer_id: offerId }
+        );
+      }
+    }
+
+    // Remove linked returns entry if placed via scarce stock
+    if (offer.placed_on_returns && offer.placed_on_returns_id) {
+      await dbRun(env, "DELETE FROM returns_entries WHERE id=? AND org_id=? AND location_id=?",
+        [offer.placed_on_returns_id, offer.org_id, offer.location_id]);
+      await dbRun(env, "UPDATE scarce_stock_offers SET placed_on_returns=0, placed_on_returns_id=NULL, updated_at=datetime('now') WHERE id=?", [offerId]);
       await writeAudit(env, offer.org_id, authUser.user_id,
-        "NEAR_EXPIRY_AUTO_DELETE", "near_expiry_entries", String(offer.near_expiry_id),
+        "RETURNS_AUTO_DELETE", "returns_entries", String(offer.placed_on_returns_id),
+        { reason: "scarce_stock_depleted", offer_id: offerId }
+      );
+    }
+
+    // Remove from stock transfer if this scarce stock offer was placed there
+    if (offer.transfer_item_id) {
+      await ensureStockTransfersSchema(env);
+      await dbRun(env, "DELETE FROM stock_transfer_requests WHERE item_id = ?", [offer.transfer_item_id]);
+      await dbRun(env, "DELETE FROM stock_transfer_items WHERE id = ?", [offer.transfer_item_id]);
+      await dbRun(env, "UPDATE scarce_stock_offers SET transfer_item_id=NULL, updated_at=datetime('now') WHERE id=?", [offerId]);
+      await writeAudit(env, offer.org_id, authUser.user_id,
+        "STOCK_TRANSFER_AUTO_DELETE", "stock_transfer_items", String(offer.transfer_item_id),
+        { reason: "scarce_stock_depleted", offer_id: offerId }
+      );
+    }
+    // Also check if a transfer item links back to this scarce stock offer via placed_on_scarce_stock_id
+    await ensureStockTransfersSchema(env);
+    const linkedTransfer = await dbFirst(env,
+      "SELECT id FROM stock_transfer_items WHERE placed_on_scarce_stock_id = ? AND org_id = ? AND location_id = ? AND is_closed = 0",
+      [offerId, offer.org_id, offer.location_id]
+    );
+    if (linkedTransfer) {
+      await dbRun(env, "UPDATE stock_transfer_items SET is_closed = 1, close_reason = 'Scarce stock depleted', updated_at = datetime('now'), updated_by = ? WHERE id = ?", [authUser.user_id, linkedTransfer.id]);
+      await writeAudit(env, offer.org_id, authUser.user_id,
+        "STOCK_TRANSFER_AUTO_CLOSE", "stock_transfer_items", String(linkedTransfer.id),
         { reason: "scarce_stock_depleted", offer_id: offerId }
       );
     }
@@ -9815,6 +9899,33 @@ async function handleScarceOffersList(request, env, corsOkHeaders, authUser, url
   for (const exp of expiredOwn) {
     // Close the expired offer
     await dbRun(env, "UPDATE scarce_stock_offers SET is_closed=1, updated_at=datetime('now'), updated_by=? WHERE id=?", [authUser.user_id, exp.id]);
+
+    // Remove from stock transfer if linked (expired items cannot be transferred)
+    await ensureStockTransfersSchema(env);
+    // Check transfer_item_id on the offer itself
+    const expOffer = await dbFirst(env, "SELECT transfer_item_id FROM scarce_stock_offers WHERE id=?", [exp.id]);
+    if (expOffer && expOffer.transfer_item_id) {
+      await dbRun(env, "DELETE FROM stock_transfer_requests WHERE item_id = ?", [expOffer.transfer_item_id]);
+      await dbRun(env, "DELETE FROM stock_transfer_items WHERE id = ?", [expOffer.transfer_item_id]);
+      await dbRun(env, "UPDATE scarce_stock_offers SET transfer_item_id=NULL, updated_at=datetime('now') WHERE id=?", [exp.id]);
+      await writeAudit(env, authUser.org_id, authUser.user_id, "STOCK_TRANSFER_AUTO_DELETE", "stock_transfer_items", String(expOffer.transfer_item_id), { reason: "scarce_stock_expired", offer_id: exp.id });
+    }
+    // Also check if a transfer item links back via placed_on_scarce_stock_id
+    const linkedTransfer = await dbFirst(env,
+      "SELECT id FROM stock_transfer_items WHERE placed_on_scarce_stock_id = ? AND org_id = ? AND location_id = ? AND is_closed = 0",
+      [exp.id, authUser.org_id, authUser.location_id]
+    );
+    if (linkedTransfer) {
+      await dbRun(env, "UPDATE stock_transfer_items SET is_closed = 1, close_reason = 'Scarce stock expired', updated_at = datetime('now'), updated_by = ? WHERE id = ?", [authUser.user_id, linkedTransfer.id]);
+    }
+    // Also check if a transfer item placed this as source_module='scarcestock'
+    const linkedTransfer2 = await dbFirst(env,
+      "SELECT id FROM stock_transfer_items WHERE source_module = 'scarcestock' AND source_id = ? AND org_id = ? AND location_id = ? AND is_closed = 0",
+      [exp.id, authUser.org_id, authUser.location_id]
+    );
+    if (linkedTransfer2) {
+      await dbRun(env, "UPDATE stock_transfer_items SET is_closed = 1, close_reason = 'Scarce stock expired', updated_at = datetime('now'), updated_by = ? WHERE id = ?", [authUser.user_id, linkedTransfer2.id]);
+    }
 
     // Only create near expiry entry if not already linked
     if (!exp.near_expiry_id) {
@@ -9845,6 +9956,7 @@ async function handleScarceOffersList(request, env, corsOkHeaders, authUser, url
     SELECT
       o.id, o.org_id, o.location_id, o.entry_date, o.item_name, o.description, o.batch, o.expiry_date,
       o.quantity_available, o.is_closed, o.near_expiry_id,
+      o.placed_on_returns, o.placed_on_returns_id, o.transfer_item_id,
       org.name AS org_name,
       loc.name AS location_name,
       COALESCE(SUM(r.quantity_requested), 0) AS total_requested
@@ -9921,6 +10033,9 @@ async function handleScarceOffersList(request, env, corsOkHeaders, authUser, url
       total_requested: Number(o.total_requested || 0),
       remaining_quantity: Number(o.quantity_available || 0) - Number(o.total_requested || 0),
       near_expiry_id: o.near_expiry_id || null,
+      placed_on_returns: Number(o.placed_on_returns || 0),
+      placed_on_returns_id: o.placed_on_returns_id || null,
+      transfer_item_id: o.transfer_item_id || null,
       mine_owner: mineOwner ? 1 : 0,
       requests: requestsOut
     });
@@ -10041,7 +10156,7 @@ async function handleScarceOfferDelete(request, env, corsOkHeaders, authUser, of
   const id = Number(offerId);
   if (!Number.isFinite(id) || id <= 0) return jsonResponse({ ok: false, error: "Invalid offer id" }, 400, corsOkHeaders);
 
-  const existing = await dbFirst(env, `SELECT id, org_id, location_id, item_name, near_expiry_id FROM scarce_stock_offers WHERE id = ?`, [id]);
+  const existing = await dbFirst(env, `SELECT id, org_id, location_id, item_name, near_expiry_id, placed_on_returns, placed_on_returns_id, transfer_item_id FROM scarce_stock_offers WHERE id = ?`, [id]);
   if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
 
   if (!(existing.org_id === authUser.org_id && existing.location_id === authUser.location_id)) {
@@ -10058,6 +10173,30 @@ async function handleScarceOfferDelete(request, env, corsOkHeaders, authUser, of
       "UPDATE near_expiry_entries SET scarce_stock_offer_id=NULL, updated_at=datetime('now'), updated_by=? WHERE id=? AND org_id=? AND location_id=?",
       [authUser.user_id, existing.near_expiry_id, existing.org_id, existing.location_id]
     );
+  }
+
+  // Remove from Stock Transfer if linked (via transfer_item_id on the offer)
+  if (existing.transfer_item_id) {
+    await ensureStockTransfersSchema(env);
+    await dbRun(env, "DELETE FROM stock_transfer_requests WHERE item_id = ?", [existing.transfer_item_id]);
+    await dbRun(env, "DELETE FROM stock_transfer_items WHERE id = ?", [existing.transfer_item_id]);
+    await writeAudit(env, authUser.org_id, authUser.user_id, "STOCK_TRANSFER_AUTO_DELETE", "stock_transfer_items", String(existing.transfer_item_id), { reason: "scarce_stock_deleted", offer_id: id });
+  }
+  // Also check if a transfer item links via placed_on_scarce_stock_id or source_module
+  await ensureStockTransfersSchema(env);
+  const linkedTransfer = await dbFirst(env,
+    "SELECT id FROM stock_transfer_items WHERE (placed_on_scarce_stock_id = ? OR (source_module = 'scarcestock' AND source_id = ?)) AND org_id = ? AND location_id = ? AND is_closed = 0",
+    [id, id, existing.org_id, existing.location_id]
+  );
+  if (linkedTransfer) {
+    await dbRun(env, "UPDATE stock_transfer_items SET is_closed = 1, close_reason = 'Scarce stock deleted', placed_on_scarce_stock = 0, placed_on_scarce_stock_id = NULL, updated_at = datetime('now'), updated_by = ? WHERE id = ?", [authUser.user_id, linkedTransfer.id]);
+  }
+
+  // Remove linked returns entry if placed via scarce stock
+  if (existing.placed_on_returns && existing.placed_on_returns_id) {
+    await dbRun(env, "DELETE FROM returns_entries WHERE id=? AND org_id=? AND location_id=?",
+      [existing.placed_on_returns_id, existing.org_id, existing.location_id]);
+    await writeAudit(env, authUser.org_id, authUser.user_id, "RETURNS_AUTO_DELETE", "returns_entries", String(existing.placed_on_returns_id), { reason: "scarce_stock_deleted", offer_id: id });
   }
 
   await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_OFFER_DELETE", "scarce_stock_offers", String(id), { item_name: existing.item_name || "" });
@@ -10491,6 +10630,77 @@ async function handleScarceNeedOfferConfirm(request, env, corsOkHeaders, authUse
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
+// ----- Place scarce stock offer on Returns
+async function handleScarceOfferPlaceOnReturns(request, env, corsOkHeaders, authUser, offerId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureScarceStockSchema(env);
+
+  const id = Number(offerId);
+  if (!Number.isFinite(id) || id <= 0) return jsonResponse({ ok: false, error: "Invalid offer id" }, 400, corsOkHeaders);
+
+  const offer = await dbFirst(env, "SELECT * FROM scarce_stock_offers WHERE id = ?", [id]);
+  if (!offer) return jsonResponse({ ok: false, error: "Offer not found" }, 404, corsOkHeaders);
+  if (offer.org_id !== authUser.org_id || offer.location_id !== authUser.location_id) {
+    return jsonResponse({ ok: false, error: "Forbidden: not your offer" }, 403, corsOkHeaders);
+  }
+  if (offer.placed_on_returns) return jsonResponse({ ok: false, error: "Already placed on Returns" }, 409, corsOkHeaders);
+
+  await ensureReturnsSchema(env);
+  const res = await dbRun(env, `
+    INSERT INTO returns_entries (org_id, location_id, entry_date, description, batch, expiry, quantity, remarks, created_by, updated_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `, [authUser.org_id, authUser.location_id, offer.entry_date, offer.item_name, offer.batch || "", offer.expiry_date || "", String(offer.quantity_available), "From Scarce Stock", authUser.user_id, authUser.user_id]);
+
+  const returnsId = res.meta?.last_row_id || null;
+  await dbRun(env, "UPDATE scarce_stock_offers SET placed_on_returns = 1, placed_on_returns_id = ?, updated_at = datetime('now'), updated_by = ? WHERE id = ?",
+    [returnsId, authUser.user_id, id]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_OFFER_PLACE_RETURNS", "scarce_stock_offers", String(id), { returns_id: returnsId });
+  return jsonResponse({ ok: true, returns_id: returnsId }, 201, corsOkHeaders);
+}
+
+// ----- Place scarce stock offer on Stock Transfer (and save backlink)
+async function handleScarceOfferPlaceOnTransfer(request, env, corsOkHeaders, authUser, offerId) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureScarceStockSchema(env);
+  await ensureStockTransfersSchema(env);
+
+  const id = Number(offerId);
+  if (!Number.isFinite(id) || id <= 0) return jsonResponse({ ok: false, error: "Invalid offer id" }, 400, corsOkHeaders);
+
+  const offer = await dbFirst(env, "SELECT * FROM scarce_stock_offers WHERE id = ?", [id]);
+  if (!offer) return jsonResponse({ ok: false, error: "Offer not found" }, 404, corsOkHeaders);
+  if (offer.org_id !== authUser.org_id || offer.location_id !== authUser.location_id) {
+    return jsonResponse({ ok: false, error: "Forbidden: not your offer" }, 403, corsOkHeaders);
+  }
+  if (offer.is_closed) return jsonResponse({ ok: false, error: "Offer is closed" }, 400, corsOkHeaders);
+  if (offer.transfer_item_id) return jsonResponse({ ok: false, error: "Already placed on Transfer" }, 409, corsOkHeaders);
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+  if (offer.expiry_date && offer.expiry_date < todayStr) {
+    return jsonResponse({ ok: false, error: "Expired items cannot be placed for transfer" }, 400, corsOkHeaders);
+  }
+
+  // Also check source_module duplicate
+  const dup = await dbFirst(env,
+    "SELECT id FROM stock_transfer_items WHERE source_module = 'scarcestock' AND source_id = ? AND org_id = ? AND location_id = ? AND is_closed = 0",
+    [id, authUser.org_id, authUser.location_id]
+  );
+  if (dup) return jsonResponse({ ok: false, error: "This item is already on the transfer list" }, 409, corsOkHeaders);
+
+  const res = await dbRun(env, `
+    INSERT INTO stock_transfer_items (org_id, location_id, entry_date, item_description, batch, expiry_date, quantity_available, source_module, source_id, created_by, updated_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 'scarcestock', ?, ?, ?)
+  `, [authUser.org_id, authUser.location_id, offer.entry_date || todayStr, offer.item_name, offer.batch || "", offer.expiry_date || null, offer.quantity_available, id, authUser.user_id, authUser.user_id]);
+
+  const transferId = res.meta?.last_row_id || null;
+  await dbRun(env, "UPDATE scarce_stock_offers SET transfer_item_id = ?, updated_at = datetime('now'), updated_by = ? WHERE id = ?",
+    [transferId, authUser.user_id, id]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_OFFER_PLACE_TRANSFER", "scarce_stock_offers", String(id), { transfer_item_id: transferId });
+  return jsonResponse({ ok: true, transfer_item_id: transferId }, 201, corsOkHeaders);
+}
+
 
 // ------------------------------------------------------------
 // Stock Transfers
@@ -10564,12 +10774,27 @@ async function handleStockTransferItemsList(request, env, corsOkHeaders, authUse
 
   const todayStr = todayYmdSt();
 
-  // Auto-close expired items owned by this location
-  await dbRun(env, `
-    UPDATE stock_transfer_items
-    SET is_closed = 1, close_reason = 'Expired', updated_at = datetime('now'), updated_by = ?
+  // Auto-close expired items owned by this location and cascade to scarce stock
+  const expiredTransfers = await dbAll(env, `
+    SELECT id, placed_on_scarce_stock, placed_on_scarce_stock_id
+    FROM stock_transfer_items
     WHERE org_id = ? AND location_id = ? AND expiry_date IS NOT NULL AND expiry_date <> '' AND expiry_date < ? AND is_closed = 0
-  `, [authUser.user_id, authUser.org_id, authUser.location_id, todayStr]);
+  `, [authUser.org_id, authUser.location_id, todayStr]);
+
+  for (const expItem of expiredTransfers) {
+    await dbRun(env, "UPDATE stock_transfer_items SET is_closed = 1, close_reason = 'Expired', updated_at = datetime('now'), updated_by = ? WHERE id = ?", [authUser.user_id, expItem.id]);
+
+    // Remove linked scarce stock offer (expired items cannot be on scarce stock)
+    if (expItem.placed_on_scarce_stock && expItem.placed_on_scarce_stock_id) {
+      await ensureScarceStockSchema(env);
+      await dbRun(env, "DELETE FROM scarce_stock_offer_requests WHERE offer_id = ?", [expItem.placed_on_scarce_stock_id]);
+      await dbRun(env, "DELETE FROM scarce_stock_offers WHERE id = ? AND org_id = ? AND location_id = ?",
+        [expItem.placed_on_scarce_stock_id, authUser.org_id, authUser.location_id]);
+      await dbRun(env, "UPDATE stock_transfer_items SET placed_on_scarce_stock = 0, placed_on_scarce_stock_id = NULL WHERE id = ?", [expItem.id]);
+      await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_OFFER_AUTO_DELETE", "scarce_stock_offers", String(expItem.placed_on_scarce_stock_id), { reason: "transfer_item_expired", transfer_item_id: expItem.id });
+    }
+    // Note: expired items CAN still be on Returns (user requirement), so we don't remove placed_on_returns
+  }
 
   // Get all items in the same org (cross-location visibility)
   const items = await dbAll(env, `
@@ -10969,11 +11194,11 @@ async function handleStockTransferPlaceOnScarceStock(request, env, corsOkHeaders
     return jsonResponse({ ok: false, error: "Expired items cannot be placed on Scarce Stock" }, 400, corsOkHeaders);
   }
 
-  // Create scarce stock offer
+  // Create scarce stock offer with backlink to transfer item
   const res = await dbRun(env, `
-    INSERT INTO scarce_stock_offers (org_id, location_id, entry_date, item_name, batch, expiry_date, quantity_available, created_by, updated_by)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `, [authUser.org_id, authUser.location_id, item.entry_date, item.item_description, item.batch || "", item.expiry_date || null, item.quantity_available, authUser.user_id, authUser.user_id]);
+    INSERT INTO scarce_stock_offers (org_id, location_id, entry_date, item_name, batch, expiry_date, quantity_available, transfer_item_id, created_by, updated_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `, [authUser.org_id, authUser.location_id, item.entry_date, item.item_description, item.batch || "", item.expiry_date || null, item.quantity_available, itemId, authUser.user_id, authUser.user_id]);
 
   const scarceId = res.meta?.last_row_id || null;
 
@@ -13760,6 +13985,20 @@ const authUser = await authFromRequest(request, env);
       const reqId = parseInt(parts[2], 10);
       if (!Number.isInteger(reqId) || reqId <= 0) return jsonResponse({ ok: false, error: "Invalid request id" }, 400, corsOkHeaders);
       return await handleScarceOfferRequestDelete(request, env, corsOkHeaders, authUser, reqId);
+    }
+
+    // Offer place-on-returns / place-on-transfer (must be before generic PUT/DELETE)
+    if (url.pathname.startsWith("/scarce-stock/offers/") && url.pathname.endsWith("/place-on-returns") && request.method === "POST") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const offerId = parseInt(parts[2], 10);
+      if (!Number.isInteger(offerId) || offerId <= 0) return jsonResponse({ ok: false, error: "Invalid offer id" }, 400, corsOkHeaders);
+      return await handleScarceOfferPlaceOnReturns(request, env, corsOkHeaders, authUser, offerId);
+    }
+    if (url.pathname.startsWith("/scarce-stock/offers/") && url.pathname.endsWith("/place-on-transfer") && request.method === "POST") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const offerId = parseInt(parts[2], 10);
+      if (!Number.isInteger(offerId) || offerId <= 0) return jsonResponse({ ok: false, error: "Invalid offer id" }, 400, corsOkHeaders);
+      return await handleScarceOfferPlaceOnTransfer(request, env, corsOkHeaders, authUser, offerId);
     }
 
     // Offer update/delete
