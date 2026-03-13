@@ -594,22 +594,25 @@
     }
   }
 
-  async function deleteMessage(msgId) {
+  function deleteMessage(msgId) {
     msgId = Number(msgId);
     if (!msgId) { console.error("[board] invalid msgId", msgId); return; }
-    if (!confirm("Delete this message?")) return;
-    try {
-      console.log("[board] deleting message", msgId);
-      await E.apiFetch("/board/messages/" + msgId, { method: "DELETE" });
-      // E.apiFetch throws on non-ok, so if we get here it succeeded
-      state.messages = state.messages.filter(function (m) { return Number(m.id) !== msgId; });
-      state.pinnedMessages = state.pinnedMessages.filter(function (m) { return Number(m.id) !== msgId; });
-      renderUI();
-      toast("Deleted", "Message removed", "good", 2000);
-    } catch (e) {
-      console.error("[board] delete error", e);
-      toast("Error", e.message || "Failed to delete", "bad");
-    }
+    E.modal.show("Delete Message", "Are you sure you want to delete this message?", [
+      { label: "Delete", danger: true, onClick: async function () {
+        E.modal.hide();
+        try {
+          await E.apiFetch("/board/messages/" + msgId, { method: "DELETE" });
+          state.messages = state.messages.filter(function (m) { return Number(m.id) !== msgId; });
+          state.pinnedMessages = state.pinnedMessages.filter(function (m) { return Number(m.id) !== msgId; });
+          renderUI();
+          toast("Deleted", "Message removed", "good", 2000);
+        } catch (e) {
+          console.error("[board] delete error", e);
+          toast("Error", e.message || "Failed to delete", "bad");
+        }
+      }},
+      { label: "Cancel", onClick: function () { E.modal.hide(); } }
+    ]);
   }
 
   async function cyclePriority(sugId) {
