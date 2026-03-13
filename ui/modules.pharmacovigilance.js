@@ -30,8 +30,19 @@
   function fmtDob(day, month, age) {
     day = String(day || "").trim(); month = String(month || "").trim(); age = String(age || "").trim();
     if (!day && !month) return "-";
-    var year = age ? String(new Date().getFullYear() - parseInt(age, 10)) : "????";
-    return (day || "??") + "/" + (month || "??") + "/" + year;
+    if (!age) return (day || "??") + "/" + (month || "??") + "/????";
+    var now = new Date();
+    var ageNum = parseInt(age, 10);
+    var birthYear = now.getFullYear() - ageNum;
+    // If birthday hasn't occurred yet this year, subtract one more year
+    var m = parseInt(month, 10);
+    var d = parseInt(day, 10);
+    if (m && d) {
+      var nowMonth = now.getMonth() + 1;
+      var nowDay = now.getDate();
+      if (m > nowMonth || (m === nowMonth && d > nowDay)) birthYear--;
+    }
+    return (day || "??") + "/" + (month || "??") + "/" + birthYear;
   }
   function norm(s) { return String(s || "").trim().toLowerCase(); }
   async function api(method, path, body) {
