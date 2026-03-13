@@ -105,6 +105,20 @@
 
   var SUPERADMIN_EMAIL = "labrint@gmail.com";
 
+  // Clean display name: if full_name looks like an email, extract a readable name
+  function cleanDisplayName(name) {
+    if (!name) return "";
+    var s = String(name).trim();
+    // Check if name looks like an email (contains @ with domain-like suffix)
+    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s)) {
+      // Extract the local part before @, replace dots/underscores with spaces, capitalize words
+      var local = s.split("@")[0];
+      local = local.replace(/[._\-]+/g, " ");
+      return local.replace(/\b\w/g, function (c) { return c.toUpperCase(); });
+    }
+    return s;
+  }
+
   // ----------------------------
   // State
   // ----------------------------
@@ -262,8 +276,12 @@
   // Render helpers
   // ----------------------------
   function highlightBody(body) {
+    // Clean email-based @mentions in body before escaping (e.g. @marcie@domain.com -> @Marcie)
+    var cleaned = body.replace(/@([^\s@]+@[^\s@]+\.[^\s@]+)/g, function (match, email) {
+      return "@" + cleanDisplayName(email);
+    });
     // Escape first, then add highlights
-    var s = esc(body);
+    var s = esc(cleaned);
     // Highlight @mentions
     s = s.replace(/@([A-Za-z][\w .&#39;\-]{1,50})/g, '<span class="msg-mention">@$1</span>');
     // Highlight #suggestion
@@ -282,10 +300,11 @@
     var pinBtn = '<button class="board-msg-pin-btn" data-action="pin" data-id="' + msg.id + '" title="' + (msg.is_pinned ? "Unpin" : "Pin") + '">' + (msg.is_pinned ? "Unpin" : "Pin") + '</button>';
     var delBtn = isOwn ? '<button class="board-msg-del-btn" data-action="delete-msg" data-id="' + msg.id + '" title="Delete">Delete</button>' : "";
 
+    var senderName = cleanDisplayName(msg.user_name);
     return '<div class="' + cls + '" data-msg-id="' + msg.id + '">' +
-      '<div class="board-msg-avatar" style="background:' + avatarColor(msg.user_name) + '">' + esc(initial(msg.user_name)) + '</div>' +
+      '<div class="board-msg-avatar" style="background:' + avatarColor(senderName) + '">' + esc(initial(senderName)) + '</div>' +
       '<div class="board-msg-content">' +
-        (!isOwn ? '<div><span class="board-msg-name">' + esc(msg.user_name) + '</span> <span class="board-msg-loc">' + esc(msg.location_name) + (msg.org_name ? " \u00B7 " + esc(msg.org_name) : "") + '</span></div>' : '') +
+        (!isOwn ? '<div><span class="board-msg-name">' + esc(senderName) + '</span> <span class="board-msg-loc">' + esc(msg.location_name) + (msg.org_name ? " \u00B7 " + esc(msg.org_name) : "") + '</span></div>' : '') +
         '<div class="board-msg-bubble">' + highlightBody(msg.body) + '</div>' +
         '<div class="board-msg-meta">' +
           scopeLabel + ' ' +
@@ -298,7 +317,7 @@
 
   function renderPinnedMessage(msg) {
     return '<div class="board-pinned-msg" data-msg-id="' + msg.id + '">' +
-      '<div class="msg-meta"><b>' + esc(msg.user_name) + '</b> \u00B7 ' + esc(msg.location_name) + ' \u00B7 ' + esc(timeAgo(msg.created_at)) + '</div>' +
+      '<div class="msg-meta"><b>' + esc(cleanDisplayName(msg.user_name)) + '</b> \u00B7 ' + esc(msg.location_name) + ' \u00B7 ' + esc(timeAgo(msg.created_at)) + '</div>' +
       '<div class="msg-body">' + highlightBody(msg.body) + '</div>' +
       '<div class="msg-actions"><button class="board-msg-pin-btn" data-action="pin" data-id="' + msg.id + '" title="Unpin">Unpin</button></div>' +
     '</div>';
@@ -323,7 +342,7 @@
     return '<tr data-sug-id="' + sug.id + '">' +
       '<td>' + (idx + 1) + '</td>' +
       '<td>' + esc(sug.title) + ' ' + commentBadge + '</td>' +
-      '<td>' + esc(sug.created_by_name) + '</td>' +
+      '<td>' + esc(cleanDisplayName(sug.created_by_name)) + '</td>' +
       '<td><span class="' + priCls + '" data-action="cycle-priority" data-id="' + sug.id + '" title="Click to change">' + esc(sug.priority) + '</span></td>' +
       '<td><span class="' + statusCls + '"' + (isSuperadmin ? ' data-action="cycle-status" data-id="' + sug.id + '" title="Click to change" style="cursor:pointer"' : '') + '>' + esc(statusLabel) + '</span></td>' +
       '<td>' + esc(fmtDate(sug.created_at)) + '</td>' +
@@ -336,7 +355,7 @@
   // ----------------------------
   function renderUI() {
     var m = state.mount;
-    if (!m) return;
+    if (!m || E.state.activeModuleId !== "messageboard") return;
 
     var user = E.state.user || {};
     var isSuperadmin = String(user.email || "").toLowerCase() === SUPERADMIN_EMAIL;
@@ -531,7 +550,7 @@
   }
 
   async function pollNewMessages() {
-    if (!state.mount || !state.mount.isConnected) {
+    if (!state.mount || !state.mount.isConnected || E.state.activeModuleId !== "messageboard") {
       stopPolling();
       return;
     }
@@ -909,10 +928,11 @@
     var html = "";
     for (var i = 0; i < users.length; i++) {
       var u = users[i];
+      var displayName = cleanDisplayName(u.full_name);
       var locLabel = u.location_name ? esc(u.location_name) : "";
       var orgLabel = u.org_name ? (locLabel ? " \u00B7 " : "") + esc(u.org_name) : "";
-      html += '<div class="board-mention-item" data-action="select-mention" data-user-name="' + esc(u.full_name) + '" data-idx="' + i + '">' +
-        '<span class="board-mention-item-name">' + esc(u.full_name) + '</span>' +
+      html += '<div class="board-mention-item" data-action="select-mention" data-user-name="' + esc(displayName) + '" data-idx="' + i + '">' +
+        '<span class="board-mention-item-name">' + esc(displayName) + '</span>' +
         '<span class="board-mention-item-loc">' + locLabel + orgLabel + '</span>' +
       '</div>';
     }
