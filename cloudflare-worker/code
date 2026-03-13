@@ -15406,6 +15406,15 @@ if (url.pathname.startsWith("/dda-stocktakes/items/")) {
     }
     // ── End Chat Board ────────────────────────────────────────────────────
 
+    // ── Pharmacovigilance ─────────────────────────────────────────────────
+    if (url.pathname === "/pharmacovigilance/state" && request.method === "GET") {
+      return await handlePvStateGet(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname === "/pharmacovigilance/state" && request.method === "PUT") {
+      return await handlePvStatePut(request, env, corsOkHeaders, authUser);
+    }
+    // ── End Pharmacovigilance ─────────────────────────────────────────────
+
     return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
     } catch (e) {
       // Never let an exception become Cloudflare 1101 HTML again.
@@ -16281,4 +16290,85 @@ async function handlePosSalesSync(request, env, corsOkHeaders, authUser) {
   const synced = results.filter(r => r.ok && !r.duplicate).length;
   await writeAudit(env, authUser.org_id, authUser.user_id, "EPOS_SALES_SYNC", "pos_sales", "", { synced, total: sales.length });
   return jsonResponse({ ok: true, synced, results }, 200, corsOkHeaders);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PHARMACOVIGILANCE MODULE
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function ensurePvSchema(env) {
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS pv_reports (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id INTEGER NOT NULL,
+    location_id INTEGER NOT NULL,
+    report_id TEXT NOT NULL,
+    report_json TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    created_by INTEGER,
+    updated_by INTEGER,
+    UNIQUE(org_id, location_id, report_id)
+  )`);
+}
+
+async function handlePvStateGet(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensurePvSchema(env);
+  const rows = await dbAll(env,
+    `SELECT report_json FROM pv_reports WHERE org_id = ? AND location_id = ? ORDER BY updated_at DESC, id DESC`,
+    [authUser.org_id, authUser.location_id]);
+  const reports = [];
+  for (const row of rows) {
+    try { const v = JSON.parse(String(row.report_json)); if (v) reports.push(v); } catch (e) {}
+  }
+  return jsonResponse({ ok: true, reports, state: { reports } }, 200, corsOkHeaders);
+}
+
+async function handlePvStatePut(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensurePvSchema(env);
+  const body = await readJson(request);
+  const st = body && (body.state || body.data) ? (body.state || body.data) : body;
+  const reportsIn = st && st.reports ? st.reports : [];
+  const reports = Array.isArray(reportsIn) ? reportsIn : [];
+  const orgId = authUser.org_id;
+  const locId = authUser.location_id;
+  const userId = authUser.user_id;
+
+  const idSet = new Set();
+  const cleaned = [];
+  for (const r of reports) {
+    const rid = r && r.id ? String(r.id).trim() : "";
+    if (!rid) continue;
+    if (!idSet.has(rid)) { idSet.add(rid); cleaned.push(r); }
+  }
+
+  // Upsert each report
+  const upsertSql = `INSERT INTO pv_reports (org_id, location_id, report_id, report_json, created_by, updated_by, updated_at)
+    VALUES (?,?,?,?,?,?, datetime('now'))
+    ON CONFLICT(org_id, location_id, report_id) DO UPDATE SET
+      report_json = excluded.report_json, updated_by = excluded.updated_by, updated_at = datetime('now')`;
+  const stmt = env.DB.prepare(upsertSql);
+  for (const r of cleaned) {
+    await stmt.bind(orgId, locId, String(r.id), JSON.stringify(r), userId, userId).run();
+  }
+
+  // Delete reports no longer in the set
+  if (idSet.size > 0) {
+    const existing = await dbAll(env, `SELECT report_id FROM pv_reports WHERE org_id = ? AND location_id = ?`, [orgId, locId]);
+    for (const row of existing) {
+      if (!idSet.has(String(row.report_id))) {
+        await dbRun(env, `DELETE FROM pv_reports WHERE org_id = ? AND location_id = ? AND report_id = ?`, [orgId, locId, String(row.report_id)]);
+      }
+    }
+  } else {
+    await dbRun(env, `DELETE FROM pv_reports WHERE org_id = ? AND location_id = ?`, [orgId, locId]);
+  }
+
+  await writeAudit(env, orgId, userId, "PV_STATE_PUT", "pv_reports", "", { count: cleaned.length });
+  return jsonResponse({ ok: true, saved: cleaned.length }, 200, corsOkHeaders);
 }
