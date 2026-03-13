@@ -337,6 +337,9 @@
     ]},
     { label: "Clinical", icon: "🏥", moduleIds: [
       "poct", "vaccines", "ocps", "pharmacycalc", "pharmacovigilance"
+    ]},
+    { label: "Reference", icon: "📇", moduleIds: [
+      "contacts"
     ]}
   ];
 
