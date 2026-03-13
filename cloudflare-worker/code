@@ -13844,8 +13844,19 @@ async function handleBoardMessageCreate(request, env, corsOkHeaders, authUser) {
       if (!name || seen.has(name)) continue;
       seen.add(name);
 
-      // Look up user by name (fuzzy)
-      const user = await dbFirst(env, `SELECT id FROM users WHERE is_active = 1 AND lower(full_name) = ? LIMIT 1`, [name]);
+      // Look up user by exact full_name first
+      let user = await dbFirst(env, `SELECT id FROM users WHERE is_active = 1 AND lower(full_name) = ? LIMIT 1`, [name]);
+      // If not found, try matching against cleaned email-derived names
+      // (e.g., "Marcie" should match a user whose full_name is "marcie@example.com")
+      if (!user) {
+        const allActive = await dbAll(env, `SELECT id, full_name FROM users WHERE is_active = 1`, []);
+        for (const u of allActive) {
+          if (cleanMentionName(u.full_name).toLowerCase() === name) {
+            user = u;
+            break;
+          }
+        }
+      }
       if (user && user.id !== authUser.user_id) {
         await dbRun(env, `INSERT INTO board_mentions (message_id, mentioned_user_id, created_at) VALUES (?, ?, datetime('now'))`, [newId, user.id]);
       }
@@ -14072,6 +14083,17 @@ async function handleBoardSuggestionsExport(request, env, corsOkHeaders, authUse
 }
 
 // --- User search (for @mention autocomplete) ---
+// Helper: if full_name looks like an email, derive a readable name from the local part
+function cleanMentionName(fullName) {
+  if (!fullName) return "";
+  const s = String(fullName).trim();
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s)) {
+    const local = s.split("@")[0];
+    return local.replace(/[._\-]+/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+  }
+  return s;
+}
+
 async function handleBoardUserSearch(request, env, corsOkHeaders, authUser, url) {
   await ensureBoardSchema(env);
   const q = String(url.searchParams.get("q") || "").trim().toLowerCase();
@@ -14100,6 +14122,10 @@ async function handleBoardUserSearch(request, env, corsOkHeaders, authUser, url)
   }
 
   const rows = await dbAll(env, sql, bind);
+  // Clean email-like full_names for display
+  for (const row of rows) {
+    row.full_name = cleanMentionName(row.full_name);
+  }
   return jsonResponse({ ok: true, users: rows }, 200, corsOkHeaders);
 }
 
