@@ -184,11 +184,12 @@
     };
   }
 
-  function render(container) {
+  async function render(ctx) {
     ensureStyles();
-    ROOT = container;
+    ROOT = ctx.mount;
     ROOT.innerHTML = '<div class="pv"><div id="pv-app"></div></div>';
-    cloudLoad().then(function () { renderApp(); });
+    await cloudLoad();
+    renderApp();
   }
 
   function renderApp() {
