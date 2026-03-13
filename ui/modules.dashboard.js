@@ -945,10 +945,10 @@
       }
     }
 
-    // --- Pharmacy Board ---
+    // --- Chat Board ---
     var boardRow = "";
-    if (!state.data.board) boardRow = row("\uD83D\uDCAC", "Pharmacy Board", "Loading\u2026", pill("info", "\u2026"), "");
-    else if (!state.data.board.ok) boardRow = row("\uD83D\uDCAC", "Pharmacy Board", state.data.board.error || "Unavailable", showNA("N/A"), btn("dash-open-messageboard", "Open", { small: true }));
+    if (!state.data.board) boardRow = row("\uD83D\uDCAC", "Chat Board", "Loading\u2026", pill("info", "\u2026"), "");
+    else if (!state.data.board.ok) boardRow = row("\uD83D\uDCAC", "Chat Board", state.data.board.error || "Unavailable", showNA("N/A"), btn("dash-open-messageboard", "Open", { small: true }));
     else {
       var bd = state.data.board.data;
       var boardSub = [];
@@ -961,7 +961,7 @@
       }
       if (!boardSub.length) boardSub.push("No recent messages");
       var boardPill = bd.unread > 0 ? pill("warn", bd.unread + " mention" + (bd.unread > 1 ? "s" : "")) : pill("ok", "OK");
-      boardRow = row("\uD83D\uDCAC", "Pharmacy Board", boardSub[0], boardPill,
+      boardRow = row("\uD83D\uDCAC", "Chat Board", boardSub[0], boardPill,
         btn("dash-open-messageboard", "Open", { primary: bd.unread > 0, small: true }));
     }
 

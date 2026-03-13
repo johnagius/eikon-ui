@@ -13994,14 +13994,27 @@ async function handleBoardUserSearch(request, env, corsOkHeaders, authUser, url)
   await ensureBoardSchema(env);
   const q = String(url.searchParams.get("q") || "").trim().toLowerCase();
   const scope = (url.searchParams.get("scope") || "all").trim().toLowerCase();
+  const likeQ = "%" + q + "%";
 
   let sql, bind;
   if (scope === "org") {
-    sql = `SELECT id, full_name, email FROM users WHERE org_id = ? AND is_active = 1 AND id != ? AND lower(full_name) LIKE ? ORDER BY full_name LIMIT 15`;
-    bind = [authUser.org_id, authUser.user_id, "%" + q + "%"];
+    sql = `SELECT u.id, u.full_name, u.email, l.name AS location_name, o.name AS org_name
+           FROM users u
+           LEFT JOIN locations l ON l.id = u.default_location_id
+           LEFT JOIN orgs o ON o.id = u.org_id
+           WHERE u.org_id = ? AND u.is_active = 1
+             AND (lower(u.full_name) LIKE ? OR lower(u.email) LIKE ?)
+           ORDER BY u.full_name LIMIT 15`;
+    bind = [authUser.org_id, likeQ, likeQ];
   } else {
-    sql = `SELECT id, full_name, email FROM users WHERE is_active = 1 AND id != ? AND lower(full_name) LIKE ? ORDER BY full_name LIMIT 15`;
-    bind = [authUser.user_id, "%" + q + "%"];
+    sql = `SELECT u.id, u.full_name, u.email, l.name AS location_name, o.name AS org_name
+           FROM users u
+           LEFT JOIN locations l ON l.id = u.default_location_id
+           LEFT JOIN orgs o ON o.id = u.org_id
+           WHERE u.is_active = 1
+             AND (lower(u.full_name) LIKE ? OR lower(u.email) LIKE ?)
+           ORDER BY u.full_name LIMIT 15`;
+    bind = [likeQ, likeQ];
   }
 
   const rows = await dbAll(env, sql, bind);
@@ -15227,7 +15240,7 @@ if (url.pathname.startsWith("/dda-stocktakes/items/")) {
     }
     // ── End Audit Log ─────────────────────────────────────────────────────────
 
-    // ── Pharmacy Board ────────────────────────────────────────────────────────
+    // ── Chat Board ────────────────────────────────────────────────────────
     if (url.pathname === "/board/messages" && request.method === "GET") {
       return await handleBoardMessagesList(request, env, corsOkHeaders, authUser, url);
     }
@@ -15270,7 +15283,7 @@ if (url.pathname.startsWith("/dda-stocktakes/items/")) {
     if (url.pathname === "/board/dashboard" && request.method === "GET") {
       return await handleBoardDashboard(request, env, corsOkHeaders, authUser);
     }
-    // ── End Pharmacy Board ────────────────────────────────────────────────────
+    // ── End Chat Board ────────────────────────────────────────────────────
 
     return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
     } catch (e) {

@@ -1,5 +1,5 @@
 /* ============================================================
-   EIKON — Pharmacy Board Module  (modules.messageboard.js)
+   EIKON — Chat Board Module  (modules.messageboard.js)
    - Organisation & All scope messaging
    - @mention autocomplete
    - #suggestion extraction
@@ -376,7 +376,7 @@
       m.innerHTML =
         '<div class="board-wrap">' +
           '<div class="board-header">' +
-            '<div class="board-title">Pharmacy Board</div>' +
+            '<div class="board-title">Chat Board</div>' +
             '<div class="board-toggle">' +
               '<button class="board-toggle-btn' + (state.scope === "org" ? " active" : "") + '" data-action="scope-org">Organisation</button>' +
               '<button class="board-toggle-btn' + (state.scope === "all" ? " active" : "") + '" data-action="scope-all">All</button>' +
@@ -748,9 +748,11 @@
     var html = "";
     for (var i = 0; i < users.length; i++) {
       var u = users[i];
+      var locInfo = u.location_name ? (" \u00B7 " + esc(u.location_name)) : "";
+      var orgInfo = u.org_name ? (" \u00B7 " + esc(u.org_name)) : "";
       html += '<div class="board-mention-item" data-action="select-mention" data-user-name="' + esc(u.full_name) + '" data-idx="' + i + '">' +
         '<span class="board-mention-item-name">' + esc(u.full_name) + '</span>' +
-        '<span class="board-mention-item-email">' + esc(u.email) + '</span>' +
+        '<span class="board-mention-item-email">' + esc(u.email) + locInfo + orgInfo + '</span>' +
       '</div>';
     }
     drop.innerHTML = html;
@@ -963,7 +965,7 @@
   // Register module
   E.registerModule({
     id: "messageboard",
-    title: "Pharmacy Board",
+    title: "Chat Board",
     order: 105,
     icon: "\uD83D\uDCAC",
     render: render
