@@ -233,8 +233,15 @@
       /* Status pills */
       ".board-status{display:inline-block;padding:2px 8px;border-radius:6px;font-size:10.5px;font-weight:800}" +
       ".board-status-open{background:rgba(58,160,255,.1);color:rgba(58,160,255,.8)}" +
-      ".board-status-noted{background:rgba(255,196,0,.1);color:rgba(255,196,0,.8)}" +
-      ".board-status-done{background:rgba(67,209,122,.1);color:rgba(67,209,122,.8)}" +
+      ".board-status-in_progress{background:rgba(255,196,0,.1);color:rgba(255,196,0,.8)}" +
+      ".board-status-resolved{background:rgba(67,209,122,.1);color:rgba(67,209,122,.8)}" +
+
+      /* Suggestion action buttons */
+      ".board-sug-act{font-size:10px;cursor:pointer;opacity:.55;transition:opacity .15s;background:none;border:none;color:rgba(255,255,255,.6);padding:2px 4px}" +
+      ".board-sug-act:hover{opacity:1}" +
+      ".board-sug-act-del{color:rgba(255,90,122,.8)}" +
+      ".board-sug-comment-count{font-size:10px;color:var(--muted,rgba(255,255,255,.4));cursor:pointer}" +
+      ".board-sug-comment-count:hover{color:rgba(255,255,255,.7)}" +
 
       /* Empty state */
       ".board-sug-empty{text-align:center;padding:18px;color:var(--muted,rgba(255,255,255,.35));font-size:12.5px}" +
@@ -298,15 +305,29 @@
   }
 
   function renderSuggestionRow(sug, idx) {
+    var user = E.state.user || {};
+    var isSuperadmin = String(user.email || "").toLowerCase() === SUPERADMIN_EMAIL;
+    var isOwner = sug.created_by === (user.user_id || user.id);
     var priCls = "board-pri board-pri-" + sug.priority;
     var statusCls = "board-status board-status-" + sug.status;
+    var statusLabel = sug.status === "in_progress" ? "in progress" : sug.status;
+    var commentBadge = (sug.comment_count > 0) ? '<span class="board-sug-comment-count" data-action="view-suggestion" data-id="' + sug.id + '">' + sug.comment_count + ' comment' + (sug.comment_count > 1 ? 's' : '') + '</span>' : '';
+    var actions = '';
+    if (isOwner || isSuperadmin) {
+      actions += '<button class="board-sug-act" data-action="edit-suggestion" data-id="' + sug.id + '" title="Edit">Edit</button>';
+      actions += '<button class="board-sug-act board-sug-act-del" data-action="delete-suggestion" data-id="' + sug.id + '" title="Delete">Del</button>';
+    }
+    if (isSuperadmin) {
+      actions += '<button class="board-sug-act" data-action="view-suggestion" data-id="' + sug.id + '" title="View / Comment">View</button>';
+    }
     return '<tr data-sug-id="' + sug.id + '">' +
       '<td>' + (idx + 1) + '</td>' +
-      '<td>' + esc(sug.title) + '</td>' +
+      '<td>' + esc(sug.title) + ' ' + commentBadge + '</td>' +
       '<td>' + esc(sug.created_by_name) + '</td>' +
       '<td><span class="' + priCls + '" data-action="cycle-priority" data-id="' + sug.id + '" title="Click to change">' + esc(sug.priority) + '</span></td>' +
-      '<td><span class="' + statusCls + '" data-action="cycle-status" data-id="' + sug.id + '" title="Click to change">' + esc(sug.status) + '</span></td>' +
+      '<td><span class="' + statusCls + '"' + (isSuperadmin ? ' data-action="cycle-status" data-id="' + sug.id + '" title="Click to change" style="cursor:pointer"' : '') + '>' + esc(statusLabel) + '</span></td>' +
       '<td>' + esc(fmtDate(sug.created_at)) + '</td>' +
+      '<td>' + actions + '</td>' +
     '</tr>';
   }
 
@@ -359,7 +380,7 @@
     // --- Suggestions ---
     var sugRows = "";
     if (state.suggestions.length === 0) {
-      sugRows = '<tr><td colspan="6" class="board-sug-empty">No suggestions yet</td></tr>';
+      sugRows = '<tr><td colspan="7" class="board-sug-empty">No suggestions yet</td></tr>';
     } else {
       for (var s = 0; s < state.suggestions.length; s++) {
         sugRows += renderSuggestionRow(state.suggestions[s], s);
@@ -404,7 +425,7 @@
               '</div>' +
             '</div>' +
             '<table class="board-sug-table">' +
-              '<thead><tr><th>#</th><th>Suggestion</th><th>By</th><th>Priority</th><th>Status</th><th>Date</th></tr></thead>' +
+              '<thead><tr><th>#</th><th>Suggestion</th><th>By</th><th>Priority</th><th>Status</th><th>Date</th><th></th></tr></thead>' +
               '<tbody id="board-sug-body">' + sugRows + '</tbody>' +
             '</table>' +
           '</div>' +
@@ -497,12 +518,16 @@
   async function initialLoad() {
     state.loading = true;
     renderUI();
-    await Promise.all([loadMessages(), loadPinned(), loadSuggestions()]);
-    state.loading = false;
-    renderUI();
-    // Scroll to bottom
-    var feedEl = state.mount && state.mount.querySelector("#board-feed");
-    if (feedEl) feedEl.scrollTop = feedEl.scrollHeight;
+    // Fire all in parallel, render progressively as each completes
+    var msgDone = loadMessages().then(function () {
+      state.loading = false;
+      renderUI();
+      var feedEl = state.mount && state.mount.querySelector("#board-feed");
+      if (feedEl) feedEl.scrollTop = feedEl.scrollHeight;
+    });
+    var pinDone = loadPinned().then(function () { renderUI(); });
+    var sugDone = loadSuggestions().then(function () { renderUI(); });
+    await Promise.all([msgDone, pinDone, sugDone]);
   }
 
   async function pollNewMessages() {
@@ -631,9 +656,11 @@
   }
 
   async function cycleStatus(sugId) {
+    var user = E.state.user || {};
+    if (String(user.email || "").toLowerCase() !== SUPERADMIN_EMAIL) return;
     var sug = state.suggestions.find(function (s) { return s.id === sugId; });
     if (!sug) return;
-    var order = ["open", "noted", "done"];
+    var order = ["open", "in_progress", "resolved"];
     var idx = order.indexOf(sug.status);
     var next = order[(idx + 1) % order.length];
     try {
@@ -643,6 +670,141 @@
     } catch (e) {
       toast("Error", "Failed to update status", "bad");
     }
+  }
+
+  function deleteSuggestion(sugId) {
+    sugId = Number(sugId);
+    if (!sugId) return;
+    E.modal.show("Delete Suggestion", "Are you sure you want to delete this suggestion?", [
+      { label: "Delete", danger: true, onClick: async function () {
+        E.modal.hide();
+        try {
+          await E.apiFetch("/board/suggestions/" + sugId, { method: "DELETE" });
+          state.suggestions = state.suggestions.filter(function (s) { return Number(s.id) !== sugId; });
+          renderUI();
+          toast("Deleted", "Suggestion removed", "good", 2000);
+        } catch (e) {
+          toast("Error", e.message || "Failed to delete", "bad");
+        }
+      }},
+      { label: "Cancel", onClick: function () { E.modal.hide(); } }
+    ]);
+  }
+
+  function editSuggestion(sugId) {
+    sugId = Number(sugId);
+    var sug = state.suggestions.find(function (s) { return Number(s.id) === sugId; });
+    if (!sug) return;
+    var bodyHtml =
+      '<div style="min-width:320px;max-width:500px;">' +
+        '<label style="display:block;font-size:12px;margin-bottom:4px;color:rgba(255,255,255,.6);">Suggestion</label>' +
+        '<textarea id="board-sug-edit-title" rows="3" style="width:100%;padding:10px;border:1px solid rgba(255,255,255,.12);border-radius:10px;background:rgba(255,255,255,.04);color:#e9eef7;font-size:13px;font-family:inherit;resize:vertical;">' + esc(sug.title) + '</textarea>' +
+      '</div>';
+    E.modal.show("Edit Suggestion", bodyHtml, [
+      { label: "Save", primary: true, onClick: async function () {
+        var titleEl = document.getElementById("board-sug-edit-title");
+        var title = titleEl ? titleEl.value.trim() : "";
+        if (!title) { toast("Required", "Please enter a suggestion", "warn"); return; }
+        try {
+          await api("/board/suggestions/" + sugId, { method: "PUT", body: JSON.stringify({ title: title }) });
+          sug.title = title;
+          E.modal.hide();
+          renderUI();
+          toast("Saved", "Suggestion updated", "good", 2000);
+        } catch (e) {
+          toast("Error", e.message || "Failed", "bad");
+        }
+      }},
+      { label: "Cancel", onClick: function () { E.modal.hide(); } }
+    ]);
+  }
+
+  async function viewSuggestion(sugId) {
+    sugId = Number(sugId);
+    var sug = state.suggestions.find(function (s) { return Number(s.id) === sugId; });
+    if (!sug) return;
+    var user = E.state.user || {};
+    var isSuperadmin = String(user.email || "").toLowerCase() === SUPERADMIN_EMAIL;
+
+    // Fetch comments
+    var comments = [];
+    try {
+      var res = await api("/board/suggestions/" + sugId + "/comments");
+      if (res.ok) comments = res.comments || [];
+    } catch (e) {}
+
+    var statusLabel = sug.status === "in_progress" ? "in progress" : sug.status;
+    var bodyHtml =
+      '<div style="min-width:360px;max-width:560px;">' +
+        '<div style="margin-bottom:10px;font-size:13px;line-height:1.45;word-break:break-word;">' + esc(sug.title) + '</div>' +
+        '<div style="margin-bottom:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">' +
+          '<span class="board-pri board-pri-' + sug.priority + '">' + esc(sug.priority) + '</span>' +
+          '<span class="board-status board-status-' + sug.status + '">' + esc(statusLabel) + '</span>' +
+          '<span style="font-size:11px;color:var(--muted,rgba(255,255,255,.4));">by ' + esc(sug.created_by_name) + ' \u00B7 ' + esc(fmtDate(sug.created_at)) + '</span>' +
+        '</div>';
+
+    if (comments.length > 0) {
+      bodyHtml += '<div style="border-top:1px solid rgba(255,255,255,.08);padding-top:10px;margin-top:8px;">';
+      bodyHtml += '<div style="font-weight:900;font-size:12px;margin-bottom:8px;">Comments</div>';
+      for (var i = 0; i < comments.length; i++) {
+        var c = comments[i];
+        bodyHtml += '<div style="margin-bottom:8px;padding:8px 10px;border-radius:10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);">' +
+          '<div style="font-size:11px;color:var(--muted,rgba(255,255,255,.5));margin-bottom:3px;"><b>' + esc(c.user_name) + '</b> \u00B7 ' + esc(timeAgo(c.created_at)) + '</div>' +
+          '<div style="font-size:12.5px;line-height:1.4;word-break:break-word;">' + esc(c.body) + '</div>' +
+        '</div>';
+      }
+      bodyHtml += '</div>';
+    }
+
+    if (isSuperadmin) {
+      bodyHtml += '<div style="border-top:1px solid rgba(255,255,255,.08);padding-top:10px;margin-top:8px;">' +
+        '<textarea id="board-sug-comment-input" rows="2" style="width:100%;padding:10px;border:1px solid rgba(255,255,255,.12);border-radius:10px;background:rgba(255,255,255,.04);color:#e9eef7;font-size:13px;font-family:inherit;resize:vertical;" placeholder="Add a comment..."></textarea>' +
+      '</div>';
+    }
+
+    bodyHtml += '</div>';
+
+    var actions = [];
+    if (isSuperadmin) {
+      actions.push({ label: "Add Comment", primary: true, onClick: async function () {
+        var inp = document.getElementById("board-sug-comment-input");
+        var body = inp ? inp.value.trim() : "";
+        if (!body) { toast("Required", "Please enter a comment", "warn"); return; }
+        try {
+          await api("/board/suggestions/" + sugId + "/comments", { method: "POST", body: JSON.stringify({ body: body }) });
+          toast("Saved", "Comment added", "good", 2000);
+          E.modal.hide();
+          viewSuggestion(sugId); // Re-open to show new comment
+        } catch (e) {
+          toast("Error", e.message || "Failed", "bad");
+        }
+      }});
+      if (sug.status !== "in_progress") {
+        actions.push({ label: "Mark In Progress", onClick: async function () {
+          try {
+            await api("/board/suggestions/" + sugId, { method: "PUT", body: JSON.stringify({ status: "in_progress" }) });
+            sug.status = "in_progress";
+            renderUI();
+            E.modal.hide();
+            toast("Updated", "Marked as in progress", "good", 2000);
+          } catch (e) { toast("Error", e.message || "Failed", "bad"); }
+        }});
+      }
+      if (sug.status !== "resolved") {
+        actions.push({ label: "Mark Resolved", onClick: async function () {
+          try {
+            await api("/board/suggestions/" + sugId, { method: "PUT", body: JSON.stringify({ status: "resolved" }) });
+            sug.status = "resolved";
+            renderUI();
+            E.modal.hide();
+            toast("Updated", "Marked as resolved", "good", 2000);
+          } catch (e) { toast("Error", e.message || "Failed", "bad"); }
+        }});
+      }
+    }
+    actions.push({ label: "Close", onClick: function () { E.modal.hide(); } });
+
+    E.modal.show("Suggestion #" + sug.id, bodyHtml, actions);
   }
 
   function openNewSuggestionModal() {
@@ -696,14 +858,15 @@
         toast("Error", (j && j.error) || "Export failed", "bad");
         return;
       }
-      var blob = await res.blob();
-      var url = URL.createObjectURL(blob);
-      var a = document.createElement("a");
-      a.href = url;
-      a.download = "board-suggestions.csv";
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 300);
+      var text = await res.text();
+      // Sandbox may block blob downloads, so show in modal with copy option
+      E.modal.show("Export Suggestions — CSV", '<textarea readonly style="width:100%;min-height:260px;padding:10px;border:1px solid rgba(255,255,255,.12);border-radius:10px;background:rgba(255,255,255,.04);color:#e9eef7;font-size:12px;font-family:monospace;resize:vertical;white-space:pre;" id="board-csv-text">' + esc(text) + '</textarea>', [
+        { label: "Copy to clipboard", primary: true, onClick: function () {
+          var ta = document.getElementById("board-csv-text");
+          if (ta) { ta.select(); try { document.execCommand("copy"); toast("Copied", "CSV copied to clipboard", "good", 2000); } catch (e) { toast("Error", "Copy failed", "bad"); } }
+        }},
+        { label: "Close", onClick: function () { E.modal.hide(); } }
+      ]);
     } catch (e) {
       toast("Error", e.message || "Export failed", "bad");
     }
@@ -866,6 +1029,21 @@
     }
     if (act === "export-suggestions") {
       exportSuggestions();
+      return;
+    }
+    if (act === "delete-suggestion") {
+      var dSugId = parseInt(actionEl.getAttribute("data-id"));
+      if (dSugId) deleteSuggestion(dSugId);
+      return;
+    }
+    if (act === "edit-suggestion") {
+      var eSugId = parseInt(actionEl.getAttribute("data-id"));
+      if (eSugId) editSuggestion(eSugId);
+      return;
+    }
+    if (act === "view-suggestion") {
+      var vSugId = parseInt(actionEl.getAttribute("data-id"));
+      if (vSugId) viewSuggestion(vSugId);
       return;
     }
     if (act === "select-mention") {
