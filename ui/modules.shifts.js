@@ -1227,12 +1227,27 @@ function normalizePattern(p) {
           if (!c || !c.checked) { toast("Please confirm overwrite.","error"); return; }
         }
 
+        // Expand pattern into explicit dates, skipping closed days
+        var dates = [];
+        var cursor = start;
+        while (cursor <= end) {
+          var dow = new Date(cursor).getDay();
+          var dayP = pattern.week && pattern.week[dow];
+          if (dayP && !dayP.off && dayP.start && dayP.end) {
+            var oh = ohFor(cursor);
+            if (!oh.closed) {
+              dates.push({ date: cursor, start_time: dayP.start, end_time: dayP.end });
+            }
+          }
+          cursor = addD(cursor, 1);
+        }
+
         apiOp("/shifts/apply-pattern", {method:"POST", body: JSON.stringify({
           staff_id: staffObj.id,
           start_date: start,
           end_date: end,
           mode: mode,
-          pattern: { week: pattern.week }
+          dates: dates
         })}, function(r){
           E.modal.hide();
           toast("Applied. Inserted: "+(r&&r.inserted!=null?r.inserted:"")+"");
@@ -2219,6 +2234,7 @@ function dayModal(ds, onSave) {
           var st = (E.q("#wa-st-"+i).value||"").trim();
           var et = (E.q("#wa-et-"+i).value||"").trim();
           if (off || !st || !et) continue;
+          if (ohFor(ds[i]).closed) continue; // skip closed days (public holidays, Sundays, etc.)
           if (t2m(et) <= t2m(st)) { toast(ds[i]+": end must be after start","error"); return; }
           dates.push({ date: ds[i], start_time: st, end_time: et });
         }
