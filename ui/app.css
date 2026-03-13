@@ -128,6 +128,135 @@ a:hover{text-decoration:underline}
   display:none;
 }
 
+/* ── Sidebar Search ── */
+.eikon-nav-search{
+  padding:0 0 8px 0;
+  border-bottom:1px solid var(--border);
+  margin-bottom:4px;
+}
+.eikon-nav-search-input{
+  width:100%;
+  padding:8px 10px;
+  border-radius:10px;
+  border:1px solid var(--border);
+  background:rgba(255,255,255,.04);
+  color:var(--text);
+  font-size:13px;
+  outline:none;
+  transition:border-color .2s ease, box-shadow .2s ease;
+}
+.eikon-nav-search-input::placeholder{
+  color:rgba(233,238,247,.35);
+}
+.eikon-nav-search-input:focus{
+  border-color:var(--accent);
+  box-shadow:0 0 0 2px rgba(90,162,255,.15);
+}
+
+/* ── Category Headers ── */
+.eikon-nav-cat{
+  width:100%;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:9px 12px;
+  border-radius:10px;
+  border:1px solid transparent;
+  background:transparent;
+  color:rgba(233,238,247,.55);
+  cursor:pointer;
+  text-align:left;
+  font-size:11.5px;
+  font-weight:600;
+  letter-spacing:.4px;
+  text-transform:uppercase;
+  transition:background .18s ease, color .18s ease;
+}
+.eikon-nav-cat:hover{
+  background:rgba(255,255,255,.04);
+  color:var(--text);
+}
+.eikon-nav-cat.expanded{
+  color:var(--accent);
+}
+.eikon-nav-cat-ico{
+  width:18px;
+  height:18px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font-size:13px;
+  flex:0 0 18px;
+}
+.eikon-nav-cat-label{
+  flex:1;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.eikon-nav-cat-chevron{
+  font-size:14px;
+  font-weight:700;
+  transition:transform .25s cubic-bezier(.4,0,.2,1);
+  opacity:.5;
+}
+.eikon-nav-cat.expanded .eikon-nav-cat-chevron{
+  transform:rotate(90deg);
+  opacity:1;
+}
+
+/* ── Category Items (accordion) ── */
+.eikon-nav-cat-items{
+  max-height:0;
+  overflow:hidden;
+  opacity:0;
+  transition:max-height .3s cubic-bezier(.4,0,.2,1), opacity .25s ease;
+}
+.eikon-nav-cat-items.expanded{
+  max-height:600px;
+  opacity:1;
+}
+.eikon-nav-cat-items .eikon-nav-btn{
+  padding-left:22px;
+  font-size:13px;
+}
+
+/* ── Category Group spacing ── */
+.eikon-nav-cat-group{
+  margin-top:2px;
+}
+
+/* ── Search Results ── */
+.eikon-nav-search-results .eikon-nav-btn{
+  animation:eikonFadeSlideIn .2s ease both;
+}
+@keyframes eikonFadeSlideIn{
+  from{opacity:0;transform:translateY(-6px)}
+  to{opacity:1;transform:translateY(0)}
+}
+.eikon-nav-no-results{
+  padding:16px 12px;
+  color:rgba(233,238,247,.4);
+  font-size:13px;
+  text-align:center;
+}
+
+/* ── Collapsed sidebar: hide search + category labels ── */
+.eikon-sidebar.collapsed .eikon-nav-search{
+  display:none;
+}
+.eikon-sidebar.collapsed .eikon-nav-cat-label,
+.eikon-sidebar.collapsed .eikon-nav-cat-chevron{
+  display:none;
+}
+.eikon-sidebar.collapsed .eikon-nav-cat{
+  justify-content:center;
+  padding:9px 6px;
+}
+.eikon-sidebar.collapsed .eikon-nav-cat-items .eikon-nav-btn{
+  padding-left:12px;
+}
+
 .eikon-main{
   flex:1;
   display:flex;

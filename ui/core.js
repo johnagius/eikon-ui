@@ -315,8 +315,33 @@
     E.dbg("[core] module registered:", mod.id);
   };
 
+  // Sidebar category configuration
+  E.SIDEBAR_CATEGORIES = [
+    { label: "Inspections", icon: "🔍", moduleIds: [
+      "temperature", "cleaning", "dda-purchases", "dda-sales", "dda_stocktakes",
+      "dda-poyc", "dailyregister", "repeatprescriptions", "locumregister",
+      "certificates", "audit"
+    ]},
+    { label: "Operations", icon: "⚙️", moduleIds: [
+      "emergency-pos", "endofday", "shifts", "creditnotes", "paidout", "locumreceipts"
+    ]},
+    { label: "Sales & Clients", icon: "🛒", moduleIds: [
+      "clientorders", "quotations", "order-diary", "deliveries",
+      "appointments", "tickets", "loyalty"
+    ]},
+    { label: "Inventory", icon: "📦", moduleIds: [
+      "alerts", "stocktransfers", "returns", "nearexpiry", "scarcestock"
+    ]},
+    { label: "Communication", icon: "💬", moduleIds: [
+      "messageboard", "instructions"
+    ]},
+    { label: "Clinical", icon: "🏥", moduleIds: [
+      "poct", "vaccines", "ocps", "pharmacycalc"
+    ]}
+  ];
+
   // UI mounts
-  E.state = { user: null, activeModuleId: "", sidebarCollapsed: false, started: false };
+  E.state = { user: null, activeModuleId: "", sidebarCollapsed: false, expandedCategory: null, started: false };
 
   E.ensureRoot = function () {
     var root = document.getElementById("eikon-root");
@@ -587,31 +612,188 @@
     E.renderNav();
   };
 
+  // Helper: create a module nav button
+  E._createNavBtn = function (m) {
+    var btn = document.createElement("button");
+    btn.className = "eikon-nav-btn";
+    btn.setAttribute("data-mod", m.id);
+
+    var ico = document.createElement("span");
+    ico.className = "eikon-nav-ico";
+    ico.textContent = (m.icon || "•");
+
+    var label = document.createElement("span");
+    label.className = "eikon-nav-label";
+    label.textContent = (m.title || m.id);
+
+    btn.appendChild(ico);
+    btn.appendChild(label);
+    btn.addEventListener("click", function () { window.location.hash = "#" + m.id; });
+    return btn;
+  };
+
+  // Helper: find category for a module id
+  E._categoryForModule = function (modId) {
+    for (var i = 0; i < E.SIDEBAR_CATEGORIES.length; i++) {
+      if (E.SIDEBAR_CATEGORIES[i].moduleIds.indexOf(modId) !== -1) {
+        return E.SIDEBAR_CATEGORIES[i].label;
+      }
+    }
+    return null;
+  };
+
+  // Expand a category (accordion: collapses others)
+  E._expandCategory = function (catLabel) {
+    var wasExpanded = E.state.expandedCategory === catLabel;
+    E.state.expandedCategory = wasExpanded ? null : catLabel;
+    try { window.localStorage.setItem("eikon_sidebar_cat", E.state.expandedCategory || ""); } catch (e) {}
+
+    var groups = E.qa(".eikon-nav-cat-group", document);
+    groups.forEach(function (g) {
+      var label = g.getAttribute("data-cat") || "";
+      var items = g.querySelector(".eikon-nav-cat-items");
+      var header = g.querySelector(".eikon-nav-cat");
+      var isTarget = label === catLabel && !wasExpanded;
+      if (items) items.classList.toggle("expanded", isTarget);
+      if (header) header.classList.toggle("expanded", isTarget);
+    });
+  };
+
   E.renderNav = function () {
     var nav = document.getElementById("eikon-nav");
     if (!nav) return;
-    var mods = Object.keys(E.modules || {}).map(function (k) { return E.modules[k]; });
-    mods.sort(function (a, b) { return (a.order || 999) - (b.order || 999); });
     nav.innerHTML = "";
-    mods.forEach(function (m) {
-      var btn = document.createElement("button");
-      btn.className = "eikon-nav-btn";
-      btn.setAttribute("data-mod", m.id);
 
-      var ico = document.createElement("span");
-      ico.className = "eikon-nav-ico";
-      ico.textContent = (m.icon || "•");
+    // Restore expanded category from localStorage
+    try {
+      var saved = window.localStorage.getItem("eikon_sidebar_cat") || "";
+      if (saved) E.state.expandedCategory = saved;
+    } catch (e) {}
 
-      var label = document.createElement("span");
-      label.className = "eikon-nav-label";
-      label.textContent = (m.title || m.id);
+    // All registered modules
+    var allMods = Object.keys(E.modules || {}).map(function (k) { return E.modules[k]; });
+    allMods.sort(function (a, b) { return (a.order || 999) - (b.order || 999); });
 
-      btn.appendChild(ico);
-      btn.appendChild(label);
+    // Build module lookup
+    var modById = {};
+    allMods.forEach(function (m) { modById[m.id] = m; });
 
-      btn.addEventListener("click", function () { window.location.hash = "#" + m.id; });
-      nav.appendChild(btn);
+    // --- Search input ---
+    var searchWrap = document.createElement("div");
+    searchWrap.className = "eikon-nav-search";
+    var searchInput = document.createElement("input");
+    searchInput.type = "text";
+    searchInput.placeholder = "Search modules…";
+    searchInput.className = "eikon-nav-search-input";
+    searchWrap.appendChild(searchInput);
+    nav.appendChild(searchWrap);
+
+    // --- Categories container (hidden during search) ---
+    var catsContainer = document.createElement("div");
+    catsContainer.className = "eikon-nav-cats";
+    nav.appendChild(catsContainer);
+
+    // --- Search results container (hidden by default) ---
+    var searchResults = document.createElement("div");
+    searchResults.className = "eikon-nav-search-results";
+    searchResults.style.display = "none";
+    nav.appendChild(searchResults);
+
+    // --- Dashboard (standalone, no category) ---
+    var dash = modById["dashboard"];
+    if (dash) {
+      catsContainer.appendChild(E._createNavBtn(dash));
+    }
+
+    // --- Render each category ---
+    E.SIDEBAR_CATEGORIES.forEach(function (cat) {
+      var group = document.createElement("div");
+      group.className = "eikon-nav-cat-group";
+      group.setAttribute("data-cat", cat.label);
+
+      // Category header
+      var header = document.createElement("button");
+      header.className = "eikon-nav-cat";
+      var isExpanded = E.state.expandedCategory === cat.label;
+      if (isExpanded) header.classList.add("expanded");
+
+      var catIco = document.createElement("span");
+      catIco.className = "eikon-nav-cat-ico";
+      catIco.textContent = cat.icon;
+
+      var catLabel = document.createElement("span");
+      catLabel.className = "eikon-nav-cat-label";
+      catLabel.textContent = cat.label;
+
+      var chevron = document.createElement("span");
+      chevron.className = "eikon-nav-cat-chevron";
+      chevron.textContent = "›";
+
+      header.appendChild(catIco);
+      header.appendChild(catLabel);
+      header.appendChild(chevron);
+
+      header.addEventListener("click", function () {
+        E._expandCategory(cat.label);
+      });
+
+      group.appendChild(header);
+
+      // Category items
+      var itemsWrap = document.createElement("div");
+      itemsWrap.className = "eikon-nav-cat-items";
+      if (isExpanded) itemsWrap.classList.add("expanded");
+
+      // Sort category modules by their order
+      var catMods = [];
+      cat.moduleIds.forEach(function (id) {
+        if (modById[id]) catMods.push(modById[id]);
+      });
+      catMods.sort(function (a, b) { return (a.order || 999) - (b.order || 999); });
+
+      catMods.forEach(function (m) {
+        itemsWrap.appendChild(E._createNavBtn(m));
+      });
+
+      group.appendChild(itemsWrap);
+      catsContainer.appendChild(group);
     });
+
+    // --- Search logic ---
+    var searchTimer = null;
+    searchInput.addEventListener("input", function () {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(function () {
+        var q = (searchInput.value || "").trim().toLowerCase();
+        if (!q) {
+          catsContainer.style.display = "";
+          searchResults.style.display = "none";
+          searchResults.innerHTML = "";
+          return;
+        }
+        catsContainer.style.display = "none";
+        searchResults.style.display = "";
+        searchResults.innerHTML = "";
+
+        var matches = allMods.filter(function (m) {
+          return (m.title || m.id).toLowerCase().indexOf(q) !== -1;
+        });
+
+        if (matches.length === 0) {
+          var noResult = document.createElement("div");
+          noResult.className = "eikon-nav-no-results";
+          noResult.textContent = "No modules found";
+          searchResults.appendChild(noResult);
+        } else {
+          matches.forEach(function (m, idx) {
+            var btn = E._createNavBtn(m);
+            btn.style.animationDelay = (idx * 40) + "ms";
+            searchResults.appendChild(btn);
+          });
+        }
+      }, 150);
+    });
+
     E.highlightNav();
   };
 
@@ -622,6 +804,14 @@
       var id = b.getAttribute("data-mod") || "";
       b.classList.toggle("active", id === active);
     });
+
+    // Auto-expand category containing active module
+    if (active) {
+      var cat = E._categoryForModule(active);
+      if (cat && E.state.expandedCategory !== cat) {
+        E._expandCategory(cat);
+      }
+    }
   };
 
   E.logout = function () {
