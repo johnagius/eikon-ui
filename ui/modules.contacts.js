@@ -420,7 +420,8 @@
         { key: "alt_phone", label: "Alternate Phone", placeholder: "e.g. 2143 1234" }
       ],
       hideable: false,
-      pullsFromModules: true
+      pullsFromModules: true,
+      locationSpecific: true
     }
   };
 
@@ -706,7 +707,9 @@
     var titleLeft = el("div", { style: "display:flex;align-items:center;gap:10px;flex-wrap:wrap;" });
     titleLeft.innerHTML =
       '<div class="ct-section-title" style="margin:0;"><span class="ct-icon">' + def.icon + '</span> ' + esc(def.title) + '</div>' +
-      '<span class="ct-shared-badge">⚠ Shared</span>';
+      (def.locationSpecific
+        ? '<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(90,162,255,.12);color:var(--accent);font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;">📍 This Location Only</span>'
+        : '<span class="ct-shared-badge">⚠ Shared</span>');
     titleRow.appendChild(titleLeft);
 
     var actionsWrap = el("div", { class: "ct-table-actions" });
@@ -953,8 +956,10 @@
             });
             if (!hasValue) { toast("Validation", "Please fill in at least one field.", "warn"); return; }
 
-            var ok = await confirmShared("add this entry");
-            if (!ok) return;
+            if (!def.locationSpecific) {
+              var ok = await confirmShared("add this entry");
+              if (!ok) return;
+            }
 
             E.modal.hide();
             try {
@@ -984,8 +989,10 @@
         [
           { label: "Cancel", onClick: function () { E.modal.hide(); } },
           { label: "Save", primary: true, onClick: async function () {
-            var ok = await confirmShared("edit this entry");
-            if (!ok) return;
+            if (!def.locationSpecific) {
+              var ok = await confirmShared("edit this entry");
+              if (!ok) return;
+            }
 
             def.columns.forEach(function (col) {
               var inp = document.getElementById("ct-edit-" + col.key);
@@ -1007,8 +1014,10 @@
 
     /* ---- Delete ---- */
     async function doDelete(row, idx) {
-      var ok = await confirmShared("delete this entry");
-      if (!ok) return;
+      if (!def.locationSpecific) {
+        var ok = await confirmShared("delete this entry");
+        if (!ok) return;
+      }
       try {
         if (row.id && String(row.id).indexOf("tmp-") !== 0) {
           await apiDelete(def.apiTable, row.id);
@@ -1139,8 +1148,10 @@
               return;
             }
 
-            var ok = await confirmShared("import " + imported.length + " row(s)");
-            if (!ok) return;
+            if (!def.locationSpecific) {
+              var ok = await confirmShared("import " + imported.length + " row(s)");
+              if (!ok) return;
+            }
 
             E.modal.hide();
             try {
