@@ -15417,7 +15417,7 @@ if (url.pathname.startsWith("/dda-stocktakes/items/")) {
 
     // ── Contacts ────────────────────────────────────────────────────────
     {
-      const ctMatch = url.pathname.match(/^\/contacts\/(suppliers|medreps|headoffice|orgpharmacies|poyc|locums)(?:\/(\d+))?(?:\/bulk)?$/);
+      const ctMatch = url.pathname.match(/^\/contacts\/(suppliers|medreps|headoffice|orgpharmacies|poyc|locums|doctors|specialists)(?:\/(\d+))?(?:\/bulk)?$/);
       if (ctMatch) {
         const ctTable = ctMatch[1];
         const ctId = ctMatch[2] ? parseInt(ctMatch[2], 10) : null;
@@ -16409,7 +16409,9 @@ const CONTACTS_TABLES = {
   headoffice:     { db: "contacts_headoffice",     cols: ["name", "phone"] },
   orgpharmacies:  { db: "contacts_orgpharmacies",  cols: ["name", "phone"] },
   poyc:           { db: "contacts_poyc",           cols: ["name", "phone"] },
-  locums:         { db: "contacts_locums",         cols: ["name", "phone"] }
+  locums:         { db: "contacts_locums",         cols: ["name", "phone"] },
+  doctors:        { db: "contacts_doctors",        cols: ["name", "phone"] },
+  specialists:    { db: "contacts_specialists",    cols: ["name", "specialty", "phone"] }
 };
 
 async function ensureContactsSchema(env) {
