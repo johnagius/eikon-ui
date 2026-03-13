@@ -424,14 +424,14 @@
           '</div>' +
           '<div class="board-info">' +
             'Messages are kept for <b>6 months</b>. <b>Pin</b> important messages to keep them permanently (max 30). ' +
-            'Use <b>#suggestion</b> in your message to save it as a suggestion. Use <b>@name</b> to mention someone.' +
+            'Use <b>#suggestion</b> in your message to save it as a suggestion. Use <b>@location</b> to mention a pharmacy.' +
           '</div>' +
           '<div id="board-pinned-section">' + pinnedHtml + '</div>' +
           '<div class="board-feed-wrap">' +
             '<div class="board-feed" id="board-feed">' + feedHtml + '</div>' +
             '<div class="board-compose">' +
               '<div class="board-mention-drop" id="board-mention-drop"></div>' +
-              '<textarea class="board-compose-input" id="board-input" placeholder="Type a message... @mention #suggestion" rows="1" maxlength="2000"></textarea>' +
+              '<textarea class="board-compose-input" id="board-input" placeholder="Type a message... @location #suggestion" rows="1" maxlength="2000"></textarea>' +
               '<button class="board-send-btn" id="board-send-btn" disabled data-action="send">Send</button>' +
             '</div>' +
           '</div>' +
@@ -926,14 +926,14 @@
       return;
     }
     var html = "";
+    var seen = {};
     for (var i = 0; i < users.length; i++) {
       var u = users[i];
-      var displayName = cleanDisplayName(u.full_name);
-      var locLabel = u.location_name ? esc(u.location_name) : "";
-      var orgLabel = u.org_name ? (locLabel ? " \u00B7 " : "") + esc(u.org_name) : "";
-      html += '<div class="board-mention-item" data-action="select-mention" data-user-name="' + esc(displayName) + '" data-idx="' + i + '">' +
-        '<span class="board-mention-item-name">' + esc(displayName) + '</span>' +
-        '<span class="board-mention-item-loc">' + locLabel + orgLabel + '</span>' +
+      var locName = u.location_name || "";
+      if (!locName || seen[locName.toLowerCase()]) continue;
+      seen[locName.toLowerCase()] = true;
+      html += '<div class="board-mention-item" data-action="select-mention" data-user-name="' + esc(locName) + '" data-idx="' + i + '">' +
+        '<span class="board-mention-item-name">' + esc(locName) + '</span>' +
       '</div>';
     }
     drop.innerHTML = html;

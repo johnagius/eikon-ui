@@ -13835,7 +13835,7 @@ async function handleBoardMessageCreate(request, env, corsOkHeaders, authUser) {
 
   const newId = (res && res.meta && res.meta.last_row_id) ? Number(res.meta.last_row_id) : null;
 
-  // Parse @mentions — match @Name patterns, look up users
+  // Parse @mentions — match @LocationName patterns, look up users by location
   const mentionMatches = msgBody.match(/@([A-Za-z][\w .'-]{1,50})/g);
   if (mentionMatches && newId) {
     const seen = new Set();
@@ -13844,21 +13844,14 @@ async function handleBoardMessageCreate(request, env, corsOkHeaders, authUser) {
       if (!name || seen.has(name)) continue;
       seen.add(name);
 
-      // Look up user by exact full_name first
-      let user = await dbFirst(env, `SELECT id FROM users WHERE is_active = 1 AND lower(full_name) = ? LIMIT 1`, [name]);
-      // If not found, try matching against cleaned email-derived names
-      // (e.g., "Marcie" should match a user whose full_name is "marcie@example.com")
-      if (!user) {
-        const allActive = await dbAll(env, `SELECT id, full_name FROM users WHERE is_active = 1`, []);
-        for (const u of allActive) {
-          if (cleanMentionName(u.full_name).toLowerCase() === name) {
-            user = u;
-            break;
-          }
-        }
-      }
-      if (user && user.id !== authUser.user_id) {
-        await dbRun(env, `INSERT INTO board_mentions (message_id, mentioned_user_id, created_at) VALUES (?, ?, datetime('now'))`, [newId, user.id]);
+      // Look up all users at the mentioned location
+      const mentionedUsers = await dbAll(env, `
+        SELECT u.id FROM users u
+        LEFT JOIN locations l ON l.id = u.default_location_id
+        WHERE u.is_active = 1 AND u.id != ? AND lower(COALESCE(l.name,'')) = ?
+      `, [authUser.user_id, name]);
+      for (const mu of mentionedUsers) {
+        await dbRun(env, `INSERT INTO board_mentions (message_id, mentioned_user_id, created_at) VALUES (?, ?, datetime('now'))`, [newId, mu.id]);
       }
     }
   }
