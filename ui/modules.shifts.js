@@ -1684,7 +1684,7 @@ function rcard(l,v,c){
       '<button class="eikon-btn" id="sh-cp">◀</button>'+
       '<div style="font-weight:900;font-size:17px;min-width:180px;text-align:center;">'+MONTHS[mo]+" "+y+'</div>'+
       '<button class="eikon-btn" id="sh-cn">▶</button>'+
-      '<button class="eikon-btn" id="sh-ct">Today</button>'+'<button class="eikon-btn" id="sh-exp">Print</button>'+
+      '<button class="eikon-btn" id="sh-ct">Today</button>'+'<button class="eikon-btn" id="sh-mp" title="Apply a weekly pattern to the entire month">↻ Month Pattern</button>'+'<button class="eikon-btn" id="sh-exp">Print</button>'+
       '<div style="flex:1;"></div>'+
       '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:11px;">'+
       Object.keys(DESIG).slice(0,5).map(function(k){
@@ -1700,6 +1700,7 @@ function rcard(l,v,c){
     E.q("#sh-cn",m).onclick=function(){ S.month++; if(S.month>11){S.month=0;S.year++;} loadMonth().then(function(){vCalendar(m);}); };
     E.q("#sh-ct",m).onclick=function(){ var n=new Date(); S.year=n.getFullYear(); S.month=n.getMonth(); loadMonth().then(function(){vCalendar(m);}); };
     var expBtn = E.q("#sh-exp",m); if(expBtn) expBtn.onclick=function(){ exportPrintModal(); };
+    var mpBtn = E.q("#sh-mp",m); if(mpBtn) mpBtn.onclick=function(){ monthApplyModal(S.year, S.month, function(){ loadMonth().then(function(){vCalendar(m);}); }); };
 
     m.querySelectorAll("td[data-date]").forEach(function(td){
       td.onclick=function(){ dayModal(td.getAttribute("data-date"), function(){vCalendar(m);}); };
@@ -2368,6 +2369,163 @@ function dayModal(ds, onSave) {
         if(modeSel) modeSel.onchange = syncOverwriteConfirm;
         syncOverwriteConfirm();
       } catch(e) { console.error("[shifts][weekApply] overwrite sync error", e); }
+
+    }, 50);
+  }
+
+  function monthApplyModal(year, month, done) {
+    var staff = actStaff();
+    if (!staff.length) { toast("No staff available","error"); return; }
+
+    var days = dim(year, month);
+    var startDs = ymd(year, month, 1);
+    var endDs = ymd(year, month, days);
+    var monthLabel = MONTHS[month] + " " + year;
+
+    var staffOpts = staff.map(function(s){ return '<option value="'+s.id+'">'+esc(s.full_name)+' ('+esc(dl(s.designation))+')</option>'; }).join("");
+
+    var body =
+      '<div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Apply a weekly pattern across <b>'+esc(monthLabel)+'</b> ('+esc(startDs)+' → '+esc(endDs)+').</div>'+
+      '<div class="eikon-row">'+
+        '<div class="eikon-field"><div class="eikon-label">Employee</div><select class="eikon-select" id="ma-emp">'+staffOpts+'</select></div>'+
+        '<div class="eikon-field"><div class="eikon-label">Pattern</div><select class="eikon-select" id="ma-pat"></select></div>'+
+        '<div class="eikon-field"><div class="eikon-label">Mode</div>'+
+          '<select class="eikon-select" id="ma-mode"><option value="overwrite">Overwrite</option><option value="fill">Fill empty only</option></select>'+
+        '</div>'+
+      '</div>'+
+      '<div id="ma-owarn" style="margin-top:10px;padding:10px;border:1px solid rgba(255,90,122,.45);border-radius:10px;background:rgba(255,90,122,.06);font-size:11px;color:var(--text);display:none;">'+
+      '<div style="font-weight:800;margin-bottom:6px;">Overwrite confirmation</div>'+
+      '<label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="ma-oconf"/> I understand this will overwrite shifts for the entire month.</label>'+
+      '</div>'+
+      '<div id="ma-preview" style="margin-top:10px;"></div>'+
+      '<div style="margin-top:10px;font-size:11px;color:var(--muted);">'+
+      'The selected weekly pattern will repeat across every open day in '+esc(monthLabel)+'. Closed days (public holidays, Sundays, etc.) are automatically skipped.</div>';
+
+    E.modal.show("Apply Pattern — "+monthLabel, body, [
+      {label:"Cancel", onClick:function(){E.modal.hide();}},
+      {label:"Apply to Month", primary:true, onClick:function(){
+        var sid = parseInt(E.q("#ma-emp").value,10);
+        var e = emp(sid);
+        if(!e){ toast("Select employee","error"); return; }
+
+        var mode = E.q("#ma-mode").value;
+        if (mode==="overwrite") {
+          var c = E.q("#ma-oconf");
+          if (!c || !c.checked) { toast("Please confirm overwrite.","error"); return; }
+        }
+
+        // Get selected pattern
+        var patSel = document.getElementById("ma-pat");
+        var st = getPatternState(e);
+        var pat = findPattern(st, patSel ? patSel.value : null);
+        if (!pat || !pat.week) { toast("No pattern selected","error"); return; }
+
+        // Expand pattern into dates, skipping closed days
+        var dates = [];
+        for (var d=1; d<=days; d++) {
+          var ds = ymd(year, month, d);
+          var dayDow = new Date(ds).getDay();
+          var entry = pat.week[dayDow];
+          if (!entry || entry.off || !entry.start || !entry.end) continue;
+          var oh = ohFor(ds);
+          if (oh.closed) continue;
+          dates.push({ date: ds, start_time: entry.start, end_time: entry.end });
+        }
+
+        if (!dates.length) { toast("No open working days in this month for the selected pattern.","error"); return; }
+
+        apiOp("/shifts/apply-pattern", {method:"POST", body: JSON.stringify({
+          staff_id: sid,
+          start_date: startDs,
+          end_date: endDs,
+          mode: mode,
+          dates: dates
+        })}, function(r){
+          E.modal.hide();
+          toast("Applied to "+monthLabel+". Inserted: "+(r&&r.inserted!=null?r.inserted:"")+"");
+          done && done();
+        });
+      }}
+    ]);
+
+    setTimeout(function(){
+      var empSel = document.getElementById("ma-emp");
+      var patSel = document.getElementById("ma-pat");
+      var preview = document.getElementById("ma-preview");
+      if(!empSel || !patSel || !preview) return;
+
+      function renderPreview(pat) {
+        if (!pat || !pat.week) { preview.innerHTML = '<div style="color:var(--muted);font-size:11px;">No pattern to preview.</div>'; return; }
+        var DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+        var rows = "";
+        var openCount = 0;
+        var skipCount = 0;
+        for (var d=1; d<=days; d++) {
+          var ds = ymd(year, month, d);
+          var dayDow = new Date(ds).getDay();
+          var entry = pat.week[dayDow];
+          var off = !entry || entry.off || !entry.start || !entry.end;
+          var oh = ohFor(ds);
+          var closed = oh.closed;
+          var skipped = !off && closed;
+          if (skipped) skipCount++;
+          if (!off && !closed) openCount++;
+          var color = closed ? "var(--danger)" : off ? "var(--muted)" : "var(--text)";
+          var label = closed ? "CLOSED" : off ? "Off" : esc(entry.start)+"–"+esc(entry.end);
+          rows += '<tr style="color:'+color+';">'+
+            '<td style="padding:3px 8px;font-size:11px;">'+pad(d)+'</td>'+
+            '<td style="padding:3px 8px;font-size:11px;font-weight:600;">'+DAYS[dayDow]+'</td>'+
+            '<td style="padding:3px 8px;font-size:11px;">'+label+'</td>'+
+            '</tr>';
+        }
+        preview.innerHTML =
+          '<div style="font-size:11px;color:var(--muted);margin-bottom:6px;">'+openCount+' shifts will be created'+(skipCount ? ', '+skipCount+' closed day'+(skipCount>1?'s':'')+' skipped' : '')+'.</div>'+
+          '<div style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;">'+
+          '<table style="width:100%;border-collapse:collapse;">'+
+          '<tbody>'+rows+'</tbody></table></div>';
+      }
+
+      function refreshPatternChoices() {
+        var sid = parseInt(empSel.value,10);
+        var e = emp(sid);
+        var st = getPatternState(e);
+        var pats = st.patterns || [];
+        var prov = st.provisionalId;
+        if (!pats.length) {
+          patSel.innerHTML = '<option value="__blank">(No patterns saved)</option>';
+          renderPreview(null);
+          return;
+        }
+        patSel.innerHTML = pats.map(function(p){
+          return '<option value="'+esc(p.id)+'"'+(p.id===prov?' selected':'')+'>'+esc(p.name)+(p.id===prov?' (provisional)':'')+'</option>';
+        }).join("");
+        var selPat = findPattern(st, patSel.value) || findPattern(st, prov) || pats[0];
+        renderPreview(selPat);
+      }
+
+      empSel.onchange = refreshPatternChoices;
+      patSel.onchange = function(){
+        var sid = parseInt(empSel.value,10);
+        var e = emp(sid);
+        var st = getPatternState(e);
+        var selPat = findPattern(st, patSel.value);
+        renderPreview(selPat);
+      };
+      refreshPatternChoices();
+
+      try{
+        var modeSel = document.getElementById("ma-mode");
+        var ow = document.getElementById("ma-owarn");
+        var oc = document.getElementById("ma-oconf");
+        function syncOverwriteConfirm(){
+          if(!modeSel || !ow) return;
+          var isOw = String(modeSel.value||"") === "overwrite";
+          ow.style.display = isOw ? "block" : "none";
+          if(!isOw && oc) oc.checked = false;
+        }
+        if(modeSel) modeSel.onchange = syncOverwriteConfirm;
+        syncOverwriteConfirm();
+      } catch(e) { console.error("[shifts][monthApply] overwrite sync error", e); }
 
     }, 50);
   }
