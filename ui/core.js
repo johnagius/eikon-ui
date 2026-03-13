@@ -336,7 +336,7 @@
       "messageboard", "instructions"
     ]},
     { label: "Clinical", icon: "🏥", moduleIds: [
-      "poct", "vaccines", "ocps", "pharmacycalc"
+      "poct", "vaccines", "ocps", "pharmacycalc", "pharmacovigilance"
     ]}
   ];
 
