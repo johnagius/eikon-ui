@@ -124,7 +124,7 @@
   // ----------------------------
   var state = {
     mount: null,
-    scope: "org",         // 'org' or 'all'
+    scope: "all",         // 'org' or 'all'
     messages: [],
     pinnedMessages: [],
     suggestions: [],
@@ -585,7 +585,7 @@
   // ----------------------------
   // Actions
   // ----------------------------
-  async function sendMessage() {
+  function doSendMessage(scope) {
     var input = state.mount && state.mount.querySelector("#board-input");
     if (!input) return;
     var body = input.value.trim();
@@ -594,10 +594,11 @@
     var sendBtn = state.mount.querySelector("#board-send-btn");
     if (sendBtn) sendBtn.disabled = true;
 
+    (async function () {
     try {
       var res = await api("/board/messages", {
         method: "POST",
-        body: JSON.stringify({ body: body, scope: state.scope })
+        body: JSON.stringify({ body: body, scope: scope })
       });
       if (res.ok) {
         input.value = "";
@@ -621,6 +622,30 @@
     }
 
     if (sendBtn) sendBtn.disabled = !input.value.trim();
+    })();
+  }
+
+  function sendMessage() {
+    var input = state.mount && state.mount.querySelector("#board-input");
+    if (!input || !input.value.trim()) return;
+
+    if (state.scope === "all") {
+      E.modal.show("Send to Everyone?", "This message will be sent to <b>all pharmacies</b> across all organisations.", [
+        { label: "Send to All", danger: true, onClick: function () {
+          E.modal.hide();
+          doSendMessage("all");
+        }},
+        { label: "Send to Organisation Only", primary: true, onClick: function () {
+          E.modal.hide();
+          state.scope = "org";
+          renderUI();
+          doSendMessage("org");
+        }},
+        { label: "Cancel", onClick: function () { E.modal.hide(); } }
+      ]);
+      return;
+    }
+    doSendMessage(state.scope);
   }
 
   async function pinMessage(msgId) {

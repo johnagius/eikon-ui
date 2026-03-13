@@ -13771,12 +13771,13 @@ async function handleBoardMessagesList(request, env, corsOkHeaders, authUser, ur
   if (pinnedOnly) {
     where.push("m.is_pinned = 1");
   } else if (scope === "org") {
-    // Org view: show org-scoped messages for this org + all global messages
-    where.push("((m.scope = 'org' AND m.org_id = ?) OR m.scope = 'all')");
+    // Org view: only org-scoped messages from user's own organisation
+    where.push("m.scope = 'org' AND m.org_id = ?");
     bind.push(authUser.org_id);
   } else {
-    // All view: only global messages
-    where.push("m.scope = 'all'");
+    // All view: show all global messages + org messages from user's own org
+    where.push("(m.scope = 'all' OR (m.scope = 'org' AND m.org_id = ?))");
+    bind.push(authUser.org_id);
   }
 
   if (before > 0) {
