@@ -260,7 +260,20 @@
 
       /* import modal */
       ".ct-import-area{width:100%;min-height:120px;background:rgba(0,0,0,.25);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:monospace;font-size:12px;padding:10px;resize:vertical;}",
-      ".ct-import-hint{font-size:11px;color:var(--muted);margin-top:6px;line-height:1.4;}"
+      ".ct-import-hint{font-size:11px;color:var(--muted);margin-top:6px;line-height:1.4;}",
+
+      /* global search */
+      ".ct-global-search-wrap{position:relative;margin-bottom:22px;}",
+      ".ct-global-search{width:100%;background:rgba(0,0,0,.25);border:1px solid var(--border);border-radius:12px;color:var(--text);font-family:inherit;font-size:14px;padding:12px 14px 12px 40px;outline:none;transition:border-color .15s;}",
+      ".ct-global-search:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(90,162,255,.12);}",
+      ".ct-global-search-ico{position:absolute;left:14px;top:50%;transform:translateY(-50%);width:16px;height:16px;opacity:.4;pointer-events:none;}",
+      ".ct-global-results{margin-top:10px;}",
+      ".ct-global-group{margin-bottom:14px;}",
+      ".ct-global-group-title{font-size:12px;font-weight:800;color:var(--muted);margin-bottom:6px;display:flex;align-items:center;gap:6px;}",
+      ".ct-global-hit{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-bottom:4px;font-size:12px;display:flex;align-items:center;gap:10px;transition:border-color .15s;cursor:default;}",
+      ".ct-global-hit:hover{border-color:var(--accent);}",
+      ".ct-global-hit-label{font-weight:700;min-width:90px;color:var(--muted);font-size:11px;}",
+      ".ct-global-hit mark{background:rgba(90,162,255,.25);color:var(--text);border-radius:2px;padding:0 1px;}"
     ].join("\n");
     document.head.appendChild(st);
   }
@@ -377,7 +390,8 @@
       apiTable: "doctors",
       columns: [
         { key: "name", label: "Doctor Name", placeholder: "e.g. Dr. John Borg" },
-        { key: "phone", label: "Phone Number", placeholder: "e.g. 2123 4567" }
+        { key: "phone_personal", label: "Personal Number", placeholder: "e.g. 7912 3456", isPersonal: true },
+        { key: "phone_patient", label: "Patient-Safe Number", placeholder: "e.g. 2123 4567" }
       ],
       hideable: false
     },
@@ -388,10 +402,25 @@
       columns: [
         { key: "name", label: "Specialist Name", placeholder: "e.g. Dr. Maria Vella" },
         { key: "specialty", label: "Specialty", placeholder: "e.g. Cardiology", isSpecialty: true },
-        { key: "phone", label: "Phone Number", placeholder: "e.g. 2123 4567" }
+        { key: "phone_personal", label: "Personal Number", placeholder: "e.g. 7912 3456", isPersonal: true },
+        { key: "phone_patient", label: "Patient-Safe Number", placeholder: "e.g. 2123 4567" }
       ],
       hideable: false,
       hasSpecialtyFilter: true
+    },
+    clients: {
+      title: "Client Contacts",
+      icon: "👤",
+      apiTable: "clients",
+      columns: [
+        { key: "name", label: "Client Name", placeholder: "e.g. Joe Camilleri" },
+        { key: "id_card", label: "Client ID", placeholder: "e.g. 123456M" },
+        { key: "address", label: "Address", placeholder: "e.g. 12, Triq il-Kbira, Mosta" },
+        { key: "phone", label: "Phone", placeholder: "e.g. 7912 3456" },
+        { key: "alt_phone", label: "Alternate Phone", placeholder: "e.g. 2143 1234" }
+      ],
+      hideable: false,
+      pullsFromModules: true
     }
   };
 
@@ -492,6 +521,125 @@
     page.appendChild(banner);
 
     /* ========================================
+       GLOBAL SEARCH — searches all tables + emergency numbers + clinics
+       ======================================== */
+    var globalWrap = el("div", { class: "ct-global-search-wrap" });
+    globalWrap.innerHTML = '<svg class="ct-global-search-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>';
+    var globalInput = el("input", { class: "ct-global-search", type: "text", placeholder: "Search all contacts, emergency numbers, clinics…" });
+    globalWrap.appendChild(globalInput);
+    var globalResults = el("div", { class: "ct-global-results", style: "display:none;" });
+    globalWrap.appendChild(globalResults);
+    page.appendChild(globalWrap);
+
+    /* we'll collect references to all table data after they load */
+    var allTableData = {};
+
+    function highlightMatch(text, query) {
+      if (!query || !text) return esc(text || "");
+      var lower = String(text).toLowerCase();
+      var idx = lower.indexOf(query.toLowerCase());
+      if (idx === -1) return esc(text);
+      return esc(text.substring(0, idx)) + '<mark>' + esc(text.substring(idx, idx + query.length)) + '</mark>' + esc(text.substring(idx + query.length));
+    }
+
+    function doGlobalSearch(query) {
+      globalResults.innerHTML = "";
+      if (!query || query.length < 2) {
+        globalResults.style.display = "none";
+        return;
+      }
+      globalResults.style.display = "";
+      var q = query.toLowerCase();
+      var found = false;
+
+      /* search emergency numbers */
+      var emergHits = EMERGENCY_NUMBERS.filter(function (item) {
+        return item.name.toLowerCase().indexOf(q) !== -1 ||
+               item.number.toLowerCase().indexOf(q) !== -1 ||
+               (item.note && item.note.toLowerCase().indexOf(q) !== -1);
+      });
+      if (emergHits.length > 0) {
+        found = true;
+        var grp = el("div", { class: "ct-global-group" });
+        grp.innerHTML = '<div class="ct-global-group-title">🚨 Emergency & Important Numbers</div>';
+        emergHits.forEach(function (item) {
+          var hit = el("div", { class: "ct-global-hit" });
+          hit.innerHTML = '<span>' + item.icon + '</span>' +
+            '<span>' + highlightMatch(item.name, query) + '</span>' +
+            '<span style="font-weight:600;color:var(--accent);">' + highlightMatch(item.number, query) + '</span>' +
+            (item.note ? '<span style="color:var(--muted);font-size:11px;">' + highlightMatch(item.note, query) + '</span>' : '');
+          grp.appendChild(hit);
+        });
+        globalResults.appendChild(grp);
+      }
+
+      /* search clinics */
+      var clinicHits = HEALTH_CLINICS_24H.filter(function (item) {
+        return item.name.toLowerCase().indexOf(q) !== -1 ||
+               item.number.toLowerCase().indexOf(q) !== -1 ||
+               (item.note && item.note.toLowerCase().indexOf(q) !== -1);
+      });
+      if (clinicHits.length > 0) {
+        found = true;
+        var grp2 = el("div", { class: "ct-global-group" });
+        grp2.innerHTML = '<div class="ct-global-group-title">🏥 24/7 Public Health Clinics</div>';
+        clinicHits.forEach(function (item) {
+          var hit = el("div", { class: "ct-global-hit" });
+          hit.innerHTML = '<span>' + highlightMatch(item.name, query) + '</span>' +
+            '<span style="font-weight:600;color:var(--ok);">' + highlightMatch(item.number, query) + '</span>';
+          grp2.appendChild(hit);
+        });
+        globalResults.appendChild(grp2);
+      }
+
+      /* search all editable tables */
+      Object.keys(allTableData).forEach(function (tableKey) {
+        var tdef = TABLE_DEFS[tableKey];
+        var trows = allTableData[tableKey] || [];
+        var hits = trows.filter(function (row) {
+          return tdef.columns.some(function (col) {
+            return String(row[col.key] || "").toLowerCase().indexOf(q) !== -1;
+          });
+        });
+        if (hits.length > 0) {
+          found = true;
+          var grp3 = el("div", { class: "ct-global-group" });
+          grp3.innerHTML = '<div class="ct-global-group-title">' + tdef.icon + ' ' + esc(tdef.title) + ' <span style="font-size:10px;color:var(--muted);">(' + hits.length + ')</span></div>';
+          hits.slice(0, 15).forEach(function (row) {
+            var hit = el("div", { class: "ct-global-hit" });
+            var parts = [];
+            tdef.columns.forEach(function (col) {
+              if (row[col.key]) {
+                var style = '';
+                if (col.key === 'phone' || col.key === 'phone_patient' || col.key === 'alt_phone') style = 'font-weight:600;letter-spacing:.3px;';
+                if (col.isPersonal) style = 'font-weight:600;';
+                parts.push('<span><span class="ct-global-hit-label">' + esc(col.label) + ':</span> <span style="' + style + '">' + highlightMatch(row[col.key], query) + '</span></span>');
+              }
+            });
+            hit.innerHTML = parts.join('<span style="color:var(--border);margin:0 2px;">|</span>');
+            grp3.appendChild(hit);
+          });
+          if (hits.length > 15) {
+            grp3.appendChild(el("div", { class: "ct-empty", style: "padding:6px;font-size:11px;", text: "… and " + (hits.length - 15) + " more results. Use the table search to see all." }));
+          }
+          globalResults.appendChild(grp3);
+        }
+      });
+
+      if (!found) {
+        globalResults.innerHTML = '<div class="ct-empty" style="padding:12px;">No results found for "' + esc(query) + '".</div>';
+      }
+    }
+
+    var globalTimer = null;
+    globalInput.addEventListener("input", function () {
+      clearTimeout(globalTimer);
+      globalTimer = setTimeout(function () {
+        doGlobalSearch((globalInput.value || "").trim());
+      }, 200);
+    });
+
+    /* ========================================
        SECTION 1 — Emergency Numbers
        ======================================== */
     var sec1 = el("div", { class: "ct-section" });
@@ -531,18 +679,20 @@
     /* ========================================
        SECTION 3–7 — Editable tables
        ======================================== */
-    var tableOrder = ["suppliers", "medreps", "doctors", "specialists", "locums", "headoffice", "orgpharmacies", "poyc"];
+    var tableOrder = ["clients", "suppliers", "medreps", "doctors", "specialists", "locums", "headoffice", "orgpharmacies", "poyc"];
 
     tableOrder.forEach(function (tableKey) {
-      var def = TABLE_DEFS[tableKey];
-      renderEditableSection(page, def, user);
+      var tblDef = TABLE_DEFS[tableKey];
+      renderEditableSection(page, tblDef, user, function (loadedRows) {
+        allTableData[tableKey] = loadedRows;
+      });
     });
   }
 
   /* ============================================================
      EDITABLE SECTION builder
      ============================================================ */
-  function renderEditableSection(parent, def, user) {
+  function renderEditableSection(parent, def, user, onDataLoaded) {
     var sec = el("div", { class: "ct-section", "data-table": def.apiTable });
 
     /* ---- hidden state (from localStorage) ---- */
@@ -729,7 +879,10 @@
           var td = el("td");
           if (col.key === "email" && row[col.key]) {
             td.innerHTML = '<a href="mailto:' + esc(row[col.key]) + '" style="color:var(--accent);text-decoration:none;">' + esc(row[col.key]) + '</a>';
-          } else if (col.key === "phone" && row[col.key]) {
+          } else if (col.isPersonal && row[col.key]) {
+            td.innerHTML = '<span style="font-weight:600;letter-spacing:.3px;">' + esc(row[col.key]) + '</span>' +
+              ' <span style="display:inline-block;background:rgba(255,90,122,.12);color:var(--danger);font-size:9px;font-weight:800;padding:1px 5px;border-radius:4px;vertical-align:middle;">DO NOT GIVE TO PATIENTS</span>';
+          } else if ((col.key === "phone" || col.key === "phone_patient" || col.key === "alt_phone") && row[col.key]) {
             td.innerHTML = '<span style="font-weight:600;letter-spacing:.3px;">' + esc(row[col.key]) + '</span>';
           } else if (col.isSpecialty && row[col.key]) {
             td.innerHTML = '<span style="display:inline-block;background:rgba(90,162,255,.12);color:var(--accent);font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;">' + esc(row[col.key]) + '</span>';
@@ -868,35 +1021,93 @@
       }
     }
 
-    /* ---- Export ---- */
+    /* ---- Export (Google Contacts CSV format) ---- */
+    function buildGoogleContactsCsv() {
+      /* Google Contacts CSV headers — we use the subset that makes sense */
+      var gHeaders = ["Name", "Given Name", "Family Name", "Group Membership",
+        "Phone 1 - Type", "Phone 1 - Value", "Phone 2 - Type", "Phone 2 - Value",
+        "E-mail 1 - Type", "E-mail 1 - Value",
+        "Address 1 - Type", "Address 1 - Formatted",
+        "Organization 1 - Name", "Notes"];
+
+      var lines = [gHeaders.map(escapeCsvField).join(",")];
+      var group = def.title.replace(" Contacts", "").replace(" Numbers", "");
+
+      rows.forEach(function (r) {
+        var name = r.name || "";
+        var parts = name.trim().split(/\s+/);
+        var given = parts[0] || "";
+        var family = parts.slice(1).join(" ") || "";
+        var phone1Type = "";
+        var phone1Val = "";
+        var phone2Type = "";
+        var phone2Val = "";
+        var email = "";
+        var address = "";
+        var org = "";
+        var notes = "";
+
+        /* map columns to Google Contacts fields */
+        if (r.phone_personal) { phone1Type = "Mobile"; phone1Val = r.phone_personal; }
+        if (r.phone_patient) { phone2Type = "Work"; phone2Val = r.phone_patient; }
+        if (!phone1Val && r.phone) { phone1Type = "Mobile"; phone1Val = r.phone; }
+        if (!phone2Val && r.alt_phone) { phone2Type = "Home"; phone2Val = r.alt_phone; }
+        if (r.email) email = r.email;
+        if (r.address) address = r.address;
+        if (r.specialty) notes = "Specialty: " + r.specialty;
+        if (r.id_card) notes = (notes ? notes + " | " : "") + "ID: " + r.id_card;
+
+        var vals = [
+          name, given, family,
+          group + " ::: * myContacts",
+          phone1Type, phone1Val, phone2Type, phone2Val,
+          email ? "Work" : "", email,
+          address ? "Home" : "", address,
+          org, notes
+        ];
+        lines.push(vals.map(escapeCsvField).join(","));
+      });
+      return lines.join("\n");
+    }
+
     function doExport() {
       if (rows.length === 0) {
         toast("Export", "No data to export.", "warn");
         return;
       }
-      var headers = def.columns.map(function (c) { return c.label; });
-      var fields = def.columns.map(function (c) { return c.key; });
-      var csv = rowsToCsv(headers, rows, fields);
+      var csv = buildGoogleContactsCsv();
+      var filename = def.apiTable + "_contacts_export.csv";
 
       E.modal.show(
         "Export — " + def.title,
         '<div>' +
-        '<div class="eikon-help" style="margin-bottom:8px;">Copy the CSV text below:</div>' +
+        '<div class="eikon-help" style="margin-bottom:8px;">Export as Google Contacts CSV format. Download the file then import into Google Contacts.</div>' +
         '<textarea class="ct-import-area" id="ct-export-area" readonly>' + esc(csv) + '</textarea>' +
         '</div>',
         [
           { label: "Close", onClick: function () { E.modal.hide(); } },
-          { label: "Copy to clipboard", primary: true, onClick: function () {
+          { label: "Copy to clipboard", onClick: function () {
             var area = document.getElementById("ct-export-area");
             if (area) {
               area.select();
               try { navigator.clipboard.writeText(area.value); } catch (e) { document.execCommand("copy"); }
             }
             toast("Copied", "CSV copied to clipboard.", "good");
+          }},
+          { label: "Download CSV", primary: true, onClick: function () {
+            var blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement("a");
+            a.href = url;
+            a.download = filename;
+            a.style.display = "none";
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(function () { document.body.removeChild(a); URL.revokeObjectURL(url); }, 200);
+            toast("Downloaded", filename + " saved.", "good");
           }}
         ]
       );
-      /* auto-select */
       setTimeout(function () {
         var area = document.getElementById("ct-export-area");
         if (area) area.select();
@@ -952,14 +1163,45 @@
     }
 
     /* ---- initial load ---- */
-    apiList(def.apiTable).then(function (data) {
+    var loadPromise;
+    if (def.pullsFromModules) {
+      /* clients table: load both contacts_clients AND aggregated client data from other modules */
+      loadPromise = Promise.all([
+        apiList(def.apiTable),
+        E.apiFetch("/contacts/clients/aggregated", { method: "GET" }).catch(function () { return { rows: [] }; })
+      ]).then(function (results) {
+        var manual = Array.isArray(results[0]) ? results[0] : [];
+        var aggregated = (results[1] && Array.isArray(results[1].rows)) ? results[1].rows : [];
+        /* merge: manual entries first, then aggregated (de-duped by name+id_card) */
+        var seen = {};
+        manual.forEach(function (r) {
+          var key = (r.name || "").toLowerCase() + "|" + (r.id_card || "").toLowerCase();
+          seen[key] = true;
+        });
+        aggregated.forEach(function (r) {
+          var key = (r.name || "").toLowerCase() + "|" + (r.id_card || "").toLowerCase();
+          if (!seen[key]) {
+            seen[key] = true;
+            r._aggregated = true;
+            manual.push(r);
+          }
+        });
+        return manual;
+      });
+    } else {
+      loadPromise = apiList(def.apiTable);
+    }
+
+    loadPromise.then(function (data) {
       rows = Array.isArray(data) ? data : [];
       loading = false;
       renderTable();
+      if (onDataLoaded) onDataLoaded(rows);
     }).catch(function (err) {
       loading = false;
       rows = [];
       renderTable();
+      if (onDataLoaded) onDataLoaded(rows);
       E.warn("[contacts] failed to load " + def.apiTable + ":", err);
     });
 

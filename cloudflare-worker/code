@@ -15416,8 +15416,52 @@ if (url.pathname.startsWith("/dda-stocktakes/items/")) {
     // ── End Pharmacovigilance ─────────────────────────────────────────────
 
     // ── Contacts ────────────────────────────────────────────────────────
+    /* Aggregated client contacts — pulls unique clients from other modules */
+    if (url.pathname === "/contacts/clients/aggregated" && request.method === "GET") {
+      if (!requireRole(authUser, ["admin", "staff"])) {
+        return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+      }
+      const orgId = authUser.org_id;
+      const locId = authUser.location_id;
+      const agg = [];
+      const seen = new Set();
+
+      function addClient(name, idCard, address, phone, altPhone) {
+        name = (name || "").trim();
+        if (!name) return;
+        const key = name.toLowerCase() + "|" + (idCard || "").toLowerCase().trim();
+        if (seen.has(key)) return;
+        seen.add(key);
+        agg.push({ name: name, id_card: (idCard || "").trim(), address: (address || "").trim(), phone: (phone || "").trim(), alt_phone: (altPhone || "").trim() });
+      }
+
+      try {
+        const orders = await dbAll(env, "SELECT client_name, '', client_address, client_phone, client_alt_phone FROM client_orders_entries WHERE org_id = ? AND location_id = ?", [orgId, locId]);
+        orders.forEach(r => addClient(r.client_name, "", r.client_address, r.client_phone, r.client_alt_phone));
+      } catch(e) {}
+      try {
+        const tickets = await dbAll(env, "SELECT client_name, phone FROM client_tickets_entries WHERE org_id = ? AND location_id = ?", [orgId, locId]);
+        tickets.forEach(r => addClient(r.client_name, "", "", r.phone, ""));
+      } catch(e) {}
+      try {
+        const deliveries = await dbAll(env, "SELECT client_name, phone, delivery_address FROM client_deliveries WHERE org_id = ? AND location_id = ?", [orgId, locId]);
+        deliveries.forEach(r => addClient(r.client_name, "", r.delivery_address, r.phone, ""));
+      } catch(e) {}
+      try {
+        const dda = await dbAll(env, "SELECT client_name, client_id_card, client_address FROM dda_sales_entries WHERE org_id = ? AND location_id = ?", [orgId, locId]);
+        dda.forEach(r => addClient(r.client_name, r.client_id_card, r.client_address, "", ""));
+      } catch(e) {}
+      try {
+        const poct = await dbAll(env, "SELECT name, patient_id, phone, address FROM poct_patients WHERE org_id = ? AND location_id = ?", [orgId, locId]);
+        poct.forEach(r => addClient(r.name, r.patient_id, r.address, r.phone, ""));
+      } catch(e) {}
+
+      agg.sort((a, b) => a.name.localeCompare(b.name));
+      return jsonResponse({ ok: true, rows: agg }, 200, corsOkHeaders);
+    }
+
     {
-      const ctMatch = url.pathname.match(/^\/contacts\/(suppliers|medreps|headoffice|orgpharmacies|poyc|locums|doctors|specialists)(?:\/(\d+))?(?:\/bulk)?$/);
+      const ctMatch = url.pathname.match(/^\/contacts\/(suppliers|medreps|headoffice|orgpharmacies|poyc|locums|doctors|specialists|clients)(?:\/(\d+))?(?:\/bulk)?$/);
       if (ctMatch) {
         const ctTable = ctMatch[1];
         const ctId = ctMatch[2] ? parseInt(ctMatch[2], 10) : null;
@@ -16410,8 +16454,9 @@ const CONTACTS_TABLES = {
   orgpharmacies:  { db: "contacts_orgpharmacies",  cols: ["name", "phone"] },
   poyc:           { db: "contacts_poyc",           cols: ["name", "phone"] },
   locums:         { db: "contacts_locums",         cols: ["name", "phone"] },
-  doctors:        { db: "contacts_doctors",        cols: ["name", "phone"] },
-  specialists:    { db: "contacts_specialists",    cols: ["name", "specialty", "phone"] }
+  doctors:        { db: "contacts_doctors",        cols: ["name", "phone_personal", "phone_patient"] },
+  specialists:    { db: "contacts_specialists",    cols: ["name", "specialty", "phone_personal", "phone_patient"] },
+  clients:        { db: "contacts_clients",        cols: ["name", "id_card", "address", "phone", "alt_phone"] }
 };
 
 async function ensureContactsSchema(env) {
