@@ -253,11 +253,6 @@
     { icon: "📞", name: "Urgent Non-Emergency Care", number: "1400", note: "Helpline" },
     { icon: "🏥", name: "Mater Dei Hospital", number: "2545 0000", note: "Malta" },
     { icon: "🏥", name: "Gozo General Hospital", number: "2156 1600", note: "Gozo" },
-    { icon: "🚁", name: "Helicopter Rescue (AFM)", number: "2124 4371", note: "" },
-    { icon: "🚤", name: "Patrol Boat Rescue (AFM)", number: "2123 8797", note: "" },
-    { icon: "🛡️", name: "Armed Forces of Malta", number: "2249 4000", note: "" },
-    { icon: "🐾", name: "Emergency Vet Services", number: "5004 3888", note: "" },
-    { icon: "📱", name: "Emergency SMS", number: "79 770 112", note: "Text-based" }
   ];
 
   var HEALTH_CLINICS_24H = [
