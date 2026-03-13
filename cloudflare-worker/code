@@ -13852,6 +13852,13 @@ async function handleBoardMessageCreate(request, env, corsOkHeaders, authUser) {
     `, [authUser.org_id, newId, sugTitle, authUser.user_id, authUser.full_name || ""]);
   }
 
+  // Update last_read_id so the user's own message doesn't count as unread
+  try {
+    await dbRun(env, `INSERT INTO board_user_state(user_id, last_read_id) VALUES(?, ?)
+      ON CONFLICT(user_id) DO UPDATE SET last_read_id = MAX(last_read_id, excluded.last_read_id)`,
+      [authUser.user_id, newId]);
+  } catch (e) {}
+
   // Return the created message
   const msg = await dbFirst(env, `SELECT * FROM board_messages WHERE id = ?`, [newId]);
   return jsonResponse({ ok: true, id: newId, message: msg }, 200, corsOkHeaders);
@@ -14019,19 +14026,19 @@ async function handleBoardUserSearch(request, env, corsOkHeaders, authUser, url)
            FROM users u
            LEFT JOIN locations l ON l.id = u.default_location_id
            LEFT JOIN orgs o ON o.id = u.org_id
-           WHERE u.org_id = ? AND u.is_active = 1
+           WHERE u.org_id = ? AND u.is_active = 1 AND u.id != ?
              AND (lower(u.full_name) LIKE ? OR lower(COALESCE(l.name,'')) LIKE ?)
            ORDER BY u.full_name LIMIT 15`;
-    bind = [authUser.org_id, likeQ, likeQ];
+    bind = [authUser.org_id, authUser.user_id, likeQ, likeQ];
   } else {
     sql = `SELECT u.id, u.full_name, l.name AS location_name, o.name AS org_name
            FROM users u
            LEFT JOIN locations l ON l.id = u.default_location_id
            LEFT JOIN orgs o ON o.id = u.org_id
-           WHERE u.is_active = 1
+           WHERE u.is_active = 1 AND u.id != ?
              AND (lower(u.full_name) LIKE ? OR lower(COALESCE(l.name,'')) LIKE ?)
            ORDER BY u.full_name LIMIT 15`;
-    bind = [likeQ, likeQ];
+    bind = [authUser.user_id, likeQ, likeQ];
   }
 
   const rows = await dbAll(env, sql, bind);
