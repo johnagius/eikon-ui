@@ -13730,6 +13730,16 @@ async function ensureBoardSchema(env) {
     last_read_id INTEGER NOT NULL DEFAULT 0
   )`, []);
 
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS board_suggestion_comments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    suggestion_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    user_name TEXT NOT NULL DEFAULT '',
+    body TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`, []);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_board_sugcom_sug ON board_suggestion_comments(suggestion_id)`, []);
+
   _boardSchemaReady = true;
 }
 
@@ -13934,7 +13944,13 @@ async function handleBoardMentionsMarkRead(request, env, corsOkHeaders, authUser
 // --- Suggestions list ---
 async function handleBoardSuggestionsList(request, env, corsOkHeaders, authUser) {
   await ensureBoardSchema(env);
-  const rows = await dbAll(env, `SELECT * FROM board_suggestions ORDER BY created_at DESC LIMIT 200`, []);
+  const rows = await dbAll(env, `
+    SELECT s.*, COALESCE(c.cnt, 0) AS comment_count
+    FROM board_suggestions s
+    LEFT JOIN (SELECT suggestion_id, COUNT(*) AS cnt FROM board_suggestion_comments GROUP BY suggestion_id) c
+      ON c.suggestion_id = s.id
+    ORDER BY s.created_at DESC LIMIT 200
+  `, []);
   return jsonResponse({ ok: true, suggestions: rows }, 200, corsOkHeaders);
 }
 
@@ -13960,8 +13976,13 @@ async function handleBoardSuggestionCreate(request, env, corsOkHeaders, authUser
 // --- Update suggestion ---
 async function handleBoardSuggestionUpdate(request, env, corsOkHeaders, authUser, sugId) {
   await ensureBoardSchema(env);
-  const existing = await dbFirst(env, `SELECT id FROM board_suggestions WHERE id = ?`, [sugId]);
+  const existing = await dbFirst(env, `SELECT id, created_by FROM board_suggestions WHERE id = ?`, [sugId]);
   if (!existing) return jsonResponse({ ok: false, error: "Suggestion not found" }, 404, corsOkHeaders);
+
+  // Ownership: creator can edit title/priority; superadmin can edit anything
+  const isOwner = existing.created_by === authUser.user_id;
+  const isSuper = isSuperuser(authUser, env);
+  if (!isOwner && !isSuper) return jsonResponse({ ok: false, error: "You can only edit your own suggestions" }, 403, corsOkHeaders);
 
   const body = await readJson(request);
   const sets = [];
@@ -13971,8 +13992,8 @@ async function handleBoardSuggestionUpdate(request, env, corsOkHeaders, authUser
     const p = ["low", "medium", "high"].includes(String(body.priority).toLowerCase()) ? String(body.priority).toLowerCase() : "medium";
     sets.push("priority = ?"); bind.push(p);
   }
-  if (body.status !== undefined) {
-    const s = ["open", "noted", "done"].includes(String(body.status).toLowerCase()) ? String(body.status).toLowerCase() : "open";
+  if (body.status !== undefined && isSuper) {
+    const s = ["open", "in_progress", "resolved"].includes(String(body.status).toLowerCase()) ? String(body.status).toLowerCase() : "open";
     sets.push("status = ?"); bind.push(s);
   }
   if (body.title !== undefined) {
@@ -13985,6 +14006,43 @@ async function handleBoardSuggestionUpdate(request, env, corsOkHeaders, authUser
   sets.push("updated_at = datetime('now')");
   bind.push(sugId);
   await dbRun(env, `UPDATE board_suggestions SET ${sets.join(", ")} WHERE id = ?`, bind);
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+// --- Delete suggestion (own or superadmin) ---
+async function handleBoardSuggestionDelete(request, env, corsOkHeaders, authUser, sugId) {
+  await ensureBoardSchema(env);
+  const existing = await dbFirst(env, `SELECT id, created_by FROM board_suggestions WHERE id = ?`, [sugId]);
+  if (!existing) return jsonResponse({ ok: false, error: "Suggestion not found" }, 404, corsOkHeaders);
+  if (existing.created_by !== authUser.user_id && !isSuperuser(authUser, env)) {
+    return jsonResponse({ ok: false, error: "You can only delete your own suggestions" }, 403, corsOkHeaders);
+  }
+  await dbRun(env, `DELETE FROM board_suggestion_comments WHERE suggestion_id = ?`, [sugId]);
+  await dbRun(env, `DELETE FROM board_suggestions WHERE id = ?`, [sugId]);
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+// --- Suggestion comments ---
+async function handleBoardSuggestionCommentsList(request, env, corsOkHeaders, authUser, sugId) {
+  await ensureBoardSchema(env);
+  const rows = await dbAll(env, `SELECT id, suggestion_id, user_id, user_name, body, created_at FROM board_suggestion_comments WHERE suggestion_id = ? ORDER BY created_at ASC`, [sugId]);
+  return jsonResponse({ ok: true, comments: rows }, 200, corsOkHeaders);
+}
+
+async function handleBoardSuggestionCommentCreate(request, env, corsOkHeaders, authUser, sugId) {
+  await ensureBoardSchema(env);
+  if (!isSuperuser(authUser, env)) {
+    return jsonResponse({ ok: false, error: "Only superadmin can comment on suggestions" }, 403, corsOkHeaders);
+  }
+  const existing = await dbFirst(env, `SELECT id FROM board_suggestions WHERE id = ?`, [sugId]);
+  if (!existing) return jsonResponse({ ok: false, error: "Suggestion not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+  const commentBody = String(body.body || "").trim();
+  if (!commentBody) return jsonResponse({ ok: false, error: "Comment body is required" }, 400, corsOkHeaders);
+
+  await dbRun(env, `INSERT INTO board_suggestion_comments (suggestion_id, user_id, user_name, body, created_at) VALUES (?, ?, ?, ?, datetime('now'))`,
+    [sugId, authUser.user_id, authUser.full_name || "", commentBody]);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -15307,6 +15365,17 @@ if (url.pathname.startsWith("/dda-stocktakes/items/")) {
     { const m = url.pathname.match(/^\/board\/suggestions\/(\d+)$/);
       if (m && request.method === "PUT") {
         return await handleBoardSuggestionUpdate(request, env, corsOkHeaders, authUser, Number(m[1]));
+      }
+      if (m && request.method === "DELETE") {
+        return await handleBoardSuggestionDelete(request, env, corsOkHeaders, authUser, Number(m[1]));
+      }
+    }
+    { const m = url.pathname.match(/^\/board\/suggestions\/(\d+)\/comments$/);
+      if (m && request.method === "GET") {
+        return await handleBoardSuggestionCommentsList(request, env, corsOkHeaders, authUser, Number(m[1]));
+      }
+      if (m && request.method === "POST") {
+        return await handleBoardSuggestionCommentCreate(request, env, corsOkHeaders, authUser, Number(m[1]));
       }
     }
     if (url.pathname === "/board/users/search" && request.method === "GET") {
