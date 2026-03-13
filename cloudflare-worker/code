@@ -16477,13 +16477,22 @@ async function ensureContactsSchema(env) {
       )
     `);
     await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_${def.db}_org ON ${def.db}(org_id)`);
-    /* migration: add any missing columns to existing tables */
+
+    /* migration: check existing columns and add any that are missing */
+    const pragma = await dbAll(env, `PRAGMA table_info(${def.db})`, []);
+    const existingCols = new Set(pragma.map(r => r.name));
+
     for (const col of def.cols) {
-      try { await dbRun(env, `ALTER TABLE ${def.db} ADD COLUMN ${col} TEXT NOT NULL DEFAULT ''`); } catch(e) {}
+      if (!existingCols.has(col)) {
+        await dbRun(env, `ALTER TABLE ${def.db} ADD COLUMN ${col} TEXT NOT NULL DEFAULT ''`);
+      }
     }
-    if (def.locScoped) {
+    if (def.locScoped && !existingCols.has("location_id")) {
+      await dbRun(env, `ALTER TABLE ${def.db} ADD COLUMN location_id INTEGER NOT NULL DEFAULT 0`);
       await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_${def.db}_org_loc ON ${def.db}(org_id, location_id)`);
-      try { await dbRun(env, `ALTER TABLE ${def.db} ADD COLUMN location_id INTEGER NOT NULL DEFAULT 0`); } catch(e) {}
+    }
+    if (def.locScoped && existingCols.has("location_id")) {
+      await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_${def.db}_org_loc ON ${def.db}(org_id, location_id)`);
     }
   }
 }
