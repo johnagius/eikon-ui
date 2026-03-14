@@ -200,24 +200,32 @@
   }
 
   function parseFile(file, cb) {
+    log("parseFile: name=" + file.name + " size=" + file.size + " type=" + file.type);
     if (!window.XLSX) {
+      warn("parseFile: SheetJS (XLSX) not available on window");
       cb(null, "SheetJS library not loaded. Please reload the page.");
       return;
     }
+    log("parseFile: SheetJS version=" + (XLSX.version || "unknown"));
 
     var reader = new FileReader();
     reader.onload = function (e) {
       try {
         var data = new Uint8Array(e.target.result);
+        log("parseFile: FileReader done, bytes=" + data.length);
         var wb = XLSX.read(data, { type: "array" });
+        log("parseFile: workbook parsed, sheets=" + wb.SheetNames.join(", "));
         var ws = wb.Sheets[wb.SheetNames[0]];
         var jsonRows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+        log("parseFile: rows=" + jsonRows.length);
 
         if (jsonRows.length < 2) { cb(null, "File has no data rows."); return; }
 
         // First row is headers
         var headerCells = jsonRows[0].map(function (c) { return String(c); });
+        log("parseFile: headers found: " + headerCells.join(" | "));
         var colMap = mapHeaders(headerCells);
+        log("parseFile: column mapping: " + JSON.stringify(colMap));
 
         // Check compulsory headers are mapped
         var mappedFields = {};
@@ -310,14 +318,16 @@
           rows.push(rowData);
         }
 
+        log("parseFile: done — " + rows.length + " valid rows, " + errors.length + " errors, advisory=" + advisoryNeeded);
         cb({ rows: rows, errors: errors, advisoryNeeded: advisoryNeeded });
       } catch (ex) {
-        warn("Parse error", ex);
+        warn("parseFile: FAILED", ex);
         cb(null, "Failed to parse file: " + (ex.message || ex));
       }
     };
-    reader.onerror = function () { cb(null, "Failed to read file."); };
+    reader.onerror = function () { warn("parseFile: FileReader error"); cb(null, "Failed to read file."); };
     reader.readAsArrayBuffer(file);
+    log("parseFile: FileReader started");
   }
 
   // ─── Sort helper ────────────────────────────────────────────────────────
@@ -387,44 +397,39 @@
     "Quantity Free", "Batch", "Expiry Date", "Retail Price"
   ];
 
-  function downloadTemplate(format) {
+  function downloadTemplate() {
+    log("downloadTemplate: start");
     try {
-      if (format === "csv") {
-        // Generate CSV natively — no SheetJS dependency
-        var csvLine = TEMPLATE_HEADERS.map(function (h) {
-          return '"' + h.replace(/"/g, '""') + '"';
-        }).join(",") + "\n";
-        var blob = new Blob([csvLine], { type: "text/csv;charset=utf-8;" });
-        triggerDownload(blob, "product-template.csv");
-      } else {
-        // XLSX via SheetJS (requires full build; mini doesn't support XLSX write)
-        if (!window.XLSX) { toast("bad", "Error", "SheetJS library not loaded. Please reload the page."); return; }
-        var ws = XLSX.utils.aoa_to_sheet([TEMPLATE_HEADERS]);
-        ws["!cols"] = TEMPLATE_HEADERS.map(function (h) { return { wch: Math.max(h.length + 2, 14) }; });
-        var wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Products");
-        XLSX.writeFile(wb, "product-template.xlsx");
-      }
-    } catch (ex) {
-      warn("Template download failed", ex);
-      // Fallback: download CSV if XLSX fails
-      if (format !== "csv") {
-        toast("warn", "Notice", "XLSX not supported — downloading CSV instead");
-        downloadTemplate("csv");
-      } else {
-        toast("bad", "Error", "Template download failed: " + (ex.message || ex));
-      }
-    }
-  }
+      var csvLine = TEMPLATE_HEADERS.map(function (h) {
+        return '"' + h.replace(/"/g, '""') + '"';
+      }).join(",") + "\n";
+      log("downloadTemplate: CSV content built, length=" + csvLine.length);
 
-  function triggerDownload(blob, filename) {
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(function () { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+      var blob = new Blob([csvLine], { type: "text/csv;charset=utf-8;" });
+      log("downloadTemplate: Blob created, size=" + blob.size);
+
+      var url = URL.createObjectURL(blob);
+      log("downloadTemplate: objectURL=" + url);
+
+      var a = document.createElement("a");
+      a.href = url;
+      a.download = "product-template.csv";
+      a.style.display = "none";
+      document.body.appendChild(a);
+      log("downloadTemplate: anchor appended, clicking");
+      a.click();
+
+      setTimeout(function () {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        log("downloadTemplate: cleanup done");
+      }, 200);
+
+      toast("good", "Template", "product-template.csv downloaded");
+    } catch (ex) {
+      warn("downloadTemplate: FAILED", ex);
+      toast("bad", "Error", "Template download failed: " + (ex.message || ex));
+    }
   }
 
   function renderToolbar(mount) {
@@ -434,8 +439,7 @@
           "value='" + esc(state.queries.keyword) + "' style='width:240px;'>" +
       "</div>" +
       "<div class='sp-toolbar-right'>" +
-        "<button class='eikon-btn' id='sp-btn-template-csv' title='Download CSV template'>Download Template</button>" +
-        "<button class='eikon-btn' id='sp-btn-template-xlsx' title='Download XLSX template' style='opacity:.7;font-size:11px;'>XLSX</button>" +
+        "<button class='eikon-btn' id='sp-btn-template'>Download Template</button>" +
         "<button class='eikon-btn' id='sp-btn-add'>+ Add Product</button>" +
         "<button class='eikon-btn' id='sp-btn-import'>Import File</button>" +
       "</div>" +
@@ -825,11 +829,9 @@
       });
     }
 
-    // Download template buttons
-    var tmplXlsx = mount.querySelector("#sp-btn-template-xlsx");
-    if (tmplXlsx) { tmplXlsx.addEventListener("click", function () { downloadTemplate("xlsx"); }); }
-    var tmplCsv = mount.querySelector("#sp-btn-template-csv");
-    if (tmplCsv) { tmplCsv.addEventListener("click", function () { downloadTemplate("csv"); }); }
+    // Download template
+    var tmplBtn = mount.querySelector("#sp-btn-template");
+    if (tmplBtn) { tmplBtn.addEventListener("click", function () { downloadTemplate(); }); }
 
     // Import button
     var importBtn = mount.querySelector("#sp-btn-import");
