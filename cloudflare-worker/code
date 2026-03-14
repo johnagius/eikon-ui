@@ -2887,6 +2887,7 @@ async function handleSupplierOrderCreate(request, env, corsOkHeaders, authUser) 
 async function handleSupplierOrdersSent(request, env, corsOkHeaders, authUser, url) {
   await ensureSupplierProductsSchema(env);
   const status = (url.searchParams.get("status") || "").trim();
+  const q = (url.searchParams.get("q") || "").trim().toLowerCase();
 
   let sql = `SELECT o.*, (SELECT COUNT(*) FROM supplier_order_items WHERE order_id = o.id) AS item_count
              FROM supplier_orders o
@@ -2899,6 +2900,14 @@ async function handleSupplierOrdersSent(request, env, corsOkHeaders, authUser, u
       sql += " AND o.status IN (" + statuses.map(() => "?").join(",") + ")";
       bind.push(...statuses);
     }
+  }
+
+  if (q) {
+    sql += ` AND (LOWER(o.supplier_name) LIKE ? OR CAST(o.id AS TEXT) LIKE ? OR EXISTS (
+      SELECT 1 FROM supplier_order_items si WHERE si.order_id = o.id AND LOWER(si.description) LIKE ?
+    ))`;
+    const like = "%" + q + "%";
+    bind.push(like, like, like);
   }
 
   sql += " ORDER BY o.created_at DESC";
