@@ -648,7 +648,7 @@
       E._activeSidebarCategories = E.SUPPLIER_CATEGORIES;
       E._sectionDashboardId = "supplier-dashboard";
       // Start polling for unresolved feedback (sidebar badge + flash)
-      setTimeout(function () { E._startSupplierFeedbackPoll(); }, 500);
+      setTimeout(function () { E._startSupplierAlertPoll(); }, 500);
     } else if (section === "company_admin") {
       E._activeSidebarCategories = E.COMPANY_ADMIN_CATEGORIES;
       E._sectionDashboardId = "company-dashboard";
@@ -1004,35 +1004,42 @@
     }
   };
 
-  // ─── Supplier feedback polling (sidebar badge + flash) ─────────────────
-  E._startSupplierFeedbackPoll = function () {
-    if (E._feedbackPollInterval) clearInterval(E._feedbackPollInterval);
+  // ─── Supplier alert polling (sidebar badges + flash) ────────────────────
+  E._startSupplierAlertPoll = function () {
+    if (E._supplierPollInterval) clearInterval(E._supplierPollInterval);
+    function updateNavBadge(modId, count) {
+      var btn = document.querySelector('.eikon-nav-btn[data-mod="' + modId + '"]');
+      if (!btn) return;
+      var badge = btn.querySelector(".eikon-nav-badge");
+      if (badge) {
+        badge.textContent = count;
+        badge.style.display = count > 0 ? "" : "none";
+      }
+      btn.classList.toggle("nav-flash", count > 0);
+    }
     function poll() {
       E.apiFetch("/supplier-orders/feedback", { method: "GET" }).then(function (resp) {
         var entries = resp.entries || [];
         var count = 0;
-        for (var i = 0; i < entries.length; i++) {
-          if (!entries[i].resolution_status) count++;
-        }
+        for (var i = 0; i < entries.length; i++) { if (!entries[i].resolution_status) count++; }
         E.state._unresolvedFeedbackCount = count;
-        var btn = document.querySelector('.eikon-nav-btn[data-mod="supplier-order-feedback"]');
-        if (btn) {
-          var badge = btn.querySelector(".eikon-nav-badge");
-          if (badge) {
-            badge.textContent = count;
-            badge.style.display = count > 0 ? "" : "none";
-          }
-          btn.classList.toggle("nav-flash", count > 0);
-        }
+        updateNavBadge("supplier-order-feedback", count);
+      }).catch(function () {});
+      E.apiFetch("/supplier-orders/received", { method: "GET" }).then(function (resp) {
+        var entries = resp.entries || [];
+        var count = 0;
+        for (var i = 0; i < entries.length; i++) { if (entries[i].status === "pending") count++; }
+        E.state._pendingOrdersCount = count;
+        updateNavBadge("supplier-received-orders", count);
       }).catch(function () {});
     }
     poll();
-    E._feedbackPollInterval = setInterval(poll, 30000);
+    E._supplierPollInterval = setInterval(poll, 30000);
   };
 
   E.logout = function () {
     E.dbg("[auth] logout");
-    if (E._feedbackPollInterval) { clearInterval(E._feedbackPollInterval); E._feedbackPollInterval = null; }
+    if (E._supplierPollInterval) { clearInterval(E._supplierPollInterval); E._supplierPollInterval = null; }
     E.clearToken();
     E.state.user = null;
     E.state.activeModuleId = "";
