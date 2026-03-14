@@ -110,6 +110,25 @@ a:hover{text-decoration:underline}
   border-color:rgba(90,162,255,.35);
 }
 
+.eikon-nav-badge{
+  margin-left:auto;
+  min-width:18px;
+  padding:1px 6px;
+  border-radius:10px;
+  font-size:10px;
+  font-weight:700;
+  text-align:center;
+  background:rgba(255,90,122,.2);
+  color:#ff5a7a;
+}
+.eikon-nav-btn.nav-flash{
+  animation:nav-flash-red 1.5s ease-in-out infinite;
+}
+@keyframes nav-flash-red{
+  0%,100%{background:rgba(255,90,122,.03);}
+  50%{background:rgba(255,90,122,.12);}
+}
+
 .eikon-nav-ico{
   width:18px;
   height:18px;

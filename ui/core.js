@@ -647,6 +647,8 @@
     if (section === "supplier") {
       E._activeSidebarCategories = E.SUPPLIER_CATEGORIES;
       E._sectionDashboardId = "supplier-dashboard";
+      // Start polling for unresolved feedback (sidebar badge + flash)
+      setTimeout(function () { E._startSupplierFeedbackPoll(); }, 500);
     } else if (section === "company_admin") {
       E._activeSidebarCategories = E.COMPANY_ADMIN_CATEGORIES;
       E._sectionDashboardId = "company-dashboard";
@@ -800,8 +802,13 @@
     label.className = "eikon-nav-label";
     label.textContent = (m.title || m.id);
 
+    var badge = document.createElement("span");
+    badge.className = "eikon-nav-badge";
+    badge.style.display = "none";
+
     btn.appendChild(ico);
     btn.appendChild(label);
+    btn.appendChild(badge);
     btn.addEventListener("click", function () { window.location.hash = "#" + m.id; });
     return btn;
   };
@@ -997,8 +1004,35 @@
     }
   };
 
+  // ─── Supplier feedback polling (sidebar badge + flash) ─────────────────
+  E._startSupplierFeedbackPoll = function () {
+    if (E._feedbackPollInterval) clearInterval(E._feedbackPollInterval);
+    function poll() {
+      E.apiFetch("/supplier-orders/feedback", { method: "GET" }).then(function (resp) {
+        var entries = resp.entries || [];
+        var count = 0;
+        for (var i = 0; i < entries.length; i++) {
+          if (!entries[i].resolution_status) count++;
+        }
+        E.state._unresolvedFeedbackCount = count;
+        var btn = document.querySelector('.eikon-nav-btn[data-mod="supplier-order-feedback"]');
+        if (btn) {
+          var badge = btn.querySelector(".eikon-nav-badge");
+          if (badge) {
+            badge.textContent = count;
+            badge.style.display = count > 0 ? "" : "none";
+          }
+          btn.classList.toggle("nav-flash", count > 0);
+        }
+      }).catch(function () {});
+    }
+    poll();
+    E._feedbackPollInterval = setInterval(poll, 30000);
+  };
+
   E.logout = function () {
     E.dbg("[auth] logout");
+    if (E._feedbackPollInterval) { clearInterval(E._feedbackPollInterval); E._feedbackPollInterval = null; }
     E.clearToken();
     E.state.user = null;
     E.state.activeModuleId = "";
