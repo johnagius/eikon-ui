@@ -468,7 +468,7 @@
         html += "<tr>" +
           "<td>" + esc(item.product.description) + "</td>" +
           "<td style='text-align:right;'><input type='number' class='eikon-input si-cart-qty' " +
-            "data-cart-qty-id='" + item.product.id + "' value='" + item.qty + "' min='1'" +
+            "data-cart-qty-id='" + item.product.id + "' value='" + item.qty + "' min='" + (hasDeal ? qp : 1) + "'" +
             (hasDeal ? " step='" + qp + "'" : "") +
             " style='width:50px;text-align:right;padding:2px 4px;font-size:11px;'></td>" +
           "<td style='text-align:right;'>" + (freeQty > 0 ? "+" + freeQty : "-") + "</td>" +
@@ -1376,6 +1376,8 @@
             renderAll(ctx.mount);
           }).catch(function () {});
         } else {
+          // Don't refresh inventory view while user has cart items (actively shopping)
+          if (Object.keys(state.cart).length > 0) return;
           apiInventory(state.queries.keyword, state.queries.supplier).then(function (resp) {
             if (E.state.activeModuleId !== "supplier-inventory") return;
             state.products = resp.entries || [];

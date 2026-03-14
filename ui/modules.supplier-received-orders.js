@@ -202,12 +202,7 @@
         totalRetail += (qtyReq + qtyFree) * retailPrice;
       }
 
-      // Show adjusted qty indicator
       var qtyDisplay = String(qtyReq);
-      var qtyConf = item.qty_confirmed;
-      if (!unavail && qtyConf !== undefined && qtyConf !== null && Number(qtyConf) !== qtyReq && Number(qtyConf) > 0) {
-        qtyDisplay += " <span style='color:#ffaf32;font-size:11px;'>(" + qtyConf + " confirmed)</span>";
-      }
       var descExtra = (item.notes && !unavail) ? "<div style='font-size:10px;color:var(--muted);'>" + esc(item.notes) + "</div>" : "";
 
       html += "<tr style='" + rowStyle + "'>" +
@@ -227,8 +222,6 @@
           " data-product-id='" + (item.product_id || "") + "'" +
           " data-item-desc='" + esc(item.description) + "'>" +
           (unavail ? "Available" : "Unavailable") + "</button>" +
-          (!unavail ? " <button class='eikon-btn sro-adjust-qty-btn' data-adjust-item='" + item.id + "'" +
-            " data-item-qty='" + qtyReq + "' data-item-desc='" + esc(item.description) + "'>Adjust Qty</button>" : "") +
           "</td>";
       }
       html += "</tr>";
@@ -254,7 +247,7 @@
           "style='width:100%;height:36px;font-size:11px;resize:vertical;'>" + esc(order.supplier_notes || "") + "</textarea>" +
         "<div style='display:flex;gap:8px;align-items:center;'>" +
           "<label style='font-size:11px;color:rgba(233,238,247,.6);white-space:nowrap;'>Delivery date:</label>" +
-          "<input type='date' class='eikon-input sro-delivery-date' value='" + esc(order.scheduled_delivery_date || "") + "' " +
+          "<input type='date' class='eikon-input sro-delivery-date' value='" + esc(order.scheduled_delivery_date || new Date().toISOString().slice(0, 10)) + "' " +
             "style='font-size:11px;flex:1;'>" +
         "</div>" +
         "<button class='eikon-btn sp-btn-primary sro-ship-btn' data-ship-id='" + order.id + "'>Order Shipped</button>" +
@@ -357,37 +350,6 @@
       });
     });
 
-    // Adjust qty (partial fulfillment)
-    mount.querySelectorAll(".sro-adjust-qty-btn").forEach(function (btn) {
-      btn.addEventListener("click", function () {
-        var itemId = Number(btn.getAttribute("data-adjust-item"));
-        var qtyReq = Number(btn.getAttribute("data-item-qty"));
-        var itemDesc = btn.getAttribute("data-item-desc") || "";
-        E.modal.show("Adjust Quantity",
-          "<div style='line-height:1.6;'>Requested: <b>" + qtyReq + "</b> of <b>" + esc(itemDesc) + "</b><br><br>" +
-          "<label style='font-size:12px;'>Qty you can supply:</label><br>" +
-          "<input type='number' id='sro-adj-qty' class='eikon-input' min='0' max='" + qtyReq + "' value='" + qtyReq + "' style='width:80px;margin-top:4px;'><br><br>" +
-          "<label style='font-size:12px;'>Note (optional):</label><br>" +
-          "<input type='text' id='sro-adj-note' class='eikon-input' placeholder='e.g. Substituted with...' style='width:100%;margin-top:4px;'>" +
-          "</div>",
-          [
-            { label: "Cancel", onClick: function () { E.modal.hide(); } },
-            { label: "Confirm", primary: true, onClick: function () {
-              var adjQty = Math.max(0, parseInt((document.getElementById("sro-adj-qty") || {}).value, 10) || 0);
-              var adjNote = ((document.getElementById("sro-adj-note") || {}).value || "").trim();
-              E.modal.hide();
-              var item = state.expandedItems.find(function (i) { return i.id === itemId; });
-              if (item) {
-                item.qty_confirmed = adjQty;
-                if (adjNote) item.notes = adjNote;
-              }
-              renderAll(mount);
-            }}
-          ]
-        );
-      });
-    });
-
     // Ship order
     mount.querySelectorAll("[data-ship-id]").forEach(function (btn) {
       btn.addEventListener("click", function () {
@@ -407,7 +369,7 @@
                 return {
                   id: item.id,
                   unavailable: item.unavailable,
-                  qty_confirmed: item.unavailable ? 0 : (item.qty_confirmed !== undefined ? item.qty_confirmed : item.qty_requested),
+                  qty_confirmed: item.unavailable ? 0 : item.qty_requested,
                   notes: item.notes || ""
                 };
               });
@@ -490,13 +452,11 @@
       if (state._autoInterval) clearInterval(state._autoInterval);
       state._autoInterval = setInterval(function () {
         if (E.state.activeModuleId !== "supplier-received-orders") return;
-        var prevExpanded = state.expandedOrderId;
-        var prevItems = state.expandedItems;
+        // Don't refresh while supplier is editing an expanded order (notes/date would be wiped)
+        if (state.expandedOrderId) return;
         apiListReceived().then(function (resp) {
           if (E.state.activeModuleId !== "supplier-received-orders") return;
           state.orders = resp.entries || [];
-          state.expandedOrderId = prevExpanded;
-          state.expandedItems = prevItems;
           applySort();
           renderAll(ctx.mount);
         }).catch(function () {});
