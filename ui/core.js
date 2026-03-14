@@ -343,8 +343,37 @@
     ]}
   ];
 
+  // Role-based section constants
+  E.ROLE_PHARMACY = "pharmacy";          // location_id 0-399
+  E.ROLE_SUPPLIER = "supplier";          // location_id 400-599
+  E.ROLE_COMPANY_ADMIN = "company_admin"; // location_id 600-900
+  E.SUPERUSER_EMAIL = "labrint@gmail.com";
+
+  E.getRolesForUser = function (user) {
+    if (!user) return [];
+    var locId = Number(user.location_id);
+    var email = String(user.email || "").trim().toLowerCase();
+
+    // Superuser gets all roles
+    if (email === E.SUPERUSER_EMAIL) {
+      return [E.ROLE_PHARMACY, E.ROLE_SUPPLIER, E.ROLE_COMPANY_ADMIN];
+    }
+
+    var roles = [];
+    if (locId >= 0 && locId <= 399) roles.push(E.ROLE_PHARMACY);
+    if (locId >= 400 && locId <= 599) roles.push(E.ROLE_SUPPLIER);
+    if (locId >= 600 && locId <= 900) roles.push(E.ROLE_COMPANY_ADMIN);
+    return roles;
+  };
+
+  // Sidebar categories for Supplier section (empty for now)
+  E.SUPPLIER_CATEGORIES = [];
+
+  // Sidebar categories for Company Admin section (empty for now)
+  E.COMPANY_ADMIN_CATEGORIES = [];
+
   // UI mounts
-  E.state = { user: null, activeModuleId: "", sidebarCollapsed: false, expandedCategory: null, started: false };
+  E.state = { user: null, activeModuleId: "", activeRole: "", sidebarCollapsed: false, expandedCategory: null, started: false };
 
   E.ensureRoot = function () {
     var root = document.getElementById("eikon-root");
@@ -484,7 +513,9 @@
           E.setToken(resp.token);
           E.state.user = resp.user || null;
           E.dbg("[auth] login OK:", resp.user);
-          return E.bootAuthed();
+          var roles = E.getRolesForUser(resp.user);
+          E.dbg("[auth] available roles:", roles);
+          return E.renderRoleSelection(roles);
         })
         .catch(function (err) {
           E.error("[auth] login error:", err);
@@ -506,6 +537,126 @@
 
     // Login is a "screen done" condition for the intro
     E.markIntroScreenDone();
+  };
+
+  // Role Selection Screen
+  E.renderRoleSelection = function (accessibleRoles) {
+    var root = E.ensureRoot();
+    var user = E.state.user;
+    var userName = (user && user.full_name) ? user.full_name : "User";
+
+    var allRoles = [
+      {
+        key: E.ROLE_PHARMACY,
+        title: "Pharmacy",
+        desc: "Dispensing, inspections & operations",
+        icon: '<svg viewBox="0 0 48 48" width="48" height="48" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+              '<rect x="8" y="6" width="32" height="36" rx="6" fill="var(--accent)" opacity="0.15"/>' +
+              '<rect x="20" y="14" width="8" height="20" rx="2" fill="var(--accent)"/>' +
+              '<rect x="14" y="20" width="20" height="8" rx="2" fill="var(--accent)"/>' +
+              '</svg>'
+      },
+      {
+        key: E.ROLE_SUPPLIER,
+        title: "Supplier",
+        desc: "Supply chain & distribution",
+        icon: '<svg viewBox="0 0 48 48" width="48" height="48" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+              '<rect x="4" y="14" width="24" height="18" rx="3" fill="var(--accent)" opacity="0.15"/>' +
+              '<path d="M28 18h8l6 8v6h-6" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="var(--accent)" opacity="0.15"/>' +
+              '<circle cx="14" cy="36" r="4" fill="var(--accent)"/>' +
+              '<circle cx="36" cy="36" r="4" fill="var(--accent)"/>' +
+              '<line x1="18" y1="32" x2="28" y2="32" stroke="var(--accent)" stroke-width="2"/>' +
+              '</svg>'
+      },
+      {
+        key: E.ROLE_COMPANY_ADMIN,
+        title: "Company Administrator",
+        desc: "Organisation overview & management",
+        icon: '<svg viewBox="0 0 48 48" width="48" height="48" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+              '<rect x="10" y="8" width="28" height="32" rx="4" fill="var(--accent)" opacity="0.15"/>' +
+              '<rect x="16" y="14" width="6" height="6" rx="1" fill="var(--accent)"/>' +
+              '<rect x="26" y="14" width="6" height="6" rx="1" fill="var(--accent)"/>' +
+              '<rect x="16" y="24" width="6" height="6" rx="1" fill="var(--accent)"/>' +
+              '<rect x="26" y="24" width="6" height="6" rx="1" fill="var(--accent)"/>' +
+              '<rect x="20" y="34" width="8" height="6" rx="1" fill="var(--accent)"/>' +
+              '</svg>'
+      }
+    ];
+
+    var tilesHtml = allRoles.map(function (r) {
+      var isAccessible = accessibleRoles.indexOf(r.key) !== -1;
+      var cls = "eikon-role-option" + (isAccessible ? "" : " disabled");
+      return '<div class="' + cls + '" data-role="' + r.key + '">' +
+             '  <div class="eikon-role-icon">' + r.icon + '</div>' +
+             '  <div class="eikon-role-title">' + r.title + '</div>' +
+             '  <div class="eikon-role-desc">' + r.desc + '</div>' +
+             '</div>';
+    }).join("");
+
+    root.innerHTML =
+      '<div class="eikon-role-select">' +
+      '  <div class="eikon-role-card">' +
+      '    <div class="eikon-login-title">Eikon</div>' +
+      '    <div class="eikon-login-sub">Welcome, ' + E.escapeHtml(userName) + '. Select your portal</div>' +
+      '    <div class="eikon-role-options">' + tilesHtml + '</div>' +
+      '    <div style="margin-top:18px;text-align:center;">' +
+      '      <button class="eikon-btn" id="eikon-role-logout-btn">Logout</button>' +
+      '    </div>' +
+      '  </div>' +
+      '</div>';
+
+    // Bind accessible tile clicks
+    var tiles = root.querySelectorAll(".eikon-role-option:not(.disabled)");
+    for (var i = 0; i < tiles.length; i++) {
+      (function (tile) {
+        tile.addEventListener("click", function () {
+          var role = tile.getAttribute("data-role");
+          E.bootForRole(role);
+        });
+      })(tiles[i]);
+    }
+
+    // Logout button
+    var logoutBtn = document.getElementById("eikon-role-logout-btn");
+    if (logoutBtn) logoutBtn.addEventListener("click", function () { E.logout(); });
+
+    E.markIntroScreenDone();
+  };
+
+  // Boot dispatcher based on selected role
+  E.bootForRole = async function (role) {
+    E.state.activeRole = role;
+    try { window.localStorage.setItem("eikon_active_role", role); } catch (e) {}
+
+    if (role === E.ROLE_PHARMACY) {
+      E._activeSidebarCategories = E.SIDEBAR_CATEGORIES;
+      E._sectionDashboardId = "dashboard";
+      return E.bootAuthed();
+    } else if (role === E.ROLE_SUPPLIER) {
+      return E.bootSection("supplier");
+    } else if (role === E.ROLE_COMPANY_ADMIN) {
+      return E.bootSection("company_admin");
+    }
+  };
+
+  // Boot a non-pharmacy section
+  E.bootSection = async function (section) {
+    if (section === "supplier") {
+      E._activeSidebarCategories = E.SUPPLIER_CATEGORIES;
+      E._sectionDashboardId = "supplier-dashboard";
+    } else if (section === "company_admin") {
+      E._activeSidebarCategories = E.COMPANY_ADMIN_CATEGORIES;
+      E._sectionDashboardId = "company-dashboard";
+    }
+
+    window.location.hash = "#" + E._sectionDashboardId;
+    E.renderShell();
+
+    try {
+      await E.renderActiveModule();
+    } finally {
+      E.markIntroScreenDone();
+    }
   };
 
   // Shell + Router
@@ -534,6 +685,7 @@
       "      </div>" +
       '      <div class="eikon-user">' +
       '        <span id="eikon-user-label"></span>' +
+      '        <button class="eikon-btn" id="eikon-switch-portal-btn" style="display:none;">Switch Portal</button>' +
       '        <button class="eikon-btn" id="eikon-logout-btn">Logout</button>' +
       '        <button class="eikon-btn" id="eikon-fullscreen-btn">Fullscreen</button>' +
       "      </div>" +
@@ -563,6 +715,22 @@
         E.state.sidebarCollapsed = nowCollapsed;
         try { window.localStorage.setItem("eikon_sidebar_collapsed", nowCollapsed ? "1" : "0"); } catch (e) {}
       });
+    }
+
+    // Switch Portal (only visible if user has multiple roles)
+    var switchBtn = document.getElementById("eikon-switch-portal-btn");
+    if (switchBtn && E.state.user) {
+      var userRoles = E.getRolesForUser(E.state.user);
+      if (userRoles.length > 1) {
+        switchBtn.style.display = "";
+        switchBtn.addEventListener("click", function () {
+          E.state.activeRole = "";
+          try { window.localStorage.removeItem("eikon_active_role"); } catch (e) {}
+          E._activeSidebarCategories = null;
+          E._sectionDashboardId = null;
+          E.renderRoleSelection(userRoles);
+        });
+      }
     }
 
     // Logout
@@ -637,9 +805,10 @@
 
   // Helper: find category for a module id
   E._categoryForModule = function (modId) {
-    for (var i = 0; i < E.SIDEBAR_CATEGORIES.length; i++) {
-      if (E.SIDEBAR_CATEGORIES[i].moduleIds.indexOf(modId) !== -1) {
-        return E.SIDEBAR_CATEGORIES[i].label;
+    var cats = E._activeSidebarCategories || E.SIDEBAR_CATEGORIES;
+    for (var i = 0; i < cats.length; i++) {
+      if (cats[i].moduleIds.indexOf(modId) !== -1) {
+        return cats[i].label;
       }
     }
     return null;
@@ -703,13 +872,15 @@
     nav.appendChild(searchResults);
 
     // --- Dashboard (standalone, no category) ---
-    var dash = modById["dashboard"];
+    var dashId = E._sectionDashboardId || "dashboard";
+    var dash = modById[dashId];
     if (dash) {
       catsContainer.appendChild(E._createNavBtn(dash));
     }
 
     // --- Render each category ---
-    E.SIDEBAR_CATEGORIES.forEach(function (cat) {
+    var cats = E._activeSidebarCategories || E.SIDEBAR_CATEGORIES;
+    cats.forEach(function (cat) {
       var group = document.createElement("div");
       group.className = "eikon-nav-cat-group";
       group.setAttribute("data-cat", cat.label);
@@ -828,12 +999,17 @@
     E.clearToken();
     E.state.user = null;
     E.state.activeModuleId = "";
+    E.state.activeRole = "";
+    try { window.localStorage.removeItem("eikon_active_role"); } catch (e) {}
+    E._activeSidebarCategories = null;
+    E._sectionDashboardId = null;
     E.renderLogin();
   };
 
   E.getHashModuleId = function () {
     var h = String(window.location.hash || "").replace(/^#/, "").trim();
-    if (!h) return "dashboard";
+    var fallback = E._sectionDashboardId || "dashboard";
+    if (!h) return fallback;
     return h;
   };
 
@@ -841,11 +1017,12 @@
     var content = document.getElementById("eikon-content");
     if (!content) throw new Error("Missing #eikon-content mount");
 
+    var fallbackDash = E._sectionDashboardId || "dashboard";
     var id = E.getHashModuleId();
     if (!E.modules[id]) {
-      E.warn("[router] unknown module:", id, "falling back to dashboard");
-      id = "dashboard";
-      window.location.hash = "#dashboard";
+      E.warn("[router] unknown module:", id, "falling back to", fallbackDash);
+      id = fallbackDash;
+      window.location.hash = "#" + fallbackDash;
     }
 
     E.state.activeModuleId = id;
@@ -904,7 +1081,7 @@
     // Ensure intro exists (safe / idempotent)
     try { E.showIntroOverlayOnce(); } catch (e) {}
 
-    // If hash missing, default
+    // If hash missing, default (will be updated when role is selected)
     if (!window.location.hash) window.location.hash = "#dashboard";
 
     // Router
@@ -928,7 +1105,20 @@
       if (!me || !me.ok || !me.user) throw new Error("Invalid /auth/me response");
       E.state.user = me.user;
       E.dbg("[auth] /auth/me OK:", me.user);
-      await E.bootAuthed();
+
+      // Check for saved role
+      var savedRole = "";
+      try { savedRole = window.localStorage.getItem("eikon_active_role") || ""; } catch (e) {}
+      var roles = E.getRolesForUser(me.user);
+      E.dbg("[auth] saved role:", savedRole, "available roles:", roles);
+
+      if (savedRole && roles.indexOf(savedRole) !== -1) {
+        // Restore saved role directly
+        await E.bootForRole(savedRole);
+      } else {
+        // Show role selection
+        E.renderRoleSelection(roles);
+      }
     } catch (err) {
       E.error("[auth] /auth/me failed:", err);
       E.clearToken();

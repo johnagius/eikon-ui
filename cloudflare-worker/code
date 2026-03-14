@@ -353,6 +353,18 @@ async function handleSuPage(request, env) {
     <div id="usersWrap"></div>
   </div>
 
+  <div class="card">
+    <h2>6) Suppliers</h2>
+    <div class="small muted">Users/locations with location IDs 400–599 (Supplier accounts).</div>
+    <div id="suppliersWrap"></div>
+  </div>
+
+  <div class="card">
+    <h2>7) Company Administrators</h2>
+    <div class="small muted">Users/locations with location IDs 600–900 (Company Admin accounts).</div>
+    <div id="companyAdminsWrap"></div>
+  </div>
+
 </main>
 
 <script>
@@ -477,7 +489,44 @@ async function handleSuPage(request, env) {
         )}
       ]);
 
-      $("loginMsg").textContent = "Loaded " + data.users.length + " user(s), " + data.locations.length + " location(s), " + data.orgs.length + " org(s).";
+      // Suppliers (location_id 400-599)
+      var supplierUsers = data.users.filter(function(u){ return u.default_location_id >= 400 && u.default_location_id <= 599; });
+      $("suppliersWrap").innerHTML = renderTable(supplierUsers, [
+        {label:"ID", key:"id"},
+        {label:"Email", key:"email"},
+        {label:"Name", key:"full_name"},
+        {label:"Role", key:"role"},
+        {label:"Active", key:"is_active"},
+        {label:"Location", render:function(r){ return String(r.default_location_id) + " - " + (r.location_name || ""); }},
+        {label:"Org", key:"org_id"},
+        {label:"Actions", render:function(r){ return (
+          '<button class="ghost" onclick="editUser(' + r.id + ')">Edit</button> ' +
+          '<button class="secondary" onclick="resetPassword(' + r.id + ')">Reset password</button> ' +
+          '<button class="secondary" onclick="toggleHold(' + r.id + ', ' + r.is_active + ')">' + (r.is_active ? "Hold" : "Unhold") + '</button> ' +
+          '<button class="danger" onclick="deleteUser(' + r.id + ')">Delete</button>'
+        ); }}
+      ]);
+
+      // Company Administrators (location_id 600-900)
+      var companyAdminUsers = data.users.filter(function(u){ return u.default_location_id >= 600 && u.default_location_id <= 900; });
+      $("companyAdminsWrap").innerHTML = renderTable(companyAdminUsers, [
+        {label:"ID", key:"id"},
+        {label:"Email", key:"email"},
+        {label:"Name", key:"full_name"},
+        {label:"Role", key:"role"},
+        {label:"Active", key:"is_active"},
+        {label:"Location", render:function(r){ return String(r.default_location_id) + " - " + (r.location_name || ""); }},
+        {label:"Org", key:"org_id"},
+        {label:"Actions", render:function(r){ return (
+          '<button class="ghost" onclick="editUser(' + r.id + ')">Edit</button> ' +
+          '<button class="secondary" onclick="resetPassword(' + r.id + ')">Reset password</button> ' +
+          '<button class="secondary" onclick="toggleHold(' + r.id + ', ' + r.is_active + ')">' + (r.is_active ? "Hold" : "Unhold") + '</button> ' +
+          '<button class="danger" onclick="deleteUser(' + r.id + ')">Delete</button>'
+        ); }}
+      ]);
+
+      $("loginMsg").textContent = "Loaded " + data.users.length + " user(s), " + data.locations.length + " location(s), " + data.orgs.length + " org(s)" +
+        " | " + supplierUsers.length + " supplier(s), " + companyAdminUsers.length + " company admin(s).";
     }catch(e){
       $("loginMsg").textContent = "Refresh failed: " + e.message;
     }
@@ -583,13 +632,12 @@ async function handleSuPage(request, env) {
   }
 
   async function wipeLocation(locationId){
-    const confirmText = prompt("Type WIPE to delete ALL rows for location_id="+locationId+" (all module tables).");
+    const confirmText = prompt("Type WIPE to delete ALL module data rows for location_id="+locationId+" (module tables only, users and passwords are preserved).");
     if(confirmText !== "WIPE") return;
-    const alsoUsers = confirm("Also delete users whose default_location_id = " + locationId + " ? (OK = yes, Cancel = no)");
     try{
-      await api("/su/api/locations/" + locationId + "/wipe", { method:"POST", body: JSON.stringify({ delete_users: alsoUsers ? 1 : 0 }) });
+      await api("/su/api/locations/" + locationId + "/wipe", { method:"POST", body: JSON.stringify({}) });
       await refresh();
-      alert("Wipe completed.");
+      alert("Wipe completed. Module data cleared. Users and passwords are preserved.");
     }catch(e){ alert(e.message); }
   }
 
@@ -900,20 +948,13 @@ async function suTablesWithLocationId(env) {
 }
 
 async function handleSuWipeLocation(request, env, extraHeaders, locationId) {
-  const body = await readJson(request);
-  const deleteUsers = parseIntOrNull(body.delete_users) ? 1 : 0;
-
   const loc = await dbFirst(env, "SELECT id, org_id FROM locations WHERE id=?", [locationId]);
   if (!loc) return jsonResponse({ ok:false, error:"location not found" }, 404, extraHeaders);
 
   const tables = await suTablesWithLocationId(env);
   for (const t of tables) {
-    // delete rows scoped to location
+    // delete rows scoped to location (module data only — users and sessions are preserved)
     try { await dbRun(env, `DELETE FROM ${t} WHERE location_id=?`, [locationId]); } catch {}
-  }
-  if (deleteUsers) {
-    try { await dbRun(env, "DELETE FROM sessions WHERE user_id IN (SELECT id FROM users WHERE default_location_id=?)", [locationId]); } catch {}
-    await dbRun(env, "DELETE FROM users WHERE default_location_id=?", [locationId]);
   }
   return jsonResponse({ ok:true, wiped_tables: tables }, 200, extraHeaders);
 }
