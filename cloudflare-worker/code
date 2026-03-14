@@ -2566,11 +2566,12 @@ async function handleSupplierProductsInventory(request, env, corsOkHeaders, auth
   const q = (url.searchParams.get("q") || "").trim();
   const supplier = (url.searchParams.get("supplier") || "").trim();
 
+  // Supplier products are visible to ALL users regardless of org
   let sql = `SELECT sp.*, l.name AS location_name
              FROM supplier_products sp
              LEFT JOIN locations l ON l.id = sp.location_id
-             WHERE sp.org_id = ?`;
-  const bind = [authUser.org_id];
+             WHERE 1=1`;
+  const bind = [];
 
   if (supplier) {
     sql += " AND sp.supplier_name = ?";
@@ -2597,8 +2598,9 @@ async function handleSupplierStockChangesList(request, env, corsOkHeaders, authU
   await ensureSupplierProductsSchema(env);
   const since = (url.searchParams.get("since") || "").trim();
 
-  let sql = `SELECT * FROM supplier_stock_changes WHERE org_id = ?`;
-  const bind = [authUser.org_id];
+  // Stock changes visible to ALL users regardless of org
+  let sql = `SELECT * FROM supplier_stock_changes WHERE 1=1`;
+  const bind = [];
 
   if (since) {
     sql += " AND created_at >= ?";
@@ -2613,8 +2615,8 @@ async function handleSupplierStockChangesList(request, env, corsOkHeaders, authU
 
 async function handleSupplierStockChangeSeen(request, env, corsOkHeaders, authUser, changeId) {
   await ensureSupplierProductsSchema(env);
-  const existing = await dbFirst(env, "SELECT * FROM supplier_stock_changes WHERE org_id = ? AND id = ?",
-    [authUser.org_id, changeId]);
+  const existing = await dbFirst(env, "SELECT * FROM supplier_stock_changes WHERE id = ?",
+    [changeId]);
   if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
 
   let seenBy = [];
