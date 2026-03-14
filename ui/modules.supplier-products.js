@@ -428,20 +428,61 @@
   function showTemplateHelp() {
     var headerLine = TEMPLATE_HEADERS.join("\t");
 
+    var badge = function (type) {
+      var colors = { required: "#e74c3c", recommended: "#f39c12", optional: "#666" };
+      var labels = { required: "Required", recommended: "Recommended", optional: "Optional" };
+      return "<span style='display:inline-block;font-size:11px;font-weight:700;padding:1px 6px;" +
+        "border-radius:4px;color:#fff;background:" + colors[type] + ";'>" + labels[type] + "</span>";
+    };
+
+    var columns = [
+      { name: "Description",         status: "required",    note: "" },
+      { name: "Cost Excl Vat",       status: "required",    note: "Price before VAT" },
+      { name: "VAT",                 status: "required",    note: "Must be <b>0</b>, <b>5</b> or <b>18</b>" },
+      { name: "Retail Price",        status: "required",    note: "Selling price" },
+      { name: "Barcode",             status: "recommended", note: "" },
+      { name: "Batch",               status: "recommended", note: "Batch / lot number" },
+      { name: "Expiry Date",         status: "recommended", note: "Use <b>dd/MM/yyyy</b> (e.g. 25/12/2026)" },
+      { name: "Stock Code",          status: "optional",    note: "Your product code" },
+      { name: "Cost Incl Vat",       status: "optional",    note: "Auto-calculated if empty" },
+      { name: "Discount (%)",        status: "optional",    note: "Defaults to 0" },
+      { name: "Discount (\u20ac)",   status: "optional",    note: "Defaults to 0" },
+      { name: "Quantity Purchased",  status: "optional",    note: "Defaults to 1" },
+      { name: "Quantity Free",       status: "optional",    note: "Defaults to 0" }
+    ];
+
+    var tableRows = "";
+    for (var i = 0; i < columns.length; i++) {
+      var c = columns[i];
+      tableRows +=
+        "<tr style='border-bottom:1px solid #2a2f3a;'>" +
+          "<td style='padding:4px 8px;white-space:nowrap;'>" + esc(c.name) + "</td>" +
+          "<td style='padding:4px 8px;text-align:center;'>" + badge(c.status) + "</td>" +
+          "<td style='padding:4px 8px;font-size:12px;color:#aaa;'>" + (c.note || "") + "</td>" +
+        "</tr>";
+    }
+
     var body =
-      "<div style='text-align:left;font-size:14px;line-height:1.7;'>" +
-        "<p style='margin:0 0 12px;'><b>To create your product file:</b></p>" +
-        "<ol style='margin:0 0 16px;padding-left:20px;'>" +
+      "<div style='text-align:left;font-size:14px;line-height:1.6;'>" +
+        "<p style='margin:0 0 10px;'><b>To create your product file:</b></p>" +
+        "<ol style='margin:0 0 14px;padding-left:20px;'>" +
           "<li>Open <b>Excel</b> (or Google Sheets)</li>" +
-          "<li>Click the <b>\"Copy Headers\"</b> button below</li>" +
-          "<li>Click on cell <b>A1</b> in your spreadsheet</li>" +
-          "<li>Press <b>Ctrl+V</b> (or Cmd+V on Mac) to paste</li>" +
-          "<li>Fill in your product details starting from <b>row 2</b></li>" +
-          "<li>Save the file as <b>CSV</b><br><span style='font-size:12px;opacity:.7;'>(File \u2192 Save As \u2192 choose \"CSV UTF-8\" or \"CSV\")</span></li>" +
-          "<li>Come back here and click <b>\"Import File\"</b> to upload</li>" +
+          "<li>Click <b>\"Copy Headers\"</b> below</li>" +
+          "<li>Click on cell <b>A1</b> in your spreadsheet and press <b>Ctrl+V</b> to paste</li>" +
+          "<li>Fill in your products from <b>row 2</b> down \u2014 see column guide below</li>" +
+          "<li>Save as <b>CSV</b><br><span style='font-size:12px;opacity:.7;'>(File \u2192 Save As \u2192 choose \"CSV UTF-8\" or \"CSV\")</span></li>" +
+          "<li>Come back here and click <b>\"Import File\"</b></li>" +
         "</ol>" +
-        "<div style='background:#1a1f2b;border:1px solid #333;border-radius:8px;padding:10px;margin-bottom:12px;font-size:12px;overflow-x:auto;white-space:nowrap;color:#ccc;'>" +
-          esc(TEMPLATE_HEADERS.join("  |  ")) +
+        "<p style='margin:0 0 6px;font-weight:700;font-size:13px;'>Column Guide</p>" +
+        "<div style='overflow-x:auto;margin-bottom:10px;'>" +
+          "<table style='width:100%;border-collapse:collapse;font-size:13px;'>" +
+            "<thead><tr style='border-bottom:2px solid #444;'>" +
+              "<th style='padding:4px 8px;text-align:left;'>Column</th>" +
+              "<th style='padding:4px 8px;text-align:center;'>Status</th>" +
+              "<th style='padding:4px 8px;text-align:left;'>Notes</th>" +
+            "</tr></thead>" +
+            "<tbody>" + tableRows + "</tbody>" +
+          "</table>" +
         "</div>" +
       "</div>";
 
