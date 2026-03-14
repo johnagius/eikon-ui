@@ -400,42 +400,20 @@
   function downloadTemplate() {
     log("downloadTemplate: start");
     try {
-      var csvLine = TEMPLATE_HEADERS.map(function (h) {
-        return '"' + h.replace(/"/g, '""') + '"';
-      }).join(",") + "\n";
-
-      // In nested iframe environments (e.g. GoDaddy), direct blob downloads
-      // are blocked by the browser. Delegate to the parent frame via postMessage.
-      // The godaddy loader listens for EIKON_DOWNLOAD and performs the download
-      // from its context where allow-downloads is available.
-      if (window.parent !== window) {
-        log("downloadTemplate: delegating to parent via postMessage");
-        window.parent.postMessage({
-          type: "EIKON_DOWNLOAD",
-          filename: "product-template.csv",
-          content: csvLine,
-          mimeType: "text/csv;charset=utf-8;"
-        }, "*");
-        toast("good", "Template", "Download started");
-        return;
-      }
-
-      // Fallback: direct download if not in an iframe
-      var blob = new Blob([csvLine], { type: "text/csv;charset=utf-8;" });
-      var url = URL.createObjectURL(blob);
-      var a = document.createElement("a");
-      a.href = url;
-      a.download = "product-template.csv";
-      a.style.display = "none";
-      document.body.appendChild(a);
-      a.click();
-      log("downloadTemplate: anchor clicked, url=" + url);
-
+      // Use a hidden iframe to load the server-served CSV endpoint.
+      // The server responds with Content-Disposition: attachment which triggers
+      // a download without popups, blob URLs, or sandbox issues.
+      var csvUrl = (window.location.origin || "") + "/ui/product-template.csv?t=" + Date.now();
+      log("downloadTemplate: loading via hidden iframe: " + csvUrl);
+      var f = document.createElement("iframe");
+      f.style.display = "none";
+      f.src = csvUrl;
+      document.body.appendChild(f);
+      toast("good", "Template", "Download started");
       setTimeout(function () {
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        if (f.parentNode) f.parentNode.removeChild(f);
         log("downloadTemplate: cleanup done");
-      }, 300);
+      }, 5000);
     } catch (ex) {
       warn("downloadTemplate: FAILED", ex);
       toast("bad", "Error", "Template download failed: " + (ex.message || ex));
