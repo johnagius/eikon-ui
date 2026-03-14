@@ -30,6 +30,13 @@
   function apiOrderDetail(id) {
     return E.apiFetch("/supplier-orders/" + id, { method: "GET" });
   }
+  function apiResolveFeedback(feedbackId, resolution_status, supplier_notes) {
+    return E.apiFetch("/supplier-orders/feedback/" + feedbackId + "/resolve", {
+      method: "PUT", body: JSON.stringify({ resolution_status: resolution_status, supplier_notes: supplier_notes })
+    });
+  }
+
+  var RESOLUTION_OPTIONS = ["Acknowledged", "Replacement Sent", "Credit Issued", "Disputed", "Resolved"];
 
   // ─── Grouping ──────────────────────────────────────────────────────────
   function groupByOrder(entries) {
@@ -132,6 +139,7 @@
       "<th style='text-align:left;padding:6px;font-size:11px;color:rgba(233,238,247,.6);'>Problem</th>" +
       "<th style='text-align:left;padding:6px;font-size:11px;color:rgba(233,238,247,.6);'>Notes</th>" +
       "<th style='text-align:left;padding:6px;font-size:11px;color:rgba(233,238,247,.6);'>Reported</th>" +
+      "<th style='text-align:left;padding:6px;font-size:11px;color:rgba(233,238,247,.6);'>Resolution</th>" +
       "</tr></thead><tbody>";
 
     grp.feedbacks.forEach(function (fb) {
@@ -144,6 +152,28 @@
       };
       var pColor = problemColors[fb.problem_type] || "#ff5a7a";
 
+      var resCell = "";
+      if (fb.resolution_status) {
+        var rColors = { "Acknowledged": "#5aa2ff", "Replacement Sent": "#43d17a", "Credit Issued": "#43d17a", "Disputed": "#ffaf32", "Resolved": "#43d17a" };
+        var rc = rColors[fb.resolution_status] || "#5aa2ff";
+        resCell = "<span style='display:inline-block;padding:2px 8px;border-radius:5px;font-size:11px;font-weight:700;" +
+          "background:" + rc + "22;color:" + rc + ";'>" + esc(fb.resolution_status) + "</span>";
+        if (fb.supplier_notes) resCell += "<div style='font-size:10px;color:var(--muted);margin-top:2px;'>" + esc(fb.supplier_notes) + "</div>";
+      } else {
+        resCell = "<div style='display:flex;flex-direction:column;gap:4px;min-width:180px;'>" +
+          "<select class='eikon-input sof-resolve-select' data-resolve-id='" + fb.id + "' style='font-size:11px;padding:2px 4px;'>" +
+            "<option value=''>-- Respond --</option>";
+        RESOLUTION_OPTIONS.forEach(function (opt) {
+          resCell += "<option value='" + esc(opt) + "'>" + esc(opt) + "</option>";
+        });
+        resCell += "</select>" +
+          "<input type='text' class='eikon-input sof-resolve-notes' data-resolve-notes-id='" + fb.id + "' " +
+            "placeholder='Note (optional)' style='font-size:11px;padding:2px 4px;'>" +
+          "<button class='eikon-btn sof-resolve-btn' data-resolve-btn-id='" + fb.id + "' " +
+            "style='font-size:10px;padding:2px 8px;'>Submit</button>" +
+        "</div>";
+      }
+
       html += "<tr style='background:rgba(255,90,122,.06);'>" +
         "<td style='padding:6px;font-weight:600;'>" + esc(fb.item_description) + "</td>" +
         "<td style='padding:6px;'>" + esc(fb.item_barcode) + "</td>" +
@@ -154,6 +184,7 @@
           "background:" + pColor + "22;color:" + pColor + ";'>" + esc(fb.problem_type) + "</span></td>" +
         "<td style='padding:6px;font-size:11px;color:var(--muted);'>" + esc(fb.notes) + "</td>" +
         "<td style='padding:6px;font-size:11px;'>" + fmtDate(fb.created_at) + "</td>" +
+        "<td style='padding:6px;'>" + resCell + "</td>" +
       "</tr>";
     });
 
@@ -184,6 +215,30 @@
         var orderId = Number(btn.getAttribute("data-sof-expand"));
         state.expandedOrderId = state.expandedOrderId === orderId ? null : orderId;
         renderAll(mount);
+      });
+    });
+
+    // Resolve feedback
+    mount.querySelectorAll(".sof-resolve-btn").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var fbId = Number(btn.getAttribute("data-resolve-btn-id"));
+        var selectEl = mount.querySelector(".sof-resolve-select[data-resolve-id='" + fbId + "']");
+        var notesEl = mount.querySelector(".sof-resolve-notes[data-resolve-notes-id='" + fbId + "']");
+        var resolution = selectEl ? selectEl.value : "";
+        var notes = notesEl ? notesEl.value.trim() : "";
+        if (!resolution) { toast("bad", "Required", "Please select a resolution"); return; }
+        btn.disabled = true;
+        btn.textContent = "Saving\u2026";
+        apiResolveFeedback(fbId, resolution, notes)
+          .then(function () {
+            toast("good", "Resolved", "Feedback resolved as: " + resolution);
+            return refreshData(mount);
+          })
+          .catch(function (err) {
+            toast("bad", "Error", err.message || "Failed to resolve");
+            btn.disabled = false;
+            btn.textContent = "Submit";
+          });
       });
     });
   }
