@@ -32,6 +32,20 @@
   function fmt2(n) { return round2(n).toFixed(2); }
   function norm(s) { return String(s == null ? "" : s).toLowerCase().trim(); }
 
+  // Convert Excel date serial numbers to dd/MM/yyyy
+  function excelDateToStr(v) {
+    var n = Number(v);
+    if (!isNaN(n) && n > 0 && n < 100000 && String(v) === String(n)) {
+      var d = new Date((n - 25569) * 86400000);
+      if (!isNaN(d.getTime())) {
+        var dd = ("0" + d.getUTCDate()).slice(-2);
+        var mm = ("0" + (d.getUTCMonth() + 1)).slice(-2);
+        return dd + "/" + mm + "/" + d.getUTCFullYear();
+      }
+    }
+    return String(v || "").trim();
+  }
+
   // ─── Calculations (same as quotations) ──────────────────────────────────
   function recalcItem(f) {
     var vat = Number(f.vat_rate);
@@ -291,7 +305,7 @@
           }
 
           var batch = String(obj.batch || "").trim();
-          var expiryDate = String(obj.expiry_date || "").trim();
+          var expiryDate = excelDateToStr(obj.expiry_date);
           var stockCode = String(obj.stock_code || "").trim();
           var barcode = String(obj.barcode || "").trim();
 
@@ -588,7 +602,7 @@
         "<td>" + inp("qty_purchased", "number", "48px") + "</td>" +
         "<td>" + inp("qty_free", "number", "44px") + "</td>" +
         "<td>" + inp("batch", "text", "76px") + "</td>" +
-        "<td>" + inp("expiry_date", "text", "86px") + "</td>" +
+        "<td>" + inp("expiry_date", "text", "86px", excelDateToStr(row.expiry_date)) + "</td>" +
         "<td>" + inp("retail_price", "number", "64px", fmt2(row.retail_price)) + "</td>" +
         "<td><span id='" + pid + "profit' class='sp-pv-ro'>\u20ac" + fmt2(row.profit) + "</span></td>" +
         "<td><span id='" + pid + "profit_margin' class='sp-pv-ro' style='color:" + mc + ";'>" +
@@ -654,7 +668,9 @@
           html += "<td class='num' data-edit-id='" + row.id + "' data-edit-field='" + col.key + "'>" +
             (Number(row[col.key]) || 0) + "</td>";
         } else {
-          html += "<td data-edit-id='" + row.id + "' data-edit-field='" + col.key + "'>" + esc(row[col.key] || "") + "</td>";
+          var cellVal = row[col.key] || "";
+          if (col.key === "expiry_date") cellVal = excelDateToStr(cellVal);
+          html += "<td data-edit-id='" + row.id + "' data-edit-field='" + col.key + "'>" + esc(cellVal) + "</td>";
         }
       });
 
