@@ -10,6 +10,31 @@
   "use strict";
 
   try {
+    // ── Fix GoDaddy's sandbox ────────────────────────────────────────────
+    // GoDaddy wraps custom HTML blocks in a sandboxed iframe with
+    // allow-scripts + allow-same-origin. That combination lets us modify
+    // our own sandbox (the browser even warns about this). We add the
+    // missing permissions so downloads, popups, and forms work properly.
+    try {
+      var fe = window.frameElement;
+      if (fe && fe.getAttribute("sandbox") !== null) {
+        var needed = ["allow-downloads", "allow-popups", "allow-popups-to-escape-sandbox",
+                      "allow-forms", "allow-modals", "allow-top-navigation-by-user-activation"];
+        var sb = fe.sandbox;
+        for (var ni = 0; ni < needed.length; ni++) {
+          if (!sb.contains(needed[ni])) {
+            sb.add(needed[ni]);
+            console.log("[EIKON][godaddy] sandbox: added " + needed[ni]);
+          }
+        }
+        console.log("[EIKON][godaddy] sandbox fixed:", fe.getAttribute("sandbox"));
+      } else {
+        console.log("[EIKON][godaddy] no sandbox detected on frameElement");
+      }
+    } catch (sbErr) {
+      console.warn("[EIKON][godaddy] could not modify sandbox:", sbErr);
+    }
+
     if (window.__EIKON_EMBEDDED__) {
       console.warn("[EIKON][godaddy] embed already mounted in this document, skipping");
       return;

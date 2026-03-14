@@ -398,12 +398,31 @@
   ];
 
   function downloadTemplate() {
-    log("downloadTemplate: opening backend template URL");
-    // Build absolute URL — relative paths break inside GoDaddy's sandboxed iframe
-    var base = E.apiBase || window.location.origin || "";
-    var templateUrl = base + "/supplier-products/template";
-    log("downloadTemplate: url=" + templateUrl);
-    window.open(templateUrl, "_blank");
+    log("downloadTemplate: start");
+    try {
+      var csvLine = TEMPLATE_HEADERS.map(function (h) {
+        return '"' + h.replace(/"/g, '""') + '"';
+      }).join(",") + "\n";
+
+      var blob = new Blob([csvLine], { type: "text/csv;charset=utf-8;" });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url;
+      a.download = "product-template.csv";
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      log("downloadTemplate: anchor clicked, url=" + url);
+
+      setTimeout(function () {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        log("downloadTemplate: cleanup done");
+      }, 300);
+    } catch (ex) {
+      warn("downloadTemplate: FAILED", ex);
+      toast("bad", "Error", "Template download failed: " + (ex.message || ex));
+    }
   }
 
   function renderToolbar(mount) {
