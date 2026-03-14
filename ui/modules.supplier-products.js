@@ -403,29 +403,55 @@
       var csvLine = TEMPLATE_HEADERS.map(function (h) {
         return '"' + h.replace(/"/g, '""') + '"';
       }).join(",") + "\n";
-      log("downloadTemplate: CSV content built, length=" + csvLine.length);
+      log("downloadTemplate: CSV content length=" + csvLine.length);
 
-      var blob = new Blob([csvLine], { type: "text/csv;charset=utf-8;" });
-      log("downloadTemplate: Blob created, size=" + blob.size);
+      // Try multiple download strategies — iframes block blob downloads
+      var downloaded = false;
 
-      var url = URL.createObjectURL(blob);
-      log("downloadTemplate: objectURL=" + url);
+      // Strategy 1: Blob + anchor (works outside iframes)
+      try {
+        var blob = new Blob([csvLine], { type: "text/csv;charset=utf-8;" });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement("a");
+        a.href = url;
+        a.download = "product-template.csv";
+        a.style.display = "none";
+        document.body.appendChild(a);
+        a.click();
+        log("downloadTemplate: blob strategy executed");
+        setTimeout(function () {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 200);
+        downloaded = true;
+      } catch (e1) {
+        warn("downloadTemplate: blob strategy failed", e1);
+      }
 
-      var a = document.createElement("a");
-      a.href = url;
-      a.download = "product-template.csv";
-      a.style.display = "none";
-      document.body.appendChild(a);
-      log("downloadTemplate: anchor appended, clicking");
-      a.click();
+      // Strategy 2: Also open in new window as fallback (works inside iframes)
+      // This ensures the user gets the file even if blob download was silently blocked
+      try {
+        var w = window.open("", "_blank");
+        if (w) {
+          w.document.open("text/csv");
+          w.document.write(csvLine);
+          w.document.close();
+          // Set filename hint via title
+          w.document.title = "product-template.csv";
+          log("downloadTemplate: window.open fallback executed");
+          downloaded = true;
+        } else {
+          warn("downloadTemplate: window.open returned null (popup blocked?)");
+        }
+      } catch (e2) {
+        warn("downloadTemplate: window.open fallback failed", e2);
+      }
 
-      setTimeout(function () {
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        log("downloadTemplate: cleanup done");
-      }, 200);
-
-      toast("good", "Template", "product-template.csv downloaded");
+      if (downloaded) {
+        toast("good", "Template", "Template ready — save the file as product-template.csv");
+      } else {
+        toast("bad", "Error", "Could not download template. Try disabling popup blocker.");
+      }
     } catch (ex) {
       warn("downloadTemplate: FAILED", ex);
       toast("bad", "Error", "Template download failed: " + (ex.message || ex));
