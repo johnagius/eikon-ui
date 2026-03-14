@@ -14904,6 +14904,18 @@ export default {
       return await handleApptPublicLookup(request, env, corsOkHeaders, url);
     }
 
+    // ── Public template download (no auth — just static column headers) ────────
+    if (url.pathname === "/supplier-products/template" && request.method === "GET") {
+      const csvHeaders = '"Stock Code","Barcode","Description","Cost Excl Vat","Cost Incl Vat","VAT","Discount (%)","Discount (\u20ac)","Quantity Purchased","Quantity Free","Batch","Expiry Date","Retail Price"\n';
+      return new Response(csvHeaders, {
+        status: 200,
+        headers: Object.assign({}, corsOkHeaders, {
+          "Content-Type": "text/csv; charset=utf-8",
+          "Content-Disposition": 'attachment; filename="product-template.csv"'
+        })
+      });
+    }
+
 const authUser = await authFromRequest(request, env);
     if (!authUser) return jsonResponse({ ok: false, error: "Unauthorized" }, 401, corsOkHeaders);
 
