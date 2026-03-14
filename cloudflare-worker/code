@@ -2338,6 +2338,33 @@ async function ensureSupplierProductsSchema(env) {
     updated_by  INTEGER,
     PRIMARY KEY (org_id, location_id)
   )`, []);
+
+  // Add batch/expiry/qty_free columns to order items (backfill for existing tables)
+  try { await dbRun(env, `ALTER TABLE supplier_order_items ADD COLUMN batch TEXT NOT NULL DEFAULT ''`, []); } catch (e) {}
+  try { await dbRun(env, `ALTER TABLE supplier_order_items ADD COLUMN expiry_date TEXT NOT NULL DEFAULT ''`, []); } catch (e) {}
+  try { await dbRun(env, `ALTER TABLE supplier_order_items ADD COLUMN qty_free INTEGER NOT NULL DEFAULT 0`, []); } catch (e) {}
+
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS supplier_order_item_feedback (
+    id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_id              INTEGER NOT NULL,
+    order_item_id         INTEGER NOT NULL,
+    supplier_location_id  INTEGER NOT NULL,
+    pharmacy_location_id  INTEGER NOT NULL,
+    pharmacy_name         TEXT NOT NULL DEFAULT '',
+    supplier_name         TEXT NOT NULL DEFAULT '',
+    item_description      TEXT NOT NULL DEFAULT '',
+    item_barcode          TEXT NOT NULL DEFAULT '',
+    item_qty              TEXT NOT NULL DEFAULT '',
+    item_batch            TEXT NOT NULL DEFAULT '',
+    item_expiry_date      TEXT NOT NULL DEFAULT '',
+    problem_type          TEXT NOT NULL DEFAULT '',
+    notes                 TEXT NOT NULL DEFAULT '',
+    order_created_at      TEXT NOT NULL DEFAULT '',
+    created_at            TEXT NOT NULL DEFAULT (datetime('now')),
+    created_by            INTEGER
+  )`, []);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_soif_supplier ON supplier_order_item_feedback (supplier_location_id)`, []);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_soif_order ON supplier_order_item_feedback (order_id)`, []);
 }
 
 // ─── Supplier Products CRUD ───────────────────────────────────────────────
@@ -2731,6 +2758,62 @@ async function handleSupplierCartDraftDelete(request, env, corsOkHeaders, authUs
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
+// ─── Supplier Order Item Feedback ─────────────────────────────────────────
+
+async function handleOrderItemFeedbackCreate(request, env, corsOkHeaders, authUser, itemId) {
+  await ensureSupplierProductsSchema(env);
+  const body = await readJson(request);
+
+  // Look up the item and its order
+  const item = await dbFirst(env,
+    `SELECT oi.*, o.id AS oid, o.supplier_location_id, o.pharmacy_location_id, o.supplier_name, o.pharmacy_name, o.created_at AS order_created_at
+     FROM supplier_order_items oi
+     JOIN supplier_orders o ON o.id = oi.order_id
+     WHERE oi.id = ?`, [itemId]);
+  if (!item) return jsonResponse({ ok: false, error: "Item not found" }, 404, corsOkHeaders);
+
+  // Only the pharmacy that placed the order can leave feedback
+  if (item.pharmacy_location_id !== authUser.location_id) {
+    return jsonResponse({ ok: false, error: "Access denied" }, 403, corsOkHeaders);
+  }
+
+  const problemType = String(body.problem_type || "").trim();
+  if (!problemType) return jsonResponse({ ok: false, error: "problem_type is required" }, 400, corsOkHeaders);
+
+  const qtyLabel = (item.qty_requested || 0) + (item.qty_free ? "+" + item.qty_free : "");
+
+  const fb = await dbFirst(env,
+    `INSERT INTO supplier_order_item_feedback
+     (order_id, order_item_id, supplier_location_id, pharmacy_location_id, pharmacy_name, supplier_name,
+      item_description, item_barcode, item_qty, item_batch, item_expiry_date, problem_type, notes, order_created_at, created_by)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+     RETURNING id`,
+    [
+      item.order_id, itemId, item.supplier_location_id, item.pharmacy_location_id,
+      item.pharmacy_name || "", item.supplier_name || "",
+      item.description || "", item.barcode || "", qtyLabel,
+      item.batch || "", item.expiry_date || "",
+      problemType, String(body.notes || "").trim(),
+      item.order_created_at || "", authUser.user_id
+    ]);
+
+  return jsonResponse({ ok: true, id: fb.id }, 200, corsOkHeaders);
+}
+
+async function handleOrderItemFeedbackList(request, env, corsOkHeaders, authUser) {
+  await ensureSupplierProductsSchema(env);
+
+  const entries = await dbAll(env,
+    `SELECT f.*, o.status AS order_status
+     FROM supplier_order_item_feedback f
+     LEFT JOIN supplier_orders o ON o.id = f.order_id
+     WHERE f.supplier_location_id = ?
+     ORDER BY f.created_at DESC`,
+    [authUser.location_id]);
+
+  return jsonResponse({ ok: true, entries }, 200, corsOkHeaders);
+}
+
 // ─── Supplier Orders ──────────────────────────────────────────────────────
 
 async function handleSupplierOrderCreate(request, env, corsOkHeaders, authUser) {
@@ -2762,8 +2845,8 @@ async function handleSupplierOrderCreate(request, env, corsOkHeaders, authUser) 
   for (const item of items) {
     await dbRun(env,
       `INSERT INTO supplier_order_items
-       (order_id, product_id, description, barcode, stock_code, qty_requested, cost_excl_vat, vat_rate, retail_price, notes)
-       VALUES (?,?,?,?,?,?,?,?,?,?)`,
+       (order_id, product_id, description, barcode, stock_code, qty_requested, cost_excl_vat, vat_rate, retail_price, notes, batch, expiry_date, qty_free)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [
         order.id,
         item.product_id || null,
@@ -2774,7 +2857,10 @@ async function handleSupplierOrderCreate(request, env, corsOkHeaders, authUser) 
         Math.max(0, Number(item.cost_excl_vat) || 0),
         normalizeVatRate(item.vat_rate),
         Math.max(0, Number(item.retail_price) || 0),
-        String(item.notes || "").trim()
+        String(item.notes || "").trim(),
+        String(item.batch || "").trim(),
+        String(item.expiry_date || "").trim(),
+        Math.max(0, Math.round(Number(item.qty_free) || 0))
       ]
     );
   }
@@ -15566,6 +15652,15 @@ if (url.pathname === "/supplier-orders/cart-draft" && request.method === "PUT") 
 }
 if (url.pathname === "/supplier-orders/cart-draft" && request.method === "DELETE") {
   return await handleSupplierCartDraftDelete(request, env, corsOkHeaders, authUser);
+}
+if (url.pathname === "/supplier-orders/feedback" && request.method === "GET") {
+  return await handleOrderItemFeedbackList(request, env, corsOkHeaders, authUser);
+}
+if (url.pathname.startsWith("/supplier-orders/items/") && url.pathname.endsWith("/feedback") && request.method === "POST") {
+  const parts = url.pathname.split("/").filter(Boolean);
+  const itemId = parseInt(parts[2], 10);
+  if (!itemId) return jsonResponse({ ok: false, error: "Invalid item id" }, 400, corsOkHeaders);
+  return await handleOrderItemFeedbackCreate(request, env, corsOkHeaders, authUser, itemId);
 }
 if (url.pathname.startsWith("/supplier-orders/")) {
   const parts = url.pathname.split("/").filter(Boolean);

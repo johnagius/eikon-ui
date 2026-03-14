@@ -362,6 +362,31 @@
         '</div>';
 
       await refreshData(ctx.mount);
+
+      // 30s auto-update
+      if (state._autoInterval) clearInterval(state._autoInterval);
+      state._autoInterval = setInterval(function () {
+        if (E.state.activeModuleId !== "supplier-received-orders") return;
+        var prevExpanded = state.expandedOrderId;
+        var prevItems = state.expandedItems;
+        apiListReceived().then(function (resp) {
+          if (E.state.activeModuleId !== "supplier-received-orders") return;
+          state.orders = resp.entries || [];
+          state.expandedOrderId = prevExpanded;
+          state.expandedItems = prevItems;
+          applySort();
+          renderAll(ctx.mount);
+        }).catch(function () {});
+      }, 30000);
+
+      var onHashChange = function () {
+        if (E.state.activeModuleId !== "supplier-received-orders" || E.getHashModuleId() !== "supplier-received-orders") {
+          clearInterval(state._autoInterval);
+          state._autoInterval = null;
+          window.removeEventListener("hashchange", onHashChange);
+        }
+      };
+      window.addEventListener("hashchange", onHashChange);
     }
   });
 })();
