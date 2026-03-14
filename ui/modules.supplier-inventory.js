@@ -130,10 +130,19 @@
     expandedOrderId: null,
     expandedItems: [],
     hiddenCols: [],
+    expirySettings: { expiry_red_months: 6, expiry_yellow_months: 12 },
     _mount: null
   };
 
   // ─── API ────────────────────────────────────────────────────────────────
+  function apiGetExpirySettings() {
+    return E.apiFetch("/supplier-products/inventory-settings", { method: "GET" });
+  }
+  function apiSaveExpirySettings(settings) {
+    return E.apiFetch("/supplier-products/inventory-settings", {
+      method: "PUT", body: JSON.stringify(settings)
+    });
+  }
   function apiInventory(q, supplier) {
     var qs = [];
     if (q) qs.push("q=" + encodeURIComponent(q));
@@ -163,6 +172,24 @@
   }
 
   // ─── Sort/Filter ────────────────────────────────────────────────────────
+  function parseExpiryDate(v) {
+    if (!v) return null;
+    var n = Number(v);
+    // Excel serial date
+    if (!isNaN(n) && n > 0 && n < 100000 && String(v) === String(n)) {
+      var d = new Date((n - 25569) * 86400000);
+      return isNaN(d.getTime()) ? null : d;
+    }
+    // Try parsing as date string (DD/MM/YYYY or YYYY-MM-DD or other)
+    var parts = String(v).match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+    if (parts) {
+      var dt = new Date(Number(parts[3]), Number(parts[2]) - 1, Number(parts[1]));
+      return isNaN(dt.getTime()) ? null : dt;
+    }
+    var d2 = new Date(v);
+    return isNaN(d2.getTime()) ? null : d2;
+  }
+
   function getSortVal(row, key) {
     var v = row[key];
     if (key === "cost_excl_vat" || key === "retail_price" || key === "profit_margin" || key === "vat_rate") return Number(v) || 0;
@@ -240,6 +267,15 @@
     });
     html += "</select>" +
       "<button class='eikon-btn' id='si-btn-colsettings' title='Column Settings' style='margin-left:auto;'>\u2699</button>" +
+    "</div>" +
+    "<div class='si-expiry-bar'>" +
+      "<span style='font-size:11px;color:rgba(233,238,247,.5);'>Expiry warning:</span> " +
+      "<span class='si-expiry-chip si-expiry-red-chip'>" +
+        "<input type='number' id='si-expiry-red' value='" + (state.expirySettings.expiry_red_months || 6) + "' min='1' max='36' class='si-expiry-input'> months" +
+      "</span> " +
+      "<span class='si-expiry-chip si-expiry-yellow-chip'>" +
+        "<input type='number' id='si-expiry-yellow' value='" + (state.expirySettings.expiry_yellow_months || 12) + "' min='1' max='60' class='si-expiry-input'> months" +
+      "</span>" +
     "</div>";
 
     if (!state.filtered.length) {
@@ -276,7 +312,22 @@
       var stepQty = hasDeal ? qp : 1;
       var defaultQty = inCart ? inCart.qty : minQty;
 
-      html += "<tr style='" + rowStyle + "'>";
+      // Expiry warning shading
+      var expiryBg = "";
+      if (row.expiry_date && !oos) {
+        var expDate = parseExpiryDate(row.expiry_date);
+        if (expDate) {
+          var diffMs = expDate.getTime() - Date.now();
+          var diffMonths = diffMs / (30.44 * 24 * 60 * 60 * 1000);
+          if (diffMonths <= (state.expirySettings.expiry_red_months || 6)) {
+            expiryBg = "background:rgba(255,90,122,.12);";
+          } else if (diffMonths <= (state.expirySettings.expiry_yellow_months || 12)) {
+            expiryBg = "background:rgba(255,200,50,.10);";
+          }
+        }
+      }
+
+      html += "<tr style='" + rowStyle + expiryBg + "'>";
 
       visCols.forEach(function (col) {
         if (col.key === "supplier_name") {
@@ -561,6 +612,23 @@
       });
     }
 
+    // Expiry settings
+    var expiryRedInput = mount.querySelector("#si-expiry-red");
+    var expiryYellowInput = mount.querySelector("#si-expiry-yellow");
+    var expiryDebounce = null;
+    function onExpiryChange() {
+      clearTimeout(expiryDebounce);
+      expiryDebounce = setTimeout(function () {
+        var red = Number(expiryRedInput && expiryRedInput.value) || 6;
+        var yellow = Number(expiryYellowInput && expiryYellowInput.value) || 12;
+        state.expirySettings = { expiry_red_months: red, expiry_yellow_months: yellow };
+        apiSaveExpirySettings(state.expirySettings);
+        renderAll(mount);
+      }, 600);
+    }
+    if (expiryRedInput) expiryRedInput.addEventListener("input", onExpiryChange);
+    if (expiryYellowInput) expiryYellowInput.addEventListener("input", onExpiryChange);
+
     // Sort headers
     mount.querySelectorAll("[data-sort-key]").forEach(function (th) {
       th.addEventListener("click", function () {
@@ -797,6 +865,16 @@
     try {
       var resp = await apiInventory("", "");
       state.products = resp.entries || [];
+      // Load expiry settings from cloud
+      try {
+        var settingsResp = await apiGetExpirySettings();
+        if (settingsResp && settingsResp.settings) {
+          state.expirySettings = {
+            expiry_red_months: Number(settingsResp.settings.expiry_red_months) || 6,
+            expiry_yellow_months: Number(settingsResp.settings.expiry_yellow_months) || 12
+          };
+        }
+      } catch (e) { /* use defaults */ }
       applyFilter();
       renderAll(mount);
     } catch (err) {
@@ -831,7 +909,12 @@
       ".si-cart-table th { padding:2px 4px; font-size:10px; font-weight:600; color:rgba(233,238,247,.45); text-transform:uppercase; letter-spacing:.03em; border-bottom:1px solid rgba(255,255,255,.06); }",
       ".si-cart-table td { padding:3px 4px; border-bottom:1px solid rgba(255,255,255,.03); white-space:nowrap; }",
       ".si-cart-remove { background:none; border:none; color:rgba(255,255,255,.3); cursor:pointer; font-size:12px; }",
-      ".si-cart-remove:hover { color:#ff5a7a; }"
+      ".si-cart-remove:hover { color:#ff5a7a; }",
+      ".si-expiry-bar { display:flex; align-items:center; gap:8px; margin-bottom:10px; font-size:12px; }",
+      ".si-expiry-chip { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:600; }",
+      ".si-expiry-red-chip { background:rgba(255,90,122,.12); color:#ff5a7a; }",
+      ".si-expiry-yellow-chip { background:rgba(255,200,50,.10); color:#e8c840; }",
+      ".si-expiry-input { width:42px; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.12); color:inherit; padding:2px 4px; border-radius:4px; font-size:11px; text-align:center; }"
     ].join("\n");
     document.head.appendChild(style);
   }

@@ -2320,6 +2320,15 @@ async function ensureSupplierProductsSchema(env) {
     notes           TEXT NOT NULL DEFAULT ''
   )`, []);
   await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_supplier_order_items_order ON supplier_order_items (order_id)`, []);
+
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS supplier_inventory_settings (
+    org_id      INTEGER NOT NULL,
+    location_id INTEGER NOT NULL,
+    settings_json TEXT NOT NULL DEFAULT '{}',
+    updated_at  TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_by  INTEGER,
+    PRIMARY KEY (org_id, location_id)
+  )`, []);
 }
 
 // ─── Supplier Products CRUD ───────────────────────────────────────────────
@@ -2657,6 +2666,27 @@ async function handleSupplierStockChangeSeen(request, env, corsOkHeaders, authUs
     await dbRun(env, "UPDATE supplier_stock_changes SET seen_by = ? WHERE id = ?",
       [JSON.stringify(seenBy), changeId]);
   }
+
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+// ─── Supplier Inventory Settings ──────────────────────────────────────────
+
+async function handleSupplierInventorySettingsGet(request, env, corsOkHeaders, authUser) {
+  await ensureSupplierProductsSchema(env);
+  const row = await dbFirst(env, `SELECT settings_json FROM supplier_inventory_settings WHERE org_id=? AND location_id=?`, [authUser.org_id, authUser.location_id]);
+  const settings = row ? JSON.parse(row.settings_json || "{}") : { expiry_red_months: 6, expiry_yellow_months: 12 };
+  return jsonResponse({ ok: true, settings }, 200, corsOkHeaders);
+}
+
+async function handleSupplierInventorySettingsPut(request, env, corsOkHeaders, authUser) {
+  await ensureSupplierProductsSchema(env);
+  const body = await readJson(request);
+
+  await dbRun(env,
+    `INSERT INTO supplier_inventory_settings (org_id, location_id, settings_json, updated_at, updated_by) VALUES (?,?,?,datetime('now'),?)
+     ON CONFLICT(org_id, location_id) DO UPDATE SET settings_json=excluded.settings_json, updated_at=excluded.updated_at, updated_by=excluded.updated_by`,
+    [authUser.org_id, authUser.location_id, JSON.stringify(body), authUser.user_id]);
 
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
@@ -15436,6 +15466,12 @@ if (url.pathname === "/supplier-products/bulk-import" && request.method === "POS
 }
 if (url.pathname === "/supplier-products/inventory" && request.method === "GET") {
   return await handleSupplierProductsInventory(request, env, corsOkHeaders, authUser, url);
+}
+if (url.pathname === "/supplier-products/inventory-settings" && request.method === "GET") {
+  return await handleSupplierInventorySettingsGet(request, env, corsOkHeaders, authUser);
+}
+if (url.pathname === "/supplier-products/inventory-settings" && request.method === "PUT") {
+  return await handleSupplierInventorySettingsPut(request, env, corsOkHeaders, authUser);
 }
 if (url.pathname === "/supplier-products/changes" && request.method === "GET") {
   return await handleSupplierStockChangesList(request, env, corsOkHeaders, authUser, url);
