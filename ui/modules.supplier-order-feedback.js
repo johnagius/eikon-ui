@@ -18,6 +18,7 @@
     entries: [],
     grouped: [],
     sort: { key: "created_at", dir: "desc" },
+    resolutionFilter: "unresolved",
     expandedOrderId: null,
     _mount: null,
     _autoInterval: null
@@ -76,12 +77,42 @@
     var content = mount.querySelector("#sof-content");
     if (!content) return;
 
+    // Filter dropdown
+    var rf = state.resolutionFilter;
+    var filterHtml = "<div style='margin-bottom:8px;'>" +
+      "<select id='sof-resolution-filter' class='eikon-input' style='width:160px;font-size:12px;'>" +
+        "<option value='unresolved'" + (rf === "unresolved" ? " selected" : "") + ">Unresolved</option>" +
+        "<option value='resolved'" + (rf === "resolved" ? " selected" : "") + ">Resolved</option>" +
+        "<option value=''" + (rf === "" ? " selected" : "") + ">All</option>" +
+      "</select></div>";
+
+    // Apply resolution filter
+    var displayed = state.grouped;
+    if (rf === "unresolved") {
+      displayed = state.grouped.filter(function (grp) {
+        return grp.feedbacks.some(function (fb) { return !fb.resolution_status; });
+      });
+    } else if (rf === "resolved") {
+      displayed = state.grouped.filter(function (grp) {
+        return grp.feedbacks.every(function (fb) { return !!fb.resolution_status; });
+      });
+    }
+
     if (!state.grouped.length) {
       content.innerHTML = "<div style='text-align:center;padding:40px;'>" +
         "<div style='font-size:36px;margin-bottom:12px;'>\u2705</div>" +
         "<div style='font-weight:700;'>No feedback received</div>" +
         "<div style='color:var(--muted);margin-top:4px;'>Problem reports from pharmacies will appear here.</div>" +
       "</div>";
+      return;
+    }
+
+    if (!displayed.length) {
+      var emptyMsg = rf === "unresolved"
+        ? "<div style='font-size:36px;margin-bottom:12px;'>\u2705</div><div style='font-weight:700;'>No unresolved feedbacks</div><div style='color:var(--muted);margin-top:4px;'>All feedback has been addressed.</div>"
+        : "<div style='font-size:36px;margin-bottom:12px;'>\uD83D\uDCCB</div><div style='font-weight:700;'>No resolved feedbacks yet</div><div style='color:var(--muted);margin-top:4px;'>Resolved items will appear here.</div>";
+      content.innerHTML = filterHtml + "<div style='text-align:center;padding:40px;'>" + emptyMsg + "</div>";
+      wireEvents(mount);
       return;
     }
 
@@ -96,7 +127,7 @@
       { key: "feedbacks", label: "Problems" }
     ];
 
-    var html = "<div style='overflow-x:auto;'><table class='sof-table'><thead><tr>";
+    var html = filterHtml + "<div style='overflow-x:auto;'><table class='sof-table'><thead><tr>";
     cols.forEach(function (col) {
       var active = sk === col.key;
       var arrow = active ? (sd === "asc" ? " \u25B2" : " \u25BC") : "";
@@ -105,7 +136,7 @@
     });
     html += "<th>Actions</th></tr></thead><tbody>";
 
-    state.grouped.forEach(function (grp) {
+    displayed.forEach(function (grp) {
       var isExpanded = state.expandedOrderId === grp.order_id;
       html += "<tr class='" + (isExpanded ? "sof-expanded" : "") + "'>" +
         "<td>#" + grp.order_id + "</td>" +
@@ -194,6 +225,15 @@
 
   // ─── Events ─────────────────────────────────────────────────────────────
   function wireEvents(mount) {
+    // Resolution filter
+    var filterEl = mount.querySelector("#sof-resolution-filter");
+    if (filterEl) {
+      filterEl.addEventListener("change", function () {
+        state.resolutionFilter = filterEl.value;
+        renderAll(mount);
+      });
+    }
+
     // Sort
     mount.querySelectorAll("[data-sof-sort]").forEach(function (th) {
       th.addEventListener("click", function () {
@@ -297,12 +337,12 @@
       if (state._autoInterval) clearInterval(state._autoInterval);
       state._autoInterval = setInterval(function () {
         if (E.state.activeModuleId !== "supplier-order-feedback") return;
-        var prevExpanded = state.expandedOrderId;
+        // Don't refresh while supplier is resolving feedback in an expanded order
+        if (state.expandedOrderId) return;
         apiFeedbackList().then(function (resp) {
           if (E.state.activeModuleId !== "supplier-order-feedback") return;
           state.entries = resp.entries || [];
           state.grouped = groupByOrder(state.entries);
-          state.expandedOrderId = prevExpanded;
           applySort();
           renderAll(ctx.mount);
         }).catch(function () {});
