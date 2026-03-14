@@ -106,7 +106,7 @@
     view: "table", // "table" | "upload" | "preview"
     previewRows: null,
     previewErrors: [],
-    supplierName: "",
+    _user: null,
     _mount: null
   };
 
@@ -123,10 +123,10 @@
   function apiDelete(id) {
     return E.apiFetch("/supplier-products/entries/" + id, { method: "DELETE" });
   }
-  function apiBulkImport(rows, supplierName) {
+  function apiBulkImport(rows) {
     return E.apiFetch("/supplier-products/bulk-import", {
       method: "POST",
-      body: JSON.stringify({ rows: rows, supplier_name: supplierName })
+      body: JSON.stringify({ rows: rows })
     });
   }
   function apiToggleStock(id, outOfStock) {
@@ -380,6 +380,26 @@
 
   // ─── Render Helpers ─────────────────────────────────────────────────────
 
+  // ─── Download Template ──────────────────────────────────────────────────
+  function downloadTemplate(format) {
+    if (!window.XLSX) { toast("bad", "Error", "SheetJS library not loaded. Please reload the page."); return; }
+    var headers = [
+      "Stock Code", "Barcode", "Description", "Cost Excl Vat", "Cost Incl Vat",
+      "VAT", "Discount (%)", "Discount (\u20ac)", "Quantity Purchased",
+      "Quantity Free", "Batch", "Expiry Date", "Retail Price"
+    ];
+    var ws = XLSX.utils.aoa_to_sheet([headers]);
+    // Set column widths for readability
+    ws["!cols"] = headers.map(function (h) { return { wch: Math.max(h.length + 2, 14) }; });
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Products");
+    if (format === "csv") {
+      XLSX.writeFile(wb, "product-template.csv", { bookType: "csv" });
+    } else {
+      XLSX.writeFile(wb, "product-template.xlsx");
+    }
+  }
+
   function renderToolbar(mount) {
     return "<div class='sp-toolbar'>" +
       "<div class='sp-toolbar-left'>" +
@@ -387,6 +407,8 @@
           "value='" + esc(state.queries.keyword) + "' style='width:240px;'>" +
       "</div>" +
       "<div class='sp-toolbar-right'>" +
+        "<button class='eikon-btn' id='sp-btn-template-xlsx' title='Download XLSX template'>Download Template</button>" +
+        "<button class='eikon-btn' id='sp-btn-template-csv' title='Download CSV template' style='opacity:.7;font-size:11px;'>CSV</button>" +
         "<button class='eikon-btn' id='sp-btn-add'>+ Add Product</button>" +
         "<button class='eikon-btn' id='sp-btn-import'>Import File</button>" +
       "</div>" +
@@ -400,11 +422,6 @@
         "<div style='font-weight:700;font-size:15px;margin-bottom:6px;'>Drop your file here or click to browse</div>" +
         "<div style='color:var(--muted);font-size:12px;'>Accepts .csv, .xls, .xlsx</div>" +
         "<input type='file' id='sp-file-input' accept='.csv,.xls,.xlsx' style='display:none;'>" +
-      "</div>" +
-      "<div style='margin-top:12px;'>" +
-        "<label style='font-size:13px;font-weight:600;'>Supplier Name:</label> " +
-        "<input type='text' id='sp-supplier-name' class='eikon-input' placeholder='Enter supplier name' " +
-          "value='" + esc(state.supplierName) + "' style='width:220px;margin-left:8px;'>" +
       "</div>" +
       "<div style='margin-top:8px;'>" +
         "<button class='eikon-btn' id='sp-upload-cancel' style='opacity:.65;'>Cancel</button>" +
@@ -584,13 +601,6 @@
     var zone = mount.querySelector("#sp-upload-zone");
     var fileInput = mount.querySelector("#sp-file-input");
     var cancelBtn = mount.querySelector("#sp-upload-cancel");
-    var nameInput = mount.querySelector("#sp-supplier-name");
-
-    if (nameInput) {
-      nameInput.addEventListener("input", function () {
-        state.supplierName = nameInput.value;
-      });
-    }
 
     if (zone) {
       zone.addEventListener("click", function () { if (fileInput) fileInput.click(); });
@@ -731,8 +741,6 @@
 
       if (btn.id === "sp-pv-confirm") {
         var rows = state.previewRows || [];
-        var supplierName = state.supplierName;
-        if (!supplierName) { toast("bad", "Error", "Please enter a supplier name"); return; }
 
         var errs = [];
         rows.forEach(function (r, i) {
@@ -748,7 +756,7 @@
 
         btn.disabled = true;
         btn.textContent = "Uploading\u2026";
-        apiBulkImport(rows, supplierName)
+        apiBulkImport(rows)
           .then(function (resp) {
             toast("good", "Import Complete", resp.imported + " products imported" + (resp.changes ? ", " + resp.changes + " stock changes logged" : ""));
             state.previewRows = null;
@@ -789,6 +797,12 @@
         }, 200);
       });
     }
+
+    // Download template buttons
+    var tmplXlsx = mount.querySelector("#sp-btn-template-xlsx");
+    if (tmplXlsx) { tmplXlsx.addEventListener("click", function () { downloadTemplate("xlsx"); }); }
+    var tmplCsv = mount.querySelector("#sp-btn-template-csv");
+    if (tmplCsv) { tmplCsv.addEventListener("click", function () { downloadTemplate("csv"); }); }
 
     // Import button
     var importBtn = mount.querySelector("#sp-btn-import");
@@ -908,7 +922,7 @@
     var r = existingRow || {
       stock_code: "", barcode: "", description: "", cost_excl_vat: 0, cost_incl_vat: 0,
       vat_rate: 18, discount_pct: 0, discount_euro: 0, qty_purchased: 1, qty_free: 0,
-      batch: "", expiry_date: "", retail_price: 0, supplier_name: state.supplierName || ""
+      batch: "", expiry_date: "", retail_price: 0
     };
 
     function field(label, id, val, type) {
@@ -921,7 +935,6 @@
 
     var body =
       "<div class='sp-modal-grid'>" +
-        field("Supplier Name", "supplier_name", r.supplier_name || state.supplierName) +
         field("Description *", "description", r.description) +
         field("Stock Code", "stock_code", r.stock_code) +
         field("Barcode", "barcode", r.barcode) +
@@ -947,7 +960,6 @@
       { label: isEdit ? "Save" : "Add", primary: true, onClick: function () {
         var getVal = function (id) { var el = document.getElementById("sp-m-" + id); return el ? el.value : ""; };
         var payload = {
-          supplier_name: getVal("supplier_name"),
           description: getVal("description"),
           stock_code: getVal("stock_code"),
           barcode: getVal("barcode"),
@@ -966,8 +978,6 @@
         if (!payload.description.trim()) { toast("bad", "Error", "Description is required"); return; }
         if (payload.cost_excl_vat <= 0) { toast("bad", "Error", "Cost Excl VAT is required"); return; }
         if (payload.retail_price <= 0) { toast("bad", "Error", "Retail Price is required"); return; }
-
-        state.supplierName = payload.supplier_name;
 
         var p = isEdit ? apiUpdate(r.id, payload) : apiCreate(payload);
         p.then(function () {
@@ -1050,6 +1060,7 @@
     render: async function (ctx) {
       injectStyles();
       state._mount = ctx.mount;
+      state._user = ctx.user;
       ctx.mount.innerHTML =
         '<div class="eikon-card" style="max-width:1400px;margin:0 auto;">' +
         '  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">' +
