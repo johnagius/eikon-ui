@@ -2889,7 +2889,9 @@ async function handleSupplierOrdersSent(request, env, corsOkHeaders, authUser, u
   const status = (url.searchParams.get("status") || "").trim();
   const q = (url.searchParams.get("q") || "").trim().toLowerCase();
 
-  let sql = `SELECT o.*, (SELECT COUNT(*) FROM supplier_order_items WHERE order_id = o.id) AS item_count
+  let sql = `SELECT o.*,
+             (SELECT COUNT(*) FROM supplier_order_items WHERE order_id = o.id) AS item_count,
+             (SELECT GROUP_CONCAT(description, ', ') FROM (SELECT description FROM supplier_order_items WHERE order_id = o.id ORDER BY id LIMIT 5)) AS items_summary
              FROM supplier_orders o
              WHERE o.org_id = ? AND o.pharmacy_location_id = ?`;
   const bind = [authUser.org_id, authUser.location_id];

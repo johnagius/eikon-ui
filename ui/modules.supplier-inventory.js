@@ -572,11 +572,18 @@
       var sc = statusColors[order.status] || statusColors.pending;
       var statusLabel = order.status ? order.status.charAt(0).toUpperCase() + order.status.slice(1) : "Unknown";
 
+      var itemsSummary = order.items_summary || "";
+      var itemsCell = (order.item_count || 0);
+      if (itemsSummary) {
+        var truncated = itemsSummary.length > 60 ? itemsSummary.slice(0, 57) + "\u2026" : itemsSummary;
+        itemsCell += "<div style='font-size:10px;color:rgba(233,238,247,.5);white-space:normal;max-width:260px;line-height:1.3;margin-top:2px;'>" + esc(truncated) + "</div>";
+      }
+
       html += "<tr class='" + (isExpanded ? "sro-expanded" : "") + "' data-order-view='" + order.id + "'>" +
         "<td>#" + order.id + "</td>" +
         "<td>" + esc(order.supplier_name) + "</td>" +
         "<td>" + fmtDate(order.created_at) + "</td>" +
-        "<td>" + (order.item_count || 0) + "</td>" +
+        "<td style='white-space:normal;'>" + itemsCell + "</td>" +
         "<td><span style='display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;" +
           "background:" + sc.bg + ";color:" + sc.fg + ";'>" + esc(statusLabel) + "</span></td>" +
         "<td>" +
@@ -1391,7 +1398,7 @@
           var prevExpanded = state.expandedOrderId;
           var prevItems = state.expandedItems;
           var prevFeedbacks = state.expandedFeedbacks;
-          apiSentOrders("").then(function (resp) {
+          apiSentOrders(state.orderStatusFilter || "", state.orderSearchQuery || "").then(function (resp) {
             if (E.state.activeModuleId !== "supplier-inventory") return;
             state.orders = resp.entries || [];
             state.expandedOrderId = prevExpanded;
