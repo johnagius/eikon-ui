@@ -2366,7 +2366,7 @@ async function handleSupplierProductCreate(request, env, corsOkHeaders, authUser
      RETURNING id`,
     [
       authUser.org_id, authUser.location_id,
-      String(body.supplier_name || "").trim(),
+      String(authUser.location_name || "").trim(),
       String(body.stock_code || "").trim(), String(body.barcode || "").trim(), description,
       computed.cost_excl_vat, computed.cost_incl_vat, vatRate,
       computed.discount_pct, computed.discount_euro,
@@ -2407,7 +2407,7 @@ async function handleSupplierProductUpdate(request, env, corsOkHeaders, authUser
       out_of_stock=?, updated_at=datetime('now')
      WHERE org_id=? AND location_id=? AND id=?`,
     [
-      String(body.supplier_name !== undefined ? body.supplier_name : existing.supplier_name).trim(),
+      String(authUser.location_name || existing.supplier_name || "").trim(),
       String(body.stock_code !== undefined ? body.stock_code : existing.stock_code).trim(),
       String(body.barcode !== undefined ? body.barcode : existing.barcode).trim(),
       description,
@@ -2465,7 +2465,7 @@ async function handleSupplierProductsBulkImport(request, env, corsOkHeaders, aut
   await ensureSupplierProductsSchema(env);
   const body = await readJson(request);
   const rows = Array.isArray(body.rows) ? body.rows : [];
-  const supplierName = String(body.supplier_name || "").trim();
+  const supplierName = String(authUser.location_name || "").trim();
 
   if (rows.length === 0) return jsonResponse({ ok: false, error: "No rows provided" }, 400, corsOkHeaders);
   if (rows.length > 5000) return jsonResponse({ ok: false, error: "Maximum 5000 rows per import" }, 400, corsOkHeaders);
