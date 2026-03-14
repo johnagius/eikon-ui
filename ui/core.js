@@ -369,7 +369,7 @@
   // Sidebar categories for Supplier section
   E.SUPPLIER_CATEGORIES = [
     { label: "Products", icon: "\uD83D\uDCE6", moduleIds: ["supplier-products"] },
-    { label: "Orders", icon: "\uD83D\uDCCB", moduleIds: ["supplier-received-orders"] }
+    { label: "Orders", icon: "\uD83D\uDCCB", moduleIds: ["supplier-received-orders", "supplier-order-feedback"] }
   ];
 
   // Sidebar categories for Company Admin section (empty for now)

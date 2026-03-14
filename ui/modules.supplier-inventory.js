@@ -129,6 +129,7 @@
     orderSort: { key: "created_at", dir: "desc" },
     expandedOrderId: null,
     expandedItems: [],
+    expandedFeedbacks: [],
     hiddenCols: [],
     expirySettings: { expiry_red_months: 6, expiry_yellow_months: 12 },
     _mount: null
@@ -217,6 +218,17 @@
     }
     var d2 = new Date(v);
     return isNaN(d2.getTime()) ? null : d2;
+  }
+
+  function toYmd(dateStr) {
+    if (!dateStr) return "";
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+    var d = parseExpiryDate(dateStr);
+    if (!d) return "";
+    var y = d.getFullYear();
+    var m = String(d.getMonth() + 1).padStart(2, "0");
+    var dd = String(d.getDate()).padStart(2, "0");
+    return y + "-" + m + "-" + dd;
   }
 
   function getSortVal(row, key) {
@@ -563,6 +575,12 @@
     var items = state.expandedItems;
     if (!items.length) return "<div style='padding:12px;color:var(--muted);'>Loading\u2026</div>";
 
+    // Build feedback lookup by item id
+    var fbByItem = {};
+    (state.expandedFeedbacks || []).forEach(function (fb) {
+      fbByItem[fb.order_item_id] = fb;
+    });
+
     var canReport = order.status === "shipped" || order.status === "received";
     var thStyle = "text-align:left;padding:6px;font-size:11px;color:rgba(233,238,247,.6);";
 
@@ -578,7 +596,9 @@
 
     items.forEach(function (item) {
       var unavail = item.unavailable ? 1 : 0;
+      var existingFb = fbByItem[item.id];
       var rowStyle = unavail ? "text-decoration:line-through;opacity:0.5;" : "";
+      if (existingFb && !unavail) rowStyle += "background:rgba(255,90,122,.08);";
       var qtyLabel = (item.qty_requested || 0) + (item.qty_free ? "+" + item.qty_free : "");
       html += "<tr style='" + rowStyle + "'>" +
         "<td style='padding:6px;'>" + esc(item.description) + "</td>" +
@@ -589,22 +609,32 @@
           "<span style='color:#ff5a7a;font-weight:700;'>Unavailable</span>" :
           "<span style='color:#43d17a;'>Available</span>") + "</td>";
 
-      if (canReport && !unavail) {
-        html += "<td style='padding:6px;'>" +
-          "<select class='eikon-input si-problem-select' data-feedback-item='" + item.id + "' " +
-            "data-fb-desc='" + esc(item.description) + "' " +
-            "data-fb-batch='" + esc(item.batch || "") + "' " +
-            "data-fb-expiry='" + esc(item.expiry_date || "") + "' " +
-            "data-fb-qty='" + qtyLabel + "' " +
-            "data-fb-supplier='" + esc(order.supplier_name) + "' " +
-            "style='font-size:11px;padding:2px 4px;width:130px;'>" +
-            "<option value=''>-- Select --</option>";
-        PROBLEM_TYPES.forEach(function (pt) {
-          html += "<option value='" + esc(pt) + "'>" + esc(pt) + "</option>";
-        });
-        html += "</select></td>";
-      } else if (canReport) {
-        html += "<td style='padding:6px;'></td>";
+      if (canReport) {
+        if (existingFb) {
+          // Show existing feedback badge
+          var pColors = { "Not Received": "#ff5a7a", "Wrong Pick": "#e8c840", "Damaged": "#ff5a7a", "Short Quantity": "#ffaf32", "Other": "#5aa2ff" };
+          var pc = pColors[existingFb.problem_type] || "#ff5a7a";
+          html += "<td style='padding:6px;'><span style='display:inline-block;padding:2px 8px;border-radius:5px;font-size:11px;font-weight:700;" +
+            "background:" + pc + "22;color:" + pc + ";'>" + esc(existingFb.problem_type) + "</span>" +
+            (existingFb.notes ? "<div style='font-size:10px;color:var(--muted);margin-top:2px;'>" + esc(existingFb.notes) + "</div>" : "") +
+            "</td>";
+        } else if (!unavail) {
+          html += "<td style='padding:6px;'>" +
+            "<select class='eikon-input si-problem-select' data-feedback-item='" + item.id + "' " +
+              "data-fb-desc='" + esc(item.description) + "' " +
+              "data-fb-batch='" + esc(item.batch || "") + "' " +
+              "data-fb-expiry='" + esc(item.expiry_date || "") + "' " +
+              "data-fb-qty='" + qtyLabel + "' " +
+              "data-fb-supplier='" + esc(order.supplier_name) + "' " +
+              "style='font-size:11px;padding:2px 4px;width:130px;'>" +
+              "<option value=''>-- Select --</option>";
+          PROBLEM_TYPES.forEach(function (pt) {
+            html += "<option value='" + esc(pt) + "'>" + esc(pt) + "</option>";
+          });
+          html += "</select></td>";
+        } else {
+          html += "<td style='padding:6px;'></td>";
+        }
       }
 
       html += "</tr>";
@@ -954,13 +984,16 @@
         if (state.expandedOrderId === orderId) {
           state.expandedOrderId = null;
           state.expandedItems = [];
+          state.expandedFeedbacks = [];
           renderAll(mount);
         } else {
           state.expandedOrderId = orderId;
           state.expandedItems = [];
+          state.expandedFeedbacks = [];
           renderAll(mount);
           apiOrderDetail(orderId).then(function (resp) {
             state.expandedItems = resp.items || [];
+            state.expandedFeedbacks = resp.feedbacks || [];
             renderAll(mount);
           }).catch(function (err) { toast("bad", "Error", "Failed to load order"); warn(err); });
         }
@@ -1012,6 +1045,15 @@
               }).then(function () {
                 toast("good", "Reported", "Problem reported for " + desc);
 
+                // Re-fetch order detail to refresh feedback badges
+                if (state.expandedOrderId) {
+                  apiOrderDetail(state.expandedOrderId).then(function (resp) {
+                    state.expandedItems = resp.items || [];
+                    state.expandedFeedbacks = resp.feedbacks || [];
+                    renderAll(mount);
+                  }).catch(function () {});
+                }
+
                 // Ask to add to returns
                 var today = new Date();
                 var dateStr = today.getFullYear() + "-" + String(today.getMonth() + 1).padStart(2, "0") + "-" + String(today.getDate()).padStart(2, "0");
@@ -1037,7 +1079,7 @@
                           description: desc,
                           supplier: supplierName,
                           batch: batch,
-                          expiry: expiryDate,
+                          expiry: toYmd(expiryDate),
                           quantity: qtyLabel,
                           remarks: problemType + (notes ? " - " + notes : ""),
                           damaged: problemType === "Damaged" ? 1 : 0
@@ -1081,6 +1123,7 @@
       state.orders = resp.entries || [];
       state.expandedOrderId = null;
       state.expandedItems = [];
+      state.expandedFeedbacks = [];
       sortOrders();
       renderAll(mount);
     } catch (err) {
@@ -1174,6 +1217,7 @@
       state.cart = {};
       state.expandedOrderId = null;
       state.expandedItems = [];
+      state.expandedFeedbacks = [];
       state.hiddenCols = loadHiddenCols();
 
       ctx.mount.innerHTML =
@@ -1192,10 +1236,12 @@
           // Preserve expansion state
           var prevExpanded = state.expandedOrderId;
           var prevItems = state.expandedItems;
+          var prevFeedbacks = state.expandedFeedbacks;
           apiSentOrders("").then(function (resp) {
             if (E.state.activeModuleId !== "supplier-inventory") return;
             state.orders = resp.entries || [];
             state.expandedOrderId = prevExpanded;
+            state.expandedFeedbacks = prevFeedbacks;
             state.expandedItems = prevItems;
             sortOrders();
             renderAll(ctx.mount);

@@ -2920,7 +2920,10 @@ async function handleSupplierOrderDetail(request, env, corsOkHeaders, authUser, 
   const items = await dbAll(env,
     "SELECT * FROM supplier_order_items WHERE order_id = ? ORDER BY id ASC", [orderId]);
 
-  return jsonResponse({ ok: true, order, items }, 200, corsOkHeaders);
+  const feedbacks = await dbAll(env,
+    "SELECT * FROM supplier_order_item_feedback WHERE order_id = ? ORDER BY created_at DESC", [orderId]);
+
+  return jsonResponse({ ok: true, order, items, feedbacks }, 200, corsOkHeaders);
 }
 
 async function handleSupplierOrderConfirm(request, env, corsOkHeaders, authUser, orderId) {
