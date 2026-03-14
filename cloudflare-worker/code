@@ -9456,6 +9456,25 @@ async function handleUiAsset(request, env, url) {
     return new Response("Not found", { status: 404, headers: { "Content-Type": "text/plain; charset=utf-8" } });
   }
 
+  // Serve supplier product template CSV with Content-Disposition: attachment
+  if (rel === "product-template.csv") {
+    const hdrs = [
+      "Stock Code","Barcode","Description","Cost Excl Vat","Cost Incl Vat",
+      "VAT","Discount (%)","Discount (\u20ac)","Quantity Purchased",
+      "Quantity Free","Batch","Expiry Date","Retail Price"
+    ];
+    const csv = hdrs.map(h => '"' + h.replace(/"/g, '""') + '"').join(",") + "\n";
+    return new Response(csv, {
+      status: 200,
+      headers: {
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": 'attachment; filename="product-template.csv"',
+        "Access-Control-Allow-Origin": "*",
+        "Cache-Control": "no-store"
+      }
+    });
+  }
+
   const cacheSeconds = parseInt((env.UI_CACHE_SECONDS || "300").trim(), 10);
   const ct = contentTypeForPath(rel);
 
