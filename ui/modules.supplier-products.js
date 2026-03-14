@@ -404,6 +404,23 @@
         return '"' + h.replace(/"/g, '""') + '"';
       }).join(",") + "\n";
 
+      // In nested iframe environments (e.g. GoDaddy), direct blob downloads
+      // are blocked by the browser. Delegate to the parent frame via postMessage.
+      // The godaddy loader listens for EIKON_DOWNLOAD and performs the download
+      // from its context where allow-downloads is available.
+      if (window.parent !== window) {
+        log("downloadTemplate: delegating to parent via postMessage");
+        window.parent.postMessage({
+          type: "EIKON_DOWNLOAD",
+          filename: "product-template.csv",
+          content: csvLine,
+          mimeType: "text/csv;charset=utf-8;"
+        }, "*");
+        toast("good", "Template", "Download started");
+        return;
+      }
+
+      // Fallback: direct download if not in an iframe
       var blob = new Blob([csvLine], { type: "text/csv;charset=utf-8;" });
       var url = URL.createObjectURL(blob);
       var a = document.createElement("a");
