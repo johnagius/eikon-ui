@@ -397,39 +397,60 @@
     "Quantity Free", "Batch", "Expiry Date", "Retail Price"
   ];
 
-  function downloadTemplate() {
-    log("downloadTemplate: start");
-    try {
-      var csvUrl = (window.location.origin || "") + "/ui/product-template.csv?t=" + Date.now();
-
-      // Browsers block ALL downloads from inside a sandboxed iframe's children.
-      // Delegate to the parent frame (godaddy loader at level 2) which has
-      // allow-downloads on its sandbox and can trigger the download.
-      if (window.parent !== window) {
-        log("downloadTemplate: delegating to parent, url=" + csvUrl);
-        window.parent.postMessage({
-          type: "EIKON_DOWNLOAD",
-          url: csvUrl
-        }, "*");
-        toast("good", "Template", "Download started");
-        return;
-      }
-
-      // Fallback: direct download if not in an iframe
-      log("downloadTemplate: direct download, url=" + csvUrl);
-      var a = document.createElement("a");
-      a.href = csvUrl;
-      a.download = "product-template.csv";
-      a.style.display = "none";
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(function () {
-        if (a.parentNode) a.parentNode.removeChild(a);
-      }, 300);
-    } catch (ex) {
-      warn("downloadTemplate: FAILED", ex);
-      toast("bad", "Error", "Template download failed: " + (ex.message || ex));
+  function copyToClipboard(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () {
+        toast("good", "Copied!", "Headers copied to clipboard");
+      }).catch(function () {
+        clipboardFallback(text);
+      });
+    } else {
+      clipboardFallback(text);
     }
+  }
+
+  function clipboardFallback(text) {
+    try {
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.left = "-9999px";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      toast("good", "Copied!", "Headers copied to clipboard");
+    } catch (e) {
+      toast("bad", "Error", "Could not copy. Please select and copy the headers manually.");
+    }
+  }
+
+  function showTemplateHelp() {
+    var headerLine = TEMPLATE_HEADERS.join("\t");
+
+    var body =
+      "<div style='text-align:left;font-size:14px;line-height:1.7;'>" +
+        "<p style='margin:0 0 12px;'><b>To create your product file:</b></p>" +
+        "<ol style='margin:0 0 16px;padding-left:20px;'>" +
+          "<li>Open <b>Excel</b> (or Google Sheets)</li>" +
+          "<li>Click the <b>\"Copy Headers\"</b> button below</li>" +
+          "<li>Click on cell <b>A1</b> in your spreadsheet</li>" +
+          "<li>Press <b>Ctrl+V</b> (or Cmd+V on Mac) to paste</li>" +
+          "<li>Fill in your product details starting from <b>row 2</b></li>" +
+          "<li>Save the file as <b>CSV</b><br><span style='font-size:12px;opacity:.7;'>(File \u2192 Save As \u2192 choose \"CSV UTF-8\" or \"CSV\")</span></li>" +
+          "<li>Come back here and click <b>\"Import File\"</b> to upload</li>" +
+        "</ol>" +
+        "<div style='background:#1a1f2b;border:1px solid #333;border-radius:8px;padding:10px;margin-bottom:12px;font-size:12px;overflow-x:auto;white-space:nowrap;color:#ccc;'>" +
+          esc(TEMPLATE_HEADERS.join("  |  ")) +
+        "</div>" +
+      "</div>";
+
+    E.modal.show("Create Your Product File", body, [
+      { label: "Copy Headers", primary: true, onClick: function () {
+        copyToClipboard(headerLine);
+      }},
+      { label: "Close", onClick: function () { E.modal.hide(); } }
+    ]);
   }
 
   function renderToolbar(mount) {
@@ -439,7 +460,7 @@
           "value='" + esc(state.queries.keyword) + "' style='width:240px;'>" +
       "</div>" +
       "<div class='sp-toolbar-right'>" +
-        "<button class='eikon-btn' id='sp-btn-template'>Download Template</button>" +
+        "<button class='eikon-btn' id='sp-btn-template'>Template</button>" +
         "<button class='eikon-btn' id='sp-btn-add'>+ Add Product</button>" +
         "<button class='eikon-btn' id='sp-btn-import'>Import File</button>" +
       "</div>" +
@@ -829,9 +850,9 @@
       });
     }
 
-    // Download template
+    // Template help modal
     var tmplBtn = mount.querySelector("#sp-btn-template");
-    if (tmplBtn) { tmplBtn.addEventListener("click", function () { downloadTemplate(); }); }
+    if (tmplBtn) { tmplBtn.addEventListener("click", function () { showTemplateHelp(); }); }
 
     // Import button
     var importBtn = mount.querySelector("#sp-btn-import");

@@ -61,21 +61,6 @@
           else console.log(msg);
         }
 
-        // ── Download delegation ─────────────────────────────────────────
-        // Chrome ignores ALL dynamically-added sandbox flags (allow-downloads,
-        // allow-popups-to-escape-sandbox). Only original flags work.
-        // allow-top-navigation IS original, so we navigate window.top to
-        // the download URL. Content-Disposition: attachment causes a download
-        // without actually navigating away from the page.
-        if (ev.data.type === "EIKON_DOWNLOAD") {
-          console.log("[EIKON][godaddy] download request:", ev.data.url);
-          try {
-            window.top.location.href = ev.data.url;
-            console.log("[EIKON][godaddy] download via top navigation OK");
-          } catch (dlErr) {
-            console.error("[EIKON][godaddy] download failed:", dlErr);
-          }
-        }
       } catch (e) {}
     });
 
