@@ -399,7 +399,9 @@
 
   function downloadTemplate() {
     log("downloadTemplate: opening backend template URL");
-    var templateUrl = (E.apiBase || "") + "/supplier-products/template";
+    // Build absolute URL — relative paths break inside GoDaddy's sandboxed iframe
+    var base = E.apiBase || window.location.origin || "";
+    var templateUrl = base + "/supplier-products/template";
     log("downloadTemplate: url=" + templateUrl);
     window.open(templateUrl, "_blank");
   }
