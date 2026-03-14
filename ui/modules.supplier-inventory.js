@@ -503,23 +503,16 @@
     return html;
   }
 
+  var ORDER_COLS = [
+    { key: "id", label: "Order #" },
+    { key: "supplier_name", label: "Supplier" },
+    { key: "created_at", label: "Date" },
+    { key: "item_count", label: "Items" },
+    { key: "status", label: "Status" }
+  ];
+
   function renderOrders() {
     var hasDrafts = Object.keys(state.cart).length > 0;
-    if (!state.orders.length && !hasDrafts) {
-      return "<div style='text-align:center;padding:40px;color:var(--muted);'>No orders placed yet.</div>";
-    }
-
-    var sk = state.orderSort.key;
-    var sd = state.orderSort.dir;
-
-    var cols = [
-      { key: "id", label: "Order #" },
-      { key: "supplier_name", label: "Supplier" },
-      { key: "created_at", label: "Date" },
-      { key: "item_count", label: "Items" },
-      { key: "status", label: "Status" }
-    ];
-
     var sf = state.orderStatusFilter;
     var html = "<div style='margin-bottom:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;'>" +
       "<select id='si-order-status-filter' class='eikon-input' style='width:150px;font-size:12px;'>" +
@@ -533,7 +526,20 @@
         "style='flex:1;min-width:180px;max-width:340px;font-size:12px;'>" +
     "</div>";
 
-    html += "<div class='si-table-wrap'><table class='si-table'><thead><tr>";
+    // Table body rendered into a replaceable container
+    html += "<div id='si-orders-body'>" + renderOrdersBody(ORDER_COLS, state.orderSort.key, state.orderSort.dir, hasDrafts) + "</div>";
+    return html;
+  }
+
+  function renderOrdersBody(cols, sk, sd, hasDrafts) {
+    if (!state.orders.length && !hasDrafts) {
+      var msg = state.orderSearchQuery
+        ? "No orders matching \u201C" + esc(state.orderSearchQuery) + "\u201D"
+        : "No orders placed yet.";
+      return "<div style='text-align:center;padding:40px;color:var(--muted);'>" + msg + "</div>";
+    }
+
+    var html = "<div class='si-table-wrap'><table class='si-table'><thead><tr>";
     cols.forEach(function (col) {
       var active = sk === col.key;
       var arrow = active ? (sd === "asc" ? " \u25B2" : " \u25BC") : "";
@@ -1075,6 +1081,32 @@
   }
 
   function wireOrders(mount) {
+    // Order status filter
+    var statusFilter = mount.querySelector("#si-order-status-filter");
+    if (statusFilter) {
+      statusFilter.addEventListener("change", function () {
+        state.orderStatusFilter = statusFilter.value;
+        loadOrders(mount);
+      });
+    }
+
+    // Order keyword search
+    var orderSearch = mount.querySelector("#si-order-search");
+    if (orderSearch) {
+      var osDebounce = null;
+      orderSearch.addEventListener("input", function () {
+        state.orderSearchQuery = orderSearch.value;
+        clearTimeout(osDebounce);
+        osDebounce = setTimeout(function () {
+          loadOrders(mount);
+        }, 350);
+      });
+    }
+
+    wireOrdersBody(mount);
+  }
+
+  function wireOrdersBody(mount) {
     // Draft continue
     mount.querySelectorAll(".si-draft-continue").forEach(function (btn) {
       btn.addEventListener("click", function () {
@@ -1108,35 +1140,9 @@
           state.orderSort.dir = "asc";
         }
         sortOrders();
-        renderAll(mount);
+        refreshOrdersBody(mount);
       });
     });
-
-    // Order status filter
-    var statusFilter = mount.querySelector("#si-order-status-filter");
-    if (statusFilter) {
-      statusFilter.addEventListener("change", function () {
-        state.orderStatusFilter = statusFilter.value;
-        loadOrders(mount);
-      });
-    }
-
-    // Order keyword search
-    var orderSearch = mount.querySelector("#si-order-search");
-    if (orderSearch) {
-      var osDebounce = null;
-      orderSearch.addEventListener("input", function () {
-        clearTimeout(osDebounce);
-        osDebounce = setTimeout(function () {
-          state.orderSearchQuery = orderSearch.value;
-          loadOrders(mount);
-        }, 350);
-      });
-      if (state.orderSearchQuery) {
-        orderSearch.focus();
-        orderSearch.setSelectionRange(orderSearch.value.length, orderSearch.value.length);
-      }
-    }
 
     // Expand order
     mount.querySelectorAll("[data-expand-order]").forEach(function (btn) {
@@ -1265,6 +1271,17 @@
     });
   }
 
+  function refreshOrdersBody(mount) {
+    var body = mount.querySelector("#si-orders-body");
+    if (body) {
+      var hasDrafts = Object.keys(state.cart).length > 0;
+      body.innerHTML = renderOrdersBody(ORDER_COLS, state.orderSort.key, state.orderSort.dir, hasDrafts);
+      wireOrdersBody(mount);
+    } else {
+      renderAll(mount);
+    }
+  }
+
   function sortOrders() {
     var sk = state.orderSort.key;
     var sd = state.orderSort.dir === "asc" ? 1 : -1;
@@ -1286,7 +1303,8 @@
       state.expandedItems = [];
       state.expandedFeedbacks = [];
       sortOrders();
-      renderAll(mount);
+      // Update only the orders body to preserve search input focus
+      refreshOrdersBody(mount);
     } catch (err) {
       warn("Failed to load orders", err);
     }
@@ -1405,7 +1423,8 @@
             state.expandedFeedbacks = prevFeedbacks;
             state.expandedItems = prevItems;
             sortOrders();
-            renderAll(ctx.mount);
+            // Update only table body to preserve search focus
+            refreshOrdersBody(ctx.mount);
           }).catch(function () {});
         } else {
           // Don't refresh inventory view while user has cart items (actively shopping)
