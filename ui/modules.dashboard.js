@@ -145,6 +145,17 @@
     return '<button class="' + cls + '" data-action="' + esc(action) + '"' + title + ">" + esc(label) + "</button>";
   }
 
+  function dashToast(kind, msg) {
+    var el = document.createElement("div");
+    el.className = "od-toast od-toast-" + kind;
+    el.innerHTML = msg;
+    document.body.appendChild(el);
+    setTimeout(function () {
+      el.classList.add("od-toast-exit");
+      setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 900);
+    }, 4000);
+  }
+
   function row(icon, title, sub, pillHtml, actionsHtml) {
     return (
       '<div class="eikon-dash-item">' +
@@ -230,7 +241,9 @@
       instructions: null,
       scarcestock: null,
       stocktransfers: null,
-      board: null
+      board: null,
+      supplierChanges: null,
+      supplierOrders: null
     }
   };
 
@@ -250,6 +263,8 @@
     state.data.scarcestock = null;
     state.data.stocktransfers = null;
     state.data.board = null;
+    state.data.supplierChanges = null;
+    state.data.supplierOrders = null;
   }
 
   // ----------------------------
@@ -984,9 +999,76 @@
       }
     }
 
+    // --- Supplier Updates (Attention section) ---
+    var supChgRow = "";
+    if (!state.data.supplierChanges) supChgRow = row("\uD83D\uDE9A", "Supplier Updates", "Loading\u2026", pill("info", "\u2026"), "");
+    else if (!state.data.supplierChanges.ok) supChgRow = row("\uD83D\uDE9A", "Supplier Updates", state.data.supplierChanges.error || "Unavailable", showNA("N/A"), btn("dash-open-supplier-inventory", "Open", { small: true }));
+    else {
+      var sc = state.data.supplierChanges.data;
+      var scEntries = sc.entries || [];
+      // Filter unseen for this location
+      var myLocId = Number((E.state.user || {}).location_id);
+      var unseen = scEntries.filter(function (ch) {
+        try { var seen = JSON.parse(ch.seen_by || "[]"); return !seen.includes(myLocId); } catch (e) { return true; }
+      });
+      if (unseen.length > 0) {
+        var oosCount = unseen.filter(function (c) { return c.change_type === "out_of_stock" || c.change_type === "removed"; }).length;
+        var bisCount = unseen.filter(function (c) { return c.change_type === "back_in_stock" || c.change_type === "added"; }).length;
+        var scSub = [];
+        if (oosCount) scSub.push(oosCount + " out of stock");
+        if (bisCount) scSub.push(bisCount + " back/new");
+        supChgRow = row("\uD83D\uDE9A", "Supplier Updates", scSub.join(", ") || (unseen.length + " changes"),
+          pill("warn", unseen.length + " update" + (unseen.length !== 1 ? "s" : "")),
+          btn("dash-open-supplier-inventory", "View", { primary: true, small: true }));
+
+        // Toast for stock changes
+        var supGroups = {};
+        unseen.forEach(function (ch) {
+          var sn = ch.supplier_name || "Unknown";
+          if (!supGroups[sn]) supGroups[sn] = { oos: 0, bis: 0 };
+          if (ch.change_type === "out_of_stock" || ch.change_type === "removed") supGroups[sn].oos++;
+          else supGroups[sn].bis++;
+        });
+        for (var sgk in supGroups) {
+          if (Object.prototype.hasOwnProperty.call(supGroups, sgk)) {
+            var sg = supGroups[sgk];
+            var parts = [];
+            if (sg.oos) parts.push(sg.oos + " out of stock");
+            if (sg.bis) parts.push(sg.bis + " back in stock");
+            dashToast("info", esc(sgk) + ": " + parts.join(", "));
+          }
+        }
+      } else {
+        supChgRow = row("\uD83D\uDE9A", "Supplier Updates", "No recent changes", pill("ok", "OK"),
+          btn("dash-open-supplier-inventory", "Open", { small: true }));
+      }
+    }
+
+    // --- Supplier Orders (Operations section) ---
+    var supOrdRow = "";
+    if (!state.data.supplierOrders) supOrdRow = row("\uD83D\uDCE6", "Supplier Orders", "Loading\u2026", pill("info", "\u2026"), "");
+    else if (!state.data.supplierOrders.ok) supOrdRow = row("\uD83D\uDCE6", "Supplier Orders", state.data.supplierOrders.error || "Unavailable", showNA("N/A"), btn("dash-open-supplier-inventory-orders", "Open", { small: true }));
+    else {
+      var so = state.data.supplierOrders.data;
+      var soEntries = so.entries || [];
+      var soPending = soEntries.filter(function (o) { return o.status === "pending"; }).length;
+      var soShipped = soEntries.filter(function (o) { return o.status === "shipped"; }).length;
+      if (soPending > 0 || soShipped > 0) {
+        var soSub = [];
+        if (soPending) soSub.push(soPending + " pending");
+        if (soShipped) soSub.push(soShipped + " shipped");
+        supOrdRow = row("\uD83D\uDCE6", "Supplier Orders", soSub.join(", "),
+          pill("warn", (soPending + soShipped) + " active"),
+          btn("dash-open-supplier-inventory-orders", "View", { primary: true, small: true }));
+      } else {
+        supOrdRow = row("\uD83D\uDCE6", "Supplier Orders", "All orders received", pill("ok", "OK"),
+          btn("dash-open-supplier-inventory-orders", "Open", { small: true }));
+      }
+    }
+
     if (todayList) todayList.innerHTML = tempRow + drRow + poRow + insRow + boardRow;
-    if (attnList) attnList.innerHTML = clRow + certRow + alRow + rtRow + neRow + ssRow + stRow;
-    if (opsList) opsList.innerHTML = shRow + coRow + tkRow;
+    if (attnList) attnList.innerHTML = clRow + certRow + alRow + rtRow + neRow + ssRow + stRow + supChgRow;
+    if (opsList) opsList.innerHTML = shRow + coRow + tkRow + supOrdRow;
   }
 
   // ----------------------------
@@ -1276,6 +1358,17 @@
       var r = await api("/board/dashboard", { method: "GET" }, 6000, "board");
       if (!r || r.ok !== true) throw new Error((r && r.error) ? r.error : "Failed");
       return { unread: r.unread_mentions || 0, unread_messages: r.unread_messages || 0, recent: r.recent_messages || [], mentions: r.recent_mentions || [] };
+    });
+
+    run("supplierChanges", async function () {
+      var since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      var r = await api("/supplier-products/changes?since=" + encodeURIComponent(since), { method: "GET" }, 5000, "supplier changes");
+      return { entries: (r && r.entries) ? r.entries : [] };
+    });
+
+    run("supplierOrders", async function () {
+      var r = await api("/supplier-orders/sent?status=pending,shipped", { method: "GET" }, 5000, "supplier orders");
+      return { entries: (r && r.entries) ? r.entries : [] };
     });
 
     run("shifts", async function () {
@@ -2001,6 +2094,8 @@
     else if (act === "dash-open-scarcestock") window.location.hash = "#scarcestock";
     else if (act === "dash-open-stocktransfers") window.location.hash = "#stocktransfers";
     else if (act === "dash-open-messageboard") window.location.hash = "#messageboard";
+    else if (act === "dash-open-supplier-inventory") window.location.hash = "#supplier-inventory";
+    else if (act === "dash-open-supplier-inventory-orders") window.location.hash = "#supplier-inventory";
   }
 
   // ----------------------------

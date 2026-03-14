@@ -171,6 +171,19 @@
     }).catch(function(){ _quotations=[]; _quotationsLoading=false; });
   }
 
+  // Supplier products cache (prefetched on module mount)
+  var _supplierProducts = null;
+  var _supplierProductsLoading = false;
+
+  function prefetchSupplierProducts() {
+    if (_supplierProducts!==null||_supplierProductsLoading) return;
+    _supplierProductsLoading=true;
+    E.apiFetch("/supplier-products/inventory",{method:"GET"}).then(function(r){
+      _supplierProducts=(r&&r.entries)||[];
+      _supplierProductsLoading=false;
+    }).catch(function(){ _supplierProducts=[]; _supplierProductsLoading=false; });
+  }
+
   // ─── API wrappers ─────────────────────────────────────────────────────────
   function apiList(date)      { return E.apiFetch("/order-diary/entries?date="+encodeURIComponent(date),{method:"GET"}); }
   function apiCreate(p)       { return E.apiFetch("/order-diary/entries",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(p)}); }
@@ -977,6 +990,49 @@
         });
       });
 
+      // Section 3: Supplier Inventory
+      var supProducts=_supplierProducts||[];
+      if(supProducts.length&&typed.length>=2){
+        var spTyped=norm(typed);
+        var spMatches=supProducts.filter(function(sp){
+          return norm(sp.description).indexOf(spTyped)>=0||
+                 norm(sp.barcode).indexOf(spTyped)>=0||
+                 norm(sp.stock_code).indexOf(spTyped)>=0;
+        }).slice(0,6);
+
+        // Deduplicate against history and quotation names
+        var allNames=Object.create(null);
+        merged.forEach(function(m){allNames[norm(m.fillName)]=1;});
+
+        spMatches.forEach(function(sp){
+          var d=String(sp.description||"").trim();
+          if(!d||allNames[norm(d)]) return;
+          allNames[norm(d)]=1;
+
+          var spMargin=Number(sp.profit_margin||0);
+          var spCostExcl=Number(sp.cost_excl_vat||0);
+          var spOos=sp.out_of_stock?1:0;
+
+          var spParts=[];
+          if(sp.supplier_name) spParts.push("<span style='color:rgba(233,238,247,.55)'>"+esc(sp.supplier_name)+"</span>");
+          if(spCostExcl>0) spParts.push("<span style='color:#43d17a'>€"+spCostExcl.toFixed(2)+"</span>");
+          if(spMargin>0) spParts.push("<span style='color:"+profitColor(spMargin)+";font-weight:800'>"+Math.round(spMargin)+"%</span>");
+          if(spOos) spParts.push("<span style='color:#ff5a7a;font-weight:700;'>Out of Stock</span>");
+          var spMetaHtml=spParts.length?
+            "<span class='od-sug-meta' style='display:flex;gap:5px;align-items:center;"+
+            (spOos?"opacity:0.5;":"")+
+            "'>"+spParts.join(" ")+"</span>":"";
+
+          merged.push({
+            section:"From Supplier Inventory",
+            name: d,
+            metaHtml: spMetaHtml,
+            fillName: d,
+            fillSupplier: sp.supplier_name||""
+          });
+        });
+      }
+
       if(!merged.length){hideSug(sugEl);return;}
 
       var html=buildSugHtml(merged);
@@ -1394,8 +1450,9 @@
     state.date=todayYmd();
     state.filterSupplier=null;
 
-    // Prefetch quotations immediately in background
+    // Prefetch quotations and supplier products in background
     prefetchQuotations();
+    prefetchSupplierProducts();
 
     loadEntries();
   }
