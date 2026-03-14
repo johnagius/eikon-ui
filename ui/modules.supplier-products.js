@@ -400,20 +400,32 @@
   function downloadTemplate() {
     log("downloadTemplate: start");
     try {
-      // Use a hidden iframe to load the server-served CSV endpoint.
-      // The server responds with Content-Disposition: attachment which triggers
-      // a download without popups, blob URLs, or sandbox issues.
       var csvUrl = (window.location.origin || "") + "/ui/product-template.csv?t=" + Date.now();
-      log("downloadTemplate: loading via hidden iframe: " + csvUrl);
-      var f = document.createElement("iframe");
-      f.style.display = "none";
-      f.src = csvUrl;
-      document.body.appendChild(f);
-      toast("good", "Template", "Download started");
+
+      // Browsers block ALL downloads from inside a sandboxed iframe's children.
+      // Delegate to the parent frame (godaddy loader at level 2) which has
+      // allow-downloads on its sandbox and can trigger the download.
+      if (window.parent !== window) {
+        log("downloadTemplate: delegating to parent, url=" + csvUrl);
+        window.parent.postMessage({
+          type: "EIKON_DOWNLOAD",
+          url: csvUrl
+        }, "*");
+        toast("good", "Template", "Download started");
+        return;
+      }
+
+      // Fallback: direct download if not in an iframe
+      log("downloadTemplate: direct download, url=" + csvUrl);
+      var a = document.createElement("a");
+      a.href = csvUrl;
+      a.download = "product-template.csv";
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
       setTimeout(function () {
-        if (f.parentNode) f.parentNode.removeChild(f);
-        log("downloadTemplate: cleanup done");
-      }, 5000);
+        if (a.parentNode) a.parentNode.removeChild(a);
+      }, 300);
     } catch (ex) {
       warn("downloadTemplate: FAILED", ex);
       toast("bad", "Error", "Template download failed: " + (ex.message || ex));
