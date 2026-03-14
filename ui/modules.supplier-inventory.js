@@ -71,7 +71,7 @@
     { key: "profit_margin", label: "Margin%", num: true },
     { key: "out_of_stock", label: "Status" }
   ];
-  var SI_DEFAULT_HIDDEN = ["stock_code", "barcode"];
+  var SI_DEFAULT_HIDDEN = ["stock_code", "barcode", "vat_rate"];
   var SI_ALWAYS_VISIBLE = ["description", "out_of_stock", "supplier_name"];
 
   function loadHiddenCols() {
@@ -292,8 +292,12 @@
         } else if (col.key === "vat_rate") {
           html += "<td class='num'>" + (Number(row.vat_rate) || 0) + "%</td>";
         } else if (col.key === "deal") {
-          if (hasDeal) {
-            html += "<td><span style='font-size:11px;font-weight:700;color:#5aa2ff;'>Buy " + qp + (qf > 0 ? " + " + qf + " Free" : "") + "</span></td>";
+          var discPct = Number(row.discount_pct) || 0;
+          var dealParts = [];
+          if (hasDeal) dealParts.push("Buy " + qp + (qf > 0 ? " + " + qf + " Free" : ""));
+          if (discPct > 0) dealParts.push(discPct + "% off");
+          if (dealParts.length > 0) {
+            html += "<td><span style='font-size:11px;font-weight:700;color:#5aa2ff;'>" + dealParts.join(" \u00b7 ") + "</span></td>";
           } else {
             html += "<td></td>";
           }
