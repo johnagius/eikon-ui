@@ -642,6 +642,19 @@
 
     html += "</tbody></table>";
 
+    // Order summary footer
+    var totalQty = 0, totalFree = 0, totalCost = 0;
+    items.forEach(function (item) {
+      if (item.unavailable) return;
+      totalQty += Number(item.qty_requested) || 0;
+      totalFree += Number(item.qty_free) || 0;
+      totalCost += (Number(item.qty_requested) || 0) * (Number(item.cost_excl_vat) || 0);
+    });
+    html += "<div style='margin-top:8px;padding:8px 6px;border-top:1px solid rgba(255,255,255,.08);font-size:12px;color:rgba(233,238,247,.7);display:flex;gap:16px;flex-wrap:wrap;'>" +
+      "<span><b>Total Items:</b> " + totalQty + (totalFree > 0 ? " (+" + totalFree + " free)" : "") + "</span>" +
+      "<span><b>Total Cost Excl:</b> \u20ac" + fmt2(totalCost) + "</span>" +
+    "</div>";
+
     if (order.status === "shipped") {
       html += "<div style='margin-top:12px;'>" +
         "<button class='eikon-btn sp-btn-primary' data-receive-order='" + order.id + "'>Mark as Received</button>" +
@@ -913,7 +926,9 @@
             vat_rate: ci.product.vat_rate || 18,
             retail_price: ci.product.retail_price || 0,
             batch: ci.product.batch || "",
-            expiry_date: ci.product.expiry_date || ""
+            expiry_date: ci.product.expiry_date || "",
+            discount_pct: ci.product.discount_pct || 0,
+            discount_euro: ci.product.discount_euro || 0
           };
         });
 

@@ -162,19 +162,40 @@
       "<div style='font-weight:700;margin-bottom:8px;'>Order Items</div>" +
       (order.notes ? "<div style='margin-bottom:8px;color:var(--muted);font-size:12px;'>Notes: " + esc(order.notes) + "</div>" : "") +
       "<table class='sro-items-table'><thead><tr>" +
-      "<th>Description</th><th>Barcode</th><th>Stock Code</th><th>Qty Requested</th><th>Cost Excl</th><th>Status</th>" +
+      "<th>Description</th><th>Barcode</th><th>Stock Code</th><th>Qty</th><th>Free</th><th>Disc%</th><th>Cost Excl</th><th>Line Total</th><th>Status</th>" +
       (isPending ? "<th>Actions</th>" : "") +
       "</tr></thead><tbody>";
+
+    var totalQty = 0, totalFree = 0, totalCostExcl = 0, totalCostIncl = 0, totalRetail = 0;
 
     items.forEach(function (item) {
       var unavail = item.unavailable ? 1 : 0;
       var rowStyle = unavail ? "text-decoration:line-through;opacity:0.5;" : "";
+      var qtyFree = Number(item.qty_free) || 0;
+      var discPct = Number(item.discount_pct) || 0;
+      var qtyReq = Number(item.qty_requested) || 0;
+      var costExcl = Number(item.cost_excl_vat) || 0;
+      var vatRate = Number(item.vat_rate) || 0;
+      var retailPrice = Number(item.retail_price) || 0;
+      var lineTotal = qtyReq * costExcl;
+
+      if (!unavail) {
+        totalQty += qtyReq;
+        totalFree += qtyFree;
+        totalCostExcl += lineTotal;
+        totalCostIncl += lineTotal * (1 + vatRate / 100);
+        totalRetail += (qtyReq + qtyFree) * retailPrice;
+      }
+
       html += "<tr style='" + rowStyle + "'>" +
         "<td>" + esc(item.description) + "</td>" +
         "<td>" + esc(item.barcode) + "</td>" +
         "<td>" + esc(item.stock_code) + "</td>" +
-        "<td>" + (item.qty_requested || 0) + "</td>" +
-        "<td>\u20ac" + fmt2(item.cost_excl_vat) + "</td>" +
+        "<td>" + qtyReq + "</td>" +
+        "<td>" + (qtyFree > 0 ? "+" + qtyFree : "-") + "</td>" +
+        "<td>" + (discPct > 0 ? fmt2(discPct) + "%" : "-") + "</td>" +
+        "<td>\u20ac" + fmt2(costExcl) + "</td>" +
+        "<td>\u20ac" + fmt2(lineTotal) + "</td>" +
         "<td>" + (unavail ? "<span style='color:#ff5a7a;font-weight:700;'>Unavailable</span>" : "<span style='color:#43d17a;'>Available</span>") + "</td>";
 
       if (isPending) {
@@ -187,6 +208,18 @@
     });
 
     html += "</tbody></table>";
+
+    // Order summary
+    var totalProfit = totalRetail - totalCostIncl;
+    var profitPct = totalRetail > 0 ? (totalProfit / totalRetail) * 100 : 0;
+    var mc = profitPct >= 25 ? "#43d17a" : profitPct >= 15 ? "#e8c840" : "#ff5a7a";
+
+    html += "<div style='margin-top:8px;padding:8px 6px;border-top:1px solid rgba(255,255,255,.08);font-size:12px;color:rgba(233,238,247,.7);display:flex;gap:16px;flex-wrap:wrap;'>" +
+      "<span><b>Total Items:</b> " + totalQty + (totalFree > 0 ? " (+" + totalFree + " free)" : "") + "</span>" +
+      "<span><b>Cost Excl:</b> \u20ac" + fmt2(totalCostExcl) + "</span>" +
+      "<span><b>Cost Incl VAT:</b> \u20ac" + fmt2(totalCostIncl) + "</span>" +
+      "<span><b>Profit Margin:</b> <span style='color:" + mc + ";font-weight:700;'>" + fmt2(profitPct) + "%</span></span>" +
+    "</div>";
 
     if (isPending) {
       html += "<div style='margin-top:12px;'>" +
