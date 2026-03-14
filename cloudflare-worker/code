@@ -2456,7 +2456,45 @@ async function handleSupplierProductStockStatus(request, env, corsOkHeaders, aut
     [authUser.org_id, authUser.location_id, existing.supplier_name, existing.description, existing.barcode || "", changeType]
   );
 
-  return jsonResponse({ ok: true, changed: true }, 200, corsOkHeaders);
+  // Propagate out_of_stock to matching products from same supplier
+  // Match by barcode/stock_code (preferential) OR description (fallback)
+  const matchConditions = [];
+  const matchBinds = [];
+  matchConditions.push("LOWER(TRIM(description)) = LOWER(TRIM(?))");
+  matchBinds.push(existing.description);
+  if (existing.barcode && existing.barcode.trim()) {
+    matchConditions.push("(barcode != '' AND barcode = ?)");
+    matchBinds.push(existing.barcode.trim());
+  }
+  if (existing.stock_code && existing.stock_code.trim()) {
+    matchConditions.push("(stock_code != '' AND stock_code = ?)");
+    matchBinds.push(existing.stock_code.trim());
+  }
+  const whereClause = matchConditions.join(" OR ");
+
+  // Find products that will be propagated (before update) for notifications
+  const propagated = await dbAll(env,
+    `SELECT id, description, barcode FROM supplier_products
+     WHERE org_id = ? AND location_id = ? AND id != ? AND out_of_stock != ? AND (${whereClause})`,
+    [authUser.org_id, authUser.location_id, entryId, newStatus, ...matchBinds]
+  );
+
+  if (propagated.length > 0) {
+    await dbRun(env,
+      `UPDATE supplier_products SET out_of_stock = ?, updated_at = datetime('now')
+       WHERE org_id = ? AND location_id = ? AND id != ? AND (${whereClause})`,
+      [newStatus, authUser.org_id, authUser.location_id, entryId, ...matchBinds]
+    );
+    for (const p of propagated) {
+      await dbRun(env,
+        `INSERT INTO supplier_stock_changes (org_id, supplier_location_id, supplier_name, product_description, barcode, change_type, created_at)
+         VALUES (?,?,?,?,?,?,datetime('now'))`,
+        [authUser.org_id, authUser.location_id, existing.supplier_name, p.description, p.barcode || "", changeType]
+      );
+    }
+  }
+
+  return jsonResponse({ ok: true, changed: true, propagated: propagated.length }, 200, corsOkHeaders);
 }
 
 // ─── Bulk Import (Full Replace) ───────────────────────────────────────────

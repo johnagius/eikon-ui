@@ -342,17 +342,40 @@
       html += "<div class='si-cart-group'>" +
         "<div style='font-weight:600;font-size:12px;margin-bottom:6px;'>" + esc(supName) + "</div>";
 
+      var totalCost = 0;
+      var totalRetail = 0;
+
+      html += "<div style='max-height:240px;overflow-y:auto;'>";
       group.items.forEach(function (item) {
-        var lineTotal = round2(item.qty * (item.product.cost_excl_vat || 0));
-        total += lineTotal;
+        var qp = Number(item.product.qty_purchased) || 1;
+        var qf = Number(item.product.qty_free) || 0;
+        var hasDeal = qp > 1 || qf > 0;
+        var freeQty = hasDeal ? Math.floor(item.qty / qp) * qf : 0;
+        var totalQtyReceived = item.qty + freeQty;
+
+        var lineCost = round2(item.qty * (item.product.cost_excl_vat || 0));
+        var lineRetail = round2(totalQtyReceived * (item.product.retail_price || 0));
+        totalCost += lineCost;
+        totalRetail += lineRetail;
+
+        var qtyLabel = "x" + item.qty + (freeQty > 0 ? " (+" + freeQty + " free)" : "");
         html += "<div class='si-cart-item'>" +
-          "<span>" + esc(item.product.description) + " x" + item.qty + "</span>" +
-          "<span>\u20ac" + fmt2(lineTotal) + "</span>" +
+          "<span>" + esc(item.product.description) + " " + qtyLabel + "</span>" +
+          "<span>\u20ac" + fmt2(lineCost) + "</span>" +
           "<button class='si-cart-remove' data-remove-id='" + item.product.id + "' title='Remove'>\u2715</button>" +
         "</div>";
       });
+      html += "</div>";
 
-      html += "<div style='text-align:right;font-weight:700;font-size:12px;margin:6px 0;'>Total: \u20ac" + fmt2(total) + "</div>" +
+      var totalProfit = round2(totalRetail - totalCost);
+      var profitMarginPct = totalRetail > 0 ? round2((totalProfit / totalRetail) * 100) : 0;
+      var mc = profitMarginColor(profitMarginPct);
+
+      html += "<div style='text-align:right;font-size:12px;margin:6px 0;border-top:1px solid rgba(255,255,255,.08);padding-top:6px;'>" +
+        "<div style='font-weight:700;'>Total Cost: \u20ac" + fmt2(totalCost) + "</div>" +
+        "<div style='margin-top:2px;'>Profit: \u20ac" + fmt2(totalProfit) +
+        " &middot; <span style='color:" + mc + ";font-weight:700;'>" + fmt2(profitMarginPct) + "%</span></div>" +
+      "</div>" +
         "<button class='eikon-btn sp-btn-primary si-commit-btn' data-commit-supplier='" + esc(supName) + "'>Commit Order to " + esc(supName) + "</button>" +
       "</div>";
     }
@@ -639,12 +662,17 @@
         btn.textContent = "Sending\u2026";
 
         var orderItems = group.items.map(function (ci) {
+          var qp = Number(ci.product.qty_purchased) || 1;
+          var qf = Number(ci.product.qty_free) || 0;
+          var hasDeal = qp > 1 || qf > 0;
+          var freeQty = hasDeal ? Math.floor(ci.qty / qp) * qf : 0;
           return {
             product_id: ci.product.id,
             description: ci.product.description,
             barcode: ci.product.barcode || "",
             stock_code: ci.product.stock_code || "",
             qty_requested: ci.qty,
+            qty_free_included: freeQty,
             cost_excl_vat: ci.product.cost_excl_vat || 0,
             vat_rate: ci.product.vat_rate || 18,
             retail_price: ci.product.retail_price || 0
@@ -773,7 +801,7 @@
       ".si-tab-active { color:#5aa2ff; border-bottom:2px solid #5aa2ff; }",
       ".si-cart-badge { margin-left:auto; background:rgba(90,162,255,.2); color:#5aa2ff; padding:3px 10px; border-radius:10px; font-size:11px; font-weight:700; }",
       ".si-toolbar { display:flex; gap:8px; align-items:center; margin-bottom:12px; flex-wrap:wrap; }",
-      ".si-table-wrap { overflow-x:auto; max-height:55vh; border:1px solid rgba(255,255,255,.08); border-radius:10px; }",
+      ".si-table-wrap { overflow:auto; max-height:386px; border:1px solid rgba(255,255,255,.08); border-radius:10px; }",
       ".si-table { width:100%; border-collapse:collapse; font-size:12px; }",
       ".si-table th { position:sticky; top:0; background:rgba(15,22,34,.98); padding:8px 6px; text-align:left; font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:rgba(233,238,247,.6); border-bottom:1px solid rgba(255,255,255,.10); white-space:nowrap; user-select:none; }",
       ".si-table th:hover { color:rgba(233,238,247,.9); }",
