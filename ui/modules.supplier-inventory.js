@@ -162,6 +162,35 @@
   function apiUpdateOrder(id, data) {
     return E.apiFetch("/supplier-orders/" + id, { method: "PUT", body: JSON.stringify(data) });
   }
+  function apiGetCartDraft() {
+    return E.apiFetch("/supplier-orders/cart-draft", { method: "GET" });
+  }
+  function apiSaveCartDraft(cart) {
+    return E.apiFetch("/supplier-orders/cart-draft", {
+      method: "PUT", body: JSON.stringify({ cart: cart })
+    });
+  }
+  function apiDeleteCartDraft() {
+    return E.apiFetch("/supplier-orders/cart-draft", { method: "DELETE" });
+  }
+
+  var _draftSaveTimer = null;
+  function scheduleDraftSave() {
+    clearTimeout(_draftSaveTimer);
+    _draftSaveTimer = setTimeout(function () {
+      var minimal = {};
+      for (var k in state.cart) {
+        if (!Object.prototype.hasOwnProperty.call(state.cart, k)) continue;
+        minimal[k] = { product_id: state.cart[k].product.id, qty: state.cart[k].qty };
+      }
+      if (Object.keys(minimal).length === 0) {
+        apiDeleteCartDraft().catch(function () {});
+      } else {
+        apiSaveCartDraft(minimal).catch(function () {});
+      }
+    }, 1000);
+  }
+
   function apiAddToOrderDiary(itemName, supplier) {
     var today = new Date();
     var dateStr = today.getFullYear() + "-" + String(today.getMonth() + 1).padStart(2, "0") + "-" + String(today.getDate()).padStart(2, "0");
@@ -666,6 +695,7 @@
         } else {
           state.cart[id] = { product: product, qty: qty };
         }
+        scheduleDraftSave();
         renderAll(mount);
       });
     });
@@ -689,6 +719,7 @@
 
         if (state.cart[id]) {
           state.cart[id].qty = qty;
+          scheduleDraftSave();
         }
       });
     });
@@ -710,6 +741,7 @@
       btn.addEventListener("click", function () {
         var id = Number(btn.getAttribute("data-remove-id"));
         delete state.cart[id];
+        scheduleDraftSave();
         renderAll(mount);
       });
     });
@@ -719,6 +751,7 @@
     if (clearBtn) {
       clearBtn.addEventListener("click", function () {
         state.cart = {};
+        scheduleDraftSave();
         renderAll(mount);
       });
     }
@@ -773,6 +806,7 @@
           toast("good", "Order Sent", "Order #" + resp.id + " sent to " + supName);
           // Remove committed items from cart
           group.items.forEach(function (ci) { delete state.cart[ci.product.id]; });
+          scheduleDraftSave();
           renderAll(mount);
         })
         .catch(function (err) {
@@ -875,6 +909,21 @@
           };
         }
       } catch (e) { /* use defaults */ }
+      // Load cart draft from cloud
+      try {
+        var draftResp = await apiGetCartDraft();
+        var draftCart = draftResp.cart || {};
+        var hydrated = {};
+        for (var dk in draftCart) {
+          if (!Object.prototype.hasOwnProperty.call(draftCart, dk)) continue;
+          var draftItem = draftCart[dk];
+          var prod = state.products.find(function (p) { return p.id === draftItem.product_id; });
+          if (prod) {
+            hydrated[dk] = { product: prod, qty: draftItem.qty || 1 };
+          }
+        }
+        state.cart = hydrated;
+      } catch (e) { /* use empty cart */ }
       applyFilter();
       renderAll(mount);
     } catch (err) {
