@@ -2367,6 +2367,16 @@ async function ensureSupplierProductsSchema(env) {
   )`, []);
   await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_soif_supplier ON supplier_order_item_feedback (supplier_location_id)`, []);
   await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_soif_order ON supplier_order_item_feedback (order_id)`, []);
+
+  // Feedback resolution columns
+  try { await dbRun(env, `ALTER TABLE supplier_order_item_feedback ADD COLUMN resolution_status TEXT NOT NULL DEFAULT ''`, []); } catch (e) {}
+  try { await dbRun(env, `ALTER TABLE supplier_order_item_feedback ADD COLUMN supplier_notes TEXT NOT NULL DEFAULT ''`, []); } catch (e) {}
+  try { await dbRun(env, `ALTER TABLE supplier_order_item_feedback ADD COLUMN resolved_at TEXT NOT NULL DEFAULT ''`, []); } catch (e) {}
+  try { await dbRun(env, `ALTER TABLE supplier_order_item_feedback ADD COLUMN resolved_by TEXT NOT NULL DEFAULT ''`, []); } catch (e) {}
+
+  // Supplier-side order notes and delivery date
+  try { await dbRun(env, `ALTER TABLE supplier_orders ADD COLUMN supplier_notes TEXT NOT NULL DEFAULT ''`, []); } catch (e) {}
+  try { await dbRun(env, `ALTER TABLE supplier_orders ADD COLUMN scheduled_delivery_date TEXT NOT NULL DEFAULT ''`, []); } catch (e) {}
 }
 
 // ─── Supplier Products CRUD ───────────────────────────────────────────────
@@ -2960,8 +2970,19 @@ async function handleSupplierOrderConfirm(request, env, corsOkHeaders, authUser,
     }
   }
 
-  await dbRun(env, "UPDATE supplier_orders SET status = ?, updated_at = datetime('now') WHERE id = ?",
-    [newStatus, orderId]);
+  // Build update fields for order
+  const setParts = ["status = ?", "updated_at = datetime('now')"];
+  const setBinds = [newStatus];
+  if (body.supplier_notes !== undefined) {
+    setParts.push("supplier_notes = ?");
+    setBinds.push(String(body.supplier_notes).trim());
+  }
+  if (body.scheduled_delivery_date !== undefined) {
+    setParts.push("scheduled_delivery_date = ?");
+    setBinds.push(String(body.scheduled_delivery_date).trim());
+  }
+  setBinds.push(orderId);
+  await dbRun(env, "UPDATE supplier_orders SET " + setParts.join(", ") + " WHERE id = ?", setBinds);
 
   await writeAudit(env, authUser.org_id, authUser.user_id, "SUPPLIER_ORDER_CONFIRM", "supplier_orders", String(orderId), { status: newStatus });
 
@@ -3011,7 +3032,31 @@ async function handleSupplierOrderUpdate(request, env, corsOkHeaders, authUser, 
     await dbRun(env, "UPDATE supplier_orders SET notes = ?, updated_at = datetime('now') WHERE id = ?",
       [String(body.notes).trim(), orderId]);
   }
+  if (body.supplier_notes !== undefined) {
+    await dbRun(env, "UPDATE supplier_orders SET supplier_notes = ?, updated_at = datetime('now') WHERE id = ?",
+      [String(body.supplier_notes).trim(), orderId]);
+  }
+  if (body.scheduled_delivery_date !== undefined) {
+    await dbRun(env, "UPDATE supplier_orders SET scheduled_delivery_date = ?, updated_at = datetime('now') WHERE id = ?",
+      [String(body.scheduled_delivery_date).trim(), orderId]);
+  }
 
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleFeedbackResolve(request, env, corsOkHeaders, authUser, feedbackId) {
+  await ensureSupplierProductsSchema(env);
+  const fb = await dbFirst(env, "SELECT * FROM supplier_order_item_feedback WHERE id = ?", [feedbackId]);
+  if (!fb) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+  if (fb.supplier_location_id !== authUser.location_id)
+    return jsonResponse({ ok: false, error: "Access denied" }, 403, corsOkHeaders);
+  const body = await readJson(request);
+  const resolution = String(body.resolution_status || "").trim();
+  const notes = String(body.supplier_notes || "").trim();
+  if (!resolution) return jsonResponse({ ok: false, error: "resolution_status is required" }, 400, corsOkHeaders);
+  await dbRun(env,
+    `UPDATE supplier_order_item_feedback SET resolution_status = ?, supplier_notes = ?, resolved_at = datetime('now'), resolved_by = ? WHERE id = ?`,
+    [resolution, notes, authUser.user_id, feedbackId]);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -15668,6 +15713,12 @@ if (url.pathname.startsWith("/supplier-orders/items/") && url.pathname.endsWith(
   const itemId = parseInt(parts[2], 10);
   if (!itemId) return jsonResponse({ ok: false, error: "Invalid item id" }, 400, corsOkHeaders);
   return await handleOrderItemFeedbackCreate(request, env, corsOkHeaders, authUser, itemId);
+}
+if (url.pathname.startsWith("/supplier-orders/feedback/") && url.pathname.endsWith("/resolve") && request.method === "PUT") {
+  const parts = url.pathname.split("/").filter(Boolean);
+  const feedbackId = parseInt(parts[2], 10);
+  if (!feedbackId) return jsonResponse({ ok: false, error: "Invalid feedback id" }, 400, corsOkHeaders);
+  return await handleFeedbackResolve(request, env, corsOkHeaders, authUser, feedbackId);
 }
 if (url.pathname.startsWith("/supplier-orders/")) {
   const parts = url.pathname.split("/").filter(Boolean);

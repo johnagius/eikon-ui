@@ -127,6 +127,7 @@
     cart: {}, // { productId: { product, qty } }
     orders: [],
     orderSort: { key: "created_at", dir: "desc" },
+    orderStatusFilter: "",
     expandedOrderId: null,
     expandedItems: [],
     expandedFeedbacks: [],
@@ -466,7 +467,10 @@
 
         html += "<tr>" +
           "<td>" + esc(item.product.description) + "</td>" +
-          "<td style='text-align:right;'>" + item.qty + "</td>" +
+          "<td style='text-align:right;'><input type='number' class='eikon-input si-cart-qty' " +
+            "data-cart-qty-id='" + item.product.id + "' value='" + item.qty + "' min='1'" +
+            (hasDeal ? " step='" + qp + "'" : "") +
+            " style='width:50px;text-align:right;padding:2px 4px;font-size:11px;'></td>" +
           "<td style='text-align:right;'>" + (freeQty > 0 ? "+" + freeQty : "-") + "</td>" +
           "<td style='text-align:right;'>" + (discPct > 0 ? fmt2(discPct) + "%" : "-") + "</td>" +
           "<td style='text-align:right;'>\u20ac" + fmt2(lineCost) + "</td>" +
@@ -484,6 +488,9 @@
         "<div style='margin-top:2px;'>Profit: \u20ac" + fmt2(totalProfit) +
         " &middot; <span style='color:" + mc + ";font-weight:700;'>" + fmt2(profitMarginPct) + "%</span></div>" +
       "</div>" +
+        "<textarea class='eikon-input si-order-notes' data-notes-supplier='" + esc(supName) + "' " +
+          "placeholder='Order notes (e.g. delivery instructions)...' " +
+          "style='width:100%;height:36px;margin-bottom:6px;font-size:11px;resize:vertical;'></textarea>" +
         "<button class='eikon-btn sp-btn-primary si-commit-btn' data-commit-supplier='" + esc(supName) + "'>Commit Order to " + esc(supName) + "</button>" +
       "</div>";
     }
@@ -509,7 +516,16 @@
       { key: "status", label: "Status" }
     ];
 
-    var html = "<div class='si-table-wrap'><table class='si-table'><thead><tr>";
+    var sf = state.orderStatusFilter;
+    var html = "<div style='margin-bottom:8px;'>" +
+      "<select id='si-order-status-filter' class='eikon-input' style='width:150px;font-size:12px;'>" +
+        "<option value=''" + (sf === "" ? " selected" : "") + ">All Statuses</option>" +
+        "<option value='pending'" + (sf === "pending" ? " selected" : "") + ">Pending</option>" +
+        "<option value='shipped'" + (sf === "shipped" ? " selected" : "") + ">Shipped</option>" +
+        "<option value='received'" + (sf === "received" ? " selected" : "") + ">Received</option>" +
+      "</select></div>";
+
+    html += "<div class='si-table-wrap'><table class='si-table'><thead><tr>";
     cols.forEach(function (col) {
       var active = sk === col.key;
       var arrow = active ? (sd === "asc" ? " \u25B2" : " \u25BC") : "";
@@ -584,8 +600,19 @@
     var canReport = order.status === "shipped" || order.status === "received";
     var thStyle = "text-align:left;padding:6px;font-size:11px;color:rgba(233,238,247,.6);";
 
-    var html = "<div style='padding:12px;background:rgba(255,255,255,.02);border-radius:8px;'>" +
-      "<table style='width:100%;border-collapse:collapse;font-size:12px;'><thead><tr>" +
+    var html = "<div style='padding:12px;background:rgba(255,255,255,.02);border-radius:8px;'>";
+
+    // Supplier notes and delivery date
+    if (order.supplier_notes) {
+      html += "<div style='margin-bottom:8px;font-size:12px;padding:6px 8px;background:rgba(90,162,255,.08);border-radius:6px;'>" +
+        "<b>Supplier:</b> " + esc(order.supplier_notes) + "</div>";
+    }
+    if (order.scheduled_delivery_date) {
+      html += "<div style='margin-bottom:8px;font-size:12px;color:rgba(233,238,247,.7);'>" +
+        "<b>Expected delivery:</b> " + esc(order.scheduled_delivery_date) + "</div>";
+    }
+
+    html += "<table style='width:100%;border-collapse:collapse;font-size:12px;'><thead><tr>" +
       "<th style='" + thStyle + "'>Description</th>" +
       "<th style='" + thStyle + "'>Barcode</th>" +
       "<th style='" + thStyle + "text-align:right;'>Qty</th>" +
@@ -600,10 +627,16 @@
       var rowStyle = unavail ? "text-decoration:line-through;opacity:0.5;" : "";
       if (existingFb && !unavail) rowStyle += "background:rgba(255,90,122,.08);";
       var qtyLabel = (item.qty_requested || 0) + (item.qty_free ? "+" + item.qty_free : "");
+      var qtyExtra = "";
+      if (!unavail && item.qty_confirmed !== undefined && item.qty_confirmed !== null && Number(item.qty_confirmed) !== Number(item.qty_requested) && (order.status === "shipped" || order.status === "received")) {
+        qtyExtra = " <span style='color:#ffaf32;font-size:10px;'>(" + item.qty_confirmed + " confirmed)</span>";
+      }
+      var descExtra = "";
+      if (item.notes && !unavail) descExtra = "<div style='font-size:10px;color:var(--muted);'>" + esc(item.notes) + "</div>";
       html += "<tr style='" + rowStyle + "'>" +
-        "<td style='padding:6px;'>" + esc(item.description) + "</td>" +
+        "<td style='padding:6px;'>" + esc(item.description) + descExtra + "</td>" +
         "<td style='padding:6px;'>" + esc(item.barcode) + "</td>" +
-        "<td style='padding:6px;text-align:right;'>" + qtyLabel + "</td>" +
+        "<td style='padding:6px;text-align:right;'>" + qtyLabel + qtyExtra + "</td>" +
         "<td style='padding:6px;text-align:right;'>\u20ac" + fmt2(item.cost_excl_vat) + "</td>" +
         "<td style='padding:6px;'>" + (unavail ?
           "<span style='color:#ff5a7a;font-weight:700;'>Unavailable</span>" :
@@ -614,10 +647,17 @@
           // Show existing feedback badge
           var pColors = { "Not Received": "#ff5a7a", "Wrong Pick": "#e8c840", "Damaged": "#ff5a7a", "Short Quantity": "#ffaf32", "Other": "#5aa2ff" };
           var pc = pColors[existingFb.problem_type] || "#ff5a7a";
+          var resHtml = "";
+          if (existingFb.resolution_status) {
+            var rColors = { "Acknowledged": "#5aa2ff", "Replacement Sent": "#43d17a", "Credit Issued": "#43d17a", "Disputed": "#ffaf32", "Resolved": "#43d17a" };
+            var rc = rColors[existingFb.resolution_status] || "#5aa2ff";
+            resHtml = "<div style='font-size:10px;margin-top:2px;'><span style='padding:1px 6px;border-radius:4px;background:" + rc + "22;color:" + rc + ";font-weight:600;'>" + esc(existingFb.resolution_status) + "</span></div>";
+            if (existingFb.supplier_notes) resHtml += "<div style='font-size:10px;color:var(--muted);margin-top:1px;'>Supplier: " + esc(existingFb.supplier_notes) + "</div>";
+          }
           html += "<td style='padding:6px;'><span style='display:inline-block;padding:2px 8px;border-radius:5px;font-size:11px;font-weight:700;" +
             "background:" + pc + "22;color:" + pc + ";'>" + esc(existingFb.problem_type) + "</span>" +
             (existingFb.notes ? "<div style='font-size:10px;color:var(--muted);margin-top:2px;'>" + esc(existingFb.notes) + "</div>" : "") +
-            "</td>";
+            resHtml + "</td>";
         } else if (!unavail) {
           html += "<td style='padding:6px;'>" +
             "<select class='eikon-input si-problem-select' data-feedback-item='" + item.id + "' " +
@@ -877,6 +917,25 @@
       });
     });
 
+    // Inline cart qty edit
+    mount.querySelectorAll(".si-cart-qty").forEach(function (input) {
+      input.addEventListener("change", function () {
+        var id = Number(input.getAttribute("data-cart-qty-id"));
+        var cartItem = state.cart[id];
+        if (!cartItem) return;
+        var newQty = Math.max(1, parseInt(input.value, 10) || 1);
+        var qp = Number(cartItem.product.qty_purchased) || 1;
+        var qf = Number(cartItem.product.qty_free) || 0;
+        var hasDeal = qp > 1 || qf > 0;
+        if (hasDeal && newQty % qp !== 0) {
+          newQty = Math.max(qp, Math.round(newQty / qp) * qp);
+        }
+        cartItem.qty = newQty;
+        scheduleDraftSave();
+        renderAll(mount);
+      });
+    });
+
     // Clear cart
     var clearBtn = mount.querySelector(".si-clear-cart");
     if (clearBtn) {
@@ -907,7 +966,7 @@
         }
 
         btn.disabled = true;
-        btn.textContent = "Sending\u2026";
+        btn.textContent = "Preparing\u2026";
 
         var orderItems = group.items.map(function (ci) {
           var qp = Number(ci.product.qty_purchased) || 1;
@@ -932,24 +991,70 @@
           };
         });
 
-        apiCreateOrder({
-          supplier_location_id: group.supplier_location_id,
-          supplier_name: supName,
-          items: orderItems,
-          notes: ""
-        })
-        .then(function (resp) {
-          toast("good", "Order Sent", "Order #" + resp.id + " sent to " + supName);
-          // Remove committed items from cart
-          group.items.forEach(function (ci) { delete state.cart[ci.product.id]; });
-          scheduleDraftSave();
-          renderAll(mount);
-        })
-        .catch(function (err) {
-          toast("bad", "Error", err.message || "Failed to send order");
-          btn.disabled = false;
-          btn.textContent = "Commit Order to " + supName;
+        // Read order notes from DOM
+        var notesEl = mount.querySelector("textarea.si-order-notes[data-notes-supplier='" + supName.replace(/'/g, "\\'") + "']");
+        var orderNotes = notesEl ? notesEl.value.trim() : "";
+
+        // Calculate totals for confirmation
+        var confirmTotal = 0;
+        var confirmRows = "";
+        group.items.forEach(function (ci) {
+          var qp = Number(ci.product.qty_purchased) || 1;
+          var qf = Number(ci.product.qty_free) || 0;
+          var hasDeal = qp > 1 || qf > 0;
+          var freeQty = hasDeal ? Math.floor(ci.qty / qp) * qf : 0;
+          var lineCost = round2(ci.qty * (ci.product.cost_excl_vat || 0));
+          confirmTotal += lineCost;
+          confirmRows += "<tr>" +
+            "<td style='padding:3px 6px;'>" + esc(ci.product.description) + "</td>" +
+            "<td style='padding:3px 6px;text-align:right;'>" + ci.qty + "</td>" +
+            "<td style='padding:3px 6px;text-align:right;'>" + (freeQty > 0 ? "+" + freeQty : "-") + "</td>" +
+            "<td style='padding:3px 6px;text-align:right;'>\u20ac" + fmt2(lineCost) + "</td>" +
+          "</tr>";
         });
+
+        var confirmHtml = "<div style='max-height:300px;overflow-y:auto;'>" +
+          "<table style='width:100%;font-size:12px;border-collapse:collapse;'>" +
+          "<thead><tr><th style='text-align:left;padding:3px 6px;'>Product</th>" +
+          "<th style='text-align:right;padding:3px 6px;'>Qty</th>" +
+          "<th style='text-align:right;padding:3px 6px;'>Free</th>" +
+          "<th style='text-align:right;padding:3px 6px;'>Cost</th></tr></thead><tbody>" +
+          confirmRows + "</tbody></table></div>" +
+          "<div style='margin-top:8px;font-weight:700;text-align:right;font-size:13px;'>Total: \u20ac" + fmt2(confirmTotal) + "</div>" +
+          (orderNotes ? "<div style='margin-top:6px;font-size:11px;color:var(--muted);'>Notes: " + esc(orderNotes) + "</div>" : "");
+
+        E.modal.show("Confirm Order to " + supName, confirmHtml, [
+          { label: "Cancel", onClick: function () {
+            E.modal.hide();
+            btn.disabled = false;
+            btn.textContent = "Commit Order to " + supName;
+          }},
+          { label: "Confirm & Send", primary: true, onClick: function () {
+            E.modal.hide();
+            btn.textContent = "Sending\u2026";
+            sendOrder();
+          }}
+        ]);
+
+        function sendOrder() {
+          apiCreateOrder({
+            supplier_location_id: group.supplier_location_id,
+            supplier_name: supName,
+            items: orderItems,
+            notes: orderNotes
+          })
+          .then(function (resp) {
+            toast("good", "Order Sent", "Order #" + resp.id + " sent to " + supName);
+            group.items.forEach(function (ci) { delete state.cart[ci.product.id]; });
+            scheduleDraftSave();
+            renderAll(mount);
+          })
+          .catch(function (err) {
+            toast("bad", "Error", err.message || "Failed to send order");
+            btn.disabled = false;
+            btn.textContent = "Commit Order to " + supName;
+          });
+        }
       });
     });
   }
@@ -991,6 +1096,15 @@
         renderAll(mount);
       });
     });
+
+    // Order status filter
+    var statusFilter = mount.querySelector("#si-order-status-filter");
+    if (statusFilter) {
+      statusFilter.addEventListener("change", function () {
+        state.orderStatusFilter = statusFilter.value;
+        loadOrders(mount);
+      });
+    }
 
     // Expand order
     mount.querySelectorAll("[data-expand-order]").forEach(function (btn) {
@@ -1134,7 +1248,7 @@
 
   async function loadOrders(mount) {
     try {
-      var resp = await apiSentOrders("");
+      var resp = await apiSentOrders(state.orderStatusFilter || "");
       state.orders = resp.entries || [];
       state.expandedOrderId = null;
       state.expandedItems = [];

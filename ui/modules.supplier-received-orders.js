@@ -39,6 +39,7 @@
     orders: [],
     filtered: [],
     sort: { key: "created_at", dir: "desc" },
+    statusFilter: "",
     expandedOrderId: null,
     expandedItems: [],
     _mount: null
@@ -101,6 +102,20 @@
     var content = mount.querySelector("#sro-content");
     if (!content) return;
 
+    // Apply status filter
+    var displayed = state.statusFilter
+      ? state.filtered.filter(function (o) { return o.status === state.statusFilter; })
+      : state.filtered;
+
+    var sf = state.statusFilter;
+    var filterHtml = "<div style='margin-bottom:8px;'>" +
+      "<select id='sro-status-filter' class='eikon-input' style='width:150px;font-size:12px;'>" +
+        "<option value=''" + (sf === "" ? " selected" : "") + ">All Statuses</option>" +
+        "<option value='pending'" + (sf === "pending" ? " selected" : "") + ">Pending</option>" +
+        "<option value='shipped'" + (sf === "shipped" ? " selected" : "") + ">Shipped</option>" +
+        "<option value='received'" + (sf === "received" ? " selected" : "") + ">Received</option>" +
+      "</select></div>";
+
     if (!state.filtered.length) {
       content.innerHTML = "<div style='text-align:center;padding:40px;'>" +
         "<div style='font-size:36px;margin-bottom:12px;'>\uD83D\uDCCB</div>" +
@@ -121,7 +136,7 @@
       { key: "status", label: "Status" }
     ];
 
-    var html = "<div class='sro-table-wrap'><table class='sro-table'><thead><tr>";
+    var html = filterHtml + "<div class='sro-table-wrap'><table class='sro-table'><thead><tr>";
     cols.forEach(function (col) {
       var active = sk === col.key;
       var arrow = active ? (sd === "asc" ? " \u25B2" : " \u25BC") : "";
@@ -129,7 +144,7 @@
     });
     html += "<th>Actions</th></tr></thead><tbody>";
 
-    state.filtered.forEach(function (order) {
+    displayed.forEach(function (order) {
       var isExpanded = state.expandedOrderId === order.id;
       html += "<tr class='sro-order-row" + (isExpanded ? " sro-expanded" : "") + "' data-order-id='" + order.id + "'>" +
         "<td>#" + order.id + "</td>" +
@@ -187,11 +202,19 @@
         totalRetail += (qtyReq + qtyFree) * retailPrice;
       }
 
+      // Show adjusted qty indicator
+      var qtyDisplay = String(qtyReq);
+      var qtyConf = item.qty_confirmed;
+      if (!unavail && qtyConf !== undefined && qtyConf !== null && Number(qtyConf) !== qtyReq && Number(qtyConf) > 0) {
+        qtyDisplay += " <span style='color:#ffaf32;font-size:11px;'>(" + qtyConf + " confirmed)</span>";
+      }
+      var descExtra = (item.notes && !unavail) ? "<div style='font-size:10px;color:var(--muted);'>" + esc(item.notes) + "</div>" : "";
+
       html += "<tr style='" + rowStyle + "'>" +
-        "<td>" + esc(item.description) + "</td>" +
+        "<td>" + esc(item.description) + descExtra + "</td>" +
         "<td>" + esc(item.barcode) + "</td>" +
         "<td>" + esc(item.stock_code) + "</td>" +
-        "<td>" + qtyReq + "</td>" +
+        "<td>" + qtyDisplay + "</td>" +
         "<td>" + (qtyFree > 0 ? "+" + qtyFree : "-") + "</td>" +
         "<td>" + (discPct > 0 ? fmt2(discPct) + "%" : "-") + "</td>" +
         "<td>\u20ac" + fmt2(costExcl) + "</td>" +
@@ -199,10 +222,14 @@
         "<td>" + (unavail ? "<span style='color:#ff5a7a;font-weight:700;'>Unavailable</span>" : "<span style='color:#43d17a;'>Available</span>") + "</td>";
 
       if (isPending) {
-        html += "<td><button class='eikon-btn sro-unavail-btn' data-item-id='" + item.id + "' data-unavail='" + (unavail ? "0" : "1") + "'" +
+        html += "<td style='white-space:nowrap;'>" +
+          "<button class='eikon-btn sro-unavail-btn' data-item-id='" + item.id + "' data-unavail='" + (unavail ? "0" : "1") + "'" +
           " data-product-id='" + (item.product_id || "") + "'" +
           " data-item-desc='" + esc(item.description) + "'>" +
-          (unavail ? "Mark Available" : "Mark Unavailable") + "</button></td>";
+          (unavail ? "Available" : "Unavailable") + "</button>" +
+          (!unavail ? " <button class='eikon-btn sro-adjust-qty-btn' data-adjust-item='" + item.id + "'" +
+            " data-item-qty='" + qtyReq + "' data-item-desc='" + esc(item.description) + "'>Adjust Qty</button>" : "") +
+          "</td>";
       }
       html += "</tr>";
     });
@@ -222,7 +249,14 @@
     "</div>";
 
     if (isPending) {
-      html += "<div style='margin-top:12px;'>" +
+      html += "<div style='margin-top:12px;display:flex;flex-direction:column;gap:6px;max-width:400px;'>" +
+        "<textarea class='eikon-input sro-supplier-notes' placeholder='Notes for pharmacy (optional)...' " +
+          "style='width:100%;height:36px;font-size:11px;resize:vertical;'>" + esc(order.supplier_notes || "") + "</textarea>" +
+        "<div style='display:flex;gap:8px;align-items:center;'>" +
+          "<label style='font-size:11px;color:rgba(233,238,247,.6);white-space:nowrap;'>Delivery date:</label>" +
+          "<input type='date' class='eikon-input sro-delivery-date' value='" + esc(order.scheduled_delivery_date || "") + "' " +
+            "style='font-size:11px;flex:1;'>" +
+        "</div>" +
         "<button class='eikon-btn sp-btn-primary sro-ship-btn' data-ship-id='" + order.id + "'>Order Shipped</button>" +
       "</div>";
     }
@@ -246,6 +280,15 @@
         renderAll(mount);
       });
     });
+
+    // Status filter
+    var statusFilterEl = mount.querySelector("#sro-status-filter");
+    if (statusFilterEl) {
+      statusFilterEl.addEventListener("change", function () {
+        state.statusFilter = statusFilterEl.value;
+        renderAll(mount);
+      });
+    }
 
     // Expand/collapse
     mount.querySelectorAll("[data-expand-id]").forEach(function (btn) {
@@ -314,19 +357,66 @@
       });
     });
 
+    // Adjust qty (partial fulfillment)
+    mount.querySelectorAll(".sro-adjust-qty-btn").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var itemId = Number(btn.getAttribute("data-adjust-item"));
+        var qtyReq = Number(btn.getAttribute("data-item-qty"));
+        var itemDesc = btn.getAttribute("data-item-desc") || "";
+        E.modal.show("Adjust Quantity",
+          "<div style='line-height:1.6;'>Requested: <b>" + qtyReq + "</b> of <b>" + esc(itemDesc) + "</b><br><br>" +
+          "<label style='font-size:12px;'>Qty you can supply:</label><br>" +
+          "<input type='number' id='sro-adj-qty' class='eikon-input' min='0' max='" + qtyReq + "' value='" + qtyReq + "' style='width:80px;margin-top:4px;'><br><br>" +
+          "<label style='font-size:12px;'>Note (optional):</label><br>" +
+          "<input type='text' id='sro-adj-note' class='eikon-input' placeholder='e.g. Substituted with...' style='width:100%;margin-top:4px;'>" +
+          "</div>",
+          [
+            { label: "Cancel", onClick: function () { E.modal.hide(); } },
+            { label: "Confirm", primary: true, onClick: function () {
+              var adjQty = Math.max(0, parseInt((document.getElementById("sro-adj-qty") || {}).value, 10) || 0);
+              var adjNote = ((document.getElementById("sro-adj-note") || {}).value || "").trim();
+              E.modal.hide();
+              var item = state.expandedItems.find(function (i) { return i.id === itemId; });
+              if (item) {
+                item.qty_confirmed = adjQty;
+                if (adjNote) item.notes = adjNote;
+              }
+              renderAll(mount);
+            }}
+          ]
+        );
+      });
+    });
+
     // Ship order
     mount.querySelectorAll("[data-ship-id]").forEach(function (btn) {
       btn.addEventListener("click", function () {
         var orderId = Number(btn.getAttribute("data-ship-id"));
+        // Read supplier notes and delivery date from DOM
+        var supNotesEl = mount.querySelector(".sro-supplier-notes");
+        var delivDateEl = mount.querySelector(".sro-delivery-date");
+        var supplierNotes = supNotesEl ? supNotesEl.value.trim() : "";
+        var deliveryDate = delivDateEl ? delivDateEl.value.trim() : "";
+
         E.modal.show("Ship Order #" + orderId + "?",
           "<div>This will mark the order as shipped and notify the pharmacy.<br>Items marked as unavailable will be visible to the pharmacy.</div>",
           [
             { label: "Cancel", onClick: function () { E.modal.hide(); } },
             { label: "Ship Order", primary: true, onClick: function () {
               var itemUpdates = state.expandedItems.map(function (item) {
-                return { id: item.id, unavailable: item.unavailable, qty_confirmed: item.unavailable ? 0 : item.qty_requested };
+                return {
+                  id: item.id,
+                  unavailable: item.unavailable,
+                  qty_confirmed: item.unavailable ? 0 : (item.qty_confirmed !== undefined ? item.qty_confirmed : item.qty_requested),
+                  notes: item.notes || ""
+                };
               });
-              apiConfirmOrder(orderId, { status: "shipped", items: itemUpdates })
+              apiConfirmOrder(orderId, {
+                status: "shipped",
+                items: itemUpdates,
+                supplier_notes: supplierNotes,
+                scheduled_delivery_date: deliveryDate
+              })
                 .then(function () {
                   E.modal.hide();
                   toast("good", "Shipped", "Order #" + orderId + " marked as shipped");
