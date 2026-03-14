@@ -327,7 +327,7 @@
     ]},
     { label: "Sales & Clients", icon: "🛒", moduleIds: [
       "clientorders", "quotations", "order-diary", "deliveries",
-      "appointments", "tickets", "loyalty"
+      "appointments", "tickets", "loyalty", "supplier-inventory"
     ]},
     { label: "Inventory", icon: "📦", moduleIds: [
       "alerts", "stocktransfers", "returns", "nearexpiry", "scarcestock"
@@ -366,8 +366,11 @@
     return roles;
   };
 
-  // Sidebar categories for Supplier section (empty for now)
-  E.SUPPLIER_CATEGORIES = [];
+  // Sidebar categories for Supplier section
+  E.SUPPLIER_CATEGORIES = [
+    { label: "Products", icon: "\uD83D\uDCE6", moduleIds: ["supplier-products"] },
+    { label: "Orders", icon: "\uD83D\uDCCB", moduleIds: ["supplier-received-orders"] }
+  ];
 
   // Sidebar categories for Company Admin section (empty for now)
   E.COMPANY_ADMIN_CATEGORIES = [];

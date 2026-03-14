@@ -2241,6 +2241,586 @@ async function handleOrderDiaryCarryOver(request, env, corsOkHeaders, authUser) 
 
 /* END ORDER DIARY MODULE */
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   SUPPLIER PRODUCTS MODULE
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+async function ensureSupplierProductsSchema(env) {
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS supplier_products (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id          INTEGER NOT NULL,
+    location_id     INTEGER NOT NULL,
+    supplier_name   TEXT NOT NULL DEFAULT '',
+    stock_code      TEXT NOT NULL DEFAULT '',
+    barcode         TEXT NOT NULL DEFAULT '',
+    description     TEXT NOT NULL DEFAULT '',
+    cost_excl_vat   REAL NOT NULL DEFAULT 0,
+    cost_incl_vat   REAL NOT NULL DEFAULT 0,
+    vat_rate        REAL NOT NULL DEFAULT 18,
+    discount_pct    REAL NOT NULL DEFAULT 0,
+    discount_euro   REAL NOT NULL DEFAULT 0,
+    qty_purchased   INTEGER NOT NULL DEFAULT 1,
+    qty_free        INTEGER NOT NULL DEFAULT 0,
+    batch           TEXT NOT NULL DEFAULT '',
+    expiry_date     TEXT NOT NULL DEFAULT '',
+    retail_price    REAL NOT NULL DEFAULT 0,
+    profit          REAL NOT NULL DEFAULT 0,
+    profit_margin   REAL NOT NULL DEFAULT 0,
+    total_incl_vat  REAL NOT NULL DEFAULT 0,
+    out_of_stock    INTEGER NOT NULL DEFAULT 0,
+    created_by      INTEGER,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
+  )`, []);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_supplier_products_org_loc ON supplier_products (org_id, location_id)`, []);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_supplier_products_org_stock ON supplier_products (org_id, out_of_stock)`, []);
+
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS supplier_stock_changes (
+    id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id               INTEGER NOT NULL,
+    supplier_location_id INTEGER NOT NULL,
+    supplier_name        TEXT NOT NULL DEFAULT '',
+    product_description  TEXT NOT NULL DEFAULT '',
+    barcode              TEXT NOT NULL DEFAULT '',
+    change_type          TEXT NOT NULL,
+    seen_by              TEXT NOT NULL DEFAULT '[]',
+    created_at           TEXT NOT NULL DEFAULT (datetime('now'))
+  )`, []);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_supplier_stock_changes_org ON supplier_stock_changes (org_id, created_at)`, []);
+
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS supplier_orders (
+    id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id               INTEGER NOT NULL,
+    pharmacy_location_id INTEGER NOT NULL,
+    supplier_location_id INTEGER NOT NULL,
+    supplier_name        TEXT NOT NULL DEFAULT '',
+    pharmacy_name        TEXT NOT NULL DEFAULT '',
+    status               TEXT NOT NULL DEFAULT 'pending',
+    notes                TEXT NOT NULL DEFAULT '',
+    created_by           INTEGER,
+    created_at           TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at           TEXT NOT NULL DEFAULT (datetime('now'))
+  )`, []);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_supplier_orders_org_supplier ON supplier_orders (org_id, supplier_location_id)`, []);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_supplier_orders_org_pharmacy ON supplier_orders (org_id, pharmacy_location_id)`, []);
+
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS supplier_order_items (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_id        INTEGER NOT NULL,
+    product_id      INTEGER,
+    description     TEXT NOT NULL DEFAULT '',
+    barcode         TEXT NOT NULL DEFAULT '',
+    stock_code      TEXT NOT NULL DEFAULT '',
+    qty_requested   INTEGER NOT NULL DEFAULT 1,
+    qty_confirmed   INTEGER NOT NULL DEFAULT 0,
+    cost_excl_vat   REAL NOT NULL DEFAULT 0,
+    vat_rate        REAL NOT NULL DEFAULT 18,
+    retail_price    REAL NOT NULL DEFAULT 0,
+    unavailable     INTEGER NOT NULL DEFAULT 0,
+    notes           TEXT NOT NULL DEFAULT ''
+  )`, []);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_supplier_order_items_order ON supplier_order_items (order_id)`, []);
+}
+
+// ─── Supplier Products CRUD ───────────────────────────────────────────────
+
+async function handleSupplierProductsList(request, env, corsOkHeaders, authUser, url) {
+  await ensureSupplierProductsSchema(env);
+  const q = (url.searchParams.get("q") || "").trim();
+
+  const sql = `SELECT * FROM supplier_products WHERE org_id = ? AND location_id = ? ORDER BY description ASC`;
+  let entries = await dbAll(env, sql, [authUser.org_id, authUser.location_id]);
+
+  if (q) {
+    const qLow = q.toLowerCase();
+    entries = entries.filter(row =>
+      (row.description || "").toLowerCase().includes(qLow) ||
+      (row.barcode || "").toLowerCase().includes(qLow) ||
+      (row.stock_code || "").toLowerCase().includes(qLow) ||
+      (row.batch || "").toLowerCase().includes(qLow)
+    );
+  }
+
+  return jsonResponse({ ok: true, entries }, 200, corsOkHeaders);
+}
+
+async function handleSupplierProductCreate(request, env, corsOkHeaders, authUser) {
+  await ensureSupplierProductsSchema(env);
+  const body = await readJson(request);
+  const description = String(body.description || "").trim();
+  if (!description) return jsonResponse({ ok: false, error: "description is required" }, 400, corsOkHeaders);
+
+  const vatRate = normalizeVatRate(body.vat_rate);
+  const qtyPurchased = Math.max(1, Math.round(Number(body.qty_purchased) || 1));
+  const qtyFree = Math.max(0, Math.round(Number(body.qty_free) || 0));
+  const computed = computeItemProfitFields(body);
+
+  const row = await dbFirst(env,
+    `INSERT INTO supplier_products
+     (org_id, location_id, supplier_name, stock_code, barcode, description,
+      cost_excl_vat, cost_incl_vat, vat_rate, discount_pct, discount_euro,
+      qty_purchased, qty_free, batch, expiry_date, retail_price,
+      profit, profit_margin, total_incl_vat, out_of_stock, created_by,
+      created_at, updated_at)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'),datetime('now'))
+     RETURNING id`,
+    [
+      authUser.org_id, authUser.location_id,
+      String(body.supplier_name || "").trim(),
+      String(body.stock_code || "").trim(), String(body.barcode || "").trim(), description,
+      computed.cost_excl_vat, computed.cost_incl_vat, vatRate,
+      computed.discount_pct, computed.discount_euro,
+      qtyPurchased, qtyFree,
+      String(body.batch || "").trim(), String(body.expiry_date || "").trim(),
+      computed.retail_price, computed.profit, computed.profit_margin, computed.total_incl_vat,
+      body.out_of_stock ? 1 : 0, authUser.user_id
+    ]
+  );
+
+  return jsonResponse({ ok: true, id: row.id }, 200, corsOkHeaders);
+}
+
+async function handleSupplierProductUpdate(request, env, corsOkHeaders, authUser, entryId) {
+  await ensureSupplierProductsSchema(env);
+  const existing = await dbFirst(env, "SELECT * FROM supplier_products WHERE org_id = ? AND location_id = ? AND id = ?",
+    [authUser.org_id, authUser.location_id, entryId]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+  const description = String(body.description !== undefined ? body.description : existing.description).trim();
+  if (!description) return jsonResponse({ ok: false, error: "description is required" }, 400, corsOkHeaders);
+
+  const vatRate = body.vat_rate !== undefined ? normalizeVatRate(body.vat_rate) : existing.vat_rate;
+  const qtyPurchased = body.qty_purchased !== undefined ? Math.max(1, Math.round(Number(body.qty_purchased) || 1)) : existing.qty_purchased;
+  const qtyFree = body.qty_free !== undefined ? Math.max(0, Math.round(Number(body.qty_free) || 0)) : existing.qty_free;
+
+  const merged = Object.assign({}, existing, body, { vat_rate: vatRate, qty_purchased: qtyPurchased, qty_free: qtyFree });
+  const computed = computeItemProfitFields(merged);
+
+  await dbRun(env,
+    `UPDATE supplier_products SET
+      supplier_name=?, stock_code=?, barcode=?, description=?,
+      cost_excl_vat=?, cost_incl_vat=?, vat_rate=?,
+      discount_pct=?, discount_euro=?, qty_purchased=?, qty_free=?,
+      batch=?, expiry_date=?, retail_price=?,
+      profit=?, profit_margin=?, total_incl_vat=?,
+      out_of_stock=?, updated_at=datetime('now')
+     WHERE org_id=? AND location_id=? AND id=?`,
+    [
+      String(body.supplier_name !== undefined ? body.supplier_name : existing.supplier_name).trim(),
+      String(body.stock_code !== undefined ? body.stock_code : existing.stock_code).trim(),
+      String(body.barcode !== undefined ? body.barcode : existing.barcode).trim(),
+      description,
+      computed.cost_excl_vat, computed.cost_incl_vat, vatRate,
+      computed.discount_pct, computed.discount_euro, qtyPurchased, qtyFree,
+      String(body.batch !== undefined ? body.batch : existing.batch).trim(),
+      String(body.expiry_date !== undefined ? body.expiry_date : existing.expiry_date).trim(),
+      computed.retail_price, computed.profit, computed.profit_margin, computed.total_incl_vat,
+      body.out_of_stock !== undefined ? (body.out_of_stock ? 1 : 0) : existing.out_of_stock,
+      authUser.org_id, authUser.location_id, entryId
+    ]
+  );
+
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleSupplierProductDelete(request, env, corsOkHeaders, authUser, entryId) {
+  await ensureSupplierProductsSchema(env);
+  const existing = await dbFirst(env, "SELECT id FROM supplier_products WHERE org_id = ? AND location_id = ? AND id = ?",
+    [authUser.org_id, authUser.location_id, entryId]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  await dbRun(env, "DELETE FROM supplier_products WHERE org_id = ? AND location_id = ? AND id = ?",
+    [authUser.org_id, authUser.location_id, entryId]);
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleSupplierProductStockStatus(request, env, corsOkHeaders, authUser, entryId) {
+  await ensureSupplierProductsSchema(env);
+  const existing = await dbFirst(env, "SELECT * FROM supplier_products WHERE org_id = ? AND location_id = ? AND id = ?",
+    [authUser.org_id, authUser.location_id, entryId]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+  const newStatus = body.out_of_stock ? 1 : 0;
+  if (newStatus === existing.out_of_stock) return jsonResponse({ ok: true, changed: false }, 200, corsOkHeaders);
+
+  await dbRun(env, "UPDATE supplier_products SET out_of_stock = ?, updated_at = datetime('now') WHERE id = ?",
+    [newStatus, entryId]);
+
+  // Log stock change notification
+  const changeType = newStatus ? "out_of_stock" : "back_in_stock";
+  await dbRun(env,
+    `INSERT INTO supplier_stock_changes (org_id, supplier_location_id, supplier_name, product_description, barcode, change_type, created_at)
+     VALUES (?,?,?,?,?,?,datetime('now'))`,
+    [authUser.org_id, authUser.location_id, existing.supplier_name, existing.description, existing.barcode || "", changeType]
+  );
+
+  return jsonResponse({ ok: true, changed: true }, 200, corsOkHeaders);
+}
+
+// ─── Bulk Import (Full Replace) ───────────────────────────────────────────
+
+async function handleSupplierProductsBulkImport(request, env, corsOkHeaders, authUser) {
+  await ensureSupplierProductsSchema(env);
+  const body = await readJson(request);
+  const rows = Array.isArray(body.rows) ? body.rows : [];
+  const supplierName = String(body.supplier_name || "").trim();
+
+  if (rows.length === 0) return jsonResponse({ ok: false, error: "No rows provided" }, 400, corsOkHeaders);
+  if (rows.length > 5000) return jsonResponse({ ok: false, error: "Maximum 5000 rows per import" }, 400, corsOkHeaders);
+
+  // Fetch existing products for comparison
+  const oldProducts = await dbAll(env,
+    "SELECT * FROM supplier_products WHERE org_id = ? AND location_id = ?",
+    [authUser.org_id, authUser.location_id]);
+
+  // Build lookup map by description (lowercased) for comparison
+  const oldByDesc = {};
+  for (const p of oldProducts) {
+    const key = (p.description || "").toLowerCase().trim();
+    if (key) oldByDesc[key] = p;
+  }
+
+  // Delete all existing products
+  await dbRun(env, "DELETE FROM supplier_products WHERE org_id = ? AND location_id = ?",
+    [authUser.org_id, authUser.location_id]);
+
+  // Insert new rows
+  let imported = 0;
+  const errors = [];
+  const newDescKeys = new Set();
+
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    const desc = String(r.description || "").trim();
+    if (!desc) { errors.push({ row: i + 1, error: "Description is required" }); continue; }
+
+    const vatRate = normalizeVatRate(r.vat_rate);
+    const qtyPurchased = Math.max(1, Math.round(Number(r.qty_purchased) || 1));
+    const qtyFree = Math.max(0, Math.round(Number(r.qty_free) || 0));
+    const computed = computeItemProfitFields(r);
+
+    await dbRun(env,
+      `INSERT INTO supplier_products
+       (org_id, location_id, supplier_name, stock_code, barcode, description,
+        cost_excl_vat, cost_incl_vat, vat_rate, discount_pct, discount_euro,
+        qty_purchased, qty_free, batch, expiry_date, retail_price,
+        profit, profit_margin, total_incl_vat, out_of_stock, created_by,
+        created_at, updated_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,?,datetime('now'),datetime('now'))`,
+      [
+        authUser.org_id, authUser.location_id, supplierName,
+        String(r.stock_code || "").trim(), String(r.barcode || "").trim(), desc,
+        computed.cost_excl_vat, computed.cost_incl_vat, vatRate,
+        computed.discount_pct, computed.discount_euro,
+        qtyPurchased, qtyFree,
+        String(r.batch || "").trim(), String(r.expiry_date || "").trim(),
+        computed.retail_price, computed.profit, computed.profit_margin, computed.total_incl_vat,
+        authUser.user_id
+      ]
+    );
+    imported++;
+    newDescKeys.add(desc.toLowerCase().trim());
+  }
+
+  // Generate stock change notifications by comparing old vs new
+  const changes = [];
+  // Items in old that were out_of_stock and reappear → back_in_stock
+  for (const key of Object.keys(oldByDesc)) {
+    const oldP = oldByDesc[key];
+    if (oldP.out_of_stock && newDescKeys.has(key)) {
+      changes.push({ type: "back_in_stock", description: oldP.description, barcode: oldP.barcode || "" });
+    }
+    // Items in old that don't appear in new → removed
+    if (!newDescKeys.has(key)) {
+      changes.push({ type: "removed", description: oldP.description, barcode: oldP.barcode || "" });
+    }
+  }
+  // New items not in old → added
+  for (const key of newDescKeys) {
+    if (!oldByDesc[key]) {
+      const newRow = rows.find(r => (r.description || "").toLowerCase().trim() === key);
+      changes.push({ type: "added", description: newRow ? newRow.description : key, barcode: newRow ? (newRow.barcode || "") : "" });
+    }
+  }
+
+  // Write stock changes to notification log
+  for (const ch of changes) {
+    await dbRun(env,
+      `INSERT INTO supplier_stock_changes (org_id, supplier_location_id, supplier_name, product_description, barcode, change_type, created_at)
+       VALUES (?,?,?,?,?,?,datetime('now'))`,
+      [authUser.org_id, authUser.location_id, supplierName, ch.description, ch.barcode, ch.type]
+    );
+  }
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SUPPLIER_BULK_IMPORT", "supplier_products", "", { imported, changes: changes.length });
+
+  return jsonResponse({ ok: true, imported, errors, changes: changes.length }, 200, corsOkHeaders);
+}
+
+// ─── Pharmacy-side: Inventory & Stock Changes ─────────────────────────────
+
+async function handleSupplierProductsInventory(request, env, corsOkHeaders, authUser, url) {
+  await ensureSupplierProductsSchema(env);
+  const q = (url.searchParams.get("q") || "").trim();
+  const supplier = (url.searchParams.get("supplier") || "").trim();
+
+  let sql = `SELECT sp.*, l.name AS location_name
+             FROM supplier_products sp
+             LEFT JOIN locations l ON l.id = sp.location_id
+             WHERE sp.org_id = ?`;
+  const bind = [authUser.org_id];
+
+  if (supplier) {
+    sql += " AND sp.supplier_name = ?";
+    bind.push(supplier);
+  }
+
+  sql += " ORDER BY sp.supplier_name ASC, sp.description ASC";
+  let entries = await dbAll(env, sql, bind);
+
+  if (q) {
+    const qLow = q.toLowerCase();
+    entries = entries.filter(row =>
+      (row.description || "").toLowerCase().includes(qLow) ||
+      (row.barcode || "").toLowerCase().includes(qLow) ||
+      (row.stock_code || "").toLowerCase().includes(qLow) ||
+      (row.supplier_name || "").toLowerCase().includes(qLow)
+    );
+  }
+
+  return jsonResponse({ ok: true, entries }, 200, corsOkHeaders);
+}
+
+async function handleSupplierStockChangesList(request, env, corsOkHeaders, authUser, url) {
+  await ensureSupplierProductsSchema(env);
+  const since = (url.searchParams.get("since") || "").trim();
+
+  let sql = `SELECT * FROM supplier_stock_changes WHERE org_id = ?`;
+  const bind = [authUser.org_id];
+
+  if (since) {
+    sql += " AND created_at >= ?";
+    bind.push(since);
+  }
+
+  sql += " ORDER BY created_at DESC LIMIT 200";
+  const entries = await dbAll(env, sql, bind);
+
+  return jsonResponse({ ok: true, entries }, 200, corsOkHeaders);
+}
+
+async function handleSupplierStockChangeSeen(request, env, corsOkHeaders, authUser, changeId) {
+  await ensureSupplierProductsSchema(env);
+  const existing = await dbFirst(env, "SELECT * FROM supplier_stock_changes WHERE org_id = ? AND id = ?",
+    [authUser.org_id, changeId]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  let seenBy = [];
+  try { seenBy = JSON.parse(existing.seen_by || "[]"); } catch (e) { seenBy = []; }
+  if (!seenBy.includes(authUser.location_id)) {
+    seenBy.push(authUser.location_id);
+    await dbRun(env, "UPDATE supplier_stock_changes SET seen_by = ? WHERE id = ?",
+      [JSON.stringify(seenBy), changeId]);
+  }
+
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+// ─── Supplier Orders ──────────────────────────────────────────────────────
+
+async function handleSupplierOrderCreate(request, env, corsOkHeaders, authUser) {
+  await ensureSupplierProductsSchema(env);
+  const body = await readJson(request);
+
+  const supplierLocationId = Number(body.supplier_location_id);
+  if (!supplierLocationId) return jsonResponse({ ok: false, error: "supplier_location_id is required" }, 400, corsOkHeaders);
+
+  const items = Array.isArray(body.items) ? body.items : [];
+  if (items.length === 0) return jsonResponse({ ok: false, error: "No items in order" }, 400, corsOkHeaders);
+
+  // Get pharmacy location name
+  const locRow = await dbFirst(env, "SELECT name FROM locations WHERE id = ?", [authUser.location_id]);
+  const pharmacyName = locRow ? locRow.name : "";
+
+  const order = await dbFirst(env,
+    `INSERT INTO supplier_orders
+     (org_id, pharmacy_location_id, supplier_location_id, supplier_name, pharmacy_name, status, notes, created_by, created_at, updated_at)
+     VALUES (?,?,?,?,?,?,?,?,datetime('now'),datetime('now'))
+     RETURNING id`,
+    [
+      authUser.org_id, authUser.location_id, supplierLocationId,
+      String(body.supplier_name || "").trim(), pharmacyName,
+      "pending", String(body.notes || "").trim(), authUser.user_id
+    ]
+  );
+
+  for (const item of items) {
+    await dbRun(env,
+      `INSERT INTO supplier_order_items
+       (order_id, product_id, description, barcode, stock_code, qty_requested, cost_excl_vat, vat_rate, retail_price, notes)
+       VALUES (?,?,?,?,?,?,?,?,?,?)`,
+      [
+        order.id,
+        item.product_id || null,
+        String(item.description || "").trim(),
+        String(item.barcode || "").trim(),
+        String(item.stock_code || "").trim(),
+        Math.max(1, Math.round(Number(item.qty_requested) || 1)),
+        Math.max(0, Number(item.cost_excl_vat) || 0),
+        normalizeVatRate(item.vat_rate),
+        Math.max(0, Number(item.retail_price) || 0),
+        String(item.notes || "").trim()
+      ]
+    );
+  }
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SUPPLIER_ORDER_CREATE", "supplier_orders", String(order.id), { items: items.length });
+
+  return jsonResponse({ ok: true, id: order.id }, 200, corsOkHeaders);
+}
+
+async function handleSupplierOrdersSent(request, env, corsOkHeaders, authUser, url) {
+  await ensureSupplierProductsSchema(env);
+  const status = (url.searchParams.get("status") || "").trim();
+
+  let sql = `SELECT o.*, (SELECT COUNT(*) FROM supplier_order_items WHERE order_id = o.id) AS item_count
+             FROM supplier_orders o
+             WHERE o.org_id = ? AND o.pharmacy_location_id = ?`;
+  const bind = [authUser.org_id, authUser.location_id];
+
+  if (status) {
+    const statuses = status.split(",").map(s => s.trim()).filter(Boolean);
+    if (statuses.length) {
+      sql += " AND o.status IN (" + statuses.map(() => "?").join(",") + ")";
+      bind.push(...statuses);
+    }
+  }
+
+  sql += " ORDER BY o.created_at DESC";
+  const entries = await dbAll(env, sql, bind);
+
+  return jsonResponse({ ok: true, entries }, 200, corsOkHeaders);
+}
+
+async function handleSupplierOrdersReceived(request, env, corsOkHeaders, authUser, url) {
+  await ensureSupplierProductsSchema(env);
+
+  const sql = `SELECT o.*, (SELECT COUNT(*) FROM supplier_order_items WHERE order_id = o.id) AS item_count
+               FROM supplier_orders o
+               WHERE o.org_id = ? AND o.supplier_location_id = ?
+               ORDER BY o.created_at DESC`;
+  const entries = await dbAll(env, sql, [authUser.org_id, authUser.location_id]);
+
+  return jsonResponse({ ok: true, entries }, 200, corsOkHeaders);
+}
+
+async function handleSupplierOrderDetail(request, env, corsOkHeaders, authUser, orderId) {
+  await ensureSupplierProductsSchema(env);
+
+  const order = await dbFirst(env,
+    `SELECT * FROM supplier_orders WHERE org_id = ? AND id = ?`, [authUser.org_id, orderId]);
+  if (!order) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  // Ensure the user has access (either pharmacy side or supplier side)
+  if (order.pharmacy_location_id !== authUser.location_id && order.supplier_location_id !== authUser.location_id) {
+    return jsonResponse({ ok: false, error: "Access denied" }, 403, corsOkHeaders);
+  }
+
+  const items = await dbAll(env,
+    "SELECT * FROM supplier_order_items WHERE order_id = ? ORDER BY id ASC", [orderId]);
+
+  return jsonResponse({ ok: true, order, items }, 200, corsOkHeaders);
+}
+
+async function handleSupplierOrderConfirm(request, env, corsOkHeaders, authUser, orderId) {
+  await ensureSupplierProductsSchema(env);
+
+  const order = await dbFirst(env,
+    `SELECT * FROM supplier_orders WHERE org_id = ? AND supplier_location_id = ? AND id = ?`,
+    [authUser.org_id, authUser.location_id, orderId]);
+  if (!order) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+  const newStatus = String(body.status || "shipped").trim();
+  if (newStatus !== "shipped" && newStatus !== "confirmed") {
+    return jsonResponse({ ok: false, error: "Invalid status" }, 400, corsOkHeaders);
+  }
+
+  // Update item-level unavailability if provided
+  const itemUpdates = Array.isArray(body.items) ? body.items : [];
+  for (const iu of itemUpdates) {
+    if (iu.id) {
+      await dbRun(env,
+        `UPDATE supplier_order_items SET unavailable = ?, qty_confirmed = ?, notes = ? WHERE order_id = ? AND id = ?`,
+        [
+          iu.unavailable ? 1 : 0,
+          Math.max(0, Math.round(Number(iu.qty_confirmed) || 0)),
+          String(iu.notes || "").trim(),
+          orderId, iu.id
+        ]
+      );
+    }
+  }
+
+  await dbRun(env, "UPDATE supplier_orders SET status = ?, updated_at = datetime('now') WHERE id = ?",
+    [newStatus, orderId]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SUPPLIER_ORDER_CONFIRM", "supplier_orders", String(orderId), { status: newStatus });
+
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleSupplierOrderItemUnavailable(request, env, corsOkHeaders, authUser, itemId) {
+  await ensureSupplierProductsSchema(env);
+
+  const item = await dbFirst(env, "SELECT oi.*, o.supplier_location_id, o.org_id FROM supplier_order_items oi JOIN supplier_orders o ON o.id = oi.order_id WHERE oi.id = ?", [itemId]);
+  if (!item) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+  if (item.org_id !== authUser.org_id || item.supplier_location_id !== authUser.location_id) {
+    return jsonResponse({ ok: false, error: "Access denied" }, 403, corsOkHeaders);
+  }
+
+  const body = await readJson(request);
+  await dbRun(env, "UPDATE supplier_order_items SET unavailable = ?, notes = ? WHERE id = ?",
+    [body.unavailable ? 1 : 0, String(body.notes || "").trim(), itemId]);
+
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleSupplierOrderUpdate(request, env, corsOkHeaders, authUser, orderId) {
+  await ensureSupplierProductsSchema(env);
+
+  const order = await dbFirst(env, "SELECT * FROM supplier_orders WHERE org_id = ? AND id = ?",
+    [authUser.org_id, orderId]);
+  if (!order) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  // Pharmacy can mark as received; supplier can mark as shipped
+  if (order.pharmacy_location_id !== authUser.location_id && order.supplier_location_id !== authUser.location_id) {
+    return jsonResponse({ ok: false, error: "Access denied" }, 403, corsOkHeaders);
+  }
+
+  const body = await readJson(request);
+  const allowedStatuses = ["pending", "confirmed", "shipped", "received"];
+  const newStatus = String(body.status || "").trim();
+  if (newStatus && !allowedStatuses.includes(newStatus)) {
+    return jsonResponse({ ok: false, error: "Invalid status" }, 400, corsOkHeaders);
+  }
+
+  if (newStatus) {
+    await dbRun(env, "UPDATE supplier_orders SET status = ?, updated_at = datetime('now') WHERE id = ?",
+      [newStatus, orderId]);
+  }
+  if (body.notes !== undefined) {
+    await dbRun(env, "UPDATE supplier_orders SET notes = ?, updated_at = datetime('now') WHERE id = ?",
+      [String(body.notes).trim(), orderId]);
+  }
+
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+/* END SUPPLIER PRODUCTS MODULE */
+
 function normalizePriority(p) {
   const n = Number(p);
   if (!Number.isFinite(n)) return 2;
@@ -14790,6 +15370,73 @@ if (url.pathname === "/order-diary/items" && request.method === "GET") {
 }
 if (url.pathname === "/order-diary/carry-over" && request.method === "POST") {
   return await handleOrderDiaryCarryOver(request, env, corsOkHeaders, authUser);
+}
+
+// Supplier Products
+if (url.pathname === "/supplier-products/entries" && request.method === "GET") {
+  return await handleSupplierProductsList(request, env, corsOkHeaders, authUser, url);
+}
+if (url.pathname === "/supplier-products/entries" && request.method === "POST") {
+  return await handleSupplierProductCreate(request, env, corsOkHeaders, authUser);
+}
+if (url.pathname === "/supplier-products/bulk-import" && request.method === "POST") {
+  return await handleSupplierProductsBulkImport(request, env, corsOkHeaders, authUser);
+}
+if (url.pathname === "/supplier-products/inventory" && request.method === "GET") {
+  return await handleSupplierProductsInventory(request, env, corsOkHeaders, authUser, url);
+}
+if (url.pathname === "/supplier-products/changes" && request.method === "GET") {
+  return await handleSupplierStockChangesList(request, env, corsOkHeaders, authUser, url);
+}
+if (url.pathname.startsWith("/supplier-products/changes/") && url.pathname.endsWith("/seen") && request.method === "PUT") {
+  const parts = url.pathname.split("/").filter(Boolean);
+  const changeId = parseInt(parts[2], 10);
+  if (!changeId) return jsonResponse({ ok: false, error: "Invalid change id" }, 400, corsOkHeaders);
+  return await handleSupplierStockChangeSeen(request, env, corsOkHeaders, authUser, changeId);
+}
+if (url.pathname.startsWith("/supplier-products/entries/") && url.pathname.endsWith("/stock-status") && request.method === "PUT") {
+  const parts = url.pathname.split("/").filter(Boolean);
+  const entryId = parseInt(parts[2], 10);
+  if (!entryId) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+  return await handleSupplierProductStockStatus(request, env, corsOkHeaders, authUser, entryId);
+}
+if (url.pathname.startsWith("/supplier-products/entries/")) {
+  const parts = url.pathname.split("/").filter(Boolean);
+  const entryId = parseInt(parts[2], 10);
+  if (!entryId) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+  if (request.method === "PUT") return await handleSupplierProductUpdate(request, env, corsOkHeaders, authUser, entryId);
+  if (request.method === "DELETE") return await handleSupplierProductDelete(request, env, corsOkHeaders, authUser, entryId);
+}
+
+// Supplier Orders
+if (url.pathname === "/supplier-orders" && request.method === "POST") {
+  return await handleSupplierOrderCreate(request, env, corsOkHeaders, authUser);
+}
+if (url.pathname === "/supplier-orders/sent" && request.method === "GET") {
+  return await handleSupplierOrdersSent(request, env, corsOkHeaders, authUser, url);
+}
+if (url.pathname === "/supplier-orders/received" && request.method === "GET") {
+  return await handleSupplierOrdersReceived(request, env, corsOkHeaders, authUser, url);
+}
+if (url.pathname.startsWith("/supplier-orders/items/") && url.pathname.endsWith("/unavailable") && request.method === "PUT") {
+  const parts = url.pathname.split("/").filter(Boolean);
+  const itemId = parseInt(parts[2], 10);
+  if (!itemId) return jsonResponse({ ok: false, error: "Invalid item id" }, 400, corsOkHeaders);
+  return await handleSupplierOrderItemUnavailable(request, env, corsOkHeaders, authUser, itemId);
+}
+if (url.pathname.startsWith("/supplier-orders/") && url.pathname.endsWith("/confirm") && request.method === "PUT") {
+  const parts = url.pathname.split("/").filter(Boolean);
+  const orderId = parseInt(parts[1], 10);
+  if (!orderId) return jsonResponse({ ok: false, error: "Invalid order id" }, 400, corsOkHeaders);
+  return await handleSupplierOrderConfirm(request, env, corsOkHeaders, authUser, orderId);
+}
+if (url.pathname.startsWith("/supplier-orders/")) {
+  const parts = url.pathname.split("/").filter(Boolean);
+  const orderId = parseInt(parts[1], 10);
+  if (orderId) {
+    if (request.method === "GET") return await handleSupplierOrderDetail(request, env, corsOkHeaders, authUser, orderId);
+    if (request.method === "PUT") return await handleSupplierOrderUpdate(request, env, corsOkHeaders, authUser, orderId);
+  }
 }
 
 // Client Tickets

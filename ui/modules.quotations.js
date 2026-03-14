@@ -735,7 +735,7 @@
     else if (f0.cost_incl_vat) calc("cost_incl");
     else calc("qty");
 
-    // Description similarity suggestions
+    // Description similarity suggestions + supplier inventory lookup
     var descEl = getEl("#qt-i-desc");
     var sugEl = getEl("#qt-i-suggestions");
     if (descEl && sugEl) {
@@ -744,23 +744,79 @@
         suggestTimer = setTimeout(function () {
           var typed = (descEl.value || "").trim();
           if (typed.length < 2) { sugEl.innerHTML = ""; return; }
+
+          var html = "";
+
+          // Existing description similarity
           var sims = findSimilarDescriptions(typed);
-          if (!sims.length) { sugEl.innerHTML = ""; return; }
-          var html = "<div class='qt-suggestions'>" +
-            "<div class='qt-sug-title'>Similar descriptions found</div>";
-          sims.forEach(function (s) {
-            html += "<div class='qt-sug-item'>" +
-              "<span class='qt-sug-desc' title='" + esc(s.desc) + "'>" + esc(s.desc) +
-                " <span style='opacity:.5'>(" + s.count + "x)</span></span>" +
-              "<button class='qt-sug-use' data-d='" + esc(s.desc) + "'>Use this</button>" +
-              "</div>";
-          });
-          html += "</div>";
+          if (sims.length) {
+            html += "<div class='qt-suggestions'>" +
+              "<div class='qt-sug-title'>Similar descriptions found</div>";
+            sims.forEach(function (s) {
+              html += "<div class='qt-sug-item'>" +
+                "<span class='qt-sug-desc' title='" + esc(s.desc) + "'>" + esc(s.desc) +
+                  " <span style='opacity:.5'>(" + s.count + "x)</span></span>" +
+                "<button class='qt-sug-use' data-d='" + esc(s.desc) + "'>Use this</button>" +
+                "</div>";
+            });
+            html += "</div>";
+          }
+
+          // Supplier inventory lookup
+          if (window._qtSupplierProducts && window._qtSupplierProducts.length) {
+            var typedLow = typed.toLowerCase();
+            var spMatches = window._qtSupplierProducts.filter(function (sp) {
+              return (sp.description || "").toLowerCase().indexOf(typedLow) >= 0 ||
+                     (sp.barcode || "").toLowerCase().indexOf(typedLow) >= 0;
+            }).slice(0, 5);
+
+            if (spMatches.length) {
+              html += "<div class='qt-suggestions' style='margin-top:6px;'>" +
+                "<div class='qt-sug-title'>From Supplier Inventory</div>";
+              spMatches.forEach(function (sp, idx) {
+                var oos = sp.out_of_stock ? " <span style='color:#ff5a7a;font-size:10px;'>(Out of Stock)</span>" : "";
+                html += "<div class='qt-sug-item'>" +
+                  "<span class='qt-sug-desc'>" + esc(sp.description) +
+                    " <span style='opacity:.55'>" + esc(sp.supplier_name || "") + "</span>" + oos + "</span>" +
+                  "<button class='qt-sug-sp-use' data-sp-idx='" + idx + "'>Use</button></div>";
+              });
+              html += "</div>";
+              // Store matches temporarily for click handlers
+              sugEl._spMatches = spMatches;
+            }
+          }
+
+          if (!html) { sugEl.innerHTML = ""; return; }
           sugEl.innerHTML = html;
+
           sugEl.querySelectorAll(".qt-sug-use").forEach(function (btn) {
             btn.addEventListener("click", function () {
               descEl.value = btn.getAttribute("data-d");
               sugEl.innerHTML = "";
+            });
+          });
+
+          sugEl.querySelectorAll(".qt-sug-sp-use").forEach(function (btn) {
+            btn.addEventListener("click", function () {
+              var idx = parseInt(btn.getAttribute("data-sp-idx"), 10);
+              var sp = sugEl._spMatches ? sugEl._spMatches[idx] : null;
+              if (!sp) return;
+              // Pre-fill fields from supplier product
+              descEl.value = sp.description || "";
+              var supEl = getEl("#qt-i-supplier"); if (supEl) supEl.value = sp.supplier_name || "";
+              var barcodeEl = getEl("#qt-i-barcode"); if (barcodeEl) barcodeEl.value = sp.barcode || "";
+              var scodeEl = getEl("#qt-i-scode"); if (scodeEl) scodeEl.value = sp.stock_code || "";
+              var vatEl = getEl("#qt-i-vat"); if (vatEl) vatEl.value = String(sp.vat_rate || 0);
+              var exclEl = getEl("#qt-i-excl"); if (exclEl) exclEl.value = sp.cost_excl_vat ? fmt2(sp.cost_excl_vat) : "";
+              var inclEl = getEl("#qt-i-incl"); if (inclEl) inclEl.value = sp.cost_incl_vat ? fmt2(sp.cost_incl_vat) : "";
+              var dpctEl = getEl("#qt-i-dpct"); if (dpctEl) dpctEl.value = sp.discount_pct ? fmt2(sp.discount_pct) : "";
+              var deuroEl = getEl("#qt-i-deuro"); if (deuroEl) deuroEl.value = sp.discount_euro ? fmt2(sp.discount_euro) : "";
+              var retailEl = getEl("#qt-i-retail"); if (retailEl) retailEl.value = sp.retail_price ? fmt2(sp.retail_price) : "";
+              var qtyEl = getEl("#qt-i-qty"); if (qtyEl) qtyEl.value = sp.qty_purchased || 1;
+              var freeEl = getEl("#qt-i-free"); if (freeEl) freeEl.value = sp.qty_free || 0;
+              sugEl.innerHTML = "";
+              // Trigger recalc
+              if (exclEl) exclEl.dispatchEvent(new Event("input", { bubbles: true }));
             });
           });
         }, 300);
@@ -1706,6 +1762,13 @@
   async function render(ctx) {
     ensureQuotationsStyles();
     var mount = ctx.mount;
+
+    // Prefetch supplier products for lookup in add/edit modal
+    if (!window._qtSupplierProducts) {
+      E.apiFetch("/supplier-products/inventory", { method: "GET" })
+        .then(function (r) { window._qtSupplierProducts = (r && r.entries) || []; })
+        .catch(function () { window._qtSupplierProducts = []; });
+    }
 
     mount.innerHTML =
       "<div class='qt-wrap'>" +
