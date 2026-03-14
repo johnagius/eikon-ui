@@ -128,6 +128,7 @@
     orders: [],
     orderSort: { key: "created_at", dir: "desc" },
     orderStatusFilter: "",
+    orderSearchQuery: "",
     expandedOrderId: null,
     expandedItems: [],
     expandedFeedbacks: [],
@@ -154,8 +155,11 @@
   function apiCreateOrder(data) {
     return E.apiFetch("/supplier-orders", { method: "POST", body: JSON.stringify(data) });
   }
-  function apiSentOrders(status) {
-    var qs = status ? "?status=" + encodeURIComponent(status) : "";
+  function apiSentOrders(status, q) {
+    var parts = [];
+    if (status) parts.push("status=" + encodeURIComponent(status));
+    if (q) parts.push("q=" + encodeURIComponent(q));
+    var qs = parts.length ? "?" + parts.join("&") : "";
     return E.apiFetch("/supplier-orders/sent" + qs, { method: "GET" });
   }
   function apiOrderDetail(id) {
@@ -517,13 +521,17 @@
     ];
 
     var sf = state.orderStatusFilter;
-    var html = "<div style='margin-bottom:8px;'>" +
+    var html = "<div style='margin-bottom:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;'>" +
       "<select id='si-order-status-filter' class='eikon-input' style='width:150px;font-size:12px;'>" +
         "<option value=''" + (sf === "" ? " selected" : "") + ">All Statuses</option>" +
         "<option value='pending'" + (sf === "pending" ? " selected" : "") + ">Pending</option>" +
         "<option value='shipped'" + (sf === "shipped" ? " selected" : "") + ">Shipped</option>" +
         "<option value='received'" + (sf === "received" ? " selected" : "") + ">Received</option>" +
-      "</select></div>";
+      "</select>" +
+      "<input id='si-order-search' class='eikon-input' type='text' placeholder='Search by supplier, order #, or product\u2026' " +
+        "value='" + esc(state.orderSearchQuery || "") + "' " +
+        "style='flex:1;min-width:180px;max-width:340px;font-size:12px;'>" +
+    "</div>";
 
     html += "<div class='si-table-wrap'><table class='si-table'><thead><tr>";
     cols.forEach(function (col) {
@@ -1106,6 +1114,23 @@
       });
     }
 
+    // Order keyword search
+    var orderSearch = mount.querySelector("#si-order-search");
+    if (orderSearch) {
+      var osDebounce = null;
+      orderSearch.addEventListener("input", function () {
+        clearTimeout(osDebounce);
+        osDebounce = setTimeout(function () {
+          state.orderSearchQuery = orderSearch.value;
+          loadOrders(mount);
+        }, 350);
+      });
+      if (state.orderSearchQuery) {
+        orderSearch.focus();
+        orderSearch.setSelectionRange(orderSearch.value.length, orderSearch.value.length);
+      }
+    }
+
     // Expand order
     mount.querySelectorAll("[data-expand-order]").forEach(function (btn) {
       btn.addEventListener("click", function () {
@@ -1248,7 +1273,7 @@
 
   async function loadOrders(mount) {
     try {
-      var resp = await apiSentOrders(state.orderStatusFilter || "");
+      var resp = await apiSentOrders(state.orderStatusFilter || "", state.orderSearchQuery || "");
       state.orders = resp.entries || [];
       state.expandedOrderId = null;
       state.expandedItems = [];
