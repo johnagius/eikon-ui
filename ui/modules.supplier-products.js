@@ -120,6 +120,7 @@
     view: "table", // "table" | "upload" | "preview"
     previewRows: null,
     previewErrors: [],
+    hiddenCols: [],
     _user: null,
     _mount: null
   };
@@ -402,6 +403,74 @@
     { key: "out_of_stock",  label: "Status",      type: "stock",  w: "100px" }
   ];
 
+  var SP_DEFAULT_HIDDEN = ["stock_code", "cost_incl_vat", "barcode"];
+  var SP_ALWAYS_VISIBLE = ["description", "out_of_stock"];
+
+  function loadHiddenCols() {
+    try { var v = JSON.parse(localStorage.getItem("eikon_sp_hidden_cols")); return Array.isArray(v) ? v : SP_DEFAULT_HIDDEN.slice(); }
+    catch (e) { return SP_DEFAULT_HIDDEN.slice(); }
+  }
+  function saveHiddenCols(arr) {
+    try { localStorage.setItem("eikon_sp_hidden_cols", JSON.stringify(arr)); } catch (e) {}
+  }
+  function getVisibleColumns() {
+    return COLUMNS.filter(function (c) { return state.hiddenCols.indexOf(c.key) === -1; });
+  }
+
+  function showColumnSettings() {
+    var body = "<div style='text-align:left;font-size:14px;'>" +
+      "<p style='margin:0 0 10px;'>Choose which columns to show:</p>" +
+      "<div style='display:grid;grid-template-columns:1fr 1fr;gap:6px;'>";
+    COLUMNS.forEach(function (col) {
+      var alwaysOn = SP_ALWAYS_VISIBLE.indexOf(col.key) !== -1;
+      var visible = alwaysOn || state.hiddenCols.indexOf(col.key) === -1;
+      body += "<label style='display:flex;align-items:center;gap:6px;cursor:" + (alwaysOn ? "default" : "pointer") + ";'>" +
+        "<input type='checkbox' data-col-key='" + col.key + "'" +
+        (visible ? " checked" : "") + (alwaysOn ? " disabled" : "") + ">" +
+        "<span>" + esc(col.label) + "</span></label>";
+    });
+    body += "</div></div>";
+
+    E.modal.show("Column Settings", body, [
+      { label: "Save", primary: true, onClick: function () {
+        var hidden = [];
+        COLUMNS.forEach(function (col) {
+          if (SP_ALWAYS_VISIBLE.indexOf(col.key) !== -1) return;
+          var cb = document.querySelector("input[data-col-key='" + col.key + "']");
+          if (cb && !cb.checked) hidden.push(col.key);
+        });
+        state.hiddenCols = hidden;
+        saveHiddenCols(hidden);
+        E.modal.hide();
+        if (state._mount) renderAll(state._mount);
+      }},
+      { label: "Cancel", onClick: function () { E.modal.hide(); } }
+    ]);
+  }
+
+  // ─── Deal Duplicate Detection ─────────────────────────────────────────
+  function detectDealDuplicates(rows) {
+    var groups = {};
+    rows.forEach(function (r) {
+      var key = norm(r.description);
+      if (!key) return;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push({ qp: Number(r.qty_purchased) || 1, qf: Number(r.qty_free) || 0 });
+    });
+    var dupes = [];
+    for (var k in groups) {
+      if (!Object.prototype.hasOwnProperty.call(groups, k)) continue;
+      var g = groups[k];
+      if (g.length < 2) continue;
+      var hasDiff = false;
+      for (var i = 1; i < g.length; i++) {
+        if (g[i].qp !== g[0].qp || g[i].qf !== g[0].qf) { hasDiff = true; break; }
+      }
+      if (hasDiff) dupes.push(g[0]._desc || k);
+    }
+    return dupes;
+  }
+
   // ─── Render Helpers ─────────────────────────────────────────────────────
 
   // ─── Download Template ──────────────────────────────────────────────────
@@ -498,6 +567,11 @@
             "<tbody>" + tableRows + "</tbody>" +
           "</table>" +
         "</div>" +
+        "<div style='background:#1a2a1a;border:1px solid #2d5a2d;border-radius:8px;padding:10px;margin-top:10px;font-size:12px;color:#8bc34a;'>" +
+          "<b>Tip:</b> If you offer the same product with different deals " +
+          "(e.g. single unit AND \"Buy 6 + 1 Free\"), add them as " +
+          "<b>two separate rows</b> with different Quantity Purchased / Quantity Free values." +
+        "</div>" +
       "</div>";
 
     E.modal.show("Create Your Product File", body, [
@@ -515,6 +589,7 @@
           "value='" + esc(state.queries.keyword) + "' style='width:240px;'>" +
       "</div>" +
       "<div class='sp-toolbar-right'>" +
+        "<button class='eikon-btn' id='sp-btn-colsettings' title='Column Settings'>\u2699</button>" +
         "<button class='eikon-btn' id='sp-btn-template'>Template</button>" +
         "<button class='eikon-btn' id='sp-btn-add'>+ Add Product</button>" +
         "<button class='eikon-btn' id='sp-btn-import'>Import File</button>" +
@@ -634,8 +709,19 @@
     var sk = state.sort.key;
     var sd = state.sort.dir;
 
-    var html = "<div class='sp-table-wrap'><table class='sp-table'><thead><tr>";
-    COLUMNS.forEach(function (col) {
+    var visCols = getVisibleColumns();
+
+    // Deal duplicate advisory
+    var dealDupes = detectDealDuplicates(rows);
+    var html = "";
+    if (dealDupes.length) {
+      html += "<div style='background:#1a2a1a;border:1px solid #2d5a2d;border-radius:8px;padding:10px;margin-bottom:10px;font-size:13px;color:#8bc34a;'>" +
+        "\u2139 Some products share the same name but have different deal quantities. " +
+        "Consider renaming them to help pharmacies distinguish the options.</div>";
+    }
+
+    html += "<div class='sp-table-wrap'><table class='sp-table'><thead><tr>";
+    visCols.forEach(function (col) {
       var active = sk === col.key;
       var arrow = active ? (sd === "asc" ? " \u25B2" : " \u25BC") : "";
       html += "<th class='" + (col.num ? "num" : "") + "' data-sort-key='" + col.key + "' style='cursor:pointer;'>" +
@@ -648,7 +734,7 @@
       var rowStyle = oos ? "opacity:0.5;" : "";
       html += "<tr data-id='" + row.id + "' style='" + rowStyle + "'>";
 
-      COLUMNS.forEach(function (col) {
+      visCols.forEach(function (col) {
         if (col.type === "margin") {
           var mc = profitMarginColor(row.profit_margin);
           html += "<td class='num'><span class='sp-margin-cell' style='background:" + mc + "22;color:" + mc + ";'>" +
@@ -906,6 +992,10 @@
         }, 200);
       });
     }
+
+    // Column settings
+    var colBtn = mount.querySelector("#sp-btn-colsettings");
+    if (colBtn) { colBtn.addEventListener("click", function () { showColumnSettings(); }); }
 
     // Template help modal
     var tmplBtn = mount.querySelector("#sp-btn-template");
@@ -1177,6 +1267,7 @@
         '</div>';
 
       state.view = "table";
+      state.hiddenCols = loadHiddenCols();
       await refreshData(ctx.mount);
     }
   });
