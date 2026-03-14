@@ -28,8 +28,15 @@
       try {
         var productsResp = await E.apiFetch("/supplier-products/entries", { method: "GET" });
         var products = productsResp.entries || [];
-        var totalProducts = products.length;
-        var outOfStock = products.filter(function (p) { return p.out_of_stock; }).length;
+        var uniqueMap = {};
+        var oosMap = {};
+        products.forEach(function (p) {
+          var key = (p.description || "").toLowerCase().trim();
+          uniqueMap[key] = true;
+          if (p.out_of_stock) oosMap[key] = true;
+        });
+        var totalProducts = Object.keys(uniqueMap).length;
+        var outOfStock = Object.keys(oosMap).length;
         var inStock = totalProducts - outOfStock;
 
         var ordersResp = await E.apiFetch("/supplier-orders/received", { method: "GET" });
