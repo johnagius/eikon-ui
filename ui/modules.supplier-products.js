@@ -381,23 +381,50 @@
   // ─── Render Helpers ─────────────────────────────────────────────────────
 
   // ─── Download Template ──────────────────────────────────────────────────
+  var TEMPLATE_HEADERS = [
+    "Stock Code", "Barcode", "Description", "Cost Excl Vat", "Cost Incl Vat",
+    "VAT", "Discount (%)", "Discount (\u20ac)", "Quantity Purchased",
+    "Quantity Free", "Batch", "Expiry Date", "Retail Price"
+  ];
+
   function downloadTemplate(format) {
-    if (!window.XLSX) { toast("bad", "Error", "SheetJS library not loaded. Please reload the page."); return; }
-    var headers = [
-      "Stock Code", "Barcode", "Description", "Cost Excl Vat", "Cost Incl Vat",
-      "VAT", "Discount (%)", "Discount (\u20ac)", "Quantity Purchased",
-      "Quantity Free", "Batch", "Expiry Date", "Retail Price"
-    ];
-    var ws = XLSX.utils.aoa_to_sheet([headers]);
-    // Set column widths for readability
-    ws["!cols"] = headers.map(function (h) { return { wch: Math.max(h.length + 2, 14) }; });
-    var wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Products");
-    if (format === "csv") {
-      XLSX.writeFile(wb, "product-template.csv", { bookType: "csv" });
-    } else {
-      XLSX.writeFile(wb, "product-template.xlsx");
+    try {
+      if (format === "csv") {
+        // Generate CSV natively — no SheetJS dependency
+        var csvLine = TEMPLATE_HEADERS.map(function (h) {
+          return '"' + h.replace(/"/g, '""') + '"';
+        }).join(",") + "\n";
+        var blob = new Blob([csvLine], { type: "text/csv;charset=utf-8;" });
+        triggerDownload(blob, "product-template.csv");
+      } else {
+        // XLSX via SheetJS (requires full build; mini doesn't support XLSX write)
+        if (!window.XLSX) { toast("bad", "Error", "SheetJS library not loaded. Please reload the page."); return; }
+        var ws = XLSX.utils.aoa_to_sheet([TEMPLATE_HEADERS]);
+        ws["!cols"] = TEMPLATE_HEADERS.map(function (h) { return { wch: Math.max(h.length + 2, 14) }; });
+        var wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Products");
+        XLSX.writeFile(wb, "product-template.xlsx");
+      }
+    } catch (ex) {
+      warn("Template download failed", ex);
+      // Fallback: download CSV if XLSX fails
+      if (format !== "csv") {
+        toast("warn", "Notice", "XLSX not supported — downloading CSV instead");
+        downloadTemplate("csv");
+      } else {
+        toast("bad", "Error", "Template download failed: " + (ex.message || ex));
+      }
     }
+  }
+
+  function triggerDownload(blob, filename) {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
   }
 
   function renderToolbar(mount) {
@@ -407,8 +434,8 @@
           "value='" + esc(state.queries.keyword) + "' style='width:240px;'>" +
       "</div>" +
       "<div class='sp-toolbar-right'>" +
-        "<button class='eikon-btn' id='sp-btn-template-xlsx' title='Download XLSX template'>Download Template</button>" +
-        "<button class='eikon-btn' id='sp-btn-template-csv' title='Download CSV template' style='opacity:.7;font-size:11px;'>CSV</button>" +
+        "<button class='eikon-btn' id='sp-btn-template-csv' title='Download CSV template'>Download Template</button>" +
+        "<button class='eikon-btn' id='sp-btn-template-xlsx' title='Download XLSX template' style='opacity:.7;font-size:11px;'>XLSX</button>" +
         "<button class='eikon-btn' id='sp-btn-add'>+ Add Product</button>" +
         "<button class='eikon-btn' id='sp-btn-import'>Import File</button>" +
       "</div>" +
