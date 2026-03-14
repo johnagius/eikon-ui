@@ -1012,8 +1012,9 @@
         try { var seen = JSON.parse(ch.seen_by || "[]"); return !seen.includes(myLocId); } catch (e) { return true; }
       });
       if (unseen.length > 0) {
-        var oosCount = unseen.filter(function (c) { return c.change_type === "out_of_stock" || c.change_type === "removed"; }).length;
-        var bisCount = unseen.filter(function (c) { return c.change_type === "back_in_stock" || c.change_type === "added"; }).length;
+        var deduped = dedupeStockChanges(unseen);
+        var oosCount = deduped.filter(function (c) { return c.change_type === "out_of_stock" || c.change_type === "removed"; }).length;
+        var bisCount = deduped.filter(function (c) { return c.change_type === "back_in_stock"; }).length;
         var scSub = [];
         if (oosCount) scSub.push(oosCount + " out of stock");
         if (bisCount) scSub.push(bisCount + " back/new");
@@ -1021,9 +1022,9 @@
           pill("warn", unseen.length + " update" + (unseen.length !== 1 ? "s" : "")),
           btn("dash-supplier-changes-details", "Details", { primary: true, small: true }) + btn("dash-open-supplier-inventory", "View", { small: true }));
 
-        // Toast for stock changes
+        // Toast for stock changes (use deduplicated data)
         var supGroups = {};
-        unseen.forEach(function (ch) {
+        deduped.forEach(function (ch) {
           var sn = ch.supplier_name || "Unknown";
           if (!supGroups[sn]) supGroups[sn] = { oos: 0, bis: 0 };
           if (ch.change_type === "out_of_stock" || ch.change_type === "removed") supGroups[sn].oos++;
@@ -1677,6 +1678,23 @@
     ]);
   }
 
+  function dedupeStockChanges(unseen) {
+    var byKey = {};
+    unseen.forEach(function (ch) {
+      var key = (ch.product_description || "").toLowerCase().trim() + "||" + (ch.supplier_name || "").toLowerCase().trim();
+      if (!byKey[key] || ch.created_at > byKey[key].created_at) {
+        byKey[key] = ch;
+      }
+    });
+    var result = [];
+    for (var k in byKey) {
+      if (Object.prototype.hasOwnProperty.call(byKey, k)) {
+        if (byKey[k].change_type !== "added") result.push(byKey[k]);
+      }
+    }
+    return result;
+  }
+
   function showSupplierChangesDetails() {
     var sc = state.data.supplierChanges && state.data.supplierChanges.ok ? state.data.supplierChanges.data : null;
     if (!sc) return showError("Supplier Updates", "Supplier changes data not available.");
@@ -1687,13 +1705,13 @@
       try { var seen = JSON.parse(ch.seen_by || "[]"); return !seen.includes(myLocId); } catch (e) { return true; }
     });
 
+    var deduped = dedupeStockChanges(unseen);
     var rows = "";
-    for (var i = 0; i < unseen.length; i++) {
-      var ch = unseen[i];
+    for (var i = 0; i < deduped.length; i++) {
+      var ch = deduped[i];
       var statusLabel = ch.change_type === "out_of_stock" ? "Out of Stock" :
         ch.change_type === "back_in_stock" ? "Back in Stock" :
-        ch.change_type === "removed" ? "Removed" :
-        ch.change_type === "added" ? "Added" : ch.change_type;
+        ch.change_type === "removed" ? "Removed" : ch.change_type;
       var statusColor = (ch.change_type === "out_of_stock" || ch.change_type === "removed") ? "#ff5a7a" : "#43d17a";
       var timeStr = ch.created_at ? new Date(ch.created_at + "Z").toLocaleString() : "";
       rows += "<tr>" +
@@ -1706,7 +1724,7 @@
 
     var body =
       '<div class="eikon-dash-detail">' +
-        '<div class="eikon-help">' + unseen.length + ' unseen supplier change' + (unseen.length !== 1 ? 's' : '') + '.</div>' +
+        '<div class="eikon-help">' + deduped.length + ' product' + (deduped.length !== 1 ? 's' : '') + ' with stock changes.</div>' +
         '<div style="max-height:300px;overflow-y:auto;">' +
           '<table class="eikon-dash-mini-table">' +
             "<thead><tr><th>Product</th><th>Supplier</th><th>Status</th><th>Time</th></tr></thead>" +
