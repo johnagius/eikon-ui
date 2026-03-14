@@ -62,23 +62,15 @@
         }
 
         // ── Download delegation ─────────────────────────────────────────
-        // The inner cross-origin iframe cannot trigger downloads (browser
-        // blocks them inside sandboxed iframe children). The inner iframe
-        // sends us the URL via postMessage and we trigger the download
-        // from THIS context (level 2) which has allow-downloads.
+        // Chrome ignores dynamically-added allow-downloads on sandbox attrs,
+        // so anchor-click downloads are blocked. Instead use window.open()
+        // which works because allow-popups IS in the original sandbox.
+        // The server responds with Content-Disposition: attachment.
         if (ev.data.type === "EIKON_DOWNLOAD") {
           console.log("[EIKON][godaddy] download request:", ev.data.url);
           try {
-            var dlA = document.createElement("a");
-            dlA.href = ev.data.url;
-            dlA.download = "";
-            dlA.style.display = "none";
-            document.body.appendChild(dlA);
-            dlA.click();
-            console.log("[EIKON][godaddy] download anchor clicked");
-            setTimeout(function () {
-              document.body.removeChild(dlA);
-            }, 500);
+            window.open(ev.data.url, "_blank");
+            console.log("[EIKON][godaddy] download window.open OK");
           } catch (dlErr) {
             console.error("[EIKON][godaddy] download failed:", dlErr);
           }
