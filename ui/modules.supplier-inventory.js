@@ -481,7 +481,8 @@
   }
 
   function renderOrders() {
-    if (!state.orders.length) {
+    var hasDrafts = Object.keys(state.cart).length > 0;
+    if (!state.orders.length && !hasDrafts) {
       return "<div style='text-align:center;padding:40px;color:var(--muted);'>No orders placed yet.</div>";
     }
 
@@ -503,6 +504,26 @@
       html += "<th data-order-sort-key='" + col.key + "' style='cursor:pointer;'>" + esc(col.label) + arrow + "</th>";
     });
     html += "<th>Actions</th></tr></thead><tbody>";
+
+    // Draft orders from cart
+    if (hasDrafts) {
+      var groups = cartBySupplier();
+      for (var supName in groups) {
+        if (!Object.prototype.hasOwnProperty.call(groups, supName)) continue;
+        var grp = groups[supName];
+        html += "<tr style='background:rgba(255,175,50,.05);'>" +
+          "<td><span style='color:var(--muted);'>Draft</span></td>" +
+          "<td>" + esc(supName) + "</td>" +
+          "<td>Now</td>" +
+          "<td>" + grp.items.length + "</td>" +
+          "<td><span style='display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;background:rgba(255,175,50,.2);color:#ffaf32;'>Draft</span></td>" +
+          "<td style='white-space:nowrap;'>" +
+            "<button class='eikon-btn si-draft-continue' data-draft-supplier='" + esc(supName) + "' style='font-size:11px;padding:3px 10px;'>Continue</button> " +
+            "<button class='eikon-btn si-draft-delete' data-draft-supplier='" + esc(supName) + "' style='font-size:11px;padding:3px 10px;color:#ff5a7a;'>Delete</button>" +
+          "</td>" +
+        "</tr>";
+      }
+    }
 
     state.orders.forEach(function (order) {
       var isExpanded = state.expandedOrderId === order.id;
@@ -536,31 +557,57 @@
     return html;
   }
 
+  var PROBLEM_TYPES = ["Not Received", "Wrong Pick", "Damaged", "Short Quantity", "Other"];
+
   function renderOrderItems(order) {
     var items = state.expandedItems;
     if (!items.length) return "<div style='padding:12px;color:var(--muted);'>Loading\u2026</div>";
 
+    var canReport = order.status === "shipped" || order.status === "received";
+    var thStyle = "text-align:left;padding:6px;font-size:11px;color:rgba(233,238,247,.6);";
+
     var html = "<div style='padding:12px;background:rgba(255,255,255,.02);border-radius:8px;'>" +
       "<table style='width:100%;border-collapse:collapse;font-size:12px;'><thead><tr>" +
-      "<th style='text-align:left;padding:6px;font-size:11px;color:rgba(233,238,247,.6);'>Description</th>" +
-      "<th style='text-align:left;padding:6px;font-size:11px;color:rgba(233,238,247,.6);'>Barcode</th>" +
-      "<th style='text-align:right;padding:6px;font-size:11px;color:rgba(233,238,247,.6);'>Qty</th>" +
-      "<th style='text-align:right;padding:6px;font-size:11px;color:rgba(233,238,247,.6);'>Cost</th>" +
-      "<th style='text-align:left;padding:6px;font-size:11px;color:rgba(233,238,247,.6);'>Status</th>" +
+      "<th style='" + thStyle + "'>Description</th>" +
+      "<th style='" + thStyle + "'>Barcode</th>" +
+      "<th style='" + thStyle + "text-align:right;'>Qty</th>" +
+      "<th style='" + thStyle + "text-align:right;'>Cost</th>" +
+      "<th style='" + thStyle + "'>Status</th>" +
+      (canReport ? "<th style='" + thStyle + "'>Report Problem</th>" : "") +
       "</tr></thead><tbody>";
 
     items.forEach(function (item) {
       var unavail = item.unavailable ? 1 : 0;
       var rowStyle = unavail ? "text-decoration:line-through;opacity:0.5;" : "";
+      var qtyLabel = (item.qty_requested || 0) + (item.qty_free ? "+" + item.qty_free : "");
       html += "<tr style='" + rowStyle + "'>" +
         "<td style='padding:6px;'>" + esc(item.description) + "</td>" +
         "<td style='padding:6px;'>" + esc(item.barcode) + "</td>" +
-        "<td style='padding:6px;text-align:right;'>" + (item.qty_requested || 0) + "</td>" +
+        "<td style='padding:6px;text-align:right;'>" + qtyLabel + "</td>" +
         "<td style='padding:6px;text-align:right;'>\u20ac" + fmt2(item.cost_excl_vat) + "</td>" +
         "<td style='padding:6px;'>" + (unavail ?
           "<span style='color:#ff5a7a;font-weight:700;'>Unavailable</span>" :
-          "<span style='color:#43d17a;'>Available</span>") + "</td>" +
-      "</tr>";
+          "<span style='color:#43d17a;'>Available</span>") + "</td>";
+
+      if (canReport && !unavail) {
+        html += "<td style='padding:6px;'>" +
+          "<select class='eikon-input si-problem-select' data-feedback-item='" + item.id + "' " +
+            "data-fb-desc='" + esc(item.description) + "' " +
+            "data-fb-batch='" + esc(item.batch || "") + "' " +
+            "data-fb-expiry='" + esc(item.expiry_date || "") + "' " +
+            "data-fb-qty='" + qtyLabel + "' " +
+            "data-fb-supplier='" + esc(order.supplier_name) + "' " +
+            "style='font-size:11px;padding:2px 4px;width:130px;'>" +
+            "<option value=''>-- Select --</option>";
+        PROBLEM_TYPES.forEach(function (pt) {
+          html += "<option value='" + esc(pt) + "'>" + esc(pt) + "</option>";
+        });
+        html += "</select></td>";
+      } else if (canReport) {
+        html += "<td style='padding:6px;'></td>";
+      }
+
+      html += "</tr>";
     });
 
     html += "</tbody></table>";
@@ -692,11 +739,52 @@
 
         if (state.cart[id]) {
           delete state.cart[id];
+          scheduleDraftSave();
+          renderAll(mount);
         } else {
-          state.cart[id] = { product: product, qty: qty };
+          // Check expiry warning before adding
+          var expWarn = null;
+          if (product.expiry_date) {
+            var expD = parseExpiryDate(product.expiry_date);
+            if (expD) {
+              var daysLeft = Math.ceil((expD.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+              var monthsLeft = daysLeft / 30.44;
+              if (monthsLeft <= (state.expirySettings.expiry_red_months || 6)) {
+                expWarn = { level: "red", days: daysLeft, date: expD };
+              } else if (monthsLeft <= (state.expirySettings.expiry_yellow_months || 12)) {
+                expWarn = { level: "yellow", days: daysLeft, date: expD };
+              }
+            }
+          }
+          if (expWarn) {
+            var warnColor = expWarn.level === "red" ? "#ff5a7a" : "#e8c840";
+            var expDateStr = expWarn.date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+            E.modal.show("Expiry Warning",
+              "<div style='line-height:1.7;'>" +
+                "<b style='color:" + warnColor + ";'>" + esc(product.description) + "</b><br>" +
+                "Expiry date: <b>" + expDateStr + "</b><br>" +
+                "Days remaining: <b style='color:" + warnColor + ";'>" + expWarn.days + " days</b><br><br>" +
+                (expWarn.level === "red"
+                  ? "<span style='color:#ff5a7a;font-weight:700;'>This product is expiring very soon.</span>"
+                  : "<span style='color:#e8c840;font-weight:700;'>This product is approaching expiry.</span>") +
+                "<br><br>Do you still want to add it to your cart?" +
+              "</div>",
+              [
+                { label: "Cancel", onClick: function () { E.modal.hide(); } },
+                { label: "Add Anyway", primary: true, onClick: function () {
+                  E.modal.hide();
+                  state.cart[id] = { product: product, qty: qty };
+                  scheduleDraftSave();
+                  renderAll(mount);
+                }}
+              ]
+            );
+          } else {
+            state.cart[id] = { product: product, qty: qty };
+            scheduleDraftSave();
+            renderAll(mount);
+          }
         }
-        scheduleDraftSave();
-        renderAll(mount);
       });
     });
 
@@ -790,9 +878,12 @@
             stock_code: ci.product.stock_code || "",
             qty_requested: ci.qty,
             qty_free_included: freeQty,
+            qty_free: freeQty,
             cost_excl_vat: ci.product.cost_excl_vat || 0,
             vat_rate: ci.product.vat_rate || 18,
-            retail_price: ci.product.retail_price || 0
+            retail_price: ci.product.retail_price || 0,
+            batch: ci.product.batch || "",
+            expiry_date: ci.product.expiry_date || ""
           };
         });
 
@@ -819,6 +910,28 @@
   }
 
   function wireOrders(mount) {
+    // Draft continue
+    mount.querySelectorAll(".si-draft-continue").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        state.tab = "inventory";
+        renderAll(mount);
+      });
+    });
+
+    // Draft delete
+    mount.querySelectorAll(".si-draft-delete").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var supName = btn.getAttribute("data-draft-supplier");
+        var groups = cartBySupplier();
+        var grp = groups[supName];
+        if (grp) {
+          grp.items.forEach(function (ci) { delete state.cart[ci.product.id]; });
+        }
+        scheduleDraftSave();
+        renderAll(mount);
+      });
+    });
+
     // Sort headers
     mount.querySelectorAll("[data-order-sort-key]").forEach(function (th) {
       th.addEventListener("click", function () {
@@ -865,6 +978,86 @@
             return loadOrders(mount);
           })
           .catch(function (err) { toast("bad", "Error", err.message || "Failed"); btn.disabled = false; });
+      });
+    });
+
+    // Report problem (feedback)
+    mount.querySelectorAll(".si-problem-select").forEach(function (sel) {
+      sel.addEventListener("change", function () {
+        var problemType = sel.value;
+        if (!problemType) return;
+        var itemId = Number(sel.getAttribute("data-feedback-item"));
+        var desc = sel.getAttribute("data-fb-desc") || "";
+        var batch = sel.getAttribute("data-fb-batch") || "";
+        var expiryDate = sel.getAttribute("data-fb-expiry") || "";
+        var qtyLabel = sel.getAttribute("data-fb-qty") || "";
+        var supplierName = sel.getAttribute("data-fb-supplier") || "";
+
+        E.modal.show("Report Problem",
+          "<div style='line-height:1.7;'>" +
+            "<b>" + esc(desc) + "</b><br>" +
+            "Problem: <b style='color:#ff5a7a;'>" + esc(problemType) + "</b><br><br>" +
+            "<label style='font-size:12px;color:rgba(233,238,247,.6);'>Additional notes (optional):</label><br>" +
+            "<textarea id='si-feedback-notes' class='eikon-input' style='width:100%;height:60px;margin-top:4px;' placeholder='Describe the issue...'></textarea>" +
+          "</div>",
+          [
+            { label: "Cancel", onClick: function () { E.modal.hide(); sel.value = ""; } },
+            { label: "Submit Report", primary: true, onClick: function () {
+              var notes = (document.getElementById("si-feedback-notes") || {}).value || "";
+              E.modal.hide();
+
+              E.apiFetch("/supplier-orders/items/" + itemId + "/feedback", {
+                method: "POST",
+                body: JSON.stringify({ problem_type: problemType, notes: notes })
+              }).then(function () {
+                toast("good", "Reported", "Problem reported for " + desc);
+
+                // Ask to add to returns
+                var today = new Date();
+                var dateStr = today.getFullYear() + "-" + String(today.getMonth() + 1).padStart(2, "0") + "-" + String(today.getDate()).padStart(2, "0");
+                E.modal.show("Add to Returns?",
+                  "<div style='line-height:1.7;'>" +
+                    "Would you like to add <b>" + esc(desc) + "</b> to the Returns section?<br><br>" +
+                    "<span style='font-size:12px;color:rgba(233,238,247,.5);'>" +
+                      "Supplier: " + esc(supplierName) + "<br>" +
+                      (batch ? "Batch: " + esc(batch) + "<br>" : "") +
+                      (expiryDate ? "Expiry: " + esc(expiryDate) + "<br>" : "") +
+                      "Qty: " + esc(qtyLabel) + "<br>" +
+                      "Remarks: " + esc(problemType) + (notes ? " - " + esc(notes) : "") +
+                    "</span>" +
+                  "</div>",
+                  [
+                    { label: "No", onClick: function () { E.modal.hide(); } },
+                    { label: "Add to Returns", primary: true, onClick: function () {
+                      E.modal.hide();
+                      E.apiFetch("/returns/entries", {
+                        method: "POST",
+                        body: JSON.stringify({
+                          entry_date: dateStr,
+                          description: desc,
+                          supplier: supplierName,
+                          batch: batch,
+                          expiry: expiryDate,
+                          quantity: qtyLabel,
+                          remarks: problemType + (notes ? " - " + notes : ""),
+                          damaged: problemType === "Damaged" ? 1 : 0
+                        })
+                      }).then(function () {
+                        toast("good", "Added", desc + " added to Returns");
+                      }).catch(function (err) {
+                        toast("bad", "Error", err.message || "Failed to add to Returns");
+                      });
+                    }}
+                  ]
+                );
+              }).catch(function (err) {
+                toast("bad", "Error", err.message || "Failed to submit report");
+              });
+
+              sel.value = "";
+            }}
+          ]
+        );
       });
     });
   }
@@ -990,6 +1183,42 @@
         '</div>';
 
       await refreshData(ctx.mount);
+
+      // 30s auto-update
+      if (state._autoInterval) clearInterval(state._autoInterval);
+      state._autoInterval = setInterval(function () {
+        if (E.state.activeModuleId !== "supplier-inventory") return;
+        if (state.tab === "orders") {
+          // Preserve expansion state
+          var prevExpanded = state.expandedOrderId;
+          var prevItems = state.expandedItems;
+          apiSentOrders("").then(function (resp) {
+            if (E.state.activeModuleId !== "supplier-inventory") return;
+            state.orders = resp.entries || [];
+            state.expandedOrderId = prevExpanded;
+            state.expandedItems = prevItems;
+            sortOrders();
+            renderAll(ctx.mount);
+          }).catch(function () {});
+        } else {
+          apiInventory(state.queries.keyword, state.queries.supplier).then(function (resp) {
+            if (E.state.activeModuleId !== "supplier-inventory") return;
+            state.products = resp.entries || [];
+            applyFilter();
+            renderAll(ctx.mount);
+          }).catch(function () {});
+        }
+      }, 30000);
+
+      // Clean up on module switch
+      var onHashChange = function () {
+        if (E.state.activeModuleId !== "supplier-inventory" || E.getHashModuleId() !== "supplier-inventory") {
+          clearInterval(state._autoInterval);
+          state._autoInterval = null;
+          window.removeEventListener("hashchange", onHashChange);
+        }
+      };
+      window.addEventListener("hashchange", onHashChange);
     }
   });
 })();
