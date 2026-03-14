@@ -60,6 +60,32 @@
           else if (lvl === "warn") console.warn(msg);
           else console.log(msg);
         }
+
+        // ── Download delegation ─────────────────────────────────────────
+        // The inner cross-origin iframe cannot trigger downloads due to
+        // browser restrictions. It sends us the file content via postMessage
+        // and we perform the download from this context (level 2) which has
+        // allow-downloads on its sandbox.
+        if (ev.data.type === "EIKON_DOWNLOAD") {
+          console.log("[EIKON][godaddy] download request:", ev.data.filename);
+          try {
+            var blob = new Blob([ev.data.content], { type: ev.data.mimeType || "application/octet-stream" });
+            var dlUrl = URL.createObjectURL(blob);
+            var dlA = document.createElement("a");
+            dlA.href = dlUrl;
+            dlA.download = ev.data.filename || "download";
+            dlA.style.display = "none";
+            document.body.appendChild(dlA);
+            dlA.click();
+            console.log("[EIKON][godaddy] download triggered:", ev.data.filename);
+            setTimeout(function () {
+              document.body.removeChild(dlA);
+              URL.revokeObjectURL(dlUrl);
+            }, 500);
+          } catch (dlErr) {
+            console.error("[EIKON][godaddy] download failed:", dlErr);
+          }
+        }
       } catch (e) {}
     });
 
