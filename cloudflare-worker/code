@@ -2329,6 +2329,15 @@ async function ensureSupplierProductsSchema(env) {
     updated_by  INTEGER,
     PRIMARY KEY (org_id, location_id)
   )`, []);
+
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS supplier_cart_drafts (
+    org_id      INTEGER NOT NULL,
+    location_id INTEGER NOT NULL,
+    cart_json   TEXT NOT NULL DEFAULT '{}',
+    updated_at  TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_by  INTEGER,
+    PRIMARY KEY (org_id, location_id)
+  )`, []);
 }
 
 // ─── Supplier Products CRUD ───────────────────────────────────────────────
@@ -2691,6 +2700,37 @@ async function handleSupplierInventorySettingsPut(request, env, corsOkHeaders, a
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
+// ─── Supplier Cart Drafts ─────────────────────────────────────────────────
+
+async function handleSupplierCartDraftGet(request, env, corsOkHeaders, authUser) {
+  await ensureSupplierProductsSchema(env);
+  const row = await dbFirst(env,
+    `SELECT cart_json FROM supplier_cart_drafts WHERE org_id=? AND location_id=?`,
+    [authUser.org_id, authUser.location_id]);
+  const cart = row ? JSON.parse(row.cart_json || "{}") : {};
+  return jsonResponse({ ok: true, cart }, 200, corsOkHeaders);
+}
+
+async function handleSupplierCartDraftPut(request, env, corsOkHeaders, authUser) {
+  await ensureSupplierProductsSchema(env);
+  const body = await readJson(request);
+  const cartJson = JSON.stringify(body.cart || {});
+  await dbRun(env,
+    `INSERT INTO supplier_cart_drafts (org_id, location_id, cart_json, updated_at, updated_by)
+     VALUES (?,?,?,datetime('now'),?)
+     ON CONFLICT(org_id, location_id) DO UPDATE SET cart_json=excluded.cart_json, updated_at=excluded.updated_at, updated_by=excluded.updated_by`,
+    [authUser.org_id, authUser.location_id, cartJson, authUser.user_id]);
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleSupplierCartDraftDelete(request, env, corsOkHeaders, authUser) {
+  await ensureSupplierProductsSchema(env);
+  await dbRun(env,
+    `DELETE FROM supplier_cart_drafts WHERE org_id=? AND location_id=?`,
+    [authUser.org_id, authUser.location_id]);
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
 // ─── Supplier Orders ──────────────────────────────────────────────────────
 
 async function handleSupplierOrderCreate(request, env, corsOkHeaders, authUser) {
@@ -2772,9 +2812,9 @@ async function handleSupplierOrdersReceived(request, env, corsOkHeaders, authUse
 
   const sql = `SELECT o.*, (SELECT COUNT(*) FROM supplier_order_items WHERE order_id = o.id) AS item_count
                FROM supplier_orders o
-               WHERE o.org_id = ? AND o.supplier_location_id = ?
+               WHERE o.supplier_location_id = ?
                ORDER BY o.created_at DESC`;
-  const entries = await dbAll(env, sql, [authUser.org_id, authUser.location_id]);
+  const entries = await dbAll(env, sql, [authUser.location_id]);
 
   return jsonResponse({ ok: true, entries }, 200, corsOkHeaders);
 }
@@ -2783,7 +2823,7 @@ async function handleSupplierOrderDetail(request, env, corsOkHeaders, authUser, 
   await ensureSupplierProductsSchema(env);
 
   const order = await dbFirst(env,
-    `SELECT * FROM supplier_orders WHERE org_id = ? AND id = ?`, [authUser.org_id, orderId]);
+    `SELECT * FROM supplier_orders WHERE id = ?`, [orderId]);
   if (!order) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
 
   // Ensure the user has access (either pharmacy side or supplier side)
@@ -2801,8 +2841,8 @@ async function handleSupplierOrderConfirm(request, env, corsOkHeaders, authUser,
   await ensureSupplierProductsSchema(env);
 
   const order = await dbFirst(env,
-    `SELECT * FROM supplier_orders WHERE org_id = ? AND supplier_location_id = ? AND id = ?`,
-    [authUser.org_id, authUser.location_id, orderId]);
+    `SELECT * FROM supplier_orders WHERE supplier_location_id = ? AND id = ?`,
+    [authUser.location_id, orderId]);
   if (!order) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
 
   const body = await readJson(request);
@@ -2840,7 +2880,7 @@ async function handleSupplierOrderItemUnavailable(request, env, corsOkHeaders, a
 
   const item = await dbFirst(env, "SELECT oi.*, o.supplier_location_id, o.org_id FROM supplier_order_items oi JOIN supplier_orders o ON o.id = oi.order_id WHERE oi.id = ?", [itemId]);
   if (!item) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
-  if (item.org_id !== authUser.org_id || item.supplier_location_id !== authUser.location_id) {
+  if (item.supplier_location_id !== authUser.location_id) {
     return jsonResponse({ ok: false, error: "Access denied" }, 403, corsOkHeaders);
   }
 
@@ -2854,8 +2894,8 @@ async function handleSupplierOrderItemUnavailable(request, env, corsOkHeaders, a
 async function handleSupplierOrderUpdate(request, env, corsOkHeaders, authUser, orderId) {
   await ensureSupplierProductsSchema(env);
 
-  const order = await dbFirst(env, "SELECT * FROM supplier_orders WHERE org_id = ? AND id = ?",
-    [authUser.org_id, orderId]);
+  const order = await dbFirst(env, "SELECT * FROM supplier_orders WHERE id = ?",
+    [orderId]);
   if (!order) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
 
   // Pharmacy can mark as received; supplier can mark as shipped
@@ -15517,6 +15557,15 @@ if (url.pathname.startsWith("/supplier-orders/") && url.pathname.endsWith("/conf
   const orderId = parseInt(parts[1], 10);
   if (!orderId) return jsonResponse({ ok: false, error: "Invalid order id" }, 400, corsOkHeaders);
   return await handleSupplierOrderConfirm(request, env, corsOkHeaders, authUser, orderId);
+}
+if (url.pathname === "/supplier-orders/cart-draft" && request.method === "GET") {
+  return await handleSupplierCartDraftGet(request, env, corsOkHeaders, authUser);
+}
+if (url.pathname === "/supplier-orders/cart-draft" && request.method === "PUT") {
+  return await handleSupplierCartDraftPut(request, env, corsOkHeaders, authUser);
+}
+if (url.pathname === "/supplier-orders/cart-draft" && request.method === "DELETE") {
+  return await handleSupplierCartDraftDelete(request, env, corsOkHeaders, authUser);
 }
 if (url.pathname.startsWith("/supplier-orders/")) {
   const parts = url.pathname.split("/").filter(Boolean);
