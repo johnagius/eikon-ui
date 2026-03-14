@@ -61,6 +61,11 @@
       method: "PUT", body: JSON.stringify({ unavailable: unavailable, notes: notes || "" })
     });
   }
+  function apiToggleProductStock(productId, outOfStock) {
+    return E.apiFetch("/supplier-products/entries/" + productId + "/stock-status", {
+      method: "PUT", body: JSON.stringify({ out_of_stock: outOfStock ? 1 : 0 })
+    });
+  }
 
   // ─── Status helpers ─────────────────────────────────────────────────────
   function statusBadge(status) {
@@ -173,7 +178,9 @@
         "<td>" + (unavail ? "<span style='color:#ff5a7a;font-weight:700;'>Unavailable</span>" : "<span style='color:#43d17a;'>Available</span>") + "</td>";
 
       if (isPending) {
-        html += "<td><button class='eikon-btn sro-unavail-btn' data-item-id='" + item.id + "' data-unavail='" + (unavail ? "0" : "1") + "'>" +
+        html += "<td><button class='eikon-btn sro-unavail-btn' data-item-id='" + item.id + "' data-unavail='" + (unavail ? "0" : "1") + "'" +
+          " data-product-id='" + (item.product_id || "") + "'" +
+          " data-item-desc='" + esc(item.description) + "'>" +
           (unavail ? "Mark Available" : "Mark Unavailable") + "</button></td>";
       }
       html += "</tr>";
@@ -235,15 +242,40 @@
       btn.addEventListener("click", function () {
         var itemId = Number(btn.getAttribute("data-item-id"));
         var unavail = btn.getAttribute("data-unavail") === "1";
+        var productId = btn.getAttribute("data-product-id") || "";
+        var itemDesc = btn.getAttribute("data-item-desc") || "";
         btn.disabled = true;
+
         apiMarkItemUnavailable(itemId, unavail, "")
           .then(function () {
-            // Refresh detail
             return apiOrderDetail(state.expandedOrderId);
           })
           .then(function (resp) {
             state.expandedItems = resp.items || [];
             renderAll(mount);
+
+            // If marking as unavailable and we have a product_id, ask about out-of-stock
+            if (unavail && productId) {
+              E.modal.show("Mark as Out of Stock?",
+                "<div style='line-height:1.6;'>You marked <b>" + esc(itemDesc) + "</b> as unavailable on this order." +
+                "<br><br>Would you also like to mark it as <b>Out of Stock</b> on your product list? " +
+                "This will notify pharmacy users that this item is currently unavailable.</div>",
+                [
+                  { label: "No, just this order", onClick: function () { E.modal.hide(); } },
+                  { label: "Yes, mark Out of Stock", primary: true, onClick: function () {
+                    apiToggleProductStock(productId, true)
+                      .then(function () {
+                        E.modal.hide();
+                        toast("good", "Updated", esc(itemDesc) + " marked as out of stock on your product list");
+                      })
+                      .catch(function (err) {
+                        E.modal.hide();
+                        toast("bad", "Error", err.message || "Failed to update product stock status");
+                      });
+                  }}
+                ]
+              );
+            }
           })
           .catch(function (err) { toast("bad", "Error", err.message || "Failed"); btn.disabled = false; });
       });
