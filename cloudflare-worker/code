@@ -2485,13 +2485,6 @@ async function handleSupplierProductStockStatus(request, env, corsOkHeaders, aut
        WHERE org_id = ? AND location_id = ? AND id != ? AND (${whereClause})`,
       [newStatus, authUser.org_id, authUser.location_id, entryId, ...matchBinds]
     );
-    for (const p of propagated) {
-      await dbRun(env,
-        `INSERT INTO supplier_stock_changes (org_id, supplier_location_id, supplier_name, product_description, barcode, change_type, created_at)
-         VALUES (?,?,?,?,?,?,datetime('now'))`,
-        [authUser.org_id, authUser.location_id, existing.supplier_name, p.description, p.barcode || "", changeType]
-      );
-    }
   }
 
   return jsonResponse({ ok: true, changed: true, propagated: propagated.length }, 200, corsOkHeaders);

@@ -345,27 +345,39 @@
       var totalCost = 0;
       var totalRetail = 0;
 
-      html += "<div style='max-height:240px;overflow-y:auto;'>";
+      html += "<div style='max-height:240px;overflow-y:auto;'>" +
+        "<table class='si-cart-table'>" +
+        "<thead><tr>" +
+          "<th style='text-align:left;'>Product</th>" +
+          "<th style='width:36px;text-align:right;'>Qty</th>" +
+          "<th style='width:36px;text-align:right;'>Free</th>" +
+          "<th style='width:44px;text-align:right;'>Disc%</th>" +
+          "<th style='width:70px;text-align:right;'>Cost</th>" +
+          "<th style='width:24px;'></th>" +
+        "</tr></thead><tbody>";
       group.items.forEach(function (item) {
         var qp = Number(item.product.qty_purchased) || 1;
         var qf = Number(item.product.qty_free) || 0;
         var hasDeal = qp > 1 || qf > 0;
         var freeQty = hasDeal ? Math.floor(item.qty / qp) * qf : 0;
         var totalQtyReceived = item.qty + freeQty;
+        var discPct = Number(item.product.discount_pct) || 0;
 
         var lineCost = round2(item.qty * (item.product.cost_excl_vat || 0));
         var lineRetail = round2(totalQtyReceived * (item.product.retail_price || 0));
         totalCost += lineCost;
         totalRetail += lineRetail;
 
-        var qtyLabel = "x" + item.qty + (freeQty > 0 ? " (+" + freeQty + " free)" : "");
-        html += "<div class='si-cart-item'>" +
-          "<span>" + esc(item.product.description) + " " + qtyLabel + "</span>" +
-          "<span>\u20ac" + fmt2(lineCost) + "</span>" +
-          "<button class='si-cart-remove' data-remove-id='" + item.product.id + "' title='Remove'>\u2715</button>" +
-        "</div>";
+        html += "<tr>" +
+          "<td>" + esc(item.product.description) + "</td>" +
+          "<td style='text-align:right;'>" + item.qty + "</td>" +
+          "<td style='text-align:right;'>" + (freeQty > 0 ? "+" + freeQty : "-") + "</td>" +
+          "<td style='text-align:right;'>" + (discPct > 0 ? fmt2(discPct) + "%" : "-") + "</td>" +
+          "<td style='text-align:right;'>\u20ac" + fmt2(lineCost) + "</td>" +
+          "<td><button class='si-cart-remove' data-remove-id='" + item.product.id + "' title='Remove'>\u2715</button></td>" +
+        "</tr>";
       });
-      html += "</div>";
+      html += "</tbody></table></div>";
 
       var totalProfit = round2(totalRetail - totalCost);
       var profitMarginPct = totalRetail > 0 ? round2((totalProfit / totalRetail) * 100) : 0;
@@ -811,7 +823,9 @@
       ".si-qty-input { background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); color:inherit; padding:3px 4px; border-radius:4px; font-size:11px; text-align:center; }",
       ".si-cart-panel { margin-top:16px; padding:14px; background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.08); border-radius:10px; }",
       ".si-cart-group { margin-bottom:14px; padding:10px; background:rgba(255,255,255,.02); border-radius:8px; }",
-      ".si-cart-item { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:4px 0; font-size:12px; }",
+      ".si-cart-table { width:100%; border-collapse:collapse; font-size:12px; }",
+      ".si-cart-table th { padding:2px 4px; font-size:10px; font-weight:600; color:rgba(233,238,247,.45); text-transform:uppercase; letter-spacing:.03em; border-bottom:1px solid rgba(255,255,255,.06); }",
+      ".si-cart-table td { padding:3px 4px; border-bottom:1px solid rgba(255,255,255,.03); white-space:nowrap; }",
       ".si-cart-remove { background:none; border:none; color:rgba(255,255,255,.3); cursor:pointer; font-size:12px; }",
       ".si-cart-remove:hover { color:#ff5a7a; }"
     ].join("\n");
