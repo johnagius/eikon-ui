@@ -62,15 +62,16 @@
         }
 
         // ── Download delegation ─────────────────────────────────────────
-        // Chrome ignores dynamically-added allow-downloads on sandbox attrs,
-        // so anchor-click downloads are blocked. Instead use window.open()
-        // which works because allow-popups IS in the original sandbox.
-        // The server responds with Content-Disposition: attachment.
+        // Chrome ignores ALL dynamically-added sandbox flags (allow-downloads,
+        // allow-popups-to-escape-sandbox). Only original flags work.
+        // allow-top-navigation IS original, so we navigate window.top to
+        // the download URL. Content-Disposition: attachment causes a download
+        // without actually navigating away from the page.
         if (ev.data.type === "EIKON_DOWNLOAD") {
           console.log("[EIKON][godaddy] download request:", ev.data.url);
           try {
-            window.open(ev.data.url, "_blank");
-            console.log("[EIKON][godaddy] download window.open OK");
+            window.top.location.href = ev.data.url;
+            console.log("[EIKON][godaddy] download via top navigation OK");
           } catch (dlErr) {
             console.error("[EIKON][godaddy] download failed:", dlErr);
           }
