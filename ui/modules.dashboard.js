@@ -1019,7 +1019,7 @@
         if (bisCount) scSub.push(bisCount + " back/new");
         supChgRow = row("\uD83D\uDE9A", "Supplier Updates", scSub.join(", ") || (unseen.length + " changes"),
           pill("warn", unseen.length + " update" + (unseen.length !== 1 ? "s" : "")),
-          btn("dash-open-supplier-inventory", "View", { primary: true, small: true }));
+          btn("dash-supplier-changes-details", "Details", { primary: true, small: true }) + btn("dash-open-supplier-inventory", "View", { small: true }));
 
         // Toast for stock changes
         var supGroups = {};
@@ -1677,6 +1677,50 @@
     ]);
   }
 
+  function showSupplierChangesDetails() {
+    var sc = state.data.supplierChanges && state.data.supplierChanges.ok ? state.data.supplierChanges.data : null;
+    if (!sc) return showError("Supplier Updates", "Supplier changes data not available.");
+
+    var scEntries = sc.entries || [];
+    var myLocId = Number((E.state.user || {}).location_id);
+    var unseen = scEntries.filter(function (ch) {
+      try { var seen = JSON.parse(ch.seen_by || "[]"); return !seen.includes(myLocId); } catch (e) { return true; }
+    });
+
+    var rows = "";
+    for (var i = 0; i < unseen.length; i++) {
+      var ch = unseen[i];
+      var statusLabel = ch.change_type === "out_of_stock" ? "Out of Stock" :
+        ch.change_type === "back_in_stock" ? "Back in Stock" :
+        ch.change_type === "removed" ? "Removed" :
+        ch.change_type === "added" ? "Added" : ch.change_type;
+      var statusColor = (ch.change_type === "out_of_stock" || ch.change_type === "removed") ? "#ff5a7a" : "#43d17a";
+      var timeStr = ch.created_at ? new Date(ch.created_at + "Z").toLocaleString() : "";
+      rows += "<tr>" +
+        "<td>" + esc(ch.product_description || "") + "</td>" +
+        "<td>" + esc(ch.supplier_name || "") + "</td>" +
+        "<td style='color:" + statusColor + ";font-weight:600;'>" + esc(statusLabel) + "</td>" +
+        "<td style='color:rgba(233,238,247,.5);'>" + esc(timeStr) + "</td>" +
+      "</tr>";
+    }
+
+    var body =
+      '<div class="eikon-dash-detail">' +
+        '<div class="eikon-help">' + unseen.length + ' unseen supplier change' + (unseen.length !== 1 ? 's' : '') + '.</div>' +
+        '<div style="max-height:300px;overflow-y:auto;">' +
+          '<table class="eikon-dash-mini-table">' +
+            "<thead><tr><th>Product</th><th>Supplier</th><th>Status</th><th>Time</th></tr></thead>" +
+            "<tbody>" + (rows || "<tr><td colspan='4'>No changes.</td></tr>") + "</tbody>" +
+          "</table>" +
+        "</div>" +
+      "</div>";
+
+    E.modal.show("Supplier Updates \u2014 Details", body, [
+      { label: "Close", onClick: function () { E.modal.hide(); } },
+      { label: "Open module", primary: true, onClick: function () { E.modal.hide(); window.location.hash = "#supplier-inventory"; } }
+    ]);
+  }
+
   function showAlertsDetails() {
     var al = state.data.alerts && state.data.alerts.ok ? state.data.alerts.data : null;
     if (!al) return showError("Alerts", "Alerts data not available.");
@@ -2072,6 +2116,7 @@
     if (act === "dash-clean-quick") return openCleaningQuickModal();
     if (act === "dash-dr-quick") return openDailyRegisterQuickModal();
 
+    if (act === "dash-supplier-changes-details") return showSupplierChangesDetails();
     if (act === "dash-cert-details") return showCertDetails();
     if (act === "dash-alerts-details") return showAlertsDetails();
     if (act === "dash-returns-details") return showReturnsDetails();
