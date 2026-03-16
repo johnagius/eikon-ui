@@ -328,26 +328,53 @@
   }
 
   // ── print via new tab (standard Eikon pattern) ─────────────────────────
-  function printLabelHtml(html) {
-    var page = '<!DOCTYPE html><html><head><meta charset="utf-8">\n<style>\n' +
-      '@page{margin:5mm;size:auto;}\n' +
-      'html,body{margin:0;padding:3mm;width:100%;font-family:"Segoe UI",system-ui,sans-serif;color:#000;}\n' +
-      '</style></head><body>\n' +
-      html + '\n' +
-      "<script>window.addEventListener('load',function(){setTimeout(function(){try{window.print();}catch(e){}},80);});" +
-      "window.addEventListener('afterprint',function(){setTimeout(function(){try{window.close();}catch(e){}},250);});<\/script>\n" +
-      '</body></html>';
-    var blob = new Blob([page], { type: "text/html;charset=utf-8" });
+  function openPrintTab(html) {
+    var blob = new Blob([html], { type: "text/html;charset=utf-8" });
     var url = URL.createObjectURL(blob);
     var w = null;
-    try { w = window.open(url, "_blank", "noopener"); } catch (e) { w = null; }
+    try { w = window.open(url, "_blank"); } catch (e) { w = null; }
     if (!w) {
       try {
         var a = document.createElement("a");
-        a.href = url; a.target = "_blank"; a.rel = "noopener"; a.style.display = "none";
+        a.href = url; a.target = "_blank"; a.style.display = "none";
         document.body.appendChild(a); a.click(); a.remove();
       } catch (e2) {}
     }
+    setTimeout(function () { try { URL.revokeObjectURL(url); } catch (e) {} }, 60000);
+  }
+
+  function printLabelHtml(html) {
+    openPrintTab(
+      '<!DOCTYPE html><html><head><meta charset="utf-8"><style>' +
+      '@page{margin:0;}' +
+      'html,body{margin:0;padding:0;width:100%;height:100%;}' +
+      '</style></head><body>' +
+      '<div id="label" style="padding:3mm;box-sizing:border-box;">' + html + '</div>' +
+      '<script>' +
+      '(function(){' +
+      '  function go(){' +
+      '    var el=document.getElementById("label");' +
+      '    if(!el)return;' +
+      /* measure how tall content is vs available page height (use A4 as fallback) */
+      '    var style=getComputedStyle(document.documentElement);' +
+      '    var pageH=window.innerHeight||842;' +  /* 842px ~ A4 at 96dpi */
+      '    var contentH=el.scrollHeight||el.offsetHeight;' +
+      '    if(contentH>pageH && pageH>50){' +
+      '      var scale=Math.floor((pageH/contentH)*100)/100;' +
+      '      if(scale<0.2)scale=0.2;' +
+      '      el.style.transform="scale("+scale+")";' +
+      '      el.style.transformOrigin="top left";' +
+      '      el.style.width=Math.ceil(100/scale)+"%";' +
+      '    }' +
+      '    setTimeout(function(){try{window.print();}catch(e){}},100);' +
+      '  }' +
+      '  if(document.readyState==="complete")go();' +
+      '  else window.addEventListener("load",go);' +
+      '  window.addEventListener("afterprint",function(){setTimeout(function(){try{window.close();}catch(e){}},300);});' +
+      '})();' +
+      '<\/script>' +
+      '</body></html>'
+    );
   }
 
   // ── styles ───────────────────────────────────────────────────────────────
