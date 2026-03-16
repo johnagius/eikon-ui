@@ -99,9 +99,9 @@
 
   // ── warning labels ───────────────────────────────────────────────────────
   var WARNINGS = [
-    { id: "w01", en: "Take with food", mt: "Hu me\u0127ud mal-ikel" },
-    { id: "w02", en: "Take on an empty stomach", mt: "Hu fuq stonku vojt" },
-    { id: "w03", en: "May cause drowsiness", mt: "Jista\u2019 jikka\u0121una ng\u0127as" },
+    { id: "w01", en: "Take with food", mt: "\u0126u me\u0127ud mal-ikel" },
+    { id: "w02", en: "Take on an empty stomach", mt: "\u0126u fuq stonku vojt" },
+    { id: "w03", en: "May cause drowsiness", mt: "Jista\u2019 jikkaw\u017Ca ng\u0127as" },
     { id: "w04", en: "Do not drive or operate machinery", mt: "Issuqx u t\u0127addimx makkinarju" },
     { id: "w05", en: "Keep refrigerated (2-8\u00B0C)", mt: "\u017Bomb fil-fri\u0121\u0121 (2-8\u00B0C)" },
     { id: "w06", en: "Shake well before use", mt: "\u0126awwad sew qabel l-u\u017Cu" },
@@ -111,13 +111,13 @@
     { id: "w10", en: "Complete the full course", mt: "Lesti l-kors kollu" },
     { id: "w11", en: "Swallow whole, do not crush", mt: "Ibla\u2019 s\u0127i\u0127, tfarrakx" },
     { id: "w12", en: "Dissolve under the tongue", mt: "\u0126oll ta\u0127t l-ilsien" },
-    { id: "w13", en: "Take at bedtime", mt: "Hu qabel l-irqad" },
-    { id: "w14", en: "Take in the morning", mt: "Hu filg\u0127odu" },
+    { id: "w13", en: "Take at bedtime", mt: "\u0126u qabel l-irqad" },
+    { id: "w14", en: "Take in the morning", mt: "\u0126u filg\u0127odu" },
     { id: "w15", en: "Store below 25\u00B0C", mt: "A\u0127\u017Cen ta\u0127t 25\u00B0C" },
     { id: "w16", en: "Keep out of reach of children", mt: "\u017Bomb \u2018il bog\u0127od mit-tfal" },
     { id: "w17", en: "Do not stop taking without medical advice", mt: "Tiqafx tie\u0127u ming\u0127ajr parir mediku" },
-    { id: "w18", en: "May cause dizziness", mt: "Jista\u2019 jikka\u0121una sturdament" },
-    { id: "w19", en: "Take with plenty of water", mt: "Hu ma\u2019 \u0127afna ilma" },
+    { id: "w18", en: "May cause dizziness", mt: "Jista\u2019 jikkaw\u017Ca sturdament" },
+    { id: "w19", en: "Take with plenty of water", mt: "\u0126u ma\u2019 \u0127afna ilma" },
     { id: "w20", en: "Not suitable during pregnancy", mt: "Mhux adattat waqt it-tqala" }
   ];
 
