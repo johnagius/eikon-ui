@@ -287,36 +287,39 @@
     el.classList.add("lb-autofilled");
   }
 
-  // ── print via iframe ─────────────────────────────────────────────────────
+  // ── print via new tab (standard Eikon pattern) ─────────────────────────
   function printLabelHtml(html) {
-    var iframe = document.createElement("iframe");
-    iframe.style.cssText = "position:fixed;left:-9999px;top:-9999px;width:0;height:0;border:none;";
-    document.body.appendChild(iframe);
-    var doc = iframe.contentDocument || iframe.contentWindow.document;
-    doc.open();
-    doc.write('<!DOCTYPE html><html><head><style>');
-    doc.write('body{margin:0;padding:0;font-family:"Segoe UI",system-ui,sans-serif;}');
-    doc.write('.label-preview{padding:14px 18px;line-height:1.5;font-size:13px;}');
-    doc.write('.label-preview.large{font-size:17px;padding:24px 28px;line-height:1.65;}');
-    doc.write('.lp-header{border-bottom:2px solid #222;padding-bottom:6px;margin-bottom:8px;}');
-    doc.write('.lp-header h4{margin:0;font-weight:900;font-size:1.15em;}');
-    doc.write('.lp-header .lp-addr{font-size:.78em;color:#666;margin-top:2px;}');
-    doc.write('.lp-row{margin:3px 0;display:flex;gap:6px;}');
-    doc.write('.lp-label{font-weight:700;color:#333;min-width:80px;}');
-    doc.write('.lp-val{color:#111;} .lp-mt{color:#666;font-style:italic;font-size:.9em;}');
-    doc.write('.lp-warn{margin-top:8px;padding-top:6px;border-top:1.5px solid #ddd;}');
-    doc.write('.lp-warn div{font-weight:700;font-size:.88em;color:#b45309;margin:2px 0;}');
-    doc.write('.lp-warn .lp-wmt{color:#888;font-weight:400;font-style:italic;}');
-    doc.write('.lp-footer{margin-top:8px;padding-top:6px;border-top:1.5px solid #ddd;font-size:.78em;color:#888;display:flex;justify-content:space-between;}');
-    doc.write('</style></head><body>');
-    doc.write(html);
-    doc.write('</body></html>');
-    doc.close();
-    iframe.contentWindow.focus();
-    setTimeout(function () {
-      iframe.contentWindow.print();
-      setTimeout(function () { iframe.remove(); }, 1000);
-    }, 250);
+    var page = '<!DOCTYPE html><html><head><style>\n' +
+      'body{margin:0;padding:24px;font-family:"Segoe UI",system-ui,sans-serif;color:#000;}\n' +
+      '.label-preview{padding:14px 18px;line-height:1.5;font-size:13px;}\n' +
+      '.label-preview.large{font-size:17px;padding:24px 28px;line-height:1.65;}\n' +
+      '.lp-header{border-bottom:2px solid #222;padding-bottom:6px;margin-bottom:8px;}\n' +
+      '.lp-header h4{margin:0;font-weight:900;font-size:1.15em;}\n' +
+      '.lp-header .lp-addr{font-size:.78em;color:#666;margin-top:2px;}\n' +
+      '.lp-row{margin:3px 0;display:flex;gap:6px;}\n' +
+      '.lp-label{font-weight:700;color:#333;min-width:80px;}\n' +
+      '.lp-val{color:#111;} .lp-mt{color:#666;font-style:italic;font-size:.9em;}\n' +
+      '.lp-warn{margin-top:8px;padding-top:6px;border-top:1.5px solid #ddd;}\n' +
+      '.lp-warn div{font-weight:700;font-size:.88em;color:#b45309;margin:2px 0;}\n' +
+      '.lp-warn .lp-wmt{color:#888;font-weight:400;font-style:italic;}\n' +
+      '.lp-footer{margin-top:8px;padding-top:6px;border-top:1.5px solid #ddd;font-size:.78em;color:#888;display:flex;justify-content:space-between;}\n' +
+      '@media print{body{margin:12mm;padding:0;}}\n' +
+      '</style></head><body>\n' +
+      html + '\n' +
+      "<script>window.addEventListener('load',function(){setTimeout(function(){try{window.print();}catch(e){}},80);});" +
+      "window.addEventListener('afterprint',function(){setTimeout(function(){try{window.close();}catch(e){}},250);});<\/script>\n" +
+      '</body></html>';
+    var blob = new Blob([page], { type: "text/html" });
+    var url = URL.createObjectURL(blob);
+    var w = null;
+    try { w = window.open(url, "_blank", "noopener"); } catch (e) { w = null; }
+    if (!w) {
+      try {
+        var a = document.createElement("a");
+        a.href = url; a.target = "_blank"; a.rel = "noopener"; a.style.display = "none";
+        document.body.appendChild(a); a.click(); a.remove();
+      } catch (e2) {}
+    }
   }
 
   // ── styles ───────────────────────────────────────────────────────────────
