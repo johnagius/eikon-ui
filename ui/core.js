@@ -323,7 +323,7 @@
       "certificates", "audit"
     ]},
     { label: "Operations", icon: "⚙️", moduleIds: [
-      "emergency-pos", "endofday", "shifts", "creditnotes", "paidout", "locumreceipts"
+      "emergency-pos", "endofday", "shifts", "creditnotes", "paidout", "locumreceipts", "labels"
     ]},
     { label: "Sales & Clients", icon: "🛒", moduleIds: [
       "clientorders", "quotations", "order-diary", "deliveries",
@@ -336,7 +336,7 @@
       "messageboard", "instructions"
     ]},
     { label: "Clinical", icon: "🏥", moduleIds: [
-      "poct", "vaccines", "ocps", "pharmacycalc", "pharmacovigilance"
+      "poct", "vaccines", "ocps", "pharmacycalc", "pharmacovigilance", "screening"
     ]},
     { label: "Reference", icon: "📇", moduleIds: [
       "contacts"
