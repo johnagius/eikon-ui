@@ -290,26 +290,29 @@
   // ── print via new tab (standard Eikon pattern) ─────────────────────────
   function printLabelHtml(html) {
     var page = '<!DOCTYPE html><html><head><meta charset="utf-8">\n<style>\n' +
-      'body{margin:0;padding:24px;font-family:"Segoe UI",system-ui,sans-serif;color:#000;}\n' +
-      '.label-preview{padding:14px 18px;line-height:1.5;font-size:13px;}\n' +
-      '.label-preview.large{font-size:17px;padding:24px 28px;line-height:1.65;}\n' +
-      '.lp-header{border-bottom:2px solid #222;padding-bottom:6px;margin-bottom:8px;}\n' +
-      '.lp-header h4{margin:0;font-weight:900;font-size:1.15em;}\n' +
-      '.lp-header .lp-addr{font-size:.78em;color:#666;margin-top:2px;}\n' +
-      '.lp-row{margin:3px 0;display:flex;gap:6px;}\n' +
-      '.lp-label{font-weight:700;color:#333;min-width:80px;}\n' +
-      '.lp-val{color:#111;} .lp-mt{color:#666;font-style:italic;font-size:.9em;}\n' +
-      '.lp-warn{margin-top:8px;padding-top:6px;border-top:1.5px solid #ddd;}\n' +
-      '.lp-warn div{font-weight:700;font-size:.88em;color:#b45309;margin:2px 0;}\n' +
-      '.lp-warn .lp-wmt{color:#888;font-weight:400;font-style:italic;}\n' +
-      '.lp-footer{margin-top:8px;padding-top:6px;border-top:1.5px solid #ddd;font-size:.78em;color:#888;display:flex;justify-content:space-between;}\n' +
-      '@media print{body{margin:12mm;padding:0;}}\n' +
+      '@page{margin:6mm;size:auto;}\n' +
+      'html,body{margin:0;padding:0;width:100%;height:100%;}\n' +
+      'body{font-family:"Segoe UI",system-ui,-apple-system,sans-serif;color:#000;display:flex;align-items:flex-start;justify-content:center;}\n' +
+      '.label-preview{width:100%;max-width:100%;padding:5mm 6mm;line-height:1.45;font-size:11pt;box-sizing:border-box;}\n' +
+      '.label-preview.large{font-size:14pt;line-height:1.55;padding:6mm 7mm;}\n' +
+      '.label-preview-wrap{width:100%;}\n' +
+      '.lp-header{border-bottom:1.5pt solid #000;padding-bottom:4pt;margin-bottom:6pt;}\n' +
+      '.lp-header h4{margin:0;font-weight:900;font-size:1.2em;}\n' +
+      '.lp-header .lp-addr{font-size:.75em;color:#444;margin-top:1pt;}\n' +
+      '.lp-row{margin:2pt 0;display:flex;gap:4pt;}\n' +
+      '.lp-label{font-weight:700;color:#222;min-width:65pt;flex-shrink:0;}\n' +
+      '.lp-val{color:#000;}\n' +
+      '.lp-mt{color:#555;font-style:italic;font-size:.85em;}\n' +
+      '.lp-warn{margin-top:6pt;padding-top:4pt;border-top:1pt solid #999;}\n' +
+      '.lp-warn div{font-weight:700;font-size:.85em;color:#8B4513;margin:2pt 0;}\n' +
+      '.lp-warn .lp-wmt{color:#666;font-weight:400;font-style:italic;}\n' +
+      '.lp-footer{margin-top:6pt;padding-top:4pt;border-top:1pt solid #999;font-size:.72em;color:#666;display:flex;justify-content:space-between;}\n' +
       '</style></head><body>\n' +
       html + '\n' +
       "<script>window.addEventListener('load',function(){setTimeout(function(){try{window.print();}catch(e){}},80);});" +
       "window.addEventListener('afterprint',function(){setTimeout(function(){try{window.close();}catch(e){}},250);});<\/script>\n" +
       '</body></html>';
-    var blob = new Blob([page], { type: "text/html" });
+    var blob = new Blob([page], { type: "text/html;charset=utf-8" });
     var url = URL.createObjectURL(blob);
     var w = null;
     try { w = window.open(url, "_blank", "noopener"); } catch (e) { w = null; }
