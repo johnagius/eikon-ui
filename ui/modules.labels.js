@@ -288,42 +288,46 @@
   }
 
   // ── build print HTML from label data (not from DOM) ─────────────────────
+  // Uses fixed mm sizes readable on small label printers (38×24mm Argox
+  // at 203 DPI).  On larger paper it prints as a small neat label.
+  // 2.2mm ≈ 6.2pt — minimum legible at 203 DPI (~18 dots per char height).
+  // Line budget for 24mm label (0.5mm page padding each side = 23mm usable):
+  //   2.2mm × 1.15 line-height = 2.53mm/line → ~9 lines available.
   function buildPrintHtml(labelData, pharm, tpl) {
     var isLarge = tpl && tpl.size === "large";
     var showMt = tpl && tpl.language === "mt";
-    // Use vw units so text scales to ANY paper width (label printer or A4)
-    var fs = isLarge ? '3.2vw' : '2.4vw';
+    var fs = isLarge ? '2.8mm' : '2.2mm';
+    var lh = isLarge ? '1.25' : '1.15';
     var h = '';
-    h += '<div style="font-family:Arial,Helvetica,sans-serif;color:#000;font-size:' + fs + ';line-height:1.3;width:100%;word-wrap:break-word;overflow-wrap:break-word;">';
-    // header
-    h += '<div style="border-bottom:0.3vw solid #000;padding-bottom:0.5vw;margin-bottom:0.8vw;">';
-    h += '<div style="font-weight:900;font-size:1.1em;">' + esc(pharm.name || "Pharmacy") + '</div>';
-    if (pharm.address) h += '<div style="font-size:.7em;color:#444;margin-top:0.2vw;">' + esc(pharm.address) + (pharm.phone ? ' | Tel: ' + esc(pharm.phone) : '') + '</div>';
+    h += '<div style="font-family:Arial,Helvetica,sans-serif;color:#000;font-size:' + fs + ';line-height:' + lh + ';">';
+    // line 1: pharmacy name (bold) — put address on same line if present
+    h += '<div style="font-weight:900;">' + esc(pharm.name || "Pharmacy");
+    if (pharm.phone) h += ' <span style="font-weight:400;font-size:.75em;">T:' + esc(pharm.phone) + '</span>';
     h += '</div>';
-    // fields — compact single-line
-    h += '<div style="margin:0.3vw 0;"><b>Patient:</b> ' + esc(labelData.patientName || "\u2014") + '</div>';
-    h += '<div style="margin:0.3vw 0;"><b>Drug:</b> ' + esc(labelData.drugName || "\u2014") + '</div>';
-    if (labelData.dose) h += '<div style="margin:0.3vw 0;"><b>Dose:</b> ' + esc(labelData.dose) + '</div>';
-    h += '<div style="margin:0.3vw 0;"><b>Freq:</b> ' + esc(labelData.frequency || "");
-    if (showMt && FREQUENCIES_MT[labelData.frequency]) h += ' <i style="font-size:.8em;">(' + esc(FREQUENCIES_MT[labelData.frequency]) + ')</i>';
-    h += '</div>';
-    h += '<div style="margin:0.3vw 0;"><b>Route:</b> ' + esc(labelData.route || "") + '</div>';
-    if (labelData.customInstructions) h += '<div style="margin:0.3vw 0;"><b>Note:</b> ' + esc(labelData.customInstructions) + '</div>';
-    // warnings
-    var selWarnings = WARNINGS.filter(function (w) { return (labelData.selectedWarnings || []).indexOf(w.id) !== -1; });
-    if (selWarnings.length > 0) {
-      h += '<div style="margin-top:0.5vw;padding-top:0.4vw;border-top:0.2vw solid #999;">';
-      selWarnings.forEach(function (w) {
-        h += '<div style="font-weight:700;font-size:.8em;color:#8B4513;margin:0.2vw 0;">\u26A0 ' + esc(w.en);
-        if (showMt) h += ' <i style="font-weight:400;color:#666;">(' + esc(w.mt) + ')</i>';
-        h += '</div>';
-      });
-      h += '</div>';
+    // line 2-7: fields — zero margin, pure line-height spacing
+    h += '<div><b>Pat:</b> ' + esc(labelData.patientName || "") + '</div>';
+    h += '<div><b>Rx:</b> ' + esc(labelData.drugName || "") + '</div>';
+    // combine dose + freq on one line if both short
+    var doseFreq = '';
+    if (labelData.dose) doseFreq += esc(labelData.dose);
+    if (labelData.dose && labelData.frequency) doseFreq += ' | ';
+    if (labelData.frequency) {
+      doseFreq += esc(labelData.frequency);
+      if (showMt && FREQUENCIES_MT[labelData.frequency]) doseFreq += ' <i style="font-size:.8em;">(' + esc(FREQUENCIES_MT[labelData.frequency]) + ')</i>';
     }
-    // footer
-    h += '<div style="margin-top:0.5vw;padding-top:0.3vw;border-top:0.2vw solid #999;font-size:.65em;color:#666;display:flex;justify-content:space-between;">';
-    h += '<span>Date: ' + fmtDate(todayStr()) + '</span>';
-    if (pharm.licence) h += '<span>Lic: ' + esc(pharm.licence) + '</span>';
+    if (doseFreq) h += '<div><b>Dose/Freq:</b> ' + doseFreq + '</div>';
+    if (labelData.route) h += '<div><b>Route:</b> ' + esc(labelData.route) + '</div>';
+    if (labelData.customInstructions) h += '<div><b>Note:</b> ' + esc(labelData.customInstructions) + '</div>';
+    // warnings — compact, no border (saves space)
+    var selWarnings = WARNINGS.filter(function (w) { return (labelData.selectedWarnings || []).indexOf(w.id) !== -1; });
+    selWarnings.forEach(function (w) {
+      h += '<div style="font-weight:700;font-size:.85em;">\u26A0 ' + esc(w.en);
+      if (showMt) h += ' <i style="font-weight:400;">(' + esc(w.mt) + ')</i>';
+      h += '</div>';
+    });
+    // footer — date + licence on one tiny line
+    h += '<div style="font-size:.7em;color:#555;">' + fmtDate(todayStr());
+    if (pharm.licence) h += ' Lic:' + esc(pharm.licence);
     h += '</div>';
     h += '</div>';
     return h;
@@ -348,8 +352,9 @@
   function printLabelHtml(html) {
     openPrintTab(
       '<!DOCTYPE html><html><head><meta charset="utf-8"><style>' +
-      '@page{margin:1mm;}' +
-      'html,body{margin:0;padding:1mm;width:100%;height:auto;}' +
+      '@page{margin:0;}' +
+      'html,body{margin:0;padding:0.5mm;width:100%;height:auto;}' +
+      'div,b,i,span{page-break-inside:avoid;}' +
       '</style></head><body>' +
       html +
       "<script>window.addEventListener('load',function(){setTimeout(function(){try{window.print();}catch(e){}},80);});" +
