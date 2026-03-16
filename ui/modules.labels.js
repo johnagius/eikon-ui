@@ -5,6 +5,13 @@
    Multi-language support (English + Maltese), standard warnings, print preview,
    reprint from history, and audit log.
 
+   Features:
+   - Patient name autosuggest (shared across modules via E._eikon_patients)
+   - Medicine name autosuggest with auto-fill of dose/advice/warnings
+   - Flash animation on autofilled fields
+   - Print via hidden iframe (actual printer output)
+   - Pharmacy name auto-filled from user location_name
+
    Endpoints:
      GET  /labels/state
      PUT  /labels/state
@@ -138,6 +145,180 @@
 
   var ROUTES = ["Oral", "Topical", "Sublingual", "Rectal", "Inhaled", "Nasal", "Ophthalmic", "Otic", "Intramuscular", "Subcutaneous", "Intravenous"];
 
+  // ── patient + medicine memory ────────────────────────────────────────────
+  // Shared patient store across modules (labels + screening)
+  if (!E._eikon_patients) E._eikon_patients = {};
+
+  function buildMemory() {
+    // Build patient names from label history
+    labelHistory.forEach(function (l) {
+      var name = (l.patientName || "").trim();
+      if (name) E._eikon_patients[norm(name)] = name;
+    });
+  }
+
+  function getPatientSuggestions(query) {
+    var q = norm(query);
+    if (!q) return [];
+    var results = [];
+    var seen = {};
+    Object.keys(E._eikon_patients).forEach(function (k) {
+      if (k.indexOf(q) !== -1 && !seen[k]) {
+        seen[k] = true;
+        results.push(E._eikon_patients[k]);
+      }
+    });
+    return results.slice(0, 8);
+  }
+
+  // Medicine memory: drug name -> array of { dose, frequency, route, customInstructions, selectedWarnings }
+  var medicineDb = {};
+
+  function buildMedicineDb() {
+    medicineDb = {};
+    labelHistory.forEach(function (l) {
+      var drug = (l.drugName || "").trim();
+      if (!drug) return;
+      var key = norm(drug);
+      if (!medicineDb[key]) medicineDb[key] = { name: drug, entries: [] };
+      // avoid exact duplicates
+      var entry = {
+        dose: l.dose || "",
+        frequency: l.frequency || "",
+        route: l.route || "",
+        customInstructions: l.customInstructions || "",
+        selectedWarnings: l.selectedWarnings || []
+      };
+      var isDup = medicineDb[key].entries.some(function (e) {
+        return e.dose === entry.dose && e.frequency === entry.frequency && e.route === entry.route && e.customInstructions === entry.customInstructions;
+      });
+      if (!isDup) medicineDb[key].entries.push(entry);
+    });
+  }
+
+  function getMedicineSuggestions(query) {
+    var q = norm(query);
+    if (!q) return [];
+    var results = [];
+    Object.keys(medicineDb).forEach(function (k) {
+      if (k.indexOf(q) !== -1) {
+        results.push(medicineDb[k]);
+      }
+    });
+    return results.slice(0, 8);
+  }
+
+  // ── autocomplete component ───────────────────────────────────────────────
+  function attachAutocomplete(input, getSuggestions, onSelect) {
+    var dropdown = document.createElement("div");
+    dropdown.className = "lb-ac-dropdown";
+    dropdown.style.display = "none";
+    input.parentNode.style.position = "relative";
+    input.parentNode.appendChild(dropdown);
+    var activeIdx = -1;
+    var items = [];
+
+    function show(suggestions) {
+      dropdown.innerHTML = "";
+      items = suggestions;
+      activeIdx = -1;
+      if (suggestions.length === 0) { dropdown.style.display = "none"; return; }
+      suggestions.forEach(function (s, i) {
+        var div = document.createElement("div");
+        div.className = "lb-ac-item";
+        if (typeof s === "string") {
+          div.textContent = s;
+        } else {
+          // medicine with entries count
+          div.innerHTML = '<strong>' + esc(s.name) + '</strong>' + (s.entries.length > 1 ? ' <span style="color:var(--mut);font-size:11px">(' + s.entries.length + ' variations)</span>' : '');
+        }
+        div.addEventListener("mousedown", function (e) {
+          e.preventDefault();
+          onSelect(s);
+          dropdown.style.display = "none";
+        });
+        dropdown.appendChild(div);
+      });
+      dropdown.style.display = "";
+    }
+
+    input.addEventListener("input", function () {
+      var val = input.value.trim();
+      if (val.length < 1) { dropdown.style.display = "none"; return; }
+      var sugs = getSuggestions(val);
+      show(sugs);
+    });
+
+    input.addEventListener("keydown", function (e) {
+      if (dropdown.style.display === "none" || items.length === 0) return;
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        activeIdx = Math.min(activeIdx + 1, items.length - 1);
+        updateActive();
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        activeIdx = Math.max(activeIdx - 1, 0);
+        updateActive();
+      } else if (e.key === "Enter" && activeIdx >= 0) {
+        e.preventDefault();
+        onSelect(items[activeIdx]);
+        dropdown.style.display = "none";
+      } else if (e.key === "Escape") {
+        dropdown.style.display = "none";
+      }
+    });
+
+    function updateActive() {
+      var divs = dropdown.querySelectorAll(".lb-ac-item");
+      divs.forEach(function (d, i) { d.classList.toggle("active", i === activeIdx); });
+    }
+
+    input.addEventListener("blur", function () {
+      setTimeout(function () { dropdown.style.display = "none"; }, 150);
+    });
+  }
+
+  // ── flash animation helper ───────────────────────────────────────────────
+  function flashField(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.classList.remove("lb-autofilled");
+    void el.offsetWidth; // force reflow
+    el.classList.add("lb-autofilled");
+  }
+
+  // ── print via iframe ─────────────────────────────────────────────────────
+  function printLabelHtml(html) {
+    var iframe = document.createElement("iframe");
+    iframe.style.cssText = "position:fixed;left:-9999px;top:-9999px;width:0;height:0;border:none;";
+    document.body.appendChild(iframe);
+    var doc = iframe.contentDocument || iframe.contentWindow.document;
+    doc.open();
+    doc.write('<!DOCTYPE html><html><head><style>');
+    doc.write('body{margin:0;padding:0;font-family:"Segoe UI",system-ui,sans-serif;}');
+    doc.write('.label-preview{padding:14px 18px;line-height:1.5;font-size:13px;}');
+    doc.write('.label-preview.large{font-size:17px;padding:24px 28px;line-height:1.65;}');
+    doc.write('.lp-header{border-bottom:2px solid #222;padding-bottom:6px;margin-bottom:8px;}');
+    doc.write('.lp-header h4{margin:0;font-weight:900;font-size:1.15em;}');
+    doc.write('.lp-header .lp-addr{font-size:.78em;color:#666;margin-top:2px;}');
+    doc.write('.lp-row{margin:3px 0;display:flex;gap:6px;}');
+    doc.write('.lp-label{font-weight:700;color:#333;min-width:80px;}');
+    doc.write('.lp-val{color:#111;} .lp-mt{color:#666;font-style:italic;font-size:.9em;}');
+    doc.write('.lp-warn{margin-top:8px;padding-top:6px;border-top:1.5px solid #ddd;}');
+    doc.write('.lp-warn div{font-weight:700;font-size:.88em;color:#b45309;margin:2px 0;}');
+    doc.write('.lp-warn .lp-wmt{color:#888;font-weight:400;font-style:italic;}');
+    doc.write('.lp-footer{margin-top:8px;padding-top:6px;border-top:1.5px solid #ddd;font-size:.78em;color:#888;display:flex;justify-content:space-between;}');
+    doc.write('</style></head><body>');
+    doc.write(html);
+    doc.write('</body></html>');
+    doc.close();
+    iframe.contentWindow.focus();
+    setTimeout(function () {
+      iframe.contentWindow.print();
+      setTimeout(function () { iframe.remove(); }, 1000);
+    }, 250);
+  }
+
   // ── styles ───────────────────────────────────────────────────────────────
   var stylesDone = false;
   function ensureStyles() {
@@ -149,33 +330,33 @@
       ".lb *{box-sizing:border-box}",
       ".lb .container{max-width:1200px;margin:0 auto;padding:22px 20px 40px}",
 
-      /* ── hero ── */
+      /* hero */
       ".lb .hero{position:relative;border-radius:22px;border:1px solid var(--bd2);overflow:hidden;padding:28px 28px 22px;margin-bottom:20px;background:linear-gradient(135deg,rgba(167,139,250,.14),rgba(90,162,255,.10),rgba(46,229,157,.06));box-shadow:var(--shadow);backdrop-filter:blur(8px)}",
       ".lb .hero::before{content:'';position:absolute;inset:0;background:radial-gradient(500px circle at 75% 25%,rgba(167,139,250,.12),transparent 60%);pointer-events:none}",
       ".lb .hero h2{margin:0 0 4px;font-size:22px;font-weight:900;letter-spacing:.3px;position:relative}",
       ".lb .hero .sub{color:var(--mut);font-size:13px;position:relative}",
 
-      /* ── KPI ── */
+      /* KPI */
       ".lb .kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px}",
       ".lb .kpi{border:1px solid var(--bd);border-radius:var(--r);background:var(--pnl);padding:18px 14px;text-align:center;backdrop-filter:blur(6px);transition:transform .15s,border-color .2s,box-shadow .2s}",
       ".lb .kpi:hover{transform:translateY(-2px);border-color:var(--bd2);box-shadow:0 8px 24px rgba(0,0,0,.25)}",
       ".lb .kpi .n{font-size:30px;font-weight:900;letter-spacing:.5px;line-height:1.1}",
       ".lb .kpi .l{font-size:11px;color:var(--mut);margin-top:5px;text-transform:uppercase;letter-spacing:.5px;font-weight:600}",
 
-      /* ── tabs ── */
+      /* tabs */
       ".lb .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px;padding:4px;background:var(--pnl);border-radius:14px;border:1px solid var(--bd)}",
       ".lb .tab{padding:10px 18px;border-radius:10px;border:none;background:transparent;color:var(--mut);cursor:pointer;font-size:13px;font-weight:700;transition:all .18s;position:relative}",
       ".lb .tab:hover{color:var(--txt);background:rgba(255,255,255,.05)}",
       ".lb .tab.on{color:var(--txt);background:rgba(167,139,250,.15);box-shadow:0 2px 12px rgba(167,139,250,.15)}",
 
-      /* ── card ── */
+      /* card */
       ".lb .card{border:1px solid var(--bd);border-radius:var(--r);background:var(--pnl);box-shadow:var(--shadow);overflow:hidden;margin-bottom:16px;backdrop-filter:blur(6px);transition:border-color .2s}",
       ".lb .card:hover{border-color:var(--bd2)}",
       ".lb .card .hd{padding:14px 20px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--pnl)}",
       ".lb .card .hd h3{margin:0;font-size:15px;font-weight:800}",
       ".lb .card .bd{padding:20px}",
 
-      /* ── form ── */
+      /* form */
       ".lb .fld{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}",
       ".lb .fld label{color:var(--mut);font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px}",
       ".lb .fld input,.lb .fld select,.lb .fld textarea{width:100%;border:1px solid var(--bd);background:rgba(0,0,0,.22);color:var(--txt);padding:10px 12px;border-radius:var(--r2);outline:none;font-size:13px;transition:border-color .2s,box-shadow .2s}",
@@ -183,7 +364,17 @@
       ".lb .fld textarea{min-height:68px;resize:vertical;line-height:1.4}",
       ".lb .fld input::placeholder,.lb .fld textarea::placeholder{color:rgba(170,183,214,.4)}",
 
-      /* ── btn ── */
+      /* autofill flash animation */
+      "@keyframes lbFlash{0%{border-color:rgba(255,204,102,.8);box-shadow:0 0 0 3px rgba(255,204,102,.25);background:rgba(255,204,102,.08)}50%{border-color:rgba(255,204,102,.3);box-shadow:0 0 0 3px rgba(255,204,102,.08);background:rgba(0,0,0,.22)}100%{border-color:rgba(255,204,102,.8);box-shadow:0 0 0 3px rgba(255,204,102,.25);background:rgba(255,204,102,.08)}}",
+      ".lb .lb-autofilled{animation:lbFlash 1.2s ease-in-out infinite !important;border-color:rgba(255,204,102,.8) !important}",
+
+      /* autocomplete dropdown */
+      ".lb-ac-dropdown{position:absolute;left:0;right:0;top:100%;z-index:100;background:linear-gradient(165deg,#1a2538,#151f30);border:1px solid var(--bd2);border-radius:12px;box-shadow:0 12px 36px rgba(0,0,0,.5);max-height:220px;overflow-y:auto;margin-top:4px}",
+      ".lb-ac-item{padding:10px 14px;cursor:pointer;font-size:13px;transition:background .1s;border-bottom:1px solid rgba(255,255,255,.05)}",
+      ".lb-ac-item:last-child{border-bottom:none}",
+      ".lb-ac-item:hover,.lb-ac-item.active{background:rgba(167,139,250,.12)}",
+
+      /* btn */
       ".lb .btn{border:1px solid var(--bd);background:var(--pnl2);color:var(--txt);padding:9px 16px;border-radius:var(--r2);cursor:pointer;font-size:13px;font-weight:700;display:inline-flex;align-items:center;gap:8px;transition:all .15s;position:relative;overflow:hidden}",
       ".lb .btn:hover{background:rgba(255,255,255,.08);border-color:var(--bd2);transform:translateY(-1px)}",
       ".lb .btn:active{transform:translateY(0)}",
@@ -194,7 +385,7 @@
       ".lb .btn.dn:hover{background:linear-gradient(135deg,rgba(255,107,157,.28),rgba(255,107,157,.2));border-color:rgba(255,107,157,.5);box-shadow:0 4px 16px rgba(255,107,157,.12)}",
       ".lb .btn.sm{padding:7px 12px;font-size:12px;border-radius:10px}",
 
-      /* ── table ── */
+      /* table */
       ".lb table{width:100%;border-collapse:collapse;font-size:13px}",
       ".lb th{text-align:left;padding:11px 14px;border-bottom:2px solid var(--bd2);color:var(--mut);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;position:sticky;top:0;background:rgba(11,18,32,.92);backdrop-filter:blur(6px);z-index:2}",
       ".lb td{padding:10px 14px;border-bottom:1px solid var(--bd);transition:background .12s}",
@@ -202,19 +393,19 @@
       ".lb tbody tr:hover td{background:rgba(167,139,250,.04)}",
       ".lb tbody tr:hover{cursor:pointer}",
 
-      /* ── search ── */
+      /* search */
       ".lb .search-bar{display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap}",
       ".lb .search-bar input{flex:1;min-width:200px;border:1px solid var(--bd);background:rgba(0,0,0,.22);color:var(--txt);padding:10px 14px;border-radius:var(--r2);outline:none;font-size:13px;transition:border-color .2s}",
       ".lb .search-bar input:focus{border-color:rgba(167,139,250,.55);box-shadow:0 0 0 3px rgba(167,139,250,.1)}",
 
-      /* ── warnings tags ── */
+      /* warnings tags */
       ".lb .warn-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}",
       ".lb .warn-tag{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:20px;font-size:11.5px;font-weight:600;cursor:pointer;border:1px solid var(--bd);background:var(--pnl);transition:all .15s;user-select:none}",
       ".lb .warn-tag:hover{background:rgba(255,255,255,.06);border-color:var(--bd2)}",
       ".lb .warn-tag.on{background:linear-gradient(135deg,rgba(255,204,102,.14),rgba(255,180,60,.10));border-color:rgba(255,204,102,.45);color:#ffcc66}",
       ".lb .warn-tag.on::before{content:'\u2713 ';font-weight:800}",
 
-      /* ── label preview ── */
+      /* label preview */
       ".lb .label-preview-wrap{border:2px dashed var(--bd2);border-radius:16px;padding:4px;background:rgba(255,255,255,.02);position:relative;margin:16px 0}",
       ".lb .label-preview-wrap::before{content:'PREVIEW';position:absolute;top:-9px;left:20px;background:#111b2a;padding:0 8px;font-size:10px;font-weight:700;color:var(--mut);letter-spacing:1px}",
       ".lb .label-preview{background:#fff;color:#111;border-radius:12px;font-family:'Segoe UI',system-ui,sans-serif;overflow:hidden}",
@@ -232,19 +423,19 @@
       ".lb .label-preview .lp-warn .lp-wmt{color:#888;font-weight:400;font-style:italic}",
       ".lb .label-preview .lp-footer{margin-top:10px;padding-top:8px;border-top:1.5px solid #ddd;font-size:.78em;color:#888;display:flex;justify-content:space-between}",
 
-      /* ── modal ── */
+      /* modal */
       ".lb-modal-bg{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;transition:opacity .2s}",
       ".lb-modal-bg.show{opacity:1}",
-      ".lb-modal{background:linear-gradient(165deg,#141e30,#111b2a 40%,#0f1824);border:1px solid var(--bd2);border-radius:20px;max-width:680px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.04) inset;transform:translateY(12px) scale(.97);transition:transform .25s cubic-bezier(.16,1,.3,1),opacity .2s;opacity:0}",
+      ".lb-modal{background:linear-gradient(165deg,#141e30,#111b2a 40%,#0f1824);border:1px solid rgba(255,255,255,.14);border-radius:20px;max-width:680px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.04) inset;transform:translateY(12px) scale(.97);transition:transform .25s cubic-bezier(.16,1,.3,1),opacity .2s;opacity:0}",
       ".lb-modal-bg.show .lb-modal{transform:translateY(0) scale(1);opacity:1}",
-      ".lb-modal .m-hd{padding:20px 24px 16px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(167,139,250,.06),rgba(90,162,255,.04))}",
+      ".lb-modal .m-hd{padding:20px 24px 16px;border-bottom:1px solid rgba(255,255,255,.09);display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(167,139,250,.06),rgba(90,162,255,.04))}",
       ".lb-modal .m-hd h3{margin:0;font-size:17px;font-weight:800}",
       ".lb-modal .m-bd{padding:22px 24px}",
-      ".lb-modal .m-ft{padding:16px 24px;border-top:1px solid var(--bd);display:flex;justify-content:flex-end;gap:8px;background:rgba(0,0,0,.1)}",
-      ".lb-modal .close-x{width:32px;height:32px;border-radius:10px;border:1px solid var(--bd);background:rgba(255,255,255,.04);color:var(--mut);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}",
+      ".lb-modal .m-ft{padding:16px 24px;border-top:1px solid rgba(255,255,255,.09);display:flex;justify-content:flex-end;gap:8px;background:rgba(0,0,0,.1)}",
+      ".lb-modal .close-x{width:32px;height:32px;border-radius:10px;border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.04);color:rgba(170,183,214,.72);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}",
       ".lb-modal .close-x:hover{background:rgba(255,107,157,.12);border-color:rgba(255,107,157,.3);color:#ff9ebe}",
 
-      /* ── toast ── */
+      /* toast */
       ".lb-toast-wrap{position:fixed;right:16px;bottom:16px;z-index:99999;display:flex;flex-direction:column;gap:8px;pointer-events:none}",
       ".lb-toast{display:flex;align-items:center;gap:10px;padding:12px 18px;border-radius:14px;font-size:13px;font-weight:600;background:rgba(11,18,32,.88);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.1);box-shadow:0 10px 30px rgba(0,0,0,.4);opacity:0;transform:translateY(8px);transition:all .22s}",
       ".lb-toast.show{opacity:1;transform:translateY(0)}",
@@ -253,21 +444,25 @@
       ".lb-toast.bad .lb-toast-dot{background:#ff6b9d}",
       ".lb-toast.warn .lb-toast-dot{background:#ffcc66}",
 
-      /* ── empty ── */
+      /* medicine variant picker */
+      ".lb .variant-picker{margin-top:8px;padding:10px;border:1px solid var(--bd);border-radius:var(--r2);background:rgba(255,204,102,.04)}",
+      ".lb .variant-picker .vp-title{font-size:11px;color:var(--wn);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px}",
+      ".lb .variant-btn{display:block;width:100%;text-align:left;padding:8px 12px;margin-bottom:4px;border:1px solid var(--bd);border-radius:10px;background:var(--pnl);color:var(--txt);font-size:12px;cursor:pointer;transition:all .12s}",
+      ".lb .variant-btn:hover{background:rgba(255,204,102,.1);border-color:rgba(255,204,102,.3)}",
+      ".lb .variant-btn:last-child{margin-bottom:0}",
+
+      /* empty */
       ".lb .empty{text-align:center;padding:50px 20px;color:var(--mut)}",
       ".lb .empty .icon{font-size:48px;margin-bottom:12px;opacity:.7}",
       ".lb .empty .msg{font-size:14px;margin-bottom:16px}",
 
-      /* ── scrollbar ── */
+      /* scrollbar */
       ".lb ::-webkit-scrollbar{width:6px}",
       ".lb ::-webkit-scrollbar-track{background:transparent}",
       ".lb ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:3px}",
       ".lb ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.2)}",
 
-      /* ── print ── */
-      "@media print{body *{visibility:hidden !important}.lb .label-preview,.lb .label-preview *{visibility:visible !important}.lb .label-preview{position:fixed;left:0;top:0;width:100%;border-radius:0;margin:0;box-shadow:none}}",
-
-      /* ── responsive ── */
+      /* responsive */
       "@media(max-width:700px){.lb .container{padding:14px 12px}.lb .kpi-row{grid-template-columns:repeat(2,1fr)}.lb .create-layout{grid-template-columns:1fr !important}.lb-modal{max-width:100%;border-radius:16px}}"
     ].join("\n");
     document.head.appendChild(s);
@@ -307,6 +502,14 @@
     ensureStyles();
 
     await cloudLoad();
+    buildMemory();
+    buildMedicineDb();
+
+    // Auto-fill pharmacy name from location if not set
+    if (!pharmacyDetails.name && currentUser && currentUser.location_name) {
+      pharmacyDetails.name = currentUser.location_name;
+      save();
+    }
 
     mount.innerHTML = "";
     var root = document.createElement("div");
@@ -327,12 +530,14 @@
 
       // KPI
       var todayLabels = labelHistory.filter(function (l) { return (l.printedAt || "").indexOf(todayStr()) === 0; }).length;
+      var uniqueDrugs = Object.keys(medicineDb).length;
       var kpiRow = document.createElement("div");
       kpiRow.className = "kpi-row";
       var kpis = [
         { n: labelHistory.length, l: "Total Printed", color: "#a78bfa" },
         { n: todayLabels, l: "Today", color: "#5aa2ff" },
-        { n: templates.length, l: "Templates", color: "#2ee59d" }
+        { n: uniqueDrugs, l: "Known Drugs", color: "#2ee59d" },
+        { n: templates.length, l: "Templates", color: "#ffcc66" }
       ];
       kpis.forEach(function (k) {
         kpiRow.innerHTML += '<div class="kpi"><div class="n" style="color:' + k.color + '">' + k.n + '</div><div class="l">' + k.l + '</div></div>';
@@ -358,17 +563,11 @@
       });
       container.appendChild(tabs);
 
-      if (activeTab === "create") {
-        renderCreateLabel(container, redraw);
-      } else if (activeTab === "history") {
-        renderHistory(container, redraw);
-      } else if (activeTab === "templates") {
-        renderTemplates(container, redraw);
-      } else if (activeTab === "warnings") {
-        renderWarnings(container, redraw);
-      } else if (activeTab === "settings") {
-        renderSettings(container, redraw);
-      }
+      if (activeTab === "create") renderCreateLabel(container, redraw);
+      else if (activeTab === "history") renderHistory(container, redraw);
+      else if (activeTab === "templates") renderTemplates(container, redraw);
+      else if (activeTab === "warnings") renderWarnings(container, redraw);
+      else if (activeTab === "settings") renderSettings(container, redraw);
     }
 
     redraw();
@@ -394,7 +593,6 @@
     var formBd = document.createElement("div");
     formBd.className = "bd";
 
-    // template + language
     formBd.innerHTML =
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">' +
         '<div class="fld"><label>Template</label><select id="lb-tpl">' +
@@ -402,8 +600,9 @@
         '</select></div>' +
         '<div class="fld"><label>Language</label><select id="lb-lang"><option value="en"' + (!showMaltese ? ' selected' : '') + '>English only</option><option value="both"' + (showMaltese ? ' selected' : '') + '>English + Maltese</option></select></div>' +
       '</div>' +
-      '<div class="fld"><label>Patient Name *</label><input type="text" id="lb-patient" placeholder="Full name" value="' + esc(label.patientName) + '"></div>' +
-      '<div class="fld"><label>Drug Name *</label><input type="text" id="lb-drug" placeholder="Drug name and strength" value="' + esc(label.drugName) + '"></div>' +
+      '<div class="fld"><label>Patient Name *</label><input type="text" id="lb-patient" placeholder="Start typing to search\u2026" value="' + esc(label.patientName) + '" autocomplete="off"></div>' +
+      '<div class="fld"><label>Drug Name *</label><input type="text" id="lb-drug" placeholder="Start typing to search\u2026" value="' + esc(label.drugName) + '" autocomplete="off"></div>' +
+      '<div id="lb-variant-area"></div>' +
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">' +
         '<div class="fld"><label>Dose</label><input type="text" id="lb-dose" placeholder="e.g. 1 tablet, 5ml" value="' + esc(label.dose) + '"></div>' +
         '<div class="fld"><label>Route</label><select id="lb-route">' + ROUTES.map(function (r) { return '<option' + (r === label.route ? ' selected' : '') + '>' + esc(r) + '</option>'; }).join("") + '</select></div>' +
@@ -417,16 +616,20 @@
     warnFld.innerHTML = '<label>Warning / Advisory Labels</label>';
     var warnList = document.createElement("div");
     warnList.className = "warn-list";
+    warnList.id = "lb-warn-list";
     WARNINGS.forEach(function (w) {
       var selected = (label.selectedWarnings || []).indexOf(w.id) !== -1;
       var tag = document.createElement("span");
       tag.className = "warn-tag" + (selected ? " on" : "");
+      tag.setAttribute("data-wid", w.id);
       tag.textContent = w.en;
       tag.addEventListener("click", function () {
         var idx = label.selectedWarnings.indexOf(w.id);
         if (idx !== -1) label.selectedWarnings.splice(idx, 1);
         else label.selectedWarnings.push(w.id);
         tag.classList.toggle("on");
+        // remove flash when user manually changes
+        tag.classList.remove("lb-autofilled");
         updatePreview();
       });
       warnList.appendChild(tag);
@@ -449,7 +652,6 @@
     previewArea.id = "lb-preview-area";
     previewBd.appendChild(previewArea);
 
-    // actions
     var actionRow = document.createElement("div");
     actionRow.style.cssText = "display:flex;gap:8px;margin-top:16px;flex-wrap:wrap";
 
@@ -462,8 +664,15 @@
       var entry = Object.assign({}, label, { id: uid(), printedAt: nowStr(), printedBy: currentUser ? currentUser.full_name || currentUser.email : "Unknown" });
       labelHistory.unshift(entry);
       save();
-      window.print();
-      toast("Label printed and saved to history", "good");
+      // rebuild memory with new entry
+      buildMemory();
+      buildMedicineDb();
+      // print via iframe
+      var previewEl = document.querySelector("#lb-preview-area .label-preview");
+      if (previewEl) {
+        printLabelHtml(previewEl.outerHTML);
+      }
+      toast("Label sent to printer and saved to history", "good");
       redraw();
     });
     actionRow.appendChild(printBtn);
@@ -480,8 +689,93 @@
     previewBd.appendChild(actionRow);
     previewCard.appendChild(previewBd);
     layout.appendChild(previewCard);
-
     container.appendChild(layout);
+
+    // ── attach autocomplete: patient name ──
+    var patientInput = document.getElementById("lb-patient");
+    attachAutocomplete(patientInput, getPatientSuggestions, function (name) {
+      patientInput.value = name;
+      label.patientName = name;
+      updatePreview();
+    });
+
+    // ── attach autocomplete: drug name ──
+    var drugInput = document.getElementById("lb-drug");
+    attachAutocomplete(drugInput, getMedicineSuggestions, function (med) {
+      drugInput.value = med.name;
+      label.drugName = med.name;
+      // if only 1 entry, auto-fill immediately; if multiple, show variant picker
+      if (med.entries.length === 1) {
+        applyMedicineEntry(med.entries[0]);
+      } else if (med.entries.length > 1) {
+        showVariantPicker(med.entries);
+      }
+      updatePreview();
+    });
+
+    function applyMedicineEntry(entry) {
+      var doseEl = document.getElementById("lb-dose");
+      var freqEl = document.getElementById("lb-freq");
+      var routeEl = document.getElementById("lb-route");
+      var customEl = document.getElementById("lb-custom");
+
+      if (entry.dose) { doseEl.value = entry.dose; label.dose = entry.dose; flashField("lb-dose"); }
+      if (entry.frequency) {
+        freqEl.value = entry.frequency; label.frequency = entry.frequency; flashField("lb-freq");
+      }
+      if (entry.route) {
+        routeEl.value = entry.route; label.route = entry.route; flashField("lb-route");
+      }
+      if (entry.customInstructions) {
+        customEl.value = entry.customInstructions; label.customInstructions = entry.customInstructions; flashField("lb-custom");
+      }
+      // auto-fill warnings
+      if (entry.selectedWarnings && entry.selectedWarnings.length > 0) {
+        label.selectedWarnings = entry.selectedWarnings.slice();
+        // update warning tags visually
+        var warnListEl = document.getElementById("lb-warn-list");
+        if (warnListEl) {
+          warnListEl.querySelectorAll(".warn-tag").forEach(function (tag) {
+            var wid = tag.getAttribute("data-wid");
+            var isOn = label.selectedWarnings.indexOf(wid) !== -1;
+            tag.classList.toggle("on", isOn);
+            if (isOn) {
+              tag.classList.remove("lb-autofilled");
+              void tag.offsetWidth;
+              tag.classList.add("lb-autofilled");
+            }
+          });
+        }
+      }
+      // clear variant area
+      var va = document.getElementById("lb-variant-area");
+      if (va) va.innerHTML = "";
+      updatePreview();
+    }
+
+    function showVariantPicker(entries) {
+      var va = document.getElementById("lb-variant-area");
+      if (!va) return;
+      va.innerHTML = '';
+      var picker = document.createElement("div");
+      picker.className = "variant-picker";
+      picker.innerHTML = '<div class="vp-title">Multiple dosages found \u2014 choose one:</div>';
+      entries.forEach(function (entry, i) {
+        var btn = document.createElement("button");
+        btn.className = "variant-btn";
+        var parts = [];
+        if (entry.dose) parts.push(entry.dose);
+        if (entry.frequency) parts.push(entry.frequency);
+        if (entry.route && entry.route !== "Oral") parts.push(entry.route);
+        if (entry.customInstructions) parts.push('"' + entry.customInstructions + '"');
+        btn.textContent = parts.join(" \u2022 ") || "Variation " + (i + 1);
+        btn.addEventListener("click", function () {
+          applyMedicineEntry(entry);
+        });
+        picker.appendChild(btn);
+      });
+      va.appendChild(picker);
+    }
 
     // collect form data
     function collectFormData() {
@@ -501,32 +795,19 @@
       var sizeClass = tpl.size === "large" ? "large" : "standard";
       var html = '<div class="label-preview-wrap"><div class="label-preview ' + sizeClass + '">';
 
-      // header
       html += '<div class="lp-header"><h4>' + esc(pharmacyDetails.name || "Pharmacy Name") + '</h4>';
       if (pharmacyDetails.address) html += '<div class="lp-addr">' + esc(pharmacyDetails.address) + (pharmacyDetails.phone ? ' | Tel: ' + esc(pharmacyDetails.phone) : '') + '</div>';
       html += '</div>';
 
-      // patient
       html += '<div class="lp-row"><span class="lp-label">Patient:</span> <span class="lp-val">' + esc(label.patientName || "\u2014") + '</span></div>';
-
-      // drug
       html += '<div class="lp-row"><span class="lp-label">Drug:</span> <span class="lp-val"><strong>' + esc(label.drugName || "\u2014") + '</strong></span></div>';
-
-      // dose
       if (label.dose) html += '<div class="lp-row"><span class="lp-label">Dose:</span> <span class="lp-val">' + esc(label.dose) + '</span></div>';
-
-      // frequency
       html += '<div class="lp-row"><span class="lp-label">Frequency:</span> <span class="lp-val">' + esc(label.frequency);
       if (showMaltese && FREQUENCIES_MT[label.frequency]) html += ' <span class="lp-mt">(' + esc(FREQUENCIES_MT[label.frequency]) + ')</span>';
       html += '</span></div>';
-
-      // route
       html += '<div class="lp-row"><span class="lp-label">Route:</span> <span class="lp-val">' + esc(label.route) + '</span></div>';
-
-      // custom
       if (label.customInstructions) html += '<div class="lp-row"><span class="lp-label">Note:</span> <span class="lp-val">' + esc(label.customInstructions) + '</span></div>';
 
-      // warnings
       var selWarnings = WARNINGS.filter(function (w) { return (label.selectedWarnings || []).indexOf(w.id) !== -1; });
       if (selWarnings.length > 0) {
         html += '<div class="lp-warn">';
@@ -538,16 +819,23 @@
         html += '</div>';
       }
 
-      // footer
       html += '<div class="lp-footer"><span>Date: ' + fmtDate(todayStr()) + '</span>';
       if (pharmacyDetails.licence) html += '<span>Lic: ' + esc(pharmacyDetails.licence) + '</span>';
       html += '</div>';
-
       html += '</div></div>';
       previewArea.innerHTML = html;
     }
 
-    // attach listeners
+    // remove flash on manual input
+    ["lb-dose", "lb-freq", "lb-route", "lb-custom"].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) {
+        el.addEventListener("input", function () { el.classList.remove("lb-autofilled"); });
+        el.addEventListener("change", function () { el.classList.remove("lb-autofilled"); });
+      }
+    });
+
+    // attach change listeners for preview
     ["lb-tpl", "lb-lang", "lb-patient", "lb-drug", "lb-dose", "lb-route", "lb-freq", "lb-custom"].forEach(function (id) {
       var el = document.getElementById(id);
       if (el) el.addEventListener("input", updatePreview);
@@ -566,7 +854,6 @@
     bd.className = "bd";
     bd.style.overflowX = "auto";
 
-    // search
     var searchBar = document.createElement("div");
     searchBar.className = "search-bar";
     var searchInput = document.createElement("input");
@@ -682,7 +969,6 @@
           });
           actionTd.appendChild(dBtn);
         }
-
         tbody.appendChild(tr);
       });
       table.appendChild(tbody);
@@ -693,20 +979,15 @@
     container.appendChild(card);
   }
 
-  // ── template modal ───────────────────────────────────────────────────────
   function showTemplateModal(existing, redraw) {
     var isEdit = !!existing;
     var data = existing ? Object.assign({}, existing, { fields: (existing.fields || []).slice() }) : { id: uid(), name: "", size: "standard", fields: ["patientName", "drugName", "dose", "frequency", "route", "warnings", "pharmacyDetails", "date"], isDefault: false };
 
     var allFields = [
-      { id: "patientName", label: "Patient Name" },
-      { id: "drugName", label: "Drug Name" },
-      { id: "dose", label: "Dose" },
-      { id: "frequency", label: "Frequency" },
-      { id: "route", label: "Route" },
-      { id: "warnings", label: "Warning Labels" },
-      { id: "pharmacyDetails", label: "Pharmacy Details" },
-      { id: "date", label: "Date" },
+      { id: "patientName", label: "Patient Name" }, { id: "drugName", label: "Drug Name" },
+      { id: "dose", label: "Dose" }, { id: "frequency", label: "Frequency" },
+      { id: "route", label: "Route" }, { id: "warnings", label: "Warning Labels" },
+      { id: "pharmacyDetails", label: "Pharmacy Details" }, { id: "date", label: "Date" },
       { id: "customInstructions", label: "Custom Instructions" }
     ];
 
@@ -724,11 +1005,9 @@
       '</div>';
 
     var footerHtml = '<button class="lb btn close-cancel">Cancel</button><button class="lb btn pri" id="lb-t-save">Save Template</button>';
-
     var m = openModal(isEdit ? "Edit Template" : "New Template", bodyHtml, footerHtml);
     m.modal.querySelector(".close-cancel").addEventListener("click", m.close);
 
-    // field toggles
     m.modal.querySelectorAll("#lb-t-fields .warn-tag").forEach(function (tag) {
       tag.addEventListener("click", function () {
         var fid = tag.getAttribute("data-fid");
@@ -742,28 +1021,20 @@
     m.modal.querySelector("#lb-t-save").addEventListener("click", function () {
       var name = m.modal.querySelector("#lb-t-name").value.trim();
       if (!name) { m.modal.querySelector("#lb-t-name").style.borderColor = "#ff5a7a"; return; }
-
       data.name = name;
       data.size = m.modal.querySelector("#lb-t-size").value;
       data.isDefault = m.modal.querySelector("#lb-t-default").checked;
-
-      if (data.isDefault) {
-        templates.forEach(function (t) { t.isDefault = false; });
-      }
-
+      if (data.isDefault) templates.forEach(function (t) { t.isDefault = false; });
       if (isEdit) {
         var idx = templates.findIndex(function (t) { return t.id === data.id; });
         if (idx !== -1) templates[idx] = data;
       } else {
         templates.push(data);
       }
-
-      save();
-      m.close();
+      save(); m.close();
       toast(isEdit ? "Template updated" : "Template created", "good");
       redraw();
     });
-
     setTimeout(function () { var f = m.modal.querySelector("#lb-t-name"); if (f) f.focus(); }, 80);
   }
 
@@ -775,21 +1046,16 @@
     var bd = document.createElement("div");
     bd.className = "bd";
     bd.style.overflowX = "auto";
-
     var table = document.createElement("table");
     table.innerHTML = '<thead><tr><th style="width:40px">#</th><th>English</th><th>Maltese (Malti)</th></tr></thead>';
     var tbody = document.createElement("tbody");
     WARNINGS.forEach(function (w, i) {
       var tr = document.createElement("tr");
-      tr.innerHTML =
-        '<td style="color:var(--mut);text-align:center">' + (i + 1) + '</td>' +
-        '<td><strong>' + esc(w.en) + '</strong></td>' +
-        '<td style="color:var(--mut);font-style:italic">' + esc(w.mt) + '</td>';
+      tr.innerHTML = '<td style="color:var(--mut);text-align:center">' + (i + 1) + '</td><td><strong>' + esc(w.en) + '</strong></td><td style="color:var(--mut);font-style:italic">' + esc(w.mt) + '</td>';
       tbody.appendChild(tr);
     });
     table.appendChild(tbody);
     bd.appendChild(table);
-
     card.appendChild(bd);
     container.appendChild(card);
   }
@@ -802,14 +1068,13 @@
     var bd = document.createElement("div");
     bd.className = "bd";
     bd.innerHTML =
-      '<p style="color:var(--mut);font-size:13px;margin-top:0;margin-bottom:16px">These details appear on printed labels.</p>' +
+      '<p style="color:var(--mut);font-size:13px;margin-top:0;margin-bottom:16px">These details appear on printed labels. Pharmacy name is auto-filled from your location.</p>' +
       '<div class="fld"><label>Pharmacy Name</label><input type="text" id="lb-s-name" placeholder="Pharmacy name" value="' + esc(pharmacyDetails.name) + '"></div>' +
       '<div class="fld"><label>Address</label><input type="text" id="lb-s-addr" placeholder="Full address" value="' + esc(pharmacyDetails.address) + '"></div>' +
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">' +
         '<div class="fld"><label>Phone</label><input type="text" id="lb-s-phone" placeholder="+356\u2026" value="' + esc(pharmacyDetails.phone) + '"></div>' +
         '<div class="fld"><label>Licence Number</label><input type="text" id="lb-s-lic" placeholder="Licence #" value="' + esc(pharmacyDetails.licence) + '"></div>' +
       '</div>';
-
     var saveBtn = document.createElement("button");
     saveBtn.className = "btn pri";
     saveBtn.style.marginTop = "16px";
@@ -823,7 +1088,6 @@
       toast("Pharmacy details saved", "good");
     });
     bd.appendChild(saveBtn);
-
     card.appendChild(bd);
     container.appendChild(card);
   }

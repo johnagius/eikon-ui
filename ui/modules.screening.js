@@ -15,6 +15,18 @@
   var E = window.EIKON;
   if (!E) return;
 
+  // ── shared patient memory (cross-module) ──────────────────────────────
+  if (!E._eikon_patients) E._eikon_patients = {};
+
+  function buildPatientMemory() {
+    campaigns.forEach(function (c) {
+      (c.participants || []).forEach(function (p) {
+        var name = (p.name || "").trim();
+        if (name) E._eikon_patients[norm(name)] = name;
+      });
+    });
+  }
+
   // ── helpers ──────────────────────────────────────────────────────────────
   function esc(s) { return E.escapeHtml(String(s == null ? "" : s)); }
   function uid() { return "sc_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8); }
@@ -61,6 +73,7 @@
     try {
       var r = await api("GET", "/screening/state");
       campaigns = Array.isArray(r.campaigns) ? r.campaigns : (r.state && Array.isArray(r.state.campaigns) ? r.state.campaigns : []);
+      buildPatientMemory();
     } catch (e) { E.warn("[screening] cloudLoad error", e); }
   }
 
@@ -246,6 +259,14 @@
       ".sc ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.2)}",
 
       /* ── responsive ── */
+      /* ── autocomplete dropdown ── */
+      ".sc-ac-dropdown{position:absolute;left:0;right:0;top:100%;z-index:10001;background:linear-gradient(165deg,#1a2640,#141e30);border:1px solid var(--bd2);border-radius:10px;max-height:180px;overflow-y:auto;box-shadow:0 12px 36px rgba(0,0,0,.5);display:none}",
+      ".sc-ac-dropdown.open{display:block}",
+      ".sc-ac-item{padding:9px 14px;font-size:13px;color:var(--txt);cursor:pointer;transition:background .12s}",
+      ".sc-ac-item:hover,.sc-ac-item.hl{background:rgba(78,161,255,.14)}",
+      ".sc-ac-item:first-child{border-radius:10px 10px 0 0}",
+      ".sc-ac-item:last-child{border-radius:0 0 10px 10px}",
+
       "@media(max-width:700px){.sc .container{padding:14px 12px}.sc .kpi-row{grid-template-columns:repeat(2,1fr)}.sc .camp-grid{grid-template-columns:1fr}.sc .summary-grid{grid-template-columns:1fr}.sc-modal{max-width:100%;border-radius:16px}}"
     ].join("\n");
     document.head.appendChild(s);
@@ -280,6 +301,59 @@
       });
     });
     return all;
+  }
+
+  // ── autocomplete helper ──────────────────────────────────────────────────
+  function attachAutocomplete(input, getSuggestions, onSelect) {
+    var dropdown = document.createElement("div");
+    dropdown.className = "sc-ac-dropdown";
+    input.parentNode.style.position = "relative";
+    input.parentNode.appendChild(dropdown);
+    var hlIdx = -1;
+
+    function show(items) {
+      dropdown.innerHTML = "";
+      hlIdx = -1;
+      if (!items.length) { dropdown.classList.remove("open"); return; }
+      items.forEach(function (item, i) {
+        var d = document.createElement("div");
+        d.className = "sc-ac-item";
+        d.textContent = item;
+        d.addEventListener("mousedown", function (e) {
+          e.preventDefault();
+          input.value = item;
+          dropdown.classList.remove("open");
+          if (onSelect) onSelect(item);
+        });
+        dropdown.appendChild(d);
+      });
+      dropdown.classList.add("open");
+    }
+
+    input.addEventListener("input", function () {
+      var v = input.value.trim();
+      if (v.length < 1) { dropdown.classList.remove("open"); return; }
+      show(getSuggestions(v));
+    });
+    input.addEventListener("focus", function () {
+      var v = input.value.trim();
+      if (v.length >= 1) show(getSuggestions(v));
+    });
+    input.addEventListener("blur", function () {
+      setTimeout(function () { dropdown.classList.remove("open"); }, 150);
+    });
+    input.addEventListener("keydown", function (e) {
+      var items = dropdown.querySelectorAll(".sc-ac-item");
+      if (!items.length || !dropdown.classList.contains("open")) return;
+      if (e.key === "ArrowDown") { e.preventDefault(); hlIdx = Math.min(hlIdx + 1, items.length - 1); updateHl(items); }
+      else if (e.key === "ArrowUp") { e.preventDefault(); hlIdx = Math.max(hlIdx - 1, 0); updateHl(items); }
+      else if (e.key === "Enter" && hlIdx >= 0) { e.preventDefault(); items[hlIdx].dispatchEvent(new Event("mousedown")); }
+      else if (e.key === "Escape") { dropdown.classList.remove("open"); }
+    });
+
+    function updateHl(items) {
+      items.forEach(function (el, i) { el.classList.toggle("hl", i === hlIdx); });
+    }
   }
 
   // ── modal helper ─────────────────────────────────────────────────────────
@@ -980,13 +1054,32 @@
         campaign.participants.push(data);
       }
 
+      // add to shared patient memory
+      var pName = data.name.trim();
+      if (pName) E._eikon_patients[norm(pName)] = pName;
+
       save();
       m.close();
       toast(isEdit ? "Participant updated" : "Participant added", "good");
       redraw();
     });
 
-    setTimeout(function () { var f = m.modal.querySelector("#sc-p-name"); if (f) f.focus(); }, 80);
+    // attach patient name autocomplete
+    setTimeout(function () {
+      var nameInput = m.modal.querySelector("#sc-p-name");
+      if (nameInput) {
+        attachAutocomplete(nameInput, function (query) {
+          var q = norm(query);
+          var results = [];
+          var store = E._eikon_patients || {};
+          Object.keys(store).forEach(function (key) {
+            if (key.indexOf(q) !== -1) results.push(store[key]);
+          });
+          return results.slice(0, 8);
+        });
+        nameInput.focus();
+      }
+    }, 80);
   }
 
   // ── follow-up modal ──────────────────────────────────────────────────────
