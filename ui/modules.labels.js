@@ -34,6 +34,25 @@
     return E.apiFetch(path, o);
   }
 
+  // ── toast ────────────────────────────────────────────────────────────────
+  var toastWrap = null;
+  function toast(msg, kind) {
+    if (!toastWrap) {
+      toastWrap = document.createElement("div");
+      toastWrap.className = "lb-toast-wrap";
+      document.body.appendChild(toastWrap);
+    }
+    var t = document.createElement("div");
+    t.className = "lb-toast " + (kind || "good");
+    t.innerHTML = '<span class="lb-toast-dot"></span>' + esc(msg);
+    toastWrap.appendChild(t);
+    requestAnimationFrame(function () { t.classList.add("show"); });
+    setTimeout(function () {
+      t.classList.remove("show");
+      setTimeout(function () { t.remove(); }, 250);
+    }, 2400);
+  }
+
   // ── cloud store ──────────────────────────────────────────────────────────
   var labelHistory = [];
   var templates = [];
@@ -73,25 +92,25 @@
 
   // ── warning labels ───────────────────────────────────────────────────────
   var WARNINGS = [
-    { id: "w01", en: "Take with food", mt: "Hu meħud mal-ikel" },
+    { id: "w01", en: "Take with food", mt: "Hu me\u0127ud mal-ikel" },
     { id: "w02", en: "Take on an empty stomach", mt: "Hu fuq stonku vojt" },
-    { id: "w03", en: "May cause drowsiness", mt: "Jista' jikkaġuna ngħas" },
-    { id: "w04", en: "Do not drive or operate machinery", mt: "Issuqx u tħaddimx makkinarju" },
-    { id: "w05", en: "Keep refrigerated (2-8°C)", mt: "Żomm fil-friġġ (2-8°C)" },
-    { id: "w06", en: "Shake well before use", mt: "Ħawwad sew qabel l-użu" },
-    { id: "w07", en: "For external use only", mt: "Għall-użu estern biss" },
-    { id: "w08", en: "Avoid alcohol", mt: "Evita l-alkoħol" },
-    { id: "w09", en: "Avoid prolonged sun exposure", mt: "Evita espożizzjoni twila għax-xemx" },
+    { id: "w03", en: "May cause drowsiness", mt: "Jista\u2019 jikka\u0121una ng\u0127as" },
+    { id: "w04", en: "Do not drive or operate machinery", mt: "Issuqx u t\u0127addimx makkinarju" },
+    { id: "w05", en: "Keep refrigerated (2-8\u00B0C)", mt: "\u017Bomb fil-fri\u0121\u0121 (2-8\u00B0C)" },
+    { id: "w06", en: "Shake well before use", mt: "\u0126awwad sew qabel l-u\u017Cu" },
+    { id: "w07", en: "For external use only", mt: "G\u0127all-u\u017Cu estern biss" },
+    { id: "w08", en: "Avoid alcohol", mt: "Evita l-alko\u0127ol" },
+    { id: "w09", en: "Avoid prolonged sun exposure", mt: "Evita espo\u017Cizzjoni twila g\u0127ax-xemx" },
     { id: "w10", en: "Complete the full course", mt: "Lesti l-kors kollu" },
-    { id: "w11", en: "Swallow whole, do not crush", mt: "Ibla' sħiħ, tfarrakx" },
-    { id: "w12", en: "Dissolve under the tongue", mt: "Ħoll taħt l-ilsien" },
+    { id: "w11", en: "Swallow whole, do not crush", mt: "Ibla\u2019 s\u0127i\u0127, tfarrakx" },
+    { id: "w12", en: "Dissolve under the tongue", mt: "\u0126oll ta\u0127t l-ilsien" },
     { id: "w13", en: "Take at bedtime", mt: "Hu qabel l-irqad" },
-    { id: "w14", en: "Take in the morning", mt: "Hu filgħodu" },
-    { id: "w15", en: "Store below 25°C", mt: "Aħżen taħt 25°C" },
-    { id: "w16", en: "Keep out of reach of children", mt: "Żomm 'il bogħod mit-tfal" },
-    { id: "w17", en: "Do not stop taking without medical advice", mt: "Tiqafx tieħu mingħajr parir mediku" },
-    { id: "w18", en: "May cause dizziness", mt: "Jista' jikkaġuna sturdament" },
-    { id: "w19", en: "Take with plenty of water", mt: "Hu ma' ħafna ilma" },
+    { id: "w14", en: "Take in the morning", mt: "Hu filg\u0127odu" },
+    { id: "w15", en: "Store below 25\u00B0C", mt: "A\u0127\u017Cen ta\u0127t 25\u00B0C" },
+    { id: "w16", en: "Keep out of reach of children", mt: "\u017Bomb \u2018il bog\u0127od mit-tfal" },
+    { id: "w17", en: "Do not stop taking without medical advice", mt: "Tiqafx tie\u0127u ming\u0127ajr parir mediku" },
+    { id: "w18", en: "May cause dizziness", mt: "Jista\u2019 jikka\u0121una sturdament" },
+    { id: "w19", en: "Take with plenty of water", mt: "Hu ma\u2019 \u0127afna ilma" },
     { id: "w20", en: "Not suitable during pregnancy", mt: "Mhux adattat waqt it-tqala" }
   ];
 
@@ -105,15 +124,15 @@
     "Once daily": "Darba kuljum",
     "Twice daily": "Darbtejn kuljum",
     "Three times daily": "Tliet darbiet kuljum",
-    "Four times daily": "Erba' darbiet kuljum",
-    "Every morning": "Kull filgħodu",
-    "Every evening": "Kull filgħaxija",
-    "Every 4 hours": "Kull 4 sigħat",
-    "Every 6 hours": "Kull 6 sigħat",
-    "Every 8 hours": "Kull 8 sigħat",
-    "Every 12 hours": "Kull 12-il siegħa",
-    "Once weekly": "Darba fil-ġimgħa",
-    "As needed": "Skont il-bżonn",
+    "Four times daily": "Erba\u2019 darbiet kuljum",
+    "Every morning": "Kull filg\u0127odu",
+    "Every evening": "Kull filg\u0127axija",
+    "Every 4 hours": "Kull 4 sig\u0127at",
+    "Every 6 hours": "Kull 6 sig\u0127at",
+    "Every 8 hours": "Kull 8 sig\u0127at",
+    "Every 12 hours": "Kull 12-il sieg\u0127a",
+    "Once weekly": "Darba fil-\u0121img\u0127a",
+    "As needed": "Skont il-b\u017Conn",
     "As directed": "Skont id-direzzjonijiet"
   };
 
@@ -125,82 +144,155 @@
     if (stylesDone) return; stylesDone = true;
     var s = document.createElement("style"); s.id = "eikon-labels-style";
     s.textContent = [
-      ".lb{--ac:#5aa2ff;--ac2:#a78bfa;--gd:#2ee59d;--pk:#ff6b9d;--wn:#ffcc66;--bg:#0b1220;--pnl:rgba(255,255,255,.03);--bd:rgba(255,255,255,.10);--r:16px;--r2:12px;--txt:#e8eefc;--mut:rgba(170,183,214,.78);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--txt);margin:-14px}",
+      /* root + ambient background */
+      ".lb{--ac:#a78bfa;--ac2:#5aa2ff;--gd:#2ee59d;--pk:#ff6b9d;--wn:#ffcc66;--bg:#0b1220;--pnl:rgba(255,255,255,.035);--pnl2:rgba(255,255,255,.055);--bd:rgba(255,255,255,.09);--bd2:rgba(255,255,255,.14);--r:18px;--r2:12px;--txt:#e8eefc;--mut:rgba(170,183,214,.72);--shadow:0 12px 36px rgba(0,0,0,.35);font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--txt);margin:-14px;min-height:calc(100vh - 56px);background:radial-gradient(1100px 600px at 12% 10%,rgba(167,139,250,.12),transparent 58%),radial-gradient(900px 500px at 85% 20%,rgba(90,162,255,.10),transparent 55%),radial-gradient(800px 600px at 50% 100%,rgba(46,229,157,.07),transparent 50%)}",
       ".lb *{box-sizing:border-box}",
-      /* hero */
-      ".lb .hero{position:relative;border-radius:20px;border:1px solid var(--bd);overflow:hidden;padding:20px 22px 16px;margin-bottom:16px;background:linear-gradient(135deg,rgba(167,139,250,.16),rgba(90,162,255,.10),rgba(46,229,157,.06));box-shadow:0 14px 40px rgba(0,0,0,.3)}",
-      ".lb .hero h2{margin:0 0 2px;font-size:20px;font-weight:900;letter-spacing:.3px}",
-      ".lb .hero .sub{color:var(--mut);font-size:12.5px;margin-bottom:14px}",
-      /* kpi */
-      ".lb .kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px}",
-      ".lb .kpi{border:1px solid var(--bd);border-radius:var(--r);background:var(--pnl);padding:14px;text-align:center}",
-      ".lb .kpi .n{font-size:28px;font-weight:900;letter-spacing:.3px}",
-      ".lb .kpi .l{font-size:11.5px;color:var(--mut);margin-top:3px}",
-      /* tabs */
-      ".lb .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}",
-      ".lb .tab{padding:9px 14px;border-radius:var(--r2);border:1px solid var(--bd);background:var(--pnl);color:var(--txt);cursor:pointer;font-size:13px;font-weight:700;transition:transform .08s,background .15s,border-color .15s}",
-      ".lb .tab:hover{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.18)}",
-      ".lb .tab:active{transform:translateY(1px)}",
-      ".lb .tab.on{background:rgba(167,139,250,.16);border-color:rgba(167,139,250,.55)}",
-      /* card */
-      ".lb .card{border:1px solid var(--bd);border-radius:var(--r);background:var(--pnl);box-shadow:0 10px 28px rgba(0,0,0,.25);overflow:hidden;margin-bottom:14px}",
-      ".lb .card .hd{padding:12px 16px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;gap:10px}",
-      ".lb .card .hd h3{margin:0;font-size:14px;font-weight:800}",
-      ".lb .card .bd{padding:16px}",
-      /* form */
+      ".lb .container{max-width:1200px;margin:0 auto;padding:22px 20px 40px}",
+
+      /* ── hero ── */
+      ".lb .hero{position:relative;border-radius:22px;border:1px solid var(--bd2);overflow:hidden;padding:28px 28px 22px;margin-bottom:20px;background:linear-gradient(135deg,rgba(167,139,250,.14),rgba(90,162,255,.10),rgba(46,229,157,.06));box-shadow:var(--shadow);backdrop-filter:blur(8px)}",
+      ".lb .hero::before{content:'';position:absolute;inset:0;background:radial-gradient(500px circle at 75% 25%,rgba(167,139,250,.12),transparent 60%);pointer-events:none}",
+      ".lb .hero h2{margin:0 0 4px;font-size:22px;font-weight:900;letter-spacing:.3px;position:relative}",
+      ".lb .hero .sub{color:var(--mut);font-size:13px;position:relative}",
+
+      /* ── KPI ── */
+      ".lb .kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px}",
+      ".lb .kpi{border:1px solid var(--bd);border-radius:var(--r);background:var(--pnl);padding:18px 14px;text-align:center;backdrop-filter:blur(6px);transition:transform .15s,border-color .2s,box-shadow .2s}",
+      ".lb .kpi:hover{transform:translateY(-2px);border-color:var(--bd2);box-shadow:0 8px 24px rgba(0,0,0,.25)}",
+      ".lb .kpi .n{font-size:30px;font-weight:900;letter-spacing:.5px;line-height:1.1}",
+      ".lb .kpi .l{font-size:11px;color:var(--mut);margin-top:5px;text-transform:uppercase;letter-spacing:.5px;font-weight:600}",
+
+      /* ── tabs ── */
+      ".lb .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px;padding:4px;background:var(--pnl);border-radius:14px;border:1px solid var(--bd)}",
+      ".lb .tab{padding:10px 18px;border-radius:10px;border:none;background:transparent;color:var(--mut);cursor:pointer;font-size:13px;font-weight:700;transition:all .18s;position:relative}",
+      ".lb .tab:hover{color:var(--txt);background:rgba(255,255,255,.05)}",
+      ".lb .tab.on{color:var(--txt);background:rgba(167,139,250,.15);box-shadow:0 2px 12px rgba(167,139,250,.15)}",
+
+      /* ── card ── */
+      ".lb .card{border:1px solid var(--bd);border-radius:var(--r);background:var(--pnl);box-shadow:var(--shadow);overflow:hidden;margin-bottom:16px;backdrop-filter:blur(6px);transition:border-color .2s}",
+      ".lb .card:hover{border-color:var(--bd2)}",
+      ".lb .card .hd{padding:14px 20px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--pnl)}",
+      ".lb .card .hd h3{margin:0;font-size:15px;font-weight:800}",
+      ".lb .card .bd{padding:20px}",
+
+      /* ── form ── */
       ".lb .fld{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}",
-      ".lb .fld label{color:var(--mut);font-size:12px;font-weight:600}",
-      ".lb .fld input,.lb .fld select,.lb .fld textarea{width:100%;border:1px solid var(--bd);background:rgba(0,0,0,.18);color:var(--txt);padding:9px 10px;border-radius:var(--r2);outline:none;font-size:13px;transition:border-color .15s,box-shadow .15s}",
-      ".lb .fld input:focus,.lb .fld select:focus,.lb .fld textarea:focus{border-color:rgba(167,139,250,.6);box-shadow:0 0 0 3px rgba(167,139,250,.12)}",
-      ".lb .fld textarea{min-height:64px;resize:vertical;line-height:1.35}",
-      /* btn */
-      ".lb .btn{border:1px solid var(--bd);background:var(--pnl);color:var(--txt);padding:9px 14px;border-radius:var(--r2);cursor:pointer;font-size:13px;font-weight:700;display:inline-flex;align-items:center;gap:8px;transition:transform .08s,background .15s,border-color .15s}",
-      ".lb .btn:hover{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.18)}",
-      ".lb .btn:active{transform:translateY(1px)}",
-      ".lb .btn.pri{background:rgba(167,139,250,.18);border-color:rgba(167,139,250,.5);color:#c4b5fd}",
-      ".lb .btn.ok{background:rgba(46,229,157,.15);border-color:rgba(46,229,157,.45);color:#6af0be}",
-      ".lb .btn.dn{background:rgba(255,107,157,.15);border-color:rgba(255,107,157,.45);color:#ff9ebe}",
-      ".lb .btn.sm{padding:6px 10px;font-size:12px}",
-      /* table */
+      ".lb .fld label{color:var(--mut);font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px}",
+      ".lb .fld input,.lb .fld select,.lb .fld textarea{width:100%;border:1px solid var(--bd);background:rgba(0,0,0,.22);color:var(--txt);padding:10px 12px;border-radius:var(--r2);outline:none;font-size:13px;transition:border-color .2s,box-shadow .2s}",
+      ".lb .fld input:focus,.lb .fld select:focus,.lb .fld textarea:focus{border-color:rgba(167,139,250,.55);box-shadow:0 0 0 3px rgba(167,139,250,.12)}",
+      ".lb .fld textarea{min-height:68px;resize:vertical;line-height:1.4}",
+      ".lb .fld input::placeholder,.lb .fld textarea::placeholder{color:rgba(170,183,214,.4)}",
+
+      /* ── btn ── */
+      ".lb .btn{border:1px solid var(--bd);background:var(--pnl2);color:var(--txt);padding:9px 16px;border-radius:var(--r2);cursor:pointer;font-size:13px;font-weight:700;display:inline-flex;align-items:center;gap:8px;transition:all .15s;position:relative;overflow:hidden}",
+      ".lb .btn:hover{background:rgba(255,255,255,.08);border-color:var(--bd2);transform:translateY(-1px)}",
+      ".lb .btn:active{transform:translateY(0)}",
+      ".lb .btn.pri{background:linear-gradient(135deg,rgba(167,139,250,.22),rgba(90,162,255,.18));border-color:rgba(167,139,250,.4);color:#c4b5fd}",
+      ".lb .btn.pri:hover{background:linear-gradient(135deg,rgba(167,139,250,.3),rgba(90,162,255,.24));border-color:rgba(167,139,250,.55);box-shadow:0 4px 16px rgba(167,139,250,.15)}",
+      ".lb .btn.ok{background:linear-gradient(135deg,rgba(46,229,157,.18),rgba(46,229,157,.12));border-color:rgba(46,229,157,.4);color:#6af0be}",
+      ".lb .btn.dn{background:linear-gradient(135deg,rgba(255,107,157,.18),rgba(255,107,157,.12));border-color:rgba(255,107,157,.35);color:#ff9ebe}",
+      ".lb .btn.dn:hover{background:linear-gradient(135deg,rgba(255,107,157,.28),rgba(255,107,157,.2));border-color:rgba(255,107,157,.5);box-shadow:0 4px 16px rgba(255,107,157,.12)}",
+      ".lb .btn.sm{padding:7px 12px;font-size:12px;border-radius:10px}",
+
+      /* ── table ── */
       ".lb table{width:100%;border-collapse:collapse;font-size:13px}",
-      ".lb th{text-align:left;padding:10px 12px;border-bottom:2px solid var(--bd);color:var(--mut);font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.3px}",
-      ".lb td{padding:9px 12px;border-bottom:1px solid var(--bd)}",
-      ".lb tr:hover td{background:rgba(255,255,255,.02)}",
-      /* search */
-      ".lb .search-bar{display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap}",
-      ".lb .search-bar input{flex:1;min-width:180px;border:1px solid var(--bd);background:rgba(0,0,0,.18);color:var(--txt);padding:9px 12px;border-radius:var(--r2);outline:none;font-size:13px}",
-      ".lb .search-bar input:focus{border-color:rgba(167,139,250,.6)}",
-      /* warnings */
-      ".lb .warn-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}",
-      ".lb .warn-tag{display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border-radius:20px;font-size:11.5px;font-weight:600;cursor:pointer;border:1px solid var(--bd);background:var(--pnl);transition:background .15s,border-color .15s}",
-      ".lb .warn-tag.on{background:rgba(255,204,102,.15);border-color:rgba(255,204,102,.5);color:#ffcc66}",
-      ".lb .warn-tag:hover{background:rgba(255,255,255,.06)}",
-      /* label preview */
-      ".lb .label-preview{border:2px dashed var(--bd);border-radius:var(--r);background:#fff;color:#000;padding:16px 20px;font-family:'Courier New',Courier,monospace;margin:14px 0}",
-      ".lb .label-preview.large{font-size:18px;padding:24px 28px;line-height:1.6}",
-      ".lb .label-preview.standard{font-size:13px;padding:14px 18px;line-height:1.4}",
-      ".lb .label-preview h4{margin:0 0 6px;font-weight:900;font-size:1.1em;border-bottom:2px solid #000;padding-bottom:4px}",
-      ".lb .label-preview .lp-row{margin:3px 0}",
-      ".lb .label-preview .lp-label{font-weight:700;color:#333}",
-      ".lb .label-preview .lp-warn{margin-top:8px;padding-top:6px;border-top:1px solid #999}",
-      ".lb .label-preview .lp-warn div{font-weight:700;font-size:.9em}",
-      ".lb .label-preview .lp-pharmacy{margin-top:8px;padding-top:6px;border-top:1px solid #999;font-size:.85em;color:#555}",
-      /* modal */
-      ".lb .modal-bg{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px}",
-      ".lb .modal{background:#111b2a;border:1px solid var(--bd);border-radius:var(--r);max-width:700px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.5)}",
-      ".lb .modal .m-hd{padding:16px 20px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between}",
-      ".lb .modal .m-hd h3{margin:0;font-size:16px;font-weight:800}",
-      ".lb .modal .m-bd{padding:20px}",
-      ".lb .modal .m-ft{padding:14px 20px;border-top:1px solid var(--bd);display:flex;justify-content:flex-end;gap:8px}",
-      /* empty */
-      ".lb .empty{text-align:center;padding:40px 20px;color:var(--mut);font-size:14px}",
-      ".lb .empty .icon{font-size:40px;margin-bottom:10px}",
-      /* print styles */
-      "@media print{body *{visibility:hidden !important}.lb .label-preview,.lb .label-preview *{visibility:visible !important}.lb .label-preview{position:fixed;left:0;top:0;border:none;margin:0;box-shadow:none}}",
-      /* responsive */
-      "@media(max-width:700px){.lb .kpi-row{grid-template-columns:repeat(2,1fr)}}"
+      ".lb th{text-align:left;padding:11px 14px;border-bottom:2px solid var(--bd2);color:var(--mut);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;position:sticky;top:0;background:rgba(11,18,32,.92);backdrop-filter:blur(6px);z-index:2}",
+      ".lb td{padding:10px 14px;border-bottom:1px solid var(--bd);transition:background .12s}",
+      ".lb tbody tr{transition:background .12s}",
+      ".lb tbody tr:hover td{background:rgba(167,139,250,.04)}",
+      ".lb tbody tr:hover{cursor:pointer}",
+
+      /* ── search ── */
+      ".lb .search-bar{display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap}",
+      ".lb .search-bar input{flex:1;min-width:200px;border:1px solid var(--bd);background:rgba(0,0,0,.22);color:var(--txt);padding:10px 14px;border-radius:var(--r2);outline:none;font-size:13px;transition:border-color .2s}",
+      ".lb .search-bar input:focus{border-color:rgba(167,139,250,.55);box-shadow:0 0 0 3px rgba(167,139,250,.1)}",
+
+      /* ── warnings tags ── */
+      ".lb .warn-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}",
+      ".lb .warn-tag{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:20px;font-size:11.5px;font-weight:600;cursor:pointer;border:1px solid var(--bd);background:var(--pnl);transition:all .15s;user-select:none}",
+      ".lb .warn-tag:hover{background:rgba(255,255,255,.06);border-color:var(--bd2)}",
+      ".lb .warn-tag.on{background:linear-gradient(135deg,rgba(255,204,102,.14),rgba(255,180,60,.10));border-color:rgba(255,204,102,.45);color:#ffcc66}",
+      ".lb .warn-tag.on::before{content:'\u2713 ';font-weight:800}",
+
+      /* ── label preview ── */
+      ".lb .label-preview-wrap{border:2px dashed var(--bd2);border-radius:16px;padding:4px;background:rgba(255,255,255,.02);position:relative;margin:16px 0}",
+      ".lb .label-preview-wrap::before{content:'PREVIEW';position:absolute;top:-9px;left:20px;background:#111b2a;padding:0 8px;font-size:10px;font-weight:700;color:var(--mut);letter-spacing:1px}",
+      ".lb .label-preview{background:#fff;color:#111;border-radius:12px;font-family:'Segoe UI',system-ui,sans-serif;overflow:hidden}",
+      ".lb .label-preview.large{font-size:17px;padding:28px 30px;line-height:1.65}",
+      ".lb .label-preview.standard{font-size:13px;padding:18px 22px;line-height:1.5}",
+      ".lb .label-preview .lp-header{border-bottom:2px solid #222;padding-bottom:8px;margin-bottom:10px}",
+      ".lb .label-preview .lp-header h4{margin:0;font-weight:900;font-size:1.15em;color:#111}",
+      ".lb .label-preview .lp-header .lp-addr{font-size:.78em;color:#666;margin-top:2px}",
+      ".lb .label-preview .lp-row{margin:4px 0;display:flex;gap:6px}",
+      ".lb .label-preview .lp-label{font-weight:700;color:#333;min-width:80px;flex-shrink:0}",
+      ".lb .label-preview .lp-val{color:#111}",
+      ".lb .label-preview .lp-mt{color:#666;font-style:italic;font-size:.9em}",
+      ".lb .label-preview .lp-warn{margin-top:10px;padding-top:8px;border-top:1.5px solid #ddd}",
+      ".lb .label-preview .lp-warn div{font-weight:700;font-size:.88em;color:#b45309;margin:3px 0;display:flex;align-items:center;gap:5px}",
+      ".lb .label-preview .lp-warn .lp-wmt{color:#888;font-weight:400;font-style:italic}",
+      ".lb .label-preview .lp-footer{margin-top:10px;padding-top:8px;border-top:1.5px solid #ddd;font-size:.78em;color:#888;display:flex;justify-content:space-between}",
+
+      /* ── modal ── */
+      ".lb-modal-bg{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;transition:opacity .2s}",
+      ".lb-modal-bg.show{opacity:1}",
+      ".lb-modal{background:linear-gradient(165deg,#141e30,#111b2a 40%,#0f1824);border:1px solid var(--bd2);border-radius:20px;max-width:680px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.04) inset;transform:translateY(12px) scale(.97);transition:transform .25s cubic-bezier(.16,1,.3,1),opacity .2s;opacity:0}",
+      ".lb-modal-bg.show .lb-modal{transform:translateY(0) scale(1);opacity:1}",
+      ".lb-modal .m-hd{padding:20px 24px 16px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(167,139,250,.06),rgba(90,162,255,.04))}",
+      ".lb-modal .m-hd h3{margin:0;font-size:17px;font-weight:800}",
+      ".lb-modal .m-bd{padding:22px 24px}",
+      ".lb-modal .m-ft{padding:16px 24px;border-top:1px solid var(--bd);display:flex;justify-content:flex-end;gap:8px;background:rgba(0,0,0,.1)}",
+      ".lb-modal .close-x{width:32px;height:32px;border-radius:10px;border:1px solid var(--bd);background:rgba(255,255,255,.04);color:var(--mut);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}",
+      ".lb-modal .close-x:hover{background:rgba(255,107,157,.12);border-color:rgba(255,107,157,.3);color:#ff9ebe}",
+
+      /* ── toast ── */
+      ".lb-toast-wrap{position:fixed;right:16px;bottom:16px;z-index:99999;display:flex;flex-direction:column;gap:8px;pointer-events:none}",
+      ".lb-toast{display:flex;align-items:center;gap:10px;padding:12px 18px;border-radius:14px;font-size:13px;font-weight:600;background:rgba(11,18,32,.88);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.1);box-shadow:0 10px 30px rgba(0,0,0,.4);opacity:0;transform:translateY(8px);transition:all .22s}",
+      ".lb-toast.show{opacity:1;transform:translateY(0)}",
+      ".lb-toast-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}",
+      ".lb-toast.good .lb-toast-dot{background:#2ee59d}",
+      ".lb-toast.bad .lb-toast-dot{background:#ff6b9d}",
+      ".lb-toast.warn .lb-toast-dot{background:#ffcc66}",
+
+      /* ── empty ── */
+      ".lb .empty{text-align:center;padding:50px 20px;color:var(--mut)}",
+      ".lb .empty .icon{font-size:48px;margin-bottom:12px;opacity:.7}",
+      ".lb .empty .msg{font-size:14px;margin-bottom:16px}",
+
+      /* ── scrollbar ── */
+      ".lb ::-webkit-scrollbar{width:6px}",
+      ".lb ::-webkit-scrollbar-track{background:transparent}",
+      ".lb ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:3px}",
+      ".lb ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.2)}",
+
+      /* ── print ── */
+      "@media print{body *{visibility:hidden !important}.lb .label-preview,.lb .label-preview *{visibility:visible !important}.lb .label-preview{position:fixed;left:0;top:0;width:100%;border-radius:0;margin:0;box-shadow:none}}",
+
+      /* ── responsive ── */
+      "@media(max-width:700px){.lb .container{padding:14px 12px}.lb .kpi-row{grid-template-columns:repeat(2,1fr)}.lb .create-layout{grid-template-columns:1fr !important}.lb-modal{max-width:100%;border-radius:16px}}"
     ].join("\n");
     document.head.appendChild(s);
+  }
+
+  // ── modal helper ─────────────────────────────────────────────────────────
+  function openModal(title, bodyHtml, footerHtml) {
+    var bg = document.createElement("div");
+    bg.className = "lb-modal-bg";
+    var modal = document.createElement("div");
+    modal.className = "lb-modal";
+    modal.innerHTML =
+      '<div class="m-hd"><h3>' + title + '</h3><button class="close-x">&times;</button></div>' +
+      '<div class="m-bd">' + bodyHtml + '</div>' +
+      '<div class="m-ft">' + footerHtml + '</div>';
+    bg.appendChild(modal);
+    document.body.appendChild(bg);
+    requestAnimationFrame(function () { requestAnimationFrame(function () { bg.classList.add("show"); }); });
+    function close() {
+      bg.classList.remove("show");
+      setTimeout(function () { bg.remove(); }, 220);
+    }
+    modal.querySelector(".close-x").addEventListener("click", close);
+    bg.addEventListener("click", function (e) { if (e.target === bg) close(); });
+    return { bg: bg, modal: modal, close: close };
   }
 
   // ── render ───────────────────────────────────────────────────────────────
@@ -223,22 +315,29 @@
 
     function redraw() {
       root.innerHTML = "";
+      var container = document.createElement("div");
+      container.className = "container";
+      root.appendChild(container);
 
       // hero
       var hero = document.createElement("div");
       hero.className = "hero";
       hero.innerHTML = '<h2>\uD83C\uDFF7\uFE0F Smart Label Generator</h2><div class="sub">Create and print medication dispensing labels with customizable templates</div>';
-      root.appendChild(hero);
+      container.appendChild(hero);
 
       // KPI
       var todayLabels = labelHistory.filter(function (l) { return (l.printedAt || "").indexOf(todayStr()) === 0; }).length;
       var kpiRow = document.createElement("div");
       kpiRow.className = "kpi-row";
-      kpiRow.innerHTML =
-        '<div class="kpi"><div class="n" style="color:#a78bfa">' + labelHistory.length + '</div><div class="l">Labels Printed</div></div>' +
-        '<div class="kpi"><div class="n" style="color:#5aa2ff">' + todayLabels + '</div><div class="l">Today</div></div>' +
-        '<div class="kpi"><div class="n" style="color:#2ee59d">' + templates.length + '</div><div class="l">Templates</div></div>';
-      root.appendChild(kpiRow);
+      var kpis = [
+        { n: labelHistory.length, l: "Total Printed", color: "#a78bfa" },
+        { n: todayLabels, l: "Today", color: "#5aa2ff" },
+        { n: templates.length, l: "Templates", color: "#2ee59d" }
+      ];
+      kpis.forEach(function (k) {
+        kpiRow.innerHTML += '<div class="kpi"><div class="n" style="color:' + k.color + '">' + k.n + '</div><div class="l">' + k.l + '</div></div>';
+      });
+      container.appendChild(kpiRow);
 
       // tabs
       var tabs = document.createElement("div");
@@ -257,18 +356,18 @@
         b.addEventListener("click", function () { activeTab = t.id; searchQ = ""; redraw(); });
         tabs.appendChild(b);
       });
-      root.appendChild(tabs);
+      container.appendChild(tabs);
 
       if (activeTab === "create") {
-        renderCreateLabel(root, redraw);
+        renderCreateLabel(container, redraw);
       } else if (activeTab === "history") {
-        renderHistory(root, redraw);
+        renderHistory(container, redraw);
       } else if (activeTab === "templates") {
-        renderTemplates(root, redraw);
+        renderTemplates(container, redraw);
       } else if (activeTab === "warnings") {
-        renderWarnings(root, redraw);
+        renderWarnings(container, redraw);
       } else if (activeTab === "settings") {
-        renderSettings(root, redraw);
+        renderSettings(container, redraw);
       }
     }
 
@@ -276,7 +375,7 @@
   }
 
   // ── create label ─────────────────────────────────────────────────────────
-  function renderCreateLabel(root, redraw) {
+  function renderCreateLabel(container, redraw) {
     var label = currentLabel || {
       patientName: "", drugName: "", dose: "", frequency: FREQUENCIES_EN[0],
       route: ROUTES[0], customInstructions: "", selectedWarnings: [],
@@ -285,26 +384,24 @@
     currentLabel = label;
 
     var layout = document.createElement("div");
-    layout.style.cssText = "display:grid;grid-template-columns:1fr 1fr;gap:16px";
+    layout.className = "create-layout";
+    layout.style.cssText = "display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start";
 
     // left: form
     var formCard = document.createElement("div");
     formCard.className = "card";
-    formCard.innerHTML = '<div class="hd"><h3>Label Details</h3></div>';
+    formCard.innerHTML = '<div class="hd"><h3>\uD83D\uDCDD Label Details</h3></div>';
     var formBd = document.createElement("div");
     formBd.className = "bd";
 
     // template + language
-    var row1 = document.createElement("div");
-    row1.style.cssText = "display:grid;grid-template-columns:1fr 1fr;gap:12px";
-    row1.innerHTML =
-      '<div class="fld"><label>Template</label><select id="lb-tpl">' +
-        templates.map(function (t) { return '<option value="' + esc(t.id) + '"' + (t.id === label.templateId ? ' selected' : '') + '>' + esc(t.name) + '</option>'; }).join("") +
-      '</select></div>' +
-      '<div class="fld"><label>Language</label><select id="lb-lang"><option value="en"' + (!showMaltese ? ' selected' : '') + '>English only</option><option value="both"' + (showMaltese ? ' selected' : '') + '>English + Maltese</option></select></div>';
-    formBd.appendChild(row1);
-
-    formBd.innerHTML +=
+    formBd.innerHTML =
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">' +
+        '<div class="fld"><label>Template</label><select id="lb-tpl">' +
+          templates.map(function (t) { return '<option value="' + esc(t.id) + '"' + (t.id === label.templateId ? ' selected' : '') + '>' + esc(t.name) + '</option>'; }).join("") +
+        '</select></div>' +
+        '<div class="fld"><label>Language</label><select id="lb-lang"><option value="en"' + (!showMaltese ? ' selected' : '') + '>English only</option><option value="both"' + (showMaltese ? ' selected' : '') + '>English + Maltese</option></select></div>' +
+      '</div>' +
       '<div class="fld"><label>Patient Name *</label><input type="text" id="lb-patient" placeholder="Full name" value="' + esc(label.patientName) + '"></div>' +
       '<div class="fld"><label>Drug Name *</label><input type="text" id="lb-drug" placeholder="Drug name and strength" value="' + esc(label.drugName) + '"></div>' +
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">' +
@@ -312,12 +409,12 @@
         '<div class="fld"><label>Route</label><select id="lb-route">' + ROUTES.map(function (r) { return '<option' + (r === label.route ? ' selected' : '') + '>' + esc(r) + '</option>'; }).join("") + '</select></div>' +
       '</div>' +
       '<div class="fld"><label>Frequency</label><select id="lb-freq">' + FREQUENCIES_EN.map(function (f) { return '<option' + (f === label.frequency ? ' selected' : '') + '>' + esc(f) + '</option>'; }).join("") + '</select></div>' +
-      '<div class="fld"><label>Custom Instructions</label><textarea id="lb-custom" placeholder="Additional instructions...">' + esc(label.customInstructions) + '</textarea></div>';
+      '<div class="fld"><label>Custom Instructions</label><textarea id="lb-custom" placeholder="Additional instructions\u2026">' + esc(label.customInstructions) + '</textarea></div>';
 
     // warning selector
-    var warnTitle = document.createElement("div");
-    warnTitle.className = "fld";
-    warnTitle.innerHTML = '<label>Warning / Advisory Labels</label>';
+    var warnFld = document.createElement("div");
+    warnFld.className = "fld";
+    warnFld.innerHTML = '<label>Warning / Advisory Labels</label>';
     var warnList = document.createElement("div");
     warnList.className = "warn-list";
     WARNINGS.forEach(function (w) {
@@ -334,38 +431,39 @@
       });
       warnList.appendChild(tag);
     });
-    warnTitle.appendChild(warnList);
-    formBd.appendChild(warnTitle);
+    warnFld.appendChild(warnList);
+    formBd.appendChild(warnFld);
 
     formCard.appendChild(formBd);
     layout.appendChild(formCard);
 
-    // right: preview
+    // right: preview + actions
     var previewCard = document.createElement("div");
     previewCard.className = "card";
-    previewCard.innerHTML = '<div class="hd"><h3>Print Preview</h3></div>';
+    previewCard.style.position = "sticky";
+    previewCard.style.top = "14px";
+    previewCard.innerHTML = '<div class="hd"><h3>\uD83D\uDD0D Print Preview</h3></div>';
     var previewBd = document.createElement("div");
     previewBd.className = "bd";
     var previewArea = document.createElement("div");
     previewArea.id = "lb-preview-area";
     previewBd.appendChild(previewArea);
 
-    // print + save buttons
+    // actions
     var actionRow = document.createElement("div");
-    actionRow.style.cssText = "display:flex;gap:8px;margin-top:14px;flex-wrap:wrap";
+    actionRow.style.cssText = "display:flex;gap:8px;margin-top:16px;flex-wrap:wrap";
 
     var printBtn = document.createElement("button");
     printBtn.className = "btn pri";
-    printBtn.textContent = "Print Label";
+    printBtn.innerHTML = "\uD83D\uDDA8\uFE0F Print Label";
     printBtn.addEventListener("click", function () {
       collectFormData();
-      if (!label.patientName || !label.drugName) { alert("Patient Name and Drug Name are required."); return; }
-      // save to history
+      if (!label.patientName || !label.drugName) { toast("Patient Name and Drug Name are required", "bad"); return; }
       var entry = Object.assign({}, label, { id: uid(), printedAt: nowStr(), printedBy: currentUser ? currentUser.full_name || currentUser.email : "Unknown" });
       labelHistory.unshift(entry);
       save();
-      // print
       window.print();
+      toast("Label printed and saved to history", "good");
       redraw();
     });
     actionRow.appendChild(printBtn);
@@ -383,9 +481,9 @@
     previewCard.appendChild(previewBd);
     layout.appendChild(previewCard);
 
-    root.appendChild(layout);
+    container.appendChild(layout);
 
-    // attach change listeners
+    // collect form data
     function collectFormData() {
       label.templateId = document.getElementById("lb-tpl").value;
       showMaltese = document.getElementById("lb-lang").value === "both";
@@ -401,52 +499,51 @@
       collectFormData();
       var tpl = templates.find(function (t) { return t.id === label.templateId; }) || templates[0] || {};
       var sizeClass = tpl.size === "large" ? "large" : "standard";
-      var html = '<div class="label-preview ' + sizeClass + '">';
+      var html = '<div class="label-preview-wrap"><div class="label-preview ' + sizeClass + '">';
 
-      // pharmacy header
-      html += '<h4>' + esc(pharmacyDetails.name || "Pharmacy Name") + '</h4>';
-
-      // patient
-      html += '<div class="lp-row"><span class="lp-label">Patient:</span> ' + esc(label.patientName || "—") + '</div>';
-
-      // drug
-      html += '<div class="lp-row"><span class="lp-label">Medication:</span> ' + esc(label.drugName || "—") + '</div>';
-
-      // dose
-      if (label.dose) html += '<div class="lp-row"><span class="lp-label">Dose:</span> ' + esc(label.dose) + '</div>';
-
-      // frequency
-      html += '<div class="lp-row"><span class="lp-label">Frequency:</span> ' + esc(label.frequency);
-      if (showMaltese && FREQUENCIES_MT[label.frequency]) html += ' <em style="color:#666">(' + esc(FREQUENCIES_MT[label.frequency]) + ')</em>';
+      // header
+      html += '<div class="lp-header"><h4>' + esc(pharmacyDetails.name || "Pharmacy Name") + '</h4>';
+      if (pharmacyDetails.address) html += '<div class="lp-addr">' + esc(pharmacyDetails.address) + (pharmacyDetails.phone ? ' | Tel: ' + esc(pharmacyDetails.phone) : '') + '</div>';
       html += '</div>';
 
-      // route
-      html += '<div class="lp-row"><span class="lp-label">Route:</span> ' + esc(label.route) + '</div>';
+      // patient
+      html += '<div class="lp-row"><span class="lp-label">Patient:</span> <span class="lp-val">' + esc(label.patientName || "\u2014") + '</span></div>';
 
-      // custom instructions
-      if (label.customInstructions) html += '<div class="lp-row"><span class="lp-label">Instructions:</span> ' + esc(label.customInstructions) + '</div>';
+      // drug
+      html += '<div class="lp-row"><span class="lp-label">Drug:</span> <span class="lp-val"><strong>' + esc(label.drugName || "\u2014") + '</strong></span></div>';
+
+      // dose
+      if (label.dose) html += '<div class="lp-row"><span class="lp-label">Dose:</span> <span class="lp-val">' + esc(label.dose) + '</span></div>';
+
+      // frequency
+      html += '<div class="lp-row"><span class="lp-label">Frequency:</span> <span class="lp-val">' + esc(label.frequency);
+      if (showMaltese && FREQUENCIES_MT[label.frequency]) html += ' <span class="lp-mt">(' + esc(FREQUENCIES_MT[label.frequency]) + ')</span>';
+      html += '</span></div>';
+
+      // route
+      html += '<div class="lp-row"><span class="lp-label">Route:</span> <span class="lp-val">' + esc(label.route) + '</span></div>';
+
+      // custom
+      if (label.customInstructions) html += '<div class="lp-row"><span class="lp-label">Note:</span> <span class="lp-val">' + esc(label.customInstructions) + '</span></div>';
 
       // warnings
       var selWarnings = WARNINGS.filter(function (w) { return (label.selectedWarnings || []).indexOf(w.id) !== -1; });
       if (selWarnings.length > 0) {
         html += '<div class="lp-warn">';
         selWarnings.forEach(function (w) {
-          html += '<div>\u26A0 ' + esc(w.en);
-          if (showMaltese) html += ' <em style="color:#666">(' + esc(w.mt) + ')</em>';
+          html += '<div>\u26A0\uFE0F ' + esc(w.en);
+          if (showMaltese) html += ' <span class="lp-wmt">(' + esc(w.mt) + ')</span>';
           html += '</div>';
         });
         html += '</div>';
       }
 
-      // date + pharmacy
-      html += '<div class="lp-pharmacy">';
-      html += 'Date: ' + fmtDate(todayStr());
-      if (pharmacyDetails.address) html += '<br>' + esc(pharmacyDetails.address);
-      if (pharmacyDetails.phone) html += ' | Tel: ' + esc(pharmacyDetails.phone);
-      if (pharmacyDetails.licence) html += ' | Licence: ' + esc(pharmacyDetails.licence);
+      // footer
+      html += '<div class="lp-footer"><span>Date: ' + fmtDate(todayStr()) + '</span>';
+      if (pharmacyDetails.licence) html += '<span>Lic: ' + esc(pharmacyDetails.licence) + '</span>';
       html += '</div>';
 
-      html += '</div>';
+      html += '</div></div>';
       previewArea.innerHTML = html;
     }
 
@@ -461,27 +558,24 @@
   }
 
   // ── history ──────────────────────────────────────────────────────────────
-  function renderHistory(root, redraw) {
+  function renderHistory(container, redraw) {
     var card = document.createElement("div");
     card.className = "card";
-    card.innerHTML = '<div class="hd"><h3>Print History (' + labelHistory.length + ')</h3></div>';
+    card.innerHTML = '<div class="hd"><h3>\uD83D\uDCCB Print History (' + labelHistory.length + ')</h3></div>';
     var bd = document.createElement("div");
     bd.className = "bd";
+    bd.style.overflowX = "auto";
 
     // search
     var searchBar = document.createElement("div");
     searchBar.className = "search-bar";
     var searchInput = document.createElement("input");
     searchInput.type = "text";
-    searchInput.placeholder = "Search by patient, drug, or date...";
+    searchInput.placeholder = "Search by patient, drug, or date\u2026";
     searchInput.value = searchQ;
     searchInput.addEventListener("input", function () { searchQ = searchInput.value; });
+    searchInput.addEventListener("keydown", function (e) { if (e.key === "Enter") redraw(); });
     searchBar.appendChild(searchInput);
-    var searchBtn = document.createElement("button");
-    searchBtn.className = "btn sm";
-    searchBtn.textContent = "Search";
-    searchBtn.addEventListener("click", function () { redraw(); });
-    searchBar.appendChild(searchBtn);
     bd.appendChild(searchBar);
 
     var filtered = labelHistory;
@@ -493,7 +587,7 @@
     }
 
     if (filtered.length === 0) {
-      bd.innerHTML += '<div class="empty"><div class="icon">\uD83D\uDCCB</div>No labels in history.</div>';
+      bd.innerHTML += '<div class="empty"><div class="icon">\uD83D\uDCCB</div><div class="msg">No labels in history.</div></div>';
     } else {
       var table = document.createElement("table");
       table.innerHTML = '<thead><tr><th>Patient</th><th>Drug</th><th>Dose</th><th>Frequency</th><th>Printed</th><th>By</th><th></th></tr></thead>';
@@ -507,18 +601,20 @@
           '<td>' + esc(l.frequency || "-") + '</td>' +
           '<td>' + esc(l.printedAt || "-") + '</td>' +
           '<td>' + esc(l.printedBy || "-") + '</td>' +
-          '<td></td>';
+          '<td style="white-space:nowrap"></td>';
         var actionTd = tr.querySelector("td:last-child");
         var reprintBtn = document.createElement("button");
         reprintBtn.className = "btn sm pri";
         reprintBtn.textContent = "Reprint";
-        reprintBtn.addEventListener("click", function () {
+        reprintBtn.addEventListener("click", function (e) {
+          e.stopPropagation();
           currentLabel = {
             patientName: l.patientName, drugName: l.drugName, dose: l.dose,
             frequency: l.frequency, route: l.route, customInstructions: l.customInstructions,
             selectedWarnings: l.selectedWarnings || [], templateId: l.templateId || (templates[0] || {}).id
           };
           activeTab = "create";
+          toast("Label loaded \u2014 ready to reprint", "good");
           redraw();
         });
         actionTd.appendChild(reprintBtn);
@@ -529,16 +625,16 @@
     }
 
     card.appendChild(bd);
-    root.appendChild(card);
+    container.appendChild(card);
   }
 
   // ── templates ────────────────────────────────────────────────────────────
-  function renderTemplates(root, redraw) {
+  function renderTemplates(container, redraw) {
     var card = document.createElement("div");
     card.className = "card";
     var hd = document.createElement("div");
     hd.className = "hd";
-    hd.innerHTML = '<h3>Label Templates</h3>';
+    hd.innerHTML = '<h3>\uD83D\uDCC4 Label Templates</h3>';
     var addBtn = document.createElement("button");
     addBtn.className = "btn pri sm";
     addBtn.textContent = "+ New Template";
@@ -548,9 +644,10 @@
 
     var bd = document.createElement("div");
     bd.className = "bd";
+    bd.style.overflowX = "auto";
 
     if (templates.length === 0) {
-      bd.innerHTML = '<div class="empty"><div class="icon">\uD83D\uDCC4</div>No templates. Add one to get started.</div>';
+      bd.innerHTML = '<div class="empty"><div class="icon">\uD83D\uDCC4</div><div class="msg">No templates. Add one to get started.</div></div>';
     } else {
       var table = document.createElement("table");
       table.innerHTML = '<thead><tr><th>Name</th><th>Size</th><th>Fields</th><th>Default</th><th></th></tr></thead>';
@@ -561,13 +658,13 @@
           '<td><strong>' + esc(t.name) + '</strong></td>' +
           '<td>' + esc(t.size || "standard") + '</td>' +
           '<td>' + (t.fields || []).length + ' fields</td>' +
-          '<td>' + (t.isDefault ? "Yes" : "-") + '</td>' +
-          '<td></td>';
+          '<td>' + (t.isDefault ? '<span style="color:#2ee59d;font-weight:700">\u2713 Default</span>' : '-') + '</td>' +
+          '<td style="white-space:nowrap"></td>';
         var actionTd = tr.querySelector("td:last-child");
         var eBtn = document.createElement("button");
         eBtn.className = "btn sm";
         eBtn.textContent = "Edit";
-        eBtn.addEventListener("click", function () { showTemplateModal(t, redraw); });
+        eBtn.addEventListener("click", function (e) { e.stopPropagation(); showTemplateModal(t, redraw); });
         actionTd.appendChild(eBtn);
 
         if (!t.isDefault) {
@@ -575,10 +672,12 @@
           dBtn.className = "btn sm dn";
           dBtn.textContent = "Delete";
           dBtn.style.marginLeft = "4px";
-          dBtn.addEventListener("click", function () {
+          dBtn.addEventListener("click", function (e) {
+            e.stopPropagation();
             if (!confirm("Delete template \"" + t.name + "\"?")) return;
             templates = templates.filter(function (x) { return x.id !== t.id; });
             save();
+            toast("Template deleted", "warn");
             redraw();
           });
           actionTd.appendChild(dBtn);
@@ -591,7 +690,7 @@
     }
 
     card.appendChild(bd);
-    root.appendChild(card);
+    container.appendChild(card);
   }
 
   // ── template modal ───────────────────────────────────────────────────────
@@ -611,14 +710,8 @@
       { id: "customInstructions", label: "Custom Instructions" }
     ];
 
-    var bg = document.createElement("div");
-    bg.className = "lb modal-bg";
-    var modal = document.createElement("div");
-    modal.className = "modal";
-
-    modal.innerHTML =
-      '<div class="m-hd"><h3>' + (isEdit ? "Edit Template" : "New Template") + '</h3><button class="btn sm close-m">&times;</button></div>' +
-      '<div class="m-bd">' +
+    var bodyHtml =
+      '<div class="lb">' +
         '<div class="fld"><label>Template Name</label><input type="text" id="lb-t-name" placeholder="e.g. Large Print Label" value="' + esc(data.name) + '"></div>' +
         '<div class="fld"><label>Label Size</label><select id="lb-t-size"><option value="standard"' + (data.size === "standard" ? ' selected' : '') + '>Standard</option><option value="large"' + (data.size === "large" ? ' selected' : '') + '>Large Print (Elderly)</option></select></div>' +
         '<div class="fld"><label>Fields to Include</label><div id="lb-t-fields" class="warn-list">' +
@@ -627,15 +720,16 @@
             return '<span class="warn-tag' + (on ? ' on' : '') + '" data-fid="' + f.id + '">' + esc(f.label) + '</span>';
           }).join("") +
         '</div></div>' +
-        '<div class="fld"><label><input type="checkbox" id="lb-t-default"' + (data.isDefault ? ' checked' : '') + '> Set as default template</label></div>' +
-      '</div>' +
-      '<div class="m-ft"><button class="btn close-m">Cancel</button><button class="btn pri" id="lb-t-save">Save</button></div>';
+        '<div class="fld"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;text-transform:none;letter-spacing:0"><input type="checkbox" id="lb-t-default"' + (data.isDefault ? ' checked' : '') + ' style="width:auto;margin:0"> Set as default template</label></div>' +
+      '</div>';
 
-    bg.appendChild(modal);
-    document.body.appendChild(bg);
+    var footerHtml = '<button class="lb btn close-cancel">Cancel</button><button class="lb btn pri" id="lb-t-save">Save Template</button>';
+
+    var m = openModal(isEdit ? "Edit Template" : "New Template", bodyHtml, footerHtml);
+    m.modal.querySelector(".close-cancel").addEventListener("click", m.close);
 
     // field toggles
-    modal.querySelectorAll("#lb-t-fields .warn-tag").forEach(function (tag) {
+    m.modal.querySelectorAll("#lb-t-fields .warn-tag").forEach(function (tag) {
       tag.addEventListener("click", function () {
         var fid = tag.getAttribute("data-fid");
         var idx = data.fields.indexOf(fid);
@@ -645,18 +739,14 @@
       });
     });
 
-    bg.querySelectorAll(".close-m").forEach(function (b) { b.addEventListener("click", function () { bg.remove(); }); });
-    bg.addEventListener("click", function (e) { if (e.target === bg) bg.remove(); });
-
-    modal.querySelector("#lb-t-save").addEventListener("click", function () {
-      var name = modal.querySelector("#lb-t-name").value.trim();
-      if (!name) { modal.querySelector("#lb-t-name").style.borderColor = "#ff5a7a"; return; }
+    m.modal.querySelector("#lb-t-save").addEventListener("click", function () {
+      var name = m.modal.querySelector("#lb-t-name").value.trim();
+      if (!name) { m.modal.querySelector("#lb-t-name").style.borderColor = "#ff5a7a"; return; }
 
       data.name = name;
-      data.size = modal.querySelector("#lb-t-size").value;
-      data.isDefault = modal.querySelector("#lb-t-default").checked;
+      data.size = m.modal.querySelector("#lb-t-size").value;
+      data.isDefault = m.modal.querySelector("#lb-t-default").checked;
 
-      // if setting as default, unset others
       if (data.isDefault) {
         templates.forEach(function (t) { t.isDefault = false; });
       }
@@ -669,70 +759,73 @@
       }
 
       save();
-      bg.remove();
+      m.close();
+      toast(isEdit ? "Template updated" : "Template created", "good");
       redraw();
     });
+
+    setTimeout(function () { var f = m.modal.querySelector("#lb-t-name"); if (f) f.focus(); }, 80);
   }
 
   // ── warnings reference ───────────────────────────────────────────────────
-  function renderWarnings(root, redraw) {
+  function renderWarnings(container, redraw) {
     var card = document.createElement("div");
     card.className = "card";
-    card.innerHTML = '<div class="hd"><h3>Standard Warning / Advisory Labels</h3></div>';
+    card.innerHTML = '<div class="hd"><h3>\u26A0\uFE0F Standard Warning / Advisory Labels</h3></div>';
     var bd = document.createElement("div");
     bd.className = "bd";
+    bd.style.overflowX = "auto";
 
     var table = document.createElement("table");
-    table.innerHTML = '<thead><tr><th>#</th><th>English</th><th>Maltese</th></tr></thead>';
+    table.innerHTML = '<thead><tr><th style="width:40px">#</th><th>English</th><th>Maltese (Malti)</th></tr></thead>';
     var tbody = document.createElement("tbody");
     WARNINGS.forEach(function (w, i) {
       var tr = document.createElement("tr");
       tr.innerHTML =
-        '<td>' + (i + 1) + '</td>' +
-        '<td>' + esc(w.en) + '</td>' +
-        '<td><em>' + esc(w.mt) + '</em></td>';
+        '<td style="color:var(--mut);text-align:center">' + (i + 1) + '</td>' +
+        '<td><strong>' + esc(w.en) + '</strong></td>' +
+        '<td style="color:var(--mut);font-style:italic">' + esc(w.mt) + '</td>';
       tbody.appendChild(tr);
     });
     table.appendChild(tbody);
     bd.appendChild(table);
 
     card.appendChild(bd);
-    root.appendChild(card);
+    container.appendChild(card);
   }
 
   // ── pharmacy settings ────────────────────────────────────────────────────
-  function renderSettings(root, redraw) {
+  function renderSettings(container, redraw) {
     var card = document.createElement("div");
     card.className = "card";
-    card.innerHTML = '<div class="hd"><h3>Pharmacy Details</h3></div>';
+    card.innerHTML = '<div class="hd"><h3>\uD83C\uDFE5 Pharmacy Details</h3></div>';
     var bd = document.createElement("div");
     bd.className = "bd";
     bd.innerHTML =
-      '<p style="color:var(--mut);font-size:12.5px;margin-top:0">These details appear on printed labels.</p>' +
+      '<p style="color:var(--mut);font-size:13px;margin-top:0;margin-bottom:16px">These details appear on printed labels.</p>' +
       '<div class="fld"><label>Pharmacy Name</label><input type="text" id="lb-s-name" placeholder="Pharmacy name" value="' + esc(pharmacyDetails.name) + '"></div>' +
       '<div class="fld"><label>Address</label><input type="text" id="lb-s-addr" placeholder="Full address" value="' + esc(pharmacyDetails.address) + '"></div>' +
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">' +
-        '<div class="fld"><label>Phone</label><input type="text" id="lb-s-phone" placeholder="+356..." value="' + esc(pharmacyDetails.phone) + '"></div>' +
+        '<div class="fld"><label>Phone</label><input type="text" id="lb-s-phone" placeholder="+356\u2026" value="' + esc(pharmacyDetails.phone) + '"></div>' +
         '<div class="fld"><label>Licence Number</label><input type="text" id="lb-s-lic" placeholder="Licence #" value="' + esc(pharmacyDetails.licence) + '"></div>' +
       '</div>';
 
     var saveBtn = document.createElement("button");
     saveBtn.className = "btn pri";
-    saveBtn.style.marginTop = "14px";
-    saveBtn.textContent = "Save Pharmacy Details";
+    saveBtn.style.marginTop = "16px";
+    saveBtn.innerHTML = "Save Pharmacy Details";
     saveBtn.addEventListener("click", function () {
       pharmacyDetails.name = document.getElementById("lb-s-name").value.trim();
       pharmacyDetails.address = document.getElementById("lb-s-addr").value.trim();
       pharmacyDetails.phone = document.getElementById("lb-s-phone").value.trim();
       pharmacyDetails.licence = document.getElementById("lb-s-lic").value.trim();
       save();
-      saveBtn.textContent = "Saved!";
-      setTimeout(function () { saveBtn.textContent = "Save Pharmacy Details"; }, 1500);
+      toast("Pharmacy details saved", "good");
     });
     bd.appendChild(saveBtn);
 
     card.appendChild(bd);
-    root.appendChild(card);
+    container.appendChild(card);
   }
 
   // ── register ─────────────────────────────────────────────────────────────
