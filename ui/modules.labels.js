@@ -289,7 +289,7 @@
 
   // ── print via new tab (standard Eikon pattern) ─────────────────────────
   function printLabelHtml(html) {
-    var page = '<!DOCTYPE html><html><head><style>\n' +
+    var page = '<!DOCTYPE html><html><head><meta charset="utf-8">\n<style>\n' +
       'body{margin:0;padding:24px;font-family:"Segoe UI",system-ui,sans-serif;color:#000;}\n' +
       '.label-preview{padding:14px 18px;line-height:1.5;font-size:13px;}\n' +
       '.label-preview.large{font-size:17px;padding:24px 28px;line-height:1.65;}\n' +
