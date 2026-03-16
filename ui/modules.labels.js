@@ -287,26 +287,51 @@
     el.classList.add("lb-autofilled");
   }
 
+  // ── build print HTML from label data (not from DOM) ─────────────────────
+  function buildPrintHtml(labelData, pharm, tpl) {
+    var isLarge = tpl && tpl.size === "large";
+    var showMt = tpl && tpl.language === "mt";
+    var h = '';
+    h += '<div style="font-family:\'Segoe UI\',system-ui,sans-serif;color:#000;font-size:' + (isLarge ? '13pt' : '10pt') + ';line-height:1.5;max-width:100%;">';
+    // header
+    h += '<div style="border-bottom:1.5pt solid #000;padding-bottom:3pt;margin-bottom:5pt;">';
+    h += '<div style="font-weight:900;font-size:1.15em;">' + esc(pharm.name || "Pharmacy") + '</div>';
+    if (pharm.address) h += '<div style="font-size:.78em;color:#444;margin-top:1pt;">' + esc(pharm.address) + (pharm.phone ? ' | Tel: ' + esc(pharm.phone) : '') + '</div>';
+    h += '</div>';
+    // fields
+    h += '<div style="margin:2pt 0;"><b>Patient:</b> ' + esc(labelData.patientName || "\u2014") + '</div>';
+    h += '<div style="margin:2pt 0;"><b>Drug:</b> <strong>' + esc(labelData.drugName || "\u2014") + '</strong></div>';
+    if (labelData.dose) h += '<div style="margin:2pt 0;"><b>Dose:</b> ' + esc(labelData.dose) + '</div>';
+    h += '<div style="margin:2pt 0;"><b>Frequency:</b> ' + esc(labelData.frequency || "");
+    if (showMt && FREQUENCIES_MT[labelData.frequency]) h += ' <i style="color:#555;font-size:.85em;">(' + esc(FREQUENCIES_MT[labelData.frequency]) + ')</i>';
+    h += '</div>';
+    h += '<div style="margin:2pt 0;"><b>Route:</b> ' + esc(labelData.route || "") + '</div>';
+    if (labelData.customInstructions) h += '<div style="margin:2pt 0;"><b>Note:</b> ' + esc(labelData.customInstructions) + '</div>';
+    // warnings
+    var selWarnings = WARNINGS.filter(function (w) { return (labelData.selectedWarnings || []).indexOf(w.id) !== -1; });
+    if (selWarnings.length > 0) {
+      h += '<div style="margin-top:5pt;padding-top:4pt;border-top:1pt solid #999;">';
+      selWarnings.forEach(function (w) {
+        h += '<div style="font-weight:700;font-size:.85em;color:#8B4513;margin:2pt 0;">\u26A0\uFE0F ' + esc(w.en);
+        if (showMt) h += ' <i style="color:#666;font-weight:400;">(' + esc(w.mt) + ')</i>';
+        h += '</div>';
+      });
+      h += '</div>';
+    }
+    // footer
+    h += '<div style="margin-top:5pt;padding-top:3pt;border-top:1pt solid #999;font-size:.72em;color:#666;display:flex;justify-content:space-between;">';
+    h += '<span>Date: ' + fmtDate(todayStr()) + '</span>';
+    if (pharm.licence) h += '<span>Lic: ' + esc(pharm.licence) + '</span>';
+    h += '</div>';
+    h += '</div>';
+    return h;
+  }
+
   // ── print via new tab (standard Eikon pattern) ─────────────────────────
   function printLabelHtml(html) {
     var page = '<!DOCTYPE html><html><head><meta charset="utf-8">\n<style>\n' +
-      '@page{margin:6mm;size:auto;}\n' +
-      'html,body{margin:0;padding:0;width:100%;height:100%;}\n' +
-      'body{font-family:"Segoe UI",system-ui,-apple-system,sans-serif;color:#000;display:flex;align-items:flex-start;justify-content:center;}\n' +
-      '.label-preview{width:100%;max-width:100%;padding:5mm 6mm;line-height:1.45;font-size:11pt;box-sizing:border-box;}\n' +
-      '.label-preview.large{font-size:14pt;line-height:1.55;padding:6mm 7mm;}\n' +
-      '.label-preview-wrap{width:100%;}\n' +
-      '.lp-header{border-bottom:1.5pt solid #000;padding-bottom:4pt;margin-bottom:6pt;}\n' +
-      '.lp-header h4{margin:0;font-weight:900;font-size:1.2em;}\n' +
-      '.lp-header .lp-addr{font-size:.75em;color:#444;margin-top:1pt;}\n' +
-      '.lp-row{margin:2pt 0;display:flex;gap:4pt;}\n' +
-      '.lp-label{font-weight:700;color:#222;min-width:65pt;flex-shrink:0;}\n' +
-      '.lp-val{color:#000;}\n' +
-      '.lp-mt{color:#555;font-style:italic;font-size:.85em;}\n' +
-      '.lp-warn{margin-top:6pt;padding-top:4pt;border-top:1pt solid #999;}\n' +
-      '.lp-warn div{font-weight:700;font-size:.85em;color:#8B4513;margin:2pt 0;}\n' +
-      '.lp-warn .lp-wmt{color:#666;font-weight:400;font-style:italic;}\n' +
-      '.lp-footer{margin-top:6pt;padding-top:4pt;border-top:1pt solid #999;font-size:.72em;color:#666;display:flex;justify-content:space-between;}\n' +
+      '@page{margin:5mm;size:auto;}\n' +
+      'html,body{margin:0;padding:3mm;width:100%;font-family:"Segoe UI",system-ui,sans-serif;color:#000;}\n' +
       '</style></head><body>\n' +
       html + '\n' +
       "<script>window.addEventListener('load',function(){setTimeout(function(){try{window.print();}catch(e){}},80);});" +
@@ -673,11 +698,9 @@
       // rebuild memory with new entry
       buildMemory();
       buildMedicineDb();
-      // print via iframe
-      var previewEl = document.querySelector("#lb-preview-area .label-preview");
-      if (previewEl) {
-        printLabelHtml(previewEl.outerHTML);
-      }
+      // print via new tab
+      var tpl = templates.find(function (t) { return t.id === label.templateId; }) || templates[0] || {};
+      printLabelHtml(buildPrintHtml(entry, pharmacyDetails, tpl));
       toast("Label sent to printer and saved to history", "good");
       redraw();
     });
