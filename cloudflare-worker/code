@@ -16404,6 +16404,24 @@ if (url.pathname.startsWith("/dda-stocktakes/items/")) {
     }
     // ── End Pharmacovigilance ─────────────────────────────────────────────
 
+    // ── Screening Campaigns ─────────────────────────────────────────────
+    if (url.pathname === "/screening/state" && request.method === "GET") {
+      return await handleScreeningStateGet(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname === "/screening/state" && request.method === "PUT") {
+      return await handleScreeningStatePut(request, env, corsOkHeaders, authUser);
+    }
+    // ── End Screening Campaigns ─────────────────────────────────────────
+
+    // ── Smart Labels ────────────────────────────────────────────────────
+    if (url.pathname === "/labels/state" && request.method === "GET") {
+      return await handleLabelsStateGet(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname === "/labels/state" && request.method === "PUT") {
+      return await handleLabelsStatePut(request, env, corsOkHeaders, authUser);
+    }
+    // ── End Smart Labels ────────────────────────────────────────────────
+
     // ── Contacts ────────────────────────────────────────────────────────
     /* Aggregated client contacts — pulls unique clients from other modules */
     if (url.pathname === "/contacts/clients/aggregated" && request.method === "GET") {
@@ -17427,6 +17445,209 @@ async function handlePvStatePut(request, env, corsOkHeaders, authUser) {
   }
 
   await writeAudit(env, orgId, userId, "PV_STATE_PUT", "pv_reports", "", { count: cleaned.length });
+  return jsonResponse({ ok: true, saved: cleaned.length }, 200, corsOkHeaders);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SCREENING CAMPAIGNS MODULE  (location-scoped)
+// Table: screening_campaigns (stores campaign JSON per campaign ID)
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function ensureScreeningSchema(env) {
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS screening_campaigns (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id INTEGER NOT NULL,
+    location_id INTEGER NOT NULL,
+    campaign_id TEXT NOT NULL,
+    campaign_json TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    created_by INTEGER,
+    updated_by INTEGER,
+    UNIQUE(org_id, location_id, campaign_id)
+  )`);
+}
+
+async function handleScreeningStateGet(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureScreeningSchema(env);
+  const rows = await dbAll(env,
+    `SELECT campaign_json FROM screening_campaigns WHERE org_id = ? AND location_id = ? ORDER BY updated_at DESC, id DESC`,
+    [authUser.org_id, authUser.location_id]);
+  const campaigns = [];
+  for (const row of rows) {
+    try { const v = JSON.parse(String(row.campaign_json)); if (v) campaigns.push(v); } catch (e) {}
+  }
+  return jsonResponse({ ok: true, campaigns, state: { campaigns } }, 200, corsOkHeaders);
+}
+
+async function handleScreeningStatePut(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureScreeningSchema(env);
+  const body = await readJson(request);
+  const st = body && (body.state || body.data) ? (body.state || body.data) : body;
+  const campaignsIn = st && st.campaigns ? st.campaigns : [];
+  const campaigns = Array.isArray(campaignsIn) ? campaignsIn : [];
+  const orgId = authUser.org_id;
+  const locId = authUser.location_id;
+  const userId = authUser.user_id;
+
+  const idSet = new Set();
+  const cleaned = [];
+  for (const c of campaigns) {
+    const cid = c && c.id ? String(c.id).trim() : "";
+    if (!cid) continue;
+    if (!idSet.has(cid)) { idSet.add(cid); cleaned.push(c); }
+  }
+
+  // Upsert each campaign
+  const upsertSql = `INSERT INTO screening_campaigns (org_id, location_id, campaign_id, campaign_json, created_by, updated_by, updated_at)
+    VALUES (?,?,?,?,?,?, datetime('now'))
+    ON CONFLICT(org_id, location_id, campaign_id) DO UPDATE SET
+      campaign_json = excluded.campaign_json, updated_by = excluded.updated_by, updated_at = datetime('now')`;
+  const stmt = env.DB.prepare(upsertSql);
+  for (const c of cleaned) {
+    await stmt.bind(orgId, locId, String(c.id), JSON.stringify(c), userId, userId).run();
+  }
+
+  // Delete campaigns no longer in the set
+  if (idSet.size > 0) {
+    const existing = await dbAll(env, `SELECT campaign_id FROM screening_campaigns WHERE org_id = ? AND location_id = ?`, [orgId, locId]);
+    for (const row of existing) {
+      if (!idSet.has(String(row.campaign_id))) {
+        await dbRun(env, `DELETE FROM screening_campaigns WHERE org_id = ? AND location_id = ? AND campaign_id = ?`, [orgId, locId, String(row.campaign_id)]);
+      }
+    }
+  } else {
+    await dbRun(env, `DELETE FROM screening_campaigns WHERE org_id = ? AND location_id = ?`, [orgId, locId]);
+  }
+
+  await writeAudit(env, orgId, userId, "SCREENING_STATE_PUT", "screening_campaigns", "", { count: cleaned.length });
+  return jsonResponse({ ok: true, saved: cleaned.length }, 200, corsOkHeaders);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SMART LABELS MODULE  (location-scoped)
+// Tables: label_history (audit log), label_settings (templates + pharmacy details)
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function ensureLabelsSchema(env) {
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS label_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id INTEGER NOT NULL,
+    location_id INTEGER NOT NULL,
+    label_id TEXT NOT NULL,
+    label_json TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    created_by INTEGER,
+    updated_by INTEGER,
+    UNIQUE(org_id, location_id, label_id)
+  )`);
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS label_settings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id INTEGER NOT NULL,
+    location_id INTEGER NOT NULL,
+    settings_json TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_by INTEGER,
+    UNIQUE(org_id, location_id)
+  )`);
+}
+
+async function handleLabelsStateGet(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureLabelsSchema(env);
+  const orgId = authUser.org_id;
+  const locId = authUser.location_id;
+
+  // Get label history
+  const rows = await dbAll(env,
+    `SELECT label_json FROM label_history WHERE org_id = ? AND location_id = ? ORDER BY updated_at DESC, id DESC`,
+    [orgId, locId]);
+  const labelHistory = [];
+  for (const row of rows) {
+    try { const v = JSON.parse(String(row.label_json)); if (v) labelHistory.push(v); } catch (e) {}
+  }
+
+  // Get settings (templates + pharmacy details)
+  const settingsRow = await dbFirst(env,
+    `SELECT settings_json FROM label_settings WHERE org_id = ? AND location_id = ?`,
+    [orgId, locId]);
+  let templates = [];
+  let pharmacyDetails = {};
+  if (settingsRow) {
+    try {
+      const s = JSON.parse(String(settingsRow.settings_json));
+      if (s.templates) templates = s.templates;
+      if (s.pharmacyDetails) pharmacyDetails = s.pharmacyDetails;
+    } catch (e) {}
+  }
+
+  return jsonResponse({ ok: true, state: { labelHistory, templates, pharmacyDetails } }, 200, corsOkHeaders);
+}
+
+async function handleLabelsStatePut(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureLabelsSchema(env);
+  const body = await readJson(request);
+  const st = body && (body.state || body.data) ? (body.state || body.data) : body;
+  const orgId = authUser.org_id;
+  const locId = authUser.location_id;
+  const userId = authUser.user_id;
+
+  // Save label history
+  const historyIn = st && st.labelHistory ? st.labelHistory : [];
+  const history = Array.isArray(historyIn) ? historyIn : [];
+
+  const idSet = new Set();
+  const cleaned = [];
+  for (const l of history) {
+    const lid = l && l.id ? String(l.id).trim() : "";
+    if (!lid) continue;
+    if (!idSet.has(lid)) { idSet.add(lid); cleaned.push(l); }
+  }
+
+  const upsertSql = `INSERT INTO label_history (org_id, location_id, label_id, label_json, created_by, updated_by, updated_at)
+    VALUES (?,?,?,?,?,?, datetime('now'))
+    ON CONFLICT(org_id, location_id, label_id) DO UPDATE SET
+      label_json = excluded.label_json, updated_by = excluded.updated_by, updated_at = datetime('now')`;
+  const stmt = env.DB.prepare(upsertSql);
+  for (const l of cleaned) {
+    await stmt.bind(orgId, locId, String(l.id), JSON.stringify(l), userId, userId).run();
+  }
+
+  if (idSet.size > 0) {
+    const existing = await dbAll(env, `SELECT label_id FROM label_history WHERE org_id = ? AND location_id = ?`, [orgId, locId]);
+    for (const row of existing) {
+      if (!idSet.has(String(row.label_id))) {
+        await dbRun(env, `DELETE FROM label_history WHERE org_id = ? AND location_id = ? AND label_id = ?`, [orgId, locId, String(row.label_id)]);
+      }
+    }
+  } else {
+    await dbRun(env, `DELETE FROM label_history WHERE org_id = ? AND location_id = ?`, [orgId, locId]);
+  }
+
+  // Save settings (templates + pharmacy details)
+  const settingsJson = JSON.stringify({
+    templates: st && st.templates ? st.templates : [],
+    pharmacyDetails: st && st.pharmacyDetails ? st.pharmacyDetails : {}
+  });
+  await dbRun(env, `INSERT INTO label_settings (org_id, location_id, settings_json, updated_by, updated_at)
+    VALUES (?,?,?,?, datetime('now'))
+    ON CONFLICT(org_id, location_id) DO UPDATE SET
+      settings_json = excluded.settings_json, updated_by = excluded.updated_by, updated_at = datetime('now')`,
+    [orgId, locId, settingsJson, userId]);
+
+  await writeAudit(env, orgId, userId, "LABELS_STATE_PUT", "label_history", "", { historyCount: cleaned.length });
   return jsonResponse({ ok: true, saved: cleaned.length }, 200, corsOkHeaders);
 }
 
