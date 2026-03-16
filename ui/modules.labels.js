@@ -291,35 +291,37 @@
   function buildPrintHtml(labelData, pharm, tpl) {
     var isLarge = tpl && tpl.size === "large";
     var showMt = tpl && tpl.language === "mt";
+    // Use vw units so text scales to ANY paper width (label printer or A4)
+    var fs = isLarge ? '3.2vw' : '2.4vw';
     var h = '';
-    h += '<div style="font-family:\'Segoe UI\',system-ui,sans-serif;color:#000;font-size:' + (isLarge ? '13pt' : '10pt') + ';line-height:1.5;max-width:100%;">';
+    h += '<div style="font-family:Arial,Helvetica,sans-serif;color:#000;font-size:' + fs + ';line-height:1.3;width:100%;word-wrap:break-word;overflow-wrap:break-word;">';
     // header
-    h += '<div style="border-bottom:1.5pt solid #000;padding-bottom:3pt;margin-bottom:5pt;">';
-    h += '<div style="font-weight:900;font-size:1.15em;">' + esc(pharm.name || "Pharmacy") + '</div>';
-    if (pharm.address) h += '<div style="font-size:.78em;color:#444;margin-top:1pt;">' + esc(pharm.address) + (pharm.phone ? ' | Tel: ' + esc(pharm.phone) : '') + '</div>';
+    h += '<div style="border-bottom:0.3vw solid #000;padding-bottom:0.5vw;margin-bottom:0.8vw;">';
+    h += '<div style="font-weight:900;font-size:1.1em;">' + esc(pharm.name || "Pharmacy") + '</div>';
+    if (pharm.address) h += '<div style="font-size:.7em;color:#444;margin-top:0.2vw;">' + esc(pharm.address) + (pharm.phone ? ' | Tel: ' + esc(pharm.phone) : '') + '</div>';
     h += '</div>';
-    // fields
-    h += '<div style="margin:2pt 0;"><b>Patient:</b> ' + esc(labelData.patientName || "\u2014") + '</div>';
-    h += '<div style="margin:2pt 0;"><b>Drug:</b> <strong>' + esc(labelData.drugName || "\u2014") + '</strong></div>';
-    if (labelData.dose) h += '<div style="margin:2pt 0;"><b>Dose:</b> ' + esc(labelData.dose) + '</div>';
-    h += '<div style="margin:2pt 0;"><b>Frequency:</b> ' + esc(labelData.frequency || "");
-    if (showMt && FREQUENCIES_MT[labelData.frequency]) h += ' <i style="color:#555;font-size:.85em;">(' + esc(FREQUENCIES_MT[labelData.frequency]) + ')</i>';
+    // fields — compact single-line
+    h += '<div style="margin:0.3vw 0;"><b>Patient:</b> ' + esc(labelData.patientName || "\u2014") + '</div>';
+    h += '<div style="margin:0.3vw 0;"><b>Drug:</b> ' + esc(labelData.drugName || "\u2014") + '</div>';
+    if (labelData.dose) h += '<div style="margin:0.3vw 0;"><b>Dose:</b> ' + esc(labelData.dose) + '</div>';
+    h += '<div style="margin:0.3vw 0;"><b>Freq:</b> ' + esc(labelData.frequency || "");
+    if (showMt && FREQUENCIES_MT[labelData.frequency]) h += ' <i style="font-size:.8em;">(' + esc(FREQUENCIES_MT[labelData.frequency]) + ')</i>';
     h += '</div>';
-    h += '<div style="margin:2pt 0;"><b>Route:</b> ' + esc(labelData.route || "") + '</div>';
-    if (labelData.customInstructions) h += '<div style="margin:2pt 0;"><b>Note:</b> ' + esc(labelData.customInstructions) + '</div>';
+    h += '<div style="margin:0.3vw 0;"><b>Route:</b> ' + esc(labelData.route || "") + '</div>';
+    if (labelData.customInstructions) h += '<div style="margin:0.3vw 0;"><b>Note:</b> ' + esc(labelData.customInstructions) + '</div>';
     // warnings
     var selWarnings = WARNINGS.filter(function (w) { return (labelData.selectedWarnings || []).indexOf(w.id) !== -1; });
     if (selWarnings.length > 0) {
-      h += '<div style="margin-top:5pt;padding-top:4pt;border-top:1pt solid #999;">';
+      h += '<div style="margin-top:0.5vw;padding-top:0.4vw;border-top:0.2vw solid #999;">';
       selWarnings.forEach(function (w) {
-        h += '<div style="font-weight:700;font-size:.85em;color:#8B4513;margin:2pt 0;">\u26A0\uFE0F ' + esc(w.en);
-        if (showMt) h += ' <i style="color:#666;font-weight:400;">(' + esc(w.mt) + ')</i>';
+        h += '<div style="font-weight:700;font-size:.8em;color:#8B4513;margin:0.2vw 0;">\u26A0 ' + esc(w.en);
+        if (showMt) h += ' <i style="font-weight:400;color:#666;">(' + esc(w.mt) + ')</i>';
         h += '</div>';
       });
       h += '</div>';
     }
     // footer
-    h += '<div style="margin-top:5pt;padding-top:3pt;border-top:1pt solid #999;font-size:.72em;color:#666;display:flex;justify-content:space-between;">';
+    h += '<div style="margin-top:0.5vw;padding-top:0.3vw;border-top:0.2vw solid #999;font-size:.65em;color:#666;display:flex;justify-content:space-between;">';
     h += '<span>Date: ' + fmtDate(todayStr()) + '</span>';
     if (pharm.licence) h += '<span>Lic: ' + esc(pharm.licence) + '</span>';
     h += '</div>';
@@ -346,33 +348,12 @@
   function printLabelHtml(html) {
     openPrintTab(
       '<!DOCTYPE html><html><head><meta charset="utf-8"><style>' +
-      '@page{margin:0;}' +
-      'html,body{margin:0;padding:0;width:100%;height:100%;}' +
+      '@page{margin:1mm;}' +
+      'html,body{margin:0;padding:1mm;width:100%;height:auto;}' +
       '</style></head><body>' +
-      '<div id="label" style="padding:3mm;box-sizing:border-box;">' + html + '</div>' +
-      '<script>' +
-      '(function(){' +
-      '  function go(){' +
-      '    var el=document.getElementById("label");' +
-      '    if(!el)return;' +
-      /* measure how tall content is vs available page height (use A4 as fallback) */
-      '    var style=getComputedStyle(document.documentElement);' +
-      '    var pageH=window.innerHeight||842;' +  /* 842px ~ A4 at 96dpi */
-      '    var contentH=el.scrollHeight||el.offsetHeight;' +
-      '    if(contentH>pageH && pageH>50){' +
-      '      var scale=Math.floor((pageH/contentH)*100)/100;' +
-      '      if(scale<0.2)scale=0.2;' +
-      '      el.style.transform="scale("+scale+")";' +
-      '      el.style.transformOrigin="top left";' +
-      '      el.style.width=Math.ceil(100/scale)+"%";' +
-      '    }' +
-      '    setTimeout(function(){try{window.print();}catch(e){}},100);' +
-      '  }' +
-      '  if(document.readyState==="complete")go();' +
-      '  else window.addEventListener("load",go);' +
-      '  window.addEventListener("afterprint",function(){setTimeout(function(){try{window.close();}catch(e){}},300);});' +
-      '})();' +
-      '<\/script>' +
+      html +
+      "<script>window.addEventListener('load',function(){setTimeout(function(){try{window.print();}catch(e){}},80);});" +
+      "window.addEventListener('afterprint',function(){setTimeout(function(){try{window.close();}catch(e){}},250);});<\/script>" +
       '</body></html>'
     );
   }
