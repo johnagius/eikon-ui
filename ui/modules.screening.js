@@ -32,6 +32,25 @@
     return E.apiFetch(path, o);
   }
 
+  // ── toast ────────────────────────────────────────────────────────────────
+  var toastWrap = null;
+  function toast(msg, kind) {
+    if (!toastWrap) {
+      toastWrap = document.createElement("div");
+      toastWrap.className = "sc-toast-wrap";
+      document.body.appendChild(toastWrap);
+    }
+    var t = document.createElement("div");
+    t.className = "sc-toast " + (kind || "good");
+    t.innerHTML = '<span class="sc-toast-dot"></span>' + esc(msg);
+    toastWrap.appendChild(t);
+    requestAnimationFrame(function () { t.classList.add("show"); });
+    setTimeout(function () {
+      t.classList.remove("show");
+      setTimeout(function () { t.remove(); }, 250);
+    }, 2400);
+  }
+
   // ── cloud store ──────────────────────────────────────────────────────────
   var campaigns = [];
   var dirty = false;
@@ -64,6 +83,17 @@
     "Skin Cancer Awareness", "General Health Check", "Other"
   ];
 
+  var CAMPAIGN_TYPE_ICONS = {
+    "Blood Pressure Check": "\uD83E\uDEC0", "Diabetes Screening": "\uD83E\uDE78",
+    "Cholesterol Check": "\uD83E\uDDEA", "Blood Glucose Monitoring": "\uD83D\uDCC8",
+    "BMI Assessment": "\u2696\uFE0F", "Cardiovascular Risk": "\u2764\uFE0F",
+    "Respiratory Function": "\uD83E\uDEC1", "Bone Density": "\uD83E\uDDB4",
+    "Mental Health Awareness": "\uD83E\uDDE0", "Smoking Cessation": "\uD83D\uDEAD",
+    "Flu Vaccination": "\uD83D\uDC89", "COVID Booster": "\uD83E\uDDA0",
+    "Skin Cancer Awareness": "\u2600\uFE0F", "General Health Check": "\uD83E\uDE7A",
+    "Other": "\uD83D\uDCCB"
+  };
+
   var REFERRAL_OPTIONS = [
     "No referral needed", "Referred to GP", "Referred to specialist",
     "Referred to hospital", "Referred to dietitian", "Referred to pharmacist follow-up",
@@ -82,79 +112,141 @@
     if (stylesDone) return; stylesDone = true;
     var s = document.createElement("style"); s.id = "eikon-screening-style";
     s.textContent = [
-      ".sc{--ac:#5aa2ff;--ac2:#7c6cff;--gd:#2ee59d;--pk:#ff6b9d;--wn:#ffcc66;--bg:#0b1220;--pnl:rgba(255,255,255,.03);--bd:rgba(255,255,255,.10);--r:16px;--r2:12px;--txt:#e8eefc;--mut:rgba(170,183,214,.78);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--txt);margin:-14px}",
+      /* root + ambient background */
+      ".sc{--ac:#4ea1ff;--ac2:#7c6cff;--gd:#2ee59d;--pk:#ff6b9d;--wn:#ffcc66;--bg:#0b1220;--pnl:rgba(255,255,255,.035);--pnl2:rgba(255,255,255,.055);--bd:rgba(255,255,255,.09);--bd2:rgba(255,255,255,.14);--r:18px;--r2:12px;--txt:#e8eefc;--mut:rgba(170,183,214,.72);--shadow:0 12px 36px rgba(0,0,0,.35);font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--txt);margin:-14px;min-height:calc(100vh - 56px);background:radial-gradient(1200px 600px at 10% 8%,rgba(78,161,255,.13),transparent 60%),radial-gradient(900px 500px at 88% 15%,rgba(124,108,255,.10),transparent 55%),radial-gradient(800px 600px at 50% 100%,rgba(46,229,157,.07),transparent 50%)}",
       ".sc *{box-sizing:border-box}",
-      /* hero */
-      ".sc .hero{position:relative;border-radius:20px;border:1px solid var(--bd);overflow:hidden;padding:20px 22px 16px;margin-bottom:16px;background:linear-gradient(135deg,rgba(90,162,255,.16),rgba(124,108,255,.10),rgba(46,229,157,.06));box-shadow:0 14px 40px rgba(0,0,0,.3)}",
-      ".sc .hero h2{margin:0 0 2px;font-size:20px;font-weight:900;letter-spacing:.3px}",
-      ".sc .hero .sub{color:var(--mut);font-size:12.5px;margin-bottom:14px}",
-      /* kpi */
-      ".sc .kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px}",
-      ".sc .kpi{border:1px solid var(--bd);border-radius:var(--r);background:var(--pnl);padding:14px;text-align:center}",
-      ".sc .kpi .n{font-size:28px;font-weight:900;letter-spacing:.3px}",
-      ".sc .kpi .l{font-size:11.5px;color:var(--mut);margin-top:3px}",
-      /* tabs */
-      ".sc .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}",
-      ".sc .tab{padding:9px 14px;border-radius:var(--r2);border:1px solid var(--bd);background:var(--pnl);color:var(--txt);cursor:pointer;font-size:13px;font-weight:700;transition:transform .08s,background .15s,border-color .15s}",
-      ".sc .tab:hover{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.18)}",
-      ".sc .tab:active{transform:translateY(1px)}",
-      ".sc .tab.on{background:rgba(90,162,255,.16);border-color:rgba(90,162,255,.55)}",
-      /* card */
-      ".sc .card{border:1px solid var(--bd);border-radius:var(--r);background:var(--pnl);box-shadow:0 10px 28px rgba(0,0,0,.25);overflow:hidden;margin-bottom:14px}",
-      ".sc .card .hd{padding:12px 16px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;gap:10px}",
-      ".sc .card .hd h3{margin:0;font-size:14px;font-weight:800}",
-      ".sc .card .bd{padding:16px}",
-      /* form */
-      ".sc .row{display:grid;grid-template-columns:repeat(12,1fr);gap:12px}",
+      ".sc .container{max-width:1200px;margin:0 auto;padding:22px 20px 40px}",
+
+      /* ── hero ── */
+      ".sc .hero{position:relative;border-radius:22px;border:1px solid var(--bd2);overflow:hidden;padding:28px 28px 22px;margin-bottom:20px;background:linear-gradient(135deg,rgba(78,161,255,.14),rgba(124,108,255,.10),rgba(46,229,157,.06));box-shadow:var(--shadow);backdrop-filter:blur(8px)}",
+      ".sc .hero::before{content:'';position:absolute;inset:0;background:radial-gradient(600px circle at 80% 20%,rgba(124,108,255,.12),transparent 60%);pointer-events:none}",
+      ".sc .hero h2{margin:0 0 4px;font-size:22px;font-weight:900;letter-spacing:.3px;position:relative}",
+      ".sc .hero .sub{color:var(--mut);font-size:13px;position:relative}",
+
+      /* ── KPI row ── */
+      ".sc .kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px}",
+      ".sc .kpi{border:1px solid var(--bd);border-radius:var(--r);background:var(--pnl);padding:18px 14px;text-align:center;backdrop-filter:blur(6px);transition:transform .15s,border-color .2s,box-shadow .2s}",
+      ".sc .kpi:hover{transform:translateY(-2px);border-color:var(--bd2);box-shadow:0 8px 24px rgba(0,0,0,.25)}",
+      ".sc .kpi .n{font-size:30px;font-weight:900;letter-spacing:.5px;line-height:1.1}",
+      ".sc .kpi .l{font-size:11px;color:var(--mut);margin-top:5px;text-transform:uppercase;letter-spacing:.5px;font-weight:600}",
+
+      /* ── tabs ── */
+      ".sc .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px;padding:4px;background:var(--pnl);border-radius:14px;border:1px solid var(--bd)}",
+      ".sc .tab{padding:10px 18px;border-radius:10px;border:none;background:transparent;color:var(--mut);cursor:pointer;font-size:13px;font-weight:700;transition:all .18s;position:relative}",
+      ".sc .tab:hover{color:var(--txt);background:rgba(255,255,255,.05)}",
+      ".sc .tab.on{color:var(--txt);background:rgba(78,161,255,.15);box-shadow:0 2px 12px rgba(78,161,255,.15)}",
+
+      /* ── card ── */
+      ".sc .card{border:1px solid var(--bd);border-radius:var(--r);background:var(--pnl);box-shadow:var(--shadow);overflow:hidden;margin-bottom:16px;backdrop-filter:blur(6px);transition:border-color .2s}",
+      ".sc .card:hover{border-color:var(--bd2)}",
+      ".sc .card .hd{padding:14px 20px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--pnl)}",
+      ".sc .card .hd h3{margin:0;font-size:15px;font-weight:800}",
+      ".sc .card .bd{padding:20px}",
+
+      /* ── form fields ── */
       ".sc .fld{display:flex;flex-direction:column;gap:5px}",
-      ".sc .fld label{color:var(--mut);font-size:12px;font-weight:600}",
-      ".sc .fld input,.sc .fld select,.sc .fld textarea{width:100%;border:1px solid var(--bd);background:rgba(0,0,0,.18);color:var(--txt);padding:9px 10px;border-radius:var(--r2);outline:none;font-size:13px;transition:border-color .15s,box-shadow .15s}",
-      ".sc .fld input:focus,.sc .fld select:focus,.sc .fld textarea:focus{border-color:rgba(90,162,255,.6);box-shadow:0 0 0 3px rgba(90,162,255,.12)}",
-      ".sc .fld textarea{min-height:64px;resize:vertical;line-height:1.35}",
-      /* btn */
-      ".sc .btn{border:1px solid var(--bd);background:var(--pnl);color:var(--txt);padding:9px 14px;border-radius:var(--r2);cursor:pointer;font-size:13px;font-weight:700;display:inline-flex;align-items:center;gap:8px;transition:transform .08s,background .15s,border-color .15s}",
-      ".sc .btn:hover{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.18)}",
-      ".sc .btn:active{transform:translateY(1px)}",
-      ".sc .btn.pri{background:rgba(90,162,255,.18);border-color:rgba(90,162,255,.5);color:#8ac4ff}",
-      ".sc .btn.ok{background:rgba(46,229,157,.15);border-color:rgba(46,229,157,.45);color:#6af0be}",
-      ".sc .btn.dn{background:rgba(255,107,157,.15);border-color:rgba(255,107,157,.45);color:#ff9ebe}",
-      ".sc .btn.sm{padding:6px 10px;font-size:12px}",
-      /* table */
+      ".sc .fld label{color:var(--mut);font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px}",
+      ".sc .fld input,.sc .fld select,.sc .fld textarea{width:100%;border:1px solid var(--bd);background:rgba(0,0,0,.22);color:var(--txt);padding:10px 12px;border-radius:var(--r2);outline:none;font-size:13px;transition:border-color .2s,box-shadow .2s}",
+      ".sc .fld input:focus,.sc .fld select:focus,.sc .fld textarea:focus{border-color:rgba(78,161,255,.55);box-shadow:0 0 0 3px rgba(78,161,255,.12)}",
+      ".sc .fld textarea{min-height:68px;resize:vertical;line-height:1.4}",
+      ".sc .fld input::placeholder,.sc .fld textarea::placeholder{color:rgba(170,183,214,.4)}",
+
+      /* ── buttons ── */
+      ".sc .btn{border:1px solid var(--bd);background:var(--pnl2);color:var(--txt);padding:9px 16px;border-radius:var(--r2);cursor:pointer;font-size:13px;font-weight:700;display:inline-flex;align-items:center;gap:8px;transition:all .15s;position:relative;overflow:hidden}",
+      ".sc .btn:hover{background:rgba(255,255,255,.08);border-color:var(--bd2);transform:translateY(-1px)}",
+      ".sc .btn:active{transform:translateY(0)}",
+      ".sc .btn.pri{background:linear-gradient(135deg,rgba(78,161,255,.22),rgba(124,108,255,.18));border-color:rgba(78,161,255,.4);color:#8ac4ff}",
+      ".sc .btn.pri:hover{background:linear-gradient(135deg,rgba(78,161,255,.3),rgba(124,108,255,.24));border-color:rgba(78,161,255,.55);box-shadow:0 4px 16px rgba(78,161,255,.15)}",
+      ".sc .btn.ok{background:linear-gradient(135deg,rgba(46,229,157,.18),rgba(46,229,157,.12));border-color:rgba(46,229,157,.4);color:#6af0be}",
+      ".sc .btn.dn{background:linear-gradient(135deg,rgba(255,107,157,.18),rgba(255,107,157,.12));border-color:rgba(255,107,157,.35);color:#ff9ebe}",
+      ".sc .btn.dn:hover{background:linear-gradient(135deg,rgba(255,107,157,.28),rgba(255,107,157,.2));border-color:rgba(255,107,157,.5);box-shadow:0 4px 16px rgba(255,107,157,.12)}",
+      ".sc .btn.sm{padding:7px 12px;font-size:12px;border-radius:10px}",
+
+      /* ── table ── */
       ".sc table{width:100%;border-collapse:collapse;font-size:13px}",
-      ".sc th{text-align:left;padding:10px 12px;border-bottom:2px solid var(--bd);color:var(--mut);font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.3px}",
-      ".sc td{padding:9px 12px;border-bottom:1px solid var(--bd)}",
-      ".sc tr:hover td{background:rgba(255,255,255,.02)}",
-      /* badges */
-      ".sc .badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700}",
-      ".sc .badge.normal{background:rgba(46,229,157,.15);color:#6af0be}",
-      ".sc .badge.borderline{background:rgba(255,204,102,.15);color:#ffcc66}",
-      ".sc .badge.abnormal{background:rgba(255,107,157,.15);color:#ff9ebe}",
-      ".sc .badge.urgent{background:rgba(255,80,80,.2);color:#ff6b6b}",
-      ".sc .badge.active{background:rgba(90,162,255,.15);color:#8ac4ff}",
-      ".sc .badge.completed{background:rgba(46,229,157,.15);color:#6af0be}",
-      ".sc .badge.planned{background:rgba(255,204,102,.15);color:#ffcc66}",
-      ".sc .badge.cancelled{background:rgba(255,255,255,.08);color:var(--mut)}",
-      /* search */
-      ".sc .search-bar{display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap}",
-      ".sc .search-bar input{flex:1;min-width:180px;border:1px solid var(--bd);background:rgba(0,0,0,.18);color:var(--txt);padding:9px 12px;border-radius:var(--r2);outline:none;font-size:13px}",
-      ".sc .search-bar input:focus{border-color:rgba(90,162,255,.6)}",
-      /* modal */
-      ".sc .modal-bg{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px}",
-      ".sc .modal{background:#111b2a;border:1px solid var(--bd);border-radius:var(--r);max-width:700px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.5)}",
-      ".sc .modal .m-hd{padding:16px 20px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between}",
-      ".sc .modal .m-hd h3{margin:0;font-size:16px;font-weight:800}",
-      ".sc .modal .m-bd{padding:20px}",
-      ".sc .modal .m-ft{padding:14px 20px;border-top:1px solid var(--bd);display:flex;justify-content:flex-end;gap:8px}",
-      /* summary */
-      ".sc .summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:16px}",
-      ".sc .summary-item{border:1px solid var(--bd);border-radius:var(--r2);background:var(--pnl);padding:14px}",
-      ".sc .summary-item .s-label{font-size:11.5px;color:var(--mut);font-weight:600;margin-bottom:4px}",
-      ".sc .summary-item .s-value{font-size:22px;font-weight:900}",
-      /* empty */
-      ".sc .empty{text-align:center;padding:40px 20px;color:var(--mut);font-size:14px}",
-      ".sc .empty .icon{font-size:40px;margin-bottom:10px}",
-      /* responsive */
-      "@media(max-width:700px){.sc .row{grid-template-columns:1fr !important}.sc .kpi-row{grid-template-columns:repeat(2,1fr)}.sc .summary-grid{grid-template-columns:1fr}}"
+      ".sc th{text-align:left;padding:11px 14px;border-bottom:2px solid var(--bd2);color:var(--mut);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;position:sticky;top:0;background:rgba(11,18,32,.92);backdrop-filter:blur(6px);z-index:2}",
+      ".sc td{padding:10px 14px;border-bottom:1px solid var(--bd);transition:background .12s}",
+      ".sc tbody tr{transition:background .12s}",
+      ".sc tbody tr:hover td{background:rgba(78,161,255,.04)}",
+      ".sc tbody tr:hover{cursor:pointer}",
+
+      /* ── badges ── */
+      ".sc .badge{display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.2px}",
+      ".sc .badge::before{content:'';width:6px;height:6px;border-radius:50%}",
+      ".sc .badge.normal{background:rgba(46,229,157,.12);color:#6af0be}.sc .badge.normal::before{background:#2ee59d}",
+      ".sc .badge.borderline{background:rgba(255,204,102,.12);color:#ffcc66}.sc .badge.borderline::before{background:#ffcc66}",
+      ".sc .badge.abnormal{background:rgba(255,107,157,.12);color:#ff9ebe}.sc .badge.abnormal::before{background:#ff6b9d}",
+      ".sc .badge.urgent{background:rgba(255,80,80,.15);color:#ff6b6b}.sc .badge.urgent::before{background:#ff5050}",
+      ".sc .badge.active{background:rgba(78,161,255,.12);color:#8ac4ff}.sc .badge.active::before{background:#4ea1ff}",
+      ".sc .badge.completed{background:rgba(46,229,157,.12);color:#6af0be}.sc .badge.completed::before{background:#2ee59d}",
+      ".sc .badge.planned{background:rgba(255,204,102,.12);color:#ffcc66}.sc .badge.planned::before{background:#ffcc66}",
+      ".sc .badge.cancelled{background:rgba(255,255,255,.06);color:var(--mut)}.sc .badge.cancelled::before{background:rgba(170,183,214,.4)}",
+
+      /* ── search ── */
+      ".sc .search-bar{display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap}",
+      ".sc .search-bar input{flex:1;min-width:200px;border:1px solid var(--bd);background:rgba(0,0,0,.22);color:var(--txt);padding:10px 14px;border-radius:var(--r2);outline:none;font-size:13px;transition:border-color .2s}",
+      ".sc .search-bar input:focus{border-color:rgba(78,161,255,.55);box-shadow:0 0 0 3px rgba(78,161,255,.1)}",
+
+      /* ── modal ── (note: NO space between .sc and .modal-bg — element has both classes) */
+      ".sc-modal-bg{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;transition:opacity .2s}",
+      ".sc-modal-bg.show{opacity:1}",
+      ".sc-modal{background:linear-gradient(165deg,#141e30,#111b2a 40%,#0f1824);border:1px solid var(--bd2);border-radius:20px;max-width:680px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.04) inset;transform:translateY(12px) scale(.97);transition:transform .25s cubic-bezier(.16,1,.3,1),opacity .2s;opacity:0}",
+      ".sc-modal-bg.show .sc-modal{transform:translateY(0) scale(1);opacity:1}",
+      ".sc-modal .m-hd{padding:20px 24px 16px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(78,161,255,.06),rgba(124,108,255,.04))}",
+      ".sc-modal .m-hd h3{margin:0;font-size:17px;font-weight:800}",
+      ".sc-modal .m-bd{padding:22px 24px}",
+      ".sc-modal .m-ft{padding:16px 24px;border-top:1px solid var(--bd);display:flex;justify-content:flex-end;gap:8px;background:rgba(0,0,0,.1)}",
+      ".sc-modal .close-x{width:32px;height:32px;border-radius:10px;border:1px solid var(--bd);background:rgba(255,255,255,.04);color:var(--mut);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}",
+      ".sc-modal .close-x:hover{background:rgba(255,107,157,.12);border-color:rgba(255,107,157,.3);color:#ff9ebe}",
+
+      /* ── toast ── */
+      ".sc-toast-wrap{position:fixed;right:16px;bottom:16px;z-index:99999;display:flex;flex-direction:column;gap:8px;pointer-events:none}",
+      ".sc-toast{display:flex;align-items:center;gap:10px;padding:12px 18px;border-radius:14px;font-size:13px;font-weight:600;background:rgba(11,18,32,.88);backdrop-filter:blur(10px);border:1px solid var(--bd);box-shadow:0 10px 30px rgba(0,0,0,.4);opacity:0;transform:translateY(8px);transition:all .22s}",
+      ".sc-toast.show{opacity:1;transform:translateY(0)}",
+      ".sc-toast-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}",
+      ".sc-toast.good .sc-toast-dot{background:#2ee59d}",
+      ".sc-toast.bad .sc-toast-dot{background:#ff6b9d}",
+      ".sc-toast.warn .sc-toast-dot{background:#ffcc66}",
+
+      /* ── campaign cards (grid) ── */
+      ".sc .camp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}",
+      ".sc .camp-card{border:1px solid var(--bd);border-radius:16px;background:var(--pnl);padding:18px;cursor:pointer;transition:all .18s;position:relative;overflow:hidden}",
+      ".sc .camp-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:3px 3px 0 0;background:linear-gradient(90deg,var(--ac),var(--ac2));opacity:.6;transition:opacity .2s}",
+      ".sc .camp-card:hover{border-color:var(--bd2);transform:translateY(-2px);box-shadow:0 8px 28px rgba(0,0,0,.3)}",
+      ".sc .camp-card:hover::before{opacity:1}",
+      ".sc .camp-card .cc-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px}",
+      ".sc .camp-card .cc-icon{font-size:26px;line-height:1}",
+      ".sc .camp-card .cc-name{font-size:15px;font-weight:800;margin-bottom:2px}",
+      ".sc .camp-card .cc-type{font-size:12px;color:var(--mut)}",
+      ".sc .camp-card .cc-meta{display:flex;gap:16px;font-size:12px;color:var(--mut);margin-top:10px;padding-top:10px;border-top:1px solid var(--bd)}",
+      ".sc .camp-card .cc-meta span{display:flex;align-items:center;gap:4px}",
+      ".sc .camp-card .cc-stat{font-weight:800;color:var(--txt)}",
+      ".sc .camp-card .cc-actions{display:flex;gap:6px;margin-top:12px}",
+
+      /* ── summary grid ── */
+      ".sc .summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:20px}",
+      ".sc .summary-item{border:1px solid var(--bd);border-radius:14px;background:var(--pnl);padding:18px;backdrop-filter:blur(4px);transition:border-color .2s}",
+      ".sc .summary-item:hover{border-color:var(--bd2)}",
+      ".sc .summary-item .s-label{font-size:10.5px;color:var(--mut);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}",
+      ".sc .summary-item .s-value{font-size:26px;font-weight:900}",
+
+      /* ── empty state ── */
+      ".sc .empty{text-align:center;padding:50px 20px;color:var(--mut)}",
+      ".sc .empty .icon{font-size:48px;margin-bottom:12px;opacity:.7}",
+      ".sc .empty .msg{font-size:14px;margin-bottom:16px}",
+
+      /* ── detail header ── */
+      ".sc .detail-hero{border:1px solid var(--bd2);border-radius:var(--r);background:linear-gradient(135deg,rgba(78,161,255,.08),rgba(124,108,255,.06));padding:22px 24px;margin-bottom:16px;backdrop-filter:blur(6px)}",
+      ".sc .detail-hero h3{font-size:18px;font-weight:900;margin:0 0 12px;display:flex;align-items:center;gap:10px}",
+
+      /* ── scrollbar ── */
+      ".sc ::-webkit-scrollbar{width:6px}",
+      ".sc ::-webkit-scrollbar-track{background:transparent}",
+      ".sc ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:3px}",
+      ".sc ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.2)}",
+
+      /* ── responsive ── */
+      "@media(max-width:700px){.sc .container{padding:14px 12px}.sc .kpi-row{grid-template-columns:repeat(2,1fr)}.sc .camp-grid{grid-template-columns:1fr}.sc .summary-grid{grid-template-columns:1fr}.sc-modal{max-width:100%;border-radius:16px}}"
     ].join("\n");
     document.head.appendChild(s);
   }
@@ -190,6 +282,30 @@
     return all;
   }
 
+  // ── modal helper ─────────────────────────────────────────────────────────
+  function openModal(title, bodyHtml, footerHtml) {
+    var bg = document.createElement("div");
+    bg.className = "sc-modal-bg";
+    var modal = document.createElement("div");
+    modal.className = "sc-modal";
+    modal.innerHTML =
+      '<div class="m-hd"><h3>' + title + '</h3><button class="close-x">&times;</button></div>' +
+      '<div class="m-bd">' + bodyHtml + '</div>' +
+      '<div class="m-ft">' + footerHtml + '</div>';
+    bg.appendChild(modal);
+    document.body.appendChild(bg);
+    // animate in
+    requestAnimationFrame(function () { requestAnimationFrame(function () { bg.classList.add("show"); }); });
+    // close handlers
+    function close() {
+      bg.classList.remove("show");
+      setTimeout(function () { bg.remove(); }, 220);
+    }
+    modal.querySelector(".close-x").addEventListener("click", close);
+    bg.addEventListener("click", function (e) { if (e.target === bg) close(); });
+    return { bg: bg, modal: modal, close: close };
+  }
+
   // ── render ───────────────────────────────────────────────────────────────
   var activeTab = "campaigns";
   var activeCampaignId = null;
@@ -209,6 +325,9 @@
 
     function redraw() {
       root.innerHTML = "";
+      var container = document.createElement("div");
+      container.className = "container";
+      root.appendChild(container);
 
       // hero
       var hero = document.createElement("div");
@@ -221,20 +340,24 @@
           if (p.referral && p.referral !== "No referral needed") totalReferrals++;
         });
       });
-      hero.innerHTML = '<h2>\uD83E\uDE7A Clinical Screening Campaigns</h2><div class="sub">Plan and run health screening events &mdash; track participants, results &amp; referrals</div>';
-      root.appendChild(hero);
+      hero.innerHTML = '<h2>\uD83E\uDE7A Clinical Screening Campaigns</h2><div class="sub">Plan and run health screening events \u2014 track participants, results &amp; referrals</div>';
+      container.appendChild(hero);
 
       // KPI
       var activeCampaigns = campaigns.filter(function (c) { return getCampaignStatus(c) === "Active"; }).length;
       var kpiRow = document.createElement("div");
       kpiRow.className = "kpi-row";
-      kpiRow.innerHTML =
-        '<div class="kpi"><div class="n" style="color:#5aa2ff">' + campaigns.length + '</div><div class="l">Total Campaigns</div></div>' +
-        '<div class="kpi"><div class="n" style="color:#2ee59d">' + activeCampaigns + '</div><div class="l">Active Now</div></div>' +
-        '<div class="kpi"><div class="n" style="color:#7c6cff">' + totalParticipants + '</div><div class="l">Participants</div></div>' +
-        '<div class="kpi"><div class="n" style="color:#ffcc66">' + totalAbnormal + '</div><div class="l">Abnormal Results</div></div>' +
-        '<div class="kpi"><div class="n" style="color:#ff6b9d">' + totalReferrals + '</div><div class="l">Referrals Made</div></div>';
-      root.appendChild(kpiRow);
+      var kpis = [
+        { n: campaigns.length, l: "Campaigns", color: "#4ea1ff" },
+        { n: activeCampaigns, l: "Active Now", color: "#2ee59d" },
+        { n: totalParticipants, l: "Screened", color: "#7c6cff" },
+        { n: totalAbnormal, l: "Abnormal", color: "#ffcc66" },
+        { n: totalReferrals, l: "Referrals", color: "#ff6b9d" }
+      ];
+      kpis.forEach(function (k) {
+        kpiRow.innerHTML += '<div class="kpi"><div class="n" style="color:' + k.color + '">' + k.n + '</div><div class="l">' + k.l + '</div></div>';
+      });
+      container.appendChild(kpiRow);
 
       // tabs
       var tabs = document.createElement("div");
@@ -252,57 +375,47 @@
         b.addEventListener("click", function () { activeTab = t.id; activeCampaignId = null; searchQ = ""; redraw(); });
         tabs.appendChild(b);
       });
-      root.appendChild(tabs);
+      container.appendChild(tabs);
 
       if (activeTab === "campaigns" && activeCampaignId) {
-        renderCampaignDetail(root, redraw);
+        renderCampaignDetail(container, redraw);
       } else if (activeTab === "campaigns") {
-        renderCampaignsList(root, redraw);
+        renderCampaignsList(container, redraw);
       } else if (activeTab === "participants") {
-        renderAllParticipants(root, redraw);
+        renderAllParticipants(container, redraw);
       } else if (activeTab === "followups") {
-        renderFollowUps(root, redraw);
+        renderFollowUps(container, redraw);
       } else if (activeTab === "summary") {
-        renderSummary(root, redraw);
+        renderSummary(container, redraw);
       }
     }
 
     redraw();
   }
 
-  // ── campaigns list ───────────────────────────────────────────────────────
-  function renderCampaignsList(root, redraw) {
-    var card = document.createElement("div");
-    card.className = "card";
-
-    var hd = document.createElement("div");
-    hd.className = "hd";
-    hd.innerHTML = '<h3>Campaigns</h3>';
-    var addBtn = document.createElement("button");
-    addBtn.className = "btn pri sm";
-    addBtn.textContent = "+ New Campaign";
-    addBtn.addEventListener("click", function () { showCampaignModal(null, redraw); });
-    hd.appendChild(addBtn);
-    card.appendChild(hd);
-
-    var bd = document.createElement("div");
-    bd.className = "bd";
-
-    // search
+  // ── campaigns list (card grid) ───────────────────────────────────────────
+  function renderCampaignsList(container, redraw) {
+    // header row
+    var hdr = document.createElement("div");
+    hdr.style.cssText = "display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px";
     var searchBar = document.createElement("div");
     searchBar.className = "search-bar";
+    searchBar.style.marginBottom = "0";
     var searchInput = document.createElement("input");
     searchInput.type = "text";
-    searchInput.placeholder = "Search campaigns...";
+    searchInput.placeholder = "Search campaigns\u2026";
     searchInput.value = searchQ;
     searchInput.addEventListener("input", function () { searchQ = searchInput.value; });
+    searchInput.addEventListener("keydown", function (e) { if (e.key === "Enter") redraw(); });
     searchBar.appendChild(searchInput);
-    var searchBtn = document.createElement("button");
-    searchBtn.className = "btn sm";
-    searchBtn.textContent = "Search";
-    searchBtn.addEventListener("click", function () { redraw(); });
-    searchBar.appendChild(searchBtn);
-    bd.appendChild(searchBar);
+    hdr.appendChild(searchBar);
+
+    var addBtn = document.createElement("button");
+    addBtn.className = "btn pri";
+    addBtn.innerHTML = "<span style='font-size:16px'>+</span> New Campaign";
+    addBtn.addEventListener("click", function () { showCampaignModal(null, redraw); });
+    hdr.appendChild(addBtn);
+    container.appendChild(hdr);
 
     var filtered = campaigns;
     if (searchQ) {
@@ -316,97 +429,110 @@
     filtered = filtered.slice().sort(function (a, b) { return (b.startDate || "").localeCompare(a.startDate || ""); });
 
     if (filtered.length === 0) {
-      bd.innerHTML += '<div class="empty"><div class="icon">\uD83D\uDCCB</div>No campaigns yet. Create your first screening campaign to get started.</div>';
-    } else {
-      var table = document.createElement("table");
-      table.innerHTML = '<thead><tr><th>Campaign</th><th>Type</th><th>Start</th><th>End</th><th>Participants</th><th>Status</th><th></th></tr></thead>';
-      var tbody = document.createElement("tbody");
-      filtered.forEach(function (c) {
-        var status = getCampaignStatus(c);
-        var pCount = (c.participants || []).length;
-        var tr = document.createElement("tr");
-        tr.style.cursor = "pointer";
-        tr.innerHTML =
-          '<td><strong>' + esc(c.name) + '</strong></td>' +
-          '<td>' + esc(c.type) + '</td>' +
-          '<td>' + fmtDate(c.startDate) + '</td>' +
-          '<td>' + fmtDate(c.endDate) + '</td>' +
-          '<td>' + pCount + '</td>' +
-          '<td><span class="badge ' + norm(status) + '">' + esc(status) + '</span></td>' +
-          '<td></td>';
-        tr.addEventListener("click", function () { activeCampaignId = c.id; redraw(); });
-        // action buttons
-        var actionTd = tr.querySelector("td:last-child");
-        var editBtn = document.createElement("button");
-        editBtn.className = "btn sm";
-        editBtn.textContent = "Edit";
-        editBtn.addEventListener("click", function (e) { e.stopPropagation(); showCampaignModal(c, redraw); });
-        actionTd.appendChild(editBtn);
-
-        var delBtn = document.createElement("button");
-        delBtn.className = "btn sm dn";
-        delBtn.textContent = "Delete";
-        delBtn.style.marginLeft = "4px";
-        delBtn.addEventListener("click", function (e) {
-          e.stopPropagation();
-          if (!confirm("Delete campaign \"" + c.name + "\"? This cannot be undone.")) return;
-          campaigns = campaigns.filter(function (x) { return x.id !== c.id; });
-          save();
-          redraw();
-        });
-        actionTd.appendChild(delBtn);
-
-        tbody.appendChild(tr);
-      });
-      table.appendChild(tbody);
-      bd.appendChild(table);
+      container.innerHTML += '<div class="empty"><div class="icon">\uD83D\uDCCB</div><div class="msg">No campaigns yet. Create your first screening campaign to get started.</div></div>';
+      return;
     }
 
-    card.appendChild(bd);
-    root.appendChild(card);
+    var grid = document.createElement("div");
+    grid.className = "camp-grid";
+
+    filtered.forEach(function (c) {
+      var status = getCampaignStatus(c);
+      var pCount = (c.participants || []).length;
+      var abn = (c.participants || []).filter(function (p) { return p.resultCategory === "Abnormal" || p.resultCategory === "Requires urgent attention"; }).length;
+      var refs = (c.participants || []).filter(function (p) { return p.referral && p.referral !== "No referral needed"; }).length;
+      var icon = CAMPAIGN_TYPE_ICONS[c.type] || "\uD83D\uDCCB";
+
+      var card = document.createElement("div");
+      card.className = "camp-card";
+      card.innerHTML =
+        '<div class="cc-top">' +
+          '<div><div class="cc-name">' + esc(c.name) + '</div><div class="cc-type">' + esc(c.type) + '</div></div>' +
+          '<div style="display:flex;align-items:center;gap:8px"><span class="badge ' + norm(status) + '">' + esc(status) + '</span><span class="cc-icon">' + icon + '</span></div>' +
+        '</div>' +
+        '<div class="cc-meta">' +
+          '<span>\uD83D\uDCC5 ' + fmtDate(c.startDate) + (c.endDate ? ' \u2013 ' + fmtDate(c.endDate) : '') + '</span>' +
+        '</div>' +
+        '<div class="cc-meta">' +
+          '<span>\uD83D\uDC65 <span class="cc-stat">' + pCount + '</span> screened</span>' +
+          '<span>\u26A0\uFE0F <span class="cc-stat" style="color:#ffcc66">' + abn + '</span> abnormal</span>' +
+          '<span>\uD83D\uDCE4 <span class="cc-stat" style="color:#ff6b9d">' + refs + '</span> referrals</span>' +
+        '</div>' +
+        '<div class="cc-actions"></div>';
+
+      var actions = card.querySelector(".cc-actions");
+      var viewBtn = document.createElement("button");
+      viewBtn.className = "btn sm pri";
+      viewBtn.textContent = "View Details";
+      viewBtn.addEventListener("click", function (e) { e.stopPropagation(); activeCampaignId = c.id; redraw(); });
+      actions.appendChild(viewBtn);
+
+      var editBtn = document.createElement("button");
+      editBtn.className = "btn sm";
+      editBtn.textContent = "Edit";
+      editBtn.addEventListener("click", function (e) { e.stopPropagation(); showCampaignModal(c, redraw); });
+      actions.appendChild(editBtn);
+
+      var delBtn = document.createElement("button");
+      delBtn.className = "btn sm dn";
+      delBtn.textContent = "Delete";
+      delBtn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        if (!confirm("Delete campaign \"" + c.name + "\"? This cannot be undone.")) return;
+        campaigns = campaigns.filter(function (x) { return x.id !== c.id; });
+        save();
+        toast("Campaign deleted", "warn");
+        redraw();
+      });
+      actions.appendChild(delBtn);
+
+      card.addEventListener("click", function () { activeCampaignId = c.id; redraw(); });
+      grid.appendChild(card);
+    });
+
+    container.appendChild(grid);
   }
 
   // ── campaign detail ──────────────────────────────────────────────────────
-  function renderCampaignDetail(root, redraw) {
+  function renderCampaignDetail(container, redraw) {
     var c = campaigns.find(function (x) { return x.id === activeCampaignId; });
     if (!c) { activeCampaignId = null; redraw(); return; }
 
     // back button
     var backBtn = document.createElement("button");
     backBtn.className = "btn sm";
-    backBtn.innerHTML = "&larr; Back to Campaigns";
+    backBtn.innerHTML = "\u2190 Back to Campaigns";
     backBtn.style.marginBottom = "14px";
     backBtn.addEventListener("click", function () { activeCampaignId = null; redraw(); });
-    root.appendChild(backBtn);
+    container.appendChild(backBtn);
 
     var status = getCampaignStatus(c);
     var participants = c.participants || [];
     var abnormal = participants.filter(function (p) { return p.resultCategory === "Abnormal" || p.resultCategory === "Requires urgent attention"; }).length;
     var referrals = participants.filter(function (p) { return p.referral && p.referral !== "No referral needed"; }).length;
+    var icon = CAMPAIGN_TYPE_ICONS[c.type] || "\uD83D\uDCCB";
 
-    // campaign header card
-    var headerCard = document.createElement("div");
-    headerCard.className = "card";
-    headerCard.innerHTML =
-      '<div class="hd"><h3>' + esc(c.name) + ' &mdash; <span class="badge ' + norm(status) + '">' + esc(status) + '</span></h3></div>' +
-      '<div class="bd">' +
-        '<div class="summary-grid">' +
-          '<div class="summary-item"><div class="s-label">Type</div><div class="s-value" style="font-size:16px">' + esc(c.type) + '</div></div>' +
-          '<div class="summary-item"><div class="s-label">Dates</div><div class="s-value" style="font-size:16px">' + fmtDate(c.startDate) + ' &mdash; ' + fmtDate(c.endDate) + '</div></div>' +
-          '<div class="summary-item"><div class="s-label">Participants</div><div class="s-value">' + participants.length + '</div></div>' +
-          '<div class="summary-item"><div class="s-label">Abnormal Results</div><div class="s-value" style="color:#ffcc66">' + abnormal + '</div></div>' +
-          '<div class="summary-item"><div class="s-label">Referrals</div><div class="s-value" style="color:#ff6b9d">' + referrals + '</div></div>' +
-        '</div>' +
-        (c.notes ? '<div style="margin-top:8px;color:var(--mut);font-size:13px"><strong>Notes:</strong> ' + esc(c.notes) + '</div>' : '') +
-      '</div>';
-    root.appendChild(headerCard);
+    // detail hero
+    var dh = document.createElement("div");
+    dh.className = "detail-hero";
+    dh.innerHTML =
+      '<h3><span style="font-size:24px">' + icon + '</span> ' + esc(c.name) + ' <span class="badge ' + norm(status) + '">' + esc(status) + '</span></h3>' +
+      '<div class="summary-grid" style="margin-bottom:0">' +
+        '<div class="summary-item"><div class="s-label">Type</div><div class="s-value" style="font-size:16px">' + esc(c.type) + '</div></div>' +
+        '<div class="summary-item"><div class="s-label">Period</div><div class="s-value" style="font-size:16px">' + fmtDate(c.startDate) + ' \u2014 ' + fmtDate(c.endDate) + '</div></div>' +
+        '<div class="summary-item"><div class="s-label">Participants</div><div class="s-value" style="color:#7c6cff">' + participants.length + '</div></div>' +
+        '<div class="summary-item"><div class="s-label">Abnormal</div><div class="s-value" style="color:#ffcc66">' + abnormal + '</div></div>' +
+        '<div class="summary-item"><div class="s-label">Referrals</div><div class="s-value" style="color:#ff6b9d">' + referrals + '</div></div>' +
+      '</div>' +
+      (c.notes ? '<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--bd);color:var(--mut);font-size:13px"><strong style="color:var(--txt)">Notes:</strong> ' + esc(c.notes) + '</div>' : '');
+    container.appendChild(dh);
 
     // participants card
     var pCard = document.createElement("div");
     pCard.className = "card";
     var pHd = document.createElement("div");
     pHd.className = "hd";
-    pHd.innerHTML = '<h3>Participants (' + participants.length + ')</h3>';
+    pHd.innerHTML = '<h3>\uD83D\uDC65 Participants (' + participants.length + ')</h3>';
     var addPBtn = document.createElement("button");
     addPBtn.className = "btn pri sm";
     addPBtn.textContent = "+ Add Participant";
@@ -416,9 +542,10 @@
 
     var pBd = document.createElement("div");
     pBd.className = "bd";
+    pBd.style.overflowX = "auto";
 
     if (participants.length === 0) {
-      pBd.innerHTML = '<div class="empty"><div class="icon">\uD83D\uDC65</div>No participants yet. Add sign-ups or walk-ins.</div>';
+      pBd.innerHTML = '<div class="empty"><div class="icon">\uD83D\uDC65</div><div class="msg">No participants yet. Add sign-ups or walk-ins.</div></div>';
     } else {
       var pTable = document.createElement("table");
       pTable.innerHTML = '<thead><tr><th>Name</th><th>Type</th><th>Date</th><th>Result</th><th>Category</th><th>Referral</th><th>Follow-ups</th><th></th></tr></thead>';
@@ -432,34 +559,36 @@
           '<td><strong>' + esc(p.name) + '</strong>' + (p.phone ? '<br><span style="color:var(--mut);font-size:11px">' + esc(p.phone) + '</span>' : '') + '</td>' +
           '<td>' + esc(p.type || "Walk-in") + '</td>' +
           '<td>' + fmtDate(p.date) + '</td>' +
-          '<td>' + esc(p.resultNotes || "-") + '</td>' +
+          '<td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(p.resultNotes || "-") + '</td>' +
           '<td>' + (p.resultCategory ? '<span class="badge ' + catClass + '">' + esc(p.resultCategory) + '</span>' : '-') + '</td>' +
           '<td>' + esc(p.referral || "-") + '</td>' +
-          '<td>' + fuCount + '</td>' +
-          '<td></td>';
+          '<td style="text-align:center">' + fuCount + '</td>' +
+          '<td style="white-space:nowrap"></td>';
 
         var actionTd = tr.querySelector("td:last-child");
         var eBtn = document.createElement("button");
         eBtn.className = "btn sm";
         eBtn.textContent = "Edit";
-        eBtn.addEventListener("click", function () { showParticipantModal(c, p, redraw); });
+        eBtn.addEventListener("click", function (ev) { ev.stopPropagation(); showParticipantModal(c, p, redraw); });
         actionTd.appendChild(eBtn);
 
         var fuBtn = document.createElement("button");
         fuBtn.className = "btn sm pri";
         fuBtn.textContent = "Follow-up";
         fuBtn.style.marginLeft = "4px";
-        fuBtn.addEventListener("click", function () { showFollowUpModal(c, p, null, redraw); });
+        fuBtn.addEventListener("click", function (ev) { ev.stopPropagation(); showFollowUpModal(c, p, null, redraw); });
         actionTd.appendChild(fuBtn);
 
         var dBtn = document.createElement("button");
         dBtn.className = "btn sm dn";
         dBtn.textContent = "Del";
         dBtn.style.marginLeft = "4px";
-        dBtn.addEventListener("click", function () {
+        dBtn.addEventListener("click", function (ev) {
+          ev.stopPropagation();
           if (!confirm("Remove participant \"" + p.name + "\"?")) return;
           c.participants = c.participants.filter(function (x) { return x.id !== p.id; });
           save();
+          toast("Participant removed", "warn");
           redraw();
         });
         actionTd.appendChild(dBtn);
@@ -471,7 +600,7 @@
     }
 
     pCard.appendChild(pBd);
-    root.appendChild(pCard);
+    container.appendChild(pCard);
 
     // follow-ups for this campaign
     var fuList = [];
@@ -484,9 +613,10 @@
     if (fuList.length > 0) {
       var fuCard = document.createElement("div");
       fuCard.className = "card";
-      fuCard.innerHTML = '<div class="hd"><h3>Follow-ups (' + fuList.length + ')</h3></div>';
+      fuCard.innerHTML = '<div class="hd"><h3>\uD83D\uDDD3\uFE0F Follow-ups (' + fuList.length + ')</h3></div>';
       var fuBd = document.createElement("div");
       fuBd.className = "bd";
+      fuBd.style.overflowX = "auto";
       var fuTable = document.createElement("table");
       fuTable.innerHTML = '<thead><tr><th>Participant</th><th>Scheduled</th><th>Reason</th><th>Status</th><th>Notes</th><th></th></tr></thead>';
       var fuTbody = document.createElement("tbody");
@@ -514,33 +644,30 @@
       fuTable.appendChild(fuTbody);
       fuBd.appendChild(fuTable);
       fuCard.appendChild(fuBd);
-      root.appendChild(fuCard);
+      container.appendChild(fuCard);
     }
   }
 
   // ── all participants tab ─────────────────────────────────────────────────
-  function renderAllParticipants(root, redraw) {
+  function renderAllParticipants(container, redraw) {
     var all = getAllParticipants();
     var card = document.createElement("div");
     card.className = "card";
-    card.innerHTML = '<div class="hd"><h3>All Participants (' + all.length + ')</h3></div>';
+    card.innerHTML = '<div class="hd"><h3>\uD83D\uDC65 All Participants (' + all.length + ')</h3></div>';
     var bd = document.createElement("div");
     bd.className = "bd";
+    bd.style.overflowX = "auto";
 
     // search
     var searchBar = document.createElement("div");
     searchBar.className = "search-bar";
     var searchInput = document.createElement("input");
     searchInput.type = "text";
-    searchInput.placeholder = "Search by name, campaign, or referral...";
+    searchInput.placeholder = "Search by name, campaign, or referral\u2026";
     searchInput.value = searchQ;
     searchInput.addEventListener("input", function () { searchQ = searchInput.value; });
+    searchInput.addEventListener("keydown", function (e) { if (e.key === "Enter") redraw(); });
     searchBar.appendChild(searchInput);
-    var searchBtn = document.createElement("button");
-    searchBtn.className = "btn sm";
-    searchBtn.textContent = "Search";
-    searchBtn.addEventListener("click", function () { redraw(); });
-    searchBar.appendChild(searchBtn);
     bd.appendChild(searchBar);
 
     var filtered = all;
@@ -552,7 +679,7 @@
     }
 
     if (filtered.length === 0) {
-      bd.innerHTML += '<div class="empty"><div class="icon">\uD83D\uDC65</div>No participants found.</div>';
+      bd.innerHTML += '<div class="empty"><div class="icon">\uD83D\uDC65</div><div class="msg">No participants found.</div></div>';
     } else {
       var table = document.createElement("table");
       table.innerHTML = '<thead><tr><th>Name</th><th>Campaign</th><th>Date</th><th>Category</th><th>Referral</th></tr></thead>';
@@ -567,7 +694,6 @@
           '<td>' + fmtDate(p.date) + '</td>' +
           '<td>' + (p.resultCategory ? '<span class="badge ' + catClass + '">' + esc(p.resultCategory) + '</span>' : '-') + '</td>' +
           '<td>' + esc(p.referral || "-") + '</td>';
-        tr.style.cursor = "pointer";
         tr.addEventListener("click", function () { activeTab = "campaigns"; activeCampaignId = p.campaignId; redraw(); });
         tbody.appendChild(tr);
       });
@@ -576,17 +702,18 @@
     }
 
     card.appendChild(bd);
-    root.appendChild(card);
+    container.appendChild(card);
   }
 
   // ── follow-ups tab ───────────────────────────────────────────────────────
-  function renderFollowUps(root, redraw) {
+  function renderFollowUps(container, redraw) {
     var all = getAllFollowUps();
     var card = document.createElement("div");
     card.className = "card";
-    card.innerHTML = '<div class="hd"><h3>Follow-up Tracker (' + all.length + ')</h3></div>';
+    card.innerHTML = '<div class="hd"><h3>\uD83D\uDDD3\uFE0F Follow-up Tracker (' + all.length + ')</h3></div>';
     var bd = document.createElement("div");
     bd.className = "bd";
+    bd.style.overflowX = "auto";
 
     // filter buttons
     var filterBar = document.createElement("div");
@@ -612,7 +739,7 @@
     filtered.sort(function (a, b) { return (a.scheduledDate || "").localeCompare(b.scheduledDate || ""); });
 
     if (filtered.length === 0) {
-      bd.innerHTML += '<div class="empty"><div class="icon">\uD83D\uDDD3\uFE0F</div>No follow-ups found.</div>';
+      bd.innerHTML += '<div class="empty"><div class="icon">\uD83D\uDDD3\uFE0F</div><div class="msg">No follow-ups found.</div></div>';
     } else {
       var table = document.createElement("table");
       table.innerHTML = '<thead><tr><th>Participant</th><th>Campaign</th><th>Scheduled</th><th>Reason</th><th>Status</th><th>Notes</th></tr></thead>';
@@ -627,7 +754,6 @@
           '<td>' + esc(f.reason || "-") + '</td>' +
           '<td><span class="badge ' + (statusClass === "completed" ? "completed" : statusClass === "scheduled" ? "active" : statusClass === "no-show" ? "abnormal" : "planned") + '">' + esc(f.status || "Pending") + '</span></td>' +
           '<td>' + esc(f.notes || "-") + '</td>';
-        tr.style.cursor = "pointer";
         tr.addEventListener("click", function () { activeTab = "campaigns"; activeCampaignId = f.campaignId; redraw(); });
         tbody.appendChild(tr);
       });
@@ -636,21 +762,21 @@
     }
 
     card.appendChild(bd);
-    root.appendChild(card);
+    container.appendChild(card);
   }
 
   // ── summary tab ──────────────────────────────────────────────────────────
-  function renderSummary(root, redraw) {
+  function renderSummary(container, redraw) {
     var card = document.createElement("div");
     card.className = "card";
-    card.innerHTML = '<div class="hd"><h3>Campaign Summary Report</h3></div>';
+    card.innerHTML = '<div class="hd"><h3>\uD83D\uDCCA Campaign Summary Report</h3></div>';
     var bd = document.createElement("div");
     bd.className = "bd";
 
     if (campaigns.length === 0) {
-      bd.innerHTML = '<div class="empty"><div class="icon">\uD83D\uDCCA</div>No campaigns to summarize.</div>';
+      bd.innerHTML = '<div class="empty"><div class="icon">\uD83D\uDCCA</div><div class="msg">No campaigns to summarize.</div></div>';
       card.appendChild(bd);
-      root.appendChild(card);
+      container.appendChild(card);
       return;
     }
 
@@ -677,21 +803,27 @@
     // overall KPIs
     var overallGrid = document.createElement("div");
     overallGrid.className = "summary-grid";
-    overallGrid.innerHTML =
-      '<div class="summary-item"><div class="s-label">Total Campaigns</div><div class="s-value" style="color:#5aa2ff">' + campaigns.length + '</div></div>' +
-      '<div class="summary-item"><div class="s-label">Total Screened</div><div class="s-value" style="color:#7c6cff">' + totalP + '</div></div>' +
-      '<div class="summary-item"><div class="s-label">Abnormal Results</div><div class="s-value" style="color:#ffcc66">' + totalAbn + '</div></div>' +
-      '<div class="summary-item"><div class="s-label">Referrals Made</div><div class="s-value" style="color:#ff6b9d">' + totalRef + '</div></div>' +
-      '<div class="summary-item"><div class="s-label">Follow-ups Scheduled</div><div class="s-value" style="color:#2ee59d">' + totalFU + '</div></div>' +
-      '<div class="summary-item"><div class="s-label">Abnormal Rate</div><div class="s-value">' + (totalP ? Math.round(totalAbn / totalP * 100) : 0) + '%</div></div>';
+    var summaryKpis = [
+      { l: "Total Campaigns", v: campaigns.length, color: "#4ea1ff" },
+      { l: "Total Screened", v: totalP, color: "#7c6cff" },
+      { l: "Abnormal Results", v: totalAbn, color: "#ffcc66" },
+      { l: "Referrals Made", v: totalRef, color: "#ff6b9d" },
+      { l: "Follow-ups", v: totalFU, color: "#2ee59d" },
+      { l: "Abnormal Rate", v: (totalP ? Math.round(totalAbn / totalP * 100) : 0) + "%", color: "#a78bfa" }
+    ];
+    summaryKpis.forEach(function (k) {
+      overallGrid.innerHTML += '<div class="summary-item"><div class="s-label">' + k.l + '</div><div class="s-value" style="color:' + k.color + '">' + k.v + '</div></div>';
+    });
     bd.appendChild(overallGrid);
 
     // per-campaign breakdown
     var breakdownTitle = document.createElement("h4");
-    breakdownTitle.style.cssText = "margin:18px 0 10px;font-size:14px;font-weight:800";
+    breakdownTitle.style.cssText = "margin:20px 0 12px;font-size:14px;font-weight:800";
     breakdownTitle.textContent = "Per-Campaign Breakdown";
     bd.appendChild(breakdownTitle);
 
+    var tableWrap = document.createElement("div");
+    tableWrap.style.overflowX = "auto";
     var table = document.createElement("table");
     table.innerHTML = '<thead><tr><th>Campaign</th><th>Type</th><th>Status</th><th>Screened</th><th>Abnormal</th><th>Referrals</th><th>Follow-ups</th></tr></thead>';
     var tbody = document.createElement("tbody");
@@ -708,11 +840,12 @@
       tbody.appendChild(tr);
     });
     table.appendChild(tbody);
-    bd.appendChild(table);
+    tableWrap.appendChild(table);
+    bd.appendChild(tableWrap);
 
     // referral breakdown
     var refTitle = document.createElement("h4");
-    refTitle.style.cssText = "margin:18px 0 10px;font-size:14px;font-weight:800";
+    refTitle.style.cssText = "margin:20px 0 12px;font-size:14px;font-weight:800";
     refTitle.textContent = "Referral Breakdown";
     bd.appendChild(refTitle);
 
@@ -724,6 +857,8 @@
       });
     });
 
+    var refTableWrap = document.createElement("div");
+    refTableWrap.style.overflowX = "auto";
     var refTable = document.createElement("table");
     refTable.innerHTML = '<thead><tr><th>Referral Type</th><th>Count</th><th>%</th></tr></thead>';
     var refTbody = document.createElement("tbody");
@@ -736,10 +871,11 @@
       refTbody.appendChild(tr);
     });
     refTable.appendChild(refTbody);
-    bd.appendChild(refTable);
+    refTableWrap.appendChild(refTable);
+    bd.appendChild(refTableWrap);
 
     card.appendChild(bd);
-    root.appendChild(card);
+    container.appendChild(card);
   }
 
   // ── campaign modal ───────────────────────────────────────────────────────
@@ -747,43 +883,33 @@
     var isEdit = !!existing;
     var data = existing ? Object.assign({}, existing) : { id: uid(), name: "", type: CAMPAIGN_TYPES[0], startDate: todayStr(), endDate: "", notes: "", status: "Active", participants: [] };
 
-    var bg = document.createElement("div");
-    bg.className = "sc modal-bg";
-    var modal = document.createElement("div");
-    modal.className = "modal";
-
-    modal.innerHTML =
-      '<div class="m-hd"><h3>' + (isEdit ? "Edit Campaign" : "New Campaign") + '</h3><button class="btn sm close-m">&times;</button></div>' +
-      '<div class="m-bd">' +
-        '<div class="fld" style="margin-bottom:12px"><label>Campaign Name</label><input type="text" id="sc-m-name" placeholder="e.g. Diabetes Awareness Week" value="' + esc(data.name) + '"></div>' +
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">' +
-          '<div class="fld"><label>Type</label><select id="sc-m-type">' + CAMPAIGN_TYPES.map(function (t) { return '<option' + (t === data.type ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join("") + '</select></div>' +
-          '<div class="fld"><label>Status</label><select id="sc-m-status"><option' + (data.status === "Active" ? ' selected' : '') + '>Active</option><option' + (data.status === "Cancelled" ? ' selected' : '') + '>Cancelled</option></select></div>' +
-        '</div>' +
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">' +
-          '<div class="fld"><label>Start Date</label><input type="date" id="sc-m-start" value="' + esc(data.startDate) + '"></div>' +
-          '<div class="fld"><label>End Date</label><input type="date" id="sc-m-end" value="' + esc(data.endDate) + '"></div>' +
-        '</div>' +
-        '<div class="fld"><label>Notes</label><textarea id="sc-m-notes" placeholder="Campaign description, location, goals...">' + esc(data.notes) + '</textarea></div>' +
+    var bodyHtml =
+      '<div class="sc"><div class="fld" style="margin-bottom:14px"><label>Campaign Name</label><input type="text" id="sc-m-name" placeholder="e.g. Diabetes Awareness Week" value="' + esc(data.name) + '"></div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">' +
+        '<div class="fld"><label>Type</label><select id="sc-m-type">' + CAMPAIGN_TYPES.map(function (t) { return '<option' + (t === data.type ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join("") + '</select></div>' +
+        '<div class="fld"><label>Status</label><select id="sc-m-status"><option' + (data.status === "Active" ? ' selected' : '') + '>Active</option><option' + (data.status === "Cancelled" ? ' selected' : '') + '>Cancelled</option></select></div>' +
       '</div>' +
-      '<div class="m-ft"><button class="btn close-m">Cancel</button><button class="btn pri" id="sc-m-save">Save</button></div>';
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">' +
+        '<div class="fld"><label>Start Date</label><input type="date" id="sc-m-start" value="' + esc(data.startDate) + '"></div>' +
+        '<div class="fld"><label>End Date</label><input type="date" id="sc-m-end" value="' + esc(data.endDate) + '"></div>' +
+      '</div>' +
+      '<div class="fld"><label>Notes</label><textarea id="sc-m-notes" placeholder="Campaign description, location, goals\u2026">' + esc(data.notes) + '</textarea></div></div>';
 
-    bg.appendChild(modal);
-    document.body.appendChild(bg);
+    var footerHtml = '<button class="sc btn close-cancel">Cancel</button><button class="sc btn pri" id="sc-m-save">Save Campaign</button>';
 
-    bg.querySelectorAll(".close-m").forEach(function (b) { b.addEventListener("click", function () { bg.remove(); }); });
-    bg.addEventListener("click", function (e) { if (e.target === bg) bg.remove(); });
+    var m = openModal(isEdit ? "Edit Campaign" : "New Campaign", bodyHtml, footerHtml);
+    m.modal.querySelector(".close-cancel").addEventListener("click", m.close);
 
-    modal.querySelector("#sc-m-save").addEventListener("click", function () {
-      var name = modal.querySelector("#sc-m-name").value.trim();
-      if (!name) { modal.querySelector("#sc-m-name").style.borderColor = "#ff5a7a"; return; }
+    m.modal.querySelector("#sc-m-save").addEventListener("click", function () {
+      var name = m.modal.querySelector("#sc-m-name").value.trim();
+      if (!name) { m.modal.querySelector("#sc-m-name").style.borderColor = "#ff5a7a"; return; }
 
       data.name = name;
-      data.type = modal.querySelector("#sc-m-type").value;
-      data.status = modal.querySelector("#sc-m-status").value;
-      data.startDate = modal.querySelector("#sc-m-start").value;
-      data.endDate = modal.querySelector("#sc-m-end").value;
-      data.notes = modal.querySelector("#sc-m-notes").value.trim();
+      data.type = m.modal.querySelector("#sc-m-type").value;
+      data.status = m.modal.querySelector("#sc-m-status").value;
+      data.startDate = m.modal.querySelector("#sc-m-start").value;
+      data.endDate = m.modal.querySelector("#sc-m-end").value;
+      data.notes = m.modal.querySelector("#sc-m-notes").value.trim();
 
       if (isEdit) {
         var idx = campaigns.findIndex(function (c) { return c.id === data.id; });
@@ -793,9 +919,13 @@
       }
 
       save();
-      bg.remove();
+      m.close();
+      toast(isEdit ? "Campaign updated" : "Campaign created", "good");
       redraw();
     });
+
+    // focus first field
+    setTimeout(function () { var f = m.modal.querySelector("#sc-m-name"); if (f) f.focus(); }, 80);
   }
 
   // ── participant modal ────────────────────────────────────────────────────
@@ -803,52 +933,42 @@
     var isEdit = !!existing;
     var data = existing ? Object.assign({}, existing) : { id: uid(), name: "", phone: "", email: "", dob: "", type: "Walk-in", date: todayStr(), resultNotes: "", resultCategory: "", referral: "No referral needed", referralNotes: "", followUps: [] };
 
-    var bg = document.createElement("div");
-    bg.className = "sc modal-bg";
-    var modal = document.createElement("div");
-    modal.className = "modal";
-
-    modal.innerHTML =
-      '<div class="m-hd"><h3>' + (isEdit ? "Edit Participant" : "Add Participant") + '</h3><button class="btn sm close-m">&times;</button></div>' +
-      '<div class="m-bd">' +
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">' +
-          '<div class="fld"><label>Full Name *</label><input type="text" id="sc-p-name" placeholder="Participant name" value="' + esc(data.name) + '"></div>' +
-          '<div class="fld"><label>Phone</label><input type="text" id="sc-p-phone" placeholder="+356..." value="' + esc(data.phone) + '"></div>' +
-        '</div>' +
-        '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">' +
-          '<div class="fld"><label>Date of Birth</label><input type="date" id="sc-p-dob" value="' + esc(data.dob) + '"></div>' +
-          '<div class="fld"><label>Type</label><select id="sc-p-type">' + PARTICIPANT_TYPES.map(function (t) { return '<option' + (t === data.type ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join("") + '</select></div>' +
-          '<div class="fld"><label>Screening Date</label><input type="date" id="sc-p-date" value="' + esc(data.date) + '"></div>' +
-        '</div>' +
-        '<div style="border-top:1px solid var(--bd);padding-top:12px;margin-top:4px;margin-bottom:12px"><strong style="font-size:13px">Screening Results</strong> <span style="color:var(--mut);font-size:11px">(links to POCT for actual test recording)</span></div>' +
-        '<div class="fld" style="margin-bottom:12px"><label>Result Notes</label><textarea id="sc-p-result" placeholder="Describe screening results...">' + esc(data.resultNotes) + '</textarea></div>' +
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">' +
-          '<div class="fld"><label>Result Category</label><select id="sc-p-cat"><option value="">-- Select --</option>' + RESULT_CATEGORIES.map(function (c) { return '<option' + (c === data.resultCategory ? ' selected' : '') + '>' + esc(c) + '</option>'; }).join("") + '</select></div>' +
-          '<div class="fld"><label>Referral</label><select id="sc-p-ref">' + REFERRAL_OPTIONS.map(function (r) { return '<option' + (r === data.referral ? ' selected' : '') + '>' + esc(r) + '</option>'; }).join("") + '</select></div>' +
-        '</div>' +
-        '<div class="fld"><label>Referral Notes</label><textarea id="sc-p-refnotes" placeholder="Additional referral details...">' + esc(data.referralNotes) + '</textarea></div>' +
+    var bodyHtml =
+      '<div class="sc"><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">' +
+        '<div class="fld"><label>Full Name *</label><input type="text" id="sc-p-name" placeholder="Participant name" value="' + esc(data.name) + '"></div>' +
+        '<div class="fld"><label>Phone</label><input type="text" id="sc-p-phone" placeholder="+356\u2026" value="' + esc(data.phone) + '"></div>' +
       '</div>' +
-      '<div class="m-ft"><button class="btn close-m">Cancel</button><button class="btn pri" id="sc-p-save">Save</button></div>';
+      '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px">' +
+        '<div class="fld"><label>Date of Birth</label><input type="date" id="sc-p-dob" value="' + esc(data.dob) + '"></div>' +
+        '<div class="fld"><label>Type</label><select id="sc-p-type">' + PARTICIPANT_TYPES.map(function (t) { return '<option' + (t === data.type ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join("") + '</select></div>' +
+        '<div class="fld"><label>Screening Date</label><input type="date" id="sc-p-date" value="' + esc(data.date) + '"></div>' +
+      '</div>' +
+      '<div style="border-top:1px solid var(--bd);padding-top:14px;margin-bottom:14px"><strong style="font-size:13px;color:var(--txt)">Screening Results</strong> <span style="color:var(--mut);font-size:11px">(links to POCT for actual test recording)</span></div>' +
+      '<div class="fld" style="margin-bottom:14px"><label>Result Notes</label><textarea id="sc-p-result" placeholder="Describe screening results\u2026">' + esc(data.resultNotes) + '</textarea></div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">' +
+        '<div class="fld"><label>Result Category</label><select id="sc-p-cat"><option value="">-- Select --</option>' + RESULT_CATEGORIES.map(function (c) { return '<option' + (c === data.resultCategory ? ' selected' : '') + '>' + esc(c) + '</option>'; }).join("") + '</select></div>' +
+        '<div class="fld"><label>Referral</label><select id="sc-p-ref">' + REFERRAL_OPTIONS.map(function (r) { return '<option' + (r === data.referral ? ' selected' : '') + '>' + esc(r) + '</option>'; }).join("") + '</select></div>' +
+      '</div>' +
+      '<div class="fld"><label>Referral Notes</label><textarea id="sc-p-refnotes" placeholder="Additional referral details\u2026">' + esc(data.referralNotes) + '</textarea></div></div>';
 
-    bg.appendChild(modal);
-    document.body.appendChild(bg);
+    var footerHtml = '<button class="sc btn close-cancel">Cancel</button><button class="sc btn pri" id="sc-p-save">Save Participant</button>';
 
-    bg.querySelectorAll(".close-m").forEach(function (b) { b.addEventListener("click", function () { bg.remove(); }); });
-    bg.addEventListener("click", function (e) { if (e.target === bg) bg.remove(); });
+    var m = openModal(isEdit ? "Edit Participant" : "Add Participant", bodyHtml, footerHtml);
+    m.modal.querySelector(".close-cancel").addEventListener("click", m.close);
 
-    modal.querySelector("#sc-p-save").addEventListener("click", function () {
-      var name = modal.querySelector("#sc-p-name").value.trim();
-      if (!name) { modal.querySelector("#sc-p-name").style.borderColor = "#ff5a7a"; return; }
+    m.modal.querySelector("#sc-p-save").addEventListener("click", function () {
+      var name = m.modal.querySelector("#sc-p-name").value.trim();
+      if (!name) { m.modal.querySelector("#sc-p-name").style.borderColor = "#ff5a7a"; return; }
 
       data.name = name;
-      data.phone = modal.querySelector("#sc-p-phone").value.trim();
-      data.dob = modal.querySelector("#sc-p-dob").value;
-      data.type = modal.querySelector("#sc-p-type").value;
-      data.date = modal.querySelector("#sc-p-date").value;
-      data.resultNotes = modal.querySelector("#sc-p-result").value.trim();
-      data.resultCategory = modal.querySelector("#sc-p-cat").value;
-      data.referral = modal.querySelector("#sc-p-ref").value;
-      data.referralNotes = modal.querySelector("#sc-p-refnotes").value.trim();
+      data.phone = m.modal.querySelector("#sc-p-phone").value.trim();
+      data.dob = m.modal.querySelector("#sc-p-dob").value;
+      data.type = m.modal.querySelector("#sc-p-type").value;
+      data.date = m.modal.querySelector("#sc-p-date").value;
+      data.resultNotes = m.modal.querySelector("#sc-p-result").value.trim();
+      data.resultCategory = m.modal.querySelector("#sc-p-cat").value;
+      data.referral = m.modal.querySelector("#sc-p-ref").value;
+      data.referralNotes = m.modal.querySelector("#sc-p-refnotes").value.trim();
 
       if (!campaign.participants) campaign.participants = [];
 
@@ -861,9 +981,12 @@
       }
 
       save();
-      bg.remove();
+      m.close();
+      toast(isEdit ? "Participant updated" : "Participant added", "good");
       redraw();
     });
+
+    setTimeout(function () { var f = m.modal.querySelector("#sc-p-name"); if (f) f.focus(); }, 80);
   }
 
   // ── follow-up modal ──────────────────────────────────────────────────────
@@ -871,49 +994,40 @@
     var isEdit = !!existing;
     var data = existing ? Object.assign({}, existing) : { id: uid(), scheduledDate: "", reason: "", status: "Pending", notes: "" };
 
-    var bg = document.createElement("div");
-    bg.className = "sc modal-bg";
-    var modal = document.createElement("div");
-    modal.className = "modal";
-
-    modal.innerHTML =
-      '<div class="m-hd"><h3>' + (isEdit ? "Edit Follow-up" : "Schedule Follow-up") + ' &mdash; ' + esc(participant.name) + '</h3><button class="btn sm close-m">&times;</button></div>' +
-      '<div class="m-bd">' +
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">' +
-          '<div class="fld"><label>Scheduled Date *</label><input type="date" id="sc-f-date" value="' + esc(data.scheduledDate) + '"></div>' +
-          '<div class="fld"><label>Status</label><select id="sc-f-status">' + FOLLOW_UP_STATUS.map(function (s) { return '<option' + (s === data.status ? ' selected' : '') + '>' + esc(s) + '</option>'; }).join("") + '</select></div>' +
-        '</div>' +
-        '<div class="fld" style="margin-bottom:12px"><label>Reason</label><input type="text" id="sc-f-reason" placeholder="e.g. Re-test blood pressure, GP referral follow-up" value="' + esc(data.reason) + '"></div>' +
-        '<div class="fld"><label>Notes</label><textarea id="sc-f-notes" placeholder="Additional notes...">' + esc(data.notes) + '</textarea></div>' +
+    var bodyHtml =
+      '<div class="sc"><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">' +
+        '<div class="fld"><label>Scheduled Date *</label><input type="date" id="sc-f-date" value="' + esc(data.scheduledDate) + '"></div>' +
+        '<div class="fld"><label>Status</label><select id="sc-f-status">' + FOLLOW_UP_STATUS.map(function (s) { return '<option' + (s === data.status ? ' selected' : '') + '>' + esc(s) + '</option>'; }).join("") + '</select></div>' +
       '</div>' +
-      '<div class="m-ft"><button class="btn close-m">Cancel</button>' +
-        (isEdit ? '<button class="btn dn" id="sc-f-del">Delete</button>' : '') +
-        '<button class="btn pri" id="sc-f-save">Save</button></div>';
+      '<div class="fld" style="margin-bottom:14px"><label>Reason</label><input type="text" id="sc-f-reason" placeholder="e.g. Re-test blood pressure, GP referral follow-up" value="' + esc(data.reason) + '"></div>' +
+      '<div class="fld"><label>Notes</label><textarea id="sc-f-notes" placeholder="Additional notes\u2026">' + esc(data.notes) + '</textarea></div></div>';
 
-    bg.appendChild(modal);
-    document.body.appendChild(bg);
+    var footerHtml = '<button class="sc btn close-cancel">Cancel</button>' +
+      (isEdit ? '<button class="sc btn dn" id="sc-f-del">Delete</button>' : '') +
+      '<button class="sc btn pri" id="sc-f-save">Save Follow-up</button>';
 
-    bg.querySelectorAll(".close-m").forEach(function (b) { b.addEventListener("click", function () { bg.remove(); }); });
-    bg.addEventListener("click", function (e) { if (e.target === bg) bg.remove(); });
+    var m = openModal((isEdit ? "Edit" : "Schedule") + " Follow-up \u2014 " + esc(participant.name), bodyHtml, footerHtml);
+    m.modal.querySelector(".close-cancel").addEventListener("click", m.close);
 
     if (isEdit) {
-      modal.querySelector("#sc-f-del").addEventListener("click", function () {
+      m.modal.querySelector("#sc-f-del").addEventListener("click", function () {
         if (!confirm("Delete this follow-up?")) return;
         participant.followUps = (participant.followUps || []).filter(function (f) { return f.id !== data.id; });
         save();
-        bg.remove();
+        m.close();
+        toast("Follow-up deleted", "warn");
         redraw();
       });
     }
 
-    modal.querySelector("#sc-f-save").addEventListener("click", function () {
-      var scheduledDate = modal.querySelector("#sc-f-date").value;
-      if (!scheduledDate) { modal.querySelector("#sc-f-date").style.borderColor = "#ff5a7a"; return; }
+    m.modal.querySelector("#sc-f-save").addEventListener("click", function () {
+      var scheduledDate = m.modal.querySelector("#sc-f-date").value;
+      if (!scheduledDate) { m.modal.querySelector("#sc-f-date").style.borderColor = "#ff5a7a"; return; }
 
       data.scheduledDate = scheduledDate;
-      data.status = modal.querySelector("#sc-f-status").value;
-      data.reason = modal.querySelector("#sc-f-reason").value.trim();
-      data.notes = modal.querySelector("#sc-f-notes").value.trim();
+      data.status = m.modal.querySelector("#sc-f-status").value;
+      data.reason = m.modal.querySelector("#sc-f-reason").value.trim();
+      data.notes = m.modal.querySelector("#sc-f-notes").value.trim();
 
       if (!participant.followUps) participant.followUps = [];
 
@@ -925,9 +1039,12 @@
       }
 
       save();
-      bg.remove();
+      m.close();
+      toast(isEdit ? "Follow-up updated" : "Follow-up scheduled", "good");
       redraw();
     });
+
+    setTimeout(function () { var f = m.modal.querySelector("#sc-f-date"); if (f) f.focus(); }, 80);
   }
 
   // ── register ─────────────────────────────────────────────────────────────
