@@ -336,7 +336,7 @@
       "messageboard", "instructions"
     ]},
     { label: "Clinical", icon: "🏥", moduleIds: [
-      "poct", "vaccines", "ocps", "pharmacycalc", "pharmacovigilance", "screening"
+      "poct", "vaccines", "ocps", "pharmacycalc", "pharmacovigilance", "screening", "otcmindmap"
     ]},
     { label: "Reference", icon: "📇", moduleIds: [
       "contacts"
