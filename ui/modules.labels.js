@@ -288,46 +288,45 @@
   }
 
   // ── build print HTML from label data (not from DOM) ─────────────────────
-  // Uses fixed mm sizes readable on small label printers (38×24mm Argox
-  // at 203 DPI).  On larger paper it prints as a small neat label.
-  // 2.2mm ≈ 6.2pt — minimum legible at 203 DPI (~18 dots per char height).
-  // Line budget for 24mm label (0.5mm page padding each side = 23mm usable):
-  //   2.2mm × 1.15 line-height = 2.53mm/line → ~9 lines available.
+  // Fixed mm sizing for label printers. Must fit on 38×24mm (tight) and
+  // look good on 75×50mm (roomy).  At 203 DPI, 2.2mm ≈ 18 dots high.
+  // Usable area on 38×24mm: ~35×22mm (with 1.5mm left + 0.5mm margins).
+  // Line budget: 2.2mm × 1.2 = 2.64mm/line → ~8 lines in 22mm.
   function buildPrintHtml(labelData, pharm, tpl) {
     var isLarge = tpl && tpl.size === "large";
     var showMt = tpl && tpl.language === "mt";
     var fs = isLarge ? '2.8mm' : '2.2mm';
-    var lh = isLarge ? '1.25' : '1.15';
+    var lh = '1.2';
     var h = '';
     h += '<div style="font-family:Arial,Helvetica,sans-serif;color:#000;font-size:' + fs + ';line-height:' + lh + ';">';
-    // line 1: pharmacy name (bold) — put address on same line if present
+    // pharmacy name
     h += '<div style="font-weight:900;">' + esc(pharm.name || "Pharmacy");
     if (pharm.phone) h += ' <span style="font-weight:400;font-size:.75em;">T:' + esc(pharm.phone) + '</span>';
     h += '</div>';
-    // line 2-7: fields — zero margin, pure line-height spacing
+    // fields
     h += '<div><b>Pat:</b> ' + esc(labelData.patientName || "") + '</div>';
     h += '<div><b>Rx:</b> ' + esc(labelData.drugName || "") + '</div>';
-    // combine dose + freq on one line if both short
+    // dose + freq on one line
     var doseFreq = '';
     if (labelData.dose) doseFreq += esc(labelData.dose);
     if (labelData.dose && labelData.frequency) doseFreq += ' | ';
     if (labelData.frequency) {
       doseFreq += esc(labelData.frequency);
-      if (showMt && FREQUENCIES_MT[labelData.frequency]) doseFreq += ' <i style="font-size:.8em;">(' + esc(FREQUENCIES_MT[labelData.frequency]) + ')</i>';
+      if (showMt && FREQUENCIES_MT[labelData.frequency]) doseFreq += ' <i style="font-size:.85em;">(' + esc(FREQUENCIES_MT[labelData.frequency]) + ')</i>';
     }
     if (doseFreq) h += '<div><b>Dose/Freq:</b> ' + doseFreq + '</div>';
     if (labelData.route) h += '<div><b>Route:</b> ' + esc(labelData.route) + '</div>';
     if (labelData.customInstructions) h += '<div><b>Note:</b> ' + esc(labelData.customInstructions) + '</div>';
-    // warnings — compact, no border (saves space)
+    // warnings
     var selWarnings = WARNINGS.filter(function (w) { return (labelData.selectedWarnings || []).indexOf(w.id) !== -1; });
     selWarnings.forEach(function (w) {
       h += '<div style="font-weight:700;font-size:.85em;">\u26A0 ' + esc(w.en);
       if (showMt) h += ' <i style="font-weight:400;">(' + esc(w.mt) + ')</i>';
       h += '</div>';
     });
-    // footer — date + licence on one tiny line
-    h += '<div style="font-size:.7em;color:#555;">' + fmtDate(todayStr());
-    if (pharm.licence) h += ' Lic:' + esc(pharm.licence);
+    // date — same size as body so it's legible on small labels
+    h += '<div style="font-size:.85em;color:#333;">' + fmtDate(todayStr());
+    if (pharm.licence) h += ' | Lic:' + esc(pharm.licence);
     h += '</div>';
     h += '</div>';
     return h;
@@ -353,7 +352,7 @@
     openPrintTab(
       '<!DOCTYPE html><html><head><meta charset="utf-8"><style>' +
       '@page{margin:0;}' +
-      'html,body{margin:0;padding:0.5mm;width:100%;height:auto;}' +
+      'html,body{margin:0;padding:0.8mm 1mm 0.5mm 1.5mm;width:100%;height:auto;box-sizing:border-box;}' +
       'div,b,i,span{page-break-inside:avoid;}' +
       '</style></head><body>' +
       html +
