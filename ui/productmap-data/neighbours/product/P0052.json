@@ -1,1 +1,682 @@
-{"centerId":"product:P0052","centerType":"product","refId":"P0052","nodes":[{"id":"product:P0052","nodeType":"product","refId":"P0052","label":"Bioflor Forte 500mg, powder for oral suspension in sachet.","subtext":"diarrhoea","meta":{"brand":"Bioflor","generic":"SACCHAROMYCES BOULARDII","form":"POWDER FOR ORAL SUSPENSION","formGroup":"Oral liquid","route":"Oral","mainIndication":"diarrhoea","secondaryIndications":"loose stools | gut upset","otcCategory":"ANTIDIARRHEALS, INTESTINAL ANTIINFLAMMATORY/ANTIINFECTIVE AGENTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"SACCHAROMYCES BOULARDII 500 milligram(s)","packSizeText":"Review manually","atcCode":"A07FA02","status":"Authorised","supplierCatalogKey":"bioflor forte 500mg, powder for oral suspension in sachet."}},{"id":"product:P0035","nodeType":"product","refId":"P0035","label":"BIOFLOR 250mg, powder for oral suspension in sachet","subtext":"diarrhoea","meta":{"brand":"BIOFLOR","generic":"SACCHAROMYCES BOULARDII","form":"POWDER FOR ORAL SUSPENSION","formGroup":"Oral liquid","route":"Oral","mainIndication":"diarrhoea","secondaryIndications":"loose stools | gut upset","otcCategory":"ANTIDIARRHEALS, INTESTINAL ANTIINFLAMMATORY/ANTIINFECTIVE AGENTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"SACCHAROMYCES BOULARDII 250 milligram(s)","packSizeText":"Review manually","atcCode":"A07FA02","status":"Authorised","supplierCatalogKey":"bioflor 250mg, powder for oral suspension in sachet"}},{"id":"product:P0034","nodeType":"product","refId":"P0034","label":"BIOFLOR 250 mg, capsule","subtext":"diarrhoea","meta":{"brand":"BIOFLOR","generic":"SACCHAROMYCES BOULARDII","form":"CAPSULE","formGroup":"Oral solid","route":"Oral","mainIndication":"diarrhoea","secondaryIndications":"loose stools | gut upset","otcCategory":"ANTIDIARRHEALS, INTESTINAL ANTIINFLAMMATORY/ANTIINFECTIVE AGENTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"SACCHAROMYCES BOULARDII 250 milligram(s)","packSizeText":"Review manually","atcCode":"A07FA02","status":"Authorised","supplierCatalogKey":"bioflor 250 mg, capsule"}},{"id":"product:P0064","nodeType":"product","refId":"P0064","label":"Buscopan 10mg Coated Tablets","subtext":"bloating","meta":{"brand":"Buscopan","generic":"HYOSCINE BUTYLBROMIDE","form":"COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"bloating","secondaryIndications":"cramps | spasms | abdominal discomfort","otcCategory":"DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"HYOSCINE BUTYLBROMIDE 10 milligram(s)","packSizeText":"Review manually","atcCode":"A03BB01","status":"Authorised","supplierCatalogKey":"buscopan 10mg coated tablets"}},{"id":"product:P0116","nodeType":"product","refId":"P0116","label":"Colpermin Gastro-resistant Capsules Peppermint oil 0.2ml","subtext":"bloating","meta":{"brand":"Colpermin","generic":"PEPPERMINT OIL","form":"GASTRO-RESISTANT CAPSULE","formGroup":"Oral solid","route":"Oral","mainIndication":"bloating","secondaryIndications":"cramps | spasms | abdominal discomfort","otcCategory":"DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"PEPPERMINT OIL 0.2 millilitre(s)","packSizeText":"Review manually","atcCode":"A03AX","status":"Authorised","supplierCatalogKey":"colpermin gastro-resistant capsules peppermint oil 0.2ml"}},{"id":"product:P0217","nodeType":"product","refId":"P0217","label":"Hyoscine Butylbromide Heumann 10 mg film-coated tablets","subtext":"bloating","meta":{"brand":"Hyoscine","generic":"HYOSCINE BUTYLBROMIDE","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"bloating","secondaryIndications":"cramps | spasms | abdominal discomfort","otcCategory":"DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"HYOSCINE BUTYLBROMIDE 10 milligram(s)","packSizeText":"Review manually","atcCode":"A03BB01","status":"Authorised","supplierCatalogKey":"hyoscine butylbromide heumann 10 mg film-coated tablets"}},{"id":"product:P0218","nodeType":"product","refId":"P0218","label":"Hyoscine Butylbromide Torrent 10 mg film-coated tablets","subtext":"bloating","meta":{"brand":"Hyoscine","generic":"HYOSCINE BUTYLBROMIDE","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"bloating","secondaryIndications":"cramps | spasms | abdominal discomfort","otcCategory":"DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"HYOSCINE BUTYLBROMIDE 10 milligram(s)","packSizeText":"Review manually","atcCode":"A03BB01","status":"Authorised","supplierCatalogKey":"hyoscine butylbromide torrent 10 mg film-coated tablets"}},{"id":"product:P0280","nodeType":"product","refId":"P0280","label":"Mebeverine Hydrochloride IBS, 135mg film-coated Tablet","subtext":"bloating","meta":{"brand":"Mebeverine","generic":"MEBEVERINE HYDROCHLORIDE","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"bloating","secondaryIndications":"cramps | spasms | abdominal discomfort","otcCategory":"DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"MEBEVERINE HYDROCHLORIDE 135 milligram(s)","packSizeText":"Review manually","atcCode":"A03AA04","status":"Authorised","supplierCatalogKey":"mebeverine hydrochloride ibs, 135mg film-coated tablet"}},{"id":"product:P0296","nodeType":"product","refId":"P0296","label":"Motilium Fastmelts 10mg Orodispersible Tablets","subtext":"bloating","meta":{"brand":"Motilium","generic":"DOMPERIDONE","form":"ORODISPERSIBLE TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"bloating","secondaryIndications":"cramps | spasms | abdominal discomfort","otcCategory":"DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DOMPERIDONE 10 milligram(s)","packSizeText":"Review manually","atcCode":"A03FA03","status":"Authorised","supplierCatalogKey":"motilium fastmelts 10mg orodispersible tablets"}},{"id":"product:P0307","nodeType":"product","refId":"P0307","label":"NO-SPA 40 mg tablets","subtext":"bloating","meta":{"brand":"NO","generic":"DROTAVERINE HYDROCHLORIDE","form":"TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"bloating","secondaryIndications":"cramps | spasms | abdominal discomfort","otcCategory":"DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DROTAVERINE HYDROCHLORIDE 40 milligram(s)","packSizeText":"Review manually","atcCode":"A03AD02","status":"Authorised","supplierCatalogKey":"no-spa 40 mg tablets"}},{"id":"product:P0336","nodeType":"product","refId":"P0336","label":"No-Spa forte tablets","subtext":"bloating","meta":{"brand":"No","generic":"DROTAVERINE HYDROCHLORIDE","form":"TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"bloating","secondaryIndications":"cramps | spasms | abdominal discomfort","otcCategory":"DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DROTAVERINE HYDROCHLORIDE","packSizeText":"Review manually","atcCode":"A03AD02","status":"Authorised","supplierCatalogKey":"no-spa forte tablets"}},{"id":"product:P0398","nodeType":"product","refId":"P0398","label":"Phloroglucinol ELC 80 mg orodispersible tablets","subtext":"bloating","meta":{"brand":"Phloroglucinol","generic":"PHLOROGLUCINOL DIHYDRATE","form":"ORODISPERSIBLE TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"bloating","secondaryIndications":"cramps | spasms | abdominal discomfort","otcCategory":"DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"PHLOROGLUCINOL DIHYDRATE 80 milligram(s)","packSizeText":"Review manually","atcCode":"A03AX12","status":"Authorised","supplierCatalogKey":"phloroglucinol elc 80 mg orodispersible tablets"}},{"id":"product:P0455","nodeType":"product","refId":"P0455","label":"Spaverin 80 mg tablet","subtext":"bloating","meta":{"brand":"Spaverin","generic":"DROTAVERINE HYDROCHLORIDE","form":"TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"bloating","secondaryIndications":"cramps | spasms | abdominal discomfort","otcCategory":"DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DROTAVERINE HYDROCHLORIDE 80 milligram(s)","packSizeText":"Review manually","atcCode":"A03AD02","status":"Authorised","supplierCatalogKey":"spaverin 80 mg tablet"}},{"id":"symptom:S021","nodeType":"symptom","refId":"S021","label":"diarrhoea","subtext":"Gastrointestinal","meta":{"Symptom_ID":"S021","Symptom_Name":"diarrhoea","Symptom_Category":"Gastrointestinal","Linked_Product_Count":16,"Display_Group":"Gastrointestinal","Priority_For_Graph":85,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"symptom:S042","nodeType":"symptom","refId":"S042","label":"loose stools","subtext":"Gastrointestinal","meta":{"Symptom_ID":"S042","Symptom_Name":"loose stools","Symptom_Category":"Gastrointestinal","Linked_Product_Count":16,"Display_Group":"Gastrointestinal","Priority_For_Graph":85,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"symptom:S031","nodeType":"symptom","refId":"S031","label":"gut upset","subtext":"Gastrointestinal","meta":{"Symptom_ID":"S031","Symptom_Name":"gut upset","Symptom_Category":"Gastrointestinal","Linked_Product_Count":16,"Display_Group":"Gastrointestinal","Priority_For_Graph":85,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"usecase:UC008","nodeType":"usecase","refId":"UC008","label":"Diarrhoea and gut recovery","subtext":"Gastrointestinal","meta":{"UseCase_ID":"UC008","UseCase_Name":"Diarrhoea and gut recovery","UseCase_Category":"Gastrointestinal","Trigger_Symptoms":"Diarrhoea, loose stools, gut upset","Description":"Control plus gut recovery support."}},{"id":"bundle:B005","nodeType":"bundle","refId":"B005","label":"Diarrhoea Recovery Bundle","subtext":"Travel / acute bundle","meta":{"Bundle_ID":"B005","Bundle_Name":"Diarrhoea Recovery Bundle","Source_UseCase_ID":"UC008","Bundle_Type":"Travel / acute bundle","Description":"Symptom control plus gut recovery"}}],"links":[{"key":"936d9e9d376256e9","source":"product:P0035","target":"product:P0052","rel":"similar","label":"Alternative: same active ingredient(s)","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E01783","clinicalSimilarity":100,"commercialSubstitution":100,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"diarrhoea, gut upset, loose stools","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"27d5f674f722d257","source":"product:P0034","target":"product:P0052","rel":"similar","label":"Alternative: same active ingredient(s)","score":88,"why":"Same active ingredient(s), but delivered in different form families.","meta":{"edgeId":"E01782","clinicalSimilarity":100,"commercialSubstitution":95,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"diarrhoea, gut upset, loose stools","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"8cda464cabc2d6d7","source":"product:P0052","target":"product:P0064","rel":"complement","label":"Diarrhoea + cramps","score":76,"why":"GI upset may include both diarrhoea and cramping discomfort.","meta":{"edgeId":"E13636","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":76,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Diarrhoea + cramps","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"a573a07193a00367","source":"product:P0052","target":"product:P0116","rel":"complement","label":"Diarrhoea + cramps","score":76,"why":"GI upset may include both diarrhoea and cramping discomfort.","meta":{"edgeId":"E13637","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":76,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Diarrhoea + cramps","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"5b513c941d733c4d","source":"product:P0052","target":"product:P0217","rel":"complement","label":"Diarrhoea + cramps","score":76,"why":"GI upset may include both diarrhoea and cramping discomfort.","meta":{"edgeId":"E13638","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":76,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Diarrhoea + cramps","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"7da6d4db124e0ff7","source":"product:P0052","target":"product:P0218","rel":"complement","label":"Diarrhoea + cramps","score":76,"why":"GI upset may include both diarrhoea and cramping discomfort.","meta":{"edgeId":"E13639","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":76,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Diarrhoea + cramps","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"aefe50f909aeb2cc","source":"product:P0052","target":"product:P0280","rel":"complement","label":"Diarrhoea + cramps","score":76,"why":"GI upset may include both diarrhoea and cramping discomfort.","meta":{"edgeId":"E13640","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":76,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Diarrhoea + cramps","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"4491e13e8ffa1059","source":"product:P0052","target":"product:P0296","rel":"complement","label":"Diarrhoea + cramps","score":76,"why":"GI upset may include both diarrhoea and cramping discomfort.","meta":{"edgeId":"E13641","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":76,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Diarrhoea + cramps","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"0886dcd68acfc5e8","source":"product:P0052","target":"product:P0307","rel":"complement","label":"Diarrhoea + cramps","score":76,"why":"GI upset may include both diarrhoea and cramping discomfort.","meta":{"edgeId":"E13642","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":76,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Diarrhoea + cramps","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"2d96ca8770f9f874","source":"product:P0052","target":"product:P0336","rel":"complement","label":"Diarrhoea + cramps","score":76,"why":"GI upset may include both diarrhoea and cramping discomfort.","meta":{"edgeId":"E13643","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":76,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Diarrhoea + cramps","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"36c533cc9734d07f","source":"product:P0052","target":"product:P0398","rel":"complement","label":"Diarrhoea + cramps","score":76,"why":"GI upset may include both diarrhoea and cramping discomfort.","meta":{"edgeId":"E13644","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":76,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Diarrhoea + cramps","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"bdbf6fd807d5bf4d","source":"product:P0052","target":"product:P0455","rel":"complement","label":"Diarrhoea + cramps","score":76,"why":"GI upset may include both diarrhoea and cramping discomfort.","meta":{"edgeId":"E13645","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":76,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Diarrhoea + cramps","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"50bbe4df13ee116c","source":"product:P0052","target":"symptom:S021","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00165","role":"Primary","reviewStatus":"Seeded"}},{"key":"37ce72ebbc717cc8","source":"product:P0052","target":"symptom:S042","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00166","role":"Primary","reviewStatus":"Seeded"}},{"key":"c2ce0cf7abb5fdaa","source":"product:P0052","target":"symptom:S031","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM00167","role":"Secondary","reviewStatus":"Seeded"}},{"key":"9cb2310f200ff2e2","source":"product:P0052","target":"usecase:UC008","rel":"usecase","label":"Main","score":100,"why":"diarrhoea, loose stools, gut upset","meta":{"useCaseItemId":"UCI00472","role":"Main","reviewStatus":"Seeded"}},{"key":"2b6b938cdfbe6cbb","source":"product:P0052","target":"bundle:B005","rel":"bundle","label":"Optional","score":85,"why":"Seeded from Diarrhoea and gut recovery via symptom match: diarrhoea, loose stools, gut upset","meta":{"bundleItemId":"BI00028","role":"Optional","reviewStatus":"Seeded"}},{"key":"fe3d2c0a50c04a19","source":"product:P0035","target":"product:P0052","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E01783","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}},{"key":"6fbb0cdff316988f","source":"product:P0034","target":"product:P0052","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":88,"why":"Same active ingredient(s), but delivered in different form families.","meta":{"edgeId":"E01782","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}}],"meta":{"productName":"Bioflor Forte 500mg, powder for oral suspension in sachet.","linkCount":19}}
+{
+  "centerId": "product:P0052",
+  "centerType": "product",
+  "refId": "P0052",
+  "nodes": [
+    {
+      "id": "product:P0052",
+      "nodeType": "product",
+      "refId": "P0052",
+      "label": "Bioflor Forte 500mg, powder for oral suspension in sachet.",
+      "subtext": "diarrhoea",
+      "meta": {
+        "brand": "Bioflor",
+        "generic": "SACCHAROMYCES BOULARDII",
+        "form": "POWDER FOR ORAL SUSPENSION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "diarrhoea",
+        "secondaryIndications": "loose stools | gut upset",
+        "otcCategory": "ANTIDIARRHEALS, INTESTINAL ANTIINFLAMMATORY/ANTIINFECTIVE AGENTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "SACCHAROMYCES BOULARDII 500 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A07FA02",
+        "status": "Authorised",
+        "supplierCatalogKey": "bioflor forte 500mg, powder for oral suspension in sachet."
+      }
+    },
+    {
+      "id": "product:P0064",
+      "nodeType": "product",
+      "refId": "P0064",
+      "label": "Buscopan 10mg Coated Tablets",
+      "subtext": "bloating",
+      "meta": {
+        "brand": "Buscopan",
+        "generic": "HYOSCINE BUTYLBROMIDE",
+        "form": "COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "bloating",
+        "secondaryIndications": "cramps | spasms | abdominal discomfort",
+        "otcCategory": "DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "HYOSCINE BUTYLBROMIDE 10 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A03BB01",
+        "status": "Authorised",
+        "supplierCatalogKey": "buscopan 10mg coated tablets"
+      }
+    },
+    {
+      "id": "product:P0116",
+      "nodeType": "product",
+      "refId": "P0116",
+      "label": "Colpermin Gastro-resistant Capsules Peppermint oil 0.2ml",
+      "subtext": "bloating",
+      "meta": {
+        "brand": "Colpermin",
+        "generic": "PEPPERMINT OIL",
+        "form": "GASTRO-RESISTANT CAPSULE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "bloating",
+        "secondaryIndications": "cramps | spasms | abdominal discomfort",
+        "otcCategory": "DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "PEPPERMINT OIL 0.2 millilitre(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A03AX",
+        "status": "Authorised",
+        "supplierCatalogKey": "colpermin gastro-resistant capsules peppermint oil 0.2ml"
+      }
+    },
+    {
+      "id": "product:P0217",
+      "nodeType": "product",
+      "refId": "P0217",
+      "label": "Hyoscine Butylbromide Heumann 10 mg film-coated tablets",
+      "subtext": "bloating",
+      "meta": {
+        "brand": "Hyoscine",
+        "generic": "HYOSCINE BUTYLBROMIDE",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "bloating",
+        "secondaryIndications": "cramps | spasms | abdominal discomfort",
+        "otcCategory": "DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "HYOSCINE BUTYLBROMIDE 10 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A03BB01",
+        "status": "Authorised",
+        "supplierCatalogKey": "hyoscine butylbromide heumann 10 mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0218",
+      "nodeType": "product",
+      "refId": "P0218",
+      "label": "Hyoscine Butylbromide Torrent 10 mg film-coated tablets",
+      "subtext": "bloating",
+      "meta": {
+        "brand": "Hyoscine",
+        "generic": "HYOSCINE BUTYLBROMIDE",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "bloating",
+        "secondaryIndications": "cramps | spasms | abdominal discomfort",
+        "otcCategory": "DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "HYOSCINE BUTYLBROMIDE 10 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A03BB01",
+        "status": "Authorised",
+        "supplierCatalogKey": "hyoscine butylbromide torrent 10 mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0280",
+      "nodeType": "product",
+      "refId": "P0280",
+      "label": "Mebeverine Hydrochloride IBS, 135mg film-coated Tablet",
+      "subtext": "bloating",
+      "meta": {
+        "brand": "Mebeverine",
+        "generic": "MEBEVERINE HYDROCHLORIDE",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "bloating",
+        "secondaryIndications": "cramps | spasms | abdominal discomfort",
+        "otcCategory": "DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "MEBEVERINE HYDROCHLORIDE 135 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A03AA04",
+        "status": "Authorised",
+        "supplierCatalogKey": "mebeverine hydrochloride ibs, 135mg film-coated tablet"
+      }
+    },
+    {
+      "id": "product:P0296",
+      "nodeType": "product",
+      "refId": "P0296",
+      "label": "Motilium Fastmelts 10mg Orodispersible Tablets",
+      "subtext": "bloating",
+      "meta": {
+        "brand": "Motilium",
+        "generic": "DOMPERIDONE",
+        "form": "ORODISPERSIBLE TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "bloating",
+        "secondaryIndications": "cramps | spasms | abdominal discomfort",
+        "otcCategory": "DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DOMPERIDONE 10 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A03FA03",
+        "status": "Authorised",
+        "supplierCatalogKey": "motilium fastmelts 10mg orodispersible tablets"
+      }
+    },
+    {
+      "id": "product:P0307",
+      "nodeType": "product",
+      "refId": "P0307",
+      "label": "NO-SPA 40 mg tablets",
+      "subtext": "bloating",
+      "meta": {
+        "brand": "NO",
+        "generic": "DROTAVERINE HYDROCHLORIDE",
+        "form": "TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "bloating",
+        "secondaryIndications": "cramps | spasms | abdominal discomfort",
+        "otcCategory": "DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DROTAVERINE HYDROCHLORIDE 40 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A03AD02",
+        "status": "Authorised",
+        "supplierCatalogKey": "no-spa 40 mg tablets"
+      }
+    },
+    {
+      "id": "product:P0336",
+      "nodeType": "product",
+      "refId": "P0336",
+      "label": "No-Spa forte tablets",
+      "subtext": "bloating",
+      "meta": {
+        "brand": "No",
+        "generic": "DROTAVERINE HYDROCHLORIDE",
+        "form": "TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "bloating",
+        "secondaryIndications": "cramps | spasms | abdominal discomfort",
+        "otcCategory": "DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DROTAVERINE HYDROCHLORIDE",
+        "packSizeText": "Review manually",
+        "atcCode": "A03AD02",
+        "status": "Authorised",
+        "supplierCatalogKey": "no-spa forte tablets"
+      }
+    },
+    {
+      "id": "product:P0398",
+      "nodeType": "product",
+      "refId": "P0398",
+      "label": "Phloroglucinol ELC 80 mg orodispersible tablets",
+      "subtext": "bloating",
+      "meta": {
+        "brand": "Phloroglucinol",
+        "generic": "PHLOROGLUCINOL DIHYDRATE",
+        "form": "ORODISPERSIBLE TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "bloating",
+        "secondaryIndications": "cramps | spasms | abdominal discomfort",
+        "otcCategory": "DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "PHLOROGLUCINOL DIHYDRATE 80 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A03AX12",
+        "status": "Authorised",
+        "supplierCatalogKey": "phloroglucinol elc 80 mg orodispersible tablets"
+      }
+    },
+    {
+      "id": "product:P0455",
+      "nodeType": "product",
+      "refId": "P0455",
+      "label": "Spaverin 80 mg tablet",
+      "subtext": "bloating",
+      "meta": {
+        "brand": "Spaverin",
+        "generic": "DROTAVERINE HYDROCHLORIDE",
+        "form": "TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "bloating",
+        "secondaryIndications": "cramps | spasms | abdominal discomfort",
+        "otcCategory": "DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DROTAVERINE HYDROCHLORIDE 80 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A03AD02",
+        "status": "Authorised",
+        "supplierCatalogKey": "spaverin 80 mg tablet"
+      }
+    },
+    {
+      "id": "product:P0035",
+      "nodeType": "product",
+      "refId": "P0035",
+      "label": "BIOFLOR 250mg, powder for oral suspension in sachet",
+      "subtext": "diarrhoea",
+      "meta": {
+        "brand": "BIOFLOR",
+        "generic": "SACCHAROMYCES BOULARDII",
+        "form": "POWDER FOR ORAL SUSPENSION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "diarrhoea",
+        "secondaryIndications": "loose stools | gut upset",
+        "otcCategory": "ANTIDIARRHEALS, INTESTINAL ANTIINFLAMMATORY/ANTIINFECTIVE AGENTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "SACCHAROMYCES BOULARDII 250 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A07FA02",
+        "status": "Authorised",
+        "supplierCatalogKey": "bioflor 250mg, powder for oral suspension in sachet"
+      }
+    },
+    {
+      "id": "product:P0034",
+      "nodeType": "product",
+      "refId": "P0034",
+      "label": "BIOFLOR 250 mg, capsule",
+      "subtext": "diarrhoea",
+      "meta": {
+        "brand": "BIOFLOR",
+        "generic": "SACCHAROMYCES BOULARDII",
+        "form": "CAPSULE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "diarrhoea",
+        "secondaryIndications": "loose stools | gut upset",
+        "otcCategory": "ANTIDIARRHEALS, INTESTINAL ANTIINFLAMMATORY/ANTIINFECTIVE AGENTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "SACCHAROMYCES BOULARDII 250 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A07FA02",
+        "status": "Authorised",
+        "supplierCatalogKey": "bioflor 250 mg, capsule"
+      }
+    },
+    {
+      "id": "symptom:S021",
+      "nodeType": "symptom",
+      "refId": "S021",
+      "label": "diarrhoea",
+      "subtext": "Gastrointestinal",
+      "meta": {
+        "Symptom_ID": "S021",
+        "Symptom_Name": "diarrhoea",
+        "Symptom_Category": "Gastrointestinal",
+        "Linked_Product_Count": 16,
+        "Display_Group": "Gastrointestinal",
+        "Priority_For_Graph": 85,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "symptom:S042",
+      "nodeType": "symptom",
+      "refId": "S042",
+      "label": "loose stools",
+      "subtext": "Gastrointestinal",
+      "meta": {
+        "Symptom_ID": "S042",
+        "Symptom_Name": "loose stools",
+        "Symptom_Category": "Gastrointestinal",
+        "Linked_Product_Count": 16,
+        "Display_Group": "Gastrointestinal",
+        "Priority_For_Graph": 85,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "symptom:S031",
+      "nodeType": "symptom",
+      "refId": "S031",
+      "label": "gut upset",
+      "subtext": "Gastrointestinal",
+      "meta": {
+        "Symptom_ID": "S031",
+        "Symptom_Name": "gut upset",
+        "Symptom_Category": "Gastrointestinal",
+        "Linked_Product_Count": 16,
+        "Display_Group": "Gastrointestinal",
+        "Priority_For_Graph": 85,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "usecase:UC008",
+      "nodeType": "usecase",
+      "refId": "UC008",
+      "label": "Diarrhoea and gut recovery",
+      "subtext": "Gastrointestinal",
+      "meta": {
+        "UseCase_ID": "UC008",
+        "UseCase_Name": "Diarrhoea and gut recovery",
+        "UseCase_Category": "Gastrointestinal",
+        "Trigger_Symptoms": "Diarrhoea, loose stools, gut upset",
+        "Description": "Control plus gut recovery support."
+      }
+    },
+    {
+      "id": "bundle:B005",
+      "nodeType": "bundle",
+      "refId": "B005",
+      "label": "Diarrhoea Recovery Bundle",
+      "subtext": "Travel / acute bundle",
+      "meta": {
+        "Bundle_ID": "B005",
+        "Bundle_Name": "Diarrhoea Recovery Bundle",
+        "Source_UseCase_ID": "UC008",
+        "Bundle_Type": "Travel / acute bundle",
+        "Description": "Symptom control plus gut recovery"
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "8cda464cabc2d6d7",
+      "source": "product:P0052",
+      "target": "product:P0064",
+      "rel": "complement",
+      "label": "Diarrhoea + cramps",
+      "score": 76,
+      "why": "GI upset may include both diarrhoea and cramping discomfort.",
+      "meta": {
+        "edgeId": "E13636"
+      }
+    },
+    {
+      "key": "a573a07193a00367",
+      "source": "product:P0052",
+      "target": "product:P0116",
+      "rel": "complement",
+      "label": "Diarrhoea + cramps",
+      "score": 76,
+      "why": "GI upset may include both diarrhoea and cramping discomfort.",
+      "meta": {
+        "edgeId": "E13637"
+      }
+    },
+    {
+      "key": "5b513c941d733c4d",
+      "source": "product:P0052",
+      "target": "product:P0217",
+      "rel": "complement",
+      "label": "Diarrhoea + cramps",
+      "score": 76,
+      "why": "GI upset may include both diarrhoea and cramping discomfort.",
+      "meta": {
+        "edgeId": "E13638"
+      }
+    },
+    {
+      "key": "7da6d4db124e0ff7",
+      "source": "product:P0052",
+      "target": "product:P0218",
+      "rel": "complement",
+      "label": "Diarrhoea + cramps",
+      "score": 76,
+      "why": "GI upset may include both diarrhoea and cramping discomfort.",
+      "meta": {
+        "edgeId": "E13639"
+      }
+    },
+    {
+      "key": "aefe50f909aeb2cc",
+      "source": "product:P0052",
+      "target": "product:P0280",
+      "rel": "complement",
+      "label": "Diarrhoea + cramps",
+      "score": 76,
+      "why": "GI upset may include both diarrhoea and cramping discomfort.",
+      "meta": {
+        "edgeId": "E13640"
+      }
+    },
+    {
+      "key": "4491e13e8ffa1059",
+      "source": "product:P0052",
+      "target": "product:P0296",
+      "rel": "complement",
+      "label": "Diarrhoea + cramps",
+      "score": 76,
+      "why": "GI upset may include both diarrhoea and cramping discomfort.",
+      "meta": {
+        "edgeId": "E13641"
+      }
+    },
+    {
+      "key": "0886dcd68acfc5e8",
+      "source": "product:P0052",
+      "target": "product:P0307",
+      "rel": "complement",
+      "label": "Diarrhoea + cramps",
+      "score": 76,
+      "why": "GI upset may include both diarrhoea and cramping discomfort.",
+      "meta": {
+        "edgeId": "E13642"
+      }
+    },
+    {
+      "key": "2d96ca8770f9f874",
+      "source": "product:P0052",
+      "target": "product:P0336",
+      "rel": "complement",
+      "label": "Diarrhoea + cramps",
+      "score": 76,
+      "why": "GI upset may include both diarrhoea and cramping discomfort.",
+      "meta": {
+        "edgeId": "E13643"
+      }
+    },
+    {
+      "key": "36c533cc9734d07f",
+      "source": "product:P0052",
+      "target": "product:P0398",
+      "rel": "complement",
+      "label": "Diarrhoea + cramps",
+      "score": 76,
+      "why": "GI upset may include both diarrhoea and cramping discomfort.",
+      "meta": {
+        "edgeId": "E13644"
+      }
+    },
+    {
+      "key": "bdbf6fd807d5bf4d",
+      "source": "product:P0052",
+      "target": "product:P0455",
+      "rel": "complement",
+      "label": "Diarrhoea + cramps",
+      "score": 76,
+      "why": "GI upset may include both diarrhoea and cramping discomfort.",
+      "meta": {
+        "edgeId": "E13645"
+      }
+    },
+    {
+      "key": "936d9e9d376256e9",
+      "source": "product:P0035",
+      "target": "product:P0052",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E01783"
+      }
+    },
+    {
+      "key": "27d5f674f722d257",
+      "source": "product:P0034",
+      "target": "product:P0052",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 88,
+      "why": "Same active ingredient(s), but delivered in different form families.",
+      "meta": {
+        "edgeId": "E01782"
+      }
+    },
+    {
+      "key": "50bbe4df13ee116c",
+      "source": "product:P0052",
+      "target": "symptom:S021",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00165"
+      }
+    },
+    {
+      "key": "37ce72ebbc717cc8",
+      "source": "product:P0052",
+      "target": "symptom:S042",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00166"
+      }
+    },
+    {
+      "key": "c2ce0cf7abb5fdaa",
+      "source": "product:P0052",
+      "target": "symptom:S031",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00167"
+      }
+    },
+    {
+      "key": "9cb2310f200ff2e2",
+      "source": "product:P0052",
+      "target": "usecase:UC008",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "diarrhoea, loose stools, gut upset",
+      "meta": {
+        "useCaseItemId": "UCI00472"
+      }
+    },
+    {
+      "key": "2b6b938cdfbe6cbb",
+      "source": "product:P0052",
+      "target": "bundle:B005",
+      "rel": "bundle",
+      "label": "Optional",
+      "score": 85,
+      "why": "Seeded from Diarrhoea and gut recovery via symptom match: diarrhoea, loose stools, gut upset",
+      "meta": {
+        "bundleItemId": "BI00028"
+      }
+    },
+    {
+      "key": "fe3d2c0a50c04a19",
+      "source": "product:P0035",
+      "target": "product:P0052",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E01783",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    },
+    {
+      "key": "6fbb0cdff316988f",
+      "source": "product:P0034",
+      "target": "product:P0052",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 88,
+      "why": "Same active ingredient(s), but delivered in different form families.",
+      "meta": {
+        "edgeId": "E01782",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    }
+  ]
+}

@@ -1,0 +1,103 @@
+{
+  "centerId": "usecase:UC022",
+  "centerType": "usecase",
+  "refId": "UC022",
+  "nodes": [
+    {
+      "id": "usecase:UC022",
+      "nodeType": "usecase",
+      "refId": "UC022",
+      "label": "Sleep and relaxation",
+      "subtext": "Lifestyle / cessation",
+      "meta": {
+        "UseCase_ID": "UC022",
+        "UseCase_Name": "Sleep and relaxation",
+        "UseCase_Category": "Lifestyle / cessation",
+        "Trigger_Symptoms": "Insomnia, sleep difficulty, anxiety, relaxation",
+        "Description": "Sleep aids and calming products for occasional insomnia."
+      }
+    },
+    {
+      "id": "product:P0070",
+      "nodeType": "product",
+      "refId": "P0070",
+      "label": "Calmaben 50mg coated tablets",
+      "subtext": "sleep aid",
+      "meta": {
+        "brand": "Calmaben",
+        "generic": "DIPHENHYDRAMINE HYDROCHLORIDE",
+        "form": "COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "sleep aid",
+        "secondaryIndications": "",
+        "otcCategory": "PSYCHOLEPTICS",
+        "seasonalGroup": "All year",
+        "sedating": "Yes",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DIPHENHYDRAMINE HYDROCHLORIDE 50 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N05CM",
+        "status": "Authorised",
+        "supplierCatalogKey": "calmaben 50mg coated tablets"
+      }
+    },
+    {
+      "id": "product:P0433",
+      "nodeType": "product",
+      "refId": "P0433",
+      "label": "Sedistress 500mg film-coated tablets",
+      "subtext": "sleep support",
+      "meta": {
+        "brand": "Sedistress",
+        "generic": "PASSIFLORA INCARNATA",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "sleep support",
+        "secondaryIndications": "",
+        "otcCategory": "PSYCHOLEPTICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "PASSIFLORA INCARNATA 500 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N05CM",
+        "status": "Authorised",
+        "supplierCatalogKey": "sedistress 500mg film-coated tablets"
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "6cbfa4fc8b408636",
+      "source": "product:P0070",
+      "target": "usecase:UC022",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Insomnia, sleep difficulty, anxiety, relaxation",
+      "meta": {
+        "useCaseItemId": "UCI00715"
+      }
+    },
+    {
+      "key": "60072f0559f93b70",
+      "source": "product:P0433",
+      "target": "usecase:UC022",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Insomnia, sleep difficulty, anxiety, relaxation",
+      "meta": {
+        "useCaseItemId": "UCI00716"
+      }
+    }
+  ]
+}

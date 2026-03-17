@@ -45,31 +45,31 @@ def main():
 
     # Fix "review needed" products: assign correct indications based on ingredients/class.
     _review_fixes = {
-        'ANTITHROMBOTIC AGENTS':            {'main':'heart health','sec':'','tags':'wellness'},
+        'ANTITHROMBOTIC AGENTS':            {'main':'heart health','sec':'','tags':'heart health'},
         'UROLOGICALS':                      None,  # handled per-ingredient below
         'EMOLLIENTS AND PROTECTIVES':       None,  # handled per-ingredient below
         'ANTIEMETICS AND ANTINAUSEANTS':    {'main':'motion sickness','sec':'travel sickness','tags':'motion sickness; travel sickness'},
-        'PSYCHOLEPTICS':                    {'main':'sleep support','sec':'','tags':'wellness'},
+        'PSYCHOLEPTICS':                    {'main':'sleep support','sec':'','tags':'sleep support'},
         'ANTIMYCOTICS FOR SYSTEMIC USE':    {'main':'vaginal infection support','sec':'thrush (topical)','tags':'vaginal infection support; thrush (topical)'},
-        'OTOLOGICALS':                      {'main':'ear pain','sec':'','tags':'pain'},
-        'ALL OTHER THERAPEUTIC PRODUCTS':   {'main':'thyroid protection','sec':'','tags':'supplementation'},
-        'TONICS':                           {'main':'fatigue','sec':'supplementation','tags':'supplementation; wellness'},
-        'ALL OTHER NON-THERAPEUTIC PRODUCTS':{'main':'wound cleansing','sec':'wound care','tags':'wound care'},
+        'OTOLOGICALS':                      {'main':'ear pain','sec':'','tags':'ear pain'},
+        'ALL OTHER THERAPEUTIC PRODUCTS':   {'main':'thyroid protection','sec':'','tags':'thyroid support'},
+        'TONICS':                           {'main':'fatigue','sec':'supplementation','tags':'fatigue; supplementation'},
+        'ALL OTHER NON-THERAPEUTIC PRODUCTS':{'main':'wound cleansing','sec':'nasal irrigation','tags':'nasal irrigation; wound care'},
     }
     _ingredient_overrides = {
-        'TADALAFIL':    {'main':'erectile dysfunction','sec':'','tags':'wellness'},
-        'SILDENAFIL':   {'main':'erectile dysfunction','sec':'','tags':'wellness'},
+        'TADALAFIL':    {'main':'erectile dysfunction','sec':'','tags':'erectile dysfunction'},
+        'SILDENAFIL':   {'main':'erectile dysfunction','sec':'','tags':'erectile dysfunction'},
         'TROLAMINE':    {'main':'skin irritation','sec':'skin repair','tags':'skin irritation; skin repair'},
         'DIMETICONE':   {'main':'bloating','sec':'','tags':'bloating'},
-        'PERMETHRIN':   {'main':'scabies treatment','sec':'skin irritation','tags':'skin irritation; dermatology support'},
-        'ACICLOVIR':    {'main':'cold sore','sec':'healing','tags':'healing'},
-        'ULIPRISTAL':   {'main':'emergency contraception','sec':'','tags':'wellness'},
-        'LEVONORGESTREL':{'main':'emergency contraception','sec':'','tags':'wellness'},
+        'PERMETHRIN':   {'main':'scabies treatment','sec':'skin irritation','tags':'scabies; skin irritation'},
+        'ACICLOVIR':    {'main':'cold sore','sec':'','tags':'cold sores'},
+        'ULIPRISTAL':   {'main':'emergency contraception','sec':'','tags':'emergency contraception'},
+        'LEVONORGESTREL':{'main':'emergency contraception','sec':'','tags':'emergency contraception'},
         'LANOLIN':      {'main':'skin irritation','sec':'eczema | dermatitis','tags':'skin irritation; eczema; dermatitis'},
         'ZINC OXIDE':   {'main':'skin irritation','sec':'healing | wound care','tags':'skin irritation; healing; wound care'},
-        'CITRULLINE':   {'main':'fatigue','sec':'supplementation','tags':'supplementation; wellness'},
-        'PASSIFLORA':   {'main':'sleep support','sec':'','tags':'wellness'},
-        'ROWATINEX':    {'main':'urinary stones','sec':'','tags':'wellness'},
+        'CITRULLINE':   {'main':'fatigue','sec':'supplementation','tags':'fatigue; supplementation'},
+        'PASSIFLORA':   {'main':'sleep support','sec':'','tags':'sleep support'},
+        'ROWATINEX':    {'main':'urinary stones','sec':'','tags':'urinary health'},
     }
     _sym_name_to_id = {s['Symptom_Name'].lower(): s['Symptom_ID'] for s in symptoms}
     _review_sid = _sym_name_to_id.get('review needed')

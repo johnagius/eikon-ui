@@ -8,15 +8,15 @@
       "nodeType": "product",
       "refId": "P0026",
       "label": "Aspirem Tablets Gastro-Resistant 75mg",
-      "subtext": "review needed",
+      "subtext": "heart health",
       "meta": {
         "brand": "Aspirem",
         "generic": "ACETYLSALICYLIC ACID",
         "form": "GASTRO-RESISTANT TABLET",
         "formGroup": "Oral solid",
         "route": "Oral",
-        "mainIndication": "review needed",
-        "secondaryIndications": null,
+        "mainIndication": "heart health",
+        "secondaryIndications": "",
         "otcCategory": "ANTITHROMBOTIC AGENTS",
         "seasonalGroup": "All year",
         "sedating": "No",
@@ -32,39 +32,60 @@
       }
     },
     {
-      "id": "symptom:S076",
+      "id": "symptom:S084",
       "nodeType": "symptom",
-      "refId": "S076",
-      "label": "wellness",
+      "refId": "S084",
+      "label": "heart health",
       "subtext": "General",
       "meta": {
-        "Symptom_ID": "S076",
-        "Symptom_Name": "wellness",
+        "Symptom_ID": "S084",
+        "Symptom_Name": "heart health",
         "Symptom_Category": "General",
-        "Linked_Product_Count": 3,
         "Display_Group": "General",
-        "Priority_For_Graph": 70,
-        "Node_Color": "#A5A5A5",
-        "Notes": "Seeded from imported symptom tags; refine naming over time."
+        "Linked_Product_Count": 0,
+        "Priority_For_Graph": 100,
+        "Node_Color": "#ff6b6b"
+      }
+    },
+    {
+      "id": "usecase:UC017",
+      "nodeType": "usecase",
+      "refId": "UC017",
+      "label": "Mineral and vitamin support",
+      "subtext": "Supplements",
+      "meta": {
+        "UseCase_ID": "UC017",
+        "UseCase_Name": "Mineral and vitamin support",
+        "UseCase_Category": "Supplements",
+        "Trigger_Symptoms": "Vitamin deficiency, mineral deficiency, supplementation",
+        "Description": "Essential vitamins and minerals for general health."
       }
     }
   ],
   "links": [
     {
-      "key": "d4b1d379dc7affd8",
+      "key": "8de014f3addf1ddc",
       "source": "product:P0026",
-      "target": "symptom:S076",
+      "target": "symptom:S084",
       "rel": "symptom",
       "label": "Primary",
-      "score": 80,
-      "why": "Manual review fix",
+      "score": 100,
+      "why": "Indication-based assignment",
       "meta": {
-        "mapId": "PSM01751"
+        "mapId": "PSM01816"
+      }
+    },
+    {
+      "key": "e5abdc8ece178aff",
+      "source": "product:P0026",
+      "target": "usecase:UC017",
+      "rel": "usecase",
+      "label": "Support",
+      "score": 60,
+      "why": "Heart health, daily aspirin",
+      "meta": {
+        "useCaseItemId": "UCI00737"
       }
     }
-  ],
-  "meta": {
-    "productName": "Aspirem Tablets Gastro-Resistant 75mg",
-    "linkCount": 1
-  }
+  ]
 }

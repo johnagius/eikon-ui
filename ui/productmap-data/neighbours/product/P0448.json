@@ -8,15 +8,15 @@
       "nodeType": "product",
       "refId": "P0448",
       "label": "Sodium Chloride MONICO 0.9%",
-      "subtext": "review needed",
+      "subtext": "wound cleansing",
       "meta": {
         "brand": "Sodium",
         "generic": "SODIUM CHLORIDE",
         "form": "SOLVENT FOR PARENTERAL USE",
         "formGroup": "Other",
         "route": "Other",
-        "mainIndication": "review needed",
-        "secondaryIndications": null,
+        "mainIndication": "wound cleansing",
+        "secondaryIndications": "wound care",
         "otcCategory": "ALL OTHER NON-THERAPEUTIC PRODUCTS",
         "seasonalGroup": "All year",
         "sedating": "No",
@@ -47,6 +47,36 @@
         "Node_Color": "#A5A5A5",
         "Notes": "Seeded from imported symptom tags; refine naming over time."
       }
+    },
+    {
+      "id": "symptom:S089",
+      "nodeType": "symptom",
+      "refId": "S089",
+      "label": "nasal irrigation",
+      "subtext": "Cold / allergy",
+      "meta": {
+        "Symptom_ID": "S089",
+        "Symptom_Name": "nasal irrigation",
+        "Symptom_Category": "Cold / allergy",
+        "Display_Group": "Cold / allergy",
+        "Linked_Product_Count": 0,
+        "Priority_For_Graph": 100,
+        "Node_Color": "#0abde3"
+      }
+    },
+    {
+      "id": "usecase:UC010",
+      "nodeType": "usecase",
+      "refId": "UC010",
+      "label": "Athlete foot and fungal skin care",
+      "subtext": "Skin",
+      "meta": {
+        "UseCase_ID": "UC010",
+        "UseCase_Name": "Athlete foot and fungal skin care",
+        "UseCase_Category": "Skin",
+        "Trigger_Symptoms": "Fungal skin infection, athlete foot, itch",
+        "Description": "Antifungal core with hygiene/support products."
+      }
     }
   ],
   "links": [
@@ -61,10 +91,30 @@
       "meta": {
         "mapId": "PSM01796"
       }
+    },
+    {
+      "key": "9695b0278703801c",
+      "source": "product:P0448",
+      "target": "symptom:S089",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Indication-based assignment",
+      "meta": {
+        "mapId": "PSM01805"
+      }
+    },
+    {
+      "key": "aad9e0997aaa5218",
+      "source": "product:P0448",
+      "target": "usecase:UC010",
+      "rel": "usecase",
+      "label": "Support",
+      "score": 70,
+      "why": "Skin care",
+      "meta": {
+        "useCaseItemId": "UCI00730"
+      }
     }
-  ],
-  "meta": {
-    "productName": "Sodium Chloride MONICO 0.9%",
-    "linkCount": 1
-  }
+  ]
 }

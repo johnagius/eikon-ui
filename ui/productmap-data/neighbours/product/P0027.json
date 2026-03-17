@@ -8,15 +8,15 @@
       "nodeType": "product",
       "refId": "P0027",
       "label": "Aspirin 75mg Gastro-resistant Tablets",
-      "subtext": "review needed",
+      "subtext": "heart health",
       "meta": {
         "brand": "Aspirin",
         "generic": "ASPIRIN BP",
         "form": "GASTRO-RESISTANT TABLET",
         "formGroup": "Oral solid",
         "route": "Oral",
-        "mainIndication": "review needed",
-        "secondaryIndications": null,
+        "mainIndication": "heart health",
+        "secondaryIndications": "",
         "otcCategory": "ANTITHROMBOTIC AGENTS",
         "seasonalGroup": "All year",
         "sedating": "No",
@@ -32,39 +32,60 @@
       }
     },
     {
-      "id": "symptom:S076",
+      "id": "symptom:S084",
       "nodeType": "symptom",
-      "refId": "S076",
-      "label": "wellness",
+      "refId": "S084",
+      "label": "heart health",
       "subtext": "General",
       "meta": {
-        "Symptom_ID": "S076",
-        "Symptom_Name": "wellness",
+        "Symptom_ID": "S084",
+        "Symptom_Name": "heart health",
         "Symptom_Category": "General",
-        "Linked_Product_Count": 3,
         "Display_Group": "General",
-        "Priority_For_Graph": 70,
-        "Node_Color": "#A5A5A5",
-        "Notes": "Seeded from imported symptom tags; refine naming over time."
+        "Linked_Product_Count": 0,
+        "Priority_For_Graph": 100,
+        "Node_Color": "#ff6b6b"
+      }
+    },
+    {
+      "id": "usecase:UC017",
+      "nodeType": "usecase",
+      "refId": "UC017",
+      "label": "Mineral and vitamin support",
+      "subtext": "Supplements",
+      "meta": {
+        "UseCase_ID": "UC017",
+        "UseCase_Name": "Mineral and vitamin support",
+        "UseCase_Category": "Supplements",
+        "Trigger_Symptoms": "Vitamin deficiency, mineral deficiency, supplementation",
+        "Description": "Essential vitamins and minerals for general health."
       }
     }
   ],
   "links": [
     {
-      "key": "50cdaf33bbfaf979",
+      "key": "01d2d8ecf2712de2",
       "source": "product:P0027",
-      "target": "symptom:S076",
+      "target": "symptom:S084",
       "rel": "symptom",
       "label": "Primary",
-      "score": 80,
-      "why": "Manual review fix",
+      "score": 100,
+      "why": "Indication-based assignment",
       "meta": {
-        "mapId": "PSM01752"
+        "mapId": "PSM01804"
+      }
+    },
+    {
+      "key": "1e8c76558cc6cbdf",
+      "source": "product:P0027",
+      "target": "usecase:UC017",
+      "rel": "usecase",
+      "label": "Support",
+      "score": 60,
+      "why": "Heart health, daily aspirin",
+      "meta": {
+        "useCaseItemId": "UCI00738"
       }
     }
-  ],
-  "meta": {
-    "productName": "Aspirin 75mg Gastro-resistant Tablets",
-    "linkCount": 1
-  }
+  ]
 }

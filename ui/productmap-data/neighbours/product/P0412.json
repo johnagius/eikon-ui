@@ -1,1 +1,415 @@
-{"centerId":"product:P0412","centerType":"product","refId":"P0412","nodes":[{"id":"product:P0412","nodeType":"product","refId":"P0412","label":"Regaine for Men Extra Strength 5% w/w Scalp Foam Cutaneous Foam","subtext":"skin repair","meta":{"brand":"Regaine","generic":"MINOXIDIL","form":"CUTANEOUS FOAM","formGroup":"Topical","route":"Topical","mainIndication":"skin repair","secondaryIndications":"scar care | dermatology support","otcCategory":"OTHER DERMATOLOGICAL PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"MINOXIDIL 50 milligram(s)/gram","packSizeText":"Review manually","atcCode":"D11AX01","status":"Authorised","supplierCatalogKey":"regaine for men extra strength 5% w/w scalp foam cutaneous foam"}},{"id":"product:P0413","nodeType":"product","refId":"P0413","label":"Regaine for Men Extra Strength Scalp Foam 5% w/w Cutaneous Foam","subtext":"skin repair","meta":{"brand":"Regaine","generic":"MINOXIDIL","form":"CUTANEOUS FOAM","formGroup":"Topical","route":"Topical","mainIndication":"skin repair","secondaryIndications":"scar care | dermatology support","otcCategory":"OTHER DERMATOLOGICAL PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"MINOXIDIL 5 percent weight/weight","packSizeText":"Review manually","atcCode":"D11AX01","status":"Authorised","supplierCatalogKey":"regaine for men extra strength scalp foam 5% w/w cutaneous foam"}},{"id":"product:P0292","nodeType":"product","refId":"P0292","label":"Minorga 2% Cutaneous Solution 20mg/ml","subtext":"skin repair","meta":{"brand":"Minorga","generic":"MINOXIDIL","form":"CUTANEOUS SOLUTION","formGroup":"Topical","route":"Topical","mainIndication":"skin repair","secondaryIndications":"scar care | dermatology support","otcCategory":"OTHER DERMATOLOGICAL PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"MINOXIDIL 20 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"D11AX01","status":"Authorised","supplierCatalogKey":"minorga 2% cutaneous solution 20mg/ml"}},{"id":"product:P0293","nodeType":"product","refId":"P0293","label":"Minorga 5% Cutaneous Solution 50mg/ml","subtext":"skin repair","meta":{"brand":"Minorga","generic":"MINOXIDIL","form":"CUTANEOUS SOLUTION","formGroup":"Topical","route":"Topical","mainIndication":"skin repair","secondaryIndications":"scar care | dermatology support","otcCategory":"OTHER DERMATOLOGICAL PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"MINOXIDIL 50 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"D11AX01","status":"Authorised","supplierCatalogKey":"minorga 5% cutaneous solution 50mg/ml"}},{"id":"product:P0294","nodeType":"product","refId":"P0294","label":"Minoxidil Torrent 50 mg/ml cutaneous spray, solution","subtext":"skin repair","meta":{"brand":"Minoxidil","generic":"MINOXIDIL","form":"CUTANEOUS SPRAY, SOLUTION","formGroup":"Topical","route":"Topical","mainIndication":"skin repair","secondaryIndications":"scar care | dermatology support","otcCategory":"OTHER DERMATOLOGICAL PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"MINOXIDIL 50 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"D11AX01","status":"Authorised","supplierCatalogKey":"minoxidil torrent 50 mg/ml cutaneous spray, solution"}},{"id":"product:P0411","nodeType":"product","refId":"P0411","label":"Regaine Extra Strength 5% w/v Cutaneous Solution","subtext":"skin repair","meta":{"brand":"Regaine","generic":"MINOXIDIL","form":"CUTANEOUS SOLUTION","formGroup":"Topical","route":"Topical","mainIndication":"skin repair","secondaryIndications":"scar care | dermatology support","otcCategory":"OTHER DERMATOLOGICAL PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"MINOXIDIL 5 percent weight/volume","packSizeText":"Review manually","atcCode":"D11AX01","status":"Authorised","supplierCatalogKey":"regaine extra strength 5% w/v cutaneous solution"}},{"id":"symptom:S060","nodeType":"symptom","refId":"S060","label":"skin repair","subtext":"General","meta":{"Symptom_ID":"S060","Symptom_Name":"skin repair","Symptom_Category":"General","Linked_Product_Count":8,"Display_Group":"General","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"symptom:S055","nodeType":"symptom","refId":"S055","label":"scar care","subtext":"General","meta":{"Symptom_ID":"S055","Symptom_Name":"scar care","Symptom_Category":"General","Linked_Product_Count":8,"Display_Group":"General","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"symptom:S020","nodeType":"symptom","refId":"S020","label":"dermatology support","subtext":"General","meta":{"Symptom_ID":"S020","Symptom_Name":"dermatology support","Symptom_Category":"General","Linked_Product_Count":8,"Display_Group":"General","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}}],"links":[{"key":"af90f2643ac79255","source":"product:P0412","target":"product:P0413","rel":"similar","label":"Alternative: same active ingredient(s)","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E01070","clinicalSimilarity":100,"commercialSubstitution":100,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"dermatology support, scar care, skin repair","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"c49a51c7a82c848c","source":"product:P0292","target":"product:P0412","rel":"similar","label":"Alternative: same active ingredient(s)","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E01059","clinicalSimilarity":100,"commercialSubstitution":100,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"dermatology support, scar care, skin repair","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"e6ecf7409132b157","source":"product:P0293","target":"product:P0412","rel":"similar","label":"Alternative: same active ingredient(s)","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E01063","clinicalSimilarity":100,"commercialSubstitution":100,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"dermatology support, scar care, skin repair","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"d9df181d6b307585","source":"product:P0294","target":"product:P0412","rel":"similar","label":"Alternative: same active ingredient(s)","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E01066","clinicalSimilarity":100,"commercialSubstitution":100,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"dermatology support, scar care, skin repair","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"2b299515b94a642c","source":"product:P0411","target":"product:P0412","rel":"similar","label":"Alternative: same active ingredient(s)","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E01068","clinicalSimilarity":100,"commercialSubstitution":100,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"dermatology support, scar care, skin repair","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"06a912b166e3926a","source":"product:P0412","target":"symptom:S060","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM01359","role":"Primary","reviewStatus":"Seeded"}},{"key":"33f0c1dc6edc5e27","source":"product:P0412","target":"symptom:S055","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01360","role":"Primary","reviewStatus":"Seeded"}},{"key":"279b4d6daa3ab7c8","source":"product:P0412","target":"symptom:S020","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM01361","role":"Secondary","reviewStatus":"Seeded"}},{"key":"1eb5f2f9b89f3c72","source":"product:P0412","target":"product:P0413","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E01070","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}},{"key":"7175de49dec08335","source":"product:P0292","target":"product:P0412","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E01059","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}},{"key":"b05950de5d3ea1a1","source":"product:P0293","target":"product:P0412","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E01063","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}},{"key":"70067c006374ceb2","source":"product:P0294","target":"product:P0412","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E01066","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}},{"key":"555429edf3b088c2","source":"product:P0411","target":"product:P0412","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E01068","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}}],"meta":{"productName":"Regaine for Men Extra Strength 5% w/w Scalp Foam Cutaneous Foam","linkCount":13}}
+{
+  "centerId": "product:P0412",
+  "centerType": "product",
+  "refId": "P0412",
+  "nodes": [
+    {
+      "id": "product:P0412",
+      "nodeType": "product",
+      "refId": "P0412",
+      "label": "Regaine for Men Extra Strength 5% w/w Scalp Foam Cutaneous Foam",
+      "subtext": "skin repair",
+      "meta": {
+        "brand": "Regaine",
+        "generic": "MINOXIDIL",
+        "form": "CUTANEOUS FOAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "skin repair",
+        "secondaryIndications": "scar care | dermatology support",
+        "otcCategory": "OTHER DERMATOLOGICAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "MINOXIDIL 50 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D11AX01",
+        "status": "Authorised",
+        "supplierCatalogKey": "regaine for men extra strength 5% w/w scalp foam cutaneous foam"
+      }
+    },
+    {
+      "id": "product:P0292",
+      "nodeType": "product",
+      "refId": "P0292",
+      "label": "Minorga 2% Cutaneous Solution 20mg/ml",
+      "subtext": "skin repair",
+      "meta": {
+        "brand": "Minorga",
+        "generic": "MINOXIDIL",
+        "form": "CUTANEOUS SOLUTION",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "skin repair",
+        "secondaryIndications": "scar care | dermatology support",
+        "otcCategory": "OTHER DERMATOLOGICAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "MINOXIDIL 20 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "D11AX01",
+        "status": "Authorised",
+        "supplierCatalogKey": "minorga 2% cutaneous solution 20mg/ml"
+      }
+    },
+    {
+      "id": "product:P0293",
+      "nodeType": "product",
+      "refId": "P0293",
+      "label": "Minorga 5% Cutaneous Solution 50mg/ml",
+      "subtext": "skin repair",
+      "meta": {
+        "brand": "Minorga",
+        "generic": "MINOXIDIL",
+        "form": "CUTANEOUS SOLUTION",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "skin repair",
+        "secondaryIndications": "scar care | dermatology support",
+        "otcCategory": "OTHER DERMATOLOGICAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "MINOXIDIL 50 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "D11AX01",
+        "status": "Authorised",
+        "supplierCatalogKey": "minorga 5% cutaneous solution 50mg/ml"
+      }
+    },
+    {
+      "id": "product:P0294",
+      "nodeType": "product",
+      "refId": "P0294",
+      "label": "Minoxidil Torrent 50 mg/ml cutaneous spray, solution",
+      "subtext": "skin repair",
+      "meta": {
+        "brand": "Minoxidil",
+        "generic": "MINOXIDIL",
+        "form": "CUTANEOUS SPRAY, SOLUTION",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "skin repair",
+        "secondaryIndications": "scar care | dermatology support",
+        "otcCategory": "OTHER DERMATOLOGICAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "MINOXIDIL 50 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "D11AX01",
+        "status": "Authorised",
+        "supplierCatalogKey": "minoxidil torrent 50 mg/ml cutaneous spray, solution"
+      }
+    },
+    {
+      "id": "product:P0411",
+      "nodeType": "product",
+      "refId": "P0411",
+      "label": "Regaine Extra Strength 5% w/v Cutaneous Solution",
+      "subtext": "skin repair",
+      "meta": {
+        "brand": "Regaine",
+        "generic": "MINOXIDIL",
+        "form": "CUTANEOUS SOLUTION",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "skin repair",
+        "secondaryIndications": "scar care | dermatology support",
+        "otcCategory": "OTHER DERMATOLOGICAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "MINOXIDIL 5 percent weight/volume",
+        "packSizeText": "Review manually",
+        "atcCode": "D11AX01",
+        "status": "Authorised",
+        "supplierCatalogKey": "regaine extra strength 5% w/v cutaneous solution"
+      }
+    },
+    {
+      "id": "product:P0413",
+      "nodeType": "product",
+      "refId": "P0413",
+      "label": "Regaine for Men Extra Strength Scalp Foam 5% w/w Cutaneous Foam",
+      "subtext": "skin repair",
+      "meta": {
+        "brand": "Regaine",
+        "generic": "MINOXIDIL",
+        "form": "CUTANEOUS FOAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "skin repair",
+        "secondaryIndications": "scar care | dermatology support",
+        "otcCategory": "OTHER DERMATOLOGICAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "MINOXIDIL 5 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "D11AX01",
+        "status": "Authorised",
+        "supplierCatalogKey": "regaine for men extra strength scalp foam 5% w/w cutaneous foam"
+      }
+    },
+    {
+      "id": "symptom:S060",
+      "nodeType": "symptom",
+      "refId": "S060",
+      "label": "skin repair",
+      "subtext": "General",
+      "meta": {
+        "Symptom_ID": "S060",
+        "Symptom_Name": "skin repair",
+        "Symptom_Category": "General",
+        "Linked_Product_Count": 8,
+        "Display_Group": "General",
+        "Priority_For_Graph": 70,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "symptom:S055",
+      "nodeType": "symptom",
+      "refId": "S055",
+      "label": "scar care",
+      "subtext": "General",
+      "meta": {
+        "Symptom_ID": "S055",
+        "Symptom_Name": "scar care",
+        "Symptom_Category": "General",
+        "Linked_Product_Count": 8,
+        "Display_Group": "General",
+        "Priority_For_Graph": 70,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "symptom:S020",
+      "nodeType": "symptom",
+      "refId": "S020",
+      "label": "dermatology support",
+      "subtext": "General",
+      "meta": {
+        "Symptom_ID": "S020",
+        "Symptom_Name": "dermatology support",
+        "Symptom_Category": "General",
+        "Linked_Product_Count": 8,
+        "Display_Group": "General",
+        "Priority_For_Graph": 70,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "usecase:UC019",
+      "nodeType": "usecase",
+      "refId": "UC019",
+      "label": "Skin repair and scar care",
+      "subtext": "Skin",
+      "meta": {
+        "UseCase_ID": "UC019",
+        "UseCase_Name": "Skin repair and scar care",
+        "UseCase_Category": "Skin",
+        "Trigger_Symptoms": "Scars, skin repair, wound healing",
+        "Description": "Products for skin repair, scar reduction, and wound healing."
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "c49a51c7a82c848c",
+      "source": "product:P0292",
+      "target": "product:P0412",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E01059"
+      }
+    },
+    {
+      "key": "e6ecf7409132b157",
+      "source": "product:P0293",
+      "target": "product:P0412",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E01063"
+      }
+    },
+    {
+      "key": "d9df181d6b307585",
+      "source": "product:P0294",
+      "target": "product:P0412",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E01066"
+      }
+    },
+    {
+      "key": "2b299515b94a642c",
+      "source": "product:P0411",
+      "target": "product:P0412",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E01068"
+      }
+    },
+    {
+      "key": "af90f2643ac79255",
+      "source": "product:P0412",
+      "target": "product:P0413",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E01070"
+      }
+    },
+    {
+      "key": "06a912b166e3926a",
+      "source": "product:P0412",
+      "target": "symptom:S060",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01359"
+      }
+    },
+    {
+      "key": "33f0c1dc6edc5e27",
+      "source": "product:P0412",
+      "target": "symptom:S055",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01360"
+      }
+    },
+    {
+      "key": "279b4d6daa3ab7c8",
+      "source": "product:P0412",
+      "target": "symptom:S020",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01361"
+      }
+    },
+    {
+      "key": "6030f22d522e99d2",
+      "source": "product:P0412",
+      "target": "usecase:UC019",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Scars, skin repair, wound healing",
+      "meta": {
+        "useCaseItemId": "UCI00705"
+      }
+    },
+    {
+      "key": "7175de49dec08335",
+      "source": "product:P0292",
+      "target": "product:P0412",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E01059",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    },
+    {
+      "key": "b05950de5d3ea1a1",
+      "source": "product:P0293",
+      "target": "product:P0412",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E01063",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    },
+    {
+      "key": "70067c006374ceb2",
+      "source": "product:P0294",
+      "target": "product:P0412",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E01066",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    },
+    {
+      "key": "555429edf3b088c2",
+      "source": "product:P0411",
+      "target": "product:P0412",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E01068",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    },
+    {
+      "key": "1eb5f2f9b89f3c72",
+      "source": "product:P0412",
+      "target": "product:P0413",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E01070",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    }
+  ]
+}

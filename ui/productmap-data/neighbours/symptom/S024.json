@@ -1,1 +1,250 @@
-{"centerId":"symptom:S024","centerType":"symptom","refId":"S024","nodes":[{"id":"symptom:S024","nodeType":"symptom","refId":"S024","label":"dry eye","subtext":"Eye","meta":{"Symptom_ID":"S024","Symptom_Name":"dry eye","Symptom_Category":"Eye","Linked_Product_Count":5,"Display_Group":"Eye","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"product:P0005","nodeType":"product","refId":"P0005","label":"ANTALERG 0.05 % eye drops, solution","subtext":"eye irritation","meta":{"brand":"ANTALERG","generic":"AZELASTINE HYDROCHLORIDE","form":"EYE DROPS, SOLUTION","formGroup":"Eye","route":"Eye","mainIndication":"eye irritation","secondaryIndications":"dry eye | allergy eye symptoms","otcCategory":"OPHTHALMOLOGICALS","seasonalGroup":"Spring / allergy","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"AZELASTINE HYDROCHLORIDE 0.5 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"S01GX07","status":"Authorised","supplierCatalogKey":"antalerg 0.05 % eye drops, solution"}},{"id":"product:P0030","nodeType":"product","refId":"P0030","label":"Azelastin-COMOD Eye Drops Solution 0.5mg/ml","subtext":"eye irritation","meta":{"brand":"Azelastin","generic":"AZELASTINE HYDROCHLORIDE","form":"EYE DROPS, SOLUTION","formGroup":"Eye","route":"Eye","mainIndication":"eye irritation","secondaryIndications":"dry eye | allergy eye symptoms","otcCategory":"OPHTHALMOLOGICALS","seasonalGroup":"Spring / allergy","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"AZELASTINE HYDROCHLORIDE 0.05 percent","packSizeText":"Review manually","atcCode":"S01GX07","status":"Authorised","supplierCatalogKey":"azelastin-comod eye drops solution 0.5mg/ml"}},{"id":"product:P0209","nodeType":"product","refId":"P0209","label":"Golden Eye 0.1% w/v Eye Drops Solution","subtext":"eye irritation","meta":{"brand":"Golden","generic":"PROPAMIDINE ISETIONATE","form":"EYE DROPS, SOLUTION","formGroup":"Eye","route":"Eye","mainIndication":"eye irritation","secondaryIndications":"dry eye | allergy eye symptoms","otcCategory":"OPHTHALMOLOGICALS","seasonalGroup":"Spring / allergy","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"PROPAMIDINE ISETIONATE 0.1 percent weight/volume","packSizeText":"Review manually","atcCode":"S01AX15","status":"Authorised","supplierCatalogKey":"golden eye 0.1% w/v eye drops solution"}},{"id":"product:P0360","nodeType":"product","refId":"P0360","label":"Optrex Clear Eyes Eye Drops Solution Hamamelis Water 12.5% v/v Naphazoline Hydrochloride 0.01% w/v","subtext":"eye irritation","meta":{"brand":"Optrex","generic":"HAMAMELIS WATER | NAPHAZOLINE HYDROCHLORIDE","form":"EYE DROPS, SOLUTION","formGroup":"Eye","route":"Eye","mainIndication":"eye irritation","secondaryIndications":"dry eye | allergy eye symptoms","otcCategory":"OPHTHALMOLOGICALS","seasonalGroup":"Spring / allergy","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"NAPHAZOLINE HYDROCHLORIDE 0.01 percent weight/volume | HAMAMELIS WATER\n 12.5 percent volume/volume","packSizeText":"Review manually","atcCode":"S01GA51","status":"Authorised","supplierCatalogKey":"optrex clear eyes eye drops solution hamamelis water 12.5% v/v naphazoline hydrochloride 0.01% w/v"}},{"id":"product:P0399","nodeType":"product","refId":"P0399","label":"Posiforlid 20 mg/g eye ointment","subtext":"eye irritation","meta":{"brand":"Posiforlid","generic":"BIBROCATHOL","form":"EYE OINTMENT","formGroup":"Eye","route":"Eye","mainIndication":"eye irritation","secondaryIndications":"dry eye | allergy eye symptoms","otcCategory":"OPHTHALMOLOGICALS","seasonalGroup":"Spring / allergy","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"BIBROCATHOL 20 milligram(s)/gram","packSizeText":"Review manually","atcCode":"S01AX05","status":"Authorised","supplierCatalogKey":"posiforlid 20 mg/g eye ointment"}},{"id":"usecase:UC012","nodeType":"usecase","refId":"UC012","label":"Eye allergy and irritation support","subtext":"Eye","meta":{"UseCase_ID":"UC012","UseCase_Name":"Eye allergy and irritation support","UseCase_Category":"Eye","Trigger_Symptoms":"Eye irritation, dry eye, allergy eye symptoms","Description":"Direct eye relief with allergy support."}}],"links":[{"key":"7cffc78d8bb6218b","source":"symptom:S024","target":"product:P0005","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00018","role":"Primary","reviewStatus":"Seeded"}},{"key":"24412a0ed023475b","source":"symptom:S024","target":"product:P0030","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00104","role":"Primary","reviewStatus":"Seeded"}},{"key":"7973a40dd82bb43c","source":"symptom:S024","target":"product:P0209","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00671","role":"Primary","reviewStatus":"Seeded"}},{"key":"de9b3e34094dbedf","source":"symptom:S024","target":"product:P0360","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01170","role":"Primary","reviewStatus":"Seeded"}},{"key":"5396d4aa0828c8b8","source":"symptom:S024","target":"product:P0399","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01312","role":"Primary","reviewStatus":"Seeded"}},{"key":"446b84df3ac04f14","source":"symptom:S024","target":"usecase:UC012","rel":"usecase","label":"Triggered by symptom","score":85,"why":"Eye irritation, dry eye, allergy eye symptoms","meta":{}}],"meta":{"symptomName":"dry eye","linkCount":6}}
+{
+  "centerId": "symptom:S024",
+  "centerType": "symptom",
+  "refId": "S024",
+  "nodes": [
+    {
+      "id": "symptom:S024",
+      "nodeType": "symptom",
+      "refId": "S024",
+      "label": "dry eye",
+      "subtext": "Eye",
+      "meta": {
+        "Symptom_ID": "S024",
+        "Symptom_Name": "dry eye",
+        "Symptom_Category": "Eye",
+        "Linked_Product_Count": 5,
+        "Display_Group": "Eye",
+        "Priority_For_Graph": 70,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "product:P0005",
+      "nodeType": "product",
+      "refId": "P0005",
+      "label": "ANTALERG 0.05 % eye drops, solution",
+      "subtext": "eye irritation",
+      "meta": {
+        "brand": "ANTALERG",
+        "generic": "AZELASTINE HYDROCHLORIDE",
+        "form": "EYE DROPS, SOLUTION",
+        "formGroup": "Eye",
+        "route": "Eye",
+        "mainIndication": "eye irritation",
+        "secondaryIndications": "dry eye | allergy eye symptoms",
+        "otcCategory": "OPHTHALMOLOGICALS",
+        "seasonalGroup": "Spring / allergy",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "AZELASTINE HYDROCHLORIDE 0.5 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "S01GX07",
+        "status": "Authorised",
+        "supplierCatalogKey": "antalerg 0.05 % eye drops, solution"
+      }
+    },
+    {
+      "id": "product:P0030",
+      "nodeType": "product",
+      "refId": "P0030",
+      "label": "Azelastin-COMOD Eye Drops Solution 0.5mg/ml",
+      "subtext": "eye irritation",
+      "meta": {
+        "brand": "Azelastin",
+        "generic": "AZELASTINE HYDROCHLORIDE",
+        "form": "EYE DROPS, SOLUTION",
+        "formGroup": "Eye",
+        "route": "Eye",
+        "mainIndication": "eye irritation",
+        "secondaryIndications": "dry eye | allergy eye symptoms",
+        "otcCategory": "OPHTHALMOLOGICALS",
+        "seasonalGroup": "Spring / allergy",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "AZELASTINE HYDROCHLORIDE 0.05 percent",
+        "packSizeText": "Review manually",
+        "atcCode": "S01GX07",
+        "status": "Authorised",
+        "supplierCatalogKey": "azelastin-comod eye drops solution 0.5mg/ml"
+      }
+    },
+    {
+      "id": "product:P0209",
+      "nodeType": "product",
+      "refId": "P0209",
+      "label": "Golden Eye 0.1% w/v Eye Drops Solution",
+      "subtext": "eye irritation",
+      "meta": {
+        "brand": "Golden",
+        "generic": "PROPAMIDINE ISETIONATE",
+        "form": "EYE DROPS, SOLUTION",
+        "formGroup": "Eye",
+        "route": "Eye",
+        "mainIndication": "eye irritation",
+        "secondaryIndications": "dry eye | allergy eye symptoms",
+        "otcCategory": "OPHTHALMOLOGICALS",
+        "seasonalGroup": "Spring / allergy",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "PROPAMIDINE ISETIONATE 0.1 percent weight/volume",
+        "packSizeText": "Review manually",
+        "atcCode": "S01AX15",
+        "status": "Authorised",
+        "supplierCatalogKey": "golden eye 0.1% w/v eye drops solution"
+      }
+    },
+    {
+      "id": "product:P0360",
+      "nodeType": "product",
+      "refId": "P0360",
+      "label": "Optrex Clear Eyes Eye Drops Solution Hamamelis Water 12.5% v/v Naphazoline Hydrochloride 0.01% w/v",
+      "subtext": "eye irritation",
+      "meta": {
+        "brand": "Optrex",
+        "generic": "HAMAMELIS WATER | NAPHAZOLINE HYDROCHLORIDE",
+        "form": "EYE DROPS, SOLUTION",
+        "formGroup": "Eye",
+        "route": "Eye",
+        "mainIndication": "eye irritation",
+        "secondaryIndications": "dry eye | allergy eye symptoms",
+        "otcCategory": "OPHTHALMOLOGICALS",
+        "seasonalGroup": "Spring / allergy",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "NAPHAZOLINE HYDROCHLORIDE 0.01 percent weight/volume | HAMAMELIS WATER\n 12.5 percent volume/volume",
+        "packSizeText": "Review manually",
+        "atcCode": "S01GA51",
+        "status": "Authorised",
+        "supplierCatalogKey": "optrex clear eyes eye drops solution hamamelis water 12.5% v/v naphazoline hydrochloride 0.01% w/v"
+      }
+    },
+    {
+      "id": "product:P0399",
+      "nodeType": "product",
+      "refId": "P0399",
+      "label": "Posiforlid 20 mg/g eye ointment",
+      "subtext": "eye irritation",
+      "meta": {
+        "brand": "Posiforlid",
+        "generic": "BIBROCATHOL",
+        "form": "EYE OINTMENT",
+        "formGroup": "Eye",
+        "route": "Eye",
+        "mainIndication": "eye irritation",
+        "secondaryIndications": "dry eye | allergy eye symptoms",
+        "otcCategory": "OPHTHALMOLOGICALS",
+        "seasonalGroup": "Spring / allergy",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "BIBROCATHOL 20 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "S01AX05",
+        "status": "Authorised",
+        "supplierCatalogKey": "posiforlid 20 mg/g eye ointment"
+      }
+    },
+    {
+      "id": "usecase:UC012",
+      "nodeType": "usecase",
+      "refId": "UC012",
+      "label": "Eye allergy and irritation support",
+      "subtext": "Eye",
+      "meta": {
+        "UseCase_ID": "UC012",
+        "UseCase_Name": "Eye allergy and irritation support",
+        "UseCase_Category": "Eye",
+        "Trigger_Symptoms": "Eye irritation, dry eye, allergy eye symptoms",
+        "Description": "Direct eye relief with allergy support."
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "2261d5f5c239e3c2",
+      "source": "product:P0005",
+      "target": "symptom:S024",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00018"
+      }
+    },
+    {
+      "key": "5253eaf21ca0888b",
+      "source": "product:P0030",
+      "target": "symptom:S024",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00104"
+      }
+    },
+    {
+      "key": "6c927a0dc7b98ff5",
+      "source": "product:P0209",
+      "target": "symptom:S024",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00671"
+      }
+    },
+    {
+      "key": "966580edfb38dce0",
+      "source": "product:P0360",
+      "target": "symptom:S024",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01170"
+      }
+    },
+    {
+      "key": "039b1ef780d3e384",
+      "source": "product:P0399",
+      "target": "symptom:S024",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01312"
+      }
+    },
+    {
+      "key": "8077ce0fedac204e",
+      "source": "symptom:S024",
+      "target": "usecase:UC012",
+      "rel": "usecase",
+      "label": "Related use case",
+      "score": 90,
+      "why": "",
+      "meta": {}
+    }
+  ]
+}

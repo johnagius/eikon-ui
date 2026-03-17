@@ -1,0 +1,943 @@
+{
+  "centerId": "usecase:UC018",
+  "centerType": "usecase",
+  "refId": "UC018",
+  "nodes": [
+    {
+      "id": "usecase:UC018",
+      "nodeType": "usecase",
+      "refId": "UC018",
+      "label": "Smoking cessation support",
+      "subtext": "Lifestyle / cessation",
+      "meta": {
+        "UseCase_ID": "UC018",
+        "UseCase_Name": "Smoking cessation support",
+        "UseCase_Category": "Lifestyle / cessation",
+        "Trigger_Symptoms": "Quit smoking, nicotine replacement, smoking cessation",
+        "Description": "Nicotine replacement therapy and cessation aids."
+      }
+    },
+    {
+      "id": "product:P0303",
+      "nodeType": "product",
+      "refId": "P0303",
+      "label": "NICORETTE 2 mg SUGAR FREE, medicated chewing gum sweetened with sorbitol",
+      "subtext": "smoking cessation",
+      "meta": {
+        "brand": "NICORETTE",
+        "generic": "NICOTINE",
+        "form": "MEDICATED CHEWING-GUM",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "smoking cessation",
+        "secondaryIndications": "",
+        "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Yes",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "NICOTINE 2 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N07BA01",
+        "status": "Authorised",
+        "supplierCatalogKey": "nicorette 2 mg sugar free, medicated chewing gum sweetened with sorbitol"
+      }
+    },
+    {
+      "id": "product:P0304",
+      "nodeType": "product",
+      "refId": "P0304",
+      "label": "NICORETTE 4 mg SUGAR FREE, medicated chewing gum sweetened with sorbitol",
+      "subtext": "smoking cessation",
+      "meta": {
+        "brand": "NICORETTE",
+        "generic": "NICOTINE",
+        "form": "MEDICATED CHEWING-GUM",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "smoking cessation",
+        "secondaryIndications": "",
+        "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Yes",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "NICOTINE 4 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N07BA01",
+        "status": "Authorised",
+        "supplierCatalogKey": "nicorette 4 mg sugar free, medicated chewing gum sweetened with sorbitol"
+      }
+    },
+    {
+      "id": "product:P0305",
+      "nodeType": "product",
+      "refId": "P0305",
+      "label": "NICORETTE FRESH MINT 4mg SUGAR-FREE, medicated chewing gum sweetened xylitol & acesulfame potassium",
+      "subtext": "smoking cessation",
+      "meta": {
+        "brand": "NICORETTE",
+        "generic": "NICOTINE",
+        "form": "MEDICATED CHEWING-GUM",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "smoking cessation",
+        "secondaryIndications": "",
+        "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Yes",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "NICOTINE 4 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N07BA01",
+        "status": "Authorised",
+        "supplierCatalogKey": "nicorette fresh mint 4mg sugar-free, medicated chewing gum sweetened xylitol & acesulfame potassium"
+      }
+    },
+    {
+      "id": "product:P0306",
+      "nodeType": "product",
+      "refId": "P0306",
+      "label": "NICORETTE FRESHMINT 2 mg SUGAR-FREE, medicated chewing gum",
+      "subtext": "smoking cessation",
+      "meta": {
+        "brand": "NICORETTE",
+        "generic": "NICOTINE",
+        "form": "MEDICATED CHEWING-GUM",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "smoking cessation",
+        "secondaryIndications": "",
+        "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Yes",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "NICOTINE 2 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N07BA01",
+        "status": "Authorised",
+        "supplierCatalogKey": "nicorette freshmint 2 mg sugar-free, medicated chewing gum"
+      }
+    },
+    {
+      "id": "product:P0313",
+      "nodeType": "product",
+      "refId": "P0313",
+      "label": "Nicorette 2mg Medicated chewing gum",
+      "subtext": "smoking cessation",
+      "meta": {
+        "brand": "Nicorette",
+        "generic": "NICOTINE",
+        "form": "MEDICATED CHEWING-GUM",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "smoking cessation",
+        "secondaryIndications": "",
+        "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "NICOTINE 2 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N07BA01",
+        "status": "Authorised",
+        "supplierCatalogKey": "nicorette 2mg medicated chewing gum"
+      }
+    },
+    {
+      "id": "product:P0314",
+      "nodeType": "product",
+      "refId": "P0314",
+      "label": "Nicorette 4mg Medicated chewing gum",
+      "subtext": "smoking cessation",
+      "meta": {
+        "brand": "Nicorette",
+        "generic": "NICOTINE",
+        "form": "MEDICATED CHEWING-GUM",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "smoking cessation",
+        "secondaryIndications": "",
+        "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "NICOTINE 4 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N07BA01",
+        "status": "Authorised",
+        "supplierCatalogKey": "nicorette 4mg medicated chewing gum"
+      }
+    },
+    {
+      "id": "product:P0315",
+      "nodeType": "product",
+      "refId": "P0315",
+      "label": "Nicorette Classic 2mg Sugar Free Medicated Chewing Gum",
+      "subtext": "smoking cessation",
+      "meta": {
+        "brand": "Nicorette",
+        "generic": "NICOTINE",
+        "form": "CHEWING GUM",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "smoking cessation",
+        "secondaryIndications": "",
+        "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Yes",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "NICOTINE 2 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N07BA01",
+        "status": "Authorised",
+        "supplierCatalogKey": "nicorette classic 2mg sugar free medicated chewing gum"
+      }
+    },
+    {
+      "id": "product:P0316",
+      "nodeType": "product",
+      "refId": "P0316",
+      "label": "Nicorette Classic 4mg Sugar Free Medicated Chewing Gum",
+      "subtext": "smoking cessation",
+      "meta": {
+        "brand": "Nicorette",
+        "generic": "NICOTINE",
+        "form": "CHEWING GUM",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "smoking cessation",
+        "secondaryIndications": "",
+        "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Yes",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "NICOTINE 4 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N07BA01",
+        "status": "Authorised",
+        "supplierCatalogKey": "nicorette classic 4mg sugar free medicated chewing gum"
+      }
+    },
+    {
+      "id": "product:P0317",
+      "nodeType": "product",
+      "refId": "P0317",
+      "label": "Nicorette Freshmint 2mg Medicated chewing gum",
+      "subtext": "smoking cessation",
+      "meta": {
+        "brand": "Nicorette",
+        "generic": "NICOTINE",
+        "form": "MEDICATED CHEWING-GUM",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "smoking cessation",
+        "secondaryIndications": "",
+        "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "NICOTINE 2 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N07BA01",
+        "status": "Authorised",
+        "supplierCatalogKey": "nicorette freshmint 2mg medicated chewing gum"
+      }
+    },
+    {
+      "id": "product:P0318",
+      "nodeType": "product",
+      "refId": "P0318",
+      "label": "Nicorette Freshmint 4mg Medicated chewing gum",
+      "subtext": "smoking cessation",
+      "meta": {
+        "brand": "Nicorette",
+        "generic": "NICOTINE",
+        "form": "MEDICATED CHEWING-GUM",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "smoking cessation",
+        "secondaryIndications": "",
+        "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "NICOTINE 4 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N07BA01",
+        "status": "Authorised",
+        "supplierCatalogKey": "nicorette freshmint 4mg medicated chewing gum"
+      }
+    },
+    {
+      "id": "product:P0319",
+      "nodeType": "product",
+      "refId": "P0319",
+      "label": "Nicorette Fruits Medicated Chewing Gum 4mg",
+      "subtext": "smoking cessation",
+      "meta": {
+        "brand": "Nicorette",
+        "generic": "NICOTINE",
+        "form": "MEDICATED CHEWING-GUM",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "smoking cessation",
+        "secondaryIndications": "",
+        "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "NICOTINE 4 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N07BA01",
+        "status": "Authorised",
+        "supplierCatalogKey": "nicorette fruits medicated chewing gum 4mg"
+      }
+    },
+    {
+      "id": "product:P0320",
+      "nodeType": "product",
+      "refId": "P0320",
+      "label": "Nicorette Gum 2mg Freshmint Sugar Free",
+      "subtext": "smoking cessation",
+      "meta": {
+        "brand": "Nicorette",
+        "generic": "NICOTINE",
+        "form": "CHEWING GUM",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "smoking cessation",
+        "secondaryIndications": "",
+        "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Yes",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "NICOTINE 2 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N07BA01",
+        "status": "Authorised",
+        "supplierCatalogKey": "nicorette gum 2mg freshmint sugar free"
+      }
+    },
+    {
+      "id": "product:P0321",
+      "nodeType": "product",
+      "refId": "P0321",
+      "label": "Nicorette Gum 4mg Freshmint Sugar Free",
+      "subtext": "smoking cessation",
+      "meta": {
+        "brand": "Nicorette",
+        "generic": "NICOTINE",
+        "form": "CHEWING GUM",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "smoking cessation",
+        "secondaryIndications": "",
+        "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Yes",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "NICOTINE 4 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N07BA01",
+        "status": "Authorised",
+        "supplierCatalogKey": "nicorette gum 4mg freshmint sugar free"
+      }
+    },
+    {
+      "id": "product:P0322",
+      "nodeType": "product",
+      "refId": "P0322",
+      "label": "Nicorette Invisi 10mg /16hours Transdermal Patch",
+      "subtext": "smoking cessation",
+      "meta": {
+        "brand": "Nicorette",
+        "generic": "NICOTINE",
+        "form": "TRANSDERMAL PATCH",
+        "formGroup": "Other",
+        "route": "Other",
+        "mainIndication": "smoking cessation",
+        "secondaryIndications": "",
+        "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "NICOTINE 10 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N07BA01",
+        "status": "Authorised",
+        "supplierCatalogKey": "nicorette invisi 10mg /16hours transdermal patch"
+      }
+    },
+    {
+      "id": "product:P0323",
+      "nodeType": "product",
+      "refId": "P0323",
+      "label": "Nicorette Invisi 15mg /16hours Transdermal Patch",
+      "subtext": "smoking cessation",
+      "meta": {
+        "brand": "Nicorette",
+        "generic": "NICOTINE",
+        "form": "TRANSDERMAL PATCH",
+        "formGroup": "Other",
+        "route": "Other",
+        "mainIndication": "smoking cessation",
+        "secondaryIndications": "",
+        "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "NICOTINE 15 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N07BA01",
+        "status": "Authorised",
+        "supplierCatalogKey": "nicorette invisi 15mg /16hours transdermal patch"
+      }
+    },
+    {
+      "id": "product:P0324",
+      "nodeType": "product",
+      "refId": "P0324",
+      "label": "Nicorette Invisi Extra Strength 25mg /16hours Transdermal Patch",
+      "subtext": "smoking cessation",
+      "meta": {
+        "brand": "Nicorette",
+        "generic": "NICOTINE",
+        "form": "TRANSDERMAL PATCH",
+        "formGroup": "Other",
+        "route": "Other",
+        "mainIndication": "smoking cessation",
+        "secondaryIndications": "",
+        "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "NICOTINE 25 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N07BA01",
+        "status": "Authorised",
+        "supplierCatalogKey": "nicorette invisi extra strength 25mg /16hours transdermal patch"
+      }
+    },
+    {
+      "id": "product:P0325",
+      "nodeType": "product",
+      "refId": "P0325",
+      "label": "Nicorette QuickMist 1mg/spray, Oromucosal Spray, Solution",
+      "subtext": "smoking cessation",
+      "meta": {
+        "brand": "Nicorette",
+        "generic": "NICOTINE",
+        "form": "OROMUCOSAL SPRAY",
+        "formGroup": "Oral cavity / throat",
+        "route": "Oral",
+        "mainIndication": "smoking cessation",
+        "secondaryIndications": "",
+        "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "NICOTINE 1 milligram(s)/dose",
+        "packSizeText": "Review manually",
+        "atcCode": "N07BA01",
+        "status": "Authorised",
+        "supplierCatalogKey": "nicorette quickmist 1mg/spray, oromucosal spray, solution"
+      }
+    },
+    {
+      "id": "product:P0326",
+      "nodeType": "product",
+      "refId": "P0326",
+      "label": "Nicorette Quickspray 1mg/spray, mouth spray, solution",
+      "subtext": "smoking cessation",
+      "meta": {
+        "brand": "Nicorette",
+        "generic": "NICOTINE",
+        "form": "Spray (solution)",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "smoking cessation",
+        "secondaryIndications": "",
+        "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "NICOTINE 13.6 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "N07BA01",
+        "status": "Authorised",
+        "supplierCatalogKey": "nicorette quickspray 1mg/spray, mouth spray, solution"
+      }
+    },
+    {
+      "id": "product:P0327",
+      "nodeType": "product",
+      "refId": "P0327",
+      "label": "Nicorette skin 10 mg/16 hours transdermal patch",
+      "subtext": "smoking cessation",
+      "meta": {
+        "brand": "Nicorette",
+        "generic": "NICOTINE",
+        "form": "TRANSDERMAL PATCH",
+        "formGroup": "Other",
+        "route": "Other",
+        "mainIndication": "smoking cessation",
+        "secondaryIndications": "",
+        "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "NICOTINE 1.75 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N07BA01",
+        "status": "Authorised",
+        "supplierCatalogKey": "nicorette skin 10 mg/16 hours transdermal patch"
+      }
+    },
+    {
+      "id": "product:P0328",
+      "nodeType": "product",
+      "refId": "P0328",
+      "label": "Nicorette skin 15mg/16 hours transdermal patch",
+      "subtext": "smoking cessation",
+      "meta": {
+        "brand": "Nicorette",
+        "generic": "NICOTINE",
+        "form": "TRANSDERMAL PATCH",
+        "formGroup": "Other",
+        "route": "Other",
+        "mainIndication": "smoking cessation",
+        "secondaryIndications": "",
+        "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "NICOTINE 1.75 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N07BA01",
+        "status": "Authorised",
+        "supplierCatalogKey": "nicorette skin 15mg/16 hours transdermal patch"
+      }
+    },
+    {
+      "id": "product:P0329",
+      "nodeType": "product",
+      "refId": "P0329",
+      "label": "Nicorette skin 25mg/16 hours transdermal patch",
+      "subtext": "smoking cessation",
+      "meta": {
+        "brand": "Nicorette",
+        "generic": "NICOTINE",
+        "form": "TRANSDERMAL PATCH",
+        "formGroup": "Other",
+        "route": "Other",
+        "mainIndication": "smoking cessation",
+        "secondaryIndications": "",
+        "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "NICOTINE 1.75 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N07BA01",
+        "status": "Authorised",
+        "supplierCatalogKey": "nicorette skin 25mg/16 hours transdermal patch"
+      }
+    },
+    {
+      "id": "product:P0330",
+      "nodeType": "product",
+      "refId": "P0330",
+      "label": "Nicotine 0.45mg Inhaler",
+      "subtext": "smoking cessation",
+      "meta": {
+        "brand": "Nicotine",
+        "generic": "NICOTINE",
+        "form": "PRESSURISED INHALATION, SOLUTION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "smoking cessation",
+        "secondaryIndications": "",
+        "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "NICOTINE 0.45 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N07BA01",
+        "status": "Authorised",
+        "supplierCatalogKey": "nicotine 0.45mg inhaler"
+      }
+    },
+    {
+      "id": "product:P0342",
+      "nodeType": "product",
+      "refId": "P0342",
+      "label": "Novynta, 1.5 mg, tablets",
+      "subtext": "smoking cessation",
+      "meta": {
+        "brand": "Novynta",
+        "generic": "CYTISINE",
+        "form": "TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "smoking cessation",
+        "secondaryIndications": "",
+        "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CYTISINE 1.5 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N07BA04",
+        "status": "Authorised",
+        "supplierCatalogKey": "novynta, 1.5 mg, tablets"
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "f9c4760faa7af5e9",
+      "source": "product:P0303",
+      "target": "usecase:UC018",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Quit smoking, nicotine replacement, smoking cessation",
+      "meta": {
+        "useCaseItemId": "UCI00670"
+      }
+    },
+    {
+      "key": "9bc20e252c579464",
+      "source": "product:P0304",
+      "target": "usecase:UC018",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Quit smoking, nicotine replacement, smoking cessation",
+      "meta": {
+        "useCaseItemId": "UCI00671"
+      }
+    },
+    {
+      "key": "a776e8c042638ea1",
+      "source": "product:P0305",
+      "target": "usecase:UC018",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Quit smoking, nicotine replacement, smoking cessation",
+      "meta": {
+        "useCaseItemId": "UCI00672"
+      }
+    },
+    {
+      "key": "1997a37bae2ac9a9",
+      "source": "product:P0306",
+      "target": "usecase:UC018",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Quit smoking, nicotine replacement, smoking cessation",
+      "meta": {
+        "useCaseItemId": "UCI00673"
+      }
+    },
+    {
+      "key": "08daff4c33673424",
+      "source": "product:P0313",
+      "target": "usecase:UC018",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Quit smoking, nicotine replacement, smoking cessation",
+      "meta": {
+        "useCaseItemId": "UCI00674"
+      }
+    },
+    {
+      "key": "da505d7b9a990980",
+      "source": "product:P0314",
+      "target": "usecase:UC018",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Quit smoking, nicotine replacement, smoking cessation",
+      "meta": {
+        "useCaseItemId": "UCI00675"
+      }
+    },
+    {
+      "key": "16a458facaec5c1c",
+      "source": "product:P0315",
+      "target": "usecase:UC018",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Quit smoking, nicotine replacement, smoking cessation",
+      "meta": {
+        "useCaseItemId": "UCI00676"
+      }
+    },
+    {
+      "key": "fefa049c4a6997f3",
+      "source": "product:P0316",
+      "target": "usecase:UC018",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Quit smoking, nicotine replacement, smoking cessation",
+      "meta": {
+        "useCaseItemId": "UCI00677"
+      }
+    },
+    {
+      "key": "4cf05f2e42ccae8c",
+      "source": "product:P0317",
+      "target": "usecase:UC018",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Quit smoking, nicotine replacement, smoking cessation",
+      "meta": {
+        "useCaseItemId": "UCI00678"
+      }
+    },
+    {
+      "key": "936b215d4c8a052d",
+      "source": "product:P0318",
+      "target": "usecase:UC018",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Quit smoking, nicotine replacement, smoking cessation",
+      "meta": {
+        "useCaseItemId": "UCI00679"
+      }
+    },
+    {
+      "key": "ecb36f4cd4acf481",
+      "source": "product:P0319",
+      "target": "usecase:UC018",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Quit smoking, nicotine replacement, smoking cessation",
+      "meta": {
+        "useCaseItemId": "UCI00680"
+      }
+    },
+    {
+      "key": "2d9004228e3d5c02",
+      "source": "product:P0320",
+      "target": "usecase:UC018",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Quit smoking, nicotine replacement, smoking cessation",
+      "meta": {
+        "useCaseItemId": "UCI00681"
+      }
+    },
+    {
+      "key": "4526c567d65b1636",
+      "source": "product:P0321",
+      "target": "usecase:UC018",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Quit smoking, nicotine replacement, smoking cessation",
+      "meta": {
+        "useCaseItemId": "UCI00682"
+      }
+    },
+    {
+      "key": "c10729fb2753b981",
+      "source": "product:P0322",
+      "target": "usecase:UC018",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Quit smoking, nicotine replacement, smoking cessation",
+      "meta": {
+        "useCaseItemId": "UCI00683"
+      }
+    },
+    {
+      "key": "6326221e44ba1a0a",
+      "source": "product:P0323",
+      "target": "usecase:UC018",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Quit smoking, nicotine replacement, smoking cessation",
+      "meta": {
+        "useCaseItemId": "UCI00684"
+      }
+    },
+    {
+      "key": "3e6823a531d156cb",
+      "source": "product:P0324",
+      "target": "usecase:UC018",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Quit smoking, nicotine replacement, smoking cessation",
+      "meta": {
+        "useCaseItemId": "UCI00685"
+      }
+    },
+    {
+      "key": "8c8c640fc15cc30a",
+      "source": "product:P0325",
+      "target": "usecase:UC018",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Quit smoking, nicotine replacement, smoking cessation",
+      "meta": {
+        "useCaseItemId": "UCI00686"
+      }
+    },
+    {
+      "key": "f2df95ef47b47d8a",
+      "source": "product:P0326",
+      "target": "usecase:UC018",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Quit smoking, nicotine replacement, smoking cessation",
+      "meta": {
+        "useCaseItemId": "UCI00687"
+      }
+    },
+    {
+      "key": "d9f399d26b80e8c8",
+      "source": "product:P0327",
+      "target": "usecase:UC018",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Quit smoking, nicotine replacement, smoking cessation",
+      "meta": {
+        "useCaseItemId": "UCI00688"
+      }
+    },
+    {
+      "key": "041f1bf8aa20251d",
+      "source": "product:P0328",
+      "target": "usecase:UC018",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Quit smoking, nicotine replacement, smoking cessation",
+      "meta": {
+        "useCaseItemId": "UCI00689"
+      }
+    },
+    {
+      "key": "545f368599c6725c",
+      "source": "product:P0329",
+      "target": "usecase:UC018",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Quit smoking, nicotine replacement, smoking cessation",
+      "meta": {
+        "useCaseItemId": "UCI00690"
+      }
+    },
+    {
+      "key": "f08e571bbbc115ae",
+      "source": "product:P0330",
+      "target": "usecase:UC018",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Quit smoking, nicotine replacement, smoking cessation",
+      "meta": {
+        "useCaseItemId": "UCI00691"
+      }
+    },
+    {
+      "key": "1271681488f2a5c8",
+      "source": "product:P0342",
+      "target": "usecase:UC018",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Quit smoking, nicotine replacement, smoking cessation",
+      "meta": {
+        "useCaseItemId": "UCI00692"
+      }
+    }
+  ]
+}

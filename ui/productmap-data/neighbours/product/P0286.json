@@ -8,15 +8,15 @@
       "nodeType": "product",
       "refId": "P0286",
       "label": "Medoflucon 150mg capsules",
-      "subtext": "review needed",
+      "subtext": "vaginal infection support",
       "meta": {
         "brand": "Medoflucon",
         "generic": "FLUCONAZOLE",
         "form": "HARD CAPSULE",
         "formGroup": "Oral solid",
         "route": "Oral",
-        "mainIndication": "review needed",
-        "secondaryIndications": null,
+        "mainIndication": "vaginal infection support",
+        "secondaryIndications": "thrush (topical)",
         "otcCategory": "ANTIMYCOTICS FOR SYSTEMIC USE",
         "seasonalGroup": "All year",
         "sedating": "No",
@@ -36,15 +36,15 @@
       "nodeType": "product",
       "refId": "P0193",
       "label": "Fluconazole; Blicanz Thrush Relief. Boots Thrush; 150mg Capsules",
-      "subtext": "review needed",
+      "subtext": "vaginal infection support",
       "meta": {
         "brand": "Fluconazole",
         "generic": "FLUCONAZOLE",
         "form": "CAPSULE",
         "formGroup": "Oral solid",
         "route": "Oral",
-        "mainIndication": "review needed",
-        "secondaryIndications": null,
+        "mainIndication": "vaginal infection support",
+        "secondaryIndications": "thrush (topical)",
         "otcCategory": "ANTIMYCOTICS FOR SYSTEMIC USE",
         "seasonalGroup": "All year",
         "sedating": "No",
@@ -92,6 +92,20 @@
         "Node_Color": "#A5A5A5",
         "Notes": "Seeded from imported symptom tags; refine naming over time."
       }
+    },
+    {
+      "id": "usecase:UC011",
+      "nodeType": "usecase",
+      "refId": "UC011",
+      "label": "Vaginal thrush support",
+      "subtext": "Women's health",
+      "meta": {
+        "UseCase_ID": "UC011",
+        "UseCase_Name": "Vaginal thrush support",
+        "UseCase_Category": "Women's health",
+        "Trigger_Symptoms": "Vaginal infection support, intimate care",
+        "Description": "Main antifungal with comfort/intimate care add-ons."
+      }
     }
   ],
   "links": [
@@ -104,32 +118,7 @@
       "score": 95,
       "why": "Same active ingredient(s) and same form family.",
       "meta": {
-        "edgeId": "E00529",
-        "clinicalSimilarity": 100,
-        "commercialSubstitution": 100,
-        "crossSell": 15,
-        "riskOverlap": 90,
-        "evidence": 90,
-        "seasonality": 40,
-        "triggerContext": "review needed",
-        "primaryToSecondary": "No",
-        "reciprocalDisplay": "Yes",
-        "reviewStatus": "Ready - strong starter link",
-        "sourceMethod": "EXACT_INGREDIENT_BASE"
-      }
-    },
-    {
-      "key": "b9b51fdcb3451c78",
-      "source": "product:P0193",
-      "target": "product:P0286",
-      "rel": "guardrail",
-      "label": "Potential duplicate therapy / substitute",
-      "score": 95,
-      "why": "Same active ingredient(s) and same form family.",
-      "meta": {
-        "edgeId": "E00529",
-        "posAction": "Do not cross-sell together by default; show as alternative options instead.",
-        "guardrailType": "Potential duplicate therapy / substitute"
+        "edgeId": "E00529"
       }
     },
     {
@@ -155,10 +144,31 @@
       "meta": {
         "mapId": "PSM01780"
       }
+    },
+    {
+      "key": "b9b51fdcb3451c78",
+      "source": "product:P0193",
+      "target": "product:P0286",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00529",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    },
+    {
+      "key": "7e4c55b2250556fd",
+      "source": "product:P0286",
+      "target": "usecase:UC011",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Vaginal thrush, fungal infection",
+      "meta": {
+        "useCaseItemId": "UCI00741"
+      }
     }
-  ],
-  "meta": {
-    "productName": "Medoflucon 150mg capsules",
-    "linkCount": 3
-  }
+  ]
 }

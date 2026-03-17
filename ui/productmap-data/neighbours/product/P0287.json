@@ -8,15 +8,15 @@
       "nodeType": "product",
       "refId": "P0287",
       "label": "Medovir cream 5%",
-      "subtext": "review needed",
+      "subtext": "cold sore",
       "meta": {
         "brand": "Medovir",
         "generic": "ACICLOVIR",
         "form": "CREAM",
         "formGroup": "Topical",
         "route": "Topical",
-        "mainIndication": "review needed",
-        "secondaryIndications": null,
+        "mainIndication": "cold sore",
+        "secondaryIndications": "healing",
         "otcCategory": "ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE",
         "seasonalGroup": "All year",
         "sedating": "No",
@@ -36,15 +36,15 @@
       "nodeType": "product",
       "refId": "P0066",
       "label": "CICLOVIRAL 50 mg/g Cream",
-      "subtext": "review needed",
+      "subtext": "cold sore",
       "meta": {
         "brand": "CICLOVIRAL",
         "generic": "ACICLOVIR",
         "form": "CREAM",
         "formGroup": "Topical",
         "route": "Topical",
-        "mainIndication": "review needed",
-        "secondaryIndications": null,
+        "mainIndication": "cold sore",
+        "secondaryIndications": "healing",
         "otcCategory": "ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE",
         "seasonalGroup": "All year",
         "sedating": "No",
@@ -60,20 +60,33 @@
       }
     },
     {
-      "id": "symptom:S034",
+      "id": "symptom:S078",
       "nodeType": "symptom",
-      "refId": "S034",
-      "label": "healing",
-      "subtext": "General",
+      "refId": "S078",
+      "label": "cold sores",
+      "subtext": "Skin",
       "meta": {
-        "Symptom_ID": "S034",
-        "Symptom_Name": "healing",
-        "Symptom_Category": "General",
-        "Linked_Product_Count": 2,
-        "Display_Group": "General",
-        "Priority_For_Graph": 70,
-        "Node_Color": "#A5A5A5",
-        "Notes": "Seeded from imported symptom tags; refine naming over time."
+        "Symptom_ID": "S078",
+        "Symptom_Name": "cold sores",
+        "Symptom_Category": "Skin",
+        "Display_Group": "Skin",
+        "Linked_Product_Count": 0,
+        "Priority_For_Graph": 100,
+        "Node_Color": "#ff9f43"
+      }
+    },
+    {
+      "id": "usecase:UC014",
+      "nodeType": "usecase",
+      "refId": "UC014",
+      "label": "Cold sore treatment",
+      "subtext": "Skin",
+      "meta": {
+        "UseCase_ID": "UC014",
+        "UseCase_Name": "Cold sore treatment",
+        "UseCase_Category": "Skin",
+        "Trigger_Symptoms": "Cold sores, lip blisters, herpes labialis",
+        "Description": "Antiviral cream for cold sore outbreak management."
       }
     }
   ],
@@ -87,18 +100,31 @@
       "score": 95,
       "why": "Same active ingredient(s) and same form family.",
       "meta": {
-        "edgeId": "E00001",
-        "clinicalSimilarity": 100,
-        "commercialSubstitution": 100,
-        "crossSell": 15,
-        "riskOverlap": 90,
-        "evidence": 90,
-        "seasonality": 40,
-        "triggerContext": "review needed",
-        "primaryToSecondary": "No",
-        "reciprocalDisplay": "Yes",
-        "reviewStatus": "Ready - strong starter link",
-        "sourceMethod": "EXACT_INGREDIENT_BASE"
+        "edgeId": "E00001"
+      }
+    },
+    {
+      "key": "1040c1939466ab18",
+      "source": "product:P0287",
+      "target": "symptom:S078",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Indication-based assignment",
+      "meta": {
+        "mapId": "PSM01807"
+      }
+    },
+    {
+      "key": "4dfc5e51b71e882d",
+      "source": "product:P0287",
+      "target": "usecase:UC014",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Cold sores, lip blisters, herpes labialis",
+      "meta": {
+        "useCaseItemId": "UCI00640"
       }
     },
     {
@@ -111,25 +137,8 @@
       "why": "Same active ingredient(s) and same form family.",
       "meta": {
         "edgeId": "E00001",
-        "posAction": "Do not cross-sell together by default; show as alternative options instead.",
-        "guardrailType": "Potential duplicate therapy / substitute"
-      }
-    },
-    {
-      "key": "4683f3ceea497f56",
-      "source": "product:P0287",
-      "target": "symptom:S034",
-      "rel": "symptom",
-      "label": "Primary",
-      "score": 100,
-      "why": "Manual review fix",
-      "meta": {
-        "mapId": "PSM01766"
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
       }
     }
-  ],
-  "meta": {
-    "productName": "Medovir cream 5%",
-    "linkCount": 3
-  }
+  ]
 }

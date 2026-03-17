@@ -1,1 +1,401 @@
-{"centerId":"product:P0243","centerType":"product","refId":"P0243","nodes":[{"id":"product:P0243","nodeType":"product","refId":"P0243","label":"Ketovite Liquid","subtext":"vitamin support","meta":{"brand":"Ketovite","generic":"CHOLINE CHLORIDE | CYANOCOBALAMIN | ERGOCALCIFEROL | VITAMIN A","form":"ORAL EMULSION","formGroup":"Topical","route":"Topical","mainIndication":"vitamin support","secondaryIndications":"wellness","otcCategory":"VITAMINS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":4,"strengthText":"Choline chloride 150 milligram(s) | VITAMIN A 2500 unit(s) | ERGOCALCIFEROL 400 unit(s) | CYANOCOBALAMIN 12.5 microgram(s)","packSizeText":"Review manually","atcCode":"A11BA","status":"Authorised","supplierCatalogKey":"ketovite liquid"}},{"id":"product:P0068","nodeType":"product","refId":"P0068","label":"Cacit D3 500mg/440IU, effervescent granules for oral solution in sachet","subtext":"mineral support","meta":{"brand":"Cacit","generic":"CALCIUM CARBONATE | COLECALCIFEROL","form":"EFFERVESCENT GRANULES","formGroup":"Oral solid","route":"Oral","mainIndication":"mineral support","secondaryIndications":"supplementation","otcCategory":"MINERAL SUPPLEMENTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"CALCIUM CARBONATE 1250 milligram(s) | COLECALCIFEROL 440 international unit(s)","packSizeText":"Review manually","atcCode":"A12AX","status":"Authorised","supplierCatalogKey":"cacit d3 500mg/440iu, effervescent granules for oral solution in sachet"}},{"id":"product:P0069","nodeType":"product","refId":"P0069","label":"Calcium 500 mg HEXAL, effervescent tablets","subtext":"mineral support","meta":{"brand":"Calcium","generic":"CALCIUM CARBONATE","form":"EFFERVESCENT TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"mineral support","secondaryIndications":"supplementation","otcCategory":"MINERAL SUPPLEMENTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CALCIUM CARBONATE 500 milligram(s)","packSizeText":"Review manually","atcCode":"A12AA04","status":"Authorised","supplierCatalogKey":"calcium 500 mg hexal, effervescent tablets"}},{"id":"product:P0120","nodeType":"product","refId":"P0120","label":"Cystopurin 3g Granules for Oral Solution","subtext":"mineral support","meta":{"brand":"Cystopurin","generic":"POTASSIUM CITRATE","form":"GRANULES FOR ORAL SOLUTION","formGroup":"Oral solid","route":"Oral","mainIndication":"mineral support","secondaryIndications":"supplementation","otcCategory":"MINERAL SUPPLEMENTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"POTASSIUM CITRATE 3 gram(s)","packSizeText":"Review manually","atcCode":"A12BA02","status":"Authorised","supplierCatalogKey":"cystopurin 3g granules for oral solution"}},{"id":"product:P0232","nodeType":"product","refId":"P0232","label":"Ideos 500mg/400IU Chewable Tablets","subtext":"mineral support","meta":{"brand":"Ideos","generic":"CALCIUM | COLECALCIFEROL","form":"CHEWABLE TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"mineral support","secondaryIndications":"supplementation","otcCategory":"MINERAL SUPPLEMENTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"CALCIUM 500 milligram(s) | COLECALCIFEROL 400 international unit(s)","packSizeText":"Review manually","atcCode":"A12AX","status":"Authorised","supplierCatalogKey":"ideos 500mg/400iu chewable tablets"}},{"id":"product:P0262","nodeType":"product","refId":"P0262","label":"MAGNEVIE B6 100 mg/10 mg film-coated tablets","subtext":"mineral support","meta":{"brand":"MAGNEVIE","generic":"MAGNESIUM | PYRIDOXINE HYDROCHLORIDE","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"mineral support","secondaryIndications":"supplementation","otcCategory":"MINERAL SUPPLEMENTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"PYRIDOXINE HYDROCHLORIDE 10  milligram(s) | MAGNESIUM 100 milligram(s)","packSizeText":"Review manually","atcCode":"A12","status":"Authorised","supplierCatalogKey":"magnevie b6 100 mg/10 mg film-coated tablets"}},{"id":"product:P0279","nodeType":"product","refId":"P0279","label":"Mastical 500 mg chewable tablets","subtext":"mineral support","meta":{"brand":"Mastical","generic":"CALCIUM CARBONATE","form":"CHEWABLE TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"mineral support","secondaryIndications":"supplementation","otcCategory":"MINERAL SUPPLEMENTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CALCIUM CARBONATE 500 milligram(s)","packSizeText":"Review manually","atcCode":"A12AA04","status":"Authorised","supplierCatalogKey":"mastical 500 mg chewable tablets"}},{"id":"product:P0400","nodeType":"product","refId":"P0400","label":"Potassium Citrate Mixture","subtext":"mineral support","meta":{"brand":"Potassium","generic":"POTASSIUM CITRATE","form":"ORAL SOLUTION","formGroup":"Oral liquid","route":"Oral","mainIndication":"mineral support","secondaryIndications":"supplementation","otcCategory":"MINERAL SUPPLEMENTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"POTASSIUM CITRATE 1.5 gram(s)/5 millilitres","packSizeText":"Review manually","atcCode":"A12BA02","status":"Authorised","supplierCatalogKey":"potassium citrate mixture"}},{"id":"symptom:S075","nodeType":"symptom","refId":"S075","label":"vitamin support","subtext":"General","meta":{"Symptom_ID":"S075","Symptom_Name":"vitamin support","Symptom_Category":"General","Linked_Product_Count":3,"Display_Group":"General","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"symptom:S076","nodeType":"symptom","refId":"S076","label":"wellness","subtext":"General","meta":{"Symptom_ID":"S076","Symptom_Name":"wellness","Symptom_Category":"General","Linked_Product_Count":3,"Display_Group":"General","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}}],"links":[{"key":"57055658eaf3a6dd","source":"product:P0243","target":"product:P0068","rel":"complement","label":"Nutritional support","score":70,"why":"Cross-sell based on general nutritional support.","meta":{"edgeId":"E16333","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":70,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Nutritional support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"92553b262945ef55","source":"product:P0243","target":"product:P0069","rel":"complement","label":"Nutritional support","score":70,"why":"Cross-sell based on general nutritional support.","meta":{"edgeId":"E16334","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":70,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Nutritional support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"b610b787eb69b671","source":"product:P0243","target":"product:P0120","rel":"complement","label":"Nutritional support","score":70,"why":"Cross-sell based on general nutritional support.","meta":{"edgeId":"E16335","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":70,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Nutritional support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"d0e5056bd970b5d8","source":"product:P0243","target":"product:P0232","rel":"complement","label":"Nutritional support","score":70,"why":"Cross-sell based on general nutritional support.","meta":{"edgeId":"E16336","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":70,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Nutritional support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"01f7008d5bdd6b94","source":"product:P0243","target":"product:P0262","rel":"complement","label":"Nutritional support","score":70,"why":"Cross-sell based on general nutritional support.","meta":{"edgeId":"E16337","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":70,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Nutritional support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"36ed51dc949ae391","source":"product:P0243","target":"product:P0279","rel":"complement","label":"Nutritional support","score":70,"why":"Cross-sell based on general nutritional support.","meta":{"edgeId":"E16338","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":70,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Nutritional support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"f3de99538edae2de","source":"product:P0243","target":"product:P0400","rel":"complement","label":"Nutritional support","score":70,"why":"Cross-sell based on general nutritional support.","meta":{"edgeId":"E16339","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":70,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Nutritional support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"bd16fc69a3bfe85c","source":"product:P0243","target":"symptom:S075","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00792","role":"Primary","reviewStatus":"Seeded"}},{"key":"7b34939ceeea85f2","source":"product:P0243","target":"symptom:S076","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00793","role":"Primary","reviewStatus":"Seeded"}}],"meta":{"productName":"Ketovite Liquid","linkCount":9}}
+{
+  "centerId": "product:P0243",
+  "centerType": "product",
+  "refId": "P0243",
+  "nodes": [
+    {
+      "id": "product:P0243",
+      "nodeType": "product",
+      "refId": "P0243",
+      "label": "Ketovite Liquid",
+      "subtext": "vitamin support",
+      "meta": {
+        "brand": "Ketovite",
+        "generic": "CHOLINE CHLORIDE | CYANOCOBALAMIN | ERGOCALCIFEROL | VITAMIN A",
+        "form": "ORAL EMULSION",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "vitamin support",
+        "secondaryIndications": "wellness",
+        "otcCategory": "VITAMINS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 4,
+        "strengthText": "Choline chloride 150 milligram(s) | VITAMIN A 2500 unit(s) | ERGOCALCIFEROL 400 unit(s) | CYANOCOBALAMIN 12.5 microgram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A11BA",
+        "status": "Authorised",
+        "supplierCatalogKey": "ketovite liquid"
+      }
+    },
+    {
+      "id": "product:P0068",
+      "nodeType": "product",
+      "refId": "P0068",
+      "label": "Cacit D3 500mg/440IU, effervescent granules for oral solution in sachet",
+      "subtext": "mineral support",
+      "meta": {
+        "brand": "Cacit",
+        "generic": "CALCIUM CARBONATE | COLECALCIFEROL",
+        "form": "EFFERVESCENT GRANULES",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "mineral support",
+        "secondaryIndications": "supplementation",
+        "otcCategory": "MINERAL SUPPLEMENTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "CALCIUM CARBONATE 1250 milligram(s) | COLECALCIFEROL 440 international unit(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A12AX",
+        "status": "Authorised",
+        "supplierCatalogKey": "cacit d3 500mg/440iu, effervescent granules for oral solution in sachet"
+      }
+    },
+    {
+      "id": "product:P0069",
+      "nodeType": "product",
+      "refId": "P0069",
+      "label": "Calcium 500 mg HEXAL, effervescent tablets",
+      "subtext": "mineral support",
+      "meta": {
+        "brand": "Calcium",
+        "generic": "CALCIUM CARBONATE",
+        "form": "EFFERVESCENT TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "mineral support",
+        "secondaryIndications": "supplementation",
+        "otcCategory": "MINERAL SUPPLEMENTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CALCIUM CARBONATE 500 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A12AA04",
+        "status": "Authorised",
+        "supplierCatalogKey": "calcium 500 mg hexal, effervescent tablets"
+      }
+    },
+    {
+      "id": "product:P0120",
+      "nodeType": "product",
+      "refId": "P0120",
+      "label": "Cystopurin 3g Granules for Oral Solution",
+      "subtext": "mineral support",
+      "meta": {
+        "brand": "Cystopurin",
+        "generic": "POTASSIUM CITRATE",
+        "form": "GRANULES FOR ORAL SOLUTION",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "mineral support",
+        "secondaryIndications": "supplementation",
+        "otcCategory": "MINERAL SUPPLEMENTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "POTASSIUM CITRATE 3 gram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A12BA02",
+        "status": "Authorised",
+        "supplierCatalogKey": "cystopurin 3g granules for oral solution"
+      }
+    },
+    {
+      "id": "product:P0232",
+      "nodeType": "product",
+      "refId": "P0232",
+      "label": "Ideos 500mg/400IU Chewable Tablets",
+      "subtext": "mineral support",
+      "meta": {
+        "brand": "Ideos",
+        "generic": "CALCIUM | COLECALCIFEROL",
+        "form": "CHEWABLE TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "mineral support",
+        "secondaryIndications": "supplementation",
+        "otcCategory": "MINERAL SUPPLEMENTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "CALCIUM 500 milligram(s) | COLECALCIFEROL 400 international unit(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A12AX",
+        "status": "Authorised",
+        "supplierCatalogKey": "ideos 500mg/400iu chewable tablets"
+      }
+    },
+    {
+      "id": "product:P0262",
+      "nodeType": "product",
+      "refId": "P0262",
+      "label": "MAGNEVIE B6 100 mg/10 mg film-coated tablets",
+      "subtext": "mineral support",
+      "meta": {
+        "brand": "MAGNEVIE",
+        "generic": "MAGNESIUM | PYRIDOXINE HYDROCHLORIDE",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "mineral support",
+        "secondaryIndications": "supplementation",
+        "otcCategory": "MINERAL SUPPLEMENTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "PYRIDOXINE HYDROCHLORIDE 10  milligram(s) | MAGNESIUM 100 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A12",
+        "status": "Authorised",
+        "supplierCatalogKey": "magnevie b6 100 mg/10 mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0279",
+      "nodeType": "product",
+      "refId": "P0279",
+      "label": "Mastical 500 mg chewable tablets",
+      "subtext": "mineral support",
+      "meta": {
+        "brand": "Mastical",
+        "generic": "CALCIUM CARBONATE",
+        "form": "CHEWABLE TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "mineral support",
+        "secondaryIndications": "supplementation",
+        "otcCategory": "MINERAL SUPPLEMENTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CALCIUM CARBONATE 500 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A12AA04",
+        "status": "Authorised",
+        "supplierCatalogKey": "mastical 500 mg chewable tablets"
+      }
+    },
+    {
+      "id": "product:P0400",
+      "nodeType": "product",
+      "refId": "P0400",
+      "label": "Potassium Citrate Mixture",
+      "subtext": "mineral support",
+      "meta": {
+        "brand": "Potassium",
+        "generic": "POTASSIUM CITRATE",
+        "form": "ORAL SOLUTION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "mineral support",
+        "secondaryIndications": "supplementation",
+        "otcCategory": "MINERAL SUPPLEMENTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "POTASSIUM CITRATE 1.5 gram(s)/5 millilitres",
+        "packSizeText": "Review manually",
+        "atcCode": "A12BA02",
+        "status": "Authorised",
+        "supplierCatalogKey": "potassium citrate mixture"
+      }
+    },
+    {
+      "id": "symptom:S075",
+      "nodeType": "symptom",
+      "refId": "S075",
+      "label": "vitamin support",
+      "subtext": "General",
+      "meta": {
+        "Symptom_ID": "S075",
+        "Symptom_Name": "vitamin support",
+        "Symptom_Category": "General",
+        "Linked_Product_Count": 3,
+        "Display_Group": "General",
+        "Priority_For_Graph": 70,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "symptom:S076",
+      "nodeType": "symptom",
+      "refId": "S076",
+      "label": "wellness",
+      "subtext": "General",
+      "meta": {
+        "Symptom_ID": "S076",
+        "Symptom_Name": "wellness",
+        "Symptom_Category": "General",
+        "Linked_Product_Count": 3,
+        "Display_Group": "General",
+        "Priority_For_Graph": 70,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "usecase:UC017",
+      "nodeType": "usecase",
+      "refId": "UC017",
+      "label": "Mineral and vitamin support",
+      "subtext": "Supplements",
+      "meta": {
+        "UseCase_ID": "UC017",
+        "UseCase_Name": "Mineral and vitamin support",
+        "UseCase_Category": "Supplements",
+        "Trigger_Symptoms": "Vitamin deficiency, mineral deficiency, supplementation",
+        "Description": "Essential vitamins and minerals for general health."
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "57055658eaf3a6dd",
+      "source": "product:P0243",
+      "target": "product:P0068",
+      "rel": "complement",
+      "label": "Nutritional support",
+      "score": 70,
+      "why": "Cross-sell based on general nutritional support.",
+      "meta": {
+        "edgeId": "E16333"
+      }
+    },
+    {
+      "key": "92553b262945ef55",
+      "source": "product:P0243",
+      "target": "product:P0069",
+      "rel": "complement",
+      "label": "Nutritional support",
+      "score": 70,
+      "why": "Cross-sell based on general nutritional support.",
+      "meta": {
+        "edgeId": "E16334"
+      }
+    },
+    {
+      "key": "b610b787eb69b671",
+      "source": "product:P0243",
+      "target": "product:P0120",
+      "rel": "complement",
+      "label": "Nutritional support",
+      "score": 70,
+      "why": "Cross-sell based on general nutritional support.",
+      "meta": {
+        "edgeId": "E16335"
+      }
+    },
+    {
+      "key": "d0e5056bd970b5d8",
+      "source": "product:P0243",
+      "target": "product:P0232",
+      "rel": "complement",
+      "label": "Nutritional support",
+      "score": 70,
+      "why": "Cross-sell based on general nutritional support.",
+      "meta": {
+        "edgeId": "E16336"
+      }
+    },
+    {
+      "key": "01f7008d5bdd6b94",
+      "source": "product:P0243",
+      "target": "product:P0262",
+      "rel": "complement",
+      "label": "Nutritional support",
+      "score": 70,
+      "why": "Cross-sell based on general nutritional support.",
+      "meta": {
+        "edgeId": "E16337"
+      }
+    },
+    {
+      "key": "36ed51dc949ae391",
+      "source": "product:P0243",
+      "target": "product:P0279",
+      "rel": "complement",
+      "label": "Nutritional support",
+      "score": 70,
+      "why": "Cross-sell based on general nutritional support.",
+      "meta": {
+        "edgeId": "E16338"
+      }
+    },
+    {
+      "key": "f3de99538edae2de",
+      "source": "product:P0243",
+      "target": "product:P0400",
+      "rel": "complement",
+      "label": "Nutritional support",
+      "score": 70,
+      "why": "Cross-sell based on general nutritional support.",
+      "meta": {
+        "edgeId": "E16339"
+      }
+    },
+    {
+      "key": "bd16fc69a3bfe85c",
+      "source": "product:P0243",
+      "target": "symptom:S075",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00792"
+      }
+    },
+    {
+      "key": "7b34939ceeea85f2",
+      "source": "product:P0243",
+      "target": "symptom:S076",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00793"
+      }
+    },
+    {
+      "key": "25a744c6cc153d8f",
+      "source": "product:P0243",
+      "target": "usecase:UC017",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Vitamin deficiency, mineral deficiency, supplementation",
+      "meta": {
+        "useCaseItemId": "UCI00665"
+      }
+    }
+  ]
+}

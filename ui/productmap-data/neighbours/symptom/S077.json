@@ -29,8 +29,23 @@
       "meta": {
         "brand": "Contractubex",
         "generic": "ALLANTOIN | HEPARIN SODIUM | ONION LIQUID EXTRACT",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
         "mainIndication": "wound care",
-        "otcCategory": "PREPARATIONS FOR TREATMENT OF WOUNDS AND ULCERS"
+        "secondaryIndications": "healing | ulcers",
+        "otcCategory": "PREPARATIONS FOR TREATMENT OF WOUNDS AND ULCERS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "Onion Liquid extract\n 10 gram(s) | HEPARIN SODIUM 5,000 international unit(s) | ALLANTOIN 1 gram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "D03AX",
+        "status": "Authorised",
+        "supplierCatalogKey": "contractubex 1 g / 10 g / 5000 iu / 100 g gel"
       }
     },
     {
@@ -42,8 +57,23 @@
       "meta": {
         "brand": "Contractubex",
         "generic": "ALLANTOIN | EXTRACTUM CEPAE | HEPARIN SODIUM",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
         "mainIndication": "wound care",
-        "otcCategory": "PREPARATIONS FOR TREATMENT OF WOUNDS AND ULCERS"
+        "secondaryIndications": "healing | ulcers",
+        "otcCategory": "PREPARATIONS FOR TREATMENT OF WOUNDS AND ULCERS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "HEPARIN SODIUM 5000 international unit(s) | EXTRACTUM CEPAE 10 gram(s) | ALLANTOIN 1 gram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "D03AX",
+        "status": "Authorised",
+        "supplierCatalogKey": "contractubex gel"
       }
     },
     {
@@ -55,8 +85,23 @@
       "meta": {
         "brand": "Sodium",
         "generic": "SODIUM CHLORIDE",
+        "form": "SOLVENT FOR PARENTERAL USE",
+        "formGroup": "Other",
+        "route": "Other",
         "mainIndication": "wound cleansing",
-        "otcCategory": "ALL OTHER NON-THERAPEUTIC PRODUCTS"
+        "secondaryIndications": "wound care",
+        "otcCategory": "ALL OTHER NON-THERAPEUTIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "SODIUM CHLORIDE 0.9 gram(s)/100 millilitres",
+        "packSizeText": "Review manually",
+        "atcCode": "V07AB",
+        "status": "Authorised",
+        "supplierCatalogKey": "sodium chloride monico 0.9%"
       }
     },
     {
@@ -68,8 +113,23 @@
       "meta": {
         "brand": "Sudocrem",
         "generic": "BENZYL ALCOHOL | BENZYL BENZOATE | BENZYL CINNAMATE | LANOLIN | ZINC OXIDE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
         "mainIndication": "skin irritation",
-        "otcCategory": "EMOLLIENTS AND PROTECTIVES"
+        "secondaryIndications": "healing | wound care",
+        "otcCategory": "EMOLLIENTS AND PROTECTIVES",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 5,
+        "strengthText": "BENZYL BENZOATE 1.02 percent weight/weight | BENZYL ALCOHOL 0.39 percent weight/weight | ZINC OXIDE 15.29 percent weight/weight | BENZYL CINNAMATE 0.15 percent weight/weight | LANOLIN 4.02 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "D02AB",
+        "status": "Authorised",
+        "supplierCatalogKey": "sudocrem antiseptic healing cream"
       }
     }
   ],
@@ -122,9 +182,5 @@
         "mapId": "PSM01799"
       }
     }
-  ],
-  "meta": {
-    "symptomName": "wound care",
-    "linkCount": 2
-  }
+  ]
 }

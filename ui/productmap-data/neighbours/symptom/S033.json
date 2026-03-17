@@ -1,1 +1,2850 @@
-{"centerId":"symptom:S033","centerType":"symptom","refId":"S033","nodes":[{"id":"symptom:S033","nodeType":"symptom","refId":"S033","label":"headache","subtext":"Pain / fever","meta":{"Symptom_ID":"S033","Symptom_Name":"headache","Symptom_Category":"Pain / fever","Linked_Product_Count":70,"Display_Group":"Pain / fever","Priority_For_Graph":100,"Node_Color":"#5B9BD5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"product:P0002","nodeType":"product","refId":"P0002","label":"ADIPAMOL Antitussive Junior 250 mg/100 mg/5 mg/10 mL syrup","subtext":"pain relief","meta":{"brand":"ADIPAMOL","generic":"GUAIFENESIN | PARACETAMOL | PHENYLEPHRINE HYDROCHLORIDE","form":"SYRUP","formGroup":"Oral liquid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"PARACETAMOL 250/10 milligram(s)/millilitre | GUAIFENESIN 100/10 milligram(s)/millilitre | PHENYLEPHRINE HYDROCHLORIDE 5/10 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"N02BE51","status":"Authorised","supplierCatalogKey":"adipamol antitussive junior 250 mg/100 mg/5 mg/10 ml syrup"}},{"id":"product:P0006","nodeType":"product","refId":"P0006","label":"APOTEL 500 mg suppositories","subtext":"pain relief","meta":{"brand":"APOTEL","generic":"PARACETAMOL","form":"SUPPOSITORY","formGroup":"Suppository / pessary","route":"Suppository / pessary","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"PARACETAMOL 500 milligram(s)","packSizeText":"Review manually","atcCode":"N02BE01","status":"Authorised","supplierCatalogKey":"apotel 500 mg suppositories"}},{"id":"product:P0007","nodeType":"product","refId":"P0007","label":"APOTEL ???R? (500+65) mg/tab tablets","subtext":"pain relief","meta":{"brand":"APOTEL","generic":"CAFFEINE | PARACETAMOL","form":"TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"CAFFEINE 65 milligram(s) | PARACETAMOL 500 milligram(s)","packSizeText":"Review manually","atcCode":"N02BE51","status":"Authorised","supplierCatalogKey":"apotel ???r? (500+65) mg/tab tablets"}},{"id":"product:P0008","nodeType":"product","refId":"P0008","label":"APOTEL espresso aroma 1000 mg Granules in single-dose container","subtext":"pain relief","meta":{"brand":"APOTEL","generic":"PARACETAMOL","form":"GRANULES","formGroup":"Oral solid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"PARACETAMOL 1000 milligram(s)","packSizeText":"Review manually","atcCode":"N02BE01","status":"Authorised","supplierCatalogKey":"apotel espresso aroma 1000 mg granules in single-dose container"}},{"id":"product:P0009","nodeType":"product","refId":"P0009","label":"ARFEN 125 mg, suppositories","subtext":"pain relief","meta":{"brand":"ARFEN","generic":"PARACETAMOL","form":"SUPPOSITORY","formGroup":"Suppository / pessary","route":"Suppository / pessary","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"PARACETAMOL 125 milligram(s)","packSizeText":"Review manually","atcCode":"N02BE01","status":"Authorised","supplierCatalogKey":"arfen 125 mg, suppositories"}},{"id":"product:P0010","nodeType":"product","refId":"P0010","label":"ARFEN 250 mg, suppositories","subtext":"pain relief","meta":{"brand":"ARFEN","generic":"PARACETAMOL","form":"SUPPOSITORY","formGroup":"Suppository / pessary","route":"Suppository / pessary","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"PARACETAMOL 250 milligram(s)","packSizeText":"Review manually","atcCode":"N02BE01","status":"Authorised","supplierCatalogKey":"arfen 250 mg, suppositories"}},{"id":"product:P0011","nodeType":"product","refId":"P0011","label":"ARFEN 500 mg, suppositories","subtext":"pain relief","meta":{"brand":"ARFEN","generic":"PARACETAMOL","form":"SUPPOSITORY","formGroup":"Suppository / pessary","route":"Suppository / pessary","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"PARACETAMOL 500 milligram(s)","packSizeText":"Review manually","atcCode":"N02BE01","status":"Authorised","supplierCatalogKey":"arfen 500 mg, suppositories"}},{"id":"product:P0012","nodeType":"product","refId":"P0012","label":"ASPIRINA 400 mg effervescent tablets with vitamin C","subtext":"pain relief","meta":{"brand":"ASPIRINA","generic":"ACETYLSALICYLIC ACID | ASCORBIC ACID","form":"EFFERVESCENT TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"ASCORBIC ACID 240 milligram(s) | ACETYLSALICYLIC ACID 400 milligram(s)","packSizeText":"Review manually","atcCode":"N02BA51","status":"Authorised","supplierCatalogKey":"aspirina 400 mg effervescent tablets with vitamin c"}},{"id":"product:P0013","nodeType":"product","refId":"P0013","label":"AUDAX 20% w/v ear drops Suspension","subtext":"pain relief","meta":{"brand":"AUDAX","generic":"CHOLINE SALICYLATE","form":"EAR DROPS, SUSPENSION","formGroup":"Ear","route":"Ear","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CHOLINE SALICYLATE 20 percent weight/volume","packSizeText":"Review manually","atcCode":"N02BA03","status":"Authorised","supplierCatalogKey":"audax 20% w/v ear drops suspension"}},{"id":"product:P0020","nodeType":"product","refId":"P0020","label":"Alka-Seltzer Effervescent Tablets;Acetylsalicylic acid (Aspirin);Sodium Hyd Carbonate;Citric acid","subtext":"pain relief","meta":{"brand":"Alka","generic":"ACETYLSALICYLIC ACID | CITRIC ACID | SODIUM HYDROGEN CARBONATE","form":"EFFERVESCENT TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"ACETYLSALICYLIC ACID 324 milligram(s) | CITRIC ACID 965 milligram(s) | SODIUM HYDROGEN CARBONATE 1744 milligram(s)","packSizeText":"Review manually","atcCode":"N02BA01","status":"Authorised","supplierCatalogKey":"alka-seltzer effervescent tablets;acetylsalicylic acid (aspirin);sodium hyd carbonate;citric acid"}},{"id":"product:P0038","nodeType":"product","refId":"P0038","label":"Benylin Four Flu Film-Coated Tablets","subtext":"pain relief","meta":{"brand":"Benylin","generic":"DIPHENHYDRAMINE HYDROCHLORIDE | PARACETAMOL | PSEUDOEPHEDRINE HYDROCHLORIDE","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"Yes","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"PARACETAMOL 500 milligram(s) | DIPHENHYDRAMINE HYDROCHLORIDE 12.5 milligram(s) | PSEUDOEPHEDRINE HYDROCHLORIDE 22.5 milligram(s)","packSizeText":"Review manually","atcCode":"N02BE51","status":"Authorised","supplierCatalogKey":"benylin four flu film-coated tablets"}},{"id":"product:P0054","nodeType":"product","refId":"P0054","label":"Bonjela Oromucosal Gel","subtext":"pain relief","meta":{"brand":"Bonjela","generic":"CETALKONIUM CHLORIDE | CHOLINE SALICYLATE","form":"OROMUCOSAL GEL","formGroup":"Oral cavity / throat","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"CETALKONIUM CHLORIDE 0.01 percent weight/weight | CHOLINE SALICYLATE 8.714 percent weight/weight","packSizeText":"Review manually","atcCode":"N02BA03","status":"Authorised","supplierCatalogKey":"bonjela oromucosal gel"}},{"id":"product:P0071","nodeType":"product","refId":"P0071","label":"Calpol 120 mg/ 5 ml Sugar Free Infant Oral Suspension","subtext":"pain relief","meta":{"brand":"Calpol","generic":"PARACETAMOL","form":"ORAL SUSPENSION","formGroup":"Oral liquid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Yes","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"PARACETAMOL 120 milligram(s)/5 millilitre","packSizeText":"Review manually","atcCode":"N02BE01","status":"Authorised","supplierCatalogKey":"calpol 120 mg/ 5 ml sugar free infant oral suspension"}},{"id":"product:P0072","nodeType":"product","refId":"P0072","label":"Calpol 6 Plus Suspension 250mg/5ml","subtext":"pain relief","meta":{"brand":"Calpol","generic":"PARACETAMOL","form":"ORAL SUSPENSION","formGroup":"Oral liquid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"PARACETAMOL 250 milligram(s)/5 millilitre","packSizeText":"Review manually","atcCode":"N02BE01","status":"Authorised","supplierCatalogKey":"calpol 6 plus suspension 250mg/5ml"}},{"id":"product:P0073","nodeType":"product","refId":"P0073","label":"Calpol Infant Suspension 120mg/5ml","subtext":"pain relief","meta":{"brand":"Calpol","generic":"PARACETAMOL","form":"ORAL SUSPENSION","formGroup":"Oral liquid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"PARACETAMOL 120 milligram(s)/5 millilitre","packSizeText":"Review manually","atcCode":"N02BE01","status":"Authorised","supplierCatalogKey":"calpol infant suspension 120mg/5ml"}},{"id":"product:P0074","nodeType":"product","refId":"P0074","label":"Calpol Six Plus 250mg/5ml Sugar/Colour Free Oral Suspension","subtext":"pain relief","meta":{"brand":"Calpol","generic":"PARACETAMOL","form":"ORAL SUSPENSION","formGroup":"Oral liquid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"PARACETAMOL 250 milligram(s)/5 millilitre","packSizeText":"Review manually","atcCode":"N02BE01","status":"Authorised","supplierCatalogKey":"calpol six plus 250mg/5ml sugar/colour free oral suspension"}},{"id":"product:P0075","nodeType":"product","refId":"P0075","label":"Calpol Six Plus Fastmelts 250 mg Paracetamol Orodispersible Tablets","subtext":"pain relief","meta":{"brand":"Calpol","generic":"PARACETAMOL","form":"ORODISPERSIBLE TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"PARACETAMOL 250 milligram(s)","packSizeText":"Review manually","atcCode":"N02BE01","status":"Authorised","supplierCatalogKey":"calpol six plus fastmelts 250 mg paracetamol orodispersible tablets"}},{"id":"product:P0076","nodeType":"product","refId":"P0076","label":"Calpol Six Plus Fastmelts 250mg Paracetamol Orodispersible Tablets","subtext":"pain relief","meta":{"brand":"Calpol","generic":"PARACETAMOL","form":"ORODISPERSIBLE TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"PARACETAMOL 250 milligram(s)","packSizeText":"Review manually","atcCode":"N02BE01","status":"Authorised","supplierCatalogKey":"calpol six plus fastmelts 250mg paracetamol orodispersible tablets"}},{"id":"product:P0077","nodeType":"product","refId":"P0077","label":"Calpol Sugar-Free Infant Suspension 120mg/5ml","subtext":"pain relief","meta":{"brand":"Calpol","generic":"PARACETAMOL","form":"ORAL SUSPENSION","formGroup":"Oral liquid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Yes","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"PARACETAMOL 120 milligram(s)/5 millilitre","packSizeText":"Review manually","atcCode":"N02BE01","status":"Authorised","supplierCatalogKey":"calpol sugar-free infant suspension 120mg/5ml"}},{"id":"product:P0113","nodeType":"product","refId":"P0113","label":"Coldrex Junior Hot Drink 300 mg/5 mg/20 mg powder for oral solution","subtext":"pain relief","meta":{"brand":"Coldrex","generic":"ASCORBIC ACID | PARACETAMOL | PHENYLEPHRINE HYDROCHLORIDE","form":"POWDER FOR ORAL SOLUTION","formGroup":"Oral solid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"PARACETAMOL 300 milligram(s) | PHENYLEPHRINE HYDROCHLORIDE 5 milligram(s) | ASCORBIC ACID 20 milligram(s)","packSizeText":"Review manually","atcCode":"N02BE51","status":"Authorised","supplierCatalogKey":"coldrex junior hot drink 300 mg/5 mg/20 mg powder for oral solution"}},{"id":"product:P0114","nodeType":"product","refId":"P0114","label":"Coldrex MaxGrip Lemon 1000 mg/10 mg/40 mg powder for oral solution","subtext":"pain relief","meta":{"brand":"Coldrex","generic":"ASCORBIC ACID | PARACETAMOL | PHENYLEPHRINE HYDROCHLORIDE","form":"POWDER FOR ORAL SOLUTION","formGroup":"Oral solid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"PARACETAMOL 1000 milligram(s) | PHENYLEPHRINE HYDROCHLORIDE 10  milligram(s) | ASCORBIC ACID 40 milligram(s)","packSizeText":"Review manually","atcCode":"N02BE51","status":"Authorised","supplierCatalogKey":"coldrex maxgrip lemon 1000 mg/10 mg/40 mg powder for oral solution"}},{"id":"product:P0115","nodeType":"product","refId":"P0115","label":"Coldrex MaxGrip Menthol & Berries 1000 mg/10 mg/70 mg powder for oral solution","subtext":"pain relief","meta":{"brand":"Coldrex","generic":"ASCORBIC ACID | PARACETAMOL | PHENYLEPHRINE HYDROCHLORIDE","form":"POWDER FOR ORAL SOLUTION","formGroup":"Oral solid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"PHENYLEPHRINE HYDROCHLORIDE 10 milligram(s) | ASCORBIC ACID 70 milligram(s) | PARACETAMOL 1000 milligram(s)","packSizeText":"Review manually","atcCode":"N02BE51","status":"Authorised","supplierCatalogKey":"coldrex maxgrip menthol & berries 1000 mg/10 mg/70 mg powder for oral solution"}},{"id":"product:P0129","nodeType":"product","refId":"P0129","label":"Daleron COLD3 325 mg/30 mg/15 mg film-coated tablets","subtext":"pain relief","meta":{"brand":"Daleron","generic":"DEXTROMETHORPHAN HYDROBROMIDE | PARACETAMOL | PSEUDOEPHEDRINE HYDROCHLORIDE","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"PARACETAMOL 325 milligram(s) | PSEUDOEPHEDRINE HYDROCHLORIDE 30 milligram(s) | DEXTROMETHORPHAN HYDROBROMIDE 15 milligram(s)","packSizeText":"Review manually","atcCode":"N02BE71","status":"Authorised","supplierCatalogKey":"daleron cold3 325 mg/30 mg/15 mg film-coated tablets"}},{"id":"product:P0153","nodeType":"product","refId":"P0153","label":"Duomax 1000 mg/300mg powder for oral solution in sachet","subtext":"pain relief","meta":{"brand":"Duomax","generic":"IBUPROFEN | PARACETAMOL","form":"POWDER FOR ORAL SOLUTION","formGroup":"Oral solid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"IBUPROFEN 300 milligram(s) | PARACETAMOL 1000 milligram(s)","packSizeText":"Review manually","atcCode":"N02BE51","status":"Authorised","supplierCatalogKey":"duomax 1000 mg/300mg powder for oral solution in sachet"}},{"id":"product:P0154","nodeType":"product","refId":"P0154","label":"Duomax 500 mg/150 mg film coated tablets","subtext":"pain relief","meta":{"brand":"Duomax","generic":"IBUPROFEN | PARACETAMOL","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"PARACETAMOL 500 milligram(s) | IBUPROFEN 150 milligram(s)","packSizeText":"Review manually","atcCode":"N02BE51","status":"Authorised","supplierCatalogKey":"duomax 500 mg/150 mg film coated tablets"}},{"id":"product:P0155","nodeType":"product","refId":"P0155","label":"Duomax 500mg/150mg powder for oral solution in sachet","subtext":"pain relief","meta":{"brand":"Duomax","generic":"IBUPROFEN | PARACETAMOL","form":"POWDER FOR ORAL SOLUTION","formGroup":"Oral solid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"PARACETAMOL 500 milligram(s) | IBUPROFEN 150 milligram(s)","packSizeText":"Review manually","atcCode":"N02BE51","status":"Authorised","supplierCatalogKey":"duomax 500mg/150mg powder for oral solution in sachet"}},{"id":"product:P0178","nodeType":"product","refId":"P0178","label":"Febrisan, (750 mg + 60 mg + 10 mg)/5 g, effervescent powder","subtext":"pain relief","meta":{"brand":"Febrisan","generic":"ASCORBIC ACID | PARACETAMOL | PHENYLEPHRINE HYDROCHLORIDE","form":"EFFERVESCENT POWDER","formGroup":"Other","route":"Other","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"PARACETAMOL 750 milligram(s) | ASCORBIC ACID 60 milligram(s) | PHENYLEPHRINE HYDROCHLORIDE 5 milligram(s)","packSizeText":"Review manually","atcCode":"N02BE51","status":"Authorised","supplierCatalogKey":"febrisan, (750 mg + 60 mg + 10 mg)/5 g, effervescent powder"}},{"id":"product:P0192","nodeType":"product","refId":"P0192","label":"FluControl MAX, 650 mg+ 10 mg+ 4 mg, film-coated tablets","subtext":"pain relief","meta":{"brand":"FluControl","generic":"CHLORPHENAMINE MALEATE | PARACETAMOL | PHENYLEPHRINE HYDROCHLORIDE","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"Yes","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"PARACETAMOL 650 milligram(s) | PHENYLEPHRINE HYDROCHLORIDE 10 milligram(s) | CHLORPHENAMINE MALEATE 4 milligram(s)","packSizeText":"Review manually","atcCode":"N02BE51","status":"Authorised","supplierCatalogKey":"flucontrol max, 650 mg+ 10 mg+ 4 mg, film-coated tablets"}},{"id":"product:P0231","nodeType":"product","refId":"P0231","label":"Ibuprofen/Paracetamol Alkaloid-INT 200 mg/500 mg film-coated tablets","subtext":"pain relief","meta":{"brand":"Ibuprofen","generic":"IBUPROFEN | PARACETAMOL","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"PARACETAMOL 500 milligram(s) | IBUPROFEN 200 milligram(s)","packSizeText":"Review manually","atcCode":"N02BE51","status":"Authorised","supplierCatalogKey":"ibuprofen/paracetamol alkaloid-int 200 mg/500 mg film-coated tablets"}},{"id":"product:P0246","nodeType":"product","refId":"P0246","label":"LEMSIP 500 mg powder for oral solution","subtext":"pain relief","meta":{"brand":"LEMSIP","generic":"PARACETAMOL","form":"POWDER FOR ORAL SOLUTION","formGroup":"Oral solid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"PARACETAMOL 500 milligram(s)","packSizeText":"Review manually","atcCode":"N02BE01","status":"Authorised","supplierCatalogKey":"lemsip 500 mg powder for oral solution"}},{"id":"product:P0331","nodeType":"product","refId":"P0331","label":"Night Nurse Capsules Paracetamol 500 mg Promethazine Hydrochloride 10 mg Dextromethorphan Hydrobromi","subtext":"pain relief","meta":{"brand":"Night","generic":"DEXRAZOXANE HYDROCHLORIDE | PARACETAMOL | PROMAZINE HYDROCHLORIDE","form":"HARD CAPSULE","formGroup":"Oral solid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"Yes","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"DEXRAZOXANE HYDROCHLORIDE 7.5 milligram(s) | PROMAZINE HYDROCHLORIDE 10.0 milligram(s) | PARACETAMOL 500.0 milligram(s)","packSizeText":"Review manually","atcCode":"N02BE51","status":"Authorised","supplierCatalogKey":"night nurse capsules paracetamol 500 mg promethazine hydrochloride 10 mg dextromethorphan hydrobromi"}},{"id":"product:P0332","nodeType":"product","refId":"P0332","label":"Night Nurse Cold Remedy oral solution","subtext":"pain relief","meta":{"brand":"Night","generic":"DEXTROMETHORPHAN HYDROBROMIDE | PARACETAMOL | PROMETHAZINE HYDROCHLORIDE","form":"ORAL SOLUTION","formGroup":"Oral liquid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"Yes","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"PARACETAMOL 1000 milligram(s) | PROMETHAZINE HYDROCHLORIDE 20 milligram(s) | DEXTROMETHORPHAN HYDROBROMIDE 15 milligram(s)","packSizeText":"Review manually","atcCode":"N02BE51","status":"Authorised","supplierCatalogKey":"night nurse cold remedy oral solution"}},{"id":"product:P0340","nodeType":"product","refId":"P0340","label":"Normogrip Antitussive granules for oral solution","subtext":"pain relief","meta":{"brand":"Normogrip","generic":"CHLORPHENAMINE MALEATE | DEXTROMETHORPHAN HYDROBROMIDE | PARACETAMOL","form":"GRANULES FOR ORAL SOLUTION","formGroup":"Oral solid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"Yes","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"PARACETAMOL 650 milligram(s) | CHLORPHENAMINE MALEATE 4 milligram(s) | DEXTROMETHORPHAN HYDROBROMIDE 20 milligram(s)","packSizeText":"Review manually","atcCode":"N02BE51","status":"Authorised","supplierCatalogKey":"normogrip antitussive granules for oral solution"}},{"id":"product:P0345","nodeType":"product","refId":"P0345","label":"Nurofen Plus Tablets; Ibuprofen 200mg  Codeine Phosphate Hemihydrate 12.8mg","subtext":"pain relief","meta":{"brand":"Nurofen","generic":"CODEINE PHOSPHATE HEMIHYDRATE | IBUPROFEN","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"CODEINE PHOSPHATE HEMIHYDRATE 12.8 milligram(s) | IBUPROFEN 200 milligram(s)","packSizeText":"Review manually","atcCode":"N02AJ","status":"Authorised","supplierCatalogKey":"nurofen plus tablets; ibuprofen 200mg codeine phosphate hemihydrate 12.8mg"}},{"id":"product:P0369","nodeType":"product","refId":"P0369","label":"Panadol  Extra  film-coated Tablets","subtext":"pain relief","meta":{"brand":"Panadol","generic":"CAFFEINE | PARACETAMOL","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"PARACETAMOL 500 milligram(s) | CAFFEINE 65 milligram(s)","packSizeText":"Review manually","atcCode":"N02BE01","status":"Authorised","supplierCatalogKey":"panadol extra film-coated tablets"}},{"id":"product:P0370","nodeType":"product","refId":"P0370","label":"Panadol 500mg film-coated Tablets","subtext":"pain relief","meta":{"brand":"Panadol","generic":"PARACETAMOL","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"PARACETAMOL 500 milligram(s)","packSizeText":"Review manually","atcCode":"N02BE01","status":"Authorised","supplierCatalogKey":"panadol 500mg film-coated tablets"}},{"id":"product:P0371","nodeType":"product","refId":"P0371","label":"Panadol ActiFast 500 mg Soluble Tablets","subtext":"pain relief","meta":{"brand":"Panadol","generic":"PARACETAMOL","form":"SOLUBLE TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"PARACETAMOL 500 milligram(s)","packSizeText":"Review manually","atcCode":"N02BE01","status":"Authorised","supplierCatalogKey":"panadol actifast 500 mg soluble tablets"}},{"id":"product:P0372","nodeType":"product","refId":"P0372","label":"Panadol ActiFast 500mg Soluble Tablets","subtext":"pain relief","meta":{"brand":"Panadol","generic":"PARACETAMOL","form":"SOLUBLE TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"PARACETAMOL 500 milligram(s)","packSizeText":"Review manually","atcCode":"N02BE01","status":"Authorised","supplierCatalogKey":"panadol actifast 500mg soluble tablets"}},{"id":"product:P0373","nodeType":"product","refId":"P0373","label":"Panadol Actifast  Tablets 500mg.","subtext":"pain relief","meta":{"brand":"Panadol","generic":"PARACETAMOL","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"PARACETAMOL 500 milligram(s)","packSizeText":"Review manually","atcCode":"N02BE01","status":"Authorised","supplierCatalogKey":"panadol actifast tablets 500mg."}},{"id":"product:P0374","nodeType":"product","refId":"P0374","label":"Panadol Actifast Lemon 500 mg Soluble Tablets","subtext":"pain relief","meta":{"brand":"Panadol","generic":"PARACETAMOL","form":"SOLUBLE TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"PARACETAMOL 500 milligram(s)","packSizeText":"Review manually","atcCode":"N02BE01","status":"Authorised","supplierCatalogKey":"panadol actifast lemon 500 mg soluble tablets"}},{"id":"product:P0375","nodeType":"product","refId":"P0375","label":"Panadol Actifast Soluble Tablets/Panadols Soluble 500mg Tablets","subtext":"pain relief","meta":{"brand":"Panadol","generic":"PARACETAMOL","form":"EFFERVESCENT TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"PARACETAMOL 500 milligram(s)","packSizeText":"Review manually","atcCode":"N02BE01","status":"Authorised","supplierCatalogKey":"panadol actifast soluble tablets/panadols soluble 500mg tablets"}},{"id":"product:P0376","nodeType":"product","refId":"P0376","label":"Panadol Advance 500 mg Film-coated tablets","subtext":"pain relief","meta":{"brand":"Panadol","generic":"PARACETAMOL","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"PARACETAMOL 500 milligram(s)","packSizeText":"Review manually","atcCode":"N02BE01","status":"Authorised","supplierCatalogKey":"panadol advance 500 mg film-coated tablets"}},{"id":"product:P0377","nodeType":"product","refId":"P0377","label":"Panadol Baby 120mg/5ml Oral Suspension","subtext":"pain relief","meta":{"brand":"Panadol","generic":"PARACETAMOL","form":"ORAL SUSPENSION","formGroup":"Oral liquid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"PARACETAMOL 120 milligram(s)/5 millilitre","packSizeText":"Review manually","atcCode":"N02BE01","status":"Authorised","supplierCatalogKey":"panadol baby 120mg/5ml oral suspension"}},{"id":"product:P0378","nodeType":"product","refId":"P0378","label":"Panadol Cold & Flu & Cough 500 mg / 6.1 mg / 100 mg capsules, hard","subtext":"pain relief","meta":{"brand":"Panadol","generic":"GUAIFENESIN | PARACETAMOL | PHENYLEPHRINE HYDROCHLORIDE","form":"HARD CAPSULE","formGroup":"Oral solid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"PARACETAMOL 500 milligram(s) | GUAIFENESIN 100 milligram(s) | PHENYLEPHRINE HYDROCHLORIDE 6.1 milligram(s)","packSizeText":"Review manually","atcCode":"N02BE51","status":"Authorised","supplierCatalogKey":"panadol cold & flu & cough 500 mg / 6.1 mg / 100 mg capsules, hard"}},{"id":"product:P0379","nodeType":"product","refId":"P0379","label":"Panadol Cold & Flu 500mg / 30mg film-coated Tablets","subtext":"pain relief","meta":{"brand":"Panadol","generic":"PARACETAMOL | PSEUDOEPHEDRINE HYDROCHLORIDE","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"PSEUDOEPHEDRINE HYDROCHLORIDE 30 milligram(s) | PARACETAMOL 500 milligram(s)","packSizeText":"Review manually","atcCode":"N02BE51","status":"Authorised","supplierCatalogKey":"panadol cold & flu 500mg / 30mg film-coated tablets"}},{"id":"product:P0380","nodeType":"product","refId":"P0380","label":"Panadol Cold and Flu 500mg / 30mg film-coated Tablets","subtext":"pain relief","meta":{"brand":"Panadol","generic":"PARACETAMOL | PSEUDOEPHEDRINE HYDROCHLORIDE","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"PARACETAMOL 500 milligram(s) | PSEUDOEPHEDRINE HYDROCHLORIDE 30 milligram(s)","packSizeText":"Review manually","atcCode":"N02BE51","status":"Authorised","supplierCatalogKey":"panadol cold and flu 500mg / 30mg film-coated tablets"}},{"id":"product:P0381","nodeType":"product","refId":"P0381","label":"Panadol Duo 500 mg/200 mg film-coated tablets","subtext":"pain relief","meta":{"brand":"Panadol","generic":"IBUPROFEN | PARACETAMOL","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"PARACETAMOL 500 milligram(s) | IBUPROFEN 200 milligram(s)","packSizeText":"Review manually","atcCode":"N02BE51","status":"Authorised","supplierCatalogKey":"panadol duo 500 mg/200 mg film-coated tablets"}},{"id":"product:P0382","nodeType":"product","refId":"P0382","label":"Panadol Extra Advance 500 mg/65 mg Tablets","subtext":"pain relief","meta":{"brand":"Panadol","generic":"CAFFEINE | PARACETAMOL","form":"TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"PARACETAMOL 500 milligram(s) | CAFFEINE 65 milligram(s)","packSizeText":"Review manually","atcCode":"N02BE51","status":"Authorised","supplierCatalogKey":"panadol extra advance 500 mg/65 mg tablets"}},{"id":"product:P0383","nodeType":"product","refId":"P0383","label":"Panadol Plus Smooth tablet, film-coated tablet 500 mg / 65 mg","subtext":"pain relief","meta":{"brand":"Panadol","generic":"CAFFEINE | PARACETAMOL","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"PARACETAMOL 500 milligram(s) | CAFFEINE 65 milligram(s)","packSizeText":"Review manually","atcCode":"N02BE01","status":"Authorised","supplierCatalogKey":"panadol plus smooth tablet, film-coated tablet 500 mg / 65 mg"}},{"id":"product:P0385","nodeType":"product","refId":"P0385","label":"Panmigran 250 mg /250 mg /65 mg film-coated tablets","subtext":"pain relief","meta":{"brand":"Panmigran","generic":"ACETYLSALICYLIC ACID | CAFFEINE | PARACETAMOL","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"ACETYLSALICYLIC ACID 250 milligram(s) | PARACETAMOL 250 milligram(s) | CAFFEINE 65 milligram(s)","packSizeText":"Review manually","atcCode":"N02BA51","status":"Authorised","supplierCatalogKey":"panmigran 250 mg /250 mg /65 mg film-coated tablets"}},{"id":"product:P0386","nodeType":"product","refId":"P0386","label":"Paracetamol 120mg/5ml Oral Suspension","subtext":"pain relief","meta":{"brand":"Paracetamol","generic":"PARACETAMOL","form":"ORAL SUSPENSION","formGroup":"Oral liquid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"PARACETAMOL 120 milligram(s)/5 millilitre","packSizeText":"Review manually","atcCode":"N02BE01","status":"Authorised","supplierCatalogKey":"paracetamol 120mg/5ml oral suspension"}},{"id":"product:P0387","nodeType":"product","refId":"P0387","label":"Paracetamol 500 mg Capsules, hard","subtext":"pain relief","meta":{"brand":"Paracetamol","generic":"PARACETAMOL","form":"HARD CAPSULE","formGroup":"Oral solid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"PARACETAMOL 500 milligram(s)","packSizeText":"Review manually","atcCode":"N02BE01","status":"Authorised","supplierCatalogKey":"paracetamol 500 mg capsules, hard"}},{"id":"product:P0388","nodeType":"product","refId":"P0388","label":"Paracetamol 500mg Tablets","subtext":"pain relief","meta":{"brand":"Paracetamol","generic":"PARACETAMOL","form":"TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"PARACETAMOL 500 milligram(s)","packSizeText":"Review manually","atcCode":"N02BE01","status":"Authorised","supplierCatalogKey":"paracetamol 500mg tablets"}},{"id":"product:P0389","nodeType":"product","refId":"P0389","label":"Paracetamol 80mg Suppositories","subtext":"pain relief","meta":{"brand":"Paracetamol","generic":"PARACETAMOL","form":"SUPPOSITORY","formGroup":"Suppository / pessary","route":"Suppository / pessary","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"PARACETAMOL 80 milligram(s)","packSizeText":"Review manually","atcCode":"N02BE01","status":"Authorised","supplierCatalogKey":"paracetamol 80mg suppositories"}},{"id":"product:P0390","nodeType":"product","refId":"P0390","label":"Paracetamol/Ibuprofen Rontis 500mg/200mg film-coated tablets","subtext":"pain relief","meta":{"brand":"Paracetamol","generic":"IBUPROFEN | PARACETAMOL","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"IBUPROFEN 200 milligram(s) | PARACETAMOL 500 milligram(s)","packSizeText":"Review manually","atcCode":"N02BE51","status":"Authorised","supplierCatalogKey":"paracetamol/ibuprofen rontis 500mg/200mg film-coated tablets"}},{"id":"product:P0391","nodeType":"product","refId":"P0391","label":"Paralief 500 mg film-coated tablets","subtext":"pain relief","meta":{"brand":"Paralief","generic":"PARACETAMOL","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"PARACETAMOL 500 milligram(s)","packSizeText":"Review manually","atcCode":"N02BE01","status":"Authorised","supplierCatalogKey":"paralief 500 mg film-coated tablets"}},{"id":"product:P0392","nodeType":"product","refId":"P0392","label":"Parcoten 500 mg/10 mg Tablets","subtext":"pain relief","meta":{"brand":"Parcoten","generic":"CODEINE PHOSPHATE | PARACETAMOL","form":"TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"CODEINE PHOSPHATE 10 milligram(s) | PARACETAMOL 500 milligram(s)","packSizeText":"Review manually","atcCode":"N02AJ06","status":"Authorised","supplierCatalogKey":"parcoten 500 mg/10 mg tablets"}},{"id":"product:P0393","nodeType":"product","refId":"P0393","label":"Parcoten Cold & Flu 500 mg/30 mg/15 mg/60 mg Film-coated tablets","subtext":"pain relief","meta":{"brand":"Parcoten","generic":"ASCORBIC ACID | DEXTROMETHORPHAN HYDROBROMIDE | PARACETAMOL | PSEUDOEPHEDRINE HYDROCHLORIDE","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":4,"strengthText":"ASCORBIC ACID 60 milligram(s) | PARACETAMOL 500 milligram(s) | PSEUDOEPHEDRINE HYDROCHLORIDE 30 milligram(s) | DEXTROMETHORPHAN HYDROBROMIDE 15 milligram(s)","packSizeText":"Review manually","atcCode":"N02BE51","status":"Authorised","supplierCatalogKey":"parcoten cold & flu 500 mg/30 mg/15 mg/60 mg film-coated tablets"}},{"id":"product:P0404","nodeType":"product","refId":"P0404","label":"Prosinus 500 mg/30 mg film-coated tablets","subtext":"pain relief","meta":{"brand":"Prosinus","generic":"PARACETAMOL | PSEUDOEPHEDRINE HYDROCHLORIDE","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"PSEUDOEPHEDRINE HYDROCHLORIDE 30 milligram(s) | PARACETAMOL 500 milligram(s)","packSizeText":"Review manually","atcCode":"N02BE51","status":"Authorised","supplierCatalogKey":"prosinus 500 mg/30 mg film-coated tablets"}},{"id":"product:P0405","nodeType":"product","refId":"P0405","label":"Prosinus 600 mg/12.2 mg powder for oral solution in sachet","subtext":"pain relief","meta":{"brand":"Prosinus","generic":"PARACETAMOL | PHENYLEPHRINE HYDROCHLORIDE","form":"POWDER FOR ORAL SOLUTION","formGroup":"Oral solid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"PARACETAMOL 600 milligram(s) | PHENYLEPHRINE HYDROCHLORIDE 12.2 milligram(s)","packSizeText":"Review manually","atcCode":"N02BE51","status":"Authorised","supplierCatalogKey":"prosinus 600 mg/12.2 mg powder for oral solution in sachet"}},{"id":"product:P0414","nodeType":"product","refId":"P0414","label":"Remedol 120 mg/5 ml oral suspension","subtext":"pain relief","meta":{"brand":"Remedol","generic":"PARACETAMOL","form":"ORAL SUSPENSION","formGroup":"Oral liquid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"PARACETAMOL 120 milligram(s)/5 millilitre","packSizeText":"Review manually","atcCode":"N02BE01","status":"Authorised","supplierCatalogKey":"remedol 120 mg/5 ml oral suspension"}},{"id":"product:P0415","nodeType":"product","refId":"P0415","label":"Remedol 125mg suppositories","subtext":"pain relief","meta":{"brand":"Remedol","generic":"PARACETAMOL","form":"SUPPOSITORY","formGroup":"Suppository / pessary","route":"Suppository / pessary","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"PARACETAMOL 125 milligram(s)","packSizeText":"Review manually","atcCode":"N02BE01","status":"Authorised","supplierCatalogKey":"remedol 125mg suppositories"}},{"id":"product:P0416","nodeType":"product","refId":"P0416","label":"Remedol 250 mg suppositories","subtext":"pain relief","meta":{"brand":"Remedol","generic":"PARACETAMOL","form":"SUPPOSITORY","formGroup":"Suppository / pessary","route":"Suppository / pessary","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"PARACETAMOL 250 milligram(s)","packSizeText":"Review manually","atcCode":"N02BE01","status":"Authorised","supplierCatalogKey":"remedol 250 mg suppositories"}},{"id":"product:P0428","nodeType":"product","refId":"P0428","label":"SNIP 325mg/15mg/1mg tablets","subtext":"pain relief","meta":{"brand":"SNIP","generic":"CHLORPHENAMINE MALEATE | PARACETAMOL | PSEUDOEPHEDRINE HYDROCHLORIDE","form":"TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"Yes","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"PARACETAMOL 325 milligram(s) | PSEUDOEPHEDRINE HYDROCHLORIDE 15 milligram(s) | CHLORPHENAMINE MALEATE 1 milligram(s)","packSizeText":"Review manually","atcCode":"N02BE51","status":"Authorised","supplierCatalogKey":"snip 325mg/15mg/1mg tablets"}},{"id":"product:P0451","nodeType":"product","refId":"P0451","label":"Solpadeine Capsules  Paracetamol 500mg Codeine Phosphate Hemihydrate 8mg Caffeine 30mg","subtext":"pain relief","meta":{"brand":"Solpadeine","generic":"CAFFEINE | CODEINE PHOSPHATE HEMIHYDRATE | PARACETAMOL","form":"HARD CAPSULE","formGroup":"Oral solid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"CAFFEINE 30 milligram(s) | PARACETAMOL 500 milligram(s) | CODEINE PHOSPHATE HEMIHYDRATE 8 milligram(s)","packSizeText":"Review manually","atcCode":"N02AJ06","status":"Authorised","supplierCatalogKey":"solpadeine capsules paracetamol 500mg codeine phosphate hemihydrate 8mg caffeine 30mg"}},{"id":"product:P0452","nodeType":"product","refId":"P0452","label":"Solpadeine Capsules, Paracetamol 500mg, Codeine Phosphate Hemihydrate 8mg, Caffeine 30mg","subtext":"pain relief","meta":{"brand":"Solpadeine","generic":"CAFFEINE | CODEINE PHOSPHATE HEMIHYDRATE | PARACETAMOL","form":"HARD CAPSULE","formGroup":"Oral solid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"PARACETAMOL 500 milligram(s) | CODEINE PHOSPHATE HEMIHYDRATE 8 milligram(s) | CAFFEINE 30 milligram(s)","packSizeText":"Review manually","atcCode":"N02AJ06","status":"Authorised","supplierCatalogKey":"solpadeine capsules, paracetamol 500mg, codeine phosphate hemihydrate 8mg, caffeine 30mg"}},{"id":"product:P0453","nodeType":"product","refId":"P0453","label":"Solpadeine soluble tablets  Paracetamol 500mg Codeine Phosphate Hemihydrate 8mg Caffeine 30mg","subtext":"pain relief","meta":{"brand":"Solpadeine","generic":"CAFFEINE | CODEINE PHOSPHATE HEMIHYDRATE | PARACETAMOL","form":"EFFERVESCENT TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"CODEINE PHOSPHATE HEMIHYDRATE 8 milligram(s) | CAFFEINE 30 milligram(s) | PARACETAMOL 500 milligram(s)","packSizeText":"Review manually","atcCode":"N02AJ06","status":"Authorised","supplierCatalogKey":"solpadeine soluble tablets paracetamol 500mg codeine phosphate hemihydrate 8mg caffeine 30mg"}},{"id":"product:P0463","nodeType":"product","refId":"P0463","label":"Supofen 200 mg/5ml oral suspension","subtext":"pain relief","meta":{"brand":"Supofen","generic":"PARACETAMOL","form":"ORAL SUSPENSION","formGroup":"Oral liquid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"PARACETAMOL 200 milligram(s)/5 millilitre","packSizeText":"Review manually","atcCode":"N02BE01","status":"Authorised","supplierCatalogKey":"supofen 200 mg/5ml oral suspension"}},{"id":"product:P0468","nodeType":"product","refId":"P0468","label":"TROPEX 5% Ear Drops, Solution","subtext":"pain relief","meta":{"brand":"TROPEX","generic":"PHENAZONE","form":"EAR DROPS, SOLUTION","formGroup":"Ear","route":"Ear","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"PHENAZONE 5 percent weight/volume","packSizeText":"Review manually","atcCode":"N02BB01","status":"Authorised","supplierCatalogKey":"tropex 5% ear drops, solution"}},{"id":"product:P0487","nodeType":"product","refId":"P0487","label":"Uniflu Plus with Vitamin C Tablets","subtext":"pain relief","meta":{"brand":"Uniflu","generic":"ASCORBIC ACID | CAFFEINE | CODEINE PHOSPHATE HEMIHYDRATE | DIPHENHYDRAMINE HYDROCHLORIDE | PARACETAMOL | PHENYLEPHRINE HYDROCHLORIDE","form":"CHEWABLE TABLET, FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"pain relief","secondaryIndications":"headache | fever | body aches","otcCategory":"ANALGESICS","seasonalGroup":"All year","sedating":"Yes","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":6,"strengthText":"ASCORBIC ACID 300 milligram(s) | PARACETAMOL 500 milligram(s) | CAFFEINE 30 milligram(s) | PHENYLEPHRINE HYDROCHLORIDE 10 milligram(s) | DIPHENHYDRAMINE HYDROCHLORIDE 15 milligram(s) | CODEINE PHOSPHATE HEMIHYDRATE 10 milligram(s)","packSizeText":"Review manually","atcCode":"N02BE51","status":"Authorised","supplierCatalogKey":"uniflu plus with vitamin c tablets"}},{"id":"usecase:UC003","nodeType":"usecase","refId":"UC003","label":"Pain and fever support","subtext":"Pain / fever","meta":{"UseCase_ID":"UC003","UseCase_Name":"Pain and fever support","UseCase_Category":"Pain / fever","Trigger_Symptoms":"Headache, fever, body aches","Description":"Simple analgesic alternatives and add-ons."}}],"links":[{"key":"fbc24a6fd487321e","source":"symptom:S033","target":"product:P0002","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00006","role":"Primary","reviewStatus":"Seeded"}},{"key":"7566375f96b18476","source":"symptom:S033","target":"product:P0006","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00021","role":"Primary","reviewStatus":"Seeded"}},{"key":"7d3b839a9d2bcc4f","source":"symptom:S033","target":"product:P0007","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00025","role":"Primary","reviewStatus":"Seeded"}},{"key":"6014891debd23372","source":"symptom:S033","target":"product:P0008","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00029","role":"Primary","reviewStatus":"Seeded"}},{"key":"bfac6076396cd3a1","source":"symptom:S033","target":"product:P0009","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00033","role":"Primary","reviewStatus":"Seeded"}},{"key":"f7c5526d45592d84","source":"symptom:S033","target":"product:P0010","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00037","role":"Primary","reviewStatus":"Seeded"}},{"key":"41dad9ee2853ea7f","source":"symptom:S033","target":"product:P0011","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00041","role":"Primary","reviewStatus":"Seeded"}},{"key":"aeec4d87334582bb","source":"symptom:S033","target":"product:P0012","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00045","role":"Primary","reviewStatus":"Seeded"}},{"key":"1e6886b9be709849","source":"symptom:S033","target":"product:P0013","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00049","role":"Primary","reviewStatus":"Seeded"}},{"key":"75b7a10ff2e3339f","source":"symptom:S033","target":"product:P0020","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00076","role":"Primary","reviewStatus":"Seeded"}},{"key":"27009cf09519a5df","source":"symptom:S033","target":"product:P0038","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00125","role":"Primary","reviewStatus":"Seeded"}},{"key":"dec4d5ef21d3ce91","source":"symptom:S033","target":"product:P0054","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00171","role":"Primary","reviewStatus":"Seeded"}},{"key":"9822771a3a0ebedb","source":"symptom:S033","target":"product:P0071","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00242","role":"Primary","reviewStatus":"Seeded"}},{"key":"24be913319750257","source":"symptom:S033","target":"product:P0072","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00246","role":"Primary","reviewStatus":"Seeded"}},{"key":"80bbef65d8e26ddf","source":"symptom:S033","target":"product:P0073","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00250","role":"Primary","reviewStatus":"Seeded"}},{"key":"83e35cea0866df13","source":"symptom:S033","target":"product:P0074","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00254","role":"Primary","reviewStatus":"Seeded"}},{"key":"01b6af2508afc258","source":"symptom:S033","target":"product:P0075","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00258","role":"Primary","reviewStatus":"Seeded"}},{"key":"85f1be514864b6d3","source":"symptom:S033","target":"product:P0076","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00262","role":"Primary","reviewStatus":"Seeded"}},{"key":"ebaf6fe69d7135c7","source":"symptom:S033","target":"product:P0077","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00266","role":"Primary","reviewStatus":"Seeded"}},{"key":"c195aab810454c1d","source":"symptom:S033","target":"product:P0113","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00370","role":"Primary","reviewStatus":"Seeded"}},{"key":"e540682697fb7ca1","source":"symptom:S033","target":"product:P0114","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00374","role":"Primary","reviewStatus":"Seeded"}},{"key":"751057f0650fe076","source":"symptom:S033","target":"product:P0115","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00378","role":"Primary","reviewStatus":"Seeded"}},{"key":"408df98dcade3adb","source":"symptom:S033","target":"product:P0129","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00426","role":"Primary","reviewStatus":"Seeded"}},{"key":"eb306b9cba64f34d","source":"symptom:S033","target":"product:P0153","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00501","role":"Primary","reviewStatus":"Seeded"}},{"key":"9ceb439c3a52c0f1","source":"symptom:S033","target":"product:P0154","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00505","role":"Primary","reviewStatus":"Seeded"}},{"key":"37dba264e37c05b8","source":"symptom:S033","target":"product:P0155","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00509","role":"Primary","reviewStatus":"Seeded"}},{"key":"280c75fc085b0c67","source":"symptom:S033","target":"product:P0178","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00582","role":"Primary","reviewStatus":"Seeded"}},{"key":"f637b81a889de5ac","source":"symptom:S033","target":"product:P0192","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00626","role":"Primary","reviewStatus":"Seeded"}},{"key":"23186cc5c94f23e2","source":"symptom:S033","target":"product:P0231","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00756","role":"Primary","reviewStatus":"Seeded"}},{"key":"a5f3473c5c20f3f5","source":"symptom:S033","target":"product:P0246","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00800","role":"Primary","reviewStatus":"Seeded"}},{"key":"2bef31cc8fa07c40","source":"symptom:S033","target":"product:P0331","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01057","role":"Primary","reviewStatus":"Seeded"}},{"key":"6f13b789d7b25578","source":"symptom:S033","target":"product:P0332","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01061","role":"Primary","reviewStatus":"Seeded"}},{"key":"bfff869d0974f474","source":"symptom:S033","target":"product:P0340","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01090","role":"Primary","reviewStatus":"Seeded"}},{"key":"88a6d6ab1cb029db","source":"symptom:S033","target":"product:P0345","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01111","role":"Primary","reviewStatus":"Seeded"}},{"key":"038bf75bfa6bfdf7","source":"symptom:S033","target":"product:P0369","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01200","role":"Primary","reviewStatus":"Seeded"}},{"key":"0a168bd490d3888c","source":"symptom:S033","target":"product:P0370","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01204","role":"Primary","reviewStatus":"Seeded"}},{"key":"0a4205b98a1e41db","source":"symptom:S033","target":"product:P0371","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01208","role":"Primary","reviewStatus":"Seeded"}},{"key":"134af947df9923f2","source":"symptom:S033","target":"product:P0372","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01212","role":"Primary","reviewStatus":"Seeded"}},{"key":"e1f0b3a1cf9086f3","source":"symptom:S033","target":"product:P0373","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01216","role":"Primary","reviewStatus":"Seeded"}},{"key":"4d6a2e09f931d81e","source":"symptom:S033","target":"product:P0374","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01220","role":"Primary","reviewStatus":"Seeded"}},{"key":"3f07c87a9cb433b7","source":"symptom:S033","target":"product:P0375","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01224","role":"Primary","reviewStatus":"Seeded"}},{"key":"a614364163056626","source":"symptom:S033","target":"product:P0376","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01228","role":"Primary","reviewStatus":"Seeded"}},{"key":"25d7f10bdfb02228","source":"symptom:S033","target":"product:P0377","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01232","role":"Primary","reviewStatus":"Seeded"}},{"key":"2ce29f083728b7d6","source":"symptom:S033","target":"product:P0378","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01236","role":"Primary","reviewStatus":"Seeded"}},{"key":"e67db16d341edbcc","source":"symptom:S033","target":"product:P0379","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01240","role":"Primary","reviewStatus":"Seeded"}},{"key":"a0dc0614fe8f5962","source":"symptom:S033","target":"product:P0380","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01244","role":"Primary","reviewStatus":"Seeded"}},{"key":"70e420e649ad69b2","source":"symptom:S033","target":"product:P0381","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01248","role":"Primary","reviewStatus":"Seeded"}},{"key":"7ef4a717b0ccaa7b","source":"symptom:S033","target":"product:P0382","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01252","role":"Primary","reviewStatus":"Seeded"}},{"key":"f44144f33bab3fca","source":"symptom:S033","target":"product:P0383","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01256","role":"Primary","reviewStatus":"Seeded"}},{"key":"af1098def30879a8","source":"symptom:S033","target":"product:P0385","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01263","role":"Primary","reviewStatus":"Seeded"}},{"key":"f88b03c243f3b7aa","source":"symptom:S033","target":"product:P0386","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01267","role":"Primary","reviewStatus":"Seeded"}},{"key":"879d677ae79119e6","source":"symptom:S033","target":"product:P0387","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01271","role":"Primary","reviewStatus":"Seeded"}},{"key":"1c49796ab92b2b5b","source":"symptom:S033","target":"product:P0388","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01275","role":"Primary","reviewStatus":"Seeded"}},{"key":"d5a7e312e91ef044","source":"symptom:S033","target":"product:P0389","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01279","role":"Primary","reviewStatus":"Seeded"}},{"key":"71c342473cd9f4b8","source":"symptom:S033","target":"product:P0390","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01283","role":"Primary","reviewStatus":"Seeded"}},{"key":"2c8e72f85b6b8a41","source":"symptom:S033","target":"product:P0391","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01287","role":"Primary","reviewStatus":"Seeded"}},{"key":"6bbbb8cb735e1bbe","source":"symptom:S033","target":"product:P0392","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01291","role":"Primary","reviewStatus":"Seeded"}},{"key":"a3e37bce68d0ed79","source":"symptom:S033","target":"product:P0393","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01295","role":"Primary","reviewStatus":"Seeded"}},{"key":"31b87b5530391b8e","source":"symptom:S033","target":"product:P0404","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01322","role":"Primary","reviewStatus":"Seeded"}},{"key":"ee8779350efa8289","source":"symptom:S033","target":"product:P0405","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01326","role":"Primary","reviewStatus":"Seeded"}},{"key":"8c11ce82439d209f","source":"symptom:S033","target":"product:P0414","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01366","role":"Primary","reviewStatus":"Seeded"}},{"key":"ac1c253860e51a6f","source":"symptom:S033","target":"product:P0415","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01370","role":"Primary","reviewStatus":"Seeded"}},{"key":"110eedc18da2145f","source":"symptom:S033","target":"product:P0416","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01374","role":"Primary","reviewStatus":"Seeded"}},{"key":"14d5b23892fb13b6","source":"symptom:S033","target":"product:P0428","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01412","role":"Primary","reviewStatus":"Seeded"}},{"key":"b5eafea945b8f65f","source":"symptom:S033","target":"product:P0451","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01486","role":"Primary","reviewStatus":"Seeded"}},{"key":"12502a92811a8252","source":"symptom:S033","target":"product:P0452","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01490","role":"Primary","reviewStatus":"Seeded"}},{"key":"c4e8a097dd71f19d","source":"symptom:S033","target":"product:P0453","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01494","role":"Primary","reviewStatus":"Seeded"}},{"key":"a0528bd84120503d","source":"symptom:S033","target":"product:P0463","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01528","role":"Primary","reviewStatus":"Seeded"}},{"key":"d75f86700e806159","source":"symptom:S033","target":"product:P0468","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01542","role":"Primary","reviewStatus":"Seeded"}},{"key":"f336cfb4e55efe17","source":"symptom:S033","target":"product:P0487","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01622","role":"Primary","reviewStatus":"Seeded"}},{"key":"512aa0fdda4c2647","source":"symptom:S033","target":"usecase:UC003","rel":"usecase","label":"Triggered by symptom","score":85,"why":"Headache, fever, body aches","meta":{}}],"meta":{"symptomName":"headache","linkCount":71}}
+{
+  "centerId": "symptom:S033",
+  "centerType": "symptom",
+  "refId": "S033",
+  "nodes": [
+    {
+      "id": "symptom:S033",
+      "nodeType": "symptom",
+      "refId": "S033",
+      "label": "headache",
+      "subtext": "Pain / fever",
+      "meta": {
+        "Symptom_ID": "S033",
+        "Symptom_Name": "headache",
+        "Symptom_Category": "Pain / fever",
+        "Linked_Product_Count": 70,
+        "Display_Group": "Pain / fever",
+        "Priority_For_Graph": 100,
+        "Node_Color": "#5B9BD5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "product:P0002",
+      "nodeType": "product",
+      "refId": "P0002",
+      "label": "ADIPAMOL Antitussive Junior 250 mg/100 mg/5 mg/10 mL syrup",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "ADIPAMOL",
+        "generic": "GUAIFENESIN | PARACETAMOL | PHENYLEPHRINE HYDROCHLORIDE",
+        "form": "SYRUP",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "PARACETAMOL 250/10 milligram(s)/millilitre | GUAIFENESIN 100/10 milligram(s)/millilitre | PHENYLEPHRINE HYDROCHLORIDE 5/10 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE51",
+        "status": "Authorised",
+        "supplierCatalogKey": "adipamol antitussive junior 250 mg/100 mg/5 mg/10 ml syrup"
+      }
+    },
+    {
+      "id": "product:P0006",
+      "nodeType": "product",
+      "refId": "P0006",
+      "label": "APOTEL 500 mg suppositories",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "APOTEL",
+        "generic": "PARACETAMOL",
+        "form": "SUPPOSITORY",
+        "formGroup": "Suppository / pessary",
+        "route": "Suppository / pessary",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "PARACETAMOL 500 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "apotel 500 mg suppositories"
+      }
+    },
+    {
+      "id": "product:P0007",
+      "nodeType": "product",
+      "refId": "P0007",
+      "label": "APOTEL ???R? (500+65) mg/tab tablets",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "APOTEL",
+        "generic": "CAFFEINE | PARACETAMOL",
+        "form": "TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "CAFFEINE 65 milligram(s) | PARACETAMOL 500 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE51",
+        "status": "Authorised",
+        "supplierCatalogKey": "apotel ???r? (500+65) mg/tab tablets"
+      }
+    },
+    {
+      "id": "product:P0008",
+      "nodeType": "product",
+      "refId": "P0008",
+      "label": "APOTEL espresso aroma 1000 mg Granules in single-dose container",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "APOTEL",
+        "generic": "PARACETAMOL",
+        "form": "GRANULES",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "PARACETAMOL 1000 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "apotel espresso aroma 1000 mg granules in single-dose container"
+      }
+    },
+    {
+      "id": "product:P0009",
+      "nodeType": "product",
+      "refId": "P0009",
+      "label": "ARFEN 125 mg, suppositories",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "ARFEN",
+        "generic": "PARACETAMOL",
+        "form": "SUPPOSITORY",
+        "formGroup": "Suppository / pessary",
+        "route": "Suppository / pessary",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "PARACETAMOL 125 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "arfen 125 mg, suppositories"
+      }
+    },
+    {
+      "id": "product:P0010",
+      "nodeType": "product",
+      "refId": "P0010",
+      "label": "ARFEN 250 mg, suppositories",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "ARFEN",
+        "generic": "PARACETAMOL",
+        "form": "SUPPOSITORY",
+        "formGroup": "Suppository / pessary",
+        "route": "Suppository / pessary",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "PARACETAMOL 250 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "arfen 250 mg, suppositories"
+      }
+    },
+    {
+      "id": "product:P0011",
+      "nodeType": "product",
+      "refId": "P0011",
+      "label": "ARFEN 500 mg, suppositories",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "ARFEN",
+        "generic": "PARACETAMOL",
+        "form": "SUPPOSITORY",
+        "formGroup": "Suppository / pessary",
+        "route": "Suppository / pessary",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "PARACETAMOL 500 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "arfen 500 mg, suppositories"
+      }
+    },
+    {
+      "id": "product:P0012",
+      "nodeType": "product",
+      "refId": "P0012",
+      "label": "ASPIRINA 400 mg effervescent tablets with vitamin C",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "ASPIRINA",
+        "generic": "ACETYLSALICYLIC ACID | ASCORBIC ACID",
+        "form": "EFFERVESCENT TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "ASCORBIC ACID 240 milligram(s) | ACETYLSALICYLIC ACID 400 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BA51",
+        "status": "Authorised",
+        "supplierCatalogKey": "aspirina 400 mg effervescent tablets with vitamin c"
+      }
+    },
+    {
+      "id": "product:P0013",
+      "nodeType": "product",
+      "refId": "P0013",
+      "label": "AUDAX 20% w/v ear drops Suspension",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "AUDAX",
+        "generic": "CHOLINE SALICYLATE",
+        "form": "EAR DROPS, SUSPENSION",
+        "formGroup": "Ear",
+        "route": "Ear",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CHOLINE SALICYLATE 20 percent weight/volume",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BA03",
+        "status": "Authorised",
+        "supplierCatalogKey": "audax 20% w/v ear drops suspension"
+      }
+    },
+    {
+      "id": "product:P0020",
+      "nodeType": "product",
+      "refId": "P0020",
+      "label": "Alka-Seltzer Effervescent Tablets;Acetylsalicylic acid (Aspirin);Sodium Hyd Carbonate;Citric acid",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Alka",
+        "generic": "ACETYLSALICYLIC ACID | CITRIC ACID | SODIUM HYDROGEN CARBONATE",
+        "form": "EFFERVESCENT TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "ACETYLSALICYLIC ACID 324 milligram(s) | CITRIC ACID 965 milligram(s) | SODIUM HYDROGEN CARBONATE 1744 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BA01",
+        "status": "Authorised",
+        "supplierCatalogKey": "alka-seltzer effervescent tablets;acetylsalicylic acid (aspirin);sodium hyd carbonate;citric acid"
+      }
+    },
+    {
+      "id": "product:P0038",
+      "nodeType": "product",
+      "refId": "P0038",
+      "label": "Benylin Four Flu Film-Coated Tablets",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Benylin",
+        "generic": "DIPHENHYDRAMINE HYDROCHLORIDE | PARACETAMOL | PSEUDOEPHEDRINE HYDROCHLORIDE",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "Yes",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "PARACETAMOL 500 milligram(s) | DIPHENHYDRAMINE HYDROCHLORIDE 12.5 milligram(s) | PSEUDOEPHEDRINE HYDROCHLORIDE 22.5 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE51",
+        "status": "Authorised",
+        "supplierCatalogKey": "benylin four flu film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0054",
+      "nodeType": "product",
+      "refId": "P0054",
+      "label": "Bonjela Oromucosal Gel",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Bonjela",
+        "generic": "CETALKONIUM CHLORIDE | CHOLINE SALICYLATE",
+        "form": "OROMUCOSAL GEL",
+        "formGroup": "Oral cavity / throat",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "CETALKONIUM CHLORIDE 0.01 percent weight/weight | CHOLINE SALICYLATE 8.714 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BA03",
+        "status": "Authorised",
+        "supplierCatalogKey": "bonjela oromucosal gel"
+      }
+    },
+    {
+      "id": "product:P0071",
+      "nodeType": "product",
+      "refId": "P0071",
+      "label": "Calpol 120 mg/ 5 ml Sugar Free Infant Oral Suspension",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Calpol",
+        "generic": "PARACETAMOL",
+        "form": "ORAL SUSPENSION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Yes",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "PARACETAMOL 120 milligram(s)/5 millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "calpol 120 mg/ 5 ml sugar free infant oral suspension"
+      }
+    },
+    {
+      "id": "product:P0072",
+      "nodeType": "product",
+      "refId": "P0072",
+      "label": "Calpol 6 Plus Suspension 250mg/5ml",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Calpol",
+        "generic": "PARACETAMOL",
+        "form": "ORAL SUSPENSION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "PARACETAMOL 250 milligram(s)/5 millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "calpol 6 plus suspension 250mg/5ml"
+      }
+    },
+    {
+      "id": "product:P0073",
+      "nodeType": "product",
+      "refId": "P0073",
+      "label": "Calpol Infant Suspension 120mg/5ml",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Calpol",
+        "generic": "PARACETAMOL",
+        "form": "ORAL SUSPENSION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "PARACETAMOL 120 milligram(s)/5 millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "calpol infant suspension 120mg/5ml"
+      }
+    },
+    {
+      "id": "product:P0074",
+      "nodeType": "product",
+      "refId": "P0074",
+      "label": "Calpol Six Plus 250mg/5ml Sugar/Colour Free Oral Suspension",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Calpol",
+        "generic": "PARACETAMOL",
+        "form": "ORAL SUSPENSION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "PARACETAMOL 250 milligram(s)/5 millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "calpol six plus 250mg/5ml sugar/colour free oral suspension"
+      }
+    },
+    {
+      "id": "product:P0075",
+      "nodeType": "product",
+      "refId": "P0075",
+      "label": "Calpol Six Plus Fastmelts 250 mg Paracetamol Orodispersible Tablets",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Calpol",
+        "generic": "PARACETAMOL",
+        "form": "ORODISPERSIBLE TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "PARACETAMOL 250 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "calpol six plus fastmelts 250 mg paracetamol orodispersible tablets"
+      }
+    },
+    {
+      "id": "product:P0076",
+      "nodeType": "product",
+      "refId": "P0076",
+      "label": "Calpol Six Plus Fastmelts 250mg Paracetamol Orodispersible Tablets",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Calpol",
+        "generic": "PARACETAMOL",
+        "form": "ORODISPERSIBLE TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "PARACETAMOL 250 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "calpol six plus fastmelts 250mg paracetamol orodispersible tablets"
+      }
+    },
+    {
+      "id": "product:P0077",
+      "nodeType": "product",
+      "refId": "P0077",
+      "label": "Calpol Sugar-Free Infant Suspension 120mg/5ml",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Calpol",
+        "generic": "PARACETAMOL",
+        "form": "ORAL SUSPENSION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Yes",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "PARACETAMOL 120 milligram(s)/5 millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "calpol sugar-free infant suspension 120mg/5ml"
+      }
+    },
+    {
+      "id": "product:P0113",
+      "nodeType": "product",
+      "refId": "P0113",
+      "label": "Coldrex Junior Hot Drink 300 mg/5 mg/20 mg powder for oral solution",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Coldrex",
+        "generic": "ASCORBIC ACID | PARACETAMOL | PHENYLEPHRINE HYDROCHLORIDE",
+        "form": "POWDER FOR ORAL SOLUTION",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "PARACETAMOL 300 milligram(s) | PHENYLEPHRINE HYDROCHLORIDE 5 milligram(s) | ASCORBIC ACID 20 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE51",
+        "status": "Authorised",
+        "supplierCatalogKey": "coldrex junior hot drink 300 mg/5 mg/20 mg powder for oral solution"
+      }
+    },
+    {
+      "id": "product:P0114",
+      "nodeType": "product",
+      "refId": "P0114",
+      "label": "Coldrex MaxGrip Lemon 1000 mg/10 mg/40 mg powder for oral solution",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Coldrex",
+        "generic": "ASCORBIC ACID | PARACETAMOL | PHENYLEPHRINE HYDROCHLORIDE",
+        "form": "POWDER FOR ORAL SOLUTION",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "PARACETAMOL 1000 milligram(s) | PHENYLEPHRINE HYDROCHLORIDE 10  milligram(s) | ASCORBIC ACID 40 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE51",
+        "status": "Authorised",
+        "supplierCatalogKey": "coldrex maxgrip lemon 1000 mg/10 mg/40 mg powder for oral solution"
+      }
+    },
+    {
+      "id": "product:P0115",
+      "nodeType": "product",
+      "refId": "P0115",
+      "label": "Coldrex MaxGrip Menthol & Berries 1000 mg/10 mg/70 mg powder for oral solution",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Coldrex",
+        "generic": "ASCORBIC ACID | PARACETAMOL | PHENYLEPHRINE HYDROCHLORIDE",
+        "form": "POWDER FOR ORAL SOLUTION",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "PHENYLEPHRINE HYDROCHLORIDE 10 milligram(s) | ASCORBIC ACID 70 milligram(s) | PARACETAMOL 1000 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE51",
+        "status": "Authorised",
+        "supplierCatalogKey": "coldrex maxgrip menthol & berries 1000 mg/10 mg/70 mg powder for oral solution"
+      }
+    },
+    {
+      "id": "product:P0129",
+      "nodeType": "product",
+      "refId": "P0129",
+      "label": "Daleron COLD3 325 mg/30 mg/15 mg film-coated tablets",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Daleron",
+        "generic": "DEXTROMETHORPHAN HYDROBROMIDE | PARACETAMOL | PSEUDOEPHEDRINE HYDROCHLORIDE",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "PARACETAMOL 325 milligram(s) | PSEUDOEPHEDRINE HYDROCHLORIDE 30 milligram(s) | DEXTROMETHORPHAN HYDROBROMIDE 15 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE71",
+        "status": "Authorised",
+        "supplierCatalogKey": "daleron cold3 325 mg/30 mg/15 mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0153",
+      "nodeType": "product",
+      "refId": "P0153",
+      "label": "Duomax 1000 mg/300mg powder for oral solution in sachet",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Duomax",
+        "generic": "IBUPROFEN | PARACETAMOL",
+        "form": "POWDER FOR ORAL SOLUTION",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "IBUPROFEN 300 milligram(s) | PARACETAMOL 1000 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE51",
+        "status": "Authorised",
+        "supplierCatalogKey": "duomax 1000 mg/300mg powder for oral solution in sachet"
+      }
+    },
+    {
+      "id": "product:P0154",
+      "nodeType": "product",
+      "refId": "P0154",
+      "label": "Duomax 500 mg/150 mg film coated tablets",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Duomax",
+        "generic": "IBUPROFEN | PARACETAMOL",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "PARACETAMOL 500 milligram(s) | IBUPROFEN 150 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE51",
+        "status": "Authorised",
+        "supplierCatalogKey": "duomax 500 mg/150 mg film coated tablets"
+      }
+    },
+    {
+      "id": "product:P0155",
+      "nodeType": "product",
+      "refId": "P0155",
+      "label": "Duomax 500mg/150mg powder for oral solution in sachet",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Duomax",
+        "generic": "IBUPROFEN | PARACETAMOL",
+        "form": "POWDER FOR ORAL SOLUTION",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "PARACETAMOL 500 milligram(s) | IBUPROFEN 150 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE51",
+        "status": "Authorised",
+        "supplierCatalogKey": "duomax 500mg/150mg powder for oral solution in sachet"
+      }
+    },
+    {
+      "id": "product:P0178",
+      "nodeType": "product",
+      "refId": "P0178",
+      "label": "Febrisan, (750 mg + 60 mg + 10 mg)/5 g, effervescent powder",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Febrisan",
+        "generic": "ASCORBIC ACID | PARACETAMOL | PHENYLEPHRINE HYDROCHLORIDE",
+        "form": "EFFERVESCENT POWDER",
+        "formGroup": "Other",
+        "route": "Other",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "PARACETAMOL 750 milligram(s) | ASCORBIC ACID 60 milligram(s) | PHENYLEPHRINE HYDROCHLORIDE 5 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE51",
+        "status": "Authorised",
+        "supplierCatalogKey": "febrisan, (750 mg + 60 mg + 10 mg)/5 g, effervescent powder"
+      }
+    },
+    {
+      "id": "product:P0192",
+      "nodeType": "product",
+      "refId": "P0192",
+      "label": "FluControl MAX, 650 mg+ 10 mg+ 4 mg, film-coated tablets",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "FluControl",
+        "generic": "CHLORPHENAMINE MALEATE | PARACETAMOL | PHENYLEPHRINE HYDROCHLORIDE",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "Yes",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "PARACETAMOL 650 milligram(s) | PHENYLEPHRINE HYDROCHLORIDE 10 milligram(s) | CHLORPHENAMINE MALEATE 4 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE51",
+        "status": "Authorised",
+        "supplierCatalogKey": "flucontrol max, 650 mg+ 10 mg+ 4 mg, film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0231",
+      "nodeType": "product",
+      "refId": "P0231",
+      "label": "Ibuprofen/Paracetamol Alkaloid-INT 200 mg/500 mg film-coated tablets",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Ibuprofen",
+        "generic": "IBUPROFEN | PARACETAMOL",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "PARACETAMOL 500 milligram(s) | IBUPROFEN 200 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE51",
+        "status": "Authorised",
+        "supplierCatalogKey": "ibuprofen/paracetamol alkaloid-int 200 mg/500 mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0246",
+      "nodeType": "product",
+      "refId": "P0246",
+      "label": "LEMSIP 500 mg powder for oral solution",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "LEMSIP",
+        "generic": "PARACETAMOL",
+        "form": "POWDER FOR ORAL SOLUTION",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "PARACETAMOL 500 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "lemsip 500 mg powder for oral solution"
+      }
+    },
+    {
+      "id": "product:P0331",
+      "nodeType": "product",
+      "refId": "P0331",
+      "label": "Night Nurse Capsules Paracetamol 500 mg Promethazine Hydrochloride 10 mg Dextromethorphan Hydrobromi",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Night",
+        "generic": "DEXRAZOXANE HYDROCHLORIDE | PARACETAMOL | PROMAZINE HYDROCHLORIDE",
+        "form": "HARD CAPSULE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "Yes",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "DEXRAZOXANE HYDROCHLORIDE 7.5 milligram(s) | PROMAZINE HYDROCHLORIDE 10.0 milligram(s) | PARACETAMOL 500.0 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE51",
+        "status": "Authorised",
+        "supplierCatalogKey": "night nurse capsules paracetamol 500 mg promethazine hydrochloride 10 mg dextromethorphan hydrobromi"
+      }
+    },
+    {
+      "id": "product:P0332",
+      "nodeType": "product",
+      "refId": "P0332",
+      "label": "Night Nurse Cold Remedy oral solution",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Night",
+        "generic": "DEXTROMETHORPHAN HYDROBROMIDE | PARACETAMOL | PROMETHAZINE HYDROCHLORIDE",
+        "form": "ORAL SOLUTION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "Yes",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "PARACETAMOL 1000 milligram(s) | PROMETHAZINE HYDROCHLORIDE 20 milligram(s) | DEXTROMETHORPHAN HYDROBROMIDE 15 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE51",
+        "status": "Authorised",
+        "supplierCatalogKey": "night nurse cold remedy oral solution"
+      }
+    },
+    {
+      "id": "product:P0340",
+      "nodeType": "product",
+      "refId": "P0340",
+      "label": "Normogrip Antitussive granules for oral solution",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Normogrip",
+        "generic": "CHLORPHENAMINE MALEATE | DEXTROMETHORPHAN HYDROBROMIDE | PARACETAMOL",
+        "form": "GRANULES FOR ORAL SOLUTION",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "Yes",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "PARACETAMOL 650 milligram(s) | CHLORPHENAMINE MALEATE 4 milligram(s) | DEXTROMETHORPHAN HYDROBROMIDE 20 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE51",
+        "status": "Authorised",
+        "supplierCatalogKey": "normogrip antitussive granules for oral solution"
+      }
+    },
+    {
+      "id": "product:P0345",
+      "nodeType": "product",
+      "refId": "P0345",
+      "label": "Nurofen Plus Tablets; Ibuprofen 200mg  Codeine Phosphate Hemihydrate 12.8mg",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Nurofen",
+        "generic": "CODEINE PHOSPHATE HEMIHYDRATE | IBUPROFEN",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "CODEINE PHOSPHATE HEMIHYDRATE 12.8 milligram(s) | IBUPROFEN 200 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02AJ",
+        "status": "Authorised",
+        "supplierCatalogKey": "nurofen plus tablets; ibuprofen 200mg codeine phosphate hemihydrate 12.8mg"
+      }
+    },
+    {
+      "id": "product:P0369",
+      "nodeType": "product",
+      "refId": "P0369",
+      "label": "Panadol  Extra  film-coated Tablets",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Panadol",
+        "generic": "CAFFEINE | PARACETAMOL",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "PARACETAMOL 500 milligram(s) | CAFFEINE 65 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "panadol extra film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0370",
+      "nodeType": "product",
+      "refId": "P0370",
+      "label": "Panadol 500mg film-coated Tablets",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Panadol",
+        "generic": "PARACETAMOL",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "PARACETAMOL 500 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "panadol 500mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0371",
+      "nodeType": "product",
+      "refId": "P0371",
+      "label": "Panadol ActiFast 500 mg Soluble Tablets",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Panadol",
+        "generic": "PARACETAMOL",
+        "form": "SOLUBLE TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "PARACETAMOL 500 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "panadol actifast 500 mg soluble tablets"
+      }
+    },
+    {
+      "id": "product:P0372",
+      "nodeType": "product",
+      "refId": "P0372",
+      "label": "Panadol ActiFast 500mg Soluble Tablets",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Panadol",
+        "generic": "PARACETAMOL",
+        "form": "SOLUBLE TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "PARACETAMOL 500 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "panadol actifast 500mg soluble tablets"
+      }
+    },
+    {
+      "id": "product:P0373",
+      "nodeType": "product",
+      "refId": "P0373",
+      "label": "Panadol Actifast  Tablets 500mg.",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Panadol",
+        "generic": "PARACETAMOL",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "PARACETAMOL 500 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "panadol actifast tablets 500mg."
+      }
+    },
+    {
+      "id": "product:P0374",
+      "nodeType": "product",
+      "refId": "P0374",
+      "label": "Panadol Actifast Lemon 500 mg Soluble Tablets",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Panadol",
+        "generic": "PARACETAMOL",
+        "form": "SOLUBLE TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "PARACETAMOL 500 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "panadol actifast lemon 500 mg soluble tablets"
+      }
+    },
+    {
+      "id": "product:P0375",
+      "nodeType": "product",
+      "refId": "P0375",
+      "label": "Panadol Actifast Soluble Tablets/Panadols Soluble 500mg Tablets",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Panadol",
+        "generic": "PARACETAMOL",
+        "form": "EFFERVESCENT TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "PARACETAMOL 500 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "panadol actifast soluble tablets/panadols soluble 500mg tablets"
+      }
+    },
+    {
+      "id": "product:P0376",
+      "nodeType": "product",
+      "refId": "P0376",
+      "label": "Panadol Advance 500 mg Film-coated tablets",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Panadol",
+        "generic": "PARACETAMOL",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "PARACETAMOL 500 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "panadol advance 500 mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0377",
+      "nodeType": "product",
+      "refId": "P0377",
+      "label": "Panadol Baby 120mg/5ml Oral Suspension",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Panadol",
+        "generic": "PARACETAMOL",
+        "form": "ORAL SUSPENSION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "PARACETAMOL 120 milligram(s)/5 millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "panadol baby 120mg/5ml oral suspension"
+      }
+    },
+    {
+      "id": "product:P0378",
+      "nodeType": "product",
+      "refId": "P0378",
+      "label": "Panadol Cold & Flu & Cough 500 mg / 6.1 mg / 100 mg capsules, hard",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Panadol",
+        "generic": "GUAIFENESIN | PARACETAMOL | PHENYLEPHRINE HYDROCHLORIDE",
+        "form": "HARD CAPSULE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "PARACETAMOL 500 milligram(s) | GUAIFENESIN 100 milligram(s) | PHENYLEPHRINE HYDROCHLORIDE 6.1 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE51",
+        "status": "Authorised",
+        "supplierCatalogKey": "panadol cold & flu & cough 500 mg / 6.1 mg / 100 mg capsules, hard"
+      }
+    },
+    {
+      "id": "product:P0379",
+      "nodeType": "product",
+      "refId": "P0379",
+      "label": "Panadol Cold & Flu 500mg / 30mg film-coated Tablets",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Panadol",
+        "generic": "PARACETAMOL | PSEUDOEPHEDRINE HYDROCHLORIDE",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "PSEUDOEPHEDRINE HYDROCHLORIDE 30 milligram(s) | PARACETAMOL 500 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE51",
+        "status": "Authorised",
+        "supplierCatalogKey": "panadol cold & flu 500mg / 30mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0380",
+      "nodeType": "product",
+      "refId": "P0380",
+      "label": "Panadol Cold and Flu 500mg / 30mg film-coated Tablets",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Panadol",
+        "generic": "PARACETAMOL | PSEUDOEPHEDRINE HYDROCHLORIDE",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "PARACETAMOL 500 milligram(s) | PSEUDOEPHEDRINE HYDROCHLORIDE 30 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE51",
+        "status": "Authorised",
+        "supplierCatalogKey": "panadol cold and flu 500mg / 30mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0381",
+      "nodeType": "product",
+      "refId": "P0381",
+      "label": "Panadol Duo 500 mg/200 mg film-coated tablets",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Panadol",
+        "generic": "IBUPROFEN | PARACETAMOL",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "PARACETAMOL 500 milligram(s) | IBUPROFEN 200 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE51",
+        "status": "Authorised",
+        "supplierCatalogKey": "panadol duo 500 mg/200 mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0382",
+      "nodeType": "product",
+      "refId": "P0382",
+      "label": "Panadol Extra Advance 500 mg/65 mg Tablets",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Panadol",
+        "generic": "CAFFEINE | PARACETAMOL",
+        "form": "TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "PARACETAMOL 500 milligram(s) | CAFFEINE 65 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE51",
+        "status": "Authorised",
+        "supplierCatalogKey": "panadol extra advance 500 mg/65 mg tablets"
+      }
+    },
+    {
+      "id": "product:P0383",
+      "nodeType": "product",
+      "refId": "P0383",
+      "label": "Panadol Plus Smooth tablet, film-coated tablet 500 mg / 65 mg",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Panadol",
+        "generic": "CAFFEINE | PARACETAMOL",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "PARACETAMOL 500 milligram(s) | CAFFEINE 65 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "panadol plus smooth tablet, film-coated tablet 500 mg / 65 mg"
+      }
+    },
+    {
+      "id": "product:P0385",
+      "nodeType": "product",
+      "refId": "P0385",
+      "label": "Panmigran 250 mg /250 mg /65 mg film-coated tablets",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Panmigran",
+        "generic": "ACETYLSALICYLIC ACID | CAFFEINE | PARACETAMOL",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "ACETYLSALICYLIC ACID 250 milligram(s) | PARACETAMOL 250 milligram(s) | CAFFEINE 65 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BA51",
+        "status": "Authorised",
+        "supplierCatalogKey": "panmigran 250 mg /250 mg /65 mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0386",
+      "nodeType": "product",
+      "refId": "P0386",
+      "label": "Paracetamol 120mg/5ml Oral Suspension",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Paracetamol",
+        "generic": "PARACETAMOL",
+        "form": "ORAL SUSPENSION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "PARACETAMOL 120 milligram(s)/5 millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "paracetamol 120mg/5ml oral suspension"
+      }
+    },
+    {
+      "id": "product:P0387",
+      "nodeType": "product",
+      "refId": "P0387",
+      "label": "Paracetamol 500 mg Capsules, hard",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Paracetamol",
+        "generic": "PARACETAMOL",
+        "form": "HARD CAPSULE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "PARACETAMOL 500 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "paracetamol 500 mg capsules, hard"
+      }
+    },
+    {
+      "id": "product:P0388",
+      "nodeType": "product",
+      "refId": "P0388",
+      "label": "Paracetamol 500mg Tablets",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Paracetamol",
+        "generic": "PARACETAMOL",
+        "form": "TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "PARACETAMOL 500 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "paracetamol 500mg tablets"
+      }
+    },
+    {
+      "id": "product:P0389",
+      "nodeType": "product",
+      "refId": "P0389",
+      "label": "Paracetamol 80mg Suppositories",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Paracetamol",
+        "generic": "PARACETAMOL",
+        "form": "SUPPOSITORY",
+        "formGroup": "Suppository / pessary",
+        "route": "Suppository / pessary",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "PARACETAMOL 80 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "paracetamol 80mg suppositories"
+      }
+    },
+    {
+      "id": "product:P0390",
+      "nodeType": "product",
+      "refId": "P0390",
+      "label": "Paracetamol/Ibuprofen Rontis 500mg/200mg film-coated tablets",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Paracetamol",
+        "generic": "IBUPROFEN | PARACETAMOL",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "IBUPROFEN 200 milligram(s) | PARACETAMOL 500 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE51",
+        "status": "Authorised",
+        "supplierCatalogKey": "paracetamol/ibuprofen rontis 500mg/200mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0391",
+      "nodeType": "product",
+      "refId": "P0391",
+      "label": "Paralief 500 mg film-coated tablets",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Paralief",
+        "generic": "PARACETAMOL",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "PARACETAMOL 500 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "paralief 500 mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0392",
+      "nodeType": "product",
+      "refId": "P0392",
+      "label": "Parcoten 500 mg/10 mg Tablets",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Parcoten",
+        "generic": "CODEINE PHOSPHATE | PARACETAMOL",
+        "form": "TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "CODEINE PHOSPHATE 10 milligram(s) | PARACETAMOL 500 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02AJ06",
+        "status": "Authorised",
+        "supplierCatalogKey": "parcoten 500 mg/10 mg tablets"
+      }
+    },
+    {
+      "id": "product:P0393",
+      "nodeType": "product",
+      "refId": "P0393",
+      "label": "Parcoten Cold & Flu 500 mg/30 mg/15 mg/60 mg Film-coated tablets",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Parcoten",
+        "generic": "ASCORBIC ACID | DEXTROMETHORPHAN HYDROBROMIDE | PARACETAMOL | PSEUDOEPHEDRINE HYDROCHLORIDE",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 4,
+        "strengthText": "ASCORBIC ACID 60 milligram(s) | PARACETAMOL 500 milligram(s) | PSEUDOEPHEDRINE HYDROCHLORIDE 30 milligram(s) | DEXTROMETHORPHAN HYDROBROMIDE 15 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE51",
+        "status": "Authorised",
+        "supplierCatalogKey": "parcoten cold & flu 500 mg/30 mg/15 mg/60 mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0404",
+      "nodeType": "product",
+      "refId": "P0404",
+      "label": "Prosinus 500 mg/30 mg film-coated tablets",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Prosinus",
+        "generic": "PARACETAMOL | PSEUDOEPHEDRINE HYDROCHLORIDE",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "PSEUDOEPHEDRINE HYDROCHLORIDE 30 milligram(s) | PARACETAMOL 500 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE51",
+        "status": "Authorised",
+        "supplierCatalogKey": "prosinus 500 mg/30 mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0405",
+      "nodeType": "product",
+      "refId": "P0405",
+      "label": "Prosinus 600 mg/12.2 mg powder for oral solution in sachet",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Prosinus",
+        "generic": "PARACETAMOL | PHENYLEPHRINE HYDROCHLORIDE",
+        "form": "POWDER FOR ORAL SOLUTION",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "PARACETAMOL 600 milligram(s) | PHENYLEPHRINE HYDROCHLORIDE 12.2 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE51",
+        "status": "Authorised",
+        "supplierCatalogKey": "prosinus 600 mg/12.2 mg powder for oral solution in sachet"
+      }
+    },
+    {
+      "id": "product:P0414",
+      "nodeType": "product",
+      "refId": "P0414",
+      "label": "Remedol 120 mg/5 ml oral suspension",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Remedol",
+        "generic": "PARACETAMOL",
+        "form": "ORAL SUSPENSION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "PARACETAMOL 120 milligram(s)/5 millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "remedol 120 mg/5 ml oral suspension"
+      }
+    },
+    {
+      "id": "product:P0415",
+      "nodeType": "product",
+      "refId": "P0415",
+      "label": "Remedol 125mg suppositories",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Remedol",
+        "generic": "PARACETAMOL",
+        "form": "SUPPOSITORY",
+        "formGroup": "Suppository / pessary",
+        "route": "Suppository / pessary",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "PARACETAMOL 125 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "remedol 125mg suppositories"
+      }
+    },
+    {
+      "id": "product:P0416",
+      "nodeType": "product",
+      "refId": "P0416",
+      "label": "Remedol 250 mg suppositories",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Remedol",
+        "generic": "PARACETAMOL",
+        "form": "SUPPOSITORY",
+        "formGroup": "Suppository / pessary",
+        "route": "Suppository / pessary",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "PARACETAMOL 250 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "remedol 250 mg suppositories"
+      }
+    },
+    {
+      "id": "product:P0428",
+      "nodeType": "product",
+      "refId": "P0428",
+      "label": "SNIP 325mg/15mg/1mg tablets",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "SNIP",
+        "generic": "CHLORPHENAMINE MALEATE | PARACETAMOL | PSEUDOEPHEDRINE HYDROCHLORIDE",
+        "form": "TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "Yes",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "PARACETAMOL 325 milligram(s) | PSEUDOEPHEDRINE HYDROCHLORIDE 15 milligram(s) | CHLORPHENAMINE MALEATE 1 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE51",
+        "status": "Authorised",
+        "supplierCatalogKey": "snip 325mg/15mg/1mg tablets"
+      }
+    },
+    {
+      "id": "product:P0451",
+      "nodeType": "product",
+      "refId": "P0451",
+      "label": "Solpadeine Capsules  Paracetamol 500mg Codeine Phosphate Hemihydrate 8mg Caffeine 30mg",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Solpadeine",
+        "generic": "CAFFEINE | CODEINE PHOSPHATE HEMIHYDRATE | PARACETAMOL",
+        "form": "HARD CAPSULE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "CAFFEINE 30 milligram(s) | PARACETAMOL 500 milligram(s) | CODEINE PHOSPHATE HEMIHYDRATE 8 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02AJ06",
+        "status": "Authorised",
+        "supplierCatalogKey": "solpadeine capsules paracetamol 500mg codeine phosphate hemihydrate 8mg caffeine 30mg"
+      }
+    },
+    {
+      "id": "product:P0452",
+      "nodeType": "product",
+      "refId": "P0452",
+      "label": "Solpadeine Capsules, Paracetamol 500mg, Codeine Phosphate Hemihydrate 8mg, Caffeine 30mg",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Solpadeine",
+        "generic": "CAFFEINE | CODEINE PHOSPHATE HEMIHYDRATE | PARACETAMOL",
+        "form": "HARD CAPSULE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "PARACETAMOL 500 milligram(s) | CODEINE PHOSPHATE HEMIHYDRATE 8 milligram(s) | CAFFEINE 30 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02AJ06",
+        "status": "Authorised",
+        "supplierCatalogKey": "solpadeine capsules, paracetamol 500mg, codeine phosphate hemihydrate 8mg, caffeine 30mg"
+      }
+    },
+    {
+      "id": "product:P0453",
+      "nodeType": "product",
+      "refId": "P0453",
+      "label": "Solpadeine soluble tablets  Paracetamol 500mg Codeine Phosphate Hemihydrate 8mg Caffeine 30mg",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Solpadeine",
+        "generic": "CAFFEINE | CODEINE PHOSPHATE HEMIHYDRATE | PARACETAMOL",
+        "form": "EFFERVESCENT TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "CODEINE PHOSPHATE HEMIHYDRATE 8 milligram(s) | CAFFEINE 30 milligram(s) | PARACETAMOL 500 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02AJ06",
+        "status": "Authorised",
+        "supplierCatalogKey": "solpadeine soluble tablets paracetamol 500mg codeine phosphate hemihydrate 8mg caffeine 30mg"
+      }
+    },
+    {
+      "id": "product:P0463",
+      "nodeType": "product",
+      "refId": "P0463",
+      "label": "Supofen 200 mg/5ml oral suspension",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Supofen",
+        "generic": "PARACETAMOL",
+        "form": "ORAL SUSPENSION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "PARACETAMOL 200 milligram(s)/5 millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "supofen 200 mg/5ml oral suspension"
+      }
+    },
+    {
+      "id": "product:P0468",
+      "nodeType": "product",
+      "refId": "P0468",
+      "label": "TROPEX 5% Ear Drops, Solution",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "TROPEX",
+        "generic": "PHENAZONE",
+        "form": "EAR DROPS, SOLUTION",
+        "formGroup": "Ear",
+        "route": "Ear",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "PHENAZONE 5 percent weight/volume",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BB01",
+        "status": "Authorised",
+        "supplierCatalogKey": "tropex 5% ear drops, solution"
+      }
+    },
+    {
+      "id": "product:P0487",
+      "nodeType": "product",
+      "refId": "P0487",
+      "label": "Uniflu Plus with Vitamin C Tablets",
+      "subtext": "pain relief",
+      "meta": {
+        "brand": "Uniflu",
+        "generic": "ASCORBIC ACID | CAFFEINE | CODEINE PHOSPHATE HEMIHYDRATE | DIPHENHYDRAMINE HYDROCHLORIDE | PARACETAMOL | PHENYLEPHRINE HYDROCHLORIDE",
+        "form": "CHEWABLE TABLET, FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "pain relief",
+        "secondaryIndications": "headache | fever | body aches",
+        "otcCategory": "ANALGESICS",
+        "seasonalGroup": "All year",
+        "sedating": "Yes",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 6,
+        "strengthText": "ASCORBIC ACID 300 milligram(s) | PARACETAMOL 500 milligram(s) | CAFFEINE 30 milligram(s) | PHENYLEPHRINE HYDROCHLORIDE 10 milligram(s) | DIPHENHYDRAMINE HYDROCHLORIDE 15 milligram(s) | CODEINE PHOSPHATE HEMIHYDRATE 10 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N02BE51",
+        "status": "Authorised",
+        "supplierCatalogKey": "uniflu plus with vitamin c tablets"
+      }
+    },
+    {
+      "id": "usecase:UC003",
+      "nodeType": "usecase",
+      "refId": "UC003",
+      "label": "Pain and fever support",
+      "subtext": "Pain / fever",
+      "meta": {
+        "UseCase_ID": "UC003",
+        "UseCase_Name": "Pain and fever support",
+        "UseCase_Category": "Pain / fever",
+        "Trigger_Symptoms": "Headache, fever, body aches",
+        "Description": "Simple analgesic alternatives and add-ons."
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "e0e7916a74c96c9c",
+      "source": "product:P0002",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00006"
+      }
+    },
+    {
+      "key": "4a565b4707d8b871",
+      "source": "product:P0006",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00021"
+      }
+    },
+    {
+      "key": "6ef8ae5fb11e57a2",
+      "source": "product:P0007",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00025"
+      }
+    },
+    {
+      "key": "6417dadb50e3458f",
+      "source": "product:P0008",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00029"
+      }
+    },
+    {
+      "key": "2c3b584b47239157",
+      "source": "product:P0009",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00033"
+      }
+    },
+    {
+      "key": "e94c078b0a6375d5",
+      "source": "product:P0010",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00037"
+      }
+    },
+    {
+      "key": "4cdbf0e1e321b7e2",
+      "source": "product:P0011",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00041"
+      }
+    },
+    {
+      "key": "e089af970be82f6b",
+      "source": "product:P0012",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00045"
+      }
+    },
+    {
+      "key": "02887bf90266d53c",
+      "source": "product:P0013",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00049"
+      }
+    },
+    {
+      "key": "95f75e319afb7af4",
+      "source": "product:P0020",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00076"
+      }
+    },
+    {
+      "key": "8123e94e49cacec5",
+      "source": "product:P0038",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00125"
+      }
+    },
+    {
+      "key": "118d15f043d0fe25",
+      "source": "product:P0054",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00171"
+      }
+    },
+    {
+      "key": "ad81f20ce194ad6a",
+      "source": "product:P0071",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00242"
+      }
+    },
+    {
+      "key": "5ecef291c93799b5",
+      "source": "product:P0072",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00246"
+      }
+    },
+    {
+      "key": "18b1063a2c2f1fb1",
+      "source": "product:P0073",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00250"
+      }
+    },
+    {
+      "key": "e8c610ede22f8d68",
+      "source": "product:P0074",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00254"
+      }
+    },
+    {
+      "key": "6805733f715e20e8",
+      "source": "product:P0075",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00258"
+      }
+    },
+    {
+      "key": "702f9c59d1cf7e17",
+      "source": "product:P0076",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00262"
+      }
+    },
+    {
+      "key": "857192e09d12028e",
+      "source": "product:P0077",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00266"
+      }
+    },
+    {
+      "key": "f0ddbf7083f489e1",
+      "source": "product:P0113",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00370"
+      }
+    },
+    {
+      "key": "d116b208f2160b6b",
+      "source": "product:P0114",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00374"
+      }
+    },
+    {
+      "key": "a92d55c33d659986",
+      "source": "product:P0115",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00378"
+      }
+    },
+    {
+      "key": "bf3f30bf12745b39",
+      "source": "product:P0129",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00426"
+      }
+    },
+    {
+      "key": "699969f9f1a8f23c",
+      "source": "product:P0153",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00501"
+      }
+    },
+    {
+      "key": "c2a3f11a869298ad",
+      "source": "product:P0154",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00505"
+      }
+    },
+    {
+      "key": "a5d7c3f6ca8949c9",
+      "source": "product:P0155",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00509"
+      }
+    },
+    {
+      "key": "a0b19b49024ff87b",
+      "source": "product:P0178",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00582"
+      }
+    },
+    {
+      "key": "f0b2f97cd9d51bb0",
+      "source": "product:P0192",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00626"
+      }
+    },
+    {
+      "key": "f27d8bbea0d28a2f",
+      "source": "product:P0231",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00756"
+      }
+    },
+    {
+      "key": "bdbe8a5432f3e6c3",
+      "source": "product:P0246",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00800"
+      }
+    },
+    {
+      "key": "bb3b8f32e3dfbc25",
+      "source": "product:P0331",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01057"
+      }
+    },
+    {
+      "key": "a56ee9a34980d655",
+      "source": "product:P0332",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01061"
+      }
+    },
+    {
+      "key": "3835989aa61dd97a",
+      "source": "product:P0340",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01090"
+      }
+    },
+    {
+      "key": "930d21cde51ab36a",
+      "source": "product:P0345",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01111"
+      }
+    },
+    {
+      "key": "7055a61a280f9839",
+      "source": "product:P0369",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01200"
+      }
+    },
+    {
+      "key": "48130c2de3e827ce",
+      "source": "product:P0370",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01204"
+      }
+    },
+    {
+      "key": "c5bd002b66f48014",
+      "source": "product:P0371",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01208"
+      }
+    },
+    {
+      "key": "b0feb83f30c8dcf9",
+      "source": "product:P0372",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01212"
+      }
+    },
+    {
+      "key": "7aa08bcea79617cc",
+      "source": "product:P0373",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01216"
+      }
+    },
+    {
+      "key": "bc03f639df023e5d",
+      "source": "product:P0374",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01220"
+      }
+    },
+    {
+      "key": "ed05c5a2009c77e1",
+      "source": "product:P0375",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01224"
+      }
+    },
+    {
+      "key": "f38bed37ad307d0e",
+      "source": "product:P0376",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01228"
+      }
+    },
+    {
+      "key": "6676c7e145280027",
+      "source": "product:P0377",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01232"
+      }
+    },
+    {
+      "key": "85900759b3445c77",
+      "source": "product:P0378",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01236"
+      }
+    },
+    {
+      "key": "772a8a0d25eb458a",
+      "source": "product:P0379",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01240"
+      }
+    },
+    {
+      "key": "6586c8fa5f900703",
+      "source": "product:P0380",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01244"
+      }
+    },
+    {
+      "key": "98c3e60f637309e7",
+      "source": "product:P0381",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01248"
+      }
+    },
+    {
+      "key": "8c96268b2aed14f5",
+      "source": "product:P0382",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01252"
+      }
+    },
+    {
+      "key": "1d7d0d0d12b6fa92",
+      "source": "product:P0383",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01256"
+      }
+    },
+    {
+      "key": "83492ce7acedbb2f",
+      "source": "product:P0385",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01263"
+      }
+    },
+    {
+      "key": "7c8626c5b25be5ff",
+      "source": "product:P0386",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01267"
+      }
+    },
+    {
+      "key": "5279c0368b5525e5",
+      "source": "product:P0387",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01271"
+      }
+    },
+    {
+      "key": "fe0c2ac712ea64df",
+      "source": "product:P0388",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01275"
+      }
+    },
+    {
+      "key": "97d5ab44afc5b6d6",
+      "source": "product:P0389",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01279"
+      }
+    },
+    {
+      "key": "6e9eb091469a39e2",
+      "source": "product:P0390",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01283"
+      }
+    },
+    {
+      "key": "9cbe369170ee4180",
+      "source": "product:P0391",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01287"
+      }
+    },
+    {
+      "key": "43496680656c5145",
+      "source": "product:P0392",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01291"
+      }
+    },
+    {
+      "key": "fe2c911baf42b80d",
+      "source": "product:P0393",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01295"
+      }
+    },
+    {
+      "key": "59fd2eefef698c47",
+      "source": "product:P0404",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01322"
+      }
+    },
+    {
+      "key": "eb86673b9e8bfe30",
+      "source": "product:P0405",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01326"
+      }
+    },
+    {
+      "key": "58dade38fbc1ee87",
+      "source": "product:P0414",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01366"
+      }
+    },
+    {
+      "key": "49a6a6b052609a06",
+      "source": "product:P0415",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01370"
+      }
+    },
+    {
+      "key": "ba818caf1da1157f",
+      "source": "product:P0416",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01374"
+      }
+    },
+    {
+      "key": "f593ef11220503e2",
+      "source": "product:P0428",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01412"
+      }
+    },
+    {
+      "key": "4a2ef4c7ec914430",
+      "source": "product:P0451",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01486"
+      }
+    },
+    {
+      "key": "b1cd6850b3123a0c",
+      "source": "product:P0452",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01490"
+      }
+    },
+    {
+      "key": "48e9b4cc365c3b87",
+      "source": "product:P0453",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01494"
+      }
+    },
+    {
+      "key": "55c4c60aa1762b08",
+      "source": "product:P0463",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01528"
+      }
+    },
+    {
+      "key": "a5e1470adf306f8d",
+      "source": "product:P0468",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01542"
+      }
+    },
+    {
+      "key": "5df5bc71035403e8",
+      "source": "product:P0487",
+      "target": "symptom:S033",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01622"
+      }
+    },
+    {
+      "key": "d38e04465d92fac0",
+      "source": "symptom:S033",
+      "target": "usecase:UC003",
+      "rel": "usecase",
+      "label": "Related use case",
+      "score": 90,
+      "why": "",
+      "meta": {}
+    }
+  ]
+}

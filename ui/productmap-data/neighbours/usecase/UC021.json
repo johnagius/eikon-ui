@@ -1,0 +1,143 @@
+{
+  "centerId": "usecase:UC021",
+  "centerType": "usecase",
+  "refId": "UC021",
+  "nodes": [
+    {
+      "id": "usecase:UC021",
+      "nodeType": "usecase",
+      "refId": "UC021",
+      "label": "Emergency contraception",
+      "subtext": "Women's health",
+      "meta": {
+        "UseCase_ID": "UC021",
+        "UseCase_Name": "Emergency contraception",
+        "UseCase_Category": "Women's health",
+        "Trigger_Symptoms": "Emergency contraception, morning after",
+        "Description": "Emergency hormonal contraception options."
+      }
+    },
+    {
+      "id": "product:P0166",
+      "nodeType": "product",
+      "refId": "P0166",
+      "label": "Ecinq 30 mg film-coated tablets",
+      "subtext": "emergency contraception",
+      "meta": {
+        "brand": "Ecinq",
+        "generic": "ULIPRISTAL ACETATE",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "emergency contraception",
+        "secondaryIndications": "",
+        "otcCategory": "SEX HORMONES AND MODULATORS OF THE GENITAL SYSTEM",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "ULIPRISTAL ACETATE 30 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "G03AD02",
+        "status": "Authorised",
+        "supplierCatalogKey": "ecinq 30 mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0169",
+      "nodeType": "product",
+      "refId": "P0169",
+      "label": "Escapelle 1500 microgram tablet",
+      "subtext": "emergency contraception",
+      "meta": {
+        "brand": "Escapelle",
+        "generic": "LEVONORGESTREL",
+        "form": "TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "emergency contraception",
+        "secondaryIndications": "",
+        "otcCategory": "SEX HORMONES AND MODULATORS OF THE GENITAL SYSTEM",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "LEVONORGESTREL 1500 microgram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "G03AD01",
+        "status": "Authorised",
+        "supplierCatalogKey": "escapelle 1500 microgram tablet"
+      }
+    },
+    {
+      "id": "product:P0254",
+      "nodeType": "product",
+      "refId": "P0254",
+      "label": "Levonorgestrel Rowex 1.5mg Tablet",
+      "subtext": "emergency contraception",
+      "meta": {
+        "brand": "Levonorgestrel",
+        "generic": "LEVONORGESTREL",
+        "form": "TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "emergency contraception",
+        "secondaryIndications": "",
+        "otcCategory": "SEX HORMONES AND MODULATORS OF THE GENITAL SYSTEM",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "LEVONORGESTREL 1.5 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "G03AD01",
+        "status": "Authorised",
+        "supplierCatalogKey": "levonorgestrel rowex 1.5mg tablet"
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "a0ff68d22ca17480",
+      "source": "product:P0166",
+      "target": "usecase:UC021",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Emergency contraception, morning after",
+      "meta": {
+        "useCaseItemId": "UCI00712"
+      }
+    },
+    {
+      "key": "0c728e15acb5aa67",
+      "source": "product:P0169",
+      "target": "usecase:UC021",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Emergency contraception, morning after",
+      "meta": {
+        "useCaseItemId": "UCI00713"
+      }
+    },
+    {
+      "key": "9c55baab54931ad7",
+      "source": "product:P0254",
+      "target": "usecase:UC021",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Emergency contraception, morning after",
+      "meta": {
+        "useCaseItemId": "UCI00714"
+      }
+    }
+  ]
+}

@@ -29,8 +29,23 @@
       "meta": {
         "brand": "Contractubex",
         "generic": "ALLANTOIN | HEPARIN SODIUM | ONION LIQUID EXTRACT",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
         "mainIndication": "wound care",
-        "otcCategory": "PREPARATIONS FOR TREATMENT OF WOUNDS AND ULCERS"
+        "secondaryIndications": "healing | ulcers",
+        "otcCategory": "PREPARATIONS FOR TREATMENT OF WOUNDS AND ULCERS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "Onion Liquid extract\n 10 gram(s) | HEPARIN SODIUM 5,000 international unit(s) | ALLANTOIN 1 gram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "D03AX",
+        "status": "Authorised",
+        "supplierCatalogKey": "contractubex 1 g / 10 g / 5000 iu / 100 g gel"
       }
     },
     {
@@ -42,60 +57,23 @@
       "meta": {
         "brand": "Contractubex",
         "generic": "ALLANTOIN | EXTRACTUM CEPAE | HEPARIN SODIUM",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
         "mainIndication": "wound care",
-        "otcCategory": "PREPARATIONS FOR TREATMENT OF WOUNDS AND ULCERS"
-      }
-    },
-    {
-      "id": "product:P0066",
-      "nodeType": "product",
-      "refId": "P0066",
-      "label": "CICLOVIRAL 50 mg/g Cream",
-      "subtext": "cold sore",
-      "meta": {
-        "brand": "CICLOVIRAL",
-        "generic": "ACICLOVIR",
-        "mainIndication": "cold sore",
-        "otcCategory": "ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE"
-      }
-    },
-    {
-      "id": "product:P0287",
-      "nodeType": "product",
-      "refId": "P0287",
-      "label": "Medovir cream 5%",
-      "subtext": "cold sore",
-      "meta": {
-        "brand": "Medovir",
-        "generic": "ACICLOVIR",
-        "mainIndication": "cold sore",
-        "otcCategory": "ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE"
-      }
-    },
-    {
-      "id": "product:P0516",
-      "nodeType": "product",
-      "refId": "P0516",
-      "label": "Zoviduo 50mg/g and 10mg/g Cream",
-      "subtext": "cold sore",
-      "meta": {
-        "brand": "Zoviduo",
-        "generic": "ACICLOVIR | HYDROCORTISONE",
-        "mainIndication": "cold sore",
-        "otcCategory": "ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE"
-      }
-    },
-    {
-      "id": "product:P0517",
-      "nodeType": "product",
-      "refId": "P0517",
-      "label": "Zovirax Duo 50 mg/10 mg/g cream",
-      "subtext": "cold sore",
-      "meta": {
-        "brand": "Zovirax",
-        "generic": "ACICLOVIR | HYDROCORTISONE",
-        "mainIndication": "cold sore",
-        "otcCategory": "ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE"
+        "secondaryIndications": "healing | ulcers",
+        "otcCategory": "PREPARATIONS FOR TREATMENT OF WOUNDS AND ULCERS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "HEPARIN SODIUM 5000 international unit(s) | EXTRACTUM CEPAE 10 gram(s) | ALLANTOIN 1 gram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "D03AX",
+        "status": "Authorised",
+        "supplierCatalogKey": "contractubex gel"
       }
     },
     {
@@ -107,8 +85,37 @@
       "meta": {
         "brand": "Sudocrem",
         "generic": "BENZYL ALCOHOL | BENZYL BENZOATE | BENZYL CINNAMATE | LANOLIN | ZINC OXIDE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
         "mainIndication": "skin irritation",
-        "otcCategory": "EMOLLIENTS AND PROTECTIVES"
+        "secondaryIndications": "healing | wound care",
+        "otcCategory": "EMOLLIENTS AND PROTECTIVES",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 5,
+        "strengthText": "BENZYL BENZOATE 1.02 percent weight/weight | BENZYL ALCOHOL 0.39 percent weight/weight | ZINC OXIDE 15.29 percent weight/weight | BENZYL CINNAMATE 0.15 percent weight/weight | LANOLIN 4.02 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "D02AB",
+        "status": "Authorised",
+        "supplierCatalogKey": "sudocrem antiseptic healing cream"
+      }
+    },
+    {
+      "id": "usecase:UC019",
+      "nodeType": "usecase",
+      "refId": "UC019",
+      "label": "Skin repair and scar care",
+      "subtext": "Skin",
+      "meta": {
+        "UseCase_ID": "UC019",
+        "UseCase_Name": "Skin repair and scar care",
+        "UseCase_Category": "Skin",
+        "Trigger_Symptoms": "Scars, skin repair, wound healing",
+        "Description": "Products for skin repair, scar reduction, and wound healing."
       }
     }
   ],
@@ -138,54 +145,6 @@
       }
     },
     {
-      "key": "5cc9cb127a7eef6b",
-      "source": "product:P0066",
-      "target": "symptom:S034",
-      "rel": "symptom",
-      "label": "Primary",
-      "score": 100,
-      "why": "Manual review fix",
-      "meta": {
-        "mapId": "PSM01765"
-      }
-    },
-    {
-      "key": "4683f3ceea497f56",
-      "source": "product:P0287",
-      "target": "symptom:S034",
-      "rel": "symptom",
-      "label": "Primary",
-      "score": 100,
-      "why": "Manual review fix",
-      "meta": {
-        "mapId": "PSM01766"
-      }
-    },
-    {
-      "key": "a539cba00da02fac",
-      "source": "product:P0516",
-      "target": "symptom:S034",
-      "rel": "symptom",
-      "label": "Primary",
-      "score": 100,
-      "why": "Manual review fix",
-      "meta": {
-        "mapId": "PSM01767"
-      }
-    },
-    {
-      "key": "2e53a535fef35812",
-      "source": "product:P0517",
-      "target": "symptom:S034",
-      "rel": "symptom",
-      "label": "Primary",
-      "score": 100,
-      "why": "Manual review fix",
-      "meta": {
-        "mapId": "PSM01768"
-      }
-    },
-    {
       "key": "58fd641346a09e44",
       "source": "product:P0462",
       "target": "symptom:S034",
@@ -196,10 +155,16 @@
       "meta": {
         "mapId": "PSM01798"
       }
+    },
+    {
+      "key": "72beacf5820c00fd",
+      "source": "symptom:S034",
+      "target": "usecase:UC019",
+      "rel": "usecase",
+      "label": "Related use case",
+      "score": 90,
+      "why": "",
+      "meta": {}
     }
-  ],
-  "meta": {
-    "symptomName": "healing",
-    "linkCount": 2
-  }
+  ]
 }

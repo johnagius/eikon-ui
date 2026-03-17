@@ -29,8 +29,23 @@
       "meta": {
         "brand": "Candiplas",
         "generic": "MICONAZOLE NITRATE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
         "mainIndication": "fungal skin infection",
-        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE"
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "MICONAZOLE NITRATE 20 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC02",
+        "status": "Authorised",
+        "supplierCatalogKey": "candiplas 2 % w / w cream"
       }
     },
     {
@@ -42,8 +57,23 @@
       "meta": {
         "brand": "Candiplas",
         "generic": "HYDROCORTISONE | MICONAZOLE NITRATE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
         "mainIndication": "fungal skin infection",
-        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE"
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "MICONAZOLE NITRATE 20 milligram(s) | HYDROCORTISONE 10 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC20",
+        "status": "Authorised",
+        "supplierCatalogKey": "candiplas h 2%w/w / 1%w/w cream"
       }
     },
     {
@@ -55,8 +85,23 @@
       "meta": {
         "brand": "Canesten",
         "generic": "CLOTRIMAZOLE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
         "mainIndication": "fungal skin infection",
-        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE"
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CLOTRIMAZOLE 10 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC01",
+        "status": "Authorised",
+        "supplierCatalogKey": "canesten 1% cream"
       }
     },
     {
@@ -68,8 +113,23 @@
       "meta": {
         "brand": "Canesten",
         "generic": "CLOTRIMAZOLE",
+        "form": "CUTANEOUS SOLUTION",
+        "formGroup": "Topical",
+        "route": "Topical",
         "mainIndication": "fungal skin infection",
-        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE"
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CLOTRIMAZOLE 10 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC01",
+        "status": "Authorised",
+        "supplierCatalogKey": "canesten 1% cutaneous solution"
       }
     },
     {
@@ -81,8 +141,23 @@
       "meta": {
         "brand": "Canesten",
         "generic": "CLOTRIMAZOLE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
         "mainIndication": "fungal skin infection",
-        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE"
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CLOTRIMAZOLE 10 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC01",
+        "status": "Authorised",
+        "supplierCatalogKey": "canesten 10 mg/g cream"
       }
     },
     {
@@ -94,8 +169,23 @@
       "meta": {
         "brand": "Canesten",
         "generic": "CLOTRIMAZOLE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
         "mainIndication": "fungal skin infection",
-        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE"
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CLOTRIMAZOLE 10 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC01",
+        "status": "Authorised",
+        "supplierCatalogKey": "canesten cream 1% w/w"
       }
     },
     {
@@ -107,8 +197,23 @@
       "meta": {
         "brand": "Canesten",
         "generic": "CLOTRIMAZOLE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
         "mainIndication": "fungal skin infection",
-        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE"
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CLOTRIMAZOLE 10 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC01",
+        "status": "Authorised",
+        "supplierCatalogKey": "canesten cream 10mg"
       }
     },
     {
@@ -120,8 +225,23 @@
       "meta": {
         "brand": "Canesten",
         "generic": "CLOTRIMAZOLE",
+        "form": "SOLUTION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
         "mainIndication": "fungal skin infection",
-        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE"
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CLOTRIMAZOLE 1 percent weight/volume",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC01",
+        "status": "Authorised",
+        "supplierCatalogKey": "canesten solution 1% w/v"
       }
     },
     {
@@ -133,8 +253,23 @@
       "meta": {
         "brand": "Canesten",
         "generic": "BIFONAZOLE",
+        "form": "Spray (solution)",
+        "formGroup": "Topical",
+        "route": "Topical",
         "mainIndication": "fungal skin infection",
-        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE"
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "BIFONAZOLE 10 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC10",
+        "status": "Authorised",
+        "supplierCatalogKey": "canesten\u00ae extra spray 10mg/g"
       }
     },
     {
@@ -146,8 +281,23 @@
       "meta": {
         "brand": "Clotrimazole",
         "generic": "CLOTRIMAZOLE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
         "mainIndication": "fungal skin infection",
-        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE"
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CLOTRIMAZOLE 10 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC01",
+        "status": "Authorised",
+        "supplierCatalogKey": "clotrimazole generis 10 mg/g cream"
       }
     },
     {
@@ -159,8 +309,23 @@
       "meta": {
         "brand": "Clotrimazolum",
         "generic": "CLOTRIMAZOLE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
         "mainIndication": "fungal skin infection",
-        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE"
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CLOTRIMAZOLE 10 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC01",
+        "status": "Authorised",
+        "supplierCatalogKey": "clotrimazolum hasco, 10 mg/g cream"
       }
     },
     {
@@ -172,8 +337,23 @@
       "meta": {
         "brand": "Clotrimazolum",
         "generic": "CLOTRIMAZOLE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
         "mainIndication": "fungal skin infection",
-        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE"
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CLOTRIMAZOLE 10 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC01",
+        "status": "Authorised",
+        "supplierCatalogKey": "clotrimazolum hasco, 10 mg/g, cream"
       }
     },
     {
@@ -185,8 +365,23 @@
       "meta": {
         "brand": "Daktarin",
         "generic": "MICONAZOLE NITRATE",
+        "form": "CUTANEOUS POWDER",
+        "formGroup": "Topical",
+        "route": "Topical",
         "mainIndication": "fungal skin infection",
-        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE"
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "MICONAZOLE NITRATE 20 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC02",
+        "status": "Authorised",
+        "supplierCatalogKey": "daktarin 2% w/w cutaneous powder"
       }
     },
     {
@@ -198,8 +393,23 @@
       "meta": {
         "brand": "Daktarin",
         "generic": "MICONAZOLE NITRATE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
         "mainIndication": "fungal skin infection",
-        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE"
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "MICONAZOLE NITRATE 20 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC02",
+        "status": "Authorised",
+        "supplierCatalogKey": "daktarin cream 2% w/w"
       }
     },
     {
@@ -211,8 +421,23 @@
       "meta": {
         "brand": "Daktarin",
         "generic": "MICONAZOLE NITRATE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
         "mainIndication": "fungal skin infection",
-        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE"
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "MICONAZOLE NITRATE 20 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC02",
+        "status": "Authorised",
+        "supplierCatalogKey": "daktarin cream 2.0% w/w"
       }
     },
     {
@@ -224,8 +449,23 @@
       "meta": {
         "brand": "Daktarin",
         "generic": "MICONAZOLE NITRATE",
+        "form": "CUTANEOUS POWDER",
+        "formGroup": "Topical",
+        "route": "Topical",
         "mainIndication": "fungal skin infection",
-        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE"
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "MICONAZOLE NITRATE 20 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC02",
+        "status": "Authorised",
+        "supplierCatalogKey": "daktarin powder 2.0% w/w"
       }
     },
     {
@@ -237,8 +477,23 @@
       "meta": {
         "brand": "Daktodor",
         "generic": "HYDROCORTISONE | MICONAZOLE NITRATE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
         "mainIndication": "fungal skin infection",
-        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE"
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "HYDROCORTISONE 1 percent weight/weight | MICONAZOLE NITRATE 2 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC52",
+        "status": "Authorised",
+        "supplierCatalogKey": "daktodor 2% / 1% w/w cream"
       }
     },
     {
@@ -250,8 +505,23 @@
       "meta": {
         "brand": "Lamisil",
         "generic": "TERBINAFINE HYDROCHLORIDE",
+        "form": "CUTANEOUS SPRAY, SOLUTION",
+        "formGroup": "Topical",
+        "route": "Topical",
         "mainIndication": "fungal skin infection",
-        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE"
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "TERBINAFINE HYDROCHLORIDE 10 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AE15",
+        "status": "Authorised",
+        "supplierCatalogKey": "lamisil 1% cutaneous spray, solution."
       }
     },
     {
@@ -263,8 +533,23 @@
       "meta": {
         "brand": "MYCOSKIN",
         "generic": "CICLOPIROX OLAMINE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
         "mainIndication": "fungal skin infection",
-        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE"
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CICLOPIROX OLAMINE 100 gram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AE14",
+        "status": "Authorised",
+        "supplierCatalogKey": "mycoskin 1% cream"
       }
     },
     {
@@ -276,8 +561,23 @@
       "meta": {
         "brand": "MYCOSKIN",
         "generic": "CICLOPIROX OLAMINE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
         "mainIndication": "fungal skin infection",
-        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE"
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CICLOPIROX OLAMINE 1 percent",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AE14",
+        "status": "Authorised",
+        "supplierCatalogKey": "mycoskin 1%, cream"
       }
     },
     {
@@ -289,8 +589,23 @@
       "meta": {
         "brand": "Mycoril",
         "generic": "CLOTRIMAZOLE",
+        "form": "CUTANEOUS SPRAY, SOLUTION",
+        "formGroup": "Topical",
+        "route": "Topical",
         "mainIndication": "fungal skin infection",
-        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE"
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CLOTRIMAZOLE 1 percent weight/volume",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC01",
+        "status": "Authorised",
+        "supplierCatalogKey": "mycoril 1% w/v cutaneous spray, solution"
       }
     },
     {
@@ -302,8 +617,23 @@
       "meta": {
         "brand": "Nizoral",
         "generic": "KETOCONAZOLE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
         "mainIndication": "fungal skin infection",
-        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE"
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "KETOCONAZOLE 2 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC08",
+        "status": "Authorised",
+        "supplierCatalogKey": "nizoral 20mg/g cream"
       }
     },
     {
@@ -315,8 +645,23 @@
       "meta": {
         "brand": "Nizoral",
         "generic": "KETOCONAZOLE",
+        "form": "SHAMPOO",
+        "formGroup": "Other",
+        "route": "Other",
         "mainIndication": "fungal skin infection",
-        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE"
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "KETOCONAZOLE 20 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC08",
+        "status": "Authorised",
+        "supplierCatalogKey": "nizoral 20mg/g shampoo"
       }
     },
     {
@@ -328,8 +673,23 @@
       "meta": {
         "brand": "Nizoral",
         "generic": "KETOCONAZOLE",
+        "form": "SHAMPOO",
+        "formGroup": "Other",
+        "route": "Other",
         "mainIndication": "fungal skin infection",
-        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE"
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "KETOCONAZOLE 20 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC08",
+        "status": "Authorised",
+        "supplierCatalogKey": "nizoral shampoo"
       }
     },
     {
@@ -341,8 +701,23 @@
       "meta": {
         "brand": "TRAVOGEN",
         "generic": "ISOCONAZOLE NITRATE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
         "mainIndication": "fungal skin infection",
-        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE"
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "ISOCONAZOLE NITRATE 10 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC05",
+        "status": "Authorised",
+        "supplierCatalogKey": "travogen 10 mg /g cream"
       }
     },
     {
@@ -354,8 +729,23 @@
       "meta": {
         "brand": "Travogen",
         "generic": "ISOCONAZOLE NITRATE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
         "mainIndication": "fungal skin infection",
-        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE"
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "ISOCONAZOLE NITRATE 1 percent",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC05",
+        "status": "Authorised",
+        "supplierCatalogKey": "travogen 1% cream"
       }
     },
     {
@@ -367,8 +757,23 @@
       "meta": {
         "brand": "Travogen",
         "generic": "ISOCONAZOLE NITRATE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
         "mainIndication": "fungal skin infection",
-        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE"
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "ISOCONAZOLE NITRATE 10 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC05",
+        "status": "Authorised",
+        "supplierCatalogKey": "travogen cream 1% w/w"
       }
     },
     {
@@ -380,8 +785,23 @@
       "meta": {
         "brand": "Fluconazole",
         "generic": "FLUCONAZOLE",
+        "form": "CAPSULE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
         "mainIndication": "vaginal infection support",
-        "otcCategory": "ANTIMYCOTICS FOR SYSTEMIC USE"
+        "secondaryIndications": "thrush (topical)",
+        "otcCategory": "ANTIMYCOTICS FOR SYSTEMIC USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "FLUCONAZOLE 150 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "J02AC",
+        "status": "Authorised",
+        "supplierCatalogKey": "fluconazole; blicanz thrush relief. boots thrush; 150mg capsules"
       }
     },
     {
@@ -393,8 +813,23 @@
       "meta": {
         "brand": "Medoflucon",
         "generic": "FLUCONAZOLE",
+        "form": "HARD CAPSULE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
         "mainIndication": "vaginal infection support",
-        "otcCategory": "ANTIMYCOTICS FOR SYSTEMIC USE"
+        "secondaryIndications": "thrush (topical)",
+        "otcCategory": "ANTIMYCOTICS FOR SYSTEMIC USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "FLUCONAZOLE 150 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "J02AC01",
+        "status": "Authorised",
+        "supplierCatalogKey": "medoflucon 150mg capsules"
       }
     }
   ],
@@ -747,9 +1182,5 @@
         "mapId": "PSM01780"
       }
     }
-  ],
-  "meta": {
-    "symptomName": "thrush (topical)",
-    "linkCount": 27
-  }
+  ]
 }

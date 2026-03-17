@@ -1,1 +1,203 @@
-{"centerId":"product:P0270","centerType":"product","refId":"P0270","nodes":[{"id":"product:P0270","nodeType":"product","refId":"P0270","label":"MYCOSKIN 1% cream","subtext":"fungal skin infection","meta":{"brand":"MYCOSKIN","generic":"CICLOPIROX OLAMINE","form":"CREAM","formGroup":"Topical","route":"Topical","mainIndication":"fungal skin infection","secondaryIndications":"athlete foot | thrush (topical)","otcCategory":"ANTIFUNGALS FOR DERMATOLOGICAL USE","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CICLOPIROX OLAMINE 100 gram(s)","packSizeText":"Review manually","atcCode":"D01AE14","status":"Authorised","supplierCatalogKey":"mycoskin 1% cream"}},{"id":"product:P0271","nodeType":"product","refId":"P0271","label":"MYCOSKIN 1%, cream","subtext":"fungal skin infection","meta":{"brand":"MYCOSKIN","generic":"CICLOPIROX OLAMINE","form":"CREAM","formGroup":"Topical","route":"Topical","mainIndication":"fungal skin infection","secondaryIndications":"athlete foot | thrush (topical)","otcCategory":"ANTIFUNGALS FOR DERMATOLOGICAL USE","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CICLOPIROX OLAMINE 1 percent","packSizeText":"Review manually","atcCode":"D01AE14","status":"Authorised","supplierCatalogKey":"mycoskin 1%, cream"}},{"id":"symptom:S029","nodeType":"symptom","refId":"S029","label":"fungal skin infection","subtext":"Skin","meta":{"Symptom_ID":"S029","Symptom_Name":"fungal skin infection","Symptom_Category":"Skin","Linked_Product_Count":27,"Display_Group":"Skin","Priority_For_Graph":100,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"symptom:S007","nodeType":"symptom","refId":"S007","label":"athlete foot","subtext":"Skin","meta":{"Symptom_ID":"S007","Symptom_Name":"athlete foot","Symptom_Category":"Skin","Linked_Product_Count":27,"Display_Group":"Skin","Priority_For_Graph":100,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"symptom:S070","nodeType":"symptom","refId":"S070","label":"thrush (topical)","subtext":"Skin","meta":{"Symptom_ID":"S070","Symptom_Name":"thrush (topical)","Symptom_Category":"Skin","Linked_Product_Count":27,"Display_Group":"Skin","Priority_For_Graph":100,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"usecase:UC010","nodeType":"usecase","refId":"UC010","label":"Athlete foot and fungal skin care","subtext":"Skin","meta":{"UseCase_ID":"UC010","UseCase_Name":"Athlete foot and fungal skin care","UseCase_Category":"Skin","Trigger_Symptoms":"Fungal skin infection, athlete foot, itch","Description":"Antifungal core with hygiene/support products."}}],"links":[{"key":"f633533bd3c8c6ae","source":"product:P0270","target":"product:P0271","rel":"similar","label":"Alternative: same active ingredient(s)","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00179","clinicalSimilarity":100,"commercialSubstitution":100,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"athlete foot, fungal skin infection, thrush (topical)","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"0b0398696ceb1008","source":"product:P0270","target":"symptom:S029","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00864","role":"Primary","reviewStatus":"Seeded"}},{"key":"59c19f67630093f1","source":"product:P0270","target":"symptom:S007","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00865","role":"Primary","reviewStatus":"Seeded"}},{"key":"baaa01af413a1057","source":"product:P0270","target":"symptom:S070","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM00866","role":"Secondary","reviewStatus":"Seeded"}},{"key":"9d758218262043c9","source":"product:P0270","target":"usecase:UC010","rel":"usecase","label":"Main","score":100,"why":"fungal skin infection, athlete foot, thrush (topical)","meta":{"useCaseItemId":"UCI00560","role":"Main","reviewStatus":"Seeded"}},{"key":"090a7a72c5c33c38","source":"product:P0270","target":"product:P0271","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00179","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}}],"meta":{"productName":"MYCOSKIN 1% cream","linkCount":6}}
+{
+  "centerId": "product:P0270",
+  "centerType": "product",
+  "refId": "P0270",
+  "nodes": [
+    {
+      "id": "product:P0270",
+      "nodeType": "product",
+      "refId": "P0270",
+      "label": "MYCOSKIN 1% cream",
+      "subtext": "fungal skin infection",
+      "meta": {
+        "brand": "MYCOSKIN",
+        "generic": "CICLOPIROX OLAMINE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "fungal skin infection",
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CICLOPIROX OLAMINE 100 gram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AE14",
+        "status": "Authorised",
+        "supplierCatalogKey": "mycoskin 1% cream"
+      }
+    },
+    {
+      "id": "product:P0271",
+      "nodeType": "product",
+      "refId": "P0271",
+      "label": "MYCOSKIN 1%, cream",
+      "subtext": "fungal skin infection",
+      "meta": {
+        "brand": "MYCOSKIN",
+        "generic": "CICLOPIROX OLAMINE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "fungal skin infection",
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CICLOPIROX OLAMINE 1 percent",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AE14",
+        "status": "Authorised",
+        "supplierCatalogKey": "mycoskin 1%, cream"
+      }
+    },
+    {
+      "id": "symptom:S029",
+      "nodeType": "symptom",
+      "refId": "S029",
+      "label": "fungal skin infection",
+      "subtext": "Skin",
+      "meta": {
+        "Symptom_ID": "S029",
+        "Symptom_Name": "fungal skin infection",
+        "Symptom_Category": "Skin",
+        "Linked_Product_Count": 27,
+        "Display_Group": "Skin",
+        "Priority_For_Graph": 100,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "symptom:S007",
+      "nodeType": "symptom",
+      "refId": "S007",
+      "label": "athlete foot",
+      "subtext": "Skin",
+      "meta": {
+        "Symptom_ID": "S007",
+        "Symptom_Name": "athlete foot",
+        "Symptom_Category": "Skin",
+        "Linked_Product_Count": 27,
+        "Display_Group": "Skin",
+        "Priority_For_Graph": 100,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "symptom:S070",
+      "nodeType": "symptom",
+      "refId": "S070",
+      "label": "thrush (topical)",
+      "subtext": "Skin",
+      "meta": {
+        "Symptom_ID": "S070",
+        "Symptom_Name": "thrush (topical)",
+        "Symptom_Category": "Skin",
+        "Linked_Product_Count": 27,
+        "Display_Group": "Skin",
+        "Priority_For_Graph": 100,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "usecase:UC010",
+      "nodeType": "usecase",
+      "refId": "UC010",
+      "label": "Athlete foot and fungal skin care",
+      "subtext": "Skin",
+      "meta": {
+        "UseCase_ID": "UC010",
+        "UseCase_Name": "Athlete foot and fungal skin care",
+        "UseCase_Category": "Skin",
+        "Trigger_Symptoms": "Fungal skin infection, athlete foot, itch",
+        "Description": "Antifungal core with hygiene/support products."
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "f633533bd3c8c6ae",
+      "source": "product:P0270",
+      "target": "product:P0271",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00179"
+      }
+    },
+    {
+      "key": "0b0398696ceb1008",
+      "source": "product:P0270",
+      "target": "symptom:S029",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00864"
+      }
+    },
+    {
+      "key": "59c19f67630093f1",
+      "source": "product:P0270",
+      "target": "symptom:S007",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00865"
+      }
+    },
+    {
+      "key": "baaa01af413a1057",
+      "source": "product:P0270",
+      "target": "symptom:S070",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00866"
+      }
+    },
+    {
+      "key": "9d758218262043c9",
+      "source": "product:P0270",
+      "target": "usecase:UC010",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "fungal skin infection, athlete foot, thrush (topical)",
+      "meta": {
+        "useCaseItemId": "UCI00560"
+      }
+    },
+    {
+      "key": "090a7a72c5c33c38",
+      "source": "product:P0270",
+      "target": "product:P0271",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00179",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    }
+  ]
+}

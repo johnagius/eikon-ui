@@ -8,15 +8,15 @@
       "nodeType": "product",
       "refId": "P0033",
       "label": "BIAFINE, emulsion for cutaneous application",
-      "subtext": "review needed",
+      "subtext": "skin irritation",
       "meta": {
         "brand": "BIAFINE",
         "generic": "TROLAMINE",
         "form": "CUTANEOUS EMULSION",
         "formGroup": "Topical",
         "route": "Topical",
-        "mainIndication": "review needed",
-        "secondaryIndications": null,
+        "mainIndication": "skin irritation",
+        "secondaryIndications": "skin repair",
         "otcCategory": "EMOLLIENTS AND PROTECTIVES",
         "seasonalGroup": "All year",
         "sedating": "No",
@@ -344,6 +344,20 @@
         "Node_Color": "#A5A5A5",
         "Notes": "Seeded from imported symptom tags; refine naming over time."
       }
+    },
+    {
+      "id": "usecase:UC019",
+      "nodeType": "usecase",
+      "refId": "UC019",
+      "label": "Skin repair and scar care",
+      "subtext": "Skin",
+      "meta": {
+        "UseCase_ID": "UC019",
+        "UseCase_Name": "Skin repair and scar care",
+        "UseCase_Category": "Skin",
+        "Trigger_Symptoms": "Scars, skin repair, wound healing",
+        "Description": "Products for skin repair, scar reduction, and wound healing."
+      }
     }
   ],
   "links": [
@@ -356,18 +370,7 @@
       "score": 79,
       "why": "Combines itch relief with moisturising or protective care.",
       "meta": {
-        "edgeId": "E16193",
-        "clinicalSimilarity": 15,
-        "commercialSubstitution": 10,
-        "crossSell": 79,
-        "riskOverlap": 20,
-        "evidence": 80,
-        "seasonality": 40,
-        "triggerContext": "Itch relief + skin barrier",
-        "primaryToSecondary": "Yes",
-        "reciprocalDisplay": "Optional",
-        "reviewStatus": "Needs pharmacist/staff review",
-        "sourceMethod": "THERAPEUTIC_CLASS_RULE"
+        "edgeId": "E16193"
       }
     },
     {
@@ -379,18 +382,7 @@
       "score": 79,
       "why": "Combines itch relief with moisturising or protective care.",
       "meta": {
-        "edgeId": "E16196",
-        "clinicalSimilarity": 15,
-        "commercialSubstitution": 10,
-        "crossSell": 79,
-        "riskOverlap": 20,
-        "evidence": 80,
-        "seasonality": 40,
-        "triggerContext": "Itch relief + skin barrier",
-        "primaryToSecondary": "Yes",
-        "reciprocalDisplay": "Optional",
-        "reviewStatus": "Needs pharmacist/staff review",
-        "sourceMethod": "THERAPEUTIC_CLASS_RULE"
+        "edgeId": "E16196"
       }
     },
     {
@@ -402,18 +394,7 @@
       "score": 79,
       "why": "Combines itch relief with moisturising or protective care.",
       "meta": {
-        "edgeId": "E16199",
-        "clinicalSimilarity": 15,
-        "commercialSubstitution": 10,
-        "crossSell": 79,
-        "riskOverlap": 20,
-        "evidence": 80,
-        "seasonality": 40,
-        "triggerContext": "Itch relief + skin barrier",
-        "primaryToSecondary": "Yes",
-        "reciprocalDisplay": "Optional",
-        "reviewStatus": "Needs pharmacist/staff review",
-        "sourceMethod": "THERAPEUTIC_CLASS_RULE"
+        "edgeId": "E16199"
       }
     },
     {
@@ -425,18 +406,7 @@
       "score": 79,
       "why": "Combines itch relief with moisturising or protective care.",
       "meta": {
-        "edgeId": "E16202",
-        "clinicalSimilarity": 15,
-        "commercialSubstitution": 10,
-        "crossSell": 79,
-        "riskOverlap": 20,
-        "evidence": 80,
-        "seasonality": 40,
-        "triggerContext": "Itch relief + skin barrier",
-        "primaryToSecondary": "Yes",
-        "reciprocalDisplay": "Optional",
-        "reviewStatus": "Needs pharmacist/staff review",
-        "sourceMethod": "THERAPEUTIC_CLASS_RULE"
+        "edgeId": "E16202"
       }
     },
     {
@@ -448,18 +418,7 @@
       "score": 79,
       "why": "Combines itch relief with moisturising or protective care.",
       "meta": {
-        "edgeId": "E16205",
-        "clinicalSimilarity": 15,
-        "commercialSubstitution": 10,
-        "crossSell": 79,
-        "riskOverlap": 20,
-        "evidence": 80,
-        "seasonality": 40,
-        "triggerContext": "Itch relief + skin barrier",
-        "primaryToSecondary": "Yes",
-        "reciprocalDisplay": "Optional",
-        "reviewStatus": "Needs pharmacist/staff review",
-        "sourceMethod": "THERAPEUTIC_CLASS_RULE"
+        "edgeId": "E16205"
       }
     },
     {
@@ -471,18 +430,7 @@
       "score": 79,
       "why": "Combines itch relief with moisturising or protective care.",
       "meta": {
-        "edgeId": "E16208",
-        "clinicalSimilarity": 15,
-        "commercialSubstitution": 10,
-        "crossSell": 79,
-        "riskOverlap": 20,
-        "evidence": 80,
-        "seasonality": 40,
-        "triggerContext": "Itch relief + skin barrier",
-        "primaryToSecondary": "Yes",
-        "reciprocalDisplay": "Optional",
-        "reviewStatus": "Needs pharmacist/staff review",
-        "sourceMethod": "THERAPEUTIC_CLASS_RULE"
+        "edgeId": "E16208"
       }
     },
     {
@@ -494,18 +442,7 @@
       "score": 72,
       "why": "Some inflamed skin routines also need barrier-repair support.",
       "meta": {
-        "edgeId": "E16181",
-        "clinicalSimilarity": 15,
-        "commercialSubstitution": 10,
-        "crossSell": 72,
-        "riskOverlap": 20,
-        "evidence": 80,
-        "seasonality": 40,
-        "triggerContext": "Dry / inflamed skin",
-        "primaryToSecondary": "Yes",
-        "reciprocalDisplay": "Optional",
-        "reviewStatus": "Needs pharmacist/staff review",
-        "sourceMethod": "THERAPEUTIC_CLASS_RULE"
+        "edgeId": "E16181"
       }
     },
     {
@@ -517,18 +454,7 @@
       "score": 72,
       "why": "Some inflamed skin routines also need barrier-repair support.",
       "meta": {
-        "edgeId": "E16182",
-        "clinicalSimilarity": 15,
-        "commercialSubstitution": 10,
-        "crossSell": 72,
-        "riskOverlap": 20,
-        "evidence": 80,
-        "seasonality": 40,
-        "triggerContext": "Dry / inflamed skin",
-        "primaryToSecondary": "Yes",
-        "reciprocalDisplay": "Optional",
-        "reviewStatus": "Needs pharmacist/staff review",
-        "sourceMethod": "THERAPEUTIC_CLASS_RULE"
+        "edgeId": "E16182"
       }
     },
     {
@@ -540,18 +466,7 @@
       "score": 72,
       "why": "Some inflamed skin routines also need barrier-repair support.",
       "meta": {
-        "edgeId": "E16183",
-        "clinicalSimilarity": 15,
-        "commercialSubstitution": 10,
-        "crossSell": 72,
-        "riskOverlap": 20,
-        "evidence": 80,
-        "seasonality": 40,
-        "triggerContext": "Dry / inflamed skin",
-        "primaryToSecondary": "Yes",
-        "reciprocalDisplay": "Optional",
-        "reviewStatus": "Needs pharmacist/staff review",
-        "sourceMethod": "THERAPEUTIC_CLASS_RULE"
+        "edgeId": "E16183"
       }
     },
     {
@@ -563,18 +478,7 @@
       "score": 72,
       "why": "Some inflamed skin routines also need barrier-repair support.",
       "meta": {
-        "edgeId": "E16184",
-        "clinicalSimilarity": 15,
-        "commercialSubstitution": 10,
-        "crossSell": 72,
-        "riskOverlap": 20,
-        "evidence": 80,
-        "seasonality": 40,
-        "triggerContext": "Dry / inflamed skin",
-        "primaryToSecondary": "Yes",
-        "reciprocalDisplay": "Optional",
-        "reviewStatus": "Needs pharmacist/staff review",
-        "sourceMethod": "THERAPEUTIC_CLASS_RULE"
+        "edgeId": "E16184"
       }
     },
     {
@@ -600,10 +504,18 @@
       "meta": {
         "mapId": "PSM01758"
       }
+    },
+    {
+      "key": "6e45cdf1d28a075d",
+      "source": "product:P0033",
+      "target": "usecase:UC019",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Scars, skin repair, wound healing",
+      "meta": {
+        "useCaseItemId": "UCI00693"
+      }
     }
-  ],
-  "meta": {
-    "productName": "BIAFINE, emulsion for cutaneous application",
-    "linkCount": 11
-  }
+  ]
 }

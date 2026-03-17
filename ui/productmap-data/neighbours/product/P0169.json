@@ -8,15 +8,15 @@
       "nodeType": "product",
       "refId": "P0169",
       "label": "Escapelle 1500 microgram tablet",
-      "subtext": "review needed",
+      "subtext": "emergency contraception",
       "meta": {
         "brand": "Escapelle",
         "generic": "LEVONORGESTREL",
         "form": "TABLET",
         "formGroup": "Oral solid",
         "route": "Oral",
-        "mainIndication": "review needed",
-        "secondaryIndications": null,
+        "mainIndication": "emergency contraception",
+        "secondaryIndications": "",
         "otcCategory": "SEX HORMONES AND MODULATORS OF THE GENITAL SYSTEM",
         "seasonalGroup": "All year",
         "sedating": "No",
@@ -36,15 +36,15 @@
       "nodeType": "product",
       "refId": "P0254",
       "label": "Levonorgestrel Rowex 1.5mg Tablet",
-      "subtext": "review needed",
+      "subtext": "emergency contraception",
       "meta": {
         "brand": "Levonorgestrel",
         "generic": "LEVONORGESTREL",
         "form": "TABLET",
         "formGroup": "Oral solid",
         "route": "Oral",
-        "mainIndication": "review needed",
-        "secondaryIndications": null,
+        "mainIndication": "emergency contraception",
+        "secondaryIndications": "",
         "otcCategory": "SEX HORMONES AND MODULATORS OF THE GENITAL SYSTEM",
         "seasonalGroup": "All year",
         "sedating": "No",
@@ -60,20 +60,33 @@
       }
     },
     {
-      "id": "symptom:S076",
+      "id": "symptom:S080",
       "nodeType": "symptom",
-      "refId": "S076",
-      "label": "wellness",
-      "subtext": "General",
+      "refId": "S080",
+      "label": "emergency contraception",
+      "subtext": "Women's health",
       "meta": {
-        "Symptom_ID": "S076",
-        "Symptom_Name": "wellness",
-        "Symptom_Category": "General",
-        "Linked_Product_Count": 3,
-        "Display_Group": "General",
-        "Priority_For_Graph": 70,
-        "Node_Color": "#A5A5A5",
-        "Notes": "Seeded from imported symptom tags; refine naming over time."
+        "Symptom_ID": "S080",
+        "Symptom_Name": "emergency contraception",
+        "Symptom_Category": "Women's health",
+        "Display_Group": "Women's health",
+        "Linked_Product_Count": 0,
+        "Priority_For_Graph": 100,
+        "Node_Color": "#ff6b81"
+      }
+    },
+    {
+      "id": "usecase:UC021",
+      "nodeType": "usecase",
+      "refId": "UC021",
+      "label": "Emergency contraception",
+      "subtext": "Women's health",
+      "meta": {
+        "UseCase_ID": "UC021",
+        "UseCase_Name": "Emergency contraception",
+        "UseCase_Category": "Women's health",
+        "Trigger_Symptoms": "Emergency contraception, morning after",
+        "Description": "Emergency hormonal contraception options."
       }
     }
   ],
@@ -87,18 +100,31 @@
       "score": 95,
       "why": "Same active ingredient(s) and same form family.",
       "meta": {
-        "edgeId": "E01011",
-        "clinicalSimilarity": 100,
-        "commercialSubstitution": 100,
-        "crossSell": 15,
-        "riskOverlap": 90,
-        "evidence": 90,
-        "seasonality": 40,
-        "triggerContext": "review needed",
-        "primaryToSecondary": "No",
-        "reciprocalDisplay": "Yes",
-        "reviewStatus": "Ready - strong starter link",
-        "sourceMethod": "EXACT_INGREDIENT_BASE"
+        "edgeId": "E01011"
+      }
+    },
+    {
+      "key": "9a743f454ff136fb",
+      "source": "product:P0169",
+      "target": "symptom:S080",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Indication-based assignment",
+      "meta": {
+        "mapId": "PSM01819"
+      }
+    },
+    {
+      "key": "0c728e15acb5aa67",
+      "source": "product:P0169",
+      "target": "usecase:UC021",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Emergency contraception, morning after",
+      "meta": {
+        "useCaseItemId": "UCI00713"
       }
     },
     {
@@ -111,25 +137,8 @@
       "why": "Same active ingredient(s) and same form family.",
       "meta": {
         "edgeId": "E01011",
-        "posAction": "Do not cross-sell together by default; show as alternative options instead.",
-        "guardrailType": "Potential duplicate therapy / substitute"
-      }
-    },
-    {
-      "key": "12f58873f292c239",
-      "source": "product:P0169",
-      "target": "symptom:S076",
-      "rel": "symptom",
-      "label": "Secondary",
-      "score": 60,
-      "why": "Manual review fix",
-      "meta": {
-        "mapId": "PSM01775"
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
       }
     }
-  ],
-  "meta": {
-    "productName": "Escapelle 1500 microgram tablet",
-    "linkCount": 3
-  }
+  ]
 }

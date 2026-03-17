@@ -8,15 +8,15 @@
       "nodeType": "product",
       "refId": "P0312",
       "label": "Nausefe (10 mg + 10 mg + 10 mg) Coated Tablets",
-      "subtext": "review needed",
+      "subtext": "nausea support",
       "meta": {
         "brand": "Nausefe",
         "generic": "DICYCLOVERINE HYDROCHLORIDE | DOXYLAMINE SUCCINATE | PYRIDOXINE HYDROCHLORIDE",
         "form": "COATED TABLET",
         "formGroup": "Oral solid",
         "route": "Oral",
-        "mainIndication": "review needed",
-        "secondaryIndications": null,
+        "mainIndication": "nausea support",
+        "secondaryIndications": "",
         "otcCategory": "ANTIEMETICS AND ANTINAUSEANTS",
         "seasonalGroup": "All year",
         "sedating": "Yes",
@@ -32,47 +32,19 @@
       }
     },
     {
-      "id": "product:P0514",
-      "nodeType": "product",
-      "refId": "P0514",
-      "label": "Vomidrine 50 mg tablets",
-      "subtext": "review needed",
-      "meta": {
-        "brand": "Vomidrine",
-        "generic": "DIMENHYDRINATE",
-        "form": "TABLET",
-        "formGroup": "Oral solid",
-        "route": "Oral",
-        "mainIndication": "review needed",
-        "secondaryIndications": null,
-        "otcCategory": "ANTIEMETICS AND ANTINAUSEANTS",
-        "seasonalGroup": "All year",
-        "sedating": "No",
-        "nonDrowsy": "No",
-        "sugarFree": "Unknown",
-        "alcoholFree": "Unknown",
-        "ingredientCount": 1,
-        "strengthText": "DIMENHYDRINATE 50 milligram(s)",
-        "packSizeText": "Review manually",
-        "atcCode": "A04AD",
-        "status": "Authorised",
-        "supplierCatalogKey": "vomidrine 50 mg tablets"
-      }
-    },
-    {
       "id": "product:P0050",
       "nodeType": "product",
       "refId": "P0050",
       "label": "Biodramina Chewing-gum",
-      "subtext": "review needed",
+      "subtext": "motion sickness",
       "meta": {
         "brand": "Biodramina",
         "generic": "DIMENHYDRINATE",
         "form": "MEDICATED CHEWING-GUM",
         "formGroup": "Oral solid",
         "route": "Oral",
-        "mainIndication": "review needed",
-        "secondaryIndications": null,
+        "mainIndication": "motion sickness",
+        "secondaryIndications": "travel sickness",
         "otcCategory": "ANTIEMETICS AND ANTINAUSEANTS",
         "seasonalGroup": "All year",
         "sedating": "No",
@@ -92,15 +64,15 @@
       "nodeType": "product",
       "refId": "P0051",
       "label": "Biodramina Tablets",
-      "subtext": "review needed",
+      "subtext": "motion sickness",
       "meta": {
         "brand": "Biodramina",
         "generic": "DIMENHYDRINATE",
         "form": "TABLET",
         "formGroup": "Oral solid",
         "route": "Oral",
-        "mainIndication": "review needed",
-        "secondaryIndications": null,
+        "mainIndication": "motion sickness",
+        "secondaryIndications": "travel sickness",
         "otcCategory": "ANTIEMETICS AND ANTINAUSEANTS",
         "seasonalGroup": "All year",
         "sedating": "No",
@@ -116,47 +88,65 @@
       }
     },
     {
-      "id": "symptom:S031",
+      "id": "product:P0514",
+      "nodeType": "product",
+      "refId": "P0514",
+      "label": "Vomidrine 50 mg tablets",
+      "subtext": "motion sickness",
+      "meta": {
+        "brand": "Vomidrine",
+        "generic": "DIMENHYDRINATE",
+        "form": "TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "motion sickness",
+        "secondaryIndications": "travel sickness",
+        "otcCategory": "ANTIEMETICS AND ANTINAUSEANTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DIMENHYDRINATE 50 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A04AD",
+        "status": "Authorised",
+        "supplierCatalogKey": "vomidrine 50 mg tablets"
+      }
+    },
+    {
+      "id": "symptom:S082",
       "nodeType": "symptom",
-      "refId": "S031",
-      "label": "gut upset",
+      "refId": "S082",
+      "label": "nausea",
       "subtext": "Gastrointestinal",
       "meta": {
-        "Symptom_ID": "S031",
-        "Symptom_Name": "gut upset",
+        "Symptom_ID": "S082",
+        "Symptom_Name": "nausea",
         "Symptom_Category": "Gastrointestinal",
-        "Linked_Product_Count": 16,
         "Display_Group": "Gastrointestinal",
-        "Priority_For_Graph": 85,
-        "Node_Color": "#A5A5A5",
-        "Notes": "Seeded from imported symptom tags; refine naming over time."
+        "Linked_Product_Count": 0,
+        "Priority_For_Graph": 100,
+        "Node_Color": "#48dbfb"
+      }
+    },
+    {
+      "id": "usecase:UC009",
+      "nodeType": "usecase",
+      "refId": "UC009",
+      "label": "Travel sickness pack",
+      "subtext": "Travel / motion",
+      "meta": {
+        "UseCase_ID": "UC009",
+        "UseCase_Name": "Travel sickness pack",
+        "UseCase_Category": "Travel / motion",
+        "Trigger_Symptoms": "Travel sickness, nausea, motion sickness",
+        "Description": "Core anti-motion product plus travel adjuncts."
       }
     }
   ],
   "links": [
-    {
-      "key": "f2bd7a925d457ccf",
-      "source": "product:P0312",
-      "target": "product:P0514",
-      "rel": "similar",
-      "label": "Alternative: same ATC family",
-      "score": 78,
-      "why": "Same ATC code, therapeutic class, and form family; likely reasonable substitute candidates pending staff review.",
-      "meta": {
-        "edgeId": "E01854",
-        "clinicalSimilarity": 85,
-        "commercialSubstitution": 80,
-        "crossSell": 25,
-        "riskOverlap": 60,
-        "evidence": 90,
-        "seasonality": 40,
-        "triggerContext": "review needed",
-        "primaryToSecondary": "No",
-        "reciprocalDisplay": "Yes",
-        "reviewStatus": "Needs pharmacist/staff review",
-        "sourceMethod": "EXACT_ATC_SAME_CLASS_FORM"
-      }
-    },
     {
       "key": "47f4df0c7e7bd4c4",
       "source": "product:P0050",
@@ -166,18 +156,7 @@
       "score": 78,
       "why": "Same ATC code, therapeutic class, and form family; likely reasonable substitute candidates pending staff review.",
       "meta": {
-        "edgeId": "E01852",
-        "clinicalSimilarity": 85,
-        "commercialSubstitution": 80,
-        "crossSell": 25,
-        "riskOverlap": 60,
-        "evidence": 90,
-        "seasonality": 40,
-        "triggerContext": "review needed",
-        "primaryToSecondary": "No",
-        "reciprocalDisplay": "Yes",
-        "reviewStatus": "Needs pharmacist/staff review",
-        "sourceMethod": "EXACT_ATC_SAME_CLASS_FORM"
+        "edgeId": "E01852"
       }
     },
     {
@@ -189,35 +168,44 @@
       "score": 78,
       "why": "Same ATC code, therapeutic class, and form family; likely reasonable substitute candidates pending staff review.",
       "meta": {
-        "edgeId": "E01853",
-        "clinicalSimilarity": 85,
-        "commercialSubstitution": 80,
-        "crossSell": 25,
-        "riskOverlap": 60,
-        "evidence": 90,
-        "seasonality": 40,
-        "triggerContext": "review needed",
-        "primaryToSecondary": "No",
-        "reciprocalDisplay": "Yes",
-        "reviewStatus": "Needs pharmacist/staff review",
-        "sourceMethod": "EXACT_ATC_SAME_CLASS_FORM"
+        "edgeId": "E01853"
       }
     },
     {
-      "key": "85d12078ff0fdf48",
+      "key": "f2bd7a925d457ccf",
       "source": "product:P0312",
-      "target": "symptom:S031",
+      "target": "product:P0514",
+      "rel": "similar",
+      "label": "Alternative: same ATC family",
+      "score": 78,
+      "why": "Same ATC code, therapeutic class, and form family; likely reasonable substitute candidates pending staff review.",
+      "meta": {
+        "edgeId": "E01854"
+      }
+    },
+    {
+      "key": "55f0887a18fac4ed",
+      "source": "product:P0312",
+      "target": "symptom:S082",
       "rel": "symptom",
       "label": "Primary",
       "score": 100,
-      "why": "Manual review fix",
+      "why": "Indication-based assignment",
       "meta": {
-        "mapId": "PSM01789"
+        "mapId": "PSM01813"
+      }
+    },
+    {
+      "key": "3ca39f5146fd42b1",
+      "source": "product:P0312",
+      "target": "usecase:UC009",
+      "rel": "usecase",
+      "label": "Support",
+      "score": 80,
+      "why": "Nausea, vomiting",
+      "meta": {
+        "useCaseItemId": "UCI00734"
       }
     }
-  ],
-  "meta": {
-    "productName": "Nausefe (10 mg + 10 mg + 10 mg) Coated Tablets",
-    "linkCount": 4
-  }
+  ]
 }

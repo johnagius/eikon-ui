@@ -1,1 +1,400 @@
-{"centerId":"product:P0279","centerType":"product","refId":"P0279","nodes":[{"id":"product:P0279","nodeType":"product","refId":"P0279","label":"Mastical 500 mg chewable tablets","subtext":"mineral support","meta":{"brand":"Mastical","generic":"CALCIUM CARBONATE","form":"CHEWABLE TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"mineral support","secondaryIndications":"supplementation","otcCategory":"MINERAL SUPPLEMENTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CALCIUM CARBONATE 500 milligram(s)","packSizeText":"Review manually","atcCode":"A12AA04","status":"Authorised","supplierCatalogKey":"mastical 500 mg chewable tablets"}},{"id":"product:P0417","nodeType":"product","refId":"P0417","label":"Rennie 750 mg Medicated Chewing Gum","subtext":"heartburn","meta":{"brand":"Rennie","generic":"CALCIUM CARBONATE","form":"MEDICATED CHEWING-GUM","formGroup":"Oral solid","route":"Oral","mainIndication":"heartburn","secondaryIndications":"acid reflux | indigestion","otcCategory":"DRUGS FOR ACID RELATED DISORDERS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CALCIUM CARBONATE 750 milligram(s)","packSizeText":"Review manually","atcCode":"A02AC01","status":"Authorised","supplierCatalogKey":"rennie 750 mg medicated chewing gum"}},{"id":"product:P0420","nodeType":"product","refId":"P0420","label":"Rennie Orange 500mg Chewable Tablets","subtext":"heartburn","meta":{"brand":"Rennie","generic":"CALCIUM CARBONATE","form":"CHEWABLE TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"heartburn","secondaryIndications":"acid reflux | indigestion","otcCategory":"DRUGS FOR ACID RELATED DISORDERS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CALCIUM CARBONATE 500 milligram(s)","packSizeText":"Review manually","atcCode":"A02AX","status":"Authorised","supplierCatalogKey":"rennie orange 500mg chewable tablets"}},{"id":"product:P0069","nodeType":"product","refId":"P0069","label":"Calcium 500 mg HEXAL, effervescent tablets","subtext":"mineral support","meta":{"brand":"Calcium","generic":"CALCIUM CARBONATE","form":"EFFERVESCENT TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"mineral support","secondaryIndications":"supplementation","otcCategory":"MINERAL SUPPLEMENTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CALCIUM CARBONATE 500 milligram(s)","packSizeText":"Review manually","atcCode":"A12AA04","status":"Authorised","supplierCatalogKey":"calcium 500 mg hexal, effervescent tablets"}},{"id":"product:P0025","nodeType":"product","refId":"P0025","label":"Arcalion 200mg Coated Tablets","subtext":"vitamin support","meta":{"brand":"Arcalion","generic":"SULBUTIAMINE","form":"COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"vitamin support","secondaryIndications":"wellness","otcCategory":"VITAMINS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"SULBUTIAMINE 200 milligram(s)","packSizeText":"Review manually","atcCode":"A11DA02","status":"Authorised","supplierCatalogKey":"arcalion 200mg coated tablets"}},{"id":"product:P0243","nodeType":"product","refId":"P0243","label":"Ketovite Liquid","subtext":"vitamin support","meta":{"brand":"Ketovite","generic":"CHOLINE CHLORIDE | CYANOCOBALAMIN | ERGOCALCIFEROL | VITAMIN A","form":"ORAL EMULSION","formGroup":"Topical","route":"Topical","mainIndication":"vitamin support","secondaryIndications":"wellness","otcCategory":"VITAMINS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":4,"strengthText":"Choline chloride 150 milligram(s) | VITAMIN A 2500 unit(s) | ERGOCALCIFEROL 400 unit(s) | CYANOCOBALAMIN 12.5 microgram(s)","packSizeText":"Review manually","atcCode":"A11BA","status":"Authorised","supplierCatalogKey":"ketovite liquid"}},{"id":"product:P0491","nodeType":"product","refId":"P0491","label":"VITAMIN B COMPOUND STRONG FILM-COATED TABLETS","subtext":"vitamin support","meta":{"brand":"VITAMIN","generic":"NICOTINAMIDE | PYRIDOXINE HYDROCHLORIDE | RIBOFLAVIN | THIAMINE HYDROCHLORIDE","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"vitamin support","secondaryIndications":"wellness","otcCategory":"VITAMINS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":4,"strengthText":"NICOTINAMIDE 20 milligram(s) | PYRIDOXINE HYDROCHLORIDE 2 milligram(s) | RIBOFLAVIN 2 milligram(s) | THIAMINE HYDROCHLORIDE 4.85 milligram(s)","packSizeText":"Review manually","atcCode":"A11EA","status":"Authorised","supplierCatalogKey":"vitamin b compound strong film-coated tablets"}},{"id":"symptom:S043","nodeType":"symptom","refId":"S043","label":"mineral support","subtext":"General","meta":{"Symptom_ID":"S043","Symptom_Name":"mineral support","Symptom_Category":"General","Linked_Product_Count":7,"Display_Group":"General","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"symptom:S066","nodeType":"symptom","refId":"S066","label":"supplementation","subtext":"General","meta":{"Symptom_ID":"S066","Symptom_Name":"supplementation","Symptom_Category":"General","Linked_Product_Count":7,"Display_Group":"General","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}}],"links":[{"key":"37b45b94a37fe99f","source":"product:P0279","target":"product:P0417","rel":"similar","label":"Alternative: same active ingredient(s)","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00118","clinicalSimilarity":90,"commercialSubstitution":90,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":90,"triggerContext":"Alternative: same active ingredient(s)","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"2ba1fb6f44118382","source":"product:P0279","target":"product:P0420","rel":"similar","label":"Alternative: same active ingredient(s)","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00119","clinicalSimilarity":90,"commercialSubstitution":90,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":90,"triggerContext":"Alternative: same active ingredient(s)","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"b8a7dd6fdf40eba8","source":"product:P0069","target":"product:P0279","rel":"similar","label":"Alternative: same active ingredient(s)","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00115","clinicalSimilarity":100,"commercialSubstitution":100,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"mineral support, supplementation","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"f19d77c589d6855f","source":"product:P0025","target":"product:P0279","rel":"complement","label":"Nutritional support","score":70,"why":"Cross-sell based on general nutritional support.","meta":{"edgeId":"E16331","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":70,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Nutritional support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"36ed51dc949ae391","source":"product:P0243","target":"product:P0279","rel":"complement","label":"Nutritional support","score":70,"why":"Cross-sell based on general nutritional support.","meta":{"edgeId":"E16338","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":70,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Nutritional support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"b425217c44cdd915","source":"product:P0491","target":"product:P0279","rel":"complement","label":"Nutritional support","score":70,"why":"Cross-sell based on general nutritional support.","meta":{"edgeId":"E16345","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":70,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Nutritional support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"ab4226fa035621a3","source":"product:P0279","target":"symptom:S043","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00890","role":"Primary","reviewStatus":"Seeded"}},{"key":"c88078a1d98b1806","source":"product:P0279","target":"symptom:S066","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00891","role":"Primary","reviewStatus":"Seeded"}},{"key":"f32dde8c4625b5db","source":"product:P0279","target":"product:P0417","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00118","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}},{"key":"56609e53b33d3dfc","source":"product:P0279","target":"product:P0420","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00119","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}},{"key":"4c3d38cfb4763927","source":"product:P0069","target":"product:P0279","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00115","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}}],"meta":{"productName":"Mastical 500 mg chewable tablets","linkCount":11}}
+{
+  "centerId": "product:P0279",
+  "centerType": "product",
+  "refId": "P0279",
+  "nodes": [
+    {
+      "id": "product:P0279",
+      "nodeType": "product",
+      "refId": "P0279",
+      "label": "Mastical 500 mg chewable tablets",
+      "subtext": "mineral support",
+      "meta": {
+        "brand": "Mastical",
+        "generic": "CALCIUM CARBONATE",
+        "form": "CHEWABLE TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "mineral support",
+        "secondaryIndications": "supplementation",
+        "otcCategory": "MINERAL SUPPLEMENTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CALCIUM CARBONATE 500 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A12AA04",
+        "status": "Authorised",
+        "supplierCatalogKey": "mastical 500 mg chewable tablets"
+      }
+    },
+    {
+      "id": "product:P0025",
+      "nodeType": "product",
+      "refId": "P0025",
+      "label": "Arcalion 200mg Coated Tablets",
+      "subtext": "vitamin support",
+      "meta": {
+        "brand": "Arcalion",
+        "generic": "SULBUTIAMINE",
+        "form": "COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "vitamin support",
+        "secondaryIndications": "wellness",
+        "otcCategory": "VITAMINS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "SULBUTIAMINE 200 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A11DA02",
+        "status": "Authorised",
+        "supplierCatalogKey": "arcalion 200mg coated tablets"
+      }
+    },
+    {
+      "id": "product:P0243",
+      "nodeType": "product",
+      "refId": "P0243",
+      "label": "Ketovite Liquid",
+      "subtext": "vitamin support",
+      "meta": {
+        "brand": "Ketovite",
+        "generic": "CHOLINE CHLORIDE | CYANOCOBALAMIN | ERGOCALCIFEROL | VITAMIN A",
+        "form": "ORAL EMULSION",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "vitamin support",
+        "secondaryIndications": "wellness",
+        "otcCategory": "VITAMINS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 4,
+        "strengthText": "Choline chloride 150 milligram(s) | VITAMIN A 2500 unit(s) | ERGOCALCIFEROL 400 unit(s) | CYANOCOBALAMIN 12.5 microgram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A11BA",
+        "status": "Authorised",
+        "supplierCatalogKey": "ketovite liquid"
+      }
+    },
+    {
+      "id": "product:P0491",
+      "nodeType": "product",
+      "refId": "P0491",
+      "label": "VITAMIN B COMPOUND STRONG FILM-COATED TABLETS",
+      "subtext": "vitamin support",
+      "meta": {
+        "brand": "VITAMIN",
+        "generic": "NICOTINAMIDE | PYRIDOXINE HYDROCHLORIDE | RIBOFLAVIN | THIAMINE HYDROCHLORIDE",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "vitamin support",
+        "secondaryIndications": "wellness",
+        "otcCategory": "VITAMINS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 4,
+        "strengthText": "NICOTINAMIDE 20 milligram(s) | PYRIDOXINE HYDROCHLORIDE 2 milligram(s) | RIBOFLAVIN 2 milligram(s) | THIAMINE HYDROCHLORIDE 4.85 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A11EA",
+        "status": "Authorised",
+        "supplierCatalogKey": "vitamin b compound strong film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0069",
+      "nodeType": "product",
+      "refId": "P0069",
+      "label": "Calcium 500 mg HEXAL, effervescent tablets",
+      "subtext": "mineral support",
+      "meta": {
+        "brand": "Calcium",
+        "generic": "CALCIUM CARBONATE",
+        "form": "EFFERVESCENT TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "mineral support",
+        "secondaryIndications": "supplementation",
+        "otcCategory": "MINERAL SUPPLEMENTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CALCIUM CARBONATE 500 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A12AA04",
+        "status": "Authorised",
+        "supplierCatalogKey": "calcium 500 mg hexal, effervescent tablets"
+      }
+    },
+    {
+      "id": "product:P0417",
+      "nodeType": "product",
+      "refId": "P0417",
+      "label": "Rennie 750 mg Medicated Chewing Gum",
+      "subtext": "heartburn",
+      "meta": {
+        "brand": "Rennie",
+        "generic": "CALCIUM CARBONATE",
+        "form": "MEDICATED CHEWING-GUM",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "heartburn",
+        "secondaryIndications": "acid reflux | indigestion",
+        "otcCategory": "DRUGS FOR ACID RELATED DISORDERS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CALCIUM CARBONATE 750 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A02AC01",
+        "status": "Authorised",
+        "supplierCatalogKey": "rennie 750 mg medicated chewing gum"
+      }
+    },
+    {
+      "id": "product:P0420",
+      "nodeType": "product",
+      "refId": "P0420",
+      "label": "Rennie Orange 500mg Chewable Tablets",
+      "subtext": "heartburn",
+      "meta": {
+        "brand": "Rennie",
+        "generic": "CALCIUM CARBONATE",
+        "form": "CHEWABLE TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "heartburn",
+        "secondaryIndications": "acid reflux | indigestion",
+        "otcCategory": "DRUGS FOR ACID RELATED DISORDERS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CALCIUM CARBONATE 500 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A02AX",
+        "status": "Authorised",
+        "supplierCatalogKey": "rennie orange 500mg chewable tablets"
+      }
+    },
+    {
+      "id": "symptom:S043",
+      "nodeType": "symptom",
+      "refId": "S043",
+      "label": "mineral support",
+      "subtext": "General",
+      "meta": {
+        "Symptom_ID": "S043",
+        "Symptom_Name": "mineral support",
+        "Symptom_Category": "General",
+        "Linked_Product_Count": 7,
+        "Display_Group": "General",
+        "Priority_For_Graph": 70,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "symptom:S066",
+      "nodeType": "symptom",
+      "refId": "S066",
+      "label": "supplementation",
+      "subtext": "General",
+      "meta": {
+        "Symptom_ID": "S066",
+        "Symptom_Name": "supplementation",
+        "Symptom_Category": "General",
+        "Linked_Product_Count": 7,
+        "Display_Group": "General",
+        "Priority_For_Graph": 70,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "usecase:UC017",
+      "nodeType": "usecase",
+      "refId": "UC017",
+      "label": "Mineral and vitamin support",
+      "subtext": "Supplements",
+      "meta": {
+        "UseCase_ID": "UC017",
+        "UseCase_Name": "Mineral and vitamin support",
+        "UseCase_Category": "Supplements",
+        "Trigger_Symptoms": "Vitamin deficiency, mineral deficiency, supplementation",
+        "Description": "Essential vitamins and minerals for general health."
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "f19d77c589d6855f",
+      "source": "product:P0025",
+      "target": "product:P0279",
+      "rel": "complement",
+      "label": "Nutritional support",
+      "score": 70,
+      "why": "Cross-sell based on general nutritional support.",
+      "meta": {
+        "edgeId": "E16331"
+      }
+    },
+    {
+      "key": "36ed51dc949ae391",
+      "source": "product:P0243",
+      "target": "product:P0279",
+      "rel": "complement",
+      "label": "Nutritional support",
+      "score": 70,
+      "why": "Cross-sell based on general nutritional support.",
+      "meta": {
+        "edgeId": "E16338"
+      }
+    },
+    {
+      "key": "b425217c44cdd915",
+      "source": "product:P0491",
+      "target": "product:P0279",
+      "rel": "complement",
+      "label": "Nutritional support",
+      "score": 70,
+      "why": "Cross-sell based on general nutritional support.",
+      "meta": {
+        "edgeId": "E16345"
+      }
+    },
+    {
+      "key": "b8a7dd6fdf40eba8",
+      "source": "product:P0069",
+      "target": "product:P0279",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00115"
+      }
+    },
+    {
+      "key": "37b45b94a37fe99f",
+      "source": "product:P0279",
+      "target": "product:P0417",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00118"
+      }
+    },
+    {
+      "key": "2ba1fb6f44118382",
+      "source": "product:P0279",
+      "target": "product:P0420",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00119"
+      }
+    },
+    {
+      "key": "ab4226fa035621a3",
+      "source": "product:P0279",
+      "target": "symptom:S043",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00890"
+      }
+    },
+    {
+      "key": "c88078a1d98b1806",
+      "source": "product:P0279",
+      "target": "symptom:S066",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00891"
+      }
+    },
+    {
+      "key": "4e859ba07206cc43",
+      "source": "product:P0279",
+      "target": "usecase:UC017",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Vitamin deficiency, mineral deficiency, supplementation",
+      "meta": {
+        "useCaseItemId": "UCI00667"
+      }
+    },
+    {
+      "key": "4c3d38cfb4763927",
+      "source": "product:P0069",
+      "target": "product:P0279",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00115",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    },
+    {
+      "key": "f32dde8c4625b5db",
+      "source": "product:P0279",
+      "target": "product:P0417",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00118",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    },
+    {
+      "key": "56609e53b33d3dfc",
+      "source": "product:P0279",
+      "target": "product:P0420",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00119",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    }
+  ]
+}

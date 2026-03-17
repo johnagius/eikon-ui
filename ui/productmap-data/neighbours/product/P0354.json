@@ -1,1 +1,1043 @@
-{"centerId":"product:P0354","centerType":"product","refId":"P0354","nodes":[{"id":"product:P0354","nodeType":"product","refId":"P0354","label":"Oki throat 0.16% oromucosal spray","subtext":"mouth ulcers","meta":{"brand":"Oki","generic":"KETOPROFEN LYSINE","form":"OROMUCOSAL SPRAY","formGroup":"Oral cavity / throat","route":"Oral","mainIndication":"mouth ulcers","secondaryIndications":"oral inflammation | gum care","otcCategory":"STOMATOLOGICAL PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"KETOPROFEN LYSINE 0.16 gram(s)/100 millilitres","packSizeText":"Review manually","atcCode":"A01AD11","status":"Authorised","supplierCatalogKey":"oki throat 0.16% oromucosal spray"}},{"id":"product:P0355","nodeType":"product","refId":"P0355","label":"Oki throat 1.6% mouthwash","subtext":"mouth ulcers","meta":{"brand":"Oki","generic":"KETOPROFEN LYSINE","form":"MOUTH WASH","formGroup":"Other","route":"Other","mainIndication":"mouth ulcers","secondaryIndications":"oral inflammation | gum care","otcCategory":"STOMATOLOGICAL PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"KETOPROFEN LYSINE 1.6 gram(s)/100 millilitres","packSizeText":"Review manually","atcCode":"A01AD11","status":"Authorised","supplierCatalogKey":"oki throat 1.6% mouthwash"}},{"id":"product:P0065","nodeType":"product","refId":"P0065","label":"CETILSAN 3 mg Sugar free lozenges","subtext":"sore throat","meta":{"brand":"CETILSAN","generic":"CETYLPYRIDINIUM CHLORIDE","form":"LOZENGE","formGroup":"Oral solid","route":"Oral","mainIndication":"sore throat","secondaryIndications":"throat pain | throat irritation","otcCategory":"THROAT PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Yes","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CETYLPYRIDINIUM CHLORIDE 3 milligram(s)","packSizeText":"Review manually","atcCode":"R02AA06","status":"Authorised","supplierCatalogKey":"cetilsan 3 mg sugar free lozenges"}},{"id":"product:P0131","nodeType":"product","refId":"P0131","label":"Deratin Complex lozenges honey and lemon flavour","subtext":"sore throat","meta":{"brand":"Deratin","generic":"BENZOCAINE | CHLORHEXIDINE DIHYDROCHLORIDE | ENOXOLONE","form":"LOZENGE","formGroup":"Oral solid","route":"Oral","mainIndication":"sore throat","secondaryIndications":"throat pain | throat irritation","otcCategory":"THROAT PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"CHLORHEXIDINE DIHYDROCHLORIDE 5 milligram(s) | ENOXOLONE 3 milligram(s) | BENZOCAINE 4 milligram(s)","packSizeText":"Review manually","atcCode":"R02A","status":"Authorised","supplierCatalogKey":"deratin complex lozenges honey and lemon flavour"}},{"id":"product:P0132","nodeType":"product","refId":"P0132","label":"Deratin Complex lozenges mint flavour","subtext":"sore throat","meta":{"brand":"Deratin","generic":"BENZOCAINE | CHLORHEXIDINE DIHYDROCHLORIDE | ENOXOLONE","form":"LOZENGE","formGroup":"Oral solid","route":"Oral","mainIndication":"sore throat","secondaryIndications":"throat pain | throat irritation","otcCategory":"THROAT PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"BENZOCAINE 4 milligram(s) | CHLORHEXIDINE DIHYDROCHLORIDE 5 milligram(s) | ENOXOLONE 3 milligram(s)","packSizeText":"Review manually","atcCode":"R02A","status":"Authorised","supplierCatalogKey":"deratin complex lozenges mint flavour"}},{"id":"product:P0281","nodeType":"product","refId":"P0281","label":"Medica Throat Spray Menthol 20 mg/10 ml; 5 mg/10 ml oromucosal spray","subtext":"sore throat","meta":{"brand":"Medica","generic":"CHLORHEXIDINE DIGLUCONATE | LIDOCAINE HYDROCHLORIDE","form":"OROMUCOSAL SPRAY","formGroup":"Oral cavity / throat","route":"Oral","mainIndication":"sore throat","secondaryIndications":"throat pain | throat irritation","otcCategory":"THROAT PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"CHLORHEXIDINE DIGLUCONATE 10 milligram(s)/5 millilitre | LIDOCAINE HYDROCHLORIDE 2.5 milligram(s)/5 millilitre","packSizeText":"Review manually","atcCode":"R02AA05","status":"Authorised","supplierCatalogKey":"medica throat spray menthol 20 mg/10 ml; 5 mg/10 ml oromucosal spray"}},{"id":"product:P0282","nodeType":"product","refId":"P0282","label":"Medica Throat Tablets Honey 5 mg/1 mg compressed lozenges","subtext":"sore throat","meta":{"brand":"Medica","generic":"CHLORHEXIDINE DIHYDROCHLORIDE | LIDOCAINE HYDROCHLORIDE","form":"LOZENGE","formGroup":"Oral solid","route":"Oral","mainIndication":"sore throat","secondaryIndications":"throat pain | throat irritation","otcCategory":"THROAT PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"LIDOCAINE HYDROCHLORIDE 1 milligram(s) | CHLORHEXIDINE DIHYDROCHLORIDE 5 milligram(s)","packSizeText":"Review manually","atcCode":"R02AA05","status":"Authorised","supplierCatalogKey":"medica throat tablets honey 5 mg/1 mg compressed lozenges"}},{"id":"product:P0283","nodeType":"product","refId":"P0283","label":"Medica Throat Tablets Menthol 5 mg/1 mg compressed lozenges","subtext":"sore throat","meta":{"brand":"Medica","generic":"CHLORHEXIDINE DIHYDROCHLORIDE | LIDOCAINE HYDROCHLORIDE","form":"COMPRESSED LOZENGE","formGroup":"Oral solid","route":"Oral","mainIndication":"sore throat","secondaryIndications":"throat pain | throat irritation","otcCategory":"THROAT PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"LIDOCAINE HYDROCHLORIDE 1 milligram(s) | CHLORHEXIDINE DIHYDROCHLORIDE 5 milligram(s)","packSizeText":"Review manually","atcCode":"R02AA05","status":"Authorised","supplierCatalogKey":"medica throat tablets menthol 5 mg/1 mg compressed lozenges"}},{"id":"product:P0284","nodeType":"product","refId":"P0284","label":"Medica Throat Tablets Strawberry 5 mg/1 mg compressed lozenges","subtext":"sore throat","meta":{"brand":"Medica","generic":"CHLORHEXIDINE DIHYDROCHLORIDE | LIDOCAINE HYDROCHLORIDE","form":"COMPRESSED LOZENGE","formGroup":"Oral solid","route":"Oral","mainIndication":"sore throat","secondaryIndications":"throat pain | throat irritation","otcCategory":"THROAT PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"CHLORHEXIDINE DIHYDROCHLORIDE 5 milligram(s) | LIDOCAINE HYDROCHLORIDE 1 milligram(s)","packSizeText":"Review manually","atcCode":"R02AA05","status":"Authorised","supplierCatalogKey":"medica throat tablets strawberry 5 mg/1 mg compressed lozenges"}},{"id":"product:P0440","nodeType":"product","refId":"P0440","label":"Septofort 2 mg Lozenges","subtext":"sore throat","meta":{"brand":"Septofort","generic":"CHLORHEXIDINE DIGLUCONATE","form":"LOZENGE","formGroup":"Oral solid","route":"Oral","mainIndication":"sore throat","secondaryIndications":"throat pain | throat irritation","otcCategory":"THROAT PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CHLORHEXIDINE DIGLUCONATE 2 milligram(s)","packSizeText":"Review manually","atcCode":"R02AA05","status":"Authorised","supplierCatalogKey":"septofort 2 mg lozenges"}},{"id":"product:P0441","nodeType":"product","refId":"P0441","label":"Septolete omni 1.5 mg/ml + 5.0 mg/ml oromucosal spray solution","subtext":"sore throat","meta":{"brand":"Septolete","generic":"BENZYDAMINE HYDROCHLORIDE | CETYLPYRIDINE CHLORIDE","form":"OROMUCOSAL SPRAY","formGroup":"Oral cavity / throat","route":"Oral","mainIndication":"sore throat","secondaryIndications":"throat pain | throat irritation","otcCategory":"THROAT PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"CETYLPYRIDINE CHLORIDE 5 milligram(s)/millilitre | BENZYDAMINE HYDROCHLORIDE 1.5 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"R02AX03","status":"Authorised","supplierCatalogKey":"septolete omni 1.5 mg/ml + 5.0 mg/ml oromucosal spray solution"}},{"id":"product:P0442","nodeType":"product","refId":"P0442","label":"Septolete omni lemon and elderberry 3 mg/1 mg lozenges","subtext":"sore throat","meta":{"brand":"Septolete","generic":"BENZYDAMINE HYDROCHLORIDE | CETYLPYRIDINIUM CHLORIDE","form":"LOZENGE","formGroup":"Oral solid","route":"Oral","mainIndication":"sore throat","secondaryIndications":"throat pain | throat irritation","otcCategory":"THROAT PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"BENZYDAMINE HYDROCHLORIDE 3 milligram(s) | CETYLPYRIDINIUM CHLORIDE 1 milligram(s)","packSizeText":"Review manually","atcCode":"R02AA20","status":"Authorised","supplierCatalogKey":"septolete omni lemon and elderberry 3 mg/1 mg lozenges"}},{"id":"product:P0443","nodeType":"product","refId":"P0443","label":"Septolete total Cola 3 mg/1 mg lozenges","subtext":"sore throat","meta":{"brand":"Septolete","generic":"BENZYDAMINE HYDROCHLORIDE | CETYLPYRIDINIUM CHLORIDE","form":"LOZENGE","formGroup":"Oral solid","route":"Oral","mainIndication":"sore throat","secondaryIndications":"throat pain | throat irritation","otcCategory":"THROAT PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"CETYLPYRIDINIUM CHLORIDE 1 milligram(s) | BENZYDAMINE HYDROCHLORIDE 3 milligram(s)","packSizeText":"Review manually","atcCode":"R02AX03","status":"Authorised","supplierCatalogKey":"septolete total cola 3 mg/1 mg lozenges"}},{"id":"product:P0444","nodeType":"product","refId":"P0444","label":"Septolete total Eucalyptus 3 mg/1 mg lozenges","subtext":"sore throat","meta":{"brand":"Septolete","generic":"BENZYDAMINE HYDROCHLORIDE | CETYLPYRIDINIUM CHLORIDE","form":"LOZENGE","formGroup":"Oral solid","route":"Oral","mainIndication":"sore throat","secondaryIndications":"throat pain | throat irritation","otcCategory":"THROAT PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"BENZYDAMINE HYDROCHLORIDE 3 milligram(s) | CETYLPYRIDINIUM CHLORIDE 1 milligram(s)","packSizeText":"Review manually","atcCode":"R02AX03","status":"Authorised","supplierCatalogKey":"septolete total eucalyptus 3 mg/1 mg lozenges"}},{"id":"product:P0445","nodeType":"product","refId":"P0445","label":"Septolete total Ginger core 3 mg/1 mg lozenges","subtext":"sore throat","meta":{"brand":"Septolete","generic":"BENZYDAMINE HYDROCHLORIDE | CETYLPYRIDINIUM CHLORIDE","form":"LOZENGE","formGroup":"Oral solid","route":"Oral","mainIndication":"sore throat","secondaryIndications":"throat pain | throat irritation","otcCategory":"THROAT PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"BENZYDAMINE HYDROCHLORIDE 3 milligram(s) | CETYLPYRIDINIUM CHLORIDE 1 milligram(s)","packSizeText":"Review manually","atcCode":"R02AX03","status":"Authorised","supplierCatalogKey":"septolete total ginger core 3 mg/1 mg lozenges"}},{"id":"product:P0446","nodeType":"product","refId":"P0446","label":"Septolete total Lemon/Honey 3 mg/1 mg lozenges","subtext":"sore throat","meta":{"brand":"Septolete","generic":"BENZYDAMINE HYDROCHLORIDE | CETYLPYRIDINIUM CHLORIDE","form":"LOZENGE","formGroup":"Oral solid","route":"Oral","mainIndication":"sore throat","secondaryIndications":"throat pain | throat irritation","otcCategory":"THROAT PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"BENZYDAMINE HYDROCHLORIDE 3 milligram(s) | CETYLPYRIDINIUM CHLORIDE 3 milligram(s)","packSizeText":"Review manually","atcCode":"R02AA20","status":"Authorised","supplierCatalogKey":"septolete total lemon/honey 3 mg/1 mg lozenges"}},{"id":"product:P0457","nodeType":"product","refId":"P0457","label":"Straben 8.75 mg lozenges","subtext":"sore throat","meta":{"brand":"Straben","generic":"FLURBIPROFEN","form":"LOZENGE","formGroup":"Oral solid","route":"Oral","mainIndication":"sore throat","secondaryIndications":"throat pain | throat irritation","otcCategory":"THROAT PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"FLURBIPROFEN 8.75 milligram(s)","packSizeText":"Review manually","atcCode":"R02AX01","status":"Authorised","supplierCatalogKey":"straben 8.75 mg lozenges"}},{"id":"product:P0458","nodeType":"product","refId":"P0458","label":"Strepsils Honey & Lemon Lozenges  Amylmetacresol 0.6mg 2,4-Dichlorobenzyl alcohol 1.2mg","subtext":"sore throat","meta":{"brand":"Strepsils","generic":"AMYLMETACRESOL","form":"LOZENGE","formGroup":"Oral solid","route":"Oral","mainIndication":"sore throat","secondaryIndications":"throat pain | throat irritation","otcCategory":"THROAT PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"2,4 DICHLOROBENZYL ALCOHOL 1.2 milligram(s) | AMYLMETACRESOL 0.6 milligram(s)","packSizeText":"Review manually","atcCode":"R02AA03","status":"Authorised","supplierCatalogKey":"strepsils honey & lemon lozenges amylmetacresol 0.6mg 2,4-dichlorobenzyl alcohol 1.2mg"}},{"id":"product:P0459","nodeType":"product","refId":"P0459","label":"Strepsils Orange with  Vitamin C 100mg","subtext":"sore throat","meta":{"brand":"Strepsils","generic":"AMYLMETACRESOL | ASCORBIC ACID","form":"LOZENGE","formGroup":"Oral solid","route":"Oral","mainIndication":"sore throat","secondaryIndications":"throat pain | throat irritation","otcCategory":"THROAT PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"AMYLMETACRESOL 0.6 milligram(s) | ASCORBIC ACID 100 milligram(s) | 2,4 DICHLOROBENZYL ALCOHOL 1.2 milligram(s)","packSizeText":"Review manually","atcCode":"R02AA03","status":"Authorised","supplierCatalogKey":"strepsils orange with vitamin c 100mg"}},{"id":"product:P0460","nodeType":"product","refId":"P0460","label":"Strepsils Strawberry Sugar Free Lozenges","subtext":"sore throat","meta":{"brand":"Strepsils","generic":"AMYLMETACRESOL","form":"LOZENGE","formGroup":"Oral solid","route":"Oral","mainIndication":"sore throat","secondaryIndications":"throat pain | throat irritation","otcCategory":"THROAT PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Yes","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"2,4 DICHLOROBENZYL ALCOHOL 1.2 milligram(s) | AMYLMETACRESOL 0.6 milligram(s)","packSizeText":"Review manually","atcCode":"R02AA20","status":"Authorised","supplierCatalogKey":"strepsils strawberry sugar free lozenges"}},{"id":"product:P0471","nodeType":"product","refId":"P0471","label":"Tantum Verde P 3mg Lozenges, mint taste","subtext":"sore throat","meta":{"brand":"Tantum","generic":"BENZYDAMINE HYDROCHLORIDE","form":"LOZENGE","formGroup":"Oral solid","route":"Oral","mainIndication":"sore throat","secondaryIndications":"throat pain | throat irritation","otcCategory":"THROAT PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"BENZYDAMINE HYDROCHLORIDE 3 milligram(s)","packSizeText":"Review manually","atcCode":"R02AX03","status":"Authorised","supplierCatalogKey":"tantum verde p 3mg lozenges, mint taste"}},{"id":"product:P0480","nodeType":"product","refId":"P0480","label":"Trachisan Lozenges, lozenges","subtext":"sore throat","meta":{"brand":"Trachisan","generic":"CHLORHEXIDINE GLUCONATE | LIDOCAINE HYDROCHLORIDE | TYROTHRICIN","form":"LOZENGE","formGroup":"Oral solid","route":"Oral","mainIndication":"sore throat","secondaryIndications":"throat pain | throat irritation","otcCategory":"THROAT PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"TYROTHRICIN 0.5 milligram(s) | LIDOCAINE HYDROCHLORIDE 1 milligram(s) | CHLORHEXIDINE GLUCONATE 1 milligram(s)","packSizeText":"Review manually","atcCode":"R02A","status":"Authorised","supplierCatalogKey":"trachisan lozenges, lozenges"}},{"id":"product:P0481","nodeType":"product","refId":"P0481","label":"Trachitol Lozenges, lozenges","subtext":"sore throat","meta":{"brand":"Trachitol","generic":"ALUM | LIDOCAINE HYDROCHLORIDE | PROPYL HYDROXYBENZOATE","form":"LOZENGE","formGroup":"Oral solid","route":"Oral","mainIndication":"sore throat","secondaryIndications":"throat pain | throat irritation","otcCategory":"THROAT PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"ALUM 1 milligram(s) | LIDOCAINE HYDROCHLORIDE 1 milligram(s) | PROPYL HYDROXYBENZOATE 1.8 milligram(s)","packSizeText":"Review manually","atcCode":"R02AD02","status":"Authorised","supplierCatalogKey":"trachitol lozenges, lozenges"}},{"id":"symptom:S045","nodeType":"symptom","refId":"S045","label":"mouth ulcers","subtext":"General","meta":{"Symptom_ID":"S045","Symptom_Name":"mouth ulcers","Symptom_Category":"General","Linked_Product_Count":6,"Display_Group":"General","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"symptom:S050","nodeType":"symptom","refId":"S050","label":"oral inflammation","subtext":"General","meta":{"Symptom_ID":"S050","Symptom_Name":"oral inflammation","Symptom_Category":"General","Linked_Product_Count":6,"Display_Group":"General","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"symptom:S030","nodeType":"symptom","refId":"S030","label":"gum care","subtext":"General","meta":{"Symptom_ID":"S030","Symptom_Name":"gum care","Symptom_Category":"General","Linked_Product_Count":6,"Display_Group":"General","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}}],"links":[{"key":"73ac167cf17b43e6","source":"product:P0354","target":"product:P0355","rel":"similar","label":"Alternative: same active ingredient(s)","score":88,"why":"Same active ingredient(s), but delivered in different form families.","meta":{"edgeId":"E00988","clinicalSimilarity":100,"commercialSubstitution":95,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"gum care, mouth ulcers, oral inflammation","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"1014ec959f426570","source":"product:P0065","target":"product:P0354","rel":"complement","label":"Mouth / throat irritation","score":68,"why":"Useful when discomfort spans the mouth and throat areas.","meta":{"edgeId":"E10134","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":68,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Mouth / throat irritation","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"09f269ecdc638826","source":"product:P0131","target":"product:P0354","rel":"complement","label":"Mouth / throat irritation","score":68,"why":"Useful when discomfort spans the mouth and throat areas.","meta":{"edgeId":"E10140","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":68,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Mouth / throat irritation","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"e8fdc8415e3b7324","source":"product:P0132","target":"product:P0354","rel":"complement","label":"Mouth / throat irritation","score":68,"why":"Useful when discomfort spans the mouth and throat areas.","meta":{"edgeId":"E10146","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":68,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Mouth / throat irritation","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"56e2b9ac959105ac","source":"product:P0281","target":"product:P0354","rel":"complement","label":"Mouth / throat irritation","score":68,"why":"Useful when discomfort spans the mouth and throat areas.","meta":{"edgeId":"E10152","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":68,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Mouth / throat irritation","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"64773e1ebd7b5263","source":"product:P0282","target":"product:P0354","rel":"complement","label":"Mouth / throat irritation","score":68,"why":"Useful when discomfort spans the mouth and throat areas.","meta":{"edgeId":"E10158","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":68,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Mouth / throat irritation","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"899f494f51ca83d1","source":"product:P0283","target":"product:P0354","rel":"complement","label":"Mouth / throat irritation","score":68,"why":"Useful when discomfort spans the mouth and throat areas.","meta":{"edgeId":"E10164","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":68,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Mouth / throat irritation","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"7514c99d0c48c5c0","source":"product:P0284","target":"product:P0354","rel":"complement","label":"Mouth / throat irritation","score":68,"why":"Useful when discomfort spans the mouth and throat areas.","meta":{"edgeId":"E10170","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":68,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Mouth / throat irritation","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"8b042fb165befa0d","source":"product:P0440","target":"product:P0354","rel":"complement","label":"Mouth / throat irritation","score":68,"why":"Useful when discomfort spans the mouth and throat areas.","meta":{"edgeId":"E10176","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":68,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Mouth / throat irritation","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"ad34aec31f978f5c","source":"product:P0441","target":"product:P0354","rel":"complement","label":"Mouth / throat irritation","score":68,"why":"Useful when discomfort spans the mouth and throat areas.","meta":{"edgeId":"E10182","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":68,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Mouth / throat irritation","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"4179e38ff5099f31","source":"product:P0442","target":"product:P0354","rel":"complement","label":"Mouth / throat irritation","score":68,"why":"Useful when discomfort spans the mouth and throat areas.","meta":{"edgeId":"E10188","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":68,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Mouth / throat irritation","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"2bc5f83f7845dc32","source":"product:P0443","target":"product:P0354","rel":"complement","label":"Mouth / throat irritation","score":68,"why":"Useful when discomfort spans the mouth and throat areas.","meta":{"edgeId":"E10194","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":68,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Mouth / throat irritation","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"6ad3432f25147a49","source":"product:P0444","target":"product:P0354","rel":"complement","label":"Mouth / throat irritation","score":68,"why":"Useful when discomfort spans the mouth and throat areas.","meta":{"edgeId":"E10200","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":68,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Mouth / throat irritation","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"2abedf95448da73a","source":"product:P0445","target":"product:P0354","rel":"complement","label":"Mouth / throat irritation","score":68,"why":"Useful when discomfort spans the mouth and throat areas.","meta":{"edgeId":"E10206","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":68,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Mouth / throat irritation","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"b0e1f6a1af5492ee","source":"product:P0446","target":"product:P0354","rel":"complement","label":"Mouth / throat irritation","score":68,"why":"Useful when discomfort spans the mouth and throat areas.","meta":{"edgeId":"E10212","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":68,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Mouth / throat irritation","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"c3e5c327c87dbc64","source":"product:P0457","target":"product:P0354","rel":"complement","label":"Mouth / throat irritation","score":68,"why":"Useful when discomfort spans the mouth and throat areas.","meta":{"edgeId":"E10218","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":68,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Mouth / throat irritation","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"918d6e2df932a82f","source":"product:P0458","target":"product:P0354","rel":"complement","label":"Mouth / throat irritation","score":68,"why":"Useful when discomfort spans the mouth and throat areas.","meta":{"edgeId":"E10224","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":68,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Mouth / throat irritation","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"d66ab72439ce40e1","source":"product:P0459","target":"product:P0354","rel":"complement","label":"Mouth / throat irritation","score":68,"why":"Useful when discomfort spans the mouth and throat areas.","meta":{"edgeId":"E10230","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":68,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Mouth / throat irritation","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"ebff3153fc4d9056","source":"product:P0460","target":"product:P0354","rel":"complement","label":"Mouth / throat irritation","score":68,"why":"Useful when discomfort spans the mouth and throat areas.","meta":{"edgeId":"E10236","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":68,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Mouth / throat irritation","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"17360222d35e1ffc","source":"product:P0471","target":"product:P0354","rel":"complement","label":"Mouth / throat irritation","score":68,"why":"Useful when discomfort spans the mouth and throat areas.","meta":{"edgeId":"E10242","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":68,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Mouth / throat irritation","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"1ffd5e6d2e7c2314","source":"product:P0480","target":"product:P0354","rel":"complement","label":"Mouth / throat irritation","score":68,"why":"Useful when discomfort spans the mouth and throat areas.","meta":{"edgeId":"E10248","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":68,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Mouth / throat irritation","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"0d6540321a00ff31","source":"product:P0481","target":"product:P0354","rel":"complement","label":"Mouth / throat irritation","score":68,"why":"Useful when discomfort spans the mouth and throat areas.","meta":{"edgeId":"E10254","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":68,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Mouth / throat irritation","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"b6776875333234e9","source":"product:P0354","target":"symptom:S045","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM01145","role":"Primary","reviewStatus":"Seeded"}},{"key":"2a13555219d038f4","source":"product:P0354","target":"symptom:S050","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01146","role":"Primary","reviewStatus":"Seeded"}},{"key":"3891ade8335534e1","source":"product:P0354","target":"symptom:S030","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM01147","role":"Secondary","reviewStatus":"Seeded"}},{"key":"bdbcc04f8b657ed6","source":"product:P0354","target":"product:P0355","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":88,"why":"Same active ingredient(s), but delivered in different form families.","meta":{"edgeId":"E00988","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}}],"meta":{"productName":"Oki throat 0.16% oromucosal spray","linkCount":26}}
+{
+  "centerId": "product:P0354",
+  "centerType": "product",
+  "refId": "P0354",
+  "nodes": [
+    {
+      "id": "product:P0354",
+      "nodeType": "product",
+      "refId": "P0354",
+      "label": "Oki throat 0.16% oromucosal spray",
+      "subtext": "mouth ulcers",
+      "meta": {
+        "brand": "Oki",
+        "generic": "KETOPROFEN LYSINE",
+        "form": "OROMUCOSAL SPRAY",
+        "formGroup": "Oral cavity / throat",
+        "route": "Oral",
+        "mainIndication": "mouth ulcers",
+        "secondaryIndications": "oral inflammation | gum care",
+        "otcCategory": "STOMATOLOGICAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "KETOPROFEN LYSINE 0.16 gram(s)/100 millilitres",
+        "packSizeText": "Review manually",
+        "atcCode": "A01AD11",
+        "status": "Authorised",
+        "supplierCatalogKey": "oki throat 0.16% oromucosal spray"
+      }
+    },
+    {
+      "id": "product:P0065",
+      "nodeType": "product",
+      "refId": "P0065",
+      "label": "CETILSAN 3 mg Sugar free lozenges",
+      "subtext": "sore throat",
+      "meta": {
+        "brand": "CETILSAN",
+        "generic": "CETYLPYRIDINIUM CHLORIDE",
+        "form": "LOZENGE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "sore throat",
+        "secondaryIndications": "throat pain | throat irritation",
+        "otcCategory": "THROAT PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Yes",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CETYLPYRIDINIUM CHLORIDE 3 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R02AA06",
+        "status": "Authorised",
+        "supplierCatalogKey": "cetilsan 3 mg sugar free lozenges"
+      }
+    },
+    {
+      "id": "product:P0131",
+      "nodeType": "product",
+      "refId": "P0131",
+      "label": "Deratin Complex lozenges honey and lemon flavour",
+      "subtext": "sore throat",
+      "meta": {
+        "brand": "Deratin",
+        "generic": "BENZOCAINE | CHLORHEXIDINE DIHYDROCHLORIDE | ENOXOLONE",
+        "form": "LOZENGE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "sore throat",
+        "secondaryIndications": "throat pain | throat irritation",
+        "otcCategory": "THROAT PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "CHLORHEXIDINE DIHYDROCHLORIDE 5 milligram(s) | ENOXOLONE 3 milligram(s) | BENZOCAINE 4 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R02A",
+        "status": "Authorised",
+        "supplierCatalogKey": "deratin complex lozenges honey and lemon flavour"
+      }
+    },
+    {
+      "id": "product:P0132",
+      "nodeType": "product",
+      "refId": "P0132",
+      "label": "Deratin Complex lozenges mint flavour",
+      "subtext": "sore throat",
+      "meta": {
+        "brand": "Deratin",
+        "generic": "BENZOCAINE | CHLORHEXIDINE DIHYDROCHLORIDE | ENOXOLONE",
+        "form": "LOZENGE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "sore throat",
+        "secondaryIndications": "throat pain | throat irritation",
+        "otcCategory": "THROAT PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "BENZOCAINE 4 milligram(s) | CHLORHEXIDINE DIHYDROCHLORIDE 5 milligram(s) | ENOXOLONE 3 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R02A",
+        "status": "Authorised",
+        "supplierCatalogKey": "deratin complex lozenges mint flavour"
+      }
+    },
+    {
+      "id": "product:P0281",
+      "nodeType": "product",
+      "refId": "P0281",
+      "label": "Medica Throat Spray Menthol 20 mg/10 ml; 5 mg/10 ml oromucosal spray",
+      "subtext": "sore throat",
+      "meta": {
+        "brand": "Medica",
+        "generic": "CHLORHEXIDINE DIGLUCONATE | LIDOCAINE HYDROCHLORIDE",
+        "form": "OROMUCOSAL SPRAY",
+        "formGroup": "Oral cavity / throat",
+        "route": "Oral",
+        "mainIndication": "sore throat",
+        "secondaryIndications": "throat pain | throat irritation",
+        "otcCategory": "THROAT PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "CHLORHEXIDINE DIGLUCONATE 10 milligram(s)/5 millilitre | LIDOCAINE HYDROCHLORIDE 2.5 milligram(s)/5 millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "R02AA05",
+        "status": "Authorised",
+        "supplierCatalogKey": "medica throat spray menthol 20 mg/10 ml; 5 mg/10 ml oromucosal spray"
+      }
+    },
+    {
+      "id": "product:P0282",
+      "nodeType": "product",
+      "refId": "P0282",
+      "label": "Medica Throat Tablets Honey 5 mg/1 mg compressed lozenges",
+      "subtext": "sore throat",
+      "meta": {
+        "brand": "Medica",
+        "generic": "CHLORHEXIDINE DIHYDROCHLORIDE | LIDOCAINE HYDROCHLORIDE",
+        "form": "LOZENGE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "sore throat",
+        "secondaryIndications": "throat pain | throat irritation",
+        "otcCategory": "THROAT PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "LIDOCAINE HYDROCHLORIDE 1 milligram(s) | CHLORHEXIDINE DIHYDROCHLORIDE 5 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R02AA05",
+        "status": "Authorised",
+        "supplierCatalogKey": "medica throat tablets honey 5 mg/1 mg compressed lozenges"
+      }
+    },
+    {
+      "id": "product:P0283",
+      "nodeType": "product",
+      "refId": "P0283",
+      "label": "Medica Throat Tablets Menthol 5 mg/1 mg compressed lozenges",
+      "subtext": "sore throat",
+      "meta": {
+        "brand": "Medica",
+        "generic": "CHLORHEXIDINE DIHYDROCHLORIDE | LIDOCAINE HYDROCHLORIDE",
+        "form": "COMPRESSED LOZENGE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "sore throat",
+        "secondaryIndications": "throat pain | throat irritation",
+        "otcCategory": "THROAT PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "LIDOCAINE HYDROCHLORIDE 1 milligram(s) | CHLORHEXIDINE DIHYDROCHLORIDE 5 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R02AA05",
+        "status": "Authorised",
+        "supplierCatalogKey": "medica throat tablets menthol 5 mg/1 mg compressed lozenges"
+      }
+    },
+    {
+      "id": "product:P0284",
+      "nodeType": "product",
+      "refId": "P0284",
+      "label": "Medica Throat Tablets Strawberry 5 mg/1 mg compressed lozenges",
+      "subtext": "sore throat",
+      "meta": {
+        "brand": "Medica",
+        "generic": "CHLORHEXIDINE DIHYDROCHLORIDE | LIDOCAINE HYDROCHLORIDE",
+        "form": "COMPRESSED LOZENGE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "sore throat",
+        "secondaryIndications": "throat pain | throat irritation",
+        "otcCategory": "THROAT PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "CHLORHEXIDINE DIHYDROCHLORIDE 5 milligram(s) | LIDOCAINE HYDROCHLORIDE 1 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R02AA05",
+        "status": "Authorised",
+        "supplierCatalogKey": "medica throat tablets strawberry 5 mg/1 mg compressed lozenges"
+      }
+    },
+    {
+      "id": "product:P0440",
+      "nodeType": "product",
+      "refId": "P0440",
+      "label": "Septofort 2 mg Lozenges",
+      "subtext": "sore throat",
+      "meta": {
+        "brand": "Septofort",
+        "generic": "CHLORHEXIDINE DIGLUCONATE",
+        "form": "LOZENGE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "sore throat",
+        "secondaryIndications": "throat pain | throat irritation",
+        "otcCategory": "THROAT PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CHLORHEXIDINE DIGLUCONATE 2 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R02AA05",
+        "status": "Authorised",
+        "supplierCatalogKey": "septofort 2 mg lozenges"
+      }
+    },
+    {
+      "id": "product:P0441",
+      "nodeType": "product",
+      "refId": "P0441",
+      "label": "Septolete omni 1.5 mg/ml + 5.0 mg/ml oromucosal spray solution",
+      "subtext": "sore throat",
+      "meta": {
+        "brand": "Septolete",
+        "generic": "BENZYDAMINE HYDROCHLORIDE | CETYLPYRIDINE CHLORIDE",
+        "form": "OROMUCOSAL SPRAY",
+        "formGroup": "Oral cavity / throat",
+        "route": "Oral",
+        "mainIndication": "sore throat",
+        "secondaryIndications": "throat pain | throat irritation",
+        "otcCategory": "THROAT PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "CETYLPYRIDINE CHLORIDE 5 milligram(s)/millilitre | BENZYDAMINE HYDROCHLORIDE 1.5 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "R02AX03",
+        "status": "Authorised",
+        "supplierCatalogKey": "septolete omni 1.5 mg/ml + 5.0 mg/ml oromucosal spray solution"
+      }
+    },
+    {
+      "id": "product:P0442",
+      "nodeType": "product",
+      "refId": "P0442",
+      "label": "Septolete omni lemon and elderberry 3 mg/1 mg lozenges",
+      "subtext": "sore throat",
+      "meta": {
+        "brand": "Septolete",
+        "generic": "BENZYDAMINE HYDROCHLORIDE | CETYLPYRIDINIUM CHLORIDE",
+        "form": "LOZENGE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "sore throat",
+        "secondaryIndications": "throat pain | throat irritation",
+        "otcCategory": "THROAT PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "BENZYDAMINE HYDROCHLORIDE 3 milligram(s) | CETYLPYRIDINIUM CHLORIDE 1 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R02AA20",
+        "status": "Authorised",
+        "supplierCatalogKey": "septolete omni lemon and elderberry 3 mg/1 mg lozenges"
+      }
+    },
+    {
+      "id": "product:P0443",
+      "nodeType": "product",
+      "refId": "P0443",
+      "label": "Septolete total Cola 3 mg/1 mg lozenges",
+      "subtext": "sore throat",
+      "meta": {
+        "brand": "Septolete",
+        "generic": "BENZYDAMINE HYDROCHLORIDE | CETYLPYRIDINIUM CHLORIDE",
+        "form": "LOZENGE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "sore throat",
+        "secondaryIndications": "throat pain | throat irritation",
+        "otcCategory": "THROAT PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "CETYLPYRIDINIUM CHLORIDE 1 milligram(s) | BENZYDAMINE HYDROCHLORIDE 3 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R02AX03",
+        "status": "Authorised",
+        "supplierCatalogKey": "septolete total cola 3 mg/1 mg lozenges"
+      }
+    },
+    {
+      "id": "product:P0444",
+      "nodeType": "product",
+      "refId": "P0444",
+      "label": "Septolete total Eucalyptus 3 mg/1 mg lozenges",
+      "subtext": "sore throat",
+      "meta": {
+        "brand": "Septolete",
+        "generic": "BENZYDAMINE HYDROCHLORIDE | CETYLPYRIDINIUM CHLORIDE",
+        "form": "LOZENGE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "sore throat",
+        "secondaryIndications": "throat pain | throat irritation",
+        "otcCategory": "THROAT PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "BENZYDAMINE HYDROCHLORIDE 3 milligram(s) | CETYLPYRIDINIUM CHLORIDE 1 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R02AX03",
+        "status": "Authorised",
+        "supplierCatalogKey": "septolete total eucalyptus 3 mg/1 mg lozenges"
+      }
+    },
+    {
+      "id": "product:P0445",
+      "nodeType": "product",
+      "refId": "P0445",
+      "label": "Septolete total Ginger core 3 mg/1 mg lozenges",
+      "subtext": "sore throat",
+      "meta": {
+        "brand": "Septolete",
+        "generic": "BENZYDAMINE HYDROCHLORIDE | CETYLPYRIDINIUM CHLORIDE",
+        "form": "LOZENGE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "sore throat",
+        "secondaryIndications": "throat pain | throat irritation",
+        "otcCategory": "THROAT PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "BENZYDAMINE HYDROCHLORIDE 3 milligram(s) | CETYLPYRIDINIUM CHLORIDE 1 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R02AX03",
+        "status": "Authorised",
+        "supplierCatalogKey": "septolete total ginger core 3 mg/1 mg lozenges"
+      }
+    },
+    {
+      "id": "product:P0446",
+      "nodeType": "product",
+      "refId": "P0446",
+      "label": "Septolete total Lemon/Honey 3 mg/1 mg lozenges",
+      "subtext": "sore throat",
+      "meta": {
+        "brand": "Septolete",
+        "generic": "BENZYDAMINE HYDROCHLORIDE | CETYLPYRIDINIUM CHLORIDE",
+        "form": "LOZENGE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "sore throat",
+        "secondaryIndications": "throat pain | throat irritation",
+        "otcCategory": "THROAT PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "BENZYDAMINE HYDROCHLORIDE 3 milligram(s) | CETYLPYRIDINIUM CHLORIDE 3 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R02AA20",
+        "status": "Authorised",
+        "supplierCatalogKey": "septolete total lemon/honey 3 mg/1 mg lozenges"
+      }
+    },
+    {
+      "id": "product:P0457",
+      "nodeType": "product",
+      "refId": "P0457",
+      "label": "Straben 8.75 mg lozenges",
+      "subtext": "sore throat",
+      "meta": {
+        "brand": "Straben",
+        "generic": "FLURBIPROFEN",
+        "form": "LOZENGE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "sore throat",
+        "secondaryIndications": "throat pain | throat irritation",
+        "otcCategory": "THROAT PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "FLURBIPROFEN 8.75 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R02AX01",
+        "status": "Authorised",
+        "supplierCatalogKey": "straben 8.75 mg lozenges"
+      }
+    },
+    {
+      "id": "product:P0458",
+      "nodeType": "product",
+      "refId": "P0458",
+      "label": "Strepsils Honey & Lemon Lozenges  Amylmetacresol 0.6mg 2,4-Dichlorobenzyl alcohol 1.2mg",
+      "subtext": "sore throat",
+      "meta": {
+        "brand": "Strepsils",
+        "generic": "AMYLMETACRESOL",
+        "form": "LOZENGE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "sore throat",
+        "secondaryIndications": "throat pain | throat irritation",
+        "otcCategory": "THROAT PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "2,4 DICHLOROBENZYL ALCOHOL 1.2 milligram(s) | AMYLMETACRESOL 0.6 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R02AA03",
+        "status": "Authorised",
+        "supplierCatalogKey": "strepsils honey & lemon lozenges amylmetacresol 0.6mg 2,4-dichlorobenzyl alcohol 1.2mg"
+      }
+    },
+    {
+      "id": "product:P0459",
+      "nodeType": "product",
+      "refId": "P0459",
+      "label": "Strepsils Orange with  Vitamin C 100mg",
+      "subtext": "sore throat",
+      "meta": {
+        "brand": "Strepsils",
+        "generic": "AMYLMETACRESOL | ASCORBIC ACID",
+        "form": "LOZENGE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "sore throat",
+        "secondaryIndications": "throat pain | throat irritation",
+        "otcCategory": "THROAT PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "AMYLMETACRESOL 0.6 milligram(s) | ASCORBIC ACID 100 milligram(s) | 2,4 DICHLOROBENZYL ALCOHOL 1.2 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R02AA03",
+        "status": "Authorised",
+        "supplierCatalogKey": "strepsils orange with vitamin c 100mg"
+      }
+    },
+    {
+      "id": "product:P0460",
+      "nodeType": "product",
+      "refId": "P0460",
+      "label": "Strepsils Strawberry Sugar Free Lozenges",
+      "subtext": "sore throat",
+      "meta": {
+        "brand": "Strepsils",
+        "generic": "AMYLMETACRESOL",
+        "form": "LOZENGE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "sore throat",
+        "secondaryIndications": "throat pain | throat irritation",
+        "otcCategory": "THROAT PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Yes",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "2,4 DICHLOROBENZYL ALCOHOL 1.2 milligram(s) | AMYLMETACRESOL 0.6 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R02AA20",
+        "status": "Authorised",
+        "supplierCatalogKey": "strepsils strawberry sugar free lozenges"
+      }
+    },
+    {
+      "id": "product:P0471",
+      "nodeType": "product",
+      "refId": "P0471",
+      "label": "Tantum Verde P 3mg Lozenges, mint taste",
+      "subtext": "sore throat",
+      "meta": {
+        "brand": "Tantum",
+        "generic": "BENZYDAMINE HYDROCHLORIDE",
+        "form": "LOZENGE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "sore throat",
+        "secondaryIndications": "throat pain | throat irritation",
+        "otcCategory": "THROAT PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "BENZYDAMINE HYDROCHLORIDE 3 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R02AX03",
+        "status": "Authorised",
+        "supplierCatalogKey": "tantum verde p 3mg lozenges, mint taste"
+      }
+    },
+    {
+      "id": "product:P0480",
+      "nodeType": "product",
+      "refId": "P0480",
+      "label": "Trachisan Lozenges, lozenges",
+      "subtext": "sore throat",
+      "meta": {
+        "brand": "Trachisan",
+        "generic": "CHLORHEXIDINE GLUCONATE | LIDOCAINE HYDROCHLORIDE | TYROTHRICIN",
+        "form": "LOZENGE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "sore throat",
+        "secondaryIndications": "throat pain | throat irritation",
+        "otcCategory": "THROAT PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "TYROTHRICIN 0.5 milligram(s) | LIDOCAINE HYDROCHLORIDE 1 milligram(s) | CHLORHEXIDINE GLUCONATE 1 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R02A",
+        "status": "Authorised",
+        "supplierCatalogKey": "trachisan lozenges, lozenges"
+      }
+    },
+    {
+      "id": "product:P0481",
+      "nodeType": "product",
+      "refId": "P0481",
+      "label": "Trachitol Lozenges, lozenges",
+      "subtext": "sore throat",
+      "meta": {
+        "brand": "Trachitol",
+        "generic": "ALUM | LIDOCAINE HYDROCHLORIDE | PROPYL HYDROXYBENZOATE",
+        "form": "LOZENGE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "sore throat",
+        "secondaryIndications": "throat pain | throat irritation",
+        "otcCategory": "THROAT PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "ALUM 1 milligram(s) | LIDOCAINE HYDROCHLORIDE 1 milligram(s) | PROPYL HYDROXYBENZOATE 1.8 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R02AD02",
+        "status": "Authorised",
+        "supplierCatalogKey": "trachitol lozenges, lozenges"
+      }
+    },
+    {
+      "id": "product:P0355",
+      "nodeType": "product",
+      "refId": "P0355",
+      "label": "Oki throat 1.6% mouthwash",
+      "subtext": "mouth ulcers",
+      "meta": {
+        "brand": "Oki",
+        "generic": "KETOPROFEN LYSINE",
+        "form": "MOUTH WASH",
+        "formGroup": "Other",
+        "route": "Other",
+        "mainIndication": "mouth ulcers",
+        "secondaryIndications": "oral inflammation | gum care",
+        "otcCategory": "STOMATOLOGICAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "KETOPROFEN LYSINE 1.6 gram(s)/100 millilitres",
+        "packSizeText": "Review manually",
+        "atcCode": "A01AD11",
+        "status": "Authorised",
+        "supplierCatalogKey": "oki throat 1.6% mouthwash"
+      }
+    },
+    {
+      "id": "symptom:S045",
+      "nodeType": "symptom",
+      "refId": "S045",
+      "label": "mouth ulcers",
+      "subtext": "General",
+      "meta": {
+        "Symptom_ID": "S045",
+        "Symptom_Name": "mouth ulcers",
+        "Symptom_Category": "General",
+        "Linked_Product_Count": 6,
+        "Display_Group": "General",
+        "Priority_For_Graph": 70,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "symptom:S050",
+      "nodeType": "symptom",
+      "refId": "S050",
+      "label": "oral inflammation",
+      "subtext": "General",
+      "meta": {
+        "Symptom_ID": "S050",
+        "Symptom_Name": "oral inflammation",
+        "Symptom_Category": "General",
+        "Linked_Product_Count": 6,
+        "Display_Group": "General",
+        "Priority_For_Graph": 70,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "symptom:S030",
+      "nodeType": "symptom",
+      "refId": "S030",
+      "label": "gum care",
+      "subtext": "General",
+      "meta": {
+        "Symptom_ID": "S030",
+        "Symptom_Name": "gum care",
+        "Symptom_Category": "General",
+        "Linked_Product_Count": 6,
+        "Display_Group": "General",
+        "Priority_For_Graph": 70,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "usecase:UC015",
+      "nodeType": "usecase",
+      "refId": "UC015",
+      "label": "Mouth ulcer care",
+      "subtext": "General",
+      "meta": {
+        "UseCase_ID": "UC015",
+        "UseCase_Name": "Mouth ulcer care",
+        "UseCase_Category": "General",
+        "Trigger_Symptoms": "Mouth ulcers, oral pain, canker sores",
+        "Description": "Topical gels and rinses for mouth ulcer pain relief and healing."
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "1014ec959f426570",
+      "source": "product:P0065",
+      "target": "product:P0354",
+      "rel": "complement",
+      "label": "Mouth / throat irritation",
+      "score": 68,
+      "why": "Useful when discomfort spans the mouth and throat areas.",
+      "meta": {
+        "edgeId": "E10134"
+      }
+    },
+    {
+      "key": "09f269ecdc638826",
+      "source": "product:P0131",
+      "target": "product:P0354",
+      "rel": "complement",
+      "label": "Mouth / throat irritation",
+      "score": 68,
+      "why": "Useful when discomfort spans the mouth and throat areas.",
+      "meta": {
+        "edgeId": "E10140"
+      }
+    },
+    {
+      "key": "e8fdc8415e3b7324",
+      "source": "product:P0132",
+      "target": "product:P0354",
+      "rel": "complement",
+      "label": "Mouth / throat irritation",
+      "score": 68,
+      "why": "Useful when discomfort spans the mouth and throat areas.",
+      "meta": {
+        "edgeId": "E10146"
+      }
+    },
+    {
+      "key": "56e2b9ac959105ac",
+      "source": "product:P0281",
+      "target": "product:P0354",
+      "rel": "complement",
+      "label": "Mouth / throat irritation",
+      "score": 68,
+      "why": "Useful when discomfort spans the mouth and throat areas.",
+      "meta": {
+        "edgeId": "E10152"
+      }
+    },
+    {
+      "key": "64773e1ebd7b5263",
+      "source": "product:P0282",
+      "target": "product:P0354",
+      "rel": "complement",
+      "label": "Mouth / throat irritation",
+      "score": 68,
+      "why": "Useful when discomfort spans the mouth and throat areas.",
+      "meta": {
+        "edgeId": "E10158"
+      }
+    },
+    {
+      "key": "899f494f51ca83d1",
+      "source": "product:P0283",
+      "target": "product:P0354",
+      "rel": "complement",
+      "label": "Mouth / throat irritation",
+      "score": 68,
+      "why": "Useful when discomfort spans the mouth and throat areas.",
+      "meta": {
+        "edgeId": "E10164"
+      }
+    },
+    {
+      "key": "7514c99d0c48c5c0",
+      "source": "product:P0284",
+      "target": "product:P0354",
+      "rel": "complement",
+      "label": "Mouth / throat irritation",
+      "score": 68,
+      "why": "Useful when discomfort spans the mouth and throat areas.",
+      "meta": {
+        "edgeId": "E10170"
+      }
+    },
+    {
+      "key": "8b042fb165befa0d",
+      "source": "product:P0440",
+      "target": "product:P0354",
+      "rel": "complement",
+      "label": "Mouth / throat irritation",
+      "score": 68,
+      "why": "Useful when discomfort spans the mouth and throat areas.",
+      "meta": {
+        "edgeId": "E10176"
+      }
+    },
+    {
+      "key": "ad34aec31f978f5c",
+      "source": "product:P0441",
+      "target": "product:P0354",
+      "rel": "complement",
+      "label": "Mouth / throat irritation",
+      "score": 68,
+      "why": "Useful when discomfort spans the mouth and throat areas.",
+      "meta": {
+        "edgeId": "E10182"
+      }
+    },
+    {
+      "key": "4179e38ff5099f31",
+      "source": "product:P0442",
+      "target": "product:P0354",
+      "rel": "complement",
+      "label": "Mouth / throat irritation",
+      "score": 68,
+      "why": "Useful when discomfort spans the mouth and throat areas.",
+      "meta": {
+        "edgeId": "E10188"
+      }
+    },
+    {
+      "key": "2bc5f83f7845dc32",
+      "source": "product:P0443",
+      "target": "product:P0354",
+      "rel": "complement",
+      "label": "Mouth / throat irritation",
+      "score": 68,
+      "why": "Useful when discomfort spans the mouth and throat areas.",
+      "meta": {
+        "edgeId": "E10194"
+      }
+    },
+    {
+      "key": "6ad3432f25147a49",
+      "source": "product:P0444",
+      "target": "product:P0354",
+      "rel": "complement",
+      "label": "Mouth / throat irritation",
+      "score": 68,
+      "why": "Useful when discomfort spans the mouth and throat areas.",
+      "meta": {
+        "edgeId": "E10200"
+      }
+    },
+    {
+      "key": "2abedf95448da73a",
+      "source": "product:P0445",
+      "target": "product:P0354",
+      "rel": "complement",
+      "label": "Mouth / throat irritation",
+      "score": 68,
+      "why": "Useful when discomfort spans the mouth and throat areas.",
+      "meta": {
+        "edgeId": "E10206"
+      }
+    },
+    {
+      "key": "b0e1f6a1af5492ee",
+      "source": "product:P0446",
+      "target": "product:P0354",
+      "rel": "complement",
+      "label": "Mouth / throat irritation",
+      "score": 68,
+      "why": "Useful when discomfort spans the mouth and throat areas.",
+      "meta": {
+        "edgeId": "E10212"
+      }
+    },
+    {
+      "key": "c3e5c327c87dbc64",
+      "source": "product:P0457",
+      "target": "product:P0354",
+      "rel": "complement",
+      "label": "Mouth / throat irritation",
+      "score": 68,
+      "why": "Useful when discomfort spans the mouth and throat areas.",
+      "meta": {
+        "edgeId": "E10218"
+      }
+    },
+    {
+      "key": "918d6e2df932a82f",
+      "source": "product:P0458",
+      "target": "product:P0354",
+      "rel": "complement",
+      "label": "Mouth / throat irritation",
+      "score": 68,
+      "why": "Useful when discomfort spans the mouth and throat areas.",
+      "meta": {
+        "edgeId": "E10224"
+      }
+    },
+    {
+      "key": "d66ab72439ce40e1",
+      "source": "product:P0459",
+      "target": "product:P0354",
+      "rel": "complement",
+      "label": "Mouth / throat irritation",
+      "score": 68,
+      "why": "Useful when discomfort spans the mouth and throat areas.",
+      "meta": {
+        "edgeId": "E10230"
+      }
+    },
+    {
+      "key": "ebff3153fc4d9056",
+      "source": "product:P0460",
+      "target": "product:P0354",
+      "rel": "complement",
+      "label": "Mouth / throat irritation",
+      "score": 68,
+      "why": "Useful when discomfort spans the mouth and throat areas.",
+      "meta": {
+        "edgeId": "E10236"
+      }
+    },
+    {
+      "key": "17360222d35e1ffc",
+      "source": "product:P0471",
+      "target": "product:P0354",
+      "rel": "complement",
+      "label": "Mouth / throat irritation",
+      "score": 68,
+      "why": "Useful when discomfort spans the mouth and throat areas.",
+      "meta": {
+        "edgeId": "E10242"
+      }
+    },
+    {
+      "key": "1ffd5e6d2e7c2314",
+      "source": "product:P0480",
+      "target": "product:P0354",
+      "rel": "complement",
+      "label": "Mouth / throat irritation",
+      "score": 68,
+      "why": "Useful when discomfort spans the mouth and throat areas.",
+      "meta": {
+        "edgeId": "E10248"
+      }
+    },
+    {
+      "key": "0d6540321a00ff31",
+      "source": "product:P0481",
+      "target": "product:P0354",
+      "rel": "complement",
+      "label": "Mouth / throat irritation",
+      "score": 68,
+      "why": "Useful when discomfort spans the mouth and throat areas.",
+      "meta": {
+        "edgeId": "E10254"
+      }
+    },
+    {
+      "key": "73ac167cf17b43e6",
+      "source": "product:P0354",
+      "target": "product:P0355",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 88,
+      "why": "Same active ingredient(s), but delivered in different form families.",
+      "meta": {
+        "edgeId": "E00988"
+      }
+    },
+    {
+      "key": "b6776875333234e9",
+      "source": "product:P0354",
+      "target": "symptom:S045",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01145"
+      }
+    },
+    {
+      "key": "2a13555219d038f4",
+      "source": "product:P0354",
+      "target": "symptom:S050",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01146"
+      }
+    },
+    {
+      "key": "3891ade8335534e1",
+      "source": "product:P0354",
+      "target": "symptom:S030",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01147"
+      }
+    },
+    {
+      "key": "4b9a0cdfa83fec99",
+      "source": "product:P0354",
+      "target": "usecase:UC015",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Mouth ulcers, oral pain, canker sores",
+      "meta": {
+        "useCaseItemId": "UCI00644"
+      }
+    },
+    {
+      "key": "bdbcc04f8b657ed6",
+      "source": "product:P0354",
+      "target": "product:P0355",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 88,
+      "why": "Same active ingredient(s), but delivered in different form families.",
+      "meta": {
+        "edgeId": "E00988",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    }
+  ]
+}

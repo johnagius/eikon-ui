@@ -8,15 +8,15 @@
       "nodeType": "product",
       "refId": "P0130",
       "label": "Dentinox Infant Colic Drops 21 mg/2.5 ml Oral Suspension",
-      "subtext": "review needed",
+      "subtext": "bloating",
       "meta": {
         "brand": "Dentinox",
         "generic": "DIMETICONE",
         "form": "ORAL DROPS, SUSPENSION",
         "formGroup": "Oral liquid",
         "route": "Oral",
-        "mainIndication": "review needed",
-        "secondaryIndications": null,
+        "mainIndication": "bloating",
+        "secondaryIndications": "",
         "otcCategory": "ECTOPARASITICIDES, INCL. SCABICIDES, INSECTICIDES AND REPELLENTS",
         "seasonalGroup": "All year",
         "sedating": "No",
@@ -47,6 +47,20 @@
         "Node_Color": "#A5A5A5",
         "Notes": "Seeded from imported symptom tags; refine naming over time."
       }
+    },
+    {
+      "id": "usecase:UC006",
+      "nodeType": "usecase",
+      "refId": "UC006",
+      "label": "Reflux and indigestion relief",
+      "subtext": "Gastrointestinal",
+      "meta": {
+        "UseCase_ID": "UC006",
+        "UseCase_Name": "Reflux and indigestion relief",
+        "UseCase_Category": "Gastrointestinal",
+        "Trigger_Symptoms": "Heartburn, acid reflux, indigestion",
+        "Description": "Acid control plus quick symptom support."
+      }
     }
   ],
   "links": [
@@ -61,10 +75,18 @@
       "meta": {
         "mapId": "PSM01770"
       }
+    },
+    {
+      "key": "11ca4792d8fb0210",
+      "source": "product:P0130",
+      "target": "usecase:UC006",
+      "rel": "usecase",
+      "label": "Support",
+      "score": 80,
+      "why": "Bloating, indigestion",
+      "meta": {
+        "useCaseItemId": "UCI00719"
+      }
     }
-  ],
-  "meta": {
-    "productName": "Dentinox Infant Colic Drops 21 mg/2.5 ml Oral Suspension",
-    "linkCount": 1
-  }
+  ]
 }

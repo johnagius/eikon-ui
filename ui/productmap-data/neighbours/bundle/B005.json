@@ -1,1 +1,183 @@
-{"centerId":"bundle:B005","centerType":"bundle","refId":"B005","nodes":[{"id":"bundle:B005","nodeType":"bundle","refId":"B005","label":"Diarrhoea Recovery Bundle","subtext":"Travel / acute bundle","meta":{"Bundle_ID":"B005","Bundle_Name":"Diarrhoea Recovery Bundle","Source_UseCase_ID":"UC008","Bundle_Type":"Travel / acute bundle","Description":"Symptom control plus gut recovery"}},{"id":"product:P0034","nodeType":"product","refId":"P0034","label":"BIOFLOR 250 mg, capsule","subtext":"diarrhoea","meta":{"brand":"BIOFLOR","generic":"SACCHAROMYCES BOULARDII","form":"CAPSULE","formGroup":"Oral solid","route":"Oral","mainIndication":"diarrhoea","secondaryIndications":"loose stools | gut upset","otcCategory":"ANTIDIARRHEALS, INTESTINAL ANTIINFLAMMATORY/ANTIINFECTIVE AGENTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"SACCHAROMYCES BOULARDII 250 milligram(s)","packSizeText":"Review manually","atcCode":"A07FA02","status":"Authorised","supplierCatalogKey":"bioflor 250 mg, capsule"}},{"id":"product:P0035","nodeType":"product","refId":"P0035","label":"BIOFLOR 250mg, powder for oral suspension in sachet","subtext":"diarrhoea","meta":{"brand":"BIOFLOR","generic":"SACCHAROMYCES BOULARDII","form":"POWDER FOR ORAL SUSPENSION","formGroup":"Oral liquid","route":"Oral","mainIndication":"diarrhoea","secondaryIndications":"loose stools | gut upset","otcCategory":"ANTIDIARRHEALS, INTESTINAL ANTIINFLAMMATORY/ANTIINFECTIVE AGENTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"SACCHAROMYCES BOULARDII 250 milligram(s)","packSizeText":"Review manually","atcCode":"A07FA02","status":"Authorised","supplierCatalogKey":"bioflor 250mg, powder for oral suspension in sachet"}},{"id":"product:P0049","nodeType":"product","refId":"P0049","label":"Biocarbon Tablets 250mg","subtext":"diarrhoea","meta":{"brand":"Biocarbon","generic":"CHARCOAL, ACTIVATED","form":"TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"diarrhoea","secondaryIndications":"loose stools | gut upset","otcCategory":"ANTIDIARRHEALS, INTESTINAL ANTIINFLAMMATORY/ANTIINFECTIVE AGENTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CHARCOAL, ACTIVATED 250 milligram(s)","packSizeText":"Review manually","atcCode":"A07BA01","status":"Authorised","supplierCatalogKey":"biocarbon tablets 250mg"}},{"id":"product:P0052","nodeType":"product","refId":"P0052","label":"Bioflor Forte 500mg, powder for oral suspension in sachet.","subtext":"diarrhoea","meta":{"brand":"Bioflor","generic":"SACCHAROMYCES BOULARDII","form":"POWDER FOR ORAL SUSPENSION","formGroup":"Oral liquid","route":"Oral","mainIndication":"diarrhoea","secondaryIndications":"loose stools | gut upset","otcCategory":"ANTIDIARRHEALS, INTESTINAL ANTIINFLAMMATORY/ANTIINFECTIVE AGENTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"SACCHAROMYCES BOULARDII 500 milligram(s)","packSizeText":"Review manually","atcCode":"A07FA02","status":"Authorised","supplierCatalogKey":"bioflor forte 500mg, powder for oral suspension in sachet."}}],"links":[{"key":"d60fcef7659d19f7","source":"bundle:B005","target":"product:P0034","rel":"bundle","label":"Primary","score":100,"why":"Seeded from Diarrhoea and gut recovery via symptom match: diarrhoea, loose stools, gut upset","meta":{"bundleItemId":"BI00025","role":"Primary","reviewStatus":"Seeded"}},{"key":"e032ffdc664e97be","source":"bundle:B005","target":"product:P0035","rel":"bundle","label":"Primary","score":95,"why":"Seeded from Diarrhoea and gut recovery via symptom match: diarrhoea, loose stools, gut upset","meta":{"bundleItemId":"BI00026","role":"Primary","reviewStatus":"Seeded"}},{"key":"714f294087fac090","source":"bundle:B005","target":"product:P0049","rel":"bundle","label":"Optional","score":90,"why":"Seeded from Diarrhoea and gut recovery via symptom match: diarrhoea, loose stools, gut upset","meta":{"bundleItemId":"BI00027","role":"Optional","reviewStatus":"Seeded"}},{"key":"356e429280821dba","source":"bundle:B005","target":"product:P0052","rel":"bundle","label":"Optional","score":85,"why":"Seeded from Diarrhoea and gut recovery via symptom match: diarrhoea, loose stools, gut upset","meta":{"bundleItemId":"BI00028","role":"Optional","reviewStatus":"Seeded"}}],"meta":{"bundleName":"Diarrhoea Recovery Bundle","linkCount":4}}
+{
+  "centerId": "bundle:B005",
+  "centerType": "bundle",
+  "refId": "B005",
+  "nodes": [
+    {
+      "id": "bundle:B005",
+      "nodeType": "bundle",
+      "refId": "B005",
+      "label": "Diarrhoea Recovery Bundle",
+      "subtext": "Travel / acute bundle",
+      "meta": {
+        "Bundle_ID": "B005",
+        "Bundle_Name": "Diarrhoea Recovery Bundle",
+        "Source_UseCase_ID": "UC008",
+        "Bundle_Type": "Travel / acute bundle",
+        "Description": "Symptom control plus gut recovery"
+      }
+    },
+    {
+      "id": "product:P0034",
+      "nodeType": "product",
+      "refId": "P0034",
+      "label": "BIOFLOR 250 mg, capsule",
+      "subtext": "diarrhoea",
+      "meta": {
+        "brand": "BIOFLOR",
+        "generic": "SACCHAROMYCES BOULARDII",
+        "form": "CAPSULE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "diarrhoea",
+        "secondaryIndications": "loose stools | gut upset",
+        "otcCategory": "ANTIDIARRHEALS, INTESTINAL ANTIINFLAMMATORY/ANTIINFECTIVE AGENTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "SACCHAROMYCES BOULARDII 250 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A07FA02",
+        "status": "Authorised",
+        "supplierCatalogKey": "bioflor 250 mg, capsule"
+      }
+    },
+    {
+      "id": "product:P0035",
+      "nodeType": "product",
+      "refId": "P0035",
+      "label": "BIOFLOR 250mg, powder for oral suspension in sachet",
+      "subtext": "diarrhoea",
+      "meta": {
+        "brand": "BIOFLOR",
+        "generic": "SACCHAROMYCES BOULARDII",
+        "form": "POWDER FOR ORAL SUSPENSION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "diarrhoea",
+        "secondaryIndications": "loose stools | gut upset",
+        "otcCategory": "ANTIDIARRHEALS, INTESTINAL ANTIINFLAMMATORY/ANTIINFECTIVE AGENTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "SACCHAROMYCES BOULARDII 250 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A07FA02",
+        "status": "Authorised",
+        "supplierCatalogKey": "bioflor 250mg, powder for oral suspension in sachet"
+      }
+    },
+    {
+      "id": "product:P0049",
+      "nodeType": "product",
+      "refId": "P0049",
+      "label": "Biocarbon Tablets 250mg",
+      "subtext": "diarrhoea",
+      "meta": {
+        "brand": "Biocarbon",
+        "generic": "CHARCOAL, ACTIVATED",
+        "form": "TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "diarrhoea",
+        "secondaryIndications": "loose stools | gut upset",
+        "otcCategory": "ANTIDIARRHEALS, INTESTINAL ANTIINFLAMMATORY/ANTIINFECTIVE AGENTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CHARCOAL, ACTIVATED 250 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A07BA01",
+        "status": "Authorised",
+        "supplierCatalogKey": "biocarbon tablets 250mg"
+      }
+    },
+    {
+      "id": "product:P0052",
+      "nodeType": "product",
+      "refId": "P0052",
+      "label": "Bioflor Forte 500mg, powder for oral suspension in sachet.",
+      "subtext": "diarrhoea",
+      "meta": {
+        "brand": "Bioflor",
+        "generic": "SACCHAROMYCES BOULARDII",
+        "form": "POWDER FOR ORAL SUSPENSION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "diarrhoea",
+        "secondaryIndications": "loose stools | gut upset",
+        "otcCategory": "ANTIDIARRHEALS, INTESTINAL ANTIINFLAMMATORY/ANTIINFECTIVE AGENTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "SACCHAROMYCES BOULARDII 500 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A07FA02",
+        "status": "Authorised",
+        "supplierCatalogKey": "bioflor forte 500mg, powder for oral suspension in sachet."
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "8dc44eefc7084edc",
+      "source": "product:P0034",
+      "target": "bundle:B005",
+      "rel": "bundle",
+      "label": "Primary",
+      "score": 100,
+      "why": "Seeded from Diarrhoea and gut recovery via symptom match: diarrhoea, loose stools, gut upset",
+      "meta": {
+        "bundleItemId": "BI00025"
+      }
+    },
+    {
+      "key": "f32630cca300ffe7",
+      "source": "product:P0035",
+      "target": "bundle:B005",
+      "rel": "bundle",
+      "label": "Primary",
+      "score": 95,
+      "why": "Seeded from Diarrhoea and gut recovery via symptom match: diarrhoea, loose stools, gut upset",
+      "meta": {
+        "bundleItemId": "BI00026"
+      }
+    },
+    {
+      "key": "e10093a4d7921906",
+      "source": "product:P0049",
+      "target": "bundle:B005",
+      "rel": "bundle",
+      "label": "Optional",
+      "score": 90,
+      "why": "Seeded from Diarrhoea and gut recovery via symptom match: diarrhoea, loose stools, gut upset",
+      "meta": {
+        "bundleItemId": "BI00027"
+      }
+    },
+    {
+      "key": "2b6b938cdfbe6cbb",
+      "source": "product:P0052",
+      "target": "bundle:B005",
+      "rel": "bundle",
+      "label": "Optional",
+      "score": 85,
+      "why": "Seeded from Diarrhoea and gut recovery via symptom match: diarrhoea, loose stools, gut upset",
+      "meta": {
+        "bundleItemId": "BI00028"
+      }
+    }
+  ]
+}

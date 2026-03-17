@@ -3,13 +3,13 @@
   "generated_from": "eikon_productmap_data_only_fresh.json",
   "counts": {
     "products": 522,
-    "symptoms": 77,
-    "useCases": 12,
+    "symptoms": 88,
+    "useCases": 22,
     "bundles": 5,
     "relationships": 16346,
     "guardrails": 1829,
-    "productSymptomMaps": 1719,
-    "useCaseItems": 606,
+    "productSymptomMaps": 1722,
+    "useCaseItems": 718,
     "bundleItems": 28
   },
   "paths": {

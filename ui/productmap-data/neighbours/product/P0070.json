@@ -8,15 +8,15 @@
       "nodeType": "product",
       "refId": "P0070",
       "label": "Calmaben 50mg coated tablets",
-      "subtext": "review needed",
+      "subtext": "sleep aid",
       "meta": {
         "brand": "Calmaben",
         "generic": "DIPHENHYDRAMINE HYDROCHLORIDE",
         "form": "COATED TABLET",
         "formGroup": "Oral solid",
         "route": "Oral",
-        "mainIndication": "review needed",
-        "secondaryIndications": null,
+        "mainIndication": "sleep aid",
+        "secondaryIndications": "",
         "otcCategory": "PSYCHOLEPTICS",
         "seasonalGroup": "All year",
         "sedating": "Yes",
@@ -92,15 +92,15 @@
       "nodeType": "product",
       "refId": "P0433",
       "label": "Sedistress 500mg film-coated tablets",
-      "subtext": "review needed",
+      "subtext": "sleep support",
       "meta": {
         "brand": "Sedistress",
         "generic": "PASSIFLORA INCARNATA",
         "form": "FILM-COATED TABLET",
         "formGroup": "Oral solid",
         "route": "Oral",
-        "mainIndication": "review needed",
-        "secondaryIndications": null,
+        "mainIndication": "sleep support",
+        "secondaryIndications": "",
         "otcCategory": "PSYCHOLEPTICS",
         "seasonalGroup": "All year",
         "sedating": "No",
@@ -116,20 +116,33 @@
       }
     },
     {
-      "id": "symptom:S076",
+      "id": "symptom:S083",
       "nodeType": "symptom",
-      "refId": "S076",
-      "label": "wellness",
-      "subtext": "General",
+      "refId": "S083",
+      "label": "sleep support",
+      "subtext": "Lifestyle / cessation",
       "meta": {
-        "Symptom_ID": "S076",
-        "Symptom_Name": "wellness",
-        "Symptom_Category": "General",
-        "Linked_Product_Count": 3,
-        "Display_Group": "General",
-        "Priority_For_Graph": 70,
-        "Node_Color": "#A5A5A5",
-        "Notes": "Seeded from imported symptom tags; refine naming over time."
+        "Symptom_ID": "S083",
+        "Symptom_Name": "sleep support",
+        "Symptom_Category": "Lifestyle / cessation",
+        "Display_Group": "Lifestyle",
+        "Linked_Product_Count": 0,
+        "Priority_For_Graph": 100,
+        "Node_Color": "#c8d6e5"
+      }
+    },
+    {
+      "id": "usecase:UC022",
+      "nodeType": "usecase",
+      "refId": "UC022",
+      "label": "Sleep and relaxation",
+      "subtext": "Lifestyle / cessation",
+      "meta": {
+        "UseCase_ID": "UC022",
+        "UseCase_Name": "Sleep and relaxation",
+        "UseCase_Category": "Lifestyle / cessation",
+        "Trigger_Symptoms": "Insomnia, sleep difficulty, anxiety, relaxation",
+        "Description": "Sleep aids and calming products for occasional insomnia."
       }
     }
   ],
@@ -143,18 +156,7 @@
       "score": 95,
       "why": "Same active ingredient(s) and same form family.",
       "meta": {
-        "edgeId": "E00506",
-        "clinicalSimilarity": 90,
-        "commercialSubstitution": 90,
-        "crossSell": 15,
-        "riskOverlap": 90,
-        "evidence": 90,
-        "seasonality": 90,
-        "triggerContext": "Alternative: same active ingredient(s)",
-        "primaryToSecondary": "No",
-        "reciprocalDisplay": "Yes",
-        "reviewStatus": "Ready - strong starter link",
-        "sourceMethod": "EXACT_INGREDIENT_BASE"
+        "edgeId": "E00506"
       }
     },
     {
@@ -166,18 +168,7 @@
       "score": 88,
       "why": "Same active ingredient(s), but delivered in different form families.",
       "meta": {
-        "edgeId": "E00507",
-        "clinicalSimilarity": 80,
-        "commercialSubstitution": 85,
-        "crossSell": 15,
-        "riskOverlap": 90,
-        "evidence": 90,
-        "seasonality": 40,
-        "triggerContext": "Alternative: same active ingredient(s)",
-        "primaryToSecondary": "No",
-        "reciprocalDisplay": "Yes",
-        "reviewStatus": "Ready - strong starter link",
-        "sourceMethod": "EXACT_INGREDIENT_BASE"
+        "edgeId": "E00507"
       }
     },
     {
@@ -189,18 +180,31 @@
       "score": 78,
       "why": "Same ATC code, therapeutic class, and form family; likely reasonable substitute candidates pending staff review.",
       "meta": {
-        "edgeId": "E02193",
-        "clinicalSimilarity": 85,
-        "commercialSubstitution": 80,
-        "crossSell": 25,
-        "riskOverlap": 60,
-        "evidence": 90,
-        "seasonality": 40,
-        "triggerContext": "review needed",
-        "primaryToSecondary": "No",
-        "reciprocalDisplay": "Yes",
-        "reviewStatus": "Needs pharmacist/staff review",
-        "sourceMethod": "EXACT_ATC_SAME_CLASS_FORM"
+        "edgeId": "E02193"
+      }
+    },
+    {
+      "key": "4ffc365f2d0775a0",
+      "source": "product:P0070",
+      "target": "symptom:S083",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Indication-based assignment",
+      "meta": {
+        "mapId": "PSM01812"
+      }
+    },
+    {
+      "key": "6cbfa4fc8b408636",
+      "source": "product:P0070",
+      "target": "usecase:UC022",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Insomnia, sleep difficulty, anxiety, relaxation",
+      "meta": {
+        "useCaseItemId": "UCI00715"
       }
     },
     {
@@ -213,8 +217,7 @@
       "why": "Same active ingredient(s) and same form family.",
       "meta": {
         "edgeId": "E00506",
-        "posAction": "Do not cross-sell together by default; show as alternative options instead.",
-        "guardrailType": "Potential duplicate therapy / substitute"
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
       }
     },
     {
@@ -227,25 +230,8 @@
       "why": "Same active ingredient(s), but delivered in different form families.",
       "meta": {
         "edgeId": "E00507",
-        "posAction": "Do not cross-sell together by default; show as alternative options instead.",
-        "guardrailType": "Potential duplicate therapy / substitute"
-      }
-    },
-    {
-      "key": "d6ca6e9006c01bf4",
-      "source": "product:P0070",
-      "target": "symptom:S076",
-      "rel": "symptom",
-      "label": "Secondary",
-      "score": 70,
-      "why": "Manual review fix",
-      "meta": {
-        "mapId": "PSM01769"
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
       }
     }
-  ],
-  "meta": {
-    "productName": "Calmaben 50mg coated tablets",
-    "linkCount": 6
-  }
+  ]
 }

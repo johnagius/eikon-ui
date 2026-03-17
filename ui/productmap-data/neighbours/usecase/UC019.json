@@ -1,0 +1,623 @@
+{
+  "centerId": "usecase:UC019",
+  "centerType": "usecase",
+  "refId": "UC019",
+  "nodes": [
+    {
+      "id": "usecase:UC019",
+      "nodeType": "usecase",
+      "refId": "UC019",
+      "label": "Skin repair and scar care",
+      "subtext": "Skin",
+      "meta": {
+        "UseCase_ID": "UC019",
+        "UseCase_Name": "Skin repair and scar care",
+        "UseCase_Category": "Skin",
+        "Trigger_Symptoms": "Scars, skin repair, wound healing",
+        "Description": "Products for skin repair, scar reduction, and wound healing."
+      }
+    },
+    {
+      "id": "product:P0033",
+      "nodeType": "product",
+      "refId": "P0033",
+      "label": "BIAFINE, emulsion for cutaneous application",
+      "subtext": "skin irritation",
+      "meta": {
+        "brand": "BIAFINE",
+        "generic": "TROLAMINE",
+        "form": "CUTANEOUS EMULSION",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "skin irritation",
+        "secondaryIndications": "skin repair",
+        "otcCategory": "EMOLLIENTS AND PROTECTIVES",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "TROLAMINE 0.67 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "D02AX",
+        "status": "Authorised",
+        "supplierCatalogKey": "biafine, emulsion for cutaneous application"
+      }
+    },
+    {
+      "id": "product:P0119",
+      "nodeType": "product",
+      "refId": "P0119",
+      "label": "Cortopin1%w/w cream",
+      "subtext": "skin inflammation",
+      "meta": {
+        "brand": "Cortopin1",
+        "generic": "HYDROCORTISONE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "skin inflammation",
+        "secondaryIndications": "eczema | dermatitis",
+        "otcCategory": "CORTICOSTEROIDS, DERMATOLOGICAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "HYDROCORTISONE 1 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "D07AA02",
+        "status": "Authorised",
+        "supplierCatalogKey": "cortopin1%w/w cream"
+      }
+    },
+    {
+      "id": "product:P0152",
+      "nodeType": "product",
+      "refId": "P0152",
+      "label": "Duofilm 167 mg/ml + 167 mg/ml skin solution",
+      "subtext": "skin repair",
+      "meta": {
+        "brand": "Duofilm",
+        "generic": "LACTIC ACID | SALICYLIC ACID",
+        "form": "SOLUTION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "skin repair",
+        "secondaryIndications": "scar care | dermatology support",
+        "otcCategory": "OTHER DERMATOLOGICAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "SALICYLIC ACID 167 milligram(s)/millilitre | LACTIC ACID 167 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "D11AF",
+        "status": "Authorised",
+        "supplierCatalogKey": "duofilm 167 mg/ml + 167 mg/ml skin solution"
+      }
+    },
+    {
+      "id": "product:P0158",
+      "nodeType": "product",
+      "refId": "P0158",
+      "label": "E45 Cream White Soft Paraffin 14.5% w/w Light Liquid Paraffin 12.6% w/w Anhydrous Lanolin 1.0% w/w",
+      "subtext": "skin irritation",
+      "meta": {
+        "brand": "E45",
+        "generic": "LANOLIN | LIGHT LIQUID PARAFFIN | WHITE SOFT PARAFFIN",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "skin irritation",
+        "secondaryIndications": "eczema | dermatitis",
+        "otcCategory": "EMOLLIENTS AND PROTECTIVES",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "LANOLIN 1 percent weight/weight | WHITE SOFT PARAFFIN 14.5 percent weight/weight | LIGHT LIQUID PARAFFIN  12.6 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "D02AC",
+        "status": "Authorised",
+        "supplierCatalogKey": "e45 cream white soft paraffin 14.5% w/w light liquid paraffin 12.6% w/w anhydrous lanolin 1.0% w/w"
+      }
+    },
+    {
+      "id": "product:P0212",
+      "nodeType": "product",
+      "refId": "P0212",
+      "label": "Hc45 Hydrocortisone Acetate Cream (Hydrocortisone acetate 1% w/w)",
+      "subtext": "skin inflammation",
+      "meta": {
+        "brand": "Hc45",
+        "generic": "HYDROCORTISONE ACETATE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "skin inflammation",
+        "secondaryIndications": "eczema | dermatitis",
+        "otcCategory": "CORTICOSTEROIDS, DERMATOLOGICAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "HYDROCORTISONE ACETATE 1 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "D07AA02",
+        "status": "Authorised",
+        "supplierCatalogKey": "hc45 hydrocortisone acetate cream (hydrocortisone acetate 1% w/w)"
+      }
+    },
+    {
+      "id": "product:P0216",
+      "nodeType": "product",
+      "refId": "P0216",
+      "label": "Hydrokortyzon Allefin Max 10 mg/g Cream",
+      "subtext": "skin inflammation",
+      "meta": {
+        "brand": "Hydrokortyzon",
+        "generic": "HYDROCORTISONE ACETATE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "skin inflammation",
+        "secondaryIndications": "eczema | dermatitis",
+        "otcCategory": "CORTICOSTEROIDS, DERMATOLOGICAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "HYDROCORTISONE ACETATE 10 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D07AA02",
+        "status": "Authorised",
+        "supplierCatalogKey": "hydrokortyzon allefin max 10 mg/g cream"
+      }
+    },
+    {
+      "id": "product:P0278",
+      "nodeType": "product",
+      "refId": "P0278",
+      "label": "Magnesium Sulfate Paste BP",
+      "subtext": "skin repair",
+      "meta": {
+        "brand": "Magnesium",
+        "generic": "MAGNESIUM SULFATE | PHENOL",
+        "form": "CUTANEOUS PASTE",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "skin repair",
+        "secondaryIndications": "scar care | dermatology support",
+        "otcCategory": "OTHER DERMATOLOGICAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "PHENOL 0.497 gram(s) | MAGNESIUM SULFATE 47.762 gram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "D11AX05",
+        "status": "Authorised",
+        "supplierCatalogKey": "magnesium sulfate paste bp"
+      }
+    },
+    {
+      "id": "product:P0292",
+      "nodeType": "product",
+      "refId": "P0292",
+      "label": "Minorga 2% Cutaneous Solution 20mg/ml",
+      "subtext": "skin repair",
+      "meta": {
+        "brand": "Minorga",
+        "generic": "MINOXIDIL",
+        "form": "CUTANEOUS SOLUTION",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "skin repair",
+        "secondaryIndications": "scar care | dermatology support",
+        "otcCategory": "OTHER DERMATOLOGICAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "MINOXIDIL 20 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "D11AX01",
+        "status": "Authorised",
+        "supplierCatalogKey": "minorga 2% cutaneous solution 20mg/ml"
+      }
+    },
+    {
+      "id": "product:P0293",
+      "nodeType": "product",
+      "refId": "P0293",
+      "label": "Minorga 5% Cutaneous Solution 50mg/ml",
+      "subtext": "skin repair",
+      "meta": {
+        "brand": "Minorga",
+        "generic": "MINOXIDIL",
+        "form": "CUTANEOUS SOLUTION",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "skin repair",
+        "secondaryIndications": "scar care | dermatology support",
+        "otcCategory": "OTHER DERMATOLOGICAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "MINOXIDIL 50 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "D11AX01",
+        "status": "Authorised",
+        "supplierCatalogKey": "minorga 5% cutaneous solution 50mg/ml"
+      }
+    },
+    {
+      "id": "product:P0294",
+      "nodeType": "product",
+      "refId": "P0294",
+      "label": "Minoxidil Torrent 50 mg/ml cutaneous spray, solution",
+      "subtext": "skin repair",
+      "meta": {
+        "brand": "Minoxidil",
+        "generic": "MINOXIDIL",
+        "form": "CUTANEOUS SPRAY, SOLUTION",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "skin repair",
+        "secondaryIndications": "scar care | dermatology support",
+        "otcCategory": "OTHER DERMATOLOGICAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "MINOXIDIL 50 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "D11AX01",
+        "status": "Authorised",
+        "supplierCatalogKey": "minoxidil torrent 50 mg/ml cutaneous spray, solution"
+      }
+    },
+    {
+      "id": "product:P0384",
+      "nodeType": "product",
+      "refId": "P0384",
+      "label": "Pandermil 10 mg/g ointment",
+      "subtext": "skin inflammation",
+      "meta": {
+        "brand": "Pandermil",
+        "generic": "HYDROCORTISONE",
+        "form": "OINTMENT",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "skin inflammation",
+        "secondaryIndications": "eczema | dermatitis",
+        "otcCategory": "CORTICOSTEROIDS, DERMATOLOGICAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "HYDROCORTISONE 10 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D07AA02",
+        "status": "Authorised",
+        "supplierCatalogKey": "pandermil 10 mg/g ointment"
+      }
+    },
+    {
+      "id": "product:P0411",
+      "nodeType": "product",
+      "refId": "P0411",
+      "label": "Regaine Extra Strength 5% w/v Cutaneous Solution",
+      "subtext": "skin repair",
+      "meta": {
+        "brand": "Regaine",
+        "generic": "MINOXIDIL",
+        "form": "CUTANEOUS SOLUTION",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "skin repair",
+        "secondaryIndications": "scar care | dermatology support",
+        "otcCategory": "OTHER DERMATOLOGICAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "MINOXIDIL 5 percent weight/volume",
+        "packSizeText": "Review manually",
+        "atcCode": "D11AX01",
+        "status": "Authorised",
+        "supplierCatalogKey": "regaine extra strength 5% w/v cutaneous solution"
+      }
+    },
+    {
+      "id": "product:P0412",
+      "nodeType": "product",
+      "refId": "P0412",
+      "label": "Regaine for Men Extra Strength 5% w/w Scalp Foam Cutaneous Foam",
+      "subtext": "skin repair",
+      "meta": {
+        "brand": "Regaine",
+        "generic": "MINOXIDIL",
+        "form": "CUTANEOUS FOAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "skin repair",
+        "secondaryIndications": "scar care | dermatology support",
+        "otcCategory": "OTHER DERMATOLOGICAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "MINOXIDIL 50 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D11AX01",
+        "status": "Authorised",
+        "supplierCatalogKey": "regaine for men extra strength 5% w/w scalp foam cutaneous foam"
+      }
+    },
+    {
+      "id": "product:P0413",
+      "nodeType": "product",
+      "refId": "P0413",
+      "label": "Regaine for Men Extra Strength Scalp Foam 5% w/w Cutaneous Foam",
+      "subtext": "skin repair",
+      "meta": {
+        "brand": "Regaine",
+        "generic": "MINOXIDIL",
+        "form": "CUTANEOUS FOAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "skin repair",
+        "secondaryIndications": "scar care | dermatology support",
+        "otcCategory": "OTHER DERMATOLOGICAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "MINOXIDIL 5 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "D11AX01",
+        "status": "Authorised",
+        "supplierCatalogKey": "regaine for men extra strength scalp foam 5% w/w cutaneous foam"
+      }
+    },
+    {
+      "id": "product:P0462",
+      "nodeType": "product",
+      "refId": "P0462",
+      "label": "Sudocrem Antiseptic Healing Cream",
+      "subtext": "skin irritation",
+      "meta": {
+        "brand": "Sudocrem",
+        "generic": "BENZYL ALCOHOL | BENZYL BENZOATE | BENZYL CINNAMATE | LANOLIN | ZINC OXIDE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "skin irritation",
+        "secondaryIndications": "healing | wound care",
+        "otcCategory": "EMOLLIENTS AND PROTECTIVES",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 5,
+        "strengthText": "BENZYL BENZOATE 1.02 percent weight/weight | BENZYL ALCOHOL 0.39 percent weight/weight | ZINC OXIDE 15.29 percent weight/weight | BENZYL CINNAMATE 0.15 percent weight/weight | LANOLIN 4.02 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "D02AB",
+        "status": "Authorised",
+        "supplierCatalogKey": "sudocrem antiseptic healing cream"
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "6e45cdf1d28a075d",
+      "source": "product:P0033",
+      "target": "usecase:UC019",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Scars, skin repair, wound healing",
+      "meta": {
+        "useCaseItemId": "UCI00693"
+      }
+    },
+    {
+      "key": "c92ea311ce868a7f",
+      "source": "product:P0119",
+      "target": "usecase:UC019",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Scars, skin repair, wound healing",
+      "meta": {
+        "useCaseItemId": "UCI00694"
+      }
+    },
+    {
+      "key": "d093e6334de03284",
+      "source": "product:P0152",
+      "target": "usecase:UC019",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Scars, skin repair, wound healing",
+      "meta": {
+        "useCaseItemId": "UCI00695"
+      }
+    },
+    {
+      "key": "2c03812297ec4d3c",
+      "source": "product:P0158",
+      "target": "usecase:UC019",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Scars, skin repair, wound healing",
+      "meta": {
+        "useCaseItemId": "UCI00696"
+      }
+    },
+    {
+      "key": "4f810761a0c1f2c1",
+      "source": "product:P0212",
+      "target": "usecase:UC019",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Scars, skin repair, wound healing",
+      "meta": {
+        "useCaseItemId": "UCI00697"
+      }
+    },
+    {
+      "key": "ca05367cf6b40ea7",
+      "source": "product:P0216",
+      "target": "usecase:UC019",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Scars, skin repair, wound healing",
+      "meta": {
+        "useCaseItemId": "UCI00698"
+      }
+    },
+    {
+      "key": "60189008168fe61b",
+      "source": "product:P0278",
+      "target": "usecase:UC019",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Scars, skin repair, wound healing",
+      "meta": {
+        "useCaseItemId": "UCI00699"
+      }
+    },
+    {
+      "key": "a916515471ccb079",
+      "source": "product:P0292",
+      "target": "usecase:UC019",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Scars, skin repair, wound healing",
+      "meta": {
+        "useCaseItemId": "UCI00700"
+      }
+    },
+    {
+      "key": "a044da4b6a520765",
+      "source": "product:P0293",
+      "target": "usecase:UC019",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Scars, skin repair, wound healing",
+      "meta": {
+        "useCaseItemId": "UCI00701"
+      }
+    },
+    {
+      "key": "404e716c835b111c",
+      "source": "product:P0294",
+      "target": "usecase:UC019",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Scars, skin repair, wound healing",
+      "meta": {
+        "useCaseItemId": "UCI00702"
+      }
+    },
+    {
+      "key": "0edadfa1bb8428c6",
+      "source": "product:P0384",
+      "target": "usecase:UC019",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Scars, skin repair, wound healing",
+      "meta": {
+        "useCaseItemId": "UCI00703"
+      }
+    },
+    {
+      "key": "3e65d665898bce61",
+      "source": "product:P0411",
+      "target": "usecase:UC019",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Scars, skin repair, wound healing",
+      "meta": {
+        "useCaseItemId": "UCI00704"
+      }
+    },
+    {
+      "key": "6030f22d522e99d2",
+      "source": "product:P0412",
+      "target": "usecase:UC019",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Scars, skin repair, wound healing",
+      "meta": {
+        "useCaseItemId": "UCI00705"
+      }
+    },
+    {
+      "key": "eaf05e9c33c535cb",
+      "source": "product:P0413",
+      "target": "usecase:UC019",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Scars, skin repair, wound healing",
+      "meta": {
+        "useCaseItemId": "UCI00706"
+      }
+    },
+    {
+      "key": "9b22dcd74651e1ef",
+      "source": "product:P0462",
+      "target": "usecase:UC019",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Scars, skin repair, wound healing",
+      "meta": {
+        "useCaseItemId": "UCI00707"
+      }
+    }
+  ]
+}

@@ -1,1 +1,890 @@
-{"centerId":"symptom:S008","centerType":"symptom","refId":"S008","nodes":[{"id":"symptom:S008","nodeType":"symptom","refId":"S008","label":"back pain","subtext":"Pain / fever","meta":{"Symptom_ID":"S008","Symptom_Name":"back pain","Symptom_Category":"Pain / fever","Linked_Product_Count":21,"Display_Group":"Pain / fever","Priority_For_Graph":100,"Node_Color":"#5B9BD5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"product:P0136","nodeType":"product","refId":"P0136","label":"Diclofenac INN-FARM 10 mg/g gel","subtext":"muscle pain","meta":{"brand":"Diclofenac","generic":"DICLOFENAC SODIUM","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DICLOFENAC SODIUM 10 milligram(s)/gram","packSizeText":"Review manually","atcCode":"M02AA15","status":"Authorised","supplierCatalogKey":"diclofenac inn-farm 10 mg/g gel"}},{"id":"product:P0137","nodeType":"product","refId":"P0137","label":"Diclofenac INN-FARM 20 mg/g gel","subtext":"muscle pain","meta":{"brand":"Diclofenac","generic":"DICLOFENAC SODIUM","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DICLOFENAC SODIUM 20 milligram(s)/gram","packSizeText":"Review manually","atcCode":"M02AA15","status":"Authorised","supplierCatalogKey":"diclofenac inn-farm 20 mg/g gel"}},{"id":"product:P0138","nodeType":"product","refId":"P0138","label":"Diclomel Max Strength 2% w/w gel","subtext":"muscle pain","meta":{"brand":"Diclomel","generic":"DICLOFENAC SODIUM","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DICLOFENAC SODIUM 20 milligram(s)","packSizeText":"Review manually","atcCode":"M02AA15","status":"Authorised","supplierCatalogKey":"diclomel max strength 2% w/w gel"}},{"id":"product:P0190","nodeType":"product","refId":"P0190","label":"Flogoprofen Cutaneous Spray, Solution 50mg/ml","subtext":"muscle pain","meta":{"brand":"Flogoprofen","generic":"ETOFENAMATE","form":"CUTANEOUS SPRAY, SOLUTION","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"ETOFENAMATE 50 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"M02AA06","status":"Authorised","supplierCatalogKey":"flogoprofen cutaneous spray, solution 50mg/ml"}},{"id":"product:P0191","nodeType":"product","refId":"P0191","label":"Flogoprofen Gel 50mg/g","subtext":"muscle pain","meta":{"brand":"Flogoprofen","generic":"ETOFENAMATE","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"ETOFENAMATE 50 milligram(s)/gram","packSizeText":"Review manually","atcCode":"M02AA06","status":"Authorised","supplierCatalogKey":"flogoprofen gel 50mg/g"}},{"id":"product:P0223","nodeType":"product","refId":"P0223","label":"Ibalgin Duo Effect 50 mg/g + 2 mg/g cream","subtext":"muscle pain","meta":{"brand":"Ibalgin","generic":"HEPARINOID | IBUPROFEN","form":"CREAM","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"IBUPROFEN 50 milligram(s)/gram | HEPARINOID 2 milligram(s)/gram","packSizeText":"Review manually","atcCode":"M02AA13","status":"Authorised","supplierCatalogKey":"ibalgin duo effect 50 mg/g + 2 mg/g cream"}},{"id":"product:P0288","nodeType":"product","refId":"P0288","label":"Mentholatum Deep Heat Cream","subtext":"muscle pain","meta":{"brand":"Mentholatum","generic":"EUCALYPTUS OIL | MENTHOL | METHYL SALICYLATE | TURPENTINE OIL","form":"CREAM","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":4,"strengthText":"METHYL SALICYLATE 12.80 percent weight/weight | MENTHOL 5.91 percent weight/weight | EUCALYPTUS OIL 1.97 percent weight/weight | TURPENTINE OIL 1.47 percent weight/weight","packSizeText":"Review manually","atcCode":"M02AX","status":"Authorised","supplierCatalogKey":"mentholatum deep heat cream"}},{"id":"product:P0289","nodeType":"product","refId":"P0289","label":"Mentholatum Deep Heat Spray, cutaneous spray solution","subtext":"muscle pain","meta":{"brand":"Mentholatum","generic":"ETHYL SALICYLATE | HYDROXYETHYL SALICYLATE | METHYL NICOTINATE | METHYL SALICYLATE","form":"CUTANEOUS SPRAY, SOLUTION","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":4,"strengthText":"ETHYL SALICYLATE 5 percent weight/weight | HYDROXYETHYL SALICYLATE 5 percent weight/weight | METHYL NICOTINATE 1.6 percent weight/weight | METHYL SALICYLATE 1 percent weight/weight","packSizeText":"Review manually","atcCode":"M02AX","status":"Authorised","supplierCatalogKey":"mentholatum deep heat spray, cutaneous spray solution"}},{"id":"product:P0310","nodeType":"product","refId":"P0310","label":"Naprosyn 10%, gel","subtext":"muscle pain","meta":{"brand":"Naprosyn","generic":"NAPROXEN","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"NAPROXEN 100 milligram(s)","packSizeText":"Review manually","atcCode":"M02AA12","status":"Authorised","supplierCatalogKey":"naprosyn 10%, gel"}},{"id":"product:P0359","nodeType":"product","refId":"P0359","label":"Olfen Forte 23.2 mg/g gel","subtext":"muscle pain","meta":{"brand":"Olfen","generic":"DICLOFENAC DIETHYLAMINE","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DICLOFENAC DIETHYLAMINE 23.2 milligram(s)/gram","packSizeText":"Review manually","atcCode":"M02AA15","status":"Authorised","supplierCatalogKey":"olfen forte 23.2 mg/g gel"}},{"id":"product:P0447","nodeType":"product","refId":"P0447","label":"Sindolor 5 mg/5 mg/20 mg/g gel","subtext":"muscle pain","meta":{"brand":"Sindolor","generic":"CYCLOPENTOLATE HYDROCHLORIDE | LIDOCAINE | PIROXICAM","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"PIROXICAM 5 milligram(s)/gram | CYCLOPENTOLATE HYDROCHLORIDE 5 milligram(s)/gram | LIDOCAINE 20 milligram(s)/gram","packSizeText":"Review manually","atcCode":"M02AA07","status":"Authorised","supplierCatalogKey":"sindolor 5 mg/5 mg/20 mg/g gel"}},{"id":"product:P0482","nodeType":"product","refId":"P0482","label":"Traumon Gel 10%","subtext":"muscle pain","meta":{"brand":"Traumon","generic":"ETOFENAMATE","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"ETOFENAMATE 100 milligram(s)/gram","packSizeText":"Review manually","atcCode":"M02AA06","status":"Authorised","supplierCatalogKey":"traumon gel 10%"}},{"id":"product:P0492","nodeType":"product","refId":"P0492","label":"VOLTAREN EMULGEL 1%, gel","subtext":"muscle pain","meta":{"brand":"VOLTAREN","generic":"DICLOFENAC SODIUM","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DICLOFENAC SODIUM 1 gram(s)","packSizeText":"Review manually","atcCode":"M02AA15","status":"Authorised","supplierCatalogKey":"voltaren emulgel 1%, gel"}},{"id":"product:P0493","nodeType":"product","refId":"P0493","label":"VOLTAREN EMULGEL 1%, gel in aerosol spray can","subtext":"muscle pain","meta":{"brand":"VOLTAREN","generic":"DICLOFENAC SODIUM","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DICLOFENAC SODIUM 1 gram(s)","packSizeText":"Review manually","atcCode":"M02AA15","status":"Authorised","supplierCatalogKey":"voltaren emulgel 1%, gel in aerosol spray can"}},{"id":"product:P0499","nodeType":"product","refId":"P0499","label":"Viamal Trauma gel","subtext":"muscle pain","meta":{"brand":"Viamal","generic":"DIETHYLAMINE SALICYLATE | HEPARIN SODIUM | MENTHOL","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"DIETHYLAMINE SALICYLATE 100 milligram(s)/gram | MENTHOL 2 milligram(s)/gram | HEPARIN SODIUM 136,000 international unit(s)/gram","packSizeText":"Review manually","atcCode":"M02AC","status":"Authorised","supplierCatalogKey":"viamal trauma gel"}},{"id":"product:P0507","nodeType":"product","refId":"P0507","label":"Vilonit","subtext":"muscle pain","meta":{"brand":"Vilonit","generic":"DICLOFENAC SODIUM","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DICLOFENAC SODIUM 1 percent weight/weight","packSizeText":"Review manually","atcCode":"M02AA15","status":"Authorised","supplierCatalogKey":"vilonit"}},{"id":"product:P0509","nodeType":"product","refId":"P0509","label":"Voltadol 140 mg Medicated Patch","subtext":"muscle pain","meta":{"brand":"Voltadol","generic":"DICLOFENAC SODIUM","form":"MEDICATED PLASTER","formGroup":"Other","route":"Other","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DICLOFENAC SODIUM 140 milligram(s)","packSizeText":"Review manually","atcCode":"M02AA15","status":"Authorised","supplierCatalogKey":"voltadol 140 mg medicated patch"}},{"id":"product:P0510","nodeType":"product","refId":"P0510","label":"Voltaren Emulgel 1.16% Gel","subtext":"muscle pain","meta":{"brand":"Voltaren","generic":"DICLOFENAC SODIUM","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DICLOFENAC SODIUM 10 milligram(s)/gram","packSizeText":"Review manually","atcCode":"M02AA15","status":"Authorised","supplierCatalogKey":"voltaren emulgel 1.16% gel"}},{"id":"product:P0511","nodeType":"product","refId":"P0511","label":"Voltaren Emulgel 10 mg/g","subtext":"muscle pain","meta":{"brand":"Voltaren","generic":"DICLOFENAC DIETHYLAMINE","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DICLOFENAC DIETHYLAMINE 11.6 milligram(s)","packSizeText":"Review manually","atcCode":"M02AA15","status":"Authorised","supplierCatalogKey":"voltaren emulgel 10 mg/g"}},{"id":"product:P0512","nodeType":"product","refId":"P0512","label":"Voltaren Emulgel 11.6 mg/g emulsion-gel","subtext":"muscle pain","meta":{"brand":"Voltaren","generic":"DICLOFENAC SODIUM","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DICLOFENAC SODIUM 10 milligram(s)/gram","packSizeText":"Review manually","atcCode":"M02AA15","status":"Authorised","supplierCatalogKey":"voltaren emulgel 11.6 mg/g emulsion-gel"}},{"id":"product:P0513","nodeType":"product","refId":"P0513","label":"Voltarol Muscle & Joint Pain Relief 140 mg medicated plaster","subtext":"muscle pain","meta":{"brand":"Voltarol","generic":"DICLOFENAC SODIUM","form":"MEDICATED PLASTER","formGroup":"Other","route":"Other","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DICLOFENAC SODIUM 140 milligram(s)","packSizeText":"Review manually","atcCode":"M02AA15","status":"Authorised","supplierCatalogKey":"voltarol muscle & joint pain relief 140 mg medicated plaster"}},{"id":"usecase:UC004","nodeType":"usecase","refId":"UC004","label":"Muscle and joint pain support","subtext":"Pain / fever","meta":{"UseCase_ID":"UC004","UseCase_Name":"Muscle and joint pain support","UseCase_Category":"Pain / fever","Trigger_Symptoms":"Muscle pain, joint pain, back pain, sprains","Description":"Topical plus oral pain relief combinations."}}],"links":[{"key":"57d25b0302adb088","source":"symptom:S008","target":"product:P0136","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM00450","role":"Secondary","reviewStatus":"Seeded"}},{"key":"518f117beb8b51c8","source":"symptom:S008","target":"product:P0137","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM00454","role":"Secondary","reviewStatus":"Seeded"}},{"key":"8ad205bd1d945871","source":"symptom:S008","target":"product:P0138","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM00458","role":"Secondary","reviewStatus":"Seeded"}},{"key":"fa2ff743a1a86be0","source":"symptom:S008","target":"product:P0190","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM00619","role":"Secondary","reviewStatus":"Seeded"}},{"key":"6c2deb65a31cb651","source":"symptom:S008","target":"product:P0191","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM00623","role":"Secondary","reviewStatus":"Seeded"}},{"key":"4364694a07ada42e","source":"symptom:S008","target":"product:P0223","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM00725","role":"Secondary","reviewStatus":"Seeded"}},{"key":"e4fc2bc5a0376ffb","source":"symptom:S008","target":"product:P0288","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM00916","role":"Secondary","reviewStatus":"Seeded"}},{"key":"f08c4f94276cb4fa","source":"symptom:S008","target":"product:P0289","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM00920","role":"Secondary","reviewStatus":"Seeded"}},{"key":"3eb85d15d4e0fa39","source":"symptom:S008","target":"product:P0310","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM00995","role":"Secondary","reviewStatus":"Seeded"}},{"key":"7bbf4990270d13f0","source":"symptom:S008","target":"product:P0359","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM01167","role":"Secondary","reviewStatus":"Seeded"}},{"key":"71bee4d11038c845","source":"symptom:S008","target":"product:P0447","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM01477","role":"Secondary","reviewStatus":"Seeded"}},{"key":"58c0db23660b41f8","source":"symptom:S008","target":"product:P0482","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM01605","role":"Secondary","reviewStatus":"Seeded"}},{"key":"9aa694f3a07ce71e","source":"symptom:S008","target":"product:P0492","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM01640","role":"Secondary","reviewStatus":"Seeded"}},{"key":"81561350b3f3495b","source":"symptom:S008","target":"product:P0493","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM01644","role":"Secondary","reviewStatus":"Seeded"}},{"key":"89580087cf7a3f18","source":"symptom:S008","target":"product:P0499","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM01656","role":"Secondary","reviewStatus":"Seeded"}},{"key":"e737519f9898fc94","source":"symptom:S008","target":"product:P0507","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM01694","role":"Secondary","reviewStatus":"Seeded"}},{"key":"262a9a6f432b554a","source":"symptom:S008","target":"product:P0509","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM01704","role":"Secondary","reviewStatus":"Seeded"}},{"key":"493c49574fe41eb3","source":"symptom:S008","target":"product:P0510","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM01708","role":"Secondary","reviewStatus":"Seeded"}},{"key":"6e2eb21045e4570b","source":"symptom:S008","target":"product:P0511","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM01712","role":"Secondary","reviewStatus":"Seeded"}},{"key":"8d973051c71deb69","source":"symptom:S008","target":"product:P0512","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM01716","role":"Secondary","reviewStatus":"Seeded"}},{"key":"de22aa96afbdf996","source":"symptom:S008","target":"product:P0513","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM01720","role":"Secondary","reviewStatus":"Seeded"}},{"key":"ceb76299d88b328e","source":"symptom:S008","target":"usecase:UC004","rel":"usecase","label":"Triggered by symptom","score":85,"why":"Muscle pain, joint pain, back pain, sprains","meta":{}}],"meta":{"symptomName":"back pain","linkCount":22}}
+{
+  "centerId": "symptom:S008",
+  "centerType": "symptom",
+  "refId": "S008",
+  "nodes": [
+    {
+      "id": "symptom:S008",
+      "nodeType": "symptom",
+      "refId": "S008",
+      "label": "back pain",
+      "subtext": "Pain / fever",
+      "meta": {
+        "Symptom_ID": "S008",
+        "Symptom_Name": "back pain",
+        "Symptom_Category": "Pain / fever",
+        "Linked_Product_Count": 21,
+        "Display_Group": "Pain / fever",
+        "Priority_For_Graph": 100,
+        "Node_Color": "#5B9BD5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "product:P0136",
+      "nodeType": "product",
+      "refId": "P0136",
+      "label": "Diclofenac INN-FARM 10 mg/g gel",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Diclofenac",
+        "generic": "DICLOFENAC SODIUM",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DICLOFENAC SODIUM 10 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA15",
+        "status": "Authorised",
+        "supplierCatalogKey": "diclofenac inn-farm 10 mg/g gel"
+      }
+    },
+    {
+      "id": "product:P0137",
+      "nodeType": "product",
+      "refId": "P0137",
+      "label": "Diclofenac INN-FARM 20 mg/g gel",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Diclofenac",
+        "generic": "DICLOFENAC SODIUM",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DICLOFENAC SODIUM 20 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA15",
+        "status": "Authorised",
+        "supplierCatalogKey": "diclofenac inn-farm 20 mg/g gel"
+      }
+    },
+    {
+      "id": "product:P0138",
+      "nodeType": "product",
+      "refId": "P0138",
+      "label": "Diclomel Max Strength 2% w/w gel",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Diclomel",
+        "generic": "DICLOFENAC SODIUM",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DICLOFENAC SODIUM 20 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA15",
+        "status": "Authorised",
+        "supplierCatalogKey": "diclomel max strength 2% w/w gel"
+      }
+    },
+    {
+      "id": "product:P0190",
+      "nodeType": "product",
+      "refId": "P0190",
+      "label": "Flogoprofen Cutaneous Spray, Solution 50mg/ml",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Flogoprofen",
+        "generic": "ETOFENAMATE",
+        "form": "CUTANEOUS SPRAY, SOLUTION",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "ETOFENAMATE 50 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA06",
+        "status": "Authorised",
+        "supplierCatalogKey": "flogoprofen cutaneous spray, solution 50mg/ml"
+      }
+    },
+    {
+      "id": "product:P0191",
+      "nodeType": "product",
+      "refId": "P0191",
+      "label": "Flogoprofen Gel 50mg/g",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Flogoprofen",
+        "generic": "ETOFENAMATE",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "ETOFENAMATE 50 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA06",
+        "status": "Authorised",
+        "supplierCatalogKey": "flogoprofen gel 50mg/g"
+      }
+    },
+    {
+      "id": "product:P0223",
+      "nodeType": "product",
+      "refId": "P0223",
+      "label": "Ibalgin Duo Effect 50 mg/g + 2 mg/g cream",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Ibalgin",
+        "generic": "HEPARINOID | IBUPROFEN",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "IBUPROFEN 50 milligram(s)/gram | HEPARINOID 2 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA13",
+        "status": "Authorised",
+        "supplierCatalogKey": "ibalgin duo effect 50 mg/g + 2 mg/g cream"
+      }
+    },
+    {
+      "id": "product:P0288",
+      "nodeType": "product",
+      "refId": "P0288",
+      "label": "Mentholatum Deep Heat Cream",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Mentholatum",
+        "generic": "EUCALYPTUS OIL | MENTHOL | METHYL SALICYLATE | TURPENTINE OIL",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 4,
+        "strengthText": "METHYL SALICYLATE 12.80 percent weight/weight | MENTHOL 5.91 percent weight/weight | EUCALYPTUS OIL 1.97 percent weight/weight | TURPENTINE OIL 1.47 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AX",
+        "status": "Authorised",
+        "supplierCatalogKey": "mentholatum deep heat cream"
+      }
+    },
+    {
+      "id": "product:P0289",
+      "nodeType": "product",
+      "refId": "P0289",
+      "label": "Mentholatum Deep Heat Spray, cutaneous spray solution",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Mentholatum",
+        "generic": "ETHYL SALICYLATE | HYDROXYETHYL SALICYLATE | METHYL NICOTINATE | METHYL SALICYLATE",
+        "form": "CUTANEOUS SPRAY, SOLUTION",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 4,
+        "strengthText": "ETHYL SALICYLATE 5 percent weight/weight | HYDROXYETHYL SALICYLATE 5 percent weight/weight | METHYL NICOTINATE 1.6 percent weight/weight | METHYL SALICYLATE 1 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AX",
+        "status": "Authorised",
+        "supplierCatalogKey": "mentholatum deep heat spray, cutaneous spray solution"
+      }
+    },
+    {
+      "id": "product:P0310",
+      "nodeType": "product",
+      "refId": "P0310",
+      "label": "Naprosyn 10%, gel",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Naprosyn",
+        "generic": "NAPROXEN",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "NAPROXEN 100 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA12",
+        "status": "Authorised",
+        "supplierCatalogKey": "naprosyn 10%, gel"
+      }
+    },
+    {
+      "id": "product:P0359",
+      "nodeType": "product",
+      "refId": "P0359",
+      "label": "Olfen Forte 23.2 mg/g gel",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Olfen",
+        "generic": "DICLOFENAC DIETHYLAMINE",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DICLOFENAC DIETHYLAMINE 23.2 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA15",
+        "status": "Authorised",
+        "supplierCatalogKey": "olfen forte 23.2 mg/g gel"
+      }
+    },
+    {
+      "id": "product:P0447",
+      "nodeType": "product",
+      "refId": "P0447",
+      "label": "Sindolor 5 mg/5 mg/20 mg/g gel",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Sindolor",
+        "generic": "CYCLOPENTOLATE HYDROCHLORIDE | LIDOCAINE | PIROXICAM",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "PIROXICAM 5 milligram(s)/gram | CYCLOPENTOLATE HYDROCHLORIDE 5 milligram(s)/gram | LIDOCAINE 20 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA07",
+        "status": "Authorised",
+        "supplierCatalogKey": "sindolor 5 mg/5 mg/20 mg/g gel"
+      }
+    },
+    {
+      "id": "product:P0482",
+      "nodeType": "product",
+      "refId": "P0482",
+      "label": "Traumon Gel 10%",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Traumon",
+        "generic": "ETOFENAMATE",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "ETOFENAMATE 100 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA06",
+        "status": "Authorised",
+        "supplierCatalogKey": "traumon gel 10%"
+      }
+    },
+    {
+      "id": "product:P0492",
+      "nodeType": "product",
+      "refId": "P0492",
+      "label": "VOLTAREN EMULGEL 1%, gel",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "VOLTAREN",
+        "generic": "DICLOFENAC SODIUM",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DICLOFENAC SODIUM 1 gram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA15",
+        "status": "Authorised",
+        "supplierCatalogKey": "voltaren emulgel 1%, gel"
+      }
+    },
+    {
+      "id": "product:P0493",
+      "nodeType": "product",
+      "refId": "P0493",
+      "label": "VOLTAREN EMULGEL 1%, gel in aerosol spray can",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "VOLTAREN",
+        "generic": "DICLOFENAC SODIUM",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DICLOFENAC SODIUM 1 gram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA15",
+        "status": "Authorised",
+        "supplierCatalogKey": "voltaren emulgel 1%, gel in aerosol spray can"
+      }
+    },
+    {
+      "id": "product:P0499",
+      "nodeType": "product",
+      "refId": "P0499",
+      "label": "Viamal Trauma gel",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Viamal",
+        "generic": "DIETHYLAMINE SALICYLATE | HEPARIN SODIUM | MENTHOL",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "DIETHYLAMINE SALICYLATE 100 milligram(s)/gram | MENTHOL 2 milligram(s)/gram | HEPARIN SODIUM 136,000 international unit(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AC",
+        "status": "Authorised",
+        "supplierCatalogKey": "viamal trauma gel"
+      }
+    },
+    {
+      "id": "product:P0507",
+      "nodeType": "product",
+      "refId": "P0507",
+      "label": "Vilonit",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Vilonit",
+        "generic": "DICLOFENAC SODIUM",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DICLOFENAC SODIUM 1 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA15",
+        "status": "Authorised",
+        "supplierCatalogKey": "vilonit"
+      }
+    },
+    {
+      "id": "product:P0509",
+      "nodeType": "product",
+      "refId": "P0509",
+      "label": "Voltadol 140 mg Medicated Patch",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Voltadol",
+        "generic": "DICLOFENAC SODIUM",
+        "form": "MEDICATED PLASTER",
+        "formGroup": "Other",
+        "route": "Other",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DICLOFENAC SODIUM 140 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA15",
+        "status": "Authorised",
+        "supplierCatalogKey": "voltadol 140 mg medicated patch"
+      }
+    },
+    {
+      "id": "product:P0510",
+      "nodeType": "product",
+      "refId": "P0510",
+      "label": "Voltaren Emulgel 1.16% Gel",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Voltaren",
+        "generic": "DICLOFENAC SODIUM",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DICLOFENAC SODIUM 10 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA15",
+        "status": "Authorised",
+        "supplierCatalogKey": "voltaren emulgel 1.16% gel"
+      }
+    },
+    {
+      "id": "product:P0511",
+      "nodeType": "product",
+      "refId": "P0511",
+      "label": "Voltaren Emulgel 10 mg/g",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Voltaren",
+        "generic": "DICLOFENAC DIETHYLAMINE",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DICLOFENAC DIETHYLAMINE 11.6 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA15",
+        "status": "Authorised",
+        "supplierCatalogKey": "voltaren emulgel 10 mg/g"
+      }
+    },
+    {
+      "id": "product:P0512",
+      "nodeType": "product",
+      "refId": "P0512",
+      "label": "Voltaren Emulgel 11.6 mg/g emulsion-gel",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Voltaren",
+        "generic": "DICLOFENAC SODIUM",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DICLOFENAC SODIUM 10 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA15",
+        "status": "Authorised",
+        "supplierCatalogKey": "voltaren emulgel 11.6 mg/g emulsion-gel"
+      }
+    },
+    {
+      "id": "product:P0513",
+      "nodeType": "product",
+      "refId": "P0513",
+      "label": "Voltarol Muscle & Joint Pain Relief 140 mg medicated plaster",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Voltarol",
+        "generic": "DICLOFENAC SODIUM",
+        "form": "MEDICATED PLASTER",
+        "formGroup": "Other",
+        "route": "Other",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DICLOFENAC SODIUM 140 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA15",
+        "status": "Authorised",
+        "supplierCatalogKey": "voltarol muscle & joint pain relief 140 mg medicated plaster"
+      }
+    },
+    {
+      "id": "usecase:UC004",
+      "nodeType": "usecase",
+      "refId": "UC004",
+      "label": "Muscle and joint pain support",
+      "subtext": "Pain / fever",
+      "meta": {
+        "UseCase_ID": "UC004",
+        "UseCase_Name": "Muscle and joint pain support",
+        "UseCase_Category": "Pain / fever",
+        "Trigger_Symptoms": "Muscle pain, joint pain, back pain, sprains",
+        "Description": "Topical plus oral pain relief combinations."
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "edf84a6098ecaa1c",
+      "source": "product:P0136",
+      "target": "symptom:S008",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00450"
+      }
+    },
+    {
+      "key": "e31290933ea40ba8",
+      "source": "product:P0137",
+      "target": "symptom:S008",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00454"
+      }
+    },
+    {
+      "key": "a346c1321473fea6",
+      "source": "product:P0138",
+      "target": "symptom:S008",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00458"
+      }
+    },
+    {
+      "key": "c6ee05175c3dd0a1",
+      "source": "product:P0190",
+      "target": "symptom:S008",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00619"
+      }
+    },
+    {
+      "key": "6bc7a971733dcfbc",
+      "source": "product:P0191",
+      "target": "symptom:S008",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00623"
+      }
+    },
+    {
+      "key": "b2f5e66ed3951d13",
+      "source": "product:P0223",
+      "target": "symptom:S008",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00725"
+      }
+    },
+    {
+      "key": "2fe30b6fdadf7fe3",
+      "source": "product:P0288",
+      "target": "symptom:S008",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00916"
+      }
+    },
+    {
+      "key": "a449033685276bc0",
+      "source": "product:P0289",
+      "target": "symptom:S008",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00920"
+      }
+    },
+    {
+      "key": "fddace05f776da4d",
+      "source": "product:P0310",
+      "target": "symptom:S008",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00995"
+      }
+    },
+    {
+      "key": "db6b2c95e2003582",
+      "source": "product:P0359",
+      "target": "symptom:S008",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01167"
+      }
+    },
+    {
+      "key": "57c214742a72c1d1",
+      "source": "product:P0447",
+      "target": "symptom:S008",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01477"
+      }
+    },
+    {
+      "key": "181918ab2757b0ca",
+      "source": "product:P0482",
+      "target": "symptom:S008",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01605"
+      }
+    },
+    {
+      "key": "3993d9d7f9977b31",
+      "source": "product:P0492",
+      "target": "symptom:S008",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01640"
+      }
+    },
+    {
+      "key": "30e05c7121ca442c",
+      "source": "product:P0493",
+      "target": "symptom:S008",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01644"
+      }
+    },
+    {
+      "key": "48b4a91d43d2e60a",
+      "source": "product:P0499",
+      "target": "symptom:S008",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01656"
+      }
+    },
+    {
+      "key": "d8aae596623abd86",
+      "source": "product:P0507",
+      "target": "symptom:S008",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01694"
+      }
+    },
+    {
+      "key": "ea46f1f597b1f9db",
+      "source": "product:P0509",
+      "target": "symptom:S008",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01704"
+      }
+    },
+    {
+      "key": "755f0d15c99aed53",
+      "source": "product:P0510",
+      "target": "symptom:S008",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01708"
+      }
+    },
+    {
+      "key": "fe4851c71cb6be61",
+      "source": "product:P0511",
+      "target": "symptom:S008",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01712"
+      }
+    },
+    {
+      "key": "0c2917afd87e2d5e",
+      "source": "product:P0512",
+      "target": "symptom:S008",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01716"
+      }
+    },
+    {
+      "key": "92010a3f36eea900",
+      "source": "product:P0513",
+      "target": "symptom:S008",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01720"
+      }
+    },
+    {
+      "key": "9aa48f4e954678b9",
+      "source": "symptom:S008",
+      "target": "usecase:UC004",
+      "rel": "usecase",
+      "label": "Related use case",
+      "score": 90,
+      "why": "",
+      "meta": {}
+    }
+  ]
+}

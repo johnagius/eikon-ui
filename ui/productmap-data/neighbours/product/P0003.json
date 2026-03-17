@@ -1,1 +1,2529 @@
-{"centerId":"product:P0003","centerType":"product","refId":"P0003","nodes":[{"id":"product:P0003","nodeType":"product","refId":"P0003","label":"ALGOFREN 200 mg film-coated tablets","subtext":"inflammation","meta":{"brand":"ALGOFREN","generic":"IBUPROFEN","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"inflammation","secondaryIndications":"pain | swelling | musculoskeletal pain","otcCategory":"ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"IBUPROFEN 200 milligram(s)","packSizeText":"Review manually","atcCode":"M01AE01","status":"Authorised","supplierCatalogKey":"algofren 200 mg film-coated tablets"}},{"id":"product:P0062","nodeType":"product","refId":"P0062","label":"Brupro 200mg Film-coated tablets","subtext":"inflammation","meta":{"brand":"Brupro","generic":"IBUPROFEN","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"inflammation","secondaryIndications":"pain | swelling | musculoskeletal pain","otcCategory":"ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"IBUPROFEN 200 milligram(s)","packSizeText":"Review manually","atcCode":"M01AE01","status":"Authorised","supplierCatalogKey":"brupro 200mg film-coated tablets"}},{"id":"product:P0063","nodeType":"product","refId":"P0063","label":"Brupro Max 400mg Film-coated tablets","subtext":"inflammation","meta":{"brand":"Brupro","generic":"IBUPROFEN","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"inflammation","secondaryIndications":"pain | swelling | musculoskeletal pain","otcCategory":"ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"IBUPROFEN 400 milligram(s)","packSizeText":"Review manually","atcCode":"M01AE01","status":"Authorised","supplierCatalogKey":"brupro max 400mg film-coated tablets"}},{"id":"product:P0161","nodeType":"product","refId":"P0161","label":"Easofen 200mg Film-Coated Tablets","subtext":"inflammation","meta":{"brand":"Easofen","generic":"IBUPROFEN","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"inflammation","secondaryIndications":"pain | swelling | musculoskeletal pain","otcCategory":"ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"IBUPROFEN 200 milligram(s)","packSizeText":"Review manually","atcCode":"M01AE01","status":"Authorised","supplierCatalogKey":"easofen 200mg film-coated tablets"}},{"id":"product:P0162","nodeType":"product","refId":"P0162","label":"Easofen Max Strength 400 mg Film-coated Tablets","subtext":"inflammation","meta":{"brand":"Easofen","generic":"IBUPROFEN","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"inflammation","secondaryIndications":"pain | swelling | musculoskeletal pain","otcCategory":"ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"IBUPROFEN 400 milligram(s)","packSizeText":"Review manually","atcCode":"M01AE01","status":"Authorised","supplierCatalogKey":"easofen max strength 400 mg film-coated tablets"}},{"id":"product:P0163","nodeType":"product","refId":"P0163","label":"Easofen Rapid Relief Max Strength 400 mg soft capsules","subtext":"inflammation","meta":{"brand":"Easofen","generic":"IBUPROFEN","form":"SOFT CAPSULE","formGroup":"Oral solid","route":"Oral","mainIndication":"inflammation","secondaryIndications":"pain | swelling | musculoskeletal pain","otcCategory":"ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"IBUPROFEN 400 milligram(s)","packSizeText":"Review manually","atcCode":"M01AE01","status":"Authorised","supplierCatalogKey":"easofen rapid relief max strength 400 mg soft capsules"}},{"id":"product:P0225","nodeType":"product","refId":"P0225","label":"Ibum Express Forte, 400 mg, capsules, soft","subtext":"inflammation","meta":{"brand":"Ibum","generic":"IBUPROFEN","form":"SOFT CAPSULE","formGroup":"Oral solid","route":"Oral","mainIndication":"inflammation","secondaryIndications":"pain | swelling | musculoskeletal pain","otcCategory":"ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"IBUPROFEN 400 milligram(s)","packSizeText":"Review manually","atcCode":"M01AE01","status":"Authorised","supplierCatalogKey":"ibum express forte, 400 mg, capsules, soft"}},{"id":"product:P0226","nodeType":"product","refId":"P0226","label":"Ibum Sprint, 200 mg, capsules, soft","subtext":"inflammation","meta":{"brand":"Ibum","generic":"IBUPROFEN","form":"SOFT CAPSULE","formGroup":"Oral solid","route":"Oral","mainIndication":"inflammation","secondaryIndications":"pain | swelling | musculoskeletal pain","otcCategory":"ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"IBUPROFEN 200 milligram(s)","packSizeText":"Review manually","atcCode":"M01AE01","status":"Authorised","supplierCatalogKey":"ibum sprint, 200 mg, capsules, soft"}},{"id":"product:P0228","nodeType":"product","refId":"P0228","label":"Ibuprofen Clonmel 200 mg film-coated tablets","subtext":"inflammation","meta":{"brand":"Ibuprofen","generic":"IBUPROFEN","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"inflammation","secondaryIndications":"pain | swelling | musculoskeletal pain","otcCategory":"ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"IBUPROFEN 200 milligram(s)","packSizeText":"Review manually","atcCode":"M01AE01","status":"Authorised","supplierCatalogKey":"ibuprofen clonmel 200 mg film-coated tablets"}},{"id":"product:P0229","nodeType":"product","refId":"P0229","label":"Ibuprofen Clonmel Max Strength 400 mg film-coated tablets","subtext":"inflammation","meta":{"brand":"Ibuprofen","generic":"IBUPROFEN","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"inflammation","secondaryIndications":"pain | swelling | musculoskeletal pain","otcCategory":"ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"IBUPROFEN 400 milligram(s)","packSizeText":"Review manually","atcCode":"M01AE01","status":"Authorised","supplierCatalogKey":"ibuprofen clonmel max strength 400 mg film-coated tablets"}},{"id":"product:P0295","nodeType":"product","refId":"P0295","label":"Moment 200, 200 mg coated tablets","subtext":"inflammation","meta":{"brand":"Moment","generic":"IBUPROFEN","form":"COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"inflammation","secondaryIndications":"pain | swelling | musculoskeletal pain","otcCategory":"ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"IBUPROFEN 200 milligram(s)","packSizeText":"Review manually","atcCode":"M01AE01","status":"Authorised","supplierCatalogKey":"moment 200, 200 mg coated tablets"}},{"id":"product:P0343","nodeType":"product","refId":"P0343","label":"Nurofen 200 mg Coated Tablets","subtext":"inflammation","meta":{"brand":"Nurofen","generic":"IBUPROFEN","form":"COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"inflammation","secondaryIndications":"pain | swelling | musculoskeletal pain","otcCategory":"ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"IBUPROFEN 200 milligram(s)","packSizeText":"Review manually","atcCode":"M01AE01","status":"Authorised","supplierCatalogKey":"nurofen 200 mg coated tablets"}},{"id":"product:P0346","nodeType":"product","refId":"P0346","label":"Nurofen Rapid Pain Relief Max 400 mg Soft Capsules","subtext":"inflammation","meta":{"brand":"Nurofen","generic":"IBUPROFEN","form":"SOFT CAPSULE","formGroup":"Oral solid","route":"Oral","mainIndication":"inflammation","secondaryIndications":"pain | swelling | musculoskeletal pain","otcCategory":"ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"IBUPROFEN 400 milligram(s)","packSizeText":"Review manually","atcCode":"M01AE01","status":"Authorised","supplierCatalogKey":"nurofen rapid pain relief max 400 mg soft capsules"}},{"id":"product:P0351","nodeType":"product","refId":"P0351","label":"Nurofen for children 100 mg chewable capsules, Soft","subtext":"inflammation","meta":{"brand":"Nurofen","generic":"IBUPROFEN","form":"CHEWABLE TABLET, SOFT CAPSULE","formGroup":"Oral solid","route":"Oral","mainIndication":"inflammation","secondaryIndications":"pain | swelling | musculoskeletal pain","otcCategory":"ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"IBUPROFEN 100 milligram(s)","packSizeText":"Review manually","atcCode":"M01AE01","status":"Authorised","supplierCatalogKey":"nurofen for children 100 mg chewable capsules, soft"}},{"id":"product:P0395","nodeType":"product","refId":"P0395","label":"Perofen 400 mg coated tablets","subtext":"inflammation","meta":{"brand":"Perofen","generic":"IBUPROFEN","form":"COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"inflammation","secondaryIndications":"pain | swelling | musculoskeletal pain","otcCategory":"ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"IBUPROFEN 400 milligram(s)","packSizeText":"Review manually","atcCode":"M01AE01","status":"Authorised","supplierCatalogKey":"perofen 400 mg coated tablets"}},{"id":"product:P0485","nodeType":"product","refId":"P0485","label":"Ultimax 200mg film-coated tablets","subtext":"inflammation","meta":{"brand":"Ultimax","generic":"IBUPROFEN","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"inflammation","secondaryIndications":"pain | swelling | musculoskeletal pain","otcCategory":"ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"IBUPROFEN 200 milligram(s)","packSizeText":"Review manually","atcCode":"M01AE01","status":"Authorised","supplierCatalogKey":"ultimax 200mg film-coated tablets"}},{"id":"product:P0486","nodeType":"product","refId":"P0486","label":"Ultimax 400mg film-coated tablets","subtext":"inflammation","meta":{"brand":"Ultimax","generic":"IBUPROFEN","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"inflammation","secondaryIndications":"pain | swelling | musculoskeletal pain","otcCategory":"ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"IBUPROFEN 400 milligram(s)","packSizeText":"Review manually","atcCode":"M01AE01","status":"Authorised","supplierCatalogKey":"ultimax 400mg film-coated tablets"}},{"id":"product:P0019","nodeType":"product","refId":"P0019","label":"Algidrin pediatric 20mg/ml oral suspension","subtext":"inflammation","meta":{"brand":"Algidrin","generic":"IBUPROFEN","form":"ORAL SUSPENSION","formGroup":"Oral liquid","route":"Oral","mainIndication":"inflammation","secondaryIndications":"pain | swelling | musculoskeletal pain","otcCategory":"ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"IBUPROFEN 20 milligram(s)","packSizeText":"Review manually","atcCode":"M01AE01","status":"Authorised","supplierCatalogKey":"algidrin pediatric 20mg/ml oral suspension"}},{"id":"product:P0164","nodeType":"product","refId":"P0164","label":"Easofen for Children Six Plus Strawberry 200mg/5ml Oral Suspension","subtext":"inflammation","meta":{"brand":"Easofen","generic":"IBUPROFEN","form":"ORAL SUSPENSION","formGroup":"Oral liquid","route":"Oral","mainIndication":"inflammation","secondaryIndications":"pain | swelling | musculoskeletal pain","otcCategory":"ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"IBUPROFEN 200 milligram(s)/5 millilitre","packSizeText":"Review manually","atcCode":"M01AE01","status":"Authorised","supplierCatalogKey":"easofen for children six plus strawberry 200mg/5ml oral suspension"}},{"id":"product:P0165","nodeType":"product","refId":"P0165","label":"Easofen for Children Strawberry 100mg/5ml Oral Suspension","subtext":"inflammation","meta":{"brand":"Easofen","generic":"IBUPROFEN","form":"ORAL SUSPENSION","formGroup":"Oral liquid","route":"Oral","mainIndication":"inflammation","secondaryIndications":"pain | swelling | musculoskeletal pain","otcCategory":"ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"IBUPROFEN 100 milligram(s)/5 millilitre","packSizeText":"Review manually","atcCode":"M01AE01","status":"Authorised","supplierCatalogKey":"easofen for children strawberry 100mg/5ml oral suspension"}},{"id":"product:P0221","nodeType":"product","refId":"P0221","label":"IBUM dla dzieci, 125 mg, Suppositories","subtext":"inflammation","meta":{"brand":"IBUM","generic":"IBUPROFEN","form":"SUPPOSITORY","formGroup":"Suppository / pessary","route":"Suppository / pessary","mainIndication":"inflammation","secondaryIndications":"pain | swelling | musculoskeletal pain","otcCategory":"ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"IBUPROFEN 125 milligram(s)","packSizeText":"Review manually","atcCode":"M01AE01","status":"Authorised","supplierCatalogKey":"ibum dla dzieci, 125 mg, suppositories"}},{"id":"product:P0222","nodeType":"product","refId":"P0222","label":"IBUM dla dzieci, 60 mg, Suppositories","subtext":"inflammation","meta":{"brand":"IBUM","generic":"IBUPROFEN","form":"SUPPOSITORY","formGroup":"Suppository / pessary","route":"Suppository / pessary","mainIndication":"inflammation","secondaryIndications":"pain | swelling | musculoskeletal pain","otcCategory":"ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"IBUPROFEN 60 milligram(s)","packSizeText":"Review manually","atcCode":"M01AE01","status":"Authorised","supplierCatalogKey":"ibum dla dzieci, 60 mg, suppositories"}},{"id":"product:P0224","nodeType":"product","refId":"P0224","label":"Ibufen Baby, 60 mg, suppositories","subtext":"inflammation","meta":{"brand":"Ibufen","generic":"IBUPROFEN","form":"SUPPOSITORY","formGroup":"Suppository / pessary","route":"Suppository / pessary","mainIndication":"inflammation","secondaryIndications":"pain | swelling | musculoskeletal pain","otcCategory":"ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"IBUPROFEN 60 milligram(s)","packSizeText":"Review manually","atcCode":"M01AE01","status":"Authorised","supplierCatalogKey":"ibufen baby, 60 mg, suppositories"}},{"id":"product:P0227","nodeType":"product","refId":"P0227","label":"Ibuprofen Azevedos 20 mg/ml Oral Suspension","subtext":"inflammation","meta":{"brand":"Ibuprofen","generic":"IBUPROFEN","form":"ORAL SUSPENSION","formGroup":"Oral liquid","route":"Oral","mainIndication":"inflammation","secondaryIndications":"pain | swelling | musculoskeletal pain","otcCategory":"ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"IBUPROFEN 20 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"M01AE01","status":"Authorised","supplierCatalogKey":"ibuprofen azevedos 20 mg/ml oral suspension"}},{"id":"product:P0230","nodeType":"product","refId":"P0230","label":"Ibuprofen Nutra Essential 40 mg / ml oral suspension","subtext":"inflammation","meta":{"brand":"Ibuprofen","generic":"IBUPROFEN","form":"ORAL SUSPENSION","formGroup":"Oral liquid","route":"Oral","mainIndication":"inflammation","secondaryIndications":"pain | swelling | musculoskeletal pain","otcCategory":"ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"IBUPROFEN 40 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"M01AE01","status":"Authorised","supplierCatalogKey":"ibuprofen nutra essential 40 mg / ml oral suspension"}},{"id":"product:P0308","nodeType":"product","refId":"P0308","label":"NUROFEN for children 100mg/5mL oral suspension","subtext":"inflammation","meta":{"brand":"NUROFEN","generic":"IBUPROFEN","form":"ORAL SUSPENSION","formGroup":"Oral liquid","route":"Oral","mainIndication":"inflammation","secondaryIndications":"pain | swelling | musculoskeletal pain","otcCategory":"ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"IBUPROFEN 20 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"M01AE01","status":"Authorised","supplierCatalogKey":"nurofen for children 100mg/5ml oral suspension"}},{"id":"product:P0347","nodeType":"product","refId":"P0347","label":"Nurofen Strawberry 20 mg/ml oral suspension","subtext":"inflammation","meta":{"brand":"Nurofen","generic":"IBUPROFEN","form":"ORAL SUSPENSION","formGroup":"Oral liquid","route":"Oral","mainIndication":"inflammation","secondaryIndications":"pain | swelling | musculoskeletal pain","otcCategory":"ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"IBUPROFEN 100 milligram(s)/5 millilitre","packSizeText":"Review manually","atcCode":"M01AE01","status":"Authorised","supplierCatalogKey":"nurofen strawberry 20 mg/ml oral suspension"}},{"id":"product:P0348","nodeType":"product","refId":"P0348","label":"Nurofen for Children 100 mg/5 ml oral suspension","subtext":"inflammation","meta":{"brand":"Nurofen","generic":"IBUPROFEN","form":"ORAL SUSPENSION","formGroup":"Oral liquid","route":"Oral","mainIndication":"inflammation","secondaryIndications":"pain | swelling | musculoskeletal pain","otcCategory":"ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"IBUPROFEN 100 milligram(s)/5 millilitre","packSizeText":"Review manually","atcCode":"M01AE01","status":"Authorised","supplierCatalogKey":"nurofen for children 100 mg/5 ml oral suspension"}},{"id":"product:P0349","nodeType":"product","refId":"P0349","label":"Nurofen for Children 60 mg Suppositories Age 3 months to 2 years","subtext":"inflammation","meta":{"brand":"Nurofen","generic":"IBUPROFEN","form":"SUPPOSITORY","formGroup":"Suppository / pessary","route":"Suppository / pessary","mainIndication":"inflammation","secondaryIndications":"pain | swelling | musculoskeletal pain","otcCategory":"ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"IBUPROFEN 60 milligram(s)","packSizeText":"Review manually","atcCode":"M01AE01","status":"Authorised","supplierCatalogKey":"nurofen for children 60 mg suppositories age 3 months to 2 years"}},{"id":"product:P0136","nodeType":"product","refId":"P0136","label":"Diclofenac INN-FARM 10 mg/g gel","subtext":"muscle pain","meta":{"brand":"Diclofenac","generic":"DICLOFENAC SODIUM","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DICLOFENAC SODIUM 10 milligram(s)/gram","packSizeText":"Review manually","atcCode":"M02AA15","status":"Authorised","supplierCatalogKey":"diclofenac inn-farm 10 mg/g gel"}},{"id":"product:P0137","nodeType":"product","refId":"P0137","label":"Diclofenac INN-FARM 20 mg/g gel","subtext":"muscle pain","meta":{"brand":"Diclofenac","generic":"DICLOFENAC SODIUM","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DICLOFENAC SODIUM 20 milligram(s)/gram","packSizeText":"Review manually","atcCode":"M02AA15","status":"Authorised","supplierCatalogKey":"diclofenac inn-farm 20 mg/g gel"}},{"id":"product:P0138","nodeType":"product","refId":"P0138","label":"Diclomel Max Strength 2% w/w gel","subtext":"muscle pain","meta":{"brand":"Diclomel","generic":"DICLOFENAC SODIUM","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DICLOFENAC SODIUM 20 milligram(s)","packSizeText":"Review manually","atcCode":"M02AA15","status":"Authorised","supplierCatalogKey":"diclomel max strength 2% w/w gel"}},{"id":"product:P0190","nodeType":"product","refId":"P0190","label":"Flogoprofen Cutaneous Spray, Solution 50mg/ml","subtext":"muscle pain","meta":{"brand":"Flogoprofen","generic":"ETOFENAMATE","form":"CUTANEOUS SPRAY, SOLUTION","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"ETOFENAMATE 50 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"M02AA06","status":"Authorised","supplierCatalogKey":"flogoprofen cutaneous spray, solution 50mg/ml"}},{"id":"product:P0191","nodeType":"product","refId":"P0191","label":"Flogoprofen Gel 50mg/g","subtext":"muscle pain","meta":{"brand":"Flogoprofen","generic":"ETOFENAMATE","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"ETOFENAMATE 50 milligram(s)/gram","packSizeText":"Review manually","atcCode":"M02AA06","status":"Authorised","supplierCatalogKey":"flogoprofen gel 50mg/g"}},{"id":"product:P0223","nodeType":"product","refId":"P0223","label":"Ibalgin Duo Effect 50 mg/g + 2 mg/g cream","subtext":"muscle pain","meta":{"brand":"Ibalgin","generic":"HEPARINOID | IBUPROFEN","form":"CREAM","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"IBUPROFEN 50 milligram(s)/gram | HEPARINOID 2 milligram(s)/gram","packSizeText":"Review manually","atcCode":"M02AA13","status":"Authorised","supplierCatalogKey":"ibalgin duo effect 50 mg/g + 2 mg/g cream"}},{"id":"product:P0288","nodeType":"product","refId":"P0288","label":"Mentholatum Deep Heat Cream","subtext":"muscle pain","meta":{"brand":"Mentholatum","generic":"EUCALYPTUS OIL | MENTHOL | METHYL SALICYLATE | TURPENTINE OIL","form":"CREAM","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":4,"strengthText":"METHYL SALICYLATE 12.80 percent weight/weight | MENTHOL 5.91 percent weight/weight | EUCALYPTUS OIL 1.97 percent weight/weight | TURPENTINE OIL 1.47 percent weight/weight","packSizeText":"Review manually","atcCode":"M02AX","status":"Authorised","supplierCatalogKey":"mentholatum deep heat cream"}},{"id":"product:P0289","nodeType":"product","refId":"P0289","label":"Mentholatum Deep Heat Spray, cutaneous spray solution","subtext":"muscle pain","meta":{"brand":"Mentholatum","generic":"ETHYL SALICYLATE | HYDROXYETHYL SALICYLATE | METHYL NICOTINATE | METHYL SALICYLATE","form":"CUTANEOUS SPRAY, SOLUTION","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":4,"strengthText":"ETHYL SALICYLATE 5 percent weight/weight | HYDROXYETHYL SALICYLATE 5 percent weight/weight | METHYL NICOTINATE 1.6 percent weight/weight | METHYL SALICYLATE 1 percent weight/weight","packSizeText":"Review manually","atcCode":"M02AX","status":"Authorised","supplierCatalogKey":"mentholatum deep heat spray, cutaneous spray solution"}},{"id":"product:P0310","nodeType":"product","refId":"P0310","label":"Naprosyn 10%, gel","subtext":"muscle pain","meta":{"brand":"Naprosyn","generic":"NAPROXEN","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"NAPROXEN 100 milligram(s)","packSizeText":"Review manually","atcCode":"M02AA12","status":"Authorised","supplierCatalogKey":"naprosyn 10%, gel"}},{"id":"product:P0359","nodeType":"product","refId":"P0359","label":"Olfen Forte 23.2 mg/g gel","subtext":"muscle pain","meta":{"brand":"Olfen","generic":"DICLOFENAC DIETHYLAMINE","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DICLOFENAC DIETHYLAMINE 23.2 milligram(s)/gram","packSizeText":"Review manually","atcCode":"M02AA15","status":"Authorised","supplierCatalogKey":"olfen forte 23.2 mg/g gel"}},{"id":"product:P0447","nodeType":"product","refId":"P0447","label":"Sindolor 5 mg/5 mg/20 mg/g gel","subtext":"muscle pain","meta":{"brand":"Sindolor","generic":"CYCLOPENTOLATE HYDROCHLORIDE | LIDOCAINE | PIROXICAM","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"PIROXICAM 5 milligram(s)/gram | CYCLOPENTOLATE HYDROCHLORIDE 5 milligram(s)/gram | LIDOCAINE 20 milligram(s)/gram","packSizeText":"Review manually","atcCode":"M02AA07","status":"Authorised","supplierCatalogKey":"sindolor 5 mg/5 mg/20 mg/g gel"}},{"id":"product:P0482","nodeType":"product","refId":"P0482","label":"Traumon Gel 10%","subtext":"muscle pain","meta":{"brand":"Traumon","generic":"ETOFENAMATE","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"ETOFENAMATE 100 milligram(s)/gram","packSizeText":"Review manually","atcCode":"M02AA06","status":"Authorised","supplierCatalogKey":"traumon gel 10%"}},{"id":"product:P0492","nodeType":"product","refId":"P0492","label":"VOLTAREN EMULGEL 1%, gel","subtext":"muscle pain","meta":{"brand":"VOLTAREN","generic":"DICLOFENAC SODIUM","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DICLOFENAC SODIUM 1 gram(s)","packSizeText":"Review manually","atcCode":"M02AA15","status":"Authorised","supplierCatalogKey":"voltaren emulgel 1%, gel"}},{"id":"product:P0493","nodeType":"product","refId":"P0493","label":"VOLTAREN EMULGEL 1%, gel in aerosol spray can","subtext":"muscle pain","meta":{"brand":"VOLTAREN","generic":"DICLOFENAC SODIUM","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DICLOFENAC SODIUM 1 gram(s)","packSizeText":"Review manually","atcCode":"M02AA15","status":"Authorised","supplierCatalogKey":"voltaren emulgel 1%, gel in aerosol spray can"}},{"id":"product:P0499","nodeType":"product","refId":"P0499","label":"Viamal Trauma gel","subtext":"muscle pain","meta":{"brand":"Viamal","generic":"DIETHYLAMINE SALICYLATE | HEPARIN SODIUM | MENTHOL","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"DIETHYLAMINE SALICYLATE 100 milligram(s)/gram | MENTHOL 2 milligram(s)/gram | HEPARIN SODIUM 136,000 international unit(s)/gram","packSizeText":"Review manually","atcCode":"M02AC","status":"Authorised","supplierCatalogKey":"viamal trauma gel"}},{"id":"product:P0507","nodeType":"product","refId":"P0507","label":"Vilonit","subtext":"muscle pain","meta":{"brand":"Vilonit","generic":"DICLOFENAC SODIUM","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DICLOFENAC SODIUM 1 percent weight/weight","packSizeText":"Review manually","atcCode":"M02AA15","status":"Authorised","supplierCatalogKey":"vilonit"}},{"id":"product:P0509","nodeType":"product","refId":"P0509","label":"Voltadol 140 mg Medicated Patch","subtext":"muscle pain","meta":{"brand":"Voltadol","generic":"DICLOFENAC SODIUM","form":"MEDICATED PLASTER","formGroup":"Other","route":"Other","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DICLOFENAC SODIUM 140 milligram(s)","packSizeText":"Review manually","atcCode":"M02AA15","status":"Authorised","supplierCatalogKey":"voltadol 140 mg medicated patch"}},{"id":"product:P0510","nodeType":"product","refId":"P0510","label":"Voltaren Emulgel 1.16% Gel","subtext":"muscle pain","meta":{"brand":"Voltaren","generic":"DICLOFENAC SODIUM","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DICLOFENAC SODIUM 10 milligram(s)/gram","packSizeText":"Review manually","atcCode":"M02AA15","status":"Authorised","supplierCatalogKey":"voltaren emulgel 1.16% gel"}},{"id":"product:P0511","nodeType":"product","refId":"P0511","label":"Voltaren Emulgel 10 mg/g","subtext":"muscle pain","meta":{"brand":"Voltaren","generic":"DICLOFENAC DIETHYLAMINE","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DICLOFENAC DIETHYLAMINE 11.6 milligram(s)","packSizeText":"Review manually","atcCode":"M02AA15","status":"Authorised","supplierCatalogKey":"voltaren emulgel 10 mg/g"}},{"id":"product:P0512","nodeType":"product","refId":"P0512","label":"Voltaren Emulgel 11.6 mg/g emulsion-gel","subtext":"muscle pain","meta":{"brand":"Voltaren","generic":"DICLOFENAC SODIUM","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DICLOFENAC SODIUM 10 milligram(s)/gram","packSizeText":"Review manually","atcCode":"M02AA15","status":"Authorised","supplierCatalogKey":"voltaren emulgel 11.6 mg/g emulsion-gel"}},{"id":"product:P0513","nodeType":"product","refId":"P0513","label":"Voltarol Muscle & Joint Pain Relief 140 mg medicated plaster","subtext":"muscle pain","meta":{"brand":"Voltarol","generic":"DICLOFENAC SODIUM","form":"MEDICATED PLASTER","formGroup":"Other","route":"Other","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DICLOFENAC SODIUM 140 milligram(s)","packSizeText":"Review manually","atcCode":"M02AA15","status":"Authorised","supplierCatalogKey":"voltarol muscle & joint pain relief 140 mg medicated plaster"}},{"id":"symptom:S037","nodeType":"symptom","refId":"S037","label":"inflammation","subtext":"Pain / fever","meta":{"Symptom_ID":"S037","Symptom_Name":"inflammation","Symptom_Category":"Pain / fever","Linked_Product_Count":43,"Display_Group":"Pain / fever","Priority_For_Graph":100,"Node_Color":"#5B9BD5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"symptom:S051","nodeType":"symptom","refId":"S051","label":"pain","subtext":"Pain / fever","meta":{"Symptom_ID":"S051","Symptom_Name":"pain","Symptom_Category":"Pain / fever","Linked_Product_Count":43,"Display_Group":"Pain / fever","Priority_For_Graph":100,"Node_Color":"#5B9BD5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"symptom:S067","nodeType":"symptom","refId":"S067","label":"swelling","subtext":"Pain / fever","meta":{"Symptom_ID":"S067","Symptom_Name":"swelling","Symptom_Category":"Pain / fever","Linked_Product_Count":43,"Display_Group":"Pain / fever","Priority_For_Graph":100,"Node_Color":"#5B9BD5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"symptom:S048","nodeType":"symptom","refId":"S048","label":"musculoskeletal pain","subtext":"Pain / fever","meta":{"Symptom_ID":"S048","Symptom_Name":"musculoskeletal pain","Symptom_Category":"Pain / fever","Linked_Product_Count":43,"Display_Group":"Pain / fever","Priority_For_Graph":100,"Node_Color":"#5B9BD5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"usecase:UC004","nodeType":"usecase","refId":"UC004","label":"Muscle and joint pain support","subtext":"Pain / fever","meta":{"UseCase_ID":"UC004","UseCase_Name":"Muscle and joint pain support","UseCase_Category":"Pain / fever","Trigger_Symptoms":"Muscle pain, joint pain, back pain, sprains","Description":"Topical plus oral pain relief combinations."}},{"id":"usecase:UC003","nodeType":"usecase","refId":"UC003","label":"Pain and fever support","subtext":"Pain / fever","meta":{"UseCase_ID":"UC003","UseCase_Name":"Pain and fever support","UseCase_Category":"Pain / fever","Trigger_Symptoms":"Headache, fever, body aches","Description":"Simple analgesic alternatives and add-ons."}}],"links":[{"key":"3a00d03c8264334f","source":"product:P0003","target":"product:P0062","rel":"similar","label":"Alternative: same active ingredient(s)","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00561","clinicalSimilarity":100,"commercialSubstitution":100,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"inflammation, musculoskeletal pain, pain","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"1d5d1e44084ce156","source":"product:P0003","target":"product:P0063","rel":"similar","label":"Alternative: same active ingredient(s)","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00562","clinicalSimilarity":100,"commercialSubstitution":100,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"inflammation, musculoskeletal pain, pain","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"b19b4ca5b2ef16e8","source":"product:P0003","target":"product:P0161","rel":"similar","label":"Alternative: same active ingredient(s)","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00563","clinicalSimilarity":100,"commercialSubstitution":100,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"inflammation, musculoskeletal pain, pain","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"87be2459d4b165a7","source":"product:P0003","target":"product:P0162","rel":"similar","label":"Alternative: same active ingredient(s)","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00564","clinicalSimilarity":100,"commercialSubstitution":100,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"inflammation, musculoskeletal pain, pain","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"4db85d67c7f26ee1","source":"product:P0003","target":"product:P0163","rel":"similar","label":"Alternative: same active ingredient(s)","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00565","clinicalSimilarity":100,"commercialSubstitution":100,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"inflammation, musculoskeletal pain, pain","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"c6aa926b924e88d4","source":"product:P0003","target":"product:P0225","rel":"similar","label":"Alternative: same active ingredient(s)","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00571","clinicalSimilarity":100,"commercialSubstitution":100,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"inflammation, musculoskeletal pain, pain","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"19483824b80929b9","source":"product:P0003","target":"product:P0226","rel":"similar","label":"Alternative: same active ingredient(s)","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00572","clinicalSimilarity":100,"commercialSubstitution":100,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"inflammation, musculoskeletal pain, pain","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"4f882ae88d9beb9a","source":"product:P0003","target":"product:P0228","rel":"similar","label":"Alternative: same active ingredient(s)","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00574","clinicalSimilarity":100,"commercialSubstitution":100,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"inflammation, musculoskeletal pain, pain","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"608c9c8b574aed88","source":"product:P0003","target":"product:P0229","rel":"similar","label":"Alternative: same active ingredient(s)","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00575","clinicalSimilarity":100,"commercialSubstitution":100,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"inflammation, musculoskeletal pain, pain","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"97b39bc84fd38daa","source":"product:P0003","target":"product:P0295","rel":"similar","label":"Alternative: same active ingredient(s)","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00577","clinicalSimilarity":100,"commercialSubstitution":100,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"inflammation, musculoskeletal pain, pain","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"b93c2bd1da90a752","source":"product:P0003","target":"product:P0343","rel":"similar","label":"Alternative: same active ingredient(s)","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00579","clinicalSimilarity":100,"commercialSubstitution":100,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"inflammation, musculoskeletal pain, pain","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"dddb2fee39991799","source":"product:P0003","target":"product:P0346","rel":"similar","label":"Alternative: same active ingredient(s)","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00580","clinicalSimilarity":100,"commercialSubstitution":100,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"inflammation, musculoskeletal pain, pain","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"d96baccf09bd04f1","source":"product:P0003","target":"product:P0351","rel":"similar","label":"Alternative: same active ingredient(s)","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00584","clinicalSimilarity":100,"commercialSubstitution":100,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"inflammation, musculoskeletal pain, pain","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"2bf890e7cbf640d2","source":"product:P0003","target":"product:P0395","rel":"similar","label":"Alternative: same active ingredient(s)","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00585","clinicalSimilarity":100,"commercialSubstitution":100,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"inflammation, musculoskeletal pain, pain","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"f5ffb46e400bfadc","source":"product:P0003","target":"product:P0485","rel":"similar","label":"Alternative: same active ingredient(s)","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00586","clinicalSimilarity":100,"commercialSubstitution":100,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"inflammation, musculoskeletal pain, pain","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"82965e5baccbcfd1","source":"product:P0003","target":"product:P0486","rel":"similar","label":"Alternative: same active ingredient(s)","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00587","clinicalSimilarity":100,"commercialSubstitution":100,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"inflammation, musculoskeletal pain, pain","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"8f2308dbca04dfb5","source":"product:P0003","target":"product:P0019","rel":"similar","label":"Alternative: same active ingredient(s)","score":88,"why":"Same active ingredient(s), but delivered in different form families.","meta":{"edgeId":"E00560","clinicalSimilarity":100,"commercialSubstitution":95,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"inflammation, musculoskeletal pain, pain","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"0f533e422c47ca2f","source":"product:P0003","target":"product:P0164","rel":"similar","label":"Alternative: same active ingredient(s)","score":88,"why":"Same active ingredient(s), but delivered in different form families.","meta":{"edgeId":"E00566","clinicalSimilarity":100,"commercialSubstitution":95,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"inflammation, musculoskeletal pain, pain","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"06dcb2a549da9aa1","source":"product:P0003","target":"product:P0165","rel":"similar","label":"Alternative: same active ingredient(s)","score":88,"why":"Same active ingredient(s), but delivered in different form families.","meta":{"edgeId":"E00567","clinicalSimilarity":100,"commercialSubstitution":95,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"inflammation, musculoskeletal pain, pain","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"922ad94af616b5bd","source":"product:P0003","target":"product:P0221","rel":"similar","label":"Alternative: same active ingredient(s)","score":88,"why":"Same active ingredient(s), but delivered in different form families.","meta":{"edgeId":"E00568","clinicalSimilarity":100,"commercialSubstitution":95,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"inflammation, musculoskeletal pain, pain","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"1149d2a9677cf4e8","source":"product:P0003","target":"product:P0222","rel":"similar","label":"Alternative: same active ingredient(s)","score":88,"why":"Same active ingredient(s), but delivered in different form families.","meta":{"edgeId":"E00569","clinicalSimilarity":100,"commercialSubstitution":95,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"inflammation, musculoskeletal pain, pain","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"68501e20dd483332","source":"product:P0003","target":"product:P0224","rel":"similar","label":"Alternative: same active ingredient(s)","score":88,"why":"Same active ingredient(s), but delivered in different form families.","meta":{"edgeId":"E00570","clinicalSimilarity":100,"commercialSubstitution":95,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"inflammation, musculoskeletal pain, pain","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"f3d3dc69401c3f1e","source":"product:P0003","target":"product:P0227","rel":"similar","label":"Alternative: same active ingredient(s)","score":88,"why":"Same active ingredient(s), but delivered in different form families.","meta":{"edgeId":"E00573","clinicalSimilarity":100,"commercialSubstitution":95,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"inflammation, musculoskeletal pain, pain","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"90e84ec236e9c97b","source":"product:P0003","target":"product:P0230","rel":"similar","label":"Alternative: same active ingredient(s)","score":88,"why":"Same active ingredient(s), but delivered in different form families.","meta":{"edgeId":"E00576","clinicalSimilarity":100,"commercialSubstitution":95,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"inflammation, musculoskeletal pain, pain","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"9f057786dad6ade5","source":"product:P0003","target":"product:P0308","rel":"similar","label":"Alternative: same active ingredient(s)","score":88,"why":"Same active ingredient(s), but delivered in different form families.","meta":{"edgeId":"E00578","clinicalSimilarity":100,"commercialSubstitution":95,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"inflammation, musculoskeletal pain, pain","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"c402dd15340317ba","source":"product:P0003","target":"product:P0347","rel":"similar","label":"Alternative: same active ingredient(s)","score":88,"why":"Same active ingredient(s), but delivered in different form families.","meta":{"edgeId":"E00581","clinicalSimilarity":100,"commercialSubstitution":95,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"inflammation, musculoskeletal pain, pain","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"92177ce2ccd9a84a","source":"product:P0003","target":"product:P0348","rel":"similar","label":"Alternative: same active ingredient(s)","score":88,"why":"Same active ingredient(s), but delivered in different form families.","meta":{"edgeId":"E00582","clinicalSimilarity":100,"commercialSubstitution":95,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"inflammation, musculoskeletal pain, pain","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"27ccfb43ff33ec42","source":"product:P0003","target":"product:P0349","rel":"similar","label":"Alternative: same active ingredient(s)","score":88,"why":"Same active ingredient(s), but delivered in different form families.","meta":{"edgeId":"E00583","clinicalSimilarity":100,"commercialSubstitution":95,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"inflammation, musculoskeletal pain, pain","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"179bac9d33c48363","source":"product:P0003","target":"product:P0136","rel":"complement","label":"Joint / muscle pain support","score":84,"why":"Combines systemic anti-inflammatory relief with topical support.","meta":{"edgeId":"E15236","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":84,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Joint / muscle pain support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Ready - review when convenient","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"2fa448d6fd38b204","source":"product:P0003","target":"product:P0137","rel":"complement","label":"Joint / muscle pain support","score":84,"why":"Combines systemic anti-inflammatory relief with topical support.","meta":{"edgeId":"E15237","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":84,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Joint / muscle pain support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Ready - review when convenient","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"89cb32f63e9b2562","source":"product:P0003","target":"product:P0138","rel":"complement","label":"Joint / muscle pain support","score":84,"why":"Combines systemic anti-inflammatory relief with topical support.","meta":{"edgeId":"E15238","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":84,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Joint / muscle pain support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Ready - review when convenient","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"d6464242980edc1c","source":"product:P0003","target":"product:P0190","rel":"complement","label":"Joint / muscle pain support","score":84,"why":"Combines systemic anti-inflammatory relief with topical support.","meta":{"edgeId":"E15239","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":84,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Joint / muscle pain support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Ready - review when convenient","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"ea337ea88e80c9cb","source":"product:P0003","target":"product:P0191","rel":"complement","label":"Joint / muscle pain support","score":84,"why":"Combines systemic anti-inflammatory relief with topical support.","meta":{"edgeId":"E15240","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":84,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Joint / muscle pain support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Ready - review when convenient","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"f474e6b77eb73bee","source":"product:P0003","target":"product:P0223","rel":"complement","label":"Joint / muscle pain support","score":84,"why":"Combines systemic anti-inflammatory relief with topical support.","meta":{"edgeId":"E15241","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":84,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Joint / muscle pain support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Ready - review when convenient","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"639a9b0a6c64fc6f","source":"product:P0003","target":"product:P0288","rel":"complement","label":"Joint / muscle pain support","score":84,"why":"Combines systemic anti-inflammatory relief with topical support.","meta":{"edgeId":"E15242","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":84,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Joint / muscle pain support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Ready - review when convenient","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"726489c5d0ba1972","source":"product:P0003","target":"product:P0289","rel":"complement","label":"Joint / muscle pain support","score":84,"why":"Combines systemic anti-inflammatory relief with topical support.","meta":{"edgeId":"E15243","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":84,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Joint / muscle pain support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Ready - review when convenient","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"9aaab004fdd3eb9b","source":"product:P0003","target":"product:P0310","rel":"complement","label":"Joint / muscle pain support","score":84,"why":"Combines systemic anti-inflammatory relief with topical support.","meta":{"edgeId":"E15244","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":84,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Joint / muscle pain support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Ready - review when convenient","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"ae0a166ca78602ed","source":"product:P0003","target":"product:P0359","rel":"complement","label":"Joint / muscle pain support","score":84,"why":"Combines systemic anti-inflammatory relief with topical support.","meta":{"edgeId":"E15245","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":84,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Joint / muscle pain support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Ready - review when convenient","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"876b26ec871f9ec6","source":"product:P0003","target":"product:P0447","rel":"complement","label":"Joint / muscle pain support","score":84,"why":"Combines systemic anti-inflammatory relief with topical support.","meta":{"edgeId":"E15246","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":84,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Joint / muscle pain support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Ready - review when convenient","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"5f1af1d34ba72baa","source":"product:P0003","target":"product:P0482","rel":"complement","label":"Joint / muscle pain support","score":84,"why":"Combines systemic anti-inflammatory relief with topical support.","meta":{"edgeId":"E15247","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":84,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Joint / muscle pain support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Ready - review when convenient","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"fddefb7e76f08e22","source":"product:P0003","target":"product:P0492","rel":"complement","label":"Joint / muscle pain support","score":84,"why":"Combines systemic anti-inflammatory relief with topical support.","meta":{"edgeId":"E15248","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":84,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Joint / muscle pain support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Ready - review when convenient","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"44a53e82bbc3d5c7","source":"product:P0003","target":"product:P0493","rel":"complement","label":"Joint / muscle pain support","score":84,"why":"Combines systemic anti-inflammatory relief with topical support.","meta":{"edgeId":"E15249","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":84,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Joint / muscle pain support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Ready - review when convenient","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"4afb0580dfe8b711","source":"product:P0003","target":"product:P0499","rel":"complement","label":"Joint / muscle pain support","score":84,"why":"Combines systemic anti-inflammatory relief with topical support.","meta":{"edgeId":"E15250","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":84,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Joint / muscle pain support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Ready - review when convenient","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"86a46d27c4ffe310","source":"product:P0003","target":"product:P0507","rel":"complement","label":"Joint / muscle pain support","score":84,"why":"Combines systemic anti-inflammatory relief with topical support.","meta":{"edgeId":"E15251","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":84,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Joint / muscle pain support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Ready - review when convenient","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"bb83a50af5c2f580","source":"product:P0003","target":"product:P0509","rel":"complement","label":"Joint / muscle pain support","score":84,"why":"Combines systemic anti-inflammatory relief with topical support.","meta":{"edgeId":"E15252","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":84,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Joint / muscle pain support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Ready - review when convenient","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"f2e34a2de7e96e5f","source":"product:P0003","target":"product:P0510","rel":"complement","label":"Joint / muscle pain support","score":84,"why":"Combines systemic anti-inflammatory relief with topical support.","meta":{"edgeId":"E15253","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":84,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Joint / muscle pain support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Ready - review when convenient","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"6251cef76efbc166","source":"product:P0003","target":"product:P0511","rel":"complement","label":"Joint / muscle pain support","score":84,"why":"Combines systemic anti-inflammatory relief with topical support.","meta":{"edgeId":"E15254","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":84,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Joint / muscle pain support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Ready - review when convenient","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"1c07422c5e2c5520","source":"product:P0003","target":"product:P0512","rel":"complement","label":"Joint / muscle pain support","score":84,"why":"Combines systemic anti-inflammatory relief with topical support.","meta":{"edgeId":"E15255","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":84,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Joint / muscle pain support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Ready - review when convenient","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"d956bee390ad99d6","source":"product:P0003","target":"product:P0513","rel":"complement","label":"Joint / muscle pain support","score":84,"why":"Combines systemic anti-inflammatory relief with topical support.","meta":{"edgeId":"E15256","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":84,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Joint / muscle pain support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Ready - review when convenient","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"9dbbebc520c9b978","source":"product:P0003","target":"symptom:S037","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00009","role":"Primary","reviewStatus":"Seeded"}},{"key":"6976a260b1e72223","source":"product:P0003","target":"symptom:S051","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00010","role":"Primary","reviewStatus":"Seeded"}},{"key":"9556d9f532640b5f","source":"product:P0003","target":"symptom:S067","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM00011","role":"Secondary","reviewStatus":"Seeded"}},{"key":"5c77c905a416ae89","source":"product:P0003","target":"symptom:S048","rel":"symptom","label":"Secondary","score":78,"why":"Imported symptom tags","meta":{"mapId":"PSM00012","role":"Secondary","reviewStatus":"Seeded"}},{"key":"78295f960074bf29","source":"product:P0003","target":"usecase:UC004","rel":"usecase","label":"Main","score":100,"why":"inflammation, pain, swelling, musculoskeletal pain","meta":{"useCaseItemId":"UCI00295","role":"Main","reviewStatus":"Seeded"}},{"key":"799693a7a9013175","source":"product:P0003","target":"usecase:UC003","rel":"usecase","label":"Main","score":80,"why":"pain","meta":{"useCaseItemId":"UCI00183","role":"Main","reviewStatus":"Seeded"}},{"key":"563b0de05fdafe50","source":"product:P0003","target":"product:P0062","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00561","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}},{"key":"6836d9f33c141cb1","source":"product:P0003","target":"product:P0063","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00562","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}},{"key":"6e04e901c4d722f8","source":"product:P0003","target":"product:P0161","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00563","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}},{"key":"f72d6ae45278f7ea","source":"product:P0003","target":"product:P0162","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00564","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}},{"key":"d5cfde39ec5cc794","source":"product:P0003","target":"product:P0163","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00565","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}},{"key":"dba700f743aabf80","source":"product:P0003","target":"product:P0225","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00571","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}},{"key":"85146c3552e73244","source":"product:P0003","target":"product:P0226","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00572","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}},{"key":"b6b803445e36fccc","source":"product:P0003","target":"product:P0228","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00574","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}},{"key":"27b9a37cd675c38e","source":"product:P0003","target":"product:P0229","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00575","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}},{"key":"15ba542207001ca5","source":"product:P0003","target":"product:P0295","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00577","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}},{"key":"f84b27803119525d","source":"product:P0003","target":"product:P0343","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00579","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}},{"key":"43a553d8a834e60d","source":"product:P0003","target":"product:P0346","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00580","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}},{"key":"8ed34787f7e2c76e","source":"product:P0003","target":"product:P0351","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00584","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}},{"key":"310dc4252831a558","source":"product:P0003","target":"product:P0395","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00585","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}},{"key":"7d39aa940d2ec724","source":"product:P0003","target":"product:P0485","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00586","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}},{"key":"8cdc2e3f5c7dc754","source":"product:P0003","target":"product:P0486","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00587","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}},{"key":"1ec15378b11912e8","source":"product:P0003","target":"product:P0019","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":88,"why":"Same active ingredient(s), but delivered in different form families.","meta":{"edgeId":"E00560","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}},{"key":"f64c1de3ef8d9e97","source":"product:P0003","target":"product:P0164","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":88,"why":"Same active ingredient(s), but delivered in different form families.","meta":{"edgeId":"E00566","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}},{"key":"3008ae0a3b677af4","source":"product:P0003","target":"product:P0165","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":88,"why":"Same active ingredient(s), but delivered in different form families.","meta":{"edgeId":"E00567","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}},{"key":"3ae17f3b154f637a","source":"product:P0003","target":"product:P0221","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":88,"why":"Same active ingredient(s), but delivered in different form families.","meta":{"edgeId":"E00568","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}},{"key":"add081c1ac4829d7","source":"product:P0003","target":"product:P0222","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":88,"why":"Same active ingredient(s), but delivered in different form families.","meta":{"edgeId":"E00569","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}},{"key":"e7c2af30a38853be","source":"product:P0003","target":"product:P0224","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":88,"why":"Same active ingredient(s), but delivered in different form families.","meta":{"edgeId":"E00570","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}},{"key":"2dc9782e11afb229","source":"product:P0003","target":"product:P0227","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":88,"why":"Same active ingredient(s), but delivered in different form families.","meta":{"edgeId":"E00573","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}},{"key":"86b6c628ad2d384a","source":"product:P0003","target":"product:P0230","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":88,"why":"Same active ingredient(s), but delivered in different form families.","meta":{"edgeId":"E00576","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}},{"key":"23ca7074744bb4f4","source":"product:P0003","target":"product:P0308","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":88,"why":"Same active ingredient(s), but delivered in different form families.","meta":{"edgeId":"E00578","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}},{"key":"8f8a4da08ef9b667","source":"product:P0003","target":"product:P0347","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":88,"why":"Same active ingredient(s), but delivered in different form families.","meta":{"edgeId":"E00581","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}},{"key":"94688240dc4fba17","source":"product:P0003","target":"product:P0348","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":88,"why":"Same active ingredient(s), but delivered in different form families.","meta":{"edgeId":"E00582","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}},{"key":"4ed0f6850f502505","source":"product:P0003","target":"product:P0349","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":88,"why":"Same active ingredient(s), but delivered in different form families.","meta":{"edgeId":"E00583","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}}],"meta":{"productName":"ALGOFREN 200 mg film-coated tablets","linkCount":83}}
+{
+  "centerId": "product:P0003",
+  "centerType": "product",
+  "refId": "P0003",
+  "nodes": [
+    {
+      "id": "product:P0003",
+      "nodeType": "product",
+      "refId": "P0003",
+      "label": "ALGOFREN 200 mg film-coated tablets",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "ALGOFREN",
+        "generic": "IBUPROFEN",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 200 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "algofren 200 mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0136",
+      "nodeType": "product",
+      "refId": "P0136",
+      "label": "Diclofenac INN-FARM 10 mg/g gel",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Diclofenac",
+        "generic": "DICLOFENAC SODIUM",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DICLOFENAC SODIUM 10 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA15",
+        "status": "Authorised",
+        "supplierCatalogKey": "diclofenac inn-farm 10 mg/g gel"
+      }
+    },
+    {
+      "id": "product:P0137",
+      "nodeType": "product",
+      "refId": "P0137",
+      "label": "Diclofenac INN-FARM 20 mg/g gel",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Diclofenac",
+        "generic": "DICLOFENAC SODIUM",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DICLOFENAC SODIUM 20 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA15",
+        "status": "Authorised",
+        "supplierCatalogKey": "diclofenac inn-farm 20 mg/g gel"
+      }
+    },
+    {
+      "id": "product:P0138",
+      "nodeType": "product",
+      "refId": "P0138",
+      "label": "Diclomel Max Strength 2% w/w gel",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Diclomel",
+        "generic": "DICLOFENAC SODIUM",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DICLOFENAC SODIUM 20 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA15",
+        "status": "Authorised",
+        "supplierCatalogKey": "diclomel max strength 2% w/w gel"
+      }
+    },
+    {
+      "id": "product:P0190",
+      "nodeType": "product",
+      "refId": "P0190",
+      "label": "Flogoprofen Cutaneous Spray, Solution 50mg/ml",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Flogoprofen",
+        "generic": "ETOFENAMATE",
+        "form": "CUTANEOUS SPRAY, SOLUTION",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "ETOFENAMATE 50 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA06",
+        "status": "Authorised",
+        "supplierCatalogKey": "flogoprofen cutaneous spray, solution 50mg/ml"
+      }
+    },
+    {
+      "id": "product:P0191",
+      "nodeType": "product",
+      "refId": "P0191",
+      "label": "Flogoprofen Gel 50mg/g",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Flogoprofen",
+        "generic": "ETOFENAMATE",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "ETOFENAMATE 50 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA06",
+        "status": "Authorised",
+        "supplierCatalogKey": "flogoprofen gel 50mg/g"
+      }
+    },
+    {
+      "id": "product:P0223",
+      "nodeType": "product",
+      "refId": "P0223",
+      "label": "Ibalgin Duo Effect 50 mg/g + 2 mg/g cream",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Ibalgin",
+        "generic": "HEPARINOID | IBUPROFEN",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "IBUPROFEN 50 milligram(s)/gram | HEPARINOID 2 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA13",
+        "status": "Authorised",
+        "supplierCatalogKey": "ibalgin duo effect 50 mg/g + 2 mg/g cream"
+      }
+    },
+    {
+      "id": "product:P0288",
+      "nodeType": "product",
+      "refId": "P0288",
+      "label": "Mentholatum Deep Heat Cream",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Mentholatum",
+        "generic": "EUCALYPTUS OIL | MENTHOL | METHYL SALICYLATE | TURPENTINE OIL",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 4,
+        "strengthText": "METHYL SALICYLATE 12.80 percent weight/weight | MENTHOL 5.91 percent weight/weight | EUCALYPTUS OIL 1.97 percent weight/weight | TURPENTINE OIL 1.47 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AX",
+        "status": "Authorised",
+        "supplierCatalogKey": "mentholatum deep heat cream"
+      }
+    },
+    {
+      "id": "product:P0289",
+      "nodeType": "product",
+      "refId": "P0289",
+      "label": "Mentholatum Deep Heat Spray, cutaneous spray solution",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Mentholatum",
+        "generic": "ETHYL SALICYLATE | HYDROXYETHYL SALICYLATE | METHYL NICOTINATE | METHYL SALICYLATE",
+        "form": "CUTANEOUS SPRAY, SOLUTION",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 4,
+        "strengthText": "ETHYL SALICYLATE 5 percent weight/weight | HYDROXYETHYL SALICYLATE 5 percent weight/weight | METHYL NICOTINATE 1.6 percent weight/weight | METHYL SALICYLATE 1 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AX",
+        "status": "Authorised",
+        "supplierCatalogKey": "mentholatum deep heat spray, cutaneous spray solution"
+      }
+    },
+    {
+      "id": "product:P0310",
+      "nodeType": "product",
+      "refId": "P0310",
+      "label": "Naprosyn 10%, gel",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Naprosyn",
+        "generic": "NAPROXEN",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "NAPROXEN 100 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA12",
+        "status": "Authorised",
+        "supplierCatalogKey": "naprosyn 10%, gel"
+      }
+    },
+    {
+      "id": "product:P0359",
+      "nodeType": "product",
+      "refId": "P0359",
+      "label": "Olfen Forte 23.2 mg/g gel",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Olfen",
+        "generic": "DICLOFENAC DIETHYLAMINE",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DICLOFENAC DIETHYLAMINE 23.2 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA15",
+        "status": "Authorised",
+        "supplierCatalogKey": "olfen forte 23.2 mg/g gel"
+      }
+    },
+    {
+      "id": "product:P0447",
+      "nodeType": "product",
+      "refId": "P0447",
+      "label": "Sindolor 5 mg/5 mg/20 mg/g gel",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Sindolor",
+        "generic": "CYCLOPENTOLATE HYDROCHLORIDE | LIDOCAINE | PIROXICAM",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "PIROXICAM 5 milligram(s)/gram | CYCLOPENTOLATE HYDROCHLORIDE 5 milligram(s)/gram | LIDOCAINE 20 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA07",
+        "status": "Authorised",
+        "supplierCatalogKey": "sindolor 5 mg/5 mg/20 mg/g gel"
+      }
+    },
+    {
+      "id": "product:P0482",
+      "nodeType": "product",
+      "refId": "P0482",
+      "label": "Traumon Gel 10%",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Traumon",
+        "generic": "ETOFENAMATE",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "ETOFENAMATE 100 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA06",
+        "status": "Authorised",
+        "supplierCatalogKey": "traumon gel 10%"
+      }
+    },
+    {
+      "id": "product:P0492",
+      "nodeType": "product",
+      "refId": "P0492",
+      "label": "VOLTAREN EMULGEL 1%, gel",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "VOLTAREN",
+        "generic": "DICLOFENAC SODIUM",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DICLOFENAC SODIUM 1 gram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA15",
+        "status": "Authorised",
+        "supplierCatalogKey": "voltaren emulgel 1%, gel"
+      }
+    },
+    {
+      "id": "product:P0493",
+      "nodeType": "product",
+      "refId": "P0493",
+      "label": "VOLTAREN EMULGEL 1%, gel in aerosol spray can",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "VOLTAREN",
+        "generic": "DICLOFENAC SODIUM",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DICLOFENAC SODIUM 1 gram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA15",
+        "status": "Authorised",
+        "supplierCatalogKey": "voltaren emulgel 1%, gel in aerosol spray can"
+      }
+    },
+    {
+      "id": "product:P0499",
+      "nodeType": "product",
+      "refId": "P0499",
+      "label": "Viamal Trauma gel",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Viamal",
+        "generic": "DIETHYLAMINE SALICYLATE | HEPARIN SODIUM | MENTHOL",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "DIETHYLAMINE SALICYLATE 100 milligram(s)/gram | MENTHOL 2 milligram(s)/gram | HEPARIN SODIUM 136,000 international unit(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AC",
+        "status": "Authorised",
+        "supplierCatalogKey": "viamal trauma gel"
+      }
+    },
+    {
+      "id": "product:P0507",
+      "nodeType": "product",
+      "refId": "P0507",
+      "label": "Vilonit",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Vilonit",
+        "generic": "DICLOFENAC SODIUM",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DICLOFENAC SODIUM 1 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA15",
+        "status": "Authorised",
+        "supplierCatalogKey": "vilonit"
+      }
+    },
+    {
+      "id": "product:P0509",
+      "nodeType": "product",
+      "refId": "P0509",
+      "label": "Voltadol 140 mg Medicated Patch",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Voltadol",
+        "generic": "DICLOFENAC SODIUM",
+        "form": "MEDICATED PLASTER",
+        "formGroup": "Other",
+        "route": "Other",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DICLOFENAC SODIUM 140 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA15",
+        "status": "Authorised",
+        "supplierCatalogKey": "voltadol 140 mg medicated patch"
+      }
+    },
+    {
+      "id": "product:P0510",
+      "nodeType": "product",
+      "refId": "P0510",
+      "label": "Voltaren Emulgel 1.16% Gel",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Voltaren",
+        "generic": "DICLOFENAC SODIUM",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DICLOFENAC SODIUM 10 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA15",
+        "status": "Authorised",
+        "supplierCatalogKey": "voltaren emulgel 1.16% gel"
+      }
+    },
+    {
+      "id": "product:P0511",
+      "nodeType": "product",
+      "refId": "P0511",
+      "label": "Voltaren Emulgel 10 mg/g",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Voltaren",
+        "generic": "DICLOFENAC DIETHYLAMINE",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DICLOFENAC DIETHYLAMINE 11.6 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA15",
+        "status": "Authorised",
+        "supplierCatalogKey": "voltaren emulgel 10 mg/g"
+      }
+    },
+    {
+      "id": "product:P0512",
+      "nodeType": "product",
+      "refId": "P0512",
+      "label": "Voltaren Emulgel 11.6 mg/g emulsion-gel",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Voltaren",
+        "generic": "DICLOFENAC SODIUM",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DICLOFENAC SODIUM 10 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA15",
+        "status": "Authorised",
+        "supplierCatalogKey": "voltaren emulgel 11.6 mg/g emulsion-gel"
+      }
+    },
+    {
+      "id": "product:P0513",
+      "nodeType": "product",
+      "refId": "P0513",
+      "label": "Voltarol Muscle & Joint Pain Relief 140 mg medicated plaster",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Voltarol",
+        "generic": "DICLOFENAC SODIUM",
+        "form": "MEDICATED PLASTER",
+        "formGroup": "Other",
+        "route": "Other",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DICLOFENAC SODIUM 140 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA15",
+        "status": "Authorised",
+        "supplierCatalogKey": "voltarol muscle & joint pain relief 140 mg medicated plaster"
+      }
+    },
+    {
+      "id": "product:P0062",
+      "nodeType": "product",
+      "refId": "P0062",
+      "label": "Brupro 200mg Film-coated tablets",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Brupro",
+        "generic": "IBUPROFEN",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 200 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "brupro 200mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0063",
+      "nodeType": "product",
+      "refId": "P0063",
+      "label": "Brupro Max 400mg Film-coated tablets",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Brupro",
+        "generic": "IBUPROFEN",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 400 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "brupro max 400mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0161",
+      "nodeType": "product",
+      "refId": "P0161",
+      "label": "Easofen 200mg Film-Coated Tablets",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Easofen",
+        "generic": "IBUPROFEN",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 200 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "easofen 200mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0162",
+      "nodeType": "product",
+      "refId": "P0162",
+      "label": "Easofen Max Strength 400 mg Film-coated Tablets",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Easofen",
+        "generic": "IBUPROFEN",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 400 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "easofen max strength 400 mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0163",
+      "nodeType": "product",
+      "refId": "P0163",
+      "label": "Easofen Rapid Relief Max Strength 400 mg soft capsules",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Easofen",
+        "generic": "IBUPROFEN",
+        "form": "SOFT CAPSULE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 400 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "easofen rapid relief max strength 400 mg soft capsules"
+      }
+    },
+    {
+      "id": "product:P0225",
+      "nodeType": "product",
+      "refId": "P0225",
+      "label": "Ibum Express Forte, 400 mg, capsules, soft",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Ibum",
+        "generic": "IBUPROFEN",
+        "form": "SOFT CAPSULE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 400 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "ibum express forte, 400 mg, capsules, soft"
+      }
+    },
+    {
+      "id": "product:P0226",
+      "nodeType": "product",
+      "refId": "P0226",
+      "label": "Ibum Sprint, 200 mg, capsules, soft",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Ibum",
+        "generic": "IBUPROFEN",
+        "form": "SOFT CAPSULE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 200 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "ibum sprint, 200 mg, capsules, soft"
+      }
+    },
+    {
+      "id": "product:P0228",
+      "nodeType": "product",
+      "refId": "P0228",
+      "label": "Ibuprofen Clonmel 200 mg film-coated tablets",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Ibuprofen",
+        "generic": "IBUPROFEN",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 200 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "ibuprofen clonmel 200 mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0229",
+      "nodeType": "product",
+      "refId": "P0229",
+      "label": "Ibuprofen Clonmel Max Strength 400 mg film-coated tablets",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Ibuprofen",
+        "generic": "IBUPROFEN",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 400 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "ibuprofen clonmel max strength 400 mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0295",
+      "nodeType": "product",
+      "refId": "P0295",
+      "label": "Moment 200, 200 mg coated tablets",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Moment",
+        "generic": "IBUPROFEN",
+        "form": "COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 200 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "moment 200, 200 mg coated tablets"
+      }
+    },
+    {
+      "id": "product:P0343",
+      "nodeType": "product",
+      "refId": "P0343",
+      "label": "Nurofen 200 mg Coated Tablets",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Nurofen",
+        "generic": "IBUPROFEN",
+        "form": "COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 200 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "nurofen 200 mg coated tablets"
+      }
+    },
+    {
+      "id": "product:P0346",
+      "nodeType": "product",
+      "refId": "P0346",
+      "label": "Nurofen Rapid Pain Relief Max 400 mg Soft Capsules",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Nurofen",
+        "generic": "IBUPROFEN",
+        "form": "SOFT CAPSULE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 400 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "nurofen rapid pain relief max 400 mg soft capsules"
+      }
+    },
+    {
+      "id": "product:P0351",
+      "nodeType": "product",
+      "refId": "P0351",
+      "label": "Nurofen for children 100 mg chewable capsules, Soft",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Nurofen",
+        "generic": "IBUPROFEN",
+        "form": "CHEWABLE TABLET, SOFT CAPSULE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 100 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "nurofen for children 100 mg chewable capsules, soft"
+      }
+    },
+    {
+      "id": "product:P0395",
+      "nodeType": "product",
+      "refId": "P0395",
+      "label": "Perofen 400 mg coated tablets",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Perofen",
+        "generic": "IBUPROFEN",
+        "form": "COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 400 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "perofen 400 mg coated tablets"
+      }
+    },
+    {
+      "id": "product:P0485",
+      "nodeType": "product",
+      "refId": "P0485",
+      "label": "Ultimax 200mg film-coated tablets",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Ultimax",
+        "generic": "IBUPROFEN",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 200 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "ultimax 200mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0486",
+      "nodeType": "product",
+      "refId": "P0486",
+      "label": "Ultimax 400mg film-coated tablets",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Ultimax",
+        "generic": "IBUPROFEN",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 400 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "ultimax 400mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0019",
+      "nodeType": "product",
+      "refId": "P0019",
+      "label": "Algidrin pediatric 20mg/ml oral suspension",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Algidrin",
+        "generic": "IBUPROFEN",
+        "form": "ORAL SUSPENSION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 20 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "algidrin pediatric 20mg/ml oral suspension"
+      }
+    },
+    {
+      "id": "product:P0164",
+      "nodeType": "product",
+      "refId": "P0164",
+      "label": "Easofen for Children Six Plus Strawberry 200mg/5ml Oral Suspension",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Easofen",
+        "generic": "IBUPROFEN",
+        "form": "ORAL SUSPENSION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 200 milligram(s)/5 millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "easofen for children six plus strawberry 200mg/5ml oral suspension"
+      }
+    },
+    {
+      "id": "product:P0165",
+      "nodeType": "product",
+      "refId": "P0165",
+      "label": "Easofen for Children Strawberry 100mg/5ml Oral Suspension",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Easofen",
+        "generic": "IBUPROFEN",
+        "form": "ORAL SUSPENSION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 100 milligram(s)/5 millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "easofen for children strawberry 100mg/5ml oral suspension"
+      }
+    },
+    {
+      "id": "product:P0221",
+      "nodeType": "product",
+      "refId": "P0221",
+      "label": "IBUM dla dzieci, 125 mg, Suppositories",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "IBUM",
+        "generic": "IBUPROFEN",
+        "form": "SUPPOSITORY",
+        "formGroup": "Suppository / pessary",
+        "route": "Suppository / pessary",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 125 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "ibum dla dzieci, 125 mg, suppositories"
+      }
+    },
+    {
+      "id": "product:P0222",
+      "nodeType": "product",
+      "refId": "P0222",
+      "label": "IBUM dla dzieci, 60 mg, Suppositories",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "IBUM",
+        "generic": "IBUPROFEN",
+        "form": "SUPPOSITORY",
+        "formGroup": "Suppository / pessary",
+        "route": "Suppository / pessary",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 60 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "ibum dla dzieci, 60 mg, suppositories"
+      }
+    },
+    {
+      "id": "product:P0224",
+      "nodeType": "product",
+      "refId": "P0224",
+      "label": "Ibufen Baby, 60 mg, suppositories",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Ibufen",
+        "generic": "IBUPROFEN",
+        "form": "SUPPOSITORY",
+        "formGroup": "Suppository / pessary",
+        "route": "Suppository / pessary",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 60 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "ibufen baby, 60 mg, suppositories"
+      }
+    },
+    {
+      "id": "product:P0227",
+      "nodeType": "product",
+      "refId": "P0227",
+      "label": "Ibuprofen Azevedos 20 mg/ml Oral Suspension",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Ibuprofen",
+        "generic": "IBUPROFEN",
+        "form": "ORAL SUSPENSION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 20 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "ibuprofen azevedos 20 mg/ml oral suspension"
+      }
+    },
+    {
+      "id": "product:P0230",
+      "nodeType": "product",
+      "refId": "P0230",
+      "label": "Ibuprofen Nutra Essential 40 mg / ml oral suspension",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Ibuprofen",
+        "generic": "IBUPROFEN",
+        "form": "ORAL SUSPENSION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 40 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "ibuprofen nutra essential 40 mg / ml oral suspension"
+      }
+    },
+    {
+      "id": "product:P0308",
+      "nodeType": "product",
+      "refId": "P0308",
+      "label": "NUROFEN for children 100mg/5mL oral suspension",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "NUROFEN",
+        "generic": "IBUPROFEN",
+        "form": "ORAL SUSPENSION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 20 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "nurofen for children 100mg/5ml oral suspension"
+      }
+    },
+    {
+      "id": "product:P0347",
+      "nodeType": "product",
+      "refId": "P0347",
+      "label": "Nurofen Strawberry 20 mg/ml oral suspension",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Nurofen",
+        "generic": "IBUPROFEN",
+        "form": "ORAL SUSPENSION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 100 milligram(s)/5 millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "nurofen strawberry 20 mg/ml oral suspension"
+      }
+    },
+    {
+      "id": "product:P0348",
+      "nodeType": "product",
+      "refId": "P0348",
+      "label": "Nurofen for Children 100 mg/5 ml oral suspension",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Nurofen",
+        "generic": "IBUPROFEN",
+        "form": "ORAL SUSPENSION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 100 milligram(s)/5 millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "nurofen for children 100 mg/5 ml oral suspension"
+      }
+    },
+    {
+      "id": "product:P0349",
+      "nodeType": "product",
+      "refId": "P0349",
+      "label": "Nurofen for Children 60 mg Suppositories Age 3 months to 2 years",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Nurofen",
+        "generic": "IBUPROFEN",
+        "form": "SUPPOSITORY",
+        "formGroup": "Suppository / pessary",
+        "route": "Suppository / pessary",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 60 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "nurofen for children 60 mg suppositories age 3 months to 2 years"
+      }
+    },
+    {
+      "id": "symptom:S037",
+      "nodeType": "symptom",
+      "refId": "S037",
+      "label": "inflammation",
+      "subtext": "Pain / fever",
+      "meta": {
+        "Symptom_ID": "S037",
+        "Symptom_Name": "inflammation",
+        "Symptom_Category": "Pain / fever",
+        "Linked_Product_Count": 43,
+        "Display_Group": "Pain / fever",
+        "Priority_For_Graph": 100,
+        "Node_Color": "#5B9BD5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "symptom:S051",
+      "nodeType": "symptom",
+      "refId": "S051",
+      "label": "pain",
+      "subtext": "Pain / fever",
+      "meta": {
+        "Symptom_ID": "S051",
+        "Symptom_Name": "pain",
+        "Symptom_Category": "Pain / fever",
+        "Linked_Product_Count": 43,
+        "Display_Group": "Pain / fever",
+        "Priority_For_Graph": 100,
+        "Node_Color": "#5B9BD5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "symptom:S067",
+      "nodeType": "symptom",
+      "refId": "S067",
+      "label": "swelling",
+      "subtext": "Pain / fever",
+      "meta": {
+        "Symptom_ID": "S067",
+        "Symptom_Name": "swelling",
+        "Symptom_Category": "Pain / fever",
+        "Linked_Product_Count": 43,
+        "Display_Group": "Pain / fever",
+        "Priority_For_Graph": 100,
+        "Node_Color": "#5B9BD5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "symptom:S048",
+      "nodeType": "symptom",
+      "refId": "S048",
+      "label": "musculoskeletal pain",
+      "subtext": "Pain / fever",
+      "meta": {
+        "Symptom_ID": "S048",
+        "Symptom_Name": "musculoskeletal pain",
+        "Symptom_Category": "Pain / fever",
+        "Linked_Product_Count": 43,
+        "Display_Group": "Pain / fever",
+        "Priority_For_Graph": 100,
+        "Node_Color": "#5B9BD5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "usecase:UC003",
+      "nodeType": "usecase",
+      "refId": "UC003",
+      "label": "Pain and fever support",
+      "subtext": "Pain / fever",
+      "meta": {
+        "UseCase_ID": "UC003",
+        "UseCase_Name": "Pain and fever support",
+        "UseCase_Category": "Pain / fever",
+        "Trigger_Symptoms": "Headache, fever, body aches",
+        "Description": "Simple analgesic alternatives and add-ons."
+      }
+    },
+    {
+      "id": "usecase:UC004",
+      "nodeType": "usecase",
+      "refId": "UC004",
+      "label": "Muscle and joint pain support",
+      "subtext": "Pain / fever",
+      "meta": {
+        "UseCase_ID": "UC004",
+        "UseCase_Name": "Muscle and joint pain support",
+        "UseCase_Category": "Pain / fever",
+        "Trigger_Symptoms": "Muscle pain, joint pain, back pain, sprains",
+        "Description": "Topical plus oral pain relief combinations."
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "179bac9d33c48363",
+      "source": "product:P0003",
+      "target": "product:P0136",
+      "rel": "complement",
+      "label": "Joint / muscle pain support",
+      "score": 84,
+      "why": "Combines systemic anti-inflammatory relief with topical support.",
+      "meta": {
+        "edgeId": "E15236"
+      }
+    },
+    {
+      "key": "2fa448d6fd38b204",
+      "source": "product:P0003",
+      "target": "product:P0137",
+      "rel": "complement",
+      "label": "Joint / muscle pain support",
+      "score": 84,
+      "why": "Combines systemic anti-inflammatory relief with topical support.",
+      "meta": {
+        "edgeId": "E15237"
+      }
+    },
+    {
+      "key": "89cb32f63e9b2562",
+      "source": "product:P0003",
+      "target": "product:P0138",
+      "rel": "complement",
+      "label": "Joint / muscle pain support",
+      "score": 84,
+      "why": "Combines systemic anti-inflammatory relief with topical support.",
+      "meta": {
+        "edgeId": "E15238"
+      }
+    },
+    {
+      "key": "d6464242980edc1c",
+      "source": "product:P0003",
+      "target": "product:P0190",
+      "rel": "complement",
+      "label": "Joint / muscle pain support",
+      "score": 84,
+      "why": "Combines systemic anti-inflammatory relief with topical support.",
+      "meta": {
+        "edgeId": "E15239"
+      }
+    },
+    {
+      "key": "ea337ea88e80c9cb",
+      "source": "product:P0003",
+      "target": "product:P0191",
+      "rel": "complement",
+      "label": "Joint / muscle pain support",
+      "score": 84,
+      "why": "Combines systemic anti-inflammatory relief with topical support.",
+      "meta": {
+        "edgeId": "E15240"
+      }
+    },
+    {
+      "key": "f474e6b77eb73bee",
+      "source": "product:P0003",
+      "target": "product:P0223",
+      "rel": "complement",
+      "label": "Joint / muscle pain support",
+      "score": 84,
+      "why": "Combines systemic anti-inflammatory relief with topical support.",
+      "meta": {
+        "edgeId": "E15241"
+      }
+    },
+    {
+      "key": "639a9b0a6c64fc6f",
+      "source": "product:P0003",
+      "target": "product:P0288",
+      "rel": "complement",
+      "label": "Joint / muscle pain support",
+      "score": 84,
+      "why": "Combines systemic anti-inflammatory relief with topical support.",
+      "meta": {
+        "edgeId": "E15242"
+      }
+    },
+    {
+      "key": "726489c5d0ba1972",
+      "source": "product:P0003",
+      "target": "product:P0289",
+      "rel": "complement",
+      "label": "Joint / muscle pain support",
+      "score": 84,
+      "why": "Combines systemic anti-inflammatory relief with topical support.",
+      "meta": {
+        "edgeId": "E15243"
+      }
+    },
+    {
+      "key": "9aaab004fdd3eb9b",
+      "source": "product:P0003",
+      "target": "product:P0310",
+      "rel": "complement",
+      "label": "Joint / muscle pain support",
+      "score": 84,
+      "why": "Combines systemic anti-inflammatory relief with topical support.",
+      "meta": {
+        "edgeId": "E15244"
+      }
+    },
+    {
+      "key": "ae0a166ca78602ed",
+      "source": "product:P0003",
+      "target": "product:P0359",
+      "rel": "complement",
+      "label": "Joint / muscle pain support",
+      "score": 84,
+      "why": "Combines systemic anti-inflammatory relief with topical support.",
+      "meta": {
+        "edgeId": "E15245"
+      }
+    },
+    {
+      "key": "876b26ec871f9ec6",
+      "source": "product:P0003",
+      "target": "product:P0447",
+      "rel": "complement",
+      "label": "Joint / muscle pain support",
+      "score": 84,
+      "why": "Combines systemic anti-inflammatory relief with topical support.",
+      "meta": {
+        "edgeId": "E15246"
+      }
+    },
+    {
+      "key": "5f1af1d34ba72baa",
+      "source": "product:P0003",
+      "target": "product:P0482",
+      "rel": "complement",
+      "label": "Joint / muscle pain support",
+      "score": 84,
+      "why": "Combines systemic anti-inflammatory relief with topical support.",
+      "meta": {
+        "edgeId": "E15247"
+      }
+    },
+    {
+      "key": "fddefb7e76f08e22",
+      "source": "product:P0003",
+      "target": "product:P0492",
+      "rel": "complement",
+      "label": "Joint / muscle pain support",
+      "score": 84,
+      "why": "Combines systemic anti-inflammatory relief with topical support.",
+      "meta": {
+        "edgeId": "E15248"
+      }
+    },
+    {
+      "key": "44a53e82bbc3d5c7",
+      "source": "product:P0003",
+      "target": "product:P0493",
+      "rel": "complement",
+      "label": "Joint / muscle pain support",
+      "score": 84,
+      "why": "Combines systemic anti-inflammatory relief with topical support.",
+      "meta": {
+        "edgeId": "E15249"
+      }
+    },
+    {
+      "key": "4afb0580dfe8b711",
+      "source": "product:P0003",
+      "target": "product:P0499",
+      "rel": "complement",
+      "label": "Joint / muscle pain support",
+      "score": 84,
+      "why": "Combines systemic anti-inflammatory relief with topical support.",
+      "meta": {
+        "edgeId": "E15250"
+      }
+    },
+    {
+      "key": "86a46d27c4ffe310",
+      "source": "product:P0003",
+      "target": "product:P0507",
+      "rel": "complement",
+      "label": "Joint / muscle pain support",
+      "score": 84,
+      "why": "Combines systemic anti-inflammatory relief with topical support.",
+      "meta": {
+        "edgeId": "E15251"
+      }
+    },
+    {
+      "key": "bb83a50af5c2f580",
+      "source": "product:P0003",
+      "target": "product:P0509",
+      "rel": "complement",
+      "label": "Joint / muscle pain support",
+      "score": 84,
+      "why": "Combines systemic anti-inflammatory relief with topical support.",
+      "meta": {
+        "edgeId": "E15252"
+      }
+    },
+    {
+      "key": "f2e34a2de7e96e5f",
+      "source": "product:P0003",
+      "target": "product:P0510",
+      "rel": "complement",
+      "label": "Joint / muscle pain support",
+      "score": 84,
+      "why": "Combines systemic anti-inflammatory relief with topical support.",
+      "meta": {
+        "edgeId": "E15253"
+      }
+    },
+    {
+      "key": "6251cef76efbc166",
+      "source": "product:P0003",
+      "target": "product:P0511",
+      "rel": "complement",
+      "label": "Joint / muscle pain support",
+      "score": 84,
+      "why": "Combines systemic anti-inflammatory relief with topical support.",
+      "meta": {
+        "edgeId": "E15254"
+      }
+    },
+    {
+      "key": "1c07422c5e2c5520",
+      "source": "product:P0003",
+      "target": "product:P0512",
+      "rel": "complement",
+      "label": "Joint / muscle pain support",
+      "score": 84,
+      "why": "Combines systemic anti-inflammatory relief with topical support.",
+      "meta": {
+        "edgeId": "E15255"
+      }
+    },
+    {
+      "key": "d956bee390ad99d6",
+      "source": "product:P0003",
+      "target": "product:P0513",
+      "rel": "complement",
+      "label": "Joint / muscle pain support",
+      "score": 84,
+      "why": "Combines systemic anti-inflammatory relief with topical support.",
+      "meta": {
+        "edgeId": "E15256"
+      }
+    },
+    {
+      "key": "3a00d03c8264334f",
+      "source": "product:P0003",
+      "target": "product:P0062",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00561"
+      }
+    },
+    {
+      "key": "1d5d1e44084ce156",
+      "source": "product:P0003",
+      "target": "product:P0063",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00562"
+      }
+    },
+    {
+      "key": "b19b4ca5b2ef16e8",
+      "source": "product:P0003",
+      "target": "product:P0161",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00563"
+      }
+    },
+    {
+      "key": "87be2459d4b165a7",
+      "source": "product:P0003",
+      "target": "product:P0162",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00564"
+      }
+    },
+    {
+      "key": "4db85d67c7f26ee1",
+      "source": "product:P0003",
+      "target": "product:P0163",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00565"
+      }
+    },
+    {
+      "key": "c6aa926b924e88d4",
+      "source": "product:P0003",
+      "target": "product:P0225",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00571"
+      }
+    },
+    {
+      "key": "19483824b80929b9",
+      "source": "product:P0003",
+      "target": "product:P0226",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00572"
+      }
+    },
+    {
+      "key": "4f882ae88d9beb9a",
+      "source": "product:P0003",
+      "target": "product:P0228",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00574"
+      }
+    },
+    {
+      "key": "608c9c8b574aed88",
+      "source": "product:P0003",
+      "target": "product:P0229",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00575"
+      }
+    },
+    {
+      "key": "97b39bc84fd38daa",
+      "source": "product:P0003",
+      "target": "product:P0295",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00577"
+      }
+    },
+    {
+      "key": "b93c2bd1da90a752",
+      "source": "product:P0003",
+      "target": "product:P0343",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00579"
+      }
+    },
+    {
+      "key": "dddb2fee39991799",
+      "source": "product:P0003",
+      "target": "product:P0346",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00580"
+      }
+    },
+    {
+      "key": "d96baccf09bd04f1",
+      "source": "product:P0003",
+      "target": "product:P0351",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00584"
+      }
+    },
+    {
+      "key": "2bf890e7cbf640d2",
+      "source": "product:P0003",
+      "target": "product:P0395",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00585"
+      }
+    },
+    {
+      "key": "f5ffb46e400bfadc",
+      "source": "product:P0003",
+      "target": "product:P0485",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00586"
+      }
+    },
+    {
+      "key": "82965e5baccbcfd1",
+      "source": "product:P0003",
+      "target": "product:P0486",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00587"
+      }
+    },
+    {
+      "key": "8f2308dbca04dfb5",
+      "source": "product:P0003",
+      "target": "product:P0019",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 88,
+      "why": "Same active ingredient(s), but delivered in different form families.",
+      "meta": {
+        "edgeId": "E00560"
+      }
+    },
+    {
+      "key": "0f533e422c47ca2f",
+      "source": "product:P0003",
+      "target": "product:P0164",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 88,
+      "why": "Same active ingredient(s), but delivered in different form families.",
+      "meta": {
+        "edgeId": "E00566"
+      }
+    },
+    {
+      "key": "06dcb2a549da9aa1",
+      "source": "product:P0003",
+      "target": "product:P0165",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 88,
+      "why": "Same active ingredient(s), but delivered in different form families.",
+      "meta": {
+        "edgeId": "E00567"
+      }
+    },
+    {
+      "key": "922ad94af616b5bd",
+      "source": "product:P0003",
+      "target": "product:P0221",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 88,
+      "why": "Same active ingredient(s), but delivered in different form families.",
+      "meta": {
+        "edgeId": "E00568"
+      }
+    },
+    {
+      "key": "1149d2a9677cf4e8",
+      "source": "product:P0003",
+      "target": "product:P0222",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 88,
+      "why": "Same active ingredient(s), but delivered in different form families.",
+      "meta": {
+        "edgeId": "E00569"
+      }
+    },
+    {
+      "key": "68501e20dd483332",
+      "source": "product:P0003",
+      "target": "product:P0224",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 88,
+      "why": "Same active ingredient(s), but delivered in different form families.",
+      "meta": {
+        "edgeId": "E00570"
+      }
+    },
+    {
+      "key": "f3d3dc69401c3f1e",
+      "source": "product:P0003",
+      "target": "product:P0227",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 88,
+      "why": "Same active ingredient(s), but delivered in different form families.",
+      "meta": {
+        "edgeId": "E00573"
+      }
+    },
+    {
+      "key": "90e84ec236e9c97b",
+      "source": "product:P0003",
+      "target": "product:P0230",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 88,
+      "why": "Same active ingredient(s), but delivered in different form families.",
+      "meta": {
+        "edgeId": "E00576"
+      }
+    },
+    {
+      "key": "9f057786dad6ade5",
+      "source": "product:P0003",
+      "target": "product:P0308",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 88,
+      "why": "Same active ingredient(s), but delivered in different form families.",
+      "meta": {
+        "edgeId": "E00578"
+      }
+    },
+    {
+      "key": "c402dd15340317ba",
+      "source": "product:P0003",
+      "target": "product:P0347",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 88,
+      "why": "Same active ingredient(s), but delivered in different form families.",
+      "meta": {
+        "edgeId": "E00581"
+      }
+    },
+    {
+      "key": "92177ce2ccd9a84a",
+      "source": "product:P0003",
+      "target": "product:P0348",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 88,
+      "why": "Same active ingredient(s), but delivered in different form families.",
+      "meta": {
+        "edgeId": "E00582"
+      }
+    },
+    {
+      "key": "27ccfb43ff33ec42",
+      "source": "product:P0003",
+      "target": "product:P0349",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 88,
+      "why": "Same active ingredient(s), but delivered in different form families.",
+      "meta": {
+        "edgeId": "E00583"
+      }
+    },
+    {
+      "key": "9dbbebc520c9b978",
+      "source": "product:P0003",
+      "target": "symptom:S037",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00009"
+      }
+    },
+    {
+      "key": "6976a260b1e72223",
+      "source": "product:P0003",
+      "target": "symptom:S051",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00010"
+      }
+    },
+    {
+      "key": "9556d9f532640b5f",
+      "source": "product:P0003",
+      "target": "symptom:S067",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00011"
+      }
+    },
+    {
+      "key": "5c77c905a416ae89",
+      "source": "product:P0003",
+      "target": "symptom:S048",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 78,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00012"
+      }
+    },
+    {
+      "key": "799693a7a9013175",
+      "source": "product:P0003",
+      "target": "usecase:UC003",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 80,
+      "why": "pain",
+      "meta": {
+        "useCaseItemId": "UCI00183"
+      }
+    },
+    {
+      "key": "78295f960074bf29",
+      "source": "product:P0003",
+      "target": "usecase:UC004",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "inflammation, pain, swelling, musculoskeletal pain",
+      "meta": {
+        "useCaseItemId": "UCI00295"
+      }
+    },
+    {
+      "key": "563b0de05fdafe50",
+      "source": "product:P0003",
+      "target": "product:P0062",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00561",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    },
+    {
+      "key": "6836d9f33c141cb1",
+      "source": "product:P0003",
+      "target": "product:P0063",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00562",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    },
+    {
+      "key": "6e04e901c4d722f8",
+      "source": "product:P0003",
+      "target": "product:P0161",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00563",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    },
+    {
+      "key": "f72d6ae45278f7ea",
+      "source": "product:P0003",
+      "target": "product:P0162",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00564",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    },
+    {
+      "key": "d5cfde39ec5cc794",
+      "source": "product:P0003",
+      "target": "product:P0163",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00565",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    },
+    {
+      "key": "dba700f743aabf80",
+      "source": "product:P0003",
+      "target": "product:P0225",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00571",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    },
+    {
+      "key": "85146c3552e73244",
+      "source": "product:P0003",
+      "target": "product:P0226",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00572",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    },
+    {
+      "key": "b6b803445e36fccc",
+      "source": "product:P0003",
+      "target": "product:P0228",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00574",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    },
+    {
+      "key": "27b9a37cd675c38e",
+      "source": "product:P0003",
+      "target": "product:P0229",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00575",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    },
+    {
+      "key": "15ba542207001ca5",
+      "source": "product:P0003",
+      "target": "product:P0295",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00577",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    },
+    {
+      "key": "f84b27803119525d",
+      "source": "product:P0003",
+      "target": "product:P0343",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00579",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    },
+    {
+      "key": "43a553d8a834e60d",
+      "source": "product:P0003",
+      "target": "product:P0346",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00580",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    },
+    {
+      "key": "8ed34787f7e2c76e",
+      "source": "product:P0003",
+      "target": "product:P0351",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00584",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    },
+    {
+      "key": "310dc4252831a558",
+      "source": "product:P0003",
+      "target": "product:P0395",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00585",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    },
+    {
+      "key": "7d39aa940d2ec724",
+      "source": "product:P0003",
+      "target": "product:P0485",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00586",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    },
+    {
+      "key": "8cdc2e3f5c7dc754",
+      "source": "product:P0003",
+      "target": "product:P0486",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00587",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    },
+    {
+      "key": "1ec15378b11912e8",
+      "source": "product:P0003",
+      "target": "product:P0019",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 88,
+      "why": "Same active ingredient(s), but delivered in different form families.",
+      "meta": {
+        "edgeId": "E00560",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    },
+    {
+      "key": "f64c1de3ef8d9e97",
+      "source": "product:P0003",
+      "target": "product:P0164",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 88,
+      "why": "Same active ingredient(s), but delivered in different form families.",
+      "meta": {
+        "edgeId": "E00566",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    },
+    {
+      "key": "3008ae0a3b677af4",
+      "source": "product:P0003",
+      "target": "product:P0165",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 88,
+      "why": "Same active ingredient(s), but delivered in different form families.",
+      "meta": {
+        "edgeId": "E00567",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    },
+    {
+      "key": "3ae17f3b154f637a",
+      "source": "product:P0003",
+      "target": "product:P0221",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 88,
+      "why": "Same active ingredient(s), but delivered in different form families.",
+      "meta": {
+        "edgeId": "E00568",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    },
+    {
+      "key": "add081c1ac4829d7",
+      "source": "product:P0003",
+      "target": "product:P0222",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 88,
+      "why": "Same active ingredient(s), but delivered in different form families.",
+      "meta": {
+        "edgeId": "E00569",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    },
+    {
+      "key": "e7c2af30a38853be",
+      "source": "product:P0003",
+      "target": "product:P0224",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 88,
+      "why": "Same active ingredient(s), but delivered in different form families.",
+      "meta": {
+        "edgeId": "E00570",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    },
+    {
+      "key": "2dc9782e11afb229",
+      "source": "product:P0003",
+      "target": "product:P0227",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 88,
+      "why": "Same active ingredient(s), but delivered in different form families.",
+      "meta": {
+        "edgeId": "E00573",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    },
+    {
+      "key": "86b6c628ad2d384a",
+      "source": "product:P0003",
+      "target": "product:P0230",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 88,
+      "why": "Same active ingredient(s), but delivered in different form families.",
+      "meta": {
+        "edgeId": "E00576",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    },
+    {
+      "key": "23ca7074744bb4f4",
+      "source": "product:P0003",
+      "target": "product:P0308",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 88,
+      "why": "Same active ingredient(s), but delivered in different form families.",
+      "meta": {
+        "edgeId": "E00578",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    },
+    {
+      "key": "8f8a4da08ef9b667",
+      "source": "product:P0003",
+      "target": "product:P0347",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 88,
+      "why": "Same active ingredient(s), but delivered in different form families.",
+      "meta": {
+        "edgeId": "E00581",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    },
+    {
+      "key": "94688240dc4fba17",
+      "source": "product:P0003",
+      "target": "product:P0348",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 88,
+      "why": "Same active ingredient(s), but delivered in different form families.",
+      "meta": {
+        "edgeId": "E00582",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    },
+    {
+      "key": "4ed0f6850f502505",
+      "source": "product:P0003",
+      "target": "product:P0349",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 88,
+      "why": "Same active ingredient(s), but delivered in different form families.",
+      "meta": {
+        "edgeId": "E00583",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    }
+  ]
+}

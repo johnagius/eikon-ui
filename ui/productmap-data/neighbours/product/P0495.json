@@ -1,1 +1,121 @@
-{"centerId":"product:P0495","centerType":"product","refId":"P0495","nodes":[{"id":"product:P0495","nodeType":"product","refId":"P0495","label":"Veinofytol gastro-resistant tablets","subtext":"haemorrhoids","meta":{"brand":"Veinofytol","generic":"HORSE CHESTNUT SEED","form":"GASTRO-RESISTANT TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"haemorrhoids","secondaryIndications":"vein support","otcCategory":"VASOPROTECTIVES","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"Horse Chestnut seed 21 milligram(s)","packSizeText":"Review manually","atcCode":"C05CX03","status":"Authorised","supplierCatalogKey":"veinofytol gastro-resistant tablets"}},{"id":"symptom:S032","nodeType":"symptom","refId":"S032","label":"haemorrhoids","subtext":"General","meta":{"Symptom_ID":"S032","Symptom_Name":"haemorrhoids","Symptom_Category":"General","Linked_Product_Count":9,"Display_Group":"General","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"symptom:S074","nodeType":"symptom","refId":"S074","label":"vein support","subtext":"General","meta":{"Symptom_ID":"S074","Symptom_Name":"vein support","Symptom_Category":"General","Linked_Product_Count":9,"Display_Group":"General","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}}],"links":[{"key":"eb011805468b85ef","source":"product:P0495","target":"symptom:S032","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM01649","role":"Primary","reviewStatus":"Seeded"}},{"key":"ad0ccf6df24634b6","source":"product:P0495","target":"symptom:S074","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01650","role":"Primary","reviewStatus":"Seeded"}}],"meta":{"productName":"Veinofytol gastro-resistant tablets","linkCount":2}}
+{
+  "centerId": "product:P0495",
+  "centerType": "product",
+  "refId": "P0495",
+  "nodes": [
+    {
+      "id": "product:P0495",
+      "nodeType": "product",
+      "refId": "P0495",
+      "label": "Veinofytol gastro-resistant tablets",
+      "subtext": "haemorrhoids",
+      "meta": {
+        "brand": "Veinofytol",
+        "generic": "HORSE CHESTNUT SEED",
+        "form": "GASTRO-RESISTANT TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "haemorrhoids",
+        "secondaryIndications": "vein support",
+        "otcCategory": "VASOPROTECTIVES",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "Horse Chestnut seed 21 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "C05CX03",
+        "status": "Authorised",
+        "supplierCatalogKey": "veinofytol gastro-resistant tablets"
+      }
+    },
+    {
+      "id": "symptom:S032",
+      "nodeType": "symptom",
+      "refId": "S032",
+      "label": "haemorrhoids",
+      "subtext": "General",
+      "meta": {
+        "Symptom_ID": "S032",
+        "Symptom_Name": "haemorrhoids",
+        "Symptom_Category": "General",
+        "Linked_Product_Count": 9,
+        "Display_Group": "General",
+        "Priority_For_Graph": 70,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "symptom:S074",
+      "nodeType": "symptom",
+      "refId": "S074",
+      "label": "vein support",
+      "subtext": "General",
+      "meta": {
+        "Symptom_ID": "S074",
+        "Symptom_Name": "vein support",
+        "Symptom_Category": "General",
+        "Linked_Product_Count": 9,
+        "Display_Group": "General",
+        "Priority_For_Graph": 70,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "usecase:UC013",
+      "nodeType": "usecase",
+      "refId": "UC013",
+      "label": "Haemorrhoid relief",
+      "subtext": "Gastrointestinal",
+      "meta": {
+        "UseCase_ID": "UC013",
+        "UseCase_Name": "Haemorrhoid relief",
+        "UseCase_Category": "Gastrointestinal",
+        "Trigger_Symptoms": "Haemorrhoids, rectal discomfort, itching",
+        "Description": "Topical and oral options for haemorrhoid symptom relief."
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "eb011805468b85ef",
+      "source": "product:P0495",
+      "target": "symptom:S032",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01649"
+      }
+    },
+    {
+      "key": "ad0ccf6df24634b6",
+      "source": "product:P0495",
+      "target": "symptom:S074",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01650"
+      }
+    },
+    {
+      "key": "5bb5fd07ad80efd2",
+      "source": "product:P0495",
+      "target": "usecase:UC013",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Haemorrhoids, rectal discomfort, itching",
+      "meta": {
+        "useCaseItemId": "UCI00638"
+      }
+    }
+  ]
+}

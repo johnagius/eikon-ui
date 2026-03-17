@@ -1,1 +1,1490 @@
-{"centerId":"symptom:S016","centerType":"symptom","refId":"S016","nodes":[{"id":"symptom:S016","nodeType":"symptom","refId":"S016","label":"constipation","subtext":"Gastrointestinal","meta":{"Symptom_ID":"S016","Symptom_Name":"constipation","Symptom_Category":"Gastrointestinal","Linked_Product_Count":36,"Display_Group":"Gastrointestinal","Priority_For_Graph":100,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"product:P0031","nodeType":"product","refId":"P0031","label":"BEBEGEL.3830mg/4.5g, rectal gel","subtext":"constipation","meta":{"brand":"BEBEGEL","generic":"GLYCEROL","form":"RECTAL GEL","formGroup":"Topical","route":"Topical","mainIndication":"constipation","secondaryIndications":"bowel movement support","otcCategory":"DRUGS FOR CONSTIPATION","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"GLYCEROL 3,830 gram(s)","packSizeText":"Review manually","atcCode":"A06AX01","status":"Authorised","supplierCatalogKey":"bebegel.3830mg/4.5g, rectal gel"}},{"id":"product:P0037","nodeType":"product","refId":"P0037","label":"Bebegel 3830 mg/4.5 g rectal gel","subtext":"constipation","meta":{"brand":"Bebegel","generic":"GLYCEROL","form":"RECTAL GEL","formGroup":"Topical","route":"Topical","mainIndication":"constipation","secondaryIndications":"bowel movement support","otcCategory":"DRUGS FOR CONSTIPATION","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"GLYCEROL 3.830 gram(s)","packSizeText":"Review manually","atcCode":"A06AX01","status":"Authorised","supplierCatalogKey":"bebegel 3830 mg/4.5 g rectal gel"}},{"id":"product:P0053","nodeType":"product","refId":"P0053","label":"Bisacodyl AIWA 5 mg sugar-coated tablets","subtext":"constipation","meta":{"brand":"Bisacodyl","generic":"BISACODYL","form":"TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"constipation","secondaryIndications":"bowel movement support","otcCategory":"DRUGS FOR CONSTIPATION","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"BISACODYL 5 milligram(s)","packSizeText":"Review manually","atcCode":"A06AB02","status":"Authorised","supplierCatalogKey":"bisacodyl aiwa 5 mg sugar-coated tablets"}},{"id":"product:P0109","nodeType":"product","refId":"P0109","label":"Clisteran 450 mg/45 mg rectal solution","subtext":"constipation","meta":{"brand":"Clisteran","generic":"SODIUM LAURYL SULFOACETATE | TRISODIUM CITRATE DIHYDRATE","form":"RECTAL SOLUTION","formGroup":"Oral liquid","route":"Oral","mainIndication":"constipation","secondaryIndications":"bowel movement support","otcCategory":"DRUGS FOR CONSTIPATION","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"TRISODIUM CITRATE DIHYDRATE 450 milligram(s) | SODIUM LAURYL SULFOACETATE 45 milligram(s)","packSizeText":"Review manually","atcCode":"A06AG11","status":"Authorised","supplierCatalogKey":"clisteran 450 mg/45 mg rectal solution"}},{"id":"product:P0143","nodeType":"product","refId":"P0143","label":"Dioctyl 100mg capsules","subtext":"constipation","meta":{"brand":"Dioctyl","generic":"DOCUSATE SODIUM","form":"SOFT CAPSULE","formGroup":"Oral solid","route":"Oral","mainIndication":"constipation","secondaryIndications":"bowel movement support","otcCategory":"DRUGS FOR CONSTIPATION","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DOCUSATE SODIUM","packSizeText":"Review manually","atcCode":"A06AA02","status":"Authorised","supplierCatalogKey":"dioctyl 100mg capsules"}},{"id":"product:P0149","nodeType":"product","refId":"P0149","label":"Dulcolax 10mg Suppositories","subtext":"constipation","meta":{"brand":"Dulcolax","generic":"BISACODYL","form":"SUPPOSITORY","formGroup":"Suppository / pessary","route":"Suppository / pessary","mainIndication":"constipation","secondaryIndications":"bowel movement support","otcCategory":"DRUGS FOR CONSTIPATION","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"BISACODYL 10 milligram(s)","packSizeText":"Review manually","atcCode":"A06AB02","status":"Authorised","supplierCatalogKey":"dulcolax 10mg suppositories"}},{"id":"product:P0150","nodeType":"product","refId":"P0150","label":"Dulcolax 5mg Gastro-resistant Tablets","subtext":"constipation","meta":{"brand":"Dulcolax","generic":"BISACODYL","form":"GASTRO-RESISTANT TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"constipation","secondaryIndications":"bowel movement support","otcCategory":"DRUGS FOR CONSTIPATION","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"BISACODYL 5 milligram(s)","packSizeText":"Review manually","atcCode":"A06AB02","status":"Authorised","supplierCatalogKey":"dulcolax 5mg gastro-resistant tablets"}},{"id":"product:P0151","nodeType":"product","refId":"P0151","label":"Dulcolax Pico Liquid 5mg/5ml oral solution","subtext":"constipation","meta":{"brand":"Dulcolax","generic":"SODIUM PICOSULFATE","form":"ORAL SOLUTION","formGroup":"Oral liquid","route":"Oral","mainIndication":"constipation","secondaryIndications":"bowel movement support","otcCategory":"DRUGS FOR CONSTIPATION","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"SODIUM PICOSULFATE 5 milligram(s)/5 millilitre","packSizeText":"Review manually","atcCode":"A06AB08","status":"Authorised","supplierCatalogKey":"dulcolax pico liquid 5mg/5ml oral solution"}},{"id":"product:P0156","nodeType":"product","refId":"P0156","label":"Duphalac 3.335 g / 5 ml Oral Solution","subtext":"constipation","meta":{"brand":"Duphalac","generic":"LACTULOSE","form":"ORAL SOLUTION","formGroup":"Oral liquid","route":"Oral","mainIndication":"constipation","secondaryIndications":"bowel movement support","otcCategory":"DRUGS FOR CONSTIPATION","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"LACTULOSE 3.335 gram(s)/5 millilitres","packSizeText":"Review manually","atcCode":"A06AD11","status":"Authorised","supplierCatalogKey":"duphalac 3.335 g / 5 ml oral solution"}},{"id":"product:P0157","nodeType":"product","refId":"P0157","label":"Duphalac, 667 mg/ml oral solution","subtext":"constipation","meta":{"brand":"Duphalac","generic":"LACTULOSE","form":"ORAL DROPS, SOLUTION","formGroup":"Oral liquid","route":"Oral","mainIndication":"constipation","secondaryIndications":"bowel movement support","otcCategory":"DRUGS FOR CONSTIPATION","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"LACTULOSE 667 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"A06AD11","status":"Authorised","supplierCatalogKey":"duphalac, 667 mg/ml oral solution"}},{"id":"product:P0160","nodeType":"product","refId":"P0160","label":"EUCARBON herbal tablets","subtext":"constipation","meta":{"brand":"EUCARBON","generic":"CHARCOAL | RHUBARB EXTRACT | SENNA LEAF","form":"TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"constipation","secondaryIndications":"bowel movement support","otcCategory":"DRUGS FOR CONSTIPATION","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"CHARCOAL 180 milligram(s) | SENNA LEAF 105 milligram(s) | RHUBARB EXTRACT 25 milligram(s)","packSizeText":"Review manually","atcCode":"A06AB06","status":"Authorised","supplierCatalogKey":"eucarbon herbal tablets"}},{"id":"product:P0168","nodeType":"product","refId":"P0168","label":"Enema Flex Phosphates, (16+6) g/100 mL, rectal solution","subtext":"constipation","meta":{"brand":"Enema","generic":"DISODIUM HYDROGEN PHOSPHATE DODECAHYDRATE | SODIUM DIHYDROGEN PHOSPHATE DIHYDRATE","form":"RECTAL SOLUTION","formGroup":"Oral liquid","route":"Oral","mainIndication":"constipation","secondaryIndications":"bowel movement support","otcCategory":"DRUGS FOR CONSTIPATION","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"SODIUM DIHYDROGEN PHOSPHATE DIHYDRATE 16 gram(s)/100 millilitres | DISODIUM HYDROGEN PHOSPHATE DODECAHYDRATE\n 6 gram(s)/100 millilitres","packSizeText":"Review manually","atcCode":"A06AG01","status":"Authorised","supplierCatalogKey":"enema flex phosphates, (16+6) g/100 ml, rectal solution"}},{"id":"product:P0171","nodeType":"product","refId":"P0171","label":"Eucarbon Tablets","subtext":"constipation","meta":{"brand":"Eucarbon","generic":"CHARCOAL | RHUBARB EXTRACT | SENNA LEAF | SULFUR","form":"TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"constipation","secondaryIndications":"bowel movement support","otcCategory":"DRUGS FOR CONSTIPATION","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":4,"strengthText":"CHARCOAL 180 milligram(s) | SENNA LEAF 105 milligram(s) | SULFUR 50 milligram(s) | RHUBARB EXTRACT 25 milligram(s)","packSizeText":"Review manually","atcCode":"A06AB06","status":"Authorised","supplierCatalogKey":"eucarbon tablets"}},{"id":"product:P0195","nodeType":"product","refId":"P0195","label":"Fybogel Orange","subtext":"constipation","meta":{"brand":"Fybogel","generic":"ISPAGHULA HUSKS","form":"EFFERVESCENT GRANULES","formGroup":"Oral solid","route":"Oral","mainIndication":"constipation","secondaryIndications":"bowel movement support","otcCategory":"DRUGS FOR CONSTIPATION","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"ISPAGHULA HUSKS 3.5 gram(s)","packSizeText":"Review manually","atcCode":"A06AC01","status":"Authorised","supplierCatalogKey":"fybogel orange"}},{"id":"product:P0204","nodeType":"product","refId":"P0204","label":"Glycerin Microclysma for Babies/Zarmpi Enema","subtext":"constipation","meta":{"brand":"Glycerin","generic":"GLYCEROL","form":"ENEMA","formGroup":"Other","route":"Other","mainIndication":"constipation","secondaryIndications":"bowel movement support","otcCategory":"DRUGS FOR CONSTIPATION","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"GLYCEROL 1.8 milligram(s)/dose","packSizeText":"Review manually","atcCode":"A06AG04","status":"Authorised","supplierCatalogKey":"glycerin microclysma for babies/zarmpi enema"}},{"id":"product:P0205","nodeType":"product","refId":"P0205","label":"Glycerin Microlysma For Babies/Zarmpi Enema 1.8g/Dose (2.5mL)","subtext":"constipation","meta":{"brand":"Glycerin","generic":"GLYCEROL","form":"ENEMA","formGroup":"Other","route":"Other","mainIndication":"constipation","secondaryIndications":"bowel movement support","otcCategory":"DRUGS FOR CONSTIPATION","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"GLYCEROL 1.8 gram(s)","packSizeText":"Review manually","atcCode":"A06AG04","status":"Authorised","supplierCatalogKey":"glycerin microlysma for babies/zarmpi enema 1.8g/dose (2.5ml)"}},{"id":"product:P0206","nodeType":"product","refId":"P0206","label":"Glycerin Microlysma For Children/ZARBISi Enema 2.1g glycerol/enema (dose 2.5mL)","subtext":"constipation","meta":{"brand":"Glycerin","generic":"GLYCEROL","form":"ENEMA","formGroup":"Other","route":"Other","mainIndication":"constipation","secondaryIndications":"bowel movement support","otcCategory":"DRUGS FOR CONSTIPATION","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"GLYCEROL 2.1 gram(s)","packSizeText":"Review manually","atcCode":"A06AG04","status":"Authorised","supplierCatalogKey":"glycerin microlysma for children/zarbisi enema 2.1g glycerol/enema (dose 2.5ml)"}},{"id":"product:P0207","nodeType":"product","refId":"P0207","label":"Glycerine Suppositories for Adults/ZARBIS: 2.4 glycerol/suppository","subtext":"constipation","meta":{"brand":"Glycerine","generic":"GLYCEROL","form":"SUPPOSITORY","formGroup":"Suppository / pessary","route":"Suppository / pessary","mainIndication":"constipation","secondaryIndications":"bowel movement support","otcCategory":"DRUGS FOR CONSTIPATION","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"GLYCEROL 2.4 gram(s)","packSizeText":"Review manually","atcCode":"A06AX01","status":"Authorised","supplierCatalogKey":"glycerine suppositories for adults/zarbis: 2.4 glycerol/suppository"}},{"id":"product:P0208","nodeType":"product","refId":"P0208","label":"Glycerol Sella Suppositories 2250mg","subtext":"constipation","meta":{"brand":"Glycerol","generic":"GLYCEROL","form":"SUPPOSITORY","formGroup":"Suppository / pessary","route":"Suppository / pessary","mainIndication":"constipation","secondaryIndications":"bowel movement support","otcCategory":"DRUGS FOR CONSTIPATION","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"GLYCEROL 2250 milligram(s)","packSizeText":"Review manually","atcCode":"A06AX01","status":"Authorised","supplierCatalogKey":"glycerol sella suppositories 2250mg"}},{"id":"product:P0247","nodeType":"product","refId":"P0247","label":"Lactulose AIWA 670 mg/mL oral solution","subtext":"constipation","meta":{"brand":"Lactulose","generic":"LACTULOSE","form":"ORAL SOLUTION","formGroup":"Oral liquid","route":"Oral","mainIndication":"constipation","secondaryIndications":"bowel movement support","otcCategory":"DRUGS FOR CONSTIPATION","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"LACTULOSE 670 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"A06AD11","status":"Authorised","supplierCatalogKey":"lactulose aiwa 670 mg/ml oral solution"}},{"id":"product:P0248","nodeType":"product","refId":"P0248","label":"Lactulose Crescent 3.35 g/5 ml Solution","subtext":"constipation","meta":{"brand":"Lactulose","generic":"LACTULOSE","form":"ORAL SOLUTION","formGroup":"Oral liquid","route":"Oral","mainIndication":"constipation","secondaryIndications":"bowel movement support","otcCategory":"DRUGS FOR CONSTIPATION","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"LACTULOSE 3.35 gram(s)/5 millilitres","packSizeText":"Review manually","atcCode":"A06AD11","status":"Authorised","supplierCatalogKey":"lactulose crescent 3.35 g/5 ml solution"}},{"id":"product:P0249","nodeType":"product","refId":"P0249","label":"Lactulose Generis 666.7 mg/mL syrup","subtext":"constipation","meta":{"brand":"Lactulose","generic":"LACTULOSE","form":"SYRUP","formGroup":"Oral liquid","route":"Oral","mainIndication":"constipation","secondaryIndications":"bowel movement support","otcCategory":"DRUGS FOR CONSTIPATION","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"LACTULOSE 666.7 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"A06AD11","status":"Authorised","supplierCatalogKey":"lactulose generis 666.7 mg/ml syrup"}},{"id":"product:P0250","nodeType":"product","refId":"P0250","label":"Lactulose Solution BP Oral Solution 3.35g/5ml","subtext":"constipation","meta":{"brand":"Lactulose","generic":"LACTULOSE","form":"ORAL SOLUTION","formGroup":"Oral liquid","route":"Oral","mainIndication":"constipation","secondaryIndications":"bowel movement support","otcCategory":"DRUGS FOR CONSTIPATION","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"LACTULOSE 3.35 gram(s)/millilitre","packSizeText":"Review manually","atcCode":"A06AD11","status":"Authorised","supplierCatalogKey":"lactulose solution bp oral solution 3.35g/5ml"}},{"id":"product:P0252","nodeType":"product","refId":"P0252","label":"Lax-Tab 5 mg gastro-resistant tablets","subtext":"constipation","meta":{"brand":"Lax","generic":"BISACODYL","form":"GASTRO-RESISTANT TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"constipation","secondaryIndications":"bowel movement support","otcCategory":"DRUGS FOR CONSTIPATION","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"BISACODYL 5 milligram(s)","packSizeText":"Review manually","atcCode":"A06AB02","status":"Authorised","supplierCatalogKey":"lax-tab 5 mg gastro-resistant tablets"}},{"id":"product:P0261","nodeType":"product","refId":"P0261","label":"MACROGOL 4000 VIATRIS 10 g, powder for oral solution in sachet-dose","subtext":"constipation","meta":{"brand":"MACROGOL","generic":"MACROGOL","form":"POWDER FOR ORAL SOLUTION","formGroup":"Oral solid","route":"Oral","mainIndication":"constipation","secondaryIndications":"bowel movement support","otcCategory":"DRUGS FOR CONSTIPATION","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"MACROGOL 4000 10000 gram(s)","packSizeText":"Review manually","atcCode":"A06AD15","status":"Authorised","supplierCatalogKey":"macrogol 4000 viatris 10 g, powder for oral solution in sachet-dose"}},{"id":"product:P0263","nodeType":"product","refId":"P0263","label":"MICROLAX SORBITOL CITRATE AND SODIUM LAURYLSULFOACETATE, rectal solution in single-dose container","subtext":"constipation","meta":{"brand":"MICROLAX","generic":"SODIUM CITRATE | SODIUM LAURYL SULFOACETATE | SORBITOL","form":"RECTAL SOLUTION","formGroup":"Oral liquid","route":"Oral","mainIndication":"constipation","secondaryIndications":"bowel movement support","otcCategory":"DRUGS FOR CONSTIPATION","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"SORBITOL 4.4650 gram(s) | SODIUM CITRATE 0.4500 gram(s) | SODIUM LAURYL SULFOACETATE 0.0645 gram(s)","packSizeText":"Review manually","atcCode":"A06AG11","status":"Authorised","supplierCatalogKey":"microlax sorbitol citrate and sodium laurylsulfoacetate, rectal solution in single-dose container"}},{"id":"product:P0264","nodeType":"product","refId":"P0264","label":"MOVICOL 13.8g sachet, powder for oral solution","subtext":"constipation","meta":{"brand":"MOVICOL","generic":"MACROGOL | POTASSIUM CHLORIDE | SODIUM BICARBONATE | SODIUM CHLORIDE","form":"POWDER FOR ORAL SOLUTION","formGroup":"Oral solid","route":"Oral","mainIndication":"constipation","secondaryIndications":"bowel movement support","otcCategory":"DRUGS FOR CONSTIPATION","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":4,"strengthText":"POTASSIUM CHLORIDE 46.6 milligram(s) | SODIUM CHLORIDE 350.7 milligram(s) | SODIUM BICARBONATE 178.5 milligram(s) | MACROGOL 3350 13.125 gram(s)","packSizeText":"Review manually","atcCode":"A06AD65","status":"Authorised","supplierCatalogKey":"movicol 13.8g sachet, powder for oral solution"}},{"id":"product:P0265","nodeType":"product","refId":"P0265","label":"MOVICOL UNFLAVOURED powder for oral solution in sachet","subtext":"constipation","meta":{"brand":"MOVICOL","generic":"MACROGOL | POTASSIUM CHLORIDE | SODIUM BICARBONATE | SODIUM CHLORIDE","form":"POWDER FOR ORAL SOLUTION","formGroup":"Oral solid","route":"Oral","mainIndication":"constipation","secondaryIndications":"bowel movement support","otcCategory":"DRUGS FOR CONSTIPATION","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":4,"strengthText":"MACROGOL 3350 13.1250 gram(s) | SODIUM BICARBONATE 0.1786 gram(s) | POTASSIUM CHLORIDE 0.0502 gram(s) | SODIUM CHLORIDE 0.3508 gram(s)","packSizeText":"Review manually","atcCode":"A06AD65","status":"Authorised","supplierCatalogKey":"movicol unflavoured powder for oral solution in sachet"}},{"id":"product:P0266","nodeType":"product","refId":"P0266","label":"MOVICOL UNFLAVOURED, powder for oral solution in sachet","subtext":"constipation","meta":{"brand":"MOVICOL","generic":"MACROGOL | POTASSIUM CHLORIDE | SODIUM BICARBONATE | SODIUM CHLORIDE","form":"POWDER FOR ORAL SOLUTION","formGroup":"Oral solid","route":"Oral","mainIndication":"constipation","secondaryIndications":"bowel movement support","otcCategory":"DRUGS FOR CONSTIPATION","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":4,"strengthText":"MACROGOL 3350 13.125 gram(s) | SODIUM CHLORIDE 0.3508 gram(s) | SODIUM BICARBONATE 0.1786 gram(s) | POTASSIUM CHLORIDE 0.0502 gram(s)","packSizeText":"Review manually","atcCode":"A06AD65","status":"Authorised","supplierCatalogKey":"movicol unflavoured, powder for oral solution in sachet"}},{"id":"product:P0267","nodeType":"product","refId":"P0267","label":"MOVICOL, powder for oral solution in sachet","subtext":"constipation","meta":{"brand":"MOVICOL","generic":"MACROGOL | POTASSIUM CHLORIDE | SODIUM BICARBONATE | SODIUM CHLORIDE","form":"ORAL SOLUTION","formGroup":"Oral liquid","route":"Oral","mainIndication":"constipation","secondaryIndications":"bowel movement support","otcCategory":"DRUGS FOR CONSTIPATION","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":4,"strengthText":"MACROGOL 3350 13.125 gram(s) | SODIUM CHLORIDE 0.3507 gram(s) | SODIUM BICARBONATE 0.1785 gram(s) | POTASSIUM CHLORIDE 0.0466 gram(s)","packSizeText":"Review manually","atcCode":"A06AD65","status":"Authorised","supplierCatalogKey":"movicol, powder for oral solution in sachet"}},{"id":"product:P0277","nodeType":"product","refId":"P0277","label":"Macrolief 13.8g sachet, powder for oral solution","subtext":"constipation","meta":{"brand":"Macrolief","generic":"MACROGOL | POTASSIUM CHLORIDE | SODIUM CHLORIDE | SODIUM HYDROGEN CARBONATE","form":"POWDER FOR ORAL SOLUTION","formGroup":"Oral solid","route":"Oral","mainIndication":"constipation","secondaryIndications":"bowel movement support","otcCategory":"DRUGS FOR CONSTIPATION","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":4,"strengthText":"POTASSIUM CHLORIDE 0.0466 gram(s) | MACROGOL 3350 13.125 gram(s) | SODIUM CHLORIDE 0.3507 gram(s) | SODIUM HYDROGEN CARBONATE 0.1785 gram(s)","packSizeText":"Review manually","atcCode":"A06AD65","status":"Authorised","supplierCatalogKey":"macrolief 13.8g sachet, powder for oral solution"}},{"id":"product:P0290","nodeType":"product","refId":"P0290","label":"Microlax Rectal Solution Sodium Citrate 450 mg / 5 ml Sodium Lauryl Sulphoacetate 45 mg / 5 ml","subtext":"constipation","meta":{"brand":"Microlax","generic":"SODIUM CITRATE | SODIUM LAURYL SULFOACETATE","form":"ENEMA, RECTAL SOLUTION","formGroup":"Oral liquid","route":"Oral","mainIndication":"constipation","secondaryIndications":"bowel movement support","otcCategory":"DRUGS FOR CONSTIPATION","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"SODIUM CITRATE 450 milligram(s)/5 millilitre | SODIUM LAURYL SULFOACETATE 45 milligram(s)/5 millilitre","packSizeText":"Review manually","atcCode":"A06AG11","status":"Authorised","supplierCatalogKey":"microlax rectal solution sodium citrate 450 mg / 5 ml sodium lauryl sulphoacetate 45 mg / 5 ml"}},{"id":"product:P0297","nodeType":"product","refId":"P0297","label":"Movicol 13.8 g sachet powder for oral solution","subtext":"constipation","meta":{"brand":"Movicol","generic":"MACROGOL | POTASSIUM CHLORIDE | SODIUM BICARBONATE | SODIUM CHLORIDE","form":"POWDER FOR ORAL SOLUTION","formGroup":"Oral solid","route":"Oral","mainIndication":"constipation","secondaryIndications":"bowel movement support","otcCategory":"DRUGS FOR CONSTIPATION","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":4,"strengthText":"MACROGOL 3350 13.125 gram(s) | SODIUM CHLORIDE 0.3507 gram(s) | SODIUM BICARBONATE 0.1785 gram(s) | POTASSIUM CHLORIDE 0.0466 gram(s)","packSizeText":"Review manually","atcCode":"A06AD65","status":"Authorised","supplierCatalogKey":"movicol 13.8 g sachet powder for oral solution"}},{"id":"product:P0396","nodeType":"product","refId":"P0396","label":"Perphyl 667 mg/ml Syrup","subtext":"constipation","meta":{"brand":"Perphyl","generic":"LACTULOSE","form":"SYRUP","formGroup":"Oral liquid","route":"Oral","mainIndication":"constipation","secondaryIndications":"bowel movement support","otcCategory":"DRUGS FOR CONSTIPATION","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"LACTULOSE 667 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"A06AD11","status":"Authorised","supplierCatalogKey":"perphyl 667 mg/ml syrup"}},{"id":"product:P0434","nodeType":"product","refId":"P0434","label":"Senna 7.5 mg tablets","subtext":"constipation","meta":{"brand":"Senna","generic":"SENNOSIDES","form":"TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"constipation","secondaryIndications":"bowel movement support","otcCategory":"DRUGS FOR CONSTIPATION","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"SENNOSIDES  7.5 milligram(s)","packSizeText":"Review manually","atcCode":"A06AB06","status":"Authorised","supplierCatalogKey":"senna 7.5 mg tablets"}},{"id":"product:P0449","nodeType":"product","refId":"P0449","label":"Sodium Phosphate Sella 16% / 6% rectal solution","subtext":"constipation","meta":{"brand":"Sodium","generic":"SODIUM PHOSPHATE DIBASIC HEPTAHYDRATE | SODIUM PHOSPHATE MONOBASIC MONOHYDRATE","form":"RECTAL SOLUTION","formGroup":"Oral liquid","route":"Oral","mainIndication":"constipation","secondaryIndications":"bowel movement support","otcCategory":"DRUGS FOR CONSTIPATION","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"SODIUM PHOSPHATE MONOBASIC MONOHYDRATE\n 16 gram(s)/100 millilitres | SODIUM PHOSPHATE DIBASIC HEPTAHYDRATE 6 gram(s)/100 millilitres","packSizeText":"Review manually","atcCode":"A06AG01","status":"Authorised","supplierCatalogKey":"sodium phosphate sella 16% / 6% rectal solution"}},{"id":"usecase:UC007","nodeType":"usecase","refId":"UC007","label":"Constipation support","subtext":"Gastrointestinal","meta":{"UseCase_ID":"UC007","UseCase_Name":"Constipation support","UseCase_Category":"Gastrointestinal","Trigger_Symptoms":"Constipation, bowel movement support","Description":"Escalate from gentle to stronger options."}}],"links":[{"key":"43f90349c881e342","source":"symptom:S016","target":"product:P0031","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00106","role":"Primary","reviewStatus":"Seeded"}},{"key":"96731a26c4cb6e93","source":"symptom:S016","target":"product:P0037","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00122","role":"Primary","reviewStatus":"Seeded"}},{"key":"52a2f4b2c84244b1","source":"symptom:S016","target":"product:P0053","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00168","role":"Primary","reviewStatus":"Seeded"}},{"key":"c0d7189476404358","source":"symptom:S016","target":"product:P0109","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00358","role":"Primary","reviewStatus":"Seeded"}},{"key":"210bc8672fb18282","source":"symptom:S016","target":"product:P0143","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00473","role":"Primary","reviewStatus":"Seeded"}},{"key":"55f8bd90e5471d7c","source":"symptom:S016","target":"product:P0149","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00491","role":"Primary","reviewStatus":"Seeded"}},{"key":"2daf3bb361f1f055","source":"symptom:S016","target":"product:P0150","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00493","role":"Primary","reviewStatus":"Seeded"}},{"key":"d2383210dbcb92db","source":"symptom:S016","target":"product:P0151","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00495","role":"Primary","reviewStatus":"Seeded"}},{"key":"fbba660342df6dab","source":"symptom:S016","target":"product:P0156","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00512","role":"Primary","reviewStatus":"Seeded"}},{"key":"846f01971f292095","source":"symptom:S016","target":"product:P0157","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00514","role":"Primary","reviewStatus":"Seeded"}},{"key":"3ea0658909575fe8","source":"symptom:S016","target":"product:P0160","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00520","role":"Primary","reviewStatus":"Seeded"}},{"key":"839df27ccd06d125","source":"symptom:S016","target":"product:P0168","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00546","role":"Primary","reviewStatus":"Seeded"}},{"key":"eb670803facf6b7b","source":"symptom:S016","target":"product:P0171","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00552","role":"Primary","reviewStatus":"Seeded"}},{"key":"855ab8d6bc76cfd2","source":"symptom:S016","target":"product:P0195","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00636","role":"Primary","reviewStatus":"Seeded"}},{"key":"ba51461ba4b543d0","source":"symptom:S016","target":"product:P0204","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00660","role":"Primary","reviewStatus":"Seeded"}},{"key":"5c4db50fa5df806a","source":"symptom:S016","target":"product:P0205","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00662","role":"Primary","reviewStatus":"Seeded"}},{"key":"e563543ed3a07a6e","source":"symptom:S016","target":"product:P0206","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00664","role":"Primary","reviewStatus":"Seeded"}},{"key":"d00a981d717d45ba","source":"symptom:S016","target":"product:P0207","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00666","role":"Primary","reviewStatus":"Seeded"}},{"key":"33a8c08777af5b51","source":"symptom:S016","target":"product:P0208","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00668","role":"Primary","reviewStatus":"Seeded"}},{"key":"c825eac16e6b3edc","source":"symptom:S016","target":"product:P0247","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00803","role":"Primary","reviewStatus":"Seeded"}},{"key":"2e517e96e16044d6","source":"symptom:S016","target":"product:P0248","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00805","role":"Primary","reviewStatus":"Seeded"}},{"key":"4b39eb320a68122d","source":"symptom:S016","target":"product:P0249","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00807","role":"Primary","reviewStatus":"Seeded"}},{"key":"d04116f34498cdf5","source":"symptom:S016","target":"product:P0250","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00809","role":"Primary","reviewStatus":"Seeded"}},{"key":"5f821fa147685ee1","source":"symptom:S016","target":"product:P0252","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00814","role":"Primary","reviewStatus":"Seeded"}},{"key":"31d901844912a7a3","source":"symptom:S016","target":"product:P0261","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00838","role":"Primary","reviewStatus":"Seeded"}},{"key":"932255d3c46a98f6","source":"symptom:S016","target":"product:P0263","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00842","role":"Primary","reviewStatus":"Seeded"}},{"key":"155c5685d7901d0d","source":"symptom:S016","target":"product:P0264","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00844","role":"Primary","reviewStatus":"Seeded"}},{"key":"0f81312d8276b990","source":"symptom:S016","target":"product:P0265","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00846","role":"Primary","reviewStatus":"Seeded"}},{"key":"2f2d580c8a0f4ff8","source":"symptom:S016","target":"product:P0266","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00848","role":"Primary","reviewStatus":"Seeded"}},{"key":"de6868386d7130dd","source":"symptom:S016","target":"product:P0267","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00850","role":"Primary","reviewStatus":"Seeded"}},{"key":"d77cf3b02d3ed28d","source":"symptom:S016","target":"product:P0277","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00885","role":"Primary","reviewStatus":"Seeded"}},{"key":"60c0502cc2d3ae97","source":"symptom:S016","target":"product:P0290","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00922","role":"Primary","reviewStatus":"Seeded"}},{"key":"c0356dc14e214466","source":"symptom:S016","target":"product:P0297","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00944","role":"Primary","reviewStatus":"Seeded"}},{"key":"c27c61472e692fd1","source":"symptom:S016","target":"product:P0396","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM01303","role":"Primary","reviewStatus":"Seeded"}},{"key":"502bb726c4d5b418","source":"symptom:S016","target":"product:P0434","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM01432","role":"Primary","reviewStatus":"Seeded"}},{"key":"e6e399651c1390e9","source":"symptom:S016","target":"product:P0449","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM01480","role":"Primary","reviewStatus":"Seeded"}},{"key":"08f1a0aeaf8fae69","source":"symptom:S016","target":"usecase:UC007","rel":"usecase","label":"Triggered by symptom","score":85,"why":"Constipation, bowel movement support","meta":{}}],"meta":{"symptomName":"constipation","linkCount":37}}
+{
+  "centerId": "symptom:S016",
+  "centerType": "symptom",
+  "refId": "S016",
+  "nodes": [
+    {
+      "id": "symptom:S016",
+      "nodeType": "symptom",
+      "refId": "S016",
+      "label": "constipation",
+      "subtext": "Gastrointestinal",
+      "meta": {
+        "Symptom_ID": "S016",
+        "Symptom_Name": "constipation",
+        "Symptom_Category": "Gastrointestinal",
+        "Linked_Product_Count": 36,
+        "Display_Group": "Gastrointestinal",
+        "Priority_For_Graph": 100,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "product:P0031",
+      "nodeType": "product",
+      "refId": "P0031",
+      "label": "BEBEGEL.3830mg/4.5g, rectal gel",
+      "subtext": "constipation",
+      "meta": {
+        "brand": "BEBEGEL",
+        "generic": "GLYCEROL",
+        "form": "RECTAL GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "constipation",
+        "secondaryIndications": "bowel movement support",
+        "otcCategory": "DRUGS FOR CONSTIPATION",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "GLYCEROL 3,830 gram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A06AX01",
+        "status": "Authorised",
+        "supplierCatalogKey": "bebegel.3830mg/4.5g, rectal gel"
+      }
+    },
+    {
+      "id": "product:P0037",
+      "nodeType": "product",
+      "refId": "P0037",
+      "label": "Bebegel 3830 mg/4.5 g rectal gel",
+      "subtext": "constipation",
+      "meta": {
+        "brand": "Bebegel",
+        "generic": "GLYCEROL",
+        "form": "RECTAL GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "constipation",
+        "secondaryIndications": "bowel movement support",
+        "otcCategory": "DRUGS FOR CONSTIPATION",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "GLYCEROL 3.830 gram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A06AX01",
+        "status": "Authorised",
+        "supplierCatalogKey": "bebegel 3830 mg/4.5 g rectal gel"
+      }
+    },
+    {
+      "id": "product:P0053",
+      "nodeType": "product",
+      "refId": "P0053",
+      "label": "Bisacodyl AIWA 5 mg sugar-coated tablets",
+      "subtext": "constipation",
+      "meta": {
+        "brand": "Bisacodyl",
+        "generic": "BISACODYL",
+        "form": "TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "constipation",
+        "secondaryIndications": "bowel movement support",
+        "otcCategory": "DRUGS FOR CONSTIPATION",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "BISACODYL 5 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A06AB02",
+        "status": "Authorised",
+        "supplierCatalogKey": "bisacodyl aiwa 5 mg sugar-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0109",
+      "nodeType": "product",
+      "refId": "P0109",
+      "label": "Clisteran 450 mg/45 mg rectal solution",
+      "subtext": "constipation",
+      "meta": {
+        "brand": "Clisteran",
+        "generic": "SODIUM LAURYL SULFOACETATE | TRISODIUM CITRATE DIHYDRATE",
+        "form": "RECTAL SOLUTION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "constipation",
+        "secondaryIndications": "bowel movement support",
+        "otcCategory": "DRUGS FOR CONSTIPATION",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "TRISODIUM CITRATE DIHYDRATE 450 milligram(s) | SODIUM LAURYL SULFOACETATE 45 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A06AG11",
+        "status": "Authorised",
+        "supplierCatalogKey": "clisteran 450 mg/45 mg rectal solution"
+      }
+    },
+    {
+      "id": "product:P0143",
+      "nodeType": "product",
+      "refId": "P0143",
+      "label": "Dioctyl 100mg capsules",
+      "subtext": "constipation",
+      "meta": {
+        "brand": "Dioctyl",
+        "generic": "DOCUSATE SODIUM",
+        "form": "SOFT CAPSULE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "constipation",
+        "secondaryIndications": "bowel movement support",
+        "otcCategory": "DRUGS FOR CONSTIPATION",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DOCUSATE SODIUM",
+        "packSizeText": "Review manually",
+        "atcCode": "A06AA02",
+        "status": "Authorised",
+        "supplierCatalogKey": "dioctyl 100mg capsules"
+      }
+    },
+    {
+      "id": "product:P0149",
+      "nodeType": "product",
+      "refId": "P0149",
+      "label": "Dulcolax 10mg Suppositories",
+      "subtext": "constipation",
+      "meta": {
+        "brand": "Dulcolax",
+        "generic": "BISACODYL",
+        "form": "SUPPOSITORY",
+        "formGroup": "Suppository / pessary",
+        "route": "Suppository / pessary",
+        "mainIndication": "constipation",
+        "secondaryIndications": "bowel movement support",
+        "otcCategory": "DRUGS FOR CONSTIPATION",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "BISACODYL 10 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A06AB02",
+        "status": "Authorised",
+        "supplierCatalogKey": "dulcolax 10mg suppositories"
+      }
+    },
+    {
+      "id": "product:P0150",
+      "nodeType": "product",
+      "refId": "P0150",
+      "label": "Dulcolax 5mg Gastro-resistant Tablets",
+      "subtext": "constipation",
+      "meta": {
+        "brand": "Dulcolax",
+        "generic": "BISACODYL",
+        "form": "GASTRO-RESISTANT TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "constipation",
+        "secondaryIndications": "bowel movement support",
+        "otcCategory": "DRUGS FOR CONSTIPATION",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "BISACODYL 5 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A06AB02",
+        "status": "Authorised",
+        "supplierCatalogKey": "dulcolax 5mg gastro-resistant tablets"
+      }
+    },
+    {
+      "id": "product:P0151",
+      "nodeType": "product",
+      "refId": "P0151",
+      "label": "Dulcolax Pico Liquid 5mg/5ml oral solution",
+      "subtext": "constipation",
+      "meta": {
+        "brand": "Dulcolax",
+        "generic": "SODIUM PICOSULFATE",
+        "form": "ORAL SOLUTION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "constipation",
+        "secondaryIndications": "bowel movement support",
+        "otcCategory": "DRUGS FOR CONSTIPATION",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "SODIUM PICOSULFATE 5 milligram(s)/5 millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "A06AB08",
+        "status": "Authorised",
+        "supplierCatalogKey": "dulcolax pico liquid 5mg/5ml oral solution"
+      }
+    },
+    {
+      "id": "product:P0156",
+      "nodeType": "product",
+      "refId": "P0156",
+      "label": "Duphalac 3.335 g / 5 ml Oral Solution",
+      "subtext": "constipation",
+      "meta": {
+        "brand": "Duphalac",
+        "generic": "LACTULOSE",
+        "form": "ORAL SOLUTION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "constipation",
+        "secondaryIndications": "bowel movement support",
+        "otcCategory": "DRUGS FOR CONSTIPATION",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "LACTULOSE 3.335 gram(s)/5 millilitres",
+        "packSizeText": "Review manually",
+        "atcCode": "A06AD11",
+        "status": "Authorised",
+        "supplierCatalogKey": "duphalac 3.335 g / 5 ml oral solution"
+      }
+    },
+    {
+      "id": "product:P0157",
+      "nodeType": "product",
+      "refId": "P0157",
+      "label": "Duphalac, 667 mg/ml oral solution",
+      "subtext": "constipation",
+      "meta": {
+        "brand": "Duphalac",
+        "generic": "LACTULOSE",
+        "form": "ORAL DROPS, SOLUTION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "constipation",
+        "secondaryIndications": "bowel movement support",
+        "otcCategory": "DRUGS FOR CONSTIPATION",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "LACTULOSE 667 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "A06AD11",
+        "status": "Authorised",
+        "supplierCatalogKey": "duphalac, 667 mg/ml oral solution"
+      }
+    },
+    {
+      "id": "product:P0160",
+      "nodeType": "product",
+      "refId": "P0160",
+      "label": "EUCARBON herbal tablets",
+      "subtext": "constipation",
+      "meta": {
+        "brand": "EUCARBON",
+        "generic": "CHARCOAL | RHUBARB EXTRACT | SENNA LEAF",
+        "form": "TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "constipation",
+        "secondaryIndications": "bowel movement support",
+        "otcCategory": "DRUGS FOR CONSTIPATION",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "CHARCOAL 180 milligram(s) | SENNA LEAF 105 milligram(s) | RHUBARB EXTRACT 25 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A06AB06",
+        "status": "Authorised",
+        "supplierCatalogKey": "eucarbon herbal tablets"
+      }
+    },
+    {
+      "id": "product:P0168",
+      "nodeType": "product",
+      "refId": "P0168",
+      "label": "Enema Flex Phosphates, (16+6) g/100 mL, rectal solution",
+      "subtext": "constipation",
+      "meta": {
+        "brand": "Enema",
+        "generic": "DISODIUM HYDROGEN PHOSPHATE DODECAHYDRATE | SODIUM DIHYDROGEN PHOSPHATE DIHYDRATE",
+        "form": "RECTAL SOLUTION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "constipation",
+        "secondaryIndications": "bowel movement support",
+        "otcCategory": "DRUGS FOR CONSTIPATION",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "SODIUM DIHYDROGEN PHOSPHATE DIHYDRATE 16 gram(s)/100 millilitres | DISODIUM HYDROGEN PHOSPHATE DODECAHYDRATE\n 6 gram(s)/100 millilitres",
+        "packSizeText": "Review manually",
+        "atcCode": "A06AG01",
+        "status": "Authorised",
+        "supplierCatalogKey": "enema flex phosphates, (16+6) g/100 ml, rectal solution"
+      }
+    },
+    {
+      "id": "product:P0171",
+      "nodeType": "product",
+      "refId": "P0171",
+      "label": "Eucarbon Tablets",
+      "subtext": "constipation",
+      "meta": {
+        "brand": "Eucarbon",
+        "generic": "CHARCOAL | RHUBARB EXTRACT | SENNA LEAF | SULFUR",
+        "form": "TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "constipation",
+        "secondaryIndications": "bowel movement support",
+        "otcCategory": "DRUGS FOR CONSTIPATION",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 4,
+        "strengthText": "CHARCOAL 180 milligram(s) | SENNA LEAF 105 milligram(s) | SULFUR 50 milligram(s) | RHUBARB EXTRACT 25 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A06AB06",
+        "status": "Authorised",
+        "supplierCatalogKey": "eucarbon tablets"
+      }
+    },
+    {
+      "id": "product:P0195",
+      "nodeType": "product",
+      "refId": "P0195",
+      "label": "Fybogel Orange",
+      "subtext": "constipation",
+      "meta": {
+        "brand": "Fybogel",
+        "generic": "ISPAGHULA HUSKS",
+        "form": "EFFERVESCENT GRANULES",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "constipation",
+        "secondaryIndications": "bowel movement support",
+        "otcCategory": "DRUGS FOR CONSTIPATION",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "ISPAGHULA HUSKS 3.5 gram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A06AC01",
+        "status": "Authorised",
+        "supplierCatalogKey": "fybogel orange"
+      }
+    },
+    {
+      "id": "product:P0204",
+      "nodeType": "product",
+      "refId": "P0204",
+      "label": "Glycerin Microclysma for Babies/Zarmpi Enema",
+      "subtext": "constipation",
+      "meta": {
+        "brand": "Glycerin",
+        "generic": "GLYCEROL",
+        "form": "ENEMA",
+        "formGroup": "Other",
+        "route": "Other",
+        "mainIndication": "constipation",
+        "secondaryIndications": "bowel movement support",
+        "otcCategory": "DRUGS FOR CONSTIPATION",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "GLYCEROL 1.8 milligram(s)/dose",
+        "packSizeText": "Review manually",
+        "atcCode": "A06AG04",
+        "status": "Authorised",
+        "supplierCatalogKey": "glycerin microclysma for babies/zarmpi enema"
+      }
+    },
+    {
+      "id": "product:P0205",
+      "nodeType": "product",
+      "refId": "P0205",
+      "label": "Glycerin Microlysma For Babies/Zarmpi Enema 1.8g/Dose (2.5mL)",
+      "subtext": "constipation",
+      "meta": {
+        "brand": "Glycerin",
+        "generic": "GLYCEROL",
+        "form": "ENEMA",
+        "formGroup": "Other",
+        "route": "Other",
+        "mainIndication": "constipation",
+        "secondaryIndications": "bowel movement support",
+        "otcCategory": "DRUGS FOR CONSTIPATION",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "GLYCEROL 1.8 gram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A06AG04",
+        "status": "Authorised",
+        "supplierCatalogKey": "glycerin microlysma for babies/zarmpi enema 1.8g/dose (2.5ml)"
+      }
+    },
+    {
+      "id": "product:P0206",
+      "nodeType": "product",
+      "refId": "P0206",
+      "label": "Glycerin Microlysma For Children/ZARBISi Enema 2.1g glycerol/enema (dose 2.5mL)",
+      "subtext": "constipation",
+      "meta": {
+        "brand": "Glycerin",
+        "generic": "GLYCEROL",
+        "form": "ENEMA",
+        "formGroup": "Other",
+        "route": "Other",
+        "mainIndication": "constipation",
+        "secondaryIndications": "bowel movement support",
+        "otcCategory": "DRUGS FOR CONSTIPATION",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "GLYCEROL 2.1 gram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A06AG04",
+        "status": "Authorised",
+        "supplierCatalogKey": "glycerin microlysma for children/zarbisi enema 2.1g glycerol/enema (dose 2.5ml)"
+      }
+    },
+    {
+      "id": "product:P0207",
+      "nodeType": "product",
+      "refId": "P0207",
+      "label": "Glycerine Suppositories for Adults/ZARBIS: 2.4 glycerol/suppository",
+      "subtext": "constipation",
+      "meta": {
+        "brand": "Glycerine",
+        "generic": "GLYCEROL",
+        "form": "SUPPOSITORY",
+        "formGroup": "Suppository / pessary",
+        "route": "Suppository / pessary",
+        "mainIndication": "constipation",
+        "secondaryIndications": "bowel movement support",
+        "otcCategory": "DRUGS FOR CONSTIPATION",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "GLYCEROL 2.4 gram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A06AX01",
+        "status": "Authorised",
+        "supplierCatalogKey": "glycerine suppositories for adults/zarbis: 2.4 glycerol/suppository"
+      }
+    },
+    {
+      "id": "product:P0208",
+      "nodeType": "product",
+      "refId": "P0208",
+      "label": "Glycerol Sella Suppositories 2250mg",
+      "subtext": "constipation",
+      "meta": {
+        "brand": "Glycerol",
+        "generic": "GLYCEROL",
+        "form": "SUPPOSITORY",
+        "formGroup": "Suppository / pessary",
+        "route": "Suppository / pessary",
+        "mainIndication": "constipation",
+        "secondaryIndications": "bowel movement support",
+        "otcCategory": "DRUGS FOR CONSTIPATION",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "GLYCEROL 2250 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A06AX01",
+        "status": "Authorised",
+        "supplierCatalogKey": "glycerol sella suppositories 2250mg"
+      }
+    },
+    {
+      "id": "product:P0247",
+      "nodeType": "product",
+      "refId": "P0247",
+      "label": "Lactulose AIWA 670 mg/mL oral solution",
+      "subtext": "constipation",
+      "meta": {
+        "brand": "Lactulose",
+        "generic": "LACTULOSE",
+        "form": "ORAL SOLUTION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "constipation",
+        "secondaryIndications": "bowel movement support",
+        "otcCategory": "DRUGS FOR CONSTIPATION",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "LACTULOSE 670 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "A06AD11",
+        "status": "Authorised",
+        "supplierCatalogKey": "lactulose aiwa 670 mg/ml oral solution"
+      }
+    },
+    {
+      "id": "product:P0248",
+      "nodeType": "product",
+      "refId": "P0248",
+      "label": "Lactulose Crescent 3.35 g/5 ml Solution",
+      "subtext": "constipation",
+      "meta": {
+        "brand": "Lactulose",
+        "generic": "LACTULOSE",
+        "form": "ORAL SOLUTION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "constipation",
+        "secondaryIndications": "bowel movement support",
+        "otcCategory": "DRUGS FOR CONSTIPATION",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "LACTULOSE 3.35 gram(s)/5 millilitres",
+        "packSizeText": "Review manually",
+        "atcCode": "A06AD11",
+        "status": "Authorised",
+        "supplierCatalogKey": "lactulose crescent 3.35 g/5 ml solution"
+      }
+    },
+    {
+      "id": "product:P0249",
+      "nodeType": "product",
+      "refId": "P0249",
+      "label": "Lactulose Generis 666.7 mg/mL syrup",
+      "subtext": "constipation",
+      "meta": {
+        "brand": "Lactulose",
+        "generic": "LACTULOSE",
+        "form": "SYRUP",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "constipation",
+        "secondaryIndications": "bowel movement support",
+        "otcCategory": "DRUGS FOR CONSTIPATION",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "LACTULOSE 666.7 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "A06AD11",
+        "status": "Authorised",
+        "supplierCatalogKey": "lactulose generis 666.7 mg/ml syrup"
+      }
+    },
+    {
+      "id": "product:P0250",
+      "nodeType": "product",
+      "refId": "P0250",
+      "label": "Lactulose Solution BP Oral Solution 3.35g/5ml",
+      "subtext": "constipation",
+      "meta": {
+        "brand": "Lactulose",
+        "generic": "LACTULOSE",
+        "form": "ORAL SOLUTION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "constipation",
+        "secondaryIndications": "bowel movement support",
+        "otcCategory": "DRUGS FOR CONSTIPATION",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "LACTULOSE 3.35 gram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "A06AD11",
+        "status": "Authorised",
+        "supplierCatalogKey": "lactulose solution bp oral solution 3.35g/5ml"
+      }
+    },
+    {
+      "id": "product:P0252",
+      "nodeType": "product",
+      "refId": "P0252",
+      "label": "Lax-Tab 5 mg gastro-resistant tablets",
+      "subtext": "constipation",
+      "meta": {
+        "brand": "Lax",
+        "generic": "BISACODYL",
+        "form": "GASTRO-RESISTANT TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "constipation",
+        "secondaryIndications": "bowel movement support",
+        "otcCategory": "DRUGS FOR CONSTIPATION",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "BISACODYL 5 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A06AB02",
+        "status": "Authorised",
+        "supplierCatalogKey": "lax-tab 5 mg gastro-resistant tablets"
+      }
+    },
+    {
+      "id": "product:P0261",
+      "nodeType": "product",
+      "refId": "P0261",
+      "label": "MACROGOL 4000 VIATRIS 10 g, powder for oral solution in sachet-dose",
+      "subtext": "constipation",
+      "meta": {
+        "brand": "MACROGOL",
+        "generic": "MACROGOL",
+        "form": "POWDER FOR ORAL SOLUTION",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "constipation",
+        "secondaryIndications": "bowel movement support",
+        "otcCategory": "DRUGS FOR CONSTIPATION",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "MACROGOL 4000 10000 gram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A06AD15",
+        "status": "Authorised",
+        "supplierCatalogKey": "macrogol 4000 viatris 10 g, powder for oral solution in sachet-dose"
+      }
+    },
+    {
+      "id": "product:P0263",
+      "nodeType": "product",
+      "refId": "P0263",
+      "label": "MICROLAX SORBITOL CITRATE AND SODIUM LAURYLSULFOACETATE, rectal solution in single-dose container",
+      "subtext": "constipation",
+      "meta": {
+        "brand": "MICROLAX",
+        "generic": "SODIUM CITRATE | SODIUM LAURYL SULFOACETATE | SORBITOL",
+        "form": "RECTAL SOLUTION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "constipation",
+        "secondaryIndications": "bowel movement support",
+        "otcCategory": "DRUGS FOR CONSTIPATION",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "SORBITOL 4.4650 gram(s) | SODIUM CITRATE 0.4500 gram(s) | SODIUM LAURYL SULFOACETATE 0.0645 gram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A06AG11",
+        "status": "Authorised",
+        "supplierCatalogKey": "microlax sorbitol citrate and sodium laurylsulfoacetate, rectal solution in single-dose container"
+      }
+    },
+    {
+      "id": "product:P0264",
+      "nodeType": "product",
+      "refId": "P0264",
+      "label": "MOVICOL 13.8g sachet, powder for oral solution",
+      "subtext": "constipation",
+      "meta": {
+        "brand": "MOVICOL",
+        "generic": "MACROGOL | POTASSIUM CHLORIDE | SODIUM BICARBONATE | SODIUM CHLORIDE",
+        "form": "POWDER FOR ORAL SOLUTION",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "constipation",
+        "secondaryIndications": "bowel movement support",
+        "otcCategory": "DRUGS FOR CONSTIPATION",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 4,
+        "strengthText": "POTASSIUM CHLORIDE 46.6 milligram(s) | SODIUM CHLORIDE 350.7 milligram(s) | SODIUM BICARBONATE 178.5 milligram(s) | MACROGOL 3350 13.125 gram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A06AD65",
+        "status": "Authorised",
+        "supplierCatalogKey": "movicol 13.8g sachet, powder for oral solution"
+      }
+    },
+    {
+      "id": "product:P0265",
+      "nodeType": "product",
+      "refId": "P0265",
+      "label": "MOVICOL UNFLAVOURED powder for oral solution in sachet",
+      "subtext": "constipation",
+      "meta": {
+        "brand": "MOVICOL",
+        "generic": "MACROGOL | POTASSIUM CHLORIDE | SODIUM BICARBONATE | SODIUM CHLORIDE",
+        "form": "POWDER FOR ORAL SOLUTION",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "constipation",
+        "secondaryIndications": "bowel movement support",
+        "otcCategory": "DRUGS FOR CONSTIPATION",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 4,
+        "strengthText": "MACROGOL 3350 13.1250 gram(s) | SODIUM BICARBONATE 0.1786 gram(s) | POTASSIUM CHLORIDE 0.0502 gram(s) | SODIUM CHLORIDE 0.3508 gram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A06AD65",
+        "status": "Authorised",
+        "supplierCatalogKey": "movicol unflavoured powder for oral solution in sachet"
+      }
+    },
+    {
+      "id": "product:P0266",
+      "nodeType": "product",
+      "refId": "P0266",
+      "label": "MOVICOL UNFLAVOURED, powder for oral solution in sachet",
+      "subtext": "constipation",
+      "meta": {
+        "brand": "MOVICOL",
+        "generic": "MACROGOL | POTASSIUM CHLORIDE | SODIUM BICARBONATE | SODIUM CHLORIDE",
+        "form": "POWDER FOR ORAL SOLUTION",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "constipation",
+        "secondaryIndications": "bowel movement support",
+        "otcCategory": "DRUGS FOR CONSTIPATION",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 4,
+        "strengthText": "MACROGOL 3350 13.125 gram(s) | SODIUM CHLORIDE 0.3508 gram(s) | SODIUM BICARBONATE 0.1786 gram(s) | POTASSIUM CHLORIDE 0.0502 gram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A06AD65",
+        "status": "Authorised",
+        "supplierCatalogKey": "movicol unflavoured, powder for oral solution in sachet"
+      }
+    },
+    {
+      "id": "product:P0267",
+      "nodeType": "product",
+      "refId": "P0267",
+      "label": "MOVICOL, powder for oral solution in sachet",
+      "subtext": "constipation",
+      "meta": {
+        "brand": "MOVICOL",
+        "generic": "MACROGOL | POTASSIUM CHLORIDE | SODIUM BICARBONATE | SODIUM CHLORIDE",
+        "form": "ORAL SOLUTION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "constipation",
+        "secondaryIndications": "bowel movement support",
+        "otcCategory": "DRUGS FOR CONSTIPATION",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 4,
+        "strengthText": "MACROGOL 3350 13.125 gram(s) | SODIUM CHLORIDE 0.3507 gram(s) | SODIUM BICARBONATE 0.1785 gram(s) | POTASSIUM CHLORIDE 0.0466 gram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A06AD65",
+        "status": "Authorised",
+        "supplierCatalogKey": "movicol, powder for oral solution in sachet"
+      }
+    },
+    {
+      "id": "product:P0277",
+      "nodeType": "product",
+      "refId": "P0277",
+      "label": "Macrolief 13.8g sachet, powder for oral solution",
+      "subtext": "constipation",
+      "meta": {
+        "brand": "Macrolief",
+        "generic": "MACROGOL | POTASSIUM CHLORIDE | SODIUM CHLORIDE | SODIUM HYDROGEN CARBONATE",
+        "form": "POWDER FOR ORAL SOLUTION",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "constipation",
+        "secondaryIndications": "bowel movement support",
+        "otcCategory": "DRUGS FOR CONSTIPATION",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 4,
+        "strengthText": "POTASSIUM CHLORIDE 0.0466 gram(s) | MACROGOL 3350 13.125 gram(s) | SODIUM CHLORIDE 0.3507 gram(s) | SODIUM HYDROGEN CARBONATE 0.1785 gram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A06AD65",
+        "status": "Authorised",
+        "supplierCatalogKey": "macrolief 13.8g sachet, powder for oral solution"
+      }
+    },
+    {
+      "id": "product:P0290",
+      "nodeType": "product",
+      "refId": "P0290",
+      "label": "Microlax Rectal Solution Sodium Citrate 450 mg / 5 ml Sodium Lauryl Sulphoacetate 45 mg / 5 ml",
+      "subtext": "constipation",
+      "meta": {
+        "brand": "Microlax",
+        "generic": "SODIUM CITRATE | SODIUM LAURYL SULFOACETATE",
+        "form": "ENEMA, RECTAL SOLUTION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "constipation",
+        "secondaryIndications": "bowel movement support",
+        "otcCategory": "DRUGS FOR CONSTIPATION",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "SODIUM CITRATE 450 milligram(s)/5 millilitre | SODIUM LAURYL SULFOACETATE 45 milligram(s)/5 millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "A06AG11",
+        "status": "Authorised",
+        "supplierCatalogKey": "microlax rectal solution sodium citrate 450 mg / 5 ml sodium lauryl sulphoacetate 45 mg / 5 ml"
+      }
+    },
+    {
+      "id": "product:P0297",
+      "nodeType": "product",
+      "refId": "P0297",
+      "label": "Movicol 13.8 g sachet powder for oral solution",
+      "subtext": "constipation",
+      "meta": {
+        "brand": "Movicol",
+        "generic": "MACROGOL | POTASSIUM CHLORIDE | SODIUM BICARBONATE | SODIUM CHLORIDE",
+        "form": "POWDER FOR ORAL SOLUTION",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "constipation",
+        "secondaryIndications": "bowel movement support",
+        "otcCategory": "DRUGS FOR CONSTIPATION",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 4,
+        "strengthText": "MACROGOL 3350 13.125 gram(s) | SODIUM CHLORIDE 0.3507 gram(s) | SODIUM BICARBONATE 0.1785 gram(s) | POTASSIUM CHLORIDE 0.0466 gram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A06AD65",
+        "status": "Authorised",
+        "supplierCatalogKey": "movicol 13.8 g sachet powder for oral solution"
+      }
+    },
+    {
+      "id": "product:P0396",
+      "nodeType": "product",
+      "refId": "P0396",
+      "label": "Perphyl 667 mg/ml Syrup",
+      "subtext": "constipation",
+      "meta": {
+        "brand": "Perphyl",
+        "generic": "LACTULOSE",
+        "form": "SYRUP",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "constipation",
+        "secondaryIndications": "bowel movement support",
+        "otcCategory": "DRUGS FOR CONSTIPATION",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "LACTULOSE 667 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "A06AD11",
+        "status": "Authorised",
+        "supplierCatalogKey": "perphyl 667 mg/ml syrup"
+      }
+    },
+    {
+      "id": "product:P0434",
+      "nodeType": "product",
+      "refId": "P0434",
+      "label": "Senna 7.5 mg tablets",
+      "subtext": "constipation",
+      "meta": {
+        "brand": "Senna",
+        "generic": "SENNOSIDES",
+        "form": "TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "constipation",
+        "secondaryIndications": "bowel movement support",
+        "otcCategory": "DRUGS FOR CONSTIPATION",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "SENNOSIDES  7.5 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A06AB06",
+        "status": "Authorised",
+        "supplierCatalogKey": "senna 7.5 mg tablets"
+      }
+    },
+    {
+      "id": "product:P0449",
+      "nodeType": "product",
+      "refId": "P0449",
+      "label": "Sodium Phosphate Sella 16% / 6% rectal solution",
+      "subtext": "constipation",
+      "meta": {
+        "brand": "Sodium",
+        "generic": "SODIUM PHOSPHATE DIBASIC HEPTAHYDRATE | SODIUM PHOSPHATE MONOBASIC MONOHYDRATE",
+        "form": "RECTAL SOLUTION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "constipation",
+        "secondaryIndications": "bowel movement support",
+        "otcCategory": "DRUGS FOR CONSTIPATION",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "SODIUM PHOSPHATE MONOBASIC MONOHYDRATE\n 16 gram(s)/100 millilitres | SODIUM PHOSPHATE DIBASIC HEPTAHYDRATE 6 gram(s)/100 millilitres",
+        "packSizeText": "Review manually",
+        "atcCode": "A06AG01",
+        "status": "Authorised",
+        "supplierCatalogKey": "sodium phosphate sella 16% / 6% rectal solution"
+      }
+    },
+    {
+      "id": "usecase:UC007",
+      "nodeType": "usecase",
+      "refId": "UC007",
+      "label": "Constipation support",
+      "subtext": "Gastrointestinal",
+      "meta": {
+        "UseCase_ID": "UC007",
+        "UseCase_Name": "Constipation support",
+        "UseCase_Category": "Gastrointestinal",
+        "Trigger_Symptoms": "Constipation, bowel movement support",
+        "Description": "Escalate from gentle to stronger options."
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "817ffbf08036723b",
+      "source": "product:P0031",
+      "target": "symptom:S016",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00106"
+      }
+    },
+    {
+      "key": "c6b0cdb2b61eadcb",
+      "source": "product:P0037",
+      "target": "symptom:S016",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00122"
+      }
+    },
+    {
+      "key": "e80b5e47c7004567",
+      "source": "product:P0053",
+      "target": "symptom:S016",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00168"
+      }
+    },
+    {
+      "key": "024d7f752475f395",
+      "source": "product:P0109",
+      "target": "symptom:S016",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00358"
+      }
+    },
+    {
+      "key": "32dca85bcac80565",
+      "source": "product:P0143",
+      "target": "symptom:S016",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00473"
+      }
+    },
+    {
+      "key": "2e09d6935bccb93f",
+      "source": "product:P0149",
+      "target": "symptom:S016",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00491"
+      }
+    },
+    {
+      "key": "d6faaef78800d996",
+      "source": "product:P0150",
+      "target": "symptom:S016",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00493"
+      }
+    },
+    {
+      "key": "43d97accbbe1214f",
+      "source": "product:P0151",
+      "target": "symptom:S016",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00495"
+      }
+    },
+    {
+      "key": "302f48cf52d84e96",
+      "source": "product:P0156",
+      "target": "symptom:S016",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00512"
+      }
+    },
+    {
+      "key": "9ae27abd581b57b8",
+      "source": "product:P0157",
+      "target": "symptom:S016",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00514"
+      }
+    },
+    {
+      "key": "83e625ab569bfc5a",
+      "source": "product:P0160",
+      "target": "symptom:S016",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00520"
+      }
+    },
+    {
+      "key": "1960ea92a9051a52",
+      "source": "product:P0168",
+      "target": "symptom:S016",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00546"
+      }
+    },
+    {
+      "key": "b86428d4921f9bce",
+      "source": "product:P0171",
+      "target": "symptom:S016",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00552"
+      }
+    },
+    {
+      "key": "b1d64ecf2cd0f872",
+      "source": "product:P0195",
+      "target": "symptom:S016",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00636"
+      }
+    },
+    {
+      "key": "ffa0bdfe40284cea",
+      "source": "product:P0204",
+      "target": "symptom:S016",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00660"
+      }
+    },
+    {
+      "key": "54b3bb8313c12c78",
+      "source": "product:P0205",
+      "target": "symptom:S016",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00662"
+      }
+    },
+    {
+      "key": "84e516eea84fe442",
+      "source": "product:P0206",
+      "target": "symptom:S016",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00664"
+      }
+    },
+    {
+      "key": "d3dbaf1088844037",
+      "source": "product:P0207",
+      "target": "symptom:S016",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00666"
+      }
+    },
+    {
+      "key": "b2ca2fb259231a61",
+      "source": "product:P0208",
+      "target": "symptom:S016",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00668"
+      }
+    },
+    {
+      "key": "b43e7c6eabef8f46",
+      "source": "product:P0247",
+      "target": "symptom:S016",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00803"
+      }
+    },
+    {
+      "key": "91e28ea98d680adb",
+      "source": "product:P0248",
+      "target": "symptom:S016",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00805"
+      }
+    },
+    {
+      "key": "1bdfe20879dc32c7",
+      "source": "product:P0249",
+      "target": "symptom:S016",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00807"
+      }
+    },
+    {
+      "key": "8ea176b11ca2a3b5",
+      "source": "product:P0250",
+      "target": "symptom:S016",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00809"
+      }
+    },
+    {
+      "key": "8fb1dfbffca53d7b",
+      "source": "product:P0252",
+      "target": "symptom:S016",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00814"
+      }
+    },
+    {
+      "key": "2c1c2d23e91808cb",
+      "source": "product:P0261",
+      "target": "symptom:S016",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00838"
+      }
+    },
+    {
+      "key": "540a92ac89a66775",
+      "source": "product:P0263",
+      "target": "symptom:S016",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00842"
+      }
+    },
+    {
+      "key": "cef8f6a6669bd5f9",
+      "source": "product:P0264",
+      "target": "symptom:S016",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00844"
+      }
+    },
+    {
+      "key": "6f290bdbd4a3bdde",
+      "source": "product:P0265",
+      "target": "symptom:S016",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00846"
+      }
+    },
+    {
+      "key": "13a0dc530dff911b",
+      "source": "product:P0266",
+      "target": "symptom:S016",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00848"
+      }
+    },
+    {
+      "key": "afec02b465751c2a",
+      "source": "product:P0267",
+      "target": "symptom:S016",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00850"
+      }
+    },
+    {
+      "key": "77695a7a74335a2b",
+      "source": "product:P0277",
+      "target": "symptom:S016",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00885"
+      }
+    },
+    {
+      "key": "ff8bab62cd0afbab",
+      "source": "product:P0290",
+      "target": "symptom:S016",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00922"
+      }
+    },
+    {
+      "key": "faa3bea7e8e9a633",
+      "source": "product:P0297",
+      "target": "symptom:S016",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00944"
+      }
+    },
+    {
+      "key": "f6e75774d5719f9d",
+      "source": "product:P0396",
+      "target": "symptom:S016",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01303"
+      }
+    },
+    {
+      "key": "78c4f6b1df19c413",
+      "source": "product:P0434",
+      "target": "symptom:S016",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01432"
+      }
+    },
+    {
+      "key": "6b7d55030099e549",
+      "source": "product:P0449",
+      "target": "symptom:S016",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01480"
+      }
+    },
+    {
+      "key": "b3549aaa895e27e6",
+      "source": "symptom:S016",
+      "target": "usecase:UC007",
+      "rel": "usecase",
+      "label": "Related use case",
+      "score": 90,
+      "why": "",
+      "meta": {}
+    }
+  ]
+}

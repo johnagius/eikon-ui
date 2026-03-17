@@ -1,1 +1,970 @@
-{"centerId":"symptom:S003","centerType":"symptom","refId":"S003","nodes":[{"id":"symptom:S003","nodeType":"symptom","refId":"S003","label":"allergy","subtext":"Cold / allergy","meta":{"Symptom_ID":"S003","Symptom_Name":"allergy","Symptom_Category":"Cold / allergy","Linked_Product_Count":23,"Display_Group":"Cold / allergy","Priority_For_Graph":100,"Node_Color":"#70AD47","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"product:P0004","nodeType":"product","refId":"P0004","label":"ALTACURA ALLERGY 10mg Film-Coated Tablets","subtext":"allergy","meta":{"brand":"ALTACURA","generic":"CETIRIZINE HYDROCHLORIDE","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"allergy","secondaryIndications":"sneezing | runny nose | itching","otcCategory":"ANTIHISTAMINES FOR SYSTEMIC USE","seasonalGroup":"Spring / allergy","sedating":"No","nonDrowsy":"Yes","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CETIRIZINE HYDROCHLORIDE 10 milligram(s)","packSizeText":"Review manually","atcCode":"R06AE07","status":"Authorised","supplierCatalogKey":"altacura allergy 10mg film-coated tablets"}},{"id":"product:P0024","nodeType":"product","refId":"P0024","label":"Anti-Hist Allergy 10 mg Film-coated tablets","subtext":"allergy","meta":{"brand":"Anti","generic":"CETIRIZINE DIHYDROCHLORIDE","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"allergy","secondaryIndications":"sneezing | runny nose | itching","otcCategory":"ANTIHISTAMINES FOR SYSTEMIC USE","seasonalGroup":"Spring / allergy","sedating":"No","nonDrowsy":"Yes","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CETIRIZINE DIHYDROCHLORIDE 10 milligram(s)","packSizeText":"Review manually","atcCode":"R06AE07","status":"Authorised","supplierCatalogKey":"anti-hist allergy 10 mg film-coated tablets"}},{"id":"product:P0067","nodeType":"product","refId":"P0067","label":"CLARITYNE 10 mg tablets","subtext":"allergy","meta":{"brand":"CLARITYNE","generic":"LORATADINE","form":"TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"allergy","secondaryIndications":"sneezing | runny nose | itching","otcCategory":"ANTIHISTAMINES FOR SYSTEMIC USE","seasonalGroup":"Spring / allergy","sedating":"No","nonDrowsy":"Yes","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"LORATADINE 10 milligram(s)","packSizeText":"Review manually","atcCode":"R06AX13","status":"Authorised","supplierCatalogKey":"clarityne 10 mg tablets"}},{"id":"product:P0099","nodeType":"product","refId":"P0099","label":"Cetirizine GP 10 mg film-coated tablets","subtext":"allergy","meta":{"brand":"Cetirizine","generic":"CETIRIZINE DIHYDROCHLORIDE","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"allergy","secondaryIndications":"sneezing | runny nose | itching","otcCategory":"ANTIHISTAMINES FOR SYSTEMIC USE","seasonalGroup":"Spring / allergy","sedating":"No","nonDrowsy":"Yes","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CETIRIZINE DIHYDROCHLORIDE 10 milligram(s)","packSizeText":"Review manually","atcCode":"R06AE07","status":"Authorised","supplierCatalogKey":"cetirizine gp 10 mg film-coated tablets"}},{"id":"product:P0100","nodeType":"product","refId":"P0100","label":"Cetrine Allergy 10mg Film-coated Tablets","subtext":"allergy","meta":{"brand":"Cetrine","generic":"CETIRIZINE DIHYDROCHLORIDE","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"allergy","secondaryIndications":"sneezing | runny nose | itching","otcCategory":"ANTIHISTAMINES FOR SYSTEMIC USE","seasonalGroup":"Spring / allergy","sedating":"No","nonDrowsy":"Yes","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CETIRIZINE DIHYDROCHLORIDE 10 milligram(s)","packSizeText":"Review manually","atcCode":"R06AE07","status":"Authorised","supplierCatalogKey":"cetrine allergy 10mg film-coated tablets"}},{"id":"product:P0105","nodeType":"product","refId":"P0105","label":"Clarinase Repetabs 5 mg/120 mg prolonged release tablets","subtext":"allergy","meta":{"brand":"Clarinase","generic":"LORATADINE | PSEUDOEPHEDRINE SULFATE","form":"PROLONGED-RELEASE TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"allergy","secondaryIndications":"sneezing | runny nose | itching","otcCategory":"ANTIHISTAMINES FOR SYSTEMIC USE","seasonalGroup":"Spring / allergy","sedating":"No","nonDrowsy":"Yes","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"PSEUDOEPHEDRINE SULFATE 120 milligram(s) | LORATADINE 5 milligram(s)","packSizeText":"Review manually","atcCode":"R06AX13","status":"Authorised","supplierCatalogKey":"clarinase repetabs 5 mg/120 mg prolonged release tablets"}},{"id":"product:P0107","nodeType":"product","refId":"P0107","label":"Clarityn 10mg Tablets","subtext":"allergy","meta":{"brand":"Clarityn","generic":"LORATADINE","form":"TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"allergy","secondaryIndications":"sneezing | runny nose | itching","otcCategory":"ANTIHISTAMINES FOR SYSTEMIC USE","seasonalGroup":"Spring / allergy","sedating":"No","nonDrowsy":"Yes","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"LORATADINE 10 milligram(s)","packSizeText":"Review manually","atcCode":"R06AX13","status":"Authorised","supplierCatalogKey":"clarityn 10mg tablets"}},{"id":"product:P0108","nodeType":"product","refId":"P0108","label":"Clarityne-D 5mg/120mg Prolonged-Release Tablets","subtext":"allergy","meta":{"brand":"Clarityne","generic":"LORATADINE | PSEUDOEPHEDRINE SULFATE","form":"PROLONGED-RELEASE TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"allergy","secondaryIndications":"sneezing | runny nose | itching","otcCategory":"ANTIHISTAMINES FOR SYSTEMIC USE","seasonalGroup":"Spring / allergy","sedating":"No","nonDrowsy":"Yes","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"LORATADINE 5 milligram(s) | PSEUDOEPHEDRINE SULFATE 120 milligram(s)","packSizeText":"Review manually","atcCode":"R06AX13","status":"Authorised","supplierCatalogKey":"clarityne-d 5mg/120mg prolonged-release tablets"}},{"id":"product:P0210","nodeType":"product","refId":"P0210","label":"Gosall 20mg tablets","subtext":"allergy","meta":{"brand":"Gosall","generic":"BILASTINE","form":"TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"allergy","secondaryIndications":"sneezing | runny nose | itching","otcCategory":"ANTIHISTAMINES FOR SYSTEMIC USE","seasonalGroup":"Spring / allergy","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"BILASTINE 20 milligram(s)","packSizeText":"Review manually","atcCode":"R06AX29","status":"Authorised","supplierCatalogKey":"gosall 20mg tablets"}},{"id":"product:P0211","nodeType":"product","refId":"P0211","label":"Habitek 10mg film-coated tablets","subtext":"allergy","meta":{"brand":"Habitek","generic":"CETIRIZINE DIHYDROCHLORIDE","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"allergy","secondaryIndications":"sneezing | runny nose | itching","otcCategory":"ANTIHISTAMINES FOR SYSTEMIC USE","seasonalGroup":"Spring / allergy","sedating":"No","nonDrowsy":"Yes","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CETIRIZINE DIHYDROCHLORIDE 10 milligram(s)","packSizeText":"Review manually","atcCode":"R06AE07","status":"Authorised","supplierCatalogKey":"habitek 10mg film-coated tablets"}},{"id":"product:P0215","nodeType":"product","refId":"P0215","label":"Horestyl Syrup 5mg/5ml","subtext":"allergy","meta":{"brand":"Horestyl","generic":"LORATADINE","form":"SYRUP","formGroup":"Oral liquid","route":"Oral","mainIndication":"allergy","secondaryIndications":"sneezing | runny nose | itching","otcCategory":"ANTIHISTAMINES FOR SYSTEMIC USE","seasonalGroup":"Spring / allergy","sedating":"No","nonDrowsy":"Yes","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"LORATADINE 5 milligram(s)/5 millilitre","packSizeText":"Review manually","atcCode":"R06AX13","status":"Authorised","supplierCatalogKey":"horestyl syrup 5mg/5ml"}},{"id":"product:P0244","nodeType":"product","refId":"P0244","label":"Ksivozan 5 mg film-coated tablets","subtext":"allergy","meta":{"brand":"Ksivozan","generic":"LEVOCETIRIZINE DIHYDROCHLORIDE","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"allergy","secondaryIndications":"sneezing | runny nose | itching","otcCategory":"ANTIHISTAMINES FOR SYSTEMIC USE","seasonalGroup":"Spring / allergy","sedating":"No","nonDrowsy":"Yes","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"LEVOCETIRIZINE DIHYDROCHLORIDE 5 milligram(s)","packSizeText":"Review manually","atcCode":"R06AE09","status":"Authorised","supplierCatalogKey":"ksivozan 5 mg film-coated tablets"}},{"id":"product:P0258","nodeType":"product","refId":"P0258","label":"Lorat 10mg Tablets","subtext":"allergy","meta":{"brand":"Lorat","generic":"LORATADINE","form":"TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"allergy","secondaryIndications":"sneezing | runny nose | itching","otcCategory":"ANTIHISTAMINES FOR SYSTEMIC USE","seasonalGroup":"Spring / allergy","sedating":"No","nonDrowsy":"Yes","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"LORATADINE 10 milligram(s)","packSizeText":"Review manually","atcCode":"R06AX13","status":"Authorised","supplierCatalogKey":"lorat 10mg tablets"}},{"id":"product:P0302","nodeType":"product","refId":"P0302","label":"NAVIDOXINE 25 mg tablets (Meclozine hydrochloride)","subtext":"allergy","meta":{"brand":"NAVIDOXINE","generic":"MECLOZINE HYDROCHLORIDE","form":"TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"allergy","secondaryIndications":"sneezing | runny nose | itching","otcCategory":"ANTIHISTAMINES FOR SYSTEMIC USE","seasonalGroup":"Spring / allergy","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"MECLOZINE HYDROCHLORIDE 25 milligram(s)","packSizeText":"Review manually","atcCode":"R06AE05","status":"Authorised","supplierCatalogKey":"navidoxine 25 mg tablets (meclozine hydrochloride)"}},{"id":"product:P0339","nodeType":"product","refId":"P0339","label":"Normodorm 25 mg film-coated tablets","subtext":"allergy","meta":{"brand":"Normodorm","generic":"DOXYLAMINE HYDROGEN SUCCINATE","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"allergy","secondaryIndications":"sneezing | runny nose | itching","otcCategory":"ANTIHISTAMINES FOR SYSTEMIC USE","seasonalGroup":"Spring / allergy","sedating":"Yes","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DOXYLAMINE HYDROGEN SUCCINATE\n 25 milligram(s)","packSizeText":"Review manually","atcCode":"R06AA09","status":"Authorised","supplierCatalogKey":"normodorm 25 mg film-coated tablets"}},{"id":"product:P0352","nodeType":"product","refId":"P0352","label":"Nytol One-A-Night 50mg Tablets","subtext":"allergy","meta":{"brand":"Nytol","generic":"DIPHENHYDRAMINE HYDROCHLORIDE","form":"TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"allergy","secondaryIndications":"sneezing | runny nose | itching","otcCategory":"ANTIHISTAMINES FOR SYSTEMIC USE","seasonalGroup":"Spring / allergy","sedating":"Yes","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DIPHENHYDRAMINE HYDROCHLORIDE 50 milligram(s)","packSizeText":"Review manually","atcCode":"R06AA02","status":"Authorised","supplierCatalogKey":"nytol one-a-night 50mg tablets"}},{"id":"product:P0472","nodeType":"product","refId":"P0472","label":"Telfast 180 mg film-coated tablets","subtext":"allergy","meta":{"brand":"Telfast","generic":"FEXOFENADINE HYDROCHLORIDE","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"allergy","secondaryIndications":"sneezing | runny nose | itching","otcCategory":"ANTIHISTAMINES FOR SYSTEMIC USE","seasonalGroup":"Spring / allergy","sedating":"No","nonDrowsy":"Yes","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"FEXOFENADINE HYDROCHLORIDE 180 milligram(s)","packSizeText":"Review manually","atcCode":"R06AX26","status":"Authorised","supplierCatalogKey":"telfast 180 mg film-coated tablets"}},{"id":"product:P0473","nodeType":"product","refId":"P0473","label":"Telfast Allergy 120 mg film-coated tablets","subtext":"allergy","meta":{"brand":"Telfast","generic":"FEXOFENADINE HYDROCHLORIDE","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"allergy","secondaryIndications":"sneezing | runny nose | itching","otcCategory":"ANTIHISTAMINES FOR SYSTEMIC USE","seasonalGroup":"Spring / allergy","sedating":"No","nonDrowsy":"Yes","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"FEXOFENADINE HYDROCHLORIDE 120 milligram(s)","packSizeText":"Review manually","atcCode":"R06AX26","status":"Authorised","supplierCatalogKey":"telfast allergy 120 mg film-coated tablets"}},{"id":"product:P0518","nodeType":"product","refId":"P0518","label":"Zyrtec 1 mg/ml oral solution","subtext":"allergy","meta":{"brand":"Zyrtec","generic":"CETIRIZINE DIHYDROCHLORIDE","form":"ORAL SOLUTION","formGroup":"Oral liquid","route":"Oral","mainIndication":"allergy","secondaryIndications":"sneezing | runny nose | itching","otcCategory":"ANTIHISTAMINES FOR SYSTEMIC USE","seasonalGroup":"Spring / allergy","sedating":"No","nonDrowsy":"Yes","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CETIRIZINE DIHYDROCHLORIDE 1 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"R06AE07","status":"Authorised","supplierCatalogKey":"zyrtec 1 mg/ml oral solution"}},{"id":"product:P0519","nodeType":"product","refId":"P0519","label":"Zyrtec 10 mg film-coated tablet","subtext":"allergy","meta":{"brand":"Zyrtec","generic":"CETIRIZINE DIHYDROCHLORIDE","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"allergy","secondaryIndications":"sneezing | runny nose | itching","otcCategory":"ANTIHISTAMINES FOR SYSTEMIC USE","seasonalGroup":"Spring / allergy","sedating":"No","nonDrowsy":"Yes","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CETIRIZINE DIHYDROCHLORIDE 10 milligram(s)","packSizeText":"Review manually","atcCode":"R06AE07","status":"Authorised","supplierCatalogKey":"zyrtec 10 mg film-coated tablet"}},{"id":"product:P0520","nodeType":"product","refId":"P0520","label":"Zyrtec 10 mg film-coated tablets","subtext":"allergy","meta":{"brand":"Zyrtec","generic":"CETIRIZINE DIHYDROCHLORIDE","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"allergy","secondaryIndications":"sneezing | runny nose | itching","otcCategory":"ANTIHISTAMINES FOR SYSTEMIC USE","seasonalGroup":"Spring / allergy","sedating":"No","nonDrowsy":"Yes","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CETIRIZINE DIHYDROCHLORIDE 10 milligram(s)","packSizeText":"Review manually","atcCode":"R06AE07","status":"Authorised","supplierCatalogKey":"zyrtec 10 mg film-coated tablets"}},{"id":"product:P0521","nodeType":"product","refId":"P0521","label":"Zyrtec 10mg film-coated Tablets","subtext":"allergy","meta":{"brand":"Zyrtec","generic":"CETIRIZINE HYDROCHLORIDE","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"allergy","secondaryIndications":"sneezing | runny nose | itching","otcCategory":"ANTIHISTAMINES FOR SYSTEMIC USE","seasonalGroup":"Spring / allergy","sedating":"No","nonDrowsy":"Yes","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CETIRIZINE HYDROCHLORIDE 10 milligram(s)","packSizeText":"Review manually","atcCode":"R06AE07","status":"Authorised","supplierCatalogKey":"zyrtec 10mg film-coated tablets"}},{"id":"product:P0522","nodeType":"product","refId":"P0522","label":"Zyrtec 1mg/ml oral solution","subtext":"allergy","meta":{"brand":"Zyrtec","generic":"CETIRIZINE HYDROCHLORIDE","form":"ORAL SOLUTION","formGroup":"Oral liquid","route":"Oral","mainIndication":"allergy","secondaryIndications":"sneezing | runny nose | itching","otcCategory":"ANTIHISTAMINES FOR SYSTEMIC USE","seasonalGroup":"Spring / allergy","sedating":"No","nonDrowsy":"Yes","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CETIRIZINE HYDROCHLORIDE 1 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"R06AE07","status":"Authorised","supplierCatalogKey":"zyrtec 1mg/ml oral solution"}},{"id":"usecase:UC002","nodeType":"usecase","refId":"UC002","label":"Allergy day support","subtext":"Cold / allergy","meta":{"UseCase_ID":"UC002","UseCase_Name":"Allergy day support","UseCase_Category":"Cold / allergy","Trigger_Symptoms":"Sneezing, runny nose, itchy eyes, blocked nose","Description":"Non-drowsy antihistamine plus targeted nasal or eye support."}},{"id":"usecase:UC012","nodeType":"usecase","refId":"UC012","label":"Eye allergy and irritation support","subtext":"Eye","meta":{"UseCase_ID":"UC012","UseCase_Name":"Eye allergy and irritation support","UseCase_Category":"Eye","Trigger_Symptoms":"Eye irritation, dry eye, allergy eye symptoms","Description":"Direct eye relief with allergy support."}}],"links":[{"key":"332d87393dc6fd7d","source":"symptom:S003","target":"product:P0004","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00013","role":"Primary","reviewStatus":"Seeded"}},{"key":"a2016336644483e5","source":"symptom:S003","target":"product:P0024","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00091","role":"Primary","reviewStatus":"Seeded"}},{"key":"436eb4a4b04bc902","source":"symptom:S003","target":"product:P0067","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00232","role":"Primary","reviewStatus":"Seeded"}},{"key":"2ce879d3a9400045","source":"symptom:S003","target":"product:P0099","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00321","role":"Primary","reviewStatus":"Seeded"}},{"key":"a1457f6802fb32f6","source":"symptom:S003","target":"product:P0100","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00325","role":"Primary","reviewStatus":"Seeded"}},{"key":"357ea503316355cf","source":"symptom:S003","target":"product:P0105","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00342","role":"Primary","reviewStatus":"Seeded"}},{"key":"fc95f1d8a5e8fda2","source":"symptom:S003","target":"product:P0107","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00350","role":"Primary","reviewStatus":"Seeded"}},{"key":"37c7b5bb39d3994f","source":"symptom:S003","target":"product:P0108","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00354","role":"Primary","reviewStatus":"Seeded"}},{"key":"7badba7868773039","source":"symptom:S003","target":"product:P0210","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00673","role":"Primary","reviewStatus":"Seeded"}},{"key":"d6251e5fd292a3b0","source":"symptom:S003","target":"product:P0211","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00677","role":"Primary","reviewStatus":"Seeded"}},{"key":"541557b8cedfdb71","source":"symptom:S003","target":"product:P0215","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00692","role":"Primary","reviewStatus":"Seeded"}},{"key":"5111f00112ad1540","source":"symptom:S003","target":"product:P0244","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00794","role":"Primary","reviewStatus":"Seeded"}},{"key":"edf35386353eee9f","source":"symptom:S003","target":"product:P0258","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00830","role":"Primary","reviewStatus":"Seeded"}},{"key":"e42a4e413f673423","source":"symptom:S003","target":"product:P0302","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00967","role":"Primary","reviewStatus":"Seeded"}},{"key":"f2164eb82f6c0691","source":"symptom:S003","target":"product:P0339","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM01085","role":"Primary","reviewStatus":"Seeded"}},{"key":"01fd2f01d7aa464d","source":"symptom:S003","target":"product:P0352","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM01138","role":"Primary","reviewStatus":"Seeded"}},{"key":"c60a8d617117558d","source":"symptom:S003","target":"product:P0472","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM01557","role":"Primary","reviewStatus":"Seeded"}},{"key":"18cf0a0f58ad0e53","source":"symptom:S003","target":"product:P0473","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM01561","role":"Primary","reviewStatus":"Seeded"}},{"key":"941da9270fc2a64e","source":"symptom:S003","target":"product:P0518","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM01731","role":"Primary","reviewStatus":"Seeded"}},{"key":"eca8ebb71558d0a2","source":"symptom:S003","target":"product:P0519","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM01735","role":"Primary","reviewStatus":"Seeded"}},{"key":"21b1c4cd7c73822b","source":"symptom:S003","target":"product:P0520","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM01739","role":"Primary","reviewStatus":"Seeded"}},{"key":"0eb0de41871beb4b","source":"symptom:S003","target":"product:P0521","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM01743","role":"Primary","reviewStatus":"Seeded"}},{"key":"30c2cdc9ad8afdbf","source":"symptom:S003","target":"product:P0522","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM01747","role":"Primary","reviewStatus":"Seeded"}},{"key":"7865d009469ac338","source":"symptom:S003","target":"usecase:UC002","rel":"usecase","label":"Triggered by symptom","score":85,"why":"Sneezing, runny nose, itchy eyes, blocked nose","meta":{}},{"key":"dccb08a3c037a421","source":"symptom:S003","target":"usecase:UC012","rel":"usecase","label":"Triggered by symptom","score":85,"why":"Eye irritation, dry eye, allergy eye symptoms","meta":{}}],"meta":{"symptomName":"allergy","linkCount":25}}
+{
+  "centerId": "symptom:S003",
+  "centerType": "symptom",
+  "refId": "S003",
+  "nodes": [
+    {
+      "id": "symptom:S003",
+      "nodeType": "symptom",
+      "refId": "S003",
+      "label": "allergy",
+      "subtext": "Cold / allergy",
+      "meta": {
+        "Symptom_ID": "S003",
+        "Symptom_Name": "allergy",
+        "Symptom_Category": "Cold / allergy",
+        "Linked_Product_Count": 23,
+        "Display_Group": "Cold / allergy",
+        "Priority_For_Graph": 100,
+        "Node_Color": "#70AD47",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "product:P0004",
+      "nodeType": "product",
+      "refId": "P0004",
+      "label": "ALTACURA ALLERGY 10mg Film-Coated Tablets",
+      "subtext": "allergy",
+      "meta": {
+        "brand": "ALTACURA",
+        "generic": "CETIRIZINE HYDROCHLORIDE",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "allergy",
+        "secondaryIndications": "sneezing | runny nose | itching",
+        "otcCategory": "ANTIHISTAMINES FOR SYSTEMIC USE",
+        "seasonalGroup": "Spring / allergy",
+        "sedating": "No",
+        "nonDrowsy": "Yes",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CETIRIZINE HYDROCHLORIDE 10 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R06AE07",
+        "status": "Authorised",
+        "supplierCatalogKey": "altacura allergy 10mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0024",
+      "nodeType": "product",
+      "refId": "P0024",
+      "label": "Anti-Hist Allergy 10 mg Film-coated tablets",
+      "subtext": "allergy",
+      "meta": {
+        "brand": "Anti",
+        "generic": "CETIRIZINE DIHYDROCHLORIDE",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "allergy",
+        "secondaryIndications": "sneezing | runny nose | itching",
+        "otcCategory": "ANTIHISTAMINES FOR SYSTEMIC USE",
+        "seasonalGroup": "Spring / allergy",
+        "sedating": "No",
+        "nonDrowsy": "Yes",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CETIRIZINE DIHYDROCHLORIDE 10 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R06AE07",
+        "status": "Authorised",
+        "supplierCatalogKey": "anti-hist allergy 10 mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0067",
+      "nodeType": "product",
+      "refId": "P0067",
+      "label": "CLARITYNE 10 mg tablets",
+      "subtext": "allergy",
+      "meta": {
+        "brand": "CLARITYNE",
+        "generic": "LORATADINE",
+        "form": "TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "allergy",
+        "secondaryIndications": "sneezing | runny nose | itching",
+        "otcCategory": "ANTIHISTAMINES FOR SYSTEMIC USE",
+        "seasonalGroup": "Spring / allergy",
+        "sedating": "No",
+        "nonDrowsy": "Yes",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "LORATADINE 10 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R06AX13",
+        "status": "Authorised",
+        "supplierCatalogKey": "clarityne 10 mg tablets"
+      }
+    },
+    {
+      "id": "product:P0099",
+      "nodeType": "product",
+      "refId": "P0099",
+      "label": "Cetirizine GP 10 mg film-coated tablets",
+      "subtext": "allergy",
+      "meta": {
+        "brand": "Cetirizine",
+        "generic": "CETIRIZINE DIHYDROCHLORIDE",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "allergy",
+        "secondaryIndications": "sneezing | runny nose | itching",
+        "otcCategory": "ANTIHISTAMINES FOR SYSTEMIC USE",
+        "seasonalGroup": "Spring / allergy",
+        "sedating": "No",
+        "nonDrowsy": "Yes",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CETIRIZINE DIHYDROCHLORIDE 10 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R06AE07",
+        "status": "Authorised",
+        "supplierCatalogKey": "cetirizine gp 10 mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0100",
+      "nodeType": "product",
+      "refId": "P0100",
+      "label": "Cetrine Allergy 10mg Film-coated Tablets",
+      "subtext": "allergy",
+      "meta": {
+        "brand": "Cetrine",
+        "generic": "CETIRIZINE DIHYDROCHLORIDE",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "allergy",
+        "secondaryIndications": "sneezing | runny nose | itching",
+        "otcCategory": "ANTIHISTAMINES FOR SYSTEMIC USE",
+        "seasonalGroup": "Spring / allergy",
+        "sedating": "No",
+        "nonDrowsy": "Yes",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CETIRIZINE DIHYDROCHLORIDE 10 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R06AE07",
+        "status": "Authorised",
+        "supplierCatalogKey": "cetrine allergy 10mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0105",
+      "nodeType": "product",
+      "refId": "P0105",
+      "label": "Clarinase Repetabs 5 mg/120 mg prolonged release tablets",
+      "subtext": "allergy",
+      "meta": {
+        "brand": "Clarinase",
+        "generic": "LORATADINE | PSEUDOEPHEDRINE SULFATE",
+        "form": "PROLONGED-RELEASE TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "allergy",
+        "secondaryIndications": "sneezing | runny nose | itching",
+        "otcCategory": "ANTIHISTAMINES FOR SYSTEMIC USE",
+        "seasonalGroup": "Spring / allergy",
+        "sedating": "No",
+        "nonDrowsy": "Yes",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "PSEUDOEPHEDRINE SULFATE 120 milligram(s) | LORATADINE 5 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R06AX13",
+        "status": "Authorised",
+        "supplierCatalogKey": "clarinase repetabs 5 mg/120 mg prolonged release tablets"
+      }
+    },
+    {
+      "id": "product:P0107",
+      "nodeType": "product",
+      "refId": "P0107",
+      "label": "Clarityn 10mg Tablets",
+      "subtext": "allergy",
+      "meta": {
+        "brand": "Clarityn",
+        "generic": "LORATADINE",
+        "form": "TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "allergy",
+        "secondaryIndications": "sneezing | runny nose | itching",
+        "otcCategory": "ANTIHISTAMINES FOR SYSTEMIC USE",
+        "seasonalGroup": "Spring / allergy",
+        "sedating": "No",
+        "nonDrowsy": "Yes",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "LORATADINE 10 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R06AX13",
+        "status": "Authorised",
+        "supplierCatalogKey": "clarityn 10mg tablets"
+      }
+    },
+    {
+      "id": "product:P0108",
+      "nodeType": "product",
+      "refId": "P0108",
+      "label": "Clarityne-D 5mg/120mg Prolonged-Release Tablets",
+      "subtext": "allergy",
+      "meta": {
+        "brand": "Clarityne",
+        "generic": "LORATADINE | PSEUDOEPHEDRINE SULFATE",
+        "form": "PROLONGED-RELEASE TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "allergy",
+        "secondaryIndications": "sneezing | runny nose | itching",
+        "otcCategory": "ANTIHISTAMINES FOR SYSTEMIC USE",
+        "seasonalGroup": "Spring / allergy",
+        "sedating": "No",
+        "nonDrowsy": "Yes",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "LORATADINE 5 milligram(s) | PSEUDOEPHEDRINE SULFATE 120 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R06AX13",
+        "status": "Authorised",
+        "supplierCatalogKey": "clarityne-d 5mg/120mg prolonged-release tablets"
+      }
+    },
+    {
+      "id": "product:P0210",
+      "nodeType": "product",
+      "refId": "P0210",
+      "label": "Gosall 20mg tablets",
+      "subtext": "allergy",
+      "meta": {
+        "brand": "Gosall",
+        "generic": "BILASTINE",
+        "form": "TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "allergy",
+        "secondaryIndications": "sneezing | runny nose | itching",
+        "otcCategory": "ANTIHISTAMINES FOR SYSTEMIC USE",
+        "seasonalGroup": "Spring / allergy",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "BILASTINE 20 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R06AX29",
+        "status": "Authorised",
+        "supplierCatalogKey": "gosall 20mg tablets"
+      }
+    },
+    {
+      "id": "product:P0211",
+      "nodeType": "product",
+      "refId": "P0211",
+      "label": "Habitek 10mg film-coated tablets",
+      "subtext": "allergy",
+      "meta": {
+        "brand": "Habitek",
+        "generic": "CETIRIZINE DIHYDROCHLORIDE",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "allergy",
+        "secondaryIndications": "sneezing | runny nose | itching",
+        "otcCategory": "ANTIHISTAMINES FOR SYSTEMIC USE",
+        "seasonalGroup": "Spring / allergy",
+        "sedating": "No",
+        "nonDrowsy": "Yes",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CETIRIZINE DIHYDROCHLORIDE 10 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R06AE07",
+        "status": "Authorised",
+        "supplierCatalogKey": "habitek 10mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0215",
+      "nodeType": "product",
+      "refId": "P0215",
+      "label": "Horestyl Syrup 5mg/5ml",
+      "subtext": "allergy",
+      "meta": {
+        "brand": "Horestyl",
+        "generic": "LORATADINE",
+        "form": "SYRUP",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "allergy",
+        "secondaryIndications": "sneezing | runny nose | itching",
+        "otcCategory": "ANTIHISTAMINES FOR SYSTEMIC USE",
+        "seasonalGroup": "Spring / allergy",
+        "sedating": "No",
+        "nonDrowsy": "Yes",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "LORATADINE 5 milligram(s)/5 millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "R06AX13",
+        "status": "Authorised",
+        "supplierCatalogKey": "horestyl syrup 5mg/5ml"
+      }
+    },
+    {
+      "id": "product:P0244",
+      "nodeType": "product",
+      "refId": "P0244",
+      "label": "Ksivozan 5 mg film-coated tablets",
+      "subtext": "allergy",
+      "meta": {
+        "brand": "Ksivozan",
+        "generic": "LEVOCETIRIZINE DIHYDROCHLORIDE",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "allergy",
+        "secondaryIndications": "sneezing | runny nose | itching",
+        "otcCategory": "ANTIHISTAMINES FOR SYSTEMIC USE",
+        "seasonalGroup": "Spring / allergy",
+        "sedating": "No",
+        "nonDrowsy": "Yes",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "LEVOCETIRIZINE DIHYDROCHLORIDE 5 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R06AE09",
+        "status": "Authorised",
+        "supplierCatalogKey": "ksivozan 5 mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0258",
+      "nodeType": "product",
+      "refId": "P0258",
+      "label": "Lorat 10mg Tablets",
+      "subtext": "allergy",
+      "meta": {
+        "brand": "Lorat",
+        "generic": "LORATADINE",
+        "form": "TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "allergy",
+        "secondaryIndications": "sneezing | runny nose | itching",
+        "otcCategory": "ANTIHISTAMINES FOR SYSTEMIC USE",
+        "seasonalGroup": "Spring / allergy",
+        "sedating": "No",
+        "nonDrowsy": "Yes",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "LORATADINE 10 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R06AX13",
+        "status": "Authorised",
+        "supplierCatalogKey": "lorat 10mg tablets"
+      }
+    },
+    {
+      "id": "product:P0302",
+      "nodeType": "product",
+      "refId": "P0302",
+      "label": "NAVIDOXINE 25 mg tablets (Meclozine hydrochloride)",
+      "subtext": "allergy",
+      "meta": {
+        "brand": "NAVIDOXINE",
+        "generic": "MECLOZINE HYDROCHLORIDE",
+        "form": "TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "allergy",
+        "secondaryIndications": "sneezing | runny nose | itching",
+        "otcCategory": "ANTIHISTAMINES FOR SYSTEMIC USE",
+        "seasonalGroup": "Spring / allergy",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "MECLOZINE HYDROCHLORIDE 25 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R06AE05",
+        "status": "Authorised",
+        "supplierCatalogKey": "navidoxine 25 mg tablets (meclozine hydrochloride)"
+      }
+    },
+    {
+      "id": "product:P0339",
+      "nodeType": "product",
+      "refId": "P0339",
+      "label": "Normodorm 25 mg film-coated tablets",
+      "subtext": "allergy",
+      "meta": {
+        "brand": "Normodorm",
+        "generic": "DOXYLAMINE HYDROGEN SUCCINATE",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "allergy",
+        "secondaryIndications": "sneezing | runny nose | itching",
+        "otcCategory": "ANTIHISTAMINES FOR SYSTEMIC USE",
+        "seasonalGroup": "Spring / allergy",
+        "sedating": "Yes",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DOXYLAMINE HYDROGEN SUCCINATE\n 25 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R06AA09",
+        "status": "Authorised",
+        "supplierCatalogKey": "normodorm 25 mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0352",
+      "nodeType": "product",
+      "refId": "P0352",
+      "label": "Nytol One-A-Night 50mg Tablets",
+      "subtext": "allergy",
+      "meta": {
+        "brand": "Nytol",
+        "generic": "DIPHENHYDRAMINE HYDROCHLORIDE",
+        "form": "TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "allergy",
+        "secondaryIndications": "sneezing | runny nose | itching",
+        "otcCategory": "ANTIHISTAMINES FOR SYSTEMIC USE",
+        "seasonalGroup": "Spring / allergy",
+        "sedating": "Yes",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DIPHENHYDRAMINE HYDROCHLORIDE 50 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R06AA02",
+        "status": "Authorised",
+        "supplierCatalogKey": "nytol one-a-night 50mg tablets"
+      }
+    },
+    {
+      "id": "product:P0472",
+      "nodeType": "product",
+      "refId": "P0472",
+      "label": "Telfast 180 mg film-coated tablets",
+      "subtext": "allergy",
+      "meta": {
+        "brand": "Telfast",
+        "generic": "FEXOFENADINE HYDROCHLORIDE",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "allergy",
+        "secondaryIndications": "sneezing | runny nose | itching",
+        "otcCategory": "ANTIHISTAMINES FOR SYSTEMIC USE",
+        "seasonalGroup": "Spring / allergy",
+        "sedating": "No",
+        "nonDrowsy": "Yes",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "FEXOFENADINE HYDROCHLORIDE 180 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R06AX26",
+        "status": "Authorised",
+        "supplierCatalogKey": "telfast 180 mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0473",
+      "nodeType": "product",
+      "refId": "P0473",
+      "label": "Telfast Allergy 120 mg film-coated tablets",
+      "subtext": "allergy",
+      "meta": {
+        "brand": "Telfast",
+        "generic": "FEXOFENADINE HYDROCHLORIDE",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "allergy",
+        "secondaryIndications": "sneezing | runny nose | itching",
+        "otcCategory": "ANTIHISTAMINES FOR SYSTEMIC USE",
+        "seasonalGroup": "Spring / allergy",
+        "sedating": "No",
+        "nonDrowsy": "Yes",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "FEXOFENADINE HYDROCHLORIDE 120 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R06AX26",
+        "status": "Authorised",
+        "supplierCatalogKey": "telfast allergy 120 mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0518",
+      "nodeType": "product",
+      "refId": "P0518",
+      "label": "Zyrtec 1 mg/ml oral solution",
+      "subtext": "allergy",
+      "meta": {
+        "brand": "Zyrtec",
+        "generic": "CETIRIZINE DIHYDROCHLORIDE",
+        "form": "ORAL SOLUTION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "allergy",
+        "secondaryIndications": "sneezing | runny nose | itching",
+        "otcCategory": "ANTIHISTAMINES FOR SYSTEMIC USE",
+        "seasonalGroup": "Spring / allergy",
+        "sedating": "No",
+        "nonDrowsy": "Yes",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CETIRIZINE DIHYDROCHLORIDE 1 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "R06AE07",
+        "status": "Authorised",
+        "supplierCatalogKey": "zyrtec 1 mg/ml oral solution"
+      }
+    },
+    {
+      "id": "product:P0519",
+      "nodeType": "product",
+      "refId": "P0519",
+      "label": "Zyrtec 10 mg film-coated tablet",
+      "subtext": "allergy",
+      "meta": {
+        "brand": "Zyrtec",
+        "generic": "CETIRIZINE DIHYDROCHLORIDE",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "allergy",
+        "secondaryIndications": "sneezing | runny nose | itching",
+        "otcCategory": "ANTIHISTAMINES FOR SYSTEMIC USE",
+        "seasonalGroup": "Spring / allergy",
+        "sedating": "No",
+        "nonDrowsy": "Yes",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CETIRIZINE DIHYDROCHLORIDE 10 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R06AE07",
+        "status": "Authorised",
+        "supplierCatalogKey": "zyrtec 10 mg film-coated tablet"
+      }
+    },
+    {
+      "id": "product:P0520",
+      "nodeType": "product",
+      "refId": "P0520",
+      "label": "Zyrtec 10 mg film-coated tablets",
+      "subtext": "allergy",
+      "meta": {
+        "brand": "Zyrtec",
+        "generic": "CETIRIZINE DIHYDROCHLORIDE",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "allergy",
+        "secondaryIndications": "sneezing | runny nose | itching",
+        "otcCategory": "ANTIHISTAMINES FOR SYSTEMIC USE",
+        "seasonalGroup": "Spring / allergy",
+        "sedating": "No",
+        "nonDrowsy": "Yes",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CETIRIZINE DIHYDROCHLORIDE 10 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R06AE07",
+        "status": "Authorised",
+        "supplierCatalogKey": "zyrtec 10 mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0521",
+      "nodeType": "product",
+      "refId": "P0521",
+      "label": "Zyrtec 10mg film-coated Tablets",
+      "subtext": "allergy",
+      "meta": {
+        "brand": "Zyrtec",
+        "generic": "CETIRIZINE HYDROCHLORIDE",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "allergy",
+        "secondaryIndications": "sneezing | runny nose | itching",
+        "otcCategory": "ANTIHISTAMINES FOR SYSTEMIC USE",
+        "seasonalGroup": "Spring / allergy",
+        "sedating": "No",
+        "nonDrowsy": "Yes",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CETIRIZINE HYDROCHLORIDE 10 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R06AE07",
+        "status": "Authorised",
+        "supplierCatalogKey": "zyrtec 10mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0522",
+      "nodeType": "product",
+      "refId": "P0522",
+      "label": "Zyrtec 1mg/ml oral solution",
+      "subtext": "allergy",
+      "meta": {
+        "brand": "Zyrtec",
+        "generic": "CETIRIZINE HYDROCHLORIDE",
+        "form": "ORAL SOLUTION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "allergy",
+        "secondaryIndications": "sneezing | runny nose | itching",
+        "otcCategory": "ANTIHISTAMINES FOR SYSTEMIC USE",
+        "seasonalGroup": "Spring / allergy",
+        "sedating": "No",
+        "nonDrowsy": "Yes",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CETIRIZINE HYDROCHLORIDE 1 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "R06AE07",
+        "status": "Authorised",
+        "supplierCatalogKey": "zyrtec 1mg/ml oral solution"
+      }
+    },
+    {
+      "id": "usecase:UC012",
+      "nodeType": "usecase",
+      "refId": "UC012",
+      "label": "Eye allergy and irritation support",
+      "subtext": "Eye",
+      "meta": {
+        "UseCase_ID": "UC012",
+        "UseCase_Name": "Eye allergy and irritation support",
+        "UseCase_Category": "Eye",
+        "Trigger_Symptoms": "Eye irritation, dry eye, allergy eye symptoms",
+        "Description": "Direct eye relief with allergy support."
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "9eb681b20aaafccd",
+      "source": "product:P0004",
+      "target": "symptom:S003",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00013"
+      }
+    },
+    {
+      "key": "e6d99f3bfd55625a",
+      "source": "product:P0024",
+      "target": "symptom:S003",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00091"
+      }
+    },
+    {
+      "key": "cd88d498b1ded7e4",
+      "source": "product:P0067",
+      "target": "symptom:S003",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00232"
+      }
+    },
+    {
+      "key": "0ef7c5d354526034",
+      "source": "product:P0099",
+      "target": "symptom:S003",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00321"
+      }
+    },
+    {
+      "key": "959c65bee8002665",
+      "source": "product:P0100",
+      "target": "symptom:S003",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00325"
+      }
+    },
+    {
+      "key": "a063c55ba2e270b7",
+      "source": "product:P0105",
+      "target": "symptom:S003",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00342"
+      }
+    },
+    {
+      "key": "09df9dc5202b0e81",
+      "source": "product:P0107",
+      "target": "symptom:S003",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00350"
+      }
+    },
+    {
+      "key": "e74d89aa65a6d834",
+      "source": "product:P0108",
+      "target": "symptom:S003",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00354"
+      }
+    },
+    {
+      "key": "23c24c4fd0800cf2",
+      "source": "product:P0210",
+      "target": "symptom:S003",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00673"
+      }
+    },
+    {
+      "key": "0d53a03061a30811",
+      "source": "product:P0211",
+      "target": "symptom:S003",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00677"
+      }
+    },
+    {
+      "key": "89387b4adf0832ec",
+      "source": "product:P0215",
+      "target": "symptom:S003",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00692"
+      }
+    },
+    {
+      "key": "de97241d4f81a185",
+      "source": "product:P0244",
+      "target": "symptom:S003",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00794"
+      }
+    },
+    {
+      "key": "69e36721dd0fc02d",
+      "source": "product:P0258",
+      "target": "symptom:S003",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00830"
+      }
+    },
+    {
+      "key": "5cf632ce45f298ce",
+      "source": "product:P0302",
+      "target": "symptom:S003",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00967"
+      }
+    },
+    {
+      "key": "ef98ee5bdd163e41",
+      "source": "product:P0339",
+      "target": "symptom:S003",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01085"
+      }
+    },
+    {
+      "key": "54031b2bf5df119a",
+      "source": "product:P0352",
+      "target": "symptom:S003",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01138"
+      }
+    },
+    {
+      "key": "9aa448f2753c1443",
+      "source": "product:P0472",
+      "target": "symptom:S003",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01557"
+      }
+    },
+    {
+      "key": "4f7903cb3dedf9df",
+      "source": "product:P0473",
+      "target": "symptom:S003",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01561"
+      }
+    },
+    {
+      "key": "06c600d3dc6e12f5",
+      "source": "product:P0518",
+      "target": "symptom:S003",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01731"
+      }
+    },
+    {
+      "key": "aa786151eb4c56e4",
+      "source": "product:P0519",
+      "target": "symptom:S003",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01735"
+      }
+    },
+    {
+      "key": "5ef77a80407f9c4e",
+      "source": "product:P0520",
+      "target": "symptom:S003",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01739"
+      }
+    },
+    {
+      "key": "921ecd08e04cafb2",
+      "source": "product:P0521",
+      "target": "symptom:S003",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01743"
+      }
+    },
+    {
+      "key": "e20eb85dfcdd71bb",
+      "source": "product:P0522",
+      "target": "symptom:S003",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01747"
+      }
+    },
+    {
+      "key": "7d51582560e9c7fe",
+      "source": "symptom:S003",
+      "target": "usecase:UC012",
+      "rel": "usecase",
+      "label": "Related use case",
+      "score": 90,
+      "why": "",
+      "meta": {}
+    }
+  ]
+}

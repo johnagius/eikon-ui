@@ -29,8 +29,23 @@
       "meta": {
         "brand": "Cortopin1",
         "generic": "HYDROCORTISONE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
         "mainIndication": "skin inflammation",
-        "otcCategory": "CORTICOSTEROIDS, DERMATOLOGICAL PREPARATIONS"
+        "secondaryIndications": "eczema | dermatitis",
+        "otcCategory": "CORTICOSTEROIDS, DERMATOLOGICAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "HYDROCORTISONE 1 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "D07AA02",
+        "status": "Authorised",
+        "supplierCatalogKey": "cortopin1%w/w cream"
       }
     },
     {
@@ -42,8 +57,23 @@
       "meta": {
         "brand": "Hc45",
         "generic": "HYDROCORTISONE ACETATE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
         "mainIndication": "skin inflammation",
-        "otcCategory": "CORTICOSTEROIDS, DERMATOLOGICAL PREPARATIONS"
+        "secondaryIndications": "eczema | dermatitis",
+        "otcCategory": "CORTICOSTEROIDS, DERMATOLOGICAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "HYDROCORTISONE ACETATE 1 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "D07AA02",
+        "status": "Authorised",
+        "supplierCatalogKey": "hc45 hydrocortisone acetate cream (hydrocortisone acetate 1% w/w)"
       }
     },
     {
@@ -55,8 +85,23 @@
       "meta": {
         "brand": "Hydrokortyzon",
         "generic": "HYDROCORTISONE ACETATE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
         "mainIndication": "skin inflammation",
-        "otcCategory": "CORTICOSTEROIDS, DERMATOLOGICAL PREPARATIONS"
+        "secondaryIndications": "eczema | dermatitis",
+        "otcCategory": "CORTICOSTEROIDS, DERMATOLOGICAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "HYDROCORTISONE ACETATE 10 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D07AA02",
+        "status": "Authorised",
+        "supplierCatalogKey": "hydrokortyzon allefin max 10 mg/g cream"
       }
     },
     {
@@ -68,8 +113,23 @@
       "meta": {
         "brand": "Pandermil",
         "generic": "HYDROCORTISONE",
+        "form": "OINTMENT",
+        "formGroup": "Topical",
+        "route": "Topical",
         "mainIndication": "skin inflammation",
-        "otcCategory": "CORTICOSTEROIDS, DERMATOLOGICAL PREPARATIONS"
+        "secondaryIndications": "eczema | dermatitis",
+        "otcCategory": "CORTICOSTEROIDS, DERMATOLOGICAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "HYDROCORTISONE 10 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D07AA02",
+        "status": "Authorised",
+        "supplierCatalogKey": "pandermil 10 mg/g ointment"
       }
     },
     {
@@ -81,8 +141,23 @@
       "meta": {
         "brand": "E45",
         "generic": "LANOLIN | LIGHT LIQUID PARAFFIN | WHITE SOFT PARAFFIN",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
         "mainIndication": "skin irritation",
-        "otcCategory": "EMOLLIENTS AND PROTECTIVES"
+        "secondaryIndications": "eczema | dermatitis",
+        "otcCategory": "EMOLLIENTS AND PROTECTIVES",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "LANOLIN 1 percent weight/weight | WHITE SOFT PARAFFIN 14.5 percent weight/weight | LIGHT LIQUID PARAFFIN  12.6 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "D02AC",
+        "status": "Authorised",
+        "supplierCatalogKey": "e45 cream white soft paraffin 14.5% w/w light liquid paraffin 12.6% w/w anhydrous lanolin 1.0% w/w"
       }
     }
   ],
@@ -147,9 +222,5 @@
         "mapId": "PSM01772"
       }
     }
-  ],
-  "meta": {
-    "symptomName": "eczema",
-    "linkCount": 4
-  }
+  ]
 }

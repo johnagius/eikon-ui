@@ -1,1 +1,161 @@
-{"centerId":"product:P0476","centerType":"product","refId":"P0476","nodes":[{"id":"product:P0476","nodeType":"product","refId":"P0476","label":"Tot''hema Oral Solution in ampoules","subtext":"iron support","meta":{"brand":"Tot","generic":"COPPER | IRON | MANGANESE","form":"ORAL SOLUTION","formGroup":"Oral liquid","route":"Oral","mainIndication":"iron support","secondaryIndications":"anaemia support","otcCategory":"ANTIANEMIC PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"COPPER 0.7 milligram(s) | IRON 50 milligram(s) | MANGANESE 1.33 milligram(s)","packSizeText":"Review manually","atcCode":"B03AE10","status":"Authorised","supplierCatalogKey":"tot''hema oral solution in ampoules"}},{"id":"product:P0466","nodeType":"product","refId":"P0466","label":"TOT’HEMA oral solution","subtext":"iron support","meta":{"brand":"TOT","generic":"COPPER GLUCONATE | IRON GLUCONATE | MANGANESE GLUCONATE","form":"ORAL SOLUTION","formGroup":"Oral liquid","route":"Oral","mainIndication":"iron support","secondaryIndications":"anaemia support","otcCategory":"ANTIANEMIC PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"IRON GLUCONATE 50/10 milligram(s)/millilitre | MANGANESE GLUCONATE 1.33/10 milligram(s)/millilitre | COPPER GLUCONATE 0.70/10 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"B03AE10","status":"Authorised","supplierCatalogKey":"tot’hema oral solution"}},{"id":"symptom:S039","nodeType":"symptom","refId":"S039","label":"iron support","subtext":"Supplements","meta":{"Symptom_ID":"S039","Symptom_Name":"iron support","Symptom_Category":"Supplements","Linked_Product_Count":11,"Display_Group":"Supplements","Priority_For_Graph":85,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"symptom:S005","nodeType":"symptom","refId":"S005","label":"anaemia support","subtext":"Supplements","meta":{"Symptom_ID":"S005","Symptom_Name":"anaemia support","Symptom_Category":"Supplements","Linked_Product_Count":11,"Display_Group":"Supplements","Priority_For_Graph":85,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}}],"links":[{"key":"40837eaa53161274","source":"product:P0466","target":"product:P0476","rel":"similar","label":"Alternative: same ATC family","score":78,"why":"Same ATC code, therapeutic class, and form family; likely reasonable substitute candidates pending staff review.","meta":{"edgeId":"E01870","clinicalSimilarity":90,"commercialSubstitution":80,"crossSell":25,"riskOverlap":60,"evidence":90,"seasonality":40,"triggerContext":"anaemia support, iron support","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"EXACT_ATC_SAME_CLASS_FORM"}},{"key":"100959d78e4db15d","source":"product:P0476","target":"symptom:S039","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM01577","role":"Primary","reviewStatus":"Seeded"}},{"key":"64e6d2329d740f9e","source":"product:P0476","target":"symptom:S005","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01578","role":"Primary","reviewStatus":"Seeded"}}],"meta":{"productName":"Tot''hema Oral Solution in ampoules","linkCount":3}}
+{
+  "centerId": "product:P0476",
+  "centerType": "product",
+  "refId": "P0476",
+  "nodes": [
+    {
+      "id": "product:P0476",
+      "nodeType": "product",
+      "refId": "P0476",
+      "label": "Tot''hema Oral Solution in ampoules",
+      "subtext": "iron support",
+      "meta": {
+        "brand": "Tot",
+        "generic": "COPPER | IRON | MANGANESE",
+        "form": "ORAL SOLUTION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "iron support",
+        "secondaryIndications": "anaemia support",
+        "otcCategory": "ANTIANEMIC PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "COPPER 0.7 milligram(s) | IRON 50 milligram(s) | MANGANESE 1.33 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "B03AE10",
+        "status": "Authorised",
+        "supplierCatalogKey": "tot''hema oral solution in ampoules"
+      }
+    },
+    {
+      "id": "product:P0466",
+      "nodeType": "product",
+      "refId": "P0466",
+      "label": "TOT\u2019HEMA oral solution",
+      "subtext": "iron support",
+      "meta": {
+        "brand": "TOT",
+        "generic": "COPPER GLUCONATE | IRON GLUCONATE | MANGANESE GLUCONATE",
+        "form": "ORAL SOLUTION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "iron support",
+        "secondaryIndications": "anaemia support",
+        "otcCategory": "ANTIANEMIC PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "IRON GLUCONATE 50/10 milligram(s)/millilitre | MANGANESE GLUCONATE 1.33/10 milligram(s)/millilitre | COPPER GLUCONATE 0.70/10 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "B03AE10",
+        "status": "Authorised",
+        "supplierCatalogKey": "tot\u2019hema oral solution"
+      }
+    },
+    {
+      "id": "symptom:S039",
+      "nodeType": "symptom",
+      "refId": "S039",
+      "label": "iron support",
+      "subtext": "Supplements",
+      "meta": {
+        "Symptom_ID": "S039",
+        "Symptom_Name": "iron support",
+        "Symptom_Category": "Supplements",
+        "Linked_Product_Count": 11,
+        "Display_Group": "Supplements",
+        "Priority_For_Graph": 85,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "symptom:S005",
+      "nodeType": "symptom",
+      "refId": "S005",
+      "label": "anaemia support",
+      "subtext": "Supplements",
+      "meta": {
+        "Symptom_ID": "S005",
+        "Symptom_Name": "anaemia support",
+        "Symptom_Category": "Supplements",
+        "Linked_Product_Count": 11,
+        "Display_Group": "Supplements",
+        "Priority_For_Graph": 85,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "usecase:UC016",
+      "nodeType": "usecase",
+      "refId": "UC016",
+      "label": "Iron and anaemia support",
+      "subtext": "Supplements",
+      "meta": {
+        "UseCase_ID": "UC016",
+        "UseCase_Name": "Iron and anaemia support",
+        "UseCase_Category": "Supplements",
+        "Trigger_Symptoms": "Tiredness, iron deficiency, anaemia",
+        "Description": "Iron supplements for anaemia prevention and treatment."
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "40837eaa53161274",
+      "source": "product:P0466",
+      "target": "product:P0476",
+      "rel": "similar",
+      "label": "Alternative: same ATC family",
+      "score": 78,
+      "why": "Same ATC code, therapeutic class, and form family; likely reasonable substitute candidates pending staff review.",
+      "meta": {
+        "edgeId": "E01870"
+      }
+    },
+    {
+      "key": "100959d78e4db15d",
+      "source": "product:P0476",
+      "target": "symptom:S039",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01577"
+      }
+    },
+    {
+      "key": "64e6d2329d740f9e",
+      "source": "product:P0476",
+      "target": "symptom:S005",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01578"
+      }
+    },
+    {
+      "key": "1369a17f1e7b6d22",
+      "source": "product:P0476",
+      "target": "usecase:UC016",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Tiredness, iron deficiency, anaemia",
+      "meta": {
+        "useCaseItemId": "UCI00659"
+      }
+    }
+  ]
+}

@@ -1,0 +1,65 @@
+{
+  "centerId": "symptom:S087",
+  "centerType": "symptom",
+  "refId": "S087",
+  "nodes": [
+    {
+      "id": "symptom:S087",
+      "nodeType": "symptom",
+      "refId": "S087",
+      "label": "thyroid support",
+      "subtext": "General",
+      "meta": {
+        "Symptom_ID": "S087",
+        "Symptom_Name": "thyroid support",
+        "Symptom_Category": "General",
+        "Display_Group": "General",
+        "Linked_Product_Count": 0,
+        "Priority_For_Graph": 100,
+        "Node_Color": "#feca57"
+      }
+    },
+    {
+      "id": "product:P0401",
+      "nodeType": "product",
+      "refId": "P0401",
+      "label": "Potassium iodide G.L. Pharma 65mg Tablets",
+      "subtext": "thyroid protection",
+      "meta": {
+        "brand": "Potassium",
+        "generic": "POTASSIUM IODIDE",
+        "form": "TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "thyroid protection",
+        "secondaryIndications": "",
+        "otcCategory": "ALL OTHER THERAPEUTIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "POTASSIUM IODIDE 65 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "V03AB21",
+        "status": "Authorised",
+        "supplierCatalogKey": "potassium iodide g.l. pharma 65mg tablets"
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "cd94adac44516cbf",
+      "source": "product:P0401",
+      "target": "symptom:S087",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Indication-based assignment",
+      "meta": {
+        "mapId": "PSM01821"
+      }
+    }
+  ]
+}

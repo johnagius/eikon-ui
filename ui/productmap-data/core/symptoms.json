@@ -1,1 +1,870 @@
-[{"Symptom_ID":"S001","Symptom_Name":"abdominal discomfort","Symptom_Category":"General","Linked_Product_Count":10,"Display_Group":"General","Priority_For_Graph":85,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S002","Symptom_Name":"acid reflux","Symptom_Category":"Gastrointestinal","Linked_Product_Count":29,"Display_Group":"Gastrointestinal","Priority_For_Graph":100,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S003","Symptom_Name":"allergy","Symptom_Category":"Cold / allergy","Linked_Product_Count":23,"Display_Group":"Cold / allergy","Priority_For_Graph":100,"Node_Color":"#70AD47","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S004","Symptom_Name":"allergy eye symptoms","Symptom_Category":"Eye","Linked_Product_Count":5,"Display_Group":"Eye","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S005","Symptom_Name":"anaemia support","Symptom_Category":"Supplements","Linked_Product_Count":11,"Display_Group":"Supplements","Priority_For_Graph":85,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S006","Symptom_Name":"antiseptic care","Symptom_Category":"Skin","Linked_Product_Count":21,"Display_Group":"Skin","Priority_For_Graph":100,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S007","Symptom_Name":"athlete foot","Symptom_Category":"Skin","Linked_Product_Count":27,"Display_Group":"Skin","Priority_For_Graph":100,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S008","Symptom_Name":"back pain","Symptom_Category":"Pain / fever","Linked_Product_Count":21,"Display_Group":"Pain / fever","Priority_For_Graph":100,"Node_Color":"#5B9BD5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S009","Symptom_Name":"bites","Symptom_Category":"General","Linked_Product_Count":6,"Display_Group":"General","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S010","Symptom_Name":"bloating","Symptom_Category":"General","Linked_Product_Count":10,"Display_Group":"General","Priority_For_Graph":85,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S011","Symptom_Name":"blocked nose","Symptom_Category":"Cold / allergy","Linked_Product_Count":29,"Display_Group":"Cold / allergy","Priority_For_Graph":100,"Node_Color":"#70AD47","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S012","Symptom_Name":"body aches","Symptom_Category":"Pain / fever","Linked_Product_Count":70,"Display_Group":"Pain / fever","Priority_For_Graph":100,"Node_Color":"#5B9BD5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S013","Symptom_Name":"bowel movement support","Symptom_Category":"Gastrointestinal","Linked_Product_Count":36,"Display_Group":"Gastrointestinal","Priority_For_Graph":100,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S014","Symptom_Name":"chesty cough","Symptom_Category":"Cough","Linked_Product_Count":45,"Display_Group":"Cough","Priority_For_Graph":100,"Node_Color":"#70AD47","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S015","Symptom_Name":"cold","Symptom_Category":"Cold / flu","Linked_Product_Count":45,"Display_Group":"Cold / flu","Priority_For_Graph":100,"Node_Color":"#70AD47","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S016","Symptom_Name":"constipation","Symptom_Category":"Gastrointestinal","Linked_Product_Count":36,"Display_Group":"Gastrointestinal","Priority_For_Graph":100,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S017","Symptom_Name":"cough","Symptom_Category":"Cough","Linked_Product_Count":45,"Display_Group":"Cough","Priority_For_Graph":100,"Node_Color":"#70AD47","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S018","Symptom_Name":"cramps","Symptom_Category":"General","Linked_Product_Count":10,"Display_Group":"General","Priority_For_Graph":85,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S019","Symptom_Name":"dermatitis","Symptom_Category":"General","Linked_Product_Count":4,"Display_Group":"General","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S020","Symptom_Name":"dermatology support","Symptom_Category":"General","Linked_Product_Count":8,"Display_Group":"General","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S021","Symptom_Name":"diarrhoea","Symptom_Category":"Gastrointestinal","Linked_Product_Count":16,"Display_Group":"Gastrointestinal","Priority_For_Graph":85,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S022","Symptom_Name":"disinfection","Symptom_Category":"Skin","Linked_Product_Count":21,"Display_Group":"Skin","Priority_For_Graph":100,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S023","Symptom_Name":"dry cough","Symptom_Category":"Cough","Linked_Product_Count":45,"Display_Group":"Cough","Priority_For_Graph":100,"Node_Color":"#70AD47","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S024","Symptom_Name":"dry eye","Symptom_Category":"Eye","Linked_Product_Count":5,"Display_Group":"Eye","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S025","Symptom_Name":"eczema","Symptom_Category":"General","Linked_Product_Count":4,"Display_Group":"General","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S026","Symptom_Name":"eye irritation","Symptom_Category":"Eye","Linked_Product_Count":5,"Display_Group":"Eye","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S027","Symptom_Name":"fever","Symptom_Category":"Pain / fever","Linked_Product_Count":70,"Display_Group":"Pain / fever","Priority_For_Graph":100,"Node_Color":"#5B9BD5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S028","Symptom_Name":"flu symptoms","Symptom_Category":"Cold / flu","Linked_Product_Count":45,"Display_Group":"Cold / flu","Priority_For_Graph":100,"Node_Color":"#70AD47","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S029","Symptom_Name":"fungal skin infection","Symptom_Category":"Skin","Linked_Product_Count":27,"Display_Group":"Skin","Priority_For_Graph":100,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S030","Symptom_Name":"gum care","Symptom_Category":"General","Linked_Product_Count":6,"Display_Group":"General","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S031","Symptom_Name":"gut upset","Symptom_Category":"Gastrointestinal","Linked_Product_Count":16,"Display_Group":"Gastrointestinal","Priority_For_Graph":85,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S032","Symptom_Name":"haemorrhoids","Symptom_Category":"General","Linked_Product_Count":9,"Display_Group":"General","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S033","Symptom_Name":"headache","Symptom_Category":"Pain / fever","Linked_Product_Count":70,"Display_Group":"Pain / fever","Priority_For_Graph":100,"Node_Color":"#5B9BD5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S034","Symptom_Name":"healing","Symptom_Category":"General","Linked_Product_Count":2,"Display_Group":"General","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S035","Symptom_Name":"heartburn","Symptom_Category":"Gastrointestinal","Linked_Product_Count":29,"Display_Group":"Gastrointestinal","Priority_For_Graph":100,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S036","Symptom_Name":"indigestion","Symptom_Category":"Gastrointestinal","Linked_Product_Count":29,"Display_Group":"Gastrointestinal","Priority_For_Graph":100,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S037","Symptom_Name":"inflammation","Symptom_Category":"Pain / fever","Linked_Product_Count":43,"Display_Group":"Pain / fever","Priority_For_Graph":100,"Node_Color":"#5B9BD5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S038","Symptom_Name":"intimate care","Symptom_Category":"Women's health","Linked_Product_Count":13,"Display_Group":"Women's health","Priority_For_Graph":85,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S039","Symptom_Name":"iron support","Symptom_Category":"Supplements","Linked_Product_Count":11,"Display_Group":"Supplements","Priority_For_Graph":85,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S040","Symptom_Name":"itching","Symptom_Category":"Cold / allergy","Linked_Product_Count":29,"Display_Group":"Cold / allergy","Priority_For_Graph":100,"Node_Color":"#70AD47","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S041","Symptom_Name":"joint pain","Symptom_Category":"Pain / fever","Linked_Product_Count":21,"Display_Group":"Pain / fever","Priority_For_Graph":100,"Node_Color":"#5B9BD5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S042","Symptom_Name":"loose stools","Symptom_Category":"Gastrointestinal","Linked_Product_Count":16,"Display_Group":"Gastrointestinal","Priority_For_Graph":85,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S043","Symptom_Name":"mineral support","Symptom_Category":"General","Linked_Product_Count":7,"Display_Group":"General","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S044","Symptom_Name":"motion sickness","Symptom_Category":"Travel / motion","Linked_Product_Count":23,"Display_Group":"Travel / motion","Priority_For_Graph":100,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S045","Symptom_Name":"mouth ulcers","Symptom_Category":"General","Linked_Product_Count":6,"Display_Group":"General","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S046","Symptom_Name":"mucus","Symptom_Category":"Cough","Linked_Product_Count":45,"Display_Group":"Cough","Priority_For_Graph":100,"Node_Color":"#70AD47","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S047","Symptom_Name":"muscle pain","Symptom_Category":"Pain / fever","Linked_Product_Count":21,"Display_Group":"Pain / fever","Priority_For_Graph":100,"Node_Color":"#5B9BD5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S048","Symptom_Name":"musculoskeletal pain","Symptom_Category":"Pain / fever","Linked_Product_Count":43,"Display_Group":"Pain / fever","Priority_For_Graph":100,"Node_Color":"#5B9BD5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S049","Symptom_Name":"nasal congestion","Symptom_Category":"Cold / allergy","Linked_Product_Count":29,"Display_Group":"Cold / allergy","Priority_For_Graph":100,"Node_Color":"#70AD47","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S050","Symptom_Name":"oral inflammation","Symptom_Category":"General","Linked_Product_Count":6,"Display_Group":"General","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S051","Symptom_Name":"pain","Symptom_Category":"Pain / fever","Linked_Product_Count":43,"Display_Group":"Pain / fever","Priority_For_Graph":100,"Node_Color":"#5B9BD5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S052","Symptom_Name":"pain relief","Symptom_Category":"Pain / fever","Linked_Product_Count":70,"Display_Group":"Pain / fever","Priority_For_Graph":100,"Node_Color":"#5B9BD5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S053","Symptom_Name":"review needed","Symptom_Category":"Review queue","Linked_Product_Count":34,"Display_Group":"Review queue","Priority_For_Graph":100,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S054","Symptom_Name":"runny nose","Symptom_Category":"Cold / allergy","Linked_Product_Count":52,"Display_Group":"Cold / allergy","Priority_For_Graph":100,"Node_Color":"#70AD47","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S055","Symptom_Name":"scar care","Symptom_Category":"General","Linked_Product_Count":8,"Display_Group":"General","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S056","Symptom_Name":"sinus pressure","Symptom_Category":"Cold / allergy","Linked_Product_Count":29,"Display_Group":"Cold / allergy","Priority_For_Graph":100,"Node_Color":"#70AD47","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S057","Symptom_Name":"skin cleansing","Symptom_Category":"Skin","Linked_Product_Count":21,"Display_Group":"Skin","Priority_For_Graph":100,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S058","Symptom_Name":"skin inflammation","Symptom_Category":"General","Linked_Product_Count":4,"Display_Group":"General","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S059","Symptom_Name":"skin irritation","Symptom_Category":"General","Linked_Product_Count":6,"Display_Group":"General","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S060","Symptom_Name":"skin repair","Symptom_Category":"General","Linked_Product_Count":8,"Display_Group":"General","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S061","Symptom_Name":"smoking cessation","Symptom_Category":"Lifestyle / cessation","Linked_Product_Count":23,"Display_Group":"Lifestyle / cessation","Priority_For_Graph":100,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S062","Symptom_Name":"sneezing","Symptom_Category":"Cold / allergy","Linked_Product_Count":23,"Display_Group":"Cold / allergy","Priority_For_Graph":100,"Node_Color":"#70AD47","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S063","Symptom_Name":"sore throat","Symptom_Category":"Throat","Linked_Product_Count":21,"Display_Group":"Throat","Priority_For_Graph":100,"Node_Color":"#70AD47","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S064","Symptom_Name":"spasms","Symptom_Category":"General","Linked_Product_Count":10,"Display_Group":"General","Priority_For_Graph":85,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S065","Symptom_Name":"sprains","Symptom_Category":"Pain / fever","Linked_Product_Count":21,"Display_Group":"Pain / fever","Priority_For_Graph":100,"Node_Color":"#5B9BD5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S066","Symptom_Name":"supplementation","Symptom_Category":"General","Linked_Product_Count":7,"Display_Group":"General","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S067","Symptom_Name":"swelling","Symptom_Category":"Pain / fever","Linked_Product_Count":43,"Display_Group":"Pain / fever","Priority_For_Graph":100,"Node_Color":"#5B9BD5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S068","Symptom_Name":"throat irritation","Symptom_Category":"Throat","Linked_Product_Count":21,"Display_Group":"Throat","Priority_For_Graph":100,"Node_Color":"#70AD47","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S069","Symptom_Name":"throat pain","Symptom_Category":"Throat","Linked_Product_Count":21,"Display_Group":"Throat","Priority_For_Graph":100,"Node_Color":"#70AD47","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S070","Symptom_Name":"thrush (topical)","Symptom_Category":"Skin","Linked_Product_Count":27,"Display_Group":"Skin","Priority_For_Graph":100,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S071","Symptom_Name":"travel sickness","Symptom_Category":"Travel / motion","Linked_Product_Count":23,"Display_Group":"Travel / motion","Priority_For_Graph":100,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S072","Symptom_Name":"ulcers","Symptom_Category":"General","Linked_Product_Count":2,"Display_Group":"General","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S073","Symptom_Name":"vaginal infection support","Symptom_Category":"Women's health","Linked_Product_Count":13,"Display_Group":"Women's health","Priority_For_Graph":85,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S074","Symptom_Name":"vein support","Symptom_Category":"General","Linked_Product_Count":9,"Display_Group":"General","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S075","Symptom_Name":"vitamin support","Symptom_Category":"General","Linked_Product_Count":3,"Display_Group":"General","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S076","Symptom_Name":"wellness","Symptom_Category":"General","Linked_Product_Count":3,"Display_Group":"General","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."},{"Symptom_ID":"S077","Symptom_Name":"wound care","Symptom_Category":"General","Linked_Product_Count":2,"Display_Group":"General","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}]
+[
+  {
+    "Symptom_ID": "S001",
+    "Symptom_Name": "abdominal discomfort",
+    "Symptom_Category": "General",
+    "Linked_Product_Count": 10,
+    "Display_Group": "General",
+    "Priority_For_Graph": 85,
+    "Node_Color": "#A5A5A5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S002",
+    "Symptom_Name": "acid reflux",
+    "Symptom_Category": "Gastrointestinal",
+    "Linked_Product_Count": 29,
+    "Display_Group": "Gastrointestinal",
+    "Priority_For_Graph": 100,
+    "Node_Color": "#A5A5A5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S003",
+    "Symptom_Name": "allergy",
+    "Symptom_Category": "Cold / allergy",
+    "Linked_Product_Count": 23,
+    "Display_Group": "Cold / allergy",
+    "Priority_For_Graph": 100,
+    "Node_Color": "#70AD47",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S004",
+    "Symptom_Name": "allergy eye symptoms",
+    "Symptom_Category": "Eye",
+    "Linked_Product_Count": 5,
+    "Display_Group": "Eye",
+    "Priority_For_Graph": 70,
+    "Node_Color": "#A5A5A5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S005",
+    "Symptom_Name": "anaemia support",
+    "Symptom_Category": "Supplements",
+    "Linked_Product_Count": 11,
+    "Display_Group": "Supplements",
+    "Priority_For_Graph": 85,
+    "Node_Color": "#A5A5A5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S006",
+    "Symptom_Name": "antiseptic care",
+    "Symptom_Category": "Skin",
+    "Linked_Product_Count": 21,
+    "Display_Group": "Skin",
+    "Priority_For_Graph": 100,
+    "Node_Color": "#A5A5A5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S007",
+    "Symptom_Name": "athlete foot",
+    "Symptom_Category": "Skin",
+    "Linked_Product_Count": 27,
+    "Display_Group": "Skin",
+    "Priority_For_Graph": 100,
+    "Node_Color": "#A5A5A5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S008",
+    "Symptom_Name": "back pain",
+    "Symptom_Category": "Pain / fever",
+    "Linked_Product_Count": 21,
+    "Display_Group": "Pain / fever",
+    "Priority_For_Graph": 100,
+    "Node_Color": "#5B9BD5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S009",
+    "Symptom_Name": "bites",
+    "Symptom_Category": "General",
+    "Linked_Product_Count": 6,
+    "Display_Group": "General",
+    "Priority_For_Graph": 70,
+    "Node_Color": "#A5A5A5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S010",
+    "Symptom_Name": "bloating",
+    "Symptom_Category": "General",
+    "Linked_Product_Count": 10,
+    "Display_Group": "General",
+    "Priority_For_Graph": 85,
+    "Node_Color": "#A5A5A5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S011",
+    "Symptom_Name": "blocked nose",
+    "Symptom_Category": "Cold / allergy",
+    "Linked_Product_Count": 29,
+    "Display_Group": "Cold / allergy",
+    "Priority_For_Graph": 100,
+    "Node_Color": "#70AD47",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S012",
+    "Symptom_Name": "body aches",
+    "Symptom_Category": "Pain / fever",
+    "Linked_Product_Count": 70,
+    "Display_Group": "Pain / fever",
+    "Priority_For_Graph": 100,
+    "Node_Color": "#5B9BD5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S013",
+    "Symptom_Name": "bowel movement support",
+    "Symptom_Category": "Gastrointestinal",
+    "Linked_Product_Count": 36,
+    "Display_Group": "Gastrointestinal",
+    "Priority_For_Graph": 100,
+    "Node_Color": "#A5A5A5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S014",
+    "Symptom_Name": "chesty cough",
+    "Symptom_Category": "Cough",
+    "Linked_Product_Count": 45,
+    "Display_Group": "Cough",
+    "Priority_For_Graph": 100,
+    "Node_Color": "#70AD47",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S015",
+    "Symptom_Name": "cold",
+    "Symptom_Category": "Cold / flu",
+    "Linked_Product_Count": 45,
+    "Display_Group": "Cold / flu",
+    "Priority_For_Graph": 100,
+    "Node_Color": "#70AD47",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S016",
+    "Symptom_Name": "constipation",
+    "Symptom_Category": "Gastrointestinal",
+    "Linked_Product_Count": 36,
+    "Display_Group": "Gastrointestinal",
+    "Priority_For_Graph": 100,
+    "Node_Color": "#A5A5A5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S017",
+    "Symptom_Name": "cough",
+    "Symptom_Category": "Cough",
+    "Linked_Product_Count": 45,
+    "Display_Group": "Cough",
+    "Priority_For_Graph": 100,
+    "Node_Color": "#70AD47",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S018",
+    "Symptom_Name": "cramps",
+    "Symptom_Category": "General",
+    "Linked_Product_Count": 10,
+    "Display_Group": "General",
+    "Priority_For_Graph": 85,
+    "Node_Color": "#A5A5A5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S019",
+    "Symptom_Name": "dermatitis",
+    "Symptom_Category": "General",
+    "Linked_Product_Count": 4,
+    "Display_Group": "General",
+    "Priority_For_Graph": 70,
+    "Node_Color": "#A5A5A5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S020",
+    "Symptom_Name": "dermatology support",
+    "Symptom_Category": "General",
+    "Linked_Product_Count": 8,
+    "Display_Group": "General",
+    "Priority_For_Graph": 70,
+    "Node_Color": "#A5A5A5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S021",
+    "Symptom_Name": "diarrhoea",
+    "Symptom_Category": "Gastrointestinal",
+    "Linked_Product_Count": 16,
+    "Display_Group": "Gastrointestinal",
+    "Priority_For_Graph": 85,
+    "Node_Color": "#A5A5A5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S022",
+    "Symptom_Name": "disinfection",
+    "Symptom_Category": "Skin",
+    "Linked_Product_Count": 21,
+    "Display_Group": "Skin",
+    "Priority_For_Graph": 100,
+    "Node_Color": "#A5A5A5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S023",
+    "Symptom_Name": "dry cough",
+    "Symptom_Category": "Cough",
+    "Linked_Product_Count": 45,
+    "Display_Group": "Cough",
+    "Priority_For_Graph": 100,
+    "Node_Color": "#70AD47",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S024",
+    "Symptom_Name": "dry eye",
+    "Symptom_Category": "Eye",
+    "Linked_Product_Count": 5,
+    "Display_Group": "Eye",
+    "Priority_For_Graph": 70,
+    "Node_Color": "#A5A5A5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S025",
+    "Symptom_Name": "eczema",
+    "Symptom_Category": "General",
+    "Linked_Product_Count": 4,
+    "Display_Group": "General",
+    "Priority_For_Graph": 70,
+    "Node_Color": "#A5A5A5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S026",
+    "Symptom_Name": "eye irritation",
+    "Symptom_Category": "Eye",
+    "Linked_Product_Count": 5,
+    "Display_Group": "Eye",
+    "Priority_For_Graph": 70,
+    "Node_Color": "#A5A5A5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S027",
+    "Symptom_Name": "fever",
+    "Symptom_Category": "Pain / fever",
+    "Linked_Product_Count": 70,
+    "Display_Group": "Pain / fever",
+    "Priority_For_Graph": 100,
+    "Node_Color": "#5B9BD5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S028",
+    "Symptom_Name": "flu symptoms",
+    "Symptom_Category": "Cold / flu",
+    "Linked_Product_Count": 45,
+    "Display_Group": "Cold / flu",
+    "Priority_For_Graph": 100,
+    "Node_Color": "#70AD47",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S029",
+    "Symptom_Name": "fungal skin infection",
+    "Symptom_Category": "Skin",
+    "Linked_Product_Count": 27,
+    "Display_Group": "Skin",
+    "Priority_For_Graph": 100,
+    "Node_Color": "#A5A5A5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S030",
+    "Symptom_Name": "gum care",
+    "Symptom_Category": "General",
+    "Linked_Product_Count": 6,
+    "Display_Group": "General",
+    "Priority_For_Graph": 70,
+    "Node_Color": "#A5A5A5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S031",
+    "Symptom_Name": "gut upset",
+    "Symptom_Category": "Gastrointestinal",
+    "Linked_Product_Count": 16,
+    "Display_Group": "Gastrointestinal",
+    "Priority_For_Graph": 85,
+    "Node_Color": "#A5A5A5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S032",
+    "Symptom_Name": "haemorrhoids",
+    "Symptom_Category": "General",
+    "Linked_Product_Count": 9,
+    "Display_Group": "General",
+    "Priority_For_Graph": 70,
+    "Node_Color": "#A5A5A5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S033",
+    "Symptom_Name": "headache",
+    "Symptom_Category": "Pain / fever",
+    "Linked_Product_Count": 70,
+    "Display_Group": "Pain / fever",
+    "Priority_For_Graph": 100,
+    "Node_Color": "#5B9BD5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S034",
+    "Symptom_Name": "healing",
+    "Symptom_Category": "General",
+    "Linked_Product_Count": 2,
+    "Display_Group": "General",
+    "Priority_For_Graph": 70,
+    "Node_Color": "#A5A5A5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S035",
+    "Symptom_Name": "heartburn",
+    "Symptom_Category": "Gastrointestinal",
+    "Linked_Product_Count": 29,
+    "Display_Group": "Gastrointestinal",
+    "Priority_For_Graph": 100,
+    "Node_Color": "#A5A5A5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S036",
+    "Symptom_Name": "indigestion",
+    "Symptom_Category": "Gastrointestinal",
+    "Linked_Product_Count": 29,
+    "Display_Group": "Gastrointestinal",
+    "Priority_For_Graph": 100,
+    "Node_Color": "#A5A5A5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S037",
+    "Symptom_Name": "inflammation",
+    "Symptom_Category": "Pain / fever",
+    "Linked_Product_Count": 43,
+    "Display_Group": "Pain / fever",
+    "Priority_For_Graph": 100,
+    "Node_Color": "#5B9BD5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S038",
+    "Symptom_Name": "intimate care",
+    "Symptom_Category": "Women's health",
+    "Linked_Product_Count": 13,
+    "Display_Group": "Women's health",
+    "Priority_For_Graph": 85,
+    "Node_Color": "#A5A5A5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S039",
+    "Symptom_Name": "iron support",
+    "Symptom_Category": "Supplements",
+    "Linked_Product_Count": 11,
+    "Display_Group": "Supplements",
+    "Priority_For_Graph": 85,
+    "Node_Color": "#A5A5A5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S040",
+    "Symptom_Name": "itching",
+    "Symptom_Category": "Cold / allergy",
+    "Linked_Product_Count": 29,
+    "Display_Group": "Cold / allergy",
+    "Priority_For_Graph": 100,
+    "Node_Color": "#70AD47",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S041",
+    "Symptom_Name": "joint pain",
+    "Symptom_Category": "Pain / fever",
+    "Linked_Product_Count": 21,
+    "Display_Group": "Pain / fever",
+    "Priority_For_Graph": 100,
+    "Node_Color": "#5B9BD5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S042",
+    "Symptom_Name": "loose stools",
+    "Symptom_Category": "Gastrointestinal",
+    "Linked_Product_Count": 16,
+    "Display_Group": "Gastrointestinal",
+    "Priority_For_Graph": 85,
+    "Node_Color": "#A5A5A5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S043",
+    "Symptom_Name": "mineral support",
+    "Symptom_Category": "General",
+    "Linked_Product_Count": 7,
+    "Display_Group": "General",
+    "Priority_For_Graph": 70,
+    "Node_Color": "#A5A5A5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S044",
+    "Symptom_Name": "motion sickness",
+    "Symptom_Category": "Travel / motion",
+    "Linked_Product_Count": 23,
+    "Display_Group": "Travel / motion",
+    "Priority_For_Graph": 100,
+    "Node_Color": "#A5A5A5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S045",
+    "Symptom_Name": "mouth ulcers",
+    "Symptom_Category": "General",
+    "Linked_Product_Count": 6,
+    "Display_Group": "General",
+    "Priority_For_Graph": 70,
+    "Node_Color": "#A5A5A5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S046",
+    "Symptom_Name": "mucus",
+    "Symptom_Category": "Cough",
+    "Linked_Product_Count": 45,
+    "Display_Group": "Cough",
+    "Priority_For_Graph": 100,
+    "Node_Color": "#70AD47",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S047",
+    "Symptom_Name": "muscle pain",
+    "Symptom_Category": "Pain / fever",
+    "Linked_Product_Count": 21,
+    "Display_Group": "Pain / fever",
+    "Priority_For_Graph": 100,
+    "Node_Color": "#5B9BD5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S048",
+    "Symptom_Name": "musculoskeletal pain",
+    "Symptom_Category": "Pain / fever",
+    "Linked_Product_Count": 43,
+    "Display_Group": "Pain / fever",
+    "Priority_For_Graph": 100,
+    "Node_Color": "#5B9BD5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S049",
+    "Symptom_Name": "nasal congestion",
+    "Symptom_Category": "Cold / allergy",
+    "Linked_Product_Count": 29,
+    "Display_Group": "Cold / allergy",
+    "Priority_For_Graph": 100,
+    "Node_Color": "#70AD47",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S050",
+    "Symptom_Name": "oral inflammation",
+    "Symptom_Category": "General",
+    "Linked_Product_Count": 6,
+    "Display_Group": "General",
+    "Priority_For_Graph": 70,
+    "Node_Color": "#A5A5A5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S051",
+    "Symptom_Name": "pain",
+    "Symptom_Category": "Pain / fever",
+    "Linked_Product_Count": 43,
+    "Display_Group": "Pain / fever",
+    "Priority_For_Graph": 100,
+    "Node_Color": "#5B9BD5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S052",
+    "Symptom_Name": "pain relief",
+    "Symptom_Category": "Pain / fever",
+    "Linked_Product_Count": 70,
+    "Display_Group": "Pain / fever",
+    "Priority_For_Graph": 100,
+    "Node_Color": "#5B9BD5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S054",
+    "Symptom_Name": "runny nose",
+    "Symptom_Category": "Cold / allergy",
+    "Linked_Product_Count": 52,
+    "Display_Group": "Cold / allergy",
+    "Priority_For_Graph": 100,
+    "Node_Color": "#70AD47",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S055",
+    "Symptom_Name": "scar care",
+    "Symptom_Category": "General",
+    "Linked_Product_Count": 8,
+    "Display_Group": "General",
+    "Priority_For_Graph": 70,
+    "Node_Color": "#A5A5A5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S056",
+    "Symptom_Name": "sinus pressure",
+    "Symptom_Category": "Cold / allergy",
+    "Linked_Product_Count": 29,
+    "Display_Group": "Cold / allergy",
+    "Priority_For_Graph": 100,
+    "Node_Color": "#70AD47",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S057",
+    "Symptom_Name": "skin cleansing",
+    "Symptom_Category": "Skin",
+    "Linked_Product_Count": 21,
+    "Display_Group": "Skin",
+    "Priority_For_Graph": 100,
+    "Node_Color": "#A5A5A5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S058",
+    "Symptom_Name": "skin inflammation",
+    "Symptom_Category": "General",
+    "Linked_Product_Count": 4,
+    "Display_Group": "General",
+    "Priority_For_Graph": 70,
+    "Node_Color": "#A5A5A5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S059",
+    "Symptom_Name": "skin irritation",
+    "Symptom_Category": "General",
+    "Linked_Product_Count": 6,
+    "Display_Group": "General",
+    "Priority_For_Graph": 70,
+    "Node_Color": "#A5A5A5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S060",
+    "Symptom_Name": "skin repair",
+    "Symptom_Category": "General",
+    "Linked_Product_Count": 8,
+    "Display_Group": "General",
+    "Priority_For_Graph": 70,
+    "Node_Color": "#A5A5A5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S061",
+    "Symptom_Name": "smoking cessation",
+    "Symptom_Category": "Lifestyle / cessation",
+    "Linked_Product_Count": 23,
+    "Display_Group": "Lifestyle / cessation",
+    "Priority_For_Graph": 100,
+    "Node_Color": "#A5A5A5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S062",
+    "Symptom_Name": "sneezing",
+    "Symptom_Category": "Cold / allergy",
+    "Linked_Product_Count": 23,
+    "Display_Group": "Cold / allergy",
+    "Priority_For_Graph": 100,
+    "Node_Color": "#70AD47",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S063",
+    "Symptom_Name": "sore throat",
+    "Symptom_Category": "Throat",
+    "Linked_Product_Count": 21,
+    "Display_Group": "Throat",
+    "Priority_For_Graph": 100,
+    "Node_Color": "#70AD47",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S064",
+    "Symptom_Name": "spasms",
+    "Symptom_Category": "General",
+    "Linked_Product_Count": 10,
+    "Display_Group": "General",
+    "Priority_For_Graph": 85,
+    "Node_Color": "#A5A5A5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S065",
+    "Symptom_Name": "sprains",
+    "Symptom_Category": "Pain / fever",
+    "Linked_Product_Count": 21,
+    "Display_Group": "Pain / fever",
+    "Priority_For_Graph": 100,
+    "Node_Color": "#5B9BD5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S066",
+    "Symptom_Name": "supplementation",
+    "Symptom_Category": "General",
+    "Linked_Product_Count": 7,
+    "Display_Group": "General",
+    "Priority_For_Graph": 70,
+    "Node_Color": "#A5A5A5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S067",
+    "Symptom_Name": "swelling",
+    "Symptom_Category": "Pain / fever",
+    "Linked_Product_Count": 43,
+    "Display_Group": "Pain / fever",
+    "Priority_For_Graph": 100,
+    "Node_Color": "#5B9BD5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S068",
+    "Symptom_Name": "throat irritation",
+    "Symptom_Category": "Throat",
+    "Linked_Product_Count": 21,
+    "Display_Group": "Throat",
+    "Priority_For_Graph": 100,
+    "Node_Color": "#70AD47",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S069",
+    "Symptom_Name": "throat pain",
+    "Symptom_Category": "Throat",
+    "Linked_Product_Count": 21,
+    "Display_Group": "Throat",
+    "Priority_For_Graph": 100,
+    "Node_Color": "#70AD47",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S070",
+    "Symptom_Name": "thrush (topical)",
+    "Symptom_Category": "Skin",
+    "Linked_Product_Count": 27,
+    "Display_Group": "Skin",
+    "Priority_For_Graph": 100,
+    "Node_Color": "#A5A5A5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S071",
+    "Symptom_Name": "travel sickness",
+    "Symptom_Category": "Travel / motion",
+    "Linked_Product_Count": 23,
+    "Display_Group": "Travel / motion",
+    "Priority_For_Graph": 100,
+    "Node_Color": "#A5A5A5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S072",
+    "Symptom_Name": "ulcers",
+    "Symptom_Category": "General",
+    "Linked_Product_Count": 2,
+    "Display_Group": "General",
+    "Priority_For_Graph": 70,
+    "Node_Color": "#A5A5A5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S073",
+    "Symptom_Name": "vaginal infection support",
+    "Symptom_Category": "Women's health",
+    "Linked_Product_Count": 13,
+    "Display_Group": "Women's health",
+    "Priority_For_Graph": 85,
+    "Node_Color": "#A5A5A5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S074",
+    "Symptom_Name": "vein support",
+    "Symptom_Category": "General",
+    "Linked_Product_Count": 9,
+    "Display_Group": "General",
+    "Priority_For_Graph": 70,
+    "Node_Color": "#A5A5A5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S075",
+    "Symptom_Name": "vitamin support",
+    "Symptom_Category": "General",
+    "Linked_Product_Count": 3,
+    "Display_Group": "General",
+    "Priority_For_Graph": 70,
+    "Node_Color": "#A5A5A5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S076",
+    "Symptom_Name": "wellness",
+    "Symptom_Category": "General",
+    "Linked_Product_Count": 3,
+    "Display_Group": "General",
+    "Priority_For_Graph": 70,
+    "Node_Color": "#A5A5A5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S077",
+    "Symptom_Name": "wound care",
+    "Symptom_Category": "General",
+    "Linked_Product_Count": 2,
+    "Display_Group": "General",
+    "Priority_For_Graph": 70,
+    "Node_Color": "#A5A5A5",
+    "Notes": "Seeded from imported symptom tags; refine naming over time."
+  },
+  {
+    "Symptom_ID": "S078",
+    "Symptom_Name": "cold sores",
+    "Symptom_Category": "Skin",
+    "Display_Group": "Skin",
+    "Linked_Product_Count": 0,
+    "Priority_For_Graph": 100,
+    "Node_Color": "#ff9f43"
+  },
+  {
+    "Symptom_ID": "S079",
+    "Symptom_Name": "erectile dysfunction",
+    "Symptom_Category": "Men's health",
+    "Display_Group": "Men's health",
+    "Linked_Product_Count": 0,
+    "Priority_For_Graph": 100,
+    "Node_Color": "#54a0ff"
+  },
+  {
+    "Symptom_ID": "S080",
+    "Symptom_Name": "emergency contraception",
+    "Symptom_Category": "Women's health",
+    "Display_Group": "Women's health",
+    "Linked_Product_Count": 0,
+    "Priority_For_Graph": 100,
+    "Node_Color": "#ff6b81"
+  },
+  {
+    "Symptom_ID": "S081",
+    "Symptom_Name": "ear pain",
+    "Symptom_Category": "General",
+    "Display_Group": "General",
+    "Linked_Product_Count": 0,
+    "Priority_For_Graph": 100,
+    "Node_Color": "#feca57"
+  },
+  {
+    "Symptom_ID": "S082",
+    "Symptom_Name": "nausea",
+    "Symptom_Category": "Gastrointestinal",
+    "Display_Group": "Gastrointestinal",
+    "Linked_Product_Count": 0,
+    "Priority_For_Graph": 100,
+    "Node_Color": "#48dbfb"
+  },
+  {
+    "Symptom_ID": "S083",
+    "Symptom_Name": "sleep support",
+    "Symptom_Category": "Lifestyle / cessation",
+    "Display_Group": "Lifestyle",
+    "Linked_Product_Count": 0,
+    "Priority_For_Graph": 100,
+    "Node_Color": "#c8d6e5"
+  },
+  {
+    "Symptom_ID": "S084",
+    "Symptom_Name": "heart health",
+    "Symptom_Category": "General",
+    "Display_Group": "General",
+    "Linked_Product_Count": 0,
+    "Priority_For_Graph": 100,
+    "Node_Color": "#ff6b6b"
+  },
+  {
+    "Symptom_ID": "S085",
+    "Symptom_Name": "scabies",
+    "Symptom_Category": "Skin",
+    "Display_Group": "Skin",
+    "Linked_Product_Count": 0,
+    "Priority_For_Graph": 100,
+    "Node_Color": "#ff9f43"
+  },
+  {
+    "Symptom_ID": "S086",
+    "Symptom_Name": "fatigue",
+    "Symptom_Category": "General",
+    "Display_Group": "General",
+    "Linked_Product_Count": 0,
+    "Priority_For_Graph": 100,
+    "Node_Color": "#feca57"
+  },
+  {
+    "Symptom_ID": "S087",
+    "Symptom_Name": "thyroid support",
+    "Symptom_Category": "General",
+    "Display_Group": "General",
+    "Linked_Product_Count": 0,
+    "Priority_For_Graph": 100,
+    "Node_Color": "#feca57"
+  },
+  {
+    "Symptom_ID": "S088",
+    "Symptom_Name": "urinary health",
+    "Symptom_Category": "General",
+    "Display_Group": "General",
+    "Linked_Product_Count": 0,
+    "Priority_For_Graph": 100,
+    "Node_Color": "#48dbfb"
+  },
+  {
+    "Symptom_ID": "S089",
+    "Symptom_Name": "nasal irrigation",
+    "Symptom_Category": "Cold / allergy",
+    "Display_Group": "Cold / allergy",
+    "Linked_Product_Count": 0,
+    "Priority_For_Graph": 100,
+    "Node_Color": "#0abde3"
+  }
+]

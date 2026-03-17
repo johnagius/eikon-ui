@@ -1,1 +1,256 @@
-{"centerId":"product:P0334","centerType":"product","refId":"P0334","nodes":[{"id":"product:P0334","nodeType":"product","refId":"P0334","label":"Nizoral 20mg/g Shampoo","subtext":"fungal skin infection","meta":{"brand":"Nizoral","generic":"KETOCONAZOLE","form":"SHAMPOO","formGroup":"Other","route":"Other","mainIndication":"fungal skin infection","secondaryIndications":"athlete foot | thrush (topical)","otcCategory":"ANTIFUNGALS FOR DERMATOLOGICAL USE","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"KETOCONAZOLE 20 milligram(s)/gram","packSizeText":"Review manually","atcCode":"D01AC08","status":"Authorised","supplierCatalogKey":"nizoral 20mg/g shampoo"}},{"id":"product:P0335","nodeType":"product","refId":"P0335","label":"Nizoral Shampoo","subtext":"fungal skin infection","meta":{"brand":"Nizoral","generic":"KETOCONAZOLE","form":"SHAMPOO","formGroup":"Other","route":"Other","mainIndication":"fungal skin infection","secondaryIndications":"athlete foot | thrush (topical)","otcCategory":"ANTIFUNGALS FOR DERMATOLOGICAL USE","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"KETOCONAZOLE 20 milligram(s)/gram","packSizeText":"Review manually","atcCode":"D01AC08","status":"Authorised","supplierCatalogKey":"nizoral shampoo"}},{"id":"product:P0333","nodeType":"product","refId":"P0333","label":"Nizoral 20mg/g Cream","subtext":"fungal skin infection","meta":{"brand":"Nizoral","generic":"KETOCONAZOLE","form":"CREAM","formGroup":"Topical","route":"Topical","mainIndication":"fungal skin infection","secondaryIndications":"athlete foot | thrush (topical)","otcCategory":"ANTIFUNGALS FOR DERMATOLOGICAL USE","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"KETOCONAZOLE 2 percent weight/weight","packSizeText":"Review manually","atcCode":"D01AC08","status":"Authorised","supplierCatalogKey":"nizoral 20mg/g cream"}},{"id":"symptom:S029","nodeType":"symptom","refId":"S029","label":"fungal skin infection","subtext":"Skin","meta":{"Symptom_ID":"S029","Symptom_Name":"fungal skin infection","Symptom_Category":"Skin","Linked_Product_Count":27,"Display_Group":"Skin","Priority_For_Graph":100,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"symptom:S007","nodeType":"symptom","refId":"S007","label":"athlete foot","subtext":"Skin","meta":{"Symptom_ID":"S007","Symptom_Name":"athlete foot","Symptom_Category":"Skin","Linked_Product_Count":27,"Display_Group":"Skin","Priority_For_Graph":100,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"symptom:S070","nodeType":"symptom","refId":"S070","label":"thrush (topical)","subtext":"Skin","meta":{"Symptom_ID":"S070","Symptom_Name":"thrush (topical)","Symptom_Category":"Skin","Linked_Product_Count":27,"Display_Group":"Skin","Priority_For_Graph":100,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"usecase:UC010","nodeType":"usecase","refId":"UC010","label":"Athlete foot and fungal skin care","subtext":"Skin","meta":{"UseCase_ID":"UC010","UseCase_Name":"Athlete foot and fungal skin care","UseCase_Category":"Skin","Trigger_Symptoms":"Fungal skin infection, athlete foot, itch","Description":"Antifungal core with hygiene/support products."}}],"links":[{"key":"07bf27ffaf9175b2","source":"product:P0334","target":"product:P0335","rel":"similar","label":"Alternative: same active ingredient(s)","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00987","clinicalSimilarity":100,"commercialSubstitution":100,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"athlete foot, fungal skin infection, thrush (topical)","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"a11e441a06ea4d6b","source":"product:P0333","target":"product:P0334","rel":"similar","label":"Alternative: same active ingredient(s)","score":88,"why":"Same active ingredient(s), but delivered in different form families.","meta":{"edgeId":"E00985","clinicalSimilarity":100,"commercialSubstitution":95,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"athlete foot, fungal skin infection, thrush (topical)","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"cc7cf32a32fa2f26","source":"product:P0334","target":"symptom:S029","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM01067","role":"Primary","reviewStatus":"Seeded"}},{"key":"50f7873252133b77","source":"product:P0334","target":"symptom:S007","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01068","role":"Primary","reviewStatus":"Seeded"}},{"key":"bf2d7b434229d7c5","source":"product:P0334","target":"symptom:S070","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM01069","role":"Secondary","reviewStatus":"Seeded"}},{"key":"fd7c0ddae1ce01af","source":"product:P0334","target":"usecase:UC010","rel":"usecase","label":"Main","score":100,"why":"fungal skin infection, athlete foot, thrush (topical)","meta":{"useCaseItemId":"UCI00565","role":"Main","reviewStatus":"Seeded"}},{"key":"4c4abd3612e010e7","source":"product:P0334","target":"product:P0335","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00987","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}},{"key":"cdf17c5c48ae30e3","source":"product:P0333","target":"product:P0334","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":88,"why":"Same active ingredient(s), but delivered in different form families.","meta":{"edgeId":"E00985","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}}],"meta":{"productName":"Nizoral 20mg/g Shampoo","linkCount":8}}
+{
+  "centerId": "product:P0334",
+  "centerType": "product",
+  "refId": "P0334",
+  "nodes": [
+    {
+      "id": "product:P0334",
+      "nodeType": "product",
+      "refId": "P0334",
+      "label": "Nizoral 20mg/g Shampoo",
+      "subtext": "fungal skin infection",
+      "meta": {
+        "brand": "Nizoral",
+        "generic": "KETOCONAZOLE",
+        "form": "SHAMPOO",
+        "formGroup": "Other",
+        "route": "Other",
+        "mainIndication": "fungal skin infection",
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "KETOCONAZOLE 20 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC08",
+        "status": "Authorised",
+        "supplierCatalogKey": "nizoral 20mg/g shampoo"
+      }
+    },
+    {
+      "id": "product:P0335",
+      "nodeType": "product",
+      "refId": "P0335",
+      "label": "Nizoral Shampoo",
+      "subtext": "fungal skin infection",
+      "meta": {
+        "brand": "Nizoral",
+        "generic": "KETOCONAZOLE",
+        "form": "SHAMPOO",
+        "formGroup": "Other",
+        "route": "Other",
+        "mainIndication": "fungal skin infection",
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "KETOCONAZOLE 20 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC08",
+        "status": "Authorised",
+        "supplierCatalogKey": "nizoral shampoo"
+      }
+    },
+    {
+      "id": "product:P0333",
+      "nodeType": "product",
+      "refId": "P0333",
+      "label": "Nizoral 20mg/g Cream",
+      "subtext": "fungal skin infection",
+      "meta": {
+        "brand": "Nizoral",
+        "generic": "KETOCONAZOLE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "fungal skin infection",
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "KETOCONAZOLE 2 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC08",
+        "status": "Authorised",
+        "supplierCatalogKey": "nizoral 20mg/g cream"
+      }
+    },
+    {
+      "id": "symptom:S029",
+      "nodeType": "symptom",
+      "refId": "S029",
+      "label": "fungal skin infection",
+      "subtext": "Skin",
+      "meta": {
+        "Symptom_ID": "S029",
+        "Symptom_Name": "fungal skin infection",
+        "Symptom_Category": "Skin",
+        "Linked_Product_Count": 27,
+        "Display_Group": "Skin",
+        "Priority_For_Graph": 100,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "symptom:S007",
+      "nodeType": "symptom",
+      "refId": "S007",
+      "label": "athlete foot",
+      "subtext": "Skin",
+      "meta": {
+        "Symptom_ID": "S007",
+        "Symptom_Name": "athlete foot",
+        "Symptom_Category": "Skin",
+        "Linked_Product_Count": 27,
+        "Display_Group": "Skin",
+        "Priority_For_Graph": 100,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "symptom:S070",
+      "nodeType": "symptom",
+      "refId": "S070",
+      "label": "thrush (topical)",
+      "subtext": "Skin",
+      "meta": {
+        "Symptom_ID": "S070",
+        "Symptom_Name": "thrush (topical)",
+        "Symptom_Category": "Skin",
+        "Linked_Product_Count": 27,
+        "Display_Group": "Skin",
+        "Priority_For_Graph": 100,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "usecase:UC010",
+      "nodeType": "usecase",
+      "refId": "UC010",
+      "label": "Athlete foot and fungal skin care",
+      "subtext": "Skin",
+      "meta": {
+        "UseCase_ID": "UC010",
+        "UseCase_Name": "Athlete foot and fungal skin care",
+        "UseCase_Category": "Skin",
+        "Trigger_Symptoms": "Fungal skin infection, athlete foot, itch",
+        "Description": "Antifungal core with hygiene/support products."
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "07bf27ffaf9175b2",
+      "source": "product:P0334",
+      "target": "product:P0335",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00987"
+      }
+    },
+    {
+      "key": "a11e441a06ea4d6b",
+      "source": "product:P0333",
+      "target": "product:P0334",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 88,
+      "why": "Same active ingredient(s), but delivered in different form families.",
+      "meta": {
+        "edgeId": "E00985"
+      }
+    },
+    {
+      "key": "cc7cf32a32fa2f26",
+      "source": "product:P0334",
+      "target": "symptom:S029",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01067"
+      }
+    },
+    {
+      "key": "50f7873252133b77",
+      "source": "product:P0334",
+      "target": "symptom:S007",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01068"
+      }
+    },
+    {
+      "key": "bf2d7b434229d7c5",
+      "source": "product:P0334",
+      "target": "symptom:S070",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01069"
+      }
+    },
+    {
+      "key": "fd7c0ddae1ce01af",
+      "source": "product:P0334",
+      "target": "usecase:UC010",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "fungal skin infection, athlete foot, thrush (topical)",
+      "meta": {
+        "useCaseItemId": "UCI00565"
+      }
+    },
+    {
+      "key": "4c4abd3612e010e7",
+      "source": "product:P0334",
+      "target": "product:P0335",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00987",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    },
+    {
+      "key": "cdf17c5c48ae30e3",
+      "source": "product:P0333",
+      "target": "product:P0334",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 88,
+      "why": "Same active ingredient(s), but delivered in different form families.",
+      "meta": {
+        "edgeId": "E00985",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    }
+  ]
+}

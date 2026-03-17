@@ -8,15 +8,15 @@
       "nodeType": "product",
       "refId": "P0237",
       "label": "InfectoScab 5% cream",
-      "subtext": "review needed",
+      "subtext": "scabies treatment",
       "meta": {
         "brand": "InfectoScab",
         "generic": "PERMETHRIN",
         "form": "CREAM",
         "formGroup": "Topical",
         "route": "Topical",
-        "mainIndication": "review needed",
-        "secondaryIndications": null,
+        "mainIndication": "scabies treatment",
+        "secondaryIndications": "skin irritation",
         "otcCategory": "ECTOPARASITICIDES, INCL. SCABICIDES, INSECTICIDES AND REPELLENTS",
         "seasonalGroup": "All year",
         "sedating": "No",
@@ -36,15 +36,15 @@
       "nodeType": "product",
       "refId": "P0260",
       "label": "Lyclear 5% w/w Dermal Cream",
-      "subtext": "review needed",
+      "subtext": "scabies treatment",
       "meta": {
         "brand": "Lyclear",
         "generic": "PERMETHRIN",
         "form": "CREAM",
         "formGroup": "Topical",
         "route": "Topical",
-        "mainIndication": "review needed",
-        "secondaryIndications": null,
+        "mainIndication": "scabies treatment",
+        "secondaryIndications": "skin irritation",
         "otcCategory": "ECTOPARASITICIDES, INCL. SCABICIDES, INSECTICIDES AND REPELLENTS",
         "seasonalGroup": "All year",
         "sedating": "No",
@@ -64,15 +64,15 @@
       "nodeType": "product",
       "refId": "P0394",
       "label": "Permethrin LMP 50 mg/g gel",
-      "subtext": "review needed",
+      "subtext": "scabies treatment",
       "meta": {
         "brand": "Permethrin",
         "generic": "PERMETHRIN",
         "form": "GEL",
         "formGroup": "Topical",
         "route": "Topical",
-        "mainIndication": "review needed",
-        "secondaryIndications": null,
+        "mainIndication": "scabies treatment",
+        "secondaryIndications": "skin irritation",
         "otcCategory": "ECTOPARASITICIDES, INCL. SCABICIDES, INSECTICIDES AND REPELLENTS",
         "seasonalGroup": "All year",
         "sedating": "No",
@@ -120,6 +120,36 @@
         "Node_Color": "#A5A5A5",
         "Notes": "Seeded from imported symptom tags; refine naming over time."
       }
+    },
+    {
+      "id": "symptom:S085",
+      "nodeType": "symptom",
+      "refId": "S085",
+      "label": "scabies",
+      "subtext": "Skin",
+      "meta": {
+        "Symptom_ID": "S085",
+        "Symptom_Name": "scabies",
+        "Symptom_Category": "Skin",
+        "Display_Group": "Skin",
+        "Linked_Product_Count": 0,
+        "Priority_For_Graph": 100,
+        "Node_Color": "#ff9f43"
+      }
+    },
+    {
+      "id": "usecase:UC010",
+      "nodeType": "usecase",
+      "refId": "UC010",
+      "label": "Athlete foot and fungal skin care",
+      "subtext": "Skin",
+      "meta": {
+        "UseCase_ID": "UC010",
+        "UseCase_Name": "Athlete foot and fungal skin care",
+        "UseCase_Category": "Skin",
+        "Trigger_Symptoms": "Fungal skin infection, athlete foot, itch",
+        "Description": "Antifungal core with hygiene/support products."
+      }
     }
   ],
   "links": [
@@ -132,18 +162,7 @@
       "score": 95,
       "why": "Same active ingredient(s) and same form family.",
       "meta": {
-        "edgeId": "E01745",
-        "clinicalSimilarity": 100,
-        "commercialSubstitution": 100,
-        "crossSell": 15,
-        "riskOverlap": 90,
-        "evidence": 90,
-        "seasonality": 40,
-        "triggerContext": "review needed",
-        "primaryToSecondary": "No",
-        "reciprocalDisplay": "Yes",
-        "reviewStatus": "Ready - strong starter link",
-        "sourceMethod": "EXACT_INGREDIENT_BASE"
+        "edgeId": "E01745"
       }
     },
     {
@@ -155,46 +174,7 @@
       "score": 95,
       "why": "Same active ingredient(s) and same form family.",
       "meta": {
-        "edgeId": "E01746",
-        "clinicalSimilarity": 100,
-        "commercialSubstitution": 100,
-        "crossSell": 15,
-        "riskOverlap": 90,
-        "evidence": 90,
-        "seasonality": 40,
-        "triggerContext": "review needed",
-        "primaryToSecondary": "No",
-        "reciprocalDisplay": "Yes",
-        "reviewStatus": "Ready - strong starter link",
-        "sourceMethod": "EXACT_INGREDIENT_BASE"
-      }
-    },
-    {
-      "key": "e88226dfe385c548",
-      "source": "product:P0237",
-      "target": "product:P0260",
-      "rel": "guardrail",
-      "label": "Potential duplicate therapy / substitute",
-      "score": 95,
-      "why": "Same active ingredient(s) and same form family.",
-      "meta": {
-        "edgeId": "E01745",
-        "posAction": "Do not cross-sell together by default; show as alternative options instead.",
-        "guardrailType": "Potential duplicate therapy / substitute"
-      }
-    },
-    {
-      "key": "9e31f4ef87fa5dfe",
-      "source": "product:P0237",
-      "target": "product:P0394",
-      "rel": "guardrail",
-      "label": "Potential duplicate therapy / substitute",
-      "score": 95,
-      "why": "Same active ingredient(s) and same form family.",
-      "meta": {
-        "edgeId": "E01746",
-        "posAction": "Do not cross-sell together by default; show as alternative options instead.",
-        "guardrailType": "Potential duplicate therapy / substitute"
+        "edgeId": "E01746"
       }
     },
     {
@@ -220,10 +200,56 @@
       "meta": {
         "mapId": "PSM01782"
       }
+    },
+    {
+      "key": "cd1c8f208ea32120",
+      "source": "product:P0237",
+      "target": "symptom:S085",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Indication-based assignment",
+      "meta": {
+        "mapId": "PSM01802"
+      }
+    },
+    {
+      "key": "c4b8e0a8d5702c69",
+      "source": "product:P0237",
+      "target": "usecase:UC010",
+      "rel": "usecase",
+      "label": "Support",
+      "score": 75,
+      "why": "Skin care",
+      "meta": {
+        "useCaseItemId": "UCI00731"
+      }
+    },
+    {
+      "key": "e88226dfe385c548",
+      "source": "product:P0237",
+      "target": "product:P0260",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E01745",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    },
+    {
+      "key": "9e31f4ef87fa5dfe",
+      "source": "product:P0237",
+      "target": "product:P0394",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E01746",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
     }
-  ],
-  "meta": {
-    "productName": "InfectoScab 5% cream",
-    "linkCount": 5
-  }
+  ]
 }

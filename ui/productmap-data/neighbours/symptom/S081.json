@@ -1,0 +1,65 @@
+{
+  "centerId": "symptom:S081",
+  "centerType": "symptom",
+  "refId": "S081",
+  "nodes": [
+    {
+      "id": "symptom:S081",
+      "nodeType": "symptom",
+      "refId": "S081",
+      "label": "ear pain",
+      "subtext": "General",
+      "meta": {
+        "Symptom_ID": "S081",
+        "Symptom_Name": "ear pain",
+        "Symptom_Category": "General",
+        "Display_Group": "General",
+        "Linked_Product_Count": 0,
+        "Priority_For_Graph": 100,
+        "Node_Color": "#feca57"
+      }
+    },
+    {
+      "id": "product:P0363",
+      "nodeType": "product",
+      "refId": "P0363",
+      "label": "Otipax Ear drops solution",
+      "subtext": "ear pain",
+      "meta": {
+        "brand": "Otipax",
+        "generic": "LIDOCAINE HYDROCHLORIDE | PHENAZONE",
+        "form": "EAR DROPS, SOLUTION",
+        "formGroup": "Ear",
+        "route": "Ear",
+        "mainIndication": "ear pain",
+        "secondaryIndications": "",
+        "otcCategory": "OTOLOGICALS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "LIDOCAINE HYDROCHLORIDE 1 percent weight/weight | PHENAZONE 4 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "S02DA01",
+        "status": "Authorised",
+        "supplierCatalogKey": "otipax ear drops solution"
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "6e41eca3167bed77",
+      "source": "product:P0363",
+      "target": "symptom:S081",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Indication-based assignment",
+      "meta": {
+        "mapId": "PSM01809"
+      }
+    }
+  ]
+}

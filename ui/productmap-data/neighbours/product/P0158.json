@@ -8,15 +8,15 @@
       "nodeType": "product",
       "refId": "P0158",
       "label": "E45 Cream White Soft Paraffin 14.5% w/w Light Liquid Paraffin 12.6% w/w Anhydrous Lanolin 1.0% w/w",
-      "subtext": "review needed",
+      "subtext": "skin irritation",
       "meta": {
         "brand": "E45",
         "generic": "LANOLIN | LIGHT LIQUID PARAFFIN | WHITE SOFT PARAFFIN",
         "form": "CREAM",
         "formGroup": "Topical",
         "route": "Topical",
-        "mainIndication": "review needed",
-        "secondaryIndications": null,
+        "mainIndication": "skin irritation",
+        "secondaryIndications": "eczema | dermatitis",
         "otcCategory": "EMOLLIENTS AND PROTECTIVES",
         "seasonalGroup": "All year",
         "sedating": "No",
@@ -361,6 +361,20 @@
         "Node_Color": "#A5A5A5",
         "Notes": "Seeded from imported symptom tags; refine naming over time."
       }
+    },
+    {
+      "id": "usecase:UC019",
+      "nodeType": "usecase",
+      "refId": "UC019",
+      "label": "Skin repair and scar care",
+      "subtext": "Skin",
+      "meta": {
+        "UseCase_ID": "UC019",
+        "UseCase_Name": "Skin repair and scar care",
+        "UseCase_Category": "Skin",
+        "Trigger_Symptoms": "Scars, skin repair, wound healing",
+        "Description": "Products for skin repair, scar reduction, and wound healing."
+      }
     }
   ],
   "links": [
@@ -373,18 +387,7 @@
       "score": 79,
       "why": "Combines itch relief with moisturising or protective care.",
       "meta": {
-        "edgeId": "E16194",
-        "clinicalSimilarity": 15,
-        "commercialSubstitution": 10,
-        "crossSell": 79,
-        "riskOverlap": 20,
-        "evidence": 80,
-        "seasonality": 40,
-        "triggerContext": "Itch relief + skin barrier",
-        "primaryToSecondary": "Yes",
-        "reciprocalDisplay": "Optional",
-        "reviewStatus": "Needs pharmacist/staff review",
-        "sourceMethod": "THERAPEUTIC_CLASS_RULE"
+        "edgeId": "E16194"
       }
     },
     {
@@ -396,18 +399,7 @@
       "score": 79,
       "why": "Combines itch relief with moisturising or protective care.",
       "meta": {
-        "edgeId": "E16197",
-        "clinicalSimilarity": 15,
-        "commercialSubstitution": 10,
-        "crossSell": 79,
-        "riskOverlap": 20,
-        "evidence": 80,
-        "seasonality": 40,
-        "triggerContext": "Itch relief + skin barrier",
-        "primaryToSecondary": "Yes",
-        "reciprocalDisplay": "Optional",
-        "reviewStatus": "Needs pharmacist/staff review",
-        "sourceMethod": "THERAPEUTIC_CLASS_RULE"
+        "edgeId": "E16197"
       }
     },
     {
@@ -419,18 +411,7 @@
       "score": 79,
       "why": "Combines itch relief with moisturising or protective care.",
       "meta": {
-        "edgeId": "E16200",
-        "clinicalSimilarity": 15,
-        "commercialSubstitution": 10,
-        "crossSell": 79,
-        "riskOverlap": 20,
-        "evidence": 80,
-        "seasonality": 40,
-        "triggerContext": "Itch relief + skin barrier",
-        "primaryToSecondary": "Yes",
-        "reciprocalDisplay": "Optional",
-        "reviewStatus": "Needs pharmacist/staff review",
-        "sourceMethod": "THERAPEUTIC_CLASS_RULE"
+        "edgeId": "E16200"
       }
     },
     {
@@ -442,18 +423,7 @@
       "score": 79,
       "why": "Combines itch relief with moisturising or protective care.",
       "meta": {
-        "edgeId": "E16203",
-        "clinicalSimilarity": 15,
-        "commercialSubstitution": 10,
-        "crossSell": 79,
-        "riskOverlap": 20,
-        "evidence": 80,
-        "seasonality": 40,
-        "triggerContext": "Itch relief + skin barrier",
-        "primaryToSecondary": "Yes",
-        "reciprocalDisplay": "Optional",
-        "reviewStatus": "Needs pharmacist/staff review",
-        "sourceMethod": "THERAPEUTIC_CLASS_RULE"
+        "edgeId": "E16203"
       }
     },
     {
@@ -465,18 +435,7 @@
       "score": 79,
       "why": "Combines itch relief with moisturising or protective care.",
       "meta": {
-        "edgeId": "E16206",
-        "clinicalSimilarity": 15,
-        "commercialSubstitution": 10,
-        "crossSell": 79,
-        "riskOverlap": 20,
-        "evidence": 80,
-        "seasonality": 40,
-        "triggerContext": "Itch relief + skin barrier",
-        "primaryToSecondary": "Yes",
-        "reciprocalDisplay": "Optional",
-        "reviewStatus": "Needs pharmacist/staff review",
-        "sourceMethod": "THERAPEUTIC_CLASS_RULE"
+        "edgeId": "E16206"
       }
     },
     {
@@ -488,18 +447,7 @@
       "score": 79,
       "why": "Combines itch relief with moisturising or protective care.",
       "meta": {
-        "edgeId": "E16209",
-        "clinicalSimilarity": 15,
-        "commercialSubstitution": 10,
-        "crossSell": 79,
-        "riskOverlap": 20,
-        "evidence": 80,
-        "seasonality": 40,
-        "triggerContext": "Itch relief + skin barrier",
-        "primaryToSecondary": "Yes",
-        "reciprocalDisplay": "Optional",
-        "reviewStatus": "Needs pharmacist/staff review",
-        "sourceMethod": "THERAPEUTIC_CLASS_RULE"
+        "edgeId": "E16209"
       }
     },
     {
@@ -511,18 +459,7 @@
       "score": 72,
       "why": "Some inflamed skin routines also need barrier-repair support.",
       "meta": {
-        "edgeId": "E16185",
-        "clinicalSimilarity": 15,
-        "commercialSubstitution": 10,
-        "crossSell": 72,
-        "riskOverlap": 20,
-        "evidence": 80,
-        "seasonality": 40,
-        "triggerContext": "Dry / inflamed skin",
-        "primaryToSecondary": "Yes",
-        "reciprocalDisplay": "Optional",
-        "reviewStatus": "Needs pharmacist/staff review",
-        "sourceMethod": "THERAPEUTIC_CLASS_RULE"
+        "edgeId": "E16185"
       }
     },
     {
@@ -534,18 +471,7 @@
       "score": 72,
       "why": "Some inflamed skin routines also need barrier-repair support.",
       "meta": {
-        "edgeId": "E16186",
-        "clinicalSimilarity": 15,
-        "commercialSubstitution": 10,
-        "crossSell": 72,
-        "riskOverlap": 20,
-        "evidence": 80,
-        "seasonality": 40,
-        "triggerContext": "Dry / inflamed skin",
-        "primaryToSecondary": "Yes",
-        "reciprocalDisplay": "Optional",
-        "reviewStatus": "Needs pharmacist/staff review",
-        "sourceMethod": "THERAPEUTIC_CLASS_RULE"
+        "edgeId": "E16186"
       }
     },
     {
@@ -557,18 +483,7 @@
       "score": 72,
       "why": "Some inflamed skin routines also need barrier-repair support.",
       "meta": {
-        "edgeId": "E16187",
-        "clinicalSimilarity": 15,
-        "commercialSubstitution": 10,
-        "crossSell": 72,
-        "riskOverlap": 20,
-        "evidence": 80,
-        "seasonality": 40,
-        "triggerContext": "Dry / inflamed skin",
-        "primaryToSecondary": "Yes",
-        "reciprocalDisplay": "Optional",
-        "reviewStatus": "Needs pharmacist/staff review",
-        "sourceMethod": "THERAPEUTIC_CLASS_RULE"
+        "edgeId": "E16187"
       }
     },
     {
@@ -580,18 +495,7 @@
       "score": 72,
       "why": "Some inflamed skin routines also need barrier-repair support.",
       "meta": {
-        "edgeId": "E16188",
-        "clinicalSimilarity": 15,
-        "commercialSubstitution": 10,
-        "crossSell": 72,
-        "riskOverlap": 20,
-        "evidence": 80,
-        "seasonality": 40,
-        "triggerContext": "Dry / inflamed skin",
-        "primaryToSecondary": "Yes",
-        "reciprocalDisplay": "Optional",
-        "reviewStatus": "Needs pharmacist/staff review",
-        "sourceMethod": "THERAPEUTIC_CLASS_RULE"
+        "edgeId": "E16188"
       }
     },
     {
@@ -629,10 +533,18 @@
       "meta": {
         "mapId": "PSM01773"
       }
+    },
+    {
+      "key": "2c03812297ec4d3c",
+      "source": "product:P0158",
+      "target": "usecase:UC019",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Scars, skin repair, wound healing",
+      "meta": {
+        "useCaseItemId": "UCI00696"
+      }
     }
-  ],
-  "meta": {
-    "productName": "E45 Cream White Soft Paraffin 14.5% w/w Light Liquid Paraffin 12.6% w/w Anhydrous Lanolin 1.0% w/w",
-    "linkCount": 11
-  }
+  ]
 }

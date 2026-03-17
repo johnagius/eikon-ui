@@ -1,1 +1,256 @@
-{"centerId":"product:P0484","centerType":"product","refId":"P0484","nodes":[{"id":"product:P0484","nodeType":"product","refId":"P0484","label":"Travogen Cream 1% w/w","subtext":"fungal skin infection","meta":{"brand":"Travogen","generic":"ISOCONAZOLE NITRATE","form":"CREAM","formGroup":"Topical","route":"Topical","mainIndication":"fungal skin infection","secondaryIndications":"athlete foot | thrush (topical)","otcCategory":"ANTIFUNGALS FOR DERMATOLOGICAL USE","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"ISOCONAZOLE NITRATE 10 milligram(s)/gram","packSizeText":"Review manually","atcCode":"D01AC05","status":"Authorised","supplierCatalogKey":"travogen cream 1% w/w"}},{"id":"product:P0467","nodeType":"product","refId":"P0467","label":"TRAVOGEN 10 mg /g cream","subtext":"fungal skin infection","meta":{"brand":"TRAVOGEN","generic":"ISOCONAZOLE NITRATE","form":"CREAM","formGroup":"Topical","route":"Topical","mainIndication":"fungal skin infection","secondaryIndications":"athlete foot | thrush (topical)","otcCategory":"ANTIFUNGALS FOR DERMATOLOGICAL USE","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"ISOCONAZOLE NITRATE 10 milligram(s)/gram","packSizeText":"Review manually","atcCode":"D01AC05","status":"Authorised","supplierCatalogKey":"travogen 10 mg /g cream"}},{"id":"product:P0483","nodeType":"product","refId":"P0483","label":"Travogen 1% cream","subtext":"fungal skin infection","meta":{"brand":"Travogen","generic":"ISOCONAZOLE NITRATE","form":"CREAM","formGroup":"Topical","route":"Topical","mainIndication":"fungal skin infection","secondaryIndications":"athlete foot | thrush (topical)","otcCategory":"ANTIFUNGALS FOR DERMATOLOGICAL USE","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"ISOCONAZOLE NITRATE 1 percent","packSizeText":"Review manually","atcCode":"D01AC05","status":"Authorised","supplierCatalogKey":"travogen 1% cream"}},{"id":"symptom:S029","nodeType":"symptom","refId":"S029","label":"fungal skin infection","subtext":"Skin","meta":{"Symptom_ID":"S029","Symptom_Name":"fungal skin infection","Symptom_Category":"Skin","Linked_Product_Count":27,"Display_Group":"Skin","Priority_For_Graph":100,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"symptom:S007","nodeType":"symptom","refId":"S007","label":"athlete foot","subtext":"Skin","meta":{"Symptom_ID":"S007","Symptom_Name":"athlete foot","Symptom_Category":"Skin","Linked_Product_Count":27,"Display_Group":"Skin","Priority_For_Graph":100,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"symptom:S070","nodeType":"symptom","refId":"S070","label":"thrush (topical)","subtext":"Skin","meta":{"Symptom_ID":"S070","Symptom_Name":"thrush (topical)","Symptom_Category":"Skin","Linked_Product_Count":27,"Display_Group":"Skin","Priority_For_Graph":100,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"usecase:UC010","nodeType":"usecase","refId":"UC010","label":"Athlete foot and fungal skin care","subtext":"Skin","meta":{"UseCase_ID":"UC010","UseCase_Name":"Athlete foot and fungal skin care","UseCase_Category":"Skin","Trigger_Symptoms":"Fungal skin infection, athlete foot, itch","Description":"Antifungal core with hygiene/support products."}}],"links":[{"key":"1e4538888e833982","source":"product:P0467","target":"product:P0484","rel":"similar","label":"Alternative: same active ingredient(s)","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00983","clinicalSimilarity":100,"commercialSubstitution":100,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"athlete foot, fungal skin infection, thrush (topical)","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"f725d697661839da","source":"product:P0483","target":"product:P0484","rel":"similar","label":"Alternative: same active ingredient(s)","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00984","clinicalSimilarity":100,"commercialSubstitution":100,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"athlete foot, fungal skin infection, thrush (topical)","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"feb5de8d43bb0f29","source":"product:P0484","target":"symptom:S029","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM01610","role":"Primary","reviewStatus":"Seeded"}},{"key":"64018824840e6c5b","source":"product:P0484","target":"symptom:S007","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01611","role":"Primary","reviewStatus":"Seeded"}},{"key":"9a88c2ecb1517019","source":"product:P0484","target":"symptom:S070","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM01612","role":"Secondary","reviewStatus":"Seeded"}},{"key":"ef4de1ba736a7b79","source":"product:P0484","target":"usecase:UC010","rel":"usecase","label":"Main","score":100,"why":"fungal skin infection, athlete foot, thrush (topical)","meta":{"useCaseItemId":"UCI00578","role":"Main","reviewStatus":"Seeded"}},{"key":"26e63765766411d1","source":"product:P0467","target":"product:P0484","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00983","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}},{"key":"0c94b81cee23984b","source":"product:P0483","target":"product:P0484","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00984","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}}],"meta":{"productName":"Travogen Cream 1% w/w","linkCount":8}}
+{
+  "centerId": "product:P0484",
+  "centerType": "product",
+  "refId": "P0484",
+  "nodes": [
+    {
+      "id": "product:P0484",
+      "nodeType": "product",
+      "refId": "P0484",
+      "label": "Travogen Cream 1% w/w",
+      "subtext": "fungal skin infection",
+      "meta": {
+        "brand": "Travogen",
+        "generic": "ISOCONAZOLE NITRATE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "fungal skin infection",
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "ISOCONAZOLE NITRATE 10 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC05",
+        "status": "Authorised",
+        "supplierCatalogKey": "travogen cream 1% w/w"
+      }
+    },
+    {
+      "id": "product:P0467",
+      "nodeType": "product",
+      "refId": "P0467",
+      "label": "TRAVOGEN 10 mg /g cream",
+      "subtext": "fungal skin infection",
+      "meta": {
+        "brand": "TRAVOGEN",
+        "generic": "ISOCONAZOLE NITRATE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "fungal skin infection",
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "ISOCONAZOLE NITRATE 10 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC05",
+        "status": "Authorised",
+        "supplierCatalogKey": "travogen 10 mg /g cream"
+      }
+    },
+    {
+      "id": "product:P0483",
+      "nodeType": "product",
+      "refId": "P0483",
+      "label": "Travogen 1% cream",
+      "subtext": "fungal skin infection",
+      "meta": {
+        "brand": "Travogen",
+        "generic": "ISOCONAZOLE NITRATE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "fungal skin infection",
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "ISOCONAZOLE NITRATE 1 percent",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC05",
+        "status": "Authorised",
+        "supplierCatalogKey": "travogen 1% cream"
+      }
+    },
+    {
+      "id": "symptom:S029",
+      "nodeType": "symptom",
+      "refId": "S029",
+      "label": "fungal skin infection",
+      "subtext": "Skin",
+      "meta": {
+        "Symptom_ID": "S029",
+        "Symptom_Name": "fungal skin infection",
+        "Symptom_Category": "Skin",
+        "Linked_Product_Count": 27,
+        "Display_Group": "Skin",
+        "Priority_For_Graph": 100,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "symptom:S007",
+      "nodeType": "symptom",
+      "refId": "S007",
+      "label": "athlete foot",
+      "subtext": "Skin",
+      "meta": {
+        "Symptom_ID": "S007",
+        "Symptom_Name": "athlete foot",
+        "Symptom_Category": "Skin",
+        "Linked_Product_Count": 27,
+        "Display_Group": "Skin",
+        "Priority_For_Graph": 100,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "symptom:S070",
+      "nodeType": "symptom",
+      "refId": "S070",
+      "label": "thrush (topical)",
+      "subtext": "Skin",
+      "meta": {
+        "Symptom_ID": "S070",
+        "Symptom_Name": "thrush (topical)",
+        "Symptom_Category": "Skin",
+        "Linked_Product_Count": 27,
+        "Display_Group": "Skin",
+        "Priority_For_Graph": 100,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "usecase:UC010",
+      "nodeType": "usecase",
+      "refId": "UC010",
+      "label": "Athlete foot and fungal skin care",
+      "subtext": "Skin",
+      "meta": {
+        "UseCase_ID": "UC010",
+        "UseCase_Name": "Athlete foot and fungal skin care",
+        "UseCase_Category": "Skin",
+        "Trigger_Symptoms": "Fungal skin infection, athlete foot, itch",
+        "Description": "Antifungal core with hygiene/support products."
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "1e4538888e833982",
+      "source": "product:P0467",
+      "target": "product:P0484",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00983"
+      }
+    },
+    {
+      "key": "f725d697661839da",
+      "source": "product:P0483",
+      "target": "product:P0484",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00984"
+      }
+    },
+    {
+      "key": "feb5de8d43bb0f29",
+      "source": "product:P0484",
+      "target": "symptom:S029",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01610"
+      }
+    },
+    {
+      "key": "64018824840e6c5b",
+      "source": "product:P0484",
+      "target": "symptom:S007",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01611"
+      }
+    },
+    {
+      "key": "9a88c2ecb1517019",
+      "source": "product:P0484",
+      "target": "symptom:S070",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01612"
+      }
+    },
+    {
+      "key": "ef4de1ba736a7b79",
+      "source": "product:P0484",
+      "target": "usecase:UC010",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "fungal skin infection, athlete foot, thrush (topical)",
+      "meta": {
+        "useCaseItemId": "UCI00578"
+      }
+    },
+    {
+      "key": "26e63765766411d1",
+      "source": "product:P0467",
+      "target": "product:P0484",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00983",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    },
+    {
+      "key": "0c94b81cee23984b",
+      "source": "product:P0483",
+      "target": "product:P0484",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00984",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    }
+  ]
+}

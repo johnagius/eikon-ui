@@ -1,1 +1,601 @@
-{"centerId":"product:P0434","centerType":"product","refId":"P0434","nodes":[{"id":"product:P0434","nodeType":"product","refId":"P0434","label":"Senna 7.5 mg tablets","subtext":"constipation","meta":{"brand":"Senna","generic":"SENNOSIDES","form":"TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"constipation","secondaryIndications":"bowel movement support","otcCategory":"DRUGS FOR CONSTIPATION","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"SENNOSIDES  7.5 milligram(s)","packSizeText":"Review manually","atcCode":"A06AB06","status":"Authorised","supplierCatalogKey":"senna 7.5 mg tablets"}},{"id":"product:P0160","nodeType":"product","refId":"P0160","label":"EUCARBON herbal tablets","subtext":"constipation","meta":{"brand":"EUCARBON","generic":"CHARCOAL | RHUBARB EXTRACT | SENNA LEAF","form":"TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"constipation","secondaryIndications":"bowel movement support","otcCategory":"DRUGS FOR CONSTIPATION","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"CHARCOAL 180 milligram(s) | SENNA LEAF 105 milligram(s) | RHUBARB EXTRACT 25 milligram(s)","packSizeText":"Review manually","atcCode":"A06AB06","status":"Authorised","supplierCatalogKey":"eucarbon herbal tablets"}},{"id":"product:P0171","nodeType":"product","refId":"P0171","label":"Eucarbon Tablets","subtext":"constipation","meta":{"brand":"Eucarbon","generic":"CHARCOAL | RHUBARB EXTRACT | SENNA LEAF | SULFUR","form":"TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"constipation","secondaryIndications":"bowel movement support","otcCategory":"DRUGS FOR CONSTIPATION","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":4,"strengthText":"CHARCOAL 180 milligram(s) | SENNA LEAF 105 milligram(s) | SULFUR 50 milligram(s) | RHUBARB EXTRACT 25 milligram(s)","packSizeText":"Review manually","atcCode":"A06AB06","status":"Authorised","supplierCatalogKey":"eucarbon tablets"}},{"id":"product:P0064","nodeType":"product","refId":"P0064","label":"Buscopan 10mg Coated Tablets","subtext":"bloating","meta":{"brand":"Buscopan","generic":"HYOSCINE BUTYLBROMIDE","form":"COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"bloating","secondaryIndications":"cramps | spasms | abdominal discomfort","otcCategory":"DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"HYOSCINE BUTYLBROMIDE 10 milligram(s)","packSizeText":"Review manually","atcCode":"A03BB01","status":"Authorised","supplierCatalogKey":"buscopan 10mg coated tablets"}},{"id":"product:P0116","nodeType":"product","refId":"P0116","label":"Colpermin Gastro-resistant Capsules Peppermint oil 0.2ml","subtext":"bloating","meta":{"brand":"Colpermin","generic":"PEPPERMINT OIL","form":"GASTRO-RESISTANT CAPSULE","formGroup":"Oral solid","route":"Oral","mainIndication":"bloating","secondaryIndications":"cramps | spasms | abdominal discomfort","otcCategory":"DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"PEPPERMINT OIL 0.2 millilitre(s)","packSizeText":"Review manually","atcCode":"A03AX","status":"Authorised","supplierCatalogKey":"colpermin gastro-resistant capsules peppermint oil 0.2ml"}},{"id":"product:P0217","nodeType":"product","refId":"P0217","label":"Hyoscine Butylbromide Heumann 10 mg film-coated tablets","subtext":"bloating","meta":{"brand":"Hyoscine","generic":"HYOSCINE BUTYLBROMIDE","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"bloating","secondaryIndications":"cramps | spasms | abdominal discomfort","otcCategory":"DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"HYOSCINE BUTYLBROMIDE 10 milligram(s)","packSizeText":"Review manually","atcCode":"A03BB01","status":"Authorised","supplierCatalogKey":"hyoscine butylbromide heumann 10 mg film-coated tablets"}},{"id":"product:P0218","nodeType":"product","refId":"P0218","label":"Hyoscine Butylbromide Torrent 10 mg film-coated tablets","subtext":"bloating","meta":{"brand":"Hyoscine","generic":"HYOSCINE BUTYLBROMIDE","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"bloating","secondaryIndications":"cramps | spasms | abdominal discomfort","otcCategory":"DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"HYOSCINE BUTYLBROMIDE 10 milligram(s)","packSizeText":"Review manually","atcCode":"A03BB01","status":"Authorised","supplierCatalogKey":"hyoscine butylbromide torrent 10 mg film-coated tablets"}},{"id":"product:P0280","nodeType":"product","refId":"P0280","label":"Mebeverine Hydrochloride IBS, 135mg film-coated Tablet","subtext":"bloating","meta":{"brand":"Mebeverine","generic":"MEBEVERINE HYDROCHLORIDE","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"bloating","secondaryIndications":"cramps | spasms | abdominal discomfort","otcCategory":"DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"MEBEVERINE HYDROCHLORIDE 135 milligram(s)","packSizeText":"Review manually","atcCode":"A03AA04","status":"Authorised","supplierCatalogKey":"mebeverine hydrochloride ibs, 135mg film-coated tablet"}},{"id":"product:P0296","nodeType":"product","refId":"P0296","label":"Motilium Fastmelts 10mg Orodispersible Tablets","subtext":"bloating","meta":{"brand":"Motilium","generic":"DOMPERIDONE","form":"ORODISPERSIBLE TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"bloating","secondaryIndications":"cramps | spasms | abdominal discomfort","otcCategory":"DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DOMPERIDONE 10 milligram(s)","packSizeText":"Review manually","atcCode":"A03FA03","status":"Authorised","supplierCatalogKey":"motilium fastmelts 10mg orodispersible tablets"}},{"id":"product:P0307","nodeType":"product","refId":"P0307","label":"NO-SPA 40 mg tablets","subtext":"bloating","meta":{"brand":"NO","generic":"DROTAVERINE HYDROCHLORIDE","form":"TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"bloating","secondaryIndications":"cramps | spasms | abdominal discomfort","otcCategory":"DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DROTAVERINE HYDROCHLORIDE 40 milligram(s)","packSizeText":"Review manually","atcCode":"A03AD02","status":"Authorised","supplierCatalogKey":"no-spa 40 mg tablets"}},{"id":"product:P0336","nodeType":"product","refId":"P0336","label":"No-Spa forte tablets","subtext":"bloating","meta":{"brand":"No","generic":"DROTAVERINE HYDROCHLORIDE","form":"TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"bloating","secondaryIndications":"cramps | spasms | abdominal discomfort","otcCategory":"DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DROTAVERINE HYDROCHLORIDE","packSizeText":"Review manually","atcCode":"A03AD02","status":"Authorised","supplierCatalogKey":"no-spa forte tablets"}},{"id":"product:P0398","nodeType":"product","refId":"P0398","label":"Phloroglucinol ELC 80 mg orodispersible tablets","subtext":"bloating","meta":{"brand":"Phloroglucinol","generic":"PHLOROGLUCINOL DIHYDRATE","form":"ORODISPERSIBLE TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"bloating","secondaryIndications":"cramps | spasms | abdominal discomfort","otcCategory":"DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"PHLOROGLUCINOL DIHYDRATE 80 milligram(s)","packSizeText":"Review manually","atcCode":"A03AX12","status":"Authorised","supplierCatalogKey":"phloroglucinol elc 80 mg orodispersible tablets"}},{"id":"product:P0455","nodeType":"product","refId":"P0455","label":"Spaverin 80 mg tablet","subtext":"bloating","meta":{"brand":"Spaverin","generic":"DROTAVERINE HYDROCHLORIDE","form":"TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"bloating","secondaryIndications":"cramps | spasms | abdominal discomfort","otcCategory":"DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DROTAVERINE HYDROCHLORIDE 80 milligram(s)","packSizeText":"Review manually","atcCode":"A03AD02","status":"Authorised","supplierCatalogKey":"spaverin 80 mg tablet"}},{"id":"symptom:S016","nodeType":"symptom","refId":"S016","label":"constipation","subtext":"Gastrointestinal","meta":{"Symptom_ID":"S016","Symptom_Name":"constipation","Symptom_Category":"Gastrointestinal","Linked_Product_Count":36,"Display_Group":"Gastrointestinal","Priority_For_Graph":100,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"symptom:S013","nodeType":"symptom","refId":"S013","label":"bowel movement support","subtext":"Gastrointestinal","meta":{"Symptom_ID":"S013","Symptom_Name":"bowel movement support","Symptom_Category":"Gastrointestinal","Linked_Product_Count":36,"Display_Group":"Gastrointestinal","Priority_For_Graph":100,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"usecase:UC007","nodeType":"usecase","refId":"UC007","label":"Constipation support","subtext":"Gastrointestinal","meta":{"UseCase_ID":"UC007","UseCase_Name":"Constipation support","UseCase_Category":"Gastrointestinal","Trigger_Symptoms":"Constipation, bowel movement support","Description":"Escalate from gentle to stronger options."}}],"links":[{"key":"c0ed24eff00676ef","source":"product:P0160","target":"product:P0434","rel":"similar","label":"Alternative: same ATC family","score":78,"why":"Same ATC code, therapeutic class, and form family; likely reasonable substitute candidates pending staff review.","meta":{"edgeId":"E01856","clinicalSimilarity":90,"commercialSubstitution":80,"crossSell":25,"riskOverlap":60,"evidence":90,"seasonality":40,"triggerContext":"bowel movement support, constipation","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"EXACT_ATC_SAME_CLASS_FORM"}},{"key":"9013547fbd070c21","source":"product:P0171","target":"product:P0434","rel":"similar","label":"Alternative: same ATC family","score":78,"why":"Same ATC code, therapeutic class, and form family; likely reasonable substitute candidates pending staff review.","meta":{"edgeId":"E01857","clinicalSimilarity":90,"commercialSubstitution":80,"crossSell":25,"riskOverlap":60,"evidence":90,"seasonality":40,"triggerContext":"bowel movement support, constipation","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"EXACT_ATC_SAME_CLASS_FORM"}},{"key":"f08738589ffcb507","source":"product:P0434","target":"product:P0064","rel":"complement","label":"Constipation + bloating / cramps","score":74,"why":"Constipation shoppers often also look for bloating or cramp relief.","meta":{"edgeId":"E13586","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":74,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Constipation + bloating / cramps","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"c3549390b338a221","source":"product:P0434","target":"product:P0116","rel":"complement","label":"Constipation + bloating / cramps","score":74,"why":"Constipation shoppers often also look for bloating or cramp relief.","meta":{"edgeId":"E13587","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":74,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Constipation + bloating / cramps","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"4e9b6a440e19d93b","source":"product:P0434","target":"product:P0217","rel":"complement","label":"Constipation + bloating / cramps","score":74,"why":"Constipation shoppers often also look for bloating or cramp relief.","meta":{"edgeId":"E13588","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":74,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Constipation + bloating / cramps","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"17bcc303bc8b9de6","source":"product:P0434","target":"product:P0218","rel":"complement","label":"Constipation + bloating / cramps","score":74,"why":"Constipation shoppers often also look for bloating or cramp relief.","meta":{"edgeId":"E13589","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":74,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Constipation + bloating / cramps","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"efdf46916a02a4ca","source":"product:P0434","target":"product:P0280","rel":"complement","label":"Constipation + bloating / cramps","score":74,"why":"Constipation shoppers often also look for bloating or cramp relief.","meta":{"edgeId":"E13590","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":74,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Constipation + bloating / cramps","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"1681403af3c33d55","source":"product:P0434","target":"product:P0296","rel":"complement","label":"Constipation + bloating / cramps","score":74,"why":"Constipation shoppers often also look for bloating or cramp relief.","meta":{"edgeId":"E13591","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":74,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Constipation + bloating / cramps","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"763d9592d36c4570","source":"product:P0434","target":"product:P0307","rel":"complement","label":"Constipation + bloating / cramps","score":74,"why":"Constipation shoppers often also look for bloating or cramp relief.","meta":{"edgeId":"E13592","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":74,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Constipation + bloating / cramps","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"eb97d15d9d7df627","source":"product:P0434","target":"product:P0336","rel":"complement","label":"Constipation + bloating / cramps","score":74,"why":"Constipation shoppers often also look for bloating or cramp relief.","meta":{"edgeId":"E13593","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":74,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Constipation + bloating / cramps","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"2cb3e38d52d5ec0e","source":"product:P0434","target":"product:P0398","rel":"complement","label":"Constipation + bloating / cramps","score":74,"why":"Constipation shoppers often also look for bloating or cramp relief.","meta":{"edgeId":"E13594","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":74,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Constipation + bloating / cramps","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"7bc2ffb6cdbeb9b0","source":"product:P0434","target":"product:P0455","rel":"complement","label":"Constipation + bloating / cramps","score":74,"why":"Constipation shoppers often also look for bloating or cramp relief.","meta":{"edgeId":"E13595","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":74,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Constipation + bloating / cramps","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"78c4f6b1df19c413","source":"product:P0434","target":"symptom:S016","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM01432","role":"Primary","reviewStatus":"Seeded"}},{"key":"5955d9046682f335","source":"product:P0434","target":"symptom:S013","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01433","role":"Primary","reviewStatus":"Seeded"}},{"key":"09f6b2717562212e","source":"product:P0434","target":"usecase:UC007","rel":"usecase","label":"Main","score":90,"why":"constipation, bowel movement support","meta":{"useCaseItemId":"UCI00467","role":"Main","reviewStatus":"Seeded"}}],"meta":{"productName":"Senna 7.5 mg tablets","linkCount":15}}
+{
+  "centerId": "product:P0434",
+  "centerType": "product",
+  "refId": "P0434",
+  "nodes": [
+    {
+      "id": "product:P0434",
+      "nodeType": "product",
+      "refId": "P0434",
+      "label": "Senna 7.5 mg tablets",
+      "subtext": "constipation",
+      "meta": {
+        "brand": "Senna",
+        "generic": "SENNOSIDES",
+        "form": "TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "constipation",
+        "secondaryIndications": "bowel movement support",
+        "otcCategory": "DRUGS FOR CONSTIPATION",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "SENNOSIDES  7.5 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A06AB06",
+        "status": "Authorised",
+        "supplierCatalogKey": "senna 7.5 mg tablets"
+      }
+    },
+    {
+      "id": "product:P0064",
+      "nodeType": "product",
+      "refId": "P0064",
+      "label": "Buscopan 10mg Coated Tablets",
+      "subtext": "bloating",
+      "meta": {
+        "brand": "Buscopan",
+        "generic": "HYOSCINE BUTYLBROMIDE",
+        "form": "COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "bloating",
+        "secondaryIndications": "cramps | spasms | abdominal discomfort",
+        "otcCategory": "DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "HYOSCINE BUTYLBROMIDE 10 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A03BB01",
+        "status": "Authorised",
+        "supplierCatalogKey": "buscopan 10mg coated tablets"
+      }
+    },
+    {
+      "id": "product:P0116",
+      "nodeType": "product",
+      "refId": "P0116",
+      "label": "Colpermin Gastro-resistant Capsules Peppermint oil 0.2ml",
+      "subtext": "bloating",
+      "meta": {
+        "brand": "Colpermin",
+        "generic": "PEPPERMINT OIL",
+        "form": "GASTRO-RESISTANT CAPSULE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "bloating",
+        "secondaryIndications": "cramps | spasms | abdominal discomfort",
+        "otcCategory": "DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "PEPPERMINT OIL 0.2 millilitre(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A03AX",
+        "status": "Authorised",
+        "supplierCatalogKey": "colpermin gastro-resistant capsules peppermint oil 0.2ml"
+      }
+    },
+    {
+      "id": "product:P0217",
+      "nodeType": "product",
+      "refId": "P0217",
+      "label": "Hyoscine Butylbromide Heumann 10 mg film-coated tablets",
+      "subtext": "bloating",
+      "meta": {
+        "brand": "Hyoscine",
+        "generic": "HYOSCINE BUTYLBROMIDE",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "bloating",
+        "secondaryIndications": "cramps | spasms | abdominal discomfort",
+        "otcCategory": "DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "HYOSCINE BUTYLBROMIDE 10 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A03BB01",
+        "status": "Authorised",
+        "supplierCatalogKey": "hyoscine butylbromide heumann 10 mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0218",
+      "nodeType": "product",
+      "refId": "P0218",
+      "label": "Hyoscine Butylbromide Torrent 10 mg film-coated tablets",
+      "subtext": "bloating",
+      "meta": {
+        "brand": "Hyoscine",
+        "generic": "HYOSCINE BUTYLBROMIDE",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "bloating",
+        "secondaryIndications": "cramps | spasms | abdominal discomfort",
+        "otcCategory": "DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "HYOSCINE BUTYLBROMIDE 10 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A03BB01",
+        "status": "Authorised",
+        "supplierCatalogKey": "hyoscine butylbromide torrent 10 mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0280",
+      "nodeType": "product",
+      "refId": "P0280",
+      "label": "Mebeverine Hydrochloride IBS, 135mg film-coated Tablet",
+      "subtext": "bloating",
+      "meta": {
+        "brand": "Mebeverine",
+        "generic": "MEBEVERINE HYDROCHLORIDE",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "bloating",
+        "secondaryIndications": "cramps | spasms | abdominal discomfort",
+        "otcCategory": "DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "MEBEVERINE HYDROCHLORIDE 135 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A03AA04",
+        "status": "Authorised",
+        "supplierCatalogKey": "mebeverine hydrochloride ibs, 135mg film-coated tablet"
+      }
+    },
+    {
+      "id": "product:P0296",
+      "nodeType": "product",
+      "refId": "P0296",
+      "label": "Motilium Fastmelts 10mg Orodispersible Tablets",
+      "subtext": "bloating",
+      "meta": {
+        "brand": "Motilium",
+        "generic": "DOMPERIDONE",
+        "form": "ORODISPERSIBLE TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "bloating",
+        "secondaryIndications": "cramps | spasms | abdominal discomfort",
+        "otcCategory": "DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DOMPERIDONE 10 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A03FA03",
+        "status": "Authorised",
+        "supplierCatalogKey": "motilium fastmelts 10mg orodispersible tablets"
+      }
+    },
+    {
+      "id": "product:P0307",
+      "nodeType": "product",
+      "refId": "P0307",
+      "label": "NO-SPA 40 mg tablets",
+      "subtext": "bloating",
+      "meta": {
+        "brand": "NO",
+        "generic": "DROTAVERINE HYDROCHLORIDE",
+        "form": "TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "bloating",
+        "secondaryIndications": "cramps | spasms | abdominal discomfort",
+        "otcCategory": "DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DROTAVERINE HYDROCHLORIDE 40 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A03AD02",
+        "status": "Authorised",
+        "supplierCatalogKey": "no-spa 40 mg tablets"
+      }
+    },
+    {
+      "id": "product:P0336",
+      "nodeType": "product",
+      "refId": "P0336",
+      "label": "No-Spa forte tablets",
+      "subtext": "bloating",
+      "meta": {
+        "brand": "No",
+        "generic": "DROTAVERINE HYDROCHLORIDE",
+        "form": "TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "bloating",
+        "secondaryIndications": "cramps | spasms | abdominal discomfort",
+        "otcCategory": "DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DROTAVERINE HYDROCHLORIDE",
+        "packSizeText": "Review manually",
+        "atcCode": "A03AD02",
+        "status": "Authorised",
+        "supplierCatalogKey": "no-spa forte tablets"
+      }
+    },
+    {
+      "id": "product:P0398",
+      "nodeType": "product",
+      "refId": "P0398",
+      "label": "Phloroglucinol ELC 80 mg orodispersible tablets",
+      "subtext": "bloating",
+      "meta": {
+        "brand": "Phloroglucinol",
+        "generic": "PHLOROGLUCINOL DIHYDRATE",
+        "form": "ORODISPERSIBLE TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "bloating",
+        "secondaryIndications": "cramps | spasms | abdominal discomfort",
+        "otcCategory": "DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "PHLOROGLUCINOL DIHYDRATE 80 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A03AX12",
+        "status": "Authorised",
+        "supplierCatalogKey": "phloroglucinol elc 80 mg orodispersible tablets"
+      }
+    },
+    {
+      "id": "product:P0455",
+      "nodeType": "product",
+      "refId": "P0455",
+      "label": "Spaverin 80 mg tablet",
+      "subtext": "bloating",
+      "meta": {
+        "brand": "Spaverin",
+        "generic": "DROTAVERINE HYDROCHLORIDE",
+        "form": "TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "bloating",
+        "secondaryIndications": "cramps | spasms | abdominal discomfort",
+        "otcCategory": "DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DROTAVERINE HYDROCHLORIDE 80 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A03AD02",
+        "status": "Authorised",
+        "supplierCatalogKey": "spaverin 80 mg tablet"
+      }
+    },
+    {
+      "id": "product:P0160",
+      "nodeType": "product",
+      "refId": "P0160",
+      "label": "EUCARBON herbal tablets",
+      "subtext": "constipation",
+      "meta": {
+        "brand": "EUCARBON",
+        "generic": "CHARCOAL | RHUBARB EXTRACT | SENNA LEAF",
+        "form": "TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "constipation",
+        "secondaryIndications": "bowel movement support",
+        "otcCategory": "DRUGS FOR CONSTIPATION",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "CHARCOAL 180 milligram(s) | SENNA LEAF 105 milligram(s) | RHUBARB EXTRACT 25 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A06AB06",
+        "status": "Authorised",
+        "supplierCatalogKey": "eucarbon herbal tablets"
+      }
+    },
+    {
+      "id": "product:P0171",
+      "nodeType": "product",
+      "refId": "P0171",
+      "label": "Eucarbon Tablets",
+      "subtext": "constipation",
+      "meta": {
+        "brand": "Eucarbon",
+        "generic": "CHARCOAL | RHUBARB EXTRACT | SENNA LEAF | SULFUR",
+        "form": "TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "constipation",
+        "secondaryIndications": "bowel movement support",
+        "otcCategory": "DRUGS FOR CONSTIPATION",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 4,
+        "strengthText": "CHARCOAL 180 milligram(s) | SENNA LEAF 105 milligram(s) | SULFUR 50 milligram(s) | RHUBARB EXTRACT 25 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A06AB06",
+        "status": "Authorised",
+        "supplierCatalogKey": "eucarbon tablets"
+      }
+    },
+    {
+      "id": "symptom:S016",
+      "nodeType": "symptom",
+      "refId": "S016",
+      "label": "constipation",
+      "subtext": "Gastrointestinal",
+      "meta": {
+        "Symptom_ID": "S016",
+        "Symptom_Name": "constipation",
+        "Symptom_Category": "Gastrointestinal",
+        "Linked_Product_Count": 36,
+        "Display_Group": "Gastrointestinal",
+        "Priority_For_Graph": 100,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "symptom:S013",
+      "nodeType": "symptom",
+      "refId": "S013",
+      "label": "bowel movement support",
+      "subtext": "Gastrointestinal",
+      "meta": {
+        "Symptom_ID": "S013",
+        "Symptom_Name": "bowel movement support",
+        "Symptom_Category": "Gastrointestinal",
+        "Linked_Product_Count": 36,
+        "Display_Group": "Gastrointestinal",
+        "Priority_For_Graph": 100,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "usecase:UC007",
+      "nodeType": "usecase",
+      "refId": "UC007",
+      "label": "Constipation support",
+      "subtext": "Gastrointestinal",
+      "meta": {
+        "UseCase_ID": "UC007",
+        "UseCase_Name": "Constipation support",
+        "UseCase_Category": "Gastrointestinal",
+        "Trigger_Symptoms": "Constipation, bowel movement support",
+        "Description": "Escalate from gentle to stronger options."
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "f08738589ffcb507",
+      "source": "product:P0434",
+      "target": "product:P0064",
+      "rel": "complement",
+      "label": "Constipation + bloating / cramps",
+      "score": 74,
+      "why": "Constipation shoppers often also look for bloating or cramp relief.",
+      "meta": {
+        "edgeId": "E13586"
+      }
+    },
+    {
+      "key": "c3549390b338a221",
+      "source": "product:P0434",
+      "target": "product:P0116",
+      "rel": "complement",
+      "label": "Constipation + bloating / cramps",
+      "score": 74,
+      "why": "Constipation shoppers often also look for bloating or cramp relief.",
+      "meta": {
+        "edgeId": "E13587"
+      }
+    },
+    {
+      "key": "4e9b6a440e19d93b",
+      "source": "product:P0434",
+      "target": "product:P0217",
+      "rel": "complement",
+      "label": "Constipation + bloating / cramps",
+      "score": 74,
+      "why": "Constipation shoppers often also look for bloating or cramp relief.",
+      "meta": {
+        "edgeId": "E13588"
+      }
+    },
+    {
+      "key": "17bcc303bc8b9de6",
+      "source": "product:P0434",
+      "target": "product:P0218",
+      "rel": "complement",
+      "label": "Constipation + bloating / cramps",
+      "score": 74,
+      "why": "Constipation shoppers often also look for bloating or cramp relief.",
+      "meta": {
+        "edgeId": "E13589"
+      }
+    },
+    {
+      "key": "efdf46916a02a4ca",
+      "source": "product:P0434",
+      "target": "product:P0280",
+      "rel": "complement",
+      "label": "Constipation + bloating / cramps",
+      "score": 74,
+      "why": "Constipation shoppers often also look for bloating or cramp relief.",
+      "meta": {
+        "edgeId": "E13590"
+      }
+    },
+    {
+      "key": "1681403af3c33d55",
+      "source": "product:P0434",
+      "target": "product:P0296",
+      "rel": "complement",
+      "label": "Constipation + bloating / cramps",
+      "score": 74,
+      "why": "Constipation shoppers often also look for bloating or cramp relief.",
+      "meta": {
+        "edgeId": "E13591"
+      }
+    },
+    {
+      "key": "763d9592d36c4570",
+      "source": "product:P0434",
+      "target": "product:P0307",
+      "rel": "complement",
+      "label": "Constipation + bloating / cramps",
+      "score": 74,
+      "why": "Constipation shoppers often also look for bloating or cramp relief.",
+      "meta": {
+        "edgeId": "E13592"
+      }
+    },
+    {
+      "key": "eb97d15d9d7df627",
+      "source": "product:P0434",
+      "target": "product:P0336",
+      "rel": "complement",
+      "label": "Constipation + bloating / cramps",
+      "score": 74,
+      "why": "Constipation shoppers often also look for bloating or cramp relief.",
+      "meta": {
+        "edgeId": "E13593"
+      }
+    },
+    {
+      "key": "2cb3e38d52d5ec0e",
+      "source": "product:P0434",
+      "target": "product:P0398",
+      "rel": "complement",
+      "label": "Constipation + bloating / cramps",
+      "score": 74,
+      "why": "Constipation shoppers often also look for bloating or cramp relief.",
+      "meta": {
+        "edgeId": "E13594"
+      }
+    },
+    {
+      "key": "7bc2ffb6cdbeb9b0",
+      "source": "product:P0434",
+      "target": "product:P0455",
+      "rel": "complement",
+      "label": "Constipation + bloating / cramps",
+      "score": 74,
+      "why": "Constipation shoppers often also look for bloating or cramp relief.",
+      "meta": {
+        "edgeId": "E13595"
+      }
+    },
+    {
+      "key": "c0ed24eff00676ef",
+      "source": "product:P0160",
+      "target": "product:P0434",
+      "rel": "similar",
+      "label": "Alternative: same ATC family",
+      "score": 78,
+      "why": "Same ATC code, therapeutic class, and form family; likely reasonable substitute candidates pending staff review.",
+      "meta": {
+        "edgeId": "E01856"
+      }
+    },
+    {
+      "key": "9013547fbd070c21",
+      "source": "product:P0171",
+      "target": "product:P0434",
+      "rel": "similar",
+      "label": "Alternative: same ATC family",
+      "score": 78,
+      "why": "Same ATC code, therapeutic class, and form family; likely reasonable substitute candidates pending staff review.",
+      "meta": {
+        "edgeId": "E01857"
+      }
+    },
+    {
+      "key": "78c4f6b1df19c413",
+      "source": "product:P0434",
+      "target": "symptom:S016",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01432"
+      }
+    },
+    {
+      "key": "5955d9046682f335",
+      "source": "product:P0434",
+      "target": "symptom:S013",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01433"
+      }
+    },
+    {
+      "key": "09f6b2717562212e",
+      "source": "product:P0434",
+      "target": "usecase:UC007",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 90,
+      "why": "constipation, bowel movement support",
+      "meta": {
+        "useCaseItemId": "UCI00467"
+      }
+    }
+  ]
+}

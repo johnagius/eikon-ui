@@ -1,1 +1,403 @@
-{"centerId":"product:P0212","centerType":"product","refId":"P0212","nodes":[{"id":"product:P0212","nodeType":"product","refId":"P0212","label":"Hc45 Hydrocortisone Acetate Cream (Hydrocortisone acetate 1% w/w)","subtext":"skin inflammation","meta":{"brand":"Hc45","generic":"HYDROCORTISONE ACETATE","form":"CREAM","formGroup":"Topical","route":"Topical","mainIndication":"skin inflammation","secondaryIndications":"eczema | dermatitis","otcCategory":"CORTICOSTEROIDS, DERMATOLOGICAL PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"HYDROCORTISONE ACETATE 1 percent weight/weight","packSizeText":"Review manually","atcCode":"D07AA02","status":"Authorised","supplierCatalogKey":"hc45 hydrocortisone acetate cream (hydrocortisone acetate 1% w/w)"}},{"id":"product:P0216","nodeType":"product","refId":"P0216","label":"Hydrokortyzon Allefin Max 10 mg/g Cream","subtext":"skin inflammation","meta":{"brand":"Hydrokortyzon","generic":"HYDROCORTISONE ACETATE","form":"CREAM","formGroup":"Topical","route":"Topical","mainIndication":"skin inflammation","secondaryIndications":"eczema | dermatitis","otcCategory":"CORTICOSTEROIDS, DERMATOLOGICAL PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"HYDROCORTISONE ACETATE 10 milligram(s)/gram","packSizeText":"Review manually","atcCode":"D07AA02","status":"Authorised","supplierCatalogKey":"hydrokortyzon allefin max 10 mg/g cream"}},{"id":"product:P0384","nodeType":"product","refId":"P0384","label":"Pandermil 10 mg/g ointment","subtext":"skin inflammation","meta":{"brand":"Pandermil","generic":"HYDROCORTISONE","form":"OINTMENT","formGroup":"Topical","route":"Topical","mainIndication":"skin inflammation","secondaryIndications":"eczema | dermatitis","otcCategory":"CORTICOSTEROIDS, DERMATOLOGICAL PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"HYDROCORTISONE 10 milligram(s)/gram","packSizeText":"Review manually","atcCode":"D07AA02","status":"Authorised","supplierCatalogKey":"pandermil 10 mg/g ointment"}},{"id":"product:P0119","nodeType":"product","refId":"P0119","label":"Cortopin1%w/w cream","subtext":"skin inflammation","meta":{"brand":"Cortopin1","generic":"HYDROCORTISONE","form":"CREAM","formGroup":"Topical","route":"Topical","mainIndication":"skin inflammation","secondaryIndications":"eczema | dermatitis","otcCategory":"CORTICOSTEROIDS, DERMATOLOGICAL PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"HYDROCORTISONE 1 percent weight/weight","packSizeText":"Review manually","atcCode":"D07AA02","status":"Authorised","supplierCatalogKey":"cortopin1%w/w cream"}},{"id":"product:P0033","nodeType":"product","refId":"P0033","label":"BIAFINE, emulsion for cutaneous application","subtext":"review needed","meta":{"brand":"BIAFINE","generic":"TROLAMINE","form":"CUTANEOUS EMULSION","formGroup":"Topical","route":"Topical","mainIndication":"review needed","secondaryIndications":null,"otcCategory":"EMOLLIENTS AND PROTECTIVES","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"TROLAMINE 0.67 percent weight/weight","packSizeText":"Review manually","atcCode":"D02AX","status":"Authorised","supplierCatalogKey":"biafine, emulsion for cutaneous application"}},{"id":"product:P0158","nodeType":"product","refId":"P0158","label":"E45 Cream White Soft Paraffin 14.5% w/w Light Liquid Paraffin 12.6% w/w Anhydrous Lanolin 1.0% w/w","subtext":"review needed","meta":{"brand":"E45","generic":"LANOLIN | LIGHT LIQUID PARAFFIN | WHITE SOFT PARAFFIN","form":"CREAM","formGroup":"Topical","route":"Topical","mainIndication":"review needed","secondaryIndications":null,"otcCategory":"EMOLLIENTS AND PROTECTIVES","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"LANOLIN 1 percent weight/weight | WHITE SOFT PARAFFIN 14.5 percent weight/weight | LIGHT LIQUID PARAFFIN  12.6 percent weight/weight","packSizeText":"Review manually","atcCode":"D02AC","status":"Authorised","supplierCatalogKey":"e45 cream white soft paraffin 14.5% w/w light liquid paraffin 12.6% w/w anhydrous lanolin 1.0% w/w"}},{"id":"product:P0462","nodeType":"product","refId":"P0462","label":"Sudocrem Antiseptic Healing Cream","subtext":"review needed","meta":{"brand":"Sudocrem","generic":"BENZYL ALCOHOL | BENZYL BENZOATE | BENZYL CINNAMATE | LANOLIN | ZINC OXIDE","form":"CREAM","formGroup":"Topical","route":"Topical","mainIndication":"review needed","secondaryIndications":null,"otcCategory":"EMOLLIENTS AND PROTECTIVES","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":5,"strengthText":"BENZYL BENZOATE 1.02 percent weight/weight | BENZYL ALCOHOL 0.39 percent weight/weight | ZINC OXIDE 15.29 percent weight/weight | BENZYL CINNAMATE 0.15 percent weight/weight | LANOLIN 4.02 percent weight/weight","packSizeText":"Review manually","atcCode":"D02AB","status":"Authorised","supplierCatalogKey":"sudocrem antiseptic healing cream"}},{"id":"symptom:S058","nodeType":"symptom","refId":"S058","label":"skin inflammation","subtext":"General","meta":{"Symptom_ID":"S058","Symptom_Name":"skin inflammation","Symptom_Category":"General","Linked_Product_Count":4,"Display_Group":"General","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"symptom:S025","nodeType":"symptom","refId":"S025","label":"eczema","subtext":"General","meta":{"Symptom_ID":"S025","Symptom_Name":"eczema","Symptom_Category":"General","Linked_Product_Count":4,"Display_Group":"General","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"symptom:S019","nodeType":"symptom","refId":"S019","label":"dermatitis","subtext":"General","meta":{"Symptom_ID":"S019","Symptom_Name":"dermatitis","Symptom_Category":"General","Linked_Product_Count":4,"Display_Group":"General","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}}],"links":[{"key":"b2976820da9f79fe","source":"product:P0212","target":"product:P0216","rel":"similar","label":"Alternative: same active ingredient(s)","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00555","clinicalSimilarity":100,"commercialSubstitution":100,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"dermatitis, eczema, skin inflammation","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"0e262d9cfb4dd777","source":"product:P0212","target":"product:P0384","rel":"similar","label":"Alternative: same ATC family","score":78,"why":"Same ATC code, therapeutic class, and form family; likely reasonable substitute candidates pending staff review.","meta":{"edgeId":"E01877","clinicalSimilarity":90,"commercialSubstitution":80,"crossSell":25,"riskOverlap":60,"evidence":90,"seasonality":40,"triggerContext":"dermatitis, eczema, skin inflammation","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"EXACT_ATC_SAME_CLASS_FORM"}},{"key":"a2e89492833d5526","source":"product:P0119","target":"product:P0212","rel":"similar","label":"Alternative: same ATC family","score":78,"why":"Same ATC code, therapeutic class, and form family; likely reasonable substitute candidates pending staff review.","meta":{"edgeId":"E01875","clinicalSimilarity":90,"commercialSubstitution":80,"crossSell":25,"riskOverlap":60,"evidence":90,"seasonality":40,"triggerContext":"dermatitis, eczema, skin inflammation","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"EXACT_ATC_SAME_CLASS_FORM"}},{"key":"746bb414734f7a0e","source":"product:P0033","target":"product:P0212","rel":"complement","label":"Dry / inflamed skin","score":72,"why":"Some inflamed skin routines also need barrier-repair support.","meta":{"edgeId":"E16182","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":72,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Dry / inflamed skin","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"630797461e22c6b5","source":"product:P0158","target":"product:P0212","rel":"complement","label":"Dry / inflamed skin","score":72,"why":"Some inflamed skin routines also need barrier-repair support.","meta":{"edgeId":"E16186","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":72,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Dry / inflamed skin","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"565ffbffdbef3218","source":"product:P0462","target":"product:P0212","rel":"complement","label":"Dry / inflamed skin","score":72,"why":"Some inflamed skin routines also need barrier-repair support.","meta":{"edgeId":"E16190","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":72,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Dry / inflamed skin","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"198182ed5daf0bbd","source":"product:P0212","target":"symptom:S058","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00681","role":"Primary","reviewStatus":"Seeded"}},{"key":"f12fb78ff53a39ae","source":"product:P0212","target":"symptom:S025","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00682","role":"Primary","reviewStatus":"Seeded"}},{"key":"37c24315c603d790","source":"product:P0212","target":"symptom:S019","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM00683","role":"Secondary","reviewStatus":"Seeded"}},{"key":"811857ef6ede7d3c","source":"product:P0212","target":"product:P0216","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00555","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}}],"meta":{"productName":"Hc45 Hydrocortisone Acetate Cream (Hydrocortisone acetate 1% w/w)","linkCount":10}}
+{
+  "centerId": "product:P0212",
+  "centerType": "product",
+  "refId": "P0212",
+  "nodes": [
+    {
+      "id": "product:P0212",
+      "nodeType": "product",
+      "refId": "P0212",
+      "label": "Hc45 Hydrocortisone Acetate Cream (Hydrocortisone acetate 1% w/w)",
+      "subtext": "skin inflammation",
+      "meta": {
+        "brand": "Hc45",
+        "generic": "HYDROCORTISONE ACETATE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "skin inflammation",
+        "secondaryIndications": "eczema | dermatitis",
+        "otcCategory": "CORTICOSTEROIDS, DERMATOLOGICAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "HYDROCORTISONE ACETATE 1 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "D07AA02",
+        "status": "Authorised",
+        "supplierCatalogKey": "hc45 hydrocortisone acetate cream (hydrocortisone acetate 1% w/w)"
+      }
+    },
+    {
+      "id": "product:P0033",
+      "nodeType": "product",
+      "refId": "P0033",
+      "label": "BIAFINE, emulsion for cutaneous application",
+      "subtext": "skin irritation",
+      "meta": {
+        "brand": "BIAFINE",
+        "generic": "TROLAMINE",
+        "form": "CUTANEOUS EMULSION",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "skin irritation",
+        "secondaryIndications": "skin repair",
+        "otcCategory": "EMOLLIENTS AND PROTECTIVES",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "TROLAMINE 0.67 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "D02AX",
+        "status": "Authorised",
+        "supplierCatalogKey": "biafine, emulsion for cutaneous application"
+      }
+    },
+    {
+      "id": "product:P0158",
+      "nodeType": "product",
+      "refId": "P0158",
+      "label": "E45 Cream White Soft Paraffin 14.5% w/w Light Liquid Paraffin 12.6% w/w Anhydrous Lanolin 1.0% w/w",
+      "subtext": "skin irritation",
+      "meta": {
+        "brand": "E45",
+        "generic": "LANOLIN | LIGHT LIQUID PARAFFIN | WHITE SOFT PARAFFIN",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "skin irritation",
+        "secondaryIndications": "eczema | dermatitis",
+        "otcCategory": "EMOLLIENTS AND PROTECTIVES",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "LANOLIN 1 percent weight/weight | WHITE SOFT PARAFFIN 14.5 percent weight/weight | LIGHT LIQUID PARAFFIN  12.6 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "D02AC",
+        "status": "Authorised",
+        "supplierCatalogKey": "e45 cream white soft paraffin 14.5% w/w light liquid paraffin 12.6% w/w anhydrous lanolin 1.0% w/w"
+      }
+    },
+    {
+      "id": "product:P0462",
+      "nodeType": "product",
+      "refId": "P0462",
+      "label": "Sudocrem Antiseptic Healing Cream",
+      "subtext": "skin irritation",
+      "meta": {
+        "brand": "Sudocrem",
+        "generic": "BENZYL ALCOHOL | BENZYL BENZOATE | BENZYL CINNAMATE | LANOLIN | ZINC OXIDE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "skin irritation",
+        "secondaryIndications": "healing | wound care",
+        "otcCategory": "EMOLLIENTS AND PROTECTIVES",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 5,
+        "strengthText": "BENZYL BENZOATE 1.02 percent weight/weight | BENZYL ALCOHOL 0.39 percent weight/weight | ZINC OXIDE 15.29 percent weight/weight | BENZYL CINNAMATE 0.15 percent weight/weight | LANOLIN 4.02 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "D02AB",
+        "status": "Authorised",
+        "supplierCatalogKey": "sudocrem antiseptic healing cream"
+      }
+    },
+    {
+      "id": "product:P0216",
+      "nodeType": "product",
+      "refId": "P0216",
+      "label": "Hydrokortyzon Allefin Max 10 mg/g Cream",
+      "subtext": "skin inflammation",
+      "meta": {
+        "brand": "Hydrokortyzon",
+        "generic": "HYDROCORTISONE ACETATE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "skin inflammation",
+        "secondaryIndications": "eczema | dermatitis",
+        "otcCategory": "CORTICOSTEROIDS, DERMATOLOGICAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "HYDROCORTISONE ACETATE 10 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D07AA02",
+        "status": "Authorised",
+        "supplierCatalogKey": "hydrokortyzon allefin max 10 mg/g cream"
+      }
+    },
+    {
+      "id": "product:P0119",
+      "nodeType": "product",
+      "refId": "P0119",
+      "label": "Cortopin1%w/w cream",
+      "subtext": "skin inflammation",
+      "meta": {
+        "brand": "Cortopin1",
+        "generic": "HYDROCORTISONE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "skin inflammation",
+        "secondaryIndications": "eczema | dermatitis",
+        "otcCategory": "CORTICOSTEROIDS, DERMATOLOGICAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "HYDROCORTISONE 1 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "D07AA02",
+        "status": "Authorised",
+        "supplierCatalogKey": "cortopin1%w/w cream"
+      }
+    },
+    {
+      "id": "product:P0384",
+      "nodeType": "product",
+      "refId": "P0384",
+      "label": "Pandermil 10 mg/g ointment",
+      "subtext": "skin inflammation",
+      "meta": {
+        "brand": "Pandermil",
+        "generic": "HYDROCORTISONE",
+        "form": "OINTMENT",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "skin inflammation",
+        "secondaryIndications": "eczema | dermatitis",
+        "otcCategory": "CORTICOSTEROIDS, DERMATOLOGICAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "HYDROCORTISONE 10 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D07AA02",
+        "status": "Authorised",
+        "supplierCatalogKey": "pandermil 10 mg/g ointment"
+      }
+    },
+    {
+      "id": "symptom:S058",
+      "nodeType": "symptom",
+      "refId": "S058",
+      "label": "skin inflammation",
+      "subtext": "General",
+      "meta": {
+        "Symptom_ID": "S058",
+        "Symptom_Name": "skin inflammation",
+        "Symptom_Category": "General",
+        "Linked_Product_Count": 4,
+        "Display_Group": "General",
+        "Priority_For_Graph": 70,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "symptom:S025",
+      "nodeType": "symptom",
+      "refId": "S025",
+      "label": "eczema",
+      "subtext": "General",
+      "meta": {
+        "Symptom_ID": "S025",
+        "Symptom_Name": "eczema",
+        "Symptom_Category": "General",
+        "Linked_Product_Count": 4,
+        "Display_Group": "General",
+        "Priority_For_Graph": 70,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "symptom:S019",
+      "nodeType": "symptom",
+      "refId": "S019",
+      "label": "dermatitis",
+      "subtext": "General",
+      "meta": {
+        "Symptom_ID": "S019",
+        "Symptom_Name": "dermatitis",
+        "Symptom_Category": "General",
+        "Linked_Product_Count": 4,
+        "Display_Group": "General",
+        "Priority_For_Graph": 70,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "usecase:UC019",
+      "nodeType": "usecase",
+      "refId": "UC019",
+      "label": "Skin repair and scar care",
+      "subtext": "Skin",
+      "meta": {
+        "UseCase_ID": "UC019",
+        "UseCase_Name": "Skin repair and scar care",
+        "UseCase_Category": "Skin",
+        "Trigger_Symptoms": "Scars, skin repair, wound healing",
+        "Description": "Products for skin repair, scar reduction, and wound healing."
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "746bb414734f7a0e",
+      "source": "product:P0033",
+      "target": "product:P0212",
+      "rel": "complement",
+      "label": "Dry / inflamed skin",
+      "score": 72,
+      "why": "Some inflamed skin routines also need barrier-repair support.",
+      "meta": {
+        "edgeId": "E16182"
+      }
+    },
+    {
+      "key": "630797461e22c6b5",
+      "source": "product:P0158",
+      "target": "product:P0212",
+      "rel": "complement",
+      "label": "Dry / inflamed skin",
+      "score": 72,
+      "why": "Some inflamed skin routines also need barrier-repair support.",
+      "meta": {
+        "edgeId": "E16186"
+      }
+    },
+    {
+      "key": "565ffbffdbef3218",
+      "source": "product:P0462",
+      "target": "product:P0212",
+      "rel": "complement",
+      "label": "Dry / inflamed skin",
+      "score": 72,
+      "why": "Some inflamed skin routines also need barrier-repair support.",
+      "meta": {
+        "edgeId": "E16190"
+      }
+    },
+    {
+      "key": "b2976820da9f79fe",
+      "source": "product:P0212",
+      "target": "product:P0216",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00555"
+      }
+    },
+    {
+      "key": "a2e89492833d5526",
+      "source": "product:P0119",
+      "target": "product:P0212",
+      "rel": "similar",
+      "label": "Alternative: same ATC family",
+      "score": 78,
+      "why": "Same ATC code, therapeutic class, and form family; likely reasonable substitute candidates pending staff review.",
+      "meta": {
+        "edgeId": "E01875"
+      }
+    },
+    {
+      "key": "0e262d9cfb4dd777",
+      "source": "product:P0212",
+      "target": "product:P0384",
+      "rel": "similar",
+      "label": "Alternative: same ATC family",
+      "score": 78,
+      "why": "Same ATC code, therapeutic class, and form family; likely reasonable substitute candidates pending staff review.",
+      "meta": {
+        "edgeId": "E01877"
+      }
+    },
+    {
+      "key": "198182ed5daf0bbd",
+      "source": "product:P0212",
+      "target": "symptom:S058",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00681"
+      }
+    },
+    {
+      "key": "f12fb78ff53a39ae",
+      "source": "product:P0212",
+      "target": "symptom:S025",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00682"
+      }
+    },
+    {
+      "key": "37c24315c603d790",
+      "source": "product:P0212",
+      "target": "symptom:S019",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00683"
+      }
+    },
+    {
+      "key": "4f810761a0c1f2c1",
+      "source": "product:P0212",
+      "target": "usecase:UC019",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Scars, skin repair, wound healing",
+      "meta": {
+        "useCaseItemId": "UCI00697"
+      }
+    },
+    {
+      "key": "811857ef6ede7d3c",
+      "source": "product:P0212",
+      "target": "product:P0216",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00555",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    }
+  ]
+}

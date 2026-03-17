@@ -1,0 +1,383 @@
+{
+  "centerId": "usecase:UC013",
+  "centerType": "usecase",
+  "refId": "UC013",
+  "nodes": [
+    {
+      "id": "usecase:UC013",
+      "nodeType": "usecase",
+      "refId": "UC013",
+      "label": "Haemorrhoid relief",
+      "subtext": "Gastrointestinal",
+      "meta": {
+        "UseCase_ID": "UC013",
+        "UseCase_Name": "Haemorrhoid relief",
+        "UseCase_Category": "Gastrointestinal",
+        "Trigger_Symptoms": "Haemorrhoids, rectal discomfort, itching",
+        "Description": "Topical and oral options for haemorrhoid symptom relief."
+      }
+    },
+    {
+      "id": "product:P0121",
+      "nodeType": "product",
+      "refId": "P0121",
+      "label": "DAFLON 500mg, film-coated tablet",
+      "subtext": "haemorrhoids",
+      "meta": {
+        "brand": "DAFLON",
+        "generic": "DIOSMIN | HESPERIDIN",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "haemorrhoids",
+        "secondaryIndications": "vein support",
+        "otcCategory": "VASOPROTECTIVES",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "HESPERIDIN 50 milligram(s) | DIOSMIN 450 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "C05CA03",
+        "status": "Authorised",
+        "supplierCatalogKey": "daflon 500mg, film-coated tablet"
+      }
+    },
+    {
+      "id": "product:P0142",
+      "nodeType": "product",
+      "refId": "P0142",
+      "label": "Dimotec 1000mg film-coated tablets",
+      "subtext": "haemorrhoids",
+      "meta": {
+        "brand": "Dimotec",
+        "generic": "DIOSMIN",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "haemorrhoids",
+        "secondaryIndications": "vein support",
+        "otcCategory": "VASOPROTECTIVES",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DIOSMIN 1000 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "C05CA03",
+        "status": "Authorised",
+        "supplierCatalogKey": "dimotec 1000mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0214",
+      "nodeType": "product",
+      "refId": "P0214",
+      "label": "Hirudoid Gel 0.3 g/ 100 g",
+      "subtext": "haemorrhoids",
+      "meta": {
+        "brand": "Hirudoid",
+        "generic": "MUCOPOLYSACCHARIDE POLYSULFURIC ACID ESTER",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "haemorrhoids",
+        "secondaryIndications": "vein support",
+        "otcCategory": "VASOPROTECTIVES",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "MUCOPOLYSACCHARIDE POLYSULFURIC ACID ESTER 0.3 gram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "C05BA01",
+        "status": "Authorised",
+        "supplierCatalogKey": "hirudoid gel 0.3 g/ 100 g"
+      }
+    },
+    {
+      "id": "product:P0255",
+      "nodeType": "product",
+      "refId": "P0255",
+      "label": "Lidoproctene 1.5% / 1% cream",
+      "subtext": "haemorrhoids",
+      "meta": {
+        "brand": "Lidoproctene",
+        "generic": "HYDROCORTISONE ACETATE | LIDOCAINE HYDROCHLORIDE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "haemorrhoids",
+        "secondaryIndications": "vein support",
+        "otcCategory": "VASOPROTECTIVES",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "LIDOCAINE HYDROCHLORIDE 1.5 percent | HYDROCORTISONE ACETATE 1  percent",
+        "packSizeText": "Review manually",
+        "atcCode": "C05AA01",
+        "status": "Authorised",
+        "supplierCatalogKey": "lidoproctene 1.5% / 1% cream"
+      }
+    },
+    {
+      "id": "product:P0256",
+      "nodeType": "product",
+      "refId": "P0256",
+      "label": "Lioton 100,000 I.U./100 g Gel",
+      "subtext": "haemorrhoids",
+      "meta": {
+        "brand": "Lioton",
+        "generic": "HEPARIN SODIUM",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "haemorrhoids",
+        "secondaryIndications": "vein support",
+        "otcCategory": "VASOPROTECTIVES",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "HEPARIN SODIUM 2.5 international unit(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "C05BA03",
+        "status": "Authorised",
+        "supplierCatalogKey": "lioton 100,000 i.u./100 g gel"
+      }
+    },
+    {
+      "id": "product:P0397",
+      "nodeType": "product",
+      "refId": "P0397",
+      "label": "Phlebodia 600mg film coated Tablets",
+      "subtext": "haemorrhoids",
+      "meta": {
+        "brand": "Phlebodia",
+        "generic": "DIOSMIN",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "haemorrhoids",
+        "secondaryIndications": "vein support",
+        "otcCategory": "VASOPROTECTIVES",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DIOSMIN 600 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "C05CA03",
+        "status": "Authorised",
+        "supplierCatalogKey": "phlebodia 600mg film coated tablets"
+      }
+    },
+    {
+      "id": "product:P0402",
+      "nodeType": "product",
+      "refId": "P0402",
+      "label": "Procto-Glyvenol Rectal Cream 5%w/w, 2%w/w",
+      "subtext": "haemorrhoids",
+      "meta": {
+        "brand": "Procto",
+        "generic": "LIDOCAINE HYDROCHLORIDE | TRIBENOSIDE",
+        "form": "RECTAL CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "haemorrhoids",
+        "secondaryIndications": "vein support",
+        "otcCategory": "VASOPROTECTIVES",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "TRIBENOSIDE 5 percent weight/weight | LIDOCAINE HYDROCHLORIDE 2 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "C05AX03",
+        "status": "Authorised",
+        "supplierCatalogKey": "procto-glyvenol rectal cream 5%w/w, 2%w/w"
+      }
+    },
+    {
+      "id": "product:P0403",
+      "nodeType": "product",
+      "refId": "P0403",
+      "label": "Proctosedyl Ointment",
+      "subtext": "haemorrhoids",
+      "meta": {
+        "brand": "Proctosedyl",
+        "generic": "AESCULIN | CINCHOCAINE HYDROCHLORIDE | FRAMYCETIN SULFATE | HYDROCORTISONE",
+        "form": "OINTMENT",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "haemorrhoids",
+        "secondaryIndications": "vein support",
+        "otcCategory": "VASOPROTECTIVES",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 4,
+        "strengthText": "FRAMYCETIN SULFATE 10 milligram(s)/gram | HYDROCORTISONE 5 milligram(s)/gram | \n\nAESCULIN 10 milligram(s)/gram | CINCHOCAINE HYDROCHLORIDE 5 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "C05AX03",
+        "status": "Authorised",
+        "supplierCatalogKey": "proctosedyl ointment"
+      }
+    },
+    {
+      "id": "product:P0495",
+      "nodeType": "product",
+      "refId": "P0495",
+      "label": "Veinofytol gastro-resistant tablets",
+      "subtext": "haemorrhoids",
+      "meta": {
+        "brand": "Veinofytol",
+        "generic": "HORSE CHESTNUT SEED",
+        "form": "GASTRO-RESISTANT TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "haemorrhoids",
+        "secondaryIndications": "vein support",
+        "otcCategory": "VASOPROTECTIVES",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "Horse Chestnut seed 21 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "C05CX03",
+        "status": "Authorised",
+        "supplierCatalogKey": "veinofytol gastro-resistant tablets"
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "ff6ca79027ce119b",
+      "source": "product:P0121",
+      "target": "usecase:UC013",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Haemorrhoids, rectal discomfort, itching",
+      "meta": {
+        "useCaseItemId": "UCI00630"
+      }
+    },
+    {
+      "key": "86f7217586ecd195",
+      "source": "product:P0142",
+      "target": "usecase:UC013",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Haemorrhoids, rectal discomfort, itching",
+      "meta": {
+        "useCaseItemId": "UCI00631"
+      }
+    },
+    {
+      "key": "714d83ce67b0d84d",
+      "source": "product:P0214",
+      "target": "usecase:UC013",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Haemorrhoids, rectal discomfort, itching",
+      "meta": {
+        "useCaseItemId": "UCI00632"
+      }
+    },
+    {
+      "key": "4c83ad2461a422cd",
+      "source": "product:P0255",
+      "target": "usecase:UC013",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Haemorrhoids, rectal discomfort, itching",
+      "meta": {
+        "useCaseItemId": "UCI00633"
+      }
+    },
+    {
+      "key": "409f9e109229e447",
+      "source": "product:P0256",
+      "target": "usecase:UC013",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Haemorrhoids, rectal discomfort, itching",
+      "meta": {
+        "useCaseItemId": "UCI00634"
+      }
+    },
+    {
+      "key": "69392227e0b7de47",
+      "source": "product:P0397",
+      "target": "usecase:UC013",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Haemorrhoids, rectal discomfort, itching",
+      "meta": {
+        "useCaseItemId": "UCI00635"
+      }
+    },
+    {
+      "key": "942555b0e784ce18",
+      "source": "product:P0402",
+      "target": "usecase:UC013",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Haemorrhoids, rectal discomfort, itching",
+      "meta": {
+        "useCaseItemId": "UCI00636"
+      }
+    },
+    {
+      "key": "7ff82e22a7138fe6",
+      "source": "product:P0403",
+      "target": "usecase:UC013",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Haemorrhoids, rectal discomfort, itching",
+      "meta": {
+        "useCaseItemId": "UCI00637"
+      }
+    },
+    {
+      "key": "5bb5fd07ad80efd2",
+      "source": "product:P0495",
+      "target": "usecase:UC013",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Haemorrhoids, rectal discomfort, itching",
+      "meta": {
+        "useCaseItemId": "UCI00638"
+      }
+    }
+  ]
+}
