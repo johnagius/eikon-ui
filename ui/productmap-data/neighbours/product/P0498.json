@@ -8,15 +8,15 @@
       "nodeType": "product",
       "refId": "P0498",
       "label": "Viagra Connect Melts 50 mg orodispersible films",
-      "subtext": "review needed",
+      "subtext": "erectile dysfunction",
       "meta": {
         "brand": "Viagra",
         "generic": "SILDENAFIL",
         "form": "ORODISPERSIBLE FILM",
         "formGroup": "Other",
         "route": "Other",
-        "mainIndication": "review needed",
-        "secondaryIndications": null,
+        "mainIndication": "erectile dysfunction",
+        "secondaryIndications": "",
         "otcCategory": "UROLOGICALS",
         "seasonalGroup": "All year",
         "sedating": "No",
@@ -36,15 +36,15 @@
       "nodeType": "product",
       "refId": "P0496",
       "label": "Viagra Connect 50 mg Film-Coated Tablet",
-      "subtext": "review needed",
+      "subtext": "erectile dysfunction",
       "meta": {
         "brand": "Viagra",
         "generic": "SILDENAFIL",
         "form": "TABLET",
         "formGroup": "Oral solid",
         "route": "Oral",
-        "mainIndication": "review needed",
-        "secondaryIndications": null,
+        "mainIndication": "erectile dysfunction",
+        "secondaryIndications": "",
         "otcCategory": "UROLOGICALS",
         "seasonalGroup": "All year",
         "sedating": "No",
@@ -64,15 +64,15 @@
       "nodeType": "product",
       "refId": "P0497",
       "label": "Viagra Connect 50 mg film-coated tablets",
-      "subtext": "review needed",
+      "subtext": "erectile dysfunction",
       "meta": {
         "brand": "Viagra",
         "generic": "SILDENAFIL",
         "form": "FILM-COATED TABLET",
         "formGroup": "Oral solid",
         "route": "Oral",
-        "mainIndication": "review needed",
-        "secondaryIndications": null,
+        "mainIndication": "erectile dysfunction",
+        "secondaryIndications": "",
         "otcCategory": "UROLOGICALS",
         "seasonalGroup": "All year",
         "sedating": "No",
@@ -88,20 +88,33 @@
       }
     },
     {
-      "id": "symptom:S076",
+      "id": "symptom:S079",
       "nodeType": "symptom",
-      "refId": "S076",
-      "label": "wellness",
-      "subtext": "General",
+      "refId": "S079",
+      "label": "erectile dysfunction",
+      "subtext": "Men's health",
       "meta": {
-        "Symptom_ID": "S076",
-        "Symptom_Name": "wellness",
-        "Symptom_Category": "General",
-        "Linked_Product_Count": 3,
-        "Display_Group": "General",
-        "Priority_For_Graph": 70,
-        "Node_Color": "#A5A5A5",
-        "Notes": "Seeded from imported symptom tags; refine naming over time."
+        "Symptom_ID": "S079",
+        "Symptom_Name": "erectile dysfunction",
+        "Symptom_Category": "Men's health",
+        "Display_Group": "Men's health",
+        "Linked_Product_Count": 0,
+        "Priority_For_Graph": 100,
+        "Node_Color": "#54a0ff"
+      }
+    },
+    {
+      "id": "usecase:UC020",
+      "nodeType": "usecase",
+      "refId": "UC020",
+      "label": "Erectile dysfunction support",
+      "subtext": "Men's health",
+      "meta": {
+        "UseCase_ID": "UC020",
+        "UseCase_Name": "Erectile dysfunction support",
+        "UseCase_Category": "Men's health",
+        "Trigger_Symptoms": "Erectile dysfunction, sexual health",
+        "Description": "PDE5 inhibitors for erectile dysfunction."
       }
     }
   ],
@@ -115,18 +128,7 @@
       "score": 88,
       "why": "Same active ingredient(s), but delivered in different form families.",
       "meta": {
-        "edgeId": "E01785",
-        "clinicalSimilarity": 95,
-        "commercialSubstitution": 95,
-        "crossSell": 15,
-        "riskOverlap": 90,
-        "evidence": 90,
-        "seasonality": 40,
-        "triggerContext": "review needed",
-        "primaryToSecondary": "No",
-        "reciprocalDisplay": "Yes",
-        "reviewStatus": "Ready - strong starter link",
-        "sourceMethod": "EXACT_INGREDIENT_BASE"
+        "edgeId": "E01785"
       }
     },
     {
@@ -138,18 +140,31 @@
       "score": 88,
       "why": "Same active ingredient(s), but delivered in different form families.",
       "meta": {
-        "edgeId": "E01786",
-        "clinicalSimilarity": 95,
-        "commercialSubstitution": 95,
-        "crossSell": 15,
-        "riskOverlap": 90,
-        "evidence": 90,
-        "seasonality": 40,
-        "triggerContext": "review needed",
-        "primaryToSecondary": "No",
-        "reciprocalDisplay": "Yes",
-        "reviewStatus": "Ready - strong starter link",
-        "sourceMethod": "EXACT_INGREDIENT_BASE"
+        "edgeId": "E01786"
+      }
+    },
+    {
+      "key": "1d8874624aa52853",
+      "source": "product:P0498",
+      "target": "symptom:S079",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Indication-based assignment",
+      "meta": {
+        "mapId": "PSM01801"
+      }
+    },
+    {
+      "key": "112fa2bd7bafc6bc",
+      "source": "product:P0498",
+      "target": "usecase:UC020",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Erectile dysfunction, sexual health",
+      "meta": {
+        "useCaseItemId": "UCI00711"
       }
     },
     {
@@ -162,8 +177,7 @@
       "why": "Same active ingredient(s), but delivered in different form families.",
       "meta": {
         "edgeId": "E01785",
-        "posAction": "Do not cross-sell together by default; show as alternative options instead.",
-        "guardrailType": "Potential duplicate therapy / substitute"
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
       }
     },
     {
@@ -176,25 +190,8 @@
       "why": "Same active ingredient(s), but delivered in different form families.",
       "meta": {
         "edgeId": "E01786",
-        "posAction": "Do not cross-sell together by default; show as alternative options instead.",
-        "guardrailType": "Potential duplicate therapy / substitute"
-      }
-    },
-    {
-      "key": "b9996a4335971c3a",
-      "source": "product:P0498",
-      "target": "symptom:S076",
-      "rel": "symptom",
-      "label": "Secondary",
-      "score": 60,
-      "why": "Manual review fix",
-      "meta": {
-        "mapId": "PSM01756"
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
       }
     }
-  ],
-  "meta": {
-    "productName": "Viagra Connect Melts 50 mg orodispersible films",
-    "linkCount": 5
-  }
+  ]
 }

@@ -1,1 +1,290 @@
-{"centerId":"symptom:S045","centerType":"symptom","refId":"S045","nodes":[{"id":"symptom:S045","nodeType":"symptom","refId":"S045","label":"mouth ulcers","subtext":"General","meta":{"Symptom_ID":"S045","Symptom_Name":"mouth ulcers","Symptom_Category":"General","Linked_Product_Count":6,"Display_Group":"General","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"product:P0098","nodeType":"product","refId":"P0098","label":"Carbosan Gel","subtext":"mouth ulcers","meta":{"brand":"Carbosan","generic":"CARBENOXOLONE SODIUM","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"mouth ulcers","secondaryIndications":"oral inflammation | gum care","otcCategory":"STOMATOLOGICAL PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CARBENOXOLONE SODIUM 100 milligram(s)","packSizeText":"Review manually","atcCode":"A01AB11","status":"Authorised","supplierCatalogKey":"carbosan gel"}},{"id":"product:P0354","nodeType":"product","refId":"P0354","label":"Oki throat 0.16% oromucosal spray","subtext":"mouth ulcers","meta":{"brand":"Oki","generic":"KETOPROFEN LYSINE","form":"OROMUCOSAL SPRAY","formGroup":"Oral cavity / throat","route":"Oral","mainIndication":"mouth ulcers","secondaryIndications":"oral inflammation | gum care","otcCategory":"STOMATOLOGICAL PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"KETOPROFEN LYSINE 0.16 gram(s)/100 millilitres","packSizeText":"Review manually","atcCode":"A01AD11","status":"Authorised","supplierCatalogKey":"oki throat 0.16% oromucosal spray"}},{"id":"product:P0355","nodeType":"product","refId":"P0355","label":"Oki throat 1.6% mouthwash","subtext":"mouth ulcers","meta":{"brand":"Oki","generic":"KETOPROFEN LYSINE","form":"MOUTH WASH","formGroup":"Other","route":"Other","mainIndication":"mouth ulcers","secondaryIndications":"oral inflammation | gum care","otcCategory":"STOMATOLOGICAL PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"KETOPROFEN LYSINE 1.6 gram(s)/100 millilitres","packSizeText":"Review manually","atcCode":"A01AD11","status":"Authorised","supplierCatalogKey":"oki throat 1.6% mouthwash"}},{"id":"product:P0361","nodeType":"product","refId":"P0361","label":"Oraldene 0.1% w/v Gargle/Mouthwash","subtext":"mouth ulcers","meta":{"brand":"Oraldene","generic":"HEXETIDINE","form":"GARGLE, MOUTH WASH","formGroup":"Oral cavity / throat","route":"Oral","mainIndication":"mouth ulcers","secondaryIndications":"oral inflammation | gum care","otcCategory":"STOMATOLOGICAL PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"HEXETIDINE 0.1 percent weight/volume","packSizeText":"Review manually","atcCode":"A01AB12","status":"Authorised","supplierCatalogKey":"oraldene 0.1% w/v gargle/mouthwash"}},{"id":"product:P0362","nodeType":"product","refId":"P0362","label":"Orosoothe 0.15% w/v Oromucosal Spray","subtext":"mouth ulcers","meta":{"brand":"Orosoothe","generic":"BENZYDAMINE HYDROCHLORIDE","form":"OROMUCOSAL SPRAY","formGroup":"Oral cavity / throat","route":"Oral","mainIndication":"mouth ulcers","secondaryIndications":"oral inflammation | gum care","otcCategory":"STOMATOLOGICAL PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"BENZYDAMINE HYDROCHLORIDE 1.5 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"A01AD02","status":"Authorised","supplierCatalogKey":"orosoothe 0.15% w/v oromucosal spray"}},{"id":"product:P0470","nodeType":"product","refId":"P0470","label":"Tantum Verde 0,15 % Mouthwash","subtext":"mouth ulcers","meta":{"brand":"Tantum","generic":"BENZYDAMINE HYDROCHLORIDE","form":"OROMUCOSAL SOLUTION","formGroup":"Oral cavity / throat","route":"Oral","mainIndication":"mouth ulcers","secondaryIndications":"oral inflammation | gum care","otcCategory":"STOMATOLOGICAL PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"BENZYDAMINE HYDROCHLORIDE 0.15 gram(s)","packSizeText":"Review manually","atcCode":"A01AD02","status":"Authorised","supplierCatalogKey":"tantum verde 0,15 % mouthwash"}}],"links":[{"key":"e90e0c6d4c8ceee1","source":"symptom:S045","target":"product:P0098","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00318","role":"Primary","reviewStatus":"Seeded"}},{"key":"6581372647b1bd9e","source":"symptom:S045","target":"product:P0354","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM01145","role":"Primary","reviewStatus":"Seeded"}},{"key":"159d9180cbb663fc","source":"symptom:S045","target":"product:P0355","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM01148","role":"Primary","reviewStatus":"Seeded"}},{"key":"6e3a755fa7dcae31","source":"symptom:S045","target":"product:P0361","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM01172","role":"Primary","reviewStatus":"Seeded"}},{"key":"19c47e6e9eada9dc","source":"symptom:S045","target":"product:P0362","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM01175","role":"Primary","reviewStatus":"Seeded"}},{"key":"8b15e7714d9c365b","source":"symptom:S045","target":"product:P0470","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM01551","role":"Primary","reviewStatus":"Seeded"}}],"meta":{"symptomName":"mouth ulcers","linkCount":6}}
+{
+  "centerId": "symptom:S045",
+  "centerType": "symptom",
+  "refId": "S045",
+  "nodes": [
+    {
+      "id": "symptom:S045",
+      "nodeType": "symptom",
+      "refId": "S045",
+      "label": "mouth ulcers",
+      "subtext": "General",
+      "meta": {
+        "Symptom_ID": "S045",
+        "Symptom_Name": "mouth ulcers",
+        "Symptom_Category": "General",
+        "Linked_Product_Count": 6,
+        "Display_Group": "General",
+        "Priority_For_Graph": 70,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "product:P0098",
+      "nodeType": "product",
+      "refId": "P0098",
+      "label": "Carbosan Gel",
+      "subtext": "mouth ulcers",
+      "meta": {
+        "brand": "Carbosan",
+        "generic": "CARBENOXOLONE SODIUM",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "mouth ulcers",
+        "secondaryIndications": "oral inflammation | gum care",
+        "otcCategory": "STOMATOLOGICAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CARBENOXOLONE SODIUM 100 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A01AB11",
+        "status": "Authorised",
+        "supplierCatalogKey": "carbosan gel"
+      }
+    },
+    {
+      "id": "product:P0354",
+      "nodeType": "product",
+      "refId": "P0354",
+      "label": "Oki throat 0.16% oromucosal spray",
+      "subtext": "mouth ulcers",
+      "meta": {
+        "brand": "Oki",
+        "generic": "KETOPROFEN LYSINE",
+        "form": "OROMUCOSAL SPRAY",
+        "formGroup": "Oral cavity / throat",
+        "route": "Oral",
+        "mainIndication": "mouth ulcers",
+        "secondaryIndications": "oral inflammation | gum care",
+        "otcCategory": "STOMATOLOGICAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "KETOPROFEN LYSINE 0.16 gram(s)/100 millilitres",
+        "packSizeText": "Review manually",
+        "atcCode": "A01AD11",
+        "status": "Authorised",
+        "supplierCatalogKey": "oki throat 0.16% oromucosal spray"
+      }
+    },
+    {
+      "id": "product:P0355",
+      "nodeType": "product",
+      "refId": "P0355",
+      "label": "Oki throat 1.6% mouthwash",
+      "subtext": "mouth ulcers",
+      "meta": {
+        "brand": "Oki",
+        "generic": "KETOPROFEN LYSINE",
+        "form": "MOUTH WASH",
+        "formGroup": "Other",
+        "route": "Other",
+        "mainIndication": "mouth ulcers",
+        "secondaryIndications": "oral inflammation | gum care",
+        "otcCategory": "STOMATOLOGICAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "KETOPROFEN LYSINE 1.6 gram(s)/100 millilitres",
+        "packSizeText": "Review manually",
+        "atcCode": "A01AD11",
+        "status": "Authorised",
+        "supplierCatalogKey": "oki throat 1.6% mouthwash"
+      }
+    },
+    {
+      "id": "product:P0361",
+      "nodeType": "product",
+      "refId": "P0361",
+      "label": "Oraldene 0.1% w/v Gargle/Mouthwash",
+      "subtext": "mouth ulcers",
+      "meta": {
+        "brand": "Oraldene",
+        "generic": "HEXETIDINE",
+        "form": "GARGLE, MOUTH WASH",
+        "formGroup": "Oral cavity / throat",
+        "route": "Oral",
+        "mainIndication": "mouth ulcers",
+        "secondaryIndications": "oral inflammation | gum care",
+        "otcCategory": "STOMATOLOGICAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "HEXETIDINE 0.1 percent weight/volume",
+        "packSizeText": "Review manually",
+        "atcCode": "A01AB12",
+        "status": "Authorised",
+        "supplierCatalogKey": "oraldene 0.1% w/v gargle/mouthwash"
+      }
+    },
+    {
+      "id": "product:P0362",
+      "nodeType": "product",
+      "refId": "P0362",
+      "label": "Orosoothe 0.15% w/v Oromucosal Spray",
+      "subtext": "mouth ulcers",
+      "meta": {
+        "brand": "Orosoothe",
+        "generic": "BENZYDAMINE HYDROCHLORIDE",
+        "form": "OROMUCOSAL SPRAY",
+        "formGroup": "Oral cavity / throat",
+        "route": "Oral",
+        "mainIndication": "mouth ulcers",
+        "secondaryIndications": "oral inflammation | gum care",
+        "otcCategory": "STOMATOLOGICAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "BENZYDAMINE HYDROCHLORIDE 1.5 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "A01AD02",
+        "status": "Authorised",
+        "supplierCatalogKey": "orosoothe 0.15% w/v oromucosal spray"
+      }
+    },
+    {
+      "id": "product:P0470",
+      "nodeType": "product",
+      "refId": "P0470",
+      "label": "Tantum Verde 0,15 % Mouthwash",
+      "subtext": "mouth ulcers",
+      "meta": {
+        "brand": "Tantum",
+        "generic": "BENZYDAMINE HYDROCHLORIDE",
+        "form": "OROMUCOSAL SOLUTION",
+        "formGroup": "Oral cavity / throat",
+        "route": "Oral",
+        "mainIndication": "mouth ulcers",
+        "secondaryIndications": "oral inflammation | gum care",
+        "otcCategory": "STOMATOLOGICAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "BENZYDAMINE HYDROCHLORIDE 0.15 gram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A01AD02",
+        "status": "Authorised",
+        "supplierCatalogKey": "tantum verde 0,15 % mouthwash"
+      }
+    },
+    {
+      "id": "usecase:UC015",
+      "nodeType": "usecase",
+      "refId": "UC015",
+      "label": "Mouth ulcer care",
+      "subtext": "General",
+      "meta": {
+        "UseCase_ID": "UC015",
+        "UseCase_Name": "Mouth ulcer care",
+        "UseCase_Category": "General",
+        "Trigger_Symptoms": "Mouth ulcers, oral pain, canker sores",
+        "Description": "Topical gels and rinses for mouth ulcer pain relief and healing."
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "384795e226a23940",
+      "source": "product:P0098",
+      "target": "symptom:S045",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00318"
+      }
+    },
+    {
+      "key": "b6776875333234e9",
+      "source": "product:P0354",
+      "target": "symptom:S045",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01145"
+      }
+    },
+    {
+      "key": "66ba09655116de81",
+      "source": "product:P0355",
+      "target": "symptom:S045",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01148"
+      }
+    },
+    {
+      "key": "25caed810bd63ff8",
+      "source": "product:P0361",
+      "target": "symptom:S045",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01172"
+      }
+    },
+    {
+      "key": "561d6f23a54e5b7b",
+      "source": "product:P0362",
+      "target": "symptom:S045",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01175"
+      }
+    },
+    {
+      "key": "4651f1554c0ab1a9",
+      "source": "product:P0470",
+      "target": "symptom:S045",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01551"
+      }
+    },
+    {
+      "key": "399a0d436dcc4f4d",
+      "source": "symptom:S045",
+      "target": "usecase:UC015",
+      "rel": "usecase",
+      "label": "Related use case",
+      "score": 90,
+      "why": "",
+      "meta": {}
+    }
+  ]
+}

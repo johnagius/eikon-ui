@@ -8,15 +8,15 @@
       "nodeType": "product",
       "refId": "P0431",
       "label": "STIMOL 1g/10ml, oral solution in sachet",
-      "subtext": "review needed",
+      "subtext": "fatigue",
       "meta": {
         "brand": "STIMOL",
         "generic": "CITRULLINE MALEATE",
         "form": "ORAL SOLUTION",
         "formGroup": "Oral liquid",
         "route": "Oral",
-        "mainIndication": "review needed",
-        "secondaryIndications": null,
+        "mainIndication": "fatigue",
+        "secondaryIndications": "supplementation",
         "otcCategory": "TONICS",
         "seasonalGroup": "All year",
         "sedating": "No",
@@ -32,68 +32,60 @@
       }
     },
     {
-      "id": "symptom:S066",
+      "id": "symptom:S086",
       "nodeType": "symptom",
-      "refId": "S066",
-      "label": "supplementation",
+      "refId": "S086",
+      "label": "fatigue",
       "subtext": "General",
       "meta": {
-        "Symptom_ID": "S066",
-        "Symptom_Name": "supplementation",
+        "Symptom_ID": "S086",
+        "Symptom_Name": "fatigue",
         "Symptom_Category": "General",
-        "Linked_Product_Count": 7,
         "Display_Group": "General",
-        "Priority_For_Graph": 70,
-        "Node_Color": "#A5A5A5",
-        "Notes": "Seeded from imported symptom tags; refine naming over time."
+        "Linked_Product_Count": 0,
+        "Priority_For_Graph": 100,
+        "Node_Color": "#feca57"
       }
     },
     {
-      "id": "symptom:S076",
-      "nodeType": "symptom",
-      "refId": "S076",
-      "label": "wellness",
-      "subtext": "General",
+      "id": "usecase:UC017",
+      "nodeType": "usecase",
+      "refId": "UC017",
+      "label": "Mineral and vitamin support",
+      "subtext": "Supplements",
       "meta": {
-        "Symptom_ID": "S076",
-        "Symptom_Name": "wellness",
-        "Symptom_Category": "General",
-        "Linked_Product_Count": 3,
-        "Display_Group": "General",
-        "Priority_For_Graph": 70,
-        "Node_Color": "#A5A5A5",
-        "Notes": "Seeded from imported symptom tags; refine naming over time."
+        "UseCase_ID": "UC017",
+        "UseCase_Name": "Mineral and vitamin support",
+        "UseCase_Category": "Supplements",
+        "Trigger_Symptoms": "Vitamin deficiency, mineral deficiency, supplementation",
+        "Description": "Essential vitamins and minerals for general health."
       }
     }
   ],
   "links": [
     {
-      "key": "4a1fac6da20139e3",
+      "key": "f5e60fae9c8911d3",
       "source": "product:P0431",
-      "target": "symptom:S066",
+      "target": "symptom:S086",
       "rel": "symptom",
       "label": "Primary",
-      "score": 85,
-      "why": "Manual review fix",
+      "score": 100,
+      "why": "Indication-based assignment",
       "meta": {
-        "mapId": "PSM01793"
+        "mapId": "PSM01814"
       }
     },
     {
-      "key": "dcb857256dccbe20",
+      "key": "9272694c89458a8b",
       "source": "product:P0431",
-      "target": "symptom:S076",
-      "rel": "symptom",
-      "label": "Secondary",
-      "score": 70,
-      "why": "Manual review fix",
+      "target": "usecase:UC017",
+      "rel": "usecase",
+      "label": "Support",
+      "score": 75,
+      "why": "Fatigue, energy support",
       "meta": {
-        "mapId": "PSM01794"
+        "useCaseItemId": "UCI00736"
       }
     }
-  ],
-  "meta": {
-    "productName": "STIMOL 1g/10ml, oral solution in sachet",
-    "linkCount": 1
-  }
+  ]
 }

@@ -1,0 +1,183 @@
+{
+  "centerId": "usecase:UC014",
+  "centerType": "usecase",
+  "refId": "UC014",
+  "nodes": [
+    {
+      "id": "usecase:UC014",
+      "nodeType": "usecase",
+      "refId": "UC014",
+      "label": "Cold sore treatment",
+      "subtext": "Skin",
+      "meta": {
+        "UseCase_ID": "UC014",
+        "UseCase_Name": "Cold sore treatment",
+        "UseCase_Category": "Skin",
+        "Trigger_Symptoms": "Cold sores, lip blisters, herpes labialis",
+        "Description": "Antiviral cream for cold sore outbreak management."
+      }
+    },
+    {
+      "id": "product:P0066",
+      "nodeType": "product",
+      "refId": "P0066",
+      "label": "CICLOVIRAL 50 mg/g Cream",
+      "subtext": "cold sore",
+      "meta": {
+        "brand": "CICLOVIRAL",
+        "generic": "ACICLOVIR",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "cold sore",
+        "secondaryIndications": "healing",
+        "otcCategory": "ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "ACICLOVIR 50 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D06BB03",
+        "status": "Authorised",
+        "supplierCatalogKey": "cicloviral 50 mg/g cream"
+      }
+    },
+    {
+      "id": "product:P0287",
+      "nodeType": "product",
+      "refId": "P0287",
+      "label": "Medovir cream 5%",
+      "subtext": "cold sore",
+      "meta": {
+        "brand": "Medovir",
+        "generic": "ACICLOVIR",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "cold sore",
+        "secondaryIndications": "healing",
+        "otcCategory": "ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "ACICLOVIR 5 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "D06BB03",
+        "status": "Authorised",
+        "supplierCatalogKey": "medovir cream 5%"
+      }
+    },
+    {
+      "id": "product:P0516",
+      "nodeType": "product",
+      "refId": "P0516",
+      "label": "Zoviduo 50mg/g and 10mg/g Cream",
+      "subtext": "cold sore",
+      "meta": {
+        "brand": "Zoviduo",
+        "generic": "ACICLOVIR | HYDROCORTISONE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "cold sore",
+        "secondaryIndications": "healing",
+        "otcCategory": "ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "ACICLOVIR 50 milligram(s) | HYDROCORTISONE 10 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "D06BB53",
+        "status": "Authorised",
+        "supplierCatalogKey": "zoviduo 50mg/g and 10mg/g cream"
+      }
+    },
+    {
+      "id": "product:P0517",
+      "nodeType": "product",
+      "refId": "P0517",
+      "label": "Zovirax Duo 50 mg/10 mg/g cream",
+      "subtext": "cold sore",
+      "meta": {
+        "brand": "Zovirax",
+        "generic": "ACICLOVIR | HYDROCORTISONE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "cold sore",
+        "secondaryIndications": "healing",
+        "otcCategory": "ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "ACICLOVIR 50 milligram(s)/gram | HYDROCORTISONE 10 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D06BB53",
+        "status": "Authorised",
+        "supplierCatalogKey": "zovirax duo 50 mg/10 mg/g cream"
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "4ab50cf336231666",
+      "source": "product:P0066",
+      "target": "usecase:UC014",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Cold sores, lip blisters, herpes labialis",
+      "meta": {
+        "useCaseItemId": "UCI00639"
+      }
+    },
+    {
+      "key": "4dfc5e51b71e882d",
+      "source": "product:P0287",
+      "target": "usecase:UC014",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Cold sores, lip blisters, herpes labialis",
+      "meta": {
+        "useCaseItemId": "UCI00640"
+      }
+    },
+    {
+      "key": "2f079e0416755a30",
+      "source": "product:P0516",
+      "target": "usecase:UC014",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Cold sores, lip blisters, herpes labialis",
+      "meta": {
+        "useCaseItemId": "UCI00641"
+      }
+    },
+    {
+      "key": "43f9e91749bc5bc3",
+      "source": "product:P0517",
+      "target": "usecase:UC014",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Cold sores, lip blisters, herpes labialis",
+      "meta": {
+        "useCaseItemId": "UCI00642"
+      }
+    }
+  ]
+}

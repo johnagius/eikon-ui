@@ -1,1 +1,466 @@
-{"centerId":"symptom:S039","centerType":"symptom","refId":"S039","nodes":[{"id":"symptom:S039","nodeType":"symptom","refId":"S039","label":"iron support","subtext":"Supplements","meta":{"Symptom_ID":"S039","Symptom_Name":"iron support","Symptom_Category":"Supplements","Linked_Product_Count":11,"Display_Group":"Supplements","Priority_For_Graph":85,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"product:P0183","nodeType":"product","refId":"P0183","label":"Ferrograd 325mg Prolonged release Tablets","subtext":"iron support","meta":{"brand":"Ferrograd","generic":"FERROUS SULFATE","form":"PROLONGED-RELEASE TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"iron support","secondaryIndications":"anaemia support","otcCategory":"ANTIANEMIC PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"FERROUS SULFATE 325 milligram(s)","packSizeText":"Review manually","atcCode":"B03AA07","status":"Authorised","supplierCatalogKey":"ferrograd 325mg prolonged release tablets"}},{"id":"product:P0184","nodeType":"product","refId":"P0184","label":"Ferrograd Folic 325mg/0.35mg Prolonged release Tablets","subtext":"iron support","meta":{"brand":"Ferrograd","generic":"FERROUS SULFATE | FOLIC ACID","form":"PROLONGED-RELEASE TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"iron support","secondaryIndications":"anaemia support","otcCategory":"ANTIANEMIC PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"FERROUS SULFATE 325 milligram(s) | FOLIC ACID 0.35 milligram(s)","packSizeText":"Review manually","atcCode":"B03AA07","status":"Authorised","supplierCatalogKey":"ferrograd folic 325mg/0.35mg prolonged release tablets"}},{"id":"product:P0185","nodeType":"product","refId":"P0185","label":"Ferrous Fumarate 200 mg film coated tablets","subtext":"iron support","meta":{"brand":"Ferrous","generic":"FERROUS FUMARATE","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"iron support","secondaryIndications":"anaemia support","otcCategory":"ANTIANEMIC PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"FERROUS FUMARATE 200 milligram(s)","packSizeText":"Review manually","atcCode":"B03AA02","status":"Authorised","supplierCatalogKey":"ferrous fumarate 200 mg film coated tablets"}},{"id":"product:P0186","nodeType":"product","refId":"P0186","label":"Ferrous Gluconate Tablets 300 mg","subtext":"iron support","meta":{"brand":"Ferrous","generic":"FERROUS GLUCONATE","form":"TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"iron support","secondaryIndications":"anaemia support","otcCategory":"ANTIANEMIC PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"FERROUS GLUCONATE 300 milligram(s)","packSizeText":"Review manually","atcCode":"B03AA03","status":"Authorised","supplierCatalogKey":"ferrous gluconate tablets 300 mg"}},{"id":"product:P0187","nodeType":"product","refId":"P0187","label":"Ferrous Sulfate Tablets 200mg","subtext":"iron support","meta":{"brand":"Ferrous","generic":"FERROUS SULFATE","form":"COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"iron support","secondaryIndications":"anaemia support","otcCategory":"ANTIANEMIC PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"FERROUS SULFATE 200 milligram(s)","packSizeText":"Review manually","atcCode":"B03AA07","status":"Authorised","supplierCatalogKey":"ferrous sulfate tablets 200mg"}},{"id":"product:P0188","nodeType":"product","refId":"P0188","label":"Ferrous Sulfate Tablets BP 200mg","subtext":"iron support","meta":{"brand":"Ferrous","generic":"FERROUS SULFATE","form":"TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"iron support","secondaryIndications":"anaemia support","otcCategory":"ANTIANEMIC PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"FERROUS SULFATE 200 milligram(s)","packSizeText":"Review manually","atcCode":"B03AA07","status":"Authorised","supplierCatalogKey":"ferrous sulfate tablets bp 200mg"}},{"id":"product:P0199","nodeType":"product","refId":"P0199","label":"Galfer 140 mg/5ml Oral Suspension","subtext":"iron support","meta":{"brand":"Galfer","generic":"FERROUS FUMARATE","form":"ORAL SUSPENSION","formGroup":"Oral liquid","route":"Oral","mainIndication":"iron support","secondaryIndications":"anaemia support","otcCategory":"ANTIANEMIC PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"FERROUS FUMARATE 140 milligram(s)/5 millilitre","packSizeText":"Review manually","atcCode":"B03AA02","status":"Authorised","supplierCatalogKey":"galfer 140 mg/5ml oral suspension"}},{"id":"product:P0200","nodeType":"product","refId":"P0200","label":"Galfer 305 mg Hard Capsules","subtext":"iron support","meta":{"brand":"Galfer","generic":"FERROUS FUMARATE","form":"HARD CAPSULE","formGroup":"Oral solid","route":"Oral","mainIndication":"iron support","secondaryIndications":"anaemia support","otcCategory":"ANTIANEMIC PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"FERROUS FUMARATE 305 milligram(s)","packSizeText":"Review manually","atcCode":"B03AA02","status":"Authorised","supplierCatalogKey":"galfer 305 mg hard capsules"}},{"id":"product:P0465","nodeType":"product","refId":"P0465","label":"TOTYLEM 60 mg/0.4 mg, film-coated tablet","subtext":"iron support","meta":{"brand":"TOTYLEM","generic":"FERROUS GLUCONATE | FOLIC ACID","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"iron support","secondaryIndications":"anaemia support","otcCategory":"ANTIANEMIC PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"FERROUS GLUCONATE 60 milligram(s) | FOLIC ACID 0.40 milligram(s)","packSizeText":"Review manually","atcCode":"B03AD05","status":"Authorised","supplierCatalogKey":"totylem 60 mg/0.4 mg, film-coated tablet"}},{"id":"product:P0466","nodeType":"product","refId":"P0466","label":"TOT’HEMA oral solution","subtext":"iron support","meta":{"brand":"TOT","generic":"COPPER GLUCONATE | IRON GLUCONATE | MANGANESE GLUCONATE","form":"ORAL SOLUTION","formGroup":"Oral liquid","route":"Oral","mainIndication":"iron support","secondaryIndications":"anaemia support","otcCategory":"ANTIANEMIC PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"IRON GLUCONATE 50/10 milligram(s)/millilitre | MANGANESE GLUCONATE 1.33/10 milligram(s)/millilitre | COPPER GLUCONATE 0.70/10 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"B03AE10","status":"Authorised","supplierCatalogKey":"tot’hema oral solution"}},{"id":"product:P0476","nodeType":"product","refId":"P0476","label":"Tot''hema Oral Solution in ampoules","subtext":"iron support","meta":{"brand":"Tot","generic":"COPPER | IRON | MANGANESE","form":"ORAL SOLUTION","formGroup":"Oral liquid","route":"Oral","mainIndication":"iron support","secondaryIndications":"anaemia support","otcCategory":"ANTIANEMIC PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"COPPER 0.7 milligram(s) | IRON 50 milligram(s) | MANGANESE 1.33 milligram(s)","packSizeText":"Review manually","atcCode":"B03AE10","status":"Authorised","supplierCatalogKey":"tot''hema oral solution in ampoules"}}],"links":[{"key":"0411c15dfbb8d651","source":"symptom:S039","target":"product:P0183","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00599","role":"Primary","reviewStatus":"Seeded"}},{"key":"8d84d44b2816f17a","source":"symptom:S039","target":"product:P0184","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00601","role":"Primary","reviewStatus":"Seeded"}},{"key":"5eca6e199615c710","source":"symptom:S039","target":"product:P0185","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00603","role":"Primary","reviewStatus":"Seeded"}},{"key":"cb9ce39b61b7d5bb","source":"symptom:S039","target":"product:P0186","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00605","role":"Primary","reviewStatus":"Seeded"}},{"key":"b882afff79a07dc5","source":"symptom:S039","target":"product:P0187","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00607","role":"Primary","reviewStatus":"Seeded"}},{"key":"28284cf3a32470ba","source":"symptom:S039","target":"product:P0188","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00609","role":"Primary","reviewStatus":"Seeded"}},{"key":"edc1df1f42c341c9","source":"symptom:S039","target":"product:P0199","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00647","role":"Primary","reviewStatus":"Seeded"}},{"key":"7c19f49fb3409993","source":"symptom:S039","target":"product:P0200","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00649","role":"Primary","reviewStatus":"Seeded"}},{"key":"a63784b1df55d8c0","source":"symptom:S039","target":"product:P0465","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM01534","role":"Primary","reviewStatus":"Seeded"}},{"key":"a96465376d248c14","source":"symptom:S039","target":"product:P0466","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM01536","role":"Primary","reviewStatus":"Seeded"}},{"key":"5e931d54e0ca7e68","source":"symptom:S039","target":"product:P0476","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM01577","role":"Primary","reviewStatus":"Seeded"}}],"meta":{"symptomName":"iron support","linkCount":11}}
+{
+  "centerId": "symptom:S039",
+  "centerType": "symptom",
+  "refId": "S039",
+  "nodes": [
+    {
+      "id": "symptom:S039",
+      "nodeType": "symptom",
+      "refId": "S039",
+      "label": "iron support",
+      "subtext": "Supplements",
+      "meta": {
+        "Symptom_ID": "S039",
+        "Symptom_Name": "iron support",
+        "Symptom_Category": "Supplements",
+        "Linked_Product_Count": 11,
+        "Display_Group": "Supplements",
+        "Priority_For_Graph": 85,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "product:P0183",
+      "nodeType": "product",
+      "refId": "P0183",
+      "label": "Ferrograd 325mg Prolonged release Tablets",
+      "subtext": "iron support",
+      "meta": {
+        "brand": "Ferrograd",
+        "generic": "FERROUS SULFATE",
+        "form": "PROLONGED-RELEASE TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "iron support",
+        "secondaryIndications": "anaemia support",
+        "otcCategory": "ANTIANEMIC PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "FERROUS SULFATE 325 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "B03AA07",
+        "status": "Authorised",
+        "supplierCatalogKey": "ferrograd 325mg prolonged release tablets"
+      }
+    },
+    {
+      "id": "product:P0184",
+      "nodeType": "product",
+      "refId": "P0184",
+      "label": "Ferrograd Folic 325mg/0.35mg Prolonged release Tablets",
+      "subtext": "iron support",
+      "meta": {
+        "brand": "Ferrograd",
+        "generic": "FERROUS SULFATE | FOLIC ACID",
+        "form": "PROLONGED-RELEASE TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "iron support",
+        "secondaryIndications": "anaemia support",
+        "otcCategory": "ANTIANEMIC PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "FERROUS SULFATE 325 milligram(s) | FOLIC ACID 0.35 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "B03AA07",
+        "status": "Authorised",
+        "supplierCatalogKey": "ferrograd folic 325mg/0.35mg prolonged release tablets"
+      }
+    },
+    {
+      "id": "product:P0185",
+      "nodeType": "product",
+      "refId": "P0185",
+      "label": "Ferrous Fumarate 200 mg film coated tablets",
+      "subtext": "iron support",
+      "meta": {
+        "brand": "Ferrous",
+        "generic": "FERROUS FUMARATE",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "iron support",
+        "secondaryIndications": "anaemia support",
+        "otcCategory": "ANTIANEMIC PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "FERROUS FUMARATE 200 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "B03AA02",
+        "status": "Authorised",
+        "supplierCatalogKey": "ferrous fumarate 200 mg film coated tablets"
+      }
+    },
+    {
+      "id": "product:P0186",
+      "nodeType": "product",
+      "refId": "P0186",
+      "label": "Ferrous Gluconate Tablets 300 mg",
+      "subtext": "iron support",
+      "meta": {
+        "brand": "Ferrous",
+        "generic": "FERROUS GLUCONATE",
+        "form": "TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "iron support",
+        "secondaryIndications": "anaemia support",
+        "otcCategory": "ANTIANEMIC PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "FERROUS GLUCONATE 300 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "B03AA03",
+        "status": "Authorised",
+        "supplierCatalogKey": "ferrous gluconate tablets 300 mg"
+      }
+    },
+    {
+      "id": "product:P0187",
+      "nodeType": "product",
+      "refId": "P0187",
+      "label": "Ferrous Sulfate Tablets 200mg",
+      "subtext": "iron support",
+      "meta": {
+        "brand": "Ferrous",
+        "generic": "FERROUS SULFATE",
+        "form": "COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "iron support",
+        "secondaryIndications": "anaemia support",
+        "otcCategory": "ANTIANEMIC PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "FERROUS SULFATE 200 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "B03AA07",
+        "status": "Authorised",
+        "supplierCatalogKey": "ferrous sulfate tablets 200mg"
+      }
+    },
+    {
+      "id": "product:P0188",
+      "nodeType": "product",
+      "refId": "P0188",
+      "label": "Ferrous Sulfate Tablets BP 200mg",
+      "subtext": "iron support",
+      "meta": {
+        "brand": "Ferrous",
+        "generic": "FERROUS SULFATE",
+        "form": "TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "iron support",
+        "secondaryIndications": "anaemia support",
+        "otcCategory": "ANTIANEMIC PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "FERROUS SULFATE 200 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "B03AA07",
+        "status": "Authorised",
+        "supplierCatalogKey": "ferrous sulfate tablets bp 200mg"
+      }
+    },
+    {
+      "id": "product:P0199",
+      "nodeType": "product",
+      "refId": "P0199",
+      "label": "Galfer 140 mg/5ml Oral Suspension",
+      "subtext": "iron support",
+      "meta": {
+        "brand": "Galfer",
+        "generic": "FERROUS FUMARATE",
+        "form": "ORAL SUSPENSION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "iron support",
+        "secondaryIndications": "anaemia support",
+        "otcCategory": "ANTIANEMIC PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "FERROUS FUMARATE 140 milligram(s)/5 millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "B03AA02",
+        "status": "Authorised",
+        "supplierCatalogKey": "galfer 140 mg/5ml oral suspension"
+      }
+    },
+    {
+      "id": "product:P0200",
+      "nodeType": "product",
+      "refId": "P0200",
+      "label": "Galfer 305 mg Hard Capsules",
+      "subtext": "iron support",
+      "meta": {
+        "brand": "Galfer",
+        "generic": "FERROUS FUMARATE",
+        "form": "HARD CAPSULE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "iron support",
+        "secondaryIndications": "anaemia support",
+        "otcCategory": "ANTIANEMIC PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "FERROUS FUMARATE 305 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "B03AA02",
+        "status": "Authorised",
+        "supplierCatalogKey": "galfer 305 mg hard capsules"
+      }
+    },
+    {
+      "id": "product:P0465",
+      "nodeType": "product",
+      "refId": "P0465",
+      "label": "TOTYLEM 60 mg/0.4 mg, film-coated tablet",
+      "subtext": "iron support",
+      "meta": {
+        "brand": "TOTYLEM",
+        "generic": "FERROUS GLUCONATE | FOLIC ACID",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "iron support",
+        "secondaryIndications": "anaemia support",
+        "otcCategory": "ANTIANEMIC PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "FERROUS GLUCONATE 60 milligram(s) | FOLIC ACID 0.40 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "B03AD05",
+        "status": "Authorised",
+        "supplierCatalogKey": "totylem 60 mg/0.4 mg, film-coated tablet"
+      }
+    },
+    {
+      "id": "product:P0466",
+      "nodeType": "product",
+      "refId": "P0466",
+      "label": "TOT\u2019HEMA oral solution",
+      "subtext": "iron support",
+      "meta": {
+        "brand": "TOT",
+        "generic": "COPPER GLUCONATE | IRON GLUCONATE | MANGANESE GLUCONATE",
+        "form": "ORAL SOLUTION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "iron support",
+        "secondaryIndications": "anaemia support",
+        "otcCategory": "ANTIANEMIC PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "IRON GLUCONATE 50/10 milligram(s)/millilitre | MANGANESE GLUCONATE 1.33/10 milligram(s)/millilitre | COPPER GLUCONATE 0.70/10 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "B03AE10",
+        "status": "Authorised",
+        "supplierCatalogKey": "tot\u2019hema oral solution"
+      }
+    },
+    {
+      "id": "product:P0476",
+      "nodeType": "product",
+      "refId": "P0476",
+      "label": "Tot''hema Oral Solution in ampoules",
+      "subtext": "iron support",
+      "meta": {
+        "brand": "Tot",
+        "generic": "COPPER | IRON | MANGANESE",
+        "form": "ORAL SOLUTION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "iron support",
+        "secondaryIndications": "anaemia support",
+        "otcCategory": "ANTIANEMIC PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "COPPER 0.7 milligram(s) | IRON 50 milligram(s) | MANGANESE 1.33 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "B03AE10",
+        "status": "Authorised",
+        "supplierCatalogKey": "tot''hema oral solution in ampoules"
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "a18e966ddd9cf272",
+      "source": "product:P0183",
+      "target": "symptom:S039",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00599"
+      }
+    },
+    {
+      "key": "d6e2318bf40e158d",
+      "source": "product:P0184",
+      "target": "symptom:S039",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00601"
+      }
+    },
+    {
+      "key": "46448dadeb487072",
+      "source": "product:P0185",
+      "target": "symptom:S039",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00603"
+      }
+    },
+    {
+      "key": "d545765576d184a4",
+      "source": "product:P0186",
+      "target": "symptom:S039",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00605"
+      }
+    },
+    {
+      "key": "e54ea7c0e892b9f4",
+      "source": "product:P0187",
+      "target": "symptom:S039",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00607"
+      }
+    },
+    {
+      "key": "9bd20b66de632bb9",
+      "source": "product:P0188",
+      "target": "symptom:S039",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00609"
+      }
+    },
+    {
+      "key": "188385ee53262bbb",
+      "source": "product:P0199",
+      "target": "symptom:S039",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00647"
+      }
+    },
+    {
+      "key": "d8fc7a881f8f2845",
+      "source": "product:P0200",
+      "target": "symptom:S039",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00649"
+      }
+    },
+    {
+      "key": "ded39084ff42b773",
+      "source": "product:P0465",
+      "target": "symptom:S039",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01534"
+      }
+    },
+    {
+      "key": "80f3a6bdb42bf97a",
+      "source": "product:P0466",
+      "target": "symptom:S039",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01536"
+      }
+    },
+    {
+      "key": "100959d78e4db15d",
+      "source": "product:P0476",
+      "target": "symptom:S039",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01577"
+      }
+    }
+  ]
+}

@@ -1,0 +1,65 @@
+{
+  "centerId": "symptom:S086",
+  "centerType": "symptom",
+  "refId": "S086",
+  "nodes": [
+    {
+      "id": "symptom:S086",
+      "nodeType": "symptom",
+      "refId": "S086",
+      "label": "fatigue",
+      "subtext": "General",
+      "meta": {
+        "Symptom_ID": "S086",
+        "Symptom_Name": "fatigue",
+        "Symptom_Category": "General",
+        "Display_Group": "General",
+        "Linked_Product_Count": 0,
+        "Priority_For_Graph": 100,
+        "Node_Color": "#feca57"
+      }
+    },
+    {
+      "id": "product:P0431",
+      "nodeType": "product",
+      "refId": "P0431",
+      "label": "STIMOL 1g/10ml, oral solution in sachet",
+      "subtext": "fatigue",
+      "meta": {
+        "brand": "STIMOL",
+        "generic": "CITRULLINE MALEATE",
+        "form": "ORAL SOLUTION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "fatigue",
+        "secondaryIndications": "supplementation",
+        "otcCategory": "TONICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CITRULLINE MALEATE 10 gram(s)/100 millilitres",
+        "packSizeText": "Review manually",
+        "atcCode": "A13A",
+        "status": "Authorised",
+        "supplierCatalogKey": "stimol 1g/10ml, oral solution in sachet"
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "f5e60fae9c8911d3",
+      "source": "product:P0431",
+      "target": "symptom:S086",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Indication-based assignment",
+      "meta": {
+        "mapId": "PSM01814"
+      }
+    }
+  ]
+}

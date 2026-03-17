@@ -1,1 +1,296 @@
-{"centerId":"product:P0464","centerType":"product","refId":"P0464","nodes":[{"id":"product:P0464","nodeType":"product","refId":"P0464","label":"Systral 15 mg/g ointment","subtext":"itching","meta":{"brand":"Systral","generic":"CHLORPHENOXAMINE HYDROCHLORIDE","form":"OINTMENT","formGroup":"Topical","route":"Topical","mainIndication":"itching","secondaryIndications":"bites | skin irritation","otcCategory":"ANTIPRURITICS, INCL. ANTIHISTAMINES, ANESTHETICS, ETC.","seasonalGroup":"Spring / allergy","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CHLORPHENOXAMINE HYDROCHLORIDE 15 milligram(s)/gram","packSizeText":"Review manually","atcCode":"D04AA34","status":"Authorised","supplierCatalogKey":"systral 15 mg/g ointment"}},{"id":"product:P0033","nodeType":"product","refId":"P0033","label":"BIAFINE, emulsion for cutaneous application","subtext":"review needed","meta":{"brand":"BIAFINE","generic":"TROLAMINE","form":"CUTANEOUS EMULSION","formGroup":"Topical","route":"Topical","mainIndication":"review needed","secondaryIndications":null,"otcCategory":"EMOLLIENTS AND PROTECTIVES","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"TROLAMINE 0.67 percent weight/weight","packSizeText":"Review manually","atcCode":"D02AX","status":"Authorised","supplierCatalogKey":"biafine, emulsion for cutaneous application"}},{"id":"product:P0158","nodeType":"product","refId":"P0158","label":"E45 Cream White Soft Paraffin 14.5% w/w Light Liquid Paraffin 12.6% w/w Anhydrous Lanolin 1.0% w/w","subtext":"review needed","meta":{"brand":"E45","generic":"LANOLIN | LIGHT LIQUID PARAFFIN | WHITE SOFT PARAFFIN","form":"CREAM","formGroup":"Topical","route":"Topical","mainIndication":"review needed","secondaryIndications":null,"otcCategory":"EMOLLIENTS AND PROTECTIVES","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"LANOLIN 1 percent weight/weight | WHITE SOFT PARAFFIN 14.5 percent weight/weight | LIGHT LIQUID PARAFFIN  12.6 percent weight/weight","packSizeText":"Review manually","atcCode":"D02AC","status":"Authorised","supplierCatalogKey":"e45 cream white soft paraffin 14.5% w/w light liquid paraffin 12.6% w/w anhydrous lanolin 1.0% w/w"}},{"id":"product:P0462","nodeType":"product","refId":"P0462","label":"Sudocrem Antiseptic Healing Cream","subtext":"review needed","meta":{"brand":"Sudocrem","generic":"BENZYL ALCOHOL | BENZYL BENZOATE | BENZYL CINNAMATE | LANOLIN | ZINC OXIDE","form":"CREAM","formGroup":"Topical","route":"Topical","mainIndication":"review needed","secondaryIndications":null,"otcCategory":"EMOLLIENTS AND PROTECTIVES","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":5,"strengthText":"BENZYL BENZOATE 1.02 percent weight/weight | BENZYL ALCOHOL 0.39 percent weight/weight | ZINC OXIDE 15.29 percent weight/weight | BENZYL CINNAMATE 0.15 percent weight/weight | LANOLIN 4.02 percent weight/weight","packSizeText":"Review manually","atcCode":"D02AB","status":"Authorised","supplierCatalogKey":"sudocrem antiseptic healing cream"}},{"id":"symptom:S040","nodeType":"symptom","refId":"S040","label":"itching","subtext":"Cold / allergy","meta":{"Symptom_ID":"S040","Symptom_Name":"itching","Symptom_Category":"Cold / allergy","Linked_Product_Count":29,"Display_Group":"Cold / allergy","Priority_For_Graph":100,"Node_Color":"#70AD47","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"symptom:S009","nodeType":"symptom","refId":"S009","label":"bites","subtext":"General","meta":{"Symptom_ID":"S009","Symptom_Name":"bites","Symptom_Category":"General","Linked_Product_Count":6,"Display_Group":"General","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"symptom:S059","nodeType":"symptom","refId":"S059","label":"skin irritation","subtext":"General","meta":{"Symptom_ID":"S059","Symptom_Name":"skin irritation","Symptom_Category":"General","Linked_Product_Count":6,"Display_Group":"General","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"usecase:UC002","nodeType":"usecase","refId":"UC002","label":"Allergy day support","subtext":"Cold / allergy","meta":{"UseCase_ID":"UC002","UseCase_Name":"Allergy day support","UseCase_Category":"Cold / allergy","Trigger_Symptoms":"Sneezing, runny nose, itchy eyes, blocked nose","Description":"Non-drowsy antihistamine plus targeted nasal or eye support."}},{"id":"usecase:UC010","nodeType":"usecase","refId":"UC010","label":"Athlete foot and fungal skin care","subtext":"Skin","meta":{"UseCase_ID":"UC010","UseCase_Name":"Athlete foot and fungal skin care","UseCase_Category":"Skin","Trigger_Symptoms":"Fungal skin infection, athlete foot, itch","Description":"Antifungal core with hygiene/support products."}}],"links":[{"key":"1ddd32057df7eb6d","source":"product:P0464","target":"product:P0033","rel":"complement","label":"Itch relief + skin barrier","score":79,"why":"Combines itch relief with moisturising or protective care.","meta":{"edgeId":"E16208","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":79,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Itch relief + skin barrier","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"85551a1cf04fd834","source":"product:P0464","target":"product:P0158","rel":"complement","label":"Itch relief + skin barrier","score":79,"why":"Combines itch relief with moisturising or protective care.","meta":{"edgeId":"E16209","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":79,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Itch relief + skin barrier","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"cb8fcdd86d91ffed","source":"product:P0464","target":"product:P0462","rel":"complement","label":"Itch relief + skin barrier","score":79,"why":"Combines itch relief with moisturising or protective care.","meta":{"edgeId":"E16210","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":79,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Itch relief + skin barrier","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"1e6053bc5fead3aa","source":"product:P0464","target":"symptom:S040","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM01531","role":"Primary","reviewStatus":"Seeded"}},{"key":"08f1521a28ef95ec","source":"product:P0464","target":"symptom:S009","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01532","role":"Primary","reviewStatus":"Seeded"}},{"key":"97b6f0eb0a63c803","source":"product:P0464","target":"symptom:S059","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM01533","role":"Secondary","reviewStatus":"Seeded"}},{"key":"d4153d3d4001abcd","source":"product:P0464","target":"usecase:UC002","rel":"usecase","label":"Targeted support","score":80,"why":"itching","meta":{"useCaseItemId":"UCI00168","role":"Targeted support","reviewStatus":"Seeded"}},{"key":"5adb5cb494fec544","source":"product:P0464","target":"usecase:UC010","rel":"usecase","label":"Targeted support","score":80,"why":"itching","meta":{"useCaseItemId":"UCI00573","role":"Targeted support","reviewStatus":"Seeded"}}],"meta":{"productName":"Systral 15 mg/g ointment","linkCount":8}}
+{
+  "centerId": "product:P0464",
+  "centerType": "product",
+  "refId": "P0464",
+  "nodes": [
+    {
+      "id": "product:P0464",
+      "nodeType": "product",
+      "refId": "P0464",
+      "label": "Systral 15 mg/g ointment",
+      "subtext": "itching",
+      "meta": {
+        "brand": "Systral",
+        "generic": "CHLORPHENOXAMINE HYDROCHLORIDE",
+        "form": "OINTMENT",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "itching",
+        "secondaryIndications": "bites | skin irritation",
+        "otcCategory": "ANTIPRURITICS, INCL. ANTIHISTAMINES, ANESTHETICS, ETC.",
+        "seasonalGroup": "Spring / allergy",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CHLORPHENOXAMINE HYDROCHLORIDE 15 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D04AA34",
+        "status": "Authorised",
+        "supplierCatalogKey": "systral 15 mg/g ointment"
+      }
+    },
+    {
+      "id": "product:P0033",
+      "nodeType": "product",
+      "refId": "P0033",
+      "label": "BIAFINE, emulsion for cutaneous application",
+      "subtext": "skin irritation",
+      "meta": {
+        "brand": "BIAFINE",
+        "generic": "TROLAMINE",
+        "form": "CUTANEOUS EMULSION",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "skin irritation",
+        "secondaryIndications": "skin repair",
+        "otcCategory": "EMOLLIENTS AND PROTECTIVES",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "TROLAMINE 0.67 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "D02AX",
+        "status": "Authorised",
+        "supplierCatalogKey": "biafine, emulsion for cutaneous application"
+      }
+    },
+    {
+      "id": "product:P0158",
+      "nodeType": "product",
+      "refId": "P0158",
+      "label": "E45 Cream White Soft Paraffin 14.5% w/w Light Liquid Paraffin 12.6% w/w Anhydrous Lanolin 1.0% w/w",
+      "subtext": "skin irritation",
+      "meta": {
+        "brand": "E45",
+        "generic": "LANOLIN | LIGHT LIQUID PARAFFIN | WHITE SOFT PARAFFIN",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "skin irritation",
+        "secondaryIndications": "eczema | dermatitis",
+        "otcCategory": "EMOLLIENTS AND PROTECTIVES",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "LANOLIN 1 percent weight/weight | WHITE SOFT PARAFFIN 14.5 percent weight/weight | LIGHT LIQUID PARAFFIN  12.6 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "D02AC",
+        "status": "Authorised",
+        "supplierCatalogKey": "e45 cream white soft paraffin 14.5% w/w light liquid paraffin 12.6% w/w anhydrous lanolin 1.0% w/w"
+      }
+    },
+    {
+      "id": "product:P0462",
+      "nodeType": "product",
+      "refId": "P0462",
+      "label": "Sudocrem Antiseptic Healing Cream",
+      "subtext": "skin irritation",
+      "meta": {
+        "brand": "Sudocrem",
+        "generic": "BENZYL ALCOHOL | BENZYL BENZOATE | BENZYL CINNAMATE | LANOLIN | ZINC OXIDE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "skin irritation",
+        "secondaryIndications": "healing | wound care",
+        "otcCategory": "EMOLLIENTS AND PROTECTIVES",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 5,
+        "strengthText": "BENZYL BENZOATE 1.02 percent weight/weight | BENZYL ALCOHOL 0.39 percent weight/weight | ZINC OXIDE 15.29 percent weight/weight | BENZYL CINNAMATE 0.15 percent weight/weight | LANOLIN 4.02 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "D02AB",
+        "status": "Authorised",
+        "supplierCatalogKey": "sudocrem antiseptic healing cream"
+      }
+    },
+    {
+      "id": "symptom:S040",
+      "nodeType": "symptom",
+      "refId": "S040",
+      "label": "itching",
+      "subtext": "Cold / allergy",
+      "meta": {
+        "Symptom_ID": "S040",
+        "Symptom_Name": "itching",
+        "Symptom_Category": "Cold / allergy",
+        "Linked_Product_Count": 29,
+        "Display_Group": "Cold / allergy",
+        "Priority_For_Graph": 100,
+        "Node_Color": "#70AD47",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "symptom:S009",
+      "nodeType": "symptom",
+      "refId": "S009",
+      "label": "bites",
+      "subtext": "General",
+      "meta": {
+        "Symptom_ID": "S009",
+        "Symptom_Name": "bites",
+        "Symptom_Category": "General",
+        "Linked_Product_Count": 6,
+        "Display_Group": "General",
+        "Priority_For_Graph": 70,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "symptom:S059",
+      "nodeType": "symptom",
+      "refId": "S059",
+      "label": "skin irritation",
+      "subtext": "General",
+      "meta": {
+        "Symptom_ID": "S059",
+        "Symptom_Name": "skin irritation",
+        "Symptom_Category": "General",
+        "Linked_Product_Count": 6,
+        "Display_Group": "General",
+        "Priority_For_Graph": 70,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "usecase:UC002",
+      "nodeType": "usecase",
+      "refId": "UC002",
+      "label": "Allergy day support",
+      "subtext": "Cold / allergy",
+      "meta": {
+        "UseCase_ID": "UC002",
+        "UseCase_Name": "Allergy day support",
+        "UseCase_Category": "Cold / allergy",
+        "Trigger_Symptoms": "Sneezing, runny nose, itchy eyes, blocked nose",
+        "Description": "Non-drowsy antihistamine plus targeted nasal or eye support."
+      }
+    },
+    {
+      "id": "usecase:UC010",
+      "nodeType": "usecase",
+      "refId": "UC010",
+      "label": "Athlete foot and fungal skin care",
+      "subtext": "Skin",
+      "meta": {
+        "UseCase_ID": "UC010",
+        "UseCase_Name": "Athlete foot and fungal skin care",
+        "UseCase_Category": "Skin",
+        "Trigger_Symptoms": "Fungal skin infection, athlete foot, itch",
+        "Description": "Antifungal core with hygiene/support products."
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "1ddd32057df7eb6d",
+      "source": "product:P0464",
+      "target": "product:P0033",
+      "rel": "complement",
+      "label": "Itch relief + skin barrier",
+      "score": 79,
+      "why": "Combines itch relief with moisturising or protective care.",
+      "meta": {
+        "edgeId": "E16208"
+      }
+    },
+    {
+      "key": "85551a1cf04fd834",
+      "source": "product:P0464",
+      "target": "product:P0158",
+      "rel": "complement",
+      "label": "Itch relief + skin barrier",
+      "score": 79,
+      "why": "Combines itch relief with moisturising or protective care.",
+      "meta": {
+        "edgeId": "E16209"
+      }
+    },
+    {
+      "key": "cb8fcdd86d91ffed",
+      "source": "product:P0464",
+      "target": "product:P0462",
+      "rel": "complement",
+      "label": "Itch relief + skin barrier",
+      "score": 79,
+      "why": "Combines itch relief with moisturising or protective care.",
+      "meta": {
+        "edgeId": "E16210"
+      }
+    },
+    {
+      "key": "1e6053bc5fead3aa",
+      "source": "product:P0464",
+      "target": "symptom:S040",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01531"
+      }
+    },
+    {
+      "key": "08f1521a28ef95ec",
+      "source": "product:P0464",
+      "target": "symptom:S009",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01532"
+      }
+    },
+    {
+      "key": "97b6f0eb0a63c803",
+      "source": "product:P0464",
+      "target": "symptom:S059",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01533"
+      }
+    },
+    {
+      "key": "d4153d3d4001abcd",
+      "source": "product:P0464",
+      "target": "usecase:UC002",
+      "rel": "usecase",
+      "label": "Targeted support",
+      "score": 80,
+      "why": "itching",
+      "meta": {
+        "useCaseItemId": "UCI00168"
+      }
+    },
+    {
+      "key": "5adb5cb494fec544",
+      "source": "product:P0464",
+      "target": "usecase:UC010",
+      "rel": "usecase",
+      "label": "Targeted support",
+      "score": 80,
+      "why": "itching",
+      "meta": {
+        "useCaseItemId": "UCI00573"
+      }
+    }
+  ]
+}

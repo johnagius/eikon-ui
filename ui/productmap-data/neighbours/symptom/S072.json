@@ -1,1 +1,130 @@
-{"centerId":"symptom:S072","centerType":"symptom","refId":"S072","nodes":[{"id":"symptom:S072","nodeType":"symptom","refId":"S072","label":"ulcers","subtext":"General","meta":{"Symptom_ID":"S072","Symptom_Name":"ulcers","Symptom_Category":"General","Linked_Product_Count":2,"Display_Group":"General","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"product:P0117","nodeType":"product","refId":"P0117","label":"Contractubex 1 g / 10 g / 5000 IU / 100 g Gel","subtext":"wound care","meta":{"brand":"Contractubex","generic":"ALLANTOIN | HEPARIN SODIUM | ONION LIQUID EXTRACT","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"wound care","secondaryIndications":"healing | ulcers","otcCategory":"PREPARATIONS FOR TREATMENT OF WOUNDS AND ULCERS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"Onion Liquid extract\n 10 gram(s) | HEPARIN SODIUM 5,000 international unit(s) | ALLANTOIN 1 gram(s)","packSizeText":"Review manually","atcCode":"D03AX","status":"Authorised","supplierCatalogKey":"contractubex 1 g / 10 g / 5000 iu / 100 g gel"}},{"id":"product:P0118","nodeType":"product","refId":"P0118","label":"Contractubex Gel","subtext":"wound care","meta":{"brand":"Contractubex","generic":"ALLANTOIN | EXTRACTUM CEPAE | HEPARIN SODIUM","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"wound care","secondaryIndications":"healing | ulcers","otcCategory":"PREPARATIONS FOR TREATMENT OF WOUNDS AND ULCERS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"HEPARIN SODIUM 5000 international unit(s) | EXTRACTUM CEPAE 10 gram(s) | ALLANTOIN 1 gram(s)","packSizeText":"Review manually","atcCode":"D03AX","status":"Authorised","supplierCatalogKey":"contractubex gel"}}],"links":[{"key":"7fbd5c44d6245ee7","source":"symptom:S072","target":"product:P0117","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM00387","role":"Secondary","reviewStatus":"Seeded"}},{"key":"2083be38b359138c","source":"symptom:S072","target":"product:P0118","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM00390","role":"Secondary","reviewStatus":"Seeded"}}],"meta":{"symptomName":"ulcers","linkCount":2}}
+{
+  "centerId": "symptom:S072",
+  "centerType": "symptom",
+  "refId": "S072",
+  "nodes": [
+    {
+      "id": "symptom:S072",
+      "nodeType": "symptom",
+      "refId": "S072",
+      "label": "ulcers",
+      "subtext": "General",
+      "meta": {
+        "Symptom_ID": "S072",
+        "Symptom_Name": "ulcers",
+        "Symptom_Category": "General",
+        "Linked_Product_Count": 2,
+        "Display_Group": "General",
+        "Priority_For_Graph": 70,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "product:P0117",
+      "nodeType": "product",
+      "refId": "P0117",
+      "label": "Contractubex 1 g / 10 g / 5000 IU / 100 g Gel",
+      "subtext": "wound care",
+      "meta": {
+        "brand": "Contractubex",
+        "generic": "ALLANTOIN | HEPARIN SODIUM | ONION LIQUID EXTRACT",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "wound care",
+        "secondaryIndications": "healing | ulcers",
+        "otcCategory": "PREPARATIONS FOR TREATMENT OF WOUNDS AND ULCERS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "Onion Liquid extract\n 10 gram(s) | HEPARIN SODIUM 5,000 international unit(s) | ALLANTOIN 1 gram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "D03AX",
+        "status": "Authorised",
+        "supplierCatalogKey": "contractubex 1 g / 10 g / 5000 iu / 100 g gel"
+      }
+    },
+    {
+      "id": "product:P0118",
+      "nodeType": "product",
+      "refId": "P0118",
+      "label": "Contractubex Gel",
+      "subtext": "wound care",
+      "meta": {
+        "brand": "Contractubex",
+        "generic": "ALLANTOIN | EXTRACTUM CEPAE | HEPARIN SODIUM",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "wound care",
+        "secondaryIndications": "healing | ulcers",
+        "otcCategory": "PREPARATIONS FOR TREATMENT OF WOUNDS AND ULCERS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "HEPARIN SODIUM 5000 international unit(s) | EXTRACTUM CEPAE 10 gram(s) | ALLANTOIN 1 gram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "D03AX",
+        "status": "Authorised",
+        "supplierCatalogKey": "contractubex gel"
+      }
+    },
+    {
+      "id": "usecase:UC015",
+      "nodeType": "usecase",
+      "refId": "UC015",
+      "label": "Mouth ulcer care",
+      "subtext": "General",
+      "meta": {
+        "UseCase_ID": "UC015",
+        "UseCase_Name": "Mouth ulcer care",
+        "UseCase_Category": "General",
+        "Trigger_Symptoms": "Mouth ulcers, oral pain, canker sores",
+        "Description": "Topical gels and rinses for mouth ulcer pain relief and healing."
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "87048ecacef9f9f5",
+      "source": "product:P0117",
+      "target": "symptom:S072",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00387"
+      }
+    },
+    {
+      "key": "a7a68cae82e5703d",
+      "source": "product:P0118",
+      "target": "symptom:S072",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00390"
+      }
+    },
+    {
+      "key": "ab6a76b69975f93c",
+      "source": "symptom:S072",
+      "target": "usecase:UC015",
+      "rel": "usecase",
+      "label": "Related use case",
+      "score": 90,
+      "why": "",
+      "meta": {}
+    }
+  ]
+}

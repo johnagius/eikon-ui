@@ -1,1 +1,156 @@
-[{"UseCase_ID":"UC001","UseCase_Name":"Cold and sore throat relief","UseCase_Category":"Cold / flu","Trigger_Symptoms":"Blocked nose, sore throat, cough, throat irritation","Description":"Cold / flu plus throat support in one basket."},{"UseCase_ID":"UC002","UseCase_Name":"Allergy day support","UseCase_Category":"Cold / allergy","Trigger_Symptoms":"Sneezing, runny nose, itchy eyes, blocked nose","Description":"Non-drowsy antihistamine plus targeted nasal or eye support."},{"UseCase_ID":"UC003","UseCase_Name":"Pain and fever support","UseCase_Category":"Pain / fever","Trigger_Symptoms":"Headache, fever, body aches","Description":"Simple analgesic alternatives and add-ons."},{"UseCase_ID":"UC004","UseCase_Name":"Muscle and joint pain support","UseCase_Category":"Pain / fever","Trigger_Symptoms":"Muscle pain, joint pain, back pain, sprains","Description":"Topical plus oral pain relief combinations."},{"UseCase_ID":"UC005","UseCase_Name":"Cough chesty vs dry pathway","UseCase_Category":"Cough","Trigger_Symptoms":"Dry cough, chesty cough, mucus","Description":"Separate dry-cough suppression from mucus/chesty relief."},{"UseCase_ID":"UC006","UseCase_Name":"Reflux and indigestion relief","UseCase_Category":"Gastrointestinal","Trigger_Symptoms":"Heartburn, acid reflux, indigestion","Description":"Acid control plus quick symptom support."},{"UseCase_ID":"UC007","UseCase_Name":"Constipation support","UseCase_Category":"Gastrointestinal","Trigger_Symptoms":"Constipation, bowel movement support","Description":"Escalate from gentle to stronger options."},{"UseCase_ID":"UC008","UseCase_Name":"Diarrhoea and gut recovery","UseCase_Category":"Gastrointestinal","Trigger_Symptoms":"Diarrhoea, loose stools, gut upset","Description":"Control plus gut recovery support."},{"UseCase_ID":"UC009","UseCase_Name":"Travel sickness pack","UseCase_Category":"Travel / motion","Trigger_Symptoms":"Travel sickness, nausea, motion sickness","Description":"Core anti-motion product plus travel adjuncts."},{"UseCase_ID":"UC010","UseCase_Name":"Athlete foot and fungal skin care","UseCase_Category":"Skin","Trigger_Symptoms":"Fungal skin infection, athlete foot, itch","Description":"Antifungal core with hygiene/support products."},{"UseCase_ID":"UC011","UseCase_Name":"Vaginal thrush support","UseCase_Category":"Women's health","Trigger_Symptoms":"Vaginal infection support, intimate care","Description":"Main antifungal with comfort/intimate care add-ons."},{"UseCase_ID":"UC012","UseCase_Name":"Eye allergy and irritation support","UseCase_Category":"Eye","Trigger_Symptoms":"Eye irritation, dry eye, allergy eye symptoms","Description":"Direct eye relief with allergy support."}]
+[
+  {
+    "UseCase_ID": "UC001",
+    "UseCase_Name": "Cold and sore throat relief",
+    "UseCase_Category": "Cold / flu",
+    "Trigger_Symptoms": "Blocked nose, sore throat, cough, throat irritation",
+    "Description": "Cold / flu plus throat support in one basket."
+  },
+  {
+    "UseCase_ID": "UC002",
+    "UseCase_Name": "Allergy day support",
+    "UseCase_Category": "Cold / allergy",
+    "Trigger_Symptoms": "Sneezing, runny nose, itchy eyes, blocked nose",
+    "Description": "Non-drowsy antihistamine plus targeted nasal or eye support."
+  },
+  {
+    "UseCase_ID": "UC003",
+    "UseCase_Name": "Pain and fever support",
+    "UseCase_Category": "Pain / fever",
+    "Trigger_Symptoms": "Headache, fever, body aches",
+    "Description": "Simple analgesic alternatives and add-ons."
+  },
+  {
+    "UseCase_ID": "UC004",
+    "UseCase_Name": "Muscle and joint pain support",
+    "UseCase_Category": "Pain / fever",
+    "Trigger_Symptoms": "Muscle pain, joint pain, back pain, sprains",
+    "Description": "Topical plus oral pain relief combinations."
+  },
+  {
+    "UseCase_ID": "UC005",
+    "UseCase_Name": "Cough chesty vs dry pathway",
+    "UseCase_Category": "Cough",
+    "Trigger_Symptoms": "Dry cough, chesty cough, mucus",
+    "Description": "Separate dry-cough suppression from mucus/chesty relief."
+  },
+  {
+    "UseCase_ID": "UC006",
+    "UseCase_Name": "Reflux and indigestion relief",
+    "UseCase_Category": "Gastrointestinal",
+    "Trigger_Symptoms": "Heartburn, acid reflux, indigestion",
+    "Description": "Acid control plus quick symptom support."
+  },
+  {
+    "UseCase_ID": "UC007",
+    "UseCase_Name": "Constipation support",
+    "UseCase_Category": "Gastrointestinal",
+    "Trigger_Symptoms": "Constipation, bowel movement support",
+    "Description": "Escalate from gentle to stronger options."
+  },
+  {
+    "UseCase_ID": "UC008",
+    "UseCase_Name": "Diarrhoea and gut recovery",
+    "UseCase_Category": "Gastrointestinal",
+    "Trigger_Symptoms": "Diarrhoea, loose stools, gut upset",
+    "Description": "Control plus gut recovery support."
+  },
+  {
+    "UseCase_ID": "UC009",
+    "UseCase_Name": "Travel sickness pack",
+    "UseCase_Category": "Travel / motion",
+    "Trigger_Symptoms": "Travel sickness, nausea, motion sickness",
+    "Description": "Core anti-motion product plus travel adjuncts."
+  },
+  {
+    "UseCase_ID": "UC010",
+    "UseCase_Name": "Athlete foot and fungal skin care",
+    "UseCase_Category": "Skin",
+    "Trigger_Symptoms": "Fungal skin infection, athlete foot, itch",
+    "Description": "Antifungal core with hygiene/support products."
+  },
+  {
+    "UseCase_ID": "UC011",
+    "UseCase_Name": "Vaginal thrush support",
+    "UseCase_Category": "Women's health",
+    "Trigger_Symptoms": "Vaginal infection support, intimate care",
+    "Description": "Main antifungal with comfort/intimate care add-ons."
+  },
+  {
+    "UseCase_ID": "UC012",
+    "UseCase_Name": "Eye allergy and irritation support",
+    "UseCase_Category": "Eye",
+    "Trigger_Symptoms": "Eye irritation, dry eye, allergy eye symptoms",
+    "Description": "Direct eye relief with allergy support."
+  },
+  {
+    "UseCase_ID": "UC013",
+    "UseCase_Name": "Haemorrhoid relief",
+    "UseCase_Category": "Gastrointestinal",
+    "Trigger_Symptoms": "Haemorrhoids, rectal discomfort, itching",
+    "Description": "Topical and oral options for haemorrhoid symptom relief."
+  },
+  {
+    "UseCase_ID": "UC014",
+    "UseCase_Name": "Cold sore treatment",
+    "UseCase_Category": "Skin",
+    "Trigger_Symptoms": "Cold sores, lip blisters, herpes labialis",
+    "Description": "Antiviral cream for cold sore outbreak management."
+  },
+  {
+    "UseCase_ID": "UC015",
+    "UseCase_Name": "Mouth ulcer care",
+    "UseCase_Category": "General",
+    "Trigger_Symptoms": "Mouth ulcers, oral pain, canker sores",
+    "Description": "Topical gels and rinses for mouth ulcer pain relief and healing."
+  },
+  {
+    "UseCase_ID": "UC016",
+    "UseCase_Name": "Iron and anaemia support",
+    "UseCase_Category": "Supplements",
+    "Trigger_Symptoms": "Tiredness, iron deficiency, anaemia",
+    "Description": "Iron supplements for anaemia prevention and treatment."
+  },
+  {
+    "UseCase_ID": "UC017",
+    "UseCase_Name": "Mineral and vitamin support",
+    "UseCase_Category": "Supplements",
+    "Trigger_Symptoms": "Vitamin deficiency, mineral deficiency, supplementation",
+    "Description": "Essential vitamins and minerals for general health."
+  },
+  {
+    "UseCase_ID": "UC018",
+    "UseCase_Name": "Smoking cessation support",
+    "UseCase_Category": "Lifestyle / cessation",
+    "Trigger_Symptoms": "Quit smoking, nicotine replacement, smoking cessation",
+    "Description": "Nicotine replacement therapy and cessation aids."
+  },
+  {
+    "UseCase_ID": "UC019",
+    "UseCase_Name": "Skin repair and scar care",
+    "UseCase_Category": "Skin",
+    "Trigger_Symptoms": "Scars, skin repair, wound healing",
+    "Description": "Products for skin repair, scar reduction, and wound healing."
+  },
+  {
+    "UseCase_ID": "UC020",
+    "UseCase_Name": "Erectile dysfunction support",
+    "UseCase_Category": "Men's health",
+    "Trigger_Symptoms": "Erectile dysfunction, sexual health",
+    "Description": "PDE5 inhibitors for erectile dysfunction."
+  },
+  {
+    "UseCase_ID": "UC021",
+    "UseCase_Name": "Emergency contraception",
+    "UseCase_Category": "Women's health",
+    "Trigger_Symptoms": "Emergency contraception, morning after",
+    "Description": "Emergency hormonal contraception options."
+  },
+  {
+    "UseCase_ID": "UC022",
+    "UseCase_Name": "Sleep and relaxation",
+    "UseCase_Category": "Lifestyle / cessation",
+    "Trigger_Symptoms": "Insomnia, sleep difficulty, anxiety, relaxation",
+    "Description": "Sleep aids and calming products for occasional insomnia."
+  }
+]

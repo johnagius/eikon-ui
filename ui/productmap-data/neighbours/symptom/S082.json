@@ -1,0 +1,89 @@
+{
+  "centerId": "symptom:S082",
+  "centerType": "symptom",
+  "refId": "S082",
+  "nodes": [
+    {
+      "id": "symptom:S082",
+      "nodeType": "symptom",
+      "refId": "S082",
+      "label": "nausea",
+      "subtext": "Gastrointestinal",
+      "meta": {
+        "Symptom_ID": "S082",
+        "Symptom_Name": "nausea",
+        "Symptom_Category": "Gastrointestinal",
+        "Display_Group": "Gastrointestinal",
+        "Linked_Product_Count": 0,
+        "Priority_For_Graph": 100,
+        "Node_Color": "#48dbfb"
+      }
+    },
+    {
+      "id": "product:P0312",
+      "nodeType": "product",
+      "refId": "P0312",
+      "label": "Nausefe (10 mg + 10 mg + 10 mg) Coated Tablets",
+      "subtext": "nausea support",
+      "meta": {
+        "brand": "Nausefe",
+        "generic": "DICYCLOVERINE HYDROCHLORIDE | DOXYLAMINE SUCCINATE | PYRIDOXINE HYDROCHLORIDE",
+        "form": "COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "nausea support",
+        "secondaryIndications": "",
+        "otcCategory": "ANTIEMETICS AND ANTINAUSEANTS",
+        "seasonalGroup": "All year",
+        "sedating": "Yes",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "PYRIDOXINE HYDROCHLORIDE 10 milligram(s) | DICYCLOVERINE HYDROCHLORIDE 10 milligram(s) | DOXYLAMINE SUCCINATE 10 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A04AD",
+        "status": "Authorised",
+        "supplierCatalogKey": "nausefe (10 mg + 10 mg + 10 mg) coated tablets"
+      }
+    },
+    {
+      "id": "usecase:UC009",
+      "nodeType": "usecase",
+      "refId": "UC009",
+      "label": "Travel sickness pack",
+      "subtext": "Travel / motion",
+      "meta": {
+        "UseCase_ID": "UC009",
+        "UseCase_Name": "Travel sickness pack",
+        "UseCase_Category": "Travel / motion",
+        "Trigger_Symptoms": "Travel sickness, nausea, motion sickness",
+        "Description": "Core anti-motion product plus travel adjuncts."
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "55f0887a18fac4ed",
+      "source": "product:P0312",
+      "target": "symptom:S082",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Indication-based assignment",
+      "meta": {
+        "mapId": "PSM01813"
+      }
+    },
+    {
+      "key": "5618344c40b6b9e5",
+      "source": "symptom:S082",
+      "target": "usecase:UC009",
+      "rel": "usecase",
+      "label": "Related use case",
+      "score": 90,
+      "why": "",
+      "meta": {}
+    }
+  ]
+}

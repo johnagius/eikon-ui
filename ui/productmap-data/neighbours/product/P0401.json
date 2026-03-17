@@ -8,15 +8,15 @@
       "nodeType": "product",
       "refId": "P0401",
       "label": "Potassium iodide G.L. Pharma 65mg Tablets",
-      "subtext": "review needed",
+      "subtext": "thyroid protection",
       "meta": {
         "brand": "Potassium",
         "generic": "POTASSIUM IODIDE",
         "form": "TABLET",
         "formGroup": "Oral solid",
         "route": "Oral",
-        "mainIndication": "review needed",
-        "secondaryIndications": null,
+        "mainIndication": "thyroid protection",
+        "secondaryIndications": "",
         "otcCategory": "ALL OTHER THERAPEUTIC PRODUCTS",
         "seasonalGroup": "All year",
         "sedating": "No",
@@ -32,39 +32,60 @@
       }
     },
     {
-      "id": "symptom:S066",
+      "id": "symptom:S087",
       "nodeType": "symptom",
-      "refId": "S066",
-      "label": "supplementation",
+      "refId": "S087",
+      "label": "thyroid support",
       "subtext": "General",
       "meta": {
-        "Symptom_ID": "S066",
-        "Symptom_Name": "supplementation",
+        "Symptom_ID": "S087",
+        "Symptom_Name": "thyroid support",
         "Symptom_Category": "General",
-        "Linked_Product_Count": 7,
         "Display_Group": "General",
-        "Priority_For_Graph": 70,
-        "Node_Color": "#A5A5A5",
-        "Notes": "Seeded from imported symptom tags; refine naming over time."
+        "Linked_Product_Count": 0,
+        "Priority_For_Graph": 100,
+        "Node_Color": "#feca57"
+      }
+    },
+    {
+      "id": "usecase:UC017",
+      "nodeType": "usecase",
+      "refId": "UC017",
+      "label": "Mineral and vitamin support",
+      "subtext": "Supplements",
+      "meta": {
+        "UseCase_ID": "UC017",
+        "UseCase_Name": "Mineral and vitamin support",
+        "UseCase_Category": "Supplements",
+        "Trigger_Symptoms": "Vitamin deficiency, mineral deficiency, supplementation",
+        "Description": "Essential vitamins and minerals for general health."
       }
     }
   ],
   "links": [
     {
-      "key": "9b4dd35cfa4db8bd",
+      "key": "cd94adac44516cbf",
       "source": "product:P0401",
-      "target": "symptom:S066",
+      "target": "symptom:S087",
       "rel": "symptom",
       "label": "Primary",
-      "score": 80,
-      "why": "Manual review fix",
+      "score": 100,
+      "why": "Indication-based assignment",
       "meta": {
-        "mapId": "PSM01791"
+        "mapId": "PSM01821"
+      }
+    },
+    {
+      "key": "a58e482a6f49e914",
+      "source": "product:P0401",
+      "target": "usecase:UC017",
+      "rel": "usecase",
+      "label": "Support",
+      "score": 60,
+      "why": "Thyroid protection, iodine",
+      "meta": {
+        "useCaseItemId": "UCI00739"
       }
     }
-  ],
-  "meta": {
-    "productName": "Potassium iodide G.L. Pharma 65mg Tablets",
-    "linkCount": 1
-  }
+  ]
 }

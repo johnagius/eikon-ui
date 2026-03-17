@@ -21,17 +21,1207 @@
       }
     },
     {
-      "id": "usecase:UC003",
-      "nodeType": "usecase",
-      "refId": "UC003",
-      "label": "Pain and fever support",
-      "subtext": "Pain / fever",
+      "id": "product:P0003",
+      "nodeType": "product",
+      "refId": "P0003",
+      "label": "ALGOFREN 200 mg film-coated tablets",
+      "subtext": "inflammation",
       "meta": {
-        "UseCase_ID": "UC003",
-        "UseCase_Name": "Pain and fever support",
-        "UseCase_Category": "Pain / fever",
-        "Trigger_Symptoms": "Headache, fever, body aches",
-        "Description": "Simple analgesic alternatives and add-ons."
+        "brand": "ALGOFREN",
+        "generic": "IBUPROFEN",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 200 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "algofren 200 mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0016",
+      "nodeType": "product",
+      "refId": "P0016",
+      "label": "Advil Cold & Flu Coated Tablets Ibuprofen 200 mg Pseudoephedrine Hydrochloride 30 mg",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Advil",
+        "generic": "IBUPROFEN | PSEUDOEPHEDRINE HYDROCHLORIDE",
+        "form": "COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "IBUPROFEN 200 milligram(s) | PSEUDOEPHEDRINE HYDROCHLORIDE 30 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE51",
+        "status": "Authorised",
+        "supplierCatalogKey": "advil cold & flu coated tablets ibuprofen 200 mg pseudoephedrine hydrochloride 30 mg"
+      }
+    },
+    {
+      "id": "product:P0017",
+      "nodeType": "product",
+      "refId": "P0017",
+      "label": "Aleve Feminax for menstrual pain 275",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Aleve",
+        "generic": "NAPROXEN SODIUM",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "NAPROXEN SODIUM 275 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE02",
+        "status": "Authorised",
+        "supplierCatalogKey": "aleve feminax for menstrual pain 275"
+      }
+    },
+    {
+      "id": "product:P0018",
+      "nodeType": "product",
+      "refId": "P0018",
+      "label": "Aleve\u00ae Feminax for Period Pain 275",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Aleve",
+        "generic": "NAPROXEN SODIUM",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "NAPROXEN SODIUM 275 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE02",
+        "status": "Authorised",
+        "supplierCatalogKey": "aleve\u00ae feminax for period pain 275"
+      }
+    },
+    {
+      "id": "product:P0019",
+      "nodeType": "product",
+      "refId": "P0019",
+      "label": "Algidrin pediatric 20mg/ml oral suspension",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Algidrin",
+        "generic": "IBUPROFEN",
+        "form": "ORAL SUSPENSION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 20 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "algidrin pediatric 20mg/ml oral suspension"
+      }
+    },
+    {
+      "id": "product:P0062",
+      "nodeType": "product",
+      "refId": "P0062",
+      "label": "Brupro 200mg Film-coated tablets",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Brupro",
+        "generic": "IBUPROFEN",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 200 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "brupro 200mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0063",
+      "nodeType": "product",
+      "refId": "P0063",
+      "label": "Brupro Max 400mg Film-coated tablets",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Brupro",
+        "generic": "IBUPROFEN",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 400 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "brupro max 400mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0139",
+      "nodeType": "product",
+      "refId": "P0139",
+      "label": "Difflam Oral Rinse 0.15% w/v, gargle",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Difflam",
+        "generic": "BENZYDAMINE HYDROCHLORIDE",
+        "form": "ORAL SOLUTION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "BENZYDAMINE HYDROCHLORIDE 0.15 percent weight/volume",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AX07",
+        "status": "Authorised",
+        "supplierCatalogKey": "difflam oral rinse 0.15% w/v, gargle"
+      }
+    },
+    {
+      "id": "product:P0140",
+      "nodeType": "product",
+      "refId": "P0140",
+      "label": "Difflam Spray, 0.15% w/v, Oromucosal Spray",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Difflam",
+        "generic": "BENZYDAMINE HYDROCHLORIDE",
+        "form": "OROMUCOSAL SPRAY",
+        "formGroup": "Oral cavity / throat",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "BENZYDAMINE HYDROCHLORIDE 262.5 microgram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AX07",
+        "status": "Authorised",
+        "supplierCatalogKey": "difflam spray, 0.15% w/v, oromucosal spray"
+      }
+    },
+    {
+      "id": "product:P0148",
+      "nodeType": "product",
+      "refId": "P0148",
+      "label": "Dolenio 1178mg Film-coated Tablets",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Dolenio",
+        "generic": "GLUCOSAMINE",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "GLUCOSAMINE 1178 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AX05",
+        "status": "Authorised",
+        "supplierCatalogKey": "dolenio 1178mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0161",
+      "nodeType": "product",
+      "refId": "P0161",
+      "label": "Easofen 200mg Film-Coated Tablets",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Easofen",
+        "generic": "IBUPROFEN",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 200 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "easofen 200mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0162",
+      "nodeType": "product",
+      "refId": "P0162",
+      "label": "Easofen Max Strength 400 mg Film-coated Tablets",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Easofen",
+        "generic": "IBUPROFEN",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 400 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "easofen max strength 400 mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0163",
+      "nodeType": "product",
+      "refId": "P0163",
+      "label": "Easofen Rapid Relief Max Strength 400 mg soft capsules",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Easofen",
+        "generic": "IBUPROFEN",
+        "form": "SOFT CAPSULE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 400 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "easofen rapid relief max strength 400 mg soft capsules"
+      }
+    },
+    {
+      "id": "product:P0164",
+      "nodeType": "product",
+      "refId": "P0164",
+      "label": "Easofen for Children Six Plus Strawberry 200mg/5ml Oral Suspension",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Easofen",
+        "generic": "IBUPROFEN",
+        "form": "ORAL SUSPENSION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 200 milligram(s)/5 millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "easofen for children six plus strawberry 200mg/5ml oral suspension"
+      }
+    },
+    {
+      "id": "product:P0165",
+      "nodeType": "product",
+      "refId": "P0165",
+      "label": "Easofen for Children Strawberry 100mg/5ml Oral Suspension",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Easofen",
+        "generic": "IBUPROFEN",
+        "form": "ORAL SUSPENSION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 100 milligram(s)/5 millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "easofen for children strawberry 100mg/5ml oral suspension"
+      }
+    },
+    {
+      "id": "product:P0181",
+      "nodeType": "product",
+      "refId": "P0181",
+      "label": "Fenodex 12.5 mg film-coated tablets",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Fenodex",
+        "generic": "DEXKETOPROFEN",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DEXKETOPROFEN    12.5 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE17",
+        "status": "Authorised",
+        "supplierCatalogKey": "fenodex 12.5 mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0182",
+      "nodeType": "product",
+      "refId": "P0182",
+      "label": "Fenodex 25 mg film-coated tablets",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Fenodex",
+        "generic": "DEXKETOPROFEN",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DEXKETOPROFEN    25 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE17",
+        "status": "Authorised",
+        "supplierCatalogKey": "fenodex 25 mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0221",
+      "nodeType": "product",
+      "refId": "P0221",
+      "label": "IBUM dla dzieci, 125 mg, Suppositories",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "IBUM",
+        "generic": "IBUPROFEN",
+        "form": "SUPPOSITORY",
+        "formGroup": "Suppository / pessary",
+        "route": "Suppository / pessary",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 125 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "ibum dla dzieci, 125 mg, suppositories"
+      }
+    },
+    {
+      "id": "product:P0222",
+      "nodeType": "product",
+      "refId": "P0222",
+      "label": "IBUM dla dzieci, 60 mg, Suppositories",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "IBUM",
+        "generic": "IBUPROFEN",
+        "form": "SUPPOSITORY",
+        "formGroup": "Suppository / pessary",
+        "route": "Suppository / pessary",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 60 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "ibum dla dzieci, 60 mg, suppositories"
+      }
+    },
+    {
+      "id": "product:P0224",
+      "nodeType": "product",
+      "refId": "P0224",
+      "label": "Ibufen Baby, 60 mg, suppositories",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Ibufen",
+        "generic": "IBUPROFEN",
+        "form": "SUPPOSITORY",
+        "formGroup": "Suppository / pessary",
+        "route": "Suppository / pessary",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 60 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "ibufen baby, 60 mg, suppositories"
+      }
+    },
+    {
+      "id": "product:P0225",
+      "nodeType": "product",
+      "refId": "P0225",
+      "label": "Ibum Express Forte, 400 mg, capsules, soft",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Ibum",
+        "generic": "IBUPROFEN",
+        "form": "SOFT CAPSULE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 400 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "ibum express forte, 400 mg, capsules, soft"
+      }
+    },
+    {
+      "id": "product:P0226",
+      "nodeType": "product",
+      "refId": "P0226",
+      "label": "Ibum Sprint, 200 mg, capsules, soft",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Ibum",
+        "generic": "IBUPROFEN",
+        "form": "SOFT CAPSULE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 200 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "ibum sprint, 200 mg, capsules, soft"
+      }
+    },
+    {
+      "id": "product:P0227",
+      "nodeType": "product",
+      "refId": "P0227",
+      "label": "Ibuprofen Azevedos 20 mg/ml Oral Suspension",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Ibuprofen",
+        "generic": "IBUPROFEN",
+        "form": "ORAL SUSPENSION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 20 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "ibuprofen azevedos 20 mg/ml oral suspension"
+      }
+    },
+    {
+      "id": "product:P0228",
+      "nodeType": "product",
+      "refId": "P0228",
+      "label": "Ibuprofen Clonmel 200 mg film-coated tablets",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Ibuprofen",
+        "generic": "IBUPROFEN",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 200 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "ibuprofen clonmel 200 mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0229",
+      "nodeType": "product",
+      "refId": "P0229",
+      "label": "Ibuprofen Clonmel Max Strength 400 mg film-coated tablets",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Ibuprofen",
+        "generic": "IBUPROFEN",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 400 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "ibuprofen clonmel max strength 400 mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0230",
+      "nodeType": "product",
+      "refId": "P0230",
+      "label": "Ibuprofen Nutra Essential 40 mg / ml oral suspension",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Ibuprofen",
+        "generic": "IBUPROFEN",
+        "form": "ORAL SUSPENSION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 40 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "ibuprofen nutra essential 40 mg / ml oral suspension"
+      }
+    },
+    {
+      "id": "product:P0240",
+      "nodeType": "product",
+      "refId": "P0240",
+      "label": "Keral 25 mg oral solution in sachet",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Keral",
+        "generic": "DEXKETOPROFEN TROMETAMOL",
+        "form": "ORAL SOLUTION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DEXKETOPROFEN TROMETAMOL 25 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE17",
+        "status": "Authorised",
+        "supplierCatalogKey": "keral 25 mg oral solution in sachet"
+      }
+    },
+    {
+      "id": "product:P0241",
+      "nodeType": "product",
+      "refId": "P0241",
+      "label": "Keral 25mg  film-coated Tablets",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Keral",
+        "generic": "DEXKETOPROFEN",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DEXKETOPROFEN    25 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE17",
+        "status": "Authorised",
+        "supplierCatalogKey": "keral 25mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0242",
+      "nodeType": "product",
+      "refId": "P0242",
+      "label": "Keral 25mg granules for oral solution",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Keral",
+        "generic": "DEXKETOPROFEN",
+        "form": "GRANULES FOR ORAL SOLUTION",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DEXKETOPROFEN    25 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE17",
+        "status": "Authorised",
+        "supplierCatalogKey": "keral 25mg granules for oral solution"
+      }
+    },
+    {
+      "id": "product:P0295",
+      "nodeType": "product",
+      "refId": "P0295",
+      "label": "Moment 200, 200 mg coated tablets",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Moment",
+        "generic": "IBUPROFEN",
+        "form": "COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 200 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "moment 200, 200 mg coated tablets"
+      }
+    },
+    {
+      "id": "product:P0308",
+      "nodeType": "product",
+      "refId": "P0308",
+      "label": "NUROFEN for children 100mg/5mL oral suspension",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "NUROFEN",
+        "generic": "IBUPROFEN",
+        "form": "ORAL SUSPENSION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 20 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "nurofen for children 100mg/5ml oral suspension"
+      }
+    },
+    {
+      "id": "product:P0343",
+      "nodeType": "product",
+      "refId": "P0343",
+      "label": "Nurofen 200 mg Coated Tablets",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Nurofen",
+        "generic": "IBUPROFEN",
+        "form": "COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 200 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "nurofen 200 mg coated tablets"
+      }
+    },
+    {
+      "id": "product:P0344",
+      "nodeType": "product",
+      "refId": "P0344",
+      "label": "Nurofen Cold & Flu Film-Coated Tablets  Ibuprofen 200mg Pseudophedrine hydrochloride 30mg",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Nurofen",
+        "generic": "IBUPROFEN | PSEUDOEPHEDRINE HYDROCHLORIDE",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "IBUPROFEN 200 milligram(s) | PSEUDOEPHEDRINE HYDROCHLORIDE 30 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE51",
+        "status": "Authorised",
+        "supplierCatalogKey": "nurofen cold & flu film-coated tablets ibuprofen 200mg pseudophedrine hydrochloride 30mg"
+      }
+    },
+    {
+      "id": "product:P0346",
+      "nodeType": "product",
+      "refId": "P0346",
+      "label": "Nurofen Rapid Pain Relief Max 400 mg Soft Capsules",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Nurofen",
+        "generic": "IBUPROFEN",
+        "form": "SOFT CAPSULE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 400 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "nurofen rapid pain relief max 400 mg soft capsules"
+      }
+    },
+    {
+      "id": "product:P0347",
+      "nodeType": "product",
+      "refId": "P0347",
+      "label": "Nurofen Strawberry 20 mg/ml oral suspension",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Nurofen",
+        "generic": "IBUPROFEN",
+        "form": "ORAL SUSPENSION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 100 milligram(s)/5 millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "nurofen strawberry 20 mg/ml oral suspension"
+      }
+    },
+    {
+      "id": "product:P0348",
+      "nodeType": "product",
+      "refId": "P0348",
+      "label": "Nurofen for Children 100 mg/5 ml oral suspension",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Nurofen",
+        "generic": "IBUPROFEN",
+        "form": "ORAL SUSPENSION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 100 milligram(s)/5 millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "nurofen for children 100 mg/5 ml oral suspension"
+      }
+    },
+    {
+      "id": "product:P0349",
+      "nodeType": "product",
+      "refId": "P0349",
+      "label": "Nurofen for Children 60 mg Suppositories Age 3 months to 2 years",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Nurofen",
+        "generic": "IBUPROFEN",
+        "form": "SUPPOSITORY",
+        "formGroup": "Suppository / pessary",
+        "route": "Suppository / pessary",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 60 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "nurofen for children 60 mg suppositories age 3 months to 2 years"
+      }
+    },
+    {
+      "id": "product:P0350",
+      "nodeType": "product",
+      "refId": "P0350",
+      "label": "Nurofen for Children Orange 100 mg/5 ml oral suspension",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Nurofen",
+        "generic": "IBUPROFEN MILLIGRAM(S)",
+        "form": "ORAL SUSPENSION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN  milligram(s)/5 millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "nurofen for children orange 100 mg/5 ml oral suspension"
+      }
+    },
+    {
+      "id": "product:P0351",
+      "nodeType": "product",
+      "refId": "P0351",
+      "label": "Nurofen for children 100 mg chewable capsules, Soft",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Nurofen",
+        "generic": "IBUPROFEN",
+        "form": "CHEWABLE TABLET, SOFT CAPSULE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 100 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "nurofen for children 100 mg chewable capsules, soft"
+      }
+    },
+    {
+      "id": "product:P0356",
+      "nodeType": "product",
+      "refId": "P0356",
+      "label": "Okitask 40 mg granules",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Okitask",
+        "generic": "KETOPROFEN",
+        "form": "GRANULES FOR ORAL SOLUTION",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "KETOPROFEN 25 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE03",
+        "status": "Authorised",
+        "supplierCatalogKey": "okitask 40 mg granules"
+      }
+    },
+    {
+      "id": "product:P0395",
+      "nodeType": "product",
+      "refId": "P0395",
+      "label": "Perofen 400 mg coated tablets",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Perofen",
+        "generic": "IBUPROFEN",
+        "form": "COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 400 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "perofen 400 mg coated tablets"
+      }
+    },
+    {
+      "id": "product:P0485",
+      "nodeType": "product",
+      "refId": "P0485",
+      "label": "Ultimax 200mg film-coated tablets",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Ultimax",
+        "generic": "IBUPROFEN",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 200 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "ultimax 200mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0486",
+      "nodeType": "product",
+      "refId": "P0486",
+      "label": "Ultimax 400mg film-coated tablets",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Ultimax",
+        "generic": "IBUPROFEN",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IBUPROFEN 400 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE01",
+        "status": "Authorised",
+        "supplierCatalogKey": "ultimax 400mg film-coated tablets"
       }
     },
     {
@@ -49,599 +1239,21 @@
       }
     },
     {
-      "id": "product:P0003",
-      "nodeType": "product",
-      "refId": "P0003",
-      "label": "ALGOFREN 200 mg film-coated tablets",
-      "subtext": "inflammation",
+      "id": "usecase:UC015",
+      "nodeType": "usecase",
+      "refId": "UC015",
+      "label": "Mouth ulcer care",
+      "subtext": "General",
       "meta": {
-        "brand": "ALGOFREN",
-        "generic": "IBUPROFEN",
-        "mainIndication": "inflammation",
-        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS"
-      }
-    },
-    {
-      "id": "product:P0016",
-      "nodeType": "product",
-      "refId": "P0016",
-      "label": "Advil Cold & Flu Coated Tablets Ibuprofen 200 mg Pseudoephedrine Hydrochloride 30 mg",
-      "subtext": "inflammation",
-      "meta": {
-        "brand": "Advil",
-        "generic": "IBUPROFEN | PSEUDOEPHEDRINE HYDROCHLORIDE",
-        "mainIndication": "inflammation",
-        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS"
-      }
-    },
-    {
-      "id": "product:P0017",
-      "nodeType": "product",
-      "refId": "P0017",
-      "label": "Aleve Feminax for menstrual pain 275",
-      "subtext": "inflammation",
-      "meta": {
-        "brand": "Aleve",
-        "generic": "NAPROXEN SODIUM",
-        "mainIndication": "inflammation",
-        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS"
-      }
-    },
-    {
-      "id": "product:P0018",
-      "nodeType": "product",
-      "refId": "P0018",
-      "label": "Aleve\u00ae Feminax for Period Pain 275",
-      "subtext": "inflammation",
-      "meta": {
-        "brand": "Aleve",
-        "generic": "NAPROXEN SODIUM",
-        "mainIndication": "inflammation",
-        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS"
-      }
-    },
-    {
-      "id": "product:P0019",
-      "nodeType": "product",
-      "refId": "P0019",
-      "label": "Algidrin pediatric 20mg/ml oral suspension",
-      "subtext": "inflammation",
-      "meta": {
-        "brand": "Algidrin",
-        "generic": "IBUPROFEN",
-        "mainIndication": "inflammation",
-        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS"
-      }
-    },
-    {
-      "id": "product:P0062",
-      "nodeType": "product",
-      "refId": "P0062",
-      "label": "Brupro 200mg Film-coated tablets",
-      "subtext": "inflammation",
-      "meta": {
-        "brand": "Brupro",
-        "generic": "IBUPROFEN",
-        "mainIndication": "inflammation",
-        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS"
-      }
-    },
-    {
-      "id": "product:P0063",
-      "nodeType": "product",
-      "refId": "P0063",
-      "label": "Brupro Max 400mg Film-coated tablets",
-      "subtext": "inflammation",
-      "meta": {
-        "brand": "Brupro",
-        "generic": "IBUPROFEN",
-        "mainIndication": "inflammation",
-        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS"
-      }
-    },
-    {
-      "id": "product:P0139",
-      "nodeType": "product",
-      "refId": "P0139",
-      "label": "Difflam Oral Rinse 0.15% w/v, gargle",
-      "subtext": "inflammation",
-      "meta": {
-        "brand": "Difflam",
-        "generic": "BENZYDAMINE HYDROCHLORIDE",
-        "mainIndication": "inflammation",
-        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS"
-      }
-    },
-    {
-      "id": "product:P0140",
-      "nodeType": "product",
-      "refId": "P0140",
-      "label": "Difflam Spray, 0.15% w/v, Oromucosal Spray",
-      "subtext": "inflammation",
-      "meta": {
-        "brand": "Difflam",
-        "generic": "BENZYDAMINE HYDROCHLORIDE",
-        "mainIndication": "inflammation",
-        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS"
-      }
-    },
-    {
-      "id": "product:P0148",
-      "nodeType": "product",
-      "refId": "P0148",
-      "label": "Dolenio 1178mg Film-coated Tablets",
-      "subtext": "inflammation",
-      "meta": {
-        "brand": "Dolenio",
-        "generic": "GLUCOSAMINE",
-        "mainIndication": "inflammation",
-        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS"
-      }
-    },
-    {
-      "id": "product:P0161",
-      "nodeType": "product",
-      "refId": "P0161",
-      "label": "Easofen 200mg Film-Coated Tablets",
-      "subtext": "inflammation",
-      "meta": {
-        "brand": "Easofen",
-        "generic": "IBUPROFEN",
-        "mainIndication": "inflammation",
-        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS"
-      }
-    },
-    {
-      "id": "product:P0162",
-      "nodeType": "product",
-      "refId": "P0162",
-      "label": "Easofen Max Strength 400 mg Film-coated Tablets",
-      "subtext": "inflammation",
-      "meta": {
-        "brand": "Easofen",
-        "generic": "IBUPROFEN",
-        "mainIndication": "inflammation",
-        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS"
-      }
-    },
-    {
-      "id": "product:P0163",
-      "nodeType": "product",
-      "refId": "P0163",
-      "label": "Easofen Rapid Relief Max Strength 400 mg soft capsules",
-      "subtext": "inflammation",
-      "meta": {
-        "brand": "Easofen",
-        "generic": "IBUPROFEN",
-        "mainIndication": "inflammation",
-        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS"
-      }
-    },
-    {
-      "id": "product:P0164",
-      "nodeType": "product",
-      "refId": "P0164",
-      "label": "Easofen for Children Six Plus Strawberry 200mg/5ml Oral Suspension",
-      "subtext": "inflammation",
-      "meta": {
-        "brand": "Easofen",
-        "generic": "IBUPROFEN",
-        "mainIndication": "inflammation",
-        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS"
-      }
-    },
-    {
-      "id": "product:P0165",
-      "nodeType": "product",
-      "refId": "P0165",
-      "label": "Easofen for Children Strawberry 100mg/5ml Oral Suspension",
-      "subtext": "inflammation",
-      "meta": {
-        "brand": "Easofen",
-        "generic": "IBUPROFEN",
-        "mainIndication": "inflammation",
-        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS"
-      }
-    },
-    {
-      "id": "product:P0181",
-      "nodeType": "product",
-      "refId": "P0181",
-      "label": "Fenodex 12.5 mg film-coated tablets",
-      "subtext": "inflammation",
-      "meta": {
-        "brand": "Fenodex",
-        "generic": "DEXKETOPROFEN",
-        "mainIndication": "inflammation",
-        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS"
-      }
-    },
-    {
-      "id": "product:P0182",
-      "nodeType": "product",
-      "refId": "P0182",
-      "label": "Fenodex 25 mg film-coated tablets",
-      "subtext": "inflammation",
-      "meta": {
-        "brand": "Fenodex",
-        "generic": "DEXKETOPROFEN",
-        "mainIndication": "inflammation",
-        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS"
-      }
-    },
-    {
-      "id": "product:P0221",
-      "nodeType": "product",
-      "refId": "P0221",
-      "label": "IBUM dla dzieci, 125 mg, Suppositories",
-      "subtext": "inflammation",
-      "meta": {
-        "brand": "IBUM",
-        "generic": "IBUPROFEN",
-        "mainIndication": "inflammation",
-        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS"
-      }
-    },
-    {
-      "id": "product:P0222",
-      "nodeType": "product",
-      "refId": "P0222",
-      "label": "IBUM dla dzieci, 60 mg, Suppositories",
-      "subtext": "inflammation",
-      "meta": {
-        "brand": "IBUM",
-        "generic": "IBUPROFEN",
-        "mainIndication": "inflammation",
-        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS"
-      }
-    },
-    {
-      "id": "product:P0224",
-      "nodeType": "product",
-      "refId": "P0224",
-      "label": "Ibufen Baby, 60 mg, suppositories",
-      "subtext": "inflammation",
-      "meta": {
-        "brand": "Ibufen",
-        "generic": "IBUPROFEN",
-        "mainIndication": "inflammation",
-        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS"
-      }
-    },
-    {
-      "id": "product:P0225",
-      "nodeType": "product",
-      "refId": "P0225",
-      "label": "Ibum Express Forte, 400 mg, capsules, soft",
-      "subtext": "inflammation",
-      "meta": {
-        "brand": "Ibum",
-        "generic": "IBUPROFEN",
-        "mainIndication": "inflammation",
-        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS"
-      }
-    },
-    {
-      "id": "product:P0226",
-      "nodeType": "product",
-      "refId": "P0226",
-      "label": "Ibum Sprint, 200 mg, capsules, soft",
-      "subtext": "inflammation",
-      "meta": {
-        "brand": "Ibum",
-        "generic": "IBUPROFEN",
-        "mainIndication": "inflammation",
-        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS"
-      }
-    },
-    {
-      "id": "product:P0227",
-      "nodeType": "product",
-      "refId": "P0227",
-      "label": "Ibuprofen Azevedos 20 mg/ml Oral Suspension",
-      "subtext": "inflammation",
-      "meta": {
-        "brand": "Ibuprofen",
-        "generic": "IBUPROFEN",
-        "mainIndication": "inflammation",
-        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS"
-      }
-    },
-    {
-      "id": "product:P0228",
-      "nodeType": "product",
-      "refId": "P0228",
-      "label": "Ibuprofen Clonmel 200 mg film-coated tablets",
-      "subtext": "inflammation",
-      "meta": {
-        "brand": "Ibuprofen",
-        "generic": "IBUPROFEN",
-        "mainIndication": "inflammation",
-        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS"
-      }
-    },
-    {
-      "id": "product:P0229",
-      "nodeType": "product",
-      "refId": "P0229",
-      "label": "Ibuprofen Clonmel Max Strength 400 mg film-coated tablets",
-      "subtext": "inflammation",
-      "meta": {
-        "brand": "Ibuprofen",
-        "generic": "IBUPROFEN",
-        "mainIndication": "inflammation",
-        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS"
-      }
-    },
-    {
-      "id": "product:P0230",
-      "nodeType": "product",
-      "refId": "P0230",
-      "label": "Ibuprofen Nutra Essential 40 mg / ml oral suspension",
-      "subtext": "inflammation",
-      "meta": {
-        "brand": "Ibuprofen",
-        "generic": "IBUPROFEN",
-        "mainIndication": "inflammation",
-        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS"
-      }
-    },
-    {
-      "id": "product:P0240",
-      "nodeType": "product",
-      "refId": "P0240",
-      "label": "Keral 25 mg oral solution in sachet",
-      "subtext": "inflammation",
-      "meta": {
-        "brand": "Keral",
-        "generic": "DEXKETOPROFEN TROMETAMOL",
-        "mainIndication": "inflammation",
-        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS"
-      }
-    },
-    {
-      "id": "product:P0241",
-      "nodeType": "product",
-      "refId": "P0241",
-      "label": "Keral 25mg  film-coated Tablets",
-      "subtext": "inflammation",
-      "meta": {
-        "brand": "Keral",
-        "generic": "DEXKETOPROFEN",
-        "mainIndication": "inflammation",
-        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS"
-      }
-    },
-    {
-      "id": "product:P0242",
-      "nodeType": "product",
-      "refId": "P0242",
-      "label": "Keral 25mg granules for oral solution",
-      "subtext": "inflammation",
-      "meta": {
-        "brand": "Keral",
-        "generic": "DEXKETOPROFEN",
-        "mainIndication": "inflammation",
-        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS"
-      }
-    },
-    {
-      "id": "product:P0295",
-      "nodeType": "product",
-      "refId": "P0295",
-      "label": "Moment 200, 200 mg coated tablets",
-      "subtext": "inflammation",
-      "meta": {
-        "brand": "Moment",
-        "generic": "IBUPROFEN",
-        "mainIndication": "inflammation",
-        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS"
-      }
-    },
-    {
-      "id": "product:P0308",
-      "nodeType": "product",
-      "refId": "P0308",
-      "label": "NUROFEN for children 100mg/5mL oral suspension",
-      "subtext": "inflammation",
-      "meta": {
-        "brand": "NUROFEN",
-        "generic": "IBUPROFEN",
-        "mainIndication": "inflammation",
-        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS"
-      }
-    },
-    {
-      "id": "product:P0343",
-      "nodeType": "product",
-      "refId": "P0343",
-      "label": "Nurofen 200 mg Coated Tablets",
-      "subtext": "inflammation",
-      "meta": {
-        "brand": "Nurofen",
-        "generic": "IBUPROFEN",
-        "mainIndication": "inflammation",
-        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS"
-      }
-    },
-    {
-      "id": "product:P0344",
-      "nodeType": "product",
-      "refId": "P0344",
-      "label": "Nurofen Cold & Flu Film-Coated Tablets  Ibuprofen 200mg Pseudophedrine hydrochloride 30mg",
-      "subtext": "inflammation",
-      "meta": {
-        "brand": "Nurofen",
-        "generic": "IBUPROFEN | PSEUDOEPHEDRINE HYDROCHLORIDE",
-        "mainIndication": "inflammation",
-        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS"
-      }
-    },
-    {
-      "id": "product:P0346",
-      "nodeType": "product",
-      "refId": "P0346",
-      "label": "Nurofen Rapid Pain Relief Max 400 mg Soft Capsules",
-      "subtext": "inflammation",
-      "meta": {
-        "brand": "Nurofen",
-        "generic": "IBUPROFEN",
-        "mainIndication": "inflammation",
-        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS"
-      }
-    },
-    {
-      "id": "product:P0347",
-      "nodeType": "product",
-      "refId": "P0347",
-      "label": "Nurofen Strawberry 20 mg/ml oral suspension",
-      "subtext": "inflammation",
-      "meta": {
-        "brand": "Nurofen",
-        "generic": "IBUPROFEN",
-        "mainIndication": "inflammation",
-        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS"
-      }
-    },
-    {
-      "id": "product:P0348",
-      "nodeType": "product",
-      "refId": "P0348",
-      "label": "Nurofen for Children 100 mg/5 ml oral suspension",
-      "subtext": "inflammation",
-      "meta": {
-        "brand": "Nurofen",
-        "generic": "IBUPROFEN",
-        "mainIndication": "inflammation",
-        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS"
-      }
-    },
-    {
-      "id": "product:P0349",
-      "nodeType": "product",
-      "refId": "P0349",
-      "label": "Nurofen for Children 60 mg Suppositories Age 3 months to 2 years",
-      "subtext": "inflammation",
-      "meta": {
-        "brand": "Nurofen",
-        "generic": "IBUPROFEN",
-        "mainIndication": "inflammation",
-        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS"
-      }
-    },
-    {
-      "id": "product:P0350",
-      "nodeType": "product",
-      "refId": "P0350",
-      "label": "Nurofen for Children Orange 100 mg/5 ml oral suspension",
-      "subtext": "inflammation",
-      "meta": {
-        "brand": "Nurofen",
-        "generic": "IBUPROFEN MILLIGRAM(S)",
-        "mainIndication": "inflammation",
-        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS"
-      }
-    },
-    {
-      "id": "product:P0351",
-      "nodeType": "product",
-      "refId": "P0351",
-      "label": "Nurofen for children 100 mg chewable capsules, Soft",
-      "subtext": "inflammation",
-      "meta": {
-        "brand": "Nurofen",
-        "generic": "IBUPROFEN",
-        "mainIndication": "inflammation",
-        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS"
-      }
-    },
-    {
-      "id": "product:P0356",
-      "nodeType": "product",
-      "refId": "P0356",
-      "label": "Okitask 40 mg granules",
-      "subtext": "inflammation",
-      "meta": {
-        "brand": "Okitask",
-        "generic": "KETOPROFEN",
-        "mainIndication": "inflammation",
-        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS"
-      }
-    },
-    {
-      "id": "product:P0395",
-      "nodeType": "product",
-      "refId": "P0395",
-      "label": "Perofen 400 mg coated tablets",
-      "subtext": "inflammation",
-      "meta": {
-        "brand": "Perofen",
-        "generic": "IBUPROFEN",
-        "mainIndication": "inflammation",
-        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS"
-      }
-    },
-    {
-      "id": "product:P0485",
-      "nodeType": "product",
-      "refId": "P0485",
-      "label": "Ultimax 200mg film-coated tablets",
-      "subtext": "inflammation",
-      "meta": {
-        "brand": "Ultimax",
-        "generic": "IBUPROFEN",
-        "mainIndication": "inflammation",
-        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS"
-      }
-    },
-    {
-      "id": "product:P0486",
-      "nodeType": "product",
-      "refId": "P0486",
-      "label": "Ultimax 400mg film-coated tablets",
-      "subtext": "inflammation",
-      "meta": {
-        "brand": "Ultimax",
-        "generic": "IBUPROFEN",
-        "mainIndication": "inflammation",
-        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS"
-      }
-    },
-    {
-      "id": "product:P0363",
-      "nodeType": "product",
-      "refId": "P0363",
-      "label": "Otipax Ear drops solution",
-      "subtext": "ear pain",
-      "meta": {
-        "brand": "Otipax",
-        "generic": "LIDOCAINE HYDROCHLORIDE | PHENAZONE",
-        "mainIndication": "ear pain",
-        "otcCategory": "OTOLOGICALS"
+        "UseCase_ID": "UC015",
+        "UseCase_Name": "Mouth ulcer care",
+        "UseCase_Category": "General",
+        "Trigger_Symptoms": "Mouth ulcers, oral pain, canker sores",
+        "Description": "Topical gels and rinses for mouth ulcer pain relief and healing."
       }
     }
   ],
   "links": [
-    {
-      "key": "c8a4113a60c96a81",
-      "source": "symptom:S051",
-      "target": "usecase:UC003",
-      "rel": "usecase",
-      "label": "Triggered by symptom",
-      "score": 85,
-      "why": "Headache, fever, body aches",
-      "meta": {}
-    },
-    {
-      "key": "37487f2d0e75e470",
-      "source": "symptom:S051",
-      "target": "usecase:UC004",
-      "rel": "usecase",
-      "label": "Triggered by symptom",
-      "score": 85,
-      "why": "Muscle pain, joint pain, back pain, sprains",
-      "meta": {}
-    },
     {
       "key": "6976a260b1e72223",
       "source": "product:P0003",
@@ -1159,20 +1771,24 @@
       }
     },
     {
-      "key": "d9861883e24488f2",
-      "source": "product:P0363",
-      "target": "symptom:S051",
-      "rel": "symptom",
-      "label": "Primary",
-      "score": 100,
-      "why": "Manual review fix",
-      "meta": {
-        "mapId": "PSM01790"
-      }
+      "key": "b0ee51af87d7c043",
+      "source": "symptom:S051",
+      "target": "usecase:UC004",
+      "rel": "usecase",
+      "label": "Related use case",
+      "score": 90,
+      "why": "",
+      "meta": {}
+    },
+    {
+      "key": "463297f3734cbdfb",
+      "source": "symptom:S051",
+      "target": "usecase:UC015",
+      "rel": "usecase",
+      "label": "Related use case",
+      "score": 90,
+      "why": "",
+      "meta": {}
     }
-  ],
-  "meta": {
-    "symptomName": "pain",
-    "linkCount": 45
-  }
+  ]
 }

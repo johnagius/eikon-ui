@@ -1,1 +1,230 @@
-{"centerId":"product:P0239","centerType":"product","refId":"P0239","nodes":[{"id":"product:P0239","nodeType":"product","refId":"P0239","label":"Iodine alcoholic cutaneous solution","subtext":"disinfection","meta":{"brand":"Iodine","generic":"IODINE | POTASSIUM IODIDE","form":"CUTANEOUS SOLUTION","formGroup":"Topical","route":"Topical","mainIndication":"disinfection","secondaryIndications":"skin cleansing | antiseptic care","otcCategory":"ANTISEPTICS AND DISINFECTANTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"POTASSIUM IODIDE 5 gram(s)/100 millilitres | IODINE 7 gram(s)/100 millilitres","packSizeText":"Review manually","atcCode":"D08AG03","status":"Authorised","supplierCatalogKey":"iodine alcoholic cutaneous solution"}},{"id":"product:P0117","nodeType":"product","refId":"P0117","label":"Contractubex 1 g / 10 g / 5000 IU / 100 g Gel","subtext":"wound care","meta":{"brand":"Contractubex","generic":"ALLANTOIN | HEPARIN SODIUM | ONION LIQUID EXTRACT","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"wound care","secondaryIndications":"healing | ulcers","otcCategory":"PREPARATIONS FOR TREATMENT OF WOUNDS AND ULCERS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"Onion Liquid extract\n 10 gram(s) | HEPARIN SODIUM 5,000 international unit(s) | ALLANTOIN 1 gram(s)","packSizeText":"Review manually","atcCode":"D03AX","status":"Authorised","supplierCatalogKey":"contractubex 1 g / 10 g / 5000 iu / 100 g gel"}},{"id":"product:P0118","nodeType":"product","refId":"P0118","label":"Contractubex Gel","subtext":"wound care","meta":{"brand":"Contractubex","generic":"ALLANTOIN | EXTRACTUM CEPAE | HEPARIN SODIUM","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"wound care","secondaryIndications":"healing | ulcers","otcCategory":"PREPARATIONS FOR TREATMENT OF WOUNDS AND ULCERS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"HEPARIN SODIUM 5000 international unit(s) | EXTRACTUM CEPAE 10 gram(s) | ALLANTOIN 1 gram(s)","packSizeText":"Review manually","atcCode":"D03AX","status":"Authorised","supplierCatalogKey":"contractubex gel"}},{"id":"symptom:S022","nodeType":"symptom","refId":"S022","label":"disinfection","subtext":"Skin","meta":{"Symptom_ID":"S022","Symptom_Name":"disinfection","Symptom_Category":"Skin","Linked_Product_Count":21,"Display_Group":"Skin","Priority_For_Graph":100,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"symptom:S057","nodeType":"symptom","refId":"S057","label":"skin cleansing","subtext":"Skin","meta":{"Symptom_ID":"S057","Symptom_Name":"skin cleansing","Symptom_Category":"Skin","Linked_Product_Count":21,"Display_Group":"Skin","Priority_For_Graph":100,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"symptom:S006","nodeType":"symptom","refId":"S006","label":"antiseptic care","subtext":"Skin","meta":{"Symptom_ID":"S006","Symptom_Name":"antiseptic care","Symptom_Category":"Skin","Linked_Product_Count":21,"Display_Group":"Skin","Priority_For_Graph":100,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"usecase:UC010","nodeType":"usecase","refId":"UC010","label":"Athlete foot and fungal skin care","subtext":"Skin","meta":{"UseCase_ID":"UC010","UseCase_Name":"Athlete foot and fungal skin care","UseCase_Category":"Skin","Trigger_Symptoms":"Fungal skin infection, athlete foot, itch","Description":"Antifungal core with hygiene/support products."}}],"links":[{"key":"c96aa0704709dd9d","source":"product:P0239","target":"product:P0117","rel":"complement","label":"Wound cleaning + protection","score":88,"why":"Pairs cleansing with wound-care protection.","meta":{"edgeId":"E16171","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":88,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Wound cleaning + protection","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Ready - review when convenient","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"19210b184855e430","source":"product:P0239","target":"product:P0118","rel":"complement","label":"Wound cleaning + protection","score":88,"why":"Pairs cleansing with wound-care protection.","meta":{"edgeId":"E16172","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":88,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Wound cleaning + protection","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Ready - review when convenient","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"091e3a8deb8ca9dd","source":"product:P0239","target":"symptom:S022","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00777","role":"Primary","reviewStatus":"Seeded"}},{"key":"736ed59829f8a69f","source":"product:P0239","target":"symptom:S057","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00778","role":"Primary","reviewStatus":"Seeded"}},{"key":"3ea7cfcbbc3cade8","source":"product:P0239","target":"symptom:S006","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM00779","role":"Secondary","reviewStatus":"Seeded"}},{"key":"1a6b39771058fdd6","source":"product:P0239","target":"usecase:UC010","rel":"usecase","label":"Targeted support","score":80,"why":"antiseptic care","meta":{"useCaseItemId":"UCI00556","role":"Targeted support","reviewStatus":"Seeded"}}],"meta":{"productName":"Iodine alcoholic cutaneous solution","linkCount":6}}
+{
+  "centerId": "product:P0239",
+  "centerType": "product",
+  "refId": "P0239",
+  "nodes": [
+    {
+      "id": "product:P0239",
+      "nodeType": "product",
+      "refId": "P0239",
+      "label": "Iodine alcoholic cutaneous solution",
+      "subtext": "disinfection",
+      "meta": {
+        "brand": "Iodine",
+        "generic": "IODINE | POTASSIUM IODIDE",
+        "form": "CUTANEOUS SOLUTION",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "disinfection",
+        "secondaryIndications": "skin cleansing | antiseptic care",
+        "otcCategory": "ANTISEPTICS AND DISINFECTANTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "POTASSIUM IODIDE 5 gram(s)/100 millilitres | IODINE 7 gram(s)/100 millilitres",
+        "packSizeText": "Review manually",
+        "atcCode": "D08AG03",
+        "status": "Authorised",
+        "supplierCatalogKey": "iodine alcoholic cutaneous solution"
+      }
+    },
+    {
+      "id": "product:P0117",
+      "nodeType": "product",
+      "refId": "P0117",
+      "label": "Contractubex 1 g / 10 g / 5000 IU / 100 g Gel",
+      "subtext": "wound care",
+      "meta": {
+        "brand": "Contractubex",
+        "generic": "ALLANTOIN | HEPARIN SODIUM | ONION LIQUID EXTRACT",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "wound care",
+        "secondaryIndications": "healing | ulcers",
+        "otcCategory": "PREPARATIONS FOR TREATMENT OF WOUNDS AND ULCERS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "Onion Liquid extract\n 10 gram(s) | HEPARIN SODIUM 5,000 international unit(s) | ALLANTOIN 1 gram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "D03AX",
+        "status": "Authorised",
+        "supplierCatalogKey": "contractubex 1 g / 10 g / 5000 iu / 100 g gel"
+      }
+    },
+    {
+      "id": "product:P0118",
+      "nodeType": "product",
+      "refId": "P0118",
+      "label": "Contractubex Gel",
+      "subtext": "wound care",
+      "meta": {
+        "brand": "Contractubex",
+        "generic": "ALLANTOIN | EXTRACTUM CEPAE | HEPARIN SODIUM",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "wound care",
+        "secondaryIndications": "healing | ulcers",
+        "otcCategory": "PREPARATIONS FOR TREATMENT OF WOUNDS AND ULCERS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "HEPARIN SODIUM 5000 international unit(s) | EXTRACTUM CEPAE 10 gram(s) | ALLANTOIN 1 gram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "D03AX",
+        "status": "Authorised",
+        "supplierCatalogKey": "contractubex gel"
+      }
+    },
+    {
+      "id": "symptom:S022",
+      "nodeType": "symptom",
+      "refId": "S022",
+      "label": "disinfection",
+      "subtext": "Skin",
+      "meta": {
+        "Symptom_ID": "S022",
+        "Symptom_Name": "disinfection",
+        "Symptom_Category": "Skin",
+        "Linked_Product_Count": 21,
+        "Display_Group": "Skin",
+        "Priority_For_Graph": 100,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "symptom:S057",
+      "nodeType": "symptom",
+      "refId": "S057",
+      "label": "skin cleansing",
+      "subtext": "Skin",
+      "meta": {
+        "Symptom_ID": "S057",
+        "Symptom_Name": "skin cleansing",
+        "Symptom_Category": "Skin",
+        "Linked_Product_Count": 21,
+        "Display_Group": "Skin",
+        "Priority_For_Graph": 100,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "symptom:S006",
+      "nodeType": "symptom",
+      "refId": "S006",
+      "label": "antiseptic care",
+      "subtext": "Skin",
+      "meta": {
+        "Symptom_ID": "S006",
+        "Symptom_Name": "antiseptic care",
+        "Symptom_Category": "Skin",
+        "Linked_Product_Count": 21,
+        "Display_Group": "Skin",
+        "Priority_For_Graph": 100,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "usecase:UC010",
+      "nodeType": "usecase",
+      "refId": "UC010",
+      "label": "Athlete foot and fungal skin care",
+      "subtext": "Skin",
+      "meta": {
+        "UseCase_ID": "UC010",
+        "UseCase_Name": "Athlete foot and fungal skin care",
+        "UseCase_Category": "Skin",
+        "Trigger_Symptoms": "Fungal skin infection, athlete foot, itch",
+        "Description": "Antifungal core with hygiene/support products."
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "c96aa0704709dd9d",
+      "source": "product:P0239",
+      "target": "product:P0117",
+      "rel": "complement",
+      "label": "Wound cleaning + protection",
+      "score": 88,
+      "why": "Pairs cleansing with wound-care protection.",
+      "meta": {
+        "edgeId": "E16171"
+      }
+    },
+    {
+      "key": "19210b184855e430",
+      "source": "product:P0239",
+      "target": "product:P0118",
+      "rel": "complement",
+      "label": "Wound cleaning + protection",
+      "score": 88,
+      "why": "Pairs cleansing with wound-care protection.",
+      "meta": {
+        "edgeId": "E16172"
+      }
+    },
+    {
+      "key": "091e3a8deb8ca9dd",
+      "source": "product:P0239",
+      "target": "symptom:S022",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00777"
+      }
+    },
+    {
+      "key": "736ed59829f8a69f",
+      "source": "product:P0239",
+      "target": "symptom:S057",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00778"
+      }
+    },
+    {
+      "key": "3ea7cfcbbc3cade8",
+      "source": "product:P0239",
+      "target": "symptom:S006",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00779"
+      }
+    },
+    {
+      "key": "1a6b39771058fdd6",
+      "source": "product:P0239",
+      "target": "usecase:UC010",
+      "rel": "usecase",
+      "label": "Targeted support",
+      "score": 80,
+      "why": "antiseptic care",
+      "meta": {
+        "useCaseItemId": "UCI00556"
+      }
+    }
+  ]
+}

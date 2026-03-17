@@ -1,0 +1,65 @@
+{
+  "centerId": "symptom:S089",
+  "centerType": "symptom",
+  "refId": "S089",
+  "nodes": [
+    {
+      "id": "symptom:S089",
+      "nodeType": "symptom",
+      "refId": "S089",
+      "label": "nasal irrigation",
+      "subtext": "Cold / allergy",
+      "meta": {
+        "Symptom_ID": "S089",
+        "Symptom_Name": "nasal irrigation",
+        "Symptom_Category": "Cold / allergy",
+        "Display_Group": "Cold / allergy",
+        "Linked_Product_Count": 0,
+        "Priority_For_Graph": 100,
+        "Node_Color": "#0abde3"
+      }
+    },
+    {
+      "id": "product:P0448",
+      "nodeType": "product",
+      "refId": "P0448",
+      "label": "Sodium Chloride MONICO 0.9%",
+      "subtext": "wound cleansing",
+      "meta": {
+        "brand": "Sodium",
+        "generic": "SODIUM CHLORIDE",
+        "form": "SOLVENT FOR PARENTERAL USE",
+        "formGroup": "Other",
+        "route": "Other",
+        "mainIndication": "wound cleansing",
+        "secondaryIndications": "wound care",
+        "otcCategory": "ALL OTHER NON-THERAPEUTIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "SODIUM CHLORIDE 0.9 gram(s)/100 millilitres",
+        "packSizeText": "Review manually",
+        "atcCode": "V07AB",
+        "status": "Authorised",
+        "supplierCatalogKey": "sodium chloride monico 0.9%"
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "9695b0278703801c",
+      "source": "product:P0448",
+      "target": "symptom:S089",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Indication-based assignment",
+      "meta": {
+        "mapId": "PSM01805"
+      }
+    }
+  ]
+}

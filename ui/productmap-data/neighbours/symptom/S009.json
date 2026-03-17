@@ -1,1 +1,266 @@
-{"centerId":"symptom:S009","centerType":"symptom","refId":"S009","nodes":[{"id":"symptom:S009","nodeType":"symptom","refId":"S009","label":"bites","subtext":"General","meta":{"Symptom_ID":"S009","Symptom_Name":"bites","Symptom_Category":"General","Linked_Product_Count":6,"Display_Group":"General","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"product:P0023","nodeType":"product","refId":"P0023","label":"Anthisan Cream 2% w/w","subtext":"itching","meta":{"brand":"Anthisan","generic":"MEPYRAMINE MALEATE","form":"CREAM","formGroup":"Topical","route":"Topical","mainIndication":"itching","secondaryIndications":"bites | skin irritation","otcCategory":"ANTIPRURITICS, INCL. ANTIHISTAMINES, ANESTHETICS, ETC.","seasonalGroup":"Spring / allergy","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"MEPYRAMINE MALEATE 2 percent weight/weight","packSizeText":"Review manually","atcCode":"D04AA02","status":"Authorised","supplierCatalogKey":"anthisan cream 2% w/w"}},{"id":"product:P0141","nodeType":"product","refId":"P0141","label":"Dimestil 1 mg/g gel","subtext":"itching","meta":{"brand":"Dimestil","generic":"DIMETINDENE MALEATE","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"itching","secondaryIndications":"bites | skin irritation","otcCategory":"ANTIPRURITICS, INCL. ANTIHISTAMINES, ANESTHETICS, ETC.","seasonalGroup":"Spring / allergy","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DIMETINDENE MALEATE","packSizeText":"Review manually","atcCode":"D04AA13","status":"Authorised","supplierCatalogKey":"dimestil 1 mg/g gel"}},{"id":"product:P0179","nodeType":"product","refId":"P0179","label":"Fenazil","subtext":"itching","meta":{"brand":"Fenazil","generic":"PROMETHAZINE HYDROCHLORIDE","form":"CREAM","formGroup":"Topical","route":"Topical","mainIndication":"itching","secondaryIndications":"bites | skin irritation","otcCategory":"ANTIPRURITICS, INCL. ANTIHISTAMINES, ANESTHETICS, ETC.","seasonalGroup":"Spring / allergy","sedating":"Yes","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"PROMETHAZINE HYDROCHLORIDE 2 percent weight/weight","packSizeText":"Review manually","atcCode":"D04AA10","status":"Authorised","supplierCatalogKey":"fenazil"}},{"id":"product:P0180","nodeType":"product","refId":"P0180","label":"Fenistil 0,1% w/w Gel","subtext":"itching","meta":{"brand":"Fenistil","generic":"DIMETINDENE MALEATE","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"itching","secondaryIndications":"bites | skin irritation","otcCategory":"ANTIPRURITICS, INCL. ANTIHISTAMINES, ANESTHETICS, ETC.","seasonalGroup":"Spring / allergy","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DIMETINDENE MALEATE 1 milligram(s)/gram","packSizeText":"Review manually","atcCode":"D04AA13","status":"Authorised","supplierCatalogKey":"fenistil 0,1% w/w gel"}},{"id":"product:P0410","nodeType":"product","refId":"P0410","label":"RIVAL 20 mg/g gel","subtext":"itching","meta":{"brand":"RIVAL","generic":"DIPHENHYDRAMINE HYDROCHLORIDE","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"itching","secondaryIndications":"bites | skin irritation","otcCategory":"ANTIPRURITICS, INCL. ANTIHISTAMINES, ANESTHETICS, ETC.","seasonalGroup":"Spring / allergy","sedating":"Yes","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DIPHENHYDRAMINE HYDROCHLORIDE 20 milligram(s)/gram","packSizeText":"Review manually","atcCode":"D04AA32","status":"Authorised","supplierCatalogKey":"rival 20 mg/g gel"}},{"id":"product:P0464","nodeType":"product","refId":"P0464","label":"Systral 15 mg/g ointment","subtext":"itching","meta":{"brand":"Systral","generic":"CHLORPHENOXAMINE HYDROCHLORIDE","form":"OINTMENT","formGroup":"Topical","route":"Topical","mainIndication":"itching","secondaryIndications":"bites | skin irritation","otcCategory":"ANTIPRURITICS, INCL. ANTIHISTAMINES, ANESTHETICS, ETC.","seasonalGroup":"Spring / allergy","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CHLORPHENOXAMINE HYDROCHLORIDE 15 milligram(s)/gram","packSizeText":"Review manually","atcCode":"D04AA34","status":"Authorised","supplierCatalogKey":"systral 15 mg/g ointment"}}],"links":[{"key":"881fc93d5db582c9","source":"symptom:S009","target":"product:P0023","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00089","role":"Primary","reviewStatus":"Seeded"}},{"key":"a620e1788d4895ce","source":"symptom:S009","target":"product:P0141","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00469","role":"Primary","reviewStatus":"Seeded"}},{"key":"9b053b1eb6d8b9f2","source":"symptom:S009","target":"product:P0179","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00586","role":"Primary","reviewStatus":"Seeded"}},{"key":"ff561dc845c30dd9","source":"symptom:S009","target":"product:P0180","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00589","role":"Primary","reviewStatus":"Seeded"}},{"key":"bc6bdef4c27223f1","source":"symptom:S009","target":"product:P0410","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01354","role":"Primary","reviewStatus":"Seeded"}},{"key":"db6a9262cac0bf83","source":"symptom:S009","target":"product:P0464","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01532","role":"Primary","reviewStatus":"Seeded"}}],"meta":{"symptomName":"bites","linkCount":6}}
+{
+  "centerId": "symptom:S009",
+  "centerType": "symptom",
+  "refId": "S009",
+  "nodes": [
+    {
+      "id": "symptom:S009",
+      "nodeType": "symptom",
+      "refId": "S009",
+      "label": "bites",
+      "subtext": "General",
+      "meta": {
+        "Symptom_ID": "S009",
+        "Symptom_Name": "bites",
+        "Symptom_Category": "General",
+        "Linked_Product_Count": 6,
+        "Display_Group": "General",
+        "Priority_For_Graph": 70,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "product:P0023",
+      "nodeType": "product",
+      "refId": "P0023",
+      "label": "Anthisan Cream 2% w/w",
+      "subtext": "itching",
+      "meta": {
+        "brand": "Anthisan",
+        "generic": "MEPYRAMINE MALEATE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "itching",
+        "secondaryIndications": "bites | skin irritation",
+        "otcCategory": "ANTIPRURITICS, INCL. ANTIHISTAMINES, ANESTHETICS, ETC.",
+        "seasonalGroup": "Spring / allergy",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "MEPYRAMINE MALEATE 2 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "D04AA02",
+        "status": "Authorised",
+        "supplierCatalogKey": "anthisan cream 2% w/w"
+      }
+    },
+    {
+      "id": "product:P0141",
+      "nodeType": "product",
+      "refId": "P0141",
+      "label": "Dimestil 1 mg/g gel",
+      "subtext": "itching",
+      "meta": {
+        "brand": "Dimestil",
+        "generic": "DIMETINDENE MALEATE",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "itching",
+        "secondaryIndications": "bites | skin irritation",
+        "otcCategory": "ANTIPRURITICS, INCL. ANTIHISTAMINES, ANESTHETICS, ETC.",
+        "seasonalGroup": "Spring / allergy",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DIMETINDENE MALEATE",
+        "packSizeText": "Review manually",
+        "atcCode": "D04AA13",
+        "status": "Authorised",
+        "supplierCatalogKey": "dimestil 1 mg/g gel"
+      }
+    },
+    {
+      "id": "product:P0179",
+      "nodeType": "product",
+      "refId": "P0179",
+      "label": "Fenazil",
+      "subtext": "itching",
+      "meta": {
+        "brand": "Fenazil",
+        "generic": "PROMETHAZINE HYDROCHLORIDE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "itching",
+        "secondaryIndications": "bites | skin irritation",
+        "otcCategory": "ANTIPRURITICS, INCL. ANTIHISTAMINES, ANESTHETICS, ETC.",
+        "seasonalGroup": "Spring / allergy",
+        "sedating": "Yes",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "PROMETHAZINE HYDROCHLORIDE 2 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "D04AA10",
+        "status": "Authorised",
+        "supplierCatalogKey": "fenazil"
+      }
+    },
+    {
+      "id": "product:P0180",
+      "nodeType": "product",
+      "refId": "P0180",
+      "label": "Fenistil 0,1% w/w Gel",
+      "subtext": "itching",
+      "meta": {
+        "brand": "Fenistil",
+        "generic": "DIMETINDENE MALEATE",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "itching",
+        "secondaryIndications": "bites | skin irritation",
+        "otcCategory": "ANTIPRURITICS, INCL. ANTIHISTAMINES, ANESTHETICS, ETC.",
+        "seasonalGroup": "Spring / allergy",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DIMETINDENE MALEATE 1 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D04AA13",
+        "status": "Authorised",
+        "supplierCatalogKey": "fenistil 0,1% w/w gel"
+      }
+    },
+    {
+      "id": "product:P0410",
+      "nodeType": "product",
+      "refId": "P0410",
+      "label": "RIVAL 20 mg/g gel",
+      "subtext": "itching",
+      "meta": {
+        "brand": "RIVAL",
+        "generic": "DIPHENHYDRAMINE HYDROCHLORIDE",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "itching",
+        "secondaryIndications": "bites | skin irritation",
+        "otcCategory": "ANTIPRURITICS, INCL. ANTIHISTAMINES, ANESTHETICS, ETC.",
+        "seasonalGroup": "Spring / allergy",
+        "sedating": "Yes",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DIPHENHYDRAMINE HYDROCHLORIDE 20 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D04AA32",
+        "status": "Authorised",
+        "supplierCatalogKey": "rival 20 mg/g gel"
+      }
+    },
+    {
+      "id": "product:P0464",
+      "nodeType": "product",
+      "refId": "P0464",
+      "label": "Systral 15 mg/g ointment",
+      "subtext": "itching",
+      "meta": {
+        "brand": "Systral",
+        "generic": "CHLORPHENOXAMINE HYDROCHLORIDE",
+        "form": "OINTMENT",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "itching",
+        "secondaryIndications": "bites | skin irritation",
+        "otcCategory": "ANTIPRURITICS, INCL. ANTIHISTAMINES, ANESTHETICS, ETC.",
+        "seasonalGroup": "Spring / allergy",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CHLORPHENOXAMINE HYDROCHLORIDE 15 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D04AA34",
+        "status": "Authorised",
+        "supplierCatalogKey": "systral 15 mg/g ointment"
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "959a74eec2f7a9fe",
+      "source": "product:P0023",
+      "target": "symptom:S009",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00089"
+      }
+    },
+    {
+      "key": "6e7d92735e18fa0e",
+      "source": "product:P0141",
+      "target": "symptom:S009",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00469"
+      }
+    },
+    {
+      "key": "457443ed5f7e8ce4",
+      "source": "product:P0179",
+      "target": "symptom:S009",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00586"
+      }
+    },
+    {
+      "key": "b63ae6faeb7530d4",
+      "source": "product:P0180",
+      "target": "symptom:S009",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00589"
+      }
+    },
+    {
+      "key": "1de5330efa2b17e7",
+      "source": "product:P0410",
+      "target": "symptom:S009",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01354"
+      }
+    },
+    {
+      "key": "08f1521a28ef95ec",
+      "source": "product:P0464",
+      "target": "symptom:S009",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01532"
+      }
+    }
+  ]
+}

@@ -16,7 +16,7 @@
         "formGroup": "Oral cavity / throat",
         "route": "Oral",
         "mainIndication": "smoking cessation",
-        "secondaryIndications": "travel sickness | motion sickness",
+        "secondaryIndications": "",
         "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
         "seasonalGroup": "All year",
         "sedating": "No",
@@ -32,146 +32,6 @@
       }
     },
     {
-      "id": "product:P0326",
-      "nodeType": "product",
-      "refId": "P0326",
-      "label": "Nicorette Quickspray 1mg/spray, mouth spray, solution",
-      "subtext": "smoking cessation",
-      "meta": {
-        "brand": "Nicorette",
-        "generic": "NICOTINE",
-        "form": "Spray (solution)",
-        "formGroup": "Topical",
-        "route": "Topical",
-        "mainIndication": "smoking cessation",
-        "secondaryIndications": "travel sickness | motion sickness",
-        "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
-        "seasonalGroup": "All year",
-        "sedating": "No",
-        "nonDrowsy": "No",
-        "sugarFree": "Unknown",
-        "alcoholFree": "Unknown",
-        "ingredientCount": 1,
-        "strengthText": "NICOTINE 13.6 milligram(s)/millilitre",
-        "packSizeText": "Review manually",
-        "atcCode": "N07BA01",
-        "status": "Authorised",
-        "supplierCatalogKey": "nicorette quickspray 1mg/spray, mouth spray, solution"
-      }
-    },
-    {
-      "id": "product:P0327",
-      "nodeType": "product",
-      "refId": "P0327",
-      "label": "Nicorette skin 10 mg/16 hours transdermal patch",
-      "subtext": "smoking cessation",
-      "meta": {
-        "brand": "Nicorette",
-        "generic": "NICOTINE",
-        "form": "TRANSDERMAL PATCH",
-        "formGroup": "Other",
-        "route": "Other",
-        "mainIndication": "smoking cessation",
-        "secondaryIndications": "travel sickness | motion sickness",
-        "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
-        "seasonalGroup": "All year",
-        "sedating": "No",
-        "nonDrowsy": "No",
-        "sugarFree": "Unknown",
-        "alcoholFree": "Unknown",
-        "ingredientCount": 1,
-        "strengthText": "NICOTINE 1.75 milligram(s)",
-        "packSizeText": "Review manually",
-        "atcCode": "N07BA01",
-        "status": "Authorised",
-        "supplierCatalogKey": "nicorette skin 10 mg/16 hours transdermal patch"
-      }
-    },
-    {
-      "id": "product:P0328",
-      "nodeType": "product",
-      "refId": "P0328",
-      "label": "Nicorette skin 15mg/16 hours transdermal patch",
-      "subtext": "smoking cessation",
-      "meta": {
-        "brand": "Nicorette",
-        "generic": "NICOTINE",
-        "form": "TRANSDERMAL PATCH",
-        "formGroup": "Other",
-        "route": "Other",
-        "mainIndication": "smoking cessation",
-        "secondaryIndications": "travel sickness | motion sickness",
-        "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
-        "seasonalGroup": "All year",
-        "sedating": "No",
-        "nonDrowsy": "No",
-        "sugarFree": "Unknown",
-        "alcoholFree": "Unknown",
-        "ingredientCount": 1,
-        "strengthText": "NICOTINE 1.75 milligram(s)",
-        "packSizeText": "Review manually",
-        "atcCode": "N07BA01",
-        "status": "Authorised",
-        "supplierCatalogKey": "nicorette skin 15mg/16 hours transdermal patch"
-      }
-    },
-    {
-      "id": "product:P0329",
-      "nodeType": "product",
-      "refId": "P0329",
-      "label": "Nicorette skin 25mg/16 hours transdermal patch",
-      "subtext": "smoking cessation",
-      "meta": {
-        "brand": "Nicorette",
-        "generic": "NICOTINE",
-        "form": "TRANSDERMAL PATCH",
-        "formGroup": "Other",
-        "route": "Other",
-        "mainIndication": "smoking cessation",
-        "secondaryIndications": "travel sickness | motion sickness",
-        "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
-        "seasonalGroup": "All year",
-        "sedating": "No",
-        "nonDrowsy": "No",
-        "sugarFree": "Unknown",
-        "alcoholFree": "Unknown",
-        "ingredientCount": 1,
-        "strengthText": "NICOTINE 1.75 milligram(s)",
-        "packSizeText": "Review manually",
-        "atcCode": "N07BA01",
-        "status": "Authorised",
-        "supplierCatalogKey": "nicorette skin 25mg/16 hours transdermal patch"
-      }
-    },
-    {
-      "id": "product:P0330",
-      "nodeType": "product",
-      "refId": "P0330",
-      "label": "Nicotine 0.45mg Inhaler",
-      "subtext": "smoking cessation",
-      "meta": {
-        "brand": "Nicotine",
-        "generic": "NICOTINE",
-        "form": "PRESSURISED INHALATION, SOLUTION",
-        "formGroup": "Oral liquid",
-        "route": "Oral",
-        "mainIndication": "smoking cessation",
-        "secondaryIndications": "travel sickness | motion sickness",
-        "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
-        "seasonalGroup": "All year",
-        "sedating": "No",
-        "nonDrowsy": "No",
-        "sugarFree": "Unknown",
-        "alcoholFree": "Unknown",
-        "ingredientCount": 1,
-        "strengthText": "NICOTINE 0.45 milligram(s)",
-        "packSizeText": "Review manually",
-        "atcCode": "N07BA01",
-        "status": "Authorised",
-        "supplierCatalogKey": "nicotine 0.45mg inhaler"
-      }
-    },
-    {
       "id": "product:P0303",
       "nodeType": "product",
       "refId": "P0303",
@@ -184,7 +44,7 @@
         "formGroup": "Oral solid",
         "route": "Oral",
         "mainIndication": "smoking cessation",
-        "secondaryIndications": "travel sickness | motion sickness",
+        "secondaryIndications": "",
         "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
         "seasonalGroup": "All year",
         "sedating": "No",
@@ -212,7 +72,7 @@
         "formGroup": "Oral solid",
         "route": "Oral",
         "mainIndication": "smoking cessation",
-        "secondaryIndications": "travel sickness | motion sickness",
+        "secondaryIndications": "",
         "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
         "seasonalGroup": "All year",
         "sedating": "No",
@@ -240,7 +100,7 @@
         "formGroup": "Oral solid",
         "route": "Oral",
         "mainIndication": "smoking cessation",
-        "secondaryIndications": "travel sickness | motion sickness",
+        "secondaryIndications": "",
         "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
         "seasonalGroup": "All year",
         "sedating": "No",
@@ -268,7 +128,7 @@
         "formGroup": "Oral solid",
         "route": "Oral",
         "mainIndication": "smoking cessation",
-        "secondaryIndications": "travel sickness | motion sickness",
+        "secondaryIndications": "",
         "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
         "seasonalGroup": "All year",
         "sedating": "No",
@@ -296,7 +156,7 @@
         "formGroup": "Oral solid",
         "route": "Oral",
         "mainIndication": "smoking cessation",
-        "secondaryIndications": "travel sickness | motion sickness",
+        "secondaryIndications": "",
         "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
         "seasonalGroup": "All year",
         "sedating": "No",
@@ -324,7 +184,7 @@
         "formGroup": "Oral solid",
         "route": "Oral",
         "mainIndication": "smoking cessation",
-        "secondaryIndications": "travel sickness | motion sickness",
+        "secondaryIndications": "",
         "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
         "seasonalGroup": "All year",
         "sedating": "No",
@@ -352,7 +212,7 @@
         "formGroup": "Oral solid",
         "route": "Oral",
         "mainIndication": "smoking cessation",
-        "secondaryIndications": "travel sickness | motion sickness",
+        "secondaryIndications": "",
         "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
         "seasonalGroup": "All year",
         "sedating": "No",
@@ -380,7 +240,7 @@
         "formGroup": "Oral solid",
         "route": "Oral",
         "mainIndication": "smoking cessation",
-        "secondaryIndications": "travel sickness | motion sickness",
+        "secondaryIndications": "",
         "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
         "seasonalGroup": "All year",
         "sedating": "No",
@@ -408,7 +268,7 @@
         "formGroup": "Oral solid",
         "route": "Oral",
         "mainIndication": "smoking cessation",
-        "secondaryIndications": "travel sickness | motion sickness",
+        "secondaryIndications": "",
         "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
         "seasonalGroup": "All year",
         "sedating": "No",
@@ -436,7 +296,7 @@
         "formGroup": "Oral solid",
         "route": "Oral",
         "mainIndication": "smoking cessation",
-        "secondaryIndications": "travel sickness | motion sickness",
+        "secondaryIndications": "",
         "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
         "seasonalGroup": "All year",
         "sedating": "No",
@@ -464,7 +324,7 @@
         "formGroup": "Oral solid",
         "route": "Oral",
         "mainIndication": "smoking cessation",
-        "secondaryIndications": "travel sickness | motion sickness",
+        "secondaryIndications": "",
         "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
         "seasonalGroup": "All year",
         "sedating": "No",
@@ -492,7 +352,7 @@
         "formGroup": "Oral solid",
         "route": "Oral",
         "mainIndication": "smoking cessation",
-        "secondaryIndications": "travel sickness | motion sickness",
+        "secondaryIndications": "",
         "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
         "seasonalGroup": "All year",
         "sedating": "No",
@@ -520,7 +380,7 @@
         "formGroup": "Oral solid",
         "route": "Oral",
         "mainIndication": "smoking cessation",
-        "secondaryIndications": "travel sickness | motion sickness",
+        "secondaryIndications": "",
         "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
         "seasonalGroup": "All year",
         "sedating": "No",
@@ -548,7 +408,7 @@
         "formGroup": "Other",
         "route": "Other",
         "mainIndication": "smoking cessation",
-        "secondaryIndications": "travel sickness | motion sickness",
+        "secondaryIndications": "",
         "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
         "seasonalGroup": "All year",
         "sedating": "No",
@@ -576,7 +436,7 @@
         "formGroup": "Other",
         "route": "Other",
         "mainIndication": "smoking cessation",
-        "secondaryIndications": "travel sickness | motion sickness",
+        "secondaryIndications": "",
         "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
         "seasonalGroup": "All year",
         "sedating": "No",
@@ -604,7 +464,7 @@
         "formGroup": "Other",
         "route": "Other",
         "mainIndication": "smoking cessation",
-        "secondaryIndications": "travel sickness | motion sickness",
+        "secondaryIndications": "",
         "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
         "seasonalGroup": "All year",
         "sedating": "No",
@@ -617,6 +477,146 @@
         "atcCode": "N07BA01",
         "status": "Authorised",
         "supplierCatalogKey": "nicorette invisi extra strength 25mg /16hours transdermal patch"
+      }
+    },
+    {
+      "id": "product:P0326",
+      "nodeType": "product",
+      "refId": "P0326",
+      "label": "Nicorette Quickspray 1mg/spray, mouth spray, solution",
+      "subtext": "smoking cessation",
+      "meta": {
+        "brand": "Nicorette",
+        "generic": "NICOTINE",
+        "form": "Spray (solution)",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "smoking cessation",
+        "secondaryIndications": "",
+        "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "NICOTINE 13.6 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "N07BA01",
+        "status": "Authorised",
+        "supplierCatalogKey": "nicorette quickspray 1mg/spray, mouth spray, solution"
+      }
+    },
+    {
+      "id": "product:P0327",
+      "nodeType": "product",
+      "refId": "P0327",
+      "label": "Nicorette skin 10 mg/16 hours transdermal patch",
+      "subtext": "smoking cessation",
+      "meta": {
+        "brand": "Nicorette",
+        "generic": "NICOTINE",
+        "form": "TRANSDERMAL PATCH",
+        "formGroup": "Other",
+        "route": "Other",
+        "mainIndication": "smoking cessation",
+        "secondaryIndications": "",
+        "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "NICOTINE 1.75 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N07BA01",
+        "status": "Authorised",
+        "supplierCatalogKey": "nicorette skin 10 mg/16 hours transdermal patch"
+      }
+    },
+    {
+      "id": "product:P0328",
+      "nodeType": "product",
+      "refId": "P0328",
+      "label": "Nicorette skin 15mg/16 hours transdermal patch",
+      "subtext": "smoking cessation",
+      "meta": {
+        "brand": "Nicorette",
+        "generic": "NICOTINE",
+        "form": "TRANSDERMAL PATCH",
+        "formGroup": "Other",
+        "route": "Other",
+        "mainIndication": "smoking cessation",
+        "secondaryIndications": "",
+        "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "NICOTINE 1.75 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N07BA01",
+        "status": "Authorised",
+        "supplierCatalogKey": "nicorette skin 15mg/16 hours transdermal patch"
+      }
+    },
+    {
+      "id": "product:P0329",
+      "nodeType": "product",
+      "refId": "P0329",
+      "label": "Nicorette skin 25mg/16 hours transdermal patch",
+      "subtext": "smoking cessation",
+      "meta": {
+        "brand": "Nicorette",
+        "generic": "NICOTINE",
+        "form": "TRANSDERMAL PATCH",
+        "formGroup": "Other",
+        "route": "Other",
+        "mainIndication": "smoking cessation",
+        "secondaryIndications": "",
+        "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "NICOTINE 1.75 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N07BA01",
+        "status": "Authorised",
+        "supplierCatalogKey": "nicorette skin 25mg/16 hours transdermal patch"
+      }
+    },
+    {
+      "id": "product:P0330",
+      "nodeType": "product",
+      "refId": "P0330",
+      "label": "Nicotine 0.45mg Inhaler",
+      "subtext": "smoking cessation",
+      "meta": {
+        "brand": "Nicotine",
+        "generic": "NICOTINE",
+        "form": "PRESSURISED INHALATION, SOLUTION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "smoking cessation",
+        "secondaryIndications": "",
+        "otcCategory": "OTHER NERVOUS SYSTEM DRUGS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "NICOTINE 0.45 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "N07BA01",
+        "status": "Authorised",
+        "supplierCatalogKey": "nicotine 0.45mg inhaler"
       }
     },
     {
@@ -637,136 +637,21 @@
       }
     },
     {
-      "id": "usecase:UC009",
+      "id": "usecase:UC018",
       "nodeType": "usecase",
-      "refId": "UC009",
-      "label": "Travel sickness pack",
-      "subtext": "Travel / motion",
+      "refId": "UC018",
+      "label": "Smoking cessation support",
+      "subtext": "Lifestyle / cessation",
       "meta": {
-        "UseCase_ID": "UC009",
-        "UseCase_Name": "Travel sickness pack",
-        "UseCase_Category": "Travel / motion",
-        "Trigger_Symptoms": "Travel sickness, nausea, motion sickness",
-        "Description": "Core anti-motion product plus travel adjuncts."
+        "UseCase_ID": "UC018",
+        "UseCase_Name": "Smoking cessation support",
+        "UseCase_Category": "Lifestyle / cessation",
+        "Trigger_Symptoms": "Quit smoking, nicotine replacement, smoking cessation",
+        "Description": "Nicotine replacement therapy and cessation aids."
       }
     }
   ],
   "links": [
-    {
-      "key": "34822df9f66675ff",
-      "source": "product:P0325",
-      "target": "product:P0326",
-      "rel": "similar",
-      "label": "Alternative: same active ingredient(s)",
-      "score": 88,
-      "why": "Same active ingredient(s), but delivered in different form families.",
-      "meta": {
-        "edgeId": "E01288",
-        "clinicalSimilarity": 100,
-        "commercialSubstitution": 95,
-        "crossSell": 15,
-        "riskOverlap": 90,
-        "evidence": 90,
-        "seasonality": 40,
-        "triggerContext": "motion sickness, smoking cessation, travel sickness",
-        "primaryToSecondary": "No",
-        "reciprocalDisplay": "Yes",
-        "reviewStatus": "Ready - strong starter link",
-        "sourceMethod": "EXACT_INGREDIENT_BASE"
-      }
-    },
-    {
-      "key": "2fd9a464f65849dc",
-      "source": "product:P0325",
-      "target": "product:P0327",
-      "rel": "similar",
-      "label": "Alternative: same active ingredient(s)",
-      "score": 88,
-      "why": "Same active ingredient(s), but delivered in different form families.",
-      "meta": {
-        "edgeId": "E01289",
-        "clinicalSimilarity": 100,
-        "commercialSubstitution": 95,
-        "crossSell": 15,
-        "riskOverlap": 90,
-        "evidence": 90,
-        "seasonality": 40,
-        "triggerContext": "motion sickness, smoking cessation, travel sickness",
-        "primaryToSecondary": "No",
-        "reciprocalDisplay": "Yes",
-        "reviewStatus": "Ready - strong starter link",
-        "sourceMethod": "EXACT_INGREDIENT_BASE"
-      }
-    },
-    {
-      "key": "8ee5cbe4632b3129",
-      "source": "product:P0325",
-      "target": "product:P0328",
-      "rel": "similar",
-      "label": "Alternative: same active ingredient(s)",
-      "score": 88,
-      "why": "Same active ingredient(s), but delivered in different form families.",
-      "meta": {
-        "edgeId": "E01290",
-        "clinicalSimilarity": 100,
-        "commercialSubstitution": 95,
-        "crossSell": 15,
-        "riskOverlap": 90,
-        "evidence": 90,
-        "seasonality": 40,
-        "triggerContext": "motion sickness, smoking cessation, travel sickness",
-        "primaryToSecondary": "No",
-        "reciprocalDisplay": "Yes",
-        "reviewStatus": "Ready - strong starter link",
-        "sourceMethod": "EXACT_INGREDIENT_BASE"
-      }
-    },
-    {
-      "key": "a070b23da240009e",
-      "source": "product:P0325",
-      "target": "product:P0329",
-      "rel": "similar",
-      "label": "Alternative: same active ingredient(s)",
-      "score": 88,
-      "why": "Same active ingredient(s), but delivered in different form families.",
-      "meta": {
-        "edgeId": "E01291",
-        "clinicalSimilarity": 100,
-        "commercialSubstitution": 95,
-        "crossSell": 15,
-        "riskOverlap": 90,
-        "evidence": 90,
-        "seasonality": 40,
-        "triggerContext": "motion sickness, smoking cessation, travel sickness",
-        "primaryToSecondary": "No",
-        "reciprocalDisplay": "Yes",
-        "reviewStatus": "Ready - strong starter link",
-        "sourceMethod": "EXACT_INGREDIENT_BASE"
-      }
-    },
-    {
-      "key": "91c838fa0a7c73e8",
-      "source": "product:P0325",
-      "target": "product:P0330",
-      "rel": "similar",
-      "label": "Alternative: same active ingredient(s)",
-      "score": 88,
-      "why": "Same active ingredient(s), but delivered in different form families.",
-      "meta": {
-        "edgeId": "E01292",
-        "clinicalSimilarity": 100,
-        "commercialSubstitution": 95,
-        "crossSell": 15,
-        "riskOverlap": 90,
-        "evidence": 90,
-        "seasonality": 40,
-        "triggerContext": "motion sickness, smoking cessation, travel sickness",
-        "primaryToSecondary": "No",
-        "reciprocalDisplay": "Yes",
-        "reviewStatus": "Ready - strong starter link",
-        "sourceMethod": "EXACT_INGREDIENT_BASE"
-      }
-    },
     {
       "key": "6bdf57886c239aeb",
       "source": "product:P0303",
@@ -776,18 +661,7 @@
       "score": 88,
       "why": "Same active ingredient(s), but delivered in different form families.",
       "meta": {
-        "edgeId": "E01087",
-        "clinicalSimilarity": 100,
-        "commercialSubstitution": 95,
-        "crossSell": 15,
-        "riskOverlap": 90,
-        "evidence": 90,
-        "seasonality": 40,
-        "triggerContext": "motion sickness, smoking cessation, travel sickness",
-        "primaryToSecondary": "No",
-        "reciprocalDisplay": "Yes",
-        "reviewStatus": "Ready - strong starter link",
-        "sourceMethod": "EXACT_INGREDIENT_BASE"
+        "edgeId": "E01087"
       }
     },
     {
@@ -799,18 +673,7 @@
       "score": 88,
       "why": "Same active ingredient(s), but delivered in different form families.",
       "meta": {
-        "edgeId": "E01107",
-        "clinicalSimilarity": 100,
-        "commercialSubstitution": 95,
-        "crossSell": 15,
-        "riskOverlap": 90,
-        "evidence": 90,
-        "seasonality": 40,
-        "triggerContext": "motion sickness, smoking cessation, travel sickness",
-        "primaryToSecondary": "No",
-        "reciprocalDisplay": "Yes",
-        "reviewStatus": "Ready - strong starter link",
-        "sourceMethod": "EXACT_INGREDIENT_BASE"
+        "edgeId": "E01107"
       }
     },
     {
@@ -822,18 +685,7 @@
       "score": 88,
       "why": "Same active ingredient(s), but delivered in different form families.",
       "meta": {
-        "edgeId": "E01126",
-        "clinicalSimilarity": 100,
-        "commercialSubstitution": 95,
-        "crossSell": 15,
-        "riskOverlap": 90,
-        "evidence": 90,
-        "seasonality": 40,
-        "triggerContext": "motion sickness, smoking cessation, travel sickness",
-        "primaryToSecondary": "No",
-        "reciprocalDisplay": "Yes",
-        "reviewStatus": "Ready - strong starter link",
-        "sourceMethod": "EXACT_INGREDIENT_BASE"
+        "edgeId": "E01126"
       }
     },
     {
@@ -845,18 +697,7 @@
       "score": 88,
       "why": "Same active ingredient(s), but delivered in different form families.",
       "meta": {
-        "edgeId": "E01144",
-        "clinicalSimilarity": 100,
-        "commercialSubstitution": 95,
-        "crossSell": 15,
-        "riskOverlap": 90,
-        "evidence": 90,
-        "seasonality": 40,
-        "triggerContext": "motion sickness, smoking cessation, travel sickness",
-        "primaryToSecondary": "No",
-        "reciprocalDisplay": "Yes",
-        "reviewStatus": "Ready - strong starter link",
-        "sourceMethod": "EXACT_INGREDIENT_BASE"
+        "edgeId": "E01144"
       }
     },
     {
@@ -868,18 +709,7 @@
       "score": 88,
       "why": "Same active ingredient(s), but delivered in different form families.",
       "meta": {
-        "edgeId": "E01161",
-        "clinicalSimilarity": 100,
-        "commercialSubstitution": 95,
-        "crossSell": 15,
-        "riskOverlap": 90,
-        "evidence": 90,
-        "seasonality": 40,
-        "triggerContext": "motion sickness, smoking cessation, travel sickness",
-        "primaryToSecondary": "No",
-        "reciprocalDisplay": "Yes",
-        "reviewStatus": "Ready - strong starter link",
-        "sourceMethod": "EXACT_INGREDIENT_BASE"
+        "edgeId": "E01161"
       }
     },
     {
@@ -891,18 +721,7 @@
       "score": 88,
       "why": "Same active ingredient(s), but delivered in different form families.",
       "meta": {
-        "edgeId": "E01177",
-        "clinicalSimilarity": 100,
-        "commercialSubstitution": 95,
-        "crossSell": 15,
-        "riskOverlap": 90,
-        "evidence": 90,
-        "seasonality": 40,
-        "triggerContext": "motion sickness, smoking cessation, travel sickness",
-        "primaryToSecondary": "No",
-        "reciprocalDisplay": "Yes",
-        "reviewStatus": "Ready - strong starter link",
-        "sourceMethod": "EXACT_INGREDIENT_BASE"
+        "edgeId": "E01177"
       }
     },
     {
@@ -914,18 +733,7 @@
       "score": 88,
       "why": "Same active ingredient(s), but delivered in different form families.",
       "meta": {
-        "edgeId": "E01192",
-        "clinicalSimilarity": 100,
-        "commercialSubstitution": 95,
-        "crossSell": 15,
-        "riskOverlap": 90,
-        "evidence": 90,
-        "seasonality": 40,
-        "triggerContext": "motion sickness, smoking cessation, travel sickness",
-        "primaryToSecondary": "No",
-        "reciprocalDisplay": "Yes",
-        "reviewStatus": "Ready - strong starter link",
-        "sourceMethod": "EXACT_INGREDIENT_BASE"
+        "edgeId": "E01192"
       }
     },
     {
@@ -937,18 +745,7 @@
       "score": 88,
       "why": "Same active ingredient(s), but delivered in different form families.",
       "meta": {
-        "edgeId": "E01206",
-        "clinicalSimilarity": 100,
-        "commercialSubstitution": 95,
-        "crossSell": 15,
-        "riskOverlap": 90,
-        "evidence": 90,
-        "seasonality": 40,
-        "triggerContext": "motion sickness, smoking cessation, travel sickness",
-        "primaryToSecondary": "No",
-        "reciprocalDisplay": "Yes",
-        "reviewStatus": "Ready - strong starter link",
-        "sourceMethod": "EXACT_INGREDIENT_BASE"
+        "edgeId": "E01206"
       }
     },
     {
@@ -960,18 +757,7 @@
       "score": 88,
       "why": "Same active ingredient(s), but delivered in different form families.",
       "meta": {
-        "edgeId": "E01219",
-        "clinicalSimilarity": 100,
-        "commercialSubstitution": 95,
-        "crossSell": 15,
-        "riskOverlap": 90,
-        "evidence": 90,
-        "seasonality": 40,
-        "triggerContext": "motion sickness, smoking cessation, travel sickness",
-        "primaryToSecondary": "No",
-        "reciprocalDisplay": "Yes",
-        "reviewStatus": "Ready - strong starter link",
-        "sourceMethod": "EXACT_INGREDIENT_BASE"
+        "edgeId": "E01219"
       }
     },
     {
@@ -983,18 +769,7 @@
       "score": 88,
       "why": "Same active ingredient(s), but delivered in different form families.",
       "meta": {
-        "edgeId": "E01231",
-        "clinicalSimilarity": 100,
-        "commercialSubstitution": 95,
-        "crossSell": 15,
-        "riskOverlap": 90,
-        "evidence": 90,
-        "seasonality": 40,
-        "triggerContext": "motion sickness, smoking cessation, travel sickness",
-        "primaryToSecondary": "No",
-        "reciprocalDisplay": "Yes",
-        "reviewStatus": "Ready - strong starter link",
-        "sourceMethod": "EXACT_INGREDIENT_BASE"
+        "edgeId": "E01231"
       }
     },
     {
@@ -1006,18 +781,7 @@
       "score": 88,
       "why": "Same active ingredient(s), but delivered in different form families.",
       "meta": {
-        "edgeId": "E01242",
-        "clinicalSimilarity": 100,
-        "commercialSubstitution": 95,
-        "crossSell": 15,
-        "riskOverlap": 90,
-        "evidence": 90,
-        "seasonality": 40,
-        "triggerContext": "motion sickness, smoking cessation, travel sickness",
-        "primaryToSecondary": "No",
-        "reciprocalDisplay": "Yes",
-        "reviewStatus": "Ready - strong starter link",
-        "sourceMethod": "EXACT_INGREDIENT_BASE"
+        "edgeId": "E01242"
       }
     },
     {
@@ -1029,18 +793,7 @@
       "score": 88,
       "why": "Same active ingredient(s), but delivered in different form families.",
       "meta": {
-        "edgeId": "E01252",
-        "clinicalSimilarity": 100,
-        "commercialSubstitution": 95,
-        "crossSell": 15,
-        "riskOverlap": 90,
-        "evidence": 90,
-        "seasonality": 40,
-        "triggerContext": "motion sickness, smoking cessation, travel sickness",
-        "primaryToSecondary": "No",
-        "reciprocalDisplay": "Yes",
-        "reviewStatus": "Ready - strong starter link",
-        "sourceMethod": "EXACT_INGREDIENT_BASE"
+        "edgeId": "E01252"
       }
     },
     {
@@ -1052,18 +805,7 @@
       "score": 88,
       "why": "Same active ingredient(s), but delivered in different form families.",
       "meta": {
-        "edgeId": "E01261",
-        "clinicalSimilarity": 100,
-        "commercialSubstitution": 95,
-        "crossSell": 15,
-        "riskOverlap": 90,
-        "evidence": 90,
-        "seasonality": 40,
-        "triggerContext": "motion sickness, smoking cessation, travel sickness",
-        "primaryToSecondary": "No",
-        "reciprocalDisplay": "Yes",
-        "reviewStatus": "Ready - strong starter link",
-        "sourceMethod": "EXACT_INGREDIENT_BASE"
+        "edgeId": "E01261"
       }
     },
     {
@@ -1075,18 +817,7 @@
       "score": 88,
       "why": "Same active ingredient(s), but delivered in different form families.",
       "meta": {
-        "edgeId": "E01269",
-        "clinicalSimilarity": 100,
-        "commercialSubstitution": 95,
-        "crossSell": 15,
-        "riskOverlap": 90,
-        "evidence": 90,
-        "seasonality": 40,
-        "triggerContext": "motion sickness, smoking cessation, travel sickness",
-        "primaryToSecondary": "No",
-        "reciprocalDisplay": "Yes",
-        "reviewStatus": "Ready - strong starter link",
-        "sourceMethod": "EXACT_INGREDIENT_BASE"
+        "edgeId": "E01269"
       }
     },
     {
@@ -1098,18 +829,7 @@
       "score": 88,
       "why": "Same active ingredient(s), but delivered in different form families.",
       "meta": {
-        "edgeId": "E01276",
-        "clinicalSimilarity": 100,
-        "commercialSubstitution": 95,
-        "crossSell": 15,
-        "riskOverlap": 90,
-        "evidence": 90,
-        "seasonality": 40,
-        "triggerContext": "motion sickness, smoking cessation, travel sickness",
-        "primaryToSecondary": "No",
-        "reciprocalDisplay": "Yes",
-        "reviewStatus": "Ready - strong starter link",
-        "sourceMethod": "EXACT_INGREDIENT_BASE"
+        "edgeId": "E01276"
       }
     },
     {
@@ -1121,18 +841,67 @@
       "score": 88,
       "why": "Same active ingredient(s), but delivered in different form families.",
       "meta": {
-        "edgeId": "E01282",
-        "clinicalSimilarity": 100,
-        "commercialSubstitution": 95,
-        "crossSell": 15,
-        "riskOverlap": 90,
-        "evidence": 90,
-        "seasonality": 40,
-        "triggerContext": "motion sickness, smoking cessation, travel sickness",
-        "primaryToSecondary": "No",
-        "reciprocalDisplay": "Yes",
-        "reviewStatus": "Ready - strong starter link",
-        "sourceMethod": "EXACT_INGREDIENT_BASE"
+        "edgeId": "E01282"
+      }
+    },
+    {
+      "key": "34822df9f66675ff",
+      "source": "product:P0325",
+      "target": "product:P0326",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 88,
+      "why": "Same active ingredient(s), but delivered in different form families.",
+      "meta": {
+        "edgeId": "E01288"
+      }
+    },
+    {
+      "key": "2fd9a464f65849dc",
+      "source": "product:P0325",
+      "target": "product:P0327",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 88,
+      "why": "Same active ingredient(s), but delivered in different form families.",
+      "meta": {
+        "edgeId": "E01289"
+      }
+    },
+    {
+      "key": "8ee5cbe4632b3129",
+      "source": "product:P0325",
+      "target": "product:P0328",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 88,
+      "why": "Same active ingredient(s), but delivered in different form families.",
+      "meta": {
+        "edgeId": "E01290"
+      }
+    },
+    {
+      "key": "a070b23da240009e",
+      "source": "product:P0325",
+      "target": "product:P0329",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 88,
+      "why": "Same active ingredient(s), but delivered in different form families.",
+      "meta": {
+        "edgeId": "E01291"
+      }
+    },
+    {
+      "key": "91c838fa0a7c73e8",
+      "source": "product:P0325",
+      "target": "product:P0330",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 88,
+      "why": "Same active ingredient(s), but delivered in different form families.",
+      "meta": {
+        "edgeId": "E01292"
       }
     },
     {
@@ -1144,93 +913,19 @@
       "score": 100,
       "why": "Imported symptom tags",
       "meta": {
-        "mapId": "PSM01038",
-        "role": "Primary",
-        "reviewStatus": "Seeded"
+        "mapId": "PSM01038"
       }
     },
     {
-      "key": "f332b805b5d7911e",
+      "key": "8c8c640fc15cc30a",
       "source": "product:P0325",
-      "target": "usecase:UC009",
+      "target": "usecase:UC018",
       "rel": "usecase",
-      "label": "Targeted support",
-      "score": 90,
-      "why": "travel sickness, motion sickness",
+      "label": "Core",
+      "score": 100,
+      "why": "Quit smoking, nicotine replacement, smoking cessation",
       "meta": {
-        "useCaseItemId": "UCI00501",
-        "role": "Targeted support",
-        "reviewStatus": "Seeded"
-      }
-    },
-    {
-      "key": "78efd924b99eb744",
-      "source": "product:P0325",
-      "target": "product:P0326",
-      "rel": "guardrail",
-      "label": "Potential duplicate therapy / substitute",
-      "score": 88,
-      "why": "Same active ingredient(s), but delivered in different form families.",
-      "meta": {
-        "edgeId": "E01288",
-        "posAction": "Do not cross-sell together by default; show as alternative options instead.",
-        "guardrailType": "Potential duplicate therapy / substitute"
-      }
-    },
-    {
-      "key": "315550a4c3c2eee3",
-      "source": "product:P0325",
-      "target": "product:P0327",
-      "rel": "guardrail",
-      "label": "Potential duplicate therapy / substitute",
-      "score": 88,
-      "why": "Same active ingredient(s), but delivered in different form families.",
-      "meta": {
-        "edgeId": "E01289",
-        "posAction": "Do not cross-sell together by default; show as alternative options instead.",
-        "guardrailType": "Potential duplicate therapy / substitute"
-      }
-    },
-    {
-      "key": "d97b69de89934a6e",
-      "source": "product:P0325",
-      "target": "product:P0328",
-      "rel": "guardrail",
-      "label": "Potential duplicate therapy / substitute",
-      "score": 88,
-      "why": "Same active ingredient(s), but delivered in different form families.",
-      "meta": {
-        "edgeId": "E01290",
-        "posAction": "Do not cross-sell together by default; show as alternative options instead.",
-        "guardrailType": "Potential duplicate therapy / substitute"
-      }
-    },
-    {
-      "key": "9cd72758385c5dfe",
-      "source": "product:P0325",
-      "target": "product:P0329",
-      "rel": "guardrail",
-      "label": "Potential duplicate therapy / substitute",
-      "score": 88,
-      "why": "Same active ingredient(s), but delivered in different form families.",
-      "meta": {
-        "edgeId": "E01291",
-        "posAction": "Do not cross-sell together by default; show as alternative options instead.",
-        "guardrailType": "Potential duplicate therapy / substitute"
-      }
-    },
-    {
-      "key": "20bc4af5d3b889bc",
-      "source": "product:P0325",
-      "target": "product:P0330",
-      "rel": "guardrail",
-      "label": "Potential duplicate therapy / substitute",
-      "score": 88,
-      "why": "Same active ingredient(s), but delivered in different form families.",
-      "meta": {
-        "edgeId": "E01292",
-        "posAction": "Do not cross-sell together by default; show as alternative options instead.",
-        "guardrailType": "Potential duplicate therapy / substitute"
+        "useCaseItemId": "UCI00686"
       }
     },
     {
@@ -1243,8 +938,7 @@
       "why": "Same active ingredient(s), but delivered in different form families.",
       "meta": {
         "edgeId": "E01087",
-        "posAction": "Do not cross-sell together by default; show as alternative options instead.",
-        "guardrailType": "Potential duplicate therapy / substitute"
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
       }
     },
     {
@@ -1257,8 +951,7 @@
       "why": "Same active ingredient(s), but delivered in different form families.",
       "meta": {
         "edgeId": "E01107",
-        "posAction": "Do not cross-sell together by default; show as alternative options instead.",
-        "guardrailType": "Potential duplicate therapy / substitute"
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
       }
     },
     {
@@ -1271,8 +964,7 @@
       "why": "Same active ingredient(s), but delivered in different form families.",
       "meta": {
         "edgeId": "E01126",
-        "posAction": "Do not cross-sell together by default; show as alternative options instead.",
-        "guardrailType": "Potential duplicate therapy / substitute"
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
       }
     },
     {
@@ -1285,8 +977,7 @@
       "why": "Same active ingredient(s), but delivered in different form families.",
       "meta": {
         "edgeId": "E01144",
-        "posAction": "Do not cross-sell together by default; show as alternative options instead.",
-        "guardrailType": "Potential duplicate therapy / substitute"
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
       }
     },
     {
@@ -1299,8 +990,7 @@
       "why": "Same active ingredient(s), but delivered in different form families.",
       "meta": {
         "edgeId": "E01161",
-        "posAction": "Do not cross-sell together by default; show as alternative options instead.",
-        "guardrailType": "Potential duplicate therapy / substitute"
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
       }
     },
     {
@@ -1313,8 +1003,7 @@
       "why": "Same active ingredient(s), but delivered in different form families.",
       "meta": {
         "edgeId": "E01177",
-        "posAction": "Do not cross-sell together by default; show as alternative options instead.",
-        "guardrailType": "Potential duplicate therapy / substitute"
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
       }
     },
     {
@@ -1327,8 +1016,7 @@
       "why": "Same active ingredient(s), but delivered in different form families.",
       "meta": {
         "edgeId": "E01192",
-        "posAction": "Do not cross-sell together by default; show as alternative options instead.",
-        "guardrailType": "Potential duplicate therapy / substitute"
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
       }
     },
     {
@@ -1341,8 +1029,7 @@
       "why": "Same active ingredient(s), but delivered in different form families.",
       "meta": {
         "edgeId": "E01206",
-        "posAction": "Do not cross-sell together by default; show as alternative options instead.",
-        "guardrailType": "Potential duplicate therapy / substitute"
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
       }
     },
     {
@@ -1355,8 +1042,7 @@
       "why": "Same active ingredient(s), but delivered in different form families.",
       "meta": {
         "edgeId": "E01219",
-        "posAction": "Do not cross-sell together by default; show as alternative options instead.",
-        "guardrailType": "Potential duplicate therapy / substitute"
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
       }
     },
     {
@@ -1369,8 +1055,7 @@
       "why": "Same active ingredient(s), but delivered in different form families.",
       "meta": {
         "edgeId": "E01231",
-        "posAction": "Do not cross-sell together by default; show as alternative options instead.",
-        "guardrailType": "Potential duplicate therapy / substitute"
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
       }
     },
     {
@@ -1383,8 +1068,7 @@
       "why": "Same active ingredient(s), but delivered in different form families.",
       "meta": {
         "edgeId": "E01242",
-        "posAction": "Do not cross-sell together by default; show as alternative options instead.",
-        "guardrailType": "Potential duplicate therapy / substitute"
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
       }
     },
     {
@@ -1397,8 +1081,7 @@
       "why": "Same active ingredient(s), but delivered in different form families.",
       "meta": {
         "edgeId": "E01252",
-        "posAction": "Do not cross-sell together by default; show as alternative options instead.",
-        "guardrailType": "Potential duplicate therapy / substitute"
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
       }
     },
     {
@@ -1411,8 +1094,7 @@
       "why": "Same active ingredient(s), but delivered in different form families.",
       "meta": {
         "edgeId": "E01261",
-        "posAction": "Do not cross-sell together by default; show as alternative options instead.",
-        "guardrailType": "Potential duplicate therapy / substitute"
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
       }
     },
     {
@@ -1425,8 +1107,7 @@
       "why": "Same active ingredient(s), but delivered in different form families.",
       "meta": {
         "edgeId": "E01269",
-        "posAction": "Do not cross-sell together by default; show as alternative options instead.",
-        "guardrailType": "Potential duplicate therapy / substitute"
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
       }
     },
     {
@@ -1439,8 +1120,7 @@
       "why": "Same active ingredient(s), but delivered in different form families.",
       "meta": {
         "edgeId": "E01276",
-        "posAction": "Do not cross-sell together by default; show as alternative options instead.",
-        "guardrailType": "Potential duplicate therapy / substitute"
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
       }
     },
     {
@@ -1453,13 +1133,73 @@
       "why": "Same active ingredient(s), but delivered in different form families.",
       "meta": {
         "edgeId": "E01282",
-        "posAction": "Do not cross-sell together by default; show as alternative options instead.",
-        "guardrailType": "Potential duplicate therapy / substitute"
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    },
+    {
+      "key": "78efd924b99eb744",
+      "source": "product:P0325",
+      "target": "product:P0326",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 88,
+      "why": "Same active ingredient(s), but delivered in different form families.",
+      "meta": {
+        "edgeId": "E01288",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    },
+    {
+      "key": "315550a4c3c2eee3",
+      "source": "product:P0325",
+      "target": "product:P0327",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 88,
+      "why": "Same active ingredient(s), but delivered in different form families.",
+      "meta": {
+        "edgeId": "E01289",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    },
+    {
+      "key": "d97b69de89934a6e",
+      "source": "product:P0325",
+      "target": "product:P0328",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 88,
+      "why": "Same active ingredient(s), but delivered in different form families.",
+      "meta": {
+        "edgeId": "E01290",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    },
+    {
+      "key": "9cd72758385c5dfe",
+      "source": "product:P0325",
+      "target": "product:P0329",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 88,
+      "why": "Same active ingredient(s), but delivered in different form families.",
+      "meta": {
+        "edgeId": "E01291",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    },
+    {
+      "key": "20bc4af5d3b889bc",
+      "source": "product:P0325",
+      "target": "product:P0330",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 88,
+      "why": "Same active ingredient(s), but delivered in different form families.",
+      "meta": {
+        "edgeId": "E01292",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
       }
     }
-  ],
-  "meta": {
-    "productName": "Nicorette QuickMist 1mg/spray, Oromucosal Spray, Solution",
-    "linkCount": 46
-  }
+  ]
 }

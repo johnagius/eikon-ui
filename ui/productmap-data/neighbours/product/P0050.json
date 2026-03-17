@@ -8,15 +8,15 @@
       "nodeType": "product",
       "refId": "P0050",
       "label": "Biodramina Chewing-gum",
-      "subtext": "review needed",
+      "subtext": "motion sickness",
       "meta": {
         "brand": "Biodramina",
         "generic": "DIMENHYDRINATE",
         "form": "MEDICATED CHEWING-GUM",
         "formGroup": "Oral solid",
         "route": "Oral",
-        "mainIndication": "review needed",
-        "secondaryIndications": null,
+        "mainIndication": "motion sickness",
+        "secondaryIndications": "travel sickness",
         "otcCategory": "ANTIEMETICS AND ANTINAUSEANTS",
         "seasonalGroup": "All year",
         "sedating": "No",
@@ -36,15 +36,15 @@
       "nodeType": "product",
       "refId": "P0051",
       "label": "Biodramina Tablets",
-      "subtext": "review needed",
+      "subtext": "motion sickness",
       "meta": {
         "brand": "Biodramina",
         "generic": "DIMENHYDRINATE",
         "form": "TABLET",
         "formGroup": "Oral solid",
         "route": "Oral",
-        "mainIndication": "review needed",
-        "secondaryIndications": null,
+        "mainIndication": "motion sickness",
+        "secondaryIndications": "travel sickness",
         "otcCategory": "ANTIEMETICS AND ANTINAUSEANTS",
         "seasonalGroup": "All year",
         "sedating": "No",
@@ -64,15 +64,15 @@
       "nodeType": "product",
       "refId": "P0514",
       "label": "Vomidrine 50 mg tablets",
-      "subtext": "review needed",
+      "subtext": "motion sickness",
       "meta": {
         "brand": "Vomidrine",
         "generic": "DIMENHYDRINATE",
         "form": "TABLET",
         "formGroup": "Oral solid",
         "route": "Oral",
-        "mainIndication": "review needed",
-        "secondaryIndications": null,
+        "mainIndication": "motion sickness",
+        "secondaryIndications": "travel sickness",
         "otcCategory": "ANTIEMETICS AND ANTINAUSEANTS",
         "seasonalGroup": "All year",
         "sedating": "No",
@@ -92,15 +92,15 @@
       "nodeType": "product",
       "refId": "P0312",
       "label": "Nausefe (10 mg + 10 mg + 10 mg) Coated Tablets",
-      "subtext": "review needed",
+      "subtext": "nausea support",
       "meta": {
         "brand": "Nausefe",
         "generic": "DICYCLOVERINE HYDROCHLORIDE | DOXYLAMINE SUCCINATE | PYRIDOXINE HYDROCHLORIDE",
         "form": "COATED TABLET",
         "formGroup": "Oral solid",
         "route": "Oral",
-        "mainIndication": "review needed",
-        "secondaryIndications": null,
+        "mainIndication": "nausea support",
+        "secondaryIndications": "",
         "otcCategory": "ANTIEMETICS AND ANTINAUSEANTS",
         "seasonalGroup": "All year",
         "sedating": "Yes",
@@ -174,18 +174,7 @@
       "score": 95,
       "why": "Same active ingredient(s) and same form family.",
       "meta": {
-        "edgeId": "E00501",
-        "clinicalSimilarity": 100,
-        "commercialSubstitution": 100,
-        "crossSell": 15,
-        "riskOverlap": 90,
-        "evidence": 90,
-        "seasonality": 40,
-        "triggerContext": "review needed",
-        "primaryToSecondary": "No",
-        "reciprocalDisplay": "Yes",
-        "reviewStatus": "Ready - strong starter link",
-        "sourceMethod": "EXACT_INGREDIENT_BASE"
+        "edgeId": "E00501"
       }
     },
     {
@@ -197,18 +186,7 @@
       "score": 95,
       "why": "Same active ingredient(s) and same form family.",
       "meta": {
-        "edgeId": "E00502",
-        "clinicalSimilarity": 100,
-        "commercialSubstitution": 100,
-        "crossSell": 15,
-        "riskOverlap": 90,
-        "evidence": 90,
-        "seasonality": 40,
-        "triggerContext": "review needed",
-        "primaryToSecondary": "No",
-        "reciprocalDisplay": "Yes",
-        "reviewStatus": "Ready - strong starter link",
-        "sourceMethod": "EXACT_INGREDIENT_BASE"
+        "edgeId": "E00502"
       }
     },
     {
@@ -220,46 +198,7 @@
       "score": 78,
       "why": "Same ATC code, therapeutic class, and form family; likely reasonable substitute candidates pending staff review.",
       "meta": {
-        "edgeId": "E01852",
-        "clinicalSimilarity": 85,
-        "commercialSubstitution": 80,
-        "crossSell": 25,
-        "riskOverlap": 60,
-        "evidence": 90,
-        "seasonality": 40,
-        "triggerContext": "review needed",
-        "primaryToSecondary": "No",
-        "reciprocalDisplay": "Yes",
-        "reviewStatus": "Needs pharmacist/staff review",
-        "sourceMethod": "EXACT_ATC_SAME_CLASS_FORM"
-      }
-    },
-    {
-      "key": "c2320f8c87562c24",
-      "source": "product:P0050",
-      "target": "product:P0051",
-      "rel": "guardrail",
-      "label": "Potential duplicate therapy / substitute",
-      "score": 95,
-      "why": "Same active ingredient(s) and same form family.",
-      "meta": {
-        "edgeId": "E00501",
-        "posAction": "Do not cross-sell together by default; show as alternative options instead.",
-        "guardrailType": "Potential duplicate therapy / substitute"
-      }
-    },
-    {
-      "key": "cffacef3f0906230",
-      "source": "product:P0050",
-      "target": "product:P0514",
-      "rel": "guardrail",
-      "label": "Potential duplicate therapy / substitute",
-      "score": 95,
-      "why": "Same active ingredient(s) and same form family.",
-      "meta": {
-        "edgeId": "E00502",
-        "posAction": "Do not cross-sell together by default; show as alternative options instead.",
-        "guardrailType": "Potential duplicate therapy / substitute"
+        "edgeId": "E01852"
       }
     },
     {
@@ -297,10 +236,32 @@
       "meta": {
         "useCaseItemId": "UCI00626"
       }
+    },
+    {
+      "key": "c2320f8c87562c24",
+      "source": "product:P0050",
+      "target": "product:P0051",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00501",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    },
+    {
+      "key": "cffacef3f0906230",
+      "source": "product:P0050",
+      "target": "product:P0514",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00502",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
     }
-  ],
-  "meta": {
-    "productName": "Biodramina Chewing-gum",
-    "linkCount": 6
-  }
+  ]
 }

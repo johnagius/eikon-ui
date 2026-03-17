@@ -1,1 +1,1210 @@
-{"centerId":"symptom:S035","centerType":"symptom","refId":"S035","nodes":[{"id":"symptom:S035","nodeType":"symptom","refId":"S035","label":"heartburn","subtext":"Gastrointestinal","meta":{"Symptom_ID":"S035","Symptom_Name":"heartburn","Symptom_Category":"Gastrointestinal","Linked_Product_Count":29,"Display_Group":"Gastrointestinal","Priority_For_Graph":100,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"product:P0014","nodeType":"product","refId":"P0014","label":"Acidex Oral Suspension","subtext":"heartburn","meta":{"brand":"Acidex","generic":"CALCIUM CARBONATE | SODIUM ALGINATE | SODIUM BICARBONATE","form":"ORAL SUSPENSION","formGroup":"Oral liquid","route":"Oral","mainIndication":"heartburn","secondaryIndications":"acid reflux | indigestion","otcCategory":"DRUGS FOR ACID RELATED DISORDERS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"SODIUM ALGINATE 50 milligram(s)/millilitre | SODIUM BICARBONATE 26.7 milligram(s)/millilitre | CALCIUM CARBONATE 16 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"A02BX","status":"Authorised","supplierCatalogKey":"acidex oral suspension"}},{"id":"product:P0021","nodeType":"product","refId":"P0021","label":"Alutril Forte 500 mg/250 mg chewable tablets","subtext":"heartburn","meta":{"brand":"Alutril","generic":"ALUMINIUM HYDROXIDE | MAGNESIUM TRISILICATE","form":"CHEWABLE TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"heartburn","secondaryIndications":"acid reflux | indigestion","otcCategory":"DRUGS FOR ACID RELATED DISORDERS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"MAGNESIUM TRISILICATE 500 milligram(s) | ALUMINIUM HYDROXIDE 250 milligram(s)","packSizeText":"Review manually","atcCode":"A02AD01","status":"Authorised","supplierCatalogKey":"alutril forte 500 mg/250 mg chewable tablets"}},{"id":"product:P0167","nodeType":"product","refId":"P0167","label":"Emazole Control 20 mg gastro-resistant tablets","subtext":"heartburn","meta":{"brand":"Emazole","generic":"ESOMEPRAZOLE MAGNESIUM DIHYDRATE","form":"GASTRO-RESISTANT TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"heartburn","secondaryIndications":"acid reflux | indigestion","otcCategory":"DRUGS FOR ACID RELATED DISORDERS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"ESOMEPRAZOLE MAGNESIUM DIHYDRATE 20 milligram(s)","packSizeText":"Review manually","atcCode":"A02BC05","status":"Authorised","supplierCatalogKey":"emazole control 20 mg gastro-resistant tablets"}},{"id":"product:P0170","nodeType":"product","refId":"P0170","label":"Esomeprazole Clonmel 20 mg gastro-resistant tablets","subtext":"heartburn","meta":{"brand":"Esomeprazole","generic":"ESOMEPRAZOLE","form":"GASTRO-RESISTANT TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"heartburn","secondaryIndications":"acid reflux | indigestion","otcCategory":"DRUGS FOR ACID RELATED DISORDERS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"ESOMEPRAZOLE 20 milligram(s)","packSizeText":"Review manually","atcCode":"A02BC05","status":"Authorised","supplierCatalogKey":"esomeprazole clonmel 20 mg gastro-resistant tablets"}},{"id":"product:P0176","nodeType":"product","refId":"P0176","label":"Famotidine Alkaloid 20 mg film-coated tablets","subtext":"heartburn","meta":{"brand":"Famotidine","generic":"FAMOTIDINE","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"heartburn","secondaryIndications":"acid reflux | indigestion","otcCategory":"DRUGS FOR ACID RELATED DISORDERS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"FAMOTIDINE 20 milligram(s)","packSizeText":"Review manually","atcCode":"A02BA03","status":"Authorised","supplierCatalogKey":"famotidine alkaloid 20 mg film-coated tablets"}},{"id":"product:P0177","nodeType":"product","refId":"P0177","label":"Famotidine Alkaloid 20mg","subtext":"heartburn","meta":{"brand":"Famotidine","generic":"FAMOTIDINE","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"heartburn","secondaryIndications":"acid reflux | indigestion","otcCategory":"DRUGS FOR ACID RELATED DISORDERS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"FAMOTIDINE 20 milligram(s)","packSizeText":"Review manually","atcCode":"A02BA03","status":"Authorised","supplierCatalogKey":"famotidine alkaloid 20mg"}},{"id":"product:P0196","nodeType":"product","refId":"P0196","label":"GAVISCON, oral suspension","subtext":"heartburn","meta":{"brand":"GAVISCON","generic":"SODIUM ALGINATE | SODIUM BICARBONATE","form":"ORAL SUSPENSION","formGroup":"Oral liquid","route":"Oral","mainIndication":"heartburn","secondaryIndications":"acid reflux | indigestion","otcCategory":"DRUGS FOR ACID RELATED DISORDERS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"SODIUM ALGINATE 50 milligram(s)/millilitre | SODIUM BICARBONATE 26.7 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"A02BX","status":"Authorised","supplierCatalogKey":"gaviscon, oral suspension"}},{"id":"product:P0197","nodeType":"product","refId":"P0197","label":"GAVISCON, oral suspension in bottle","subtext":"heartburn","meta":{"brand":"GAVISCON","generic":"SODIUM ALGINATE | SODIUM BICARBONATE","form":"ORAL SUSPENSION","formGroup":"Oral liquid","route":"Oral","mainIndication":"heartburn","secondaryIndications":"acid reflux | indigestion","otcCategory":"DRUGS FOR ACID RELATED DISORDERS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"SODIUM ALGINATE 50 milligram(s)/millilitre | SODIUM BICARBONATE 26.7 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"A02BX","status":"Authorised","supplierCatalogKey":"gaviscon, oral suspension in bottle"}},{"id":"product:P0198","nodeType":"product","refId":"P0198","label":"GAVISCON, oral suspension in sachet","subtext":"heartburn","meta":{"brand":"GAVISCON","generic":"SODIUM ALGINATE | SODIUM BICARBONATE","form":"ORAL SUSPENSION","formGroup":"Oral liquid","route":"Oral","mainIndication":"heartburn","secondaryIndications":"acid reflux | indigestion","otcCategory":"DRUGS FOR ACID RELATED DISORDERS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"SODIUM BICARBONATE 267 milligram(s) | SODIUM ALGINATE 500 milligram(s)","packSizeText":"Review manually","atcCode":"A02BX","status":"Authorised","supplierCatalogKey":"gaviscon, oral suspension in sachet"}},{"id":"product:P0201","nodeType":"product","refId":"P0201","label":"Gaviscon Advance Chewable Tablets Sodium alginate 500 mg, Potassium hydrogen carbonate 100 mg","subtext":"heartburn","meta":{"brand":"Gaviscon","generic":"POTASSIUM HYDROGEN CARBONATE | SODIUM ALGINATE","form":"CHEWABLE TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"heartburn","secondaryIndications":"acid reflux | indigestion","otcCategory":"DRUGS FOR ACID RELATED DISORDERS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"SODIUM ALGINATE 500 milligram(s) | POTASSIUM HYDROGEN CARBONATE 100 milligram(s)","packSizeText":"Review manually","atcCode":"A02BX13","status":"Authorised","supplierCatalogKey":"gaviscon advance chewable tablets sodium alginate 500 mg, potassium hydrogen carbonate 100 mg"}},{"id":"product:P0202","nodeType":"product","refId":"P0202","label":"Gaviscon Liquid – Aniseed Flavour Oral Suspension","subtext":"heartburn","meta":{"brand":"Gaviscon","generic":"CALCIUM CARBONATE | SODIUM ALGINATE | SODIUM HYDROGEN CARBONATE","form":"ORAL SUSPENSION","formGroup":"Oral liquid","route":"Oral","mainIndication":"heartburn","secondaryIndications":"acid reflux | indigestion","otcCategory":"DRUGS FOR ACID RELATED DISORDERS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"CALCIUM CARBONATE 80 milligram(s)/5 millilitre | SODIUM ALGINATE 250 milligram(s)/5 millilitre | SODIUM HYDROGEN CARBONATE 133.5 milligram(s)/5 millilitre","packSizeText":"Review manually","atcCode":"A02BX","status":"Authorised","supplierCatalogKey":"gaviscon liquid – aniseed flavour oral suspension"}},{"id":"product:P0203","nodeType":"product","refId":"P0203","label":"Gaviscon oral Suspension 50mg + 26.7mg/ml","subtext":"heartburn","meta":{"brand":"Gaviscon","generic":"SODIUM ALGINATE | SODIUM BICARBONATE","form":"ORAL SUSPENSION","formGroup":"Oral liquid","route":"Oral","mainIndication":"heartburn","secondaryIndications":"acid reflux | indigestion","otcCategory":"DRUGS FOR ACID RELATED DISORDERS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"SODIUM ALGINATE 50 milligram(s)/millilitre | SODIUM BICARBONATE 26.7 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"A02BX","status":"Authorised","supplierCatalogKey":"gaviscon oral suspension 50mg + 26.7mg/ml"}},{"id":"product:P0259","nodeType":"product","refId":"P0259","label":"Losec Control 20 mg gastro-resistant tablets","subtext":"heartburn","meta":{"brand":"Losec","generic":"OMEPRAZOLE","form":"GASTRO-RESISTANT TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"heartburn","secondaryIndications":"acid reflux | indigestion","otcCategory":"DRUGS FOR ACID RELATED DISORDERS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"OMEPRAZOLE 20 milligram(s)","packSizeText":"Review manually","atcCode":"A02BC01","status":"Authorised","supplierCatalogKey":"losec control 20 mg gastro-resistant tablets"}},{"id":"product:P0272","nodeType":"product","refId":"P0272","label":"Maalox 40 mg/35 mg/ml oral suspension","subtext":"heartburn","meta":{"brand":"Maalox","generic":"ALUMINIUM HYDROXIDE | MAGNESIUM HYDROXIDE","form":"ORAL SUSPENSION","formGroup":"Oral liquid","route":"Oral","mainIndication":"heartburn","secondaryIndications":"acid reflux | indigestion","otcCategory":"DRUGS FOR ACID RELATED DISORDERS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"MAGNESIUM HYDROXIDE 40 milligram(s)/millilitre | ALUMINIUM HYDROXIDE 35 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"A02AD01","status":"Authorised","supplierCatalogKey":"maalox 40 mg/35 mg/ml oral suspension"}},{"id":"product:P0273","nodeType":"product","refId":"P0273","label":"Maalox 400 mg/400 mg chewable tablets (sugar free)","subtext":"heartburn","meta":{"brand":"Maalox","generic":"ALUMINIUM HYDROXIDE | MAGNESIUM HYDROXIDE","form":"CHEWABLE TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"heartburn","secondaryIndications":"acid reflux | indigestion","otcCategory":"DRUGS FOR ACID RELATED DISORDERS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Yes","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"ALUMINIUM HYDROXIDE 400 milligram(s) | MAGNESIUM HYDROXIDE 400 milligram(s)","packSizeText":"Review manually","atcCode":"A02AD01","status":"Authorised","supplierCatalogKey":"maalox 400 mg/400 mg chewable tablets (sugar free)"}},{"id":"product:P0274","nodeType":"product","refId":"P0274","label":"Maalox 460 mg/400 mg/4.3 mL oral suspension","subtext":"heartburn","meta":{"brand":"Maalox","generic":"ALUMINIUM HYDROXIDE | MAGNESIUM HYDROXIDE","form":"ORAL SUSPENSION","formGroup":"Oral liquid","route":"Oral","mainIndication":"heartburn","secondaryIndications":"acid reflux | indigestion","otcCategory":"DRUGS FOR ACID RELATED DISORDERS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"ALUMINIUM HYDROXIDE 460 milligram(s) | MAGNESIUM HYDROXIDE 400 milligram(s)","packSizeText":"Review manually","atcCode":"A02AD01","status":"Authorised","supplierCatalogKey":"maalox 460 mg/400 mg/4.3 ml oral suspension"}},{"id":"product:P0275","nodeType":"product","refId":"P0275","label":"Maalox Plus 200mg/175mg/25mg Oral Suspension","subtext":"heartburn","meta":{"brand":"Maalox","generic":"ALUMINIUM HYDROXIDE | MAGNESIUM HYDROXIDE | SIMETHICONE","form":"ORAL SUSPENSION","formGroup":"Oral liquid","route":"Oral","mainIndication":"heartburn","secondaryIndications":"acid reflux | indigestion","otcCategory":"DRUGS FOR ACID RELATED DISORDERS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"MAGNESIUM HYDROXIDE 200 milligram(s) | SIMETHICONE 25 milligram(s) | ALUMINIUM HYDROXIDE 175 milligram(s)","packSizeText":"Review manually","atcCode":"A02AF02","status":"Authorised","supplierCatalogKey":"maalox plus 200mg/175mg/25mg oral suspension"}},{"id":"product:P0276","nodeType":"product","refId":"P0276","label":"Maalox Plus Chewable Tablets 200mg/200mg/25mg","subtext":"heartburn","meta":{"brand":"Maalox","generic":"ALUMINIUM OXIDE, HYDRATED | DIMETICONE | MAGNESIUM HYDROXIDE","form":"CHEWABLE TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"heartburn","secondaryIndications":"acid reflux | indigestion","otcCategory":"DRUGS FOR ACID RELATED DISORDERS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"DIMETICONE 25 milligram(s) | ALUMINIUM OXIDE, HYDRATED 200 milligram(s) | MAGNESIUM HYDROXIDE 200 milligram(s)","packSizeText":"Review manually","atcCode":"A02AF02","status":"Authorised","supplierCatalogKey":"maalox plus chewable tablets 200mg/200mg/25mg"}},{"id":"product:P0291","nodeType":"product","refId":"P0291","label":"Milk of Magnesia Traditional Mint Flavoured Liquid, 415 mg/5 ml, oral suspension","subtext":"heartburn","meta":{"brand":"Milk","generic":"MAGNESIUM HYDROXIDE","form":"ORAL SUSPENSION","formGroup":"Oral liquid","route":"Oral","mainIndication":"heartburn","secondaryIndications":"acid reflux | indigestion","otcCategory":"DRUGS FOR ACID RELATED DISORDERS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"MAGNESIUM HYDROXIDE 415 milligram(s)/5 millilitre","packSizeText":"Review manually","atcCode":"A02AA04","status":"Authorised","supplierCatalogKey":"milk of magnesia traditional mint flavoured liquid, 415 mg/5 ml, oral suspension"}},{"id":"product:P0417","nodeType":"product","refId":"P0417","label":"Rennie 750 mg Medicated Chewing Gum","subtext":"heartburn","meta":{"brand":"Rennie","generic":"CALCIUM CARBONATE","form":"MEDICATED CHEWING-GUM","formGroup":"Oral solid","route":"Oral","mainIndication":"heartburn","secondaryIndications":"acid reflux | indigestion","otcCategory":"DRUGS FOR ACID RELATED DISORDERS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CALCIUM CARBONATE 750 milligram(s)","packSizeText":"Review manually","atcCode":"A02AC01","status":"Authorised","supplierCatalogKey":"rennie 750 mg medicated chewing gum"}},{"id":"product:P0418","nodeType":"product","refId":"P0418","label":"Rennie Deflatine Chewable Tablets","subtext":"heartburn","meta":{"brand":"Rennie","generic":"CALCIUM CARBONATE | MAGNESIUM CARBONATE, HEAVY | SIMETICONE","form":"CHEWABLE TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"heartburn","secondaryIndications":"acid reflux | indigestion","otcCategory":"DRUGS FOR ACID RELATED DISORDERS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"CALCIUM CARBONATE 680 milligram(s) | MAGNESIUM CARBONATE, HEAVY 80 milligram(s) | SIMETICONE 25 milligram(s)","packSizeText":"Review manually","atcCode":"A02AX","status":"Authorised","supplierCatalogKey":"rennie deflatine chewable tablets"}},{"id":"product:P0419","nodeType":"product","refId":"P0419","label":"Rennie Dual Action Chewable Tablets","subtext":"heartburn","meta":{"brand":"Rennie","generic":"ALGINIC ACID | CALCIUM CARBONATE | MAGNESIUM CARBONATE, HEAVY","form":"CHEWABLE TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"heartburn","secondaryIndications":"acid reflux | indigestion","otcCategory":"DRUGS FOR ACID RELATED DISORDERS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"CALCIUM CARBONATE 625 milligram(s) | MAGNESIUM CARBONATE, HEAVY 73.5 milligram(s) | ALGINIC ACID 150 milligram(s)","packSizeText":"Review manually","atcCode":"A02AX","status":"Authorised","supplierCatalogKey":"rennie dual action chewable tablets"}},{"id":"product:P0420","nodeType":"product","refId":"P0420","label":"Rennie Orange 500mg Chewable Tablets","subtext":"heartburn","meta":{"brand":"Rennie","generic":"CALCIUM CARBONATE","form":"CHEWABLE TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"heartburn","secondaryIndications":"acid reflux | indigestion","otcCategory":"DRUGS FOR ACID RELATED DISORDERS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CALCIUM CARBONATE 500 milligram(s)","packSizeText":"Review manually","atcCode":"A02AX","status":"Authorised","supplierCatalogKey":"rennie orange 500mg chewable tablets"}},{"id":"product:P0421","nodeType":"product","refId":"P0421","label":"Rennie Peppermint 680mg/80mg Chewable Tablets","subtext":"heartburn","meta":{"brand":"Rennie","generic":"CALCIUM CARBONATE | MAGNESIUM CARBONATE, HEAVY","form":"CHEWABLE TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"heartburn","secondaryIndications":"acid reflux | indigestion","otcCategory":"DRUGS FOR ACID RELATED DISORDERS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"MAGNESIUM CARBONATE, HEAVY 80 milligram(s) | CALCIUM CARBONATE 680 milligram(s)","packSizeText":"Review manually","atcCode":"A02AX","status":"Authorised","supplierCatalogKey":"rennie peppermint 680mg/80mg chewable tablets"}},{"id":"product:P0422","nodeType":"product","refId":"P0422","label":"Rennie Spearmint 680mg / 80mg Chewable tablets","subtext":"heartburn","meta":{"brand":"Rennie","generic":"CALCIUM CARBONATE | MAGNESIUM CARBONATE, HEAVY","form":"CHEWABLE TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"heartburn","secondaryIndications":"acid reflux | indigestion","otcCategory":"DRUGS FOR ACID RELATED DISORDERS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"MAGNESIUM CARBONATE, HEAVY 80 milligram(s) | CALCIUM CARBONATE 680 milligram(s)","packSizeText":"Review manually","atcCode":"A02AA01","status":"Authorised","supplierCatalogKey":"rennie spearmint 680mg / 80mg chewable tablets"}},{"id":"product:P0423","nodeType":"product","refId":"P0423","label":"Rennie Spearmint 680mg/80mg Chewable Tablets","subtext":"heartburn","meta":{"brand":"Rennie","generic":"CALCIUM CARBONATE | MAGNESIUM CARBONATE, HEAVY","form":"CHEWABLE TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"heartburn","secondaryIndications":"acid reflux | indigestion","otcCategory":"DRUGS FOR ACID RELATED DISORDERS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"CALCIUM CARBONATE 680 milligram(s) | MAGNESIUM CARBONATE, HEAVY 80 milligram(s)","packSizeText":"Review manually","atcCode":"A02AC01","status":"Authorised","supplierCatalogKey":"rennie spearmint 680mg/80mg chewable tablets"}},{"id":"product:P0424","nodeType":"product","refId":"P0424","label":"Rennie Sugar Free 680mg / 80mg Chewable tablets","subtext":"heartburn","meta":{"brand":"Rennie","generic":"CALCIUM CARBONATE | MAGNESIUM CARBONATE, HEAVY","form":"CHEWABLE TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"heartburn","secondaryIndications":"acid reflux | indigestion","otcCategory":"DRUGS FOR ACID RELATED DISORDERS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Yes","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"CALCIUM CARBONATE 680 milligram(s) | MAGNESIUM CARBONATE, HEAVY 80 milligram(s)","packSizeText":"Review manually","atcCode":"A02AX","status":"Authorised","supplierCatalogKey":"rennie sugar free 680mg / 80mg chewable tablets"}},{"id":"product:P0425","nodeType":"product","refId":"P0425","label":"Rennie Sugar Free 680mg/80mg Chewable Tablets","subtext":"heartburn","meta":{"brand":"Rennie","generic":"CALCIUM CARBONATE | MAGNESIUM CARBONATE, HEAVY","form":"CHEWABLE TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"heartburn","secondaryIndications":"acid reflux | indigestion","otcCategory":"DRUGS FOR ACID RELATED DISORDERS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Yes","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"CALCIUM CARBONATE 680 milligram(s) | MAGNESIUM CARBONATE, HEAVY 80 milligram(s)","packSizeText":"Review manually","atcCode":"A02AC01","status":"Authorised","supplierCatalogKey":"rennie sugar free 680mg/80mg chewable tablets"}},{"id":"product:P0450","nodeType":"product","refId":"P0450","label":"Sodium bicarbonate NOVA ARGENTIA 500 mg tablets","subtext":"heartburn","meta":{"brand":"Sodium","generic":"SODIUM BICARBONATE","form":"TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"heartburn","secondaryIndications":"acid reflux | indigestion","otcCategory":"DRUGS FOR ACID RELATED DISORDERS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"SODIUM BICARBONATE 500 milligram(s)","packSizeText":"Review manually","atcCode":"A02AH","status":"Authorised","supplierCatalogKey":"sodium bicarbonate nova argentia 500 mg tablets"}},{"id":"usecase:UC006","nodeType":"usecase","refId":"UC006","label":"Reflux and indigestion relief","subtext":"Gastrointestinal","meta":{"UseCase_ID":"UC006","UseCase_Name":"Reflux and indigestion relief","UseCase_Category":"Gastrointestinal","Trigger_Symptoms":"Heartburn, acid reflux, indigestion","Description":"Acid control plus quick symptom support."}}],"links":[{"key":"8e9e8d12f29aa1b2","source":"symptom:S035","target":"product:P0014","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00052","role":"Primary","reviewStatus":"Seeded"}},{"key":"47689acb9c696363","source":"symptom:S035","target":"product:P0021","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00079","role":"Primary","reviewStatus":"Seeded"}},{"key":"3a0e901874d2e990","source":"symptom:S035","target":"product:P0167","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00543","role":"Primary","reviewStatus":"Seeded"}},{"key":"e529e1b95ac0b6d0","source":"symptom:S035","target":"product:P0170","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00549","role":"Primary","reviewStatus":"Seeded"}},{"key":"56cd6cc0de4b2694","source":"symptom:S035","target":"product:P0176","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00575","role":"Primary","reviewStatus":"Seeded"}},{"key":"57c5a83a791a11a1","source":"symptom:S035","target":"product:P0177","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00578","role":"Primary","reviewStatus":"Seeded"}},{"key":"7b5856419131386b","source":"symptom:S035","target":"product:P0196","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00638","role":"Primary","reviewStatus":"Seeded"}},{"key":"71af03c87ae9f98a","source":"symptom:S035","target":"product:P0197","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00641","role":"Primary","reviewStatus":"Seeded"}},{"key":"3cc4c0a963670de3","source":"symptom:S035","target":"product:P0198","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00644","role":"Primary","reviewStatus":"Seeded"}},{"key":"7145ba355dc5e073","source":"symptom:S035","target":"product:P0201","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00651","role":"Primary","reviewStatus":"Seeded"}},{"key":"468ddfb029b4a1da","source":"symptom:S035","target":"product:P0202","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00654","role":"Primary","reviewStatus":"Seeded"}},{"key":"727fc6327f18bcf5","source":"symptom:S035","target":"product:P0203","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00657","role":"Primary","reviewStatus":"Seeded"}},{"key":"325fc01a19f7209e","source":"symptom:S035","target":"product:P0259","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00834","role":"Primary","reviewStatus":"Seeded"}},{"key":"b37e3f5a22644cdf","source":"symptom:S035","target":"product:P0272","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00870","role":"Primary","reviewStatus":"Seeded"}},{"key":"fdd59c18324a803f","source":"symptom:S035","target":"product:P0273","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00873","role":"Primary","reviewStatus":"Seeded"}},{"key":"3854530a1920decc","source":"symptom:S035","target":"product:P0274","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00876","role":"Primary","reviewStatus":"Seeded"}},{"key":"e3792effae49bc06","source":"symptom:S035","target":"product:P0275","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00879","role":"Primary","reviewStatus":"Seeded"}},{"key":"443c0b90b74ea708","source":"symptom:S035","target":"product:P0276","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00882","role":"Primary","reviewStatus":"Seeded"}},{"key":"6a0630d9fc66972d","source":"symptom:S035","target":"product:P0291","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00924","role":"Primary","reviewStatus":"Seeded"}},{"key":"8e5608f78b1cec70","source":"symptom:S035","target":"product:P0417","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM01377","role":"Primary","reviewStatus":"Seeded"}},{"key":"52e070c6a12b070c","source":"symptom:S035","target":"product:P0418","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM01380","role":"Primary","reviewStatus":"Seeded"}},{"key":"ed02356282cd6050","source":"symptom:S035","target":"product:P0419","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM01383","role":"Primary","reviewStatus":"Seeded"}},{"key":"e50127ffb4b0915f","source":"symptom:S035","target":"product:P0420","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM01386","role":"Primary","reviewStatus":"Seeded"}},{"key":"7a7247476bc68e71","source":"symptom:S035","target":"product:P0421","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM01389","role":"Primary","reviewStatus":"Seeded"}},{"key":"90713c725de19c86","source":"symptom:S035","target":"product:P0422","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM01392","role":"Primary","reviewStatus":"Seeded"}},{"key":"d3dfa276714ff787","source":"symptom:S035","target":"product:P0423","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM01395","role":"Primary","reviewStatus":"Seeded"}},{"key":"01b6eddeb5052a10","source":"symptom:S035","target":"product:P0424","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM01398","role":"Primary","reviewStatus":"Seeded"}},{"key":"1e51f42ffc3700ec","source":"symptom:S035","target":"product:P0425","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM01401","role":"Primary","reviewStatus":"Seeded"}},{"key":"4faf4569b4fb7d31","source":"symptom:S035","target":"product:P0450","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM01482","role":"Primary","reviewStatus":"Seeded"}},{"key":"58f641d88e0dcffe","source":"symptom:S035","target":"usecase:UC006","rel":"usecase","label":"Triggered by symptom","score":85,"why":"Heartburn, acid reflux, indigestion","meta":{}}],"meta":{"symptomName":"heartburn","linkCount":30}}
+{
+  "centerId": "symptom:S035",
+  "centerType": "symptom",
+  "refId": "S035",
+  "nodes": [
+    {
+      "id": "symptom:S035",
+      "nodeType": "symptom",
+      "refId": "S035",
+      "label": "heartburn",
+      "subtext": "Gastrointestinal",
+      "meta": {
+        "Symptom_ID": "S035",
+        "Symptom_Name": "heartburn",
+        "Symptom_Category": "Gastrointestinal",
+        "Linked_Product_Count": 29,
+        "Display_Group": "Gastrointestinal",
+        "Priority_For_Graph": 100,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "product:P0014",
+      "nodeType": "product",
+      "refId": "P0014",
+      "label": "Acidex Oral Suspension",
+      "subtext": "heartburn",
+      "meta": {
+        "brand": "Acidex",
+        "generic": "CALCIUM CARBONATE | SODIUM ALGINATE | SODIUM BICARBONATE",
+        "form": "ORAL SUSPENSION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "heartburn",
+        "secondaryIndications": "acid reflux | indigestion",
+        "otcCategory": "DRUGS FOR ACID RELATED DISORDERS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "SODIUM ALGINATE 50 milligram(s)/millilitre | SODIUM BICARBONATE 26.7 milligram(s)/millilitre | CALCIUM CARBONATE 16 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "A02BX",
+        "status": "Authorised",
+        "supplierCatalogKey": "acidex oral suspension"
+      }
+    },
+    {
+      "id": "product:P0021",
+      "nodeType": "product",
+      "refId": "P0021",
+      "label": "Alutril Forte 500 mg/250 mg chewable tablets",
+      "subtext": "heartburn",
+      "meta": {
+        "brand": "Alutril",
+        "generic": "ALUMINIUM HYDROXIDE | MAGNESIUM TRISILICATE",
+        "form": "CHEWABLE TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "heartburn",
+        "secondaryIndications": "acid reflux | indigestion",
+        "otcCategory": "DRUGS FOR ACID RELATED DISORDERS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "MAGNESIUM TRISILICATE 500 milligram(s) | ALUMINIUM HYDROXIDE 250 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A02AD01",
+        "status": "Authorised",
+        "supplierCatalogKey": "alutril forte 500 mg/250 mg chewable tablets"
+      }
+    },
+    {
+      "id": "product:P0167",
+      "nodeType": "product",
+      "refId": "P0167",
+      "label": "Emazole Control 20 mg gastro-resistant tablets",
+      "subtext": "heartburn",
+      "meta": {
+        "brand": "Emazole",
+        "generic": "ESOMEPRAZOLE MAGNESIUM DIHYDRATE",
+        "form": "GASTRO-RESISTANT TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "heartburn",
+        "secondaryIndications": "acid reflux | indigestion",
+        "otcCategory": "DRUGS FOR ACID RELATED DISORDERS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "ESOMEPRAZOLE MAGNESIUM DIHYDRATE 20 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A02BC05",
+        "status": "Authorised",
+        "supplierCatalogKey": "emazole control 20 mg gastro-resistant tablets"
+      }
+    },
+    {
+      "id": "product:P0170",
+      "nodeType": "product",
+      "refId": "P0170",
+      "label": "Esomeprazole Clonmel 20 mg gastro-resistant tablets",
+      "subtext": "heartburn",
+      "meta": {
+        "brand": "Esomeprazole",
+        "generic": "ESOMEPRAZOLE",
+        "form": "GASTRO-RESISTANT TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "heartburn",
+        "secondaryIndications": "acid reflux | indigestion",
+        "otcCategory": "DRUGS FOR ACID RELATED DISORDERS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "ESOMEPRAZOLE 20 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A02BC05",
+        "status": "Authorised",
+        "supplierCatalogKey": "esomeprazole clonmel 20 mg gastro-resistant tablets"
+      }
+    },
+    {
+      "id": "product:P0176",
+      "nodeType": "product",
+      "refId": "P0176",
+      "label": "Famotidine Alkaloid 20 mg film-coated tablets",
+      "subtext": "heartburn",
+      "meta": {
+        "brand": "Famotidine",
+        "generic": "FAMOTIDINE",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "heartburn",
+        "secondaryIndications": "acid reflux | indigestion",
+        "otcCategory": "DRUGS FOR ACID RELATED DISORDERS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "FAMOTIDINE 20 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A02BA03",
+        "status": "Authorised",
+        "supplierCatalogKey": "famotidine alkaloid 20 mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0177",
+      "nodeType": "product",
+      "refId": "P0177",
+      "label": "Famotidine Alkaloid 20mg",
+      "subtext": "heartburn",
+      "meta": {
+        "brand": "Famotidine",
+        "generic": "FAMOTIDINE",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "heartburn",
+        "secondaryIndications": "acid reflux | indigestion",
+        "otcCategory": "DRUGS FOR ACID RELATED DISORDERS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "FAMOTIDINE 20 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A02BA03",
+        "status": "Authorised",
+        "supplierCatalogKey": "famotidine alkaloid 20mg"
+      }
+    },
+    {
+      "id": "product:P0196",
+      "nodeType": "product",
+      "refId": "P0196",
+      "label": "GAVISCON, oral suspension",
+      "subtext": "heartburn",
+      "meta": {
+        "brand": "GAVISCON",
+        "generic": "SODIUM ALGINATE | SODIUM BICARBONATE",
+        "form": "ORAL SUSPENSION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "heartburn",
+        "secondaryIndications": "acid reflux | indigestion",
+        "otcCategory": "DRUGS FOR ACID RELATED DISORDERS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "SODIUM ALGINATE 50 milligram(s)/millilitre | SODIUM BICARBONATE 26.7 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "A02BX",
+        "status": "Authorised",
+        "supplierCatalogKey": "gaviscon, oral suspension"
+      }
+    },
+    {
+      "id": "product:P0197",
+      "nodeType": "product",
+      "refId": "P0197",
+      "label": "GAVISCON, oral suspension in bottle",
+      "subtext": "heartburn",
+      "meta": {
+        "brand": "GAVISCON",
+        "generic": "SODIUM ALGINATE | SODIUM BICARBONATE",
+        "form": "ORAL SUSPENSION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "heartburn",
+        "secondaryIndications": "acid reflux | indigestion",
+        "otcCategory": "DRUGS FOR ACID RELATED DISORDERS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "SODIUM ALGINATE 50 milligram(s)/millilitre | SODIUM BICARBONATE 26.7 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "A02BX",
+        "status": "Authorised",
+        "supplierCatalogKey": "gaviscon, oral suspension in bottle"
+      }
+    },
+    {
+      "id": "product:P0198",
+      "nodeType": "product",
+      "refId": "P0198",
+      "label": "GAVISCON, oral suspension in sachet",
+      "subtext": "heartburn",
+      "meta": {
+        "brand": "GAVISCON",
+        "generic": "SODIUM ALGINATE | SODIUM BICARBONATE",
+        "form": "ORAL SUSPENSION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "heartburn",
+        "secondaryIndications": "acid reflux | indigestion",
+        "otcCategory": "DRUGS FOR ACID RELATED DISORDERS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "SODIUM BICARBONATE 267 milligram(s) | SODIUM ALGINATE 500 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A02BX",
+        "status": "Authorised",
+        "supplierCatalogKey": "gaviscon, oral suspension in sachet"
+      }
+    },
+    {
+      "id": "product:P0201",
+      "nodeType": "product",
+      "refId": "P0201",
+      "label": "Gaviscon Advance Chewable Tablets Sodium alginate 500 mg, Potassium hydrogen carbonate 100 mg",
+      "subtext": "heartburn",
+      "meta": {
+        "brand": "Gaviscon",
+        "generic": "POTASSIUM HYDROGEN CARBONATE | SODIUM ALGINATE",
+        "form": "CHEWABLE TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "heartburn",
+        "secondaryIndications": "acid reflux | indigestion",
+        "otcCategory": "DRUGS FOR ACID RELATED DISORDERS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "SODIUM ALGINATE 500 milligram(s) | POTASSIUM HYDROGEN CARBONATE 100 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A02BX13",
+        "status": "Authorised",
+        "supplierCatalogKey": "gaviscon advance chewable tablets sodium alginate 500 mg, potassium hydrogen carbonate 100 mg"
+      }
+    },
+    {
+      "id": "product:P0202",
+      "nodeType": "product",
+      "refId": "P0202",
+      "label": "Gaviscon Liquid \u2013 Aniseed Flavour Oral Suspension",
+      "subtext": "heartburn",
+      "meta": {
+        "brand": "Gaviscon",
+        "generic": "CALCIUM CARBONATE | SODIUM ALGINATE | SODIUM HYDROGEN CARBONATE",
+        "form": "ORAL SUSPENSION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "heartburn",
+        "secondaryIndications": "acid reflux | indigestion",
+        "otcCategory": "DRUGS FOR ACID RELATED DISORDERS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "CALCIUM CARBONATE 80 milligram(s)/5 millilitre | SODIUM ALGINATE 250 milligram(s)/5 millilitre | SODIUM HYDROGEN CARBONATE 133.5 milligram(s)/5 millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "A02BX",
+        "status": "Authorised",
+        "supplierCatalogKey": "gaviscon liquid \u2013 aniseed flavour oral suspension"
+      }
+    },
+    {
+      "id": "product:P0203",
+      "nodeType": "product",
+      "refId": "P0203",
+      "label": "Gaviscon oral Suspension 50mg + 26.7mg/ml",
+      "subtext": "heartburn",
+      "meta": {
+        "brand": "Gaviscon",
+        "generic": "SODIUM ALGINATE | SODIUM BICARBONATE",
+        "form": "ORAL SUSPENSION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "heartburn",
+        "secondaryIndications": "acid reflux | indigestion",
+        "otcCategory": "DRUGS FOR ACID RELATED DISORDERS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "SODIUM ALGINATE 50 milligram(s)/millilitre | SODIUM BICARBONATE 26.7 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "A02BX",
+        "status": "Authorised",
+        "supplierCatalogKey": "gaviscon oral suspension 50mg + 26.7mg/ml"
+      }
+    },
+    {
+      "id": "product:P0259",
+      "nodeType": "product",
+      "refId": "P0259",
+      "label": "Losec Control 20 mg gastro-resistant tablets",
+      "subtext": "heartburn",
+      "meta": {
+        "brand": "Losec",
+        "generic": "OMEPRAZOLE",
+        "form": "GASTRO-RESISTANT TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "heartburn",
+        "secondaryIndications": "acid reflux | indigestion",
+        "otcCategory": "DRUGS FOR ACID RELATED DISORDERS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "OMEPRAZOLE 20 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A02BC01",
+        "status": "Authorised",
+        "supplierCatalogKey": "losec control 20 mg gastro-resistant tablets"
+      }
+    },
+    {
+      "id": "product:P0272",
+      "nodeType": "product",
+      "refId": "P0272",
+      "label": "Maalox 40 mg/35 mg/ml oral suspension",
+      "subtext": "heartburn",
+      "meta": {
+        "brand": "Maalox",
+        "generic": "ALUMINIUM HYDROXIDE | MAGNESIUM HYDROXIDE",
+        "form": "ORAL SUSPENSION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "heartburn",
+        "secondaryIndications": "acid reflux | indigestion",
+        "otcCategory": "DRUGS FOR ACID RELATED DISORDERS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "MAGNESIUM HYDROXIDE 40 milligram(s)/millilitre | ALUMINIUM HYDROXIDE 35 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "A02AD01",
+        "status": "Authorised",
+        "supplierCatalogKey": "maalox 40 mg/35 mg/ml oral suspension"
+      }
+    },
+    {
+      "id": "product:P0273",
+      "nodeType": "product",
+      "refId": "P0273",
+      "label": "Maalox 400 mg/400 mg chewable tablets (sugar free)",
+      "subtext": "heartburn",
+      "meta": {
+        "brand": "Maalox",
+        "generic": "ALUMINIUM HYDROXIDE | MAGNESIUM HYDROXIDE",
+        "form": "CHEWABLE TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "heartburn",
+        "secondaryIndications": "acid reflux | indigestion",
+        "otcCategory": "DRUGS FOR ACID RELATED DISORDERS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Yes",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "ALUMINIUM HYDROXIDE 400 milligram(s) | MAGNESIUM HYDROXIDE 400 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A02AD01",
+        "status": "Authorised",
+        "supplierCatalogKey": "maalox 400 mg/400 mg chewable tablets (sugar free)"
+      }
+    },
+    {
+      "id": "product:P0274",
+      "nodeType": "product",
+      "refId": "P0274",
+      "label": "Maalox 460 mg/400 mg/4.3 mL oral suspension",
+      "subtext": "heartburn",
+      "meta": {
+        "brand": "Maalox",
+        "generic": "ALUMINIUM HYDROXIDE | MAGNESIUM HYDROXIDE",
+        "form": "ORAL SUSPENSION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "heartburn",
+        "secondaryIndications": "acid reflux | indigestion",
+        "otcCategory": "DRUGS FOR ACID RELATED DISORDERS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "ALUMINIUM HYDROXIDE 460 milligram(s) | MAGNESIUM HYDROXIDE 400 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A02AD01",
+        "status": "Authorised",
+        "supplierCatalogKey": "maalox 460 mg/400 mg/4.3 ml oral suspension"
+      }
+    },
+    {
+      "id": "product:P0275",
+      "nodeType": "product",
+      "refId": "P0275",
+      "label": "Maalox Plus 200mg/175mg/25mg Oral Suspension",
+      "subtext": "heartburn",
+      "meta": {
+        "brand": "Maalox",
+        "generic": "ALUMINIUM HYDROXIDE | MAGNESIUM HYDROXIDE | SIMETHICONE",
+        "form": "ORAL SUSPENSION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "heartburn",
+        "secondaryIndications": "acid reflux | indigestion",
+        "otcCategory": "DRUGS FOR ACID RELATED DISORDERS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "MAGNESIUM HYDROXIDE 200 milligram(s) | SIMETHICONE 25 milligram(s) | ALUMINIUM HYDROXIDE 175 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A02AF02",
+        "status": "Authorised",
+        "supplierCatalogKey": "maalox plus 200mg/175mg/25mg oral suspension"
+      }
+    },
+    {
+      "id": "product:P0276",
+      "nodeType": "product",
+      "refId": "P0276",
+      "label": "Maalox Plus Chewable Tablets 200mg/200mg/25mg",
+      "subtext": "heartburn",
+      "meta": {
+        "brand": "Maalox",
+        "generic": "ALUMINIUM OXIDE, HYDRATED | DIMETICONE | MAGNESIUM HYDROXIDE",
+        "form": "CHEWABLE TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "heartburn",
+        "secondaryIndications": "acid reflux | indigestion",
+        "otcCategory": "DRUGS FOR ACID RELATED DISORDERS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "DIMETICONE 25 milligram(s) | ALUMINIUM OXIDE, HYDRATED 200 milligram(s) | MAGNESIUM HYDROXIDE 200 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A02AF02",
+        "status": "Authorised",
+        "supplierCatalogKey": "maalox plus chewable tablets 200mg/200mg/25mg"
+      }
+    },
+    {
+      "id": "product:P0291",
+      "nodeType": "product",
+      "refId": "P0291",
+      "label": "Milk of Magnesia Traditional Mint Flavoured Liquid, 415 mg/5 ml, oral suspension",
+      "subtext": "heartburn",
+      "meta": {
+        "brand": "Milk",
+        "generic": "MAGNESIUM HYDROXIDE",
+        "form": "ORAL SUSPENSION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "heartburn",
+        "secondaryIndications": "acid reflux | indigestion",
+        "otcCategory": "DRUGS FOR ACID RELATED DISORDERS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "MAGNESIUM HYDROXIDE 415 milligram(s)/5 millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "A02AA04",
+        "status": "Authorised",
+        "supplierCatalogKey": "milk of magnesia traditional mint flavoured liquid, 415 mg/5 ml, oral suspension"
+      }
+    },
+    {
+      "id": "product:P0417",
+      "nodeType": "product",
+      "refId": "P0417",
+      "label": "Rennie 750 mg Medicated Chewing Gum",
+      "subtext": "heartburn",
+      "meta": {
+        "brand": "Rennie",
+        "generic": "CALCIUM CARBONATE",
+        "form": "MEDICATED CHEWING-GUM",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "heartburn",
+        "secondaryIndications": "acid reflux | indigestion",
+        "otcCategory": "DRUGS FOR ACID RELATED DISORDERS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CALCIUM CARBONATE 750 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A02AC01",
+        "status": "Authorised",
+        "supplierCatalogKey": "rennie 750 mg medicated chewing gum"
+      }
+    },
+    {
+      "id": "product:P0418",
+      "nodeType": "product",
+      "refId": "P0418",
+      "label": "Rennie Deflatine Chewable Tablets",
+      "subtext": "heartburn",
+      "meta": {
+        "brand": "Rennie",
+        "generic": "CALCIUM CARBONATE | MAGNESIUM CARBONATE, HEAVY | SIMETICONE",
+        "form": "CHEWABLE TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "heartburn",
+        "secondaryIndications": "acid reflux | indigestion",
+        "otcCategory": "DRUGS FOR ACID RELATED DISORDERS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "CALCIUM CARBONATE 680 milligram(s) | MAGNESIUM CARBONATE, HEAVY 80 milligram(s) | SIMETICONE 25 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A02AX",
+        "status": "Authorised",
+        "supplierCatalogKey": "rennie deflatine chewable tablets"
+      }
+    },
+    {
+      "id": "product:P0419",
+      "nodeType": "product",
+      "refId": "P0419",
+      "label": "Rennie Dual Action Chewable Tablets",
+      "subtext": "heartburn",
+      "meta": {
+        "brand": "Rennie",
+        "generic": "ALGINIC ACID | CALCIUM CARBONATE | MAGNESIUM CARBONATE, HEAVY",
+        "form": "CHEWABLE TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "heartburn",
+        "secondaryIndications": "acid reflux | indigestion",
+        "otcCategory": "DRUGS FOR ACID RELATED DISORDERS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "CALCIUM CARBONATE 625 milligram(s) | MAGNESIUM CARBONATE, HEAVY 73.5 milligram(s) | ALGINIC ACID 150 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A02AX",
+        "status": "Authorised",
+        "supplierCatalogKey": "rennie dual action chewable tablets"
+      }
+    },
+    {
+      "id": "product:P0420",
+      "nodeType": "product",
+      "refId": "P0420",
+      "label": "Rennie Orange 500mg Chewable Tablets",
+      "subtext": "heartburn",
+      "meta": {
+        "brand": "Rennie",
+        "generic": "CALCIUM CARBONATE",
+        "form": "CHEWABLE TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "heartburn",
+        "secondaryIndications": "acid reflux | indigestion",
+        "otcCategory": "DRUGS FOR ACID RELATED DISORDERS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CALCIUM CARBONATE 500 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A02AX",
+        "status": "Authorised",
+        "supplierCatalogKey": "rennie orange 500mg chewable tablets"
+      }
+    },
+    {
+      "id": "product:P0421",
+      "nodeType": "product",
+      "refId": "P0421",
+      "label": "Rennie Peppermint 680mg/80mg Chewable Tablets",
+      "subtext": "heartburn",
+      "meta": {
+        "brand": "Rennie",
+        "generic": "CALCIUM CARBONATE | MAGNESIUM CARBONATE, HEAVY",
+        "form": "CHEWABLE TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "heartburn",
+        "secondaryIndications": "acid reflux | indigestion",
+        "otcCategory": "DRUGS FOR ACID RELATED DISORDERS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "MAGNESIUM CARBONATE, HEAVY 80 milligram(s) | CALCIUM CARBONATE 680 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A02AX",
+        "status": "Authorised",
+        "supplierCatalogKey": "rennie peppermint 680mg/80mg chewable tablets"
+      }
+    },
+    {
+      "id": "product:P0422",
+      "nodeType": "product",
+      "refId": "P0422",
+      "label": "Rennie Spearmint 680mg / 80mg Chewable tablets",
+      "subtext": "heartburn",
+      "meta": {
+        "brand": "Rennie",
+        "generic": "CALCIUM CARBONATE | MAGNESIUM CARBONATE, HEAVY",
+        "form": "CHEWABLE TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "heartburn",
+        "secondaryIndications": "acid reflux | indigestion",
+        "otcCategory": "DRUGS FOR ACID RELATED DISORDERS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "MAGNESIUM CARBONATE, HEAVY 80 milligram(s) | CALCIUM CARBONATE 680 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A02AA01",
+        "status": "Authorised",
+        "supplierCatalogKey": "rennie spearmint 680mg / 80mg chewable tablets"
+      }
+    },
+    {
+      "id": "product:P0423",
+      "nodeType": "product",
+      "refId": "P0423",
+      "label": "Rennie Spearmint 680mg/80mg Chewable Tablets",
+      "subtext": "heartburn",
+      "meta": {
+        "brand": "Rennie",
+        "generic": "CALCIUM CARBONATE | MAGNESIUM CARBONATE, HEAVY",
+        "form": "CHEWABLE TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "heartburn",
+        "secondaryIndications": "acid reflux | indigestion",
+        "otcCategory": "DRUGS FOR ACID RELATED DISORDERS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "CALCIUM CARBONATE 680 milligram(s) | MAGNESIUM CARBONATE, HEAVY 80 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A02AC01",
+        "status": "Authorised",
+        "supplierCatalogKey": "rennie spearmint 680mg/80mg chewable tablets"
+      }
+    },
+    {
+      "id": "product:P0424",
+      "nodeType": "product",
+      "refId": "P0424",
+      "label": "Rennie Sugar Free 680mg / 80mg Chewable tablets",
+      "subtext": "heartburn",
+      "meta": {
+        "brand": "Rennie",
+        "generic": "CALCIUM CARBONATE | MAGNESIUM CARBONATE, HEAVY",
+        "form": "CHEWABLE TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "heartburn",
+        "secondaryIndications": "acid reflux | indigestion",
+        "otcCategory": "DRUGS FOR ACID RELATED DISORDERS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Yes",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "CALCIUM CARBONATE 680 milligram(s) | MAGNESIUM CARBONATE, HEAVY 80 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A02AX",
+        "status": "Authorised",
+        "supplierCatalogKey": "rennie sugar free 680mg / 80mg chewable tablets"
+      }
+    },
+    {
+      "id": "product:P0425",
+      "nodeType": "product",
+      "refId": "P0425",
+      "label": "Rennie Sugar Free 680mg/80mg Chewable Tablets",
+      "subtext": "heartburn",
+      "meta": {
+        "brand": "Rennie",
+        "generic": "CALCIUM CARBONATE | MAGNESIUM CARBONATE, HEAVY",
+        "form": "CHEWABLE TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "heartburn",
+        "secondaryIndications": "acid reflux | indigestion",
+        "otcCategory": "DRUGS FOR ACID RELATED DISORDERS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Yes",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "CALCIUM CARBONATE 680 milligram(s) | MAGNESIUM CARBONATE, HEAVY 80 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A02AC01",
+        "status": "Authorised",
+        "supplierCatalogKey": "rennie sugar free 680mg/80mg chewable tablets"
+      }
+    },
+    {
+      "id": "product:P0450",
+      "nodeType": "product",
+      "refId": "P0450",
+      "label": "Sodium bicarbonate NOVA ARGENTIA 500 mg tablets",
+      "subtext": "heartburn",
+      "meta": {
+        "brand": "Sodium",
+        "generic": "SODIUM BICARBONATE",
+        "form": "TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "heartburn",
+        "secondaryIndications": "acid reflux | indigestion",
+        "otcCategory": "DRUGS FOR ACID RELATED DISORDERS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "SODIUM BICARBONATE 500 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A02AH",
+        "status": "Authorised",
+        "supplierCatalogKey": "sodium bicarbonate nova argentia 500 mg tablets"
+      }
+    },
+    {
+      "id": "usecase:UC006",
+      "nodeType": "usecase",
+      "refId": "UC006",
+      "label": "Reflux and indigestion relief",
+      "subtext": "Gastrointestinal",
+      "meta": {
+        "UseCase_ID": "UC006",
+        "UseCase_Name": "Reflux and indigestion relief",
+        "UseCase_Category": "Gastrointestinal",
+        "Trigger_Symptoms": "Heartburn, acid reflux, indigestion",
+        "Description": "Acid control plus quick symptom support."
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "e8ce75e225a7ef33",
+      "source": "product:P0014",
+      "target": "symptom:S035",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00052"
+      }
+    },
+    {
+      "key": "eee30e043c65e6de",
+      "source": "product:P0021",
+      "target": "symptom:S035",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00079"
+      }
+    },
+    {
+      "key": "f6c2ce0b5f3a3034",
+      "source": "product:P0167",
+      "target": "symptom:S035",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00543"
+      }
+    },
+    {
+      "key": "2a73a457360a2240",
+      "source": "product:P0170",
+      "target": "symptom:S035",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00549"
+      }
+    },
+    {
+      "key": "3d8dd9766af26d30",
+      "source": "product:P0176",
+      "target": "symptom:S035",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00575"
+      }
+    },
+    {
+      "key": "8100434809e8bc5a",
+      "source": "product:P0177",
+      "target": "symptom:S035",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00578"
+      }
+    },
+    {
+      "key": "d8c7f709c4622b1f",
+      "source": "product:P0196",
+      "target": "symptom:S035",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00638"
+      }
+    },
+    {
+      "key": "c33c67fb78244538",
+      "source": "product:P0197",
+      "target": "symptom:S035",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00641"
+      }
+    },
+    {
+      "key": "2c59d63f54e49523",
+      "source": "product:P0198",
+      "target": "symptom:S035",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00644"
+      }
+    },
+    {
+      "key": "68a6d26798f994a6",
+      "source": "product:P0201",
+      "target": "symptom:S035",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00651"
+      }
+    },
+    {
+      "key": "167442b011a82624",
+      "source": "product:P0202",
+      "target": "symptom:S035",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00654"
+      }
+    },
+    {
+      "key": "a0a58d9ef022d8eb",
+      "source": "product:P0203",
+      "target": "symptom:S035",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00657"
+      }
+    },
+    {
+      "key": "54709a1da2e6fc31",
+      "source": "product:P0259",
+      "target": "symptom:S035",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00834"
+      }
+    },
+    {
+      "key": "9c47817e262f12d6",
+      "source": "product:P0272",
+      "target": "symptom:S035",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00870"
+      }
+    },
+    {
+      "key": "158f49f3df77b0eb",
+      "source": "product:P0273",
+      "target": "symptom:S035",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00873"
+      }
+    },
+    {
+      "key": "031ba79d6a4f8022",
+      "source": "product:P0274",
+      "target": "symptom:S035",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00876"
+      }
+    },
+    {
+      "key": "f9f363b960cd1c7d",
+      "source": "product:P0275",
+      "target": "symptom:S035",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00879"
+      }
+    },
+    {
+      "key": "18430175ae062c7c",
+      "source": "product:P0276",
+      "target": "symptom:S035",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00882"
+      }
+    },
+    {
+      "key": "52f0085577cf12d1",
+      "source": "product:P0291",
+      "target": "symptom:S035",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00924"
+      }
+    },
+    {
+      "key": "fba2e47491e950d1",
+      "source": "product:P0417",
+      "target": "symptom:S035",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01377"
+      }
+    },
+    {
+      "key": "aa01900a022a4a04",
+      "source": "product:P0418",
+      "target": "symptom:S035",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01380"
+      }
+    },
+    {
+      "key": "60d3e8fdb4a9b478",
+      "source": "product:P0419",
+      "target": "symptom:S035",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01383"
+      }
+    },
+    {
+      "key": "9346ae3a3ccc68a3",
+      "source": "product:P0420",
+      "target": "symptom:S035",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01386"
+      }
+    },
+    {
+      "key": "332261f40a6b0564",
+      "source": "product:P0421",
+      "target": "symptom:S035",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01389"
+      }
+    },
+    {
+      "key": "7bb8187fb3bf9dee",
+      "source": "product:P0422",
+      "target": "symptom:S035",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01392"
+      }
+    },
+    {
+      "key": "18a34bfd792e3f83",
+      "source": "product:P0423",
+      "target": "symptom:S035",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01395"
+      }
+    },
+    {
+      "key": "95e4bbf62f73efd8",
+      "source": "product:P0424",
+      "target": "symptom:S035",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01398"
+      }
+    },
+    {
+      "key": "f6f16f8771b0d17c",
+      "source": "product:P0425",
+      "target": "symptom:S035",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01401"
+      }
+    },
+    {
+      "key": "ba01981899ce10e7",
+      "source": "product:P0450",
+      "target": "symptom:S035",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01482"
+      }
+    },
+    {
+      "key": "f032b320af4b9b23",
+      "source": "symptom:S035",
+      "target": "usecase:UC006",
+      "rel": "usecase",
+      "label": "Related use case",
+      "score": 90,
+      "why": "",
+      "meta": {}
+    }
+  ]
+}

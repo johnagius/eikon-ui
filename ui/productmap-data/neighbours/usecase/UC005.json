@@ -1,1 +1,1823 @@
-{"centerId":"usecase:UC005","centerType":"usecase","refId":"UC005","nodes":[{"id":"usecase:UC005","nodeType":"usecase","refId":"UC005","label":"Cough chesty vs dry pathway","subtext":"Cough","meta":{"UseCase_ID":"UC005","UseCase_Name":"Cough chesty vs dry pathway","UseCase_Category":"Cough","Trigger_Symptoms":"Dry cough, chesty cough, mucus","Description":"Separate dry-cough suppression from mucus/chesty relief."}},{"id":"product:P0022","nodeType":"product","refId":"P0022","label":"Ambroxol Tussilene 6 mg/ml, syrup","subtext":"cough","meta":{"brand":"Ambroxol","generic":"AMBROXOL HYDROCHLORIDE","form":"SYRUP","formGroup":"Oral liquid","route":"Oral","mainIndication":"cough","secondaryIndications":"cold | chesty cough | dry cough | mucus | flu symptoms","otcCategory":"COUGH AND COLD PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"AMBROXOL HYDROCHLORIDE 30 milligram(s)/5 millilitre","packSizeText":"Review manually","atcCode":"R05CB06","status":"Authorised","supplierCatalogKey":"ambroxol tussilene 6 mg/ml, syrup"}},{"id":"product:P0039","nodeType":"product","refId":"P0039","label":"Benylin Non-Drowsy Dry Coughs, Syrup;  Dextromethorphan hydrobromide 7.5mg/5ml","subtext":"cough","meta":{"brand":"Benylin","generic":"DEXTROMETHORPHAN HYDROBROMIDE","form":"SYRUP","formGroup":"Oral liquid","route":"Oral","mainIndication":"cough","secondaryIndications":"cold | chesty cough | dry cough | mucus | flu symptoms","otcCategory":"COUGH AND COLD PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"Yes","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DEXTROMETHORPHAN HYDROBROMIDE 7.5 milligram(s)/5 millilitre","packSizeText":"Review manually","atcCode":"R05DA09","status":"Authorised","supplierCatalogKey":"benylin non-drowsy dry coughs, syrup; dextromethorphan hydrobromide 7.5mg/5ml"}},{"id":"product:P0055","nodeType":"product","refId":"P0055","label":"Bromhexine \"DAK\" 0.8 mg/ml Oral solution","subtext":"cough","meta":{"brand":"Bromhexine","generic":"BROMHEXINE HYDROCHLORIDE","form":"ORAL SOLUTION","formGroup":"Oral liquid","route":"Oral","mainIndication":"cough","secondaryIndications":"cold | chesty cough | dry cough | mucus | flu symptoms","otcCategory":"COUGH AND COLD PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"BROMHEXINE HYDROCHLORIDE 0.8 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"R05CB02","status":"Authorised","supplierCatalogKey":"bromhexine \"dak\" 0.8 mg/ml oral solution"}},{"id":"product:P0056","nodeType":"product","refId":"P0056","label":"Bronchotussine","subtext":"cough","meta":{"brand":"Bronchotussine","generic":"BROMHEXINE HYDROCHLORIDE","form":"SYRUP","formGroup":"Oral liquid","route":"Oral","mainIndication":"cough","secondaryIndications":"cold | chesty cough | dry cough | mucus | flu symptoms","otcCategory":"COUGH AND COLD PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"BROMHEXINE HYDROCHLORIDE 4 milligram(s)/5 millilitre","packSizeText":"Review manually","atcCode":"R05CB02","status":"Authorised","supplierCatalogKey":"bronchotussine"}},{"id":"product:P0057","nodeType":"product","refId":"P0057","label":"Broncoliber 120 mg prolonged-release capsules","subtext":"cough","meta":{"brand":"Broncoliber","generic":"AMBROXOL HYDROCHLORIDE","form":"PROLONGED-RELEASE CAPSULE","formGroup":"Oral solid","route":"Oral","mainIndication":"cough","secondaryIndications":"cold | chesty cough | dry cough | mucus | flu symptoms","otcCategory":"COUGH AND COLD PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"AMBROXOL HYDROCHLORIDE 120 milligram(s)","packSizeText":"Review manually","atcCode":"R05CB06","status":"Authorised","supplierCatalogKey":"broncoliber 120 mg prolonged-release capsules"}},{"id":"product:P0058","nodeType":"product","refId":"P0058","label":"Broncosil 6 mg/ml Syrup","subtext":"cough","meta":{"brand":"Broncosil","generic":"AMBROXOL HYDROCHLORIDE","form":"SYRUP","formGroup":"Oral liquid","route":"Oral","mainIndication":"cough","secondaryIndications":"cold | chesty cough | dry cough | mucus | flu symptoms","otcCategory":"COUGH AND COLD PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"AMBROXOL HYDROCHLORIDE 6 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"R05CB06","status":"Authorised","supplierCatalogKey":"broncosil 6 mg/ml syrup"}},{"id":"product:P0059","nodeType":"product","refId":"P0059","label":"Broncosil, 3 mg/ml, Syrup","subtext":"cough","meta":{"brand":"Broncosil","generic":"AMBROXOL HYDROCHLORIDE","form":"SYRUP","formGroup":"Oral liquid","route":"Oral","mainIndication":"cough","secondaryIndications":"cold | chesty cough | dry cough | mucus | flu symptoms","otcCategory":"COUGH AND COLD PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"AMBROXOL HYDROCHLORIDE 3 milligram(s)/pump","packSizeText":"Review manually","atcCode":"R05CB06","status":"Authorised","supplierCatalogKey":"broncosil, 3 mg/ml, syrup"}},{"id":"product:P0060","nodeType":"product","refId":"P0060","label":"Broxivan 3 mg/ml Oral solution","subtext":"cough","meta":{"brand":"Broxivan","generic":"AMBROXOL HYDROCHLORIDE","form":"ORAL SOLUTION","formGroup":"Oral liquid","route":"Oral","mainIndication":"cough","secondaryIndications":"cold | chesty cough | dry cough | mucus | flu symptoms","otcCategory":"COUGH AND COLD PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"AMBROXOL HYDROCHLORIDE 3 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"R05CB06","status":"Authorised","supplierCatalogKey":"broxivan 3 mg/ml oral solution"}},{"id":"product:P0061","nodeType":"product","refId":"P0061","label":"Broxivan 6 mg/ml Oral solution","subtext":"cough","meta":{"brand":"Broxivan","generic":"AMBROXOL HYDROCHLORIDE","form":"ORAL SOLUTION","formGroup":"Oral liquid","route":"Oral","mainIndication":"cough","secondaryIndications":"cold | chesty cough | dry cough | mucus | flu symptoms","otcCategory":"COUGH AND COLD PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"AMBROXOL HYDROCHLORIDE 6 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"R05CB06","status":"Authorised","supplierCatalogKey":"broxivan 6 mg/ml oral solution"}},{"id":"product:P0122","nodeType":"product","refId":"P0122","label":"DIACOL 1,8 mg/ml syrup","subtext":"cough","meta":{"brand":"DIACOL","generic":"DEXTROMETHORPHAN HYDROBROMIDE","form":"SYRUP","formGroup":"Oral liquid","route":"Oral","mainIndication":"cough","secondaryIndications":"cold | chesty cough | dry cough | mucus | flu symptoms","otcCategory":"COUGH AND COLD PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DEXTROMETHORPHAN HYDROBROMIDE 9 milligram(s)/5 millilitre","packSizeText":"Review manually","atcCode":"R05DA09","status":"Authorised","supplierCatalogKey":"diacol 1,8 mg/ml syrup"}},{"id":"product:P0123","nodeType":"product","refId":"P0123","label":"DIACOL 1.8 mg/ml syrup","subtext":"cough","meta":{"brand":"DIACOL","generic":"DEXTROMETHORPHAN HYDROBROMIDE","form":"SYRUP","formGroup":"Oral liquid","route":"Oral","mainIndication":"cough","secondaryIndications":"cold | chesty cough | dry cough | mucus | flu symptoms","otcCategory":"COUGH AND COLD PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DEXTROMETHORPHAN HYDROBROMIDE 1.8 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"R05DA09","status":"Authorised","supplierCatalogKey":"diacol 1.8 mg/ml syrup"}},{"id":"product:P0135","nodeType":"product","refId":"P0135","label":"Dextromethorphan Tussilene, 2 mg/ml, Oral Solution","subtext":"cough","meta":{"brand":"Dextromethorphan","generic":"DEXTROMETHORPHAN HYDROBROMIDE","form":"ORAL SOLUTION","formGroup":"Oral liquid","route":"Oral","mainIndication":"cough","secondaryIndications":"cold | chesty cough | dry cough | mucus | flu symptoms","otcCategory":"COUGH AND COLD PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DEXTROMETHORPHAN HYDROBROMIDE 2 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"R05DA09","status":"Authorised","supplierCatalogKey":"dextromethorphan tussilene, 2 mg/ml, oral solution"}},{"id":"product:P0172","nodeType":"product","refId":"P0172","label":"Exputex 250mg / 5ml Oral Solution","subtext":"cough","meta":{"brand":"Exputex","generic":"CARBOCISTEINE","form":"ORAL SOLUTION","formGroup":"Oral liquid","route":"Oral","mainIndication":"cough","secondaryIndications":"cold | chesty cough | dry cough | mucus | flu symptoms","otcCategory":"COUGH AND COLD PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CARBOCISTEINE 250 milligram(s)/5 millilitre","packSizeText":"Review manually","atcCode":"R05CB03","status":"Authorised","supplierCatalogKey":"exputex 250mg / 5ml oral solution"}},{"id":"product:P0173","nodeType":"product","refId":"P0173","label":"Exputex 250mg/5 ml Oral Solution","subtext":"cough","meta":{"brand":"Exputex","generic":"CARBOCISTEINE","form":"ORAL SOLUTION","formGroup":"Oral liquid","route":"Oral","mainIndication":"cough","secondaryIndications":"cold | chesty cough | dry cough | mucus | flu symptoms","otcCategory":"COUGH AND COLD PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CARBOCISTEINE 250 milligram(s)/5 millilitre","packSizeText":"Review manually","atcCode":"R05CB03","status":"Authorised","supplierCatalogKey":"exputex 250mg/5 ml oral solution"}},{"id":"product:P0175","nodeType":"product","refId":"P0175","label":"FINATUX 50 mg/ ml syrup","subtext":"cough","meta":{"brand":"FINATUX","generic":"CARBOCISTEINE","form":"SYRUP","formGroup":"Oral liquid","route":"Oral","mainIndication":"cough","secondaryIndications":"cold | chesty cough | dry cough | mucus | flu symptoms","otcCategory":"COUGH AND COLD PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CARBOCISTEINE 5.0 gram(s)/100 millilitres","packSizeText":"Review manually","atcCode":"R05CB03","status":"Authorised","supplierCatalogKey":"finatux 50 mg/ ml syrup"}},{"id":"product:P0189","nodeType":"product","refId":"P0189","label":"Flecoxin 8 Tablets","subtext":"cough","meta":{"brand":"Flecoxin","generic":"BROMHEXINE HYDROCHLORIDE","form":"TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"cough","secondaryIndications":"cold | chesty cough | dry cough | mucus | flu symptoms","otcCategory":"COUGH AND COLD PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"BROMHEXINE HYDROCHLORIDE 8 milligram(s)","packSizeText":"Review manually","atcCode":"R05CB02","status":"Authorised","supplierCatalogKey":"flecoxin 8 tablets"}},{"id":"product:P0194","nodeType":"product","refId":"P0194","label":"Fluimucil acetylcysteine 600 mg effervescent tablets","subtext":"cough","meta":{"brand":"Fluimucil","generic":"ACETYLCYSTEINE","form":"EFFERVESCENT TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"cough","secondaryIndications":"cold | chesty cough | dry cough | mucus | flu symptoms","otcCategory":"COUGH AND COLD PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"ACETYLCYSTEINE 600 milligram(s)","packSizeText":"Review manually","atcCode":"R05CB01","status":"Authorised","supplierCatalogKey":"fluimucil acetylcysteine 600 mg effervescent tablets"}},{"id":"product:P0213","nodeType":"product","refId":"P0213","label":"Hedelix Cough Syrup 0.8 g/100 ml Syrup","subtext":"cough","meta":{"brand":"Hedelix","generic":"IVY LEAVES SOFT EXTRACT","form":"SYRUP","formGroup":"Oral liquid","route":"Oral","mainIndication":"cough","secondaryIndications":"cold | chesty cough | dry cough | mucus | flu symptoms","otcCategory":"COUGH AND COLD PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"IVY LEAVES SOFT EXTRACT 0.8 gram(s)/100 millilitres","packSizeText":"Review manually","atcCode":"R05C","status":"Authorised","supplierCatalogKey":"hedelix cough syrup 0.8 g/100 ml syrup"}},{"id":"product:P0253","nodeType":"product","refId":"P0253","label":"Levodropropizine ELC 30mg/5ml Syrup","subtext":"cough","meta":{"brand":"Levodropropizine","generic":"LEVODROPROPIZINE","form":"SYRUP","formGroup":"Oral liquid","route":"Oral","mainIndication":"cough","secondaryIndications":"cold | chesty cough | dry cough | mucus | flu symptoms","otcCategory":"COUGH AND COLD PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"LEVODROPROPIZINE 30 millilitre(s)/5 millilitres","packSizeText":"Review manually","atcCode":"R05DB27","status":"Authorised","supplierCatalogKey":"levodropropizine elc 30mg/5ml syrup"}},{"id":"product:P0268","nodeType":"product","refId":"P0268","label":"MUCICLAR 15 mg/5 ml syrup","subtext":"cough","meta":{"brand":"MUCICLAR","generic":"AMBROXOL HYDROCHLORIDE","form":"SYRUP","formGroup":"Oral liquid","route":"Oral","mainIndication":"cough","secondaryIndications":"cold | chesty cough | dry cough | mucus | flu symptoms","otcCategory":"COUGH AND COLD PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"AMBROXOL HYDROCHLORIDE 3 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"R05CB06","status":"Authorised","supplierCatalogKey":"muciclar 15 mg/5 ml syrup"}},{"id":"product:P0269","nodeType":"product","refId":"P0269","label":"MUCICLAR 75 mg slow-release capsule","subtext":"cough","meta":{"brand":"MUCICLAR","generic":"AMBROXOL HYDROCHLORIDE","form":"MODIFIED-RELEASE CAPSULE","formGroup":"Oral solid","route":"Oral","mainIndication":"cough","secondaryIndications":"cold | chesty cough | dry cough | mucus | flu symptoms","otcCategory":"COUGH AND COLD PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"AMBROXOL HYDROCHLORIDE 75 milligram(s)","packSizeText":"Review manually","atcCode":"R05CB06","status":"Authorised","supplierCatalogKey":"muciclar 75 mg slow-release capsule"}},{"id":"product:P0298","nodeType":"product","refId":"P0298","label":"Mucobroxol Syrup, 15mg/5ml","subtext":"cough","meta":{"brand":"Mucobroxol","generic":"AMBROXOL HYDROCHLORIDE","form":"SYRUP","formGroup":"Oral liquid","route":"Oral","mainIndication":"cough","secondaryIndications":"cold | chesty cough | dry cough | mucus | flu symptoms","otcCategory":"COUGH AND COLD PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"AMBROXOL HYDROCHLORIDE 15 milligram(s)/5 millilitre","packSizeText":"Review manually","atcCode":"R05CB06","status":"Authorised","supplierCatalogKey":"mucobroxol syrup, 15mg/5ml"}},{"id":"product:P0299","nodeType":"product","refId":"P0299","label":"Mucodrenol 6 mg/ml syrup","subtext":"cough","meta":{"brand":"Mucodrenol","generic":"AMBROXOL HYDROCHLORIDE","form":"SYRUP","formGroup":"Oral liquid","route":"Oral","mainIndication":"cough","secondaryIndications":"cold | chesty cough | dry cough | mucus | flu symptoms","otcCategory":"COUGH AND COLD PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"AMBROXOL HYDROCHLORIDE 6 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"R05CB06","status":"Authorised","supplierCatalogKey":"mucodrenol 6 mg/ml syrup"}},{"id":"product:P0300","nodeType":"product","refId":"P0300","label":"Mucosolvan long effect 75 mg hard capsules with prolonged release","subtext":"cough","meta":{"brand":"Mucosolvan","generic":"AMBROXOL HYDROCHLORIDE","form":"PROLONGED-RELEASE HARD CAPSULE","formGroup":"Oral solid","route":"Oral","mainIndication":"cough","secondaryIndications":"cold | chesty cough | dry cough | mucus | flu symptoms","otcCategory":"COUGH AND COLD PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"AMBROXOL HYDROCHLORIDE 75 milligram(s)","packSizeText":"Review manually","atcCode":"R05CB06","status":"Authorised","supplierCatalogKey":"mucosolvan long effect 75 mg hard capsules with prolonged release"}},{"id":"product:P0341","nodeType":"product","refId":"P0341","label":"Normotus antitussive 2 mg/mL oral solution","subtext":"cough","meta":{"brand":"Normotus","generic":"DEXTROMETHORPHAN HYDROBROMIDE","form":"ORAL SOLUTION","formGroup":"Oral liquid","route":"Oral","mainIndication":"cough","secondaryIndications":"cold | chesty cough | dry cough | mucus | flu symptoms","otcCategory":"COUGH AND COLD PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DEXTROMETHORPHAN HYDROBROMIDE 2 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"R05DA09","status":"Authorised","supplierCatalogKey":"normotus antitussive 2 mg/ml oral solution"}},{"id":"product:P0358","nodeType":"product","refId":"P0358","label":"Olbas Oil","subtext":"cough","meta":{"brand":"Olbas","generic":"CAJUPUT OIL | CLOVE OIL | EUCALYPTUS OIL | JUNIPER BERRY OIL | LEVOMENTHOL | METHYL SALICYLATE | PEPPERMINT OIL","form":"INHALATION VAPOUR, LIQUID","formGroup":"Other","route":"Other","mainIndication":"cough","secondaryIndications":"cold | chesty cough | dry cough | mucus | flu symptoms","otcCategory":"COUGH AND COLD PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":7,"strengthText":"PEPPERMINT OIL 35.45 percent weight/weight | CAJUPUT OIL 18.5 percent weight/weight | EUCALYPTUS OIL 35.45 percent weight/weight | JUNIPER BERRY OIL 2.7 percent weight/weight | METHYL SALICYLATE 3.7 percent weight/weight | CLOVE OIL 0.1 percent weight/weight | LEVOMENTHOL 4.1 percent weight/weight","packSizeText":"Review manually","atcCode":"R05X","status":"Authorised","supplierCatalogKey":"olbas oil"}},{"id":"product:P0406","nodeType":"product","refId":"P0406","label":"Prospan Cough Lozenges","subtext":"cough","meta":{"brand":"Prospan","generic":"HEDERA HELIX","form":"LOZENGE","formGroup":"Oral solid","route":"Oral","mainIndication":"cough","secondaryIndications":"cold | chesty cough | dry cough | mucus | flu symptoms","otcCategory":"COUGH AND COLD PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"HEDERA HELIX 26 milligram(s)","packSizeText":"Review manually","atcCode":"R05CA","status":"Authorised","supplierCatalogKey":"prospan cough lozenges"}},{"id":"product:P0407","nodeType":"product","refId":"P0407","label":"Prospan Cough Syrup in stick packs","subtext":"cough","meta":{"brand":"Prospan","generic":"HEDERA HELIX","form":"ORAL LIQUID","formGroup":"Other","route":"Other","mainIndication":"cough","secondaryIndications":"cold | chesty cough | dry cough | mucus | flu symptoms","otcCategory":"COUGH AND COLD PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"HEDERA HELIX 35 milligram(s)/5 millilitre","packSizeText":"Review manually","atcCode":"R05CA","status":"Authorised","supplierCatalogKey":"prospan cough syrup in stick packs"}},{"id":"product:P0408","nodeType":"product","refId":"P0408","label":"Prospan Cough Syrup, Oral Liquid","subtext":"cough","meta":{"brand":"Prospan","generic":"HEDERA HELIX EXTRACT","form":"ORAL SOLUTION","formGroup":"Oral liquid","route":"Oral","mainIndication":"cough","secondaryIndications":"cold | chesty cough | dry cough | mucus | flu symptoms","otcCategory":"COUGH AND COLD PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"HEDERA HELIX EXTRACT 35 milligram(s)/5 millilitre","packSizeText":"Review manually","atcCode":"R05CA","status":"Authorised","supplierCatalogKey":"prospan cough syrup, oral liquid"}},{"id":"product:P0409","nodeType":"product","refId":"P0409","label":"Prospan Herbal Drops, solution","subtext":"cough","meta":{"brand":"Prospan","generic":"HEDERA HELIX EXTRACT","form":"ORAL SOLUTION","formGroup":"Oral liquid","route":"Oral","mainIndication":"cough","secondaryIndications":"cold | chesty cough | dry cough | mucus | flu symptoms","otcCategory":"COUGH AND COLD PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"HEDERA HELIX EXTRACT 20 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"R05CA","status":"Authorised","supplierCatalogKey":"prospan herbal drops, solution"}},{"id":"product:P0426","nodeType":"product","refId":"P0426","label":"Rhinathiol 2% children, syrup","subtext":"cough","meta":{"brand":"Rhinathiol","generic":"CARBOCISTEINE","form":"SYRUP","formGroup":"Oral liquid","route":"Oral","mainIndication":"cough","secondaryIndications":"cold | chesty cough | dry cough | mucus | flu symptoms","otcCategory":"COUGH AND COLD PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CARBOCISTEINE 2 milligram(s)","packSizeText":"Review manually","atcCode":"R05CB03","status":"Authorised","supplierCatalogKey":"rhinathiol 2% children, syrup"}},{"id":"product:P0429","nodeType":"product","refId":"P0429","label":"SOPULMIN 40 mg/5 ml Syrup","subtext":"cough","meta":{"brand":"SOPULMIN","generic":"SOBREROL","form":"SYRUP","formGroup":"Oral liquid","route":"Oral","mainIndication":"cough","secondaryIndications":"cold | chesty cough | dry cough | mucus | flu symptoms","otcCategory":"COUGH AND COLD PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"SOBREROL 40 milligram(s)/5 millilitre","packSizeText":"Review manually","atcCode":"R05CB07","status":"Authorised","supplierCatalogKey":"sopulmin 40 mg/5 ml syrup"}},{"id":"product:P0430","nodeType":"product","refId":"P0430","label":"SOPULMIN Paediatric 100 mg Suppositories","subtext":"cough","meta":{"brand":"SOPULMIN","generic":"SOBREROL","form":"SUPPOSITORY","formGroup":"Suppository / pessary","route":"Suppository / pessary","mainIndication":"cough","secondaryIndications":"cold | chesty cough | dry cough | mucus | flu symptoms","otcCategory":"COUGH AND COLD PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"SOBREROL 100 milligram(s)","packSizeText":"Review manually","atcCode":"R05CB07","status":"Authorised","supplierCatalogKey":"sopulmin paediatric 100 mg suppositories"}},{"id":"product:P0454","nodeType":"product","refId":"P0454","label":"Solvetusan 60 mg tablets","subtext":"cough","meta":{"brand":"Solvetusan","generic":"LEVODROPROPIZINE","form":"TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"cough","secondaryIndications":"cold | chesty cough | dry cough | mucus | flu symptoms","otcCategory":"COUGH AND COLD PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"LEVODROPROPIZINE 60 milligram(s)","packSizeText":"Review manually","atcCode":"R05DB27","status":"Authorised","supplierCatalogKey":"solvetusan 60 mg tablets"}},{"id":"product:P0469","nodeType":"product","refId":"P0469","label":"TUSSIDEX, 30 mg, soft capsules","subtext":"cough","meta":{"brand":"TUSSIDEX","generic":"DEXTROMETHORPHAN HYDROBROMIDE","form":"SOFT CAPSULE","formGroup":"Oral solid","route":"Oral","mainIndication":"cough","secondaryIndications":"cold | chesty cough | dry cough | mucus | flu symptoms","otcCategory":"COUGH AND COLD PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DEXTROMETHORPHAN HYDROBROMIDE 30 milligram(s)","packSizeText":"Review manually","atcCode":"R05DA09","status":"Authorised","supplierCatalogKey":"tussidex, 30 mg, soft capsules"}},{"id":"product:P0474","nodeType":"product","refId":"P0474","label":"Toceliv 2 mg/ml syrup","subtext":"cough","meta":{"brand":"Toceliv","generic":"DEXTROMETHORPHAN HYDROBROMIDE","form":"SYRUP","formGroup":"Oral liquid","route":"Oral","mainIndication":"cough","secondaryIndications":"cold | chesty cough | dry cough | mucus | flu symptoms","otcCategory":"COUGH AND COLD PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DEXTROMETHORPHAN HYDROBROMIDE 2 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"R05DA09","status":"Authorised","supplierCatalogKey":"toceliv 2 mg/ml syrup"}},{"id":"product:P0475","nodeType":"product","refId":"P0475","label":"Tosseque 0.8 mg/ml syrup","subtext":"cough","meta":{"brand":"Tosseque","generic":"BROMHEXINE HYDROCHLORIDE","form":"SYRUP","formGroup":"Oral liquid","route":"Oral","mainIndication":"cough","secondaryIndications":"cold | chesty cough | dry cough | mucus | flu symptoms","otcCategory":"COUGH AND COLD PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"BROMHEXINE HYDROCHLORIDE 0.8 milligram(s)","packSizeText":"Review manually","atcCode":"R05CB02","status":"Authorised","supplierCatalogKey":"tosseque 0.8 mg/ml syrup"}},{"id":"product:P0477","nodeType":"product","refId":"P0477","label":"Toularynx Bromhexine  5mg/5 ml, syrup","subtext":"cough","meta":{"brand":"Toularynx","generic":"BROMHEXINE HYDROCHLORIDE","form":"SYRUP","formGroup":"Oral liquid","route":"Oral","mainIndication":"cough","secondaryIndications":"cold | chesty cough | dry cough | mucus | flu symptoms","otcCategory":"COUGH AND COLD PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"BROMHEXINE HYDROCHLORIDE 5 milligram(s)/5 millilitre","packSizeText":"Review manually","atcCode":"R05CB02","status":"Authorised","supplierCatalogKey":"toularynx bromhexine 5mg/5 ml, syrup"}},{"id":"product:P0478","nodeType":"product","refId":"P0478","label":"Toularynx Dextromethorphan Forte 3 mg/ml, syrup","subtext":"cough","meta":{"brand":"Toularynx","generic":"DEXTROMETHORPHAN HYDROBROMIDE","form":"SYRUP","formGroup":"Oral liquid","route":"Oral","mainIndication":"cough","secondaryIndications":"cold | chesty cough | dry cough | mucus | flu symptoms","otcCategory":"COUGH AND COLD PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DEXTROMETHORPHAN HYDROBROMIDE 3 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"R05DA09","status":"Authorised","supplierCatalogKey":"toularynx dextromethorphan forte 3 mg/ml, syrup"}},{"id":"product:P0479","nodeType":"product","refId":"P0479","label":"Toularynx thym Syrup 6,5g/100ml","subtext":"cough","meta":{"brand":"Toularynx","generic":"AMMONIA EXTRACTION SOLVENT | ETHANOL | GLYCEROL | THYMUS VULGARIS","form":"SYRUP","formGroup":"Oral liquid","route":"Oral","mainIndication":"cough","secondaryIndications":"cold | chesty cough | dry cough | mucus | flu symptoms","otcCategory":"COUGH AND COLD PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":4,"strengthText":"THYMUS VULGARIS   | AMMONIA EXTRACTION SOLVENT 10 percent | GLYCEROL 85 percent | ETHANOL 90 percent","packSizeText":"Review manually","atcCode":"R05X","status":"Authorised","supplierCatalogKey":"toularynx thym syrup 6,5g/100ml"}},{"id":"product:P0504","nodeType":"product","refId":"P0504","label":"Vicks MediNait Syrup","subtext":"cough","meta":{"brand":"Vicks","generic":"DEXTROMETHORPHAN HYDROBROMIDE | DOXYLAMINE SUCCINATE | PARACETAMOL","form":"SYRUP","formGroup":"Oral liquid","route":"Oral","mainIndication":"cough","secondaryIndications":"cold | chesty cough | dry cough | mucus | flu symptoms","otcCategory":"COUGH AND COLD PREPARATIONS","seasonalGroup":"Winter","sedating":"Yes","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"DEXTROMETHORPHAN HYDROBROMIDE 0.05 gram(s)/100 millilitres | PARACETAMOL 2 gram(s)/100 millilitres | DOXYLAMINE SUCCINATE 0.025 gram(s)/100 millilitres","packSizeText":"Review manually","atcCode":"R05DA20","status":"Authorised","supplierCatalogKey":"vicks medinait syrup"}},{"id":"product:P0505","nodeType":"product","refId":"P0505","label":"Vicks Vaporub Inhalation Vapour, Ointment","subtext":"cough","meta":{"brand":"Vicks","generic":"CAMPHOR | EUCALYPTUS OIL | LEVOMENTHOL | TURPENTINE OIL","form":"INHALATION VAPOUR, OINTMENT","formGroup":"Topical","route":"Topical","mainIndication":"cough","secondaryIndications":"cold | chesty cough | dry cough | mucus | flu symptoms","otcCategory":"COUGH AND COLD PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":4,"strengthText":"LEVOMENTHOL 2.75 percent weight/weight | CAMPHOR 5.00 percent weight/weight | EUCALYPTUS OIL 1.50 percent weight/weight | TURPENTINE OIL 5.00 percent weight/weight","packSizeText":"Review manually","atcCode":"R05X","status":"Authorised","supplierCatalogKey":"vicks vaporub inhalation vapour, ointment"}},{"id":"product:P0506","nodeType":"product","refId":"P0506","label":"Vicks Vaporub Ointment","subtext":"cough","meta":{"brand":"Vicks","generic":"CAMPHOR | EUCALYPTUS OIL | LEVOMENTHOL | TURPENTINE OIL","form":"INHALATION VAPOUR, OINTMENT","formGroup":"Topical","route":"Topical","mainIndication":"cough","secondaryIndications":"cold | chesty cough | dry cough | mucus | flu symptoms","otcCategory":"COUGH AND COLD PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":4,"strengthText":"CAMPHOR 5 percent weight/weight | EUCALYPTUS OIL 1.5 percent weight/weight | TURPENTINE OIL 5 percent weight/weight | LEVOMENTHOL 2.75 percent weight/weight","packSizeText":"Review manually","atcCode":"R05X","status":"Authorised","supplierCatalogKey":"vicks vaporub ointment"}},{"id":"product:P0508","nodeType":"product","refId":"P0508","label":"Viscolex Syrup 250 mg / 5 ml Oral Solution","subtext":"cough","meta":{"brand":"Viscolex","generic":"CARBOCISTEINE","form":"ORAL SOLUTION","formGroup":"Oral liquid","route":"Oral","mainIndication":"cough","secondaryIndications":"cold | chesty cough | dry cough | mucus | flu symptoms","otcCategory":"COUGH AND COLD PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CARBOCISTEINE 250 milligram(s)","packSizeText":"Review manually","atcCode":"R05CB03","status":"Authorised","supplierCatalogKey":"viscolex syrup 250 mg / 5 ml oral solution"}},{"id":"product:P0515","nodeType":"product","refId":"P0515","label":"Xtex 250 mg /5 ml oral solution","subtext":"cough","meta":{"brand":"Xtex","generic":"CARBOCISTEINE","form":"ORAL SOLUTION","formGroup":"Oral liquid","route":"Oral","mainIndication":"cough","secondaryIndications":"cold | chesty cough | dry cough | mucus | flu symptoms","otcCategory":"COUGH AND COLD PREPARATIONS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CARBOCISTEINE 250 milligram(s)/5 millilitre","packSizeText":"Review manually","atcCode":"R05CB03","status":"Authorised","supplierCatalogKey":"xtex 250 mg /5 ml oral solution"}}],"links":[{"key":"6ad9b9afb886bebb","source":"usecase:UC005","target":"product:P0022","rel":"usecase","label":"Main","score":100,"why":"cough, chesty cough, dry cough, mucus","meta":{"useCaseItemId":"UCI00359","role":"Main","reviewStatus":"Seeded"}},{"key":"abe4b6c6ac6db4ea","source":"usecase:UC005","target":"product:P0039","rel":"usecase","label":"Main","score":100,"why":"cough, chesty cough, dry cough, mucus","meta":{"useCaseItemId":"UCI00360","role":"Main","reviewStatus":"Seeded"}},{"key":"2e2c97245ec7b5dc","source":"usecase:UC005","target":"product:P0055","rel":"usecase","label":"Main","score":100,"why":"cough, chesty cough, dry cough, mucus","meta":{"useCaseItemId":"UCI00361","role":"Main","reviewStatus":"Seeded"}},{"key":"bd4540b06af78e58","source":"usecase:UC005","target":"product:P0056","rel":"usecase","label":"Main","score":100,"why":"cough, chesty cough, dry cough, mucus","meta":{"useCaseItemId":"UCI00362","role":"Main","reviewStatus":"Seeded"}},{"key":"9a981c0fc9b9049f","source":"usecase:UC005","target":"product:P0057","rel":"usecase","label":"Main","score":100,"why":"cough, chesty cough, dry cough, mucus","meta":{"useCaseItemId":"UCI00363","role":"Main","reviewStatus":"Seeded"}},{"key":"5d38607e74d4edd3","source":"usecase:UC005","target":"product:P0058","rel":"usecase","label":"Main","score":100,"why":"cough, chesty cough, dry cough, mucus","meta":{"useCaseItemId":"UCI00364","role":"Main","reviewStatus":"Seeded"}},{"key":"e4574147e56a517b","source":"usecase:UC005","target":"product:P0059","rel":"usecase","label":"Main","score":100,"why":"cough, chesty cough, dry cough, mucus","meta":{"useCaseItemId":"UCI00365","role":"Main","reviewStatus":"Seeded"}},{"key":"7aba0756460fee52","source":"usecase:UC005","target":"product:P0060","rel":"usecase","label":"Main","score":100,"why":"cough, chesty cough, dry cough, mucus","meta":{"useCaseItemId":"UCI00366","role":"Main","reviewStatus":"Seeded"}},{"key":"6ea83e90c6ce34f7","source":"usecase:UC005","target":"product:P0061","rel":"usecase","label":"Main","score":100,"why":"cough, chesty cough, dry cough, mucus","meta":{"useCaseItemId":"UCI00367","role":"Main","reviewStatus":"Seeded"}},{"key":"4613ad69c7bb2f33","source":"usecase:UC005","target":"product:P0122","rel":"usecase","label":"Main","score":100,"why":"cough, chesty cough, dry cough, mucus","meta":{"useCaseItemId":"UCI00368","role":"Main","reviewStatus":"Seeded"}},{"key":"650241c834b0c434","source":"usecase:UC005","target":"product:P0123","rel":"usecase","label":"Main","score":100,"why":"cough, chesty cough, dry cough, mucus","meta":{"useCaseItemId":"UCI00369","role":"Main","reviewStatus":"Seeded"}},{"key":"f6ed9e2c334e41c3","source":"usecase:UC005","target":"product:P0135","rel":"usecase","label":"Main","score":100,"why":"cough, chesty cough, dry cough, mucus","meta":{"useCaseItemId":"UCI00370","role":"Main","reviewStatus":"Seeded"}},{"key":"126d3c5eddb950ff","source":"usecase:UC005","target":"product:P0172","rel":"usecase","label":"Main","score":100,"why":"cough, chesty cough, dry cough, mucus","meta":{"useCaseItemId":"UCI00371","role":"Main","reviewStatus":"Seeded"}},{"key":"92678294301b85c5","source":"usecase:UC005","target":"product:P0173","rel":"usecase","label":"Main","score":100,"why":"cough, chesty cough, dry cough, mucus","meta":{"useCaseItemId":"UCI00372","role":"Main","reviewStatus":"Seeded"}},{"key":"30db36548d8a9104","source":"usecase:UC005","target":"product:P0175","rel":"usecase","label":"Main","score":100,"why":"cough, chesty cough, dry cough, mucus","meta":{"useCaseItemId":"UCI00373","role":"Main","reviewStatus":"Seeded"}},{"key":"7eb04f890ecec6e3","source":"usecase:UC005","target":"product:P0189","rel":"usecase","label":"Main","score":100,"why":"cough, chesty cough, dry cough, mucus","meta":{"useCaseItemId":"UCI00374","role":"Main","reviewStatus":"Seeded"}},{"key":"fb27c5767d80e075","source":"usecase:UC005","target":"product:P0194","rel":"usecase","label":"Main","score":100,"why":"cough, chesty cough, dry cough, mucus","meta":{"useCaseItemId":"UCI00375","role":"Main","reviewStatus":"Seeded"}},{"key":"e6981418f85b6fe0","source":"usecase:UC005","target":"product:P0213","rel":"usecase","label":"Main","score":100,"why":"cough, chesty cough, dry cough, mucus","meta":{"useCaseItemId":"UCI00376","role":"Main","reviewStatus":"Seeded"}},{"key":"e1e3b64e44084532","source":"usecase:UC005","target":"product:P0253","rel":"usecase","label":"Main","score":100,"why":"cough, chesty cough, dry cough, mucus","meta":{"useCaseItemId":"UCI00377","role":"Main","reviewStatus":"Seeded"}},{"key":"87349f3a4ef01f90","source":"usecase:UC005","target":"product:P0268","rel":"usecase","label":"Main","score":100,"why":"cough, chesty cough, dry cough, mucus","meta":{"useCaseItemId":"UCI00378","role":"Main","reviewStatus":"Seeded"}},{"key":"ba55cd8a6c35cf5e","source":"usecase:UC005","target":"product:P0269","rel":"usecase","label":"Main","score":100,"why":"cough, chesty cough, dry cough, mucus","meta":{"useCaseItemId":"UCI00379","role":"Main","reviewStatus":"Seeded"}},{"key":"63d9a8aeb60f490e","source":"usecase:UC005","target":"product:P0298","rel":"usecase","label":"Main","score":100,"why":"cough, chesty cough, dry cough, mucus","meta":{"useCaseItemId":"UCI00380","role":"Main","reviewStatus":"Seeded"}},{"key":"9ac7c3f58e2f1c26","source":"usecase:UC005","target":"product:P0299","rel":"usecase","label":"Main","score":100,"why":"cough, chesty cough, dry cough, mucus","meta":{"useCaseItemId":"UCI00381","role":"Main","reviewStatus":"Seeded"}},{"key":"c76a850a827c325f","source":"usecase:UC005","target":"product:P0300","rel":"usecase","label":"Main","score":100,"why":"cough, chesty cough, dry cough, mucus","meta":{"useCaseItemId":"UCI00382","role":"Main","reviewStatus":"Seeded"}},{"key":"4ead3082b2577b6e","source":"usecase:UC005","target":"product:P0341","rel":"usecase","label":"Main","score":100,"why":"cough, chesty cough, dry cough, mucus","meta":{"useCaseItemId":"UCI00383","role":"Main","reviewStatus":"Seeded"}},{"key":"aabdad61ba851a55","source":"usecase:UC005","target":"product:P0358","rel":"usecase","label":"Main","score":100,"why":"cough, chesty cough, dry cough, mucus","meta":{"useCaseItemId":"UCI00384","role":"Main","reviewStatus":"Seeded"}},{"key":"790fe9e54051632d","source":"usecase:UC005","target":"product:P0406","rel":"usecase","label":"Main","score":100,"why":"cough, chesty cough, dry cough, mucus","meta":{"useCaseItemId":"UCI00385","role":"Main","reviewStatus":"Seeded"}},{"key":"496cb57f03ee33a1","source":"usecase:UC005","target":"product:P0407","rel":"usecase","label":"Main","score":100,"why":"cough, chesty cough, dry cough, mucus","meta":{"useCaseItemId":"UCI00386","role":"Main","reviewStatus":"Seeded"}},{"key":"a665409a602cc950","source":"usecase:UC005","target":"product:P0408","rel":"usecase","label":"Main","score":100,"why":"cough, chesty cough, dry cough, mucus","meta":{"useCaseItemId":"UCI00387","role":"Main","reviewStatus":"Seeded"}},{"key":"310649b00fda7bd4","source":"usecase:UC005","target":"product:P0409","rel":"usecase","label":"Main","score":100,"why":"cough, chesty cough, dry cough, mucus","meta":{"useCaseItemId":"UCI00388","role":"Main","reviewStatus":"Seeded"}},{"key":"bb7d04be84c4b775","source":"usecase:UC005","target":"product:P0426","rel":"usecase","label":"Main","score":100,"why":"cough, chesty cough, dry cough, mucus","meta":{"useCaseItemId":"UCI00389","role":"Main","reviewStatus":"Seeded"}},{"key":"236f366c3cbb696c","source":"usecase:UC005","target":"product:P0429","rel":"usecase","label":"Main","score":100,"why":"cough, chesty cough, dry cough, mucus","meta":{"useCaseItemId":"UCI00390","role":"Main","reviewStatus":"Seeded"}},{"key":"f9c8180e201c8181","source":"usecase:UC005","target":"product:P0430","rel":"usecase","label":"Main","score":100,"why":"cough, chesty cough, dry cough, mucus","meta":{"useCaseItemId":"UCI00391","role":"Main","reviewStatus":"Seeded"}},{"key":"b674fde2c7f6bcb3","source":"usecase:UC005","target":"product:P0454","rel":"usecase","label":"Main","score":100,"why":"cough, chesty cough, dry cough, mucus","meta":{"useCaseItemId":"UCI00392","role":"Main","reviewStatus":"Seeded"}},{"key":"f600ae130708767c","source":"usecase:UC005","target":"product:P0469","rel":"usecase","label":"Main","score":100,"why":"cough, chesty cough, dry cough, mucus","meta":{"useCaseItemId":"UCI00393","role":"Main","reviewStatus":"Seeded"}},{"key":"8d9f2c2fd7df3bed","source":"usecase:UC005","target":"product:P0474","rel":"usecase","label":"Main","score":100,"why":"cough, chesty cough, dry cough, mucus","meta":{"useCaseItemId":"UCI00394","role":"Main","reviewStatus":"Seeded"}},{"key":"bb0e3cab4cb7674e","source":"usecase:UC005","target":"product:P0475","rel":"usecase","label":"Main","score":100,"why":"cough, chesty cough, dry cough, mucus","meta":{"useCaseItemId":"UCI00395","role":"Main","reviewStatus":"Seeded"}},{"key":"5ad0d6890ca7ec03","source":"usecase:UC005","target":"product:P0477","rel":"usecase","label":"Main","score":100,"why":"cough, chesty cough, dry cough, mucus","meta":{"useCaseItemId":"UCI00396","role":"Main","reviewStatus":"Seeded"}},{"key":"93b0ed912e9f1c2b","source":"usecase:UC005","target":"product:P0478","rel":"usecase","label":"Main","score":100,"why":"cough, chesty cough, dry cough, mucus","meta":{"useCaseItemId":"UCI00397","role":"Main","reviewStatus":"Seeded"}},{"key":"75f20f56f92f65c9","source":"usecase:UC005","target":"product:P0479","rel":"usecase","label":"Main","score":100,"why":"cough, chesty cough, dry cough, mucus","meta":{"useCaseItemId":"UCI00398","role":"Main","reviewStatus":"Seeded"}},{"key":"afb631a3a2b10413","source":"usecase:UC005","target":"product:P0504","rel":"usecase","label":"Main","score":100,"why":"cough, chesty cough, dry cough, mucus","meta":{"useCaseItemId":"UCI00399","role":"Main","reviewStatus":"Seeded"}},{"key":"8baea7de4c73d7ee","source":"usecase:UC005","target":"product:P0505","rel":"usecase","label":"Main","score":100,"why":"cough, chesty cough, dry cough, mucus","meta":{"useCaseItemId":"UCI00400","role":"Main","reviewStatus":"Seeded"}},{"key":"f0760df9ee162b90","source":"usecase:UC005","target":"product:P0506","rel":"usecase","label":"Main","score":100,"why":"cough, chesty cough, dry cough, mucus","meta":{"useCaseItemId":"UCI00401","role":"Main","reviewStatus":"Seeded"}},{"key":"df619b23286b5302","source":"usecase:UC005","target":"product:P0508","rel":"usecase","label":"Main","score":100,"why":"cough, chesty cough, dry cough, mucus","meta":{"useCaseItemId":"UCI00402","role":"Main","reviewStatus":"Seeded"}},{"key":"cc05cf86f7c28ffe","source":"usecase:UC005","target":"product:P0515","rel":"usecase","label":"Main","score":100,"why":"cough, chesty cough, dry cough, mucus","meta":{"useCaseItemId":"UCI00403","role":"Main","reviewStatus":"Seeded"}}],"meta":{"useCaseName":"Cough chesty vs dry pathway","linkCount":45}}
+{
+  "centerId": "usecase:UC005",
+  "centerType": "usecase",
+  "refId": "UC005",
+  "nodes": [
+    {
+      "id": "usecase:UC005",
+      "nodeType": "usecase",
+      "refId": "UC005",
+      "label": "Cough chesty vs dry pathway",
+      "subtext": "Cough",
+      "meta": {
+        "UseCase_ID": "UC005",
+        "UseCase_Name": "Cough chesty vs dry pathway",
+        "UseCase_Category": "Cough",
+        "Trigger_Symptoms": "Dry cough, chesty cough, mucus",
+        "Description": "Separate dry-cough suppression from mucus/chesty relief."
+      }
+    },
+    {
+      "id": "product:P0022",
+      "nodeType": "product",
+      "refId": "P0022",
+      "label": "Ambroxol Tussilene 6 mg/ml, syrup",
+      "subtext": "cough",
+      "meta": {
+        "brand": "Ambroxol",
+        "generic": "AMBROXOL HYDROCHLORIDE",
+        "form": "SYRUP",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "cough",
+        "secondaryIndications": "cold | chesty cough | dry cough | mucus | flu symptoms",
+        "otcCategory": "COUGH AND COLD PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "AMBROXOL HYDROCHLORIDE 30 milligram(s)/5 millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "R05CB06",
+        "status": "Authorised",
+        "supplierCatalogKey": "ambroxol tussilene 6 mg/ml, syrup"
+      }
+    },
+    {
+      "id": "product:P0039",
+      "nodeType": "product",
+      "refId": "P0039",
+      "label": "Benylin Non-Drowsy Dry Coughs, Syrup;  Dextromethorphan hydrobromide 7.5mg/5ml",
+      "subtext": "cough",
+      "meta": {
+        "brand": "Benylin",
+        "generic": "DEXTROMETHORPHAN HYDROBROMIDE",
+        "form": "SYRUP",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "cough",
+        "secondaryIndications": "cold | chesty cough | dry cough | mucus | flu symptoms",
+        "otcCategory": "COUGH AND COLD PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "Yes",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DEXTROMETHORPHAN HYDROBROMIDE 7.5 milligram(s)/5 millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "R05DA09",
+        "status": "Authorised",
+        "supplierCatalogKey": "benylin non-drowsy dry coughs, syrup; dextromethorphan hydrobromide 7.5mg/5ml"
+      }
+    },
+    {
+      "id": "product:P0055",
+      "nodeType": "product",
+      "refId": "P0055",
+      "label": "Bromhexine \"DAK\" 0.8 mg/ml Oral solution",
+      "subtext": "cough",
+      "meta": {
+        "brand": "Bromhexine",
+        "generic": "BROMHEXINE HYDROCHLORIDE",
+        "form": "ORAL SOLUTION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "cough",
+        "secondaryIndications": "cold | chesty cough | dry cough | mucus | flu symptoms",
+        "otcCategory": "COUGH AND COLD PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "BROMHEXINE HYDROCHLORIDE 0.8 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "R05CB02",
+        "status": "Authorised",
+        "supplierCatalogKey": "bromhexine \"dak\" 0.8 mg/ml oral solution"
+      }
+    },
+    {
+      "id": "product:P0056",
+      "nodeType": "product",
+      "refId": "P0056",
+      "label": "Bronchotussine",
+      "subtext": "cough",
+      "meta": {
+        "brand": "Bronchotussine",
+        "generic": "BROMHEXINE HYDROCHLORIDE",
+        "form": "SYRUP",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "cough",
+        "secondaryIndications": "cold | chesty cough | dry cough | mucus | flu symptoms",
+        "otcCategory": "COUGH AND COLD PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "BROMHEXINE HYDROCHLORIDE 4 milligram(s)/5 millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "R05CB02",
+        "status": "Authorised",
+        "supplierCatalogKey": "bronchotussine"
+      }
+    },
+    {
+      "id": "product:P0057",
+      "nodeType": "product",
+      "refId": "P0057",
+      "label": "Broncoliber 120 mg prolonged-release capsules",
+      "subtext": "cough",
+      "meta": {
+        "brand": "Broncoliber",
+        "generic": "AMBROXOL HYDROCHLORIDE",
+        "form": "PROLONGED-RELEASE CAPSULE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "cough",
+        "secondaryIndications": "cold | chesty cough | dry cough | mucus | flu symptoms",
+        "otcCategory": "COUGH AND COLD PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "AMBROXOL HYDROCHLORIDE 120 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R05CB06",
+        "status": "Authorised",
+        "supplierCatalogKey": "broncoliber 120 mg prolonged-release capsules"
+      }
+    },
+    {
+      "id": "product:P0058",
+      "nodeType": "product",
+      "refId": "P0058",
+      "label": "Broncosil 6 mg/ml Syrup",
+      "subtext": "cough",
+      "meta": {
+        "brand": "Broncosil",
+        "generic": "AMBROXOL HYDROCHLORIDE",
+        "form": "SYRUP",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "cough",
+        "secondaryIndications": "cold | chesty cough | dry cough | mucus | flu symptoms",
+        "otcCategory": "COUGH AND COLD PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "AMBROXOL HYDROCHLORIDE 6 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "R05CB06",
+        "status": "Authorised",
+        "supplierCatalogKey": "broncosil 6 mg/ml syrup"
+      }
+    },
+    {
+      "id": "product:P0059",
+      "nodeType": "product",
+      "refId": "P0059",
+      "label": "Broncosil, 3 mg/ml, Syrup",
+      "subtext": "cough",
+      "meta": {
+        "brand": "Broncosil",
+        "generic": "AMBROXOL HYDROCHLORIDE",
+        "form": "SYRUP",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "cough",
+        "secondaryIndications": "cold | chesty cough | dry cough | mucus | flu symptoms",
+        "otcCategory": "COUGH AND COLD PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "AMBROXOL HYDROCHLORIDE 3 milligram(s)/pump",
+        "packSizeText": "Review manually",
+        "atcCode": "R05CB06",
+        "status": "Authorised",
+        "supplierCatalogKey": "broncosil, 3 mg/ml, syrup"
+      }
+    },
+    {
+      "id": "product:P0060",
+      "nodeType": "product",
+      "refId": "P0060",
+      "label": "Broxivan 3 mg/ml Oral solution",
+      "subtext": "cough",
+      "meta": {
+        "brand": "Broxivan",
+        "generic": "AMBROXOL HYDROCHLORIDE",
+        "form": "ORAL SOLUTION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "cough",
+        "secondaryIndications": "cold | chesty cough | dry cough | mucus | flu symptoms",
+        "otcCategory": "COUGH AND COLD PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "AMBROXOL HYDROCHLORIDE 3 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "R05CB06",
+        "status": "Authorised",
+        "supplierCatalogKey": "broxivan 3 mg/ml oral solution"
+      }
+    },
+    {
+      "id": "product:P0061",
+      "nodeType": "product",
+      "refId": "P0061",
+      "label": "Broxivan 6 mg/ml Oral solution",
+      "subtext": "cough",
+      "meta": {
+        "brand": "Broxivan",
+        "generic": "AMBROXOL HYDROCHLORIDE",
+        "form": "ORAL SOLUTION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "cough",
+        "secondaryIndications": "cold | chesty cough | dry cough | mucus | flu symptoms",
+        "otcCategory": "COUGH AND COLD PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "AMBROXOL HYDROCHLORIDE 6 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "R05CB06",
+        "status": "Authorised",
+        "supplierCatalogKey": "broxivan 6 mg/ml oral solution"
+      }
+    },
+    {
+      "id": "product:P0122",
+      "nodeType": "product",
+      "refId": "P0122",
+      "label": "DIACOL 1,8 mg/ml syrup",
+      "subtext": "cough",
+      "meta": {
+        "brand": "DIACOL",
+        "generic": "DEXTROMETHORPHAN HYDROBROMIDE",
+        "form": "SYRUP",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "cough",
+        "secondaryIndications": "cold | chesty cough | dry cough | mucus | flu symptoms",
+        "otcCategory": "COUGH AND COLD PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DEXTROMETHORPHAN HYDROBROMIDE 9 milligram(s)/5 millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "R05DA09",
+        "status": "Authorised",
+        "supplierCatalogKey": "diacol 1,8 mg/ml syrup"
+      }
+    },
+    {
+      "id": "product:P0123",
+      "nodeType": "product",
+      "refId": "P0123",
+      "label": "DIACOL 1.8 mg/ml syrup",
+      "subtext": "cough",
+      "meta": {
+        "brand": "DIACOL",
+        "generic": "DEXTROMETHORPHAN HYDROBROMIDE",
+        "form": "SYRUP",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "cough",
+        "secondaryIndications": "cold | chesty cough | dry cough | mucus | flu symptoms",
+        "otcCategory": "COUGH AND COLD PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DEXTROMETHORPHAN HYDROBROMIDE 1.8 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "R05DA09",
+        "status": "Authorised",
+        "supplierCatalogKey": "diacol 1.8 mg/ml syrup"
+      }
+    },
+    {
+      "id": "product:P0135",
+      "nodeType": "product",
+      "refId": "P0135",
+      "label": "Dextromethorphan Tussilene, 2 mg/ml, Oral Solution",
+      "subtext": "cough",
+      "meta": {
+        "brand": "Dextromethorphan",
+        "generic": "DEXTROMETHORPHAN HYDROBROMIDE",
+        "form": "ORAL SOLUTION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "cough",
+        "secondaryIndications": "cold | chesty cough | dry cough | mucus | flu symptoms",
+        "otcCategory": "COUGH AND COLD PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DEXTROMETHORPHAN HYDROBROMIDE 2 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "R05DA09",
+        "status": "Authorised",
+        "supplierCatalogKey": "dextromethorphan tussilene, 2 mg/ml, oral solution"
+      }
+    },
+    {
+      "id": "product:P0172",
+      "nodeType": "product",
+      "refId": "P0172",
+      "label": "Exputex 250mg / 5ml Oral Solution",
+      "subtext": "cough",
+      "meta": {
+        "brand": "Exputex",
+        "generic": "CARBOCISTEINE",
+        "form": "ORAL SOLUTION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "cough",
+        "secondaryIndications": "cold | chesty cough | dry cough | mucus | flu symptoms",
+        "otcCategory": "COUGH AND COLD PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CARBOCISTEINE 250 milligram(s)/5 millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "R05CB03",
+        "status": "Authorised",
+        "supplierCatalogKey": "exputex 250mg / 5ml oral solution"
+      }
+    },
+    {
+      "id": "product:P0173",
+      "nodeType": "product",
+      "refId": "P0173",
+      "label": "Exputex 250mg/5 ml Oral Solution",
+      "subtext": "cough",
+      "meta": {
+        "brand": "Exputex",
+        "generic": "CARBOCISTEINE",
+        "form": "ORAL SOLUTION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "cough",
+        "secondaryIndications": "cold | chesty cough | dry cough | mucus | flu symptoms",
+        "otcCategory": "COUGH AND COLD PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CARBOCISTEINE 250 milligram(s)/5 millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "R05CB03",
+        "status": "Authorised",
+        "supplierCatalogKey": "exputex 250mg/5 ml oral solution"
+      }
+    },
+    {
+      "id": "product:P0175",
+      "nodeType": "product",
+      "refId": "P0175",
+      "label": "FINATUX 50 mg/ ml syrup",
+      "subtext": "cough",
+      "meta": {
+        "brand": "FINATUX",
+        "generic": "CARBOCISTEINE",
+        "form": "SYRUP",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "cough",
+        "secondaryIndications": "cold | chesty cough | dry cough | mucus | flu symptoms",
+        "otcCategory": "COUGH AND COLD PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CARBOCISTEINE 5.0 gram(s)/100 millilitres",
+        "packSizeText": "Review manually",
+        "atcCode": "R05CB03",
+        "status": "Authorised",
+        "supplierCatalogKey": "finatux 50 mg/ ml syrup"
+      }
+    },
+    {
+      "id": "product:P0189",
+      "nodeType": "product",
+      "refId": "P0189",
+      "label": "Flecoxin 8 Tablets",
+      "subtext": "cough",
+      "meta": {
+        "brand": "Flecoxin",
+        "generic": "BROMHEXINE HYDROCHLORIDE",
+        "form": "TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "cough",
+        "secondaryIndications": "cold | chesty cough | dry cough | mucus | flu symptoms",
+        "otcCategory": "COUGH AND COLD PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "BROMHEXINE HYDROCHLORIDE 8 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R05CB02",
+        "status": "Authorised",
+        "supplierCatalogKey": "flecoxin 8 tablets"
+      }
+    },
+    {
+      "id": "product:P0194",
+      "nodeType": "product",
+      "refId": "P0194",
+      "label": "Fluimucil acetylcysteine 600 mg effervescent tablets",
+      "subtext": "cough",
+      "meta": {
+        "brand": "Fluimucil",
+        "generic": "ACETYLCYSTEINE",
+        "form": "EFFERVESCENT TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "cough",
+        "secondaryIndications": "cold | chesty cough | dry cough | mucus | flu symptoms",
+        "otcCategory": "COUGH AND COLD PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "ACETYLCYSTEINE 600 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R05CB01",
+        "status": "Authorised",
+        "supplierCatalogKey": "fluimucil acetylcysteine 600 mg effervescent tablets"
+      }
+    },
+    {
+      "id": "product:P0213",
+      "nodeType": "product",
+      "refId": "P0213",
+      "label": "Hedelix Cough Syrup 0.8 g/100 ml Syrup",
+      "subtext": "cough",
+      "meta": {
+        "brand": "Hedelix",
+        "generic": "IVY LEAVES SOFT EXTRACT",
+        "form": "SYRUP",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "cough",
+        "secondaryIndications": "cold | chesty cough | dry cough | mucus | flu symptoms",
+        "otcCategory": "COUGH AND COLD PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "IVY LEAVES SOFT EXTRACT 0.8 gram(s)/100 millilitres",
+        "packSizeText": "Review manually",
+        "atcCode": "R05C",
+        "status": "Authorised",
+        "supplierCatalogKey": "hedelix cough syrup 0.8 g/100 ml syrup"
+      }
+    },
+    {
+      "id": "product:P0253",
+      "nodeType": "product",
+      "refId": "P0253",
+      "label": "Levodropropizine ELC 30mg/5ml Syrup",
+      "subtext": "cough",
+      "meta": {
+        "brand": "Levodropropizine",
+        "generic": "LEVODROPROPIZINE",
+        "form": "SYRUP",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "cough",
+        "secondaryIndications": "cold | chesty cough | dry cough | mucus | flu symptoms",
+        "otcCategory": "COUGH AND COLD PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "LEVODROPROPIZINE 30 millilitre(s)/5 millilitres",
+        "packSizeText": "Review manually",
+        "atcCode": "R05DB27",
+        "status": "Authorised",
+        "supplierCatalogKey": "levodropropizine elc 30mg/5ml syrup"
+      }
+    },
+    {
+      "id": "product:P0268",
+      "nodeType": "product",
+      "refId": "P0268",
+      "label": "MUCICLAR 15 mg/5 ml syrup",
+      "subtext": "cough",
+      "meta": {
+        "brand": "MUCICLAR",
+        "generic": "AMBROXOL HYDROCHLORIDE",
+        "form": "SYRUP",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "cough",
+        "secondaryIndications": "cold | chesty cough | dry cough | mucus | flu symptoms",
+        "otcCategory": "COUGH AND COLD PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "AMBROXOL HYDROCHLORIDE 3 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "R05CB06",
+        "status": "Authorised",
+        "supplierCatalogKey": "muciclar 15 mg/5 ml syrup"
+      }
+    },
+    {
+      "id": "product:P0269",
+      "nodeType": "product",
+      "refId": "P0269",
+      "label": "MUCICLAR 75 mg slow-release capsule",
+      "subtext": "cough",
+      "meta": {
+        "brand": "MUCICLAR",
+        "generic": "AMBROXOL HYDROCHLORIDE",
+        "form": "MODIFIED-RELEASE CAPSULE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "cough",
+        "secondaryIndications": "cold | chesty cough | dry cough | mucus | flu symptoms",
+        "otcCategory": "COUGH AND COLD PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "AMBROXOL HYDROCHLORIDE 75 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R05CB06",
+        "status": "Authorised",
+        "supplierCatalogKey": "muciclar 75 mg slow-release capsule"
+      }
+    },
+    {
+      "id": "product:P0298",
+      "nodeType": "product",
+      "refId": "P0298",
+      "label": "Mucobroxol Syrup, 15mg/5ml",
+      "subtext": "cough",
+      "meta": {
+        "brand": "Mucobroxol",
+        "generic": "AMBROXOL HYDROCHLORIDE",
+        "form": "SYRUP",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "cough",
+        "secondaryIndications": "cold | chesty cough | dry cough | mucus | flu symptoms",
+        "otcCategory": "COUGH AND COLD PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "AMBROXOL HYDROCHLORIDE 15 milligram(s)/5 millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "R05CB06",
+        "status": "Authorised",
+        "supplierCatalogKey": "mucobroxol syrup, 15mg/5ml"
+      }
+    },
+    {
+      "id": "product:P0299",
+      "nodeType": "product",
+      "refId": "P0299",
+      "label": "Mucodrenol 6 mg/ml syrup",
+      "subtext": "cough",
+      "meta": {
+        "brand": "Mucodrenol",
+        "generic": "AMBROXOL HYDROCHLORIDE",
+        "form": "SYRUP",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "cough",
+        "secondaryIndications": "cold | chesty cough | dry cough | mucus | flu symptoms",
+        "otcCategory": "COUGH AND COLD PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "AMBROXOL HYDROCHLORIDE 6 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "R05CB06",
+        "status": "Authorised",
+        "supplierCatalogKey": "mucodrenol 6 mg/ml syrup"
+      }
+    },
+    {
+      "id": "product:P0300",
+      "nodeType": "product",
+      "refId": "P0300",
+      "label": "Mucosolvan long effect 75 mg hard capsules with prolonged release",
+      "subtext": "cough",
+      "meta": {
+        "brand": "Mucosolvan",
+        "generic": "AMBROXOL HYDROCHLORIDE",
+        "form": "PROLONGED-RELEASE HARD CAPSULE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "cough",
+        "secondaryIndications": "cold | chesty cough | dry cough | mucus | flu symptoms",
+        "otcCategory": "COUGH AND COLD PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "AMBROXOL HYDROCHLORIDE 75 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R05CB06",
+        "status": "Authorised",
+        "supplierCatalogKey": "mucosolvan long effect 75 mg hard capsules with prolonged release"
+      }
+    },
+    {
+      "id": "product:P0341",
+      "nodeType": "product",
+      "refId": "P0341",
+      "label": "Normotus antitussive 2 mg/mL oral solution",
+      "subtext": "cough",
+      "meta": {
+        "brand": "Normotus",
+        "generic": "DEXTROMETHORPHAN HYDROBROMIDE",
+        "form": "ORAL SOLUTION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "cough",
+        "secondaryIndications": "cold | chesty cough | dry cough | mucus | flu symptoms",
+        "otcCategory": "COUGH AND COLD PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DEXTROMETHORPHAN HYDROBROMIDE 2 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "R05DA09",
+        "status": "Authorised",
+        "supplierCatalogKey": "normotus antitussive 2 mg/ml oral solution"
+      }
+    },
+    {
+      "id": "product:P0358",
+      "nodeType": "product",
+      "refId": "P0358",
+      "label": "Olbas Oil",
+      "subtext": "cough",
+      "meta": {
+        "brand": "Olbas",
+        "generic": "CAJUPUT OIL | CLOVE OIL | EUCALYPTUS OIL | JUNIPER BERRY OIL | LEVOMENTHOL | METHYL SALICYLATE | PEPPERMINT OIL",
+        "form": "INHALATION VAPOUR, LIQUID",
+        "formGroup": "Other",
+        "route": "Other",
+        "mainIndication": "cough",
+        "secondaryIndications": "cold | chesty cough | dry cough | mucus | flu symptoms",
+        "otcCategory": "COUGH AND COLD PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 7,
+        "strengthText": "PEPPERMINT OIL 35.45 percent weight/weight | CAJUPUT OIL 18.5 percent weight/weight | EUCALYPTUS OIL 35.45 percent weight/weight | JUNIPER BERRY OIL 2.7 percent weight/weight | METHYL SALICYLATE 3.7 percent weight/weight | CLOVE OIL 0.1 percent weight/weight | LEVOMENTHOL 4.1 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "R05X",
+        "status": "Authorised",
+        "supplierCatalogKey": "olbas oil"
+      }
+    },
+    {
+      "id": "product:P0406",
+      "nodeType": "product",
+      "refId": "P0406",
+      "label": "Prospan Cough Lozenges",
+      "subtext": "cough",
+      "meta": {
+        "brand": "Prospan",
+        "generic": "HEDERA HELIX",
+        "form": "LOZENGE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "cough",
+        "secondaryIndications": "cold | chesty cough | dry cough | mucus | flu symptoms",
+        "otcCategory": "COUGH AND COLD PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "HEDERA HELIX 26 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R05CA",
+        "status": "Authorised",
+        "supplierCatalogKey": "prospan cough lozenges"
+      }
+    },
+    {
+      "id": "product:P0407",
+      "nodeType": "product",
+      "refId": "P0407",
+      "label": "Prospan Cough Syrup in stick packs",
+      "subtext": "cough",
+      "meta": {
+        "brand": "Prospan",
+        "generic": "HEDERA HELIX",
+        "form": "ORAL LIQUID",
+        "formGroup": "Other",
+        "route": "Other",
+        "mainIndication": "cough",
+        "secondaryIndications": "cold | chesty cough | dry cough | mucus | flu symptoms",
+        "otcCategory": "COUGH AND COLD PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "HEDERA HELIX 35 milligram(s)/5 millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "R05CA",
+        "status": "Authorised",
+        "supplierCatalogKey": "prospan cough syrup in stick packs"
+      }
+    },
+    {
+      "id": "product:P0408",
+      "nodeType": "product",
+      "refId": "P0408",
+      "label": "Prospan Cough Syrup, Oral Liquid",
+      "subtext": "cough",
+      "meta": {
+        "brand": "Prospan",
+        "generic": "HEDERA HELIX EXTRACT",
+        "form": "ORAL SOLUTION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "cough",
+        "secondaryIndications": "cold | chesty cough | dry cough | mucus | flu symptoms",
+        "otcCategory": "COUGH AND COLD PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "HEDERA HELIX EXTRACT 35 milligram(s)/5 millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "R05CA",
+        "status": "Authorised",
+        "supplierCatalogKey": "prospan cough syrup, oral liquid"
+      }
+    },
+    {
+      "id": "product:P0409",
+      "nodeType": "product",
+      "refId": "P0409",
+      "label": "Prospan Herbal Drops, solution",
+      "subtext": "cough",
+      "meta": {
+        "brand": "Prospan",
+        "generic": "HEDERA HELIX EXTRACT",
+        "form": "ORAL SOLUTION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "cough",
+        "secondaryIndications": "cold | chesty cough | dry cough | mucus | flu symptoms",
+        "otcCategory": "COUGH AND COLD PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "HEDERA HELIX EXTRACT 20 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "R05CA",
+        "status": "Authorised",
+        "supplierCatalogKey": "prospan herbal drops, solution"
+      }
+    },
+    {
+      "id": "product:P0426",
+      "nodeType": "product",
+      "refId": "P0426",
+      "label": "Rhinathiol 2% children, syrup",
+      "subtext": "cough",
+      "meta": {
+        "brand": "Rhinathiol",
+        "generic": "CARBOCISTEINE",
+        "form": "SYRUP",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "cough",
+        "secondaryIndications": "cold | chesty cough | dry cough | mucus | flu symptoms",
+        "otcCategory": "COUGH AND COLD PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CARBOCISTEINE 2 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R05CB03",
+        "status": "Authorised",
+        "supplierCatalogKey": "rhinathiol 2% children, syrup"
+      }
+    },
+    {
+      "id": "product:P0429",
+      "nodeType": "product",
+      "refId": "P0429",
+      "label": "SOPULMIN 40 mg/5 ml Syrup",
+      "subtext": "cough",
+      "meta": {
+        "brand": "SOPULMIN",
+        "generic": "SOBREROL",
+        "form": "SYRUP",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "cough",
+        "secondaryIndications": "cold | chesty cough | dry cough | mucus | flu symptoms",
+        "otcCategory": "COUGH AND COLD PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "SOBREROL 40 milligram(s)/5 millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "R05CB07",
+        "status": "Authorised",
+        "supplierCatalogKey": "sopulmin 40 mg/5 ml syrup"
+      }
+    },
+    {
+      "id": "product:P0430",
+      "nodeType": "product",
+      "refId": "P0430",
+      "label": "SOPULMIN Paediatric 100 mg Suppositories",
+      "subtext": "cough",
+      "meta": {
+        "brand": "SOPULMIN",
+        "generic": "SOBREROL",
+        "form": "SUPPOSITORY",
+        "formGroup": "Suppository / pessary",
+        "route": "Suppository / pessary",
+        "mainIndication": "cough",
+        "secondaryIndications": "cold | chesty cough | dry cough | mucus | flu symptoms",
+        "otcCategory": "COUGH AND COLD PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "SOBREROL 100 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R05CB07",
+        "status": "Authorised",
+        "supplierCatalogKey": "sopulmin paediatric 100 mg suppositories"
+      }
+    },
+    {
+      "id": "product:P0454",
+      "nodeType": "product",
+      "refId": "P0454",
+      "label": "Solvetusan 60 mg tablets",
+      "subtext": "cough",
+      "meta": {
+        "brand": "Solvetusan",
+        "generic": "LEVODROPROPIZINE",
+        "form": "TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "cough",
+        "secondaryIndications": "cold | chesty cough | dry cough | mucus | flu symptoms",
+        "otcCategory": "COUGH AND COLD PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "LEVODROPROPIZINE 60 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R05DB27",
+        "status": "Authorised",
+        "supplierCatalogKey": "solvetusan 60 mg tablets"
+      }
+    },
+    {
+      "id": "product:P0469",
+      "nodeType": "product",
+      "refId": "P0469",
+      "label": "TUSSIDEX, 30 mg, soft capsules",
+      "subtext": "cough",
+      "meta": {
+        "brand": "TUSSIDEX",
+        "generic": "DEXTROMETHORPHAN HYDROBROMIDE",
+        "form": "SOFT CAPSULE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "cough",
+        "secondaryIndications": "cold | chesty cough | dry cough | mucus | flu symptoms",
+        "otcCategory": "COUGH AND COLD PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DEXTROMETHORPHAN HYDROBROMIDE 30 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R05DA09",
+        "status": "Authorised",
+        "supplierCatalogKey": "tussidex, 30 mg, soft capsules"
+      }
+    },
+    {
+      "id": "product:P0474",
+      "nodeType": "product",
+      "refId": "P0474",
+      "label": "Toceliv 2 mg/ml syrup",
+      "subtext": "cough",
+      "meta": {
+        "brand": "Toceliv",
+        "generic": "DEXTROMETHORPHAN HYDROBROMIDE",
+        "form": "SYRUP",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "cough",
+        "secondaryIndications": "cold | chesty cough | dry cough | mucus | flu symptoms",
+        "otcCategory": "COUGH AND COLD PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DEXTROMETHORPHAN HYDROBROMIDE 2 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "R05DA09",
+        "status": "Authorised",
+        "supplierCatalogKey": "toceliv 2 mg/ml syrup"
+      }
+    },
+    {
+      "id": "product:P0475",
+      "nodeType": "product",
+      "refId": "P0475",
+      "label": "Tosseque 0.8 mg/ml syrup",
+      "subtext": "cough",
+      "meta": {
+        "brand": "Tosseque",
+        "generic": "BROMHEXINE HYDROCHLORIDE",
+        "form": "SYRUP",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "cough",
+        "secondaryIndications": "cold | chesty cough | dry cough | mucus | flu symptoms",
+        "otcCategory": "COUGH AND COLD PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "BROMHEXINE HYDROCHLORIDE 0.8 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R05CB02",
+        "status": "Authorised",
+        "supplierCatalogKey": "tosseque 0.8 mg/ml syrup"
+      }
+    },
+    {
+      "id": "product:P0477",
+      "nodeType": "product",
+      "refId": "P0477",
+      "label": "Toularynx Bromhexine  5mg/5 ml, syrup",
+      "subtext": "cough",
+      "meta": {
+        "brand": "Toularynx",
+        "generic": "BROMHEXINE HYDROCHLORIDE",
+        "form": "SYRUP",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "cough",
+        "secondaryIndications": "cold | chesty cough | dry cough | mucus | flu symptoms",
+        "otcCategory": "COUGH AND COLD PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "BROMHEXINE HYDROCHLORIDE 5 milligram(s)/5 millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "R05CB02",
+        "status": "Authorised",
+        "supplierCatalogKey": "toularynx bromhexine 5mg/5 ml, syrup"
+      }
+    },
+    {
+      "id": "product:P0478",
+      "nodeType": "product",
+      "refId": "P0478",
+      "label": "Toularynx Dextromethorphan Forte 3 mg/ml, syrup",
+      "subtext": "cough",
+      "meta": {
+        "brand": "Toularynx",
+        "generic": "DEXTROMETHORPHAN HYDROBROMIDE",
+        "form": "SYRUP",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "cough",
+        "secondaryIndications": "cold | chesty cough | dry cough | mucus | flu symptoms",
+        "otcCategory": "COUGH AND COLD PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DEXTROMETHORPHAN HYDROBROMIDE 3 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "R05DA09",
+        "status": "Authorised",
+        "supplierCatalogKey": "toularynx dextromethorphan forte 3 mg/ml, syrup"
+      }
+    },
+    {
+      "id": "product:P0479",
+      "nodeType": "product",
+      "refId": "P0479",
+      "label": "Toularynx thym Syrup 6,5g/100ml",
+      "subtext": "cough",
+      "meta": {
+        "brand": "Toularynx",
+        "generic": "AMMONIA EXTRACTION SOLVENT | ETHANOL | GLYCEROL | THYMUS VULGARIS",
+        "form": "SYRUP",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "cough",
+        "secondaryIndications": "cold | chesty cough | dry cough | mucus | flu symptoms",
+        "otcCategory": "COUGH AND COLD PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 4,
+        "strengthText": "THYMUS VULGARIS   | AMMONIA EXTRACTION SOLVENT 10 percent | GLYCEROL 85 percent | ETHANOL 90 percent",
+        "packSizeText": "Review manually",
+        "atcCode": "R05X",
+        "status": "Authorised",
+        "supplierCatalogKey": "toularynx thym syrup 6,5g/100ml"
+      }
+    },
+    {
+      "id": "product:P0504",
+      "nodeType": "product",
+      "refId": "P0504",
+      "label": "Vicks MediNait Syrup",
+      "subtext": "cough",
+      "meta": {
+        "brand": "Vicks",
+        "generic": "DEXTROMETHORPHAN HYDROBROMIDE | DOXYLAMINE SUCCINATE | PARACETAMOL",
+        "form": "SYRUP",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "cough",
+        "secondaryIndications": "cold | chesty cough | dry cough | mucus | flu symptoms",
+        "otcCategory": "COUGH AND COLD PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "Yes",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "DEXTROMETHORPHAN HYDROBROMIDE 0.05 gram(s)/100 millilitres | PARACETAMOL 2 gram(s)/100 millilitres | DOXYLAMINE SUCCINATE 0.025 gram(s)/100 millilitres",
+        "packSizeText": "Review manually",
+        "atcCode": "R05DA20",
+        "status": "Authorised",
+        "supplierCatalogKey": "vicks medinait syrup"
+      }
+    },
+    {
+      "id": "product:P0505",
+      "nodeType": "product",
+      "refId": "P0505",
+      "label": "Vicks Vaporub Inhalation Vapour, Ointment",
+      "subtext": "cough",
+      "meta": {
+        "brand": "Vicks",
+        "generic": "CAMPHOR | EUCALYPTUS OIL | LEVOMENTHOL | TURPENTINE OIL",
+        "form": "INHALATION VAPOUR, OINTMENT",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "cough",
+        "secondaryIndications": "cold | chesty cough | dry cough | mucus | flu symptoms",
+        "otcCategory": "COUGH AND COLD PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 4,
+        "strengthText": "LEVOMENTHOL 2.75 percent weight/weight | CAMPHOR 5.00 percent weight/weight | EUCALYPTUS OIL 1.50 percent weight/weight | TURPENTINE OIL 5.00 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "R05X",
+        "status": "Authorised",
+        "supplierCatalogKey": "vicks vaporub inhalation vapour, ointment"
+      }
+    },
+    {
+      "id": "product:P0506",
+      "nodeType": "product",
+      "refId": "P0506",
+      "label": "Vicks Vaporub Ointment",
+      "subtext": "cough",
+      "meta": {
+        "brand": "Vicks",
+        "generic": "CAMPHOR | EUCALYPTUS OIL | LEVOMENTHOL | TURPENTINE OIL",
+        "form": "INHALATION VAPOUR, OINTMENT",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "cough",
+        "secondaryIndications": "cold | chesty cough | dry cough | mucus | flu symptoms",
+        "otcCategory": "COUGH AND COLD PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 4,
+        "strengthText": "CAMPHOR 5 percent weight/weight | EUCALYPTUS OIL 1.5 percent weight/weight | TURPENTINE OIL 5 percent weight/weight | LEVOMENTHOL 2.75 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "R05X",
+        "status": "Authorised",
+        "supplierCatalogKey": "vicks vaporub ointment"
+      }
+    },
+    {
+      "id": "product:P0508",
+      "nodeType": "product",
+      "refId": "P0508",
+      "label": "Viscolex Syrup 250 mg / 5 ml Oral Solution",
+      "subtext": "cough",
+      "meta": {
+        "brand": "Viscolex",
+        "generic": "CARBOCISTEINE",
+        "form": "ORAL SOLUTION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "cough",
+        "secondaryIndications": "cold | chesty cough | dry cough | mucus | flu symptoms",
+        "otcCategory": "COUGH AND COLD PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CARBOCISTEINE 250 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R05CB03",
+        "status": "Authorised",
+        "supplierCatalogKey": "viscolex syrup 250 mg / 5 ml oral solution"
+      }
+    },
+    {
+      "id": "product:P0515",
+      "nodeType": "product",
+      "refId": "P0515",
+      "label": "Xtex 250 mg /5 ml oral solution",
+      "subtext": "cough",
+      "meta": {
+        "brand": "Xtex",
+        "generic": "CARBOCISTEINE",
+        "form": "ORAL SOLUTION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "cough",
+        "secondaryIndications": "cold | chesty cough | dry cough | mucus | flu symptoms",
+        "otcCategory": "COUGH AND COLD PREPARATIONS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CARBOCISTEINE 250 milligram(s)/5 millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "R05CB03",
+        "status": "Authorised",
+        "supplierCatalogKey": "xtex 250 mg /5 ml oral solution"
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "999d4b669ed90ca2",
+      "source": "product:P0022",
+      "target": "usecase:UC005",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "cough, chesty cough, dry cough, mucus",
+      "meta": {
+        "useCaseItemId": "UCI00359"
+      }
+    },
+    {
+      "key": "6720cd01e5f6328c",
+      "source": "product:P0039",
+      "target": "usecase:UC005",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "cough, chesty cough, dry cough, mucus",
+      "meta": {
+        "useCaseItemId": "UCI00360"
+      }
+    },
+    {
+      "key": "10de072585f97f67",
+      "source": "product:P0055",
+      "target": "usecase:UC005",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "cough, chesty cough, dry cough, mucus",
+      "meta": {
+        "useCaseItemId": "UCI00361"
+      }
+    },
+    {
+      "key": "79f9b816b1decd2f",
+      "source": "product:P0056",
+      "target": "usecase:UC005",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "cough, chesty cough, dry cough, mucus",
+      "meta": {
+        "useCaseItemId": "UCI00362"
+      }
+    },
+    {
+      "key": "15fc5f491b137112",
+      "source": "product:P0057",
+      "target": "usecase:UC005",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "cough, chesty cough, dry cough, mucus",
+      "meta": {
+        "useCaseItemId": "UCI00363"
+      }
+    },
+    {
+      "key": "8c3cae524c36fc79",
+      "source": "product:P0058",
+      "target": "usecase:UC005",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "cough, chesty cough, dry cough, mucus",
+      "meta": {
+        "useCaseItemId": "UCI00364"
+      }
+    },
+    {
+      "key": "ae7018f63ed1494f",
+      "source": "product:P0059",
+      "target": "usecase:UC005",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "cough, chesty cough, dry cough, mucus",
+      "meta": {
+        "useCaseItemId": "UCI00365"
+      }
+    },
+    {
+      "key": "8d09a564188a1a2e",
+      "source": "product:P0060",
+      "target": "usecase:UC005",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "cough, chesty cough, dry cough, mucus",
+      "meta": {
+        "useCaseItemId": "UCI00366"
+      }
+    },
+    {
+      "key": "dce906d7c56f2344",
+      "source": "product:P0061",
+      "target": "usecase:UC005",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "cough, chesty cough, dry cough, mucus",
+      "meta": {
+        "useCaseItemId": "UCI00367"
+      }
+    },
+    {
+      "key": "4590f3e53b86e9d8",
+      "source": "product:P0122",
+      "target": "usecase:UC005",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "cough, chesty cough, dry cough, mucus",
+      "meta": {
+        "useCaseItemId": "UCI00368"
+      }
+    },
+    {
+      "key": "e0e7ee4a1d978e96",
+      "source": "product:P0123",
+      "target": "usecase:UC005",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "cough, chesty cough, dry cough, mucus",
+      "meta": {
+        "useCaseItemId": "UCI00369"
+      }
+    },
+    {
+      "key": "304ec95f72f02fe7",
+      "source": "product:P0135",
+      "target": "usecase:UC005",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "cough, chesty cough, dry cough, mucus",
+      "meta": {
+        "useCaseItemId": "UCI00370"
+      }
+    },
+    {
+      "key": "cf251bbe3b08ce37",
+      "source": "product:P0172",
+      "target": "usecase:UC005",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "cough, chesty cough, dry cough, mucus",
+      "meta": {
+        "useCaseItemId": "UCI00371"
+      }
+    },
+    {
+      "key": "699bb9bbc3c75d0e",
+      "source": "product:P0173",
+      "target": "usecase:UC005",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "cough, chesty cough, dry cough, mucus",
+      "meta": {
+        "useCaseItemId": "UCI00372"
+      }
+    },
+    {
+      "key": "e2cc12cb1ddb2c3f",
+      "source": "product:P0175",
+      "target": "usecase:UC005",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "cough, chesty cough, dry cough, mucus",
+      "meta": {
+        "useCaseItemId": "UCI00373"
+      }
+    },
+    {
+      "key": "1940535a05e1f236",
+      "source": "product:P0189",
+      "target": "usecase:UC005",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "cough, chesty cough, dry cough, mucus",
+      "meta": {
+        "useCaseItemId": "UCI00374"
+      }
+    },
+    {
+      "key": "1ed283d7fb3e148a",
+      "source": "product:P0194",
+      "target": "usecase:UC005",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "cough, chesty cough, dry cough, mucus",
+      "meta": {
+        "useCaseItemId": "UCI00375"
+      }
+    },
+    {
+      "key": "28378b6f4dd7779b",
+      "source": "product:P0213",
+      "target": "usecase:UC005",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "cough, chesty cough, dry cough, mucus",
+      "meta": {
+        "useCaseItemId": "UCI00376"
+      }
+    },
+    {
+      "key": "a4441875e94accb7",
+      "source": "product:P0253",
+      "target": "usecase:UC005",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "cough, chesty cough, dry cough, mucus",
+      "meta": {
+        "useCaseItemId": "UCI00377"
+      }
+    },
+    {
+      "key": "793a8f8951383658",
+      "source": "product:P0268",
+      "target": "usecase:UC005",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "cough, chesty cough, dry cough, mucus",
+      "meta": {
+        "useCaseItemId": "UCI00378"
+      }
+    },
+    {
+      "key": "048995efcb76823d",
+      "source": "product:P0269",
+      "target": "usecase:UC005",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "cough, chesty cough, dry cough, mucus",
+      "meta": {
+        "useCaseItemId": "UCI00379"
+      }
+    },
+    {
+      "key": "cf247d526442475c",
+      "source": "product:P0298",
+      "target": "usecase:UC005",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "cough, chesty cough, dry cough, mucus",
+      "meta": {
+        "useCaseItemId": "UCI00380"
+      }
+    },
+    {
+      "key": "e462e1ff5295cf0a",
+      "source": "product:P0299",
+      "target": "usecase:UC005",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "cough, chesty cough, dry cough, mucus",
+      "meta": {
+        "useCaseItemId": "UCI00381"
+      }
+    },
+    {
+      "key": "d4e2b5793364d4ef",
+      "source": "product:P0300",
+      "target": "usecase:UC005",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "cough, chesty cough, dry cough, mucus",
+      "meta": {
+        "useCaseItemId": "UCI00382"
+      }
+    },
+    {
+      "key": "346df79584ead9a7",
+      "source": "product:P0341",
+      "target": "usecase:UC005",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "cough, chesty cough, dry cough, mucus",
+      "meta": {
+        "useCaseItemId": "UCI00383"
+      }
+    },
+    {
+      "key": "04053930f218433c",
+      "source": "product:P0358",
+      "target": "usecase:UC005",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "cough, chesty cough, dry cough, mucus",
+      "meta": {
+        "useCaseItemId": "UCI00384"
+      }
+    },
+    {
+      "key": "0a6e5c28eb840639",
+      "source": "product:P0406",
+      "target": "usecase:UC005",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "cough, chesty cough, dry cough, mucus",
+      "meta": {
+        "useCaseItemId": "UCI00385"
+      }
+    },
+    {
+      "key": "20e738fb9fc2b857",
+      "source": "product:P0407",
+      "target": "usecase:UC005",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "cough, chesty cough, dry cough, mucus",
+      "meta": {
+        "useCaseItemId": "UCI00386"
+      }
+    },
+    {
+      "key": "4f11f9c4d6af8e7b",
+      "source": "product:P0408",
+      "target": "usecase:UC005",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "cough, chesty cough, dry cough, mucus",
+      "meta": {
+        "useCaseItemId": "UCI00387"
+      }
+    },
+    {
+      "key": "b83c03e1c3de1e4e",
+      "source": "product:P0409",
+      "target": "usecase:UC005",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "cough, chesty cough, dry cough, mucus",
+      "meta": {
+        "useCaseItemId": "UCI00388"
+      }
+    },
+    {
+      "key": "e1f3e6a1579e1ce6",
+      "source": "product:P0426",
+      "target": "usecase:UC005",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "cough, chesty cough, dry cough, mucus",
+      "meta": {
+        "useCaseItemId": "UCI00389"
+      }
+    },
+    {
+      "key": "18f5603c796bfe68",
+      "source": "product:P0429",
+      "target": "usecase:UC005",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "cough, chesty cough, dry cough, mucus",
+      "meta": {
+        "useCaseItemId": "UCI00390"
+      }
+    },
+    {
+      "key": "238b4506eb2ae3a3",
+      "source": "product:P0430",
+      "target": "usecase:UC005",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "cough, chesty cough, dry cough, mucus",
+      "meta": {
+        "useCaseItemId": "UCI00391"
+      }
+    },
+    {
+      "key": "816ded9eecbe3cb8",
+      "source": "product:P0454",
+      "target": "usecase:UC005",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "cough, chesty cough, dry cough, mucus",
+      "meta": {
+        "useCaseItemId": "UCI00392"
+      }
+    },
+    {
+      "key": "d0a5468178940590",
+      "source": "product:P0469",
+      "target": "usecase:UC005",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "cough, chesty cough, dry cough, mucus",
+      "meta": {
+        "useCaseItemId": "UCI00393"
+      }
+    },
+    {
+      "key": "eb6c03bfac9cc530",
+      "source": "product:P0474",
+      "target": "usecase:UC005",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "cough, chesty cough, dry cough, mucus",
+      "meta": {
+        "useCaseItemId": "UCI00394"
+      }
+    },
+    {
+      "key": "8bed0be4c6c143c4",
+      "source": "product:P0475",
+      "target": "usecase:UC005",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "cough, chesty cough, dry cough, mucus",
+      "meta": {
+        "useCaseItemId": "UCI00395"
+      }
+    },
+    {
+      "key": "9360f74428d223af",
+      "source": "product:P0477",
+      "target": "usecase:UC005",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "cough, chesty cough, dry cough, mucus",
+      "meta": {
+        "useCaseItemId": "UCI00396"
+      }
+    },
+    {
+      "key": "48ebadade28b4d86",
+      "source": "product:P0478",
+      "target": "usecase:UC005",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "cough, chesty cough, dry cough, mucus",
+      "meta": {
+        "useCaseItemId": "UCI00397"
+      }
+    },
+    {
+      "key": "d428d3e087838de3",
+      "source": "product:P0479",
+      "target": "usecase:UC005",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "cough, chesty cough, dry cough, mucus",
+      "meta": {
+        "useCaseItemId": "UCI00398"
+      }
+    },
+    {
+      "key": "a2c1f0c8acc94ebd",
+      "source": "product:P0504",
+      "target": "usecase:UC005",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "cough, chesty cough, dry cough, mucus",
+      "meta": {
+        "useCaseItemId": "UCI00399"
+      }
+    },
+    {
+      "key": "02f51ef524254c3f",
+      "source": "product:P0505",
+      "target": "usecase:UC005",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "cough, chesty cough, dry cough, mucus",
+      "meta": {
+        "useCaseItemId": "UCI00400"
+      }
+    },
+    {
+      "key": "8be5e12a1435f625",
+      "source": "product:P0506",
+      "target": "usecase:UC005",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "cough, chesty cough, dry cough, mucus",
+      "meta": {
+        "useCaseItemId": "UCI00401"
+      }
+    },
+    {
+      "key": "b644c62c0ebe9176",
+      "source": "product:P0508",
+      "target": "usecase:UC005",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "cough, chesty cough, dry cough, mucus",
+      "meta": {
+        "useCaseItemId": "UCI00402"
+      }
+    },
+    {
+      "key": "cf93cc7535e05525",
+      "source": "product:P0515",
+      "target": "usecase:UC005",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "cough, chesty cough, dry cough, mucus",
+      "meta": {
+        "useCaseItemId": "UCI00403"
+      }
+    }
+  ]
+}

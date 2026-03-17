@@ -1,1 +1,183 @@
-{"centerId":"bundle:B004","centerType":"bundle","refId":"B004","nodes":[{"id":"bundle:B004","nodeType":"bundle","refId":"B004","label":"Reflux Relief Bundle","subtext":"Core bundle","meta":{"Bundle_ID":"B004","Bundle_Name":"Reflux Relief Bundle","Source_UseCase_ID":"UC006","Bundle_Type":"Core bundle","Description":"Acid control with breakthrough support"}},{"id":"product:P0014","nodeType":"product","refId":"P0014","label":"Acidex Oral Suspension","subtext":"heartburn","meta":{"brand":"Acidex","generic":"CALCIUM CARBONATE | SODIUM ALGINATE | SODIUM BICARBONATE","form":"ORAL SUSPENSION","formGroup":"Oral liquid","route":"Oral","mainIndication":"heartburn","secondaryIndications":"acid reflux | indigestion","otcCategory":"DRUGS FOR ACID RELATED DISORDERS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"SODIUM ALGINATE 50 milligram(s)/millilitre | SODIUM BICARBONATE 26.7 milligram(s)/millilitre | CALCIUM CARBONATE 16 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"A02BX","status":"Authorised","supplierCatalogKey":"acidex oral suspension"}},{"id":"product:P0021","nodeType":"product","refId":"P0021","label":"Alutril Forte 500 mg/250 mg chewable tablets","subtext":"heartburn","meta":{"brand":"Alutril","generic":"ALUMINIUM HYDROXIDE | MAGNESIUM TRISILICATE","form":"CHEWABLE TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"heartburn","secondaryIndications":"acid reflux | indigestion","otcCategory":"DRUGS FOR ACID RELATED DISORDERS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"MAGNESIUM TRISILICATE 500 milligram(s) | ALUMINIUM HYDROXIDE 250 milligram(s)","packSizeText":"Review manually","atcCode":"A02AD01","status":"Authorised","supplierCatalogKey":"alutril forte 500 mg/250 mg chewable tablets"}},{"id":"product:P0167","nodeType":"product","refId":"P0167","label":"Emazole Control 20 mg gastro-resistant tablets","subtext":"heartburn","meta":{"brand":"Emazole","generic":"ESOMEPRAZOLE MAGNESIUM DIHYDRATE","form":"GASTRO-RESISTANT TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"heartburn","secondaryIndications":"acid reflux | indigestion","otcCategory":"DRUGS FOR ACID RELATED DISORDERS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"ESOMEPRAZOLE MAGNESIUM DIHYDRATE 20 milligram(s)","packSizeText":"Review manually","atcCode":"A02BC05","status":"Authorised","supplierCatalogKey":"emazole control 20 mg gastro-resistant tablets"}},{"id":"product:P0170","nodeType":"product","refId":"P0170","label":"Esomeprazole Clonmel 20 mg gastro-resistant tablets","subtext":"heartburn","meta":{"brand":"Esomeprazole","generic":"ESOMEPRAZOLE","form":"GASTRO-RESISTANT TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"heartburn","secondaryIndications":"acid reflux | indigestion","otcCategory":"DRUGS FOR ACID RELATED DISORDERS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"ESOMEPRAZOLE 20 milligram(s)","packSizeText":"Review manually","atcCode":"A02BC05","status":"Authorised","supplierCatalogKey":"esomeprazole clonmel 20 mg gastro-resistant tablets"}}],"links":[{"key":"631257abf0aa5aeb","source":"bundle:B004","target":"product:P0014","rel":"bundle","label":"Primary","score":100,"why":"Seeded from Reflux and indigestion relief via symptom match: heartburn, acid reflux, indigestion","meta":{"bundleItemId":"BI00021","role":"Primary","reviewStatus":"Seeded"}},{"key":"40f7553ceed8d3e6","source":"bundle:B004","target":"product:P0021","rel":"bundle","label":"Primary","score":95,"why":"Seeded from Reflux and indigestion relief via symptom match: heartburn, acid reflux, indigestion","meta":{"bundleItemId":"BI00022","role":"Primary","reviewStatus":"Seeded"}},{"key":"8d1292d81b82d2ef","source":"bundle:B004","target":"product:P0167","rel":"bundle","label":"Optional","score":90,"why":"Seeded from Reflux and indigestion relief via symptom match: heartburn, acid reflux, indigestion","meta":{"bundleItemId":"BI00023","role":"Optional","reviewStatus":"Seeded"}},{"key":"5e136d6190a81392","source":"bundle:B004","target":"product:P0170","rel":"bundle","label":"Optional","score":85,"why":"Seeded from Reflux and indigestion relief via symptom match: heartburn, acid reflux, indigestion","meta":{"bundleItemId":"BI00024","role":"Optional","reviewStatus":"Seeded"}}],"meta":{"bundleName":"Reflux Relief Bundle","linkCount":4}}
+{
+  "centerId": "bundle:B004",
+  "centerType": "bundle",
+  "refId": "B004",
+  "nodes": [
+    {
+      "id": "bundle:B004",
+      "nodeType": "bundle",
+      "refId": "B004",
+      "label": "Reflux Relief Bundle",
+      "subtext": "Core bundle",
+      "meta": {
+        "Bundle_ID": "B004",
+        "Bundle_Name": "Reflux Relief Bundle",
+        "Source_UseCase_ID": "UC006",
+        "Bundle_Type": "Core bundle",
+        "Description": "Acid control with breakthrough support"
+      }
+    },
+    {
+      "id": "product:P0014",
+      "nodeType": "product",
+      "refId": "P0014",
+      "label": "Acidex Oral Suspension",
+      "subtext": "heartburn",
+      "meta": {
+        "brand": "Acidex",
+        "generic": "CALCIUM CARBONATE | SODIUM ALGINATE | SODIUM BICARBONATE",
+        "form": "ORAL SUSPENSION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "heartburn",
+        "secondaryIndications": "acid reflux | indigestion",
+        "otcCategory": "DRUGS FOR ACID RELATED DISORDERS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "SODIUM ALGINATE 50 milligram(s)/millilitre | SODIUM BICARBONATE 26.7 milligram(s)/millilitre | CALCIUM CARBONATE 16 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "A02BX",
+        "status": "Authorised",
+        "supplierCatalogKey": "acidex oral suspension"
+      }
+    },
+    {
+      "id": "product:P0021",
+      "nodeType": "product",
+      "refId": "P0021",
+      "label": "Alutril Forte 500 mg/250 mg chewable tablets",
+      "subtext": "heartburn",
+      "meta": {
+        "brand": "Alutril",
+        "generic": "ALUMINIUM HYDROXIDE | MAGNESIUM TRISILICATE",
+        "form": "CHEWABLE TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "heartburn",
+        "secondaryIndications": "acid reflux | indigestion",
+        "otcCategory": "DRUGS FOR ACID RELATED DISORDERS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "MAGNESIUM TRISILICATE 500 milligram(s) | ALUMINIUM HYDROXIDE 250 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A02AD01",
+        "status": "Authorised",
+        "supplierCatalogKey": "alutril forte 500 mg/250 mg chewable tablets"
+      }
+    },
+    {
+      "id": "product:P0167",
+      "nodeType": "product",
+      "refId": "P0167",
+      "label": "Emazole Control 20 mg gastro-resistant tablets",
+      "subtext": "heartburn",
+      "meta": {
+        "brand": "Emazole",
+        "generic": "ESOMEPRAZOLE MAGNESIUM DIHYDRATE",
+        "form": "GASTRO-RESISTANT TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "heartburn",
+        "secondaryIndications": "acid reflux | indigestion",
+        "otcCategory": "DRUGS FOR ACID RELATED DISORDERS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "ESOMEPRAZOLE MAGNESIUM DIHYDRATE 20 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A02BC05",
+        "status": "Authorised",
+        "supplierCatalogKey": "emazole control 20 mg gastro-resistant tablets"
+      }
+    },
+    {
+      "id": "product:P0170",
+      "nodeType": "product",
+      "refId": "P0170",
+      "label": "Esomeprazole Clonmel 20 mg gastro-resistant tablets",
+      "subtext": "heartburn",
+      "meta": {
+        "brand": "Esomeprazole",
+        "generic": "ESOMEPRAZOLE",
+        "form": "GASTRO-RESISTANT TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "heartburn",
+        "secondaryIndications": "acid reflux | indigestion",
+        "otcCategory": "DRUGS FOR ACID RELATED DISORDERS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "ESOMEPRAZOLE 20 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A02BC05",
+        "status": "Authorised",
+        "supplierCatalogKey": "esomeprazole clonmel 20 mg gastro-resistant tablets"
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "e3a6534e09116fab",
+      "source": "product:P0014",
+      "target": "bundle:B004",
+      "rel": "bundle",
+      "label": "Primary",
+      "score": 100,
+      "why": "Seeded from Reflux and indigestion relief via symptom match: heartburn, acid reflux, indigestion",
+      "meta": {
+        "bundleItemId": "BI00021"
+      }
+    },
+    {
+      "key": "0bd00a8f12ed0240",
+      "source": "product:P0021",
+      "target": "bundle:B004",
+      "rel": "bundle",
+      "label": "Primary",
+      "score": 95,
+      "why": "Seeded from Reflux and indigestion relief via symptom match: heartburn, acid reflux, indigestion",
+      "meta": {
+        "bundleItemId": "BI00022"
+      }
+    },
+    {
+      "key": "a9492be3419c903b",
+      "source": "product:P0167",
+      "target": "bundle:B004",
+      "rel": "bundle",
+      "label": "Optional",
+      "score": 90,
+      "why": "Seeded from Reflux and indigestion relief via symptom match: heartburn, acid reflux, indigestion",
+      "meta": {
+        "bundleItemId": "BI00023"
+      }
+    },
+    {
+      "key": "7b1a8396e4882c4d",
+      "source": "product:P0170",
+      "target": "bundle:B004",
+      "rel": "bundle",
+      "label": "Optional",
+      "score": 85,
+      "why": "Seeded from Reflux and indigestion relief via symptom match: heartburn, acid reflux, indigestion",
+      "meta": {
+        "bundleItemId": "BI00024"
+      }
+    }
+  ]
+}

@@ -8,15 +8,15 @@
       "nodeType": "product",
       "refId": "P0245",
       "label": "Kwells 300 microgram tablets",
-      "subtext": "review needed",
+      "subtext": "motion sickness",
       "meta": {
         "brand": "Kwells",
         "generic": "HYOSCINE HYDROBROMIDE",
         "form": "TABLET",
         "formGroup": "Oral solid",
         "route": "Oral",
-        "mainIndication": "review needed",
-        "secondaryIndications": null,
+        "mainIndication": "motion sickness",
+        "secondaryIndications": "travel sickness",
         "otcCategory": "ANTIEMETICS AND ANTINAUSEANTS",
         "seasonalGroup": "All year",
         "sedating": "No",
@@ -117,9 +117,5 @@
         "useCaseItemId": "UCI00628"
       }
     }
-  ],
-  "meta": {
-    "productName": "Kwells 300 microgram tablets",
-    "linkCount": 1
-  }
+  ]
 }

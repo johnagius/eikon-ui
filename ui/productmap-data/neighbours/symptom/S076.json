@@ -29,8 +29,23 @@
       "meta": {
         "brand": "Arcalion",
         "generic": "SULBUTIAMINE",
+        "form": "COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
         "mainIndication": "vitamin support",
-        "otcCategory": "VITAMINS"
+        "secondaryIndications": "wellness",
+        "otcCategory": "VITAMINS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "SULBUTIAMINE 200 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A11DA02",
+        "status": "Authorised",
+        "supplierCatalogKey": "arcalion 200mg coated tablets"
       }
     },
     {
@@ -42,8 +57,23 @@
       "meta": {
         "brand": "Ketovite",
         "generic": "CHOLINE CHLORIDE | CYANOCOBALAMIN | ERGOCALCIFEROL | VITAMIN A",
+        "form": "ORAL EMULSION",
+        "formGroup": "Topical",
+        "route": "Topical",
         "mainIndication": "vitamin support",
-        "otcCategory": "VITAMINS"
+        "secondaryIndications": "wellness",
+        "otcCategory": "VITAMINS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 4,
+        "strengthText": "Choline chloride 150 milligram(s) | VITAMIN A 2500 unit(s) | ERGOCALCIFEROL 400 unit(s) | CYANOCOBALAMIN 12.5 microgram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A11BA",
+        "status": "Authorised",
+        "supplierCatalogKey": "ketovite liquid"
       }
     },
     {
@@ -55,177 +85,23 @@
       "meta": {
         "brand": "VITAMIN",
         "generic": "NICOTINAMIDE | PYRIDOXINE HYDROCHLORIDE | RIBOFLAVIN | THIAMINE HYDROCHLORIDE",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
         "mainIndication": "vitamin support",
-        "otcCategory": "VITAMINS"
-      }
-    },
-    {
-      "id": "product:P0026",
-      "nodeType": "product",
-      "refId": "P0026",
-      "label": "Aspirem Tablets Gastro-Resistant 75mg",
-      "subtext": "heart health",
-      "meta": {
-        "brand": "Aspirem",
-        "generic": "ACETYLSALICYLIC ACID",
-        "mainIndication": "heart health",
-        "otcCategory": "ANTITHROMBOTIC AGENTS"
-      }
-    },
-    {
-      "id": "product:P0027",
-      "nodeType": "product",
-      "refId": "P0027",
-      "label": "Aspirin 75mg Gastro-resistant Tablets",
-      "subtext": "heart health",
-      "meta": {
-        "brand": "Aspirin",
-        "generic": "ASPIRIN BP",
-        "mainIndication": "heart health",
-        "otcCategory": "ANTITHROMBOTIC AGENTS"
-      }
-    },
-    {
-      "id": "product:P0028",
-      "nodeType": "product",
-      "refId": "P0028",
-      "label": "Avarante Prescription Free 10 mg film-coated tablets",
-      "subtext": "erectile dysfunction",
-      "meta": {
-        "brand": "Avarante",
-        "generic": "TADALAFIL",
-        "mainIndication": "erectile dysfunction",
-        "otcCategory": "UROLOGICALS"
-      }
-    },
-    {
-      "id": "product:P0496",
-      "nodeType": "product",
-      "refId": "P0496",
-      "label": "Viagra Connect 50 mg Film-Coated Tablet",
-      "subtext": "erectile dysfunction",
-      "meta": {
-        "brand": "Viagra",
-        "generic": "SILDENAFIL",
-        "mainIndication": "erectile dysfunction",
-        "otcCategory": "UROLOGICALS"
-      }
-    },
-    {
-      "id": "product:P0497",
-      "nodeType": "product",
-      "refId": "P0497",
-      "label": "Viagra Connect 50 mg film-coated tablets",
-      "subtext": "erectile dysfunction",
-      "meta": {
-        "brand": "Viagra",
-        "generic": "SILDENAFIL",
-        "mainIndication": "erectile dysfunction",
-        "otcCategory": "UROLOGICALS"
-      }
-    },
-    {
-      "id": "product:P0498",
-      "nodeType": "product",
-      "refId": "P0498",
-      "label": "Viagra Connect Melts 50 mg orodispersible films",
-      "subtext": "erectile dysfunction",
-      "meta": {
-        "brand": "Viagra",
-        "generic": "SILDENAFIL",
-        "mainIndication": "erectile dysfunction",
-        "otcCategory": "UROLOGICALS"
-      }
-    },
-    {
-      "id": "product:P0070",
-      "nodeType": "product",
-      "refId": "P0070",
-      "label": "Calmaben 50mg coated tablets",
-      "subtext": "sleep aid",
-      "meta": {
-        "brand": "Calmaben",
-        "generic": "DIPHENHYDRAMINE HYDROCHLORIDE",
-        "mainIndication": "sleep aid",
-        "otcCategory": "PSYCHOLEPTICS"
-      }
-    },
-    {
-      "id": "product:P0166",
-      "nodeType": "product",
-      "refId": "P0166",
-      "label": "Ecinq 30 mg film-coated tablets",
-      "subtext": "emergency contraception",
-      "meta": {
-        "brand": "Ecinq",
-        "generic": "ULIPRISTAL ACETATE",
-        "mainIndication": "emergency contraception",
-        "otcCategory": "SEX HORMONES AND MODULATORS OF THE GENITAL SYSTEM"
-      }
-    },
-    {
-      "id": "product:P0169",
-      "nodeType": "product",
-      "refId": "P0169",
-      "label": "Escapelle 1500 microgram tablet",
-      "subtext": "emergency contraception",
-      "meta": {
-        "brand": "Escapelle",
-        "generic": "LEVONORGESTREL",
-        "mainIndication": "emergency contraception",
-        "otcCategory": "SEX HORMONES AND MODULATORS OF THE GENITAL SYSTEM"
-      }
-    },
-    {
-      "id": "product:P0254",
-      "nodeType": "product",
-      "refId": "P0254",
-      "label": "Levonorgestrel Rowex 1.5mg Tablet",
-      "subtext": "emergency contraception",
-      "meta": {
-        "brand": "Levonorgestrel",
-        "generic": "LEVONORGESTREL",
-        "mainIndication": "emergency contraception",
-        "otcCategory": "SEX HORMONES AND MODULATORS OF THE GENITAL SYSTEM"
-      }
-    },
-    {
-      "id": "product:P0427",
-      "nodeType": "product",
-      "refId": "P0427",
-      "label": "Rowatinex Gastro-resistant Capsules, Soft",
-      "subtext": "urinary stones",
-      "meta": {
-        "brand": "Rowatinex",
-        "generic": "ANETHOL | BORNEOL | CAMPHENE | CINEOLE | FENCHONE | PINENE",
-        "mainIndication": "urinary stones",
-        "otcCategory": "UROLOGICALS"
-      }
-    },
-    {
-      "id": "product:P0431",
-      "nodeType": "product",
-      "refId": "P0431",
-      "label": "STIMOL 1g/10ml, oral solution in sachet",
-      "subtext": "fatigue",
-      "meta": {
-        "brand": "STIMOL",
-        "generic": "CITRULLINE MALEATE",
-        "mainIndication": "fatigue",
-        "otcCategory": "TONICS"
-      }
-    },
-    {
-      "id": "product:P0433",
-      "nodeType": "product",
-      "refId": "P0433",
-      "label": "Sedistress 500mg film-coated tablets",
-      "subtext": "sleep support",
-      "meta": {
-        "brand": "Sedistress",
-        "generic": "PASSIFLORA INCARNATA",
-        "mainIndication": "sleep support",
-        "otcCategory": "PSYCHOLEPTICS"
+        "secondaryIndications": "wellness",
+        "otcCategory": "VITAMINS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 4,
+        "strengthText": "NICOTINAMIDE 20 milligram(s) | PYRIDOXINE HYDROCHLORIDE 2 milligram(s) | RIBOFLAVIN 2 milligram(s) | THIAMINE HYDROCHLORIDE 4.85 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A11EA",
+        "status": "Authorised",
+        "supplierCatalogKey": "vitamin b compound strong film-coated tablets"
       }
     }
   ],
@@ -265,166 +141,6 @@
       "meta": {
         "mapId": "PSM01637"
       }
-    },
-    {
-      "key": "d4b1d379dc7affd8",
-      "source": "product:P0026",
-      "target": "symptom:S076",
-      "rel": "symptom",
-      "label": "Primary",
-      "score": 80,
-      "why": "Manual review fix",
-      "meta": {
-        "mapId": "PSM01751"
-      }
-    },
-    {
-      "key": "50cdaf33bbfaf979",
-      "source": "product:P0027",
-      "target": "symptom:S076",
-      "rel": "symptom",
-      "label": "Primary",
-      "score": 80,
-      "why": "Manual review fix",
-      "meta": {
-        "mapId": "PSM01752"
-      }
-    },
-    {
-      "key": "2d3a68006dd2f789",
-      "source": "product:P0028",
-      "target": "symptom:S076",
-      "rel": "symptom",
-      "label": "Secondary",
-      "score": 60,
-      "why": "Manual review fix",
-      "meta": {
-        "mapId": "PSM01753"
-      }
-    },
-    {
-      "key": "2c82fa967f648d45",
-      "source": "product:P0496",
-      "target": "symptom:S076",
-      "rel": "symptom",
-      "label": "Secondary",
-      "score": 60,
-      "why": "Manual review fix",
-      "meta": {
-        "mapId": "PSM01754"
-      }
-    },
-    {
-      "key": "ac931611169e3abd",
-      "source": "product:P0497",
-      "target": "symptom:S076",
-      "rel": "symptom",
-      "label": "Secondary",
-      "score": 60,
-      "why": "Manual review fix",
-      "meta": {
-        "mapId": "PSM01755"
-      }
-    },
-    {
-      "key": "b9996a4335971c3a",
-      "source": "product:P0498",
-      "target": "symptom:S076",
-      "rel": "symptom",
-      "label": "Secondary",
-      "score": 60,
-      "why": "Manual review fix",
-      "meta": {
-        "mapId": "PSM01756"
-      }
-    },
-    {
-      "key": "d6ca6e9006c01bf4",
-      "source": "product:P0070",
-      "target": "symptom:S076",
-      "rel": "symptom",
-      "label": "Secondary",
-      "score": 70,
-      "why": "Manual review fix",
-      "meta": {
-        "mapId": "PSM01769"
-      }
-    },
-    {
-      "key": "e9ff45c3f48a0ff1",
-      "source": "product:P0166",
-      "target": "symptom:S076",
-      "rel": "symptom",
-      "label": "Secondary",
-      "score": 60,
-      "why": "Manual review fix",
-      "meta": {
-        "mapId": "PSM01774"
-      }
-    },
-    {
-      "key": "12f58873f292c239",
-      "source": "product:P0169",
-      "target": "symptom:S076",
-      "rel": "symptom",
-      "label": "Secondary",
-      "score": 60,
-      "why": "Manual review fix",
-      "meta": {
-        "mapId": "PSM01775"
-      }
-    },
-    {
-      "key": "8f579bfc3822ad31",
-      "source": "product:P0254",
-      "target": "symptom:S076",
-      "rel": "symptom",
-      "label": "Secondary",
-      "score": 60,
-      "why": "Manual review fix",
-      "meta": {
-        "mapId": "PSM01776"
-      }
-    },
-    {
-      "key": "38283f4e040834f6",
-      "source": "product:P0427",
-      "target": "symptom:S076",
-      "rel": "symptom",
-      "label": "Secondary",
-      "score": 60,
-      "why": "Manual review fix",
-      "meta": {
-        "mapId": "PSM01792"
-      }
-    },
-    {
-      "key": "dcb857256dccbe20",
-      "source": "product:P0431",
-      "target": "symptom:S076",
-      "rel": "symptom",
-      "label": "Secondary",
-      "score": 70,
-      "why": "Manual review fix",
-      "meta": {
-        "mapId": "PSM01794"
-      }
-    },
-    {
-      "key": "d098a4feac459510",
-      "source": "product:P0433",
-      "target": "symptom:S076",
-      "rel": "symptom",
-      "label": "Primary",
-      "score": 80,
-      "why": "Manual review fix",
-      "meta": {
-        "mapId": "PSM01795"
-      }
     }
-  ],
-  "meta": {
-    "symptomName": "wellness",
-    "linkCount": 3
-  }
+  ]
 }

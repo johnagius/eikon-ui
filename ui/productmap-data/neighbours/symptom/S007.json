@@ -1,1 +1,1130 @@
-{"centerId":"symptom:S007","centerType":"symptom","refId":"S007","nodes":[{"id":"symptom:S007","nodeType":"symptom","refId":"S007","label":"athlete foot","subtext":"Skin","meta":{"Symptom_ID":"S007","Symptom_Name":"athlete foot","Symptom_Category":"Skin","Linked_Product_Count":27,"Display_Group":"Skin","Priority_For_Graph":100,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"product:P0078","nodeType":"product","refId":"P0078","label":"Candiplas 2 % w / w cream","subtext":"fungal skin infection","meta":{"brand":"Candiplas","generic":"MICONAZOLE NITRATE","form":"CREAM","formGroup":"Topical","route":"Topical","mainIndication":"fungal skin infection","secondaryIndications":"athlete foot | thrush (topical)","otcCategory":"ANTIFUNGALS FOR DERMATOLOGICAL USE","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"MICONAZOLE NITRATE 20 milligram(s)/gram","packSizeText":"Review manually","atcCode":"D01AC02","status":"Authorised","supplierCatalogKey":"candiplas 2 % w / w cream"}},{"id":"product:P0079","nodeType":"product","refId":"P0079","label":"Candiplas H 2%w/w / 1%w/w cream","subtext":"fungal skin infection","meta":{"brand":"Candiplas","generic":"HYDROCORTISONE | MICONAZOLE NITRATE","form":"CREAM","formGroup":"Topical","route":"Topical","mainIndication":"fungal skin infection","secondaryIndications":"athlete foot | thrush (topical)","otcCategory":"ANTIFUNGALS FOR DERMATOLOGICAL USE","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"MICONAZOLE NITRATE 20 milligram(s) | HYDROCORTISONE 10 milligram(s)","packSizeText":"Review manually","atcCode":"D01AC20","status":"Authorised","supplierCatalogKey":"candiplas h 2%w/w / 1%w/w cream"}},{"id":"product:P0080","nodeType":"product","refId":"P0080","label":"Canesten 1% Cream","subtext":"fungal skin infection","meta":{"brand":"Canesten","generic":"CLOTRIMAZOLE","form":"CREAM","formGroup":"Topical","route":"Topical","mainIndication":"fungal skin infection","secondaryIndications":"athlete foot | thrush (topical)","otcCategory":"ANTIFUNGALS FOR DERMATOLOGICAL USE","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CLOTRIMAZOLE 10 milligram(s)/gram","packSizeText":"Review manually","atcCode":"D01AC01","status":"Authorised","supplierCatalogKey":"canesten 1% cream"}},{"id":"product:P0081","nodeType":"product","refId":"P0081","label":"Canesten 1% cutaneous solution","subtext":"fungal skin infection","meta":{"brand":"Canesten","generic":"CLOTRIMAZOLE","form":"CUTANEOUS SOLUTION","formGroup":"Topical","route":"Topical","mainIndication":"fungal skin infection","secondaryIndications":"athlete foot | thrush (topical)","otcCategory":"ANTIFUNGALS FOR DERMATOLOGICAL USE","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CLOTRIMAZOLE 10 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"D01AC01","status":"Authorised","supplierCatalogKey":"canesten 1% cutaneous solution"}},{"id":"product:P0082","nodeType":"product","refId":"P0082","label":"Canesten 10 mg/g cream","subtext":"fungal skin infection","meta":{"brand":"Canesten","generic":"CLOTRIMAZOLE","form":"CREAM","formGroup":"Topical","route":"Topical","mainIndication":"fungal skin infection","secondaryIndications":"athlete foot | thrush (topical)","otcCategory":"ANTIFUNGALS FOR DERMATOLOGICAL USE","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CLOTRIMAZOLE 10 milligram(s)/gram","packSizeText":"Review manually","atcCode":"D01AC01","status":"Authorised","supplierCatalogKey":"canesten 10 mg/g cream"}},{"id":"product:P0092","nodeType":"product","refId":"P0092","label":"Canesten Cream  1% w/w","subtext":"fungal skin infection","meta":{"brand":"Canesten","generic":"CLOTRIMAZOLE","form":"CREAM","formGroup":"Topical","route":"Topical","mainIndication":"fungal skin infection","secondaryIndications":"athlete foot | thrush (topical)","otcCategory":"ANTIFUNGALS FOR DERMATOLOGICAL USE","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CLOTRIMAZOLE 10 milligram(s)/gram","packSizeText":"Review manually","atcCode":"D01AC01","status":"Authorised","supplierCatalogKey":"canesten cream 1% w/w"}},{"id":"product:P0093","nodeType":"product","refId":"P0093","label":"Canesten Cream 10mg","subtext":"fungal skin infection","meta":{"brand":"Canesten","generic":"CLOTRIMAZOLE","form":"CREAM","formGroup":"Topical","route":"Topical","mainIndication":"fungal skin infection","secondaryIndications":"athlete foot | thrush (topical)","otcCategory":"ANTIFUNGALS FOR DERMATOLOGICAL USE","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CLOTRIMAZOLE 10 milligram(s)/gram","packSizeText":"Review manually","atcCode":"D01AC01","status":"Authorised","supplierCatalogKey":"canesten cream 10mg"}},{"id":"product:P0096","nodeType":"product","refId":"P0096","label":"Canesten solution  1% w/v","subtext":"fungal skin infection","meta":{"brand":"Canesten","generic":"CLOTRIMAZOLE","form":"SOLUTION","formGroup":"Oral liquid","route":"Oral","mainIndication":"fungal skin infection","secondaryIndications":"athlete foot | thrush (topical)","otcCategory":"ANTIFUNGALS FOR DERMATOLOGICAL USE","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CLOTRIMAZOLE 1 percent weight/volume","packSizeText":"Review manually","atcCode":"D01AC01","status":"Authorised","supplierCatalogKey":"canesten solution 1% w/v"}},{"id":"product:P0097","nodeType":"product","refId":"P0097","label":"Canesten® Extra Spray 10mg/g","subtext":"fungal skin infection","meta":{"brand":"Canesten","generic":"BIFONAZOLE","form":"Spray (solution)","formGroup":"Topical","route":"Topical","mainIndication":"fungal skin infection","secondaryIndications":"athlete foot | thrush (topical)","otcCategory":"ANTIFUNGALS FOR DERMATOLOGICAL USE","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"BIFONAZOLE 10 milligram(s)/gram","packSizeText":"Review manually","atcCode":"D01AC10","status":"Authorised","supplierCatalogKey":"canesten® extra spray 10mg/g"}},{"id":"product:P0110","nodeType":"product","refId":"P0110","label":"Clotrimazole Generis 10 mg/g cream","subtext":"fungal skin infection","meta":{"brand":"Clotrimazole","generic":"CLOTRIMAZOLE","form":"CREAM","formGroup":"Topical","route":"Topical","mainIndication":"fungal skin infection","secondaryIndications":"athlete foot | thrush (topical)","otcCategory":"ANTIFUNGALS FOR DERMATOLOGICAL USE","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CLOTRIMAZOLE 10 milligram(s)/gram","packSizeText":"Review manually","atcCode":"D01AC01","status":"Authorised","supplierCatalogKey":"clotrimazole generis 10 mg/g cream"}},{"id":"product:P0111","nodeType":"product","refId":"P0111","label":"Clotrimazolum HASCO, 10 mg/g cream","subtext":"fungal skin infection","meta":{"brand":"Clotrimazolum","generic":"CLOTRIMAZOLE","form":"CREAM","formGroup":"Topical","route":"Topical","mainIndication":"fungal skin infection","secondaryIndications":"athlete foot | thrush (topical)","otcCategory":"ANTIFUNGALS FOR DERMATOLOGICAL USE","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CLOTRIMAZOLE 10 milligram(s)/gram","packSizeText":"Review manually","atcCode":"D01AC01","status":"Authorised","supplierCatalogKey":"clotrimazolum hasco, 10 mg/g cream"}},{"id":"product:P0112","nodeType":"product","refId":"P0112","label":"Clotrimazolum HASCO, 10 mg/g, cream","subtext":"fungal skin infection","meta":{"brand":"Clotrimazolum","generic":"CLOTRIMAZOLE","form":"CREAM","formGroup":"Topical","route":"Topical","mainIndication":"fungal skin infection","secondaryIndications":"athlete foot | thrush (topical)","otcCategory":"ANTIFUNGALS FOR DERMATOLOGICAL USE","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CLOTRIMAZOLE 10 milligram(s)/gram","packSizeText":"Review manually","atcCode":"D01AC01","status":"Authorised","supplierCatalogKey":"clotrimazolum hasco, 10 mg/g, cream"}},{"id":"product:P0124","nodeType":"product","refId":"P0124","label":"Daktarin 2% w/w Cutaneous Powder","subtext":"fungal skin infection","meta":{"brand":"Daktarin","generic":"MICONAZOLE NITRATE","form":"CUTANEOUS POWDER","formGroup":"Topical","route":"Topical","mainIndication":"fungal skin infection","secondaryIndications":"athlete foot | thrush (topical)","otcCategory":"ANTIFUNGALS FOR DERMATOLOGICAL USE","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"MICONAZOLE NITRATE 20 milligram(s)/gram","packSizeText":"Review manually","atcCode":"D01AC02","status":"Authorised","supplierCatalogKey":"daktarin 2% w/w cutaneous powder"}},{"id":"product:P0125","nodeType":"product","refId":"P0125","label":"Daktarin Cream 2% w/w","subtext":"fungal skin infection","meta":{"brand":"Daktarin","generic":"MICONAZOLE NITRATE","form":"CREAM","formGroup":"Topical","route":"Topical","mainIndication":"fungal skin infection","secondaryIndications":"athlete foot | thrush (topical)","otcCategory":"ANTIFUNGALS FOR DERMATOLOGICAL USE","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"MICONAZOLE NITRATE 20 milligram(s)/gram","packSizeText":"Review manually","atcCode":"D01AC02","status":"Authorised","supplierCatalogKey":"daktarin cream 2% w/w"}},{"id":"product:P0126","nodeType":"product","refId":"P0126","label":"Daktarin Cream 2.0% w/w","subtext":"fungal skin infection","meta":{"brand":"Daktarin","generic":"MICONAZOLE NITRATE","form":"CREAM","formGroup":"Topical","route":"Topical","mainIndication":"fungal skin infection","secondaryIndications":"athlete foot | thrush (topical)","otcCategory":"ANTIFUNGALS FOR DERMATOLOGICAL USE","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"MICONAZOLE NITRATE 20 milligram(s)/gram","packSizeText":"Review manually","atcCode":"D01AC02","status":"Authorised","supplierCatalogKey":"daktarin cream 2.0% w/w"}},{"id":"product:P0127","nodeType":"product","refId":"P0127","label":"Daktarin Powder 2.0% w/w","subtext":"fungal skin infection","meta":{"brand":"Daktarin","generic":"MICONAZOLE NITRATE","form":"CUTANEOUS POWDER","formGroup":"Topical","route":"Topical","mainIndication":"fungal skin infection","secondaryIndications":"athlete foot | thrush (topical)","otcCategory":"ANTIFUNGALS FOR DERMATOLOGICAL USE","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"MICONAZOLE NITRATE 20 milligram(s)/gram","packSizeText":"Review manually","atcCode":"D01AC02","status":"Authorised","supplierCatalogKey":"daktarin powder 2.0% w/w"}},{"id":"product:P0128","nodeType":"product","refId":"P0128","label":"Daktodor 2% / 1% w/w cream","subtext":"fungal skin infection","meta":{"brand":"Daktodor","generic":"HYDROCORTISONE | MICONAZOLE NITRATE","form":"CREAM","formGroup":"Topical","route":"Topical","mainIndication":"fungal skin infection","secondaryIndications":"athlete foot | thrush (topical)","otcCategory":"ANTIFUNGALS FOR DERMATOLOGICAL USE","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"HYDROCORTISONE 1 percent weight/weight | MICONAZOLE NITRATE 2 percent weight/weight","packSizeText":"Review manually","atcCode":"D01AC52","status":"Authorised","supplierCatalogKey":"daktodor 2% / 1% w/w cream"}},{"id":"product:P0251","nodeType":"product","refId":"P0251","label":"Lamisil 1% cutaneous spray, solution.","subtext":"fungal skin infection","meta":{"brand":"Lamisil","generic":"TERBINAFINE HYDROCHLORIDE","form":"CUTANEOUS SPRAY, SOLUTION","formGroup":"Topical","route":"Topical","mainIndication":"fungal skin infection","secondaryIndications":"athlete foot | thrush (topical)","otcCategory":"ANTIFUNGALS FOR DERMATOLOGICAL USE","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"TERBINAFINE HYDROCHLORIDE 10 milligram(s)/gram","packSizeText":"Review manually","atcCode":"D01AE15","status":"Authorised","supplierCatalogKey":"lamisil 1% cutaneous spray, solution."}},{"id":"product:P0270","nodeType":"product","refId":"P0270","label":"MYCOSKIN 1% cream","subtext":"fungal skin infection","meta":{"brand":"MYCOSKIN","generic":"CICLOPIROX OLAMINE","form":"CREAM","formGroup":"Topical","route":"Topical","mainIndication":"fungal skin infection","secondaryIndications":"athlete foot | thrush (topical)","otcCategory":"ANTIFUNGALS FOR DERMATOLOGICAL USE","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CICLOPIROX OLAMINE 100 gram(s)","packSizeText":"Review manually","atcCode":"D01AE14","status":"Authorised","supplierCatalogKey":"mycoskin 1% cream"}},{"id":"product:P0271","nodeType":"product","refId":"P0271","label":"MYCOSKIN 1%, cream","subtext":"fungal skin infection","meta":{"brand":"MYCOSKIN","generic":"CICLOPIROX OLAMINE","form":"CREAM","formGroup":"Topical","route":"Topical","mainIndication":"fungal skin infection","secondaryIndications":"athlete foot | thrush (topical)","otcCategory":"ANTIFUNGALS FOR DERMATOLOGICAL USE","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CICLOPIROX OLAMINE 1 percent","packSizeText":"Review manually","atcCode":"D01AE14","status":"Authorised","supplierCatalogKey":"mycoskin 1%, cream"}},{"id":"product:P0301","nodeType":"product","refId":"P0301","label":"Mycoril 1% w/v cutaneous spray, solution","subtext":"fungal skin infection","meta":{"brand":"Mycoril","generic":"CLOTRIMAZOLE","form":"CUTANEOUS SPRAY, SOLUTION","formGroup":"Topical","route":"Topical","mainIndication":"fungal skin infection","secondaryIndications":"athlete foot | thrush (topical)","otcCategory":"ANTIFUNGALS FOR DERMATOLOGICAL USE","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CLOTRIMAZOLE 1 percent weight/volume","packSizeText":"Review manually","atcCode":"D01AC01","status":"Authorised","supplierCatalogKey":"mycoril 1% w/v cutaneous spray, solution"}},{"id":"product:P0333","nodeType":"product","refId":"P0333","label":"Nizoral 20mg/g Cream","subtext":"fungal skin infection","meta":{"brand":"Nizoral","generic":"KETOCONAZOLE","form":"CREAM","formGroup":"Topical","route":"Topical","mainIndication":"fungal skin infection","secondaryIndications":"athlete foot | thrush (topical)","otcCategory":"ANTIFUNGALS FOR DERMATOLOGICAL USE","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"KETOCONAZOLE 2 percent weight/weight","packSizeText":"Review manually","atcCode":"D01AC08","status":"Authorised","supplierCatalogKey":"nizoral 20mg/g cream"}},{"id":"product:P0334","nodeType":"product","refId":"P0334","label":"Nizoral 20mg/g Shampoo","subtext":"fungal skin infection","meta":{"brand":"Nizoral","generic":"KETOCONAZOLE","form":"SHAMPOO","formGroup":"Other","route":"Other","mainIndication":"fungal skin infection","secondaryIndications":"athlete foot | thrush (topical)","otcCategory":"ANTIFUNGALS FOR DERMATOLOGICAL USE","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"KETOCONAZOLE 20 milligram(s)/gram","packSizeText":"Review manually","atcCode":"D01AC08","status":"Authorised","supplierCatalogKey":"nizoral 20mg/g shampoo"}},{"id":"product:P0335","nodeType":"product","refId":"P0335","label":"Nizoral Shampoo","subtext":"fungal skin infection","meta":{"brand":"Nizoral","generic":"KETOCONAZOLE","form":"SHAMPOO","formGroup":"Other","route":"Other","mainIndication":"fungal skin infection","secondaryIndications":"athlete foot | thrush (topical)","otcCategory":"ANTIFUNGALS FOR DERMATOLOGICAL USE","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"KETOCONAZOLE 20 milligram(s)/gram","packSizeText":"Review manually","atcCode":"D01AC08","status":"Authorised","supplierCatalogKey":"nizoral shampoo"}},{"id":"product:P0467","nodeType":"product","refId":"P0467","label":"TRAVOGEN 10 mg /g cream","subtext":"fungal skin infection","meta":{"brand":"TRAVOGEN","generic":"ISOCONAZOLE NITRATE","form":"CREAM","formGroup":"Topical","route":"Topical","mainIndication":"fungal skin infection","secondaryIndications":"athlete foot | thrush (topical)","otcCategory":"ANTIFUNGALS FOR DERMATOLOGICAL USE","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"ISOCONAZOLE NITRATE 10 milligram(s)/gram","packSizeText":"Review manually","atcCode":"D01AC05","status":"Authorised","supplierCatalogKey":"travogen 10 mg /g cream"}},{"id":"product:P0483","nodeType":"product","refId":"P0483","label":"Travogen 1% cream","subtext":"fungal skin infection","meta":{"brand":"Travogen","generic":"ISOCONAZOLE NITRATE","form":"CREAM","formGroup":"Topical","route":"Topical","mainIndication":"fungal skin infection","secondaryIndications":"athlete foot | thrush (topical)","otcCategory":"ANTIFUNGALS FOR DERMATOLOGICAL USE","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"ISOCONAZOLE NITRATE 1 percent","packSizeText":"Review manually","atcCode":"D01AC05","status":"Authorised","supplierCatalogKey":"travogen 1% cream"}},{"id":"product:P0484","nodeType":"product","refId":"P0484","label":"Travogen Cream 1% w/w","subtext":"fungal skin infection","meta":{"brand":"Travogen","generic":"ISOCONAZOLE NITRATE","form":"CREAM","formGroup":"Topical","route":"Topical","mainIndication":"fungal skin infection","secondaryIndications":"athlete foot | thrush (topical)","otcCategory":"ANTIFUNGALS FOR DERMATOLOGICAL USE","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"ISOCONAZOLE NITRATE 10 milligram(s)/gram","packSizeText":"Review manually","atcCode":"D01AC05","status":"Authorised","supplierCatalogKey":"travogen cream 1% w/w"}},{"id":"usecase:UC010","nodeType":"usecase","refId":"UC010","label":"Athlete foot and fungal skin care","subtext":"Skin","meta":{"UseCase_ID":"UC010","UseCase_Name":"Athlete foot and fungal skin care","UseCase_Category":"Skin","Trigger_Symptoms":"Fungal skin infection, athlete foot, itch","Description":"Antifungal core with hygiene/support products."}}],"links":[{"key":"9a027d68870927e2","source":"symptom:S007","target":"product:P0078","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00270","role":"Primary","reviewStatus":"Seeded"}},{"key":"3bf479a979edafb3","source":"symptom:S007","target":"product:P0079","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00273","role":"Primary","reviewStatus":"Seeded"}},{"key":"dfc29cea881ef775","source":"symptom:S007","target":"product:P0080","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00276","role":"Primary","reviewStatus":"Seeded"}},{"key":"6c87e9fb7655266f","source":"symptom:S007","target":"product:P0081","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00279","role":"Primary","reviewStatus":"Seeded"}},{"key":"2bdfa61c8719becc","source":"symptom:S007","target":"product:P0082","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00282","role":"Primary","reviewStatus":"Seeded"}},{"key":"2f3cf6086c5a29c0","source":"symptom:S007","target":"product:P0092","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00303","role":"Primary","reviewStatus":"Seeded"}},{"key":"8e431281ab551c1e","source":"symptom:S007","target":"product:P0093","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00306","role":"Primary","reviewStatus":"Seeded"}},{"key":"40dfe980acd53eaf","source":"symptom:S007","target":"product:P0096","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00313","role":"Primary","reviewStatus":"Seeded"}},{"key":"fc337de86d711b87","source":"symptom:S007","target":"product:P0097","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00316","role":"Primary","reviewStatus":"Seeded"}},{"key":"107ed15c99fc5a93","source":"symptom:S007","target":"product:P0110","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00361","role":"Primary","reviewStatus":"Seeded"}},{"key":"a2fed47e50adbe76","source":"symptom:S007","target":"product:P0111","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00364","role":"Primary","reviewStatus":"Seeded"}},{"key":"c916a5356912fdb7","source":"symptom:S007","target":"product:P0112","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00367","role":"Primary","reviewStatus":"Seeded"}},{"key":"69ebc794d259f419","source":"symptom:S007","target":"product:P0124","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00411","role":"Primary","reviewStatus":"Seeded"}},{"key":"95304d10314a7d72","source":"symptom:S007","target":"product:P0125","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00414","role":"Primary","reviewStatus":"Seeded"}},{"key":"4777b1b180ce82c2","source":"symptom:S007","target":"product:P0126","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00417","role":"Primary","reviewStatus":"Seeded"}},{"key":"aa5b82b94a1d6e57","source":"symptom:S007","target":"product:P0127","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00420","role":"Primary","reviewStatus":"Seeded"}},{"key":"7823f64f3f300df7","source":"symptom:S007","target":"product:P0128","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00423","role":"Primary","reviewStatus":"Seeded"}},{"key":"edb6eeb77990c94d","source":"symptom:S007","target":"product:P0251","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00812","role":"Primary","reviewStatus":"Seeded"}},{"key":"454ac5180ba242f5","source":"symptom:S007","target":"product:P0270","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00865","role":"Primary","reviewStatus":"Seeded"}},{"key":"ba3c6ce779f40627","source":"symptom:S007","target":"product:P0271","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00868","role":"Primary","reviewStatus":"Seeded"}},{"key":"3c60427f22324a10","source":"symptom:S007","target":"product:P0301","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00965","role":"Primary","reviewStatus":"Seeded"}},{"key":"d7c71769f6bd180a","source":"symptom:S007","target":"product:P0333","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01065","role":"Primary","reviewStatus":"Seeded"}},{"key":"2188ffa8746fbd24","source":"symptom:S007","target":"product:P0334","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01068","role":"Primary","reviewStatus":"Seeded"}},{"key":"b9c5a5245aeaf1e8","source":"symptom:S007","target":"product:P0335","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01071","role":"Primary","reviewStatus":"Seeded"}},{"key":"523ae336dab863bd","source":"symptom:S007","target":"product:P0467","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01539","role":"Primary","reviewStatus":"Seeded"}},{"key":"f1fc301282ebe039","source":"symptom:S007","target":"product:P0483","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01608","role":"Primary","reviewStatus":"Seeded"}},{"key":"15cc4024fbb73b2e","source":"symptom:S007","target":"product:P0484","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01611","role":"Primary","reviewStatus":"Seeded"}},{"key":"d8d0739b3b2e54b7","source":"symptom:S007","target":"usecase:UC010","rel":"usecase","label":"Triggered by symptom","score":85,"why":"Fungal skin infection, athlete foot, itch","meta":{}}],"meta":{"symptomName":"athlete foot","linkCount":28}}
+{
+  "centerId": "symptom:S007",
+  "centerType": "symptom",
+  "refId": "S007",
+  "nodes": [
+    {
+      "id": "symptom:S007",
+      "nodeType": "symptom",
+      "refId": "S007",
+      "label": "athlete foot",
+      "subtext": "Skin",
+      "meta": {
+        "Symptom_ID": "S007",
+        "Symptom_Name": "athlete foot",
+        "Symptom_Category": "Skin",
+        "Linked_Product_Count": 27,
+        "Display_Group": "Skin",
+        "Priority_For_Graph": 100,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "product:P0078",
+      "nodeType": "product",
+      "refId": "P0078",
+      "label": "Candiplas 2 % w / w cream",
+      "subtext": "fungal skin infection",
+      "meta": {
+        "brand": "Candiplas",
+        "generic": "MICONAZOLE NITRATE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "fungal skin infection",
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "MICONAZOLE NITRATE 20 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC02",
+        "status": "Authorised",
+        "supplierCatalogKey": "candiplas 2 % w / w cream"
+      }
+    },
+    {
+      "id": "product:P0079",
+      "nodeType": "product",
+      "refId": "P0079",
+      "label": "Candiplas H 2%w/w / 1%w/w cream",
+      "subtext": "fungal skin infection",
+      "meta": {
+        "brand": "Candiplas",
+        "generic": "HYDROCORTISONE | MICONAZOLE NITRATE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "fungal skin infection",
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "MICONAZOLE NITRATE 20 milligram(s) | HYDROCORTISONE 10 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC20",
+        "status": "Authorised",
+        "supplierCatalogKey": "candiplas h 2%w/w / 1%w/w cream"
+      }
+    },
+    {
+      "id": "product:P0080",
+      "nodeType": "product",
+      "refId": "P0080",
+      "label": "Canesten 1% Cream",
+      "subtext": "fungal skin infection",
+      "meta": {
+        "brand": "Canesten",
+        "generic": "CLOTRIMAZOLE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "fungal skin infection",
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CLOTRIMAZOLE 10 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC01",
+        "status": "Authorised",
+        "supplierCatalogKey": "canesten 1% cream"
+      }
+    },
+    {
+      "id": "product:P0081",
+      "nodeType": "product",
+      "refId": "P0081",
+      "label": "Canesten 1% cutaneous solution",
+      "subtext": "fungal skin infection",
+      "meta": {
+        "brand": "Canesten",
+        "generic": "CLOTRIMAZOLE",
+        "form": "CUTANEOUS SOLUTION",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "fungal skin infection",
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CLOTRIMAZOLE 10 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC01",
+        "status": "Authorised",
+        "supplierCatalogKey": "canesten 1% cutaneous solution"
+      }
+    },
+    {
+      "id": "product:P0082",
+      "nodeType": "product",
+      "refId": "P0082",
+      "label": "Canesten 10 mg/g cream",
+      "subtext": "fungal skin infection",
+      "meta": {
+        "brand": "Canesten",
+        "generic": "CLOTRIMAZOLE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "fungal skin infection",
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CLOTRIMAZOLE 10 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC01",
+        "status": "Authorised",
+        "supplierCatalogKey": "canesten 10 mg/g cream"
+      }
+    },
+    {
+      "id": "product:P0092",
+      "nodeType": "product",
+      "refId": "P0092",
+      "label": "Canesten Cream  1% w/w",
+      "subtext": "fungal skin infection",
+      "meta": {
+        "brand": "Canesten",
+        "generic": "CLOTRIMAZOLE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "fungal skin infection",
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CLOTRIMAZOLE 10 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC01",
+        "status": "Authorised",
+        "supplierCatalogKey": "canesten cream 1% w/w"
+      }
+    },
+    {
+      "id": "product:P0093",
+      "nodeType": "product",
+      "refId": "P0093",
+      "label": "Canesten Cream 10mg",
+      "subtext": "fungal skin infection",
+      "meta": {
+        "brand": "Canesten",
+        "generic": "CLOTRIMAZOLE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "fungal skin infection",
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CLOTRIMAZOLE 10 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC01",
+        "status": "Authorised",
+        "supplierCatalogKey": "canesten cream 10mg"
+      }
+    },
+    {
+      "id": "product:P0096",
+      "nodeType": "product",
+      "refId": "P0096",
+      "label": "Canesten solution  1% w/v",
+      "subtext": "fungal skin infection",
+      "meta": {
+        "brand": "Canesten",
+        "generic": "CLOTRIMAZOLE",
+        "form": "SOLUTION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "fungal skin infection",
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CLOTRIMAZOLE 1 percent weight/volume",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC01",
+        "status": "Authorised",
+        "supplierCatalogKey": "canesten solution 1% w/v"
+      }
+    },
+    {
+      "id": "product:P0097",
+      "nodeType": "product",
+      "refId": "P0097",
+      "label": "Canesten\u00ae Extra Spray 10mg/g",
+      "subtext": "fungal skin infection",
+      "meta": {
+        "brand": "Canesten",
+        "generic": "BIFONAZOLE",
+        "form": "Spray (solution)",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "fungal skin infection",
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "BIFONAZOLE 10 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC10",
+        "status": "Authorised",
+        "supplierCatalogKey": "canesten\u00ae extra spray 10mg/g"
+      }
+    },
+    {
+      "id": "product:P0110",
+      "nodeType": "product",
+      "refId": "P0110",
+      "label": "Clotrimazole Generis 10 mg/g cream",
+      "subtext": "fungal skin infection",
+      "meta": {
+        "brand": "Clotrimazole",
+        "generic": "CLOTRIMAZOLE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "fungal skin infection",
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CLOTRIMAZOLE 10 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC01",
+        "status": "Authorised",
+        "supplierCatalogKey": "clotrimazole generis 10 mg/g cream"
+      }
+    },
+    {
+      "id": "product:P0111",
+      "nodeType": "product",
+      "refId": "P0111",
+      "label": "Clotrimazolum HASCO, 10 mg/g cream",
+      "subtext": "fungal skin infection",
+      "meta": {
+        "brand": "Clotrimazolum",
+        "generic": "CLOTRIMAZOLE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "fungal skin infection",
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CLOTRIMAZOLE 10 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC01",
+        "status": "Authorised",
+        "supplierCatalogKey": "clotrimazolum hasco, 10 mg/g cream"
+      }
+    },
+    {
+      "id": "product:P0112",
+      "nodeType": "product",
+      "refId": "P0112",
+      "label": "Clotrimazolum HASCO, 10 mg/g, cream",
+      "subtext": "fungal skin infection",
+      "meta": {
+        "brand": "Clotrimazolum",
+        "generic": "CLOTRIMAZOLE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "fungal skin infection",
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CLOTRIMAZOLE 10 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC01",
+        "status": "Authorised",
+        "supplierCatalogKey": "clotrimazolum hasco, 10 mg/g, cream"
+      }
+    },
+    {
+      "id": "product:P0124",
+      "nodeType": "product",
+      "refId": "P0124",
+      "label": "Daktarin 2% w/w Cutaneous Powder",
+      "subtext": "fungal skin infection",
+      "meta": {
+        "brand": "Daktarin",
+        "generic": "MICONAZOLE NITRATE",
+        "form": "CUTANEOUS POWDER",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "fungal skin infection",
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "MICONAZOLE NITRATE 20 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC02",
+        "status": "Authorised",
+        "supplierCatalogKey": "daktarin 2% w/w cutaneous powder"
+      }
+    },
+    {
+      "id": "product:P0125",
+      "nodeType": "product",
+      "refId": "P0125",
+      "label": "Daktarin Cream 2% w/w",
+      "subtext": "fungal skin infection",
+      "meta": {
+        "brand": "Daktarin",
+        "generic": "MICONAZOLE NITRATE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "fungal skin infection",
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "MICONAZOLE NITRATE 20 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC02",
+        "status": "Authorised",
+        "supplierCatalogKey": "daktarin cream 2% w/w"
+      }
+    },
+    {
+      "id": "product:P0126",
+      "nodeType": "product",
+      "refId": "P0126",
+      "label": "Daktarin Cream 2.0% w/w",
+      "subtext": "fungal skin infection",
+      "meta": {
+        "brand": "Daktarin",
+        "generic": "MICONAZOLE NITRATE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "fungal skin infection",
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "MICONAZOLE NITRATE 20 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC02",
+        "status": "Authorised",
+        "supplierCatalogKey": "daktarin cream 2.0% w/w"
+      }
+    },
+    {
+      "id": "product:P0127",
+      "nodeType": "product",
+      "refId": "P0127",
+      "label": "Daktarin Powder 2.0% w/w",
+      "subtext": "fungal skin infection",
+      "meta": {
+        "brand": "Daktarin",
+        "generic": "MICONAZOLE NITRATE",
+        "form": "CUTANEOUS POWDER",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "fungal skin infection",
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "MICONAZOLE NITRATE 20 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC02",
+        "status": "Authorised",
+        "supplierCatalogKey": "daktarin powder 2.0% w/w"
+      }
+    },
+    {
+      "id": "product:P0128",
+      "nodeType": "product",
+      "refId": "P0128",
+      "label": "Daktodor 2% / 1% w/w cream",
+      "subtext": "fungal skin infection",
+      "meta": {
+        "brand": "Daktodor",
+        "generic": "HYDROCORTISONE | MICONAZOLE NITRATE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "fungal skin infection",
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "HYDROCORTISONE 1 percent weight/weight | MICONAZOLE NITRATE 2 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC52",
+        "status": "Authorised",
+        "supplierCatalogKey": "daktodor 2% / 1% w/w cream"
+      }
+    },
+    {
+      "id": "product:P0251",
+      "nodeType": "product",
+      "refId": "P0251",
+      "label": "Lamisil 1% cutaneous spray, solution.",
+      "subtext": "fungal skin infection",
+      "meta": {
+        "brand": "Lamisil",
+        "generic": "TERBINAFINE HYDROCHLORIDE",
+        "form": "CUTANEOUS SPRAY, SOLUTION",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "fungal skin infection",
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "TERBINAFINE HYDROCHLORIDE 10 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AE15",
+        "status": "Authorised",
+        "supplierCatalogKey": "lamisil 1% cutaneous spray, solution."
+      }
+    },
+    {
+      "id": "product:P0270",
+      "nodeType": "product",
+      "refId": "P0270",
+      "label": "MYCOSKIN 1% cream",
+      "subtext": "fungal skin infection",
+      "meta": {
+        "brand": "MYCOSKIN",
+        "generic": "CICLOPIROX OLAMINE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "fungal skin infection",
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CICLOPIROX OLAMINE 100 gram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AE14",
+        "status": "Authorised",
+        "supplierCatalogKey": "mycoskin 1% cream"
+      }
+    },
+    {
+      "id": "product:P0271",
+      "nodeType": "product",
+      "refId": "P0271",
+      "label": "MYCOSKIN 1%, cream",
+      "subtext": "fungal skin infection",
+      "meta": {
+        "brand": "MYCOSKIN",
+        "generic": "CICLOPIROX OLAMINE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "fungal skin infection",
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CICLOPIROX OLAMINE 1 percent",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AE14",
+        "status": "Authorised",
+        "supplierCatalogKey": "mycoskin 1%, cream"
+      }
+    },
+    {
+      "id": "product:P0301",
+      "nodeType": "product",
+      "refId": "P0301",
+      "label": "Mycoril 1% w/v cutaneous spray, solution",
+      "subtext": "fungal skin infection",
+      "meta": {
+        "brand": "Mycoril",
+        "generic": "CLOTRIMAZOLE",
+        "form": "CUTANEOUS SPRAY, SOLUTION",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "fungal skin infection",
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CLOTRIMAZOLE 1 percent weight/volume",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC01",
+        "status": "Authorised",
+        "supplierCatalogKey": "mycoril 1% w/v cutaneous spray, solution"
+      }
+    },
+    {
+      "id": "product:P0333",
+      "nodeType": "product",
+      "refId": "P0333",
+      "label": "Nizoral 20mg/g Cream",
+      "subtext": "fungal skin infection",
+      "meta": {
+        "brand": "Nizoral",
+        "generic": "KETOCONAZOLE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "fungal skin infection",
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "KETOCONAZOLE 2 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC08",
+        "status": "Authorised",
+        "supplierCatalogKey": "nizoral 20mg/g cream"
+      }
+    },
+    {
+      "id": "product:P0334",
+      "nodeType": "product",
+      "refId": "P0334",
+      "label": "Nizoral 20mg/g Shampoo",
+      "subtext": "fungal skin infection",
+      "meta": {
+        "brand": "Nizoral",
+        "generic": "KETOCONAZOLE",
+        "form": "SHAMPOO",
+        "formGroup": "Other",
+        "route": "Other",
+        "mainIndication": "fungal skin infection",
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "KETOCONAZOLE 20 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC08",
+        "status": "Authorised",
+        "supplierCatalogKey": "nizoral 20mg/g shampoo"
+      }
+    },
+    {
+      "id": "product:P0335",
+      "nodeType": "product",
+      "refId": "P0335",
+      "label": "Nizoral Shampoo",
+      "subtext": "fungal skin infection",
+      "meta": {
+        "brand": "Nizoral",
+        "generic": "KETOCONAZOLE",
+        "form": "SHAMPOO",
+        "formGroup": "Other",
+        "route": "Other",
+        "mainIndication": "fungal skin infection",
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "KETOCONAZOLE 20 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC08",
+        "status": "Authorised",
+        "supplierCatalogKey": "nizoral shampoo"
+      }
+    },
+    {
+      "id": "product:P0467",
+      "nodeType": "product",
+      "refId": "P0467",
+      "label": "TRAVOGEN 10 mg /g cream",
+      "subtext": "fungal skin infection",
+      "meta": {
+        "brand": "TRAVOGEN",
+        "generic": "ISOCONAZOLE NITRATE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "fungal skin infection",
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "ISOCONAZOLE NITRATE 10 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC05",
+        "status": "Authorised",
+        "supplierCatalogKey": "travogen 10 mg /g cream"
+      }
+    },
+    {
+      "id": "product:P0483",
+      "nodeType": "product",
+      "refId": "P0483",
+      "label": "Travogen 1% cream",
+      "subtext": "fungal skin infection",
+      "meta": {
+        "brand": "Travogen",
+        "generic": "ISOCONAZOLE NITRATE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "fungal skin infection",
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "ISOCONAZOLE NITRATE 1 percent",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC05",
+        "status": "Authorised",
+        "supplierCatalogKey": "travogen 1% cream"
+      }
+    },
+    {
+      "id": "product:P0484",
+      "nodeType": "product",
+      "refId": "P0484",
+      "label": "Travogen Cream 1% w/w",
+      "subtext": "fungal skin infection",
+      "meta": {
+        "brand": "Travogen",
+        "generic": "ISOCONAZOLE NITRATE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "fungal skin infection",
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "ISOCONAZOLE NITRATE 10 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC05",
+        "status": "Authorised",
+        "supplierCatalogKey": "travogen cream 1% w/w"
+      }
+    },
+    {
+      "id": "usecase:UC010",
+      "nodeType": "usecase",
+      "refId": "UC010",
+      "label": "Athlete foot and fungal skin care",
+      "subtext": "Skin",
+      "meta": {
+        "UseCase_ID": "UC010",
+        "UseCase_Name": "Athlete foot and fungal skin care",
+        "UseCase_Category": "Skin",
+        "Trigger_Symptoms": "Fungal skin infection, athlete foot, itch",
+        "Description": "Antifungal core with hygiene/support products."
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "2cb0f73d2ab4096a",
+      "source": "product:P0078",
+      "target": "symptom:S007",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00270"
+      }
+    },
+    {
+      "key": "979141d8576c0db7",
+      "source": "product:P0079",
+      "target": "symptom:S007",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00273"
+      }
+    },
+    {
+      "key": "ef5a7a8151516931",
+      "source": "product:P0080",
+      "target": "symptom:S007",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00276"
+      }
+    },
+    {
+      "key": "d2705b59a760d9c4",
+      "source": "product:P0081",
+      "target": "symptom:S007",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00279"
+      }
+    },
+    {
+      "key": "89ff1e8593dd979c",
+      "source": "product:P0082",
+      "target": "symptom:S007",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00282"
+      }
+    },
+    {
+      "key": "acfe293e3b1352df",
+      "source": "product:P0092",
+      "target": "symptom:S007",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00303"
+      }
+    },
+    {
+      "key": "32a1755f0db402ff",
+      "source": "product:P0093",
+      "target": "symptom:S007",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00306"
+      }
+    },
+    {
+      "key": "514e09a96eec443a",
+      "source": "product:P0096",
+      "target": "symptom:S007",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00313"
+      }
+    },
+    {
+      "key": "0493e957d0e8ce3f",
+      "source": "product:P0097",
+      "target": "symptom:S007",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00316"
+      }
+    },
+    {
+      "key": "e45b121d2bf33067",
+      "source": "product:P0110",
+      "target": "symptom:S007",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00361"
+      }
+    },
+    {
+      "key": "e8d2e6420a9263e1",
+      "source": "product:P0111",
+      "target": "symptom:S007",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00364"
+      }
+    },
+    {
+      "key": "8908c07dfc69acf3",
+      "source": "product:P0112",
+      "target": "symptom:S007",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00367"
+      }
+    },
+    {
+      "key": "dbbcb14d931518ee",
+      "source": "product:P0124",
+      "target": "symptom:S007",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00411"
+      }
+    },
+    {
+      "key": "4e53fd1e9c265a33",
+      "source": "product:P0125",
+      "target": "symptom:S007",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00414"
+      }
+    },
+    {
+      "key": "9b5c220c6fffbad6",
+      "source": "product:P0126",
+      "target": "symptom:S007",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00417"
+      }
+    },
+    {
+      "key": "864fe24d6645b454",
+      "source": "product:P0127",
+      "target": "symptom:S007",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00420"
+      }
+    },
+    {
+      "key": "df239d7f3dff9e4a",
+      "source": "product:P0128",
+      "target": "symptom:S007",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00423"
+      }
+    },
+    {
+      "key": "b44eb9ef8f229b07",
+      "source": "product:P0251",
+      "target": "symptom:S007",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00812"
+      }
+    },
+    {
+      "key": "59c19f67630093f1",
+      "source": "product:P0270",
+      "target": "symptom:S007",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00865"
+      }
+    },
+    {
+      "key": "e0ab9faf2a6df861",
+      "source": "product:P0271",
+      "target": "symptom:S007",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00868"
+      }
+    },
+    {
+      "key": "f9a92ac2c0481fcf",
+      "source": "product:P0301",
+      "target": "symptom:S007",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00965"
+      }
+    },
+    {
+      "key": "8f30993641b15b8f",
+      "source": "product:P0333",
+      "target": "symptom:S007",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01065"
+      }
+    },
+    {
+      "key": "50f7873252133b77",
+      "source": "product:P0334",
+      "target": "symptom:S007",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01068"
+      }
+    },
+    {
+      "key": "4b881a031cdcac63",
+      "source": "product:P0335",
+      "target": "symptom:S007",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01071"
+      }
+    },
+    {
+      "key": "f08e15e52474daf6",
+      "source": "product:P0467",
+      "target": "symptom:S007",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01539"
+      }
+    },
+    {
+      "key": "ad22416264ed77b7",
+      "source": "product:P0483",
+      "target": "symptom:S007",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01608"
+      }
+    },
+    {
+      "key": "64018824840e6c5b",
+      "source": "product:P0484",
+      "target": "symptom:S007",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01611"
+      }
+    },
+    {
+      "key": "9083e738c293df68",
+      "source": "symptom:S007",
+      "target": "usecase:UC010",
+      "rel": "usecase",
+      "label": "Related use case",
+      "score": 90,
+      "why": "",
+      "meta": {}
+    }
+  ]
+}

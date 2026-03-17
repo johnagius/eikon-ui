@@ -1,1 +1,1234 @@
-{"centerId":"symptom:S011","centerType":"symptom","refId":"S011","nodes":[{"id":"symptom:S011","nodeType":"symptom","refId":"S011","label":"blocked nose","subtext":"Cold / allergy","meta":{"Symptom_ID":"S011","Symptom_Name":"blocked nose","Symptom_Category":"Cold / allergy","Linked_Product_Count":29,"Display_Group":"Cold / allergy","Priority_For_Graph":100,"Node_Color":"#70AD47","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"product:P0001","nodeType":"product","refId":"P0001","label":"ACTIFED 30mg/1.25mg per 5ml Syrup","subtext":"nasal congestion","meta":{"brand":"ACTIFED","generic":"PSEUDOEPHEDRINE HYDROCHLORIDE | TRIPROLIDINE HYDROCHLORIDE","form":"SYRUP","formGroup":"Oral liquid","route":"Oral","mainIndication":"nasal congestion","secondaryIndications":"blocked nose | sinus pressure | runny nose","otcCategory":"NASAL PREPARATIONS","seasonalGroup":"All year","sedating":"Yes","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"TRIPROLIDINE HYDROCHLORIDE 1.25 milligram(s)/5 millilitre | PSEUDOEPHEDRINE HYDROCHLORIDE 30 milligram(s)/5 millilitre","packSizeText":"Review manually","atcCode":"R01BA52","status":"Authorised","supplierCatalogKey":"actifed 30mg/1.25mg per 5ml syrup"}},{"id":"product:P0015","nodeType":"product","refId":"P0015","label":"Actifed 60mg/2.5mg Tablets","subtext":"nasal congestion","meta":{"brand":"Actifed","generic":"PSEUDOEPHEDRINE HYDROCHLORIDE | TRIPROLIDINE HYDROCHLORIDE","form":"TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"nasal congestion","secondaryIndications":"blocked nose | sinus pressure | runny nose","otcCategory":"NASAL PREPARATIONS","seasonalGroup":"All year","sedating":"Yes","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"PSEUDOEPHEDRINE HYDROCHLORIDE 60 milligram(s) | TRIPROLIDINE HYDROCHLORIDE 2.5 milligram(s)","packSizeText":"Review manually","atcCode":"R01BA52","status":"Authorised","supplierCatalogKey":"actifed 60mg/2.5mg tablets"}},{"id":"product:P0036","nodeType":"product","refId":"P0036","label":"BIXTONIM XYLO 1 mg/ml nasal drops, solution","subtext":"nasal congestion","meta":{"brand":"BIXTONIM","generic":"XYLOMETAZOLINE HYDROCHLORIDE","form":"NASAL DROPS, SOLUTION","formGroup":"Nasal","route":"Nasal","mainIndication":"nasal congestion","secondaryIndications":"blocked nose | sinus pressure | runny nose","otcCategory":"NASAL PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"XYLOMETAZOLINE HYDROCHLORIDE 1 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"R01AA07","status":"Authorised","supplierCatalogKey":"bixtonim xylo 1 mg/ml nasal drops, solution"}},{"id":"product:P0104","nodeType":"product","refId":"P0104","label":"Cirrus 5 mg/120 mg Prolonged Release Tablets","subtext":"nasal congestion","meta":{"brand":"Cirrus","generic":"CETIRIZINE DIHYDROCHLORIDE | PSEUDOEPHEDRINE HYDROCHLORIDE","form":"PROLONGED-RELEASE TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"nasal congestion","secondaryIndications":"blocked nose | sinus pressure | runny nose","otcCategory":"NASAL PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"Yes","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"CETIRIZINE DIHYDROCHLORIDE 5 milligram(s) | PSEUDOEPHEDRINE HYDROCHLORIDE 120 milligram(s)","packSizeText":"Review manually","atcCode":"R01BA52","status":"Authorised","supplierCatalogKey":"cirrus 5 mg/120 mg prolonged release tablets"}},{"id":"product:P0106","nodeType":"product","refId":"P0106","label":"Clarinase Repetabs 5mg/120mg prolonged-release Tablets","subtext":"nasal congestion","meta":{"brand":"Clarinase","generic":"LORATADINE | PSEUDOEPHEDRINE SULFATE","form":"PROLONGED-RELEASE TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"nasal congestion","secondaryIndications":"blocked nose | sinus pressure | runny nose","otcCategory":"NASAL PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"Yes","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"LORATADINE 5 milligram(s) | PSEUDOEPHEDRINE SULFATE 120 milligram(s)","packSizeText":"Review manually","atcCode":"R01BA52","status":"Authorised","supplierCatalogKey":"clarinase repetabs 5mg/120mg prolonged-release tablets"}},{"id":"product:P0219","nodeType":"product","refId":"P0219","label":"Hysan Adults 1 mg/ml nasal spray, solution","subtext":"nasal congestion","meta":{"brand":"Hysan","generic":"XYLOMETAZOLINE HYDROCHLORIDE","form":"NASAL SPRAY, SOLUTION","formGroup":"Nasal","route":"Nasal","mainIndication":"nasal congestion","secondaryIndications":"blocked nose | sinus pressure | runny nose","otcCategory":"NASAL PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"XYLOMETAZOLINE HYDROCHLORIDE 1 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"R01AA07","status":"Authorised","supplierCatalogKey":"hysan adults 1 mg/ml nasal spray, solution"}},{"id":"product:P0220","nodeType":"product","refId":"P0220","label":"Hysan Paediatric 0.5 mg/ml nasal spray, solution","subtext":"nasal congestion","meta":{"brand":"Hysan","generic":"XYLOMETAZOLINE HYDROCHLORIDE","form":"NASAL SPRAY, SOLUTION","formGroup":"Nasal","route":"Nasal","mainIndication":"nasal congestion","secondaryIndications":"blocked nose | sinus pressure | runny nose","otcCategory":"NASAL PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"XYLOMETAZOLINE HYDROCHLORIDE 0.5 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"R01AA07","status":"Authorised","supplierCatalogKey":"hysan paediatric 0.5 mg/ml nasal spray, solution"}},{"id":"product:P0285","nodeType":"product","refId":"P0285","label":"Medofed 30 mg/1.25 mg per 5 ml, oral solution","subtext":"nasal congestion","meta":{"brand":"Medofed","generic":"PSEUDOEPHEDRINE HYDROCHLORIDE | TRIPROLIDINE HYDROCHLORIDE","form":"ORAL SOLUTION","formGroup":"Oral liquid","route":"Oral","mainIndication":"nasal congestion","secondaryIndications":"blocked nose | sinus pressure | runny nose","otcCategory":"NASAL PREPARATIONS","seasonalGroup":"All year","sedating":"Yes","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"PSEUDOEPHEDRINE HYDROCHLORIDE 30 milligram(s) | TRIPROLIDINE HYDROCHLORIDE 1.25 milligram(s)","packSizeText":"Review manually","atcCode":"R01BA52","status":"Authorised","supplierCatalogKey":"medofed 30 mg/1.25 mg per 5 ml, oral solution"}},{"id":"product:P0311","nodeType":"product","refId":"P0311","label":"Nasacort Allergy 55 micrograms/dose, nasal spray, suspension","subtext":"nasal congestion","meta":{"brand":"Nasacort","generic":"TRIAMCINOLONE ACETONIDE","form":"NASAL SPRAY, SUSPENSION","formGroup":"Nasal","route":"Nasal","mainIndication":"nasal congestion","secondaryIndications":"blocked nose | sinus pressure | runny nose","otcCategory":"NASAL PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"TRIAMCINOLONE ACETONIDE 55 microgram(s)","packSizeText":"Review manually","atcCode":"R01AD11","status":"Authorised","supplierCatalogKey":"nasacort allergy 55 micrograms/dose, nasal spray, suspension"}},{"id":"product:P0337","nodeType":"product","refId":"P0337","label":"Non-Drowsy Sudafed Decongestant 60 mg Film-Coated Tablets","subtext":"nasal congestion","meta":{"brand":"Non","generic":"PSEUDOEPHEDRINE HYDROCHLORIDE","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"nasal congestion","secondaryIndications":"blocked nose | sinus pressure | runny nose","otcCategory":"NASAL PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"Yes","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"PSEUDOEPHEDRINE HYDROCHLORIDE 60 milligram(s)","packSizeText":"Review manually","atcCode":"R01BA02","status":"Authorised","supplierCatalogKey":"non-drowsy sudafed decongestant 60 mg film-coated tablets"}},{"id":"product:P0338","nodeType":"product","refId":"P0338","label":"Non-drowsy Sinutab Tablets Paracetamol 500mg  Pseudoephedrine hydrochloride 30mg","subtext":"nasal congestion","meta":{"brand":"Non","generic":"PARACETAMOL | PSEUDOEPHEDRINE HYDROCHLORIDE","form":"TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"nasal congestion","secondaryIndications":"blocked nose | sinus pressure | runny nose","otcCategory":"NASAL PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"Yes","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"PSEUDOEPHEDRINE HYDROCHLORIDE 30 milligram(s) | PARACETAMOL 500 milligram(s)","packSizeText":"Review manually","atcCode":"R01BA02","status":"Authorised","supplierCatalogKey":"non-drowsy sinutab tablets paracetamol 500mg pseudoephedrine hydrochloride 30mg"}},{"id":"product:P0357","nodeType":"product","refId":"P0357","label":"Olbas Inhaler Nasal Stick","subtext":"nasal congestion","meta":{"brand":"Olbas","generic":"CAJUPUT OIL | EUCALYPTUS OIL | LEVOMENTHOL | PEPPERMINT OIL","form":"NASAL STICK","formGroup":"Nasal","route":"Nasal","mainIndication":"nasal congestion","secondaryIndications":"blocked nose | sinus pressure | runny nose","otcCategory":"NASAL PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":4,"strengthText":"LEVOMENTHOL 40 percent weight/weight | EUCALYPTUS OIL 20 percent weight/weight | CAJUPUT OIL 20 percent weight/weight | PEPPERMINT OIL 20 percent weight/weight","packSizeText":"Review manually","atcCode":"R01AX","status":"Authorised","supplierCatalogKey":"olbas inhaler nasal stick"}},{"id":"product:P0364","nodeType":"product","refId":"P0364","label":"Otrivin 0.05% (Moisturising Formula) Nasal Spray","subtext":"nasal congestion","meta":{"brand":"Otrivin","generic":"XYLOMETAZOLINE HYDROCHLORIDE","form":"NASAL SPRAY, SOLUTION","formGroup":"Nasal","route":"Nasal","mainIndication":"nasal congestion","secondaryIndications":"blocked nose | sinus pressure | runny nose","otcCategory":"NASAL PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"XYLOMETAZOLINE HYDROCHLORIDE 0.5 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"R01AA07","status":"Authorised","supplierCatalogKey":"otrivin 0.05% (moisturising formula) nasal spray"}},{"id":"product:P0365","nodeType":"product","refId":"P0365","label":"Otrivin 0.1% (Moisturising Formula) Nasal drops","subtext":"nasal congestion","meta":{"brand":"Otrivin","generic":"XYLOMETAZOLINE HYDROCHLORIDE","form":"NASAL DROPS, SOLUTION","formGroup":"Nasal","route":"Nasal","mainIndication":"nasal congestion","secondaryIndications":"blocked nose | sinus pressure | runny nose","otcCategory":"NASAL PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"XYLOMETAZOLINE HYDROCHLORIDE 1 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"R01AA07","status":"Authorised","supplierCatalogKey":"otrivin 0.1% (moisturising formula) nasal drops"}},{"id":"product:P0366","nodeType":"product","refId":"P0366","label":"Otrivin Child","subtext":"nasal congestion","meta":{"brand":"Otrivin","generic":"XYLOMETAZOLINE HYDROCHLORIDE","form":"NASAL DROPS, SOLUTION","formGroup":"Nasal","route":"Nasal","mainIndication":"nasal congestion","secondaryIndications":"blocked nose | sinus pressure | runny nose","otcCategory":"NASAL PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"XYLOMETAZOLINE HYDROCHLORIDE 0.05 percent weight/volume","packSizeText":"Review manually","atcCode":"R01AA07","status":"Authorised","supplierCatalogKey":"otrivin child"}},{"id":"product:P0367","nodeType":"product","refId":"P0367","label":"Otrivin Nasal spray, 0.1% w/v","subtext":"nasal congestion","meta":{"brand":"Otrivin","generic":"XYLOMETAZOLINE HYDROCHLORIDE","form":"NASAL SPRAY, SOLUTION","formGroup":"Nasal","route":"Nasal","mainIndication":"nasal congestion","secondaryIndications":"blocked nose | sinus pressure | runny nose","otcCategory":"NASAL PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"XYLOMETAZOLINE HYDROCHLORIDE 1 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"R01AA07","status":"Authorised","supplierCatalogKey":"otrivin nasal spray, 0.1% w/v"}},{"id":"product:P0368","nodeType":"product","refId":"P0368","label":"Otrivin preservative free: nasal spray, solution (metered dose) 0.1%","subtext":"nasal congestion","meta":{"brand":"Otrivin","generic":"XYLOMETAZOLINE HYDROCHLORIDE","form":"NASAL SPRAY, SOLUTION","formGroup":"Nasal","route":"Nasal","mainIndication":"nasal congestion","secondaryIndications":"blocked nose | sinus pressure | runny nose","otcCategory":"NASAL PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"XYLOMETAZOLINE HYDROCHLORIDE 0.1 percent weight/volume","packSizeText":"Review manually","atcCode":"R01AA07","status":"Authorised","supplierCatalogKey":"otrivin preservative free: nasal spray, solution (metered dose) 0.1%"}},{"id":"product:P0435","nodeType":"product","refId":"P0435","label":"SeptaNazal 0.5 mg/ml + 50 mg/ml nasal spray, solution","subtext":"nasal congestion","meta":{"brand":"SeptaNazal","generic":"DEXPANTHENOL | XYLOMETAZOLINE HYDROCHLORIDE","form":"NASAL SPRAY, SOLUTION","formGroup":"Nasal","route":"Nasal","mainIndication":"nasal congestion","secondaryIndications":"blocked nose | sinus pressure | runny nose","otcCategory":"NASAL PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"XYLOMETAZOLINE HYDROCHLORIDE 0.5 milligram(s)/millilitre | DEXPANTHENOL 50 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"R01AB06","status":"Authorised","supplierCatalogKey":"septanazal 0.5 mg/ml + 50 mg/ml nasal spray, solution"}},{"id":"product:P0436","nodeType":"product","refId":"P0436","label":"SeptaNazal 1 mg/ml + 50 mg/ml nasal spray, solution","subtext":"nasal congestion","meta":{"brand":"SeptaNazal","generic":"DEXPANTHENOL | XYLOMETAZOLINE HYDROCHLORIDE","form":"NASAL SPRAY, SOLUTION","formGroup":"Nasal","route":"Nasal","mainIndication":"nasal congestion","secondaryIndications":"blocked nose | sinus pressure | runny nose","otcCategory":"NASAL PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"XYLOMETAZOLINE HYDROCHLORIDE 1 milligram(s)/millilitre | DEXPANTHENOL 50 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"R01AB06","status":"Authorised","supplierCatalogKey":"septanazal 1 mg/ml + 50 mg/ml nasal spray, solution"}},{"id":"product:P0437","nodeType":"product","refId":"P0437","label":"SeptaNazal for children 0.5 mg/ml + 50 mg/ml nasal spray, solution","subtext":"nasal congestion","meta":{"brand":"SeptaNazal","generic":"DEXPANTHENOL | XYLOMETAZOLINE HYDROCHLORIDE","form":"NASAL SPRAY, SOLUTION","formGroup":"Nasal","route":"Nasal","mainIndication":"nasal congestion","secondaryIndications":"blocked nose | sinus pressure | runny nose","otcCategory":"NASAL PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"DEXPANTHENOL 50 milligram(s)/millilitre | XYLOMETAZOLINE HYDROCHLORIDE 0.5 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"R01AB06","status":"Authorised","supplierCatalogKey":"septanazal for children 0.5 mg/ml + 50 mg/ml nasal spray, solution"}},{"id":"product:P0438","nodeType":"product","refId":"P0438","label":"Septanazal 1 mg/50 mg/ml nasal spray, solution","subtext":"nasal congestion","meta":{"brand":"Septanazal","generic":"DEXPANTHENOL | XYLOMETAZOLINE HYDROCHLORIDE","form":"NASAL SPRAY","formGroup":"Nasal","route":"Nasal","mainIndication":"nasal congestion","secondaryIndications":"blocked nose | sinus pressure | runny nose","otcCategory":"NASAL PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"XYLOMETAZOLINE HYDROCHLORIDE 1 milligram(s)/millilitre | DEXPANTHENOL 50 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"R01AB06","status":"Authorised","supplierCatalogKey":"septanazal 1 mg/50 mg/ml nasal spray, solution"}},{"id":"product:P0439","nodeType":"product","refId":"P0439","label":"Septanazal for children 0.5 mg/50 mg/ml nasal spray, solution","subtext":"nasal congestion","meta":{"brand":"Septanazal","generic":"DEXPANTHENOL | XYLOMETAZOLINE HYDROCHLORIDE","form":"NASAL SPRAY","formGroup":"Nasal","route":"Nasal","mainIndication":"nasal congestion","secondaryIndications":"blocked nose | sinus pressure | runny nose","otcCategory":"NASAL PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"XYLOMETAZOLINE HYDROCHLORIDE 0.5 milligram(s)/millilitre | DEXPANTHENOL 50 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"R01AB06","status":"Authorised","supplierCatalogKey":"septanazal for children 0.5 mg/50 mg/ml nasal spray, solution"}},{"id":"product:P0461","nodeType":"product","refId":"P0461","label":"Sudafed 0.1 % w/v Nasal Spray Solution","subtext":"nasal congestion","meta":{"brand":"Sudafed","generic":"XYLOMETAZOLINE HYDROCHLORIDE","form":"NASAL SPRAY, SOLUTION","formGroup":"Nasal","route":"Nasal","mainIndication":"nasal congestion","secondaryIndications":"blocked nose | sinus pressure | runny nose","otcCategory":"NASAL PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"XYLOMETAZOLINE HYDROCHLORIDE 0.1 percent weight/volume","packSizeText":"Review manually","atcCode":"R01AA07","status":"Authorised","supplierCatalogKey":"sudafed 0.1 % w/v nasal spray solution"}},{"id":"product:P0488","nodeType":"product","refId":"P0488","label":"Utabon Adults","subtext":"nasal congestion","meta":{"brand":"Utabon","generic":"OXYMETAZOLINE","form":"NASAL SPRAY, SOLUTION","formGroup":"Nasal","route":"Nasal","mainIndication":"nasal congestion","secondaryIndications":"blocked nose | sinus pressure | runny nose","otcCategory":"NASAL PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"OXYMETAZOLINE    0.5 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"R01AA05","status":"Authorised","supplierCatalogKey":"utabon adults"}},{"id":"product:P0489","nodeType":"product","refId":"P0489","label":"Utabon Pediatric","subtext":"nasal congestion","meta":{"brand":"Utabon","generic":"OXYMETAZOLINE","form":"NASAL DROPS, SOLUTION","formGroup":"Nasal","route":"Nasal","mainIndication":"nasal congestion","secondaryIndications":"blocked nose | sinus pressure | runny nose","otcCategory":"NASAL PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"OXYMETAZOLINE    0.25 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"R01AA05","status":"Authorised","supplierCatalogKey":"utabon pediatric"}},{"id":"product:P0500","nodeType":"product","refId":"P0500","label":"Vibrocil","subtext":"nasal congestion","meta":{"brand":"Vibrocil","generic":"DIMETINDENE MALEATE | PHENYLEPHRINE","form":"NASAL SPRAY, SOLUTION","formGroup":"Nasal","route":"Nasal","mainIndication":"nasal congestion","secondaryIndications":"blocked nose | sinus pressure | runny nose","otcCategory":"NASAL PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"PHENYLEPHRINE 2.5 milligram(s) | DIMETINDENE MALEATE 0.25 milligram(s)","packSizeText":"Review manually","atcCode":"R01AB","status":"Authorised","supplierCatalogKey":"vibrocil"}},{"id":"product:P0501","nodeType":"product","refId":"P0501","label":"Vicks Inhaler Nasal Stick","subtext":"nasal congestion","meta":{"brand":"Vicks","generic":"CAMPHOR | MENTHOL | SIBERIAN PINE NEEDLE OIL","form":"NASAL STICK","formGroup":"Nasal","route":"Nasal","mainIndication":"nasal congestion","secondaryIndications":"blocked nose | sinus pressure | runny nose","otcCategory":"NASAL PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"Siberian Pine Needle Oil\n 10.00 milligram(s) | MENTHOL 125.00 milligram(s) | CAMPHOR 50.00 milligram(s)","packSizeText":"Review manually","atcCode":"R01AX30","status":"Authorised","supplierCatalogKey":"vicks inhaler nasal stick"}},{"id":"product:P0502","nodeType":"product","refId":"P0502","label":"Vicks Inhaler Nasal Stick Menthol 125 mg  Camphor 50 mg Siberian Pine Needle Oil 10 mg","subtext":"nasal congestion","meta":{"brand":"Vicks","generic":"CAMPHOR | MENTHOL | SIBERIAN PINE NEEDLE OIL","form":"NASAL STICK","formGroup":"Nasal","route":"Nasal","mainIndication":"nasal congestion","secondaryIndications":"blocked nose | sinus pressure | runny nose","otcCategory":"NASAL PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"MENTHOL 125 milligram(s) | CAMPHOR 50 milligram(s) | Siberian Pine Needle Oil\n 10 milligram(s)","packSizeText":"Review manually","atcCode":"R01AX30","status":"Authorised","supplierCatalogKey":"vicks inhaler nasal stick menthol 125 mg camphor 50 mg siberian pine needle oil 10 mg"}},{"id":"product:P0503","nodeType":"product","refId":"P0503","label":"Vicks Inhaler Nasal Stick Menthol 125mg  Camphor 50mg Siberian Pine Needle Oil 10mg","subtext":"nasal congestion","meta":{"brand":"Vicks","generic":"CAMPHOR | MENTHOL | SIBERIAN PINE NEEDLE OIL","form":"NASAL STICK","formGroup":"Nasal","route":"Nasal","mainIndication":"nasal congestion","secondaryIndications":"blocked nose | sinus pressure | runny nose","otcCategory":"NASAL PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"CAMPHOR 20 milligram(s) | Siberian Pine Needle Oil\n 10 milligram(s) | MENTHOL 125 milligram(s)","packSizeText":"Review manually","atcCode":"R01AX30","status":"Authorised","supplierCatalogKey":"vicks inhaler nasal stick menthol 125mg camphor 50mg siberian pine needle oil 10mg"}},{"id":"usecase:UC001","nodeType":"usecase","refId":"UC001","label":"Cold and sore throat relief","subtext":"Cold / flu","meta":{"UseCase_ID":"UC001","UseCase_Name":"Cold and sore throat relief","UseCase_Category":"Cold / flu","Trigger_Symptoms":"Blocked nose, sore throat, cough, throat irritation","Description":"Cold / flu plus throat support in one basket."}},{"id":"usecase:UC002","nodeType":"usecase","refId":"UC002","label":"Allergy day support","subtext":"Cold / allergy","meta":{"UseCase_ID":"UC002","UseCase_Name":"Allergy day support","UseCase_Category":"Cold / allergy","Trigger_Symptoms":"Sneezing, runny nose, itchy eyes, blocked nose","Description":"Non-drowsy antihistamine plus targeted nasal or eye support."}}],"links":[{"key":"a1bcb0030289bb23","source":"symptom:S011","target":"product:P0001","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00002","role":"Primary","reviewStatus":"Seeded"}},{"key":"c5c3406d42be1be2","source":"symptom:S011","target":"product:P0015","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00056","role":"Primary","reviewStatus":"Seeded"}},{"key":"4ec0789c9cf7bb34","source":"symptom:S011","target":"product:P0036","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00119","role":"Primary","reviewStatus":"Seeded"}},{"key":"24ed7cab2a5d9d4e","source":"symptom:S011","target":"product:P0104","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00339","role":"Primary","reviewStatus":"Seeded"}},{"key":"89c9eb4df23a6e84","source":"symptom:S011","target":"product:P0106","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00347","role":"Primary","reviewStatus":"Seeded"}},{"key":"254c9f87ac8d4d52","source":"symptom:S011","target":"product:P0219","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00708","role":"Primary","reviewStatus":"Seeded"}},{"key":"3e2ecbb2eb0021ee","source":"symptom:S011","target":"product:P0220","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00712","role":"Primary","reviewStatus":"Seeded"}},{"key":"39e5f0f143ab42de","source":"symptom:S011","target":"product:P0285","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00909","role":"Primary","reviewStatus":"Seeded"}},{"key":"bb4865a8275ad992","source":"symptom:S011","target":"product:P0311","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00998","role":"Primary","reviewStatus":"Seeded"}},{"key":"ca1c903f0f3bbf1f","source":"symptom:S011","target":"product:P0337","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01078","role":"Primary","reviewStatus":"Seeded"}},{"key":"bb28f07c9adf3519","source":"symptom:S011","target":"product:P0338","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01082","role":"Primary","reviewStatus":"Seeded"}},{"key":"c2fe86b5e98f05b9","source":"symptom:S011","target":"product:P0357","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01156","role":"Primary","reviewStatus":"Seeded"}},{"key":"5385801fa40e80a1","source":"symptom:S011","target":"product:P0364","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01180","role":"Primary","reviewStatus":"Seeded"}},{"key":"ad06b1bef55c0b9c","source":"symptom:S011","target":"product:P0365","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01184","role":"Primary","reviewStatus":"Seeded"}},{"key":"b0446deffcfe7acc","source":"symptom:S011","target":"product:P0366","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01188","role":"Primary","reviewStatus":"Seeded"}},{"key":"0ad65b6a45877ded","source":"symptom:S011","target":"product:P0367","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01192","role":"Primary","reviewStatus":"Seeded"}},{"key":"b85f3b187fd1ddc3","source":"symptom:S011","target":"product:P0368","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01196","role":"Primary","reviewStatus":"Seeded"}},{"key":"cfbaeefe814bf219","source":"symptom:S011","target":"product:P0435","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01435","role":"Primary","reviewStatus":"Seeded"}},{"key":"bbeb676f29cfab55","source":"symptom:S011","target":"product:P0436","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01439","role":"Primary","reviewStatus":"Seeded"}},{"key":"2a9c907109b3b3f3","source":"symptom:S011","target":"product:P0437","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01443","role":"Primary","reviewStatus":"Seeded"}},{"key":"1fcf70822043a06d","source":"symptom:S011","target":"product:P0438","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01447","role":"Primary","reviewStatus":"Seeded"}},{"key":"40f4b28ea5b6debf","source":"symptom:S011","target":"product:P0439","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01451","role":"Primary","reviewStatus":"Seeded"}},{"key":"18230fc35469ef07","source":"symptom:S011","target":"product:P0461","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01523","role":"Primary","reviewStatus":"Seeded"}},{"key":"3cf3c2a869ab35ed","source":"symptom:S011","target":"product:P0488","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01626","role":"Primary","reviewStatus":"Seeded"}},{"key":"21672bd65fa2d18b","source":"symptom:S011","target":"product:P0489","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01630","role":"Primary","reviewStatus":"Seeded"}},{"key":"b852206ae0c3b5bd","source":"symptom:S011","target":"product:P0500","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01659","role":"Primary","reviewStatus":"Seeded"}},{"key":"bf6a72d4ca9718b4","source":"symptom:S011","target":"product:P0501","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01663","role":"Primary","reviewStatus":"Seeded"}},{"key":"34dc9ebab4800cb1","source":"symptom:S011","target":"product:P0502","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01667","role":"Primary","reviewStatus":"Seeded"}},{"key":"93809f99ce6a712c","source":"symptom:S011","target":"product:P0503","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01671","role":"Primary","reviewStatus":"Seeded"}},{"key":"29060d3aedb07566","source":"symptom:S011","target":"usecase:UC001","rel":"usecase","label":"Triggered by symptom","score":85,"why":"Blocked nose, sore throat, cough, throat irritation","meta":{}},{"key":"0ec54f6208566eb0","source":"symptom:S011","target":"usecase:UC002","rel":"usecase","label":"Triggered by symptom","score":85,"why":"Sneezing, runny nose, itchy eyes, blocked nose","meta":{}}],"meta":{"symptomName":"blocked nose","linkCount":31}}
+{
+  "centerId": "symptom:S011",
+  "centerType": "symptom",
+  "refId": "S011",
+  "nodes": [
+    {
+      "id": "symptom:S011",
+      "nodeType": "symptom",
+      "refId": "S011",
+      "label": "blocked nose",
+      "subtext": "Cold / allergy",
+      "meta": {
+        "Symptom_ID": "S011",
+        "Symptom_Name": "blocked nose",
+        "Symptom_Category": "Cold / allergy",
+        "Linked_Product_Count": 29,
+        "Display_Group": "Cold / allergy",
+        "Priority_For_Graph": 100,
+        "Node_Color": "#70AD47",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "product:P0001",
+      "nodeType": "product",
+      "refId": "P0001",
+      "label": "ACTIFED 30mg/1.25mg per 5ml Syrup",
+      "subtext": "nasal congestion",
+      "meta": {
+        "brand": "ACTIFED",
+        "generic": "PSEUDOEPHEDRINE HYDROCHLORIDE | TRIPROLIDINE HYDROCHLORIDE",
+        "form": "SYRUP",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "nasal congestion",
+        "secondaryIndications": "blocked nose | sinus pressure | runny nose",
+        "otcCategory": "NASAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "Yes",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "TRIPROLIDINE HYDROCHLORIDE 1.25 milligram(s)/5 millilitre | PSEUDOEPHEDRINE HYDROCHLORIDE 30 milligram(s)/5 millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "R01BA52",
+        "status": "Authorised",
+        "supplierCatalogKey": "actifed 30mg/1.25mg per 5ml syrup"
+      }
+    },
+    {
+      "id": "product:P0015",
+      "nodeType": "product",
+      "refId": "P0015",
+      "label": "Actifed 60mg/2.5mg Tablets",
+      "subtext": "nasal congestion",
+      "meta": {
+        "brand": "Actifed",
+        "generic": "PSEUDOEPHEDRINE HYDROCHLORIDE | TRIPROLIDINE HYDROCHLORIDE",
+        "form": "TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "nasal congestion",
+        "secondaryIndications": "blocked nose | sinus pressure | runny nose",
+        "otcCategory": "NASAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "Yes",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "PSEUDOEPHEDRINE HYDROCHLORIDE 60 milligram(s) | TRIPROLIDINE HYDROCHLORIDE 2.5 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R01BA52",
+        "status": "Authorised",
+        "supplierCatalogKey": "actifed 60mg/2.5mg tablets"
+      }
+    },
+    {
+      "id": "product:P0036",
+      "nodeType": "product",
+      "refId": "P0036",
+      "label": "BIXTONIM XYLO 1 mg/ml nasal drops, solution",
+      "subtext": "nasal congestion",
+      "meta": {
+        "brand": "BIXTONIM",
+        "generic": "XYLOMETAZOLINE HYDROCHLORIDE",
+        "form": "NASAL DROPS, SOLUTION",
+        "formGroup": "Nasal",
+        "route": "Nasal",
+        "mainIndication": "nasal congestion",
+        "secondaryIndications": "blocked nose | sinus pressure | runny nose",
+        "otcCategory": "NASAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "XYLOMETAZOLINE HYDROCHLORIDE 1 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "R01AA07",
+        "status": "Authorised",
+        "supplierCatalogKey": "bixtonim xylo 1 mg/ml nasal drops, solution"
+      }
+    },
+    {
+      "id": "product:P0104",
+      "nodeType": "product",
+      "refId": "P0104",
+      "label": "Cirrus 5 mg/120 mg Prolonged Release Tablets",
+      "subtext": "nasal congestion",
+      "meta": {
+        "brand": "Cirrus",
+        "generic": "CETIRIZINE DIHYDROCHLORIDE | PSEUDOEPHEDRINE HYDROCHLORIDE",
+        "form": "PROLONGED-RELEASE TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "nasal congestion",
+        "secondaryIndications": "blocked nose | sinus pressure | runny nose",
+        "otcCategory": "NASAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "Yes",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "CETIRIZINE DIHYDROCHLORIDE 5 milligram(s) | PSEUDOEPHEDRINE HYDROCHLORIDE 120 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R01BA52",
+        "status": "Authorised",
+        "supplierCatalogKey": "cirrus 5 mg/120 mg prolonged release tablets"
+      }
+    },
+    {
+      "id": "product:P0106",
+      "nodeType": "product",
+      "refId": "P0106",
+      "label": "Clarinase Repetabs 5mg/120mg prolonged-release Tablets",
+      "subtext": "nasal congestion",
+      "meta": {
+        "brand": "Clarinase",
+        "generic": "LORATADINE | PSEUDOEPHEDRINE SULFATE",
+        "form": "PROLONGED-RELEASE TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "nasal congestion",
+        "secondaryIndications": "blocked nose | sinus pressure | runny nose",
+        "otcCategory": "NASAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "Yes",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "LORATADINE 5 milligram(s) | PSEUDOEPHEDRINE SULFATE 120 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R01BA52",
+        "status": "Authorised",
+        "supplierCatalogKey": "clarinase repetabs 5mg/120mg prolonged-release tablets"
+      }
+    },
+    {
+      "id": "product:P0219",
+      "nodeType": "product",
+      "refId": "P0219",
+      "label": "Hysan Adults 1 mg/ml nasal spray, solution",
+      "subtext": "nasal congestion",
+      "meta": {
+        "brand": "Hysan",
+        "generic": "XYLOMETAZOLINE HYDROCHLORIDE",
+        "form": "NASAL SPRAY, SOLUTION",
+        "formGroup": "Nasal",
+        "route": "Nasal",
+        "mainIndication": "nasal congestion",
+        "secondaryIndications": "blocked nose | sinus pressure | runny nose",
+        "otcCategory": "NASAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "XYLOMETAZOLINE HYDROCHLORIDE 1 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "R01AA07",
+        "status": "Authorised",
+        "supplierCatalogKey": "hysan adults 1 mg/ml nasal spray, solution"
+      }
+    },
+    {
+      "id": "product:P0220",
+      "nodeType": "product",
+      "refId": "P0220",
+      "label": "Hysan Paediatric 0.5 mg/ml nasal spray, solution",
+      "subtext": "nasal congestion",
+      "meta": {
+        "brand": "Hysan",
+        "generic": "XYLOMETAZOLINE HYDROCHLORIDE",
+        "form": "NASAL SPRAY, SOLUTION",
+        "formGroup": "Nasal",
+        "route": "Nasal",
+        "mainIndication": "nasal congestion",
+        "secondaryIndications": "blocked nose | sinus pressure | runny nose",
+        "otcCategory": "NASAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "XYLOMETAZOLINE HYDROCHLORIDE 0.5 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "R01AA07",
+        "status": "Authorised",
+        "supplierCatalogKey": "hysan paediatric 0.5 mg/ml nasal spray, solution"
+      }
+    },
+    {
+      "id": "product:P0285",
+      "nodeType": "product",
+      "refId": "P0285",
+      "label": "Medofed 30 mg/1.25 mg per 5 ml, oral solution",
+      "subtext": "nasal congestion",
+      "meta": {
+        "brand": "Medofed",
+        "generic": "PSEUDOEPHEDRINE HYDROCHLORIDE | TRIPROLIDINE HYDROCHLORIDE",
+        "form": "ORAL SOLUTION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "nasal congestion",
+        "secondaryIndications": "blocked nose | sinus pressure | runny nose",
+        "otcCategory": "NASAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "Yes",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "PSEUDOEPHEDRINE HYDROCHLORIDE 30 milligram(s) | TRIPROLIDINE HYDROCHLORIDE 1.25 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R01BA52",
+        "status": "Authorised",
+        "supplierCatalogKey": "medofed 30 mg/1.25 mg per 5 ml, oral solution"
+      }
+    },
+    {
+      "id": "product:P0311",
+      "nodeType": "product",
+      "refId": "P0311",
+      "label": "Nasacort Allergy 55 micrograms/dose, nasal spray, suspension",
+      "subtext": "nasal congestion",
+      "meta": {
+        "brand": "Nasacort",
+        "generic": "TRIAMCINOLONE ACETONIDE",
+        "form": "NASAL SPRAY, SUSPENSION",
+        "formGroup": "Nasal",
+        "route": "Nasal",
+        "mainIndication": "nasal congestion",
+        "secondaryIndications": "blocked nose | sinus pressure | runny nose",
+        "otcCategory": "NASAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "TRIAMCINOLONE ACETONIDE 55 microgram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R01AD11",
+        "status": "Authorised",
+        "supplierCatalogKey": "nasacort allergy 55 micrograms/dose, nasal spray, suspension"
+      }
+    },
+    {
+      "id": "product:P0337",
+      "nodeType": "product",
+      "refId": "P0337",
+      "label": "Non-Drowsy Sudafed Decongestant 60 mg Film-Coated Tablets",
+      "subtext": "nasal congestion",
+      "meta": {
+        "brand": "Non",
+        "generic": "PSEUDOEPHEDRINE HYDROCHLORIDE",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "nasal congestion",
+        "secondaryIndications": "blocked nose | sinus pressure | runny nose",
+        "otcCategory": "NASAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "Yes",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "PSEUDOEPHEDRINE HYDROCHLORIDE 60 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R01BA02",
+        "status": "Authorised",
+        "supplierCatalogKey": "non-drowsy sudafed decongestant 60 mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0338",
+      "nodeType": "product",
+      "refId": "P0338",
+      "label": "Non-drowsy Sinutab Tablets Paracetamol 500mg  Pseudoephedrine hydrochloride 30mg",
+      "subtext": "nasal congestion",
+      "meta": {
+        "brand": "Non",
+        "generic": "PARACETAMOL | PSEUDOEPHEDRINE HYDROCHLORIDE",
+        "form": "TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "nasal congestion",
+        "secondaryIndications": "blocked nose | sinus pressure | runny nose",
+        "otcCategory": "NASAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "Yes",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "PSEUDOEPHEDRINE HYDROCHLORIDE 30 milligram(s) | PARACETAMOL 500 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R01BA02",
+        "status": "Authorised",
+        "supplierCatalogKey": "non-drowsy sinutab tablets paracetamol 500mg pseudoephedrine hydrochloride 30mg"
+      }
+    },
+    {
+      "id": "product:P0357",
+      "nodeType": "product",
+      "refId": "P0357",
+      "label": "Olbas Inhaler Nasal Stick",
+      "subtext": "nasal congestion",
+      "meta": {
+        "brand": "Olbas",
+        "generic": "CAJUPUT OIL | EUCALYPTUS OIL | LEVOMENTHOL | PEPPERMINT OIL",
+        "form": "NASAL STICK",
+        "formGroup": "Nasal",
+        "route": "Nasal",
+        "mainIndication": "nasal congestion",
+        "secondaryIndications": "blocked nose | sinus pressure | runny nose",
+        "otcCategory": "NASAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 4,
+        "strengthText": "LEVOMENTHOL 40 percent weight/weight | EUCALYPTUS OIL 20 percent weight/weight | CAJUPUT OIL 20 percent weight/weight | PEPPERMINT OIL 20 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "R01AX",
+        "status": "Authorised",
+        "supplierCatalogKey": "olbas inhaler nasal stick"
+      }
+    },
+    {
+      "id": "product:P0364",
+      "nodeType": "product",
+      "refId": "P0364",
+      "label": "Otrivin 0.05% (Moisturising Formula) Nasal Spray",
+      "subtext": "nasal congestion",
+      "meta": {
+        "brand": "Otrivin",
+        "generic": "XYLOMETAZOLINE HYDROCHLORIDE",
+        "form": "NASAL SPRAY, SOLUTION",
+        "formGroup": "Nasal",
+        "route": "Nasal",
+        "mainIndication": "nasal congestion",
+        "secondaryIndications": "blocked nose | sinus pressure | runny nose",
+        "otcCategory": "NASAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "XYLOMETAZOLINE HYDROCHLORIDE 0.5 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "R01AA07",
+        "status": "Authorised",
+        "supplierCatalogKey": "otrivin 0.05% (moisturising formula) nasal spray"
+      }
+    },
+    {
+      "id": "product:P0365",
+      "nodeType": "product",
+      "refId": "P0365",
+      "label": "Otrivin 0.1% (Moisturising Formula) Nasal drops",
+      "subtext": "nasal congestion",
+      "meta": {
+        "brand": "Otrivin",
+        "generic": "XYLOMETAZOLINE HYDROCHLORIDE",
+        "form": "NASAL DROPS, SOLUTION",
+        "formGroup": "Nasal",
+        "route": "Nasal",
+        "mainIndication": "nasal congestion",
+        "secondaryIndications": "blocked nose | sinus pressure | runny nose",
+        "otcCategory": "NASAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "XYLOMETAZOLINE HYDROCHLORIDE 1 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "R01AA07",
+        "status": "Authorised",
+        "supplierCatalogKey": "otrivin 0.1% (moisturising formula) nasal drops"
+      }
+    },
+    {
+      "id": "product:P0366",
+      "nodeType": "product",
+      "refId": "P0366",
+      "label": "Otrivin Child",
+      "subtext": "nasal congestion",
+      "meta": {
+        "brand": "Otrivin",
+        "generic": "XYLOMETAZOLINE HYDROCHLORIDE",
+        "form": "NASAL DROPS, SOLUTION",
+        "formGroup": "Nasal",
+        "route": "Nasal",
+        "mainIndication": "nasal congestion",
+        "secondaryIndications": "blocked nose | sinus pressure | runny nose",
+        "otcCategory": "NASAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "XYLOMETAZOLINE HYDROCHLORIDE 0.05 percent weight/volume",
+        "packSizeText": "Review manually",
+        "atcCode": "R01AA07",
+        "status": "Authorised",
+        "supplierCatalogKey": "otrivin child"
+      }
+    },
+    {
+      "id": "product:P0367",
+      "nodeType": "product",
+      "refId": "P0367",
+      "label": "Otrivin Nasal spray, 0.1% w/v",
+      "subtext": "nasal congestion",
+      "meta": {
+        "brand": "Otrivin",
+        "generic": "XYLOMETAZOLINE HYDROCHLORIDE",
+        "form": "NASAL SPRAY, SOLUTION",
+        "formGroup": "Nasal",
+        "route": "Nasal",
+        "mainIndication": "nasal congestion",
+        "secondaryIndications": "blocked nose | sinus pressure | runny nose",
+        "otcCategory": "NASAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "XYLOMETAZOLINE HYDROCHLORIDE 1 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "R01AA07",
+        "status": "Authorised",
+        "supplierCatalogKey": "otrivin nasal spray, 0.1% w/v"
+      }
+    },
+    {
+      "id": "product:P0368",
+      "nodeType": "product",
+      "refId": "P0368",
+      "label": "Otrivin preservative free: nasal spray, solution (metered dose) 0.1%",
+      "subtext": "nasal congestion",
+      "meta": {
+        "brand": "Otrivin",
+        "generic": "XYLOMETAZOLINE HYDROCHLORIDE",
+        "form": "NASAL SPRAY, SOLUTION",
+        "formGroup": "Nasal",
+        "route": "Nasal",
+        "mainIndication": "nasal congestion",
+        "secondaryIndications": "blocked nose | sinus pressure | runny nose",
+        "otcCategory": "NASAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "XYLOMETAZOLINE HYDROCHLORIDE 0.1 percent weight/volume",
+        "packSizeText": "Review manually",
+        "atcCode": "R01AA07",
+        "status": "Authorised",
+        "supplierCatalogKey": "otrivin preservative free: nasal spray, solution (metered dose) 0.1%"
+      }
+    },
+    {
+      "id": "product:P0435",
+      "nodeType": "product",
+      "refId": "P0435",
+      "label": "SeptaNazal 0.5 mg/ml + 50 mg/ml nasal spray, solution",
+      "subtext": "nasal congestion",
+      "meta": {
+        "brand": "SeptaNazal",
+        "generic": "DEXPANTHENOL | XYLOMETAZOLINE HYDROCHLORIDE",
+        "form": "NASAL SPRAY, SOLUTION",
+        "formGroup": "Nasal",
+        "route": "Nasal",
+        "mainIndication": "nasal congestion",
+        "secondaryIndications": "blocked nose | sinus pressure | runny nose",
+        "otcCategory": "NASAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "XYLOMETAZOLINE HYDROCHLORIDE 0.5 milligram(s)/millilitre | DEXPANTHENOL 50 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "R01AB06",
+        "status": "Authorised",
+        "supplierCatalogKey": "septanazal 0.5 mg/ml + 50 mg/ml nasal spray, solution"
+      }
+    },
+    {
+      "id": "product:P0436",
+      "nodeType": "product",
+      "refId": "P0436",
+      "label": "SeptaNazal 1 mg/ml + 50 mg/ml nasal spray, solution",
+      "subtext": "nasal congestion",
+      "meta": {
+        "brand": "SeptaNazal",
+        "generic": "DEXPANTHENOL | XYLOMETAZOLINE HYDROCHLORIDE",
+        "form": "NASAL SPRAY, SOLUTION",
+        "formGroup": "Nasal",
+        "route": "Nasal",
+        "mainIndication": "nasal congestion",
+        "secondaryIndications": "blocked nose | sinus pressure | runny nose",
+        "otcCategory": "NASAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "XYLOMETAZOLINE HYDROCHLORIDE 1 milligram(s)/millilitre | DEXPANTHENOL 50 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "R01AB06",
+        "status": "Authorised",
+        "supplierCatalogKey": "septanazal 1 mg/ml + 50 mg/ml nasal spray, solution"
+      }
+    },
+    {
+      "id": "product:P0437",
+      "nodeType": "product",
+      "refId": "P0437",
+      "label": "SeptaNazal for children 0.5 mg/ml + 50 mg/ml nasal spray, solution",
+      "subtext": "nasal congestion",
+      "meta": {
+        "brand": "SeptaNazal",
+        "generic": "DEXPANTHENOL | XYLOMETAZOLINE HYDROCHLORIDE",
+        "form": "NASAL SPRAY, SOLUTION",
+        "formGroup": "Nasal",
+        "route": "Nasal",
+        "mainIndication": "nasal congestion",
+        "secondaryIndications": "blocked nose | sinus pressure | runny nose",
+        "otcCategory": "NASAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "DEXPANTHENOL 50 milligram(s)/millilitre | XYLOMETAZOLINE HYDROCHLORIDE 0.5 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "R01AB06",
+        "status": "Authorised",
+        "supplierCatalogKey": "septanazal for children 0.5 mg/ml + 50 mg/ml nasal spray, solution"
+      }
+    },
+    {
+      "id": "product:P0438",
+      "nodeType": "product",
+      "refId": "P0438",
+      "label": "Septanazal 1 mg/50 mg/ml nasal spray, solution",
+      "subtext": "nasal congestion",
+      "meta": {
+        "brand": "Septanazal",
+        "generic": "DEXPANTHENOL | XYLOMETAZOLINE HYDROCHLORIDE",
+        "form": "NASAL SPRAY",
+        "formGroup": "Nasal",
+        "route": "Nasal",
+        "mainIndication": "nasal congestion",
+        "secondaryIndications": "blocked nose | sinus pressure | runny nose",
+        "otcCategory": "NASAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "XYLOMETAZOLINE HYDROCHLORIDE 1 milligram(s)/millilitre | DEXPANTHENOL 50 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "R01AB06",
+        "status": "Authorised",
+        "supplierCatalogKey": "septanazal 1 mg/50 mg/ml nasal spray, solution"
+      }
+    },
+    {
+      "id": "product:P0439",
+      "nodeType": "product",
+      "refId": "P0439",
+      "label": "Septanazal for children 0.5 mg/50 mg/ml nasal spray, solution",
+      "subtext": "nasal congestion",
+      "meta": {
+        "brand": "Septanazal",
+        "generic": "DEXPANTHENOL | XYLOMETAZOLINE HYDROCHLORIDE",
+        "form": "NASAL SPRAY",
+        "formGroup": "Nasal",
+        "route": "Nasal",
+        "mainIndication": "nasal congestion",
+        "secondaryIndications": "blocked nose | sinus pressure | runny nose",
+        "otcCategory": "NASAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "XYLOMETAZOLINE HYDROCHLORIDE 0.5 milligram(s)/millilitre | DEXPANTHENOL 50 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "R01AB06",
+        "status": "Authorised",
+        "supplierCatalogKey": "septanazal for children 0.5 mg/50 mg/ml nasal spray, solution"
+      }
+    },
+    {
+      "id": "product:P0461",
+      "nodeType": "product",
+      "refId": "P0461",
+      "label": "Sudafed 0.1 % w/v Nasal Spray Solution",
+      "subtext": "nasal congestion",
+      "meta": {
+        "brand": "Sudafed",
+        "generic": "XYLOMETAZOLINE HYDROCHLORIDE",
+        "form": "NASAL SPRAY, SOLUTION",
+        "formGroup": "Nasal",
+        "route": "Nasal",
+        "mainIndication": "nasal congestion",
+        "secondaryIndications": "blocked nose | sinus pressure | runny nose",
+        "otcCategory": "NASAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "XYLOMETAZOLINE HYDROCHLORIDE 0.1 percent weight/volume",
+        "packSizeText": "Review manually",
+        "atcCode": "R01AA07",
+        "status": "Authorised",
+        "supplierCatalogKey": "sudafed 0.1 % w/v nasal spray solution"
+      }
+    },
+    {
+      "id": "product:P0488",
+      "nodeType": "product",
+      "refId": "P0488",
+      "label": "Utabon Adults",
+      "subtext": "nasal congestion",
+      "meta": {
+        "brand": "Utabon",
+        "generic": "OXYMETAZOLINE",
+        "form": "NASAL SPRAY, SOLUTION",
+        "formGroup": "Nasal",
+        "route": "Nasal",
+        "mainIndication": "nasal congestion",
+        "secondaryIndications": "blocked nose | sinus pressure | runny nose",
+        "otcCategory": "NASAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "OXYMETAZOLINE    0.5 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "R01AA05",
+        "status": "Authorised",
+        "supplierCatalogKey": "utabon adults"
+      }
+    },
+    {
+      "id": "product:P0489",
+      "nodeType": "product",
+      "refId": "P0489",
+      "label": "Utabon Pediatric",
+      "subtext": "nasal congestion",
+      "meta": {
+        "brand": "Utabon",
+        "generic": "OXYMETAZOLINE",
+        "form": "NASAL DROPS, SOLUTION",
+        "formGroup": "Nasal",
+        "route": "Nasal",
+        "mainIndication": "nasal congestion",
+        "secondaryIndications": "blocked nose | sinus pressure | runny nose",
+        "otcCategory": "NASAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "OXYMETAZOLINE    0.25 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "R01AA05",
+        "status": "Authorised",
+        "supplierCatalogKey": "utabon pediatric"
+      }
+    },
+    {
+      "id": "product:P0500",
+      "nodeType": "product",
+      "refId": "P0500",
+      "label": "Vibrocil",
+      "subtext": "nasal congestion",
+      "meta": {
+        "brand": "Vibrocil",
+        "generic": "DIMETINDENE MALEATE | PHENYLEPHRINE",
+        "form": "NASAL SPRAY, SOLUTION",
+        "formGroup": "Nasal",
+        "route": "Nasal",
+        "mainIndication": "nasal congestion",
+        "secondaryIndications": "blocked nose | sinus pressure | runny nose",
+        "otcCategory": "NASAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "PHENYLEPHRINE 2.5 milligram(s) | DIMETINDENE MALEATE 0.25 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R01AB",
+        "status": "Authorised",
+        "supplierCatalogKey": "vibrocil"
+      }
+    },
+    {
+      "id": "product:P0501",
+      "nodeType": "product",
+      "refId": "P0501",
+      "label": "Vicks Inhaler Nasal Stick",
+      "subtext": "nasal congestion",
+      "meta": {
+        "brand": "Vicks",
+        "generic": "CAMPHOR | MENTHOL | SIBERIAN PINE NEEDLE OIL",
+        "form": "NASAL STICK",
+        "formGroup": "Nasal",
+        "route": "Nasal",
+        "mainIndication": "nasal congestion",
+        "secondaryIndications": "blocked nose | sinus pressure | runny nose",
+        "otcCategory": "NASAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "Siberian Pine Needle Oil\n 10.00 milligram(s) | MENTHOL 125.00 milligram(s) | CAMPHOR 50.00 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R01AX30",
+        "status": "Authorised",
+        "supplierCatalogKey": "vicks inhaler nasal stick"
+      }
+    },
+    {
+      "id": "product:P0502",
+      "nodeType": "product",
+      "refId": "P0502",
+      "label": "Vicks Inhaler Nasal Stick Menthol 125 mg  Camphor 50 mg Siberian Pine Needle Oil 10 mg",
+      "subtext": "nasal congestion",
+      "meta": {
+        "brand": "Vicks",
+        "generic": "CAMPHOR | MENTHOL | SIBERIAN PINE NEEDLE OIL",
+        "form": "NASAL STICK",
+        "formGroup": "Nasal",
+        "route": "Nasal",
+        "mainIndication": "nasal congestion",
+        "secondaryIndications": "blocked nose | sinus pressure | runny nose",
+        "otcCategory": "NASAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "MENTHOL 125 milligram(s) | CAMPHOR 50 milligram(s) | Siberian Pine Needle Oil\n 10 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R01AX30",
+        "status": "Authorised",
+        "supplierCatalogKey": "vicks inhaler nasal stick menthol 125 mg camphor 50 mg siberian pine needle oil 10 mg"
+      }
+    },
+    {
+      "id": "product:P0503",
+      "nodeType": "product",
+      "refId": "P0503",
+      "label": "Vicks Inhaler Nasal Stick Menthol 125mg  Camphor 50mg Siberian Pine Needle Oil 10mg",
+      "subtext": "nasal congestion",
+      "meta": {
+        "brand": "Vicks",
+        "generic": "CAMPHOR | MENTHOL | SIBERIAN PINE NEEDLE OIL",
+        "form": "NASAL STICK",
+        "formGroup": "Nasal",
+        "route": "Nasal",
+        "mainIndication": "nasal congestion",
+        "secondaryIndications": "blocked nose | sinus pressure | runny nose",
+        "otcCategory": "NASAL PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "CAMPHOR 20 milligram(s) | Siberian Pine Needle Oil\n 10 milligram(s) | MENTHOL 125 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "R01AX30",
+        "status": "Authorised",
+        "supplierCatalogKey": "vicks inhaler nasal stick menthol 125mg camphor 50mg siberian pine needle oil 10mg"
+      }
+    },
+    {
+      "id": "usecase:UC001",
+      "nodeType": "usecase",
+      "refId": "UC001",
+      "label": "Cold and sore throat relief",
+      "subtext": "Cold / flu",
+      "meta": {
+        "UseCase_ID": "UC001",
+        "UseCase_Name": "Cold and sore throat relief",
+        "UseCase_Category": "Cold / flu",
+        "Trigger_Symptoms": "Blocked nose, sore throat, cough, throat irritation",
+        "Description": "Cold / flu plus throat support in one basket."
+      }
+    },
+    {
+      "id": "usecase:UC002",
+      "nodeType": "usecase",
+      "refId": "UC002",
+      "label": "Allergy day support",
+      "subtext": "Cold / allergy",
+      "meta": {
+        "UseCase_ID": "UC002",
+        "UseCase_Name": "Allergy day support",
+        "UseCase_Category": "Cold / allergy",
+        "Trigger_Symptoms": "Sneezing, runny nose, itchy eyes, blocked nose",
+        "Description": "Non-drowsy antihistamine plus targeted nasal or eye support."
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "544ca4bb6c0aea68",
+      "source": "product:P0001",
+      "target": "symptom:S011",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00002"
+      }
+    },
+    {
+      "key": "06fb5f142ebf6ead",
+      "source": "product:P0015",
+      "target": "symptom:S011",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00056"
+      }
+    },
+    {
+      "key": "0946c30661ea68c3",
+      "source": "product:P0036",
+      "target": "symptom:S011",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00119"
+      }
+    },
+    {
+      "key": "f4a605a4242d54e1",
+      "source": "product:P0104",
+      "target": "symptom:S011",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00339"
+      }
+    },
+    {
+      "key": "ced968107d25be72",
+      "source": "product:P0106",
+      "target": "symptom:S011",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00347"
+      }
+    },
+    {
+      "key": "7530134b0a4c519a",
+      "source": "product:P0219",
+      "target": "symptom:S011",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00708"
+      }
+    },
+    {
+      "key": "81dc5376cb6d3761",
+      "source": "product:P0220",
+      "target": "symptom:S011",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00712"
+      }
+    },
+    {
+      "key": "8b25df2ee31fc0e2",
+      "source": "product:P0285",
+      "target": "symptom:S011",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00909"
+      }
+    },
+    {
+      "key": "d8175336d6876fee",
+      "source": "product:P0311",
+      "target": "symptom:S011",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00998"
+      }
+    },
+    {
+      "key": "4ad86dd253ae1fd8",
+      "source": "product:P0337",
+      "target": "symptom:S011",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01078"
+      }
+    },
+    {
+      "key": "840cb21f2b93cb70",
+      "source": "product:P0338",
+      "target": "symptom:S011",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01082"
+      }
+    },
+    {
+      "key": "7061a09b97a074c9",
+      "source": "product:P0357",
+      "target": "symptom:S011",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01156"
+      }
+    },
+    {
+      "key": "062f1b22682f92ab",
+      "source": "product:P0364",
+      "target": "symptom:S011",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01180"
+      }
+    },
+    {
+      "key": "98c8e1382309d98a",
+      "source": "product:P0365",
+      "target": "symptom:S011",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01184"
+      }
+    },
+    {
+      "key": "a0f538ca932b9302",
+      "source": "product:P0366",
+      "target": "symptom:S011",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01188"
+      }
+    },
+    {
+      "key": "8eec6521892b3e48",
+      "source": "product:P0367",
+      "target": "symptom:S011",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01192"
+      }
+    },
+    {
+      "key": "21cb7b00f27fbdfb",
+      "source": "product:P0368",
+      "target": "symptom:S011",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01196"
+      }
+    },
+    {
+      "key": "82d91f0890c6c0a8",
+      "source": "product:P0435",
+      "target": "symptom:S011",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01435"
+      }
+    },
+    {
+      "key": "d3c3eed38921c059",
+      "source": "product:P0436",
+      "target": "symptom:S011",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01439"
+      }
+    },
+    {
+      "key": "1dd9e950e4e865f6",
+      "source": "product:P0437",
+      "target": "symptom:S011",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01443"
+      }
+    },
+    {
+      "key": "2fb659ffcfb561be",
+      "source": "product:P0438",
+      "target": "symptom:S011",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01447"
+      }
+    },
+    {
+      "key": "a8d682c21e647ee0",
+      "source": "product:P0439",
+      "target": "symptom:S011",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01451"
+      }
+    },
+    {
+      "key": "259fac6881358330",
+      "source": "product:P0461",
+      "target": "symptom:S011",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01523"
+      }
+    },
+    {
+      "key": "e85e8d7ad7ff6f26",
+      "source": "product:P0488",
+      "target": "symptom:S011",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01626"
+      }
+    },
+    {
+      "key": "ea7ed54442e3eb4c",
+      "source": "product:P0489",
+      "target": "symptom:S011",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01630"
+      }
+    },
+    {
+      "key": "c8b66fcdc0d1451b",
+      "source": "product:P0500",
+      "target": "symptom:S011",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01659"
+      }
+    },
+    {
+      "key": "cbab73dd4c944265",
+      "source": "product:P0501",
+      "target": "symptom:S011",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01663"
+      }
+    },
+    {
+      "key": "13f97cecb3049ef2",
+      "source": "product:P0502",
+      "target": "symptom:S011",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01667"
+      }
+    },
+    {
+      "key": "7e3728c7218dda36",
+      "source": "product:P0503",
+      "target": "symptom:S011",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01671"
+      }
+    },
+    {
+      "key": "5e8de462c53654c5",
+      "source": "symptom:S011",
+      "target": "usecase:UC001",
+      "rel": "usecase",
+      "label": "Related use case",
+      "score": 90,
+      "why": "",
+      "meta": {}
+    },
+    {
+      "key": "706d56acf95b97d1",
+      "source": "symptom:S011",
+      "target": "usecase:UC002",
+      "rel": "usecase",
+      "label": "Related use case",
+      "score": 90,
+      "why": "",
+      "meta": {}
+    }
+  ]
+}

@@ -1,0 +1,145 @@
+{
+  "centerId": "symptom:S085",
+  "centerType": "symptom",
+  "refId": "S085",
+  "nodes": [
+    {
+      "id": "symptom:S085",
+      "nodeType": "symptom",
+      "refId": "S085",
+      "label": "scabies",
+      "subtext": "Skin",
+      "meta": {
+        "Symptom_ID": "S085",
+        "Symptom_Name": "scabies",
+        "Symptom_Category": "Skin",
+        "Display_Group": "Skin",
+        "Linked_Product_Count": 0,
+        "Priority_For_Graph": 100,
+        "Node_Color": "#ff9f43"
+      }
+    },
+    {
+      "id": "product:P0237",
+      "nodeType": "product",
+      "refId": "P0237",
+      "label": "InfectoScab 5% cream",
+      "subtext": "scabies treatment",
+      "meta": {
+        "brand": "InfectoScab",
+        "generic": "PERMETHRIN",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "scabies treatment",
+        "secondaryIndications": "skin irritation",
+        "otcCategory": "ECTOPARASITICIDES, INCL. SCABICIDES, INSECTICIDES AND REPELLENTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "PERMETHRIN 50 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "P03AC04",
+        "status": "Authorised",
+        "supplierCatalogKey": "infectoscab 5% cream"
+      }
+    },
+    {
+      "id": "product:P0260",
+      "nodeType": "product",
+      "refId": "P0260",
+      "label": "Lyclear 5% w/w Dermal Cream",
+      "subtext": "scabies treatment",
+      "meta": {
+        "brand": "Lyclear",
+        "generic": "PERMETHRIN",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "scabies treatment",
+        "secondaryIndications": "skin irritation",
+        "otcCategory": "ECTOPARASITICIDES, INCL. SCABICIDES, INSECTICIDES AND REPELLENTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "PERMETHRIN 50 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "P03AC04",
+        "status": "Authorised",
+        "supplierCatalogKey": "lyclear 5% w/w dermal cream"
+      }
+    },
+    {
+      "id": "product:P0394",
+      "nodeType": "product",
+      "refId": "P0394",
+      "label": "Permethrin LMP 50 mg/g gel",
+      "subtext": "scabies treatment",
+      "meta": {
+        "brand": "Permethrin",
+        "generic": "PERMETHRIN",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "scabies treatment",
+        "secondaryIndications": "skin irritation",
+        "otcCategory": "ECTOPARASITICIDES, INCL. SCABICIDES, INSECTICIDES AND REPELLENTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "PERMETHRIN 50 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "P03AC04",
+        "status": "Authorised",
+        "supplierCatalogKey": "permethrin lmp 50 mg/g gel"
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "cd1c8f208ea32120",
+      "source": "product:P0237",
+      "target": "symptom:S085",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Indication-based assignment",
+      "meta": {
+        "mapId": "PSM01802"
+      }
+    },
+    {
+      "key": "134194a6dd08845c",
+      "source": "product:P0260",
+      "target": "symptom:S085",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Indication-based assignment",
+      "meta": {
+        "mapId": "PSM01808"
+      }
+    },
+    {
+      "key": "3c4918ca5ebe4034",
+      "source": "product:P0394",
+      "target": "symptom:S085",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Indication-based assignment",
+      "meta": {
+        "mapId": "PSM01810"
+      }
+    }
+  ]
+}

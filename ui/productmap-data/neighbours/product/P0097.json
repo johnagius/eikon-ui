@@ -1,1 +1,150 @@
-{"centerId":"product:P0097","centerType":"product","refId":"P0097","nodes":[{"id":"product:P0097","nodeType":"product","refId":"P0097","label":"Canesten® Extra Spray 10mg/g","subtext":"fungal skin infection","meta":{"brand":"Canesten","generic":"BIFONAZOLE","form":"Spray (solution)","formGroup":"Topical","route":"Topical","mainIndication":"fungal skin infection","secondaryIndications":"athlete foot | thrush (topical)","otcCategory":"ANTIFUNGALS FOR DERMATOLOGICAL USE","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"BIFONAZOLE 10 milligram(s)/gram","packSizeText":"Review manually","atcCode":"D01AC10","status":"Authorised","supplierCatalogKey":"canesten® extra spray 10mg/g"}},{"id":"symptom:S029","nodeType":"symptom","refId":"S029","label":"fungal skin infection","subtext":"Skin","meta":{"Symptom_ID":"S029","Symptom_Name":"fungal skin infection","Symptom_Category":"Skin","Linked_Product_Count":27,"Display_Group":"Skin","Priority_For_Graph":100,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"symptom:S007","nodeType":"symptom","refId":"S007","label":"athlete foot","subtext":"Skin","meta":{"Symptom_ID":"S007","Symptom_Name":"athlete foot","Symptom_Category":"Skin","Linked_Product_Count":27,"Display_Group":"Skin","Priority_For_Graph":100,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"symptom:S070","nodeType":"symptom","refId":"S070","label":"thrush (topical)","subtext":"Skin","meta":{"Symptom_ID":"S070","Symptom_Name":"thrush (topical)","Symptom_Category":"Skin","Linked_Product_Count":27,"Display_Group":"Skin","Priority_For_Graph":100,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"usecase:UC010","nodeType":"usecase","refId":"UC010","label":"Athlete foot and fungal skin care","subtext":"Skin","meta":{"UseCase_ID":"UC010","UseCase_Name":"Athlete foot and fungal skin care","UseCase_Category":"Skin","Trigger_Symptoms":"Fungal skin infection, athlete foot, itch","Description":"Antifungal core with hygiene/support products."}}],"links":[{"key":"6e8109afb0bf3779","source":"product:P0097","target":"symptom:S029","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00315","role":"Primary","reviewStatus":"Seeded"}},{"key":"0493e957d0e8ce3f","source":"product:P0097","target":"symptom:S007","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00316","role":"Primary","reviewStatus":"Seeded"}},{"key":"efaa7732269863fb","source":"product:P0097","target":"symptom:S070","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM00317","role":"Secondary","reviewStatus":"Seeded"}},{"key":"c9ad77ed693d783c","source":"product:P0097","target":"usecase:UC010","rel":"usecase","label":"Main","score":100,"why":"fungal skin infection, athlete foot, thrush (topical)","meta":{"useCaseItemId":"UCI00530","role":"Main","reviewStatus":"Seeded"}}],"meta":{"productName":"Canesten® Extra Spray 10mg/g","linkCount":4}}
+{
+  "centerId": "product:P0097",
+  "centerType": "product",
+  "refId": "P0097",
+  "nodes": [
+    {
+      "id": "product:P0097",
+      "nodeType": "product",
+      "refId": "P0097",
+      "label": "Canesten\u00ae Extra Spray 10mg/g",
+      "subtext": "fungal skin infection",
+      "meta": {
+        "brand": "Canesten",
+        "generic": "BIFONAZOLE",
+        "form": "Spray (solution)",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "fungal skin infection",
+        "secondaryIndications": "athlete foot | thrush (topical)",
+        "otcCategory": "ANTIFUNGALS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "BIFONAZOLE 10 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D01AC10",
+        "status": "Authorised",
+        "supplierCatalogKey": "canesten\u00ae extra spray 10mg/g"
+      }
+    },
+    {
+      "id": "symptom:S029",
+      "nodeType": "symptom",
+      "refId": "S029",
+      "label": "fungal skin infection",
+      "subtext": "Skin",
+      "meta": {
+        "Symptom_ID": "S029",
+        "Symptom_Name": "fungal skin infection",
+        "Symptom_Category": "Skin",
+        "Linked_Product_Count": 27,
+        "Display_Group": "Skin",
+        "Priority_For_Graph": 100,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "symptom:S007",
+      "nodeType": "symptom",
+      "refId": "S007",
+      "label": "athlete foot",
+      "subtext": "Skin",
+      "meta": {
+        "Symptom_ID": "S007",
+        "Symptom_Name": "athlete foot",
+        "Symptom_Category": "Skin",
+        "Linked_Product_Count": 27,
+        "Display_Group": "Skin",
+        "Priority_For_Graph": 100,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "symptom:S070",
+      "nodeType": "symptom",
+      "refId": "S070",
+      "label": "thrush (topical)",
+      "subtext": "Skin",
+      "meta": {
+        "Symptom_ID": "S070",
+        "Symptom_Name": "thrush (topical)",
+        "Symptom_Category": "Skin",
+        "Linked_Product_Count": 27,
+        "Display_Group": "Skin",
+        "Priority_For_Graph": 100,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "usecase:UC010",
+      "nodeType": "usecase",
+      "refId": "UC010",
+      "label": "Athlete foot and fungal skin care",
+      "subtext": "Skin",
+      "meta": {
+        "UseCase_ID": "UC010",
+        "UseCase_Name": "Athlete foot and fungal skin care",
+        "UseCase_Category": "Skin",
+        "Trigger_Symptoms": "Fungal skin infection, athlete foot, itch",
+        "Description": "Antifungal core with hygiene/support products."
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "6e8109afb0bf3779",
+      "source": "product:P0097",
+      "target": "symptom:S029",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00315"
+      }
+    },
+    {
+      "key": "0493e957d0e8ce3f",
+      "source": "product:P0097",
+      "target": "symptom:S007",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00316"
+      }
+    },
+    {
+      "key": "efaa7732269863fb",
+      "source": "product:P0097",
+      "target": "symptom:S070",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00317"
+      }
+    },
+    {
+      "key": "c9ad77ed693d783c",
+      "source": "product:P0097",
+      "target": "usecase:UC010",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "fungal skin infection, athlete foot, thrush (topical)",
+      "meta": {
+        "useCaseItemId": "UCI00530"
+      }
+    }
+  ]
+}

@@ -1,0 +1,105 @@
+{
+  "centerId": "symptom:S084",
+  "centerType": "symptom",
+  "refId": "S084",
+  "nodes": [
+    {
+      "id": "symptom:S084",
+      "nodeType": "symptom",
+      "refId": "S084",
+      "label": "heart health",
+      "subtext": "General",
+      "meta": {
+        "Symptom_ID": "S084",
+        "Symptom_Name": "heart health",
+        "Symptom_Category": "General",
+        "Display_Group": "General",
+        "Linked_Product_Count": 0,
+        "Priority_For_Graph": 100,
+        "Node_Color": "#ff6b6b"
+      }
+    },
+    {
+      "id": "product:P0027",
+      "nodeType": "product",
+      "refId": "P0027",
+      "label": "Aspirin 75mg Gastro-resistant Tablets",
+      "subtext": "heart health",
+      "meta": {
+        "brand": "Aspirin",
+        "generic": "ASPIRIN BP",
+        "form": "GASTRO-RESISTANT TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "heart health",
+        "secondaryIndications": "",
+        "otcCategory": "ANTITHROMBOTIC AGENTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "ASPIRIN BP 75 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "B01AC",
+        "status": "Authorised",
+        "supplierCatalogKey": "aspirin 75mg gastro-resistant tablets"
+      }
+    },
+    {
+      "id": "product:P0026",
+      "nodeType": "product",
+      "refId": "P0026",
+      "label": "Aspirem Tablets Gastro-Resistant 75mg",
+      "subtext": "heart health",
+      "meta": {
+        "brand": "Aspirem",
+        "generic": "ACETYLSALICYLIC ACID",
+        "form": "GASTRO-RESISTANT TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "heart health",
+        "secondaryIndications": "",
+        "otcCategory": "ANTITHROMBOTIC AGENTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "ACETYLSALICYLIC ACID 75 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "B01AC06",
+        "status": "Authorised",
+        "supplierCatalogKey": "aspirem tablets gastro-resistant 75mg"
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "01d2d8ecf2712de2",
+      "source": "product:P0027",
+      "target": "symptom:S084",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Indication-based assignment",
+      "meta": {
+        "mapId": "PSM01804"
+      }
+    },
+    {
+      "key": "8de014f3addf1ddc",
+      "source": "product:P0026",
+      "target": "symptom:S084",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Indication-based assignment",
+      "meta": {
+        "mapId": "PSM01816"
+      }
+    }
+  ]
+}

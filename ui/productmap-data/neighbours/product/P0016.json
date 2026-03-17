@@ -1,1 +1,1098 @@
-{"centerId":"product:P0016","centerType":"product","refId":"P0016","nodes":[{"id":"product:P0016","nodeType":"product","refId":"P0016","label":"Advil Cold & Flu Coated Tablets Ibuprofen 200 mg Pseudoephedrine Hydrochloride 30 mg","subtext":"inflammation","meta":{"brand":"Advil","generic":"IBUPROFEN | PSEUDOEPHEDRINE HYDROCHLORIDE","form":"COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"inflammation","secondaryIndications":"pain | swelling | musculoskeletal pain","otcCategory":"ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"IBUPROFEN 200 milligram(s) | PSEUDOEPHEDRINE HYDROCHLORIDE 30 milligram(s)","packSizeText":"Review manually","atcCode":"M01AE51","status":"Authorised","supplierCatalogKey":"advil cold & flu coated tablets ibuprofen 200 mg pseudoephedrine hydrochloride 30 mg"}},{"id":"product:P0344","nodeType":"product","refId":"P0344","label":"Nurofen Cold & Flu Film-Coated Tablets  Ibuprofen 200mg Pseudophedrine hydrochloride 30mg","subtext":"inflammation","meta":{"brand":"Nurofen","generic":"IBUPROFEN | PSEUDOEPHEDRINE HYDROCHLORIDE","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"inflammation","secondaryIndications":"pain | swelling | musculoskeletal pain","otcCategory":"ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"IBUPROFEN 200 milligram(s) | PSEUDOEPHEDRINE HYDROCHLORIDE 30 milligram(s)","packSizeText":"Review manually","atcCode":"M01AE51","status":"Authorised","supplierCatalogKey":"nurofen cold & flu film-coated tablets ibuprofen 200mg pseudophedrine hydrochloride 30mg"}},{"id":"product:P0136","nodeType":"product","refId":"P0136","label":"Diclofenac INN-FARM 10 mg/g gel","subtext":"muscle pain","meta":{"brand":"Diclofenac","generic":"DICLOFENAC SODIUM","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DICLOFENAC SODIUM 10 milligram(s)/gram","packSizeText":"Review manually","atcCode":"M02AA15","status":"Authorised","supplierCatalogKey":"diclofenac inn-farm 10 mg/g gel"}},{"id":"product:P0137","nodeType":"product","refId":"P0137","label":"Diclofenac INN-FARM 20 mg/g gel","subtext":"muscle pain","meta":{"brand":"Diclofenac","generic":"DICLOFENAC SODIUM","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DICLOFENAC SODIUM 20 milligram(s)/gram","packSizeText":"Review manually","atcCode":"M02AA15","status":"Authorised","supplierCatalogKey":"diclofenac inn-farm 20 mg/g gel"}},{"id":"product:P0138","nodeType":"product","refId":"P0138","label":"Diclomel Max Strength 2% w/w gel","subtext":"muscle pain","meta":{"brand":"Diclomel","generic":"DICLOFENAC SODIUM","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DICLOFENAC SODIUM 20 milligram(s)","packSizeText":"Review manually","atcCode":"M02AA15","status":"Authorised","supplierCatalogKey":"diclomel max strength 2% w/w gel"}},{"id":"product:P0190","nodeType":"product","refId":"P0190","label":"Flogoprofen Cutaneous Spray, Solution 50mg/ml","subtext":"muscle pain","meta":{"brand":"Flogoprofen","generic":"ETOFENAMATE","form":"CUTANEOUS SPRAY, SOLUTION","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"ETOFENAMATE 50 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"M02AA06","status":"Authorised","supplierCatalogKey":"flogoprofen cutaneous spray, solution 50mg/ml"}},{"id":"product:P0191","nodeType":"product","refId":"P0191","label":"Flogoprofen Gel 50mg/g","subtext":"muscle pain","meta":{"brand":"Flogoprofen","generic":"ETOFENAMATE","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"ETOFENAMATE 50 milligram(s)/gram","packSizeText":"Review manually","atcCode":"M02AA06","status":"Authorised","supplierCatalogKey":"flogoprofen gel 50mg/g"}},{"id":"product:P0223","nodeType":"product","refId":"P0223","label":"Ibalgin Duo Effect 50 mg/g + 2 mg/g cream","subtext":"muscle pain","meta":{"brand":"Ibalgin","generic":"HEPARINOID | IBUPROFEN","form":"CREAM","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"IBUPROFEN 50 milligram(s)/gram | HEPARINOID 2 milligram(s)/gram","packSizeText":"Review manually","atcCode":"M02AA13","status":"Authorised","supplierCatalogKey":"ibalgin duo effect 50 mg/g + 2 mg/g cream"}},{"id":"product:P0288","nodeType":"product","refId":"P0288","label":"Mentholatum Deep Heat Cream","subtext":"muscle pain","meta":{"brand":"Mentholatum","generic":"EUCALYPTUS OIL | MENTHOL | METHYL SALICYLATE | TURPENTINE OIL","form":"CREAM","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":4,"strengthText":"METHYL SALICYLATE 12.80 percent weight/weight | MENTHOL 5.91 percent weight/weight | EUCALYPTUS OIL 1.97 percent weight/weight | TURPENTINE OIL 1.47 percent weight/weight","packSizeText":"Review manually","atcCode":"M02AX","status":"Authorised","supplierCatalogKey":"mentholatum deep heat cream"}},{"id":"product:P0289","nodeType":"product","refId":"P0289","label":"Mentholatum Deep Heat Spray, cutaneous spray solution","subtext":"muscle pain","meta":{"brand":"Mentholatum","generic":"ETHYL SALICYLATE | HYDROXYETHYL SALICYLATE | METHYL NICOTINATE | METHYL SALICYLATE","form":"CUTANEOUS SPRAY, SOLUTION","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":4,"strengthText":"ETHYL SALICYLATE 5 percent weight/weight | HYDROXYETHYL SALICYLATE 5 percent weight/weight | METHYL NICOTINATE 1.6 percent weight/weight | METHYL SALICYLATE 1 percent weight/weight","packSizeText":"Review manually","atcCode":"M02AX","status":"Authorised","supplierCatalogKey":"mentholatum deep heat spray, cutaneous spray solution"}},{"id":"product:P0310","nodeType":"product","refId":"P0310","label":"Naprosyn 10%, gel","subtext":"muscle pain","meta":{"brand":"Naprosyn","generic":"NAPROXEN","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"NAPROXEN 100 milligram(s)","packSizeText":"Review manually","atcCode":"M02AA12","status":"Authorised","supplierCatalogKey":"naprosyn 10%, gel"}},{"id":"product:P0359","nodeType":"product","refId":"P0359","label":"Olfen Forte 23.2 mg/g gel","subtext":"muscle pain","meta":{"brand":"Olfen","generic":"DICLOFENAC DIETHYLAMINE","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DICLOFENAC DIETHYLAMINE 23.2 milligram(s)/gram","packSizeText":"Review manually","atcCode":"M02AA15","status":"Authorised","supplierCatalogKey":"olfen forte 23.2 mg/g gel"}},{"id":"product:P0447","nodeType":"product","refId":"P0447","label":"Sindolor 5 mg/5 mg/20 mg/g gel","subtext":"muscle pain","meta":{"brand":"Sindolor","generic":"CYCLOPENTOLATE HYDROCHLORIDE | LIDOCAINE | PIROXICAM","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"PIROXICAM 5 milligram(s)/gram | CYCLOPENTOLATE HYDROCHLORIDE 5 milligram(s)/gram | LIDOCAINE 20 milligram(s)/gram","packSizeText":"Review manually","atcCode":"M02AA07","status":"Authorised","supplierCatalogKey":"sindolor 5 mg/5 mg/20 mg/g gel"}},{"id":"product:P0482","nodeType":"product","refId":"P0482","label":"Traumon Gel 10%","subtext":"muscle pain","meta":{"brand":"Traumon","generic":"ETOFENAMATE","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"ETOFENAMATE 100 milligram(s)/gram","packSizeText":"Review manually","atcCode":"M02AA06","status":"Authorised","supplierCatalogKey":"traumon gel 10%"}},{"id":"product:P0492","nodeType":"product","refId":"P0492","label":"VOLTAREN EMULGEL 1%, gel","subtext":"muscle pain","meta":{"brand":"VOLTAREN","generic":"DICLOFENAC SODIUM","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DICLOFENAC SODIUM 1 gram(s)","packSizeText":"Review manually","atcCode":"M02AA15","status":"Authorised","supplierCatalogKey":"voltaren emulgel 1%, gel"}},{"id":"product:P0493","nodeType":"product","refId":"P0493","label":"VOLTAREN EMULGEL 1%, gel in aerosol spray can","subtext":"muscle pain","meta":{"brand":"VOLTAREN","generic":"DICLOFENAC SODIUM","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DICLOFENAC SODIUM 1 gram(s)","packSizeText":"Review manually","atcCode":"M02AA15","status":"Authorised","supplierCatalogKey":"voltaren emulgel 1%, gel in aerosol spray can"}},{"id":"product:P0499","nodeType":"product","refId":"P0499","label":"Viamal Trauma gel","subtext":"muscle pain","meta":{"brand":"Viamal","generic":"DIETHYLAMINE SALICYLATE | HEPARIN SODIUM | MENTHOL","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"DIETHYLAMINE SALICYLATE 100 milligram(s)/gram | MENTHOL 2 milligram(s)/gram | HEPARIN SODIUM 136,000 international unit(s)/gram","packSizeText":"Review manually","atcCode":"M02AC","status":"Authorised","supplierCatalogKey":"viamal trauma gel"}},{"id":"product:P0507","nodeType":"product","refId":"P0507","label":"Vilonit","subtext":"muscle pain","meta":{"brand":"Vilonit","generic":"DICLOFENAC SODIUM","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DICLOFENAC SODIUM 1 percent weight/weight","packSizeText":"Review manually","atcCode":"M02AA15","status":"Authorised","supplierCatalogKey":"vilonit"}},{"id":"product:P0509","nodeType":"product","refId":"P0509","label":"Voltadol 140 mg Medicated Patch","subtext":"muscle pain","meta":{"brand":"Voltadol","generic":"DICLOFENAC SODIUM","form":"MEDICATED PLASTER","formGroup":"Other","route":"Other","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DICLOFENAC SODIUM 140 milligram(s)","packSizeText":"Review manually","atcCode":"M02AA15","status":"Authorised","supplierCatalogKey":"voltadol 140 mg medicated patch"}},{"id":"product:P0510","nodeType":"product","refId":"P0510","label":"Voltaren Emulgel 1.16% Gel","subtext":"muscle pain","meta":{"brand":"Voltaren","generic":"DICLOFENAC SODIUM","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DICLOFENAC SODIUM 10 milligram(s)/gram","packSizeText":"Review manually","atcCode":"M02AA15","status":"Authorised","supplierCatalogKey":"voltaren emulgel 1.16% gel"}},{"id":"product:P0511","nodeType":"product","refId":"P0511","label":"Voltaren Emulgel 10 mg/g","subtext":"muscle pain","meta":{"brand":"Voltaren","generic":"DICLOFENAC DIETHYLAMINE","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DICLOFENAC DIETHYLAMINE 11.6 milligram(s)","packSizeText":"Review manually","atcCode":"M02AA15","status":"Authorised","supplierCatalogKey":"voltaren emulgel 10 mg/g"}},{"id":"product:P0512","nodeType":"product","refId":"P0512","label":"Voltaren Emulgel 11.6 mg/g emulsion-gel","subtext":"muscle pain","meta":{"brand":"Voltaren","generic":"DICLOFENAC SODIUM","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DICLOFENAC SODIUM 10 milligram(s)/gram","packSizeText":"Review manually","atcCode":"M02AA15","status":"Authorised","supplierCatalogKey":"voltaren emulgel 11.6 mg/g emulsion-gel"}},{"id":"product:P0513","nodeType":"product","refId":"P0513","label":"Voltarol Muscle & Joint Pain Relief 140 mg medicated plaster","subtext":"muscle pain","meta":{"brand":"Voltarol","generic":"DICLOFENAC SODIUM","form":"MEDICATED PLASTER","formGroup":"Other","route":"Other","mainIndication":"muscle pain","secondaryIndications":"joint pain | back pain | sprains","otcCategory":"TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DICLOFENAC SODIUM 140 milligram(s)","packSizeText":"Review manually","atcCode":"M02AA15","status":"Authorised","supplierCatalogKey":"voltarol muscle & joint pain relief 140 mg medicated plaster"}},{"id":"symptom:S037","nodeType":"symptom","refId":"S037","label":"inflammation","subtext":"Pain / fever","meta":{"Symptom_ID":"S037","Symptom_Name":"inflammation","Symptom_Category":"Pain / fever","Linked_Product_Count":43,"Display_Group":"Pain / fever","Priority_For_Graph":100,"Node_Color":"#5B9BD5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"symptom:S051","nodeType":"symptom","refId":"S051","label":"pain","subtext":"Pain / fever","meta":{"Symptom_ID":"S051","Symptom_Name":"pain","Symptom_Category":"Pain / fever","Linked_Product_Count":43,"Display_Group":"Pain / fever","Priority_For_Graph":100,"Node_Color":"#5B9BD5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"symptom:S067","nodeType":"symptom","refId":"S067","label":"swelling","subtext":"Pain / fever","meta":{"Symptom_ID":"S067","Symptom_Name":"swelling","Symptom_Category":"Pain / fever","Linked_Product_Count":43,"Display_Group":"Pain / fever","Priority_For_Graph":100,"Node_Color":"#5B9BD5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"symptom:S048","nodeType":"symptom","refId":"S048","label":"musculoskeletal pain","subtext":"Pain / fever","meta":{"Symptom_ID":"S048","Symptom_Name":"musculoskeletal pain","Symptom_Category":"Pain / fever","Linked_Product_Count":43,"Display_Group":"Pain / fever","Priority_For_Graph":100,"Node_Color":"#5B9BD5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"usecase:UC004","nodeType":"usecase","refId":"UC004","label":"Muscle and joint pain support","subtext":"Pain / fever","meta":{"UseCase_ID":"UC004","UseCase_Name":"Muscle and joint pain support","UseCase_Category":"Pain / fever","Trigger_Symptoms":"Muscle pain, joint pain, back pain, sprains","Description":"Topical plus oral pain relief combinations."}},{"id":"usecase:UC003","nodeType":"usecase","refId":"UC003","label":"Pain and fever support","subtext":"Pain / fever","meta":{"UseCase_ID":"UC003","UseCase_Name":"Pain and fever support","UseCase_Category":"Pain / fever","Trigger_Symptoms":"Headache, fever, body aches","Description":"Simple analgesic alternatives and add-ons."}}],"links":[{"key":"922696fae9fd60c9","source":"product:P0016","target":"product:P0344","rel":"similar","label":"Alternative: same active ingredient(s)","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00981","clinicalSimilarity":100,"commercialSubstitution":100,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"inflammation, musculoskeletal pain, pain","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"b4a5d87259a8f4ae","source":"product:P0016","target":"product:P0136","rel":"complement","label":"Joint / muscle pain support","score":84,"why":"Combines systemic anti-inflammatory relief with topical support.","meta":{"edgeId":"E15257","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":84,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Joint / muscle pain support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Ready - review when convenient","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"e63361605582740a","source":"product:P0016","target":"product:P0137","rel":"complement","label":"Joint / muscle pain support","score":84,"why":"Combines systemic anti-inflammatory relief with topical support.","meta":{"edgeId":"E15258","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":84,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Joint / muscle pain support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Ready - review when convenient","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"e01607afd8f3bcfe","source":"product:P0016","target":"product:P0138","rel":"complement","label":"Joint / muscle pain support","score":84,"why":"Combines systemic anti-inflammatory relief with topical support.","meta":{"edgeId":"E15259","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":84,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Joint / muscle pain support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Ready - review when convenient","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"f4b94922fb0820f7","source":"product:P0016","target":"product:P0190","rel":"complement","label":"Joint / muscle pain support","score":84,"why":"Combines systemic anti-inflammatory relief with topical support.","meta":{"edgeId":"E15260","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":84,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Joint / muscle pain support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Ready - review when convenient","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"a9d1b7e2642e489e","source":"product:P0016","target":"product:P0191","rel":"complement","label":"Joint / muscle pain support","score":84,"why":"Combines systemic anti-inflammatory relief with topical support.","meta":{"edgeId":"E15261","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":84,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Joint / muscle pain support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Ready - review when convenient","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"4967e85d769803a0","source":"product:P0016","target":"product:P0223","rel":"complement","label":"Joint / muscle pain support","score":84,"why":"Combines systemic anti-inflammatory relief with topical support.","meta":{"edgeId":"E15262","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":84,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Joint / muscle pain support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Ready - review when convenient","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"410a81c5954a2f57","source":"product:P0016","target":"product:P0288","rel":"complement","label":"Joint / muscle pain support","score":84,"why":"Combines systemic anti-inflammatory relief with topical support.","meta":{"edgeId":"E15263","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":84,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Joint / muscle pain support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Ready - review when convenient","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"6ea07e15bb0e28aa","source":"product:P0016","target":"product:P0289","rel":"complement","label":"Joint / muscle pain support","score":84,"why":"Combines systemic anti-inflammatory relief with topical support.","meta":{"edgeId":"E15264","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":84,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Joint / muscle pain support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Ready - review when convenient","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"8d2723bd2858a36a","source":"product:P0016","target":"product:P0310","rel":"complement","label":"Joint / muscle pain support","score":84,"why":"Combines systemic anti-inflammatory relief with topical support.","meta":{"edgeId":"E15265","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":84,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Joint / muscle pain support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Ready - review when convenient","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"6d0b0df703538e13","source":"product:P0016","target":"product:P0359","rel":"complement","label":"Joint / muscle pain support","score":84,"why":"Combines systemic anti-inflammatory relief with topical support.","meta":{"edgeId":"E15266","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":84,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Joint / muscle pain support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Ready - review when convenient","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"048573bd1bb358f8","source":"product:P0016","target":"product:P0447","rel":"complement","label":"Joint / muscle pain support","score":84,"why":"Combines systemic anti-inflammatory relief with topical support.","meta":{"edgeId":"E15267","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":84,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Joint / muscle pain support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Ready - review when convenient","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"6152510fe23bcabc","source":"product:P0016","target":"product:P0482","rel":"complement","label":"Joint / muscle pain support","score":84,"why":"Combines systemic anti-inflammatory relief with topical support.","meta":{"edgeId":"E15268","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":84,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Joint / muscle pain support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Ready - review when convenient","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"7c6e5c11f5c00006","source":"product:P0016","target":"product:P0492","rel":"complement","label":"Joint / muscle pain support","score":84,"why":"Combines systemic anti-inflammatory relief with topical support.","meta":{"edgeId":"E15269","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":84,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Joint / muscle pain support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Ready - review when convenient","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"c1ec3d4836e9e1a6","source":"product:P0016","target":"product:P0493","rel":"complement","label":"Joint / muscle pain support","score":84,"why":"Combines systemic anti-inflammatory relief with topical support.","meta":{"edgeId":"E15270","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":84,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Joint / muscle pain support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Ready - review when convenient","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"106b860edad851a0","source":"product:P0016","target":"product:P0499","rel":"complement","label":"Joint / muscle pain support","score":84,"why":"Combines systemic anti-inflammatory relief with topical support.","meta":{"edgeId":"E15271","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":84,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Joint / muscle pain support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Ready - review when convenient","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"66fc741a1baef464","source":"product:P0016","target":"product:P0507","rel":"complement","label":"Joint / muscle pain support","score":84,"why":"Combines systemic anti-inflammatory relief with topical support.","meta":{"edgeId":"E15272","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":84,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Joint / muscle pain support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Ready - review when convenient","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"7dbd1f691cdb4e8b","source":"product:P0016","target":"product:P0509","rel":"complement","label":"Joint / muscle pain support","score":84,"why":"Combines systemic anti-inflammatory relief with topical support.","meta":{"edgeId":"E15273","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":84,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Joint / muscle pain support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Ready - review when convenient","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"2cde22e3b4ee4eef","source":"product:P0016","target":"product:P0510","rel":"complement","label":"Joint / muscle pain support","score":84,"why":"Combines systemic anti-inflammatory relief with topical support.","meta":{"edgeId":"E15274","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":84,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Joint / muscle pain support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Ready - review when convenient","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"f3af4945282b1906","source":"product:P0016","target":"product:P0511","rel":"complement","label":"Joint / muscle pain support","score":84,"why":"Combines systemic anti-inflammatory relief with topical support.","meta":{"edgeId":"E15275","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":84,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Joint / muscle pain support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Ready - review when convenient","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"7f5ead65401699c0","source":"product:P0016","target":"product:P0512","rel":"complement","label":"Joint / muscle pain support","score":84,"why":"Combines systemic anti-inflammatory relief with topical support.","meta":{"edgeId":"E15276","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":84,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Joint / muscle pain support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Ready - review when convenient","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"65459325c8bcabef","source":"product:P0016","target":"product:P0513","rel":"complement","label":"Joint / muscle pain support","score":84,"why":"Combines systemic anti-inflammatory relief with topical support.","meta":{"edgeId":"E15277","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":84,"riskOverlap":20,"evidence":80,"seasonality":40,"triggerContext":"Joint / muscle pain support","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Ready - review when convenient","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"6196b4a3d1de0cf5","source":"product:P0016","target":"symptom:S037","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00059","role":"Primary","reviewStatus":"Seeded"}},{"key":"35f72eb19a25bb27","source":"product:P0016","target":"symptom:S051","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00060","role":"Primary","reviewStatus":"Seeded"}},{"key":"d95d5feb89f5ce4d","source":"product:P0016","target":"symptom:S067","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM00061","role":"Secondary","reviewStatus":"Seeded"}},{"key":"2650ecf860cec9ab","source":"product:P0016","target":"symptom:S048","rel":"symptom","label":"Secondary","score":78,"why":"Imported symptom tags","meta":{"mapId":"PSM00062","role":"Secondary","reviewStatus":"Seeded"}},{"key":"55582d6152692945","source":"product:P0016","target":"usecase:UC004","rel":"usecase","label":"Main","score":100,"why":"inflammation, pain, swelling, musculoskeletal pain","meta":{"useCaseItemId":"UCI00296","role":"Main","reviewStatus":"Seeded"}},{"key":"69364690453dee1e","source":"product:P0016","target":"usecase:UC003","rel":"usecase","label":"Main","score":80,"why":"pain","meta":{"useCaseItemId":"UCI00192","role":"Main","reviewStatus":"Seeded"}},{"key":"0c17ecf7abe8ff5a","source":"product:P0016","target":"product:P0344","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00981","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}}],"meta":{"productName":"Advil Cold & Flu Coated Tablets Ibuprofen 200 mg Pseudoephedrine Hydrochloride 30 mg","linkCount":29}}
+{
+  "centerId": "product:P0016",
+  "centerType": "product",
+  "refId": "P0016",
+  "nodes": [
+    {
+      "id": "product:P0016",
+      "nodeType": "product",
+      "refId": "P0016",
+      "label": "Advil Cold & Flu Coated Tablets Ibuprofen 200 mg Pseudoephedrine Hydrochloride 30 mg",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Advil",
+        "generic": "IBUPROFEN | PSEUDOEPHEDRINE HYDROCHLORIDE",
+        "form": "COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "IBUPROFEN 200 milligram(s) | PSEUDOEPHEDRINE HYDROCHLORIDE 30 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE51",
+        "status": "Authorised",
+        "supplierCatalogKey": "advil cold & flu coated tablets ibuprofen 200 mg pseudoephedrine hydrochloride 30 mg"
+      }
+    },
+    {
+      "id": "product:P0136",
+      "nodeType": "product",
+      "refId": "P0136",
+      "label": "Diclofenac INN-FARM 10 mg/g gel",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Diclofenac",
+        "generic": "DICLOFENAC SODIUM",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DICLOFENAC SODIUM 10 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA15",
+        "status": "Authorised",
+        "supplierCatalogKey": "diclofenac inn-farm 10 mg/g gel"
+      }
+    },
+    {
+      "id": "product:P0137",
+      "nodeType": "product",
+      "refId": "P0137",
+      "label": "Diclofenac INN-FARM 20 mg/g gel",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Diclofenac",
+        "generic": "DICLOFENAC SODIUM",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DICLOFENAC SODIUM 20 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA15",
+        "status": "Authorised",
+        "supplierCatalogKey": "diclofenac inn-farm 20 mg/g gel"
+      }
+    },
+    {
+      "id": "product:P0138",
+      "nodeType": "product",
+      "refId": "P0138",
+      "label": "Diclomel Max Strength 2% w/w gel",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Diclomel",
+        "generic": "DICLOFENAC SODIUM",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DICLOFENAC SODIUM 20 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA15",
+        "status": "Authorised",
+        "supplierCatalogKey": "diclomel max strength 2% w/w gel"
+      }
+    },
+    {
+      "id": "product:P0190",
+      "nodeType": "product",
+      "refId": "P0190",
+      "label": "Flogoprofen Cutaneous Spray, Solution 50mg/ml",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Flogoprofen",
+        "generic": "ETOFENAMATE",
+        "form": "CUTANEOUS SPRAY, SOLUTION",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "ETOFENAMATE 50 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA06",
+        "status": "Authorised",
+        "supplierCatalogKey": "flogoprofen cutaneous spray, solution 50mg/ml"
+      }
+    },
+    {
+      "id": "product:P0191",
+      "nodeType": "product",
+      "refId": "P0191",
+      "label": "Flogoprofen Gel 50mg/g",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Flogoprofen",
+        "generic": "ETOFENAMATE",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "ETOFENAMATE 50 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA06",
+        "status": "Authorised",
+        "supplierCatalogKey": "flogoprofen gel 50mg/g"
+      }
+    },
+    {
+      "id": "product:P0223",
+      "nodeType": "product",
+      "refId": "P0223",
+      "label": "Ibalgin Duo Effect 50 mg/g + 2 mg/g cream",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Ibalgin",
+        "generic": "HEPARINOID | IBUPROFEN",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "IBUPROFEN 50 milligram(s)/gram | HEPARINOID 2 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA13",
+        "status": "Authorised",
+        "supplierCatalogKey": "ibalgin duo effect 50 mg/g + 2 mg/g cream"
+      }
+    },
+    {
+      "id": "product:P0288",
+      "nodeType": "product",
+      "refId": "P0288",
+      "label": "Mentholatum Deep Heat Cream",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Mentholatum",
+        "generic": "EUCALYPTUS OIL | MENTHOL | METHYL SALICYLATE | TURPENTINE OIL",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 4,
+        "strengthText": "METHYL SALICYLATE 12.80 percent weight/weight | MENTHOL 5.91 percent weight/weight | EUCALYPTUS OIL 1.97 percent weight/weight | TURPENTINE OIL 1.47 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AX",
+        "status": "Authorised",
+        "supplierCatalogKey": "mentholatum deep heat cream"
+      }
+    },
+    {
+      "id": "product:P0289",
+      "nodeType": "product",
+      "refId": "P0289",
+      "label": "Mentholatum Deep Heat Spray, cutaneous spray solution",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Mentholatum",
+        "generic": "ETHYL SALICYLATE | HYDROXYETHYL SALICYLATE | METHYL NICOTINATE | METHYL SALICYLATE",
+        "form": "CUTANEOUS SPRAY, SOLUTION",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 4,
+        "strengthText": "ETHYL SALICYLATE 5 percent weight/weight | HYDROXYETHYL SALICYLATE 5 percent weight/weight | METHYL NICOTINATE 1.6 percent weight/weight | METHYL SALICYLATE 1 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AX",
+        "status": "Authorised",
+        "supplierCatalogKey": "mentholatum deep heat spray, cutaneous spray solution"
+      }
+    },
+    {
+      "id": "product:P0310",
+      "nodeType": "product",
+      "refId": "P0310",
+      "label": "Naprosyn 10%, gel",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Naprosyn",
+        "generic": "NAPROXEN",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "NAPROXEN 100 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA12",
+        "status": "Authorised",
+        "supplierCatalogKey": "naprosyn 10%, gel"
+      }
+    },
+    {
+      "id": "product:P0359",
+      "nodeType": "product",
+      "refId": "P0359",
+      "label": "Olfen Forte 23.2 mg/g gel",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Olfen",
+        "generic": "DICLOFENAC DIETHYLAMINE",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DICLOFENAC DIETHYLAMINE 23.2 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA15",
+        "status": "Authorised",
+        "supplierCatalogKey": "olfen forte 23.2 mg/g gel"
+      }
+    },
+    {
+      "id": "product:P0447",
+      "nodeType": "product",
+      "refId": "P0447",
+      "label": "Sindolor 5 mg/5 mg/20 mg/g gel",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Sindolor",
+        "generic": "CYCLOPENTOLATE HYDROCHLORIDE | LIDOCAINE | PIROXICAM",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "PIROXICAM 5 milligram(s)/gram | CYCLOPENTOLATE HYDROCHLORIDE 5 milligram(s)/gram | LIDOCAINE 20 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA07",
+        "status": "Authorised",
+        "supplierCatalogKey": "sindolor 5 mg/5 mg/20 mg/g gel"
+      }
+    },
+    {
+      "id": "product:P0482",
+      "nodeType": "product",
+      "refId": "P0482",
+      "label": "Traumon Gel 10%",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Traumon",
+        "generic": "ETOFENAMATE",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "ETOFENAMATE 100 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA06",
+        "status": "Authorised",
+        "supplierCatalogKey": "traumon gel 10%"
+      }
+    },
+    {
+      "id": "product:P0492",
+      "nodeType": "product",
+      "refId": "P0492",
+      "label": "VOLTAREN EMULGEL 1%, gel",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "VOLTAREN",
+        "generic": "DICLOFENAC SODIUM",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DICLOFENAC SODIUM 1 gram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA15",
+        "status": "Authorised",
+        "supplierCatalogKey": "voltaren emulgel 1%, gel"
+      }
+    },
+    {
+      "id": "product:P0493",
+      "nodeType": "product",
+      "refId": "P0493",
+      "label": "VOLTAREN EMULGEL 1%, gel in aerosol spray can",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "VOLTAREN",
+        "generic": "DICLOFENAC SODIUM",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DICLOFENAC SODIUM 1 gram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA15",
+        "status": "Authorised",
+        "supplierCatalogKey": "voltaren emulgel 1%, gel in aerosol spray can"
+      }
+    },
+    {
+      "id": "product:P0499",
+      "nodeType": "product",
+      "refId": "P0499",
+      "label": "Viamal Trauma gel",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Viamal",
+        "generic": "DIETHYLAMINE SALICYLATE | HEPARIN SODIUM | MENTHOL",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "DIETHYLAMINE SALICYLATE 100 milligram(s)/gram | MENTHOL 2 milligram(s)/gram | HEPARIN SODIUM 136,000 international unit(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AC",
+        "status": "Authorised",
+        "supplierCatalogKey": "viamal trauma gel"
+      }
+    },
+    {
+      "id": "product:P0507",
+      "nodeType": "product",
+      "refId": "P0507",
+      "label": "Vilonit",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Vilonit",
+        "generic": "DICLOFENAC SODIUM",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DICLOFENAC SODIUM 1 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA15",
+        "status": "Authorised",
+        "supplierCatalogKey": "vilonit"
+      }
+    },
+    {
+      "id": "product:P0509",
+      "nodeType": "product",
+      "refId": "P0509",
+      "label": "Voltadol 140 mg Medicated Patch",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Voltadol",
+        "generic": "DICLOFENAC SODIUM",
+        "form": "MEDICATED PLASTER",
+        "formGroup": "Other",
+        "route": "Other",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DICLOFENAC SODIUM 140 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA15",
+        "status": "Authorised",
+        "supplierCatalogKey": "voltadol 140 mg medicated patch"
+      }
+    },
+    {
+      "id": "product:P0510",
+      "nodeType": "product",
+      "refId": "P0510",
+      "label": "Voltaren Emulgel 1.16% Gel",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Voltaren",
+        "generic": "DICLOFENAC SODIUM",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DICLOFENAC SODIUM 10 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA15",
+        "status": "Authorised",
+        "supplierCatalogKey": "voltaren emulgel 1.16% gel"
+      }
+    },
+    {
+      "id": "product:P0511",
+      "nodeType": "product",
+      "refId": "P0511",
+      "label": "Voltaren Emulgel 10 mg/g",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Voltaren",
+        "generic": "DICLOFENAC DIETHYLAMINE",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DICLOFENAC DIETHYLAMINE 11.6 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA15",
+        "status": "Authorised",
+        "supplierCatalogKey": "voltaren emulgel 10 mg/g"
+      }
+    },
+    {
+      "id": "product:P0512",
+      "nodeType": "product",
+      "refId": "P0512",
+      "label": "Voltaren Emulgel 11.6 mg/g emulsion-gel",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Voltaren",
+        "generic": "DICLOFENAC SODIUM",
+        "form": "GEL",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DICLOFENAC SODIUM 10 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA15",
+        "status": "Authorised",
+        "supplierCatalogKey": "voltaren emulgel 11.6 mg/g emulsion-gel"
+      }
+    },
+    {
+      "id": "product:P0513",
+      "nodeType": "product",
+      "refId": "P0513",
+      "label": "Voltarol Muscle & Joint Pain Relief 140 mg medicated plaster",
+      "subtext": "muscle pain",
+      "meta": {
+        "brand": "Voltarol",
+        "generic": "DICLOFENAC SODIUM",
+        "form": "MEDICATED PLASTER",
+        "formGroup": "Other",
+        "route": "Other",
+        "mainIndication": "muscle pain",
+        "secondaryIndications": "joint pain | back pain | sprains",
+        "otcCategory": "TOPICAL PRODUCTS FOR JOINT AND MUSCULAR PAIN",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DICLOFENAC SODIUM 140 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M02AA15",
+        "status": "Authorised",
+        "supplierCatalogKey": "voltarol muscle & joint pain relief 140 mg medicated plaster"
+      }
+    },
+    {
+      "id": "product:P0344",
+      "nodeType": "product",
+      "refId": "P0344",
+      "label": "Nurofen Cold & Flu Film-Coated Tablets  Ibuprofen 200mg Pseudophedrine hydrochloride 30mg",
+      "subtext": "inflammation",
+      "meta": {
+        "brand": "Nurofen",
+        "generic": "IBUPROFEN | PSEUDOEPHEDRINE HYDROCHLORIDE",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "inflammation",
+        "secondaryIndications": "pain | swelling | musculoskeletal pain",
+        "otcCategory": "ANTIINFLAMMATORY AND ANTIRHEUMATIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "IBUPROFEN 200 milligram(s) | PSEUDOEPHEDRINE HYDROCHLORIDE 30 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "M01AE51",
+        "status": "Authorised",
+        "supplierCatalogKey": "nurofen cold & flu film-coated tablets ibuprofen 200mg pseudophedrine hydrochloride 30mg"
+      }
+    },
+    {
+      "id": "symptom:S037",
+      "nodeType": "symptom",
+      "refId": "S037",
+      "label": "inflammation",
+      "subtext": "Pain / fever",
+      "meta": {
+        "Symptom_ID": "S037",
+        "Symptom_Name": "inflammation",
+        "Symptom_Category": "Pain / fever",
+        "Linked_Product_Count": 43,
+        "Display_Group": "Pain / fever",
+        "Priority_For_Graph": 100,
+        "Node_Color": "#5B9BD5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "symptom:S051",
+      "nodeType": "symptom",
+      "refId": "S051",
+      "label": "pain",
+      "subtext": "Pain / fever",
+      "meta": {
+        "Symptom_ID": "S051",
+        "Symptom_Name": "pain",
+        "Symptom_Category": "Pain / fever",
+        "Linked_Product_Count": 43,
+        "Display_Group": "Pain / fever",
+        "Priority_For_Graph": 100,
+        "Node_Color": "#5B9BD5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "symptom:S067",
+      "nodeType": "symptom",
+      "refId": "S067",
+      "label": "swelling",
+      "subtext": "Pain / fever",
+      "meta": {
+        "Symptom_ID": "S067",
+        "Symptom_Name": "swelling",
+        "Symptom_Category": "Pain / fever",
+        "Linked_Product_Count": 43,
+        "Display_Group": "Pain / fever",
+        "Priority_For_Graph": 100,
+        "Node_Color": "#5B9BD5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "symptom:S048",
+      "nodeType": "symptom",
+      "refId": "S048",
+      "label": "musculoskeletal pain",
+      "subtext": "Pain / fever",
+      "meta": {
+        "Symptom_ID": "S048",
+        "Symptom_Name": "musculoskeletal pain",
+        "Symptom_Category": "Pain / fever",
+        "Linked_Product_Count": 43,
+        "Display_Group": "Pain / fever",
+        "Priority_For_Graph": 100,
+        "Node_Color": "#5B9BD5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "usecase:UC003",
+      "nodeType": "usecase",
+      "refId": "UC003",
+      "label": "Pain and fever support",
+      "subtext": "Pain / fever",
+      "meta": {
+        "UseCase_ID": "UC003",
+        "UseCase_Name": "Pain and fever support",
+        "UseCase_Category": "Pain / fever",
+        "Trigger_Symptoms": "Headache, fever, body aches",
+        "Description": "Simple analgesic alternatives and add-ons."
+      }
+    },
+    {
+      "id": "usecase:UC004",
+      "nodeType": "usecase",
+      "refId": "UC004",
+      "label": "Muscle and joint pain support",
+      "subtext": "Pain / fever",
+      "meta": {
+        "UseCase_ID": "UC004",
+        "UseCase_Name": "Muscle and joint pain support",
+        "UseCase_Category": "Pain / fever",
+        "Trigger_Symptoms": "Muscle pain, joint pain, back pain, sprains",
+        "Description": "Topical plus oral pain relief combinations."
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "b4a5d87259a8f4ae",
+      "source": "product:P0016",
+      "target": "product:P0136",
+      "rel": "complement",
+      "label": "Joint / muscle pain support",
+      "score": 84,
+      "why": "Combines systemic anti-inflammatory relief with topical support.",
+      "meta": {
+        "edgeId": "E15257"
+      }
+    },
+    {
+      "key": "e63361605582740a",
+      "source": "product:P0016",
+      "target": "product:P0137",
+      "rel": "complement",
+      "label": "Joint / muscle pain support",
+      "score": 84,
+      "why": "Combines systemic anti-inflammatory relief with topical support.",
+      "meta": {
+        "edgeId": "E15258"
+      }
+    },
+    {
+      "key": "e01607afd8f3bcfe",
+      "source": "product:P0016",
+      "target": "product:P0138",
+      "rel": "complement",
+      "label": "Joint / muscle pain support",
+      "score": 84,
+      "why": "Combines systemic anti-inflammatory relief with topical support.",
+      "meta": {
+        "edgeId": "E15259"
+      }
+    },
+    {
+      "key": "f4b94922fb0820f7",
+      "source": "product:P0016",
+      "target": "product:P0190",
+      "rel": "complement",
+      "label": "Joint / muscle pain support",
+      "score": 84,
+      "why": "Combines systemic anti-inflammatory relief with topical support.",
+      "meta": {
+        "edgeId": "E15260"
+      }
+    },
+    {
+      "key": "a9d1b7e2642e489e",
+      "source": "product:P0016",
+      "target": "product:P0191",
+      "rel": "complement",
+      "label": "Joint / muscle pain support",
+      "score": 84,
+      "why": "Combines systemic anti-inflammatory relief with topical support.",
+      "meta": {
+        "edgeId": "E15261"
+      }
+    },
+    {
+      "key": "4967e85d769803a0",
+      "source": "product:P0016",
+      "target": "product:P0223",
+      "rel": "complement",
+      "label": "Joint / muscle pain support",
+      "score": 84,
+      "why": "Combines systemic anti-inflammatory relief with topical support.",
+      "meta": {
+        "edgeId": "E15262"
+      }
+    },
+    {
+      "key": "410a81c5954a2f57",
+      "source": "product:P0016",
+      "target": "product:P0288",
+      "rel": "complement",
+      "label": "Joint / muscle pain support",
+      "score": 84,
+      "why": "Combines systemic anti-inflammatory relief with topical support.",
+      "meta": {
+        "edgeId": "E15263"
+      }
+    },
+    {
+      "key": "6ea07e15bb0e28aa",
+      "source": "product:P0016",
+      "target": "product:P0289",
+      "rel": "complement",
+      "label": "Joint / muscle pain support",
+      "score": 84,
+      "why": "Combines systemic anti-inflammatory relief with topical support.",
+      "meta": {
+        "edgeId": "E15264"
+      }
+    },
+    {
+      "key": "8d2723bd2858a36a",
+      "source": "product:P0016",
+      "target": "product:P0310",
+      "rel": "complement",
+      "label": "Joint / muscle pain support",
+      "score": 84,
+      "why": "Combines systemic anti-inflammatory relief with topical support.",
+      "meta": {
+        "edgeId": "E15265"
+      }
+    },
+    {
+      "key": "6d0b0df703538e13",
+      "source": "product:P0016",
+      "target": "product:P0359",
+      "rel": "complement",
+      "label": "Joint / muscle pain support",
+      "score": 84,
+      "why": "Combines systemic anti-inflammatory relief with topical support.",
+      "meta": {
+        "edgeId": "E15266"
+      }
+    },
+    {
+      "key": "048573bd1bb358f8",
+      "source": "product:P0016",
+      "target": "product:P0447",
+      "rel": "complement",
+      "label": "Joint / muscle pain support",
+      "score": 84,
+      "why": "Combines systemic anti-inflammatory relief with topical support.",
+      "meta": {
+        "edgeId": "E15267"
+      }
+    },
+    {
+      "key": "6152510fe23bcabc",
+      "source": "product:P0016",
+      "target": "product:P0482",
+      "rel": "complement",
+      "label": "Joint / muscle pain support",
+      "score": 84,
+      "why": "Combines systemic anti-inflammatory relief with topical support.",
+      "meta": {
+        "edgeId": "E15268"
+      }
+    },
+    {
+      "key": "7c6e5c11f5c00006",
+      "source": "product:P0016",
+      "target": "product:P0492",
+      "rel": "complement",
+      "label": "Joint / muscle pain support",
+      "score": 84,
+      "why": "Combines systemic anti-inflammatory relief with topical support.",
+      "meta": {
+        "edgeId": "E15269"
+      }
+    },
+    {
+      "key": "c1ec3d4836e9e1a6",
+      "source": "product:P0016",
+      "target": "product:P0493",
+      "rel": "complement",
+      "label": "Joint / muscle pain support",
+      "score": 84,
+      "why": "Combines systemic anti-inflammatory relief with topical support.",
+      "meta": {
+        "edgeId": "E15270"
+      }
+    },
+    {
+      "key": "106b860edad851a0",
+      "source": "product:P0016",
+      "target": "product:P0499",
+      "rel": "complement",
+      "label": "Joint / muscle pain support",
+      "score": 84,
+      "why": "Combines systemic anti-inflammatory relief with topical support.",
+      "meta": {
+        "edgeId": "E15271"
+      }
+    },
+    {
+      "key": "66fc741a1baef464",
+      "source": "product:P0016",
+      "target": "product:P0507",
+      "rel": "complement",
+      "label": "Joint / muscle pain support",
+      "score": 84,
+      "why": "Combines systemic anti-inflammatory relief with topical support.",
+      "meta": {
+        "edgeId": "E15272"
+      }
+    },
+    {
+      "key": "7dbd1f691cdb4e8b",
+      "source": "product:P0016",
+      "target": "product:P0509",
+      "rel": "complement",
+      "label": "Joint / muscle pain support",
+      "score": 84,
+      "why": "Combines systemic anti-inflammatory relief with topical support.",
+      "meta": {
+        "edgeId": "E15273"
+      }
+    },
+    {
+      "key": "2cde22e3b4ee4eef",
+      "source": "product:P0016",
+      "target": "product:P0510",
+      "rel": "complement",
+      "label": "Joint / muscle pain support",
+      "score": 84,
+      "why": "Combines systemic anti-inflammatory relief with topical support.",
+      "meta": {
+        "edgeId": "E15274"
+      }
+    },
+    {
+      "key": "f3af4945282b1906",
+      "source": "product:P0016",
+      "target": "product:P0511",
+      "rel": "complement",
+      "label": "Joint / muscle pain support",
+      "score": 84,
+      "why": "Combines systemic anti-inflammatory relief with topical support.",
+      "meta": {
+        "edgeId": "E15275"
+      }
+    },
+    {
+      "key": "7f5ead65401699c0",
+      "source": "product:P0016",
+      "target": "product:P0512",
+      "rel": "complement",
+      "label": "Joint / muscle pain support",
+      "score": 84,
+      "why": "Combines systemic anti-inflammatory relief with topical support.",
+      "meta": {
+        "edgeId": "E15276"
+      }
+    },
+    {
+      "key": "65459325c8bcabef",
+      "source": "product:P0016",
+      "target": "product:P0513",
+      "rel": "complement",
+      "label": "Joint / muscle pain support",
+      "score": 84,
+      "why": "Combines systemic anti-inflammatory relief with topical support.",
+      "meta": {
+        "edgeId": "E15277"
+      }
+    },
+    {
+      "key": "922696fae9fd60c9",
+      "source": "product:P0016",
+      "target": "product:P0344",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00981"
+      }
+    },
+    {
+      "key": "6196b4a3d1de0cf5",
+      "source": "product:P0016",
+      "target": "symptom:S037",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00059"
+      }
+    },
+    {
+      "key": "35f72eb19a25bb27",
+      "source": "product:P0016",
+      "target": "symptom:S051",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00060"
+      }
+    },
+    {
+      "key": "d95d5feb89f5ce4d",
+      "source": "product:P0016",
+      "target": "symptom:S067",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00061"
+      }
+    },
+    {
+      "key": "2650ecf860cec9ab",
+      "source": "product:P0016",
+      "target": "symptom:S048",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 78,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00062"
+      }
+    },
+    {
+      "key": "69364690453dee1e",
+      "source": "product:P0016",
+      "target": "usecase:UC003",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 80,
+      "why": "pain",
+      "meta": {
+        "useCaseItemId": "UCI00192"
+      }
+    },
+    {
+      "key": "55582d6152692945",
+      "source": "product:P0016",
+      "target": "usecase:UC004",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "inflammation, pain, swelling, musculoskeletal pain",
+      "meta": {
+        "useCaseItemId": "UCI00296"
+      }
+    },
+    {
+      "key": "0c17ecf7abe8ff5a",
+      "source": "product:P0016",
+      "target": "product:P0344",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00981",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    }
+  ]
+}

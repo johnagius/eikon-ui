@@ -1,1 +1,121 @@
-{"centerId":"product:P0255","centerType":"product","refId":"P0255","nodes":[{"id":"product:P0255","nodeType":"product","refId":"P0255","label":"Lidoproctene 1.5% / 1% cream","subtext":"haemorrhoids","meta":{"brand":"Lidoproctene","generic":"HYDROCORTISONE ACETATE | LIDOCAINE HYDROCHLORIDE","form":"CREAM","formGroup":"Topical","route":"Topical","mainIndication":"haemorrhoids","secondaryIndications":"vein support","otcCategory":"VASOPROTECTIVES","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"LIDOCAINE HYDROCHLORIDE 1.5 percent | HYDROCORTISONE ACETATE 1  percent","packSizeText":"Review manually","atcCode":"C05AA01","status":"Authorised","supplierCatalogKey":"lidoproctene 1.5% / 1% cream"}},{"id":"symptom:S032","nodeType":"symptom","refId":"S032","label":"haemorrhoids","subtext":"General","meta":{"Symptom_ID":"S032","Symptom_Name":"haemorrhoids","Symptom_Category":"General","Linked_Product_Count":9,"Display_Group":"General","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"symptom:S074","nodeType":"symptom","refId":"S074","label":"vein support","subtext":"General","meta":{"Symptom_ID":"S074","Symptom_Name":"vein support","Symptom_Category":"General","Linked_Product_Count":9,"Display_Group":"General","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}}],"links":[{"key":"eb76aa30e25649ac","source":"product:P0255","target":"symptom:S032","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00823","role":"Primary","reviewStatus":"Seeded"}},{"key":"9a30cca68b788688","source":"product:P0255","target":"symptom:S074","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00824","role":"Primary","reviewStatus":"Seeded"}}],"meta":{"productName":"Lidoproctene 1.5% / 1% cream","linkCount":2}}
+{
+  "centerId": "product:P0255",
+  "centerType": "product",
+  "refId": "P0255",
+  "nodes": [
+    {
+      "id": "product:P0255",
+      "nodeType": "product",
+      "refId": "P0255",
+      "label": "Lidoproctene 1.5% / 1% cream",
+      "subtext": "haemorrhoids",
+      "meta": {
+        "brand": "Lidoproctene",
+        "generic": "HYDROCORTISONE ACETATE | LIDOCAINE HYDROCHLORIDE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "haemorrhoids",
+        "secondaryIndications": "vein support",
+        "otcCategory": "VASOPROTECTIVES",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "LIDOCAINE HYDROCHLORIDE 1.5 percent | HYDROCORTISONE ACETATE 1  percent",
+        "packSizeText": "Review manually",
+        "atcCode": "C05AA01",
+        "status": "Authorised",
+        "supplierCatalogKey": "lidoproctene 1.5% / 1% cream"
+      }
+    },
+    {
+      "id": "symptom:S032",
+      "nodeType": "symptom",
+      "refId": "S032",
+      "label": "haemorrhoids",
+      "subtext": "General",
+      "meta": {
+        "Symptom_ID": "S032",
+        "Symptom_Name": "haemorrhoids",
+        "Symptom_Category": "General",
+        "Linked_Product_Count": 9,
+        "Display_Group": "General",
+        "Priority_For_Graph": 70,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "symptom:S074",
+      "nodeType": "symptom",
+      "refId": "S074",
+      "label": "vein support",
+      "subtext": "General",
+      "meta": {
+        "Symptom_ID": "S074",
+        "Symptom_Name": "vein support",
+        "Symptom_Category": "General",
+        "Linked_Product_Count": 9,
+        "Display_Group": "General",
+        "Priority_For_Graph": 70,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "usecase:UC013",
+      "nodeType": "usecase",
+      "refId": "UC013",
+      "label": "Haemorrhoid relief",
+      "subtext": "Gastrointestinal",
+      "meta": {
+        "UseCase_ID": "UC013",
+        "UseCase_Name": "Haemorrhoid relief",
+        "UseCase_Category": "Gastrointestinal",
+        "Trigger_Symptoms": "Haemorrhoids, rectal discomfort, itching",
+        "Description": "Topical and oral options for haemorrhoid symptom relief."
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "eb76aa30e25649ac",
+      "source": "product:P0255",
+      "target": "symptom:S032",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00823"
+      }
+    },
+    {
+      "key": "9a30cca68b788688",
+      "source": "product:P0255",
+      "target": "symptom:S074",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00824"
+      }
+    },
+    {
+      "key": "4c83ad2461a422cd",
+      "source": "product:P0255",
+      "target": "usecase:UC013",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Haemorrhoids, rectal discomfort, itching",
+      "meta": {
+        "useCaseItemId": "UCI00633"
+      }
+    }
+  ]
+}

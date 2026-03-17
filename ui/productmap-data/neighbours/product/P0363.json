@@ -8,15 +8,15 @@
       "nodeType": "product",
       "refId": "P0363",
       "label": "Otipax Ear drops solution",
-      "subtext": "review needed",
+      "subtext": "ear pain",
       "meta": {
         "brand": "Otipax",
         "generic": "LIDOCAINE HYDROCHLORIDE | PHENAZONE",
         "form": "EAR DROPS, SOLUTION",
         "formGroup": "Ear",
         "route": "Ear",
-        "mainIndication": "review needed",
-        "secondaryIndications": null,
+        "mainIndication": "ear pain",
+        "secondaryIndications": "",
         "otcCategory": "OTOLOGICALS",
         "seasonalGroup": "All year",
         "sedating": "No",
@@ -32,39 +32,60 @@
       }
     },
     {
-      "id": "symptom:S051",
+      "id": "symptom:S081",
       "nodeType": "symptom",
-      "refId": "S051",
-      "label": "pain",
+      "refId": "S081",
+      "label": "ear pain",
+      "subtext": "General",
+      "meta": {
+        "Symptom_ID": "S081",
+        "Symptom_Name": "ear pain",
+        "Symptom_Category": "General",
+        "Display_Group": "General",
+        "Linked_Product_Count": 0,
+        "Priority_For_Graph": 100,
+        "Node_Color": "#feca57"
+      }
+    },
+    {
+      "id": "usecase:UC003",
+      "nodeType": "usecase",
+      "refId": "UC003",
+      "label": "Pain and fever support",
       "subtext": "Pain / fever",
       "meta": {
-        "Symptom_ID": "S051",
-        "Symptom_Name": "pain",
-        "Symptom_Category": "Pain / fever",
-        "Linked_Product_Count": 43,
-        "Display_Group": "Pain / fever",
-        "Priority_For_Graph": 100,
-        "Node_Color": "#5B9BD5",
-        "Notes": "Seeded from imported symptom tags; refine naming over time."
+        "UseCase_ID": "UC003",
+        "UseCase_Name": "Pain and fever support",
+        "UseCase_Category": "Pain / fever",
+        "Trigger_Symptoms": "Headache, fever, body aches",
+        "Description": "Simple analgesic alternatives and add-ons."
       }
     }
   ],
   "links": [
     {
-      "key": "d9861883e24488f2",
+      "key": "6e41eca3167bed77",
       "source": "product:P0363",
-      "target": "symptom:S051",
+      "target": "symptom:S081",
       "rel": "symptom",
       "label": "Primary",
       "score": 100,
-      "why": "Manual review fix",
+      "why": "Indication-based assignment",
       "meta": {
-        "mapId": "PSM01790"
+        "mapId": "PSM01809"
+      }
+    },
+    {
+      "key": "bdae0c1e9754fcb1",
+      "source": "product:P0363",
+      "target": "usecase:UC003",
+      "rel": "usecase",
+      "label": "Support",
+      "score": 70,
+      "why": "Ear pain, pain relief",
+      "meta": {
+        "useCaseItemId": "UCI00735"
       }
     }
-  ],
-  "meta": {
-    "productName": "Otipax Ear drops solution",
-    "linkCount": 1
-  }
+  ]
 }

@@ -1,0 +1,373 @@
+{
+  "centerId": "usecase:UC017",
+  "centerType": "usecase",
+  "refId": "UC017",
+  "nodes": [
+    {
+      "id": "usecase:UC017",
+      "nodeType": "usecase",
+      "refId": "UC017",
+      "label": "Mineral and vitamin support",
+      "subtext": "Supplements",
+      "meta": {
+        "UseCase_ID": "UC017",
+        "UseCase_Name": "Mineral and vitamin support",
+        "UseCase_Category": "Supplements",
+        "Trigger_Symptoms": "Vitamin deficiency, mineral deficiency, supplementation",
+        "Description": "Essential vitamins and minerals for general health."
+      }
+    },
+    {
+      "id": "product:P0025",
+      "nodeType": "product",
+      "refId": "P0025",
+      "label": "Arcalion 200mg Coated Tablets",
+      "subtext": "vitamin support",
+      "meta": {
+        "brand": "Arcalion",
+        "generic": "SULBUTIAMINE",
+        "mainIndication": "vitamin support",
+        "otcCategory": "VITAMINS"
+      }
+    },
+    {
+      "id": "product:P0068",
+      "nodeType": "product",
+      "refId": "P0068",
+      "label": "Cacit D3 500mg/440IU, effervescent granules for oral solution in sachet",
+      "subtext": "mineral support",
+      "meta": {
+        "brand": "Cacit",
+        "generic": "CALCIUM CARBONATE | COLECALCIFEROL",
+        "mainIndication": "mineral support",
+        "otcCategory": "MINERAL SUPPLEMENTS"
+      }
+    },
+    {
+      "id": "product:P0069",
+      "nodeType": "product",
+      "refId": "P0069",
+      "label": "Calcium 500 mg HEXAL, effervescent tablets",
+      "subtext": "mineral support",
+      "meta": {
+        "brand": "Calcium",
+        "generic": "CALCIUM CARBONATE",
+        "mainIndication": "mineral support",
+        "otcCategory": "MINERAL SUPPLEMENTS"
+      }
+    },
+    {
+      "id": "product:P0120",
+      "nodeType": "product",
+      "refId": "P0120",
+      "label": "Cystopurin 3g Granules for Oral Solution",
+      "subtext": "mineral support",
+      "meta": {
+        "brand": "Cystopurin",
+        "generic": "POTASSIUM CITRATE",
+        "mainIndication": "mineral support",
+        "otcCategory": "MINERAL SUPPLEMENTS"
+      }
+    },
+    {
+      "id": "product:P0232",
+      "nodeType": "product",
+      "refId": "P0232",
+      "label": "Ideos 500mg/400IU Chewable Tablets",
+      "subtext": "mineral support",
+      "meta": {
+        "brand": "Ideos",
+        "generic": "CALCIUM | COLECALCIFEROL",
+        "mainIndication": "mineral support",
+        "otcCategory": "MINERAL SUPPLEMENTS"
+      }
+    },
+    {
+      "id": "product:P0243",
+      "nodeType": "product",
+      "refId": "P0243",
+      "label": "Ketovite Liquid",
+      "subtext": "vitamin support",
+      "meta": {
+        "brand": "Ketovite",
+        "generic": "CHOLINE CHLORIDE | CYANOCOBALAMIN | ERGOCALCIFEROL | VITAMIN A",
+        "mainIndication": "vitamin support",
+        "otcCategory": "VITAMINS"
+      }
+    },
+    {
+      "id": "product:P0262",
+      "nodeType": "product",
+      "refId": "P0262",
+      "label": "MAGNEVIE B6 100 mg/10 mg film-coated tablets",
+      "subtext": "mineral support",
+      "meta": {
+        "brand": "MAGNEVIE",
+        "generic": "MAGNESIUM | PYRIDOXINE HYDROCHLORIDE",
+        "mainIndication": "mineral support",
+        "otcCategory": "MINERAL SUPPLEMENTS"
+      }
+    },
+    {
+      "id": "product:P0279",
+      "nodeType": "product",
+      "refId": "P0279",
+      "label": "Mastical 500 mg chewable tablets",
+      "subtext": "mineral support",
+      "meta": {
+        "brand": "Mastical",
+        "generic": "CALCIUM CARBONATE",
+        "mainIndication": "mineral support",
+        "otcCategory": "MINERAL SUPPLEMENTS"
+      }
+    },
+    {
+      "id": "product:P0400",
+      "nodeType": "product",
+      "refId": "P0400",
+      "label": "Potassium Citrate Mixture",
+      "subtext": "mineral support",
+      "meta": {
+        "brand": "Potassium",
+        "generic": "POTASSIUM CITRATE",
+        "mainIndication": "mineral support",
+        "otcCategory": "MINERAL SUPPLEMENTS"
+      }
+    },
+    {
+      "id": "product:P0491",
+      "nodeType": "product",
+      "refId": "P0491",
+      "label": "VITAMIN B COMPOUND STRONG FILM-COATED TABLETS",
+      "subtext": "vitamin support",
+      "meta": {
+        "brand": "VITAMIN",
+        "generic": "NICOTINAMIDE | PYRIDOXINE HYDROCHLORIDE | RIBOFLAVIN | THIAMINE HYDROCHLORIDE",
+        "mainIndication": "vitamin support",
+        "otcCategory": "VITAMINS"
+      }
+    },
+    {
+      "id": "product:P0431",
+      "nodeType": "product",
+      "refId": "P0431",
+      "label": "STIMOL 1g/10ml, oral solution in sachet",
+      "subtext": "fatigue",
+      "meta": {
+        "brand": "STIMOL",
+        "generic": "CITRULLINE MALEATE",
+        "mainIndication": "fatigue",
+        "otcCategory": "TONICS"
+      }
+    },
+    {
+      "id": "product:P0026",
+      "nodeType": "product",
+      "refId": "P0026",
+      "label": "Aspirem Tablets Gastro-Resistant 75mg",
+      "subtext": "heart health",
+      "meta": {
+        "brand": "Aspirem",
+        "generic": "ACETYLSALICYLIC ACID",
+        "mainIndication": "heart health",
+        "otcCategory": "ANTITHROMBOTIC AGENTS"
+      }
+    },
+    {
+      "id": "product:P0027",
+      "nodeType": "product",
+      "refId": "P0027",
+      "label": "Aspirin 75mg Gastro-resistant Tablets",
+      "subtext": "heart health",
+      "meta": {
+        "brand": "Aspirin",
+        "generic": "ASPIRIN BP",
+        "mainIndication": "heart health",
+        "otcCategory": "ANTITHROMBOTIC AGENTS"
+      }
+    },
+    {
+      "id": "product:P0401",
+      "nodeType": "product",
+      "refId": "P0401",
+      "label": "Potassium iodide G.L. Pharma 65mg Tablets",
+      "subtext": "thyroid protection",
+      "meta": {
+        "brand": "Potassium",
+        "generic": "POTASSIUM IODIDE",
+        "mainIndication": "thyroid protection",
+        "otcCategory": "ALL OTHER THERAPEUTIC PRODUCTS"
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "cb6ef68e9548c02c",
+      "source": "product:P0025",
+      "target": "usecase:UC017",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Vitamin deficiency, mineral deficiency, supplementation",
+      "meta": {
+        "useCaseItemId": "UCI00660"
+      }
+    },
+    {
+      "key": "37705235646e7dce",
+      "source": "product:P0068",
+      "target": "usecase:UC017",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Vitamin deficiency, mineral deficiency, supplementation",
+      "meta": {
+        "useCaseItemId": "UCI00661"
+      }
+    },
+    {
+      "key": "7abb0339e38c7459",
+      "source": "product:P0069",
+      "target": "usecase:UC017",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Vitamin deficiency, mineral deficiency, supplementation",
+      "meta": {
+        "useCaseItemId": "UCI00662"
+      }
+    },
+    {
+      "key": "f36afd0551c6e55d",
+      "source": "product:P0120",
+      "target": "usecase:UC017",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Vitamin deficiency, mineral deficiency, supplementation",
+      "meta": {
+        "useCaseItemId": "UCI00663"
+      }
+    },
+    {
+      "key": "b7e575a0ed965899",
+      "source": "product:P0232",
+      "target": "usecase:UC017",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Vitamin deficiency, mineral deficiency, supplementation",
+      "meta": {
+        "useCaseItemId": "UCI00664"
+      }
+    },
+    {
+      "key": "25a744c6cc153d8f",
+      "source": "product:P0243",
+      "target": "usecase:UC017",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Vitamin deficiency, mineral deficiency, supplementation",
+      "meta": {
+        "useCaseItemId": "UCI00665"
+      }
+    },
+    {
+      "key": "508fc4311c76d461",
+      "source": "product:P0262",
+      "target": "usecase:UC017",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Vitamin deficiency, mineral deficiency, supplementation",
+      "meta": {
+        "useCaseItemId": "UCI00666"
+      }
+    },
+    {
+      "key": "4e859ba07206cc43",
+      "source": "product:P0279",
+      "target": "usecase:UC017",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Vitamin deficiency, mineral deficiency, supplementation",
+      "meta": {
+        "useCaseItemId": "UCI00667"
+      }
+    },
+    {
+      "key": "92b46f90c0a078e2",
+      "source": "product:P0400",
+      "target": "usecase:UC017",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Vitamin deficiency, mineral deficiency, supplementation",
+      "meta": {
+        "useCaseItemId": "UCI00668"
+      }
+    },
+    {
+      "key": "e7b453995ef35262",
+      "source": "product:P0491",
+      "target": "usecase:UC017",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Vitamin deficiency, mineral deficiency, supplementation",
+      "meta": {
+        "useCaseItemId": "UCI00669"
+      }
+    },
+    {
+      "key": "9272694c89458a8b",
+      "source": "product:P0431",
+      "target": "usecase:UC017",
+      "rel": "usecase",
+      "label": "Support",
+      "score": 75,
+      "why": "Fatigue, energy support",
+      "meta": {
+        "useCaseItemId": "UCI00736"
+      }
+    },
+    {
+      "key": "e5abdc8ece178aff",
+      "source": "product:P0026",
+      "target": "usecase:UC017",
+      "rel": "usecase",
+      "label": "Support",
+      "score": 60,
+      "why": "Heart health, daily aspirin",
+      "meta": {
+        "useCaseItemId": "UCI00737"
+      }
+    },
+    {
+      "key": "1e8c76558cc6cbdf",
+      "source": "product:P0027",
+      "target": "usecase:UC017",
+      "rel": "usecase",
+      "label": "Support",
+      "score": 60,
+      "why": "Heart health, daily aspirin",
+      "meta": {
+        "useCaseItemId": "UCI00738"
+      }
+    },
+    {
+      "key": "a58e482a6f49e914",
+      "source": "product:P0401",
+      "target": "usecase:UC017",
+      "rel": "usecase",
+      "label": "Support",
+      "score": 60,
+      "why": "Thyroid protection, iodine",
+      "meta": {
+        "useCaseItemId": "UCI00739"
+      }
+    }
+  ]
+}

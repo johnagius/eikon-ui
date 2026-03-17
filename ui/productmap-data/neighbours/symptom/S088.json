@@ -1,0 +1,65 @@
+{
+  "centerId": "symptom:S088",
+  "centerType": "symptom",
+  "refId": "S088",
+  "nodes": [
+    {
+      "id": "symptom:S088",
+      "nodeType": "symptom",
+      "refId": "S088",
+      "label": "urinary health",
+      "subtext": "General",
+      "meta": {
+        "Symptom_ID": "S088",
+        "Symptom_Name": "urinary health",
+        "Symptom_Category": "General",
+        "Display_Group": "General",
+        "Linked_Product_Count": 0,
+        "Priority_For_Graph": 100,
+        "Node_Color": "#48dbfb"
+      }
+    },
+    {
+      "id": "product:P0427",
+      "nodeType": "product",
+      "refId": "P0427",
+      "label": "Rowatinex Gastro-resistant Capsules, Soft",
+      "subtext": "urinary stones",
+      "meta": {
+        "brand": "Rowatinex",
+        "generic": "ANETHOL | BORNEOL | CAMPHENE | CINEOLE | FENCHONE | PINENE",
+        "form": "GASTRO-RESISTANT SOFT CAPSULE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "urinary stones",
+        "secondaryIndications": "",
+        "otcCategory": "UROLOGICALS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 7,
+        "strengthText": "ANETHOL 4 milligram(s) | PINENE 6.2 milligram(s) | CAMPHENE 15 milligram(s) | BORNEOL 10 milligram(s) | FENCHONE 4 milligram(s) | PINENE 24.8 milligram(s) | CINEOLE 3 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "G04BC",
+        "status": "Authorised",
+        "supplierCatalogKey": "rowatinex gastro-resistant capsules, soft"
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "ac0ed755f991f4ac",
+      "source": "product:P0427",
+      "target": "symptom:S088",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Indication-based assignment",
+      "meta": {
+        "mapId": "PSM01803"
+      }
+    }
+  ]
+}

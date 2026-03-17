@@ -8,15 +8,15 @@
       "nodeType": "product",
       "refId": "P0028",
       "label": "Avarante Prescription Free 10 mg film-coated tablets",
-      "subtext": "review needed",
+      "subtext": "erectile dysfunction",
       "meta": {
         "brand": "Avarante",
         "generic": "TADALAFIL",
         "form": "FILM-COATED TABLET",
         "formGroup": "Oral solid",
         "route": "Oral",
-        "mainIndication": "review needed",
-        "secondaryIndications": null,
+        "mainIndication": "erectile dysfunction",
+        "secondaryIndications": "",
         "otcCategory": "UROLOGICALS",
         "seasonalGroup": "All year",
         "sedating": "No",
@@ -32,39 +32,60 @@
       }
     },
     {
-      "id": "symptom:S076",
+      "id": "symptom:S079",
       "nodeType": "symptom",
-      "refId": "S076",
-      "label": "wellness",
-      "subtext": "General",
+      "refId": "S079",
+      "label": "erectile dysfunction",
+      "subtext": "Men's health",
       "meta": {
-        "Symptom_ID": "S076",
-        "Symptom_Name": "wellness",
-        "Symptom_Category": "General",
-        "Linked_Product_Count": 3,
-        "Display_Group": "General",
-        "Priority_For_Graph": 70,
-        "Node_Color": "#A5A5A5",
-        "Notes": "Seeded from imported symptom tags; refine naming over time."
+        "Symptom_ID": "S079",
+        "Symptom_Name": "erectile dysfunction",
+        "Symptom_Category": "Men's health",
+        "Display_Group": "Men's health",
+        "Linked_Product_Count": 0,
+        "Priority_For_Graph": 100,
+        "Node_Color": "#54a0ff"
+      }
+    },
+    {
+      "id": "usecase:UC020",
+      "nodeType": "usecase",
+      "refId": "UC020",
+      "label": "Erectile dysfunction support",
+      "subtext": "Men's health",
+      "meta": {
+        "UseCase_ID": "UC020",
+        "UseCase_Name": "Erectile dysfunction support",
+        "UseCase_Category": "Men's health",
+        "Trigger_Symptoms": "Erectile dysfunction, sexual health",
+        "Description": "PDE5 inhibitors for erectile dysfunction."
       }
     }
   ],
   "links": [
     {
-      "key": "2d3a68006dd2f789",
+      "key": "94843985dc0269fd",
       "source": "product:P0028",
-      "target": "symptom:S076",
+      "target": "symptom:S079",
       "rel": "symptom",
-      "label": "Secondary",
-      "score": 60,
-      "why": "Manual review fix",
+      "label": "Primary",
+      "score": 100,
+      "why": "Indication-based assignment",
       "meta": {
-        "mapId": "PSM01753"
+        "mapId": "PSM01800"
+      }
+    },
+    {
+      "key": "9815f7d024fe7a35",
+      "source": "product:P0028",
+      "target": "usecase:UC020",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Erectile dysfunction, sexual health",
+      "meta": {
+        "useCaseItemId": "UCI00708"
       }
     }
-  ],
-  "meta": {
-    "productName": "Avarante Prescription Free 10 mg film-coated tablets",
-    "linkCount": 1
-  }
+  ]
 }

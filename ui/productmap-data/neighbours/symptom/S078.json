@@ -1,0 +1,209 @@
+{
+  "centerId": "symptom:S078",
+  "centerType": "symptom",
+  "refId": "S078",
+  "nodes": [
+    {
+      "id": "symptom:S078",
+      "nodeType": "symptom",
+      "refId": "S078",
+      "label": "cold sores",
+      "subtext": "Skin",
+      "meta": {
+        "Symptom_ID": "S078",
+        "Symptom_Name": "cold sores",
+        "Symptom_Category": "Skin",
+        "Display_Group": "Skin",
+        "Linked_Product_Count": 0,
+        "Priority_For_Graph": 100,
+        "Node_Color": "#ff9f43"
+      }
+    },
+    {
+      "id": "product:P0287",
+      "nodeType": "product",
+      "refId": "P0287",
+      "label": "Medovir cream 5%",
+      "subtext": "cold sore",
+      "meta": {
+        "brand": "Medovir",
+        "generic": "ACICLOVIR",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "cold sore",
+        "secondaryIndications": "healing",
+        "otcCategory": "ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "ACICLOVIR 5 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "D06BB03",
+        "status": "Authorised",
+        "supplierCatalogKey": "medovir cream 5%"
+      }
+    },
+    {
+      "id": "product:P0066",
+      "nodeType": "product",
+      "refId": "P0066",
+      "label": "CICLOVIRAL 50 mg/g Cream",
+      "subtext": "cold sore",
+      "meta": {
+        "brand": "CICLOVIRAL",
+        "generic": "ACICLOVIR",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "cold sore",
+        "secondaryIndications": "healing",
+        "otcCategory": "ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "ACICLOVIR 50 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D06BB03",
+        "status": "Authorised",
+        "supplierCatalogKey": "cicloviral 50 mg/g cream"
+      }
+    },
+    {
+      "id": "product:P0517",
+      "nodeType": "product",
+      "refId": "P0517",
+      "label": "Zovirax Duo 50 mg/10 mg/g cream",
+      "subtext": "cold sore",
+      "meta": {
+        "brand": "Zovirax",
+        "generic": "ACICLOVIR | HYDROCORTISONE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "cold sore",
+        "secondaryIndications": "healing",
+        "otcCategory": "ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "ACICLOVIR 50 milligram(s)/gram | HYDROCORTISONE 10 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D06BB53",
+        "status": "Authorised",
+        "supplierCatalogKey": "zovirax duo 50 mg/10 mg/g cream"
+      }
+    },
+    {
+      "id": "product:P0516",
+      "nodeType": "product",
+      "refId": "P0516",
+      "label": "Zoviduo 50mg/g and 10mg/g Cream",
+      "subtext": "cold sore",
+      "meta": {
+        "brand": "Zoviduo",
+        "generic": "ACICLOVIR | HYDROCORTISONE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "cold sore",
+        "secondaryIndications": "healing",
+        "otcCategory": "ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "ACICLOVIR 50 milligram(s) | HYDROCORTISONE 10 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "D06BB53",
+        "status": "Authorised",
+        "supplierCatalogKey": "zoviduo 50mg/g and 10mg/g cream"
+      }
+    },
+    {
+      "id": "usecase:UC014",
+      "nodeType": "usecase",
+      "refId": "UC014",
+      "label": "Cold sore treatment",
+      "subtext": "Skin",
+      "meta": {
+        "UseCase_ID": "UC014",
+        "UseCase_Name": "Cold sore treatment",
+        "UseCase_Category": "Skin",
+        "Trigger_Symptoms": "Cold sores, lip blisters, herpes labialis",
+        "Description": "Antiviral cream for cold sore outbreak management."
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "1040c1939466ab18",
+      "source": "product:P0287",
+      "target": "symptom:S078",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Indication-based assignment",
+      "meta": {
+        "mapId": "PSM01807"
+      }
+    },
+    {
+      "key": "a8cceba79ad8cdf8",
+      "source": "product:P0066",
+      "target": "symptom:S078",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Indication-based assignment",
+      "meta": {
+        "mapId": "PSM01811"
+      }
+    },
+    {
+      "key": "6831d7a2224a7550",
+      "source": "product:P0517",
+      "target": "symptom:S078",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Indication-based assignment",
+      "meta": {
+        "mapId": "PSM01818"
+      }
+    },
+    {
+      "key": "47882cf203d5f551",
+      "source": "product:P0516",
+      "target": "symptom:S078",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Indication-based assignment",
+      "meta": {
+        "mapId": "PSM01823"
+      }
+    },
+    {
+      "key": "5efee7b995db9a12",
+      "source": "symptom:S078",
+      "target": "usecase:UC014",
+      "rel": "usecase",
+      "label": "Related use case",
+      "score": 90,
+      "why": "",
+      "meta": {}
+    }
+  ]
+}

@@ -1,1 +1,161 @@
-{"centerId":"product:P0402","centerType":"product","refId":"P0402","nodes":[{"id":"product:P0402","nodeType":"product","refId":"P0402","label":"Procto-Glyvenol Rectal Cream 5%w/w, 2%w/w","subtext":"haemorrhoids","meta":{"brand":"Procto","generic":"LIDOCAINE HYDROCHLORIDE | TRIBENOSIDE","form":"RECTAL CREAM","formGroup":"Topical","route":"Topical","mainIndication":"haemorrhoids","secondaryIndications":"vein support","otcCategory":"VASOPROTECTIVES","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"TRIBENOSIDE 5 percent weight/weight | LIDOCAINE HYDROCHLORIDE 2 percent weight/weight","packSizeText":"Review manually","atcCode":"C05AX03","status":"Authorised","supplierCatalogKey":"procto-glyvenol rectal cream 5%w/w, 2%w/w"}},{"id":"product:P0403","nodeType":"product","refId":"P0403","label":"Proctosedyl Ointment","subtext":"haemorrhoids","meta":{"brand":"Proctosedyl","generic":"AESCULIN | CINCHOCAINE HYDROCHLORIDE | FRAMYCETIN SULFATE | HYDROCORTISONE","form":"OINTMENT","formGroup":"Topical","route":"Topical","mainIndication":"haemorrhoids","secondaryIndications":"vein support","otcCategory":"VASOPROTECTIVES","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":4,"strengthText":"FRAMYCETIN SULFATE 10 milligram(s)/gram | HYDROCORTISONE 5 milligram(s)/gram | \n\nAESCULIN 10 milligram(s)/gram | CINCHOCAINE HYDROCHLORIDE 5 milligram(s)/gram","packSizeText":"Review manually","atcCode":"C05AX03","status":"Authorised","supplierCatalogKey":"proctosedyl ointment"}},{"id":"symptom:S032","nodeType":"symptom","refId":"S032","label":"haemorrhoids","subtext":"General","meta":{"Symptom_ID":"S032","Symptom_Name":"haemorrhoids","Symptom_Category":"General","Linked_Product_Count":9,"Display_Group":"General","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"symptom:S074","nodeType":"symptom","refId":"S074","label":"vein support","subtext":"General","meta":{"Symptom_ID":"S074","Symptom_Name":"vein support","Symptom_Category":"General","Linked_Product_Count":9,"Display_Group":"General","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}}],"links":[{"key":"90685df06db4e30a","source":"product:P0402","target":"product:P0403","rel":"similar","label":"Alternative: same ATC family","score":78,"why":"Same ATC code, therapeutic class, and form family; likely reasonable substitute candidates pending staff review.","meta":{"edgeId":"E01871","clinicalSimilarity":90,"commercialSubstitution":80,"crossSell":25,"riskOverlap":60,"evidence":90,"seasonality":40,"triggerContext":"haemorrhoids, vein support","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"EXACT_ATC_SAME_CLASS_FORM"}},{"key":"a0b6b55fc7188a95","source":"product:P0402","target":"symptom:S032","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM01317","role":"Primary","reviewStatus":"Seeded"}},{"key":"9f324284bce27eb7","source":"product:P0402","target":"symptom:S074","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01318","role":"Primary","reviewStatus":"Seeded"}}],"meta":{"productName":"Procto-Glyvenol Rectal Cream 5%w/w, 2%w/w","linkCount":3}}
+{
+  "centerId": "product:P0402",
+  "centerType": "product",
+  "refId": "P0402",
+  "nodes": [
+    {
+      "id": "product:P0402",
+      "nodeType": "product",
+      "refId": "P0402",
+      "label": "Procto-Glyvenol Rectal Cream 5%w/w, 2%w/w",
+      "subtext": "haemorrhoids",
+      "meta": {
+        "brand": "Procto",
+        "generic": "LIDOCAINE HYDROCHLORIDE | TRIBENOSIDE",
+        "form": "RECTAL CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "haemorrhoids",
+        "secondaryIndications": "vein support",
+        "otcCategory": "VASOPROTECTIVES",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "TRIBENOSIDE 5 percent weight/weight | LIDOCAINE HYDROCHLORIDE 2 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "C05AX03",
+        "status": "Authorised",
+        "supplierCatalogKey": "procto-glyvenol rectal cream 5%w/w, 2%w/w"
+      }
+    },
+    {
+      "id": "product:P0403",
+      "nodeType": "product",
+      "refId": "P0403",
+      "label": "Proctosedyl Ointment",
+      "subtext": "haemorrhoids",
+      "meta": {
+        "brand": "Proctosedyl",
+        "generic": "AESCULIN | CINCHOCAINE HYDROCHLORIDE | FRAMYCETIN SULFATE | HYDROCORTISONE",
+        "form": "OINTMENT",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "haemorrhoids",
+        "secondaryIndications": "vein support",
+        "otcCategory": "VASOPROTECTIVES",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 4,
+        "strengthText": "FRAMYCETIN SULFATE 10 milligram(s)/gram | HYDROCORTISONE 5 milligram(s)/gram | \n\nAESCULIN 10 milligram(s)/gram | CINCHOCAINE HYDROCHLORIDE 5 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "C05AX03",
+        "status": "Authorised",
+        "supplierCatalogKey": "proctosedyl ointment"
+      }
+    },
+    {
+      "id": "symptom:S032",
+      "nodeType": "symptom",
+      "refId": "S032",
+      "label": "haemorrhoids",
+      "subtext": "General",
+      "meta": {
+        "Symptom_ID": "S032",
+        "Symptom_Name": "haemorrhoids",
+        "Symptom_Category": "General",
+        "Linked_Product_Count": 9,
+        "Display_Group": "General",
+        "Priority_For_Graph": 70,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "symptom:S074",
+      "nodeType": "symptom",
+      "refId": "S074",
+      "label": "vein support",
+      "subtext": "General",
+      "meta": {
+        "Symptom_ID": "S074",
+        "Symptom_Name": "vein support",
+        "Symptom_Category": "General",
+        "Linked_Product_Count": 9,
+        "Display_Group": "General",
+        "Priority_For_Graph": 70,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "usecase:UC013",
+      "nodeType": "usecase",
+      "refId": "UC013",
+      "label": "Haemorrhoid relief",
+      "subtext": "Gastrointestinal",
+      "meta": {
+        "UseCase_ID": "UC013",
+        "UseCase_Name": "Haemorrhoid relief",
+        "UseCase_Category": "Gastrointestinal",
+        "Trigger_Symptoms": "Haemorrhoids, rectal discomfort, itching",
+        "Description": "Topical and oral options for haemorrhoid symptom relief."
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "90685df06db4e30a",
+      "source": "product:P0402",
+      "target": "product:P0403",
+      "rel": "similar",
+      "label": "Alternative: same ATC family",
+      "score": 78,
+      "why": "Same ATC code, therapeutic class, and form family; likely reasonable substitute candidates pending staff review.",
+      "meta": {
+        "edgeId": "E01871"
+      }
+    },
+    {
+      "key": "a0b6b55fc7188a95",
+      "source": "product:P0402",
+      "target": "symptom:S032",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01317"
+      }
+    },
+    {
+      "key": "9f324284bce27eb7",
+      "source": "product:P0402",
+      "target": "symptom:S074",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01318"
+      }
+    },
+    {
+      "key": "942555b0e784ce18",
+      "source": "product:P0402",
+      "target": "usecase:UC013",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Haemorrhoids, rectal discomfort, itching",
+      "meta": {
+        "useCaseItemId": "UCI00636"
+      }
+    }
+  ]
+}

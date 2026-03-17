@@ -20040,54 +20040,6 @@
     "Review_Status": "Seeded"
   },
   {
-    "Map_ID": "PSM01751",
-    "Product_ID": "P0026",
-    "Symptom_ID": "S076",
-    "Relevance_Score": 80,
-    "Role_In_Symptom": "Primary",
-    "Map_Source": "Manual review fix"
-  },
-  {
-    "Map_ID": "PSM01752",
-    "Product_ID": "P0027",
-    "Symptom_ID": "S076",
-    "Relevance_Score": 80,
-    "Role_In_Symptom": "Primary",
-    "Map_Source": "Manual review fix"
-  },
-  {
-    "Map_ID": "PSM01753",
-    "Product_ID": "P0028",
-    "Symptom_ID": "S076",
-    "Relevance_Score": 60,
-    "Role_In_Symptom": "Secondary",
-    "Map_Source": "Manual review fix"
-  },
-  {
-    "Map_ID": "PSM01754",
-    "Product_ID": "P0496",
-    "Symptom_ID": "S076",
-    "Relevance_Score": 60,
-    "Role_In_Symptom": "Secondary",
-    "Map_Source": "Manual review fix"
-  },
-  {
-    "Map_ID": "PSM01755",
-    "Product_ID": "P0497",
-    "Symptom_ID": "S076",
-    "Relevance_Score": 60,
-    "Role_In_Symptom": "Secondary",
-    "Map_Source": "Manual review fix"
-  },
-  {
-    "Map_ID": "PSM01756",
-    "Product_ID": "P0498",
-    "Symptom_ID": "S076",
-    "Relevance_Score": 60,
-    "Role_In_Symptom": "Secondary",
-    "Map_Source": "Manual review fix"
-  },
-  {
     "Map_ID": "PSM01757",
     "Product_ID": "P0033",
     "Symptom_ID": "S059",
@@ -20152,46 +20104,6 @@
     "Map_Source": "Manual review fix"
   },
   {
-    "Map_ID": "PSM01765",
-    "Product_ID": "P0066",
-    "Symptom_ID": "S034",
-    "Relevance_Score": 100,
-    "Role_In_Symptom": "Primary",
-    "Map_Source": "Manual review fix"
-  },
-  {
-    "Map_ID": "PSM01766",
-    "Product_ID": "P0287",
-    "Symptom_ID": "S034",
-    "Relevance_Score": 100,
-    "Role_In_Symptom": "Primary",
-    "Map_Source": "Manual review fix"
-  },
-  {
-    "Map_ID": "PSM01767",
-    "Product_ID": "P0516",
-    "Symptom_ID": "S034",
-    "Relevance_Score": 100,
-    "Role_In_Symptom": "Primary",
-    "Map_Source": "Manual review fix"
-  },
-  {
-    "Map_ID": "PSM01768",
-    "Product_ID": "P0517",
-    "Symptom_ID": "S034",
-    "Relevance_Score": 100,
-    "Role_In_Symptom": "Primary",
-    "Map_Source": "Manual review fix"
-  },
-  {
-    "Map_ID": "PSM01769",
-    "Product_ID": "P0070",
-    "Symptom_ID": "S076",
-    "Relevance_Score": 70,
-    "Role_In_Symptom": "Secondary",
-    "Map_Source": "Manual review fix"
-  },
-  {
     "Map_ID": "PSM01770",
     "Product_ID": "P0130",
     "Symptom_ID": "S010",
@@ -20220,30 +20132,6 @@
     "Product_ID": "P0158",
     "Symptom_ID": "S019",
     "Relevance_Score": 78,
-    "Role_In_Symptom": "Secondary",
-    "Map_Source": "Manual review fix"
-  },
-  {
-    "Map_ID": "PSM01774",
-    "Product_ID": "P0166",
-    "Symptom_ID": "S076",
-    "Relevance_Score": 60,
-    "Role_In_Symptom": "Secondary",
-    "Map_Source": "Manual review fix"
-  },
-  {
-    "Map_ID": "PSM01775",
-    "Product_ID": "P0169",
-    "Symptom_ID": "S076",
-    "Relevance_Score": 60,
-    "Role_In_Symptom": "Secondary",
-    "Map_Source": "Manual review fix"
-  },
-  {
-    "Map_ID": "PSM01776",
-    "Product_ID": "P0254",
-    "Symptom_ID": "S076",
-    "Relevance_Score": 60,
     "Role_In_Symptom": "Secondary",
     "Map_Source": "Manual review fix"
   },
@@ -20344,62 +20232,6 @@
     "Map_Source": "Manual review fix"
   },
   {
-    "Map_ID": "PSM01789",
-    "Product_ID": "P0312",
-    "Symptom_ID": "S031",
-    "Relevance_Score": 100,
-    "Role_In_Symptom": "Primary",
-    "Map_Source": "Manual review fix"
-  },
-  {
-    "Map_ID": "PSM01790",
-    "Product_ID": "P0363",
-    "Symptom_ID": "S051",
-    "Relevance_Score": 100,
-    "Role_In_Symptom": "Primary",
-    "Map_Source": "Manual review fix"
-  },
-  {
-    "Map_ID": "PSM01791",
-    "Product_ID": "P0401",
-    "Symptom_ID": "S066",
-    "Relevance_Score": 80,
-    "Role_In_Symptom": "Primary",
-    "Map_Source": "Manual review fix"
-  },
-  {
-    "Map_ID": "PSM01792",
-    "Product_ID": "P0427",
-    "Symptom_ID": "S076",
-    "Relevance_Score": 60,
-    "Role_In_Symptom": "Secondary",
-    "Map_Source": "Manual review fix"
-  },
-  {
-    "Map_ID": "PSM01793",
-    "Product_ID": "P0431",
-    "Symptom_ID": "S066",
-    "Relevance_Score": 85,
-    "Role_In_Symptom": "Primary",
-    "Map_Source": "Manual review fix"
-  },
-  {
-    "Map_ID": "PSM01794",
-    "Product_ID": "P0431",
-    "Symptom_ID": "S076",
-    "Relevance_Score": 70,
-    "Role_In_Symptom": "Secondary",
-    "Map_Source": "Manual review fix"
-  },
-  {
-    "Map_ID": "PSM01795",
-    "Product_ID": "P0433",
-    "Symptom_ID": "S076",
-    "Relevance_Score": 80,
-    "Role_In_Symptom": "Primary",
-    "Map_Source": "Manual review fix"
-  },
-  {
     "Map_ID": "PSM01796",
     "Product_ID": "P0448",
     "Symptom_ID": "S077",
@@ -20430,5 +20262,197 @@
     "Relevance_Score": 78,
     "Role_In_Symptom": "Secondary",
     "Map_Source": "Manual review fix"
+  },
+  {
+    "Map_ID": "PSM01800",
+    "Product_ID": "P0028",
+    "Symptom_ID": "S079",
+    "Relevance_Score": 100,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Indication-based assignment"
+  },
+  {
+    "Map_ID": "PSM01801",
+    "Product_ID": "P0498",
+    "Symptom_ID": "S079",
+    "Relevance_Score": 100,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Indication-based assignment"
+  },
+  {
+    "Map_ID": "PSM01802",
+    "Product_ID": "P0237",
+    "Symptom_ID": "S085",
+    "Relevance_Score": 100,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Indication-based assignment"
+  },
+  {
+    "Map_ID": "PSM01803",
+    "Product_ID": "P0427",
+    "Symptom_ID": "S088",
+    "Relevance_Score": 100,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Indication-based assignment"
+  },
+  {
+    "Map_ID": "PSM01804",
+    "Product_ID": "P0027",
+    "Symptom_ID": "S084",
+    "Relevance_Score": 100,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Indication-based assignment"
+  },
+  {
+    "Map_ID": "PSM01805",
+    "Product_ID": "P0448",
+    "Symptom_ID": "S089",
+    "Relevance_Score": 100,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Indication-based assignment"
+  },
+  {
+    "Map_ID": "PSM01806",
+    "Product_ID": "P0497",
+    "Symptom_ID": "S079",
+    "Relevance_Score": 100,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Indication-based assignment"
+  },
+  {
+    "Map_ID": "PSM01807",
+    "Product_ID": "P0287",
+    "Symptom_ID": "S078",
+    "Relevance_Score": 100,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Indication-based assignment"
+  },
+  {
+    "Map_ID": "PSM01808",
+    "Product_ID": "P0260",
+    "Symptom_ID": "S085",
+    "Relevance_Score": 100,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Indication-based assignment"
+  },
+  {
+    "Map_ID": "PSM01809",
+    "Product_ID": "P0363",
+    "Symptom_ID": "S081",
+    "Relevance_Score": 100,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Indication-based assignment"
+  },
+  {
+    "Map_ID": "PSM01810",
+    "Product_ID": "P0394",
+    "Symptom_ID": "S085",
+    "Relevance_Score": 100,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Indication-based assignment"
+  },
+  {
+    "Map_ID": "PSM01811",
+    "Product_ID": "P0066",
+    "Symptom_ID": "S078",
+    "Relevance_Score": 100,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Indication-based assignment"
+  },
+  {
+    "Map_ID": "PSM01812",
+    "Product_ID": "P0070",
+    "Symptom_ID": "S083",
+    "Relevance_Score": 100,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Indication-based assignment"
+  },
+  {
+    "Map_ID": "PSM01813",
+    "Product_ID": "P0312",
+    "Symptom_ID": "S082",
+    "Relevance_Score": 100,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Indication-based assignment"
+  },
+  {
+    "Map_ID": "PSM01814",
+    "Product_ID": "P0431",
+    "Symptom_ID": "S086",
+    "Relevance_Score": 100,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Indication-based assignment"
+  },
+  {
+    "Map_ID": "PSM01815",
+    "Product_ID": "P0166",
+    "Symptom_ID": "S080",
+    "Relevance_Score": 100,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Indication-based assignment"
+  },
+  {
+    "Map_ID": "PSM01816",
+    "Product_ID": "P0026",
+    "Symptom_ID": "S084",
+    "Relevance_Score": 100,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Indication-based assignment"
+  },
+  {
+    "Map_ID": "PSM01817",
+    "Product_ID": "P0496",
+    "Symptom_ID": "S079",
+    "Relevance_Score": 100,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Indication-based assignment"
+  },
+  {
+    "Map_ID": "PSM01818",
+    "Product_ID": "P0517",
+    "Symptom_ID": "S078",
+    "Relevance_Score": 100,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Indication-based assignment"
+  },
+  {
+    "Map_ID": "PSM01819",
+    "Product_ID": "P0169",
+    "Symptom_ID": "S080",
+    "Relevance_Score": 100,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Indication-based assignment"
+  },
+  {
+    "Map_ID": "PSM01820",
+    "Product_ID": "P0254",
+    "Symptom_ID": "S080",
+    "Relevance_Score": 100,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Indication-based assignment"
+  },
+  {
+    "Map_ID": "PSM01821",
+    "Product_ID": "P0401",
+    "Symptom_ID": "S087",
+    "Relevance_Score": 100,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Indication-based assignment"
+  },
+  {
+    "Map_ID": "PSM01822",
+    "Product_ID": "P0433",
+    "Symptom_ID": "S083",
+    "Relevance_Score": 100,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Indication-based assignment"
+  },
+  {
+    "Map_ID": "PSM01823",
+    "Product_ID": "P0516",
+    "Symptom_ID": "S078",
+    "Relevance_Score": 100,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Indication-based assignment"
   }
 ]

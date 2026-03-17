@@ -1,1 +1,214 @@
-{"centerId":"product:P0142","centerType":"product","refId":"P0142","nodes":[{"id":"product:P0142","nodeType":"product","refId":"P0142","label":"Dimotec 1000mg film-coated tablets","subtext":"haemorrhoids","meta":{"brand":"Dimotec","generic":"DIOSMIN","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"haemorrhoids","secondaryIndications":"vein support","otcCategory":"VASOPROTECTIVES","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DIOSMIN 1000 milligram(s)","packSizeText":"Review manually","atcCode":"C05CA03","status":"Authorised","supplierCatalogKey":"dimotec 1000mg film-coated tablets"}},{"id":"product:P0397","nodeType":"product","refId":"P0397","label":"Phlebodia 600mg film coated Tablets","subtext":"haemorrhoids","meta":{"brand":"Phlebodia","generic":"DIOSMIN","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"haemorrhoids","secondaryIndications":"vein support","otcCategory":"VASOPROTECTIVES","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DIOSMIN 600 milligram(s)","packSizeText":"Review manually","atcCode":"C05CA03","status":"Authorised","supplierCatalogKey":"phlebodia 600mg film coated tablets"}},{"id":"product:P0121","nodeType":"product","refId":"P0121","label":"DAFLON 500mg, film-coated tablet","subtext":"haemorrhoids","meta":{"brand":"DAFLON","generic":"DIOSMIN | HESPERIDIN","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"haemorrhoids","secondaryIndications":"vein support","otcCategory":"VASOPROTECTIVES","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"HESPERIDIN 50 milligram(s) | DIOSMIN 450 milligram(s)","packSizeText":"Review manually","atcCode":"C05CA03","status":"Authorised","supplierCatalogKey":"daflon 500mg, film-coated tablet"}},{"id":"symptom:S032","nodeType":"symptom","refId":"S032","label":"haemorrhoids","subtext":"General","meta":{"Symptom_ID":"S032","Symptom_Name":"haemorrhoids","Symptom_Category":"General","Linked_Product_Count":9,"Display_Group":"General","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"symptom:S074","nodeType":"symptom","refId":"S074","label":"vein support","subtext":"General","meta":{"Symptom_ID":"S074","Symptom_Name":"vein support","Symptom_Category":"General","Linked_Product_Count":9,"Display_Group":"General","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}}],"links":[{"key":"e901c63568c7ee59","source":"product:P0142","target":"product:P0397","rel":"similar","label":"Alternative: same active ingredient(s)","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00505","clinicalSimilarity":100,"commercialSubstitution":100,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"haemorrhoids, vein support","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"fe3dcc1d9875ba92","source":"product:P0121","target":"product:P0142","rel":"similar","label":"Alternative: same ATC family","score":78,"why":"Same ATC code, therapeutic class, and form family; likely reasonable substitute candidates pending staff review.","meta":{"edgeId":"E01872","clinicalSimilarity":90,"commercialSubstitution":80,"crossSell":25,"riskOverlap":60,"evidence":90,"seasonality":40,"triggerContext":"haemorrhoids, vein support","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"EXACT_ATC_SAME_CLASS_FORM"}},{"key":"f7ad778aa5a53ee8","source":"product:P0142","target":"symptom:S032","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00471","role":"Primary","reviewStatus":"Seeded"}},{"key":"b8206b31ae0df3b2","source":"product:P0142","target":"symptom:S074","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00472","role":"Primary","reviewStatus":"Seeded"}},{"key":"ef9be9e6ab3780f5","source":"product:P0142","target":"product:P0397","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00505","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}}],"meta":{"productName":"Dimotec 1000mg film-coated tablets","linkCount":5}}
+{
+  "centerId": "product:P0142",
+  "centerType": "product",
+  "refId": "P0142",
+  "nodes": [
+    {
+      "id": "product:P0142",
+      "nodeType": "product",
+      "refId": "P0142",
+      "label": "Dimotec 1000mg film-coated tablets",
+      "subtext": "haemorrhoids",
+      "meta": {
+        "brand": "Dimotec",
+        "generic": "DIOSMIN",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "haemorrhoids",
+        "secondaryIndications": "vein support",
+        "otcCategory": "VASOPROTECTIVES",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DIOSMIN 1000 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "C05CA03",
+        "status": "Authorised",
+        "supplierCatalogKey": "dimotec 1000mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0397",
+      "nodeType": "product",
+      "refId": "P0397",
+      "label": "Phlebodia 600mg film coated Tablets",
+      "subtext": "haemorrhoids",
+      "meta": {
+        "brand": "Phlebodia",
+        "generic": "DIOSMIN",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "haemorrhoids",
+        "secondaryIndications": "vein support",
+        "otcCategory": "VASOPROTECTIVES",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DIOSMIN 600 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "C05CA03",
+        "status": "Authorised",
+        "supplierCatalogKey": "phlebodia 600mg film coated tablets"
+      }
+    },
+    {
+      "id": "product:P0121",
+      "nodeType": "product",
+      "refId": "P0121",
+      "label": "DAFLON 500mg, film-coated tablet",
+      "subtext": "haemorrhoids",
+      "meta": {
+        "brand": "DAFLON",
+        "generic": "DIOSMIN | HESPERIDIN",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "haemorrhoids",
+        "secondaryIndications": "vein support",
+        "otcCategory": "VASOPROTECTIVES",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "HESPERIDIN 50 milligram(s) | DIOSMIN 450 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "C05CA03",
+        "status": "Authorised",
+        "supplierCatalogKey": "daflon 500mg, film-coated tablet"
+      }
+    },
+    {
+      "id": "symptom:S032",
+      "nodeType": "symptom",
+      "refId": "S032",
+      "label": "haemorrhoids",
+      "subtext": "General",
+      "meta": {
+        "Symptom_ID": "S032",
+        "Symptom_Name": "haemorrhoids",
+        "Symptom_Category": "General",
+        "Linked_Product_Count": 9,
+        "Display_Group": "General",
+        "Priority_For_Graph": 70,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "symptom:S074",
+      "nodeType": "symptom",
+      "refId": "S074",
+      "label": "vein support",
+      "subtext": "General",
+      "meta": {
+        "Symptom_ID": "S074",
+        "Symptom_Name": "vein support",
+        "Symptom_Category": "General",
+        "Linked_Product_Count": 9,
+        "Display_Group": "General",
+        "Priority_For_Graph": 70,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "usecase:UC013",
+      "nodeType": "usecase",
+      "refId": "UC013",
+      "label": "Haemorrhoid relief",
+      "subtext": "Gastrointestinal",
+      "meta": {
+        "UseCase_ID": "UC013",
+        "UseCase_Name": "Haemorrhoid relief",
+        "UseCase_Category": "Gastrointestinal",
+        "Trigger_Symptoms": "Haemorrhoids, rectal discomfort, itching",
+        "Description": "Topical and oral options for haemorrhoid symptom relief."
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "e901c63568c7ee59",
+      "source": "product:P0142",
+      "target": "product:P0397",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00505"
+      }
+    },
+    {
+      "key": "fe3dcc1d9875ba92",
+      "source": "product:P0121",
+      "target": "product:P0142",
+      "rel": "similar",
+      "label": "Alternative: same ATC family",
+      "score": 78,
+      "why": "Same ATC code, therapeutic class, and form family; likely reasonable substitute candidates pending staff review.",
+      "meta": {
+        "edgeId": "E01872"
+      }
+    },
+    {
+      "key": "f7ad778aa5a53ee8",
+      "source": "product:P0142",
+      "target": "symptom:S032",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00471"
+      }
+    },
+    {
+      "key": "b8206b31ae0df3b2",
+      "source": "product:P0142",
+      "target": "symptom:S074",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00472"
+      }
+    },
+    {
+      "key": "86f7217586ecd195",
+      "source": "product:P0142",
+      "target": "usecase:UC013",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Haemorrhoids, rectal discomfort, itching",
+      "meta": {
+        "useCaseItemId": "UCI00631"
+      }
+    },
+    {
+      "key": "ef9be9e6ab3780f5",
+      "source": "product:P0142",
+      "target": "product:P0397",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00505",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    }
+  ]
+}

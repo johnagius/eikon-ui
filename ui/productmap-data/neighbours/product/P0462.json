@@ -8,15 +8,15 @@
       "nodeType": "product",
       "refId": "P0462",
       "label": "Sudocrem Antiseptic Healing Cream",
-      "subtext": "review needed",
+      "subtext": "skin irritation",
       "meta": {
         "brand": "Sudocrem",
         "generic": "BENZYL ALCOHOL | BENZYL BENZOATE | BENZYL CINNAMATE | LANOLIN | ZINC OXIDE",
         "form": "CREAM",
         "formGroup": "Topical",
         "route": "Topical",
-        "mainIndication": "review needed",
-        "secondaryIndications": null,
+        "mainIndication": "skin irritation",
+        "secondaryIndications": "healing | wound care",
         "otcCategory": "EMOLLIENTS AND PROTECTIVES",
         "seasonalGroup": "All year",
         "sedating": "No",
@@ -361,6 +361,20 @@
         "Node_Color": "#A5A5A5",
         "Notes": "Seeded from imported symptom tags; refine naming over time."
       }
+    },
+    {
+      "id": "usecase:UC019",
+      "nodeType": "usecase",
+      "refId": "UC019",
+      "label": "Skin repair and scar care",
+      "subtext": "Skin",
+      "meta": {
+        "UseCase_ID": "UC019",
+        "UseCase_Name": "Skin repair and scar care",
+        "UseCase_Category": "Skin",
+        "Trigger_Symptoms": "Scars, skin repair, wound healing",
+        "Description": "Products for skin repair, scar reduction, and wound healing."
+      }
     }
   ],
   "links": [
@@ -373,18 +387,7 @@
       "score": 79,
       "why": "Combines itch relief with moisturising or protective care.",
       "meta": {
-        "edgeId": "E16195",
-        "clinicalSimilarity": 15,
-        "commercialSubstitution": 10,
-        "crossSell": 79,
-        "riskOverlap": 20,
-        "evidence": 80,
-        "seasonality": 40,
-        "triggerContext": "Itch relief + skin barrier",
-        "primaryToSecondary": "Yes",
-        "reciprocalDisplay": "Optional",
-        "reviewStatus": "Needs pharmacist/staff review",
-        "sourceMethod": "THERAPEUTIC_CLASS_RULE"
+        "edgeId": "E16195"
       }
     },
     {
@@ -396,18 +399,7 @@
       "score": 79,
       "why": "Combines itch relief with moisturising or protective care.",
       "meta": {
-        "edgeId": "E16198",
-        "clinicalSimilarity": 15,
-        "commercialSubstitution": 10,
-        "crossSell": 79,
-        "riskOverlap": 20,
-        "evidence": 80,
-        "seasonality": 40,
-        "triggerContext": "Itch relief + skin barrier",
-        "primaryToSecondary": "Yes",
-        "reciprocalDisplay": "Optional",
-        "reviewStatus": "Needs pharmacist/staff review",
-        "sourceMethod": "THERAPEUTIC_CLASS_RULE"
+        "edgeId": "E16198"
       }
     },
     {
@@ -419,18 +411,7 @@
       "score": 79,
       "why": "Combines itch relief with moisturising or protective care.",
       "meta": {
-        "edgeId": "E16201",
-        "clinicalSimilarity": 15,
-        "commercialSubstitution": 10,
-        "crossSell": 79,
-        "riskOverlap": 20,
-        "evidence": 80,
-        "seasonality": 40,
-        "triggerContext": "Itch relief + skin barrier",
-        "primaryToSecondary": "Yes",
-        "reciprocalDisplay": "Optional",
-        "reviewStatus": "Needs pharmacist/staff review",
-        "sourceMethod": "THERAPEUTIC_CLASS_RULE"
+        "edgeId": "E16201"
       }
     },
     {
@@ -442,18 +423,7 @@
       "score": 79,
       "why": "Combines itch relief with moisturising or protective care.",
       "meta": {
-        "edgeId": "E16204",
-        "clinicalSimilarity": 15,
-        "commercialSubstitution": 10,
-        "crossSell": 79,
-        "riskOverlap": 20,
-        "evidence": 80,
-        "seasonality": 40,
-        "triggerContext": "Itch relief + skin barrier",
-        "primaryToSecondary": "Yes",
-        "reciprocalDisplay": "Optional",
-        "reviewStatus": "Needs pharmacist/staff review",
-        "sourceMethod": "THERAPEUTIC_CLASS_RULE"
+        "edgeId": "E16204"
       }
     },
     {
@@ -465,18 +435,7 @@
       "score": 79,
       "why": "Combines itch relief with moisturising or protective care.",
       "meta": {
-        "edgeId": "E16207",
-        "clinicalSimilarity": 15,
-        "commercialSubstitution": 10,
-        "crossSell": 79,
-        "riskOverlap": 20,
-        "evidence": 80,
-        "seasonality": 40,
-        "triggerContext": "Itch relief + skin barrier",
-        "primaryToSecondary": "Yes",
-        "reciprocalDisplay": "Optional",
-        "reviewStatus": "Needs pharmacist/staff review",
-        "sourceMethod": "THERAPEUTIC_CLASS_RULE"
+        "edgeId": "E16207"
       }
     },
     {
@@ -488,18 +447,7 @@
       "score": 79,
       "why": "Combines itch relief with moisturising or protective care.",
       "meta": {
-        "edgeId": "E16210",
-        "clinicalSimilarity": 15,
-        "commercialSubstitution": 10,
-        "crossSell": 79,
-        "riskOverlap": 20,
-        "evidence": 80,
-        "seasonality": 40,
-        "triggerContext": "Itch relief + skin barrier",
-        "primaryToSecondary": "Yes",
-        "reciprocalDisplay": "Optional",
-        "reviewStatus": "Needs pharmacist/staff review",
-        "sourceMethod": "THERAPEUTIC_CLASS_RULE"
+        "edgeId": "E16210"
       }
     },
     {
@@ -511,18 +459,7 @@
       "score": 72,
       "why": "Some inflamed skin routines also need barrier-repair support.",
       "meta": {
-        "edgeId": "E16189",
-        "clinicalSimilarity": 15,
-        "commercialSubstitution": 10,
-        "crossSell": 72,
-        "riskOverlap": 20,
-        "evidence": 80,
-        "seasonality": 40,
-        "triggerContext": "Dry / inflamed skin",
-        "primaryToSecondary": "Yes",
-        "reciprocalDisplay": "Optional",
-        "reviewStatus": "Needs pharmacist/staff review",
-        "sourceMethod": "THERAPEUTIC_CLASS_RULE"
+        "edgeId": "E16189"
       }
     },
     {
@@ -534,18 +471,7 @@
       "score": 72,
       "why": "Some inflamed skin routines also need barrier-repair support.",
       "meta": {
-        "edgeId": "E16190",
-        "clinicalSimilarity": 15,
-        "commercialSubstitution": 10,
-        "crossSell": 72,
-        "riskOverlap": 20,
-        "evidence": 80,
-        "seasonality": 40,
-        "triggerContext": "Dry / inflamed skin",
-        "primaryToSecondary": "Yes",
-        "reciprocalDisplay": "Optional",
-        "reviewStatus": "Needs pharmacist/staff review",
-        "sourceMethod": "THERAPEUTIC_CLASS_RULE"
+        "edgeId": "E16190"
       }
     },
     {
@@ -557,18 +483,7 @@
       "score": 72,
       "why": "Some inflamed skin routines also need barrier-repair support.",
       "meta": {
-        "edgeId": "E16191",
-        "clinicalSimilarity": 15,
-        "commercialSubstitution": 10,
-        "crossSell": 72,
-        "riskOverlap": 20,
-        "evidence": 80,
-        "seasonality": 40,
-        "triggerContext": "Dry / inflamed skin",
-        "primaryToSecondary": "Yes",
-        "reciprocalDisplay": "Optional",
-        "reviewStatus": "Needs pharmacist/staff review",
-        "sourceMethod": "THERAPEUTIC_CLASS_RULE"
+        "edgeId": "E16191"
       }
     },
     {
@@ -580,18 +495,7 @@
       "score": 72,
       "why": "Some inflamed skin routines also need barrier-repair support.",
       "meta": {
-        "edgeId": "E16192",
-        "clinicalSimilarity": 15,
-        "commercialSubstitution": 10,
-        "crossSell": 72,
-        "riskOverlap": 20,
-        "evidence": 80,
-        "seasonality": 40,
-        "triggerContext": "Dry / inflamed skin",
-        "primaryToSecondary": "Yes",
-        "reciprocalDisplay": "Optional",
-        "reviewStatus": "Needs pharmacist/staff review",
-        "sourceMethod": "THERAPEUTIC_CLASS_RULE"
+        "edgeId": "E16192"
       }
     },
     {
@@ -629,10 +533,18 @@
       "meta": {
         "mapId": "PSM01799"
       }
+    },
+    {
+      "key": "9b22dcd74651e1ef",
+      "source": "product:P0462",
+      "target": "usecase:UC019",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Scars, skin repair, wound healing",
+      "meta": {
+        "useCaseItemId": "UCI00707"
+      }
     }
-  ],
-  "meta": {
-    "productName": "Sudocrem Antiseptic Healing Cream",
-    "linkCount": 11
-  }
+  ]
 }

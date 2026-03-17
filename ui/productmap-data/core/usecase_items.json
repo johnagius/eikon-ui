@@ -7254,5 +7254,901 @@
     "Role_In_UseCase": "Core",
     "UseCase_Relevance_Score": 100,
     "Trigger_Match": "motion sickness; travel sickness"
+  },
+  {
+    "UseCase_Item_ID": "UCI00630",
+    "UseCase_ID": "UC013",
+    "Product_ID": "P0121",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Haemorrhoids, rectal discomfort, itching"
+  },
+  {
+    "UseCase_Item_ID": "UCI00631",
+    "UseCase_ID": "UC013",
+    "Product_ID": "P0142",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Haemorrhoids, rectal discomfort, itching"
+  },
+  {
+    "UseCase_Item_ID": "UCI00632",
+    "UseCase_ID": "UC013",
+    "Product_ID": "P0214",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Haemorrhoids, rectal discomfort, itching"
+  },
+  {
+    "UseCase_Item_ID": "UCI00633",
+    "UseCase_ID": "UC013",
+    "Product_ID": "P0255",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Haemorrhoids, rectal discomfort, itching"
+  },
+  {
+    "UseCase_Item_ID": "UCI00634",
+    "UseCase_ID": "UC013",
+    "Product_ID": "P0256",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Haemorrhoids, rectal discomfort, itching"
+  },
+  {
+    "UseCase_Item_ID": "UCI00635",
+    "UseCase_ID": "UC013",
+    "Product_ID": "P0397",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Haemorrhoids, rectal discomfort, itching"
+  },
+  {
+    "UseCase_Item_ID": "UCI00636",
+    "UseCase_ID": "UC013",
+    "Product_ID": "P0402",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Haemorrhoids, rectal discomfort, itching"
+  },
+  {
+    "UseCase_Item_ID": "UCI00637",
+    "UseCase_ID": "UC013",
+    "Product_ID": "P0403",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Haemorrhoids, rectal discomfort, itching"
+  },
+  {
+    "UseCase_Item_ID": "UCI00638",
+    "UseCase_ID": "UC013",
+    "Product_ID": "P0495",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Haemorrhoids, rectal discomfort, itching"
+  },
+  {
+    "UseCase_Item_ID": "UCI00639",
+    "UseCase_ID": "UC014",
+    "Product_ID": "P0066",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Cold sores, lip blisters, herpes labialis"
+  },
+  {
+    "UseCase_Item_ID": "UCI00640",
+    "UseCase_ID": "UC014",
+    "Product_ID": "P0287",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Cold sores, lip blisters, herpes labialis"
+  },
+  {
+    "UseCase_Item_ID": "UCI00641",
+    "UseCase_ID": "UC014",
+    "Product_ID": "P0516",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Cold sores, lip blisters, herpes labialis"
+  },
+  {
+    "UseCase_Item_ID": "UCI00642",
+    "UseCase_ID": "UC014",
+    "Product_ID": "P0517",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Cold sores, lip blisters, herpes labialis"
+  },
+  {
+    "UseCase_Item_ID": "UCI00643",
+    "UseCase_ID": "UC015",
+    "Product_ID": "P0098",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Mouth ulcers, oral pain, canker sores"
+  },
+  {
+    "UseCase_Item_ID": "UCI00644",
+    "UseCase_ID": "UC015",
+    "Product_ID": "P0354",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Mouth ulcers, oral pain, canker sores"
+  },
+  {
+    "UseCase_Item_ID": "UCI00645",
+    "UseCase_ID": "UC015",
+    "Product_ID": "P0355",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Mouth ulcers, oral pain, canker sores"
+  },
+  {
+    "UseCase_Item_ID": "UCI00646",
+    "UseCase_ID": "UC015",
+    "Product_ID": "P0361",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Mouth ulcers, oral pain, canker sores"
+  },
+  {
+    "UseCase_Item_ID": "UCI00647",
+    "UseCase_ID": "UC015",
+    "Product_ID": "P0362",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Mouth ulcers, oral pain, canker sores"
+  },
+  {
+    "UseCase_Item_ID": "UCI00648",
+    "UseCase_ID": "UC015",
+    "Product_ID": "P0470",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Mouth ulcers, oral pain, canker sores"
+  },
+  {
+    "UseCase_Item_ID": "UCI00649",
+    "UseCase_ID": "UC016",
+    "Product_ID": "P0183",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Tiredness, iron deficiency, anaemia"
+  },
+  {
+    "UseCase_Item_ID": "UCI00650",
+    "UseCase_ID": "UC016",
+    "Product_ID": "P0184",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Tiredness, iron deficiency, anaemia"
+  },
+  {
+    "UseCase_Item_ID": "UCI00651",
+    "UseCase_ID": "UC016",
+    "Product_ID": "P0185",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Tiredness, iron deficiency, anaemia"
+  },
+  {
+    "UseCase_Item_ID": "UCI00652",
+    "UseCase_ID": "UC016",
+    "Product_ID": "P0186",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Tiredness, iron deficiency, anaemia"
+  },
+  {
+    "UseCase_Item_ID": "UCI00653",
+    "UseCase_ID": "UC016",
+    "Product_ID": "P0187",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Tiredness, iron deficiency, anaemia"
+  },
+  {
+    "UseCase_Item_ID": "UCI00654",
+    "UseCase_ID": "UC016",
+    "Product_ID": "P0188",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Tiredness, iron deficiency, anaemia"
+  },
+  {
+    "UseCase_Item_ID": "UCI00655",
+    "UseCase_ID": "UC016",
+    "Product_ID": "P0199",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Tiredness, iron deficiency, anaemia"
+  },
+  {
+    "UseCase_Item_ID": "UCI00656",
+    "UseCase_ID": "UC016",
+    "Product_ID": "P0200",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Tiredness, iron deficiency, anaemia"
+  },
+  {
+    "UseCase_Item_ID": "UCI00657",
+    "UseCase_ID": "UC016",
+    "Product_ID": "P0465",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Tiredness, iron deficiency, anaemia"
+  },
+  {
+    "UseCase_Item_ID": "UCI00658",
+    "UseCase_ID": "UC016",
+    "Product_ID": "P0466",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Tiredness, iron deficiency, anaemia"
+  },
+  {
+    "UseCase_Item_ID": "UCI00659",
+    "UseCase_ID": "UC016",
+    "Product_ID": "P0476",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Tiredness, iron deficiency, anaemia"
+  },
+  {
+    "UseCase_Item_ID": "UCI00660",
+    "UseCase_ID": "UC017",
+    "Product_ID": "P0025",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Vitamin deficiency, mineral deficiency, supplementation"
+  },
+  {
+    "UseCase_Item_ID": "UCI00661",
+    "UseCase_ID": "UC017",
+    "Product_ID": "P0068",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Vitamin deficiency, mineral deficiency, supplementation"
+  },
+  {
+    "UseCase_Item_ID": "UCI00662",
+    "UseCase_ID": "UC017",
+    "Product_ID": "P0069",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Vitamin deficiency, mineral deficiency, supplementation"
+  },
+  {
+    "UseCase_Item_ID": "UCI00663",
+    "UseCase_ID": "UC017",
+    "Product_ID": "P0120",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Vitamin deficiency, mineral deficiency, supplementation"
+  },
+  {
+    "UseCase_Item_ID": "UCI00664",
+    "UseCase_ID": "UC017",
+    "Product_ID": "P0232",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Vitamin deficiency, mineral deficiency, supplementation"
+  },
+  {
+    "UseCase_Item_ID": "UCI00665",
+    "UseCase_ID": "UC017",
+    "Product_ID": "P0243",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Vitamin deficiency, mineral deficiency, supplementation"
+  },
+  {
+    "UseCase_Item_ID": "UCI00666",
+    "UseCase_ID": "UC017",
+    "Product_ID": "P0262",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Vitamin deficiency, mineral deficiency, supplementation"
+  },
+  {
+    "UseCase_Item_ID": "UCI00667",
+    "UseCase_ID": "UC017",
+    "Product_ID": "P0279",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Vitamin deficiency, mineral deficiency, supplementation"
+  },
+  {
+    "UseCase_Item_ID": "UCI00668",
+    "UseCase_ID": "UC017",
+    "Product_ID": "P0400",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Vitamin deficiency, mineral deficiency, supplementation"
+  },
+  {
+    "UseCase_Item_ID": "UCI00669",
+    "UseCase_ID": "UC017",
+    "Product_ID": "P0491",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Vitamin deficiency, mineral deficiency, supplementation"
+  },
+  {
+    "UseCase_Item_ID": "UCI00670",
+    "UseCase_ID": "UC018",
+    "Product_ID": "P0303",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Quit smoking, nicotine replacement, smoking cessation"
+  },
+  {
+    "UseCase_Item_ID": "UCI00671",
+    "UseCase_ID": "UC018",
+    "Product_ID": "P0304",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Quit smoking, nicotine replacement, smoking cessation"
+  },
+  {
+    "UseCase_Item_ID": "UCI00672",
+    "UseCase_ID": "UC018",
+    "Product_ID": "P0305",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Quit smoking, nicotine replacement, smoking cessation"
+  },
+  {
+    "UseCase_Item_ID": "UCI00673",
+    "UseCase_ID": "UC018",
+    "Product_ID": "P0306",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Quit smoking, nicotine replacement, smoking cessation"
+  },
+  {
+    "UseCase_Item_ID": "UCI00674",
+    "UseCase_ID": "UC018",
+    "Product_ID": "P0313",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Quit smoking, nicotine replacement, smoking cessation"
+  },
+  {
+    "UseCase_Item_ID": "UCI00675",
+    "UseCase_ID": "UC018",
+    "Product_ID": "P0314",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Quit smoking, nicotine replacement, smoking cessation"
+  },
+  {
+    "UseCase_Item_ID": "UCI00676",
+    "UseCase_ID": "UC018",
+    "Product_ID": "P0315",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Quit smoking, nicotine replacement, smoking cessation"
+  },
+  {
+    "UseCase_Item_ID": "UCI00677",
+    "UseCase_ID": "UC018",
+    "Product_ID": "P0316",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Quit smoking, nicotine replacement, smoking cessation"
+  },
+  {
+    "UseCase_Item_ID": "UCI00678",
+    "UseCase_ID": "UC018",
+    "Product_ID": "P0317",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Quit smoking, nicotine replacement, smoking cessation"
+  },
+  {
+    "UseCase_Item_ID": "UCI00679",
+    "UseCase_ID": "UC018",
+    "Product_ID": "P0318",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Quit smoking, nicotine replacement, smoking cessation"
+  },
+  {
+    "UseCase_Item_ID": "UCI00680",
+    "UseCase_ID": "UC018",
+    "Product_ID": "P0319",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Quit smoking, nicotine replacement, smoking cessation"
+  },
+  {
+    "UseCase_Item_ID": "UCI00681",
+    "UseCase_ID": "UC018",
+    "Product_ID": "P0320",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Quit smoking, nicotine replacement, smoking cessation"
+  },
+  {
+    "UseCase_Item_ID": "UCI00682",
+    "UseCase_ID": "UC018",
+    "Product_ID": "P0321",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Quit smoking, nicotine replacement, smoking cessation"
+  },
+  {
+    "UseCase_Item_ID": "UCI00683",
+    "UseCase_ID": "UC018",
+    "Product_ID": "P0322",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Quit smoking, nicotine replacement, smoking cessation"
+  },
+  {
+    "UseCase_Item_ID": "UCI00684",
+    "UseCase_ID": "UC018",
+    "Product_ID": "P0323",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Quit smoking, nicotine replacement, smoking cessation"
+  },
+  {
+    "UseCase_Item_ID": "UCI00685",
+    "UseCase_ID": "UC018",
+    "Product_ID": "P0324",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Quit smoking, nicotine replacement, smoking cessation"
+  },
+  {
+    "UseCase_Item_ID": "UCI00686",
+    "UseCase_ID": "UC018",
+    "Product_ID": "P0325",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Quit smoking, nicotine replacement, smoking cessation"
+  },
+  {
+    "UseCase_Item_ID": "UCI00687",
+    "UseCase_ID": "UC018",
+    "Product_ID": "P0326",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Quit smoking, nicotine replacement, smoking cessation"
+  },
+  {
+    "UseCase_Item_ID": "UCI00688",
+    "UseCase_ID": "UC018",
+    "Product_ID": "P0327",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Quit smoking, nicotine replacement, smoking cessation"
+  },
+  {
+    "UseCase_Item_ID": "UCI00689",
+    "UseCase_ID": "UC018",
+    "Product_ID": "P0328",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Quit smoking, nicotine replacement, smoking cessation"
+  },
+  {
+    "UseCase_Item_ID": "UCI00690",
+    "UseCase_ID": "UC018",
+    "Product_ID": "P0329",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Quit smoking, nicotine replacement, smoking cessation"
+  },
+  {
+    "UseCase_Item_ID": "UCI00691",
+    "UseCase_ID": "UC018",
+    "Product_ID": "P0330",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Quit smoking, nicotine replacement, smoking cessation"
+  },
+  {
+    "UseCase_Item_ID": "UCI00692",
+    "UseCase_ID": "UC018",
+    "Product_ID": "P0342",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Quit smoking, nicotine replacement, smoking cessation"
+  },
+  {
+    "UseCase_Item_ID": "UCI00693",
+    "UseCase_ID": "UC019",
+    "Product_ID": "P0033",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Scars, skin repair, wound healing"
+  },
+  {
+    "UseCase_Item_ID": "UCI00694",
+    "UseCase_ID": "UC019",
+    "Product_ID": "P0119",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Scars, skin repair, wound healing"
+  },
+  {
+    "UseCase_Item_ID": "UCI00695",
+    "UseCase_ID": "UC019",
+    "Product_ID": "P0152",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Scars, skin repair, wound healing"
+  },
+  {
+    "UseCase_Item_ID": "UCI00696",
+    "UseCase_ID": "UC019",
+    "Product_ID": "P0158",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Scars, skin repair, wound healing"
+  },
+  {
+    "UseCase_Item_ID": "UCI00697",
+    "UseCase_ID": "UC019",
+    "Product_ID": "P0212",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Scars, skin repair, wound healing"
+  },
+  {
+    "UseCase_Item_ID": "UCI00698",
+    "UseCase_ID": "UC019",
+    "Product_ID": "P0216",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Scars, skin repair, wound healing"
+  },
+  {
+    "UseCase_Item_ID": "UCI00699",
+    "UseCase_ID": "UC019",
+    "Product_ID": "P0278",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Scars, skin repair, wound healing"
+  },
+  {
+    "UseCase_Item_ID": "UCI00700",
+    "UseCase_ID": "UC019",
+    "Product_ID": "P0292",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Scars, skin repair, wound healing"
+  },
+  {
+    "UseCase_Item_ID": "UCI00701",
+    "UseCase_ID": "UC019",
+    "Product_ID": "P0293",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Scars, skin repair, wound healing"
+  },
+  {
+    "UseCase_Item_ID": "UCI00702",
+    "UseCase_ID": "UC019",
+    "Product_ID": "P0294",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Scars, skin repair, wound healing"
+  },
+  {
+    "UseCase_Item_ID": "UCI00703",
+    "UseCase_ID": "UC019",
+    "Product_ID": "P0384",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Scars, skin repair, wound healing"
+  },
+  {
+    "UseCase_Item_ID": "UCI00704",
+    "UseCase_ID": "UC019",
+    "Product_ID": "P0411",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Scars, skin repair, wound healing"
+  },
+  {
+    "UseCase_Item_ID": "UCI00705",
+    "UseCase_ID": "UC019",
+    "Product_ID": "P0412",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Scars, skin repair, wound healing"
+  },
+  {
+    "UseCase_Item_ID": "UCI00706",
+    "UseCase_ID": "UC019",
+    "Product_ID": "P0413",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Scars, skin repair, wound healing"
+  },
+  {
+    "UseCase_Item_ID": "UCI00707",
+    "UseCase_ID": "UC019",
+    "Product_ID": "P0462",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Scars, skin repair, wound healing"
+  },
+  {
+    "UseCase_Item_ID": "UCI00708",
+    "UseCase_ID": "UC020",
+    "Product_ID": "P0028",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Erectile dysfunction, sexual health"
+  },
+  {
+    "UseCase_Item_ID": "UCI00709",
+    "UseCase_ID": "UC020",
+    "Product_ID": "P0496",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Erectile dysfunction, sexual health"
+  },
+  {
+    "UseCase_Item_ID": "UCI00710",
+    "UseCase_ID": "UC020",
+    "Product_ID": "P0497",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Erectile dysfunction, sexual health"
+  },
+  {
+    "UseCase_Item_ID": "UCI00711",
+    "UseCase_ID": "UC020",
+    "Product_ID": "P0498",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Erectile dysfunction, sexual health"
+  },
+  {
+    "UseCase_Item_ID": "UCI00712",
+    "UseCase_ID": "UC021",
+    "Product_ID": "P0166",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Emergency contraception, morning after"
+  },
+  {
+    "UseCase_Item_ID": "UCI00713",
+    "UseCase_ID": "UC021",
+    "Product_ID": "P0169",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Emergency contraception, morning after"
+  },
+  {
+    "UseCase_Item_ID": "UCI00714",
+    "UseCase_ID": "UC021",
+    "Product_ID": "P0254",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Emergency contraception, morning after"
+  },
+  {
+    "UseCase_Item_ID": "UCI00715",
+    "UseCase_ID": "UC022",
+    "Product_ID": "P0070",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Insomnia, sleep difficulty, anxiety, relaxation"
+  },
+  {
+    "UseCase_Item_ID": "UCI00716",
+    "UseCase_ID": "UC022",
+    "Product_ID": "P0433",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Insomnia, sleep difficulty, anxiety, relaxation"
+  },
+  {
+    "UseCase_Item_ID": "UCI00717",
+    "UseCase_ID": "UC006",
+    "Product_ID": "P0064",
+    "Role_In_UseCase": "Support",
+    "UseCase_Relevance_Score": 80,
+    "Trigger_Match": "Bloating, indigestion"
+  },
+  {
+    "UseCase_Item_ID": "UCI00718",
+    "UseCase_ID": "UC006",
+    "Product_ID": "P0116",
+    "Role_In_UseCase": "Support",
+    "UseCase_Relevance_Score": 80,
+    "Trigger_Match": "Bloating, indigestion"
+  },
+  {
+    "UseCase_Item_ID": "UCI00719",
+    "UseCase_ID": "UC006",
+    "Product_ID": "P0130",
+    "Role_In_UseCase": "Support",
+    "UseCase_Relevance_Score": 80,
+    "Trigger_Match": "Bloating, indigestion"
+  },
+  {
+    "UseCase_Item_ID": "UCI00720",
+    "UseCase_ID": "UC006",
+    "Product_ID": "P0217",
+    "Role_In_UseCase": "Support",
+    "UseCase_Relevance_Score": 80,
+    "Trigger_Match": "Bloating, indigestion"
+  },
+  {
+    "UseCase_Item_ID": "UCI00721",
+    "UseCase_ID": "UC006",
+    "Product_ID": "P0218",
+    "Role_In_UseCase": "Support",
+    "UseCase_Relevance_Score": 80,
+    "Trigger_Match": "Bloating, indigestion"
+  },
+  {
+    "UseCase_Item_ID": "UCI00722",
+    "UseCase_ID": "UC006",
+    "Product_ID": "P0280",
+    "Role_In_UseCase": "Support",
+    "UseCase_Relevance_Score": 80,
+    "Trigger_Match": "Bloating, indigestion"
+  },
+  {
+    "UseCase_Item_ID": "UCI00723",
+    "UseCase_ID": "UC006",
+    "Product_ID": "P0296",
+    "Role_In_UseCase": "Support",
+    "UseCase_Relevance_Score": 80,
+    "Trigger_Match": "Bloating, indigestion"
+  },
+  {
+    "UseCase_Item_ID": "UCI00724",
+    "UseCase_ID": "UC006",
+    "Product_ID": "P0307",
+    "Role_In_UseCase": "Support",
+    "UseCase_Relevance_Score": 80,
+    "Trigger_Match": "Bloating, indigestion"
+  },
+  {
+    "UseCase_Item_ID": "UCI00725",
+    "UseCase_ID": "UC006",
+    "Product_ID": "P0336",
+    "Role_In_UseCase": "Support",
+    "UseCase_Relevance_Score": 80,
+    "Trigger_Match": "Bloating, indigestion"
+  },
+  {
+    "UseCase_Item_ID": "UCI00726",
+    "UseCase_ID": "UC006",
+    "Product_ID": "P0398",
+    "Role_In_UseCase": "Support",
+    "UseCase_Relevance_Score": 80,
+    "Trigger_Match": "Bloating, indigestion"
+  },
+  {
+    "UseCase_Item_ID": "UCI00727",
+    "UseCase_ID": "UC006",
+    "Product_ID": "P0455",
+    "Role_In_UseCase": "Support",
+    "UseCase_Relevance_Score": 80,
+    "Trigger_Match": "Bloating, indigestion"
+  },
+  {
+    "UseCase_Item_ID": "UCI00728",
+    "UseCase_ID": "UC010",
+    "Product_ID": "P0117",
+    "Role_In_UseCase": "Support",
+    "UseCase_Relevance_Score": 70,
+    "Trigger_Match": "Skin care"
+  },
+  {
+    "UseCase_Item_ID": "UCI00729",
+    "UseCase_ID": "UC010",
+    "Product_ID": "P0118",
+    "Role_In_UseCase": "Support",
+    "UseCase_Relevance_Score": 70,
+    "Trigger_Match": "Skin care"
+  },
+  {
+    "UseCase_Item_ID": "UCI00730",
+    "UseCase_ID": "UC010",
+    "Product_ID": "P0448",
+    "Role_In_UseCase": "Support",
+    "UseCase_Relevance_Score": 70,
+    "Trigger_Match": "Skin care"
+  },
+  {
+    "UseCase_Item_ID": "UCI00731",
+    "UseCase_ID": "UC010",
+    "Product_ID": "P0237",
+    "Role_In_UseCase": "Support",
+    "UseCase_Relevance_Score": 75,
+    "Trigger_Match": "Skin care"
+  },
+  {
+    "UseCase_Item_ID": "UCI00732",
+    "UseCase_ID": "UC010",
+    "Product_ID": "P0260",
+    "Role_In_UseCase": "Support",
+    "UseCase_Relevance_Score": 75,
+    "Trigger_Match": "Skin care"
+  },
+  {
+    "UseCase_Item_ID": "UCI00733",
+    "UseCase_ID": "UC010",
+    "Product_ID": "P0394",
+    "Role_In_UseCase": "Support",
+    "UseCase_Relevance_Score": 75,
+    "Trigger_Match": "Skin care"
+  },
+  {
+    "UseCase_Item_ID": "UCI00734",
+    "UseCase_ID": "UC009",
+    "Product_ID": "P0312",
+    "Role_In_UseCase": "Support",
+    "UseCase_Relevance_Score": 80,
+    "Trigger_Match": "Nausea, vomiting"
+  },
+  {
+    "UseCase_Item_ID": "UCI00735",
+    "UseCase_ID": "UC003",
+    "Product_ID": "P0363",
+    "Role_In_UseCase": "Support",
+    "UseCase_Relevance_Score": 70,
+    "Trigger_Match": "Ear pain, pain relief"
+  },
+  {
+    "UseCase_Item_ID": "UCI00736",
+    "UseCase_ID": "UC017",
+    "Product_ID": "P0431",
+    "Role_In_UseCase": "Support",
+    "UseCase_Relevance_Score": 75,
+    "Trigger_Match": "Fatigue, energy support"
+  },
+  {
+    "UseCase_Item_ID": "UCI00737",
+    "UseCase_ID": "UC017",
+    "Product_ID": "P0026",
+    "Role_In_UseCase": "Support",
+    "UseCase_Relevance_Score": 60,
+    "Trigger_Match": "Heart health, daily aspirin"
+  },
+  {
+    "UseCase_Item_ID": "UCI00738",
+    "UseCase_ID": "UC017",
+    "Product_ID": "P0027",
+    "Role_In_UseCase": "Support",
+    "UseCase_Relevance_Score": 60,
+    "Trigger_Match": "Heart health, daily aspirin"
+  },
+  {
+    "UseCase_Item_ID": "UCI00739",
+    "UseCase_ID": "UC017",
+    "Product_ID": "P0401",
+    "Role_In_UseCase": "Support",
+    "UseCase_Relevance_Score": 60,
+    "Trigger_Match": "Thyroid protection, iodine"
+  },
+  {
+    "UseCase_Item_ID": "UCI00740",
+    "UseCase_ID": "UC011",
+    "Product_ID": "P0193",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Vaginal thrush, fungal infection"
+  },
+  {
+    "UseCase_Item_ID": "UCI00741",
+    "UseCase_ID": "UC011",
+    "Product_ID": "P0286",
+    "Role_In_UseCase": "Core",
+    "UseCase_Relevance_Score": 100,
+    "Trigger_Match": "Vaginal thrush, fungal infection"
   }
 ]

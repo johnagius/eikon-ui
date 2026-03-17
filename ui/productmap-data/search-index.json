@@ -204,7 +204,7 @@
     "nodeType": "product",
     "refId": "P0026",
     "label": "Aspirem Tablets Gastro-Resistant 75mg",
-    "searchText": "Aspirem Tablets Gastro-Resistant 75mg | Aspirem | ACETYLSALICYLIC ACID 75 milligram(s) | ACETYLSALICYLIC ACID | ANTITHROMBOTIC AGENTS | wellness | Aspirem | ACETYLSALICYLIC ACID | heart health | ANTITHROMBOTIC AGENTS | All year",
+    "searchText": "Aspirem Tablets Gastro-Resistant 75mg | Aspirem | ACETYLSALICYLIC ACID 75 milligram(s) | ACETYLSALICYLIC ACID | ANTITHROMBOTIC AGENTS | heart health | Aspirem | ACETYLSALICYLIC ACID | heart health | ANTITHROMBOTIC AGENTS | All year",
     "priority": 0
   },
   {
@@ -212,7 +212,7 @@
     "nodeType": "product",
     "refId": "P0027",
     "label": "Aspirin 75mg Gastro-resistant Tablets",
-    "searchText": "Aspirin 75mg Gastro-resistant Tablets | Aspirin | ASPIRIN BP 75 milligram(s) | ASPIRIN BP | ANTITHROMBOTIC AGENTS | wellness | Aspirin | ASPIRIN BP | heart health | ANTITHROMBOTIC AGENTS | All year",
+    "searchText": "Aspirin 75mg Gastro-resistant Tablets | Aspirin | ASPIRIN BP 75 milligram(s) | ASPIRIN BP | ANTITHROMBOTIC AGENTS | heart health | Aspirin | ASPIRIN BP | heart health | ANTITHROMBOTIC AGENTS | All year",
     "priority": 0
   },
   {
@@ -220,7 +220,7 @@
     "nodeType": "product",
     "refId": "P0028",
     "label": "Avarante Prescription Free 10 mg film-coated tablets",
-    "searchText": "Avarante Prescription Free 10 mg film-coated tablets | Avarante | TADALAFIL 10 milligram(s) | TADALAFIL | UROLOGICALS | wellness | Avarante | TADALAFIL | erectile dysfunction | UROLOGICALS | All year",
+    "searchText": "Avarante Prescription Free 10 mg film-coated tablets | Avarante | TADALAFIL 10 milligram(s) | TADALAFIL | UROLOGICALS | erectile dysfunction | Avarante | TADALAFIL | erectile dysfunction | UROLOGICALS | All year",
     "priority": 0
   },
   {
@@ -524,7 +524,7 @@
     "nodeType": "product",
     "refId": "P0066",
     "label": "CICLOVIRAL 50 mg/g Cream",
-    "searchText": "CICLOVIRAL 50 mg/g Cream | CICLOVIRAL | ACICLOVIR 50 milligram(s)/gram | ACICLOVIR | ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE | healing | CICLOVIRAL | ACICLOVIR | cold sore | healing | ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE | All year",
+    "searchText": "CICLOVIRAL 50 mg/g Cream | CICLOVIRAL | ACICLOVIR 50 milligram(s)/gram | ACICLOVIR | ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE | cold sores | CICLOVIRAL | ACICLOVIR | cold sore | healing | ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE | All year",
     "priority": 1
   },
   {
@@ -556,7 +556,7 @@
     "nodeType": "product",
     "refId": "P0070",
     "label": "Calmaben 50mg coated tablets",
-    "searchText": "Calmaben 50mg coated tablets | Calmaben | DIPHENHYDRAMINE HYDROCHLORIDE 50 milligram(s) | DIPHENHYDRAMINE HYDROCHLORIDE | PSYCHOLEPTICS | wellness | Calmaben | DIPHENHYDRAMINE HYDROCHLORIDE | sleep aid | PSYCHOLEPTICS | All year",
+    "searchText": "Calmaben 50mg coated tablets | Calmaben | DIPHENHYDRAMINE HYDROCHLORIDE 50 milligram(s) | DIPHENHYDRAMINE HYDROCHLORIDE | PSYCHOLEPTICS | sleep support | Calmaben | DIPHENHYDRAMINE HYDROCHLORIDE | sleep aid | PSYCHOLEPTICS | All year",
     "priority": 3
   },
   {
@@ -1324,7 +1324,7 @@
     "nodeType": "product",
     "refId": "P0166",
     "label": "Ecinq 30 mg film-coated tablets",
-    "searchText": "Ecinq 30 mg film-coated tablets | Ecinq | ULIPRISTAL ACETATE 30 milligram(s) | ULIPRISTAL ACETATE | SEX HORMONES AND MODULATORS OF THE GENITAL SYSTEM | wellness | Ecinq | ULIPRISTAL ACETATE | emergency contraception | SEX HORMONES AND MODULATORS OF THE GENITAL SYSTEM | All year",
+    "searchText": "Ecinq 30 mg film-coated tablets | Ecinq | ULIPRISTAL ACETATE 30 milligram(s) | ULIPRISTAL ACETATE | SEX HORMONES AND MODULATORS OF THE GENITAL SYSTEM | emergency contraception | Ecinq | ULIPRISTAL ACETATE | emergency contraception | SEX HORMONES AND MODULATORS OF THE GENITAL SYSTEM | All year",
     "priority": 0
   },
   {
@@ -1348,7 +1348,7 @@
     "nodeType": "product",
     "refId": "P0169",
     "label": "Escapelle 1500 microgram tablet",
-    "searchText": "Escapelle 1500 microgram tablet | Escapelle | LEVONORGESTREL 1500 microgram(s) | LEVONORGESTREL | SEX HORMONES AND MODULATORS OF THE GENITAL SYSTEM | wellness | Escapelle | LEVONORGESTREL | emergency contraception | SEX HORMONES AND MODULATORS OF THE GENITAL SYSTEM | All year",
+    "searchText": "Escapelle 1500 microgram tablet | Escapelle | LEVONORGESTREL 1500 microgram(s) | LEVONORGESTREL | SEX HORMONES AND MODULATORS OF THE GENITAL SYSTEM | emergency contraception | Escapelle | LEVONORGESTREL | emergency contraception | SEX HORMONES AND MODULATORS OF THE GENITAL SYSTEM | All year",
     "priority": 1
   },
   {
@@ -1892,7 +1892,7 @@
     "nodeType": "product",
     "refId": "P0237",
     "label": "InfectoScab 5% cream",
-    "searchText": "InfectoScab 5% cream | InfectoScab | PERMETHRIN 50 milligram(s)/gram | PERMETHRIN | ECTOPARASITICIDES, INCL. SCABICIDES, INSECTICIDES AND REPELLENTS | skin irritation; dermatology support | InfectoScab | PERMETHRIN | scabies treatment | skin irritation | ECTOPARASITICIDES, INCL. SCABICIDES, INSECTICIDES AND REPELLENTS | All year",
+    "searchText": "InfectoScab 5% cream | InfectoScab | PERMETHRIN 50 milligram(s)/gram | PERMETHRIN | ECTOPARASITICIDES, INCL. SCABICIDES, INSECTICIDES AND REPELLENTS | scabies; skin irritation; dermatology support | InfectoScab | PERMETHRIN | scabies treatment | skin irritation | ECTOPARASITICIDES, INCL. SCABICIDES, INSECTICIDES AND REPELLENTS | All year",
     "priority": 2
   },
   {
@@ -2028,7 +2028,7 @@
     "nodeType": "product",
     "refId": "P0254",
     "label": "Levonorgestrel Rowex 1.5mg Tablet",
-    "searchText": "Levonorgestrel Rowex 1.5mg Tablet | Levonorgestrel | LEVONORGESTREL 1.5 milligram(s) | LEVONORGESTREL | SEX HORMONES AND MODULATORS OF THE GENITAL SYSTEM | wellness | Levonorgestrel | LEVONORGESTREL | emergency contraception | SEX HORMONES AND MODULATORS OF THE GENITAL SYSTEM | All year",
+    "searchText": "Levonorgestrel Rowex 1.5mg Tablet | Levonorgestrel | LEVONORGESTREL 1.5 milligram(s) | LEVONORGESTREL | SEX HORMONES AND MODULATORS OF THE GENITAL SYSTEM | emergency contraception | Levonorgestrel | LEVONORGESTREL | emergency contraception | SEX HORMONES AND MODULATORS OF THE GENITAL SYSTEM | All year",
     "priority": 1
   },
   {
@@ -2076,7 +2076,7 @@
     "nodeType": "product",
     "refId": "P0260",
     "label": "Lyclear 5% w/w Dermal Cream",
-    "searchText": "Lyclear 5% w/w Dermal Cream | Lyclear | PERMETHRIN 50 milligram(s)/gram | PERMETHRIN | ECTOPARASITICIDES, INCL. SCABICIDES, INSECTICIDES AND REPELLENTS | skin irritation; dermatology support | Lyclear | PERMETHRIN | scabies treatment | skin irritation | ECTOPARASITICIDES, INCL. SCABICIDES, INSECTICIDES AND REPELLENTS | All year",
+    "searchText": "Lyclear 5% w/w Dermal Cream | Lyclear | PERMETHRIN 50 milligram(s)/gram | PERMETHRIN | ECTOPARASITICIDES, INCL. SCABICIDES, INSECTICIDES AND REPELLENTS | scabies; skin irritation; dermatology support | Lyclear | PERMETHRIN | scabies treatment | skin irritation | ECTOPARASITICIDES, INCL. SCABICIDES, INSECTICIDES AND REPELLENTS | All year",
     "priority": 2
   },
   {
@@ -2292,7 +2292,7 @@
     "nodeType": "product",
     "refId": "P0287",
     "label": "Medovir cream 5%",
-    "searchText": "Medovir cream 5% | Medovir | ACICLOVIR 5 percent weight/weight | ACICLOVIR | ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE | healing | Medovir | ACICLOVIR | cold sore | healing | ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE | All year",
+    "searchText": "Medovir cream 5% | Medovir | ACICLOVIR 5 percent weight/weight | ACICLOVIR | ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE | cold sores | Medovir | ACICLOVIR | cold sore | healing | ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE | All year",
     "priority": 1
   },
   {
@@ -2492,7 +2492,7 @@
     "nodeType": "product",
     "refId": "P0312",
     "label": "Nausefe (10 mg + 10 mg + 10 mg) Coated Tablets",
-    "searchText": "Nausefe (10 mg + 10 mg + 10 mg) Coated Tablets | Nausefe | PYRIDOXINE HYDROCHLORIDE 10 milligram(s) | DICYCLOVERINE HYDROCHLORIDE 10 milligram(s) | DOXYLAMINE SUCCINATE 10 milligram(s) | DICYCLOVERINE HYDROCHLORIDE | DOXYLAMINE SUCCINATE | PYRIDOXINE HYDROCHLORIDE | ANTIEMETICS AND ANTINAUSEANTS | gut upset | Nausefe | DICYCLOVERINE HYDROCHLORIDE | DOXYLAMINE SUCCINATE | PYRIDOXINE HYDROCHLORIDE | nausea support | ANTIEMETICS AND ANTINAUSEANTS | All year",
+    "searchText": "Nausefe (10 mg + 10 mg + 10 mg) Coated Tablets | Nausefe | PYRIDOXINE HYDROCHLORIDE 10 milligram(s) | DICYCLOVERINE HYDROCHLORIDE 10 milligram(s) | DOXYLAMINE SUCCINATE 10 milligram(s) | DICYCLOVERINE HYDROCHLORIDE | DOXYLAMINE SUCCINATE | PYRIDOXINE HYDROCHLORIDE | ANTIEMETICS AND ANTINAUSEANTS | nausea | Nausefe | DICYCLOVERINE HYDROCHLORIDE | DOXYLAMINE SUCCINATE | PYRIDOXINE HYDROCHLORIDE | nausea support | ANTIEMETICS AND ANTINAUSEANTS | All year",
     "priority": 3
   },
   {
@@ -2900,7 +2900,7 @@
     "nodeType": "product",
     "refId": "P0363",
     "label": "Otipax Ear drops solution",
-    "searchText": "Otipax Ear drops solution | Otipax | LIDOCAINE HYDROCHLORIDE 1 percent weight/weight | PHENAZONE 4 percent weight/weight | LIDOCAINE HYDROCHLORIDE | PHENAZONE | OTOLOGICALS | pain | Otipax | LIDOCAINE HYDROCHLORIDE | PHENAZONE | ear pain | OTOLOGICALS | All year",
+    "searchText": "Otipax Ear drops solution | Otipax | LIDOCAINE HYDROCHLORIDE 1 percent weight/weight | PHENAZONE 4 percent weight/weight | LIDOCAINE HYDROCHLORIDE | PHENAZONE | OTOLOGICALS | ear pain | Otipax | LIDOCAINE HYDROCHLORIDE | PHENAZONE | ear pain | OTOLOGICALS | All year",
     "priority": 0
   },
   {
@@ -3148,7 +3148,7 @@
     "nodeType": "product",
     "refId": "P0394",
     "label": "Permethrin LMP 50 mg/g gel",
-    "searchText": "Permethrin LMP 50 mg/g gel | Permethrin | PERMETHRIN 50 milligram(s)/gram | PERMETHRIN | ECTOPARASITICIDES, INCL. SCABICIDES, INSECTICIDES AND REPELLENTS | skin irritation; dermatology support | Permethrin | PERMETHRIN | scabies treatment | skin irritation | ECTOPARASITICIDES, INCL. SCABICIDES, INSECTICIDES AND REPELLENTS | All year",
+    "searchText": "Permethrin LMP 50 mg/g gel | Permethrin | PERMETHRIN 50 milligram(s)/gram | PERMETHRIN | ECTOPARASITICIDES, INCL. SCABICIDES, INSECTICIDES AND REPELLENTS | scabies; skin irritation; dermatology support | Permethrin | PERMETHRIN | scabies treatment | skin irritation | ECTOPARASITICIDES, INCL. SCABICIDES, INSECTICIDES AND REPELLENTS | All year",
     "priority": 2
   },
   {
@@ -3204,7 +3204,7 @@
     "nodeType": "product",
     "refId": "P0401",
     "label": "Potassium iodide G.L. Pharma 65mg Tablets",
-    "searchText": "Potassium iodide G.L. Pharma 65mg Tablets | Potassium | POTASSIUM IODIDE 65 milligram(s) | POTASSIUM IODIDE | ALL OTHER THERAPEUTIC PRODUCTS | supplementation | Potassium | POTASSIUM IODIDE | thyroid protection | ALL OTHER THERAPEUTIC PRODUCTS | All year",
+    "searchText": "Potassium iodide G.L. Pharma 65mg Tablets | Potassium | POTASSIUM IODIDE 65 milligram(s) | POTASSIUM IODIDE | ALL OTHER THERAPEUTIC PRODUCTS | thyroid support | Potassium | POTASSIUM IODIDE | thyroid protection | ALL OTHER THERAPEUTIC PRODUCTS | All year",
     "priority": 0
   },
   {
@@ -3412,7 +3412,7 @@
     "nodeType": "product",
     "refId": "P0427",
     "label": "Rowatinex Gastro-resistant Capsules, Soft",
-    "searchText": "Rowatinex Gastro-resistant Capsules, Soft | Rowatinex | ANETHOL 4 milligram(s) | PINENE 6.2 milligram(s) | CAMPHENE 15 milligram(s) | BORNEOL 10 milligram(s) | FENCHONE 4 milligram(s) | PINENE 24.8 milligram(s) | CINEOLE 3 milligram(s) | ANETHOL | BORNEOL | CAMPHENE | CINEOLE | FENCHONE | PINENE | UROLOGICALS | wellness | Rowatinex | ANETHOL | BORNEOL | CAMPHENE | CINEOLE | FENCHONE | PINENE | urinary stones | UROLOGICALS | All year",
+    "searchText": "Rowatinex Gastro-resistant Capsules, Soft | Rowatinex | ANETHOL 4 milligram(s) | PINENE 6.2 milligram(s) | CAMPHENE 15 milligram(s) | BORNEOL 10 milligram(s) | FENCHONE 4 milligram(s) | PINENE 24.8 milligram(s) | CINEOLE 3 milligram(s) | ANETHOL | BORNEOL | CAMPHENE | CINEOLE | FENCHONE | PINENE | UROLOGICALS | urinary health | Rowatinex | ANETHOL | BORNEOL | CAMPHENE | CINEOLE | FENCHONE | PINENE | urinary stones | UROLOGICALS | All year",
     "priority": 0
   },
   {
@@ -3444,7 +3444,7 @@
     "nodeType": "product",
     "refId": "P0431",
     "label": "STIMOL 1g/10ml, oral solution in sachet",
-    "searchText": "STIMOL 1g/10ml, oral solution in sachet | STIMOL | CITRULLINE MALEATE 10 gram(s)/100 millilitres | CITRULLINE MALEATE | TONICS | supplementation; wellness | STIMOL | CITRULLINE MALEATE | fatigue | supplementation | TONICS | All year",
+    "searchText": "STIMOL 1g/10ml, oral solution in sachet | STIMOL | CITRULLINE MALEATE 10 gram(s)/100 millilitres | CITRULLINE MALEATE | TONICS | fatigue | STIMOL | CITRULLINE MALEATE | fatigue | supplementation | TONICS | All year",
     "priority": 0
   },
   {
@@ -3460,7 +3460,7 @@
     "nodeType": "product",
     "refId": "P0433",
     "label": "Sedistress 500mg film-coated tablets",
-    "searchText": "Sedistress 500mg film-coated tablets | Sedistress | PASSIFLORA INCARNATA 500 milligram(s) | PASSIFLORA INCARNATA | PSYCHOLEPTICS | wellness | Sedistress | PASSIFLORA INCARNATA | sleep support | PSYCHOLEPTICS | All year",
+    "searchText": "Sedistress 500mg film-coated tablets | Sedistress | PASSIFLORA INCARNATA 500 milligram(s) | PASSIFLORA INCARNATA | PSYCHOLEPTICS | sleep support | Sedistress | PASSIFLORA INCARNATA | sleep support | PSYCHOLEPTICS | All year",
     "priority": 1
   },
   {
@@ -3580,7 +3580,7 @@
     "nodeType": "product",
     "refId": "P0448",
     "label": "Sodium Chloride MONICO 0.9%",
-    "searchText": "Sodium Chloride MONICO 0.9% | Sodium | SODIUM CHLORIDE 0.9 gram(s)/100 millilitres | SODIUM CHLORIDE | ALL OTHER NON-THERAPEUTIC PRODUCTS | wound care | Sodium | SODIUM CHLORIDE | wound cleansing | wound care | ALL OTHER NON-THERAPEUTIC PRODUCTS | All year",
+    "searchText": "Sodium Chloride MONICO 0.9% | Sodium | SODIUM CHLORIDE 0.9 gram(s)/100 millilitres | SODIUM CHLORIDE | ALL OTHER NON-THERAPEUTIC PRODUCTS | nasal irrigation; wound care | Sodium | SODIUM CHLORIDE | wound cleansing | wound care | ALL OTHER NON-THERAPEUTIC PRODUCTS | All year",
     "priority": 0
   },
   {
@@ -3964,7 +3964,7 @@
     "nodeType": "product",
     "refId": "P0496",
     "label": "Viagra Connect 50 mg Film-Coated Tablet",
-    "searchText": "Viagra Connect 50 mg Film-Coated Tablet | Viagra | SILDENAFIL 50 milligram(s) | SILDENAFIL | UROLOGICALS | wellness | Viagra | SILDENAFIL | erectile dysfunction | UROLOGICALS | All year",
+    "searchText": "Viagra Connect 50 mg Film-Coated Tablet | Viagra | SILDENAFIL 50 milligram(s) | SILDENAFIL | UROLOGICALS | erectile dysfunction | Viagra | SILDENAFIL | erectile dysfunction | UROLOGICALS | All year",
     "priority": 2
   },
   {
@@ -3972,7 +3972,7 @@
     "nodeType": "product",
     "refId": "P0497",
     "label": "Viagra Connect 50 mg film-coated tablets",
-    "searchText": "Viagra Connect 50 mg film-coated tablets | Viagra | SILDENAFIL 50 milligram(s) | SILDENAFIL | UROLOGICALS | wellness | Viagra | SILDENAFIL | erectile dysfunction | UROLOGICALS | All year",
+    "searchText": "Viagra Connect 50 mg film-coated tablets | Viagra | SILDENAFIL 50 milligram(s) | SILDENAFIL | UROLOGICALS | erectile dysfunction | Viagra | SILDENAFIL | erectile dysfunction | UROLOGICALS | All year",
     "priority": 2
   },
   {
@@ -3980,7 +3980,7 @@
     "nodeType": "product",
     "refId": "P0498",
     "label": "Viagra Connect Melts 50 mg orodispersible films",
-    "searchText": "Viagra Connect Melts 50 mg orodispersible films | Viagra | SILDENAFIL 50 milligram(s) | SILDENAFIL | UROLOGICALS | wellness | Viagra | SILDENAFIL | erectile dysfunction | UROLOGICALS | All year",
+    "searchText": "Viagra Connect Melts 50 mg orodispersible films | Viagra | SILDENAFIL 50 milligram(s) | SILDENAFIL | UROLOGICALS | erectile dysfunction | Viagra | SILDENAFIL | erectile dysfunction | UROLOGICALS | All year",
     "priority": 2
   },
   {
@@ -4124,7 +4124,7 @@
     "nodeType": "product",
     "refId": "P0516",
     "label": "Zoviduo 50mg/g and 10mg/g Cream",
-    "searchText": "Zoviduo 50mg/g and 10mg/g Cream | Zoviduo | ACICLOVIR 50 milligram(s) | HYDROCORTISONE 10 milligram(s) | ACICLOVIR | HYDROCORTISONE | ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE | healing | Zoviduo | ACICLOVIR | HYDROCORTISONE | cold sore | healing | ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE | All year",
+    "searchText": "Zoviduo 50mg/g and 10mg/g Cream | Zoviduo | ACICLOVIR 50 milligram(s) | HYDROCORTISONE 10 milligram(s) | ACICLOVIR | HYDROCORTISONE | ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE | cold sores | Zoviduo | ACICLOVIR | HYDROCORTISONE | cold sore | healing | ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE | All year",
     "priority": 1
   },
   {
@@ -4132,7 +4132,7 @@
     "nodeType": "product",
     "refId": "P0517",
     "label": "Zovirax Duo 50 mg/10 mg/g cream",
-    "searchText": "Zovirax Duo 50 mg/10 mg/g cream | Zovirax | ACICLOVIR 50 milligram(s)/gram | HYDROCORTISONE 10 milligram(s)/gram | ACICLOVIR | HYDROCORTISONE | ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE | healing | Zovirax | ACICLOVIR | HYDROCORTISONE | cold sore | healing | ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE | All year",
+    "searchText": "Zovirax Duo 50 mg/10 mg/g cream | Zovirax | ACICLOVIR 50 milligram(s)/gram | HYDROCORTISONE 10 milligram(s)/gram | ACICLOVIR | HYDROCORTISONE | ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE | cold sores | Zovirax | ACICLOVIR | HYDROCORTISONE | cold sore | healing | ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE | All year",
     "priority": 1
   },
   {
@@ -4592,14 +4592,6 @@
     "priority": 170
   },
   {
-    "id": "symptom:S053",
-    "nodeType": "symptom",
-    "refId": "S053",
-    "label": "review needed",
-    "searchText": "review needed | Review queue | Review queue",
-    "priority": 134
-  },
-  {
     "id": "symptom:S054",
     "nodeType": "symptom",
     "refId": "S054",
@@ -4926,5 +4918,181 @@
     "label": "Diarrhoea Recovery Bundle",
     "searchText": "Diarrhoea Recovery Bundle | Travel / acute bundle | Symptom control plus gut recovery",
     "priority": 100
+  },
+  {
+    "id": "symptom:S078",
+    "nodeType": "symptom",
+    "refId": "S078",
+    "label": "cold sores",
+    "searchText": "cold sores | Skin | Skin",
+    "priority": 100
+  },
+  {
+    "id": "symptom:S079",
+    "nodeType": "symptom",
+    "refId": "S079",
+    "label": "erectile dysfunction",
+    "searchText": "erectile dysfunction | Men's health | Men's health",
+    "priority": 100
+  },
+  {
+    "id": "symptom:S080",
+    "nodeType": "symptom",
+    "refId": "S080",
+    "label": "emergency contraception",
+    "searchText": "emergency contraception | Women's health | Women's health",
+    "priority": 100
+  },
+  {
+    "id": "symptom:S081",
+    "nodeType": "symptom",
+    "refId": "S081",
+    "label": "ear pain",
+    "searchText": "ear pain | General | General",
+    "priority": 100
+  },
+  {
+    "id": "symptom:S082",
+    "nodeType": "symptom",
+    "refId": "S082",
+    "label": "nausea",
+    "searchText": "nausea | Gastrointestinal | Gastrointestinal",
+    "priority": 100
+  },
+  {
+    "id": "symptom:S083",
+    "nodeType": "symptom",
+    "refId": "S083",
+    "label": "sleep support",
+    "searchText": "sleep support | Lifestyle / cessation | Lifestyle",
+    "priority": 100
+  },
+  {
+    "id": "symptom:S084",
+    "nodeType": "symptom",
+    "refId": "S084",
+    "label": "heart health",
+    "searchText": "heart health | General | General",
+    "priority": 100
+  },
+  {
+    "id": "symptom:S085",
+    "nodeType": "symptom",
+    "refId": "S085",
+    "label": "scabies",
+    "searchText": "scabies | Skin | Skin",
+    "priority": 100
+  },
+  {
+    "id": "symptom:S086",
+    "nodeType": "symptom",
+    "refId": "S086",
+    "label": "fatigue",
+    "searchText": "fatigue | General | General",
+    "priority": 100
+  },
+  {
+    "id": "symptom:S087",
+    "nodeType": "symptom",
+    "refId": "S087",
+    "label": "thyroid support",
+    "searchText": "thyroid support | General | General",
+    "priority": 100
+  },
+  {
+    "id": "symptom:S088",
+    "nodeType": "symptom",
+    "refId": "S088",
+    "label": "urinary health",
+    "searchText": "urinary health | General | General",
+    "priority": 100
+  },
+  {
+    "id": "symptom:S089",
+    "nodeType": "symptom",
+    "refId": "S089",
+    "label": "nasal irrigation",
+    "searchText": "nasal irrigation | Cold / allergy | Cold / allergy",
+    "priority": 100
+  },
+  {
+    "id": "usecase:UC013",
+    "nodeType": "usecase",
+    "refId": "UC013",
+    "label": "Haemorrhoid relief",
+    "searchText": "Haemorrhoid relief | Gastrointestinal | Haemorrhoids, rectal discomfort, itching | Topical and oral options for haemorrhoid symptom relief.",
+    "priority": 120
+  },
+  {
+    "id": "usecase:UC014",
+    "nodeType": "usecase",
+    "refId": "UC014",
+    "label": "Cold sore treatment",
+    "searchText": "Cold sore treatment | Skin | Cold sores, lip blisters, herpes labialis | Antiviral cream for cold sore outbreak management.",
+    "priority": 120
+  },
+  {
+    "id": "usecase:UC015",
+    "nodeType": "usecase",
+    "refId": "UC015",
+    "label": "Mouth ulcer care",
+    "searchText": "Mouth ulcer care | General | Mouth ulcers, oral pain, canker sores | Topical gels and rinses for mouth ulcer pain relief and healing.",
+    "priority": 120
+  },
+  {
+    "id": "usecase:UC016",
+    "nodeType": "usecase",
+    "refId": "UC016",
+    "label": "Iron and anaemia support",
+    "searchText": "Iron and anaemia support | Supplements | Tiredness, iron deficiency, anaemia | Iron supplements for anaemia prevention and treatment.",
+    "priority": 120
+  },
+  {
+    "id": "usecase:UC017",
+    "nodeType": "usecase",
+    "refId": "UC017",
+    "label": "Mineral and vitamin support",
+    "searchText": "Mineral and vitamin support | Supplements | Vitamin deficiency, mineral deficiency, supplementation | Essential vitamins and minerals for general health.",
+    "priority": 120
+  },
+  {
+    "id": "usecase:UC018",
+    "nodeType": "usecase",
+    "refId": "UC018",
+    "label": "Smoking cessation support",
+    "searchText": "Smoking cessation support | Lifestyle / cessation | Quit smoking, nicotine replacement, smoking cessation | Nicotine replacement therapy and cessation aids.",
+    "priority": 120
+  },
+  {
+    "id": "usecase:UC019",
+    "nodeType": "usecase",
+    "refId": "UC019",
+    "label": "Skin repair and scar care",
+    "searchText": "Skin repair and scar care | Skin | Scars, skin repair, wound healing | Products for skin repair, scar reduction, and wound healing.",
+    "priority": 120
+  },
+  {
+    "id": "usecase:UC020",
+    "nodeType": "usecase",
+    "refId": "UC020",
+    "label": "Erectile dysfunction support",
+    "searchText": "Erectile dysfunction support | Men's health | Erectile dysfunction, sexual health | PDE5 inhibitors for erectile dysfunction.",
+    "priority": 120
+  },
+  {
+    "id": "usecase:UC021",
+    "nodeType": "usecase",
+    "refId": "UC021",
+    "label": "Emergency contraception",
+    "searchText": "Emergency contraception | Women's health | Emergency contraception, morning after | Emergency hormonal contraception options.",
+    "priority": 120
+  },
+  {
+    "id": "usecase:UC022",
+    "nodeType": "usecase",
+    "refId": "UC022",
+    "label": "Sleep and relaxation",
+    "searchText": "Sleep and relaxation | Lifestyle / cessation | Insomnia, sleep difficulty, anxiety, relaxation | Sleep aids and calming products for occasional insomnia.",
+    "priority": 120
   }
 ]

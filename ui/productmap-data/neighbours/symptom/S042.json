@@ -1,1 +1,690 @@
-{"centerId":"symptom:S042","centerType":"symptom","refId":"S042","nodes":[{"id":"symptom:S042","nodeType":"symptom","refId":"S042","label":"loose stools","subtext":"Gastrointestinal","meta":{"Symptom_ID":"S042","Symptom_Name":"loose stools","Symptom_Category":"Gastrointestinal","Linked_Product_Count":16,"Display_Group":"Gastrointestinal","Priority_For_Graph":85,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"product:P0034","nodeType":"product","refId":"P0034","label":"BIOFLOR 250 mg, capsule","subtext":"diarrhoea","meta":{"brand":"BIOFLOR","generic":"SACCHAROMYCES BOULARDII","form":"CAPSULE","formGroup":"Oral solid","route":"Oral","mainIndication":"diarrhoea","secondaryIndications":"loose stools | gut upset","otcCategory":"ANTIDIARRHEALS, INTESTINAL ANTIINFLAMMATORY/ANTIINFECTIVE AGENTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"SACCHAROMYCES BOULARDII 250 milligram(s)","packSizeText":"Review manually","atcCode":"A07FA02","status":"Authorised","supplierCatalogKey":"bioflor 250 mg, capsule"}},{"id":"product:P0035","nodeType":"product","refId":"P0035","label":"BIOFLOR 250mg, powder for oral suspension in sachet","subtext":"diarrhoea","meta":{"brand":"BIOFLOR","generic":"SACCHAROMYCES BOULARDII","form":"POWDER FOR ORAL SUSPENSION","formGroup":"Oral liquid","route":"Oral","mainIndication":"diarrhoea","secondaryIndications":"loose stools | gut upset","otcCategory":"ANTIDIARRHEALS, INTESTINAL ANTIINFLAMMATORY/ANTIINFECTIVE AGENTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"SACCHAROMYCES BOULARDII 250 milligram(s)","packSizeText":"Review manually","atcCode":"A07FA02","status":"Authorised","supplierCatalogKey":"bioflor 250mg, powder for oral suspension in sachet"}},{"id":"product:P0049","nodeType":"product","refId":"P0049","label":"Biocarbon Tablets 250mg","subtext":"diarrhoea","meta":{"brand":"Biocarbon","generic":"CHARCOAL, ACTIVATED","form":"TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"diarrhoea","secondaryIndications":"loose stools | gut upset","otcCategory":"ANTIDIARRHEALS, INTESTINAL ANTIINFLAMMATORY/ANTIINFECTIVE AGENTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CHARCOAL, ACTIVATED 250 milligram(s)","packSizeText":"Review manually","atcCode":"A07BA01","status":"Authorised","supplierCatalogKey":"biocarbon tablets 250mg"}},{"id":"product:P0052","nodeType":"product","refId":"P0052","label":"Bioflor Forte 500mg, powder for oral suspension in sachet.","subtext":"diarrhoea","meta":{"brand":"Bioflor","generic":"SACCHAROMYCES BOULARDII","form":"POWDER FOR ORAL SUSPENSION","formGroup":"Oral liquid","route":"Oral","mainIndication":"diarrhoea","secondaryIndications":"loose stools | gut upset","otcCategory":"ANTIDIARRHEALS, INTESTINAL ANTIINFLAMMATORY/ANTIINFECTIVE AGENTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"SACCHAROMYCES BOULARDII 500 milligram(s)","packSizeText":"Review manually","atcCode":"A07FA02","status":"Authorised","supplierCatalogKey":"bioflor forte 500mg, powder for oral suspension in sachet."}},{"id":"product:P0144","nodeType":"product","refId":"P0144","label":"Dioralyte Blackcurrant Powder for Oral Solution","subtext":"diarrhoea","meta":{"brand":"Dioralyte","generic":"DISODIUM HYDROGEN CITRATE | GLUCOSE | POTASSIUM CHLORIDE | SODIUM CHLORIDE","form":"POWDER FOR ORAL SOLUTION","formGroup":"Oral solid","route":"Oral","mainIndication":"diarrhoea","secondaryIndications":"loose stools | gut upset","otcCategory":"ANTIDIARRHEALS, INTESTINAL ANTIINFLAMMATORY/ANTIINFECTIVE AGENTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":4,"strengthText":"SODIUM CHLORIDE 0.47 gram(s) | POTASSIUM CHLORIDE 0.30 gram(s) | GLUCOSE 3.56 gram(s) | DISODIUM HYDROGEN CITRATE 0.53 gram(s)","packSizeText":"Review manually","atcCode":"A07CA","status":"Authorised","supplierCatalogKey":"dioralyte blackcurrant powder for oral solution"}},{"id":"product:P0145","nodeType":"product","refId":"P0145","label":"Dioralyte Citrus Powder for Oral Solution","subtext":"diarrhoea","meta":{"brand":"Dioralyte","generic":"DISODIUM HYDROGEN CITRATE | GLUCOSE | POTASSIUM CHLORIDE | SODIUM CHLORIDE","form":"POWDER FOR ORAL SOLUTION","formGroup":"Oral solid","route":"Oral","mainIndication":"diarrhoea","secondaryIndications":"loose stools | gut upset","otcCategory":"ANTIDIARRHEALS, INTESTINAL ANTIINFLAMMATORY/ANTIINFECTIVE AGENTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":4,"strengthText":"POTASSIUM CHLORIDE 0.30 gram(s) | GLUCOSE 3.56 gram(s) | DISODIUM HYDROGEN CITRATE 0.53 gram(s) | SODIUM CHLORIDE 0.47 gram(s)","packSizeText":"Review manually","atcCode":"A07CA","status":"Authorised","supplierCatalogKey":"dioralyte citrus powder for oral solution"}},{"id":"product:P0146","nodeType":"product","refId":"P0146","label":"Dioralyte Natural, Powder for oral solution","subtext":"diarrhoea","meta":{"brand":"Dioralyte","generic":"DISODIUM HYDROGEN CITRATE | GLUCOSE | POTASSIUM CHLORIDE | SODIUM CHLORIDE","form":"POWDER FOR ORAL SOLUTION","formGroup":"Oral solid","route":"Oral","mainIndication":"diarrhoea","secondaryIndications":"loose stools | gut upset","otcCategory":"ANTIDIARRHEALS, INTESTINAL ANTIINFLAMMATORY/ANTIINFECTIVE AGENTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":4,"strengthText":"SODIUM CHLORIDE 0.47 gram(s) | POTASSIUM CHLORIDE 0.30 gram(s) | GLUCOSE 3.56 gram(s) | DISODIUM HYDROGEN CITRATE 0.53 gram(s)","packSizeText":"Review manually","atcCode":"A07CA","status":"Authorised","supplierCatalogKey":"dioralyte natural, powder for oral solution"}},{"id":"product:P0147","nodeType":"product","refId":"P0147","label":"Dioralyte Rebalance Citrus Powder for Oral Solution","subtext":"diarrhoea","meta":{"brand":"Dioralyte","generic":"DISODIUM HYDROGEN CITRATE | GLUCOSE | POTASSIUM CHLORIDE | SODIUM CHLORIDE","form":"POWDER FOR ORAL SOLUTION","formGroup":"Oral solid","route":"Oral","mainIndication":"diarrhoea","secondaryIndications":"loose stools | gut upset","otcCategory":"ANTIDIARRHEALS, INTESTINAL ANTIINFLAMMATORY/ANTIINFECTIVE AGENTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":4,"strengthText":"SODIUM CHLORIDE 0.47 gram(s) | POTASSIUM CHLORIDE 0.30 gram(s) | GLUCOSE 3.56 gram(s) | DISODIUM HYDROGEN CITRATE 0.53 gram(s)","packSizeText":"Review manually","atcCode":"A07CA","status":"Authorised","supplierCatalogKey":"dioralyte rebalance citrus powder for oral solution"}},{"id":"product:P0159","nodeType":"product","refId":"P0159","label":"ENTEROGERMINA 2 billion / 5 ml oral suspension","subtext":"diarrhoea","meta":{"brand":"ENTEROGERMINA","generic":"SPORES OF BACILLUS CLAUSII","form":"ORAL SUSPENSION","formGroup":"Oral liquid","route":"Oral","mainIndication":"diarrhoea","secondaryIndications":"loose stools | gut upset","otcCategory":"ANTIDIARRHEALS, INTESTINAL ANTIINFLAMMATORY/ANTIINFECTIVE AGENTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"SPORES OF BACILLUS CLAUSII 2/5 billion organisms/millilitre","packSizeText":"Review manually","atcCode":"A07FA","status":"Authorised","supplierCatalogKey":"enterogermina 2 billion / 5 ml oral suspension"}},{"id":"product:P0233","nodeType":"product","refId":"P0233","label":"Imodium Instant 2 mg orodispersible tablet","subtext":"diarrhoea","meta":{"brand":"Imodium","generic":"LOPERAMIDE HYDROCHLORIDE","form":"ORODISPERSIBLE TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"diarrhoea","secondaryIndications":"loose stools | gut upset","otcCategory":"ANTIDIARRHEALS, INTESTINAL ANTIINFLAMMATORY/ANTIINFECTIVE AGENTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"LOPERAMIDE HYDROCHLORIDE 2 milligram(s)","packSizeText":"Review manually","atcCode":"A07DA03","status":"Authorised","supplierCatalogKey":"imodium instant 2 mg orodispersible tablet"}},{"id":"product:P0234","nodeType":"product","refId":"P0234","label":"Imodium Instant Melt Tablet 2 mg Orodispersible Tablet","subtext":"diarrhoea","meta":{"brand":"Imodium","generic":"LOPERAMIDE HYDROCHLORIDE","form":"ORODISPERSIBLE TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"diarrhoea","secondaryIndications":"loose stools | gut upset","otcCategory":"ANTIDIARRHEALS, INTESTINAL ANTIINFLAMMATORY/ANTIINFECTIVE AGENTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"LOPERAMIDE HYDROCHLORIDE 2 milligram(s)","packSizeText":"Review manually","atcCode":"A07DA03","status":"Authorised","supplierCatalogKey":"imodium instant melt tablet 2 mg orodispersible tablet"}},{"id":"product:P0235","nodeType":"product","refId":"P0235","label":"Imodium Instant Melt Tablet 2mg Orodispersible Tablets","subtext":"diarrhoea","meta":{"brand":"Imodium","generic":"LOPERAMIDE HYDROCHLORIDE","form":"ORODISPERSIBLE TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"diarrhoea","secondaryIndications":"loose stools | gut upset","otcCategory":"ANTIDIARRHEALS, INTESTINAL ANTIINFLAMMATORY/ANTIINFECTIVE AGENTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"LOPERAMIDE HYDROCHLORIDE 2 milligram(s)","packSizeText":"Review manually","atcCode":"A07DA03","status":"Authorised","supplierCatalogKey":"imodium instant melt tablet 2mg orodispersible tablets"}},{"id":"product:P0236","nodeType":"product","refId":"P0236","label":"Imodium Original Hard Capsules 2mg","subtext":"diarrhoea","meta":{"brand":"Imodium","generic":"LOPERAMIDE HYDROCHLORIDE","form":"HARD CAPSULE","formGroup":"Oral solid","route":"Oral","mainIndication":"diarrhoea","secondaryIndications":"loose stools | gut upset","otcCategory":"ANTIDIARRHEALS, INTESTINAL ANTIINFLAMMATORY/ANTIINFECTIVE AGENTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"LOPERAMIDE HYDROCHLORIDE 2 milligram(s)","packSizeText":"Review manually","atcCode":"A07DA03","status":"Authorised","supplierCatalogKey":"imodium original hard capsules 2mg"}},{"id":"product:P0238","nodeType":"product","refId":"P0238","label":"Intestal Tablet, 262.5 mg","subtext":"diarrhoea","meta":{"brand":"Intestal","generic":"BISMUTH SUBSALICYLATE","form":"TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"diarrhoea","secondaryIndications":"loose stools | gut upset","otcCategory":"ANTIDIARRHEALS, INTESTINAL ANTIINFLAMMATORY/ANTIINFECTIVE AGENTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"BISMUTH SUBSALICYLATE 262.5 milligram(s)","packSizeText":"Review manually","atcCode":"A07BB","status":"Authorised","supplierCatalogKey":"intestal tablet, 262.5 mg"}},{"id":"product:P0257","nodeType":"product","refId":"P0257","label":"Loprid 2 mg tablets","subtext":"diarrhoea","meta":{"brand":"Loprid","generic":"LOPERAMIDE HYDROCHLORIDE","form":"TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"diarrhoea","secondaryIndications":"loose stools | gut upset","otcCategory":"ANTIDIARRHEALS, INTESTINAL ANTIINFLAMMATORY/ANTIINFECTIVE AGENTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"LOPERAMIDE HYDROCHLORIDE 2 milligram(s)","packSizeText":"Review manually","atcCode":"A07DA03","status":"Authorised","supplierCatalogKey":"loprid 2 mg tablets"}},{"id":"product:P0494","nodeType":"product","refId":"P0494","label":"Vacontil 2 mg capsules","subtext":"diarrhoea","meta":{"brand":"Vacontil","generic":"LOPERAMIDE HYDROCHLORIDE","form":"HARD CAPSULE","formGroup":"Oral solid","route":"Oral","mainIndication":"diarrhoea","secondaryIndications":"loose stools | gut upset","otcCategory":"ANTIDIARRHEALS, INTESTINAL ANTIINFLAMMATORY/ANTIINFECTIVE AGENTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"LOPERAMIDE HYDROCHLORIDE 2 milligram(s)","packSizeText":"Review manually","atcCode":"A07DA03","status":"Authorised","supplierCatalogKey":"vacontil 2 mg capsules"}},{"id":"usecase:UC008","nodeType":"usecase","refId":"UC008","label":"Diarrhoea and gut recovery","subtext":"Gastrointestinal","meta":{"UseCase_ID":"UC008","UseCase_Name":"Diarrhoea and gut recovery","UseCase_Category":"Gastrointestinal","Trigger_Symptoms":"Diarrhoea, loose stools, gut upset","Description":"Control plus gut recovery support."}}],"links":[{"key":"f2301d0763a960f4","source":"symptom:S042","target":"product:P0034","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00113","role":"Primary","reviewStatus":"Seeded"}},{"key":"625978d71399252c","source":"symptom:S042","target":"product:P0035","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00116","role":"Primary","reviewStatus":"Seeded"}},{"key":"8b5b20f9779bb915","source":"symptom:S042","target":"product:P0049","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00161","role":"Primary","reviewStatus":"Seeded"}},{"key":"38d166d71196feb7","source":"symptom:S042","target":"product:P0052","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00166","role":"Primary","reviewStatus":"Seeded"}},{"key":"a9dab09e07167733","source":"symptom:S042","target":"product:P0144","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00476","role":"Primary","reviewStatus":"Seeded"}},{"key":"741bba33a2003ec3","source":"symptom:S042","target":"product:P0145","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00479","role":"Primary","reviewStatus":"Seeded"}},{"key":"d6c7ba6fabf66a3c","source":"symptom:S042","target":"product:P0146","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00482","role":"Primary","reviewStatus":"Seeded"}},{"key":"328c86ad8e5720d8","source":"symptom:S042","target":"product:P0147","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00485","role":"Primary","reviewStatus":"Seeded"}},{"key":"be5f7e7b705ef0b8","source":"symptom:S042","target":"product:P0159","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00518","role":"Primary","reviewStatus":"Seeded"}},{"key":"33079bc02edcb6fd","source":"symptom:S042","target":"product:P0233","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00762","role":"Primary","reviewStatus":"Seeded"}},{"key":"2154117f71128c5b","source":"symptom:S042","target":"product:P0234","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00765","role":"Primary","reviewStatus":"Seeded"}},{"key":"63404e9b574584b6","source":"symptom:S042","target":"product:P0235","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00768","role":"Primary","reviewStatus":"Seeded"}},{"key":"6aceb9ddf0a2e6eb","source":"symptom:S042","target":"product:P0236","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00771","role":"Primary","reviewStatus":"Seeded"}},{"key":"6288f29f52c985d3","source":"symptom:S042","target":"product:P0238","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00775","role":"Primary","reviewStatus":"Seeded"}},{"key":"96c49619e44f8f16","source":"symptom:S042","target":"product:P0257","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00828","role":"Primary","reviewStatus":"Seeded"}},{"key":"dc8598a873ae6493","source":"symptom:S042","target":"product:P0494","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01647","role":"Primary","reviewStatus":"Seeded"}},{"key":"c260046c77979c02","source":"symptom:S042","target":"usecase:UC008","rel":"usecase","label":"Triggered by symptom","score":85,"why":"Diarrhoea, loose stools, gut upset","meta":{}}],"meta":{"symptomName":"loose stools","linkCount":17}}
+{
+  "centerId": "symptom:S042",
+  "centerType": "symptom",
+  "refId": "S042",
+  "nodes": [
+    {
+      "id": "symptom:S042",
+      "nodeType": "symptom",
+      "refId": "S042",
+      "label": "loose stools",
+      "subtext": "Gastrointestinal",
+      "meta": {
+        "Symptom_ID": "S042",
+        "Symptom_Name": "loose stools",
+        "Symptom_Category": "Gastrointestinal",
+        "Linked_Product_Count": 16,
+        "Display_Group": "Gastrointestinal",
+        "Priority_For_Graph": 85,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "product:P0034",
+      "nodeType": "product",
+      "refId": "P0034",
+      "label": "BIOFLOR 250 mg, capsule",
+      "subtext": "diarrhoea",
+      "meta": {
+        "brand": "BIOFLOR",
+        "generic": "SACCHAROMYCES BOULARDII",
+        "form": "CAPSULE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "diarrhoea",
+        "secondaryIndications": "loose stools | gut upset",
+        "otcCategory": "ANTIDIARRHEALS, INTESTINAL ANTIINFLAMMATORY/ANTIINFECTIVE AGENTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "SACCHAROMYCES BOULARDII 250 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A07FA02",
+        "status": "Authorised",
+        "supplierCatalogKey": "bioflor 250 mg, capsule"
+      }
+    },
+    {
+      "id": "product:P0035",
+      "nodeType": "product",
+      "refId": "P0035",
+      "label": "BIOFLOR 250mg, powder for oral suspension in sachet",
+      "subtext": "diarrhoea",
+      "meta": {
+        "brand": "BIOFLOR",
+        "generic": "SACCHAROMYCES BOULARDII",
+        "form": "POWDER FOR ORAL SUSPENSION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "diarrhoea",
+        "secondaryIndications": "loose stools | gut upset",
+        "otcCategory": "ANTIDIARRHEALS, INTESTINAL ANTIINFLAMMATORY/ANTIINFECTIVE AGENTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "SACCHAROMYCES BOULARDII 250 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A07FA02",
+        "status": "Authorised",
+        "supplierCatalogKey": "bioflor 250mg, powder for oral suspension in sachet"
+      }
+    },
+    {
+      "id": "product:P0049",
+      "nodeType": "product",
+      "refId": "P0049",
+      "label": "Biocarbon Tablets 250mg",
+      "subtext": "diarrhoea",
+      "meta": {
+        "brand": "Biocarbon",
+        "generic": "CHARCOAL, ACTIVATED",
+        "form": "TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "diarrhoea",
+        "secondaryIndications": "loose stools | gut upset",
+        "otcCategory": "ANTIDIARRHEALS, INTESTINAL ANTIINFLAMMATORY/ANTIINFECTIVE AGENTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CHARCOAL, ACTIVATED 250 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A07BA01",
+        "status": "Authorised",
+        "supplierCatalogKey": "biocarbon tablets 250mg"
+      }
+    },
+    {
+      "id": "product:P0052",
+      "nodeType": "product",
+      "refId": "P0052",
+      "label": "Bioflor Forte 500mg, powder for oral suspension in sachet.",
+      "subtext": "diarrhoea",
+      "meta": {
+        "brand": "Bioflor",
+        "generic": "SACCHAROMYCES BOULARDII",
+        "form": "POWDER FOR ORAL SUSPENSION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "diarrhoea",
+        "secondaryIndications": "loose stools | gut upset",
+        "otcCategory": "ANTIDIARRHEALS, INTESTINAL ANTIINFLAMMATORY/ANTIINFECTIVE AGENTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "SACCHAROMYCES BOULARDII 500 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A07FA02",
+        "status": "Authorised",
+        "supplierCatalogKey": "bioflor forte 500mg, powder for oral suspension in sachet."
+      }
+    },
+    {
+      "id": "product:P0144",
+      "nodeType": "product",
+      "refId": "P0144",
+      "label": "Dioralyte Blackcurrant Powder for Oral Solution",
+      "subtext": "diarrhoea",
+      "meta": {
+        "brand": "Dioralyte",
+        "generic": "DISODIUM HYDROGEN CITRATE | GLUCOSE | POTASSIUM CHLORIDE | SODIUM CHLORIDE",
+        "form": "POWDER FOR ORAL SOLUTION",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "diarrhoea",
+        "secondaryIndications": "loose stools | gut upset",
+        "otcCategory": "ANTIDIARRHEALS, INTESTINAL ANTIINFLAMMATORY/ANTIINFECTIVE AGENTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 4,
+        "strengthText": "SODIUM CHLORIDE 0.47 gram(s) | POTASSIUM CHLORIDE 0.30 gram(s) | GLUCOSE 3.56 gram(s) | DISODIUM HYDROGEN CITRATE 0.53 gram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A07CA",
+        "status": "Authorised",
+        "supplierCatalogKey": "dioralyte blackcurrant powder for oral solution"
+      }
+    },
+    {
+      "id": "product:P0145",
+      "nodeType": "product",
+      "refId": "P0145",
+      "label": "Dioralyte Citrus Powder for Oral Solution",
+      "subtext": "diarrhoea",
+      "meta": {
+        "brand": "Dioralyte",
+        "generic": "DISODIUM HYDROGEN CITRATE | GLUCOSE | POTASSIUM CHLORIDE | SODIUM CHLORIDE",
+        "form": "POWDER FOR ORAL SOLUTION",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "diarrhoea",
+        "secondaryIndications": "loose stools | gut upset",
+        "otcCategory": "ANTIDIARRHEALS, INTESTINAL ANTIINFLAMMATORY/ANTIINFECTIVE AGENTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 4,
+        "strengthText": "POTASSIUM CHLORIDE 0.30 gram(s) | GLUCOSE 3.56 gram(s) | DISODIUM HYDROGEN CITRATE 0.53 gram(s) | SODIUM CHLORIDE 0.47 gram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A07CA",
+        "status": "Authorised",
+        "supplierCatalogKey": "dioralyte citrus powder for oral solution"
+      }
+    },
+    {
+      "id": "product:P0146",
+      "nodeType": "product",
+      "refId": "P0146",
+      "label": "Dioralyte Natural, Powder for oral solution",
+      "subtext": "diarrhoea",
+      "meta": {
+        "brand": "Dioralyte",
+        "generic": "DISODIUM HYDROGEN CITRATE | GLUCOSE | POTASSIUM CHLORIDE | SODIUM CHLORIDE",
+        "form": "POWDER FOR ORAL SOLUTION",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "diarrhoea",
+        "secondaryIndications": "loose stools | gut upset",
+        "otcCategory": "ANTIDIARRHEALS, INTESTINAL ANTIINFLAMMATORY/ANTIINFECTIVE AGENTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 4,
+        "strengthText": "SODIUM CHLORIDE 0.47 gram(s) | POTASSIUM CHLORIDE 0.30 gram(s) | GLUCOSE 3.56 gram(s) | DISODIUM HYDROGEN CITRATE 0.53 gram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A07CA",
+        "status": "Authorised",
+        "supplierCatalogKey": "dioralyte natural, powder for oral solution"
+      }
+    },
+    {
+      "id": "product:P0147",
+      "nodeType": "product",
+      "refId": "P0147",
+      "label": "Dioralyte Rebalance Citrus Powder for Oral Solution",
+      "subtext": "diarrhoea",
+      "meta": {
+        "brand": "Dioralyte",
+        "generic": "DISODIUM HYDROGEN CITRATE | GLUCOSE | POTASSIUM CHLORIDE | SODIUM CHLORIDE",
+        "form": "POWDER FOR ORAL SOLUTION",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "diarrhoea",
+        "secondaryIndications": "loose stools | gut upset",
+        "otcCategory": "ANTIDIARRHEALS, INTESTINAL ANTIINFLAMMATORY/ANTIINFECTIVE AGENTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 4,
+        "strengthText": "SODIUM CHLORIDE 0.47 gram(s) | POTASSIUM CHLORIDE 0.30 gram(s) | GLUCOSE 3.56 gram(s) | DISODIUM HYDROGEN CITRATE 0.53 gram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A07CA",
+        "status": "Authorised",
+        "supplierCatalogKey": "dioralyte rebalance citrus powder for oral solution"
+      }
+    },
+    {
+      "id": "product:P0159",
+      "nodeType": "product",
+      "refId": "P0159",
+      "label": "ENTEROGERMINA 2 billion / 5 ml oral suspension",
+      "subtext": "diarrhoea",
+      "meta": {
+        "brand": "ENTEROGERMINA",
+        "generic": "SPORES OF BACILLUS CLAUSII",
+        "form": "ORAL SUSPENSION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "diarrhoea",
+        "secondaryIndications": "loose stools | gut upset",
+        "otcCategory": "ANTIDIARRHEALS, INTESTINAL ANTIINFLAMMATORY/ANTIINFECTIVE AGENTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "SPORES OF BACILLUS CLAUSII 2/5 billion organisms/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "A07FA",
+        "status": "Authorised",
+        "supplierCatalogKey": "enterogermina 2 billion / 5 ml oral suspension"
+      }
+    },
+    {
+      "id": "product:P0233",
+      "nodeType": "product",
+      "refId": "P0233",
+      "label": "Imodium Instant 2 mg orodispersible tablet",
+      "subtext": "diarrhoea",
+      "meta": {
+        "brand": "Imodium",
+        "generic": "LOPERAMIDE HYDROCHLORIDE",
+        "form": "ORODISPERSIBLE TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "diarrhoea",
+        "secondaryIndications": "loose stools | gut upset",
+        "otcCategory": "ANTIDIARRHEALS, INTESTINAL ANTIINFLAMMATORY/ANTIINFECTIVE AGENTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "LOPERAMIDE HYDROCHLORIDE 2 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A07DA03",
+        "status": "Authorised",
+        "supplierCatalogKey": "imodium instant 2 mg orodispersible tablet"
+      }
+    },
+    {
+      "id": "product:P0234",
+      "nodeType": "product",
+      "refId": "P0234",
+      "label": "Imodium Instant Melt Tablet 2 mg Orodispersible Tablet",
+      "subtext": "diarrhoea",
+      "meta": {
+        "brand": "Imodium",
+        "generic": "LOPERAMIDE HYDROCHLORIDE",
+        "form": "ORODISPERSIBLE TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "diarrhoea",
+        "secondaryIndications": "loose stools | gut upset",
+        "otcCategory": "ANTIDIARRHEALS, INTESTINAL ANTIINFLAMMATORY/ANTIINFECTIVE AGENTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "LOPERAMIDE HYDROCHLORIDE 2 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A07DA03",
+        "status": "Authorised",
+        "supplierCatalogKey": "imodium instant melt tablet 2 mg orodispersible tablet"
+      }
+    },
+    {
+      "id": "product:P0235",
+      "nodeType": "product",
+      "refId": "P0235",
+      "label": "Imodium Instant Melt Tablet 2mg Orodispersible Tablets",
+      "subtext": "diarrhoea",
+      "meta": {
+        "brand": "Imodium",
+        "generic": "LOPERAMIDE HYDROCHLORIDE",
+        "form": "ORODISPERSIBLE TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "diarrhoea",
+        "secondaryIndications": "loose stools | gut upset",
+        "otcCategory": "ANTIDIARRHEALS, INTESTINAL ANTIINFLAMMATORY/ANTIINFECTIVE AGENTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "LOPERAMIDE HYDROCHLORIDE 2 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A07DA03",
+        "status": "Authorised",
+        "supplierCatalogKey": "imodium instant melt tablet 2mg orodispersible tablets"
+      }
+    },
+    {
+      "id": "product:P0236",
+      "nodeType": "product",
+      "refId": "P0236",
+      "label": "Imodium Original Hard Capsules 2mg",
+      "subtext": "diarrhoea",
+      "meta": {
+        "brand": "Imodium",
+        "generic": "LOPERAMIDE HYDROCHLORIDE",
+        "form": "HARD CAPSULE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "diarrhoea",
+        "secondaryIndications": "loose stools | gut upset",
+        "otcCategory": "ANTIDIARRHEALS, INTESTINAL ANTIINFLAMMATORY/ANTIINFECTIVE AGENTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "LOPERAMIDE HYDROCHLORIDE 2 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A07DA03",
+        "status": "Authorised",
+        "supplierCatalogKey": "imodium original hard capsules 2mg"
+      }
+    },
+    {
+      "id": "product:P0238",
+      "nodeType": "product",
+      "refId": "P0238",
+      "label": "Intestal Tablet, 262.5 mg",
+      "subtext": "diarrhoea",
+      "meta": {
+        "brand": "Intestal",
+        "generic": "BISMUTH SUBSALICYLATE",
+        "form": "TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "diarrhoea",
+        "secondaryIndications": "loose stools | gut upset",
+        "otcCategory": "ANTIDIARRHEALS, INTESTINAL ANTIINFLAMMATORY/ANTIINFECTIVE AGENTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "BISMUTH SUBSALICYLATE 262.5 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A07BB",
+        "status": "Authorised",
+        "supplierCatalogKey": "intestal tablet, 262.5 mg"
+      }
+    },
+    {
+      "id": "product:P0257",
+      "nodeType": "product",
+      "refId": "P0257",
+      "label": "Loprid 2 mg tablets",
+      "subtext": "diarrhoea",
+      "meta": {
+        "brand": "Loprid",
+        "generic": "LOPERAMIDE HYDROCHLORIDE",
+        "form": "TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "diarrhoea",
+        "secondaryIndications": "loose stools | gut upset",
+        "otcCategory": "ANTIDIARRHEALS, INTESTINAL ANTIINFLAMMATORY/ANTIINFECTIVE AGENTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "LOPERAMIDE HYDROCHLORIDE 2 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A07DA03",
+        "status": "Authorised",
+        "supplierCatalogKey": "loprid 2 mg tablets"
+      }
+    },
+    {
+      "id": "product:P0494",
+      "nodeType": "product",
+      "refId": "P0494",
+      "label": "Vacontil 2 mg capsules",
+      "subtext": "diarrhoea",
+      "meta": {
+        "brand": "Vacontil",
+        "generic": "LOPERAMIDE HYDROCHLORIDE",
+        "form": "HARD CAPSULE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "diarrhoea",
+        "secondaryIndications": "loose stools | gut upset",
+        "otcCategory": "ANTIDIARRHEALS, INTESTINAL ANTIINFLAMMATORY/ANTIINFECTIVE AGENTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "LOPERAMIDE HYDROCHLORIDE 2 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A07DA03",
+        "status": "Authorised",
+        "supplierCatalogKey": "vacontil 2 mg capsules"
+      }
+    },
+    {
+      "id": "usecase:UC008",
+      "nodeType": "usecase",
+      "refId": "UC008",
+      "label": "Diarrhoea and gut recovery",
+      "subtext": "Gastrointestinal",
+      "meta": {
+        "UseCase_ID": "UC008",
+        "UseCase_Name": "Diarrhoea and gut recovery",
+        "UseCase_Category": "Gastrointestinal",
+        "Trigger_Symptoms": "Diarrhoea, loose stools, gut upset",
+        "Description": "Control plus gut recovery support."
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "5cff8f234ec116e9",
+      "source": "product:P0034",
+      "target": "symptom:S042",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00113"
+      }
+    },
+    {
+      "key": "53ce2ee3a16104de",
+      "source": "product:P0035",
+      "target": "symptom:S042",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00116"
+      }
+    },
+    {
+      "key": "eac1150e594a1d9b",
+      "source": "product:P0049",
+      "target": "symptom:S042",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00161"
+      }
+    },
+    {
+      "key": "37ce72ebbc717cc8",
+      "source": "product:P0052",
+      "target": "symptom:S042",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00166"
+      }
+    },
+    {
+      "key": "a98af7efc66afe6e",
+      "source": "product:P0144",
+      "target": "symptom:S042",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00476"
+      }
+    },
+    {
+      "key": "f2173f4fcd3878df",
+      "source": "product:P0145",
+      "target": "symptom:S042",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00479"
+      }
+    },
+    {
+      "key": "081a1a01a6dd95c9",
+      "source": "product:P0146",
+      "target": "symptom:S042",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00482"
+      }
+    },
+    {
+      "key": "2f281728397c2001",
+      "source": "product:P0147",
+      "target": "symptom:S042",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00485"
+      }
+    },
+    {
+      "key": "62879a71086cd5ac",
+      "source": "product:P0159",
+      "target": "symptom:S042",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00518"
+      }
+    },
+    {
+      "key": "a036a288cfb063c8",
+      "source": "product:P0233",
+      "target": "symptom:S042",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00762"
+      }
+    },
+    {
+      "key": "1bdba9ec30685006",
+      "source": "product:P0234",
+      "target": "symptom:S042",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00765"
+      }
+    },
+    {
+      "key": "5cffc513735a614f",
+      "source": "product:P0235",
+      "target": "symptom:S042",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00768"
+      }
+    },
+    {
+      "key": "3b6fe6777f782700",
+      "source": "product:P0236",
+      "target": "symptom:S042",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00771"
+      }
+    },
+    {
+      "key": "9f07bf73c70e7229",
+      "source": "product:P0238",
+      "target": "symptom:S042",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00775"
+      }
+    },
+    {
+      "key": "49efacc6ffdeb755",
+      "source": "product:P0257",
+      "target": "symptom:S042",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00828"
+      }
+    },
+    {
+      "key": "e4b61880cbad59c2",
+      "source": "product:P0494",
+      "target": "symptom:S042",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01647"
+      }
+    },
+    {
+      "key": "380fec62db9c813e",
+      "source": "symptom:S042",
+      "target": "usecase:UC008",
+      "rel": "usecase",
+      "label": "Related use case",
+      "score": 90,
+      "why": "",
+      "meta": {}
+    }
+  ]
+}

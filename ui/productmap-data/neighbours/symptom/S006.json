@@ -1,1 +1,866 @@
-{"centerId":"symptom:S006","centerType":"symptom","refId":"S006","nodes":[{"id":"symptom:S006","nodeType":"symptom","refId":"S006","label":"antiseptic care","subtext":"Skin","meta":{"Symptom_ID":"S006","Symptom_Name":"antiseptic care","Symptom_Category":"Skin","Linked_Product_Count":21,"Display_Group":"Skin","Priority_For_Graph":100,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"product:P0029","nodeType":"product","refId":"P0029","label":"Avoca Caustic Applicator 95%  Silver Nitrate","subtext":"disinfection","meta":{"brand":"Avoca","generic":"SILVER NITRATE","form":"CUTANEOUS STICK","formGroup":"Topical","route":"Topical","mainIndication":"disinfection","secondaryIndications":"skin cleansing | antiseptic care","otcCategory":"ANTISEPTICS AND DISINFECTANTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"SILVER NITRATE 95 percent weight/weight","packSizeText":"Review manually","atcCode":"D08AL01","status":"Authorised","supplierCatalogKey":"avoca caustic applicator 95% silver nitrate"}},{"id":"product:P0032","nodeType":"product","refId":"P0032","label":"BETADINE 75 mg/ml medicated liquid soap","subtext":"disinfection","meta":{"brand":"BETADINE","generic":"POVIDONE","form":"CUTANEOUS SOLUTION","formGroup":"Topical","route":"Topical","mainIndication":"disinfection","secondaryIndications":"skin cleansing | antiseptic care","otcCategory":"ANTISEPTICS AND DISINFECTANTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"POVIDONE 75 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"D08AG02","status":"Authorised","supplierCatalogKey":"betadine 75 mg/ml medicated liquid soap"}},{"id":"product:P0040","nodeType":"product","refId":"P0040","label":"Bepantiseptic First Aid Cream","subtext":"disinfection","meta":{"brand":"Bepantiseptic","generic":"CHLORHEXIDINE DIGLUCONATE | PHENOL","form":"CREAM","formGroup":"Topical","route":"Topical","mainIndication":"disinfection","secondaryIndications":"skin cleansing | antiseptic care","otcCategory":"ANTISEPTICS AND DISINFECTANTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"PHENOL 1.20 percent weight/weight | CHLORHEXIDINE DIGLUCONATE 0.25 percent weight/weight","packSizeText":"Review manually","atcCode":"D08AC52","status":"Authorised","supplierCatalogKey":"bepantiseptic first aid cream"}},{"id":"product:P0041","nodeType":"product","refId":"P0041","label":"Betadine 1% w/v Gargle/Mouthwash","subtext":"disinfection","meta":{"brand":"Betadine","generic":"POVIDONE-IODINE","form":"OROMUCOSAL SOLUTION","formGroup":"Oral cavity / throat","route":"Oral","mainIndication":"disinfection","secondaryIndications":"skin cleansing | antiseptic care","otcCategory":"ANTISEPTICS AND DISINFECTANTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"POVIDONE-IODINE 1 percent weight/volume","packSizeText":"Review manually","atcCode":"D08AG02","status":"Authorised","supplierCatalogKey":"betadine 1% w/v gargle/mouthwash"}},{"id":"product:P0042","nodeType":"product","refId":"P0042","label":"Betadine 10% w/v dermal solution","subtext":"disinfection","meta":{"brand":"Betadine","generic":"POVIDONE","form":"SOLUTION","formGroup":"Oral liquid","route":"Oral","mainIndication":"disinfection","secondaryIndications":"skin cleansing | antiseptic care","otcCategory":"ANTISEPTICS AND DISINFECTANTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"POVIDONE 10 percent weight/volume","packSizeText":"Review manually","atcCode":"D08AG02","status":"Authorised","supplierCatalogKey":"betadine 10% w/v dermal solution"}},{"id":"product:P0043","nodeType":"product","refId":"P0043","label":"Betadine 10.00% w/v Antiseptic Solution","subtext":"disinfection","meta":{"brand":"Betadine","generic":"POVIDONE-IODINE","form":"CUTANEOUS SOLUTION","formGroup":"Topical","route":"Topical","mainIndication":"disinfection","secondaryIndications":"skin cleansing | antiseptic care","otcCategory":"ANTISEPTICS AND DISINFECTANTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"POVIDONE-IODINE 10 percent weight/volume","packSizeText":"Review manually","atcCode":"D08AG02","status":"Authorised","supplierCatalogKey":"betadine 10.00% w/v antiseptic solution"}},{"id":"product:P0044","nodeType":"product","refId":"P0044","label":"Betadine 2.5% w/w Dry Powder, Cutaneous Spray","subtext":"disinfection","meta":{"brand":"Betadine","generic":"POVIDONE-IODINE","form":"CUTANEOUS SPRAY, POWDER","formGroup":"Topical","route":"Topical","mainIndication":"disinfection","secondaryIndications":"skin cleansing | antiseptic care","otcCategory":"ANTISEPTICS AND DISINFECTANTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"POVIDONE-IODINE 2.5 percent weight/weight","packSizeText":"Review manually","atcCode":"D08AG02","status":"Authorised","supplierCatalogKey":"betadine 2.5% w/w dry powder, cutaneous spray"}},{"id":"product:P0045","nodeType":"product","refId":"P0045","label":"Betadine Alcoholic Solution 10.0% w/v","subtext":"disinfection","meta":{"brand":"Betadine","generic":"POVIDONE-IODINE","form":"CUTANEOUS SOLUTION","formGroup":"Topical","route":"Topical","mainIndication":"disinfection","secondaryIndications":"skin cleansing | antiseptic care","otcCategory":"ANTISEPTICS AND DISINFECTANTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"POVIDONE-IODINE 10 percent weight/volume","packSizeText":"Review manually","atcCode":"D08AG02","status":"Authorised","supplierCatalogKey":"betadine alcoholic solution 10.0% w/v"}},{"id":"product:P0046","nodeType":"product","refId":"P0046","label":"Betadine Antiseptic Paint 10% w/v","subtext":"disinfection","meta":{"brand":"Betadine","generic":"POVIDONE-IODINE","form":"CUTANEOUS SOLUTION","formGroup":"Topical","route":"Topical","mainIndication":"disinfection","secondaryIndications":"skin cleansing | antiseptic care","otcCategory":"ANTISEPTICS AND DISINFECTANTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"POVIDONE-IODINE 10 percent weight/volume","packSizeText":"Review manually","atcCode":"D08AG02","status":"Authorised","supplierCatalogKey":"betadine antiseptic paint 10% w/v"}},{"id":"product:P0047","nodeType":"product","refId":"P0047","label":"Betadine Surgical Scrub 7.5% w/v","subtext":"disinfection","meta":{"brand":"Betadine","generic":"POVIDONE-IODINE","form":"CUTANEOUS SOLUTION","formGroup":"Topical","route":"Topical","mainIndication":"disinfection","secondaryIndications":"skin cleansing | antiseptic care","otcCategory":"ANTISEPTICS AND DISINFECTANTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"POVIDONE-IODINE 7.5 percent weight/volume","packSizeText":"Review manually","atcCode":"D08AG02","status":"Authorised","supplierCatalogKey":"betadine surgical scrub 7.5% w/v"}},{"id":"product:P0101","nodeType":"product","refId":"P0101","label":"ChloraPrep 2% w/v / 70% v/v cutaneous solution","subtext":"disinfection","meta":{"brand":"ChloraPrep","generic":"CHLORHEXIDINE GLUCONATE | ISOPROPYL ALCOHOL","form":"CUTANEOUS SOLUTION","formGroup":"Topical","route":"Topical","mainIndication":"disinfection","secondaryIndications":"skin cleansing | antiseptic care","otcCategory":"ANTISEPTICS AND DISINFECTANTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"ISOPROPYL ALCOHOL 0.70 millimeter(s) | CHLORHEXIDINE GLUCONATE 20 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"D08AC52","status":"Authorised","supplierCatalogKey":"chloraprep 2% w/v / 70% v/v cutaneous solution"}},{"id":"product:P0102","nodeType":"product","refId":"P0102","label":"ChloraPrep with Tint 2% w/v / 70% v/v cutaneous solution","subtext":"disinfection","meta":{"brand":"ChloraPrep","generic":"CHLORHEXIDINE GLUCONATE | ISOPROPYL ALCOHOL","form":"CUTANEOUS SOLUTION","formGroup":"Topical","route":"Topical","mainIndication":"disinfection","secondaryIndications":"skin cleansing | antiseptic care","otcCategory":"ANTISEPTICS AND DISINFECTANTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"CHLORHEXIDINE GLUCONATE 20 milligram(s)/millilitre | ISOPROPYL ALCOHOL 0.7 milligram(s)/millilitre","packSizeText":"Review manually","atcCode":"D08AC52","status":"Authorised","supplierCatalogKey":"chloraprep with tint 2% w/v / 70% v/v cutaneous solution"}},{"id":"product:P0103","nodeType":"product","refId":"P0103","label":"Chlorhexidine Acetate BP 0.05% w/v Irrigation Solution","subtext":"disinfection","meta":{"brand":"Chlorhexidine","generic":"CHLORHEXIDINE ACETATE","form":"IRRIGATION SOLUTION","formGroup":"Oral liquid","route":"Oral","mainIndication":"disinfection","secondaryIndications":"skin cleansing | antiseptic care","otcCategory":"ANTISEPTICS AND DISINFECTANTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CHLORHEXIDINE ACETATE 0.5 gram(s)/litre","packSizeText":"Review manually","atcCode":"D08AC02","status":"Authorised","supplierCatalogKey":"chlorhexidine acetate bp 0.05% w/v irrigation solution"}},{"id":"product:P0133","nodeType":"product","refId":"P0133","label":"Dermobacter","subtext":"disinfection","meta":{"brand":"Dermobacter","generic":"BENZALKONIUM CHLORIDE | CHLORHEXIDINE DIGLUCONATE","form":"CUTANEOUS SOLUTION","formGroup":"Topical","route":"Topical","mainIndication":"disinfection","secondaryIndications":"skin cleansing | antiseptic care","otcCategory":"ANTISEPTICS AND DISINFECTANTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"CHLORHEXIDINE DIGLUCONATE 0.2 percent weight/volume | BENZALKONIUM CHLORIDE 0.5 percent weight/volume","packSizeText":"Review manually","atcCode":"D08AC52","status":"Authorised","supplierCatalogKey":"dermobacter"}},{"id":"product:P0134","nodeType":"product","refId":"P0134","label":"Dettol Antiseptic Liquid Chloroxylenol 4.8% w/v for Cutaneous Solution","subtext":"disinfection","meta":{"brand":"Dettol","generic":"CHLOROXYLENOL","form":"CONCENTRATE FOR CUTANEOUS SOLUTION","formGroup":"Topical","route":"Topical","mainIndication":"disinfection","secondaryIndications":"skin cleansing | antiseptic care","otcCategory":"ANTISEPTICS AND DISINFECTANTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CHLOROXYLENOL 4.8 percent weight/volume","packSizeText":"Review manually","atcCode":"D08AE05","status":"Authorised","supplierCatalogKey":"dettol antiseptic liquid chloroxylenol 4.8% w/v for cutaneous solution"}},{"id":"product:P0174","nodeType":"product","refId":"P0174","label":"FARVICETT 0.015% + 0.15% cutaneous solution","subtext":"disinfection","meta":{"brand":"FARVICETT","generic":"CETRIMIDE | CHLORHEXIDINE GLUCONATE","form":"CUTANEOUS SOLUTION","formGroup":"Topical","route":"Topical","mainIndication":"disinfection","secondaryIndications":"skin cleansing | antiseptic care","otcCategory":"ANTISEPTICS AND DISINFECTANTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"CHLORHEXIDINE GLUCONATE 0.015 percent | CETRIMIDE  0.15 percent","packSizeText":"Review manually","atcCode":"D08AC52","status":"Authorised","supplierCatalogKey":"farvicett 0.015% + 0.15% cutaneous solution"}},{"id":"product:P0239","nodeType":"product","refId":"P0239","label":"Iodine alcoholic cutaneous solution","subtext":"disinfection","meta":{"brand":"Iodine","generic":"IODINE | POTASSIUM IODIDE","form":"CUTANEOUS SOLUTION","formGroup":"Topical","route":"Topical","mainIndication":"disinfection","secondaryIndications":"skin cleansing | antiseptic care","otcCategory":"ANTISEPTICS AND DISINFECTANTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"POTASSIUM IODIDE 5 gram(s)/100 millilitres | IODINE 7 gram(s)/100 millilitres","packSizeText":"Review manually","atcCode":"D08AG03","status":"Authorised","supplierCatalogKey":"iodine alcoholic cutaneous solution"}},{"id":"product:P0353","nodeType":"product","refId":"P0353","label":"Octenisept solution for wound and mucous membrane disinfection","subtext":"disinfection","meta":{"brand":"Octenisept","generic":"OCTENIDINE DIHYDROCHLORIDE | PHENOXYETHANOL","form":"CUTANEOUS SOLUTION","formGroup":"Topical","route":"Topical","mainIndication":"disinfection","secondaryIndications":"skin cleansing | antiseptic care","otcCategory":"ANTISEPTICS AND DISINFECTANTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"Octenidine dihydrochloride 0.1 gram(s) | PHENOXYETHANOL 2 gram(s)","packSizeText":"Review manually","atcCode":"D08AJ57","status":"Authorised","supplierCatalogKey":"octenisept solution for wound and mucous membrane disinfection"}},{"id":"product:P0432","nodeType":"product","refId":"P0432","label":"Savlon Antiseptic Cream Cetrimide 0.5% w/w Chlorhexidine Digluconate 0.1% w/w","subtext":"disinfection","meta":{"brand":"Savlon","generic":"CETRIMIDE | CHLORHEXIDINE DIGLUCONATE","form":"CREAM","formGroup":"Topical","route":"Topical","mainIndication":"disinfection","secondaryIndications":"skin cleansing | antiseptic care","otcCategory":"ANTISEPTICS AND DISINFECTANTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"CETRIMIDE  0.50 percent weight/weight | CHLORHEXIDINE DIGLUCONATE 0.10 percent weight/weight","packSizeText":"Review manually","atcCode":"D08AC52","status":"Authorised","supplierCatalogKey":"savlon antiseptic cream cetrimide 0.5% w/w chlorhexidine digluconate 0.1% w/w"}},{"id":"product:P0456","nodeType":"product","refId":"P0456","label":"Sterets Tisept Sachets.","subtext":"disinfection","meta":{"brand":"Sterets","generic":"CETRIMIDE | CHLORHEXIDINE GLUCONATE","form":"CUTANEOUS SOLUTION","formGroup":"Topical","route":"Topical","mainIndication":"disinfection","secondaryIndications":"skin cleansing | antiseptic care","otcCategory":"ANTISEPTICS AND DISINFECTANTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"CHLORHEXIDINE GLUCONATE 0.015 percent weight/volume | CETRIMIDE  0.15 percent weight/volume","packSizeText":"Review manually","atcCode":"D08AC52","status":"Authorised","supplierCatalogKey":"sterets tisept sachets."}},{"id":"product:P0490","nodeType":"product","refId":"P0490","label":"VIDENE 7.5% W/W SURGICAL SCRUB","subtext":"disinfection","meta":{"brand":"VIDENE","generic":"POVIDONE-IODINE","form":"CUTANEOUS SOLUTION","formGroup":"Topical","route":"Topical","mainIndication":"disinfection","secondaryIndications":"skin cleansing | antiseptic care","otcCategory":"ANTISEPTICS AND DISINFECTANTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"POVIDONE-IODINE 7.5 percent weight/weight","packSizeText":"Review manually","atcCode":"D08AG02","status":"Authorised","supplierCatalogKey":"videne 7.5% w/w surgical scrub"}}],"links":[{"key":"a0b81ce8e98a80dc","source":"symptom:S006","target":"product:P0029","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM00102","role":"Secondary","reviewStatus":"Seeded"}},{"key":"fbb5b7db582ed455","source":"symptom:S006","target":"product:P0032","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM00110","role":"Secondary","reviewStatus":"Seeded"}},{"key":"b4a8153d05df6997","source":"symptom:S006","target":"product:P0040","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM00136","role":"Secondary","reviewStatus":"Seeded"}},{"key":"33d3f471fcb8cdf0","source":"symptom:S006","target":"product:P0041","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM00139","role":"Secondary","reviewStatus":"Seeded"}},{"key":"a2bdc982c737aea1","source":"symptom:S006","target":"product:P0042","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM00142","role":"Secondary","reviewStatus":"Seeded"}},{"key":"130bcd6b082b6ff8","source":"symptom:S006","target":"product:P0043","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM00145","role":"Secondary","reviewStatus":"Seeded"}},{"key":"ad19818591167150","source":"symptom:S006","target":"product:P0044","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM00148","role":"Secondary","reviewStatus":"Seeded"}},{"key":"a268eae87ed06ca9","source":"symptom:S006","target":"product:P0045","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM00151","role":"Secondary","reviewStatus":"Seeded"}},{"key":"ff91c0c414fbe8c3","source":"symptom:S006","target":"product:P0046","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM00154","role":"Secondary","reviewStatus":"Seeded"}},{"key":"92a5f87867c65503","source":"symptom:S006","target":"product:P0047","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM00157","role":"Secondary","reviewStatus":"Seeded"}},{"key":"7e04741a03735a9b","source":"symptom:S006","target":"product:P0101","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM00331","role":"Secondary","reviewStatus":"Seeded"}},{"key":"acc1d2963467565f","source":"symptom:S006","target":"product:P0102","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM00334","role":"Secondary","reviewStatus":"Seeded"}},{"key":"8ce251a42616f5cc","source":"symptom:S006","target":"product:P0103","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM00337","role":"Secondary","reviewStatus":"Seeded"}},{"key":"c4509e4f3e7fec21","source":"symptom:S006","target":"product:P0133","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM00438","role":"Secondary","reviewStatus":"Seeded"}},{"key":"23a92bd56ca95120","source":"symptom:S006","target":"product:P0134","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM00441","role":"Secondary","reviewStatus":"Seeded"}},{"key":"36ede6b2873baf0f","source":"symptom:S006","target":"product:P0174","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM00568","role":"Secondary","reviewStatus":"Seeded"}},{"key":"a47267afdeb53e08","source":"symptom:S006","target":"product:P0239","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM00779","role":"Secondary","reviewStatus":"Seeded"}},{"key":"aa3d4d32a6289fe8","source":"symptom:S006","target":"product:P0353","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM01144","role":"Secondary","reviewStatus":"Seeded"}},{"key":"64559092f11beded","source":"symptom:S006","target":"product:P0432","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM01430","role":"Secondary","reviewStatus":"Seeded"}},{"key":"4c13b29028de0a0d","source":"symptom:S006","target":"product:P0456","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM01509","role":"Secondary","reviewStatus":"Seeded"}},{"key":"26b0ee3bf3bd29eb","source":"symptom:S006","target":"product:P0490","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM01635","role":"Secondary","reviewStatus":"Seeded"}}],"meta":{"symptomName":"antiseptic care","linkCount":21}}
+{
+  "centerId": "symptom:S006",
+  "centerType": "symptom",
+  "refId": "S006",
+  "nodes": [
+    {
+      "id": "symptom:S006",
+      "nodeType": "symptom",
+      "refId": "S006",
+      "label": "antiseptic care",
+      "subtext": "Skin",
+      "meta": {
+        "Symptom_ID": "S006",
+        "Symptom_Name": "antiseptic care",
+        "Symptom_Category": "Skin",
+        "Linked_Product_Count": 21,
+        "Display_Group": "Skin",
+        "Priority_For_Graph": 100,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "product:P0029",
+      "nodeType": "product",
+      "refId": "P0029",
+      "label": "Avoca Caustic Applicator 95%  Silver Nitrate",
+      "subtext": "disinfection",
+      "meta": {
+        "brand": "Avoca",
+        "generic": "SILVER NITRATE",
+        "form": "CUTANEOUS STICK",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "disinfection",
+        "secondaryIndications": "skin cleansing | antiseptic care",
+        "otcCategory": "ANTISEPTICS AND DISINFECTANTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "SILVER NITRATE 95 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "D08AL01",
+        "status": "Authorised",
+        "supplierCatalogKey": "avoca caustic applicator 95% silver nitrate"
+      }
+    },
+    {
+      "id": "product:P0032",
+      "nodeType": "product",
+      "refId": "P0032",
+      "label": "BETADINE 75 mg/ml medicated liquid soap",
+      "subtext": "disinfection",
+      "meta": {
+        "brand": "BETADINE",
+        "generic": "POVIDONE",
+        "form": "CUTANEOUS SOLUTION",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "disinfection",
+        "secondaryIndications": "skin cleansing | antiseptic care",
+        "otcCategory": "ANTISEPTICS AND DISINFECTANTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "POVIDONE 75 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "D08AG02",
+        "status": "Authorised",
+        "supplierCatalogKey": "betadine 75 mg/ml medicated liquid soap"
+      }
+    },
+    {
+      "id": "product:P0040",
+      "nodeType": "product",
+      "refId": "P0040",
+      "label": "Bepantiseptic First Aid Cream",
+      "subtext": "disinfection",
+      "meta": {
+        "brand": "Bepantiseptic",
+        "generic": "CHLORHEXIDINE DIGLUCONATE | PHENOL",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "disinfection",
+        "secondaryIndications": "skin cleansing | antiseptic care",
+        "otcCategory": "ANTISEPTICS AND DISINFECTANTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "PHENOL 1.20 percent weight/weight | CHLORHEXIDINE DIGLUCONATE 0.25 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "D08AC52",
+        "status": "Authorised",
+        "supplierCatalogKey": "bepantiseptic first aid cream"
+      }
+    },
+    {
+      "id": "product:P0041",
+      "nodeType": "product",
+      "refId": "P0041",
+      "label": "Betadine 1% w/v Gargle/Mouthwash",
+      "subtext": "disinfection",
+      "meta": {
+        "brand": "Betadine",
+        "generic": "POVIDONE-IODINE",
+        "form": "OROMUCOSAL SOLUTION",
+        "formGroup": "Oral cavity / throat",
+        "route": "Oral",
+        "mainIndication": "disinfection",
+        "secondaryIndications": "skin cleansing | antiseptic care",
+        "otcCategory": "ANTISEPTICS AND DISINFECTANTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "POVIDONE-IODINE 1 percent weight/volume",
+        "packSizeText": "Review manually",
+        "atcCode": "D08AG02",
+        "status": "Authorised",
+        "supplierCatalogKey": "betadine 1% w/v gargle/mouthwash"
+      }
+    },
+    {
+      "id": "product:P0042",
+      "nodeType": "product",
+      "refId": "P0042",
+      "label": "Betadine 10% w/v dermal solution",
+      "subtext": "disinfection",
+      "meta": {
+        "brand": "Betadine",
+        "generic": "POVIDONE",
+        "form": "SOLUTION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "disinfection",
+        "secondaryIndications": "skin cleansing | antiseptic care",
+        "otcCategory": "ANTISEPTICS AND DISINFECTANTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "POVIDONE 10 percent weight/volume",
+        "packSizeText": "Review manually",
+        "atcCode": "D08AG02",
+        "status": "Authorised",
+        "supplierCatalogKey": "betadine 10% w/v dermal solution"
+      }
+    },
+    {
+      "id": "product:P0043",
+      "nodeType": "product",
+      "refId": "P0043",
+      "label": "Betadine 10.00% w/v Antiseptic Solution",
+      "subtext": "disinfection",
+      "meta": {
+        "brand": "Betadine",
+        "generic": "POVIDONE-IODINE",
+        "form": "CUTANEOUS SOLUTION",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "disinfection",
+        "secondaryIndications": "skin cleansing | antiseptic care",
+        "otcCategory": "ANTISEPTICS AND DISINFECTANTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "POVIDONE-IODINE 10 percent weight/volume",
+        "packSizeText": "Review manually",
+        "atcCode": "D08AG02",
+        "status": "Authorised",
+        "supplierCatalogKey": "betadine 10.00% w/v antiseptic solution"
+      }
+    },
+    {
+      "id": "product:P0044",
+      "nodeType": "product",
+      "refId": "P0044",
+      "label": "Betadine 2.5% w/w Dry Powder, Cutaneous Spray",
+      "subtext": "disinfection",
+      "meta": {
+        "brand": "Betadine",
+        "generic": "POVIDONE-IODINE",
+        "form": "CUTANEOUS SPRAY, POWDER",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "disinfection",
+        "secondaryIndications": "skin cleansing | antiseptic care",
+        "otcCategory": "ANTISEPTICS AND DISINFECTANTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "POVIDONE-IODINE 2.5 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "D08AG02",
+        "status": "Authorised",
+        "supplierCatalogKey": "betadine 2.5% w/w dry powder, cutaneous spray"
+      }
+    },
+    {
+      "id": "product:P0045",
+      "nodeType": "product",
+      "refId": "P0045",
+      "label": "Betadine Alcoholic Solution 10.0% w/v",
+      "subtext": "disinfection",
+      "meta": {
+        "brand": "Betadine",
+        "generic": "POVIDONE-IODINE",
+        "form": "CUTANEOUS SOLUTION",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "disinfection",
+        "secondaryIndications": "skin cleansing | antiseptic care",
+        "otcCategory": "ANTISEPTICS AND DISINFECTANTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "POVIDONE-IODINE 10 percent weight/volume",
+        "packSizeText": "Review manually",
+        "atcCode": "D08AG02",
+        "status": "Authorised",
+        "supplierCatalogKey": "betadine alcoholic solution 10.0% w/v"
+      }
+    },
+    {
+      "id": "product:P0046",
+      "nodeType": "product",
+      "refId": "P0046",
+      "label": "Betadine Antiseptic Paint 10% w/v",
+      "subtext": "disinfection",
+      "meta": {
+        "brand": "Betadine",
+        "generic": "POVIDONE-IODINE",
+        "form": "CUTANEOUS SOLUTION",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "disinfection",
+        "secondaryIndications": "skin cleansing | antiseptic care",
+        "otcCategory": "ANTISEPTICS AND DISINFECTANTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "POVIDONE-IODINE 10 percent weight/volume",
+        "packSizeText": "Review manually",
+        "atcCode": "D08AG02",
+        "status": "Authorised",
+        "supplierCatalogKey": "betadine antiseptic paint 10% w/v"
+      }
+    },
+    {
+      "id": "product:P0047",
+      "nodeType": "product",
+      "refId": "P0047",
+      "label": "Betadine Surgical Scrub 7.5% w/v",
+      "subtext": "disinfection",
+      "meta": {
+        "brand": "Betadine",
+        "generic": "POVIDONE-IODINE",
+        "form": "CUTANEOUS SOLUTION",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "disinfection",
+        "secondaryIndications": "skin cleansing | antiseptic care",
+        "otcCategory": "ANTISEPTICS AND DISINFECTANTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "POVIDONE-IODINE 7.5 percent weight/volume",
+        "packSizeText": "Review manually",
+        "atcCode": "D08AG02",
+        "status": "Authorised",
+        "supplierCatalogKey": "betadine surgical scrub 7.5% w/v"
+      }
+    },
+    {
+      "id": "product:P0101",
+      "nodeType": "product",
+      "refId": "P0101",
+      "label": "ChloraPrep 2% w/v / 70% v/v cutaneous solution",
+      "subtext": "disinfection",
+      "meta": {
+        "brand": "ChloraPrep",
+        "generic": "CHLORHEXIDINE GLUCONATE | ISOPROPYL ALCOHOL",
+        "form": "CUTANEOUS SOLUTION",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "disinfection",
+        "secondaryIndications": "skin cleansing | antiseptic care",
+        "otcCategory": "ANTISEPTICS AND DISINFECTANTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "ISOPROPYL ALCOHOL 0.70 millimeter(s) | CHLORHEXIDINE GLUCONATE 20 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "D08AC52",
+        "status": "Authorised",
+        "supplierCatalogKey": "chloraprep 2% w/v / 70% v/v cutaneous solution"
+      }
+    },
+    {
+      "id": "product:P0102",
+      "nodeType": "product",
+      "refId": "P0102",
+      "label": "ChloraPrep with Tint 2% w/v / 70% v/v cutaneous solution",
+      "subtext": "disinfection",
+      "meta": {
+        "brand": "ChloraPrep",
+        "generic": "CHLORHEXIDINE GLUCONATE | ISOPROPYL ALCOHOL",
+        "form": "CUTANEOUS SOLUTION",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "disinfection",
+        "secondaryIndications": "skin cleansing | antiseptic care",
+        "otcCategory": "ANTISEPTICS AND DISINFECTANTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "CHLORHEXIDINE GLUCONATE 20 milligram(s)/millilitre | ISOPROPYL ALCOHOL 0.7 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "D08AC52",
+        "status": "Authorised",
+        "supplierCatalogKey": "chloraprep with tint 2% w/v / 70% v/v cutaneous solution"
+      }
+    },
+    {
+      "id": "product:P0103",
+      "nodeType": "product",
+      "refId": "P0103",
+      "label": "Chlorhexidine Acetate BP 0.05% w/v Irrigation Solution",
+      "subtext": "disinfection",
+      "meta": {
+        "brand": "Chlorhexidine",
+        "generic": "CHLORHEXIDINE ACETATE",
+        "form": "IRRIGATION SOLUTION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "disinfection",
+        "secondaryIndications": "skin cleansing | antiseptic care",
+        "otcCategory": "ANTISEPTICS AND DISINFECTANTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CHLORHEXIDINE ACETATE 0.5 gram(s)/litre",
+        "packSizeText": "Review manually",
+        "atcCode": "D08AC02",
+        "status": "Authorised",
+        "supplierCatalogKey": "chlorhexidine acetate bp 0.05% w/v irrigation solution"
+      }
+    },
+    {
+      "id": "product:P0133",
+      "nodeType": "product",
+      "refId": "P0133",
+      "label": "Dermobacter",
+      "subtext": "disinfection",
+      "meta": {
+        "brand": "Dermobacter",
+        "generic": "BENZALKONIUM CHLORIDE | CHLORHEXIDINE DIGLUCONATE",
+        "form": "CUTANEOUS SOLUTION",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "disinfection",
+        "secondaryIndications": "skin cleansing | antiseptic care",
+        "otcCategory": "ANTISEPTICS AND DISINFECTANTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "CHLORHEXIDINE DIGLUCONATE 0.2 percent weight/volume | BENZALKONIUM CHLORIDE 0.5 percent weight/volume",
+        "packSizeText": "Review manually",
+        "atcCode": "D08AC52",
+        "status": "Authorised",
+        "supplierCatalogKey": "dermobacter"
+      }
+    },
+    {
+      "id": "product:P0134",
+      "nodeType": "product",
+      "refId": "P0134",
+      "label": "Dettol Antiseptic Liquid Chloroxylenol 4.8% w/v for Cutaneous Solution",
+      "subtext": "disinfection",
+      "meta": {
+        "brand": "Dettol",
+        "generic": "CHLOROXYLENOL",
+        "form": "CONCENTRATE FOR CUTANEOUS SOLUTION",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "disinfection",
+        "secondaryIndications": "skin cleansing | antiseptic care",
+        "otcCategory": "ANTISEPTICS AND DISINFECTANTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CHLOROXYLENOL 4.8 percent weight/volume",
+        "packSizeText": "Review manually",
+        "atcCode": "D08AE05",
+        "status": "Authorised",
+        "supplierCatalogKey": "dettol antiseptic liquid chloroxylenol 4.8% w/v for cutaneous solution"
+      }
+    },
+    {
+      "id": "product:P0174",
+      "nodeType": "product",
+      "refId": "P0174",
+      "label": "FARVICETT 0.015% + 0.15% cutaneous solution",
+      "subtext": "disinfection",
+      "meta": {
+        "brand": "FARVICETT",
+        "generic": "CETRIMIDE | CHLORHEXIDINE GLUCONATE",
+        "form": "CUTANEOUS SOLUTION",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "disinfection",
+        "secondaryIndications": "skin cleansing | antiseptic care",
+        "otcCategory": "ANTISEPTICS AND DISINFECTANTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "CHLORHEXIDINE GLUCONATE 0.015 percent | CETRIMIDE  0.15 percent",
+        "packSizeText": "Review manually",
+        "atcCode": "D08AC52",
+        "status": "Authorised",
+        "supplierCatalogKey": "farvicett 0.015% + 0.15% cutaneous solution"
+      }
+    },
+    {
+      "id": "product:P0239",
+      "nodeType": "product",
+      "refId": "P0239",
+      "label": "Iodine alcoholic cutaneous solution",
+      "subtext": "disinfection",
+      "meta": {
+        "brand": "Iodine",
+        "generic": "IODINE | POTASSIUM IODIDE",
+        "form": "CUTANEOUS SOLUTION",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "disinfection",
+        "secondaryIndications": "skin cleansing | antiseptic care",
+        "otcCategory": "ANTISEPTICS AND DISINFECTANTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "POTASSIUM IODIDE 5 gram(s)/100 millilitres | IODINE 7 gram(s)/100 millilitres",
+        "packSizeText": "Review manually",
+        "atcCode": "D08AG03",
+        "status": "Authorised",
+        "supplierCatalogKey": "iodine alcoholic cutaneous solution"
+      }
+    },
+    {
+      "id": "product:P0353",
+      "nodeType": "product",
+      "refId": "P0353",
+      "label": "Octenisept solution for wound and mucous membrane disinfection",
+      "subtext": "disinfection",
+      "meta": {
+        "brand": "Octenisept",
+        "generic": "OCTENIDINE DIHYDROCHLORIDE | PHENOXYETHANOL",
+        "form": "CUTANEOUS SOLUTION",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "disinfection",
+        "secondaryIndications": "skin cleansing | antiseptic care",
+        "otcCategory": "ANTISEPTICS AND DISINFECTANTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "Octenidine dihydrochloride 0.1 gram(s) | PHENOXYETHANOL 2 gram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "D08AJ57",
+        "status": "Authorised",
+        "supplierCatalogKey": "octenisept solution for wound and mucous membrane disinfection"
+      }
+    },
+    {
+      "id": "product:P0432",
+      "nodeType": "product",
+      "refId": "P0432",
+      "label": "Savlon Antiseptic Cream Cetrimide 0.5% w/w Chlorhexidine Digluconate 0.1% w/w",
+      "subtext": "disinfection",
+      "meta": {
+        "brand": "Savlon",
+        "generic": "CETRIMIDE | CHLORHEXIDINE DIGLUCONATE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "disinfection",
+        "secondaryIndications": "skin cleansing | antiseptic care",
+        "otcCategory": "ANTISEPTICS AND DISINFECTANTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "CETRIMIDE  0.50 percent weight/weight | CHLORHEXIDINE DIGLUCONATE 0.10 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "D08AC52",
+        "status": "Authorised",
+        "supplierCatalogKey": "savlon antiseptic cream cetrimide 0.5% w/w chlorhexidine digluconate 0.1% w/w"
+      }
+    },
+    {
+      "id": "product:P0456",
+      "nodeType": "product",
+      "refId": "P0456",
+      "label": "Sterets Tisept Sachets.",
+      "subtext": "disinfection",
+      "meta": {
+        "brand": "Sterets",
+        "generic": "CETRIMIDE | CHLORHEXIDINE GLUCONATE",
+        "form": "CUTANEOUS SOLUTION",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "disinfection",
+        "secondaryIndications": "skin cleansing | antiseptic care",
+        "otcCategory": "ANTISEPTICS AND DISINFECTANTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "CHLORHEXIDINE GLUCONATE 0.015 percent weight/volume | CETRIMIDE  0.15 percent weight/volume",
+        "packSizeText": "Review manually",
+        "atcCode": "D08AC52",
+        "status": "Authorised",
+        "supplierCatalogKey": "sterets tisept sachets."
+      }
+    },
+    {
+      "id": "product:P0490",
+      "nodeType": "product",
+      "refId": "P0490",
+      "label": "VIDENE 7.5% W/W SURGICAL SCRUB",
+      "subtext": "disinfection",
+      "meta": {
+        "brand": "VIDENE",
+        "generic": "POVIDONE-IODINE",
+        "form": "CUTANEOUS SOLUTION",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "disinfection",
+        "secondaryIndications": "skin cleansing | antiseptic care",
+        "otcCategory": "ANTISEPTICS AND DISINFECTANTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "POVIDONE-IODINE 7.5 percent weight/weight",
+        "packSizeText": "Review manually",
+        "atcCode": "D08AG02",
+        "status": "Authorised",
+        "supplierCatalogKey": "videne 7.5% w/w surgical scrub"
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "09090be43552db77",
+      "source": "product:P0029",
+      "target": "symptom:S006",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00102"
+      }
+    },
+    {
+      "key": "54303b34bf95ab4a",
+      "source": "product:P0032",
+      "target": "symptom:S006",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00110"
+      }
+    },
+    {
+      "key": "5334c783bc176c46",
+      "source": "product:P0040",
+      "target": "symptom:S006",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00136"
+      }
+    },
+    {
+      "key": "c08888e42f07ff6f",
+      "source": "product:P0041",
+      "target": "symptom:S006",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00139"
+      }
+    },
+    {
+      "key": "e6cff25bd0d3701e",
+      "source": "product:P0042",
+      "target": "symptom:S006",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00142"
+      }
+    },
+    {
+      "key": "2ef00ca77c89bae4",
+      "source": "product:P0043",
+      "target": "symptom:S006",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00145"
+      }
+    },
+    {
+      "key": "adcabff0d9863982",
+      "source": "product:P0044",
+      "target": "symptom:S006",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00148"
+      }
+    },
+    {
+      "key": "f46e6d331dfceb55",
+      "source": "product:P0045",
+      "target": "symptom:S006",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00151"
+      }
+    },
+    {
+      "key": "230f82df9316cc42",
+      "source": "product:P0046",
+      "target": "symptom:S006",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00154"
+      }
+    },
+    {
+      "key": "476027fe384f7ebc",
+      "source": "product:P0047",
+      "target": "symptom:S006",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00157"
+      }
+    },
+    {
+      "key": "893d4a0347042ff8",
+      "source": "product:P0101",
+      "target": "symptom:S006",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00331"
+      }
+    },
+    {
+      "key": "88c0dc857a13468f",
+      "source": "product:P0102",
+      "target": "symptom:S006",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00334"
+      }
+    },
+    {
+      "key": "9e45f21289dd48cb",
+      "source": "product:P0103",
+      "target": "symptom:S006",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00337"
+      }
+    },
+    {
+      "key": "8adb5b45dbbd3333",
+      "source": "product:P0133",
+      "target": "symptom:S006",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00438"
+      }
+    },
+    {
+      "key": "bada6b54c45f89fb",
+      "source": "product:P0134",
+      "target": "symptom:S006",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00441"
+      }
+    },
+    {
+      "key": "c0e2eb32f52d7b47",
+      "source": "product:P0174",
+      "target": "symptom:S006",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00568"
+      }
+    },
+    {
+      "key": "3ea7cfcbbc3cade8",
+      "source": "product:P0239",
+      "target": "symptom:S006",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00779"
+      }
+    },
+    {
+      "key": "8b2de5a0acb897e4",
+      "source": "product:P0353",
+      "target": "symptom:S006",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01144"
+      }
+    },
+    {
+      "key": "61c3096556fdb0a7",
+      "source": "product:P0432",
+      "target": "symptom:S006",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01430"
+      }
+    },
+    {
+      "key": "511f8a820e1a0c4a",
+      "source": "product:P0456",
+      "target": "symptom:S006",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01509"
+      }
+    },
+    {
+      "key": "76ca50475c40a36b",
+      "source": "product:P0490",
+      "target": "symptom:S006",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01635"
+      }
+    }
+  ]
+}

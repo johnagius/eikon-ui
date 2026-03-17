@@ -1,1 +1,227 @@
-{"centerId":"product:P0199","centerType":"product","refId":"P0199","nodes":[{"id":"product:P0199","nodeType":"product","refId":"P0199","label":"Galfer 140 mg/5ml Oral Suspension","subtext":"iron support","meta":{"brand":"Galfer","generic":"FERROUS FUMARATE","form":"ORAL SUSPENSION","formGroup":"Oral liquid","route":"Oral","mainIndication":"iron support","secondaryIndications":"anaemia support","otcCategory":"ANTIANEMIC PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"FERROUS FUMARATE 140 milligram(s)/5 millilitre","packSizeText":"Review manually","atcCode":"B03AA02","status":"Authorised","supplierCatalogKey":"galfer 140 mg/5ml oral suspension"}},{"id":"product:P0200","nodeType":"product","refId":"P0200","label":"Galfer 305 mg Hard Capsules","subtext":"iron support","meta":{"brand":"Galfer","generic":"FERROUS FUMARATE","form":"HARD CAPSULE","formGroup":"Oral solid","route":"Oral","mainIndication":"iron support","secondaryIndications":"anaemia support","otcCategory":"ANTIANEMIC PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"FERROUS FUMARATE 305 milligram(s)","packSizeText":"Review manually","atcCode":"B03AA02","status":"Authorised","supplierCatalogKey":"galfer 305 mg hard capsules"}},{"id":"product:P0185","nodeType":"product","refId":"P0185","label":"Ferrous Fumarate 200 mg film coated tablets","subtext":"iron support","meta":{"brand":"Ferrous","generic":"FERROUS FUMARATE","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"iron support","secondaryIndications":"anaemia support","otcCategory":"ANTIANEMIC PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"FERROUS FUMARATE 200 milligram(s)","packSizeText":"Review manually","atcCode":"B03AA02","status":"Authorised","supplierCatalogKey":"ferrous fumarate 200 mg film coated tablets"}},{"id":"symptom:S039","nodeType":"symptom","refId":"S039","label":"iron support","subtext":"Supplements","meta":{"Symptom_ID":"S039","Symptom_Name":"iron support","Symptom_Category":"Supplements","Linked_Product_Count":11,"Display_Group":"Supplements","Priority_For_Graph":85,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"symptom:S005","nodeType":"symptom","refId":"S005","label":"anaemia support","subtext":"Supplements","meta":{"Symptom_ID":"S005","Symptom_Name":"anaemia support","Symptom_Category":"Supplements","Linked_Product_Count":11,"Display_Group":"Supplements","Priority_For_Graph":85,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}}],"links":[{"key":"06a1fb6a2e5fbff4","source":"product:P0199","target":"product:P0200","rel":"similar","label":"Alternative: same active ingredient(s)","score":88,"why":"Same active ingredient(s), but delivered in different form families.","meta":{"edgeId":"E00524","clinicalSimilarity":100,"commercialSubstitution":95,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"anaemia support, iron support","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"aabfa76788d1214b","source":"product:P0185","target":"product:P0199","rel":"similar","label":"Alternative: same active ingredient(s)","score":88,"why":"Same active ingredient(s), but delivered in different form families.","meta":{"edgeId":"E00522","clinicalSimilarity":100,"commercialSubstitution":95,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"anaemia support, iron support","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"188385ee53262bbb","source":"product:P0199","target":"symptom:S039","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00647","role":"Primary","reviewStatus":"Seeded"}},{"key":"8873b21b6acbdcc8","source":"product:P0199","target":"symptom:S005","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00648","role":"Primary","reviewStatus":"Seeded"}},{"key":"87344a10d1fedc66","source":"product:P0199","target":"product:P0200","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":88,"why":"Same active ingredient(s), but delivered in different form families.","meta":{"edgeId":"E00524","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}},{"key":"73b5452f26dbc1ac","source":"product:P0185","target":"product:P0199","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":88,"why":"Same active ingredient(s), but delivered in different form families.","meta":{"edgeId":"E00522","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}}],"meta":{"productName":"Galfer 140 mg/5ml Oral Suspension","linkCount":6}}
+{
+  "centerId": "product:P0199",
+  "centerType": "product",
+  "refId": "P0199",
+  "nodes": [
+    {
+      "id": "product:P0199",
+      "nodeType": "product",
+      "refId": "P0199",
+      "label": "Galfer 140 mg/5ml Oral Suspension",
+      "subtext": "iron support",
+      "meta": {
+        "brand": "Galfer",
+        "generic": "FERROUS FUMARATE",
+        "form": "ORAL SUSPENSION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "iron support",
+        "secondaryIndications": "anaemia support",
+        "otcCategory": "ANTIANEMIC PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "FERROUS FUMARATE 140 milligram(s)/5 millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "B03AA02",
+        "status": "Authorised",
+        "supplierCatalogKey": "galfer 140 mg/5ml oral suspension"
+      }
+    },
+    {
+      "id": "product:P0185",
+      "nodeType": "product",
+      "refId": "P0185",
+      "label": "Ferrous Fumarate 200 mg film coated tablets",
+      "subtext": "iron support",
+      "meta": {
+        "brand": "Ferrous",
+        "generic": "FERROUS FUMARATE",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "iron support",
+        "secondaryIndications": "anaemia support",
+        "otcCategory": "ANTIANEMIC PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "FERROUS FUMARATE 200 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "B03AA02",
+        "status": "Authorised",
+        "supplierCatalogKey": "ferrous fumarate 200 mg film coated tablets"
+      }
+    },
+    {
+      "id": "product:P0200",
+      "nodeType": "product",
+      "refId": "P0200",
+      "label": "Galfer 305 mg Hard Capsules",
+      "subtext": "iron support",
+      "meta": {
+        "brand": "Galfer",
+        "generic": "FERROUS FUMARATE",
+        "form": "HARD CAPSULE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "iron support",
+        "secondaryIndications": "anaemia support",
+        "otcCategory": "ANTIANEMIC PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "FERROUS FUMARATE 305 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "B03AA02",
+        "status": "Authorised",
+        "supplierCatalogKey": "galfer 305 mg hard capsules"
+      }
+    },
+    {
+      "id": "symptom:S039",
+      "nodeType": "symptom",
+      "refId": "S039",
+      "label": "iron support",
+      "subtext": "Supplements",
+      "meta": {
+        "Symptom_ID": "S039",
+        "Symptom_Name": "iron support",
+        "Symptom_Category": "Supplements",
+        "Linked_Product_Count": 11,
+        "Display_Group": "Supplements",
+        "Priority_For_Graph": 85,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "symptom:S005",
+      "nodeType": "symptom",
+      "refId": "S005",
+      "label": "anaemia support",
+      "subtext": "Supplements",
+      "meta": {
+        "Symptom_ID": "S005",
+        "Symptom_Name": "anaemia support",
+        "Symptom_Category": "Supplements",
+        "Linked_Product_Count": 11,
+        "Display_Group": "Supplements",
+        "Priority_For_Graph": 85,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "usecase:UC016",
+      "nodeType": "usecase",
+      "refId": "UC016",
+      "label": "Iron and anaemia support",
+      "subtext": "Supplements",
+      "meta": {
+        "UseCase_ID": "UC016",
+        "UseCase_Name": "Iron and anaemia support",
+        "UseCase_Category": "Supplements",
+        "Trigger_Symptoms": "Tiredness, iron deficiency, anaemia",
+        "Description": "Iron supplements for anaemia prevention and treatment."
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "aabfa76788d1214b",
+      "source": "product:P0185",
+      "target": "product:P0199",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 88,
+      "why": "Same active ingredient(s), but delivered in different form families.",
+      "meta": {
+        "edgeId": "E00522"
+      }
+    },
+    {
+      "key": "06a1fb6a2e5fbff4",
+      "source": "product:P0199",
+      "target": "product:P0200",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 88,
+      "why": "Same active ingredient(s), but delivered in different form families.",
+      "meta": {
+        "edgeId": "E00524"
+      }
+    },
+    {
+      "key": "188385ee53262bbb",
+      "source": "product:P0199",
+      "target": "symptom:S039",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00647"
+      }
+    },
+    {
+      "key": "8873b21b6acbdcc8",
+      "source": "product:P0199",
+      "target": "symptom:S005",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00648"
+      }
+    },
+    {
+      "key": "f92d86f77d39c1bc",
+      "source": "product:P0199",
+      "target": "usecase:UC016",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Tiredness, iron deficiency, anaemia",
+      "meta": {
+        "useCaseItemId": "UCI00655"
+      }
+    },
+    {
+      "key": "73b5452f26dbc1ac",
+      "source": "product:P0185",
+      "target": "product:P0199",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 88,
+      "why": "Same active ingredient(s), but delivered in different form families.",
+      "meta": {
+        "edgeId": "E00522",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    },
+    {
+      "key": "87344a10d1fedc66",
+      "source": "product:P0199",
+      "target": "product:P0200",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 88,
+      "why": "Same active ingredient(s), but delivered in different form families.",
+      "meta": {
+        "edgeId": "E00524",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead."
+      }
+    }
+  ]
+}

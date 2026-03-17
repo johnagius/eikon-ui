@@ -1,0 +1,463 @@
+{
+  "centerId": "usecase:UC016",
+  "centerType": "usecase",
+  "refId": "UC016",
+  "nodes": [
+    {
+      "id": "usecase:UC016",
+      "nodeType": "usecase",
+      "refId": "UC016",
+      "label": "Iron and anaemia support",
+      "subtext": "Supplements",
+      "meta": {
+        "UseCase_ID": "UC016",
+        "UseCase_Name": "Iron and anaemia support",
+        "UseCase_Category": "Supplements",
+        "Trigger_Symptoms": "Tiredness, iron deficiency, anaemia",
+        "Description": "Iron supplements for anaemia prevention and treatment."
+      }
+    },
+    {
+      "id": "product:P0183",
+      "nodeType": "product",
+      "refId": "P0183",
+      "label": "Ferrograd 325mg Prolonged release Tablets",
+      "subtext": "iron support",
+      "meta": {
+        "brand": "Ferrograd",
+        "generic": "FERROUS SULFATE",
+        "form": "PROLONGED-RELEASE TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "iron support",
+        "secondaryIndications": "anaemia support",
+        "otcCategory": "ANTIANEMIC PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "FERROUS SULFATE 325 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "B03AA07",
+        "status": "Authorised",
+        "supplierCatalogKey": "ferrograd 325mg prolonged release tablets"
+      }
+    },
+    {
+      "id": "product:P0184",
+      "nodeType": "product",
+      "refId": "P0184",
+      "label": "Ferrograd Folic 325mg/0.35mg Prolonged release Tablets",
+      "subtext": "iron support",
+      "meta": {
+        "brand": "Ferrograd",
+        "generic": "FERROUS SULFATE | FOLIC ACID",
+        "form": "PROLONGED-RELEASE TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "iron support",
+        "secondaryIndications": "anaemia support",
+        "otcCategory": "ANTIANEMIC PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "FERROUS SULFATE 325 milligram(s) | FOLIC ACID 0.35 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "B03AA07",
+        "status": "Authorised",
+        "supplierCatalogKey": "ferrograd folic 325mg/0.35mg prolonged release tablets"
+      }
+    },
+    {
+      "id": "product:P0185",
+      "nodeType": "product",
+      "refId": "P0185",
+      "label": "Ferrous Fumarate 200 mg film coated tablets",
+      "subtext": "iron support",
+      "meta": {
+        "brand": "Ferrous",
+        "generic": "FERROUS FUMARATE",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "iron support",
+        "secondaryIndications": "anaemia support",
+        "otcCategory": "ANTIANEMIC PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "FERROUS FUMARATE 200 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "B03AA02",
+        "status": "Authorised",
+        "supplierCatalogKey": "ferrous fumarate 200 mg film coated tablets"
+      }
+    },
+    {
+      "id": "product:P0186",
+      "nodeType": "product",
+      "refId": "P0186",
+      "label": "Ferrous Gluconate Tablets 300 mg",
+      "subtext": "iron support",
+      "meta": {
+        "brand": "Ferrous",
+        "generic": "FERROUS GLUCONATE",
+        "form": "TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "iron support",
+        "secondaryIndications": "anaemia support",
+        "otcCategory": "ANTIANEMIC PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "FERROUS GLUCONATE 300 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "B03AA03",
+        "status": "Authorised",
+        "supplierCatalogKey": "ferrous gluconate tablets 300 mg"
+      }
+    },
+    {
+      "id": "product:P0187",
+      "nodeType": "product",
+      "refId": "P0187",
+      "label": "Ferrous Sulfate Tablets 200mg",
+      "subtext": "iron support",
+      "meta": {
+        "brand": "Ferrous",
+        "generic": "FERROUS SULFATE",
+        "form": "COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "iron support",
+        "secondaryIndications": "anaemia support",
+        "otcCategory": "ANTIANEMIC PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "FERROUS SULFATE 200 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "B03AA07",
+        "status": "Authorised",
+        "supplierCatalogKey": "ferrous sulfate tablets 200mg"
+      }
+    },
+    {
+      "id": "product:P0188",
+      "nodeType": "product",
+      "refId": "P0188",
+      "label": "Ferrous Sulfate Tablets BP 200mg",
+      "subtext": "iron support",
+      "meta": {
+        "brand": "Ferrous",
+        "generic": "FERROUS SULFATE",
+        "form": "TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "iron support",
+        "secondaryIndications": "anaemia support",
+        "otcCategory": "ANTIANEMIC PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "FERROUS SULFATE 200 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "B03AA07",
+        "status": "Authorised",
+        "supplierCatalogKey": "ferrous sulfate tablets bp 200mg"
+      }
+    },
+    {
+      "id": "product:P0199",
+      "nodeType": "product",
+      "refId": "P0199",
+      "label": "Galfer 140 mg/5ml Oral Suspension",
+      "subtext": "iron support",
+      "meta": {
+        "brand": "Galfer",
+        "generic": "FERROUS FUMARATE",
+        "form": "ORAL SUSPENSION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "iron support",
+        "secondaryIndications": "anaemia support",
+        "otcCategory": "ANTIANEMIC PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "FERROUS FUMARATE 140 milligram(s)/5 millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "B03AA02",
+        "status": "Authorised",
+        "supplierCatalogKey": "galfer 140 mg/5ml oral suspension"
+      }
+    },
+    {
+      "id": "product:P0200",
+      "nodeType": "product",
+      "refId": "P0200",
+      "label": "Galfer 305 mg Hard Capsules",
+      "subtext": "iron support",
+      "meta": {
+        "brand": "Galfer",
+        "generic": "FERROUS FUMARATE",
+        "form": "HARD CAPSULE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "iron support",
+        "secondaryIndications": "anaemia support",
+        "otcCategory": "ANTIANEMIC PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "FERROUS FUMARATE 305 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "B03AA02",
+        "status": "Authorised",
+        "supplierCatalogKey": "galfer 305 mg hard capsules"
+      }
+    },
+    {
+      "id": "product:P0465",
+      "nodeType": "product",
+      "refId": "P0465",
+      "label": "TOTYLEM 60 mg/0.4 mg, film-coated tablet",
+      "subtext": "iron support",
+      "meta": {
+        "brand": "TOTYLEM",
+        "generic": "FERROUS GLUCONATE | FOLIC ACID",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "iron support",
+        "secondaryIndications": "anaemia support",
+        "otcCategory": "ANTIANEMIC PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "FERROUS GLUCONATE 60 milligram(s) | FOLIC ACID 0.40 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "B03AD05",
+        "status": "Authorised",
+        "supplierCatalogKey": "totylem 60 mg/0.4 mg, film-coated tablet"
+      }
+    },
+    {
+      "id": "product:P0466",
+      "nodeType": "product",
+      "refId": "P0466",
+      "label": "TOT\u2019HEMA oral solution",
+      "subtext": "iron support",
+      "meta": {
+        "brand": "TOT",
+        "generic": "COPPER GLUCONATE | IRON GLUCONATE | MANGANESE GLUCONATE",
+        "form": "ORAL SOLUTION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "iron support",
+        "secondaryIndications": "anaemia support",
+        "otcCategory": "ANTIANEMIC PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "IRON GLUCONATE 50/10 milligram(s)/millilitre | MANGANESE GLUCONATE 1.33/10 milligram(s)/millilitre | COPPER GLUCONATE 0.70/10 milligram(s)/millilitre",
+        "packSizeText": "Review manually",
+        "atcCode": "B03AE10",
+        "status": "Authorised",
+        "supplierCatalogKey": "tot\u2019hema oral solution"
+      }
+    },
+    {
+      "id": "product:P0476",
+      "nodeType": "product",
+      "refId": "P0476",
+      "label": "Tot''hema Oral Solution in ampoules",
+      "subtext": "iron support",
+      "meta": {
+        "brand": "Tot",
+        "generic": "COPPER | IRON | MANGANESE",
+        "form": "ORAL SOLUTION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "iron support",
+        "secondaryIndications": "anaemia support",
+        "otcCategory": "ANTIANEMIC PREPARATIONS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 3,
+        "strengthText": "COPPER 0.7 milligram(s) | IRON 50 milligram(s) | MANGANESE 1.33 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "B03AE10",
+        "status": "Authorised",
+        "supplierCatalogKey": "tot''hema oral solution in ampoules"
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "ec61f2eeeed06314",
+      "source": "product:P0183",
+      "target": "usecase:UC016",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Tiredness, iron deficiency, anaemia",
+      "meta": {
+        "useCaseItemId": "UCI00649"
+      }
+    },
+    {
+      "key": "af66db70fa5515bf",
+      "source": "product:P0184",
+      "target": "usecase:UC016",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Tiredness, iron deficiency, anaemia",
+      "meta": {
+        "useCaseItemId": "UCI00650"
+      }
+    },
+    {
+      "key": "44c1c89ff95b4de9",
+      "source": "product:P0185",
+      "target": "usecase:UC016",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Tiredness, iron deficiency, anaemia",
+      "meta": {
+        "useCaseItemId": "UCI00651"
+      }
+    },
+    {
+      "key": "d6a68413cabb3d7f",
+      "source": "product:P0186",
+      "target": "usecase:UC016",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Tiredness, iron deficiency, anaemia",
+      "meta": {
+        "useCaseItemId": "UCI00652"
+      }
+    },
+    {
+      "key": "5a7663a684294cad",
+      "source": "product:P0187",
+      "target": "usecase:UC016",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Tiredness, iron deficiency, anaemia",
+      "meta": {
+        "useCaseItemId": "UCI00653"
+      }
+    },
+    {
+      "key": "a48754d59b570818",
+      "source": "product:P0188",
+      "target": "usecase:UC016",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Tiredness, iron deficiency, anaemia",
+      "meta": {
+        "useCaseItemId": "UCI00654"
+      }
+    },
+    {
+      "key": "f92d86f77d39c1bc",
+      "source": "product:P0199",
+      "target": "usecase:UC016",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Tiredness, iron deficiency, anaemia",
+      "meta": {
+        "useCaseItemId": "UCI00655"
+      }
+    },
+    {
+      "key": "02ad1a580559367b",
+      "source": "product:P0200",
+      "target": "usecase:UC016",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Tiredness, iron deficiency, anaemia",
+      "meta": {
+        "useCaseItemId": "UCI00656"
+      }
+    },
+    {
+      "key": "689dea72a695058c",
+      "source": "product:P0465",
+      "target": "usecase:UC016",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Tiredness, iron deficiency, anaemia",
+      "meta": {
+        "useCaseItemId": "UCI00657"
+      }
+    },
+    {
+      "key": "5abcf279e9eeaaf3",
+      "source": "product:P0466",
+      "target": "usecase:UC016",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Tiredness, iron deficiency, anaemia",
+      "meta": {
+        "useCaseItemId": "UCI00658"
+      }
+    },
+    {
+      "key": "1369a17f1e7b6d22",
+      "source": "product:P0476",
+      "target": "usecase:UC016",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "Tiredness, iron deficiency, anaemia",
+      "meta": {
+        "useCaseItemId": "UCI00659"
+      }
+    }
+  ]
+}

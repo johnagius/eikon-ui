@@ -1,1 +1,616 @@
-{"centerId":"product:P0021","centerType":"product","refId":"P0021","nodes":[{"id":"product:P0021","nodeType":"product","refId":"P0021","label":"Alutril Forte 500 mg/250 mg chewable tablets","subtext":"heartburn","meta":{"brand":"Alutril","generic":"ALUMINIUM HYDROXIDE | MAGNESIUM TRISILICATE","form":"CHEWABLE TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"heartburn","secondaryIndications":"acid reflux | indigestion","otcCategory":"DRUGS FOR ACID RELATED DISORDERS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"MAGNESIUM TRISILICATE 500 milligram(s) | ALUMINIUM HYDROXIDE 250 milligram(s)","packSizeText":"Review manually","atcCode":"A02AD01","status":"Authorised","supplierCatalogKey":"alutril forte 500 mg/250 mg chewable tablets"}},{"id":"product:P0273","nodeType":"product","refId":"P0273","label":"Maalox 400 mg/400 mg chewable tablets (sugar free)","subtext":"heartburn","meta":{"brand":"Maalox","generic":"ALUMINIUM HYDROXIDE | MAGNESIUM HYDROXIDE","form":"CHEWABLE TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"heartburn","secondaryIndications":"acid reflux | indigestion","otcCategory":"DRUGS FOR ACID RELATED DISORDERS","seasonalGroup":"Winter","sedating":"No","nonDrowsy":"No","sugarFree":"Yes","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"ALUMINIUM HYDROXIDE 400 milligram(s) | MAGNESIUM HYDROXIDE 400 milligram(s)","packSizeText":"Review manually","atcCode":"A02AD01","status":"Authorised","supplierCatalogKey":"maalox 400 mg/400 mg chewable tablets (sugar free)"}},{"id":"product:P0064","nodeType":"product","refId":"P0064","label":"Buscopan 10mg Coated Tablets","subtext":"bloating","meta":{"brand":"Buscopan","generic":"HYOSCINE BUTYLBROMIDE","form":"COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"bloating","secondaryIndications":"cramps | spasms | abdominal discomfort","otcCategory":"DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"HYOSCINE BUTYLBROMIDE 10 milligram(s)","packSizeText":"Review manually","atcCode":"A03BB01","status":"Authorised","supplierCatalogKey":"buscopan 10mg coated tablets"}},{"id":"product:P0116","nodeType":"product","refId":"P0116","label":"Colpermin Gastro-resistant Capsules Peppermint oil 0.2ml","subtext":"bloating","meta":{"brand":"Colpermin","generic":"PEPPERMINT OIL","form":"GASTRO-RESISTANT CAPSULE","formGroup":"Oral solid","route":"Oral","mainIndication":"bloating","secondaryIndications":"cramps | spasms | abdominal discomfort","otcCategory":"DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"PEPPERMINT OIL 0.2 millilitre(s)","packSizeText":"Review manually","atcCode":"A03AX","status":"Authorised","supplierCatalogKey":"colpermin gastro-resistant capsules peppermint oil 0.2ml"}},{"id":"product:P0217","nodeType":"product","refId":"P0217","label":"Hyoscine Butylbromide Heumann 10 mg film-coated tablets","subtext":"bloating","meta":{"brand":"Hyoscine","generic":"HYOSCINE BUTYLBROMIDE","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"bloating","secondaryIndications":"cramps | spasms | abdominal discomfort","otcCategory":"DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"HYOSCINE BUTYLBROMIDE 10 milligram(s)","packSizeText":"Review manually","atcCode":"A03BB01","status":"Authorised","supplierCatalogKey":"hyoscine butylbromide heumann 10 mg film-coated tablets"}},{"id":"product:P0218","nodeType":"product","refId":"P0218","label":"Hyoscine Butylbromide Torrent 10 mg film-coated tablets","subtext":"bloating","meta":{"brand":"Hyoscine","generic":"HYOSCINE BUTYLBROMIDE","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"bloating","secondaryIndications":"cramps | spasms | abdominal discomfort","otcCategory":"DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"HYOSCINE BUTYLBROMIDE 10 milligram(s)","packSizeText":"Review manually","atcCode":"A03BB01","status":"Authorised","supplierCatalogKey":"hyoscine butylbromide torrent 10 mg film-coated tablets"}},{"id":"product:P0280","nodeType":"product","refId":"P0280","label":"Mebeverine Hydrochloride IBS, 135mg film-coated Tablet","subtext":"bloating","meta":{"brand":"Mebeverine","generic":"MEBEVERINE HYDROCHLORIDE","form":"FILM-COATED TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"bloating","secondaryIndications":"cramps | spasms | abdominal discomfort","otcCategory":"DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"MEBEVERINE HYDROCHLORIDE 135 milligram(s)","packSizeText":"Review manually","atcCode":"A03AA04","status":"Authorised","supplierCatalogKey":"mebeverine hydrochloride ibs, 135mg film-coated tablet"}},{"id":"product:P0296","nodeType":"product","refId":"P0296","label":"Motilium Fastmelts 10mg Orodispersible Tablets","subtext":"bloating","meta":{"brand":"Motilium","generic":"DOMPERIDONE","form":"ORODISPERSIBLE TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"bloating","secondaryIndications":"cramps | spasms | abdominal discomfort","otcCategory":"DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DOMPERIDONE 10 milligram(s)","packSizeText":"Review manually","atcCode":"A03FA03","status":"Authorised","supplierCatalogKey":"motilium fastmelts 10mg orodispersible tablets"}},{"id":"product:P0307","nodeType":"product","refId":"P0307","label":"NO-SPA 40 mg tablets","subtext":"bloating","meta":{"brand":"NO","generic":"DROTAVERINE HYDROCHLORIDE","form":"TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"bloating","secondaryIndications":"cramps | spasms | abdominal discomfort","otcCategory":"DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DROTAVERINE HYDROCHLORIDE 40 milligram(s)","packSizeText":"Review manually","atcCode":"A03AD02","status":"Authorised","supplierCatalogKey":"no-spa 40 mg tablets"}},{"id":"product:P0336","nodeType":"product","refId":"P0336","label":"No-Spa forte tablets","subtext":"bloating","meta":{"brand":"No","generic":"DROTAVERINE HYDROCHLORIDE","form":"TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"bloating","secondaryIndications":"cramps | spasms | abdominal discomfort","otcCategory":"DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DROTAVERINE HYDROCHLORIDE","packSizeText":"Review manually","atcCode":"A03AD02","status":"Authorised","supplierCatalogKey":"no-spa forte tablets"}},{"id":"product:P0398","nodeType":"product","refId":"P0398","label":"Phloroglucinol ELC 80 mg orodispersible tablets","subtext":"bloating","meta":{"brand":"Phloroglucinol","generic":"PHLOROGLUCINOL DIHYDRATE","form":"ORODISPERSIBLE TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"bloating","secondaryIndications":"cramps | spasms | abdominal discomfort","otcCategory":"DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"PHLOROGLUCINOL DIHYDRATE 80 milligram(s)","packSizeText":"Review manually","atcCode":"A03AX12","status":"Authorised","supplierCatalogKey":"phloroglucinol elc 80 mg orodispersible tablets"}},{"id":"product:P0455","nodeType":"product","refId":"P0455","label":"Spaverin 80 mg tablet","subtext":"bloating","meta":{"brand":"Spaverin","generic":"DROTAVERINE HYDROCHLORIDE","form":"TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"bloating","secondaryIndications":"cramps | spasms | abdominal discomfort","otcCategory":"DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DROTAVERINE HYDROCHLORIDE 80 milligram(s)","packSizeText":"Review manually","atcCode":"A03AD02","status":"Authorised","supplierCatalogKey":"spaverin 80 mg tablet"}},{"id":"symptom:S035","nodeType":"symptom","refId":"S035","label":"heartburn","subtext":"Gastrointestinal","meta":{"Symptom_ID":"S035","Symptom_Name":"heartburn","Symptom_Category":"Gastrointestinal","Linked_Product_Count":29,"Display_Group":"Gastrointestinal","Priority_For_Graph":100,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"symptom:S002","nodeType":"symptom","refId":"S002","label":"acid reflux","subtext":"Gastrointestinal","meta":{"Symptom_ID":"S002","Symptom_Name":"acid reflux","Symptom_Category":"Gastrointestinal","Linked_Product_Count":29,"Display_Group":"Gastrointestinal","Priority_For_Graph":100,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"symptom:S036","nodeType":"symptom","refId":"S036","label":"indigestion","subtext":"Gastrointestinal","meta":{"Symptom_ID":"S036","Symptom_Name":"indigestion","Symptom_Category":"Gastrointestinal","Linked_Product_Count":29,"Display_Group":"Gastrointestinal","Priority_For_Graph":100,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"usecase:UC006","nodeType":"usecase","refId":"UC006","label":"Reflux and indigestion relief","subtext":"Gastrointestinal","meta":{"UseCase_ID":"UC006","UseCase_Name":"Reflux and indigestion relief","UseCase_Category":"Gastrointestinal","Trigger_Symptoms":"Heartburn, acid reflux, indigestion","Description":"Acid control plus quick symptom support."}},{"id":"bundle:B004","nodeType":"bundle","refId":"B004","label":"Reflux Relief Bundle","subtext":"Core bundle","meta":{"Bundle_ID":"B004","Bundle_Name":"Reflux Relief Bundle","Source_UseCase_ID":"UC006","Bundle_Type":"Core bundle","Description":"Acid control with breakthrough support"}}],"links":[{"key":"429c2da644665fc0","source":"product:P0021","target":"product:P0273","rel":"similar","label":"Alternative: same ATC family","score":78,"why":"Same ATC code, therapeutic class, and form family; likely reasonable substitute candidates pending staff review.","meta":{"edgeId":"E01832","clinicalSimilarity":90,"commercialSubstitution":80,"crossSell":25,"riskOverlap":60,"evidence":90,"seasonality":90,"triggerContext":"acid reflux, heartburn, indigestion","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"EXACT_ATC_SAME_CLASS_FORM"}},{"key":"0824430eca56748f","source":"product:P0021","target":"product:P0064","rel":"complement","label":"Indigestion / bloating / cramps","score":76,"why":"Acid symptoms can coexist with bloating or functional GI discomfort.","meta":{"edgeId":"E12966","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":76,"riskOverlap":20,"evidence":80,"seasonality":90,"triggerContext":"Indigestion / bloating / cramps","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"d04aa6e8bf3491ae","source":"product:P0021","target":"product:P0116","rel":"complement","label":"Indigestion / bloating / cramps","score":76,"why":"Acid symptoms can coexist with bloating or functional GI discomfort.","meta":{"edgeId":"E12967","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":76,"riskOverlap":20,"evidence":80,"seasonality":90,"triggerContext":"Indigestion / bloating / cramps","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"78a2194e22219c73","source":"product:P0021","target":"product:P0217","rel":"complement","label":"Indigestion / bloating / cramps","score":76,"why":"Acid symptoms can coexist with bloating or functional GI discomfort.","meta":{"edgeId":"E12968","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":76,"riskOverlap":20,"evidence":80,"seasonality":90,"triggerContext":"Indigestion / bloating / cramps","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"c6d24671a261967b","source":"product:P0021","target":"product:P0218","rel":"complement","label":"Indigestion / bloating / cramps","score":76,"why":"Acid symptoms can coexist with bloating or functional GI discomfort.","meta":{"edgeId":"E12969","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":76,"riskOverlap":20,"evidence":80,"seasonality":90,"triggerContext":"Indigestion / bloating / cramps","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"0d55533d1509a949","source":"product:P0021","target":"product:P0280","rel":"complement","label":"Indigestion / bloating / cramps","score":76,"why":"Acid symptoms can coexist with bloating or functional GI discomfort.","meta":{"edgeId":"E12970","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":76,"riskOverlap":20,"evidence":80,"seasonality":90,"triggerContext":"Indigestion / bloating / cramps","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"f9b11ccd7a1aace4","source":"product:P0021","target":"product:P0296","rel":"complement","label":"Indigestion / bloating / cramps","score":76,"why":"Acid symptoms can coexist with bloating or functional GI discomfort.","meta":{"edgeId":"E12971","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":76,"riskOverlap":20,"evidence":80,"seasonality":90,"triggerContext":"Indigestion / bloating / cramps","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"5702b4e0dfdcad7f","source":"product:P0021","target":"product:P0307","rel":"complement","label":"Indigestion / bloating / cramps","score":76,"why":"Acid symptoms can coexist with bloating or functional GI discomfort.","meta":{"edgeId":"E12972","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":76,"riskOverlap":20,"evidence":80,"seasonality":90,"triggerContext":"Indigestion / bloating / cramps","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"eb7ee5550146270d","source":"product:P0021","target":"product:P0336","rel":"complement","label":"Indigestion / bloating / cramps","score":76,"why":"Acid symptoms can coexist with bloating or functional GI discomfort.","meta":{"edgeId":"E12973","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":76,"riskOverlap":20,"evidence":80,"seasonality":90,"triggerContext":"Indigestion / bloating / cramps","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"ba298ccec054a2e0","source":"product:P0021","target":"product:P0398","rel":"complement","label":"Indigestion / bloating / cramps","score":76,"why":"Acid symptoms can coexist with bloating or functional GI discomfort.","meta":{"edgeId":"E12974","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":76,"riskOverlap":20,"evidence":80,"seasonality":90,"triggerContext":"Indigestion / bloating / cramps","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"b55e720b3746acbd","source":"product:P0021","target":"product:P0455","rel":"complement","label":"Indigestion / bloating / cramps","score":76,"why":"Acid symptoms can coexist with bloating or functional GI discomfort.","meta":{"edgeId":"E12975","clinicalSimilarity":15,"commercialSubstitution":10,"crossSell":76,"riskOverlap":20,"evidence":80,"seasonality":90,"triggerContext":"Indigestion / bloating / cramps","primaryToSecondary":"Yes","reciprocalDisplay":"Optional","reviewStatus":"Needs pharmacist/staff review","sourceMethod":"THERAPEUTIC_CLASS_RULE"}},{"key":"eee30e043c65e6de","source":"product:P0021","target":"symptom:S035","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00079","role":"Primary","reviewStatus":"Seeded"}},{"key":"3cd60f2703ef38ae","source":"product:P0021","target":"symptom:S002","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00080","role":"Primary","reviewStatus":"Seeded"}},{"key":"4a75c1f2af11c185","source":"product:P0021","target":"symptom:S036","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM00081","role":"Secondary","reviewStatus":"Seeded"}},{"key":"addd3e0836ad08d0","source":"product:P0021","target":"usecase:UC006","rel":"usecase","label":"Main","score":100,"why":"heartburn, acid reflux, indigestion","meta":{"useCaseItemId":"UCI00405","role":"Main","reviewStatus":"Seeded"}},{"key":"0bd00a8f12ed0240","source":"product:P0021","target":"bundle:B004","rel":"bundle","label":"Primary","score":95,"why":"Seeded from Reflux and indigestion relief via symptom match: heartburn, acid reflux, indigestion","meta":{"bundleItemId":"BI00022","role":"Primary","reviewStatus":"Seeded"}}],"meta":{"productName":"Alutril Forte 500 mg/250 mg chewable tablets","linkCount":16}}
+{
+  "centerId": "product:P0021",
+  "centerType": "product",
+  "refId": "P0021",
+  "nodes": [
+    {
+      "id": "product:P0021",
+      "nodeType": "product",
+      "refId": "P0021",
+      "label": "Alutril Forte 500 mg/250 mg chewable tablets",
+      "subtext": "heartburn",
+      "meta": {
+        "brand": "Alutril",
+        "generic": "ALUMINIUM HYDROXIDE | MAGNESIUM TRISILICATE",
+        "form": "CHEWABLE TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "heartburn",
+        "secondaryIndications": "acid reflux | indigestion",
+        "otcCategory": "DRUGS FOR ACID RELATED DISORDERS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "MAGNESIUM TRISILICATE 500 milligram(s) | ALUMINIUM HYDROXIDE 250 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A02AD01",
+        "status": "Authorised",
+        "supplierCatalogKey": "alutril forte 500 mg/250 mg chewable tablets"
+      }
+    },
+    {
+      "id": "product:P0064",
+      "nodeType": "product",
+      "refId": "P0064",
+      "label": "Buscopan 10mg Coated Tablets",
+      "subtext": "bloating",
+      "meta": {
+        "brand": "Buscopan",
+        "generic": "HYOSCINE BUTYLBROMIDE",
+        "form": "COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "bloating",
+        "secondaryIndications": "cramps | spasms | abdominal discomfort",
+        "otcCategory": "DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "HYOSCINE BUTYLBROMIDE 10 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A03BB01",
+        "status": "Authorised",
+        "supplierCatalogKey": "buscopan 10mg coated tablets"
+      }
+    },
+    {
+      "id": "product:P0116",
+      "nodeType": "product",
+      "refId": "P0116",
+      "label": "Colpermin Gastro-resistant Capsules Peppermint oil 0.2ml",
+      "subtext": "bloating",
+      "meta": {
+        "brand": "Colpermin",
+        "generic": "PEPPERMINT OIL",
+        "form": "GASTRO-RESISTANT CAPSULE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "bloating",
+        "secondaryIndications": "cramps | spasms | abdominal discomfort",
+        "otcCategory": "DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "PEPPERMINT OIL 0.2 millilitre(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A03AX",
+        "status": "Authorised",
+        "supplierCatalogKey": "colpermin gastro-resistant capsules peppermint oil 0.2ml"
+      }
+    },
+    {
+      "id": "product:P0217",
+      "nodeType": "product",
+      "refId": "P0217",
+      "label": "Hyoscine Butylbromide Heumann 10 mg film-coated tablets",
+      "subtext": "bloating",
+      "meta": {
+        "brand": "Hyoscine",
+        "generic": "HYOSCINE BUTYLBROMIDE",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "bloating",
+        "secondaryIndications": "cramps | spasms | abdominal discomfort",
+        "otcCategory": "DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "HYOSCINE BUTYLBROMIDE 10 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A03BB01",
+        "status": "Authorised",
+        "supplierCatalogKey": "hyoscine butylbromide heumann 10 mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0218",
+      "nodeType": "product",
+      "refId": "P0218",
+      "label": "Hyoscine Butylbromide Torrent 10 mg film-coated tablets",
+      "subtext": "bloating",
+      "meta": {
+        "brand": "Hyoscine",
+        "generic": "HYOSCINE BUTYLBROMIDE",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "bloating",
+        "secondaryIndications": "cramps | spasms | abdominal discomfort",
+        "otcCategory": "DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "HYOSCINE BUTYLBROMIDE 10 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A03BB01",
+        "status": "Authorised",
+        "supplierCatalogKey": "hyoscine butylbromide torrent 10 mg film-coated tablets"
+      }
+    },
+    {
+      "id": "product:P0280",
+      "nodeType": "product",
+      "refId": "P0280",
+      "label": "Mebeverine Hydrochloride IBS, 135mg film-coated Tablet",
+      "subtext": "bloating",
+      "meta": {
+        "brand": "Mebeverine",
+        "generic": "MEBEVERINE HYDROCHLORIDE",
+        "form": "FILM-COATED TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "bloating",
+        "secondaryIndications": "cramps | spasms | abdominal discomfort",
+        "otcCategory": "DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "MEBEVERINE HYDROCHLORIDE 135 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A03AA04",
+        "status": "Authorised",
+        "supplierCatalogKey": "mebeverine hydrochloride ibs, 135mg film-coated tablet"
+      }
+    },
+    {
+      "id": "product:P0296",
+      "nodeType": "product",
+      "refId": "P0296",
+      "label": "Motilium Fastmelts 10mg Orodispersible Tablets",
+      "subtext": "bloating",
+      "meta": {
+        "brand": "Motilium",
+        "generic": "DOMPERIDONE",
+        "form": "ORODISPERSIBLE TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "bloating",
+        "secondaryIndications": "cramps | spasms | abdominal discomfort",
+        "otcCategory": "DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DOMPERIDONE 10 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A03FA03",
+        "status": "Authorised",
+        "supplierCatalogKey": "motilium fastmelts 10mg orodispersible tablets"
+      }
+    },
+    {
+      "id": "product:P0307",
+      "nodeType": "product",
+      "refId": "P0307",
+      "label": "NO-SPA 40 mg tablets",
+      "subtext": "bloating",
+      "meta": {
+        "brand": "NO",
+        "generic": "DROTAVERINE HYDROCHLORIDE",
+        "form": "TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "bloating",
+        "secondaryIndications": "cramps | spasms | abdominal discomfort",
+        "otcCategory": "DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DROTAVERINE HYDROCHLORIDE 40 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A03AD02",
+        "status": "Authorised",
+        "supplierCatalogKey": "no-spa 40 mg tablets"
+      }
+    },
+    {
+      "id": "product:P0336",
+      "nodeType": "product",
+      "refId": "P0336",
+      "label": "No-Spa forte tablets",
+      "subtext": "bloating",
+      "meta": {
+        "brand": "No",
+        "generic": "DROTAVERINE HYDROCHLORIDE",
+        "form": "TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "bloating",
+        "secondaryIndications": "cramps | spasms | abdominal discomfort",
+        "otcCategory": "DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DROTAVERINE HYDROCHLORIDE",
+        "packSizeText": "Review manually",
+        "atcCode": "A03AD02",
+        "status": "Authorised",
+        "supplierCatalogKey": "no-spa forte tablets"
+      }
+    },
+    {
+      "id": "product:P0398",
+      "nodeType": "product",
+      "refId": "P0398",
+      "label": "Phloroglucinol ELC 80 mg orodispersible tablets",
+      "subtext": "bloating",
+      "meta": {
+        "brand": "Phloroglucinol",
+        "generic": "PHLOROGLUCINOL DIHYDRATE",
+        "form": "ORODISPERSIBLE TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "bloating",
+        "secondaryIndications": "cramps | spasms | abdominal discomfort",
+        "otcCategory": "DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "PHLOROGLUCINOL DIHYDRATE 80 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A03AX12",
+        "status": "Authorised",
+        "supplierCatalogKey": "phloroglucinol elc 80 mg orodispersible tablets"
+      }
+    },
+    {
+      "id": "product:P0455",
+      "nodeType": "product",
+      "refId": "P0455",
+      "label": "Spaverin 80 mg tablet",
+      "subtext": "bloating",
+      "meta": {
+        "brand": "Spaverin",
+        "generic": "DROTAVERINE HYDROCHLORIDE",
+        "form": "TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "bloating",
+        "secondaryIndications": "cramps | spasms | abdominal discomfort",
+        "otcCategory": "DRUGS FOR FUNCTIONAL GASTROINTESTINAL DISORDERS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "DROTAVERINE HYDROCHLORIDE 80 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A03AD02",
+        "status": "Authorised",
+        "supplierCatalogKey": "spaverin 80 mg tablet"
+      }
+    },
+    {
+      "id": "product:P0273",
+      "nodeType": "product",
+      "refId": "P0273",
+      "label": "Maalox 400 mg/400 mg chewable tablets (sugar free)",
+      "subtext": "heartburn",
+      "meta": {
+        "brand": "Maalox",
+        "generic": "ALUMINIUM HYDROXIDE | MAGNESIUM HYDROXIDE",
+        "form": "CHEWABLE TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "heartburn",
+        "secondaryIndications": "acid reflux | indigestion",
+        "otcCategory": "DRUGS FOR ACID RELATED DISORDERS",
+        "seasonalGroup": "Winter",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Yes",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "ALUMINIUM HYDROXIDE 400 milligram(s) | MAGNESIUM HYDROXIDE 400 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A02AD01",
+        "status": "Authorised",
+        "supplierCatalogKey": "maalox 400 mg/400 mg chewable tablets (sugar free)"
+      }
+    },
+    {
+      "id": "symptom:S035",
+      "nodeType": "symptom",
+      "refId": "S035",
+      "label": "heartburn",
+      "subtext": "Gastrointestinal",
+      "meta": {
+        "Symptom_ID": "S035",
+        "Symptom_Name": "heartburn",
+        "Symptom_Category": "Gastrointestinal",
+        "Linked_Product_Count": 29,
+        "Display_Group": "Gastrointestinal",
+        "Priority_For_Graph": 100,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "symptom:S002",
+      "nodeType": "symptom",
+      "refId": "S002",
+      "label": "acid reflux",
+      "subtext": "Gastrointestinal",
+      "meta": {
+        "Symptom_ID": "S002",
+        "Symptom_Name": "acid reflux",
+        "Symptom_Category": "Gastrointestinal",
+        "Linked_Product_Count": 29,
+        "Display_Group": "Gastrointestinal",
+        "Priority_For_Graph": 100,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "symptom:S036",
+      "nodeType": "symptom",
+      "refId": "S036",
+      "label": "indigestion",
+      "subtext": "Gastrointestinal",
+      "meta": {
+        "Symptom_ID": "S036",
+        "Symptom_Name": "indigestion",
+        "Symptom_Category": "Gastrointestinal",
+        "Linked_Product_Count": 29,
+        "Display_Group": "Gastrointestinal",
+        "Priority_For_Graph": 100,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "usecase:UC006",
+      "nodeType": "usecase",
+      "refId": "UC006",
+      "label": "Reflux and indigestion relief",
+      "subtext": "Gastrointestinal",
+      "meta": {
+        "UseCase_ID": "UC006",
+        "UseCase_Name": "Reflux and indigestion relief",
+        "UseCase_Category": "Gastrointestinal",
+        "Trigger_Symptoms": "Heartburn, acid reflux, indigestion",
+        "Description": "Acid control plus quick symptom support."
+      }
+    },
+    {
+      "id": "bundle:B004",
+      "nodeType": "bundle",
+      "refId": "B004",
+      "label": "Reflux Relief Bundle",
+      "subtext": "Core bundle",
+      "meta": {
+        "Bundle_ID": "B004",
+        "Bundle_Name": "Reflux Relief Bundle",
+        "Source_UseCase_ID": "UC006",
+        "Bundle_Type": "Core bundle",
+        "Description": "Acid control with breakthrough support"
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "0824430eca56748f",
+      "source": "product:P0021",
+      "target": "product:P0064",
+      "rel": "complement",
+      "label": "Indigestion / bloating / cramps",
+      "score": 76,
+      "why": "Acid symptoms can coexist with bloating or functional GI discomfort.",
+      "meta": {
+        "edgeId": "E12966"
+      }
+    },
+    {
+      "key": "d04aa6e8bf3491ae",
+      "source": "product:P0021",
+      "target": "product:P0116",
+      "rel": "complement",
+      "label": "Indigestion / bloating / cramps",
+      "score": 76,
+      "why": "Acid symptoms can coexist with bloating or functional GI discomfort.",
+      "meta": {
+        "edgeId": "E12967"
+      }
+    },
+    {
+      "key": "78a2194e22219c73",
+      "source": "product:P0021",
+      "target": "product:P0217",
+      "rel": "complement",
+      "label": "Indigestion / bloating / cramps",
+      "score": 76,
+      "why": "Acid symptoms can coexist with bloating or functional GI discomfort.",
+      "meta": {
+        "edgeId": "E12968"
+      }
+    },
+    {
+      "key": "c6d24671a261967b",
+      "source": "product:P0021",
+      "target": "product:P0218",
+      "rel": "complement",
+      "label": "Indigestion / bloating / cramps",
+      "score": 76,
+      "why": "Acid symptoms can coexist with bloating or functional GI discomfort.",
+      "meta": {
+        "edgeId": "E12969"
+      }
+    },
+    {
+      "key": "0d55533d1509a949",
+      "source": "product:P0021",
+      "target": "product:P0280",
+      "rel": "complement",
+      "label": "Indigestion / bloating / cramps",
+      "score": 76,
+      "why": "Acid symptoms can coexist with bloating or functional GI discomfort.",
+      "meta": {
+        "edgeId": "E12970"
+      }
+    },
+    {
+      "key": "f9b11ccd7a1aace4",
+      "source": "product:P0021",
+      "target": "product:P0296",
+      "rel": "complement",
+      "label": "Indigestion / bloating / cramps",
+      "score": 76,
+      "why": "Acid symptoms can coexist with bloating or functional GI discomfort.",
+      "meta": {
+        "edgeId": "E12971"
+      }
+    },
+    {
+      "key": "5702b4e0dfdcad7f",
+      "source": "product:P0021",
+      "target": "product:P0307",
+      "rel": "complement",
+      "label": "Indigestion / bloating / cramps",
+      "score": 76,
+      "why": "Acid symptoms can coexist with bloating or functional GI discomfort.",
+      "meta": {
+        "edgeId": "E12972"
+      }
+    },
+    {
+      "key": "eb7ee5550146270d",
+      "source": "product:P0021",
+      "target": "product:P0336",
+      "rel": "complement",
+      "label": "Indigestion / bloating / cramps",
+      "score": 76,
+      "why": "Acid symptoms can coexist with bloating or functional GI discomfort.",
+      "meta": {
+        "edgeId": "E12973"
+      }
+    },
+    {
+      "key": "ba298ccec054a2e0",
+      "source": "product:P0021",
+      "target": "product:P0398",
+      "rel": "complement",
+      "label": "Indigestion / bloating / cramps",
+      "score": 76,
+      "why": "Acid symptoms can coexist with bloating or functional GI discomfort.",
+      "meta": {
+        "edgeId": "E12974"
+      }
+    },
+    {
+      "key": "b55e720b3746acbd",
+      "source": "product:P0021",
+      "target": "product:P0455",
+      "rel": "complement",
+      "label": "Indigestion / bloating / cramps",
+      "score": 76,
+      "why": "Acid symptoms can coexist with bloating or functional GI discomfort.",
+      "meta": {
+        "edgeId": "E12975"
+      }
+    },
+    {
+      "key": "429c2da644665fc0",
+      "source": "product:P0021",
+      "target": "product:P0273",
+      "rel": "similar",
+      "label": "Alternative: same ATC family",
+      "score": 78,
+      "why": "Same ATC code, therapeutic class, and form family; likely reasonable substitute candidates pending staff review.",
+      "meta": {
+        "edgeId": "E01832"
+      }
+    },
+    {
+      "key": "eee30e043c65e6de",
+      "source": "product:P0021",
+      "target": "symptom:S035",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00079"
+      }
+    },
+    {
+      "key": "3cd60f2703ef38ae",
+      "source": "product:P0021",
+      "target": "symptom:S002",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00080"
+      }
+    },
+    {
+      "key": "4a75c1f2af11c185",
+      "source": "product:P0021",
+      "target": "symptom:S036",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00081"
+      }
+    },
+    {
+      "key": "addd3e0836ad08d0",
+      "source": "product:P0021",
+      "target": "usecase:UC006",
+      "rel": "usecase",
+      "label": "Main",
+      "score": 100,
+      "why": "heartburn, acid reflux, indigestion",
+      "meta": {
+        "useCaseItemId": "UCI00405"
+      }
+    },
+    {
+      "key": "0bd00a8f12ed0240",
+      "source": "product:P0021",
+      "target": "bundle:B004",
+      "rel": "bundle",
+      "label": "Primary",
+      "score": 95,
+      "why": "Seeded from Reflux and indigestion relief via symptom match: heartburn, acid reflux, indigestion",
+      "meta": {
+        "bundleItemId": "BI00022"
+      }
+    }
+  ]
+}
