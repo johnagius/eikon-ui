@@ -2467,12 +2467,13 @@
       return;
     }
 
-    // Group by brand
-    var brandOrder = [], brandMap = {};
+    // Group by brand (case-insensitive key, preserve display label)
+    var brandOrder = [], brandMap = {}, brandDisplay = {};
     for (var i = 0; i < filtered.length; i++) {
       var brand = xsellBrand(filtered[i]);
-      if (!brandMap[brand]) { brandMap[brand] = []; brandOrder.push(brand); }
-      brandMap[brand].push(filtered[i]);
+      var brandKey = brand.toLowerCase();
+      if (!brandMap[brandKey]) { brandMap[brandKey] = []; brandOrder.push(brandKey); brandDisplay[brandKey] = brand; }
+      brandMap[brandKey].push(filtered[i]);
     }
 
     // Sort brands: multi-item groups first (by best score), then singles by score
@@ -2485,8 +2486,8 @@
     var rendered = 0;
     var MAX_VISIBLE = 12;
     for (var bi = 0; bi < brandOrder.length; bi++) {
-      var brand = brandOrder[bi];
-      var items = brandMap[brand];
+      var brandKey = brandOrder[bi];
+      var items = brandMap[brandKey];
 
       if (items.length === 1) {
         // Single item — render as flat row
@@ -2501,7 +2502,7 @@
         hd.className = "xsell-group-hd";
         hd.innerHTML =
           '<span class="xg-arrow">▶</span>' +
-          '<span class="xg-brand">' + esc(brand) + '</span>' +
+          '<span class="xg-brand">' + esc(brandDisplay[brandKey]) + '</span>' +
           '<span class="xg-count">' + items.length + ' variants</span>' +
           '<span class="xg-score">' + bestScore + '</span>';
 
@@ -2557,12 +2558,13 @@
       return;
     }
 
-    // Group by brand, same as complements
-    var brandOrder = [], brandMap = {};
+    // Group by brand, same as complements (case-insensitive key, preserve display label)
+    var brandOrder = [], brandMap = {}, brandDisplay = {};
     for (var i = 0; i < filtered.length; i++) {
       var brand = (filtered[i].node.meta && filtered[i].node.meta.brand) || filtered[i].node.label.split(/\s/)[0] || "Other";
-      if (!brandMap[brand]) { brandMap[brand] = []; brandOrder.push(brand); }
-      brandMap[brand].push(filtered[i]);
+      var brandKey = brand.toLowerCase();
+      if (!brandMap[brandKey]) { brandMap[brandKey] = []; brandOrder.push(brandKey); brandDisplay[brandKey] = brand; }
+      brandMap[brandKey].push(filtered[i]);
     }
     brandOrder.sort(function (a, b) {
       var multi = (brandMap[b].length > 1 ? 1 : 0) - (brandMap[a].length > 1 ? 1 : 0);
@@ -2571,8 +2573,8 @@
     });
 
     for (var bi = 0; bi < brandOrder.length; bi++) {
-      var brand = brandOrder[bi];
-      var items = brandMap[brand];
+      var brandKey = brandOrder[bi];
+      var items = brandMap[brandKey];
 
       if (items.length === 1) {
         var sib = items[0];
@@ -2596,7 +2598,7 @@
         hd.className = "xsell-group-hd";
         hd.innerHTML =
           '<span class="xg-arrow">▶</span>' +
-          '<span class="xg-brand">' + esc(brand) + '</span>' +
+          '<span class="xg-brand">' + esc(brandDisplay[brandKey]) + '</span>' +
           '<span class="xg-count">' + items.length + ' variants</span>' +
           '<span class="xg-score">' + items[0].score + '</span>';
         var bd = document.createElement("div");
