@@ -1107,6 +1107,7 @@
   };
 
   E.bootAuthed = async function () {
+    window.location.hash = "#" + (E._sectionDashboardId || "dashboard");
     E.renderShell();
 
     // Render module, then mark "screen done" so overlay can hide after introMs
