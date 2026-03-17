@@ -101,21 +101,29 @@
 
     // Add a POCT record for this screening
     var recId = "sc_" + (participant.id || Date.now()) + "_" + Math.random().toString(36).slice(2, 6);
+    var mappedType = campaignPoctType(campaign.type);
+    var testTypeLabels = { bp: "Blood Pressure", hba1c: "HbA1c", bg: "Blood Glucose", chol: "Cholesterol", bmi: "Weight / BMI", urine: "Urine (Combur 9)" };
     var rec = {
       id: recId,
-      testType: campaign.type || "General Health Check",
+      testType: mappedType || campaign.type || "General Health Check",
+      testLabel: mappedType ? (testTypeLabels[mappedType] || campaign.type) : campaign.type,
       performedAtIso: (participant.date || todayStr()) + "T00:00:00",
+      performedAtLocal: (participant.date || todayStr()) + "T00:00",
       patient: {
         patientId: pid || "",
         name: (participant.name || "").trim(),
         phone: (participant.phone || "").trim(),
-        age: participant.dob ? calculateAge(participant.dob) : null
+        age: participant.dob ? calculateAge(participant.dob) : null,
+        address: ""
       },
+      feeDue: 0,
       intervention: participant.referral || "",
       notes: "[Screening Campaign: " + (campaign.name || "") + "] " + (participant.resultNotes || ""),
+      results: (participant.poctResults && mappedType) ? participant.poctResults : {},
       source: "screening",
       campaignId: campaign.id,
-      campaignName: campaign.name
+      campaignName: campaign.name,
+      updatedAtIso: new Date().toISOString()
     };
     var recs = Array.isArray(cloud.records) ? cloud.records : [];
     // Avoid duplicates — check if we already have a record from this participant+campaign
@@ -229,22 +237,106 @@
   // ── reference data ───────────────────────────────────────────────────────
   var CAMPAIGN_TYPES = [
     "Blood Pressure Check", "Diabetes Screening", "Cholesterol Check",
-    "Blood Glucose Monitoring", "BMI Assessment", "Cardiovascular Risk",
-    "Respiratory Function", "Bone Density", "Mental Health Awareness",
-    "Smoking Cessation", "Flu Vaccination", "COVID Booster",
-    "Skin Cancer Awareness", "General Health Check", "Other"
+    "Blood Glucose Monitoring", "BMI Assessment", "Urine Screening",
+    "Cardiovascular Risk", "Flu Vaccination", "Smoking Cessation",
+    "General Health Check", "Other"
   ];
 
   var CAMPAIGN_TYPE_ICONS = {
     "Blood Pressure Check": "\uD83E\uDEC0", "Diabetes Screening": "\uD83E\uDE78",
     "Cholesterol Check": "\uD83E\uDDEA", "Blood Glucose Monitoring": "\uD83D\uDCC8",
-    "BMI Assessment": "\u2696\uFE0F", "Cardiovascular Risk": "\u2764\uFE0F",
-    "Respiratory Function": "\uD83E\uDEC1", "Bone Density": "\uD83E\uDDB4",
-    "Mental Health Awareness": "\uD83E\uDDE0", "Smoking Cessation": "\uD83D\uDEAD",
-    "Flu Vaccination": "\uD83D\uDC89", "COVID Booster": "\uD83E\uDDA0",
-    "Skin Cancer Awareness": "\u2600\uFE0F", "General Health Check": "\uD83E\uDE7A",
+    "BMI Assessment": "\u2696\uFE0F", "Urine Screening": "\uD83E\uDDEA",
+    "Cardiovascular Risk": "\u2764\uFE0F",
+    "Flu Vaccination": "\uD83D\uDC89",
+    "Smoking Cessation": "\uD83D\uDEAD",
+    "General Health Check": "\uD83E\uDE7A",
     "Other": "\uD83D\uDCCB"
   };
+
+  // ── POCT ↔ Campaign type mapping ──────────────────────────────────────
+  // Maps campaign types to POCT test type IDs; null = no POCT link
+  var CAMPAIGN_POCT_MAP = {
+    "Blood Pressure Check": "bp",
+    "Diabetes Screening": "hba1c",
+    "Cholesterol Check": "chol",
+    "Blood Glucose Monitoring": "bg",
+    "BMI Assessment": "bmi",
+    "Urine Screening": "urine",
+    // Non-POCT campaign types:
+    "Cardiovascular Risk": null,
+    "Flu Vaccination": null,
+    "Smoking Cessation": null,
+    "General Health Check": null,
+    "Other": null
+  };
+
+  // POCT result field definitions per test type
+  var POCT_FIELDS = {
+    bp: {
+      label: "Blood Pressure Results",
+      fields: [
+        { key: "sys", label: "Systolic (mmHg)", type: "number", placeholder: "e.g. 120", required: true },
+        { key: "dia", label: "Diastolic (mmHg)", type: "number", placeholder: "e.g. 80", required: true },
+        { key: "pulse", label: "Pulse (bpm)", type: "number", placeholder: "e.g. 72" },
+        { key: "arm", label: "Arm", type: "select", options: ["Left", "Right"] },
+        { key: "position", label: "Position", type: "select", options: ["Sitting", "Standing", "Lying"] }
+      ]
+    },
+    hba1c: {
+      label: "HbA1c Results",
+      fields: [
+        { key: "pct", label: "HbA1c (%)", type: "number", placeholder: "e.g. 5.7", required: true, step: "0.1" },
+        { key: "mmol", label: "HbA1c (mmol/mol)", type: "number", placeholder: "e.g. 39" }
+      ]
+    },
+    bg: {
+      label: "Blood Glucose Results",
+      fields: [
+        { key: "glucose", label: "Glucose (mmol/L)", type: "number", placeholder: "e.g. 5.5", required: true, step: "0.1" },
+        { key: "timing", label: "Timing", type: "select", options: ["Fasting", "Random", "Post-meal (1h)", "Post-meal (2h)"] }
+      ]
+    },
+    chol: {
+      label: "Cholesterol Results",
+      fields: [
+        { key: "tc", label: "Total Cholesterol", type: "number", placeholder: "mmol/L", step: "0.1" },
+        { key: "hdl", label: "HDL", type: "number", placeholder: "mmol/L", step: "0.1" },
+        { key: "ldl", label: "LDL", type: "number", placeholder: "mmol/L", step: "0.1" },
+        { key: "tg", label: "Triglycerides", type: "number", placeholder: "mmol/L", step: "0.1" },
+        { key: "ratio", label: "TC/HDL Ratio", type: "number", placeholder: "e.g. 4.2", step: "0.1" },
+        { key: "fasting", label: "Fasting", type: "select", options: ["Yes", "No"] }
+      ]
+    },
+    bmi: {
+      label: "BMI / Weight Results",
+      fields: [
+        { key: "weight", label: "Weight (kg)", type: "number", placeholder: "e.g. 75", step: "0.1" },
+        { key: "height", label: "Height (cm)", type: "number", placeholder: "e.g. 170", step: "0.1" },
+        { key: "bmi", label: "BMI", type: "number", placeholder: "Auto-calculated", step: "0.1" },
+        { key: "category", label: "Category", type: "select", options: ["Underweight", "Normal", "Overweight", "Obese I", "Obese II", "Obese III"] },
+        { key: "waist", label: "Waist (cm)", type: "number", placeholder: "e.g. 85", step: "0.1" }
+      ]
+    },
+    urine: {
+      label: "Urine (Combur) Results",
+      fields: [
+        { key: "leu", label: "Leukocytes", type: "select", options: ["Negative", "Trace", "+", "++", "+++"] },
+        { key: "nit", label: "Nitrite", type: "select", options: ["Negative", "Positive"] },
+        { key: "uro", label: "Urobilinogen", type: "select", options: ["Normal", "1+", "2+", "3+", "4+"] },
+        { key: "pro", label: "Protein", type: "select", options: ["Negative", "Trace", "+", "++", "+++"] },
+        { key: "ph", label: "pH", type: "number", placeholder: "e.g. 6.0", step: "0.5" },
+        { key: "bld", label: "Blood", type: "select", options: ["Negative", "Trace", "+", "++", "+++"] },
+        { key: "ket", label: "Ketones", type: "select", options: ["Negative", "Trace", "+", "++", "+++"] },
+        { key: "glu", label: "Glucose", type: "select", options: ["Negative", "Trace", "+", "++", "+++", "++++"] },
+        { key: "appearance", label: "Appearance", type: "select", options: ["Clear", "Slightly cloudy", "Cloudy", "Turbid"] }
+      ]
+    }
+  };
+
+  // Helper: get POCT test type for a campaign type string (or null)
+  function campaignPoctType(campType) {
+    return CAMPAIGN_POCT_MAP.hasOwnProperty(campType) ? CAMPAIGN_POCT_MAP[campType] : null;
+  }
 
   var REFERRAL_OPTIONS = [
     "No referral needed", "Referred to GP", "Referred to specialist",
@@ -567,9 +659,17 @@
   function csvEscape(v) { var s = String(v == null ? "" : v); return s.indexOf(",") !== -1 || s.indexOf('"') !== -1 || s.indexOf("\n") !== -1 ? '"' + s.replace(/"/g, '""') + '"' : s; }
 
   function exportCampaignCSV(c) {
-    var rows = [["ID Card", "Name", "Phone", "Email", "DOB", "Type", "Screening Date", "Result Notes", "Result Category", "Referral", "Referral Notes"]];
+    var pt = campaignPoctType(c.type);
+    var pDef = pt ? POCT_FIELDS[pt] : null;
+    var baseHeaders = ["ID Card", "Name", "Phone", "Email", "DOB", "Type", "Screening Date"];
+    var poctHeaders = pDef ? pDef.fields.map(function (f) { return f.label; }) : [];
+    var tailHeaders = ["Result Notes", "Result Category", "Referral", "Referral Notes"];
+    var rows = [baseHeaders.concat(poctHeaders).concat(tailHeaders)];
     (c.participants || []).forEach(function (p) {
-      rows.push([p.idCard, p.name, p.phone, p.email, p.dob, p.type, p.date, p.resultNotes, p.resultCategory, p.referral, p.referralNotes].map(csvEscape));
+      var base = [p.idCard, p.name, p.phone, p.email, p.dob, p.type, p.date];
+      var poctVals = pDef ? pDef.fields.map(function (f) { return (p.poctResults && p.poctResults[f.key] != null) ? p.poctResults[f.key] : ""; }) : [];
+      var tail = [p.resultNotes, p.resultCategory, p.referral, p.referralNotes];
+      rows.push(base.concat(poctVals).concat(tail).map(csvEscape));
     });
     var csv = rows.map(function (r) { return r.join(","); }).join("\n");
     var blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -937,19 +1037,41 @@
     if (participants.length === 0) {
       pBd.innerHTML = '<div class="empty"><div class="icon">\uD83D\uDC65</div><div class="msg">No participants yet. Add sign-ups or walk-ins.</div></div>';
     } else {
+      // Build a short POCT result summary for table display
+      var poctType = campaignPoctType(c.type);
+      function poctSummary(pr) {
+        if (!pr || !poctType) return "";
+        if (poctType === "bp" && pr.sys && pr.dia) return pr.sys + "/" + pr.dia + (pr.pulse ? " (" + pr.pulse + " bpm)" : "");
+        if (poctType === "hba1c" && pr.pct) return pr.pct + "%" + (pr.mmol ? " (" + pr.mmol + " mmol)" : "");
+        if (poctType === "bg" && pr.glucose) return pr.glucose + " mmol/L" + (pr.timing ? " (" + pr.timing + ")" : "");
+        if (poctType === "chol" && pr.tc) return "TC:" + pr.tc + (pr.hdl ? " HDL:" + pr.hdl : "") + (pr.ldl ? " LDL:" + pr.ldl : "");
+        if (poctType === "bmi" && pr.bmi) return "BMI:" + pr.bmi + (pr.weight ? " (" + pr.weight + "kg)" : "");
+        if (poctType === "urine") {
+          var parts = [];
+          if (pr.glu && pr.glu !== "Negative") parts.push("Glu:" + pr.glu);
+          if (pr.pro && pr.pro !== "Negative") parts.push("Pro:" + pr.pro);
+          if (pr.bld && pr.bld !== "Negative") parts.push("Bld:" + pr.bld);
+          if (pr.leu && pr.leu !== "Negative") parts.push("Leu:" + pr.leu);
+          return parts.length ? parts.join(" ") : "All negative";
+        }
+        return "";
+      }
+
       var pTable = document.createElement("table");
-      pTable.innerHTML = '<thead><tr><th>ID Card</th><th>Name</th><th>Type</th><th>Date</th><th>Result</th><th>Category</th><th>Referral</th><th>Follow-ups</th><th></th></tr></thead>';
+      pTable.innerHTML = '<thead><tr><th>ID Card</th><th>Name</th><th>Type</th><th>Date</th>' + (poctType ? '<th>POCT Results</th>' : '') + '<th>Result</th><th>Category</th><th>Referral</th><th>Follow-ups</th><th></th></tr></thead>';
       var pTbody = document.createElement("tbody");
       participants.forEach(function (p) {
         var fuCount = (p.followUps || []).length;
         var catClass = norm(p.resultCategory || "").replace(/\s+/g, "");
         if (catClass === "requiresurgentattention") catClass = "urgent";
+        var poctVal = poctSummary(p.poctResults);
         var tr = document.createElement("tr");
         tr.innerHTML =
           '<td style="font-family:monospace;font-size:12px;letter-spacing:.5px">' + esc(p.idCard || "-") + '</td>' +
           '<td><strong>' + esc(p.name) + '</strong>' + (p.phone ? '<br><span style="color:var(--mut);font-size:11px">' + esc(p.phone) + '</span>' : '') + '</td>' +
           '<td>' + esc(p.type || "Walk-in") + '</td>' +
           '<td>' + fmtDate(p.date) + '</td>' +
+          (poctType ? '<td style="font-family:monospace;font-size:12px;white-space:nowrap">' + esc(poctVal || "-") + '</td>' : '') +
           '<td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(p.resultNotes || "-") + '</td>' +
           '<td>' + (p.resultCategory ? '<span class="badge ' + catClass + '">' + esc(p.resultCategory) + '</span>' : '-') + '</td>' +
           '<td>' + esc(p.referral || "-") + '</td>' +
@@ -1389,7 +1511,37 @@
   // ── participant modal ────────────────────────────────────────────────────
   function showParticipantModal(campaign, existing, redraw) {
     var isEdit = !!existing;
-    var data = existing ? Object.assign({}, existing) : { id: uid(), idCard: "", name: "", phone: "", email: "", dob: "", type: "Walk-in", date: todayStr(), resultNotes: "", resultCategory: "", referral: "No referral needed", referralNotes: "", followUps: [] };
+    var data = existing ? Object.assign({}, existing) : { id: uid(), idCard: "", name: "", phone: "", email: "", dob: "", type: "Walk-in", date: todayStr(), resultNotes: "", resultCategory: "", referral: "No referral needed", referralNotes: "", poctResults: {}, followUps: [] };
+    if (!data.poctResults) data.poctResults = {};
+
+    var poctType = campaignPoctType(campaign.type);
+    var poctDef = poctType ? POCT_FIELDS[poctType] : null;
+
+    // Build POCT-specific fields HTML
+    var poctFieldsHtml = "";
+    if (poctDef) {
+      var cols = Math.min(poctDef.fields.length, 3);
+      poctFieldsHtml = '<div style="border-top:1px solid var(--bd);padding-top:14px;margin-bottom:14px">' +
+        '<strong style="font-size:13px;color:var(--txt)">' + esc(poctDef.label) + '</strong> ' +
+        '<span style="color:var(--mut);font-size:11px">(syncs to POCT records)</span></div>' +
+        '<div style="display:grid;grid-template-columns:repeat(' + cols + ',1fr);gap:12px;margin-bottom:14px">';
+      poctDef.fields.forEach(function (f) {
+        var val = data.poctResults[f.key] != null ? data.poctResults[f.key] : "";
+        if (f.type === "select") {
+          poctFieldsHtml += '<div class="fld"><label>' + esc(f.label) + (f.required ? ' *' : '') + '</label>' +
+            '<select id="sc-poct-' + f.key + '">' +
+            '<option value="">-- Select --</option>' +
+            f.options.map(function (o) { return '<option' + (String(val) === o ? ' selected' : '') + '>' + esc(o) + '</option>'; }).join("") +
+            '</select></div>';
+        } else {
+          poctFieldsHtml += '<div class="fld"><label>' + esc(f.label) + (f.required ? ' *' : '') + '</label>' +
+            '<input type="number" id="sc-poct-' + f.key + '" placeholder="' + esc(f.placeholder || '') + '"' +
+            (f.step ? ' step="' + f.step + '"' : '') +
+            ' value="' + esc(val) + '"></div>';
+        }
+      });
+      poctFieldsHtml += '</div>';
+    }
 
     var bodyHtml =
       '<div class="sc"><div style="display:grid;grid-template-columns:1fr 2fr 1fr;gap:12px;margin-bottom:14px">' +
@@ -1402,7 +1554,8 @@
         '<div class="fld"><label>Type</label><select id="sc-p-type">' + PARTICIPANT_TYPES.map(function (t) { return '<option' + (t === data.type ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join("") + '</select></div>' +
         '<div class="fld"><label>Screening Date</label><input type="date" id="sc-p-date" value="' + esc(data.date) + '"></div>' +
       '</div>' +
-      '<div style="border-top:1px solid var(--bd);padding-top:14px;margin-bottom:14px"><strong style="font-size:13px;color:var(--txt)">Screening Results</strong> <span style="color:var(--mut);font-size:11px">(syncs to POCT records)</span></div>' +
+      poctFieldsHtml +
+      '<div style="border-top:1px solid var(--bd);padding-top:14px;margin-bottom:14px"><strong style="font-size:13px;color:var(--txt)">Assessment</strong></div>' +
       '<div class="fld" style="margin-bottom:14px"><label>Result Notes</label><textarea id="sc-p-result" placeholder="Describe screening results\u2026">' + esc(data.resultNotes) + '</textarea></div>' +
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">' +
         '<div class="fld"><label>Result Category</label><select id="sc-p-cat"><option value="">-- Select --</option>' + RESULT_CATEGORIES.map(function (c) { return '<option' + (c === data.resultCategory ? ' selected' : '') + '>' + esc(c) + '</option>'; }).join("") + '</select></div>' +
@@ -1415,6 +1568,31 @@
     var m = openModal(isEdit ? "Edit Participant" : "Add Participant", bodyHtml, footerHtml);
     m.modal.querySelector(".close-cancel").addEventListener("click", m.close);
 
+    // BMI auto-calculation for BMI campaigns
+    if (poctType === "bmi") {
+      setTimeout(function () {
+        var wEl = m.modal.querySelector("#sc-poct-weight");
+        var hEl = m.modal.querySelector("#sc-poct-height");
+        var bmiEl = m.modal.querySelector("#sc-poct-bmi");
+        var catEl = m.modal.querySelector("#sc-poct-category");
+        function autoBmi() {
+          if (!wEl || !hEl || !bmiEl) return;
+          var w = parseFloat(wEl.value), h = parseFloat(hEl.value);
+          if (w > 0 && h > 0) {
+            var bmiVal = (w / ((h / 100) * (h / 100))).toFixed(1);
+            bmiEl.value = bmiVal;
+            if (catEl) {
+              var v = parseFloat(bmiVal);
+              var cat = v < 18.5 ? "Underweight" : v < 25 ? "Normal" : v < 30 ? "Overweight" : v < 35 ? "Obese I" : v < 40 ? "Obese II" : "Obese III";
+              catEl.value = cat;
+            }
+          }
+        }
+        if (wEl) wEl.addEventListener("input", autoBmi);
+        if (hEl) hEl.addEventListener("input", autoBmi);
+      }, 100);
+    }
+
     m.modal.querySelector("#sc-p-save").addEventListener("click", function () {
       var rawId = m.modal.querySelector("#sc-p-idcard").value.trim();
       var pid = normalizePatientId(rawId);
@@ -1426,12 +1604,37 @@
         return;
       }
 
+      // Collect POCT result fields
+      var poctResults = {};
+      if (poctDef) {
+        var hasRequired = true;
+        poctDef.fields.forEach(function (f) {
+          var el = m.modal.querySelector("#sc-poct-" + f.key);
+          if (!el) return;
+          var v = el.value.trim();
+          if (f.required && !v) {
+            el.style.borderColor = "#ff5a7a";
+            hasRequired = false;
+          }
+          if (f.type === "number" && v) {
+            poctResults[f.key] = parseFloat(v);
+          } else {
+            poctResults[f.key] = v;
+          }
+        });
+        if (!hasRequired) {
+          toast("Please fill in the required POCT fields", "warn");
+          return;
+        }
+      }
+
       data.idCard = pid || rawId;
       data.name = name;
       data.phone = m.modal.querySelector("#sc-p-phone").value.trim();
       data.dob = m.modal.querySelector("#sc-p-dob").value;
       data.type = m.modal.querySelector("#sc-p-type").value;
       data.date = m.modal.querySelector("#sc-p-date").value;
+      data.poctResults = poctResults;
       data.resultNotes = m.modal.querySelector("#sc-p-result").value.trim();
       data.resultCategory = m.modal.querySelector("#sc-p-cat").value;
       data.referral = m.modal.querySelector("#sc-p-ref").value;
