@@ -233,11 +233,6 @@
       ".eikon-dash-xsell-selected .xs-name{flex:1;font-size:13px;font-weight:800;color:#6af0be}" +
       ".eikon-dash-xsell-selected .xs-clear{background:none;border:1px solid rgba(255,255,255,.12);color:var(--muted);width:24px;height:24px;border-radius:6px;cursor:pointer;font-size:14px}" +
       ".eikon-dash-xsell-selected .xs-clear:hover{background:rgba(255,255,255,.08);color:#fff}" +
-      "@keyframes xsell-flash{0%,100%{box-shadow:0 0 8px rgba(46,229,157,.3)}50%{box-shadow:0 0 22px rgba(46,229,157,.85),0 0 40px rgba(46,229,157,.35)}}" +
-      ".eikon-dash-xsell-open{padding:9px 16px;border:1px solid rgba(46,229,157,.4);border-radius:10px;background:rgba(46,229,157,.08);color:#6af0be;font-size:12px;font-weight:800;cursor:pointer;display:none;align-items:center;gap:7px;transition:background .15s}" +
-      ".eikon-dash-xsell-open:hover{background:rgba(46,229,157,.18)}" +
-      ".eikon-dash-xsell-open.visible{display:inline-flex}" +
-      ".eikon-dash-xsell-open.flash{animation:xsell-flash .7s ease-in-out 3}" +
       /* --- Cross Sell modal (reuses mindmap look) --- */
       ".xsell-modal-overlay{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}" +
       ".xsell-modal-overlay.open{opacity:1;pointer-events:auto}" +
@@ -2246,7 +2241,6 @@
     if (!mount) return;
     var input = mount.querySelector(".xsell-input");
     var selEl = mount.querySelector(".eikon-dash-xsell-selected");
-    var openBtn = mount.querySelector(".eikon-dash-xsell-open");
 
     if (input) input.value = "";
 
@@ -2275,14 +2269,9 @@
         });
       }
 
-      // Show/flash the open button
-      if (openBtn && hasComp) {
-        openBtn.classList.add("visible");
-        openBtn.classList.remove("flash");
-        void openBtn.offsetWidth;
-        openBtn.classList.add("flash");
-      } else if (openBtn) {
-        openBtn.classList.remove("visible", "flash");
+      // Open modal directly if complements exist
+      if (hasComp) {
+        xsellOpenModal();
       }
     });
   }
@@ -2293,9 +2282,7 @@
     xsell.currentData = null;
     xsell.selectedId = null;
     var selEl = mount.querySelector(".eikon-dash-xsell-selected");
-    var openBtn = mount.querySelector(".eikon-dash-xsell-open");
     if (selEl) { selEl.style.display = "none"; selEl.innerHTML = ""; }
-    if (openBtn) openBtn.classList.remove("visible", "flash");
   }
 
   function xsellGetComplementData() {
@@ -2425,7 +2412,6 @@
   function bindXsellSearch(mount) {
     var input = mount.querySelector(".xsell-input");
     var ddEl = mount.querySelector(".eikon-dash-xsell-dd");
-    var openBtn = mount.querySelector(".eikon-dash-xsell-open");
     var overlay = mount.querySelector(".xsell-modal-overlay");
     if (!overlay) overlay = document.querySelector(".xsell-modal-overlay");
 
@@ -2472,10 +2458,6 @@
     document.addEventListener("click", function (ev) {
       if (ddEl && !ddEl.contains(ev.target) && ev.target !== input) ddEl.classList.remove("open");
     });
-
-    if (openBtn) {
-      openBtn.addEventListener("click", function () { xsellOpenModal(); });
-    }
 
     if (overlay) {
       overlay.querySelector(".xsell-modal-close").addEventListener("click", function () { xsellCloseModal(); });
@@ -2564,7 +2546,6 @@
                 '<div class="eikon-dash-xsell-dd"></div>' +
               '</div>' +
               '<div class="eikon-dash-xsell-selected" style="display:none"></div>' +
-              '<button class="eikon-dash-xsell-open">➕ Show Complementary Items</button>' +
             '</div>' +
             '<div class="eikon-dash-list" id="dash-today"></div>' +
           "</div>" +
