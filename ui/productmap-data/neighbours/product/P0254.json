@@ -1,1 +1,135 @@
-{"centerId":"product:P0254","centerType":"product","refId":"P0254","nodes":[{"id":"product:P0254","nodeType":"product","refId":"P0254","label":"Levonorgestrel Rowex 1.5mg Tablet","subtext":"review needed","meta":{"brand":"Levonorgestrel","generic":"LEVONORGESTREL","form":"TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"review needed","secondaryIndications":null,"otcCategory":"SEX HORMONES AND MODULATORS OF THE GENITAL SYSTEM","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"LEVONORGESTREL 1.5 milligram(s)","packSizeText":"Review manually","atcCode":"G03AD01","status":"Authorised","supplierCatalogKey":"levonorgestrel rowex 1.5mg tablet"}},{"id":"product:P0169","nodeType":"product","refId":"P0169","label":"Escapelle 1500 microgram tablet","subtext":"review needed","meta":{"brand":"Escapelle","generic":"LEVONORGESTREL","form":"TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"review needed","secondaryIndications":null,"otcCategory":"SEX HORMONES AND MODULATORS OF THE GENITAL SYSTEM","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"LEVONORGESTREL 1500 microgram(s)","packSizeText":"Review manually","atcCode":"G03AD01","status":"Authorised","supplierCatalogKey":"escapelle 1500 microgram tablet"}},{"id":"symptom:S053","nodeType":"symptom","refId":"S053","label":"review needed","subtext":"Review queue","meta":{"Symptom_ID":"S053","Symptom_Name":"review needed","Symptom_Category":"Review queue","Linked_Product_Count":34,"Display_Group":"Review queue","Priority_For_Graph":100,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}}],"links":[{"key":"d9fd20512911205f","source":"product:P0169","target":"product:P0254","rel":"similar","label":"Alternative: same active ingredient(s)","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E01011","clinicalSimilarity":100,"commercialSubstitution":100,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"review needed","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"c54e22123922ec55","source":"product:P0254","target":"symptom:S053","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00822","role":"Primary","reviewStatus":"Seeded"}},{"key":"2da07373c5866953","source":"product:P0169","target":"product:P0254","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E01011","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}}],"meta":{"productName":"Levonorgestrel Rowex 1.5mg Tablet","linkCount":3}}
+{
+  "centerId": "product:P0254",
+  "centerType": "product",
+  "refId": "P0254",
+  "nodes": [
+    {
+      "id": "product:P0254",
+      "nodeType": "product",
+      "refId": "P0254",
+      "label": "Levonorgestrel Rowex 1.5mg Tablet",
+      "subtext": "review needed",
+      "meta": {
+        "brand": "Levonorgestrel",
+        "generic": "LEVONORGESTREL",
+        "form": "TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "review needed",
+        "secondaryIndications": null,
+        "otcCategory": "SEX HORMONES AND MODULATORS OF THE GENITAL SYSTEM",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "LEVONORGESTREL 1.5 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "G03AD01",
+        "status": "Authorised",
+        "supplierCatalogKey": "levonorgestrel rowex 1.5mg tablet"
+      }
+    },
+    {
+      "id": "product:P0169",
+      "nodeType": "product",
+      "refId": "P0169",
+      "label": "Escapelle 1500 microgram tablet",
+      "subtext": "review needed",
+      "meta": {
+        "brand": "Escapelle",
+        "generic": "LEVONORGESTREL",
+        "form": "TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "review needed",
+        "secondaryIndications": null,
+        "otcCategory": "SEX HORMONES AND MODULATORS OF THE GENITAL SYSTEM",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "LEVONORGESTREL 1500 microgram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "G03AD01",
+        "status": "Authorised",
+        "supplierCatalogKey": "escapelle 1500 microgram tablet"
+      }
+    },
+    {
+      "id": "symptom:S076",
+      "nodeType": "symptom",
+      "refId": "S076",
+      "label": "wellness",
+      "subtext": "General",
+      "meta": {
+        "Symptom_ID": "S076",
+        "Symptom_Name": "wellness",
+        "Symptom_Category": "General",
+        "Linked_Product_Count": 3,
+        "Display_Group": "General",
+        "Priority_For_Graph": 70,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "d9fd20512911205f",
+      "source": "product:P0169",
+      "target": "product:P0254",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E01011",
+        "clinicalSimilarity": 100,
+        "commercialSubstitution": 100,
+        "crossSell": 15,
+        "riskOverlap": 90,
+        "evidence": 90,
+        "seasonality": 40,
+        "triggerContext": "review needed",
+        "primaryToSecondary": "No",
+        "reciprocalDisplay": "Yes",
+        "reviewStatus": "Ready - strong starter link",
+        "sourceMethod": "EXACT_INGREDIENT_BASE"
+      }
+    },
+    {
+      "key": "2da07373c5866953",
+      "source": "product:P0169",
+      "target": "product:P0254",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E01011",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead.",
+        "guardrailType": "Potential duplicate therapy / substitute"
+      }
+    },
+    {
+      "key": "8f579bfc3822ad31",
+      "source": "product:P0254",
+      "target": "symptom:S076",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 60,
+      "why": "Manual review fix",
+      "meta": {
+        "mapId": "PSM01776"
+      }
+    }
+  ],
+  "meta": {
+    "productName": "Levonorgestrel Rowex 1.5mg Tablet",
+    "linkCount": 3
+  }
+}

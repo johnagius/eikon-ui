@@ -1,1 +1,164 @@
-{"centerId":"product:P0193","centerType":"product","refId":"P0193","nodes":[{"id":"product:P0193","nodeType":"product","refId":"P0193","label":"Fluconazole; Blicanz Thrush Relief. Boots Thrush; 150mg Capsules","subtext":"review needed","meta":{"brand":"Fluconazole","generic":"FLUCONAZOLE","form":"CAPSULE","formGroup":"Oral solid","route":"Oral","mainIndication":"review needed","secondaryIndications":null,"otcCategory":"ANTIMYCOTICS FOR SYSTEMIC USE","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"FLUCONAZOLE 150 milligram(s)","packSizeText":"Review manually","atcCode":"J02AC","status":"Authorised","supplierCatalogKey":"fluconazole; blicanz thrush relief. boots thrush; 150mg capsules"}},{"id":"product:P0286","nodeType":"product","refId":"P0286","label":"Medoflucon 150mg capsules","subtext":"review needed","meta":{"brand":"Medoflucon","generic":"FLUCONAZOLE","form":"HARD CAPSULE","formGroup":"Oral solid","route":"Oral","mainIndication":"review needed","secondaryIndications":null,"otcCategory":"ANTIMYCOTICS FOR SYSTEMIC USE","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"FLUCONAZOLE 150 milligram(s)","packSizeText":"Review manually","atcCode":"J02AC01","status":"Authorised","supplierCatalogKey":"medoflucon 150mg capsules"}},{"id":"symptom:S053","nodeType":"symptom","refId":"S053","label":"review needed","subtext":"Review queue","meta":{"Symptom_ID":"S053","Symptom_Name":"review needed","Symptom_Category":"Review queue","Linked_Product_Count":34,"Display_Group":"Review queue","Priority_For_Graph":100,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}}],"links":[{"key":"d19ca5752d484bfe","source":"product:P0193","target":"product:P0286","rel":"similar","label":"Alternative: same active ingredient(s)","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00529","clinicalSimilarity":100,"commercialSubstitution":100,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"review needed","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"a17129b5902f2794","source":"product:P0193","target":"symptom:S053","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00629","role":"Primary","reviewStatus":"Seeded"}},{"key":"b9b51fdcb3451c78","source":"product:P0193","target":"product:P0286","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00529","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}}],"meta":{"productName":"Fluconazole; Blicanz Thrush Relief. Boots Thrush; 150mg Capsules","linkCount":3}}
+{
+  "centerId": "product:P0193",
+  "centerType": "product",
+  "refId": "P0193",
+  "nodes": [
+    {
+      "id": "product:P0193",
+      "nodeType": "product",
+      "refId": "P0193",
+      "label": "Fluconazole; Blicanz Thrush Relief. Boots Thrush; 150mg Capsules",
+      "subtext": "review needed",
+      "meta": {
+        "brand": "Fluconazole",
+        "generic": "FLUCONAZOLE",
+        "form": "CAPSULE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "review needed",
+        "secondaryIndications": null,
+        "otcCategory": "ANTIMYCOTICS FOR SYSTEMIC USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "FLUCONAZOLE 150 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "J02AC",
+        "status": "Authorised",
+        "supplierCatalogKey": "fluconazole; blicanz thrush relief. boots thrush; 150mg capsules"
+      }
+    },
+    {
+      "id": "product:P0286",
+      "nodeType": "product",
+      "refId": "P0286",
+      "label": "Medoflucon 150mg capsules",
+      "subtext": "review needed",
+      "meta": {
+        "brand": "Medoflucon",
+        "generic": "FLUCONAZOLE",
+        "form": "HARD CAPSULE",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "review needed",
+        "secondaryIndications": null,
+        "otcCategory": "ANTIMYCOTICS FOR SYSTEMIC USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "FLUCONAZOLE 150 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "J02AC01",
+        "status": "Authorised",
+        "supplierCatalogKey": "medoflucon 150mg capsules"
+      }
+    },
+    {
+      "id": "symptom:S073",
+      "nodeType": "symptom",
+      "refId": "S073",
+      "label": "vaginal infection support",
+      "subtext": "Women's health",
+      "meta": {
+        "Symptom_ID": "S073",
+        "Symptom_Name": "vaginal infection support",
+        "Symptom_Category": "Women's health",
+        "Linked_Product_Count": 13,
+        "Display_Group": "Women's health",
+        "Priority_For_Graph": 85,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "symptom:S070",
+      "nodeType": "symptom",
+      "refId": "S070",
+      "label": "thrush (topical)",
+      "subtext": "Skin",
+      "meta": {
+        "Symptom_ID": "S070",
+        "Symptom_Name": "thrush (topical)",
+        "Symptom_Category": "Skin",
+        "Linked_Product_Count": 27,
+        "Display_Group": "Skin",
+        "Priority_For_Graph": 100,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "d19ca5752d484bfe",
+      "source": "product:P0193",
+      "target": "product:P0286",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00529",
+        "clinicalSimilarity": 100,
+        "commercialSubstitution": 100,
+        "crossSell": 15,
+        "riskOverlap": 90,
+        "evidence": 90,
+        "seasonality": 40,
+        "triggerContext": "review needed",
+        "primaryToSecondary": "No",
+        "reciprocalDisplay": "Yes",
+        "reviewStatus": "Ready - strong starter link",
+        "sourceMethod": "EXACT_INGREDIENT_BASE"
+      }
+    },
+    {
+      "key": "b9b51fdcb3451c78",
+      "source": "product:P0193",
+      "target": "product:P0286",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00529",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead.",
+        "guardrailType": "Potential duplicate therapy / substitute"
+      }
+    },
+    {
+      "key": "6b5009179a3a6808",
+      "source": "product:P0193",
+      "target": "symptom:S073",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Manual review fix",
+      "meta": {
+        "mapId": "PSM01777"
+      }
+    },
+    {
+      "key": "1d8840aa89a50735",
+      "source": "product:P0193",
+      "target": "symptom:S070",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Manual review fix",
+      "meta": {
+        "mapId": "PSM01778"
+      }
+    }
+  ],
+  "meta": {
+    "productName": "Fluconazole; Blicanz Thrush Relief. Boots Thrush; 150mg Capsules",
+    "linkCount": 3
+  }
+}

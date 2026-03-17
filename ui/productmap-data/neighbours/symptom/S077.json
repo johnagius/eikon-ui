@@ -1,1 +1,130 @@
-{"centerId":"symptom:S077","centerType":"symptom","refId":"S077","nodes":[{"id":"symptom:S077","nodeType":"symptom","refId":"S077","label":"wound care","subtext":"General","meta":{"Symptom_ID":"S077","Symptom_Name":"wound care","Symptom_Category":"General","Linked_Product_Count":2,"Display_Group":"General","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"product:P0117","nodeType":"product","refId":"P0117","label":"Contractubex 1 g / 10 g / 5000 IU / 100 g Gel","subtext":"wound care","meta":{"brand":"Contractubex","generic":"ALLANTOIN | HEPARIN SODIUM | ONION LIQUID EXTRACT","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"wound care","secondaryIndications":"healing | ulcers","otcCategory":"PREPARATIONS FOR TREATMENT OF WOUNDS AND ULCERS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"Onion Liquid extract\n 10 gram(s) | HEPARIN SODIUM 5,000 international unit(s) | ALLANTOIN 1 gram(s)","packSizeText":"Review manually","atcCode":"D03AX","status":"Authorised","supplierCatalogKey":"contractubex 1 g / 10 g / 5000 iu / 100 g gel"}},{"id":"product:P0118","nodeType":"product","refId":"P0118","label":"Contractubex Gel","subtext":"wound care","meta":{"brand":"Contractubex","generic":"ALLANTOIN | EXTRACTUM CEPAE | HEPARIN SODIUM","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"wound care","secondaryIndications":"healing | ulcers","otcCategory":"PREPARATIONS FOR TREATMENT OF WOUNDS AND ULCERS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":3,"strengthText":"HEPARIN SODIUM 5000 international unit(s) | EXTRACTUM CEPAE 10 gram(s) | ALLANTOIN 1 gram(s)","packSizeText":"Review manually","atcCode":"D03AX","status":"Authorised","supplierCatalogKey":"contractubex gel"}}],"links":[{"key":"feae5bc6472da222","source":"symptom:S077","target":"product:P0117","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00385","role":"Primary","reviewStatus":"Seeded"}},{"key":"26b1c516c216e3d4","source":"symptom:S077","target":"product:P0118","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00388","role":"Primary","reviewStatus":"Seeded"}}],"meta":{"symptomName":"wound care","linkCount":2}}
+{
+  "centerId": "symptom:S077",
+  "centerType": "symptom",
+  "refId": "S077",
+  "nodes": [
+    {
+      "id": "symptom:S077",
+      "nodeType": "symptom",
+      "refId": "S077",
+      "label": "wound care",
+      "subtext": "General",
+      "meta": {
+        "Symptom_ID": "S077",
+        "Symptom_Name": "wound care",
+        "Symptom_Category": "General",
+        "Linked_Product_Count": 2,
+        "Display_Group": "General",
+        "Priority_For_Graph": 70,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "product:P0117",
+      "nodeType": "product",
+      "refId": "P0117",
+      "label": "Contractubex 1 g / 10 g / 5000 IU / 100 g Gel",
+      "subtext": "wound care",
+      "meta": {
+        "brand": "Contractubex",
+        "generic": "ALLANTOIN | HEPARIN SODIUM | ONION LIQUID EXTRACT",
+        "mainIndication": "wound care",
+        "otcCategory": "PREPARATIONS FOR TREATMENT OF WOUNDS AND ULCERS"
+      }
+    },
+    {
+      "id": "product:P0118",
+      "nodeType": "product",
+      "refId": "P0118",
+      "label": "Contractubex Gel",
+      "subtext": "wound care",
+      "meta": {
+        "brand": "Contractubex",
+        "generic": "ALLANTOIN | EXTRACTUM CEPAE | HEPARIN SODIUM",
+        "mainIndication": "wound care",
+        "otcCategory": "PREPARATIONS FOR TREATMENT OF WOUNDS AND ULCERS"
+      }
+    },
+    {
+      "id": "product:P0448",
+      "nodeType": "product",
+      "refId": "P0448",
+      "label": "Sodium Chloride MONICO 0.9%",
+      "subtext": "wound cleansing",
+      "meta": {
+        "brand": "Sodium",
+        "generic": "SODIUM CHLORIDE",
+        "mainIndication": "wound cleansing",
+        "otcCategory": "ALL OTHER NON-THERAPEUTIC PRODUCTS"
+      }
+    },
+    {
+      "id": "product:P0462",
+      "nodeType": "product",
+      "refId": "P0462",
+      "label": "Sudocrem Antiseptic Healing Cream",
+      "subtext": "skin irritation",
+      "meta": {
+        "brand": "Sudocrem",
+        "generic": "BENZYL ALCOHOL | BENZYL BENZOATE | BENZYL CINNAMATE | LANOLIN | ZINC OXIDE",
+        "mainIndication": "skin irritation",
+        "otcCategory": "EMOLLIENTS AND PROTECTIVES"
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "563f5906af6a1def",
+      "source": "product:P0117",
+      "target": "symptom:S077",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00385"
+      }
+    },
+    {
+      "key": "6b604e0be7558169",
+      "source": "product:P0118",
+      "target": "symptom:S077",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00388"
+      }
+    },
+    {
+      "key": "6ece001049927fbe",
+      "source": "product:P0448",
+      "target": "symptom:S077",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Manual review fix",
+      "meta": {
+        "mapId": "PSM01796"
+      }
+    },
+    {
+      "key": "dd9f9be467c0c92e",
+      "source": "product:P0462",
+      "target": "symptom:S077",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 78,
+      "why": "Manual review fix",
+      "meta": {
+        "mapId": "PSM01799"
+      }
+    }
+  ],
+  "meta": {
+    "symptomName": "wound care",
+    "linkCount": 2
+  }
+}

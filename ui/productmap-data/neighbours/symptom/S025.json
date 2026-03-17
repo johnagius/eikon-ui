@@ -1,1 +1,155 @@
-{"centerId":"symptom:S025","centerType":"symptom","refId":"S025","nodes":[{"id":"symptom:S025","nodeType":"symptom","refId":"S025","label":"eczema","subtext":"General","meta":{"Symptom_ID":"S025","Symptom_Name":"eczema","Symptom_Category":"General","Linked_Product_Count":4,"Display_Group":"General","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"product:P0119","nodeType":"product","refId":"P0119","label":"Cortopin1%w/w cream","subtext":"skin inflammation","meta":{"brand":"Cortopin1","generic":"HYDROCORTISONE","form":"CREAM","formGroup":"Topical","route":"Topical","mainIndication":"skin inflammation","secondaryIndications":"eczema | dermatitis","otcCategory":"CORTICOSTEROIDS, DERMATOLOGICAL PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"HYDROCORTISONE 1 percent weight/weight","packSizeText":"Review manually","atcCode":"D07AA02","status":"Authorised","supplierCatalogKey":"cortopin1%w/w cream"}},{"id":"product:P0212","nodeType":"product","refId":"P0212","label":"Hc45 Hydrocortisone Acetate Cream (Hydrocortisone acetate 1% w/w)","subtext":"skin inflammation","meta":{"brand":"Hc45","generic":"HYDROCORTISONE ACETATE","form":"CREAM","formGroup":"Topical","route":"Topical","mainIndication":"skin inflammation","secondaryIndications":"eczema | dermatitis","otcCategory":"CORTICOSTEROIDS, DERMATOLOGICAL PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"HYDROCORTISONE ACETATE 1 percent weight/weight","packSizeText":"Review manually","atcCode":"D07AA02","status":"Authorised","supplierCatalogKey":"hc45 hydrocortisone acetate cream (hydrocortisone acetate 1% w/w)"}},{"id":"product:P0216","nodeType":"product","refId":"P0216","label":"Hydrokortyzon Allefin Max 10 mg/g Cream","subtext":"skin inflammation","meta":{"brand":"Hydrokortyzon","generic":"HYDROCORTISONE ACETATE","form":"CREAM","formGroup":"Topical","route":"Topical","mainIndication":"skin inflammation","secondaryIndications":"eczema | dermatitis","otcCategory":"CORTICOSTEROIDS, DERMATOLOGICAL PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"HYDROCORTISONE ACETATE 10 milligram(s)/gram","packSizeText":"Review manually","atcCode":"D07AA02","status":"Authorised","supplierCatalogKey":"hydrokortyzon allefin max 10 mg/g cream"}},{"id":"product:P0384","nodeType":"product","refId":"P0384","label":"Pandermil 10 mg/g ointment","subtext":"skin inflammation","meta":{"brand":"Pandermil","generic":"HYDROCORTISONE","form":"OINTMENT","formGroup":"Topical","route":"Topical","mainIndication":"skin inflammation","secondaryIndications":"eczema | dermatitis","otcCategory":"CORTICOSTEROIDS, DERMATOLOGICAL PREPARATIONS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"HYDROCORTISONE 10 milligram(s)/gram","packSizeText":"Review manually","atcCode":"D07AA02","status":"Authorised","supplierCatalogKey":"pandermil 10 mg/g ointment"}}],"links":[{"key":"b1a15d2a6dc9c1cb","source":"symptom:S025","target":"product:P0119","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00392","role":"Primary","reviewStatus":"Seeded"}},{"key":"806f85695f1db271","source":"symptom:S025","target":"product:P0212","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00682","role":"Primary","reviewStatus":"Seeded"}},{"key":"03cbb8323f27d75e","source":"symptom:S025","target":"product:P0216","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM00697","role":"Primary","reviewStatus":"Seeded"}},{"key":"c260d647d0e5c23c","source":"symptom:S025","target":"product:P0384","rel":"symptom","label":"Primary","score":92,"why":"Imported symptom tags","meta":{"mapId":"PSM01260","role":"Primary","reviewStatus":"Seeded"}}],"meta":{"symptomName":"eczema","linkCount":4}}
+{
+  "centerId": "symptom:S025",
+  "centerType": "symptom",
+  "refId": "S025",
+  "nodes": [
+    {
+      "id": "symptom:S025",
+      "nodeType": "symptom",
+      "refId": "S025",
+      "label": "eczema",
+      "subtext": "General",
+      "meta": {
+        "Symptom_ID": "S025",
+        "Symptom_Name": "eczema",
+        "Symptom_Category": "General",
+        "Linked_Product_Count": 4,
+        "Display_Group": "General",
+        "Priority_For_Graph": 70,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "product:P0119",
+      "nodeType": "product",
+      "refId": "P0119",
+      "label": "Cortopin1%w/w cream",
+      "subtext": "skin inflammation",
+      "meta": {
+        "brand": "Cortopin1",
+        "generic": "HYDROCORTISONE",
+        "mainIndication": "skin inflammation",
+        "otcCategory": "CORTICOSTEROIDS, DERMATOLOGICAL PREPARATIONS"
+      }
+    },
+    {
+      "id": "product:P0212",
+      "nodeType": "product",
+      "refId": "P0212",
+      "label": "Hc45 Hydrocortisone Acetate Cream (Hydrocortisone acetate 1% w/w)",
+      "subtext": "skin inflammation",
+      "meta": {
+        "brand": "Hc45",
+        "generic": "HYDROCORTISONE ACETATE",
+        "mainIndication": "skin inflammation",
+        "otcCategory": "CORTICOSTEROIDS, DERMATOLOGICAL PREPARATIONS"
+      }
+    },
+    {
+      "id": "product:P0216",
+      "nodeType": "product",
+      "refId": "P0216",
+      "label": "Hydrokortyzon Allefin Max 10 mg/g Cream",
+      "subtext": "skin inflammation",
+      "meta": {
+        "brand": "Hydrokortyzon",
+        "generic": "HYDROCORTISONE ACETATE",
+        "mainIndication": "skin inflammation",
+        "otcCategory": "CORTICOSTEROIDS, DERMATOLOGICAL PREPARATIONS"
+      }
+    },
+    {
+      "id": "product:P0384",
+      "nodeType": "product",
+      "refId": "P0384",
+      "label": "Pandermil 10 mg/g ointment",
+      "subtext": "skin inflammation",
+      "meta": {
+        "brand": "Pandermil",
+        "generic": "HYDROCORTISONE",
+        "mainIndication": "skin inflammation",
+        "otcCategory": "CORTICOSTEROIDS, DERMATOLOGICAL PREPARATIONS"
+      }
+    },
+    {
+      "id": "product:P0158",
+      "nodeType": "product",
+      "refId": "P0158",
+      "label": "E45 Cream White Soft Paraffin 14.5% w/w Light Liquid Paraffin 12.6% w/w Anhydrous Lanolin 1.0% w/w",
+      "subtext": "skin irritation",
+      "meta": {
+        "brand": "E45",
+        "generic": "LANOLIN | LIGHT LIQUID PARAFFIN | WHITE SOFT PARAFFIN",
+        "mainIndication": "skin irritation",
+        "otcCategory": "EMOLLIENTS AND PROTECTIVES"
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "496971532cf536c3",
+      "source": "product:P0119",
+      "target": "symptom:S025",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00392"
+      }
+    },
+    {
+      "key": "f12fb78ff53a39ae",
+      "source": "product:P0212",
+      "target": "symptom:S025",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00682"
+      }
+    },
+    {
+      "key": "f09454d36e8395d1",
+      "source": "product:P0216",
+      "target": "symptom:S025",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00697"
+      }
+    },
+    {
+      "key": "d5b2a1760931c9de",
+      "source": "product:P0384",
+      "target": "symptom:S025",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 92,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01260"
+      }
+    },
+    {
+      "key": "b25b7459a3d0630d",
+      "source": "product:P0158",
+      "target": "symptom:S025",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Manual review fix",
+      "meta": {
+        "mapId": "PSM01772"
+      }
+    }
+  ],
+  "meta": {
+    "symptomName": "eczema",
+    "linkCount": 4
+  }
+}

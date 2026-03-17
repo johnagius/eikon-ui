@@ -33,6 +33,58 @@
         "Trigger_Symptoms": "Travel sickness, nausea, motion sickness",
         "Description": "Core anti-motion product plus travel adjuncts."
       }
+    },
+    {
+      "id": "product:P0050",
+      "nodeType": "product",
+      "refId": "P0050",
+      "label": "Biodramina Chewing-gum",
+      "subtext": "motion sickness",
+      "meta": {
+        "brand": "Biodramina",
+        "generic": "DIMENHYDRINATE",
+        "mainIndication": "motion sickness",
+        "otcCategory": "ANTIEMETICS AND ANTINAUSEANTS"
+      }
+    },
+    {
+      "id": "product:P0051",
+      "nodeType": "product",
+      "refId": "P0051",
+      "label": "Biodramina Tablets",
+      "subtext": "motion sickness",
+      "meta": {
+        "brand": "Biodramina",
+        "generic": "DIMENHYDRINATE",
+        "mainIndication": "motion sickness",
+        "otcCategory": "ANTIEMETICS AND ANTINAUSEANTS"
+      }
+    },
+    {
+      "id": "product:P0514",
+      "nodeType": "product",
+      "refId": "P0514",
+      "label": "Vomidrine 50 mg tablets",
+      "subtext": "motion sickness",
+      "meta": {
+        "brand": "Vomidrine",
+        "generic": "DIMENHYDRINATE",
+        "mainIndication": "motion sickness",
+        "otcCategory": "ANTIEMETICS AND ANTINAUSEANTS"
+      }
+    },
+    {
+      "id": "product:P0245",
+      "nodeType": "product",
+      "refId": "P0245",
+      "label": "Kwells 300 microgram tablets",
+      "subtext": "motion sickness",
+      "meta": {
+        "brand": "Kwells",
+        "generic": "HYOSCINE HYDROBROMIDE",
+        "mainIndication": "motion sickness",
+        "otcCategory": "ANTIEMETICS AND ANTINAUSEANTS"
+      }
     }
   ],
   "links": [
@@ -45,6 +97,54 @@
       "score": 85,
       "why": "Travel sickness, nausea, motion sickness",
       "meta": {}
+    },
+    {
+      "key": "fc1f8be98dcf8101",
+      "source": "product:P0050",
+      "target": "symptom:S071",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Manual review fix",
+      "meta": {
+        "mapId": "PSM01760"
+      }
+    },
+    {
+      "key": "594ed2d47b8b2b16",
+      "source": "product:P0051",
+      "target": "symptom:S071",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Manual review fix",
+      "meta": {
+        "mapId": "PSM01762"
+      }
+    },
+    {
+      "key": "0a9d1c597b41bceb",
+      "source": "product:P0514",
+      "target": "symptom:S071",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Manual review fix",
+      "meta": {
+        "mapId": "PSM01764"
+      }
+    },
+    {
+      "key": "3bf5b55f6075dff6",
+      "source": "product:P0245",
+      "target": "symptom:S071",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Manual review fix",
+      "meta": {
+        "mapId": "PSM01788"
+      }
     }
   ],
   "meta": {

@@ -1,1 +1,99 @@
-{"centerId":"product:P0431","centerType":"product","refId":"P0431","nodes":[{"id":"product:P0431","nodeType":"product","refId":"P0431","label":"STIMOL 1g/10ml, oral solution in sachet","subtext":"review needed","meta":{"brand":"STIMOL","generic":"CITRULLINE MALEATE","form":"ORAL SOLUTION","formGroup":"Oral liquid","route":"Oral","mainIndication":"review needed","secondaryIndications":null,"otcCategory":"TONICS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CITRULLINE MALEATE 10 gram(s)/100 millilitres","packSizeText":"Review manually","atcCode":"A13A","status":"Authorised","supplierCatalogKey":"stimol 1g/10ml, oral solution in sachet"}},{"id":"symptom:S053","nodeType":"symptom","refId":"S053","label":"review needed","subtext":"Review queue","meta":{"Symptom_ID":"S053","Symptom_Name":"review needed","Symptom_Category":"Review queue","Linked_Product_Count":34,"Display_Group":"Review queue","Priority_For_Graph":100,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}}],"links":[{"key":"f71b4c7883967a74","source":"product:P0431","target":"symptom:S053","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM01427","role":"Primary","reviewStatus":"Seeded"}}],"meta":{"productName":"STIMOL 1g/10ml, oral solution in sachet","linkCount":1}}
+{
+  "centerId": "product:P0431",
+  "centerType": "product",
+  "refId": "P0431",
+  "nodes": [
+    {
+      "id": "product:P0431",
+      "nodeType": "product",
+      "refId": "P0431",
+      "label": "STIMOL 1g/10ml, oral solution in sachet",
+      "subtext": "review needed",
+      "meta": {
+        "brand": "STIMOL",
+        "generic": "CITRULLINE MALEATE",
+        "form": "ORAL SOLUTION",
+        "formGroup": "Oral liquid",
+        "route": "Oral",
+        "mainIndication": "review needed",
+        "secondaryIndications": null,
+        "otcCategory": "TONICS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "CITRULLINE MALEATE 10 gram(s)/100 millilitres",
+        "packSizeText": "Review manually",
+        "atcCode": "A13A",
+        "status": "Authorised",
+        "supplierCatalogKey": "stimol 1g/10ml, oral solution in sachet"
+      }
+    },
+    {
+      "id": "symptom:S066",
+      "nodeType": "symptom",
+      "refId": "S066",
+      "label": "supplementation",
+      "subtext": "General",
+      "meta": {
+        "Symptom_ID": "S066",
+        "Symptom_Name": "supplementation",
+        "Symptom_Category": "General",
+        "Linked_Product_Count": 7,
+        "Display_Group": "General",
+        "Priority_For_Graph": 70,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "symptom:S076",
+      "nodeType": "symptom",
+      "refId": "S076",
+      "label": "wellness",
+      "subtext": "General",
+      "meta": {
+        "Symptom_ID": "S076",
+        "Symptom_Name": "wellness",
+        "Symptom_Category": "General",
+        "Linked_Product_Count": 3,
+        "Display_Group": "General",
+        "Priority_For_Graph": 70,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "4a1fac6da20139e3",
+      "source": "product:P0431",
+      "target": "symptom:S066",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 85,
+      "why": "Manual review fix",
+      "meta": {
+        "mapId": "PSM01793"
+      }
+    },
+    {
+      "key": "dcb857256dccbe20",
+      "source": "product:P0431",
+      "target": "symptom:S076",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 70,
+      "why": "Manual review fix",
+      "meta": {
+        "mapId": "PSM01794"
+      }
+    }
+  ],
+  "meta": {
+    "productName": "STIMOL 1g/10ml, oral solution in sachet",
+    "linkCount": 1
+  }
+}
