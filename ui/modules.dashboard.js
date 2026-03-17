@@ -213,7 +213,53 @@
       ".eikon-dash-mini-table th{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.2px}" +
       "@media (max-width:520px){.eikon-dash-sub{max-width:78vw}.eikon-dash-right{gap:6px}.eikon-dash-btn{padding:7px 9px}}" +
       "@keyframes eikon-dash-flash{0%,100%{border-color:rgba(255,90,122,.55);box-shadow:0 0 8px rgba(255,90,122,.25)}50%{border-color:rgba(255,90,122,.15);box-shadow:none}}" +
-      ".eikon-dash-item-flash{animation:eikon-dash-flash 1s ease-in-out infinite}";
+      ".eikon-dash-item-flash{animation:eikon-dash-flash 1s ease-in-out infinite}" +
+      /* --- OTC Cross Sell widget --- */
+      ".eikon-dash-xsell{position:relative}" +
+      ".eikon-dash-xsell-search{position:relative;margin-bottom:10px}" +
+      ".eikon-dash-xsell-search input{width:100%;padding:9px 14px 9px 34px;border:1px solid var(--border);background:rgba(0,0,0,.28);color:var(--text);border-radius:10px;font-size:13px;outline:none}" +
+      ".eikon-dash-xsell-search input:focus{border-color:var(--accent)}" +
+      ".eikon-dash-xsell-search .xsell-ico{position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:13px;pointer-events:none;opacity:.5}" +
+      ".eikon-dash-xsell-dd{position:absolute;top:100%;left:0;right:0;margin-top:4px;background:#1a2640;border:1px solid rgba(255,255,255,.16);border-radius:10px;max-height:220px;overflow-y:auto;box-shadow:0 12px 36px rgba(0,0,0,.5);z-index:120;display:none}" +
+      ".eikon-dash-xsell-dd.open{display:block}" +
+      ".xsell-dd-item{padding:10px 14px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;border-left:3px solid transparent;transition:background .08s}" +
+      ".xsell-dd-item:hover,.xsell-dd-item.hl{background:rgba(46,229,157,.18);border-left-color:#2ee59d;color:#fff}" +
+      ".xsell-dd-item .xdd-type{font-size:10px;padding:2px 7px;border-radius:6px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;flex-shrink:0}" +
+      ".xsell-dd-item .xdd-type.product{background:rgba(46,229,157,.15);color:#6af0be}" +
+      ".xsell-dd-item .xdd-type.symptom{background:rgba(255,204,102,.15);color:#ffcc66}" +
+      ".xsell-dd-item .xdd-type.usecase{background:rgba(185,142,255,.15);color:#d9c4ff}" +
+      ".xsell-dd-item .xdd-type.bundle{background:rgba(36,215,215,.15);color:#baf3ff}" +
+      ".eikon-dash-xsell-selected{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid rgba(46,229,157,.3);border-radius:12px;background:rgba(46,229,157,.06);margin-bottom:10px}" +
+      ".eikon-dash-xsell-selected .xs-name{flex:1;font-size:13px;font-weight:800;color:#6af0be}" +
+      ".eikon-dash-xsell-selected .xs-clear{background:none;border:1px solid rgba(255,255,255,.12);color:var(--muted);width:24px;height:24px;border-radius:6px;cursor:pointer;font-size:14px}" +
+      ".eikon-dash-xsell-selected .xs-clear:hover{background:rgba(255,255,255,.08);color:#fff}" +
+      "@keyframes xsell-flash{0%,100%{box-shadow:0 0 8px rgba(46,229,157,.3)}50%{box-shadow:0 0 22px rgba(46,229,157,.85),0 0 40px rgba(46,229,157,.35)}}" +
+      ".eikon-dash-xsell-open{padding:9px 16px;border:1px solid rgba(46,229,157,.4);border-radius:10px;background:rgba(46,229,157,.08);color:#6af0be;font-size:12px;font-weight:800;cursor:pointer;display:none;align-items:center;gap:7px;transition:background .15s}" +
+      ".eikon-dash-xsell-open:hover{background:rgba(46,229,157,.18)}" +
+      ".eikon-dash-xsell-open.visible{display:inline-flex}" +
+      ".eikon-dash-xsell-open.flash{animation:xsell-flash .7s ease-in-out 3}" +
+      /* --- Cross Sell modal (reuses mindmap look) --- */
+      ".xsell-modal-overlay{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}" +
+      ".xsell-modal-overlay.open{opacity:1;pointer-events:auto}" +
+      ".xsell-modal{width:620px;max-width:92vw;max-height:80vh;display:flex;flex-direction:column;border:1px solid rgba(255,255,255,.16);border-radius:16px;background:linear-gradient(170deg,#1a2640,#111a2c);box-shadow:0 24px 64px rgba(0,0,0,.6);color:var(--text)}" +
+      ".xsell-modal-hd{display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid rgba(255,255,255,.1)}" +
+      ".xsell-modal-hd h3{margin:0;font-size:15px;font-weight:900;flex:1;color:#6af0be}" +
+      ".xsell-modal-close{background:none;border:1px solid rgba(255,255,255,.1);color:rgba(170,183,214,.72);width:30px;height:30px;border-radius:8px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center}" +
+      ".xsell-modal-close:hover{background:rgba(255,255,255,.08);color:#fff}" +
+      ".xsell-modal-body{padding:16px 20px;overflow-y:auto;flex:1}" +
+      ".xsell-section{margin-bottom:16px}" +
+      ".xsell-section-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:rgba(170,183,214,.72);margin-bottom:8px}" +
+      ".xsell-chips{display:flex;flex-wrap:wrap;gap:6px}" +
+      ".xsell-chip{padding:6px 12px;border:1px solid rgba(255,255,255,.16);border-radius:999px;font-size:11px;font-weight:700;cursor:pointer;background:rgba(255,255,255,.03);color:rgba(170,183,214,.72);transition:all .12s}" +
+      ".xsell-chip:hover{background:rgba(255,204,102,.1);border-color:rgba(255,204,102,.3)}" +
+      ".xsell-chip.active{background:rgba(255,204,102,.18);border-color:#ffcc66;color:#ffe6a0}" +
+      ".xsell-comp-list{display:flex;flex-direction:column;gap:4px}" +
+      ".xsell-comp-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid rgba(255,255,255,.1);border-radius:10px;background:rgba(255,255,255,.04);cursor:pointer;transition:background .12s,border-color .12s}" +
+      ".xsell-comp-row:hover{background:rgba(46,229,157,.08);border-color:rgba(46,229,157,.3)}" +
+      ".xsell-comp-row .xc-score{font-size:10px;font-weight:800;padding:3px 8px;border-radius:6px;background:rgba(46,229,157,.15);color:#6af0be;flex-shrink:0}" +
+      ".xsell-comp-row .xc-name{flex:1;font-size:13px;font-weight:700;color:#dbe7ff}" +
+      ".xsell-comp-row .xc-reason{font-size:11px;color:rgba(170,183,214,.72);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}" +
+      ".xsell-comp-empty{padding:24px;text-align:center;color:rgba(170,183,214,.72);font-size:12px}";
     document.head.appendChild(st);
   }
 
@@ -2114,6 +2160,330 @@
   }
 
   // ----------------------------
+  // OTC Cross Sell logic
+  // ----------------------------
+  var xsell = {
+    searchIndex: null,
+    cache: new Map(),
+    currentData: null,
+    selectedId: null
+  };
+
+  var XSELL_DATA_BASE = (window.EIKON_PRODUCTMAP_BASE || "").replace(/\/$/, "");
+  function xsellAsset(path) { return (XSELL_DATA_BASE ? XSELL_DATA_BASE + "/" : "") + path.replace(/^\//, ""); }
+
+  function xsellFetchJson(path) {
+    return fetch(xsellAsset(path), { cache: "force-cache" }).then(function (r) {
+      if (!r.ok) throw new Error("Failed to load " + path);
+      return r.json();
+    });
+  }
+
+  function xsellLoadSearchIndex() {
+    if (xsell.searchIndex) return Promise.resolve(xsell.searchIndex);
+    return xsellFetchJson("productmap-data/search-index.json").then(function (idx) { xsell.searchIndex = idx; return idx; });
+  }
+
+  function xsellLoadNeighborhood(centerId) {
+    var parts = String(centerId || "").split(":");
+    var type = parts[0], refId = parts[1];
+    var key = type + ":" + refId;
+    if (xsell.cache.has(key)) return Promise.resolve(xsell.cache.get(key));
+    var typePath = type === "product" ? "product" : (type === "symptom" ? "symptom" : (type === "usecase" ? "usecase" : "bundle"));
+    return xsellFetchJson("productmap-data/neighbours/" + typePath + "/" + refId + ".json").then(function (data) {
+      xsell.cache.set(key, data); return data;
+    });
+  }
+
+  function xsellNorm(s) { return String(s || "").trim().toLowerCase(); }
+
+  function xsellDoSearch(q) {
+    q = xsellNorm(q);
+    if (!q || !xsell.searchIndex) return [];
+    var words = q.split(/\s+/).filter(Boolean);
+    var results = [];
+    for (var i = 0; i < xsell.searchIndex.length; i++) {
+      var it = xsell.searchIndex[i];
+      var hay = xsellNorm(it.label + " " + (it.searchText || ""));
+      var score = 0;
+      if (xsellNorm(it.label) === q) score = 120;
+      else if (xsellNorm(it.label).indexOf(q) === 0) score = 100;
+      else if (hay.indexOf(q) >= 0) score = 80;
+      else {
+        var matched = 0;
+        for (var w = 0; w < words.length; w++) if (hay.indexOf(words[w]) >= 0) matched++;
+        if (matched > 0) score = 40 + (matched / words.length) * 30;
+      }
+      if (score > 0) results.push({ item: it, score: score + (it.priority || 0) * 0.01 });
+    }
+    results.sort(function (a, b) { return b.score - a.score; });
+    return results.slice(0, 15);
+  }
+
+  function xsellShowDropdown(results, ddEl) {
+    if (!ddEl) return;
+    if (!results.length) { ddEl.classList.remove("open"); return; }
+    ddEl.innerHTML = "";
+    for (var i = 0; i < results.length; i++) {
+      var r = results[i];
+      var item = document.createElement("div");
+      item.className = "xsell-dd-item";
+      item.setAttribute("data-idx", i);
+      item.innerHTML = '<span class="xdd-type ' + esc(r.item.nodeType) + '">' + esc(r.item.nodeType) + '</span><span>' + esc(r.item.label) + '</span>';
+      (function (nodeId, label) {
+        item.addEventListener("click", function () {
+          xsellSelect(nodeId, label);
+          ddEl.classList.remove("open");
+        });
+      })(r.item.id, r.item.label);
+      ddEl.appendChild(item);
+    }
+    ddEl.classList.add("open");
+  }
+
+  function xsellSelect(nodeId, label) {
+    var mount = state.mount;
+    if (!mount) return;
+    var input = mount.querySelector(".xsell-input");
+    var selEl = mount.querySelector(".eikon-dash-xsell-selected");
+    var openBtn = mount.querySelector(".eikon-dash-xsell-open");
+
+    if (input) input.value = "";
+
+    xsellLoadNeighborhood(nodeId).then(function (data) {
+      xsell.currentData = data;
+      xsell.selectedId = nodeId;
+
+      // Find the center node label
+      var centerLabel = label;
+      for (var i = 0; i < data.nodes.length; i++) {
+        if (data.nodes[i].id === data.centerId) { centerLabel = data.nodes[i].label; break; }
+      }
+
+      // Check for complements
+      var hasComp = false;
+      for (var j = 0; j < data.links.length; j++) {
+        if (data.links[j].rel === "complement") { hasComp = true; break; }
+      }
+
+      // Show selected item
+      if (selEl) {
+        selEl.innerHTML = '<span class="xs-name">💊 ' + esc(centerLabel) + '</span><button class="xs-clear" title="Clear selection">&times;</button>';
+        selEl.style.display = "flex";
+        selEl.querySelector(".xs-clear").addEventListener("click", function () {
+          xsellClear();
+        });
+      }
+
+      // Show/flash the open button
+      if (openBtn && hasComp) {
+        openBtn.classList.add("visible");
+        openBtn.classList.remove("flash");
+        void openBtn.offsetWidth;
+        openBtn.classList.add("flash");
+      } else if (openBtn) {
+        openBtn.classList.remove("visible", "flash");
+      }
+    });
+  }
+
+  function xsellClear() {
+    var mount = state.mount;
+    if (!mount) return;
+    xsell.currentData = null;
+    xsell.selectedId = null;
+    var selEl = mount.querySelector(".eikon-dash-xsell-selected");
+    var openBtn = mount.querySelector(".eikon-dash-xsell-open");
+    if (selEl) { selEl.style.display = "none"; selEl.innerHTML = ""; }
+    if (openBtn) openBtn.classList.remove("visible", "flash");
+  }
+
+  function xsellGetComplementData() {
+    var data = xsell.currentData;
+    if (!data) return { symptoms: [], complements: [] };
+    var centerId = data.centerId;
+    var symptoms = [], complements = [];
+    for (var i = 0; i < data.links.length; i++) {
+      var l = data.links[i];
+      if (l.rel === "symptom") {
+        var sId = l.source === centerId ? l.target : l.source;
+        for (var j = 0; j < data.nodes.length; j++) {
+          if (data.nodes[j].id === sId) { symptoms.push(data.nodes[j]); break; }
+        }
+      }
+      if (l.rel === "complement") {
+        var cId = l.source === centerId ? l.target : l.source;
+        for (var k = 0; k < data.nodes.length; k++) {
+          if (data.nodes[k].id === cId) {
+            complements.push({ node: data.nodes[k], score: l.score || 0, label: l.label || "", why: l.why || "", trigger: (l.meta && l.meta.triggerContext) || "" });
+            break;
+          }
+        }
+      }
+    }
+    complements.sort(function (a, b) { return b.score - a.score; });
+    return { symptoms: symptoms, complements: complements };
+  }
+
+  function xsellOpenModal() {
+    var mount = state.mount;
+    if (!mount) return;
+    var overlay = mount.querySelector(".xsell-modal-overlay");
+    if (!overlay) overlay = document.querySelector(".xsell-modal-overlay");
+    if (!overlay) return;
+
+    var data = xsellGetComplementData();
+    var chipsEl = overlay.querySelector(".xsell-chips");
+    var listEl = overlay.querySelector(".xsell-comp-list");
+    var selected = {};
+
+    // Update heading
+    var hd = overlay.querySelector(".xsell-modal-hd h3");
+    if (hd && xsell.currentData) {
+      var centerNode = null;
+      for (var n = 0; n < xsell.currentData.nodes.length; n++) {
+        if (xsell.currentData.nodes[n].id === xsell.currentData.centerId) { centerNode = xsell.currentData.nodes[n]; break; }
+      }
+      hd.textContent = "➕ Complements for " + (centerNode ? centerNode.label : "");
+    }
+
+    // Build symptom chips
+    chipsEl.innerHTML = "";
+    if (data.symptoms.length === 0) {
+      chipsEl.innerHTML = '<span style="color:rgba(170,183,214,.72);font-size:11px">No symptoms linked to this item</span>';
+    }
+    for (var i = 0; i < data.symptoms.length; i++) {
+      var chip = document.createElement("span");
+      chip.className = "xsell-chip";
+      chip.textContent = data.symptoms[i].label;
+      chip.setAttribute("data-id", data.symptoms[i].id);
+      (function (chipEl, sId) {
+        chipEl.addEventListener("click", function () {
+          if (selected[sId]) { delete selected[sId]; chipEl.classList.remove("active"); }
+          else { selected[sId] = true; chipEl.classList.add("active"); }
+          xsellRenderCompList(data, selected, listEl);
+        });
+      })(chip, data.symptoms[i].id);
+      chipsEl.appendChild(chip);
+    }
+
+    xsellRenderCompList(data, selected, listEl);
+    overlay.classList.add("open");
+  }
+
+  function xsellRenderCompList(data, selected, listEl) {
+    listEl.innerHTML = "";
+    var activeSymptoms = Object.keys(selected);
+    var filtered = data.complements;
+
+    if (activeSymptoms.length > 0) {
+      var symptomLabels = [];
+      for (var s = 0; s < data.symptoms.length; s++) {
+        if (selected[data.symptoms[s].id]) symptomLabels.push(xsellNorm(data.symptoms[s].label));
+      }
+      filtered = data.complements.filter(function (c) {
+        var t = xsellNorm(c.trigger + " " + c.label + " " + c.why);
+        for (var si = 0; si < symptomLabels.length; si++) {
+          var words = symptomLabels[si].split(/\s+/);
+          for (var wi = 0; wi < words.length; wi++) {
+            if (words[wi].length > 3 && t.indexOf(words[wi]) >= 0) return true;
+          }
+        }
+        return false;
+      });
+    }
+
+    if (filtered.length === 0) {
+      listEl.innerHTML = '<div class="xsell-comp-empty">' + (activeSymptoms.length > 0 ? 'No complementary items match the selected symptoms. Try removing a filter.' : 'No complementary items available.') + '</div>';
+      return;
+    }
+
+    for (var i = 0; i < filtered.length; i++) {
+      var c = filtered[i];
+      var row = document.createElement("div");
+      row.className = "xsell-comp-row";
+      row.innerHTML =
+        '<span class="xc-score">' + c.score + '</span>' +
+        '<span class="xc-name">' + esc(c.node.label) + '</span>' +
+        (c.label ? '<span class="xc-reason" title="' + esc(c.why || c.label) + '">' + esc(c.label) + '</span>' : '');
+      (function (nodeId, label) {
+        row.addEventListener("click", function () {
+          xsellCloseModal();
+          xsellSelect(nodeId, label);
+        });
+      })(c.node.id, c.node.label);
+      listEl.appendChild(row);
+    }
+  }
+
+  function xsellCloseModal() {
+    var overlay = state.mount && state.mount.querySelector(".xsell-modal-overlay");
+    if (!overlay) overlay = document.querySelector(".xsell-modal-overlay");
+    if (overlay) overlay.classList.remove("open");
+  }
+
+  function bindXsellSearch(mount) {
+    var input = mount.querySelector(".xsell-input");
+    var ddEl = mount.querySelector(".eikon-dash-xsell-dd");
+    var openBtn = mount.querySelector(".eikon-dash-xsell-open");
+    var overlay = mount.querySelector(".xsell-modal-overlay");
+    if (!overlay) overlay = document.querySelector(".xsell-modal-overlay");
+
+    if (!input || !ddEl) return;
+
+    xsellLoadSearchIndex();
+
+    var timer = null;
+    input.addEventListener("input", function () {
+      clearTimeout(timer);
+      timer = setTimeout(function () {
+        var q = input.value.trim();
+        if (q.length < 2) { ddEl.classList.remove("open"); return; }
+        xsellShowDropdown(xsellDoSearch(q), ddEl);
+      }, 120);
+    });
+
+    input.addEventListener("keydown", function (ev) {
+      if (ev.key === "Escape") ddEl.classList.remove("open");
+      if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
+        ev.preventDefault();
+        var items = ddEl.querySelectorAll(".xsell-dd-item");
+        if (!items.length) return;
+        var cur = ddEl.querySelector(".xsell-dd-item.hl");
+        var idx = -1;
+        if (cur) { idx = parseInt(cur.getAttribute("data-idx"), 10); cur.classList.remove("hl"); }
+        idx = ev.key === "ArrowDown" ? idx + 1 : idx - 1;
+        if (idx < 0) idx = items.length - 1;
+        if (idx >= items.length) idx = 0;
+        items[idx].classList.add("hl");
+        items[idx].scrollIntoView({ block: "nearest" });
+      }
+      if (ev.key === "Enter") {
+        var hl = ddEl.querySelector(".xsell-dd-item.hl");
+        if (hl) { hl.click(); return; }
+        var q = input.value.trim(), results = xsellDoSearch(q);
+        if (results.length) {
+          xsellSelect(results[0].item.id, results[0].item.label);
+          ddEl.classList.remove("open");
+        }
+      }
+    });
+
+    document.addEventListener("click", function (ev) {
+      if (ddEl && !ddEl.contains(ev.target) && ev.target !== input) ddEl.classList.remove("open");
+    });
+
+    if (openBtn) {
+      openBtn.addEventListener("click", function () { xsellOpenModal(); });
+    }
+
+    if (overlay) {
+      overlay.querySelector(".xsell-modal-close").addEventListener("click", function () { xsellCloseModal(); });
+      overlay.addEventListener("click", function (ev) { if (ev.target === overlay) xsellCloseModal(); });
+    }
+  }
+
+  // ----------------------------
   // Click handler
   // ----------------------------
   function handleClick(e) {
@@ -2194,11 +2564,32 @@
             '<div class="eikon-dash-list" id="dash-attn"></div>' +
           "</div>" +
 
+          '<div class="eikon-card eikon-dash-card eikon-dash-xsell">' +
+            '<div class="eikon-dash-card-title">OTC Cross Sell</div>' +
+            '<div class="eikon-dash-xsell-search">' +
+              '<span class="xsell-ico">🔍</span>' +
+              '<input type="text" class="xsell-input" placeholder="Search a product to find cross-sell complements…" autocomplete="off" spellcheck="false">' +
+              '<div class="eikon-dash-xsell-dd"></div>' +
+            '</div>' +
+            '<div class="eikon-dash-xsell-selected" style="display:none"></div>' +
+            '<button class="eikon-dash-xsell-open">➕ Show Complementary Items</button>' +
+          "</div>" +
+
           '<div class="eikon-card eikon-dash-card eikon-dash-card-wide">' +
             '<div class="eikon-dash-card-title">Operations</div>' +
             '<div class="eikon-dash-list" id="dash-ops"></div>' +
           "</div>" +
         "</div>" +
+
+        '<div class="xsell-modal-overlay">' +
+          '<div class="xsell-modal">' +
+            '<div class="xsell-modal-hd"><h3>➕ Complementary Items</h3><button class="xsell-modal-close">&times;</button></div>' +
+            '<div class="xsell-modal-body">' +
+              '<div class="xsell-section"><div class="xsell-section-label">Filter by symptom</div><div class="xsell-chips"></div></div>' +
+              '<div class="xsell-section"><div class="xsell-section-label">Complementary products</div><div class="xsell-comp-list"></div></div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
       "</div>";
 
     // bind only once per mount
@@ -2206,6 +2597,9 @@
       mount.addEventListener("click", handleClick);
       mount.__eikonDashBound = true;
     }
+
+    // OTC Cross Sell search bindings
+    bindXsellSearch(mount);
 
     // ✅ BUG 1 FIX: do NOT set loading=true here (refreshAll would bail out)
     state.loading = false; // ensure refreshAll() can run (avoid deadlock)
