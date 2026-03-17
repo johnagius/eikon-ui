@@ -2177,6 +2177,28 @@
   // ----------------------------
   var RX_FREQUENCIES = ["Once daily", "Twice daily", "Three times daily", "Four times daily", "Every morning", "Every evening", "Every 4 hours", "Every 6 hours", "Every 8 hours", "Every 12 hours", "Once weekly", "As needed", "As directed"];
   var RX_ROUTES = ["Oral", "Topical", "Sublingual", "Rectal", "Inhaled", "Nasal", "Ophthalmic", "Otic"];
+  var RX_WARNINGS = [
+    { id: "w01", en: "Take with food" },
+    { id: "w02", en: "Take on an empty stomach" },
+    { id: "w03", en: "May cause drowsiness" },
+    { id: "w04", en: "Do not drive or operate machinery" },
+    { id: "w05", en: "Keep refrigerated (2-8\u00B0C)" },
+    { id: "w06", en: "Shake well before use" },
+    { id: "w07", en: "For external use only" },
+    { id: "w08", en: "Avoid alcohol" },
+    { id: "w09", en: "Avoid prolonged sun exposure" },
+    { id: "w10", en: "Complete the full course" },
+    { id: "w11", en: "Swallow whole, do not crush" },
+    { id: "w12", en: "Dissolve under the tongue" },
+    { id: "w13", en: "Take at bedtime" },
+    { id: "w14", en: "Take in the morning" },
+    { id: "w15", en: "Store below 25\u00B0C" },
+    { id: "w16", en: "Keep out of reach of children" },
+    { id: "w17", en: "Do not stop taking without medical advice" },
+    { id: "w18", en: "May cause dizziness" },
+    { id: "w19", en: "Take with plenty of water" },
+    { id: "w20", en: "Not suitable during pregnancy" }
+  ];
 
   function openRxLabelModal() {
     var freqOpts = RX_FREQUENCIES.map(function (f) { return '<option>' + esc(f) + '</option>'; }).join("");
@@ -2195,6 +2217,12 @@
           '</div>' +
           '<div style="margin-bottom:10px"><select class="eikon-input" id="dash-rx-freq" style="width:100%">' + freqOpts + '</select></div>' +
           '<div style="margin-bottom:10px"><input class="eikon-input" id="dash-rx-instructions" placeholder="Custom instructions (optional)" style="width:100%" /></div>' +
+          '<div style="margin-bottom:6px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted)">Warning / Advisory Labels</div>' +
+          '<div id="dash-rx-warnings" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px">' +
+            RX_WARNINGS.map(function (w) {
+              return '<span class="eikon-pill" data-wid="' + esc(w.id) + '" style="cursor:pointer;padding:5px 10px;border-radius:16px;font-size:11px;font-weight:600;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--muted);transition:all .12s;user-select:none">' + esc(w.en) + '</span>';
+            }).join("") +
+          '</div>' +
         '</div>' +
       '</div>';
 
@@ -2214,6 +2242,15 @@
           var frequency = document.getElementById("dash-rx-freq").value;
           var instructions = (document.getElementById("dash-rx-instructions").value || "").trim();
 
+          // collect selected warnings
+          var selectedWarnings = [];
+          var warnContainer = document.getElementById("dash-rx-warnings");
+          if (warnContainer) {
+            warnContainer.querySelectorAll(".eikon-pill.rx-warn-on").forEach(function (el) {
+              selectedWarnings.push(el.getAttribute("data-wid"));
+            });
+          }
+
           // build label state and save via labels API
           var entry = {
             id: "lb_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8),
@@ -2223,7 +2260,7 @@
             route: route,
             frequency: frequency,
             customInstructions: instructions,
-            selectedWarnings: [],
+            selectedWarnings: selectedWarnings,
             templateId: "tpl_std",
             printedAt: (function () { var d = new Date(), p = function (n) { return String(n).padStart(2, "0"); }; return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + " " + p(d.getHours()) + ":" + p(d.getMinutes()); })(),
             printedBy: E.state.user ? (E.state.user.full_name || E.state.user.email) : "Unknown"
@@ -2261,6 +2298,14 @@
               if (doseFreq) h += '<div><b>Dose/Freq:</b> ' + doseFreq + '</div>';
               if (route) h += '<div><b>Route:</b> ' + esc(route) + '</div>';
               if (instructions) h += '<div><b>Note:</b> ' + esc(instructions) + '</div>';
+              // warnings on printed label
+              if (selectedWarnings.length > 0) {
+                RX_WARNINGS.forEach(function (w) {
+                  if (selectedWarnings.indexOf(w.id) !== -1) {
+                    h += '<div style="font-weight:700;font-size:.85em;">\u26A0 ' + esc(w.en) + '</div>';
+                  }
+                });
+              }
               var dd = new Date(), pp = function (n) { return String(n).padStart(2, "0"); };
               var dateStr = pp(dd.getDate()) + "/" + pp(dd.getMonth() + 1) + "/" + dd.getFullYear();
               h += '<div style="font-size:.85em;color:#333;">' + dateStr;
@@ -2294,13 +2339,31 @@
       }
     ]);
 
-    // bind patient checkbox toggle after modal is shown
+    // bind patient checkbox toggle + warning pills after modal is shown
     setTimeout(function () {
       var cb = document.getElementById("dash-rx-inc-patient");
       var fld = document.getElementById("dash-rx-patient-fld");
       if (cb && fld) {
         cb.addEventListener("change", function () {
           fld.style.display = cb.checked ? "" : "none";
+        });
+      }
+      // warning pill toggles
+      var warnContainer = document.getElementById("dash-rx-warnings");
+      if (warnContainer) {
+        warnContainer.querySelectorAll(".eikon-pill").forEach(function (pill) {
+          pill.addEventListener("click", function () {
+            pill.classList.toggle("rx-warn-on");
+            if (pill.classList.contains("rx-warn-on")) {
+              pill.style.background = "rgba(255,204,102,.18)";
+              pill.style.borderColor = "#ffcc66";
+              pill.style.color = "#ffcc66";
+            } else {
+              pill.style.background = "rgba(255,255,255,.04)";
+              pill.style.borderColor = "";
+              pill.style.color = "";
+            }
+          });
         });
       }
       var drugEl = document.getElementById("dash-rx-drug");
