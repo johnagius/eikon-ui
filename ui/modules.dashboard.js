@@ -2421,7 +2421,17 @@
   }
 
   function xsellBrand(c) {
-    return (c.node.meta && c.node.meta.brand) || c.node.label.split(/\s/)[0] || "Other";
+    var brand = (c.node.meta && c.node.meta.brand) || "";
+    var label = c.node.label || "";
+    // If brand is a fragment of a hyphenated word (e.g. "NO" from "NO-SPA"),
+    // extract the full hyphenated token from the label instead
+    if (brand && label) {
+      var firstToken = label.split(/[\s,]+/)[0] || "";
+      if (firstToken.toLowerCase().indexOf(brand.toLowerCase()) === 0 && firstToken.length > brand.length) {
+        return firstToken;
+      }
+    }
+    return brand || label.split(/[\s,]+/)[0] || "Other";
   }
 
   function xsellMakeRow(c) {
@@ -2561,7 +2571,7 @@
     // Group by brand, same as complements (case-insensitive key, preserve display label)
     var brandOrder = [], brandMap = {}, brandDisplay = {};
     for (var i = 0; i < filtered.length; i++) {
-      var brand = (filtered[i].node.meta && filtered[i].node.meta.brand) || filtered[i].node.label.split(/\s/)[0] || "Other";
+      var brand = xsellBrand(filtered[i]);
       var brandKey = brand.toLowerCase();
       if (!brandMap[brandKey]) { brandMap[brandKey] = []; brandOrder.push(brandKey); brandDisplay[brandKey] = brand; }
       brandMap[brandKey].push(filtered[i]);
