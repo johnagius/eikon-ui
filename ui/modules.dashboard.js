@@ -2554,25 +2554,24 @@
         "</div>" +
 
         '<div class="eikon-dash-grid">' +
-          '<div class="eikon-card eikon-dash-card">' +
+          '<div class="eikon-card eikon-dash-card eikon-dash-xsell">' +
             '<div class="eikon-dash-card-title">Today</div>' +
+            '<div style="margin-bottom:10px">' +
+              '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin-bottom:6px">OTC Cross Sell</div>' +
+              '<div class="eikon-dash-xsell-search">' +
+                '<span class="xsell-ico">🔍</span>' +
+                '<input type="text" class="xsell-input" placeholder="Search a product to find cross-sell complements…" autocomplete="off" spellcheck="false">' +
+                '<div class="eikon-dash-xsell-dd"></div>' +
+              '</div>' +
+              '<div class="eikon-dash-xsell-selected" style="display:none"></div>' +
+              '<button class="eikon-dash-xsell-open">➕ Show Complementary Items</button>' +
+            '</div>' +
             '<div class="eikon-dash-list" id="dash-today"></div>' +
           "</div>" +
 
           '<div class="eikon-card eikon-dash-card">' +
             '<div class="eikon-dash-card-title">Attention</div>' +
             '<div class="eikon-dash-list" id="dash-attn"></div>' +
-          "</div>" +
-
-          '<div class="eikon-card eikon-dash-card eikon-dash-xsell">' +
-            '<div class="eikon-dash-card-title">OTC Cross Sell</div>' +
-            '<div class="eikon-dash-xsell-search">' +
-              '<span class="xsell-ico">🔍</span>' +
-              '<input type="text" class="xsell-input" placeholder="Search a product to find cross-sell complements…" autocomplete="off" spellcheck="false">' +
-              '<div class="eikon-dash-xsell-dd"></div>' +
-            '</div>' +
-            '<div class="eikon-dash-xsell-selected" style="display:none"></div>' +
-            '<button class="eikon-dash-xsell-open">➕ Show Complementary Items</button>' +
           "</div>" +
 
           '<div class="eikon-card eikon-dash-card eikon-dash-card-wide">' +
