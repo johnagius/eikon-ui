@@ -1152,42 +1152,6 @@
     "Review_Status": "Seeded"
   },
   {
-    "Map_ID": "PSM00097",
-    "Product_ID": "P0026",
-    "Product_Name": "Aspirem Tablets Gastro-Resistant 75mg",
-    "Symptom_ID": "S053",
-    "Symptom_Name": "review needed",
-    "Symptom_Category": "Review queue",
-    "Relevance_Score": 100,
-    "Role_In_Symptom": "Primary",
-    "Map_Source": "Imported symptom tags",
-    "Review_Status": "Seeded"
-  },
-  {
-    "Map_ID": "PSM00098",
-    "Product_ID": "P0027",
-    "Product_Name": "Aspirin 75mg Gastro-resistant Tablets",
-    "Symptom_ID": "S053",
-    "Symptom_Name": "review needed",
-    "Symptom_Category": "Review queue",
-    "Relevance_Score": 100,
-    "Role_In_Symptom": "Primary",
-    "Map_Source": "Imported symptom tags",
-    "Review_Status": "Seeded"
-  },
-  {
-    "Map_ID": "PSM00099",
-    "Product_ID": "P0028",
-    "Product_Name": "Avarante Prescription Free 10 mg film-coated tablets",
-    "Symptom_ID": "S053",
-    "Symptom_Name": "review needed",
-    "Symptom_Category": "Review queue",
-    "Relevance_Score": 100,
-    "Role_In_Symptom": "Primary",
-    "Map_Source": "Imported symptom tags",
-    "Review_Status": "Seeded"
-  },
-  {
     "Map_ID": "PSM00100",
     "Product_ID": "P0029",
     "Product_Name": "Avoca Caustic Applicator 95%  Silver Nitrate",
@@ -1316,18 +1280,6 @@
     "Symptom_Category": "Skin",
     "Relevance_Score": 85,
     "Role_In_Symptom": "Secondary",
-    "Map_Source": "Imported symptom tags",
-    "Review_Status": "Seeded"
-  },
-  {
-    "Map_ID": "PSM00111",
-    "Product_ID": "P0033",
-    "Product_Name": "BIAFINE, emulsion for cutaneous application",
-    "Symptom_ID": "S053",
-    "Symptom_Name": "review needed",
-    "Symptom_Category": "Review queue",
-    "Relevance_Score": 100,
-    "Role_In_Symptom": "Primary",
     "Map_Source": "Imported symptom tags",
     "Review_Status": "Seeded"
   },
@@ -1940,30 +1892,6 @@
     "Symptom_Category": "Gastrointestinal",
     "Relevance_Score": 85,
     "Role_In_Symptom": "Secondary",
-    "Map_Source": "Imported symptom tags",
-    "Review_Status": "Seeded"
-  },
-  {
-    "Map_ID": "PSM00163",
-    "Product_ID": "P0050",
-    "Product_Name": "Biodramina Chewing-gum",
-    "Symptom_ID": "S053",
-    "Symptom_Name": "review needed",
-    "Symptom_Category": "Review queue",
-    "Relevance_Score": 100,
-    "Role_In_Symptom": "Primary",
-    "Map_Source": "Imported symptom tags",
-    "Review_Status": "Seeded"
-  },
-  {
-    "Map_ID": "PSM00164",
-    "Product_ID": "P0051",
-    "Product_Name": "Biodramina Tablets",
-    "Symptom_ID": "S053",
-    "Symptom_Name": "review needed",
-    "Symptom_Category": "Review queue",
-    "Relevance_Score": 100,
-    "Role_In_Symptom": "Primary",
     "Map_Source": "Imported symptom tags",
     "Review_Status": "Seeded"
   },
@@ -2760,18 +2688,6 @@
     "Review_Status": "Seeded"
   },
   {
-    "Map_ID": "PSM00231",
-    "Product_ID": "P0066",
-    "Product_Name": "CICLOVIRAL 50 mg/g Cream",
-    "Symptom_ID": "S053",
-    "Symptom_Name": "review needed",
-    "Symptom_Category": "Review queue",
-    "Relevance_Score": 100,
-    "Role_In_Symptom": "Primary",
-    "Map_Source": "Imported symptom tags",
-    "Review_Status": "Seeded"
-  },
-  {
     "Map_ID": "PSM00232",
     "Product_ID": "P0067",
     "Product_Name": "CLARITYNE 10 mg tablets",
@@ -2863,18 +2779,6 @@
     "Symptom_Name": "supplementation",
     "Symptom_Category": "General",
     "Relevance_Score": 92,
-    "Role_In_Symptom": "Primary",
-    "Map_Source": "Imported symptom tags",
-    "Review_Status": "Seeded"
-  },
-  {
-    "Map_ID": "PSM00240",
-    "Product_ID": "P0070",
-    "Product_Name": "Calmaben 50mg coated tablets",
-    "Symptom_ID": "S053",
-    "Symptom_Name": "review needed",
-    "Symptom_Category": "Review queue",
-    "Relevance_Score": 100,
     "Role_In_Symptom": "Primary",
     "Map_Source": "Imported symptom tags",
     "Review_Status": "Seeded"
@@ -5136,18 +5040,6 @@
     "Review_Status": "Seeded"
   },
   {
-    "Map_ID": "PSM00429",
-    "Product_ID": "P0130",
-    "Product_Name": "Dentinox Infant Colic Drops 21 mg/2.5 ml Oral Suspension",
-    "Symptom_ID": "S053",
-    "Symptom_Name": "review needed",
-    "Symptom_Category": "Review queue",
-    "Relevance_Score": 100,
-    "Role_In_Symptom": "Primary",
-    "Map_Source": "Imported symptom tags",
-    "Review_Status": "Seeded"
-  },
-  {
     "Map_ID": "PSM00430",
     "Product_ID": "P0131",
     "Product_Name": "Deratin Complex lozenges honey and lemon flavour",
@@ -6180,18 +6072,6 @@
     "Review_Status": "Seeded"
   },
   {
-    "Map_ID": "PSM00516",
-    "Product_ID": "P0158",
-    "Product_Name": "E45 Cream White Soft Paraffin 14.5% w/w Light Liquid Paraffin 12.6% w/w Anhydrous Lanolin 1.0% w/w",
-    "Symptom_ID": "S053",
-    "Symptom_Name": "review needed",
-    "Symptom_Category": "Review queue",
-    "Relevance_Score": 100,
-    "Role_In_Symptom": "Primary",
-    "Map_Source": "Imported symptom tags",
-    "Review_Status": "Seeded"
-  },
-  {
     "Map_ID": "PSM00517",
     "Product_ID": "P0159",
     "Product_Name": "ENTEROGERMINA 2 billion / 5 ml oral suspension",
@@ -6492,18 +6372,6 @@
     "Review_Status": "Seeded"
   },
   {
-    "Map_ID": "PSM00542",
-    "Product_ID": "P0166",
-    "Product_Name": "Ecinq 30 mg film-coated tablets",
-    "Symptom_ID": "S053",
-    "Symptom_Name": "review needed",
-    "Symptom_Category": "Review queue",
-    "Relevance_Score": 100,
-    "Role_In_Symptom": "Primary",
-    "Map_Source": "Imported symptom tags",
-    "Review_Status": "Seeded"
-  },
-  {
     "Map_ID": "PSM00543",
     "Product_ID": "P0167",
     "Product_Name": "Emazole Control 20 mg gastro-resistant tablets",
@@ -6559,18 +6427,6 @@
     "Symptom_Name": "bowel movement support",
     "Symptom_Category": "Gastrointestinal",
     "Relevance_Score": 92,
-    "Role_In_Symptom": "Primary",
-    "Map_Source": "Imported symptom tags",
-    "Review_Status": "Seeded"
-  },
-  {
-    "Map_ID": "PSM00548",
-    "Product_ID": "P0169",
-    "Product_Name": "Escapelle 1500 microgram tablet",
-    "Symptom_ID": "S053",
-    "Symptom_Name": "review needed",
-    "Symptom_Category": "Review queue",
-    "Relevance_Score": 100,
     "Role_In_Symptom": "Primary",
     "Map_Source": "Imported symptom tags",
     "Review_Status": "Seeded"
@@ -7532,18 +7388,6 @@
     "Symptom_Category": "Pain / fever",
     "Relevance_Score": 78,
     "Role_In_Symptom": "Secondary",
-    "Map_Source": "Imported symptom tags",
-    "Review_Status": "Seeded"
-  },
-  {
-    "Map_ID": "PSM00629",
-    "Product_ID": "P0193",
-    "Product_Name": "Fluconazole; Blicanz Thrush Relief. Boots Thrush; 150mg Capsules",
-    "Symptom_ID": "S053",
-    "Symptom_Name": "review needed",
-    "Symptom_Category": "Review queue",
-    "Relevance_Score": 100,
-    "Role_In_Symptom": "Primary",
     "Map_Source": "Imported symptom tags",
     "Review_Status": "Seeded"
   },
@@ -9264,18 +9108,6 @@
     "Review_Status": "Seeded"
   },
   {
-    "Map_ID": "PSM00773",
-    "Product_ID": "P0237",
-    "Product_Name": "InfectoScab 5% cream",
-    "Symptom_ID": "S053",
-    "Symptom_Name": "review needed",
-    "Symptom_Category": "Review queue",
-    "Relevance_Score": 100,
-    "Role_In_Symptom": "Primary",
-    "Map_Source": "Imported symptom tags",
-    "Review_Status": "Seeded"
-  },
-  {
     "Map_ID": "PSM00774",
     "Product_ID": "P0238",
     "Product_Name": "Intestal Tablet, 262.5 mg",
@@ -9564,18 +9396,6 @@
     "Review_Status": "Seeded"
   },
   {
-    "Map_ID": "PSM00798",
-    "Product_ID": "P0245",
-    "Product_Name": "Kwells 300 microgram tablets",
-    "Symptom_ID": "S053",
-    "Symptom_Name": "review needed",
-    "Symptom_Category": "Review queue",
-    "Relevance_Score": 100,
-    "Role_In_Symptom": "Primary",
-    "Map_Source": "Imported symptom tags",
-    "Review_Status": "Seeded"
-  },
-  {
     "Map_ID": "PSM00799",
     "Product_ID": "P0246",
     "Product_Name": "LEMSIP 500 mg powder for oral solution",
@@ -9852,18 +9672,6 @@
     "Review_Status": "Seeded"
   },
   {
-    "Map_ID": "PSM00822",
-    "Product_ID": "P0254",
-    "Product_Name": "Levonorgestrel Rowex 1.5mg Tablet",
-    "Symptom_ID": "S053",
-    "Symptom_Name": "review needed",
-    "Symptom_Category": "Review queue",
-    "Relevance_Score": 100,
-    "Role_In_Symptom": "Primary",
-    "Map_Source": "Imported symptom tags",
-    "Review_Status": "Seeded"
-  },
-  {
     "Map_ID": "PSM00823",
     "Product_ID": "P0255",
     "Product_Name": "Lidoproctene 1.5% / 1% cream",
@@ -10028,18 +9836,6 @@
     "Symptom_Category": "Gastrointestinal",
     "Relevance_Score": 85,
     "Role_In_Symptom": "Secondary",
-    "Map_Source": "Imported symptom tags",
-    "Review_Status": "Seeded"
-  },
-  {
-    "Map_ID": "PSM00837",
-    "Product_ID": "P0260",
-    "Product_Name": "Lyclear 5% w/w Dermal Cream",
-    "Symptom_ID": "S053",
-    "Symptom_Name": "review needed",
-    "Symptom_Category": "Review queue",
-    "Relevance_Score": 100,
-    "Role_In_Symptom": "Primary",
     "Map_Source": "Imported symptom tags",
     "Review_Status": "Seeded"
   },
@@ -10928,30 +10724,6 @@
     "Symptom_Category": "Cold / allergy",
     "Relevance_Score": 78,
     "Role_In_Symptom": "Secondary",
-    "Map_Source": "Imported symptom tags",
-    "Review_Status": "Seeded"
-  },
-  {
-    "Map_ID": "PSM00912",
-    "Product_ID": "P0286",
-    "Product_Name": "Medoflucon 150mg capsules",
-    "Symptom_ID": "S053",
-    "Symptom_Name": "review needed",
-    "Symptom_Category": "Review queue",
-    "Relevance_Score": 100,
-    "Role_In_Symptom": "Primary",
-    "Map_Source": "Imported symptom tags",
-    "Review_Status": "Seeded"
-  },
-  {
-    "Map_ID": "PSM00913",
-    "Product_ID": "P0287",
-    "Product_Name": "Medovir cream 5%",
-    "Symptom_ID": "S053",
-    "Symptom_Name": "review needed",
-    "Symptom_Category": "Review queue",
-    "Relevance_Score": 100,
-    "Role_In_Symptom": "Primary",
     "Map_Source": "Imported symptom tags",
     "Review_Status": "Seeded"
   },
@@ -11900,18 +11672,6 @@
     "Symptom_Category": "Cold / allergy",
     "Relevance_Score": 78,
     "Role_In_Symptom": "Secondary",
-    "Map_Source": "Imported symptom tags",
-    "Review_Status": "Seeded"
-  },
-  {
-    "Map_ID": "PSM01001",
-    "Product_ID": "P0312",
-    "Product_Name": "Nausefe (10 mg + 10 mg + 10 mg) Coated Tablets",
-    "Symptom_ID": "S053",
-    "Symptom_Name": "review needed",
-    "Symptom_Category": "Review queue",
-    "Relevance_Score": 100,
-    "Role_In_Symptom": "Primary",
     "Map_Source": "Imported symptom tags",
     "Review_Status": "Seeded"
   },
@@ -13572,18 +13332,6 @@
     "Review_Status": "Seeded"
   },
   {
-    "Map_ID": "PSM01178",
-    "Product_ID": "P0363",
-    "Product_Name": "Otipax Ear drops solution",
-    "Symptom_ID": "S053",
-    "Symptom_Name": "review needed",
-    "Symptom_Category": "Review queue",
-    "Relevance_Score": 100,
-    "Role_In_Symptom": "Primary",
-    "Map_Source": "Imported symptom tags",
-    "Review_Status": "Seeded"
-  },
-  {
     "Map_ID": "PSM01179",
     "Product_ID": "P0364",
     "Product_Name": "Otrivin 0.05% (Moisturising Formula) Nasal Spray",
@@ -15012,18 +14760,6 @@
     "Review_Status": "Seeded"
   },
   {
-    "Map_ID": "PSM01298",
-    "Product_ID": "P0394",
-    "Product_Name": "Permethrin LMP 50 mg/g gel",
-    "Symptom_ID": "S053",
-    "Symptom_Name": "review needed",
-    "Symptom_Category": "Review queue",
-    "Relevance_Score": 100,
-    "Role_In_Symptom": "Primary",
-    "Map_Source": "Imported symptom tags",
-    "Review_Status": "Seeded"
-  },
-  {
     "Map_ID": "PSM01299",
     "Product_ID": "P0395",
     "Product_Name": "Perofen 400 mg coated tablets",
@@ -15223,18 +14959,6 @@
     "Symptom_Name": "supplementation",
     "Symptom_Category": "General",
     "Relevance_Score": 92,
-    "Role_In_Symptom": "Primary",
-    "Map_Source": "Imported symptom tags",
-    "Review_Status": "Seeded"
-  },
-  {
-    "Map_ID": "PSM01316",
-    "Product_ID": "P0401",
-    "Product_Name": "Potassium iodide G.L. Pharma 65mg Tablets",
-    "Symptom_ID": "S053",
-    "Symptom_Name": "review needed",
-    "Symptom_Category": "Review queue",
-    "Relevance_Score": 100,
     "Role_In_Symptom": "Primary",
     "Map_Source": "Imported symptom tags",
     "Review_Status": "Seeded"
@@ -16356,18 +16080,6 @@
     "Review_Status": "Seeded"
   },
   {
-    "Map_ID": "PSM01410",
-    "Product_ID": "P0427",
-    "Product_Name": "Rowatinex Gastro-resistant Capsules, Soft",
-    "Symptom_ID": "S053",
-    "Symptom_Name": "review needed",
-    "Symptom_Category": "Review queue",
-    "Relevance_Score": 100,
-    "Role_In_Symptom": "Primary",
-    "Map_Source": "Imported symptom tags",
-    "Review_Status": "Seeded"
-  },
-  {
     "Map_ID": "PSM01411",
     "Product_ID": "P0428",
     "Product_Name": "SNIP 325mg/15mg/1mg tablets",
@@ -16560,18 +16272,6 @@
     "Review_Status": "Seeded"
   },
   {
-    "Map_ID": "PSM01427",
-    "Product_ID": "P0431",
-    "Product_Name": "STIMOL 1g/10ml, oral solution in sachet",
-    "Symptom_ID": "S053",
-    "Symptom_Name": "review needed",
-    "Symptom_Category": "Review queue",
-    "Relevance_Score": 100,
-    "Role_In_Symptom": "Primary",
-    "Map_Source": "Imported symptom tags",
-    "Review_Status": "Seeded"
-  },
-  {
     "Map_ID": "PSM01428",
     "Product_ID": "P0432",
     "Product_Name": "Savlon Antiseptic Cream Cetrimide 0.5% w/w Chlorhexidine Digluconate 0.1% w/w",
@@ -16604,18 +16304,6 @@
     "Symptom_Category": "Skin",
     "Relevance_Score": 85,
     "Role_In_Symptom": "Secondary",
-    "Map_Source": "Imported symptom tags",
-    "Review_Status": "Seeded"
-  },
-  {
-    "Map_ID": "PSM01431",
-    "Product_ID": "P0433",
-    "Product_Name": "Sedistress 500mg film-coated tablets",
-    "Symptom_ID": "S053",
-    "Symptom_Name": "review needed",
-    "Symptom_Category": "Review queue",
-    "Relevance_Score": 100,
-    "Role_In_Symptom": "Primary",
     "Map_Source": "Imported symptom tags",
     "Review_Status": "Seeded"
   },
@@ -17184,18 +16872,6 @@
     "Review_Status": "Seeded"
   },
   {
-    "Map_ID": "PSM01479",
-    "Product_ID": "P0448",
-    "Product_Name": "Sodium Chloride MONICO 0.9%",
-    "Symptom_ID": "S053",
-    "Symptom_Name": "review needed",
-    "Symptom_Category": "Review queue",
-    "Relevance_Score": 100,
-    "Role_In_Symptom": "Primary",
-    "Map_Source": "Imported symptom tags",
-    "Review_Status": "Seeded"
-  },
-  {
     "Map_ID": "PSM01480",
     "Product_ID": "P0449",
     "Product_Name": "Sodium Phosphate Sella 16% / 6% rectal solution",
@@ -17744,18 +17420,6 @@
     "Symptom_Category": "Cold / allergy",
     "Relevance_Score": 78,
     "Role_In_Symptom": "Secondary",
-    "Map_Source": "Imported symptom tags",
-    "Review_Status": "Seeded"
-  },
-  {
-    "Map_ID": "PSM01526",
-    "Product_ID": "P0462",
-    "Product_Name": "Sudocrem Antiseptic Healing Cream",
-    "Symptom_ID": "S053",
-    "Symptom_Name": "review needed",
-    "Symptom_Category": "Review queue",
-    "Relevance_Score": 100,
-    "Role_In_Symptom": "Primary",
     "Map_Source": "Imported symptom tags",
     "Review_Status": "Seeded"
   },
@@ -19248,42 +18912,6 @@
     "Review_Status": "Seeded"
   },
   {
-    "Map_ID": "PSM01651",
-    "Product_ID": "P0496",
-    "Product_Name": "Viagra Connect 50 mg Film-Coated Tablet",
-    "Symptom_ID": "S053",
-    "Symptom_Name": "review needed",
-    "Symptom_Category": "Review queue",
-    "Relevance_Score": 100,
-    "Role_In_Symptom": "Primary",
-    "Map_Source": "Imported symptom tags",
-    "Review_Status": "Seeded"
-  },
-  {
-    "Map_ID": "PSM01652",
-    "Product_ID": "P0497",
-    "Product_Name": "Viagra Connect 50 mg film-coated tablets",
-    "Symptom_ID": "S053",
-    "Symptom_Name": "review needed",
-    "Symptom_Category": "Review queue",
-    "Relevance_Score": 100,
-    "Role_In_Symptom": "Primary",
-    "Map_Source": "Imported symptom tags",
-    "Review_Status": "Seeded"
-  },
-  {
-    "Map_ID": "PSM01653",
-    "Product_ID": "P0498",
-    "Product_Name": "Viagra Connect Melts 50 mg orodispersible films",
-    "Symptom_ID": "S053",
-    "Symptom_Name": "review needed",
-    "Symptom_Category": "Review queue",
-    "Relevance_Score": 100,
-    "Role_In_Symptom": "Primary",
-    "Map_Source": "Imported symptom tags",
-    "Review_Status": "Seeded"
-  },
-  {
     "Map_ID": "PSM01654",
     "Product_ID": "P0499",
     "Product_Name": "Viamal Trauma gel",
@@ -20100,18 +19728,6 @@
     "Review_Status": "Seeded"
   },
   {
-    "Map_ID": "PSM01722",
-    "Product_ID": "P0514",
-    "Product_Name": "Vomidrine 50 mg tablets",
-    "Symptom_ID": "S053",
-    "Symptom_Name": "review needed",
-    "Symptom_Category": "Review queue",
-    "Relevance_Score": 100,
-    "Role_In_Symptom": "Primary",
-    "Map_Source": "Imported symptom tags",
-    "Review_Status": "Seeded"
-  },
-  {
     "Map_ID": "PSM01723",
     "Product_ID": "P0515",
     "Product_Name": "Xtex 250 mg /5 ml oral solution",
@@ -20180,30 +19796,6 @@
     "Symptom_Category": "Cold / flu",
     "Relevance_Score": 78,
     "Role_In_Symptom": "Secondary",
-    "Map_Source": "Imported symptom tags",
-    "Review_Status": "Seeded"
-  },
-  {
-    "Map_ID": "PSM01729",
-    "Product_ID": "P0516",
-    "Product_Name": "Zoviduo 50mg/g and 10mg/g Cream",
-    "Symptom_ID": "S053",
-    "Symptom_Name": "review needed",
-    "Symptom_Category": "Review queue",
-    "Relevance_Score": 100,
-    "Role_In_Symptom": "Primary",
-    "Map_Source": "Imported symptom tags",
-    "Review_Status": "Seeded"
-  },
-  {
-    "Map_ID": "PSM01730",
-    "Product_ID": "P0517",
-    "Product_Name": "Zovirax Duo 50 mg/10 mg/g cream",
-    "Symptom_ID": "S053",
-    "Symptom_Name": "review needed",
-    "Symptom_Category": "Review queue",
-    "Relevance_Score": 100,
-    "Role_In_Symptom": "Primary",
     "Map_Source": "Imported symptom tags",
     "Review_Status": "Seeded"
   },
@@ -20446,5 +20038,397 @@
     "Role_In_Symptom": "Secondary",
     "Map_Source": "Imported symptom tags",
     "Review_Status": "Seeded"
+  },
+  {
+    "Map_ID": "PSM01751",
+    "Product_ID": "P0026",
+    "Symptom_ID": "S076",
+    "Relevance_Score": 80,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Manual review fix"
+  },
+  {
+    "Map_ID": "PSM01752",
+    "Product_ID": "P0027",
+    "Symptom_ID": "S076",
+    "Relevance_Score": 80,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Manual review fix"
+  },
+  {
+    "Map_ID": "PSM01753",
+    "Product_ID": "P0028",
+    "Symptom_ID": "S076",
+    "Relevance_Score": 60,
+    "Role_In_Symptom": "Secondary",
+    "Map_Source": "Manual review fix"
+  },
+  {
+    "Map_ID": "PSM01754",
+    "Product_ID": "P0496",
+    "Symptom_ID": "S076",
+    "Relevance_Score": 60,
+    "Role_In_Symptom": "Secondary",
+    "Map_Source": "Manual review fix"
+  },
+  {
+    "Map_ID": "PSM01755",
+    "Product_ID": "P0497",
+    "Symptom_ID": "S076",
+    "Relevance_Score": 60,
+    "Role_In_Symptom": "Secondary",
+    "Map_Source": "Manual review fix"
+  },
+  {
+    "Map_ID": "PSM01756",
+    "Product_ID": "P0498",
+    "Symptom_ID": "S076",
+    "Relevance_Score": 60,
+    "Role_In_Symptom": "Secondary",
+    "Map_Source": "Manual review fix"
+  },
+  {
+    "Map_ID": "PSM01757",
+    "Product_ID": "P0033",
+    "Symptom_ID": "S059",
+    "Relevance_Score": 100,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Manual review fix"
+  },
+  {
+    "Map_ID": "PSM01758",
+    "Product_ID": "P0033",
+    "Symptom_ID": "S060",
+    "Relevance_Score": 85,
+    "Role_In_Symptom": "Secondary",
+    "Map_Source": "Manual review fix"
+  },
+  {
+    "Map_ID": "PSM01759",
+    "Product_ID": "P0050",
+    "Symptom_ID": "S044",
+    "Relevance_Score": 100,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Manual review fix"
+  },
+  {
+    "Map_ID": "PSM01760",
+    "Product_ID": "P0050",
+    "Symptom_ID": "S071",
+    "Relevance_Score": 100,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Manual review fix"
+  },
+  {
+    "Map_ID": "PSM01761",
+    "Product_ID": "P0051",
+    "Symptom_ID": "S044",
+    "Relevance_Score": 100,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Manual review fix"
+  },
+  {
+    "Map_ID": "PSM01762",
+    "Product_ID": "P0051",
+    "Symptom_ID": "S071",
+    "Relevance_Score": 100,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Manual review fix"
+  },
+  {
+    "Map_ID": "PSM01763",
+    "Product_ID": "P0514",
+    "Symptom_ID": "S044",
+    "Relevance_Score": 100,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Manual review fix"
+  },
+  {
+    "Map_ID": "PSM01764",
+    "Product_ID": "P0514",
+    "Symptom_ID": "S071",
+    "Relevance_Score": 100,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Manual review fix"
+  },
+  {
+    "Map_ID": "PSM01765",
+    "Product_ID": "P0066",
+    "Symptom_ID": "S034",
+    "Relevance_Score": 100,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Manual review fix"
+  },
+  {
+    "Map_ID": "PSM01766",
+    "Product_ID": "P0287",
+    "Symptom_ID": "S034",
+    "Relevance_Score": 100,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Manual review fix"
+  },
+  {
+    "Map_ID": "PSM01767",
+    "Product_ID": "P0516",
+    "Symptom_ID": "S034",
+    "Relevance_Score": 100,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Manual review fix"
+  },
+  {
+    "Map_ID": "PSM01768",
+    "Product_ID": "P0517",
+    "Symptom_ID": "S034",
+    "Relevance_Score": 100,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Manual review fix"
+  },
+  {
+    "Map_ID": "PSM01769",
+    "Product_ID": "P0070",
+    "Symptom_ID": "S076",
+    "Relevance_Score": 70,
+    "Role_In_Symptom": "Secondary",
+    "Map_Source": "Manual review fix"
+  },
+  {
+    "Map_ID": "PSM01770",
+    "Product_ID": "P0130",
+    "Symptom_ID": "S010",
+    "Relevance_Score": 100,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Manual review fix"
+  },
+  {
+    "Map_ID": "PSM01771",
+    "Product_ID": "P0158",
+    "Symptom_ID": "S059",
+    "Relevance_Score": 100,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Manual review fix"
+  },
+  {
+    "Map_ID": "PSM01772",
+    "Product_ID": "P0158",
+    "Symptom_ID": "S025",
+    "Relevance_Score": 85,
+    "Role_In_Symptom": "Secondary",
+    "Map_Source": "Manual review fix"
+  },
+  {
+    "Map_ID": "PSM01773",
+    "Product_ID": "P0158",
+    "Symptom_ID": "S019",
+    "Relevance_Score": 78,
+    "Role_In_Symptom": "Secondary",
+    "Map_Source": "Manual review fix"
+  },
+  {
+    "Map_ID": "PSM01774",
+    "Product_ID": "P0166",
+    "Symptom_ID": "S076",
+    "Relevance_Score": 60,
+    "Role_In_Symptom": "Secondary",
+    "Map_Source": "Manual review fix"
+  },
+  {
+    "Map_ID": "PSM01775",
+    "Product_ID": "P0169",
+    "Symptom_ID": "S076",
+    "Relevance_Score": 60,
+    "Role_In_Symptom": "Secondary",
+    "Map_Source": "Manual review fix"
+  },
+  {
+    "Map_ID": "PSM01776",
+    "Product_ID": "P0254",
+    "Symptom_ID": "S076",
+    "Relevance_Score": 60,
+    "Role_In_Symptom": "Secondary",
+    "Map_Source": "Manual review fix"
+  },
+  {
+    "Map_ID": "PSM01777",
+    "Product_ID": "P0193",
+    "Symptom_ID": "S073",
+    "Relevance_Score": 100,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Manual review fix"
+  },
+  {
+    "Map_ID": "PSM01778",
+    "Product_ID": "P0193",
+    "Symptom_ID": "S070",
+    "Relevance_Score": 85,
+    "Role_In_Symptom": "Secondary",
+    "Map_Source": "Manual review fix"
+  },
+  {
+    "Map_ID": "PSM01779",
+    "Product_ID": "P0286",
+    "Symptom_ID": "S073",
+    "Relevance_Score": 100,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Manual review fix"
+  },
+  {
+    "Map_ID": "PSM01780",
+    "Product_ID": "P0286",
+    "Symptom_ID": "S070",
+    "Relevance_Score": 85,
+    "Role_In_Symptom": "Secondary",
+    "Map_Source": "Manual review fix"
+  },
+  {
+    "Map_ID": "PSM01781",
+    "Product_ID": "P0237",
+    "Symptom_ID": "S059",
+    "Relevance_Score": 85,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Manual review fix"
+  },
+  {
+    "Map_ID": "PSM01782",
+    "Product_ID": "P0237",
+    "Symptom_ID": "S020",
+    "Relevance_Score": 78,
+    "Role_In_Symptom": "Secondary",
+    "Map_Source": "Manual review fix"
+  },
+  {
+    "Map_ID": "PSM01783",
+    "Product_ID": "P0260",
+    "Symptom_ID": "S059",
+    "Relevance_Score": 85,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Manual review fix"
+  },
+  {
+    "Map_ID": "PSM01784",
+    "Product_ID": "P0260",
+    "Symptom_ID": "S020",
+    "Relevance_Score": 78,
+    "Role_In_Symptom": "Secondary",
+    "Map_Source": "Manual review fix"
+  },
+  {
+    "Map_ID": "PSM01785",
+    "Product_ID": "P0394",
+    "Symptom_ID": "S059",
+    "Relevance_Score": 85,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Manual review fix"
+  },
+  {
+    "Map_ID": "PSM01786",
+    "Product_ID": "P0394",
+    "Symptom_ID": "S020",
+    "Relevance_Score": 78,
+    "Role_In_Symptom": "Secondary",
+    "Map_Source": "Manual review fix"
+  },
+  {
+    "Map_ID": "PSM01787",
+    "Product_ID": "P0245",
+    "Symptom_ID": "S044",
+    "Relevance_Score": 100,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Manual review fix"
+  },
+  {
+    "Map_ID": "PSM01788",
+    "Product_ID": "P0245",
+    "Symptom_ID": "S071",
+    "Relevance_Score": 100,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Manual review fix"
+  },
+  {
+    "Map_ID": "PSM01789",
+    "Product_ID": "P0312",
+    "Symptom_ID": "S031",
+    "Relevance_Score": 100,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Manual review fix"
+  },
+  {
+    "Map_ID": "PSM01790",
+    "Product_ID": "P0363",
+    "Symptom_ID": "S051",
+    "Relevance_Score": 100,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Manual review fix"
+  },
+  {
+    "Map_ID": "PSM01791",
+    "Product_ID": "P0401",
+    "Symptom_ID": "S066",
+    "Relevance_Score": 80,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Manual review fix"
+  },
+  {
+    "Map_ID": "PSM01792",
+    "Product_ID": "P0427",
+    "Symptom_ID": "S076",
+    "Relevance_Score": 60,
+    "Role_In_Symptom": "Secondary",
+    "Map_Source": "Manual review fix"
+  },
+  {
+    "Map_ID": "PSM01793",
+    "Product_ID": "P0431",
+    "Symptom_ID": "S066",
+    "Relevance_Score": 85,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Manual review fix"
+  },
+  {
+    "Map_ID": "PSM01794",
+    "Product_ID": "P0431",
+    "Symptom_ID": "S076",
+    "Relevance_Score": 70,
+    "Role_In_Symptom": "Secondary",
+    "Map_Source": "Manual review fix"
+  },
+  {
+    "Map_ID": "PSM01795",
+    "Product_ID": "P0433",
+    "Symptom_ID": "S076",
+    "Relevance_Score": 80,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Manual review fix"
+  },
+  {
+    "Map_ID": "PSM01796",
+    "Product_ID": "P0448",
+    "Symptom_ID": "S077",
+    "Relevance_Score": 100,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Manual review fix"
+  },
+  {
+    "Map_ID": "PSM01797",
+    "Product_ID": "P0462",
+    "Symptom_ID": "S059",
+    "Relevance_Score": 100,
+    "Role_In_Symptom": "Primary",
+    "Map_Source": "Manual review fix"
+  },
+  {
+    "Map_ID": "PSM01798",
+    "Product_ID": "P0462",
+    "Symptom_ID": "S034",
+    "Relevance_Score": 85,
+    "Role_In_Symptom": "Secondary",
+    "Map_Source": "Manual review fix"
+  },
+  {
+    "Map_ID": "PSM01799",
+    "Product_ID": "P0462",
+    "Symptom_ID": "S077",
+    "Relevance_Score": 78,
+    "Role_In_Symptom": "Secondary",
+    "Map_Source": "Manual review fix"
   }
 ]

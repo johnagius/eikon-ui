@@ -204,7 +204,7 @@
     "nodeType": "product",
     "refId": "P0026",
     "label": "Aspirem Tablets Gastro-Resistant 75mg",
-    "searchText": "Aspirem Tablets Gastro-Resistant 75mg | Aspirem | ACETYLSALICYLIC ACID 75 milligram(s) | ACETYLSALICYLIC ACID | ANTITHROMBOTIC AGENTS | review needed | Aspirem | ACETYLSALICYLIC ACID | review needed | ANTITHROMBOTIC AGENTS | All year",
+    "searchText": "Aspirem Tablets Gastro-Resistant 75mg | Aspirem | ACETYLSALICYLIC ACID 75 milligram(s) | ACETYLSALICYLIC ACID | ANTITHROMBOTIC AGENTS | wellness | Aspirem | ACETYLSALICYLIC ACID | heart health | ANTITHROMBOTIC AGENTS | All year",
     "priority": 0
   },
   {
@@ -212,7 +212,7 @@
     "nodeType": "product",
     "refId": "P0027",
     "label": "Aspirin 75mg Gastro-resistant Tablets",
-    "searchText": "Aspirin 75mg Gastro-resistant Tablets | Aspirin | ASPIRIN BP 75 milligram(s) | ASPIRIN BP | ANTITHROMBOTIC AGENTS | review needed | Aspirin | ASPIRIN BP | review needed | ANTITHROMBOTIC AGENTS | All year",
+    "searchText": "Aspirin 75mg Gastro-resistant Tablets | Aspirin | ASPIRIN BP 75 milligram(s) | ASPIRIN BP | ANTITHROMBOTIC AGENTS | wellness | Aspirin | ASPIRIN BP | heart health | ANTITHROMBOTIC AGENTS | All year",
     "priority": 0
   },
   {
@@ -220,7 +220,7 @@
     "nodeType": "product",
     "refId": "P0028",
     "label": "Avarante Prescription Free 10 mg film-coated tablets",
-    "searchText": "Avarante Prescription Free 10 mg film-coated tablets | Avarante | TADALAFIL 10 milligram(s) | TADALAFIL | UROLOGICALS | review needed | Avarante | TADALAFIL | review needed | UROLOGICALS | All year",
+    "searchText": "Avarante Prescription Free 10 mg film-coated tablets | Avarante | TADALAFIL 10 milligram(s) | TADALAFIL | UROLOGICALS | wellness | Avarante | TADALAFIL | erectile dysfunction | UROLOGICALS | All year",
     "priority": 0
   },
   {
@@ -260,7 +260,7 @@
     "nodeType": "product",
     "refId": "P0033",
     "label": "BIAFINE, emulsion for cutaneous application",
-    "searchText": "BIAFINE, emulsion for cutaneous application | BIAFINE | TROLAMINE 0.67 percent weight/weight | TROLAMINE | EMOLLIENTS AND PROTECTIVES | review needed | BIAFINE | TROLAMINE | review needed | EMOLLIENTS AND PROTECTIVES | All year",
+    "searchText": "BIAFINE, emulsion for cutaneous application | BIAFINE | TROLAMINE 0.67 percent weight/weight | TROLAMINE | EMOLLIENTS AND PROTECTIVES | skin irritation; skin repair | BIAFINE | TROLAMINE | skin irritation | skin repair | EMOLLIENTS AND PROTECTIVES | All year",
     "priority": 20
   },
   {
@@ -396,7 +396,7 @@
     "nodeType": "product",
     "refId": "P0050",
     "label": "Biodramina Chewing-gum",
-    "searchText": "Biodramina Chewing-gum | Biodramina | DIMENHYDRINATE 20 milligram(s) | DIMENHYDRINATE | ANTIEMETICS AND ANTINAUSEANTS | review needed | Biodramina | DIMENHYDRINATE | review needed | ANTIEMETICS AND ANTINAUSEANTS | All year",
+    "searchText": "Biodramina Chewing-gum | Biodramina | DIMENHYDRINATE 20 milligram(s) | DIMENHYDRINATE | ANTIEMETICS AND ANTINAUSEANTS | motion sickness; travel sickness | Biodramina | DIMENHYDRINATE | motion sickness | travel sickness | ANTIEMETICS AND ANTINAUSEANTS | All year",
     "priority": 3
   },
   {
@@ -404,7 +404,7 @@
     "nodeType": "product",
     "refId": "P0051",
     "label": "Biodramina Tablets",
-    "searchText": "Biodramina Tablets | Biodramina | DIMENHYDRINATE 50 milligram(s) | DIMENHYDRINATE | ANTIEMETICS AND ANTINAUSEANTS | review needed | Biodramina | DIMENHYDRINATE | review needed | ANTIEMETICS AND ANTINAUSEANTS | All year",
+    "searchText": "Biodramina Tablets | Biodramina | DIMENHYDRINATE 50 milligram(s) | DIMENHYDRINATE | ANTIEMETICS AND ANTINAUSEANTS | motion sickness; travel sickness | Biodramina | DIMENHYDRINATE | motion sickness | travel sickness | ANTIEMETICS AND ANTINAUSEANTS | All year",
     "priority": 3
   },
   {
@@ -524,7 +524,7 @@
     "nodeType": "product",
     "refId": "P0066",
     "label": "CICLOVIRAL 50 mg/g Cream",
-    "searchText": "CICLOVIRAL 50 mg/g Cream | CICLOVIRAL | ACICLOVIR 50 milligram(s)/gram | ACICLOVIR | ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE | review needed | CICLOVIRAL | ACICLOVIR | review needed | ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE | All year",
+    "searchText": "CICLOVIRAL 50 mg/g Cream | CICLOVIRAL | ACICLOVIR 50 milligram(s)/gram | ACICLOVIR | ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE | healing | CICLOVIRAL | ACICLOVIR | cold sore | healing | ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE | All year",
     "priority": 1
   },
   {
@@ -556,7 +556,7 @@
     "nodeType": "product",
     "refId": "P0070",
     "label": "Calmaben 50mg coated tablets",
-    "searchText": "Calmaben 50mg coated tablets | Calmaben | DIPHENHYDRAMINE HYDROCHLORIDE 50 milligram(s) | DIPHENHYDRAMINE HYDROCHLORIDE | PSYCHOLEPTICS | review needed | Calmaben | DIPHENHYDRAMINE HYDROCHLORIDE | review needed | PSYCHOLEPTICS | All year",
+    "searchText": "Calmaben 50mg coated tablets | Calmaben | DIPHENHYDRAMINE HYDROCHLORIDE 50 milligram(s) | DIPHENHYDRAMINE HYDROCHLORIDE | PSYCHOLEPTICS | wellness | Calmaben | DIPHENHYDRAMINE HYDROCHLORIDE | sleep aid | PSYCHOLEPTICS | All year",
     "priority": 3
   },
   {
@@ -1036,7 +1036,7 @@
     "nodeType": "product",
     "refId": "P0130",
     "label": "Dentinox Infant Colic Drops 21 mg/2.5 ml Oral Suspension",
-    "searchText": "Dentinox Infant Colic Drops 21 mg/2.5 ml Oral Suspension | Dentinox | DIMETICONE 21.0/2.5 milligram(s)/millilitre | DIMETICONE | ECTOPARASITICIDES, INCL. SCABICIDES, INSECTICIDES AND REPELLENTS | review needed | Dentinox | DIMETICONE | review needed | ECTOPARASITICIDES, INCL. SCABICIDES, INSECTICIDES AND REPELLENTS | All year",
+    "searchText": "Dentinox Infant Colic Drops 21 mg/2.5 ml Oral Suspension | Dentinox | DIMETICONE 21.0/2.5 milligram(s)/millilitre | DIMETICONE | ECTOPARASITICIDES, INCL. SCABICIDES, INSECTICIDES AND REPELLENTS | bloating | Dentinox | DIMETICONE | bloating | ECTOPARASITICIDES, INCL. SCABICIDES, INSECTICIDES AND REPELLENTS | All year",
     "priority": 0
   },
   {
@@ -1260,7 +1260,7 @@
     "nodeType": "product",
     "refId": "P0158",
     "label": "E45 Cream White Soft Paraffin 14.5% w/w Light Liquid Paraffin 12.6% w/w Anhydrous Lanolin 1.0% w/w",
-    "searchText": "E45 Cream White Soft Paraffin 14.5% w/w Light Liquid Paraffin 12.6% w/w Anhydrous Lanolin 1.0% w/w | E45 | LANOLIN 1 percent weight/weight | WHITE SOFT PARAFFIN 14.5 percent weight/weight | LIGHT LIQUID PARAFFIN  12.6 percent weight/weight | LANOLIN | LIGHT LIQUID PARAFFIN | WHITE SOFT PARAFFIN | EMOLLIENTS AND PROTECTIVES | review needed | E45 | LANOLIN | LIGHT LIQUID PARAFFIN | WHITE SOFT PARAFFIN | review needed | EMOLLIENTS AND PROTECTIVES | All year",
+    "searchText": "E45 Cream White Soft Paraffin 14.5% w/w Light Liquid Paraffin 12.6% w/w Anhydrous Lanolin 1.0% w/w | E45 | LANOLIN 1 percent weight/weight | WHITE SOFT PARAFFIN 14.5 percent weight/weight | LIGHT LIQUID PARAFFIN  12.6 percent weight/weight | LANOLIN | LIGHT LIQUID PARAFFIN | WHITE SOFT PARAFFIN | EMOLLIENTS AND PROTECTIVES | skin irritation; eczema; dermatitis | E45 | LANOLIN | LIGHT LIQUID PARAFFIN | WHITE SOFT PARAFFIN | skin irritation | eczema | dermatitis | EMOLLIENTS AND PROTECTIVES | All year",
     "priority": 20
   },
   {
@@ -1324,7 +1324,7 @@
     "nodeType": "product",
     "refId": "P0166",
     "label": "Ecinq 30 mg film-coated tablets",
-    "searchText": "Ecinq 30 mg film-coated tablets | Ecinq | ULIPRISTAL ACETATE 30 milligram(s) | ULIPRISTAL ACETATE | SEX HORMONES AND MODULATORS OF THE GENITAL SYSTEM | review needed | Ecinq | ULIPRISTAL ACETATE | review needed | SEX HORMONES AND MODULATORS OF THE GENITAL SYSTEM | All year",
+    "searchText": "Ecinq 30 mg film-coated tablets | Ecinq | ULIPRISTAL ACETATE 30 milligram(s) | ULIPRISTAL ACETATE | SEX HORMONES AND MODULATORS OF THE GENITAL SYSTEM | wellness | Ecinq | ULIPRISTAL ACETATE | emergency contraception | SEX HORMONES AND MODULATORS OF THE GENITAL SYSTEM | All year",
     "priority": 0
   },
   {
@@ -1348,7 +1348,7 @@
     "nodeType": "product",
     "refId": "P0169",
     "label": "Escapelle 1500 microgram tablet",
-    "searchText": "Escapelle 1500 microgram tablet | Escapelle | LEVONORGESTREL 1500 microgram(s) | LEVONORGESTREL | SEX HORMONES AND MODULATORS OF THE GENITAL SYSTEM | review needed | Escapelle | LEVONORGESTREL | review needed | SEX HORMONES AND MODULATORS OF THE GENITAL SYSTEM | All year",
+    "searchText": "Escapelle 1500 microgram tablet | Escapelle | LEVONORGESTREL 1500 microgram(s) | LEVONORGESTREL | SEX HORMONES AND MODULATORS OF THE GENITAL SYSTEM | wellness | Escapelle | LEVONORGESTREL | emergency contraception | SEX HORMONES AND MODULATORS OF THE GENITAL SYSTEM | All year",
     "priority": 1
   },
   {
@@ -1540,7 +1540,7 @@
     "nodeType": "product",
     "refId": "P0193",
     "label": "Fluconazole; Blicanz Thrush Relief. Boots Thrush; 150mg Capsules",
-    "searchText": "Fluconazole; Blicanz Thrush Relief. Boots Thrush; 150mg Capsules | Fluconazole | FLUCONAZOLE 150 milligram(s) | FLUCONAZOLE | ANTIMYCOTICS FOR SYSTEMIC USE | review needed | Fluconazole | FLUCONAZOLE | review needed | ANTIMYCOTICS FOR SYSTEMIC USE | All year",
+    "searchText": "Fluconazole; Blicanz Thrush Relief. Boots Thrush; 150mg Capsules | Fluconazole | FLUCONAZOLE 150 milligram(s) | FLUCONAZOLE | ANTIMYCOTICS FOR SYSTEMIC USE | vaginal infection support; thrush (topical) | Fluconazole | FLUCONAZOLE | vaginal infection support | thrush (topical) | ANTIMYCOTICS FOR SYSTEMIC USE | All year",
     "priority": 1
   },
   {
@@ -1892,7 +1892,7 @@
     "nodeType": "product",
     "refId": "P0237",
     "label": "InfectoScab 5% cream",
-    "searchText": "InfectoScab 5% cream | InfectoScab | PERMETHRIN 50 milligram(s)/gram | PERMETHRIN | ECTOPARASITICIDES, INCL. SCABICIDES, INSECTICIDES AND REPELLENTS | review needed | InfectoScab | PERMETHRIN | review needed | ECTOPARASITICIDES, INCL. SCABICIDES, INSECTICIDES AND REPELLENTS | All year",
+    "searchText": "InfectoScab 5% cream | InfectoScab | PERMETHRIN 50 milligram(s)/gram | PERMETHRIN | ECTOPARASITICIDES, INCL. SCABICIDES, INSECTICIDES AND REPELLENTS | skin irritation; dermatology support | InfectoScab | PERMETHRIN | scabies treatment | skin irritation | ECTOPARASITICIDES, INCL. SCABICIDES, INSECTICIDES AND REPELLENTS | All year",
     "priority": 2
   },
   {
@@ -1956,7 +1956,7 @@
     "nodeType": "product",
     "refId": "P0245",
     "label": "Kwells 300 microgram tablets",
-    "searchText": "Kwells 300 microgram tablets | Kwells | HYOSCINE HYDROBROMIDE 300 microgram(s) | HYOSCINE HYDROBROMIDE | ANTIEMETICS AND ANTINAUSEANTS | review needed | Kwells | HYOSCINE HYDROBROMIDE | review needed | ANTIEMETICS AND ANTINAUSEANTS | All year",
+    "searchText": "Kwells 300 microgram tablets | Kwells | HYOSCINE HYDROBROMIDE 300 microgram(s) | HYOSCINE HYDROBROMIDE | ANTIEMETICS AND ANTINAUSEANTS | motion sickness; travel sickness | Kwells | HYOSCINE HYDROBROMIDE | motion sickness | travel sickness | ANTIEMETICS AND ANTINAUSEANTS | All year",
     "priority": 0
   },
   {
@@ -2028,7 +2028,7 @@
     "nodeType": "product",
     "refId": "P0254",
     "label": "Levonorgestrel Rowex 1.5mg Tablet",
-    "searchText": "Levonorgestrel Rowex 1.5mg Tablet | Levonorgestrel | LEVONORGESTREL 1.5 milligram(s) | LEVONORGESTREL | SEX HORMONES AND MODULATORS OF THE GENITAL SYSTEM | review needed | Levonorgestrel | LEVONORGESTREL | review needed | SEX HORMONES AND MODULATORS OF THE GENITAL SYSTEM | All year",
+    "searchText": "Levonorgestrel Rowex 1.5mg Tablet | Levonorgestrel | LEVONORGESTREL 1.5 milligram(s) | LEVONORGESTREL | SEX HORMONES AND MODULATORS OF THE GENITAL SYSTEM | wellness | Levonorgestrel | LEVONORGESTREL | emergency contraception | SEX HORMONES AND MODULATORS OF THE GENITAL SYSTEM | All year",
     "priority": 1
   },
   {
@@ -2076,7 +2076,7 @@
     "nodeType": "product",
     "refId": "P0260",
     "label": "Lyclear 5% w/w Dermal Cream",
-    "searchText": "Lyclear 5% w/w Dermal Cream | Lyclear | PERMETHRIN 50 milligram(s)/gram | PERMETHRIN | ECTOPARASITICIDES, INCL. SCABICIDES, INSECTICIDES AND REPELLENTS | review needed | Lyclear | PERMETHRIN | review needed | ECTOPARASITICIDES, INCL. SCABICIDES, INSECTICIDES AND REPELLENTS | All year",
+    "searchText": "Lyclear 5% w/w Dermal Cream | Lyclear | PERMETHRIN 50 milligram(s)/gram | PERMETHRIN | ECTOPARASITICIDES, INCL. SCABICIDES, INSECTICIDES AND REPELLENTS | skin irritation; dermatology support | Lyclear | PERMETHRIN | scabies treatment | skin irritation | ECTOPARASITICIDES, INCL. SCABICIDES, INSECTICIDES AND REPELLENTS | All year",
     "priority": 2
   },
   {
@@ -2284,7 +2284,7 @@
     "nodeType": "product",
     "refId": "P0286",
     "label": "Medoflucon 150mg capsules",
-    "searchText": "Medoflucon 150mg capsules | Medoflucon | FLUCONAZOLE 150 milligram(s) | FLUCONAZOLE | ANTIMYCOTICS FOR SYSTEMIC USE | review needed | Medoflucon | FLUCONAZOLE | review needed | ANTIMYCOTICS FOR SYSTEMIC USE | All year",
+    "searchText": "Medoflucon 150mg capsules | Medoflucon | FLUCONAZOLE 150 milligram(s) | FLUCONAZOLE | ANTIMYCOTICS FOR SYSTEMIC USE | vaginal infection support; thrush (topical) | Medoflucon | FLUCONAZOLE | vaginal infection support | thrush (topical) | ANTIMYCOTICS FOR SYSTEMIC USE | All year",
     "priority": 1
   },
   {
@@ -2292,7 +2292,7 @@
     "nodeType": "product",
     "refId": "P0287",
     "label": "Medovir cream 5%",
-    "searchText": "Medovir cream 5% | Medovir | ACICLOVIR 5 percent weight/weight | ACICLOVIR | ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE | review needed | Medovir | ACICLOVIR | review needed | ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE | All year",
+    "searchText": "Medovir cream 5% | Medovir | ACICLOVIR 5 percent weight/weight | ACICLOVIR | ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE | healing | Medovir | ACICLOVIR | cold sore | healing | ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE | All year",
     "priority": 1
   },
   {
@@ -2492,7 +2492,7 @@
     "nodeType": "product",
     "refId": "P0312",
     "label": "Nausefe (10 mg + 10 mg + 10 mg) Coated Tablets",
-    "searchText": "Nausefe (10 mg + 10 mg + 10 mg) Coated Tablets | Nausefe | PYRIDOXINE HYDROCHLORIDE 10 milligram(s) | DICYCLOVERINE HYDROCHLORIDE 10 milligram(s) | DOXYLAMINE SUCCINATE 10 milligram(s) | DICYCLOVERINE HYDROCHLORIDE | DOXYLAMINE SUCCINATE | PYRIDOXINE HYDROCHLORIDE | ANTIEMETICS AND ANTINAUSEANTS | review needed | Nausefe | DICYCLOVERINE HYDROCHLORIDE | DOXYLAMINE SUCCINATE | PYRIDOXINE HYDROCHLORIDE | review needed | ANTIEMETICS AND ANTINAUSEANTS | All year",
+    "searchText": "Nausefe (10 mg + 10 mg + 10 mg) Coated Tablets | Nausefe | PYRIDOXINE HYDROCHLORIDE 10 milligram(s) | DICYCLOVERINE HYDROCHLORIDE 10 milligram(s) | DOXYLAMINE SUCCINATE 10 milligram(s) | DICYCLOVERINE HYDROCHLORIDE | DOXYLAMINE SUCCINATE | PYRIDOXINE HYDROCHLORIDE | ANTIEMETICS AND ANTINAUSEANTS | gut upset | Nausefe | DICYCLOVERINE HYDROCHLORIDE | DOXYLAMINE SUCCINATE | PYRIDOXINE HYDROCHLORIDE | nausea support | ANTIEMETICS AND ANTINAUSEANTS | All year",
     "priority": 3
   },
   {
@@ -2900,7 +2900,7 @@
     "nodeType": "product",
     "refId": "P0363",
     "label": "Otipax Ear drops solution",
-    "searchText": "Otipax Ear drops solution | Otipax | LIDOCAINE HYDROCHLORIDE 1 percent weight/weight | PHENAZONE 4 percent weight/weight | LIDOCAINE HYDROCHLORIDE | PHENAZONE | OTOLOGICALS | review needed | Otipax | LIDOCAINE HYDROCHLORIDE | PHENAZONE | review needed | OTOLOGICALS | All year",
+    "searchText": "Otipax Ear drops solution | Otipax | LIDOCAINE HYDROCHLORIDE 1 percent weight/weight | PHENAZONE 4 percent weight/weight | LIDOCAINE HYDROCHLORIDE | PHENAZONE | OTOLOGICALS | pain | Otipax | LIDOCAINE HYDROCHLORIDE | PHENAZONE | ear pain | OTOLOGICALS | All year",
     "priority": 0
   },
   {
@@ -3148,7 +3148,7 @@
     "nodeType": "product",
     "refId": "P0394",
     "label": "Permethrin LMP 50 mg/g gel",
-    "searchText": "Permethrin LMP 50 mg/g gel | Permethrin | PERMETHRIN 50 milligram(s)/gram | PERMETHRIN | ECTOPARASITICIDES, INCL. SCABICIDES, INSECTICIDES AND REPELLENTS | review needed | Permethrin | PERMETHRIN | review needed | ECTOPARASITICIDES, INCL. SCABICIDES, INSECTICIDES AND REPELLENTS | All year",
+    "searchText": "Permethrin LMP 50 mg/g gel | Permethrin | PERMETHRIN 50 milligram(s)/gram | PERMETHRIN | ECTOPARASITICIDES, INCL. SCABICIDES, INSECTICIDES AND REPELLENTS | skin irritation; dermatology support | Permethrin | PERMETHRIN | scabies treatment | skin irritation | ECTOPARASITICIDES, INCL. SCABICIDES, INSECTICIDES AND REPELLENTS | All year",
     "priority": 2
   },
   {
@@ -3204,7 +3204,7 @@
     "nodeType": "product",
     "refId": "P0401",
     "label": "Potassium iodide G.L. Pharma 65mg Tablets",
-    "searchText": "Potassium iodide G.L. Pharma 65mg Tablets | Potassium | POTASSIUM IODIDE 65 milligram(s) | POTASSIUM IODIDE | ALL OTHER THERAPEUTIC PRODUCTS | review needed | Potassium | POTASSIUM IODIDE | review needed | ALL OTHER THERAPEUTIC PRODUCTS | All year",
+    "searchText": "Potassium iodide G.L. Pharma 65mg Tablets | Potassium | POTASSIUM IODIDE 65 milligram(s) | POTASSIUM IODIDE | ALL OTHER THERAPEUTIC PRODUCTS | supplementation | Potassium | POTASSIUM IODIDE | thyroid protection | ALL OTHER THERAPEUTIC PRODUCTS | All year",
     "priority": 0
   },
   {
@@ -3412,7 +3412,7 @@
     "nodeType": "product",
     "refId": "P0427",
     "label": "Rowatinex Gastro-resistant Capsules, Soft",
-    "searchText": "Rowatinex Gastro-resistant Capsules, Soft | Rowatinex | ANETHOL 4 milligram(s) | PINENE 6.2 milligram(s) | CAMPHENE 15 milligram(s) | BORNEOL 10 milligram(s) | FENCHONE 4 milligram(s) | PINENE 24.8 milligram(s) | CINEOLE 3 milligram(s) | ANETHOL | BORNEOL | CAMPHENE | CINEOLE | FENCHONE | PINENE | UROLOGICALS | review needed | Rowatinex | ANETHOL | BORNEOL | CAMPHENE | CINEOLE | FENCHONE | PINENE | review needed | UROLOGICALS | All year",
+    "searchText": "Rowatinex Gastro-resistant Capsules, Soft | Rowatinex | ANETHOL 4 milligram(s) | PINENE 6.2 milligram(s) | CAMPHENE 15 milligram(s) | BORNEOL 10 milligram(s) | FENCHONE 4 milligram(s) | PINENE 24.8 milligram(s) | CINEOLE 3 milligram(s) | ANETHOL | BORNEOL | CAMPHENE | CINEOLE | FENCHONE | PINENE | UROLOGICALS | wellness | Rowatinex | ANETHOL | BORNEOL | CAMPHENE | CINEOLE | FENCHONE | PINENE | urinary stones | UROLOGICALS | All year",
     "priority": 0
   },
   {
@@ -3444,7 +3444,7 @@
     "nodeType": "product",
     "refId": "P0431",
     "label": "STIMOL 1g/10ml, oral solution in sachet",
-    "searchText": "STIMOL 1g/10ml, oral solution in sachet | STIMOL | CITRULLINE MALEATE 10 gram(s)/100 millilitres | CITRULLINE MALEATE | TONICS | review needed | STIMOL | CITRULLINE MALEATE | review needed | TONICS | All year",
+    "searchText": "STIMOL 1g/10ml, oral solution in sachet | STIMOL | CITRULLINE MALEATE 10 gram(s)/100 millilitres | CITRULLINE MALEATE | TONICS | supplementation; wellness | STIMOL | CITRULLINE MALEATE | fatigue | supplementation | TONICS | All year",
     "priority": 0
   },
   {
@@ -3460,7 +3460,7 @@
     "nodeType": "product",
     "refId": "P0433",
     "label": "Sedistress 500mg film-coated tablets",
-    "searchText": "Sedistress 500mg film-coated tablets | Sedistress | PASSIFLORA INCARNATA 500 milligram(s) | PASSIFLORA INCARNATA | PSYCHOLEPTICS | review needed | Sedistress | PASSIFLORA INCARNATA | review needed | PSYCHOLEPTICS | All year",
+    "searchText": "Sedistress 500mg film-coated tablets | Sedistress | PASSIFLORA INCARNATA 500 milligram(s) | PASSIFLORA INCARNATA | PSYCHOLEPTICS | wellness | Sedistress | PASSIFLORA INCARNATA | sleep support | PSYCHOLEPTICS | All year",
     "priority": 1
   },
   {
@@ -3580,7 +3580,7 @@
     "nodeType": "product",
     "refId": "P0448",
     "label": "Sodium Chloride MONICO 0.9%",
-    "searchText": "Sodium Chloride MONICO 0.9% | Sodium | SODIUM CHLORIDE 0.9 gram(s)/100 millilitres | SODIUM CHLORIDE | ALL OTHER NON-THERAPEUTIC PRODUCTS | review needed | Sodium | SODIUM CHLORIDE | review needed | ALL OTHER NON-THERAPEUTIC PRODUCTS | All year",
+    "searchText": "Sodium Chloride MONICO 0.9% | Sodium | SODIUM CHLORIDE 0.9 gram(s)/100 millilitres | SODIUM CHLORIDE | ALL OTHER NON-THERAPEUTIC PRODUCTS | wound care | Sodium | SODIUM CHLORIDE | wound cleansing | wound care | ALL OTHER NON-THERAPEUTIC PRODUCTS | All year",
     "priority": 0
   },
   {
@@ -3692,7 +3692,7 @@
     "nodeType": "product",
     "refId": "P0462",
     "label": "Sudocrem Antiseptic Healing Cream",
-    "searchText": "Sudocrem Antiseptic Healing Cream | Sudocrem | BENZYL BENZOATE 1.02 percent weight/weight | BENZYL ALCOHOL 0.39 percent weight/weight | ZINC OXIDE 15.29 percent weight/weight | BENZYL CINNAMATE 0.15 percent weight/weight | LANOLIN 4.02 percent weight/weight | BENZYL ALCOHOL | BENZYL BENZOATE | BENZYL CINNAMATE | LANOLIN | ZINC OXIDE | EMOLLIENTS AND PROTECTIVES | review needed | Sudocrem | BENZYL ALCOHOL | BENZYL BENZOATE | BENZYL CINNAMATE | LANOLIN | ZINC OXIDE | review needed | EMOLLIENTS AND PROTECTIVES | All year",
+    "searchText": "Sudocrem Antiseptic Healing Cream | Sudocrem | BENZYL BENZOATE 1.02 percent weight/weight | BENZYL ALCOHOL 0.39 percent weight/weight | ZINC OXIDE 15.29 percent weight/weight | BENZYL CINNAMATE 0.15 percent weight/weight | LANOLIN 4.02 percent weight/weight | BENZYL ALCOHOL | BENZYL BENZOATE | BENZYL CINNAMATE | LANOLIN | ZINC OXIDE | EMOLLIENTS AND PROTECTIVES | skin irritation; healing; wound care | Sudocrem | BENZYL ALCOHOL | BENZYL BENZOATE | BENZYL CINNAMATE | LANOLIN | ZINC OXIDE | skin irritation | healing | wound care | EMOLLIENTS AND PROTECTIVES | All year",
     "priority": 20
   },
   {
@@ -3964,7 +3964,7 @@
     "nodeType": "product",
     "refId": "P0496",
     "label": "Viagra Connect 50 mg Film-Coated Tablet",
-    "searchText": "Viagra Connect 50 mg Film-Coated Tablet | Viagra | SILDENAFIL 50 milligram(s) | SILDENAFIL | UROLOGICALS | review needed | Viagra | SILDENAFIL | review needed | UROLOGICALS | All year",
+    "searchText": "Viagra Connect 50 mg Film-Coated Tablet | Viagra | SILDENAFIL 50 milligram(s) | SILDENAFIL | UROLOGICALS | wellness | Viagra | SILDENAFIL | erectile dysfunction | UROLOGICALS | All year",
     "priority": 2
   },
   {
@@ -3972,7 +3972,7 @@
     "nodeType": "product",
     "refId": "P0497",
     "label": "Viagra Connect 50 mg film-coated tablets",
-    "searchText": "Viagra Connect 50 mg film-coated tablets | Viagra | SILDENAFIL 50 milligram(s) | SILDENAFIL | UROLOGICALS | review needed | Viagra | SILDENAFIL | review needed | UROLOGICALS | All year",
+    "searchText": "Viagra Connect 50 mg film-coated tablets | Viagra | SILDENAFIL 50 milligram(s) | SILDENAFIL | UROLOGICALS | wellness | Viagra | SILDENAFIL | erectile dysfunction | UROLOGICALS | All year",
     "priority": 2
   },
   {
@@ -3980,7 +3980,7 @@
     "nodeType": "product",
     "refId": "P0498",
     "label": "Viagra Connect Melts 50 mg orodispersible films",
-    "searchText": "Viagra Connect Melts 50 mg orodispersible films | Viagra | SILDENAFIL 50 milligram(s) | SILDENAFIL | UROLOGICALS | review needed | Viagra | SILDENAFIL | review needed | UROLOGICALS | All year",
+    "searchText": "Viagra Connect Melts 50 mg orodispersible films | Viagra | SILDENAFIL 50 milligram(s) | SILDENAFIL | UROLOGICALS | wellness | Viagra | SILDENAFIL | erectile dysfunction | UROLOGICALS | All year",
     "priority": 2
   },
   {
@@ -4108,7 +4108,7 @@
     "nodeType": "product",
     "refId": "P0514",
     "label": "Vomidrine 50 mg tablets",
-    "searchText": "Vomidrine 50 mg tablets | Vomidrine | DIMENHYDRINATE 50 milligram(s) | DIMENHYDRINATE | ANTIEMETICS AND ANTINAUSEANTS | review needed | Vomidrine | DIMENHYDRINATE | review needed | ANTIEMETICS AND ANTINAUSEANTS | All year",
+    "searchText": "Vomidrine 50 mg tablets | Vomidrine | DIMENHYDRINATE 50 milligram(s) | DIMENHYDRINATE | ANTIEMETICS AND ANTINAUSEANTS | motion sickness; travel sickness | Vomidrine | DIMENHYDRINATE | motion sickness | travel sickness | ANTIEMETICS AND ANTINAUSEANTS | All year",
     "priority": 3
   },
   {
@@ -4124,7 +4124,7 @@
     "nodeType": "product",
     "refId": "P0516",
     "label": "Zoviduo 50mg/g and 10mg/g Cream",
-    "searchText": "Zoviduo 50mg/g and 10mg/g Cream | Zoviduo | ACICLOVIR 50 milligram(s) | HYDROCORTISONE 10 milligram(s) | ACICLOVIR | HYDROCORTISONE | ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE | review needed | Zoviduo | ACICLOVIR | HYDROCORTISONE | review needed | ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE | All year",
+    "searchText": "Zoviduo 50mg/g and 10mg/g Cream | Zoviduo | ACICLOVIR 50 milligram(s) | HYDROCORTISONE 10 milligram(s) | ACICLOVIR | HYDROCORTISONE | ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE | healing | Zoviduo | ACICLOVIR | HYDROCORTISONE | cold sore | healing | ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE | All year",
     "priority": 1
   },
   {
@@ -4132,7 +4132,7 @@
     "nodeType": "product",
     "refId": "P0517",
     "label": "Zovirax Duo 50 mg/10 mg/g cream",
-    "searchText": "Zovirax Duo 50 mg/10 mg/g cream | Zovirax | ACICLOVIR 50 milligram(s)/gram | HYDROCORTISONE 10 milligram(s)/gram | ACICLOVIR | HYDROCORTISONE | ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE | review needed | Zovirax | ACICLOVIR | HYDROCORTISONE | review needed | ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE | All year",
+    "searchText": "Zovirax Duo 50 mg/10 mg/g cream | Zovirax | ACICLOVIR 50 milligram(s)/gram | HYDROCORTISONE 10 milligram(s)/gram | ACICLOVIR | HYDROCORTISONE | ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE | healing | Zovirax | ACICLOVIR | HYDROCORTISONE | cold sore | healing | ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE | All year",
     "priority": 1
   },
   {

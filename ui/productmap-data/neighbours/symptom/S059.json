@@ -1,1 +1,330 @@
-{"centerId":"symptom:S059","centerType":"symptom","refId":"S059","nodes":[{"id":"symptom:S059","nodeType":"symptom","refId":"S059","label":"skin irritation","subtext":"General","meta":{"Symptom_ID":"S059","Symptom_Name":"skin irritation","Symptom_Category":"General","Linked_Product_Count":6,"Display_Group":"General","Priority_For_Graph":70,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}},{"id":"product:P0023","nodeType":"product","refId":"P0023","label":"Anthisan Cream 2% w/w","subtext":"itching","meta":{"brand":"Anthisan","generic":"MEPYRAMINE MALEATE","form":"CREAM","formGroup":"Topical","route":"Topical","mainIndication":"itching","secondaryIndications":"bites | skin irritation","otcCategory":"ANTIPRURITICS, INCL. ANTIHISTAMINES, ANESTHETICS, ETC.","seasonalGroup":"Spring / allergy","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"MEPYRAMINE MALEATE 2 percent weight/weight","packSizeText":"Review manually","atcCode":"D04AA02","status":"Authorised","supplierCatalogKey":"anthisan cream 2% w/w"}},{"id":"product:P0141","nodeType":"product","refId":"P0141","label":"Dimestil 1 mg/g gel","subtext":"itching","meta":{"brand":"Dimestil","generic":"DIMETINDENE MALEATE","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"itching","secondaryIndications":"bites | skin irritation","otcCategory":"ANTIPRURITICS, INCL. ANTIHISTAMINES, ANESTHETICS, ETC.","seasonalGroup":"Spring / allergy","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DIMETINDENE MALEATE","packSizeText":"Review manually","atcCode":"D04AA13","status":"Authorised","supplierCatalogKey":"dimestil 1 mg/g gel"}},{"id":"product:P0179","nodeType":"product","refId":"P0179","label":"Fenazil","subtext":"itching","meta":{"brand":"Fenazil","generic":"PROMETHAZINE HYDROCHLORIDE","form":"CREAM","formGroup":"Topical","route":"Topical","mainIndication":"itching","secondaryIndications":"bites | skin irritation","otcCategory":"ANTIPRURITICS, INCL. ANTIHISTAMINES, ANESTHETICS, ETC.","seasonalGroup":"Spring / allergy","sedating":"Yes","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"PROMETHAZINE HYDROCHLORIDE 2 percent weight/weight","packSizeText":"Review manually","atcCode":"D04AA10","status":"Authorised","supplierCatalogKey":"fenazil"}},{"id":"product:P0180","nodeType":"product","refId":"P0180","label":"Fenistil 0,1% w/w Gel","subtext":"itching","meta":{"brand":"Fenistil","generic":"DIMETINDENE MALEATE","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"itching","secondaryIndications":"bites | skin irritation","otcCategory":"ANTIPRURITICS, INCL. ANTIHISTAMINES, ANESTHETICS, ETC.","seasonalGroup":"Spring / allergy","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DIMETINDENE MALEATE 1 milligram(s)/gram","packSizeText":"Review manually","atcCode":"D04AA13","status":"Authorised","supplierCatalogKey":"fenistil 0,1% w/w gel"}},{"id":"product:P0410","nodeType":"product","refId":"P0410","label":"RIVAL 20 mg/g gel","subtext":"itching","meta":{"brand":"RIVAL","generic":"DIPHENHYDRAMINE HYDROCHLORIDE","form":"GEL","formGroup":"Topical","route":"Topical","mainIndication":"itching","secondaryIndications":"bites | skin irritation","otcCategory":"ANTIPRURITICS, INCL. ANTIHISTAMINES, ANESTHETICS, ETC.","seasonalGroup":"Spring / allergy","sedating":"Yes","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"DIPHENHYDRAMINE HYDROCHLORIDE 20 milligram(s)/gram","packSizeText":"Review manually","atcCode":"D04AA32","status":"Authorised","supplierCatalogKey":"rival 20 mg/g gel"}},{"id":"product:P0464","nodeType":"product","refId":"P0464","label":"Systral 15 mg/g ointment","subtext":"itching","meta":{"brand":"Systral","generic":"CHLORPHENOXAMINE HYDROCHLORIDE","form":"OINTMENT","formGroup":"Topical","route":"Topical","mainIndication":"itching","secondaryIndications":"bites | skin irritation","otcCategory":"ANTIPRURITICS, INCL. ANTIHISTAMINES, ANESTHETICS, ETC.","seasonalGroup":"Spring / allergy","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"CHLORPHENOXAMINE HYDROCHLORIDE 15 milligram(s)/gram","packSizeText":"Review manually","atcCode":"D04AA34","status":"Authorised","supplierCatalogKey":"systral 15 mg/g ointment"}}],"links":[{"key":"1227448de882b428","source":"symptom:S059","target":"product:P0023","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM00090","role":"Secondary","reviewStatus":"Seeded"}},{"key":"edc688491c978f98","source":"symptom:S059","target":"product:P0141","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM00470","role":"Secondary","reviewStatus":"Seeded"}},{"key":"eb112255e83831c0","source":"symptom:S059","target":"product:P0179","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM00587","role":"Secondary","reviewStatus":"Seeded"}},{"key":"21e68b00b9f450d6","source":"symptom:S059","target":"product:P0180","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM00590","role":"Secondary","reviewStatus":"Seeded"}},{"key":"152339510cb95f2f","source":"symptom:S059","target":"product:P0410","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM01355","role":"Secondary","reviewStatus":"Seeded"}},{"key":"e6154d7ff479c1fb","source":"symptom:S059","target":"product:P0464","rel":"symptom","label":"Secondary","score":85,"why":"Imported symptom tags","meta":{"mapId":"PSM01533","role":"Secondary","reviewStatus":"Seeded"}}],"meta":{"symptomName":"skin irritation","linkCount":6}}
+{
+  "centerId": "symptom:S059",
+  "centerType": "symptom",
+  "refId": "S059",
+  "nodes": [
+    {
+      "id": "symptom:S059",
+      "nodeType": "symptom",
+      "refId": "S059",
+      "label": "skin irritation",
+      "subtext": "General",
+      "meta": {
+        "Symptom_ID": "S059",
+        "Symptom_Name": "skin irritation",
+        "Symptom_Category": "General",
+        "Linked_Product_Count": 6,
+        "Display_Group": "General",
+        "Priority_For_Graph": 70,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "product:P0023",
+      "nodeType": "product",
+      "refId": "P0023",
+      "label": "Anthisan Cream 2% w/w",
+      "subtext": "itching",
+      "meta": {
+        "brand": "Anthisan",
+        "generic": "MEPYRAMINE MALEATE",
+        "mainIndication": "itching",
+        "otcCategory": "ANTIPRURITICS, INCL. ANTIHISTAMINES, ANESTHETICS, ETC."
+      }
+    },
+    {
+      "id": "product:P0141",
+      "nodeType": "product",
+      "refId": "P0141",
+      "label": "Dimestil 1 mg/g gel",
+      "subtext": "itching",
+      "meta": {
+        "brand": "Dimestil",
+        "generic": "DIMETINDENE MALEATE",
+        "mainIndication": "itching",
+        "otcCategory": "ANTIPRURITICS, INCL. ANTIHISTAMINES, ANESTHETICS, ETC."
+      }
+    },
+    {
+      "id": "product:P0179",
+      "nodeType": "product",
+      "refId": "P0179",
+      "label": "Fenazil",
+      "subtext": "itching",
+      "meta": {
+        "brand": "Fenazil",
+        "generic": "PROMETHAZINE HYDROCHLORIDE",
+        "mainIndication": "itching",
+        "otcCategory": "ANTIPRURITICS, INCL. ANTIHISTAMINES, ANESTHETICS, ETC."
+      }
+    },
+    {
+      "id": "product:P0180",
+      "nodeType": "product",
+      "refId": "P0180",
+      "label": "Fenistil 0,1% w/w Gel",
+      "subtext": "itching",
+      "meta": {
+        "brand": "Fenistil",
+        "generic": "DIMETINDENE MALEATE",
+        "mainIndication": "itching",
+        "otcCategory": "ANTIPRURITICS, INCL. ANTIHISTAMINES, ANESTHETICS, ETC."
+      }
+    },
+    {
+      "id": "product:P0410",
+      "nodeType": "product",
+      "refId": "P0410",
+      "label": "RIVAL 20 mg/g gel",
+      "subtext": "itching",
+      "meta": {
+        "brand": "RIVAL",
+        "generic": "DIPHENHYDRAMINE HYDROCHLORIDE",
+        "mainIndication": "itching",
+        "otcCategory": "ANTIPRURITICS, INCL. ANTIHISTAMINES, ANESTHETICS, ETC."
+      }
+    },
+    {
+      "id": "product:P0464",
+      "nodeType": "product",
+      "refId": "P0464",
+      "label": "Systral 15 mg/g ointment",
+      "subtext": "itching",
+      "meta": {
+        "brand": "Systral",
+        "generic": "CHLORPHENOXAMINE HYDROCHLORIDE",
+        "mainIndication": "itching",
+        "otcCategory": "ANTIPRURITICS, INCL. ANTIHISTAMINES, ANESTHETICS, ETC."
+      }
+    },
+    {
+      "id": "product:P0033",
+      "nodeType": "product",
+      "refId": "P0033",
+      "label": "BIAFINE, emulsion for cutaneous application",
+      "subtext": "skin irritation",
+      "meta": {
+        "brand": "BIAFINE",
+        "generic": "TROLAMINE",
+        "mainIndication": "skin irritation",
+        "otcCategory": "EMOLLIENTS AND PROTECTIVES"
+      }
+    },
+    {
+      "id": "product:P0158",
+      "nodeType": "product",
+      "refId": "P0158",
+      "label": "E45 Cream White Soft Paraffin 14.5% w/w Light Liquid Paraffin 12.6% w/w Anhydrous Lanolin 1.0% w/w",
+      "subtext": "skin irritation",
+      "meta": {
+        "brand": "E45",
+        "generic": "LANOLIN | LIGHT LIQUID PARAFFIN | WHITE SOFT PARAFFIN",
+        "mainIndication": "skin irritation",
+        "otcCategory": "EMOLLIENTS AND PROTECTIVES"
+      }
+    },
+    {
+      "id": "product:P0237",
+      "nodeType": "product",
+      "refId": "P0237",
+      "label": "InfectoScab 5% cream",
+      "subtext": "scabies treatment",
+      "meta": {
+        "brand": "InfectoScab",
+        "generic": "PERMETHRIN",
+        "mainIndication": "scabies treatment",
+        "otcCategory": "ECTOPARASITICIDES, INCL. SCABICIDES, INSECTICIDES AND REPELLENTS"
+      }
+    },
+    {
+      "id": "product:P0260",
+      "nodeType": "product",
+      "refId": "P0260",
+      "label": "Lyclear 5% w/w Dermal Cream",
+      "subtext": "scabies treatment",
+      "meta": {
+        "brand": "Lyclear",
+        "generic": "PERMETHRIN",
+        "mainIndication": "scabies treatment",
+        "otcCategory": "ECTOPARASITICIDES, INCL. SCABICIDES, INSECTICIDES AND REPELLENTS"
+      }
+    },
+    {
+      "id": "product:P0394",
+      "nodeType": "product",
+      "refId": "P0394",
+      "label": "Permethrin LMP 50 mg/g gel",
+      "subtext": "scabies treatment",
+      "meta": {
+        "brand": "Permethrin",
+        "generic": "PERMETHRIN",
+        "mainIndication": "scabies treatment",
+        "otcCategory": "ECTOPARASITICIDES, INCL. SCABICIDES, INSECTICIDES AND REPELLENTS"
+      }
+    },
+    {
+      "id": "product:P0462",
+      "nodeType": "product",
+      "refId": "P0462",
+      "label": "Sudocrem Antiseptic Healing Cream",
+      "subtext": "skin irritation",
+      "meta": {
+        "brand": "Sudocrem",
+        "generic": "BENZYL ALCOHOL | BENZYL BENZOATE | BENZYL CINNAMATE | LANOLIN | ZINC OXIDE",
+        "mainIndication": "skin irritation",
+        "otcCategory": "EMOLLIENTS AND PROTECTIVES"
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "c085a3f4a7c7e096",
+      "source": "product:P0023",
+      "target": "symptom:S059",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00090"
+      }
+    },
+    {
+      "key": "ecf7a06bb1cab169",
+      "source": "product:P0141",
+      "target": "symptom:S059",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00470"
+      }
+    },
+    {
+      "key": "44c906f0f32ca1fa",
+      "source": "product:P0179",
+      "target": "symptom:S059",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00587"
+      }
+    },
+    {
+      "key": "e49e1d7b589603a8",
+      "source": "product:P0180",
+      "target": "symptom:S059",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM00590"
+      }
+    },
+    {
+      "key": "7a417a19448aef18",
+      "source": "product:P0410",
+      "target": "symptom:S059",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01355"
+      }
+    },
+    {
+      "key": "97b6f0eb0a63c803",
+      "source": "product:P0464",
+      "target": "symptom:S059",
+      "rel": "symptom",
+      "label": "Secondary",
+      "score": 85,
+      "why": "Imported symptom tags",
+      "meta": {
+        "mapId": "PSM01533"
+      }
+    },
+    {
+      "key": "4f861eb830587202",
+      "source": "product:P0033",
+      "target": "symptom:S059",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Manual review fix",
+      "meta": {
+        "mapId": "PSM01757"
+      }
+    },
+    {
+      "key": "674c48bd9a206708",
+      "source": "product:P0158",
+      "target": "symptom:S059",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Manual review fix",
+      "meta": {
+        "mapId": "PSM01771"
+      }
+    },
+    {
+      "key": "f297ed638b5e6bc8",
+      "source": "product:P0237",
+      "target": "symptom:S059",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 85,
+      "why": "Manual review fix",
+      "meta": {
+        "mapId": "PSM01781"
+      }
+    },
+    {
+      "key": "936e00fd695db45a",
+      "source": "product:P0260",
+      "target": "symptom:S059",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 85,
+      "why": "Manual review fix",
+      "meta": {
+        "mapId": "PSM01783"
+      }
+    },
+    {
+      "key": "7f0314b5f02d09f0",
+      "source": "product:P0394",
+      "target": "symptom:S059",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 85,
+      "why": "Manual review fix",
+      "meta": {
+        "mapId": "PSM01785"
+      }
+    },
+    {
+      "key": "c6e87ad8d3b63bfc",
+      "source": "product:P0462",
+      "target": "symptom:S059",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Manual review fix",
+      "meta": {
+        "mapId": "PSM01797"
+      }
+    }
+  ],
+  "meta": {
+    "symptomName": "skin irritation",
+    "linkCount": 6
+  }
+}

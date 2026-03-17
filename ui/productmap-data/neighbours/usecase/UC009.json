@@ -16,9 +16,110 @@
         "Trigger_Symptoms": "Travel sickness, nausea, motion sickness",
         "Description": "Core anti-motion product plus travel adjuncts."
       }
+    },
+    {
+      "id": "product:P0050",
+      "nodeType": "product",
+      "refId": "P0050",
+      "label": "Biodramina Chewing-gum",
+      "subtext": "motion sickness",
+      "meta": {
+        "brand": "Biodramina",
+        "generic": "DIMENHYDRINATE",
+        "mainIndication": "motion sickness",
+        "otcCategory": "ANTIEMETICS AND ANTINAUSEANTS"
+      }
+    },
+    {
+      "id": "product:P0051",
+      "nodeType": "product",
+      "refId": "P0051",
+      "label": "Biodramina Tablets",
+      "subtext": "motion sickness",
+      "meta": {
+        "brand": "Biodramina",
+        "generic": "DIMENHYDRINATE",
+        "mainIndication": "motion sickness",
+        "otcCategory": "ANTIEMETICS AND ANTINAUSEANTS"
+      }
+    },
+    {
+      "id": "product:P0245",
+      "nodeType": "product",
+      "refId": "P0245",
+      "label": "Kwells 300 microgram tablets",
+      "subtext": "motion sickness",
+      "meta": {
+        "brand": "Kwells",
+        "generic": "HYOSCINE HYDROBROMIDE",
+        "mainIndication": "motion sickness",
+        "otcCategory": "ANTIEMETICS AND ANTINAUSEANTS"
+      }
+    },
+    {
+      "id": "product:P0514",
+      "nodeType": "product",
+      "refId": "P0514",
+      "label": "Vomidrine 50 mg tablets",
+      "subtext": "motion sickness",
+      "meta": {
+        "brand": "Vomidrine",
+        "generic": "DIMENHYDRINATE",
+        "mainIndication": "motion sickness",
+        "otcCategory": "ANTIEMETICS AND ANTINAUSEANTS"
+      }
     }
   ],
-  "links": [],
+  "links": [
+    {
+      "key": "5d86d0100b89dd4c",
+      "source": "product:P0050",
+      "target": "usecase:UC009",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "motion sickness; travel sickness",
+      "meta": {
+        "useCaseItemId": "UCI00626"
+      }
+    },
+    {
+      "key": "7aa622522cc7aa46",
+      "source": "product:P0051",
+      "target": "usecase:UC009",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "motion sickness; travel sickness",
+      "meta": {
+        "useCaseItemId": "UCI00627"
+      }
+    },
+    {
+      "key": "6b20792c7826e8c8",
+      "source": "product:P0245",
+      "target": "usecase:UC009",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "motion sickness; travel sickness",
+      "meta": {
+        "useCaseItemId": "UCI00628"
+      }
+    },
+    {
+      "key": "202201fb472dba87",
+      "source": "product:P0514",
+      "target": "usecase:UC009",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "motion sickness; travel sickness",
+      "meta": {
+        "useCaseItemId": "UCI00629"
+      }
+    }
+  ],
   "meta": {
     "useCaseName": "Travel sickness pack",
     "linkCount": 23

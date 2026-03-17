@@ -1,1 +1,135 @@
-{"centerId":"product:P0516","centerType":"product","refId":"P0516","nodes":[{"id":"product:P0516","nodeType":"product","refId":"P0516","label":"Zoviduo 50mg/g and 10mg/g Cream","subtext":"review needed","meta":{"brand":"Zoviduo","generic":"ACICLOVIR | HYDROCORTISONE","form":"CREAM","formGroup":"Topical","route":"Topical","mainIndication":"review needed","secondaryIndications":null,"otcCategory":"ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"ACICLOVIR 50 milligram(s) | HYDROCORTISONE 10 milligram(s)","packSizeText":"Review manually","atcCode":"D06BB53","status":"Authorised","supplierCatalogKey":"zoviduo 50mg/g and 10mg/g cream"}},{"id":"product:P0517","nodeType":"product","refId":"P0517","label":"Zovirax Duo 50 mg/10 mg/g cream","subtext":"review needed","meta":{"brand":"Zovirax","generic":"ACICLOVIR | HYDROCORTISONE","form":"CREAM","formGroup":"Topical","route":"Topical","mainIndication":"review needed","secondaryIndications":null,"otcCategory":"ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":2,"strengthText":"ACICLOVIR 50 milligram(s)/gram | HYDROCORTISONE 10 milligram(s)/gram","packSizeText":"Review manually","atcCode":"D06BB53","status":"Authorised","supplierCatalogKey":"zovirax duo 50 mg/10 mg/g cream"}},{"id":"symptom:S053","nodeType":"symptom","refId":"S053","label":"review needed","subtext":"Review queue","meta":{"Symptom_ID":"S053","Symptom_Name":"review needed","Symptom_Category":"Review queue","Linked_Product_Count":34,"Display_Group":"Review queue","Priority_For_Graph":100,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}}],"links":[{"key":"0e6ac0af3f82db5d","source":"product:P0516","target":"product:P0517","rel":"similar","label":"Alternative: same active ingredient(s)","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00002","clinicalSimilarity":100,"commercialSubstitution":100,"crossSell":15,"riskOverlap":90,"evidence":90,"seasonality":40,"triggerContext":"review needed","primaryToSecondary":"No","reciprocalDisplay":"Yes","reviewStatus":"Ready - strong starter link","sourceMethod":"EXACT_INGREDIENT_BASE"}},{"key":"84eb0e0e677d5467","source":"product:P0516","target":"symptom:S053","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM01729","role":"Primary","reviewStatus":"Seeded"}},{"key":"65ef0e3dd1f3ac00","source":"product:P0516","target":"product:P0517","rel":"guardrail","label":"Potential duplicate therapy / substitute","score":95,"why":"Same active ingredient(s) and same form family.","meta":{"edgeId":"E00002","posAction":"Do not cross-sell together by default; show as alternative options instead.","guardrailType":"Potential duplicate therapy / substitute"}}],"meta":{"productName":"Zoviduo 50mg/g and 10mg/g Cream","linkCount":3}}
+{
+  "centerId": "product:P0516",
+  "centerType": "product",
+  "refId": "P0516",
+  "nodes": [
+    {
+      "id": "product:P0516",
+      "nodeType": "product",
+      "refId": "P0516",
+      "label": "Zoviduo 50mg/g and 10mg/g Cream",
+      "subtext": "review needed",
+      "meta": {
+        "brand": "Zoviduo",
+        "generic": "ACICLOVIR | HYDROCORTISONE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "review needed",
+        "secondaryIndications": null,
+        "otcCategory": "ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "ACICLOVIR 50 milligram(s) | HYDROCORTISONE 10 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "D06BB53",
+        "status": "Authorised",
+        "supplierCatalogKey": "zoviduo 50mg/g and 10mg/g cream"
+      }
+    },
+    {
+      "id": "product:P0517",
+      "nodeType": "product",
+      "refId": "P0517",
+      "label": "Zovirax Duo 50 mg/10 mg/g cream",
+      "subtext": "review needed",
+      "meta": {
+        "brand": "Zovirax",
+        "generic": "ACICLOVIR | HYDROCORTISONE",
+        "form": "CREAM",
+        "formGroup": "Topical",
+        "route": "Topical",
+        "mainIndication": "review needed",
+        "secondaryIndications": null,
+        "otcCategory": "ANTIBIOTICS AND CHEMOTHERAPEUTICS FOR DERMATOLOGICAL USE",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 2,
+        "strengthText": "ACICLOVIR 50 milligram(s)/gram | HYDROCORTISONE 10 milligram(s)/gram",
+        "packSizeText": "Review manually",
+        "atcCode": "D06BB53",
+        "status": "Authorised",
+        "supplierCatalogKey": "zovirax duo 50 mg/10 mg/g cream"
+      }
+    },
+    {
+      "id": "symptom:S034",
+      "nodeType": "symptom",
+      "refId": "S034",
+      "label": "healing",
+      "subtext": "General",
+      "meta": {
+        "Symptom_ID": "S034",
+        "Symptom_Name": "healing",
+        "Symptom_Category": "General",
+        "Linked_Product_Count": 2,
+        "Display_Group": "General",
+        "Priority_For_Graph": 70,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "0e6ac0af3f82db5d",
+      "source": "product:P0516",
+      "target": "product:P0517",
+      "rel": "similar",
+      "label": "Alternative: same active ingredient(s)",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00002",
+        "clinicalSimilarity": 100,
+        "commercialSubstitution": 100,
+        "crossSell": 15,
+        "riskOverlap": 90,
+        "evidence": 90,
+        "seasonality": 40,
+        "triggerContext": "review needed",
+        "primaryToSecondary": "No",
+        "reciprocalDisplay": "Yes",
+        "reviewStatus": "Ready - strong starter link",
+        "sourceMethod": "EXACT_INGREDIENT_BASE"
+      }
+    },
+    {
+      "key": "65ef0e3dd1f3ac00",
+      "source": "product:P0516",
+      "target": "product:P0517",
+      "rel": "guardrail",
+      "label": "Potential duplicate therapy / substitute",
+      "score": 95,
+      "why": "Same active ingredient(s) and same form family.",
+      "meta": {
+        "edgeId": "E00002",
+        "posAction": "Do not cross-sell together by default; show as alternative options instead.",
+        "guardrailType": "Potential duplicate therapy / substitute"
+      }
+    },
+    {
+      "key": "a539cba00da02fac",
+      "source": "product:P0516",
+      "target": "symptom:S034",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Manual review fix",
+      "meta": {
+        "mapId": "PSM01767"
+      }
+    }
+  ],
+  "meta": {
+    "productName": "Zoviduo 50mg/g and 10mg/g Cream",
+    "linkCount": 3
+  }
+}

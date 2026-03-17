@@ -1,1 +1,70 @@
-{"centerId":"product:P0401","centerType":"product","refId":"P0401","nodes":[{"id":"product:P0401","nodeType":"product","refId":"P0401","label":"Potassium iodide G.L. Pharma 65mg Tablets","subtext":"review needed","meta":{"brand":"Potassium","generic":"POTASSIUM IODIDE","form":"TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"review needed","secondaryIndications":null,"otcCategory":"ALL OTHER THERAPEUTIC PRODUCTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"POTASSIUM IODIDE 65 milligram(s)","packSizeText":"Review manually","atcCode":"V03AB21","status":"Authorised","supplierCatalogKey":"potassium iodide g.l. pharma 65mg tablets"}},{"id":"symptom:S053","nodeType":"symptom","refId":"S053","label":"review needed","subtext":"Review queue","meta":{"Symptom_ID":"S053","Symptom_Name":"review needed","Symptom_Category":"Review queue","Linked_Product_Count":34,"Display_Group":"Review queue","Priority_For_Graph":100,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}}],"links":[{"key":"7b81557b433f8207","source":"product:P0401","target":"symptom:S053","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM01316","role":"Primary","reviewStatus":"Seeded"}}],"meta":{"productName":"Potassium iodide G.L. Pharma 65mg Tablets","linkCount":1}}
+{
+  "centerId": "product:P0401",
+  "centerType": "product",
+  "refId": "P0401",
+  "nodes": [
+    {
+      "id": "product:P0401",
+      "nodeType": "product",
+      "refId": "P0401",
+      "label": "Potassium iodide G.L. Pharma 65mg Tablets",
+      "subtext": "review needed",
+      "meta": {
+        "brand": "Potassium",
+        "generic": "POTASSIUM IODIDE",
+        "form": "TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "review needed",
+        "secondaryIndications": null,
+        "otcCategory": "ALL OTHER THERAPEUTIC PRODUCTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "POTASSIUM IODIDE 65 milligram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "V03AB21",
+        "status": "Authorised",
+        "supplierCatalogKey": "potassium iodide g.l. pharma 65mg tablets"
+      }
+    },
+    {
+      "id": "symptom:S066",
+      "nodeType": "symptom",
+      "refId": "S066",
+      "label": "supplementation",
+      "subtext": "General",
+      "meta": {
+        "Symptom_ID": "S066",
+        "Symptom_Name": "supplementation",
+        "Symptom_Category": "General",
+        "Linked_Product_Count": 7,
+        "Display_Group": "General",
+        "Priority_For_Graph": 70,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "9b4dd35cfa4db8bd",
+      "source": "product:P0401",
+      "target": "symptom:S066",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 80,
+      "why": "Manual review fix",
+      "meta": {
+        "mapId": "PSM01791"
+      }
+    }
+  ],
+  "meta": {
+    "productName": "Potassium iodide G.L. Pharma 65mg Tablets",
+    "linkCount": 1
+  }
+}

@@ -38,6 +38,60 @@ def main():
             a['Secondary_Indications'] = ' | '.join(t for t in parts if t.lower() not in _bad_symptoms and t)
     psm = [m for m in psm if not (m['Product_ID'] in _smoking_pids and m['Symptom_ID'] in _bad_sids)]
     D['Product_Symptom_Map'] = psm
+
+    # Also fix UC009 (Travel sickness pack): remove nicotine products, they are not anti-emetics
+    uci = [u for u in uci if not (u['UseCase_ID'] == 'UC009' and u['Product_ID'] in _smoking_pids)]
+    D['Use_Case_Items'] = uci
+
+    # Fix "review needed" products: assign correct indications based on ingredients/class.
+    _review_fixes = {
+        'ANTITHROMBOTIC AGENTS':            {'main':'heart health','sec':'','tags':'wellness'},
+        'UROLOGICALS':                      None,  # handled per-ingredient below
+        'EMOLLIENTS AND PROTECTIVES':       None,  # handled per-ingredient below
+        'ANTIEMETICS AND ANTINAUSEANTS':    {'main':'motion sickness','sec':'travel sickness','tags':'motion sickness; travel sickness'},
+        'PSYCHOLEPTICS':                    {'main':'sleep support','sec':'','tags':'wellness'},
+        'ANTIMYCOTICS FOR SYSTEMIC USE':    {'main':'vaginal infection support','sec':'thrush (topical)','tags':'vaginal infection support; thrush (topical)'},
+        'OTOLOGICALS':                      {'main':'ear pain','sec':'','tags':'pain'},
+        'ALL OTHER THERAPEUTIC PRODUCTS':   {'main':'thyroid protection','sec':'','tags':'supplementation'},
+        'TONICS':                           {'main':'fatigue','sec':'supplementation','tags':'supplementation; wellness'},
+        'ALL OTHER NON-THERAPEUTIC PRODUCTS':{'main':'wound cleansing','sec':'wound care','tags':'wound care'},
+    }
+    _ingredient_overrides = {
+        'TADALAFIL':    {'main':'erectile dysfunction','sec':'','tags':'wellness'},
+        'SILDENAFIL':   {'main':'erectile dysfunction','sec':'','tags':'wellness'},
+        'TROLAMINE':    {'main':'skin irritation','sec':'skin repair','tags':'skin irritation; skin repair'},
+        'DIMETICONE':   {'main':'bloating','sec':'','tags':'bloating'},
+        'PERMETHRIN':   {'main':'scabies treatment','sec':'skin irritation','tags':'skin irritation; dermatology support'},
+        'ACICLOVIR':    {'main':'cold sore','sec':'healing','tags':'healing'},
+        'ULIPRISTAL':   {'main':'emergency contraception','sec':'','tags':'wellness'},
+        'LEVONORGESTREL':{'main':'emergency contraception','sec':'','tags':'wellness'},
+        'LANOLIN':      {'main':'skin irritation','sec':'eczema | dermatitis','tags':'skin irritation; eczema; dermatitis'},
+        'ZINC OXIDE':   {'main':'skin irritation','sec':'healing | wound care','tags':'skin irritation; healing; wound care'},
+        'CITRULLINE':   {'main':'fatigue','sec':'supplementation','tags':'supplementation; wellness'},
+        'PASSIFLORA':   {'main':'sleep support','sec':'','tags':'wellness'},
+        'ROWATINEX':    {'main':'urinary stones','sec':'','tags':'wellness'},
+    }
+    _sym_name_to_id = {s['Symptom_Name'].lower(): s['Symptom_ID'] for s in symptoms}
+    _review_sid = _sym_name_to_id.get('review needed')
+    for p in products:
+        if (p.get('Symptom_Tags') or '').lower().strip() == 'review needed':
+            tc = p.get('Therapeutic_Class','')
+            ingr = (p.get('Ingredient_Base') or p.get('Active_Ingredients','')).upper()
+            fix = None
+            for key, override in _ingredient_overrides.items():
+                if key in ingr:
+                    fix = override; break
+            if not fix:
+                fix = _review_fixes.get(tc)
+            if fix:
+                p['Symptom_Tags'] = fix['tags']
+                a = next((x for x in attrs if x['Product_ID'] == p['Product_ID']), None)
+                if a:
+                    a['Main_Indication'] = fix['main']
+                    a['Secondary_Indications'] = fix['sec']
+                if _review_sid:
+                    psm = [m for m in psm if not (m['Product_ID'] == p['Product_ID'] and m['Symptom_ID'] == _review_sid)]
+    D['Product_Symptom_Map'] = psm
     # --- end data-quality fix
 
     prod_by={r['Product_ID']:r for r in products}

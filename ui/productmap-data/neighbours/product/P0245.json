@@ -1,1 +1,125 @@
-{"centerId":"product:P0245","centerType":"product","refId":"P0245","nodes":[{"id":"product:P0245","nodeType":"product","refId":"P0245","label":"Kwells 300 microgram tablets","subtext":"review needed","meta":{"brand":"Kwells","generic":"HYOSCINE HYDROBROMIDE","form":"TABLET","formGroup":"Oral solid","route":"Oral","mainIndication":"review needed","secondaryIndications":null,"otcCategory":"ANTIEMETICS AND ANTINAUSEANTS","seasonalGroup":"All year","sedating":"No","nonDrowsy":"No","sugarFree":"Unknown","alcoholFree":"Unknown","ingredientCount":1,"strengthText":"HYOSCINE HYDROBROMIDE 300 microgram(s)","packSizeText":"Review manually","atcCode":"A04AD01","status":"Authorised","supplierCatalogKey":"kwells 300 microgram tablets"}},{"id":"symptom:S053","nodeType":"symptom","refId":"S053","label":"review needed","subtext":"Review queue","meta":{"Symptom_ID":"S053","Symptom_Name":"review needed","Symptom_Category":"Review queue","Linked_Product_Count":34,"Display_Group":"Review queue","Priority_For_Graph":100,"Node_Color":"#A5A5A5","Notes":"Seeded from imported symptom tags; refine naming over time."}}],"links":[{"key":"582ae444e93c36df","source":"product:P0245","target":"symptom:S053","rel":"symptom","label":"Primary","score":100,"why":"Imported symptom tags","meta":{"mapId":"PSM00798","role":"Primary","reviewStatus":"Seeded"}}],"meta":{"productName":"Kwells 300 microgram tablets","linkCount":1}}
+{
+  "centerId": "product:P0245",
+  "centerType": "product",
+  "refId": "P0245",
+  "nodes": [
+    {
+      "id": "product:P0245",
+      "nodeType": "product",
+      "refId": "P0245",
+      "label": "Kwells 300 microgram tablets",
+      "subtext": "review needed",
+      "meta": {
+        "brand": "Kwells",
+        "generic": "HYOSCINE HYDROBROMIDE",
+        "form": "TABLET",
+        "formGroup": "Oral solid",
+        "route": "Oral",
+        "mainIndication": "review needed",
+        "secondaryIndications": null,
+        "otcCategory": "ANTIEMETICS AND ANTINAUSEANTS",
+        "seasonalGroup": "All year",
+        "sedating": "No",
+        "nonDrowsy": "No",
+        "sugarFree": "Unknown",
+        "alcoholFree": "Unknown",
+        "ingredientCount": 1,
+        "strengthText": "HYOSCINE HYDROBROMIDE 300 microgram(s)",
+        "packSizeText": "Review manually",
+        "atcCode": "A04AD01",
+        "status": "Authorised",
+        "supplierCatalogKey": "kwells 300 microgram tablets"
+      }
+    },
+    {
+      "id": "symptom:S044",
+      "nodeType": "symptom",
+      "refId": "S044",
+      "label": "motion sickness",
+      "subtext": "Travel / motion",
+      "meta": {
+        "Symptom_ID": "S044",
+        "Symptom_Name": "motion sickness",
+        "Symptom_Category": "Travel / motion",
+        "Linked_Product_Count": 23,
+        "Display_Group": "Travel / motion",
+        "Priority_For_Graph": 100,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "symptom:S071",
+      "nodeType": "symptom",
+      "refId": "S071",
+      "label": "travel sickness",
+      "subtext": "Travel / motion",
+      "meta": {
+        "Symptom_ID": "S071",
+        "Symptom_Name": "travel sickness",
+        "Symptom_Category": "Travel / motion",
+        "Linked_Product_Count": 23,
+        "Display_Group": "Travel / motion",
+        "Priority_For_Graph": 100,
+        "Node_Color": "#A5A5A5",
+        "Notes": "Seeded from imported symptom tags; refine naming over time."
+      }
+    },
+    {
+      "id": "usecase:UC009",
+      "nodeType": "usecase",
+      "refId": "UC009",
+      "label": "Travel sickness pack",
+      "subtext": "Travel / motion",
+      "meta": {
+        "UseCase_ID": "UC009",
+        "UseCase_Name": "Travel sickness pack",
+        "UseCase_Category": "Travel / motion",
+        "Trigger_Symptoms": "Travel sickness, nausea, motion sickness",
+        "Description": "Core anti-motion product plus travel adjuncts."
+      }
+    }
+  ],
+  "links": [
+    {
+      "key": "7e9c40982d3ce4e6",
+      "source": "product:P0245",
+      "target": "symptom:S044",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Manual review fix",
+      "meta": {
+        "mapId": "PSM01787"
+      }
+    },
+    {
+      "key": "3bf5b55f6075dff6",
+      "source": "product:P0245",
+      "target": "symptom:S071",
+      "rel": "symptom",
+      "label": "Primary",
+      "score": 100,
+      "why": "Manual review fix",
+      "meta": {
+        "mapId": "PSM01788"
+      }
+    },
+    {
+      "key": "6b20792c7826e8c8",
+      "source": "product:P0245",
+      "target": "usecase:UC009",
+      "rel": "usecase",
+      "label": "Core",
+      "score": 100,
+      "why": "motion sickness; travel sickness",
+      "meta": {
+        "useCaseItemId": "UCI00628"
+      }
+    }
+  ],
+  "meta": {
+    "productName": "Kwells 300 microgram tablets",
+    "linkCount": 1
+  }
+}
