@@ -304,7 +304,7 @@
     if (pharm.phone) h += ' <span style="font-weight:400;font-size:.75em;">T:' + esc(pharm.phone) + '</span>';
     h += '</div>';
     // fields
-    h += '<div><b>Pat:</b> ' + esc(labelData.patientName || "") + '</div>';
+    if (labelData.patientName) h += '<div><b>Pat:</b> ' + esc(labelData.patientName) + '</div>';
     h += '<div><b>Rx:</b> ' + esc(labelData.drugName || "") + '</div>';
     // dose + freq on one line
     var doseFreq = '';
@@ -538,6 +538,7 @@
   var searchQ = "";
   var currentLabel = null;
   var showMaltese = true;
+  var includePatientName = false;
 
   async function render(ctx) {
     var mount = ctx.mount;
@@ -643,7 +644,8 @@
         '</select></div>' +
         '<div class="fld"><label>Language</label><select id="lb-lang"><option value="en"' + (!showMaltese ? ' selected' : '') + '>English only</option><option value="both"' + (showMaltese ? ' selected' : '') + '>English + Maltese</option></select></div>' +
       '</div>' +
-      '<div class="fld"><label>Patient Name *</label><input type="text" id="lb-patient" placeholder="Start typing to search\u2026" value="' + esc(label.patientName) + '" autocomplete="off"></div>' +
+      '<div class="fld"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;text-transform:none;letter-spacing:0"><input type="checkbox" id="lb-inc-patient"' + (includePatientName ? ' checked' : '') + ' style="width:auto;margin:0"> Include Patient Name</label></div>' +
+      '<div class="fld" id="lb-patient-fld" style="' + (includePatientName ? '' : 'display:none') + '"><label>Patient Name</label><input type="text" id="lb-patient" placeholder="Start typing to search\u2026" value="' + esc(label.patientName) + '" autocomplete="off"></div>' +
       '<div class="fld"><label>Drug Name *</label><input type="text" id="lb-drug" placeholder="Start typing to search\u2026" value="' + esc(label.drugName) + '" autocomplete="off"></div>' +
       '<div id="lb-variant-area"></div>' +
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">' +
@@ -703,7 +705,7 @@
     printBtn.innerHTML = "\uD83D\uDDA8\uFE0F Print Label";
     printBtn.addEventListener("click", function () {
       collectFormData();
-      if (!label.patientName || !label.drugName) { toast("Patient Name and Drug Name are required", "bad"); return; }
+      if (!label.drugName) { toast("Drug Name is required", "bad"); return; }
       var entry = Object.assign({}, label, { id: uid(), printedAt: nowStr(), printedBy: currentUser ? currentUser.full_name || currentUser.email : "Unknown" });
       labelHistory.unshift(entry);
       save();
@@ -731,6 +733,20 @@
     previewCard.appendChild(previewBd);
     layout.appendChild(previewCard);
     container.appendChild(layout);
+
+    // ── patient name checkbox toggle ──
+    var incPatientCb = document.getElementById("lb-inc-patient");
+    var patientFld = document.getElementById("lb-patient-fld");
+    incPatientCb.addEventListener("change", function () {
+      includePatientName = incPatientCb.checked;
+      patientFld.style.display = includePatientName ? "" : "none";
+      if (!includePatientName) {
+        label.patientName = "";
+        var pi = document.getElementById("lb-patient");
+        if (pi) pi.value = "";
+      }
+      updatePreview();
+    });
 
     // ── attach autocomplete: patient name ──
     var patientInput = document.getElementById("lb-patient");
@@ -822,7 +838,7 @@
     function collectFormData() {
       label.templateId = document.getElementById("lb-tpl").value;
       showMaltese = document.getElementById("lb-lang").value === "both";
-      label.patientName = document.getElementById("lb-patient").value.trim();
+      label.patientName = includePatientName ? document.getElementById("lb-patient").value.trim() : "";
       label.drugName = document.getElementById("lb-drug").value.trim();
       label.dose = document.getElementById("lb-dose").value.trim();
       label.route = document.getElementById("lb-route").value;
@@ -840,7 +856,7 @@
       if (pharmacyDetails.address) html += '<div class="lp-addr">' + esc(pharmacyDetails.address) + (pharmacyDetails.phone ? ' | Tel: ' + esc(pharmacyDetails.phone) : '') + '</div>';
       html += '</div>';
 
-      html += '<div class="lp-row"><span class="lp-label">Patient:</span> <span class="lp-val">' + esc(label.patientName || "\u2014") + '</span></div>';
+      if (includePatientName) html += '<div class="lp-row"><span class="lp-label">Patient:</span> <span class="lp-val">' + esc(label.patientName || "\u2014") + '</span></div>';
       html += '<div class="lp-row"><span class="lp-label">Drug:</span> <span class="lp-val"><strong>' + esc(label.drugName || "\u2014") + '</strong></span></div>';
       if (label.dose) html += '<div class="lp-row"><span class="lp-label">Dose:</span> <span class="lp-val">' + esc(label.dose) + '</span></div>';
       html += '<div class="lp-row"><span class="lp-label">Frequency:</span> <span class="lp-val">' + esc(label.frequency);
