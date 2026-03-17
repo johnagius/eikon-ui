@@ -731,6 +731,19 @@
     var content = mount.querySelector("#si-content");
     if (!content) return;
 
+    // Preserve focus state before replacing DOM
+    var focusId = "";
+    var focusVal = "";
+    var focusSel = [0, 0];
+    var ae = document.activeElement;
+    if (ae && (ae.id === "si-search" || ae.id === "si-order-search" || ae.id === "si-order-status-filter")) {
+      focusId = ae.id;
+      focusVal = ae.value || "";
+      if (ae.selectionStart != null) {
+        focusSel = [ae.selectionStart, ae.selectionEnd];
+      }
+    }
+
     var html = renderTabs();
 
     if (state.tab === "inventory") {
@@ -741,6 +754,17 @@
 
     content.innerHTML = html;
     wireAll(mount);
+
+    // Restore focus after DOM rebuild
+    if (focusId) {
+      var el = document.getElementById(focusId);
+      if (el) {
+        el.focus();
+        if (el.setSelectionRange && focusSel) {
+          try { el.setSelectionRange(focusSel[0], focusSel[1]); } catch (e) {}
+        }
+      }
+    }
   }
 
   function wireAll(mount) {
@@ -1076,6 +1100,84 @@
             btn.textContent = "Commit Order to " + supName;
           });
         }
+      });
+    });
+  }
+
+  // Re-wire only the table elements (sort headers, cart/diary buttons, qty inputs)
+  // Used after partial DOM updates from auto-refresh to avoid touching the search toolbar
+  function wireInventoryTable(mount) {
+    // Sort headers
+    mount.querySelectorAll("[data-sort-key]").forEach(function (th) {
+      th.addEventListener("click", function () {
+        var key = th.getAttribute("data-sort-key");
+        if (state.sort.key === key) {
+          state.sort.dir = state.sort.dir === "asc" ? "desc" : "asc";
+        } else {
+          state.sort.key = key;
+          state.sort.dir = "asc";
+        }
+        applyFilter();
+        renderAll(mount);
+      });
+    });
+
+    // Add to cart
+    mount.querySelectorAll(".si-add-cart").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var id = Number(btn.getAttribute("data-cart-id"));
+        var product = state.products.find(function (p) { return p.id === id; });
+        if (!product) return;
+        var qtyInput = mount.querySelector("input.si-qty-input[data-cart-id='" + id + "']");
+        var qp = Number(product.qty_purchased) || 1;
+        var hasDeal = qp > 1 || Number(product.qty_free) > 0;
+        var qty = qtyInput ? Math.max(1, parseInt(qtyInput.value, 10) || 1) : (hasDeal ? qp : 1);
+        if (hasDeal && qty % qp !== 0) {
+          qty = Math.max(qp, Math.round(qty / qp) * qp);
+          if (qtyInput) qtyInput.value = qty;
+        }
+        if (state.cart[id]) {
+          delete state.cart[id];
+          scheduleDraftSave();
+          renderAll(mount);
+        } else {
+          state.cart[id] = { product: product, qty: qty };
+          scheduleDraftSave();
+          renderAll(mount);
+        }
+      });
+    });
+
+    // Qty input change
+    mount.querySelectorAll(".si-qty-input").forEach(function (inp) {
+      inp.addEventListener("change", function () {
+        var id = Number(inp.getAttribute("data-cart-id"));
+        var qty = Math.max(1, parseInt(inp.value, 10) || 1);
+        var product = state.cart[id] ? state.cart[id].product : state.products.find(function (p) { return p.id === id; });
+        if (product) {
+          var qp = Number(product.qty_purchased) || 1;
+          var hasDeal = qp > 1 || Number(product.qty_free) > 0;
+          if (hasDeal && qty % qp !== 0) {
+            qty = Math.max(qp, Math.round(qty / qp) * qp);
+            inp.value = qty;
+          }
+        }
+        if (state.cart[id]) {
+          state.cart[id].qty = qty;
+          scheduleDraftSave();
+        }
+      });
+    });
+
+    // Add to Order Diary
+    mount.querySelectorAll(".si-add-diary").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var desc = btn.getAttribute("data-diary-desc");
+        var sup = btn.getAttribute("data-diary-sup");
+        btn.disabled = true;
+        apiAddToOrderDiary(desc, sup)
+          .then(function () { toast("good", "Added", "Added to Order Diary: " + desc); btn.disabled = false; })
+          .catch(function (err) { toast("bad", "Error", err.message || "Failed"); btn.disabled = false; });
       });
     });
   }
@@ -1429,11 +1531,28 @@
         } else {
           // Don't refresh inventory view while user has cart items (actively shopping)
           if (Object.keys(state.cart).length > 0) return;
-          apiInventory(state.queries.keyword, state.queries.supplier).then(function (resp) {
+          apiInventory("", "").then(function (resp) {
             if (E.state.activeModuleId !== "supplier-inventory") return;
             state.products = resp.entries || [];
             applyFilter();
-            renderAll(ctx.mount);
+            // Update table body only to preserve search input focus & state
+            var wrap = ctx.mount.querySelector(".si-table-wrap");
+            var countDiv = wrap && wrap.nextElementSibling;
+            if (wrap) {
+              // Re-render just the table rows + count
+              var tmpDiv = document.createElement("div");
+              tmpDiv.innerHTML = renderInventory();
+              var newWrap = tmpDiv.querySelector(".si-table-wrap");
+              var newCount = newWrap && newWrap.nextElementSibling;
+              if (newWrap) {
+                wrap.innerHTML = newWrap.innerHTML;
+                if (countDiv && newCount) countDiv.innerHTML = newCount.innerHTML;
+                // Re-wire sort headers and cart buttons on the refreshed table
+                wireInventoryTable(ctx.mount);
+              }
+            } else {
+              renderAll(ctx.mount);
+            }
           }).catch(function () {});
         }
       }, 30000);
