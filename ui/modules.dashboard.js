@@ -248,13 +248,24 @@
       ".xsell-chip{padding:6px 12px;border:1px solid rgba(255,255,255,.16);border-radius:999px;font-size:11px;font-weight:700;cursor:pointer;background:rgba(255,255,255,.03);color:rgba(170,183,214,.72);transition:all .12s}" +
       ".xsell-chip:hover{background:rgba(255,204,102,.1);border-color:rgba(255,204,102,.3)}" +
       ".xsell-chip.active{background:rgba(255,204,102,.18);border-color:#ffcc66;color:#ffe6a0}" +
-      ".xsell-comp-list{display:flex;flex-direction:column;gap:4px}" +
+      ".xsell-comp-list{display:flex;flex-direction:column;gap:4px;max-height:480px;overflow-y:auto}" +
       ".xsell-comp-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid rgba(255,255,255,.1);border-radius:10px;background:rgba(255,255,255,.04);cursor:pointer;transition:background .12s,border-color .12s}" +
       ".xsell-comp-row:hover{background:rgba(46,229,157,.08);border-color:rgba(46,229,157,.3)}" +
       ".xsell-comp-row .xc-score{font-size:10px;font-weight:800;padding:3px 8px;border-radius:6px;background:rgba(46,229,157,.15);color:#6af0be;flex-shrink:0}" +
       ".xsell-comp-row .xc-name{flex:1;font-size:13px;font-weight:700;color:#dbe7ff}" +
       ".xsell-comp-row .xc-reason{font-size:11px;color:rgba(170,183,214,.72);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}" +
-      ".xsell-comp-empty{padding:24px;text-align:center;color:rgba(170,183,214,.72);font-size:12px}";
+      ".xsell-comp-empty{padding:24px;text-align:center;color:rgba(170,183,214,.72);font-size:12px}" +
+      ".xsell-group{border:1px solid rgba(255,255,255,.08);border-radius:10px;overflow:hidden}" +
+      ".xsell-group-hd{display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer;background:rgba(255,255,255,.03);transition:background .1s}" +
+      ".xsell-group-hd:hover{background:rgba(255,255,255,.06)}" +
+      ".xsell-group-hd .xg-arrow{font-size:9px;color:rgba(170,183,214,.5);transition:transform .15s}" +
+      ".xsell-group-hd .xg-arrow.open{transform:rotate(90deg)}" +
+      ".xsell-group-hd .xg-brand{font-size:13px;font-weight:800;color:#6af0be;flex:1}" +
+      ".xsell-group-hd .xg-count{font-size:10px;font-weight:800;padding:2px 7px;border-radius:999px;background:rgba(255,255,255,.06);color:rgba(170,183,214,.72)}" +
+      ".xsell-group-hd .xg-score{font-size:10px;font-weight:800;padding:3px 8px;border-radius:6px;background:rgba(46,229,157,.15);color:#6af0be}" +
+      ".xsell-group-bd{display:none;padding:4px 8px 8px}" +
+      ".xsell-group-bd.open{display:block}" +
+      ".xsell-group-bd .xsell-comp-row{border-radius:8px;padding:8px 10px}";
     document.head.appendChild(st);
   }
 
@@ -2358,6 +2369,26 @@
     overlay.classList.add("open");
   }
 
+  function xsellBrand(c) {
+    return (c.node.meta && c.node.meta.brand) || c.node.label.split(/\s/)[0] || "Other";
+  }
+
+  function xsellMakeRow(c) {
+    var row = document.createElement("div");
+    row.className = "xsell-comp-row";
+    row.innerHTML =
+      '<span class="xc-score">' + c.score + '</span>' +
+      '<span class="xc-name">' + esc(c.node.label) + '</span>' +
+      (c.label ? '<span class="xc-reason" title="' + esc(c.why || c.label) + '">' + esc(c.label) + '</span>' : '');
+    (function (nodeId, label) {
+      row.addEventListener("click", function () {
+        xsellCloseModal();
+        xsellSelect(nodeId, label);
+      });
+    })(c.node.id, c.node.label);
+    return row;
+  }
+
   function xsellRenderCompList(data, selected, listEl) {
     listEl.innerHTML = "";
     var activeSymptoms = Object.keys(selected);
@@ -2385,21 +2416,62 @@
       return;
     }
 
+    // Group by brand
+    var brandOrder = [], brandMap = {};
     for (var i = 0; i < filtered.length; i++) {
-      var c = filtered[i];
-      var row = document.createElement("div");
-      row.className = "xsell-comp-row";
-      row.innerHTML =
-        '<span class="xc-score">' + c.score + '</span>' +
-        '<span class="xc-name">' + esc(c.node.label) + '</span>' +
-        (c.label ? '<span class="xc-reason" title="' + esc(c.why || c.label) + '">' + esc(c.label) + '</span>' : '');
-      (function (nodeId, label) {
-        row.addEventListener("click", function () {
-          xsellCloseModal();
-          xsellSelect(nodeId, label);
-        });
-      })(c.node.id, c.node.label);
-      listEl.appendChild(row);
+      var brand = xsellBrand(filtered[i]);
+      if (!brandMap[brand]) { brandMap[brand] = []; brandOrder.push(brand); }
+      brandMap[brand].push(filtered[i]);
+    }
+
+    // Sort brands: multi-item groups first (by best score), then singles by score
+    brandOrder.sort(function (a, b) {
+      var multi = (brandMap[b].length > 1 ? 1 : 0) - (brandMap[a].length > 1 ? 1 : 0);
+      if (multi !== 0) return multi;
+      return brandMap[b][0].score - brandMap[a][0].score;
+    });
+
+    var rendered = 0;
+    var MAX_VISIBLE = 12;
+    for (var bi = 0; bi < brandOrder.length; bi++) {
+      var brand = brandOrder[bi];
+      var items = brandMap[brand];
+
+      if (items.length === 1) {
+        // Single item — render as flat row
+        listEl.appendChild(xsellMakeRow(items[0]));
+        rendered++;
+      } else {
+        // Multi-item group — collapsible
+        var bestScore = items[0].score;
+        var grp = document.createElement("div");
+        grp.className = "xsell-group";
+        var hd = document.createElement("div");
+        hd.className = "xsell-group-hd";
+        hd.innerHTML =
+          '<span class="xg-arrow">▶</span>' +
+          '<span class="xg-brand">' + esc(brand) + '</span>' +
+          '<span class="xg-count">' + items.length + ' variants</span>' +
+          '<span class="xg-score">' + bestScore + '</span>';
+
+        var bd = document.createElement("div");
+        bd.className = "xsell-group-bd";
+        for (var gi = 0; gi < items.length; gi++) {
+          bd.appendChild(xsellMakeRow(items[gi]));
+        }
+
+        (function (hdEl, bdEl) {
+          hdEl.addEventListener("click", function () {
+            bdEl.classList.toggle("open");
+            hdEl.querySelector(".xg-arrow").classList.toggle("open");
+          });
+        })(hd, bd);
+
+        grp.appendChild(hd);
+        grp.appendChild(bd);
+        listEl.appendChild(grp);
+        rendered++;
+      }
     }
   }
 
