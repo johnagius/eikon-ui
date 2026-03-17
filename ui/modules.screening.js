@@ -119,6 +119,12 @@
 
   var FOLLOW_UP_STATUS = ["Pending", "Scheduled", "Completed", "No-show", "Cancelled"];
 
+  var CAMPAIGN_LOCATIONS = [
+    "Pharmacy Floor", "Community Centre", "GP Surgery", "Hospital Outpatient",
+    "Mobile Unit", "Workplace", "School/University", "Care Home",
+    "Health Fair", "Online/Remote", "Other"
+  ];
+
   // ── styles ───────────────────────────────────────────────────────────────
   var stylesDone = false;
   function ensureStyles() {
@@ -267,7 +273,38 @@
       ".sc-ac-item:first-child{border-radius:10px 10px 0 0}",
       ".sc-ac-item:last-child{border-radius:0 0 10px 10px}",
 
-      "@media(max-width:700px){.sc .container{padding:14px 12px}.sc .kpi-row{grid-template-columns:repeat(2,1fr)}.sc .camp-grid{grid-template-columns:1fr}.sc .summary-grid{grid-template-columns:1fr}.sc-modal{max-width:100%;border-radius:16px}}"
+      /* ── progress bar ── */
+      ".sc .progress-wrap{margin-top:10px;padding-top:10px;border-top:1px solid var(--bd)}",
+      ".sc .progress-label{display:flex;justify-content:space-between;font-size:11px;color:var(--mut);margin-bottom:5px;font-weight:600}",
+      ".sc .progress-bar{height:6px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden}",
+      ".sc .progress-fill{height:100%;border-radius:3px;transition:width .4s cubic-bezier(.16,1,.3,1);background:linear-gradient(90deg,var(--ac),var(--ac2))}",
+      ".sc .progress-fill.high{background:linear-gradient(90deg,#2ee59d,#1bc47e)}",
+      ".sc .progress-fill.over{background:linear-gradient(90deg,#ff6b9d,#ff5a7a)}",
+
+      /* ── overdue indicator ── */
+      ".sc .badge.overdue{background:rgba(255,80,80,.15);color:#ff6b6b;animation:sc-pulse 2s ease-in-out infinite}",
+      ".sc .badge.overdue::before{background:#ff5050}",
+      "@keyframes sc-pulse{0%,100%{opacity:1}50%{opacity:.7}}",
+
+      /* ── campaign location pill ── */
+      ".sc .camp-card .cc-location{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--mut);background:rgba(255,255,255,.04);padding:3px 10px;border-radius:8px;margin-top:4px}",
+
+      /* ── action bar ── */
+      ".sc .action-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;padding:12px 16px;border:1px solid var(--bd);border-radius:var(--r2);background:var(--pnl)}",
+
+      /* ── stat mini-bar (for summary) ── */
+      ".sc .stat-bar-wrap{margin-top:6px}",
+      ".sc .stat-bar{height:4px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden}",
+      ".sc .stat-bar-fill{height:100%;border-radius:2px}",
+
+      /* ── enhanced empty state ── */
+      ".sc .empty .cta-btn{display:inline-flex;align-items:center;gap:8px;margin-top:12px;padding:10px 20px;border-radius:var(--r2);background:linear-gradient(135deg,rgba(78,161,255,.22),rgba(124,108,255,.18));border:1px solid rgba(78,161,255,.4);color:#8ac4ff;font-size:13px;font-weight:700;cursor:pointer;transition:all .18s}",
+      ".sc .empty .cta-btn:hover{background:linear-gradient(135deg,rgba(78,161,255,.3),rgba(124,108,255,.24));border-color:rgba(78,161,255,.55);transform:translateY(-1px);box-shadow:0 4px 16px rgba(78,161,255,.15)}",
+
+      /* ── table row hover enhancement ── */
+      ".sc tbody tr:nth-child(even) td{background:rgba(255,255,255,.012)}",
+
+      "@media(max-width:700px){.sc .container{padding:14px 12px}.sc .kpi-row{grid-template-columns:repeat(2,1fr)}.sc .camp-grid{grid-template-columns:1fr}.sc .summary-grid{grid-template-columns:1fr}.sc-modal{max-width:100%;border-radius:16px}.sc .action-bar{flex-direction:column}}"
     ].join("\n");
     document.head.appendChild(s);
   }
@@ -380,6 +417,53 @@
     return { bg: bg, modal: modal, close: close };
   }
 
+  // ── CSV export ─────────────────────────────────────────────────────────
+  function csvEscape(v) { var s = String(v == null ? "" : v); return s.indexOf(",") !== -1 || s.indexOf('"') !== -1 || s.indexOf("\n") !== -1 ? '"' + s.replace(/"/g, '""') + '"' : s; }
+
+  function exportCampaignCSV(c) {
+    var rows = [["Name", "Phone", "Email", "DOB", "Type", "Screening Date", "Result Notes", "Result Category", "Referral", "Referral Notes"]];
+    (c.participants || []).forEach(function (p) {
+      rows.push([p.name, p.phone, p.email, p.dob, p.type, p.date, p.resultNotes, p.resultCategory, p.referral, p.referralNotes].map(csvEscape));
+    });
+    var csv = rows.map(function (r) { return r.join(","); }).join("\n");
+    var blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = (c.name || "campaign").replace(/[^a-zA-Z0-9_-]/g, "_") + "_participants.csv";
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { a.remove(); URL.revokeObjectURL(url); }, 100);
+    toast("CSV exported", "good");
+  }
+
+  function exportAllCampaignsCSV() {
+    var rows = [["Campaign", "Type", "Status", "Location", "Start Date", "End Date", "Target", "Participants", "Abnormal", "Referrals"]];
+    campaigns.forEach(function (c) {
+      var ps = c.participants || [];
+      var abn = ps.filter(function (p) { return p.resultCategory === "Abnormal" || p.resultCategory === "Requires urgent attention"; }).length;
+      var refs = ps.filter(function (p) { return p.referral && p.referral !== "No referral needed"; }).length;
+      rows.push([c.name, c.type, getCampaignStatus(c), c.location, c.startDate, c.endDate, c.targetScreenings, ps.length, abn, refs].map(csvEscape));
+    });
+    var csv = rows.map(function (r) { return r.join(","); }).join("\n");
+    var blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = "screening_campaigns_export.csv";
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { a.remove(); URL.revokeObjectURL(url); }, 100);
+    toast("All campaigns exported", "good");
+  }
+
+  // ── overdue helper ────────────────────────────────────────────────────────
+  function isOverdue(f) {
+    if (!f.scheduledDate) return false;
+    if (f.status === "Completed" || f.status === "Cancelled") return false;
+    return f.scheduledDate < todayStr();
+  }
+
   // ── render ───────────────────────────────────────────────────────────────
   var activeTab = "campaigns";
   var activeCampaignId = null;
@@ -419,6 +503,7 @@
 
       // KPI
       var activeCampaigns = campaigns.filter(function (c) { return getCampaignStatus(c) === "Active"; }).length;
+      var overdueCount = getAllFollowUps().filter(function (f) { return isOverdue(f); }).length;
       var kpiRow = document.createElement("div");
       kpiRow.className = "kpi-row";
       var kpis = [
@@ -426,7 +511,8 @@
         { n: activeCampaigns, l: "Active Now", color: "#2ee59d" },
         { n: totalParticipants, l: "Screened", color: "#7c6cff" },
         { n: totalAbnormal, l: "Abnormal", color: "#ffcc66" },
-        { n: totalReferrals, l: "Referrals", color: "#ff6b9d" }
+        { n: totalReferrals, l: "Referrals", color: "#ff6b9d" },
+        { n: overdueCount, l: "Overdue", color: "#ff5050" }
       ];
       kpis.forEach(function (k) {
         kpiRow.innerHTML += '<div class="kpi"><div class="n" style="color:' + k.color + '">' + k.n + '</div><div class="l">' + k.l + '</div></div>';
@@ -484,11 +570,23 @@
     searchBar.appendChild(searchInput);
     hdr.appendChild(searchBar);
 
+    var btnGroup = document.createElement("div");
+    btnGroup.style.cssText = "display:flex;gap:8px";
+
+    if (campaigns.length > 0) {
+      var expAllBtn = document.createElement("button");
+      expAllBtn.className = "btn sm ok";
+      expAllBtn.innerHTML = "\uD83D\uDCE5 Export All";
+      expAllBtn.addEventListener("click", function () { exportAllCampaignsCSV(); });
+      btnGroup.appendChild(expAllBtn);
+    }
+
     var addBtn = document.createElement("button");
     addBtn.className = "btn pri";
     addBtn.innerHTML = "<span style='font-size:16px'>+</span> New Campaign";
     addBtn.addEventListener("click", function () { showCampaignModal(null, redraw); });
-    hdr.appendChild(addBtn);
+    btnGroup.appendChild(addBtn);
+    hdr.appendChild(btnGroup);
     container.appendChild(hdr);
 
     var filtered = campaigns;
@@ -503,7 +601,17 @@
     filtered = filtered.slice().sort(function (a, b) { return (b.startDate || "").localeCompare(a.startDate || ""); });
 
     if (filtered.length === 0) {
-      container.innerHTML += '<div class="empty"><div class="icon">\uD83D\uDCCB</div><div class="msg">No campaigns yet. Create your first screening campaign to get started.</div></div>';
+      var emptyDiv = document.createElement("div");
+      emptyDiv.className = "empty";
+      emptyDiv.innerHTML = '<div class="icon">\uD83D\uDCCB</div><div class="msg">' + (searchQ ? 'No campaigns match your search.' : 'No campaigns yet. Create your first screening campaign to get started.') + '</div>';
+      if (!searchQ) {
+        var ctaBtn = document.createElement("button");
+        ctaBtn.className = "cta-btn";
+        ctaBtn.innerHTML = "<span style='font-size:16px'>+</span> Create First Campaign";
+        ctaBtn.addEventListener("click", function () { showCampaignModal(null, redraw); });
+        emptyDiv.appendChild(ctaBtn);
+      }
+      container.appendChild(emptyDiv);
       return;
     }
 
@@ -516,12 +624,17 @@
       var abn = (c.participants || []).filter(function (p) { return p.resultCategory === "Abnormal" || p.resultCategory === "Requires urgent attention"; }).length;
       var refs = (c.participants || []).filter(function (p) { return p.referral && p.referral !== "No referral needed"; }).length;
       var icon = CAMPAIGN_TYPE_ICONS[c.type] || "\uD83D\uDCCB";
+      var goal = parseInt(c.targetScreenings, 10) || 0;
+      var pct = goal > 0 ? Math.min(Math.round(pCount / goal * 100), 100) : 0;
+      var pctClass = pct >= 100 ? "high" : (pct > 100 ? "over" : "");
 
       var card = document.createElement("div");
       card.className = "camp-card";
       card.innerHTML =
         '<div class="cc-top">' +
-          '<div><div class="cc-name">' + esc(c.name) + '</div><div class="cc-type">' + esc(c.type) + '</div></div>' +
+          '<div><div class="cc-name">' + esc(c.name) + '</div><div class="cc-type">' + esc(c.type) + '</div>' +
+            (c.location ? '<div class="cc-location">\uD83D\uDCCD ' + esc(c.location) + '</div>' : '') +
+          '</div>' +
           '<div style="display:flex;align-items:center;gap:8px"><span class="badge ' + norm(status) + '">' + esc(status) + '</span><span class="cc-icon">' + icon + '</span></div>' +
         '</div>' +
         '<div class="cc-meta">' +
@@ -532,6 +645,7 @@
           '<span>\u26A0\uFE0F <span class="cc-stat" style="color:#ffcc66">' + abn + '</span> abnormal</span>' +
           '<span>\uD83D\uDCE4 <span class="cc-stat" style="color:#ff6b9d">' + refs + '</span> referrals</span>' +
         '</div>' +
+        (goal > 0 ? '<div class="progress-wrap"><div class="progress-label"><span>Goal: ' + pCount + ' / ' + goal + '</span><span>' + pct + '%</span></div><div class="progress-bar"><div class="progress-fill ' + pctClass + '" style="width:' + pct + '%"></div></div></div>' : '') +
         '<div class="cc-actions"></div>';
 
       var actions = card.querySelector(".cc-actions");
@@ -546,6 +660,22 @@
       editBtn.textContent = "Edit";
       editBtn.addEventListener("click", function (e) { e.stopPropagation(); showCampaignModal(c, redraw); });
       actions.appendChild(editBtn);
+
+      var dupBtn = document.createElement("button");
+      dupBtn.className = "btn sm";
+      dupBtn.textContent = "Duplicate";
+      dupBtn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        var clone = JSON.parse(JSON.stringify(c));
+        clone.id = uid();
+        clone.name = c.name + " (Copy)";
+        clone.participants = [];
+        campaigns.push(clone);
+        save();
+        toast("Campaign duplicated", "good");
+        redraw();
+      });
+      actions.appendChild(dupBtn);
 
       var delBtn = document.createElement("button");
       delBtn.className = "btn sm dn";
@@ -589,17 +719,57 @@
     // detail hero
     var dh = document.createElement("div");
     dh.className = "detail-hero";
+    var goal = parseInt(c.targetScreenings, 10) || 0;
+    var pct = goal > 0 ? Math.min(Math.round(participants.length / goal * 100), 100) : 0;
+    var pctClass = pct >= 100 ? "high" : "";
+
     dh.innerHTML =
       '<h3><span style="font-size:24px">' + icon + '</span> ' + esc(c.name) + ' <span class="badge ' + norm(status) + '">' + esc(status) + '</span></h3>' +
+      (c.location ? '<div style="margin-bottom:12px"><span class="cc-location" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--mut);background:rgba(255,255,255,.04);padding:4px 12px;border-radius:8px">\uD83D\uDCCD ' + esc(c.location) + '</span></div>' : '') +
       '<div class="summary-grid" style="margin-bottom:0">' +
         '<div class="summary-item"><div class="s-label">Type</div><div class="s-value" style="font-size:16px">' + esc(c.type) + '</div></div>' +
         '<div class="summary-item"><div class="s-label">Period</div><div class="s-value" style="font-size:16px">' + fmtDate(c.startDate) + ' \u2014 ' + fmtDate(c.endDate) + '</div></div>' +
-        '<div class="summary-item"><div class="s-label">Participants</div><div class="s-value" style="color:#7c6cff">' + participants.length + '</div></div>' +
+        '<div class="summary-item"><div class="s-label">Participants</div><div class="s-value" style="color:#7c6cff">' + participants.length + (goal > 0 ? '<span style="font-size:14px;color:var(--mut)"> / ' + goal + '</span>' : '') + '</div></div>' +
         '<div class="summary-item"><div class="s-label">Abnormal</div><div class="s-value" style="color:#ffcc66">' + abnormal + '</div></div>' +
         '<div class="summary-item"><div class="s-label">Referrals</div><div class="s-value" style="color:#ff6b9d">' + referrals + '</div></div>' +
       '</div>' +
+      (goal > 0 ? '<div class="progress-wrap" style="border-top:none;margin-top:14px"><div class="progress-label"><span>Goal Progress: ' + participants.length + ' / ' + goal + '</span><span>' + pct + '%</span></div><div class="progress-bar" style="height:8px"><div class="progress-fill ' + pctClass + '" style="width:' + pct + '%"></div></div></div>' : '') +
       (c.notes ? '<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--bd);color:var(--mut);font-size:13px"><strong style="color:var(--txt)">Notes:</strong> ' + esc(c.notes) + '</div>' : '');
     container.appendChild(dh);
+
+    // action bar
+    var actionBar = document.createElement("div");
+    actionBar.className = "action-bar";
+
+    var editCampBtn = document.createElement("button");
+    editCampBtn.className = "btn sm";
+    editCampBtn.innerHTML = "\u270F\uFE0F Edit Campaign";
+    editCampBtn.addEventListener("click", function () { showCampaignModal(c, redraw); });
+    actionBar.appendChild(editCampBtn);
+
+    var exportBtn = document.createElement("button");
+    exportBtn.className = "btn sm ok";
+    exportBtn.innerHTML = "\uD83D\uDCE5 Export CSV";
+    exportBtn.addEventListener("click", function () { exportCampaignCSV(c); });
+    actionBar.appendChild(exportBtn);
+
+    var dupCBtn = document.createElement("button");
+    dupCBtn.className = "btn sm";
+    dupCBtn.innerHTML = "\uD83D\uDCCB Duplicate";
+    dupCBtn.addEventListener("click", function () {
+      var clone = JSON.parse(JSON.stringify(c));
+      clone.id = uid();
+      clone.name = c.name + " (Copy)";
+      clone.participants = [];
+      campaigns.push(clone);
+      save();
+      toast("Campaign duplicated", "good");
+      activeCampaignId = null;
+      redraw();
+    });
+    actionBar.appendChild(dupCBtn);
+
+    container.appendChild(actionBar);
 
     // participants card
     var pCard = document.createElement("div");
@@ -697,11 +867,14 @@
       fuList.forEach(function (f) {
         var tr = document.createElement("tr");
         var statusClass = norm(f.status || "pending");
+        var overdueFlag = isOverdue(f);
+        var badgeClass = overdueFlag ? "overdue" : (statusClass === "completed" ? "completed" : statusClass === "scheduled" ? "active" : statusClass === "no-show" ? "abnormal" : "planned");
+        var badgeText = overdueFlag ? "Overdue" : esc(f.status || "Pending");
         tr.innerHTML =
           '<td>' + esc(f.participantName) + '</td>' +
           '<td>' + fmtDate(f.scheduledDate) + '</td>' +
           '<td>' + esc(f.reason || "-") + '</td>' +
-          '<td><span class="badge ' + (statusClass === "completed" ? "completed" : statusClass === "scheduled" ? "active" : statusClass === "no-show" ? "abnormal" : "planned") + '">' + esc(f.status || "Pending") + '</span></td>' +
+          '<td><span class="badge ' + badgeClass + '">' + badgeText + '</span></td>' +
           '<td>' + esc(f.notes || "-") + '</td>' +
           '<td></td>';
         var aTd = tr.querySelector("td:last-child");
@@ -753,7 +926,10 @@
     }
 
     if (filtered.length === 0) {
-      bd.innerHTML += '<div class="empty"><div class="icon">\uD83D\uDC65</div><div class="msg">No participants found.</div></div>';
+      var emptyP = document.createElement("div");
+      emptyP.className = "empty";
+      emptyP.innerHTML = '<div class="icon">\uD83D\uDC65</div><div class="msg">No participants found.</div>';
+      bd.appendChild(emptyP);
     } else {
       var table = document.createElement("table");
       table.innerHTML = '<thead><tr><th>Name</th><th>Campaign</th><th>Date</th><th>Category</th><th>Referral</th></tr></thead>';
@@ -792,19 +968,22 @@
     // filter buttons
     var filterBar = document.createElement("div");
     filterBar.style.cssText = "display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap";
-    var filterStatuses = ["All"].concat(FOLLOW_UP_STATUS);
+    var overdueAll = all.filter(function (f) { return isOverdue(f); });
+    var filterStatuses = ["All", "Overdue"].concat(FOLLOW_UP_STATUS);
     var activeFilter = searchQ || "All";
     filterStatuses.forEach(function (st) {
       var b = document.createElement("button");
-      b.className = "btn sm" + (activeFilter === st ? " pri" : "");
-      b.textContent = st;
+      b.className = "btn sm" + (activeFilter === st ? " pri" : "") + (st === "Overdue" && overdueAll.length > 0 ? " dn" : "");
+      b.textContent = st + (st === "Overdue" ? " (" + overdueAll.length + ")" : "");
       b.addEventListener("click", function () { searchQ = st === "All" ? "" : st; redraw(); });
       filterBar.appendChild(b);
     });
     bd.appendChild(filterBar);
 
     var filtered = all;
-    if (searchQ) {
+    if (searchQ === "Overdue") {
+      filtered = overdueAll;
+    } else if (searchQ) {
       var q = norm(searchQ);
       filtered = all.filter(function (f) { return norm(f.status) === q; });
     }
@@ -813,20 +992,26 @@
     filtered.sort(function (a, b) { return (a.scheduledDate || "").localeCompare(b.scheduledDate || ""); });
 
     if (filtered.length === 0) {
-      bd.innerHTML += '<div class="empty"><div class="icon">\uD83D\uDDD3\uFE0F</div><div class="msg">No follow-ups found.</div></div>';
+      var emptyFU = document.createElement("div");
+      emptyFU.className = "empty";
+      emptyFU.innerHTML = '<div class="icon">\uD83D\uDDD3\uFE0F</div><div class="msg">No follow-ups found.</div>';
+      bd.appendChild(emptyFU);
     } else {
       var table = document.createElement("table");
       table.innerHTML = '<thead><tr><th>Participant</th><th>Campaign</th><th>Scheduled</th><th>Reason</th><th>Status</th><th>Notes</th></tr></thead>';
       var tbody = document.createElement("tbody");
       filtered.forEach(function (f) {
         var statusClass = norm(f.status || "pending");
+        var overdueFlag = isOverdue(f);
+        var badgeClass = overdueFlag ? "overdue" : (statusClass === "completed" ? "completed" : statusClass === "scheduled" ? "active" : statusClass === "no-show" ? "abnormal" : "planned");
+        var badgeText = overdueFlag ? "Overdue" : esc(f.status || "Pending");
         var tr = document.createElement("tr");
         tr.innerHTML =
           '<td><strong>' + esc(f.participantName) + '</strong></td>' +
           '<td>' + esc(f.campaignName) + '</td>' +
           '<td>' + fmtDate(f.scheduledDate) + '</td>' +
           '<td>' + esc(f.reason || "-") + '</td>' +
-          '<td><span class="badge ' + (statusClass === "completed" ? "completed" : statusClass === "scheduled" ? "active" : statusClass === "no-show" ? "abnormal" : "planned") + '">' + esc(f.status || "Pending") + '</span></td>' +
+          '<td><span class="badge ' + badgeClass + '">' + badgeText + '</span></td>' +
           '<td>' + esc(f.notes || "-") + '</td>';
         tr.addEventListener("click", function () { activeTab = "campaigns"; activeCampaignId = f.campaignId; redraw(); });
         tbody.appendChild(tr);
@@ -877,13 +1062,16 @@
     // overall KPIs
     var overallGrid = document.createElement("div");
     overallGrid.className = "summary-grid";
+    var totalOverdue = getAllFollowUps().filter(function (f) { return isOverdue(f); }).length;
     var summaryKpis = [
       { l: "Total Campaigns", v: campaigns.length, color: "#4ea1ff" },
       { l: "Total Screened", v: totalP, color: "#7c6cff" },
       { l: "Abnormal Results", v: totalAbn, color: "#ffcc66" },
       { l: "Referrals Made", v: totalRef, color: "#ff6b9d" },
       { l: "Follow-ups", v: totalFU, color: "#2ee59d" },
-      { l: "Abnormal Rate", v: (totalP ? Math.round(totalAbn / totalP * 100) : 0) + "%", color: "#a78bfa" }
+      { l: "Overdue", v: totalOverdue, color: "#ff5050" },
+      { l: "Abnormal Rate", v: (totalP ? Math.round(totalAbn / totalP * 100) : 0) + "%", color: "#a78bfa" },
+      { l: "Referral Rate", v: (totalP ? Math.round(totalRef / totalP * 100) : 0) + "%", color: "#ff9ebe" }
     ];
     summaryKpis.forEach(function (k) {
       overallGrid.innerHTML += '<div class="summary-item"><div class="s-label">' + k.l + '</div><div class="s-value" style="color:' + k.color + '">' + k.v + '</div></div>';
@@ -934,19 +1122,61 @@
     var refTableWrap = document.createElement("div");
     refTableWrap.style.overflowX = "auto";
     var refTable = document.createElement("table");
-    refTable.innerHTML = '<thead><tr><th>Referral Type</th><th>Count</th><th>%</th></tr></thead>';
+    refTable.innerHTML = '<thead><tr><th>Referral Type</th><th>Count</th><th>%</th><th style="min-width:120px"></th></tr></thead>';
     var refTbody = document.createElement("tbody");
+    var maxRefCount = Math.max.apply(null, Object.values(refCounts).concat([1]));
     Object.keys(refCounts).sort(function (a, b) { return refCounts[b] - refCounts[a]; }).forEach(function (r) {
+      var pctVal = totalP ? Math.round(refCounts[r] / totalP * 100) : 0;
+      var barWidth = Math.round(refCounts[r] / maxRefCount * 100);
+      var barColor = r === "No referral needed" ? "#2ee59d" : "#ff6b9d";
       var tr = document.createElement("tr");
       tr.innerHTML =
         '<td>' + esc(r) + '</td>' +
         '<td>' + refCounts[r] + '</td>' +
-        '<td>' + (totalP ? Math.round(refCounts[r] / totalP * 100) : 0) + '%</td>';
+        '<td>' + pctVal + '%</td>' +
+        '<td><div class="stat-bar-wrap"><div class="stat-bar"><div class="stat-bar-fill" style="width:' + barWidth + '%;background:' + barColor + '"></div></div></div></td>';
       refTbody.appendChild(tr);
     });
     refTable.appendChild(refTbody);
     refTableWrap.appendChild(refTable);
     bd.appendChild(refTableWrap);
+
+    // result category breakdown
+    var catTitle = document.createElement("h4");
+    catTitle.style.cssText = "margin:20px 0 12px;font-size:14px;font-weight:800";
+    catTitle.textContent = "Result Category Breakdown";
+    bd.appendChild(catTitle);
+
+    var catCounts = {};
+    var catColors = { "Normal": "#2ee59d", "Borderline": "#ffcc66", "Abnormal": "#ff6b9d", "Requires urgent attention": "#ff5050" };
+    campaigns.forEach(function (c) {
+      (c.participants || []).forEach(function (p) {
+        var cat = p.resultCategory || "Uncategorised";
+        catCounts[cat] = (catCounts[cat] || 0) + 1;
+      });
+    });
+
+    var catTableWrap = document.createElement("div");
+    catTableWrap.style.overflowX = "auto";
+    var catTable = document.createElement("table");
+    catTable.innerHTML = '<thead><tr><th>Category</th><th>Count</th><th>%</th><th style="min-width:120px"></th></tr></thead>';
+    var catTbody = document.createElement("tbody");
+    var maxCatCount = Math.max.apply(null, Object.values(catCounts).concat([1]));
+    Object.keys(catCounts).sort(function (a, b) { return catCounts[b] - catCounts[a]; }).forEach(function (cat) {
+      var pctVal = totalP ? Math.round(catCounts[cat] / totalP * 100) : 0;
+      var barWidth = Math.round(catCounts[cat] / maxCatCount * 100);
+      var barColor = catColors[cat] || "#4ea1ff";
+      var tr = document.createElement("tr");
+      tr.innerHTML =
+        '<td>' + esc(cat) + '</td>' +
+        '<td>' + catCounts[cat] + '</td>' +
+        '<td>' + pctVal + '%</td>' +
+        '<td><div class="stat-bar-wrap"><div class="stat-bar"><div class="stat-bar-fill" style="width:' + barWidth + '%;background:' + barColor + '"></div></div></div></td>';
+      catTbody.appendChild(tr);
+    });
+    catTable.appendChild(catTbody);
+    catTableWrap.appendChild(catTable);
+    bd.appendChild(catTableWrap);
 
     card.appendChild(bd);
     container.appendChild(card);
@@ -955,7 +1185,7 @@
   // ── campaign modal ───────────────────────────────────────────────────────
   function showCampaignModal(existing, redraw) {
     var isEdit = !!existing;
-    var data = existing ? Object.assign({}, existing) : { id: uid(), name: "", type: CAMPAIGN_TYPES[0], startDate: todayStr(), endDate: "", notes: "", status: "Active", participants: [] };
+    var data = existing ? Object.assign({}, existing) : { id: uid(), name: "", type: CAMPAIGN_TYPES[0], startDate: todayStr(), endDate: "", notes: "", status: "Active", location: "", targetScreenings: "", participants: [] };
 
     var bodyHtml =
       '<div class="sc"><div class="fld" style="margin-bottom:14px"><label>Campaign Name</label><input type="text" id="sc-m-name" placeholder="e.g. Diabetes Awareness Week" value="' + esc(data.name) + '"></div>' +
@@ -964,10 +1194,14 @@
         '<div class="fld"><label>Status</label><select id="sc-m-status"><option' + (data.status === "Active" ? ' selected' : '') + '>Active</option><option' + (data.status === "Cancelled" ? ' selected' : '') + '>Cancelled</option></select></div>' +
       '</div>' +
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">' +
+        '<div class="fld"><label>Location / Venue</label><select id="sc-m-location"><option value="">-- Select --</option>' + CAMPAIGN_LOCATIONS.map(function (l) { return '<option' + (l === data.location ? ' selected' : '') + '>' + esc(l) + '</option>'; }).join("") + '</select></div>' +
+        '<div class="fld"><label>Target Screenings</label><input type="number" id="sc-m-target" placeholder="e.g. 50" min="0" value="' + esc(data.targetScreenings || "") + '"></div>' +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">' +
         '<div class="fld"><label>Start Date</label><input type="date" id="sc-m-start" value="' + esc(data.startDate) + '"></div>' +
         '<div class="fld"><label>End Date</label><input type="date" id="sc-m-end" value="' + esc(data.endDate) + '"></div>' +
       '</div>' +
-      '<div class="fld"><label>Notes</label><textarea id="sc-m-notes" placeholder="Campaign description, location, goals\u2026">' + esc(data.notes) + '</textarea></div></div>';
+      '<div class="fld"><label>Notes</label><textarea id="sc-m-notes" placeholder="Campaign description, goals\u2026">' + esc(data.notes) + '</textarea></div></div>';
 
     var footerHtml = '<button class="sc btn close-cancel">Cancel</button><button class="sc btn pri" id="sc-m-save">Save Campaign</button>';
 
@@ -981,6 +1215,8 @@
       data.name = name;
       data.type = m.modal.querySelector("#sc-m-type").value;
       data.status = m.modal.querySelector("#sc-m-status").value;
+      data.location = m.modal.querySelector("#sc-m-location").value;
+      data.targetScreenings = m.modal.querySelector("#sc-m-target").value;
       data.startDate = m.modal.querySelector("#sc-m-start").value;
       data.endDate = m.modal.querySelector("#sc-m-end").value;
       data.notes = m.modal.querySelector("#sc-m-notes").value.trim();
