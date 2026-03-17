@@ -21,6 +21,25 @@ def main():
     products=D['Products']; attrs=D['Product_Attributes']; symptoms=D['Symptoms']; psm=D['Product_Symptom_Map']
     usecases=D['Use_Cases']; uci=D['Use_Case_Items']; bundles=D['Bundles']; bi=D['Bundle_Items']; rels=D['Relationships_V2']; guards=D['POS_Guardrails']
 
+    # --- Data-quality fix: nicotine / smoking-cessation products were incorrectly
+    # tagged with "travel sickness" and "motion sickness" symptoms because they
+    # share the "OTHER NERVOUS SYSTEM DRUGS" therapeutic class with actual
+    # anti-emetics.  Strip those spurious tags so the mind-map stays accurate.
+    _smoking_pids = {a['Product_ID'] for a in attrs if (a.get('Main_Indication') or '').lower() == 'smoking cessation'}
+    _bad_symptoms = {'travel sickness', 'motion sickness'}
+    _bad_sids = {s['Symptom_ID'] for s in symptoms if s['Symptom_Name'].lower() in _bad_symptoms}
+    for p in products:
+        if p['Product_ID'] in _smoking_pids:
+            tags = [t.strip() for t in (p.get('Symptom_Tags') or '').split(';')]
+            p['Symptom_Tags'] = '; '.join(t for t in tags if t.lower() not in _bad_symptoms)
+    for a in attrs:
+        if a['Product_ID'] in _smoking_pids:
+            parts = [t.strip() for t in (a.get('Secondary_Indications') or '').split('|')]
+            a['Secondary_Indications'] = ' | '.join(t for t in parts if t.lower() not in _bad_symptoms and t)
+    psm = [m for m in psm if not (m['Product_ID'] in _smoking_pids and m['Symptom_ID'] in _bad_sids)]
+    D['Product_Symptom_Map'] = psm
+    # --- end data-quality fix
+
     prod_by={r['Product_ID']:r for r in products}
     attr_by={r['Product_ID']:r for r in attrs}
     sym_by={r['Symptom_ID']:r for r in symptoms}
