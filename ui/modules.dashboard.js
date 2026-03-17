@@ -265,7 +265,13 @@
       ".xsell-group-hd .xg-score{font-size:10px;font-weight:800;padding:3px 8px;border-radius:6px;background:rgba(46,229,157,.15);color:#6af0be}" +
       ".xsell-group-bd{display:none;padding:4px 8px 8px}" +
       ".xsell-group-bd.open{display:block}" +
-      ".xsell-group-bd .xsell-comp-row{border-radius:8px;padding:8px 10px}";
+      ".xsell-group-bd .xsell-comp-row{border-radius:8px;padding:8px 10px}" +
+      ".xsell-sibling-list{display:flex;flex-direction:column;gap:4px;max-height:480px;overflow-y:auto}" +
+      ".xsell-sib-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid rgba(255,255,255,.1);border-radius:10px;background:rgba(255,255,255,.04);cursor:pointer;transition:background .12s,border-color .12s}" +
+      ".xsell-sib-row:hover{background:rgba(255,204,102,.08);border-color:rgba(255,204,102,.3)}" +
+      ".xsell-sib-row .xs-score{font-size:10px;font-weight:800;padding:3px 8px;border-radius:6px;background:rgba(255,204,102,.15);color:#ffcc66;flex-shrink:0}" +
+      ".xsell-sib-row .xs-name{flex:1;font-size:13px;font-weight:700;color:#dbe7ff}" +
+      ".xsell-sib-row .xs-symptom{font-size:11px;color:rgba(170,183,214,.72);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}";
     document.head.appendChild(st);
   }
 
@@ -2258,17 +2264,12 @@
     xsellLoadNeighborhood(nodeId).then(function (data) {
       xsell.currentData = data;
       xsell.selectedId = nodeId;
+      xsell.symptomSiblings = [];
 
       // Find the center node label
       var centerLabel = label;
       for (var i = 0; i < data.nodes.length; i++) {
         if (data.nodes[i].id === data.centerId) { centerLabel = data.nodes[i].label; break; }
-      }
-
-      // Check for complements
-      var hasComp = false;
-      for (var j = 0; j < data.links.length; j++) {
-        if (data.links[j].rel === "complement") { hasComp = true; break; }
       }
 
       // Show selected item
@@ -2280,10 +2281,57 @@
         });
       }
 
-      // Open modal directly if complements exist
-      if (hasComp) {
-        xsellOpenModal();
+      // Collect symptom IDs from the product neighborhood
+      var centerId = data.centerId;
+      var symptomIds = [];
+      for (var j = 0; j < data.links.length; j++) {
+        if (data.links[j].rel === "symptom") {
+          var sId = data.links[j].source === centerId ? data.links[j].target : data.links[j].source;
+          symptomIds.push(sId);
+        }
       }
+
+      // Load symptom neighborhoods to find sibling products
+      var fetches = symptomIds.map(function (sId) { return xsellLoadNeighborhood(sId); });
+      Promise.all(fetches).then(function (symptomDatas) {
+        var seen = {};
+        seen[centerId] = true;
+        // Also exclude products already in direct complements
+        for (var ci = 0; ci < data.links.length; ci++) {
+          if (data.links[ci].rel === "complement") {
+            seen[data.links[ci].source] = true;
+            seen[data.links[ci].target] = true;
+          }
+        }
+
+        var siblings = [];
+        for (var si = 0; si < symptomDatas.length; si++) {
+          var sd = symptomDatas[si];
+          var symptomNode = null;
+          for (var sn = 0; sn < sd.nodes.length; sn++) {
+            if (sd.nodes[sn].id === sd.centerId) { symptomNode = sd.nodes[sn]; break; }
+          }
+          var symptomLabel = symptomNode ? symptomNode.label : "";
+          for (var li = 0; li < sd.links.length; li++) {
+            var sl = sd.links[li];
+            if (sl.rel !== "symptom") continue;
+            var prodId = sl.source === sd.centerId ? sl.target : sl.source;
+            if (seen[prodId]) continue;
+            seen[prodId] = true;
+            // Find the product node in the symptom neighborhood
+            var prodNode = null;
+            for (var pn = 0; pn < sd.nodes.length; pn++) {
+              if (sd.nodes[pn].id === prodId) { prodNode = sd.nodes[pn]; break; }
+            }
+            if (prodNode && prodNode.nodeType === "product") {
+              siblings.push({ node: prodNode, score: sl.score || 0, symptom: symptomLabel });
+            }
+          }
+        }
+        siblings.sort(function (a, b) { return b.score - a.score; });
+        xsell.symptomSiblings = siblings;
+        xsellOpenModal();
+      });
     });
   }
 
@@ -2333,6 +2381,7 @@
     var data = xsellGetComplementData();
     var chipsEl = overlay.querySelector(".xsell-chips");
     var listEl = overlay.querySelector(".xsell-comp-list");
+    var sibListEl = overlay.querySelector(".xsell-sibling-list");
     var selected = {};
 
     // Update heading
@@ -2342,7 +2391,7 @@
       for (var n = 0; n < xsell.currentData.nodes.length; n++) {
         if (xsell.currentData.nodes[n].id === xsell.currentData.centerId) { centerNode = xsell.currentData.nodes[n]; break; }
       }
-      hd.textContent = "➕ Complements for " + (centerNode ? centerNode.label : "");
+      hd.textContent = "➕ Cross-sell for " + (centerNode ? centerNode.label : "");
     }
 
     // Build symptom chips
@@ -2360,12 +2409,14 @@
           if (selected[sId]) { delete selected[sId]; chipEl.classList.remove("active"); }
           else { selected[sId] = true; chipEl.classList.add("active"); }
           xsellRenderCompList(data, selected, listEl);
+          xsellRenderSiblingList(data, selected, sibListEl);
         });
       })(chip, data.symptoms[i].id);
       chipsEl.appendChild(chip);
     }
 
     xsellRenderCompList(data, selected, listEl);
+    xsellRenderSiblingList(data, selected, sibListEl);
     overlay.classList.add("open");
   }
 
@@ -2471,6 +2522,112 @@
         grp.appendChild(bd);
         listEl.appendChild(grp);
         rendered++;
+      }
+    }
+  }
+
+  function xsellRenderSiblingList(data, selected, listEl) {
+    if (!listEl) return;
+    listEl.innerHTML = "";
+    var siblings = xsell.symptomSiblings || [];
+    if (siblings.length === 0) {
+      listEl.innerHTML = '<div class="xsell-comp-empty">No additional products found for these symptoms.</div>';
+      return;
+    }
+
+    // Filter by selected symptoms if any
+    var activeSymptoms = Object.keys(selected);
+    var filtered = siblings;
+    if (activeSymptoms.length > 0) {
+      var selectedLabels = [];
+      for (var s = 0; s < data.symptoms.length; s++) {
+        if (selected[data.symptoms[s].id]) selectedLabels.push(xsellNorm(data.symptoms[s].label));
+      }
+      filtered = siblings.filter(function (sib) {
+        var symptomNorm = xsellNorm(sib.symptom);
+        for (var si = 0; si < selectedLabels.length; si++) {
+          if (symptomNorm === selectedLabels[si]) return true;
+        }
+        return false;
+      });
+    }
+
+    if (filtered.length === 0) {
+      listEl.innerHTML = '<div class="xsell-comp-empty">No products match the selected symptoms.</div>';
+      return;
+    }
+
+    // Group by brand, same as complements
+    var brandOrder = [], brandMap = {};
+    for (var i = 0; i < filtered.length; i++) {
+      var brand = (filtered[i].node.meta && filtered[i].node.meta.brand) || filtered[i].node.label.split(/\s/)[0] || "Other";
+      if (!brandMap[brand]) { brandMap[brand] = []; brandOrder.push(brand); }
+      brandMap[brand].push(filtered[i]);
+    }
+    brandOrder.sort(function (a, b) {
+      var multi = (brandMap[b].length > 1 ? 1 : 0) - (brandMap[a].length > 1 ? 1 : 0);
+      if (multi !== 0) return multi;
+      return brandMap[b][0].score - brandMap[a][0].score;
+    });
+
+    for (var bi = 0; bi < brandOrder.length; bi++) {
+      var brand = brandOrder[bi];
+      var items = brandMap[brand];
+
+      if (items.length === 1) {
+        var sib = items[0];
+        var row = document.createElement("div");
+        row.className = "xsell-sib-row";
+        row.innerHTML =
+          '<span class="xs-score">' + sib.score + '</span>' +
+          '<span class="xs-name">' + esc(sib.node.label) + '</span>' +
+          '<span class="xs-symptom">' + esc(sib.symptom) + '</span>';
+        (function (nodeId, label) {
+          row.addEventListener("click", function () {
+            xsellCloseModal();
+            xsellSelect(nodeId, label);
+          });
+        })(sib.node.id, sib.node.label);
+        listEl.appendChild(row);
+      } else {
+        var grp = document.createElement("div");
+        grp.className = "xsell-group";
+        var hd = document.createElement("div");
+        hd.className = "xsell-group-hd";
+        hd.innerHTML =
+          '<span class="xg-arrow">▶</span>' +
+          '<span class="xg-brand">' + esc(brand) + '</span>' +
+          '<span class="xg-count">' + items.length + ' variants</span>' +
+          '<span class="xg-score">' + items[0].score + '</span>';
+        var bd = document.createElement("div");
+        bd.className = "xsell-group-bd";
+        for (var gi = 0; gi < items.length; gi++) {
+          var sibItem = items[gi];
+          var sibRow = document.createElement("div");
+          sibRow.className = "xsell-sib-row";
+          sibRow.style.borderRadius = "8px";
+          sibRow.style.padding = "8px 10px";
+          sibRow.innerHTML =
+            '<span class="xs-score">' + sibItem.score + '</span>' +
+            '<span class="xs-name">' + esc(sibItem.node.label) + '</span>' +
+            '<span class="xs-symptom">' + esc(sibItem.symptom) + '</span>';
+          (function (nodeId, label) {
+            sibRow.addEventListener("click", function () {
+              xsellCloseModal();
+              xsellSelect(nodeId, label);
+            });
+          })(sibItem.node.id, sibItem.node.label);
+          bd.appendChild(sibRow);
+        }
+        (function (hdEl, bdEl) {
+          hdEl.addEventListener("click", function () {
+            bdEl.classList.toggle("open");
+            hdEl.querySelector(".xg-arrow").classList.toggle("open");
+          });
+        })(hd, bd);
+        grp.appendChild(hd);
+        grp.appendChild(bd);
+        listEl.appendChild(grp);
       }
     }
   }
@@ -2639,6 +2796,7 @@
             '<div class="xsell-modal-body">' +
               '<div class="xsell-section"><div class="xsell-section-label">Filter by symptom</div><div class="xsell-chips"></div></div>' +
               '<div class="xsell-section"><div class="xsell-section-label">Complementary products</div><div class="xsell-comp-list"></div></div>' +
+              '<div class="xsell-section"><div class="xsell-section-label">Products for same symptoms</div><div class="xsell-sibling-list"></div></div>' +
             '</div>' +
           '</div>' +
         '</div>' +
