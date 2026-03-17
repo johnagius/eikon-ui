@@ -15,7 +15,146 @@
   var E = window.EIKON;
   if (!E) return;
 
-  // ── shared patient memory (cross-module) ──────────────────────────────
+  // ── POCT integration (shared patient data) ──────────────────────────────
+  // Reuse POCT's cloud patient store instead of a separate client table
+  function getPoctCloud() {
+    return window.__POCT_CLOUD || { records: [], patients: [], loaded: false };
+  }
+
+  function getPoctPatients() {
+    var cloud = getPoctCloud();
+    return Array.isArray(cloud.patients) ? cloud.patients : [];
+  }
+
+  // Maltese ID Card: 7 digits + 1 letter, zero-padded (matches POCT normalizePatientId)
+  function normalizePatientId(raw) {
+    var s = String(raw == null ? "" : raw).trim().toUpperCase().replace(/\s+/g, "");
+    var m = s.match(/^(\d{1,7})([A-Z])$/);
+    if (m) return m[1].padStart(7, "0") + m[2];
+    return s;
+  }
+
+  function getPoctPatientById(pidNorm) {
+    if (!pidNorm) return null;
+    var pats = getPoctPatients();
+    for (var i = 0; i < pats.length; i++) {
+      if (pats[i] && pats[i].patientId === pidNorm) return pats[i];
+    }
+    return null;
+  }
+
+  // Search POCT patients by partial ID or name
+  function searchPoctPatients(query) {
+    var q = norm(query);
+    if (!q) return [];
+    var pats = getPoctPatients();
+    var results = [];
+    for (var i = 0; i < pats.length; i++) {
+      var p = pats[i];
+      if (!p) continue;
+      if (norm(p.patientId).indexOf(q) !== -1 || norm(p.name).indexOf(q) !== -1) {
+        results.push(p);
+        if (results.length >= 10) break;
+      }
+    }
+    return results;
+  }
+
+  // Push screening participant into POCT records + patient master
+  function pushToPoctCloud(participant, campaign) {
+    var cloud = getPoctCloud();
+    if (!cloud.loaded) return; // POCT not loaded yet, skip
+
+    // Upsert patient master
+    var pid = normalizePatientId(participant.idCard || "");
+    if (pid) {
+      var pats = Array.isArray(cloud.patients) ? cloud.patients : [];
+      var map = {};
+      for (var i = 0; i < pats.length; i++) {
+        if (pats[i] && pats[i].patientId) map[pats[i].patientId] = pats[i];
+      }
+      var nowIso = new Date().toISOString();
+      var existing = map[pid];
+      if (!existing) {
+        map[pid] = {
+          patientId: pid,
+          name: (participant.name || "").trim(),
+          phone: (participant.phone || "").trim(),
+          age: participant.dob ? calculateAge(participant.dob) : null,
+          address: "",
+          createdAtIso: nowIso,
+          updatedAtIso: nowIso,
+          lastSeenIso: participant.date || nowIso,
+          conflicts: []
+        };
+      } else {
+        if (!existing.name && participant.name) existing.name = participant.name.trim();
+        if (!existing.phone && participant.phone) existing.phone = participant.phone.trim();
+        existing.updatedAtIso = nowIso;
+        existing.lastSeenIso = participant.date || nowIso;
+        map[pid] = existing;
+      }
+      var out = [];
+      for (var k in map) { if (Object.prototype.hasOwnProperty.call(map, k)) out.push(map[k]); }
+      cloud.patients = out;
+    }
+
+    // Add a POCT record for this screening
+    var recId = "sc_" + (participant.id || Date.now()) + "_" + Math.random().toString(36).slice(2, 6);
+    var rec = {
+      id: recId,
+      testType: campaign.type || "General Health Check",
+      performedAtIso: (participant.date || todayStr()) + "T00:00:00",
+      patient: {
+        patientId: pid || "",
+        name: (participant.name || "").trim(),
+        phone: (participant.phone || "").trim(),
+        age: participant.dob ? calculateAge(participant.dob) : null
+      },
+      intervention: participant.referral || "",
+      notes: "[Screening Campaign: " + (campaign.name || "") + "] " + (participant.resultNotes || ""),
+      source: "screening",
+      campaignId: campaign.id,
+      campaignName: campaign.name
+    };
+    var recs = Array.isArray(cloud.records) ? cloud.records : [];
+    // Avoid duplicates — check if we already have a record from this participant+campaign
+    var dupIdx = -1;
+    for (var j = 0; j < recs.length; j++) {
+      if (recs[j] && recs[j].source === "screening" && recs[j].campaignId === campaign.id &&
+          recs[j].patient && recs[j].patient.patientId === pid && pid) {
+        dupIdx = j; break;
+      }
+    }
+    if (dupIdx >= 0) {
+      recs[dupIdx] = rec;
+    } else {
+      recs.push(rec);
+    }
+    cloud.records = recs;
+
+    // Trigger POCT cloud save
+    if (cloud.saveTimer) clearTimeout(cloud.saveTimer);
+    cloud.saveTimer = setTimeout(function () {
+      if (typeof window.POCT !== "undefined" && window.POCT.saveRecords) {
+        // Use POCT's own save pipeline if available
+        window.POCT.saveRecords(cloud.records);
+      }
+    }, 400);
+  }
+
+  function calculateAge(dobStr) {
+    if (!dobStr) return null;
+    var parts = dobStr.split("-");
+    if (parts.length !== 3) return null;
+    var birth = new Date(+parts[0], +parts[1] - 1, +parts[2]);
+    var now = new Date();
+    var age = now.getFullYear() - birth.getFullYear();
+    if (now.getMonth() < birth.getMonth() || (now.getMonth() === birth.getMonth() && now.getDate() < birth.getDate())) age--;
+    return age;
+  }
+
+  // Legacy compat: keep building cross-module patient memory
   if (!E._eikon_patients) E._eikon_patients = {};
 
   function buildPatientMemory() {
@@ -214,7 +353,14 @@
       ".sc-modal .m-hd{padding:20px 24px 16px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(78,161,255,.06),rgba(124,108,255,.04))}",
       ".sc-modal .m-hd h3{margin:0;font-size:17px;font-weight:800}",
       ".sc-modal .m-bd{padding:22px 24px}",
-      ".sc-modal .m-ft{padding:16px 24px;border-top:1px solid var(--bd);display:flex;justify-content:flex-end;gap:8px;background:rgba(0,0,0,.1)}",
+      ".sc-modal .m-ft{padding:16px 24px;border-top:1px solid var(--bd);display:flex;justify-content:flex-end;gap:8px;background:rgba(0,0,0,.1);--ac:#4ea1ff;--ac2:#7c6cff;--gd:#2ee59d;--pk:#ff6b9d;--wn:#ffcc66;--bg:#0b1220;--pnl:rgba(255,255,255,.035);--pnl2:rgba(255,255,255,.055);--bd:rgba(255,255,255,.09);--bd2:rgba(255,255,255,.14);--r:18px;--r2:12px;--txt:#e8eefc;--mut:rgba(170,183,214,.72)}",
+      ".sc-modal .m-ft .btn{border:1px solid var(--bd);background:var(--pnl2);color:var(--txt);padding:9px 16px;border-radius:var(--r2);cursor:pointer;font-size:13px;font-weight:700;display:inline-flex;align-items:center;gap:8px;transition:all .15s;position:relative;overflow:hidden}",
+      ".sc-modal .m-ft .btn:hover{background:rgba(255,255,255,.08);border-color:var(--bd2);transform:translateY(-1px)}",
+      ".sc-modal .m-ft .btn:active{transform:translateY(0)}",
+      ".sc-modal .m-ft .btn.pri{background:linear-gradient(135deg,rgba(78,161,255,.22),rgba(124,108,255,.18));border-color:rgba(78,161,255,.4);color:#8ac4ff}",
+      ".sc-modal .m-ft .btn.pri:hover{background:linear-gradient(135deg,rgba(78,161,255,.3),rgba(124,108,255,.24));border-color:rgba(78,161,255,.55);box-shadow:0 4px 16px rgba(78,161,255,.15)}",
+      ".sc-modal .m-ft .btn.dn{background:linear-gradient(135deg,rgba(255,107,157,.18),rgba(255,107,157,.12));border-color:rgba(255,107,157,.35);color:#ff9ebe}",
+      ".sc-modal .m-ft .btn.dn:hover{background:linear-gradient(135deg,rgba(255,107,157,.28),rgba(255,107,157,.2));border-color:rgba(255,107,157,.5);box-shadow:0 4px 16px rgba(255,107,157,.12)}",
       ".sc-modal .close-x{width:32px;height:32px;border-radius:10px;border:1px solid var(--bd);background:rgba(255,255,255,.04);color:var(--mut);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}",
       ".sc-modal .close-x:hover{background:rgba(255,107,157,.12);border-color:rgba(255,107,157,.3);color:#ff9ebe}",
 
@@ -421,9 +567,9 @@
   function csvEscape(v) { var s = String(v == null ? "" : v); return s.indexOf(",") !== -1 || s.indexOf('"') !== -1 || s.indexOf("\n") !== -1 ? '"' + s.replace(/"/g, '""') + '"' : s; }
 
   function exportCampaignCSV(c) {
-    var rows = [["Name", "Phone", "Email", "DOB", "Type", "Screening Date", "Result Notes", "Result Category", "Referral", "Referral Notes"]];
+    var rows = [["ID Card", "Name", "Phone", "Email", "DOB", "Type", "Screening Date", "Result Notes", "Result Category", "Referral", "Referral Notes"]];
     (c.participants || []).forEach(function (p) {
-      rows.push([p.name, p.phone, p.email, p.dob, p.type, p.date, p.resultNotes, p.resultCategory, p.referral, p.referralNotes].map(csvEscape));
+      rows.push([p.idCard, p.name, p.phone, p.email, p.dob, p.type, p.date, p.resultNotes, p.resultCategory, p.referral, p.referralNotes].map(csvEscape));
     });
     var csv = rows.map(function (r) { return r.join(","); }).join("\n");
     var blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -792,7 +938,7 @@
       pBd.innerHTML = '<div class="empty"><div class="icon">\uD83D\uDC65</div><div class="msg">No participants yet. Add sign-ups or walk-ins.</div></div>';
     } else {
       var pTable = document.createElement("table");
-      pTable.innerHTML = '<thead><tr><th>Name</th><th>Type</th><th>Date</th><th>Result</th><th>Category</th><th>Referral</th><th>Follow-ups</th><th></th></tr></thead>';
+      pTable.innerHTML = '<thead><tr><th>ID Card</th><th>Name</th><th>Type</th><th>Date</th><th>Result</th><th>Category</th><th>Referral</th><th>Follow-ups</th><th></th></tr></thead>';
       var pTbody = document.createElement("tbody");
       participants.forEach(function (p) {
         var fuCount = (p.followUps || []).length;
@@ -800,6 +946,7 @@
         if (catClass === "requiresurgentattention") catClass = "urgent";
         var tr = document.createElement("tr");
         tr.innerHTML =
+          '<td style="font-family:monospace;font-size:12px;letter-spacing:.5px">' + esc(p.idCard || "-") + '</td>' +
           '<td><strong>' + esc(p.name) + '</strong>' + (p.phone ? '<br><span style="color:var(--mut);font-size:11px">' + esc(p.phone) + '</span>' : '') + '</td>' +
           '<td>' + esc(p.type || "Walk-in") + '</td>' +
           '<td>' + fmtDate(p.date) + '</td>' +
@@ -910,7 +1057,7 @@
     searchBar.className = "search-bar";
     var searchInput = document.createElement("input");
     searchInput.type = "text";
-    searchInput.placeholder = "Search by name, campaign, or referral\u2026";
+    searchInput.placeholder = "Search by ID card, name, campaign, or referral\u2026";
     searchInput.value = searchQ;
     searchInput.addEventListener("input", function () { searchQ = searchInput.value; });
     searchInput.addEventListener("keydown", function (e) { if (e.key === "Enter") redraw(); });
@@ -921,7 +1068,7 @@
     if (searchQ) {
       var q = norm(searchQ);
       filtered = all.filter(function (p) {
-        return norm(p.name).indexOf(q) !== -1 || norm(p.campaignName).indexOf(q) !== -1 || norm(p.referral).indexOf(q) !== -1;
+        return norm(p.idCard).indexOf(q) !== -1 || norm(p.name).indexOf(q) !== -1 || norm(p.campaignName).indexOf(q) !== -1 || norm(p.referral).indexOf(q) !== -1;
       });
     }
 
@@ -932,13 +1079,14 @@
       bd.appendChild(emptyP);
     } else {
       var table = document.createElement("table");
-      table.innerHTML = '<thead><tr><th>Name</th><th>Campaign</th><th>Date</th><th>Category</th><th>Referral</th></tr></thead>';
+      table.innerHTML = '<thead><tr><th>ID Card</th><th>Name</th><th>Campaign</th><th>Date</th><th>Category</th><th>Referral</th></tr></thead>';
       var tbody = document.createElement("tbody");
       filtered.forEach(function (p) {
         var catClass = norm(p.resultCategory || "").replace(/\s+/g, "");
         if (catClass === "requiresurgentattention") catClass = "urgent";
         var tr = document.createElement("tr");
         tr.innerHTML =
+          '<td style="font-family:monospace;font-size:12px;letter-spacing:.5px">' + esc(p.idCard || "-") + '</td>' +
           '<td><strong>' + esc(p.name) + '</strong></td>' +
           '<td>' + esc(p.campaignName) + '</td>' +
           '<td>' + fmtDate(p.date) + '</td>' +
@@ -1203,7 +1351,7 @@
       '</div>' +
       '<div class="fld"><label>Notes</label><textarea id="sc-m-notes" placeholder="Campaign description, goals\u2026">' + esc(data.notes) + '</textarea></div></div>';
 
-    var footerHtml = '<button class="sc btn close-cancel">Cancel</button><button class="sc btn pri" id="sc-m-save">Save Campaign</button>';
+    var footerHtml = '<button class="btn close-cancel">Cancel</button><button class="btn pri" id="sc-m-save">Save Campaign</button>';
 
     var m = openModal(isEdit ? "Edit Campaign" : "New Campaign", bodyHtml, footerHtml);
     m.modal.querySelector(".close-cancel").addEventListener("click", m.close);
@@ -1241,11 +1389,12 @@
   // ── participant modal ────────────────────────────────────────────────────
   function showParticipantModal(campaign, existing, redraw) {
     var isEdit = !!existing;
-    var data = existing ? Object.assign({}, existing) : { id: uid(), name: "", phone: "", email: "", dob: "", type: "Walk-in", date: todayStr(), resultNotes: "", resultCategory: "", referral: "No referral needed", referralNotes: "", followUps: [] };
+    var data = existing ? Object.assign({}, existing) : { id: uid(), idCard: "", name: "", phone: "", email: "", dob: "", type: "Walk-in", date: todayStr(), resultNotes: "", resultCategory: "", referral: "No referral needed", referralNotes: "", followUps: [] };
 
     var bodyHtml =
-      '<div class="sc"><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">' +
-        '<div class="fld"><label>Full Name *</label><input type="text" id="sc-p-name" placeholder="Participant name" value="' + esc(data.name) + '"></div>' +
+      '<div class="sc"><div style="display:grid;grid-template-columns:1fr 2fr 1fr;gap:12px;margin-bottom:14px">' +
+        '<div class="fld"><label>ID Card *</label><input type="text" id="sc-p-idcard" placeholder="e.g. 123456M" value="' + esc(data.idCard) + '" style="text-transform:uppercase" autocomplete="off"></div>' +
+        '<div class="fld"><label>Full Name</label><input type="text" id="sc-p-name" placeholder="Auto-filled from POCT" value="' + esc(data.name) + '"></div>' +
         '<div class="fld"><label>Phone</label><input type="text" id="sc-p-phone" placeholder="+356\u2026" value="' + esc(data.phone) + '"></div>' +
       '</div>' +
       '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px">' +
@@ -1253,7 +1402,7 @@
         '<div class="fld"><label>Type</label><select id="sc-p-type">' + PARTICIPANT_TYPES.map(function (t) { return '<option' + (t === data.type ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join("") + '</select></div>' +
         '<div class="fld"><label>Screening Date</label><input type="date" id="sc-p-date" value="' + esc(data.date) + '"></div>' +
       '</div>' +
-      '<div style="border-top:1px solid var(--bd);padding-top:14px;margin-bottom:14px"><strong style="font-size:13px;color:var(--txt)">Screening Results</strong> <span style="color:var(--mut);font-size:11px">(links to POCT for actual test recording)</span></div>' +
+      '<div style="border-top:1px solid var(--bd);padding-top:14px;margin-bottom:14px"><strong style="font-size:13px;color:var(--txt)">Screening Results</strong> <span style="color:var(--mut);font-size:11px">(syncs to POCT records)</span></div>' +
       '<div class="fld" style="margin-bottom:14px"><label>Result Notes</label><textarea id="sc-p-result" placeholder="Describe screening results\u2026">' + esc(data.resultNotes) + '</textarea></div>' +
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">' +
         '<div class="fld"><label>Result Category</label><select id="sc-p-cat"><option value="">-- Select --</option>' + RESULT_CATEGORIES.map(function (c) { return '<option' + (c === data.resultCategory ? ' selected' : '') + '>' + esc(c) + '</option>'; }).join("") + '</select></div>' +
@@ -1261,15 +1410,23 @@
       '</div>' +
       '<div class="fld"><label>Referral Notes</label><textarea id="sc-p-refnotes" placeholder="Additional referral details\u2026">' + esc(data.referralNotes) + '</textarea></div></div>';
 
-    var footerHtml = '<button class="sc btn close-cancel">Cancel</button><button class="sc btn pri" id="sc-p-save">Save Participant</button>';
+    var footerHtml = '<button class="btn close-cancel">Cancel</button><button class="btn pri" id="sc-p-save">Save Participant</button>';
 
     var m = openModal(isEdit ? "Edit Participant" : "Add Participant", bodyHtml, footerHtml);
     m.modal.querySelector(".close-cancel").addEventListener("click", m.close);
 
     m.modal.querySelector("#sc-p-save").addEventListener("click", function () {
+      var rawId = m.modal.querySelector("#sc-p-idcard").value.trim();
+      var pid = normalizePatientId(rawId);
       var name = m.modal.querySelector("#sc-p-name").value.trim();
-      if (!name) { m.modal.querySelector("#sc-p-name").style.borderColor = "#ff5a7a"; return; }
+      // Require at least ID card or name
+      if (!pid && !name) {
+        if (!rawId) m.modal.querySelector("#sc-p-idcard").style.borderColor = "#ff5a7a";
+        if (!name) m.modal.querySelector("#sc-p-name").style.borderColor = "#ff5a7a";
+        return;
+      }
 
+      data.idCard = pid || rawId;
       data.name = name;
       data.phone = m.modal.querySelector("#sc-p-phone").value.trim();
       data.dob = m.modal.querySelector("#sc-p-dob").value;
@@ -1290,7 +1447,10 @@
         campaign.participants.push(data);
       }
 
-      // add to shared patient memory
+      // Sync to POCT cloud (patient master + screening record)
+      try { pushToPoctCloud(data, campaign); } catch (e) { /* POCT not loaded yet, ok */ }
+
+      // Also keep cross-module patient memory
       var pName = data.name.trim();
       if (pName) E._eikon_patients[norm(pName)] = pName;
 
@@ -1300,21 +1460,59 @@
       redraw();
     });
 
-    // attach patient name autocomplete
+    // ID card: auto-normalize, autosuggest from POCT patients, autofill on blur/select
     setTimeout(function () {
-      var nameInput = m.modal.querySelector("#sc-p-name");
-      if (nameInput) {
-        attachAutocomplete(nameInput, function (query) {
-          var q = norm(query);
-          var results = [];
-          var store = E._eikon_patients || {};
-          Object.keys(store).forEach(function (key) {
-            if (key.indexOf(q) !== -1) results.push(store[key]);
-          });
-          return results.slice(0, 8);
-        });
-        nameInput.focus();
-      }
+      var idInput = m.modal.querySelector("#sc-p-idcard");
+      var nameEl = m.modal.querySelector("#sc-p-name");
+      var phoneEl = m.modal.querySelector("#sc-p-phone");
+      var dobEl = m.modal.querySelector("#sc-p-dob");
+      if (!idInput) return;
+
+      // Auto-uppercase + normalize on input
+      idInput.addEventListener("input", function () {
+        var raw = idInput.value;
+        var up = raw.toUpperCase();
+        if (up !== raw) {
+          var s0 = idInput.selectionStart, e0 = idInput.selectionEnd;
+          idInput.value = up;
+          try { idInput.setSelectionRange(s0, e0); } catch (e) {}
+        }
+        var mm = up.trim().replace(/\s+/g, "").match(/^(\d{1,7})([A-Z])$/);
+        if (mm) {
+          var padded = mm[1].padStart(7, "0") + mm[2];
+          if (padded !== up.trim().replace(/\s+/g, "")) {
+            idInput.value = padded;
+          }
+        }
+      });
+
+      // Autofill from POCT patient on blur
+      idInput.addEventListener("blur", function () {
+        var pid = normalizePatientId(idInput.value);
+        if (!pid) return;
+        idInput.value = pid;
+        var pat = getPoctPatientById(pid);
+        if (!pat) return;
+        if (nameEl && !nameEl.value.trim() && pat.name) nameEl.value = pat.name;
+        if (phoneEl && !phoneEl.value.trim() && pat.phone) phoneEl.value = pat.phone;
+      });
+
+      // Autosuggest dropdown for ID card (search POCT patients)
+      attachAutocomplete(idInput, function (query) {
+        var results = searchPoctPatients(query);
+        return results.map(function (p) { return p.patientId + " \u2014 " + (p.name || "Unknown"); });
+      }, function (selected) {
+        // Extract patient ID from "0123456M — Name" format
+        var pid = selected.split(" \u2014 ")[0].trim();
+        idInput.value = pid;
+        var pat = getPoctPatientById(pid);
+        if (pat) {
+          if (nameEl) nameEl.value = pat.name || "";
+          if (phoneEl) phoneEl.value = pat.phone || "";
+        }
+      });
+
+      idInput.focus();
     }, 80);
   }
 
@@ -1331,9 +1529,9 @@
       '<div class="fld" style="margin-bottom:14px"><label>Reason</label><input type="text" id="sc-f-reason" placeholder="e.g. Re-test blood pressure, GP referral follow-up" value="' + esc(data.reason) + '"></div>' +
       '<div class="fld"><label>Notes</label><textarea id="sc-f-notes" placeholder="Additional notes\u2026">' + esc(data.notes) + '</textarea></div></div>';
 
-    var footerHtml = '<button class="sc btn close-cancel">Cancel</button>' +
-      (isEdit ? '<button class="sc btn dn" id="sc-f-del">Delete</button>' : '') +
-      '<button class="sc btn pri" id="sc-f-save">Save Follow-up</button>';
+    var footerHtml = '<button class="btn close-cancel">Cancel</button>' +
+      (isEdit ? '<button class="btn dn" id="sc-f-del">Delete</button>' : '') +
+      '<button class="btn pri" id="sc-f-save">Save Follow-up</button>';
 
     var m = openModal((isEdit ? "Edit" : "Schedule") + " Follow-up \u2014 " + esc(participant.name), bodyHtml, footerHtml);
     m.modal.querySelector(".close-cancel").addEventListener("click", m.close);
