@@ -54,8 +54,8 @@
       ".om .om-search .search-icon{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--mut);font-size:14px;pointer-events:none}",
       ".om .om-search .om-dd{position:absolute;top:100%;left:0;right:0;margin-top:4px;background:linear-gradient(165deg,#1a2640,#141e30);border:1px solid var(--bd2);border-radius:var(--r2);max-height:280px;overflow-y:auto;box-shadow:0 12px 36px rgba(0,0,0,.5);z-index:100;display:none}",
       ".om .om-search .om-dd.open{display:block}",
-      ".om .om-dd-item{padding:9px 14px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px}",
-      ".om .om-dd-item:hover,.om .om-dd-item.hl{background:rgba(78,161,255,.12)}",
+      ".om .om-dd-item{padding:9px 14px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;transition:background .1s,color .1s}",
+      ".om .om-dd-item:hover,.om .om-dd-item.hl{background:rgba(78,161,255,.22);color:#fff}",
       ".om .om-dd-item .dd-type{font-size:10px;padding:2px 7px;border-radius:6px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;flex-shrink:0}",
       ".om .om-dd-item .dd-type.product{background:rgba(46,229,157,.15);color:#6af0be}",
       ".om .om-dd-item .dd-type.symptom{background:rgba(255,204,102,.15);color:#ffcc66}",
@@ -73,7 +73,7 @@
       ".om .om-stats .dot{width:7px;height:7px;border-radius:999px;display:inline-block}",
       ".om .om-panel-hd{padding:12px 14px;border-bottom:1px solid var(--bd)}",
       ".om .om-panel-hd h3{margin:0;font-size:13px;font-weight:800;display:flex;align-items:center;gap:7px}",
-      ".om .om-panel-actions{display:flex;gap:8px;padding:10px 12px;border-bottom:1px solid var(--bd)}",
+      ".om .om-panel-actions{display:flex;gap:8px;padding:10px 12px;border-bottom:1px solid var(--bd);flex-wrap:wrap}",
       ".om .om-panel-body{overflow:auto;flex:1;padding:8px 10px 14px}",
       ".om .om-lg{border:1px solid var(--bd);border-radius:12px;background:var(--pnl);overflow:hidden;margin-bottom:10px}",
       ".om .om-lg-hd{display:flex;align-items:center;gap:8px;padding:9px 10px;cursor:pointer;background:rgba(255,255,255,.02)}",
@@ -102,6 +102,24 @@
       ".om .om-empty .big-icon{font-size:44px;opacity:.85}",
       ".om .om-empty .msg{font-size:18px;font-weight:900;color:var(--txt)}",
       ".om .om-empty .sub{max-width:560px;font-size:13px;line-height:1.45}",
+      /* --- new styles for controls, item lists --- */
+      ".om .om-controls{padding:10px 12px;border-bottom:1px solid var(--bd);display:flex;flex-direction:column;gap:10px}",
+      ".om .om-ctrl-row{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--mut)}",
+      ".om .om-ctrl-row label{font-weight:700;min-width:50px;flex-shrink:0}",
+      ".om .om-ctrl-row input[type=range]{flex:1;accent-color:var(--ac);height:4px;cursor:pointer}",
+      ".om .om-ctrl-row input[type=number]{width:52px;border:1px solid var(--bd);background:rgba(0,0,0,.28);color:var(--txt);padding:4px 6px;border-radius:6px;font-size:11px;text-align:center}",
+      ".om .om-ctrl-row .ctrl-val{min-width:30px;text-align:right;font-weight:800;color:var(--txt);font-size:11px}",
+      ".om .om-ctrl-row input[type=checkbox]{accent-color:var(--ac);cursor:pointer}",
+      ".om .om-item-list{border:1px solid var(--bd);border-radius:12px;background:var(--pnl);overflow:hidden;margin-bottom:10px}",
+      ".om .om-item-list-hd{display:flex;align-items:center;gap:8px;padding:9px 10px;background:rgba(255,255,255,.02);font-size:12px;font-weight:800}",
+      ".om .om-item-list-hd .il-icon{width:18px;text-align:center}",
+      ".om .om-item-list-hd .il-count{font-size:11px;color:var(--mut);font-weight:800;padding:2px 7px;border-radius:999px;background:rgba(255,255,255,.05);margin-left:auto}",
+      ".om .om-item-list-bd{max-height:160px;overflow-y:auto;padding:4px 8px 8px}",
+      ".om .om-item-row{display:flex;align-items:center;gap:8px;padding:6px 6px;border-radius:8px;font-size:12px;cursor:pointer;transition:background .1s}",
+      ".om .om-item-row:hover{background:rgba(255,255,255,.06)}",
+      ".om .om-item-row .ir-score{font-size:10px;font-weight:800;padding:2px 6px;border-radius:6px;flex-shrink:0}",
+      ".om .om-item-row .ir-label{flex:1;color:#dbe7ff;line-height:1.3}",
+      ".om .om-item-row .ir-reason{font-size:10px;color:var(--mut);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
       "@media (max-width: 980px){.om .om-panel{width:260px}.om .om-search{max-width:none}}"
     ].join("");
     document.head.appendChild(s);
@@ -112,6 +130,7 @@
   var panelCollapsed=false, hoveredNode=null, dragNode=null, panStart=null;
   var animId=0, ALPHA=0.15, settled=false, visibleEdges={}, groupOpen={};
   var manifest=null, searchIndex=null, cache=new Map();
+  var currentData=null, scoreThreshold=50, itemLimit=20, itemLimitEnabled=true;
 
   function fetchJson(path) {
     return fetch(asset(path), { cache: "force-cache" }).then(function (r) {
@@ -141,11 +160,64 @@
     });
   }
 
+  function filterGraphData(data) {
+    var filteredLinks = data.links.slice();
+
+    // Filter by score threshold
+    if (scoreThreshold > 0) {
+      filteredLinks = filteredLinks.filter(function (l) {
+        return l.score == null || l.score >= scoreThreshold;
+      });
+    }
+
+    // Sort by score descending for item limit
+    filteredLinks.sort(function (a, b) { return (b.score || 0) - (a.score || 0); });
+
+    // Apply item limit (limits total connections, not nodes)
+    if (itemLimitEnabled && itemLimit > 0 && filteredLinks.length > itemLimit) {
+      filteredLinks = filteredLinks.slice(0, itemLimit);
+    }
+
+    // Collect referenced node IDs
+    var nodeIds = {};
+    nodeIds[data.centerId] = true;
+    for (var i = 0; i < filteredLinks.length; i++) {
+      nodeIds[filteredLinks[i].source] = true;
+      nodeIds[filteredLinks[i].target] = true;
+    }
+
+    var filteredNodes = data.nodes.filter(function (n) { return nodeIds[n.id]; });
+    return { nodes: filteredNodes, links: filteredLinks, centerId: data.centerId };
+  }
+
+  function applyFiltersAndBuild() {
+    if (!currentData) return;
+    var filtered = filterGraphData(currentData);
+    rootNodeId = filtered.centerId;
+    graph = { nodes: filtered.nodes.map(function (n) { return Object.assign({}, n); }), links: filtered.links.slice() };
+    rebuildNodeMap();
+    initPhysics();
+    setVisibleFromGraph();
+    ALPHA = 0.25; settled = false;
+    rebuildPanel();
+    updateStats();
+  }
+
   function rebuildNodeMap() {
     nodeMap = {};
     for (var i = 0; i < graph.nodes.length; i++) nodeMap[graph.nodes[i].id] = graph.nodes[i];
   }
   function nodeById(id) { return nodeMap[id] || null; }
+
+  function buildGraph(centerId) {
+    return loadNeighborhood(centerId).then(function (data) {
+      currentData = data;
+      // Collapse all link groups after search
+      for (var key in groupOpen) groupOpen[key] = false;
+      applyFiltersAndBuild();
+      return data;
+    });
+  }
 
   function initPhysics() {
     for (var i = 0; i < graph.nodes.length; i++) {
@@ -165,20 +237,6 @@
   function setVisibleFromGraph() {
     visibleEdges = {};
     for (var i = 0; i < graph.links.length; i++) visibleEdges[graph.links[i].key] = true;
-  }
-
-  function buildGraph(centerId) {
-    return loadNeighborhood(centerId).then(function (data) {
-      rootNodeId = data.centerId;
-      graph = { nodes: data.nodes.map(function (n) { return Object.assign({}, n); }), links: data.links.slice() };
-      rebuildNodeMap();
-      initPhysics();
-      setVisibleFromGraph();
-      ALPHA = 0.25; settled = false;
-      rebuildPanel();
-      updateStats();
-      return data;
-    });
   }
 
   function tickPhysics() {
@@ -376,6 +434,7 @@
       return;
     }
 
+    /* --- Link toggle groups --- */
     var groups = {};
     for (var i = 0; i < graph.links.length; i++) {
       var e = graph.links[i];
@@ -388,7 +447,7 @@
       var rel = order[oi];
       if (!groups[rel] || groups[rel].length === 0) continue;
       var lt = LINK_TYPES[rel];
-      var isOpen = groupOpen[rel] !== false;
+      var isOpen = groupOpen[rel] === true; // default collapsed after search
       var grp = document.createElement("div");
       grp.className = "om-lg";
 
@@ -454,11 +513,78 @@
       grp.appendChild(bd);
       body.appendChild(grp);
     }
+
+    /* --- Similar Items list --- */
+    buildItemList(body, "similar", "🔗", "Similar Items", "#4ea1ff");
+
+    /* --- Complementary Items list --- */
+    buildItemList(body, "complement", "➕", "Complementary Items", "#2ee59d");
+  }
+
+  function buildItemList(container, relType, icon, title, color) {
+    if (!currentData) return;
+    var items = [];
+    var centerId = currentData.centerId;
+    for (var i = 0; i < currentData.links.length; i++) {
+      var l = currentData.links[i];
+      if (l.rel !== relType) continue;
+      var otherId = l.source === centerId ? l.target : l.source;
+      // Find node data
+      var nd = null;
+      for (var j = 0; j < currentData.nodes.length; j++) {
+        if (currentData.nodes[j].id === otherId) { nd = currentData.nodes[j]; break; }
+      }
+      if (nd) items.push({ node: nd, score: l.score || 0, label: l.label || "" });
+    }
+    if (items.length === 0) return;
+
+    // Sort by score descending
+    items.sort(function (a, b) { return b.score - a.score; });
+
+    var wrap = document.createElement("div");
+    wrap.className = "om-item-list";
+    wrap.innerHTML =
+      '<div class="om-item-list-hd">' +
+        '<span class="il-icon">' + icon + '</span>' +
+        '<span style="color:' + color + '">' + esc(title) + '</span>' +
+        '<span class="il-count">' + items.length + '</span>' +
+      '</div>';
+
+    var bd = document.createElement("div");
+    bd.className = "om-item-list-bd";
+
+    for (var k = 0; k < items.length; k++) {
+      var it = items[k];
+      var row = document.createElement("div");
+      row.className = "om-item-row";
+      row.innerHTML =
+        '<span class="ir-score" style="background:' + color + '22;color:' + color + '">' + it.score + '</span>' +
+        '<span class="ir-label">' + esc(it.node.label) + '</span>' +
+        (it.label ? '<span class="ir-reason" title="' + esc(it.label) + '">' + esc(it.label) + '</span>' : '');
+      (function (nodeId) {
+        row.addEventListener("click", function () { buildGraph(nodeId); });
+      })(it.node.id);
+      bd.appendChild(row);
+    }
+
+    wrap.appendChild(bd);
+    container.appendChild(wrap);
   }
 
   function setAllEdges(on) {
     for (var key in visibleEdges) visibleEdges[key] = on;
     rebuildPanel(); ALPHA = 0.1; settled = false; updateStats();
+  }
+
+  function collapseAllGroups() {
+    for (var key in groupOpen) groupOpen[key] = false;
+    rebuildPanel();
+  }
+
+  function expandAllGroups() {
+    var order = ["similar", "complement", "symptom", "usecase", "bundle", "guardrail"];
+    for (var i = 0; i < order.length; i++) groupOpen[order[i]] = true;
+    rebuildPanel();
   }
 
   function updateStats() {
@@ -510,7 +636,8 @@
       var r = results[i];
       var item = document.createElement("div");
       item.className = "om-dd-item";
-      item.innerHTML = '<span class="dd-type ' + esc(r.item.nodeType) + '">' + esc(r.item.nodeType) + '</span>' + esc(r.item.label);
+      item.setAttribute("data-idx", i);
+      item.innerHTML = '<span class="dd-type ' + esc(r.item.nodeType) + '">' + esc(r.item.nodeType) + '</span><span>' + esc(r.item.label) + '</span>';
       (function (nodeId, label) {
         item.addEventListener("click", function () {
           buildGraph(nodeId);
@@ -546,6 +673,14 @@
       buildGraph = orig;
       return orig(id);
     };
+  }
+
+  function updateControlsDisplay() {
+    if (!panelEl) return;
+    var scoreVal = panelEl.querySelector(".om-score-val");
+    if (scoreVal) scoreVal.textContent = scoreThreshold;
+    var limitInput = panelEl.querySelector(".om-limit-input");
+    if (limitInput) limitInput.disabled = !itemLimitEnabled;
   }
 
   async function renderModule(moduleCtx) {
@@ -587,7 +722,22 @@
         '</div>' +
         '<div class="om-panel">' +
           '<div class="om-panel-hd"><h3>🔗 Links</h3></div>' +
+          '<div class="om-controls">' +
+            '<div class="om-ctrl-row">' +
+              '<label>Score ≥</label>' +
+              '<input type="range" class="om-score-slider" min="0" max="100" step="1" value="' + scoreThreshold + '">' +
+              '<span class="ctrl-val om-score-val">' + scoreThreshold + '</span>' +
+            '</div>' +
+            '<div class="om-ctrl-row">' +
+              '<label>Limit</label>' +
+              '<input type="checkbox" class="om-limit-check" ' + (itemLimitEnabled ? "checked" : "") + ' title="Enable item limit">' +
+              '<input type="number" class="om-limit-input" min="1" max="500" value="' + itemLimit + '"' + (itemLimitEnabled ? "" : " disabled") + '>' +
+              '<span style="color:var(--mut);font-size:10px">items max</span>' +
+            '</div>' +
+          '</div>' +
           '<div class="om-panel-actions">' +
+            '<button class="om-btn sm om-ca">Collapse All</button>' +
+            '<button class="om-btn sm om-ea">Expand All</button>' +
             '<button class="om-btn sm om-sa">Select All</button>' +
             '<button class="om-btn sm om-ua">Unselect All</button>' +
           '</div>' +
@@ -609,6 +759,33 @@
     window.addEventListener("resize", resize);
     bindCanvas();
 
+    /* --- Score slider --- */
+    var scoreSlider = root.querySelector(".om-score-slider");
+    scoreSlider.addEventListener("input", function () {
+      scoreThreshold = parseInt(scoreSlider.value, 10);
+      var scoreVal = root.querySelector(".om-score-val");
+      if (scoreVal) scoreVal.textContent = scoreThreshold;
+      if (currentData) applyFiltersAndBuild();
+    });
+
+    /* --- Item limit controls --- */
+    var limitCheck = root.querySelector(".om-limit-check");
+    var limitInput = root.querySelector(".om-limit-input");
+    limitCheck.addEventListener("change", function () {
+      itemLimitEnabled = limitCheck.checked;
+      limitInput.disabled = !itemLimitEnabled;
+      if (currentData) applyFiltersAndBuild();
+    });
+    limitInput.addEventListener("change", function () {
+      var v = parseInt(limitInput.value, 10);
+      if (isNaN(v) || v < 1) v = 1;
+      if (v > 500) v = 500;
+      limitInput.value = v;
+      itemLimit = v;
+      if (currentData) applyFiltersAndBuild();
+    });
+
+    /* --- Search --- */
     var searchTimer = null;
     searchInput.addEventListener("input", function () {
       clearTimeout(searchTimer);
@@ -620,7 +797,22 @@
     });
     searchInput.addEventListener("keydown", function (ev) {
       if (ev.key === "Escape") ddEl.classList.remove("open");
+      if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
+        ev.preventDefault();
+        var items = ddEl.querySelectorAll(".om-dd-item");
+        if (!items.length) return;
+        var cur = ddEl.querySelector(".om-dd-item.hl");
+        var idx = -1;
+        if (cur) { idx = parseInt(cur.getAttribute("data-idx"), 10); cur.classList.remove("hl"); }
+        idx = ev.key === "ArrowDown" ? idx + 1 : idx - 1;
+        if (idx < 0) idx = items.length - 1;
+        if (idx >= items.length) idx = 0;
+        items[idx].classList.add("hl");
+        items[idx].scrollIntoView({ block: "nearest" });
+      }
       if (ev.key === "Enter") {
+        var hl = ddEl.querySelector(".om-dd-item.hl");
+        if (hl) { hl.click(); return; }
         var q = searchInput.value.trim(), results = doSearch(q);
         if (results.length) {
           buildGraph(results[0].item.id);
@@ -654,6 +846,8 @@
     root.querySelector(".om-zoom-out").addEventListener("click", function () { cam.zoom = clamp(cam.zoom*0.8,0.15,4); });
     root.querySelector(".om-sa").addEventListener("click", function () { setAllEdges(true); });
     root.querySelector(".om-ua").addEventListener("click", function () { setAllEdges(false); });
+    root.querySelector(".om-ca").addEventListener("click", function () { collapseAllGroups(); });
+    root.querySelector(".om-ea").addEventListener("click", function () { expandAllGroups(); });
 
     graph = { nodes: [], links: [] }; rebuildNodeMap(); rebuildPanel(); updateStats();
     animId = requestAnimationFrame(render);
