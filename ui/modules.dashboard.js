@@ -2200,6 +2200,45 @@
     { id: "w20", en: "Not suitable during pregnancy" }
   ];
 
+  // ── autocomplete helper for dashboard modals ──
+  function rxAttachAutocomplete(input, getSuggestions, onSelect) {
+    var wrapper = input.parentNode;
+    wrapper.style.position = "relative";
+    var dd = document.createElement("div");
+    dd.style.cssText = "position:absolute;left:0;right:0;top:100%;z-index:9999;background:#1a2640;border:1px solid rgba(255,255,255,.16);border-radius:10px;max-height:180px;overflow-y:auto;box-shadow:0 12px 36px rgba(0,0,0,.5);display:none;margin-top:2px";
+    wrapper.appendChild(dd);
+    var hlIdx = -1, items = [];
+
+    function render(list) {
+      dd.innerHTML = ""; items = list; hlIdx = -1;
+      if (!list.length) { dd.style.display = "none"; return; }
+      list.forEach(function (it, i) {
+        var row = document.createElement("div");
+        row.style.cssText = "padding:8px 12px;font-size:13px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.06);transition:background .08s";
+        row.textContent = typeof it === "string" ? it : it.name;
+        row.addEventListener("mousedown", function (e) { e.preventDefault(); onSelect(it); dd.style.display = "none"; });
+        row.addEventListener("mouseenter", function () { row.style.background = "rgba(46,229,157,.15)"; });
+        row.addEventListener("mouseleave", function () { row.style.background = ""; });
+        dd.appendChild(row);
+      });
+      dd.style.display = "";
+    }
+
+    input.addEventListener("input", function () {
+      var v = input.value.trim();
+      if (v.length < 1) { dd.style.display = "none"; return; }
+      render(getSuggestions(v));
+    });
+    input.addEventListener("keydown", function (e) {
+      if (dd.style.display === "none" || !items.length) return;
+      if (e.key === "ArrowDown") { e.preventDefault(); hlIdx = Math.min(hlIdx + 1, items.length - 1); }
+      else if (e.key === "ArrowUp") { e.preventDefault(); hlIdx = Math.max(hlIdx - 1, 0); }
+      else if (e.key === "Enter" && hlIdx >= 0) { e.preventDefault(); onSelect(items[hlIdx]); dd.style.display = "none"; }
+      else if (e.key === "Escape") { dd.style.display = "none"; }
+    });
+    input.addEventListener("blur", function () { setTimeout(function () { dd.style.display = "none"; }, 150); });
+  }
+
   function openRxLabelModal() {
     var freqOpts = RX_FREQUENCIES.map(function (f) { return '<option>' + esc(f) + '</option>'; }).join("");
     var routeOpts = RX_ROUTES.map(function (r) { return '<option>' + esc(r) + '</option>'; }).join("");
@@ -2209,8 +2248,8 @@
         '<div class="eikon-help">Quick create and print a prescription label.</div>' +
         '<div style="margin-top:12px">' +
           '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;margin-bottom:10px"><input type="checkbox" id="dash-rx-inc-patient" style="margin:0"> Include Patient Name</label>' +
-          '<div id="dash-rx-patient-fld" style="display:none;margin-bottom:10px"><input class="eikon-input" id="dash-rx-patient" placeholder="Patient name" style="width:100%" /></div>' +
-          '<div style="margin-bottom:10px"><input class="eikon-input" id="dash-rx-drug" placeholder="Drug name *" style="width:100%" /></div>' +
+          '<div id="dash-rx-patient-fld" style="display:none;margin-bottom:10px;position:relative"><input class="eikon-input" id="dash-rx-patient" placeholder="Patient name — start typing to search" autocomplete="off" style="width:100%" /></div>' +
+          '<div style="margin-bottom:10px;position:relative"><input class="eikon-input" id="dash-rx-drug" placeholder="Drug name * — start typing to search" autocomplete="off" style="width:100%" /></div>' +
           '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">' +
             '<input class="eikon-input" id="dash-rx-dose" placeholder="Dose (e.g. 1 tablet)" />' +
             '<select class="eikon-input" id="dash-rx-route">' + routeOpts + '</select>' +
@@ -2339,7 +2378,7 @@
       }
     ]);
 
-    // bind patient checkbox toggle + warning pills after modal is shown
+    // bind patient checkbox toggle + warning pills + autocomplete after modal is shown
     setTimeout(function () {
       var cb = document.getElementById("dash-rx-inc-patient");
       var fld = document.getElementById("dash-rx-patient-fld");
@@ -2366,8 +2405,89 @@
           });
         });
       }
-      var drugEl = document.getElementById("dash-rx-drug");
-      if (drugEl) drugEl.focus();
+
+      // load label history for autocomplete
+      var rxPatients = {};
+      var rxMedicines = {};
+      function rxNorm(s) { return String(s || "").trim().toLowerCase(); }
+
+      (async function () {
+        try {
+          var r = await api("/labels/state", { method: "GET" }, 8000, "rx-ac-load");
+          var st = r.state || r;
+          var hist = Array.isArray(st.labelHistory) ? st.labelHistory : [];
+          // build patient memory
+          hist.forEach(function (l) {
+            var name = (l.patientName || "").trim();
+            if (name) rxPatients[rxNorm(name)] = name;
+          });
+          // build medicine memory
+          hist.forEach(function (l) {
+            var drug = (l.drugName || "").trim();
+            if (!drug) return;
+            var key = rxNorm(drug);
+            if (!rxMedicines[key]) rxMedicines[key] = { name: drug, entries: [] };
+            var entry = { dose: l.dose || "", frequency: l.frequency || "", route: l.route || "", customInstructions: l.customInstructions || "", selectedWarnings: l.selectedWarnings || [] };
+            var isDup = rxMedicines[key].entries.some(function (e) {
+              return e.dose === entry.dose && e.frequency === entry.frequency && e.route === entry.route;
+            });
+            if (!isDup) rxMedicines[key].entries.push(entry);
+          });
+        } catch (e) { /* autocomplete unavailable, inputs still work manually */ }
+
+        // attach patient autocomplete
+        var patientEl = document.getElementById("dash-rx-patient");
+        if (patientEl) {
+          rxAttachAutocomplete(patientEl, function (q) {
+            var qn = rxNorm(q), results = [];
+            Object.keys(rxPatients).forEach(function (k) {
+              if (k.indexOf(qn) !== -1) results.push(rxPatients[k]);
+            });
+            return results.slice(0, 8);
+          }, function (name) {
+            patientEl.value = name;
+          });
+        }
+
+        // attach drug autocomplete with autofill
+        var drugEl = document.getElementById("dash-rx-drug");
+        if (drugEl) {
+          rxAttachAutocomplete(drugEl, function (q) {
+            var qn = rxNorm(q), results = [];
+            Object.keys(rxMedicines).forEach(function (k) {
+              if (k.indexOf(qn) !== -1) results.push(rxMedicines[k]);
+            });
+            return results.slice(0, 8);
+          }, function (med) {
+            drugEl.value = med.name;
+            // autofill from first entry (or only entry)
+            var entry = med.entries[0];
+            if (!entry) return;
+            var doseEl = document.getElementById("dash-rx-dose");
+            var freqEl = document.getElementById("dash-rx-freq");
+            var routeEl = document.getElementById("dash-rx-route");
+            var instrEl = document.getElementById("dash-rx-instructions");
+            if (entry.dose && doseEl) doseEl.value = entry.dose;
+            if (entry.frequency && freqEl) freqEl.value = entry.frequency;
+            if (entry.route && routeEl) routeEl.value = entry.route;
+            if (entry.customInstructions && instrEl) instrEl.value = entry.customInstructions;
+            // autofill warnings
+            if (entry.selectedWarnings && entry.selectedWarnings.length > 0 && warnContainer) {
+              warnContainer.querySelectorAll(".eikon-pill").forEach(function (pill) {
+                var wid = pill.getAttribute("data-wid");
+                var isOn = entry.selectedWarnings.indexOf(wid) !== -1;
+                if (isOn && !pill.classList.contains("rx-warn-on")) {
+                  pill.classList.add("rx-warn-on");
+                  pill.style.background = "rgba(255,204,102,.18)";
+                  pill.style.borderColor = "#ffcc66";
+                  pill.style.color = "#ffcc66";
+                }
+              });
+            }
+          });
+          drugEl.focus();
+        }
+      })();
     }, 60);
   }
 
