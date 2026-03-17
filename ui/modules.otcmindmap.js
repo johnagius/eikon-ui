@@ -136,7 +136,7 @@
     var key = type + ":" + refId;
     if (cache.has(key)) return Promise.resolve(cache.get(key));
     var typePath = type === "product" ? "product" : (type === "symptom" ? "symptom" : (type === "usecase" ? "usecase" : "bundle"));
-    return fetchJson("productmap-data/neighbors/" + typePath + "/" + refId + ".json").then(function (data) {
+    return fetchJson("productmap-data/neighbours/" + typePath + "/" + refId + ".json").then(function (data) {
       cache.set(key, data); return data;
     });
   }

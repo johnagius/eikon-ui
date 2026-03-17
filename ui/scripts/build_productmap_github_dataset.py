@@ -15,7 +15,7 @@ def main():
     out = OUT_DIR
     if os.path.exists(out):
         shutil.rmtree(out)
-    for sub in ['productmap-data/core','productmap-data/neighbors/product','productmap-data/neighbors/symptom','productmap-data/neighbors/usecase','productmap-data/neighbors/bundle']:
+    for sub in ['productmap-data/core','productmap-data/neighbours/product','productmap-data/neighbours/symptom','productmap-data/neighbours/usecase','productmap-data/neighbours/bundle']:
         os.makedirs(os.path.join(out, sub), exist_ok=True)
 
     products=D['Products']; attrs=D['Product_Attributes']; symptoms=D['Symptoms']; psm=D['Product_Symptom_Map']
@@ -125,7 +125,7 @@ def main():
             other = r['Target_Product_ID'] if r['Source_Product_ID']==pid else r['Source_Product_ID']
             add_node(nodes, product_node(other))
             links.append(link_obj(f'product:{r["Source_Product_ID"]}',f'product:{r["Target_Product_ID"]}','guardrail',r.get('Guardrail_Type') or 'Guardrail',r.get('Score'),r.get('Why'),{'edgeId':r['Edge_ID'],'posAction':r.get('POS_Action')}))
-        write_json(f'productmap-data/neighbors/product/{pid}.json', {'centerId':center['id'],'centerType':'product','refId':pid,'nodes':list(nodes.values()),'links':links})
+        write_json(f'productmap-data/neighbours/product/{pid}.json', {'centerId':center['id'],'centerType':'product','refId':pid,'nodes':list(nodes.values()),'links':links})
 
 if __name__ == "__main__":
     main()
