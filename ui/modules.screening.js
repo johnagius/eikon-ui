@@ -578,6 +578,18 @@
     return all;
   }
 
+  // ── confirm dialog (sandbox-safe replacement for window.confirm) ────────
+  function showConfirm(msg, onYes) {
+    var bodyHtml = '<div class="sc" style="text-align:center;padding:8px 0"><div style="font-size:28px;margin-bottom:12px">\u26A0\uFE0F</div><p style="margin:0;font-size:14px;color:var(--txt);line-height:1.5">' + esc(msg) + '</p></div>';
+    var footerHtml = '<button class="btn close-cancel">Cancel</button><button class="btn dn" id="sc-confirm-yes">Delete</button>';
+    var m = openModal("Confirm", bodyHtml, footerHtml);
+    m.modal.querySelector(".close-cancel").addEventListener("click", m.close);
+    m.modal.querySelector("#sc-confirm-yes").addEventListener("click", function () {
+      m.close();
+      onYes();
+    });
+  }
+
   // ── autocomplete helper ──────────────────────────────────────────────────
   function attachAutocomplete(input, getSuggestions, onSelect) {
     var dropdown = document.createElement("div");
@@ -653,54 +665,6 @@
     modal.querySelector(".close-x").addEventListener("click", close);
     bg.addEventListener("click", function (e) { if (e.target === bg) close(); });
     return { bg: bg, modal: modal, close: close };
-  }
-
-  // ── CSV export ─────────────────────────────────────────────────────────
-  function csvEscape(v) { var s = String(v == null ? "" : v); return s.indexOf(",") !== -1 || s.indexOf('"') !== -1 || s.indexOf("\n") !== -1 ? '"' + s.replace(/"/g, '""') + '"' : s; }
-
-  function exportCampaignCSV(c) {
-    var pt = campaignPoctType(c.type);
-    var pDef = pt ? POCT_FIELDS[pt] : null;
-    var baseHeaders = ["ID Card", "Name", "Phone", "Email", "DOB", "Type", "Screening Date"];
-    var poctHeaders = pDef ? pDef.fields.map(function (f) { return f.label; }) : [];
-    var tailHeaders = ["Result Notes", "Result Category", "Referral", "Referral Notes"];
-    var rows = [baseHeaders.concat(poctHeaders).concat(tailHeaders)];
-    (c.participants || []).forEach(function (p) {
-      var base = [p.idCard, p.name, p.phone, p.email, p.dob, p.type, p.date];
-      var poctVals = pDef ? pDef.fields.map(function (f) { return (p.poctResults && p.poctResults[f.key] != null) ? p.poctResults[f.key] : ""; }) : [];
-      var tail = [p.resultNotes, p.resultCategory, p.referral, p.referralNotes];
-      rows.push(base.concat(poctVals).concat(tail).map(csvEscape));
-    });
-    var csv = rows.map(function (r) { return r.join(","); }).join("\n");
-    var blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement("a");
-    a.href = url;
-    a.download = (c.name || "campaign").replace(/[^a-zA-Z0-9_-]/g, "_") + "_participants.csv";
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(function () { a.remove(); URL.revokeObjectURL(url); }, 100);
-    toast("CSV exported", "good");
-  }
-
-  function exportAllCampaignsCSV() {
-    var rows = [["Campaign", "Type", "Status", "Location", "Start Date", "End Date", "Target", "Participants", "Abnormal", "Referrals"]];
-    campaigns.forEach(function (c) {
-      var ps = c.participants || [];
-      var abn = ps.filter(function (p) { return p.resultCategory === "Abnormal" || p.resultCategory === "Requires urgent attention"; }).length;
-      var refs = ps.filter(function (p) { return p.referral && p.referral !== "No referral needed"; }).length;
-      rows.push([c.name, c.type, getCampaignStatus(c), c.location, c.startDate, c.endDate, c.targetScreenings, ps.length, abn, refs].map(csvEscape));
-    });
-    var csv = rows.map(function (r) { return r.join(","); }).join("\n");
-    var blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement("a");
-    a.href = url;
-    a.download = "screening_campaigns_export.csv";
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(function () { a.remove(); URL.revokeObjectURL(url); }, 100);
-    toast("All campaigns exported", "good");
   }
 
   // ── overdue helper ────────────────────────────────────────────────────────
@@ -819,14 +783,6 @@
     var btnGroup = document.createElement("div");
     btnGroup.style.cssText = "display:flex;gap:8px";
 
-    if (campaigns.length > 0) {
-      var expAllBtn = document.createElement("button");
-      expAllBtn.className = "btn sm ok";
-      expAllBtn.innerHTML = "\uD83D\uDCE5 Export All";
-      expAllBtn.addEventListener("click", function () { exportAllCampaignsCSV(); });
-      btnGroup.appendChild(expAllBtn);
-    }
-
     var addBtn = document.createElement("button");
     addBtn.className = "btn pri";
     addBtn.innerHTML = "<span style='font-size:16px'>+</span> New Campaign";
@@ -928,11 +884,12 @@
       delBtn.textContent = "Delete";
       delBtn.addEventListener("click", function (e) {
         e.stopPropagation();
-        if (!confirm("Delete campaign \"" + c.name + "\"? This cannot be undone.")) return;
-        campaigns = campaigns.filter(function (x) { return x.id !== c.id; });
-        save();
-        toast("Campaign deleted", "warn");
-        redraw();
+        showConfirm("Delete campaign \"" + c.name + "\"? This cannot be undone.", function () {
+          campaigns = campaigns.filter(function (x) { return x.id !== c.id; });
+          save();
+          toast("Campaign deleted", "warn");
+          redraw();
+        });
       });
       actions.appendChild(delBtn);
 
@@ -992,12 +949,6 @@
     editCampBtn.innerHTML = "\u270F\uFE0F Edit Campaign";
     editCampBtn.addEventListener("click", function () { showCampaignModal(c, redraw); });
     actionBar.appendChild(editCampBtn);
-
-    var exportBtn = document.createElement("button");
-    exportBtn.className = "btn sm ok";
-    exportBtn.innerHTML = "\uD83D\uDCE5 Export CSV";
-    exportBtn.addEventListener("click", function () { exportCampaignCSV(c); });
-    actionBar.appendChild(exportBtn);
 
     var dupCBtn = document.createElement("button");
     dupCBtn.className = "btn sm";
@@ -1098,11 +1049,12 @@
         dBtn.style.marginLeft = "4px";
         dBtn.addEventListener("click", function (ev) {
           ev.stopPropagation();
-          if (!confirm("Remove participant \"" + p.name + "\"?")) return;
-          c.participants = c.participants.filter(function (x) { return x.id !== p.id; });
-          save();
-          toast("Participant removed", "warn");
-          redraw();
+          showConfirm("Remove participant \"" + p.name + "\"?", function () {
+            c.participants = c.participants.filter(function (x) { return x.id !== p.id; });
+            save();
+            toast("Participant removed", "warn");
+            redraw();
+          });
         });
         actionTd.appendChild(dBtn);
 
@@ -1741,12 +1693,13 @@
 
     if (isEdit) {
       m.modal.querySelector("#sc-f-del").addEventListener("click", function () {
-        if (!confirm("Delete this follow-up?")) return;
-        participant.followUps = (participant.followUps || []).filter(function (f) { return f.id !== data.id; });
-        save();
-        m.close();
-        toast("Follow-up deleted", "warn");
-        redraw();
+        showConfirm("Delete this follow-up?", function () {
+          participant.followUps = (participant.followUps || []).filter(function (f) { return f.id !== data.id; });
+          save();
+          m.close();
+          toast("Follow-up deleted", "warn");
+          redraw();
+        });
       });
     }
 
