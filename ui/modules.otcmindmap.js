@@ -47,7 +47,7 @@
       ".om .om-main{flex:1;display:flex;flex-direction:column;min-width:0}",
       ".om .om-panel{width:300px;flex-shrink:0;border-left:1px solid var(--bd);background:rgba(11,18,32,.6);backdrop-filter:blur(10px);display:flex;flex-direction:column;overflow:hidden;transition:width .2s}",
       ".om .om-panel.collapsed{width:0;border-left:none;overflow:hidden}",
-      ".om .om-topbar{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--bd);background:rgba(11,18,32,.5);backdrop-filter:blur(6px);flex-shrink:0}",
+      ".om .om-topbar{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--bd);background:rgba(11,18,32,.5);backdrop-filter:blur(6px);flex-shrink:0;position:relative;z-index:10}",
       ".om .om-topbar h2{margin:0;font-size:16px;font-weight:900;letter-spacing:.3px;white-space:nowrap;display:flex;align-items:center;gap:8px}",
       ".om .om-search{flex:1;min-width:0;max-width:460px;position:relative}",
       ".om .om-search input{width:100%;border:1px solid var(--bd);background:rgba(0,0,0,.28);color:var(--txt);padding:9px 14px 9px 36px;border-radius:var(--r2);outline:none;font-size:13px}",
