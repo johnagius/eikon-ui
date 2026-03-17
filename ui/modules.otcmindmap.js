@@ -120,6 +120,33 @@
       ".om .om-item-row .ir-score{font-size:10px;font-weight:800;padding:2px 6px;border-radius:6px;flex-shrink:0}",
       ".om .om-item-row .ir-label{flex:1;color:#dbe7ff;line-height:1.3}",
       ".om .om-item-row .ir-reason{font-size:10px;color:var(--mut);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
+      /* --- Complementary button & modal --- */
+      "@keyframes om-flash{0%,100%{box-shadow:0 0 8px rgba(46,229,157,.3)}50%{box-shadow:0 0 22px rgba(46,229,157,.85),0 0 40px rgba(46,229,157,.35)}}",
+      ".om .om-comp-btn{position:absolute;left:14px;top:14px;z-index:4;display:none;align-items:center;gap:7px;padding:9px 16px;border:1px solid rgba(46,229,157,.4);border-radius:var(--r2);background:rgba(11,18,32,.75);backdrop-filter:blur(10px);color:#6af0be;font-size:12px;font-weight:800;cursor:pointer;transition:background .15s,border-color .15s}",
+      ".om .om-comp-btn:hover{background:rgba(46,229,157,.15);border-color:#2ee59d}",
+      ".om .om-comp-btn.visible{display:inline-flex}",
+      ".om .om-comp-btn.flash{animation:om-flash .7s ease-in-out 3}",
+      ".om .om-modal-overlay{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}",
+      ".om .om-modal-overlay.open{opacity:1;pointer-events:auto}",
+      ".om .om-modal{width:620px;max-width:92vw;max-height:80vh;display:flex;flex-direction:column;border:1px solid var(--bd2);border-radius:16px;background:linear-gradient(170deg,#1a2640,#111a2c);box-shadow:0 24px 64px rgba(0,0,0,.6)}",
+      ".om .om-modal-hd{display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid var(--bd)}",
+      ".om .om-modal-hd h3{margin:0;font-size:15px;font-weight:900;flex:1;color:#6af0be}",
+      ".om .om-modal-close{background:none;border:1px solid var(--bd);color:var(--mut);width:30px;height:30px;border-radius:8px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center}",
+      ".om .om-modal-close:hover{background:rgba(255,255,255,.08);color:#fff}",
+      ".om .om-modal-body{padding:16px 20px;overflow-y:auto;flex:1}",
+      ".om .om-modal-section{margin-bottom:16px}",
+      ".om .om-modal-section-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mut);margin-bottom:8px}",
+      ".om .om-symptom-chips{display:flex;flex-wrap:wrap;gap:6px}",
+      ".om .om-chip{padding:6px 12px;border:1px solid var(--bd2);border-radius:999px;font-size:11px;font-weight:700;cursor:pointer;background:rgba(255,255,255,.03);color:var(--mut);transition:all .12s}",
+      ".om .om-chip:hover{background:rgba(255,204,102,.1);border-color:rgba(255,204,102,.3)}",
+      ".om .om-chip.active{background:rgba(255,204,102,.18);border-color:#ffcc66;color:#ffe6a0}",
+      ".om .om-comp-list{display:flex;flex-direction:column;gap:4px}",
+      ".om .om-comp-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--bd);border-radius:10px;background:var(--pnl);cursor:pointer;transition:background .12s,border-color .12s}",
+      ".om .om-comp-row:hover{background:rgba(46,229,157,.08);border-color:rgba(46,229,157,.3)}",
+      ".om .om-comp-row .cr-score{font-size:10px;font-weight:800;padding:3px 8px;border-radius:6px;background:rgba(46,229,157,.15);color:#6af0be;flex-shrink:0}",
+      ".om .om-comp-row .cr-name{flex:1;font-size:13px;font-weight:700;color:#dbe7ff}",
+      ".om .om-comp-row .cr-reason{font-size:11px;color:var(--mut);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
+      ".om .om-comp-empty{padding:24px;text-align:center;color:var(--mut);font-size:12px}",
       "@media (max-width: 980px){.om .om-panel{width:260px}.om .om-search{max-width:none}}"
     ].join("");
     document.head.appendChild(s);
@@ -129,7 +156,7 @@
   var cam={x:0,y:0,zoom:1}, graph={nodes:[],links:[]}, nodeMap={}, rootNodeId=null;
   var panelCollapsed=false, hoveredNode=null, dragNode=null, panStart=null;
   var animId=0, ALPHA=0.15, settled=false, visibleEdges={}, groupOpen={};
-  var manifest=null, searchIndex=null, cache=new Map();
+  var manifest=null, searchIndex=null, cache=new Map(), compBtnEl=null, modalEl=null;
   var currentData=null, scoreThreshold=50, itemLimit=20, itemLimitEnabled=true;
 
   function fetchJson(path) {
@@ -215,6 +242,7 @@
       // Collapse all link groups after search
       for (var key in groupOpen) groupOpen[key] = false;
       applyFiltersAndBuild();
+      showCompButton();
       return data;
     });
   }
@@ -683,6 +711,142 @@
     if (limitInput) limitInput.disabled = !itemLimitEnabled;
   }
 
+  /* --- Complementary Items modal --- */
+
+  function getComplementData() {
+    if (!currentData) return { symptoms: [], complements: [] };
+    var centerId = currentData.centerId;
+    var symptoms = [], complements = [];
+    for (var i = 0; i < currentData.links.length; i++) {
+      var l = currentData.links[i];
+      if (l.rel === "symptom") {
+        var sId = l.source === centerId ? l.target : l.source;
+        for (var j = 0; j < currentData.nodes.length; j++) {
+          if (currentData.nodes[j].id === sId) { symptoms.push(currentData.nodes[j]); break; }
+        }
+      }
+      if (l.rel === "complement") {
+        var cId = l.source === centerId ? l.target : l.source;
+        for (var k = 0; k < currentData.nodes.length; k++) {
+          if (currentData.nodes[k].id === cId) {
+            complements.push({ node: currentData.nodes[k], score: l.score || 0, label: l.label || "", why: l.why || "", trigger: (l.meta && l.meta.triggerContext) || "" });
+            break;
+          }
+        }
+      }
+    }
+    complements.sort(function (a, b) { return b.score - a.score; });
+    return { symptoms: symptoms, complements: complements };
+  }
+
+  function openCompModal() {
+    if (!modalEl) return;
+    var data = getComplementData();
+    var chipsEl = modalEl.querySelector(".om-symptom-chips");
+    var listEl = modalEl.querySelector(".om-comp-list");
+    var selected = {};
+
+    // Build symptom chips
+    chipsEl.innerHTML = "";
+    if (data.symptoms.length === 0) {
+      chipsEl.innerHTML = '<span style="color:var(--mut);font-size:11px">No symptoms linked to this item</span>';
+    }
+    for (var i = 0; i < data.symptoms.length; i++) {
+      var chip = document.createElement("span");
+      chip.className = "om-chip";
+      chip.textContent = data.symptoms[i].label;
+      chip.setAttribute("data-id", data.symptoms[i].id);
+      (function (chipEl, sId) {
+        chipEl.addEventListener("click", function () {
+          if (selected[sId]) { delete selected[sId]; chipEl.classList.remove("active"); }
+          else { selected[sId] = true; chipEl.classList.add("active"); }
+          renderCompList(data, selected, listEl);
+        });
+      })(chip, data.symptoms[i].id);
+      chipsEl.appendChild(chip);
+    }
+
+    renderCompList(data, selected, listEl);
+
+    // Update heading to show searched item name
+    var hd = modalEl.querySelector(".om-modal-hd h3");
+    if (hd && currentData) {
+      var centerNode = null;
+      for (var n = 0; n < currentData.nodes.length; n++) {
+        if (currentData.nodes[n].id === currentData.centerId) { centerNode = currentData.nodes[n]; break; }
+      }
+      hd.textContent = "➕ Complements for " + (centerNode ? centerNode.label : "");
+    }
+
+    modalEl.classList.add("open");
+  }
+
+  function renderCompList(data, selected, listEl) {
+    listEl.innerHTML = "";
+    var activeSymptoms = Object.keys(selected);
+    var filtered = data.complements;
+
+    if (activeSymptoms.length > 0) {
+      // Build a set of symptom label substrings for matching
+      var symptomLabels = [];
+      for (var s = 0; s < data.symptoms.length; s++) {
+        if (selected[data.symptoms[s].id]) symptomLabels.push(norm(data.symptoms[s].label));
+      }
+      filtered = data.complements.filter(function (c) {
+        var t = norm(c.trigger + " " + c.label + " " + c.why);
+        for (var si = 0; si < symptomLabels.length; si++) {
+          // Check if any word from the symptom label appears in the complement's context
+          var words = symptomLabels[si].split(/\s+/);
+          for (var wi = 0; wi < words.length; wi++) {
+            if (words[wi].length > 3 && t.indexOf(words[wi]) >= 0) return true;
+          }
+        }
+        return false;
+      });
+    }
+
+    if (filtered.length === 0) {
+      listEl.innerHTML = '<div class="om-comp-empty">' + (activeSymptoms.length > 0 ? 'No complementary items match the selected symptoms. Try removing a filter.' : 'No complementary items available.') + '</div>';
+      return;
+    }
+
+    for (var i = 0; i < filtered.length; i++) {
+      var c = filtered[i];
+      var row = document.createElement("div");
+      row.className = "om-comp-row";
+      row.innerHTML =
+        '<span class="cr-score">' + c.score + '</span>' +
+        '<span class="cr-name">' + esc(c.node.label) + '</span>' +
+        (c.label ? '<span class="cr-reason" title="' + esc(c.why || c.label) + '">' + esc(c.label) + '</span>' : '');
+      (function (nodeId) {
+        row.addEventListener("click", function () {
+          modalEl.classList.remove("open");
+          buildGraph(nodeId);
+        });
+      })(c.node.id);
+      listEl.appendChild(row);
+    }
+  }
+
+  function closeCompModal() {
+    if (modalEl) modalEl.classList.remove("open");
+  }
+
+  function showCompButton() {
+    if (!compBtnEl || !currentData) return;
+    // Only show if there are complement links
+    var hasComp = false;
+    for (var i = 0; i < currentData.links.length; i++) {
+      if (currentData.links[i].rel === "complement") { hasComp = true; break; }
+    }
+    if (!hasComp) { compBtnEl.classList.remove("visible", "flash"); return; }
+    compBtnEl.classList.add("visible");
+    // Trigger flash animation
+    compBtnEl.classList.remove("flash");
+    void compBtnEl.offsetWidth; // force reflow to restart animation
+    compBtnEl.classList.add("flash");
+  }
+
   async function renderModule(moduleCtx) {
     mount = moduleCtx.mount; mount.innerHTML = ""; ensureStyles();
     if (animId) { cancelAnimationFrame(animId); animId = 0; }
@@ -706,6 +870,7 @@
           '</div>' +
           '<div class="om-canvas-wrap">' +
             '<canvas></canvas>' +
+            '<button class="om-comp-btn" title="Show complementary items by symptom">➕ Complementary Items</button>' +
             '<div class="om-tooltip"></div>' +
             '<div class="om-legend">' +
               '<span><span class="ld" style="background:#2ee59d"></span>Product</span>' +
@@ -743,6 +908,15 @@
           '</div>' +
           '<div class="om-panel-body"></div>' +
         '</div>' +
+      '<div class="om-modal-overlay">' +
+        '<div class="om-modal">' +
+          '<div class="om-modal-hd"><h3>➕ Complementary Items</h3><button class="om-modal-close">&times;</button></div>' +
+          '<div class="om-modal-body">' +
+            '<div class="om-modal-section"><div class="om-modal-section-label">Filter by symptom</div><div class="om-symptom-chips"></div></div>' +
+            '<div class="om-modal-section"><div class="om-modal-section-label">Complementary products</div><div class="om-comp-list"></div></div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
       '</div>';
     mount.appendChild(root);
 
@@ -751,6 +925,8 @@
     tooltipEl = root.querySelector(".om-tooltip");
     searchInput = root.querySelector(".om-search input");
     ddEl = root.querySelector(".om-dd");
+    compBtnEl = root.querySelector(".om-comp-btn");
+    modalEl = root.querySelector(".om-modal-overlay");
 
     await loadManifest();
     await loadSearchIndex();
@@ -848,6 +1024,11 @@
     root.querySelector(".om-ua").addEventListener("click", function () { setAllEdges(false); });
     root.querySelector(".om-ca").addEventListener("click", function () { collapseAllGroups(); });
     root.querySelector(".om-ea").addEventListener("click", function () { expandAllGroups(); });
+
+    /* --- Complementary Items button & modal --- */
+    compBtnEl.addEventListener("click", function () { openCompModal(); });
+    root.querySelector(".om-modal-close").addEventListener("click", function () { closeCompModal(); });
+    modalEl.addEventListener("click", function (ev) { if (ev.target === modalEl) closeCompModal(); });
 
     graph = { nodes: [], links: [] }; rebuildNodeMap(); rebuildPanel(); updateStats();
     animId = requestAnimationFrame(render);
