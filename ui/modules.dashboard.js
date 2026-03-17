@@ -1125,7 +1125,8 @@
       }
     }
 
-    if (todayList) todayList.innerHTML = tempRow + drRow + poRow + insRow + boardRow;
+    var rxLabelRow = row("🏷️", "Prescription Label", "Quick create & print", pill("info", "Labels"), btn("dash-rx-label", "Create", { primary: true, small: true }) + btn("dash-open-labels", "Open", { small: true }));
+    if (todayList) todayList.innerHTML = rxLabelRow + tempRow + drRow + poRow + insRow + boardRow;
     if (attnList) attnList.innerHTML = clRow + certRow + alRow + rtRow + neRow + ssRow + stRow + supChgRow;
     if (opsList) opsList.innerHTML = shRow + coRow + tkRow + supOrdRow;
   }
@@ -2172,6 +2173,142 @@
   }
 
   // ----------------------------
+  // Prescription Label Quick Modal
+  // ----------------------------
+  var RX_FREQUENCIES = ["Once daily", "Twice daily", "Three times daily", "Four times daily", "Every morning", "Every evening", "Every 4 hours", "Every 6 hours", "Every 8 hours", "Every 12 hours", "Once weekly", "As needed", "As directed"];
+  var RX_ROUTES = ["Oral", "Topical", "Sublingual", "Rectal", "Inhaled", "Nasal", "Ophthalmic", "Otic"];
+
+  function openRxLabelModal() {
+    var freqOpts = RX_FREQUENCIES.map(function (f) { return '<option>' + esc(f) + '</option>'; }).join("");
+    var routeOpts = RX_ROUTES.map(function (r) { return '<option>' + esc(r) + '</option>'; }).join("");
+
+    var body =
+      '<div class="eikon-dash-detail">' +
+        '<div class="eikon-help">Quick create and print a prescription label.</div>' +
+        '<div style="margin-top:12px">' +
+          '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;margin-bottom:10px"><input type="checkbox" id="dash-rx-inc-patient" style="margin:0"> Include Patient Name</label>' +
+          '<div id="dash-rx-patient-fld" style="display:none;margin-bottom:10px"><input class="eikon-input" id="dash-rx-patient" placeholder="Patient name" style="width:100%" /></div>' +
+          '<div style="margin-bottom:10px"><input class="eikon-input" id="dash-rx-drug" placeholder="Drug name *" style="width:100%" /></div>' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">' +
+            '<input class="eikon-input" id="dash-rx-dose" placeholder="Dose (e.g. 1 tablet)" />' +
+            '<select class="eikon-input" id="dash-rx-route">' + routeOpts + '</select>' +
+          '</div>' +
+          '<div style="margin-bottom:10px"><select class="eikon-input" id="dash-rx-freq" style="width:100%">' + freqOpts + '</select></div>' +
+          '<div style="margin-bottom:10px"><input class="eikon-input" id="dash-rx-instructions" placeholder="Custom instructions (optional)" style="width:100%" /></div>' +
+        '</div>' +
+      '</div>';
+
+    E.modal.show("Prescription Label", body, [
+      { label: "Cancel", onClick: function () { E.modal.hide(); } },
+      {
+        label: "Print Label",
+        primary: true,
+        onClick: function () {
+          var drugName = (document.getElementById("dash-rx-drug").value || "").trim();
+          if (!drugName) { document.getElementById("dash-rx-drug").style.borderColor = "#ff5a7a"; return; }
+
+          var incPatient = document.getElementById("dash-rx-inc-patient").checked;
+          var patientName = incPatient ? (document.getElementById("dash-rx-patient").value || "").trim() : "";
+          var dose = (document.getElementById("dash-rx-dose").value || "").trim();
+          var route = document.getElementById("dash-rx-route").value;
+          var frequency = document.getElementById("dash-rx-freq").value;
+          var instructions = (document.getElementById("dash-rx-instructions").value || "").trim();
+
+          // build label state and save via labels API
+          var entry = {
+            id: "lb_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8),
+            patientName: patientName,
+            drugName: drugName,
+            dose: dose,
+            route: route,
+            frequency: frequency,
+            customInstructions: instructions,
+            selectedWarnings: [],
+            templateId: "tpl_std",
+            printedAt: (function () { var d = new Date(), p = function (n) { return String(n).padStart(2, "0"); }; return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + " " + p(d.getHours()) + ":" + p(d.getMinutes()); })(),
+            printedBy: E.state.user ? (E.state.user.full_name || E.state.user.email) : "Unknown"
+          };
+
+          // load pharmacy details & persist the label to cloud
+          (async function () {
+            try {
+              var r = await api("/labels/state", { method: "GET" }, 8000, "rx-label-load");
+              var st = r.state || r;
+              var pharm = st.pharmacyDetails || { name: "", address: "", phone: "", licence: "" };
+              if (!pharm.name && E.state.user && E.state.user.location_name) pharm.name = E.state.user.location_name;
+              var history = Array.isArray(st.labelHistory) ? st.labelHistory : [];
+              history.unshift(entry);
+
+              // save back
+              await api("/labels/state", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ state: { labelHistory: history, templates: st.templates || [], pharmacyDetails: pharm } })
+              }, 8000, "rx-label-save");
+
+              // print
+              var fs = "2.2mm";
+              var h = '<div style="font-family:Arial,Helvetica,sans-serif;color:#000;font-size:' + fs + ';line-height:1.2;">';
+              h += '<div style="font-weight:900;">' + esc(pharm.name || "Pharmacy");
+              if (pharm.phone) h += ' <span style="font-weight:400;font-size:.75em;">T:' + esc(pharm.phone) + '</span>';
+              h += '</div>';
+              if (patientName) h += '<div><b>Pat:</b> ' + esc(patientName) + '</div>';
+              h += '<div><b>Rx:</b> ' + esc(drugName) + '</div>';
+              var doseFreq = '';
+              if (dose) doseFreq += esc(dose);
+              if (dose && frequency) doseFreq += ' | ';
+              if (frequency) doseFreq += esc(frequency);
+              if (doseFreq) h += '<div><b>Dose/Freq:</b> ' + doseFreq + '</div>';
+              if (route) h += '<div><b>Route:</b> ' + esc(route) + '</div>';
+              if (instructions) h += '<div><b>Note:</b> ' + esc(instructions) + '</div>';
+              var dd = new Date(), pp = function (n) { return String(n).padStart(2, "0"); };
+              var dateStr = pp(dd.getDate()) + "/" + pp(dd.getMonth() + 1) + "/" + dd.getFullYear();
+              h += '<div style="font-size:.85em;color:#333;">' + dateStr;
+              if (pharm.licence) h += ' | Lic:' + esc(pharm.licence);
+              h += '</div></div>';
+
+              var printHtml =
+                '<!DOCTYPE html><html><head><meta charset="utf-8"><style>' +
+                '@page{margin:0;}html,body{margin:0;padding:0.8mm 1mm 0.5mm 1.5mm;width:100%;height:auto;box-sizing:border-box;}div,b,i,span{page-break-inside:avoid;}' +
+                '</style></head><body>' + h +
+                "<script>window.addEventListener('load',function(){setTimeout(function(){try{window.print();}catch(e){}},80);});" +
+                "window.addEventListener('afterprint',function(){setTimeout(function(){try{window.close();}catch(e){}},250);});<\/script>" +
+                '</body></html>';
+
+              var blob = new Blob([printHtml], { type: "text/html;charset=utf-8" });
+              var url = URL.createObjectURL(blob);
+              var w = null;
+              try { w = window.open(url, "_blank"); } catch (e) { w = null; }
+              if (!w) {
+                try { var a = document.createElement("a"); a.href = url; a.target = "_blank"; a.style.display = "none"; document.body.appendChild(a); a.click(); a.remove(); } catch (e2) {}
+              }
+              setTimeout(function () { try { URL.revokeObjectURL(url); } catch (e) {} }, 60000);
+
+              E.modal.hide();
+              dashToast("ok", "Prescription label printed and saved");
+            } catch (e) {
+              dashToast("err", "Failed to print label: " + (e.message || e));
+            }
+          })();
+        }
+      }
+    ]);
+
+    // bind patient checkbox toggle after modal is shown
+    setTimeout(function () {
+      var cb = document.getElementById("dash-rx-inc-patient");
+      var fld = document.getElementById("dash-rx-patient-fld");
+      if (cb && fld) {
+        cb.addEventListener("change", function () {
+          fld.style.display = cb.checked ? "" : "none";
+        });
+      }
+      var drugEl = document.getElementById("dash-rx-drug");
+      if (drugEl) drugEl.focus();
+    }, 60);
+  }
+
+  // ----------------------------
   // OTC Cross Sell logic
   // ----------------------------
   var xsell = {
@@ -2726,6 +2863,8 @@
     if (act === "dash-temp-quick") return openTempQuickModal();
     if (act === "dash-clean-quick") return openCleaningQuickModal();
     if (act === "dash-dr-quick") return openDailyRegisterQuickModal();
+    if (act === "dash-rx-label") return openRxLabelModal();
+    if (act === "dash-open-labels") { window.location.hash = "#labels"; return; }
 
     if (act === "dash-supplier-changes-details") return showSupplierChangesDetails();
     if (act === "dash-cert-details") return showCertDetails();
