@@ -2991,7 +2991,7 @@ async function doPrintRangeReport(from, to) {
         var r10 = el("input", { type: "radio", name: "eod-round-unit", value: "10", style: "margin:0" }); if (curUnit === 10) r10.checked = true;
         var lbl5 = el("label", { style: "display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;opacity:0.7" }, [r5, el("span", { text: "5s" })]);
         var lbl10 = el("label", { style: "display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;opacity:0.7" }, [r10, el("span", { text: "10s" })]);
-        function onSwitch() { var u = r5.checked ? 5 : 10; setRoundingUnit(u); liveUpdateUI(); }
+        function onSwitch() { var u = r5.checked ? 5 : 10; setRoundingUnit(u); if (!state.deposit_edited) { autoFillDeposit(state, roundedDepositF(state), paperUnitsFromCash(state)); } liveUpdateUI(); }
         r5.addEventListener("change", onSwitch);
         r10.addEventListener("change", onSwitch);
         var row = el("div", { style: "display:flex;justify-content:space-between;gap:10px;border:1px solid rgba(255,255,255,.10);border-radius:12px;padding:10px;" }, [
