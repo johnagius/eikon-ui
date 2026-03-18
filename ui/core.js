@@ -462,272 +462,30 @@
   })();
 
   // ─── Help Guide ──────────────────────────────────────────────────────────
-  E.HELP_CONTENT = [
-    {
-      id: "dashboard",
-      title: "Dashboard",
-      icon: "\uD83D\uDCCA",
-      subtitle: "Your pharmacy at a glance \u2014 real-time status, quick entry, and actionable alerts.",
-      sections: [
-        {
-          heading: "Overview",
-          body:
-            "<p>The Dashboard is your central command screen. It loads data from every major module " +
-            "in parallel so you see a live snapshot of your pharmacy within seconds of logging in.</p>" +
-            "<p>Everything on the dashboard is <strong>read-and-act</strong> \u2014 you can inspect issues " +
-            "and take action (quick-entry, returns, stock offers) without leaving the page.</p>"
-        },
-        {
-          heading: "Layout",
-          body:
-            "<p>The dashboard is divided into three cards:</p>" +
-            "<table class=\"eikon-help-table\">" +
-            "<tr><th>Card</th><th>Position</th><th>Purpose</th></tr>" +
-            "<tr><td><strong>Today</strong></td><td>Top left</td><td>Daily tasks, quick-entry shortcuts, instructions, and chat</td></tr>" +
-            "<tr><td><strong>Attention</strong></td><td>Top right</td><td>Compliance items and alerts that need review or action</td></tr>" +
-            "<tr><td><strong>Operations</strong></td><td>Bottom (full width)</td><td>Shift coverage, orders, tickets, and supplier status</td></tr>" +
-            "</table>"
-        },
-        {
-          heading: "Quick Entry",
-          body:
-            "<p>Quick-entry buttons let you record data instantly without navigating to the full module. " +
-            "Available quick-entry forms:</p>" +
-            "<ul>" +
-            "<li><strong>Temperature</strong> \u2014 Select device, enter min/max readings, optional notes. " +
-            "Only devices missing today\u2019s entry are shown, so you won\u2019t duplicate.</li>" +
-            "<li><strong>Cleaning</strong> \u2014 Date, time in/out, cleaner name, staff name, notes. " +
-            "Date defaults to today.</li>" +
-            "<li><strong>Daily Register</strong> \u2014 Client name & ID, medicine, posology, prescriber name & reg number. " +
-            "All fields except notes are mandatory.</li>" +
-            "<li><strong>Prescription Label</strong> \u2014 Patient name (optional toggle), drug name with autocomplete from history, " +
-            "dose, route, frequency, custom instructions, and 20 selectable warning labels. Prints immediately.</li>" +
-            "</ul>" +
-            "<div class=\"eikon-help-tip\"><strong>Tip:</strong> The prescription label remembers your patient names " +
-            "and drug entries. Start typing and use arrow keys to navigate suggestions, Enter to select.</div>"
-        },
-        {
-          heading: "Status Indicators",
-          body:
-            "<p>Each dashboard item shows a coloured status pill:</p>" +
-            "<table class=\"eikon-help-table\">" +
-            "<tr><th>Colour</th><th>Meaning</th><th>Action</th></tr>" +
-            "<tr><td><strong style=\"color:var(--ok)\">Green (OK)</strong></td><td>All checks passed</td><td>No action needed</td></tr>" +
-            "<tr><td><strong style=\"color:#e8b635\">Yellow (WARN)</strong></td><td>Minor issues found</td><td>Review when convenient</td></tr>" +
-            "<tr><td><strong style=\"color:var(--danger)\">Red (DANGER)</strong></td><td>Requires immediate attention</td><td>Act now</td></tr>" +
-            "<tr><td><strong style=\"color:var(--muted)\">Grey (N/A)</strong></td><td>Data unavailable or loading</td><td>Wait or refresh</td></tr>" +
-            "</table>" +
-            "<p>Cards that <strong>flash red</strong> (Stock Transfers, Scarce Stock) indicate urgent pending actions " +
-            "like unconfirmed deliveries or unaccepted offers.</p>"
-        },
-        {
-          heading: "OTC Cross-Sell",
-          body:
-            "<p>The OTC Cross-Sell widget in the Today card helps you find complementary products for customers:</p>" +
-            "<ul>" +
-            "<li>Type a product name, symptom, or use-case into the search box</li>" +
-            "<li>Results show <strong>complementary products</strong> (direct complements) and <strong>sibling products</strong> (for the same symptoms)</li>" +
-            "<li>Click symptom chips to filter results further</li>" +
-            "<li>Click any product name to search for that product instead \u2014 easy to chain searches</li>" +
-            "</ul>"
-        },
-        {
-          heading: "Detail Views & Inline Actions",
-          body:
-            "<p>Click the <strong>Details</strong> button on any dashboard item to see a breakdown " +
-            "without leaving the dashboard. Available detail views:</p>" +
-            "<ul>" +
-            "<li><strong>Certificates</strong> \u2014 Lists expired and due-soon certificates with edit capability</li>" +
-            "<li><strong>Alerts</strong> \u2014 Incomplete alert entries showing which fields are still missing</li>" +
-            "<li><strong>Returns</strong> \u2014 Incomplete returns with missing steps (arrange, hand over, notes)</li>" +
-            "<li><strong>Near Expiry</strong> \u2014 Expired and soon-to-expire items with inline <strong>Return</strong> and <strong>Add to Scarce Stock</strong> buttons</li>" +
-            "<li><strong>Shifts</strong> \u2014 Pharmacist coverage issues by date for current and next month</li>" +
-            "<li><strong>Supplier Updates</strong> \u2014 Recent product changes (out-of-stock, back-in-stock, removed) from suppliers</li>" +
-            "<li><strong>Instructions</strong> \u2014 Today\u2019s notes and yesterday\u2019s handover items</li>" +
-            "</ul>" +
-            "<div class=\"eikon-help-tip\"><strong>Tip:</strong> From the Near Expiry details, you can create a return " +
-            "or add an item to Scarce Stock directly \u2014 no need to open those modules separately.</div>"
-        },
-        {
-          heading: "Tips & Best Practices",
-          body:
-            "<ul>" +
-            "<li><strong>Use quick-entry over full modules</strong> for routine daily tasks like temperature, cleaning, and daily register entries \u2014 it\u2019s significantly faster.</li>" +
-            "<li><strong>Click Refresh</strong> to reload all data. Each section loads independently, so if one is slow the rest still appear.</li>" +
-            "<li><strong>Watch for flashing cards</strong> \u2014 they indicate items requiring your immediate action (e.g. unconfirmed stock deliveries).</li>" +
-            "<li><strong>Chat Board preview</strong> shows the last message author and first 60 characters. Click to read the full thread.</li>" +
-            "<li><strong>Open buttons</strong> on every card take you directly to the full module for deeper work.</li>" +
-            "<li><strong>Supplier Updates</strong> are automatically de-duplicated \u2014 if the same product changes status multiple times, only the latest is shown.</li>" +
-            "</ul>"
-        },
-        {
-          heading: "Common Workflows",
-          body:
-            "<p><strong>Morning check-in:</strong></p>" +
-            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
-            "<li>Open the Dashboard (it loads automatically on login)</li>" +
-            "<li>Review the Today card \u2014 record temperature, cleaning, and any daily register entries via quick-entry</li>" +
-            "<li>Check the Attention card \u2014 address any red items (expired certificates, incomplete alerts)</li>" +
-            "<li>Glance at Operations \u2014 verify shift coverage and check for pending client orders</li>" +
-            "</ol>" +
-            "<p><strong>End-of-day wrap-up:</strong></p>" +
-            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
-            "<li>Refresh the dashboard to get the latest status</li>" +
-            "<li>Ensure all temperature entries are recorded (Today card should show green)</li>" +
-            "<li>Review Near Expiry details and create returns for any expired items</li>" +
-            "<li>Check Instructions for any handover notes from the day</li>" +
-            "</ol>"
-        }
-      ]
-    },
-    {
-      id: "temperature",
-      title: "Temperature",
-      icon: "\uD83C\uDF21",
-      subtitle: "Monitor and record temperatures for rooms, fridges, and other storage areas.",
-      sections: [
-        {
-          heading: "Overview",
-          body:
-            "<p>The Temperature module tracks daily min/max temperature readings for every monitoring device " +
-            "in your pharmacy. It supports rooms, fridges, and custom device types with configurable " +
-            "temperature limits.</p>" +
-            "<p>Key capabilities: daily recording, offline support with automatic queueing, " +
-            "visual dashboard charts, compliance report generation, and device management.</p>"
-        },
-        {
-          heading: "Tabs",
-          body:
-            "<p>The module has three tabs:</p>" +
-            "<table class=\"eikon-help-table\">" +
-            "<tr><th>Tab</th><th>Purpose</th></tr>" +
-            "<tr><td><strong>Entries</strong></td><td>Record and review daily temperature readings per device</td></tr>" +
-            "<tr><td><strong>Devices</strong></td><td>Add, edit, deactivate, and configure monitoring devices</td></tr>" +
-            "<tr><td><strong>Print Report</strong></td><td>Generate date-range reports for compliance and archival</td></tr>" +
-            "</table>"
-        },
-        {
-          heading: "Entries Tab",
-          body:
-            "<p>The Entries tab is your daily workspace for recording temperatures.</p>" +
-            "<ul>" +
-            "<li><strong>Date picker</strong> \u2014 Defaults to today. Change it to record or review past dates.</li>" +
-            "<li><strong>Device table</strong> \u2014 One row per active device. Enter Min and Max values for each.</li>" +
-            "<li><strong>Status dot</strong> \u2014 Shows real-time validation as you type:" +
-            "<ul>" +
-            "<li><strong style=\"color:var(--ok)\">Green</strong> = Within configured limits</li>" +
-            "<li><strong style=\"color:var(--danger)\">Red</strong> = Outside limits (min below minimum or max above maximum)</li>" +
-            "<li><strong style=\"color:var(--muted)\">Grey</strong> = Missing \u2014 no values entered yet</li>" +
-            "</ul></li>" +
-            "<li><strong>Notes</strong> \u2014 Optional text field per device entry for additional observations.</li>" +
-            "<li><strong>Save</strong> \u2014 Saves all entries for the selected date. Both min and max are required per device.</li>" +
-            "<li><strong>Delete</strong> \u2014 Remove a specific device\u2019s entry for the selected date (with confirmation).</li>" +
-            "</ul>" +
-            "<div class=\"eikon-help-tip\"><strong>Tip:</strong> Check the status dots before saving. " +
-            "A red dot means the reading is outside limits \u2014 this is recorded as-is but flagged for review.</div>"
-        },
-        {
-          heading: "Monthly Dashboard Charts",
-          body:
-            "<p>Below the entry table, the Entries tab shows visual temperature charts for the current and previous month:</p>" +
-            "<ul>" +
-            "<li><strong>Thin line</strong> = Minimum temperature readings across the month</li>" +
-            "<li><strong>Thick line</strong> = Maximum temperature readings across the month</li>" +
-            "<li><strong>Dashed horizontal lines</strong> = Configured temperature limits for that device</li>" +
-            "<li><strong>Vertical highlight line</strong> = The currently selected date</li>" +
-            "</ul>" +
-            "<p>Each device gets its own chart panel showing name, type, limits, and total reading count.</p>" +
-            "<div class=\"eikon-help-tip\"><strong>Tip:</strong> Use <strong>Print dashboard</strong> to generate " +
-            "a print-ready version of these charts. It opens in a new tab and triggers the print dialog automatically.</div>"
-        },
-        {
-          heading: "Devices Tab",
-          body:
-            "<p>Manage your monitoring devices here.</p>" +
-            "<ul>" +
-            "<li><strong>Add a device</strong> \u2014 Enter a name (required), select a type (room, fridge, or other), " +
-            "and optionally set min/max temperature limits. Click Add.</li>" +
-            "<li><strong>Edit a device</strong> \u2014 Change name, type, or limits inline. Click Save on that row.</li>" +
-            "<li><strong>Deactivate</strong> \u2014 Removes the device from the daily entry list but <strong>preserves all historical data</strong>. " +
-            "Use this instead of deleting when a device is retired.</li>" +
-            "<li><strong>Reactivate</strong> \u2014 Bring a deactivated device back into daily use at any time.</li>" +
-            "</ul>" +
-            "<table class=\"eikon-help-table\">" +
-            "<tr><th>Device Type</th><th>Typical Min Limit</th><th>Typical Max Limit</th><th>Notes</th></tr>" +
-            "<tr><td>Room</td><td>8.1\u00B0C (default)</td><td>Set per device</td><td>General storage areas</td></tr>" +
-            "<tr><td>Fridge</td><td>2\u00B0C</td><td>8\u00B0C</td><td>Vaccine and medicine fridges</td></tr>" +
-            "<tr><td>Other</td><td>Set per device</td><td>Set per device</td><td>Custom monitoring points</td></tr>" +
-            "</table>" +
-            "<div class=\"eikon-help-warn\"><strong>Important:</strong> Always set explicit temperature limits " +
-            "for vaccine fridges and other critical storage. Without limits, the status dot cannot warn you about out-of-range readings.</div>"
-        },
-        {
-          heading: "Print Report Tab",
-          body:
-            "<p>Generate formal temperature reports for any date range:</p>" +
-            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
-            "<li>Select a <strong>From</strong> date and a <strong>To</strong> date</li>" +
-            "<li>Click <strong>Generate</strong> to fetch data and build the preview table</li>" +
-            "<li>Review the table \u2014 organised by month with one column per device</li>" +
-            "<li>Click <strong>Print</strong> to open a formatted report in a new tab with automatic print dialog</li>" +
-            "</ol>" +
-            "<p>Reports include your organisation and location name in the header, making them suitable for " +
-            "compliance records, audits, and archival.</p>"
-        },
-        {
-          heading: "Offline Support",
-          body:
-            "<p>If your internet connection drops while saving entries:</p>" +
-            "<ul>" +
-            "<li>Entries are <strong>automatically queued</strong> in your browser\u2019s local storage</li>" +
-            "<li>A toast notification tells you how many were saved vs. queued</li>" +
-            "<li>When you\u2019re back online, click the <strong>Sync queued</strong> button to send all pending entries to the server</li>" +
-            "<li>The queue is scoped to your organisation and location \u2014 entries can\u2019t accidentally sync to the wrong pharmacy</li>" +
-            "</ul>" +
-            "<div class=\"eikon-help-tip\"><strong>Tip:</strong> Check for the Sync queued button after any network issues. " +
-            "Queued entries persist across browser sessions, so nothing is lost even if you close the tab.</div>"
-        },
-        {
-          heading: "Tips & Best Practices",
-          body:
-            "<ul>" +
-            "<li><strong>Back-date entries</strong> \u2014 Change the date picker to record temperatures for previous days you may have missed.</li>" +
-            "<li><strong>Batch entry</strong> \u2014 Fill in all devices first, then click Save once. The module saves all rows in a single action.</li>" +
-            "<li><strong>Deactivate, don\u2019t delete</strong> \u2014 When removing a device from service, always deactivate rather than delete. " +
-            "This preserves the full history for audits and reports.</li>" +
-            "<li><strong>Use Print Dashboard</strong> for a quick visual check of the month\u2019s trends without generating a formal report.</li>" +
-            "<li><strong>Temperature precision</strong> \u2014 Values accept one decimal place (e.g. 16.5). Both comma and period work as decimal separators.</li>" +
-            "<li><strong>Dashboard integration</strong> \u2014 Missing temperature entries appear on the main Dashboard with a quick-entry shortcut, so you can record readings without opening this module.</li>" +
-            "</ul>"
-        },
-        {
-          heading: "Common Workflows",
-          body:
-            "<p><strong>Daily entry routine:</strong></p>" +
-            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
-            "<li>Open Temperature \u2192 Entries tab (date defaults to today)</li>" +
-            "<li>Read each thermometer and enter the min/max values</li>" +
-            "<li>Check that all status dots are green</li>" +
-            "<li>Click Save</li>" +
-            "</ol>" +
-            "<p><strong>Monthly compliance report:</strong></p>" +
-            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
-            "<li>Open Temperature \u2192 Print Report tab</li>" +
-            "<li>Set From to the 1st of the month, To to today (or month end)</li>" +
-            "<li>Click Generate to build the preview</li>" +
-            "<li>Click Print to generate the PDF</li>" +
-            "</ol>" +
-            "<p><strong>Replacing a device:</strong></p>" +
-            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
-            "<li>Open Temperature \u2192 Devices tab</li>" +
-            "<li>Find the old device and click Deactivate</li>" +
-            "<li>Add the new device with appropriate name, type, and limits</li>" +
-            "<li>From the next day, the new device appears in Entries while the old one\u2019s history is preserved</li>" +
-            "</ol>"
-        }
-      ]
-    }
+  // Content populated by help-content.js
+  E.HELP_CONTENT = [];
+
+  // Category grouping for help sidebar
+  E.HELP_CATEGORIES = [
+    { label: "General", ids: ["dashboard"] },
+    { label: "Inspections", ids: ["temperature", "cleaning", "dda-purchases", "dda-sales", "dda_stocktakes", "dda-poyc", "dailyregister", "certificates"] },
+    { label: "Operations", ids: ["emergency-pos", "endofday", "shifts", "creditnotes", "paidout", "locumreceipts", "labels"] },
+    { label: "Sales & Clients", ids: ["clientorders", "quotations", "order-diary", "deliveries", "appointments", "tickets", "loyalty", "supplier-inventory"] },
+    { label: "Inventory", ids: ["alerts", "stocktransfers", "returns", "nearexpiry", "scarcestock"] },
+    { label: "Communication", ids: ["messageboard", "instructions"] },
+    { label: "Clinical", ids: ["poct", "vaccines", "ocps", "pharmacycalc", "pharmacovigilance", "screening", "otcmindmap"] },
+    { label: "Reference", ids: ["contacts"] }
   ];
+
+  E._helpContentById = null; // lazy cache
+  E._getHelpById = function (id) {
+    if (!E._helpContentById) {
+      E._helpContentById = {};
+      E.HELP_CONTENT.forEach(function (m) { E._helpContentById[m.id] = m; });
+    }
+    return E._helpContentById[id] || null;
+  };
+
 
   E.showHelpGuide = function (moduleId) {
     var overlay = document.getElementById("eikon-help-overlay");
@@ -753,15 +511,29 @@
         overlay.style.display = "none";
       });
 
-      // Populate module list
+      // Populate module list grouped by category
       var list = document.getElementById("eikon-help-sidebar-list");
-      E.HELP_CONTENT.forEach(function (mod) {
-        var btn = document.createElement("button");
-        btn.className = "eikon-help-module-btn";
-        btn.setAttribute("data-help-mod", mod.id);
-        btn.innerHTML = '<span style="width:18px;text-align:center;flex:0 0 18px">' + mod.icon + "</span> " + mod.title;
-        btn.addEventListener("click", function () { E._renderHelpContent(mod.id); });
-        list.appendChild(btn);
+      E._helpContentById = null; // reset cache
+      E.HELP_CATEGORIES.forEach(function (cat) {
+        var hasAny = false;
+        cat.ids.forEach(function (id) { if (E._getHelpById(id)) hasAny = true; });
+        if (!hasAny) return;
+
+        var catHeader = document.createElement("div");
+        catHeader.className = "eikon-help-cat-label";
+        catHeader.textContent = cat.label;
+        list.appendChild(catHeader);
+
+        cat.ids.forEach(function (id) {
+          var mod = E._getHelpById(id);
+          if (!mod) return;
+          var btn = document.createElement("button");
+          btn.className = "eikon-help-module-btn";
+          btn.setAttribute("data-help-mod", mod.id);
+          btn.innerHTML = '<span style="width:18px;text-align:center;flex:0 0 18px">' + mod.icon + "</span> " + mod.title;
+          btn.addEventListener("click", function () { E._renderHelpContent(mod.id); });
+          list.appendChild(btn);
+        });
       });
     }
 
