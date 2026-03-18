@@ -511,41 +511,80 @@
         {
           heading: "Overview",
           body:
-            "<p>Daily reconciliation system for cash counting, X/Z readings, payment method tracking " +
-            "(cash, cheques, card), and Bank of Valletta deposit management.</p>"
+            "<p>Daily cash reconciliation to close out the till. Compare the physical cash count against " +
+            "expected deposits, track all payment methods, prepare the BOV bank deposit, and lock the " +
+            "record when everything balances.</p>"
         },
         {
-          heading: "Main Entry",
+          heading: "How to Complete an End of Day",
           body:
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li><strong>Set the header</strong> \u2014 Select AM or PM, enter your <strong>Staff Name</strong> (required), " +
+            "and confirm the <strong>Float</strong> amount (default \u20AC1,000).</li>" +
+            "<li><strong>Enter payment readings</strong> \u2014 Fill in each section below:</li>" +
+            "</ol>" +
+            "<table class=\"eikon-help-table\">" +
+            "<tr><th>Section</th><th>What to Enter</th><th>Notes</th></tr>" +
+            "<tr><td><strong>X Readings</strong></td><td>POS system reading amounts</td><td>Click \u201CAdd Entry\u201D for multiple tills; each row has amount + remark</td></tr>" +
+            "<tr><td><strong>EPOS</strong></td><td>Electronic card payment totals</td><td>One row per terminal or card type</td></tr>" +
+            "<tr><td><strong>Cheques</strong></td><td>Cheque payment totals</td><td>Record each cheque as a separate row</td></tr>" +
+            "<tr><td><strong>Paid Outs</strong></td><td>Cash paid out of the till during the day</td><td>Petty cash, supplier COD payments, etc.</td></tr>" +
+            "</table>" +
+            "<ol style=\"padding-left:20px;margin:0 0 14px\" start=\"3\">" +
+            "<li><strong>Count the cash</strong> \u2014 In the <strong>Cash Count</strong> section, enter how many of each note denomination " +
+            "(\u20AC500, \u20AC200, \u20AC100, \u20AC50, \u20AC20, \u20AC10, \u20AC5) you physically count in the till, plus the total Coins value. " +
+            "The <strong>Total Cash Till</strong> auto-calculates.</li>" +
+            "<li><strong>Review the summary</strong> \u2014 Check the auto-calculated values:</li>" +
+            "</ol>" +
             "<ul>" +
-            "<li><strong>X Reading</strong> \u2014 Opening cash amount. Multiple rows supported.</li>" +
-            "<li><strong>Z Reading</strong> \u2014 Closing cash amount. Multiple rows supported.</li>" +
-            "<li><strong>Till Counting</strong> \u2014 Enter coin/note counts by denomination (\u20AC5, \u20AC2, \u20AC1, 50c, 20c, 10c, 5c, 2c, 1c).</li>" +
-            "<li><strong>Cheques & Card</strong> \u2014 Separate totals for each payment method.</li>" +
-            "<li><strong>BOV Deposit</strong> \u2014 Auto-fills from cash notes; editable.</li>" +
-            "<li><strong>Float</strong> \u2014 Cash left in till for next day.</li>" +
-            "</ul>"
+            "<li><strong>Expected Deposit</strong> = X Readings \u2212 EPOS \u2212 Cheques \u2212 Paid Outs</li>" +
+            "<li><strong>Cash (E)</strong> = Total Cash Till \u2212 Float</li>" +
+            "<li><strong>Over / Under</strong> = Cash (E) \u2212 Expected Deposit</li>" +
+            "<li><strong>Coins</strong> = Cash (E) \u2212 Rounded Cash Deposited</li>" +
+            "</ul>" +
+            "<ol style=\"padding-left:20px;margin:0 0 14px\" start=\"5\">" +
+            "<li><strong>Prepare the BOV deposit</strong> \u2014 The deposit denomination table auto-fills from your cash count " +
+            "(largest notes first). Enter the <strong>Bag Number</strong> (required when depositing). " +
+            "Optionally select a contact and click <strong>Copy Deposit to Email</strong> to paste into Outlook.</li>" +
+            "<li><strong>Save</strong> \u2014 Click <strong>Save</strong> to persist the record locally and to the cloud.</li>" +
+            "<li><strong>Lock</strong> \u2014 Once you\u2019re satisfied everything is correct, click <strong>Lock</strong>. " +
+            "This disables all fields to prevent accidental changes. You can <strong>Unlock</strong> later if corrections are needed.</li>" +
+            "</ol>"
         },
         {
-          heading: "Locking & Audit",
+          heading: "Buttons",
           body:
-            "<p><strong>Lock</strong> prevents further edits (can be temporarily unlocked). " +
-            "An audit tab tracks who changed what and when.</p>"
+            "<table class=\"eikon-help-table\">" +
+            "<tr><th>Button</th><th>When Available</th><th>What It Does</th></tr>" +
+            "<tr><td><strong>Save</strong></td><td>When unlocked</td><td>Persists the record (local + cloud) and logs the action</td></tr>" +
+            "<tr><td><strong>Lock</strong></td><td>When unlocked</td><td>Validates required fields, then freezes all inputs</td></tr>" +
+            "<tr><td><strong>Unlock</strong></td><td>When locked</td><td>Confirmation modal, then re-enables editing</td></tr>" +
+            "<tr><td><strong>Print End of Day on A4</strong></td><td>Always</td><td>Prints the current day\u2019s sheet</td></tr>" +
+            "<tr><td><strong>Report (Date Range)</strong></td><td>Always</td><td>Select a date range and print a multi-day summary</td></tr>" +
+            "<tr><td><strong>Audit Log</strong></td><td>Always</td><td>View timestamped history of all actions (Save, Lock, Unlock, Print)</td></tr>" +
+            "<tr><td><strong>Copy Deposit to Email</strong></td><td>In BOV section</td><td>Copies formatted deposit table to clipboard for Outlook</td></tr>" +
+            "<tr><td><strong>Manage Contacts</strong></td><td>In BOV section</td><td>Add/edit/delete email recipients for deposit notifications</td></tr>" +
+            "</table>"
         },
         {
           heading: "Monthly Summary",
           body:
-            "<p>Below the daily entry, a monthly summary shows total cash, over/under amounts, " +
-            "and coin box totals for the current month.</p>"
+            "<p>Below the daily entry, a running monthly summary updates live as you type:</p>" +
+            "<ul>" +
+            "<li><strong>Total Cash (Month)</strong> \u2014 Sum of all daily cash values this month.</li>" +
+            "<li><strong>Over/Under (Month)</strong> \u2014 Cumulative discrepancy for the month.</li>" +
+            "<li><strong>Coin Box (Month)</strong> \u2014 Total coins set aside for the month.</li>" +
+            "</ul>"
         },
         {
           heading: "Tips",
           body:
             "<ul>" +
-            "<li>BOV deposit auto-fills from cash notes \u2014 stops auto-filling once you edit it manually.</li>" +
-            "<li>Both comma and dot work as decimal separators.</li>" +
-            "<li>Lock entries after verification to prevent accidental changes.</li>" +
-            "<li>Use Copy Deposit to paste the BOV amount into banking forms.</li>" +
+            "<li>BOV deposit auto-fills from your cash count using largest notes first \u2014 it stops auto-filling once you manually edit any deposit field.</li>" +
+            "<li>Both comma and dot work as decimal separators (EU keyboard support).</li>" +
+            "<li>Always <strong>Lock</strong> after verification \u2014 this creates an audit trail and prevents accidental changes.</li>" +
+            "<li>The Audit Log records every Save, Lock, Unlock, and Print action with who did it and when.</li>" +
+            "<li>If the cloud is unavailable, your data is saved locally and syncs when the connection returns.</li>" +
             "</ul>"
         }
       ]
