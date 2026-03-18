@@ -603,52 +603,53 @@
             "pharmacist coverage validation, Malta Employment Law defaults, and iCal export.</p>"
         },
         {
-          heading: "Tabs",
+          heading: "Getting Started (First-Time Setup)",
           body:
-            "<table class=\"eikon-help-table\">" +
-            "<tr><th>Tab</th><th>Purpose</th></tr>" +
-            "<tr><td><strong>Calendar</strong></td><td>Monthly grid with shift count badges and coverage indicators</td></tr>" +
-            "<tr><td><strong>Schedule</strong></td><td>Grid view: employees (rows) \u00D7 days (columns)</td></tr>" +
-            "<tr><td><strong>Staff</strong></td><td>Staff list with designation, hours, and leave balances</td></tr>" +
-            "<tr><td><strong>Leave</strong></td><td>Pending requests, approval/rejection, and leave history</td></tr>" +
-            "<tr><td><strong>Integration</strong></td><td>iCal export token for Outlook/Google Calendar</td></tr>" +
-            "<tr><td><strong>Settings</strong></td><td>Opening hours, pharmacist requirements, Malta law reference</td></tr>" +
-            "</table>"
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Go to the <strong>Settings</strong> tab and set your <strong>opening hours</strong> for each day of the week.</li>" +
+            "<li>Add any date-specific overrides (e.g. Christmas hours, summer schedule).</li>" +
+            "<li>Go to the <strong>Staff</strong> tab and add your employees \u2014 set designation (Pharmacist, Technician, etc.), contracted hours, and start date.</li>" +
+            "<li>Now you\u2019re ready to start scheduling shifts.</li>" +
+            "</ol>"
         },
         {
-          heading: "Shift Assignment",
+          heading: "How to Schedule a Shift",
           body:
-            "<ul>" +
-            "<li>Click a day in the Calendar or Schedule tab to assign shifts.</li>" +
-            "<li>Each shift has: staff member, start/end time, role override, and notes.</li>" +
-            "<li><strong>Coverage indicator</strong> \u2014 Green = pharmacist coverage OK, Red = gap detected.</li>" +
-            "<li><strong>Month Apply</strong> \u2014 Bulk-assign a weekly pattern across the whole month.</li>" +
-            "</ul>"
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Open the <strong>Calendar</strong> or <strong>Schedule</strong> tab.</li>" +
+            "<li>Click on a day \u2014 the shift assignment panel opens.</li>" +
+            "<li>Select a <strong>staff member</strong>, set the <strong>start/end time</strong>, and optionally add a role override or notes.</li>" +
+            "<li>Click <strong>Save</strong> \u2014 the day now shows a shift count badge.</li>" +
+            "<li>Repeat for each staff member working that day.</li>" +
+            "</ol>" +
+            "<p><strong>Quick fill:</strong> Use <strong>Month Apply</strong> to apply a weekly pattern " +
+            "(e.g. Mon\u2013Fri 09:00\u201317:30) across the entire month in one click.</p>"
         },
         {
-          heading: "Leave Management",
+          heading: "How to Handle Leave Requests",
           body:
-            "<p>Staff request leave (annual, sick, urgent family) from the Leave tab. " +
-            "Managers review pending requests and approve or reject them. " +
-            "Leave entitlements are auto-calculated based on contracted hours vs. full-time baseline.</p>"
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Go to the <strong>Leave</strong> tab to see pending requests.</li>" +
+            "<li>Review the request dates and check the calendar for coverage impact.</li>" +
+            "<li>Click <strong>Approve</strong> or <strong>Reject</strong> \u2014 the staff member\u2019s leave balance updates automatically.</li>" +
+            "</ol>" +
+            "<p>Leave types: Annual, Sick, Urgent Family. Entitlements auto-calculate based on contracted hours vs. full-time baseline.</p>"
         },
         {
-          heading: "Settings",
+          heading: "Coverage Indicator",
           body:
-            "<ul>" +
-            "<li><strong>Opening hours</strong> \u2014 Per day-of-week defaults, plus date-specific overrides.</li>" +
-            "<li><strong>Public holidays</strong> \u2014 Default to CLOSED unless explicitly overridden.</li>" +
-            "<li><strong>Malta Employment Law</strong> \u2014 Editable reference for annual leave hours, sick leave, COLA, min wage, etc.</li>" +
-            "</ul>"
+            "<p>Each day shows a coverage indicator: " +
+            "<strong style=\"color:var(--ok)\">Green</strong> = pharmacist coverage OK, " +
+            "<strong style=\"color:var(--danger)\">Red</strong> = gap detected. " +
+            "The Dashboard also warns about coverage gaps for the current and next month.</p>"
         },
         {
           heading: "Tips",
           body:
             "<ul>" +
-            "<li>Set up staff and opening hours first, then start scheduling.</li>" +
-            "<li>The Dashboard shows pharmacist coverage warnings for the current and next month.</li>" +
-            "<li>Use iCal export to sync shifts with Outlook or Google Calendar.</li>" +
+            "<li>Use iCal export (Integration tab) to sync shifts with Outlook or Google Calendar.</li>" +
             "<li>Locum staff are self-employed \u2014 no leave entitlements apply.</li>" +
+            "<li>Public holidays default to CLOSED unless you add an override in Settings.</li>" +
             "</ul>"
         }
       ]
@@ -667,23 +668,35 @@
             "Shows open vs. closed notes with live balance calculation.</p>"
         },
         {
-          heading: "Key Features",
+          heading: "How to Issue a Credit Note",
           body:
-            "<ul>" +
-            "<li><strong>Open Credit Notes</strong> \u2014 Outstanding credits with remaining balance.</li>" +
-            "<li><strong>Closed Credit Notes</strong> \u2014 Fully redeemed or expired.</li>" +
-            "<li><strong>Detail Panel</strong> \u2014 Client info, balance (green if available, red if over/expired), payment history, and notes.</li>" +
-            "<li><strong>Add Payment</strong> \u2014 Record partial redemption with amount and receipt number.</li>" +
-            "<li><strong>Expiry</strong> \u2014 Countdown display; toggle \"Does not expire\" if needed.</li>" +
-            "</ul>"
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Click <strong>New Credit Note</strong>.</li>" +
+            "<li>Enter the <strong>client name</strong>, <strong>phone</strong>, and the <strong>credit amount</strong>.</li>" +
+            "<li>Set an <strong>expiry date</strong> (or tick \u201CDoes not expire\u201D).</li>" +
+            "<li>Optionally add a <strong>receipt number</strong> and <strong>notes</strong> (e.g. reason for credit).</li>" +
+            "<li>Click <strong>Save</strong> \u2014 the credit note appears in the Open list with a green balance.</li>" +
+            "</ol>"
+        },
+        {
+          heading: "How to Redeem (Record a Payment)",
+          body:
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Find the credit note in the Open list (search by client name, phone, or receipt number).</li>" +
+            "<li>Click the row to open the <strong>detail panel</strong>.</li>" +
+            "<li>Click <strong>Add Payment</strong>.</li>" +
+            "<li>Enter the <strong>amount redeemed</strong> and the <strong>receipt number</strong>.</li>" +
+            "<li>Click <strong>Save</strong> \u2014 the remaining balance updates immediately.</li>" +
+            "<li>When the balance reaches \u20AC0.00, the note automatically moves to the Closed list.</li>" +
+            "</ol>"
         },
         {
           heading: "Tips",
           body:
             "<ul>" +
-            "<li>Balance auto-recalculates from payment history.</li>" +
-            "<li>Search works across client name, phone, and receipt numbers.</li>" +
-            "<li>Print generates a statement with signature line.</li>" +
+            "<li>Balance auto-recalculates from the full payment history \u2014 partial redemptions are supported.</li>" +
+            "<li>Expired notes turn red and move to Closed automatically.</li>" +
+            "<li>Print generates a statement with signature line for the client.</li>" +
             "</ul>"
         }
       ]
@@ -702,21 +715,34 @@
             "Supports cash, cheque, bank transfer, and other payment methods.</p>"
         },
         {
-          heading: "Key Features",
+          heading: "How to Record a Paid Out",
           body:
-            "<ul>" +
-            "<li><strong>Transaction list</strong> \u2014 Date, payee, amount, method, invoice/cheque number.</li>" +
-            "<li><strong>Payee autosuggest</strong> \u2014 Uses your contacts database.</li>" +
-            "<li><strong>Monthly summary</strong> \u2014 Transaction count, total amount, and breakdown by payment method.</li>" +
-            "<li><strong>Reports</strong> \u2014 Generate and print for any date range.</li>" +
-            "</ul>"
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Click <strong>New Paid Out</strong>.</li>" +
+            "<li>Start typing the <strong>payee name</strong> \u2014 autosuggest offers matches from your contacts.</li>" +
+            "<li>Enter the <strong>amount</strong> and select the <strong>payment method</strong> (Cash, Cheque, Bank Transfer, Other).</li>" +
+            "<li>If Cheque is selected, a <strong>cheque number</strong> field appears \u2014 fill it in.</li>" +
+            "<li>Optionally add an <strong>invoice number</strong> and <strong>notes</strong>.</li>" +
+            "<li>Click <strong>Save</strong> \u2014 the transaction appears in today\u2019s list and the daily total updates.</li>" +
+            "</ol>" +
+            "<p>These totals feed into the <strong>End of Day</strong> Paid Outs section automatically.</p>"
+        },
+        {
+          heading: "Generating a Report",
+          body:
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Click <strong>Report</strong>.</li>" +
+            "<li>Select a <strong>date range</strong> (from/to).</li>" +
+            "<li>The report shows transaction count, total amount, and breakdown by payment method.</li>" +
+            "<li>Click <strong>Print</strong> to produce a printable version.</li>" +
+            "</ol>"
         },
         {
           heading: "Tips",
           body:
             "<ul>" +
-            "<li>Cheque number field only appears when payment method is Cheque.</li>" +
             "<li>The Dashboard shows today\u2019s total paid-out amount on the Today card.</li>" +
+            "<li>Monthly summary at the bottom tracks totals for the current month.</li>" +
             "</ul>"
         }
       ]
@@ -735,21 +761,34 @@
             "(normal vs. Sunday/public holiday), hourly rates, and additional charges.</p>"
         },
         {
-          heading: "Key Features",
+          heading: "How to Create a Receipt",
           body:
-            "<ul>" +
-            "<li><strong>Receipt entry</strong> \u2014 Locum name (with autosuggest), date, hours, day type, hourly rate, additional charges.</li>" +
-            "<li><strong>Auto-calculation</strong> \u2014 Total = hours \u00D7 rate + additional charges.</li>" +
-            "<li><strong>Malta holidays</strong> \u2014 Public holidays are automatically detected for day-type selection.</li>" +
-            "<li><strong>Reports</strong> \u2014 Monthly and yearly summaries (password-protected).</li>" +
-            "</ul>"
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Click <strong>New Receipt</strong>.</li>" +
+            "<li>Start typing the <strong>locum name</strong> \u2014 autosuggest offers previous locums.</li>" +
+            "<li>Select the <strong>date</strong>. Public holidays and Sundays are auto-detected and adjust the day type.</li>" +
+            "<li>Enter <strong>hours worked</strong> and the <strong>hourly rate</strong>.</li>" +
+            "<li>Optionally add <strong>additional charges</strong> (e.g. travel allowance).</li>" +
+            "<li>The <strong>total</strong> auto-calculates: hours \u00D7 rate + additional charges.</li>" +
+            "<li>Click <strong>Save</strong>.</li>" +
+            "</ol>"
+        },
+        {
+          heading: "How to Generate Reports",
+          body:
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Click <strong>Report</strong> and select <strong>Monthly</strong> or <strong>Yearly</strong>.</li>" +
+            "<li>Enter the <strong>report password</strong> (ask your administrator if you don\u2019t have it).</li>" +
+            "<li>The summary shows total hours, total paid, and breakdown per locum.</li>" +
+            "<li>Click <strong>Print</strong> to produce a printable version.</li>" +
+            "</ol>"
         },
         {
           heading: "Tips",
           body:
             "<ul>" +
             "<li>Hours display as \"2.5\" not \"2.50\" for cleaner formatting.</li>" +
-            "<li>Report password is required for printing \u2014 ask your administrator if needed.</li>" +
+            "<li>Sunday and public holiday rates can differ from normal-day rates \u2014 adjust per receipt.</li>" +
             "</ul>"
         }
       ]
@@ -768,34 +807,33 @@
             "multi-language support (English/Maltese), customisable templates, and instant printing.</p>"
         },
         {
-          heading: "Tabs",
+          heading: "First-Time Setup",
           body:
-            "<table class=\"eikon-help-table\">" +
-            "<tr><th>Tab</th><th>Purpose</th></tr>" +
-            "<tr><td><strong>Label Builder</strong></td><td>Create and print labels with auto-fill and warnings</td></tr>" +
-            "<tr><td><strong>Templates</strong></td><td>Manage label templates (size, fields, defaults)</td></tr>" +
-            "<tr><td><strong>Warnings</strong></td><td>Reference table of standard warnings in English and Maltese</td></tr>" +
-            "<tr><td><strong>Pharmacy Settings</strong></td><td>Set pharmacy name, address, phone, licence number</td></tr>" +
-            "</table>"
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Go to <strong>Pharmacy Settings</strong> and enter your pharmacy name, address, phone, and licence number \u2014 these appear on every label.</li>" +
+            "<li>Go to <strong>Templates</strong> to review the default label sizes. Create custom templates if needed.</li>" +
+            "<li>You\u2019re now ready to print labels from the Label Builder.</li>" +
+            "</ol>"
         },
         {
-          heading: "Label Builder",
+          heading: "How to Print a Label",
           body:
-            "<ul>" +
-            "<li><strong>Patient Name</strong> \u2014 Optional; autocomplete from history.</li>" +
-            "<li><strong>Medicine Name</strong> \u2014 Autocomplete triggers auto-fill of dose, advice, and warnings.</li>" +
-            "<li><strong>Dose, Advice, Warnings</strong> \u2014 Auto-filled from database; all editable. Fields flash green on auto-fill.</li>" +
-            "<li><strong>Language toggle</strong> \u2014 Switch between English and Maltese output.</li>" +
-            "<li><strong>Print</strong> \u2014 Sends directly to printer via hidden iframe (no popup).</li>" +
-            "</ul>"
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Open the <strong>Label Builder</strong> tab.</li>" +
+            "<li>Optionally type the <strong>patient name</strong> (autocomplete from history).</li>" +
+            "<li>Start typing the <strong>medicine name</strong> \u2014 select from autocomplete.</li>" +
+            "<li>The <strong>dose</strong>, <strong>advice</strong>, and <strong>warnings</strong> auto-fill from the database (fields flash green). Edit any field if needed.</li>" +
+            "<li>Toggle the <strong>language</strong> (English or Maltese) if required.</li>" +
+            "<li>Click <strong>Print</strong> \u2014 the label sends directly to the printer, no popup.</li>" +
+            "</ol>" +
+            "<p>To reprint a previous label, open <strong>History</strong> and click <strong>Reprint</strong> on any past entry.</p>"
         },
         {
           heading: "Tips",
           body:
             "<ul>" +
             "<li>Auto-fill speeds up entry dramatically \u2014 just start typing the medicine name.</li>" +
-            "<li>Reprint from History to re-issue a previously printed label without re-entering data.</li>" +
-            "<li>Set up pharmacy details once in the Settings tab; they appear on every label.</li>" +
+            "<li>The <strong>Warnings</strong> tab is a reference table of all standard warnings in English and Maltese.</li>" +
             "<li>Also available as a quick-entry on the Dashboard.</li>" +
             "</ul>"
         }
