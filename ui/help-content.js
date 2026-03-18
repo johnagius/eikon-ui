@@ -137,19 +137,19 @@
             "</table>"
         },
         {
-          heading: "Entries Tab",
+          heading: "How to Record Daily Temperatures",
           body:
-            "<ul>" +
-            "<li><strong>Date picker</strong> \u2014 Defaults to today. Change it to record or review past dates.</li>" +
-            "<li><strong>Device table</strong> \u2014 One row per active device. Enter Min and Max for each.</li>" +
-            "<li><strong>Status dot</strong> \u2014 " +
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Open the <strong>Entries</strong> tab (defaults to today\u2019s date).</li>" +
+            "<li>For each device in the table, enter the <strong>Min</strong> and <strong>Max</strong> reading.</li>" +
+            "<li>Check the <strong>status dot</strong> next to each row: " +
             "<strong style=\"color:var(--ok)\">Green</strong> = within limits, " +
             "<strong style=\"color:var(--danger)\">Red</strong> = outside limits, " +
-            "<strong style=\"color:var(--muted)\">Grey</strong> = missing.</li>" +
-            "<li><strong>Save</strong> \u2014 Saves all entries for the selected date.</li>" +
-            "</ul>" +
-            "<div class=\"eikon-help-tip\"><strong>Tip:</strong> Check status dots before saving. " +
-            "A red dot means the reading is outside limits \u2014 recorded as-is but flagged for review.</div>"
+            "<strong style=\"color:var(--muted)\">Grey</strong> = not yet entered.</li>" +
+            "<li>When all devices are filled in, click <strong>Save</strong>.</li>" +
+            "</ol>" +
+            "<div class=\"eikon-help-tip\"><strong>Tip:</strong> Fill in all devices first, then click Save once. " +
+            "A red dot means the reading is outside limits \u2014 it\u2019s recorded as-is but flagged for review.</div>"
         },
         {
           heading: "Devices Tab",
@@ -279,14 +279,17 @@
             "medicine details, doctor details, and prescription information.</p>"
         },
         {
-          heading: "Smart Autocomplete",
+          heading: "How to Record a DDA Sale",
           body:
-            "<p>The form features intelligent suggestions to speed up data entry:</p>" +
-            "<ul>" +
-            "<li><strong>Client Name & ID Card</strong> \u2014 Auto-suggests from recent entries. A valid ID card auto-populates name and address.</li>" +
-            "<li><strong>Medicine</strong> \u2014 Fixed curated list of common DDA medicines. Type and press <span class=\"eikon-help-kbd\">Tab</span> to accept.</li>" +
-            "<li><strong>Doctor Name & Reg No.</strong> \u2014 Cross-fill: selecting a doctor auto-fills the reg number and vice versa.</li>" +
-            "</ul>"
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Click <strong>New Entry</strong>.</li>" +
+            "<li>Enter the <strong>client ID card</strong> \u2014 name and address auto-fill from previous records.</li>" +
+            "<li>Start typing the <strong>medicine name</strong> \u2014 select from the curated DDA list (press Tab to accept).</li>" +
+            "<li>Enter the <strong>quantity</strong> and <strong>prescription details</strong>.</li>" +
+            "<li>Type the <strong>doctor name</strong> \u2014 the registration number auto-fills (or vice versa).</li>" +
+            "<li>Click <strong>Save</strong>.</li>" +
+            "<li>If the row highlights <strong style=\"color:var(--danger)\">red</strong>, the same client received this medicine within 30 days \u2014 verify before proceeding.</li>" +
+            "</ol>"
         },
         {
           heading: "Early Supply Detection",
@@ -603,52 +606,53 @@
             "pharmacist coverage validation, Malta Employment Law defaults, and iCal export.</p>"
         },
         {
-          heading: "Tabs",
+          heading: "Getting Started (First-Time Setup)",
           body:
-            "<table class=\"eikon-help-table\">" +
-            "<tr><th>Tab</th><th>Purpose</th></tr>" +
-            "<tr><td><strong>Calendar</strong></td><td>Monthly grid with shift count badges and coverage indicators</td></tr>" +
-            "<tr><td><strong>Schedule</strong></td><td>Grid view: employees (rows) \u00D7 days (columns)</td></tr>" +
-            "<tr><td><strong>Staff</strong></td><td>Staff list with designation, hours, and leave balances</td></tr>" +
-            "<tr><td><strong>Leave</strong></td><td>Pending requests, approval/rejection, and leave history</td></tr>" +
-            "<tr><td><strong>Integration</strong></td><td>iCal export token for Outlook/Google Calendar</td></tr>" +
-            "<tr><td><strong>Settings</strong></td><td>Opening hours, pharmacist requirements, Malta law reference</td></tr>" +
-            "</table>"
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Go to the <strong>Settings</strong> tab and set your <strong>opening hours</strong> for each day of the week.</li>" +
+            "<li>Add any date-specific overrides (e.g. Christmas hours, summer schedule).</li>" +
+            "<li>Go to the <strong>Staff</strong> tab and add your employees \u2014 set designation (Pharmacist, Technician, etc.), contracted hours, and start date.</li>" +
+            "<li>Now you\u2019re ready to start scheduling shifts.</li>" +
+            "</ol>"
         },
         {
-          heading: "Shift Assignment",
+          heading: "How to Schedule a Shift",
           body:
-            "<ul>" +
-            "<li>Click a day in the Calendar or Schedule tab to assign shifts.</li>" +
-            "<li>Each shift has: staff member, start/end time, role override, and notes.</li>" +
-            "<li><strong>Coverage indicator</strong> \u2014 Green = pharmacist coverage OK, Red = gap detected.</li>" +
-            "<li><strong>Month Apply</strong> \u2014 Bulk-assign a weekly pattern across the whole month.</li>" +
-            "</ul>"
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Open the <strong>Calendar</strong> or <strong>Schedule</strong> tab.</li>" +
+            "<li>Click on a day \u2014 the shift assignment panel opens.</li>" +
+            "<li>Select a <strong>staff member</strong>, set the <strong>start/end time</strong>, and optionally add a role override or notes.</li>" +
+            "<li>Click <strong>Save</strong> \u2014 the day now shows a shift count badge.</li>" +
+            "<li>Repeat for each staff member working that day.</li>" +
+            "</ol>" +
+            "<p><strong>Quick fill:</strong> Use <strong>Month Apply</strong> to apply a weekly pattern " +
+            "(e.g. Mon\u2013Fri 09:00\u201317:30) across the entire month in one click.</p>"
         },
         {
-          heading: "Leave Management",
+          heading: "How to Handle Leave Requests",
           body:
-            "<p>Staff request leave (annual, sick, urgent family) from the Leave tab. " +
-            "Managers review pending requests and approve or reject them. " +
-            "Leave entitlements are auto-calculated based on contracted hours vs. full-time baseline.</p>"
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Go to the <strong>Leave</strong> tab to see pending requests.</li>" +
+            "<li>Review the request dates and check the calendar for coverage impact.</li>" +
+            "<li>Click <strong>Approve</strong> or <strong>Reject</strong> \u2014 the staff member\u2019s leave balance updates automatically.</li>" +
+            "</ol>" +
+            "<p>Leave types: Annual, Sick, Urgent Family. Entitlements auto-calculate based on contracted hours vs. full-time baseline.</p>"
         },
         {
-          heading: "Settings",
+          heading: "Coverage Indicator",
           body:
-            "<ul>" +
-            "<li><strong>Opening hours</strong> \u2014 Per day-of-week defaults, plus date-specific overrides.</li>" +
-            "<li><strong>Public holidays</strong> \u2014 Default to CLOSED unless explicitly overridden.</li>" +
-            "<li><strong>Malta Employment Law</strong> \u2014 Editable reference for annual leave hours, sick leave, COLA, min wage, etc.</li>" +
-            "</ul>"
+            "<p>Each day shows a coverage indicator: " +
+            "<strong style=\"color:var(--ok)\">Green</strong> = pharmacist coverage OK, " +
+            "<strong style=\"color:var(--danger)\">Red</strong> = gap detected. " +
+            "The Dashboard also warns about coverage gaps for the current and next month.</p>"
         },
         {
           heading: "Tips",
           body:
             "<ul>" +
-            "<li>Set up staff and opening hours first, then start scheduling.</li>" +
-            "<li>The Dashboard shows pharmacist coverage warnings for the current and next month.</li>" +
-            "<li>Use iCal export to sync shifts with Outlook or Google Calendar.</li>" +
+            "<li>Use iCal export (Integration tab) to sync shifts with Outlook or Google Calendar.</li>" +
             "<li>Locum staff are self-employed \u2014 no leave entitlements apply.</li>" +
+            "<li>Public holidays default to CLOSED unless you add an override in Settings.</li>" +
             "</ul>"
         }
       ]
@@ -667,23 +671,35 @@
             "Shows open vs. closed notes with live balance calculation.</p>"
         },
         {
-          heading: "Key Features",
+          heading: "How to Issue a Credit Note",
           body:
-            "<ul>" +
-            "<li><strong>Open Credit Notes</strong> \u2014 Outstanding credits with remaining balance.</li>" +
-            "<li><strong>Closed Credit Notes</strong> \u2014 Fully redeemed or expired.</li>" +
-            "<li><strong>Detail Panel</strong> \u2014 Client info, balance (green if available, red if over/expired), payment history, and notes.</li>" +
-            "<li><strong>Add Payment</strong> \u2014 Record partial redemption with amount and receipt number.</li>" +
-            "<li><strong>Expiry</strong> \u2014 Countdown display; toggle \"Does not expire\" if needed.</li>" +
-            "</ul>"
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Click <strong>New Credit Note</strong>.</li>" +
+            "<li>Enter the <strong>client name</strong>, <strong>phone</strong>, and the <strong>credit amount</strong>.</li>" +
+            "<li>Set an <strong>expiry date</strong> (or tick \u201CDoes not expire\u201D).</li>" +
+            "<li>Optionally add a <strong>receipt number</strong> and <strong>notes</strong> (e.g. reason for credit).</li>" +
+            "<li>Click <strong>Save</strong> \u2014 the credit note appears in the Open list with a green balance.</li>" +
+            "</ol>"
+        },
+        {
+          heading: "How to Redeem (Record a Payment)",
+          body:
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Find the credit note in the Open list (search by client name, phone, or receipt number).</li>" +
+            "<li>Click the row to open the <strong>detail panel</strong>.</li>" +
+            "<li>Click <strong>Add Payment</strong>.</li>" +
+            "<li>Enter the <strong>amount redeemed</strong> and the <strong>receipt number</strong>.</li>" +
+            "<li>Click <strong>Save</strong> \u2014 the remaining balance updates immediately.</li>" +
+            "<li>When the balance reaches \u20AC0.00, the note automatically moves to the Closed list.</li>" +
+            "</ol>"
         },
         {
           heading: "Tips",
           body:
             "<ul>" +
-            "<li>Balance auto-recalculates from payment history.</li>" +
-            "<li>Search works across client name, phone, and receipt numbers.</li>" +
-            "<li>Print generates a statement with signature line.</li>" +
+            "<li>Balance auto-recalculates from the full payment history \u2014 partial redemptions are supported.</li>" +
+            "<li>Expired notes turn red and move to Closed automatically.</li>" +
+            "<li>Print generates a statement with signature line for the client.</li>" +
             "</ul>"
         }
       ]
@@ -702,21 +718,34 @@
             "Supports cash, cheque, bank transfer, and other payment methods.</p>"
         },
         {
-          heading: "Key Features",
+          heading: "How to Record a Paid Out",
           body:
-            "<ul>" +
-            "<li><strong>Transaction list</strong> \u2014 Date, payee, amount, method, invoice/cheque number.</li>" +
-            "<li><strong>Payee autosuggest</strong> \u2014 Uses your contacts database.</li>" +
-            "<li><strong>Monthly summary</strong> \u2014 Transaction count, total amount, and breakdown by payment method.</li>" +
-            "<li><strong>Reports</strong> \u2014 Generate and print for any date range.</li>" +
-            "</ul>"
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Click <strong>New Paid Out</strong>.</li>" +
+            "<li>Start typing the <strong>payee name</strong> \u2014 autosuggest offers matches from your contacts.</li>" +
+            "<li>Enter the <strong>amount</strong> and select the <strong>payment method</strong> (Cash, Cheque, Bank Transfer, Other).</li>" +
+            "<li>If Cheque is selected, a <strong>cheque number</strong> field appears \u2014 fill it in.</li>" +
+            "<li>Optionally add an <strong>invoice number</strong> and <strong>notes</strong>.</li>" +
+            "<li>Click <strong>Save</strong> \u2014 the transaction appears in today\u2019s list and the daily total updates.</li>" +
+            "</ol>" +
+            "<p>These totals feed into the <strong>End of Day</strong> Paid Outs section automatically.</p>"
+        },
+        {
+          heading: "Generating a Report",
+          body:
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Click <strong>Report</strong>.</li>" +
+            "<li>Select a <strong>date range</strong> (from/to).</li>" +
+            "<li>The report shows transaction count, total amount, and breakdown by payment method.</li>" +
+            "<li>Click <strong>Print</strong> to produce a printable version.</li>" +
+            "</ol>"
         },
         {
           heading: "Tips",
           body:
             "<ul>" +
-            "<li>Cheque number field only appears when payment method is Cheque.</li>" +
             "<li>The Dashboard shows today\u2019s total paid-out amount on the Today card.</li>" +
+            "<li>Monthly summary at the bottom tracks totals for the current month.</li>" +
             "</ul>"
         }
       ]
@@ -735,21 +764,34 @@
             "(normal vs. Sunday/public holiday), hourly rates, and additional charges.</p>"
         },
         {
-          heading: "Key Features",
+          heading: "How to Create a Receipt",
           body:
-            "<ul>" +
-            "<li><strong>Receipt entry</strong> \u2014 Locum name (with autosuggest), date, hours, day type, hourly rate, additional charges.</li>" +
-            "<li><strong>Auto-calculation</strong> \u2014 Total = hours \u00D7 rate + additional charges.</li>" +
-            "<li><strong>Malta holidays</strong> \u2014 Public holidays are automatically detected for day-type selection.</li>" +
-            "<li><strong>Reports</strong> \u2014 Monthly and yearly summaries (password-protected).</li>" +
-            "</ul>"
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Click <strong>New Receipt</strong>.</li>" +
+            "<li>Start typing the <strong>locum name</strong> \u2014 autosuggest offers previous locums.</li>" +
+            "<li>Select the <strong>date</strong>. Public holidays and Sundays are auto-detected and adjust the day type.</li>" +
+            "<li>Enter <strong>hours worked</strong> and the <strong>hourly rate</strong>.</li>" +
+            "<li>Optionally add <strong>additional charges</strong> (e.g. travel allowance).</li>" +
+            "<li>The <strong>total</strong> auto-calculates: hours \u00D7 rate + additional charges.</li>" +
+            "<li>Click <strong>Save</strong>.</li>" +
+            "</ol>"
+        },
+        {
+          heading: "How to Generate Reports",
+          body:
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Click <strong>Report</strong> and select <strong>Monthly</strong> or <strong>Yearly</strong>.</li>" +
+            "<li>Enter the <strong>report password</strong> (ask your administrator if you don\u2019t have it).</li>" +
+            "<li>The summary shows total hours, total paid, and breakdown per locum.</li>" +
+            "<li>Click <strong>Print</strong> to produce a printable version.</li>" +
+            "</ol>"
         },
         {
           heading: "Tips",
           body:
             "<ul>" +
             "<li>Hours display as \"2.5\" not \"2.50\" for cleaner formatting.</li>" +
-            "<li>Report password is required for printing \u2014 ask your administrator if needed.</li>" +
+            "<li>Sunday and public holiday rates can differ from normal-day rates \u2014 adjust per receipt.</li>" +
             "</ul>"
         }
       ]
@@ -768,34 +810,33 @@
             "multi-language support (English/Maltese), customisable templates, and instant printing.</p>"
         },
         {
-          heading: "Tabs",
+          heading: "First-Time Setup",
           body:
-            "<table class=\"eikon-help-table\">" +
-            "<tr><th>Tab</th><th>Purpose</th></tr>" +
-            "<tr><td><strong>Label Builder</strong></td><td>Create and print labels with auto-fill and warnings</td></tr>" +
-            "<tr><td><strong>Templates</strong></td><td>Manage label templates (size, fields, defaults)</td></tr>" +
-            "<tr><td><strong>Warnings</strong></td><td>Reference table of standard warnings in English and Maltese</td></tr>" +
-            "<tr><td><strong>Pharmacy Settings</strong></td><td>Set pharmacy name, address, phone, licence number</td></tr>" +
-            "</table>"
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Go to <strong>Pharmacy Settings</strong> and enter your pharmacy name, address, phone, and licence number \u2014 these appear on every label.</li>" +
+            "<li>Go to <strong>Templates</strong> to review the default label sizes. Create custom templates if needed.</li>" +
+            "<li>You\u2019re now ready to print labels from the Label Builder.</li>" +
+            "</ol>"
         },
         {
-          heading: "Label Builder",
+          heading: "How to Print a Label",
           body:
-            "<ul>" +
-            "<li><strong>Patient Name</strong> \u2014 Optional; autocomplete from history.</li>" +
-            "<li><strong>Medicine Name</strong> \u2014 Autocomplete triggers auto-fill of dose, advice, and warnings.</li>" +
-            "<li><strong>Dose, Advice, Warnings</strong> \u2014 Auto-filled from database; all editable. Fields flash green on auto-fill.</li>" +
-            "<li><strong>Language toggle</strong> \u2014 Switch between English and Maltese output.</li>" +
-            "<li><strong>Print</strong> \u2014 Sends directly to printer via hidden iframe (no popup).</li>" +
-            "</ul>"
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Open the <strong>Label Builder</strong> tab.</li>" +
+            "<li>Optionally type the <strong>patient name</strong> (autocomplete from history).</li>" +
+            "<li>Start typing the <strong>medicine name</strong> \u2014 select from autocomplete.</li>" +
+            "<li>The <strong>dose</strong>, <strong>advice</strong>, and <strong>warnings</strong> auto-fill from the database (fields flash green). Edit any field if needed.</li>" +
+            "<li>Toggle the <strong>language</strong> (English or Maltese) if required.</li>" +
+            "<li>Click <strong>Print</strong> \u2014 the label sends directly to the printer, no popup.</li>" +
+            "</ol>" +
+            "<p>To reprint a previous label, open <strong>History</strong> and click <strong>Reprint</strong> on any past entry.</p>"
         },
         {
           heading: "Tips",
           body:
             "<ul>" +
             "<li>Auto-fill speeds up entry dramatically \u2014 just start typing the medicine name.</li>" +
-            "<li>Reprint from History to re-issue a previously printed label without re-entering data.</li>" +
-            "<li>Set up pharmacy details once in the Settings tab; they appear on every label.</li>" +
+            "<li>The <strong>Warnings</strong> tab is a reference table of all standard warnings in English and Maltese.</li>" +
             "<li>Also available as a quick-entry on the Dashboard.</li>" +
             "</ul>"
         }
@@ -933,6 +974,18 @@
             "<strong style=\"color:var(--ok)\">Green</strong> \u226535%.</li>" +
             "<li><strong>Similarity detection</strong> \u2014 Warns if a new description matches an existing one (&gt;60%).</li>" +
             "</ul>"
+        },
+        {
+          heading: "How to Add a Quotation Entry",
+          body:
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Click <strong>Add Entry</strong>.</li>" +
+            "<li>Enter the <strong>Supplier</strong> name and <strong>Item Description</strong>.</li>" +
+            "<li>Set the <strong>Qty Purchased</strong> and <strong>VAT Rate</strong>.</li>" +
+            "<li>Enter the <strong>Cost Excl. VAT</strong> \u2014 Cost Incl. VAT fills automatically (or vice versa).</li>" +
+            "<li>Enter the <strong>Retail Price</strong> to see the profit margin colour-coded in the row.</li>" +
+            "<li>Click <strong>Save</strong>. If the description is similar to an existing entry, you\u2019ll see a warning.</li>" +
+            "</ol>"
         },
         {
           heading: "Buttons & Actions",
@@ -1086,23 +1139,27 @@
             "</table>"
         },
         {
-          heading: "Status Flow & Attempts",
+          heading: "How to Create a Delivery",
           body:
-            "<p><strong>Scheduled</strong> \u2192 <strong>Dispatched</strong> \u2192 <strong>Out for Delivery</strong> \u2192 <strong>Delivered</strong></p>" +
-            "<p>If delivery fails, the attempt counter increments. On the <strong>3rd failed attempt</strong>, " +
-            "status automatically changes to <strong>Returned</strong>.</p>"
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Click <strong>+ New Delivery</strong>.</li>" +
+            "<li>Fill in the client details: name, phone, and email.</li>" +
+            "<li>Set the <strong>delivery address</strong> \u2014 either type it or click on the <strong>map</strong> to drop a pin (reverse geocoding fills the address).</li>" +
+            "<li>Choose the <strong>delivery method</strong> (In-house Driver, Courier, or Collection) and <strong>priority</strong>.</li>" +
+            "<li>Add items to the delivery: enter name, quantity, and optionally batch ref and expiry per row.</li>" +
+            "<li>Assign a <strong>driver</strong> (or add a new one on-the-fly).</li>" +
+            "<li>Click <strong>Save</strong> \u2014 the delivery gets an auto-generated ID (DEL-00001 format) and appears in the Active tab.</li>" +
+            "</ol>"
         },
         {
-          heading: "Buttons & Actions",
+          heading: "How to Complete a Delivery",
           body:
-            "<ul>" +
-            "<li><strong>+ New Delivery</strong> \u2014 Open creation modal with interactive map.</li>" +
-            "<li><strong>\u2705 Mark Delivered</strong> \u2014 Record actual date, time, recipient name, signature, and proof of delivery.</li>" +
-            "<li><strong>\u2717 Mark Failed</strong> \u2014 Log failure reason; auto-increments attempt counter.</li>" +
-            "<li><strong>+ Add Log Entry</strong> \u2014 Append a timestamped, author-attributed note to the delivery\u2019s audit trail.</li>" +
-            "<li><strong>Edit</strong> \u2014 Modify delivery details; outcome fields appear for dispatched+ statuses.</li>" +
-            "<li><strong>Print</strong> \u2014 Print single delivery or entire tab.</li>" +
-            "</ul>"
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Find the delivery in the <strong>Active</strong> tab and update its status as it progresses: Scheduled \u2192 Dispatched \u2192 Out for Delivery.</li>" +
+            "<li>When delivered, click <strong>\u2705 Mark Delivered</strong> \u2014 enter actual date, time, and recipient name.</li>" +
+            "<li>If delivery fails, click <strong>\u2717 Mark Failed</strong> \u2014 log the reason. The attempt counter increments. After 3 failed attempts, status auto-changes to Returned.</li>" +
+            "<li>Use <strong>+ Add Log Entry</strong> at each status change to build a clear audit trail.</li>" +
+            "</ol>"
         },
         {
           heading: "Tips",
@@ -1173,15 +1230,29 @@
             "</table>"
         },
         {
+          heading: "How to Book an Appointment",
+          body:
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Click <strong>New Appointment</strong> (or click an empty slot in the Day/Week view).</li>" +
+            "<li>Enter the <strong>patient name</strong>, <strong>ID card</strong>, and <strong>phone</strong>.</li>" +
+            "<li>Select a <strong>doctor</strong> \u2014 the clinic dropdown auto-filters to that doctor\u2019s locations.</li>" +
+            "<li>Select a <strong>clinic</strong> and <strong>session date</strong> \u2014 only dates with availability appear.</li>" +
+            "<li>Pick an <strong>available time slot</strong> \u2014 double-booked slots are blocked automatically.</li>" +
+            "<li>Fees auto-fill from clinic settings. Adjust if needed and add medicines/items.</li>" +
+            "<li>Click <strong>Save</strong> \u2014 the appointment appears on the calendar.</li>" +
+            "</ol>"
+        },
+        {
           heading: "Status Flow",
           body:
-            "<p><strong>Scheduled</strong> \u2192 <strong>Confirmed</strong> \u2192 <strong>Completed</strong> (or Cancelled / No Show)</p>"
+            "<p><strong>Scheduled</strong> \u2192 <strong>Confirmed</strong> \u2192 <strong>Completed</strong> (or Cancelled / No Show)</p>" +
+            "<p>Update status from the detail panel or right-click menu. Cancelled appointments require a reason.</p>"
         },
         {
           heading: "Waiting List",
           body:
-            "<p>When no slots are available, add a patient to the waiting list with doctor/clinic preference, " +
-            "preferred dates, and flexibility level. Convert to a real appointment when a slot opens.</p>" +
+            "<p>When no slots are available, click <strong>Add to Waiting List</strong> instead. Enter doctor/clinic preference, " +
+            "preferred dates, and flexibility level. When a slot opens, convert to a real appointment with one click.</p>" +
             "<p>Statuses: Waiting \u2192 Offered \u2192 Booked (or Cancelled).</p>"
         },
         {
@@ -1241,14 +1312,17 @@
             "All notes appear in the print view and detail panel.</p>"
         },
         {
-          heading: "Workflows",
+          heading: "How to Handle a Customer Issue",
           body:
             "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
-            "<li>Click <strong>Create Ticket</strong> \u2014 auto-generates ID (TKT-00001 format).</li>" +
-            "<li>Fill client details, category, priority, and description.</li>" +
-            "<li>Assign to a staff member.</li>" +
-            "<li>As work progresses, add notes and update status.</li>" +
-            "<li>Set status to <strong>Resolved</strong> or <strong>Closed</strong> when done.</li>" +
+            "<li>Click <strong>Create Ticket</strong> \u2014 an ID auto-generates (TKT-00001 format).</li>" +
+            "<li>Fill in the client\u2019s <strong>name</strong>, <strong>phone</strong>, and <strong>issue description</strong>.</li>" +
+            "<li>Select a <strong>category</strong> and <strong>priority</strong>.</li>" +
+            "<li><strong>Assign</strong> the ticket to a staff member (or yourself).</li>" +
+            "<li>Click <strong>Save</strong>.</li>" +
+            "<li>As you work on it, click <strong>Add Note</strong> to log each update with a timestamp.</li>" +
+            "<li>Update the <strong>status</strong> as it progresses: Open \u2192 In Progress \u2192 Pending \u2192 Resolved.</li>" +
+            "<li>Once fully resolved, set status to <strong>Closed</strong>.</li>" +
             "</ol>"
         },
         {
@@ -1300,7 +1374,18 @@
             "</table>"
         },
         {
-          heading: "Recording a Transaction",
+          heading: "How to Create a Campaign",
+          body:
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Go to the <strong>Campaigns</strong> tab and click <strong>New Campaign</strong>.</li>" +
+            "<li>Choose a <strong>campaign type</strong> (Stamp Card, Points, Discount, Event, Buy X Get Y, or Tiered).</li>" +
+            "<li>Enter the campaign <strong>name</strong>, <strong>description</strong>, and optionally set start/end dates.</li>" +
+            "<li>Fill in the type-specific settings (e.g. stamps required, points per \u20AC1, discount %).</li>" +
+            "<li>Click <strong>Save</strong> \u2014 the campaign is now Active and ready for transactions.</li>" +
+            "</ol>"
+        },
+        {
+          heading: "How to Record a Transaction",
           body:
             "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
             "<li>Enter client <strong>ID Card</strong> (autocomplete from history, auto-padded).</li>" +
@@ -1374,12 +1459,27 @@
             "</ul>"
         },
         {
-          heading: "Order Lifecycle",
+          heading: "How to Place an Order",
           body:
-            "<p><strong>Draft</strong> (orange) \u2192 <strong>Pending</strong> (blue) \u2192 <strong>Shipped</strong> (blue) \u2192 <strong>Received</strong> (green)</p>" +
-            "<p>For shipped/received orders, you can <strong>Report Problem</strong> per item: " +
-            "Not Received, Wrong Pick, Damaged, Short Quantity, or Other. " +
-            "Supplier responses appear as resolution statuses (Acknowledged, Replacement Sent, Credit Issued, Disputed, Resolved).</p>"
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Go to the <strong>Inventory</strong> tab and search for a product by name, barcode, or stock code.</li>" +
+            "<li>Click <strong>Add to Cart</strong> on the items you need \u2014 set the quantity (deal multiples are respected automatically).</li>" +
+            "<li>Repeat for all items. The cart groups items by supplier.</li>" +
+            "<li>Open the <strong>Cart</strong>, review items and quantities per supplier.</li>" +
+            "<li>Click <strong>Commit Order</strong> for each supplier \u2014 optionally add order notes.</li>" +
+            "<li>The order moves to <strong>My Orders</strong> tab with status Pending.</li>" +
+            "</ol>"
+        },
+        {
+          heading: "How to Receive an Order",
+          body:
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Go to <strong>My Orders</strong> and find the order (status: Shipped or Pending).</li>" +
+            "<li>Click <strong>Mark Received</strong>.</li>" +
+            "<li>If there\u2019s a problem with any item, click <strong>Report Problem</strong> and select the reason: " +
+            "Not Received, Wrong Pick, Damaged, Short Quantity, or Other.</li>" +
+            "<li>Track supplier responses as resolution statuses appear (Acknowledged, Replacement Sent, Credit Issued, etc.).</li>" +
+            "</ol>"
         },
         {
           heading: "Tips",
@@ -1444,13 +1544,15 @@
             "</ol>"
         },
         {
-          heading: "Workflows",
+          heading: "How to Process a Recall or Quarantine",
           body:
             "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
-            "<li>Click <strong>Add Alert</strong> and fill in the item details.</li>" +
-            "<li>Click a row to select it \u2014 the checklist panel opens on the right.</li>" +
-            "<li>Check off each action as it\u2019s completed (auto-saves with timestamp).</li>" +
-            "<li>Update status from Open \u2192 In Progress \u2192 Closed as the alert is resolved.</li>" +
+            "<li>Click <strong>Add Alert</strong> and fill in the item details (name, type, batch, storage location).</li>" +
+            "<li>Click <strong>Save</strong> \u2014 the alert appears in the table with status Open.</li>" +
+            "<li>Click the row to select it \u2014 the <strong>checklist panel</strong> opens on the right.</li>" +
+            "<li>Work through the 7 steps: inform your team, contact the supplier, notify authorities, arrange the return.</li>" +
+            "<li>Check each item as it\u2019s completed \u2014 changes <strong>auto-save</strong> with a timestamp.</li>" +
+            "<li>Update the alert status: <strong>Open</strong> \u2192 <strong>In Progress</strong> \u2192 <strong>Closed</strong> as actions are completed.</li>" +
             "</ol>"
         },
         {
@@ -1559,17 +1661,21 @@
             "</table>"
         },
         {
-          heading: "Checklist (Auto-save)",
+          heading: "How to Create a Return",
           body:
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Click <strong>New</strong>.</li>" +
+            "<li>Enter the <strong>description</strong> (item name) and fill in what you have: expiry, batch, quantity, supplier, invoice number.</li>" +
+            "<li>Click a <strong>remarks chip</strong> (Wrong Pick, Expiring soon, Damaged, etc.) or type a custom reason.</li>" +
+            "<li>Note the <strong>location stored</strong> (e.g. \"Back room / Fridge\").</li>" +
+            "<li>Click <strong>Save</strong>.</li>" +
+            "<li>Select the row to open the <strong>checklist panel</strong>, then check off each step as you go:</li>" +
+            "</ol>" +
             "<ul>" +
-            "<li>Return arranged</li>" +
-            "<li>Handed over</li>" +
-            "<li>Collection note received</li>" +
-            "<li>Credit note received</li>" +
-            "<li>Damaged item</li>" +
+            "<li>Return arranged \u2192 Handed over \u2192 Collection note received \u2192 Credit note received</li>" +
             "</ul>" +
-            "<p>When <strong>Supplier refused</strong> is marked, a red warning box appears and all checklist items " +
-            "(except Damaged) are disabled \u2014 the return is effectively closed.</p>"
+            "<p>If the supplier refuses, click <strong>Mark as Refused</strong> \u2014 a red warning box appears and " +
+            "all checklist items (except Damaged) are disabled.</p>"
         },
         {
           heading: "Buttons & Actions",
@@ -1625,6 +1731,17 @@
             "<tr><td>31\u201390 days</td><td><strong style=\"color:#e8b635\">Yellow</strong></td><td>Yellow-tinted row</td></tr>" +
             "<tr><td>90+ days</td><td><strong style=\"color:var(--ok)\">Green</strong></td><td>Normal row</td></tr>" +
             "</table>"
+        },
+        {
+          heading: "How to Track a Near-Expiry Item",
+          body:
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Type the <strong>product name</strong> and select the <strong>expiry date</strong> in the form at the top.</li>" +
+            "<li>Optionally add a <strong>location</strong> and <strong>notes</strong>.</li>" +
+            "<li>Click <strong>Add</strong> (or press Enter) \u2014 the item appears in the table with a colour-coded urgency pill.</li>" +
+            "<li>When you\u2019re ready to return it, click the <strong>Return</strong> button on the row \u2014 enter supplier and quantity, and a linked entry is created in the Returns module.</li>" +
+            "<li>To offer it to another pharmacy, click <strong>Add to Scarce Stock</strong> instead.</li>" +
+            "</ol>"
         },
         {
           heading: "Inline Actions (Per Row)",
@@ -1683,6 +1800,29 @@
             "</table>"
         },
         {
+          heading: "How to Offer Stock You Have",
+          body:
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Switch to the <strong>Available Stock</strong> view.</li>" +
+            "<li>Click <strong>New offer</strong>.</li>" +
+            "<li>Enter the <strong>item name</strong>, <strong>quantity</strong>, and optionally batch, expiry, and a public description.</li>" +
+            "<li>Click <strong>Save</strong> \u2014 the item is now visible to all pharmacies in your organisation.</li>" +
+            "<li>When another pharmacy requests your stock, expand the row to see the request and click <strong>Accept</strong> or <strong>Reject</strong>.</li>" +
+            "<li>After accepting, click <strong>Confirm Dispatch</strong> when you send it.</li>" +
+            "</ol>"
+        },
+        {
+          heading: "How to Post a Need",
+          body:
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Switch to the <strong>Stock Needs</strong> view.</li>" +
+            "<li>Click <strong>New offer</strong> (the form adapts to need fields).</li>" +
+            "<li>Enter the <strong>item name</strong>, <strong>quantity needed</strong>, and optionally a <strong>needed by</strong> date.</li>" +
+            "<li>Click <strong>Save</strong> \u2014 other pharmacies can now offer stock to fulfil your need.</li>" +
+            "<li>When offers come in, expand the row and click <strong>Accept</strong> on the best one.</li>" +
+            "</ol>"
+        },
+        {
           heading: "Request &amp; Offer Workflow",
           body:
             "<ul>" +
@@ -1729,16 +1869,16 @@
             "(all pharmacies across all organisations). When sending to All, a confirmation modal asks you to confirm.</p>"
         },
         {
-          heading: "Message Features",
+          heading: "How to Send a Message",
           body:
-            "<ul>" +
-            "<li><strong>@mentions</strong> \u2014 Type <code>@</code> to trigger autocomplete; shows user name and location.</li>" +
-            "<li><strong>#suggestions</strong> \u2014 Messages containing <code>#</code> hashtags are auto-extracted to the Suggestions table.</li>" +
-            "<li><strong>Pin messages</strong> \u2014 Pin up to 30 important messages to a collapsible section at the top.</li>" +
-            "<li><strong>Edit &amp; Delete</strong> \u2014 Modify or remove your own messages.</li>" +
-            "<li><strong>Scope badge</strong> \u2014 Each message shows <strong>ORG</strong> (purple) or <strong>ALL</strong> (blue).</li>" +
-            "<li><strong>Load Older</strong> \u2014 Button appears to load previous messages.</li>" +
-            "</ul>"
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Type your message in the text box at the bottom (max 2000 chars).</li>" +
+            "<li>To mention someone, type <code>@</code> and select from the autocomplete list.</li>" +
+            "<li>To create a suggestion, include a <code>#</code>hashtag \u2014 it\u2019ll be auto-extracted to the Suggestions table.</li>" +
+            "<li>Choose the scope: <strong>Organisation</strong> (your org only) or <strong>All</strong> (all pharmacies \u2014 confirmation required).</li>" +
+            "<li>Press <strong>Enter</strong> or click <strong>Send</strong>.</li>" +
+            "<li>To pin an important message, click <strong>Pin</strong> on it (up to 30 pinned messages).</li>" +
+            "</ol>"
         },
         {
           heading: "Suggestions Table",
@@ -1788,6 +1928,25 @@
             "<tr><td><strong>\uD83E\uDDD1\u200D\u2695\uFE0F Clinical</strong></td><td>HIV/Concerta dispensing (toggleable), doctor appointments, fee schedules</td></tr>" +
             "<tr><td><strong>\u2699\uFE0F Settings</strong></td><td>Storage info and reload controls</td></tr>" +
             "</table>"
+        },
+        {
+          heading: "How to Do a Daily Handover",
+          body:
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Open the <strong>Daily &amp; Handover</strong> tab.</li>" +
+            "<li>Click today\u2019s date on the calendar (or it\u2019s already selected).</li>" +
+            "<li>Check the <strong>Handover From Previous Day</strong> section \u2014 review any bullets left by the previous shift.</li>" +
+            "<li>If useful, click <strong>Append to Day Notes</strong> to merge them into today\u2019s notes.</li>" +
+            "<li>Write today\u2019s notes in the <strong>Day Specific Instructions</strong> box (click Edit first).</li>" +
+            "<li>Before leaving, add <strong>Handover Bullets</strong> for the next shift:</li>" +
+            "</ol>" +
+            "<ul>" +
+            "<li>Click <strong>+ Add Bullet</strong>, type the message, and select severity " +
+            "(<strong style=\"color:var(--ok)\">Low</strong>, " +
+            "<strong style=\"color:#e8b635\">Medium</strong>, " +
+            "<strong style=\"color:var(--danger)\">Critical</strong>).</li>" +
+            "<li>These automatically appear as \u201CHandover From Previous Day\u201D for the next person.</li>" +
+            "</ul>"
         },
         {
           heading: "Daily &amp; Handover Tab",
@@ -1849,6 +2008,19 @@
           body:
             "<p>Comprehensive clinical testing system supporting 6 test types with patient management, " +
             "result tracking, colour-coded reference ranges, and cloud synchronisation.</p>"
+        },
+        {
+          heading: "How to Record a Test",
+          body:
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Click the test type in the sidebar (e.g. Blood Pressure, HbA1c, Cholesterol).</li>" +
+            "<li>Click <strong>New Record</strong>.</li>" +
+            "<li>Enter the <strong>patient ID card</strong> \u2014 name auto-fills from previous records.</li>" +
+            "<li>Fill in the test <strong>results</strong> (fields vary per test type). Results auto-colour based on reference ranges.</li>" +
+            "<li>Optionally record the <strong>fee</strong>.</li>" +
+            "<li>Click <strong>Save</strong>.</li>" +
+            "<li>To view a patient\u2019s history, click <strong>View Patient</strong> on any of their records.</li>" +
+            "</ol>"
         },
         {
           heading: "Sections (Sidebar Navigation)",
@@ -1995,6 +2167,17 @@
             "tablet combinations, supply estimation, and printable patient instructions.</p>"
         },
         {
+          heading: "How to Use a Calculator",
+          body:
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Select a calculator tab (<strong>LEV</strong>, <strong>PRED</strong>, <strong>WAR</strong>, <strong>INS</strong>, or <strong>MTX</strong>).</li>" +
+            "<li>Enter the <strong>patient name</strong>, <strong>start date</strong>, and <strong>duration</strong> (weeks).</li>" +
+            "<li>Fill in the dose-specific fields for that calculator (see table below).</li>" +
+            "<li>Click <strong>Calculate</strong> \u2014 the results table appears in the right panel showing dates, doses, and tablet combinations.</li>" +
+            "<li>Review the schedule and click <strong>Save &amp; Print</strong> to store the record and generate a printable A4 patient instruction sheet.</li>" +
+            "</ol>"
+        },
+        {
           heading: "Common Fields (All Calculators)",
           body:
             "<table class=\"eikon-help-table\">" +
@@ -2125,6 +2308,20 @@
             "<tr><td><strong>Follow-ups</strong></td><td>Schedule and track follow-up appointments with status (Pending/Scheduled/Completed/No-show/Cancelled/Overdue)</td></tr>" +
             "<tr><td><strong>Summary</strong></td><td>Dashboard with totals, campaign comparison, and progress bars</td></tr>" +
             "</table>"
+        },
+        {
+          heading: "How to Run a Screening Event",
+          body:
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Go to <strong>Campaigns</strong> and click <strong>New Campaign</strong>.</li>" +
+            "<li>Choose the <strong>campaign type</strong> (e.g. Blood Pressure, Diabetes), set dates, and optionally a target goal.</li>" +
+            "<li>Click <strong>Save</strong> \u2014 the campaign is active.</li>" +
+            "<li>To add a participant, click <strong>Add Participant</strong> on the campaign.</li>" +
+            "<li>Enter their <strong>ID card</strong> (auto-fills name from POCT records if known), phone, and screening date.</li>" +
+            "<li>POCT fields auto-appear based on the campaign type \u2014 fill in the results.</li>" +
+            "<li>Select a <strong>result category</strong> (Normal / Borderline / Abnormal / Requires urgent attention) and <strong>referral</strong> type.</li>" +
+            "<li>Click <strong>Save</strong>. If follow-up is needed, go to the <strong>Follow-ups</strong> tab to schedule it.</li>" +
+            "</ol>"
         },
         {
           heading: "Campaign Types",
@@ -2263,6 +2460,17 @@
             "</table>" +
             "<p><strong>Shared</strong> tables are visible across all locations in your organisation \u2014 " +
             "changes affect everyone. A confirmation modal warns before edits to shared tables.</p>"
+        },
+        {
+          heading: "How to Add or Find a Contact",
+          body:
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Scroll to the relevant table (e.g. Suppliers, Doctors, Specialists).</li>" +
+            "<li>Click <strong>+ Add</strong> and fill in the fields for that table.</li>" +
+            "<li>Click <strong>Save</strong>. For shared tables, a confirmation modal warns that changes affect all locations.</li>" +
+            "</ol>" +
+            "<p>To find a contact, use the <strong>Global Search</strong> at the top \u2014 it searches across all tables, " +
+            "emergency numbers, and clinics. Each table also has its own search box for focused filtering.</p>"
         },
         {
           heading: "Actions (Per Table)",
