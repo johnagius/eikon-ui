@@ -1022,12 +1022,6 @@
       '      <button class="eikon-collapse-btn" id="eikon-collapse-btn" title="Collapse/Expand">≡</button>' +
       "    </div>" +
       '    <nav class="eikon-nav" id="eikon-nav"></nav>' +
-      '    <div class="eikon-sidebar-help">' +
-      '      <button class="eikon-help-btn" id="eikon-help-btn" title="Help & Guides">' +
-      '        <span class="eikon-nav-ico">?</span>' +
-      '        <span class="eikon-nav-label">Help &amp; Guides</span>' +
-      "      </button>" +
-      "    </div>" +
       "  </aside>" +
       '  <main class="eikon-main">' +
       '    <div class="eikon-topbar">' +
@@ -1130,10 +1124,6 @@
         }
       });
     }
-
-    // Help button
-    var helpBtn = document.getElementById("eikon-help-btn");
-    if (helpBtn) helpBtn.addEventListener("click", function () { E.showHelpGuide(); });
 
     // Nav
     E.renderNav();
@@ -1334,6 +1324,19 @@
         }
       }, 150);
     });
+
+    // --- Help & Guides button (last item in nav) ---
+    var helpSep = document.createElement("div");
+    helpSep.style.cssText = "border-top:1px solid var(--border);margin:6px 0 2px;";
+    catsContainer.appendChild(helpSep);
+
+    var helpBtn = document.createElement("button");
+    helpBtn.className = "eikon-nav-btn eikon-help-btn";
+    helpBtn.title = "Help & Guides";
+    helpBtn.innerHTML = '<span class="eikon-nav-ico" style="font-weight:900;font-size:14px">?</span>' +
+      '<span class="eikon-nav-label">Help &amp; Guides</span>';
+    helpBtn.addEventListener("click", function () { E.showHelpGuide(); });
+    catsContainer.appendChild(helpBtn);
 
     E.highlightNav();
   };

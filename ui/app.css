@@ -85,8 +85,6 @@ a:hover{text-decoration:underline}
   flex-direction:column;
   gap:8px;
   overflow:auto;
-  flex:1;
-  min-height:0;
 }
 
 .eikon-nav-btn{
@@ -278,42 +276,16 @@ a:hover{text-decoration:underline}
   padding-left:12px;
 }
 
-/* ── Sidebar Help Button (pinned bottom) ── */
-.eikon-sidebar-help{
-  padding:8px 10px 12px;
-  border-top:1px solid var(--border);
-  flex-shrink:0;
-}
+/* ── Help & Guides nav button ── */
 .eikon-help-btn{
-  width:100%;
-  display:flex;
-  align-items:center;
-  gap:10px;
-  padding:10px 12px;
-  border-radius:12px;
-  border:1px solid rgba(90,162,255,.18);
-  background:rgba(90,162,255,.06);
+  border:1px solid rgba(90,162,255,.18) !important;
+  background:rgba(90,162,255,.06) !important;
   color:var(--accent);
-  cursor:pointer;
-  text-align:left;
-  font-size:13px;
   font-weight:600;
-  transition:background .18s ease, border-color .18s ease;
 }
 .eikon-help-btn:hover{
-  background:rgba(90,162,255,.12);
-  border-color:rgba(90,162,255,.3);
-}
-.eikon-help-btn .eikon-nav-ico{
-  font-weight:900;
-  font-size:14px;
-}
-.eikon-sidebar.collapsed .eikon-sidebar-help .eikon-nav-label{
-  display:none;
-}
-.eikon-sidebar.collapsed .eikon-help-btn{
-  justify-content:center;
-  padding:10px 6px;
+  background:rgba(90,162,255,.12) !important;
+  border-color:rgba(90,162,255,.3) !important;
 }
 
 /* ── Help Guide Overlay ── */
