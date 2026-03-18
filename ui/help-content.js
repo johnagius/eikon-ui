@@ -789,24 +789,58 @@
             "</table>"
         },
         {
-          heading: "Key Features",
+          heading: "Form Fields",
+          body:
+            "<table class=\"eikon-help-table\">" +
+            "<tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr>" +
+            "<tr><td>Date</td><td>Date</td><td>Yes</td><td>Defaults to today</td></tr>" +
+            "<tr><td>Client (Name &amp; Surname)</td><td>Text</td><td>Yes</td><td>Max 200 chars</td></tr>" +
+            "<tr><td>Address</td><td>Text</td><td>No</td><td>Delivery/contact address</td></tr>" +
+            "<tr><td>Contact</td><td>Phone</td><td>Yes</td><td>Primary phone number</td></tr>" +
+            "<tr><td>Alternate</td><td>Phone</td><td>No</td><td>Secondary phone</td></tr>" +
+            "<tr><td>Email</td><td>Email</td><td>No</td><td></td></tr>" +
+            "<tr><td>Item/s</td><td>Textarea</td><td>Yes</td><td>Multi-line; each line becomes a separate Order Diary entry</td></tr>" +
+            "<tr><td>Priority</td><td>Dropdown</td><td>Yes</td><td>High (red), Medium (green), Low (blue)</td></tr>" +
+            "<tr><td>Needed by</td><td>Date</td><td>Yes</td><td>Required delivery date</td></tr>" +
+            "<tr><td>Pick Up Date</td><td>Date</td><td>Yes</td><td>Customer collection date</td></tr>" +
+            "<tr><td>Deposit</td><td>Currency (\u20AC)</td><td>No</td><td>Two decimal places</td></tr>" +
+            "<tr><td>Follow-up Status</td><td>Dropdown</td><td>No</td><td>Called, Not Wanted, Not Available, Called (No Answer), Wrong Number</td></tr>" +
+            "<tr><td>Additional Notes</td><td>Textarea</td><td>No</td><td>Max 2000 chars</td></tr>" +
+            "<tr><td>Mark as Fulfilled</td><td>Checkbox</td><td>No</td><td>Completes the order</td></tr>" +
+            "</table>"
+        },
+        {
+          heading: "Buttons & Actions",
           body:
             "<ul>" +
-            "<li><strong>Order Codes</strong> \u2014 Auto-generated 6-character alphanumeric (no ambiguous characters like 0/O, 1/I).</li>" +
-            "<li><strong>Priority</strong> \u2014 High (red), Medium (green), Low (blue).</li>" +
-            "<li><strong>Follow-up Status</strong> \u2014 Called, Not Wanted, Not Available, Called No Answer, Wrong Number.</li>" +
-            "<li><strong>Print Sticker</strong> \u2014 Generates a label with QR code for physical fulfilment tracking.</li>" +
-            "<li><strong>Re-order</strong> \u2014 Duplicate a fulfilled order as a template for a new one.</li>" +
-            "<li><strong>Order Diary Integration</strong> \u2014 After creating an order, you\u2019re prompted to add items to the Order Diary.</li>" +
+            "<li><strong>New Order</strong> \u2014 Opens the order creation modal.</li>" +
+            "<li><strong>Edit</strong> \u2014 Modify the selected order.</li>" +
+            "<li><strong>Delete</strong> \u2014 Remove order (asks to also remove linked Order Diary items).</li>" +
+            "<li><strong>Mark Fulfilled</strong> \u2014 Toggle fulfilment; moves order between Active/Fulfilled tables.</li>" +
+            "<li><strong>Print Sticker</strong> \u2014 80mm label with order code, client, items, and QR code.</li>" +
+            "<li><strong>Re-order</strong> \u2014 Duplicate a fulfilled order as a new active order.</li>" +
+            "<li><strong>Print (per table)</strong> \u2014 Print all active or all fulfilled orders.</li>" +
             "</ul>"
+        },
+        {
+          heading: "Workflows",
+          body:
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Click <strong>New Order</strong> and fill in the required fields.</li>" +
+            "<li>Click <strong>Save</strong> \u2014 an auto-generated 6-character order code is assigned.</li>" +
+            "<li>A prompt asks whether to add items to the <strong>Order Diary</strong> (optional supplier field).</li>" +
+            "<li>Track follow-up status as you contact the customer.</li>" +
+            "<li>When ready, click <strong>Mark Fulfilled</strong> to move the order to the Fulfilled tab.</li>" +
+            "</ol>"
         },
         {
           heading: "Tips",
           body:
             "<ul>" +
-            "<li>\"Called (No Answer)\" automatically logs today\u2019s date in notes for follow-up tracking.</li>" +
-            "<li>Multi-line items in the Items field become separate entries in the Order Diary.</li>" +
-            "<li>Click column headers to sort \u2014 each tab maintains its own sort state.</li>" +
+            "<li>\"Called (No Answer)\" automatically appends today\u2019s date to notes for follow-up tracking.</li>" +
+            "<li>Multi-line items become separate Order Diary entries \u2014 one per line.</li>" +
+            "<li>Click column headers to sort; each tab maintains its own sort state.</li>" +
+            "<li>Deleting an order offers to remove matching items from Order Diary.</li>" +
             "</ul>"
         }
       ]
@@ -825,25 +859,73 @@
             "VAT handling (0%, 5%, 18%), and duplicate description detection.</p>"
         },
         {
+          heading: "Form Fields",
+          body:
+            "<table class=\"eikon-help-table\">" +
+            "<tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr>" +
+            "<tr><td>Supplier</td><td>Text</td><td>No</td><td>Supplier company name</td></tr>" +
+            "<tr><td>Date</td><td>Date</td><td>Yes</td><td>Defaults to today</td></tr>" +
+            "<tr><td>Barcode</td><td>Text</td><td>No</td><td></td></tr>" +
+            "<tr><td>Stock Code</td><td>Text</td><td>No</td><td>Internal reference</td></tr>" +
+            "<tr><td>Item Description</td><td>Text</td><td>Yes</td><td>Triggers similarity suggestions (&gt;60% match)</td></tr>" +
+            "<tr><td>Qty Purchased</td><td>Number</td><td>Yes</td><td>Min 1</td></tr>" +
+            "<tr><td>Qty Free</td><td>Number</td><td>No</td><td>Bonus/free items</td></tr>" +
+            "<tr><td>VAT Rate</td><td>Dropdown</td><td>Yes</td><td>0%, 5%, or 18%</td></tr>" +
+            "<tr><td>Cost Excl. VAT</td><td>Currency</td><td>Cond.</td><td>Auto-syncs with Cost Incl. VAT</td></tr>" +
+            "<tr><td>Cost Incl. VAT</td><td>Currency</td><td>Cond.</td><td>Auto-syncs with Cost Excl. VAT</td></tr>" +
+            "<tr><td>Discount %</td><td>Number</td><td>No</td><td>Auto-syncs with Discount \u20AC</td></tr>" +
+            "<tr><td>Discount \u20AC</td><td>Currency</td><td>No</td><td>Auto-syncs with Discount %</td></tr>" +
+            "<tr><td>Total Incl. VAT</td><td>Currency</td><td>Auto</td><td>Editing triggers reverse-calculation</td></tr>" +
+            "<tr><td>Retail Price</td><td>Currency</td><td>No</td><td>Selling price per unit</td></tr>" +
+            "<tr><td>Profit / Margin %</td><td>Display</td><td>\u2014</td><td>Auto-calculated, colour-coded</td></tr>" +
+            "<tr><td>Notes</td><td>Textarea</td><td>No</td><td></td></tr>" +
+            "</table>"
+        },
+        {
           heading: "Smart Calculations",
           body:
             "<ul>" +
-            "<li><strong>VAT cross-calc</strong> \u2014 Edit Cost Excl VAT and Cost Incl VAT auto-updates (and vice versa).</li>" +
-            "<li><strong>Discount cross-calc</strong> \u2014 Discount % and Discount \u20AC auto-sync based on which was edited last.</li>" +
-            "<li><strong>Profit margin</strong> \u2014 Auto-calculated with colour coding: " +
+            "<li><strong>VAT cross-calc</strong> \u2014 Edit Cost Excl and Cost Incl auto-updates the other.</li>" +
+            "<li><strong>Discount cross-calc</strong> \u2014 Discount % and Discount \u20AC auto-sync.</li>" +
+            "<li><strong>Total reverse-calc</strong> \u2014 Editing Total Incl VAT derives cost fields automatically.</li>" +
+            "<li><strong>Profit margin</strong> \u2014 " +
             "<strong style=\"color:var(--danger)\">Red</strong> &lt;20%, " +
             "<strong style=\"color:#e8b635\">Yellow</strong> 20\u201335%, " +
             "<strong style=\"color:var(--ok)\">Green</strong> \u226535%.</li>" +
-            "<li><strong>Similarity detection</strong> \u2014 Warns if a new item description matches an existing one (threshold 60%).</li>" +
+            "<li><strong>Similarity detection</strong> \u2014 Warns if a new description matches an existing one (&gt;60%).</li>" +
             "</ul>"
+        },
+        {
+          heading: "Buttons & Actions",
+          body:
+            "<ul>" +
+            "<li><strong>Add Entry</strong> \u2014 New quotation entry.</li>" +
+            "<li><strong>Edit / Delete</strong> \u2014 Per-row modification or removal.</li>" +
+            "<li><strong>Columns \u25BE</strong> \u2014 Toggle visibility of 17 columns.</li>" +
+            "<li><strong>Find Duplicates</strong> \u2014 Scan for similar descriptions and merge variants into a canonical name.</li>" +
+            "<li><strong>Print</strong> \u2014 Filtered by date range and supplier, with total invested and total retail summary.</li>" +
+            "<li><strong>Delete Selected</strong> \u2014 Bulk delete checked rows.</li>" +
+            "<li><strong>My Location</strong> \u2014 Toggle between all organisation data or current location only.</li>" +
+            "</ul>"
+        },
+        {
+          heading: "Bulk Import",
+          body:
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Copy the Invoice Extractor GPT link (clipboard button).</li>" +
+            "<li>Open ChatGPT, upload a supplier invoice, and copy the TSV output.</li>" +
+            "<li>Paste into the Bulk Import textarea and click <strong>Submit</strong>.</li>" +
+            "<li>Review the parsed preview table \u2014 edit cells, delete rows, add rows.</li>" +
+            "<li>Click <strong>Confirm &amp; Upload</strong> to batch-import all rows.</li>" +
+            "</ol>"
         },
         {
           heading: "Tips",
           body:
             "<ul>" +
-            "<li>Enter Cost Excl VAT first \u2014 let the VAT rate auto-calculate the incl value.</li>" +
+            "<li>Enter Cost Excl VAT first \u2014 let the VAT rate auto-calculate Cost Incl.</li>" +
             "<li>Profit uses pre-VAT cost (since VAT is reclaimed), giving accurate margins.</li>" +
-            "<li>Duplicate a quotation with all items to reuse as a template.</li>" +
+            "<li>Use Find Duplicates to standardise item names across suppliers.</li>" +
             "</ul>"
         }
       ]
@@ -859,26 +941,62 @@
           heading: "Overview",
           body:
             "<p>Track daily items to order from suppliers. Items are grouped by supplier with status tracking " +
-            "(pending, received, not received, wrong pick) and end-of-day carry-over.</p>"
+            "(Pending, Received, Not Received, Wrong Pick) and end-of-day carry-over for outstanding items.</p>"
         },
         {
-          heading: "Key Features",
+          heading: "Quick-Add Form",
+          body:
+            "<table class=\"eikon-help-table\">" +
+            "<tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr>" +
+            "<tr><td>Item name</td><td>Autocomplete</td><td>Yes</td><td>Fuzzy matching from history, quotations, and supplier inventory</td></tr>" +
+            "<tr><td>Qty</td><td>Number</td><td>Yes</td><td>Default 1; scroll to adjust</td></tr>" +
+            "<tr><td>Supplier</td><td>Autocomplete</td><td>No</td><td>Leave empty for \u201CUnassigned\u201D group</td></tr>" +
+            "</table>" +
+            "<p>Press <strong>Enter</strong> or click <strong>+ Add</strong> to add immediately.</p>"
+        },
+        {
+          heading: "Status Pills",
+          body:
+            "<table class=\"eikon-help-table\">" +
+            "<tr><th>Status</th><th>Icon</th><th>Colour</th></tr>" +
+            "<tr><td>Pending</td><td>\u23F3</td><td>Grey</td></tr>" +
+            "<tr><td>Received</td><td>\u2713</td><td>Green</td></tr>" +
+            "<tr><td>Not Received</td><td>\u2717</td><td>Red</td></tr>" +
+            "<tr><td>Wrong Pick</td><td>\u26A0</td><td>Orange</td></tr>" +
+            "</table>"
+        },
+        {
+          heading: "Buttons & Actions",
           body:
             "<ul>" +
-            "<li><strong>Item autocomplete</strong> \u2014 Fuzzy matching from history and quotations (type first few letters).</li>" +
-            "<li><strong>Supplier grouping</strong> \u2014 Items grouped visually by supplier with colour-coded headers.</li>" +
-            "<li><strong>Status pills</strong> \u2014 \u23F3 Pending, \u2713 Received, \u2717 Not Received, \u26A0 Wrong Pick.</li>" +
-            "<li><strong>Carry Over</strong> \u2014 Move all pending/undelivered items to the next day.</li>" +
-            "<li><strong>Quotation hints</strong> \u2014 Shows matching cost data from quotations when adding items.</li>" +
+            "<li><strong>Date navigation</strong> \u2014 \u25C0 Previous / \u25B6 Next / Today.</li>" +
+            "<li><strong>\u2713 / \u2717 / \u26A0 per row</strong> \u2014 Quick-set status (flashes with colour animation).</li>" +
+            "<li><strong>\u2713 All Received (per supplier)</strong> \u2014 Mark all outstanding items in a supplier group as received.</li>" +
+            "<li><strong>\uD83D\uDCCB Copy for Email</strong> \u2014 Copies the supplier\u2019s item list for pasting into an email.</li>" +
+            "<li><strong>\u21A9 Carry Over</strong> \u2014 Move all pending/not-received/wrong-pick items to the next day.</li>" +
+            "<li><strong>Inline qty edit</strong> \u2014 Click the quantity cell (dotted underline) to edit inline.</li>" +
+            "<li><strong>Wrong Pick</strong> \u2014 Opens a modal to log a return reason before marking.</li>" +
             "</ul>"
+        },
+        {
+          heading: "Workflows",
+          body:
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Type an item name (autocomplete suggests from history and quotations).</li>" +
+            "<li>Set quantity and optionally select a supplier.</li>" +
+            "<li>Press Enter or click + Add \u2014 item appears under the supplier group.</li>" +
+            "<li>When deliveries arrive, click \u2713 or use \u201C\u2713 All Received\u201D per supplier.</li>" +
+            "<li>At end of day, click <strong>Carry Over</strong> to push outstanding items to tomorrow.</li>" +
+            "</ol>"
         },
         {
           heading: "Tips",
           body:
             "<ul>" +
-            "<li>Click the quantity cell (dotted underline) to edit inline.</li>" +
-            "<li>\"Mark All Received\" per supplier group saves time on deliveries.</li>" +
-            "<li>Use Carry Over at end of day to move outstanding items to tomorrow.</li>" +
+            "<li>Quotation hints appear in the edit modal showing matching cost data.</li>" +
+            "<li>Each supplier gets a unique colour (8-colour palette) for quick visual scanning.</li>" +
+            "<li>Stat bar at top shows: Total / Received / Pending / Not Received / Wrong Pick.</li>" +
+            "<li>Filter tabs let you view items for a single supplier.</li>" +
             "</ul>"
         }
       ]
@@ -888,13 +1006,14 @@
       id: "deliveries",
       title: "Deliveries",
       icon: "\uD83D\uDE9A",
-      subtitle: "Track delivery shipments with driver management, address mapping, and delivery logs.",
+      subtitle: "End-to-end delivery tracking with driver management, interactive map, and audit log.",
       sections: [
         {
           heading: "Overview",
           body:
             "<p>Manage deliveries from scheduling through dispatch, delivery, or failure. " +
-            "Supports driver assignment, map-based address entry, tracking numbers, and delivery logs.</p>"
+            "Supports driver assignment, interactive map-based address entry, tracking numbers, " +
+            "delivery attempt counting, and a full audit log per delivery.</p>"
         },
         {
           heading: "Tabs",
@@ -903,25 +1022,57 @@
             "<tr><th>Tab</th><th>Statuses Shown</th></tr>" +
             "<tr><td><strong>Active</strong></td><td>Scheduled, Dispatched, Out for Delivery</td></tr>" +
             "<tr><td><strong>Completed</strong></td><td>Delivered</td></tr>" +
-            "<tr><td><strong>Failed</strong></td><td>Failed, Returned, Cancelled</td></tr>" +
+            "<tr><td><strong>Failed / Returned</strong></td><td>Failed, Returned, Cancelled</td></tr>" +
             "</table>"
         },
         {
-          heading: "Key Features",
+          heading: "Form Fields",
+          body:
+            "<table class=\"eikon-help-table\">" +
+            "<tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr>" +
+            "<tr><td>Order Date</td><td>Date</td><td>Yes</td><td></td></tr>" +
+            "<tr><td>Client Name &amp; Surname</td><td>Text</td><td>Yes</td><td></td></tr>" +
+            "<tr><td>Phone</td><td>Tel</td><td>Yes</td><td></td></tr>" +
+            "<tr><td>Email</td><td>Email</td><td>No</td><td></td></tr>" +
+            "<tr><td>Delivery Address</td><td>Textarea</td><td>Yes</td><td>Can also set via map click</td></tr>" +
+            "<tr><td>Address Notes</td><td>Text</td><td>No</td><td>Buzzer codes, access instructions</td></tr>" +
+            "<tr><td>Delivery Method</td><td>Dropdown</td><td>Yes</td><td>In-house Driver, Courier, Collection</td></tr>" +
+            "<tr><td>Priority</td><td>Dropdown</td><td>Yes</td><td>Urgent (same-day), Standard, Flexible</td></tr>" +
+            "<tr><td>Scheduled Date / Time Slot</td><td>Date + Text</td><td>No</td><td>e.g. \u201C09:00\u201312:00\u201D</td></tr>" +
+            "<tr><td>Driver / Carrier</td><td>Dropdown</td><td>Cond.</td><td>Can add new driver on-the-fly</td></tr>" +
+            "<tr><td>Tracking Number</td><td>Text</td><td>No</td><td>For courier shipments</td></tr>" +
+            "<tr><td>Flags</td><td>Checkboxes</td><td>No</td><td>\u2744\uFE0F Cold Chain, \u270D Signature Required</td></tr>" +
+            "<tr><td>Items</td><td>Inline table</td><td>Yes</td><td>Name, Qty, Schedule, Batch Ref, Expiry per row</td></tr>" +
+            "<tr><td>Internal Notes</td><td>Textarea</td><td>No</td><td>Not shown on client label</td></tr>" +
+            "</table>"
+        },
+        {
+          heading: "Status Flow & Attempts",
+          body:
+            "<p><strong>Scheduled</strong> \u2192 <strong>Dispatched</strong> \u2192 <strong>Out for Delivery</strong> \u2192 <strong>Delivered</strong></p>" +
+            "<p>If delivery fails, the attempt counter increments. On the <strong>3rd failed attempt</strong>, " +
+            "status automatically changes to <strong>Returned</strong>.</p>"
+        },
+        {
+          heading: "Buttons & Actions",
           body:
             "<ul>" +
-            "<li><strong>Map picker</strong> \u2014 Click to place a pin, drag to fine-tune, with reverse geocoding.</li>" +
-            "<li><strong>Delivery log</strong> \u2014 Timestamped notes appended to each delivery (forms an audit trail).</li>" +
-            "<li><strong>Driver list</strong> \u2014 Saved locally for quick assignment.</li>" +
-            "<li><strong>Reopen</strong> \u2014 Failed deliveries can be moved back to active for re-attempt.</li>" +
+            "<li><strong>+ New Delivery</strong> \u2014 Open creation modal with interactive map.</li>" +
+            "<li><strong>\u2705 Mark Delivered</strong> \u2014 Record actual date, time, recipient name, signature, and proof of delivery.</li>" +
+            "<li><strong>\u2717 Mark Failed</strong> \u2014 Log failure reason; auto-increments attempt counter.</li>" +
+            "<li><strong>+ Add Log Entry</strong> \u2014 Append a timestamped, author-attributed note to the delivery\u2019s audit trail.</li>" +
+            "<li><strong>Edit</strong> \u2014 Modify delivery details; outcome fields appear for dispatched+ statuses.</li>" +
+            "<li><strong>Print</strong> \u2014 Print single delivery or entire tab.</li>" +
             "</ul>"
         },
         {
           heading: "Tips",
           body:
             "<ul>" +
+            "<li>Click the map to set the delivery address \u2014 reverse geocoding fills the address field.</li>" +
+            "<li>Controlled drug (\uD83D\uDD10) flags are auto-set if items are marked as schedule CD.</li>" +
             "<li>Add log entries immediately when status changes for a clear audit trail.</li>" +
-            "<li>Items can flag controlled drugs (\uD83D\uDD10) and cold chain (\u2744\uFE0F) requirements.</li>" +
+            "<li>Delivery IDs auto-generate (DEL-00001, DEL-00002, etc.).</li>" +
             "</ul>"
         }
       ]
@@ -954,22 +1105,45 @@
         {
           heading: "Setup (Settings Menu)",
           body:
+            "<p>Before booking, set up these three entities:</p>" +
             "<ul>" +
-            "<li><strong>Manage Doctors</strong> \u2014 Add/edit doctor profiles.</li>" +
-            "<li><strong>Manage Clinics</strong> \u2014 Add/edit clinic locations.</li>" +
-            "<li><strong>Manage Schedules</strong> \u2014 Set recurring weekly or one-off availability with slot durations.</li>" +
+            "<li><strong>Manage Doctors</strong> \u2014 Name, specialty, phone, default patient fee.</li>" +
+            "<li><strong>Manage Clinics</strong> \u2014 Name, locality, address, phone, standard clinic fee.</li>" +
+            "<li><strong>Manage Schedules</strong> \u2014 Link a doctor to a clinic with recurring (weekly) or one-off availability, time range, and slot duration (5\u2013120 min).</li>" +
             "</ul>"
         },
         {
-          heading: "Key Features",
+          heading: "Booking Form Fields",
           body:
-            "<ul>" +
-            "<li><strong>Slot availability</strong> \u2014 Auto-checks for conflicts when booking.</li>" +
-            "<li><strong>Status flow</strong> \u2014 Scheduled \u2192 Confirmed \u2192 Completed (or Cancelled / No Show).</li>" +
-            "<li><strong>Fees</strong> \u2014 Track doctor fee, clinic fee, and medicines cost per appointment.</li>" +
-            "<li><strong>Email/WhatsApp</strong> \u2014 Send booking confirmations and reminders.</li>" +
-            "<li><strong>Auto-refresh</strong> \u2014 Appointments update every 30 seconds.</li>" +
-            "</ul>"
+            "<table class=\"eikon-help-table\">" +
+            "<tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr>" +
+            "<tr><td>Patient Name &amp; Surname</td><td>Text</td><td>Yes</td><td></td></tr>" +
+            "<tr><td>ID Card No.</td><td>Text</td><td>Yes</td><td>Auto-normalised (\"789M\" \u2192 \"0000789M\")</td></tr>" +
+            "<tr><td>Phone</td><td>Tel</td><td>Yes</td><td></td></tr>" +
+            "<tr><td>Email</td><td>Email</td><td>No</td><td></td></tr>" +
+            "<tr><td>Doctor</td><td>Dropdown</td><td>Yes</td><td>Cascading: selecting doctor filters clinics</td></tr>" +
+            "<tr><td>Clinic</td><td>Dropdown</td><td>Yes</td><td>Auto-populated based on doctor schedules</td></tr>" +
+            "<tr><td>Session Date</td><td>Dropdown</td><td>Yes</td><td>Available dates from schedules</td></tr>" +
+            "<tr><td>Available Time Slot</td><td>Dropdown</td><td>Yes</td><td>Live availability check prevents double-booking</td></tr>" +
+            "<tr><td>Doctor Fee (\u20AC)</td><td>Currency</td><td>No</td><td>Default from clinic config</td></tr>" +
+            "<tr><td>Clinic Fee (\u20AC)</td><td>Currency</td><td>No</td><td></td></tr>" +
+            "<tr><td>Medicines Cost (\u20AC)</td><td>Currency</td><td>No</td><td></td></tr>" +
+            "<tr><td>Medicines / Items</td><td>Textarea</td><td>No</td><td>e.g. \"Amoxicillin 250mg \u00D714\"</td></tr>" +
+            "<tr><td>Internal Notes</td><td>Textarea</td><td>No</td><td></td></tr>" +
+            "<tr><td>Cancellation Reason</td><td>Text</td><td>Cond.</td><td>Required when status = Cancelled</td></tr>" +
+            "</table>"
+        },
+        {
+          heading: "Status Flow",
+          body:
+            "<p><strong>Scheduled</strong> \u2192 <strong>Confirmed</strong> \u2192 <strong>Completed</strong> (or Cancelled / No Show)</p>"
+        },
+        {
+          heading: "Waiting List",
+          body:
+            "<p>When no slots are available, add a patient to the waiting list with doctor/clinic preference, " +
+            "preferred dates, and flexibility level. Convert to a real appointment when a slot opens.</p>" +
+            "<p>Statuses: Waiting \u2192 Offered \u2192 Booked (or Cancelled).</p>"
         },
         {
           heading: "Tips",
@@ -977,7 +1151,8 @@
             "<ul>" +
             "<li>Set up doctors, clinics, and schedules first \u2014 then slots auto-generate.</li>" +
             "<li>Doctor colours are assigned automatically (10-colour palette) for easy visual scanning.</li>" +
-            "<li>Maltese ID cards are auto-normalised (\"789M\" \u2192 \"0000789M\").</li>" +
+            "<li>Right-click an appointment for Send WhatsApp / Send Email options.</li>" +
+            "<li>Fee total (doctor + clinic + medicines) auto-calculates.</li>" +
             "</ul>"
         }
       ]
@@ -993,26 +1168,57 @@
           heading: "Overview",
           body:
             "<p>Track customer issues from creation through resolution. Manage priorities, assignments, " +
-            "categories, and communication history.</p>"
+            "categories, and a timestamped notes log per ticket.</p>"
         },
         {
-          heading: "Key Features",
+          heading: "Form Fields",
           body:
-            "<ul>" +
-            "<li><strong>Priority levels</strong> \u2014 Critical (red), High (orange), Medium (yellow), Low (blue).</li>" +
-            "<li><strong>Status flow</strong> \u2014 Open \u2192 In Progress \u2192 Resolved \u2192 Closed.</li>" +
-            "<li><strong>Assignment</strong> \u2014 Claim tickets or reassign to other staff.</li>" +
-            "<li><strong>Communication log</strong> \u2014 Timestamped thread of all messages and actions.</li>" +
-            "<li><strong>Time tracking</strong> \u2014 Log hours spent per ticket.</li>" +
-            "</ul>"
+            "<table class=\"eikon-help-table\">" +
+            "<tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr>" +
+            "<tr><td>Date Opened</td><td>Date</td><td>Yes</td><td>Defaults to today</td></tr>" +
+            "<tr><td>Client Name &amp; Surname</td><td>Text</td><td>Yes</td><td></td></tr>" +
+            "<tr><td>Phone</td><td>Tel</td><td>Yes</td><td></td></tr>" +
+            "<tr><td>Email</td><td>Email</td><td>No</td><td></td></tr>" +
+            "<tr><td>Category</td><td>Dropdown</td><td>Yes</td><td>Billing, Prescription, Product Complaint, Delivery, General Enquiry; add custom</td></tr>" +
+            "<tr><td>Priority</td><td>Dropdown</td><td>Yes</td><td>High (red), Medium (orange), Low (green)</td></tr>" +
+            "<tr><td>Status</td><td>Dropdown</td><td>Yes</td><td>Open, In Progress, Pending, Resolved, Closed</td></tr>" +
+            "<tr><td>Issue Description</td><td>Textarea</td><td>Yes</td><td></td></tr>" +
+            "<tr><td>Assigned To</td><td>Dropdown</td><td>Yes</td><td>Staff list; can add new staff inline</td></tr>" +
+            "<tr><td>Follow-up Date</td><td>Date</td><td>No</td><td></td></tr>" +
+            "</table>"
+        },
+        {
+          heading: "Filtering & Search",
+          body:
+            "<p>The ticket list can be filtered by <strong>Status</strong>, <strong>Category</strong>, " +
+            "<strong>Priority</strong>, and <strong>Assigned To</strong>. The search box searches across " +
+            "ticket ID, client, phone, email, category, issue description, and notes.</p>"
+        },
+        {
+          heading: "Notes Log",
+          body:
+            "<p>Each ticket has a timestamped notes thread. Click <strong>Add Note</strong> to append an entry " +
+            "with the current date/time and author. Notes are immutable after creation (you can only add new ones). " +
+            "All notes appear in the print view and detail panel.</p>"
+        },
+        {
+          heading: "Workflows",
+          body:
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Click <strong>Create Ticket</strong> \u2014 auto-generates ID (TKT-00001 format).</li>" +
+            "<li>Fill client details, category, priority, and description.</li>" +
+            "<li>Assign to a staff member.</li>" +
+            "<li>As work progresses, add notes and update status.</li>" +
+            "<li>Set status to <strong>Resolved</strong> or <strong>Closed</strong> when done.</li>" +
+            "</ol>"
         },
         {
           heading: "Tips",
           body:
             "<ul>" +
-            "<li>Assign tickets immediately to avoid lost issues.</li>" +
-            "<li>Use \"Waiting\" status when awaiting customer response.</li>" +
-            "<li>The Dashboard shows open ticket count on the Operations card.</li>" +
+            "<li>Custom categories and staff members can be added inline from the dropdown.</li>" +
+            "<li>Print view includes full notes log for documentation.</li>" +
+            "<li>The Dashboard shows open ticket count.</li>" +
             "</ul>"
         }
       ]
@@ -1034,23 +1240,48 @@
           heading: "Campaign Types",
           body:
             "<table class=\"eikon-help-table\">" +
-            "<tr><th>Type</th><th>How It Works</th></tr>" +
-            "<tr><td><strong>\u2B50 Stamp Card</strong></td><td>Collect N stamps \u2192 claim free reward</td></tr>" +
-            "<tr><td><strong>\uD83D\uDC8E Points</strong></td><td>Earn points per \u20AC spent \u2192 redeem at threshold</td></tr>" +
-            "<tr><td><strong>\uD83C\uDFF7 Discount</strong></td><td>Always-on % discount on specific brand/items</td></tr>" +
-            "<tr><td><strong>\uD83C\uDF89 Event</strong></td><td>Time-limited campaign (e.g. Black Friday)</td></tr>" +
-            "<tr><td><strong>\uD83C\uDF81 Buy X Get Y</strong></td><td>Purchase X items \u2192 receive Y free</td></tr>" +
-            "<tr><td><strong>\uD83C\uDFC6 Tiered</strong></td><td>Spend thresholds unlock better rewards</td></tr>" +
+            "<tr><th>Type</th><th>How It Works</th><th>Key Settings</th></tr>" +
+            "<tr><td><strong>\u2B50 Stamp Card</strong></td><td>Collect N stamps \u2192 free reward</td><td>Stamps required, reward description</td></tr>" +
+            "<tr><td><strong>\uD83D\uDC8E Points</strong></td><td>Earn points per \u20AC spent \u2192 redeem at threshold</td><td>Points per \u20AC1, redemption threshold, reward</td></tr>" +
+            "<tr><td><strong>\uD83C\uDFF7 Discount</strong></td><td>Always-on % discount on brand/items</td><td>Discount %, scope</td></tr>" +
+            "<tr><td><strong>\uD83C\uDF89 Event</strong></td><td>Time-limited campaign</td><td>Event name, offer description</td></tr>" +
+            "<tr><td><strong>\uD83C\uDF81 Buy X Get Y</strong></td><td>Purchase X \u2192 Y free</td><td>Buy qty, get qty, free item description</td></tr>" +
+            "<tr><td><strong>\uD83C\uDFC6 Tiered</strong></td><td>Spend thresholds unlock rewards</td><td>Up to 4 tiers with min spend + reward</td></tr>" +
             "</table>"
         },
         {
-          heading: "Key Features",
+          heading: "Tabs",
+          body:
+            "<table class=\"eikon-help-table\">" +
+            "<tr><th>Tab</th><th>Purpose</th></tr>" +
+            "<tr><td><strong>Dashboard</strong></td><td>Stats (active campaigns, clients, transactions, today\u2019s activity) + recent activity</td></tr>" +
+            "<tr><td><strong>Campaigns</strong></td><td>Campaign grid with create/edit/activate/delete actions</td></tr>" +
+            "<tr><td><strong>Record Transaction</strong></td><td>Enter client ID, select campaign, add items, record spend</td></tr>" +
+            "<tr><td><strong>Client Search</strong></td><td>Look up a client by ID card to view all transactions and loyalty status</td></tr>" +
+            "</table>"
+        },
+        {
+          heading: "Recording a Transaction",
+          body:
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Enter client <strong>ID Card</strong> (autocomplete from history, auto-padded).</li>" +
+            "<li>Name auto-fills from known clients.</li>" +
+            "<li>Select an <strong>active campaign</strong> from the dropdown.</li>" +
+            "<li>Add items: type description (autocomplete), set qty, click <strong>Add Item</strong>.</li>" +
+            "<li>Enter <strong>total spend</strong> and optional receipt number.</li>" +
+            "<li>Click <strong>Record Transaction</strong>.</li>" +
+            "<li>Right panel shows the client\u2019s loyalty snapshot (progress, eligible rewards, history).</li>" +
+            "</ol>"
+        },
+        {
+          heading: "Campaign Statuses",
           body:
             "<ul>" +
-            "<li><strong>Customer registration</strong> \u2014 By Maltese ID card (auto-normalised).</li>" +
-            "<li><strong>Transaction ledger</strong> \u2014 Immutable append-only audit trail of all activity.</li>" +
-            "<li><strong>Multi-campaign</strong> \u2014 Customers can participate in multiple campaigns at once.</li>" +
-            "<li><strong>Progress tracking</strong> \u2014 Visual bars for stamps (\"4/10\") and points (\"850/1000\").</li>" +
+            "<li><strong>Active</strong> \u2014 Running, accepting transactions.</li>" +
+            "<li><strong>Open-ended</strong> \u2014 No expiry date.</li>" +
+            "<li><strong>Inactive</strong> \u2014 Paused but not deleted.</li>" +
+            "<li><strong>Ended</strong> \u2014 End date has passed.</li>" +
+            "<li><strong>Upcoming</strong> \u2014 Start date hasn\u2019t arrived yet.</li>" +
             "</ul>"
         },
         {
@@ -1058,7 +1289,8 @@
           body:
             "<ul>" +
             "<li>Stamp cards work best for frequent small-value items; points for variable-spend customers.</li>" +
-            "<li>Archive expired campaigns to keep the active list clean.</li>" +
+            "<li>Customers can participate in multiple campaigns at once.</li>" +
+            "<li>Transaction ledger is append-only \u2014 provides a full audit trail.</li>" +
             "<li>Combine Event campaigns with regular ones for layered incentives.</li>" +
             "</ul>"
         }
@@ -1069,34 +1301,55 @@
       id: "supplier-inventory",
       title: "Supplier Inventory",
       icon: "\uD83D\uDCE6",
-      subtitle: "Browse supplier products, build orders, track deliveries, and analyse profit margins.",
+      subtitle: "Browse supplier products, build cart orders, track deliveries, and analyse profit margins.",
       sections: [
         {
           heading: "Overview",
           body:
-            "<p>Search supplier product catalogues, build purchase orders, track sent orders, " +
-            "and mark items as received. Includes profit margin analysis.</p>"
+            "<p>Search supplier product catalogues, build purchase orders by adding to a cart, " +
+            "commit orders per supplier, and track order lifecycle from draft to received. " +
+            "Includes profit margin analysis and problem reporting.</p>"
         },
         {
-          heading: "Key Features",
+          heading: "Tabs",
+          body:
+            "<table class=\"eikon-help-table\">" +
+            "<tr><th>Tab</th><th>Purpose</th></tr>" +
+            "<tr><td><strong>Inventory</strong></td><td>Browse products, manage cart, commit orders</td></tr>" +
+            "<tr><td><strong>My Orders</strong></td><td>View sent orders, track status, report problems</td></tr>" +
+            "</table>"
+        },
+        {
+          heading: "Inventory Features",
           body:
             "<ul>" +
-            "<li><strong>Product search</strong> \u2014 Query by barcode, stock code, or description.</li>" +
-            "<li><strong>Order workflow</strong> \u2014 Draft \u2192 Sent \u2192 Received (or Cancelled).</li>" +
-            "<li><strong>Profit margin colours</strong> \u2014 " +
-            "<strong style=\"color:var(--danger)\">Red</strong> \u226420%, " +
+            "<li><strong>Search &amp; filter</strong> \u2014 By keyword, barcode, stock code, or supplier.</li>" +
+            "<li><strong>Column settings</strong> \u2014 Toggle visibility of columns (Cost, VAT%, Deal, Retail, Margin%, etc.).</li>" +
+            "<li><strong>Expiry warnings</strong> \u2014 Configurable red/yellow month thresholds for near-expiry highlighting.</li>" +
+            "<li><strong>Deal handling</strong> \u2014 \u201CBuy 3 + 1 Free\u201D or discount % shown; qty input respects deal multiples.</li>" +
+            "<li><strong>Profit margin</strong> \u2014 " +
+            "<strong style=\"color:var(--ok)\">Green</strong> \u226535%, " +
             "<strong style=\"color:#e8b635\">Yellow</strong> 20\u201335%, " +
-            "<strong style=\"color:var(--ok)\">Green</strong> \u226535%.</li>" +
-            "<li><strong>Order Diary integration</strong> \u2014 After marking received, add items to Order Diary.</li>" +
+            "<strong style=\"color:var(--danger)\">Red</strong> &lt;20%.</li>" +
+            "<li><strong>Cart</strong> \u2014 Items grouped by supplier; commit order per supplier with optional notes.</li>" +
             "</ul>"
+        },
+        {
+          heading: "Order Lifecycle",
+          body:
+            "<p><strong>Draft</strong> (orange) \u2192 <strong>Pending</strong> (blue) \u2192 <strong>Shipped</strong> (blue) \u2192 <strong>Received</strong> (green)</p>" +
+            "<p>For shipped/received orders, you can <strong>Report Problem</strong> per item: " +
+            "Not Received, Wrong Pick, Damaged, Short Quantity, or Other. " +
+            "Supplier responses appear as resolution statuses (Acknowledged, Replacement Sent, Credit Issued, Disputed, Resolved).</p>"
         },
         {
           heading: "Tips",
           body:
             "<ul>" +
-            "<li>Review margin colours to identify products needing pricing review or supplier negotiation.</li>" +
-            "<li>Draft orders let you prepare without committing \u2014 send when ready.</li>" +
-            "<li>Out-of-stock products are still visible but marked.</li>" +
+            "<li>Review margin colours to identify products needing pricing review.</li>" +
+            "<li>Cart drafts auto-save periodically and survive page refresh.</li>" +
+            "<li>Out-of-stock products are visible but cannot be added to cart.</li>" +
+            "<li>After marking an order as received, you can add items to Order Diary.</li>" +
             "</ul>"
         }
       ]
@@ -1116,25 +1369,58 @@
           heading: "Overview",
           body:
             "<p>Track quarantine and recall notifications for pharmacy items. Each alert has a lifecycle " +
-            "from open through closure, with a 7-step checklist for tracking actions.</p>"
+            "from open through closure, with a 7-step checklist for tracking actions taken.</p>"
         },
         {
-          heading: "Key Features",
+          heading: "Form Fields",
           body:
-            "<ul>" +
-            "<li><strong>Alert types</strong> \u2014 Recall or Quarantine.</li>" +
-            "<li><strong>Status</strong> \u2014 Open, In Progress, or Closed.</li>" +
-            "<li><strong>7-step checklist</strong> \u2014 Team informed, Supplier informed, Authorities informed, " +
-            "Return arranged, Handed over, Collection note received, Credit note received.</li>" +
-            "<li><strong>Side panel</strong> \u2014 Select an alert to update its checklist without opening a modal (auto-saves).</li>" +
-            "</ul>"
+            "<table class=\"eikon-help-table\">" +
+            "<tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr>" +
+            "<tr><td>Date</td><td>Date</td><td>Yes</td><td>Defaults to today</td></tr>" +
+            "<tr><td>Type</td><td>Dropdown</td><td>Yes</td><td>Recall or Quarantine</td></tr>" +
+            "<tr><td>Status</td><td>Dropdown</td><td>Yes</td><td>Open, In Progress, Closed</td></tr>" +
+            "<tr><td>Item Name</td><td>Text</td><td>Yes</td><td></td></tr>" +
+            "<tr><td>Batch</td><td>Text</td><td>No</td><td>Lot number</td></tr>" +
+            "<tr><td>Expiry</td><td>Date</td><td>No</td><td></td></tr>" +
+            "<tr><td>Quantity</td><td>Text</td><td>No</td><td>e.g. \"2 boxes / 20 tabs\"</td></tr>" +
+            "<tr><td>Room / Fridge</td><td>Dropdown</td><td>Yes</td><td>Storage location</td></tr>" +
+            "<tr><td>Supplier</td><td>Text</td><td>No</td><td></td></tr>" +
+            "<tr><td>Reason</td><td>Textarea</td><td>No</td><td>Why quarantined/recalled</td></tr>" +
+            "<tr><td>Notes</td><td>Textarea</td><td>No</td><td>Additional notes</td></tr>" +
+            "</table>"
+        },
+        {
+          heading: "7-Step Checklist",
+          body:
+            "<p>Select an alert row to open the side panel. Check items off as they\u2019re completed \u2014 " +
+            "changes <strong>auto-save</strong> immediately:</p>" +
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Team informed</li>" +
+            "<li>Supplier informed</li>" +
+            "<li>Authorities informed</li>" +
+            "<li>Return arranged</li>" +
+            "<li>Handed over</li>" +
+            "<li>Collection note received</li>" +
+            "<li>Credit note received</li>" +
+            "</ol>"
+        },
+        {
+          heading: "Workflows",
+          body:
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Click <strong>Add Alert</strong> and fill in the item details.</li>" +
+            "<li>Click a row to select it \u2014 the checklist panel opens on the right.</li>" +
+            "<li>Check off each action as it\u2019s completed (auto-saves with timestamp).</li>" +
+            "<li>Update status from Open \u2192 In Progress \u2192 Closed as the alert is resolved.</li>" +
+            "</ol>"
         },
         {
           heading: "Tips",
           body:
             "<ul>" +
-            "<li>The Dashboard flags incomplete alerts showing which checklist items are missing.</li>" +
-            "<li>Use the side panel for quick checklist updates \u2014 changes save automatically.</li>" +
+            "<li>The Dashboard flags incomplete alerts showing which checklist items are still missing.</li>" +
+            "<li>Use the side panel for quick checklist updates without opening a modal.</li>" +
+            "<li>Print generates a table of all alerts with their checklist status.</li>" +
             "</ul>"
         }
       ]
@@ -1150,30 +1436,48 @@
           heading: "Overview",
           body:
             "<p>Transfer items between pharmacies in your organisation. Manages both offering items " +
-            "and requesting items with a full confirmation workflow.</p>"
+            "and requesting items, with a full confirmation workflow from placement to delivery.</p>"
         },
         {
           heading: "Tabs",
           body:
             "<table class=\"eikon-help-table\">" +
             "<tr><th>Tab</th><th>Purpose</th></tr>" +
-            "<tr><td><strong>Available Items</strong></td><td>Items you\u2019re offering for transfer</td></tr>" +
-            "<tr><td><strong>Pending Requests</strong></td><td>Requests received from other pharmacies</td></tr>" +
+            "<tr><td><strong>Available Items</strong></td><td>Items you\u2019re offering; expand rows to see incoming requests</td></tr>" +
             "<tr><td><strong>My Requests</strong></td><td>Requests you\u2019ve sent to other pharmacies</td></tr>" +
-            "<tr><td><strong>Completed</strong></td><td>Delivered transfers</td></tr>" +
+            "</table>"
+        },
+        {
+          heading: "Place for Transfer Form",
+          body:
+            "<table class=\"eikon-help-table\">" +
+            "<tr><th>Field</th><th>Type</th><th>Required</th></tr>" +
+            "<tr><td>Item Description</td><td>Text</td><td>Yes</td></tr>" +
+            "<tr><td>Batch</td><td>Text</td><td>No</td></tr>" +
+            "<tr><td>Expiry Date</td><td>Date</td><td>No</td></tr>" +
+            "<tr><td>Quantity</td><td>Number</td><td>Yes (min 1)</td></tr>" +
             "</table>"
         },
         {
           heading: "Workflow",
           body:
-            "<p>Open \u2192 Requested \u2192 Accepted \u2192 Dispatched \u2192 Delivered</p>" +
-            "<ul>" +
+            "<p><strong>Open</strong> \u2192 <strong>Requested</strong> \u2192 <strong>Accepted</strong> \u2192 <strong>Dispatched</strong> \u2192 <strong>Delivered</strong></p>" +
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
             "<li><strong>Place Item</strong> \u2014 Offer an item for other locations to request.</li>" +
-            "<li><strong>Accept/Reject</strong> \u2014 Respond to incoming requests.</li>" +
-            "<li><strong>Confirm Dispatch</strong> \u2014 Mark item as sent.</li>" +
-            "<li><strong>Confirm Delivery</strong> \u2014 Receiving pharmacy confirms receipt.</li>" +
-            "</ul>" +
+            "<li>Other pharmacy clicks <strong>Request Transfer</strong> (sets quantity and optional private note).</li>" +
+            "<li>You <strong>Accept</strong> or <strong>Reject</strong> the request.</li>" +
+            "<li>Click <strong>Confirm Dispatch</strong> when the item is shipped.</li>" +
+            "<li>Receiving pharmacy clicks <strong>Confirm Received</strong> to complete.</li>" +
+            "</ol>" +
             "<p>Expired items are automatically flagged and cannot be transferred.</p>"
+        },
+        {
+          heading: "Integration Actions",
+          body:
+            "<ul>" +
+            "<li><strong>Place on Returns</strong> \u2014 Move item to the Returns module instead.</li>" +
+            "<li><strong>Place on Scarce Stock</strong> \u2014 Move item to the Scarce Stock module.</li>" +
+            "</ul>"
         },
         {
           heading: "Tips",
@@ -1181,6 +1485,7 @@
             "<ul>" +
             "<li>The Dashboard flashes Stock Transfers when you have pending requests or unconfirmed deliveries.</li>" +
             "<li>Items can be auto-placed from Returns or Scarce Stock modules.</li>" +
+            "<li>Use the \u201COpen only\u201D checkbox to hide closed items.</li>" +
             "</ul>"
         }
       ]
@@ -1199,22 +1504,49 @@
             "Near Expiry and Stock Transfers modules.</p>"
         },
         {
-          heading: "Key Features",
+          heading: "Form Fields",
+          body:
+            "<table class=\"eikon-help-table\">" +
+            "<tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr>" +
+            "<tr><td>Date</td><td>Date</td><td>Yes</td><td>Defaults to today</td></tr>" +
+            "<tr><td>Description</td><td>Text</td><td>Yes</td><td>Item name / reason</td></tr>" +
+            "<tr><td>Expiry</td><td>Date</td><td>No</td><td></td></tr>" +
+            "<tr><td>Batch</td><td>Text</td><td>No</td><td>Lot number</td></tr>" +
+            "<tr><td>Quantity</td><td>Text</td><td>No</td><td></td></tr>" +
+            "<tr><td>Supplier</td><td>Text</td><td>No</td><td></td></tr>" +
+            "<tr><td>Invoice Number</td><td>Text</td><td>No</td><td>For reconciliation</td></tr>" +
+            "<tr><td>Remarks</td><td>Text + chips</td><td>No</td><td>Click chip suggestions: Wrong Pick, Expiring soon, Damaged, Wrong quantity, Received late, Duplicate order</td></tr>" +
+            "<tr><td>Location Stored</td><td>Text</td><td>No</td><td>e.g. \"Shelves / Back room / Fridge\"</td></tr>" +
+            "</table>"
+        },
+        {
+          heading: "Checklist (Auto-save)",
           body:
             "<ul>" +
-            "<li><strong>6-step checklist</strong> \u2014 Return arranged, Handed over, Collection note received, " +
-            "Credit note received, Damaged item, Supplier refused.</li>" +
-            "<li><strong>Supplier refused</strong> \u2014 When checked, shows as a red badge and disables other workflow steps.</li>" +
-            "<li><strong>Remarks autocomplete</strong> \u2014 Common reasons: Wrong Pick, Expiring soon, Damaged, Wrong quantity, etc.</li>" +
-            "<li><strong>Copy for Email</strong> \u2014 Formats entry details for pasting into an email.</li>" +
-            "<li><strong>Place on Transfer</strong> \u2014 Move item to Stock Transfers for another location.</li>" +
+            "<li>Return arranged</li>" +
+            "<li>Handed over</li>" +
+            "<li>Collection note received</li>" +
+            "<li>Credit note received</li>" +
+            "<li>Damaged item</li>" +
+            "</ul>" +
+            "<p>When <strong>Supplier refused</strong> is marked, a red warning box appears and all checklist items " +
+            "(except Damaged) are disabled \u2014 the return is effectively closed.</p>"
+        },
+        {
+          heading: "Buttons & Actions",
+          body:
+            "<ul>" +
+            "<li><strong>Copy for Email</strong> \u2014 Copies formatted return details to clipboard for pasting into an email.</li>" +
+            "<li><strong>Place on Transfer</strong> \u2014 Move item to Stock Transfers for another pharmacy.</li>" +
+            "<li><strong>Mark as Refused</strong> \u2014 Closes the return when supplier refuses (red badge).</li>" +
             "</ul>"
         },
         {
           heading: "Tips",
           body:
             "<ul>" +
-            "<li>Returns created from Near Expiry show a \"From Near Expiry\" badge.</li>" +
+            "<li>Returns created from Near Expiry show a \u201CFrom Near Expiry\u201D badge.</li>" +
+            "<li>Filtered by month \u2014 use the month selector at the top.</li>" +
             "<li>Search filters as you type across all fields.</li>" +
             "</ul>"
         }
@@ -1234,32 +1566,57 @@
             "and direct integration with Returns and Scarce Stock.</p>"
         },
         {
-          heading: "Urgency Colours",
+          heading: "Add Entry Form",
           body:
             "<table class=\"eikon-help-table\">" +
-            "<tr><th>Days</th><th>Colour</th><th>Label</th></tr>" +
-            "<tr><td>Expired</td><td><strong style=\"color:var(--danger)\">Red</strong></td><td>\"Expired (Xd)\"</td></tr>" +
-            "<tr><td>1\u201330 days</td><td><strong style=\"color:#e8a035\">Orange</strong></td><td>\"X days\"</td></tr>" +
-            "<tr><td>31\u201390 days</td><td><strong style=\"color:#e8b635\">Yellow</strong></td><td>\"X days\"</td></tr>" +
-            "<tr><td>90+ days</td><td><strong style=\"color:var(--ok)\">Green</strong></td><td>\"X days\"</td></tr>" +
+            "<tr><th>Field</th><th>Type</th><th>Required</th></tr>" +
+            "<tr><td>Product Name</td><td>Text</td><td>Yes</td></tr>" +
+            "<tr><td>Expiry Date</td><td>Date</td><td>Yes</td></tr>" +
+            "<tr><td>Location</td><td>Text</td><td>No</td></tr>" +
+            "<tr><td>Notes</td><td>Text</td><td>No</td></tr>" +
             "</table>"
         },
         {
-          heading: "Inline Actions",
+          heading: "Urgency Colours",
+          body:
+            "<table class=\"eikon-help-table\">" +
+            "<tr><th>Days</th><th>Colour</th><th>Row Style</th></tr>" +
+            "<tr><td>Expired</td><td><strong style=\"color:var(--danger)\">Red</strong></td><td>Red-tinted row</td></tr>" +
+            "<tr><td>1\u201330 days</td><td><strong style=\"color:#e8a035\">Orange</strong></td><td>Orange-tinted row</td></tr>" +
+            "<tr><td>31\u201390 days</td><td><strong style=\"color:#e8b635\">Yellow</strong></td><td>Yellow-tinted row</td></tr>" +
+            "<tr><td>90+ days</td><td><strong style=\"color:var(--ok)\">Green</strong></td><td>Normal row</td></tr>" +
+            "</table>"
+        },
+        {
+          heading: "Inline Actions (Per Row)",
           body:
             "<ul>" +
-            "<li><strong>Return</strong> \u2014 Create a return entry in the Returns module (enter supplier and quantity).</li>" +
-            "<li><strong>Bulk Return</strong> \u2014 Multi-select items with checkboxes for batch return creation.</li>" +
-            "<li><strong>Add to Scarce Stock</strong> \u2014 List the item for other locations to request.</li>" +
+            "<li><strong>Return</strong> \u2014 Opens a modal to create a return (enter supplier and quantity). " +
+            "Creates a linked entry in the Returns module. Row shows \u201CReturn pending\u201D or \u201CReturned\u201D pill.</li>" +
+            "<li><strong>Add to Scarce Stock</strong> \u2014 Opens a modal to set quantity and batch. " +
+            "Lists the item in Scarce Stock for other pharmacies. Row shows \u201CIn Scarce Stock\u201D pill.</li>" +
+            "<li><strong>Edit / Delete</strong> \u2014 Modify or remove the entry.</li>" +
             "</ul>"
+        },
+        {
+          heading: "Bulk Return",
+          body:
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Click <strong>Bulk Return</strong> in the toolbar.</li>" +
+            "<li>Modal shows all eligible items (those without existing returns) with checkboxes.</li>" +
+            "<li>Optionally enter a Supplier and Quantity.</li>" +
+            "<li>Use <strong>Select All / Deselect All</strong> buttons to manage selection.</li>" +
+            "<li>Click <strong>Create Returns</strong> \u2014 each selected item gets a separate return entry.</li>" +
+            "</ol>"
         },
         {
           heading: "Tips",
           body:
             "<ul>" +
-            "<li>Sort by \"Days to Expire\" to see the most urgent items first.</li>" +
+            "<li>Click column headers to sort \u2014 sort by \u201CDays to Expire\u201D for most urgent first.</li>" +
             "<li>Bulk Return saves time when returning multiple items to the same supplier.</li>" +
-            "<li>These items also appear on the Dashboard with inline action buttons.</li>" +
+            "<li>Near-expiry items also appear on the Dashboard with inline action buttons.</li>" +
+            "<li>Items where supplier refused the return show a grey \u201CSupplier refused\u201D pill.</li>" +
             "</ul>"
         }
       ]
@@ -1274,29 +1631,37 @@
         {
           heading: "Overview",
           body:
-            "<p>Two-sided module: offer items you have in excess, and request items you urgently need. " +
-            "Visible across all pharmacies in your organisation.</p>"
+            "<p>Two-sided marketplace: offer items you have in excess, and post needs for items you urgently require. " +
+            "Visible across all pharmacies in your organisation. Privacy is maintained \u2014 only involved parties see each other\u2019s details.</p>"
         },
         {
-          heading: "Two Sides",
+          heading: "Two Views (Toggle)",
+          body:
+            "<table class=\"eikon-help-table\">" +
+            "<tr><th>View</th><th>Purpose</th><th>Key Fields</th></tr>" +
+            "<tr><td><strong>Available Stock</strong></td><td>Items you\u2019re offering</td><td>Item name, batch, expiry, quantity, status (Open/Closed)</td></tr>" +
+            "<tr><td><strong>Stock Needs</strong></td><td>Items you\u2019re looking for</td><td>Item name, needed by date, quantity, status (Open/Closed)</td></tr>" +
+            "</table>"
+        },
+        {
+          heading: "Request &amp; Offer Workflow",
           body:
             "<ul>" +
-            "<li><strong>Available Stock (Offers)</strong> \u2014 Items you\u2019re offering. Set quantity, expiry, batch, and status (Open/Closed).</li>" +
-            "<li><strong>Stock Needs</strong> \u2014 Items you need. Set quantity, urgency (Low/Medium/High), and status.</li>" +
-            "</ul>"
-        },
-        {
-          heading: "Request Workflow",
-          body:
-            "<p>Other pharmacies can request your offered items. You accept or reject, then fulfil " +
-            "via Stock Transfers. Privacy is maintained \u2014 only the requester and offerer see each other\u2019s details.</p>"
+            "<li><strong>Against offers</strong> \u2014 Other pharmacies <em>request</em> your stock. " +
+            "You Accept/Reject, then Confirm Dispatch. Receiving pharmacy confirms receipt.</li>" +
+            "<li><strong>Against needs</strong> \u2014 Other pharmacies <em>offer</em> stock to you. " +
+            "You Accept/Reject the offer.</li>" +
+            "</ul>" +
+            "<p>Both include a <strong>private note</strong> field visible only to the two parties involved.</p>" +
+            "<p>Statuses: Pending \u2192 Accepted \u2192 Dispatched \u2192 Delivered (or Rejected).</p>"
         },
         {
           heading: "Tips",
           body:
             "<ul>" +
-            "<li>Combine with Near Expiry \u2014 add nearly-expired items here before they waste.</li>" +
-            "<li>The Dashboard flashes Scarce Stock when you have unaccepted offers.</li>" +
+            "<li>Combine with Near Expiry \u2014 add nearly-expired items here before they go to waste.</li>" +
+            "<li>The Dashboard flashes Scarce Stock when you have pending requests.</li>" +
+            "<li>Expand a row to see all incoming requests/offers with action buttons.</li>" +
             "</ul>"
         }
       ]
@@ -1319,23 +1684,43 @@
             "#hashtag suggestion extraction, pinned messages, and auto-cleanup after 6 months.</p>"
         },
         {
-          heading: "Key Features",
+          heading: "Scope Toggle",
+          body:
+            "<p>Switch between <strong>Organisation</strong> (current org only) and <strong>All</strong> " +
+            "(all pharmacies across all organisations). When sending to All, a confirmation modal asks you to confirm.</p>"
+        },
+        {
+          heading: "Message Features",
           body:
             "<ul>" +
-            "<li><strong>@mentions</strong> \u2014 Type @ to mention users with autocomplete.</li>" +
-            "<li><strong>#suggestions</strong> \u2014 Messages with #hashtags are extracted to a suggestion table.</li>" +
-            "<li><strong>Pin messages</strong> \u2014 Pin up to 30 important messages to the top.</li>" +
-            "<li><strong>Edit & Delete</strong> \u2014 Modify or remove your messages.</li>" +
-            "<li><strong>Suggestion priorities</strong> \u2014 Superadmins can set High/Medium/Low priority and export as CSV.</li>" +
+            "<li><strong>@mentions</strong> \u2014 Type <code>@</code> to trigger autocomplete; shows user name and location.</li>" +
+            "<li><strong>#suggestions</strong> \u2014 Messages containing <code>#</code> hashtags are auto-extracted to the Suggestions table.</li>" +
+            "<li><strong>Pin messages</strong> \u2014 Pin up to 30 important messages to a collapsible section at the top.</li>" +
+            "<li><strong>Edit &amp; Delete</strong> \u2014 Modify or remove your own messages.</li>" +
+            "<li><strong>Scope badge</strong> \u2014 Each message shows <strong>ORG</strong> (purple) or <strong>ALL</strong> (blue).</li>" +
+            "<li><strong>Load Older</strong> \u2014 Button appears to load previous messages.</li>" +
             "</ul>"
+        },
+        {
+          heading: "Suggestions Table",
+          body:
+            "<table class=\"eikon-help-table\">" +
+            "<tr><th>Column</th><th>Purpose</th></tr>" +
+            "<tr><td>Suggestion</td><td>Title + comment count</td></tr>" +
+            "<tr><td>By</td><td>Creator name</td></tr>" +
+            "<tr><td>Priority</td><td>Clickable pill: Low / Medium / High</td></tr>" +
+            "<tr><td>Status</td><td>Open \u2192 In Progress \u2192 Resolved (superadmin controls)</td></tr>" +
+            "<tr><td>Actions</td><td>Edit, Delete, View (superadmin: add comments, change status)</td></tr>" +
+            "</table>" +
+            "<p>Superadmins can <strong>Export CSV</strong> of all suggestions.</p>"
         },
         {
           heading: "Tips",
           body:
             "<ul>" +
             "<li>Unread mentions appear on the Dashboard chat board preview.</li>" +
-            "<li>Messages auto-delete after 6 months (server-side cleanup).</li>" +
-            "<li>Pin announcements and important guidelines for persistent visibility.</li>" +
+            "<li>Messages auto-delete after 6 months \u2014 pin important ones to keep them permanently.</li>" +
+            "<li>Max 2000 characters per message.</li>" +
             "</ul>"
         }
       ]
@@ -1345,33 +1730,65 @@
       id: "instructions",
       title: "Instructions",
       icon: "\uD83D\uDCDD",
-      subtitle: "Multi-tab instruction management with calendar date selection and severity-coded entries.",
+      subtitle: "Multi-tab instruction management with calendar date selection and severity-coded handover bullets.",
       sections: [
         {
           heading: "Overview",
           body:
-            "<p>Organised instruction management across five categories: Daily, Operations, Systems, Clinical, " +
-            "and Settings. Uses a calendar interface for date selection with severity-coded bullet entries.</p>"
+            "<p>Organised instruction management across five tabs: Daily &amp; Handover, Opening/Closing, " +
+            "Systems, Clinical, and Settings. Uses a calendar interface for date selection.</p>"
         },
         {
-          heading: "How It Works",
+          heading: "Tabs",
+          body:
+            "<table class=\"eikon-help-table\">" +
+            "<tr><th>Tab</th><th>Purpose</th></tr>" +
+            "<tr><td><strong>\uD83D\uDCC6 Daily &amp; Handover</strong></td><td>Per-day notes, permanent handover instructions, and severity-coded handover bullets</td></tr>" +
+            "<tr><td><strong>\uD83D\uDDDD Opening/Closing</strong></td><td>Store opening checklist, closing checklist, end-of-day instructions</td></tr>" +
+            "<tr><td><strong>\uD83E\uDDFE Systems</strong></td><td>POS instructions, POYC workflow, ordering process, loyalty schemes</td></tr>" +
+            "<tr><td><strong>\uD83E\uDDD1\u200D\u2695\uFE0F Clinical</strong></td><td>HIV/Concerta dispensing (toggleable), doctor appointments, fee schedules</td></tr>" +
+            "<tr><td><strong>\u2699\uFE0F Settings</strong></td><td>Storage info and reload controls</td></tr>" +
+            "</table>"
+        },
+        {
+          heading: "Daily &amp; Handover Tab",
           body:
             "<ul>" +
-            "<li><strong>Calendar view</strong> \u2014 Click dates to select; navigate months with arrows.</li>" +
-            "<li><strong>Daily entry</strong> \u2014 Free-text note per day that auto-saves as you type.</li>" +
-            "<li><strong>Bullet entries</strong> \u2014 Severity-coded items: " +
-            "<strong style=\"color:var(--ok)\">Green</strong> (info), " +
-            "<strong style=\"color:#e8b635\">Yellow</strong> (warning), " +
-            "<strong style=\"color:var(--danger)\">Red</strong> (critical).</li>" +
-            "<li><strong>Press Enter</strong> to quickly add a bullet; edit or delete inline.</li>" +
-            "</ul>"
+            "<li><strong>Calendar</strong> \u2014 Click a date to select. Dots show: " +
+            "<strong style=\"color:#5aa2ff\">\u25CF blue</strong> = day notes exist, " +
+            "<strong style=\"color:#ffaf32\">\u25CF orange</strong> = outgoing handover bullets, " +
+            "<strong style=\"color:#43d17a\">\u25CF green</strong> = incoming handover from previous day.</li>" +
+            "<li><strong>Permanent Handover</strong> \u2014 Always-visible instructions shared across all days (rich text editor).</li>" +
+            "<li><strong>Day Specific Instructions</strong> \u2014 Notes saved per day. Click Edit to modify.</li>" +
+            "<li><strong>Handover From Previous Day</strong> \u2014 Shows bullets entered on the prior day. " +
+            "Click \u201CAppend to Day Notes\u201D to merge them into today\u2019s notes.</li>" +
+            "<li><strong>Handover Bullets (Outgoing)</strong> \u2014 Severity-coded bullets that carry forward to the next day:</li>" +
+            "</ul>" +
+            "<table class=\"eikon-help-table\">" +
+            "<tr><th>Severity</th><th>Colour</th></tr>" +
+            "<tr><td>Low</td><td><strong style=\"color:var(--ok)\">\uD83D\uDFE2 Green</strong></td></tr>" +
+            "<tr><td>Medium</td><td><strong style=\"color:#e8b635\">\uD83D\uDFE1 Yellow</strong></td></tr>" +
+            "<tr><td>Critical</td><td><strong style=\"color:var(--danger)\">\uD83D\uDD34 Red</strong></td></tr>" +
+            "</table>"
+        },
+        {
+          heading: "Other Tabs",
+          body:
+            "<ul>" +
+            "<li><strong>Opening/Closing</strong> \u2014 Three rich-text editors for opening checklist, closing checklist, and end-of-day instructions.</li>" +
+            "<li><strong>Systems</strong> \u2014 Four editors: POS, POYC, How to Order Items, Active Loyalty Schemes.</li>" +
+            "<li><strong>Clinical</strong> \u2014 Five editors: HIV dispensing (toggleable), Concerta dispensing (toggleable), " +
+            "Doctor appointments, Doctor fees, Clinic fees.</li>" +
+            "</ul>" +
+            "<p>Each editor has Edit/Save/Cancel buttons and shows a \u201CLast updated\u201D timestamp.</p>"
         },
         {
           heading: "Tips",
           body:
             "<ul>" +
-            "<li>Use the Daily tab for handover notes between shifts.</li>" +
-            "<li>Severity colours make it easy to scan for critical items.</li>" +
+            "<li>Use the Daily tab for shift handover notes \u2014 bullets auto-carry to the next day.</li>" +
+            "<li>HIV and Concerta sections can be toggled off to hide them during normal use.</li>" +
+            "<li>Click \u201CPrint (A4)\u201D to print all instructions for the selected day.</li>" +
             "<li>The Dashboard shows today\u2019s instructions and yesterday\u2019s handover.</li>" +
             "</ul>"
         }
@@ -1391,39 +1808,46 @@
         {
           heading: "Overview",
           body:
-            "<p>Comprehensive clinical testing system supporting multiple test types with patient management, " +
-            "result tracking, trending charts, and cloud synchronisation.</p>"
+            "<p>Comprehensive clinical testing system supporting 6 test types with patient management, " +
+            "result tracking, colour-coded reference ranges, and cloud synchronisation.</p>"
         },
         {
-          heading: "Test Types",
+          heading: "Sections (Sidebar Navigation)",
           body:
             "<table class=\"eikon-help-table\">" +
-            "<tr><th>Test</th><th>Measurements</th></tr>" +
-            "<tr><td><strong>Blood Pressure</strong></td><td>Systolic / Diastolic (mmHg)</td></tr>" +
-            "<tr><td><strong>HbA1c</strong></td><td>Percentage value</td></tr>" +
-            "<tr><td><strong>Blood Glucose</strong></td><td>mg/dL or mmol/L</td></tr>" +
-            "<tr><td><strong>Cholesterol</strong></td><td>Total, HDL, LDL (mg/dL)</td></tr>" +
-            "<tr><td><strong>Weight/BMI</strong></td><td>Weight (kg), Height (cm) \u2192 BMI auto-calculated</td></tr>" +
-            "<tr><td><strong>Urine (Combur 9)</strong></td><td>Multiple parameters from dipstick</td></tr>" +
+            "<tr><th>Section</th><th>Purpose</th></tr>" +
+            "<tr><td><strong>Overview</strong></td><td>Dashboard with recent records and quick-create buttons</td></tr>" +
+            "<tr><td><strong>Blood Pressure</strong></td><td>Systolic/Diastolic (mmHg), Pulse, Arm, Position</td></tr>" +
+            "<tr><td><strong>HbA1c</strong></td><td>Percentage and mmol/mol values</td></tr>" +
+            "<tr><td><strong>Blood Glucose</strong></td><td>mmol/L with timing: Fasting, Random, Post-meal (1h/2h)</td></tr>" +
+            "<tr><td><strong>Cholesterol</strong></td><td>Total, HDL, LDL, Triglycerides, TC/HDL Ratio, Fasting status</td></tr>" +
+            "<tr><td><strong>Weight / BMI</strong></td><td>Weight (kg), Height (cm), BMI (auto-calculated), Category, Waist (cm)</td></tr>" +
+            "<tr><td><strong>Urine (Combur 9)</strong></td><td>Leukocytes, Nitrite, Urobilinogen, Protein, pH, Blood, Ketones, Glucose, Appearance</td></tr>" +
+            "<tr><td><strong>All Records</strong></td><td>Searchable archive across all test types</td></tr>" +
             "</table>"
-        },
-        {
-          heading: "Tabs",
-          body:
-            "<ul>" +
-            "<li><strong>Records</strong> \u2014 Filterable table of all test records.</li>" +
-            "<li><strong>Patients</strong> \u2014 Patient master list with contact details and testing history.</li>" +
-            "<li><strong>Analysis & Reports</strong> \u2014 Statistical summaries and patient-specific result trending.</li>" +
-            "</ul>"
         },
         {
           heading: "Key Features",
           body:
             "<ul>" +
-            "<li><strong>Colour-coded results</strong> \u2014 Normal (green), warning (yellow), critical (red) based on reference ranges.</li>" +
+            "<li><strong>Colour-coded results</strong> \u2014 " +
+            "<strong style=\"color:var(--ok)\">Green</strong> (normal), " +
+            "<strong style=\"color:#e8b635\">Yellow</strong> (warning), " +
+            "<strong style=\"color:var(--danger)\">Red</strong> (critical) \u2014 based on built-in reference ranges.</li>" +
             "<li><strong>Patient ID</strong> \u2014 Maltese format auto-normalised (7 digits + 1 letter).</li>" +
             "<li><strong>Fee tracking</strong> \u2014 Record fee due per test.</li>" +
+            "<li><strong>BMI auto-calc</strong> \u2014 Enters weight and height, BMI and category auto-fill.</li>" +
             "<li><strong>Offline capable</strong> \u2014 Works offline; syncs when connection returns.</li>" +
+            "</ul>"
+        },
+        {
+          heading: "Actions (Per Record)",
+          body:
+            "<ul>" +
+            "<li><strong>View Patient</strong> \u2014 Display patient history across all test types.</li>" +
+            "<li><strong>Edit</strong> \u2014 Modify test results.</li>" +
+            "<li><strong>Print</strong> \u2014 Printable view with patient metadata and results table.</li>" +
+            "<li><strong>Delete</strong> \u2014 Remove record with confirmation.</li>" +
             "</ul>"
         },
         {
@@ -1432,7 +1856,7 @@
             "<ul>" +
             "<li>Search patients by partial ID or name for quick lookup.</li>" +
             "<li>Reference ranges are built in \u2014 no need to consult external standards.</li>" +
-            "<li>Batch-print multiple patient results for documentation.</li>" +
+            "<li>On first use, a migration modal offers to import data from the previous system.</li>" +
             "</ul>"
         }
       ]
@@ -1448,26 +1872,38 @@
           heading: "Overview",
           body:
             "<p>Manage travel and routine vaccinations with country-based recommendations, " +
-            "stock tracking, order creation, and an interactive puzzle map.</p>"
+            "stock tracking, order creation, and an interactive world map.</p>"
         },
         {
           heading: "Tabs",
           body:
             "<table class=\"eikon-help-table\">" +
             "<tr><th>Tab</th><th>Purpose</th></tr>" +
-            "<tr><td><strong>Travel</strong></td><td>Country selector with tiered recommendations (Always Required, High-risk, Optional)</td></tr>" +
-            "<tr><td><strong>Routine & Other</strong></td><td>Non-travel routine immunisations</td></tr>" +
-            "<tr><td><strong>Stock</strong></td><td>Inventory with batch, expiry, and reorder levels</td></tr>" +
-            "<tr><td><strong>Database</strong></td><td>Full vaccine catalogue</td></tr>" +
+            "<tr><td><strong>\uD83C\uDF0D Travel</strong></td><td>Select a country (search or click map) to see vaccine recommendations: Always Required (green) and High Risk (yellow). Check vaccines and set quantities.</td></tr>" +
+            "<tr><td><strong>\uD83D\uDC89 Routine &amp; Other</strong></td><td>Non-travel routine immunisations. Same checkbox + quantity interface.</td></tr>" +
+            "<tr><td><strong>\uD83D\uDCE6 Stock</strong></td><td>Inventory: vaccine name, quantity, batch, expiry. Add/edit/delete stock items.</td></tr>" +
+            "<tr><td><strong>\uD83D\uDDC4 Database</strong></td><td>Full vaccine catalogue with brand, manufacturer, and routine/travel classification.</td></tr>" +
             "</table>"
+        },
+        {
+          heading: "Travel Workflow",
+          body:
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Search for a country or click the interactive map.</li>" +
+            "<li>Always Required and High Risk vaccines appear with checkboxes.</li>" +
+            "<li>Check the vaccines needed and set quantities.</li>" +
+            "<li>Fill in client details (name, surname, phone, email).</li>" +
+            "<li>Optionally add extra vaccines via the autocomplete field.</li>" +
+            "<li>Click <strong>Create Order</strong> \u2014 choose A4 or receipt (75mm) print format.</li>" +
+            "</ol>"
         },
         {
           heading: "Tips",
           body:
             "<ul>" +
             "<li>Click a country on the map for faster selection than typing.</li>" +
-            "<li>Quantities sync across recommendations and the table.</li>" +
-            "<li>Print as receipt for point-of-sale; print as A4 for documentation.</li>" +
+            "<li>Quantities sync between the recommendation checkboxes and the order.</li>" +
+            "<li>Vaccine tags show \"Routine in Malta\" (green) or not (grey) for quick reference.</li>" +
             "</ul>"
         }
       ]
@@ -1516,37 +1952,55 @@
         {
           heading: "Overview",
           body:
-            "<p>Specialised calculators for complex dosage planning. Each supports dose schedules, " +
+            "<p>Five specialised calculators for complex dosage planning. Each supports dose schedules, " +
             "tablet combinations, supply estimation, and printable patient instructions.</p>"
+        },
+        {
+          heading: "Common Fields (All Calculators)",
+          body:
+            "<table class=\"eikon-help-table\">" +
+            "<tr><th>Field</th><th>Type</th><th>Required</th></tr>" +
+            "<tr><td>Patient Name</td><td>Text</td><td>Yes</td></tr>" +
+            "<tr><td>ID Card</td><td>Text</td><td>No</td></tr>" +
+            "<tr><td>Start Date</td><td>Date</td><td>Yes</td></tr>" +
+            "<tr><td>Duration (weeks)</td><td>Number</td><td>Yes</td></tr>" +
+            "<tr><td>Notes</td><td>Text</td><td>No</td></tr>" +
+            "</table>"
         },
         {
           heading: "Calculators",
           body:
             "<table class=\"eikon-help-table\">" +
-            "<tr><th>Tab</th><th>What It Does</th></tr>" +
-            "<tr><td><strong>LEV</strong></td><td>Levothyroxine tablet combinations (25/50/75/100 mcg), alternating dose patterns, half/quarter splitting</td></tr>" +
-            "<tr><td><strong>PRED</strong></td><td>Prednisolone taper planner with multi-step dose reduction schedules</td></tr>" +
-            "<tr><td><strong>WAR</strong></td><td>Warfarin weekly dosing by day with INR instructions and cycle patterns</td></tr>" +
-            "<tr><td><strong>INS</strong></td><td>Insulin supply estimator: vials/pens, priming, discard rules, round to boxes</td></tr>" +
-            "<tr><td><strong>MTX</strong></td><td>Methotrexate dosing and administration schedules</td></tr>" +
+            "<tr><th>Tab</th><th>What It Does</th><th>Key Settings</th></tr>" +
+            "<tr><td><strong>LEV</strong></td><td>Levothyroxine tablet combinations</td><td>Dose 1/2/3 (mcg), pattern mode (Fixed/Alternate/Custom), " +
+            "allow splitting (whole/halves/quarters), market box sizes per strength</td></tr>" +
+            "<tr><td><strong>PRED</strong></td><td>Prednisolone taper planner</td><td>Drug name, strengths (comma-sep), multi-step dose reduction " +
+            "(each step: dose/day, days, note), max tabs/day, round to boxes</td></tr>" +
+            "<tr><td><strong>WAR</strong></td><td>Warfarin weekly dosing</td><td>Cycle doses (comma-sep), tablet strengths, pattern mode " +
+            "(Fixed/Variable/Custom with per-day inputs), pack specs</td></tr>" +
+            "<tr><td><strong>INS</strong></td><td>Insulin supply estimator</td><td>Morning/Afternoon/Evening/Night doses, container type " +
+            "(Pen/Vial), units per container, priming units, discard-after days, round to boxes</td></tr>" +
+            "<tr><td><strong>MTX</strong></td><td>Methotrexate weekly dosing</td><td>Weekly dose (mg), day of week, tablet strength, " +
+            "allow halves, tabs per box, round to boxes</td></tr>" +
             "</table>"
         },
         {
-          heading: "Key Features",
+          heading: "Actions",
           body:
             "<ul>" +
-            "<li><strong>Calculate</strong> \u2014 Shows result table with dates, doses, and tablet combinations.</li>" +
-            "<li><strong>Save & Print</strong> \u2014 Store with patient ID and generate printable instructions.</li>" +
-            "<li><strong>Records</strong> \u2014 View/edit/delete saved calculations.</li>" +
+            "<li><strong>Calculate</strong> \u2014 Shows result table with dates, doses, and tablet combinations in the right panel.</li>" +
+            "<li><strong>Save &amp; Print</strong> \u2014 Store calculation with patient ID and generate A4 printable instructions.</li>" +
+            "<li><strong>Clear</strong> \u2014 Reset all fields to defaults.</li>" +
             "</ul>"
         },
         {
           heading: "Tips",
           body:
             "<ul>" +
-            "<li>Levothyroxine: Use halves/quarters for small dose adjustments.</li>" +
-            "<li>Prednisolone: Add taper steps in chronological order.</li>" +
-            "<li>Insulin: Enable both priming and discard for realistic supply estimates.</li>" +
+            "<li>Levothyroxine: Use halves/quarters for fine dose adjustments between standard strengths.</li>" +
+            "<li>Prednisolone: Add taper steps in chronological order; use Reset to Example for a template.</li>" +
+            "<li>Insulin: Enable both priming and discard-after for realistic supply estimates.</li>" +
+            "<li>Warfarin: Per-day inputs (Mon\u2013Sun) appear in Custom pattern mode.</li>" +
             "</ul>"
         }
       ]
@@ -1565,23 +2019,46 @@
             "Compliant with EMA and Malta MPA standards.</p>"
         },
         {
+          heading: "Tabs",
+          body:
+            "<table class=\"eikon-help-table\">" +
+            "<tr><th>Tab</th><th>Purpose</th></tr>" +
+            "<tr><td><strong>All Reports</strong></td><td>Searchable list of all ADR reports with Edit, Print, PDF, Delete actions</td></tr>" +
+            "<tr><td><strong>New / Edit Report</strong></td><td>5-step wizard form (see below)</td></tr>" +
+            "</table>"
+        },
+        {
           heading: "5-Step Wizard",
           body:
             "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
-            "<li><strong>Patient Information</strong> \u2014 Initials, sex, age, weight, height, medical history.</li>" +
-            "<li><strong>Suspected Drug(s)</strong> \u2014 Name, dose, route, dates, batch, manufacturer (repeatable).</li>" +
-            "<li><strong>Reaction / ADR</strong> \u2014 Description, dates, seriousness, outcome, causality, MedDRA term.</li>" +
-            "<li><strong>Reporter Information</strong> \u2014 Name, qualification, contact details.</li>" +
-            "<li><strong>Review & Submit</strong> \u2014 Summary and status (Draft, Submitted to MPA, Submitted to EMA, Closed).</li>" +
+            "<li><strong>Patient Information</strong> \u2014 Initials (privacy \u2014 no full names), sex, date of birth, age (auto-calculates year), patient ID, medical history.</li>" +
+            "<li><strong>Suspected Drug(s)</strong> \u2014 Repeatable: drug name, dose, route (Oral/IV/IM/SC/Topical/Inhaled/Rectal/Other), " +
+            "frequency, start/stop dates, indication, batch number, MAH. Click <strong>+ Add Drug</strong> for multiple drugs.</li>" +
+            "<li><strong>Reaction / ADR</strong> \u2014 Free-text description, <strong>MedDRA term</strong> autocomplete (100+ terms), " +
+            "start/stop dates, seriousness (Non-serious/Serious/Serious and unexpected), " +
+            "outcome (Recovered/Recovering/Not recovered/Fatal/Unknown), " +
+            "causality (Certain/Probable/Possible/Unlikely/Unrelated), report type, report status.</li>" +
+            "<li><strong>Reporter Information</strong> \u2014 Name, qualification (Pharmacist/Physician/Nurse/Patient/Other), organisation, phone, email.</li>" +
+            "<li><strong>Review &amp; Submit</strong> \u2014 Read-only summary of all data with jump-back links to each step for corrections.</li>" +
             "</ol>"
+        },
+        {
+          heading: "Report Statuses",
+          body:
+            "<ul>" +
+            "<li><strong>Preliminary</strong> \u2014 Initial report.</li>" +
+            "<li><strong>Periodic / Follow-up</strong> \u2014 Updated information.</li>" +
+            "<li><strong>Final</strong> \u2014 Complete report.</li>" +
+            "</ul>"
         },
         {
           heading: "Tips",
           body:
             "<ul>" +
-            "<li>Use MedDRA terms for standard reactions \u2014 the autocomplete has 100+ terms.</li>" +
+            "<li>Use MedDRA term autocomplete for standard reaction terminology.</li>" +
             "<li>Save as Draft first, review, then Submit when confident.</li>" +
             "<li>Include batch numbers for product traceability.</li>" +
+            "<li>Use initials only (not full names) for patient privacy.</li>" +
             "</ul>"
         }
       ]
@@ -1591,31 +2068,67 @@
       id: "screening",
       title: "Screening",
       icon: "\uD83C\uDFAF",
-      subtitle: "Plan and run health screening campaigns with participant tracking and result analysis.",
+      subtitle: "Plan and run health screening campaigns with participant tracking, follow-ups, and result analysis.",
       sections: [
         {
           heading: "Overview",
           body:
             "<p>Manage health screening events (e.g. Diabetes Awareness Week, Blood Pressure Month). " +
-            "Integrates with POCT for test recording, tracks participants, and generates reports.</p>"
+            "Integrates with POCT for test recording, tracks participants, follow-ups, and generates summary reports.</p>"
         },
         {
-          heading: "Key Features",
+          heading: "Tabs",
+          body:
+            "<table class=\"eikon-help-table\">" +
+            "<tr><th>Tab</th><th>Purpose</th></tr>" +
+            "<tr><td><strong>Campaigns</strong></td><td>Create/manage campaigns with type, dates, target goal, and participant tracking</td></tr>" +
+            "<tr><td><strong>All Participants</strong></td><td>Cross-campaign participant list filterable by result category</td></tr>" +
+            "<tr><td><strong>Follow-ups</strong></td><td>Schedule and track follow-up appointments with status (Pending/Scheduled/Completed/No-show/Cancelled/Overdue)</td></tr>" +
+            "<tr><td><strong>Summary</strong></td><td>Dashboard with totals, campaign comparison, and progress bars</td></tr>" +
+            "</table>"
+        },
+        {
+          heading: "Campaign Types",
+          body:
+            "<p>Blood Pressure, Diabetes Screening, Cholesterol, Blood Glucose, BMI Assessment, " +
+            "Urine Screening, Cardiovascular Risk, Flu Vaccination, Smoking Cessation, General Health Check, Other.</p>"
+        },
+        {
+          heading: "Participant Form Fields",
+          body:
+            "<table class=\"eikon-help-table\">" +
+            "<tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr>" +
+            "<tr><td>ID Card</td><td>Text</td><td>Yes</td><td>Autocomplete from POCT patients</td></tr>" +
+            "<tr><td>Full Name</td><td>Text</td><td>No</td><td>Auto-filled from POCT records</td></tr>" +
+            "<tr><td>Phone</td><td>Tel</td><td>No</td><td></td></tr>" +
+            "<tr><td>Date of Birth</td><td>Date</td><td>No</td><td></td></tr>" +
+            "<tr><td>Type</td><td>Dropdown</td><td>No</td><td>Pre-registered or Walk-in</td></tr>" +
+            "<tr><td>Screening Date</td><td>Date</td><td>Yes</td><td></td></tr>" +
+            "<tr><td>POCT Results</td><td>Dynamic</td><td>No</td><td>Fields appear based on campaign type (e.g. BP fields for Blood Pressure campaigns)</td></tr>" +
+            "<tr><td>Result Notes</td><td>Textarea</td><td>No</td><td></td></tr>" +
+            "<tr><td>Result Category</td><td>Dropdown</td><td>Yes</td><td>Normal, Borderline, Abnormal, Requires urgent attention</td></tr>" +
+            "<tr><td>Referral</td><td>Dropdown</td><td>Yes</td><td>No referral, GP, Specialist, Hospital, Dietitian, Pharmacist follow-up, Self-monitoring, Other</td></tr>" +
+            "</table>"
+        },
+        {
+          heading: "Result Category Colours",
           body:
             "<ul>" +
-            "<li><strong>Campaign types</strong> \u2014 Blood Pressure, HbA1c, Glucose, Cholesterol, Weight/BMI, Urine, General, Custom.</li>" +
-            "<li><strong>Participant tracking</strong> \u2014 Name, ID, test results, referral status.</li>" +
-            "<li><strong>Result categories</strong> \u2014 Normal, Abnormal, Requires urgent attention.</li>" +
-            "<li><strong>POCT sync</strong> \u2014 Push screening data to POCT for continuity of care.</li>" +
-            "<li><strong>Duplicate campaigns</strong> \u2014 Clone a past campaign to reuse its structure.</li>" +
+            "<li><strong style=\"color:var(--ok)\">Green</strong> \u2014 Normal</li>" +
+            "<li><strong style=\"color:#e8b635\">Yellow</strong> \u2014 Borderline</li>" +
+            "<li><strong style=\"color:#e8a035\">Orange</strong> \u2014 Abnormal</li>" +
+            "<li><strong style=\"color:var(--danger)\">Red</strong> \u2014 Requires urgent attention</li>" +
             "</ul>"
         },
         {
           heading: "Tips",
           body:
             "<ul>" +
-            "<li>Filter by \"Requires urgent attention\" to prioritise interventions.</li>" +
-            "<li>Export data for external analysis (CSV/Excel).</li>" +
+            "<li>POCT test fields auto-appear based on campaign type \u2014 no manual setup needed.</li>" +
+            "<li>Patient data auto-fills from POCT records when you enter an ID card.</li>" +
+            "<li>Duplicate a past campaign to reuse its structure for recurring events.</li>" +
+            "<li>Follow-ups past their scheduled date are automatically marked <strong>Overdue</strong> (red).</li>" +
+            "<li>Summary tab shows progress bars for campaigns with a target goal.</li>" +
             "</ul>"
         }
       ]
@@ -1641,7 +2154,7 @@
             "<li><strong>Click nodes</strong> \u2014 Select to load related data in the side panel.</li>" +
             "<li><strong>Side panel sections</strong> \u2014 Symptom links, Similar products, Complementary products, Use cases, Bundles, Guardrails.</li>" +
             "<li><strong>Score threshold</strong> \u2014 Slider to filter weak connections.</li>" +
-            "<li><strong>Zoom & pan</strong> \u2014 Use buttons or mouse drag to navigate.</li>" +
+            "<li><strong>Zoom &amp; pan</strong> \u2014 Use buttons or mouse drag to navigate.</li>" +
             "</ul>"
         },
         {
@@ -1683,37 +2196,57 @@
           heading: "Overview",
           body:
             "<p>Centralised contact directory combining read-only reference data (emergency numbers, public clinics) " +
-            "with editable organisation-wide contact tables.</p>"
+            "with editable organisation-wide contact tables. Includes global search across all sections.</p>"
         },
         {
-          heading: "Sections",
+          heading: "Static Reference Sections",
           body:
             "<ul>" +
-            "<li><strong>Emergency & Important Numbers</strong> \u2014 Fixed reference (police, ambulance, poison control).</li>" +
-            "<li><strong>24/7 Public Health Clinics</strong> \u2014 Static clinic list.</li>" +
-            "<li><strong>Suppliers</strong> \u2014 Vendor names, contacts, phone, email, notes.</li>" +
-            "<li><strong>Medical Representatives</strong> \u2014 Rep details and company info.</li>" +
-            "<li><strong>Head Office</strong> \u2014 Central office contacts.</li>" +
-            "<li><strong>Organisation Pharmacies</strong> \u2014 All pharmacy locations in your network.</li>" +
-            "<li><strong>POYC</strong> \u2014 Partner pharmacy locations.</li>" +
+            "<li><strong>Emergency &amp; Important Numbers</strong> \u2014 All Emergencies (112), Ambulance (196), Police (2122 4001), " +
+            "Civil Protection (2393 0000), Urgent Non-Emergency (1400), Mater Dei Hospital, Gozo General Hospital.</li>" +
+            "<li><strong>24/7 Public Health Clinics</strong> \u2014 Floriana, Mosta, Paola, and the Primary HealthCare Call Centre.</li>" +
             "</ul>"
         },
         {
-          heading: "Key Features",
+          heading: "Editable Contact Tables",
+          body:
+            "<table class=\"eikon-help-table\">" +
+            "<tr><th>Table</th><th>Columns</th><th>Shared</th></tr>" +
+            "<tr><td><strong>Client Contacts</strong></td><td>Name, Client ID, Address, Phone, Alternate Phone</td><td>Location-specific</td></tr>" +
+            "<tr><td><strong>Suppliers</strong></td><td>Supplier Name, Phone, Email</td><td>Yes</td></tr>" +
+            "<tr><td><strong>Medical Representatives</strong></td><td>Rep Name, Phone, Email</td><td>Yes</td></tr>" +
+            "<tr><td><strong>Doctors</strong></td><td>Doctor Name, Personal Number, Patient-Safe Number</td><td>Yes</td></tr>" +
+            "<tr><td><strong>Specialists</strong></td><td>Name, Specialty (60+ options + filter dropdown), Personal Number, Patient-Safe Number</td><td>Yes</td></tr>" +
+            "<tr><td><strong>Locums</strong></td><td>Locum Name, Phone</td><td>Yes</td></tr>" +
+            "<tr><td><strong>Head Office</strong></td><td>Office/Department, Phone</td><td>Yes (hideable)</td></tr>" +
+            "<tr><td><strong>Organisation Pharmacies</strong></td><td>Pharmacy Name, Phone</td><td>Yes (hideable)</td></tr>" +
+            "<tr><td><strong>POYC</strong></td><td>Contact Person/Office, Phone</td><td>Yes</td></tr>" +
+            "</table>" +
+            "<p><strong>Shared</strong> tables are visible across all locations in your organisation \u2014 " +
+            "changes affect everyone. A confirmation modal warns before edits to shared tables.</p>"
+        },
+        {
+          heading: "Actions (Per Table)",
           body:
             "<ul>" +
-            "<li><strong>CSV Import/Export</strong> \u2014 Bulk update contacts from spreadsheets or download for backup.</li>" +
-            "<li><strong>Shared data</strong> \u2014 All editable tables are shared across your organisation. Changes are visible to all locations immediately.</li>" +
-            "<li><strong>Duplicate detection</strong> \u2014 Warns if phone or email already exists.</li>" +
+            "<li><strong>+ Add</strong> \u2014 Add a new row.</li>" +
+            "<li><strong>Edit / Del</strong> \u2014 Per-row modification or deletion.</li>" +
+            "<li><strong>Export</strong> \u2014 Download as Google Contacts\u2013compatible CSV or copy to clipboard.</li>" +
+            "<li><strong>Import</strong> \u2014 Paste CSV text; rows are appended (existing entries kept). " +
+            "Shared tables show an extra confirmation before importing.</li>" +
+            "<li><strong>Search (per table)</strong> \u2014 Real-time filter with match count.</li>" +
+            "<li><strong>Global Search (top)</strong> \u2014 Searches across all tables + emergency numbers + clinics.</li>" +
             "</ul>"
         },
         {
           heading: "Tips",
           body:
             "<ul>" +
-            "<li>Keep supplier phone/email updated for quick reordering.</li>" +
-            "<li>Use CSV import for bulk updates from external systems.</li>" +
+            "<li>Doctors and Specialists have separate <em>Personal</em> and <em>Patient-Safe</em> phone fields.</li>" +
+            "<li>Specialists table has a specialty filter dropdown (60+ medical specialties).</li>" +
+            "<li>Head Office and Organisation Pharmacies sections can be hidden with a toggle checkbox.</li>" +
             "<li>Print static sections (emergency numbers) for wall display.</li>" +
+            "<li>Use CSV import for bulk updates from spreadsheets.</li>" +
             "</ul>"
         }
       ]
