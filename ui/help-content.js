@@ -137,19 +137,19 @@
             "</table>"
         },
         {
-          heading: "Entries Tab",
+          heading: "How to Record Daily Temperatures",
           body:
-            "<ul>" +
-            "<li><strong>Date picker</strong> \u2014 Defaults to today. Change it to record or review past dates.</li>" +
-            "<li><strong>Device table</strong> \u2014 One row per active device. Enter Min and Max for each.</li>" +
-            "<li><strong>Status dot</strong> \u2014 " +
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Open the <strong>Entries</strong> tab (defaults to today\u2019s date).</li>" +
+            "<li>For each device in the table, enter the <strong>Min</strong> and <strong>Max</strong> reading.</li>" +
+            "<li>Check the <strong>status dot</strong> next to each row: " +
             "<strong style=\"color:var(--ok)\">Green</strong> = within limits, " +
             "<strong style=\"color:var(--danger)\">Red</strong> = outside limits, " +
-            "<strong style=\"color:var(--muted)\">Grey</strong> = missing.</li>" +
-            "<li><strong>Save</strong> \u2014 Saves all entries for the selected date.</li>" +
-            "</ul>" +
-            "<div class=\"eikon-help-tip\"><strong>Tip:</strong> Check status dots before saving. " +
-            "A red dot means the reading is outside limits \u2014 recorded as-is but flagged for review.</div>"
+            "<strong style=\"color:var(--muted)\">Grey</strong> = not yet entered.</li>" +
+            "<li>When all devices are filled in, click <strong>Save</strong>.</li>" +
+            "</ol>" +
+            "<div class=\"eikon-help-tip\"><strong>Tip:</strong> Fill in all devices first, then click Save once. " +
+            "A red dot means the reading is outside limits \u2014 it\u2019s recorded as-is but flagged for review.</div>"
         },
         {
           heading: "Devices Tab",
@@ -279,14 +279,17 @@
             "medicine details, doctor details, and prescription information.</p>"
         },
         {
-          heading: "Smart Autocomplete",
+          heading: "How to Record a DDA Sale",
           body:
-            "<p>The form features intelligent suggestions to speed up data entry:</p>" +
-            "<ul>" +
-            "<li><strong>Client Name & ID Card</strong> \u2014 Auto-suggests from recent entries. A valid ID card auto-populates name and address.</li>" +
-            "<li><strong>Medicine</strong> \u2014 Fixed curated list of common DDA medicines. Type and press <span class=\"eikon-help-kbd\">Tab</span> to accept.</li>" +
-            "<li><strong>Doctor Name & Reg No.</strong> \u2014 Cross-fill: selecting a doctor auto-fills the reg number and vice versa.</li>" +
-            "</ul>"
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Click <strong>New Entry</strong>.</li>" +
+            "<li>Enter the <strong>client ID card</strong> \u2014 name and address auto-fill from previous records.</li>" +
+            "<li>Start typing the <strong>medicine name</strong> \u2014 select from the curated DDA list (press Tab to accept).</li>" +
+            "<li>Enter the <strong>quantity</strong> and <strong>prescription details</strong>.</li>" +
+            "<li>Type the <strong>doctor name</strong> \u2014 the registration number auto-fills (or vice versa).</li>" +
+            "<li>Click <strong>Save</strong>.</li>" +
+            "<li>If the row highlights <strong style=\"color:var(--danger)\">red</strong>, the same client received this medicine within 30 days \u2014 verify before proceeding.</li>" +
+            "</ol>"
         },
         {
           heading: "Early Supply Detection",
@@ -1866,16 +1869,16 @@
             "(all pharmacies across all organisations). When sending to All, a confirmation modal asks you to confirm.</p>"
         },
         {
-          heading: "Message Features",
+          heading: "How to Send a Message",
           body:
-            "<ul>" +
-            "<li><strong>@mentions</strong> \u2014 Type <code>@</code> to trigger autocomplete; shows user name and location.</li>" +
-            "<li><strong>#suggestions</strong> \u2014 Messages containing <code>#</code> hashtags are auto-extracted to the Suggestions table.</li>" +
-            "<li><strong>Pin messages</strong> \u2014 Pin up to 30 important messages to a collapsible section at the top.</li>" +
-            "<li><strong>Edit &amp; Delete</strong> \u2014 Modify or remove your own messages.</li>" +
-            "<li><strong>Scope badge</strong> \u2014 Each message shows <strong>ORG</strong> (purple) or <strong>ALL</strong> (blue).</li>" +
-            "<li><strong>Load Older</strong> \u2014 Button appears to load previous messages.</li>" +
-            "</ul>"
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Type your message in the text box at the bottom (max 2000 chars).</li>" +
+            "<li>To mention someone, type <code>@</code> and select from the autocomplete list.</li>" +
+            "<li>To create a suggestion, include a <code>#</code>hashtag \u2014 it\u2019ll be auto-extracted to the Suggestions table.</li>" +
+            "<li>Choose the scope: <strong>Organisation</strong> (your org only) or <strong>All</strong> (all pharmacies \u2014 confirmation required).</li>" +
+            "<li>Press <strong>Enter</strong> or click <strong>Send</strong>.</li>" +
+            "<li>To pin an important message, click <strong>Pin</strong> on it (up to 30 pinned messages).</li>" +
+            "</ol>"
         },
         {
           heading: "Suggestions Table",
@@ -1925,6 +1928,25 @@
             "<tr><td><strong>\uD83E\uDDD1\u200D\u2695\uFE0F Clinical</strong></td><td>HIV/Concerta dispensing (toggleable), doctor appointments, fee schedules</td></tr>" +
             "<tr><td><strong>\u2699\uFE0F Settings</strong></td><td>Storage info and reload controls</td></tr>" +
             "</table>"
+        },
+        {
+          heading: "How to Do a Daily Handover",
+          body:
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Open the <strong>Daily &amp; Handover</strong> tab.</li>" +
+            "<li>Click today\u2019s date on the calendar (or it\u2019s already selected).</li>" +
+            "<li>Check the <strong>Handover From Previous Day</strong> section \u2014 review any bullets left by the previous shift.</li>" +
+            "<li>If useful, click <strong>Append to Day Notes</strong> to merge them into today\u2019s notes.</li>" +
+            "<li>Write today\u2019s notes in the <strong>Day Specific Instructions</strong> box (click Edit first).</li>" +
+            "<li>Before leaving, add <strong>Handover Bullets</strong> for the next shift:</li>" +
+            "</ol>" +
+            "<ul>" +
+            "<li>Click <strong>+ Add Bullet</strong>, type the message, and select severity " +
+            "(<strong style=\"color:var(--ok)\">Low</strong>, " +
+            "<strong style=\"color:#e8b635\">Medium</strong>, " +
+            "<strong style=\"color:var(--danger)\">Critical</strong>).</li>" +
+            "<li>These automatically appear as \u201CHandover From Previous Day\u201D for the next person.</li>" +
+            "</ul>"
         },
         {
           heading: "Daily &amp; Handover Tab",
@@ -1986,6 +2008,19 @@
           body:
             "<p>Comprehensive clinical testing system supporting 6 test types with patient management, " +
             "result tracking, colour-coded reference ranges, and cloud synchronisation.</p>"
+        },
+        {
+          heading: "How to Record a Test",
+          body:
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Click the test type in the sidebar (e.g. Blood Pressure, HbA1c, Cholesterol).</li>" +
+            "<li>Click <strong>New Record</strong>.</li>" +
+            "<li>Enter the <strong>patient ID card</strong> \u2014 name auto-fills from previous records.</li>" +
+            "<li>Fill in the test <strong>results</strong> (fields vary per test type). Results auto-colour based on reference ranges.</li>" +
+            "<li>Optionally record the <strong>fee</strong>.</li>" +
+            "<li>Click <strong>Save</strong>.</li>" +
+            "<li>To view a patient\u2019s history, click <strong>View Patient</strong> on any of their records.</li>" +
+            "</ol>"
         },
         {
           heading: "Sections (Sidebar Navigation)",
@@ -2132,6 +2167,17 @@
             "tablet combinations, supply estimation, and printable patient instructions.</p>"
         },
         {
+          heading: "How to Use a Calculator",
+          body:
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Select a calculator tab (<strong>LEV</strong>, <strong>PRED</strong>, <strong>WAR</strong>, <strong>INS</strong>, or <strong>MTX</strong>).</li>" +
+            "<li>Enter the <strong>patient name</strong>, <strong>start date</strong>, and <strong>duration</strong> (weeks).</li>" +
+            "<li>Fill in the dose-specific fields for that calculator (see table below).</li>" +
+            "<li>Click <strong>Calculate</strong> \u2014 the results table appears in the right panel showing dates, doses, and tablet combinations.</li>" +
+            "<li>Review the schedule and click <strong>Save &amp; Print</strong> to store the record and generate a printable A4 patient instruction sheet.</li>" +
+            "</ol>"
+        },
+        {
           heading: "Common Fields (All Calculators)",
           body:
             "<table class=\"eikon-help-table\">" +
@@ -2262,6 +2308,20 @@
             "<tr><td><strong>Follow-ups</strong></td><td>Schedule and track follow-up appointments with status (Pending/Scheduled/Completed/No-show/Cancelled/Overdue)</td></tr>" +
             "<tr><td><strong>Summary</strong></td><td>Dashboard with totals, campaign comparison, and progress bars</td></tr>" +
             "</table>"
+        },
+        {
+          heading: "How to Run a Screening Event",
+          body:
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Go to <strong>Campaigns</strong> and click <strong>New Campaign</strong>.</li>" +
+            "<li>Choose the <strong>campaign type</strong> (e.g. Blood Pressure, Diabetes), set dates, and optionally a target goal.</li>" +
+            "<li>Click <strong>Save</strong> \u2014 the campaign is active.</li>" +
+            "<li>To add a participant, click <strong>Add Participant</strong> on the campaign.</li>" +
+            "<li>Enter their <strong>ID card</strong> (auto-fills name from POCT records if known), phone, and screening date.</li>" +
+            "<li>POCT fields auto-appear based on the campaign type \u2014 fill in the results.</li>" +
+            "<li>Select a <strong>result category</strong> (Normal / Borderline / Abnormal / Requires urgent attention) and <strong>referral</strong> type.</li>" +
+            "<li>Click <strong>Save</strong>. If follow-up is needed, go to the <strong>Follow-ups</strong> tab to schedule it.</li>" +
+            "</ol>"
         },
         {
           heading: "Campaign Types",
@@ -2400,6 +2460,17 @@
             "</table>" +
             "<p><strong>Shared</strong> tables are visible across all locations in your organisation \u2014 " +
             "changes affect everyone. A confirmation modal warns before edits to shared tables.</p>"
+        },
+        {
+          heading: "How to Add or Find a Contact",
+          body:
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Scroll to the relevant table (e.g. Suppliers, Doctors, Specialists).</li>" +
+            "<li>Click <strong>+ Add</strong> and fill in the fields for that table.</li>" +
+            "<li>Click <strong>Save</strong>. For shared tables, a confirmation modal warns that changes affect all locations.</li>" +
+            "</ol>" +
+            "<p>To find a contact, use the <strong>Global Search</strong> at the top \u2014 it searches across all tables, " +
+            "emergency numbers, and clinics. Each table also has its own search box for focused filtering.</p>"
         },
         {
           heading: "Actions (Per Table)",
