@@ -1541,13 +1541,15 @@
             "</ol>"
         },
         {
-          heading: "Workflows",
+          heading: "How to Process a Recall or Quarantine",
           body:
             "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
-            "<li>Click <strong>Add Alert</strong> and fill in the item details.</li>" +
-            "<li>Click a row to select it \u2014 the checklist panel opens on the right.</li>" +
-            "<li>Check off each action as it\u2019s completed (auto-saves with timestamp).</li>" +
-            "<li>Update status from Open \u2192 In Progress \u2192 Closed as the alert is resolved.</li>" +
+            "<li>Click <strong>Add Alert</strong> and fill in the item details (name, type, batch, storage location).</li>" +
+            "<li>Click <strong>Save</strong> \u2014 the alert appears in the table with status Open.</li>" +
+            "<li>Click the row to select it \u2014 the <strong>checklist panel</strong> opens on the right.</li>" +
+            "<li>Work through the 7 steps: inform your team, contact the supplier, notify authorities, arrange the return.</li>" +
+            "<li>Check each item as it\u2019s completed \u2014 changes <strong>auto-save</strong> with a timestamp.</li>" +
+            "<li>Update the alert status: <strong>Open</strong> \u2192 <strong>In Progress</strong> \u2192 <strong>Closed</strong> as actions are completed.</li>" +
             "</ol>"
         },
         {
@@ -1656,17 +1658,21 @@
             "</table>"
         },
         {
-          heading: "Checklist (Auto-save)",
+          heading: "How to Create a Return",
           body:
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Click <strong>New</strong>.</li>" +
+            "<li>Enter the <strong>description</strong> (item name) and fill in what you have: expiry, batch, quantity, supplier, invoice number.</li>" +
+            "<li>Click a <strong>remarks chip</strong> (Wrong Pick, Expiring soon, Damaged, etc.) or type a custom reason.</li>" +
+            "<li>Note the <strong>location stored</strong> (e.g. \"Back room / Fridge\").</li>" +
+            "<li>Click <strong>Save</strong>.</li>" +
+            "<li>Select the row to open the <strong>checklist panel</strong>, then check off each step as you go:</li>" +
+            "</ol>" +
             "<ul>" +
-            "<li>Return arranged</li>" +
-            "<li>Handed over</li>" +
-            "<li>Collection note received</li>" +
-            "<li>Credit note received</li>" +
-            "<li>Damaged item</li>" +
+            "<li>Return arranged \u2192 Handed over \u2192 Collection note received \u2192 Credit note received</li>" +
             "</ul>" +
-            "<p>When <strong>Supplier refused</strong> is marked, a red warning box appears and all checklist items " +
-            "(except Damaged) are disabled \u2014 the return is effectively closed.</p>"
+            "<p>If the supplier refuses, click <strong>Mark as Refused</strong> \u2014 a red warning box appears and " +
+            "all checklist items (except Damaged) are disabled.</p>"
         },
         {
           heading: "Buttons & Actions",
@@ -1724,6 +1730,17 @@
             "</table>"
         },
         {
+          heading: "How to Track a Near-Expiry Item",
+          body:
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Type the <strong>product name</strong> and select the <strong>expiry date</strong> in the form at the top.</li>" +
+            "<li>Optionally add a <strong>location</strong> and <strong>notes</strong>.</li>" +
+            "<li>Click <strong>Add</strong> (or press Enter) \u2014 the item appears in the table with a colour-coded urgency pill.</li>" +
+            "<li>When you\u2019re ready to return it, click the <strong>Return</strong> button on the row \u2014 enter supplier and quantity, and a linked entry is created in the Returns module.</li>" +
+            "<li>To offer it to another pharmacy, click <strong>Add to Scarce Stock</strong> instead.</li>" +
+            "</ol>"
+        },
+        {
           heading: "Inline Actions (Per Row)",
           body:
             "<ul>" +
@@ -1778,6 +1795,29 @@
             "<tr><td><strong>Available Stock</strong></td><td>Items you\u2019re offering</td><td>Item name, batch, expiry, quantity, status (Open/Closed)</td></tr>" +
             "<tr><td><strong>Stock Needs</strong></td><td>Items you\u2019re looking for</td><td>Item name, needed by date, quantity, status (Open/Closed)</td></tr>" +
             "</table>"
+        },
+        {
+          heading: "How to Offer Stock You Have",
+          body:
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Switch to the <strong>Available Stock</strong> view.</li>" +
+            "<li>Click <strong>New offer</strong>.</li>" +
+            "<li>Enter the <strong>item name</strong>, <strong>quantity</strong>, and optionally batch, expiry, and a public description.</li>" +
+            "<li>Click <strong>Save</strong> \u2014 the item is now visible to all pharmacies in your organisation.</li>" +
+            "<li>When another pharmacy requests your stock, expand the row to see the request and click <strong>Accept</strong> or <strong>Reject</strong>.</li>" +
+            "<li>After accepting, click <strong>Confirm Dispatch</strong> when you send it.</li>" +
+            "</ol>"
+        },
+        {
+          heading: "How to Post a Need",
+          body:
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Switch to the <strong>Stock Needs</strong> view.</li>" +
+            "<li>Click <strong>New offer</strong> (the form adapts to need fields).</li>" +
+            "<li>Enter the <strong>item name</strong>, <strong>quantity needed</strong>, and optionally a <strong>needed by</strong> date.</li>" +
+            "<li>Click <strong>Save</strong> \u2014 other pharmacies can now offer stock to fulfil your need.</li>" +
+            "<li>When offers come in, expand the row and click <strong>Accept</strong> on the best one.</li>" +
+            "</ol>"
         },
         {
           heading: "Request &amp; Offer Workflow",
