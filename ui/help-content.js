@@ -973,6 +973,18 @@
             "</ul>"
         },
         {
+          heading: "How to Add a Quotation Entry",
+          body:
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Click <strong>Add Entry</strong>.</li>" +
+            "<li>Enter the <strong>Supplier</strong> name and <strong>Item Description</strong>.</li>" +
+            "<li>Set the <strong>Qty Purchased</strong> and <strong>VAT Rate</strong>.</li>" +
+            "<li>Enter the <strong>Cost Excl. VAT</strong> \u2014 Cost Incl. VAT fills automatically (or vice versa).</li>" +
+            "<li>Enter the <strong>Retail Price</strong> to see the profit margin colour-coded in the row.</li>" +
+            "<li>Click <strong>Save</strong>. If the description is similar to an existing entry, you\u2019ll see a warning.</li>" +
+            "</ol>"
+        },
+        {
           heading: "Buttons & Actions",
           body:
             "<ul>" +
@@ -1124,23 +1136,27 @@
             "</table>"
         },
         {
-          heading: "Status Flow & Attempts",
+          heading: "How to Create a Delivery",
           body:
-            "<p><strong>Scheduled</strong> \u2192 <strong>Dispatched</strong> \u2192 <strong>Out for Delivery</strong> \u2192 <strong>Delivered</strong></p>" +
-            "<p>If delivery fails, the attempt counter increments. On the <strong>3rd failed attempt</strong>, " +
-            "status automatically changes to <strong>Returned</strong>.</p>"
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Click <strong>+ New Delivery</strong>.</li>" +
+            "<li>Fill in the client details: name, phone, and email.</li>" +
+            "<li>Set the <strong>delivery address</strong> \u2014 either type it or click on the <strong>map</strong> to drop a pin (reverse geocoding fills the address).</li>" +
+            "<li>Choose the <strong>delivery method</strong> (In-house Driver, Courier, or Collection) and <strong>priority</strong>.</li>" +
+            "<li>Add items to the delivery: enter name, quantity, and optionally batch ref and expiry per row.</li>" +
+            "<li>Assign a <strong>driver</strong> (or add a new one on-the-fly).</li>" +
+            "<li>Click <strong>Save</strong> \u2014 the delivery gets an auto-generated ID (DEL-00001 format) and appears in the Active tab.</li>" +
+            "</ol>"
         },
         {
-          heading: "Buttons & Actions",
+          heading: "How to Complete a Delivery",
           body:
-            "<ul>" +
-            "<li><strong>+ New Delivery</strong> \u2014 Open creation modal with interactive map.</li>" +
-            "<li><strong>\u2705 Mark Delivered</strong> \u2014 Record actual date, time, recipient name, signature, and proof of delivery.</li>" +
-            "<li><strong>\u2717 Mark Failed</strong> \u2014 Log failure reason; auto-increments attempt counter.</li>" +
-            "<li><strong>+ Add Log Entry</strong> \u2014 Append a timestamped, author-attributed note to the delivery\u2019s audit trail.</li>" +
-            "<li><strong>Edit</strong> \u2014 Modify delivery details; outcome fields appear for dispatched+ statuses.</li>" +
-            "<li><strong>Print</strong> \u2014 Print single delivery or entire tab.</li>" +
-            "</ul>"
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Find the delivery in the <strong>Active</strong> tab and update its status as it progresses: Scheduled \u2192 Dispatched \u2192 Out for Delivery.</li>" +
+            "<li>When delivered, click <strong>\u2705 Mark Delivered</strong> \u2014 enter actual date, time, and recipient name.</li>" +
+            "<li>If delivery fails, click <strong>\u2717 Mark Failed</strong> \u2014 log the reason. The attempt counter increments. After 3 failed attempts, status auto-changes to Returned.</li>" +
+            "<li>Use <strong>+ Add Log Entry</strong> at each status change to build a clear audit trail.</li>" +
+            "</ol>"
         },
         {
           heading: "Tips",
@@ -1211,15 +1227,29 @@
             "</table>"
         },
         {
+          heading: "How to Book an Appointment",
+          body:
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Click <strong>New Appointment</strong> (or click an empty slot in the Day/Week view).</li>" +
+            "<li>Enter the <strong>patient name</strong>, <strong>ID card</strong>, and <strong>phone</strong>.</li>" +
+            "<li>Select a <strong>doctor</strong> \u2014 the clinic dropdown auto-filters to that doctor\u2019s locations.</li>" +
+            "<li>Select a <strong>clinic</strong> and <strong>session date</strong> \u2014 only dates with availability appear.</li>" +
+            "<li>Pick an <strong>available time slot</strong> \u2014 double-booked slots are blocked automatically.</li>" +
+            "<li>Fees auto-fill from clinic settings. Adjust if needed and add medicines/items.</li>" +
+            "<li>Click <strong>Save</strong> \u2014 the appointment appears on the calendar.</li>" +
+            "</ol>"
+        },
+        {
           heading: "Status Flow",
           body:
-            "<p><strong>Scheduled</strong> \u2192 <strong>Confirmed</strong> \u2192 <strong>Completed</strong> (or Cancelled / No Show)</p>"
+            "<p><strong>Scheduled</strong> \u2192 <strong>Confirmed</strong> \u2192 <strong>Completed</strong> (or Cancelled / No Show)</p>" +
+            "<p>Update status from the detail panel or right-click menu. Cancelled appointments require a reason.</p>"
         },
         {
           heading: "Waiting List",
           body:
-            "<p>When no slots are available, add a patient to the waiting list with doctor/clinic preference, " +
-            "preferred dates, and flexibility level. Convert to a real appointment when a slot opens.</p>" +
+            "<p>When no slots are available, click <strong>Add to Waiting List</strong> instead. Enter doctor/clinic preference, " +
+            "preferred dates, and flexibility level. When a slot opens, convert to a real appointment with one click.</p>" +
             "<p>Statuses: Waiting \u2192 Offered \u2192 Booked (or Cancelled).</p>"
         },
         {
@@ -1279,14 +1309,17 @@
             "All notes appear in the print view and detail panel.</p>"
         },
         {
-          heading: "Workflows",
+          heading: "How to Handle a Customer Issue",
           body:
             "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
-            "<li>Click <strong>Create Ticket</strong> \u2014 auto-generates ID (TKT-00001 format).</li>" +
-            "<li>Fill client details, category, priority, and description.</li>" +
-            "<li>Assign to a staff member.</li>" +
-            "<li>As work progresses, add notes and update status.</li>" +
-            "<li>Set status to <strong>Resolved</strong> or <strong>Closed</strong> when done.</li>" +
+            "<li>Click <strong>Create Ticket</strong> \u2014 an ID auto-generates (TKT-00001 format).</li>" +
+            "<li>Fill in the client\u2019s <strong>name</strong>, <strong>phone</strong>, and <strong>issue description</strong>.</li>" +
+            "<li>Select a <strong>category</strong> and <strong>priority</strong>.</li>" +
+            "<li><strong>Assign</strong> the ticket to a staff member (or yourself).</li>" +
+            "<li>Click <strong>Save</strong>.</li>" +
+            "<li>As you work on it, click <strong>Add Note</strong> to log each update with a timestamp.</li>" +
+            "<li>Update the <strong>status</strong> as it progresses: Open \u2192 In Progress \u2192 Pending \u2192 Resolved.</li>" +
+            "<li>Once fully resolved, set status to <strong>Closed</strong>.</li>" +
             "</ol>"
         },
         {
@@ -1338,7 +1371,18 @@
             "</table>"
         },
         {
-          heading: "Recording a Transaction",
+          heading: "How to Create a Campaign",
+          body:
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Go to the <strong>Campaigns</strong> tab and click <strong>New Campaign</strong>.</li>" +
+            "<li>Choose a <strong>campaign type</strong> (Stamp Card, Points, Discount, Event, Buy X Get Y, or Tiered).</li>" +
+            "<li>Enter the campaign <strong>name</strong>, <strong>description</strong>, and optionally set start/end dates.</li>" +
+            "<li>Fill in the type-specific settings (e.g. stamps required, points per \u20AC1, discount %).</li>" +
+            "<li>Click <strong>Save</strong> \u2014 the campaign is now Active and ready for transactions.</li>" +
+            "</ol>"
+        },
+        {
+          heading: "How to Record a Transaction",
           body:
             "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
             "<li>Enter client <strong>ID Card</strong> (autocomplete from history, auto-padded).</li>" +
@@ -1412,12 +1456,27 @@
             "</ul>"
         },
         {
-          heading: "Order Lifecycle",
+          heading: "How to Place an Order",
           body:
-            "<p><strong>Draft</strong> (orange) \u2192 <strong>Pending</strong> (blue) \u2192 <strong>Shipped</strong> (blue) \u2192 <strong>Received</strong> (green)</p>" +
-            "<p>For shipped/received orders, you can <strong>Report Problem</strong> per item: " +
-            "Not Received, Wrong Pick, Damaged, Short Quantity, or Other. " +
-            "Supplier responses appear as resolution statuses (Acknowledged, Replacement Sent, Credit Issued, Disputed, Resolved).</p>"
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Go to the <strong>Inventory</strong> tab and search for a product by name, barcode, or stock code.</li>" +
+            "<li>Click <strong>Add to Cart</strong> on the items you need \u2014 set the quantity (deal multiples are respected automatically).</li>" +
+            "<li>Repeat for all items. The cart groups items by supplier.</li>" +
+            "<li>Open the <strong>Cart</strong>, review items and quantities per supplier.</li>" +
+            "<li>Click <strong>Commit Order</strong> for each supplier \u2014 optionally add order notes.</li>" +
+            "<li>The order moves to <strong>My Orders</strong> tab with status Pending.</li>" +
+            "</ol>"
+        },
+        {
+          heading: "How to Receive an Order",
+          body:
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Go to <strong>My Orders</strong> and find the order (status: Shipped or Pending).</li>" +
+            "<li>Click <strong>Mark Received</strong>.</li>" +
+            "<li>If there\u2019s a problem with any item, click <strong>Report Problem</strong> and select the reason: " +
+            "Not Received, Wrong Pick, Damaged, Short Quantity, or Other.</li>" +
+            "<li>Track supplier responses as resolution statuses appear (Acknowledged, Replacement Sent, Credit Issued, etc.).</li>" +
+            "</ol>"
         },
         {
           heading: "Tips",
