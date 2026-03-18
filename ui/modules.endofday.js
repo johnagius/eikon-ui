@@ -500,7 +500,8 @@
   }
 
   function roundToNearest5(n) {
-    return Math.round(Number(n || 0) / 5) * 5;
+    var unit = getRoundingUnit();
+    return Math.round(Number(n || 0) / unit) * unit;
   }
 
   function openPrintTabWithHtml(html) {
@@ -805,6 +806,14 @@
   var LS_EOD_KEY = "eikon_eod_records_v2";
   var LS_EOD_CONTACTS_KEY = "eikon_eod_contacts_v2";
   var LS_EOD_AUDIT_KEY = "eikon_eod_audit_v1";
+  var LS_EOD_ROUNDING_KEY = "eikon_eod_rounding";
+
+  function getRoundingUnit() {
+    try { var v = parseInt(window.localStorage.getItem(LS_EOD_ROUNDING_KEY), 10); return (v === 5) ? 5 : 10; } catch (e) { return 10; }
+  }
+  function setRoundingUnit(val) {
+    try { window.localStorage.setItem(LS_EOD_ROUNDING_KEY, String(val === 5 ? 5 : 10)); } catch (e) {}
+  }
 
   function loadAllEodsLocal() {
     try {
@@ -2976,10 +2985,24 @@ async function doPrintRangeReport(from, to) {
         el("div", { text: "E — Total Cash (Till − Float):" }),
         sumEVal
       ]),
-      el("div", { style: "display:flex;justify-content:space-between;gap:10px;border:1px solid rgba(255,255,255,.10);border-radius:12px;padding:10px;" }, [
-        el("div", { text: "F — Rounded Cash Deposited:" }),
-        sumFVal
-      ]),
+      (function () {
+        var curUnit = getRoundingUnit();
+        var r5 = el("input", { type: "radio", name: "eod-round-unit", value: "5", style: "margin:0" }); if (curUnit === 5) r5.checked = true;
+        var r10 = el("input", { type: "radio", name: "eod-round-unit", value: "10", style: "margin:0" }); if (curUnit === 10) r10.checked = true;
+        var lbl5 = el("label", { style: "display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;opacity:0.7" }, [r5, el("span", { text: "5s" })]);
+        var lbl10 = el("label", { style: "display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;opacity:0.7" }, [r10, el("span", { text: "10s" })]);
+        function onSwitch() { var u = r5.checked ? 5 : 10; setRoundingUnit(u); liveUpdateUI(); }
+        r5.addEventListener("change", onSwitch);
+        r10.addEventListener("change", onSwitch);
+        var row = el("div", { style: "display:flex;justify-content:space-between;gap:10px;border:1px solid rgba(255,255,255,.10);border-radius:12px;padding:10px;" }, [
+          el("div", { style: "display:flex;align-items:center;gap:8px;" }, [
+            el("span", { text: "F — Rounded Cash Deposited:" }),
+            el("span", { style: "display:flex;gap:8px;margin-left:6px;" }, [lbl10, lbl5])
+          ]),
+          sumFVal
+        ]);
+        return row;
+      })(),
       el("div", { style: "display:flex;justify-content:space-between;gap:10px;border:1px solid rgba(255,255,255,.10);border-radius:12px;padding:10px;" }, [
         el("div", { text: "Over / Under (E − Expected):" }),
         sumOUVal
