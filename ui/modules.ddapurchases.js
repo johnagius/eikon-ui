@@ -1007,7 +1007,7 @@
       title: "DDA Purchases",
       navTitle: "DDA Purchases",
 
-      icon: "🧾",
+      icon: "📥",
 
       iconText: "",
       iconSvg: ICON_SVG,

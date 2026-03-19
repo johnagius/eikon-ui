@@ -502,7 +502,7 @@
   E.registerModule({
     id: "dda_stocktakes",
     title: "DDA Stock Takes",
-    icon: "📦",
+    icon: "📊",
     order: 50,
     render: async function (ctx) {
       await render(ctx.mount);

@@ -1157,7 +1157,7 @@
     id: "locumreceipts",
     title: "Locum Receipts",
     order: 260,
-    icon: "🧾",
+    icon: "💶",
     render: render
   });
 

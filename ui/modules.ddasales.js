@@ -1800,7 +1800,7 @@ wrap.appendChild(top);
       navTitle: "DDA Sales",
 
       // keep sidebar icon
-      icon: "📈",
+      icon: "📤",
 
       iconText: "",
       iconSvg: ICON_SVG,

@@ -371,7 +371,7 @@
     id: "audit",
     title: "Audit Trail",
     order: 101,
-    icon: "\uD83D\uDCCB",
+    icon: "\uD83D\uDD12",
     render: render
   });
 

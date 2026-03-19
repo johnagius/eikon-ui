@@ -3110,7 +3110,7 @@ async function doPrintRangeReport(from, to) {
     id: "endofday",
     title: "End Of Day",
     order: 180,
-    icon: "🧾",
+    icon: "🌙",
     render: render
   });
 

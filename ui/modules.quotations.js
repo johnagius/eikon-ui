@@ -2064,7 +2064,7 @@
     id: "quotations",
     title: "Quotations",
     order: 205,
-    icon: "📋",
+    icon: "💰",
     render: render
   });
 })();

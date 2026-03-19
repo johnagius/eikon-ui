@@ -2139,7 +2139,7 @@ async function doDelete(row) {
       navTitle: "DDA POYC",
 
       // ✅ ICON (SIDEBAR): core.js uses m.icon as textContent, so it must be a glyph (not SVG).
-      icon: "🧾",
+      icon: "🏥",
 
       iconText: "",
       iconSvg: ICON_SVG,

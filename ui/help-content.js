@@ -315,7 +315,7 @@
     {
       id: "dda_stocktakes",
       title: "DDA Stock Takes",
-      icon: "\uD83D\uDCCB",
+      icon: "\uD83D\uDCCA",
       subtitle: "Physical inventory counts of regulated substances.",
       sections: [
         {
@@ -458,7 +458,7 @@
     {
       id: "emergency-pos",
       title: "Emergency POS",
-      icon: "\uD83D\uDC8A",
+      icon: "\uD83D\uDCB3",
       subtitle: "Offline-first point-of-sale with barcode scanning, camera OCR, and XLSX catalog import.",
       sections: [
         {
@@ -515,7 +515,7 @@
     {
       id: "endofday",
       title: "End Of Day",
-      icon: "\uD83E\uDDFE",
+      icon: "\uD83C\uDF19",
       subtitle: "Daily cash reconciliation with denomination counting, X/Z readings, and BOV deposits.",
       sections: [
         {
@@ -603,7 +603,7 @@
     {
       id: "shifts",
       title: "Shifts",
-      icon: "\uD83D\uDCC5",
+      icon: "\uD83D\uDD50",
       subtitle: "Shift scheduling, leave management, pharmacist coverage, and iCal export.",
       sections: [
         {
@@ -761,7 +761,7 @@
     {
       id: "locumreceipts",
       title: "Locum Receipts",
-      icon: "\uD83E\uDDFE",
+      icon: "\uD83D\uDCB6",
       subtitle: "Payment receipts for locum pharmacists with hourly rate calculations.",
       sections: [
         {
@@ -857,7 +857,7 @@
     {
       id: "clientorders",
       title: "Client Orders",
-      icon: "\uD83D\uDCE6",
+      icon: "\uD83D\uDECD\uFE0F",
       subtitle: "Manage customer orders from creation through fulfilment with auto-generated order codes.",
       sections: [
         {
@@ -1471,7 +1471,7 @@
     {
       id: "scarcestock",
       title: "Scarce Stock",
-      icon: "\uD83D\uDD0D",
+      icon: "\uD83D\uDD0E",
       subtitle: "List available stock for other locations and post needs for items you\u2019re looking for.",
       sections: [
         {

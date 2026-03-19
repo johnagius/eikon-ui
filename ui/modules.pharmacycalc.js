@@ -1980,7 +1980,7 @@ var meta = { pharmacyName: (user && user.location_name) || (user && user.org_nam
     id: "pharmacycalc",
     title: "Pharmacy Calculators",
     order: 400,
-    icon: "💊",
+    icon: "🧮",
     render: render
   });
 
