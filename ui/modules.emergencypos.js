@@ -2536,7 +2536,7 @@
   E.registerModule({
     id: "emergency-pos",
     title: "Emergency POS",
-    icon: "💊",
+    icon: "💳",
     order: 109,
     render: render
   });

@@ -3413,7 +3413,7 @@ function saveToken(newTok){
     id:    "shifts",
     title: "Shifts",
     order: 190,
-    icon:  "📅",
+    icon:  "🕐",
     render: render
   });
 

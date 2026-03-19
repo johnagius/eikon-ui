@@ -1943,7 +1943,7 @@
     id: "clientorders",
     title: "Client Orders",
     order: 200,
-    icon: "📦",
+    icon: "🛍️",
     render: render
   });
 })();

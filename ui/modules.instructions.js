@@ -1217,7 +1217,7 @@
   E.registerModule({
     id: MODULE_ID,
     title: "Instructions",
-    icon: "📋",
+    icon: "📝",
     order: 300,
     render: render
   });

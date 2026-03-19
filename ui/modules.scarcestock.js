@@ -1295,7 +1295,7 @@
   E.registerModule({
     id: "scarcestock",
     title: "Scarce Stock",
-    icon: "📦",
+    icon: "🔎",
     order: 280,
     render: render,
     destroy: function () { stopAutoRefresh(); }

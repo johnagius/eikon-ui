@@ -1462,7 +1462,7 @@
     id:    "order-diary",
     title: "Order Diary",
     order: 208,
-    icon:  "📦",
+    icon:  "📖",
     render: render
   });
 
