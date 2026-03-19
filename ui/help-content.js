@@ -864,50 +864,8 @@
           heading: "Overview",
           body:
             "<p>Track customer orders with auto-generated 6-character order codes, priority levels, " +
-            "follow-up status, and fulfilment tracking. Integrates with Order Diary for supply-chain tracking.</p>"
-        },
-        {
-          heading: "Tabs",
-          body:
-            "<table class=\"eikon-help-table\">" +
-            "<tr><th>Tab</th><th>Purpose</th></tr>" +
-            "<tr><td><strong>Active Orders</strong></td><td>Unfulfilled orders awaiting completion</td></tr>" +
-            "<tr><td><strong>Fulfilled Orders</strong></td><td>Completed orders for reference</td></tr>" +
-            "</table>"
-        },
-        {
-          heading: "Form Fields",
-          body:
-            "<table class=\"eikon-help-table\">" +
-            "<tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr>" +
-            "<tr><td>Date</td><td>Date</td><td>Yes</td><td>Defaults to today</td></tr>" +
-            "<tr><td>Client (Name &amp; Surname)</td><td>Text</td><td>Yes</td><td>Max 200 chars</td></tr>" +
-            "<tr><td>Address</td><td>Text</td><td>No</td><td>Delivery/contact address</td></tr>" +
-            "<tr><td>Contact</td><td>Phone</td><td>Yes</td><td>Primary phone number</td></tr>" +
-            "<tr><td>Alternate</td><td>Phone</td><td>No</td><td>Secondary phone</td></tr>" +
-            "<tr><td>Email</td><td>Email</td><td>No</td><td></td></tr>" +
-            "<tr><td>Item/s</td><td>Textarea</td><td>Yes</td><td>Multi-line; each line becomes a separate Order Diary entry</td></tr>" +
-            "<tr><td>Priority</td><td>Dropdown</td><td>Yes</td><td>High (red), Medium (green), Low (blue)</td></tr>" +
-            "<tr><td>Needed by</td><td>Date</td><td>Yes</td><td>Required delivery date</td></tr>" +
-            "<tr><td>Pick Up Date</td><td>Date</td><td>Yes</td><td>Customer collection date</td></tr>" +
-            "<tr><td>Deposit</td><td>Currency (\u20AC)</td><td>No</td><td>Two decimal places</td></tr>" +
-            "<tr><td>Follow-up Status</td><td>Dropdown</td><td>No</td><td>Called, Not Wanted, Not Available, Called (No Answer), Wrong Number</td></tr>" +
-            "<tr><td>Additional Notes</td><td>Textarea</td><td>No</td><td>Max 2000 chars</td></tr>" +
-            "<tr><td>Mark as Fulfilled</td><td>Checkbox</td><td>No</td><td>Completes the order</td></tr>" +
-            "</table>"
-        },
-        {
-          heading: "Buttons & Actions",
-          body:
-            "<ul>" +
-            "<li><strong>New Order</strong> \u2014 Opens the order creation modal.</li>" +
-            "<li><strong>Edit</strong> \u2014 Modify the selected order.</li>" +
-            "<li><strong>Delete</strong> \u2014 Remove order (asks to also remove linked Order Diary items).</li>" +
-            "<li><strong>Mark Fulfilled</strong> \u2014 Toggle fulfilment; moves order between Active/Fulfilled tables.</li>" +
-            "<li><strong>Print Sticker</strong> \u2014 80mm label with order code, client, items, and QR code.</li>" +
-            "<li><strong>Re-order</strong> \u2014 Duplicate a fulfilled order as a new active order.</li>" +
-            "<li><strong>Print (per table)</strong> \u2014 Print all active or all fulfilled orders.</li>" +
-            "</ul>"
+            "follow-up status, and fulfilment tracking. Integrates with Order Diary for supply-chain tracking.</p>" +
+            "<p>The <strong>Active Orders</strong> tab shows unfulfilled orders; the <strong>Fulfilled Orders</strong> tab shows completed ones.</p>"
         },
         {
           heading: "How to Create and Fulfil an Order",
@@ -919,8 +877,8 @@
             "<li>Set the <strong>priority</strong> (High/Medium/Low), <strong>needed by</strong> date, and <strong>pick-up date</strong>.</li>" +
             "<li>Click <strong>Save</strong> \u2014 a 6-character order code is auto-generated.</li>" +
             "<li>A prompt asks whether to add the items to the <strong>Order Diary</strong> \u2014 click Yes to track them with your supplier orders.</li>" +
-            "<li>As you follow up, update the <strong>follow-up status</strong> (Called, Not Wanted, Not Available, Called No Answer, Wrong Number).</li>" +
-            "<li>When the order is ready, click <strong>Mark Fulfilled</strong> \u2014 it moves to the Fulfilled tab.</li>" +
+            "<li>As you follow up with the client, update the <strong>follow-up status</strong>: Called, Not Wanted, Not Available, Called (No Answer), or Wrong Number.</li>" +
+            "<li>When the order is ready for collection, click <strong>Mark Fulfilled</strong> \u2014 it moves to the Fulfilled tab.</li>" +
             "<li>Click <strong>Print Sticker</strong> to generate an 80mm label with QR code for the bag.</li>" +
             "</ol>"
         },
@@ -930,8 +888,9 @@
             "<ul>" +
             "<li>\"Called (No Answer)\" automatically appends today\u2019s date to notes for follow-up tracking.</li>" +
             "<li>Multi-line items become separate Order Diary entries \u2014 one per line.</li>" +
+            "<li>Use <strong>Re-order</strong> on a fulfilled order to duplicate it as a new active order.</li>" +
+            "<li>Deleting an order offers to remove matching items from Order Diary too.</li>" +
             "<li>Click column headers to sort; each tab maintains its own sort state.</li>" +
-            "<li>Deleting an order offers to remove matching items from Order Diary.</li>" +
             "</ul>"
         }
       ]
@@ -950,75 +909,29 @@
             "VAT handling (0%, 5%, 18%), and duplicate description detection.</p>"
         },
         {
-          heading: "Form Fields",
-          body:
-            "<table class=\"eikon-help-table\">" +
-            "<tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr>" +
-            "<tr><td>Supplier</td><td>Text</td><td>No</td><td>Supplier company name</td></tr>" +
-            "<tr><td>Date</td><td>Date</td><td>Yes</td><td>Defaults to today</td></tr>" +
-            "<tr><td>Barcode</td><td>Text</td><td>No</td><td></td></tr>" +
-            "<tr><td>Stock Code</td><td>Text</td><td>No</td><td>Internal reference</td></tr>" +
-            "<tr><td>Item Description</td><td>Text</td><td>Yes</td><td>Triggers similarity suggestions (&gt;60% match)</td></tr>" +
-            "<tr><td>Qty Purchased</td><td>Number</td><td>Yes</td><td>Min 1</td></tr>" +
-            "<tr><td>Qty Free</td><td>Number</td><td>No</td><td>Bonus/free items</td></tr>" +
-            "<tr><td>VAT Rate</td><td>Dropdown</td><td>Yes</td><td>0%, 5%, or 18%</td></tr>" +
-            "<tr><td>Cost Excl. VAT</td><td>Currency</td><td>Cond.</td><td>Auto-syncs with Cost Incl. VAT</td></tr>" +
-            "<tr><td>Cost Incl. VAT</td><td>Currency</td><td>Cond.</td><td>Auto-syncs with Cost Excl. VAT</td></tr>" +
-            "<tr><td>Discount %</td><td>Number</td><td>No</td><td>Auto-syncs with Discount \u20AC</td></tr>" +
-            "<tr><td>Discount \u20AC</td><td>Currency</td><td>No</td><td>Auto-syncs with Discount %</td></tr>" +
-            "<tr><td>Total Incl. VAT</td><td>Currency</td><td>Auto</td><td>Editing triggers reverse-calculation</td></tr>" +
-            "<tr><td>Retail Price</td><td>Currency</td><td>No</td><td>Selling price per unit</td></tr>" +
-            "<tr><td>Profit / Margin %</td><td>Display</td><td>\u2014</td><td>Auto-calculated, colour-coded</td></tr>" +
-            "<tr><td>Notes</td><td>Textarea</td><td>No</td><td></td></tr>" +
-            "</table>"
-        },
-        {
-          heading: "Smart Calculations",
-          body:
-            "<ul>" +
-            "<li><strong>VAT cross-calc</strong> \u2014 Edit Cost Excl and Cost Incl auto-updates the other.</li>" +
-            "<li><strong>Discount cross-calc</strong> \u2014 Discount % and Discount \u20AC auto-sync.</li>" +
-            "<li><strong>Total reverse-calc</strong> \u2014 Editing Total Incl VAT derives cost fields automatically.</li>" +
-            "<li><strong>Profit margin</strong> \u2014 " +
-            "<strong style=\"color:var(--danger)\">Red</strong> &lt;20%, " +
-            "<strong style=\"color:#e8b635\">Yellow</strong> 20\u201335%, " +
-            "<strong style=\"color:var(--ok)\">Green</strong> \u226535%.</li>" +
-            "<li><strong>Similarity detection</strong> \u2014 Warns if a new description matches an existing one (&gt;60%).</li>" +
-            "</ul>"
-        },
-        {
           heading: "How to Add a Quotation Entry",
           body:
             "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
             "<li>Click <strong>Add Entry</strong>.</li>" +
-            "<li>Enter the <strong>Supplier</strong> name and <strong>Item Description</strong>.</li>" +
-            "<li>Set the <strong>Qty Purchased</strong> and <strong>VAT Rate</strong>.</li>" +
-            "<li>Enter the <strong>Cost Excl. VAT</strong> \u2014 Cost Incl. VAT fills automatically (or vice versa).</li>" +
-            "<li>Enter the <strong>Retail Price</strong> to see the profit margin colour-coded in the row.</li>" +
-            "<li>Click <strong>Save</strong>. If the description is similar to an existing entry, you\u2019ll see a warning.</li>" +
+            "<li>Enter the <strong>Supplier</strong> name and <strong>Item Description</strong>. If the description is similar to an existing entry, you\u2019ll see a warning.</li>" +
+            "<li>Set the <strong>Qty Purchased</strong>, any <strong>Qty Free</strong> (bonus items), and the <strong>VAT Rate</strong> (0%, 5%, or 18%).</li>" +
+            "<li>Enter the <strong>Cost Excl. VAT</strong> \u2014 Cost Incl. VAT fills automatically (or enter Cost Incl. and it works in reverse).</li>" +
+            "<li>If there\u2019s a discount, enter either <strong>Discount %</strong> or <strong>Discount \u20AC</strong> \u2014 the other syncs automatically.</li>" +
+            "<li>Enter the <strong>Retail Price</strong> (your selling price) to see the profit margin appear in the row, colour-coded: " +
+            "<strong style=\"color:var(--danger)\">Red</strong> &lt;20%, " +
+            "<strong style=\"color:#e8b635\">Yellow</strong> 20\u201335%, " +
+            "<strong style=\"color:var(--ok)\">Green</strong> \u226535%.</li>" +
+            "<li>Click <strong>Save</strong>.</li>" +
             "</ol>"
         },
         {
-          heading: "Buttons & Actions",
-          body:
-            "<ul>" +
-            "<li><strong>Add Entry</strong> \u2014 New quotation entry.</li>" +
-            "<li><strong>Edit / Delete</strong> \u2014 Per-row modification or removal.</li>" +
-            "<li><strong>Columns \u25BE</strong> \u2014 Toggle visibility of 17 columns.</li>" +
-            "<li><strong>Find Duplicates</strong> \u2014 Scan for similar descriptions and merge variants into a canonical name.</li>" +
-            "<li><strong>Print</strong> \u2014 Filtered by date range and supplier, with total invested and total retail summary.</li>" +
-            "<li><strong>Delete Selected</strong> \u2014 Bulk delete checked rows.</li>" +
-            "<li><strong>My Location</strong> \u2014 Toggle between all organisation data or current location only.</li>" +
-            "</ul>"
-        },
-        {
-          heading: "Bulk Import",
+          heading: "How to Bulk Import from an Invoice",
           body:
             "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
-            "<li>Copy the Invoice Extractor GPT link (clipboard button).</li>" +
+            "<li>Click <strong>Bulk Import</strong> and copy the Invoice Extractor GPT link (clipboard button).</li>" +
             "<li>Open ChatGPT, upload a supplier invoice, and copy the TSV output.</li>" +
             "<li>Paste into the Bulk Import textarea and click <strong>Submit</strong>.</li>" +
-            "<li>Review the parsed preview table \u2014 edit cells, delete rows, add rows.</li>" +
+            "<li>Review the parsed preview table \u2014 edit cells, delete rows, add rows as needed.</li>" +
             "<li>Click <strong>Confirm &amp; Upload</strong> to batch-import all rows.</li>" +
             "</ol>"
         },
@@ -1028,7 +941,9 @@
             "<ul>" +
             "<li>Enter Cost Excl VAT first \u2014 let the VAT rate auto-calculate Cost Incl.</li>" +
             "<li>Profit uses pre-VAT cost (since VAT is reclaimed), giving accurate margins.</li>" +
-            "<li>Use Find Duplicates to standardise item names across suppliers.</li>" +
+            "<li>Use <strong>Find Duplicates</strong> to standardise item names across suppliers.</li>" +
+            "<li>Use <strong>Columns \u25BE</strong> to show/hide columns \u2014 e.g. hide Barcode and Stock Code if you don\u2019t use them.</li>" +
+            "<li>Toggle <strong>My Location</strong> to see just your location\u2019s data or the whole organisation.</li>" +
             "</ul>"
         }
       ]
@@ -1043,63 +958,39 @@
         {
           heading: "Overview",
           body:
-            "<p>Track daily items to order from suppliers. Items are grouped by supplier with status tracking " +
-            "(Pending, Received, Not Received, Wrong Pick) and end-of-day carry-over for outstanding items.</p>"
+            "<p>Track daily items to order from suppliers. Items are grouped by supplier with colour-coded headers " +
+            "and status tracking (Pending, Received, Not Received, Wrong Pick).</p>"
         },
         {
-          heading: "Quick-Add Form",
+          heading: "How to Use the Order Diary Each Day",
           body:
-            "<table class=\"eikon-help-table\">" +
-            "<tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr>" +
-            "<tr><td>Item name</td><td>Autocomplete</td><td>Yes</td><td>Fuzzy matching from history, quotations, and supplier inventory</td></tr>" +
-            "<tr><td>Qty</td><td>Number</td><td>Yes</td><td>Default 1; scroll to adjust</td></tr>" +
-            "<tr><td>Supplier</td><td>Autocomplete</td><td>No</td><td>Leave empty for \u201CUnassigned\u201D group</td></tr>" +
-            "</table>" +
-            "<p>Press <strong>Enter</strong> or click <strong>+ Add</strong> to add immediately.</p>"
-        },
-        {
-          heading: "Status Pills",
-          body:
-            "<table class=\"eikon-help-table\">" +
-            "<tr><th>Status</th><th>Icon</th><th>Colour</th></tr>" +
-            "<tr><td>Pending</td><td>\u23F3</td><td>Grey</td></tr>" +
-            "<tr><td>Received</td><td>\u2713</td><td>Green</td></tr>" +
-            "<tr><td>Not Received</td><td>\u2717</td><td>Red</td></tr>" +
-            "<tr><td>Wrong Pick</td><td>\u26A0</td><td>Orange</td></tr>" +
-            "</table>"
-        },
-        {
-          heading: "Buttons & Actions",
-          body:
-            "<ul>" +
-            "<li><strong>Date navigation</strong> \u2014 \u25C0 Previous / \u25B6 Next / Today.</li>" +
-            "<li><strong>\u2713 / \u2717 / \u26A0 per row</strong> \u2014 Quick-set status (flashes with colour animation).</li>" +
-            "<li><strong>\u2713 All Received (per supplier)</strong> \u2014 Mark all outstanding items in a supplier group as received.</li>" +
-            "<li><strong>\uD83D\uDCCB Copy for Email</strong> \u2014 Copies the supplier\u2019s item list for pasting into an email.</li>" +
-            "<li><strong>\u21A9 Carry Over</strong> \u2014 Move all pending/not-received/wrong-pick items to the next day.</li>" +
-            "<li><strong>Inline qty edit</strong> \u2014 Click the quantity cell (dotted underline) to edit inline.</li>" +
-            "<li><strong>Wrong Pick</strong> \u2014 Opens a modal to log a return reason before marking.</li>" +
-            "</ul>"
-        },
-        {
-          heading: "Workflows",
-          body:
+            "<p><strong>Morning \u2014 add items to order:</strong></p>" +
             "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
-            "<li>Type an item name (autocomplete suggests from history and quotations).</li>" +
-            "<li>Set quantity and optionally select a supplier.</li>" +
-            "<li>Press Enter or click + Add \u2014 item appears under the supplier group.</li>" +
-            "<li>When deliveries arrive, click \u2713 or use \u201C\u2713 All Received\u201D per supplier.</li>" +
-            "<li>At end of day, click <strong>Carry Over</strong> to push outstanding items to tomorrow.</li>" +
+            "<li>Start typing an <strong>item name</strong> \u2014 autocomplete suggests from history and quotations.</li>" +
+            "<li>Set the <strong>quantity</strong> and optionally select a <strong>supplier</strong> (leave empty for \u201CUnassigned\u201D).</li>" +
+            "<li>Press <strong>Enter</strong> or click <strong>+ Add</strong> \u2014 the item appears under its supplier group.</li>" +
+            "<li>Repeat for all items. Use <strong>Copy for Email</strong> on a supplier group to paste the list into an email to that supplier.</li>" +
+            "</ol>" +
+            "<p><strong>When deliveries arrive:</strong></p>" +
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Click <strong>\u2713</strong> on each item that arrived correctly \u2014 it turns green.</li>" +
+            "<li>Click <strong>\u2717</strong> if an item wasn\u2019t delivered \u2014 it turns red.</li>" +
+            "<li>Click <strong>\u26A0</strong> for a wrong pick \u2014 a modal asks you to log the return reason.</li>" +
+            "<li>Use <strong>\u2713 All Received</strong> on a supplier group to mark everything at once.</li>" +
+            "</ol>" +
+            "<p><strong>End of day:</strong></p>" +
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Click <strong>Carry Over</strong> \u2014 all pending, not-received, and wrong-pick items move to tomorrow automatically.</li>" +
             "</ol>"
         },
         {
           heading: "Tips",
           body:
             "<ul>" +
-            "<li>Quotation hints appear in the edit modal showing matching cost data.</li>" +
-            "<li>Each supplier gets a unique colour (8-colour palette) for quick visual scanning.</li>" +
-            "<li>Stat bar at top shows: Total / Received / Pending / Not Received / Wrong Pick.</li>" +
-            "<li>Filter tabs let you view items for a single supplier.</li>" +
+            "<li>Click the quantity cell (dotted underline) to edit it inline.</li>" +
+            "<li>Quotation hints appear in the edit modal showing matching cost data from your quotations.</li>" +
+            "<li>The stat bar at top shows: Total / Received / Pending / Not Received / Wrong Pick.</li>" +
+            "<li>Use \u25C0 / \u25B6 arrows to navigate between days, or click <strong>Today</strong> to jump back.</li>" +
             "</ul>"
         }
       ]
@@ -1114,40 +1005,9 @@
         {
           heading: "Overview",
           body:
-            "<p>Manage deliveries from scheduling through dispatch, delivery, or failure. " +
-            "Supports driver assignment, interactive map-based address entry, tracking numbers, " +
-            "delivery attempt counting, and a full audit log per delivery.</p>"
-        },
-        {
-          heading: "Tabs",
-          body:
-            "<table class=\"eikon-help-table\">" +
-            "<tr><th>Tab</th><th>Statuses Shown</th></tr>" +
-            "<tr><td><strong>Active</strong></td><td>Scheduled, Dispatched, Out for Delivery</td></tr>" +
-            "<tr><td><strong>Completed</strong></td><td>Delivered</td></tr>" +
-            "<tr><td><strong>Failed / Returned</strong></td><td>Failed, Returned, Cancelled</td></tr>" +
-            "</table>"
-        },
-        {
-          heading: "Form Fields",
-          body:
-            "<table class=\"eikon-help-table\">" +
-            "<tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr>" +
-            "<tr><td>Order Date</td><td>Date</td><td>Yes</td><td></td></tr>" +
-            "<tr><td>Client Name &amp; Surname</td><td>Text</td><td>Yes</td><td></td></tr>" +
-            "<tr><td>Phone</td><td>Tel</td><td>Yes</td><td></td></tr>" +
-            "<tr><td>Email</td><td>Email</td><td>No</td><td></td></tr>" +
-            "<tr><td>Delivery Address</td><td>Textarea</td><td>Yes</td><td>Can also set via map click</td></tr>" +
-            "<tr><td>Address Notes</td><td>Text</td><td>No</td><td>Buzzer codes, access instructions</td></tr>" +
-            "<tr><td>Delivery Method</td><td>Dropdown</td><td>Yes</td><td>In-house Driver, Courier, Collection</td></tr>" +
-            "<tr><td>Priority</td><td>Dropdown</td><td>Yes</td><td>Urgent (same-day), Standard, Flexible</td></tr>" +
-            "<tr><td>Scheduled Date / Time Slot</td><td>Date + Text</td><td>No</td><td>e.g. \u201C09:00\u201312:00\u201D</td></tr>" +
-            "<tr><td>Driver / Carrier</td><td>Dropdown</td><td>Cond.</td><td>Can add new driver on-the-fly</td></tr>" +
-            "<tr><td>Tracking Number</td><td>Text</td><td>No</td><td>For courier shipments</td></tr>" +
-            "<tr><td>Flags</td><td>Checkboxes</td><td>No</td><td>\u2744\uFE0F Cold Chain, \u270D Signature Required</td></tr>" +
-            "<tr><td>Items</td><td>Inline table</td><td>Yes</td><td>Name, Qty, Schedule, Batch Ref, Expiry per row</td></tr>" +
-            "<tr><td>Internal Notes</td><td>Textarea</td><td>No</td><td>Not shown on client label</td></tr>" +
-            "</table>"
+            "<p>Manage deliveries from scheduling through dispatch and delivery. " +
+            "Three tabs: <strong>Active</strong> (in-progress), <strong>Completed</strong> (delivered), " +
+            "and <strong>Failed / Returned</strong>.</p>"
         },
         {
           heading: "How to Create a Delivery",
@@ -1194,51 +1054,18 @@
         {
           heading: "Overview",
           body:
-            "<p>Schedule pharmacy consultations and medical check-ups with configurable doctor/clinic availability, " +
-            "multiple calendar views, waiting list, and email/WhatsApp integration.</p>"
+            "<p>Schedule pharmacy consultations and medical check-ups. Views: Month, Week, Day, All Appointments, and Waiting List.</p>"
         },
         {
-          heading: "Views",
+          heading: "First-Time Setup",
           body:
-            "<table class=\"eikon-help-table\">" +
-            "<tr><th>View</th><th>Purpose</th></tr>" +
-            "<tr><td><strong>Month</strong></td><td>Calendar grid overview</td></tr>" +
-            "<tr><td><strong>Week</strong></td><td>Timeline with time slots</td></tr>" +
-            "<tr><td><strong>Day</strong></td><td>Hourly grid for current doctor/clinic</td></tr>" +
-            "<tr><td><strong>All Appointments</strong></td><td>Searchable list view</td></tr>" +
-            "<tr><td><strong>Waiting List</strong></td><td>Patients waiting for openings</td></tr>" +
-            "</table>"
-        },
-        {
-          heading: "Setup (Settings Menu)",
-          body:
-            "<p>Before booking, set up these three entities:</p>" +
-            "<ul>" +
-            "<li><strong>Manage Doctors</strong> \u2014 Name, specialty, phone, default patient fee.</li>" +
-            "<li><strong>Manage Clinics</strong> \u2014 Name, locality, address, phone, standard clinic fee.</li>" +
-            "<li><strong>Manage Schedules</strong> \u2014 Link a doctor to a clinic with recurring (weekly) or one-off availability, time range, and slot duration (5\u2013120 min).</li>" +
-            "</ul>"
-        },
-        {
-          heading: "Booking Form Fields",
-          body:
-            "<table class=\"eikon-help-table\">" +
-            "<tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr>" +
-            "<tr><td>Patient Name &amp; Surname</td><td>Text</td><td>Yes</td><td></td></tr>" +
-            "<tr><td>ID Card No.</td><td>Text</td><td>Yes</td><td>Auto-normalised (\"789M\" \u2192 \"0000789M\")</td></tr>" +
-            "<tr><td>Phone</td><td>Tel</td><td>Yes</td><td></td></tr>" +
-            "<tr><td>Email</td><td>Email</td><td>No</td><td></td></tr>" +
-            "<tr><td>Doctor</td><td>Dropdown</td><td>Yes</td><td>Cascading: selecting doctor filters clinics</td></tr>" +
-            "<tr><td>Clinic</td><td>Dropdown</td><td>Yes</td><td>Auto-populated based on doctor schedules</td></tr>" +
-            "<tr><td>Session Date</td><td>Dropdown</td><td>Yes</td><td>Available dates from schedules</td></tr>" +
-            "<tr><td>Available Time Slot</td><td>Dropdown</td><td>Yes</td><td>Live availability check prevents double-booking</td></tr>" +
-            "<tr><td>Doctor Fee (\u20AC)</td><td>Currency</td><td>No</td><td>Default from clinic config</td></tr>" +
-            "<tr><td>Clinic Fee (\u20AC)</td><td>Currency</td><td>No</td><td></td></tr>" +
-            "<tr><td>Medicines Cost (\u20AC)</td><td>Currency</td><td>No</td><td></td></tr>" +
-            "<tr><td>Medicines / Items</td><td>Textarea</td><td>No</td><td>e.g. \"Amoxicillin 250mg \u00D714\"</td></tr>" +
-            "<tr><td>Internal Notes</td><td>Textarea</td><td>No</td><td></td></tr>" +
-            "<tr><td>Cancellation Reason</td><td>Text</td><td>Cond.</td><td>Required when status = Cancelled</td></tr>" +
-            "</table>"
+            "<p>Before you can book appointments, set up these three things in the <strong>Settings</strong> menu:</p>" +
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li><strong>Manage Doctors</strong> \u2014 Add each doctor (name, specialty, phone, default fee).</li>" +
+            "<li><strong>Manage Clinics</strong> \u2014 Add each clinic location (name, locality, phone, standard fee).</li>" +
+            "<li><strong>Manage Schedules</strong> \u2014 Link a doctor to a clinic with their available times and slot duration (5\u2013120 min). Can be recurring (weekly) or one-off.</li>" +
+            "</ol>" +
+            "<p>Once set up, available slots auto-generate and you can start booking.</p>"
         },
         {
           heading: "How to Book an Appointment",
@@ -1288,39 +1115,8 @@
         {
           heading: "Overview",
           body:
-            "<p>Track customer issues from creation through resolution. Manage priorities, assignments, " +
+            "<p>Track customer issues from creation through resolution with priorities, assignment, " +
             "categories, and a timestamped notes log per ticket.</p>"
-        },
-        {
-          heading: "Form Fields",
-          body:
-            "<table class=\"eikon-help-table\">" +
-            "<tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr>" +
-            "<tr><td>Date Opened</td><td>Date</td><td>Yes</td><td>Defaults to today</td></tr>" +
-            "<tr><td>Client Name &amp; Surname</td><td>Text</td><td>Yes</td><td></td></tr>" +
-            "<tr><td>Phone</td><td>Tel</td><td>Yes</td><td></td></tr>" +
-            "<tr><td>Email</td><td>Email</td><td>No</td><td></td></tr>" +
-            "<tr><td>Category</td><td>Dropdown</td><td>Yes</td><td>Billing, Prescription, Product Complaint, Delivery, General Enquiry; add custom</td></tr>" +
-            "<tr><td>Priority</td><td>Dropdown</td><td>Yes</td><td>High (red), Medium (orange), Low (green)</td></tr>" +
-            "<tr><td>Status</td><td>Dropdown</td><td>Yes</td><td>Open, In Progress, Pending, Resolved, Closed</td></tr>" +
-            "<tr><td>Issue Description</td><td>Textarea</td><td>Yes</td><td></td></tr>" +
-            "<tr><td>Assigned To</td><td>Dropdown</td><td>Yes</td><td>Staff list; can add new staff inline</td></tr>" +
-            "<tr><td>Follow-up Date</td><td>Date</td><td>No</td><td></td></tr>" +
-            "</table>"
-        },
-        {
-          heading: "Filtering & Search",
-          body:
-            "<p>The ticket list can be filtered by <strong>Status</strong>, <strong>Category</strong>, " +
-            "<strong>Priority</strong>, and <strong>Assigned To</strong>. The search box searches across " +
-            "ticket ID, client, phone, email, category, issue description, and notes.</p>"
-        },
-        {
-          heading: "Notes Log",
-          body:
-            "<p>Each ticket has a timestamped notes thread. Click <strong>Add Note</strong> to append an entry " +
-            "with the current date/time and author. Notes are immutable after creation (you can only add new ones). " +
-            "All notes appear in the print view and detail panel.</p>"
         },
         {
           heading: "How to Handle a Customer Issue",
@@ -1357,32 +1153,8 @@
         {
           heading: "Overview",
           body:
-            "<p>Run multiple loyalty campaigns simultaneously. Supports 6 campaign types with " +
-            "customer registration via Maltese ID card and full transaction ledger.</p>"
-        },
-        {
-          heading: "Campaign Types",
-          body:
-            "<table class=\"eikon-help-table\">" +
-            "<tr><th>Type</th><th>How It Works</th><th>Key Settings</th></tr>" +
-            "<tr><td><strong>\u2B50 Stamp Card</strong></td><td>Collect N stamps \u2192 free reward</td><td>Stamps required, reward description</td></tr>" +
-            "<tr><td><strong>\uD83D\uDC8E Points</strong></td><td>Earn points per \u20AC spent \u2192 redeem at threshold</td><td>Points per \u20AC1, redemption threshold, reward</td></tr>" +
-            "<tr><td><strong>\uD83C\uDFF7 Discount</strong></td><td>Always-on % discount on brand/items</td><td>Discount %, scope</td></tr>" +
-            "<tr><td><strong>\uD83C\uDF89 Event</strong></td><td>Time-limited campaign</td><td>Event name, offer description</td></tr>" +
-            "<tr><td><strong>\uD83C\uDF81 Buy X Get Y</strong></td><td>Purchase X \u2192 Y free</td><td>Buy qty, get qty, free item description</td></tr>" +
-            "<tr><td><strong>\uD83C\uDFC6 Tiered</strong></td><td>Spend thresholds unlock rewards</td><td>Up to 4 tiers with min spend + reward</td></tr>" +
-            "</table>"
-        },
-        {
-          heading: "Tabs",
-          body:
-            "<table class=\"eikon-help-table\">" +
-            "<tr><th>Tab</th><th>Purpose</th></tr>" +
-            "<tr><td><strong>Dashboard</strong></td><td>Stats (active campaigns, clients, transactions, today\u2019s activity) + recent activity</td></tr>" +
-            "<tr><td><strong>Campaigns</strong></td><td>Campaign grid with create/edit/activate/delete actions</td></tr>" +
-            "<tr><td><strong>Record Transaction</strong></td><td>Enter client ID, select campaign, add items, record spend</td></tr>" +
-            "<tr><td><strong>Client Search</strong></td><td>Look up a client by ID card to view all transactions and loyalty status</td></tr>" +
-            "</table>"
+            "<p>Run multiple loyalty campaigns simultaneously (Stamp Card, Points, Discount, Event, Buy X Get Y, Tiered). " +
+            "Customers register via Maltese ID card and can participate in multiple campaigns at once.</p>"
         },
         {
           heading: "How to Create a Campaign",
@@ -1442,32 +1214,8 @@
           heading: "Overview",
           body:
             "<p>Search supplier product catalogues, build purchase orders by adding to a cart, " +
-            "commit orders per supplier, and track order lifecycle from draft to received. " +
-            "Includes profit margin analysis and problem reporting.</p>"
-        },
-        {
-          heading: "Tabs",
-          body:
-            "<table class=\"eikon-help-table\">" +
-            "<tr><th>Tab</th><th>Purpose</th></tr>" +
-            "<tr><td><strong>Inventory</strong></td><td>Browse products, manage cart, commit orders</td></tr>" +
-            "<tr><td><strong>My Orders</strong></td><td>View sent orders, track status, report problems</td></tr>" +
-            "</table>"
-        },
-        {
-          heading: "Inventory Features",
-          body:
-            "<ul>" +
-            "<li><strong>Search &amp; filter</strong> \u2014 By keyword, barcode, stock code, or supplier.</li>" +
-            "<li><strong>Column settings</strong> \u2014 Toggle visibility of columns (Cost, VAT%, Deal, Retail, Margin%, etc.).</li>" +
-            "<li><strong>Expiry warnings</strong> \u2014 Configurable red/yellow month thresholds for near-expiry highlighting.</li>" +
-            "<li><strong>Deal handling</strong> \u2014 \u201CBuy 3 + 1 Free\u201D or discount % shown; qty input respects deal multiples.</li>" +
-            "<li><strong>Profit margin</strong> \u2014 " +
-            "<strong style=\"color:var(--ok)\">Green</strong> \u226535%, " +
-            "<strong style=\"color:#e8b635\">Yellow</strong> 20\u201335%, " +
-            "<strong style=\"color:var(--danger)\">Red</strong> &lt;20%.</li>" +
-            "<li><strong>Cart</strong> \u2014 Items grouped by supplier; commit order per supplier with optional notes.</li>" +
-            "</ul>"
+            "commit orders per supplier, and track them from draft to received. " +
+            "Two tabs: <strong>Inventory</strong> (browse and order) and <strong>My Orders</strong> (track and receive).</p>"
         },
         {
           heading: "How to Place an Order",
