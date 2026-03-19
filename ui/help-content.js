@@ -2152,15 +2152,17 @@
             "Supports both monophasic and multiphasic formulations.</p>"
         },
         {
-          heading: "How It Works",
+          heading: "How to Find an OCP",
           body:
-            "<ul>" +
-            "<li>Select <strong>estrogen type</strong> and/or <strong>progestogen type</strong> from dropdowns.</li>" +
-            "<li>Optionally enter a <strong>dose</strong> with unit toggle (mg/mcg).</li>" +
-            "<li>All fields are optional \u2014 leave empty to broaden results.</li>" +
-            "<li>Dose matching uses \u00B11% tolerance for rounding.</li>" +
-            "<li>Results show trade name, hormone types, and doses. Multiphasic pills are flagged.</li>" +
-            "</ul>"
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Select an <strong>estrogen type</strong> from the dropdown (or leave empty to search all).</li>" +
+            "<li>Select a <strong>progestogen type</strong> from the dropdown (or leave empty).</li>" +
+            "<li>Optionally enter a <strong>dose</strong> and toggle the unit between <strong>mg</strong> and <strong>mcg</strong>.</li>" +
+            "<li>Results appear immediately \u2014 showing trade name, hormone types, and doses.</li>" +
+            "<li>Multiphasic pills are flagged in the results.</li>" +
+            "<li>Click <strong>Print</strong> to generate a printable list for the patient.</li>" +
+            "</ol>" +
+            "<p>All fields are optional \u2014 leave them empty to see all available pills. Dose matching uses \u00B11% tolerance for rounding.</p>"
         },
         {
           heading: "Tips",
@@ -2269,18 +2271,17 @@
             "</table>"
         },
         {
-          heading: "5-Step Wizard",
+          heading: "How to File an ADR Report",
           body:
+            "<p>Click <strong>New Report</strong> to start the 5-step wizard. Work through each step in order:</p>" +
             "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
-            "<li><strong>Patient Information</strong> \u2014 Initials (privacy \u2014 no full names), sex, date of birth, age (auto-calculates year), patient ID, medical history.</li>" +
-            "<li><strong>Suspected Drug(s)</strong> \u2014 Repeatable: drug name, dose, route (Oral/IV/IM/SC/Topical/Inhaled/Rectal/Other), " +
-            "frequency, start/stop dates, indication, batch number, MAH. Click <strong>+ Add Drug</strong> for multiple drugs.</li>" +
-            "<li><strong>Reaction / ADR</strong> \u2014 Free-text description, <strong>MedDRA term</strong> autocomplete (100+ terms), " +
-            "start/stop dates, seriousness (Non-serious/Serious/Serious and unexpected), " +
-            "outcome (Recovered/Recovering/Not recovered/Fatal/Unknown), " +
-            "causality (Certain/Probable/Possible/Unlikely/Unrelated), report type, report status.</li>" +
-            "<li><strong>Reporter Information</strong> \u2014 Name, qualification (Pharmacist/Physician/Nurse/Patient/Other), organisation, phone, email.</li>" +
-            "<li><strong>Review &amp; Submit</strong> \u2014 Read-only summary of all data with jump-back links to each step for corrections.</li>" +
+            "<li><strong>Patient Information</strong> \u2014 Enter patient <strong>initials</strong> (not full name, for privacy), sex, date of birth, and medical history. Click <strong>Next</strong>.</li>" +
+            "<li><strong>Suspected Drug(s)</strong> \u2014 Enter the <strong>drug name</strong>, dose, route, frequency, and start/stop dates. " +
+            "Include the <strong>batch number</strong> for traceability. Click <strong>+ Add Drug</strong> if multiple drugs are suspected. Click <strong>Next</strong>.</li>" +
+            "<li><strong>Reaction / ADR</strong> \u2014 Describe the reaction, then start typing the <strong>MedDRA term</strong> to select from 100+ standard terms. " +
+            "Set the <strong>seriousness</strong>, <strong>outcome</strong>, and <strong>causality</strong> assessment. Click <strong>Next</strong>.</li>" +
+            "<li><strong>Reporter Information</strong> \u2014 Enter your name, qualification (Pharmacist/Physician/Nurse/Patient/Other), organisation, and contact details. Click <strong>Next</strong>.</li>" +
+            "<li><strong>Review &amp; Submit</strong> \u2014 Review the summary. Click any section heading to jump back and correct. When ready, click <strong>Submit</strong> (or <strong>Save Draft</strong> to finish later).</li>" +
             "</ol>"
         },
         {
@@ -2402,15 +2403,21 @@
             "symptoms, use cases, bundles, and safety guardrails on a zoomable canvas.</p>"
         },
         {
-          heading: "How It Works",
+          heading: "How to Look Up a Product or Symptom",
           body:
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Type a <strong>product name</strong> or <strong>symptom</strong> in the search box \u2014 the graph jumps to that node.</li>" +
+            "<li><strong>Click the node</strong> to load its details in the side panel.</li>" +
+            "<li>Review the side panel sections:" +
             "<ul>" +
-            "<li><strong>Search</strong> \u2014 Type a product, symptom, or use case to jump to it on the graph.</li>" +
-            "<li><strong>Click nodes</strong> \u2014 Select to load related data in the side panel.</li>" +
-            "<li><strong>Side panel sections</strong> \u2014 Symptom links, Similar products, Complementary products, Use cases, Bundles, Guardrails.</li>" +
-            "<li><strong>Score threshold</strong> \u2014 Slider to filter weak connections.</li>" +
-            "<li><strong>Zoom &amp; pan</strong> \u2014 Use buttons or mouse drag to navigate.</li>" +
-            "</ul>"
+            "<li><strong>Symptom links</strong> \u2014 What symptoms this product treats.</li>" +
+            "<li><strong>Similar products</strong> \u2014 Alternatives the patient could use.</li>" +
+            "<li><strong>Complementary products</strong> \u2014 What works well alongside it.</li>" +
+            "<li><strong>Guardrails</strong> \u2014 Safety warnings and interactions to check before recommending.</li>" +
+            "</ul></li>" +
+            "<li>Click connected nodes to explore further. Use <strong>zoom/pan</strong> (buttons or mouse drag) to navigate.</li>" +
+            "<li>Adjust the <strong>score threshold</strong> slider to hide weaker connections.</li>" +
+            "</ol>"
         },
         {
           heading: "Link Types",
