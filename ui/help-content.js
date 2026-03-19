@@ -478,16 +478,21 @@
             "</table>"
         },
         {
-          heading: "POS Tab",
+          heading: "How to Process a Sale",
           body:
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Open the <strong>POS</strong> tab.</li>" +
+            "<li>Add items to the cart using any method:" +
             "<ul>" +
-            "<li><strong>Scan Barcode</strong> \u2014 Opens the camera for barcode detection (DataMatrix, QR, EAN-13, Code128, and more).</li>" +
-            "<li><strong>Photo Search</strong> \u2014 OCR-based product search from a camera snapshot.</li>" +
-            "<li><strong>Manual Entry</strong> \u2014 Add products by name, price, and VAT rate.</li>" +
-            "<li><strong>Quantity</strong> \u2014 Supports fractions (e.g. \"1/6\") and decimals.</li>" +
-            "<li><strong>Discount</strong> \u2014 0\u201310% per transaction.</li>" +
-            "<li><strong>Payment</strong> \u2014 Cash (with change calculation), Card, or Cheque.</li>" +
-            "</ul>"
+            "<li><strong>Scan Barcode</strong> \u2014 Click to open the camera and scan (DataMatrix, QR, EAN-13, Code128).</li>" +
+            "<li><strong>Photo Search</strong> \u2014 Take a photo and let OCR find the product.</li>" +
+            "<li><strong>Manual Entry</strong> \u2014 Type the product name, set the price and VAT rate.</li>" +
+            "</ul></li>" +
+            "<li>Adjust <strong>quantity</strong> for each item (supports fractions like \"1/6\" and decimals).</li>" +
+            "<li>Optionally apply a <strong>discount</strong> (0\u201310%).</li>" +
+            "<li>Click <strong>Pay</strong> and select the payment method: Cash (enter amount tendered \u2014 change auto-calculates), Card, or Cheque.</li>" +
+            "<li>Click <strong>Complete Sale</strong> \u2014 the receipt prints and the transaction appears in History.</li>" +
+            "</ol>"
         },
         {
           heading: "Offline & Sync",
@@ -905,14 +910,18 @@
             "</ul>"
         },
         {
-          heading: "Workflows",
+          heading: "How to Create and Fulfil an Order",
           body:
             "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
-            "<li>Click <strong>New Order</strong> and fill in the required fields.</li>" +
-            "<li>Click <strong>Save</strong> \u2014 an auto-generated 6-character order code is assigned.</li>" +
-            "<li>A prompt asks whether to add items to the <strong>Order Diary</strong> (optional supplier field).</li>" +
-            "<li>Track follow-up status as you contact the customer.</li>" +
-            "<li>When ready, click <strong>Mark Fulfilled</strong> to move the order to the Fulfilled tab.</li>" +
+            "<li>Click <strong>New Order</strong>.</li>" +
+            "<li>Enter the client\u2019s <strong>name</strong>, <strong>phone</strong>, and <strong>email</strong>.</li>" +
+            "<li>In the <strong>Items</strong> field, type each item on a separate line (each line becomes a separate Order Diary entry later).</li>" +
+            "<li>Set the <strong>priority</strong> (High/Medium/Low), <strong>needed by</strong> date, and <strong>pick-up date</strong>.</li>" +
+            "<li>Click <strong>Save</strong> \u2014 a 6-character order code is auto-generated.</li>" +
+            "<li>A prompt asks whether to add the items to the <strong>Order Diary</strong> \u2014 click Yes to track them with your supplier orders.</li>" +
+            "<li>As you follow up, update the <strong>follow-up status</strong> (Called, Not Wanted, Not Available, Called No Answer, Wrong Number).</li>" +
+            "<li>When the order is ready, click <strong>Mark Fulfilled</strong> \u2014 it moves to the Fulfilled tab.</li>" +
+            "<li>Click <strong>Print Sticker</strong> to generate an 80mm label with QR code for the bag.</li>" +
             "</ol>"
         },
         {
@@ -1602,17 +1611,25 @@
             "</table>"
         },
         {
-          heading: "Workflow",
+          heading: "How to Offer an Item for Transfer",
           body:
-            "<p><strong>Open</strong> \u2192 <strong>Requested</strong> \u2192 <strong>Accepted</strong> \u2192 <strong>Dispatched</strong> \u2192 <strong>Delivered</strong></p>" +
             "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
-            "<li><strong>Place Item</strong> \u2014 Offer an item for other locations to request.</li>" +
-            "<li>Other pharmacy clicks <strong>Request Transfer</strong> (sets quantity and optional private note).</li>" +
-            "<li>You <strong>Accept</strong> or <strong>Reject</strong> the request.</li>" +
-            "<li>Click <strong>Confirm Dispatch</strong> when the item is shipped.</li>" +
-            "<li>Receiving pharmacy clicks <strong>Confirm Received</strong> to complete.</li>" +
+            "<li>Click <strong>Place for Transfer</strong>.</li>" +
+            "<li>Enter the <strong>item description</strong>, <strong>quantity</strong>, and optionally batch and expiry.</li>" +
+            "<li>Click <strong>Save</strong> \u2014 the item appears in the Available Items tab and is visible to other pharmacies.</li>" +
+            "</ol>"
+        },
+        {
+          heading: "How to Handle Incoming Requests",
+          body:
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>When another pharmacy requests your item, expand the row in the <strong>Available Items</strong> tab to see the request details.</li>" +
+            "<li>Click <strong>Accept</strong> (or <strong>Reject</strong> if you can\u2019t fulfil it).</li>" +
+            "<li>When you\u2019ve packed and sent the item, click <strong>Confirm Dispatch</strong>.</li>" +
+            "<li>The receiving pharmacy clicks <strong>Confirm Received</strong> on their end to complete the transfer.</li>" +
             "</ol>" +
-            "<p>Expired items are automatically flagged and cannot be transferred.</p>"
+            "<p>Status flow: <strong>Open</strong> \u2192 <strong>Requested</strong> \u2192 <strong>Accepted</strong> \u2192 <strong>Dispatched</strong> \u2192 <strong>Delivered</strong>. " +
+            "Expired items are automatically flagged and cannot be transferred.</p>"
         },
         {
           heading: "Integration Actions",
