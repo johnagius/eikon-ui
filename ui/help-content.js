@@ -1270,39 +1270,6 @@
             "from open through closure, with a 7-step checklist for tracking actions taken.</p>"
         },
         {
-          heading: "Form Fields",
-          body:
-            "<table class=\"eikon-help-table\">" +
-            "<tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr>" +
-            "<tr><td>Date</td><td>Date</td><td>Yes</td><td>Defaults to today</td></tr>" +
-            "<tr><td>Type</td><td>Dropdown</td><td>Yes</td><td>Recall or Quarantine</td></tr>" +
-            "<tr><td>Status</td><td>Dropdown</td><td>Yes</td><td>Open, In Progress, Closed</td></tr>" +
-            "<tr><td>Item Name</td><td>Text</td><td>Yes</td><td></td></tr>" +
-            "<tr><td>Batch</td><td>Text</td><td>No</td><td>Lot number</td></tr>" +
-            "<tr><td>Expiry</td><td>Date</td><td>No</td><td></td></tr>" +
-            "<tr><td>Quantity</td><td>Text</td><td>No</td><td>e.g. \"2 boxes / 20 tabs\"</td></tr>" +
-            "<tr><td>Room / Fridge</td><td>Dropdown</td><td>Yes</td><td>Storage location</td></tr>" +
-            "<tr><td>Supplier</td><td>Text</td><td>No</td><td></td></tr>" +
-            "<tr><td>Reason</td><td>Textarea</td><td>No</td><td>Why quarantined/recalled</td></tr>" +
-            "<tr><td>Notes</td><td>Textarea</td><td>No</td><td>Additional notes</td></tr>" +
-            "</table>"
-        },
-        {
-          heading: "7-Step Checklist",
-          body:
-            "<p>Select an alert row to open the side panel. Check items off as they\u2019re completed \u2014 " +
-            "changes <strong>auto-save</strong> immediately:</p>" +
-            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
-            "<li>Team informed</li>" +
-            "<li>Supplier informed</li>" +
-            "<li>Authorities informed</li>" +
-            "<li>Return arranged</li>" +
-            "<li>Handed over</li>" +
-            "<li>Collection note received</li>" +
-            "<li>Credit note received</li>" +
-            "</ol>"
-        },
-        {
           heading: "How to Process a Recall or Quarantine",
           body:
             "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
@@ -1335,28 +1302,8 @@
         {
           heading: "Overview",
           body:
-            "<p>Transfer items between pharmacies in your organisation. Manages both offering items " +
-            "and requesting items, with a full confirmation workflow from placement to delivery.</p>"
-        },
-        {
-          heading: "Tabs",
-          body:
-            "<table class=\"eikon-help-table\">" +
-            "<tr><th>Tab</th><th>Purpose</th></tr>" +
-            "<tr><td><strong>Available Items</strong></td><td>Items you\u2019re offering; expand rows to see incoming requests</td></tr>" +
-            "<tr><td><strong>My Requests</strong></td><td>Requests you\u2019ve sent to other pharmacies</td></tr>" +
-            "</table>"
-        },
-        {
-          heading: "Place for Transfer Form",
-          body:
-            "<table class=\"eikon-help-table\">" +
-            "<tr><th>Field</th><th>Type</th><th>Required</th></tr>" +
-            "<tr><td>Item Description</td><td>Text</td><td>Yes</td></tr>" +
-            "<tr><td>Batch</td><td>Text</td><td>No</td></tr>" +
-            "<tr><td>Expiry Date</td><td>Date</td><td>No</td></tr>" +
-            "<tr><td>Quantity</td><td>Number</td><td>Yes (min 1)</td></tr>" +
-            "</table>"
+            "<p>Transfer items between pharmacies in your organisation. The <strong>Available Items</strong> tab " +
+            "shows items you\u2019re offering; the <strong>My Requests</strong> tab shows requests you\u2019ve sent.</p>"
         },
         {
           heading: "How to Offer an Item for Transfer",
@@ -1412,22 +1359,6 @@
             "Near Expiry and Stock Transfers modules.</p>"
         },
         {
-          heading: "Form Fields",
-          body:
-            "<table class=\"eikon-help-table\">" +
-            "<tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr>" +
-            "<tr><td>Date</td><td>Date</td><td>Yes</td><td>Defaults to today</td></tr>" +
-            "<tr><td>Description</td><td>Text</td><td>Yes</td><td>Item name / reason</td></tr>" +
-            "<tr><td>Expiry</td><td>Date</td><td>No</td><td></td></tr>" +
-            "<tr><td>Batch</td><td>Text</td><td>No</td><td>Lot number</td></tr>" +
-            "<tr><td>Quantity</td><td>Text</td><td>No</td><td></td></tr>" +
-            "<tr><td>Supplier</td><td>Text</td><td>No</td><td></td></tr>" +
-            "<tr><td>Invoice Number</td><td>Text</td><td>No</td><td>For reconciliation</td></tr>" +
-            "<tr><td>Remarks</td><td>Text + chips</td><td>No</td><td>Click chip suggestions: Wrong Pick, Expiring soon, Damaged, Wrong quantity, Received late, Duplicate order</td></tr>" +
-            "<tr><td>Location Stored</td><td>Text</td><td>No</td><td>e.g. \"Shelves / Back room / Fridge\"</td></tr>" +
-            "</table>"
-        },
-        {
           heading: "How to Create a Return",
           body:
             "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
@@ -1445,21 +1376,13 @@
             "all checklist items (except Damaged) are disabled.</p>"
         },
         {
-          heading: "Buttons & Actions",
-          body:
-            "<ul>" +
-            "<li><strong>Copy for Email</strong> \u2014 Copies formatted return details to clipboard for pasting into an email.</li>" +
-            "<li><strong>Place on Transfer</strong> \u2014 Move item to Stock Transfers for another pharmacy.</li>" +
-            "<li><strong>Mark as Refused</strong> \u2014 Closes the return when supplier refuses (red badge).</li>" +
-            "</ul>"
-        },
-        {
           heading: "Tips",
           body:
             "<ul>" +
+            "<li>Use <strong>Copy for Email</strong> to paste return details into an email to the supplier.</li>" +
+            "<li>Use <strong>Place on Transfer</strong> to move the item to Stock Transfers for another pharmacy.</li>" +
             "<li>Returns created from Near Expiry show a \u201CFrom Near Expiry\u201D badge.</li>" +
-            "<li>Filtered by month \u2014 use the month selector at the top.</li>" +
-            "<li>Search filters as you type across all fields.</li>" +
+            "<li>Filtered by month \u2014 use the month selector at the top. Search filters as you type.</li>" +
             "</ul>"
         }
       ]
@@ -1630,12 +1553,6 @@
             "#hashtag suggestion extraction, pinned messages, and auto-cleanup after 6 months.</p>"
         },
         {
-          heading: "Scope Toggle",
-          body:
-            "<p>Switch between <strong>Organisation</strong> (current org only) and <strong>All</strong> " +
-            "(all pharmacies across all organisations). When sending to All, a confirmation modal asks you to confirm.</p>"
-        },
-        {
           heading: "How to Send a Message",
           body:
             "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
@@ -1646,19 +1563,6 @@
             "<li>Press <strong>Enter</strong> or click <strong>Send</strong>.</li>" +
             "<li>To pin an important message, click <strong>Pin</strong> on it (up to 30 pinned messages).</li>" +
             "</ol>"
-        },
-        {
-          heading: "Suggestions Table",
-          body:
-            "<table class=\"eikon-help-table\">" +
-            "<tr><th>Column</th><th>Purpose</th></tr>" +
-            "<tr><td>Suggestion</td><td>Title + comment count</td></tr>" +
-            "<tr><td>By</td><td>Creator name</td></tr>" +
-            "<tr><td>Priority</td><td>Clickable pill: Low / Medium / High</td></tr>" +
-            "<tr><td>Status</td><td>Open \u2192 In Progress \u2192 Resolved (superadmin controls)</td></tr>" +
-            "<tr><td>Actions</td><td>Edit, Delete, View (superadmin: add comments, change status)</td></tr>" +
-            "</table>" +
-            "<p>Superadmins can <strong>Export CSV</strong> of all suggestions.</p>"
         },
         {
           heading: "Tips",
@@ -1682,19 +1586,7 @@
           heading: "Overview",
           body:
             "<p>Organised instruction management across five tabs: Daily &amp; Handover, Opening/Closing, " +
-            "Systems, Clinical, and Settings. Uses a calendar interface for date selection.</p>"
-        },
-        {
-          heading: "Tabs",
-          body:
-            "<table class=\"eikon-help-table\">" +
-            "<tr><th>Tab</th><th>Purpose</th></tr>" +
-            "<tr><td><strong>\uD83D\uDCC6 Daily &amp; Handover</strong></td><td>Per-day notes, permanent handover instructions, and severity-coded handover bullets</td></tr>" +
-            "<tr><td><strong>\uD83D\uDDDD Opening/Closing</strong></td><td>Store opening checklist, closing checklist, end-of-day instructions</td></tr>" +
-            "<tr><td><strong>\uD83E\uDDFE Systems</strong></td><td>POS instructions, POYC workflow, ordering process, loyalty schemes</td></tr>" +
-            "<tr><td><strong>\uD83E\uDDD1\u200D\u2695\uFE0F Clinical</strong></td><td>HIV/Concerta dispensing (toggleable), doctor appointments, fee schedules</td></tr>" +
-            "<tr><td><strong>\u2699\uFE0F Settings</strong></td><td>Storage info and reload controls</td></tr>" +
-            "</table>"
+            "Systems, Clinical, and Settings. Each tab has rich-text editors with Edit/Save/Cancel and \u201CLast updated\u201D timestamps.</p>"
         },
         {
           heading: "How to Do a Daily Handover",
@@ -1714,38 +1606,6 @@
             "<strong style=\"color:var(--danger)\">Critical</strong>).</li>" +
             "<li>These automatically appear as \u201CHandover From Previous Day\u201D for the next person.</li>" +
             "</ul>"
-        },
-        {
-          heading: "Daily &amp; Handover Tab",
-          body:
-            "<ul>" +
-            "<li><strong>Calendar</strong> \u2014 Click a date to select. Dots show: " +
-            "<strong style=\"color:#5aa2ff\">\u25CF blue</strong> = day notes exist, " +
-            "<strong style=\"color:#ffaf32\">\u25CF orange</strong> = outgoing handover bullets, " +
-            "<strong style=\"color:#43d17a\">\u25CF green</strong> = incoming handover from previous day.</li>" +
-            "<li><strong>Permanent Handover</strong> \u2014 Always-visible instructions shared across all days (rich text editor).</li>" +
-            "<li><strong>Day Specific Instructions</strong> \u2014 Notes saved per day. Click Edit to modify.</li>" +
-            "<li><strong>Handover From Previous Day</strong> \u2014 Shows bullets entered on the prior day. " +
-            "Click \u201CAppend to Day Notes\u201D to merge them into today\u2019s notes.</li>" +
-            "<li><strong>Handover Bullets (Outgoing)</strong> \u2014 Severity-coded bullets that carry forward to the next day:</li>" +
-            "</ul>" +
-            "<table class=\"eikon-help-table\">" +
-            "<tr><th>Severity</th><th>Colour</th></tr>" +
-            "<tr><td>Low</td><td><strong style=\"color:var(--ok)\">\uD83D\uDFE2 Green</strong></td></tr>" +
-            "<tr><td>Medium</td><td><strong style=\"color:#e8b635\">\uD83D\uDFE1 Yellow</strong></td></tr>" +
-            "<tr><td>Critical</td><td><strong style=\"color:var(--danger)\">\uD83D\uDD34 Red</strong></td></tr>" +
-            "</table>"
-        },
-        {
-          heading: "Other Tabs",
-          body:
-            "<ul>" +
-            "<li><strong>Opening/Closing</strong> \u2014 Three rich-text editors for opening checklist, closing checklist, and end-of-day instructions.</li>" +
-            "<li><strong>Systems</strong> \u2014 Four editors: POS, POYC, How to Order Items, Active Loyalty Schemes.</li>" +
-            "<li><strong>Clinical</strong> \u2014 Five editors: HIV dispensing (toggleable), Concerta dispensing (toggleable), " +
-            "Doctor appointments, Doctor fees, Clinic fees.</li>" +
-            "</ul>" +
-            "<p>Each editor has Edit/Save/Cancel buttons and shows a \u201CLast updated\u201D timestamp.</p>"
         },
         {
           heading: "Tips",
@@ -1790,45 +1650,6 @@
             "</ol>"
         },
         {
-          heading: "Sections (Sidebar Navigation)",
-          body:
-            "<table class=\"eikon-help-table\">" +
-            "<tr><th>Section</th><th>Purpose</th></tr>" +
-            "<tr><td><strong>Overview</strong></td><td>Dashboard with recent records and quick-create buttons</td></tr>" +
-            "<tr><td><strong>Blood Pressure</strong></td><td>Systolic/Diastolic (mmHg), Pulse, Arm, Position</td></tr>" +
-            "<tr><td><strong>HbA1c</strong></td><td>Percentage and mmol/mol values</td></tr>" +
-            "<tr><td><strong>Blood Glucose</strong></td><td>mmol/L with timing: Fasting, Random, Post-meal (1h/2h)</td></tr>" +
-            "<tr><td><strong>Cholesterol</strong></td><td>Total, HDL, LDL, Triglycerides, TC/HDL Ratio, Fasting status</td></tr>" +
-            "<tr><td><strong>Weight / BMI</strong></td><td>Weight (kg), Height (cm), BMI (auto-calculated), Category, Waist (cm)</td></tr>" +
-            "<tr><td><strong>Urine (Combur 9)</strong></td><td>Leukocytes, Nitrite, Urobilinogen, Protein, pH, Blood, Ketones, Glucose, Appearance</td></tr>" +
-            "<tr><td><strong>All Records</strong></td><td>Searchable archive across all test types</td></tr>" +
-            "</table>"
-        },
-        {
-          heading: "Key Features",
-          body:
-            "<ul>" +
-            "<li><strong>Colour-coded results</strong> \u2014 " +
-            "<strong style=\"color:var(--ok)\">Green</strong> (normal), " +
-            "<strong style=\"color:#e8b635\">Yellow</strong> (warning), " +
-            "<strong style=\"color:var(--danger)\">Red</strong> (critical) \u2014 based on built-in reference ranges.</li>" +
-            "<li><strong>Patient ID</strong> \u2014 Maltese format auto-normalised (7 digits + 1 letter).</li>" +
-            "<li><strong>Fee tracking</strong> \u2014 Record fee due per test.</li>" +
-            "<li><strong>BMI auto-calc</strong> \u2014 Enters weight and height, BMI and category auto-fill.</li>" +
-            "<li><strong>Offline capable</strong> \u2014 Works offline; syncs when connection returns.</li>" +
-            "</ul>"
-        },
-        {
-          heading: "Actions (Per Record)",
-          body:
-            "<ul>" +
-            "<li><strong>View Patient</strong> \u2014 Display patient history across all test types.</li>" +
-            "<li><strong>Edit</strong> \u2014 Modify test results.</li>" +
-            "<li><strong>Print</strong> \u2014 Printable view with patient metadata and results table.</li>" +
-            "<li><strong>Delete</strong> \u2014 Remove record with confirmation.</li>" +
-            "</ul>"
-        },
-        {
           heading: "Tips",
           body:
             "<ul>" +
@@ -1850,21 +1671,10 @@
           heading: "Overview",
           body:
             "<p>Manage travel and routine vaccinations with country-based recommendations, " +
-            "stock tracking, order creation, and an interactive world map.</p>"
+            "stock tracking, order creation, and an interactive world map. Four tabs: Travel, Routine &amp; Other, Stock, and Database.</p>"
         },
         {
-          heading: "Tabs",
-          body:
-            "<table class=\"eikon-help-table\">" +
-            "<tr><th>Tab</th><th>Purpose</th></tr>" +
-            "<tr><td><strong>\uD83C\uDF0D Travel</strong></td><td>Select a country (search or click map) to see vaccine recommendations: Always Required (green) and High Risk (yellow). Check vaccines and set quantities.</td></tr>" +
-            "<tr><td><strong>\uD83D\uDC89 Routine &amp; Other</strong></td><td>Non-travel routine immunisations. Same checkbox + quantity interface.</td></tr>" +
-            "<tr><td><strong>\uD83D\uDCE6 Stock</strong></td><td>Inventory: vaccine name, quantity, batch, expiry. Add/edit/delete stock items.</td></tr>" +
-            "<tr><td><strong>\uD83D\uDDC4 Database</strong></td><td>Full vaccine catalogue with brand, manufacturer, and routine/travel classification.</td></tr>" +
-            "</table>"
-        },
-        {
-          heading: "Travel Workflow",
+          heading: "How to Create a Travel Vaccine Order",
           body:
             "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
             "<li>Search for a country or click the interactive map.</li>" +
@@ -1947,44 +1757,6 @@
             "</ol>"
         },
         {
-          heading: "Common Fields (All Calculators)",
-          body:
-            "<table class=\"eikon-help-table\">" +
-            "<tr><th>Field</th><th>Type</th><th>Required</th></tr>" +
-            "<tr><td>Patient Name</td><td>Text</td><td>Yes</td></tr>" +
-            "<tr><td>ID Card</td><td>Text</td><td>No</td></tr>" +
-            "<tr><td>Start Date</td><td>Date</td><td>Yes</td></tr>" +
-            "<tr><td>Duration (weeks)</td><td>Number</td><td>Yes</td></tr>" +
-            "<tr><td>Notes</td><td>Text</td><td>No</td></tr>" +
-            "</table>"
-        },
-        {
-          heading: "Calculators",
-          body:
-            "<table class=\"eikon-help-table\">" +
-            "<tr><th>Tab</th><th>What It Does</th><th>Key Settings</th></tr>" +
-            "<tr><td><strong>LEV</strong></td><td>Levothyroxine tablet combinations</td><td>Dose 1/2/3 (mcg), pattern mode (Fixed/Alternate/Custom), " +
-            "allow splitting (whole/halves/quarters), market box sizes per strength</td></tr>" +
-            "<tr><td><strong>PRED</strong></td><td>Prednisolone taper planner</td><td>Drug name, strengths (comma-sep), multi-step dose reduction " +
-            "(each step: dose/day, days, note), max tabs/day, round to boxes</td></tr>" +
-            "<tr><td><strong>WAR</strong></td><td>Warfarin weekly dosing</td><td>Cycle doses (comma-sep), tablet strengths, pattern mode " +
-            "(Fixed/Variable/Custom with per-day inputs), pack specs</td></tr>" +
-            "<tr><td><strong>INS</strong></td><td>Insulin supply estimator</td><td>Morning/Afternoon/Evening/Night doses, container type " +
-            "(Pen/Vial), units per container, priming units, discard-after days, round to boxes</td></tr>" +
-            "<tr><td><strong>MTX</strong></td><td>Methotrexate weekly dosing</td><td>Weekly dose (mg), day of week, tablet strength, " +
-            "allow halves, tabs per box, round to boxes</td></tr>" +
-            "</table>"
-        },
-        {
-          heading: "Actions",
-          body:
-            "<ul>" +
-            "<li><strong>Calculate</strong> \u2014 Shows result table with dates, doses, and tablet combinations in the right panel.</li>" +
-            "<li><strong>Save &amp; Print</strong> \u2014 Store calculation with patient ID and generate A4 printable instructions.</li>" +
-            "<li><strong>Clear</strong> \u2014 Reset all fields to defaults.</li>" +
-            "</ul>"
-        },
-        {
           heading: "Tips",
           body:
             "<ul>" +
@@ -2010,15 +1782,6 @@
             "Compliant with EMA and Malta MPA standards.</p>"
         },
         {
-          heading: "Tabs",
-          body:
-            "<table class=\"eikon-help-table\">" +
-            "<tr><th>Tab</th><th>Purpose</th></tr>" +
-            "<tr><td><strong>All Reports</strong></td><td>Searchable list of all ADR reports with Edit, Print, PDF, Delete actions</td></tr>" +
-            "<tr><td><strong>New / Edit Report</strong></td><td>5-step wizard form (see below)</td></tr>" +
-            "</table>"
-        },
-        {
           heading: "How to File an ADR Report",
           body:
             "<p>Click <strong>New Report</strong> to start the 5-step wizard. Work through each step in order:</p>" +
@@ -2033,15 +1796,6 @@
             "</ol>"
         },
         {
-          heading: "Report Statuses",
-          body:
-            "<ul>" +
-            "<li><strong>Preliminary</strong> \u2014 Initial report.</li>" +
-            "<li><strong>Periodic / Follow-up</strong> \u2014 Updated information.</li>" +
-            "<li><strong>Final</strong> \u2014 Complete report.</li>" +
-            "</ul>"
-        },
-        {
           heading: "Tips",
           body:
             "<ul>" +
@@ -2049,6 +1803,7 @@
             "<li>Save as Draft first, review, then Submit when confident.</li>" +
             "<li>Include batch numbers for product traceability.</li>" +
             "<li>Use initials only (not full names) for patient privacy.</li>" +
+            "<li>Report statuses: Preliminary \u2192 Follow-up \u2192 Final.</li>" +
             "</ul>"
         }
       ]
@@ -2064,18 +1819,8 @@
           heading: "Overview",
           body:
             "<p>Manage health screening events (e.g. Diabetes Awareness Week, Blood Pressure Month). " +
-            "Integrates with POCT for test recording, tracks participants, follow-ups, and generates summary reports.</p>"
-        },
-        {
-          heading: "Tabs",
-          body:
-            "<table class=\"eikon-help-table\">" +
-            "<tr><th>Tab</th><th>Purpose</th></tr>" +
-            "<tr><td><strong>Campaigns</strong></td><td>Create/manage campaigns with type, dates, target goal, and participant tracking</td></tr>" +
-            "<tr><td><strong>All Participants</strong></td><td>Cross-campaign participant list filterable by result category</td></tr>" +
-            "<tr><td><strong>Follow-ups</strong></td><td>Schedule and track follow-up appointments with status (Pending/Scheduled/Completed/No-show/Cancelled/Overdue)</td></tr>" +
-            "<tr><td><strong>Summary</strong></td><td>Dashboard with totals, campaign comparison, and progress bars</td></tr>" +
-            "</table>"
+            "Integrates with POCT for test recording, tracks participants, follow-ups, and generates summary reports. " +
+            "Four tabs: Campaigns, All Participants, Follow-ups, and Summary.</p>"
         },
         {
           heading: "How to Run a Screening Event",
@@ -2090,39 +1835,6 @@
             "<li>Select a <strong>result category</strong> (Normal / Borderline / Abnormal / Requires urgent attention) and <strong>referral</strong> type.</li>" +
             "<li>Click <strong>Save</strong>. If follow-up is needed, go to the <strong>Follow-ups</strong> tab to schedule it.</li>" +
             "</ol>"
-        },
-        {
-          heading: "Campaign Types",
-          body:
-            "<p>Blood Pressure, Diabetes Screening, Cholesterol, Blood Glucose, BMI Assessment, " +
-            "Urine Screening, Cardiovascular Risk, Flu Vaccination, Smoking Cessation, General Health Check, Other.</p>"
-        },
-        {
-          heading: "Participant Form Fields",
-          body:
-            "<table class=\"eikon-help-table\">" +
-            "<tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr>" +
-            "<tr><td>ID Card</td><td>Text</td><td>Yes</td><td>Autocomplete from POCT patients</td></tr>" +
-            "<tr><td>Full Name</td><td>Text</td><td>No</td><td>Auto-filled from POCT records</td></tr>" +
-            "<tr><td>Phone</td><td>Tel</td><td>No</td><td></td></tr>" +
-            "<tr><td>Date of Birth</td><td>Date</td><td>No</td><td></td></tr>" +
-            "<tr><td>Type</td><td>Dropdown</td><td>No</td><td>Pre-registered or Walk-in</td></tr>" +
-            "<tr><td>Screening Date</td><td>Date</td><td>Yes</td><td></td></tr>" +
-            "<tr><td>POCT Results</td><td>Dynamic</td><td>No</td><td>Fields appear based on campaign type (e.g. BP fields for Blood Pressure campaigns)</td></tr>" +
-            "<tr><td>Result Notes</td><td>Textarea</td><td>No</td><td></td></tr>" +
-            "<tr><td>Result Category</td><td>Dropdown</td><td>Yes</td><td>Normal, Borderline, Abnormal, Requires urgent attention</td></tr>" +
-            "<tr><td>Referral</td><td>Dropdown</td><td>Yes</td><td>No referral, GP, Specialist, Hospital, Dietitian, Pharmacist follow-up, Self-monitoring, Other</td></tr>" +
-            "</table>"
-        },
-        {
-          heading: "Result Category Colours",
-          body:
-            "<ul>" +
-            "<li><strong style=\"color:var(--ok)\">Green</strong> \u2014 Normal</li>" +
-            "<li><strong style=\"color:#e8b635\">Yellow</strong> \u2014 Borderline</li>" +
-            "<li><strong style=\"color:#e8a035\">Orange</strong> \u2014 Abnormal</li>" +
-            "<li><strong style=\"color:var(--danger)\">Red</strong> \u2014 Requires urgent attention</li>" +
-            "</ul>"
         },
         {
           heading: "Tips",
@@ -2205,35 +1917,9 @@
         {
           heading: "Overview",
           body:
-            "<p>Centralised contact directory combining read-only reference data (emergency numbers, public clinics) " +
-            "with editable organisation-wide contact tables. Includes global search across all sections.</p>"
-        },
-        {
-          heading: "Static Reference Sections",
-          body:
-            "<ul>" +
-            "<li><strong>Emergency &amp; Important Numbers</strong> \u2014 All Emergencies (112), Ambulance (196), Police (2122 4001), " +
-            "Civil Protection (2393 0000), Urgent Non-Emergency (1400), Mater Dei Hospital, Gozo General Hospital.</li>" +
-            "<li><strong>24/7 Public Health Clinics</strong> \u2014 Floriana, Mosta, Paola, and the Primary HealthCare Call Centre.</li>" +
-            "</ul>"
-        },
-        {
-          heading: "Editable Contact Tables",
-          body:
-            "<table class=\"eikon-help-table\">" +
-            "<tr><th>Table</th><th>Columns</th><th>Shared</th></tr>" +
-            "<tr><td><strong>Client Contacts</strong></td><td>Name, Client ID, Address, Phone, Alternate Phone</td><td>Location-specific</td></tr>" +
-            "<tr><td><strong>Suppliers</strong></td><td>Supplier Name, Phone, Email</td><td>Yes</td></tr>" +
-            "<tr><td><strong>Medical Representatives</strong></td><td>Rep Name, Phone, Email</td><td>Yes</td></tr>" +
-            "<tr><td><strong>Doctors</strong></td><td>Doctor Name, Personal Number, Patient-Safe Number</td><td>Yes</td></tr>" +
-            "<tr><td><strong>Specialists</strong></td><td>Name, Specialty (60+ options + filter dropdown), Personal Number, Patient-Safe Number</td><td>Yes</td></tr>" +
-            "<tr><td><strong>Locums</strong></td><td>Locum Name, Phone</td><td>Yes</td></tr>" +
-            "<tr><td><strong>Head Office</strong></td><td>Office/Department, Phone</td><td>Yes (hideable)</td></tr>" +
-            "<tr><td><strong>Organisation Pharmacies</strong></td><td>Pharmacy Name, Phone</td><td>Yes (hideable)</td></tr>" +
-            "<tr><td><strong>POYC</strong></td><td>Contact Person/Office, Phone</td><td>Yes</td></tr>" +
-            "</table>" +
-            "<p><strong>Shared</strong> tables are visible across all locations in your organisation \u2014 " +
-            "changes affect everyone. A confirmation modal warns before edits to shared tables.</p>"
+            "<p>Centralised contact directory with emergency numbers, public clinic references, and editable tables " +
+            "for clients, suppliers, doctors, specialists, locums, medical reps, head office, and POYC. " +
+            "Most tables are <strong>shared</strong> across your organisation \u2014 changes you make are visible to all locations.</p>"
         },
         {
           heading: "How to Add or Find a Contact",
@@ -2247,27 +1933,13 @@
             "emergency numbers, and clinics. Each table also has its own search box for focused filtering.</p>"
         },
         {
-          heading: "Actions (Per Table)",
-          body:
-            "<ul>" +
-            "<li><strong>+ Add</strong> \u2014 Add a new row.</li>" +
-            "<li><strong>Edit / Del</strong> \u2014 Per-row modification or deletion.</li>" +
-            "<li><strong>Export</strong> \u2014 Download as Google Contacts\u2013compatible CSV or copy to clipboard.</li>" +
-            "<li><strong>Import</strong> \u2014 Paste CSV text; rows are appended (existing entries kept). " +
-            "Shared tables show an extra confirmation before importing.</li>" +
-            "<li><strong>Search (per table)</strong> \u2014 Real-time filter with match count.</li>" +
-            "<li><strong>Global Search (top)</strong> \u2014 Searches across all tables + emergency numbers + clinics.</li>" +
-            "</ul>"
-        },
-        {
           heading: "Tips",
           body:
             "<ul>" +
+            "<li>Use <strong>Export</strong> to download any table as Google Contacts\u2013compatible CSV.</li>" +
+            "<li>Use <strong>Import</strong> to paste CSV for bulk additions (rows are appended, not replaced).</li>" +
             "<li>Doctors and Specialists have separate <em>Personal</em> and <em>Patient-Safe</em> phone fields.</li>" +
-            "<li>Specialists table has a specialty filter dropdown (60+ medical specialties).</li>" +
-            "<li>Head Office and Organisation Pharmacies sections can be hidden with a toggle checkbox.</li>" +
-            "<li>Print static sections (emergency numbers) for wall display.</li>" +
-            "<li>Use CSV import for bulk updates from spreadsheets.</li>" +
+            "<li>Print the emergency numbers section for wall display.</li>" +
             "</ul>"
         }
       ]
