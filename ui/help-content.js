@@ -194,15 +194,16 @@
             "and any notes about the work. Entries are stored by month.</p>"
         },
         {
-          heading: "Adding an Entry",
+          heading: "How to Log a Cleaning Visit",
           body:
-            "<ul>" +
-            "<li><strong>Date</strong> \u2014 Defaults to today; can be backdated.</li>" +
-            "<li><strong>Time In / Time Out</strong> \u2014 Start and end times (Time Out is optional for incomplete shifts).</li>" +
-            "<li><strong>Cleaner Name</strong> \u2014 Who performed the cleaning.</li>" +
-            "<li><strong>Staff Name</strong> \u2014 Supervising staff member.</li>" +
-            "<li><strong>Notes</strong> \u2014 Optional details about the work done.</li>" +
-            "</ul>"
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Click <strong>New Entry</strong>.</li>" +
+            "<li>Set the <strong>date</strong> (defaults to today) and enter <strong>Time In</strong>.</li>" +
+            "<li>Enter the <strong>cleaner name</strong> and your own <strong>staff name</strong> (supervisor).</li>" +
+            "<li>Optionally add <strong>notes</strong> about the work done.</li>" +
+            "<li>Click <strong>Save</strong>.</li>" +
+            "<li>When the cleaner finishes, find the entry in the register and click <strong>Edit</strong> to add the <strong>Time Out</strong>.</li>" +
+            "</ol>"
         },
         {
           heading: "Register & Actions",
@@ -238,15 +239,17 @@
             "quantities, agent names, and invoice numbers for regulatory compliance.</p>"
         },
         {
-          heading: "Adding & Editing Entries",
+          heading: "How to Record a DDA Purchase",
           body:
-            "<ul>" +
-            "<li><strong>Entry Date</strong> \u2014 When the purchase occurred (YYYY-MM-DD).</li>" +
-            "<li><strong>DDA Name & Dose</strong> \u2014 Full name and dosage (e.g. \"Morphine Sulphate 30mg tablets\").</li>" +
-            "<li><strong>Quantity</strong> \u2014 Number of units (must be at least 1).</li>" +
-            "<li><strong>Agent</strong> \u2014 Supplier or agent who provided the drugs.</li>" +
-            "<li><strong>Invoice Number</strong> \u2014 Reference invoice for the purchase.</li>" +
-            "</ul>"
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Click <strong>New Entry</strong>.</li>" +
+            "<li>Set the <strong>entry date</strong> (when the purchase occurred).</li>" +
+            "<li>Enter the <strong>DDA name &amp; dose</strong> (e.g. \"Morphine Sulphate 30mg tablets\").</li>" +
+            "<li>Enter the <strong>quantity</strong> received (must be at least 1).</li>" +
+            "<li>Enter the <strong>agent</strong> (supplier name) and <strong>invoice number</strong>.</li>" +
+            "<li>Click <strong>Save</strong>.</li>" +
+            "</ol>" +
+            "<p>Use the <strong>search field</strong> to find past entries by DDA name, agent, or invoice number.</p>"
         },
         {
           heading: "Search & Reports",
@@ -322,15 +325,17 @@
             "and mark them as closed when complete.</p>"
         },
         {
-          heading: "How It Works",
+          heading: "How to Do a Stock Take",
           body:
-            "<ul>" +
-            "<li><strong>New Stock Take</strong> \u2014 Creates a new count session with the current timestamp.</li>" +
-            "<li><strong>Add Items</strong> \u2014 Enter name, optional dosage, and tablet quantity for each item.</li>" +
-            "<li><strong>Inline Editing</strong> \u2014 Click Edit on any row to modify it directly in the table. Press <span class=\"eikon-help-kbd\">Enter</span> to save or <span class=\"eikon-help-kbd\">Esc</span> to cancel.</li>" +
-            "<li><strong>Save & Close</strong> \u2014 Marks the stock take as closed (items remain editable for corrections).</li>" +
-            "<li><strong>Print</strong> \u2014 Opens a formatted report in a new tab.</li>" +
-            "</ul>"
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Click <strong>New Stock Take</strong> \u2014 a new count session is created with the current timestamp.</li>" +
+            "<li>Click <strong>Add Item</strong> and enter the <strong>name</strong>, optional <strong>dosage</strong>, and <strong>tablet quantity</strong>.</li>" +
+            "<li>Repeat for each controlled substance in your inventory.</li>" +
+            "<li>If you need to correct a count, click <strong>Edit</strong> on the row \u2014 modify inline and press Enter to save (or Esc to cancel).</li>" +
+            "<li>When the count is complete, click <strong>Save &amp; Close</strong> to finalise.</li>" +
+            "<li>Click <strong>Print</strong> to generate a formatted report for your records.</li>" +
+            "</ol>" +
+            "<p>Stock takes remain editable after closing \u2014 useful for post-count corrections.</p>"
         },
         {
           heading: "Tips",
@@ -356,14 +361,17 @@
             "with the same smart autocomplete for clients, medicines, and doctors.</p>"
         },
         {
-          heading: "Key Features",
+          heading: "How to Record a POYC Supply",
           body:
-            "<ul>" +
-            "<li><strong>Autocomplete</strong> \u2014 Client name, ID card, medicine, doctor name, and reg number all have smart suggestions.</li>" +
-            "<li><strong>Cross-fill</strong> \u2014 Selecting a doctor auto-fills the reg number; selecting an ID card auto-fills client details.</li>" +
-            "<li><strong>Reports</strong> \u2014 Generate and print reports for any date range.</li>" +
-            "<li><strong>Search</strong> \u2014 Filter entries across all fields with live search.</li>" +
-            "</ul>"
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Click <strong>New Entry</strong>.</li>" +
+            "<li>Enter the <strong>client ID card</strong> \u2014 name and details auto-fill from previous records.</li>" +
+            "<li>Start typing the <strong>medicine name</strong> and select from the suggestions.</li>" +
+            "<li>Enter the <strong>quantity</strong> and <strong>prescription details</strong>.</li>" +
+            "<li>Start typing the <strong>doctor name</strong> or <strong>reg number</strong> \u2014 the other field auto-fills.</li>" +
+            "<li>Click <strong>Save</strong>.</li>" +
+            "</ol>" +
+            "<p>Use the <strong>search field</strong> to find past entries. Click <strong>Report</strong> to generate a printable summary for any date range.</p>"
         }
       ]
     },
@@ -380,16 +388,16 @@
             "<p>Logs daily client medicine transactions with full prescriber information for regulatory compliance and audit trails.</p>"
         },
         {
-          heading: "Fields",
+          heading: "How to Add a Register Entry",
           body:
-            "<ul>" +
-            "<li><strong>Date</strong> \u2014 Entry date (defaults to today).</li>" +
-            "<li><strong>Client Name & Surname</strong> \u2014 Full patient name.</li>" +
-            "<li><strong>Client ID</strong> \u2014 ID card number.</li>" +
-            "<li><strong>Medicine Name & Dose</strong> \u2014 Full medication description.</li>" +
-            "<li><strong>Posology</strong> \u2014 Dosage instructions (e.g. \"1-1-1 x 7 days\").</li>" +
-            "<li><strong>Prescriber Name & Reg No</strong> \u2014 Doctor\u2019s name and registration.</li>" +
-            "</ul>" +
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Click <strong>New Entry</strong>.</li>" +
+            "<li>Enter the <strong>client name &amp; surname</strong> and <strong>client ID</strong> (ID card number).</li>" +
+            "<li>Enter the <strong>medicine name &amp; dose</strong> (e.g. \"Amoxicillin 500mg capsules\").</li>" +
+            "<li>Enter the <strong>posology</strong> (dosage instructions, e.g. \"1-1-1 x 7 days\").</li>" +
+            "<li>Enter the <strong>prescriber name</strong> and <strong>registration number</strong>.</li>" +
+            "<li>Click <strong>Save</strong>.</li>" +
+            "</ol>" +
             "<p>All fields except notes are mandatory. Use the month selector and search to filter entries.</p>"
         },
         {
@@ -417,25 +425,19 @@
             "Monitor expiry status, upload documents, and generate print-ready reports.</p>"
         },
         {
-          heading: "Certificate Cards",
+          heading: "How to Update a Certificate",
           body:
-            "<p>Each certificate displays as a card showing:</p>" +
-            "<ul>" +
-            "<li><strong>Last Date</strong> \u2014 When the certificate was last obtained.</li>" +
-            "<li><strong>Next Due</strong> \u2014 When renewal is required. <strong style=\"color:var(--danger)\">Red</strong> if expired, <strong style=\"color:var(--accent)\">blue</strong> if current.</li>" +
-            "<li><strong>EXPIRED badge</strong> \u2014 Appears if the next-due date has passed.</li>" +
-            "<li><strong>File info</strong> \u2014 Shows uploaded filename and timestamp.</li>" +
-            "</ul>"
-        },
-        {
-          heading: "Actions",
-          body:
-            "<ul>" +
-            "<li><strong>Edit</strong> \u2014 Update last date, renewal interval (1\u2013120 months), and certified person.</li>" +
-            "<li><strong>Upload</strong> \u2014 Attach PDF or image. Automatically overwrites previous file.</li>" +
-            "<li><strong>Download</strong> \u2014 Retrieve the uploaded document.</li>" +
-            "<li><strong>Print All</strong> \u2014 Generates a table of all certificates plus embedded documents.</li>" +
-            "</ul>"
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Find the certificate card (e.g. Fire Extinguisher, First Aid, Pharmacy Licence).</li>" +
+            "<li>Click <strong>Edit</strong> on the card.</li>" +
+            "<li>Set the <strong>last date</strong> (when the certificate was obtained/renewed).</li>" +
+            "<li>Set the <strong>renewal interval</strong> (1\u2013120 months) \u2014 the next-due date auto-calculates.</li>" +
+            "<li>Enter the <strong>certified person</strong> or responsible party.</li>" +
+            "<li>Click <strong>Save</strong>.</li>" +
+            "<li>Click <strong>Upload</strong> to attach the PDF or image of the certificate (overwrites any previous file).</li>" +
+            "</ol>" +
+            "<p>Cards show <strong style=\"color:var(--danger)\">EXPIRED</strong> in red if the next-due date has passed. " +
+            "Click <strong>Download</strong> to retrieve an uploaded document.</p>"
         },
         {
           heading: "Tips",
@@ -476,16 +478,21 @@
             "</table>"
         },
         {
-          heading: "POS Tab",
+          heading: "How to Process a Sale",
           body:
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Open the <strong>POS</strong> tab.</li>" +
+            "<li>Add items to the cart using any method:" +
             "<ul>" +
-            "<li><strong>Scan Barcode</strong> \u2014 Opens the camera for barcode detection (DataMatrix, QR, EAN-13, Code128, and more).</li>" +
-            "<li><strong>Photo Search</strong> \u2014 OCR-based product search from a camera snapshot.</li>" +
-            "<li><strong>Manual Entry</strong> \u2014 Add products by name, price, and VAT rate.</li>" +
-            "<li><strong>Quantity</strong> \u2014 Supports fractions (e.g. \"1/6\") and decimals.</li>" +
-            "<li><strong>Discount</strong> \u2014 0\u201310% per transaction.</li>" +
-            "<li><strong>Payment</strong> \u2014 Cash (with change calculation), Card, or Cheque.</li>" +
-            "</ul>"
+            "<li><strong>Scan Barcode</strong> \u2014 Click to open the camera and scan (DataMatrix, QR, EAN-13, Code128).</li>" +
+            "<li><strong>Photo Search</strong> \u2014 Take a photo and let OCR find the product.</li>" +
+            "<li><strong>Manual Entry</strong> \u2014 Type the product name, set the price and VAT rate.</li>" +
+            "</ul></li>" +
+            "<li>Adjust <strong>quantity</strong> for each item (supports fractions like \"1/6\" and decimals).</li>" +
+            "<li>Optionally apply a <strong>discount</strong> (0\u201310%).</li>" +
+            "<li>Click <strong>Pay</strong> and select the payment method: Cash (enter amount tendered \u2014 change auto-calculates), Card, or Cheque.</li>" +
+            "<li>Click <strong>Complete Sale</strong> \u2014 the receipt prints and the transaction appears in History.</li>" +
+            "</ol>"
         },
         {
           heading: "Offline & Sync",
@@ -903,14 +910,18 @@
             "</ul>"
         },
         {
-          heading: "Workflows",
+          heading: "How to Create and Fulfil an Order",
           body:
             "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
-            "<li>Click <strong>New Order</strong> and fill in the required fields.</li>" +
-            "<li>Click <strong>Save</strong> \u2014 an auto-generated 6-character order code is assigned.</li>" +
-            "<li>A prompt asks whether to add items to the <strong>Order Diary</strong> (optional supplier field).</li>" +
-            "<li>Track follow-up status as you contact the customer.</li>" +
-            "<li>When ready, click <strong>Mark Fulfilled</strong> to move the order to the Fulfilled tab.</li>" +
+            "<li>Click <strong>New Order</strong>.</li>" +
+            "<li>Enter the client\u2019s <strong>name</strong>, <strong>phone</strong>, and <strong>email</strong>.</li>" +
+            "<li>In the <strong>Items</strong> field, type each item on a separate line (each line becomes a separate Order Diary entry later).</li>" +
+            "<li>Set the <strong>priority</strong> (High/Medium/Low), <strong>needed by</strong> date, and <strong>pick-up date</strong>.</li>" +
+            "<li>Click <strong>Save</strong> \u2014 a 6-character order code is auto-generated.</li>" +
+            "<li>A prompt asks whether to add the items to the <strong>Order Diary</strong> \u2014 click Yes to track them with your supplier orders.</li>" +
+            "<li>As you follow up, update the <strong>follow-up status</strong> (Called, Not Wanted, Not Available, Called No Answer, Wrong Number).</li>" +
+            "<li>When the order is ready, click <strong>Mark Fulfilled</strong> \u2014 it moves to the Fulfilled tab.</li>" +
+            "<li>Click <strong>Print Sticker</strong> to generate an 80mm label with QR code for the bag.</li>" +
             "</ol>"
         },
         {
@@ -1600,17 +1611,25 @@
             "</table>"
         },
         {
-          heading: "Workflow",
+          heading: "How to Offer an Item for Transfer",
           body:
-            "<p><strong>Open</strong> \u2192 <strong>Requested</strong> \u2192 <strong>Accepted</strong> \u2192 <strong>Dispatched</strong> \u2192 <strong>Delivered</strong></p>" +
             "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
-            "<li><strong>Place Item</strong> \u2014 Offer an item for other locations to request.</li>" +
-            "<li>Other pharmacy clicks <strong>Request Transfer</strong> (sets quantity and optional private note).</li>" +
-            "<li>You <strong>Accept</strong> or <strong>Reject</strong> the request.</li>" +
-            "<li>Click <strong>Confirm Dispatch</strong> when the item is shipped.</li>" +
-            "<li>Receiving pharmacy clicks <strong>Confirm Received</strong> to complete.</li>" +
+            "<li>Click <strong>Place for Transfer</strong>.</li>" +
+            "<li>Enter the <strong>item description</strong>, <strong>quantity</strong>, and optionally batch and expiry.</li>" +
+            "<li>Click <strong>Save</strong> \u2014 the item appears in the Available Items tab and is visible to other pharmacies.</li>" +
+            "</ol>"
+        },
+        {
+          heading: "How to Handle Incoming Requests",
+          body:
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>When another pharmacy requests your item, expand the row in the <strong>Available Items</strong> tab to see the request details.</li>" +
+            "<li>Click <strong>Accept</strong> (or <strong>Reject</strong> if you can\u2019t fulfil it).</li>" +
+            "<li>When you\u2019ve packed and sent the item, click <strong>Confirm Dispatch</strong>.</li>" +
+            "<li>The receiving pharmacy clicks <strong>Confirm Received</strong> on their end to complete the transfer.</li>" +
             "</ol>" +
-            "<p>Expired items are automatically flagged and cannot be transferred.</p>"
+            "<p>Status flow: <strong>Open</strong> \u2192 <strong>Requested</strong> \u2192 <strong>Accepted</strong> \u2192 <strong>Dispatched</strong> \u2192 <strong>Delivered</strong>. " +
+            "Expired items are automatically flagged and cannot be transferred.</p>"
         },
         {
           heading: "Integration Actions",
@@ -2133,15 +2152,17 @@
             "Supports both monophasic and multiphasic formulations.</p>"
         },
         {
-          heading: "How It Works",
+          heading: "How to Find an OCP",
           body:
-            "<ul>" +
-            "<li>Select <strong>estrogen type</strong> and/or <strong>progestogen type</strong> from dropdowns.</li>" +
-            "<li>Optionally enter a <strong>dose</strong> with unit toggle (mg/mcg).</li>" +
-            "<li>All fields are optional \u2014 leave empty to broaden results.</li>" +
-            "<li>Dose matching uses \u00B11% tolerance for rounding.</li>" +
-            "<li>Results show trade name, hormone types, and doses. Multiphasic pills are flagged.</li>" +
-            "</ul>"
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Select an <strong>estrogen type</strong> from the dropdown (or leave empty to search all).</li>" +
+            "<li>Select a <strong>progestogen type</strong> from the dropdown (or leave empty).</li>" +
+            "<li>Optionally enter a <strong>dose</strong> and toggle the unit between <strong>mg</strong> and <strong>mcg</strong>.</li>" +
+            "<li>Results appear immediately \u2014 showing trade name, hormone types, and doses.</li>" +
+            "<li>Multiphasic pills are flagged in the results.</li>" +
+            "<li>Click <strong>Print</strong> to generate a printable list for the patient.</li>" +
+            "</ol>" +
+            "<p>All fields are optional \u2014 leave them empty to see all available pills. Dose matching uses \u00B11% tolerance for rounding.</p>"
         },
         {
           heading: "Tips",
@@ -2250,18 +2271,17 @@
             "</table>"
         },
         {
-          heading: "5-Step Wizard",
+          heading: "How to File an ADR Report",
           body:
+            "<p>Click <strong>New Report</strong> to start the 5-step wizard. Work through each step in order:</p>" +
             "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
-            "<li><strong>Patient Information</strong> \u2014 Initials (privacy \u2014 no full names), sex, date of birth, age (auto-calculates year), patient ID, medical history.</li>" +
-            "<li><strong>Suspected Drug(s)</strong> \u2014 Repeatable: drug name, dose, route (Oral/IV/IM/SC/Topical/Inhaled/Rectal/Other), " +
-            "frequency, start/stop dates, indication, batch number, MAH. Click <strong>+ Add Drug</strong> for multiple drugs.</li>" +
-            "<li><strong>Reaction / ADR</strong> \u2014 Free-text description, <strong>MedDRA term</strong> autocomplete (100+ terms), " +
-            "start/stop dates, seriousness (Non-serious/Serious/Serious and unexpected), " +
-            "outcome (Recovered/Recovering/Not recovered/Fatal/Unknown), " +
-            "causality (Certain/Probable/Possible/Unlikely/Unrelated), report type, report status.</li>" +
-            "<li><strong>Reporter Information</strong> \u2014 Name, qualification (Pharmacist/Physician/Nurse/Patient/Other), organisation, phone, email.</li>" +
-            "<li><strong>Review &amp; Submit</strong> \u2014 Read-only summary of all data with jump-back links to each step for corrections.</li>" +
+            "<li><strong>Patient Information</strong> \u2014 Enter patient <strong>initials</strong> (not full name, for privacy), sex, date of birth, and medical history. Click <strong>Next</strong>.</li>" +
+            "<li><strong>Suspected Drug(s)</strong> \u2014 Enter the <strong>drug name</strong>, dose, route, frequency, and start/stop dates. " +
+            "Include the <strong>batch number</strong> for traceability. Click <strong>+ Add Drug</strong> if multiple drugs are suspected. Click <strong>Next</strong>.</li>" +
+            "<li><strong>Reaction / ADR</strong> \u2014 Describe the reaction, then start typing the <strong>MedDRA term</strong> to select from 100+ standard terms. " +
+            "Set the <strong>seriousness</strong>, <strong>outcome</strong>, and <strong>causality</strong> assessment. Click <strong>Next</strong>.</li>" +
+            "<li><strong>Reporter Information</strong> \u2014 Enter your name, qualification (Pharmacist/Physician/Nurse/Patient/Other), organisation, and contact details. Click <strong>Next</strong>.</li>" +
+            "<li><strong>Review &amp; Submit</strong> \u2014 Review the summary. Click any section heading to jump back and correct. When ready, click <strong>Submit</strong> (or <strong>Save Draft</strong> to finish later).</li>" +
             "</ol>"
         },
         {
@@ -2383,15 +2403,21 @@
             "symptoms, use cases, bundles, and safety guardrails on a zoomable canvas.</p>"
         },
         {
-          heading: "How It Works",
+          heading: "How to Look Up a Product or Symptom",
           body:
+            "<ol style=\"padding-left:20px;margin:0 0 14px\">" +
+            "<li>Type a <strong>product name</strong> or <strong>symptom</strong> in the search box \u2014 the graph jumps to that node.</li>" +
+            "<li><strong>Click the node</strong> to load its details in the side panel.</li>" +
+            "<li>Review the side panel sections:" +
             "<ul>" +
-            "<li><strong>Search</strong> \u2014 Type a product, symptom, or use case to jump to it on the graph.</li>" +
-            "<li><strong>Click nodes</strong> \u2014 Select to load related data in the side panel.</li>" +
-            "<li><strong>Side panel sections</strong> \u2014 Symptom links, Similar products, Complementary products, Use cases, Bundles, Guardrails.</li>" +
-            "<li><strong>Score threshold</strong> \u2014 Slider to filter weak connections.</li>" +
-            "<li><strong>Zoom &amp; pan</strong> \u2014 Use buttons or mouse drag to navigate.</li>" +
-            "</ul>"
+            "<li><strong>Symptom links</strong> \u2014 What symptoms this product treats.</li>" +
+            "<li><strong>Similar products</strong> \u2014 Alternatives the patient could use.</li>" +
+            "<li><strong>Complementary products</strong> \u2014 What works well alongside it.</li>" +
+            "<li><strong>Guardrails</strong> \u2014 Safety warnings and interactions to check before recommending.</li>" +
+            "</ul></li>" +
+            "<li>Click connected nodes to explore further. Use <strong>zoom/pan</strong> (buttons or mouse drag) to navigate.</li>" +
+            "<li>Adjust the <strong>score threshold</strong> slider to hide weaker connections.</li>" +
+            "</ol>"
         },
         {
           heading: "Link Types",
