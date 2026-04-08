@@ -17327,19 +17327,25 @@ async function handlePosCatalogList(request, env, corsOkHeaders, authUser, url) 
   await ensurePosSchema(env);
   const q = (url.searchParams.get("q") || "").toLowerCase().trim();
   const category = (url.searchParams.get("category") || "").trim();
+  const allOrg = url.searchParams.get("all_org") === "1";
   const limit = Math.min(Math.max(1, parseInt(url.searchParams.get("limit")) || 2000), 5000);
   const offset = Math.max(0, parseInt(url.searchParams.get("offset")) || 0);
-  let sql = `SELECT id, barcode, name, price, vat_rate, category, unit, is_active, updated_at
-             FROM pos_products WHERE org_id=? AND location_id=? AND is_active=1`;
-  const bind = [authUser.org_id, authUser.location_id];
+  let sql, bind;
+  if (allOrg) {
+    sql = `SELECT id, barcode, name, price, vat_rate, category, unit, is_active, updated_at
+               FROM pos_products WHERE org_id=? AND is_active=1`;
+    bind = [authUser.org_id];
+  } else {
+    sql = `SELECT id, barcode, name, price, vat_rate, category, unit, is_active, updated_at
+               FROM pos_products WHERE org_id=? AND location_id=? AND is_active=1`;
+    bind = [authUser.org_id, authUser.location_id];
+  }
   if (q) { sql += ` AND (lower(barcode) LIKE ? OR lower(name) LIKE ? OR lower(category) LIKE ?)`; const like = `%${q}%`; bind.push(like, like, like); }
   if (category) { sql += ` AND category=?`; bind.push(category); }
 
   // Count total matching rows
-  const countRow = await dbFirst(env, `SELECT COUNT(*) as cnt FROM pos_products WHERE org_id=? AND location_id=? AND is_active=1` +
-    (q ? ` AND (lower(barcode) LIKE ? OR lower(name) LIKE ? OR lower(category) LIKE ?)` : "") +
-    (category ? ` AND category=?` : ""),
-    bind);
+  const countBind = bind.slice();
+  const countRow = await dbFirst(env, sql.replace(/SELECT .+ FROM/, "SELECT COUNT(*) as cnt FROM"), countBind);
   const total = countRow ? countRow.cnt : 0;
 
   sql += ` ORDER BY name LIMIT ? OFFSET ?`;

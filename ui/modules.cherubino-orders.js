@@ -79,20 +79,24 @@
 
   function loadCatalog() {
     if (S.catalogCache && S.catalogCache.length) return Promise.resolve(S.catalogCache);
+    // Check org-wide cache first, then fallback to per-location cache
     try {
-      var cached = JSON.parse(window.localStorage.getItem("eikon_epos_catalog") || "null");
+      var cached = JSON.parse(window.localStorage.getItem("eikon_cherubino_catalog") || "null");
+      if (cached && cached.length) { S.catalogCache = cached; return Promise.resolve(cached); }
+      // Also try the Emergency POS per-location cache
+      cached = JSON.parse(window.localStorage.getItem("eikon_epos_catalog") || "null");
       if (cached && cached.length) { S.catalogCache = cached; return Promise.resolve(cached); }
     } catch (e) {}
     // Fetch all pages
     var all = [];
     function fetchPage(offset) {
-      return E.apiFetch("/emergency-pos/catalog?limit=2000&offset=" + offset, { method: "GET" })
+      return E.apiFetch("/emergency-pos/catalog?limit=2000&offset=" + offset + "&all_org=1", { method: "GET" })
         .then(function (r) {
           var products = r.products || [];
           all = all.concat(products);
           if (r.next_offset && products.length > 0) return fetchPage(r.next_offset);
           S.catalogCache = all;
-          try { window.localStorage.setItem("eikon_epos_catalog", JSON.stringify(all)); } catch (e) {}
+          try { window.localStorage.setItem("eikon_cherubino_catalog", JSON.stringify(all)); } catch (e) {}
           return all;
         });
     }
