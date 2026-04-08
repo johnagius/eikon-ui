@@ -47,6 +47,150 @@
 
   var SIMILARITY_THRESHOLD = 0.7;
 
+  /* ── Jaro-Winkler similarity (state of the art for name matching) ──── */
+  function jaroSimilarity(s1, s2) {
+    if (s1 === s2) return 1;
+    var len1 = s1.length, len2 = s2.length;
+    if (!len1 || !len2) return 0;
+    var matchDist = Math.max(Math.floor(Math.max(len1, len2) / 2) - 1, 0);
+    var s1m = new Array(len1), s2m = new Array(len2);
+    var matches = 0, transpositions = 0;
+    for (var i = 0; i < len1; i++) {
+      var lo = Math.max(0, i - matchDist), hi = Math.min(i + matchDist + 1, len2);
+      for (var j = lo; j < hi; j++) {
+        if (s2m[j] || s1.charAt(i) !== s2.charAt(j)) continue;
+        s1m[i] = true; s2m[j] = true; matches++; break;
+      }
+    }
+    if (!matches) return 0;
+    var k = 0;
+    for (var i = 0; i < len1; i++) {
+      if (!s1m[i]) continue;
+      while (!s2m[k]) k++;
+      if (s1.charAt(i) !== s2.charAt(k)) transpositions++;
+      k++;
+    }
+    return (matches / len1 + matches / len2 + (matches - transpositions / 2) / matches) / 3;
+  }
+
+  function jaroWinkler(s1, s2) {
+    var j = jaroSimilarity(s1, s2);
+    if (j <= 0) return 0;
+    var prefix = 0;
+    for (var i = 0; i < Math.min(s1.length, s2.length, 4); i++) {
+      if (s1.charAt(i) === s2.charAt(i)) prefix++;
+      else break;
+    }
+    return j + prefix * 0.1 * (1 - j);
+  }
+
+  /* ── subsequence match (VS Code / Sublime-style fuzzy finder) ────────── */
+  function subsequenceMatch(query, text) {
+    // Returns a score if all chars of query appear in order in text, 0 otherwise.
+    // Higher score = chars are closer together (more contiguous).
+    var qi = 0, gaps = 0, lastMatchIdx = -1;
+    for (var ti = 0; ti < text.length && qi < query.length; ti++) {
+      if (text.charAt(ti) === query.charAt(qi)) {
+        if (lastMatchIdx >= 0) gaps += (ti - lastMatchIdx - 1);
+        lastMatchIdx = ti;
+        qi++;
+      }
+    }
+    if (qi < query.length) return 0; // not all chars matched
+    // Score: ratio of matched chars to span, penalised by gaps
+    var span = lastMatchIdx - (lastMatchIdx - qi + 1) + 1;
+    return Math.max(0.01, query.length / (query.length + gaps * 0.5));
+  }
+
+  /* ── catalog search (multi-signal ranking) ───────────────────────────── */
+  function scoreToken(tok, name, nameWords, barcode) {
+    // Returns best score for this token against the product. 0 = no match.
+    // Signal 1: Exact substring in full name (catches middle-of-word matches)
+    if (name.indexOf(tok) >= 0) {
+      var s = 1.0;
+      // Bonus: word-start prefix (e.g. "volt" starts "voltaren")
+      for (var w = 0; w < nameWords.length; w++) {
+        if (nameWords[w].indexOf(tok) === 0) {
+          s += 0.5 * (tok.length / Math.max(nameWords[w].length, 1));
+          break;
+        }
+      }
+      return s;
+    }
+    // Signal 2: Barcode substring
+    if (barcode.indexOf(tok) >= 0) return 0.9;
+
+    // Signal 3: Jaro-Winkler against each word (typo tolerance)
+    var bestJw = 0;
+    for (var w = 0; w < nameWords.length; w++) {
+      var jw = jaroWinkler(tok, nameWords[w]);
+      if (jw > bestJw) bestJw = jw;
+    }
+    if (bestJw >= 0.82) return bestJw * 0.7;
+
+    // Signal 4: Subsequence match (chars in order, e.g. "vltrn" → "voltaren")
+    if (tok.length >= 3) {
+      var bestSub = 0;
+      for (var w = 0; w < nameWords.length; w++) {
+        var sub = subsequenceMatch(tok, nameWords[w]);
+        if (sub > bestSub) bestSub = sub;
+      }
+      // Also try subsequence against full name (for cross-word matches)
+      var fullSub = subsequenceMatch(tok, name);
+      if (fullSub > bestSub) bestSub = fullSub;
+      if (bestSub >= 0.6) return bestSub * 0.5;
+    }
+
+    return 0;
+  }
+
+  function searchCatalog(products, query) {
+    var q = query.toLowerCase().trim();
+    if (!q) return [];
+    var tokens = q.split(/\s+/).filter(function (t) { return t.length > 0; });
+    var results = [];
+
+    for (var i = 0; i < products.length; i++) {
+      var p = products[i];
+      var name = (p.name || "").toLowerCase();
+      var barcode = (p.barcode || "").toLowerCase();
+      var nameWords = name.split(/[\s\-\/\(\),\.]+/).filter(function (w) { return w.length > 0; });
+
+      // Score each token
+      var totalScore = 0;
+      var matchedTokens = 0;
+      for (var t = 0; t < tokens.length; t++) {
+        var ts = scoreToken(tokens[t], name, nameWords, barcode);
+        if (ts > 0) { totalScore += ts; matchedTokens++; }
+      }
+
+      if (matchedTokens === 0) continue;
+
+      // Compute final score
+      var tokenCoverage = matchedTokens / tokens.length;
+      // All tokens matched: full credit. Partial: scaled down significantly.
+      var score;
+      if (matchedTokens === tokens.length) {
+        score = totalScore / tokens.length;
+      } else if (tokenCoverage >= 0.5) {
+        // At least half tokens match — include but rank lower
+        score = (totalScore / tokens.length) * tokenCoverage * 0.5;
+      } else {
+        continue; // too few tokens match
+      }
+
+      // Bonuses
+      if (name.indexOf(q) >= 0) score += 2.0; // full query is a substring
+      if (nameWords.length > 0 && nameWords[0].indexOf(tokens[0]) === 0) score += 0.3; // first word starts with first token
+      score -= name.length * 0.0003; // slight preference for shorter names
+
+      results.push({ product: p, score: score });
+    }
+
+    results.sort(function (a, b) { return b.score - a.score; });
+    return results.slice(0, 15);
+  }
+
   /* ── state ───────────────────────────────────────────────────────────── */
   var S = {
     date: todayYmd(),
@@ -383,41 +527,7 @@
           var q = (descEl.value || "").trim().toLowerCase();
           if (q.length < 2) { suggestEl.style.display = "none"; suggestEl.innerHTML = ""; return; }
           loadCatalog().then(function (products) {
-            // Score every product: combine substring, token, and ngram matching
-            var scored = [];
-            var tokens = q.split(/\s+/).filter(function (t) { return t.length > 0; });
-            for (var i = 0; i < products.length; i++) {
-              var p = products[i];
-              var name = (p.name || "").toLowerCase();
-              var barcode = (p.barcode || "").toLowerCase();
-              var score = 0;
-
-              // Exact substring match on full query — best
-              if (name.indexOf(q) >= 0 || barcode.indexOf(q) >= 0) {
-                score = 1.0;
-              } else {
-                // Token match: how many tokens appear
-                var tokenHits = 0;
-                tokens.forEach(function (t) {
-                  if (name.indexOf(t) >= 0 || barcode.indexOf(t) >= 0) tokenHits++;
-                });
-                var tokenScore = tokens.length > 0 ? tokenHits / tokens.length : 0;
-
-                // Ngram score against name
-                var ng = ngramScore(q, name);
-
-                // Take the best of token and ngram
-                score = Math.max(tokenScore * 0.9, ng);
-              }
-
-              if (score >= 0.3) {
-                scored.push({ product: p, score: score });
-              }
-            }
-            // Sort by score descending, take top 15
-            scored.sort(function (a, b) { return b.score - a.score; });
-            var matches = scored.slice(0, 15);
-
+            var matches = searchCatalog(products, q);
             if (!matches.length) {
               suggestEl.innerHTML = '<div class="co-empty">No catalog matches. You can still type a custom name.</div>';
             } else {

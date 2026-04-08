@@ -791,7 +791,10 @@
       // Start polling for unresolved feedback (sidebar badge + flash)
       setTimeout(function () { E._startSupplierAlertPoll(); }, 500);
     } else if (section === "company_admin") {
-      E._activeSidebarCategories = E.COMPANY_ADMIN_CATEGORIES;
+      E._activeSidebarCategories = E.COMPANY_ADMIN_CATEGORIES.slice();
+      if (E.state.user && Number(E.state.user.org_id) === 12) {
+        E._activeSidebarCategories.push({ label: "Cherubino", icon: "\uD83C\uDFE5", moduleIds: ["cherubino-admin"] });
+      }
       E._sectionDashboardId = "company-dashboard";
     }
 
