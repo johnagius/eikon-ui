@@ -518,6 +518,13 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
     var doctorLastMode = "name";
     var doctorLastQuery = "";
 
+    // ✅ Client name autosuggest
+    var clientNameSuggestBox = null;
+    var clientSuggestHideTimer = null;
+    var clientSuggestLookupTimer = null;
+    var clientSuggestSeq = 0;
+    var clientSuggestResults = [];
+
     function setMsg(kind, text) {
       if (!msgBox) return;
       msgBox.className = "eikon-dda-msg " + (kind === "ok" ? "ok" : kind === "err" ? "err" : "");
@@ -881,6 +888,84 @@ function setLoading(v) {
       } catch (e) {
         // silent; we don't want noisy errors while typing
       }
+    }
+
+    // ✅ Client name autosuggest (search by name, ID card or address)
+    function renderClientSuggest() {
+      if (!clientNameSuggestBox) return;
+      var doc = clientNameSuggestBox.ownerDocument || (ctx ? ctx.doc : document);
+      clearNode(clientNameSuggestBox);
+      var list = clientSuggestResults || [];
+      if (!list.length) {
+        clientNameSuggestBox.appendChild(el(doc, "div", { class: "eikon-dda-suggestempty", text: "No client suggestions yet" }, []));
+        return;
+      }
+      for (var i = 0; i < list.length; i++) {
+        (function (c) {
+          var name = String(c.client_name || "");
+          var idc = String(c.client_id_card || "");
+          var addr = String(c.client_address || "");
+          var it = el(doc, "div", { class: "eikon-dda-suggestitem" }, []);
+          it.appendChild(el(doc, "span", { text: name }, []));
+          var meta = [];
+          if (idc) meta.push(idc);
+          if (addr) meta.push(addr);
+          if (meta.length) it.appendChild(el(doc, "span", { class: "eikon-dda-suggestmeta", text: meta.join(" \u2022 ") }, []));
+          var pick = function (ev) {
+            try { if (ev) { ev.preventDefault(); ev.stopPropagation(); } } catch (e) {}
+            try { if (formEls && formEls.client_name) formEls.client_name.value = name; } catch (e2) {}
+            try { if (formEls && formEls.client_id_card) formEls.client_id_card.value = idc; } catch (e3) {}
+            try { if (formEls && formEls.client_address) formEls.client_address.value = addr; } catch (e4) {}
+            hideClientSuggest(true);
+            try { if (formEls && formEls.medicine_name_dose) formEls.medicine_name_dose.focus(); } catch (e5) {}
+          };
+          it.onmousedown = pick;
+          it.onclick = pick;
+          it.ontouchstart = pick;
+          clientNameSuggestBox.appendChild(it);
+        })(list[i]);
+      }
+    }
+
+    function showClientSuggest() {
+      if (!clientNameSuggestBox) return;
+      if (clientSuggestHideTimer) { try { ctx.win.clearTimeout(clientSuggestHideTimer); } catch (e) {} }
+      clientNameSuggestBox.style.display = "block";
+      renderClientSuggest();
+    }
+
+    function hideClientSuggest(immediate) {
+      if (clientSuggestHideTimer) { try { ctx.win.clearTimeout(clientSuggestHideTimer); } catch (e) {} }
+      var hideFn = function () {
+        try { if (clientNameSuggestBox) clientNameSuggestBox.style.display = "none"; } catch (e1) {}
+      };
+      if (immediate) { hideFn(); return; }
+      clientSuggestHideTimer = (ctx && ctx.win ? ctx.win.setTimeout(hideFn, 160) : null);
+    }
+
+    function scheduleClientNameLookup(q) {
+      if (!ctx || !formEls) return;
+      if (clientSuggestLookupTimer) { try { ctx.win.clearTimeout(clientSuggestLookupTimer); } catch (e) {} }
+      clientSuggestLookupTimer = ctx.win.setTimeout(function () {
+        lookupClientsByName(q);
+      }, 260);
+    }
+
+    async function lookupClientsByName(q) {
+      if (!ctx) return;
+      var seq = ++clientSuggestSeq;
+      var qq = String(q || "").trim();
+      if (qq.length < 2) { clientSuggestResults = []; showClientSuggest(); return; }
+      try {
+        var url = "/dda-sales/clients?limit=12&q=" + encodeURIComponent(qq);
+        var data = await apiJson(ctx.win, url, { method: "GET" });
+        if (seq !== clientSuggestSeq) return;
+        clientSuggestResults = (data && data.ok === true && Array.isArray(data.clients)) ? data.clients : [];
+      } catch (e) {
+        if (seq !== clientSuggestSeq) return;
+        clientSuggestResults = [];
+      }
+      showClientSuggest();
     }
 
 
@@ -1331,13 +1416,26 @@ function setLoading(v) {
       formEls.doctor_reg_no.onblur = function () { hideDoctorSuggest(false); };
       formEls.doctor_reg_no.onkeydown = function (e2) { if (e2 && e2.key === "Escape") hideDoctorSuggest(true); };
 
+      // ✅ Client name autosuggest events
+      formEls.client_name.oninput = function () { scheduleClientNameLookup(formEls.client_name.value); };
+      formEls.client_name.onfocus = function () { showClientSuggest(); scheduleClientNameLookup(formEls.client_name.value); };
+      formEls.client_name.onclick = function () { showClientSuggest(); scheduleClientNameLookup(formEls.client_name.value); };
+      formEls.client_name.onblur = function () { hideClientSuggest(false); };
+      formEls.client_name.onkeydown = function (e2) { if (e2 && e2.key === "Escape") hideClientSuggest(true); };
+
       grid.appendChild(field("Entry Date", formEls.entry_date, false));
       grid.appendChild(field("Quantity", formEls.quantity, false));
       var urgentRow = el(doc, "div", { class: "eikon-dda-checkrow" }, []);
       urgentRow.appendChild(formEls.urgent);
       urgentRow.appendChild(el(doc, "span", { text: "Yes" }, []));
       grid.appendChild(field("Urgent", urgentRow, false));
-      grid.appendChild(field("Client Name", formEls.client_name, true));
+      var clientNameField = field("Client Name", formEls.client_name, true);
+      try {
+        clientNameField.style.position = "relative";
+        clientNameSuggestBox = el(doc, "div", { class: "eikon-dda-suggestbox" }, []);
+        clientNameField.appendChild(clientNameSuggestBox);
+      } catch (e) {}
+      grid.appendChild(clientNameField);
       grid.appendChild(field("Client ID Card", formEls.client_id_card, false));
       grid.appendChild(field("Client Address", formEls.client_address, false));
       var medField = field("Medicine Name & Dose", formEls.medicine_name_dose, true);
@@ -1424,6 +1522,8 @@ function setLoading(v) {
       updateMedicineHint();
       try { if (medicineSuggestBox) medicineSuggestBox.style.display = "none"; } catch (e) {}
       hideDoctorSuggest(true);
+      hideClientSuggest(true);
+      clientSuggestResults = [];
       if (modalBackdrop && modalBackdrop._deleteBtn) modalBackdrop._deleteBtn.style.display = "none";
       openModal();
     }
@@ -1448,6 +1548,8 @@ function setLoading(v) {
       updateMedicineHint();
       try { if (medicineSuggestBox) medicineSuggestBox.style.display = "none"; } catch (e) {}
       hideDoctorSuggest(true);
+      hideClientSuggest(true);
+      clientSuggestResults = [];
       if (modalBackdrop && modalBackdrop._deleteBtn) modalBackdrop._deleteBtn.style.display = "inline-block";
       openModal();
     }
