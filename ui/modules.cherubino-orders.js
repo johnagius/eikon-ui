@@ -215,10 +215,11 @@
 
   function loadCatalog() {
     if (S.catalogCache !== null && S.catalogCache.length > 0) return Promise.resolve(S.catalogCache);
-    // Check cached catalog (only use if non-empty)
+    // Check cached catalog (only use if non-empty and reasonably sized)
     try {
       var cached = JSON.parse(window.localStorage.getItem("eikon_cherubino_catalog") || "null");
-      if (cached && cached.length) { S.catalogCache = cached; return Promise.resolve(cached); }
+      // If cached has exactly 2000, it was likely truncated by the pagination bug — refetch
+      if (cached && cached.length > 0 && cached.length !== 2000) { S.catalogCache = cached; return Promise.resolve(cached); }
     } catch (e) {}
     // Fetch all pages
     var all = [];
