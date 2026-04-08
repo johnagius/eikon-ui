@@ -59,6 +59,72 @@
     return String(ymd || "").slice(0, 7);
   }
 
+  // ✅ Early supply helpers
+  function ymdToTs(ymd) {
+    ymd = String(ymd || "").trim();
+    if (!isYmd(ymd)) return NaN;
+    var y = parseInt(ymd.slice(0, 4), 10);
+    var m = parseInt(ymd.slice(5, 7), 10);
+    var d = parseInt(ymd.slice(8, 10), 10);
+    if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return NaN;
+    return new Date(y, m - 1, d).getTime();
+  }
+  function dateToYmd(dt) {
+    if (!(dt instanceof Date)) dt = new Date(dt);
+    if (!dt || !Number.isFinite(dt.getTime())) return "";
+    return dt.getFullYear() + "-" + pad2(dt.getMonth() + 1) + "-" + pad2(dt.getDate());
+  }
+  function addDaysYmd(ymd, deltaDays) {
+    var t = ymdToTs(ymd);
+    if (!Number.isFinite(t)) return "";
+    var d = new Date(t);
+    d.setDate(d.getDate() + Number(deltaDays || 0));
+    return dateToYmd(d);
+  }
+  function normalizeMedicineKey(med) {
+    return String(med || "").trim().replace(/\s+/g, " ").toLowerCase();
+  }
+  function normalizeIdCardKey(id) {
+    return String(id || "").replace(/\s+/g, "").toUpperCase();
+  }
+
+  // ✅ Early supply detection: same client + medicine within <30 days
+  function computeEarlyById(entries) {
+    var list = Array.isArray(entries) ? entries.slice() : [];
+    list.sort(function (a, b) {
+      var ta = ymdToTs(a && a.entry_date);
+      var tb = ymdToTs(b && b.entry_date);
+      if (ta !== tb) return (ta || 0) - (tb || 0);
+      var ia = Number(a && a.id) || 0;
+      var ib = Number(b && b.id) || 0;
+      return ia - ib;
+    });
+
+    var earlyById = {};
+    var lastTsByKey = {};
+    var MS_30_DAYS = 30 * 24 * 60 * 60 * 1000;
+
+    for (var i = 0; i < list.length; i++) {
+      var r = list[i] || {};
+      var id = r.id;
+      if (id == null) continue;
+      var dt = ymdToTs(r.entry_date);
+      if (!Number.isFinite(dt)) continue;
+
+      var idCard = normalizeIdCardKey(r.client_id_card || "");
+      var medKey = normalizeMedicineKey(r.medicine_name_dose || "");
+      if (!idCard || !medKey) continue;
+
+      var k = idCard + "|" + medKey;
+      var last = lastTsByKey[k];
+      if (last != null && Number.isFinite(last) && (dt - last) < MS_30_DAYS) {
+        earlyById[String(id)] = true;
+      }
+      lastTsByKey[k] = dt;
+    }
+    return earlyById;
+  }
+
   // ✅ Helper: shift YYYY-MM by delta months (negative = past)
   function shiftYm(ym, deltaMonths) {
     var s = String(ym || "").trim();
@@ -462,6 +528,7 @@
       q: "",
       loading: false,
       entries: [],
+      early_by_id: {},
       report_from: "",
       report_to: "",
       report: null,
@@ -1240,6 +1307,16 @@ async function suggestPoycClients(term, limit) {
             el(ctx.doc, "td", {}, []),
           ]);
 
+          // ✅ Highlight early supply (<30 days) for same client + medicine
+          try {
+            var earlyMap = state.early_by_id || {};
+            if (row && row.id != null && earlyMap[String(row.id)]) {
+              tr.style.backgroundColor = "rgba(255, 90, 90, 0.22)";
+              tr.style.borderLeft = "4px solid rgba(255, 120, 120, 0.85)";
+              tr.title = "Early supply: same client + medicine within 30 days";
+            }
+          } catch (e) {}
+
           var actionsTd = tr.lastChild;
           var actions = el(ctx.doc, "div", { class: "eikon-dda-actions" }, []);
           var edit = el(ctx.doc, "span", { class: "eikon-dda-link", text: "Edit" }, []);
@@ -1276,11 +1353,35 @@ async function suggestPoycClients(term, limit) {
         state.entries = Array.isArray(data.entries) ? data.entries : [];
         try { indexClientsFromEntries(state.entries); } catch (e0) {}
         try { indexDoctorsFromEntries(state.entries); } catch (e1) {}
+        // ✅ Compute early supply flags (30-day lookback into previous month)
+        state.early_by_id = {};
+        try {
+          var range = monthStartEnd(month);
+          if (range) {
+            var lookbackFrom = addDaysYmd(range.from, -30);
+            if (lookbackFrom) {
+              var rptData = await apiJson(ctx.win, "/dda-poyc/report?from=" + encodeURIComponent(lookbackFrom) + "&to=" + encodeURIComponent(range.to), { method: "GET" });
+              if (rptData && rptData.ok === true) {
+                var allEarly = computeEarlyById(Array.isArray(rptData.entries) ? rptData.entries : []);
+                for (var ei = 0; ei < state.entries.length; ei++) {
+                  var ent = state.entries[ei] || {};
+                  if (ent.id != null && allEarly[String(ent.id)]) state.early_by_id[String(ent.id)] = true;
+                }
+              }
+            }
+          }
+          if (!Object.keys(state.early_by_id).length) {
+            state.early_by_id = computeEarlyById(state.entries);
+          }
+        } catch (eEarly) {
+          state.early_by_id = computeEarlyById(state.entries);
+        }
         renderRows();
         setLoading(false);
       } catch (e) {
         setLoading(false);
         state.entries = [];
+        state.early_by_id = {};
         renderRows();
         var msg = e && e.message ? e.message : String(e || "Error");
         if (e && e.status === 401) msg = "Unauthorized (missing/invalid token).\nLog in again.";
