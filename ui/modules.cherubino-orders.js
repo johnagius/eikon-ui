@@ -342,9 +342,12 @@
       '.co-item:last-child{border-bottom:none;}' +
       '.co-item-desc{flex:1;font-weight:600;}' +
       '.co-item-qty{min-width:40px;text-align:center;font-weight:700;color:var(--muted);}' +
-      '.co-item-cb{display:flex;gap:8px;align-items:center;font-size:11px;color:var(--muted);}' +
-      '.co-item-cb label{display:flex;align-items:center;gap:3px;cursor:default;}' +
-      '.co-item-cb input{pointer-events:none;opacity:1;accent-color:rgba(90,162,255,.8);}' +
+      '.co-item-cb{display:flex;gap:10px;align-items:center;font-size:11px;color:var(--muted);}' +
+      '.co-item-cb label{display:flex;align-items:center;gap:4px;cursor:default;}' +
+      '.co-item-cb input{display:none;}' +
+      '.co-cb-box{width:16px;height:16px;border-radius:4px;border:2px solid rgba(255,255,255,.25);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;}' +
+      '.co-cb-box.checked{background:rgba(90,162,255,.85);border-color:rgba(90,162,255,1);}' +
+      '.co-cb-box.checked::after{content:"\\2713";color:#fff;font-size:11px;font-weight:900;line-height:1;}' +
       '.co-item-del{cursor:pointer;color:rgba(255,90,122,.7);font-size:14px;padding:2px 4px;}' +
       '.co-item-del:hover{color:rgba(255,90,122,1);}' +
       '.co-empty{padding:14px;color:var(--muted);font-size:12px;text-align:center;}' +
@@ -366,12 +369,14 @@
   }
 
   /* ── rendering ───────────────────────────────────────────────────────── */
+  function cb(checked) { return '<span class="co-cb-box' + (checked ? ' checked' : '') + '"></span>'; }
+
   function renderCheckboxes(o) {
     return '<div class="co-item-cb">' +
-      '<label><input type="checkbox" ' + (o.oos ? "checked" : "") + ' disabled/> OOS</label>' +
-      '<label><input type="checkbox" ' + (o.ordered ? "checked" : "") + ' disabled/> Ordered</label>' +
-      '<label><input type="checkbox" ' + (o.available_wsl ? "checked" : "") + ' disabled/> Avail. WSL</label>' +
-      '<label><input type="checkbox" ' + (o.pending_wsl ? "checked" : "") + ' disabled/> Pending WSL</label>' +
+      '<label>' + cb(o.oos) + ' OOS</label>' +
+      '<label>' + cb(o.ordered) + ' Ordered</label>' +
+      '<label>' + cb(o.available_wsl) + ' Avail. WSL</label>' +
+      '<label>' + cb(o.pending_wsl) + ' Pending WSL</label>' +
       '</div>';
   }
 
