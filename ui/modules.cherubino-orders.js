@@ -47,6 +47,108 @@
 
   var SIMILARITY_THRESHOLD = 0.7;
 
+  /* ── Jaro-Winkler similarity (state of the art for name matching) ──── */
+  function jaroSimilarity(s1, s2) {
+    if (s1 === s2) return 1;
+    var len1 = s1.length, len2 = s2.length;
+    if (!len1 || !len2) return 0;
+    var matchDist = Math.max(Math.floor(Math.max(len1, len2) / 2) - 1, 0);
+    var s1m = new Array(len1), s2m = new Array(len2);
+    var matches = 0, transpositions = 0;
+    for (var i = 0; i < len1; i++) {
+      var lo = Math.max(0, i - matchDist), hi = Math.min(i + matchDist + 1, len2);
+      for (var j = lo; j < hi; j++) {
+        if (s2m[j] || s1.charAt(i) !== s2.charAt(j)) continue;
+        s1m[i] = true; s2m[j] = true; matches++; break;
+      }
+    }
+    if (!matches) return 0;
+    var k = 0;
+    for (var i = 0; i < len1; i++) {
+      if (!s1m[i]) continue;
+      while (!s2m[k]) k++;
+      if (s1.charAt(i) !== s2.charAt(k)) transpositions++;
+      k++;
+    }
+    return (matches / len1 + matches / len2 + (matches - transpositions / 2) / matches) / 3;
+  }
+
+  function jaroWinkler(s1, s2) {
+    var j = jaroSimilarity(s1, s2);
+    if (j <= 0) return 0;
+    var prefix = 0;
+    for (var i = 0; i < Math.min(s1.length, s2.length, 4); i++) {
+      if (s1.charAt(i) === s2.charAt(i)) prefix++;
+      else break;
+    }
+    return j + prefix * 0.1 * (1 - j);
+  }
+
+  /* ── catalog search (multi-signal ranking) ───────────────────────────── */
+  function searchCatalog(products, query) {
+    var q = query.toLowerCase().trim();
+    if (!q) return [];
+    var tokens = q.split(/\s+/).filter(function (t) { return t.length > 0; });
+    var results = [];
+
+    for (var i = 0; i < products.length; i++) {
+      var p = products[i];
+      var name = (p.name || "").toLowerCase();
+      var barcode = (p.barcode || "").toLowerCase();
+      var nameWords = name.split(/[\s\-\/\(\),\.]+/).filter(function (w) { return w.length > 0; });
+
+      // Every query token must match: substring, word-prefix, or Jaro-Winkler >= 0.85
+      var allMatch = true;
+      var score = 0;
+
+      for (var t = 0; t < tokens.length; t++) {
+        var tok = tokens[t];
+        var tokenScore = 0;
+
+        // 1. Exact substring in name or barcode — best
+        if (name.indexOf(tok) >= 0) {
+          tokenScore = 1.0;
+          // Bonus: word-prefix match (tok starts a word)
+          for (var w = 0; w < nameWords.length; w++) {
+            if (nameWords[w].indexOf(tok) === 0) {
+              tokenScore += 0.5 * (tok.length / Math.max(nameWords[w].length, 1));
+              break;
+            }
+          }
+        } else if (barcode.indexOf(tok) >= 0) {
+          tokenScore = 0.9;
+        } else {
+          // 2. Fuzzy: Jaro-Winkler against each word (typo tolerance)
+          var bestJw = 0;
+          for (var w = 0; w < nameWords.length; w++) {
+            var jw = jaroWinkler(tok, nameWords[w]);
+            if (jw > bestJw) bestJw = jw;
+          }
+          if (bestJw >= 0.85) {
+            tokenScore = bestJw * 0.7; // fuzzy match is worth less than exact
+          }
+        }
+
+        if (tokenScore <= 0) { allMatch = false; break; }
+        score += tokenScore;
+      }
+
+      if (!allMatch) continue;
+
+      // Normalize score by token count and add bonuses
+      score = score / tokens.length;
+      // Bonus for full query appearing as substring
+      if (name.indexOf(q) >= 0) score += 1.0;
+      // Small penalty for very long names (prefer concise matches)
+      score -= name.length * 0.0005;
+
+      results.push({ product: p, score: score });
+    }
+
+    results.sort(function (a, b) { return b.score - a.score; });
+    return results.slice(0, 15);
+  }
+
   /* ── state ───────────────────────────────────────────────────────────── */
   var S = {
     date: todayYmd(),
@@ -383,41 +485,7 @@
           var q = (descEl.value || "").trim().toLowerCase();
           if (q.length < 2) { suggestEl.style.display = "none"; suggestEl.innerHTML = ""; return; }
           loadCatalog().then(function (products) {
-            // Score every product: combine substring, token, and ngram matching
-            var scored = [];
-            var tokens = q.split(/\s+/).filter(function (t) { return t.length > 0; });
-            for (var i = 0; i < products.length; i++) {
-              var p = products[i];
-              var name = (p.name || "").toLowerCase();
-              var barcode = (p.barcode || "").toLowerCase();
-              var score = 0;
-
-              // Exact substring match on full query — best
-              if (name.indexOf(q) >= 0 || barcode.indexOf(q) >= 0) {
-                score = 1.0;
-              } else {
-                // Token match: how many tokens appear
-                var tokenHits = 0;
-                tokens.forEach(function (t) {
-                  if (name.indexOf(t) >= 0 || barcode.indexOf(t) >= 0) tokenHits++;
-                });
-                var tokenScore = tokens.length > 0 ? tokenHits / tokens.length : 0;
-
-                // Ngram score against name
-                var ng = ngramScore(q, name);
-
-                // Take the best of token and ngram
-                score = Math.max(tokenScore * 0.9, ng);
-              }
-
-              if (score >= 0.3) {
-                scored.push({ product: p, score: score });
-              }
-            }
-            // Sort by score descending, take top 15
-            scored.sort(function (a, b) { return b.score - a.score; });
-            var matches = scored.slice(0, 15);
-
+            var matches = searchCatalog(products, q);
             if (!matches.length) {
               suggestEl.innerHTML = '<div class="co-empty">No catalog matches. You can still type a custom name.</div>';
             } else {
