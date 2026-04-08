@@ -84,7 +84,66 @@
     return j + prefix * 0.1 * (1 - j);
   }
 
+  /* ── subsequence match (VS Code / Sublime-style fuzzy finder) ────────── */
+  function subsequenceMatch(query, text) {
+    // Returns a score if all chars of query appear in order in text, 0 otherwise.
+    // Higher score = chars are closer together (more contiguous).
+    var qi = 0, gaps = 0, lastMatchIdx = -1;
+    for (var ti = 0; ti < text.length && qi < query.length; ti++) {
+      if (text.charAt(ti) === query.charAt(qi)) {
+        if (lastMatchIdx >= 0) gaps += (ti - lastMatchIdx - 1);
+        lastMatchIdx = ti;
+        qi++;
+      }
+    }
+    if (qi < query.length) return 0; // not all chars matched
+    // Score: ratio of matched chars to span, penalised by gaps
+    var span = lastMatchIdx - (lastMatchIdx - qi + 1) + 1;
+    return Math.max(0.01, query.length / (query.length + gaps * 0.5));
+  }
+
   /* ── catalog search (multi-signal ranking) ───────────────────────────── */
+  function scoreToken(tok, name, nameWords, barcode) {
+    // Returns best score for this token against the product. 0 = no match.
+    // Signal 1: Exact substring in full name (catches middle-of-word matches)
+    if (name.indexOf(tok) >= 0) {
+      var s = 1.0;
+      // Bonus: word-start prefix (e.g. "volt" starts "voltaren")
+      for (var w = 0; w < nameWords.length; w++) {
+        if (nameWords[w].indexOf(tok) === 0) {
+          s += 0.5 * (tok.length / Math.max(nameWords[w].length, 1));
+          break;
+        }
+      }
+      return s;
+    }
+    // Signal 2: Barcode substring
+    if (barcode.indexOf(tok) >= 0) return 0.9;
+
+    // Signal 3: Jaro-Winkler against each word (typo tolerance)
+    var bestJw = 0;
+    for (var w = 0; w < nameWords.length; w++) {
+      var jw = jaroWinkler(tok, nameWords[w]);
+      if (jw > bestJw) bestJw = jw;
+    }
+    if (bestJw >= 0.82) return bestJw * 0.7;
+
+    // Signal 4: Subsequence match (chars in order, e.g. "vltrn" → "voltaren")
+    if (tok.length >= 3) {
+      var bestSub = 0;
+      for (var w = 0; w < nameWords.length; w++) {
+        var sub = subsequenceMatch(tok, nameWords[w]);
+        if (sub > bestSub) bestSub = sub;
+      }
+      // Also try subsequence against full name (for cross-word matches)
+      var fullSub = subsequenceMatch(tok, name);
+      if (fullSub > bestSub) bestSub = fullSub;
+      if (bestSub >= 0.6) return bestSub * 0.5;
+    }
+
+    return 0;
+  }
+
   function searchCatalog(products, query) {
     var q = query.toLowerCase().trim();
     if (!q) return [];
@@ -97,50 +156,33 @@
       var barcode = (p.barcode || "").toLowerCase();
       var nameWords = name.split(/[\s\-\/\(\),\.]+/).filter(function (w) { return w.length > 0; });
 
-      // Every query token must match: substring, word-prefix, or Jaro-Winkler >= 0.85
-      var allMatch = true;
-      var score = 0;
-
+      // Score each token
+      var totalScore = 0;
+      var matchedTokens = 0;
       for (var t = 0; t < tokens.length; t++) {
-        var tok = tokens[t];
-        var tokenScore = 0;
-
-        // 1. Exact substring in name or barcode — best
-        if (name.indexOf(tok) >= 0) {
-          tokenScore = 1.0;
-          // Bonus: word-prefix match (tok starts a word)
-          for (var w = 0; w < nameWords.length; w++) {
-            if (nameWords[w].indexOf(tok) === 0) {
-              tokenScore += 0.5 * (tok.length / Math.max(nameWords[w].length, 1));
-              break;
-            }
-          }
-        } else if (barcode.indexOf(tok) >= 0) {
-          tokenScore = 0.9;
-        } else {
-          // 2. Fuzzy: Jaro-Winkler against each word (typo tolerance)
-          var bestJw = 0;
-          for (var w = 0; w < nameWords.length; w++) {
-            var jw = jaroWinkler(tok, nameWords[w]);
-            if (jw > bestJw) bestJw = jw;
-          }
-          if (bestJw >= 0.85) {
-            tokenScore = bestJw * 0.7; // fuzzy match is worth less than exact
-          }
-        }
-
-        if (tokenScore <= 0) { allMatch = false; break; }
-        score += tokenScore;
+        var ts = scoreToken(tokens[t], name, nameWords, barcode);
+        if (ts > 0) { totalScore += ts; matchedTokens++; }
       }
 
-      if (!allMatch) continue;
+      if (matchedTokens === 0) continue;
 
-      // Normalize score by token count and add bonuses
-      score = score / tokens.length;
-      // Bonus for full query appearing as substring
-      if (name.indexOf(q) >= 0) score += 1.0;
-      // Small penalty for very long names (prefer concise matches)
-      score -= name.length * 0.0005;
+      // Compute final score
+      var tokenCoverage = matchedTokens / tokens.length;
+      // All tokens matched: full credit. Partial: scaled down significantly.
+      var score;
+      if (matchedTokens === tokens.length) {
+        score = totalScore / tokens.length;
+      } else if (tokenCoverage >= 0.5) {
+        // At least half tokens match — include but rank lower
+        score = (totalScore / tokens.length) * tokenCoverage * 0.5;
+      } else {
+        continue; // too few tokens match
+      }
+
+      // Bonuses
+      if (name.indexOf(q) >= 0) score += 2.0; // full query is a substring
+      if (nameWords.length > 0 && nameWords[0].indexOf(tokens[0]) === 0) score += 0.3; // first word starts with first token
+      score -= name.length * 0.0003; // slight preference for shorter names
 
       results.push({ product: p, score: score });
     }
