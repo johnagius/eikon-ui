@@ -78,14 +78,25 @@
   }
 
   function loadCatalog() {
-    if (S.catalogCache) return Promise.resolve(S.catalogCache);
+    if (S.catalogCache && S.catalogCache.length) return Promise.resolve(S.catalogCache);
     try {
       var cached = JSON.parse(window.localStorage.getItem("eikon_epos_catalog") || "null");
       if (cached && cached.length) { S.catalogCache = cached; return Promise.resolve(cached); }
     } catch (e) {}
-    return E.apiFetch("/emergency-pos/catalog?limit=5000", { method: "GET" })
-      .then(function (r) { S.catalogCache = r.products || []; return S.catalogCache; })
-      .catch(function () { S.catalogCache = []; return []; });
+    // Fetch all pages
+    var all = [];
+    function fetchPage(offset) {
+      return E.apiFetch("/emergency-pos/catalog?limit=2000&offset=" + offset, { method: "GET" })
+        .then(function (r) {
+          var products = r.products || [];
+          all = all.concat(products);
+          if (r.next_offset && products.length > 0) return fetchPage(r.next_offset);
+          S.catalogCache = all;
+          try { window.localStorage.setItem("eikon_epos_catalog", JSON.stringify(all)); } catch (e) {}
+          return all;
+        });
+    }
+    return fetchPage(0).catch(function () { S.catalogCache = []; return []; });
   }
 
   /* ── derived data ────────────────────────────────────────────────────── */
@@ -339,57 +350,69 @@
   function openAddModal() {
     var body =
       '<div class="eikon-field"><div class="eikon-label">Item Description</div>' +
-      '<input class="eikon-input" id="co-add-desc" type="text" placeholder="e.g. Paracetamol 500mg" style="width:100%;"/></div>' +
+      '<div style="position:relative;">' +
+      '<input class="eikon-input" id="co-add-desc" type="text" placeholder="Type to search catalog or enter custom name..." autocomplete="off" style="width:100%;"/>' +
+      '<div id="co-suggest" class="co-search-results" style="display:none;position:absolute;left:0;right:0;top:100%;z-index:10;max-height:220px;background:var(--card-bg,#0f1622);"></div>' +
+      '</div>' +
+      '<div style="margin-top:4px;font-size:11px;color:var(--muted);">Start typing to see suggestions from the product catalog.</div>' +
+      '</div>' +
       '<div class="eikon-field" style="margin-top:10px;"><div class="eikon-label">Quantity</div>' +
-      '<input class="eikon-input" id="co-add-qty" type="number" min="1" value="1" style="width:80px;"/></div>' +
-      '<div style="margin-top:12px;border-top:1px solid var(--border);padding-top:12px;">' +
-      '<div class="eikon-label">Or search from product catalog</div>' +
-      '<input class="eikon-input co-search-input" id="co-cat-search" type="text" placeholder="Search catalog..."/>' +
-      '<div id="co-cat-results" class="co-search-results" style="display:none;"></div>' +
-      '</div>';
+      '<input class="eikon-input" id="co-add-qty" type="number" min="1" value="1" style="width:80px;"/></div>';
 
     E.modal.show("Add Order Item", body, [
       { label: "Cancel", onClick: function () { E.modal.hide(); } },
       { label: "Add", primary: true, onClick: function () { submitAdd(); } }
     ]);
 
-    // Wire catalog search
+    // Pre-load catalog in background
+    loadCatalog();
+
+    // Wire autosuggest on the single input
     setTimeout(function () {
-      var searchEl = document.getElementById("co-cat-search");
-      var resultsEl = document.getElementById("co-cat-results");
       var descEl = document.getElementById("co-add-desc");
-      if (!searchEl || !resultsEl || !descEl) return;
+      var suggestEl = document.getElementById("co-suggest");
+      if (!descEl || !suggestEl) return;
 
       var searchT = null;
-      searchEl.oninput = function () {
+      descEl.oninput = function () {
         clearTimeout(searchT);
         searchT = setTimeout(function () {
-          var q = (searchEl.value || "").trim().toLowerCase();
-          if (q.length < 2) { resultsEl.style.display = "none"; resultsEl.innerHTML = ""; return; }
+          var q = (descEl.value || "").trim().toLowerCase();
+          if (q.length < 2) { suggestEl.style.display = "none"; suggestEl.innerHTML = ""; return; }
           loadCatalog().then(function (products) {
+            // Split query into tokens for flexible matching
+            var tokens = q.split(/\s+/).filter(function (t) { return t.length > 0; });
             var matches = products.filter(function (p) {
-              return (p.name || "").toLowerCase().indexOf(q) >= 0 ||
-                     (p.barcode || "").toLowerCase().indexOf(q) >= 0;
-            }).slice(0, 20);
+              var name = (p.name || "").toLowerCase();
+              var barcode = (p.barcode || "").toLowerCase();
+              // All tokens must appear in name or barcode
+              return tokens.every(function (t) { return name.indexOf(t) >= 0 || barcode.indexOf(t) >= 0; });
+            }).slice(0, 15);
             if (!matches.length) {
-              resultsEl.innerHTML = '<div class="co-empty">No products found.</div>';
+              suggestEl.innerHTML = '<div class="co-empty">No catalog matches. You can still type a custom name.</div>';
             } else {
-              resultsEl.innerHTML = matches.map(function (p) {
+              suggestEl.innerHTML = matches.map(function (p) {
                 return '<div class="co-search-item" data-pname="' + esc(p.name) + '">' + esc(p.name) +
                   (p.barcode ? ' <span style="color:var(--muted);font-size:10px;">(' + esc(p.barcode) + ')</span>' : '') + '</div>';
               }).join("");
-              resultsEl.querySelectorAll(".co-search-item").forEach(function (el) {
+              suggestEl.querySelectorAll(".co-search-item").forEach(function (el) {
                 el.onclick = function () {
                   descEl.value = el.getAttribute("data-pname");
-                  resultsEl.style.display = "none";
-                  searchEl.value = "";
+                  suggestEl.style.display = "none";
                 };
               });
             }
-            resultsEl.style.display = "";
+            suggestEl.style.display = "";
           });
-        }, 200);
+        }, 150);
       };
+
+      // Hide suggestions when clicking outside
+      document.addEventListener("click", function handler(e) {
+        if (!descEl.contains(e.target) && !suggestEl.contains(e.target)) {
+          suggestEl.style.display = "none";
+        }
+      });
     }, 50);
   }
 
