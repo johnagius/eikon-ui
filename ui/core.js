@@ -419,6 +419,7 @@
   // Modal helper
   E.modal = (function () {
     var overlay = null;
+    var stack = []; // saved modal states for nested modals
 
     function ensure() {
       if (overlay) return overlay;
@@ -439,6 +440,17 @@
 
     function show(title, bodyHtml, actions) {
       var ov = ensure();
+      // If a modal is already visible, save its state (DOM nodes) to the stack
+      if (ov.style.display === "flex") {
+        var titleEl = E.q("#eikon-modal-title", ov);
+        var bodyEl = E.q("#eikon-modal-body", ov);
+        var actEl = E.q("#eikon-modal-actions", ov);
+        var savedBody = document.createDocumentFragment();
+        while (bodyEl.firstChild) savedBody.appendChild(bodyEl.firstChild);
+        var savedActions = document.createDocumentFragment();
+        while (actEl.firstChild) savedActions.appendChild(actEl.firstChild);
+        stack.push({ title: titleEl.textContent, body: savedBody, actions: savedActions });
+      }
       E.q("#eikon-modal-title", ov).textContent = title || "";
       E.q("#eikon-modal-body", ov).innerHTML = bodyHtml || "";
       var act = E.q("#eikon-modal-actions", ov);
@@ -455,7 +467,20 @@
 
     function hide() {
       if (!overlay) return;
-      overlay.style.display = "none";
+      if (stack.length > 0) {
+        // Restore previous modal from stack (DOM nodes preserve input values & listeners)
+        var saved = stack.pop();
+        var titleEl = E.q("#eikon-modal-title", overlay);
+        var bodyEl = E.q("#eikon-modal-body", overlay);
+        var actEl = E.q("#eikon-modal-actions", overlay);
+        titleEl.textContent = saved.title;
+        bodyEl.innerHTML = "";
+        bodyEl.appendChild(saved.body);
+        actEl.innerHTML = "";
+        actEl.appendChild(saved.actions);
+      } else {
+        overlay.style.display = "none";
+      }
     }
 
     return { show: show, hide: hide };
