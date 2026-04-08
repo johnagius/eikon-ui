@@ -270,6 +270,7 @@
       '<div class="ca-date-label">' + formatDateLabel(S.date) + '</div>' +
       '<button class="eikon-btn" id="ca-next"' + nextDisabled + '>Next &raquo;</button>' +
       '<button class="eikon-btn primary" id="ca-today" style="margin-left:6px;">Today</button>' +
+      '<button class="eikon-btn" id="ca-refresh" style="margin-left:auto;font-size:11px;padding:5px 10px;">Refresh</button>' +
       '</div>';
 
     // Toolbar
@@ -323,6 +324,8 @@
     if (printBtn) printBtn.onclick = function () {
       window.print();
     };
+    var refreshBtn = document.getElementById("ca-refresh");
+    if (refreshBtn) refreshBtn.onclick = function () { refresh(); };
 
     // Checkbox change handlers
     var checkboxes = S.mount.querySelectorAll('input[type="checkbox"][data-id]');
@@ -359,6 +362,18 @@
     loadOrders().then(function () { renderAll(); });
   }
 
+  /* ── auto-refresh (every 5 min while on this page) ────────────────── */
+  var _autoRefreshTimer = null;
+  function startAutoRefresh() {
+    stopAutoRefresh();
+    _autoRefreshTimer = setInterval(function () {
+      if (S.mount) refresh();
+    }, 5 * 60 * 1000);
+  }
+  function stopAutoRefresh() {
+    if (_autoRefreshTimer) { clearInterval(_autoRefreshTimer); _autoRefreshTimer = null; }
+  }
+
   /* ── main render ─────────────────────────────────────────────────────── */
   async function render(ctx) {
     S.mount = ctx.mount;
@@ -367,6 +382,7 @@
     S.mount.innerHTML = '<div style="padding:20px;color:var(--muted);">Loading orders...</div>';
     await loadOrders();
     renderAll();
+    startAutoRefresh();
   }
 
   /* ── register ────────────────────────────────────────────────────────── */
@@ -375,7 +391,8 @@
     title: "Cherubino Orders",
     order: 10,
     icon: "\uD83C\uDFE5",
-    render: render
+    render: render,
+    destroy: function () { stopAutoRefresh(); S.mount = null; }
   });
 
 })();

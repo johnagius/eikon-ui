@@ -470,6 +470,7 @@
       '<div class="co-date-label">' + formatDateLabel(S.date) + '</div>' +
       '<button class="eikon-btn" id="co-next"' + nextDisabled + '>Next &raquo;</button>' +
       '<button class="eikon-btn primary" id="co-today" style="margin-left:6px;">Today</button>' +
+      '<button class="eikon-btn" id="co-refresh" style="margin-left:auto;font-size:11px;padding:5px 10px;">Refresh</button>' +
       '</div>' +
       '<div class="co-wrap">' +
       '<div class="co-left" id="co-left">' + renderLeftPanel() + '</div>' +
@@ -498,6 +499,8 @@
       S.date = todayYmd(); refresh();
     };
     if (addBtn) addBtn.onclick = function () { openAddModal(); };
+    var refreshBtn = document.getElementById("co-refresh");
+    if (refreshBtn) refreshBtn.onclick = function () { refresh(); };
 
     // Delete buttons
     var dels = document.querySelectorAll("[data-del]");
@@ -717,6 +720,18 @@
       });
   }
 
+  /* ── auto-refresh (every 5 min while on this page) ────────────────── */
+  var _autoRefreshTimer = null;
+  function startAutoRefresh() {
+    stopAutoRefresh();
+    _autoRefreshTimer = setInterval(function () {
+      if (S.mount) refresh();
+    }, 5 * 60 * 1000);
+  }
+  function stopAutoRefresh() {
+    if (_autoRefreshTimer) { clearInterval(_autoRefreshTimer); _autoRefreshTimer = null; }
+  }
+
   /* ── main render ─────────────────────────────────────────────────────── */
   async function render(ctx) {
     S.mount = ctx.mount;
@@ -725,6 +740,7 @@
     S.mount.innerHTML = '<div style="padding:20px;color:var(--muted);">Loading orders...</div>';
     await loadOrders();
     renderAll();
+    startAutoRefresh();
   }
 
   /* ── register ────────────────────────────────────────────────────────── */
@@ -733,7 +749,8 @@
     title: "Orders",
     order: 900,
     icon: "\uD83C\uDFE5",
-    render: render
+    render: render,
+    destroy: function () { stopAutoRefresh(); S.mount = null; }
   });
 
 })();
