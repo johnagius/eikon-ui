@@ -78,7 +78,7 @@
   }
 
   function loadCatalog() {
-    if (S.catalogCache && S.catalogCache.length) return Promise.resolve(S.catalogCache);
+    if (S.catalogCache !== null) return Promise.resolve(S.catalogCache);
     // Check org-wide cache first, then fallback to per-location cache
     try {
       var cached = JSON.parse(window.localStorage.getItem("eikon_cherubino_catalog") || "null");
