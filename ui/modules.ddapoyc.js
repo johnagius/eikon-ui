@@ -1671,6 +1671,40 @@ async function suggestPoycClients(term, limit) {
       modalBackdrop.style.display = "none";
     }
 
+    async function checkDuplicateSerial(serial, excludeId) {
+      if (!ctx || !serial) return null;
+      try {
+        var url = "/dda-poyc/check-serial?serial=" + encodeURIComponent(serial);
+        if (excludeId) url += "&exclude_id=" + encodeURIComponent(String(excludeId));
+        var data = await apiJson(ctx.win, url, { method: "GET" });
+        if (data && data.ok && data.found) return data;
+      } catch (e) {
+        warn("check-serial failed:", e);
+      }
+      return null;
+    }
+
+    function showDuplicateSerialWarning(dupData) {
+      if (!ctx) return Promise.resolve(true);
+      var entries = dupData && dupData.entries ? dupData.entries : [];
+      var totalQty = dupData && dupData.total_qty ? Number(dupData.total_qty) : 0;
+      var lines = "A prescription with this serial number already exists.\n\n";
+      for (var i = 0; i < entries.length && i < 5; i++) {
+        var e = entries[i];
+        lines += "  \u2022 " + String(e.entry_date || "") + " \u2014 " + String(e.client_name || "") + " \u2014 " + String(e.medicine_name_dose || "") + " (qty: " + String(e.quantity || 0) + ")\n";
+      }
+      if (entries.length > 5) lines += "  ... and " + (entries.length - 5) + " more\n";
+      lines += "\nTotal quantity already dispensed: " + totalQty + "\n\n";
+      lines += "Is this a partial dispense (continue) or a mistake/duplicate (cancel)?";
+
+      return uiConfirm(lines, {
+        title: "Duplicate Prescription Serial Number",
+        confirmText: "Continue (Partial Dispense)",
+        cancelText: "Cancel (Duplicate)",
+        danger: false
+      });
+    }
+
     function openModalForNew() {
       var startEnd = monthStartEnd(state.month) || monthStartEnd(todayYm());
       var defaultDate = startEnd ? startEnd.from : "";
@@ -1678,6 +1712,15 @@ async function suggestPoycClients(term, limit) {
         if (!ctx) return;
         try {
           setMsg("", "");
+
+          // Check for duplicate prescription serial number
+          var serial = String(payload.prescription_serial_no || "").trim();
+          var dupData = await checkDuplicateSerial(serial, 0);
+          if (dupData) {
+            var proceed = await showDuplicateSerialWarning(dupData);
+            if (!proceed) return;
+          }
+
           setLoading(true);
           var data = await apiJson(ctx.win, "/dda-poyc/entries", {
             method: "POST",
@@ -1705,6 +1748,15 @@ async function suggestPoycClients(term, limit) {
         if (!id) return;
         try {
           setMsg("", "");
+
+          // Check for duplicate prescription serial number
+          var serial = String(payload.prescription_serial_no || "").trim();
+          var dupData = await checkDuplicateSerial(serial, id);
+          if (dupData) {
+            var proceed = await showDuplicateSerialWarning(dupData);
+            if (!proceed) return;
+          }
+
           setLoading(true);
           var data = await apiJson(ctx.win, "/dda-poyc/entries/" + encodeURIComponent(String(id)), {
             method: "PUT",
