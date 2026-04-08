@@ -1290,7 +1290,17 @@ function normalizePattern(p) {
 function saveEmp(id, p, cb) {
     if(id){ var ix=S.staff.findIndex(function(s){return s.id===id;}); if(ix>=0)Object.assign(S.staff[ix],p); }
     else { p.id=lsNextId(); S.staff.push(p); }
-    apiOp(id?"/shifts/staff/"+id:"/shifts/staff", {method:id?"PUT":"POST",body:JSON.stringify(p)}, cb);
+    apiOp(id?"/shifts/staff/"+id:"/shifts/staff", {method:id?"PUT":"POST",body:JSON.stringify(p)}, function(r) {
+      if (!id && r && r.ok !== false) {
+        // New employee: re-fetch staff to get server-assigned ID
+        E.apiFetch("/shifts/staff?include_inactive=1", {method:"GET"})
+          .then(function(a) { S.staff = a.staff || S.staff; lsSync(); })
+          .catch(function(){})
+          .then(function() { cb && cb(r); });
+      } else {
+        cb && cb(r);
+      }
+    });
   }
 
   function toggleActive(e,cb){
