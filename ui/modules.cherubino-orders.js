@@ -84,50 +84,64 @@
     return j + prefix * 0.1 * (1 - j);
   }
 
-  /* ── subsequence match (VS Code / Sublime-style fuzzy finder) ────────── */
-  function subsequenceMatch(query, text) {
-    // Returns a score if all chars of query appear in order in text, 0 otherwise.
-    // Higher score = chars are closer together (more contiguous).
-    var qi = 0, gaps = 0, lastMatchIdx = -1;
-    for (var ti = 0; ti < text.length && qi < query.length; ti++) {
-      if (text.charAt(ti) === query.charAt(qi)) {
-        if (lastMatchIdx >= 0) gaps += (ti - lastMatchIdx - 1);
-        lastMatchIdx = ti;
-        qi++;
-      }
-    }
-    if (qi < query.length) return 0; // not all chars matched
-    // Score: ratio of matched chars to span, penalised by gaps
-    var span = lastMatchIdx - (lastMatchIdx - qi + 1) + 1;
-    return Math.max(0.01, query.length / (query.length + gaps * 0.5));
-  }
-
-  /* ── catalog search (multi-signal ranking) ───────────────────────────── */
-  function scoreToken(tok, name, nameWords, barcode) {
-    // Returns best score for this token against the product. 0 = no match.
-    // Signal 1: Exact substring in full name (catches middle-of-word matches)
-    if (name.indexOf(tok) >= 0) {
-      var s = 1.0;
-      // Bonus: word-start prefix (e.g. "volt" starts "voltaren")
-      for (var w = 0; w < nameWords.length; w++) {
-        if (nameWords[w].indexOf(tok) === 0) {
-          s += 0.5 * (tok.length / Math.max(nameWords[w].length, 1));
-          break;
+  /* ── Damerau-Levenshtein distance (gold standard for typo detection) ── */
+  function damerauLev(a, b) {
+    var la = a.length, lb = b.length;
+    if (!la) return lb;
+    if (!lb) return la;
+    var d = [];
+    for (var i = 0; i <= la; i++) { d[i] = [i]; }
+    for (var j = 0; j <= lb; j++) { d[0][j] = j; }
+    for (var i = 1; i <= la; i++) {
+      for (var j = 1; j <= lb; j++) {
+        var cost = a.charAt(i - 1) === b.charAt(j - 1) ? 0 : 1;
+        d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost);
+        if (i > 1 && j > 1 && a.charAt(i - 1) === b.charAt(j - 2) && a.charAt(i - 2) === b.charAt(j - 1)) {
+          d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + cost);
         }
       }
-      return s;
     }
-    // Signal 2: Barcode substring
-    if (barcode.indexOf(tok) >= 0) return 0.9;
+    return d[la][lb];
+  }
 
-    // Signal 3: Jaro-Winkler against each word (typo tolerance)
-    var bestJw = 0;
+  function maxTypos(len) { return len <= 3 ? 0 : len <= 5 ? 1 : 2; }
+
+  /* ── catalog search (Algolia/Typesense-style) ────────────────────────── */
+  function scoreToken(tok, nameWords, name, barcode) {
+    // 1. Word-prefix match (highest priority — this is what users expect)
     for (var w = 0; w < nameWords.length; w++) {
-      var jw = jaroWinkler(tok, nameWords[w]);
-      if (jw > bestJw) bestJw = jw;
+      if (nameWords[w].indexOf(tok) === 0) {
+        return 3.0 + tok.length / nameWords[w].length;
+      }
     }
-    if (bestJw >= 0.82) return bestJw * 0.7;
-
+    // 2. Substring anywhere in name
+    if (name.indexOf(tok) >= 0) return 2.0;
+    // 3. Barcode match
+    if (barcode.indexOf(tok) >= 0) return 2.5;
+    // 4. Fuzzy prefix — edit distance on word prefixes (typo tolerance)
+    var allowed = maxTypos(tok.length);
+    if (allowed > 0) {
+      var best = 0;
+      for (var w = 0; w < nameWords.length; w++) {
+        var word = nameWords[w];
+        // Compare against prefix of similar length
+        var pre = word.substring(0, Math.min(tok.length + 1, word.length));
+        var dist = damerauLev(tok, pre);
+        if (dist <= allowed) {
+          var s = 1.5 - dist * 0.4;
+          if (s > best) best = s;
+        }
+        // Also compare against full short words
+        if (word.length <= tok.length + 2) {
+          dist = damerauLev(tok, word);
+          if (dist <= allowed) {
+            var s = 1.5 - dist * 0.4;
+            if (s > best) best = s;
+          }
+        }
+      }
+      if (best > 0) return best;
+    }
     return 0;
   }
 
@@ -143,34 +157,25 @@
       var barcode = (p.barcode || "").toLowerCase();
       var nameWords = name.split(/[\s\-\/\(\),\.]+/).filter(function (w) { return w.length > 0; });
 
-      // Score each token
-      var totalScore = 0;
-      var matchedTokens = 0;
+      var totalScore = 0, matched = 0;
       for (var t = 0; t < tokens.length; t++) {
-        var ts = scoreToken(tokens[t], name, nameWords, barcode);
-        if (ts > 0) { totalScore += ts; matchedTokens++; }
+        var ts = scoreToken(tokens[t], nameWords, name, barcode);
+        if (ts > 0) { totalScore += ts; matched++; }
       }
+      if (matched === 0) continue;
 
-      if (matchedTokens === 0) continue;
-
-      // Compute final score
-      var tokenCoverage = matchedTokens / tokens.length;
-      // All tokens matched: full credit. Partial: scaled down significantly.
+      var coverage = matched / tokens.length;
       var score;
-      if (matchedTokens === tokens.length) {
+      if (matched === tokens.length) {
         score = totalScore / tokens.length;
-      } else if (tokenCoverage >= 0.5) {
-        // At least half tokens match — include but rank lower
-        score = (totalScore / tokens.length) * tokenCoverage * 0.5;
+      } else if (coverage >= 0.5 && tokens.length >= 2) {
+        score = (totalScore / tokens.length) * coverage * 0.3;
       } else {
-        continue; // too few tokens match
+        continue;
       }
 
-      // Bonuses
-      if (name.indexOf(q) >= 0) score += 2.0; // full query is a substring
-      if (nameWords.length > 0 && nameWords[0].indexOf(tokens[0]) === 0) score += 0.3; // first word starts with first token
-      score -= name.length * 0.0003; // slight preference for shorter names
-
+      if (name.indexOf(q) >= 0) score += 3.0;
+      score -= name.length * 0.0003;
       results.push({ product: p, score: score });
     }
 
