@@ -79,20 +79,24 @@
 
   function loadCatalog() {
     if (S.catalogCache && S.catalogCache.length) return Promise.resolve(S.catalogCache);
+    // Check org-wide cache first, then fallback to per-location cache
     try {
-      var cached = JSON.parse(window.localStorage.getItem("eikon_epos_catalog") || "null");
+      var cached = JSON.parse(window.localStorage.getItem("eikon_cherubino_catalog") || "null");
+      if (cached && cached.length) { S.catalogCache = cached; return Promise.resolve(cached); }
+      // Also try the Emergency POS per-location cache
+      cached = JSON.parse(window.localStorage.getItem("eikon_epos_catalog") || "null");
       if (cached && cached.length) { S.catalogCache = cached; return Promise.resolve(cached); }
     } catch (e) {}
     // Fetch all pages
     var all = [];
     function fetchPage(offset) {
-      return E.apiFetch("/emergency-pos/catalog?limit=2000&offset=" + offset, { method: "GET" })
+      return E.apiFetch("/emergency-pos/catalog?limit=2000&offset=" + offset + "&all_org=1", { method: "GET" })
         .then(function (r) {
           var products = r.products || [];
           all = all.concat(products);
           if (r.next_offset && products.length > 0) return fetchPage(r.next_offset);
           S.catalogCache = all;
-          try { window.localStorage.setItem("eikon_epos_catalog", JSON.stringify(all)); } catch (e) {}
+          try { window.localStorage.setItem("eikon_cherubino_catalog", JSON.stringify(all)); } catch (e) {}
           return all;
         });
     }
@@ -365,7 +369,9 @@
     ]);
 
     // Pre-load catalog in background
-    loadCatalog();
+    loadCatalog().then(function (p) {
+      try { console.log("[cherubino-orders] catalog loaded:", (p || []).length, "products"); } catch(e){}
+    });
 
     // Wire autosuggest on the single input
     setTimeout(function () {
@@ -380,18 +386,46 @@
           var q = (descEl.value || "").trim().toLowerCase();
           if (q.length < 2) { suggestEl.style.display = "none"; suggestEl.innerHTML = ""; return; }
           loadCatalog().then(function (products) {
-            // Split query into tokens for flexible matching
+            // Score every product: combine substring, token, and ngram matching
+            var scored = [];
             var tokens = q.split(/\s+/).filter(function (t) { return t.length > 0; });
-            var matches = products.filter(function (p) {
+            for (var i = 0; i < products.length; i++) {
+              var p = products[i];
               var name = (p.name || "").toLowerCase();
               var barcode = (p.barcode || "").toLowerCase();
-              // All tokens must appear in name or barcode
-              return tokens.every(function (t) { return name.indexOf(t) >= 0 || barcode.indexOf(t) >= 0; });
-            }).slice(0, 15);
+              var score = 0;
+
+              // Exact substring match on full query — best
+              if (name.indexOf(q) >= 0 || barcode.indexOf(q) >= 0) {
+                score = 1.0;
+              } else {
+                // Token match: how many tokens appear
+                var tokenHits = 0;
+                tokens.forEach(function (t) {
+                  if (name.indexOf(t) >= 0 || barcode.indexOf(t) >= 0) tokenHits++;
+                });
+                var tokenScore = tokens.length > 0 ? tokenHits / tokens.length : 0;
+
+                // Ngram score against name
+                var ng = ngramScore(q, name);
+
+                // Take the best of token and ngram
+                score = Math.max(tokenScore * 0.9, ng);
+              }
+
+              if (score >= 0.3) {
+                scored.push({ product: p, score: score });
+              }
+            }
+            // Sort by score descending, take top 15
+            scored.sort(function (a, b) { return b.score - a.score; });
+            var matches = scored.slice(0, 15);
+
             if (!matches.length) {
               suggestEl.innerHTML = '<div class="co-empty">No catalog matches. You can still type a custom name.</div>';
             } else {
-              suggestEl.innerHTML = matches.map(function (p) {
+              suggestEl.innerHTML = matches.map(function (m) {
+                var p = m.product;
                 return '<div class="co-search-item" data-pname="' + esc(p.name) + '">' + esc(p.name) +
                   (p.barcode ? ' <span style="color:var(--muted);font-size:10px;">(' + esc(p.barcode) + ')</span>' : '') + '</div>';
               }).join("");
