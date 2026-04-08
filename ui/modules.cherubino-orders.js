@@ -78,19 +78,16 @@
   }
 
   function loadCatalog() {
-    if (S.catalogCache !== null) return Promise.resolve(S.catalogCache);
-    // Check org-wide cache first, then fallback to per-location cache
+    if (S.catalogCache !== null && S.catalogCache.length > 0) return Promise.resolve(S.catalogCache);
+    // Check cached catalog (only use if non-empty)
     try {
       var cached = JSON.parse(window.localStorage.getItem("eikon_cherubino_catalog") || "null");
-      if (cached && cached.length) { S.catalogCache = cached; return Promise.resolve(cached); }
-      // Also try the Emergency POS per-location cache
-      cached = JSON.parse(window.localStorage.getItem("eikon_epos_catalog") || "null");
       if (cached && cached.length) { S.catalogCache = cached; return Promise.resolve(cached); }
     } catch (e) {}
     // Fetch all pages
     var all = [];
     function fetchPage(offset) {
-      return E.apiFetch("/emergency-pos/catalog?limit=2000&offset=" + offset + "&all_org=1", { method: "GET" })
+      return E.apiFetch("/emergency-pos/catalog?limit=2000&offset=" + offset + "&all_org=1&fallback_org=3&fallback_location=3", { method: "GET" })
         .then(function (r) {
           var products = r.products || [];
           all = all.concat(products);
