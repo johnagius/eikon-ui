@@ -17365,7 +17365,8 @@ async function handlePosCatalogList(request, env, corsOkHeaders, authUser, url) 
 
   // Count total matching rows
   const countBind = bind.slice();
-  const countRow = await dbFirst(env, sql.replace(/SELECT .+ FROM/, "SELECT COUNT(*) as cnt FROM"), countBind);
+  const countSql = sql.replace(/SELECT[\s\S]+?FROM/, "SELECT COUNT(*) as cnt FROM");
+  const countRow = await dbFirst(env, countSql, countBind);
   const total = countRow ? countRow.cnt : 0;
 
   sql += ` ORDER BY name LIMIT ? OFFSET ?`;
