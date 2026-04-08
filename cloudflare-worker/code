@@ -1156,7 +1156,26 @@ async function handleAdminRecoverPost(request, env) {
       return htmlPage("Recovery error", `<h1>Recovery error</h1><p class="err">Bootstrap token and email are required.</p>`);
     }
 
+    // Rate limit: max 5 attempts per 15 minutes (keyed by email)
+    const RATE_WINDOW_SECONDS = 900;
+    const RATE_MAX_ATTEMPTS = 5;
+    try {
+      await dbRun(env, `CREATE TABLE IF NOT EXISTS recover_attempts (email TEXT NOT NULL, attempted_at TEXT NOT NULL)`, []);
+      // Clean up old entries
+      await dbRun(env, `DELETE FROM recover_attempts WHERE attempted_at < datetime('now', '-${RATE_WINDOW_SECONDS} seconds')`, []);
+      const countRow = await dbFirst(env, `SELECT COUNT(*) AS c FROM recover_attempts WHERE email = ?`, [email]);
+      if (countRow && countRow.c >= RATE_MAX_ATTEMPTS) {
+        return htmlPage("Recovery error", `<h1>Recovery error</h1><p class="err">Too many attempts. Please wait 15 minutes before trying again.</p>`);
+      }
+      // Record this attempt
+      await dbRun(env, `INSERT INTO recover_attempts (email, attempted_at) VALUES (?, datetime('now'))`, [email]);
+    } catch { /* if table ops fail, continue — don't block recovery entirely */ }
+
     if ((env.BOOTSTRAP_TOKEN || "").trim() !== bootstrapToken) {
+      // Audit: log failed token attempt
+      try { await writeAudit(env, 0, null, "ADMIN_RECOVER_BAD_TOKEN", "user", "", { email }); } catch {}
+      // Deliberate delay to slow brute-force
+      await new Promise(r => setTimeout(r, 2000));
       return htmlPage("Recovery error", `<h1>Recovery error</h1><p class="err">Invalid bootstrap token.</p>`);
     }
 
@@ -1166,12 +1185,14 @@ async function handleAdminRecoverPost(request, env) {
 
     const user = await dbFirst(
       env,
-      `SELECT id, email, full_name, role, pass_salt_b64, pass_hash_b64, pass_iters, is_active, default_location_id
+      `SELECT id, org_id, email, full_name, role, pass_salt_b64, pass_hash_b64, pass_iters, is_active, default_location_id
        FROM users WHERE email = ?`,
       [email]
     );
 
     if (!user) {
+      // Don't reveal whether email exists — use same generic message
+      try { await writeAudit(env, 0, null, "ADMIN_RECOVER_NOT_FOUND", "user", "", { email }); } catch {}
       return htmlPage("Recovery error", `<h1>Recovery error</h1><p class="err">No user found with email <code>${escapeHtml(email)}</code>.</p>`);
     }
 
@@ -1192,8 +1213,10 @@ async function handleAdminRecoverPost(request, env) {
 
       if (match) {
         results.push(`<p class="ok">Password verification: CORRECT — the password you entered matches.</p>`);
+        try { await writeAudit(env, user.org_id, user.id, "ADMIN_RECOVER_VERIFY_OK", "user", String(user.id), { email }); } catch {}
       } else {
         results.push(`<p class="err">Password verification: INCORRECT — the password you entered does NOT match.</p>`);
+        try { await writeAudit(env, user.org_id, user.id, "ADMIN_RECOVER_VERIFY_FAIL", "user", String(user.id), { email }); } catch {}
       }
     }
 
@@ -1209,6 +1232,7 @@ async function handleAdminRecoverPost(request, env) {
       try { await dbRun(env, "DELETE FROM sessions WHERE user_id=?", [user.id]); } catch {}
 
       results.push(`<p class="ok">Password has been RESET successfully. All existing sessions have been cleared.</p>`);
+      try { await writeAudit(env, user.org_id, user.id, "ADMIN_RECOVER_RESET", "user", String(user.id), { email }); } catch {}
     }
 
     return htmlPage(
