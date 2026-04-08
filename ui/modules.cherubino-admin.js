@@ -56,6 +56,111 @@
     return byLoc;
   }
 
+  /* ── similarity + grouping (shared logic with pharmacy module) ──────── */
+  function damerauLev(a, b) {
+    var la = a.length, lb = b.length;
+    if (!la) return lb; if (!lb) return la;
+    var d = [];
+    for (var i = 0; i <= la; i++) { d[i] = [i]; }
+    for (var j = 0; j <= lb; j++) { d[0][j] = j; }
+    for (var i = 1; i <= la; i++) {
+      for (var j = 1; j <= lb; j++) {
+        var cost = a.charAt(i - 1) === b.charAt(j - 1) ? 0 : 1;
+        d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost);
+        if (i > 1 && j > 1 && a.charAt(i - 1) === b.charAt(j - 2) && a.charAt(i - 2) === b.charAt(j - 1)) {
+          d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + cost);
+        }
+      }
+    }
+    return d[la][lb];
+  }
+  function maxTypos(len) { return len <= 3 ? 0 : len <= 5 ? 1 : 2; }
+
+  function nameSimilarity(a, b) {
+    if (!a || !b) return 0;
+    var na = a.toLowerCase().trim(), nb = b.toLowerCase().trim();
+    if (na === nb) return 1.0;
+    var tokA = na.split(/[\s\-\/\(\),\.]+/).filter(function (t) { return t.length > 0; });
+    var tokB = nb.split(/[\s\-\/\(\),\.]+/).filter(function (t) { return t.length > 0; });
+    var setA = {}, setB = {};
+    tokA.forEach(function (t) { setA[t] = 1; });
+    tokB.forEach(function (t) { setB[t] = 1; });
+    var inter = 0, union = 0;
+    for (var k in setA) { if (setB[k]) inter++; union++; }
+    for (var k in setB) { if (!setA[k]) union++; }
+    var jaccard = union > 0 ? inter / union : 0;
+    var fuzzyMatches = 0;
+    tokA.forEach(function (ta) {
+      var allowed = maxTypos(ta.length);
+      for (var i = 0; i < tokB.length; i++) {
+        if (ta === tokB[i]) { fuzzyMatches++; return; }
+        if (allowed > 0 && damerauLev(ta, tokB[i]) <= allowed) { fuzzyMatches++; return; }
+      }
+    });
+    var fuzzyRecall = tokA.length > 0 ? fuzzyMatches / tokA.length : 0;
+    var maxLen = Math.max(na.length, nb.length);
+    var dlFull = maxLen > 0 ? 1 - (damerauLev(na, nb) / maxLen) : 0;
+    return Math.max(jaccard, fuzzyRecall * 0.95, dlFull);
+  }
+
+  var SIMILARITY_THRESHOLD = 0.7;
+
+  function buildGroupedView() {
+    var all = S.allOrders.slice();
+    var groups = [];
+    var used = {};
+    for (var i = 0; i < all.length; i++) {
+      if (used[i]) continue;
+      var group = { name: all[i].description, items: [all[i]] };
+      used[i] = true;
+      for (var j = i + 1; j < all.length; j++) {
+        if (used[j]) continue;
+        if (nameSimilarity(group.name, all[j].description) >= SIMILARITY_THRESHOLD) {
+          group.items.push(all[j]);
+          used[j] = true;
+        }
+      }
+      var locs = {};
+      group.items.forEach(function (item) { locs[item.location_id] = true; });
+      if (Object.keys(locs).length >= 2) groups.push(group);
+    }
+    return groups;
+  }
+
+  function renderGroupedView() {
+    var groups = buildGroupedView();
+    var html = '<div class="ca-section" style="border-color:rgba(90,162,255,.35);background:rgba(90,162,255,.04);">';
+    html += '<div class="ca-section-head" style="background:rgba(90,162,255,.10);color:rgba(90,162,255,1);border-color:rgba(90,162,255,.25);">Grouped View — Items ordered by multiple locations</div>';
+    if (!groups.length) {
+      html += '<div class="ca-empty">No items ordered by multiple locations yet.</div>';
+    } else {
+      html += '<table class="ca-table">';
+      html += '<thead><tr><th>Item</th><th>Total Qty</th><th>Locations</th></tr></thead><tbody>';
+      groups.forEach(function (g) {
+        var totalQty = 0;
+        var locDetails = [];
+        g.items.forEach(function (item) {
+          totalQty += item.quantity;
+        });
+        var byLoc = {};
+        g.items.forEach(function (item) {
+          var ln = item.location_name || ("Location " + item.location_id);
+          if (!byLoc[ln]) byLoc[ln] = 0;
+          byLoc[ln] += item.quantity;
+        });
+        for (var ln in byLoc) locDetails.push(esc(ln) + ': x' + byLoc[ln]);
+        html += '<tr>';
+        html += '<td style="font-weight:700;">' + esc(g.name) + '</td>';
+        html += '<td style="text-align:center;font-weight:700;">' + totalQty + '</td>';
+        html += '<td style="font-size:11px;color:var(--muted);">' + locDetails.join(' &bull; ') + '</td>';
+        html += '</tr>';
+      });
+      html += '</tbody></table>';
+    }
+    html += '</div>';
+    return html;
+  }
+
   /* ── styles ──────────────────────────────────────────────────────────── */
   function ensureStyles() {
     if (document.getElementById("ca-styles")) return;
@@ -90,6 +195,8 @@
       '  .ca-summary { border-color:#ccc !important; }' +
       '  .ca-summary-title, .ca-summary-stat { color:#000 !important; }' +
       '  .ca-summary-row { color:#333 !important; }' +
+      '  .ca-section[style*="90,162,255"] { border-color:#0066cc !important; background:#f0f6ff !important; }' +
+      '  .ca-section[style*="90,162,255"] .ca-section-head { background:#e0edff !important; color:#0050a0 !important; }' +
       '}';
     document.head.appendChild(st);
   }
@@ -172,6 +279,9 @@
 
     // Summary
     html += renderSummary();
+
+    // Grouped view (multi-location items)
+    html += renderGroupedView();
 
     // Orders by location
     var byLoc = ordersByLocation();
