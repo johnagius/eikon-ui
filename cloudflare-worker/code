@@ -7953,6 +7953,52 @@ async function handleDdaSalesDoctorsLookup(request, env, corsOkHeaders, authUser
 }
 
 
+async function handleDdaSalesClientsSearch(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+
+  await ensureDdaSalesSchema(env);
+
+  const qRaw = String((url && url.searchParams ? url.searchParams.get("q") : "") || "").trim();
+  const limitRaw = parseInt(String((url && url.searchParams ? url.searchParams.get("limit") : "") || "12"), 10);
+  const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(50, limitRaw)) : 12;
+
+  let sql = `
+    SELECT client_name, client_id_card, client_address, MAX(entry_date) AS last_date
+    FROM dda_sales_entries
+    WHERE org_id = ? AND location_id = ?
+      AND client_name IS NOT NULL AND TRIM(client_name) <> ''
+  `;
+  const bind = [authUser.org_id, authUser.location_id];
+
+  if (qRaw) {
+    const q = "%" + qRaw.toLowerCase() + "%";
+    sql += " AND (LOWER(client_name) LIKE ? OR LOWER(client_id_card) LIKE ? OR LOWER(client_address) LIKE ?) ";
+    bind.push(q, q, q);
+  }
+
+  sql += `
+    GROUP BY LOWER(TRIM(client_name)), LOWER(TRIM(client_id_card))
+    ORDER BY last_date DESC
+    LIMIT ?
+  `;
+  bind.push(limit);
+
+  const rows = await dbAll(env, sql, bind);
+
+  const out = [];
+  for (const r of rows) {
+    out.push({
+      client_name: r.client_name || "",
+      client_id_card: r.client_id_card || "",
+      client_address: r.client_address || "",
+    });
+  }
+
+  return jsonResponse({ ok: true, clients: out }, 200, corsOkHeaders);
+}
+
 async function handleDdaSalesCheckSerial(request, env, corsOkHeaders, authUser, url) {
   if (!requireRole(authUser, ["admin", "staff"])) {
     return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
@@ -16133,6 +16179,9 @@ if (url.pathname.startsWith("/alerts/entries/")) {
     }
     if (url.pathname === "/dda-sales/doctors" && request.method === "GET") {
       return await handleDdaSalesDoctorsLookup(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/dda-sales/clients" && request.method === "GET") {
+      return await handleDdaSalesClientsSearch(request, env, corsOkHeaders, authUser, url);
     }
     if (url.pathname === "/dda-sales/entries" && request.method === "GET") {
       return await handleDdaSalesEntriesList(request, env, corsOkHeaders, authUser, url);
