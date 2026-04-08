@@ -105,7 +105,10 @@
     allLocations: [],
     catalogCache: null,
     mount: null,
-    user: null
+    user: null,
+    filterText: "",
+    printFrom: "",
+    printTo: ""
   };
 
   /* ── API ─────────────────────────────────────────────────────────────── */
@@ -194,7 +197,25 @@
       '.cp-search-item{padding:10px 12px;font-size:13px;cursor:pointer;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}' +
       '.cp-search-item:last-child{border-bottom:none;}' +
       '.cp-search-item:hover{background:rgba(90,162,255,.1);}' +
-      '.cp-search-price{font-size:12px;color:var(--muted);}';
+      '.cp-search-price{font-size:12px;color:var(--muted);}' +
+      '.cp-filter-bar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;}' +
+      '.cp-filter-input{flex:1;min-width:200px;font-size:13px;padding:8px 12px;}' +
+      '.cp-print-bar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;padding:10px 14px;border:1px solid var(--border);border-radius:10px;background:rgba(255,255,255,.02);}' +
+      '.cp-print-bar label{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;}' +
+      '.cp-print-bar input[type="date"]{font-size:12px;padding:5px 8px;}' +
+      '.cp-match-count{font-size:11px;color:var(--muted);}' +
+      '@media print{' +
+      '  .eikon-sidebar,.eikon-topbar,.eikon-nav,.cp-toolbar,.cp-filter-bar,.cp-print-bar,.cp-my-check{display:none !important;}' +
+      '  .eikon-main{margin:0 !important;padding:10px !important;}' +
+      '  body{background:#fff !important;color:#000 !important;}' +
+      '  .cp-card{border-color:#ccc !important;background:#fff !important;}' +
+      '  .cp-product,.cp-new{color:#000 !important;}' +
+      '  .cp-meta,.cp-old{color:#555 !important;}' +
+      '  .cp-day-header{color:#333 !important;border-color:#999 !important;}' +
+      '  .cp-check-done{background:#e8f5e9 !important;color:#2e7d32 !important;border-color:#a5d6a7 !important;}' +
+      '  .cp-check-pending{background:#f5f5f5 !important;color:#888 !important;border-color:#ccc !important;}' +
+      '  .cp-list{max-height:none !important;overflow:visible !important;}' +
+      '}';
     document.head.appendChild(st);
   }
 
@@ -252,6 +273,17 @@
       '</div>';
   }
 
+  function filteredChanges() {
+    var list = S.changes;
+    var q = (S.filterText || "").toLowerCase().trim();
+    if (q) {
+      list = list.filter(function (c) {
+        return (c.product_name || "").toLowerCase().indexOf(q) >= 0;
+      });
+    }
+    return list;
+  }
+
   function renderAll() {
     var mount = S.mount;
     if (!mount) return;
@@ -261,16 +293,32 @@
     // Toolbar
     html += '<div class="cp-toolbar">' +
       '<button class="eikon-btn primary" id="cp-add-btn" style="font-size:12px;padding:8px 14px;">+ New Price Change</button>' +
+      '<button class="eikon-btn" id="cp-print-btn" style="font-size:12px;padding:8px 14px;">Print Report</button>' +
       '<button class="eikon-btn" id="cp-refresh" style="margin-left:auto;font-size:11px;padding:5px 10px;">Refresh</button>' +
       '</div>';
 
+    // Search filter
+    html += '<div class="cp-filter-bar">' +
+      '<input class="eikon-input cp-filter-input" id="cp-filter" type="text" placeholder="Search price changes by product name..." value="' + esc(S.filterText) + '"/>' +
+      '<span class="cp-match-count" id="cp-count"></span>' +
+      '</div>';
+
+    // Print date range bar
+    html += '<div class="cp-print-bar" id="cp-print-bar" style="display:none;">' +
+      '<label>From: <input class="eikon-input" id="cp-print-from" type="date" value="' + esc(S.printFrom) + '"/></label>' +
+      '<label>To: <input class="eikon-input" id="cp-print-to" type="date" value="' + esc(S.printTo) + '"/></label>' +
+      '<button class="eikon-btn primary" id="cp-print-go" style="font-size:12px;padding:6px 12px;">Print</button>' +
+      '<button class="eikon-btn" id="cp-print-cancel" style="font-size:11px;padding:5px 10px;">Cancel</button>' +
+      '</div>';
+
     // List grouped by date
-    html += '<div class="cp-list">';
-    if (!S.changes.length) {
-      html += '<div class="cp-empty">No price changes recorded yet.</div>';
+    var changes = filteredChanges();
+    html += '<div class="cp-list" id="cp-list">';
+    if (!changes.length) {
+      html += '<div class="cp-empty">' + (S.filterText ? 'No price changes match "' + esc(S.filterText) + '".' : 'No price changes recorded yet.') + '</div>';
     } else {
       var currentDay = "";
-      S.changes.forEach(function (c) {
+      changes.forEach(function (c) {
         var day = dateKey(c.created_at);
         if (day !== currentDay) {
           currentDay = day;
@@ -282,6 +330,11 @@
     html += '</div>';
 
     mount.innerHTML = html;
+
+    // Show count
+    var countEl = document.getElementById("cp-count");
+    if (countEl && S.filterText) countEl.textContent = changes.length + " result" + (changes.length !== 1 ? "s" : "");
+
     wireEvents();
   }
 
@@ -289,9 +342,85 @@
   function wireEvents() {
     var addBtn = document.getElementById("cp-add-btn");
     var refreshBtn = document.getElementById("cp-refresh");
+    var filterEl = document.getElementById("cp-filter");
+    var printBtn = document.getElementById("cp-print-btn");
+    var printBar = document.getElementById("cp-print-bar");
+    var printGo = document.getElementById("cp-print-go");
+    var printCancel = document.getElementById("cp-print-cancel");
+    var printFrom = document.getElementById("cp-print-from");
+    var printTo = document.getElementById("cp-print-to");
 
     if (addBtn) addBtn.onclick = function () { openAddModal(); };
     if (refreshBtn) refreshBtn.onclick = function () { refresh(); };
+
+    // Search filter (instant, debounced)
+    if (filterEl) {
+      var filterT = null;
+      filterEl.oninput = function () {
+        clearTimeout(filterT);
+        filterT = setTimeout(function () {
+          S.filterText = filterEl.value;
+          renderAll();
+          // Re-focus and restore cursor
+          var el = document.getElementById("cp-filter");
+          if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+        }, 200);
+      };
+    }
+
+    // Print with date range
+    if (printBtn && printBar) {
+      printBtn.onclick = function () {
+        printBar.style.display = printBar.style.display === "none" ? "flex" : "none";
+      };
+    }
+    if (printCancel && printBar) {
+      printCancel.onclick = function () { printBar.style.display = "none"; };
+    }
+    if (printGo) {
+      printGo.onclick = function () {
+        var from = printFrom ? printFrom.value : "";
+        var to = printTo ? printTo.value : "";
+        // Temporarily filter the list by date range for printing
+        var listEl = document.getElementById("cp-list");
+        if (!listEl) { window.print(); return; }
+
+        // Filter changes by date range
+        var printChanges = S.changes.filter(function (c) {
+          var d = dateKey(c.created_at);
+          if (from && d < from) return false;
+          if (to && d > to) return false;
+          return true;
+        });
+
+        // Also apply text filter
+        var q = (S.filterText || "").toLowerCase().trim();
+        if (q) {
+          printChanges = printChanges.filter(function (c) {
+            return (c.product_name || "").toLowerCase().indexOf(q) >= 0;
+          });
+        }
+
+        // Render print-only content
+        var printHtml = '<div style="font-weight:900;font-size:16px;margin-bottom:12px;">Price Changes Report' +
+          (from || to ? ' (' + (from || '...') + ' to ' + (to || '...') + ')' : '') +
+          (q ? ' — "' + esc(q) + '"' : '') +
+          '</div>';
+        var currentDay = "";
+        printChanges.forEach(function (c) {
+          var day = dateKey(c.created_at);
+          if (day !== currentDay) {
+            currentDay = day;
+            printHtml += '<div class="cp-day-header">' + formatDate(c.created_at) + '</div>';
+          }
+          printHtml += renderChangeCard(c);
+        });
+        if (!printChanges.length) printHtml += '<div class="cp-empty">No changes in this range.</div>';
+
+        listEl.innerHTML = printHtml;
+        setTimeout(function () { window.print(); setTimeout(function () { renderAll(); }, 500); }, 100);
+      };
+    }
 
     // Check/uncheck pills
     var pills = S.mount.querySelectorAll("[data-check-id]");
