@@ -1115,6 +1115,120 @@ async function parseForm(request) {
   return obj;
 }
 
+// ── Admin Password Recovery (protected by BOOTSTRAP_TOKEN) ──────────────
+// Safety net: if locked out of both the system AND the SU panel,
+// use the BOOTSTRAP_TOKEN to verify or reset an admin password.
+
+async function handleAdminRecoverGet(request, env) {
+  const body = `
+<h1>Admin Password Recovery</h1>
+<div class="card">
+  <p>Verify or reset an admin password using your <b>Bootstrap Token</b>.</p>
+  <form method="POST" action="/admin-recover">
+    <label>Bootstrap Token</label>
+    <input name="bootstrap_token" type="password" required />
+    <label>Admin Email</label>
+    <input name="email" type="email" required />
+    <label>Password to Verify</label>
+    <input name="verify_password" type="password" placeholder="Leave blank to skip verification" />
+    <label>New Password (leave blank to verify only)</label>
+    <input name="new_password" type="password" placeholder="Leave blank to only verify current password" />
+    <button type="submit">Submit</button>
+  </form>
+  <p style="margin-top:12px;color:#555;">Tip: fill in <b>only</b> "Password to Verify" to check a password. Fill in <b>only</b> "New Password" to reset without verifying first. Fill in both to verify then reset.</p>
+</div>`;
+  return htmlPage("Admin Recovery", body);
+}
+
+async function handleAdminRecoverPost(request, env) {
+  try {
+    let payload = await parseForm(request);
+    if (!payload) {
+      try { payload = await readJson(request); } catch { payload = {}; }
+    }
+
+    const bootstrapToken = (payload.bootstrap_token || "").trim();
+    const email = (payload.email || "").trim().toLowerCase();
+    const verifyPassword = (payload.verify_password || "").trim();
+    const newPassword = (payload.new_password || "").trim();
+
+    if (!bootstrapToken || !email) {
+      return htmlPage("Recovery error", `<h1>Recovery error</h1><p class="err">Bootstrap token and email are required.</p>`);
+    }
+
+    if ((env.BOOTSTRAP_TOKEN || "").trim() !== bootstrapToken) {
+      return htmlPage("Recovery error", `<h1>Recovery error</h1><p class="err">Invalid bootstrap token.</p>`);
+    }
+
+    if (!verifyPassword && !newPassword) {
+      return htmlPage("Recovery error", `<h1>Recovery error</h1><p class="err">Provide a password to verify, a new password to set, or both.</p>`);
+    }
+
+    const user = await dbFirst(
+      env,
+      `SELECT id, email, full_name, role, pass_salt_b64, pass_hash_b64, pass_iters, is_active, default_location_id
+       FROM users WHERE email = ?`,
+      [email]
+    );
+
+    if (!user) {
+      return htmlPage("Recovery error", `<h1>Recovery error</h1><p class="err">No user found with email <code>${escapeHtml(email)}</code>.</p>`);
+    }
+
+    let results = [];
+
+    // Account status info
+    results.push(`<p><b>Account:</b> ${escapeHtml(user.email)} (${escapeHtml(user.full_name || "no name")})</p>`);
+    results.push(`<p><b>Role:</b> ${escapeHtml(user.role)}</p>`);
+    results.push(`<p><b>Active:</b> ${user.is_active === 1 ? '<span class="ok">Yes</span>' : '<span class="err">No (account is on hold)</span>'}</p>`);
+    results.push(`<p><b>Default Location ID:</b> ${user.default_location_id ? user.default_location_id : '<span class="err">None (login will fail!)</span>'}</p>`);
+
+    // Verify current password if provided
+    if (verifyPassword) {
+      const saltBytes = bytesFromBase64(user.pass_salt_b64);
+      const derived = await pbkdf2Hash(verifyPassword, saltBytes, user.pass_iters);
+      const stored = bytesFromBase64(user.pass_hash_b64);
+      const match = constantTimeEqual(derived, stored);
+
+      if (match) {
+        results.push(`<p class="ok">Password verification: CORRECT — the password you entered matches.</p>`);
+      } else {
+        results.push(`<p class="err">Password verification: INCORRECT — the password you entered does NOT match.</p>`);
+      }
+    }
+
+    // Reset password if new_password provided
+    if (newPassword) {
+      const iters = 100000;
+      const salt = crypto.getRandomValues(new Uint8Array(16));
+      const hash = await pbkdf2Hash(newPassword, salt, iters);
+      const saltB64 = base64FromBytes(salt);
+      const hashB64 = base64FromBytes(hash);
+
+      await dbRun(env, "UPDATE users SET pass_salt_b64=?, pass_hash_b64=?, pass_iters=? WHERE id=?", [saltB64, hashB64, iters, user.id]);
+      try { await dbRun(env, "DELETE FROM sessions WHERE user_id=?", [user.id]); } catch {}
+
+      results.push(`<p class="ok">Password has been RESET successfully. All existing sessions have been cleared.</p>`);
+    }
+
+    return htmlPage(
+      "Admin Recovery",
+      `<h1>Admin Recovery Result</h1>
+<div class="card">
+  ${results.join("\n  ")}
+  <p style="margin-top:12px;"><a href="/admin-recover">← Back</a></p>
+</div>`
+    );
+  } catch (e) {
+    return htmlPage(
+      "Recovery error",
+      `<h1>Recovery error</h1>
+<p class="err">The Worker caught an exception.</p>
+<pre style="white-space:pre-wrap;background:#f6f6f6;padding:12px;border-radius:10px;border:1px solid #ddd;">${escapeHtml(e && (e.stack || e.message || String(e)))}</pre>`
+    );
+  }
+}
+
 async function handleBootstrapGet(request, env) {
   const usersCountRow = await dbFirst(env, "SELECT COUNT(*) AS c FROM users", []);
   const hasUsers = usersCountRow && usersCountRow.c > 0;
@@ -15068,6 +15182,9 @@ export default {
 
     if (url.pathname === "/bootstrap" && request.method === "GET") return await handleBootstrapGet(request, env);
     if (url.pathname === "/bootstrap" && request.method === "POST") return await handleBootstrapPost(request, env);
+
+    if (url.pathname === "/admin-recover" && request.method === "GET") return await handleAdminRecoverGet(request, env);
+    if (url.pathname === "/admin-recover" && request.method === "POST") return await handleAdminRecoverPost(request, env);
 
     if (url.pathname === "/su" && request.method === "GET") return await handleSuPage(request, env);
 
