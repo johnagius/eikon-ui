@@ -102,6 +102,7 @@
   /* ── state ───────────────────────────────────────────────────────────── */
   var S = {
     changes: [],
+    knownLocations: [],
     catalogCache: null,
     mount: null,
     user: null
@@ -110,8 +111,25 @@
   /* ── API ─────────────────────────────────────────────────────────────── */
   function loadChanges() {
     return E.apiFetch("/cherubino/price-changes?limit=200", { method: "GET" })
-      .then(function (r) { S.changes = r.changes || []; })
-      .catch(function () { S.changes = []; });
+      .then(function (r) {
+        S.changes = r.changes || [];
+        // Build known locations from change authors + checks
+        var locMap = {};
+        S.changes.forEach(function (c) {
+          if (c.location_id && Number(c.location_id) < 600) {
+            locMap[c.location_id] = c.location_name || ("Location " + c.location_id);
+          }
+          (c.checks || []).forEach(function (ch) {
+            if (ch.location_id && Number(ch.location_id) < 600) {
+              locMap[ch.location_id] = ch.location_name || ("Location " + ch.location_id);
+            }
+          });
+        });
+        S.knownLocations = Object.keys(locMap).map(function (id) {
+          return { location_id: Number(id), location_name: locMap[id] };
+        });
+      })
+      .catch(function () { S.changes = []; S.knownLocations = []; });
   }
 
   function createChange(productName, oldPrice, newPrice) {
@@ -195,22 +213,36 @@
     var myLocId = S.user ? Number(S.user.location_id) : -1;
     var isAdmin = S.user && Number(S.user.location_id) >= 600;
     var checks = c.checks || [];
+    var checkedLocIds = {};
+    checks.forEach(function (ch) { checkedLocIds[ch.location_id] = ch; });
 
-    // Build check pills — show all locations' status
-    var myChecked = checks.some(function (ch) { return Number(ch.location_id) === myLocId; });
     var checkHtml = '<div class="cp-checks">';
 
-    // My location check (clickable for pharmacies)
+    // Pharmacy view: show own clickable check pill
     if (!isAdmin) {
+      var myChecked = !!checkedLocIds[myLocId];
       checkHtml += '<span class="cp-check-pill cp-my-check ' + (myChecked ? 'cp-check-done' : 'cp-check-pending') + '" data-check-id="' + c.id + '" data-checked="' + (myChecked ? '1' : '0') + '">' +
         (myChecked ? '&#10003; Checked' : 'Mark checked') + '</span>';
     }
 
-    // Show all location check statuses
+    // Show all locations that have checked
     checks.forEach(function (ch) {
+      // On pharmacy side, skip own location (already shown above)
+      if (!isAdmin && Number(ch.location_id) === myLocId) return;
       checkHtml += '<span class="cp-check-pill cp-check-done" title="Checked by ' + esc(ch.checked_by_name) + ' at ' + esc(ch.checked_at) + '">' +
         '&#10003; ' + esc(ch.location_name) + '</span>';
     });
+
+    // Admin view: also show which known locations have NOT checked
+    if (isAdmin && S.knownLocations.length) {
+      S.knownLocations.forEach(function (loc) {
+        if (!checkedLocIds[loc.location_id]) {
+          checkHtml += '<span class="cp-check-pill cp-check-pending">' +
+            '&#10007; ' + esc(loc.location_name) + '</span>';
+        }
+      });
+    }
+
     checkHtml += '</div>';
 
     return '<div class="cp-card">' +
