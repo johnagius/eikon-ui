@@ -344,7 +344,7 @@
       '.co-item-qty{min-width:40px;text-align:center;font-weight:700;color:var(--muted);}' +
       '.co-item-cb{display:flex;gap:8px;align-items:center;font-size:11px;color:var(--muted);}' +
       '.co-item-cb label{display:flex;align-items:center;gap:3px;cursor:default;}' +
-      '.co-item-cb input{pointer-events:none;opacity:.5;}' +
+      '.co-item-cb input{pointer-events:none;opacity:1;accent-color:rgba(90,162,255,.8);}' +
       '.co-item-del{cursor:pointer;color:rgba(255,90,122,.7);font-size:14px;padding:2px 4px;}' +
       '.co-item-del:hover{color:rgba(255,90,122,1);}' +
       '.co-empty{padding:14px;color:var(--muted);font-size:12px;text-align:center;}' +
