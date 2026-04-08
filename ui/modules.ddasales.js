@@ -538,7 +538,7 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
       if (!_confirmBackdrop) {
         var bd = doc.createElement("div");
         bd.className = "eikon-dda-confirm-backdrop";
-        bd.style.cssText = "position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55);z-index:1100;";
+        bd.style.cssText = "position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55);z-index:10100;";
         var card = doc.createElement("div");
         card.className = "eikon-dda-confirm-card";
         card.style.cssText = "width:min(420px,calc(100vw - 32px));background:rgba(12,19,29,.98);border:1px solid rgba(255,255,255,.12);border-radius:14px;box-shadow:0 20px 80px rgba(0,0,0,.55);padding:14px 14px 12px 14px;color:rgba(233,238,247,.92);";
