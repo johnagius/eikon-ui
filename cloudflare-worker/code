@@ -16506,6 +16506,22 @@ if (url.pathname.startsWith("/dda-stocktakes/items/")) {
     }
     // ── End Cherubino Orders ──────────────────────────────────────────────
 
+    // ── Cherubino Price Changes ───────────────────────────────────────────
+    if (url.pathname === "/cherubino/price-changes" && request.method === "GET") {
+      return await handleCherubinoPriceList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/cherubino/price-changes" && request.method === "POST") {
+      return await handleCherubinoPriceCreate(request, env, corsOkHeaders, authUser);
+    }
+    { const m = url.pathname.match(/^\/cherubino\/price-changes\/(\d+)\/check$/);
+      if (m) {
+        const id = Number(m[1]);
+        if (request.method === "POST") return await handleCherubinoPriceCheck(request, env, corsOkHeaders, authUser, id);
+        if (request.method === "DELETE") return await handleCherubinoPriceUncheck(request, env, corsOkHeaders, authUser, id);
+      }
+    }
+    // ── End Cherubino Price Changes ───────────────────────────────────────
+
     return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
     } catch (e) {
       // Never let an exception become Cloudflare 1101 HTML again.
@@ -17250,6 +17266,110 @@ async function handleCherubinoOrderDelete(request, env, corsOkHeaders, authUser,
 
   await dbRun(env, `DELETE FROM cherubino_orders WHERE id = ? AND org_id = ?`, [orderId, authUser.org_id]);
   await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_ORDER_DELETE", "cherubino_orders", String(orderId), {});
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CHERUBINO PRICE CHANGES — schema + handlers
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function ensureCherubinoPriceSchema(env) {
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS cherubino_price_changes (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id          INTEGER NOT NULL,
+    product_name    TEXT NOT NULL DEFAULT '',
+    old_price       REAL NOT NULL DEFAULT 0,
+    new_price       REAL NOT NULL DEFAULT 0,
+    changed_by_id   INTEGER,
+    changed_by_name TEXT NOT NULL DEFAULT '',
+    location_id     INTEGER NOT NULL,
+    location_name   TEXT NOT NULL DEFAULT '',
+    created_at      TEXT DEFAULT (datetime('now'))
+  )`);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_cherubino_pc_org_date ON cherubino_price_changes (org_id, created_at)`);
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS cherubino_price_checks (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id          INTEGER NOT NULL,
+    price_change_id INTEGER NOT NULL,
+    location_id     INTEGER NOT NULL,
+    location_name   TEXT NOT NULL DEFAULT '',
+    checked_by_id   INTEGER,
+    checked_by_name TEXT NOT NULL DEFAULT '',
+    checked_at      TEXT DEFAULT (datetime('now'))
+  )`);
+  await dbRun(env, `CREATE UNIQUE INDEX IF NOT EXISTS idx_cherubino_pchk_uniq ON cherubino_price_checks (price_change_id, location_id)`);
+}
+
+async function handleCherubinoPriceList(request, env, corsOkHeaders, authUser, url) {
+  await ensureCherubinoPriceSchema(env);
+  const limit = Math.min(Math.max(1, parseInt(url.searchParams.get("limit")) || 200), 500);
+  const offset = Math.max(0, parseInt(url.searchParams.get("offset")) || 0);
+
+  const rows = await dbAll(env,
+    `SELECT id, org_id, product_name, old_price, new_price, changed_by_id, changed_by_name,
+            location_id, location_name, created_at
+     FROM cherubino_price_changes WHERE org_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+    [authUser.org_id, limit, offset]);
+
+  // Fetch checks for these changes
+  if (rows.length) {
+    const ids = rows.map(r => r.id);
+    const placeholders = ids.map(() => "?").join(",");
+    const checks = await dbAll(env,
+      `SELECT price_change_id, location_id, location_name, checked_by_name, checked_at
+       FROM cherubino_price_checks WHERE price_change_id IN (${placeholders})`,
+      ids);
+    const checkMap = {};
+    checks.forEach(c => {
+      if (!checkMap[c.price_change_id]) checkMap[c.price_change_id] = [];
+      checkMap[c.price_change_id].push(c);
+    });
+    rows.forEach(r => { r.checks = checkMap[r.id] || []; });
+  }
+
+  return jsonResponse({ ok: true, changes: rows }, 200, corsOkHeaders);
+}
+
+async function handleCherubinoPriceCreate(request, env, corsOkHeaders, authUser) {
+  await ensureCherubinoPriceSchema(env);
+  const body = await readJson(request);
+  const productName = String(body.product_name || "").trim();
+  const oldPrice = parseFloat(body.old_price) || 0;
+  const newPrice = parseFloat(body.new_price);
+
+  if (!productName) return jsonResponse({ ok: false, error: "product_name required" }, 400, corsOkHeaders);
+  if (isNaN(newPrice) || newPrice < 0) return jsonResponse({ ok: false, error: "valid new_price required" }, 400, corsOkHeaders);
+
+  const row = await dbFirst(env,
+    `INSERT INTO cherubino_price_changes (org_id, product_name, old_price, new_price, changed_by_id, changed_by_name, location_id, location_name)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+    [authUser.org_id, productName, oldPrice, newPrice, authUser.user_id, authUser.full_name || "", authUser.location_id, authUser.location_name || ""]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_PRICE_CREATE", "cherubino_price_changes", String(row.id), { productName, oldPrice, newPrice });
+  return jsonResponse({ ok: true, id: row.id }, 200, corsOkHeaders);
+}
+
+async function handleCherubinoPriceCheck(request, env, corsOkHeaders, authUser, changeId) {
+  await ensureCherubinoPriceSchema(env);
+  const existing = await dbFirst(env,
+    `SELECT id FROM cherubino_price_changes WHERE id = ? AND org_id = ?`, [changeId, authUser.org_id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  await dbRun(env,
+    `INSERT INTO cherubino_price_checks (org_id, price_change_id, location_id, location_name, checked_by_id, checked_by_name)
+     VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(price_change_id, location_id) DO UPDATE SET
+       checked_by_id = excluded.checked_by_id, checked_by_name = excluded.checked_by_name, checked_at = datetime('now')`,
+    [authUser.org_id, changeId, authUser.location_id, authUser.location_name || "", authUser.user_id, authUser.full_name || ""]);
+
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleCherubinoPriceUncheck(request, env, corsOkHeaders, authUser, changeId) {
+  await ensureCherubinoPriceSchema(env);
+  await dbRun(env,
+    `DELETE FROM cherubino_price_checks WHERE price_change_id = ? AND location_id = ? AND org_id = ?`,
+    [changeId, authUser.location_id, authUser.org_id]);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
