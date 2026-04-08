@@ -356,24 +356,29 @@
           if (q.length < 2) { suggestEl.style.display = "none"; suggestEl.innerHTML = ""; return; }
           loadCatalog().then(function (products) {
             var matches = searchCatalog(products, q);
-            if (!matches.length) {
-              suggestEl.innerHTML = '<div style="padding:12px;color:var(--muted);font-size:12px;text-align:center;">No products found.</div>';
-            } else {
-              suggestEl.innerHTML = matches.map(function (m) {
+            var html = '';
+            // Always show "use custom name" option at top
+            var rawName = (searchEl.value || "").trim();
+            html += '<div class="cp-search-item" data-pname="' + esc(rawName) + '" data-pprice="0" style="background:rgba(90,162,255,.06);font-weight:600;">' +
+              '<span>Use: "' + esc(rawName) + '"</span>' +
+              '<span class="cp-search-price">custom item</span></div>';
+            if (matches.length) {
+              html += matches.map(function (m) {
                 var p = m.product;
                 return '<div class="cp-search-item" data-pname="' + esc(p.name) + '" data-pprice="' + (parseFloat(p.price) || 0) + '">' +
                   '<span>' + esc(p.name) + '</span>' +
                   '<span class="cp-search-price">&euro;' + formatPrice(p.price) + '</span>' +
                   '</div>';
               }).join("");
-              suggestEl.querySelectorAll(".cp-search-item").forEach(function (el) {
-                el.onclick = function () {
-                  selectProduct(el.getAttribute("data-pname"), parseFloat(el.getAttribute("data-pprice")) || 0);
-                  suggestEl.style.display = "none";
-                  searchEl.value = "";
-                };
-              });
             }
+            suggestEl.innerHTML = html;
+            suggestEl.querySelectorAll(".cp-search-item").forEach(function (el) {
+              el.onclick = function () {
+                selectProduct(el.getAttribute("data-pname"), parseFloat(el.getAttribute("data-pprice")) || 0);
+                suggestEl.style.display = "none";
+                searchEl.value = "";
+              };
+            });
             suggestEl.style.display = "";
           });
         }, 150);
