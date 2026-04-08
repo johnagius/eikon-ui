@@ -16520,6 +16520,9 @@ if (url.pathname.startsWith("/dda-stocktakes/items/")) {
         if (request.method === "DELETE") return await handleCherubinoPriceUncheck(request, env, corsOkHeaders, authUser, id);
       }
     }
+    if (url.pathname === "/cherubino/locations" && request.method === "GET") {
+      return await handleCherubinoLocations(request, env, corsOkHeaders, authUser);
+    }
     // ── End Cherubino Price Changes ───────────────────────────────────────
 
     return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
@@ -17371,6 +17374,13 @@ async function handleCherubinoPriceUncheck(request, env, corsOkHeaders, authUser
     `DELETE FROM cherubino_price_checks WHERE price_change_id = ? AND location_id = ? AND org_id = ?`,
     [changeId, authUser.location_id, authUser.org_id]);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleCherubinoLocations(request, env, corsOkHeaders, authUser) {
+  const rows = await dbAll(env,
+    `SELECT id, name FROM locations WHERE org_id = ? ORDER BY name ASC`,
+    [authUser.org_id]);
+  return jsonResponse({ ok: true, locations: rows }, 200, corsOkHeaders);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

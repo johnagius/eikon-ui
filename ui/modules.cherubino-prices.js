@@ -102,34 +102,31 @@
   /* ── state ───────────────────────────────────────────────────────────── */
   var S = {
     changes: [],
-    knownLocations: [],
+    allLocations: [],
     catalogCache: null,
     mount: null,
     user: null
   };
 
   /* ── API ─────────────────────────────────────────────────────────────── */
-  function loadChanges() {
-    return E.apiFetch("/cherubino/price-changes?limit=200", { method: "GET" })
+  function loadLocations() {
+    if (S.allLocations.length) return Promise.resolve(S.allLocations);
+    return E.apiFetch("/cherubino/locations", { method: "GET" })
       .then(function (r) {
-        S.changes = r.changes || [];
-        // Build known locations from change authors + checks
-        var locMap = {};
-        S.changes.forEach(function (c) {
-          if (c.location_id && Number(c.location_id) < 600) {
-            locMap[c.location_id] = c.location_name || ("Location " + c.location_id);
-          }
-          (c.checks || []).forEach(function (ch) {
-            if (ch.location_id && Number(ch.location_id) < 600) {
-              locMap[ch.location_id] = ch.location_name || ("Location " + ch.location_id);
-            }
-          });
-        });
-        S.knownLocations = Object.keys(locMap).map(function (id) {
-          return { location_id: Number(id), location_name: locMap[id] };
-        });
+        // Only pharmacy locations (id < 600)
+        S.allLocations = (r.locations || []).filter(function (l) { return l.id < 600; });
+        return S.allLocations;
       })
-      .catch(function () { S.changes = []; S.knownLocations = []; });
+      .catch(function () { return []; });
+  }
+
+  function loadChanges() {
+    return Promise.all([
+      E.apiFetch("/cherubino/price-changes?limit=200", { method: "GET" }),
+      loadLocations()
+    ]).then(function (results) {
+      S.changes = results[0].changes || [];
+    }).catch(function () { S.changes = []; });
   }
 
   function createChange(productName, oldPrice, newPrice) {
@@ -214,34 +211,32 @@
     var isAdmin = S.user && Number(S.user.location_id) >= 600;
     var checks = c.checks || [];
     var checkedLocIds = {};
-    checks.forEach(function (ch) { checkedLocIds[ch.location_id] = ch; });
+    checks.forEach(function (ch) { checkedLocIds[Number(ch.location_id)] = ch; });
 
     var checkHtml = '<div class="cp-checks">';
 
-    // Pharmacy view: show own clickable check pill
-    if (!isAdmin) {
-      var myChecked = !!checkedLocIds[myLocId];
-      checkHtml += '<span class="cp-check-pill cp-my-check ' + (myChecked ? 'cp-check-done' : 'cp-check-pending') + '" data-check-id="' + c.id + '" data-checked="' + (myChecked ? '1' : '0') + '">' +
-        (myChecked ? '&#10003; Checked' : 'Mark checked') + '</span>';
-    }
+    // Show every pharmacy location's status
+    S.allLocations.forEach(function (loc) {
+      var locId = Number(loc.id);
+      var ch = checkedLocIds[locId];
+      var isMine = locId === myLocId;
 
-    // Show all locations that have checked
-    checks.forEach(function (ch) {
-      // On pharmacy side, skip own location (already shown above)
-      if (!isAdmin && Number(ch.location_id) === myLocId) return;
-      checkHtml += '<span class="cp-check-pill cp-check-done" title="Checked by ' + esc(ch.checked_by_name) + ' at ' + esc(ch.checked_at) + '">' +
-        '&#10003; ' + esc(ch.location_name) + '</span>';
+      if (ch) {
+        // Checked — green pill
+        checkHtml += '<span class="cp-check-pill cp-check-done' + (isMine && !isAdmin ? ' cp-my-check' : '') + '"' +
+          (isMine && !isAdmin ? ' data-check-id="' + c.id + '" data-checked="1"' : '') +
+          ' title="Checked by ' + esc(ch.checked_by_name) + ' at ' + esc(ch.checked_at) + '">' +
+          '&#10003; ' + esc(loc.name) + '</span>';
+      } else if (isMine && !isAdmin) {
+        // My location, not checked — clickable
+        checkHtml += '<span class="cp-check-pill cp-check-pending cp-my-check" data-check-id="' + c.id + '" data-checked="0">' +
+          'Mark checked</span>';
+      } else {
+        // Other location, not checked — grey
+        checkHtml += '<span class="cp-check-pill cp-check-pending">' +
+          '&#10007; ' + esc(loc.name) + '</span>';
+      }
     });
-
-    // Admin view: also show which known locations have NOT checked
-    if (isAdmin && S.knownLocations.length) {
-      S.knownLocations.forEach(function (loc) {
-        if (!checkedLocIds[loc.location_id]) {
-          checkHtml += '<span class="cp-check-pill cp-check-pending">' +
-            '&#10007; ' + esc(loc.location_name) + '</span>';
-        }
-      });
-    }
 
     checkHtml += '</div>';
 
@@ -415,11 +410,32 @@
     if (isNaN(newPrice) || newPrice < 0) { toast("Enter a valid new price.", "error"); return; }
     if (newPrice === oldPrice) { toast("New price is the same as current.", "error"); return; }
 
+    var isAdmin = S.user && Number(S.user.location_id) >= 600;
+
     createChange(productName, oldPrice, newPrice)
-      .then(function () {
+      .then(function (r) {
+        var newId = r && r.id;
         E.modal.hide();
         toast("Price change recorded.");
-        refresh();
+
+        // For pharmacies: ask if they checked shelves
+        if (!isAdmin && newId) {
+          E.modal.show("Have you checked the shelves?",
+            '<div style="font-size:13px;margin-bottom:10px;">You recorded a price change for <b>' + esc(productName) + '</b>.</div>' +
+            '<div style="font-size:13px;">Have you checked your shelves and updated the price labels?</div>',
+            [
+              { label: "Not yet", onClick: function () { E.modal.hide(); refresh(); } },
+              { label: "Yes, I checked", primary: true, onClick: function () {
+                checkChange(newId).then(function () {
+                  E.modal.hide();
+                  toast("Marked as checked.");
+                  refresh();
+                }).catch(function () { E.modal.hide(); refresh(); });
+              }}
+            ]);
+        } else {
+          refresh();
+        }
       })
       .catch(function (err) {
         toast("Failed: " + ((err && err.message) || "error"), "error");
