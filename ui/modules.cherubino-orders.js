@@ -294,7 +294,7 @@
     return byLoc;
   }
 
-  /* ── grouping for right panel ────────────────────────────────────────── */
+  /* ── grouping for right panel (only items from 2+ locations) ──────── */
   function buildGroupedView() {
     var all = S.allOrders.slice();
     var groups = [];
@@ -310,7 +310,12 @@
           used[j] = true;
         }
       }
-      groups.push(group);
+      // Only include if items span 2+ distinct locations
+      var locs = {};
+      group.items.forEach(function (item) { locs[item.location_id] = true; });
+      if (Object.keys(locs).length >= 2) {
+        groups.push(group);
+      }
     }
     return groups;
   }
@@ -416,7 +421,7 @@
     var groups = buildGroupedView();
     var html = '<div class="co-right-title">Grouped View</div>';
     if (!groups.length) {
-      html += '<div class="co-empty">No orders to group.</div>';
+      html += '<div class="co-empty">No items ordered by multiple locations yet.</div>';
       return html;
     }
     groups.forEach(function (g) {
