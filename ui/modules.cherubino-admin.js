@@ -367,7 +367,9 @@
   function startAutoRefresh() {
     stopAutoRefresh();
     _autoRefreshTimer = setInterval(function () {
-      if (S.mount) refresh();
+      // Only refresh if this module is still active
+      if (S.mount && E.state.activeModuleId === "cherubino-admin") refresh();
+      else stopAutoRefresh();
     }, 5 * 60 * 1000);
   }
   function stopAutoRefresh() {
