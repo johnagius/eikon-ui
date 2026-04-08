@@ -47,6 +47,43 @@
 
   var SIMILARITY_THRESHOLD = 0.7;
 
+  /* ── product name similarity (for grouping & duplicate detection) ──── */
+  function nameSimilarity(a, b) {
+    if (!a || !b) return 0;
+    var na = a.toLowerCase().trim();
+    var nb = b.toLowerCase().trim();
+    if (na === nb) return 1.0;
+
+    // Signal 1: Token overlap (Jaccard on words)
+    var tokA = na.split(/[\s\-\/\(\),\.]+/).filter(function (t) { return t.length > 0; });
+    var tokB = nb.split(/[\s\-\/\(\),\.]+/).filter(function (t) { return t.length > 0; });
+    var setA = {}, setB = {};
+    tokA.forEach(function (t) { setA[t] = 1; });
+    tokB.forEach(function (t) { setB[t] = 1; });
+    var inter = 0, union = 0;
+    for (var k in setA) { if (setB[k]) inter++; union++; }
+    for (var k in setB) { if (!setA[k]) union++; }
+    var jaccard = union > 0 ? inter / union : 0;
+
+    // Signal 2: Fuzzy token matching — match each token in A to best in B using DL
+    var fuzzyMatches = 0;
+    tokA.forEach(function (ta) {
+      var allowed = maxTypos(ta.length);
+      for (var i = 0; i < tokB.length; i++) {
+        if (ta === tokB[i]) { fuzzyMatches++; return; }
+        if (allowed > 0 && damerauLev(ta, tokB[i]) <= allowed) { fuzzyMatches++; return; }
+      }
+    });
+    var fuzzyRecall = tokA.length > 0 ? fuzzyMatches / tokA.length : 0;
+
+    // Signal 3: Normalized DL on full strings (for short names)
+    var maxLen = Math.max(na.length, nb.length);
+    var dlFull = maxLen > 0 ? 1 - (damerauLev(na, nb) / maxLen) : 0;
+
+    // Combine: take the best signal
+    return Math.max(jaccard, fuzzyRecall * 0.95, dlFull);
+  }
+
   /* ── Jaro-Winkler similarity (state of the art for name matching) ──── */
   function jaroSimilarity(s1, s2) {
     if (s1 === s2) return 1;
@@ -268,7 +305,7 @@
       used[i] = true;
       for (var j = i + 1; j < all.length; j++) {
         if (used[j]) continue;
-        if (ngramScore(group.name, all[j].description) >= SIMILARITY_THRESHOLD) {
+        if (nameSimilarity(group.name, all[j].description) >= SIMILARITY_THRESHOLD) {
           group.items.push(all[j]);
           used[j] = true;
         }
@@ -314,8 +351,8 @@
       '.co-group-status span{display:flex;align-items:center;gap:2px;}' +
       '.co-right-title{font-weight:900;font-size:14px;margin-bottom:12px;}' +
       '.co-search-input{width:100%;margin-bottom:8px;}' +
-      '.co-search-results{max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;}' +
-      '.co-search-item{padding:8px 10px;font-size:12px;cursor:pointer;border-bottom:1px solid var(--border);}' +
+      '.co-search-results{max-height:320px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;}' +
+      '.co-search-item{padding:10px 12px;font-size:13px;cursor:pointer;border-bottom:1px solid var(--border);}' +
       '.co-search-item:last-child{border-bottom:none;}' +
       '.co-search-item:hover{background:rgba(90,162,255,.1);}' +
       '.co-sim-match{margin-top:8px;padding:10px;border:1px solid rgba(255,180,50,.4);border-radius:8px;background:rgba(255,180,50,.06);font-size:12px;}' +
@@ -487,15 +524,19 @@
   /* ── add item modal ──────────────────────────────────────────────────── */
   function openAddModal() {
     var body =
-      '<div class="eikon-field"><div class="eikon-label">Item Description</div>' +
+      '<div class="eikon-field"><div class="eikon-label" style="font-size:13px;margin-bottom:6px;">Item Description</div>' +
       '<div style="position:relative;">' +
-      '<input class="eikon-input" id="co-add-desc" type="text" placeholder="Type to search catalog or enter custom name..." autocomplete="off" style="width:100%;"/>' +
-      '<div id="co-suggest" class="co-search-results" style="display:none;position:absolute;left:0;right:0;top:100%;z-index:10;max-height:220px;background:var(--card-bg,#0f1622);"></div>' +
+      '<input class="eikon-input" id="co-add-desc" type="text" placeholder="Type to search catalog or enter custom name..." autocomplete="off" style="width:100%;font-size:15px;padding:10px 12px;"/>' +
+      '<div id="co-suggest" class="co-search-results" style="display:none;position:absolute;left:0;right:0;top:100%;z-index:10;max-height:320px;background:var(--card-bg,#0f1622);"></div>' +
       '</div>' +
       '<div style="margin-top:4px;font-size:11px;color:var(--muted);">Start typing to see suggestions from the product catalog.</div>' +
       '</div>' +
-      '<div class="eikon-field" style="margin-top:10px;"><div class="eikon-label">Quantity</div>' +
-      '<input class="eikon-input" id="co-add-qty" type="number" min="1" value="1" style="width:80px;"/></div>';
+      '<div class="eikon-field" style="margin-top:14px;"><div class="eikon-label" style="font-size:13px;margin-bottom:6px;">Quantity</div>' +
+      '<div style="display:flex;align-items:center;gap:8px;">' +
+      '<button class="eikon-btn" id="co-qty-down" style="font-size:18px;padding:6px 14px;font-weight:900;">−</button>' +
+      '<input class="eikon-input" id="co-add-qty" type="number" min="1" value="1" style="width:70px;text-align:center;font-size:16px;font-weight:700;padding:8px;"/>' +
+      '<button class="eikon-btn" id="co-qty-up" style="font-size:18px;padding:6px 14px;font-weight:900;">+</button>' +
+      '</div></div>';
 
     E.modal.show("Add Order Item", body, [
       { label: "Cancel", onClick: function () { E.modal.hide(); } },
@@ -507,11 +548,29 @@
       try { console.log("[cherubino-orders] catalog loaded:", (p || []).length, "products"); } catch(e){}
     });
 
-    // Wire autosuggest on the single input
+    // Wire autosuggest, autofocus, qty buttons
     setTimeout(function () {
       var descEl = document.getElementById("co-add-desc");
       var suggestEl = document.getElementById("co-suggest");
+      var qtyEl = document.getElementById("co-add-qty");
+      var qtyDown = document.getElementById("co-qty-down");
+      var qtyUp = document.getElementById("co-qty-up");
       if (!descEl || !suggestEl) return;
+
+      // Autofocus on description
+      descEl.focus();
+
+      // Qty +/- buttons
+      if (qtyEl && qtyDown && qtyUp) {
+        qtyDown.onclick = function () { var v = parseInt(qtyEl.value) || 1; if (v > 1) qtyEl.value = v - 1; };
+        qtyUp.onclick = function () { var v = parseInt(qtyEl.value) || 1; qtyEl.value = v + 1; };
+        // Mouse wheel on qty input
+        qtyEl.addEventListener("wheel", function (ev) {
+          ev.preventDefault();
+          var v = parseInt(qtyEl.value) || 1;
+          qtyEl.value = ev.deltaY < 0 ? v + 1 : Math.max(1, v - 1);
+        });
+      }
 
       var searchT = null;
       descEl.oninput = function () {
@@ -564,7 +623,7 @@
     var bestOtherMatch = null;
     var bestOtherScore = 0;
     othersItems.forEach(function (o) {
-      var score = ngramScore(desc, o.description);
+      var score = nameSimilarity(desc, o.description);
       if (score >= SIMILARITY_THRESHOLD && score > bestOtherScore) {
         bestOtherScore = score;
         bestOtherMatch = o;
@@ -606,7 +665,7 @@
     var bestDup = null;
     var bestDupScore = 0;
     mine.forEach(function (o) {
-      var score = ngramScore(desc, o.description);
+      var score = nameSimilarity(desc, o.description);
       if (score >= SIMILARITY_THRESHOLD && score > bestDupScore) {
         bestDupScore = score;
         bestDup = o;
