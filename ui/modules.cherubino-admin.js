@@ -135,24 +135,34 @@
       html += '<div class="ca-empty">No items ordered by multiple locations yet.</div>';
     } else {
       html += '<table class="ca-table">';
-      html += '<thead><tr><th>Item</th><th>Total Qty</th><th>Locations</th></tr></thead><tbody>';
-      groups.forEach(function (g) {
+      html += '<thead><tr><th>Item</th><th>Qty</th><th>Locations</th><th style="text-align:center;">OOS</th><th style="text-align:center;">Ordered</th><th style="text-align:center;">Avail. WSL</th><th style="text-align:center;">Pending WSL</th></tr></thead><tbody>';
+      groups.forEach(function (g, gi) {
         var totalQty = 0;
-        var locDetails = [];
-        g.items.forEach(function (item) {
-          totalQty += item.quantity;
-        });
+        var ids = [];
+        var allOos = true, allOrdered = true, allAvail = true, allPending = true;
         var byLoc = {};
         g.items.forEach(function (item) {
+          totalQty += item.quantity;
+          ids.push(item.id);
+          if (!item.oos) allOos = false;
+          if (!item.ordered) allOrdered = false;
+          if (!item.available_wsl) allAvail = false;
+          if (!item.pending_wsl) allPending = false;
           var ln = item.location_name || ("Location " + item.location_id);
           if (!byLoc[ln]) byLoc[ln] = 0;
           byLoc[ln] += item.quantity;
         });
+        var locDetails = [];
         for (var ln in byLoc) locDetails.push(esc(ln) + ': x' + byLoc[ln]);
+        var idsAttr = esc(ids.join(","));
         html += '<tr>';
         html += '<td style="font-weight:700;">' + esc(g.name) + '</td>';
         html += '<td style="text-align:center;font-weight:700;">' + totalQty + '</td>';
         html += '<td style="font-size:11px;color:var(--muted);">' + locDetails.join(' &bull; ') + '</td>';
+        html += '<td style="text-align:center;"><input type="checkbox" data-group-ids="' + idsAttr + '" data-field="oos"' + (allOos ? ' checked' : '') + '/></td>';
+        html += '<td style="text-align:center;"><input type="checkbox" data-group-ids="' + idsAttr + '" data-field="ordered"' + (allOrdered ? ' checked' : '') + '/></td>';
+        html += '<td style="text-align:center;"><input type="checkbox" data-group-ids="' + idsAttr + '" data-field="available_wsl"' + (allAvail ? ' checked' : '') + '/></td>';
+        html += '<td style="text-align:center;"><input type="checkbox" data-group-ids="' + idsAttr + '" data-field="pending_wsl"' + (allPending ? ' checked' : '') + '/></td>';
         html += '</tr>';
       });
       html += '</tbody></table>';
@@ -327,7 +337,7 @@
     var refreshBtn = document.getElementById("ca-refresh");
     if (refreshBtn) refreshBtn.onclick = function () { refresh(); };
 
-    // Checkbox change handlers
+    // Per-item checkbox change handlers
     var checkboxes = S.mount.querySelectorAll('input[type="checkbox"][data-id]');
     checkboxes.forEach(function (cb) {
       cb.onchange = function () {
@@ -338,24 +348,57 @@
         update[field] = val;
         updateOrder(orderId, update)
           .then(function () {
-            // Update local state so summary refreshes
             var order = S.allOrders.find(function (o) { return String(o.id) === String(orderId); });
             if (order) order[field] = val;
-            // Re-render just the summary (don't re-render table to avoid losing checkbox focus)
-            var summaryEl = S.mount.querySelector(".ca-summary");
-            if (summaryEl) {
-              var tmp = document.createElement("div");
-              tmp.innerHTML = renderSummary();
-              summaryEl.replaceWith(tmp.firstChild);
-            }
+            refreshSummary();
           })
           .catch(function (err) {
-            cb.checked = !cb.checked; // revert
-            var msg = (err && err.message) || "Failed to update";
-            if (E.toast) E.toast(msg, "error");
+            cb.checked = !cb.checked;
+            if (E.toast) E.toast((err && err.message) || "Failed to update", "error");
           });
       };
     });
+
+    // Grouped checkbox change handlers — updates all items in the group
+    var groupCbs = S.mount.querySelectorAll('input[type="checkbox"][data-group-ids]');
+    groupCbs.forEach(function (cb) {
+      cb.onchange = function () {
+        var ids = cb.getAttribute("data-group-ids").split(",");
+        var field = cb.getAttribute("data-field");
+        var val = cb.checked ? 1 : 0;
+        var update = {};
+        update[field] = val;
+        // Update all items in the group
+        var promises = ids.map(function (id) { return updateOrder(id, update); });
+        Promise.all(promises)
+          .then(function () {
+            ids.forEach(function (id) {
+              var order = S.allOrders.find(function (o) { return String(o.id) === String(id); });
+              if (order) order[field] = val;
+            });
+            // Also sync the per-location checkboxes for these items
+            ids.forEach(function (id) {
+              var perItemCb = S.mount.querySelector('input[data-id="' + id + '"][data-field="' + field + '"]');
+              if (perItemCb) perItemCb.checked = !!val;
+            });
+            refreshSummary();
+          })
+          .catch(function (err) {
+            cb.checked = !cb.checked;
+            if (E.toast) E.toast((err && err.message) || "Failed to update group", "error");
+          });
+      };
+    });
+  }
+
+  function refreshSummary() {
+    if (!S.mount) return;
+    var summaryEl = S.mount.querySelector(".ca-summary");
+    if (summaryEl) {
+      var tmp = document.createElement("div");
+      tmp.innerHTML = renderSummary();
+      summaryEl.replaceWith(tmp.firstChild);
+    }
   }
 
   function refresh() {
