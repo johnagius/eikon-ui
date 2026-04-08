@@ -770,7 +770,10 @@
     try { window.localStorage.setItem("eikon_active_role", role); } catch (e) {}
 
     if (role === E.ROLE_PHARMACY) {
-      E._activeSidebarCategories = E.SIDEBAR_CATEGORIES;
+      E._activeSidebarCategories = E.SIDEBAR_CATEGORIES.slice();
+      if (E.state.user && Number(E.state.user.org_id) === 12) {
+        E._activeSidebarCategories.push({ label: "Cherubino", icon: "\uD83C\uDFE5", moduleIds: ["cherubino-orders"] });
+      }
       E._sectionDashboardId = "dashboard";
       return E.bootAuthed();
     } else if (role === E.ROLE_SUPPLIER) {

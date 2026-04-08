@@ -16490,6 +16490,22 @@ if (url.pathname.startsWith("/dda-stocktakes/items/")) {
     }
     // ── End Contacts ────────────────────────────────────────────────────
 
+    // ── Cherubino Orders ──────────────────────────────────────────────────
+    if (url.pathname === "/cherubino/orders" && request.method === "GET") {
+      return await handleCherubinoOrdersList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/cherubino/orders" && request.method === "POST") {
+      return await handleCherubinoOrderCreate(request, env, corsOkHeaders, authUser);
+    }
+    { const m = url.pathname.match(/^\/cherubino\/orders\/(\d+)$/);
+      if (m) {
+        const id = Number(m[1]);
+        if (request.method === "PUT") return await handleCherubinoOrderUpdate(request, env, corsOkHeaders, authUser, id);
+        if (request.method === "DELETE") return await handleCherubinoOrderDelete(request, env, corsOkHeaders, authUser, id);
+      }
+    }
+    // ── End Cherubino Orders ──────────────────────────────────────────────
+
     return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
     } catch (e) {
       // Never let an exception become Cloudflare 1101 HTML again.
@@ -17103,6 +17119,138 @@ async function handleLoyaltyTransactionCreate(request, env, corsOkHeaders, authU
   });
 
   return jsonResponse({ ok: true, id: row.id }, 200, corsOkHeaders);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CHERUBINO ORDERS — schema + handlers
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function ensureCherubinoOrdersSchema(env) {
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS cherubino_orders (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id        INTEGER NOT NULL,
+    location_id   INTEGER NOT NULL,
+    location_name TEXT NOT NULL DEFAULT '',
+    order_date    TEXT NOT NULL,
+    description   TEXT NOT NULL DEFAULT '',
+    quantity      INTEGER NOT NULL DEFAULT 1,
+    oos           INTEGER NOT NULL DEFAULT 0,
+    ordered       INTEGER NOT NULL DEFAULT 0,
+    available_wsl INTEGER NOT NULL DEFAULT 0,
+    pending_wsl   INTEGER NOT NULL DEFAULT 0,
+    created_by    INTEGER,
+    created_at    TEXT DEFAULT (datetime('now')),
+    updated_at    TEXT DEFAULT (datetime('now'))
+  )`);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_cherubino_orders_org_date ON cherubino_orders (org_id, order_date)`);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_cherubino_orders_org_loc_date ON cherubino_orders (org_id, location_id, order_date)`);
+}
+
+function cherubinoDateTooOld(dateStr) {
+  const d = new Date(dateStr + "T00:00:00Z");
+  const now = new Date();
+  const cutoff = new Date(now);
+  cutoff.setUTCDate(cutoff.getUTCDate() - 14);
+  cutoff.setUTCHours(0, 0, 0, 0);
+  return d < cutoff;
+}
+
+async function handleCherubinoOrdersList(request, env, corsOkHeaders, authUser, url) {
+  await ensureCherubinoOrdersSchema(env);
+  const date = (url.searchParams.get("date") || "").trim();
+  if (!date || !isValidYmd(date)) return jsonResponse({ ok: false, error: "date required (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (cherubinoDateTooOld(date)) return jsonResponse({ ok: false, error: "Cannot query more than 2 weeks back" }, 400, corsOkHeaders);
+
+  const allOrg = url.searchParams.get("all_org") === "1";
+  let rows;
+  if (allOrg) {
+    rows = await dbAll(env,
+      `SELECT id, org_id, location_id, location_name, order_date, description, quantity,
+              oos, ordered, available_wsl, pending_wsl, created_at
+       FROM cherubino_orders WHERE org_id = ? AND order_date = ? ORDER BY created_at ASC`,
+      [authUser.org_id, date]);
+  } else {
+    rows = await dbAll(env,
+      `SELECT id, org_id, location_id, location_name, order_date, description, quantity,
+              oos, ordered, available_wsl, pending_wsl, created_at
+       FROM cherubino_orders WHERE org_id = ? AND location_id = ? AND order_date = ? ORDER BY created_at ASC`,
+      [authUser.org_id, authUser.location_id, date]);
+  }
+  return jsonResponse({ ok: true, orders: rows }, 200, corsOkHeaders);
+}
+
+async function handleCherubinoOrderCreate(request, env, corsOkHeaders, authUser) {
+  await ensureCherubinoOrdersSchema(env);
+  const body = await readJson(request);
+  const description = String(body.description || "").trim();
+  const quantity = parseInt(body.quantity) || 1;
+  const orderDate = String(body.order_date || "").trim();
+
+  if (!description) return jsonResponse({ ok: false, error: "description required" }, 400, corsOkHeaders);
+  if (!orderDate || !isValidYmd(orderDate)) return jsonResponse({ ok: false, error: "order_date required (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (cherubinoDateTooOld(orderDate)) return jsonResponse({ ok: false, error: "Cannot add orders more than 2 weeks back" }, 400, corsOkHeaders);
+
+  const row = await dbFirst(env,
+    `INSERT INTO cherubino_orders (org_id, location_id, location_name, order_date, description, quantity, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+    [authUser.org_id, authUser.location_id, authUser.location_name || "", orderDate, description, quantity, authUser.user_id]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_ORDER_CREATE", "cherubino_orders", String(row.id), { description, quantity, orderDate });
+  return jsonResponse({ ok: true, id: row.id }, 200, corsOkHeaders);
+}
+
+async function handleCherubinoOrderUpdate(request, env, corsOkHeaders, authUser, orderId) {
+  await ensureCherubinoOrdersSchema(env);
+  const existing = await dbFirst(env,
+    `SELECT * FROM cherubino_orders WHERE id = ? AND org_id = ?`,
+    [orderId, authUser.org_id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+  const checkboxFields = ["oos", "ordered", "available_wsl", "pending_wsl"];
+  const hasCheckboxChange = checkboxFields.some(f => body[f] !== undefined);
+
+  // Checkbox fields: only company_admin (location_id 600-900) can update
+  const isCompanyAdmin = Number(authUser.location_id) >= 600 && Number(authUser.location_id) <= 900;
+  if (hasCheckboxChange && !isCompanyAdmin) {
+    return jsonResponse({ ok: false, error: "Only company administrators can update status checkboxes" }, 403, corsOkHeaders);
+  }
+
+  // Pharmacy users can only edit their own location's orders (description/quantity)
+  if (!isCompanyAdmin && existing.location_id !== authUser.location_id) {
+    return jsonResponse({ ok: false, error: "Cannot edit another location's order" }, 403, corsOkHeaders);
+  }
+
+  const desc = body.description !== undefined ? String(body.description).trim() : existing.description;
+  const qty = body.quantity !== undefined ? (parseInt(body.quantity) || 1) : existing.quantity;
+  const oos = body.oos !== undefined ? (body.oos ? 1 : 0) : existing.oos;
+  const ordered = body.ordered !== undefined ? (body.ordered ? 1 : 0) : existing.ordered;
+  const availWsl = body.available_wsl !== undefined ? (body.available_wsl ? 1 : 0) : existing.available_wsl;
+  const pendWsl = body.pending_wsl !== undefined ? (body.pending_wsl ? 1 : 0) : existing.pending_wsl;
+
+  await dbRun(env,
+    `UPDATE cherubino_orders SET description=?, quantity=?, oos=?, ordered=?, available_wsl=?, pending_wsl=?, updated_at=datetime('now')
+     WHERE id=? AND org_id=?`,
+    [desc, qty, oos, ordered, availWsl, pendWsl, orderId, authUser.org_id]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_ORDER_UPDATE", "cherubino_orders", String(orderId), {});
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleCherubinoOrderDelete(request, env, corsOkHeaders, authUser, orderId) {
+  await ensureCherubinoOrdersSchema(env);
+  const existing = await dbFirst(env,
+    `SELECT id, location_id FROM cherubino_orders WHERE id = ? AND org_id = ?`,
+    [orderId, authUser.org_id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  if (existing.location_id !== authUser.location_id) {
+    return jsonResponse({ ok: false, error: "Cannot delete another location's order" }, 403, corsOkHeaders);
+  }
+
+  await dbRun(env, `DELETE FROM cherubino_orders WHERE id = ? AND org_id = ?`, [orderId, authUser.org_id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_ORDER_DELETE", "cherubino_orders", String(orderId), {});
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
