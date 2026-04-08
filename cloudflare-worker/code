@@ -7953,6 +7953,36 @@ async function handleDdaSalesDoctorsLookup(request, env, corsOkHeaders, authUser
 }
 
 
+async function handleDdaSalesCheckSerial(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureDdaSalesSchema(env);
+  const serial = String(url.searchParams.get("serial") || "").trim();
+  if (!serial) return jsonResponse({ ok: true, found: false, entries: [], total_qty: 0 }, 200, corsOkHeaders);
+  const excludeId = parseInt(url.searchParams.get("exclude_id") || "0", 10) || 0;
+  let rows;
+  if (excludeId) {
+    rows = await dbAll(env,
+      `SELECT id, entry_date, client_name, client_id_card, medicine_name_dose, quantity
+       FROM dda_sales_entries
+       WHERE org_id = ? AND location_id = ? AND prescription_serial_no = ? AND id != ?
+       ORDER BY entry_date DESC`,
+      [authUser.org_id, authUser.location_id, serial, excludeId]
+    );
+  } else {
+    rows = await dbAll(env,
+      `SELECT id, entry_date, client_name, client_id_card, medicine_name_dose, quantity
+       FROM dda_sales_entries
+       WHERE org_id = ? AND location_id = ? AND prescription_serial_no = ?
+       ORDER BY entry_date DESC`,
+      [authUser.org_id, authUser.location_id, serial]
+    );
+  }
+  const totalQty = rows.reduce((sum, r) => sum + (parseInt(r.quantity, 10) || 0), 0);
+  return jsonResponse({ ok: true, found: rows.length > 0, entries: rows, total_qty: totalQty }, 200, corsOkHeaders);
+}
+
 async function handleDdaSalesEntryCreate(request, env, corsOkHeaders, authUser) {
   if (!requireRole(authUser, ["admin", "staff"])) {
     return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
@@ -8397,6 +8427,36 @@ async function handleDdaPoycEntriesList(request, env, corsOkHeaders, authUser, u
   const entries = await dbAll(env, sql, bind);
 
   return jsonResponse({ ok: true, entries }, 200, corsOkHeaders);
+}
+
+async function handleDdaPoycCheckSerial(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureDdaPoycSchema(env);
+  const serial = String(url.searchParams.get("serial") || "").trim();
+  if (!serial) return jsonResponse({ ok: true, found: false, entries: [], total_qty: 0 }, 200, corsOkHeaders);
+  const excludeId = parseInt(url.searchParams.get("exclude_id") || "0", 10) || 0;
+  let rows;
+  if (excludeId) {
+    rows = await dbAll(env,
+      `SELECT id, entry_date, client_name, client_id_card, medicine_name_dose, quantity
+       FROM dda_poyc_entries
+       WHERE org_id = ? AND location_id = ? AND prescription_serial_no = ? AND id != ?
+       ORDER BY entry_date DESC`,
+      [authUser.org_id, authUser.location_id, serial, excludeId]
+    );
+  } else {
+    rows = await dbAll(env,
+      `SELECT id, entry_date, client_name, client_id_card, medicine_name_dose, quantity
+       FROM dda_poyc_entries
+       WHERE org_id = ? AND location_id = ? AND prescription_serial_no = ?
+       ORDER BY entry_date DESC`,
+      [authUser.org_id, authUser.location_id, serial]
+    );
+  }
+  const totalQty = rows.reduce((sum, r) => sum + (parseInt(r.quantity, 10) || 0), 0);
+  return jsonResponse({ ok: true, found: rows.length > 0, entries: rows, total_qty: totalQty }, 200, corsOkHeaders);
 }
 
 async function handleDdaPoycEntryCreate(request, env, corsOkHeaders, authUser) {
@@ -16077,6 +16137,9 @@ if (url.pathname.startsWith("/alerts/entries/")) {
     if (url.pathname === "/dda-sales/entries" && request.method === "GET") {
       return await handleDdaSalesEntriesList(request, env, corsOkHeaders, authUser, url);
     }
+    if (url.pathname === "/dda-sales/check-serial" && request.method === "GET") {
+      return await handleDdaSalesCheckSerial(request, env, corsOkHeaders, authUser, url);
+    }
     if (url.pathname === "/dda-sales/entries" && request.method === "POST") {
       return await handleDdaSalesEntryCreate(request, env, corsOkHeaders, authUser);
     }
@@ -16135,6 +16198,9 @@ if (url.pathname.startsWith("/dda-sales/entries/") && request.method === "PUT") 
     // DDA POYC  <-- ADDED ROUTES (NEW)
     if (url.pathname === "/dda-poyc/entries" && request.method === "GET") {
       return await handleDdaPoycEntriesList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/dda-poyc/check-serial" && request.method === "GET") {
+      return await handleDdaPoycCheckSerial(request, env, corsOkHeaders, authUser, url);
     }
     if (url.pathname === "/dda-poyc/entries" && request.method === "POST") {
       return await handleDdaPoycEntryCreate(request, env, corsOkHeaders, authUser);
