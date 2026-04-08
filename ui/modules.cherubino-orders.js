@@ -128,19 +128,6 @@
     }
     if (bestJw >= 0.82) return bestJw * 0.7;
 
-    // Signal 4: Subsequence match (chars in order, e.g. "vltrn" → "voltaren")
-    if (tok.length >= 3) {
-      var bestSub = 0;
-      for (var w = 0; w < nameWords.length; w++) {
-        var sub = subsequenceMatch(tok, nameWords[w]);
-        if (sub > bestSub) bestSub = sub;
-      }
-      // Also try subsequence against full name (for cross-word matches)
-      var fullSub = subsequenceMatch(tok, name);
-      if (fullSub > bestSub) bestSub = fullSub;
-      if (bestSub >= 0.6) return bestSub * 0.5;
-    }
-
     return 0;
   }
 
