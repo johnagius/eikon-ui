@@ -67,15 +67,27 @@
           if (!stkDesc) return;
 
           // Parse ref: "SN0131|2026/06" → batch="SN0131", expiry="2026/06"
+          // Also handles: "25/05/2026" (DD/MM/YYYY), "2026/06", "2026-06", etc.
           var batch = "", expiry = "";
           if (ref.indexOf("|") >= 0) {
             var parts = ref.split("|");
             batch = parts[0].trim();
             expiry = parts[1] ? parts[1].trim() : "";
           } else {
-            // If no pipe, treat the whole thing as expiry if it looks like a date
-            if (/\d{4}\/\d{2}/.test(ref)) expiry = ref;
-            else batch = ref;
+            // Try to detect a date in the ref
+            var m;
+            if ((m = ref.match(/(\d{4})[\/\-](\d{2})(?:[\/\-](\d{2}))?/))) {
+              // YYYY/MM or YYYY/MM/DD
+              expiry = ref.trim();
+            } else if ((m = ref.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/))) {
+              // DD/MM/YYYY → convert to YYYY/MM
+              expiry = m[3] + "/" + m[2].padStart(2, "0");
+            } else if ((m = ref.match(/(\d{1,2})[\/\-](\d{4})/))) {
+              // MM/YYYY → convert to YYYY/MM
+              expiry = m[2] + "/" + m[1].padStart(2, "0");
+            } else if (ref.trim()) {
+              batch = ref.trim();
+            }
           }
 
           items.push({
