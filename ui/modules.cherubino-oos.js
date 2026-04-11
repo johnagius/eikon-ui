@@ -122,7 +122,8 @@
     user: null,
     filterText: "",
     sortBy: "date",
-    sortDir: "desc"
+    sortDir: "desc",
+    isAdmin: false
   };
 
   /* ── API ─────────────────────────────────────────────────────────────── */
@@ -138,6 +139,10 @@
 
   function deleteOos(id) {
     return E.apiFetch("/cherubino/oos/" + id, { method: "DELETE" });
+  }
+
+  function updateOos(id, action) {
+    return E.apiFetch("/cherubino/oos/" + id, { method: "PUT", body: JSON.stringify({ action: action }) });
   }
 
   function loadCatalog() {
@@ -185,6 +190,14 @@
       '.oos-suggest-item:last-child{border-bottom:none;}' +
       '.oos-suggest-item:hover{background:rgba(90,162,255,.1);}' +
       '.oos-sim-warn{margin-top:8px;padding:10px;border:1px solid rgba(255,180,50,.4);border-radius:8px;background:rgba(255,180,50,.06);font-size:12px;}' +
+      '.oos-status-pill{display:inline-block;padding:2px 8px;border-radius:5px;font-size:10px;font-weight:700;margin-left:6px;}' +
+      '.oos-st-active{background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.3);}' +
+      '.oos-st-pending{background:rgba(255,180,50,.12);color:#f59e0b;border:1px solid rgba(255,180,50,.3);}' +
+      '.oos-st-back{background:rgba(34,197,94,.12);color:#22c55e;border:1px solid rgba(34,197,94,.3);}' +
+      '.oos-st-removal{background:rgba(168,85,247,.12);color:#a855f7;border:1px solid rgba(168,85,247,.3);}' +
+      '.oos-pharmacy-row{background:rgba(255,180,50,.04);}' +
+      '.oos-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}' +
+      '.oos-act-btn{font-size:10px;padding:3px 8px;cursor:pointer;}' +
       '@media print{' +
       '  .eikon-sidebar,.eikon-topbar,.eikon-nav,.oos-toolbar{display:none !important;}' +
       '  .eikon-main{margin:0 !important;padding:10px !important;}' +
@@ -222,6 +235,53 @@
   }
 
   /* ── rendering ───────────────────────────────────────────────────────── */
+  function statusPill(status) {
+    var labels = { active: "OOS", pending: "Pending Approval", back_in_stock: "Back in Stock?", removal_requested: "Removal Requested" };
+    var cls = { active: "oos-st-active", pending: "oos-st-pending", back_in_stock: "oos-st-back", removal_requested: "oos-st-removal" };
+    return '<span class="oos-status-pill ' + (cls[status] || "oos-st-active") + '">' + (labels[status] || status) + '</span>';
+  }
+
+  function renderActions(item) {
+    var myLocId = S.user ? Number(S.user.location_id) : -1;
+    var isMyPharmacyItem = item.source === "pharmacy" && Number(item.source_location_id) === myLocId;
+    var html = '<div class="oos-actions">';
+
+    if (S.isAdmin) {
+      // Admin actions
+      if (item.status === "pending") {
+        html += '<button class="eikon-btn primary oos-act-btn" data-action="approve" data-id="' + item.id + '">Approve</button>';
+        html += '<button class="eikon-btn danger oos-act-btn" data-action="reject" data-id="' + item.id + '">Reject</button>';
+      } else if (item.status === "back_in_stock") {
+        html += '<button class="eikon-btn primary oos-act-btn" data-action="approve_back_in_stock" data-id="' + item.id + '">Confirm &amp; Remove</button>';
+        html += '<button class="eikon-btn oos-act-btn" data-action="reject" data-id="' + item.id + '">Keep OOS</button>';
+      } else if (item.status === "removal_requested") {
+        html += '<button class="eikon-btn primary oos-act-btn" data-action="approve_back_in_stock" data-id="' + item.id + '">Approve Removal</button>';
+        html += '<button class="eikon-btn oos-act-btn" data-action="reject_removal" data-id="' + item.id + '">Deny</button>';
+      }
+      html += '<span class="oos-del" data-del="' + item.id + '" title="Delete">&#x2715;</span>';
+    } else {
+      // Pharmacy actions
+      if (item.source === "admin" || (item.source === "pharmacy" && item.status === "active")) {
+        // Admin-owned or approved item: pharmacy can mark back in stock or request removal
+        if (item.status === "active") {
+          html += '<button class="eikon-btn oos-act-btn" data-action="mark_back_in_stock" data-id="' + item.id + '">Back in Stock</button>';
+        } else if (item.status === "back_in_stock") {
+          html += '<span style="font-size:10px;color:#22c55e;">Awaiting admin confirmation</span>';
+        } else if (item.status === "removal_requested") {
+          html += '<span style="font-size:10px;color:#a855f7;">Removal requested</span>';
+        }
+      } else if (isMyPharmacyItem && item.status === "pending") {
+        // My own pending item: I can delete it
+        html += '<span class="oos-del" data-del="' + item.id + '" title="Remove">&#x2715;</span>';
+      } else if (item.status === "pending") {
+        html += '<span style="font-size:10px;color:#f59e0b;">Pending admin approval</span>';
+      }
+    }
+
+    html += '</div>';
+    return html;
+  }
+
   function renderTable() {
     var items = sortedFiltered();
     if (!items.length) return '<div class="oos-empty">' + (S.filterText ? 'No items match "' + esc(S.filterText) + '".' : 'No out of stock items listed.') + '</div>';
@@ -229,17 +289,20 @@
     var html = '<div class="oos-table-wrap"><table class="oos-table">';
     html += '<thead><tr>';
     html += '<th data-sort="desc">Description' + sortArrow("desc") + '</th>';
+    html += '<th>Status</th>';
     html += '<th data-sort="date">Date Added' + sortArrow("date") + '</th>';
-    html += '<th>Added By</th>';
-    html += '<th style="width:40px;"></th>';
+    html += '<th>Source</th>';
+    html += '<th>Actions</th>';
     html += '</tr></thead><tbody>';
 
     items.forEach(function (item) {
-      html += '<tr>';
+      var isPharmacyItem = item.source === "pharmacy" && item.status !== "active";
+      html += '<tr class="' + (isPharmacyItem ? 'oos-pharmacy-row' : '') + '">';
       html += '<td style="font-weight:600;">' + esc(item.description) + '</td>';
+      html += '<td>' + statusPill(item.status) + '</td>';
       html += '<td>' + formatDate(item.created_at) + '</td>';
-      html += '<td style="color:var(--muted);">' + esc(item.added_by_name) + '</td>';
-      html += '<td><span class="oos-del" data-del="' + item.id + '" title="Remove from OOS list">&#x2715;</span></td>';
+      html += '<td style="font-size:11px;color:var(--muted);">' + (item.source === "admin" ? "Admin" : esc(item.source_location_name || "Pharmacy")) + '</td>';
+      html += '<td>' + renderActions(item) + '</td>';
       html += '</tr>';
     });
 
@@ -303,6 +366,25 @@
       };
     });
 
+    // Action buttons (approve, reject, mark_back_in_stock, etc.)
+    S.mount.querySelectorAll("[data-action][data-id]").forEach(function (btn) {
+      btn.onclick = function () {
+        var action = btn.getAttribute("data-action");
+        var id = btn.getAttribute("data-id");
+        if (action === "reject_removal") {
+          // Reject removal = set back to active
+          updateOos(id, "approve").then(function () { toast("Item kept on OOS list."); refresh(); })
+            .catch(function (err) { toast((err && err.message) || "Failed", "error"); });
+          return;
+        }
+        updateOos(id, action).then(function () {
+          var msgs = { approve: "Approved.", reject: "Rejected.", approve_back_in_stock: "Removed from OOS list.", mark_back_in_stock: "Marked as back in stock. Pending admin confirmation.", request_removal: "Removal requested." };
+          toast(msgs[action] || "Updated.");
+          refresh();
+        }).catch(function (err) { toast((err && err.message) || "Failed", "error"); });
+      };
+    });
+
     // Delete buttons
     S.mount.querySelectorAll("[data-del]").forEach(function (btn) {
       btn.onclick = function () {
@@ -313,7 +395,7 @@
           return;
         }
         _delConfirm = {};
-        deleteOos(id).then(function () { toast("Item removed from OOS list."); refresh(); })
+        deleteOos(id).then(function () { toast("Removed."); refresh(); })
           .catch(function (err) { toast((err && err.message) || "Failed", "error"); });
       };
     });
@@ -474,6 +556,7 @@
   async function render(ctx) {
     S.mount = ctx.mount;
     S.user = ctx.user;
+    S.isAdmin = S.user && Number(S.user.location_id) >= 600;
     S.filterText = "";
     S.sortBy = "date";
     S.sortDir = "desc";

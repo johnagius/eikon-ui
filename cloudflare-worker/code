@@ -16550,8 +16550,10 @@ if (url.pathname.startsWith("/dda-stocktakes/items/")) {
       return await handleOosCreate(request, env, corsOkHeaders, authUser);
     }
     { const m = url.pathname.match(/^\/cherubino\/oos\/(\d+)$/);
-      if (m && request.method === "DELETE") {
-        return await handleOosDelete(request, env, corsOkHeaders, authUser, Number(m[1]));
+      if (m) {
+        const id = Number(m[1]);
+        if (request.method === "PUT") return await handleOosUpdate(request, env, corsOkHeaders, authUser, id);
+        if (request.method === "DELETE") return await handleOosDelete(request, env, corsOkHeaders, authUser, id);
       }
     }
     // ── End Cherubino OOS List ────────────────────────────────────────────
@@ -17551,20 +17553,29 @@ async function handleShortExpiryOrderDelete(request, env, corsOkHeaders, authUse
 
 async function ensureCherubinoOosSchema(env) {
   await dbRun(env, `CREATE TABLE IF NOT EXISTS cherubino_oos (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    org_id      INTEGER NOT NULL,
-    description TEXT NOT NULL DEFAULT '',
-    added_by_id INTEGER,
-    added_by_name TEXT NOT NULL DEFAULT '',
-    created_at  TEXT DEFAULT (datetime('now'))
+    id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id               INTEGER NOT NULL,
+    description          TEXT NOT NULL DEFAULT '',
+    source               TEXT NOT NULL DEFAULT 'admin',
+    source_location_id   INTEGER,
+    source_location_name TEXT NOT NULL DEFAULT '',
+    status               TEXT NOT NULL DEFAULT 'active',
+    added_by_id          INTEGER,
+    added_by_name        TEXT NOT NULL DEFAULT '',
+    created_at           TEXT DEFAULT (datetime('now'))
   )`);
   await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_cherubino_oos_org ON cherubino_oos (org_id)`);
+  // Migration: add columns if table existed before this update
+  try { await dbRun(env, `ALTER TABLE cherubino_oos ADD COLUMN source TEXT NOT NULL DEFAULT 'admin'`, []); } catch(e) {}
+  try { await dbRun(env, `ALTER TABLE cherubino_oos ADD COLUMN source_location_id INTEGER`, []); } catch(e) {}
+  try { await dbRun(env, `ALTER TABLE cherubino_oos ADD COLUMN source_location_name TEXT NOT NULL DEFAULT ''`, []); } catch(e) {}
+  try { await dbRun(env, `ALTER TABLE cherubino_oos ADD COLUMN status TEXT NOT NULL DEFAULT 'active'`, []); } catch(e) {}
 }
 
 async function handleOosList(request, env, corsOkHeaders, authUser, url) {
   await ensureCherubinoOosSchema(env);
   const q = (url.searchParams.get("q") || "").toLowerCase().trim();
-  let sql = `SELECT id, description, added_by_name, created_at FROM cherubino_oos WHERE org_id = ?`;
+  let sql = `SELECT id, description, source, source_location_id, source_location_name, status, added_by_name, created_at FROM cherubino_oos WHERE org_id = ?`;
   const bind = [authUser.org_id];
   if (q) { sql += ` AND lower(description) LIKE ?`; bind.push(`%${q}%`); }
   sql += ` ORDER BY created_at DESC`;
@@ -17578,22 +17589,88 @@ async function handleOosCreate(request, env, corsOkHeaders, authUser) {
   const description = String(body.description || "").trim();
   if (!description) return jsonResponse({ ok: false, error: "description required" }, 400, corsOkHeaders);
 
-  const row = await dbFirst(env,
-    `INSERT INTO cherubino_oos (org_id, description, added_by_id, added_by_name)
-     VALUES (?, ?, ?, ?) RETURNING id`,
-    [authUser.org_id, description, authUser.user_id, authUser.full_name || ""]);
+  const isAdmin = Number(authUser.location_id) >= 600;
+  const source = isAdmin ? "admin" : "pharmacy";
+  const status = isAdmin ? "active" : "pending";
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_OOS_CREATE", "cherubino_oos", String(row.id), { description });
+  const row = await dbFirst(env,
+    `INSERT INTO cherubino_oos (org_id, description, source, source_location_id, source_location_name, status, added_by_id, added_by_name)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+    [authUser.org_id, description, source, isAdmin ? null : authUser.location_id, isAdmin ? "" : (authUser.location_name || ""), status, authUser.user_id, authUser.full_name || ""]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_OOS_CREATE", "cherubino_oos", String(row.id), { description, source, status });
   return jsonResponse({ ok: true, id: row.id }, 200, corsOkHeaders);
+}
+
+async function handleOosUpdate(request, env, corsOkHeaders, authUser, id) {
+  await ensureCherubinoOosSchema(env);
+  const existing = await dbFirst(env, `SELECT * FROM cherubino_oos WHERE id = ? AND org_id = ?`, [id, authUser.org_id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+
+  const body = await readJson(request);
+  const action = String(body.action || "").trim();
+  const isAdmin = Number(authUser.location_id) >= 600;
+
+  if (action === "approve" && isAdmin) {
+    // Admin approves a pending pharmacy item → becomes admin-owned active
+    await dbRun(env, `UPDATE cherubino_oos SET source='admin', status='active', source_location_id=NULL, source_location_name='' WHERE id=? AND org_id=?`, [id, authUser.org_id]);
+    await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_OOS_APPROVE", "cherubino_oos", String(id), {});
+    return jsonResponse({ ok: true }, 200, corsOkHeaders);
+  }
+
+  if (action === "reject" && isAdmin) {
+    // Admin rejects a pending item or removal request → delete it
+    await dbRun(env, `DELETE FROM cherubino_oos WHERE id=? AND org_id=?`, [id, authUser.org_id]);
+    await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_OOS_REJECT", "cherubino_oos", String(id), {});
+    return jsonResponse({ ok: true }, 200, corsOkHeaders);
+  }
+
+  if (action === "approve_back_in_stock" && isAdmin) {
+    // Admin approves back-in-stock → remove the item
+    await dbRun(env, `DELETE FROM cherubino_oos WHERE id=? AND org_id=?`, [id, authUser.org_id]);
+    await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_OOS_BACK_IN_STOCK", "cherubino_oos", String(id), {});
+    return jsonResponse({ ok: true }, 200, corsOkHeaders);
+  }
+
+  if (action === "mark_back_in_stock" && !isAdmin) {
+    // Pharmacy marks admin item as back in stock → pending approval
+    await dbRun(env, `UPDATE cherubino_oos SET status='back_in_stock' WHERE id=? AND org_id=?`, [id, authUser.org_id]);
+    await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_OOS_MARK_BACK", "cherubino_oos", String(id), { location: authUser.location_name });
+    return jsonResponse({ ok: true }, 200, corsOkHeaders);
+  }
+
+  if (action === "request_removal" && !isAdmin) {
+    // Pharmacy requests removal of an admin-approved item
+    await dbRun(env, `UPDATE cherubino_oos SET status='removal_requested' WHERE id=? AND org_id=?`, [id, authUser.org_id]);
+    await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_OOS_REQUEST_REMOVAL", "cherubino_oos", String(id), { location: authUser.location_name });
+    return jsonResponse({ ok: true }, 200, corsOkHeaders);
+  }
+
+  return jsonResponse({ ok: false, error: "Invalid action" }, 400, corsOkHeaders);
 }
 
 async function handleOosDelete(request, env, corsOkHeaders, authUser, id) {
   await ensureCherubinoOosSchema(env);
-  const existing = await dbFirst(env, `SELECT id FROM cherubino_oos WHERE id = ? AND org_id = ?`, [id, authUser.org_id]);
+  const existing = await dbFirst(env, `SELECT * FROM cherubino_oos WHERE id = ? AND org_id = ?`, [id, authUser.org_id]);
   if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
-  await dbRun(env, `DELETE FROM cherubino_oos WHERE id = ? AND org_id = ?`, [id, authUser.org_id]);
-  await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_OOS_DELETE", "cherubino_oos", String(id), {});
-  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+
+  const isAdmin = Number(authUser.location_id) >= 600;
+
+  // Admin can delete anything
+  if (isAdmin) {
+    await dbRun(env, `DELETE FROM cherubino_oos WHERE id = ? AND org_id = ?`, [id, authUser.org_id]);
+    await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_OOS_DELETE", "cherubino_oos", String(id), {});
+    return jsonResponse({ ok: true }, 200, corsOkHeaders);
+  }
+
+  // Pharmacy can only delete their own unapproved items
+  if (existing.source === "pharmacy" && existing.status === "pending" && Number(existing.source_location_id) === Number(authUser.location_id)) {
+    await dbRun(env, `DELETE FROM cherubino_oos WHERE id = ? AND org_id = ?`, [id, authUser.org_id]);
+    await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_OOS_DELETE", "cherubino_oos", String(id), {});
+    return jsonResponse({ ok: true }, 200, corsOkHeaders);
+  }
+
+  return jsonResponse({ ok: false, error: "Cannot delete this item. Request removal instead." }, 403, corsOkHeaders);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
