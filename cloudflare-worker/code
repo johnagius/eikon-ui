@@ -16525,6 +16525,23 @@ if (url.pathname.startsWith("/dda-stocktakes/items/")) {
     }
     // ── End Cherubino Price Changes ───────────────────────────────────────
 
+    // ── Cherubino Warehouse Short Expiry ──────────────────────────────────
+    if (url.pathname === "/cherubino/short-expiry" && request.method === "GET") {
+      return await handleShortExpiryList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/cherubino/short-expiry/upload" && request.method === "POST") {
+      return await handleShortExpiryUpload(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname === "/cherubino/short-expiry/order" && request.method === "POST") {
+      return await handleShortExpiryOrder(request, env, corsOkHeaders, authUser);
+    }
+    { const m = url.pathname.match(/^\/cherubino\/short-expiry\/order\/(\d+)$/);
+      if (m && request.method === "DELETE") {
+        return await handleShortExpiryOrderDelete(request, env, corsOkHeaders, authUser, Number(m[1]));
+      }
+    }
+    // ── End Cherubino Warehouse Short Expiry ──────────────────────────────
+
     return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
     } catch (e) {
       // Never let an exception become Cloudflare 1101 HTML again.
@@ -17381,6 +17398,126 @@ async function handleCherubinoLocations(request, env, corsOkHeaders, authUser) {
     `SELECT id, name FROM locations WHERE org_id = ? ORDER BY name ASC`,
     [authUser.org_id]);
   return jsonResponse({ ok: true, locations: rows }, 200, corsOkHeaders);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CHERUBINO WAREHOUSE SHORT EXPIRY — schema + handlers
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function ensureCherubinoShortExpirySchema(env) {
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS cherubino_short_expiry (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id      INTEGER NOT NULL,
+    stk_code    TEXT NOT NULL DEFAULT '',
+    stk_desc    TEXT NOT NULL DEFAULT '',
+    batch       TEXT NOT NULL DEFAULT '',
+    expiry      TEXT NOT NULL DEFAULT '',
+    qty         INTEGER NOT NULL DEFAULT 0,
+    loc_code    TEXT NOT NULL DEFAULT '',
+    uploaded_at TEXT DEFAULT (datetime('now'))
+  )`);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_cherubino_se_org ON cherubino_short_expiry (org_id)`);
+
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS cherubino_short_expiry_orders (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id      INTEGER NOT NULL,
+    item_id     INTEGER NOT NULL,
+    location_id INTEGER NOT NULL,
+    location_name TEXT NOT NULL DEFAULT '',
+    quantity    INTEGER NOT NULL DEFAULT 1,
+    created_by  INTEGER,
+    created_at  TEXT DEFAULT (datetime('now'))
+  )`);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_cherubino_seo_org ON cherubino_short_expiry_orders (org_id, item_id)`);
+  await dbRun(env, `CREATE UNIQUE INDEX IF NOT EXISTS idx_cherubino_seo_uniq ON cherubino_short_expiry_orders (item_id, location_id)`);
+}
+
+async function handleShortExpiryList(request, env, corsOkHeaders, authUser, url) {
+  await ensureCherubinoShortExpirySchema(env);
+  const q = (url.searchParams.get("q") || "").toLowerCase().trim();
+  let sql = `SELECT id, stk_code, stk_desc, batch, expiry, qty, loc_code, uploaded_at
+     FROM cherubino_short_expiry WHERE org_id = ?`;
+  const bind = [authUser.org_id];
+  if (q) { sql += ` AND (lower(stk_desc) LIKE ? OR lower(stk_code) LIKE ? OR lower(batch) LIKE ?)`; const like = `%${q}%`; bind.push(like, like, like); }
+  sql += ` ORDER BY expiry ASC, stk_desc ASC`;
+  const rows = await dbAll(env, sql, bind);
+
+  // Fetch all orders for these items
+  if (rows.length) {
+    const orders = await dbAll(env,
+      `SELECT item_id, location_id, location_name, quantity, created_by, created_at
+       FROM cherubino_short_expiry_orders WHERE org_id = ?`,
+      [authUser.org_id]);
+    const orderMap = {};
+    orders.forEach(o => {
+      if (!orderMap[o.item_id]) orderMap[o.item_id] = [];
+      orderMap[o.item_id].push(o);
+    });
+    rows.forEach(r => { r.orders = orderMap[r.id] || []; });
+  }
+
+  return jsonResponse({ ok: true, items: rows }, 200, corsOkHeaders);
+}
+
+async function handleShortExpiryUpload(request, env, corsOkHeaders, authUser) {
+  await ensureCherubinoShortExpirySchema(env);
+  const body = await readJson(request);
+  const items = Array.isArray(body.items) ? body.items : [];
+  if (!items.length) return jsonResponse({ ok: false, error: "No items" }, 400, corsOkHeaders);
+  if (items.length > 500) return jsonResponse({ ok: false, error: "Max 500 items per batch" }, 400, corsOkHeaders);
+
+  // Wipe on first batch
+  if (body.wipe) {
+    await dbRun(env, `DELETE FROM cherubino_short_expiry WHERE org_id = ?`, [authUser.org_id]);
+    await dbRun(env, `DELETE FROM cherubino_short_expiry_orders WHERE org_id = ?`, [authUser.org_id]);
+  }
+
+  let inserted = 0;
+  for (const item of items) {
+    const stkCode = String(item.stk_code || "").trim();
+    const stkDesc = String(item.stk_desc || "").trim();
+    const batch = String(item.batch || "").trim();
+    const expiry = String(item.expiry || "").trim();
+    const qty = parseInt(item.qty) || 0;
+    const locCode = String(item.loc_code || "").trim();
+    if (!stkDesc) continue;
+    await dbRun(env,
+      `INSERT INTO cherubino_short_expiry (org_id, stk_code, stk_desc, batch, expiry, qty, loc_code)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [authUser.org_id, stkCode, stkDesc, batch, expiry, qty, locCode]);
+    inserted++;
+  }
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_SE_UPLOAD", "cherubino_short_expiry", "", { count: inserted, wipe: !!body.wipe });
+  return jsonResponse({ ok: true, inserted }, 200, corsOkHeaders);
+}
+
+async function handleShortExpiryOrder(request, env, corsOkHeaders, authUser) {
+  await ensureCherubinoShortExpirySchema(env);
+  const body = await readJson(request);
+  const itemId = parseInt(body.item_id);
+  const quantity = Math.max(1, parseInt(body.quantity) || 1);
+  if (!itemId) return jsonResponse({ ok: false, error: "item_id required" }, 400, corsOkHeaders);
+
+  // Verify item exists
+  const item = await dbFirst(env, `SELECT id FROM cherubino_short_expiry WHERE id = ? AND org_id = ?`, [itemId, authUser.org_id]);
+  if (!item) return jsonResponse({ ok: false, error: "Item not found" }, 404, corsOkHeaders);
+
+  await dbRun(env,
+    `INSERT INTO cherubino_short_expiry_orders (org_id, item_id, location_id, location_name, quantity, created_by)
+     VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(item_id, location_id) DO UPDATE SET
+       quantity = excluded.quantity, created_by = excluded.created_by, created_at = datetime('now')`,
+    [authUser.org_id, itemId, authUser.location_id, authUser.location_name || "", quantity, authUser.user_id]);
+
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+async function handleShortExpiryOrderDelete(request, env, corsOkHeaders, authUser, itemId) {
+  await ensureCherubinoShortExpirySchema(env);
+  await dbRun(env,
+    `DELETE FROM cherubino_short_expiry_orders WHERE item_id = ? AND location_id = ? AND org_id = ?`,
+    [itemId, authUser.location_id, authUser.org_id]);
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
