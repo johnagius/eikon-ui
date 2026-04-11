@@ -302,11 +302,35 @@
             return;
           }
           if (!items || !items.length) {
-            if (statusEl) statusEl.textContent = "No valid rows found (filtered to WSL/DEP loc_code).";
+            if (statusEl) statusEl.textContent = "No valid rows found (filtered to WSL loc_code).";
             return;
           }
-          if (statusEl) statusEl.textContent = "Parsed " + items.length + " rows. Uploading...";
-          doUpload(items);
+          if (statusEl) statusEl.textContent = "Parsed " + items.length + " rows. Awaiting confirmation...";
+
+          // Check if there are existing orders that will be wiped
+          var existingOrders = 0;
+          S.items.forEach(function (it) { existingOrders += (it.orders || []).length; });
+
+          E.modal.show("Replace existing data?",
+            '<div style="font-size:13px;margin-bottom:10px;">You are about to upload <b>' + items.length + ' items</b> from <b>' + esc(file.name) + '</b>.</div>' +
+            '<div style="font-size:13px;margin-bottom:10px;">This will <b>wipe all existing short expiry data</b> and replace it with the new file.</div>' +
+            (existingOrders > 0
+              ? '<div style="padding:10px;border:1px solid rgba(255,90,122,.4);border-radius:8px;background:rgba(255,90,122,.06);font-size:13px;margin-bottom:10px;">' +
+                '<b style="color:rgba(255,90,122,1);">Warning:</b> There are <b>' + existingOrders + ' pharmacy orders</b> on the current data. These will also be deleted.</div>'
+              : '') +
+            '<div style="font-size:13px;">Do you want to proceed?</div>',
+            [
+              { label: "No, cancel", onClick: function () {
+                E.modal.hide();
+                if (statusEl) statusEl.textContent = "Upload cancelled.";
+                fileInput.value = "";
+              }},
+              { label: "Yes, replace all", danger: true, onClick: function () {
+                E.modal.hide();
+                if (statusEl) statusEl.textContent = "Uploading " + items.length + " rows...";
+                doUpload(items);
+              }}
+            ]);
         });
       };
     }
