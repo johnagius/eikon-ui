@@ -16542,6 +16542,20 @@ if (url.pathname.startsWith("/dda-stocktakes/items/")) {
     }
     // ── End Cherubino Warehouse Short Expiry ──────────────────────────────
 
+    // ── Cherubino OOS List ────────────────────────────────────────────────
+    if (url.pathname === "/cherubino/oos" && request.method === "GET") {
+      return await handleOosList(request, env, corsOkHeaders, authUser, url);
+    }
+    if (url.pathname === "/cherubino/oos" && request.method === "POST") {
+      return await handleOosCreate(request, env, corsOkHeaders, authUser);
+    }
+    { const m = url.pathname.match(/^\/cherubino\/oos\/(\d+)$/);
+      if (m && request.method === "DELETE") {
+        return await handleOosDelete(request, env, corsOkHeaders, authUser, Number(m[1]));
+      }
+    }
+    // ── End Cherubino OOS List ────────────────────────────────────────────
+
     return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
     } catch (e) {
       // Never let an exception become Cloudflare 1101 HTML again.
@@ -17528,6 +17542,57 @@ async function handleShortExpiryOrderDelete(request, env, corsOkHeaders, authUse
   await dbRun(env,
     `DELETE FROM cherubino_short_expiry_orders WHERE item_id = ? AND location_id = ? AND org_id = ?`,
     [itemId, authUser.location_id, authUser.org_id]);
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CHERUBINO OOS LIST — schema + handlers
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function ensureCherubinoOosSchema(env) {
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS cherubino_oos (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id      INTEGER NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    added_by_id INTEGER,
+    added_by_name TEXT NOT NULL DEFAULT '',
+    created_at  TEXT DEFAULT (datetime('now'))
+  )`);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_cherubino_oos_org ON cherubino_oos (org_id)`);
+}
+
+async function handleOosList(request, env, corsOkHeaders, authUser, url) {
+  await ensureCherubinoOosSchema(env);
+  const q = (url.searchParams.get("q") || "").toLowerCase().trim();
+  let sql = `SELECT id, description, added_by_name, created_at FROM cherubino_oos WHERE org_id = ?`;
+  const bind = [authUser.org_id];
+  if (q) { sql += ` AND lower(description) LIKE ?`; bind.push(`%${q}%`); }
+  sql += ` ORDER BY created_at DESC`;
+  const rows = await dbAll(env, sql, bind);
+  return jsonResponse({ ok: true, items: rows }, 200, corsOkHeaders);
+}
+
+async function handleOosCreate(request, env, corsOkHeaders, authUser) {
+  await ensureCherubinoOosSchema(env);
+  const body = await readJson(request);
+  const description = String(body.description || "").trim();
+  if (!description) return jsonResponse({ ok: false, error: "description required" }, 400, corsOkHeaders);
+
+  const row = await dbFirst(env,
+    `INSERT INTO cherubino_oos (org_id, description, added_by_id, added_by_name)
+     VALUES (?, ?, ?, ?) RETURNING id`,
+    [authUser.org_id, description, authUser.user_id, authUser.full_name || ""]);
+
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_OOS_CREATE", "cherubino_oos", String(row.id), { description });
+  return jsonResponse({ ok: true, id: row.id }, 200, corsOkHeaders);
+}
+
+async function handleOosDelete(request, env, corsOkHeaders, authUser, id) {
+  await ensureCherubinoOosSchema(env);
+  const existing = await dbFirst(env, `SELECT id FROM cherubino_oos WHERE id = ? AND org_id = ?`, [id, authUser.org_id]);
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+  await dbRun(env, `DELETE FROM cherubino_oos WHERE id = ? AND org_id = ?`, [id, authUser.org_id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_OOS_DELETE", "cherubino_oos", String(id), {});
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 

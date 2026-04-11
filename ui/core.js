@@ -772,7 +772,7 @@
     if (role === E.ROLE_PHARMACY) {
       E._activeSidebarCategories = E.SIDEBAR_CATEGORIES.slice();
       if (E.state.user && Number(E.state.user.org_id) === 12) {
-        E._activeSidebarCategories.push({ label: "Cherubino", icon: "\uD83C\uDFE5", moduleIds: ["cherubino-orders", "cherubino-prices", "cherubino-shortexpiry"] });
+        E._activeSidebarCategories.push({ label: "Cherubino", icon: "\uD83C\uDFE5", moduleIds: ["cherubino-orders", "cherubino-prices", "cherubino-shortexpiry", "cherubino-oos"] });
       }
       E._sectionDashboardId = "dashboard";
       return E.bootAuthed();
@@ -793,7 +793,7 @@
     } else if (section === "company_admin") {
       E._activeSidebarCategories = E.COMPANY_ADMIN_CATEGORIES.slice();
       if (E.state.user && Number(E.state.user.org_id) === 12) {
-        E._activeSidebarCategories.push({ label: "Cherubino", icon: "\uD83C\uDFE5", moduleIds: ["cherubino-admin", "cherubino-prices", "cherubino-shortexpiry"] });
+        E._activeSidebarCategories.push({ label: "Cherubino", icon: "\uD83C\uDFE5", moduleIds: ["cherubino-admin", "cherubino-prices", "cherubino-shortexpiry", "cherubino-oos"] });
       }
       E._sectionDashboardId = "company-dashboard";
     }
