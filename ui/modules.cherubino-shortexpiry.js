@@ -57,7 +57,7 @@
         rows.forEach(function (r) {
           var locCode = String(r.loc_code || r.LOC_CODE || r.Loc_Code || "").trim().toUpperCase();
           // Filter: only rows where loc_code contains "WSL"
-          if (locCode.indexOf("WSL") < 0 && locCode.indexOf("DEP") < 0) return;
+          if (locCode.indexOf("WSL") < 0) return;
 
           var stkCode = String(r.stk_code || r.STK_CODE || r.Stk_Code || "").trim();
           var stkDesc = String(r.stk_desc || r.STK_DESC || r.Stk_Desc || "").trim();
@@ -243,7 +243,7 @@
     if (S.isAdmin) {
       html += '<div class="se-upload-area" id="se-upload-area" style="display:none;">' +
         '<div style="margin-bottom:8px;font-weight:700;">Upload CSV, XLS, or XLSX file</div>' +
-        '<div style="font-size:11px;color:var(--muted);margin-bottom:10px;">Rows with loc_code containing WSL or DEP will be imported. This replaces all existing data.</div>' +
+        '<div style="font-size:11px;color:var(--muted);margin-bottom:10px;">Only rows with loc_code containing WSL will be imported. This replaces all existing data.</div>' +
         '<label class="eikon-btn primary" style="cursor:pointer;font-size:12px;padding:8px 14px;">' +
         'Choose File <input type="file" id="se-file-input" accept=".csv,.xls,.xlsx"/>' +
         '</label>' +
