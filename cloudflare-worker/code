@@ -17754,9 +17754,20 @@ async function handleShortExpiryOrder(request, env, corsOkHeaders, authUser) {
   const quantity = Math.max(1, parseInt(body.quantity) || 1);
   if (!itemId) return jsonResponse({ ok: false, error: "item_id required" }, 400, corsOkHeaders);
 
-  // Verify item exists
-  const item = await dbFirst(env, `SELECT id FROM cherubino_short_expiry WHERE id = ? AND org_id = ?`, [itemId, authUser.org_id]);
+  // Verify item exists and get WSL stock
+  const item = await dbFirst(env, `SELECT id, qty FROM cherubino_short_expiry WHERE id = ? AND org_id = ?`, [itemId, authUser.org_id]);
   if (!item) return jsonResponse({ ok: false, error: "Item not found" }, 404, corsOkHeaders);
+
+  // Check available stock: WSL qty minus all OTHER locations' orders (exclude current location since we're replacing their order)
+  const othersSum = await dbFirst(env,
+    `SELECT COALESCE(SUM(quantity), 0) as total FROM cherubino_short_expiry_orders WHERE item_id = ? AND org_id = ? AND location_id != ?`,
+    [itemId, authUser.org_id, authUser.location_id]);
+  const othersTotal = othersSum ? othersSum.total : 0;
+  const availableForMe = item.qty - othersTotal;
+
+  if (quantity > availableForMe) {
+    return jsonResponse({ ok: false, error: "Exceeds available stock. Only " + availableForMe + " available." }, 400, corsOkHeaders);
+  }
 
   await dbRun(env,
     `INSERT INTO cherubino_short_expiry_orders (org_id, item_id, location_id, location_name, quantity, created_by)
