@@ -168,6 +168,24 @@
     document.head.appendChild(st);
   }
 
+  /* ── stock helpers ────────────────────────────────────────────────────── */
+  function totalOrdered(item) {
+    var total = 0;
+    (item.orders || []).forEach(function (o) { total += o.quantity; });
+    return total;
+  }
+  function availableStock(item) {
+    return Math.max(0, item.qty - totalOrdered(item));
+  }
+  function myOrderQty(item) {
+    var myLocId = S.user ? Number(S.user.location_id) : -1;
+    var q = 0;
+    (item.orders || []).forEach(function (o) {
+      if (Number(o.location_id) === myLocId) q = o.quantity;
+    });
+    return q;
+  }
+
   /* ── rendering ───────────────────────────────────────────────────────── */
   function expiryClass(exp) {
     if (!exp) return "se-expiry-ok";
@@ -189,8 +207,8 @@
 
     var myLocId = S.user ? Number(S.user.location_id) : -1;
     var html = '<div class="se-table-wrap"><table class="se-table">';
-    html += '<thead><tr><th>Code</th><th>Description</th><th>Batch</th><th>Expiry</th><th>WSL Qty</th>';
-    if (!S.isAdmin) html += '<th>Order</th>';
+    html += '<thead><tr><th>Code</th><th>Description</th><th>Batch</th><th>Expiry</th><th>WSL Stock</th><th>Ordered</th><th>Available</th>';
+    if (!S.isAdmin) html += '<th>Your Order</th>';
     html += '</tr></thead><tbody>';
 
     items.forEach(function (item) {
@@ -199,34 +217,41 @@
         if (Number(o.location_id) === myLocId) myOrder = o;
       });
 
+      var ordered = totalOrdered(item);
+      var avail = availableStock(item);
+      var myQty = myOrder ? myOrder.quantity : 0;
+      // Max this pharmacy can order = available + what they already have (since their order is included in "ordered")
+      var maxForMe = avail + myQty;
+
       html += '<tr>';
       html += '<td>' + esc(item.stk_code) + '</td>';
       html += '<td style="font-weight:600;">' + esc(item.stk_desc) + '</td>';
       html += '<td>' + esc(item.batch) + '</td>';
       html += '<td class="' + expiryClass(item.expiry) + '">' + esc(item.expiry) + '</td>';
-      html += '<td style="text-align:center;font-weight:700;">' + item.qty + '</td>';
+      html += '<td style="text-align:center;color:var(--muted);">' + item.qty + '</td>';
+      html += '<td style="text-align:center;font-weight:600;">' + ordered + '</td>';
+      html += '<td style="text-align:center;font-weight:700;' + (avail <= 0 ? 'color:#ef4444;' : 'color:#22c55e;') + '">' + avail + '</td>';
 
       if (!S.isAdmin) {
         if (myOrder) {
           html += '<td style="white-space:nowrap;">' +
-            '<input class="eikon-input se-order-input" type="number" min="1" value="' + myOrder.quantity + '" data-item-id="' + item.id + '" data-action="update"/>' +
+            '<input class="eikon-input se-order-input" type="number" min="1" max="' + maxForMe + '" value="' + myOrder.quantity + '" data-item-id="' + item.id + '" data-max="' + maxForMe + '" data-action="update"/>' +
             ' <span class="se-order-remove" data-item-id="' + item.id + '" style="cursor:pointer;color:rgba(255,90,122,.7);font-size:14px;" title="Remove order">&#x2715;</span>' +
             '</td>';
-        } else {
+        } else if (avail > 0) {
           html += '<td><button class="eikon-btn primary" data-item-id="' + item.id + '" data-action="order" style="font-size:11px;padding:4px 10px;">Order</button></td>';
+        } else {
+          html += '<td style="font-size:11px;color:var(--muted);">Out of stock</td>';
         }
       }
       html += '</tr>';
 
       // Admin: show per-location orders under each item
       if (S.isAdmin && item.orders && item.orders.length) {
-        html += '<tr class="se-orders-row"><td colspan="5" style="padding-left:30px;">';
-        var totalOrdered = 0;
+        html += '<tr class="se-orders-row"><td colspan="7" style="padding-left:30px;">';
         item.orders.forEach(function (o) {
-          totalOrdered += o.quantity;
           html += '<span class="se-order-loc"><b>' + esc(o.location_name) + '</b>: x' + o.quantity + '</span>';
         });
-        html += '<span class="se-order-loc" style="font-weight:700;">Total ordered: x' + totalOrdered + '</span>';
         html += '</td></tr>';
       }
     });
@@ -352,6 +377,11 @@
       S.mount.querySelectorAll("[data-action='order']").forEach(function (btn) {
         btn.onclick = function () {
           var itemId = btn.getAttribute("data-item-id");
+          var item = S.items.find(function (it) { return String(it.id) === String(itemId); });
+          if (item && availableStock(item) <= 0) {
+            toast("No stock available.", "error");
+            return;
+          }
           placeOrder(itemId, 1).then(function () { toast("Ordered."); refresh(); })
             .catch(function (err) { toast((err && err.message) || "Failed", "error"); });
         };
@@ -362,9 +392,16 @@
         inp.onchange = function () {
           clearTimeout(debounce);
           var itemId = inp.getAttribute("data-item-id");
+          var maxVal = parseInt(inp.getAttribute("data-max")) || 1;
           var qty = parseInt(inp.value) || 1;
+          if (qty > maxVal) {
+            qty = maxVal;
+            inp.value = maxVal;
+            toast("Limited to " + maxVal + " (max available stock).", "warn");
+          }
+          if (qty < 1) { qty = 1; inp.value = 1; }
           debounce = setTimeout(function () {
-            placeOrder(itemId, qty).then(function () { toast("Updated."); })
+            placeOrder(itemId, qty).then(function () { toast("Updated."); refresh(); })
               .catch(function (err) { toast((err && err.message) || "Failed", "error"); });
           }, 300);
         };
