@@ -16814,6 +16814,12 @@ if (url.pathname.startsWith("/dda-stocktakes/items/")) {
     }
     // ── End Cherubino OOS List ────────────────────────────────────────────
 
+    // ── Admin Pharmacy Overview ──────────────────────────────────────────
+    if (url.pathname === "/admin/pharmacy-overview" && request.method === "GET") {
+      return await handleAdminPharmacyOverview(request, env, corsOkHeaders, authUser, url);
+    }
+    // ── End Admin Pharmacy Overview ──────────────────────────────────────
+
     return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
     } catch (e) {
       // Never let an exception become Cloudflare 1101 HTML again.
@@ -18691,4 +18697,242 @@ async function handleContactsBulk(request, env, corsOkHeaders, authUser, tableKe
 
   await writeAudit(env, authUser.org_id, authUser.user_id, "CONTACT_BULK_IMPORT", def.db, "", { count: rows.length });
   return jsonResponse({ ok: true, ids: ids }, 200, corsOkHeaders);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ADMIN PHARMACY OVERVIEW
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function handleAdminPharmacyOverview(request, env, corsOkHeaders, authUser, url) {
+  // Company admin guard (location_id 600-900)
+  const locId = Number(authUser.location_id);
+  if (locId < 600 || locId > 900) {
+    return jsonResponse({ ok: false, error: "Forbidden - company admin only" }, 403, corsOkHeaders);
+  }
+
+  const orgId = authUser.org_id;
+  const now = new Date();
+  const todayStr = now.getUTCFullYear() + "-" +
+    String(now.getUTCMonth() + 1).padStart(2, "0") + "-" +
+    String(now.getUTCDate()).padStart(2, "0");
+
+  // Parse month param (YYYY-MM), default to current month
+  let monthParam = (url.searchParams.get("month") || "").trim();
+  if (!/^\d{4}-\d{2}$/.test(monthParam)) {
+    monthParam = todayStr.slice(0, 7);
+  }
+  const [yearStr, monStr] = monthParam.split("-");
+  const year = parseInt(yearStr, 10);
+  const month = parseInt(monStr, 10); // 1-12
+
+  const startStr = monthParam + "-01";
+  // First day of next month
+  const nextMonth = month === 12 ? (year + 1) + "-01" : year + "-" + String(month + 1).padStart(2, "0");
+  const endStr = nextMonth + "-01";
+
+  // Compute working days (Mon-Sat, excluding Sundays only)
+  // If viewing current month, count up to today; otherwise count the whole month
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate(); // last day of month
+  const isCurrentMonth = monthParam === todayStr.slice(0, 7);
+  const countUpTo = isCurrentMonth ? now.getUTCDate() : lastDay;
+  let workingDays = 0;
+  for (let d = 1; d <= countUpTo; d++) {
+    const dt = new Date(Date.UTC(year, month - 1, d));
+    if (dt.getUTCDay() !== 0) workingDays++; // 0 = Sunday
+  }
+
+  // Step 1: Get pharmacy locations (id < 400)
+  const pharmacies = await dbAll(env,
+    "SELECT id, name FROM locations WHERE org_id = ? AND id < 400 ORDER BY name ASC",
+    [orgId]);
+
+  if (!pharmacies.length) {
+    return jsonResponse({ ok: true, month: monthParam, today: todayStr, working_days: workingDays,
+      pharmacies: [], temperature: {}, cleaning: {}, daily_register: {}, dda_sales: {},
+      dda_poyc: {}, dda_purchases: {}, dda_stocktakes: {}, certificates: {},
+      locum_register: {}, repeat_prescriptions: {} }, 200, corsOkHeaders);
+  }
+
+  // Helper to turn rows keyed by location_id into an object
+  function byLoc(rows) {
+    var m = {};
+    for (var i = 0; i < rows.length; i++) {
+      m[String(rows[i].location_id)] = rows[i];
+    }
+    return m;
+  }
+
+  // Step 2: Temperature
+  var temperature = {};
+  try {
+    const tempEntries = await dbAll(env,
+      `SELECT location_id, COUNT(DISTINCT entry_date) AS days_with_entries,
+              MAX(created_at) AS last_created_at
+       FROM temperature_entries
+       WHERE org_id = ? AND location_id < 400 AND entry_date >= ? AND entry_date < ?
+       GROUP BY location_id`,
+      [orgId, startStr, endStr]);
+
+    const tempDevices = await dbAll(env,
+      `SELECT location_id, COUNT(*) AS device_count
+       FROM temperature_devices
+       WHERE org_id = ? AND location_id < 400 AND active = 1
+       GROUP BY location_id`,
+      [orgId]);
+
+    const devMap = byLoc(tempDevices);
+    const entMap = byLoc(tempEntries);
+
+    for (const p of pharmacies) {
+      const pid = String(p.id);
+      const ent = entMap[pid];
+      const dev = devMap[pid];
+      if (ent || dev) {
+        temperature[pid] = {
+          days_with_entries: ent ? ent.days_with_entries : 0,
+          device_count: dev ? dev.device_count : 0,
+          last_created_at: ent ? ent.last_created_at : null
+        };
+      }
+    }
+  } catch (e) { console.log("[admin-overview] temperature query error", e.message); }
+
+  // Step 3: Cleaning
+  var cleaning = {};
+  try {
+    const cleanRows = await dbAll(env,
+      `SELECT location_id, COUNT(DISTINCT entry_date) AS days_with_entries,
+              MAX(created_at) AS last_created_at
+       FROM cleaning_entries
+       WHERE org_id = ? AND location_id < 400 AND entry_date >= ? AND entry_date < ?
+       GROUP BY location_id`,
+      [orgId, startStr, endStr]);
+    const cm = byLoc(cleanRows);
+    for (const pid in cm) {
+      cleaning[pid] = {
+        days_with_entries: cm[pid].days_with_entries,
+        last_created_at: cm[pid].last_created_at
+      };
+    }
+  } catch (e) { console.log("[admin-overview] cleaning query error", e.message); }
+
+  // Helper for transaction-based registers
+  async function queryRegister(tableName) {
+    var result = {};
+    try {
+      const rows = await dbAll(env,
+        `SELECT location_id, COUNT(*) AS entry_count,
+                MAX(entry_date) AS last_entry_date,
+                MAX(created_at) AS last_created_at
+         FROM ${tableName}
+         WHERE org_id = ? AND location_id < 400 AND entry_date >= ? AND entry_date < ?
+         GROUP BY location_id`,
+        [orgId, startStr, endStr]);
+      for (const r of rows) {
+        result[String(r.location_id)] = {
+          entry_count: r.entry_count,
+          last_entry_date: r.last_entry_date,
+          last_created_at: r.last_created_at
+        };
+      }
+    } catch (e) { console.log("[admin-overview] " + tableName + " query error", e.message); }
+    return result;
+  }
+
+  // Steps 4-7, 10: Transaction-based registers
+  const daily_register = await queryRegister("daily_register_entries");
+  const dda_sales = await queryRegister("dda_sales_entries");
+  const dda_poyc = await queryRegister("dda_poyc_entries");
+  const dda_purchases = await queryRegister("dda_purchases_entries");
+  const locum_register = await queryRegister("locum_register_entries");
+
+  // Step 8: DDA Stock Takes (not month-filtered)
+  var dda_stocktakes = {};
+  try {
+    const stRows = await dbAll(env,
+      `SELECT s.location_id,
+              MAX(s.created_at) AS last_stocktake_date,
+              COUNT(*) AS stocktake_count
+       FROM dda_stocktakes s
+       WHERE s.org_id = ? AND s.location_id < 400
+       GROUP BY s.location_id`,
+      [orgId]);
+
+    for (const r of stRows) {
+      const pid = String(r.location_id);
+      // Check if the latest stock take is closed
+      const latest = await dbFirst(env,
+        `SELECT closed_at FROM dda_stocktakes
+         WHERE org_id = ? AND location_id = ?
+         ORDER BY created_at DESC LIMIT 1`,
+        [orgId, r.location_id]);
+      dda_stocktakes[pid] = {
+        last_stocktake_date: r.last_stocktake_date,
+        is_closed: !!(latest && latest.closed_at),
+        stocktake_count: r.stocktake_count
+      };
+    }
+  } catch (e) { console.log("[admin-overview] dda_stocktakes query error", e.message); }
+
+  // Step 9: Certificates (not month-filtered)
+  var certificates = {};
+  try {
+    const certRows = await dbAll(env,
+      `SELECT location_id,
+              COUNT(*) AS total_certs,
+              SUM(CASE WHEN last_date IS NOT NULL AND interval_months > 0
+                        AND date(last_date, '+' || interval_months || ' months') < ?
+                   THEN 1 ELSE 0 END) AS expired_count,
+              SUM(CASE WHEN (file_r2_key IS NULL OR file_r2_key = '')
+                        AND (file_b64 IS NULL OR file_b64 = '')
+                   THEN 1 ELSE 0 END) AS missing_file_count
+       FROM certificates_items
+       WHERE org_id = ? AND location_id < 400
+       GROUP BY location_id`,
+      [todayStr, orgId]);
+    for (const r of certRows) {
+      certificates[String(r.location_id)] = {
+        total_certs: r.total_certs,
+        expired_count: r.expired_count,
+        missing_file_count: r.missing_file_count
+      };
+    }
+  } catch (e) { console.log("[admin-overview] certificates query error", e.message); }
+
+  // Step 11: Repeat Prescriptions (not month-filtered)
+  var repeat_prescriptions = {};
+  try {
+    const rpRows = await dbAll(env,
+      `SELECT location_id,
+              COUNT(*) AS total_count,
+              SUM(CASE WHEN expires_date IS NOT NULL AND expires_date < ? THEN 1 ELSE 0 END) AS expired_count
+       FROM repeat_prescription_entries
+       WHERE org_id = ? AND location_id < 400
+       GROUP BY location_id`,
+      [todayStr, orgId]);
+    for (const r of rpRows) {
+      repeat_prescriptions[String(r.location_id)] = {
+        total_count: r.total_count,
+        expired_count: r.expired_count
+      };
+    }
+  } catch (e) { console.log("[admin-overview] repeat_prescriptions query error", e.message); }
+
+  return jsonResponse({
+    ok: true,
+    month: monthParam,
+    today: todayStr,
+    working_days: workingDays,
+    pharmacies: pharmacies,
+    temperature: temperature,
+    cleaning: cleaning,
+    daily_register: daily_register,
+    dda_sales: dda_sales,
+    dda_poyc: dda_poyc,
+    dda_purchases: dda_purchases,
+    dda_stocktakes: dda_stocktakes,
+    certificates: certificates,
+    locum_register: locum_register,
+    repeat_prescriptions: repeat_prescriptions
+  }, 200, corsOkHeaders);
 }
