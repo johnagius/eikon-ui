@@ -372,8 +372,10 @@
     { label: "Orders", icon: "\uD83D\uDCCB", moduleIds: ["supplier-received-orders", "supplier-order-feedback"] }
   ];
 
-  // Sidebar categories for Company Admin section (empty for now)
-  E.COMPANY_ADMIN_CATEGORIES = [];
+  // Sidebar categories for Company Admin section
+  E.COMPANY_ADMIN_CATEGORIES = [
+    { label: "Overview", icon: "\uD83D\uDCCA", moduleIds: ["admin-overview"] }
+  ];
 
   // UI mounts
   E.state = { user: null, activeModuleId: "", activeRole: "", sidebarCollapsed: false, expandedCategory: null, started: false };
