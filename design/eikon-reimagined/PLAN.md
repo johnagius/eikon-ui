@@ -57,3 +57,43 @@ Everything new lives behind `?ui=2`. Clients on the classic layout see fixes onl
 `tests/worker/run.mjs` and `tests/ui/run.mjs` are the acceptance tests.
 Screenshots of what is built live in `prototype/` numbered in build order.
 `RELIABILITY-AND-SPEED.md` holds the defect list and the ten shared rules.
+
+---
+
+## Step briefs
+
+Each step is written here before it is built. The brief is the acceptance test.
+
+### Step 1 · Customers, finished
+
+**Why.** The Customers page exists but the registers still ask for the name again.
+The whole point of one identity is that nobody types "Carmen Grech" a fourth time.
+
+**What the pharmacist sees.**
+- On a customer's page: **New order**, **Question**, **Delivery**, **Appointment**.
+  One tap opens that register's own form with the name, phone, address and e-mail
+  already filled. The second tap is Save. The form is the existing one, unchanged,
+  so nothing learnt is lost and every validation still applies.
+- The customer's header shows their loyalty points when they have a card, and the
+  facts row shows the next appointment when one is booked.
+- Coming back from a register lands on Customers, not on the old dashboard.
+
+**Data.** Read-only additions to `GET /people/:id`: loyalty points and stamps summed
+from the loyalty transactions under the person's ID card; the next appointment that
+is not cancelled, under their card or name. No write path changes. The hand-over
+itself is a short-lived note in the browser (`sessionStorage`, five minutes), never
+sent to the server, so a stale tab cannot pre-fill the wrong person tomorrow.
+
+**Design rules kept.** No new form. No new modal. One accent. The four buttons are the
+only actions on the page; everything else is reading.
+
+**Done when.**
+- Worker test: a person with a loyalty transaction and a future appointment gets
+  `loyalty.points` and `next_appointment` in one call; a cancelled appointment is
+  ignored; a stranger's appointment is not shown.
+- UI test: New order from a customer opens the order form with the client name,
+  phone and address filled, and nothing posted yet; the same for Question, Delivery
+  and Appointment; the hand-over is cleared once used; an old hand-over (older than
+  five minutes) is ignored.
+- Screenshot `prototype/06 Customer to order.png`: the order form over the
+  customer's page, filled.
