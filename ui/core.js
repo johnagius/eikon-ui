@@ -29,11 +29,36 @@
     try {
       var u = new URL(window.location.href);
       var v = u.searchParams.get("ui");
-      if (v === "2") window.localStorage.setItem("eikon_ui2", "1");
+      if (v === "2") { window.localStorage.setItem("eikon_ui2", "1"); window.sessionStorage.removeItem("eikon_ui2_pause"); }
       else if (v === "1") window.localStorage.removeItem("eikon_ui2");
+      else if (v === "classic") window.sessionStorage.setItem("eikon_ui2_pause", "1"); // one visit to an old screen
     } catch (e) {}
   })();
-  E.isUi2 = function () { try { return window.localStorage.getItem("eikon_ui2") === "1"; } catch (e) { return false; } };
+  // The new shell shows only rebuilt screens. An old module opens in the classic layout
+  // for this visit (sessionStorage), with one button back; the preference itself is kept.
+  E.isUi2 = function () {
+    try { if (window.sessionStorage.getItem("eikon_ui2_pause") === "1") return false; } catch (e) {}
+    try { return window.localStorage.getItem("eikon_ui2") === "1"; } catch (e) { return false; }
+  };
+  E.isUi2Paused = function () {
+    try { return window.localStorage.getItem("eikon_ui2") === "1" && window.sessionStorage.getItem("eikon_ui2_pause") === "1"; } catch (e) { return false; }
+  };
+  E.openClassic = function (hash) {
+    try {
+      var u = new URL(window.location.href);
+      u.searchParams.set("ui", "classic");
+      u.hash = "#" + String(hash || "dashboard").replace(/^#/, "");
+      window.location.href = u.toString();
+    } catch (e) { window.location.hash = "#" + hash; }
+  };
+  E.returnToNew = function (hash) {
+    try {
+      var u = new URL(window.location.href);
+      u.searchParams.set("ui", "2");
+      u.hash = "#" + String(hash || "today").replace(/^#/, "");
+      window.location.href = u.toString();
+    } catch (e) {}
+  };
   E.isIntroEnabled = function () {
     if (E.isUi2()) return false; // no film before work
     return E._isIntroEnabledOriginal ? E._isIntroEnabledOriginal() : true;
@@ -928,7 +953,7 @@
       '  <main class="eikon-main">' +
       '    <div class="eikon-topbar">' +
       '      <div class="eikon-top-left">' +
-      '        <button class="eikon-btn" id="eikon-back-btn" style="display:none" title="Back">‹ Back</button>' +
+      '        <button class="eikon-btn primary" id="eikon-back-btn" style="display:none" title="Back to the new Eikon">‹ New Eikon</button>' +
       '        <img id="eikon-topbar-logo" alt="Eikon" style="height:26px;width:auto;display:block;filter:drop-shadow(0 1px 2px rgba(0,0,0,.35));" />' +
       '        <div class="eikon-page-title" id="eikon-page-title"><span id="eikon-page-title-text">Loading…</span></div>' +
       "      </div>" +
@@ -985,11 +1010,14 @@
 
     // Back (reimagined shell only): to the hub the open module belongs to
     var backBtn = document.getElementById("eikon-back-btn");
-    if (backBtn) backBtn.addEventListener("click", function () {
-      var to = E._ui2Back || (E.ui2HubFor ? E.ui2HubFor(E.state.activeModuleId) : null) || { id: "today" };
-      E._ui2Back = null;
-      window.location.hash = "#" + to.id;
-    });
+    if (backBtn && E.isUi2Paused()) {
+      backBtn.style.display = "";
+      backBtn.addEventListener("click", function () {
+        var to = null;
+        try { to = sessionStorage.getItem("eikon_ui2_return"); sessionStorage.removeItem("eikon_ui2_return"); } catch (e) {}
+        E.returnToNew(to || "today");
+      });
+    }
 
     // Change password
     var pwBtn = document.getElementById("eikon-password-btn");
@@ -1451,6 +1479,12 @@
       window.location.hash = "#" + fallbackDash;
     }
 
+    // The new shell shows only rebuilt screens: anything else opens in the classic layout.
+    if (E.isUi2() && E._sectionDashboardId === "today" && E.UI2_DESTINATIONS.indexOf(id) < 0) {
+      E.openClassic(id);
+      return;
+    }
+
     // Let the module we are leaving stop its timers and listeners.
     var leaving = E.state.activeModuleId;
     if (leaving && leaving !== id && E.modules[leaving] && typeof E.modules[leaving].destroy === "function") {
@@ -1460,18 +1494,6 @@
     E._lastRenderedHash = window.location.hash;
     E.highlightNav();
 
-    // Reimagined shell: the slim top bar with a Back link appears only over an old module.
-    try {
-      var ui2 = E.isUi2() && E._sectionDashboardId === "today";
-      var legacy = ui2 && E.UI2_DESTINATIONS.indexOf(id) < 0;
-      document.documentElement.toggleAttribute("data-ui2-legacy", !!legacy);
-      var backBtn2 = document.getElementById("eikon-back-btn");
-      if (backBtn2) {
-        var to = legacy ? (E._ui2Back || (E.ui2HubFor ? E.ui2HubFor(id) : null) || { id: "today", title: "Today" }) : null;
-        backBtn2.style.display = to ? "" : "none";
-        if (to) backBtn2.textContent = "‹ " + (to.title || "Back");
-      }
-    } catch (eU) {}
 
     // module title text (do NOT overwrite the topbar logo)
     var titleText = document.getElementById("eikon-page-title-text");
@@ -1511,7 +1533,13 @@
     E._sessionExpiredShown = false;
     var back = String(E._returnHash || "").replace(/^#/, "");
     E._returnHash = "";
-    window.location.hash = "#" + ((back && E.modules[back]) ? back : (E._sectionDashboardId || "dashboard"));
+    // A link that names a screen (#temperature, or the classic hand-off from the new shell)
+    // opens that screen; otherwise the home screen of this layout.
+    var asked = String(window.location.hash || "").replace(/^#/, "").trim();
+    var home = E._sectionDashboardId || "dashboard";
+    var target = (back && E.modules[back]) ? back : (asked && E.modules[asked] && asked !== "today" && asked !== "dashboard" ? asked : home);
+    if (asked === "today" || asked === "dashboard") target = (back && E.modules[back]) ? back : home;
+    window.location.hash = "#" + target;
     E.renderShell();
 
     // Render module, then mark "screen done" so overlay can hide after introMs

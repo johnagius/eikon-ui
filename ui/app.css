@@ -882,7 +882,7 @@ html[data-ui2] .eikon-rail-who{margin-top:12px;padding:12px 12px 0;border-top:1p
 html[data-ui2] .eikon-rail-who b{display:block;font-size:14px;font-weight:700;letter-spacing:-.01em}
 html[data-ui2] .eikon-rail-who span{display:block;font-size:12.5px;color:var(--muted);margin-top:2px}
 /* The top bar exists only over an old module, as a way back. */
-html[data-ui2]:not([data-ui2-legacy]) .eikon-topbar{display:none}
+html[data-ui2] .eikon-topbar{display:none}
 html[data-ui2] .eikon-topbar{padding:10px 22px;border-bottom:1px solid var(--border)}
 html[data-ui2] #eikon-topbar-logo,html[data-ui2] #eikon-user-label,html[data-ui2] #eikon-password-btn,html[data-ui2] #eikon-logout-btn,html[data-ui2] #eikon-fullscreen-btn{display:none!important}
 html[data-ui2] #eikon-back-btn{font-weight:600}

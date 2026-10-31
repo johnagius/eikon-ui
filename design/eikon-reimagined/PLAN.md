@@ -7,14 +7,16 @@ Everything new lives behind `?ui=2`. Clients on the classic layout see fixes onl
 
 1. **The shell.** One rail: Today, Customers, Stock, Registers · Team, Settings.
    Master Universal mark, pharmacy name, your name. No top bar, no sidebar of
-   fifty items, no help button glowing at the bottom. An old module opens inside
-   the same shell with one way back.
+   fifty items, no help button glowing at the bottom. **The new shell shows only
+   rebuilt screens.** Until an area is rebuilt, its old screen opens in the classic
+   layout, whole and unchanged, with one button back to the new Eikon. Nothing old
+   is ever shown inside the new frame, repainted or otherwise.
 2. **The screens come in this order:** Today → Customers → Registers → Stock →
    Team → Settings. Each one is finished (works, tested, screenshot in
    `prototype/`) before the next starts.
 3. **Nothing is removed.** Every one of the 816 functions keeps a home
    (`FUNCTION-INVENTORY.md`). Until an area is rebuilt, its old modules are
-   reached through the hub pages (Stock, Registers, Team, Settings) unchanged.
+   listed on the hub pages (Stock, Registers, Team, Settings) and open in classic.
 4. **Data first.** No write path changes without a test on the real worker
    against a real schema. Legacy tables are never rewritten by the new code.
 5. **Master Universal is read-only** until you say otherwise. Eikon prepares the
@@ -99,24 +101,21 @@ only actions on the page; everything else is reading.
   phone and address filled, and nothing posted yet; the same for Question, Delivery
   and Appointment; the hand-over is cleared once used; an old hand-over (older than
   five minutes) is ignored.
-- Screenshot `prototype/06 Customer to order.png`: the order form over the
-  customer's page, filled.
+- Screenshot: none. The form that opens is the classic one and classic screens
+  are not design artefacts; the UI checks prove the pre-fill.
 
 **Built.** Worker test 6 of `people.test.mjs`; UI checks "step 1: …" in
-`tests/ui/run.mjs`; screenshot `prototype/06 Customer to order.png`.
+`tests/ui/run.mjs`.
 
-**Step 1b · the old modules wear the new shell.** The first screenshot showed the
-old dark form inside the light shell. Fixed at the root rather than per screen:
-about 1,400 hard-coded dark colour values across the 50 classic modules now read a
-theme token with the old value as fallback (`var(--field, rgba(10,16,24,.64))`), so
-the classic layout is byte-for-byte the same colour and the light shell gets light
-values for surfaces, fields, lines, text, shadows, overlays and the accent, danger,
-ok and warning families. Checked by screenshot in both themes for Client Orders,
-Temperature, End of Day, Appointments, DDA Sales, Dashboard, Tickets, POCT, Loyalty,
-Emergency POS, Chat Board and Shifts (`SHOTS=1 node tests/ui/run.mjs`). Known
-leftovers: the OTC mind map keeps its own dark canvas (not touched, it draws on
-canvas), and Appointments raises a "Setup needed" toast on every open when no
-doctors exist; both go on the list for their own areas.
+**Step 1b · nothing old inside the new shell.** The first screenshot showed the old
+form inside the light shell. I first repainted the old modules (their hard-coded
+colours now read theme tokens with the old values as fallback, so the classic
+layout is unchanged); that was patching, and it stays only as groundwork. The real
+rule is now in the code: from the new shell, an old module opens in the classic
+layout for that visit (`?ui=classic`, remembered in the tab only), with a
+"‹ New Eikon" button in its top bar that returns to where you were. The new-shell
+preference is kept. Today's search, the hub cards and the Customers hand-over all
+go through that door, and the hand-over still pre-fills the classic form.
 
 ### Step 2 · Registers, part one: Temperature, Cleaning, Daily register
 

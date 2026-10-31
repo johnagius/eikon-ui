@@ -297,17 +297,19 @@ const afterClean = await page.evaluate(() => (document.querySelector('.tdy-row[d
 report("today: cleaning Done now records who and when", posts.length === 1 && posts[0].body.cleaner_name === "Karl" && posts[0].body.staff_name === "Maria Borg" && /Done today/.test(afterClean || ""), JSON.stringify({ posts, afterClean }));
 
 // search: a customer's name opens their screen; Enter on a register name opens it
+// A waiting customer's order and a register are classic screens today, so Enter opens the classic layout at that screen.
+const backToToday = async () => { await page.goto(base + "&ui=2#today"); await page.waitForFunction(() => window.EIKON && window.EIKON.state && window.EIKON.state.user && document.querySelector(".tdy-head h1"), null, { timeout: 15000 }); await page.waitForTimeout(300); };
 await page.fill("#tdy-q", "grech");
 await page.press("#tdy-q", "Enter");
-await page.waitForTimeout(300);
-const openedCustomer = await page.evaluate(() => location.hash);
-await page.evaluate(() => { location.hash = "#today"; });
-await page.waitForTimeout(800);
+await page.waitForFunction(() => location.search.indexOf("ui=classic") >= 0 && window.EIKON && window.EIKON.state && window.EIKON.state.activeModuleId === "clientorders", null, { timeout: 15000 });
+const openedCustomer = await page.evaluate(() => location.hash + " " + (document.documentElement.hasAttribute("data-ui2") ? "new" : "classic"));
+await backToToday();
 await page.fill("#tdy-q", "temperature");
 await page.press("#tdy-q", "Enter");
-await page.waitForTimeout(300);
-const openedModule = await page.evaluate(() => location.hash);
-report("today: search opens a customer or a register on Enter", openedCustomer === "#clientorders" && openedModule === "#temperature", `${openedCustomer} ${openedModule}`);
+await page.waitForFunction(() => location.search.indexOf("ui=classic") >= 0 && window.EIKON && window.EIKON.state && window.EIKON.state.activeModuleId === "temperature", null, { timeout: 15000 });
+const openedModule = await page.evaluate(() => location.hash + " " + (document.documentElement.hasAttribute("data-ui2") ? "new" : "classic"));
+report("today: search opens a customer or a register on Enter, in the classic layout until each is rebuilt", openedCustomer === "#clientorders classic" && openedModule === "#temperature classic", `${openedCustomer} | ${openedModule}`);
+await backToToday();
 
 // 10b. The reimagined shell: six words in the rail, nothing else; top bar only over an old module
 await page.evaluate(() => { location.hash = "#today"; });
@@ -325,12 +327,13 @@ await page.evaluate(() => { location.hash = "#registers"; });
 await page.waitForFunction(() => document.querySelector(".hub-card"), null, { timeout: 8000 });
 const hub = await page.evaluate(() => ({ h1: document.querySelector(".hub h1").textContent, cards: document.querySelectorAll(".hub-card").length, temp: !!document.querySelector('.hub-card[data-open="temperature"]'), topbar: getComputedStyle(document.querySelector(".eikon-topbar")).display }));
 await page.click('.hub-card[data-open="temperature"]');
-await page.waitForFunction(() => location.hash === "#temperature" && document.documentElement.hasAttribute("data-ui2-legacy"), null, { timeout: 8000 });
-await page.waitForTimeout(300);
-const legacy = await page.evaluate(() => ({ topbar: getComputedStyle(document.querySelector(".eikon-topbar")).display, back: document.getElementById("eikon-back-btn").textContent, backShown: document.getElementById("eikon-back-btn").style.display !== "none", logout: getComputedStyle(document.getElementById("eikon-logout-btn")).display }));
+// an old module never renders inside the new shell: the classic layout opens for this visit
+await page.waitForFunction(() => location.hash === "#temperature" && location.search.indexOf("ui=classic") >= 0 && window.EIKON && window.EIKON.state && window.EIKON.state.user && document.querySelector(".eikon-nav-cat"), null, { timeout: 15000 });
+await page.waitForTimeout(400);
+const legacy = await page.evaluate(() => ({ light: document.documentElement.hasAttribute("data-ui2"), cats: document.querySelectorAll(".eikon-nav-cat").length, back: document.getElementById("eikon-back-btn").textContent, backShown: document.getElementById("eikon-back-btn").style.display !== "none", pref: localStorage.getItem("eikon_ui2") }));
 await page.click("#eikon-back-btn");
-await page.waitForFunction(() => location.hash === "#registers", null, { timeout: 8000 });
-report("shell: Registers lists every book, an old module opens with only a way back, Back returns", hub.h1 === "Registers" && hub.cards >= 20 && hub.temp && hub.topbar === "none" && legacy.topbar !== "none" && legacy.back === "‹ Registers" && legacy.backShown && legacy.logout === "none", JSON.stringify({ hub, legacy }));
+await page.waitForFunction(() => location.hash === "#registers" && document.documentElement.hasAttribute("data-ui2") && document.querySelector(".hub-card"), null, { timeout: 15000 });
+report("shell: Registers lists every book; an old one opens in classic Eikon, whole, with one button back; the preference is kept", hub.h1 === "Registers" && hub.cards >= 20 && hub.temp && hub.topbar === "none" && !legacy.light && legacy.cats > 0 && /New Eikon/.test(legacy.back) && legacy.backShown && legacy.pref === "1", JSON.stringify({ hub, legacy }));
 
 // 11. Customers: Today's search hands over, the list shows people and history, Add adopts, edits are versioned
 const callsNow = async () => (await (await fetch(`http://localhost:${PORT}/__calls`)).json());
@@ -367,25 +370,26 @@ const facts = await page.evaluate(() => ({ pills: Array.from(document.querySelec
 report("customers: loyalty points and the next appointment are on the page", facts.pills.some((t) => /Loyalty · 1,120 pts/.test(t)) && /09:30 · Dr Galea/.test(facts.next || ""), JSON.stringify(facts));
 
 // Step 1: the hand-over. One tap opens the register's own form, filled; nothing is posted until Save.
+const outDirShots = () => { const d = process.env.SHOTS_DIR || path.join(here, "shots"); fs.mkdirSync(d, { recursive: true }); return d; };
 const closeModal = async () => { await page.evaluate(() => { const ov = document.querySelector(".eikon-modal-overlay"); if (!ov) return; const b = Array.from(ov.querySelectorAll("button")).find((x) => /^(Cancel|Close)$/i.test(x.textContent.trim())); if (b) b.click(); else ov.remove(); }); await page.waitForTimeout(200); };
 const carryTo = async (hash, selector) => {
-  await page.evaluate(() => { location.hash = "#customers"; });
-  await page.waitForFunction(() => document.querySelector("#cus-q"), null, { timeout: 8000 });
+  await page.goto(base + "&ui=2#customers");
+  await page.waitForFunction(() => window.EIKON && window.EIKON.state && window.EIKON.state.user && document.querySelector("#cus-q"), null, { timeout: 15000 });
   await page.fill("#cus-q", "zammit");
   await page.waitForFunction(() => document.querySelector('[data-person="1"]'), null, { timeout: 8000 });
   await page.click('[data-person="1"]');
   await page.waitForFunction((h) => document.querySelector('[data-carry="' + h + '"]'), hash, { timeout: 8000 });
   await fetch(`http://localhost:${PORT}/__reset`);
   await page.click('[data-carry="' + hash + '"]');
-  await page.waitForFunction((sel) => location.hash && document.querySelector(sel) && document.querySelector(sel).value, selector, { timeout: 10000 });
+  await page.waitForFunction((sel) => location.hash && document.querySelector(sel) && document.querySelector(sel).value, selector, { timeout: 20000 });
   await page.waitForTimeout(200);
 };
 await carryTo("#clientorders", "#co-client");
-const ord = await page.evaluate(() => ({ hash: location.hash, name: document.querySelector("#co-client").value, phone: document.querySelector("#co-contact").value, addr: document.querySelector("#co-address").value, email: document.querySelector("#co-email").value, carry: sessionStorage.getItem("eikon_carry_person"), back: document.getElementById("eikon-back-btn").textContent }));
-let carryPosts = (await callsNow()).filter((c) => c.method === "POST");
-report("step 1: New order opens the order form with the person filled, nothing posted, hand-over used up", ord.hash === "#clientorders" && ord.name === "Zammit Carmel" && ord.phone === "79123456" && ord.addr === "1 Triq il-Knisja" && ord.carry === null && carryPosts.length === 0 && ord.back === "‹ Customers", JSON.stringify({ ord, carryPosts }));
+const ord = await page.evaluate(() => ({ hash: location.hash, classic: !document.documentElement.hasAttribute("data-ui2"), name: document.querySelector("#co-client").value, phone: document.querySelector("#co-contact").value, addr: document.querySelector("#co-address").value, email: document.querySelector("#co-email").value, carry: sessionStorage.getItem("eikon_carry_person"), back: document.getElementById("eikon-back-btn").textContent, backShown: document.getElementById("eikon-back-btn").style.display !== "none" }));
+let carryPosts = (await callsNow()).filter((c) => c.method === "POST" && c.path !== "/auth/login");
+report("step 1: New order opens the classic order form with the person filled, nothing posted, hand-over used up, one button back", ord.hash === "#clientorders" && ord.classic && ord.name === "Zammit Carmel" && ord.phone === "79123456" && ord.addr === "1 Triq il-Knisja" && ord.carry === null && carryPosts.length === 0 && /New Eikon/.test(ord.back) && ord.backShown, JSON.stringify({ ord, carryPosts }));
 await page.setViewportSize({ width: 1440, height: 900 });
-await page.screenshot({ path: path.join(here, "..", "..", "design", "eikon-reimagined", "prototype", "06 Customer to order.png") });
+await page.screenshot({ path: path.join(outDirShots(), "06 Customer to order (classic form).png") });
 await closeModal();
 
 await carryTo("#tickets", "#tk-client");
@@ -397,12 +401,12 @@ await closeModal();
 await carryTo("#appointments", "#ap-mod-patient");
 const ap = await page.evaluate(() => ({ name: document.querySelector("#ap-mod-patient").value, card: document.querySelector("#ap-mod-idcard").value, phone: document.querySelector("#ap-mod-phone").value }));
 await closeModal();
-carryPosts = (await callsNow()).filter((c) => c.method === "POST");
+carryPosts = (await callsNow()).filter((c) => c.method === "POST" && c.path !== "/auth/login");
 report("step 1: Question, Delivery and Appointment open filled the same way", tk.name === "Zammit Carmel" && tk.phone === "79123456" && dv.name === "Zammit Carmel" && dv.addr === "1 Triq il-Knisja" && ap.name === "Zammit Carmel" && ap.card === "0012345M" && ap.phone === "79123456" && carryPosts.length === 0, JSON.stringify({ tk, dv, ap, carryPosts }));
 
 // an old hand-over is ignored
 await page.evaluate(() => { sessionStorage.setItem("eikon_carry_person", JSON.stringify({ id: 1, name: "Zammit Carmel", phone: "79123456", at: Date.now() - 6 * 60 * 1000 })); location.hash = "#tickets"; });
-await page.waitForFunction(() => document.querySelector("#tk-new"), null, { timeout: 8000 });
+await page.waitForFunction(() => document.querySelector("#tk-new"), null, { timeout: 15000 });
 await page.waitForTimeout(500);
 const stale = await page.evaluate(() => ({ modal: !!document.querySelector("#tk-client"), carry: sessionStorage.getItem("eikon_carry_person") }));
 report("step 1: a hand-over older than five minutes opens nothing and is discarded", !stale.modal && stale.carry === null, JSON.stringify(stale));
@@ -424,12 +428,13 @@ if (process.env.SHOTS) {
     await page.screenshot({ path: path.join(outDir, id + ".png") });
     await page.evaluate(() => { const ov = document.querySelector(".eikon-modal-overlay"); if (ov) ov.style.display = "none"; });
   }
+  if (!process.env.SHOTS_CLASSIC) { await page.goto(base + "&ui=2#today"); await page.waitForFunction(() => document.querySelector(".tdy-head h1"), null, { timeout: 15000 }); }
 }
 
 // screenshot of the person for the review
 await page.setViewportSize({ width: 1440, height: 900 });
-await page.evaluate(() => { location.hash = "#customers"; });
-await page.waitForFunction(() => document.querySelector("#cus-q"), null, { timeout: 8000 });
+await page.goto(base + "&ui=2#customers");
+await page.waitForFunction(() => window.EIKON && window.EIKON.state && window.EIKON.state.user && document.querySelector("#cus-q"), null, { timeout: 15000 });
 await page.fill("#cus-q", "zammit");
 await page.waitForFunction(() => document.querySelector("[data-person]"), null, { timeout: 8000 });
 await page.click('[data-person="1"]');

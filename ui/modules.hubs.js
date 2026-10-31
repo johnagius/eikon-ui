@@ -111,7 +111,8 @@
       ".hub-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}" +
       ".hub-card{display:block;width:100%;text-align:left;background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;color:var(--text);cursor:pointer;min-height:76px}" +
       ".hub-card:hover{border-color:rgba(31,95,216,.45)}.hub-card b{display:block;font-size:14.5px;font-weight:700;letter-spacing:-.01em;margin-bottom:3px}.hub-card span{display:block;font-size:12.5px;color:var(--muted);line-height:1.45}" +
-      ".hub-card.missing{opacity:.5;cursor:default}";
+      ".hub-card.missing{opacity:.5;cursor:default}" +
+      ".hub-note{font-size:13px;color:var(--muted2,#8A94A3)}";
     document.head.appendChild(st);
   }
 
@@ -119,7 +120,8 @@
     function render(ctx) {
       var m = ctx && ctx.mount; if (!m) return;
       injectCss();
-      var html = '<div class="hub"><h1>' + esc(cfg.title) + '</h1><p class="lead">' + esc(cfg.lead) + '</p>';
+      var html = '<div class="hub"><h1>' + esc(cfg.title) + '</h1><p class="lead">' + esc(cfg.lead) + '</p>' +
+        '<p class="lead hub-note">These still open in classic Eikon, exactly as before, with one button back here. Each becomes a new screen in its turn.</p>';
       cfg.groups.forEach(function (g, gi) {
         var cards = "";
         (g.ids || []).forEach(function (mid) {
@@ -137,8 +139,8 @@
       m.innerHTML = html;
       m.querySelectorAll("[data-open]").forEach(function (b) {
         b.addEventListener("click", function () {
-          E._ui2Back = { id: id, title: cfg.title };
-          window.location.hash = "#" + b.getAttribute("data-open");
+          try { sessionStorage.setItem("eikon_ui2_return", id); } catch (e) {}
+          E.openClassic(b.getAttribute("data-open"));
         });
       });
       m.querySelectorAll("[data-action]").forEach(function (b) {
