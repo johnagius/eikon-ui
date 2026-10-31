@@ -924,9 +924,18 @@
       });
     });
 
+    async function verifyLocumPass(kind, pass) {
+      if (pass == null || String(pass) === "") return false;
+      try {
+        var r = await E.apiFetch("/locumreceipts/verify-pass", { method: "POST", body: JSON.stringify({ kind: kind, pass: String(pass) }) });
+        return !!(r && r.ok);
+      } catch (e) { return false; }
+    }
+
     async function openEdit(row) {
       var pass = await askPassword("Edit Receipt", "Enter password to edit.");
-      if (pass !== "!4321") {
+      if (pass == null) return;
+      if (!(await verifyLocumPass("edit", pass))) {
         E.modal.show("Incorrect password", '<div class="eikon-help">Edit password is incorrect.</div>', [
           { label: "Close", primary: true, onClick: function () { E.modal.hide(); } }
         ]);
@@ -1054,7 +1063,8 @@
 
     async function openDelete(row) {
       var pass = await askPassword("Delete Receipt", "Enter password to delete.");
-      if (pass !== "!4321") {
+      if (pass == null) return;
+      if (!(await verifyLocumPass("edit", pass))) {
         E.modal.show("Incorrect password", '<div class="eikon-help">Delete password is incorrect.</div>', [
           { label: "Close", primary: true, onClick: function () { E.modal.hide(); } }
         ]);
@@ -1091,7 +1101,8 @@
 
     async function fetchReport(kind) {
       var pass = await askPassword("Report Access", "Enter report password to continue.");
-      if (pass !== "Report1234!") {
+      if (pass == null) return;
+      if (!(await verifyLocumPass("report", pass))) {
         E.modal.show("Incorrect password", '<div class="eikon-help">Report password is incorrect.</div>', [
           { label: "Close", primary: true, onClick: function () { E.modal.hide(); } }
         ]);

@@ -224,15 +224,27 @@
     } catch (e) { E.warn("[screening] cloudLoad error", e); }
   }
 
+  var deletedIds = [];
+  var saveAgain = false;
+
   async function cloudSave() {
-    if (syncing) return;
+    if (syncing) { saveAgain = true; return; } // never drop a save that arrives mid-flight
     syncing = true;
-    try { await api("PUT", "/screening/state", { state: { campaigns: campaigns } }); dirty = false; }
-    catch (e) { E.warn("[screening] cloudSave error", e); }
-    finally { syncing = false; }
+    var sent = deletedIds.slice();
+    try {
+      await api("PUT", "/screening/state", { state: { campaigns: campaigns, deleted_ids: sent } });
+      dirty = false;
+      deletedIds = deletedIds.filter(function (x) { return sent.indexOf(x) < 0; });
+    }
+    catch (e) { E.warn("[screening] cloudSave error", e); try { E.toast && E.toast("Screening: save failed. Your change is kept on screen; it will retry on the next save.", "error"); } catch (e2) {} }
+    finally {
+      syncing = false;
+      if (saveAgain) { saveAgain = false; setTimeout(cloudSave, 50); }
+    }
   }
 
   function save() { dirty = true; cloudSave(); }
+  function markDeleted(id) { var s = String(id || ""); if (s && deletedIds.indexOf(s) < 0) deletedIds.push(s); }
 
   // ── reference data ───────────────────────────────────────────────────────
   var CAMPAIGN_TYPES = [
@@ -886,6 +898,7 @@
         e.stopPropagation();
         showConfirm("Delete campaign \"" + c.name + "\"? This cannot be undone.", function () {
           campaigns = campaigns.filter(function (x) { return x.id !== c.id; });
+          markDeleted(c.id);
           save();
           toast("Campaign deleted", "warn");
           redraw();

@@ -1364,6 +1364,37 @@ async function handleBootstrapPost(request, env) {
   }
 }
 
+// Sign-in throttling: 10 failures per e-mail or 50 per IP address in 15 minutes.
+const LOGIN_MAX_PER_EMAIL = 10;
+const LOGIN_MAX_PER_IP = 50;
+const LOGIN_WINDOW_MINUTES = 15;
+async function ensureLoginAttemptsSchema(env) {
+  await dbRun(env, "CREATE TABLE IF NOT EXISTS login_attempts (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL, ip TEXT NOT NULL DEFAULT '', attempted_at TEXT NOT NULL DEFAULT (datetime('now')))", []);
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_login_attempts_email ON login_attempts (email, attempted_at)", []);
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_login_attempts_ip ON login_attempts (ip, attempted_at)", []);
+}
+function clientIp(request) {
+  try { return (String(request.headers.get("CF-Connecting-IP") || request.headers.get("X-Forwarded-For") || "").split(",")[0].trim()) || "unknown"; } catch (e) { return "unknown"; }
+}
+async function loginIsThrottled(env, email, ip) {
+  try {
+    await dbRun(env, "DELETE FROM login_attempts WHERE attempted_at < datetime('now', '-1 day')", []);
+    const win = "-" + LOGIN_WINDOW_MINUTES + " minutes";
+    const e = await dbFirst(env, "SELECT COUNT(*) AS c FROM login_attempts WHERE email = ? AND attempted_at > datetime('now', ?)", [email, win]);
+    if (e && Number(e.c) >= LOGIN_MAX_PER_EMAIL) return true;
+    const i = await dbFirst(env, "SELECT COUNT(*) AS c FROM login_attempts WHERE ip = ? AND attempted_at > datetime('now', ?)", [ip, win]);
+    if (i && Number(i.c) >= LOGIN_MAX_PER_IP) return true;
+  } catch (e2) {}
+  return false;
+}
+async function recordLoginFailure(env, email, ip) {
+  try { await dbRun(env, "INSERT INTO login_attempts (email, ip) VALUES (?, ?)", [email, ip]); } catch (e) {}
+  try { await writeAudit(env, 0, null, "LOGIN_FAILED", "user", email, { ip }); } catch (e) {}
+}
+async function clearLoginFailures(env, email) {
+  try { await dbRun(env, "DELETE FROM login_attempts WHERE email = ?", [email]); } catch (e) {}
+}
+
 async function handleLogin(request, env, corsOkHeaders) {
   const body = await readJson(request);
   const email = (body.email || "").trim().toLowerCase();
@@ -1371,6 +1402,12 @@ async function handleLogin(request, env, corsOkHeaders) {
 
   if (!email || !password) {
     return jsonResponse({ ok: false, error: "Missing email or password" }, 400, corsOkHeaders);
+  }
+
+  const ip = clientIp(request);
+  await ensureLoginAttemptsSchema(env);
+  if (await loginIsThrottled(env, email, ip)) {
+    return jsonResponse({ ok: false, error: "Too many sign-in attempts. Try again in 15 minutes." }, 429, { ...corsOkHeaders, "Retry-After": String(LOGIN_WINDOW_MINUTES * 60) });
   }
 
   const user = await dbFirst(
@@ -1381,6 +1418,7 @@ async function handleLogin(request, env, corsOkHeaders) {
   );
 
   if (!user || user.is_active !== 1) {
+    await recordLoginFailure(env, email, ip);
     return jsonResponse({ ok: false, error: "Invalid credentials" }, 401, corsOkHeaders);
   }
 
@@ -1389,8 +1427,10 @@ async function handleLogin(request, env, corsOkHeaders) {
   const stored = bytesFromBase64(user.pass_hash_b64);
 
   if (!constantTimeEqual(derived, stored)) {
+    await recordLoginFailure(env, email, ip);
     return jsonResponse({ ok: false, error: "Invalid credentials" }, 401, corsOkHeaders);
   }
+  await clearLoginFailures(env, email);
 
   const locId = user.default_location_id ? Number(user.default_location_id) : null;
   if (!locId) return jsonResponse({ ok: false, error: "Account has no assigned location" }, 403, corsOkHeaders);
@@ -5656,8 +5696,27 @@ async function handleLocumRegisterEntryDelete(request, env, corsOkHeaders, authU
    LOCUM RECEIPTS MODULE (API)
    ========================= */
 
-const LOCUM_RECEIPTS_REPORT_PASS = "Report1234!";
-const LOCUM_RECEIPTS_EDIT_PASS = "!4321";
+// Second-factor passwords for locum receipt edit/delete and reports. Configure
+// LOCUM_RECEIPTS_EDIT_PASS and LOCUM_RECEIPTS_REPORT_PASS as Worker secrets; the
+// fallbacks only exist so an un-configured deployment keeps working.
+function locumEditPass(env) { return String((env && env.LOCUM_RECEIPTS_EDIT_PASS) || "!4321"); }
+function locumReportPass(env) { return String((env && env.LOCUM_RECEIPTS_REPORT_PASS) || "Report1234!"); }
+function constantTimeEqualStr(a, b) {
+  const enc = new TextEncoder();
+  const x = enc.encode(String(a == null ? "" : a));
+  const y = enc.encode(String(b == null ? "" : b));
+  if (x.length !== y.length) { constantTimeEqual(x, x); return false; }
+  return constantTimeEqual(x, y);
+}
+async function handleLocumVerifyPass(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  const body = await readJson(request);
+  const kind = String(body && body.kind || "").trim();
+  const pass = String(body && body.pass || "");
+  const expected = kind === "report" ? locumReportPass(env) : locumEditPass(env);
+  if (pass && constantTimeEqualStr(pass, expected)) return jsonResponse({ ok: true }, 200, corsOkHeaders);
+  return jsonResponse({ ok: false, error: "Incorrect password" }, 403, corsOkHeaders);
+}
 
 function round2(n) {
   const x = Number(n);
@@ -5685,7 +5744,7 @@ function isValidDayType(s) {
 
 function requireHeaderPass(request, headerName, expected) {
   try {
-    return String(request.headers.get(headerName) || "") === String(expected);
+    return constantTimeEqualStr(String(request.headers.get(headerName) || ""), String(expected));
   } catch (e) {
     return false;
   }
@@ -5808,7 +5867,7 @@ async function handleLocumReceiptUpdate(request, env, corsOkHeaders, authUser, r
   }
 
   // extra protection as requested
-  if (!requireHeaderPass(request, "X-Eikon-Edit-Pass", LOCUM_RECEIPTS_EDIT_PASS)) {
+  if (!requireHeaderPass(request, "X-Eikon-Edit-Pass", locumEditPass(env))) {
     return jsonResponse({ ok: false, error: "Edit password required" }, 403, corsOkHeaders);
   }
 
@@ -5878,7 +5937,7 @@ async function handleLocumReceiptDelete(request, env, corsOkHeaders, authUser, r
   }
 
   // extra protection as requested
-  if (!requireHeaderPass(request, "X-Eikon-Edit-Pass", LOCUM_RECEIPTS_EDIT_PASS)) {
+  if (!requireHeaderPass(request, "X-Eikon-Edit-Pass", locumEditPass(env))) {
     return jsonResponse({ ok: false, error: "Edit password required" }, 403, corsOkHeaders);
   }
 
@@ -5912,7 +5971,7 @@ async function handleLocumReceiptsReport(request, env, corsOkHeaders, authUser, 
   }
 
   // extra protection as requested
-  if (!requireHeaderPass(request, "X-Eikon-Report-Pass", LOCUM_RECEIPTS_REPORT_PASS)) {
+  if (!requireHeaderPass(request, "X-Eikon-Report-Pass", locumReportPass(env))) {
     return jsonResponse({ ok: false, error: "Report password required" }, 403, corsOkHeaders);
   }
 
@@ -10271,6 +10330,19 @@ function poctExtractPatientColumns(pat) {
     patient_json: poctJsonString(p, {}) };
 }
 
+function poctExplicitIds(v) {
+  const out = [];
+  const seen = new Set();
+  if (!Array.isArray(v)) return out;
+  for (const x of v) {
+    const id = x == null ? "" : String(x).trim();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+  }
+  return out;
+}
+
 function poctChunk(arr, size) {
   const out = [];
   for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
@@ -10583,55 +10655,41 @@ async function handlePoctStatePut(request, env, corsOkHeaders, authUser) {
       counts.records_upserted++;
     }
 
-    // Delete records that no longer exist (authoritative replace)
-    const existingRec = await dbAll(
-      env,
-      `SELECT record_id AS id FROM poct_records WHERE org_id = ? AND location_id = ?`,
-      [orgId, locId]
-    );
-    const toDeleteRec = [];
-    for (let i = 0; i < existingRec.length; i++) {
-      const id = existingRec[i] ? String(existingRec[i].id || "") : "";
-      if (!id) continue;
-      if (!recIdSet.has(id)) toDeleteRec.push(id);
-    }
-    const recChunks = poctChunk(toDeleteRec, 800);
-    for (let c = 0; c < recChunks.length; c++) {
-      const chunk = recChunks[c];
-      if (!chunk.length) continue;
-      const qs = chunk.map(() => "?").join(",");
-      await dbRun(
-        env,
-        `DELETE FROM poct_records WHERE org_id = ? AND location_id = ? AND record_id IN (${qs})`,
-        [orgId, locId, ...chunk]
-      );
-      counts.records_deleted += chunk.length;
+    // Deletes are explicit. A PC never deletes what it did not load: the client sends the
+    // ids the user actually deleted (deleted_record_ids / deleted_patient_ids). A payload
+    // that simply lacks a record no longer removes it (that deleted other PCs' work).
+    const delRec = poctExplicitIds(st && (st.deleted_record_ids || st.deletedRecordIds));
+    const delPat = poctExplicitIds(st && (st.deleted_patient_ids || st.deletedPatientIds));
+    const wipeAll = !!(st && st.wipe_all === true);
+
+    if (wipeAll) {
+      const n1 = await dbFirst(env, `SELECT COUNT(*) AS c FROM poct_records WHERE org_id = ? AND location_id = ?`, [orgId, locId]);
+      const n2 = await dbFirst(env, `SELECT COUNT(*) AS c FROM poct_patients WHERE org_id = ? AND location_id = ?`, [orgId, locId]);
+      await dbRun(env, `DELETE FROM poct_records WHERE org_id = ? AND location_id = ?`, [orgId, locId]);
+      await dbRun(env, `DELETE FROM poct_patients WHERE org_id = ? AND location_id = ?`, [orgId, locId]);
+      counts.records_deleted += Number(n1 && n1.c || 0);
+      counts.patients_deleted += Number(n2 && n2.c || 0);
+      await writeAudit(env, orgId, userId, "POCT_WIPE_ALL", "poct_records", "", { records: counts.records_deleted, patients: counts.patients_deleted });
+    } else {
+      const recChunks = poctChunk(delRec, 800);
+      for (let c = 0; c < recChunks.length; c++) {
+        const chunk = recChunks[c];
+        if (!chunk.length) continue;
+        const qs = chunk.map(() => "?").join(",");
+        const r = await dbRun(env, `DELETE FROM poct_records WHERE org_id = ? AND location_id = ? AND record_id IN (${qs})`, [orgId, locId, ...chunk]);
+        counts.records_deleted += Number(r && r.meta && r.meta.changes || 0);
+      }
+      const patChunks = poctChunk(delPat, 800);
+      for (let d = 0; d < patChunks.length; d++) {
+        const chunk2 = patChunks[d];
+        if (!chunk2.length) continue;
+        const qs2 = chunk2.map(() => "?").join(",");
+        const r2 = await dbRun(env, `DELETE FROM poct_patients WHERE org_id = ? AND location_id = ? AND patient_id IN (${qs2})`, [orgId, locId, ...chunk2]);
+        counts.patients_deleted += Number(r2 && r2.meta && r2.meta.changes || 0);
+      }
     }
 
-    // Delete patients that no longer exist
-    const existingPat = await dbAll(
-      env,
-      `SELECT patient_id AS id FROM poct_patients WHERE org_id = ? AND location_id = ?`,
-      [orgId, locId]
-    );
-    const toDeletePat = [];
-    for (let j2 = 0; j2 < existingPat.length; j2++) {
-      const id2 = existingPat[j2] ? String(existingPat[j2].id || "") : "";
-      if (!id2) continue;
-      if (!patIdSet.has(id2)) toDeletePat.push(id2);
-    }
-    const patChunks = poctChunk(toDeletePat, 800);
-    for (let d = 0; d < patChunks.length; d++) {
-      const chunk2 = patChunks[d];
-      if (!chunk2.length) continue;
-      const qs2 = chunk2.map(() => "?").join(",");
-      await dbRun(
-        env,
-        `DELETE FROM poct_patients WHERE org_id = ? AND location_id = ? AND patient_id IN (${qs2})`,
-        [orgId, locId, ...chunk2]
-      );
-      counts.patients_deleted += chunk2.length;
-    }
+    await writeAudit(env, orgId, userId, "POCT_STATE_PUT", "poct_records", "", counts);
   } catch (e) {
     // Best-effort failure response; partial progress is possible but safe (upserts happen before deletes).
     throw e;
@@ -14274,7 +14332,8 @@ async function handleApptList(request, env, corsOkHeaders, authUser, url) {
   const dateTo    = url.searchParams.get("date_to")    || "";
   const status    = url.searchParams.get("status")     || "";
   const q         = url.searchParams.get("q")          || "";
-  const limit     = Math.min(Math.max(parseInt(url.searchParams.get("limit") || "500"), 1), 2000);
+  // Default raised from 500: the calendar loads everything and a busy clinic passed 500 rows, which silently hid future bookings. Pagination is the proper fix (rebuild).
+  const limit     = Math.min(Math.max(parseInt(url.searchParams.get("limit") || "5000"), 1), 10000);
 
   const bind  = [authUser.org_id, authUser.location_id];
   const where = ["org_id=?", "location_id=?"];
@@ -16104,6 +16163,9 @@ if (url.pathname.startsWith("/near-expiry/entries/") && request.method === "DELE
       if (!id) return jsonResponse({ ok: false, error: "Invalid receipt id" }, 400, corsOkHeaders);
       return await handleLocumReceiptDelete(request, env, corsOkHeaders, authUser, id);
     }
+    if (url.pathname === "/locumreceipts/verify-pass" && request.method === "POST") {
+      return await handleLocumVerifyPass(request, env, corsOkHeaders, authUser);
+    }
     if (url.pathname === "/locumreceipts/report" && request.method === "GET") {
       return await handleLocumReceiptsReport(request, env, corsOkHeaders, authUser, url);
     }
@@ -17348,7 +17410,7 @@ async function handleLoyaltyTransactionsList(request, env, corsOkHeaders, authUs
     `SELECT * FROM loyalty_transactions
      WHERE ${conditions.join(" AND ")}
      ORDER BY created_at DESC
-     LIMIT 500`,
+     LIMIT 5000`,
     bind);
 
   return jsonResponse({ ok: true, transactions: rows.map(txnRowToUi) }, 200, corsOkHeaders);
@@ -18301,19 +18363,15 @@ async function handlePvStatePut(request, env, corsOkHeaders, authUser) {
     await stmt.bind(orgId, locId, String(r.id), JSON.stringify(r), userId, userId).run();
   }
 
-  // Delete reports no longer in the set
-  if (idSet.size > 0) {
-    const existing = await dbAll(env, `SELECT report_id FROM pv_reports WHERE org_id = ? AND location_id = ?`, [orgId, locId]);
-    for (const row of existing) {
-      if (!idSet.has(String(row.report_id))) {
-        await dbRun(env, `DELETE FROM pv_reports WHERE org_id = ? AND location_id = ? AND report_id = ?`, [orgId, locId, String(row.report_id)]);
-      }
-    }
-  } else {
-    await dbRun(env, `DELETE FROM pv_reports WHERE org_id = ? AND location_id = ?`, [orgId, locId]);
+  // Deletes are explicit (deleted_ids); a payload that lacks a report never removes it.
+  const pvDeleted = poctExplicitIds(st && (st.deleted_ids || st.deletedIds));
+  let pvRemoved = 0;
+  for (const did of pvDeleted) {
+    const r = await dbRun(env, `DELETE FROM pv_reports WHERE org_id = ? AND location_id = ? AND report_id = ?`, [orgId, locId, did]);
+    pvRemoved += Number(r && r.meta && r.meta.changes || 0);
   }
 
-  await writeAudit(env, orgId, userId, "PV_STATE_PUT", "pv_reports", "", { count: cleaned.length });
+  await writeAudit(env, orgId, userId, "PV_STATE_PUT", "pv_reports", "", { count: cleaned.length, deleted: pvRemoved, deleted_ids: pvDeleted });
   return jsonResponse({ ok: true, saved: cleaned.length }, 200, corsOkHeaders);
 }
 
@@ -18383,19 +18441,15 @@ async function handleScreeningStatePut(request, env, corsOkHeaders, authUser) {
     await stmt.bind(orgId, locId, String(c.id), JSON.stringify(c), userId, userId).run();
   }
 
-  // Delete campaigns no longer in the set
-  if (idSet.size > 0) {
-    const existing = await dbAll(env, `SELECT campaign_id FROM screening_campaigns WHERE org_id = ? AND location_id = ?`, [orgId, locId]);
-    for (const row of existing) {
-      if (!idSet.has(String(row.campaign_id))) {
-        await dbRun(env, `DELETE FROM screening_campaigns WHERE org_id = ? AND location_id = ? AND campaign_id = ?`, [orgId, locId, String(row.campaign_id)]);
-      }
-    }
-  } else {
-    await dbRun(env, `DELETE FROM screening_campaigns WHERE org_id = ? AND location_id = ?`, [orgId, locId]);
+  // Deletes are explicit (deleted_ids); a payload that lacks a campaign never removes it.
+  const scDeleted = poctExplicitIds(st && (st.deleted_ids || st.deletedIds));
+  let scRemoved = 0;
+  for (const did of scDeleted) {
+    const r = await dbRun(env, `DELETE FROM screening_campaigns WHERE org_id = ? AND location_id = ? AND campaign_id = ?`, [orgId, locId, did]);
+    scRemoved += Number(r && r.meta && r.meta.changes || 0);
   }
 
-  await writeAudit(env, orgId, userId, "SCREENING_STATE_PUT", "screening_campaigns", "", { count: cleaned.length });
+  await writeAudit(env, orgId, userId, "SCREENING_STATE_PUT", "screening_campaigns", "", { count: cleaned.length, deleted: scRemoved, deleted_ids: scDeleted });
   return jsonResponse({ ok: true, saved: cleaned.length }, 200, corsOkHeaders);
 }
 
@@ -18494,15 +18548,11 @@ async function handleLabelsStatePut(request, env, corsOkHeaders, authUser) {
     await stmt.bind(orgId, locId, String(l.id), JSON.stringify(l), userId, userId).run();
   }
 
-  if (idSet.size > 0) {
-    const existing = await dbAll(env, `SELECT label_id FROM label_history WHERE org_id = ? AND location_id = ?`, [orgId, locId]);
-    for (const row of existing) {
-      if (!idSet.has(String(row.label_id))) {
-        await dbRun(env, `DELETE FROM label_history WHERE org_id = ? AND location_id = ? AND label_id = ?`, [orgId, locId, String(row.label_id)]);
-      }
-    }
-  } else {
-    await dbRun(env, `DELETE FROM label_history WHERE org_id = ? AND location_id = ?`, [orgId, locId]);
+  // Label history is an audit trail: nothing is ever deleted by omission. Explicit
+  // deletes (deleted_ids) are honoured for the rare correction.
+  const lbDeleted = poctExplicitIds(st && (st.deleted_ids || st.deletedIds));
+  for (const did of lbDeleted) {
+    await dbRun(env, `DELETE FROM label_history WHERE org_id = ? AND location_id = ? AND label_id = ?`, [orgId, locId, did]);
   }
 
   // Save settings (templates + pharmacy details)

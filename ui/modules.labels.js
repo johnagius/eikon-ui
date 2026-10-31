@@ -79,12 +79,17 @@
     if (templates.length === 0) templates = getDefaultTemplates();
   }
 
+  var saveAgain = false;
+
   async function cloudSave() {
-    if (syncing) return;
+    if (syncing) { saveAgain = true; return; } // never drop a save that arrives mid-flight (a printed label must reach the history)
     syncing = true;
     try { await api("PUT", "/labels/state", { state: { labelHistory: labelHistory, templates: templates, pharmacyDetails: pharmacyDetails } }); dirty = false; }
-    catch (e) { E.warn("[labels] cloudSave error", e); }
-    finally { syncing = false; }
+    catch (e) { E.warn("[labels] cloudSave error", e); try { E.toast && E.toast("Labels: the history could not be saved. It will retry on the next save.", "error"); } catch (e2) {} }
+    finally {
+      syncing = false;
+      if (saveAgain) { saveAgain = false; setTimeout(cloudSave, 50); }
+    }
   }
 
   function save() { dirty = true; cloudSave(); }

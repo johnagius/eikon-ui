@@ -106,7 +106,10 @@ async function poctRuntime(root){
         saving:false,
         pending:false,
         saveTimer:null,
-        lastError:""
+        lastError:"",
+        deletedRecordIds:[],
+        deletedPatientIds:[],
+        wipeAll:false
       });
       function deepClone(v){
         try{ return JSON.parse(JSON.stringify(v)); }catch(e){ return v; }
@@ -152,7 +155,15 @@ async function poctRuntime(root){
         }
         __cloud.saving = true;
         try{
-          var payload = { records: (__cloud.records||[]), patients: (__cloud.patients||[]) };
+          var delRec = (__cloud.deletedRecordIds||[]).slice();
+          var delPat = (__cloud.deletedPatientIds||[]).slice();
+          var payload = {
+            records: (__cloud.records||[]),
+            patients: (__cloud.patients||[]),
+            deleted_record_ids: delRec,
+            deleted_patient_ids: delPat,
+            wipe_all: __cloud.wipeAll === true
+          };
           var resp2 = await E.apiFetch("/poct/state", {
             method:"PUT",
             headers:{ "Content-Type":"application/json" },
@@ -161,7 +172,19 @@ async function poctRuntime(root){
           if(!resp2 || !resp2.ok){
             throw new Error(resp2 && resp2.error ? resp2.error : "Save failed");
           }
-                  try{ dbg("[poct] cloud save OK"); }catch(eOK){}
+          // Deletions acknowledged by the server; forget them.
+          __cloud.deletedRecordIds = (__cloud.deletedRecordIds||[]).filter(function(x){ return delRec.indexOf(x) < 0; });
+          __cloud.deletedPatientIds = (__cloud.deletedPatientIds||[]).filter(function(x){ return delPat.indexOf(x) < 0; });
+          __cloud.wipeAll = false;
+          try{ dbg("[poct] cloud save OK"); }catch(eOK){}
+          // Pull the merged state back so records saved on another PC appear here.
+          if(!__cloud.pending){
+            try{
+              __cloud.loaded = false;
+              await cloudLoad();
+              try{ if(typeof renderAll === "function") renderAll(); }catch(eR){}
+            }catch(eL){}
+          }
 }catch(e){
           __cloud.lastError = String(e && (e.message || e.bodyText || e) ? (e.message || e.bodyText || e) : e);
           try{ if(window.__POCT_TOAST) window.__POCT_TOAST("Cloud save failed", "warn", __cloud.lastError); }catch(e2){}
@@ -180,6 +203,7 @@ async function poctRuntime(root){
       function cloudWipe(){
         __cloud.records = [];
         __cloud.patients = [];
+        __cloud.wipeAll = true; // explicit, audited on the server
         cloudScheduleSave();
       }
       function loadRecords(){
@@ -351,6 +375,8 @@ function patientsToMap(arr){
         for(var i=0;i<all.length;i++){
           if(all[i] && String(all[i].id) !== sid) out.push(all[i]);
         }
+        if(!__cloud.deletedRecordIds) __cloud.deletedRecordIds = [];
+        if(__cloud.deletedRecordIds.indexOf(sid) < 0) __cloud.deletedRecordIds.push(sid);
         saveRecords(out);
       }
       function getById(id){

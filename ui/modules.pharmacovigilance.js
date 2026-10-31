@@ -64,15 +64,27 @@
     } catch (e) { E.warn("[pv] cloudLoad error", e); }
   }
 
+  var deletedIds = [];
+  var saveAgain = false;
+
   async function cloudSave() {
-    if (syncing) return;
+    if (syncing) { saveAgain = true; return; } // never drop a save that arrives mid-flight
     syncing = true;
-    try { await api("PUT", "/pharmacovigilance/state", { state: { reports: reports } }); dirty = false; }
-    catch (e) { E.warn("[pv] cloudSave error", e); }
-    finally { syncing = false; }
+    var sent = deletedIds.slice();
+    try {
+      await api("PUT", "/pharmacovigilance/state", { state: { reports: reports, deleted_ids: sent } });
+      dirty = false;
+      deletedIds = deletedIds.filter(function (x) { return sent.indexOf(x) < 0; });
+    }
+    catch (e) { E.warn("[pv] cloudSave error", e); try { E.toast && E.toast("Pharmacovigilance: save failed. Your change is kept on screen; it will retry on the next save.", "error"); } catch (e2) {} }
+    finally {
+      syncing = false;
+      if (saveAgain) { saveAgain = false; setTimeout(cloudSave, 50); }
+    }
   }
 
   function save() { dirty = true; cloudSave(); }
+  function markDeleted(id) { var s = String(id || ""); if (s && deletedIds.indexOf(s) < 0) deletedIds.push(s); }
 
   // ── severity helpers ───────────────────────────────────────────────────
   var SERIOUSNESS = ["Non-serious", "Serious – Hospitalisation", "Serious – Life-threatening", "Serious – Disability", "Serious – Congenital anomaly", "Serious – Other medically important", "Fatal"];
@@ -371,11 +383,23 @@
   }
 
   function deleteReport(id) {
-    if (!confirm("Delete this ADR report permanently?")) return;
-    reports = reports.filter(function (r) { return r.id !== id; });
-    save();
-    toast("Report deleted");
-    renderApp();
+    var doIt = function () {
+      reports = reports.filter(function (r) { return r.id !== id; });
+      markDeleted(id);
+      save();
+      toast("Report deleted");
+      renderApp();
+    };
+    if (E.modal && typeof E.modal.show === "function") {
+      E.modal.show("Delete report?", "<div>Delete this ADR report permanently?</div>", [
+        { label: "Cancel", onClick: function () { E.modal.hide(); } },
+        { label: "Delete", danger: true, onClick: function () { E.modal.hide(); doIt(); } }
+      ]);
+      return;
+    }
+    var okc = false;
+    try { okc = !!confirm("Delete this ADR report permanently?"); } catch (e) { okc = false; } // fail closed in a sandboxed frame
+    if (okc) doIt();
   }
 
   // ── print report ───────────────────────────────────────────────────────
