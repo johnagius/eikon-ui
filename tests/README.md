@@ -16,6 +16,10 @@ node --no-warnings tests/worker/run.mjs
 
 Pass a substring to run a subset: `node --no-warnings tests/worker/run.mjs "end of day"`.
 
+The UI suite (`tests/ui/run.mjs`) also drives the Customers screen against a mock of
+the people routes: hand-over from Today's search, adopt from history, versioned edit
+refused with the other version shown, carry into a register.
+
 `people.test.mjs` covers the shared people lookup (search across history, upsert by
 ID card, optimistic versions, timeline, merge, backfill and location isolation).
 

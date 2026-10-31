@@ -1135,6 +1135,10 @@
     if (dash) {
       catsContainer.appendChild(E._createNavBtn(dash));
     }
+    // Reimagined shell: Customers sits beside Today, above the old categories.
+    if (E.isUi2() && dashId === "today" && modById.customers) {
+      catsContainer.appendChild(E._createNavBtn(modById.customers));
+    }
 
     // --- Render each category ---
     var cats = E._activeSidebarCategories || E.SIDEBAR_CATEGORIES;

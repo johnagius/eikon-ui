@@ -96,7 +96,13 @@ creating with a known ID card returns that person and fills only their blanks.
 or any name they were recorded as. `POST /people/:id/merge` keeps one survivor.
 `POST /people/backfill` (admin) builds the book from history and can be run again
 safely. Nothing writes to a legacy table; `person_id` columns come with each area
-as it moves. The Customers screen reads this.
+as it moves. The Customers screen (`ui/modules.customers.js`, behind `?ui=2`, beside
+Today in the rail) reads this: search as you type, people first and history second,
+one tap adopts a person from history, inline edit with the version (a stale save
+shows the other version instead of overwriting), the story across every register,
+and New order / Question / Delivery / Appointment carry the person into the
+register through `sessionStorage.eikon_carry_person` (the registers read it next).
+Screenshot: `prototype/05 Customers, built.png`.
 
 ### 2.3 One identity for a product and a controlled drug
 

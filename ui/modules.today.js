@@ -308,6 +308,8 @@
         var cust = ((state.data && state.data.customers_waiting) || []).filter(function (c) { return String(c.name || "").toLowerCase().indexOf(term) >= 0; });
         if (cust.length) { openPath(cust[0].action.path); return; }
         if (mods.length) { window.location.hash = "#" + mods[0].id; return; }
+        // Anything else is a person: Customers searches every register for the name, ID card or phone.
+        if (E.modules.customers) { try { sessionStorage.setItem("eikon_customers_q", q.value.trim()); } catch (err) {} window.location.hash = "#customers"; return; }
         E.toast("Nothing called “" + q.value + "” yet. Try a register, a customer or a product name.", "warn");
       });
     }

@@ -49,12 +49,20 @@ function todayPayload() {
     counts: { before_opening: (todayState.tempDone ? 0 : 1) + 1 + (todayState.cleanDone ? 0 : 1), customers_waiting: 2, attention: 2 }
   };
 }
+let peopleState = { adopted: false, carmel: { id: 1, name: "Zammit Carmel", id_card: "0012345M", phone: "", alt_phone: "", email: "", address: "1 Triq il-Knisja", doctor_name: "", date_of_birth: "", notes: "", source: "history", version: 1, updated_at: "2026-10-31 09:00:00" } };
 function mockApi(req, res, body) {
   const url = new URL(req.url, "http://x");
   const p = url.pathname;
   calls.push({ method: req.method, path: p, query: url.search, body });
   if (p === "/__test401") { res.writeHead(401, { "content-type": "application/json" }); return res.end(JSON.stringify({ ok: false, error: "Unauthorized" })); }
+  if (p === "/people" && req.method === "POST") {
+    if (body && body.id) { res.writeHead(409, { "content-type": "application/json" }); return res.end(JSON.stringify({ ok: false, error: "Changed elsewhere", current: Object.assign({}, peopleState.carmel, { notes: "Call after 5", version: 2 }) })); }
+    peopleState.adopted = true;
+    res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify({ ok: true, created: true, person: peopleState.carmel }));
+  }
   res.writeHead(200, { "content-type": "application/json" });
+  if (p === "/people") return res.end(JSON.stringify({ ok: true, q: url.searchParams.get("q") || "", people: (peopleState.adopted ? [peopleState.carmel] : []).concat([{ id: 2, name: "Zammit Paul", phone: "79000001", id_card: "", version: 1 }]), history: peopleState.adopted ? [] : [{ key: "id:0012345M", name: "Zammit Carmel", id_card: "0012345M", phone: "", alt_phone: "", email: "", address: "1 Triq il-Knisja", doctor_name: "", sources: { dda_sale: 1, loyalty: 1 }, last_date: "2026-10-05" }] }));
+  if (p === "/people/1") return res.end(JSON.stringify({ ok: true, person: peopleState.carmel, activity: [{ kind: "dda_sale", label: "DDA sale", date: "2026-10-05", title: "Morphine 10mg", ref: "S-1", doctor: "Dr Abela" }, { kind: "loyalty", label: "Loyalty", date: "2026-09-01", title: "", ref: "" }], counts: { dda_sale: 1, loyalty: 1 } }));
   if (p === "/today") return res.end(JSON.stringify(todayPayload()));
   if (p === "/auth/me") return res.end(JSON.stringify({ ok: true, user: { id: 1, user_id: 1, email: "p@x.com", full_name: "Maria Borg", org_id: 1, location_id: 12, location_name: "Demo Pharmacy", role: "admin" } }));
   if (p === "/temperature/devices") return res.end(JSON.stringify({ ok: true, devices: [{ id: 7, name: "Fridge 1", device_type: "fridge", min_limit: 2, max_limit: 8, active: 1 }] }));
@@ -300,6 +308,53 @@ await page.press("#tdy-q", "Enter");
 await page.waitForTimeout(300);
 const openedModule = await page.evaluate(() => location.hash);
 report("today: search opens a customer or a register on Enter", openedCustomer === "#clientorders" && openedModule === "#temperature", `${openedCustomer} ${openedModule}`);
+
+// 11. Customers: Today's search hands over, the list shows people and history, Add adopts, edits are versioned
+const callsNow = async () => (await (await fetch(`http://localhost:${PORT}/__calls`)).json());
+await fetch(`http://localhost:${PORT}/__reset`);
+await page.evaluate(() => { location.hash = "#today"; });
+await page.waitForTimeout(800);
+await page.fill("#tdy-q", "zammit");
+await page.press("#tdy-q", "Enter");
+await page.waitForFunction(() => location.hash === "#customers" && document.querySelector("#cus-q") && document.querySelector("[data-hist]"), null, { timeout: 8000 });
+await page.waitForTimeout(300);
+const cus1 = await page.evaluate(() => ({ q: document.querySelector("#cus-q").value, people: document.querySelectorAll("[data-person]").length, hist: document.querySelectorAll("[data-hist]").length, rail: !!document.querySelector('.eikon-nav-btn[data-mod="customers"]'), histText: document.querySelector("[data-hist] .cus-t span").textContent }));
+const peopleGets = (await callsNow()).filter((c) => c.path === "/people" && c.method === "GET");
+report("customers: Today's search hands the term over; people, history and the rail entry render", cus1.q === "zammit" && cus1.people === 1 && cus1.hist === 1 && cus1.rail && /1 DDA sale, 1 loyalty card/.test(cus1.histText) && peopleGets.length >= 1 && /q=zammit/.test(peopleGets[peopleGets.length - 1].query), JSON.stringify({ cus1, peopleGets }));
+
+await fetch(`http://localhost:${PORT}/__reset`);
+await page.click("[data-adopt]");
+await page.waitForFunction(() => document.querySelector(".cus-head h1"), null, { timeout: 8000 });
+await page.waitForTimeout(300);
+const adoptPosts = (await callsNow()).filter((c) => c.method === "POST" && c.path === "/people");
+const cus2 = await page.evaluate(() => ({ h1: document.querySelector(".cus-head h1").textContent, story: document.querySelectorAll(".cus-story li").length, hist: document.querySelectorAll("[data-hist]").length, first: document.querySelector(".cus-story li .t b").textContent, counts: document.querySelectorAll(".cus-counts a").length }));
+report("customers: Add adopts a person from history in one request and opens them with their story", adoptPosts.length === 1 && adoptPosts[0].body.name === "Zammit Carmel" && adoptPosts[0].body.id_card === "0012345M" && adoptPosts[0].body.source === "history" && cus2.h1 === "Zammit Carmel" && cus2.story === 2 && cus2.hist === 0 && /DDA sale · Morphine 10mg/.test(cus2.first) && cus2.counts === 2, JSON.stringify({ adoptPosts, cus2 }));
+
+await page.click('[data-act="edit"]');
+await page.fill("[name=notes]", "Prefers SMS");
+await fetch(`http://localhost:${PORT}/__reset`);
+await page.click('[data-act="save"]');
+await page.waitForTimeout(700);
+const savePosts = (await callsNow()).filter((c) => c.method === "POST" && c.path === "/people");
+const cus3 = await page.evaluate(() => ({ warn: (document.querySelector(".cus-warn") || {}).textContent || "", editing: !!document.querySelector("#cus-edit"), notes: (document.querySelector("[name=notes]") || {}).value, saved: Array.from(document.querySelectorAll(".eikon-toast")).map((t) => t.textContent).join("|") }));
+report("customers: a stale edit is refused, the other version is shown, nothing is claimed saved", savePosts.length === 1 && savePosts[0].body.id === 1 && savePosts[0].body.version === 1 && savePosts[0].body.notes === "Prefers SMS" && /changed this record/.test(cus3.warn) && cus3.editing && cus3.notes === "Call after 5" && !/Saved/.test(cus3.saved), JSON.stringify({ savePosts, cus3 }));
+
+await page.click('[data-act="cancel"]');
+await page.click('[data-carry="#clientorders"]');
+await page.waitForTimeout(400);
+const carried = await page.evaluate(() => ({ hash: location.hash, carry: sessionStorage.getItem("eikon_carry_person") }));
+report("customers: New order carries the person into the register", carried.hash === "#clientorders" && /Zammit Carmel/.test(carried.carry || ""), JSON.stringify(carried));
+// screenshot of the person for the review
+await page.setViewportSize({ width: 1440, height: 900 });
+await page.evaluate(() => { location.hash = "#customers"; });
+await page.waitForFunction(() => document.querySelector("#cus-q"), null, { timeout: 8000 });
+await page.fill("#cus-q", "zammit");
+await page.waitForFunction(() => document.querySelector("[data-person]"), null, { timeout: 8000 });
+await page.click('[data-person="1"]');
+await page.waitForFunction(() => document.querySelector(".cus-story li"), null, { timeout: 8000 });
+await page.waitForTimeout(300);
+await page.screenshot({ path: path.join(here, "..", "..", "design", "eikon-reimagined", "prototype", "05 Customers, built.png") });
+peopleState.adopted = false;
 
 // screenshot for the review (reset the mock so the screen shows a morning with work to do)
 todayState = { tempDone: false, cleanDone: false };
