@@ -1,0 +1,568 @@
+<title>Eikon, Reimagined</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap">
+<style>
+/* Layout: a design review read top to bottom, in the same voice and form as the Master Universal review, so the two read as one series. Each argument is a few sentences, then the screen that proves it. */
+:root{
+  --bg:#F4F6F8; --surface:#FFFFFF; --ink:#141B24; --ink2:#5B6675; --ink3:#93A0AE; --hair:#E2E7ED;
+  --accent:#1F5FD8; --accent-soft:#E6EEFC; --good:#1C8A5B; --good-soft:#E1F3EA; --warn:#A06A0E; --warn-soft:#FBF0D3; --bad:#BF3B2E; --bad-soft:#FBE6E2;
+  --display:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif; --body:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mock-rail:#FFFFFF; --mock-bg:#F4F6F8;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --bg:#0F1419; --surface:#171E26; --ink:#EDF1F5; --ink2:#A6B1BD; --ink3:#6F7B88; --hair:#27303A; --accent:#6B9DF5; --accent-soft:#1B2A45; --good:#43C78A; --good-soft:#15352A; --warn:#E4B35A; --warn-soft:#3A2F14; --bad:#F08A7E; --bad-soft:#3E1F1B; --mock-rail:#171E26; --mock-bg:#0F1419; color-scheme:dark } }
+:root[data-theme="dark"]{ --bg:#0F1419; --surface:#171E26; --ink:#EDF1F5; --ink2:#A6B1BD; --ink3:#6F7B88; --hair:#27303A; --accent:#6B9DF5; --accent-soft:#1B2A45; --good:#43C78A; --good-soft:#15352A; --warn:#E4B35A; --warn-soft:#3A2F14; --bad:#F08A7E; --bad-soft:#3E1F1B; --mock-rail:#171E26; --mock-bg:#0F1419; color-scheme:dark }
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1240px;margin:0 auto;padding-block:48px 80px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header{max-width:780px;margin-bottom:56px}
+.eyebrow{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:14px}
+h1{font-family:var(--display);font-size:clamp(34px,5vw,56px);font-weight:800;letter-spacing:-.03em;line-height:1.02;margin:0 0 20px;text-wrap:balance}
+.lede{font-size:clamp(18px,2.2vw,22px);line-height:1.45;color:var(--ink2);margin:0 0 18px;text-wrap:pretty}
+.lede b{color:var(--ink);font-weight:700}
+.note{font-size:14px;color:var(--ink3);max-width:640px}
+section{margin-top:72px}
+h2{font-family:var(--display);font-size:clamp(26px,3.2vw,36px);font-weight:800;letter-spacing:-.025em;line-height:1.1;margin:0 0 10px;text-wrap:balance}
+h3{font-size:17px;font-weight:700;letter-spacing:-.01em;margin:0 0 6px}
+.num{display:inline-block;font-size:13px;font-weight:700;color:var(--ink3);letter-spacing:.08em;margin-bottom:10px}
+.argue{display:grid;grid-template-columns:1.1fr .9fr;gap:40px;align-items:start;max-width:1100px;margin-bottom:28px}
+.argue p,.prose p{margin:0 0 12px;color:var(--ink2);text-wrap:pretty}
+.argue p b,.prose p b{color:var(--ink);font-weight:600}
+.prose{max-width:720px}
+.keep{background:var(--surface);border:1px solid var(--hair);border-radius:14px;padding:18px 20px;font-size:14.5px}
+.keep h4{margin:0 0 8px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3)}
+.keep ul{margin:0;padding-left:18px;color:var(--ink2)}
+.keep li{margin:4px 0}
+.keep li b{color:var(--ink);font-weight:600}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+figure{margin:0;min-width:0}
+figcaption{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 10px;margin-bottom:10px;font-size:14px;line-height:1.3}
+figcaption b{font-weight:700}
+figcaption span:not(.tag){color:var(--ink3);flex-basis:100%}
+.tag{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:6px}
+.tag.was{background:var(--hair);color:var(--ink2)}
+.tag.now{background:var(--accent-soft);color:var(--accent)}
+.tag.ref{background:var(--good-soft);color:var(--good)}
+figure img{display:block;width:100%;height:auto;border-radius:10px;border:1px solid var(--hair);box-shadow:0 2px 10px rgba(10,15,25,.08)}
+.facts{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:26px 0 8px}
+.fact{background:var(--surface);border:1px solid var(--hair);border-radius:12px;padding:14px 16px}
+.fact b{display:block;font-family:var(--display);font-size:30px;font-weight:800;letter-spacing:-.03em;line-height:1;font-variant-numeric:tabular-nums}
+.fact small{display:block;color:var(--ink2);font-size:13px;margin-top:6px;line-height:1.35}
+.fact .arr{color:var(--accent);font-weight:800}
+.rules{display:grid;grid-template-columns:1fr 1fr;gap:14px 28px;max-width:1100px}
+.rule{border-top:1px solid var(--hair);padding:16px 0 6px}
+.rule p{margin:0;color:var(--ink2);font-size:15px}
+.map{width:100%;border-collapse:collapse;font-size:14.5px;max-width:1000px}
+.map th{text-align:left;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);padding:0 12px 10px 0;font-weight:700}
+.map td{padding:10px 12px 10px 0;border-top:1px solid var(--hair);vertical-align:top;color:var(--ink2)}
+.map td:first-child{color:var(--ink);font-weight:600;white-space:nowrap}
+.map td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
+.map td.n b{color:var(--ink)}
+.tablewrap{overflow-x:auto}
+.callout{background:var(--surface);border:1px solid var(--hair);border-left:4px solid var(--accent);border-radius:12px;padding:18px 22px;max-width:900px;color:var(--ink2);font-size:15px}
+.callout b{color:var(--ink)}
+.kill{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px;max-width:1100px;margin-top:18px}
+.kill div{background:var(--surface);border:1px solid var(--hair);border-radius:10px;padding:11px 13px;font-size:14px;color:var(--ink2)}
+.kill div b{display:block;color:var(--ink);font-weight:700;font-size:14px;margin-bottom:2px}
+.kill div s{color:var(--ink3)}
+
+/* ---- Mockups: a 1110x680 window, scaled to fit its column ---- */
+.winwrap{width:100%;aspect-ratio:1110/680;position:relative;overflow:hidden;border-radius:10px;border:1px solid var(--hair);box-shadow:0 2px 10px rgba(10,15,25,.08);background:var(--mock-bg)}
+.win{position:absolute;left:0;top:0;width:1110px;height:680px;transform-origin:0 0;display:grid;grid-template-columns:200px 1fr;background:var(--mock-bg);color:var(--ink);font-family:var(--body);font-size:13px;line-height:1.35}
+.win *{box-sizing:border-box}
+.rail{background:var(--mock-rail);border-right:1px solid var(--hair);padding:18px 14px;display:flex;flex-direction:column;gap:4px}
+.rail .brand{display:flex;align-items:center;gap:10px;margin:0 4px 18px}
+.rail .brand i{width:30px;height:30px;border-radius:9px;background:var(--accent);display:inline-block;position:relative}
+.rail .brand i::after{content:"";position:absolute;inset:9px;border:2.5px solid #fff;border-radius:50%;border-right-color:transparent}
+.rail .brand b{font-size:15px;font-weight:800;letter-spacing:-.01em}
+.rail .brand small{display:block;font-size:11px;color:var(--ink2);font-weight:500}
+.nav{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;font-weight:600;font-size:13.5px;color:var(--ink)}
+.nav.on{background:var(--accent-soft);color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent-soft)}
+.nav .ic{width:18px;height:18px;border-radius:5px;border:1.8px solid currentColor;opacity:.8}
+.nav .cnt{margin-left:auto;font-size:11.5px;font-weight:700;background:var(--hair);color:var(--ink2);padding:2px 8px;border-radius:999px;font-variant-numeric:tabular-nums}
+.nav .cnt.red{background:var(--bad-soft);color:var(--bad)}
+.nav .cnt.amb{background:var(--warn-soft);color:var(--warn)}
+.rail .spacer{flex:1}
+.rail .foot{border-top:1px solid var(--hair);padding-top:12px;margin-top:8px;font-size:12px;color:var(--ink2);line-height:1.5}
+.rail .foot b{color:var(--ink);font-weight:700}
+.main{padding:20px 24px 0 24px;display:grid;grid-template-columns:1fr 300px;gap:0 22px;grid-template-rows:auto auto 1fr;align-content:start;overflow:hidden}
+.search{grid-column:1/2;display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--hair);border-radius:12px;padding:0 14px;height:46px;color:var(--ink3);font-size:15px}
+.search .glass{width:16px;height:16px;border:2px solid var(--ink3);border-radius:50%;position:relative;flex:none}
+.search .glass::after{content:"";position:absolute;width:7px;height:2px;background:var(--ink3);right:-6px;bottom:-3px;transform:rotate(45deg)}
+.search .hint{margin-left:auto;font-size:11px;color:var(--ink3);background:var(--hair);padding:3px 8px;border-radius:6px}
+.date{grid-column:2/3;text-align:right;align-self:center}
+.date b{display:block;font-size:17px;font-weight:700;letter-spacing:-.01em}
+.date span{font-size:13px;color:var(--ink2)}
+.head{grid-column:1/2;margin:16px 0 4px}
+.head h1{font-size:26px;letter-spacing:-.025em;margin:0 0 6px;line-height:1.1;font-weight:800}
+.head h1 span{color:var(--ink2);font-weight:500}
+.legend{display:flex;gap:16px;font-size:12.5px;color:var(--ink2);flex-wrap:wrap}
+.legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:1px}
+.col{grid-column:1/2;min-width:0}
+.side{grid-column:2/3;grid-row:2/4;display:flex;flex-direction:column;gap:12px;margin-top:16px}
+.lab{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);margin:12px 0 7px;display:flex;align-items:center;gap:8px}
+.lab b{color:var(--ink);font-size:11px}
+.lab a{margin-left:auto;color:var(--accent);font-weight:600;text-transform:none;letter-spacing:0;font-size:12.5px}
+.list{background:var(--surface);border:1px solid var(--hair);border-radius:12px;overflow:hidden}
+.row{display:flex;align-items:center;gap:12px;padding:11px 14px 11px 0;border-top:1px solid var(--hair);border-left:3px solid transparent}
+.row:first-child{border-top:0}
+.row.red{border-left-color:var(--bad)} .row.amb{border-left-color:var(--warn)} .row.grn{border-left-color:var(--good)} .row.blu{border-left-color:var(--accent)}
+.row .av{width:36px;height:36px;border-radius:50%;flex:none;margin-left:12px;display:grid;place-items:center;font-weight:700;font-size:12.5px;color:#fff}
+.row .av.sq{border-radius:9px}
+.row .t{flex:1;min-width:0}
+.row .t b{display:block;font-size:14.5px;font-weight:700;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .t span{display:block;font-size:12.5px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .t span.u{color:var(--bad)} .row .t span.u b{display:inline;font-size:12.5px;color:var(--bad)}
+.pill{font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;white-space:nowrap}
+.pill.red{background:var(--bad-soft);color:var(--bad)} .pill.amb{background:var(--warn-soft);color:var(--warn)} .pill.grn{background:var(--good-soft);color:var(--good)} .pill.blu{background:var(--accent-soft);color:var(--accent)} .pill.gry{background:var(--hair);color:var(--ink2)}
+.btn{font-size:13px;font-weight:600;padding:8px 14px;border-radius:9px;border:1px solid var(--hair);background:var(--surface);white-space:nowrap;color:var(--ink)}
+.btn.p{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.g{background:var(--good);border-color:var(--good);color:#fff}
+.inl{display:flex;align-items:center;gap:6px}
+.inl .f{width:58px;height:32px;border:1px solid var(--hair);border-radius:8px;background:var(--mock-bg);padding:0 8px;display:flex;align-items:center;font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums}
+.inl .f.e{color:var(--ink3)}
+.inl .f.live{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.inl small{font-size:11px;color:var(--ink3)}
+.tile{background:var(--surface);border:1px solid var(--hair);border-radius:12px;padding:14px 16px}
+.tile .lab{margin:0 0 8px}
+.tile .big{font-size:24px;font-weight:800;letter-spacing:-.02em;line-height:1.1;font-variant-numeric:tabular-nums}
+.tile .big span{font-size:14px;font-weight:600;color:var(--ink2);letter-spacing:0;margin-left:6px}
+.tile p{margin:6px 0 0;font-size:12.5px;color:var(--ink2);line-height:1.45}
+.tile p b{color:var(--ink);font-weight:600}
+.tile .cta{margin-top:10px;display:inline-block}
+.mini{display:flex;gap:6px;margin-top:8px}
+.mini i{flex:1;height:28px;border-radius:6px;background:var(--hair);display:grid;place-items:center;font-style:normal;font-size:11px;font-weight:700;color:var(--ink2)}
+.mini i.on{background:var(--good-soft);color:var(--good)}
+.mini i.now{background:var(--accent);color:#fff}
+
+/* customer screen */
+.cust{grid-template-columns:200px 290px 1fr}
+.clist{border-right:1px solid var(--hair);padding:16px 14px;display:flex;flex-direction:column;gap:10px;min-width:0;background:var(--mock-bg)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font-size:12px;font-weight:600;padding:5px 11px;border-radius:999px;border:1px solid var(--hair);background:var(--surface);color:var(--ink)}
+.chip.on{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.crow{display:flex;align-items:center;gap:10px;padding:10px 10px;border-radius:10px;background:var(--surface);border:1px solid var(--hair)}
+.crow.sel{border-color:var(--accent);background:var(--accent-soft)}
+.crow .av{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-size:11.5px;font-weight:700;color:#fff;flex:none}
+.crow b{display:block;font-size:13.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.crow span{display:block;font-size:12px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.crow .t{flex:1;min-width:0}
+.detail{padding:18px 22px;display:flex;flex-direction:column;gap:12px;min-width:0;overflow:hidden}
+.hero{background:var(--surface);border:1px solid var(--hair);border-radius:12px;padding:16px 18px}
+.hero .top{display:flex;align-items:center;gap:14px}
+.hero .av{width:52px;height:52px;border-radius:50%;display:grid;place-items:center;font-size:17px;font-weight:800;color:#fff}
+.hero h2{font-size:24px;letter-spacing:-.025em;margin:0;line-height:1.1;font-weight:800}
+.hero .sub{display:flex;gap:8px;align-items:center;margin-top:5px;font-size:13px;color:var(--ink2);flex-wrap:wrap}
+.facts4{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--hair);margin-top:14px;padding-top:12px}
+.facts4 div{border-left:1px solid var(--hair);padding:0 14px}
+.facts4 div:first-child{border-left:0;padding-left:0}
+.facts4 small{display:block;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3)}
+.facts4 b{display:block;font-size:15px;font-weight:700;margin-top:3px}
+.facts4 b.red{color:var(--bad)}
+.acts{display:flex;gap:8px;margin-top:14px;align-items:center}
+.acts .more{margin-left:auto;color:var(--ink3);font-weight:800;letter-spacing:2px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px;min-height:0}
+.card{background:var(--surface);border:1px solid var(--hair);border-radius:12px;padding:14px 16px}
+.card .lab{margin:0 0 8px}
+.item{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-top:1px solid var(--hair);font-size:13px}
+.item:first-of-type{border-top:0}
+.item .dot{width:9px;height:9px;border-radius:50%;background:var(--ink3);margin-top:5px;flex:none}
+.item .dot.g{background:var(--good)} .item .dot.b{background:var(--accent)}
+.item b{display:block;font-weight:600}
+.item span{color:var(--ink2);font-size:12.5px}
+.item .r{margin-left:auto;font-size:12px;color:var(--ink3);white-space:nowrap}
+.srv{display:flex;gap:8px;flex-wrap:wrap}
+.srv span{font-size:12px;padding:6px 10px;border-radius:9px;background:var(--mock-bg);border:1px solid var(--hair);color:var(--ink)}
+.srv span b{color:var(--ink2);font-weight:500}
+
+/* register screen */
+.reg{grid-template-columns:200px 1fr}
+.regmain{padding:20px 24px;display:flex;flex-direction:column;gap:12px;min-width:0;overflow:hidden}
+.reghead{display:flex;align-items:flex-end;gap:14px}
+.reghead h1{font-size:24px;letter-spacing:-.025em;margin:0;font-weight:800;line-height:1.1}
+.reghead .chips{margin-left:14px}
+.reghead .right{margin-left:auto;display:flex;gap:8px;align-items:center}
+.month{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.day{background:var(--surface);border:1px solid var(--hair);border-radius:9px;padding:7px 9px;min-height:62px;font-size:12px}
+.day small{display:block;color:var(--ink3);font-weight:700;font-size:11px}
+.day b{display:block;font-weight:700;font-size:13px;font-variant-numeric:tabular-nums;margin-top:3px}
+.day span{display:block;color:var(--ink2);font-size:11px}
+.day.off{background:transparent;border-style:dashed}
+.day.miss{border-color:var(--bad);background:var(--bad-soft)} .day.miss b{color:var(--bad)}
+.day.today{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.day.today .inl{margin-top:4px}
+.day.today .inl .f{width:44px;height:26px;font-size:12px}
+.dow{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);padding:0 2px}
+.regfoot{display:flex;gap:16px;align-items:center;font-size:12.5px;color:var(--ink2);margin-top:auto;padding-top:8px;border-top:1px solid var(--hair)}
+.regfoot a{color:var(--accent);font-weight:600;margin-left:auto}
+
+@media (max-width:900px){ .argue,.pair,.rules{grid-template-columns:1fr} .facts{grid-template-columns:1fr 1fr} }
+@media (max-width:520px){ .facts{grid-template-columns:1fr} }
+@media (prefers-reduced-motion:no-preference){ .nav,.btn,.chip{transition:background .18s ease,color .18s ease} }
+</style>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">Eikon · design review · 31 October 2026</div>
+  <h1>Fifty-three good ideas, and not one great screen.</h1>
+  <p class="lede">A pharmacist opens Eikon for one of maybe five reasons: log the fridge, sign the register, hand a customer their order, close the till, look something up. Today the app greets them with a 4.9-second animation, a choice between three portals (two of them greyed out), a rail of <b>50 items</b> in seven uppercase categories, and a first screen with <b>77 buttons</b> before a single record exists.</p>
+  <p class="lede">Master Universal just proved the other way works. One question per screen, one button per row, the search box as the biggest thing on the page. Eikon has more functionality than Master Universal will ever have. That is exactly why it needs the same discipline more, not less.</p>
+  <p class="note">Nothing in the repository was changed. The "Today" screens are real renders of the current <code>ui/</code> build served locally against an empty demo pharmacy. The "Reimagined" screens are HTML mockups at the same 1110×680 window size used for the Master Universal review. Every current module keeps a home; the map at the end shows where.</p>
+</header>
+
+<section>
+  <div class="num">THE DIAGNOSIS</div>
+  <h2>The interface is a map of the codebase</h2>
+  <div class="argue">
+    <div>
+      <p>Eikon is built as <b>53 modules</b>, each a file, each a sidebar entry, each with its own toolbar, its own date picker, its own Save, its own Print and its own idea of what a button looks like. The sidebar is literally the list of files: <em>Inspections, Operations, Sales &amp; Clients, Inventory, Communication, Clinical, Reference.</em> Those are an engineer's folders. No pharmacist has ever thought "I need to go to Operations".</p>
+      <p>The first screen tries to help by summarising everything, so it becomes everything: 18 rows, each with a status pill, an "Open" and sometimes a "Quick enter", loading from <b>35 requests</b> with its own Refresh button. A screen that needs a Refresh button is telling you it does not trust itself.</p>
+      <p>And because every module is equally important, the app ships a 1,953-line manual with 39 chapters, reachable from a "Help &amp; Guides" button pinned to the rail. <b>If the interface needs a manual, the interface is the problem.</b></p>
+    </div>
+    <div class="facts" style="margin:0;grid-template-columns:1fr 1fr">
+      <div class="fact"><b>50 <span class="arr">→</span> 4</b><small>places in the rail. Today, Customers, Stock, Registers. Team and Settings sit at the bottom where set-up belongs.</small></div>
+      <div class="fact"><b>77 <span class="arr">→</span> 9</b><small>buttons on the first screen, and each of the nine says what it does: "Log", "Confirm", "Collected".</small></div>
+      <div class="fact"><b>4.9 s <span class="arr">→</span> 0</b><small>of logo animation before work, on every single load. Nobody in a pharmacy at 08:55 wants a film.</small></div>
+      <div class="fact"><b>3 <span class="arr">→</span> 1</b><small>portals to choose from at sign-in. You sign in, you are home. The system knows who you are.</small></div>
+    </div>
+  </div>
+  <div class="pair">
+    <figure><figcaption><span class="tag was">Today</span><b>Eikon, the first screen</b><span>An empty pharmacy, and already 77 buttons, 50 rail items and a Refresh</span></figcaption><img src="img/current-dashboard.png" alt="The current Eikon dashboard: dark theme, a long sidebar with categories, three cards of rows each ending in Open buttons" width="1440" height="900"></figure>
+    <figure><figcaption><span class="tag ref">The sibling</span><b>Master Universal, Today</b><span>The standard Eikon now has to meet: one headline, one button per row, the search box first</span></figcaption><img src="img/mu-today-reimagined.png" alt="The reimagined Master Universal Today screen: a light window with a large search box, a headline that says four people need you now, and one green button per row" width="1480" height="906"></figure>
+  </div>
+</section>
+
+<section>
+  <div class="num">THE FOUR MANDATES, APPLIED</div>
+  <h2>What simplicity costs, line by line</h2>
+  <div class="rules">
+    <div class="rule"><h3>Ruthless subtraction</h3><p>Every control was asked one question: does the pharmacist need this to finish the thing they came to do? The intro, the portal picker, the module search, the accordions, Refresh, Load, "Sync queued", "Cloud: ON", "dbg=0" in the corner of Temperature, Fullscreen, Diag, the Help manual. All gone. Not hidden in a menu. Gone.</p></div>
+    <div class="rule"><h3>The 3-action rule</h3><p>Logging the fridge today is menu, module, min, max, Save: five actions, after a five-second film. Reimagined: the fridge row is already on Today with two live fields. Type, Tab, type, Enter. The table below holds every core task to three or fewer.</p></div>
+    <div class="rule"><h3>Zero cognitive load</h3><p>The rail uses words a grandparent would use: Customers, Stock, Registers. Status is a sentence, not a code: "Last cleaned 14 days ago" instead of a red pill that says Overdue next to a button that says Open. Dates are words: "Due Tuesday". Nothing uppercase shouts at you.</p></div>
+    <div class="rule"><h3>Flawless detail and flow</h3><p>One typeface, one light surface (a pharmacy is a bright room; a dark screen among white shelves looks like a developer tool), one accent used with intent, one icon set instead of emoji. Registers save on Enter and show "Saved 09:12 · Maria" with a ten-second Undo. No modal for primary work. No Save button for a single number.</p></div>
+  </div>
+</section>
+
+<section>
+  <div class="num">1 · THE FIRST SCREEN</div>
+  <h2>Open on what needs doing, in the order it needs doing</h2>
+  <div class="argue">
+    <div>
+      <p>The reimagined home is <b>Today</b>. It is the Dashboard, the quick-entry modals, the Instructions handover and the alerts, merged into one list that reads top to bottom like the morning itself. A headline says how many things need you. The things are listed in the order they need you: the registers that must be filled before the doors open, then the customers who are waiting. Each row has <b>one</b> button, and the button says what it does.</p>
+      <p>The fridge row does not open anything. Its two fields are right there. You type 3.9, Tab, 6.1, Enter, and the row turns green and says who logged it. That is the whole temperature module, for the 360 days a year when nothing is wrong.</p>
+      <p>The search box is the biggest thing on the screen because it replaces the entire rail for anything not on Today. Type a customer's name and Enter opens their page. Type "OCP" and the finder appears. Type "Enalapril" and you see stock, the Cherubino order and the near-expiry line in one answer. <b>Search is how 40 of the 53 modules are reached from now on.</b> They did not deserve a rail slot. They deserve to be one keystroke away.</p>
+    </div>
+    <div class="keep"><h4>Where today's features went</h4><ul>
+      <li><b>Dashboard rows + Quick enter modals</b> become Today rows that act inline.</li>
+      <li><b>Instructions &amp; handover, Chat Board</b> become the Team tile and a handover line on Today.</li>
+      <li><b>Alerts, Scarce stock, Near expiry, Supplier updates</b> become the Stock tile, which names the item.</li>
+      <li><b>End Of Day</b> becomes the Takings tile with one button at closing time.</li>
+      <li><b>Shifts (coverage)</b> becomes the Team tile: who is in, until when.</li>
+      <li><b>Module search, categories, Refresh, Fullscreen, Logout buttons</b> are removed. Your name at the bottom of the rail is the account menu.</li>
+    </ul></div>
+  </div>
+
+  <figure>
+    <figcaption><span class="tag now">Reimagined</span><b>Today</b><span>Three things before opening, two customers waiting, the rest of the day in three tiles</span></figcaption>
+    <div class="winwrap"><div class="win">
+      <aside class="rail">
+        <div class="brand"><i></i><div><b>Eikon</b><small>Demo Pharmacy</small></div></div>
+        <div class="nav on"><span class="ic"></span>Today<span class="cnt red">3</span></div>
+        <div class="nav"><span class="ic"></span>Customers<span class="cnt">2</span></div>
+        <div class="nav"><span class="ic"></span>Stock<span class="cnt amb">2</span></div>
+        <div class="nav"><span class="ic"></span>Registers</div>
+        <div class="spacer"></div>
+        <div class="nav"><span class="ic"></span>Team</div>
+        <div class="nav"><span class="ic"></span>Settings</div>
+        <div class="foot"><b>Maria Borg</b><br>Pharmacist · signed in 08:52</div>
+      </aside>
+      <div class="main">
+        <div class="search"><span class="glass"></span>What do you need? A customer, a product, a register…<span class="hint">Enter opens it</span></div>
+        <div class="date"><b>Friday 31 October</b><span>09:12 · doors open 09:30</span></div>
+        <div class="head"><h1>3 things before the doors open<span>, 2 customers waiting.</span></h1>
+          <div class="legend"><span><i style="background:var(--bad)"></i>1 register overdue</span><span><i style="background:var(--warn)"></i>2 to fill this morning</span><span><i style="background:var(--good)"></i>1 order ready</span><span><i style="background:var(--accent)"></i>1 question since Tuesday</span></div>
+        </div>
+        <div class="col">
+          <div class="lab">Before opening <b>3</b></div>
+          <div class="list">
+            <div class="row amb"><div class="av sq" style="background:#2E8BC9">4°</div><div class="t"><b>Fridge 1 · morning reading</b><span>Yesterday 3.8 to 6.4 · limits 2 to 8</span></div>
+              <div class="inl"><small>min</small><div class="f live">3.9</div><small>max</small><div class="f e">—</div></div><span class="btn p">Log</span></div>
+            <div class="row amb"><div class="av sq" style="background:#6B5BD2">RP</div><div class="t"><b>Daily register · responsible pharmacist</b><span>Maria Borg, from 09:00 · same as yesterday</span></div><span class="pill amb">Not signed</span><span class="btn p">Confirm</span></div>
+            <div class="row red"><div class="av sq" style="background:#D9822B">✓</div><div class="t"><b>Cleaning · dispensary and fridge</b><span class="u">Last done <b>14 days ago</b> by Karl · due weekly</span></div><span class="pill red">Overdue</span><span class="btn">Done now</span></div>
+          </div>
+          <div class="lab">Customers waiting <b>2</b><a>All customers ›</a></div>
+          <div class="list">
+            <div class="row grn"><div class="av" style="background:#1C8A5B">GC</div><div class="t"><b>Grech Carmen</b><span>Order ready · Augmentin 625 ×14 · arrived 08:40 · SMS sent ✓</span></div><span class="pill grn">Ready</span><span class="btn">Collected</span></div>
+            <div class="row blu"><div class="av" style="background:#3B6FD8">VJ</div><div class="t"><b>Vella Joseph</b><span>Asked on Tuesday · "do you stock the Omron M3 monitor?"</span></div><span class="pill blu">Waiting 3 days</span><span class="btn">Reply</span></div>
+          </div>
+        </div>
+        <div class="side">
+          <div class="tile"><div class="lab">Takings</div><div class="big">€0<span>so far</span></div><p>Float <b>€500</b> counted by Maria at 08:55. One button closes the day at 19:00.</p></div>
+          <div class="tile"><div class="lab">Stock</div><div class="big">2<span>items short</span></div><p><b>Enalapril 20mg</b> is out; Cherubino order sent 08:10, due Monday. <b>Metformin 850</b> has 6 days left.</p></div>
+          <div class="tile"><div class="lab">Team today</div><div class="mini"><i class="on">Maria</i><i class="now">Karl 13:00</i><i>Locum 17:00</i></div><p>Handover from last night: <b>"Courier at 16:00, box for Dr Galea."</b></p></div>
+        </div>
+      </div>
+    </div></div>
+  </figure>
+</section>
+
+<section>
+  <div class="num">2 · ONE CUSTOMER</div>
+  <h2>A customer is one person, not five modules</h2>
+  <div class="argue">
+    <div>
+      <p>Today a customer lives in Client Orders, Quotations, Order Diary, Client Deliveries, Client Tickets, Appointments and Loyalty &amp; Campaigns, with Vaccines, POCT and Screening Campaigns in a different category altogether. Seven places for one person, and in none of them can you see the other six.</p>
+      <p>Reimagined: <b>Customers</b> is a narrow list on the left and one person's story on the right, exactly the shape Master Universal now uses for a patient. Name at 24px, two status pills, four facts, one primary button that changes with their state, and underneath it everything they have asked for or been given, in time order. Orders, deliveries, questions, appointments, vaccines and blood pressure readings are not destinations. They are lines in the story and chips you filter by.</p>
+      <p>When the pharmacy has a Master Universal licence, the same list grows a <b>Patients</b> chip and the same page shows the dispensing side: next due, bookings, what is owed. One person, one page, whichever system first met them.</p>
+    </div>
+    <div class="keep"><h4>Where today's features went</h4><ul>
+      <li><b>Client Orders, Quotations, Order Diary, Deliveries</b> become the Orders chip and the "New order" button.</li>
+      <li><b>Client Tickets</b> become Questions, with "Reply" as the row's button.</li>
+      <li><b>Appointments</b> become a line on the person and a day view under Team.</li>
+      <li><b>Loyalty &amp; Campaigns</b> become one fact (points) and one line per campaign.</li>
+      <li><b>Vaccines, POCT, Screening</b> become Services given to this person.</li>
+      <li><b>Contacts</b> becomes the same list, filtered to doctors and suppliers.</li>
+    </ul></div>
+  </div>
+  <figure>
+    <figcaption><span class="tag now">Reimagined</span><b>Customers · Grech Carmen</b><span>Everything about one person, one primary action</span></figcaption>
+    <div class="winwrap"><div class="win cust">
+      <aside class="rail">
+        <div class="brand"><i></i><div><b>Eikon</b><small>Demo Pharmacy</small></div></div>
+        <div class="nav"><span class="ic"></span>Today<span class="cnt red">3</span></div>
+        <div class="nav on"><span class="ic"></span>Customers<span class="cnt">2</span></div>
+        <div class="nav"><span class="ic"></span>Stock<span class="cnt amb">2</span></div>
+        <div class="nav"><span class="ic"></span>Registers</div>
+        <div class="spacer"></div>
+        <div class="nav"><span class="ic"></span>Team</div>
+        <div class="nav"><span class="ic"></span>Settings</div>
+        <div class="foot"><b>Maria Borg</b><br>Pharmacist · signed in 08:52</div>
+      </aside>
+      <div class="clist">
+        <div class="search" style="height:40px;font-size:13.5px">
+          <span class="glass"></span>Search 412 customers</div>
+        <div class="chips"><span class="chip on">All</span><span class="chip">Waiting</span><span class="chip">Orders</span><span class="chip">Patients</span></div>
+        <div class="crow"><div class="av" style="background:#6B5BD2">AM</div><div class="t"><b>Abela Mario</b><span>Order due Monday</span></div></div>
+        <div class="crow"><div class="av" style="background:#2E8BC9">BA</div><div class="t"><b>Borg Anna</b><span>Flu vaccine booked 4 Nov</span></div></div>
+        <div class="crow"><div class="av" style="background:#D9822B">CM</div><div class="t"><b>Camilleri Maria</b><span>Loyalty · 340 points</span></div></div>
+        <div class="crow sel"><div class="av" style="background:#1C8A5B">GC</div><div class="t"><b>Grech Carmen</b><span>Order ready since 08:40</span></div><span class="pill grn">Ready</span></div>
+        <div class="crow"><div class="av" style="background:#BF3B2E">SL</div><div class="t"><b>Schembri Lawrence</b><span>Delivery Tuesday · Mosta</span></div></div>
+        <div class="crow"><div class="av" style="background:#3B6FD8">VJ</div><div class="t"><b>Vella Joseph</b><span>Question since Tuesday</span></div><span class="pill blu">Waiting</span></div>
+        <div class="crow"><div class="av" style="background:#1C8A5B">ZC</div><div class="t"><b>Zammit Carmel</b><span>Patient · due Thursday</span></div></div>
+      </div>
+      <div class="detail">
+        <div class="hero">
+          <div class="top"><div class="av" style="background:#1C8A5B">GC</div><div><h2>Grech Carmen</h2><div class="sub"><span>7912 3456</span><span class="pill grn">Order ready</span><span class="pill gry">Loyalty · 1,120 pts</span></div></div></div>
+          <div class="facts4"><div><small>Waiting</small><b>Augmentin 625 ×14</b></div><div><small>Arrived</small><b>Today 08:40</b></div><div><small>Last visit</small><b>12 Oct</b></div><div><small>Prefers</small><b>SMS</b></div></div>
+          <div class="acts"><span class="btn g">Collected</span><span class="btn">New order</span><span class="btn">Message</span><span class="more">···</span></div>
+        </div>
+        <div class="two">
+          <div class="card"><div class="lab">Story <b>last 90 days</b></div>
+            <div class="item"><span class="dot g"></span><div><b>Order ready · Augmentin 625 ×14</b><span>Ordered Wed from Cherubino · SMS sent 08:41</span></div><span class="r">today</span></div>
+            <div class="item"><span class="dot b"></span><div><b>Blood pressure 128/82</b><span>Seated, right arm · Karl</span></div><span class="r">12 Oct</span></div>
+            <div class="item"><span class="dot"></span><div><b>Delivered · Vitamin D 1000iu ×90</b><span>Naxxar, signed by C. Grech</span></div><span class="r">30 Sep</span></div>
+            <div class="item"><span class="dot"></span><div><b>Asked about travel vaccines</b><span>Answered by Maria, same day</span></div><span class="r">14 Sep</span></div>
+          </div>
+          <div class="card"><div class="lab">Services</div>
+            <div class="srv"><span>Flu vaccine <b>· 2025 done</b></span><span>Blood pressure <b>· 12 Oct</b></span><span>Cholesterol <b>· never</b></span><span>Loyalty card <b>· 1,120</b></span></div>
+            <div class="lab" style="margin-top:14px">Doctor</div>
+            <div class="item" style="border:0;padding-top:4px"><span class="dot"></span><div><b>Dr Galea, Naxxar</b><span>2143 5566 · prefers email</span></div></div>
+            <div class="lab" style="margin-top:14px">Family</div>
+            <div class="srv"><span>Grech Paul</span><span>+ Link</span></div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+  </figure>
+</section>
+
+<section>
+  <div class="num">3 · THE REGISTERS</div>
+  <h2>A register should look like the book the inspector wants to see</h2>
+  <div class="argue">
+    <div>
+      <p>Temperature, Cleaning, Daily Register, Locum Register, the four DDA screens, Certificates, End Of Day, Paid Out, Credit Notes, Locum Receipts and the Audit Trail are all the same thing: <b>a legal record, kept by date, signed by a person.</b> Today each has a different toolbar. Temperature has Load, Sync queued, Print dashboard and Save. End Of Day has Save, Report, Print, Lock, Unlock and Audit Log, plus three pills that say Unlocked, Not Saved and Cloud: ON. Nobody at the counter should ever read the words "Cloud: ON".</p>
+      <p>Reimagined: <b>Registers</b> is one place, one shape. Pick the register with a chip, see the month as a calendar of entries, and today's cell is already editable. Entries save when you press Enter, keep who and when, and cannot be deleted, only corrected with a note, which is what the law wants anyway. "Print the month" is one quiet link, because the inspector is the only person who prints.</p>
+      <p>The daily registers do not even need visiting on a normal day. They are filled from Today. Registers is where you go to look back, which is rare, and where the inspector goes, which is rarer.</p>
+    </div>
+    <div class="keep"><h4>Where today's features went</h4><ul>
+      <li><b>Temperature, Cleaning, Daily Register, Locum Register</b> are chips. Entry happens on Today.</li>
+      <li><b>DDA Purchases, Sales, Stock Takes, POYC</b> are one DDA register with four chips, not four modules.</li>
+      <li><b>End Of Day, Paid Out, Credit Notes, Locum Receipts</b> are the money registers. Lock happens on Done with a ten-minute Undo.</li>
+      <li><b>Certificates</b> are the register of documents, with "expires in 30 days" showing on Today when it matters.</li>
+      <li><b>Audit Trail</b> stays, as a register. It stops being a button on every other screen.</li>
+      <li><b>Load, Sync queued, Print dashboard, Refresh, dbg, Cloud: ON</b> are removed. The app is always in sync or it says plainly that it is not.</li>
+    </ul></div>
+  </div>
+  <div class="pair">
+    <figure><figcaption><span class="tag was">Today</span><b>Temperature</b><span>Four tabs, eight buttons, a debug flag in the corner, and the entry is the smallest thing on the page</span></figcaption><img src="img/current-temperature.png" alt="The current Eikon Temperature module: tabs, a date picker, Load, Sync queued, Print dashboard and Save buttons, a one-row entry table and a large empty chart" width="1440" height="900"></figure>
+    <figure>
+      <figcaption><span class="tag now">Reimagined</span><b>Registers · Temperature · October</b><span>The month as a book; today's cell is the only thing you can type into</span></figcaption>
+      <div class="winwrap"><div class="win reg">
+        <aside class="rail">
+          <div class="brand"><i></i><div><b>Eikon</b><small>Demo Pharmacy</small></div></div>
+          <div class="nav"><span class="ic"></span>Today<span class="cnt red">3</span></div>
+          <div class="nav"><span class="ic"></span>Customers<span class="cnt">2</span></div>
+          <div class="nav"><span class="ic"></span>Stock<span class="cnt amb">2</span></div>
+          <div class="nav on"><span class="ic"></span>Registers</div>
+          <div class="spacer"></div>
+          <div class="nav"><span class="ic"></span>Team</div>
+          <div class="nav"><span class="ic"></span>Settings</div>
+          <div class="foot"><b>Maria Borg</b><br>Pharmacist · signed in 08:52</div>
+        </aside>
+        <div class="regmain">
+          <div class="reghead"><h1>Temperature</h1>
+            <div class="chips"><span class="chip on">Fridge 1</span><span class="chip">Fridge 2</span><span class="chip">Room</span></div>
+            <div class="right"><span class="chip">‹</span><b style="font-size:14px">October 2026</b><span class="chip">›</span></div>
+          </div>
+          <div class="chips" style="gap:8px"><span class="chip">Temperature</span><span class="chip">Cleaning</span><span class="chip">Daily register</span><span class="chip">DDA</span><span class="chip">Money</span><span class="chip">Certificates</span><span class="chip">Audit</span></div>
+          <div class="dow"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>
+          <div class="month">
+            <div class="day off"></div><div class="day off"></div><div class="day off"></div>
+            <div class="day"><small>1</small><b>3.6 – 6.2</b><span>Maria 08:58</span></div>
+            <div class="day"><small>2</small><b>3.9 – 6.0</b><span>Karl 09:03</span></div>
+            <div class="day"><small>3</small><b>4.1 – 6.3</b><span>Maria 09:01</span></div>
+            <div class="day off"><small>4</small><span>closed</span></div>
+            <div class="day"><small>5</small><b>3.7 – 6.1</b><span>Maria 08:57</span></div>
+            <div class="day"><small>6</small><b>3.8 – 6.4</b><span>Karl 09:10</span></div>
+            <div class="day miss"><small>7</small><b>not logged</b><span>add with a note</span></div>
+            <div class="day"><small>8</small><b>3.5 – 5.9</b><span>Maria 09:00</span></div>
+            <div class="day"><small>9</small><b>4.0 – 6.2</b><span>Locum 09:14</span></div>
+            <div class="day"><small>10</small><b>3.9 – 6.1</b><span>Maria 08:55</span></div>
+            <div class="day off"><small>11</small><span>closed</span></div>
+            <div class="day"><small>12</small><b>3.8 – 6.0</b><span>Karl 09:02</span></div>
+            <div class="day"><small>13</small><b>3.6 – 6.3</b><span>Maria 08:59</span></div>
+            <div class="day"><small>14</small><b>3.9 – 6.2</b><span>Maria 09:04</span></div>
+            <div class="day"><small>15</small><b>4.2 – 6.5</b><span>Karl 09:07</span></div>
+            <div class="day"><small>16</small><b>3.7 – 6.1</b><span>Maria 08:56</span></div>
+            <div class="day"><small>17</small><b>3.8 – 6.0</b><span>Maria 09:00</span></div>
+            <div class="day off"><small>18</small><span>closed</span></div>
+            <div class="day"><small>19</small><b>3.9 – 6.4</b><span>Karl 09:01</span></div>
+            <div class="day"><small>20</small><b>3.6 – 6.2</b><span>Maria 08:58</span></div>
+            <div class="day"><small>21</small><b>3.8 – 6.1</b><span>Maria 09:03</span></div>
+            <div class="day"><small>22</small><b>4.0 – 6.3</b><span>Locum 09:11</span></div>
+            <div class="day"><small>23</small><b>3.7 – 6.0</b><span>Maria 08:57</span></div>
+            <div class="day"><small>24</small><b>3.9 – 6.2</b><span>Karl 09:05</span></div>
+            <div class="day off"><small>25</small><span>closed</span></div>
+            <div class="day"><small>26</small><b>3.8 – 6.1</b><span>Maria 08:59</span></div>
+            <div class="day"><small>27</small><b>3.6 – 6.0</b><span>Maria 09:02</span></div>
+            <div class="day"><small>28</small><b>3.9 – 6.3</b><span>Karl 09:00</span></div>
+            <div class="day"><small>29</small><b>3.7 – 6.2</b><span>Maria 08:58</span></div>
+            <div class="day"><small>30</small><b>3.8 – 6.4</b><span>Maria 09:01</span></div>
+            <div class="day today"><small>31 · today</small><div class="inl"><div class="f live">3.9</div><div class="f e">—</div></div><span>Enter saves</span></div>
+            <div class="day off"><small>1</small><span>closed</span></div>
+          </div>
+          <div class="regfoot"><span>Limits 2 to 8 °C · 29 days logged · 1 missing</span><span>Saved automatically with who and when</span><a>Print the month ›</a></div>
+        </div>
+      </div></div>
+    </figure>
+  </div>
+</section>
+
+<section>
+  <div class="num">4 · THE 3-ACTION RULE</div>
+  <h2>Every core task, counted</h2>
+  <p class="prose" style="color:var(--ink2);margin:0 0 18px;max-width:760px">An action is a click, a tap or a field typed into. Opening the app is not counted, and neither is the current 4.9-second intro, though a pharmacist counts both. "Today" counts the shortest route in the current build.</p>
+  <div class="tablewrap"><table class="map">
+    <tr><th>Task</th><th>Today</th><th>Reimagined</th><th>How</th></tr>
+    <tr><td>Log the fridge</td><td class="n">4 to 5</td><td class="n"><b>3</b></td><td>Type min, type max, Enter. The row is already on Today.</td></tr>
+    <tr><td>Sign the daily register</td><td class="n">4</td><td class="n"><b>1</b></td><td>"Confirm" on Today; your name is prefilled from the rota.</td></tr>
+    <tr><td>Hand over a ready order</td><td class="n">5 to 6</td><td class="n"><b>1</b></td><td>"Collected" on the customer's row on Today.</td></tr>
+    <tr><td>Find a customer and take a new order</td><td class="n">5 to 7</td><td class="n"><b>3</b></td><td>Type the name, Enter, "New order". The form opens inline on their page.</td></tr>
+    <tr><td>Answer a customer's question</td><td class="n">5</td><td class="n"><b>2</b></td><td>"Reply" on Today, type, Enter. It goes by SMS or WhatsApp, whichever they prefer.</td></tr>
+    <tr><td>Record a DDA sale</td><td class="n">5 + fields</td><td class="n"><b>3 + fields</b></td><td>Type the product, Enter, "DDA sale". The legal fields stay; the navigation goes.</td></tr>
+    <tr><td>Close the day</td><td class="n">7 to 9</td><td class="n"><b>3</b></td><td>"Close the day" on the Takings tile, count, Done. Done locks it; Undo for ten minutes.</td></tr>
+    <tr><td>Leave a handover note</td><td class="n">4</td><td class="n"><b>2</b></td><td>Type into the Team tile, Enter.</td></tr>
+    <tr><td>Check what Cherubino is sending</td><td class="n">3 to 4</td><td class="n"><b>1</b></td><td>It is written on the Stock tile. One click opens the order.</td></tr>
+    <tr><td>Show the inspector October's fridge log</td><td class="n">5</td><td class="n"><b>3</b></td><td>Registers, Fridge 1, "Print the month".</td></tr>
+  </table></div>
+</section>
+
+<section>
+  <div class="num">5 · THE KILL LIST</div>
+  <h2>What we are saying no to</h2>
+  <p class="prose" style="color:var(--ink2);margin:0;max-width:760px">Each of these exists for a reason an engineer could defend. None of them exists for a reason a pharmacist would. They do not move to a menu. They stop.</p>
+  <div class="kill">
+    <div><b>The 4.9 s intro</b>Every load, before anything renders. The logo goes in the corner, where logos live.</div>
+    <div><b>The portal picker</b>Shown even to people with one portal, with two greyed-out cards. You sign in, you are home.</div>
+    <div><b>Seven uppercase categories</b>Inspections, Operations… Engineer's folders. Four words a grandparent uses instead.</div>
+    <div><b>"Search modules…"</b>A search box whose only job is to find the menu. Replaced by a search that finds the thing.</div>
+    <div><b>Refresh, Load, Sync queued</b>The app keeps itself current. If it cannot, it says "Offline since 09:12" and keeps your typing.</div>
+    <div><b>"Cloud: ON", "dbg=0", Diag</b>Engineering state leaking onto the counter.</div>
+    <div><b>Fullscreen button</b>Exists because the app lives inside a GoDaddy iframe. Eikon gets one address of its own.</div>
+    <div><b>Help &amp; Guides, 39 chapters</b>Replaced by a one-line hint the first time a screen is used, then never again.</div>
+    <div><b>Emoji as icons</b>They render differently on every PC. One drawn set, 18px, one weight.</div>
+    <div><b>Save on single numbers</b>A temperature saves on Enter and says "Saved 09:12 · Maria". Undo for ten seconds.</div>
+    <div><b>Lock / Unlock / Audit Log on every module</b>Records lock when done. Audit is one register, not a button everywhere.</div>
+    <div><b>Modals for primary work</b>Quick-entry modals over a dashboard that was itself a summary of modals. Work happens in place.</div>
+    <div><b>Print buttons on every screen</b>Only the inspector prints. One quiet link per register.</div>
+    <div><b>Dark theme by default</b>Follow the PC. Pharmacies are bright; a light surface at 100% size is the default.</div>
+    <div><b>Logout in the top bar</b>Your name at the bottom of the rail is the account. Sessions last a working day.</div>
+  </div>
+</section>
+
+<section>
+  <div class="num">6 · THE BRIDGE TO MASTER UNIVERSAL</div>
+  <h2>One patient book, true on every PC</h2>
+  <div class="argue">
+    <div>
+      <p>Three asks are really one design decision. Pharmacies want to see their Patient Manager data online, want printable patient books, and have the problem that two PCs in the same shop each keep their own copy of the patients and never agree. All three are solved by making <b>Eikon the shared book</b> and the Patient Manager on each PC a pen that writes in it.</p>
+      <p>The Patient Manager already speaks to Cloudflare. Every patient opened and every posting fires a detached <code>/event</code> ping to the worker today, for the usage counters, and the Executioner hands it the record at POST. The pipe exists. The change is what travels through it: the booking, the ready, the collected, the note, as the events they already are in <code>inbox.dat</code>. Eikon keeps the merged book per licence and gives it back to every PC that asks. <b>Nothing new to install, no sync button, no setting.</b> A ready on PC 1 shows on PC 2 before the pharmacist has walked over to it.</p>
+      <p>In the browser, the Patients chip under Customers shows the same Today and Patient screens the Master Universal review designed, pixel for pixel. A pharmacist who learned one has learned the other. "Print the book" is one link on the patient: visits, bookings and the DDA register for that person, from the same data.</p>
+    </div>
+    <div class="keep"><h4>The rules, so it stays simple</h4><ul>
+      <li><b>Offline first.</b> Each PC keeps working from its own files when the internet is down, exactly as now. It catches up when it returns.</li>
+      <li><b>Ten seconds.</b> A change on one PC appears on the others within ten seconds. If it cannot, the rail says "Working alone since 09:12" in plain words.</li>
+      <li><b>Last event wins, per field.</b> Two PCs marking the same patient Ready is not a conflict. The event log is kept whole, because the DDA register needs it.</li>
+      <li><b>Dispensing records stay encrypted.</b> Eikon stores what the pharmacy's records key produced. The browser unlocks it with the same password and 2FA, behind the same lock screen as the PC.</li>
+      <li><b>Names and bookings travel, nothing else.</b> What the patient book needs, under the pharmacy's own account, and only for pharmacies that switch it on.</li>
+      <li><b>Never remove.</b> Same rule as the licences: the cloud book only ever adds. A delete is an event that hides, not a row that vanishes.</li>
+    </ul></div>
+  </div>
+</section>
+
+<section>
+  <div class="num">7 · WHERE EVERY MODULE GOES</div>
+  <h2>Nothing is lost. Almost nothing keeps its own door.</h2>
+  <div class="tablewrap"><table class="map">
+    <tr><th>Place</th><th>Absorbs today's modules</th><th>Shape</th></tr>
+    <tr><td>Today</td><td>Dashboard, the quick-entry modals, Alerts, Instructions &amp; handover, Chat Board, End Of Day (the Takings tile), Shifts coverage, Supplier updates</td><td>One list in time order, one button per row, three tiles</td></tr>
+    <tr><td>Customers</td><td>Client Orders, Quotations, Order Diary, Client Deliveries, Client Tickets, Appointments, Loyalty &amp; Campaigns, Repeat Prescriptions, Vaccines, POCT, Screening Campaigns, Contacts, and the Patient Manager when licensed</td><td>List + one person's story, filter chips, one primary action</td></tr>
+    <tr><td>Stock</td><td>Alerts (stock), Stock Transfers, Returns, Near Expiry, Scarce Stock, Supplier Inventory, Cherubino Orders, Price Changes, Warehouse Short Expiry, OOS List, Emergency POS</td><td>List + one item's story: what is left, what is coming, what to send back</td></tr>
+    <tr><td>Registers</td><td>Temperature, Cleaning, Daily Register, Locum Register, DDA Purchases, DDA Sales, DDA Stock Takes, DDA POYC, Certificates, End Of Day, Paid Out, Credit Notes, Locum Receipts, Audit Trail</td><td>One month-as-a-book view, chips per register, today editable</td></tr>
+    <tr><td>Team</td><td>Shifts, Appointments (the day view), Instructions, Locum Register (the rota side)</td><td>A week, who is in, handover notes</td></tr>
+    <tr><td>Search only</td><td>Pharmacy Calculators, OCP Finder, OTC Mindmap, Pharmacovigilance, Smart Labels</td><td>Type what you need. They open in a sheet over the current screen and close with Esc.</td></tr>
+    <tr><td>Settings</td><td>Devices and limits, printers, opening hours, staff, the Cherubino account, who can lock a register</td><td>One column of plain forms, visited once a year</td></tr>
+    <tr><td>Separate sign-ins</td><td>Supplier Dashboard, Product List, Received Orders, Order Feedback; Company Dashboard, Pharmacy Overview</td><td>A supplier signs in and sees orders. An owner signs in and sees pharmacies. No picker.</td></tr>
+  </table></div>
+</section>
+
+<section>
+  <div class="num">8 · HOW TO BUILD IT WITHOUT BREAKING ANYTHING</div>
+  <h2>One screen first, the way Master Universal did it</h2>
+  <div class="argue">
+    <div>
+      <p>This is a structural rewrite of the front end and the riskiest change the product has had. So it is not done as a rewrite. The worker and every API stay as they are. The new shell is a second entry point behind one flag, and the old UI remains the fallback the whole way, the same arrangement the Patient Manager uses today.</p>
+      <p><b>Ship Today first.</b> Just the first screen, with inline logging for the fridge, the daily register and cleaning, and the Customers waiting list reading from the existing orders and tickets endpoints. Give it to two pharmacies for two weeks and measure three things: seconds from opening Eikon to the fridge being logged, clicks per pharmacist per day, and how often the old UI gets opened. If those numbers move, port Customers, then Registers, then Stock, one at a time, each tested, each with the old screen a click away.</p>
+      <p>Everything in this review is a relayout of data the worker already serves. Nothing here needs a new table. The only genuinely new engineering is the shared patient book, and that is a worker change, not a screen.</p>
+    </div>
+    <div class="callout"><b>The one sentence for the coding team.</b> Build Today, make it the opening screen, keep the old UI one click away, and do not touch anything else until two pharmacies have lived with it for two weeks. If they love it, port the rest one place at a time. If they do not, you have lost one screen, not a product.</div>
+  </div>
+</section>
+
+<section style="margin-top:56px">
+  <p class="note">Measured on the current <code>main</code> of <code>eikon-ui</code> (commit a588e30): 53 module files, 7 pharmacy categories plus Cherubino, 3 portals, 459 button literals, 735 input literals and 211 modal openings in module source; 77 buttons, 50 rail items and 35 network requests on the first screen with no data; 1,953 lines of help across 39 chapters; intro 4,930 ms. Master Universal reference: <code>Redesigned Patient Manager/Design review.html</code>.</p>
+</section>
+</div>
+
+<script>
+(function(){
+  function fit(){
+    document.querySelectorAll('.winwrap').forEach(function(w){
+      var win=w.querySelector('.win'); if(!win) return;
+      var s=w.clientWidth/1110; win.style.transform='scale('+s+')';
+    });
+  }
+  fit(); window.addEventListener('resize',fit);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+})();
+</script>
