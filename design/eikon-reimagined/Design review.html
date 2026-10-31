@@ -72,7 +72,24 @@ figure img{display:block;width:100%;height:auto;border-radius:10px;border:1px so
 .rail{background:var(--mock-rail);border-right:1px solid var(--hair);padding:18px 14px;display:flex;flex-direction:column;gap:4px}
 .rail .brand{display:flex;align-items:center;gap:10px;margin:0 4px 18px}
 .rail .brand i{width:30px;height:30px;border-radius:9px;background:var(--accent);display:inline-block;position:relative}
-.rail .brand i::after{content:"";position:absolute;inset:9px;border:2.5px solid #fff;border-radius:50%;border-right-color:transparent}
+.rail .brand i::after{content:"e";position:absolute;inset:0;display:grid;place-items:center;color:#fff;font-weight:800;font-size:19px;line-height:1}
+.mu{display:inline-block;width:16px;height:20px;background:url(img/mu-logo.png) center/contain no-repeat;vertical-align:-4px;margin-right:6px}
+.row .av.mu,.crow .av.mu{background:var(--good-soft);background-image:url(img/mu-logo.png);background-size:auto 70%;background-repeat:no-repeat;background-position:center}
+.chip .mu{width:12px;height:15px;margin-right:5px;vertical-align:-3px}
+.bridge{display:grid;grid-template-columns:1fr auto 1fr;gap:18px;align-items:center;background:var(--surface);border:1px solid var(--hair);border-radius:14px;padding:22px 24px;max-width:900px;margin-top:22px}
+.bridge .pc{display:flex;flex-direction:column;gap:10px}
+.bridge .box{display:flex;align-items:center;gap:12px;border:1px solid var(--hair);border-radius:10px;padding:10px 14px;font-size:14px;color:var(--ink2)}
+.bridge .box b{color:var(--ink);font-weight:700;display:block;font-size:14px}
+.bridge .box .mu{width:26px;height:32px;margin:0}
+.bridge .mid{text-align:center;color:var(--ink3);font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.bridge .mid i{display:block;width:2px;height:28px;background:var(--hair);margin:6px auto}
+.bridge .book{border:1px solid var(--accent);background:var(--accent-soft);border-radius:12px;padding:16px 18px;text-align:center}
+.bridge .book b{display:block;font-size:17px;font-weight:800;letter-spacing:-.01em}
+.bridge .book span{font-size:13px;color:var(--ink2)}
+.bridge .book .marks{display:flex;justify-content:center;gap:14px;align-items:center;margin-bottom:8px}
+.bridge .book .marks i{width:34px;height:34px;border-radius:10px;background:var(--accent);display:grid;place-items:center;color:#fff;font-style:normal;font-weight:800;font-size:21px}
+.bridge .book .marks .mu{width:30px;height:38px;margin:0}
+@media (max-width:700px){.bridge{grid-template-columns:1fr}.bridge .mid i{display:none}}
 .rail .brand b{font-size:15px;font-weight:800;letter-spacing:-.01em}
 .rail .brand small{display:block;font-size:11px;color:var(--ink2);font-weight:500}
 .nav{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;font-weight:600;font-size:13.5px;color:var(--ink)}
@@ -267,7 +284,7 @@ figure img{display:block;width:100%;height:auto;border-radius:10px;border:1px so
       <aside class="rail">
         <div class="brand"><i></i><div><b>Eikon</b><small>Demo Pharmacy</small></div></div>
         <div class="nav on"><span class="ic"></span>Today<span class="cnt red">3</span></div>
-        <div class="nav"><span class="ic"></span>Customers<span class="cnt">2</span></div>
+        <div class="nav"><span class="ic"></span>Customers<span class="cnt">3</span></div>
         <div class="nav"><span class="ic"></span>Stock<span class="cnt amb">2</span></div>
         <div class="nav"><span class="ic"></span>Registers</div>
         <div class="spacer"></div>
@@ -278,8 +295,8 @@ figure img{display:block;width:100%;height:auto;border-radius:10px;border:1px so
       <div class="main">
         <div class="search"><span class="glass"></span>What do you need? A customer, a product, a register…<span class="hint">Enter opens it</span></div>
         <div class="date"><b>Friday 31 October</b><span>09:12 · doors open 09:30</span></div>
-        <div class="head"><h1>3 things before the doors open<span>, 2 customers waiting.</span></h1>
-          <div class="legend"><span><i style="background:var(--bad)"></i>1 register overdue</span><span><i style="background:var(--warn)"></i>2 to fill this morning</span><span><i style="background:var(--good)"></i>1 order ready</span><span><i style="background:var(--accent)"></i>1 question since Tuesday</span></div>
+        <div class="head"><h1>3 things before the doors open<span>, 3 customers waiting.</span></h1>
+          <div class="legend"><span><i style="background:var(--bad)"></i>1 register overdue</span><span><i style="background:var(--warn)"></i>2 to fill</span><span><i style="background:var(--good)"></i>1 order ready</span><span><i style="background:var(--accent)"></i>1 question</span><span><span class="mu"></span>1 patient booked</span></div>
         </div>
         <div class="col">
           <div class="lab">Before opening <b>3</b></div>
@@ -289,15 +306,17 @@ figure img{display:block;width:100%;height:auto;border-radius:10px;border:1px so
             <div class="row amb"><div class="av sq" style="background:#6B5BD2">RP</div><div class="t"><b>Daily register · responsible pharmacist</b><span>Maria Borg, from 09:00 · same as yesterday</span></div><span class="pill amb">Not signed</span><span class="btn p">Confirm</span></div>
             <div class="row red"><div class="av sq" style="background:#D9822B">✓</div><div class="t"><b>Cleaning · dispensary and fridge</b><span class="u">Last done <b>14 days ago</b> by Karl · due weekly</span></div><span class="pill red">Overdue</span><span class="btn">Done now</span></div>
           </div>
-          <div class="lab">Customers waiting <b>2</b><a>All customers ›</a></div>
+          <div class="lab">Customers waiting <b>3</b><a>All customers ›</a></div>
           <div class="list">
             <div class="row grn"><div class="av" style="background:#1C8A5B">GC</div><div class="t"><b>Grech Carmen</b><span>Order ready · Augmentin 625 ×14 · arrived 08:40 · SMS sent ✓</span></div><span class="pill grn">Ready</span><span class="btn">Collected</span></div>
             <div class="row blu"><div class="av" style="background:#3B6FD8">VJ</div><div class="t"><b>Vella Joseph</b><span>Asked on Tuesday · "do you stock the Omron M3 monitor?"</span></div><span class="pill blu">Waiting 3 days</span><span class="btn">Reply</span></div>
+            <div class="row grn"><div class="av mu"></div><div class="t"><b>Zammit Carmel</b><span>Patient · booked 10:00 · "bring the INR booklet" · week 2</span></div><span class="pill grn">Booked today</span><span class="btn g">Prepared</span></div>
           </div>
         </div>
         <div class="side">
           <div class="tile"><div class="lab">Takings</div><div class="big">€0<span>so far</span></div><p>Float <b>€500</b> counted by Maria at 08:55. One button closes the day at 19:00.</p></div>
           <div class="tile"><div class="lab">Stock</div><div class="big">2<span>items short</span></div><p><b>Enalapril 20mg</b> is out; Cherubino order sent 08:10, due Monday. <b>Metformin 850</b> has 6 days left.</p></div>
+          <div class="tile"><div class="lab"><span class="mu"></span>Master Universal</div><p style="margin-top:0"><b>Records saving</b> · locked · 2 PCs in step · last posting 28 Sep 16:00.</p></div>
           <div class="tile"><div class="lab">Team today</div><div class="mini"><i class="on">Maria</i><i class="now">Karl 13:00</i><i>Locum 17:00</i></div><p>Handover from last night: <b>"Courier at 16:00, box for Dr Galea."</b></p></div>
         </div>
       </div>
@@ -329,7 +348,7 @@ figure img{display:block;width:100%;height:auto;border-radius:10px;border:1px so
       <aside class="rail">
         <div class="brand"><i></i><div><b>Eikon</b><small>Demo Pharmacy</small></div></div>
         <div class="nav"><span class="ic"></span>Today<span class="cnt red">3</span></div>
-        <div class="nav on"><span class="ic"></span>Customers<span class="cnt">2</span></div>
+        <div class="nav on"><span class="ic"></span>Customers<span class="cnt">3</span></div>
         <div class="nav"><span class="ic"></span>Stock<span class="cnt amb">2</span></div>
         <div class="nav"><span class="ic"></span>Registers</div>
         <div class="spacer"></div>
@@ -340,14 +359,14 @@ figure img{display:block;width:100%;height:auto;border-radius:10px;border:1px so
       <div class="clist">
         <div class="search" style="height:40px;font-size:13.5px">
           <span class="glass"></span>Search 412 customers</div>
-        <div class="chips"><span class="chip on">All</span><span class="chip">Waiting</span><span class="chip">Orders</span><span class="chip">Patients</span></div>
+        <div class="chips"><span class="chip on">All</span><span class="chip">Waiting</span><span class="chip">Orders</span><span class="chip"><span class="mu"></span>Patients</span></div>
         <div class="crow"><div class="av" style="background:#6B5BD2">AM</div><div class="t"><b>Abela Mario</b><span>Order due Monday</span></div></div>
         <div class="crow"><div class="av" style="background:#2E8BC9">BA</div><div class="t"><b>Borg Anna</b><span>Flu vaccine booked 4 Nov</span></div></div>
         <div class="crow"><div class="av" style="background:#D9822B">CM</div><div class="t"><b>Camilleri Maria</b><span>Loyalty · 340 points</span></div></div>
         <div class="crow sel"><div class="av" style="background:#1C8A5B">GC</div><div class="t"><b>Grech Carmen</b><span>Order ready since 08:40</span></div><span class="pill grn">Ready</span></div>
         <div class="crow"><div class="av" style="background:#BF3B2E">SL</div><div class="t"><b>Schembri Lawrence</b><span>Delivery Tuesday · Mosta</span></div></div>
         <div class="crow"><div class="av" style="background:#3B6FD8">VJ</div><div class="t"><b>Vella Joseph</b><span>Question since Tuesday</span></div><span class="pill blu">Waiting</span></div>
-        <div class="crow"><div class="av" style="background:#1C8A5B">ZC</div><div class="t"><b>Zammit Carmel</b><span>Patient · due Thursday</span></div></div>
+        <div class="crow"><div class="av mu"></div><div class="t"><b>Zammit Carmel</b><span>Patient · booked today 10:00</span></div></div>
       </div>
       <div class="detail">
         <div class="hero">
@@ -401,7 +420,7 @@ figure img{display:block;width:100%;height:auto;border-radius:10px;border:1px so
         <aside class="rail">
           <div class="brand"><i></i><div><b>Eikon</b><small>Demo Pharmacy</small></div></div>
           <div class="nav"><span class="ic"></span>Today<span class="cnt red">3</span></div>
-          <div class="nav"><span class="ic"></span>Customers<span class="cnt">2</span></div>
+          <div class="nav"><span class="ic"></span>Customers<span class="cnt">3</span></div>
           <div class="nav"><span class="ic"></span>Stock<span class="cnt amb">2</span></div>
           <div class="nav on"><span class="ic"></span>Registers</div>
           <div class="spacer"></div>
@@ -517,6 +536,14 @@ figure img{display:block;width:100%;height:auto;border-radius:10px;border:1px so
       <li><b>Names and bookings travel, nothing else.</b> What the patient book needs, under the pharmacy's own account, and only for pharmacies that switch it on.</li>
       <li><b>Never remove.</b> Same rule as the licences: the cloud book only ever adds. A delete is an event that hides, not a row that vanishes.</li>
     </ul></div>
+  </div>
+  <div class="bridge">
+    <div class="pc">
+      <div class="box"><span class="mu"></span><div><b>PC 1 · Patient Manager</b>writes events: opened, booked, ready, posted</div></div>
+      <div class="box"><span class="mu"></span><div><b>PC 2 · Patient Manager</b>same program, same licence, reads the book back</div></div>
+    </div>
+    <div class="mid">events<i></i>ten seconds<i></i>book</div>
+    <div class="book"><div class="marks"><i>e</i><span class="mu"></span></div><b>One patient book per licence</b><span>Eikon keeps it, every PC and every browser reads it. The Master Universal mark means the row came from the counter.</span></div>
   </div>
 </section>
 
