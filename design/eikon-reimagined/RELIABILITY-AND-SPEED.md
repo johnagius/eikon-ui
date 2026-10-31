@@ -20,30 +20,31 @@ the hard parts are no longer their job.
 
 These are not design questions. Each is live in production and each is a few
 hours of work. Do them on the current code base this week, independent of the
-rebuild.
+rebuild. Status is kept current here; the regression tests live in `tests/worker/` and `tests/ui/`.
 
-| # | What | Where | Why it cannot wait |
-|---|---|---|---|
-| 1 | Unauthenticated calendar endpoint leaks every pharmacy's valid tokens and rosters when given an unknown token with `debug=1` | worker 13498–13529 | Anyone on the internet can read staff names and shift times for all pharmacies |
-| 2 | Debug mode forced on for every production visitor; at that level the Authorization header is logged and every log line is posted to the embedding page with target origin `*` | `godaddy-loader-htmlcode:77`, `core.js:165–191, 264–268` | Bearer token and patient-bearing payloads handed to whatever page embeds the app |
-| 3 | End Of Day lock undone by a plain Save from another PC (every payload carries `locked_at:""`, which the worker reads as an unlock) | `endofday.js:1824, 1871`; worker 4142–4182 | The one money record that is supposed to be final is not |
-| 4 | Whole-state replace on POCT, screening, pharmacovigilance and labels: the last PC to save deletes every record it had not loaded | worker 10595–10612, 18296–18307, 18378–18389, 18483–18494 | Clinical results silently deleted in any pharmacy with two PCs |
-| 5 | Hard-coded shared passwords for locum receipt edit and report, in shipped JavaScript and in the worker, same for every pharmacy | `locumreceipts.js:929, 1057, 1094`; worker 5662–5663 | Not a control at all |
-| 6 | No logout on the server; 30-day tokens in localStorage stay valid after "Logout"; expired sessions never purged | worker 1401; `core.js:1199–1211` | Shared counter PCs |
-| 7 | Printed DDA reports do not escape names (escape function is a no-op) | `ddasales.js:157–161`, `ddapoyc.js:38–42` | Broken inspector print and stored script execution in a same-origin page that can read the token |
-| 8 | Cross-month early-resupply check in DDA Sales never runs (references an out-of-scope variable, error swallowed) | `ddasales.js:132–154` | A controlled drug supplied on the 28th and again on the 3rd is not flagged |
-| 9 | DDA POYC "New Entry" defaults the date to the 1st of the month | `ddapoyc.js:1810–1812` | Systematic mis-dating of a controlled-drug register |
-| 10 | Blank fridge reading saved as 0 °C from the dashboard quick entry | `dashboard.js:1566–1570` | False readings in a legal log |
-| 11 | DDA purchase delete skips confirmation inside the sandboxed iframe (confirm throws, catch sets ok) | `ddapurchases.js:841` | One click deletes a controlled-drug receipt |
-| 12 | Login has no brute-force limit; recovery limiter is keyed by target email; recovery page confirms account existence | worker 1160–1198, 1367–1433 | |
-| 13 | Appointments silently truncated at 500 rows; loyalty balances summed over the newest 500 transactions | worker 14282, 17349; `loyalty.js:1097–1121` | Future bookings vanish from the calendar; loyalty cards reset |
-| 14 | Supplier catalogue import is delete-all then insert with no transaction, resets out-of-stock flags and reissues every product id | worker 2712–2755 | A failed import wipes the catalogue; carts and orders point at dead ids |
-| 15 | Cherubino OOS "Keep OOS" sends the `reject` action, which the worker implements as delete | `cherubino-oos.js:256`; worker 17882–17886 | The button does the opposite of its label |
-| 16 | Warehouse short-expiry upload has no server-side role check and wipes the whole list plus every branch's orders, non-transactionally | `cherubino-shortexpiry.js:445`; worker 17740–17770 | Any branch login can erase the group's data |
-| 17 | `E.toast` is never defined, so every Cherubino module and Near Expiry show no confirmation, warning or error, and the two-click delete pattern deletes on the second click with no visible warning | `cherubino-orders.js:513–531`, `cherubino-oos.js:390–404`, `nearexpiry.js:288–693` | Silent destructive actions |
-| 18 | Scarce stock: a mere request (no accept step, no quantity cap) runs a depletion cascade that deletes the linked near-expiry entry, returns entry and transfer item; nothing is restored if the request is deleted | worker 10951–11018, 11170, 11355–11374 | One click from another pharmacy destroys three of your records |
-| 19 | Emergency POS catalogue import is fire-and-forget: wipes on the first chunk, never resets, never reloads, progress element id mismatch, retry branch dead | `emergencypos.js:561–779` | The till keeps selling from the old list after a "successful" import |
-| 20 | Emergency POS completes a sale with tendered below total and stores VAT computed before the discount | `emergencypos.js:170–185, 452–521` | Wrong money and wrong VAT on the record |
+| # | What | Where | Why it cannot wait | Status |
+|---|---|---|---|---|
+| 1 | Unauthenticated calendar endpoint leaks every pharmacy's valid tokens and rosters when given an unknown token with `debug=1` | worker 13498–13529 | Anyone on the internet can read staff names and shift times for all pharmacies  Fixed, tested |
+| 2 | Debug mode forced on for every production visitor; at that level the Authorization header is logged and every log line is posted to the embedding page with target origin `*` | `godaddy-loader-htmlcode:77`, `core.js:165–191, 264–268` | Bearer token and patient-bearing payloads handed to whatever page embeds the app  Fixed (loader no longer forces debug; token redacted; logs only to the known parent origin) |
+| 3 | End Of Day lock undone by a plain Save from another PC (every payload carries `locked_at:""`, which the worker reads as an unlock) | `endofday.js:1824, 1871`; worker 4142–4182 | The one money record that is supposed to be final is not  Fixed, tested (unlock must be explicit; client never sends an empty locked_at) |
+| 4 | Whole-state replace on POCT, screening, pharmacovigilance and labels: the last PC to save deletes every record it had not loaded | worker 10595–10612, 18296–18307, 18378–18389, 18483–18494 | Clinical results silently deleted in any pharmacy with two PCs  Open (next) |
+| 5 | Hard-coded shared passwords for locum receipt edit and report, in shipped JavaScript and in the worker, same for every pharmacy | `locumreceipts.js:929, 1057, 1094`; worker 5662–5663 | Not a control at all  Open (next) |
+| 6 | No logout on the server; 30-day tokens in localStorage stay valid after "Logout"; expired sessions never purged | worker 1401; `core.js:1199–1211` | Shared counter PCs  Fixed, tested (`POST /auth/logout`, expired sessions purged) |
+| 7 | Printed DDA reports do not escape names (escape function is a no-op) | `ddasales.js:157–161`, `ddapoyc.js:38–42` | Broken inspector print and stored script execution in a same-origin page that can read the token  Fixed, tested |
+| 8 | Cross-month early-resupply check in DDA Sales never runs (references an out-of-scope variable, error swallowed) | `ddasales.js:132–154` | A controlled drug supplied on the 28th and again on the 3rd is not flagged  Fixed |
+| 9 | DDA POYC "New Entry" defaults the date to the 1st of the month | `ddapoyc.js:1810–1812` | Systematic mis-dating of a controlled-drug register  Fixed, tested |
+| 10 | Blank fridge reading saved as 0 °C from the dashboard quick entry | `dashboard.js:1566–1570` | False readings in a legal log  Fixed, tested |
+| 11 | DDA purchase delete skips confirmation inside the sandboxed iframe (confirm throws, catch sets ok) | `ddapurchases.js:841` | One click deletes a controlled-drug receipt  Fixed, tested |
+| 12 | Login has no brute-force limit; recovery limiter is keyed by target email; recovery page confirms account existence | worker 1160–1198, 1367–1433 |  Open |
+| 13 | Appointments silently truncated at 500 rows; loyalty balances summed over the newest 500 transactions | worker 14282, 17349; `loyalty.js:1097–1121` | Future bookings vanish from the calendar; loyalty cards reset  Open |
+| 14 | Supplier catalogue import is delete-all then insert with no transaction, resets out-of-stock flags and reissues every product id | worker 2712–2755 | A failed import wipes the catalogue; carts and orders point at dead ids  Open |
+| 15 | Cherubino OOS "Keep OOS" sends the `reject` action, which the worker implements as delete | `cherubino-oos.js:256`; worker 17882–17886 | The button does the opposite of its label  Fixed, tested |
+| 16 | Warehouse short-expiry upload has no server-side role check and wipes the whole list plus every branch's orders, non-transactionally | `cherubino-shortexpiry.js:445`; worker 17740–17770 | Any branch login can erase the group's data  Fixed, tested |
+| 17 | `E.toast` is never defined, so every Cherubino module and Near Expiry show no confirmation, warning or error, and the two-click delete pattern deletes on the second click with no visible warning | `cherubino-orders.js:513–531`, `cherubino-oos.js:390–404`, `nearexpiry.js:288–693` | Silent destructive actions  Fixed, tested (one toast in core) |
+| 18 | Scarce stock: a mere request (no accept step, no quantity cap) runs a depletion cascade that deletes the linked near-expiry entry, returns entry and transfer item; nothing is restored if the request is deleted | worker 10951–11018, 11170, 11355–11374 | One click from another pharmacy destroys three of your records  Open |
+| 19 | Emergency POS catalogue import is fire-and-forget: wipes on the first chunk, never resets, never reloads, progress element id mismatch, retry branch dead | `emergencypos.js:561–779` | The till keeps selling from the old list after a "successful" import  Open |
+| 21 | Saving a new End Of Day binds `null` into two NOT NULL columns (bag number, notes), so the worker throws a 500 whenever the bag number is empty | worker 4232–4272 | Found by the test harness on the first run | Fixed, tested |
+| 20 | Emergency POS completes a sale with tendered below total and stores VAT computed before the discount | `emergencypos.js:170–185, 452–521` | Wrong money and wrong VAT on the record  Open |
 
 ---
 

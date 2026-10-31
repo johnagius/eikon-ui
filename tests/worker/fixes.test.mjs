@@ -1,0 +1,103 @@
+// Regression tests for the live defects fixed on the current code base.
+import { test, eq, ok } from "./lib.mjs";
+
+const eodRec = (over = {}) => ({
+  eod_date: "2026-10-30", time_of_day: "PM", staff_name: "Maria", float_amount: 500,
+  x: [{ amount: "100.00" }], epos: [], cheques: [], paid_outs: [], cash: {}, bov_deposit: {}, bov_bag_number: "", notes: "", ...over
+});
+
+test("iCal: an unknown token with debug=1 no longer lists other pharmacies' tokens", async ({ api, bootstrap, DB }) => {
+  await bootstrap();
+  DB.db.exec(`CREATE TABLE IF NOT EXISTS shift_calendar_tokens (id INTEGER PRIMARY KEY AUTOINCREMENT, org_id INTEGER, location_id INTEGER, token TEXT UNIQUE, created_at TEXT DEFAULT (datetime('now')));`);
+  DB.db.prepare("INSERT INTO shift_calendar_tokens (org_id, location_id, token) VALUES (1, 1, 'SECRET-TOKEN-ABC')").run();
+  const r = await api("GET", "/shifts/ical?token=bogus&debug=1");
+  eq(r.status, 404);
+  ok(!r.text.includes("SECRET-TOKEN-ABC"), "token must not appear in the response");
+  ok(!r.text.includes("tokenTableSample"), "no diagnostics dump");
+  const r2 = await api("GET", "/shifts/ical?token=bogus", { headers: { Accept: "application/json" } });
+  eq(r2.status, 404);
+  ok(!r2.text.includes("SECRET-TOKEN-ABC"));
+});
+
+test("end of day: a new day saves with an empty bag number (was a 500)", async ({ api, bootstrap }) => {
+  const { token } = await bootstrap();
+  const s = await api("PUT", "/endofday/record", { token, body: { record: eodRec() } });
+  eq(s.status, 200, s.text);
+});
+
+test("end of day: a stale save with locked_at '' cannot unlock a locked day", async ({ api, bootstrap, DB }) => {
+  const { token } = await bootstrap();
+  eq((await api("PUT", "/endofday/record", { token, body: { record: eodRec() } })).status, 200);
+  const lock = await api("PUT", "/endofday/record", { token, body: { record: eodRec({ locked_at: new Date().toISOString(), action: "LOCK" }) } });
+  eq(lock.status, 200, lock.text);
+  ok(DB.one("SELECT locked_at FROM end_of_day").locked_at, "locked");
+  // PC B loaded the day before it was locked and presses Save: payload carries locked_at:""
+  const stale = await api("PUT", "/endofday/record", { token, body: { record: eodRec({ notes: "overwrite attempt", locked_at: "" }) } });
+  eq(stale.status, 409, "stale save refused: " + stale.text);
+  ok(DB.one("SELECT locked_at FROM end_of_day").locked_at, "still locked");
+  eq(DB.one("SELECT notes FROM end_of_day").notes, "", "figures untouched");
+  // Same with locked_at: null and with no locked_at at all
+  eq((await api("PUT", "/endofday/record", { token, body: { record: eodRec({ locked_at: null }) } })).status, 409);
+  eq((await api("PUT", "/endofday/record", { token, body: { record: eodRec() } })).status, 409);
+  // An explicit unlock still works and is audited
+  const un = await api("PUT", "/endofday/record", { token, body: { record: eodRec({ locked_at: "", unlock: true, action: "UNLOCK" }) } });
+  eq(un.status, 200, un.text);
+  ok(!DB.one("SELECT locked_at FROM end_of_day").locked_at, "unlocked");
+  ok(DB.one("SELECT 1 AS x FROM audit_log WHERE action='EOD_UNLOCK'"), "unlock audited");
+});
+
+test("logout revokes the session on the server", async ({ api, bootstrap }) => {
+  const { token } = await bootstrap();
+  eq((await api("GET", "/auth/me", { token })).status, 200);
+  const out = await api("POST", "/auth/logout", { token });
+  eq(out.status, 200, out.text);
+  eq((await api("GET", "/auth/me", { token })).status, 401, "token no longer valid");
+});
+
+test("logout purges expired sessions", async ({ api, bootstrap, DB }) => {
+  const { token } = await bootstrap();
+  DB.db.prepare("INSERT INTO sessions (user_id, token_hash_b64, expires_at) VALUES (1, 'old', '2020-01-01T00:00:00.000Z')").run();
+  await api("POST", "/auth/logout", { token });
+  eq(DB.q("SELECT COUNT(*) AS c FROM sessions")[0].c, 0);
+});
+
+test("warehouse short-expiry upload is refused for a pharmacy login and allowed for the warehouse", async ({ api, bootstrap, addUser, DB }) => {
+  const { token } = await bootstrap();
+  const items = [{ stk_code: "A1", stk_desc: "Paracetamol 500", batch: "B1", expiry: "2026/12", qty: 10, loc_code: "WSL" }];
+  const r = await api("POST", "/cherubino/short-expiry/upload", { token, body: { items, wipe: true } });
+  eq(r.status, 403, r.text);
+  DB.db.prepare("INSERT INTO locations (id, org_id, name) VALUES (600, 1, 'Warehouse')").run();
+  const wh = await addUser({ locationId: 600, email: "wh@example.com", name: "Warehouse" });
+  const r2 = await api("POST", "/cherubino/short-expiry/upload", { token: wh.token, body: { items, wipe: true } });
+  eq(r2.status, 200, r2.text);
+  eq(r2.json.inserted, 1);
+});
+
+test("Cherubino OOS: Keep keeps, Reject only removes a pending proposal", async ({ api, bootstrap, addUser, DB }) => {
+  const { token: pharmacy } = await bootstrap();
+  DB.db.prepare("INSERT INTO locations (id, org_id, name) VALUES (600, 1, 'Head office')").run();
+  const admin = await addUser({ locationId: 600, email: "ho@example.com", name: "Head office" });
+  // Branch proposes an item -> pending
+  const add = await api("POST", "/cherubino/oos", { token: pharmacy, body: { description: "Enalapril 20mg" } });
+  eq(add.status, 200, add.text);
+  const id = DB.one("SELECT id, status FROM cherubino_oos").id;
+  eq(DB.one("SELECT status FROM cherubino_oos").status, "pending");
+  // Admin approves -> active
+  eq((await api("PUT", "/cherubino/oos/" + id, { token: admin.token, body: { action: "approve" } })).status, 200);
+  eq(DB.one("SELECT status FROM cherubino_oos").status, "active");
+  // Branch reports back in stock
+  eq((await api("PUT", "/cherubino/oos/" + id, { token: pharmacy, body: { action: "mark_back_in_stock" } })).status, 200);
+  eq(DB.one("SELECT status FROM cherubino_oos").status, "back_in_stock");
+  // Admin presses Keep OOS -> row stays, active again
+  const keep = await api("PUT", "/cherubino/oos/" + id, { token: admin.token, body: { action: "keep" } });
+  eq(keep.status, 200, keep.text);
+  eq(DB.one("SELECT status FROM cherubino_oos").status, "active");
+  // Reject on a non-pending row is refused
+  eq((await api("PUT", "/cherubino/oos/" + id, { token: admin.token, body: { action: "reject" } })).status, 400);
+  eq(DB.q("SELECT COUNT(*) AS c FROM cherubino_oos")[0].c, 1, "still there");
+  // Reject on a fresh pending proposal deletes it
+  await api("POST", "/cherubino/oos", { token: pharmacy, body: { description: "Metformin 850" } });
+  const pend = DB.one("SELECT id FROM cherubino_oos WHERE status='pending'").id;
+  eq((await api("PUT", "/cherubino/oos/" + pend, { token: admin.token, body: { action: "reject" } })).status, 200);
+  eq(DB.q("SELECT COUNT(*) AS c FROM cherubino_oos")[0].c, 1);
+});

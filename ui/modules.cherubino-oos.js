@@ -253,7 +253,7 @@
         html += '<button class="eikon-btn danger oos-act-btn" data-action="reject" data-id="' + item.id + '">Reject</button>';
       } else if (item.status === "back_in_stock") {
         html += '<button class="eikon-btn primary oos-act-btn" data-action="approve_back_in_stock" data-id="' + item.id + '">Confirm &amp; Remove</button>';
-        html += '<button class="eikon-btn oos-act-btn" data-action="reject" data-id="' + item.id + '">Keep OOS</button>';
+        html += '<button class="eikon-btn oos-act-btn" data-action="keep" data-id="' + item.id + '">Keep OOS</button>';
       } else if (item.status === "removal_requested") {
         html += '<button class="eikon-btn primary oos-act-btn" data-action="approve_back_in_stock" data-id="' + item.id + '">Approve Removal</button>';
         html += '<button class="eikon-btn oos-act-btn" data-action="reject_removal" data-id="' + item.id + '">Deny</button>';
@@ -371,14 +371,8 @@
       btn.onclick = function () {
         var action = btn.getAttribute("data-action");
         var id = btn.getAttribute("data-id");
-        if (action === "reject_removal") {
-          // Reject removal = set back to active
-          updateOos(id, "approve").then(function () { toast("Item kept on OOS list."); refresh(); })
-            .catch(function (err) { toast((err && err.message) || "Failed", "error"); });
-          return;
-        }
         updateOos(id, action).then(function () {
-          var msgs = { approve: "Approved.", reject: "Rejected.", approve_back_in_stock: "Removed from OOS list.", mark_back_in_stock: "Marked as back in stock. Pending admin confirmation.", request_removal: "Removal requested." };
+          var msgs = { approve: "Approved.", reject: "Rejected.", keep: "Kept on the OOS list.", reject_removal: "Kept on the OOS list.", approve_back_in_stock: "Removed from OOS list.", mark_back_in_stock: "Marked as back in stock. Pending admin confirmation.", request_removal: "Removal requested." };
           toast(msgs[action] || "Updated.");
           refresh();
         }).catch(function (err) { toast((err && err.message) || "Failed", "error"); });

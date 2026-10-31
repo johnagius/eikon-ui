@@ -129,7 +129,7 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
     return earlyById;
   }
 
-  async function computeEarlyByIdForMonth(month, entriesForMonth) {
+  async function computeEarlyByIdForMonth(win, month, entriesForMonth) {
     // Prefer a 30-day lookback (month_start - 30 days .. month_end) so we can detect early supply
     // even if the previous supply was in the previous month.
     var early = {};
@@ -139,7 +139,7 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
       var lookbackFrom = addDaysYmd(range.from, -30);
       if (!lookbackFrom) return computeEarlyById(entriesForMonth);
 
-      var data = await apiJson(ctx.win, "/dda-sales/report?from=" + encodeURIComponent(lookbackFrom) + "&to=" + encodeURIComponent(range.to), { method: "GET" });
+      var data = await apiJson(win, "/dda-sales/report?from=" + encodeURIComponent(lookbackFrom) + "&to=" + encodeURIComponent(range.to), { method: "GET" });
       if (!data || data.ok !== true) return computeEarlyById(entriesForMonth);
       var allEarly = computeEarlyById(Array.isArray(data.entries) ? data.entries : []);
       // Only keep flags for entries that are actually displayed in the month list
@@ -156,7 +156,7 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
 
   function escapeHtml(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
-      return ({ "&": "&", "<": "<", ">": ">", '"': '"', "'": "'" })[c] || c;
+      return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] || c;
     });
   }
 
@@ -1046,7 +1046,7 @@ function setLoading(v) {
         var data = await apiJson(ctx.win, url, { method: "GET" });
         if (!data || data.ok !== true) throw new Error(data && data.error ? String(data.error) : "Unexpected response");
         state.entries = Array.isArray(data.entries) ? data.entries : [];
-        state.early_by_id = await computeEarlyByIdForMonth(month, state.entries);
+        state.early_by_id = await computeEarlyByIdForMonth(ctx.win, month, state.entries);
         renderRows();
         setLoading(false);
       } catch (e) {

@@ -4139,14 +4139,11 @@ async function handleEodUpsert(request, env, corsOkHeaders, authUser) {
     [authUser.org_id, authUser.location_id, date]
   );
 
+  // An unlock must be explicit. A plain save from a PC that loaded the day before
+  // another PC locked it carries locked_at:"" and must NOT unlock it (it gets 409 below).
   const wantsUnlock =
     !!(existing && existing.locked_at) &&
-    (
-      lockedAtRaw === "" ||
-      lockedAtRaw === null ||
-      body.unlock === true ||
-      body.action === "UNLOCK"
-    );
+    (body.unlock === true || body.action === "UNLOCK");
 
   // ✅ PATCH: allow explicit unlock for locked records
   if (existing && existing.locked_at) {
@@ -4231,7 +4228,7 @@ async function handleEodUpsert(request, env, corsOkHeaders, authUser) {
       [
         authUser.org_id, authUser.location_id, date, timeOfDay, staffName, floatAmount,
         xJson, eposJson, chequesJson, paidOutsJson, cashJson,
-        bovDepositJson, bovBagNumber || null, bovContactId, notes || null,
+        bovDepositJson, bovBagNumber, bovContactId, notes,
         wantsLock ? 1 : 0, // NOTE: kept original behavior pattern
         authUser.user_id
       ]
@@ -4270,9 +4267,9 @@ async function handleEodUpsert(request, env, corsOkHeaders, authUser) {
         paidOutsJson,
         cashJson,
         bovDepositJson,
-        bovBagNumber || null,
+        bovBagNumber,
         bovContactId,
-        notes || null,
+        notes,
         wantsLock ? 1 : 0,
         authUser.user_id,
         existing.id,
@@ -13498,13 +13495,9 @@ async function handleShiftIcalPublic(request, env, corsOkHeaders, url) {
     const accept = String(request.headers.get("Accept")||"");
     const wantJson = debug || accept.indexOf("application/json") >= 0;
     if (wantJson) {
-      let tokenRows = [];
-      let settingsRows = [];
-      try { tokenRows = await dbAll(env, `SELECT token, org_id, location_id, created_at FROM shift_calendar_tokens ORDER BY created_at DESC LIMIT 20`, []); } catch(e) {}
-      try { settingsRows = await dbAll(env, `SELECT org_id, location_id, substr(settings_json,1,200) AS settings_head FROM shift_settings ORDER BY updated_at DESC LIMIT 10`, []); } catch(e) {}
-      return jsonResponse({ ok:false, error:"Not found", hint:"Ensure token was saved via PUT /shifts/settings. Add &debug=1 to this URL for diagnostics.", token: token, worker: WORKER_VERSION, tokenTableSample: tokenRows, recentSettingsSample: settingsRows }, 404, { ...corsOkHeaders, "X-Eikon-Worker-Version": WORKER_VERSION });
+      return jsonResponse({ ok:false, error:"Not found", worker: WORKER_VERSION }, 404, { ...corsOkHeaders, "X-Eikon-Worker-Version": WORKER_VERSION });
     }
-    return new Response("Not found. (EIKON iCal) Add &debug=1 for diagnostics.", { status: 404, headers: { "Content-Type":"text/plain; charset=utf-8", "X-Eikon-Worker-Version": WORKER_VERSION } });
+    return new Response("Not found. (EIKON iCal)", { status: 404, headers: { "Content-Type":"text/plain; charset=utf-8", "X-Eikon-Worker-Version": WORKER_VERSION } });
   }
   const staffId = url.searchParams.get("staff_id") ? parseInt(url.searchParams.get("staff_id")) : null;
   const past = Math.max(0, Math.min(365, parseInt(url.searchParams.get("past")||"30",10)||30));
@@ -15517,6 +15510,14 @@ const authUser = await authFromRequest(request, env);
       }
     }
     if (!cors.ok) return jsonResponse({ ok: false, error: "CORS blocked" }, 403, corsOkHeaders);
+
+    if (url.pathname === "/auth/logout" && request.method === "POST") {
+      // Revoke this session server-side and purge expired ones while we are here.
+      try { await dbRun(env, "DELETE FROM sessions WHERE id = ?", [authUser.session_id]); } catch (e) {}
+      try { await dbRun(env, "DELETE FROM sessions WHERE expires_at < datetime('now')", []); } catch (e) {}
+      try { await writeAudit(env, authUser.org_id, authUser.user_id, "LOGOUT", "user", String(authUser.user_id), {}); } catch (e) {}
+      return jsonResponse({ ok: true }, 200, corsOkHeaders);
+    }
 
     if (url.pathname === "/auth/me" && request.method === "GET") {
       return await handleMe(env, corsOkHeaders, authUser);
@@ -17739,6 +17740,9 @@ async function handleShortExpiryList(request, env, corsOkHeaders, authUser, url)
 
 async function handleShortExpiryUpload(request, env, corsOkHeaders, authUser) {
   await ensureCherubinoShortExpirySchema(env);
+  // Only the warehouse / company-admin locations (600-900) may replace the list; it wipes every branch's orders.
+  const uploaderLoc = Number(authUser.location_id);
+  if (!(uploaderLoc >= 600 && uploaderLoc <= 900)) return jsonResponse({ ok: false, error: "Forbidden - warehouse admin only" }, 403, corsOkHeaders);
   const body = await readJson(request);
   const items = Array.isArray(body.items) ? body.items : [];
   if (!items.length) return jsonResponse({ ok: false, error: "No items" }, 400, corsOkHeaders);
@@ -17880,8 +17884,16 @@ async function handleOosUpdate(request, env, corsOkHeaders, authUser, id) {
     return jsonResponse({ ok: true }, 200, corsOkHeaders);
   }
 
+  if ((action === "keep" || action === "reject_removal") && isAdmin) {
+    // Admin keeps the item on the list: denies a back-in-stock report or a removal request.
+    await dbRun(env, `UPDATE cherubino_oos SET status='active' WHERE id=? AND org_id=?`, [id, authUser.org_id]);
+    await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_OOS_KEEP", "cherubino_oos", String(id), { from_status: String(existing.status || "") });
+    return jsonResponse({ ok: true }, 200, corsOkHeaders);
+  }
+
   if (action === "reject" && isAdmin) {
-    // Admin rejects a pending item or removal request → delete it
+    // Admin rejects a pending pharmacy proposal → delete it. Only valid while pending.
+    if (String(existing.status || "") !== "pending") return jsonResponse({ ok: false, error: "Only a pending proposal can be rejected" }, 400, corsOkHeaders);
     await dbRun(env, `DELETE FROM cherubino_oos WHERE id=? AND org_id=?`, [id, authUser.org_id]);
     await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_OOS_REJECT", "cherubino_oos", String(id), {});
     return jsonResponse({ ok: true }, 200, corsOkHeaders);

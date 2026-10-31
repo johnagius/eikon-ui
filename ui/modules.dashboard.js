@@ -1556,6 +1556,8 @@
         primary: true,
         onClick: async function () {
           try {
+            // Validate every device first, then save. A blank field must never become 0 °C.
+            var toSave = [];
             for (var j = 0; j < missing.length; j++) {
               var dev = missing[j] || {};
               var did = String(dev.id || "");
@@ -1563,21 +1565,30 @@
               var maxEl = document.getElementById("dash-tmax-" + did);
               var noteEl = document.getElementById("dash-tnote-" + did);
 
-              var minV = Number((minEl && minEl.value || "").trim());
-              var maxV = Number((maxEl && maxEl.value || "").trim());
+              var minS = (minEl && minEl.value || "").trim();
+              var maxS = (maxEl && maxEl.value || "").trim();
               var notes = (noteEl && noteEl.value || "").trim();
+              var devName = String(dev.name || ("device " + did));
 
-              if (!isFinite(minV) || !isFinite(maxV)) throw new Error("Please enter valid Min/Max for all devices.");
+              if (!minS || !maxS) throw new Error("Enter both Min and Max for " + devName + " (nothing was saved).");
+              var minV = Number(minS);
+              var maxV = Number(maxS);
+              if (!isFinite(minV) || !isFinite(maxV)) throw new Error("Min/Max for " + devName + " are not numbers (nothing was saved).");
+              if (minV > maxV) throw new Error("Min is greater than Max for " + devName + " (nothing was saved).");
+              if (minV < -40 || maxV > 60) throw new Error("Reading for " + devName + " is outside -40 to 60 °C (nothing was saved).");
+              toSave.push({ dev: dev, minV: minV, maxV: maxV, notes: notes });
+            }
 
+            for (var s = 0; s < toSave.length; s++) {
               await api("/temperature/entries", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                  device_id: dev.id,
+                  device_id: toSave[s].dev.id,
                   entry_date: today,
-                  min_temp: minV,
-                  max_temp: maxV,
-                  notes: notes
+                  min_temp: toSave[s].minV,
+                  max_temp: toSave[s].maxV,
+                  notes: toSave[s].notes
                 })
               }, 8000, "temperature save");
             }

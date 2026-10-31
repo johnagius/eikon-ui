@@ -1992,6 +1992,8 @@
       try {
         var payload = JSON.parse(JSON.stringify(state));
         payload.action = "SAVE";
+        // Never send an empty locked_at on an ordinary save: the server must not read it as an unlock.
+        if (!payload.locked_at) delete payload.locked_at;
         await upsertEod(payload);
       } catch (e) {
         // Saved locally (shadow copy), but cloud rejected/failed. (shadow copy), but cloud rejected/failed.

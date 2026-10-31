@@ -37,7 +37,7 @@
   }
   function escapeHtml(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
-      return ({ "&": "&", "<": "<", ">": ">", '"': '"', "'": "'" })[c] || c;
+      return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] || c;
     });
   }
   function monthStartEnd(yyyyMm) {
@@ -1807,8 +1807,14 @@ async function suggestPoycClients(term, limit) {
     }
 
     function openModalForNew() {
+      // Default to today when the selected month is the current one; otherwise the
+      // first day of the month being back-filled. Never silently the 1st of this month.
       var startEnd = monthStartEnd(state.month) || monthStartEnd(todayYm());
       var defaultDate = startEnd ? startEnd.from : "";
+      if (!state.month || state.month === todayYm()) {
+        var _d = new Date();
+        defaultDate = _d.getFullYear() + "-" + String(_d.getMonth() + 1).padStart(2, "0") + "-" + String(_d.getDate()).padStart(2, "0");
+      }
       openModal("New Entry", { entry_date: defaultDate }, async function (payload) {
         if (!ctx) return;
         try {

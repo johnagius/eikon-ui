@@ -837,8 +837,18 @@
       setMsg("", "");
       var id = row && row.id != null ? Number(row.id) : null;
       if (!id) { setMsg("err", "Invalid entry id."); return; }
-      var ok = false;
-      try { ok = ctx.win.confirm("Delete this DDA Purchases entry?"); } catch (e) { ok = true; }
+      var ok = await new Promise(function (resolve) {
+        var EK = ctx.win && ctx.win.EIKON;
+        if (EK && EK.modal && typeof EK.modal.show === "function") {
+          EK.modal.show("Delete DDA purchase", '<div style="line-height:1.5">Delete this DDA Purchases entry?<br>This cannot be undone.</div>', [
+            { label: "Cancel", onClick: function () { EK.modal.hide(); resolve(false); } },
+            { label: "Delete", danger: true, onClick: function () { EK.modal.hide(); resolve(true); } }
+          ]);
+          return;
+        }
+        // Fail closed: if a native confirm cannot be shown, do not delete.
+        try { resolve(!!ctx.win.confirm("Delete this DDA Purchases entry?")); } catch (e) { resolve(false); }
+      });
       if (!ok) return;
 
       setLoading(true);

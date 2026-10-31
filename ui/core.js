@@ -7,6 +7,8 @@
 
   // Basic identity
   E.APP_NAME = "Eikon";
+  // The only page allowed to receive debug log forwarding (postMessage). Never "*".
+  E.PARENT_ORIGIN = "https://swiftdataautomation.com";
   E.VERSION = "2026-02-20-05";
 
   // Splash / loading assets (static files under /ui/assets/)
@@ -186,8 +188,9 @@
     try {
       if (!window.parent || window.parent === window) return;
       if (E.DEBUG < 2) return;
+      if (!E.PARENT_ORIGIN) return;
       var payload = { type: "EIKON_LOG", level: level, time: ts(), msg: args.map(safeToString).join(" ") };
-      window.parent.postMessage(payload, "*");
+      window.parent.postMessage(payload, E.PARENT_ORIGIN);
     } catch (e) {}
   }
 
@@ -207,6 +210,44 @@
   E.warn = function () { logBase("warn", Array.prototype.slice.call(arguments)); };
   E.error = function () { logBase("error", Array.prototype.slice.call(arguments)); };
   E.dbg = function () { if (E.DEBUG >= 2) logBase("log", ["[DBG]"].concat(Array.prototype.slice.call(arguments))); };
+
+  // One toast for the whole app. Accepts the three call shapes modules use today:
+  //   E.toast(message, kind)            kind: error|warn|success|info
+  //   E.toast(title, message, kind, ms)
+  //   E.showToast(message)
+  (function installToast() {
+    var KINDS = { error: "bad", err: "bad", bad: "bad", danger: "bad", warn: "warn", warning: "warn", success: "good", ok: "good", good: "good", info: "" };
+    function ensureStyles() {
+      if (document.getElementById("eikon-core-toast-style")) return;
+      var st = document.createElement("style");
+      st.id = "eikon-core-toast-style";
+      st.textContent =
+        ".eikon-toast-wrap{position:fixed;right:14px;bottom:14px;z-index:999999;display:flex;flex-direction:column;gap:10px;max-width:min(420px,calc(100vw - 28px));}" +
+        ".eikon-toast{border:1px solid rgba(255,255,255,.10);background:rgba(15,22,34,.96);color:#e9eef7;border-radius:14px;padding:10px 12px;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.35);}" +
+        ".eikon-toast .t-title{font-weight:900;margin:0 0 4px 0;font-size:13px;}" +
+        ".eikon-toast .t-msg{margin:0;font-size:12px;opacity:.9;white-space:pre-wrap;}" +
+        ".eikon-toast.good{border-color:rgba(67,209,122,.45);}" +
+        ".eikon-toast.bad{border-color:rgba(255,90,122,.55);}" +
+        ".eikon-toast.warn{border-color:rgba(255,200,90,.45);}";
+      document.head.appendChild(st);
+    }
+    E.toast = E.showToast = function (a, b, c, d) {
+      var title = "", msg = "", kind = "", ms = 3200;
+      if (typeof b === "string" && Object.prototype.hasOwnProperty.call(KINDS, b) && c === undefined) { msg = a; kind = KINDS[b]; }
+      else if (b !== undefined && b !== null && typeof b !== "number") { title = a; msg = b; kind = KINDS[c] || ""; if (typeof d === "number") ms = d; }
+      else { msg = a; if (typeof b === "number") ms = b; }
+      try {
+        ensureStyles();
+        var wrap = document.getElementById("eikon-toast-wrap");
+        if (!wrap) { wrap = document.createElement("div"); wrap.id = "eikon-toast-wrap"; wrap.className = "eikon-toast-wrap"; document.body.appendChild(wrap); }
+        var t = document.createElement("div"); t.className = "eikon-toast " + kind; t.setAttribute("role", "status");
+        if (title) { var h = document.createElement("div"); h.className = "t-title"; h.textContent = String(title); t.appendChild(h); }
+        var m = document.createElement("div"); m.className = "t-msg"; m.textContent = String(msg == null ? "" : msg); t.appendChild(m);
+        wrap.appendChild(t);
+        setTimeout(function () { try { t.remove(); } catch (e) {} }, ms);
+      } catch (e) {}
+    };
+  })();
 
   // Crash logging (never silent black screen)
   (function installCrashLogging() {
@@ -262,7 +303,7 @@
     if (!/^https?:\/\//i.test(path)) url = (E.apiBase || "") + path;
 
     var reqInfo = { method: method, headers: {}, hasToken: !!token };
-    try { headers.forEach(function (v, k) { reqInfo.headers[k] = v; }); } catch (e) {}
+    try { headers.forEach(function (v, k) { reqInfo.headers[k] = (String(k).toLowerCase() === "authorization") ? "Bearer [redacted]" : v; }); } catch (e) {}
 
     if (E.DEBUG >= 2) {
       E.dbg("[api] ->", url, reqInfo);
@@ -1199,6 +1240,8 @@
   E.logout = function () {
     E.dbg("[auth] logout");
     if (E._supplierPollInterval) { clearInterval(E._supplierPollInterval); E._supplierPollInterval = null; }
+    // Revoke the session on the server before forgetting the token locally.
+    try { if (E.getToken()) { E.apiFetch("/auth/logout", { method: "POST" }).catch(function () {}); } } catch (e) {}
     E.clearToken();
     E.state.user = null;
     E.state.activeModuleId = "";

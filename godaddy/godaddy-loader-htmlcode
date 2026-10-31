@@ -74,7 +74,7 @@
       }
     } catch (e) {}
 
-    var src = base + "?v=" + encodeURIComponent(String(v)) + "&dbg=2" + hash;
+    var src = base + "?v=" + encodeURIComponent(String(v)) + hash;
 
     console.log("[EIKON][godaddy] loading iframe:", src);
 
