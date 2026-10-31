@@ -102,3 +102,63 @@ only actions on the page; everything else is reading.
 `tests/ui/run.mjs`; screenshot `prototype/06 Customer to order.png`. The form that
 opens is still the old dark modal: that is deliberate (no new form in this step) and
 it changes when Registers restyles the shared form, not before.
+
+### Step 2 · Registers, part one: Temperature, Cleaning, Daily register
+
+**Why.** These three are filled in every day and handed to an inspector. Today
+they are three different screens with three different save models, prints that
+differ from the screen, hard deletes by anyone, and no way to tell a reading
+entered on the day from one typed a month later (`audit/E-registers.md` C2, C5).
+
+**What the pharmacist sees.** One page per register in the new shell, laid out as
+the mockup `prototype/03 Register, temperature.png`:
+- Title, one chip per device (Fridge 1, Fridge 2, Room), a month switcher.
+- The month as a calendar. Each day is a card: the reading, who, what time.
+  A missing day is red and says "not logged · add with a note". Closed days are
+  faded. Today has the two fields in the card; Enter saves that device, nothing
+  else is touched.
+- A footer line: limits, days logged, days missing, and **Print the month ›**.
+- Cleaning uses the same calendar: a day card says "Karl 08:00–09:10 · Maria",
+  today's card has Cleaner and Done now. Daily register is a list, not a calendar
+  (several lines a day): month on the left, one line per supply with the seven
+  statutory columns, search that also looks across months, Print the month.
+- Below the calendar on Temperature: the two-month chart per device, as now.
+
+**Data.** This step changes write rules, so it is the first one with a migration:
+- `entered_at` (UTC instant) on all three tables, filled for new rows; old rows
+  keep NULL and print as "entered: unknown". A reading whose `entered_at` is more
+  than a day after `entry_date` shows and prints a small **late** mark.
+- No more hard delete from the screen. A correction is a new row that supersedes
+  the old (`superseded_by`, `correction_reason`); the old line prints struck
+  through with the reason. The old `DELETE` routes keep working for the classic
+  layout until it is retired, but they also write a full before-image to the audit.
+- Out-of-limit readings require a note before they save. Not an extra form: the
+  note field appears in the card.
+- Print is rendered by the worker (`/temperature/report/html` and the two
+  siblings exist already and are unused by the UI): identical on every PC,
+  stamped with pharmacy, who printed, when, and never auto-closed.
+- The temperature save sends only the device that was typed, never the whole day
+  (fixes the cross-PC overwrite, risk 1). The offline queue is removed from these
+  three screens; a failed save stays in the card, red, with Retry.
+
+**Design rules kept.** No modal for entry. One place to type per day. The old
+Devices tab becomes a small "Devices" link on the Temperature footer that opens
+the existing admin form unchanged (admin only, as the server already enforces).
+
+**What stays reachable through the hub.** The classic Temperature, Cleaning and
+Daily register screens, untouched, until the new ones have run for two weeks in
+one pharmacy.
+
+**Done when.**
+- Worker tests: save one device for one day without touching the others; late
+  mark when entered after the day; out-of-limit without a note is 400; a
+  correction supersedes and the original stays; printed HTML contains the
+  struck-through line, the late mark and the print stamp; old DELETE audits the
+  before-image.
+- UI tests: the month renders from one request per device set; Enter in today's
+  card posts one entry; a missing day opens its note; Print opens the server page;
+  Cleaning and Daily register pages render and save.
+- Screenshots `prototype/07 Temperature, built.png`, `08 Cleaning, built.png`,
+  `09 Daily register, built.png`.
+
+Not started. Starts on your word.
