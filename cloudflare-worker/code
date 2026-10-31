@@ -15328,6 +15328,167 @@ async function handleBoardDashboard(request, env, corsOkHeaders, authUser) {
 }
 
 
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TODAY  (one call: what needs this pharmacy now)
+// Read-only. Built on the existing tables; every section is guarded so a
+// missing table or a bad row yields an empty section, never a 500.
+// ═══════════════════════════════════════════════════════════════════════════
+const PHARMACY_TZ = "Europe/Malta";
+function tzYmd(d) {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: PHARMACY_TZ, year: "numeric", month: "2-digit", day: "2-digit" }).format(d || new Date());
+}
+function tzHm(d) {
+  return new Intl.DateTimeFormat("en-GB", { timeZone: PHARMACY_TZ, hour: "2-digit", minute: "2-digit", hour12: false }).format(d || new Date());
+}
+function ymdPlusDays(ymd, n) {
+  const p = String(ymd || "").split("-").map(Number);
+  if (p.length !== 3 || p.some((x) => !Number.isFinite(x))) return "";
+  return new Date(Date.UTC(p[0], p[1] - 1, p[2] + n)).toISOString().slice(0, 10);
+}
+function ymdDiffDays(from, to) {
+  const a = String(from || "").split("-").map(Number), b = String(to || "").split("-").map(Number);
+  if (a.length !== 3 || b.length !== 3) return null;
+  return Math.round((Date.UTC(b[0], b[1] - 1, b[2]) - Date.UTC(a[0], a[1] - 1, a[2])) / 86400000);
+}
+function todayNum(v) { const n = Number(v); return Number.isFinite(n) ? n : null; }
+
+async function handleToday(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  const org = authUser.org_id, loc = authUser.location_id;
+  const today = tzYmd(), yesterday = ymdPlusDays(today, -1), in30 = ymdPlusDays(today, 30), sixMonthsAgo = ymdPlusDays(today, -183);
+  const all = async (sql, bind) => { try { return await dbAll(env, sql, bind); } catch (e) { return []; } };
+  const one = async (sql, bind) => { try { return await dbFirst(env, sql, bind); } catch (e) { return null; } };
+
+  const ensures = [ensureDailyRegisterSchema, ensureCertificatesSchema, ensureAlertsSchema, ensureReturnsSchema, ensureNearExpirySchema,
+    ensureClientOrdersSchema, ensureClientTicketsSchema, ensureEndOfDaySchema, ensurePaidOutSchema, ensureShiftsSchema, ensureSupplierProductsSchema];
+  for (const fn of ensures) { try { await fn(env); } catch (e) {} }
+  try { await ensureDefaultTempDevicesIfMissing(env, authUser); } catch (e) {}
+  try { await ensureDefaultCertificatesIfMissing(env, authUser); } catch (e) {}
+
+  // ---- Before opening: the registers that must be filled today
+  const before = [];
+  const devs = await all(
+    `SELECT d.id, d.name, d.device_type, d.min_limit, d.max_limit,
+            t.min_temp AS t_min, t.max_temp AS t_max, y.min_temp AS y_min, y.max_temp AS y_max
+       FROM temperature_devices d
+       LEFT JOIN temperature_entries t ON t.device_id = d.id AND t.org_id = d.org_id AND t.location_id = d.location_id AND t.entry_date = ?
+       LEFT JOIN temperature_entries y ON y.device_id = d.id AND y.org_id = d.org_id AND y.location_id = d.location_id AND y.entry_date = ?
+      WHERE d.org_id = ? AND d.location_id = ? AND d.active = 1
+      ORDER BY d.id`, [today, yesterday, org, loc]);
+  for (const d of devs) {
+    const done = d.t_min != null && d.t_max != null;
+    const lo = todayNum(d.min_limit), hi = todayNum(d.max_limit);
+    const out = done && ((lo != null && Number(d.t_min) < lo) || (hi != null && Number(d.t_max) > hi));
+    const yText = (d.y_min != null && d.y_max != null) ? ("Yesterday " + d.y_min + " to " + d.y_max) : "No reading yesterday";
+    const lim = (lo != null || hi != null) ? (" · limits " + (lo != null ? lo : "–") + " to " + (hi != null ? hi : "–")) : "";
+    before.push({
+      kind: "temperature", device_id: d.id, title: String(d.name || "Device") + " · reading", sub: yText + lim,
+      status: done ? "done" : "todo", out_of_range: !!out,
+      limits: { min: lo, max: hi }, yesterday: (d.y_min != null ? { min: Number(d.y_min), max: Number(d.y_max) } : null),
+      today: done ? { min: Number(d.t_min), max: Number(d.t_max) } : null,
+      action: { method: "POST", path: "/temperature/entries", body: { device_id: d.id, entry_date: today }, fields: ["min_temp", "max_temp", "notes"], label: "Log" }
+    });
+  }
+  const drCount = await one(`SELECT COUNT(*) AS c FROM daily_register_entries WHERE org_id = ? AND location_id = ? AND entry_date = ?`, [org, loc, today]);
+  const drN = Number(drCount && drCount.c || 0);
+  before.push({
+    kind: "daily_register", title: "Daily register", sub: drN ? (drN + (drN === 1 ? " entry" : " entries") + " today") : "No entry yet today",
+    status: drN ? "done" : "todo", count_today: drN,
+    action: { type: "open", path: "#dailyregister", label: "Open" }
+  });
+  const lastClean = await one(`SELECT entry_date, cleaner_name FROM cleaning_entries WHERE org_id = ? AND location_id = ? ORDER BY entry_date DESC, time_in DESC LIMIT 1`, [org, loc]);
+  const cleanDays = lastClean ? ymdDiffDays(lastClean.entry_date, today) : null;
+  before.push({
+    kind: "cleaning", title: "Cleaning",
+    sub: lastClean ? ("Last done " + (cleanDays === 0 ? "today" : cleanDays === 1 ? "yesterday" : cleanDays + " days ago") + (lastClean.cleaner_name ? " by " + lastClean.cleaner_name : "")) : "Never recorded",
+    status: cleanDays === 0 ? "done" : (cleanDays == null || cleanDays >= 14 ? "overdue" : "ok"),
+    days_since: cleanDays, last_date: lastClean ? lastClean.entry_date : null,
+    action: { method: "POST", path: "/cleaning/entries", body: { entry_date: today }, fields: ["time_in", "cleaner_name", "staff_name"], label: "Done now" }
+  });
+
+  // ---- Customers waiting: orders to hand over, questions to answer
+  const waiting = [];
+  const orders = await all(
+    `SELECT id, client_name, client_phone, items_text, priority, needed_by, pickup_date, order_date, follow_up_status, order_code
+       FROM client_orders_entries WHERE org_id = ? AND location_id = ? AND fulfilled = 0
+      ORDER BY priority ASC, COALESCE(NULLIF(needed_by, ''), '9999-12-31') ASC, order_date ASC LIMIT 50`, [org, loc]);
+  for (const o of orders) {
+    waiting.push({ kind: "order", id: o.id, name: o.client_name, phone: o.client_phone || "", detail: o.items_text || "", code: o.order_code || "",
+      needed_by: o.needed_by || null, pickup_date: o.pickup_date || null, priority: Number(o.priority) || 2,
+      waiting_days: ymdDiffDays(o.order_date, today), due_today: !!(o.needed_by && o.needed_by <= today),
+      action: { type: "open", path: "#clientorders", label: "Open" } });
+  }
+  const tickets = await all(
+    `SELECT id, ticket_id, client_name, phone, issue, status, priority, open_date, followup_date
+       FROM client_tickets_entries WHERE org_id = ? AND location_id = ? AND resolved = 0 AND status NOT IN ('Resolved', 'Closed')
+      ORDER BY priority ASC, open_date ASC LIMIT 50`, [org, loc]);
+  for (const t of tickets) {
+    waiting.push({ kind: "question", id: t.id, ref: t.ticket_id || "", name: t.client_name, phone: t.phone || "", detail: t.issue || "", status: t.status,
+      priority: Number(t.priority) || 2, waiting_days: ymdDiffDays(t.open_date, today), followup_date: t.followup_date || null,
+      action: { type: "open", path: "#tickets", label: "Reply" } });
+  }
+
+  // ---- Attention: paperwork and dates that are slipping
+  const attention = [];
+  const certs = await all(`SELECT item_key, title, last_date, interval_months FROM certificates_items WHERE org_id = ? AND location_id = ?`, [org, loc]);
+  for (const c of certs) {
+    if (!c.last_date) continue;
+    let due = "";
+    try { due = addMonthsToYmd(c.last_date, Number(c.interval_months) || 12) || ""; } catch (e) { due = ""; }
+    if (!due) continue;
+    if (due < today) attention.push({ kind: "certificate", title: c.title, status: "expired", due, days: ymdDiffDays(due, today), action: { type: "open", path: "#certificates", label: "Open" } });
+    else if (due <= in30) attention.push({ kind: "certificate", title: c.title, status: "due_soon", due, days: ymdDiffDays(today, due), action: { type: "open", path: "#certificates", label: "Open" } });
+  }
+  const alerts = await all(
+    `SELECT id, item_name, alert_type, status, entry_date, team_informed, supplier_informed, authorities_informed, return_arranged, handed_over, collection_note_received, credit_note_received
+       FROM alerts_entries WHERE org_id = ? AND location_id = ? AND lower(status) != 'closed' ORDER BY entry_date DESC LIMIT 20`, [org, loc]);
+  for (const a of alerts) {
+    const flags = ["team_informed", "supplier_informed", "authorities_informed", "return_arranged", "handed_over", "collection_note_received", "credit_note_received"];
+    const left = flags.filter((f) => Number(a[f] || 0) !== 1).length;
+    attention.push({ kind: "alert", id: a.id, title: a.item_name, alert_type: a.alert_type, status: a.status, steps_left: left, date: a.entry_date, action: { type: "open", path: "#alerts", label: "Open" } });
+  }
+  const retOpen = await one(
+    `SELECT COUNT(*) AS c FROM returns_entries WHERE org_id = ? AND location_id = ? AND entry_date >= ? AND COALESCE(supplier_refused, 0) = 0
+        AND NOT (return_arranged = 1 AND handed_over = 1 AND collection_note_received = 1 AND credit_note_received = 1)`, [org, loc, sixMonthsAgo]);
+  if (Number(retOpen && retOpen.c || 0) > 0) attention.push({ kind: "returns", open_count: Number(retOpen.c), title: Number(retOpen.c) + (Number(retOpen.c) === 1 ? " return" : " returns") + " awaiting paperwork", action: { type: "open", path: "#returns", label: "Open" } });
+  const ne = await all(`SELECT product_name, expiry_date FROM near_expiry_entries WHERE org_id = ? AND location_id = ? AND COALESCE(return_status, '') != 'handed_over' AND expiry_date <= ? ORDER BY expiry_date ASC LIMIT 200`, [org, loc, in30]);
+  if (ne.length) {
+    const expired = ne.filter((x) => x.expiry_date < today);
+    attention.push({ kind: "near_expiry", expired_count: expired.length, due30_count: ne.length - expired.length, first: ne[0].product_name, first_expiry: ne[0].expiry_date,
+      title: (expired.length ? expired.length + " expired" : "") + (expired.length && ne.length - expired.length ? ", " : "") + (ne.length - expired.length ? (ne.length - expired.length) + " expiring within 30 days" : ""),
+      action: { type: "open", path: "#nearexpiry", label: "Open" } });
+  }
+
+  // ---- Takings, stock, team
+  const eod = await one(`SELECT id, locked_at, saved_at, staff_name FROM end_of_day WHERE org_id = ? AND location_id = ? AND eod_date = ?`, [org, loc, today]);
+  const po = await one(`SELECT COALESCE(SUM(fee), 0) AS total, COUNT(*) AS c FROM paid_out_entries WHERE org_id = ? AND location_id = ? AND entry_date = ?`, [org, loc, today]);
+  const takings = { end_of_day_saved: !!eod, end_of_day_locked: !!(eod && eod.locked_at), paid_out_today: Math.round(Number(po && po.total || 0) * 100) / 100, paid_out_count: Number(po && po.c || 0),
+    action: { type: "open", path: "#endofday", label: eod ? (eod.locked_at ? "View" : "Close the day") : "Close the day" } };
+  const so = await all(`SELECT status, COUNT(*) AS c FROM supplier_orders WHERE org_id = ? AND pharmacy_location_id = ? AND status IN ('pending', 'shipped') GROUP BY status`, [org, loc]);
+  const stock = { supplier_orders_pending: 0, supplier_orders_shipped: 0 };
+  for (const r of so) { if (r.status === "pending") stock.supplier_orders_pending = Number(r.c); if (r.status === "shipped") stock.supplier_orders_shipped = Number(r.c); }
+  const shifts = await all(
+    `SELECT a.start_time, a.end_time, s.full_name, s.designation FROM shift_assignments a JOIN shift_staff s ON s.id = a.staff_id
+      WHERE a.org_id = ? AND a.location_id = ? AND a.shift_date = ? ORDER BY a.start_time ASC`, [org, loc, today]);
+  const hand = await one(`SELECT ymd, notes, handover_json FROM instructions_daily WHERE org_id = ? AND location_id = ? AND ymd = ?`, [org, loc, yesterday]);
+  const notesToday = await one(`SELECT notes FROM instructions_daily WHERE org_id = ? AND location_id = ? AND ymd = ?`, [org, loc, today]);
+  let incoming = [];
+  try { incoming = hand ? parseHandoverJson(hand.handover_json) : []; } catch (e) { incoming = []; }
+  const team = { on_today: shifts.map((x) => ({ name: x.full_name, role: x.designation, from: x.start_time, to: x.end_time })),
+    handover_incoming: Array.isArray(incoming) ? incoming : [], notes_today: notesToday ? String(notesToday.notes || "") : "" };
+
+  const counts = {
+    before_opening: before.filter((x) => x.status === "todo" || x.status === "overdue").length,
+    customers_waiting: waiting.length,
+    attention: attention.length
+  };
+  return jsonResponse({ ok: true, date: today, time: tzHm(), timezone: PHARMACY_TZ,
+    pharmacy: { name: authUser.location_name, location_id: loc, org: authUser.org_name },
+    before_opening: before, customers_waiting: waiting, attention, takings, stock, team, counts },
+    200, { ...corsOkHeaders, "Cache-Control": "private, max-age=10" });
+}
+
 // ---------------------------------------------------------------------------
 // Schema DDL runs ONCE per isolate per database. Before this every handler re-ran
 // its CREATE TABLE / CREATE INDEX / ALTER statements on every request (about 200
@@ -15610,6 +15771,10 @@ const authUser = await authFromRequest(request, env);
       }
     }
     if (!cors.ok) return jsonResponse({ ok: false, error: "CORS blocked" }, 403, corsOkHeaders);
+
+    if (url.pathname === "/today" && request.method === "GET") {
+      return await handleToday(request, env, corsOkHeaders, authUser);
+    }
 
     if (url.pathname === "/auth/logout" && request.method === "POST") {
       // Revoke this session server-side and purge expired ones while we are here.

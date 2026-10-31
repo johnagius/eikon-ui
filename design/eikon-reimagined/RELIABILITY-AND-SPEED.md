@@ -208,6 +208,16 @@ stock short, team on shift, handover, takings so far. One request, a few
 kilobytes, cached for ten seconds, invalidated by writes. Every row carries its
 action endpoint so the button needs no module code.
 
+**Status:** `GET /today` exists on the branch (worker, read-only, tested). It returns
+`before_opening` (one row per active fridge or room with yesterday's reading, limits,
+today's reading and an inline `action`; the daily register; cleaning with days since),
+`customers_waiting` (open orders by priority and need-by date, then open questions with
+days waiting), `attention` (certificates expired or due within 30 days, open recalls with
+steps left, returns awaiting paperwork, expired and expiring stock), `takings`, `stock`,
+`team` (who is on today, yesterday's handover, today's notes) and `counts`. Every section
+is guarded, dates are the pharmacy's local date, and the response carries a ten-second
+private cache. The Today screen can now be built as a list over this one call.
+
 ### 3.3 Reads
 
 - Lists are paginated with cursors and a server-side search parameter. The
