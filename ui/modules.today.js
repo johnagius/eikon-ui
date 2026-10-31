@@ -266,6 +266,7 @@
       '<button class="tdy-btn" data-open="#instructions">Handover</button></div>';
     html += '</div>';
 
+    if (E.setRailBadge) { try { E.setRailBadge("today", before.filter(function (r) { return r.status === "todo" || r.status === "overdue"; }).length); E.setRailBadge("customers", nWait); E.setRailBadge("stock", attention.filter(function (a) { return a.kind === "near_expiry" || a.kind === "returns" || a.kind === "alert"; }).length); } catch (eB) {} }
     html += '<div class="tdy-foot"><span>Updated ' + esc(state.loadedAt ? hm(state.loadedAt) : "–") + ' · refreshes every minute</span><a class="right" data-open="#dashboard">Old dashboard ›</a></div>';
     html += '</div>';
     m.innerHTML = html;

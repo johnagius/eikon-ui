@@ -928,6 +928,7 @@
       '  <main class="eikon-main">' +
       '    <div class="eikon-topbar">' +
       '      <div class="eikon-top-left">' +
+      '        <button class="eikon-btn" id="eikon-back-btn" style="display:none" title="Back">‹ Back</button>' +
       '        <img id="eikon-topbar-logo" alt="Eikon" style="height:26px;width:auto;display:block;filter:drop-shadow(0 1px 2px rgba(0,0,0,.35));" />' +
       '        <div class="eikon-page-title" id="eikon-page-title"><span id="eikon-page-title-text">Loading…</span></div>' +
       "      </div>" +
@@ -981,6 +982,14 @@
         });
       }
     }
+
+    // Back (reimagined shell only): to the hub the open module belongs to
+    var backBtn = document.getElementById("eikon-back-btn");
+    if (backBtn) backBtn.addEventListener("click", function () {
+      var to = E._ui2Back || (E.ui2HubFor ? E.ui2HubFor(E.state.activeModuleId) : null) || { id: "today" };
+      E._ui2Back = null;
+      window.location.hash = "#" + to.id;
+    });
 
     // Change password
     var pwBtn = document.getElementById("eikon-password-btn");
@@ -1108,6 +1117,8 @@
     var modById = {};
     allMods.forEach(function (m) { modById[m.id] = m; });
 
+    if (E.isUi2() && (E._sectionDashboardId === "today") && modById.today) { E.renderNavUi2(nav, modById); return; }
+
     // --- Search input ---
     var searchWrap = document.createElement("div");
     searchWrap.className = "eikon-nav-search";
@@ -1212,7 +1223,7 @@
         searchResults.innerHTML = "";
 
         var matches = allMods.filter(function (m) {
-          return (m.title || m.id).toLowerCase().indexOf(q) !== -1;
+          return !m.ui2Only && (m.title || m.id).toLowerCase().indexOf(q) !== -1;
         });
 
         if (matches.length === 0) {
@@ -1250,6 +1261,55 @@
     catsContainer.appendChild(helpBtn);
 
     E.highlightNav();
+  };
+
+  // The reimagined rail: six words, the pharmacy's name, your name. Nothing else.
+  E.UI2_RAIL = [
+    { id: "today", title: "Today" }, { id: "customers", title: "Customers" }, { id: "stock", title: "Stock" }, { id: "registers", title: "Registers" }
+  ];
+  E.UI2_RAIL_FOOT = [{ id: "team", title: "Team" }, { id: "settings", title: "Settings" }];
+  E.UI2_DESTINATIONS = ["today", "customers", "stock", "registers", "team", "settings"];
+  E._railBadges = E._railBadges || {};
+
+  E.renderNavUi2 = function (nav, modById) {
+    var u = E.state.user || {};
+    var side = nav.parentNode;
+    var header = side ? side.querySelector(".eikon-sidebar-header") : null;
+    if (header) {
+      header.innerHTML = '<img class="eikon-rail-mark" alt="" src="./assets/mu-mark.png?v=' + encodeURIComponent(E.VERSION) + '">' +
+        '<div class="eikon-rail-brand"><b>Eikon</b><span>' + E.escapeHtml(String(u.location_name || "")) + '</span></div>';
+    }
+    function btn(item) {
+      var m = modById[item.id];
+      if (!m) return null;
+      var b = document.createElement("button");
+      b.className = "eikon-nav-btn eikon-rail-btn";
+      b.setAttribute("data-mod", item.id);
+      var n = E._railBadges[item.id];
+      b.innerHTML = '<span class="eikon-rail-dot"></span><span class="eikon-nav-label">' + E.escapeHtml(item.title) + '</span>' +
+        '<span class="eikon-rail-badge' + (n ? "" : " empty") + '" data-badge="' + item.id + '">' + (n || "") + '</span>';
+      b.addEventListener("click", function () { E._ui2Back = null; window.location.hash = "#" + item.id; });
+      return b;
+    }
+    var top = document.createElement("div"); top.className = "eikon-rail-top";
+    E.UI2_RAIL.forEach(function (it) { var b = btn(it); if (b) top.appendChild(b); });
+    nav.appendChild(top);
+    var foot = document.createElement("div"); foot.className = "eikon-rail-foot";
+    E.UI2_RAIL_FOOT.forEach(function (it) { var b = btn(it); if (b) foot.appendChild(b); });
+    var who = document.createElement("div"); who.className = "eikon-rail-who";
+    var since = E.state.signedInAt || (E.state.signedInAt = new Date());
+    var hm = String(since.getHours()).padStart(2, "0") + ":" + String(since.getMinutes()).padStart(2, "0");
+    who.innerHTML = '<b>' + E.escapeHtml(String(u.full_name || u.email || "")) + '</b><span>' + E.escapeHtml(u.role === "admin" ? "Pharmacist" : "Staff") + ' · signed in ' + hm + '</span>';
+    foot.appendChild(who);
+    nav.appendChild(foot);
+    E.highlightNav();
+  };
+
+  // Modules tell the rail how many things wait behind a word. Only the rail changes.
+  E.setRailBadge = function (id, n) {
+    E._railBadges[id] = n || 0;
+    var el = document.querySelector('.eikon-rail-badge[data-badge="' + id + '"]');
+    if (el) { el.textContent = n ? String(n) : ""; el.classList.toggle("empty", !n); }
   };
 
   E.highlightNav = function () {
@@ -1387,6 +1447,19 @@
     E.state.activeModuleId = id;
     E._lastRenderedHash = window.location.hash;
     E.highlightNav();
+
+    // Reimagined shell: the slim top bar with a Back link appears only over an old module.
+    try {
+      var ui2 = E.isUi2() && E._sectionDashboardId === "today";
+      var legacy = ui2 && E.UI2_DESTINATIONS.indexOf(id) < 0;
+      document.documentElement.toggleAttribute("data-ui2-legacy", !!legacy);
+      var backBtn2 = document.getElementById("eikon-back-btn");
+      if (backBtn2) {
+        var to = legacy ? (E._ui2Back || (E.ui2HubFor ? E.ui2HubFor(id) : null) || { id: "today", title: "Today" }) : null;
+        backBtn2.style.display = to ? "" : "none";
+        if (to) backBtn2.textContent = "‹ " + (to.title || "Back");
+      }
+    } catch (eU) {}
 
     // module title text (do NOT overwrite the topbar logo)
     var titleText = document.getElementById("eikon-page-title-text");

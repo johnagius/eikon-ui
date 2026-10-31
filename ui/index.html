@@ -21,7 +21,7 @@
       // Bump this when you deploy. It is the only cache-buster: with a fixed value the
       // browser and the Worker's edge cache can reuse every file (previously every load
       // used Date.now(), so 52 files were re-downloaded on every visit).
-      var BUILD = "2026-10-31.2";
+      var BUILD = "2026-10-31.3";
 
       function log() { try { console.log.apply(console, arguments); } catch (e) {} }
       function warn() { try { console.warn.apply(console, arguments); } catch (e) {} }
@@ -94,6 +94,7 @@
         "./modules.dashboard.js",
         "./modules.today.js",
         "./modules.customers.js",
+        "./modules.hubs.js",
         "./modules.alerts.js",
         "./modules.shifts.js",
         "./modules.ocps.js",

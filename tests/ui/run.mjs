@@ -309,6 +309,29 @@ await page.waitForTimeout(300);
 const openedModule = await page.evaluate(() => location.hash);
 report("today: search opens a customer or a register on Enter", openedCustomer === "#clientorders" && openedModule === "#temperature", `${openedCustomer} ${openedModule}`);
 
+// 10b. The reimagined shell: six words in the rail, nothing else; top bar only over an old module
+await page.evaluate(() => { location.hash = "#today"; });
+await page.waitForFunction(() => location.hash === "#today" && document.querySelector(".tdy-head h1"), null, { timeout: 8000 });
+await page.waitForTimeout(400);
+const shell = await page.evaluate(() => ({
+  rail: Array.from(document.querySelectorAll(".eikon-rail-btn .eikon-nav-label")).map((e) => e.textContent),
+  cats: document.querySelectorAll(".eikon-nav-cat").length, help: !!document.querySelector(".eikon-help-btn"), search: !!document.querySelector(".eikon-nav-search-input"),
+  topbar: getComputedStyle(document.querySelector(".eikon-topbar")).display, mark: !!document.querySelector(".eikon-rail-mark"),
+  pharmacy: (document.querySelector(".eikon-rail-brand span") || {}).textContent, who: (document.querySelector(".eikon-rail-who b") || {}).textContent,
+  badgeToday: (document.querySelector('.eikon-rail-badge[data-badge="today"]') || {}).textContent
+}));
+report("shell: the rail is Today, Customers, Stock, Registers, Team, Settings and nothing else", JSON.stringify(shell.rail) === JSON.stringify(["Today", "Customers", "Stock", "Registers", "Team", "Settings"]) && shell.cats === 0 && !shell.help && !shell.search && shell.topbar === "none" && shell.mark && shell.pharmacy === "Demo Pharmacy" && shell.who === "Maria Borg" && /^\d+$/.test(shell.badgeToday || ""), JSON.stringify(shell));
+await page.evaluate(() => { location.hash = "#registers"; });
+await page.waitForFunction(() => document.querySelector(".hub-card"), null, { timeout: 8000 });
+const hub = await page.evaluate(() => ({ h1: document.querySelector(".hub h1").textContent, cards: document.querySelectorAll(".hub-card").length, temp: !!document.querySelector('.hub-card[data-open="temperature"]'), topbar: getComputedStyle(document.querySelector(".eikon-topbar")).display }));
+await page.click('.hub-card[data-open="temperature"]');
+await page.waitForFunction(() => location.hash === "#temperature" && document.documentElement.hasAttribute("data-ui2-legacy"), null, { timeout: 8000 });
+await page.waitForTimeout(300);
+const legacy = await page.evaluate(() => ({ topbar: getComputedStyle(document.querySelector(".eikon-topbar")).display, back: document.getElementById("eikon-back-btn").textContent, backShown: document.getElementById("eikon-back-btn").style.display !== "none", logout: getComputedStyle(document.getElementById("eikon-logout-btn")).display }));
+await page.click("#eikon-back-btn");
+await page.waitForFunction(() => location.hash === "#registers", null, { timeout: 8000 });
+report("shell: Registers lists every book, an old module opens with only a way back, Back returns", hub.h1 === "Registers" && hub.cards >= 20 && hub.temp && hub.topbar === "none" && legacy.topbar !== "none" && legacy.back === "‹ Registers" && legacy.backShown && legacy.logout === "none", JSON.stringify({ hub, legacy }));
+
 // 11. Customers: Today's search hands over, the list shows people and history, Add adopts, edits are versioned
 const callsNow = async () => (await (await fetch(`http://localhost:${PORT}/__calls`)).json());
 await fetch(`http://localhost:${PORT}/__reset`);

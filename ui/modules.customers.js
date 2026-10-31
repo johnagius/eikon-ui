@@ -71,7 +71,8 @@
       ".cus-form{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;margin-top:14px}@media (max-width:700px){.cus-form{grid-template-columns:1fr}}.cus-form label{display:block;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}.cus-form .w{grid-column:1/-1}" +
       ".cus-form input,.cus-form textarea{width:100%;box-sizing:border-box;height:38px;border:1px solid var(--border);border-radius:9px;background:var(--bg);padding:0 10px;color:var(--text);font-size:14px}.cus-form textarea{height:70px;padding:8px 10px;resize:vertical}.cus-form input:focus,.cus-form textarea:focus{outline:0;border-color:var(--accent);box-shadow:0 0 0 3px rgba(31,95,216,.18)}" +
       ".cus-warn{background:rgba(201,138,18,.14);border:1px solid rgba(201,138,18,.35);color:#A06A0E;border-radius:10px;padding:8px 12px;font-size:13px;margin-top:12px}" +
-      ".cus-src{font-size:12px;color:var(--muted);margin-top:6px}";
+      ".cus-src{font-size:12px;color:var(--muted);margin-top:6px}" +
+      ".cus-regs{display:flex;gap:4px 12px;flex-wrap:wrap;align-items:center;margin-top:18px;padding-top:12px;border-top:1px solid var(--border);font-size:12.5px}.cus-regs span{color:var(--muted);font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:11px;margin-right:4px}.cus-regs a{color:var(--accent);font-weight:600;cursor:pointer}";
     document.head.appendChild(st);
   }
 
@@ -187,7 +188,10 @@
     var m = state.mount; if (!m) return;
     m.innerHTML = '<div class="cus"><div class="cus-side">' +
       '<div class="cus-search"><span aria-hidden="true">⌕</span><input id="cus-q" type="search" autocomplete="off" placeholder="Name, ID card or phone" value="' + esc(state.q) + '"></div>' +
-      '<div id="cus-list"></div></div><div class="cus-detail" id="cus-detail"></div></div>';
+      '<div id="cus-list"></div>' +
+      '<div class="cus-regs"><span>Registers</span>' + [["clientorders", "Orders"], ["tickets", "Questions"], ["deliveries", "Deliveries"], ["appointments", "Appointments"], ["loyalty", "Loyalty"]].filter(function (x) { return E.modules[x[0]]; }).map(function (x) { return '<a data-reg="' + x[0] + '">' + x[1] + '</a>'; }).join("") + '</div>' +
+      '</div><div class="cus-detail" id="cus-detail"></div></div>';
+    m.querySelectorAll("[data-reg]").forEach(function (el) { el.addEventListener("click", function () { E._ui2Back = { id: "customers", title: "Customers" }; window.location.hash = "#" + el.getAttribute("data-reg"); }); });
     var q = m.querySelector("#cus-q");
     q.addEventListener("input", function () {
       state.q = q.value;
@@ -324,5 +328,5 @@
   }
   function destroy() { if (state.timer) { clearTimeout(state.timer); state.timer = null; } state.seq++; }
 
-  E.registerModule({ id: "customers", title: "Customers", order: 1, icon: "◯", render: render0, destroy: destroy });
+  E.registerModule({ id: "customers", title: "Customers", order: 1, icon: "◯", ui2Only: true, render: render0, destroy: destroy });
 })();
