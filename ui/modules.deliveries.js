@@ -2146,6 +2146,9 @@
     });
 
     // Event: new delivery
+    var carried = E.takeCarriedPerson ? E.takeCarriedPerson() : null;
+    if (carried) setTimeout(function () { openDeliveryModal({ mode: "new", entry: { order_date: todayYmd(), priority: 2, status: "Scheduled", client_name: carried.name, phone: carried.phone, email: carried.email, delivery_address: carried.address } }); }, 0);
+
     btnNew.addEventListener("click",function(){
       openDeliveryModal({mode:"new", entry:{order_date:todayYmd(),priority:2,status:"Scheduled"}});
     });

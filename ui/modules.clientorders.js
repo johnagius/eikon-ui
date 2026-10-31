@@ -1766,6 +1766,15 @@
 
     state.refresh = refresh;
 
+    // Arrived from a customer's page: open the form with the person already filled in.
+    var carried = E.takeCarriedPerson ? E.takeCarriedPerson() : null;
+    if (carried) {
+      setTimeout(function () {
+        openOrderModal({ mode: "new", entry: { order_date: todayYmd(), priority: 2, needed_by: addDaysYmd(2), pick_up_date: addDaysYmd(2), fulfilled: false,
+          client_name: carried.name, contact: carried.phone, alternate: carried.alt_phone, address: carried.address, email: carried.email } });
+      }, 0);
+    }
+
     btnNew.addEventListener("click", function () {
       openOrderModal({
         mode: "new",

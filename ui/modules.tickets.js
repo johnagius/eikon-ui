@@ -1349,6 +1349,9 @@
     }
 
     // Event listeners
+    var carried = E.takeCarriedPerson ? E.takeCarriedPerson() : null;
+    if (carried) setTimeout(function () { openTicketModal({ mode: "new", entry: { open_date: todayYmd(), priority: 2, status: "Open", client_name: carried.name, phone: carried.phone, email: carried.email } }); }, 0);
+
     btnNew.addEventListener("click", function(){
       openTicketModal({mode:"new", entry:{open_date:todayYmd(),priority:2,status:"Open"}});
     });

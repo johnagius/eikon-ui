@@ -1305,6 +1305,18 @@
     E.highlightNav();
   };
 
+  // Hand a person from Customers to a register so the name is never typed again.
+  // Lives in sessionStorage for five minutes, in this tab only, and is taken once.
+  E.carryPerson = function (p) {
+    try { sessionStorage.setItem("eikon_carry_person", JSON.stringify({ id: p.id, name: p.name || "", id_card: p.id_card || "", phone: p.phone || "", alt_phone: p.alt_phone || "", email: p.email || "", address: p.address || "", at: Date.now() })); } catch (e) {}
+  };
+  E.takeCarriedPerson = function () {
+    var raw = null;
+    try { raw = sessionStorage.getItem("eikon_carry_person"); sessionStorage.removeItem("eikon_carry_person"); } catch (e) {}
+    if (!raw) return null;
+    try { var p = JSON.parse(raw); if (!p || !p.name || !p.at || (Date.now() - Number(p.at)) > 5 * 60 * 1000) return null; return p; } catch (e2) { return null; }
+  };
+
   // Modules tell the rail how many things wait behind a word. Only the rail changes.
   E.setRailBadge = function (id, n) {
     E._railBadges[id] = n || 0;

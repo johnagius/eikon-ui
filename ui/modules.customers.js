@@ -33,6 +33,15 @@
     if (diff > 1 && diff < 7) return diff + " days ago";
     return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" }) + (d.getFullYear() !== t.getFullYear() ? " " + d.getFullYear() : "");
   }
+  function nextWhen(ymd) {
+    var t = new Date(); var today = t.getFullYear() + "-" + String(t.getMonth() + 1).padStart(2, "0") + "-" + String(t.getDate()).padStart(2, "0");
+    if (ymd === today) return "Today";
+    var d = new Date(ymd + "T12:00:00"); if (!isFinite(d.getTime())) return ymd;
+    var diff = Math.round((d - new Date(today + "T12:00:00")) / 86400000);
+    if (diff === 1) return "Tomorrow";
+    if (diff > 1 && diff < 7) return d.toLocaleDateString("en-GB", { weekday: "long" });
+    return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  }
   function sourceWords(sources) {
     var names = { order: "order", question: "question", delivery: "delivery", dda_sale: "DDA sale", poyc: "POYC", repeat: "repeat prescription", poct: "POCT", loyalty: "loyalty card", appointment: "appointment", waitlist: "waiting list", calculator: "calculator" };
     return Object.keys(sources || {}).map(function (k) { var n = sources[k]; return n + " " + names[k] + (n === 1 || names[k].slice(-1) === "s" || k === "poyc" ? "" : "s"); }).join(", ");
@@ -179,7 +188,8 @@
   // Carry the person into a register so nobody types the name a fourth time.
   function carry(hash) {
     var p = state.detail && state.detail.person;
-    try { if (p) sessionStorage.setItem("eikon_carry_person", JSON.stringify({ id: p.id, name: p.name, id_card: p.id_card, phone: p.phone, email: p.email, address: p.address, at: Date.now() })); } catch (e) {}
+    if (p && E.carryPerson) E.carryPerson(p);
+    E._ui2Back = { id: "customers", title: "Customers" };
     window.location.hash = hash;
   }
 
@@ -279,7 +289,7 @@
     var p = d.person || {}, act = d.activity || [], counts = d.counts || {};
     var html = '<div class="cus-card">';
     html += '<div class="cus-head">' + av(p.name, "lg") + '<div style="flex:1;min-width:0"><h1>' + esc(p.name) + '</h1><div class="cus-meta">' +
-      (p.phone ? '<b>' + esc(p.phone) + '</b>' : '<span>No phone</span>') + (p.id_card ? '<span class="cus-pill">' + esc(p.id_card) + '</span>' : "") + (counts.loyalty ? '<span class="cus-pill">Loyalty card</span>' : "") + (counts.repeat ? '<span class="cus-pill grn">Repeat prescription</span>' : "") + (p.merged_from ? '<span class="cus-pill amb">Merged record opened</span>' : "") +
+      (p.phone ? '<b>' + esc(p.phone) + '</b>' : '<span>No phone</span>') + (p.id_card ? '<span class="cus-pill">' + esc(p.id_card) + '</span>' : "") + (d.loyalty ? '<span class="cus-pill">Loyalty · ' + esc(Number(d.loyalty.points || 0).toLocaleString("en-GB")) + ' pts</span>' : counts.loyalty ? '<span class="cus-pill">Loyalty card</span>' : "") + (counts.repeat ? '<span class="cus-pill grn">Repeat prescription</span>' : "") + (p.merged_from ? '<span class="cus-pill amb">Merged record opened</span>' : "") +
       '</div></div>' + (state.editing ? "" : '<button class="cus-btn" data-act="edit">Edit</button>') + '</div>';
     if (state.conflict) { html += '<div class="cus-warn">' + esc(state.conflict) + (state.conflictExisting ? ' <a data-person="' + state.conflictExisting.id + '" style="cursor:pointer;font-weight:600">Open ' + esc(state.conflictExisting.name) + ' ›</a>' : "") + '</div>'; }
     if (state.editing) {
@@ -288,7 +298,8 @@
     } else {
       var fact = function (l, v) { return '<div><small>' + l + '</small><span' + (v ? "" : ' class="none"') + '>' + (v ? esc(v) : "–") + '</span></div>'; };
       var last = act[0];
-      html += '<div class="cus-facts">' + fact("Last visit", last ? when(last.date) + " · " + kindMeta(last.kind)[0] : "") + fact("Address", p.address) + fact("Doctor", p.doctor_name) + fact("E-mail", p.email) + (p.notes ? fact("Notes", p.notes) : "") + '</div>';
+      var na = d.next_appointment;
+      html += '<div class="cus-facts">' + fact("Last visit", last ? when(last.date) + " · " + kindMeta(last.kind)[0] : "") + (na ? fact("Next appointment", nextWhen(na.date) + (na.time ? " " + na.time : "") + (na.doctor ? " · " + na.doctor : "")) : "") + fact("Address", p.address) + fact("Doctor", p.doctor_name) + fact("E-mail", p.email) + (p.notes ? fact("Notes", p.notes) : "") + '</div>';
       html += '<div class="cus-actions"><button class="cus-btn p" data-carry="#clientorders">New order</button><button class="cus-btn" data-carry="#tickets">Question</button><button class="cus-btn" data-carry="#deliveries">Delivery</button><button class="cus-btn" data-carry="#appointments">Appointment</button></div>';
     }
     html += '</div>';

@@ -15718,7 +15718,31 @@ async function handlePersonGet(request, env, corsOkHeaders, authUser, id) {
     } catch (e) { /* table not created yet */ }
   }
   activity.sort((a, b) => (b.date > a.date ? 1 : b.date < a.date ? -1 : 0));
-  return jsonResponse({ ok: true, person, activity: activity.slice(0, limit), counts }, 200, corsOkHeaders);
+
+  // Two facts the counter asks for by name: loyalty points, and the next booking.
+  let loyalty = null, nextAppointment = null;
+  if (idKeys.length) {
+    try {
+      const l = await dbFirst(env, "SELECT COALESCE(SUM(points_awarded), 0) AS points, COALESCE(SUM(stamps_awarded), 0) AS stamps, COUNT(*) AS visits, MAX(txn_date) AS last_date FROM loyalty_transactions WHERE org_id = ? AND location_id = ? AND upper(replace(client_id_card, ' ', '')) IN (" + idKeys.map(() => "?").join(",") + ")", [org, loc].concat(idKeys));
+      if (l && Number(l.visits)) loyalty = { points: Number(l.points || 0), stamps: Number(l.stamps || 0), visits: Number(l.visits || 0), last_date: l.last_date || "" };
+    } catch (e) { /* loyalty not set up here */ }
+  }
+  try {
+    const conds = [];
+    const b = [org, loc, tzYmd()];
+    if (names.length) { conds.push("LOWER(TRIM(patient_name)) IN (" + names.map(() => "?").join(",") + ")"); b.push(...names); }
+    if (idKeys.length) { conds.push("upper(replace(patient_id_card, ' ', '')) IN (" + idKeys.map(() => "?").join(",") + ")"); b.push(...idKeys); }
+    if (conds.length) {
+      const n = await dbFirst(env, "SELECT id, appt_ref, date, time, status, doctor_id, clinic_id FROM appt_appointments WHERE org_id = ? AND location_id = ? AND date >= ? AND LOWER(COALESCE(status, '')) NOT IN ('cancelled', 'canceled', 'no-show', 'no show', 'completed') AND (" + conds.join(" OR ") + ") ORDER BY date ASC, time ASC LIMIT 1", b);
+      if (n) {
+        let doctor = "";
+        try { const d = await dbFirst(env, "SELECT name FROM appt_doctors WHERE id = ? AND org_id = ? AND location_id = ?", [n.doctor_id, org, loc]); doctor = d ? String(d.name || "") : ""; } catch (e) {}
+        nextAppointment = { id: n.id, ref: n.appt_ref || "", date: n.date, time: n.time || "", status: n.status || "", doctor };
+      }
+    }
+  } catch (e) { /* appointments not set up here */ }
+
+  return jsonResponse({ ok: true, person, activity: activity.slice(0, limit), counts, loyalty, next_appointment: nextAppointment }, 200, corsOkHeaders);
 }
 
 function peopleCleanBody(body) {

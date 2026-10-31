@@ -1,6 +1,7 @@
 import { test, eq, ok } from "./lib.mjs";
 
 const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Malta", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+function daysFromNow(n) { return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Malta", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(Date.now() + n * 86400000)); }
 
 async function seedHistory(api, token) {
   // The same person typed four different ways across four registers, plus two strangers.
@@ -156,4 +157,31 @@ test("people: merging a duplicate keeps one survivor, fills its blanks and keeps
   const s = await api("GET", "/people?q=grech", { token });
   eq(s.json.people.length, 1, "merged duplicate no longer listed");
   eq((await api("POST", "/people/" + a.json.person.id + "/merge", { token, body: { into_id: a.json.person.id } })).status, 400);
+});
+
+test("people: the person carries loyalty points and the next booking, cancelled and strangers ignored", async ({ api, bootstrap, DB }) => {
+  const { token } = await bootstrap();
+  await seedHistory(api, token);
+  // tables exist once their screens have been opened once
+  eq((await api("GET", "/loyalty/clients", { token })).status, 200);
+  eq((await api("GET", "/appointments/doctors", { token })).status, 200);
+  const ins = (sql, ...p) => DB.db.prepare(sql).run(...p);
+  ins("INSERT INTO loyalty_transactions (org_id, location_id, client_id_card, client_name, campaign_id, txn_date, points_awarded, stamps_awarded) VALUES (1,1,'0123456M','Carmen Grech','c1','2026-10-01',120,1)");
+  ins("INSERT INTO loyalty_transactions (org_id, location_id, client_id_card, client_name, campaign_id, txn_date, points_awarded, stamps_awarded) VALUES (1,1,'123456M','Carmen Grech','c1','2026-10-20',1000,2)");
+  ins("INSERT INTO loyalty_transactions (org_id, location_id, client_id_card, client_name, campaign_id, txn_date, points_awarded, stamps_awarded) VALUES (1,1,'0654321M','Joseph Vella','c1','2026-10-20',5,0)");
+  const far = daysFromNow(10), farther = daysFromNow(20), past = daysFromNow(-3);
+  ins("INSERT INTO appt_appointments (org_id, location_id, appt_ref, patient_name, patient_id_card, date, time, status) VALUES (1,1,'A-1','Carmen Grech','0123456M',?,'10:00','Cancelled')", far);
+  ins("INSERT INTO appt_appointments (org_id, location_id, appt_ref, patient_name, patient_id_card, date, time, status) VALUES (1,1,'A-2','carmen grech','',?,'09:30','Scheduled')", farther);
+  ins("INSERT INTO appt_appointments (org_id, location_id, appt_ref, patient_name, patient_id_card, date, time, status) VALUES (1,1,'A-0','Carmen Grech','0123456M',?,'09:00','Scheduled')", past);
+  ins("INSERT INTO appt_appointments (org_id, location_id, appt_ref, patient_name, patient_id_card, date, time, status) VALUES (1,1,'A-9','Joseph Vella','0654321M',?,'08:00','Scheduled')", far);
+  const c = await api("POST", "/people", { token, body: { name: "Carmen Grech", id_card: "123456M" } });
+  const r = await api("GET", "/people/" + c.json.person.id, { token });
+  eq(r.status, 200, r.text);
+  eq(JSON.stringify(r.json.loyalty), JSON.stringify({ points: 1120, stamps: 3, visits: 2, last_date: "2026-10-20" }), JSON.stringify(r.json.loyalty));
+  ok(r.json.next_appointment && r.json.next_appointment.ref === "A-2", "cancelled and past bookings skipped, name match counts: " + JSON.stringify(r.json.next_appointment));
+  eq(r.json.next_appointment.date, farther);
+  // Someone with no card and no bookings gets nulls, not errors
+  const m = await api("POST", "/people", { token, body: { name: "Maria Camilleri" } });
+  const r2 = await api("GET", "/people/" + m.json.person.id, { token });
+  eq(r2.json.loyalty, null); eq(r2.json.next_appointment, null);
 });

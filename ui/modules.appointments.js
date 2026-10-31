@@ -1650,10 +1650,11 @@
     var preDr   = (opts && opts.doctorId) || state.filterDoctorId || "";
     var preCl   = (opts && opts.clinicId) || state.filterClinicId || "";
 
+    var carriedP = (opts && opts.patient) || null; // handed over from Customers
     var init = {
-      patientName:        a.patientName        || (wl ? wl.patientName : ""),
-      patientIdCard:      a.patientIdCard       || "",
-      patientPhone:       a.patientPhone        || (wl ? wl.patientPhone : ""),
+      patientName:        a.patientName        || (wl ? wl.patientName : "") || (carriedP ? carriedP.name : ""),
+      patientIdCard:      a.patientIdCard       || (carriedP ? carriedP.idCard : "") || "",
+      patientPhone:       a.patientPhone        || (wl ? wl.patientPhone : "") || (carriedP ? carriedP.phone : ""),
       doctorId:           a.doctorId            || preDr,
       clinicId:           a.clinicId            || preCl,
       date:               a.date               || preDate,
@@ -1666,7 +1667,7 @@
       medicines:          a.medicines           || "",
       notes:              a.notes              || (wl ? wl.notes : ""),
       cancellationReason: a.cancellationReason  || "",
-      patientEmail:       a.patientEmail        || "",
+      patientEmail:       a.patientEmail        || (carriedP ? carriedP.email : "") || "",
       bookingConfirmed:   !!(a.bookingConfirmed)
     };
 
@@ -3615,6 +3616,8 @@
     if (btnNewAppt) btnNewAppt.addEventListener("click", function () {
       openApptModal({ date: state.currentDate }, function () { refresh(); });
     });
+    var carried = E.takeCarriedPerson ? E.takeCarriedPerson() : null;
+    if (carried) setTimeout(function () { openApptModal({ date: state.currentDate, patient: { name: carried.name, idCard: carried.id_card, phone: carried.phone, email: carried.email } }, function () { refresh(); }); }, 0);
     if (btnNewWl) btnNewWl.addEventListener("click", function () {
       openWaitlistModal({}, function () { refresh(); });
     });

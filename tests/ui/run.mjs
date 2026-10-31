@@ -49,7 +49,7 @@ function todayPayload() {
     counts: { before_opening: (todayState.tempDone ? 0 : 1) + 1 + (todayState.cleanDone ? 0 : 1), customers_waiting: 2, attention: 2 }
   };
 }
-let peopleState = { adopted: false, carmel: { id: 1, name: "Zammit Carmel", id_card: "0012345M", phone: "", alt_phone: "", email: "", address: "1 Triq il-Knisja", doctor_name: "", date_of_birth: "", notes: "", source: "history", version: 1, updated_at: "2026-10-31 09:00:00" } };
+let peopleState = { adopted: false, carmel: { id: 1, name: "Zammit Carmel", id_card: "0012345M", phone: "79123456", alt_phone: "", email: "", address: "1 Triq il-Knisja", doctor_name: "", date_of_birth: "", notes: "", source: "history", version: 1, updated_at: "2026-10-31 09:00:00" } };
 function mockApi(req, res, body) {
   const url = new URL(req.url, "http://x");
   const p = url.pathname;
@@ -62,7 +62,7 @@ function mockApi(req, res, body) {
   }
   res.writeHead(200, { "content-type": "application/json" });
   if (p === "/people") return res.end(JSON.stringify({ ok: true, q: url.searchParams.get("q") || "", people: (peopleState.adopted ? [peopleState.carmel] : []).concat([{ id: 2, name: "Zammit Paul", phone: "79000001", id_card: "", version: 1 }]), history: peopleState.adopted ? [] : [{ key: "id:0012345M", name: "Zammit Carmel", id_card: "0012345M", phone: "", alt_phone: "", email: "", address: "1 Triq il-Knisja", doctor_name: "", sources: { dda_sale: 1, loyalty: 1 }, last_date: "2026-10-05" }] }));
-  if (p === "/people/1") return res.end(JSON.stringify({ ok: true, person: peopleState.carmel, activity: [{ kind: "dda_sale", label: "DDA sale", date: "2026-10-05", title: "Morphine 10mg", ref: "S-1", doctor: "Dr Abela" }, { kind: "loyalty", label: "Loyalty", date: "2026-09-01", title: "", ref: "" }], counts: { dda_sale: 1, loyalty: 1 } }));
+  if (p === "/people/1") return res.end(JSON.stringify({ ok: true, person: peopleState.carmel, loyalty: { points: 1120, stamps: 3, visits: 2, last_date: "2026-10-20" }, next_appointment: { id: 9, ref: "A-2", date: "2026-11-04", time: "09:30", status: "Scheduled", doctor: "Dr Galea" }, activity: [{ kind: "dda_sale", label: "DDA sale", date: "2026-10-05", title: "Morphine 10mg", ref: "S-1", doctor: "Dr Abela" }, { kind: "loyalty", label: "Loyalty", date: "2026-09-01", title: "", ref: "" }], counts: { dda_sale: 1, loyalty: 1 } }));
   if (p === "/today") return res.end(JSON.stringify(todayPayload()));
   if (p === "/auth/me") return res.end(JSON.stringify({ ok: true, user: { id: 1, user_id: 1, email: "p@x.com", full_name: "Maria Borg", org_id: 1, location_id: 12, location_name: "Demo Pharmacy", role: "admin" } }));
   if (p === "/temperature/devices") return res.end(JSON.stringify({ ok: true, devices: [{ id: 7, name: "Fridge 1", device_type: "fridge", min_limit: 2, max_limit: 8, active: 1 }] }));
@@ -363,10 +363,49 @@ const cus3 = await page.evaluate(() => ({ warn: (document.querySelector(".cus-wa
 report("customers: a stale edit is refused, the other version is shown, nothing is claimed saved", savePosts.length === 1 && savePosts[0].body.id === 1 && savePosts[0].body.version === 1 && savePosts[0].body.notes === "Prefers SMS" && /changed this record/.test(cus3.warn) && cus3.editing && cus3.notes === "Call after 5" && !/Saved/.test(cus3.saved), JSON.stringify({ savePosts, cus3 }));
 
 await page.click('[data-act="cancel"]');
-await page.click('[data-carry="#clientorders"]');
-await page.waitForTimeout(400);
-const carried = await page.evaluate(() => ({ hash: location.hash, carry: sessionStorage.getItem("eikon_carry_person") }));
-report("customers: New order carries the person into the register", carried.hash === "#clientorders" && /Zammit Carmel/.test(carried.carry || ""), JSON.stringify(carried));
+const facts = await page.evaluate(() => ({ pills: Array.from(document.querySelectorAll(".cus-head .cus-pill")).map((e) => e.textContent), facts: Array.from(document.querySelectorAll(".cus-facts small")).map((e) => e.textContent), next: (Array.from(document.querySelectorAll(".cus-facts div")).find((d) => /Next appointment/.test(d.textContent)) || {}).textContent }));
+report("customers: loyalty points and the next appointment are on the page", facts.pills.some((t) => /Loyalty · 1,120 pts/.test(t)) && /09:30 · Dr Galea/.test(facts.next || ""), JSON.stringify(facts));
+
+// Step 1: the hand-over. One tap opens the register's own form, filled; nothing is posted until Save.
+const closeModal = async () => { await page.evaluate(() => { const ov = document.querySelector(".eikon-modal-overlay"); if (!ov) return; const b = Array.from(ov.querySelectorAll("button")).find((x) => /^(Cancel|Close)$/i.test(x.textContent.trim())); if (b) b.click(); else ov.remove(); }); await page.waitForTimeout(200); };
+const carryTo = async (hash, selector) => {
+  await page.evaluate(() => { location.hash = "#customers"; });
+  await page.waitForFunction(() => document.querySelector("#cus-q"), null, { timeout: 8000 });
+  await page.fill("#cus-q", "zammit");
+  await page.waitForFunction(() => document.querySelector('[data-person="1"]'), null, { timeout: 8000 });
+  await page.click('[data-person="1"]');
+  await page.waitForFunction((h) => document.querySelector('[data-carry="' + h + '"]'), hash, { timeout: 8000 });
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click('[data-carry="' + hash + '"]');
+  await page.waitForFunction((sel) => location.hash && document.querySelector(sel) && document.querySelector(sel).value, selector, { timeout: 10000 });
+  await page.waitForTimeout(200);
+};
+await carryTo("#clientorders", "#co-client");
+const ord = await page.evaluate(() => ({ hash: location.hash, name: document.querySelector("#co-client").value, phone: document.querySelector("#co-contact").value, addr: document.querySelector("#co-address").value, email: document.querySelector("#co-email").value, carry: sessionStorage.getItem("eikon_carry_person"), back: document.getElementById("eikon-back-btn").textContent }));
+let carryPosts = (await callsNow()).filter((c) => c.method === "POST");
+report("step 1: New order opens the order form with the person filled, nothing posted, hand-over used up", ord.hash === "#clientorders" && ord.name === "Zammit Carmel" && ord.phone === "79123456" && ord.addr === "1 Triq il-Knisja" && ord.carry === null && carryPosts.length === 0 && ord.back === "‹ Customers", JSON.stringify({ ord, carryPosts }));
+await page.setViewportSize({ width: 1440, height: 900 });
+await page.screenshot({ path: path.join(here, "..", "..", "design", "eikon-reimagined", "prototype", "06 Customer to order.png") });
+await closeModal();
+
+await carryTo("#tickets", "#tk-client");
+const tk = await page.evaluate(() => ({ name: document.querySelector("#tk-client").value, phone: document.querySelector("#tk-phone").value }));
+await closeModal();
+await carryTo("#deliveries", "#dv-client");
+const dv = await page.evaluate(() => ({ name: document.querySelector("#dv-client").value, phone: document.querySelector("#dv-phone").value, addr: document.querySelector("#dv-address").value }));
+await closeModal();
+await carryTo("#appointments", "#ap-mod-patient");
+const ap = await page.evaluate(() => ({ name: document.querySelector("#ap-mod-patient").value, card: document.querySelector("#ap-mod-idcard").value, phone: document.querySelector("#ap-mod-phone").value }));
+await closeModal();
+carryPosts = (await callsNow()).filter((c) => c.method === "POST");
+report("step 1: Question, Delivery and Appointment open filled the same way", tk.name === "Zammit Carmel" && tk.phone === "79123456" && dv.name === "Zammit Carmel" && dv.addr === "1 Triq il-Knisja" && ap.name === "Zammit Carmel" && ap.card === "0012345M" && ap.phone === "79123456" && carryPosts.length === 0, JSON.stringify({ tk, dv, ap, carryPosts }));
+
+// an old hand-over is ignored
+await page.evaluate(() => { sessionStorage.setItem("eikon_carry_person", JSON.stringify({ id: 1, name: "Zammit Carmel", phone: "79123456", at: Date.now() - 6 * 60 * 1000 })); location.hash = "#tickets"; });
+await page.waitForFunction(() => document.querySelector("#tk-new"), null, { timeout: 8000 });
+await page.waitForTimeout(500);
+const stale = await page.evaluate(() => ({ modal: !!document.querySelector("#tk-client"), carry: sessionStorage.getItem("eikon_carry_person") }));
+report("step 1: a hand-over older than five minutes opens nothing and is discarded", !stale.modal && stale.carry === null, JSON.stringify(stale));
 // screenshot of the person for the review
 await page.setViewportSize({ width: 1440, height: 900 });
 await page.evaluate(() => { location.hash = "#customers"; });

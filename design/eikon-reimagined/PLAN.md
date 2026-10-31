@@ -27,7 +27,7 @@ Everything new lives behind `?ui=2`. Clients on the classic layout see fixes onl
 | 21 live defects fixed, speed work, test harness | Done, deployed |
 | Shell (rail, hubs, back link, badges) | Done, this commit |
 | Today | Done. Reads one endpoint, logs fridge and cleaning inline |
-| Customers | Done as a first cut: search across every register, adopt from history, versioned edit, story. Next: the registers read the carried person |
+| Customers | Done (step 1): search across every register, adopt from history, versioned edit, story, loyalty points, next appointment, one-tap hand-over into Orders, Questions, Deliveries, Appointments |
 | Registers | Not started. Hub page lists every book today |
 | Stock | Not started. Hub page lists every stock module today |
 | Team, Settings | Hub pages only |
@@ -97,3 +97,8 @@ only actions on the page; everything else is reading.
   five minutes) is ignored.
 - Screenshot `prototype/06 Customer to order.png`: the order form over the
   customer's page, filled.
+
+**Built.** Worker test 6 of `people.test.mjs`; UI checks "step 1: …" in
+`tests/ui/run.mjs`; screenshot `prototype/06 Customer to order.png`. The form that
+opens is still the old dark modal: that is deliberate (no new form in this step) and
+it changes when Registers restyles the shared form, not before.
