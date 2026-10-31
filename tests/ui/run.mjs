@@ -115,6 +115,29 @@ const toastOk = await page.evaluate(() => {
 });
 report("core: E.toast and E.showToast exist and render", toastOk === "ok", toastOk);
 
+// 1b. The sign-in screen is a real form (so the browser offers to save the password) and the account can change it
+const formInfo = await page.evaluate(async () => {
+  const E = window.EIKON;
+  const saved = { token: localStorage.getItem("eikon_token"), role: localStorage.getItem("eikon_active_role") };
+  E.renderLogin("", "p@x.com");
+  const f = document.getElementById("eikon-login-form");
+  const email = document.getElementById("eikon-login-email"), pass = document.getElementById("eikon-login-pass"), btn = document.getElementById("eikon-login-btn");
+  const out = { isForm: !!f && f.tagName === "FORM", emailAuto: email && email.getAttribute("autocomplete"), passAuto: pass && pass.getAttribute("autocomplete"), submit: btn && btn.type, keptEmail: email && email.value, tip: /dbg=2/.test(document.body.textContent) };
+  return out;
+});
+report("login: a real form with username/current-password autocomplete and a submit button, no debug tip", formInfo.isForm && formInfo.emailAuto === "username" && formInfo.passAuto === "current-password" && formInfo.submit === "submit" && formInfo.keptEmail === "p@x.com" && !formInfo.tip, JSON.stringify(formInfo));
+await page.reload();
+await page.waitForFunction(() => window.EIKON && window.EIKON.state && window.EIKON.state.user, null, { timeout: 15000 });
+await page.waitForTimeout(800);
+const pwModal = await page.evaluate(() => {
+  const b = document.getElementById("eikon-password-btn"); if (!b) return { btn: false };
+  b.click();
+  const o = document.querySelector(".eikon-modal-overlay");
+  return { btn: true, shown: !!o && getComputedStyle(o).display !== "none", fields: document.querySelectorAll("#eikon-pw-form input[type=password]").length, newAuto: (document.getElementById("eikon-pw-new") || {}).getAttribute && document.getElementById("eikon-pw-new").getAttribute("autocomplete") };
+});
+await page.evaluate(() => window.EIKON.modal.hide());
+report("account: a Password button opens the change-password dialog with current, new and repeat fields", pwModal.btn && pwModal.shown && pwModal.fields === 3 && pwModal.newAuto === "new-password", JSON.stringify(pwModal));
+
 // 2. No Authorization header in debug request logs
 const redacted = await page.evaluate(async () => {
   const E = window.EIKON; const seen = [];

@@ -1395,6 +1395,31 @@ async function clearLoginFailures(env, email) {
   try { await dbRun(env, "DELETE FROM login_attempts WHERE email = ?", [email]); } catch (e) {}
 }
 
+// Self-service password change: proves the current password, sets the new one,
+// signs out every other session (this one stays), and audits it.
+async function handleChangePassword(request, env, corsOkHeaders, authUser) {
+  const body = await readJson(request);
+  const current = String(body.current_password || "");
+  const next = String(body.new_password || "");
+  if (!current || !next) return jsonResponse({ ok: false, error: "Enter your current password and a new one" }, 400, corsOkHeaders);
+  if (next.length < 10) return jsonResponse({ ok: false, error: "The new password needs at least 10 characters" }, 400, corsOkHeaders);
+  if (next === current) return jsonResponse({ ok: false, error: "The new password is the same as the current one" }, 400, corsOkHeaders);
+  const user = await dbFirst(env, "SELECT id, email, pass_salt_b64, pass_hash_b64, pass_iters FROM users WHERE id = ?", [authUser.user_id]);
+  if (!user) return jsonResponse({ ok: false, error: "Account not found" }, 404, corsOkHeaders);
+  const derived = await pbkdf2Hash(current, bytesFromBase64(user.pass_salt_b64), user.pass_iters);
+  if (!constantTimeEqual(derived, bytesFromBase64(user.pass_hash_b64))) {
+    await recordLoginFailure(env, String(user.email || "").toLowerCase(), clientIp(request));
+    return jsonResponse({ ok: false, error: "The current password is not right" }, 403, corsOkHeaders);
+  }
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iters = 100000;
+  const hash = await pbkdf2Hash(next, salt, iters);
+  await dbRun(env, "UPDATE users SET pass_salt_b64 = ?, pass_hash_b64 = ?, pass_iters = ? WHERE id = ?", [base64FromBytes(salt), base64FromBytes(hash), iters, user.id]);
+  try { await dbRun(env, "DELETE FROM sessions WHERE user_id = ? AND id != ?", [user.id, authUser.session_id]); } catch (e) {}
+  await writeAudit(env, authUser.org_id, authUser.user_id, "PASSWORD_CHANGE", "user", String(user.id), { other_sessions_revoked: true });
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
 async function handleLogin(request, env, corsOkHeaders) {
   const body = await readJson(request);
   const email = (body.email || "").trim().toLowerCase();
@@ -15774,6 +15799,10 @@ const authUser = await authFromRequest(request, env);
 
     if (url.pathname === "/today" && request.method === "GET") {
       return await handleToday(request, env, corsOkHeaders, authUser);
+    }
+
+    if (url.pathname === "/auth/change-password" && request.method === "POST") {
+      return await handleChangePassword(request, env, corsOkHeaders, authUser);
     }
 
     if (url.pathname === "/auth/logout" && request.method === "POST") {

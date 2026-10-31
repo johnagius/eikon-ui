@@ -49,3 +49,20 @@ test("locum receipts: the password is checked on the server and can be changed p
   eq((await app2.api("GET", "/locumreceipts/report?month=2026-10", { token: s2.token, headers: { "X-Eikon-Report-Pass": "Report1234!" } })).status, 403);
   eq((await app2.api("GET", "/locumreceipts/report?month=2026-10", { token: s2.token, headers: { "X-Eikon-Report-Pass": "new-report" } })).status, 200);
 });
+
+test("change password: proves the current one, revokes other sessions, keeps this one", async ({ api, bootstrap }) => {
+  const { token, email, password } = await bootstrap();
+  // a second device signed in as the same user
+  const other = await api("POST", "/auth/login", { body: { email, password } });
+  eq(other.status, 200);
+  const otherToken = other.json.token;
+  eq((await api("POST", "/auth/change-password", { token, body: { current_password: "wrong", new_password: "LongEnough!2026" } })).status, 403);
+  eq((await api("POST", "/auth/change-password", { token, body: { current_password: password, new_password: "short" } })).status, 400);
+  eq((await api("POST", "/auth/change-password", { token, body: { current_password: password, new_password: password } })).status, 400);
+  const ok1 = await api("POST", "/auth/change-password", { token, body: { current_password: password, new_password: "LongEnough!2026" } });
+  eq(ok1.status, 200, ok1.text);
+  eq((await api("GET", "/auth/me", { token })).status, 200, "this session stays signed in");
+  eq((await api("GET", "/auth/me", { token: otherToken })).status, 401, "the other device is signed out");
+  eq((await api("POST", "/auth/login", { body: { email, password } })).status, 401, "old password no longer works");
+  eq((await api("POST", "/auth/login", { body: { email, password: "LongEnough!2026" } })).status, 200, "new password works");
+});

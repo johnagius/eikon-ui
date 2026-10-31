@@ -695,36 +695,38 @@
   };
 
   // Login UI
-  E.renderLogin = function (errorText) {
+  // A real <form>: browsers only offer to save a password on a form submission,
+  // which is why Chrome never remembered the Eikon password before.
+  E.renderLogin = function (errorText, keepEmail) {
     var root = E.ensureRoot();
     root.innerHTML =
       '<div class="eikon-login">' +
-      '  <div class="eikon-login-card">' +
+      '  <form class="eikon-login-card" id="eikon-login-form" method="post" action="#" novalidate>' +
       '    <div class="eikon-login-title">Eikon</div>' +
       '    <div class="eikon-login-sub">Sign in to continue</div>' +
       '    <div class="eikon-row">' +
       '      <div class="eikon-field" style="flex:1;min-width:220px;">' +
-      '        <div class="eikon-label">Email</div>' +
-      '        <input class="eikon-input" id="eikon-login-email" type="email" autocomplete="username" />' +
+      '        <label class="eikon-label" for="eikon-login-email">Email</label>' +
+      '        <input class="eikon-input" id="eikon-login-email" name="username" type="email" autocomplete="username" inputmode="email" autocapitalize="none" spellcheck="false" value="' + E.escapeHtml(keepEmail || "") + '" />' +
       "      </div>" +
       '      <div class="eikon-field" style="flex:1;min-width:220px;">' +
-      '        <div class="eikon-label">Password</div>' +
-      '        <input class="eikon-input" id="eikon-login-pass" type="password" autocomplete="current-password" />' +
+      '        <label class="eikon-label" for="eikon-login-pass">Password</label>' +
+      '        <input class="eikon-input" id="eikon-login-pass" name="password" type="password" autocomplete="current-password" />' +
       "      </div>" +
       "    </div>" +
       '    <div style="margin-top:12px;display:flex;justify-content:flex-end;gap:10px;">' +
-      '      <button class="eikon-btn primary" id="eikon-login-btn">Login</button>' +
+      '      <button class="eikon-btn primary" id="eikon-login-btn" type="submit">Sign in</button>' +
       "    </div>" +
-      (errorText ? ('<div class="eikon-alert">' + E.escapeHtml(errorText) + "</div>") : "") +
-      '<div class="eikon-help" style="margin-top:10px;">Tip: add dbg=2 to see verbose logs.</div>' +
-      "  </div>" +
+      (errorText ? ('<div class="eikon-alert" role="alert">' + E.escapeHtml(errorText) + "</div>") : "") +
+      "  </form>" +
       "</div>";
 
+    var form = document.getElementById("eikon-login-form");
     var emailEl = document.getElementById("eikon-login-email");
     var passEl = document.getElementById("eikon-login-pass");
     var btn = document.getElementById("eikon-login-btn");
 
-    if (emailEl) emailEl.focus();
+    if (emailEl && !emailEl.value) emailEl.focus(); else if (passEl) passEl.focus();
 
     function doLogin() {
       var email = (emailEl ? emailEl.value : "").trim().toLowerCase();
@@ -732,7 +734,7 @@
 
       E.dbg("[auth] login attempt:", email);
       if (!email || !pass) {
-        E.renderLogin("Missing email or password");
+        E.renderLogin("Enter your e-mail and password.", email);
         return;
       }
 
@@ -757,19 +759,20 @@
           E.error("[auth] login error:", err);
           E.clearToken();
           E.state.user = null;
-          E.renderLogin(String(err && (err.message || err.bodyText || err)));
+          var msg = String(err && (err.message || err.bodyText || err));
+          if (err && err.status === 401) msg = "That e-mail and password do not match.";
+          if (err && err.status === 429) msg = "Too many attempts. Wait 15 minutes and try again.";
+          E.renderLogin(msg, email);
         })
         .finally(function () {
           try {
             btn.disabled = false;
-            btn.textContent = "Login";
+            btn.textContent = "Sign in";
           } catch (e) {}
         });
     }
 
-    if (btn) btn.addEventListener("click", doLogin);
-    if (passEl) passEl.addEventListener("keydown", function (e) { if (e.key === "Enter") doLogin(); });
-    if (emailEl) emailEl.addEventListener("keydown", function (e) { if (e.key === "Enter") doLogin(); });
+    if (form) form.addEventListener("submit", function (e) { e.preventDefault(); doLogin(); });
 
     // Login is a "screen done" condition for the intro
     E.markIntroScreenDone();
@@ -931,6 +934,7 @@
       '      <div class="eikon-user">' +
       '        <span id="eikon-user-label"></span>' +
       '        <button class="eikon-btn" id="eikon-switch-portal-btn" style="display:none;">Switch Portal</button>' +
+      '        <button class="eikon-btn" id="eikon-password-btn" title="Change your password">Password</button>' +
       '        <button class="eikon-btn" id="eikon-logout-btn">Logout</button>' +
       '        <button class="eikon-btn" id="eikon-fullscreen-btn">Fullscreen</button>' +
       "      </div>" +
@@ -977,6 +981,10 @@
         });
       }
     }
+
+    // Change password
+    var pwBtn = document.getElementById("eikon-password-btn");
+    if (pwBtn) pwBtn.addEventListener("click", function () { E.showChangePassword(); });
 
     // Logout
     var logoutBtn = document.getElementById("eikon-logout-btn");
@@ -1288,6 +1296,49 @@
     }
     poll();
     E._supplierPollInterval = setInterval(poll, 30000);
+  };
+
+  E.showChangePassword = function () {
+    var body =
+      '<form id="eikon-pw-form" autocomplete="on" novalidate>' +
+      '<input type="text" name="username" autocomplete="username" value="' + E.escapeHtml((E.state.user && E.state.user.email) || "") + '" style="position:absolute;left:-9999px" tabindex="-1" aria-hidden="true" />' +
+      '<div class="eikon-field" style="margin-bottom:10px"><label class="eikon-label" for="eikon-pw-cur">Current password</label><input class="eikon-input" id="eikon-pw-cur" type="password" autocomplete="current-password" style="width:100%"></div>' +
+      '<div class="eikon-field" style="margin-bottom:10px"><label class="eikon-label" for="eikon-pw-new">New password (10 characters or more)</label><input class="eikon-input" id="eikon-pw-new" type="password" autocomplete="new-password" style="width:100%"></div>' +
+      '<div class="eikon-field"><label class="eikon-label" for="eikon-pw-new2">New password again</label><input class="eikon-input" id="eikon-pw-new2" type="password" autocomplete="new-password" style="width:100%"></div>' +
+      '<div class="eikon-help" style="margin-top:10px">Every other signed-in device will be signed out. Save the new password in your password manager when the browser offers.</div>' +
+      '<div id="eikon-pw-msg" class="eikon-help" style="margin-top:8px;color:var(--danger)"></div>' +
+      '</form>';
+    var submitting = false;
+    async function submit() {
+      if (submitting) return;
+      var cur = (document.getElementById("eikon-pw-cur") || {}).value || "";
+      var n1 = (document.getElementById("eikon-pw-new") || {}).value || "";
+      var n2 = (document.getElementById("eikon-pw-new2") || {}).value || "";
+      var msg = document.getElementById("eikon-pw-msg");
+      function say(t) { if (msg) msg.textContent = t; }
+      if (!cur || !n1) return say("Enter your current password and a new one.");
+      if (n1.length < 10) return say("The new password needs at least 10 characters.");
+      if (n1 !== n2) return say("The two new passwords do not match.");
+      submitting = true; say("");
+      try {
+        var r = await E.apiFetch("/auth/change-password", { method: "POST", body: JSON.stringify({ current_password: cur, new_password: n1 }) });
+        if (!r || !r.ok) throw new Error((r && r.error) || "Could not change the password");
+        E.modal.hide();
+        E.toast("Password changed. Other devices were signed out.", "success");
+        try { var f = document.getElementById("eikon-pw-form"); if (f && typeof f.requestSubmit === "function") { /* lets the browser offer to save */ } } catch (e) {}
+      } catch (e) {
+        say(String(e && (e.message || e) || "Could not change the password"));
+      } finally { submitting = false; }
+    }
+    E.modal.show("Change password", body, [
+      { label: "Cancel", onClick: function () { E.modal.hide(); } },
+      { label: "Change password", primary: true, onClick: submit }
+    ]);
+    try {
+      var f = document.getElementById("eikon-pw-form");
+      if (f) f.addEventListener("submit", function (e) { e.preventDefault(); submit(); });
+      var first = document.getElementById("eikon-pw-cur"); if (first) first.focus();
+    } catch (e) {}
   };
 
   E.logout = function () {
