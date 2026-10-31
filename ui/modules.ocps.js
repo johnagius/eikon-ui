@@ -343,33 +343,33 @@
         ".ocp-hero{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:22px;}",
         ".ocp-hero-text h2{margin:0 0 4px 0;font-size:20px;font-weight:900;letter-spacing:-.3px;}",
         ".ocp-hero-text p{margin:0;font-size:13px;color:var(--muted);}",
-        ".ocp-hero-pill{display:flex;align-items:center;gap:8px;background:rgba(90,162,255,.1);border:1px solid rgba(90,162,255,.25);border-radius:12px;padding:8px 14px;font-size:12px;color:var(--accent);}",
+        ".ocp-hero-pill{display:flex;align-items:center;gap:8px;background:var(--accent-soft,rgba(90,162,255,.1));border:1px solid var(--accent-soft,rgba(90,162,255,.25));border-radius:12px;padding:8px 14px;font-size:12px;color:var(--accent);}",
 
         /* Filter card */
         ".ocp-filter-card{background:var(--panel);border:1px solid var(--border);border-radius:18px;padding:20px;margin-bottom:20px;}",
         ".ocp-filter-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:16px;}",
         ".ocp-filter-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;}",
         "@media(max-width:640px){.ocp-filter-grid{grid-template-columns:1fr;}}",
-        ".ocp-hormone-block{background:rgba(0,0,0,.18);border:1px solid var(--border);border-radius:14px;padding:16px;}",
-        ".ocp-hormone-block.estrogen{border-left:3px solid #5aa2ff;}",
+        ".ocp-hormone-block{background:var(--field,rgba(0,0,0,.18));border:1px solid var(--border);border-radius:14px;padding:16px;}",
+        ".ocp-hormone-block.estrogen{border-left:3px solid var(--accent,#5aa2ff);}",
         ".ocp-hormone-block.progestogen{border-left:3px solid #b07aff;}",
         ".ocp-block-header{display:flex;align-items:center;gap:8px;margin-bottom:14px;}",
         ".ocp-block-icon{width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;}",
-        ".ocp-block-icon.e{background:rgba(90,162,255,.2);color:#5aa2ff;}",
+        ".ocp-block-icon.e{background:var(--accent-ring,rgba(90,162,255,.2));color:var(--accent,#5aa2ff);}",
         ".ocp-block-icon.p{background:rgba(176,122,255,.2);color:#b07aff;}",
         ".ocp-block-title{font-size:13px;font-weight:800;}",
         ".ocp-block-subtitle{font-size:11px;color:var(--muted);}",
         ".ocp-field-row{display:flex;gap:10px;align-items:flex-end;}",
         ".ocp-field-row .eikon-field{flex:1;}",
         ".ocp-dose-wrap{display:flex;gap:8px;align-items:center;}",
-        ".ocp-dose-wrap input{flex:1;background:rgba(0,0,0,.20);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:12px;font-size:13px;outline:none;width:100%;box-sizing:border-box;}",
-        ".ocp-dose-wrap input:focus{border-color:rgba(90,162,255,.55);}",
+        ".ocp-dose-wrap input{flex:1;background:var(--field,rgba(0,0,0,.20));border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:12px;font-size:13px;outline:none;width:100%;box-sizing:border-box;}",
+        ".ocp-dose-wrap input:focus{border-color:var(--accent-line,rgba(90,162,255,.55));}",
 
         /* Unit toggle */
         ".ocp-unit-toggle{display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden;flex-shrink:0;}",
         ".ocp-unit-btn{background:transparent;border:none;color:var(--muted);padding:8px 11px;cursor:pointer;font-size:12px;font-weight:700;transition:background .15s,color .15s;}",
-        ".ocp-unit-btn:hover{background:rgba(255,255,255,.05);}",
-        ".ocp-unit-btn.active{background:rgba(90,162,255,.18);color:var(--accent);}",
+        ".ocp-unit-btn:hover{background:var(--surface,rgba(255,255,255,.05));}",
+        ".ocp-unit-btn.active{background:var(--accent-soft,rgba(90,162,255,.18));color:var(--accent);}",
 
         /* Search / Reset buttons */
         ".ocp-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;flex-wrap:wrap;}",
@@ -382,9 +382,9 @@
 
         /* Pill card */
         ".ocp-pill-card{background:var(--panel);border:1px solid var(--border);border-radius:16px;overflow:hidden;transition:border-color .15s,transform .12s,box-shadow .12s;}",
-        ".ocp-pill-card:hover{border-color:rgba(90,162,255,.4);transform:translateY(-2px);box-shadow:0 8px 28px rgba(0,0,0,.3);}",
+        ".ocp-pill-card:hover{border-color:var(--accent-soft,rgba(90,162,255,.4));transform:translateY(-2px);box-shadow:0 8px 28px var(--shadow,rgba(0,0,0,.3));}",
         ".ocp-pill-card.ocp-multiphasic{border-color:rgba(176,122,255,.35);}",
-        ".ocp-pill-header{padding:12px 14px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px;background:rgba(255,255,255,.02);}",
+        ".ocp-pill-header{padding:12px 14px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--surface,rgba(255,255,255,.02));}",
         ".ocp-pill-name{font-size:14px;font-weight:800;letter-spacing:-.2px;}",
         ".ocp-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;flex-shrink:0;}",
         ".ocp-badge-multi{background:rgba(176,122,255,.15);color:#b07aff;border:1px solid rgba(176,122,255,.3);}",
@@ -394,7 +394,7 @@
         ".ocp-divider-v{width:1px;background:var(--border);margin:10px 0;}",
         ".ocp-hormone-label{display:flex;align-items:center;gap:6px;margin-bottom:4px;}",
         ".ocp-hormone-icon{width:20px;height:20px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;flex-shrink:0;}",
-        ".ocp-e-icon{background:rgba(90,162,255,.2);color:#5aa2ff;}",
+        ".ocp-e-icon{background:var(--accent-ring,rgba(90,162,255,.2));color:var(--accent,#5aa2ff);}",
         ".ocp-p-icon{background:rgba(176,122,255,.2);color:#b07aff;}",
         ".ocp-hormone-type-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);}",
         ".ocp-hormone-name{font-size:12px;font-weight:600;color:var(--text);line-height:1.3;}",
@@ -454,9 +454,9 @@
     eDoseField.appendChild(el("label", { class: "eikon-label", text: "Dose" }));
     var eDoseRow = el("div", { class: "ocp-dose-wrap" });
     refs.estrogenDoseInput = el("input", { type: "number", min: "0", step: "any", placeholder: "e.g. 30" });
-    refs.estrogenDoseInput.style.cssText = "flex:1;background:rgba(0,0,0,.20);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:12px;font-size:13px;outline:none;box-sizing:border-box;";
+    refs.estrogenDoseInput.style.cssText = "flex:1;background:var(--field,rgba(0,0,0,.20));border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:12px;font-size:13px;outline:none;box-sizing:border-box;";
     refs.estrogenDoseInput.addEventListener("input", function () { state.estrogenDose = refs.estrogenDoseInput.value; });
-    refs.estrogenDoseInput.addEventListener("focus", function () { this.style.borderColor = "rgba(90,162,255,.55)"; });
+    refs.estrogenDoseInput.addEventListener("focus", function () { this.style.borderColor = "var(--accent-line,rgba(90,162,255,.55))"; });
     refs.estrogenDoseInput.addEventListener("blur", function () { this.style.borderColor = "var(--border)"; });
     eDoseRow.appendChild(refs.estrogenDoseInput);
     refs.estrogenUnitToggle = buildUnitToggle("mg", function (u) { state.estrogenUnit = u; });
@@ -485,7 +485,7 @@
     pDoseField.appendChild(el("label", { class: "eikon-label", text: "Dose" }));
     var pDoseRow = el("div", { class: "ocp-dose-wrap" });
     refs.progestogenDoseInput = el("input", { type: "number", min: "0", step: "any", placeholder: "e.g. 0.15" });
-    refs.progestogenDoseInput.style.cssText = "flex:1;background:rgba(0,0,0,.20);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:12px;font-size:13px;outline:none;box-sizing:border-box;";
+    refs.progestogenDoseInput.style.cssText = "flex:1;background:var(--field,rgba(0,0,0,.20));border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:12px;font-size:13px;outline:none;box-sizing:border-box;";
     refs.progestogenDoseInput.addEventListener("input", function () { state.progestogenDose = refs.progestogenDoseInput.value; });
     refs.progestogenDoseInput.addEventListener("focus", function () { this.style.borderColor = "rgba(176,122,255,.55)"; });
     refs.progestogenDoseInput.addEventListener("blur", function () { this.style.borderColor = "var(--border)"; });

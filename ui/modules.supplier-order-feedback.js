@@ -143,7 +143,7 @@
         "<td>" + esc(grp.pharmacy_name) + "</td>" +
         "<td>" + fmtDate(grp.order_created_at) + "</td>" +
         "<td>" + fmtDate(grp.latest_feedback_at) + "</td>" +
-        "<td><span style='color:#ff5a7a;font-weight:700;'>" + grp.feedbacks.length + " issue" + (grp.feedbacks.length !== 1 ? "s" : "") + "</span></td>" +
+        "<td><span style='color:var(--danger,#ff5a7a);font-weight:700;'>" + grp.feedbacks.length + " issue" + (grp.feedbacks.length !== 1 ? "s" : "") + "</span></td>" +
         "<td><button class='eikon-btn' data-sof-expand='" + grp.order_id + "' style='font-size:11px;padding:3px 10px;'>" + (isExpanded ? "Collapse" : "View") + "</button></td>" +
       "</tr>";
 
@@ -158,35 +158,35 @@
   }
 
   function renderFeedbackDetail(grp) {
-    var html = "<div style='padding:14px;background:rgba(255,255,255,.02);border-radius:8px;'>" +
+    var html = "<div style='padding:14px;background:var(--surface,rgba(255,255,255,.02));border-radius:8px;'>" +
       "<div style='font-weight:700;margin-bottom:4px;'>Pharmacy: " + esc(grp.pharmacy_name) + "</div>" +
       "<div style='font-size:12px;color:var(--muted);margin-bottom:10px;'>Order placed: " + fmtDate(grp.order_created_at) + "</div>" +
       "<table style='width:100%;border-collapse:collapse;font-size:12px;'><thead><tr>" +
-      "<th style='text-align:left;padding:6px;font-size:11px;color:rgba(233,238,247,.6);'>Description</th>" +
-      "<th style='text-align:left;padding:6px;font-size:11px;color:rgba(233,238,247,.6);'>Barcode</th>" +
-      "<th style='text-align:left;padding:6px;font-size:11px;color:rgba(233,238,247,.6);'>Qty</th>" +
-      "<th style='text-align:left;padding:6px;font-size:11px;color:rgba(233,238,247,.6);'>Batch</th>" +
-      "<th style='text-align:left;padding:6px;font-size:11px;color:rgba(233,238,247,.6);'>Expiry</th>" +
-      "<th style='text-align:left;padding:6px;font-size:11px;color:rgba(233,238,247,.6);'>Problem</th>" +
-      "<th style='text-align:left;padding:6px;font-size:11px;color:rgba(233,238,247,.6);'>Notes</th>" +
-      "<th style='text-align:left;padding:6px;font-size:11px;color:rgba(233,238,247,.6);'>Reported</th>" +
-      "<th style='text-align:left;padding:6px;font-size:11px;color:rgba(233,238,247,.6);'>Resolution</th>" +
+      "<th style='text-align:left;padding:6px;font-size:11px;color:var(--muted,rgba(233,238,247,.6));'>Description</th>" +
+      "<th style='text-align:left;padding:6px;font-size:11px;color:var(--muted,rgba(233,238,247,.6));'>Barcode</th>" +
+      "<th style='text-align:left;padding:6px;font-size:11px;color:var(--muted,rgba(233,238,247,.6));'>Qty</th>" +
+      "<th style='text-align:left;padding:6px;font-size:11px;color:var(--muted,rgba(233,238,247,.6));'>Batch</th>" +
+      "<th style='text-align:left;padding:6px;font-size:11px;color:var(--muted,rgba(233,238,247,.6));'>Expiry</th>" +
+      "<th style='text-align:left;padding:6px;font-size:11px;color:var(--muted,rgba(233,238,247,.6));'>Problem</th>" +
+      "<th style='text-align:left;padding:6px;font-size:11px;color:var(--muted,rgba(233,238,247,.6));'>Notes</th>" +
+      "<th style='text-align:left;padding:6px;font-size:11px;color:var(--muted,rgba(233,238,247,.6));'>Reported</th>" +
+      "<th style='text-align:left;padding:6px;font-size:11px;color:var(--muted,rgba(233,238,247,.6));'>Resolution</th>" +
       "</tr></thead><tbody>";
 
     grp.feedbacks.forEach(function (fb) {
       var problemColors = {
-        "Not Received": "#ff5a7a",
+        "Not Received": "var(--danger,#ff5a7a)",
         "Wrong Pick": "#e8c840",
-        "Damaged": "#ff5a7a",
-        "Short Quantity": "#ffaf32",
-        "Other": "#5aa2ff"
+        "Damaged": "var(--danger,#ff5a7a)",
+        "Short Quantity": "var(--warn,#ffaf32)",
+        "Other": "var(--accent,#5aa2ff)"
       };
-      var pColor = problemColors[fb.problem_type] || "#ff5a7a";
+      var pColor = problemColors[fb.problem_type] || "var(--danger,#ff5a7a)";
 
       var resCell = "";
       if (fb.resolution_status) {
-        var rColors = { "Acknowledged": "#5aa2ff", "Replacement Sent": "#43d17a", "Credit Issued": "#43d17a", "Disputed": "#ffaf32", "Resolved": "#43d17a" };
-        var rc = rColors[fb.resolution_status] || "#5aa2ff";
+        var rColors = { "Acknowledged": "var(--accent,#5aa2ff)", "Replacement Sent": "var(--ok,#43d17a)", "Credit Issued": "var(--ok,#43d17a)", "Disputed": "var(--warn,#ffaf32)", "Resolved": "var(--ok,#43d17a)" };
+        var rc = rColors[fb.resolution_status] || "var(--accent,#5aa2ff)";
         resCell = "<span style='display:inline-block;padding:2px 8px;border-radius:5px;font-size:11px;font-weight:700;" +
           "background:" + rc + "22;color:" + rc + ";'>" + esc(fb.resolution_status) + "</span>";
         if (fb.supplier_notes) resCell += "<div style='font-size:10px;color:var(--muted);margin-top:2px;'>" + esc(fb.supplier_notes) + "</div>";
@@ -205,7 +205,7 @@
         "</div>";
       }
 
-      html += "<tr style='background:rgba(255,90,122,.06);'>" +
+      html += "<tr style='background:var(--danger-soft,rgba(255,90,122,.06));'>" +
         "<td style='padding:6px;font-weight:600;'>" + esc(fb.item_description) + "</td>" +
         "<td style='padding:6px;'>" + esc(fb.item_barcode) + "</td>" +
         "<td style='padding:6px;'>" + esc(fb.item_qty) + "</td>" +
@@ -304,10 +304,10 @@
     style.id = "sof-styles";
     style.textContent = [
       ".sof-table { width:100%; border-collapse:collapse; font-size:13px; }",
-      ".sof-table th { padding:8px; text-align:left; font-size:11px; font-weight:600; color:rgba(233,238,247,.45); text-transform:uppercase; letter-spacing:.03em; border-bottom:1px solid rgba(255,255,255,.08); }",
-      ".sof-table td { padding:8px; border-bottom:1px solid rgba(255,255,255,.05); }",
-      ".sof-table tr:hover { background:rgba(90,162,255,.06); }",
-      ".sof-expanded { background:rgba(90,162,255,.04)!important; }"
+      ".sof-table th { padding:8px; text-align:left; font-size:11px; font-weight:600; color:var(--muted2,rgba(233,238,247,.45)); text-transform:uppercase; letter-spacing:.03em; border-bottom:1px solid var(--line,rgba(255,255,255,.08)); }",
+      ".sof-table td { padding:8px; border-bottom:1px solid var(--line,rgba(255,255,255,.05)); }",
+      ".sof-table tr:hover { background:var(--accent-soft,rgba(90,162,255,.06)); }",
+      ".sof-expanded { background:var(--accent-soft,rgba(90,162,255,.04))!important; }"
     ].join("\n");
     document.head.appendChild(style);
   }

@@ -140,16 +140,16 @@
     st.textContent =
       '.se-toolbar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;}' +
       '.se-filter{flex:1;min-width:200px;font-size:13px;padding:8px 12px;}' +
-      '.se-upload-area{margin-bottom:16px;padding:14px;border:2px dashed var(--border);border-radius:12px;text-align:center;background:rgba(255,255,255,.02);}' +
+      '.se-upload-area{margin-bottom:16px;padding:14px;border:2px dashed var(--border);border-radius:12px;text-align:center;background:var(--surface,rgba(255,255,255,.02));}' +
       '.se-upload-area input[type="file"]{display:none;}' +
       '.se-table-wrap{overflow-x:auto;max-height:calc(100vh - 200px);overflow-y:auto;}' +
       '.se-table{width:100%;border-collapse:collapse;font-size:12px;}' +
       '.se-table th{position:sticky;top:0;text-align:left;padding:8px 10px;background:var(--panel2);border-bottom:2px solid var(--border);font-weight:700;font-size:11px;color:var(--muted);z-index:2;}' +
       '.se-table td{padding:7px 10px;border-bottom:1px solid var(--border);}' +
-      '.se-table tr:hover{background:rgba(255,255,255,.03);}' +
+      '.se-table tr:hover{background:var(--surface,rgba(255,255,255,.03));}' +
       '.se-expiry-warn{color:#ef4444;font-weight:700;}' +
       '.se-expiry-ok{color:var(--muted);}' +
-      '.se-orders-row{background:rgba(90,162,255,.04);font-size:11px;color:var(--muted);}' +
+      '.se-orders-row{background:var(--accent-soft,rgba(90,162,255,.04));font-size:11px;color:var(--muted);}' +
       '.se-orders-row td{padding:4px 10px 4px 30px;border-bottom:1px solid var(--border);}' +
       '.se-order-loc{display:inline-block;margin-right:12px;}' +
       '.se-order-input{width:60px;font-size:12px;padding:4px 6px;text-align:center;}' +
@@ -236,7 +236,7 @@
         if (myOrder) {
           html += '<td style="white-space:nowrap;">' +
             '<input class="eikon-input se-order-input" type="number" min="1" max="' + maxForMe + '" value="' + myOrder.quantity + '" data-item-id="' + item.id + '" data-max="' + maxForMe + '" data-action="update"/>' +
-            ' <span class="se-order-remove" data-item-id="' + item.id + '" style="cursor:pointer;color:rgba(255,90,122,.7);font-size:14px;" title="Remove order">&#x2715;</span>' +
+            ' <span class="se-order-remove" data-item-id="' + item.id + '" style="cursor:pointer;color:var(--danger,rgba(255,90,122,.7));font-size:14px;" title="Remove order">&#x2715;</span>' +
             '</td>';
         } else if (avail > 0) {
           html += '<td><button class="eikon-btn primary" data-item-id="' + item.id + '" data-action="order" style="font-size:11px;padding:4px 10px;">Order</button></td>';
@@ -352,8 +352,8 @@
             '<div style="font-size:13px;margin-bottom:10px;">You are about to upload <b>' + items.length + ' items</b> from <b>' + esc(file.name) + '</b>.</div>' +
             '<div style="font-size:13px;margin-bottom:10px;">This will <b>wipe all existing short expiry data</b> and replace it with the new file.</div>' +
             (existingOrders > 0
-              ? '<div style="padding:10px;border:1px solid rgba(255,90,122,.4);border-radius:8px;background:rgba(255,90,122,.06);font-size:13px;margin-bottom:10px;">' +
-                '<b style="color:rgba(255,90,122,1);">Warning:</b> There are <b>' + existingOrders + ' pharmacy orders</b> on the current data. These will also be deleted.</div>'
+              ? '<div style="padding:10px;border:1px solid var(--danger-soft,rgba(255,90,122,.4));border-radius:8px;background:var(--danger-soft,rgba(255,90,122,.06));font-size:13px;margin-bottom:10px;">' +
+                '<b style="color:var(--danger,rgba(255,90,122,1));">Warning:</b> There are <b>' + existingOrders + ' pharmacy orders</b> on the current data. These will also be deleted.</div>'
               : '') +
             '<div style="font-size:13px;">Do you want to proceed?</div>',
             [

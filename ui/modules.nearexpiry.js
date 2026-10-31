@@ -544,7 +544,7 @@ async function apiJson(path, options, tag) {
 
     var rows = eligible.map(function (e) {
       var d = (typeof e.days_to_expire === "number") ? e.days_to_expire : daysUntil(e.expiry_date);
-      return '<label style="display:flex;gap:10px;align-items:center;padding:8px 4px;border-bottom:1px solid rgba(255,255,255,.06);">' +
+      return '<label style="display:flex;gap:10px;align-items:center;padding:8px 4px;border-bottom:1px solid var(--line,rgba(255,255,255,.06));">' +
         '<input type="checkbox" class="ne-bulk-cb" value="' + String(e.id) + '" checked />' +
         '<span style="flex:1;font-weight:800;">' + esc(e.product_name || "") + '</span>' +
         '<span style="font-size:12px;color:var(--muted);">' + esc(ymdToDmyDash(e.expiry_date || "")) + '</span>' +
@@ -568,7 +568,7 @@ async function apiJson(path, options, tag) {
         '<button id="ne-bulk-none" class="eikon-btn" style="font-size:11px;">Deselect All</button>' +
         '<span style="margin-left:auto;font-size:12px;color:var(--muted);">' + String(eligible.length) + ' eligible item(s)</span>' +
       '</div>' +
-      '<div style="max-height:360px;overflow-y:auto;border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:4px 8px;">' +
+      '<div style="max-height:360px;overflow-y:auto;border:1px solid var(--line,rgba(255,255,255,.08));border-radius:10px;padding:4px 8px;">' +
         rows +
       '</div>' +
       '<div class="eikon-help" style="margin-top:10px;color:var(--muted);">Each selected item will create a separate return entry.</div>';
@@ -795,13 +795,13 @@ async function apiJson(path, options, tag) {
       '.ne-sort.on{color:var(--text);}' +
       'th[data-key]:not([data-key="actions"]){cursor:pointer;user-select:none;}' +
       'th[data-key]:not([data-key="actions"]):hover{color:var(--text);}' +
-      '.ne-pill{display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:999px;padding:6px 10px;background:rgba(255,255,255,.03);font-size:12px;font-weight:800;white-space:nowrap;}' +
-      '.ne-pill-expired{border-color:rgba(255,90,122,.55);background:rgba(255,90,122,.12);}' +
+      '.ne-pill{display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:999px;padding:6px 10px;background:var(--surface,rgba(255,255,255,.03));font-size:12px;font-weight:800;white-space:nowrap;}' +
+      '.ne-pill-expired{border-color:var(--danger-soft,rgba(255,90,122,.55));background:var(--danger-soft,rgba(255,90,122,.12));}' +
       '.ne-pill-soon{border-color:rgba(255,180,90,.55);background:rgba(255,180,90,.12);}' +
       '.ne-pill-warn{border-color:rgba(255,220,90,.42);background:rgba(255,220,90,.10);}' +
-      '.ne-pill-ok{border-color:rgba(67,209,122,.45);background:rgba(67,209,122,.10);}' +
+      '.ne-pill-ok{border-color:var(--ok-soft,rgba(67,209,122,.45));background:var(--ok-soft,rgba(67,209,122,.10));}' +
       '.ne-pill-unknown{opacity:.7;}' +
-      '.ne-row-expired{background:rgba(255,90,122,.08);}' +
+      '.ne-row-expired{background:var(--danger-soft,rgba(255,90,122,.08));}' +
       '.ne-row-soon{background:rgba(255,180,90,.06);}' +
       '.ne-row-warn{background:rgba(255,220,90,.05);}' +
       '.ne-actions{white-space:nowrap;display:flex;gap:8px;align-items:center;}' +

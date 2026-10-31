@@ -78,39 +78,39 @@
     st.id = "st-style";
     st.textContent =
       ".st-toast-wrap{position:fixed;right:14px;bottom:14px;z-index:999999;display:flex;flex-direction:column;gap:10px;max-width:min(520px,calc(100vw - 28px));}" +
-      ".st-toast{border:1px solid rgba(255,255,255,.12);background:rgba(12,16,24,.92);backdrop-filter:blur(10px);border-radius:14px;padding:10px 12px;box-shadow:0 10px 30px rgba(0,0,0,.35);}" +
+      ".st-toast{border:1px solid var(--line,rgba(255,255,255,.12));background:var(--field,rgba(12,16,24,.92));backdrop-filter:blur(10px);border-radius:14px;padding:10px 12px;box-shadow:0 10px 30px var(--shadow,rgba(0,0,0,.35));}" +
       ".st-toast .t-title{font-weight:900;margin:0 0 2px 0;font-size:13px;}" +
       ".st-toast .t-msg{margin:0;font-size:12px;opacity:.9;white-space:pre-wrap;}" +
-      ".st-toast.good{border-color:rgba(67,209,122,.35);}" +
-      ".st-toast.bad{border-color:rgba(255,90,122,.35);}" +
-      ".st-toast.warn{border-color:rgba(255,200,90,.35);}" +
+      ".st-toast.good{border-color:var(--ok-soft,rgba(67,209,122,.35));}" +
+      ".st-toast.bad{border-color:var(--danger-soft,rgba(255,90,122,.35));}" +
+      ".st-toast.warn{border-color:var(--warn-soft,rgba(255,200,90,.35));}" +
 
       /* Table & row styles */
-      ".st-row-selected{background:rgba(58,160,255,.10)!important;}" +
-      ".st-row-selected td{border-bottom-color:rgba(58,160,255,.22)!important;}" +
+      ".st-row-selected{background:var(--accent-soft,rgba(58,160,255,.10))!important;}" +
+      ".st-row-selected td{border-bottom-color:var(--accent-ring,rgba(58,160,255,.22))!important;}" +
       ".st-row-expired{opacity:.55;}" +
       ".st-row-expired td{text-decoration:line-through;}" +
       ".st-mini{font-size:12px;opacity:.85;}" +
-      ".st-panel{border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.03);border-radius:14px;padding:12px;}" +
+      ".st-panel{border:1px solid var(--line,rgba(255,255,255,.10));background:var(--surface,rgba(255,255,255,.03));border-radius:14px;padding:12px;}" +
       ".st-split{display:grid;grid-template-columns:1fr 1fr;gap:12px;}" +
       "@media (max-width: 860px){.st-split{grid-template-columns:1fr;}}" +
       ".st-badge{display:inline-block;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:800;line-height:1.2;}" +
-      ".st-badge-open{background:rgba(90,162,255,.15);border:1px solid rgba(90,162,255,.3);color:rgba(90,162,255,.95);}" +
-      ".st-badge-pending{background:rgba(255,200,90,.15);border:1px solid rgba(255,200,90,.3);color:rgba(255,200,90,.95);}" +
-      ".st-badge-accepted{background:rgba(90,162,255,.15);border:1px solid rgba(90,162,255,.3);color:rgba(90,162,255,.95);}" +
+      ".st-badge-open{background:var(--accent-soft,rgba(90,162,255,.15));border:1px solid var(--accent-ring,rgba(90,162,255,.3));color:var(--accent,rgba(90,162,255,.95));}" +
+      ".st-badge-pending{background:var(--warn-soft,rgba(255,200,90,.15));border:1px solid var(--warn-soft,rgba(255,200,90,.3));color:var(--warn,rgba(255,200,90,.95));}" +
+      ".st-badge-accepted{background:var(--accent-soft,rgba(90,162,255,.15));border:1px solid var(--accent-ring,rgba(90,162,255,.3));color:var(--accent,rgba(90,162,255,.95));}" +
       ".st-badge-dispatched{background:rgba(160,120,255,.15);border:1px solid rgba(160,120,255,.3);color:rgba(160,120,255,.95);}" +
-      ".st-badge-delivered{background:rgba(67,209,122,.15);border:1px solid rgba(67,209,122,.3);color:rgba(67,209,122,.95);}" +
-      ".st-badge-rejected{background:rgba(255,90,122,.15);border:1px solid rgba(255,90,122,.3);color:rgba(255,90,122,.95);}" +
-      ".st-badge-closed{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.6);}" +
-      ".st-badge-expired{background:rgba(255,90,122,.12);border:1px solid rgba(255,90,122,.25);color:rgba(255,90,122,.85);}" +
+      ".st-badge-delivered{background:var(--ok-soft,rgba(67,209,122,.15));border:1px solid var(--ok-soft,rgba(67,209,122,.3));color:var(--ok,rgba(67,209,122,.95));}" +
+      ".st-badge-rejected{background:var(--danger-soft,rgba(255,90,122,.15));border:1px solid var(--danger-soft,rgba(255,90,122,.3));color:var(--danger,rgba(255,90,122,.95));}" +
+      ".st-badge-closed{background:var(--surface2,rgba(255,255,255,.08));border:1px solid var(--line,rgba(255,255,255,.12));color:var(--muted,rgba(255,255,255,.6));}" +
+      ".st-badge-expired{background:var(--danger-soft,rgba(255,90,122,.12));border:1px solid var(--danger-soft,rgba(255,90,122,.25));color:var(--danger,rgba(255,90,122,.85));}" +
 
       /* Flash animation for pending items */
-      "@keyframes st-flash{0%,100%{background:rgba(255,200,90,.18);box-shadow:inset 0 0 0 2px rgba(255,200,90,.4)}50%{background:rgba(255,200,90,.04);box-shadow:none}}" +
+      "@keyframes st-flash{0%,100%{background:var(--warn-soft,rgba(255,200,90,.18));box-shadow:inset 0 0 0 2px var(--shadow,rgba(255,200,90,.4))}50%{background:var(--warn-soft,rgba(255,200,90,.04));box-shadow:none}}" +
       ".st-flash-row{animation:st-flash 1.4s ease-in-out infinite}" +
 
       /* Nested requests table */
       ".st-req-table{width:100%;border-collapse:collapse;margin:6px 0 0 0;}" +
-      ".st-req-table th,.st-req-table td{padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.06);text-align:left;font-size:12px;}" +
+      ".st-req-table th,.st-req-table td{padding:6px 8px;border-bottom:1px solid var(--line,rgba(255,255,255,.06));text-align:left;font-size:12px;}" +
       ".st-req-table th{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.2px;}" +
 
       /* Tabs */
@@ -702,7 +702,7 @@
         var direction = item.mine_owner ? "Outgoing" : "Incoming";
         var dirBadge = item.mine_owner
           ? '<span class="st-badge" style="background:rgba(255,165,0,.15);border:1px solid rgba(255,165,0,.3);color:rgba(255,200,100,.95);">Outgoing</span>'
-          : '<span class="st-badge" style="background:rgba(67,209,122,.15);border:1px solid rgba(67,209,122,.3);color:rgba(67,209,122,.95);">Incoming</span>';
+          : '<span class="st-badge" style="background:var(--ok-soft,rgba(67,209,122,.15));border:1px solid var(--ok-soft,rgba(67,209,122,.3));color:var(--ok,rgba(67,209,122,.95));">Incoming</span>';
 
         tr.innerHTML =
           "<td style='white-space:nowrap;'>" + esc(fmtDmy(item.entry_date)) + "</td>" +

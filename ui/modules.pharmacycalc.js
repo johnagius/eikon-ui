@@ -48,12 +48,12 @@
     var st = document.createElement("style");
     st.textContent =
       ".pcc-toast-wrap{position:fixed;right:14px;bottom:14px;z-index:999999;display:flex;flex-direction:column;gap:10px;max-width:min(420px,calc(100vw - 28px));}" +
-      ".pcc-toast{border:1px solid rgba(255,255,255,.10);background:rgba(15,22,34,.96);color:#e9eef7;border-radius:14px;padding:10px 12px;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;box-shadow:0 14px 40px rgba(0,0,0,.35);}" +
+      ".pcc-toast{border:1px solid var(--line,rgba(255,255,255,.10));background:var(--panel-strong,rgba(15,22,34,.96));color:var(--text,#e9eef7);border-radius:14px;padding:10px 12px;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;box-shadow:0 14px 40px var(--shadow,rgba(0,0,0,.35));}" +
       ".pcc-toast .t-title{font-weight:900;margin:0 0 4px 0;font-size:13px;}" +
       ".pcc-toast .t-msg{margin:0;font-size:12px;opacity:.9;white-space:pre-wrap;}" +
-      ".pcc-toast.good{border-color:rgba(67,209,122,.35);}" +
-      ".pcc-toast.bad{border-color:rgba(255,90,122,.35);}" +
-      ".pcc-toast.warn{border-color:rgba(255,200,90,.35);}";
+      ".pcc-toast.good{border-color:var(--ok-soft,rgba(67,209,122,.35));}" +
+      ".pcc-toast.bad{border-color:var(--danger-soft,rgba(255,90,122,.35));}" +
+      ".pcc-toast.warn{border-color:var(--warn-soft,rgba(255,200,90,.35));}";
     document.head.appendChild(st);
   }
 
@@ -350,7 +350,7 @@
     var noteIn = mk("input", { class: "eikon-input", type: "text", placeholder: "Optional notes for printout", style: "width:100%;" });
 
     // Autosuggest container
-    var suggestList = mk("div", { style: "position:absolute;background:var(--card-bg,#1e2535);border:1px solid var(--border);border-radius:10px;z-index:9999;max-height:200px;overflow-y:auto;width:100%;box-shadow:0 8px 24px rgba(0,0,0,.4);display:none;" });
+    var suggestList = mk("div", { style: "position:absolute;background:var(--card-bg,#1e2535);border:1px solid var(--border);border-radius:10px;z-index:9999;max-height:200px;overflow-y:auto;width:100%;box-shadow:0 8px 24px var(--shadow,rgba(0,0,0,.4));display:none;" });
     var patientWrap = mk("div", { style: "position:relative;width:100%;" });
     patientWrap.appendChild(patientNameIn);
     patientWrap.appendChild(suggestList);
@@ -1727,7 +1727,7 @@ var meta = { pharmacyName: (user && user.location_name) || (user && user.org_nam
       h += '</div>';
 
       if (!data) {
-        h += '<div style="border-top:1px solid var(--border);padding-top:14px;">'+'<div style="color:var(--danger,#e05);font-weight:800;margin-bottom:8px;">Calculation data not available.</div>'+'<div style="font-size:12px;opacity:.75;line-height:1.6;">The <b>GET /pharmacy-calc/records/:id</b> endpoint returned 404 &mdash; it needs to be added to your backend API.</div>'+'<div style="font-size:12px;opacity:.75;margin-top:6px;">Add this route to your Cloudflare Worker: <code style="background:rgba(255,255,255,.1);padding:2px 6px;border-radius:4px;">router.get("/pharmacy-calc/records/:id", async (req, env) =&gt; { const row = await env.DB.prepare("SELECT * FROM pharmacy_calc_records WHERE id=?").bind(req.params.id).first(); return row ? ok({ record: row }) : notFound(); });</code></div>'+'</div>';
+        h += '<div style="border-top:1px solid var(--border);padding-top:14px;">'+'<div style="color:var(--danger,#e05);font-weight:800;margin-bottom:8px;">Calculation data not available.</div>'+'<div style="font-size:12px;opacity:.75;line-height:1.6;">The <b>GET /pharmacy-calc/records/:id</b> endpoint returned 404 &mdash; it needs to be added to your backend API.</div>'+'<div style="font-size:12px;opacity:.75;margin-top:6px;">Add this route to your Cloudflare Worker: <code style="background:var(--surface2,rgba(255,255,255,.1));padding:2px 6px;border-radius:4px;">router.get("/pharmacy-calc/records/:id", async (req, env) =&gt; { const row = await env.DB.prepare("SELECT * FROM pharmacy_calc_records WHERE id=?").bind(req.params.id).first(); return row ? ok({ record: row }) : notFound(); });</code></div>'+'</div>';
       } else {
         h += '<div style="border-top:1px solid var(--border);padding-top:10px;">';
         var ct = fullRec.calc_type;

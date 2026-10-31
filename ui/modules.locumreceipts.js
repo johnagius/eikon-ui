@@ -143,7 +143,7 @@
       + ".lr-sub{margin:2px 0 0 0;color:var(--muted);font-size:12px;}"
       + ".lr-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;}"
       + ".lr-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:10px;}"
-      + ".lr-kpi{border:1px solid var(--border);background:rgba(255,255,255,.03);border-radius:14px;padding:10px 12px;}"
+      + ".lr-kpi{border:1px solid var(--border);background:var(--surface,rgba(255,255,255,.03));border-radius:14px;padding:10px 12px;}"
       + ".lr-kpi .k{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);}"
       + ".lr-kpi .v{font-size:18px;font-weight:900;margin-top:4px;}"
       + ".lr-actions{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;}"

@@ -224,7 +224,7 @@
       // Campaign cards grid
       ".ly-camp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;}",
       ".ly-camp-card{background:var(--panel,#0f1622);border:1px solid var(--border,#263246);border-radius:16px;overflow:hidden;transition:border-color .2s,transform .15s,box-shadow .2s;position:relative;}",
-      ".ly-camp-card:hover{border-color:rgba(90,162,255,.35);transform:translateY(-2px);box-shadow:0 12px 40px rgba(0,0,0,.5);}",
+      ".ly-camp-card:hover{border-color:var(--accent-ring,rgba(90,162,255,.35));transform:translateY(-2px);box-shadow:0 12px 40px var(--shadow,rgba(0,0,0,.5));}",
       ".ly-camp-banner{height:4px;}",
       ".ly-camp-body{padding:16px;}",
       ".ly-camp-head{display:flex;align-items:flex-start;gap:12px;margin-bottom:12px;}",
@@ -236,10 +236,10 @@
       ".ly-camp-dates{font-size:11px;color:var(--muted,#a8b3c7);}",
       ".ly-camp-actions{display:flex;gap:6px;}",
       ".ly-camp-badge{padding:3px 8px;border-radius:8px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;}",
-      ".ly-camp-badge.active{background:rgba(67,209,122,.15);color:#43d17a;border:1px solid rgba(67,209,122,.3);}",
+      ".ly-camp-badge.active{background:var(--ok-soft,rgba(67,209,122,.15));color:var(--ok,#43d17a);border:1px solid var(--ok-soft,rgba(67,209,122,.3));}",
       ".ly-camp-badge.inactive{background:rgba(168,179,199,.1);color:var(--muted,#a8b3c7);border:1px solid rgba(168,179,199,.2);}",
-      ".ly-camp-badge.ended{background:rgba(255,90,122,.12);color:#ff5a7a;border:1px solid rgba(255,90,122,.25);}",
-      ".ly-camp-badge.open{background:rgba(90,162,255,.12);color:#5aa2ff;border:1px solid rgba(90,162,255,.25);}",
+      ".ly-camp-badge.ended{background:var(--danger-soft,rgba(255,90,122,.12));color:var(--danger,#ff5a7a);border:1px solid var(--danger-soft,rgba(255,90,122,.25));}",
+      ".ly-camp-badge.open{background:var(--accent-soft,rgba(90,162,255,.12));color:var(--accent,#5aa2ff);border:1px solid var(--accent-soft,rgba(90,162,255,.25));}",
 
       // Empty state
       ".ly-empty{text-align:center;padding:60px 20px;color:var(--muted,#a8b3c7);}",
@@ -248,12 +248,12 @@
       ".ly-empty-sub{font-size:13px;}",
 
       // Buttons
-      ".ly-btn{display:inline-flex;align-items:center;gap:7px;padding:9px 15px;border-radius:11px;border:1px solid var(--border,#263246);background:rgba(255,255,255,.04);color:var(--text,#e9eef7);font-size:13px;font-weight:700;cursor:pointer;transition:border-color .15s,background .15s,box-shadow .15s;white-space:nowrap;}",
-      ".ly-btn:hover{border-color:rgba(255,255,255,.15);background:rgba(255,255,255,.07);}",
-      ".ly-btn.primary{background:rgba(90,162,255,.18);border-color:rgba(90,162,255,.4);color:#8fc8ff;}",
-      ".ly-btn.primary:hover{background:rgba(90,162,255,.28);box-shadow:0 0 0 3px rgba(90,162,255,.15);}",
-      ".ly-btn.success{background:rgba(67,209,122,.15);border-color:rgba(67,209,122,.35);color:#43d17a;}",
-      ".ly-btn.danger{background:rgba(255,90,122,.13);border-color:rgba(255,90,122,.3);color:#ff5a7a;}",
+      ".ly-btn{display:inline-flex;align-items:center;gap:7px;padding:9px 15px;border-radius:11px;border:1px solid var(--border,#263246);background:var(--surface,rgba(255,255,255,.04));color:var(--text,#e9eef7);font-size:13px;font-weight:700;cursor:pointer;transition:border-color .15s,background .15s,box-shadow .15s;white-space:nowrap;}",
+      ".ly-btn:hover{border-color:var(--line,rgba(255,255,255,.15));background:var(--surface2,rgba(255,255,255,.07));}",
+      ".ly-btn.primary{background:var(--accent-soft,rgba(90,162,255,.18));border-color:var(--accent-soft,rgba(90,162,255,.4));color:#8fc8ff;}",
+      ".ly-btn.primary:hover{background:var(--accent-soft,rgba(90,162,255,.28));box-shadow:0 0 0 3px var(--accent-soft,rgba(90,162,255,.15));}",
+      ".ly-btn.success{background:var(--ok-soft,rgba(67,209,122,.15));border-color:var(--ok-soft,rgba(67,209,122,.35));color:var(--ok,#43d17a);}",
+      ".ly-btn.danger{background:var(--danger-soft,rgba(255,90,122,.13));border-color:var(--danger-soft,rgba(255,90,122,.3));color:var(--danger,#ff5a7a);}",
       ".ly-btn.sm{padding:6px 11px;font-size:12px;border-radius:9px;}",
       ".ly-btn.icon-only{padding:7px;min-width:32px;justify-content:center;}",
 
@@ -263,21 +263,21 @@
       ".ly-field{display:flex;flex-direction:column;gap:5px;}",
       ".ly-field.full{grid-column:1/-1;}",
       ".ly-label{font-size:11px;font-weight:800;color:var(--muted,#a8b3c7);text-transform:uppercase;letter-spacing:.6px;}",
-      ".ly-input,.ly-select,.ly-textarea{background:rgba(0,0,0,.28);border:1px solid var(--border,#263246);color:var(--text,#e9eef7);padding:10px 13px;border-radius:11px;font-size:13px;outline:none;transition:border-color .15s,box-shadow .15s;width:100%;}",
-      ".ly-input:focus,.ly-select:focus,.ly-textarea:focus{border-color:rgba(90,162,255,.55);box-shadow:0 0 0 3px rgba(90,162,255,.12);}",
-      ".ly-input::placeholder{color:rgba(233,238,247,.3);}",
+      ".ly-input,.ly-select,.ly-textarea{background:var(--field,rgba(0,0,0,.28));border:1px solid var(--border,#263246);color:var(--text,#e9eef7);padding:10px 13px;border-radius:11px;font-size:13px;outline:none;transition:border-color .15s,box-shadow .15s;width:100%;}",
+      ".ly-input:focus,.ly-select:focus,.ly-textarea:focus{border-color:var(--accent-line,rgba(90,162,255,.55));box-shadow:0 0 0 3px var(--accent-soft,rgba(90,162,255,.12));}",
+      ".ly-input::placeholder{color:var(--muted2,rgba(233,238,247,.3));}",
       ".ly-textarea{min-height:72px;resize:vertical;}",
-      ".ly-select{color-scheme:dark;cursor:pointer;}",
+      ".ly-select{color-scheme:var(--scheme,dark);cursor:pointer;}",
 
       // Autocomplete dropdown
       ".ly-ac-wrap{position:relative;}",
-      ".ly-ac-drop{position:absolute;top:100%;left:0;right:0;z-index:9999;background:var(--panel2,#111b2a);border:1px solid rgba(90,162,255,.35);border-radius:12px;max-height:200px;overflow-y:auto;display:none;box-shadow:0 16px 40px rgba(0,0,0,.6);margin-top:3px;}",
+      ".ly-ac-drop{position:absolute;top:100%;left:0;right:0;z-index:9999;background:var(--panel2,#111b2a);border:1px solid var(--accent-ring,rgba(90,162,255,.35));border-radius:12px;max-height:200px;overflow-y:auto;display:none;box-shadow:0 16px 40px var(--shadow,rgba(0,0,0,.6));margin-top:3px;}",
       ".ly-ac-drop.open{display:block;}",
-      ".ly-ac-item{padding:9px 13px;cursor:pointer;font-size:13px;transition:background .1s;border-bottom:1px solid rgba(255,255,255,.05);}",
+      ".ly-ac-item{padding:9px 13px;cursor:pointer;font-size:13px;transition:background .1s;border-bottom:1px solid var(--line,rgba(255,255,255,.05));}",
       ".ly-ac-item:last-child{border-bottom:none;}",
-      ".ly-ac-item:hover,.ly-ac-item.focused{background:rgba(90,162,255,.12);}",
+      ".ly-ac-item:hover,.ly-ac-item.focused{background:var(--accent-soft,rgba(90,162,255,.12));}",
       ".ly-ac-item .ac-sub{font-size:11px;color:var(--muted,#a8b3c7);margin-top:2px;}",
-      ".ly-ac-item .ac-highlight{color:#5aa2ff;font-weight:900;}",
+      ".ly-ac-item .ac-highlight{color:var(--accent,#5aa2ff);font-weight:900;}",
 
       // Record transaction panel
       ".ly-txn-card{background:var(--panel,#0f1622);border:1px solid var(--border,#263246);border-radius:16px;padding:20px;margin-bottom:16px;}",
@@ -285,32 +285,32 @@
 
       // Items list
       ".ly-items-list{display:flex;flex-direction:column;gap:8px;margin-bottom:12px;}",
-      ".ly-item-row{display:flex;gap:10px;align-items:center;background:rgba(255,255,255,.03);border:1px solid var(--border,#263246);border-radius:11px;padding:10px 12px;}",
+      ".ly-item-row{display:flex;gap:10px;align-items:center;background:var(--surface,rgba(255,255,255,.03));border:1px solid var(--border,#263246);border-radius:11px;padding:10px 12px;}",
       ".ly-item-row .desc{flex:1;font-size:13px;color:var(--text,#e9eef7);}",
       ".ly-item-row .qty{font-size:13px;color:var(--muted,#a8b3c7);min-width:40px;text-align:center;}",
-      ".ly-item-row .remove{background:none;border:none;color:rgba(255,90,122,.6);cursor:pointer;font-size:16px;padding:2px 6px;border-radius:6px;transition:color .15s;}",
-      ".ly-item-row .remove:hover{color:#ff5a7a;}",
+      ".ly-item-row .remove{background:none;border:none;color:var(--danger-soft,rgba(255,90,122,.6));cursor:pointer;font-size:16px;padding:2px 6px;border-radius:6px;transition:color .15s;}",
+      ".ly-item-row .remove:hover{color:var(--danger,#ff5a7a);}",
 
       // Stamp card visual
-      ".ly-stamps{display:flex;flex-wrap:wrap;gap:8px;padding:16px;background:rgba(255,255,255,.02);border:1px solid var(--border,#263246);border-radius:14px;margin-top:12px;}",
+      ".ly-stamps{display:flex;flex-wrap:wrap;gap:8px;padding:16px;background:var(--surface,rgba(255,255,255,.02));border:1px solid var(--border,#263246);border-radius:14px;margin-top:12px;}",
       ".ly-stamp{width:40px;height:40px;border-radius:50%;border:2px solid rgba(245,200,66,.35);display:flex;align-items:center;justify-content:center;font-size:18px;transition:all .2s;}",
-      ".ly-stamp.earned{border-color:#f5c842;background:rgba(245,200,66,.18);box-shadow:0 0 10px rgba(245,200,66,.3);}",
+      ".ly-stamp.earned{border-color:#f5c842;background:rgba(245,200,66,.18);box-shadow:0 0 10px var(--shadow,rgba(245,200,66,.3));}",
       ".ly-stamp.new-stamp{animation:stampPop .4s cubic-bezier(.34,1.56,.64,1) forwards;}",
       "@keyframes stampPop{0%{transform:scale(0);opacity:0}60%{transform:scale(1.2)}100%{transform:scale(1);opacity:1}}",
 
       // Progress bar
-      ".ly-progress{background:rgba(255,255,255,.08);border-radius:999px;height:8px;overflow:hidden;margin-top:8px;}",
+      ".ly-progress{background:var(--surface2,rgba(255,255,255,.08));border-radius:999px;height:8px;overflow:hidden;margin-top:8px;}",
       ".ly-progress-bar{height:100%;border-radius:999px;transition:width .5s cubic-bezier(.4,0,.2,1);}",
 
       // Client history table
       ".ly-hist-table{width:100%;border-collapse:collapse;}",
-      ".ly-hist-table th,.ly-hist-table td{padding:9px 12px;border-bottom:1px solid rgba(255,255,255,.06);font-size:12px;text-align:left;}",
-      ".ly-hist-table th{color:var(--muted,#a8b3c7);font-weight:800;text-transform:uppercase;letter-spacing:.5px;background:rgba(255,255,255,.02);}",
-      ".ly-hist-table tbody tr:hover{background:rgba(255,255,255,.03);}",
+      ".ly-hist-table th,.ly-hist-table td{padding:9px 12px;border-bottom:1px solid var(--line,rgba(255,255,255,.06));font-size:12px;text-align:left;}",
+      ".ly-hist-table th{color:var(--muted,#a8b3c7);font-weight:800;text-transform:uppercase;letter-spacing:.5px;background:var(--surface,rgba(255,255,255,.02));}",
+      ".ly-hist-table tbody tr:hover{background:var(--surface,rgba(255,255,255,.03));}",
 
       // Search field styled
-      ".ly-search{background:rgba(0,0,0,.25);border:1px solid var(--border,#263246);color:var(--text,#e9eef7);padding:9px 13px 9px 36px;border-radius:22px;font-size:13px;outline:none;width:220px;transition:border-color .15s,width .2s;}",
-      ".ly-search:focus{border-color:rgba(90,162,255,.5);width:280px;}",
+      ".ly-search{background:var(--field,rgba(0,0,0,.25));border:1px solid var(--border,#263246);color:var(--text,#e9eef7);padding:9px 13px 9px 36px;border-radius:22px;font-size:13px;outline:none;width:220px;transition:border-color .15s,width .2s;}",
+      ".ly-search:focus{border-color:var(--accent-line,rgba(90,162,255,.5));width:280px;}",
       ".ly-search-wrap{position:relative;display:inline-flex;align-items:center;}",
       ".ly-search-ico{position:absolute;left:11px;color:var(--muted,#a8b3c7);font-size:14px;pointer-events:none;}",
 
@@ -319,16 +319,16 @@
       ".ly-section-title{font-size:16px;font-weight:900;color:var(--text,#e9eef7);margin:0;}",
 
       // Campaign form modal
-      ".ly-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:10000;display:none;align-items:center;justify-content:center;padding:18px;backdrop-filter:blur(4px);}",
+      ".ly-modal-overlay{position:fixed;inset:0;background:var(--overlay,rgba(0,0,0,.72));z-index:10000;display:none;align-items:center;justify-content:center;padding:18px;backdrop-filter:blur(4px);}",
       ".ly-modal-overlay.open{display:flex;}",
-      ".ly-modal{width:min(700px,100%);max-height:90vh;overflow-y:auto;background:var(--panel2,#111b2a);border:1px solid var(--border,#263246);border-radius:20px;padding:24px;box-shadow:0 32px 80px rgba(0,0,0,.7);}",
+      ".ly-modal{width:min(700px,100%);max-height:90vh;overflow-y:auto;background:var(--panel2,#111b2a);border:1px solid var(--border,#263246);border-radius:20px;padding:24px;box-shadow:0 32px 80px var(--shadow,rgba(0,0,0,.7));}",
       ".ly-modal-title{font-size:18px;font-weight:900;margin:0 0 20px;color:var(--text,#e9eef7);display:flex;align-items:center;gap:10px;}",
       ".ly-modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:24px;padding-top:16px;border-top:1px solid var(--border,#263246);}",
 
       // Campaign type selector
       ".ly-type-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-bottom:20px;}",
       ".ly-type-card{border:2px solid var(--border,#263246);border-radius:13px;padding:12px;cursor:pointer;transition:border-color .15s,background .15s;text-align:center;}",
-      ".ly-type-card:hover{border-color:rgba(90,162,255,.3);background:rgba(90,162,255,.05);}",
+      ".ly-type-card:hover{border-color:var(--accent-ring,rgba(90,162,255,.3));background:var(--accent-soft,rgba(90,162,255,.05));}",
       ".ly-type-card.selected{border-color:var(--type-color,#5aa2ff);background:rgba(var(--type-rgb,90,162,255),.1);}",
       ".ly-type-card-ico{font-size:24px;display:block;margin-bottom:6px;}",
       ".ly-type-card-label{font-size:12px;font-weight:800;color:var(--text,#e9eef7);}",
@@ -340,28 +340,28 @@
 
       // Toast
       ".ly-toast{position:fixed;bottom:24px;right:24px;z-index:99999;display:flex;flex-direction:column;gap:8px;pointer-events:none;}",
-      ".ly-toast-item{padding:12px 18px;border-radius:13px;font-size:13px;font-weight:700;color:#fff;pointer-events:auto;display:flex;align-items:center;gap:10px;box-shadow:0 8px 30px rgba(0,0,0,.5);animation:toastIn .3s cubic-bezier(.34,1.56,.64,1);}",
+      ".ly-toast-item{padding:12px 18px;border-radius:13px;font-size:13px;font-weight:700;color:#fff;pointer-events:auto;display:flex;align-items:center;gap:10px;box-shadow:0 8px 30px var(--shadow,rgba(0,0,0,.5));animation:toastIn .3s cubic-bezier(.34,1.56,.64,1);}",
       "@keyframes toastIn{from{opacity:0;transform:translateY(12px) scale(.95)}to{opacity:1;transform:none}}",
-      ".ly-toast-item.ok{background:linear-gradient(135deg,#1a5c38,#0d4a2e);border:1px solid rgba(67,209,122,.35);}",
-      ".ly-toast-item.err{background:linear-gradient(135deg,#5c1a2a,#4a0d1c);border:1px solid rgba(255,90,122,.35);}",
-      ".ly-toast-item.info{background:linear-gradient(135deg,#1a3a5c,#0d2a4a);border:1px solid rgba(90,162,255,.35);}",
+      ".ly-toast-item.ok{background:linear-gradient(135deg,#1a5c38,#0d4a2e);border:1px solid var(--ok-soft,rgba(67,209,122,.35));}",
+      ".ly-toast-item.err{background:linear-gradient(135deg,#5c1a2a,#4a0d1c);border:1px solid var(--danger-soft,rgba(255,90,122,.35));}",
+      ".ly-toast-item.info{background:linear-gradient(135deg,#1a3a5c,#0d2a4a);border:1px solid var(--accent-ring,rgba(90,162,255,.35));}",
 
       // Print styles
       "@media print{.ly-no-print{display:none!important;}.ly-print-only{display:block!important;}.ly-modal-overlay{display:none!important;}}",
       ".ly-print-only{display:none;}",
 
       // Receipt
-      ".ly-receipt{background:rgba(255,255,255,.02);border:1px dashed rgba(255,255,255,.15);border-radius:14px;padding:18px;font-family:'Courier New',monospace;font-size:12px;line-height:1.7;}",
-      ".ly-receipt-head{text-align:center;margin-bottom:12px;padding-bottom:10px;border-bottom:1px dashed rgba(255,255,255,.15);}",
+      ".ly-receipt{background:var(--surface,rgba(255,255,255,.02));border:1px dashed var(--line,rgba(255,255,255,.15));border-radius:14px;padding:18px;font-family:'Courier New',monospace;font-size:12px;line-height:1.7;}",
+      ".ly-receipt-head{text-align:center;margin-bottom:12px;padding-bottom:10px;border-bottom:1px dashed var(--line,rgba(255,255,255,.15));}",
       ".ly-receipt-row{display:flex;justify-content:space-between;gap:10px;}",
-      ".ly-receipt-foot{text-align:center;margin-top:10px;padding-top:10px;border-top:1px dashed rgba(255,255,255,.15);font-size:11px;color:var(--muted,#a8b3c7);}",
+      ".ly-receipt-foot{text-align:center;margin-top:10px;padding-top:10px;border-top:1px dashed var(--line,rgba(255,255,255,.15));font-size:11px;color:var(--muted,#a8b3c7);}",
 
       // Divider
       ".ly-divider{border:none;border-top:1px solid var(--border,#263246);margin:18px 0;}",
 
       // Client card
       ".ly-client-card{background:var(--panel,#0f1622);border:1px solid var(--border,#263246);border-radius:14px;padding:16px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:border-color .15s;}",
-      ".ly-client-card:hover{border-color:rgba(90,162,255,.35);}",
+      ".ly-client-card:hover{border-color:var(--accent-ring,rgba(90,162,255,.35));}",
       ".ly-client-avatar{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;flex:0 0 44px;}",
       ".ly-client-name{font-size:14px;font-weight:800;color:var(--text,#e9eef7);}",
       ".ly-client-id{font-size:12px;color:var(--muted,#a8b3c7);margin-top:2px;}",
@@ -471,8 +471,8 @@
 
     panel.innerHTML =
       '<div class="ly-stats-row">'
-      + statCard("🎯", activeCamps.length, "Active Campaigns", "#5aa2ff")
-      + statCard("👥", clientCount, "Loyalty Clients", "#43d17a")
+      + statCard("🎯", activeCamps.length, "Active Campaigns", "var(--accent,#5aa2ff)")
+      + statCard("👥", clientCount, "Loyalty Clients", "var(--ok,#43d17a)")
       + statCard("📋", txns.length, "Total Transactions", "#f5c842")
       + statCard("⚡", txnToday.length, "Today's Activities", "#ff8c42")
       + '</div>'
@@ -626,7 +626,7 @@
     if(c.type==="points")      extraHtml = '<div style="font-size:11px;color:var(--muted)">'+esc(c.points_per_unit||1)+' pts per €1 · Redeem at '+esc(c.redeem_threshold||100)+' pts</div>';
     if(c.type==="discount")    extraHtml = '<div style="font-size:11px;color:var(--muted)">'+esc(c.discount_pct||10)+'% off '+esc(c.brand||"all items")+'</div>';
     if(c.type==="buy_x_get_y") extraHtml = '<div style="font-size:11px;color:var(--muted)">Buy <b>'+esc(c.buy_qty||3)+'</b> get <b>'+esc(c.get_qty||1)+'</b> free</div>';
-    if(c.type==="event")       extraHtml = '<div style="font-size:11px;color:#ff6b9d">Event: '+esc(c.event_name||c.name)+'</div>';
+    if(c.type==="event")       extraHtml = '<div style="font-size:11px;color:var(--danger,#ff6b9d)">Event: '+esc(c.event_name||c.name)+'</div>';
     if(c.type==="tiered")      extraHtml = '<div style="font-size:11px;color:var(--muted)">Tiered rewards · '+esc((c.tiers||[]).length)+' tiers</div>';
 
     return '<div class="ly-camp-card">'
@@ -730,7 +730,7 @@
       // Date range
       + '<div class="ly-form-row" style="margin-top:14px;">'
       + '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:700;color:var(--text);">'
-      + '<input type="checkbox" id="ly-camp-f-open" '+(c.open_ended?"checked":"")+' style="width:16px;height:16px;accent-color:#5aa2ff;"> Open-ended (no expiry)'
+      + '<input type="checkbox" id="ly-camp-f-open" '+(c.open_ended?"checked":"")+' style="width:16px;height:16px;accent-color:var(--accent,#5aa2ff);"> Open-ended (no expiry)'
       + '</label>'
       + '</div>'
       + '<div id="ly-camp-date-range" class="ly-form-row" style="margin-top:12px;'+(c.open_ended?"display:none;":"")+';">'
@@ -742,7 +742,7 @@
       // Active toggle
       + '<div class="ly-form-row" style="margin-top:16px;">'
       + '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:700;color:var(--text);">'
-      + '<input type="checkbox" id="ly-camp-f-active" '+(c.active?"checked":"")+' style="width:16px;height:16px;accent-color:#43d17a;"> Campaign is Active'
+      + '<input type="checkbox" id="ly-camp-f-active" '+(c.active?"checked":"")+' style="width:16px;height:16px;accent-color:var(--ok,#43d17a);"> Campaign is Active'
       + '</label></div>';
 
     // type selector
@@ -1126,7 +1126,7 @@
     html += '<div class="ly-txn-section-title">Loyalty Profile</div>';
     html += '<div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;">';
     var initials = (client&&client.name) ? client.name.split(" ").map(function(w){ return w[0]; }).slice(0,2).join("").toUpperCase() : (normId.slice(0,2));
-    var avatarColor = ["#5aa2ff","#43d17a","#f5c842","#ff6b9d","#ff8c42"][Math.abs(hashStr(normId))%5];
+    var avatarColor = ["var(--accent,#5aa2ff)","var(--ok,#43d17a)","#f5c842","var(--danger,#ff6b9d)","#ff8c42"][Math.abs(hashStr(normId))%5];
     html += '<div class="ly-client-avatar" style="background:'+avatarColor+'22;color:'+avatarColor+';border:2px solid '+avatarColor+'44;">'+esc(initials)+'</div>';
     html += '<div><div style="font-size:15px;font-weight:900;color:var(--text)">'+esc(client&&client.name||"Unknown Client")+'</div>';
     html += '<div style="font-size:12px;color:var(--muted)">'+esc(normId)+'</div>';
@@ -1173,7 +1173,7 @@
         html += '<div style="font-size:11px;color:var(--muted);margin-top:4px;">'+accumulated+' / '+buyQty+' purchases tracked</div>';
         if(accumulated+1>=buyQty) html += '<div style="margin-top:8px;padding:8px 12px;background:rgba(255,140,66,.12);border:1px solid rgba(255,140,66,.3);border-radius:8px;font-size:12px;font-weight:800;color:#ff8c42;">🎁 Client earns free item!</div>';
       } else if(focusCamp.type==="event"){
-        html += '<div style="font-size:13px;color:#ff6b9d;font-weight:800;">'+esc(focusCamp.event_name||focusCamp.name)+'</div>';
+        html += '<div style="font-size:13px;color:var(--danger,#ff6b9d);font-weight:800;">'+esc(focusCamp.event_name||focusCamp.name)+'</div>';
         html += '<div style="font-size:12px;color:var(--muted);margin-top:4px;">'+esc(focusCamp.event_offer||"Special event offer")+'</div>';
         html += '<div style="font-size:11px;color:var(--muted);margin-top:6px;">'+sum.count+' previous event purchase'+(sum.count!==1?"s":"")+'</div>';
       } else if(focusCamp.type==="tiered"){
@@ -1185,7 +1185,7 @@
         if(currentTier) html += '<div style="font-size:12px;font-weight:800;color:'+conf.color+';margin-bottom:6px;">🏆 Current tier: '+esc(currentTier.reward)+'</div>';
         tiers.forEach(function(tier,i){
           var active = totalSpend>=parseFloat(tier.spend||0);
-          html += '<div style="padding:6px 10px;border-radius:8px;margin-bottom:4px;border:1px solid '+(active?conf.color+'44':'rgba(255,255,255,.1)')+';background:'+(active?conf.color+'12':'rgba(255,255,255,.03)')+';">';
+          html += '<div style="padding:6px 10px;border-radius:8px;margin-bottom:4px;border:1px solid '+(active?conf.color+'44':'var(--line,rgba(255,255,255,.1))')+';background:'+(active?conf.color+'12':'var(--surface,rgba(255,255,255,.03))')+';">';
           html += '<span style="font-size:11px;color:'+(active?conf.color:'var(--muted)')+';">€'+esc(tier.spend)+'+ → '+esc(tier.reward)+'</span>';
           if(active) html += ' <span style="color:'+conf.color+';font-size:11px;">✓</span>';
           html += '</div>';
@@ -1203,7 +1203,7 @@
         if(!camp) return;
         var conf = typeConf(camp.type);
         var sum = campSummary[cid];
-        html += '<div style="padding:8px 12px;border-radius:10px;border:1px solid var(--border);background:rgba(255,255,255,.02);margin-bottom:6px;display:flex;align-items:center;gap:10px;">';
+        html += '<div style="padding:8px 12px;border-radius:10px;border:1px solid var(--border);background:var(--surface,rgba(255,255,255,.02));margin-bottom:6px;display:flex;align-items:center;gap:10px;">';
         html += '<span style="color:'+conf.color+'">'+conf.icon+'</span>';
         html += '<div style="flex:1;font-size:12px;"><b>'+esc(camp.name)+'</b>';
         if(camp.type==="stamp_card") html += ' · '+esc(sum.stamps)+ ' stamps';
@@ -1294,10 +1294,10 @@
       + '<div class="ly-receipt-row"><span>Client:</span><b>'+esc(txn.client_name||txn.client_id)+'</b></div>'
       + '<div class="ly-receipt-row"><span>ID Card:</span><span>'+esc(txn.client_id)+'</span></div>'
       + (txn.receipt_no?'<div class="ly-receipt-row"><span>Receipt No:</span><span>'+esc(txn.receipt_no)+'</span></div>':"")
-      + '<div style="border-top:1px dashed rgba(255,255,255,.12);margin:8px 0;"></div>'
+      + '<div style="border-top:1px dashed var(--line,rgba(255,255,255,.12));margin:8px 0;"></div>'
       + items.map(function(it){ return '<div class="ly-receipt-row"><span>'+esc(it.desc)+'</span><span>×'+esc(it.qty)+'</span></div>'; }).join("")
-      + (txn.total?'<div style="border-top:1px dashed rgba(255,255,255,.12);margin:8px 0;"></div><div class="ly-receipt-row"><b>Total:</b><b>€'+esc(txn.total.toFixed(2))+'</b></div>':"")
-      + '<div style="border-top:1px dashed rgba(255,255,255,.12);margin:8px 0;"></div>'
+      + (txn.total?'<div style="border-top:1px dashed var(--line,rgba(255,255,255,.12));margin:8px 0;"></div><div class="ly-receipt-row"><b>Total:</b><b>€'+esc(txn.total.toFixed(2))+'</b></div>':"")
+      + '<div style="border-top:1px dashed var(--line,rgba(255,255,255,.12));margin:8px 0;"></div>'
       + '<div class="ly-receipt-row" style="color:'+conf.color+';"><span>'+conf.icon+' '+esc(conf.label)+':</span><b>'+esc(txn.action_label)+'</b></div>'
       + (txn.notes?'<div style="margin-top:6px;font-size:11px;color:var(--muted);">Notes: '+esc(txn.notes)+'</div>':"")
       + '<div class="ly-receipt-foot">Thank you for your loyalty! 💛</div>'
@@ -1440,7 +1440,7 @@
     el.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">'
       + filtered.map(function(c){
           var ctxns = txnByClient[c.id_card]||[];
-          var avatarColor = ["#5aa2ff","#43d17a","#f5c842","#ff6b9d","#ff8c42"][Math.abs(hashStr(c.id_card))%5];
+          var avatarColor = ["var(--accent,#5aa2ff)","var(--ok,#43d17a)","#f5c842","var(--danger,#ff6b9d)","#ff8c42"][Math.abs(hashStr(c.id_card))%5];
           var initials = c.name ? c.name.split(" ").map(function(w){ return w[0]; }).slice(0,2).join("").toUpperCase() : c.id_card.slice(0,2);
           var campSet = {};
           ctxns.forEach(function(t){ if(t.campaign_id&&campMap[t.campaign_id]) campSet[t.campaign_id]=true; });

@@ -181,21 +181,21 @@
       '.oos-table th:hover{color:var(--text);}' +
       '.oos-table th .oos-sort{margin-left:4px;font-size:10px;}' +
       '.oos-table td{padding:8px 12px;border-bottom:1px solid var(--border);}' +
-      '.oos-table tr:hover{background:rgba(255,255,255,.03);}' +
-      '.oos-del{cursor:pointer;color:rgba(255,90,122,.7);font-size:14px;padding:2px 4px;}' +
-      '.oos-del:hover{color:rgba(255,90,122,1);}' +
+      '.oos-table tr:hover{background:var(--surface,rgba(255,255,255,.03));}' +
+      '.oos-del{cursor:pointer;color:var(--danger,rgba(255,90,122,.7));font-size:14px;padding:2px 4px;}' +
+      '.oos-del:hover{color:var(--danger,rgba(255,90,122,1));}' +
       '.oos-empty{padding:30px;color:var(--muted);font-size:13px;text-align:center;}' +
       '.oos-suggest{max-height:320px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;}' +
       '.oos-suggest-item{padding:10px 12px;font-size:13px;cursor:pointer;border-bottom:1px solid var(--border);}' +
       '.oos-suggest-item:last-child{border-bottom:none;}' +
-      '.oos-suggest-item:hover{background:rgba(90,162,255,.1);}' +
-      '.oos-sim-warn{margin-top:8px;padding:10px;border:1px solid rgba(255,180,50,.4);border-radius:8px;background:rgba(255,180,50,.06);font-size:12px;}' +
+      '.oos-suggest-item:hover{background:var(--accent-soft,rgba(90,162,255,.1));}' +
+      '.oos-sim-warn{margin-top:8px;padding:10px;border:1px solid var(--warn-soft,rgba(255,180,50,.4));border-radius:8px;background:var(--warn-soft,rgba(255,180,50,.06));font-size:12px;}' +
       '.oos-status-pill{display:inline-block;padding:2px 8px;border-radius:5px;font-size:10px;font-weight:700;margin-left:6px;}' +
       '.oos-st-active{background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.3);}' +
-      '.oos-st-pending{background:rgba(255,180,50,.12);color:#f59e0b;border:1px solid rgba(255,180,50,.3);}' +
+      '.oos-st-pending{background:var(--warn-soft,rgba(255,180,50,.12));color:#f59e0b;border:1px solid var(--warn-soft,rgba(255,180,50,.3));}' +
       '.oos-st-back{background:rgba(34,197,94,.12);color:#22c55e;border:1px solid rgba(34,197,94,.3);}' +
       '.oos-st-removal{background:rgba(168,85,247,.12);color:#a855f7;border:1px solid rgba(168,85,247,.3);}' +
-      '.oos-pharmacy-row{background:rgba(255,180,50,.04);}' +
+      '.oos-pharmacy-row{background:var(--warn-soft,rgba(255,180,50,.04));}' +
       '.oos-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}' +
       '.oos-act-btn{font-size:10px;padding:3px 8px;cursor:pointer;}' +
       '@media print{' +
@@ -432,7 +432,7 @@
           loadCatalog().then(function (products) {
             var matches = searchCatalog(products, q);
             var rawName = (descEl.value || "").trim();
-            var html = '<div class="oos-suggest-item" data-pname="' + esc(rawName) + '" style="background:rgba(90,162,255,.06);font-weight:600;">' +
+            var html = '<div class="oos-suggest-item" data-pname="' + esc(rawName) + '" style="background:var(--accent-soft,rgba(90,162,255,.06));font-weight:600;">' +
               'Use: "' + esc(rawName) + '"</div>';
             if (matches.length) {
               html += matches.map(function (m) {

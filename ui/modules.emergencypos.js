@@ -269,7 +269,7 @@
     try {
       E.modal.show("Set Quantity", "<div style='font-size:14px;'>" +
         "<div style='margin-bottom:10px;font-weight:600;'>" + esc(line.product.name) + "</div>" +
-        "<div style='margin-bottom:6px;color:rgba(255,255,255,.6);font-size:12px;'>Unit price: €" + fmt2(line.product.price) + "</div>" +
+        "<div style='margin-bottom:6px;color:var(--muted,rgba(255,255,255,.6));font-size:12px;'>Unit price: €" + fmt2(line.product.price) + "</div>" +
         "<div style='margin-bottom:8px;font-size:13px;'>Enter quantity as a fraction (e.g. <strong>1/6</strong>) or decimal (e.g. <strong>0.167</strong>):</div>" +
         "<input id='epos-frac-input' class='epos-input' style='width:100%;font-size:18px;padding:12px;text-align:center;' placeholder='e.g. 1/6 or 0.5' value='" + fmtQty(line.qty) + "'>" +
         "<div id='epos-frac-preview' style='margin-top:8px;font-size:13px;color:#a5b4fc;text-align:center;'></div>" +
@@ -439,7 +439,7 @@
       "<div style='margin-bottom:8px;'><strong>" + state.cart.length + " item(s)</strong>, qty: " + fmtQty(itemCount) + "</div>" +
       (tots.discountAmt > 0 ? "<div style='color:#f59e0b;'>Discount: " + tots.discountPct + "% (−€" + fmt2(tots.discountAmt) + ")</div>" : "") +
       "<div style='font-size:18px;font-weight:800;margin-top:4px;'>Total: €" + fmt2(tots.total) + "</div>" +
-      "<div style='margin-top:4px;color:rgba(255,255,255,.6);'>" + esc(state.payment.method) + "</div>" +
+      "<div style='margin-top:4px;color:var(--muted,rgba(255,255,255,.6));'>" + esc(state.payment.method) + "</div>" +
       "</div>";
     try {
       E.modal.show("Complete Sale?", summary, [
@@ -1047,7 +1047,7 @@
         "<button id='epos-photo-capture' class='epos-overlay-btn epos-overlay-btn-primary' style='flex:1;'>Capture</button>" +
         "<button id='epos-photo-retake' class='epos-overlay-btn' style='display:none;flex:1;'>Retake</button>" +
       "</div>" +
-      "<div id='epos-photo-status' style='color:rgba(255,255,255,.6);font-size:14px;min-height:22px;margin-top:8px;'></div>" +
+      "<div id='epos-photo-status' style='color:var(--muted,rgba(255,255,255,.6));font-size:14px;min-height:22px;margin-top:8px;'></div>" +
       "<div id='epos-photo-results' style='width:min(520px,96vw);max-height:280px;overflow-y:auto;'></div>";
     document.body.appendChild(overlay);
 
@@ -1132,7 +1132,7 @@
       return;
     }
     var preview = ocrText.replace(/\s+/g, " ").trim().slice(0, 120);
-    statusEl.innerHTML = "<span style='color:rgba(255,255,255,.5);'>OCR: </span><em style='color:rgba(255,255,255,.75);'>" + esc(preview) + (ocrText.length > 120 ? "…" : "") + "</em>";
+    statusEl.innerHTML = "<span style='color:var(--muted,rgba(255,255,255,.5));'>OCR: </span><em style='color:var(--muted,rgba(255,255,255,.75));'>" + esc(preview) + (ocrText.length > 120 ? "…" : "") + "</em>";
 
     // Score every catalog product
     var scored = state.catalog.map(function(p) {
@@ -1142,7 +1142,7 @@
     var top = scored.slice(0, 10);
 
     if (!top.length) {
-      resultsEl.innerHTML = "<div style='color:rgba(255,255,255,.4);padding:16px;text-align:center;'>No matches found — try another angle or better lighting.</div>";
+      resultsEl.innerHTML = "<div style='color:var(--muted2,rgba(255,255,255,.4));padding:16px;text-align:center;'>No matches found — try another angle or better lighting.</div>";
       return;
     }
 
@@ -1153,7 +1153,7 @@
         "<div style='flex:1;min-width:0;'>" +
           "<div style='font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'>" + esc(r.product.name) + "</div>" +
           "<div class='epos-match-bar'><div class='epos-match-fill' style='width:" + barW + "%'></div></div>" +
-          "<div style='font-size:12px;color:rgba(255,255,255,.4);'>" + pct + "% match" + (r.product.barcode ? " · " + esc(r.product.barcode) : "") + "</div>" +
+          "<div style='font-size:12px;color:var(--muted2,rgba(255,255,255,.4));'>" + pct + "% match" + (r.product.barcode ? " · " + esc(r.product.barcode) : "") + "</div>" +
         "</div>" +
         "<div style='white-space:nowrap;margin-left:12px;text-align:right;'>" +
           "<div style='font-size:15px;font-weight:700;color:#a5b4fc;'>€" + fmt2(r.product.price) + "</div>" +
@@ -1632,7 +1632,7 @@
     if (!container) return;
     clearTimeout(state.toastTimer);
     var color = type === "ok" ? "#22c55e" : type === "err" ? "#ef4444" : "#f59e0b";
-    container.innerHTML = "<div style='background:" + color + ";color:#fff;padding:12px 18px;border-radius:12px;font-size:15px;font-weight:600;max-width:400px;box-shadow:0 4px 20px rgba(0,0,0,.4);animation:epos-slide-up .25s ease-out;'>" + esc(msg) + "</div>";
+    container.innerHTML = "<div style='background:" + color + ";color:#fff;padding:12px 18px;border-radius:12px;font-size:15px;font-weight:600;max-width:400px;box-shadow:0 4px 20px var(--shadow,rgba(0,0,0,.4));animation:epos-slide-up .25s ease-out;'>" + esc(msg) + "</div>";
     container.style.display = "flex";
     state.toastTimer = setTimeout(function(){ if(container){ container.style.display="none"; container.innerHTML=""; } }, 4000);
   }
@@ -1660,74 +1660,74 @@
     style.textContent = [
       /* ── Base / Desktop ─────────────────────────────────────────── */
       ".epos-wrap{display:flex;flex-direction:column;height:100%;font-size:14px;-webkit-tap-highlight-color:transparent;}",
-      ".epos-tabs{display:flex;gap:4px;padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.1);background:rgba(0,0,0,.2);flex-shrink:0;}",
-      ".epos-tab-btn{padding:6px 16px;border-radius:6px;border:none;cursor:pointer;font-size:13px;font-weight:600;background:rgba(255,255,255,.08);color:rgba(255,255,255,.7);transition:background .15s;}",
+      ".epos-tabs{display:flex;gap:4px;padding:8px 10px;border-bottom:1px solid var(--line,rgba(255,255,255,.1));background:var(--field,rgba(0,0,0,.2));flex-shrink:0;}",
+      ".epos-tab-btn{padding:6px 16px;border-radius:6px;border:none;cursor:pointer;font-size:13px;font-weight:600;background:var(--surface2,rgba(255,255,255,.08));color:var(--muted,rgba(255,255,255,.7));transition:background .15s;}",
       ".epos-tab-btn.active{background:rgba(99,102,241,.75);color:#fff;}",
-      ".epos-tab-btn:hover:not(.active){background:rgba(255,255,255,.14);}",
+      ".epos-tab-btn:hover:not(.active){background:var(--surface2,rgba(255,255,255,.14));}",
       ".epos-topbar{display:flex;align-items:center;gap:8px;padding:6px 10px;flex-shrink:0;}",
       ".epos-sync-wrap{margin-left:auto;display:flex;align-items:center;gap:6px;}",
       ".epos-badge{background:#ef4444;color:#fff;border-radius:99px;padding:1px 7px;font-size:11px;font-weight:700;display:none;}",
       ".epos-body{flex:1;overflow:hidden;display:flex;}",
       /* POS tab — desktop (default) */
       ".epos-pos{display:flex;width:100%;height:100%;overflow:hidden;position:relative;}",
-      ".epos-cart-panel{flex:0 0 380px;display:flex;flex-direction:column;border-right:1px solid rgba(255,255,255,.08);padding:10px;}",
+      ".epos-cart-panel{flex:0 0 380px;display:flex;flex-direction:column;border-right:1px solid var(--line,rgba(255,255,255,.08));padding:10px;}",
       ".epos-cart-scroll{flex:1;overflow-y:auto;margin-bottom:8px;}",
-      ".epos-cart-empty{color:rgba(255,255,255,.35);text-align:center;padding:28px 16px;font-size:14px;line-height:1.6;}",
-      ".epos-cart-line{display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:13px;}",
+      ".epos-cart-empty{color:var(--muted,rgba(255,255,255,.35));text-align:center;padding:28px 16px;font-size:14px;line-height:1.6;}",
+      ".epos-cart-line{display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--line,rgba(255,255,255,.06));font-size:13px;}",
       ".epos-cart-name{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}",
       ".epos-cart-fmd{font-size:10px;color:#a5b4fc;margin-top:2px;}",
-      ".epos-cart-barcode{font-size:10px;color:rgba(255,255,255,.4);margin-top:1px;font-family:monospace;}",
+      ".epos-cart-barcode{font-size:10px;color:var(--muted2,rgba(255,255,255,.4));margin-top:1px;font-family:monospace;}",
       ".epos-cart-scan-btn{font-size:10px;padding:2px 8px;margin-top:3px;border-radius:4px;border:1px solid rgba(99,102,241,.4);background:rgba(99,102,241,.12);color:#a5b4fc;cursor:pointer;transition:background .15s;}",
       ".epos-cart-scan-btn:hover,.epos-cart-scan-btn:active{background:rgba(99,102,241,.3);}",
-      ".epos-qty-btn{width:28px;height:28px;border-radius:6px;border:none;background:rgba(255,255,255,.12);color:#fff;cursor:pointer;font-size:16px;line-height:1;padding:0;display:flex;align-items:center;justify-content:center;}",
-      ".epos-qty-btn:hover{background:rgba(255,255,255,.22);}",
-      ".epos-cart-qty{min-width:28px;text-align:center;font-weight:700;padding:2px 4px;border-radius:4px;border:1px dashed rgba(255,255,255,.2);}",
+      ".epos-qty-btn{width:28px;height:28px;border-radius:6px;border:none;background:var(--surface2,rgba(255,255,255,.12));color:#fff;cursor:pointer;font-size:16px;line-height:1;padding:0;display:flex;align-items:center;justify-content:center;}",
+      ".epos-qty-btn:hover{background:var(--surface2,rgba(255,255,255,.22));}",
+      ".epos-cart-qty{min-width:28px;text-align:center;font-weight:700;padding:2px 4px;border-radius:4px;border:1px dashed var(--line,rgba(255,255,255,.2));}",
       ".epos-cart-qty:hover{background:rgba(99,102,241,.15);border-color:#6366f1;}",
       ".epos-cart-price{width:60px;text-align:right;white-space:nowrap;}",
       ".epos-cart-remove{width:28px;height:28px;color:rgba(255,100,100,.7);cursor:pointer;font-size:18px;line-height:1;background:none;border:none;padding:0;flex-shrink:0;display:flex;align-items:center;justify-content:center;}",
       ".epos-cart-remove:hover{color:#ef4444;}",
-      ".epos-totals{padding:6px 0;border-top:1px solid rgba(255,255,255,.1);font-size:13px;}",
+      ".epos-totals{padding:6px 0;border-top:1px solid var(--line,rgba(255,255,255,.1));font-size:13px;}",
       ".epos-totals-row{display:flex;justify-content:space-between;padding:2px 0;}",
-      ".epos-totals-row.total{font-weight:800;font-size:15px;border-top:1px solid rgba(255,255,255,.15);margin-top:4px;padding-top:5px;}",
-      ".epos-payment{margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08);}",
+      ".epos-totals-row.total{font-weight:800;font-size:15px;border-top:1px solid var(--line,rgba(255,255,255,.15));margin-top:4px;padding-top:5px;}",
+      ".epos-payment{margin-top:8px;padding-top:8px;border-top:1px solid var(--line,rgba(255,255,255,.08));}",
       ".epos-pay-methods{display:flex;gap:4px;margin-bottom:6px;}",
-      ".epos-pay-btn{flex:1;padding:5px 8px;border-radius:6px;border:none;cursor:pointer;font-size:12px;font-weight:600;background:rgba(255,255,255,.1);color:rgba(255,255,255,.7);transition:background .15s,color .15s;}",
+      ".epos-pay-btn{flex:1;padding:5px 8px;border-radius:6px;border:none;cursor:pointer;font-size:12px;font-weight:600;background:var(--surface2,rgba(255,255,255,.1));color:var(--muted,rgba(255,255,255,.7));transition:background .15s,color .15s;}",
       ".epos-pay-btn.active{background:#6366f1;color:#fff;}",
       ".epos-tendered-row{display:flex;align-items:center;gap:6px;margin-bottom:6px;font-size:13px;}",
       ".epos-complete-btn{padding:10px;border-radius:8px;border:none;background:#22c55e;color:#fff;font-size:14px;font-weight:700;cursor:pointer;transition:background .15s,transform .1s;}",
       ".epos-complete-btn:hover{background:#16a34a;}",
       ".epos-complete-btn:active{transform:scale(.97);}",
-      ".epos-complete-btn:disabled{background:rgba(255,255,255,.08);color:rgba(255,255,255,.3);cursor:not-allowed;transform:none;}",
+      ".epos-complete-btn:disabled{background:var(--surface2,rgba(255,255,255,.08));color:var(--muted,rgba(255,255,255,.3));cursor:not-allowed;transform:none;}",
       ".epos-search-panel{flex:1;display:flex;flex-direction:column;padding:10px;overflow:hidden;}",
       ".epos-search-bar{display:flex;gap:6px;margin-bottom:8px;flex-shrink:0;}",
       ".epos-product-grid{flex:1;overflow-y:auto;display:grid;grid-template-columns:repeat(3,1fr);gap:10px;align-content:start;}",
-      ".epos-product-card{padding:16px 18px;border-radius:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);cursor:pointer;transition:background .12s,border-color .12s,transform .1s;}",
+      ".epos-product-card{padding:16px 18px;border-radius:12px;background:var(--surface2,rgba(255,255,255,.06));border:1px solid var(--line,rgba(255,255,255,.08));cursor:pointer;transition:background .12s,border-color .12s,transform .1s;}",
       ".epos-product-card:hover,.epos-product-card:active{background:rgba(99,102,241,.2);border-color:rgba(99,102,241,.5);}",
       ".epos-product-card:active{transform:scale(.97);}",
       ".epos-product-card-name{font-size:15px;font-weight:600;margin-bottom:6px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}",
       ".epos-product-card-price{font-size:17px;color:#a5b4fc;font-weight:700;}",
-      ".epos-product-card-barcode{font-size:11px;color:rgba(255,255,255,.35);margin-top:4px;}",
+      ".epos-product-card-barcode{font-size:11px;color:var(--muted,rgba(255,255,255,.35));margin-top:4px;}",
       /* ── Scan overlay ── */
-      ".epos-scan-overlay{position:fixed;inset:0;background:rgba(0,0,0,.96);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:16px;}",
+      ".epos-scan-overlay{position:fixed;inset:0;background:var(--overlay,rgba(0,0,0,.96));z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:16px;}",
       ".epos-scan-video{width:min(560px,96vw);height:min(420px,65vh);border-radius:16px;background:#000;object-fit:cover;border:2px solid rgba(99,102,241,.3);}",
       ".epos-fmd-banner{background:rgba(99,102,241,.18);border:1px solid #6366f1;border-radius:12px;padding:10px 14px;font-size:14px;margin-top:6px;}",
       /* ── Photo OCR overlay ── */
-      ".epos-photo-overlay{position:fixed;inset:0;background:rgba(0,0,0,.96);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:20px 12px;gap:10px;overflow-y:auto;}",
+      ".epos-photo-overlay{position:fixed;inset:0;background:var(--overlay,rgba(0,0,0,.96));z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:20px 12px;gap:10px;overflow-y:auto;}",
       ".epos-photo-video{width:min(560px,96vw);height:min(380px,50vh);border-radius:16px;background:#111;object-fit:cover;border:2px solid rgba(99,102,241,.3);}",
       ".epos-photo-canvas{width:min(560px,96vw);height:min(380px,50vh);border-radius:16px;background:#111;object-fit:cover;display:none;border:2px solid rgba(34,197,94,.4);}",
-      ".epos-match-row{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.07);cursor:pointer;transition:background .15s;border-radius:8px;}",
-      ".epos-match-row:hover,.epos-match-row:active{background:rgba(255,255,255,.06);}",
-      ".epos-match-bar{height:5px;background:rgba(255,255,255,.1);border-radius:99px;margin:4px 0;overflow:hidden;}",
+      ".epos-match-row{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line,rgba(255,255,255,.07));cursor:pointer;transition:background .15s;border-radius:8px;}",
+      ".epos-match-row:hover,.epos-match-row:active{background:var(--surface2,rgba(255,255,255,.06));}",
+      ".epos-match-bar{height:5px;background:var(--surface2,rgba(255,255,255,.1));border-radius:99px;margin:4px 0;overflow:hidden;}",
       ".epos-match-fill{height:100%;background:linear-gradient(90deg,#6366f1,#818cf8);border-radius:99px;}",
       /* ── Overlay buttons (camera screens) ── */
       ".epos-overlay-btn{" +
         "padding:18px 32px;font-size:18px;font-weight:700;border-radius:14px;cursor:pointer;" +
-        "color:#fff;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);" +
+        "color:#fff;background:var(--surface2,rgba(255,255,255,.1));border:1px solid var(--line,rgba(255,255,255,.15));" +
         "transition:background .15s,transform .1s,box-shadow .15s;-webkit-tap-highlight-color:transparent;" +
       "}",
       ".epos-overlay-btn:active{transform:scale(.95);}",
-      ".epos-overlay-btn-primary{background:linear-gradient(135deg,#6366f1,#4f46e5);border-color:transparent;box-shadow:0 4px 16px rgba(99,102,241,.4);}",
-      ".epos-overlay-btn-primary:active{box-shadow:0 2px 8px rgba(99,102,241,.3);}",
+      ".epos-overlay-btn-primary{background:linear-gradient(135deg,#6366f1,#4f46e5);border-color:transparent;box-shadow:0 4px 16px var(--shadow,rgba(99,102,241,.4));}",
+      ".epos-overlay-btn-primary:active{box-shadow:0 2px 8px var(--shadow,rgba(99,102,241,.3));}",
       ".epos-overlay-btn-cancel{background:rgba(239,68,68,.15);color:#f87171;border-color:rgba(239,68,68,.3);}",
       ".epos-overlay-btn-cancel:active{background:rgba(239,68,68,.3);}",
       /* ── Animations ── */
@@ -1746,31 +1746,31 @@
       /* Cart line enter animation */
       ".epos-cart-line{animation:epos-slide-up .2s ease-out;}",
       /* Button press highlight */
-      ".epos-btn::after,.epos-pay-btn::after,.epos-complete-btn::after{content:'';position:absolute;inset:0;background:rgba(255,255,255,.08);opacity:0;transition:opacity .2s;pointer-events:none;}",
+      ".epos-btn::after,.epos-pay-btn::after,.epos-complete-btn::after{content:'';position:absolute;inset:0;background:var(--surface2,rgba(255,255,255,.08));opacity:0;transition:opacity .2s;pointer-events:none;}",
       ".epos-btn:active::after,.epos-pay-btn:active::after,.epos-complete-btn:active::after{opacity:1;transition:opacity 0s;}",
       ".epos-btn,.epos-pay-btn,.epos-complete-btn{position:relative;overflow:hidden;}",
       /* Catalog tab */
       ".epos-catalog{padding:12px;overflow-y:auto;width:100%;}",
       ".epos-import-bar{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;}",
-      ".epos-progress{background:rgba(255,255,255,.1);border-radius:99px;height:8px;margin-top:4px;overflow:hidden;}",
+      ".epos-progress{background:var(--surface2,rgba(255,255,255,.1));border-radius:99px;height:8px;margin-top:4px;overflow:hidden;}",
       ".epos-progress-inner{height:100%;background:#6366f1;border-radius:99px;transition:width .3s;}",
       ".epos-catalog-table{width:100%;border-collapse:collapse;font-size:13px;}",
-      ".epos-catalog-table th{padding:6px 8px;text-align:left;border-bottom:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.55);font-size:11px;font-weight:600;text-transform:uppercase;}",
-      ".epos-catalog-table td{padding:5px 8px;border-bottom:1px solid rgba(255,255,255,.06);}",
+      ".epos-catalog-table th{padding:6px 8px;text-align:left;border-bottom:1px solid var(--line,rgba(255,255,255,.15));color:var(--muted,rgba(255,255,255,.55));font-size:11px;font-weight:600;text-transform:uppercase;}",
+      ".epos-catalog-table td{padding:5px 8px;border-bottom:1px solid var(--line,rgba(255,255,255,.06));}",
       /* History tab */
       ".epos-history{padding:12px;overflow-y:auto;width:100%;}",
       ".epos-history-bar{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;}",
       ".epos-history-table{width:100%;border-collapse:collapse;font-size:13px;}",
-      ".epos-history-table th{padding:6px 8px;text-align:left;border-bottom:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.55);font-size:11px;font-weight:600;text-transform:uppercase;}",
-      ".epos-history-table td{padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.06);vertical-align:middle;}",
+      ".epos-history-table th{padding:6px 8px;text-align:left;border-bottom:1px solid var(--line,rgba(255,255,255,.15));color:var(--muted,rgba(255,255,255,.55));font-size:11px;font-weight:600;text-transform:uppercase;}",
+      ".epos-history-table td{padding:6px 8px;border-bottom:1px solid var(--line,rgba(255,255,255,.06));vertical-align:middle;}",
       ".epos-voided{opacity:.4;text-decoration:line-through;}",
       /* Base input & button */
-      ".epos-input{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:6px;padding:5px 8px;color:#fff;font-size:13px;outline:none;transition:border-color .15s;}",
-      ".epos-input:focus{border-color:#818cf8;box-shadow:0 0 0 2px rgba(99,102,241,.2);}",
-      ".epos-btn{padding:5px 12px;border-radius:6px;border:none;cursor:pointer;font-size:13px;font-weight:600;background:rgba(255,255,255,.1);color:#fff;transition:background .15s,transform .1s;}",
-      ".epos-btn:hover{background:rgba(255,255,255,.18);}",
+      ".epos-input{background:var(--surface2,rgba(255,255,255,.08));border:1px solid var(--line,rgba(255,255,255,.15));border-radius:6px;padding:5px 8px;color:#fff;font-size:13px;outline:none;transition:border-color .15s;}",
+      ".epos-input:focus{border-color:#818cf8;box-shadow:0 0 0 2px var(--shadow,rgba(99,102,241,.2));}",
+      ".epos-btn{padding:5px 12px;border-radius:6px;border:none;cursor:pointer;font-size:13px;font-weight:600;background:var(--surface2,rgba(255,255,255,.1));color:#fff;transition:background .15s,transform .1s;}",
+      ".epos-btn:hover{background:var(--surface2,rgba(255,255,255,.18));}",
       ".epos-btn:active{transform:scale(.97);}",
-      ".epos-btn.primary{background:linear-gradient(135deg,#6366f1,#4f46e5);box-shadow:0 2px 8px rgba(99,102,241,.3);}",
+      ".epos-btn.primary{background:linear-gradient(135deg,#6366f1,#4f46e5);box-shadow:0 2px 8px var(--shadow,rgba(99,102,241,.3));}",
       ".epos-btn.primary:hover{background:linear-gradient(135deg,#818cf8,#6366f1);}",
       ".epos-btn.danger{background:rgba(239,68,68,.15);color:#f87171;border:1px solid rgba(239,68,68,.25);}",
       ".epos-btn.danger:hover{background:rgba(239,68,68,.3);}",
@@ -1799,7 +1799,7 @@
         "border-top:2px solid rgba(99,102,241,.45);" +
         "border-right:none;padding:0;" +
         "max-height:75vh;transition:max-height .3s cubic-bezier(.4,0,.2,1);" +
-        "box-shadow:0 -8px 32px rgba(0,0,0,.5);" +
+        "box-shadow:0 -8px 32px var(--shadow,rgba(0,0,0,.5));" +
         "border-radius:20px 20px 0 0;" +
       "}",
       ".epos-mobile .epos-cart-panel.collapsed{max-height:60px;overflow:hidden;}",
@@ -1811,15 +1811,15 @@
       "}",
       ".epos-mobile .epos-cart-toggle::before{" +
         "content:'';position:absolute;top:8px;left:50%;transform:translateX(-50%);" +
-        "width:40px;height:4px;border-radius:99px;background:rgba(255,255,255,.2);" +
+        "width:40px;height:4px;border-radius:99px;background:var(--surface2,rgba(255,255,255,.2));" +
       "}",
       ".epos-mobile .epos-cart-toggle-left{display:flex;align-items:center;gap:12px;font-weight:700;font-size:18px;}",
       ".epos-mobile .epos-cart-toggle-badge{" +
         "background:linear-gradient(135deg,#6366f1,#818cf8);color:#fff;border-radius:99px;" +
         "min-width:30px;height:30px;display:flex;align-items:center;justify-content:center;" +
-        "font-size:14px;font-weight:800;box-shadow:0 2px 8px rgba(99,102,241,.4);" +
+        "font-size:14px;font-weight:800;box-shadow:0 2px 8px var(--shadow,rgba(99,102,241,.4));" +
       "}",
-      ".epos-mobile .epos-cart-toggle-chevron{font-size:22px;color:rgba(255,255,255,.45);transition:transform .25s;}",
+      ".epos-mobile .epos-cart-toggle-chevron{font-size:22px;color:var(--muted,rgba(255,255,255,.45));transition:transform .25s;}",
       ".epos-mobile .epos-cart-panel:not(.collapsed) .epos-cart-toggle-chevron{transform:rotate(180deg);}",
       ".epos-mobile .epos-cart-panel.collapsed .epos-cart-inner-wrap{display:none;}",
 
@@ -1829,7 +1829,7 @@
       /* ── Cart lines — large touch targets ── */
       ".epos-mobile .epos-cart-line{" +
         "padding:14px 0;gap:12px;font-size:16px;" +
-        "border-bottom:1px solid rgba(255,255,255,.06);" +
+        "border-bottom:1px solid var(--line,rgba(255,255,255,.06));" +
       "}",
       ".epos-mobile .epos-cart-name{font-size:15px;font-weight:500;}",
       ".epos-mobile .epos-cart-scan-btn{font-size:12px;padding:4px 12px;margin-top:4px;}",
@@ -1853,12 +1853,12 @@
       ".epos-mobile .epos-pay-methods{gap:8px;margin-bottom:12px;}",
       ".epos-mobile .epos-pay-btn{" +
         "padding:16px 8px;font-size:17px;border-radius:14px;font-weight:700;" +
-        "background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);" +
+        "background:var(--surface2,rgba(255,255,255,.07));border:1px solid var(--line,rgba(255,255,255,.12));" +
       "}",
       ".epos-mobile .epos-pay-btn.active{" +
         "background:linear-gradient(135deg,#6366f1,#4f46e5);" +
         "border-color:transparent;color:#fff;" +
-        "box-shadow:0 2px 12px rgba(99,102,241,.35);" +
+        "box-shadow:0 2px 12px var(--shadow,rgba(99,102,241,.35));" +
       "}",
 
       /* ── Tendered / Discount rows ── */
@@ -1872,12 +1872,12 @@
       ".epos-mobile .epos-complete-btn{" +
         "padding:20px;font-size:20px;border-radius:14px;font-weight:800;" +
         "background:linear-gradient(135deg,#22c55e,#16a34a);" +
-        "box-shadow:0 4px 16px rgba(34,197,94,.3);" +
+        "box-shadow:0 4px 16px var(--shadow,rgba(34,197,94,.3));" +
         "letter-spacing:.3px;" +
       "}",
-      ".epos-mobile .epos-complete-btn:active{transform:scale(.97);box-shadow:0 2px 8px rgba(34,197,94,.2);}",
+      ".epos-mobile .epos-complete-btn:active{transform:scale(.97);box-shadow:0 2px 8px var(--shadow,rgba(34,197,94,.2));}",
       ".epos-mobile .epos-complete-btn:disabled{" +
-        "background:rgba(255,255,255,.06);box-shadow:none;color:rgba(255,255,255,.25);" +
+        "background:var(--surface2,rgba(255,255,255,.06));box-shadow:none;color:var(--muted,rgba(255,255,255,.25));" +
       "}",
       ".epos-mobile .epos-btn.danger{" +
         "padding:20px 12px;font-size:17px;border-radius:14px;font-weight:700;" +
@@ -1891,14 +1891,14 @@
       "}",
       ".epos-mobile .epos-search-bar .epos-input{" +
         "font-size:18px;padding:16px 18px;border-radius:14px;width:100%;flex:1 1 100%;" +
-        "background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);" +
+        "background:var(--surface2,rgba(255,255,255,.06));border:1px solid var(--line,rgba(255,255,255,.12));" +
       "}",
 
       /* ── Product grid ── */
       ".epos-mobile .epos-product-grid{grid-template-columns:repeat(2,1fr);gap:10px;}",
       ".epos-mobile .epos-product-card{" +
         "padding:16px;border-radius:14px;" +
-        "background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);" +
+        "background:var(--surface,rgba(255,255,255,.05));border:1px solid var(--line,rgba(255,255,255,.08));" +
       "}",
       ".epos-mobile .epos-product-card:active{background:rgba(99,102,241,.25);border-color:rgba(99,102,241,.5);transform:scale(.97);}",
       ".epos-mobile .epos-product-card-name{font-size:14px;font-weight:600;margin-bottom:6px;-webkit-line-clamp:2;}",
@@ -2068,7 +2068,7 @@
       "<div style='color:#fff;font-size:20px;font-weight:700;letter-spacing:.3px;'>" + esc(title) + "</div>" +
       "<video id='epos-scan-video' class='epos-scan-video' autoplay muted playsinline></video>" +
       "<button id='epos-scan-stop' class='epos-overlay-btn epos-overlay-btn-cancel'>Cancel Scan</button>" +
-      "<div style='color:rgba(255,255,255,.45);font-size:15px;'>" + esc(hint) + "</div>";
+      "<div style='color:var(--muted,rgba(255,255,255,.45));font-size:15px;'>" + esc(hint) + "</div>";
     document.body.appendChild(overlay);
     document.getElementById("epos-scan-stop").addEventListener("click", stopScan);
   }
@@ -2078,7 +2078,7 @@
     var el = document.getElementById("epos-import-progress");
     if (!el) return;
     el.style.display = "";
-    el.innerHTML = "<div style='font-size:12px;color:rgba(255,255,255,.6);margin-bottom:4px;'>" + esc(msg) + "</div>" +
+    el.innerHTML = "<div style='font-size:12px;color:var(--muted,rgba(255,255,255,.6));margin-bottom:4px;'>" + esc(msg) + "</div>" +
       "<div class='epos-progress'><div class='epos-progress-inner' style='width:" + pct + "%'></div></div>";
   }
 
@@ -2152,8 +2152,8 @@
               (p.barcode ? "<div class='epos-product-card-barcode'>" + esc(p.barcode) + "</div>" : "") +
               "</div>";
           }).join("") +
-          (products.length > mobileLimit ? "<div style='color:rgba(255,255,255,.4);font-size:12px;padding:8px;grid-column:1/-1;'>Showing " + mobileLimit + " of " + products.length + " — narrow your search</div>" : "") +
-          (state.catalog.length === 0 ? "<div style='color:rgba(255,255,255,.4);font-size:13px;padding:24px;grid-column:1/-1;text-align:center;'>No catalog loaded.<br>Go to <strong>Catalog</strong> tab to import products.</div>" : "") +
+          (products.length > mobileLimit ? "<div style='color:var(--muted2,rgba(255,255,255,.4));font-size:12px;padding:8px;grid-column:1/-1;'>Showing " + mobileLimit + " of " + products.length + " — narrow your search</div>" : "") +
+          (state.catalog.length === 0 ? "<div style='color:var(--muted2,rgba(255,255,255,.4));font-size:13px;padding:24px;grid-column:1/-1;text-align:center;'>No catalog loaded.<br>Go to <strong>Catalog</strong> tab to import products.</div>" : "") +
         "</div>" +
       "</div>" +
       "</div>";
@@ -2207,7 +2207,7 @@
               (p.barcode ? "<div class='epos-product-card-barcode'>" + esc(p.barcode) + "</div>" : "") +
               "</div>";
           }).join("");
-          if (!products.length) grid.innerHTML = "<div style='color:rgba(255,255,255,.4);font-size:13px;padding:16px;grid-column:1/-1;'>No results for \"" + esc(state.catalogSearch) + "\"</div>";
+          if (!products.length) grid.innerHTML = "<div style='color:var(--muted2,rgba(255,255,255,.4));font-size:13px;padding:16px;grid-column:1/-1;'>No results for \"" + esc(state.catalogSearch) + "\"</div>";
           bindProductCardEvents();
         }
       });
@@ -2308,12 +2308,12 @@
     el.innerHTML = "<div class='epos-catalog'>" +
       "<div class='epos-import-bar'>" +
         "<button id='epos-import-btn' class='epos-btn primary' " + (state.importing?"disabled":"") + ">📥 Import XLSX / CSV</button>" +
-        "<span style='font-size:12px;color:rgba(255,255,255,.5);'>" + products.length + " products in catalog</span>" +
+        "<span style='font-size:12px;color:var(--muted,rgba(255,255,255,.5));'>" + products.length + " products in catalog</span>" +
         "<input id='epos-cat-search' class='epos-input' placeholder='Search…' style='margin-left:auto;width:180px;' value='" + esc(state.catalogSearch2) + "'>" +
         (products.length ? "<button id='epos-clear-catalog-btn' class='epos-btn danger'>🗑 Clear Catalog</button>" : "") +
       "</div>" +
       "<div id='epos-import-progress' style='display:none;margin-bottom:10px;'></div>" +
-      "<div style='font-size:11px;color:rgba(255,255,255,.4);margin-bottom:10px;line-height:1.6;'>" +
+      "<div style='font-size:11px;color:var(--muted2,rgba(255,255,255,.4));margin-bottom:10px;line-height:1.6;'>" +
         "Import an Excel / CSV file with columns: <em>barcode</em>, <em>name</em>, <em>price</em>, optional: vat_rate, category, unit.<br>" +
         "Column headers are matched automatically (e.g. \"EAN\", \"Description\", \"Retail Price\")." +
       "</div>" +
@@ -2321,12 +2321,12 @@
         filtered.slice(0,500).map(function(p) {
           var barcodeCell = p.barcode
             ? "<td style='font-family:monospace;font-size:12px;'>" + esc(p.barcode) + "</td>"
-            : "<td style='color:rgba(255,255,255,.25);font-size:12px;'>—</td>";
+            : "<td style='color:var(--muted,rgba(255,255,255,.25));font-size:12px;'>—</td>";
           return "<tr>" + barcodeCell + "<td>" + esc(p.name) + "</td><td>€" + fmt2(p.price) + "</td><td>" + esc(p.category||"") + "</td></tr>";
         }).join("") +
-        (filtered.length > 500 ? "<tr><td colspan='4' style='color:rgba(255,255,255,.4);font-size:12px;'>Showing 500 of " + filtered.length + " — narrow search</td></tr>" : "") +
+        (filtered.length > 500 ? "<tr><td colspan='4' style='color:var(--muted2,rgba(255,255,255,.4));font-size:12px;'>Showing 500 of " + filtered.length + " — narrow search</td></tr>" : "") +
         "</tbody></table>"
-      : "<div style='color:rgba(255,255,255,.4);padding:24px;text-align:center;'>No products. Import an XLSX to begin.</div>") +
+      : "<div style='color:var(--muted2,rgba(255,255,255,.4));padding:24px;text-align:center;'>No products. Import an XLSX to begin.</div>") +
       "</div>";
 
     var importBtn = document.getElementById("epos-import-btn");
@@ -2391,7 +2391,7 @@
             "</td></tr>";
         }).join("") +
         "</tbody></table>"
-      : "<div style='color:rgba(255,255,255,.4);padding:24px;text-align:center;'>No sales on " + esc(state.salesDate) + ".</div>") +
+      : "<div style='color:var(--muted2,rgba(255,255,255,.4));padding:24px;text-align:center;'>No sales on " + esc(state.salesDate) + ".</div>") +
       "</div>";
 
     var dateEl = document.getElementById("epos-history-date");

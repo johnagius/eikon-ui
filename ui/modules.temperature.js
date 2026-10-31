@@ -58,21 +58,21 @@
     st.type = "text/css";
     st.textContent =
       ".eikon-toast-wrap{position:fixed;right:14px;bottom:14px;z-index:999999;display:flex;flex-direction:column;gap:10px;max-width:min(420px,calc(100vw - 28px));}" +
-      ".eikon-toast{border:1px solid rgba(255,255,255,.10);background:rgba(15,22,34,.96);color:#e9eef7;border-radius:14px;padding:10px 12px;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;box-shadow:0 14px 40px rgba(0,0,0,.35);}"+
+      ".eikon-toast{border:1px solid var(--line,rgba(255,255,255,.10));background:var(--panel-strong,rgba(15,22,34,.96));color:var(--text,#e9eef7);border-radius:14px;padding:10px 12px;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;box-shadow:0 14px 40px var(--shadow,rgba(0,0,0,.35));}"+
       ".eikon-toast .t-title{font-weight:900;margin:0 0 4px 0;font-size:13px;}"+
       ".eikon-toast .t-msg{margin:0;font-size:12px;opacity:.9;white-space:pre-wrap;}"+
-      ".eikon-toast.good{border-color:rgba(67,209,122,.35);}"+
-      ".eikon-toast.bad{border-color:rgba(255,90,122,.35);}"+
-      ".eikon-toast.warn{border-color:rgba(255,200,90,.35);}"+
-      ".eikon-dot{width:10px;height:10px;border-radius:999px;display:inline-block;vertical-align:middle;background:#7a869a;border:1px solid rgba(255,255,255,.14);}"+
-      ".eikon-dot.ok{background:rgba(67,209,122,.95);}"+
-      ".eikon-dot.bad{background:rgba(255,90,122,.95);}"+
+      ".eikon-toast.good{border-color:var(--ok-soft,rgba(67,209,122,.35));}"+
+      ".eikon-toast.bad{border-color:var(--danger-soft,rgba(255,90,122,.35));}"+
+      ".eikon-toast.warn{border-color:var(--warn-soft,rgba(255,200,90,.35));}"+
+      ".eikon-dot{width:10px;height:10px;border-radius:999px;display:inline-block;vertical-align:middle;background:#7a869a;border:1px solid var(--line,rgba(255,255,255,.14));}"+
+      ".eikon-dot.ok{background:var(--ok,rgba(67,209,122,.95));}"+
+      ".eikon-dot.bad{background:var(--danger,rgba(255,90,122,.95));}"+
       ".eikon-mini{font-size:12px;opacity:.85;}" +
       ".eikon-slim-input{min-width:120px;}" +
       ".eikon-chart-wrap{width:100%;overflow:hidden;}" +
       ".eikon-chart{width:100%;min-width:0;display:block;height:100% !important;}" +
       ".eikon-dash-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:12px;}" +
-      ".eikon-dash-device{border:1px solid var(--border);background:rgba(255,255,255,.02);border-radius:16px;padding:12px;}" +
+      ".eikon-dash-device{border:1px solid var(--border);background:var(--surface,rgba(255,255,255,.02));border-radius:16px;padding:12px;}" +
       ".eikon-dash-head{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:8px;}" +
       ".eikon-dash-name{font-weight:900;}" +
       ".eikon-dash-meta{font-size:12px;opacity:.8;}" +
@@ -429,13 +429,13 @@ async function qFlush() {
 
     var mode = String(opts.mode || "dark");
     var dark = mode !== "print";
-    var bg = dark ? "rgba(255,255,255,.02)" : "#fff";
-    var grid = dark ? "rgba(255,255,255,.10)" : "#d0d0d0";
+    var bg = dark ? "var(--surface,rgba(255,255,255,.02))" : "#fff";
+    var grid = dark ? "var(--line,rgba(255,255,255,.10))" : "#d0d0d0";
     var axis = dark ? "rgba(233,238,247,.85)" : "#000";
     var series = dark ? "rgba(233,238,247,.98)" : "#000";
-    var muted = dark ? "rgba(233,238,247,.55)" : "#444";
-    var hi = dark ? "rgba(255,255,255,.18)" : "#999";
-    var lim = dark ? "rgba(233,238,247,.55)" : "#000";
+    var muted = dark ? "var(--muted,rgba(233,238,247,.55))" : "#444";
+    var hi = dark ? "var(--line,rgba(255,255,255,.18))" : "#999";
+    var lim = dark ? "var(--muted,rgba(233,238,247,.55))" : "#000";
 
     var dev = opts.device || {};
     var entries = Array.isArray(opts.entries) ? opts.entries : [];
@@ -1981,7 +1981,7 @@ function ensureUserScope(u) {
         content.innerHTML =
           "<div class='eikon-card'>" +
           "<div style='font-weight:900;color:var(--danger);margin-bottom:8px;'>Temperature tab crashed</div>" +
-          "<pre style='white-space:pre-wrap;margin:0;background:rgba(0,0,0,.25);padding:12px;border-radius:14px;border:1px solid var(--border);'>" +
+          "<pre style='white-space:pre-wrap;margin:0;background:var(--field,rgba(0,0,0,.25));padding:12px;border-radius:14px;border:1px solid var(--border);'>" +
           escHtml(String(e && (e.stack || e.message || e))) +
           "</pre></div>";
       }

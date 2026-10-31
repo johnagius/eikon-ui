@@ -887,3 +887,48 @@ html[data-ui2] .eikon-topbar{padding:10px 22px;border-bottom:1px solid var(--bor
 html[data-ui2] #eikon-topbar-logo,html[data-ui2] #eikon-user-label,html[data-ui2] #eikon-password-btn,html[data-ui2] #eikon-logout-btn,html[data-ui2] #eikon-fullscreen-btn{display:none!important}
 html[data-ui2] #eikon-back-btn{font-weight:600}
 html[data-ui2] .eikon-content{padding:22px 22px 28px}
+
+/* ---------- Theme tokens used by the modules (dark values = the literals they replace) ---------- */
+:root{
+  --scheme:dark;
+  --muted2:rgba(233,238,247,.45);
+  --line:rgba(255,255,255,.10);
+  --surface:rgba(255,255,255,.03);
+  --surface2:rgba(10,16,24,.30);
+  --field:rgba(10,16,24,.64);
+  --accent-line:rgba(58,160,255,.55);
+  --accent-ring:rgba(58,160,255,.22);
+  --accent-soft:rgba(58,160,255,.12);
+  --danger-soft:rgba(255,90,122,.15);
+  --ok-soft:rgba(67,209,122,.15);
+  --warn:#ffcc66;
+  --warn-soft:rgba(255,200,90,.35);
+}
+html[data-ui2]{
+  --scheme:light;
+  --muted2:#8A94A3;
+  --line:#E2E7ED;
+  --surface:#FFFFFF;
+  --surface2:#F4F6F8;
+  --field:#FFFFFF;
+  --accent-line:#1F5FD8;
+  --accent-ring:rgba(31,95,216,.18);
+  --accent-soft:rgba(31,95,216,.08);
+  --danger-soft:rgba(191,59,46,.12);
+  --ok-soft:rgba(28,138,91,.14);
+  --warn:#A06A0E;
+  --warn-soft:rgba(201,138,18,.16);
+}
+html[data-ui2] .eikon-content{color-scheme:light}
+html[data-ui2] .eikon-table th,html[data-ui2] .eikon-table td{border-bottom-color:var(--line)}
+html[data-ui2] .eikon-btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+html[data-ui2] .eikon-btn.danger{background:var(--danger);border-color:var(--danger);color:#fff}
+html[data-ui2] .eikon-modal-overlay{background:rgba(20,27,36,.45)}
+html[data-ui2] .eikon-modal{box-shadow:0 24px 60px rgba(20,27,36,.18)}
+html[data-ui2] .eikon-input,html[data-ui2] .eikon-select,html[data-ui2] .eikon-textarea{background:#fff;border-color:var(--line)}
+:root{--shadow:rgba(0,0,0,.35)}
+html[data-ui2]{--shadow:rgba(20,27,36,.07)}
+/* Modules that define their own dark palette */
+html[data-ui2] .poct-root{--bg:#F4F6F8;--panel:#FFFFFF;--panel2:#FFFFFF;--text:#141B24;--muted:#5B6675;--bad:#BF3B2E;--shadow:none;background:var(--bg)}
+:root{--overlay:rgba(0,0,0,.55);--panel-strong:rgba(12,19,29,.96)}
+html[data-ui2]{--overlay:rgba(20,27,36,.45);--panel-strong:#FFFFFF}

@@ -15,7 +15,7 @@
     var style = document.createElement("style");
     style.id = "sdash-styles";
     style.textContent =
-      "@keyframes sdash-flash-red{0%,100%{background:rgba(255,90,122,.05);}50%{background:rgba(255,90,122,.18);}}";
+      "@keyframes sdash-flash-red{0%,100%{background:var(--danger-soft,rgba(255,90,122,.05));}50%{background:var(--danger-soft,rgba(255,90,122,.18));}}";
     document.head.appendChild(style);
   }
 
@@ -57,8 +57,8 @@
         '  <div style="font-size:28px;font-weight:900;">' + totalProducts + '</div>' +
         '  <div style="color:var(--muted);font-size:13px;">Total Products</div>' +
         '  <div style="margin-top:8px;font-size:12px;">' +
-        '    <span style="color:#43d17a;">' + inStock + ' in stock</span>' +
-        (outOfStock ? ' &middot; <span style="color:#ff5a7a;">' + outOfStock + ' out of stock</span>' : '') +
+        '    <span style="color:var(--ok,#43d17a);">' + inStock + ' in stock</span>' +
+        (outOfStock ? ' &middot; <span style="color:var(--danger,#ff5a7a);">' + outOfStock + ' out of stock</span>' : '') +
         '  </div>' +
         '</div>' +
         '<div class="eikon-card" style="text-align:center;padding:20px;cursor:pointer;" id="sdash-orders">' +
@@ -66,7 +66,7 @@
         '  <div style="font-size:28px;font-weight:900;">' + pendingOrders + '</div>' +
         '  <div style="color:var(--muted);font-size:13px;">Pending Orders</div>' +
         '  <div style="margin-top:8px;font-size:12px;">' +
-        (shippedOrders ? '<span style="color:#5aa2ff;">' + shippedOrders + ' shipped</span>' : '<span style="color:var(--muted);">No shipped orders</span>') +
+        (shippedOrders ? '<span style="color:var(--accent,#5aa2ff);">' + shippedOrders + ' shipped</span>' : '<span style="color:var(--muted);">No shipped orders</span>') +
         '  </div>' +
         '</div>' +
         '<div class="eikon-card" style="text-align:center;padding:20px;cursor:pointer;' + flashStyle + '" id="sdash-feedback">' +
@@ -82,7 +82,7 @@
       if (ordersCard) ordersCard.addEventListener("click", function () { window.location.hash = "#supplier-received-orders"; });
       if (feedbackCard) feedbackCard.addEventListener("click", function () { window.location.hash = "#supplier-order-feedback"; });
     } catch (err) {
-      content.innerHTML = '<div class="eikon-card" style="text-align:center;padding:20px;color:#ff5a7a;">Failed to load dashboard data</div>';
+      content.innerHTML = '<div class="eikon-card" style="text-align:center;padding:20px;color:var(--danger,#ff5a7a);">Failed to load dashboard data</div>';
     }
   }
 

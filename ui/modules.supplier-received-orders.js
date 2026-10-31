@@ -214,7 +214,7 @@
         "<td>" + (discPct > 0 ? fmt2(discPct) + "%" : "-") + "</td>" +
         "<td>\u20ac" + fmt2(costExcl) + "</td>" +
         "<td>\u20ac" + fmt2(lineTotal) + "</td>" +
-        "<td>" + (unavail ? "<span style='color:#ff5a7a;font-weight:700;'>Unavailable</span>" : "<span style='color:#43d17a;'>Available</span>") + "</td>";
+        "<td>" + (unavail ? "<span style='color:var(--danger,#ff5a7a);font-weight:700;'>Unavailable</span>" : "<span style='color:var(--ok,#43d17a);'>Available</span>") + "</td>";
 
       if (isPending) {
         html += "<td style='white-space:nowrap;'>" +
@@ -232,9 +232,9 @@
     // Order summary
     var totalProfit = totalRetail - totalCostIncl;
     var profitPct = totalRetail > 0 ? (totalProfit / totalRetail) * 100 : 0;
-    var mc = profitPct >= 25 ? "#43d17a" : profitPct >= 15 ? "#e8c840" : "#ff5a7a";
+    var mc = profitPct >= 25 ? "var(--ok,#43d17a)" : profitPct >= 15 ? "#e8c840" : "var(--danger,#ff5a7a)";
 
-    html += "<div style='margin-top:8px;padding:8px 6px;border-top:1px solid rgba(255,255,255,.08);font-size:12px;color:rgba(233,238,247,.7);display:flex;gap:16px;flex-wrap:wrap;'>" +
+    html += "<div style='margin-top:8px;padding:8px 6px;border-top:1px solid var(--line,rgba(255,255,255,.08));font-size:12px;color:var(--muted,rgba(233,238,247,.7));display:flex;gap:16px;flex-wrap:wrap;'>" +
       "<span><b>Total Items:</b> " + totalQty + (totalFree > 0 ? " (+" + totalFree + " free)" : "") + "</span>" +
       "<span><b>Cost Excl:</b> \u20ac" + fmt2(totalCostExcl) + "</span>" +
       "<span><b>Cost Incl VAT:</b> \u20ac" + fmt2(totalCostIncl) + "</span>" +
@@ -246,7 +246,7 @@
         "<textarea class='eikon-input sro-supplier-notes' placeholder='Notes for pharmacy (optional)...' " +
           "style='width:100%;height:36px;font-size:11px;resize:vertical;'>" + esc(order.supplier_notes || "") + "</textarea>" +
         "<div style='display:flex;gap:8px;align-items:center;'>" +
-          "<label style='font-size:11px;color:rgba(233,238,247,.6);white-space:nowrap;'>Delivery date:</label>" +
+          "<label style='font-size:11px;color:var(--muted,rgba(233,238,247,.6));white-space:nowrap;'>Delivery date:</label>" +
           "<input type='date' class='eikon-input sro-delivery-date' value='" + esc(order.scheduled_delivery_date || new Date().toISOString().slice(0, 10)) + "' " +
             "style='font-size:11px;flex:1;'>" +
         "</div>" +
@@ -412,21 +412,21 @@
     var style = document.createElement("style");
     style.id = "sro-styles";
     style.textContent = [
-      ".sro-table-wrap { overflow-x:auto; border:1px solid rgba(255,255,255,.08); border-radius:10px; }",
+      ".sro-table-wrap { overflow-x:auto; border:1px solid var(--line,rgba(255,255,255,.08)); border-radius:10px; }",
       ".sro-table { width:100%; border-collapse:collapse; font-size:13px; }",
-      ".sro-table th { position:sticky; top:0; background:rgba(15,22,34,.98); padding:10px 8px; text-align:left; font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:rgba(233,238,247,.6); border-bottom:1px solid rgba(255,255,255,.10); white-space:nowrap; user-select:none; }",
-      ".sro-table th:hover { color:rgba(233,238,247,.9); }",
-      ".sro-table td { padding:8px; border-bottom:1px solid rgba(255,255,255,.05); }",
+      ".sro-table th { position:sticky; top:0; background:var(--panel-strong,rgba(15,22,34,.98)); padding:10px 8px; text-align:left; font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--muted,rgba(233,238,247,.6)); border-bottom:1px solid var(--line,rgba(255,255,255,.10)); white-space:nowrap; user-select:none; }",
+      ".sro-table th:hover { color:var(--muted,rgba(233,238,247,.9)); }",
+      ".sro-table td { padding:8px; border-bottom:1px solid var(--line,rgba(255,255,255,.05)); }",
       ".sro-order-row { cursor:pointer; }",
-      ".sro-order-row:hover { background:rgba(90,162,255,.06); }",
-      ".sro-expanded { background:rgba(90,162,255,.04); }",
-      ".sro-detail { padding:16px; background:rgba(255,255,255,.02); border-radius:8px; }",
+      ".sro-order-row:hover { background:var(--accent-soft,rgba(90,162,255,.06)); }",
+      ".sro-expanded { background:var(--accent-soft,rgba(90,162,255,.04)); }",
+      ".sro-detail { padding:16px; background:var(--surface,rgba(255,255,255,.02)); border-radius:8px; }",
       ".sro-items-table { width:100%; border-collapse:collapse; font-size:12px; margin-top:8px; }",
-      ".sro-items-table th { padding:6px 8px; text-align:left; font-size:11px; color:rgba(233,238,247,.6); border-bottom:1px solid rgba(255,255,255,.08); }",
-      ".sro-items-table td { padding:6px 8px; border-bottom:1px solid rgba(255,255,255,.04); }",
+      ".sro-items-table th { padding:6px 8px; text-align:left; font-size:11px; color:var(--muted,rgba(233,238,247,.6)); border-bottom:1px solid var(--line,rgba(255,255,255,.08)); }",
+      ".sro-items-table td { padding:6px 8px; border-bottom:1px solid var(--line,rgba(255,255,255,.04)); }",
       ".sro-expand-btn { font-size:11px !important; padding:3px 10px !important; }",
       ".sro-unavail-btn { font-size:10px !important; padding:2px 8px !important; }",
-      ".sp-btn-primary { background:rgba(90,162,255,.2) !important; color:#5aa2ff !important; font-weight:700 !important; }"
+      ".sp-btn-primary { background:var(--accent-ring,rgba(90,162,255,.2)) !important; color:var(--accent,#5aa2ff) !important; font-weight:700 !important; }"
     ].join("\n");
     document.head.appendChild(style);
   }

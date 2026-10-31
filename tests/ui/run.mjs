@@ -406,6 +406,26 @@ await page.waitForFunction(() => document.querySelector("#tk-new"), null, { time
 await page.waitForTimeout(500);
 const stale = await page.evaluate(() => ({ modal: !!document.querySelector("#tk-client"), carry: sessionStorage.getItem("eikon_carry_person") }));
 report("step 1: a hand-over older than five minutes opens nothing and is discarded", !stale.modal && stale.carry === null, JSON.stringify(stale));
+// Review shots: classic modules inside the reimagined shell (SHOTS=1), one file each
+if (process.env.SHOTS) {
+  const outDir = process.env.SHOTS_DIR || path.join(here, "shots");
+  fs.mkdirSync(outDir, { recursive: true });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  if (process.env.SHOTS_CLASSIC) { // the classic layout, for a before/after check
+    await page.evaluate(() => { localStorage.removeItem("eikon_ui2"); });
+    await page.goto(base + "&ui=1");
+    await page.waitForFunction(() => window.EIKON && window.EIKON.state && window.EIKON.state.user && document.querySelector(".eikon-nav-btn"), null, { timeout: 15000 });
+    await page.waitForTimeout(800);
+  }
+  for (const id of (process.env.SHOTS_MODS || "clientorders,temperature,endofday,appointments,dda-sales,dashboard,tickets,poct").split(",")) {
+    await page.evaluate((h) => { location.hash = "#" + h; }, id);
+    await page.waitForTimeout(1500);
+    if (id === "clientorders") { await page.click("#co-new").catch(() => {}); await page.waitForTimeout(400); }
+    await page.screenshot({ path: path.join(outDir, id + ".png") });
+    await page.evaluate(() => { const ov = document.querySelector(".eikon-modal-overlay"); if (ov) ov.style.display = "none"; });
+  }
+}
+
 // screenshot of the person for the review
 await page.setViewportSize({ width: 1440, height: 900 });
 await page.evaluate(() => { location.hash = "#customers"; });

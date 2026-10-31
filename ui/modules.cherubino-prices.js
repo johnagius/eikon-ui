@@ -178,7 +178,7 @@
       '.cp-list{max-height:calc(100vh - 130px);overflow-y:auto;}' +
       '.cp-day-header{padding:10px 0;font-weight:900;font-size:14px;border-bottom:2px solid var(--border);margin-bottom:10px;margin-top:18px;color:var(--muted);}' +
       '.cp-day-header:first-child{margin-top:0;}' +
-      '.cp-card{display:flex;align-items:center;gap:12px;padding:10px 14px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;background:rgba(255,255,255,.02);flex-wrap:wrap;}' +
+      '.cp-card{display:flex;align-items:center;gap:12px;padding:10px 14px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;background:var(--surface,rgba(255,255,255,.02));flex-wrap:wrap;}' +
       '.cp-product{font-weight:700;font-size:13px;flex:1;min-width:200px;}' +
       '.cp-prices{display:flex;align-items:center;gap:6px;font-size:13px;min-width:180px;}' +
       '.cp-old{text-decoration:line-through;color:var(--muted);}' +
@@ -189,18 +189,18 @@
       '.cp-checks{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:11px;}' +
       '.cp-check-pill{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:6px;font-size:10px;font-weight:600;}' +
       '.cp-check-done{background:rgba(34,197,94,.15);color:#22c55e;border:1px solid rgba(34,197,94,.3);}' +
-      '.cp-check-pending{background:rgba(255,255,255,.04);color:var(--muted);border:1px solid var(--border);}' +
+      '.cp-check-pending{background:var(--surface,rgba(255,255,255,.04));color:var(--muted);border:1px solid var(--border);}' +
       '.cp-my-check{cursor:pointer;}' +
       '.cp-my-check:hover{opacity:.8;}' +
       '.cp-empty{padding:30px;color:var(--muted);font-size:13px;text-align:center;}' +
       '.cp-search-results{max-height:320px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;}' +
       '.cp-search-item{padding:10px 12px;font-size:13px;cursor:pointer;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}' +
       '.cp-search-item:last-child{border-bottom:none;}' +
-      '.cp-search-item:hover{background:rgba(90,162,255,.1);}' +
+      '.cp-search-item:hover{background:var(--accent-soft,rgba(90,162,255,.1));}' +
       '.cp-search-price{font-size:12px;color:var(--muted);}' +
       '.cp-filter-bar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;}' +
       '.cp-filter-input{flex:1;min-width:200px;font-size:13px;padding:8px 12px;}' +
-      '.cp-print-bar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;padding:10px 14px;border:1px solid var(--border);border-radius:10px;background:rgba(255,255,255,.02);}' +
+      '.cp-print-bar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;padding:10px 14px;border:1px solid var(--border);border-radius:10px;background:var(--surface,rgba(255,255,255,.02));}' +
       '.cp-print-bar label{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;}' +
       '.cp-print-bar input[type="date"]{font-size:12px;padding:5px 8px;}' +
       '.cp-match-count{font-size:11px;color:var(--muted);}' +
@@ -488,7 +488,7 @@
             var html = '';
             // Always show "use custom name" option at top
             var rawName = (searchEl.value || "").trim();
-            html += '<div class="cp-search-item" data-pname="' + esc(rawName) + '" data-pprice="0" style="background:rgba(90,162,255,.06);font-weight:600;">' +
+            html += '<div class="cp-search-item" data-pname="' + esc(rawName) + '" data-pprice="0" style="background:var(--accent-soft,rgba(90,162,255,.06));font-weight:600;">' +
               '<span>Use: "' + esc(rawName) + '"</span>' +
               '<span class="cp-search-price">custom item</span></div>';
             if (matches.length) {

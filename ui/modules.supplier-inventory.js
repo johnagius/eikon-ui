@@ -30,9 +30,9 @@
 
   function profitMarginColor(pct) {
     var p = Number(pct) || 0;
-    if (!isFinite(p) || p <= 0) return "#ff5a7a";
-    if (p >= 35) return "#43d17a";
-    if (p <= 20) return "#ff5a7a";
+    if (!isFinite(p) || p <= 0) return "var(--danger,#ff5a7a)";
+    if (p >= 35) return "var(--ok,#43d17a)";
+    if (p <= 20) return "var(--danger,#ff5a7a)";
     return "hsl(" + Math.round((p - 20) / 15 * 120) + ",88%,52%)";
   }
   function profitMarginLabel(pct) {
@@ -315,7 +315,7 @@
       "<button class='eikon-btn' id='si-btn-colsettings' title='Column Settings' style='margin-left:auto;'>\u2699</button>" +
     "</div>" +
     "<div class='si-expiry-bar'>" +
-      "<span style='font-size:11px;color:rgba(233,238,247,.5);'>Expiry warning:</span> " +
+      "<span style='font-size:11px;color:var(--muted,rgba(233,238,247,.5));'>Expiry warning:</span> " +
       "<span class='si-expiry-chip si-expiry-red-chip'>" +
         "<input type='number' id='si-expiry-red' value='" + (state.expirySettings.expiry_red_months || 6) + "' min='1' max='36' class='si-expiry-input'> months" +
       "</span> " +
@@ -366,7 +366,7 @@
           var diffMs = expDate.getTime() - Date.now();
           var diffMonths = diffMs / (30.44 * 24 * 60 * 60 * 1000);
           if (diffMonths <= (state.expirySettings.expiry_red_months || 6)) {
-            expiryBg = "background:rgba(255,90,122,.12);";
+            expiryBg = "background:var(--danger-soft,rgba(255,90,122,.12));";
           } else if (diffMonths <= (state.expirySettings.expiry_yellow_months || 12)) {
             expiryBg = "background:rgba(255,200,50,.10);";
           }
@@ -394,7 +394,7 @@
           if (hasDeal) dealParts.push("Buy " + qp + (qf > 0 ? " + " + qf + " Free" : ""));
           if (discPct > 0) dealParts.push(discPct + "% off");
           if (dealParts.length > 0) {
-            html += "<td><span style='font-size:11px;font-weight:700;color:#5aa2ff;'>" + dealParts.join(" \u00b7 ") + "</span></td>";
+            html += "<td><span style='font-size:11px;font-weight:700;color:var(--accent,#5aa2ff);'>" + dealParts.join(" \u00b7 ") + "</span></td>";
           } else {
             html += "<td></td>";
           }
@@ -404,7 +404,7 @@
           html += "<td class='num'><span style='background:" + mc + "22;color:" + mc + ";padding:2px 8px;border-radius:6px;font-weight:700;font-size:11px;'>" +
             fmt2(row.profit_margin) + "% (" + profitMarginLabel(row.profit_margin) + ")</span></td>";
         } else if (col.key === "out_of_stock") {
-          html += "<td>" + (oos ? "<span style='color:#ff5a7a;font-weight:700;font-size:11px;'>Out of Stock</span>" : "<span style='color:#43d17a;font-size:11px;'>In Stock</span>") + "</td>";
+          html += "<td>" + (oos ? "<span style='color:var(--danger,#ff5a7a);font-weight:700;font-size:11px;'>Out of Stock</span>" : "<span style='color:var(--ok,#43d17a);font-size:11px;'>In Stock</span>") + "</td>";
         } else {
           html += "<td>" + esc(row[col.key] || "") + "</td>";
         }
@@ -487,7 +487,7 @@
       var profitMarginPct = totalRetail > 0 ? round2((totalProfit / totalRetail) * 100) : 0;
       var mc = profitMarginColor(profitMarginPct);
 
-      html += "<div style='text-align:right;font-size:12px;margin:6px 0;border-top:1px solid rgba(255,255,255,.08);padding-top:6px;'>" +
+      html += "<div style='text-align:right;font-size:12px;margin:6px 0;border-top:1px solid var(--line,rgba(255,255,255,.08));padding-top:6px;'>" +
         "<div style='font-weight:700;'>Total Cost: \u20ac" + fmt2(totalCost) + "</div>" +
         "<div style='margin-top:2px;'>Profit: \u20ac" + fmt2(totalProfit) +
         " &middot; <span style='color:" + mc + ";font-weight:700;'>" + fmt2(profitMarginPct) + "%</span></div>" +
@@ -553,15 +553,15 @@
       for (var supName in groups) {
         if (!Object.prototype.hasOwnProperty.call(groups, supName)) continue;
         var grp = groups[supName];
-        html += "<tr style='background:rgba(255,175,50,.05);'>" +
+        html += "<tr style='background:var(--warn-soft,rgba(255,175,50,.05));'>" +
           "<td><span style='color:var(--muted);'>Draft</span></td>" +
           "<td>" + esc(supName) + "</td>" +
           "<td>Now</td>" +
           "<td>" + grp.items.length + "</td>" +
-          "<td><span style='display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;background:rgba(255,175,50,.2);color:#ffaf32;'>Draft</span></td>" +
+          "<td><span style='display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;background:var(--warn-soft,rgba(255,175,50,.2));color:var(--warn,#ffaf32);'>Draft</span></td>" +
           "<td style='white-space:nowrap;'>" +
             "<button class='eikon-btn si-draft-continue' data-draft-supplier='" + esc(supName) + "' style='font-size:11px;padding:3px 10px;'>Continue</button> " +
-            "<button class='eikon-btn si-draft-delete' data-draft-supplier='" + esc(supName) + "' style='font-size:11px;padding:3px 10px;color:#ff5a7a;'>Delete</button>" +
+            "<button class='eikon-btn si-draft-delete' data-draft-supplier='" + esc(supName) + "' style='font-size:11px;padding:3px 10px;color:var(--danger,#ff5a7a);'>Delete</button>" +
           "</td>" +
         "</tr>";
       }
@@ -582,7 +582,7 @@
       var itemsCell = (order.item_count || 0);
       if (itemsSummary) {
         var truncated = itemsSummary.length > 60 ? itemsSummary.slice(0, 57) + "\u2026" : itemsSummary;
-        itemsCell += "<div style='font-size:10px;color:rgba(233,238,247,.5);white-space:normal;max-width:260px;line-height:1.3;margin-top:2px;'>" + esc(truncated) + "</div>";
+        itemsCell += "<div style='font-size:10px;color:var(--muted,rgba(233,238,247,.5));white-space:normal;max-width:260px;line-height:1.3;margin-top:2px;'>" + esc(truncated) + "</div>";
       }
 
       html += "<tr class='" + (isExpanded ? "sro-expanded" : "") + "' data-order-view='" + order.id + "'>" +
@@ -619,17 +619,17 @@
     });
 
     var canReport = order.status === "shipped" || order.status === "received";
-    var thStyle = "text-align:left;padding:6px;font-size:11px;color:rgba(233,238,247,.6);";
+    var thStyle = "text-align:left;padding:6px;font-size:11px;color:var(--muted,rgba(233,238,247,.6));";
 
-    var html = "<div style='padding:12px;background:rgba(255,255,255,.02);border-radius:8px;'>";
+    var html = "<div style='padding:12px;background:var(--surface,rgba(255,255,255,.02));border-radius:8px;'>";
 
     // Supplier notes and delivery date
     if (order.supplier_notes) {
-      html += "<div style='margin-bottom:8px;font-size:12px;padding:6px 8px;background:rgba(90,162,255,.08);border-radius:6px;'>" +
+      html += "<div style='margin-bottom:8px;font-size:12px;padding:6px 8px;background:var(--accent-soft,rgba(90,162,255,.08));border-radius:6px;'>" +
         "<b>Supplier:</b> " + esc(order.supplier_notes) + "</div>";
     }
     if (order.scheduled_delivery_date) {
-      html += "<div style='margin-bottom:8px;font-size:12px;color:rgba(233,238,247,.7);'>" +
+      html += "<div style='margin-bottom:8px;font-size:12px;color:var(--muted,rgba(233,238,247,.7));'>" +
         "<b>Expected delivery:</b> " + esc(order.scheduled_delivery_date) + "</div>";
     }
 
@@ -646,11 +646,11 @@
       var unavail = item.unavailable ? 1 : 0;
       var existingFb = fbByItem[item.id];
       var rowStyle = unavail ? "text-decoration:line-through;opacity:0.5;" : "";
-      if (existingFb && !unavail) rowStyle += "background:rgba(255,90,122,.08);";
+      if (existingFb && !unavail) rowStyle += "background:var(--danger-soft,rgba(255,90,122,.08));";
       var qtyLabel = (item.qty_requested || 0) + (item.qty_free ? "+" + item.qty_free : "");
       var qtyExtra = "";
       if (!unavail && item.qty_confirmed !== undefined && item.qty_confirmed !== null && Number(item.qty_confirmed) !== Number(item.qty_requested) && (order.status === "shipped" || order.status === "received")) {
-        qtyExtra = " <span style='color:#ffaf32;font-size:10px;'>(" + item.qty_confirmed + " confirmed)</span>";
+        qtyExtra = " <span style='color:var(--warn,#ffaf32);font-size:10px;'>(" + item.qty_confirmed + " confirmed)</span>";
       }
       var descExtra = "";
       if (item.notes && !unavail) descExtra = "<div style='font-size:10px;color:var(--muted);'>" + esc(item.notes) + "</div>";
@@ -660,18 +660,18 @@
         "<td style='padding:6px;text-align:right;'>" + qtyLabel + qtyExtra + "</td>" +
         "<td style='padding:6px;text-align:right;'>\u20ac" + fmt2(item.cost_excl_vat) + "</td>" +
         "<td style='padding:6px;'>" + (unavail ?
-          "<span style='color:#ff5a7a;font-weight:700;'>Unavailable</span>" :
-          "<span style='color:#43d17a;'>Available</span>") + "</td>";
+          "<span style='color:var(--danger,#ff5a7a);font-weight:700;'>Unavailable</span>" :
+          "<span style='color:var(--ok,#43d17a);'>Available</span>") + "</td>";
 
       if (canReport) {
         if (existingFb) {
           // Show existing feedback badge
-          var pColors = { "Not Received": "#ff5a7a", "Wrong Pick": "#e8c840", "Damaged": "#ff5a7a", "Short Quantity": "#ffaf32", "Other": "#5aa2ff" };
-          var pc = pColors[existingFb.problem_type] || "#ff5a7a";
+          var pColors = { "Not Received": "var(--danger,#ff5a7a)", "Wrong Pick": "#e8c840", "Damaged": "var(--danger,#ff5a7a)", "Short Quantity": "var(--warn,#ffaf32)", "Other": "var(--accent,#5aa2ff)" };
+          var pc = pColors[existingFb.problem_type] || "var(--danger,#ff5a7a)";
           var resHtml = "";
           if (existingFb.resolution_status) {
-            var rColors = { "Acknowledged": "#5aa2ff", "Replacement Sent": "#43d17a", "Credit Issued": "#43d17a", "Disputed": "#ffaf32", "Resolved": "#43d17a" };
-            var rc = rColors[existingFb.resolution_status] || "#5aa2ff";
+            var rColors = { "Acknowledged": "var(--accent,#5aa2ff)", "Replacement Sent": "var(--ok,#43d17a)", "Credit Issued": "var(--ok,#43d17a)", "Disputed": "var(--warn,#ffaf32)", "Resolved": "var(--ok,#43d17a)" };
+            var rc = rColors[existingFb.resolution_status] || "var(--accent,#5aa2ff)";
             resHtml = "<div style='font-size:10px;margin-top:2px;'><span style='padding:1px 6px;border-radius:4px;background:" + rc + "22;color:" + rc + ";font-weight:600;'>" + esc(existingFb.resolution_status) + "</span></div>";
             if (existingFb.supplier_notes) resHtml += "<div style='font-size:10px;color:var(--muted);margin-top:1px;'>Supplier: " + esc(existingFb.supplier_notes) + "</div>";
           }
@@ -711,7 +711,7 @@
       totalFree += Number(item.qty_free) || 0;
       totalCost += (Number(item.qty_requested) || 0) * (Number(item.cost_excl_vat) || 0);
     });
-    html += "<div style='margin-top:8px;padding:8px 6px;border-top:1px solid rgba(255,255,255,.08);font-size:12px;color:rgba(233,238,247,.7);display:flex;gap:16px;flex-wrap:wrap;'>" +
+    html += "<div style='margin-top:8px;padding:8px 6px;border-top:1px solid var(--line,rgba(255,255,255,.08));font-size:12px;color:var(--muted,rgba(233,238,247,.7));display:flex;gap:16px;flex-wrap:wrap;'>" +
       "<span><b>Total Items:</b> " + totalQty + (totalFree > 0 ? " (+" + totalFree + " free)" : "") + "</span>" +
       "<span><b>Total Cost Excl:</b> \u20ac" + fmt2(totalCost) + "</span>" +
     "</div>";
@@ -885,7 +885,7 @@
             }
           }
           if (expWarn) {
-            var warnColor = expWarn.level === "red" ? "#ff5a7a" : "#e8c840";
+            var warnColor = expWarn.level === "red" ? "var(--danger,#ff5a7a)" : "#e8c840";
             var expDateStr = expWarn.date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
             E.modal.show("Expiry Warning",
               "<div style='line-height:1.7;'>" +
@@ -893,7 +893,7 @@
                 "Expiry date: <b>" + expDateStr + "</b><br>" +
                 "Days remaining: <b style='color:" + warnColor + ";'>" + expWarn.days + " days</b><br><br>" +
                 (expWarn.level === "red"
-                  ? "<span style='color:#ff5a7a;font-weight:700;'>This product is expiring very soon.</span>"
+                  ? "<span style='color:var(--danger,#ff5a7a);font-weight:700;'>This product is expiring very soon.</span>"
                   : "<span style='color:#e8c840;font-weight:700;'>This product is approaching expiry.</span>") +
                 "<br><br>Do you still want to add it to your cart?" +
               "</div>",
@@ -1298,8 +1298,8 @@
         E.modal.show("Report Problem",
           "<div style='line-height:1.7;'>" +
             "<b>" + esc(desc) + "</b><br>" +
-            "Problem: <b style='color:#ff5a7a;'>" + esc(problemType) + "</b><br><br>" +
-            "<label style='font-size:12px;color:rgba(233,238,247,.6);'>Additional notes (optional):</label><br>" +
+            "Problem: <b style='color:var(--danger,#ff5a7a);'>" + esc(problemType) + "</b><br><br>" +
+            "<label style='font-size:12px;color:var(--muted,rgba(233,238,247,.6));'>Additional notes (optional):</label><br>" +
             "<textarea id='si-feedback-notes' class='eikon-input' style='width:100%;height:60px;margin-top:4px;' placeholder='Describe the issue...'></textarea>" +
           "</div>",
           [
@@ -1329,7 +1329,7 @@
                 E.modal.show("Add to Returns?",
                   "<div style='line-height:1.7;'>" +
                     "Would you like to add <b>" + esc(desc) + "</b> to the Returns section?<br><br>" +
-                    "<span style='font-size:12px;color:rgba(233,238,247,.5);'>" +
+                    "<span style='font-size:12px;color:var(--muted,rgba(233,238,247,.5));'>" +
                       "Supplier: " + esc(supplierName) + "<br>" +
                       (batch ? "Batch: " + esc(batch) + "<br>" : "") +
                       (expiryDate ? "Expiry: " + esc(expiryDate) + "<br>" : "") +
@@ -1455,32 +1455,32 @@
     var style = document.createElement("style");
     style.id = "si-styles";
     style.textContent = [
-      ".si-tabs { display:flex; gap:4px; align-items:center; margin-bottom:14px; border-bottom:1px solid rgba(255,255,255,.08); padding-bottom:8px; }",
+      ".si-tabs { display:flex; gap:4px; align-items:center; margin-bottom:14px; border-bottom:1px solid var(--line,rgba(255,255,255,.08)); padding-bottom:8px; }",
       ".si-tab { background:none; border:none; color:var(--muted); padding:8px 16px; cursor:pointer; font-size:13px; font-weight:600; border-radius:8px 8px 0 0; }",
-      ".si-tab:hover { color:rgba(233,238,247,.9); }",
-      ".si-tab-active { color:#5aa2ff; border-bottom:2px solid #5aa2ff; }",
-      ".si-cart-badge { margin-left:auto; background:rgba(90,162,255,.2); color:#5aa2ff; padding:3px 10px; border-radius:10px; font-size:11px; font-weight:700; }",
+      ".si-tab:hover { color:var(--muted,rgba(233,238,247,.9)); }",
+      ".si-tab-active { color:var(--accent,#5aa2ff); border-bottom:2px solid var(--accent,#5aa2ff); }",
+      ".si-cart-badge { margin-left:auto; background:var(--accent-ring,rgba(90,162,255,.2)); color:var(--accent,#5aa2ff); padding:3px 10px; border-radius:10px; font-size:11px; font-weight:700; }",
       ".si-toolbar { display:flex; gap:8px; align-items:center; margin-bottom:12px; flex-wrap:wrap; }",
-      ".si-table-wrap { overflow:auto; max-height:386px; border:1px solid rgba(255,255,255,.08); border-radius:10px; }",
+      ".si-table-wrap { overflow:auto; max-height:386px; border:1px solid var(--line,rgba(255,255,255,.08)); border-radius:10px; }",
       ".si-table { width:100%; border-collapse:collapse; font-size:12px; }",
-      ".si-table th { position:sticky; top:0; background:rgba(15,22,34,.98); padding:8px 6px; text-align:left; font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:rgba(233,238,247,.6); border-bottom:1px solid rgba(255,255,255,.10); white-space:nowrap; user-select:none; }",
-      ".si-table th:hover { color:rgba(233,238,247,.9); }",
+      ".si-table th { position:sticky; top:0; background:var(--panel-strong,rgba(15,22,34,.98)); padding:8px 6px; text-align:left; font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--muted,rgba(233,238,247,.6)); border-bottom:1px solid var(--line,rgba(255,255,255,.10)); white-space:nowrap; user-select:none; }",
+      ".si-table th:hover { color:var(--muted,rgba(233,238,247,.9)); }",
       ".si-table th.num, .si-table td.num { text-align:right; }",
-      ".si-table td { padding:6px; border-bottom:1px solid rgba(255,255,255,.05); white-space:nowrap; }",
-      ".si-table tr:hover { background:rgba(90,162,255,.06); }",
-      ".si-qty-input { background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); color:inherit; padding:3px 4px; border-radius:4px; font-size:11px; text-align:center; }",
-      ".si-cart-panel { margin-top:16px; padding:14px; background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.08); border-radius:10px; }",
-      ".si-cart-group { margin-bottom:14px; padding:10px; background:rgba(255,255,255,.02); border-radius:8px; }",
+      ".si-table td { padding:6px; border-bottom:1px solid var(--line,rgba(255,255,255,.05)); white-space:nowrap; }",
+      ".si-table tr:hover { background:var(--accent-soft,rgba(90,162,255,.06)); }",
+      ".si-qty-input { background:var(--surface2,rgba(255,255,255,.06)); border:1px solid var(--line,rgba(255,255,255,.12)); color:inherit; padding:3px 4px; border-radius:4px; font-size:11px; text-align:center; }",
+      ".si-cart-panel { margin-top:16px; padding:14px; background:var(--surface,rgba(255,255,255,.03)); border:1px solid var(--line,rgba(255,255,255,.08)); border-radius:10px; }",
+      ".si-cart-group { margin-bottom:14px; padding:10px; background:var(--surface,rgba(255,255,255,.02)); border-radius:8px; }",
       ".si-cart-table { width:100%; border-collapse:collapse; font-size:12px; }",
-      ".si-cart-table th { padding:2px 4px; font-size:10px; font-weight:600; color:rgba(233,238,247,.45); text-transform:uppercase; letter-spacing:.03em; border-bottom:1px solid rgba(255,255,255,.06); }",
-      ".si-cart-table td { padding:3px 4px; border-bottom:1px solid rgba(255,255,255,.03); white-space:nowrap; }",
-      ".si-cart-remove { background:none; border:none; color:rgba(255,255,255,.3); cursor:pointer; font-size:12px; }",
-      ".si-cart-remove:hover { color:#ff5a7a; }",
+      ".si-cart-table th { padding:2px 4px; font-size:10px; font-weight:600; color:var(--muted2,rgba(233,238,247,.45)); text-transform:uppercase; letter-spacing:.03em; border-bottom:1px solid var(--line,rgba(255,255,255,.06)); }",
+      ".si-cart-table td { padding:3px 4px; border-bottom:1px solid var(--line,rgba(255,255,255,.03)); white-space:nowrap; }",
+      ".si-cart-remove { background:none; border:none; color:var(--muted,rgba(255,255,255,.3)); cursor:pointer; font-size:12px; }",
+      ".si-cart-remove:hover { color:var(--danger,#ff5a7a); }",
       ".si-expiry-bar { display:flex; align-items:center; gap:8px; margin-bottom:10px; font-size:12px; }",
       ".si-expiry-chip { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:600; }",
-      ".si-expiry-red-chip { background:rgba(255,90,122,.12); color:#ff5a7a; }",
+      ".si-expiry-red-chip { background:var(--danger-soft,rgba(255,90,122,.12)); color:var(--danger,#ff5a7a); }",
       ".si-expiry-yellow-chip { background:rgba(255,200,50,.10); color:#e8c840; }",
-      ".si-expiry-input { width:42px; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.12); color:inherit; padding:2px 4px; border-radius:4px; font-size:11px; text-align:center; }"
+      ".si-expiry-input { width:42px; background:var(--surface2,rgba(255,255,255,.08)); border:1px solid var(--line,rgba(255,255,255,.12)); color:inherit; padding:2px 4px; border-radius:4px; font-size:11px; text-align:center; }"
     ].join("\n");
     document.head.appendChild(style);
   }

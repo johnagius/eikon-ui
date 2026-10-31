@@ -101,15 +101,15 @@
       "padding:10px 12px;" +
       "border:1px solid var(--line,rgba(255,255,255,.10));" +
       "border-radius:12px;" +
-      "background:rgba(10,16,24,.64);" +
+      "background:var(--field,rgba(10,16,24,.64));" +
       "color:var(--text,#e9eef7);" +
       "outline:none;" +
       "transition:border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;" +
       "}" +
-      ".dr-field input:hover{border-color:rgba(255,255,255,.18);}" +
-      ".dr-field input:focus{border-color:rgba(58,160,255,.55);box-shadow:0 0 0 3px rgba(58,160,255,.22);background:rgba(10,16,24,.74);}" +
-      ".dr-field input::placeholder{color:rgba(233,238,247,.40);}" +
-      "#dr-month,#dr-search{color-scheme:dark;}" +
+      ".dr-field input:hover{border-color:var(--line,rgba(255,255,255,.18));}" +
+      ".dr-field input:focus{border-color:var(--accent-line,rgba(58,160,255,.55));box-shadow:0 0 0 3px var(--accent-ring,rgba(58,160,255,.22));background:var(--field,rgba(10,16,24,.74));}" +
+      ".dr-field input::placeholder{color:var(--muted2,rgba(233,238,247,.40));}" +
+      "#dr-month,#dr-search{color-scheme:var(--scheme,dark);}" +
 
       ".dr-actions{display:flex;gap:10px;align-items:flex-end;}" +
 
@@ -118,30 +118,30 @@
       "border-radius:16px;" +
       "padding:12px;" +
       "background:var(--panel,rgba(16,24,36,.66));" +
-      "box-shadow:0 18px 50px rgba(0,0,0,.38);" +
+      "box-shadow:0 18px 50px var(--shadow,rgba(0,0,0,.38));" +
       "backdrop-filter:blur(10px);" +
       "}" +
       ".dr-card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;}" +
       ".dr-card-head h3{margin:0;font-size:15px;font-weight:1000;color:var(--text,#e9eef7);}" +
       "#dr-count{font-size:12px;color:var(--muted,rgba(233,238,247,.68));font-weight:800;}" +
 
-      ".dr-table-wrap{overflow:auto;border:1px solid var(--line,rgba(255,255,255,.10));border-radius:14px;background:rgba(10,16,24,.18);}" +
+      ".dr-table-wrap{overflow:auto;border:1px solid var(--line,rgba(255,255,255,.10));border-radius:14px;background:var(--surface2,rgba(10,16,24,.18));}" +
       ".dr-table{width:100%;border-collapse:collapse;min-width:980px;color:var(--text,#e9eef7);}" +
       ".dr-table th,.dr-table td{border-bottom:1px solid var(--line,rgba(255,255,255,.10));padding:10px 10px;font-size:12px;vertical-align:top;}" +
-      ".dr-table th{background:rgba(12,19,29,.92);position:sticky;top:0;z-index:1;color:var(--muted,rgba(233,238,247,.68));text-transform:uppercase;letter-spacing:.8px;font-weight:1000;text-align:left;}" +
-      ".dr-table tbody tr:hover{background:rgba(255,255,255,.04);}" +
+      ".dr-table th{background:var(--panel-strong,rgba(12,19,29,.92));position:sticky;top:0;z-index:1;color:var(--muted,rgba(233,238,247,.68));text-transform:uppercase;letter-spacing:.8px;font-weight:1000;text-align:left;}" +
+      ".dr-table tbody tr:hover{background:var(--surface,rgba(255,255,255,.04));}" +
       ".dr-table b{color:var(--text,#e9eef7);}" +
 
       ".dr-idline{opacity:.75;font-size:11px;color:var(--muted,rgba(233,238,247,.68));}" +
 
       "#dr-date,#dr-client-name,#dr-client-id,#dr-med,#dr-pos,#dr-prescriber,#dr-presc-reg{" +
       "width:100%;padding:10px 12px;border:1px solid var(--line,rgba(255,255,255,.10));border-radius:12px;" +
-      "background:rgba(10,16,24,.64);color:var(--text,#e9eef7);outline:none;" +
+      "background:var(--field,rgba(10,16,24,.64));color:var(--text,#e9eef7);outline:none;" +
       "}" +
       "#dr-date:focus,#dr-client-name:focus,#dr-client-id:focus,#dr-med:focus,#dr-pos:focus,#dr-prescriber:focus,#dr-presc-reg:focus{" +
-      "border-color:rgba(58,160,255,.55);box-shadow:0 0 0 3px rgba(58,160,255,.22);background:rgba(10,16,24,.74);" +
+      "border-color:var(--accent-line,rgba(58,160,255,.55));box-shadow:0 0 0 3px var(--accent-ring,rgba(58,160,255,.22));background:var(--field,rgba(10,16,24,.74));" +
       "}" +
-      "#dr-date{color-scheme:dark;}" +
+      "#dr-date{color-scheme:var(--scheme,dark);}" +
 
       "@media(max-width:820px){.dr-wrap{padding:12px;}.dr-controls{width:100%;}}";
 

@@ -36,20 +36,20 @@
     st.id = "re-toast-style";
     st.textContent =
       ".re-toast-wrap{position:fixed;right:14px;bottom:14px;z-index:999999;display:flex;flex-direction:column;gap:10px;max-width:min(520px,calc(100vw - 28px));}" +
-      ".re-toast{border:1px solid rgba(255,255,255,.12);background:rgba(12,16,24,.92);backdrop-filter:blur(10px);border-radius:14px;padding:10px 12px;box-shadow:0 10px 30px rgba(0,0,0,.35);}" +
+      ".re-toast{border:1px solid var(--line,rgba(255,255,255,.12));background:var(--field,rgba(12,16,24,.92));backdrop-filter:blur(10px);border-radius:14px;padding:10px 12px;box-shadow:0 10px 30px var(--shadow,rgba(0,0,0,.35));}" +
       ".re-toast .t-title{font-weight:900;margin:0 0 2px 0;font-size:13px;}" +
       ".re-toast .t-msg{margin:0;font-size:12px;opacity:.9;white-space:pre-wrap;}" +
-      ".re-toast.good{border-color:rgba(67,209,122,.35);}" +
-      ".re-toast.bad{border-color:rgba(255,90,122,.35);}" +
-      ".re-toast.warn{border-color:rgba(255,200,90,.35);}" +
-      ".re-row-selected{background:rgba(58,160,255,.10)!important;}" +
-      ".re-row-selected td{border-bottom-color:rgba(58,160,255,.22)!important;}" +
-      ".re-panel{border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.03);border-radius:14px;padding:12px;}" +".re-check{display:flex;gap:10px;align-items:center;margin:8px 0;}" +".re-check input{transform:scale(1.05);}" +
+      ".re-toast.good{border-color:var(--ok-soft,rgba(67,209,122,.35));}" +
+      ".re-toast.bad{border-color:var(--danger-soft,rgba(255,90,122,.35));}" +
+      ".re-toast.warn{border-color:var(--warn-soft,rgba(255,200,90,.35));}" +
+      ".re-row-selected{background:var(--accent-soft,rgba(58,160,255,.10))!important;}" +
+      ".re-row-selected td{border-bottom-color:var(--accent-ring,rgba(58,160,255,.22))!important;}" +
+      ".re-panel{border:1px solid var(--line,rgba(255,255,255,.10));background:var(--surface,rgba(255,255,255,.03));border-radius:14px;padding:12px;}" +".re-check{display:flex;gap:10px;align-items:center;margin:8px 0;}" +".re-check input{transform:scale(1.05);}" +
       ".re-mini{font-size:12px;opacity:.85;}" +
       ".re-suggest{display:none;flex-wrap:wrap;gap:8px;margin-top:8px;}" +
       ".re-suggest.show{display:flex;}" +
-      ".re-chip{border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);border-radius:999px;padding:6px 10px;font-size:12px;cursor:pointer;user-select:none;}" +
-      ".re-chip:hover{background:rgba(255,255,255,.08);}" +
+      ".re-chip{border:1px solid var(--line,rgba(255,255,255,.14));background:var(--surface,rgba(255,255,255,.05));border-radius:999px;padding:6px 10px;font-size:12px;cursor:pointer;user-select:none;}" +
+      ".re-chip:hover{background:var(--surface2,rgba(255,255,255,.08));}" +
       ".re-split{display:grid;grid-template-columns:1fr 1fr;gap:12px;}" +
       "@media (max-width: 860px){.re-split{grid-template-columns:1fr;}}";
     document.head.appendChild(st);
@@ -631,18 +631,18 @@
               '<label class="re-check"><input id="re-credit-note" type="checkbox"> Credit note received</label>' +
               '<label class="re-check"><input id="re-damaged" type="checkbox"> Damaged item</label>' +
               '<input id="re-supplier-refused" type="checkbox" style="display:none;" />' +
-              '<div id="re-refused-note" style="display:none;margin:8px 0;padding:8px 12px;border:1px solid rgba(255,90,122,.4);border-radius:10px;background:rgba(255,90,122,.08);font-size:12px;font-weight:800;color:rgba(255,90,122,.9);">Supplier refused this return</div>' +
+              '<div id="re-refused-note" style="display:none;margin:8px 0;padding:8px 12px;border:1px solid var(--danger-soft,rgba(255,90,122,.4));border-radius:10px;background:var(--danger-soft,rgba(255,90,122,.08));font-size:12px;font-weight:800;color:var(--danger,rgba(255,90,122,.9));">Supplier refused this return</div>' +
 
               '<div style="height:12px;"></div>' +
               '<div class="eikon-row" style="gap:10px;flex-wrap:wrap;">' +
                 '<button id="re-save" class="eikon-btn primary">Save</button>' +
                 '<button id="re-delete" class="eikon-btn danger">Delete</button>' +
-                '<button id="re-refuse-btn" class="eikon-btn" style="display:none;background:rgba(255,90,122,.15);border-color:rgba(255,90,122,.35);">Mark as Refused</button>' +
+                '<button id="re-refuse-btn" class="eikon-btn" style="display:none;background:var(--danger-soft,rgba(255,90,122,.15));border-color:var(--danger-soft,rgba(255,90,122,.35));">Mark as Refused</button>' +
               '</div>' +
               '<div style="height:16px;"></div>' +
               '<div class="eikon-row" style="gap:10px;flex-wrap:wrap;">' +
                 '<button id="re-copy-email" class="eikon-btn" style="font-size:12px;">Copy for Email</button>' +
-                '<button id="re-place-transfer" class="eikon-btn" style="font-size:12px;background:rgba(90,162,255,.12);border-color:rgba(90,162,255,.3);">Place on Transfer</button>' +
+                '<button id="re-place-transfer" class="eikon-btn" style="font-size:12px;background:var(--accent-soft,rgba(90,162,255,.12));border-color:var(--accent-ring,rgba(90,162,255,.3));">Place on Transfer</button>' +
               '</div>' +
               '<div class="re-mini" style="margin-top:10px;opacity:.75;">Tip: keep the table clean and use Details to view/edit.</div>' +
             '</div>' +

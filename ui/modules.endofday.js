@@ -1254,11 +1254,11 @@
   // Modal + UI helpers
   // -----------------------------
   function showModal(title, bodyNode, actions) {
-    var overlay = el("div", { class: "eikon-modal-overlay", style: "position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:999999;display:flex;align-items:center;justify-content:center;padding:16px;" });
-    var box = el("div", { class: "eikon-modal", style: "width:min(900px,100%);max-height:90vh;overflow:auto;background:#0f1420;border:1px solid rgba(255,255,255,.12);border-radius:14px;box-shadow:0 16px 60px rgba(0,0,0,.5);padding:14px;" });
+    var overlay = el("div", { class: "eikon-modal-overlay", style: "position:fixed;inset:0;background:var(--overlay,rgba(0,0,0,.55));z-index:999999;display:flex;align-items:center;justify-content:center;padding:16px;" });
+    var box = el("div", { class: "eikon-modal", style: "width:min(900px,100%);max-height:90vh;overflow:auto;background:#0f1420;border:1px solid var(--line,rgba(255,255,255,.12));border-radius:14px;box-shadow:0 16px 60px var(--shadow,rgba(0,0,0,.5));padding:14px;" });
 
     var head = el("div", { style: "display:flex;align-items:center;gap:10px;justify-content:space-between;margin-bottom:10px;" }, [
-      el("div", { style: "font-weight:900;font-size:16px;color:#e9eef7;", text: title || "Dialog" }),
+      el("div", { style: "font-weight:900;font-size:16px;color:var(--text,#e9eef7);", text: title || "Dialog" }),
       el("button", { class: "eikon-btn", text: "Close" })
     ]);
 
@@ -1288,8 +1288,8 @@
     return new Promise(function (resolve) {
       var doneCalled = false;
 
-      var overlay = el("div", { class: "eikon-modal-overlay", style: "position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:999999;display:flex;align-items:center;justify-content:center;padding:16px;" });
-      var box = el("div", { class: "eikon-modal", style: "width:min(640px,100%);max-height:90vh;overflow:auto;background:#0f1420;border:1px solid rgba(255,255,255,.12);border-radius:14px;box-shadow:0 16px 60px rgba(0,0,0,.5);padding:14px;" });
+      var overlay = el("div", { class: "eikon-modal-overlay", style: "position:fixed;inset:0;background:var(--overlay,rgba(0,0,0,.55));z-index:999999;display:flex;align-items:center;justify-content:center;padding:16px;" });
+      var box = el("div", { class: "eikon-modal", style: "width:min(640px,100%);max-height:90vh;overflow:auto;background:#0f1420;border:1px solid var(--line,rgba(255,255,255,.12));border-radius:14px;box-shadow:0 16px 60px var(--shadow,rgba(0,0,0,.5));padding:14px;" });
 
       function cleanupAndResolve(val) {
         if (doneCalled) return;
@@ -1316,12 +1316,12 @@
       });
 
       var head = el("div", { style: "display:flex;align-items:center;gap:10px;justify-content:space-between;margin-bottom:10px;" }, [
-        el("div", { style: "font-weight:900;font-size:16px;color:#e9eef7;", text: title || "Confirm" }),
+        el("div", { style: "font-weight:900;font-size:16px;color:var(--text,#e9eef7);", text: title || "Confirm" }),
         el("button", { class: "eikon-btn", text: "Close" })
       ]);
       head.querySelector("button").onclick = function () { cleanupAndResolve(false); };
 
-      var bodyNode = el("div", { style: "color:rgba(233,238,247,.90);white-space:pre-wrap;line-height:1.35;", text: String(message || "") });
+      var bodyNode = el("div", { style: "color:var(--muted,rgba(233,238,247,.90));white-space:pre-wrap;line-height:1.35;", text: String(message || "") });
 
       var foot = el("div", { style: "display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:12px;" });
       var bCancel = el("button", { class: "eikon-btn", text: cancelText || "Cancel" });
@@ -1356,13 +1356,13 @@
     var bg = kind === "good" ? "rgba(67,209,122,.14)" :
              kind === "warn" ? "rgba(255,200,90,.14)" :
              kind === "bad" ? "rgba(255,90,122,.14)" : "rgba(120,140,170,.16)";
-    var bd = kind === "good" ? "rgba(67,209,122,.35)" :
-             kind === "warn" ? "rgba(255,200,90,.35)" :
-             kind === "bad" ? "rgba(255,90,122,.35)" : "rgba(120,140,170,.28)";
+    var bd = kind === "good" ? "var(--ok-soft,rgba(67,209,122,.35))" :
+             kind === "warn" ? "var(--warn-soft,rgba(255,200,90,.35))" :
+             kind === "bad" ? "var(--danger-soft,rgba(255,90,122,.35))" : "rgba(120,140,170,.28)";
     return el("span", {
       style:
         "display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;" +
-        "border:1px solid " + bd + ";background:" + bg + ";font-size:12px;color:#e9eef7;"
+        "border:1px solid " + bd + ";background:" + bg + ";font-size:12px;color:var(--text,#e9eef7);"
     }, [text]);
   }
 
@@ -1379,7 +1379,7 @@
     // Sandbox-safe (window.alert/confirm can be blocked inside iframes without allow-modals)
     try {
       var body = el("div", {
-        style: "color:rgba(233,238,247,.92);white-space:pre-wrap;line-height:1.35;"
+        style: "color:var(--muted,rgba(233,238,247,.92));white-space:pre-wrap;line-height:1.35;"
       }, [String(msg || "")]);
 
       showModal(String(title || "Notice"), body, [
@@ -1431,25 +1431,25 @@
       var tbl = el("table", { style: "width:100%;border-collapse:collapse;" });
       tbl.appendChild(el("thead", {}, [
         el("tr", {}, [
-          el("th", { style: "text-align:left;border-bottom:1px solid rgba(255,255,255,.12);padding:8px;", text: "Name" }),
-          el("th", { style: "text-align:left;border-bottom:1px solid rgba(255,255,255,.12);padding:8px;", text: "Email" }),
-          el("th", { style: "text-align:left;border-bottom:1px solid rgba(255,255,255,.12);padding:8px;", text: "Phone" }),
-          el("th", { style: "text-align:right;border-bottom:1px solid rgba(255,255,255,.12);padding:8px;", text: "Actions" })
+          el("th", { style: "text-align:left;border-bottom:1px solid var(--line,rgba(255,255,255,.12));padding:8px;", text: "Name" }),
+          el("th", { style: "text-align:left;border-bottom:1px solid var(--line,rgba(255,255,255,.12));padding:8px;", text: "Email" }),
+          el("th", { style: "text-align:left;border-bottom:1px solid var(--line,rgba(255,255,255,.12));padding:8px;", text: "Phone" }),
+          el("th", { style: "text-align:right;border-bottom:1px solid var(--line,rgba(255,255,255,.12));padding:8px;", text: "Actions" })
         ])
       ]));
 
       var tbody = el("tbody");
       if (!contacts.length) {
         tbody.appendChild(el("tr", {}, [
-          el("td", { colspan: "4", style: "padding:10px;color:rgba(233,238,247,.75);", text: "No contacts yet. Add your first contact above." })
+          el("td", { colspan: "4", style: "padding:10px;color:var(--muted,rgba(233,238,247,.75));", text: "No contacts yet. Add your first contact above." })
         ]));
       } else {
         contacts.forEach(function (c) {
           var tr = el("tr", {}, []);
-          var tdName = el("td", { style: "padding:8px;border-bottom:1px solid rgba(255,255,255,.06);" });
-          var tdEmail = el("td", { style: "padding:8px;border-bottom:1px solid rgba(255,255,255,.06);" });
-          var tdPhone = el("td", { style: "padding:8px;border-bottom:1px solid rgba(255,255,255,.06);" });
-          var tdAct = el("td", { style: "padding:8px;border-bottom:1px solid rgba(255,255,255,.06);text-align:right;white-space:nowrap;" });
+          var tdName = el("td", { style: "padding:8px;border-bottom:1px solid var(--line,rgba(255,255,255,.06));" });
+          var tdEmail = el("td", { style: "padding:8px;border-bottom:1px solid var(--line,rgba(255,255,255,.06));" });
+          var tdPhone = el("td", { style: "padding:8px;border-bottom:1px solid var(--line,rgba(255,255,255,.06));" });
+          var tdAct = el("td", { style: "padding:8px;border-bottom:1px solid var(--line,rgba(255,255,255,.06));text-align:right;white-space:nowrap;" });
 
           var inN = el("input", { class: "eikon-input", value: c.name || "", "data-focus-key": "contacts_name_" + c.id });
           var inE = el("input", { class: "eikon-input", value: c.email || "", "data-focus-key": "contacts_email_" + c.id });
@@ -2106,25 +2106,25 @@
       var tbl = el("table", { style: "width:100%;border-collapse:collapse;" });
       tbl.appendChild(el("thead", {}, [
         el("tr", {}, [
-          el("th", { style: "text-align:left;border-bottom:1px solid rgba(255,255,255,.12);padding:8px;", text: "Time" }),
-          el("th", { style: "text-align:left;border-bottom:1px solid rgba(255,255,255,.12);padding:8px;", text: "Action" }),
-          el("th", { style: "text-align:left;border-bottom:1px solid rgba(255,255,255,.12);padding:8px;", text: "By" }),
-          el("th", { style: "text-align:left;border-bottom:1px solid rgba(255,255,255,.12);padding:8px;", text: "Details" })
+          el("th", { style: "text-align:left;border-bottom:1px solid var(--line,rgba(255,255,255,.12));padding:8px;", text: "Time" }),
+          el("th", { style: "text-align:left;border-bottom:1px solid var(--line,rgba(255,255,255,.12));padding:8px;", text: "Action" }),
+          el("th", { style: "text-align:left;border-bottom:1px solid var(--line,rgba(255,255,255,.12));padding:8px;", text: "By" }),
+          el("th", { style: "text-align:left;border-bottom:1px solid var(--line,rgba(255,255,255,.12));padding:8px;", text: "Details" })
         ])
       ]));
 
       var tbody = el("tbody");
       if (!rows.length) {
         tbody.appendChild(el("tr", {}, [
-          el("td", { colspan: "4", style: "padding:10px;color:rgba(233,238,247,.75);", text: "No audit entries yet." })
+          el("td", { colspan: "4", style: "padding:10px;color:var(--muted,rgba(233,238,247,.75));", text: "No audit entries yet." })
         ]));
       } else {
         rows.forEach(function (r) {
           tbody.appendChild(el("tr", {}, [
-            el("td", { style: "padding:8px;border-bottom:1px solid rgba(255,255,255,.06);white-space:nowrap;", text: String(r.ts || "").replace("T", " ").replace("Z", "").slice(0, 19) }),
-            el("td", { style: "padding:8px;border-bottom:1px solid rgba(255,255,255,.06);font-weight:800;", text: r.action || "" }),
-            el("td", { style: "padding:8px;border-bottom:1px solid rgba(255,255,255,.06);", text: r.by || "" }),
-            el("td", { style: "padding:8px;border-bottom:1px solid rgba(255,255,255,.06);font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;font-size:12px;color:rgba(233,238,247,.85);", text: JSON.stringify(r.details || {}) })
+            el("td", { style: "padding:8px;border-bottom:1px solid var(--line,rgba(255,255,255,.06));white-space:nowrap;", text: String(r.ts || "").replace("T", " ").replace("Z", "").slice(0, 19) }),
+            el("td", { style: "padding:8px;border-bottom:1px solid var(--line,rgba(255,255,255,.06));font-weight:800;", text: r.action || "" }),
+            el("td", { style: "padding:8px;border-bottom:1px solid var(--line,rgba(255,255,255,.06));", text: r.by || "" }),
+            el("td", { style: "padding:8px;border-bottom:1px solid var(--line,rgba(255,255,255,.06));font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;font-size:12px;color:var(--muted,rgba(233,238,247,.85));", text: JSON.stringify(r.details || {}) })
           ]));
         });
       }
@@ -2600,18 +2600,18 @@ async function doPrintRangeReport(from, to) {
       };
 
       card.appendChild(el("div", { style: "display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;" }, [
-        el("div", { style: "font-weight:900;color:#e9eef7;", text: title }),
+        el("div", { style: "font-weight:900;color:var(--text,#e9eef7);", text: title }),
         btnAdd
       ]));
 
       var tbl = el("table", { style: "width:100%;border-collapse:collapse;margin-top:8px;" });
       tbl.appendChild(el("thead", {}, [
         el("tr", {}, [
-          el("th", { style: "text-align:left;border-bottom:1px solid rgba(255,255,255,.12);padding:8px;", text: "Payment" }),
-          el("th", { style: "text-align:right;border-bottom:1px solid rgba(255,255,255,.12);padding:8px;", text: "Total" }),
-          el("th", { style: "text-align:right;border-bottom:1px solid rgba(255,255,255,.12);padding:8px;", text: "Amount" }),
-          el("th", { style: "text-align:left;border-bottom:1px solid rgba(255,255,255,.12);padding:8px;", text: "Remark" }),
-          el("th", { style: "text-align:right;border-bottom:1px solid rgba(255,255,255,.12);padding:8px;", text: "" })
+          el("th", { style: "text-align:left;border-bottom:1px solid var(--line,rgba(255,255,255,.12));padding:8px;", text: "Payment" }),
+          el("th", { style: "text-align:right;border-bottom:1px solid var(--line,rgba(255,255,255,.12));padding:8px;", text: "Total" }),
+          el("th", { style: "text-align:right;border-bottom:1px solid var(--line,rgba(255,255,255,.12));padding:8px;", text: "Amount" }),
+          el("th", { style: "text-align:left;border-bottom:1px solid var(--line,rgba(255,255,255,.12));padding:8px;", text: "Remark" }),
+          el("th", { style: "text-align:right;border-bottom:1px solid var(--line,rgba(255,255,255,.12));padding:8px;", text: "" })
         ])
       ]));
 
@@ -2622,11 +2622,11 @@ async function doPrintRangeReport(from, to) {
           if (!r || typeof r !== "object") r = rows[idx] = { amount: "0", remark: "" };
 
           var tr = el("tr", {}, []);
-          var tdName = el("td", { style: "padding:8px;border-bottom:1px solid rgba(255,255,255,.06);" });
-          var tdTot = el("td", { style: "padding:8px;border-bottom:1px solid rgba(255,255,255,.06);text-align:right;white-space:nowrap;" });
-          var tdAmt = el("td", { style: "padding:8px;border-bottom:1px solid rgba(255,255,255,.06);text-align:right;" });
-          var tdRem = el("td", { style: "padding:8px;border-bottom:1px solid rgba(255,255,255,.06);" });
-          var tdAct = el("td", { style: "padding:8px;border-bottom:1px solid rgba(255,255,255,.06);text-align:right;white-space:nowrap;" });
+          var tdName = el("td", { style: "padding:8px;border-bottom:1px solid var(--line,rgba(255,255,255,.06));" });
+          var tdTot = el("td", { style: "padding:8px;border-bottom:1px solid var(--line,rgba(255,255,255,.06));text-align:right;white-space:nowrap;" });
+          var tdAmt = el("td", { style: "padding:8px;border-bottom:1px solid var(--line,rgba(255,255,255,.06));text-align:right;" });
+          var tdRem = el("td", { style: "padding:8px;border-bottom:1px solid var(--line,rgba(255,255,255,.06));" });
+          var tdAct = el("td", { style: "padding:8px;border-bottom:1px solid var(--line,rgba(255,255,255,.06));text-align:right;white-space:nowrap;" });
 
           tdName.textContent =
             title === "X Readings" ? ("X Reading " + (idx + 1)) :
@@ -2767,7 +2767,7 @@ async function doPrintRangeReport(from, to) {
       field("Float", inFloat)
     ]);
 
-    headerCard.appendChild(el("div", { style: "font-weight:900;font-size:18px;color:#e9eef7;margin-bottom:8px;", text: "End Of Day" }));
+    headerCard.appendChild(el("div", { style: "font-weight:900;font-size:18px;color:var(--text,#e9eef7);margin-bottom:8px;", text: "End Of Day" }));
     headerCard.appendChild(topRow);
     headerCard.appendChild(metaRow);
     headerCard.appendChild(statusLine);
@@ -2782,7 +2782,7 @@ async function doPrintRangeReport(from, to) {
     // Cash count + BOV deposit
     var cashCard = el("div", { class: "eikon-card" });
     cashCard.appendChild(el("div", { style: "display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;" }, [
-      el("div", { style: "font-weight:900;color:#e9eef7;", text: "Cash Count" })
+      el("div", { style: "font-weight:900;color:var(--text,#e9eef7);", text: "Cash Count" })
     ]));
 
     var cashGrid = el("div", { style: "display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px;" });
@@ -2791,17 +2791,17 @@ async function doPrintRangeReport(from, to) {
     var tblCash = el("table", { style: "width:100%;border-collapse:collapse;" });
     tblCash.appendChild(el("thead", {}, [
       el("tr", {}, [
-        el("th", { style: "text-align:left;border-bottom:1px solid rgba(255,255,255,.12);padding:8px;", text: "Denomination" }),
-        el("th", { style: "text-align:right;border-bottom:1px solid rgba(255,255,255,.12);padding:8px;", text: "Count" }),
-        el("th", { style: "text-align:right;border-bottom:1px solid rgba(255,255,255,.12);padding:8px;", text: "Total" })
+        el("th", { style: "text-align:left;border-bottom:1px solid var(--line,rgba(255,255,255,.12));padding:8px;", text: "Denomination" }),
+        el("th", { style: "text-align:right;border-bottom:1px solid var(--line,rgba(255,255,255,.12));padding:8px;", text: "Count" }),
+        el("th", { style: "text-align:right;border-bottom:1px solid var(--line,rgba(255,255,255,.12));padding:8px;", text: "Total" })
       ])
     ]));
 
     function cashRow(label, denom, key) {
       var tr = el("tr", {}, []);
-      var tdD = el("td", { style: "padding:8px;border-bottom:1px solid rgba(255,255,255,.06);", text: label });
-      var tdC = el("td", { style: "padding:8px;border-bottom:1px solid rgba(255,255,255,.06);text-align:right;" });
-      var tdT = el("td", { style: "padding:8px;border-bottom:1px solid rgba(255,255,255,.06);text-align:right;white-space:nowrap;" });
+      var tdD = el("td", { style: "padding:8px;border-bottom:1px solid var(--line,rgba(255,255,255,.06));", text: label });
+      var tdC = el("td", { style: "padding:8px;border-bottom:1px solid var(--line,rgba(255,255,255,.06));text-align:right;" });
+      var tdT = el("td", { style: "padding:8px;border-bottom:1px solid var(--line,rgba(255,255,255,.06));text-align:right;white-space:nowrap;" });
 
       var inp = makeIntInput(
         function () { return state.cash[key]; },
@@ -2829,9 +2829,9 @@ async function doPrintRangeReport(from, to) {
 
     (function () {
       var tr = el("tr", {}, []);
-      var tdD = el("td", { style: "padding:8px;border-bottom:1px solid rgba(255,255,255,.06);", text: "Coins (total)" });
-      var tdC = el("td", { style: "padding:8px;border-bottom:1px solid rgba(255,255,255,.06);text-align:right;" });
-      var tdT = el("td", { style: "padding:8px;border-bottom:1px solid rgba(255,255,255,.06);text-align:right;white-space:nowrap;" });
+      var tdD = el("td", { style: "padding:8px;border-bottom:1px solid var(--line,rgba(255,255,255,.06));", text: "Coins (total)" });
+      var tdC = el("td", { style: "padding:8px;border-bottom:1px solid var(--line,rgba(255,255,255,.06));text-align:right;" });
+      var tdT = el("td", { style: "padding:8px;border-bottom:1px solid var(--line,rgba(255,255,255,.06));text-align:right;white-space:nowrap;" });
 
       var inp = makeMoneyInput(
         function () { return state.cash.coins_total; },
@@ -2857,13 +2857,13 @@ async function doPrintRangeReport(from, to) {
     var tillVal = el("div", { style: "font-weight:900;", text: euro(counted.total) });
     tillVal.setAttribute("data-eod-bind", "cash_total_till");
 
-    leftCash.appendChild(el("div", { style: "margin-top:10px;padding:10px;border:1px solid rgba(255,255,255,.10);border-radius:12px;display:flex;justify-content:space-between;align-items:center;" }, [
+    leftCash.appendChild(el("div", { style: "margin-top:10px;padding:10px;border:1px solid var(--line,rgba(255,255,255,.10));border-radius:12px;display:flex;justify-content:space-between;align-items:center;" }, [
       el("div", { style: "font-weight:900;", text: "Total Cash (Till):" }),
       tillVal
     ]));
 
     var rightBov = el("div", {});
-    rightBov.appendChild(el("div", { style: "font-weight:900;color:#e9eef7;margin-bottom:6px;", text: "BOV Cash Deposit" }));
+    rightBov.appendChild(el("div", { style: "font-weight:900;color:var(--text,#e9eef7);margin-bottom:6px;", text: "BOV Cash Deposit" }));
 
     var contacts = await loadContacts(state.location_name);
 
@@ -2903,17 +2903,17 @@ async function doPrintRangeReport(from, to) {
     var tblDep = el("table", { style: "width:100%;border-collapse:collapse;margin-top:8px;" });
     tblDep.appendChild(el("thead", {}, [
       el("tr", {}, [
-        el("th", { style: "text-align:left;border-bottom:1px solid rgba(255,255,255,.12);padding:8px;", text: "Denomination" }),
-        el("th", { style: "text-align:right;border-bottom:1px solid rgba(255,255,255,.12);padding:8px;", text: "Count" }),
-        el("th", { style: "text-align:right;border-bottom:1px solid rgba(255,255,255,.12);padding:8px;", text: "Total" })
+        el("th", { style: "text-align:left;border-bottom:1px solid var(--line,rgba(255,255,255,.12));padding:8px;", text: "Denomination" }),
+        el("th", { style: "text-align:right;border-bottom:1px solid var(--line,rgba(255,255,255,.12));padding:8px;", text: "Count" }),
+        el("th", { style: "text-align:right;border-bottom:1px solid var(--line,rgba(255,255,255,.12));padding:8px;", text: "Total" })
       ])
     ]));
 
     function depRow(label, denom, key) {
       var tr = el("tr", {}, []);
-      var tdD = el("td", { style: "padding:8px;border-bottom:1px solid rgba(255,255,255,.06);", text: label });
-      var tdC = el("td", { style: "padding:8px;border-bottom:1px solid rgba(255,255,255,.06);text-align:right;" });
-      var tdT = el("td", { style: "padding:8px;border-bottom:1px solid rgba(255,255,255,.06);text-align:right;white-space:nowrap;" });
+      var tdD = el("td", { style: "padding:8px;border-bottom:1px solid var(--line,rgba(255,255,255,.06));", text: label });
+      var tdC = el("td", { style: "padding:8px;border-bottom:1px solid var(--line,rgba(255,255,255,.06));text-align:right;" });
+      var tdT = el("td", { style: "padding:8px;border-bottom:1px solid var(--line,rgba(255,255,255,.06));text-align:right;white-space:nowrap;" });
 
       var inp = makeIntInput(
         function () { return state.deposit[key]; },
@@ -2951,7 +2951,7 @@ async function doPrintRangeReport(from, to) {
     var bovVal = el("div", { style: "font-weight:900;", text: euro(bovTotal(state)) });
     bovVal.setAttribute("data-eod-bind", "bov_total");
 
-    rightBov.appendChild(el("div", { style: "margin-top:10px;padding:10px;border:1px solid rgba(255,255,255,.10);border-radius:12px;display:flex;justify-content:space-between;align-items:center;" }, [
+    rightBov.appendChild(el("div", { style: "margin-top:10px;padding:10px;border:1px solid var(--line,rgba(255,255,255,.10));border-radius:12px;display:flex;justify-content:space-between;align-items:center;" }, [
       el("div", { style: "font-weight:900;", text: "Total BOV Deposit:" }),
       bovVal
     ]));
@@ -2964,7 +2964,7 @@ async function doPrintRangeReport(from, to) {
     var summaryGrid = el("div", { style: "display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;" });
 
     var sumCard = el("div", { class: "eikon-card" });
-    sumCard.appendChild(el("div", { style: "font-weight:900;color:#e9eef7;margin-bottom:10px;", text: "Summary" }));
+    sumCard.appendChild(el("div", { style: "font-weight:900;color:var(--text,#e9eef7);margin-bottom:10px;", text: "Summary" }));
 
     var exp = expectedDeposit(state);
     var Etotal = totalCashE(state);
@@ -2979,11 +2979,11 @@ async function doPrintRangeReport(from, to) {
     var sumCoinsVal = el("div", { style: "font-weight:900;", text: euro(COINS) }); sumCoinsVal.setAttribute("data-eod-bind", "sum_COINS");
 
     sumCard.appendChild(el("div", { style: "display:grid;gap:8px;" }, [
-      el("div", { style: "display:flex;justify-content:space-between;gap:10px;border:1px solid rgba(255,255,255,.10);border-radius:12px;padding:10px;" }, [
+      el("div", { style: "display:flex;justify-content:space-between;gap:10px;border:1px solid var(--line,rgba(255,255,255,.10));border-radius:12px;padding:10px;" }, [
         el("div", { text: "Expected Deposit (A − B − C − D):" }),
         sumExpectedVal
       ]),
-      el("div", { style: "display:flex;justify-content:space-between;gap:10px;border:1px solid rgba(255,255,255,.10);border-radius:12px;padding:10px;" }, [
+      el("div", { style: "display:flex;justify-content:space-between;gap:10px;border:1px solid var(--line,rgba(255,255,255,.10));border-radius:12px;padding:10px;" }, [
         el("div", { text: "E — Total Cash (Till − Float):" }),
         sumEVal
       ]),
@@ -2996,7 +2996,7 @@ async function doPrintRangeReport(from, to) {
         function onSwitch() { var u = r5.checked ? 5 : 10; setRoundingUnit(u); if (!state.deposit_edited) { autoFillDeposit(state, roundedDepositF(state), paperUnitsFromCash(state)); } liveUpdateUI(); }
         r5.addEventListener("change", onSwitch);
         r10.addEventListener("change", onSwitch);
-        var row = el("div", { style: "display:flex;justify-content:space-between;gap:10px;border:1px solid rgba(255,255,255,.10);border-radius:12px;padding:10px;" }, [
+        var row = el("div", { style: "display:flex;justify-content:space-between;gap:10px;border:1px solid var(--line,rgba(255,255,255,.10));border-radius:12px;padding:10px;" }, [
           el("div", { style: "display:flex;align-items:center;gap:8px;" }, [
             el("span", { text: "F — Rounded Cash Deposited:" }),
             el("span", { style: "display:flex;gap:8px;margin-left:6px;" }, [lbl10, lbl5])
@@ -3005,11 +3005,11 @@ async function doPrintRangeReport(from, to) {
         ]);
         return row;
       })(),
-      el("div", { style: "display:flex;justify-content:space-between;gap:10px;border:1px solid rgba(255,255,255,.10);border-radius:12px;padding:10px;" }, [
+      el("div", { style: "display:flex;justify-content:space-between;gap:10px;border:1px solid var(--line,rgba(255,255,255,.10));border-radius:12px;padding:10px;" }, [
         el("div", { text: "Over / Under (E − Expected):" }),
         sumOUVal
       ]),
-      el("div", { style: "display:flex;justify-content:space-between;gap:10px;border:1px solid rgba(255,255,255,.10);border-radius:12px;padding:10px;" }, [
+      el("div", { style: "display:flex;justify-content:space-between;gap:10px;border:1px solid var(--line,rgba(255,255,255,.10));border-radius:12px;padding:10px;" }, [
         el("div", { text: "Coins (E − F):" }),
         sumCoinsVal
       ])
@@ -3038,7 +3038,7 @@ async function doPrintRangeReport(from, to) {
     })();
 
     var monthCard = el("div", { class: "eikon-card" });
-    monthCard.appendChild(el("div", { style: "font-weight:900;color:#e9eef7;margin-bottom:10px;", text: "Monthly Summary" }));
+    monthCard.appendChild(el("div", { style: "font-weight:900;color:var(--text,#e9eef7);margin-bottom:10px;", text: "Monthly Summary" }));
 
     var monthTotalCashVal = el("div", { style: "font-weight:900;", text: euro(m.total_cash_month) });
     monthTotalCashVal.setAttribute("data-eod-bind", "month_total_cash");
@@ -3050,15 +3050,15 @@ async function doPrintRangeReport(from, to) {
     monthCoinBoxVal.setAttribute("data-eod-bind", "month_coin_box");
 
     monthCard.appendChild(el("div", { style: "display:grid;gap:8px;" }, [
-      el("div", { style: "display:flex;justify-content:space-between;gap:10px;border:1px solid rgba(255,255,255,.10);border-radius:12px;padding:10px;" }, [
+      el("div", { style: "display:flex;justify-content:space-between;gap:10px;border:1px solid var(--line,rgba(255,255,255,.10));border-radius:12px;padding:10px;" }, [
         el("div", { text: "Total Cash (Month):" }),
         monthTotalCashVal
       ]),
-      el("div", { style: "display:flex;justify-content:space-between;gap:10px;border:1px solid rgba(255,255,255,.10);border-radius:12px;padding:10px;" }, [
+      el("div", { style: "display:flex;justify-content:space-between;gap:10px;border:1px solid var(--line,rgba(255,255,255,.10));border-radius:12px;padding:10px;" }, [
         el("div", { text: "Over / Under (Month):" }),
         monthOverUnderVal
       ]),
-      el("div", { style: "display:flex;justify-content:space-between;gap:10px;border:1px solid rgba(255,255,255,.10);border-radius:12px;padding:10px;" }, [
+      el("div", { style: "display:flex;justify-content:space-between;gap:10px;border:1px solid var(--line,rgba(255,255,255,.10));border-radius:12px;padding:10px;" }, [
         el("div", { text: "Coin Box (Month):" }),
         monthCoinBoxVal
       ])

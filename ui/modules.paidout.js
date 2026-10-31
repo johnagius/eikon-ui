@@ -64,22 +64,22 @@
     var st = document.createElement("style");
     st.id = "eikon-paidout-style";
     st.textContent =
-      ".po-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.03);font-size:12px;font-weight:800;color:var(--text)}" +
-      ".po-badge.cash{border-color:rgba(90,162,255,.35);background:rgba(90,162,255,.12)}" +
+      ".po-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;border:1px solid var(--line,rgba(255,255,255,.10));background:var(--surface,rgba(255,255,255,.03));font-size:12px;font-weight:800;color:var(--text)}" +
+      ".po-badge.cash{border-color:var(--accent-ring,rgba(90,162,255,.35));background:var(--accent-soft,rgba(90,162,255,.12))}" +
       ".po-badge.cheque{border-color:rgba(255,209,90,.35);background:rgba(255,209,90,.10)}" +
       ".po-total{font-weight:1000;letter-spacing:.2px}" +
-      ".po-suggestbox{position:absolute;left:0;right:0;top:100%;margin-top:6px;max-height:220px;overflow:auto;border:1px solid var(--border);border-radius:14px;background:rgba(10,16,24,.96);box-shadow:0 18px 55px rgba(0,0,0,.42);z-index:99;display:none}" +
-      ".po-suggestitem{padding:10px 10px;border-bottom:1px solid rgba(255,255,255,.06);cursor:pointer;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:space-between;gap:10px}" +
-      ".po-suggestitem:hover{background:rgba(90,162,255,.12)}" +
+      ".po-suggestbox{position:absolute;left:0;right:0;top:100%;margin-top:6px;max-height:220px;overflow:auto;border:1px solid var(--border);border-radius:14px;background:var(--panel-strong,rgba(10,16,24,.96));box-shadow:0 18px 55px var(--shadow,rgba(0,0,0,.42));z-index:99;display:none}" +
+      ".po-suggestitem{padding:10px 10px;border-bottom:1px solid var(--line,rgba(255,255,255,.06));cursor:pointer;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:space-between;gap:10px}" +
+      ".po-suggestitem:hover{background:var(--accent-soft,rgba(90,162,255,.12))}" +
       ".po-suggestmeta{opacity:.70;font-weight:800;font-size:12px}" +
       ".po-suggestempty{padding:10px 10px;opacity:.75;font-size:13px}" +
       ".po-report-wrap{display:flex;flex-direction:column;gap:10px}" +
-      ".po-report-group{border:1px solid var(--border);border-radius:16px;background:rgba(255,255,255,.02);overflow:hidden}" +
-      ".po-report-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 12px;border-bottom:1px solid rgba(255,255,255,.06)}" +
+      ".po-report-group{border:1px solid var(--border);border-radius:16px;background:var(--surface,rgba(255,255,255,.02));overflow:hidden}" +
+      ".po-report-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 12px;border-bottom:1px solid var(--line,rgba(255,255,255,.06))}" +
       ".po-report-head .name{font-weight:1000}" +
       ".po-report-head .meta{opacity:.80;font-weight:900;font-size:12px}" +
       ".po-report-table{width:100%;border-collapse:collapse;min-width:980px}" +
-      ".po-report-table th,.po-report-table td{padding:9px 10px;border-bottom:1px solid rgba(255,255,255,.06);text-align:left;font-size:13px;vertical-align:top}" +
+      ".po-report-table th,.po-report-table td{padding:9px 10px;border-bottom:1px solid var(--line,rgba(255,255,255,.06));text-align:left;font-size:13px;vertical-align:top}" +
       ".po-report-table th{font-size:12px;text-transform:uppercase;letter-spacing:.2px;color:var(--muted)}" +
       ".po-report-foot{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 12px}" +
       ".po-report-foot .big{font-weight:1000}" +
@@ -1120,19 +1120,19 @@
       "  </div>" +
       "  <div class='eikon-help' id='po-msg' style='margin-top:8px;'></div>" +
 
-      "  <div style='margin-top:12px;overflow:auto;border:1px solid var(--border);border-radius:16px;background:rgba(255,255,255,.02);'>" +
+      "  <div style='margin-top:12px;overflow:auto;border:1px solid var(--border);border-radius:16px;background:var(--surface,rgba(255,255,255,.02));'>" +
       "    <table style='width:100%;border-collapse:collapse;min-width:980px;'>" +
       "      <thead>" +
       "        <tr style='text-align:left;'>" +
-      "          <th style='padding:10px 10px;border-bottom:1px solid rgba(255,255,255,.06);font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.2px;'>Date</th>" +
-      "          <th style='padding:10px 10px;border-bottom:1px solid rgba(255,255,255,.06);font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.2px;'>Time</th>" +
-      "          <th style='padding:10px 10px;border-bottom:1px solid rgba(255,255,255,.06);font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.2px;'>Paid To</th>" +
-      "          <th style='padding:10px 10px;border-bottom:1px solid rgba(255,255,255,.06);font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.2px;'>Fee</th>" +
-      "          <th style='padding:10px 10px;border-bottom:1px solid rgba(255,255,255,.06);font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.2px;'>Method</th>" +
-      "          <th style='padding:10px 10px;border-bottom:1px solid rgba(255,255,255,.06);font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.2px;'>Invoice</th>" +
-      "          <th style='padding:10px 10px;border-bottom:1px solid rgba(255,255,255,.06);font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.2px;'>Cheque</th>" +
-      "          <th style='padding:10px 10px;border-bottom:1px solid rgba(255,255,255,.06);font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.2px;'>Reason</th>" +
-      "          <th style='padding:10px 10px;border-bottom:1px solid rgba(255,255,255,.06);font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.2px;'>Actions</th>" +
+      "          <th style='padding:10px 10px;border-bottom:1px solid var(--line,rgba(255,255,255,.06));font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.2px;'>Date</th>" +
+      "          <th style='padding:10px 10px;border-bottom:1px solid var(--line,rgba(255,255,255,.06));font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.2px;'>Time</th>" +
+      "          <th style='padding:10px 10px;border-bottom:1px solid var(--line,rgba(255,255,255,.06));font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.2px;'>Paid To</th>" +
+      "          <th style='padding:10px 10px;border-bottom:1px solid var(--line,rgba(255,255,255,.06));font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.2px;'>Fee</th>" +
+      "          <th style='padding:10px 10px;border-bottom:1px solid var(--line,rgba(255,255,255,.06));font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.2px;'>Method</th>" +
+      "          <th style='padding:10px 10px;border-bottom:1px solid var(--line,rgba(255,255,255,.06));font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.2px;'>Invoice</th>" +
+      "          <th style='padding:10px 10px;border-bottom:1px solid var(--line,rgba(255,255,255,.06));font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.2px;'>Cheque</th>" +
+      "          <th style='padding:10px 10px;border-bottom:1px solid var(--line,rgba(255,255,255,.06));font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.2px;'>Reason</th>" +
+      "          <th style='padding:10px 10px;border-bottom:1px solid var(--line,rgba(255,255,255,.06));font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.2px;'>Actions</th>" +
       "        </tr>" +
       "      </thead>" +
       "      <tbody id='po-tbody'></tbody>" +

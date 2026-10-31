@@ -47,6 +47,10 @@ Everything new lives behind `?ui=2`. Clients on the classic layout see fixes onl
 
 ## What I will not do
 
+- Accept a screenshot that shows the old dark styling inside the light shell.
+  Every module, old or new, wears the shell it is in. (Added after I let one
+  through on 31 Oct and called it deliberate. It was not acceptable.)
+
 - Add a screen inside the old shell again.
 - Change the rail, the colours, the type, or the names of the six words.
 - Deploy the worker without the full suite green and a backup of the live script.
@@ -99,9 +103,20 @@ only actions on the page; everything else is reading.
   customer's page, filled.
 
 **Built.** Worker test 6 of `people.test.mjs`; UI checks "step 1: …" in
-`tests/ui/run.mjs`; screenshot `prototype/06 Customer to order.png`. The form that
-opens is still the old dark modal: that is deliberate (no new form in this step) and
-it changes when Registers restyles the shared form, not before.
+`tests/ui/run.mjs`; screenshot `prototype/06 Customer to order.png`.
+
+**Step 1b · the old modules wear the new shell.** The first screenshot showed the
+old dark form inside the light shell. Fixed at the root rather than per screen:
+about 1,400 hard-coded dark colour values across the 50 classic modules now read a
+theme token with the old value as fallback (`var(--field, rgba(10,16,24,.64))`), so
+the classic layout is byte-for-byte the same colour and the light shell gets light
+values for surfaces, fields, lines, text, shadows, overlays and the accent, danger,
+ok and warning families. Checked by screenshot in both themes for Client Orders,
+Temperature, End of Day, Appointments, DDA Sales, Dashboard, Tickets, POCT, Loyalty,
+Emergency POS, Chat Board and Shifts (`SHOTS=1 node tests/ui/run.mjs`). Known
+leftovers: the OTC mind map keeps its own dark canvas (not touched, it draws on
+canvas), and Appointments raises a "Setup needed" toast on every open when no
+doctors exist; both go on the list for their own areas.
 
 ### Step 2 · Registers, part one: Temperature, Cleaning, Daily register
 

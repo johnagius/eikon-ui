@@ -388,7 +388,7 @@
       var css =
         "/* Certificates module: expired badge */\n" +
         ".eikon-cert-expired-badge{display:inline-flex;align-items:center;gap:6px;margin-left:8px;padding:2px 10px;border-radius:999px;border:1px solid rgba(176,0,32,.35);background:rgba(176,0,32,.08);color:#b00020;font-weight:900;font-size:11px;letter-spacing:.04em;text-transform:uppercase;line-height:1.4;vertical-align:middle;}\n" +
-        ".eikon-cert-expired-badge::before{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;background:#b00020;box-shadow:0 0 0 2px rgba(176,0,32,.15);}\n";
+        ".eikon-cert-expired-badge::before{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;background:#b00020;box-shadow:0 0 0 2px var(--shadow,rgba(176,0,32,.15));}\n";
 
       var st = document.createElement("style");
       st.id = "eikon-certificates-expired-css";

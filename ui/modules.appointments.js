@@ -111,7 +111,7 @@
   //  DOCTOR COLORS (assigned by index in doctors array)
   // ============================================================
   var DR_COLOR_LIST = [
-    "#3aa0ff","#43d17a","#cc94ff","#ff9d43","#ff5a7a",
+    "var(--accent,#3aa0ff)","var(--ok,#43d17a)","#cc94ff","#ff9d43","var(--danger,#ff5a7a)",
     "#5ac8fa","#ffd60a","#30d158","#ff6b6b","#bf5af2"
   ];
   function drColor(doctorId) {
@@ -137,13 +137,13 @@
     if (toastInstalled) return; toastInstalled = true;
     var st = document.createElement("style"); st.textContent =
       ".ap-toast-wrap{position:fixed;right:14px;bottom:14px;z-index:999999;display:flex;flex-direction:column;gap:10px;max-width:min(420px,calc(100vw - 28px));}" +
-      ".ap-toast{border:1px solid rgba(255,255,255,.10);background:rgba(15,22,34,.96);color:#e9eef7;border-radius:14px;padding:10px 12px;" +
-      "font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;box-shadow:0 14px 40px rgba(0,0,0,.35);animation:apToastIn 200ms ease;}" +
+      ".ap-toast{border:1px solid var(--line,rgba(255,255,255,.10));background:var(--panel-strong,rgba(15,22,34,.96));color:var(--text,#e9eef7);border-radius:14px;padding:10px 12px;" +
+      "font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;box-shadow:0 14px 40px var(--shadow,rgba(0,0,0,.35));animation:apToastIn 200ms ease;}" +
       "@keyframes apToastIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}" +
       ".ap-toast .t-title{font-weight:900;margin:0 0 4px 0;font-size:13px;}" +
       ".ap-toast .t-msg{margin:0;font-size:12px;opacity:.9;white-space:pre-wrap;}" +
-      ".ap-toast.good{border-color:rgba(67,209,122,.35);}" +
-      ".ap-toast.bad{border-color:rgba(255,90,122,.35);}";
+      ".ap-toast.good{border-color:var(--ok-soft,rgba(67,209,122,.35));}" +
+      ".ap-toast.bad{border-color:var(--danger-soft,rgba(255,90,122,.35));}";
     document.head.appendChild(st);
   }
   function toast(title, message, kind, ms) {
@@ -158,7 +158,7 @@
   }
   function modalError(title, e) {
     var msg = (e && e.message) ? e.message : String(e || "Unknown error");
-    try { E.modal.show(title || "Error", "<div style='white-space:pre-wrap;font-size:13px;color:rgba(255,90,122,.9);'>" + esc(msg) + "</div>",
+    try { E.modal.show(title || "Error", "<div style='white-space:pre-wrap;font-size:13px;color:var(--danger,rgba(255,90,122,.9));'>" + esc(msg) + "</div>",
       [{ label: "Close", primary: true, onClick: async function () { E.modal.hide(); } }]); }
     catch (e2) { toast(title || "Error", msg, "bad"); }
   }
@@ -396,14 +396,14 @@
   function _showWaCopyDialog(p, waLink) {
     var body =
       "<div style='text-align:center;padding:8px 0;'>" +
-      "<div style='font-size:13px;color:rgba(233,238,247,.75);margin-bottom:16px;line-height:1.6;'>" +
+      "<div style='font-size:13px;color:var(--muted,rgba(233,238,247,.75));margin-bottom:16px;line-height:1.6;'>" +
       "The browser blocked automatic opening.<br>Copy the link below and paste it into a new tab.</div>" +
       "<div style='display:flex;gap:8px;align-items:center;justify-content:center;margin-bottom:16px;'>" +
       "<input id='ap-wa-link-input' type='text' value='" + esc(waLink) + "' readonly " +
-      "style='flex:1;padding:9px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.15);background:rgba(10,16,24,.7);color:#e9eef7;font-size:12px;outline:none;'>" +
+      "style='flex:1;padding:9px 12px;border-radius:10px;border:1px solid var(--line,rgba(255,255,255,.15));background:var(--field,rgba(10,16,24,.7));color:var(--text,#e9eef7);font-size:12px;outline:none;'>" +
       "<button id='ap-wa-copy-btn' type='button' class='eikon-btn' style='white-space:nowrap;'>Copy Link</button>" +
       "</div>" +
-      "<div style='font-size:11px;color:rgba(233,238,247,.4);'>wa.me/" + esc(p) + " · opens chat with any number</div>" +
+      "<div style='font-size:11px;color:var(--muted2,rgba(233,238,247,.4));'>wa.me/" + esc(p) + " · opens chat with any number</div>" +
       "</div>";
     E.modal.show("Open WhatsApp", body, [{ label: "Close", onClick: function(){ E.modal.hide(); } }]);
     setTimeout(function(){
@@ -874,7 +874,7 @@
 
       // ---- Cards ----
       ".ap-card{border:1px solid var(--line,rgba(255,255,255,.10));border-radius:16px;padding:14px;" +
-      "background:var(--panel,rgba(16,24,36,.66));box-shadow:0 18px 50px rgba(0,0,0,.38);" +
+      "background:var(--panel,rgba(16,24,36,.66));box-shadow:0 18px 50px var(--shadow,rgba(0,0,0,.38));" +
       "backdrop-filter:blur(10px);margin-bottom:14px;}" +
       ".ap-card-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;}" +
       ".ap-card-head h3{margin:0;font-size:15px;font-weight:900;color:var(--text,#e9eef7);}" +
@@ -882,10 +882,10 @@
       ".ap-card-head .right{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}" +
 
       // ---- Tabs ----
-      ".ap-tabs{display:flex;gap:3px;background:rgba(10,16,24,.5);border-radius:12px;padding:4px;border:1px solid rgba(255,255,255,.08);}" +
-      ".ap-tab{font-size:12px;font-weight:900;padding:6px 14px;border-radius:9px;cursor:pointer;border:none;background:transparent;color:rgba(233,238,247,.55);transition:all 140ms;white-space:nowrap;}" +
-      ".ap-tab:hover{background:rgba(255,255,255,.07);color:rgba(233,238,247,.9);}" +
-      ".ap-tab.active{background:rgba(58,160,255,.22);color:#7dc8ff;border:1px solid rgba(58,160,255,.35);}" +
+      ".ap-tabs{display:flex;gap:3px;background:var(--surface2,rgba(10,16,24,.5));border-radius:12px;padding:4px;border:1px solid var(--line,rgba(255,255,255,.08));}" +
+      ".ap-tab{font-size:12px;font-weight:900;padding:6px 14px;border-radius:9px;cursor:pointer;border:none;background:transparent;color:var(--muted,rgba(233,238,247,.55));transition:all 140ms;white-space:nowrap;}" +
+      ".ap-tab:hover{background:var(--surface2,rgba(255,255,255,.07));color:var(--muted,rgba(233,238,247,.9));}" +
+      ".ap-tab.active{background:var(--accent-ring,rgba(58,160,255,.22));color:var(--accent,#7dc8ff);border:1px solid var(--accent-soft,rgba(58,160,255,.35));}" +
 
       // ---- Waiting list badge ----
       ".ap-wl-badge{display:inline-block;font-size:10px;font-weight:900;padding:1px 7px;border-radius:999px;" +
@@ -893,122 +893,122 @@
 
       // ---- Global filter bar ----
       ".ap-filter-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 12px;" +
-      "background:rgba(10,16,24,.35);border:1px solid rgba(255,255,255,.07);border-radius:12px;margin-bottom:12px;}" +
+      "background:var(--field,rgba(10,16,24,.35));border:1px solid var(--line,rgba(255,255,255,.07));border-radius:12px;margin-bottom:12px;}" +
       ".ap-filter-bar label{font-size:11px;font-weight:900;color:var(--muted,rgba(233,238,247,.55));text-transform:uppercase;letter-spacing:.5px;}" +
       ".ap-filter-group{display:flex;align-items:center;gap:6px;}" +
-      ".ap-refresh-info{font-size:11px;color:rgba(233,238,247,.35);margin-left:auto;}" +
-      ".ap-refresh-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#43d17a;margin-right:4px;animation:apRefreshPulse 2s infinite;}" +
+      ".ap-refresh-info{font-size:11px;color:var(--muted2,rgba(233,238,247,.35));margin-left:auto;}" +
+      ".ap-refresh-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--ok,#43d17a);margin-right:4px;animation:apRefreshPulse 2s infinite;}" +
       "@keyframes apRefreshPulse{0%,100%{opacity:1;}50%{opacity:.3;}}" +
 
       // ---- Day navigator ----
       ".ap-nav{display:flex;align-items:center;gap:8px;}" +
-      ".ap-nav-btn{font-size:15px;font-weight:900;padding:6px 12px;border-radius:9px;cursor:pointer;border:1px solid rgba(255,255,255,.10);background:rgba(10,16,24,.5);color:var(--text,#e9eef7);transition:all 100ms;}" +
-      ".ap-nav-btn:hover{background:rgba(255,255,255,.07);}" +
+      ".ap-nav-btn{font-size:15px;font-weight:900;padding:6px 12px;border-radius:9px;cursor:pointer;border:1px solid var(--line,rgba(255,255,255,.10));background:var(--surface2,rgba(10,16,24,.5));color:var(--text,#e9eef7);transition:all 100ms;}" +
+      ".ap-nav-btn:hover{background:var(--surface2,rgba(255,255,255,.07));}" +
       ".ap-nav-date{font-size:15px;font-weight:900;color:var(--text,#e9eef7);}" +
-      ".ap-nav-sub{font-size:11px;color:#43d17a;margin-top:1px;font-weight:700;}" +
-      ".ap-date-input{color-scheme:dark;padding:7px 10px;border:1px solid rgba(255,255,255,.10);border-radius:10px;background:rgba(10,16,24,.6);color:var(--text,#e9eef7);font-size:12px;outline:none;}" +
-      ".ap-date-input:focus{border-color:rgba(58,160,255,.55);}" +
+      ".ap-nav-sub{font-size:11px;color:var(--ok,#43d17a);margin-top:1px;font-weight:700;}" +
+      ".ap-date-input{color-scheme:var(--scheme,dark);padding:7px 10px;border:1px solid var(--line,rgba(255,255,255,.10));border-radius:10px;background:var(--field,rgba(10,16,24,.6));color:var(--text,#e9eef7);font-size:12px;outline:none;}" +
+      ".ap-date-input:focus{border-color:var(--accent-line,rgba(58,160,255,.55));}" +
 
       // ---- MONTH CALENDAR GRID ----
       ".ap-month-outer{overflow:auto;}" +
-      ".ap-month-grid{display:grid;grid-template-columns:repeat(7,1fr);border:1px solid rgba(255,255,255,.08);border-radius:12px;overflow:hidden;}" +
-      ".ap-month-header{background:rgba(12,20,32,.8);padding:10px 6px;text-align:center;font-size:11px;font-weight:900;color:rgba(233,238,247,.5);text-transform:uppercase;letter-spacing:.8px;border-bottom:1px solid rgba(255,255,255,.08);}" +
+      ".ap-month-grid{display:grid;grid-template-columns:repeat(7,1fr);border:1px solid var(--line,rgba(255,255,255,.08));border-radius:12px;overflow:hidden;}" +
+      ".ap-month-header{background:var(--field,rgba(12,20,32,.8));padding:10px 6px;text-align:center;font-size:11px;font-weight:900;color:var(--muted,rgba(233,238,247,.5));text-transform:uppercase;letter-spacing:.8px;border-bottom:1px solid var(--line,rgba(255,255,255,.08));}" +
       ".ap-month-header.weekend{color:rgba(255,157,67,.6);}" +
-      ".ap-month-day{min-height:90px;padding:6px;border-right:1px solid rgba(255,255,255,.06);border-bottom:1px solid rgba(255,255,255,.06);background:rgba(10,16,24,.15);position:relative;cursor:pointer;transition:background 120ms;}" +
-      ".ap-month-day:hover{background:rgba(255,255,255,.04);}" +
-      ".ap-month-day.today{background:rgba(58,160,255,.08);}" +
-      ".ap-month-day.today .ap-mday-num{color:#7dc8ff;background:rgba(58,160,255,.25);border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;}" +
-      ".ap-month-day.other-month{background:rgba(10,16,24,.05);opacity:.45;}" +
-      ".ap-month-day.has-schedule{border-top:2px solid rgba(58,160,255,.35);}" +
-      ".ap-month-day.weekend{background:rgba(10,16,24,.08);}" +
+      ".ap-month-day{min-height:90px;padding:6px;border-right:1px solid var(--line,rgba(255,255,255,.06));border-bottom:1px solid var(--line,rgba(255,255,255,.06));background:var(--field,rgba(10,16,24,.15));position:relative;cursor:pointer;transition:background 120ms;}" +
+      ".ap-month-day:hover{background:var(--surface,rgba(255,255,255,.04));}" +
+      ".ap-month-day.today{background:var(--accent-soft,rgba(58,160,255,.08));}" +
+      ".ap-month-day.today .ap-mday-num{color:var(--accent,#7dc8ff);background:var(--accent-ring,rgba(58,160,255,.25));border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;}" +
+      ".ap-month-day.other-month{background:var(--field,rgba(10,16,24,.05));opacity:.45;}" +
+      ".ap-month-day.has-schedule{border-top:2px solid var(--accent-soft,rgba(58,160,255,.35));}" +
+      ".ap-month-day.weekend{background:var(--field,rgba(10,16,24,.08));}" +
       ".ap-mday-num{font-size:13px;font-weight:900;color:var(--text,#e9eef7);margin-bottom:4px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;}" +
       ".ap-mday-appts{display:flex;flex-direction:column;gap:2px;}" +
       ".ap-mday-chip{font-size:10px;font-weight:800;padding:1px 6px;border-radius:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff;cursor:pointer;transition:filter 100ms;}" +
       ".ap-mday-chip:hover{filter:brightness(1.15);}" +
-      ".ap-mday-more{font-size:10px;color:rgba(233,238,247,.45);padding:1px 4px;cursor:pointer;}" +
+      ".ap-mday-more{font-size:10px;color:var(--muted2,rgba(233,238,247,.45));padding:1px 4px;cursor:pointer;}" +
       ".ap-month-legend{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px;align-items:center;}" +
-      ".ap-legend-item{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:rgba(233,238,247,.7);}" +
+      ".ap-legend-item{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:var(--muted,rgba(233,238,247,.7));}" +
       ".ap-legend-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0;}" +
 
       // ---- DAY TIMELINE ----
       ".ap-timeline-outer{overflow-x:auto;}" +
       ".ap-timeline-wrap{display:flex;min-width:600px;position:relative;}" +
       ".ap-time-axis{width:62px;flex-shrink:0;position:relative;}" +
-      ".ap-time-label{position:absolute;right:10px;font-size:10px;font-weight:700;color:rgba(233,238,247,.38);transform:translateY(-50%);white-space:nowrap;}" +
-      ".ap-hour-line{position:absolute;left:62px;right:0;border-top:1px solid rgba(255,255,255,.07);}" +
-      ".ap-half-line{position:absolute;left:62px;right:0;border-top:1px dashed rgba(255,255,255,.04);}" +
+      ".ap-time-label{position:absolute;right:10px;font-size:10px;font-weight:700;color:var(--muted2,rgba(233,238,247,.38));transform:translateY(-50%);white-space:nowrap;}" +
+      ".ap-hour-line{position:absolute;left:62px;right:0;border-top:1px solid var(--line,rgba(255,255,255,.07));}" +
+      ".ap-half-line{position:absolute;left:62px;right:0;border-top:1px dashed var(--line,rgba(255,255,255,.04));}" +
       ".ap-timeline-cols{display:flex;flex:1;gap:0;position:relative;overflow:hidden;}" +
-      ".ap-timeline-col{flex:1;min-width:160px;border-right:1px solid rgba(255,255,255,.06);position:relative;}" +
+      ".ap-timeline-col{flex:1;min-width:160px;border-right:1px solid var(--line,rgba(255,255,255,.06));position:relative;}" +
       ".ap-timeline-col:last-child{border-right:none;}" +
-      ".ap-col-header{position:sticky;top:0;z-index:10;background:rgba(12,20,32,.95);border-bottom:1px solid rgba(255,255,255,.1);padding:8px 10px;text-align:center;}" +
+      ".ap-col-header{position:sticky;top:0;z-index:10;background:var(--field,rgba(12,20,32,.95));border-bottom:1px solid var(--line,rgba(255,255,255,.1));padding:8px 10px;text-align:center;}" +
       ".ap-col-header .col-dr{font-size:12px;font-weight:900;color:var(--text,#e9eef7);}" +
-      ".ap-col-header .col-cl{font-size:10px;color:rgba(233,238,247,.55);margin-top:1px;}" +
+      ".ap-col-header .col-cl{font-size:10px;color:var(--muted,rgba(233,238,247,.55));margin-top:1px;}" +
       ".ap-col-body{position:relative;}" +
-      ".ap-slot-available{position:absolute;left:3px;right:3px;border-radius:5px;border:1px dashed rgba(255,255,255,.13);background:rgba(255,255,255,.02);" +
+      ".ap-slot-available{position:absolute;left:3px;right:3px;border-radius:5px;border:1px dashed var(--line,rgba(255,255,255,.13));background:var(--surface,rgba(255,255,255,.02));" +
       "display:flex;align-items:center;justify-content:space-between;padding:0 7px;" +
       "cursor:pointer;transition:background 120ms,border-color 120ms;overflow:hidden;}" +
-      ".ap-slot-available:hover{background:rgba(58,160,255,.12);border-color:rgba(58,160,255,.5);}" +
-      ".ap-slot-time{font-size:10px;font-weight:800;color:rgba(233,238,247,.35);letter-spacing:.3px;transition:color 120ms;pointer-events:none;}" +
-      ".ap-slot-plus{font-size:14px;font-weight:900;color:rgba(233,238,247,.2);transition:color 120ms;pointer-events:none;}" +
-      ".ap-slot-available:hover .ap-slot-time{color:rgba(58,160,255,.9);}" +
-      ".ap-slot-available:hover .ap-slot-plus{color:rgba(58,160,255,.7);}" +
+      ".ap-slot-available:hover{background:var(--accent-soft,rgba(58,160,255,.12));border-color:var(--accent-line,rgba(58,160,255,.5));}" +
+      ".ap-slot-time{font-size:10px;font-weight:800;color:var(--muted2,rgba(233,238,247,.35));letter-spacing:.3px;transition:color 120ms;pointer-events:none;}" +
+      ".ap-slot-plus{font-size:14px;font-weight:900;color:var(--muted2,rgba(233,238,247,.2));transition:color 120ms;pointer-events:none;}" +
+      ".ap-slot-available:hover .ap-slot-time{color:var(--accent,rgba(58,160,255,.9));}" +
+      ".ap-slot-available:hover .ap-slot-plus{color:var(--accent,rgba(58,160,255,.7));}" +
       ".ap-appt-block{position:absolute;left:3px;right:3px;border-radius:8px;overflow:hidden;cursor:pointer;transition:filter 120ms,box-shadow 120ms;}" +
-      ".ap-appt-block:hover{filter:brightness(1.1);box-shadow:0 4px 16px rgba(0,0,0,.35);}" +
+      ".ap-appt-block:hover{filter:brightness(1.1);box-shadow:0 4px 16px var(--shadow,rgba(0,0,0,.35));}" +
       ".ap-appt-block.selected{box-shadow:0 0 0 2px #fff;}" +
       ".ap-appt-inner{padding:4px 7px;height:100%;display:flex;flex-direction:column;justify-content:center;overflow:hidden;}" +
       ".ap-appt-name{font-size:11px;font-weight:900;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}" +
-      ".ap-appt-meta{font-size:10px;color:rgba(255,255,255,.7);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}" +
+      ".ap-appt-meta{font-size:10px;color:var(--muted,rgba(255,255,255,.7));white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}" +
       ".ap-appt-cancelled{opacity:.45;text-decoration:line-through;}" +
-      ".ap-timeline-empty{padding:32px;text-align:center;font-size:13px;color:rgba(233,238,247,.35);font-style:italic;}" +
+      ".ap-timeline-empty{padding:32px;text-align:center;font-size:13px;color:var(--muted2,rgba(233,238,247,.35));font-style:italic;}" +
       ".ap-day-detail-panel{margin-top:12px;}" +
 
       // ---- Schedule info bar ----
-      ".ap-sched-bar{border:1px solid rgba(58,160,255,.2);background:rgba(58,160,255,.06);border-radius:10px;padding:7px 12px;margin-bottom:10px;font-size:11px;color:rgba(90,162,255,.85);display:flex;align-items:center;gap:8px;flex-wrap:wrap;}" +
-      ".ap-repeat-tag{font-size:10px;font-weight:900;padding:2px 7px;border-radius:999px;background:rgba(58,160,255,.15);border:1px solid rgba(58,160,255,.3);color:#7dc8ff;}" +
+      ".ap-sched-bar{border:1px solid var(--accent-soft,rgba(58,160,255,.2));background:var(--accent-soft,rgba(58,160,255,.06));border-radius:10px;padding:7px 12px;margin-bottom:10px;font-size:11px;color:var(--accent,rgba(90,162,255,.85));display:flex;align-items:center;gap:8px;flex-wrap:wrap;}" +
+      ".ap-repeat-tag{font-size:10px;font-weight:900;padding:2px 7px;border-radius:999px;background:var(--accent-soft,rgba(58,160,255,.15));border:1px solid var(--accent-soft,rgba(58,160,255,.3));color:var(--accent,#7dc8ff);}" +
 
       // ---- Table ----
-      ".ap-table-wrap{overflow:auto;border:1px solid var(--line,rgba(255,255,255,.10));border-radius:12px;background:rgba(10,16,24,.18);}" +
+      ".ap-table-wrap{overflow:auto;border:1px solid var(--line,rgba(255,255,255,.10));border-radius:12px;background:var(--surface2,rgba(10,16,24,.18));}" +
       ".ap-table{width:max-content;min-width:100%;border-collapse:collapse;color:var(--text,#e9eef7);}" +
       ".ap-table th,.ap-table td{border-bottom:1px solid var(--line,rgba(255,255,255,.10));padding:8px 10px;font-size:12px;vertical-align:middle;}" +
-      ".ap-table th{background:rgba(12,19,29,.92);position:sticky;top:0;z-index:1;color:var(--muted,rgba(233,238,247,.68));text-transform:uppercase;letter-spacing:.8px;font-weight:900;text-align:left;cursor:pointer;user-select:none;white-space:nowrap;}" +
+      ".ap-table th{background:var(--panel-strong,rgba(12,19,29,.92));position:sticky;top:0;z-index:1;color:var(--muted,rgba(233,238,247,.68));text-transform:uppercase;letter-spacing:.8px;font-weight:900;text-align:left;cursor:pointer;user-select:none;white-space:nowrap;}" +
       ".ap-table th.noclick{cursor:default;}" +
-      ".ap-table tbody tr:hover{background:rgba(255,255,255,.04);cursor:pointer;}" +
-      ".ap-row-sel{background:rgba(58,160,255,.10)!important;outline:1px solid rgba(58,160,255,.25);}" +
+      ".ap-table tbody tr:hover{background:var(--surface,rgba(255,255,255,.04));cursor:pointer;}" +
+      ".ap-row-sel{background:var(--accent-soft,rgba(58,160,255,.10))!important;outline:1px solid var(--accent-ring,rgba(58,160,255,.25));}" +
 
       // ---- Status chips ----
       ".ap-status{display:inline-block;font-size:11px;font-weight:900;padding:3px 9px;border-radius:999px;letter-spacing:.3px;white-space:nowrap;}" +
-      ".ap-s-scheduled{background:rgba(58,160,255,.18);border:1px solid rgba(58,160,255,.38);color:#7dc8ff;}" +
-      ".ap-s-confirmed{background:rgba(67,209,122,.16);border:1px solid rgba(67,209,122,.35);color:#6de0a0;}" +
-      ".ap-s-completed{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);color:rgba(233,238,247,.55);}" +
-      ".ap-s-cancelled{background:rgba(255,90,122,.14);border:1px solid rgba(255,90,122,.32);color:#ff8ca4;}" +
+      ".ap-s-scheduled{background:var(--accent-soft,rgba(58,160,255,.18));border:1px solid var(--accent-soft,rgba(58,160,255,.38));color:var(--accent,#7dc8ff);}" +
+      ".ap-s-confirmed{background:var(--ok-soft,rgba(67,209,122,.16));border:1px solid var(--ok-soft,rgba(67,209,122,.35));color:#6de0a0;}" +
+      ".ap-s-completed{background:var(--surface2,rgba(255,255,255,.07));border:1px solid var(--line,rgba(255,255,255,.15));color:var(--muted,rgba(233,238,247,.55));}" +
+      ".ap-s-cancelled{background:var(--danger-soft,rgba(255,90,122,.14));border:1px solid var(--danger-soft,rgba(255,90,122,.32));color:#ff8ca4;}" +
       ".ap-s-noshow{background:rgba(255,157,67,.14);border:1px solid rgba(255,157,67,.32);color:#ffbe7d;}" +
       ".ap-s-waiting{background:rgba(204,148,255,.14);border:1px solid rgba(204,148,255,.32);color:#d4a0ff;}" +
-      ".ap-s-promoted{background:rgba(67,209,122,.16);border:1px solid rgba(67,209,122,.35);color:#6de0a0;}" +
+      ".ap-s-promoted{background:var(--ok-soft,rgba(67,209,122,.16));border:1px solid var(--ok-soft,rgba(67,209,122,.35));color:#6de0a0;}" +
 
       // ---- Detail panel ----
       ".ap-detail-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:10px;}" +
-      ".ap-kv{border:1px solid rgba(255,255,255,.08);border-radius:12px;background:rgba(10,16,24,.22);padding:9px 11px;}" +
+      ".ap-kv{border:1px solid var(--line,rgba(255,255,255,.08));border-radius:12px;background:var(--field,rgba(10,16,24,.22));padding:9px 11px;}" +
       ".ap-kv .k{font-size:10px;font-weight:900;color:var(--muted,rgba(233,238,247,.6));text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;}" +
       ".ap-kv .v{font-size:12px;color:var(--text,#e9eef7);white-space:pre-wrap;word-break:break-word;}" +
       ".ap-kv.wide{grid-column:1/-1;}" +
       ".ap-kv.half{grid-column:span 2;}" +
-      ".ap-kv.fee{border-color:rgba(67,209,122,.2);}" +
-      ".ap-kv.total{border-color:rgba(67,209,122,.4);background:rgba(67,209,122,.05);}" +
-      ".ap-kv.total .v{font-size:15px;font-weight:900;color:rgba(67,209,122,.95);}" +
-      ".ap-token-box{font-family:monospace;font-size:18px;font-weight:900;letter-spacing:4px;color:#7dc8ff;background:rgba(58,160,255,.1);border-radius:8px;padding:3px 10px;display:inline-block;}" +
+      ".ap-kv.fee{border-color:var(--ok-soft,rgba(67,209,122,.2));}" +
+      ".ap-kv.total{border-color:var(--ok-soft,rgba(67,209,122,.4));background:var(--ok-soft,rgba(67,209,122,.05));}" +
+      ".ap-kv.total .v{font-size:15px;font-weight:900;color:var(--ok,rgba(67,209,122,.95));}" +
+      ".ap-token-box{font-family:monospace;font-size:18px;font-weight:900;letter-spacing:4px;color:var(--accent,#7dc8ff);background:var(--accent-soft,rgba(58,160,255,.1));border-radius:8px;padding:3px 10px;display:inline-block;}" +
       ".ap-sel-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end;margin-top:10px;}" +
-      ".ap-meds{border:1px solid rgba(255,200,90,.15);border-radius:12px;background:rgba(255,200,90,.04);padding:10px;}" +
+      ".ap-meds{border:1px solid var(--warn-soft,rgba(255,200,90,.15));border-radius:12px;background:var(--warn-soft,rgba(255,200,90,.04));padding:10px;}" +
       ".ap-meds .meds-txt{font-size:12px;color:var(--text,#e9eef7);white-space:pre-wrap;}" +
 
       // ---- Inputs/selects ----
       ".ap-input,.ap-select,.ap-textarea{padding:8px 10px;border:1px solid var(--line,rgba(255,255,255,.10));border-radius:10px;" +
-      "background:rgba(10,16,24,.64);color:var(--text,#e9eef7);outline:none;font-size:13px;" +
+      "background:var(--field,rgba(10,16,24,.64));color:var(--text,#e9eef7);outline:none;font-size:13px;" +
       "transition:border-color 120ms,box-shadow 120ms;}" +
-      ".ap-input:focus,.ap-select:focus,.ap-textarea:focus{border-color:rgba(58,160,255,.55);box-shadow:0 0 0 3px rgba(58,160,255,.18);}" +
-      ".ap-select{color-scheme:dark;}" +
+      ".ap-input:focus,.ap-select:focus,.ap-textarea:focus{border-color:var(--accent-line,rgba(58,160,255,.55));box-shadow:0 0 0 3px var(--shadow,rgba(58,160,255,.18));}" +
+      ".ap-select{color-scheme:var(--scheme,dark);}" +
       ".ap-textarea{min-height:70px;resize:vertical;width:100%;}" +
-      ".ap-input[type=date]{color-scheme:dark;}" +
-      ".ap-total-preview{font-size:13px;font-weight:900;color:rgba(67,209,122,.9);padding:8px 12px;border:1px solid rgba(67,209,122,.25);border-radius:10px;background:rgba(67,209,122,.06);}" +
+      ".ap-input[type=date]{color-scheme:var(--scheme,dark);}" +
+      ".ap-total-preview{font-size:13px;font-weight:900;color:var(--ok,rgba(67,209,122,.9));padding:8px 12px;border:1px solid var(--ok-soft,rgba(67,209,122,.25));border-radius:10px;background:var(--ok-soft,rgba(67,209,122,.06));}" +
 
       // ---- Filters ----
       ".ap-filters{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-bottom:10px;}" +
@@ -1018,31 +1018,31 @@
       // ---- Schedule day badges & checkboxes ----
       ".ap-dow-row{display:flex;flex-wrap:wrap;gap:4px;margin-top:2px;}" +
       ".ap-dow-badge{font-size:10px;font-weight:900;padding:2px 7px;border-radius:5px;letter-spacing:.4px;}" +
-      ".ap-dow-active{background:rgba(58,160,255,.2);border:1px solid rgba(58,160,255,.4);color:#7dc8ff;}" +
-      ".ap-dow-inactive{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);color:rgba(233,238,247,.2);}" +
+      ".ap-dow-active{background:var(--accent-soft,rgba(58,160,255,.2));border:1px solid var(--accent-soft,rgba(58,160,255,.4));color:var(--accent,#7dc8ff);}" +
+      ".ap-dow-inactive{background:var(--surface,rgba(255,255,255,.04));border:1px solid var(--line,rgba(255,255,255,.07));color:var(--muted2,rgba(233,238,247,.2));}" +
       ".ap-dow-oneoff{background:rgba(204,148,255,.15);border:1px solid rgba(204,148,255,.3);color:#d4a0ff;}" +
       ".ap-dow-checkbox-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}" +
       ".ap-dow-checkbox-label{display:flex;align-items:center;gap:5px;cursor:pointer;padding:6px 10px;" +
-      "border:1px solid rgba(255,255,255,.1);border-radius:8px;background:rgba(10,16,24,.3);" +
+      "border:1px solid var(--line,rgba(255,255,255,.1));border-radius:8px;background:var(--surface2,rgba(10,16,24,.3));" +
       "transition:background 100ms,border-color 100ms;user-select:none;}" +
-      ".ap-dow-checkbox-label:hover{background:rgba(58,160,255,.1);border-color:rgba(58,160,255,.3);}" +
-      ".ap-dow-checkbox-label input[type=checkbox]{width:14px;height:14px;accent-color:#3aa0ff;cursor:pointer;flex-shrink:0;}" +
-      ".ap-dow-checkbox-label input[type=checkbox]:checked + .ap-dow-cb-text{color:#7dc8ff;font-weight:900;}" +
-      ".ap-dow-checkbox-label:has(input:checked){background:rgba(58,160,255,.15);border-color:rgba(58,160,255,.45);}" +
-      ".ap-dow-cb-text{font-size:12px;font-weight:800;color:rgba(233,238,247,.7);letter-spacing:.3px;}" +
+      ".ap-dow-checkbox-label:hover{background:var(--accent-soft,rgba(58,160,255,.1));border-color:var(--accent-soft,rgba(58,160,255,.3));}" +
+      ".ap-dow-checkbox-label input[type=checkbox]{width:14px;height:14px;accent-color:var(--accent,#3aa0ff);cursor:pointer;flex-shrink:0;}" +
+      ".ap-dow-checkbox-label input[type=checkbox]:checked + .ap-dow-cb-text{color:var(--accent,#7dc8ff);font-weight:900;}" +
+      ".ap-dow-checkbox-label:has(input:checked){background:var(--accent-soft,rgba(58,160,255,.15));border-color:var(--accent-line,rgba(58,160,255,.45));}" +
+      ".ap-dow-cb-text{font-size:12px;font-weight:800;color:var(--muted,rgba(233,238,247,.7));letter-spacing:.3px;}" +
 
       // ---- Mgmt modals ----
       ".ap-mgmt-grid{display:grid;gap:6px;}" +
-      ".ap-mgmt-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid rgba(255,255,255,.07);border-radius:10px;background:rgba(10,16,24,.2);}" +
+      ".ap-mgmt-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--line,rgba(255,255,255,.07));border-radius:10px;background:var(--surface2,rgba(10,16,24,.2));}" +
       ".ap-mgmt-row .mgmt-name{flex:1;font-size:13px;font-weight:900;color:var(--text,#e9eef7);}" +
       ".ap-mgmt-row .mgmt-sub{font-size:11px;color:var(--muted,rgba(233,238,247,.55));}" +
       ".ap-mgmt-row .mgmt-actions{display:flex;gap:6px;}" +
-      ".ap-add-btn{font-size:12px;font-weight:900;padding:6px 14px;border-radius:9px;cursor:pointer;border:1px dashed rgba(255,255,255,.2);background:transparent;color:rgba(233,238,247,.6);transition:all 100ms;}" +
-      ".ap-add-btn:hover{border-color:rgba(58,160,255,.4);color:#7dc8ff;background:rgba(58,160,255,.08);}" +
+      ".ap-add-btn{font-size:12px;font-weight:900;padding:6px 14px;border-radius:9px;cursor:pointer;border:1px dashed var(--line,rgba(255,255,255,.2));background:transparent;color:var(--muted,rgba(233,238,247,.6));transition:all 100ms;}" +
+      ".ap-add-btn:hover{border-color:var(--accent-soft,rgba(58,160,255,.4));color:var(--accent,#7dc8ff);background:var(--accent-soft,rgba(58,160,255,.08));}" +
       ".ap-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}" +
       ".ap-form-grid .eikon-field{margin:0;}" +
       ".ap-form-full{grid-column:1/-1;}" +
-      ".ap-form-section{font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.8px;color:var(--muted,rgba(233,238,247,.55));border-top:1px solid rgba(255,255,255,.08);padding-top:10px;margin-top:4px;}" +
+      ".ap-form-section{font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.8px;color:var(--muted,rgba(233,238,247,.55));border-top:1px solid var(--line,rgba(255,255,255,.08));padding-top:10px;margin-top:4px;}" +
       ".ap-form-fee-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}" +
 
       // ---- Sort indicator ----
@@ -1062,20 +1062,20 @@
 
       // ---- Schedule cascade hint ----
       ".ap-cascade-hint{font-size:11px;color:rgba(255,157,67,.8);background:rgba(255,157,67,.08);border:1px solid rgba(255,157,67,.2);border-radius:8px;padding:6px 10px;margin-top:4px;}" +
-      ".ap-booked-badge{display:inline-block;background:rgba(255,90,122,.18);border:1px solid rgba(255,90,122,.4);color:#ff8ca4;border-radius:999px;font-size:10px;font-weight:900;padding:2px 8px;margin-left:6px;}" +
+      ".ap-booked-badge{display:inline-block;background:var(--danger-soft,rgba(255,90,122,.18));border:1px solid var(--danger-soft,rgba(255,90,122,.4));color:#ff8ca4;border-radius:999px;font-size:10px;font-weight:900;padding:2px 8px;margin-left:6px;}" +
 
       // ---- WEEK VIEW ----
       ".ap-week-outer{overflow-x:auto;}" +
       ".ap-week-wrap{display:flex;min-width:700px;position:relative;}" +
       ".ap-week-axis{width:54px;flex-shrink:0;position:relative;}" +
       ".ap-week-cols{display:flex;flex:1;position:relative;border-radius:0 0 10px 10px;overflow:hidden;}" +
-      ".ap-week-col{flex:1;min-width:100px;border-right:1px solid rgba(255,255,255,.06);position:relative;display:flex;flex-direction:column;}" +
+      ".ap-week-col{flex:1;min-width:100px;border-right:1px solid var(--line,rgba(255,255,255,.06));position:relative;display:flex;flex-direction:column;}" +
       ".ap-week-col:last-child{border-right:none;}" +
-      ".ap-week-col-hdr{position:sticky;top:0;z-index:10;background:rgba(12,20,32,.97);border-bottom:1px solid rgba(255,255,255,.1);padding:7px 6px;text-align:center;}" +
-      ".ap-week-col-hdr .wk-dn{font-size:11px;font-weight:900;color:rgba(233,238,247,.5);text-transform:uppercase;letter-spacing:.6px;}" +
+      ".ap-week-col-hdr{position:sticky;top:0;z-index:10;background:var(--field,rgba(12,20,32,.97));border-bottom:1px solid var(--line,rgba(255,255,255,.1));padding:7px 6px;text-align:center;}" +
+      ".ap-week-col-hdr .wk-dn{font-size:11px;font-weight:900;color:var(--muted,rgba(233,238,247,.5));text-transform:uppercase;letter-spacing:.6px;}" +
       ".ap-week-col-hdr .wk-dd{font-size:18px;font-weight:900;color:var(--text,#e9eef7);line-height:1.1;}" +
-      ".ap-week-col-hdr.today .wk-dd{color:#3aa0ff;background:rgba(58,160,255,.18);border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;margin:0 auto;}" +
-      ".ap-week-col-hdr.has-sched{border-top:2px solid rgba(58,160,255,.5);}" +
+      ".ap-week-col-hdr.today .wk-dd{color:var(--accent,#3aa0ff);background:var(--accent-soft,rgba(58,160,255,.18));border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;margin:0 auto;}" +
+      ".ap-week-col-hdr.has-sched{border-top:2px solid var(--accent-line,rgba(58,160,255,.5));}" +
       ".ap-week-col-hdr.weekend .wk-dn{color:rgba(255,157,67,.7);}" +
       ".ap-week-col-body{position:relative;flex:1;}" +
       ".ap-week-detail-panel{margin-top:12px;}" +
@@ -1120,7 +1120,7 @@
     var days = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
     return days.map(function (lbl, i) {
       var chk = sel[String(i)] ? " checked" : "";
-      return "<label style='display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:4px 6px;border:1px solid rgba(255,255,255,.12);border-radius:8px;cursor:pointer;'>" +
+      return "<label style='display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:4px 6px;border:1px solid var(--line,rgba(255,255,255,.12));border-radius:8px;cursor:pointer;'>" +
              "<input class='ap-dowchk' type='checkbox' value='" + i + "'" + chk + ">" + lbl + "</label>";
     }).join("");
   }
@@ -1238,9 +1238,9 @@
           "<div class='mgmt-sub'>" + esc(d.specialty || "General") + "  Fee: " + esc(fmtMoney(d.defaultFee || 0)) + "</div></div>" +
           "<div class='mgmt-actions'>" +
           "<button class='eikon-btn ap-dr-edit' data-id='" + esc(d.id) + "' type='button'>Edit</button>" +
-          "<button class='eikon-btn ap-dr-del'  data-id='" + esc(d.id) + "' type='button' style='color:rgba(255,90,122,.85);'>Delete</button>" +
+          "<button class='eikon-btn ap-dr-del'  data-id='" + esc(d.id) + "' type='button' style='color:var(--danger,rgba(255,90,122,.85));'>Delete</button>" +
           "</div></div>";
-      }).join("") : "<div style='font-size:12px;color:rgba(233,238,247,.45);padding:8px 0;'>No doctors yet.</div>";
+      }).join("") : "<div style='font-size:12px;color:var(--muted2,rgba(233,238,247,.45));padding:8px 0;'>No doctors yet.</div>";
       return "<div class='ap-mgmt-grid' id='ap-dr-list'>" + rows + "</div>" +
         "<button class='ap-add-btn' id='ap-dr-add' type='button' style='margin-top:10px;width:100%;'>+ Add New Doctor</button>";
     }
@@ -1300,9 +1300,9 @@
           "<div class='mgmt-sub'>" + esc(c.locality || "") + "  Fee: " + esc(fmtMoney(c.fee || 0)) + "</div></div>" +
           "<div class='mgmt-actions'>" +
           "<button class='eikon-btn ap-cl-edit' data-id='" + esc(c.id) + "' type='button'>Edit</button>" +
-          "<button class='eikon-btn ap-cl-del'  data-id='" + esc(c.id) + "' type='button' style='color:rgba(255,90,122,.85);'>Delete</button>" +
+          "<button class='eikon-btn ap-cl-del'  data-id='" + esc(c.id) + "' type='button' style='color:var(--danger,rgba(255,90,122,.85));'>Delete</button>" +
           "</div></div>";
-      }).join("") : "<div style='font-size:12px;color:rgba(233,238,247,.45);padding:8px 0;'>No clinics yet.</div>";
+      }).join("") : "<div style='font-size:12px;color:var(--muted2,rgba(233,238,247,.45));padding:8px 0;'>No clinics yet.</div>";
       return "<div class='ap-mgmt-grid' id='ap-cl-list'>" + rows + "</div>" +
         "<button class='ap-add-btn' id='ap-cl-add' type='button' style='margin-top:10px;width:100%;'>+ Add New Clinic</button>";
     }
@@ -1401,7 +1401,7 @@
       var groups = groupSchedules(scheds);
 
       if (!groups.length) {
-        return "<div style='font-size:12px;color:rgba(233,238,247,.45);padding:8px 0;'>No schedules yet.</div>" +
+        return "<div style='font-size:12px;color:var(--muted2,rgba(233,238,247,.45));padding:8px 0;'>No schedules yet.</div>" +
           "<button class='ap-add-btn' id='ap-sc-add' type='button' style='margin-top:10px;width:100%;'>+ Add Schedule</button>";
       }
 
@@ -1443,7 +1443,7 @@
           "</div>" +
           "<div class='mgmt-actions'>" +
           "<button class='eikon-btn ap-sc-edit' data-gkey='" + groupKey + "' type='button'>Edit</button>" +
-          "<button class='eikon-btn ap-sc-del'  data-gkey='" + groupKey + "' type='button' style='color:rgba(255,90,122,.85);'>Delete</button>" +
+          "<button class='eikon-btn ap-sc-del'  data-gkey='" + groupKey + "' type='button' style='color:var(--danger,rgba(255,90,122,.85));'>Delete</button>" +
           "</div></div>" +
           "<div class='ap-dow-row'>" + dayBadges + "</div>" +
           "</div>";
@@ -1496,7 +1496,7 @@
         "<div id='ap-scmod-rec' style='margin-top:10px;" + (isOneOff ? "display:none;" : "") + "'>" +
         "<div class='eikon-field'><div class='eikon-label'>Days of Week</div>" +
         "<div class='ap-dow-checkbox-row'>" + dowCheckboxes + "</div>" +
-        "<div style='font-size:11px;color:rgba(233,238,247,.4);margin-top:5px;'>Tick all days this schedule runs. Each day creates its own record automatically.</div>" +
+        "<div style='font-size:11px;color:var(--muted2,rgba(233,238,247,.4));margin-top:5px;'>Tick all days this schedule runs. Each day creates its own record automatically.</div>" +
         "</div>" +
         "<div class='ap-form-grid' style='margin-top:8px;'>" +
         "<div class='eikon-field'><div class='eikon-label'>Valid From (optional)</div>" +
@@ -1694,7 +1694,7 @@
       "</div>" +
 
       "<div class='ap-form-section' style='margin-top:10px;'>Schedule</div>" +
-      "<div style='font-size:11px;color:rgba(233,238,247,.5);margin-bottom:8px;'>Select a doctor first — the system will show only the clinics, dates and times from that doctor&rsquo;s schedule.</div>" +
+      "<div style='font-size:11px;color:var(--muted,rgba(233,238,247,.5));margin-bottom:8px;'>Select a doctor first — the system will show only the clinics, dates and times from that doctor&rsquo;s schedule.</div>" +
 
       // Step 1: Doctor
       "<div class='eikon-field'><div class='eikon-label'>1. Doctor</div>" +
@@ -1712,13 +1712,13 @@
       "<div class='eikon-field' style='margin-top:8px;'><div class='eikon-label'>3. Session Date</div>" +
       "<select class='ap-select' id='ap-mod-date-sel' style='width:100%;' disabled>" +
       "<option value=''>— Select a clinic first —</option></select>" +
-      "<div id='ap-mod-date-hint' style='font-size:10px;color:rgba(233,238,247,.4);margin-top:3px;'>Only dates with scheduled sessions are shown.</div></div>" +
+      "<div id='ap-mod-date-hint' style='font-size:10px;color:var(--muted2,rgba(233,238,247,.4));margin-top:3px;'>Only dates with scheduled sessions are shown.</div></div>" +
 
       // Step 4: Time (available slots)
       "<div class='eikon-field' style='margin-top:8px;'><div class='eikon-label'>4. Available Time Slot</div>" +
       "<select class='ap-select' id='ap-mod-time' style='width:100%;' disabled>" +
       "<option value=''>— Select a date first —</option></select>" +
-      "<div id='ap-mod-time-hint' style='font-size:10px;color:rgba(233,238,247,.4);margin-top:3px;'>Only unbooked slots shown. Checked live from server.</div></div>" +
+      "<div id='ap-mod-time-hint' style='font-size:10px;color:var(--muted2,rgba(233,238,247,.4));margin-top:3px;'>Only unbooked slots shown. Checked live from server.</div></div>" +
 
       "<div class='eikon-field' style='margin-top:8px;'><div class='eikon-label'>Internal Notes (optional)</div>" +
       "<textarea class='ap-textarea' id='ap-mod-notes' style='min-height:50px;'>" + esc(init.notes) + "</textarea></div>";
@@ -1749,7 +1749,7 @@
       "</div>" +
       "<div class='eikon-field' style='margin-top:8px;'><div class='eikon-label'>Time Slot</div>" +
       "<select class='ap-select' id='ap-mod-time' style='width:100%;'><option value=''>Loading slots...</option></select>" +
-      "<div id='ap-mod-time-hint' style='font-size:10px;color:rgba(233,238,247,.45);margin-top:3px;'></div></div>" +
+      "<div id='ap-mod-time-hint' style='font-size:10px;color:var(--muted2,rgba(233,238,247,.45));margin-top:3px;'></div></div>" +
       "<div class='ap-form-grid' style='margin-top:8px;'>" +
       "<div class='eikon-field'><div class='eikon-label'>Status</div>" +
       "<select class='ap-select' id='ap-mod-status' style='width:100%;'>" + buildStatusOptions(init.status, APPT_STATUSES) + "</select></div>" +
@@ -2241,11 +2241,11 @@
     var waBtn = a.patientPhone ? whatsappBtnHtml(a.patientPhone) : "";
     var emBtn = a.patientEmail ? emailBtnHtml(a.patientEmail) : "";
     var confirmedChk = "<label style='display:inline-flex;align-items:center;gap:7px;cursor:pointer;padding:4px 10px 4px 8px;" +
-      "border:1px solid " + (a.bookingConfirmed ? "rgba(67,209,122,.45)" : "rgba(255,255,255,.12)") + ";" +
-      "border-radius:999px;background:" + (a.bookingConfirmed ? "rgba(67,209,122,.12)" : "rgba(10,16,24,.3)") + ";'>" +
+      "border:1px solid " + (a.bookingConfirmed ? "rgba(67,209,122,.45)" : "var(--line,rgba(255,255,255,.12))") + ";" +
+      "border-radius:999px;background:" + (a.bookingConfirmed ? "rgba(67,209,122,.12)" : "var(--surface2,rgba(10,16,24,.3))") + ";'>" +
       "<input type='checkbox' class='ap-confirmed-chk' data-apptid='" + esc(a.id) + "'" + (a.bookingConfirmed ? " checked" : "") +
-      " style='width:14px;height:14px;accent-color:#43d17a;cursor:pointer;flex-shrink:0;'>" +
-      "<span style='font-size:11px;font-weight:900;color:" + (a.bookingConfirmed ? "#6de0a0" : "rgba(233,238,247,.6)") + ";'>" +
+      " style='width:14px;height:14px;accent-color:var(--ok,#43d17a);cursor:pointer;flex-shrink:0;'>" +
+      "<span style='font-size:11px;font-weight:900;color:" + (a.bookingConfirmed ? "#6de0a0" : "var(--muted,rgba(233,238,247,.6))") + ";'>" +
       (a.bookingConfirmed ? "✓ Booking Confirmed" : "Booking Confirmed?") + "</span></label>";
     return "<div class='ap-detail-grid'>" +
       "<div class='ap-kv half'><div class='k'>Patient</div><div class='v'>" + esc(a.patientName || "-") + "</div></div>" +
@@ -2387,7 +2387,7 @@
       "    <button class='eikon-btn' id='ap-btn-waitlist' type='button'>+ Waiting List</button>" +
       "    <div style='position:relative;display:inline-block;'>" +
       "      <button class='eikon-btn' id='ap-settings-btn' type='button'>⚙ Settings ▾</button>" +
-      "      <div id='ap-settings-menu' style='display:none;position:absolute;right:0;top:36px;background:rgba(12,20,32,.98);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:6px;z-index:9999;min-width:180px;box-shadow:0 12px 40px rgba(0,0,0,.6);'>" +
+      "      <div id='ap-settings-menu' style='display:none;position:absolute;right:0;top:36px;background:var(--field,rgba(12,20,32,.98));border:1px solid var(--line,rgba(255,255,255,.12));border-radius:12px;padding:6px;z-index:9999;min-width:180px;box-shadow:0 12px 40px var(--shadow,rgba(0,0,0,.6));'>" +
       "        <button class='eikon-btn' id='ap-manage-doctors' type='button' style='display:block;width:100%;text-align:left;margin:0 0 4px 0;'>👨‍⚕️ Manage Doctors</button>" +
       "        <button class='eikon-btn' id='ap-manage-clinics' type='button' style='display:block;width:100%;text-align:left;margin:0 0 4px 0;'>🏨 Manage Clinics</button>" +
       "        <button class='eikon-btn' id='ap-manage-scheds'  type='button' style='display:block;width:100%;text-align:left;'>📆 Schedules</button>" +
@@ -2398,7 +2398,7 @@
 
       // -- Global Filter Bar --
       "<div class='ap-filter-bar' id='ap-global-filters'>" +
-      "  <span style='font-size:12px;font-weight:900;color:rgba(233,238,247,.6);'>Filter:</span>" +
+      "  <span style='font-size:12px;font-weight:900;color:var(--muted,rgba(233,238,247,.6));'>Filter:</span>" +
       "  <div class='ap-filter-group'><label>Doctor</label><select class='ap-select' id='ap-gf-dr' style='min-width:155px;'>" + buildDoctorOptions(state.filterDoctorId, "any") + "</select></div>" +
       "  <div class='ap-filter-group'><label>Clinic</label><select class='ap-select' id='ap-gf-cl' style='min-width:155px;'>" + buildClinicOptions(state.filterClinicId, "any") + "</select></div>" +
       "  <div class='ap-refresh-info'><span class='ap-refresh-dot'></span><span id='ap-last-refresh'>Auto-refresh active</span></div>" +
@@ -2697,7 +2697,7 @@
             item.appendChild(dot); item.appendChild(lbl2); legend.appendChild(item);
           });
           if (!Object.keys(doctorSet).length) {
-            legend.innerHTML = "<span style='font-size:11px;color:rgba(233,238,247,.35);'>No appointments this month</span>";
+            legend.innerHTML = "<span style='font-size:11px;color:var(--muted2,rgba(233,238,247,.35));'>No appointments this month</span>";
           }
         }
 
@@ -2819,7 +2819,7 @@
                 "  <span class='ap-repeat-tag'>" + esc(label) + "</span></div>";
             }).join("");
           } else {
-            daySchedInfo.innerHTML = "<div style='font-size:12px;color:rgba(233,238,247,.35);margin-bottom:8px;font-style:italic;'>No scheduled sessions for this day" + (fDr || fCl ? " with current filter" : "") + ". Set up schedules in ⚙ Settings → Schedules.</div>";
+            daySchedInfo.innerHTML = "<div style='font-size:12px;color:var(--muted2,rgba(233,238,247,.35));margin-bottom:8px;font-style:italic;'>No scheduled sessions for this day" + (fDr || fCl ? " with current filter" : "") + ". Set up schedules in ⚙ Settings → Schedules.</div>";
           }
         }
 
@@ -2988,7 +2988,7 @@
             block.className = "ap-appt-block" + (isCancelled ? " ap-appt-cancelled" : "") + (isSelected ? " selected" : "");
             block.style.top        = blockTop + "px";
             block.style.height     = blockH + "px";
-            block.style.background = isCancelled ? "rgba(255,90,122,.15)" : hexToRgba(color, 0.82);
+            block.style.background = isCancelled ? "var(--danger-soft,rgba(255,90,122,.15))" : hexToRgba(color, 0.82);
             block.style.border     = "1px solid " + (isCancelled ? "rgba(255,90,122,.3)" : hexToRgba(color, 1));
             block.setAttribute("data-id", String(a.id));
 
@@ -3227,7 +3227,7 @@
               block.className = "ap-appt-block" + (isCancelled ? " ap-appt-cancelled" : "") + (isSelected ? " selected" : "");
               block.style.top        = blockTop + "px";
               block.style.height     = blockH + "px";
-              block.style.background = isCancelled ? "rgba(255,90,122,.15)" : hexToRgba(color, 0.82);
+              block.style.background = isCancelled ? "var(--danger-soft,rgba(255,90,122,.15))" : hexToRgba(color, 0.82);
               block.style.border     = "1px solid " + (isCancelled ? "rgba(255,90,122,.3)" : hexToRgba(color, 1));
               block.setAttribute("data-id", String(a.id));
               var inner2 = document.createElement("div"); inner2.className = "ap-appt-inner";
@@ -3312,7 +3312,7 @@
           if (a.bookingConfirmed) {
             var confBadge = document.createElement("span");
             confBadge.title = "Booking Confirmed";
-            confBadge.style.cssText = "display:inline-block;margin-left:5px;background:rgba(67,209,122,.15);border:1px solid rgba(67,209,122,.4);color:#6de0a0;border-radius:999px;font-size:10px;font-weight:900;padding:2px 7px;";
+            confBadge.style.cssText = "display:inline-block;margin-left:5px;background:var(--ok-soft,rgba(67,209,122,.15));border:1px solid var(--ok-soft,rgba(67,209,122,.4));color:#6de0a0;border-radius:999px;font-size:10px;font-weight:900;padding:2px 7px;";
             confBadge.textContent = "✓ Confirmed";
             stTd.appendChild(confBadge);
           }

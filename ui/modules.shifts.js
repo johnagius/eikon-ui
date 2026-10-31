@@ -553,7 +553,7 @@ function locumWorkedMinutes(staffId){
     var t=document.createElement("div"); t.id="sh-toast";
     t.style.cssText="position:fixed;bottom:24px;right:24px;z-index:99999;padding:12px 18px;border-radius:12px;font-weight:700;font-size:13px;max-width:340px;pointer-events:none;";
     if(type==="error"){t.style.background="rgba(255,90,122,.18)";t.style.border="1px solid rgba(255,90,122,.5)";t.style.color="#ff5a7a";}
-    else{t.style.background="rgba(67,209,122,.15)";t.style.border="1px solid rgba(67,209,122,.4)";t.style.color="#43d17a";}
+    else{t.style.background="var(--ok-soft,rgba(67,209,122,.15))";t.style.border="1px solid rgba(67,209,122,.4)";t.style.color="#43d17a";}
     t.textContent=msg; document.body.appendChild(t);
     if(_tt)clearTimeout(_tt);
     _tt=setTimeout(function(){if(t.parentNode){t.style.opacity="0";setTimeout(function(){t.remove();},300);}},3500);
@@ -611,7 +611,7 @@ function locumWorkedMinutes(staffId){
 
       var body =
         '<div style="display:flex;flex-direction:column;gap:10px">' +
-          '<div style="padding:10px;border:1px solid rgba(255,90,122,.35);background:rgba(255,90,122,.08);border-radius:10px">' +
+          '<div style="padding:10px;border:1px solid var(--danger-soft,rgba(255,90,122,.35));background:var(--danger-soft,rgba(255,90,122,.08));border-radius:10px">' +
             '<b>Delete staff member</b><br/>' +
             'This will permanently remove <b>'+esc(e.full_name)+'</b> and also remove any shifts and leave entries linked to them.<br/>' +
             '<span style="opacity:.85">This cannot be undone.</span>' +
@@ -741,7 +741,7 @@ function locumWorkedMinutes(staffId){
         '<td style="'+dim+'font-size:12px;color:var(--muted);">'+esc(e.email||"")+(e.phone?"<br>"+esc(e.phone):"")+'</td>'+
         '<td style="'+dim+'">'+(isLocum?'<span style="color:var(--muted)">N/A</span>':(b?'<span style="color:'+(b.annualLeft<24?"var(--danger)":"var(--ok)")+'">'+b.annualLeft+'h / '+b.annualEnt+'h</span>':"—"))+'</td>'+
         '<td style="'+dim+'">'+(isLocum?'<span style="color:var(--muted)">N/A</span>':(b?b.sickLeft+'h':"—"))+'</td>'+
-        '<td style="'+dim+'"><span class="eikon-pill" style="font-size:11px;'+(e.is_active===0?"color:var(--danger);border-color:rgba(255,90,122,.4);":"color:var(--ok);border-color:rgba(67,209,122,.4);")+'">'+(e.is_active===0?"Inactive":"Active")+'</span></td>'+
+        '<td style="'+dim+'"><span class="eikon-pill" style="font-size:11px;'+(e.is_active===0?"color:var(--danger);border-color:var(--danger-soft,rgba(255,90,122,.4));":"color:var(--ok);border-color:var(--ok-soft,rgba(67,209,122,.4));")+'">'+(e.is_active===0?"Inactive":"Active")+'</span></td>'+
         '<td></td>';
       var act=tr.querySelectorAll("td")[8];
       var eb=document.createElement("button"); eb.className="eikon-btn"; eb.textContent="Edit";
@@ -761,7 +761,7 @@ function locumWorkedMinutes(staffId){
 
     if(locums.length){
       var sep=document.createElement("tr");
-      sep.innerHTML = '<td colspan="9" style="padding:10px 8px;color:var(--muted);font-weight:900;border-top:1px solid var(--border);background:rgba(255,255,255,.02);">Locum Pharmacists</td>';
+      sep.innerHTML = '<td colspan="9" style="padding:10px 8px;color:var(--muted);font-weight:900;border-top:1px solid var(--border);background:var(--surface,rgba(255,255,255,.02));">Locum Pharmacists</td>';
       tb.appendChild(sep);
       locums.forEach(appendEmpRow);
     }
@@ -801,10 +801,10 @@ function locumWorkedMinutes(staffId){
       '<input class="eikon-input" id="se-phone" type="tel" value="'+esc(e&&e.phone||"")+'"/></div></div>'+
       '<div class="eikon-field" style="margin-top:10px;"><div class="eikon-label">Registration No. (Pharmacists)</div>'+
       '<input class="eikon-input" id="se-reg" type="text" value="'+esc(e&&e.registration_number||"")+'" placeholder="e.g. PH-1234"/></div>'+
-      '<div style="margin-top:12px;padding:10px;background:rgba(90,162,255,.07);border:1px solid rgba(90,162,255,.2);border-radius:10px;font-size:12px;color:var(--muted);">'+
+      '<div style="margin-top:12px;padding:10px;background:var(--accent-soft,rgba(90,162,255,.07));border:1px solid var(--accent-ring,rgba(90,162,255,.2));border-radius:10px;font-size:12px;color:var(--muted);">'+
       '📋 <b>Malta '+yrNow+':</b> FT='+alFT+'h annual leave. PT=pro-rata. Sick='+(MALTA.sickLeavePaidHours||80)+'h paid + '+(MALTA.sickLeaveHalfPayHours||80)+'h ½ pay. Urgent family='+(MALTA.urgentFamilyLeaveHours||32)+'h/yr. Max '+(MALTA.maxWeeklyHours||48)+'h/wk.</div>'+
 
-      '<div style="margin-top:14px;padding:12px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:12px;">'+
+      '<div style="margin-top:14px;padding:12px;background:var(--surface,rgba(255,255,255,.03));border:1px solid var(--border);border-radius:12px;">'+
       '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">'+
       '<div style="font-weight:900;">🗓 Weekly Patterns</div>'+
       '<button class="eikon-btn primary" id="se-addpat" style="font-size:12px;padding:6px 10px;">+ New Pattern</button>'+
@@ -1070,7 +1070,7 @@ function normalizePattern(p) {
     return pats.map(function(p){
       var isProv = state.provisionalId === p.id;
       return ''+
-        '<div style="display:flex;align-items:flex-start;gap:10px;padding:10px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;background:rgba(255,255,255,.02);">'+
+        '<div style="display:flex;align-items:flex-start;gap:10px;padding:10px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;background:var(--surface,rgba(255,255,255,.02));">'+
         '<div style="padding-top:2px;"><input type="radio" name="se-provisional" value="'+esc(p.id)+'" '+(isProv?'checked':'')+' title="Provisional (default)"/></div>'+
         '<div style="flex:1;">'+
           '<div style="font-weight:800;">'+esc(p.name)+' '+(isProv?'<span class="eikon-pill" style="font-size:10px;margin-left:6px;">Provisional</span>':"")+'</div>'+
@@ -1206,11 +1206,11 @@ function normalizePattern(p) {
             '<option value="fill">Fill empty days only (keep existing)</option>'+
           '</select></div>'+
       '</div>'+
-      '<div id="ap-owarn" style="margin-top:10px;padding:10px;border:1px solid rgba(255,90,122,.45);border-radius:10px;background:rgba(255,90,122,.06);font-size:11px;color:var(--text);display:none;">'+
+      '<div id="ap-owarn" style="margin-top:10px;padding:10px;border:1px solid var(--danger-soft,rgba(255,90,122,.45));border-radius:10px;background:var(--danger-soft,rgba(255,90,122,.06));font-size:11px;color:var(--text);display:none;">'+
       '<div style="font-weight:800;margin-bottom:6px;">Overwrite confirmation</div>'+
       '<label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="ap-oconf"/> I understand this will overwrite shifts in the selected range.</label>'+
       '</div>'+
-      '<div style="margin-top:10px;padding:10px;border:1px solid var(--border);border-radius:10px;background:rgba(255,255,255,.02);font-size:11px;color:var(--muted);">'+
+      '<div style="margin-top:10px;padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--surface,rgba(255,255,255,.02));font-size:11px;color:var(--muted);">'+
       '<b>Overwrite</b> clears this employee’s shifts in the selected date range and re-applies the pattern. <b>Fill</b> only adds shifts to days where the employee has no shift.</div>';
 
     E.modal.show("Apply Weekly Pattern", body, [
@@ -1505,19 +1505,19 @@ function confirmDeleteStaff(e, cb){
 
     var cards = '';
     cards += yrs.map(function(y){
-      return rcard("Annual Leave FT "+y, String(MALTA.annualLeaveHours[y])+"h", "#5aa2ff");
+      return rcard("Annual Leave FT "+y, String(MALTA.annualLeaveHours[y])+"h", "var(--accent,#5aa2ff)");
     }).join("");
 
     cards += rcard("Sick Leave Paid",""+(MALTA.sickLeavePaidHours||80)+"h (10 days)","#fb923c");
     cards += rcard("Sick Leave ½ Pay",""+(MALTA.sickLeaveHalfPayHours||80)+"h (10 days)","#fb923c");
-    cards += rcard("Urgent Family Leave",""+(MALTA.urgentFamilyLeaveHours||32)+"h / year","#43d17a");
+    cards += rcard("Urgent Family Leave",""+(MALTA.urgentFamilyLeaveHours||32)+"h / year","var(--ok,#43d17a)");
     cards += rcard("Maternity Leave","18 weeks","#f472b6");
     cards += rcard("Paternity Leave","10 working days","#38bdf8");
     cards += rcard("Parental Leave","4 months (2 paid)","#a78bfa");
     if (yd.miscarriageLeaveDays) cards += rcard("Miscarriage Leave",""+yd.miscarriageLeaveDays+" calendar days","#94a3b8");
-    cards += rcard("Max Weekly Hours",""+(MALTA.maxWeeklyHours||48)+"h (EU WTD)","#ff5a7a");
-    if (yd.colaWeekly) cards += rcard("COLA "+yrNow,"€"+Number(yd.colaWeekly).toFixed(2)+"/week","#43d17a");
-    if (yd.minWageWeekly) cards += rcard("Min Wage "+yrNow,"€"+Number(yd.minWageWeekly).toFixed(2)+"/wk","#43d17a");
+    cards += rcard("Max Weekly Hours",""+(MALTA.maxWeeklyHours||48)+"h (EU WTD)","var(--danger,#ff5a7a)");
+    if (yd.colaWeekly) cards += rcard("COLA "+yrNow,"€"+Number(yd.colaWeekly).toFixed(2)+"/week","var(--ok,#43d17a)");
+    if (yd.minWageWeekly) cards += rcard("Min Wage "+yrNow,"€"+Number(yd.minWageWeekly).toFixed(2)+"/wk","var(--ok,#43d17a)");
     cards += rcard("Part-time Leave","Pro-rata (avg hrs / 40)","#64748b");
 
     return ''+
@@ -1604,7 +1604,7 @@ function confirmDeleteStaff(e, cb){
     ]);
   }
 function rcard(l,v,c){
-    return '<div style="padding:10px 12px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;">'+
+    return '<div style="padding:10px 12px;background:var(--surface,rgba(255,255,255,.03));border:1px solid var(--border);border-radius:10px;">'+
       '<div style="font-size:11px;color:var(--muted);margin-bottom:4px;">'+esc(l)+'</div>'+
       '<div style="font-weight:700;color:'+c+';">'+esc(v)+'</div></div>';
   }
@@ -1636,14 +1636,14 @@ function rcard(l,v,c){
       var anyReal=false;
 
       // Week action column
-      row += '<td style="background:rgba(0,0,0,.04);border:1px solid var(--border);vertical-align:top;padding:6px;width:70px;min-width:70px;">'+
+      row += '<td style="background:var(--field,rgba(0,0,0,.04));border:1px solid var(--border);vertical-align:top;padding:6px;width:70px;min-width:70px;">'+
              '<button class="eikon-btn sh-week-apply" data-ws="'+esc(ws)+'" data-we="'+esc(we)+'" style="font-size:11px;padding:6px 8px;width:100%;">↻ Pattern</button>'+
              '<div style="margin-top:6px;font-size:9px;color:var(--muted);text-align:center;">'+esc(ws.slice(5))+'–'+esc(we.slice(5))+'</div>'+
              '</td>';
 
       for(var c=0;c<7;c++,cellDay++){
         if(cellDay<1||cellDay>days){
-          row+='<td style="background:rgba(0,0,0,.12);height:84px;border:1px solid var(--border);"></td>';
+          row+='<td style="background:var(--field,rgba(0,0,0,.12));height:84px;border:1px solid var(--border);"></td>';
         } else {
           anyReal=true;
           var ds=ymd(y,mo,cellDay);
@@ -1654,7 +1654,7 @@ function rcard(l,v,c){
           var dayLeaves=S.leaves.filter(function(l){return l.status==="approved"&&l.start_date<=ds&&l.end_date>=ds;});
           var onLeaveMap={};
           dayLeaves.forEach(function(l){onLeaveMap[l.staff_id]=l;});
-          var bg=ph?"rgba(90,162,255,.06)":oh.closed?"rgba(0,0,0,.18)":"rgba(255,255,255,.02)";
+          var bg=ph?"var(--accent-soft,rgba(90,162,255,.06))":oh.closed?"var(--surface2,rgba(0,0,0,.18))":"var(--surface,rgba(255,255,255,.02))";
           var bc=(!oh.closed&&!cov.ok)?"rgba(255,90,122,.6)":"var(--border)";
           var wd=new Date(ds).getDay(); var isWknd=wd===0||wd===6;
 
@@ -1670,7 +1670,7 @@ function rcard(l,v,c){
             return !dayShifts.some(function(s){return s.staff_id==sid;});
           }).map(function(sid){
             var e=emp(+sid); if(!e)return"";
-            return '<div style="font-size:10px;padding:2px 5px;border-radius:5px;margin-top:2px;background:rgba(255,90,122,.12);border:1px solid rgba(255,90,122,.3);color:var(--danger);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">🏖'+esc((e.full_name||"").split(" ")[0])+'</div>';
+            return '<div style="font-size:10px;padding:2px 5px;border-radius:5px;margin-top:2px;background:var(--danger-soft,rgba(255,90,122,.12));border:1px solid var(--danger-soft,rgba(255,90,122,.3));color:var(--danger);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">🏖'+esc((e.full_name||"").split(" ")[0])+'</div>';
           }).join("");
 
           var warn = (!cov.ok && !oh.closed) ? (cov.gaps && cov.gaps.length && (cov.gaps[0].start===t2m(oh.open||"") && cov.gaps[0].end===t2m(oh.close||"")) ? "⚠ No pharm." : "⚠ Pharm gap") : "";
@@ -1678,7 +1678,7 @@ function rcard(l,v,c){
           row+='<td style="vertical-align:top;padding:6px;background:'+bg+';border:1px solid '+bc+';cursor:pointer;height:84px;width:14.28%;position:relative;" data-date="'+ds+'">'+
             '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:2px;">'+
             '<span style="font-weight:700;font-size:13px;color:'+(isWknd?"var(--muted)":"var(--text)")+';">'+cellDay+'</span>'+
-            (ph?'<span style="font-size:9px;background:rgba(90,162,255,.2);color:var(--accent);border-radius:3px;padding:1px 3px;">PH</span>':"")+'</div>'+
+            (ph?'<span style="font-size:9px;background:var(--accent-ring,rgba(90,162,255,.2));color:var(--accent);border-radius:3px;padding:1px 3px;">PH</span>':"")+'</div>'+
             '<div style="font-size:9px;color:var(--muted);margin-bottom:2px;">'+(oh.closed?"CLOSED":(oh.open||"")+"–"+(oh.close||""))+'</div>'+
             (warn?'<div style="font-size:9px;color:var(--danger);font-weight:700;">'+warn+'</div>':"")+
             pills+lvPills+'</td>';
@@ -2016,14 +2016,14 @@ function dayModal(ds, onSave) {
       var gapTxt = (cov.gaps||[]).slice(0,4).map(function(g){ return m2t(g.start)+"–"+m2t(g.end); }).join(", ");
       var alts=allPharm.filter(function(p){ return !dayShifts.some(function(s){return s.staff_id===p.id;}); });
       var hint = alts.length ? (" Assign: "+alts.slice(0,3).map(function(a){return esc(a.full_name);}).join(", ")+".") : "";
-      covBanner='<div style="padding:8px 10px;background:rgba(255,90,122,.1);border:1px solid rgba(255,90,122,.35);border-radius:8px;font-size:12px;margin-bottom:10px;">'+
+      covBanner='<div style="padding:8px 10px;background:var(--danger-soft,rgba(255,90,122,.1));border:1px solid var(--danger-soft,rgba(255,90,122,.35));border-radius:8px;font-size:12px;margin-bottom:10px;">'+
         '⚠️ <b>Pharmacist uncovered hours:</b> '+esc(gapTxt||"")+hint+'</div>';
     }
 
     var shiftRows=dayShifts.length
       ? dayShifts.map(function(s){
           var e=emp(s.staff_id); var lv=onLeaveMap[s.staff_id]; var col=dc(e&&e.designation);
-          return '<div style="display:flex;align-items:center;gap:8px;padding:8px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-left:3px solid '+col+';border-radius:8px;margin-bottom:6px;">'+
+          return '<div style="display:flex;align-items:center;gap:8px;padding:8px;background:var(--surface,rgba(255,255,255,.03));border:1px solid var(--border);border-left:3px solid '+col+';border-radius:8px;margin-bottom:6px;">'+
             '<span style="flex:1;font-size:13px;">'+esc(e?e.full_name:"?")+' <span style="color:var(--muted);font-size:11px;">'+esc(s.start_time||"")+'–'+esc(s.end_time||"")+'</span>'+
             (lv?'<span style="color:var(--danger);font-size:11px;margin-left:6px;">⚠ On leave</span>':"")+'</span>'+
             '<button class="eikon-btn" style="font-size:11px;padding:5px 8px;" data-edit-sh="'+s.id+'">Edit</button>'+
@@ -2032,7 +2032,7 @@ function dayModal(ds, onSave) {
       : '<div style="color:var(--muted);font-size:12px;padding:6px 0;">No shifts assigned yet.</div>';
 
     var lvRow=dayLeaves.length
-      ? '<div style="margin-bottom:10px;">'+dayLeaves.map(function(l){ var e=emp(l.staff_id); return '<span class="eikon-pill" style="font-size:11px;color:var(--danger);border-color:rgba(255,90,122,.4);">🏖 '+esc(e?e.full_name:"?")+'</span> '; }).join("")+'</div>':"";
+      ? '<div style="margin-bottom:10px;">'+dayLeaves.map(function(l){ var e=emp(l.staff_id); return '<span class="eikon-pill" style="font-size:11px;color:var(--danger);border-color:var(--danger-soft,rgba(255,90,122,.4));">🏖 '+esc(e?e.full_name:"?")+'</span> '; }).join("")+'</div>':"";
 
     var defaultSt = oh.open||"07:30";
     var defaultEt = oh.close||"19:30";
@@ -2216,7 +2216,7 @@ function dayModal(ds, onSave) {
           '<select class="eikon-select" id="wa-mode"><option value="overwrite">Overwrite</option><option value="fill">Fill empty only</option></select>'+
         '</div>'+
       '</div>'+
-      '<div id="wa-owarn" style="margin-top:10px;padding:10px;border:1px solid rgba(255,90,122,.45);border-radius:10px;background:rgba(255,90,122,.06);font-size:11px;color:var(--text);display:none;">'+
+      '<div id="wa-owarn" style="margin-top:10px;padding:10px;border:1px solid var(--danger-soft,rgba(255,90,122,.45));border-radius:10px;background:var(--danger-soft,rgba(255,90,122,.06));font-size:11px;color:var(--text);display:none;">'+
       '<div style="font-weight:800;margin-bottom:6px;">Overwrite confirmation</div>'+
       '<label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="wa-oconf"/> I understand this will overwrite shifts in this week.</label>'+
       '</div>'+
@@ -2403,7 +2403,7 @@ function dayModal(ds, onSave) {
           '<select class="eikon-select" id="ma-mode"><option value="overwrite">Overwrite</option><option value="fill">Fill empty only</option></select>'+
         '</div>'+
       '</div>'+
-      '<div id="ma-owarn" style="margin-top:10px;padding:10px;border:1px solid rgba(255,90,122,.45);border-radius:10px;background:rgba(255,90,122,.06);font-size:11px;color:var(--text);display:none;">'+
+      '<div id="ma-owarn" style="margin-top:10px;padding:10px;border:1px solid var(--danger-soft,rgba(255,90,122,.45));border-radius:10px;background:var(--danger-soft,rgba(255,90,122,.06));font-size:11px;color:var(--text);display:none;">'+
       '<div style="font-weight:800;margin-bottom:6px;">Overwrite confirmation</div>'+
       '<label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="ma-oconf"/> I understand this will overwrite shifts for the entire month.</label>'+
       '</div>'+
@@ -2642,7 +2642,7 @@ function singleShiftModal(e2, ds, existing, onSave) {
         var ct="";
         if(lv) ct='<div style="font-size:10px;color:var(--danger);text-align:center;font-weight:700;">🏖<br>Leave</div>';
         else if(sh) ct='<div style="font-size:10px;text-align:center;color:'+col+';font-weight:700;">'+(sh.start_time||"").slice(0,5)+'<br>'+(sh.end_time||"").slice(0,5)+'</div>';
-        cells+='<td style="background:'+bg+';text-align:center;border:1px solid rgba(255,255,255,.03);cursor:pointer;vertical-align:middle;padding:3px;" data-empid="'+e.id+'" data-ds="'+ds2+'">'+ct+'</td>';
+        cells+='<td style="background:'+bg+';text-align:center;border:1px solid var(--line,rgba(255,255,255,.03));cursor:pointer;vertical-align:middle;padding:3px;" data-empid="'+e.id+'" data-ds="'+ds2+'">'+ct+'</td>';
       }
       rows+="<tr>"+cells+"</tr>";
     });
@@ -2752,7 +2752,7 @@ function singleShiftModal(e2, ds, existing, onSave) {
       if(!b) return;
       E.q("#sl-balinfo",m).innerHTML=
         '<div style="display:flex;gap:8px;flex-wrap:wrap;">'+
-        bb("Annual Leave",b.annualUsed+"h used / "+b.annualLeft+"h left",b.annualLeft<24?"#ff5a7a":"#43d17a")+
+        bb("Annual Leave",b.annualUsed+"h used / "+b.annualLeft+"h left",b.annualLeft<24?"var(--danger,#ff5a7a)":"var(--ok,#43d17a)")+
         bb("Sick Leave",b.sickUsed+"h used / "+b.sickLeft+"h left","#fb923c")+
         bb("Urgent Family",b.ufEnt+"h/yr","#a78bfa")+
         '</div>';
@@ -2773,7 +2773,7 @@ function singleShiftModal(e2, ds, existing, onSave) {
   }
 
   function bb(l,v,c){
-    return '<div style="padding:8px 12px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:8px;">'+
+    return '<div style="padding:8px 12px;background:var(--surface,rgba(255,255,255,.03));border:1px solid var(--border);border-radius:8px;">'+
       '<div style="font-size:11px;color:var(--muted);">'+esc(l)+'</div>'+
       '<div style="font-weight:700;color:'+c+';font-size:13px;">'+esc(v)+'</div></div>';
   }
@@ -3397,7 +3397,7 @@ function saveToken(newTok){
       // Today coverage banner
       var tn=new Date(); var tds=tn.getFullYear()+"-"+pad(tn.getMonth()+1)+"-"+pad(tn.getDate());
       var tc=checkCov(tds);
-      var banner=(!tc.ok)?'<div style="margin-bottom:10px;padding:10px 14px;background:rgba(255,90,122,.12);border:1px solid rgba(255,90,122,.4);border-radius:10px;font-size:13px;font-weight:700;color:var(--danger);">⚠️ '+esc(tc.issues.join(" | "))+'</div>':"";
+      var banner=(!tc.ok)?'<div style="margin-bottom:10px;padding:10px 14px;background:var(--danger-soft,rgba(255,90,122,.12));border:1px solid var(--danger-soft,rgba(255,90,122,.4));border-radius:10px;font-size:13px;font-weight:700;color:var(--danger);">⚠️ '+esc(tc.issues.join(" | "))+'</div>':"";
 
       mount.innerHTML=banner+
         '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;" id="sh-tabbar">'+tabBar+'</div>'+
