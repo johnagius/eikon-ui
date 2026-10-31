@@ -16,6 +16,21 @@ bridge to Master Universal and the module map.
 | `Design review.html` | The full written review with the mockups embedded. |
 | `prototype/` | The three reimagined screens as PNG, 1110×680 at 2×: Today, one Customer, a Register. |
 | `img/` | Real renders of the current build (served locally against an empty demo pharmacy) and the Master Universal "Today" for comparison. |
+| `FUNCTION-INVENTORY.md` | Every one of the 816 functions found by the audit, mapped to its home in the new design, with what changes and what is dropped. The acceptance checklist for each area. |
+| `RELIABILITY-AND-SPEED.md` | The engineering plan: twenty live defects to fix this week, the ten shared things to build once in the worker, the speed plan, the edge-case catalogue and the shared patient book. |
+| `audit/` | The nine reviewers' reports: eight module groups and the worker, every function with its API and line numbers, every risk cited. |
+
+## What the audit found
+
+Nine reviewers read all 53 modules, the shell, the help, the embed and the
+18,938-line worker in full. 816 functions, 333 routes, about 100 tables. The
+product works, but it was built as 53 separate apps sharing a token: no shared
+customer, drug, date, print, save, role or version. The same defect appears in
+ten places and two PCs in one pharmacy cannot trust each other. Twenty defects
+are live today and fixable this week (a token leak, a lock undone by a plain
+Save, clinical records deleted by the last PC to save, shared passwords in
+shipped code). The rebuild fixes the ten shared things once, in the worker,
+before any new screen.
 
 ## The thesis in one paragraph
 
@@ -74,7 +89,9 @@ get their own sign-in and never see a picker.
 
 ## The one instruction
 
-Build **Today** as a second entry point behind one flag, make it the opening
+Fix the twenty live defects in `RELIABILITY-AND-SPEED.md` §1 this week. Build
+the ten shared things in §2 as a new worker module beside the old routes. Then
+build **Today** as a second entry point behind one flag, make it the opening
 screen, keep the old UI one click away, and change nothing else until two
 pharmacies have lived with it for two weeks. Measure seconds-to-fridge-logged,
 clicks per pharmacist per day, and how often the old UI is opened. If the numbers

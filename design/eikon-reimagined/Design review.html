@@ -223,7 +223,7 @@ figure img{display:block;width:100%;height:auto;border-radius:10px;border:1px so
   <h1>Fifty-three good ideas, and not one great screen.</h1>
   <p class="lede">A pharmacist opens Eikon for one of maybe five reasons: log the fridge, sign the register, hand a customer their order, close the till, look something up. Today the app greets them with a 4.9-second animation, a choice between three portals (two of them greyed out), a rail of <b>50 items</b> in seven uppercase categories, and a first screen with <b>77 buttons</b> before a single record exists.</p>
   <p class="lede">Master Universal just proved the other way works. One question per screen, one button per row, the search box as the biggest thing on the page. Eikon has more functionality than Master Universal will ever have. That is exactly why it needs the same discipline more, not less.</p>
-  <p class="note">Nothing in the repository was changed. The "Today" screens are real renders of the current <code>ui/</code> build served locally against an empty demo pharmacy. The "Reimagined" screens are HTML mockups at the same 1110×680 window size used for the Master Universal review. Every current module keeps a home; the map at the end shows where.</p>
+  <p class="note">Nothing in the repository was changed. The "Today" screens are real renders of the current <code>ui/</code> build served locally against an empty demo pharmacy. The "Reimagined" screens are HTML mockups at the same 1110×680 window size used for the Master Universal review. Every current module keeps a home; the map at the end shows where. A function-by-function audit of all 53 modules and the worker followed this review; its findings are in section 9 and in the two companion documents.</p>
 </header>
 
 <section>
@@ -329,16 +329,16 @@ figure img{display:block;width:100%;height:auto;border-radius:10px;border:1px so
   <h2>A customer is one person, not five modules</h2>
   <div class="argue">
     <div>
-      <p>Today a customer lives in Client Orders, Quotations, Order Diary, Client Deliveries, Client Tickets, Appointments and Loyalty &amp; Campaigns, with Vaccines, POCT and Screening Campaigns in a different category altogether. Seven places for one person, and in none of them can you see the other six.</p>
+      <p>Today a customer lives in Client Orders, Client Deliveries, Client Tickets, Appointments, Loyalty &amp; Campaigns and Repeat Prescriptions, with Vaccines, POCT, Screening and Pharmacovigilance in a different category altogether. The audit counted the same person typed as free text in eleven tables with no shared key. Nine places for one person, and in none of them can you see the other eight.</p>
       <p>Reimagined: <b>Customers</b> is a narrow list on the left and one person's story on the right, exactly the shape Master Universal now uses for a patient. Name at 24px, two status pills, four facts, one primary button that changes with their state, and underneath it everything they have asked for or been given, in time order. Orders, deliveries, questions, appointments, vaccines and blood pressure readings are not destinations. They are lines in the story and chips you filter by.</p>
       <p>When the pharmacy has a Master Universal licence, the same list grows a <b>Patients</b> chip and the same page shows the dispensing side: next due, bookings, what is owed. One person, one page, whichever system first met them.</p>
     </div>
     <div class="keep"><h4>Where today's features went</h4><ul>
-      <li><b>Client Orders, Quotations, Order Diary, Deliveries</b> become the Orders chip and the "New order" button.</li>
+      <li><b>Client Orders, Deliveries</b> become the Orders chip and the "New order" button. Quotations and Order Diary are supplier-side records and move to Stock.</li>
       <li><b>Client Tickets</b> become Questions, with "Reply" as the row's button.</li>
       <li><b>Appointments</b> become a line on the person and a day view under Team.</li>
       <li><b>Loyalty &amp; Campaigns</b> become one fact (points) and one line per campaign.</li>
-      <li><b>Vaccines, POCT, Screening</b> become Services given to this person.</li>
+      <li><b>Vaccines, POCT, Screening, Pharmacovigilance, saved Calculator plans, Label history</b> become lines on this person.</li>
       <li><b>Contacts</b> becomes the same list, filtered to doctors and suppliers.</li>
     </ul></div>
   </div>
@@ -553,31 +553,55 @@ figure img{display:block;width:100%;height:auto;border-radius:10px;border:1px so
   <div class="tablewrap"><table class="map">
     <tr><th>Place</th><th>Absorbs today's modules</th><th>Shape</th></tr>
     <tr><td>Today</td><td>Dashboard, the quick-entry modals, Alerts, Instructions &amp; handover, Chat Board, End Of Day (the Takings tile), Shifts coverage, Supplier updates</td><td>One list in time order, one button per row, three tiles</td></tr>
-    <tr><td>Customers</td><td>Client Orders, Quotations, Order Diary, Client Deliveries, Client Tickets, Appointments, Loyalty &amp; Campaigns, Repeat Prescriptions, Vaccines, POCT, Screening Campaigns, Contacts, and the Patient Manager when licensed</td><td>List + one person's story, filter chips, one primary action</td></tr>
-    <tr><td>Stock</td><td>Alerts (stock), Stock Transfers, Returns, Near Expiry, Scarce Stock, Supplier Inventory, Cherubino Orders, Price Changes, Warehouse Short Expiry, OOS List, Emergency POS</td><td>List + one item's story: what is left, what is coming, what to send back</td></tr>
-    <tr><td>Registers</td><td>Temperature, Cleaning, Daily Register, Locum Register, DDA Purchases, DDA Sales, DDA Stock Takes, DDA POYC, Certificates, End Of Day, Paid Out, Credit Notes, Locum Receipts, Audit Trail</td><td>One month-as-a-book view, chips per register, today editable</td></tr>
+    <tr><td>Customers</td><td>Client Orders, Client Deliveries, Client Tickets, Appointments, Loyalty &amp; Campaigns, Repeat Prescriptions, Vaccines, POCT, Screening Campaigns, Pharmacovigilance, saved Calculator plans, Label history, Contacts (clients, doctors, specialists), and the Patient Manager when licensed</td><td>List + one person's story, filter chips, one primary action</td></tr>
+    <tr><td>Stock</td><td>Quotations, Order Diary, Supplier Inventory, Stock Transfers, Returns, Near Expiry, Scarce Stock, Emergency POS, Vaccines stock, Cherubino Orders, Price Changes, Warehouse Short Expiry, OOS List</td><td>List + one item's story: what is left, what is coming, what to send back</td></tr>
+    <tr><td>Registers</td><td>Temperature, Cleaning, Daily Register, Locum Register, DDA Purchases, DDA Sales, DDA Stock Takes, DDA POYC (one DDA register with a balance column), Certificates, Alerts (recalls), Repeat Prescriptions, End Of Day, Paid Out, Credit Notes, Locum Receipts, Audit Trail</td><td>One month-as-a-book view, chips per register, today editable, corrections visible</td></tr>
     <tr><td>Team</td><td>Shifts, Appointments (the day view), Instructions, Locum Register (the rota side)</td><td>A week, who is in, handover notes</td></tr>
     <tr><td>Search only</td><td>Pharmacy Calculators, OCP Finder, OTC Mindmap, Pharmacovigilance, Smart Labels</td><td>Type what you need. They open in a sheet over the current screen and close with Esc.</td></tr>
-    <tr><td>Settings</td><td>Devices and limits, printers, opening hours, staff, the Cherubino account, who can lock a register</td><td>One column of plain forms, visited once a year</td></tr>
+    <tr><td>Settings</td><td>Devices and limits, printers and label templates, opening hours and public holidays, staff and roles, doctors, clinics and schedules, loyalty campaigns, the 13 standing procedures, the shared directory, reference data with review dates, the group account, who may unlock a register</td><td>One column of plain forms, visited once a year</td></tr>
     <tr><td>Separate sign-ins</td><td>Supplier Dashboard, Product List, Received Orders, Order Feedback; Company Dashboard, Pharmacy Overview</td><td>A supplier signs in and sees orders. An owner signs in and sees pharmacies. No picker.</td></tr>
   </table></div>
 </section>
 
 <section>
-  <div class="num">8 · HOW TO BUILD IT WITHOUT BREAKING ANYTHING</div>
+  <div class="num">8 · THE AUDIT</div>
+  <h2>Nothing is lost. A great deal is fixed.</h2>
+  <div class="argue">
+    <div>
+      <p>After the first draft of this review, nine reviewers read every one of the 53 module files, the shell, the help manual, the embed loader and the 18,938-line worker in full, and listed every function with its API call and line number. The reports are in <code>design/eikon-reimagined/audit/</code>. Two companion documents follow from them: the <a href="https://github.com/johnagius/eikon-ui/blob/claude/eloquent-newton-7ib4gb/design/eikon-reimagined/FUNCTION-INVENTORY.md">function inventory</a>, which maps all 816 functions to their new home and is the acceptance checklist for each area, and the <a href="https://github.com/johnagius/eikon-ui/blob/claude/eloquent-newton-7ib4gb/design/eikon-reimagined/RELIABILITY-AND-SPEED.md">reliability and speed plan</a>.</p>
+      <p>The audit confirmed the direction and changed four things in this review. Quotations and Order Diary are supplier records and moved from Customers to Stock. Customers absorbs more clinical history than planned. Registers need a correction model and a DDA balance column, which the mockups already imply. And the one engineering fact that matters most: <b>the product was built as 53 separate apps sharing a token.</b> There is no shared idea of a customer, a drug, a date, a print, a save, a role or a version. The same bug therefore appears in ten places, and two PCs in one pharmacy cannot trust each other.</p>
+      <p>That is why the plan builds ten shared things once, in the worker, before the new screens: one save model with versions and no "Saved" before the server says so; one person; one product with a controlled-drug balance; append-only registers with visible corrections; one audit log with before and after; real roles; one clock; one print pipeline; one reference-data store with review dates; one API client. Once those exist the Today screen is one request and three tiles, and the other 52 modules become places you go to look back.</p>
+    </div>
+    <div class="facts" style="margin:0;grid-template-columns:1fr 1fr">
+      <div class="fact"><b>816</b><small>user-facing functions found and mapped. 729 in modules, 22 in the shell, the rest in help, boot and the embed.</small></div>
+      <div class="fact"><b>333</b><small>worker routes over about 100 tables, with no transactions, no version checks and 19 unique constraints.</small></div>
+      <div class="fact"><b>20</b><small>fixes to make on the current code this week, before any screen changes. All live, all a few hours each.</small></div>
+      <div class="fact"><b>10</b><small>shared things built once in the worker. Everything simple on the screens depends on them.</small></div>
+    </div>
+  </div>
+  <div class="rules">
+    <div class="rule"><h3>Live today, fix this week</h3><p>An unauthenticated calendar endpoint that lists every pharmacy's valid tokens and rosters. Debug mode forced on for every visitor, posting the bearer token to the embedding page. An End Of Day lock undone by a plain Save from another PC. Four clinical modules where the last PC to save deletes what it had not loaded. Shared passwords in shipped JavaScript. No sign-out on the server.</p></div>
+    <div class="rule"><h3>The registers</h3><p>No running balance exists for controlled drugs; Purchases, Sales, POYC and Stock Takes use three different free-text drug names. Every legal row is edited in place and hard-deleted by any staff member for any date. The cross-month early-resupply check never runs. POYC dates new entries to the first of the month. Printed DDA reports do not escape names.</p></div>
+    <div class="rule"><h3>Honesty</h3><p>Shifts says "Shift added" when the call failed. Loyalty says "Recorded" before it sends. End Of Day and Paid Out switch to browser-only storage after one error and keep showing "Saved". Every Cherubino action and all of Near Expiry are silent because the toast function was never defined, so a two-click delete deletes on the second click with no warning. The new shell has one status line and it is always true.</p></div>
+    <div class="rule"><h3>Speed</h3><p>52 files loaded one after another with a timestamp that defeats every cache, 3.4 MB on every visit from GitHub, a third-party CDN inside the boot chain, three auth queries and the module's full schema DDL on every request, 35 requests for the first screen. Target: one versioned bundle, one request, first paint under a second.</p></div>
+  </div>
+</section>
+
+<section>
+  <div class="num">9 · HOW TO BUILD IT WITHOUT BREAKING ANYTHING</div>
   <h2>One screen first, the way Master Universal did it</h2>
   <div class="argue">
     <div>
       <p>This is a structural rewrite of the front end and the riskiest change the product has had. So it is not done as a rewrite. The worker and every API stay as they are. The new shell is a second entry point behind one flag, and the old UI remains the fallback the whole way, the same arrangement the Patient Manager uses today.</p>
       <p><b>Ship Today first.</b> Just the first screen, with inline logging for the fridge, the daily register and cleaning, and the Customers waiting list reading from the existing orders and tickets endpoints. Give it to two pharmacies for two weeks and measure three things: seconds from opening Eikon to the fridge being logged, clicks per pharmacist per day, and how often the old UI gets opened. If those numbers move, port Customers, then Registers, then Stock, one at a time, each tested, each with the old screen a click away.</p>
-      <p>Everything in this review is a relayout of data the worker already serves. Nothing here needs a new table. The only genuinely new engineering is the shared patient book, and that is a worker change, not a screen.</p>
+      <p>The screens are a relayout of data the worker already serves. The engineering underneath is not: the ten shared things in the reliability plan come first, as a new worker module beside the old routes, and the twenty live fixes come before that, on the current code. The shared patient book is built after Customers exists, as its own module with its own event log, because the worker reviewer found none of the primitives it needs.</p>
     </div>
-    <div class="callout"><b>The one sentence for the coding team.</b> Build Today, make it the opening screen, keep the old UI one click away, and do not touch anything else until two pharmacies have lived with it for two weeks. If they love it, port the rest one place at a time. If they do not, you have lost one screen, not a product.</div>
+    <div class="callout"><b>The one sentence for the coding team.</b> Fix the twenty live defects this week, build the ten shared things in the worker, then build Today on top of them, make it the opening screen, keep the old UI one click away, and do not touch anything else until two pharmacies have lived with it for two weeks. If they love it, port the rest one place at a time with the function inventory as the checklist. If they do not, you have lost one screen, not a product.</div>
   </div>
 </section>
 
 <section style="margin-top:56px">
-  <p class="note">Measured on the current <code>main</code> of <code>eikon-ui</code> (commit a588e30): 53 module files, 7 pharmacy categories plus Cherubino, 3 portals, 459 button literals, 735 input literals and 211 modal openings in module source; 77 buttons, 50 rail items and 35 network requests on the first screen with no data; 1,953 lines of help across 39 chapters; intro 4,930 ms. Master Universal reference: <code>Redesigned Patient Manager/Design review.html</code>.</p>
+  <p class="note">Measured on the current <code>main</code> of <code>eikon-ui</code> (commit a588e30): 53 module files, 7 pharmacy categories plus Cherubino, 3 portals, 459 button literals, 735 input literals and 211 modal openings in module source; 77 buttons, 50 rail items and 35 network requests on the first screen with no data; 1,953 lines of help across 39 chapters; intro 4,930 ms. Audit: nine reports in <code>design/eikon-reimagined/audit/</code>, 816 functions, 333 routes. Master Universal reference: <code>Redesigned Patient Manager/Design review.html</code>.</p>
 </section>
 </div>
 
