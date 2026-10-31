@@ -1,15 +1,16 @@
 # Eikon API worker. Deploy from this folder with: npx wrangler deploy
 # Variables set in the Cloudflare dashboard are kept (keep_vars); secrets are never touched.
 name = "eikon-api"
-main = "code"
+# The source lives in the extensionless file "code"; the build step copies it to
+# dist/index.mjs so wrangler and esbuild know it is an ES module.
+main = "dist/index.mjs"
 compatibility_date = "2026-02-05"
 workers_dev = true
 keep_vars = true
 
-# The source file has no extension; tell wrangler it is an ES module.
-[[rules]]
-type = "ESModule"
-globs = ["code"]
+[build]
+command = "mkdir -p dist && cp code dist/index.mjs"
+watch_dir = "."
 
 [[d1_databases]]
 binding = "DB"
