@@ -819,6 +819,7 @@
   //  CLOUD SYNC & REFRESH
   // ============================================================
   var _autoRefreshTimer = null;
+  var _labelTimer = null;
   var _lastRefreshTime  = 0;
 
   async function refreshAll(reason) {
@@ -2584,7 +2585,8 @@
         lastRefreshEl.textContent = "Last refreshed " + (secs < 5 ? "just now" : secs + "s ago") + " • Auto every 30s";
       }
     }
-    setInterval(updateRefreshInfo, 5000);
+    if (_labelTimer) clearInterval(_labelTimer);
+    _labelTimer = setInterval(updateRefreshInfo, 5000);
 
     // ================================================================
     //  VIEW SWITCHING
@@ -3655,7 +3657,12 @@
     title: "Appointments",
     order: 215,
     icon:  "📅",
-    render: render
+    render: render,
+    // Called by the router when the user leaves: stop polling so no other screen pays for it.
+    destroy: function () {
+      if (_autoRefreshTimer) { clearInterval(_autoRefreshTimer); _autoRefreshTimer = null; }
+      if (_labelTimer) { clearInterval(_labelTimer); _labelTimer = null; }
+    }
   });
 
 })();

@@ -25,16 +25,43 @@ const genericList = {
   unread_mentions: 0, unread_messages: 0
 };
 
+let todayState = { tempDone: false, cleanDone: false };
+function todayPayload() {
+  const t = todayYmd;
+  return {
+    ok: true, date: t, time: "09:12", timezone: "Europe/Malta", pharmacy: { name: "Demo Pharmacy", location_id: 12, org: "Test" },
+    before_opening: [
+      { kind: "temperature", device_id: 7, title: "Fridge 1 · reading", sub: "Yesterday 3.8 to 6.4 · limits 2 to 8", status: todayState.tempDone ? "done" : "todo", out_of_range: false, limits: { min: 2, max: 8 }, yesterday: { min: 3.8, max: 6.4 }, today: todayState.tempDone ? { min: 3.9, max: 6.1 } : null, action: { method: "POST", path: "/temperature/entries", body: { device_id: 7, entry_date: t }, fields: ["min_temp", "max_temp", "notes"], label: "Log" } },
+      { kind: "daily_register", title: "Daily register", sub: "No entry yet today", status: "todo", count_today: 0, action: { type: "open", path: "#dailyregister", label: "Open" } },
+      { kind: "cleaning", title: "Cleaning", sub: "Last done 14 days ago by Karl", status: todayState.cleanDone ? "done" : "overdue", days_since: 14, last_date: "2026-10-17", action: { method: "POST", path: "/cleaning/entries", body: { entry_date: t }, fields: ["time_in", "cleaner_name", "staff_name"], label: "Done now" } }
+    ],
+    customers_waiting: [
+      { kind: "order", id: 1, name: "Grech Carmen", phone: "79123456", detail: "Augmentin 625 ×14", code: "A1B2C3", needed_by: t, pickup_date: t, priority: 1, waiting_days: 0, due_today: true, action: { type: "open", path: "#clientorders", label: "Open" } },
+      { kind: "question", id: 2, ref: "TKT-00001", name: "Vella Joseph", phone: "79000000", detail: "do you stock the Omron M3 monitor?", status: "Open", priority: 2, waiting_days: 3, followup_date: null, action: { type: "open", path: "#tickets", label: "Reply" } }
+    ],
+    attention: [
+      { kind: "near_expiry", expired_count: 0, due30_count: 1, first: "Enalapril 20mg", first_expiry: t, title: "1 expiring within 30 days", action: { type: "open", path: "#nearexpiry", label: "Open" } },
+      { kind: "certificate", title: "Fire extinguisher", status: "due_soon", due: t, days: 12, action: { type: "open", path: "#certificates", label: "Open" } }
+    ],
+    takings: { end_of_day_saved: false, end_of_day_locked: false, paid_out_today: 12.5, paid_out_count: 1, action: { type: "open", path: "#endofday", label: "Close the day" } },
+    stock: { supplier_orders_pending: 1, supplier_orders_shipped: 0 },
+    team: { on_today: [{ name: "Maria", role: "pharmacist", from: "09:00", to: "19:00" }, { name: "Karl", role: "assistant", from: "13:00", to: "19:00" }], handover_incoming: [{ text: "Courier at 16:00, box for Dr Galea", sev: "medium" }], notes_today: "" },
+    counts: { before_opening: (todayState.tempDone ? 0 : 1) + 1 + (todayState.cleanDone ? 0 : 1), customers_waiting: 2, attention: 2 }
+  };
+}
 function mockApi(req, res, body) {
   const url = new URL(req.url, "http://x");
   const p = url.pathname;
   calls.push({ method: req.method, path: p, query: url.search, body });
   if (p === "/__test401") { res.writeHead(401, { "content-type": "application/json" }); return res.end(JSON.stringify({ ok: false, error: "Unauthorized" })); }
   res.writeHead(200, { "content-type": "application/json" });
+  if (p === "/today") return res.end(JSON.stringify(todayPayload()));
   if (p === "/auth/me") return res.end(JSON.stringify({ ok: true, user: { id: 1, user_id: 1, email: "p@x.com", full_name: "Maria Borg", org_id: 1, location_id: 12, location_name: "Demo Pharmacy", role: "admin" } }));
   if (p === "/temperature/devices") return res.end(JSON.stringify({ ok: true, devices: [{ id: 7, name: "Fridge 1", device_type: "fridge", min_limit: 2, max_limit: 8, active: 1 }] }));
   if (p === "/temperature/entries" && req.method === "GET") return res.end(JSON.stringify({ ok: true, entries: [] }));
   if (p === "/dda-purchases/entries" && req.method === "GET") return res.end(JSON.stringify({ ok: true, entries: [{ id: 5, entry_date: todayYmd, dda_name_dose: "Morphine 10mg", quantity: 2, agent: "Supplier", invoice_number: "INV-1" }] }));
+  if (p === "/temperature/entries" && req.method === "POST") { todayState.tempDone = true; return res.end(JSON.stringify({ ok: true, entry_id: 1 })); }
+  if (p === "/cleaning/entries" && req.method === "POST") { todayState.cleanDone = true; return res.end(JSON.stringify({ ok: true, entry: { id: 1 } })); }
   if (req.method === "GET") return res.end(JSON.stringify(genericList));
   return res.end(JSON.stringify({ ok: true, id: 1 }));
 }
@@ -192,6 +219,73 @@ const expired = await page.evaluate(async () => {
   return { threw: !!threw, status: threw && threw.status, loginShown: !!login, text: login ? login.textContent : "", token: localStorage.getItem("eikon_token"), returnHash: E._returnHash };
 });
 report("core: a 401 shows the sign-in screen, clears the token and remembers the screen", expired.threw && expired.status === 401 && expired.loginShown && /session has ended/i.test(expired.text) && !expired.token && expired.returnHash === "#temperature", JSON.stringify(expired).slice(0, 300));
+
+// 10. Today screen behind the flag
+await page.evaluate(() => { localStorage.setItem("eikon_token", "x"); localStorage.setItem("eikon_active_role", "pharmacy"); localStorage.setItem("eikon_ui2", "1"); });
+await fetch(`http://localhost:${PORT}/__reset`);
+await page.goto(base + "&ui=2");
+await page.waitForFunction(() => window.EIKON && window.EIKON.state && window.EIKON.state.user && document.querySelector(".tdy-head h1"), null, { timeout: 15000 });
+await page.waitForTimeout(600);
+const today1 = await page.evaluate(() => ({
+  hash: location.hash, light: document.documentElement.hasAttribute("data-ui2"), intro: !!document.getElementById("eikon-intro-overlay"),
+  h1: document.querySelector(".tdy-head h1").textContent, rows: document.querySelectorAll(".tdy-row").length,
+  oldLink: !!document.querySelector('[data-open="#dashboard"]'), calls: null
+}));
+const callsBoot = await (await fetch(`http://localhost:${PORT}/__calls`)).json();
+const todayCalls = callsBoot.filter((c) => c.path === "/today").length;
+const otherGets = callsBoot.filter((c) => c.method === "GET" && c.path !== "/today" && c.path !== "/auth/me").length;
+report("today: opens first under the flag, light shell, no intro, headline and rows render", today1.hash === "#today" && today1.light && !today1.intro && /3 things before the doors open/.test(today1.h1) && today1.rows === 5 && today1.oldLink, JSON.stringify(today1));
+report("today: the screen is one request", todayCalls >= 1 && otherGets === 0, `today=${todayCalls} otherGets=${otherGets} ${JSON.stringify(callsBoot.map((c) => c.path))}`);
+
+// blank fridge fields are refused, nothing posted
+await fetch(`http://localhost:${PORT}/__reset`);
+await page.click('.tdy-row[data-kind="temperature"] [data-act="temp"]');
+await page.waitForTimeout(300);
+let posts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST");
+const toastBlank = await page.evaluate(() => Array.from(document.querySelectorAll(".eikon-toast")).map((t) => t.textContent).join(" | "));
+report("today: blank fridge fields post nothing and say so", posts.length === 0 && /Nothing was saved/.test(toastBlank), `posts=${posts.length} toast=${toastBlank}`);
+
+// typing min, max and pressing Enter logs the fridge with the right body and the row turns done
+await page.fill('.tdy-row[data-kind="temperature"] [data-min]', "3.9");
+await page.fill('.tdy-row[data-kind="temperature"] [data-max]', "6.1");
+await page.press('.tdy-row[data-kind="temperature"] [data-max]', "Enter");
+await page.waitForTimeout(900);
+posts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST" && c.path === "/temperature/entries");
+const afterLog = await page.evaluate(() => ({ h1: document.querySelector(".tdy-head h1").textContent, pill: (document.querySelector('.tdy-row[data-kind="temperature"] .tdy-pill') || {}).textContent, inputs: document.querySelectorAll('.tdy-row[data-kind="temperature"] input').length }));
+report("today: min, max, Enter logs the fridge in one request and the row turns done", posts.length === 1 && posts[0].body && posts[0].body.device_id === 7 && posts[0].body.min_temp === 3.9 && posts[0].body.max_temp === 6.1 && /Logged 3.9 to 6.1/.test(afterLog.pill || "") && afterLog.inputs === 0 && /2 things/.test(afterLog.h1), JSON.stringify({ posts, afterLog }));
+
+// cleaning: Done now asks for one name, then records
+await fetch(`http://localhost:${PORT}/__reset`);
+await page.click('.tdy-row[data-kind="cleaning"] [data-act="clean"]');
+await page.waitForTimeout(200);
+await page.fill('.tdy-row[data-kind="cleaning"] [data-cleaner]', "Karl");
+await page.click('.tdy-row[data-kind="cleaning"] [data-act="clean"]');
+await page.waitForTimeout(900);
+posts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST" && c.path === "/cleaning/entries");
+const afterClean = await page.evaluate(() => (document.querySelector('.tdy-row[data-kind="cleaning"] .tdy-pill') || {}).textContent);
+report("today: cleaning Done now records who and when", posts.length === 1 && posts[0].body.cleaner_name === "Karl" && posts[0].body.staff_name === "Maria Borg" && /Done today/.test(afterClean || ""), JSON.stringify({ posts, afterClean }));
+
+// search: a customer's name opens their screen; Enter on a register name opens it
+await page.fill("#tdy-q", "grech");
+await page.press("#tdy-q", "Enter");
+await page.waitForTimeout(300);
+const openedCustomer = await page.evaluate(() => location.hash);
+await page.evaluate(() => { location.hash = "#today"; });
+await page.waitForTimeout(800);
+await page.fill("#tdy-q", "temperature");
+await page.press("#tdy-q", "Enter");
+await page.waitForTimeout(300);
+const openedModule = await page.evaluate(() => location.hash);
+report("today: search opens a customer or a register on Enter", openedCustomer === "#clientorders" && openedModule === "#temperature", `${openedCustomer} ${openedModule}`);
+
+// screenshot for the review (reset the mock so the screen shows a morning with work to do)
+todayState = { tempDone: false, cleanDone: false };
+await page.evaluate(() => { location.hash = "#today"; });
+await page.waitForTimeout(1200);
+await page.setViewportSize({ width: 1440, height: 900 });
+await page.screenshot({ path: path.join(here, "..", "..", "design", "eikon-reimagined", "prototype", "04 Today, built.png") });
+// leave the flag off for the next run
+await page.evaluate(() => { localStorage.removeItem("eikon_ui2"); });
 
 await browser.close();
 server.close();

@@ -835,3 +835,27 @@ a:hover{text-decoration:underline}
   .eikon-role-options{flex-direction:column;align-items:center;}
   .eikon-role-option{max-width:100%;flex:1 1 auto;}
 }
+
+
+/* ── Reimagined shell (flag ui=2): a light surface for a bright room ── */
+html[data-ui2]{
+  --bg:#F4F6F8;
+  --panel:#FFFFFF;
+  --panel2:#FFFFFF;
+  --text:#141B24;
+  --muted:#5B6675;
+  --border:#E2E7ED;
+  --accent:#1F5FD8;
+  --danger:#BF3B2E;
+  --ok:#1C8A5B;
+}
+html[data-ui2] .eikon-btn{background:#fff}
+html[data-ui2] .eikon-btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+html[data-ui2] .eikon-nav-btn:hover{background:rgba(31,95,216,.06);border-color:transparent}
+html[data-ui2] .eikon-nav-btn.active{background:#E6EEFC;border-color:#E6EEFC;color:var(--accent)}
+html[data-ui2] .eikon-card{background:#fff}
+html[data-ui2] .eikon-input,html[data-ui2] .eikon-select,html[data-ui2] .eikon-textarea{background:#fff}
+html[data-ui2] .eikon-table th{background:#F4F6F8}
+html[data-ui2] .eikon-topbar{background:#fff}
+html[data-ui2] .eikon-nav-search-input{background:#fff}
+html[data-ui2] .eikon-toast{background:#1b2332;color:#fff}

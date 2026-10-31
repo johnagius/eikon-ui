@@ -22,7 +22,23 @@
   };
 
   // Intro can be disabled by adding ?intro=0 to the iframe URL
+
+  // The reimagined opening screen. ?ui=2 turns it on for this browser (remembered),
+  // ?ui=1 turns it off. #today works at any time; #dashboard stays one click away.
+  (function initUi2() {
+    try {
+      var u = new URL(window.location.href);
+      var v = u.searchParams.get("ui");
+      if (v === "2") window.localStorage.setItem("eikon_ui2", "1");
+      else if (v === "1") window.localStorage.removeItem("eikon_ui2");
+    } catch (e) {}
+  })();
+  E.isUi2 = function () { try { return window.localStorage.getItem("eikon_ui2") === "1"; } catch (e) { return false; } };
   E.isIntroEnabled = function () {
+    if (E.isUi2()) return false; // no film before work
+    return E._isIntroEnabledOriginal ? E._isIntroEnabledOriginal() : true;
+  };
+  E._isIntroEnabledOriginal = function () {
     try {
       var u = new URL(window.location.href);
       var v = String(u.searchParams.get("intro") || "").trim().toLowerCase();
@@ -853,7 +869,8 @@
       if (E.state.user && Number(E.state.user.org_id) === 12) {
         E._activeSidebarCategories.push({ label: "Cherubino", icon: "\uD83C\uDFE5", moduleIds: ["cherubino-orders", "cherubino-prices", "cherubino-shortexpiry", "cherubino-oos"] });
       }
-      E._sectionDashboardId = "dashboard";
+      E._sectionDashboardId = (E.isUi2() && E.modules.today) ? "today" : "dashboard";
+      try { document.documentElement.toggleAttribute("data-ui2", E.isUi2()); } catch (e) {}
       return E.bootAuthed();
     } else if (role === E.ROLE_SUPPLIER) {
       return E.bootSection("supplier");
@@ -1313,6 +1330,7 @@
       try { E.modules[leaving].destroy(); } catch (eD) { E.warn("[router] destroy failed for", leaving, eD); }
     }
     E.state.activeModuleId = id;
+    E._lastRenderedHash = window.location.hash;
     E.highlightNav();
 
     // module title text (do NOT overwrite the topbar logo)
@@ -1379,6 +1397,8 @@
     window.addEventListener("hashchange", function () {
       E.dbg("[router] hashchange:", window.location.hash);
       if (!E.state.user) return;
+      // The boot sets the hash itself and renders; do not render the same screen twice.
+      if (E._lastRenderedHash === window.location.hash && E.state.activeModuleId === E.getHashModuleId()) return;
       E.renderActiveModule();
     });
 
