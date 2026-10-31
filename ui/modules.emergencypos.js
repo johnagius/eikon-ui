@@ -181,6 +181,8 @@
     var discPct = Math.min(10, Math.max(0, Number(state.discount) || 0));
     var discountAmt = round2(subtotal * discPct / 100);
     var total = round2(subtotal - discountAmt);
+    // VAT is part of the price; a discount reduces the VAT in the same proportion.
+    vatTotal = round2(vatTotal * (1 - discPct / 100));
     return { subtotal: subtotal, vatTotal: vatTotal, discountPct: discPct, discountAmt: discountAmt, total: total };
   }
 
@@ -455,6 +457,10 @@
     var payMethod = state.payment.method || "cash";
     var tendered = parseFloat(state.payment.tendered) || 0;
     var change = payMethod === "cash" ? round2(tendered - tots.total) : 0;
+    if (payMethod === "cash" && tendered + 0.005 < tots.total) {
+      showToast("Amount tendered (" + tendered.toFixed(2) + ") is less than the total (" + tots.total.toFixed(2) + "). Enter what the customer handed over.", "err");
+      return;
+    }
     var saleDate = todayYmd();
     var offlineId = uid();
     var receiptNo = "R-" + new Date().toISOString().replace(/[^0-9]/g,"").slice(0,14);
@@ -558,7 +564,17 @@
         if (!rows.length) { showToast("No rows found in XLSX.", "warn"); state.importing = false; renderCatalogTab(); return; }
         var products = mapXlsxRows(rows);
         log("Mapped products:", products.length);
-        uploadProducts(products, file);
+        if (!products.length) { showToast("No usable rows: each needs a name.", "warn"); state.importing = false; renderCatalogTab(); return; }
+        uploadProducts(products, file).then(async function () {
+          showToast("Catalogue imported: " + products.length + " products.", "ok");
+          try { await apiLoadCatalog(); } catch (eL) {}
+        }).catch(function (eU) {
+          err("catalog upload failed", eU);
+          showToast("Import failed: " + ((eU && eU.message) || eU) + ". The old list may be partly replaced; import again.", "err");
+        }).then(function () {
+          state.importing = false;
+          renderCatalogTab();
+        });
       } catch(e) {
         err("XLSX parse error", e);
         showToast("XLSX parse error: " + (e && e.message), "err");
@@ -662,10 +678,7 @@
 
     // progress UI helper
     function setProgress(msg, pct) {
-      var el = document.getElementById("eposUploadProgress");
-      if (!el) return;
-      el.textContent = msg;
-      if (typeof pct === "number") el.dataset.pct = String(pct);
+      try { renderCatalogImportProgress(typeof pct === "number" ? pct : 0, msg); } catch (e) {}
     }
 
     console.log("[EIKON][epos][ui] upload start", { total: total, batchSize: batchSize, minBatchSize: minBatchSize, maxBatchSize: maxBatchSize });
@@ -719,52 +732,25 @@
             break;
           }
 
-          // If we get here, resp.ok is false
-          var status = resp && resp.status ? resp.status : 0;
-          var is503 = status === 503;
-          var is429 = status === 429;
-          var is5xx = status >= 500 && status < 600;
-
-          // Try to detect CF worker limit (1102) in response body
-          var bodyText = "";
-          try { bodyText = (resp && typeof resp.text === "function") ? await resp.text() : ""; } catch (e) {}
-
-          var looksLike1102 = bodyText && (bodyText.indexOf("Worker exceeded resource limits") >= 0 || bodyText.indexOf("1102") >= 0);
-
-          console.warn("[EIKON][epos][ui] upload failed", { ms: Date.now() - tBatch0, status: status, looksLike1102: !!looksLike1102, body: (bodyText || "").slice(0, 500) });
-          lastErr = new Error("Upload failed: HTTP " + status + (looksLike1102 ? " (CF 1102)" : "") + (bodyText ? (" | body: " + bodyText.slice(0, 200)) : ""));
-
-          // Backoff: on 429/503/5xx, retry; otherwise stop.
-          if (is429 || is503 || looksLike1102 || is5xx) {
-            // If the worker is choking, reduce batch size for next try.
-            if (is503 || looksLike1102) {
-              var newSize = Math.max(minBatchSize, Math.floor(batchSize / 2));
-              if (newSize < batchSize) {
-                batchSize = newSize;
-                // rebuild chunk with smaller batch
-                end = Math.min(total, done + batchSize);
-                chunk = products.slice(done, end);
-              }
-            }
-
-            attempt += 1;
-            var wait = Math.min(8000, 500 * Math.pow(2, attempt)); // cap at 8s
-            setProgress("Upload retry " + attempt + "/6 … (batch " + batchSize + ", waiting " + wait + "ms)", Math.round((done / total) * 100));
-            await sleep(wait);
-            continue;
-          }
-
-          // Non-retryable
-          throw lastErr;
+          // apiFetch throws on any non-2xx, so reaching here without ok means a malformed body.
+          throw new Error("Upload failed: unexpected response");
 
         } catch (err) {
           lastErr = err;
-          try { console.warn("[EIKON][epos][ui] upload exception", { attempt: attempt + 1, err: err && (err.stack || err.message || String(err)) }); } catch(_e) {}
-          // Network or unexpected error; retry a few times with backoff
+          try { console.warn("[EIKON][epos][ui] upload exception", { attempt: attempt + 1, status: err && err.status, err: err && (err.stack || err.message || String(err)) }); } catch(_e) {}
+          var st = err && err.status ? Number(err.status) : 0;
+          var bt = String((err && (err.bodyText || err.message)) || "");
+          var looksLike1102 = bt.indexOf("Worker exceeded resource limits") >= 0 || bt.indexOf("1102") >= 0;
+          var retryable = !st || st === 429 || st === 503 || (st >= 500 && st < 600) || looksLike1102;
+          if (!retryable) break; // a 4xx is a real error; retrying will not help
+          if (st === 503 || looksLike1102) {
+            var newSize = Math.max(minBatchSize, Math.floor(batchSize / 2));
+            if (newSize < batchSize) { batchSize = newSize; end = Math.min(total, done + batchSize); chunk = products.slice(done, end); }
+          }
           attempt += 1;
           if (attempt >= 6) break;
           var wait2 = Math.min(8000, 500 * Math.pow(2, attempt));
-          setProgress("Upload error, retry " + attempt + "/6 … (waiting " + wait2 + "ms)", Math.round((done / total) * 100));
+          setProgress("Upload error, retry " + attempt + "/6 … (batch " + batchSize + ", waiting " + wait2 + "ms)", Math.round((done / total) * 100));
           await sleep(wait2);
         }
       }

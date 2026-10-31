@@ -2748,14 +2748,23 @@ async function handleSupplierProductsBulkImport(request, env, corsOkHeaders, aut
     if (key) oldByDesc[key] = p;
   }
 
-  // Delete all existing products
-  await dbRun(env, "DELETE FROM supplier_products WHERE org_id = ? AND location_id = ?",
-    [authUser.org_id, authUser.location_id]);
-
-  // Insert new rows
+  // Validate and prepare every row first; then replace the catalogue in ONE atomic batch
+  // (delete + inserts). A failure half-way can no longer leave the supplier with an empty
+  // or partial list. Out-of-stock flags survive by description, so an import does not put
+  // everything back "in stock".
   let imported = 0;
   const errors = [];
   const newDescKeys = new Set();
+  const stmts = [];
+  stmts.push(env.DB.prepare("DELETE FROM supplier_products WHERE org_id = ? AND location_id = ?").bind(authUser.org_id, authUser.location_id));
+
+  const insertSql = `INSERT INTO supplier_products
+       (org_id, location_id, supplier_name, stock_code, barcode, description,
+        cost_excl_vat, cost_incl_vat, vat_rate, discount_pct, discount_euro,
+        qty_purchased, qty_free, batch, expiry_date, retail_price,
+        profit, profit_margin, total_incl_vat, out_of_stock, created_by,
+        created_at, updated_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'),datetime('now'))`;
 
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
@@ -2766,16 +2775,11 @@ async function handleSupplierProductsBulkImport(request, env, corsOkHeaders, aut
     const qtyPurchased = Math.max(1, Math.round(Number(r.qty_purchased) || 1));
     const qtyFree = Math.max(0, Math.round(Number(r.qty_free) || 0));
     const computed = computeItemProfitFields(r);
+    const key = desc.toLowerCase();
+    const prev = oldByDesc[key];
+    const keepOos = prev && Number(prev.out_of_stock || 0) === 1 ? 1 : 0;
 
-    await dbRun(env,
-      `INSERT INTO supplier_products
-       (org_id, location_id, supplier_name, stock_code, barcode, description,
-        cost_excl_vat, cost_incl_vat, vat_rate, discount_pct, discount_euro,
-        qty_purchased, qty_free, batch, expiry_date, retail_price,
-        profit, profit_margin, total_incl_vat, out_of_stock, created_by,
-        created_at, updated_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,?,datetime('now'),datetime('now'))`,
-      [
+    stmts.push(env.DB.prepare(insertSql).bind(
         authUser.org_id, authUser.location_id, supplierName,
         String(r.stock_code || "").trim(), String(r.barcode || "").trim(), desc,
         computed.cost_excl_vat, computed.cost_incl_vat, vatRate,
@@ -2783,12 +2787,15 @@ async function handleSupplierProductsBulkImport(request, env, corsOkHeaders, aut
         qtyPurchased, qtyFree,
         String(r.batch || "").trim(), String(r.expiry_date || "").trim(),
         computed.retail_price, computed.profit, computed.profit_margin, computed.total_incl_vat,
-        authUser.user_id
-      ]
-    );
+        keepOos, authUser.user_id
+    ));
     imported++;
-    newDescKeys.add(desc.toLowerCase().trim());
+    newDescKeys.add(key);
   }
+
+  if (imported === 0) return jsonResponse({ ok: false, error: "No valid rows (every row needs a description)", errors }, 400, corsOkHeaders);
+
+  await env.DB.batch(stmts);
 
   // Generate stock change notifications by comparing old vs new
   const changes = [];
@@ -3325,6 +3332,7 @@ function nearExpiryRowToUi(r) {
 
 
 async function ensureNearExpirySchema(env) {
+  try { await ensureReturnsSchema(env); } catch (e) { /* returns schema is created by its own module; needed here for the joins */ }
   await dbRun(
     env,
     `CREATE TABLE IF NOT EXISTS near_expiry_entries (
@@ -11004,8 +11012,12 @@ function ssCanSeeSensitive(authUser, aOrg, aLoc, bOrg, bLoc) {
 
 // ----- Scarce stock depletion → auto-delete linked near expiry, remove from transfer, remove from returns
 async function checkScarceStockDepletion(env, offerId, authUser) {
+  // When an offer is fully requested it is CLOSED. Nothing is deleted: the near-expiry
+  // entry, the returns entry and any transfer item stay on record (the transfer item is
+  // closed, not removed). Deleting them here destroyed other modules' work from a mere
+  // request by another pharmacy.
   const offer = await dbFirst(env,
-    "SELECT id, org_id, location_id, quantity_available, near_expiry_id, placed_on_returns, placed_on_returns_id, transfer_item_id FROM scarce_stock_offers WHERE id=?",
+    "SELECT id, org_id, location_id, quantity_available, is_closed, near_expiry_id, transfer_item_id FROM scarce_stock_offers WHERE id=?",
     [offerId]
   );
   if (!offer) return;
@@ -11015,61 +11027,21 @@ async function checkScarceStockDepletion(env, offerId, authUser) {
     [offerId]
   );
   const remaining = Number(offer.quantity_available || 0) - Number(totalReq?.total || 0);
+  if (remaining > 0) return;
 
-  if (remaining <= 0) {
-    // Stock fully requested — remove linked near expiry entry
-    if (offer.near_expiry_id) {
-      await ensureNearExpirySchema(env);
-      const neRow = await dbFirst(env,
-        "SELECT id FROM near_expiry_entries WHERE id=? AND org_id=? AND location_id=?",
-        [offer.near_expiry_id, offer.org_id, offer.location_id]
-      );
-      if (neRow) {
-        await dbRun(env, "DELETE FROM near_expiry_entries WHERE id=? AND org_id=? AND location_id=?",
-          [offer.near_expiry_id, offer.org_id, offer.location_id]);
-        await dbRun(env, "UPDATE scarce_stock_offers SET near_expiry_id=NULL, updated_at=datetime('now') WHERE id=?", [offerId]);
-        await writeAudit(env, offer.org_id, authUser.user_id,
-          "NEAR_EXPIRY_AUTO_DELETE", "near_expiry_entries", String(offer.near_expiry_id),
-          { reason: "scarce_stock_depleted", offer_id: offerId }
-        );
-      }
-    }
+  if (Number(offer.is_closed || 0) !== 1) {
+    await dbRun(env, "UPDATE scarce_stock_offers SET is_closed=1, updated_at=datetime('now') WHERE id=?", [offerId]);
+    await writeAudit(env, offer.org_id, authUser.user_id, "SCARCE_OFFER_DEPLETED", "scarce_stock_offers", String(offerId), { quantity_available: offer.quantity_available, requested: Number(totalReq?.total || 0) });
+  }
 
-    // Remove linked returns entry if placed via scarce stock
-    if (offer.placed_on_returns && offer.placed_on_returns_id) {
-      await dbRun(env, "DELETE FROM returns_entries WHERE id=? AND org_id=? AND location_id=?",
-        [offer.placed_on_returns_id, offer.org_id, offer.location_id]);
-      await dbRun(env, "UPDATE scarce_stock_offers SET placed_on_returns=0, placed_on_returns_id=NULL, updated_at=datetime('now') WHERE id=?", [offerId]);
-      await writeAudit(env, offer.org_id, authUser.user_id,
-        "RETURNS_AUTO_DELETE", "returns_entries", String(offer.placed_on_returns_id),
-        { reason: "scarce_stock_depleted", offer_id: offerId }
-      );
-    }
-
-    // Remove from stock transfer if this scarce stock offer was placed there
-    if (offer.transfer_item_id) {
-      await ensureStockTransfersSchema(env);
-      await dbRun(env, "DELETE FROM stock_transfer_requests WHERE item_id = ?", [offer.transfer_item_id]);
-      await dbRun(env, "DELETE FROM stock_transfer_items WHERE id = ?", [offer.transfer_item_id]);
-      await dbRun(env, "UPDATE scarce_stock_offers SET transfer_item_id=NULL, updated_at=datetime('now') WHERE id=?", [offerId]);
-      await writeAudit(env, offer.org_id, authUser.user_id,
-        "STOCK_TRANSFER_AUTO_DELETE", "stock_transfer_items", String(offer.transfer_item_id),
-        { reason: "scarce_stock_depleted", offer_id: offerId }
-      );
-    }
-    // Also check if a transfer item links back to this scarce stock offer via placed_on_scarce_stock_id
-    await ensureStockTransfersSchema(env);
-    const linkedTransfer = await dbFirst(env,
-      "SELECT id FROM stock_transfer_items WHERE placed_on_scarce_stock_id = ? AND org_id = ? AND location_id = ? AND is_closed = 0",
-      [offerId, offer.org_id, offer.location_id]
-    );
-    if (linkedTransfer) {
-      await dbRun(env, "UPDATE stock_transfer_items SET is_closed = 1, close_reason = 'Scarce stock depleted', updated_at = datetime('now'), updated_by = ? WHERE id = ?", [authUser.user_id, linkedTransfer.id]);
-      await writeAudit(env, offer.org_id, authUser.user_id,
-        "STOCK_TRANSFER_AUTO_CLOSE", "stock_transfer_items", String(linkedTransfer.id),
-        { reason: "scarce_stock_depleted", offer_id: offerId }
-      );
-    }
+  await ensureStockTransfersSchema(env);
+  const linked = await dbAll(env,
+    "SELECT id FROM stock_transfer_items WHERE (id = ? OR placed_on_scarce_stock_id = ?) AND org_id = ? AND location_id = ? AND is_closed = 0",
+    [offer.transfer_item_id || 0, offerId, offer.org_id, offer.location_id]
+  );
+  for (const t of linked) {
+    await dbRun(env, "UPDATE stock_transfer_items SET is_closed = 1, close_reason = 'Scarce stock fully requested', updated_at = datetime('now'), updated_by = ? WHERE id = ?", [authUser.user_id, t.id]);
+    await writeAudit(env, offer.org_id, authUser.user_id, "STOCK_TRANSFER_AUTO_CLOSE", "stock_transfer_items", String(t.id), { reason: "scarce_stock_depleted", offer_id: offerId });
   }
 }
 
@@ -11402,15 +11374,23 @@ async function handleScarceOfferRequestCreate(request, env, corsOkHeaders, authU
   const id = Number(offerId);
   if (!Number.isFinite(id) || id <= 0) return jsonResponse({ ok: false, error: "Invalid offer id" }, 400, corsOkHeaders);
 
-  const offer = await dbFirst(env, `SELECT id, is_closed FROM scarce_stock_offers WHERE id = ?`, [id]);
+  const offer = await dbFirst(env, `SELECT id, is_closed, org_id, location_id, quantity_available FROM scarce_stock_offers WHERE id = ?`, [id]);
   if (!offer) return jsonResponse({ ok: false, error: "Offer not found" }, 404, corsOkHeaders);
   if (Number(offer.is_closed || 0) === 1) return jsonResponse({ ok: false, error: "Offer is closed" }, 400, corsOkHeaders);
+  if (offer.org_id === authUser.org_id && offer.location_id === authUser.location_id) {
+    return jsonResponse({ ok: false, error: "You cannot request your own offer" }, 400, corsOkHeaders);
+  }
 
   const body = await readJson(request);
   const qty = ssIntNonNeg(body.quantity_requested);
   const note = ssText(body.note, 4000);
 
   if (qty === null || qty <= 0) return jsonResponse({ ok: false, error: "Invalid quantity_requested (>= 1)" }, 400, corsOkHeaders);
+
+  // Never request more than is left.
+  const reqSum = await dbFirst(env, "SELECT COALESCE(SUM(quantity_requested), 0) AS total FROM scarce_stock_offer_requests WHERE offer_id = ?", [id]);
+  const left = Number(offer.quantity_available || 0) - Number(reqSum?.total || 0);
+  if (qty > left) return jsonResponse({ ok: false, error: left > 0 ? ("Only " + left + " left on this offer") : "Nothing left on this offer" }, 400, corsOkHeaders);
 
   const res = await dbRun(env, `
     INSERT INTO scarce_stock_offer_requests
@@ -18077,6 +18057,7 @@ async function ensurePosSchema(env) {
     total_rows INTEGER NOT NULL DEFAULT 0,
     UNIQUE(org_id, location_id)
   )`, []);
+  try { await dbRun(env, `ALTER TABLE pos_sales ADD COLUMN discount_pct REAL NOT NULL DEFAULT 0`, []); } catch (e) { /* column exists */ }
 }
 
 async function handlePosCatalogList(request, env, corsOkHeaders, authUser, url) {
@@ -18205,41 +18186,70 @@ async function handlePosSalesList(request, env, corsOkHeaders, authUser, url) {
   return jsonResponse({ ok: true, sales: rows }, 200, corsOkHeaders);
 }
 
+// The server computes the money of a sale from its lines; it never trusts client totals.
+// VAT is extracted from VAT-inclusive prices and reduced by the discount (max 10 %).
+function posComputeSale(body) {
+  const r2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
+  const items = Array.isArray(body.items) ? body.items : [];
+  let subtotal = 0, vat = 0;
+  for (const it of items) {
+    const qty = Number(it && it.qty) || 0;
+    const price = Number(it && it.price) || 0;
+    const line = r2(qty * price);
+    subtotal = r2(subtotal + line);
+    const rate = Number(it && it.vat_rate) || 0;
+    if (rate > 0) vat = r2(vat + r2(line - line / (1 + rate / 100)));
+  }
+  const discountPct = Math.min(10, Math.max(0, Number(body.discount_pct) || 0));
+  const discountAmt = r2(subtotal * discountPct / 100);
+  const total = r2(subtotal - discountAmt);
+  const vatTotal = r2(vat * (1 - discountPct / 100));
+  const paymentMethod = String(body.payment_method || "").trim().toLowerCase() || "cash";
+  const tendered = body.amount_tendered != null && body.amount_tendered !== "" ? r2(body.amount_tendered) : null;
+  const short = paymentMethod === "cash" && (tendered == null || tendered + 0.005 < total);
+  const change = paymentMethod === "cash" && tendered != null ? r2(tendered - total) : null;
+  return { subtotal, vatTotal, discountPct, discountAmt, total, paymentMethod, tendered, change, short };
+}
+
 async function handlePosSaleCreate(request, env, corsOkHeaders, authUser) {
   await ensurePosSchema(env);
   const body = await readJson(request);
   const saleDate = String(body.sale_date || "").trim() || new Date().toISOString().slice(0, 10);
   const receiptNo = String(body.receipt_no || "").trim();
   const itemsJson = JSON.stringify(Array.isArray(body.items) ? body.items : []);
-  const subtotal = Math.max(0, parseFloat(body.subtotal) || 0);
-  const vatTotal = Math.max(0, parseFloat(body.vat_total) || 0);
-  const total = Math.max(0, parseFloat(body.total) || 0);
-  const paymentMethod = String(body.payment_method || "").trim();
-  const amountTendered = body.amount_tendered != null ? parseFloat(body.amount_tendered) || null : null;
-  const changeGiven = body.change_given != null ? parseFloat(body.change_given) || null : null;
+  // A retried sale (same offline_id) is answered idempotently before any validation.
+  const offlineIdEarly = String(body.offline_id || "").trim() || null;
+  if (offlineIdEarly) {
+    const existing = await dbFirst(env, `SELECT id FROM pos_sales WHERE org_id=? AND location_id=? AND offline_id=?`,
+      [authUser.org_id, authUser.location_id, offlineIdEarly]);
+    if (existing) return jsonResponse({ ok: true, id: existing.id, duplicate: true }, 200, corsOkHeaders);
+  }
+  const m = posComputeSale(body);
+  if (!Array.isArray(body.items) || body.items.length === 0) return jsonResponse({ ok: false, error: "A sale needs at least one line" }, 400, corsOkHeaders);
+  if (m.short) return jsonResponse({ ok: false, error: "Amount tendered (" + (m.tendered == null ? "none" : m.tendered.toFixed(2)) + ") is less than the total (" + m.total.toFixed(2) + ")" }, 400, corsOkHeaders);
+  const subtotal = m.subtotal;
+  const vatTotal = m.vatTotal;
+  const total = m.total;
+  const paymentMethod = m.paymentMethod;
+  const amountTendered = m.tendered;
+  const changeGiven = m.change;
   const notes = String(body.notes || "").trim();
   const clientName = String(body.client_name || "").trim();
   const clientId = String(body.client_id || "").trim();
   const offlineId = String(body.offline_id || "").trim() || null;
 
-  if (offlineId) {
-    const existing = await dbFirst(env, `SELECT id FROM pos_sales WHERE org_id=? AND location_id=? AND offline_id=?`,
-      [authUser.org_id, authUser.location_id, offlineId]);
-    if (existing) return jsonResponse({ ok: true, id: existing.id, duplicate: true }, 200, corsOkHeaders);
-  }
-
   const row = await dbFirst(env, `INSERT INTO pos_sales
     (org_id, location_id, sale_date, receipt_no, items_json, subtotal, vat_total, total,
      payment_method, amount_tendered, change_given, notes, client_name, client_id,
-     offline_id, voided, created_by, created_at, updated_at)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,?,datetime('now'),datetime('now'))
+     offline_id, voided, created_by, created_at, updated_at, discount_pct)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,?,datetime('now'),datetime('now'),?)
     RETURNING id`,
     [authUser.org_id, authUser.location_id, saleDate, receiptNo, itemsJson,
      subtotal, vatTotal, total, paymentMethod, amountTendered, changeGiven,
-     notes, clientName, clientId, offlineId, authUser.user_id]);
+     notes, clientName, clientId, offlineId, authUser.user_id, m.discountPct]);
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "EPOS_SALE_CREATE", "pos_sales", String(row.id), { total, payment_method: paymentMethod });
-  return jsonResponse({ ok: true, id: row.id }, 200, corsOkHeaders);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "EPOS_SALE_CREATE", "pos_sales", String(row.id), { total, vat_total: vatTotal, discount_pct: m.discountPct, payment_method: paymentMethod });
+  return jsonResponse({ ok: true, id: row.id, subtotal, vat_total: vatTotal, total, change_given: changeGiven }, 200, corsOkHeaders);
 }
 
 async function handlePosSaleVoid(request, env, corsOkHeaders, authUser, saleId) {
@@ -18270,24 +18280,24 @@ async function handlePosSalesSync(request, env, corsOkHeaders, authUser) {
       if (existing) { results.push({ offline_id: offlineId, ok: true, id: existing.id, duplicate: true }); continue; }
       const saleDate = String(s.sale_date || "").trim() || new Date().toISOString().slice(0, 10);
       const itemsJson = JSON.stringify(Array.isArray(s.items) ? s.items : []);
+      // Queued offline sales are accepted (the money already changed hands) but recomputed;
+      // a short cash sale is kept and flagged in the notes rather than lost.
+      const m = posComputeSale(s);
+      const noteParts = [String(s.notes || "").trim()];
+      if (m.short) noteParts.push("[tendered below total at the till]");
       const row = await dbFirst(env, `INSERT INTO pos_sales
         (org_id, location_id, sale_date, receipt_no, items_json, subtotal, vat_total, total,
          payment_method, amount_tendered, change_given, notes, client_name, client_id,
-         offline_id, voided, created_by, created_at, updated_at)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,?,datetime('now'),datetime('now'))
+         offline_id, voided, created_by, created_at, updated_at, discount_pct)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,?,datetime('now'),datetime('now'),?)
         RETURNING id`,
         [authUser.org_id, authUser.location_id, saleDate,
          String(s.receipt_no || "").trim(), itemsJson,
-         Math.max(0, parseFloat(s.subtotal) || 0),
-         Math.max(0, parseFloat(s.vat_total) || 0),
-         Math.max(0, parseFloat(s.total) || 0),
-         String(s.payment_method || "").trim(),
-         s.amount_tendered != null ? parseFloat(s.amount_tendered) || null : null,
-         s.change_given != null ? parseFloat(s.change_given) || null : null,
-         String(s.notes || "").trim(),
+         m.subtotal, m.vatTotal, m.total, m.paymentMethod, m.tendered, m.change,
+         noteParts.filter(Boolean).join(" "),
          String(s.client_name || "").trim(),
          String(s.client_id || "").trim(),
-         offlineId, authUser.user_id]);
+         offlineId, authUser.user_id, m.discountPct]);
       results.push({ offline_id: offlineId, ok: true, id: row.id });
     } catch (e) {
       results.push({ offline_id: s.offline_id, ok: false, error: String(e && (e.message || e)) });
