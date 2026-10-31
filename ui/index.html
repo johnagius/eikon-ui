@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Eikon</title>
 
-  <!-- We will attach CSS dynamically (with cache-busting) -->
+  <!-- CSS and scripts are attached dynamically with a build stamp (see BUILD below). -->
 </head>
 <body>
   <div id="eikon-root"></div>
@@ -18,16 +18,17 @@
     (function () {
       "use strict";
 
-      function log() {
-        try { console.log.apply(console, arguments); } catch (e) {}
-      }
-      function warn() {
-        try { console.warn.apply(console, arguments); } catch (e) {}
-      }
+      // Bump this when you deploy. It is the only cache-buster: with a fixed value the
+      // browser and the Worker's edge cache can reuse every file (previously every load
+      // used Date.now(), so 52 files were re-downloaded on every visit).
+      var BUILD = "2026-10-31.1";
+
+      function log() { try { console.log.apply(console, arguments); } catch (e) {} }
+      function warn() { try { console.warn.apply(console, arguments); } catch (e) {} }
 
       function withParams(src) {
         var sep = src.indexOf("?") >= 0 ? "&" : "?";
-        return src + sep + "v=" + encodeURIComponent(Date.now());
+        return src + sep + "v=" + encodeURIComponent(BUILD);
       }
 
       function loadCss(href) {
@@ -35,117 +36,131 @@
           var l = document.createElement("link");
           l.rel = "stylesheet";
           l.href = href;
-          l.onload = function () {
-            log("[EIKON][boot] CSS loaded:", href);
-            resolve();
-          };
-          l.onerror = function (e) {
-            warn("[EIKON][boot] CSS FAILED:", href, e);
-            reject(e);
-          };
+          l.onload = function () { resolve(); };
+          l.onerror = function (e) { warn("[EIKON][boot] CSS FAILED:", href, e); reject(new Error("CSS failed: " + href)); };
           document.head.appendChild(l);
         });
       }
 
-      function loadScript(src) {
+      // Scripts are inserted all at once with async=false: the browser downloads them in
+      // parallel and still executes them in this order.
+      function loadScriptsInOrder(srcs) {
         return new Promise(function (resolve, reject) {
-          var s = document.createElement("script");
-          s.src = src;
-          s.async = false;
-          s.defer = false;
-          s.onload = function () {
-            log("[EIKON][boot] JS loaded:", src);
-            resolve();
-          };
-          s.onerror = function (e) {
-            warn("[EIKON][boot] JS FAILED:", src, e);
-            reject(e);
-          };
-          document.head.appendChild(s);
+          var remaining = srcs.length;
+          var failed = false;
+          srcs.forEach(function (src) {
+            var s = document.createElement("script");
+            s.src = src;
+            s.async = false;
+            s.onload = function () {
+              remaining -= 1;
+              if (!failed && remaining === 0) resolve();
+            };
+            s.onerror = function (e) {
+              if (failed) return;
+              failed = true;
+              warn("[EIKON][boot] JS FAILED:", src, e);
+              reject(new Error("Script failed to load: " + src));
+            };
+            document.head.appendChild(s);
+          });
         });
       }
 
-      // Always render something immediately (so black screen never happens silently)
+      // Spreadsheet library for imports. Loaded in the background and never allowed to
+      // block or break the app: the modules that need it check window.XLSX when used.
+      function loadOptionalScript(src) {
+        try {
+          var s = document.createElement("script");
+          s.src = src;
+          s.async = true;
+          s.onerror = function () { warn("[EIKON][boot] optional script failed (imports disabled until reload):", src); };
+          document.head.appendChild(s);
+        } catch (e) {}
+      }
+
       var root = document.getElementById("eikon-root");
       if (root) {
         root.innerHTML =
           '<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;padding:18px;">' +
           '<div style="font-size:18px;font-weight:800;margin-bottom:6px;">Eikon</div>' +
-          '<div style="opacity:0.75;">Loading UI…</div>' +
+          '<div style="opacity:0.75;">Loading…</div>' +
           '</div>';
       }
 
-      // Load in strict order
-      loadCss(withParams("./app.css"))
-        .then(function () { return loadScript(withParams("./core.js")); })
-        .then(function () { return loadScript(withParams("./help-content.js")); })
-        .then(function () { return loadScript(withParams("./modules.dashboard.js")); })
-		.then(function () { return loadScript(withParams("./modules.alerts.js")); })
-		.then(function () { return loadScript(withParams("./modules.shifts.js")); })
-		.then(function () { return loadScript(withParams("./modules.ocps.js")); })
-		.then(function () { return loadScript(withParams("./modules.loyalty.js")); })
-		.then(function () { return loadScript(withParams("./modules.pharmacycalc.js")); })
-		.then(function () { return loadScript(withParams("./modules.returns.js")); })
-		.then(function () { return loadScript(withParams("./modules.paidout.js")); })
-		.then(function () { return loadScript(withParams("./modules.stocktransfers.js")); })
-		.then(function () { return loadScript(withParams("./modules.scarcestock.js")); })
-		.then(function () { return loadScript(withParams("./modules.nearexpiry.js")); })
-		.then(function () { return loadScript(withParams("./modules.locumreceipts.js")); })
-		.then(function () { return loadScript(withParams("./modules.instructions.js")); })
-		.then(function () { return loadScript(withParams("./modules.clientorders.js")); })
-		.then(function () { return loadScript(withParams("./modules.poct.js")); })
-		.then(function () { return loadScript(withParams("./modules.endofday.js")); })
-        .then(function () { return loadScript(withParams("./modules.temperature.js")); })
-        .then(function () { return loadScript(withParams("./modules.cleaning.js")); })
-        .then(function () { return loadScript(withParams("./modules.certificates.js")); })
-		.then(function () { return loadScript(withParams("./modules.dailyregister.js")); })
-		.then(function () { return loadScript(withParams("./modules.repeatprescriptions.js")); })
-		.then(function () { return loadScript(withParams("./modules.ddasales.js")); })
-		.then(function () { return loadScript(withParams("./modules.ddapoyc.js")); })
-		.then(function () { return loadScript(withParams("./modules.ddapurchases.js")); })
-		.then(function () { return loadScript(withParams("./modules.ddastocktakes.js")); })
-		.then(function () { return loadScript(withParams("./modules.locumregister.js")); })
-		.then(function () { return loadScript(withParams("./modules.vaccines.js")); })
-		.then(function () { return loadScript(withParams("./modules.creditnotes.js")); })
-		.then(function () { return loadScript(withParams("./modules.tickets.js")); })
-		.then(function () { return loadScript(withParams("./modules.deliveries.js")); })
-		.then(function () { return loadScript(withParams("./modules.appointments.js")); })
-		.then(function () { return loadScript(withParams("./modules.quotations.js")); })
-		.then(function () { return loadScript(withParams("./modules.orderdiary.js")); })
-		.then(function () { return loadScript(withParams("./modules.emergencypos.js")); })
-		.then(function () { return loadScript(withParams("./modules.audit.js")); })
-		.then(function () { return loadScript(withParams("./modules.messageboard.js")); })
-		.then(function () { return loadScript(withParams("./modules.pharmacovigilance.js")); })
-		.then(function () { return loadScript(withParams("./modules.screening.js")); })
-		.then(function () { return loadScript(withParams("./modules.otcmindmap.js")); })
-		.then(function () { return loadScript(withParams("./modules.labels.js")); })
-		.then(function () { return loadScript(withParams("./modules.contacts.js")); })
-		.then(function () { return loadScript("https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"); })
-		.then(function () { return loadScript(withParams("./modules.supplier-dashboard.js")); })
-		.then(function () { return loadScript(withParams("./modules.supplier-products.js")); })
-		.then(function () { return loadScript(withParams("./modules.supplier-received-orders.js")); })
-		.then(function () { return loadScript(withParams("./modules.supplier-order-feedback.js")); })
-		.then(function () { return loadScript(withParams("./modules.supplier-inventory.js")); })
-		.then(function () { return loadScript(withParams("./modules.company-dashboard.js")); })
-		.then(function () { return loadScript(withParams("./modules.admin-overview.js")); })
-		.then(function () { return loadScript(withParams("./modules.cherubino-orders.js")); })
-		.then(function () { return loadScript(withParams("./modules.cherubino-admin.js")); })
-		.then(function () { return loadScript(withParams("./modules.cherubino-prices.js")); })
-		.then(function () { return loadScript(withParams("./modules.cherubino-shortexpiry.js")); })
-		.then(function () { return loadScript(withParams("./modules.cherubino-oos.js")); })
+      var MODULES = [
+        "./core.js",
+        "./help-content.js",
+        "./modules.dashboard.js",
+        "./modules.alerts.js",
+        "./modules.shifts.js",
+        "./modules.ocps.js",
+        "./modules.loyalty.js",
+        "./modules.pharmacycalc.js",
+        "./modules.returns.js",
+        "./modules.paidout.js",
+        "./modules.stocktransfers.js",
+        "./modules.scarcestock.js",
+        "./modules.nearexpiry.js",
+        "./modules.locumreceipts.js",
+        "./modules.instructions.js",
+        "./modules.clientorders.js",
+        "./modules.poct.js",
+        "./modules.endofday.js",
+        "./modules.temperature.js",
+        "./modules.cleaning.js",
+        "./modules.certificates.js",
+        "./modules.dailyregister.js",
+        "./modules.repeatprescriptions.js",
+        "./modules.ddasales.js",
+        "./modules.ddapoyc.js",
+        "./modules.ddapurchases.js",
+        "./modules.ddastocktakes.js",
+        "./modules.locumregister.js",
+        "./modules.vaccines.js",
+        "./modules.creditnotes.js",
+        "./modules.tickets.js",
+        "./modules.deliveries.js",
+        "./modules.appointments.js",
+        "./modules.quotations.js",
+        "./modules.orderdiary.js",
+        "./modules.emergencypos.js",
+        "./modules.audit.js",
+        "./modules.messageboard.js",
+        "./modules.pharmacovigilance.js",
+        "./modules.screening.js",
+        "./modules.otcmindmap.js",
+        "./modules.labels.js",
+        "./modules.contacts.js",
+        "./modules.supplier-dashboard.js",
+        "./modules.supplier-products.js",
+        "./modules.supplier-received-orders.js",
+        "./modules.supplier-order-feedback.js",
+        "./modules.supplier-inventory.js",
+        "./modules.company-dashboard.js",
+        "./modules.admin-overview.js",
+        "./modules.cherubino-orders.js",
+        "./modules.cherubino-admin.js",
+        "./modules.cherubino-prices.js",
+        "./modules.cherubino-shortexpiry.js",
+        "./modules.cherubino-oos.js",
+        "./main.js"
+      ].map(withParams);
 
-        .then(function () { return loadScript(withParams("./main.js")); })
-        .then(function () {
-          log("[EIKON][boot] All assets loaded.");
-        })
+      loadOptionalScript("https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js");
+
+      loadCss(withParams("./app.css"))
+        .then(function () { return loadScriptsInOrder(MODULES); })
+        .then(function () { log("[EIKON][boot] loaded build", BUILD); })
         .catch(function (e) {
           warn("[EIKON][boot] Boot failed:", e);
           if (root) {
             root.innerHTML =
               '<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;padding:18px;">' +
               '<div style="font-size:18px;font-weight:800;margin-bottom:6px;color:#b00020;">Eikon failed to load</div>' +
-              '<div style="white-space:pre-wrap;background:#fff;border:1px solid #ddd;padding:12px;border-radius:10px;">' +
-              String(e && (e.stack || e.message || e)) +
+              '<div style="margin-bottom:10px;">Check the connection and reload the page. If it keeps happening, tell us the message below.</div>' +
+              '<div style="white-space:pre-wrap;background:#fff;color:#111;border:1px solid #ddd;padding:12px;border-radius:10px;">' +
+              String(e && (e.message || e)) +
               "</div></div>";
           }
         });

@@ -237,6 +237,17 @@ rebuild uses one delta endpoint (`GET /changes?since=seq`) that the shell polls
 every ten seconds, which also drives the Master Universal book (§5). Each write
 bumps a per-location sequence; the response says which screens are stale.
 
+### 3.5a Done so far on the current code (measured with the test harness)
+
+| Change | Before | After |
+|---|---|---|
+| Schema DDL per request | every handler re-ran its CREATE/ALTER statements | once per isolate per database (`schemaOnce`); a failed run is retried on the next request |
+| D1 statements for a 23-request dashboard-equivalent load | 230 (118 of them DDL) | 100 on a warm isolate (0 DDL) |
+| Script loading | 52 files one after another, `?v=Date.now()` on each | all files requested at once, executed in order, one `BUILD` stamp in `index.html` so browser and edge caches work; bump `BUILD` on deploy |
+| SheetJS | inside the mandatory boot chain, from a third-party CDN | loaded in the background; a failure disables imports until reload instead of taking the app down |
+| API client | no timeout, no retry, 401 shown as an error on every screen | 20 s timeout, one retry for reads on network errors and 502/503/504, a 401 shows sign-in once, keeps the place and returns to it after sign-in |
+| Module lifecycle | timers and listeners survived navigation | the router calls a module's `destroy()` when leaving it (modules that define one) |
+
 ### 3.6 Expected outcome
 
 Measured locally on an empty pharmacy the current first screen takes 35

@@ -19,8 +19,10 @@ Pass a substring to run a subset: `node --no-warnings tests/worker/run.mjs "end 
 - `d1shim.mjs`: the D1 look-alike (`prepare().bind().first()/all()/run()`, `exec`, `batch`).
 - `harness.mjs`: loads the worker, creates the eleven core tables the worker
   expects to pre-exist, and provides `api()`, `bootstrap()` and `addUser()`.
-- `*.test.mjs`: the tests. `fixes.test.mjs` holds the regressions for the live
-  defects listed in `design/eikon-reimagined/RELIABILITY-AND-SPEED.md` §1.
+- `*.test.mjs`: the tests. `fixes.test.mjs`, `state-merge.test.mjs`, `auth.test.mjs`
+  and `stock.test.mjs` hold the regressions for the live defects listed in
+  `design/eikon-reimagined/RELIABILITY-AND-SPEED.md` §1; `speed.test.mjs` guards
+  the once-per-isolate schema rule.
 
 ## UI (`tests/ui/`)
 

@@ -1368,7 +1368,7 @@ async function handleBootstrapPost(request, env) {
 const LOGIN_MAX_PER_EMAIL = 10;
 const LOGIN_MAX_PER_IP = 50;
 const LOGIN_WINDOW_MINUTES = 15;
-async function ensureLoginAttemptsSchema(env) {
+async function ensureLoginAttemptsSchema__impl(env) {
   await dbRun(env, "CREATE TABLE IF NOT EXISTS login_attempts (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL, ip TEXT NOT NULL DEFAULT '', attempted_at TEXT NOT NULL DEFAULT (datetime('now')))", []);
   await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_login_attempts_email ON login_attempts (email, attempted_at)", []);
   await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_login_attempts_ip ON login_attempts (ip, attempted_at)", []);
@@ -1488,7 +1488,7 @@ function isValidHm(s) {
   return /^([01]\d|2[0-3]):[0-5]\d$/.test(String(s || "").trim());
 }
 
-async function ensureEndOfDaySchema(env) { await dbRun(env, "CREATE TABLE IF NOT EXISTS end_of_day (id INTEGER PRIMARY KEY AUTOINCREMENT, org_id INTEGER NOT NULL, location_id INTEGER NOT NULL, eod_date TEXT NOT NULL, time_of_day TEXT NOT NULL DEFAULT 'AM', staff_name TEXT NOT NULL, float_amount REAL NOT NULL DEFAULT 500, x_json TEXT NOT NULL DEFAULT '[]', epos_json TEXT NOT NULL DEFAULT '[]', cheques_json TEXT NOT NULL DEFAULT '[]', paid_outs_json TEXT NOT NULL DEFAULT '[]', cash_json TEXT NOT NULL DEFAULT '{}', bov_deposit_json TEXT NOT NULL DEFAULT '{}', bov_bag_number TEXT NOT NULL DEFAULT '', bov_contact_id INTEGER, notes TEXT NOT NULL DEFAULT '', saved_at TEXT, locked_at TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')), created_by INTEGER, updated_by INTEGER, UNIQUE(org_id, location_id, eod_date))", []); await dbRun(env, "CREATE TABLE IF NOT EXISTS end_of_day_contacts (id INTEGER PRIMARY KEY AUTOINCREMENT, org_id INTEGER NOT NULL, location_id INTEGER NOT NULL, display_name TEXT NOT NULL, phone TEXT NOT NULL DEFAULT '', email TEXT NOT NULL DEFAULT '', is_active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')), created_by INTEGER, updated_by INTEGER, UNIQUE(org_id, location_id, display_name))", []); await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_end_of_day_org_loc_date ON end_of_day (org_id, location_id, eod_date)", []); await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_end_of_day_contacts_org_loc_active ON end_of_day_contacts (org_id, location_id, is_active, display_name)", []); try { await dbRun(env, "ALTER TABLE end_of_day_contacts ADD COLUMN email TEXT NOT NULL DEFAULT ''", []); } catch (e) { /* column may already exist */ } }
+async function ensureEndOfDaySchema__impl(env) { await dbRun(env, "CREATE TABLE IF NOT EXISTS end_of_day (id INTEGER PRIMARY KEY AUTOINCREMENT, org_id INTEGER NOT NULL, location_id INTEGER NOT NULL, eod_date TEXT NOT NULL, time_of_day TEXT NOT NULL DEFAULT 'AM', staff_name TEXT NOT NULL, float_amount REAL NOT NULL DEFAULT 500, x_json TEXT NOT NULL DEFAULT '[]', epos_json TEXT NOT NULL DEFAULT '[]', cheques_json TEXT NOT NULL DEFAULT '[]', paid_outs_json TEXT NOT NULL DEFAULT '[]', cash_json TEXT NOT NULL DEFAULT '{}', bov_deposit_json TEXT NOT NULL DEFAULT '{}', bov_bag_number TEXT NOT NULL DEFAULT '', bov_contact_id INTEGER, notes TEXT NOT NULL DEFAULT '', saved_at TEXT, locked_at TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')), created_by INTEGER, updated_by INTEGER, UNIQUE(org_id, location_id, eod_date))", []); await dbRun(env, "CREATE TABLE IF NOT EXISTS end_of_day_contacts (id INTEGER PRIMARY KEY AUTOINCREMENT, org_id INTEGER NOT NULL, location_id INTEGER NOT NULL, display_name TEXT NOT NULL, phone TEXT NOT NULL DEFAULT '', email TEXT NOT NULL DEFAULT '', is_active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')), created_by INTEGER, updated_by INTEGER, UNIQUE(org_id, location_id, display_name))", []); await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_end_of_day_org_loc_date ON end_of_day (org_id, location_id, eod_date)", []); await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_end_of_day_contacts_org_loc_active ON end_of_day_contacts (org_id, location_id, is_active, display_name)", []); try { await dbRun(env, "ALTER TABLE end_of_day_contacts ADD COLUMN email TEXT NOT NULL DEFAULT ''", []); } catch (e) { /* column may already exist */ } }
 
 function clampToOneDecimal(n) {
   if (n === null || n === undefined) return null;
@@ -1940,7 +1940,7 @@ async function handleTempReportHtml(request, env, corsOkHeaders, authUser, url) 
    CLIENT ORDERS MODULE (API)
    ========================= */
 
-async function ensureClientOrdersSchema(env) {
+async function ensureClientOrdersSchema__impl(env) {
   await dbRun(
     env,
     `CREATE TABLE IF NOT EXISTS client_orders_entries (
@@ -2020,7 +2020,7 @@ async function ensureClientOrdersSchema(env) {
    QUOTATIONS MODULE (API)
    ========================= */
 
-async function ensureQuotationsSchema(env) {
+async function ensureQuotationsSchema__impl(env) {
   // Flat table — each row is one quotation line (supplier is just a column)
   await dbRun(env, `CREATE TABLE IF NOT EXISTS quotation_entries (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2229,7 +2229,7 @@ async function handleQuotationsEntryDelete(request, env, corsOkHeaders, authUser
    ORDER DIARY MODULE
    ═══════════════════════════════════════════════════════════════════════════ */
 
-async function ensureOrderDiarySchema(env) {
+async function ensureOrderDiarySchema__impl(env) {
   await dbRun(env, `CREATE TABLE IF NOT EXISTS order_diary_entries (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     org_id          INTEGER NOT NULL,
@@ -2423,7 +2423,7 @@ async function handleOrderDiaryCarryOver(request, env, corsOkHeaders, authUser) 
    SUPPLIER PRODUCTS MODULE
    ═══════════════════════════════════════════════════════════════════════════ */
 
-async function ensureSupplierProductsSchema(env) {
+async function ensureSupplierProductsSchema__impl(env) {
   await dbRun(env, `CREATE TABLE IF NOT EXISTS supplier_products (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     org_id          INTEGER NOT NULL,
@@ -3331,7 +3331,7 @@ function nearExpiryRowToUi(r) {
 }
 
 
-async function ensureNearExpirySchema(env) {
+async function ensureNearExpirySchema__impl(env) {
   try { await ensureReturnsSchema(env); } catch (e) { /* returns schema is created by its own module; needed here for the joins */ }
   await dbRun(
     env,
@@ -3729,7 +3729,7 @@ async function handleClientOrdersEntryDelete(request, env, corsOkHeaders, authUs
 
 
 
-async function ensureClientTicketsSchema(env) {
+async function ensureClientTicketsSchema__impl(env) {
   await dbRun(
     env,
     `CREATE TABLE IF NOT EXISTS client_tickets_entries (
@@ -4495,7 +4495,7 @@ function normalizePaidOutMethod(v) {
   return (s === "cheque") ? "cheque" : "cash";
 }
 
-async function ensurePaidOutSchema(env) {
+async function ensurePaidOutSchema__impl(env) {
   // Paid Out schema is created lazily on first use.
   // IMPORTANT: D1 does not change an existing table when you update the CREATE TABLE statement.
   // So we also run a tiny migration to add any missing columns (e.g. older deployments).
@@ -5504,7 +5504,7 @@ async function handleCleaningReportHtml(request, env, corsOkHeaders, authUser, u
    LOCUM REGISTER MODULE (API)
    ========================= */
 
-async function ensureLocumRegisterSchema(env) {
+async function ensureLocumRegisterSchema__impl(env) {
   // Table may already exist (you created it), but this is safe.
   await dbRun(
     env,
@@ -5758,7 +5758,7 @@ function requireHeaderPass(request, headerName, expected) {
   }
 }
 
-async function ensureLocumReceiptsSchema(env) {
+async function ensureLocumReceiptsSchema__impl(env) {
   // One-line queries (easy to copy/paste into D1 console)
   await dbRun(env, "CREATE TABLE IF NOT EXISTS locum_receipts (id INTEGER PRIMARY KEY AUTOINCREMENT, org_id INTEGER NOT NULL, location_id INTEGER NOT NULL, receipt_date TEXT NOT NULL, hours REAL NOT NULL, locum_full_name TEXT NOT NULL, registration_number TEXT NOT NULL, day_type TEXT NOT NULL DEFAULT 'normal', fee_per_hour REAL NOT NULL, total_fee REAL NOT NULL, created_by INTEGER, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')))", []);
   await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_locum_receipts_org_loc_date ON locum_receipts (org_id, location_id, receipt_date)", []);
@@ -6085,7 +6085,7 @@ async function handleLocumReceiptsReport(request, env, corsOkHeaders, authUser, 
    DAILY REGISTER MODULE (API)
    ========================= */
 
-async function ensureDailyRegisterSchema(env) {
+async function ensureDailyRegisterSchema__impl(env) {
   await dbRun(
     env,
     `CREATE TABLE IF NOT EXISTS daily_register_entries (
@@ -6432,7 +6432,7 @@ async function handleDailyRegisterReportHtml(request, env, corsOkHeaders, authUs
    REPEAT PRESCRIPTIONS MODULE (API)
    ========================= */
 
-async function ensureRepeatPrescriptionsSchema(env) {
+async function ensureRepeatPrescriptionsSchema__impl(env) {
   await dbRun(
     env,
     `CREATE TABLE IF NOT EXISTS repeat_prescription_entries (
@@ -6716,7 +6716,7 @@ async function handleRepeatPrescriptionsEntryDelete(request, env, corsOkHeaders,
 
 /* ========================= ALERTS (Recall / Quarantine) ========================= */
 
-async function ensureAlertsSchema(env) {
+async function ensureAlertsSchema__impl(env) {
   await dbRun(env, `
     CREATE TABLE IF NOT EXISTS alerts_entries (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -6939,7 +6939,7 @@ async function handleAlertsEntryDelete(request, env, corsOkHeaders, authUser, id
 
 /* ========================= RETURNS (Supplier Returns) ========================= */
 
-async function ensureReturnsSchema(env) {
+async function ensureReturnsSchema__impl(env) {
   await dbRun(env, `
     CREATE TABLE IF NOT EXISTS returns_entries (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -7249,7 +7249,7 @@ async function handleReturnsEntryDelete(request, env, corsOkHeaders, authUser, i
 
 /* ========================= CLIENT DELIVERIES ========================= */
 
-async function ensureDeliveriesSchema(env) {
+async function ensureDeliveriesSchema__impl(env) {
   await dbRun(env, `
     CREATE TABLE IF NOT EXISTS client_deliveries (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -7521,7 +7521,7 @@ async function handleDeliveriesEntryDelete(request, env, corsOkHeaders, authUser
 
 /* ========================= CREDIT NOTES ========================= */
 
-async function ensureCreditNotesSchema(env) {
+async function ensureCreditNotesSchema__impl(env) {
   await dbRun(env, `
     CREATE TABLE IF NOT EXISTS credit_notes (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -7747,7 +7747,7 @@ async function handleCreditNoteNoteDelete(request, env, corsOkHeaders, authUser,
    DDA SALES MODULE (API)  <-- ADDED
    ========================= */
 
-async function ensureDdaSalesSchema(env) {
+async function ensureDdaSalesSchema__impl(env) {
   await dbRun(
     env,
     `CREATE TABLE IF NOT EXISTS dda_sales_entries (
@@ -8439,7 +8439,7 @@ async function handleDdaSalesReportHtml(request, env, corsOkHeaders, authUser, u
    DDA POYC MODULE (API)  <-- ADDED (NEW)
    ========================= */
 
-async function ensureDdaPoycSchema(env) {
+async function ensureDdaPoycSchema__impl(env) {
   await dbRun(
     env,
     `CREATE TABLE IF NOT EXISTS dda_poyc_entries (
@@ -8847,7 +8847,7 @@ async function handleDdaPoycReportHtml(request, env, corsOkHeaders, authUser, ur
    DDA PURCHASES MODULE (API)  <-- NEW
    ========================= */
 
-async function ensureDdaPurchasesSchema(env) {
+async function ensureDdaPurchasesSchema__impl(env) {
   await dbRun(
     env,
     `CREATE TABLE IF NOT EXISTS dda_purchases_entries (
@@ -9169,7 +9169,7 @@ async function handleDdaPurchasesReportHtml(request, env, corsOkHeaders, authUse
 }
 
 /* ========================= DDA STOCK TAKES MODULE (API) ========================= */
-async function ensureDdaStockTakesSchema(env) {
+async function ensureDdaStockTakesSchema__impl(env) {
   await dbRun(env, `CREATE TABLE IF NOT EXISTS dda_stocktakes (id INTEGER PRIMARY KEY AUTOINCREMENT, org_id INTEGER NOT NULL, location_id INTEGER NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')), created_by INTEGER, closed_at TEXT, updated_at TEXT NOT NULL DEFAULT (datetime('now')))`, []);
   await dbRun(env, `CREATE TABLE IF NOT EXISTS dda_stocktake_items (id INTEGER PRIMARY KEY AUTOINCREMENT, org_id INTEGER NOT NULL, location_id INTEGER NOT NULL, stocktake_id INTEGER NOT NULL, item_name TEXT NOT NULL, dosage TEXT, qty_tablets INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')))`, []);
   await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_dda_stocktakes_org_loc_created ON dda_stocktakes (org_id, location_id, created_at)", []);
@@ -9415,7 +9415,7 @@ function addMonthsToYmd(ymd, months) {
   return dt.toISOString().slice(0, 10);
 }
 
-async function ensureCertificatesSchema(env) {
+async function ensureCertificatesSchema__impl(env) {
   console.log("[certificates] ensureCertificatesSchema() start");
 
   await dbRun(
@@ -10102,7 +10102,7 @@ async function handleUiAsset(request, env, url) {
 //   PUT  /poct/state  -> replace/upsert state for org+location
 // ------------------------------------------------------------
 
-async function ensurePoctSchema(env) {
+async function ensurePoctSchema__impl(env) {
   // Safe even if you already created the tables manually.
   await dbRun(
     env,
@@ -10907,7 +10907,7 @@ async function handleInstructionsDailyPut(request, env, corsOkHeaders, authUser)
 // ============================================================
 // Scarce Stock
 // ============================================================
-async function ensureScarceStockSchema(env) {
+async function ensureScarceStockSchema__impl(env) {
   await dbRun(env, `CREATE TABLE IF NOT EXISTS scarce_stock_offers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     org_id INTEGER NOT NULL,
@@ -11876,7 +11876,7 @@ async function handleScarceOfferPlaceOnTransfer(request, env, corsOkHeaders, aut
 // ------------------------------------------------------------
 // Stock Transfers
 // ------------------------------------------------------------
-async function ensureStockTransfersSchema(env) {
+async function ensureStockTransfersSchema__impl(env) {
   await dbRun(env, `CREATE TABLE IF NOT EXISTS stock_transfer_items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     org_id INTEGER NOT NULL,
@@ -12385,7 +12385,7 @@ async function handleStockTransferPlaceOnScarceStock(request, env, corsOkHeaders
 // ------------------------------------------------------------
 // Vaccines (Catalog + Orders + Stock)
 // ------------------------------------------------------------
-async function ensureVaccinesSchema(env) {
+async function ensureVaccinesSchema__impl(env) {
   await dbRun(
     env,
     `CREATE TABLE IF NOT EXISTS vaccines_catalog (
@@ -12816,7 +12816,7 @@ async function handleVaccinesStockRowUpdate(request, env, corsOkHeaders, authUse
 
 // ── Pharmacy Calculators ────────────────────────────────────────────────────
 
-async function ensurePharmacyCalcSchema(env) {
+async function ensurePharmacyCalcSchema__impl(env) {
   await dbRun(env, `CREATE TABLE IF NOT EXISTS pharmacy_calc_patients (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     org_id       INTEGER NOT NULL,
@@ -12935,7 +12935,7 @@ async function handlePharmacyCalcRecordGet(request, env, corsOkHeaders, authUser
 
 
 // ── SHIFTS MODULE FUNCTIONS ────────────────────────────────────
-async function ensureShiftsSchema(env) {
+async function ensureShiftsSchema__impl(env) {
   // Staff roster
   await dbRun(env, `CREATE TABLE IF NOT EXISTS shift_staff (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -13635,7 +13635,7 @@ async function handleShiftIcalPublic(request, env, corsOkHeaders, url) {
 
 let apptSchemaEnsured = false;
 
-async function ensureApptSchema(env) {
+async function ensureApptSchema__impl(env) {
   if (apptSchemaEnsured) return;
 
   const tables = [
@@ -14846,7 +14846,7 @@ async function handleAuditLogList(request, env, corsOkHeaders, authUser, url) {
 let _boardSchemaReady = false;
 let _boardLastCleanup = 0;
 
-async function ensureBoardSchema(env) {
+async function ensureBoardSchema__impl(env) {
   if (_boardSchemaReady) return;
 
   await dbRun(env, `CREATE TABLE IF NOT EXISTS board_messages (
@@ -15327,6 +15327,67 @@ async function handleBoardDashboard(request, env, corsOkHeaders, authUser) {
   return jsonResponse({ ok: true, unread_mentions: unreadMentions, unread_messages: unreadMessages, recent_messages: recent, recent_mentions: recentMentions }, 200, corsOkHeaders);
 }
 
+
+// ---------------------------------------------------------------------------
+// Schema DDL runs ONCE per isolate per database. Before this every handler re-ran
+// its CREATE TABLE / CREATE INDEX / ALTER statements on every request (about 200
+// statements per dashboard load). The first caller runs the DDL; concurrent callers
+// await the same promise; a failure clears the memo so the next request retries.
+// ---------------------------------------------------------------------------
+const __schemaDone = new WeakMap();
+function schemaOnce(name, impl) {
+  return async function (env) {
+    const key = (env && typeof env.DB === "object" && env.DB) ? env.DB : globalThis;
+    let m = __schemaDone.get(key);
+    if (!m) { m = new Map(); __schemaDone.set(key, m); }
+    let p = m.get(name);
+    if (!p) {
+      p = Promise.resolve().then(() => impl(env)).catch((e) => { m.delete(name); throw e; });
+      m.set(name, p);
+    }
+    return p;
+  };
+}
+const ensureLoginAttemptsSchema = schemaOnce("ensureLoginAttemptsSchema", ensureLoginAttemptsSchema__impl);
+const ensureEndOfDaySchema = schemaOnce("ensureEndOfDaySchema", ensureEndOfDaySchema__impl);
+const ensureClientOrdersSchema = schemaOnce("ensureClientOrdersSchema", ensureClientOrdersSchema__impl);
+const ensureQuotationsSchema = schemaOnce("ensureQuotationsSchema", ensureQuotationsSchema__impl);
+const ensureOrderDiarySchema = schemaOnce("ensureOrderDiarySchema", ensureOrderDiarySchema__impl);
+const ensureSupplierProductsSchema = schemaOnce("ensureSupplierProductsSchema", ensureSupplierProductsSchema__impl);
+const ensureNearExpirySchema = schemaOnce("ensureNearExpirySchema", ensureNearExpirySchema__impl);
+const ensureClientTicketsSchema = schemaOnce("ensureClientTicketsSchema", ensureClientTicketsSchema__impl);
+const ensurePaidOutSchema = schemaOnce("ensurePaidOutSchema", ensurePaidOutSchema__impl);
+const ensureLocumRegisterSchema = schemaOnce("ensureLocumRegisterSchema", ensureLocumRegisterSchema__impl);
+const ensureLocumReceiptsSchema = schemaOnce("ensureLocumReceiptsSchema", ensureLocumReceiptsSchema__impl);
+const ensureDailyRegisterSchema = schemaOnce("ensureDailyRegisterSchema", ensureDailyRegisterSchema__impl);
+const ensureRepeatPrescriptionsSchema = schemaOnce("ensureRepeatPrescriptionsSchema", ensureRepeatPrescriptionsSchema__impl);
+const ensureAlertsSchema = schemaOnce("ensureAlertsSchema", ensureAlertsSchema__impl);
+const ensureReturnsSchema = schemaOnce("ensureReturnsSchema", ensureReturnsSchema__impl);
+const ensureDeliveriesSchema = schemaOnce("ensureDeliveriesSchema", ensureDeliveriesSchema__impl);
+const ensureCreditNotesSchema = schemaOnce("ensureCreditNotesSchema", ensureCreditNotesSchema__impl);
+const ensureDdaSalesSchema = schemaOnce("ensureDdaSalesSchema", ensureDdaSalesSchema__impl);
+const ensureDdaPoycSchema = schemaOnce("ensureDdaPoycSchema", ensureDdaPoycSchema__impl);
+const ensureDdaPurchasesSchema = schemaOnce("ensureDdaPurchasesSchema", ensureDdaPurchasesSchema__impl);
+const ensureDdaStockTakesSchema = schemaOnce("ensureDdaStockTakesSchema", ensureDdaStockTakesSchema__impl);
+const ensureCertificatesSchema = schemaOnce("ensureCertificatesSchema", ensureCertificatesSchema__impl);
+const ensurePoctSchema = schemaOnce("ensurePoctSchema", ensurePoctSchema__impl);
+const ensureScarceStockSchema = schemaOnce("ensureScarceStockSchema", ensureScarceStockSchema__impl);
+const ensureStockTransfersSchema = schemaOnce("ensureStockTransfersSchema", ensureStockTransfersSchema__impl);
+const ensureVaccinesSchema = schemaOnce("ensureVaccinesSchema", ensureVaccinesSchema__impl);
+const ensurePharmacyCalcSchema = schemaOnce("ensurePharmacyCalcSchema", ensurePharmacyCalcSchema__impl);
+const ensureShiftsSchema = schemaOnce("ensureShiftsSchema", ensureShiftsSchema__impl);
+const ensureApptSchema = schemaOnce("ensureApptSchema", ensureApptSchema__impl);
+const ensureBoardSchema = schemaOnce("ensureBoardSchema", ensureBoardSchema__impl);
+const ensureLoyaltySchema = schemaOnce("ensureLoyaltySchema", ensureLoyaltySchema__impl);
+const ensureCherubinoOrdersSchema = schemaOnce("ensureCherubinoOrdersSchema", ensureCherubinoOrdersSchema__impl);
+const ensureCherubinoPriceSchema = schemaOnce("ensureCherubinoPriceSchema", ensureCherubinoPriceSchema__impl);
+const ensureCherubinoShortExpirySchema = schemaOnce("ensureCherubinoShortExpirySchema", ensureCherubinoShortExpirySchema__impl);
+const ensureCherubinoOosSchema = schemaOnce("ensureCherubinoOosSchema", ensureCherubinoOosSchema__impl);
+const ensurePosSchema = schemaOnce("ensurePosSchema", ensurePosSchema__impl);
+const ensurePvSchema = schemaOnce("ensurePvSchema", ensurePvSchema__impl);
+const ensureScreeningSchema = schemaOnce("ensureScreeningSchema", ensureScreeningSchema__impl);
+const ensureLabelsSchema = schemaOnce("ensureLabelsSchema", ensureLabelsSchema__impl);
+const ensureContactsSchema = schemaOnce("ensureContactsSchema", ensureContactsSchema__impl);
 
 export default {
   async fetch(request, env, ctx) {
@@ -16893,7 +16954,7 @@ if (url.pathname.startsWith("/dda-stocktakes/items/")) {
 
 // ─── Schema ──────────────────────────────────────────────────────────────────
 
-async function ensureLoyaltySchema(env) {
+async function ensureLoyaltySchema__impl(env) {
   // Campaigns
   await dbRun(env, `
     CREATE TABLE IF NOT EXISTS loyalty_campaigns (
@@ -17482,7 +17543,7 @@ async function handleLoyaltyTransactionCreate(request, env, corsOkHeaders, authU
 // CHERUBINO ORDERS — schema + handlers
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function ensureCherubinoOrdersSchema(env) {
+async function ensureCherubinoOrdersSchema__impl(env) {
   await dbRun(env, `CREATE TABLE IF NOT EXISTS cherubino_orders (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     org_id        INTEGER NOT NULL,
@@ -17614,7 +17675,7 @@ async function handleCherubinoOrderDelete(request, env, corsOkHeaders, authUser,
 // CHERUBINO PRICE CHANGES — schema + handlers
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function ensureCherubinoPriceSchema(env) {
+async function ensureCherubinoPriceSchema__impl(env) {
   await dbRun(env, `CREATE TABLE IF NOT EXISTS cherubino_price_changes (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     org_id          INTEGER NOT NULL,
@@ -17725,7 +17786,7 @@ async function handleCherubinoLocations(request, env, corsOkHeaders, authUser) {
 // CHERUBINO WAREHOUSE SHORT EXPIRY — schema + handlers
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function ensureCherubinoShortExpirySchema(env) {
+async function ensureCherubinoShortExpirySchema__impl(env) {
   await dbRun(env, `CREATE TABLE IF NOT EXISTS cherubino_short_expiry (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     org_id      INTEGER NOT NULL,
@@ -17859,7 +17920,7 @@ async function handleShortExpiryOrderDelete(request, env, corsOkHeaders, authUse
 // CHERUBINO OOS LIST — schema + handlers
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function ensureCherubinoOosSchema(env) {
+async function ensureCherubinoOosSchema__impl(env) {
   await dbRun(env, `CREATE TABLE IF NOT EXISTS cherubino_oos (
     id                   INTEGER PRIMARY KEY AUTOINCREMENT,
     org_id               INTEGER NOT NULL,
@@ -17993,7 +18054,7 @@ async function handleOosDelete(request, env, corsOkHeaders, authUser, id) {
 // EMERGENCY POS — schema + handlers
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function ensurePosSchema(env) {
+async function ensurePosSchema__impl(env) {
   await dbRun(env, `CREATE TABLE IF NOT EXISTS pos_products (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     org_id INTEGER NOT NULL,
@@ -18312,7 +18373,7 @@ async function handlePosSalesSync(request, env, corsOkHeaders, authUser) {
 // PHARMACOVIGILANCE MODULE
 // ═══════════════════════════════════════════════════════════════════════════
 
-async function ensurePvSchema(env) {
+async function ensurePvSchema__impl(env) {
   await dbRun(env, `CREATE TABLE IF NOT EXISTS pv_reports (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     org_id INTEGER NOT NULL,
@@ -18390,7 +18451,7 @@ async function handlePvStatePut(request, env, corsOkHeaders, authUser) {
 // Table: screening_campaigns (stores campaign JSON per campaign ID)
 // ═══════════════════════════════════════════════════════════════════════════
 
-async function ensureScreeningSchema(env) {
+async function ensureScreeningSchema__impl(env) {
   await dbRun(env, `CREATE TABLE IF NOT EXISTS screening_campaigns (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     org_id INTEGER NOT NULL,
@@ -18468,7 +18529,7 @@ async function handleScreeningStatePut(request, env, corsOkHeaders, authUser) {
 // Tables: label_history (audit log), label_settings (templates + pharmacy details)
 // ═══════════════════════════════════════════════════════════════════════════
 
-async function ensureLabelsSchema(env) {
+async function ensureLabelsSchema__impl(env) {
   await dbRun(env, `CREATE TABLE IF NOT EXISTS label_history (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     org_id INTEGER NOT NULL,
@@ -18599,7 +18660,7 @@ const CONTACTS_TABLES = {
 };
 
 let _contactsSchemaReady = false;
-async function ensureContactsSchema(env) {
+async function ensureContactsSchema__impl(env) {
   if (_contactsSchemaReady) return;
   for (const key of Object.keys(CONTACTS_TABLES)) {
     const def = CONTACTS_TABLES[key];

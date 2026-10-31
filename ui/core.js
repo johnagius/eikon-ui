@@ -312,12 +312,36 @@
       E.log("[api] ->", method, url);
     }
 
+    // One client for every module: a timeout, one retry for safe reads, and session
+    // expiry handled in one place instead of surfacing as "HTTP 401" on every screen.
+    var timeoutMs = (typeof opts.timeoutMs === "number" && opts.timeoutMs > 0) ? opts.timeoutMs : 20000;
+    var retriesLeft = (method === "GET" && opts.retry !== false) ? 1 : 0;
     var res, text, json;
-    try {
-      res = await fetch(url, { method: method, headers: headers, body: opts.body || undefined });
-    } catch (e2) {
-      E.error("[api] network error:", e2);
-      throw e2;
+    for (;;) {
+      var ctrl = (typeof AbortController === "function") ? new AbortController() : null;
+      var timer = ctrl ? setTimeout(function () { try { ctrl.abort(); } catch (eA) {} }, timeoutMs) : null;
+      try {
+        res = await fetch(url, { method: method, headers: headers, body: opts.body || undefined, signal: ctrl ? ctrl.signal : undefined });
+      } catch (e2) {
+        if (timer) clearTimeout(timer);
+        var aborted = !!(e2 && (e2.name === "AbortError"));
+        if (retriesLeft > 0) { retriesLeft--; E.warn("[api] retrying after " + (aborted ? "timeout" : "network error") + ":", method, url); continue; }
+        var netErr = new Error(aborted ? ("Request timed out after " + Math.round(timeoutMs / 1000) + " s") : "Network error");
+        netErr.status = 0; netErr.cause = e2; netErr.network = true;
+        E.error("[api] network error:", e2);
+        throw netErr;
+      }
+      if (timer) clearTimeout(timer);
+      if (retriesLeft > 0 && (res.status === 502 || res.status === 503 || res.status === 504)) {
+        retriesLeft--; E.warn("[api] retrying after HTTP " + res.status + ":", method, url);
+        await new Promise(function (r) { setTimeout(r, 400); });
+        continue;
+      }
+      break;
+    }
+
+    if (res.status === 401 && token && path !== "/auth/login") {
+      E.handleSessionExpired();
     }
 
     var ct = "";
@@ -346,6 +370,18 @@
       throw err;
     }
     return (json !== null ? json : { ok: true, text: text });
+  };
+
+  // Called once when the server says the session is gone: keep the place, show sign-in.
+  E._sessionExpiredShown = false;
+  E.handleSessionExpired = function () {
+    if (E._sessionExpiredShown) return;
+    E._sessionExpiredShown = true;
+    try { E._returnHash = String(window.location.hash || ""); } catch (e) {}
+    if (E._supplierPollInterval) { try { clearInterval(E._supplierPollInterval); } catch (e) {} E._supplierPollInterval = null; }
+    E.clearToken();
+    E.state.user = null;
+    try { E.renderLogin("Your session has ended. Sign in again to continue where you were."); } catch (e) {}
   };
 
   // Module registry
@@ -1271,6 +1307,11 @@
       window.location.hash = "#" + fallbackDash;
     }
 
+    // Let the module we are leaving stop its timers and listeners.
+    var leaving = E.state.activeModuleId;
+    if (leaving && leaving !== id && E.modules[leaving] && typeof E.modules[leaving].destroy === "function") {
+      try { E.modules[leaving].destroy(); } catch (eD) { E.warn("[router] destroy failed for", leaving, eD); }
+    }
     E.state.activeModuleId = id;
     E.highlightNav();
 
@@ -1309,7 +1350,10 @@
   };
 
   E.bootAuthed = async function () {
-    window.location.hash = "#" + (E._sectionDashboardId || "dashboard");
+    E._sessionExpiredShown = false;
+    var back = String(E._returnHash || "").replace(/^#/, "");
+    E._returnHash = "";
+    window.location.hash = "#" + ((back && E.modules[back]) ? back : (E._sectionDashboardId || "dashboard"));
     E.renderShell();
 
     // Render module, then mark "screen done" so overlay can hide after introMs

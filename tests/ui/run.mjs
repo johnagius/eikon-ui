@@ -29,6 +29,7 @@ function mockApi(req, res, body) {
   const url = new URL(req.url, "http://x");
   const p = url.pathname;
   calls.push({ method: req.method, path: p, query: url.search, body });
+  if (p === "/__test401") { res.writeHead(401, { "content-type": "application/json" }); return res.end(JSON.stringify({ ok: false, error: "Unauthorized" })); }
   res.writeHead(200, { "content-type": "application/json" });
   if (p === "/auth/me") return res.end(JSON.stringify({ ok: true, user: { id: 1, user_id: 1, email: "p@x.com", full_name: "Maria Borg", org_id: 1, location_id: 12, location_name: "Demo Pharmacy", role: "admin" } }));
   if (p === "/temperature/devices") return res.end(JSON.stringify({ ok: true, devices: [{ id: 7, name: "Fridge 1", device_type: "fridge", min_limit: 2, max_limit: 8, active: 1 }] }));
@@ -170,6 +171,27 @@ const escOk = await page.evaluate(() => {
   return src.length === 2;
 });
 report("dda: sales and poyc modules loaded (escape fix covered by source test below)", escOk);
+
+// 8. Boot: one build stamp for every file, so caches work; SheetJS is not in the failure chain
+const boot = await page.evaluate(() => {
+  const srcs = Array.from(document.scripts).map((s) => s.src).filter((s) => /\/ui\//.test(s));
+  const vs = new Set(srcs.map((s) => (s.match(/[?&]v=([^&]+)/) || [])[1]));
+  return { files: srcs.length, stamps: Array.from(vs), timestampLike: Array.from(vs).some((v) => /^\d{13}$/.test(v || "")) };
+});
+report("boot: all module files share one fixed build stamp", boot.files > 50 && boot.stamps.length === 1 && !boot.timestampLike, JSON.stringify(boot));
+
+// 9. Session expiry: a 401 on any call shows sign-in once and keeps the place
+await page.evaluate(() => { window.location.hash = "#temperature"; });
+await page.waitForTimeout(800);
+const expired = await page.evaluate(async () => {
+  const E = window.EIKON;
+  let threw = null;
+  try { await E.apiFetch("/__test401", { method: "GET" }); } catch (e) { threw = e; }
+  await new Promise((r) => setTimeout(r, 200));
+  const login = document.querySelector(".eikon-login");
+  return { threw: !!threw, status: threw && threw.status, loginShown: !!login, text: login ? login.textContent : "", token: localStorage.getItem("eikon_token"), returnHash: E._returnHash };
+});
+report("core: a 401 shows the sign-in screen, clears the token and remembers the screen", expired.threw && expired.status === 401 && expired.loginShown && /session has ended/i.test(expired.text) && !expired.token && expired.returnHash === "#temperature", JSON.stringify(expired).slice(0, 300));
 
 await browser.close();
 server.close();
