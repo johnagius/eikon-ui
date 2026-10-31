@@ -15521,6 +15521,345 @@ async function handleToday(request, env, corsOkHeaders, authUser) {
 // await the same promise; a failure clears the memo so the next request retries.
 // ---------------------------------------------------------------------------
 const __schemaDone = new WeakMap();
+// ===================================================================================
+// People: one identity for a customer (RELIABILITY-AND-SPEED.md §2.2)
+// A customer today is free text in eleven tables. `people` is the one row per person
+// per pharmacy, keyed on the normalised ID card when there is one. Nothing here writes
+// to the legacy tables: the lookup and the timeline read them, the backfill only inserts
+// into `people`, and every write is audited with before and after.
+// ===================================================================================
+async function ensurePeopleSchema__impl(env) {
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS people (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id INTEGER NOT NULL,
+    location_id INTEGER NOT NULL,
+    id_card TEXT NOT NULL DEFAULT '',
+    name TEXT NOT NULL,
+    phone TEXT NOT NULL DEFAULT '',
+    alt_phone TEXT NOT NULL DEFAULT '',
+    email TEXT NOT NULL DEFAULT '',
+    address TEXT NOT NULL DEFAULT '',
+    doctor_name TEXT NOT NULL DEFAULT '',
+    date_of_birth TEXT NOT NULL DEFAULT '',
+    notes TEXT NOT NULL DEFAULT '',
+    merged_into INTEGER,
+    source TEXT NOT NULL DEFAULT 'manual',
+    version INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    created_by INTEGER,
+    updated_by INTEGER)`, []);
+  await dbRun(env, "CREATE UNIQUE INDEX IF NOT EXISTS idx_people_org_loc_idcard ON people (org_id, location_id, id_card) WHERE id_card <> ''", []);
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_people_org_loc_name ON people (org_id, location_id, name)", []);
+}
+
+// Every legacy table that names a customer, and which of its columns mean what.
+// `date` is the column the timeline sorts by; `title` is what one row is about.
+const PEOPLE_SOURCES = [
+  { kind: "order",       label: "Order",            table: "client_orders_entries",       name: "client_name",  phone: "client_phone", alt_phone: "client_alt_phone", email: "client_email", address: "client_address", date: "order_date",   title: "items_text",         ref: "order_code" },
+  { kind: "question",    label: "Question",         table: "client_tickets_entries",      name: "client_name",  phone: "phone",        email: "email",                date: "open_date",    title: "issue",              ref: "ticket_id" },
+  { kind: "delivery",    label: "Delivery",         table: "client_deliveries",           name: "client_name",  phone: "phone",        email: "email",                address: "delivery_address", date: "order_date", title: "items",         ref: "delivery_id" },
+  { kind: "dda_sale",    label: "DDA sale",         table: "dda_sales_entries",           name: "client_name",  id_card: "client_id_card", address: "client_address", doctor: "doctor_name", date: "entry_date", title: "medicine_name_dose", ref: "prescription_serial_no" },
+  { kind: "poyc",        label: "POYC",             table: "dda_poyc_entries",            name: "client_name",  id_card: "client_id_card", address: "client_address", doctor: "doctor_name", date: "entry_date", title: "medicine_name_dose", ref: "prescription_serial_no" },
+  { kind: "repeat",      label: "Repeat prescription", table: "repeat_prescription_entries", name: "client_name", id_card: "client_id", doctor: "prescriber_name",  date: "entry_date",   title: "medicine_name_dose" },
+  { kind: "poct",        label: "POCT",             table: "poct_patients",               name: "name",         id_card: "patient_id", phone: "phone",            address: "address",   date: "last_seen_iso" },
+  { kind: "loyalty",     label: "Loyalty",          table: "loyalty_clients",             name: "name",         id_card: "id_card",                                                   date: "created_at" },
+  { kind: "appointment", label: "Appointment",      table: "appt_appointments",           name: "patient_name", id_card: "patient_id_card", phone: "patient_phone", email: "patient_email", date: "date", title: "notes", ref: "appt_ref" },
+  { kind: "waitlist",    label: "Waiting list",     table: "appt_waitlist",               name: "patient_name", id_card: "patient_id_card", phone: "patient_phone", email: "patient_email", date: "added_date", ref: "wl_ref" },
+  { kind: "calculator",  label: "Calculator",       table: "pharmacy_calc_patients",      name: "patient_name", id_card: "id_card",                                                   date: "updated_at" }
+];
+
+const PEOPLE_FIELDS = ["id_card", "name", "phone", "alt_phone", "email", "address", "doctor_name", "date_of_birth", "notes"];
+
+function peopleSourceSelect(src) {
+  const col = (k) => (src[k] ? src[k] : "''") + " AS " + k;
+  return "SELECT id, " + ["name", "id_card", "phone", "alt_phone", "email", "address", "doctor", "date", "title", "ref"].map(col).join(", ") + " FROM " + src.table;
+}
+
+// Key that decides whether two legacy rows are the same person: the normalised ID card,
+// otherwise the name. The name fallback is deliberately loose because that is all the
+// older tables have; the merge action exists for when it is wrong.
+function personKey(idCard, name) {
+  const idc = normalizeMtIdCard(idCard);
+  if (idc) return "id:" + idc;
+  const n = String(name || "").trim().toLowerCase().replace(/\s+/g, " ");
+  return n ? "name:" + n : "";
+}
+
+function peopleQueryParts(q) {
+  const raw = String(q || "").trim();
+  const like = "%" + raw.toLowerCase() + "%";
+  const digits = raw.replace(/\D+/g, "");
+  // Only a query made of digits (and phone punctuation) is tried against phone numbers;
+  // "123456M" is an ID card, not a phone.
+  const phoneLike = digits.length >= 3 && /^[\d\s+\-()]+$/.test(raw) ? "%" + digits + "%" : null;
+  const idc = /^\d{1,7}[A-Za-z]$/.test(raw.replace(/\s+/g, "")) ? normalizeMtIdCard(raw) : "";
+  return { raw, like, phoneLike, idc };
+}
+
+function peopleRowToPerson(r) {
+  return {
+    id: r.id, id_card: r.id_card || "", name: r.name || "", phone: r.phone || "", alt_phone: r.alt_phone || "", email: r.email || "",
+    address: r.address || "", doctor_name: r.doctor_name || "", date_of_birth: r.date_of_birth || "", notes: r.notes || "",
+    merged_into: r.merged_into || null, source: r.source || "manual", version: Number(r.version || 1), created_at: r.created_at, updated_at: r.updated_at
+  };
+}
+
+// Collapse legacy rows into candidate people, filling blanks from later rows.
+function peopleGroupCandidates(rowsByKind) {
+  const groups = new Map();
+  for (const { kind, rows } of rowsByKind) {
+    for (const r of rows) {
+      const key = personKey(r.id_card, r.name);
+      if (!key) continue;
+      let g = groups.get(key);
+      if (!g) {
+        g = { key, name: String(r.name || "").trim(), id_card: normalizeMtIdCard(r.id_card), phone: "", alt_phone: "", email: "", address: "", doctor_name: "", sources: {}, last_date: "" };
+        groups.set(key, g);
+      }
+      if (!g.phone && r.phone) g.phone = String(r.phone).trim();
+      if (!g.alt_phone && r.alt_phone) g.alt_phone = String(r.alt_phone).trim();
+      if (!g.email && r.email) g.email = String(r.email).trim();
+      if (!g.address && r.address) g.address = String(r.address).trim();
+      if (!g.doctor_name && r.doctor) g.doctor_name = String(r.doctor).trim();
+      g.sources[kind] = (g.sources[kind] || 0) + 1;
+      const d = String(r.date || "");
+      if (d > g.last_date) g.last_date = d;
+    }
+  }
+  return Array.from(groups.values());
+}
+
+// GET /people?q=  — people first, then people found only in history, never duplicated.
+async function handlePeopleSearch(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  const url = new URL(request.url);
+  const org = authUser.org_id, loc = authUser.location_id;
+  const { raw, like, phoneLike, idc } = peopleQueryParts(url.searchParams.get("q"));
+  const limit = Math.min(50, Math.max(1, Number(url.searchParams.get("limit") || 20)));
+  await ensurePeopleSchema(env);
+
+  if (raw.length < 2 && !idc) {
+    const recent = await dbAll(env, "SELECT * FROM people WHERE org_id = ? AND location_id = ? AND merged_into IS NULL ORDER BY updated_at DESC LIMIT ?", [org, loc, limit]);
+    return jsonResponse({ ok: true, q: raw, people: recent.map(peopleRowToPerson), history: [] }, 200, corsOkHeaders);
+  }
+
+  const where = ["LOWER(name) LIKE ?", "LOWER(id_card) LIKE ?", "LOWER(email) LIKE ?"];
+  const bind = [org, loc, like, like, like];
+  if (phoneLike) { where.push("replace(replace(phone, ' ', ''), '+', '') LIKE ?", "replace(replace(alt_phone, ' ', ''), '+', '') LIKE ?"); bind.push(phoneLike, phoneLike); }
+  if (idc) { where.push("id_card = ?"); bind.push(idc); }
+  bind.push(limit);
+  const people = (await dbAll(env, "SELECT * FROM people WHERE org_id = ? AND location_id = ? AND merged_into IS NULL AND (" + where.join(" OR ") + ") ORDER BY name ASC LIMIT ?", bind)).map(peopleRowToPerson);
+
+  const rowsByKind = [];
+  for (const src of PEOPLE_SOURCES) {
+    const conds = ["LOWER(" + src.name + ") LIKE ?"];
+    const b = [org, loc, like];
+    if (src.id_card) { conds.push("LOWER(" + src.id_card + ") LIKE ?"); b.push(like); if (idc) { conds.push("upper(replace(" + src.id_card + ", ' ', '')) = ?"); b.push(idc); } }
+    if (src.phone && phoneLike) { conds.push("replace(replace(" + src.phone + ", ' ', ''), '+', '') LIKE ?"); b.push(phoneLike); }
+    try {
+      const rows = await dbAll(env, peopleSourceSelect(src) + " WHERE org_id = ? AND location_id = ? AND (" + conds.join(" OR ") + ") ORDER BY " + src.date + " DESC LIMIT 25", b);
+      if (rows.length) rowsByKind.push({ kind: src.kind, rows });
+    } catch (e) { /* table not created yet for this pharmacy */ }
+  }
+  const known = new Set();
+  for (const p of people) { known.add(personKey(p.id_card, p.name)); known.add(personKey("", p.name)); }
+  if (people.length) {
+    // Anyone in history whose ID card already belongs to a person is that person.
+    const keysInHistory = peopleGroupCandidates(rowsByKind).filter((g) => g.id_card).map((g) => g.id_card);
+    if (keysInHistory.length) {
+      const owned = await dbAll(env, "SELECT id_card FROM people WHERE org_id = ? AND location_id = ? AND id_card IN (" + keysInHistory.map(() => "?").join(",") + ")", [org, loc].concat(keysInHistory));
+      for (const o of owned) known.add("id:" + o.id_card);
+    }
+  }
+  const history = peopleGroupCandidates(rowsByKind)
+    .filter((g) => !known.has(g.key) && !(g.id_card && known.has("id:" + g.id_card)))
+    .sort((a, b) => (b.last_date > a.last_date ? 1 : b.last_date < a.last_date ? -1 : a.name.localeCompare(b.name)))
+    .slice(0, limit);
+  return jsonResponse({ ok: true, q: raw, people, history }, 200, corsOkHeaders);
+}
+
+async function peopleLoad(env, org, loc, id) {
+  const row = await dbFirst(env, "SELECT * FROM people WHERE id = ? AND org_id = ? AND location_id = ?", [id, org, loc]);
+  return row ? peopleRowToPerson(row) : null;
+}
+
+// GET /people/:id — the person and everything the pharmacy has done with them.
+async function handlePersonGet(request, env, corsOkHeaders, authUser, id) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  const org = authUser.org_id, loc = authUser.location_id;
+  await ensurePeopleSchema(env);
+  let person = await peopleLoad(env, org, loc, id);
+  if (!person) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+  if (person.merged_into) {
+    const target = await peopleLoad(env, org, loc, person.merged_into);
+    if (target) person = Object.assign({}, target, { merged_from: id });
+  }
+  const url = new URL(request.url);
+  const limit = Math.min(200, Math.max(1, Number(url.searchParams.get("limit") || 60)));
+
+  // Names the person has been recorded under: their own, plus any merged-in record.
+  const aliases = await dbAll(env, "SELECT name, id_card FROM people WHERE org_id = ? AND location_id = ? AND (id = ? OR merged_into = ?)", [org, loc, person.id, person.id]);
+  const names = Array.from(new Set(aliases.map((a) => String(a.name || "").trim().toLowerCase()).filter(Boolean)));
+  const idKeys = Array.from(new Set(aliases.flatMap((a) => mtIdCardLookupKeys(a.id_card)).filter(Boolean)));
+
+  const activity = [];
+  const counts = {};
+  for (const src of PEOPLE_SOURCES) {
+    const conds = [];
+    const b = [org, loc];
+    if (names.length) { conds.push("LOWER(TRIM(" + src.name + ")) IN (" + names.map(() => "?").join(",") + ")"); b.push(...names); }
+    if (src.id_card && idKeys.length) { conds.push("upper(replace(" + src.id_card + ", ' ', '')) IN (" + idKeys.map(() => "?").join(",") + ")"); b.push(...idKeys); }
+    if (!conds.length) continue;
+    try {
+      const rows = await dbAll(env, peopleSourceSelect(src) + " WHERE org_id = ? AND location_id = ? AND (" + conds.join(" OR ") + ") ORDER BY " + src.date + " DESC LIMIT ?", b.concat([limit]));
+      counts[src.kind] = rows.length;
+      for (const r of rows) activity.push({ kind: src.kind, label: src.label, table: src.table, id: r.id, date: String(r.date || "").slice(0, 10), title: String(r.title || "").slice(0, 200), ref: r.ref || "", doctor: r.doctor || "" });
+    } catch (e) { /* table not created yet */ }
+  }
+  activity.sort((a, b) => (b.date > a.date ? 1 : b.date < a.date ? -1 : 0));
+  return jsonResponse({ ok: true, person, activity: activity.slice(0, limit), counts }, 200, corsOkHeaders);
+}
+
+function peopleCleanBody(body) {
+  const out = {};
+  for (const f of PEOPLE_FIELDS) if (body[f] !== undefined && body[f] !== null) out[f] = String(body[f]).trim();
+  if (out.id_card !== undefined) out.id_card = normalizeMtIdCard(out.id_card);
+  if (out.name !== undefined) out.name = out.name.replace(/\s+/g, " ");
+  if (out.email !== undefined) out.email = out.email.toLowerCase();
+  if (out.date_of_birth !== undefined && out.date_of_birth && !/^\d{4}-\d{2}-\d{2}$/.test(out.date_of_birth)) return { error: "Date of birth must be YYYY-MM-DD" };
+  if (out.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(out.email)) return { error: "That e-mail address does not look right" };
+  return out;
+}
+
+// POST /people — create, or update when `id` is given. An update must carry the
+// `version` it was read at; a stale one gets 409 with the current row so nothing is
+// silently overwritten. Creating with an ID card that already exists returns that
+// person (filling their blanks) instead of a duplicate.
+async function handlePersonSave(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  const org = authUser.org_id, loc = authUser.location_id;
+  const body = await readJson(request);
+  const clean = peopleCleanBody(body || {});
+  if (clean.error) return jsonResponse({ ok: false, error: clean.error }, 400, corsOkHeaders);
+  await ensurePeopleSchema(env);
+  const id = Number(body.id || 0);
+
+  if (id) {
+    const before = await peopleLoad(env, org, loc, id);
+    if (!before) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+    if (before.merged_into) return jsonResponse({ ok: false, error: "This record was merged into another person", current: before }, 409, corsOkHeaders);
+    const sentVersion = body.version === undefined || body.version === null ? null : Number(body.version);
+    if (sentVersion !== null && sentVersion !== before.version) return jsonResponse({ ok: false, error: "Changed elsewhere", current: before }, 409, corsOkHeaders);
+    const next = Object.assign({}, before, clean);
+    if (!next.name || next.name.length < 2) return jsonResponse({ ok: false, error: "Enter the person's name" }, 400, corsOkHeaders);
+    if (next.id_card && next.id_card !== before.id_card) {
+      const clash = await dbFirst(env, "SELECT id FROM people WHERE org_id = ? AND location_id = ? AND id_card = ? AND id <> ?", [org, loc, next.id_card, id]);
+      if (clash) return jsonResponse({ ok: false, error: "Another person already has this ID card", existing: await peopleLoad(env, org, loc, clash.id) }, 409, corsOkHeaders);
+    }
+    const res = await dbRun(env,
+      "UPDATE people SET id_card = ?, name = ?, phone = ?, alt_phone = ?, email = ?, address = ?, doctor_name = ?, date_of_birth = ?, notes = ?, version = version + 1, updated_at = datetime('now'), updated_by = ? WHERE id = ? AND org_id = ? AND location_id = ? AND version = ?",
+      [next.id_card, next.name, next.phone, next.alt_phone, next.email, next.address, next.doctor_name, next.date_of_birth, next.notes, authUser.user_id, id, org, loc, before.version]);
+    const changed = res && res.meta ? res.meta.changes : 1;
+    if (!changed) return jsonResponse({ ok: false, error: "Changed elsewhere", current: await peopleLoad(env, org, loc, id) }, 409, corsOkHeaders);
+    const after = await peopleLoad(env, org, loc, id);
+    await writeAudit(env, org, authUser.user_id, "PERSON_UPDATE", "people", String(id), { location_id: loc, before, after });
+    return jsonResponse({ ok: true, person: after, created: false }, 200, corsOkHeaders);
+  }
+
+  if (!clean.name || clean.name.length < 2) return jsonResponse({ ok: false, error: "Enter the person's name" }, 400, corsOkHeaders);
+  if (clean.id_card) {
+    const existing = await dbFirst(env, "SELECT * FROM people WHERE org_id = ? AND location_id = ? AND id_card = ?", [org, loc, clean.id_card]);
+    if (existing) {
+      const before = peopleRowToPerson(existing);
+      const target = before.merged_into ? (await peopleLoad(env, org, loc, before.merged_into)) || before : before;
+      const fill = {};
+      for (const f of PEOPLE_FIELDS) if (f !== "id_card" && f !== "name" && !target[f] && clean[f]) fill[f] = clean[f];
+      if (Object.keys(fill).length) {
+        const next = Object.assign({}, target, fill);
+        await dbRun(env, "UPDATE people SET phone = ?, alt_phone = ?, email = ?, address = ?, doctor_name = ?, date_of_birth = ?, notes = ?, version = version + 1, updated_at = datetime('now'), updated_by = ? WHERE id = ?",
+          [next.phone, next.alt_phone, next.email, next.address, next.doctor_name, next.date_of_birth, next.notes, authUser.user_id, target.id]);
+        const after = await peopleLoad(env, org, loc, target.id);
+        await writeAudit(env, org, authUser.user_id, "PERSON_UPDATE", "people", String(target.id), { location_id: loc, before: target, after, filled: Object.keys(fill) });
+        return jsonResponse({ ok: true, person: after, created: false, existing: true }, 200, corsOkHeaders);
+      }
+      return jsonResponse({ ok: true, person: target, created: false, existing: true }, 200, corsOkHeaders);
+    }
+  }
+  const source = String(body.source || "manual").slice(0, 40);
+  const row = await dbFirst(env,
+    "INSERT INTO people (org_id, location_id, id_card, name, phone, alt_phone, email, address, doctor_name, date_of_birth, notes, source, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
+    [org, loc, clean.id_card || "", clean.name, clean.phone || "", clean.alt_phone || "", clean.email || "", clean.address || "", clean.doctor_name || "", clean.date_of_birth || "", clean.notes || "", source, authUser.user_id, authUser.user_id]);
+  const person = await peopleLoad(env, org, loc, row.id);
+  await writeAudit(env, org, authUser.user_id, "PERSON_CREATE", "people", String(row.id), { location_id: loc, after: person });
+  return jsonResponse({ ok: true, person, created: true }, 200, corsOkHeaders);
+}
+
+// POST /people/:id/merge { into_id } — the duplicate points at the survivor, the
+// survivor gains whatever it was missing, and both old rows stay for the timeline.
+async function handlePersonMerge(request, env, corsOkHeaders, authUser, id) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  const org = authUser.org_id, loc = authUser.location_id;
+  const body = await readJson(request);
+  const intoId = Number(body.into_id || 0);
+  if (!intoId || intoId === id) return jsonResponse({ ok: false, error: "Choose the person to keep" }, 400, corsOkHeaders);
+  await ensurePeopleSchema(env);
+  const dup = await peopleLoad(env, org, loc, id);
+  const keep = await peopleLoad(env, org, loc, intoId);
+  if (!dup || !keep) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+  if (dup.merged_into || keep.merged_into) return jsonResponse({ ok: false, error: "One of these records was already merged" }, 409, corsOkHeaders);
+  const next = Object.assign({}, keep);
+  const filled = [];
+  for (const f of PEOPLE_FIELDS) if (f !== "id_card" && f !== "name" && !next[f] && dup[f]) { next[f] = dup[f]; filled.push(f); }
+  if (!next.id_card && dup.id_card) { filled.push("id_card"); }
+  const stmts = [
+    // The unique ID-card index means the duplicate must give the card up before the survivor can take it.
+    env.DB.prepare("UPDATE people SET merged_into = ?, id_card = '', notes = CASE WHEN notes = '' THEN ? ELSE notes || char(10) || ? END, version = version + 1, updated_at = datetime('now'), updated_by = ? WHERE id = ? AND org_id = ? AND location_id = ? AND merged_into IS NULL")
+      .bind(intoId, "Was ID card " + (dup.id_card || "(none)"), "Was ID card " + (dup.id_card || "(none)"), authUser.user_id, id, org, loc),
+    env.DB.prepare("UPDATE people SET id_card = ?, phone = ?, alt_phone = ?, email = ?, address = ?, doctor_name = ?, date_of_birth = ?, notes = ?, version = version + 1, updated_at = datetime('now'), updated_by = ? WHERE id = ? AND org_id = ? AND location_id = ?")
+      .bind(next.id_card || dup.id_card || "", next.phone, next.alt_phone, next.email, next.address, next.doctor_name, next.date_of_birth, next.notes, authUser.user_id, intoId, org, loc),
+    env.DB.prepare("UPDATE people SET merged_into = ? WHERE org_id = ? AND location_id = ? AND merged_into = ?").bind(intoId, org, loc, id)
+  ];
+  await env.DB.batch(stmts);
+  const after = await peopleLoad(env, org, loc, intoId);
+  await writeAudit(env, org, authUser.user_id, "PERSON_MERGE", "people", String(intoId), { location_id: loc, merged_id: id, duplicate: dup, before: keep, after, filled });
+  return jsonResponse({ ok: true, person: after, merged_id: id }, 200, corsOkHeaders);
+}
+
+// POST /people/backfill — admin. Builds `people` from history, never touching history.
+// Safe to run again: it only inserts keys that are not there yet.
+async function handlePeopleBackfill(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  const org = authUser.org_id, loc = authUser.location_id;
+  await ensurePeopleSchema(env);
+  const MAX_PER_RUN = 2000;
+  const existing = await dbAll(env, "SELECT id_card, name FROM people WHERE org_id = ? AND location_id = ?", [org, loc]);
+  const known = new Set();
+  for (const p of existing) { known.add(personKey(p.id_card, p.name)); known.add(personKey("", p.name)); }
+
+  const rowsByKind = [];
+  const scanned = {};
+  for (const src of PEOPLE_SOURCES) {
+    try {
+      const rows = await dbAll(env, peopleSourceSelect(src) + " WHERE org_id = ? AND location_id = ? ORDER BY " + src.date + " DESC", [org, loc]);
+      scanned[src.kind] = rows.length;
+      if (rows.length) rowsByKind.push({ kind: src.kind, rows });
+    } catch (e) { scanned[src.kind] = 0; }
+  }
+  const candidates = peopleGroupCandidates(rowsByKind).filter((g) => g.name && !known.has(g.key));
+  // A name-only candidate whose name also appears with an ID card is the same person.
+  const namesWithCard = new Set(candidates.filter((g) => g.id_card).map((g) => personKey("", g.name)));
+  const toInsert = candidates.filter((g) => g.id_card || !namesWithCard.has(g.key));
+  const batch = toInsert.slice(0, MAX_PER_RUN);
+  const sql = "INSERT INTO people (org_id, location_id, id_card, name, phone, alt_phone, email, address, doctor_name, source, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+  for (let i = 0; i < batch.length; i += 50) {
+    const stmts = batch.slice(i, i + 50).map((g) => env.DB.prepare(sql).bind(org, loc, g.id_card || "", g.name, g.phone, g.alt_phone, g.email, g.address, g.doctor_name, "history:" + Object.keys(g.sources).sort().join("+"), authUser.user_id, authUser.user_id));
+    await env.DB.batch(stmts);
+  }
+  await writeAudit(env, org, authUser.user_id, "PEOPLE_BACKFILL", "people", "", { location_id: loc, created: batch.length, candidates: toInsert.length, scanned });
+  return jsonResponse({ ok: true, created: batch.length, remaining: toInsert.length - batch.length, scanned }, 200, corsOkHeaders);
+}
+
 function schemaOnce(name, impl) {
   return async function (env) {
     const key = (env && typeof env.DB === "object" && env.DB) ? env.DB : globalThis;
@@ -15574,6 +15913,7 @@ const ensurePvSchema = schemaOnce("ensurePvSchema", ensurePvSchema__impl);
 const ensureScreeningSchema = schemaOnce("ensureScreeningSchema", ensureScreeningSchema__impl);
 const ensureLabelsSchema = schemaOnce("ensureLabelsSchema", ensureLabelsSchema__impl);
 const ensureContactsSchema = schemaOnce("ensureContactsSchema", ensureContactsSchema__impl);
+const ensurePeopleSchema = schemaOnce("ensurePeopleSchema", ensurePeopleSchema__impl);
 
 export default {
   async fetch(request, env, ctx) {
@@ -15800,6 +16140,17 @@ const authUser = await authFromRequest(request, env);
     if (url.pathname === "/today" && request.method === "GET") {
       return await handleToday(request, env, corsOkHeaders, authUser);
     }
+    if (url.pathname === "/people" && request.method === "GET") {
+      return await handlePeopleSearch(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname === "/people" && request.method === "POST") {
+      return await handlePersonSave(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname === "/people/backfill" && request.method === "POST") {
+      return await handlePeopleBackfill(request, env, corsOkHeaders, authUser);
+    }
+    { const m = url.pathname.match(/^\/people\/(\d+)$/); if (m && request.method === "GET") return await handlePersonGet(request, env, corsOkHeaders, authUser, Number(m[1])); }
+    { const m = url.pathname.match(/^\/people\/(\d+)\/merge$/); if (m && request.method === "POST") return await handlePersonMerge(request, env, corsOkHeaders, authUser, Number(m[1])); }
 
     if (url.pathname === "/auth/change-password" && request.method === "POST") {
       return await handleChangePassword(request, env, corsOkHeaders, authUser);

@@ -16,6 +16,9 @@ node --no-warnings tests/worker/run.mjs
 
 Pass a substring to run a subset: `node --no-warnings tests/worker/run.mjs "end of day"`.
 
+`people.test.mjs` covers the shared people lookup (search across history, upsert by
+ID card, optimistic versions, timeline, merge, backfill and location isolation).
+
 - `d1shim.mjs`: the D1 look-alike (`prepare().bind().first()/all()/run()`, `exec`, `batch`).
 - `harness.mjs`: loads the worker, creates the eleven core tables the worker
   expects to pre-exist, and provides `api()`, `bootstrap()` and `addUser()`.

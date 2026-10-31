@@ -86,6 +86,18 @@ is a view over this table. Master Universal patients join it through the shared
 book (§5). The existing read-only aggregated contacts endpoint (worker 16683) is
 the seed.
 
+**Status:** built on the branch as the `people` table and five worker routes, tested
+in `tests/worker/people.test.mjs`. `GET /people?q=` returns curated people first and
+then people found only in history (eleven legacy tables, grouped by normalised ID card
+or by name, one row each, never duplicated against a curated person). `POST /people`
+creates, or updates with a `version` and answers 409 with the current row when stale;
+creating with a known ID card returns that person and fills only their blanks.
+`GET /people/:id` is the person plus a timeline over every register under their card
+or any name they were recorded as. `POST /people/:id/merge` keeps one survivor.
+`POST /people/backfill` (admin) builds the book from history and can be run again
+safely. Nothing writes to a legacy table; `person_id` columns come with each area
+as it moves. The Customers screen reads this.
+
 ### 2.3 One identity for a product and a controlled drug
 
 Today Purchases, Sales, POYC and Stock Takes use three different free-text drug
