@@ -917,7 +917,7 @@
         E._activeSidebarCategories.push({ label: "Cherubino", icon: "\uD83C\uDFE5", moduleIds: ["cherubino-orders", "cherubino-prices", "cherubino-shortexpiry", "cherubino-oos"] });
       }
       E._sectionDashboardId = (E.isUi2() && E.modules.today) ? "today" : "dashboard";
-      try { document.documentElement.toggleAttribute("data-ui2", E.isUi2()); } catch (e) {}
+      try { document.documentElement.toggleAttribute("data-ui2", E.isUi2()); document.documentElement.toggleAttribute("data-ui2-visit", E.isUi2Paused()); } catch (e) {}
       return E.bootAuthed();
     } else if (role === E.ROLE_SUPPLIER) {
       return E.bootSection("supplier");

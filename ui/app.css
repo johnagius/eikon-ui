@@ -977,3 +977,16 @@ html[data-ui2] .eikon-btn.primary{background:var(--accent);border-color:var(--ac
   html[data-ui2] .eikon-rail-foot{flex:0 0 auto}
   html[data-ui2] .eikon-rail-foot .eikon-rail-btn{width:58px}
 }
+
+/* ── A classic screen opened from the new layout, on a phone: no old sidebar (the back button returns),
+      the screen gets the full width, and the header keeps only the way back and the title. ── */
+@media (max-width: 760px){
+  html[data-ui2-visit] .eikon-sidebar{display:none}
+  html[data-ui2-visit] .eikon-main{width:100%;min-width:0}
+  html[data-ui2-visit] .eikon-topbar{padding:10px 12px;gap:10px}
+  html[data-ui2-visit] .eikon-top-left{gap:10px;min-width:0}
+  html[data-ui2-visit] #eikon-back-btn{white-space:nowrap;flex:none}
+  html[data-ui2-visit] #eikon-topbar-logo{display:none!important}
+  html[data-ui2-visit] .eikon-user{display:none}
+  html[data-ui2-visit] .eikon-content{padding:12px}
+}
