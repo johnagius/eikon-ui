@@ -4,7 +4,7 @@ function nowIso() {
 
 
 
-const WORKER_VERSION = "2026-11-02-bookings-9";
+const WORKER_VERSION = "2026-11-02-bookings-10";
 function isDebugEnabled(request) {
   try {
     return (request && request.headers && (request.headers.get("X-Eikon-Debug") || "") === "1");
@@ -7039,6 +7039,8 @@ async function handleReturnsEntriesList(request, env, corsOkHeaders, authUser, u
     where += " AND entry_date LIKE ?";
     bind.push(month + "-%");
   }
+  // open=1: what still needs doing (no credit note yet) plus the last 60 days, instead of the whole history.
+  if (url.searchParams.get("open") === "1") where += " AND (COALESCE(credit_note_received,0)=0 OR entry_date >= date('now','-60 days'))";
 
   if (qRaw) {
     const like = "%" + qRaw + "%";

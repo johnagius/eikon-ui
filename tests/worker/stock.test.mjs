@@ -114,3 +114,18 @@ test("scarce stock: more than 100 needs and offers still list (no D1 parameter l
   eq((await api("GET", "/scarce-stock/offers", { token })).status, 200);
   DB.prepare = prep;
 });
+
+test("returns: open=1 lists every return not yet credited plus the last 60 days, not the whole history", async () => {
+  const { makeApp } = await import("./harness.mjs");
+  const app = await makeApp();
+  const { token } = await app.bootstrap();
+  const add = (entry_date, description, credit) => app.api("POST", "/returns/entries", { token, body: { entry_date, description, credit_note_received: credit } });
+  const d = (n) => { const x = new Date(); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); };
+  eq((await add(d(-400), "Old, still waiting for credit", 0)).status < 300, true);
+  await add(d(-400), "Old and credited", 1);
+  await add(d(-10), "Recent and credited", 1);
+  const all = (await app.api("GET", "/returns/entries", { token })).json.entries.map((e) => e.description);
+  eq(all.length, 3, "without open=1 nothing changes");
+  const open = (await app.api("GET", "/returns/entries?open=1", { token })).json.entries.map((e) => e.description).sort();
+  eq(open, ["Old, still waiting for credit", "Recent and credited"]);
+});
