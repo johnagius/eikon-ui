@@ -532,3 +532,11 @@ All of it waits only on the worker deploy.
   registry designed with care (risk: hidden registers / role changes for live users). Cost is background only.
 - modules.poreg.js (Paid out): totals today/month, by day, form (comma decimals, cheque no. required), payee typeahead.
   Real local worker checked. UI 119/119. BUILD .71.
+
+## Round 54 — tour image; Handover rebuilt
+- Live: BUILD .71. Tour image of all 16 rebuilt screens sent to John.
+- modules.hndreg.js (Team > Handover): incoming (yesterday, critical first), standing instructions, today's notes,
+  points for tomorrow. Day record is FULL-REPLACE and deleted when empty → every save re-reads and changes one thing;
+  stale notes refused (theirs shown, yours quoted). Real worker with a second till writing in between: all kept.
+- Bugs caught: first paint before load crashed (null record); add box not cleared (repaint read it back).
+- UI 121/121. BUILD .72.
