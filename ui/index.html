@@ -2,8 +2,21 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>Eikon</title>
+  <!-- Add to Home Screen: opens full-screen with its own icon, like an app. -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Eikon" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="theme-color" content="#F2F2F7" />
+  <link rel="apple-touch-icon" href="assets/icon-180.png" />
+  <script>
+    // A home-screen app keeps its own storage, so the new layout installs through next.html.
+    (function () { var l = document.createElement("link"); l.rel = "manifest"; var n = false;
+      try { n = localStorage.getItem("eikon_ui2") === "1"; } catch (e) {}
+      l.href = n ? "manifest-next.json" : "manifest.json"; document.head.appendChild(l); })();
+  </script>
 
   <!-- CSS and scripts are attached dynamically with a build stamp (see BUILD below). -->
 </head>
@@ -22,7 +35,7 @@
       // browser and the Worker's edge cache can reuse every file (previously every load
       // used Date.now(), so 52 files were re-downloaded on every visit).
       // Bump BUILD on EVERY change to any file in ui/: browsers keep stamped files for a day.
-      var BUILD = "2026-11-02.19";
+      var BUILD = "2026-11-02.20";
 
       function log() { try { console.log.apply(console, arguments); } catch (e) {} }
       function warn() { try { console.warn.apply(console, arguments); } catch (e) {} }
