@@ -94,3 +94,22 @@ then a hard cut to a small sign-in card.
   branch; **worker deploy blocked by the session's safety check, needs John's
   permission.**
 - Redesign spec written: `APPOINTMENTS.md`.
+
+### Round 3: data at scale
+- Full findings in `DATA-AUDIT.md` (1.9M rows seeded locally: 20 pharmacies over
+  5 years; every screen measured).
+- **Shipped (UI build 2026-11-02.2):** polling pauses while the tab is hidden
+  on Today, Appointments, Scarce stock, Stock transfers and the Message board.
+  Measured: 0 API calls in 35 s hidden, normal when visible. 85/85 UI tests pass.
+- **Checked against production (read-only):** cleaning, temperature and audit
+  already have indexes there. The audit's "no index" finding came from the local
+  harness, so no change is needed.
+- **Worker batch ready, not deployed (blocked):** cancelled slots, the lookup
+  hardening, and the appointments list keeping the newest rows. 39/39 tests pass.
+- **Next, by gain:**
+  1. Classic dashboard: 34 calls (2.6 MB) replaced by `/today`.
+  2. POCT: a date window and saves of changed records only. Today's save would
+     break D1 limits at scale.
+  3. Supplier inventory cached once for three screens.
+  4. Stock transfers and scarce stock: open items only.
+  5. Client orders: one range call instead of 37.
