@@ -416,3 +416,14 @@ All of it waits only on the worker deploy.
   - Booking page: /book/<pharmacy-name>, choosable address (validated, unique), day strip, times by part of day, opening times, tappable phone. 4 tests; e2e light+dark.
 - John added: practitioners & specialities, clinics set internally, flexible rescheduling/cancellation by pharmacy, clinic/doctor and client → task #10, next.
 - Worker 86/86, WORKER_VERSION 2026-11-02-bookings-4 (not deployed). BUILD .53.
+
+## Round 36 — flexible bookings (John: practitioners, specialities, clinics, reschedule/cancel by anyone)
+- Customer moves their own booking from the private link (Change time: day strip, free times, within the cut-off; 'Moved' email).
+- Practitioner/room away: dates or hours + reason → time closed, bookings cancelled, customers emailed with 'Book another time',
+  the rest listed to call. Cancellation emails now say why.
+- Practitioners: title + speciality; booking page 'With: Anyone / Dr Anna Borg · Sports physiotherapy'; days/times follow the choice.
+- Clinic rooms: set up internally; sessions may name a room; no two people in one room at once (409 in words); room on day view, emails, customer page.
+- Staff UI: People tab (title/name/speciality, several windows a day with rooms, Mark away, add practitioner), Rooms tab, several people per service.
+- Data safety found and fixed before shipping: saving hours would have wiped title/speciality and rooms; the old Hours screen dropped
+  every window but the first (split days) — now all kept.
+- Worker 93/93, UI 95/95, e2e: people 9/9, settings 13/13, bookings 13/13, move 4/4, choose-practitioner 4/4. WORKER_VERSION bookings-9 (not deployed). BUILD .54.
