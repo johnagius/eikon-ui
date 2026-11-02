@@ -190,7 +190,11 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
     if (!S.mount) return;
     if (E.state.activeModuleId !== "bookings") return; // left before a reply came back: do not draw over the next screen
     var isToday = S.date === todayStr(), now = nowHM();
-    var list = S.bookings.filter(function (b) { return b.status !== "cancelled"; });
+    // With several practitioners (or rooms), the day can be narrowed to one; the choice is kept while you move between days.
+    var provsAll = (S.setup && S.setup.providers || []).filter(function (p) { return p.active !== false; });
+    var roomsSeen = {}; S.bookings.forEach(function (b) { if (b.roomName) roomsSeen[b.roomName] = 1; });
+    var fl = S.filter || "";
+    var list = S.bookings.filter(function (b) { return b.status !== "cancelled" && (!fl || (fl.charAt(0) === "p" ? String(b.providerId) === fl.slice(2) : b.roomName === fl.slice(2))); });
     var up = list.filter(function (b) { return !isToday || b.end > now; });
     var past = list.filter(function (b) { return isToday && b.end <= now; });
     var hasSetup = S.setup && S.setup.services.length;
@@ -200,7 +204,9 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
     else if (!S.setup) body = '<div class="bkx-sec"><div class="bkx-g"><div class="bkx-empty">Loading…</div></div></div>';
     else if (S.view === "week") body = weekHtml(list);
     else {
-      body = '<div class="bkx-sec"><h2>' + (isToday ? "Next" : "Booked") + "</h2><div class=\"bkx-g\">" +
+      var opts = provsAll.length > 1 || Object.keys(roomsSeen).length > 1 ? [["", "Everyone"]].concat(provsAll.length > 1 ? provsAll.map(function (p) { return ["p:" + p.id, plabel(p)]; }) : []).concat(Object.keys(roomsSeen).length > 1 ? Object.keys(roomsSeen).sort().map(function (r) { return ["r:" + r, r]; }) : []) : [];
+      body = (opts.length ? '<div class="bkx-chips" style="margin:0 0 14px">' + opts.map(function (o) { return '<button class="bkx-chip' + (fl === o[0] ? " on" : "") + '" data-act="filter" data-f="' + esc(o[0]) + '" aria-pressed="' + (fl === o[0]) + '">' + esc(o[1]) + "</button>"; }).join("") + "</div>" : "") +
+        '<div class="bkx-sec"><h2>' + (isToday ? "Next" : "Booked") + "</h2><div class=\"bkx-g\">" +
         (up.length ? up.map(function (b) { return rowHtml(b, false); }).join("") : '<div class="bkx-empty">' + (isToday ? "Nothing else booked today." : "Nothing booked on this day.") + "</div>") + "</div></div>";
       if ((S.waiting || []).length) body += '<div class="bkx-sec"><h2>Waiting</h2><div class="bkx-g">' + S.waiting.map(function (w) {
         var sv = svc(w.serviceId) || {}, days = Math.max(0, Math.round((Date.now() - Date.parse(String(w.createdAt).replace(" ", "T") + "Z")) / 86400000));
@@ -429,6 +435,7 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
     var act = t.getAttribute("data-act");
     keepFields();
     if (act === "day") { S.date = t.getAttribute("data-d"); return load({ silent: true }); }
+    if (act === "filter") { S.filter = t.getAttribute("data-f") || ""; return paint(); }
     if (act === "wl-book") {
       var w = (S.waiting || []).find(function (x) { return x.id === Number(t.getAttribute("data-id")); }); if (!w) return;
       S.sheet = { kind: "new", serviceId: w.serviceId, slots: [], slot: null, name: w.personName, phone: w.personPhone, email: w.personEmail, waitlistId: w.id };
