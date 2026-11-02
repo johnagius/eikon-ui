@@ -235,3 +235,15 @@ then a hard cut to a small sign-in card.
   **2.4 s to 0.44 s**; at 150 ms: 3.0 s to 1.0 s. A race between start-up and
   early sign-in was found by test and fixed.
 - Worker 64/64, UI 86/86, Bookings e2e 13/13.
+
+### Rounds 16–17: Bookings on Today, week view
+- **Today** lists the day's next bookings ("Here" once arrived), one tap to the
+  day. `/today` returns `bookings`, which is empty when Bookings isn't set up.
+  Worker 66/66.
+- **Week view:** seven days in one call; columns on desktop, stacked on a phone;
+  tap a day to open it; the subtitle shows the date range. e2e 8/8.
+- **Next for Bookings:**
+  1. the waiting list
+  2. moving the old appointments across (read-only from the old tables)
+  3. the optional public booking page with an email code
+  4. SMTP
