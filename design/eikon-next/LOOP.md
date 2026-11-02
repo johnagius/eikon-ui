@@ -494,3 +494,12 @@ All of it waits only on the worker deploy.
 - All lines validated before any POST; sequential POSTs; a failure keeps unsaved lines, saved ones greyed and never re-sent
   (real local worker with a forced 500 on line 2: retry saved only the rest, no duplicates).
 - Typeahead for drug names and suppliers from the last two months. UI 113/113. BUILD .66.
+
+## Round 49 — Controlled drugs supplied (DDA sales) rebuilt
+- Live check: BUILD .66 serving with cdpreg.
+- modules.cdsreg.js: month list; one form per prescription, several medicines (one entry each, like classic).
+- ID card (7 digits + letter, padded like the server) fills name/address into empty fields only; prescriber fills reg no
+  only when the name maps to one reg no. Repeated serial → listed, button becomes "Yes, record" (classic's part-dispense warning).
+- Validate-all-then-sequential-POST with failure retention (real worker + forced 500: no duplicates).
+- Bug caught in testing: repaint's keep() overwrote lookup-filled values → paint(fromState) for lookup repaints;
+  lookups on input/blur instead of change (a repaint can swallow change). UI 115/115. BUILD .67.
