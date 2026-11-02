@@ -12,7 +12,7 @@ const pb = p.getByText("Pharmacy", { exact: true }); if (await pb.count()) { awa
 await p.evaluate(() => { location.hash = "#bookings"; }); await p.waitForTimeout(1800);
 if (await p.getByText("Set up bookings").count()) { await p.click("[data-act=setup]"); await p.waitForTimeout(1500); }
 await p.click("[data-act=settings]"); await p.waitForTimeout(600);
-ok(await p.locator(".bkx-seg button").count() === 3, "settings opens with Services, Hours, Messages");
+ok(await p.locator(".bkx-sheet .bkx-seg button").count() === 3, "settings opens with Services, Hours, Messages");
 await p.click("[data-act=svc-new]"); await p.waitForTimeout(300);
 const box = p.locator('[data-svc="0"]');
 await box.locator('[data-k=name]').fill("Blood pressure"); await box.locator('[data-k=dur]').fill("15"); await box.locator('[data-k=price]').fill("0");
