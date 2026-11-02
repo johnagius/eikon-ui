@@ -374,3 +374,10 @@ All of it waits only on the worker deploy.
 - Today's data requested alongside /auth/me (was after it): one round trip saved in production (local server is serial, so ~30 ms here).
 - Today temperatures accept a decimal comma ("3,9") and round to one decimal like the Temperature register. Test changed first, failed, then fixed.
 - UI 86/86. BUILD .40.
+
+## Round 30 — keyboard, palette, API audit
+- One green keyboard focus ring (no double rings on hub cards).
+- Last blue tints of the old palette (selected customer, pills) now brand green.
+- API audit of the new layout (calls per step): sign-in→Today 2 (login, /today), Customers 1, search 1 for six typed letters (debounced),
+  Bookings 3 (setup, day, waitlist), Stock 0, back to Today 1. No duplicates. Nothing to fix.
+- UI 86/86. BUILD .42.
