@@ -186,3 +186,20 @@ then a hard cut to a small sign-in card.
   - set the `BOOKINGS_KEY` secret
   - set `PUBLIC_BASE_URL` (optional)
   - add a cron trigger every 10 minutes
+
+### Round 9: Bookings settings in the app
+- One sheet with three tabs:
+  - **Services:** name, minutes, price, who does it, and a "bookable" switch.
+  - **Hours:** each person's week.
+  - **Messages:** provider, key, sender, reminders, online-cancel cut-off,
+    address and phone, and Send me a test.
+- Found and fixed in testing: a failed hours save wiped what had been typed (it's
+  now kept); "New booking" wrapped on phones (Settings is now a gear); checkboxes
+  became iOS switches; time fields overflowed on phones.
+- **End-to-end 13/13 on iPhone and desktop** against the real worker with stubbed
+  email providers. This covers the test email to the signed-in pharmacist, a new
+  service offered when booking, the confirmation email, and the customer link
+  opening.
+- `tools/deploy-worker.sh` written and dry-run against live Cloudflare: tests
+  58/58, settings snapshot, no change made. John has added the Cloudflare
+  environment variables; the next step is the PR that allows the script.
