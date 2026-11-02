@@ -524,3 +524,11 @@ All of it waits only on the worker deploy.
   low value. The audit's stock-take ReferenceError was already fixed earlier (debug-header fix).
 - /today: deliveries due today or overdue in customers_waiting (worker test, 98/98; WORKER_VERSION bookings-12,
   undeployed). Today UI draws them and opens Deliveries; harmless with today's server. UI 117/117. BUILD .70.
+
+## Round 53 — Paid out rebuilt; a speed finding parked
+- Live: BUILD .70.
+- Finding: the new layout late-loads 54 classic modules (~750 KB gzipped) it never renders (classic screens open as
+  ?ui=classic). Parked: hubs, Today search and role selection read E.modules, so dropping them needs a static
+  registry designed with care (risk: hidden registers / role changes for live users). Cost is background only.
+- modules.poreg.js (Paid out): totals today/month, by day, form (comma decimals, cheque no. required), payee typeahead.
+  Real local worker checked. UI 119/119. BUILD .71.
