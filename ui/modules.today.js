@@ -45,7 +45,6 @@
     st.id = "eikon-today-css";
     st.textContent =
       ".tdy{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:0 22px;align-content:start}" +
-      "@media (max-width:980px){.tdy{grid-template-columns:1fr}.tdy-side{grid-column:1}}" +
       ".tdy-search{grid-column:1;display:flex;align-items:center;gap:12px;background:var(--panel2);border:1px solid var(--border);border-radius:14px;padding:0 14px;height:50px}" +
       ".tdy-search input{flex:1;border:0;outline:0;background:transparent;color:var(--text);font-size:16px;min-width:0}" +
       ".tdy-search input::placeholder{color:var(--muted)}" +
@@ -59,7 +58,7 @@
       ".tdy-list{background:var(--panel2);border:1px solid var(--border);border-radius:12px;overflow:hidden}" +
       ".tdy-row{display:flex;align-items:center;gap:12px;padding:11px 14px 11px 0;border-top:1px solid var(--border);border-left:3px solid transparent}.tdy-row:first-child{border-top:0}" +
       ".tdy-row.red{border-left-color:var(--danger)}.tdy-row.amb{border-left-color:#C98A12}.tdy-row.grn{border-left-color:var(--ok)}.tdy-row.blu{border-left-color:var(--accent)}" +
-      ".tdy-av{width:36px;height:36px;border-radius:50%;flex:none;margin-left:12px;display:grid;place-items:center;font-weight:700;font-size:12.5px;color:#fff}.tdy-av.sq{border-radius:9px}" +
+      ".tdy-av{width:36px;height:36px;border-radius:50%;flex:none;margin-left:12px;display:grid;place-items:center;font-weight:700;font-size:12.5px;color:#fff}.tdy-av.sq{border-radius:9px}.tdy-av.nt{background:rgba(120,120,128,.12);color:#3A3A3C;font-size:14px}.tdy-av.tm{background:rgba(10,143,106,.10);color:#0A7A5B}" +
       ".tdy-t{flex:1;min-width:0}.tdy-t b{display:block;font-size:14.5px;font-weight:700;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tdy-t span{display:block;font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tdy-t span.u{color:var(--danger)}" +
       ".tdy-pill{font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;white-space:nowrap}.tdy-pill.red{background:rgba(191,59,46,.14);color:var(--danger)}.tdy-pill.amb{background:rgba(201,138,18,.16);color:#A06A0E}.tdy-pill.grn{background:rgba(28,138,91,.16);color:var(--ok)}.tdy-pill.blu{background:rgba(31,95,216,.14);color:var(--accent)}.tdy-pill.gry{background:rgba(127,127,127,.14);color:var(--muted)}" +
       ".tdy-btn{font-size:13px;font-weight:600;padding:8px 14px;border-radius:9px;border:1px solid var(--border);background:var(--panel);white-space:nowrap;color:var(--text);cursor:pointer}.tdy-btn:disabled{opacity:.55;cursor:default}" +
@@ -70,7 +69,9 @@
       ".tdy-foot{grid-column:1/-1;display:flex;gap:16px;align-items:center;font-size:12.5px;color:var(--muted);margin-top:18px;padding-top:10px;border-top:1px solid var(--border)}.tdy-foot a{color:var(--accent);cursor:pointer;font-weight:600}.tdy-foot .right{margin-left:auto}" +
       ".tdy-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:12px;padding:22px;color:var(--muted);font-size:14px}" +
       ".tdy-off{background:rgba(201,138,18,.14);border:1px solid rgba(201,138,18,.35);color:#A06A0E;border-radius:10px;padding:8px 12px;font-size:13px;margin-bottom:10px;grid-column:1/-1}" +
-      ".tdy-sr{position:absolute;left:-9999px}";
+      ".tdy-sr{position:absolute;left:-9999px}" +
+      "@media (max-width:980px){.tdy{grid-template-columns:minmax(0,1fr)}.tdy-side{grid-column:1;grid-row:auto}.tdy-date{grid-column:1;grid-row:auto}}" +
+      "@media (max-width:600px){.tdy{padding:0 16px}.tdy-date{order:-1;margin:0 0 10px}.tdy-head h1{font-size:28px}.tdy-search .hint{display:none}.tdy-row{flex-wrap:wrap;row-gap:8px}.tdy-t{flex:1 1 calc(100% - 90px)}.tdy-t+*{margin-left:60px}.tdy-row>.tdy-btn{margin-left:auto}.tdy-inl{flex:1 1 0;min-width:0}.tdy-inl:empty{display:none}.tdy-inl input{flex:1 1 0;width:0;min-width:0}}";
     document.head.appendChild(st);
   }
 
@@ -154,13 +155,13 @@
       '<div class="tdy-inl"><small>min</small><input data-min inputmode="decimal" aria-label="Minimum temperature"><small>max</small><input data-max inputmode="decimal" aria-label="Maximum temperature"></div>' +
       '<button class="tdy-btn p" data-act="temp">Log</button>';
     return '<div class="tdy-row ' + cls + '" data-kind="temperature" data-device="' + esc(r.device_id) + '">' +
-      '<div class="tdy-av sq" style="background:#2E8BC9">' + (r.limits && r.limits.max != null && r.limits.max <= 10 ? "❄" : "°") + '</div>' +
+      '<div class="tdy-av sq nt">' + (r.limits && r.limits.max != null && r.limits.max <= 10 ? "❄" : "°") + '</div>' +
       '<div class="tdy-t"><b>' + esc(r.title) + '</b><span>' + esc(r.sub) + '</span></div>' + pill + inl + '</div>';
   }
   function rowDaily(r) {
     var done = r.status === "done";
     return '<div class="tdy-row ' + (done ? "grn" : "amb") + '" data-kind="daily_register">' +
-      '<div class="tdy-av sq" style="background:#6B5BD2">Rx</div>' +
+      '<div class="tdy-av sq nt" style="font-size:12.5px">Rx</div>' +
       '<div class="tdy-t"><b>Daily register</b><span>' + esc(r.sub) + '</span></div>' +
       (done ? '<span class="tdy-pill grn">Done</span>' : '<span class="tdy-pill amb">No entry yet</span>') +
       '<button class="tdy-btn" data-open="' + esc(r.action.path) + '">Open</button></div>';
@@ -170,7 +171,7 @@
     var pill = r.status === "done" ? '<span class="tdy-pill grn">Done today</span>' : r.status === "overdue" ? '<span class="tdy-pill red">Overdue</span>' : '<span class="tdy-pill gry">Due weekly</span>';
     var sub = r.status === "overdue" ? '<span class="u">' + esc(r.sub) + " · due weekly</span>" : "<span>" + esc(r.sub) + "</span>";
     return '<div class="tdy-row ' + cls + '" data-kind="cleaning">' +
-      '<div class="tdy-av sq" style="background:#D9822B">✓</div>' +
+      '<div class="tdy-av sq nt">✓</div>' +
       '<div class="tdy-t"><b>Cleaning · dispensary and fridge</b>' + sub + '</div>' + pill +
       (r.status === "done" ? "" : '<div class="tdy-inl"></div><button class="tdy-btn" data-act="clean">Done now</button>') + '</div>';
   }
@@ -207,9 +208,11 @@
     var before = d.before_opening || [], waiting = d.customers_waiting || [], attention = d.attention || [];
     var nBefore = d.counts.before_opening, nWait = waiting.length;
     var h1;
-    if (nBefore === 0 && nWait === 0) h1 = "A quiet morning. <span>Nothing needs you yet.</span>";
+    var hr = parseInt(String(d.time || hm()).split(":")[0], 10); if (isNaN(hr)) hr = new Date().getHours();
+    var part = hr < 12 ? "morning" : hr < 17 ? "afternoon" : "evening";
+    if (nBefore === 0 && nWait === 0) h1 = "A quiet " + part + ". <span>" + (hr < 12 ? "Nothing needs you yet." : "Everything is done.") + "</span>";
     else if (nBefore === 0) h1 = plural(nWait, "customer") + " waiting. <span>The registers are done.</span>";
-    else h1 = plural(nBefore, "thing") + " before the doors open" + (nWait ? "<span>, " + plural(nWait, "customer") + " waiting.</span>" : "<span>.</span>");
+    else h1 = (hr < 12 ? plural(nBefore, "thing") + " before the doors open" : plural(nBefore, "check") + " still to do today") + (nWait ? "<span>, " + plural(nWait, "customer") + " waiting.</span>" : "<span>.</span>");
     var leg = [];
     var overdue = before.filter(function (x) { return x.status === "overdue"; }).length;
     var todo = before.filter(function (x) { return x.status === "todo"; }).length;
@@ -244,7 +247,7 @@
       html += bk.next.length ? '<div class="tdy-list">' + bk.next.map(function (b) {
         var here = b.status === "arrived";
         return '<div class="tdy-row ' + (here ? "grn" : "blu") + '">' +
-          '<div class="tdy-av sq" style="background:#2E9F7E;width:50px;font-size:12px;font-variant-numeric:tabular-nums">' + esc(b.start) + '</div>' +
+          '<div class="tdy-av sq tm" style="width:50px;font-size:12px;font-variant-numeric:tabular-nums">' + esc(b.start) + '</div>' +
           '<div class="tdy-t"><b>' + esc(b.name) + '</b><span>' + esc(b.service) + (b.provider ? " · " + esc(b.provider) : "") + " · until " + esc(b.end) + '</span></div>' +
           (here ? '<span class="tdy-pill grn">Here</span>' : "") + '<button class="tdy-btn" data-open="#bookings">Open</button></div>';
       }).join("") + '</div>' : '<div class="tdy-quiet">All of today\'s bookings are done.</div>';

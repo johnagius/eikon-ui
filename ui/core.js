@@ -1318,6 +1318,21 @@
   E.UI2_DESTINATIONS = ["today", "customers", "stock", "registers", "team", "settings"];
   E._railBadges = E._railBadges || {};
 
+  // Line icons for the new layout's menu (same set as the Eikon Next design).
+  (function () {
+    var sv = function (d) { return '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + d + "</svg>"; };
+    E.RAIL_ICONS = {
+      today: sv('<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"/>'),
+      customers: sv('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.3-5.5 6.5-5.5s5.9 1.9 6.5 5.5M16 4.8a3.3 3.3 0 0 1 0 6.4M18 14.8c2 .6 3.2 2.3 3.5 5.2"/>'),
+      bookings: sv('<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4M8 14h3"/>'),
+      stock: sv('<path d="m12 2.8 8.5 4.6v9.2L12 21.2l-8.5-4.6V7.4z"/><path d="m3.8 7.6 8.2 4.5 8.2-4.5M12 12.1v9"/>'),
+      registers: sv('<path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H19v15H5.5A1.5 1.5 0 0 0 4 19.5z"/><path d="M4 19.5A1.5 1.5 0 0 0 5.5 21H19M8 7.5h7M8 11h5"/>'),
+      team: sv('<circle cx="12" cy="8" r="3.5"/><path d="M5 20c.7-3.6 3.5-5.5 7-5.5s6.3 1.9 7 5.5"/>'),
+      settings: sv('<circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M2.8 12h2.4M18.8 12h2.4M4.9 19.1l1.7-1.7M17.4 6.6l1.7-1.7"/>'),
+      _: sv('<circle cx="12" cy="12" r="8"/>')
+    };
+  })();
+
   E.renderNavUi2 = function (nav, modById) {
     var u = E.state.user || {};
     var side = nav.parentNode;
@@ -1333,7 +1348,7 @@
       b.className = "eikon-nav-btn eikon-rail-btn";
       b.setAttribute("data-mod", item.id);
       var n = E._railBadges[item.id];
-      b.innerHTML = '<span class="eikon-rail-dot"></span><span class="eikon-nav-label">' + E.escapeHtml(item.title) + '</span>' +
+      b.innerHTML = '<span class="eikon-rail-ico">' + (E.RAIL_ICONS[item.id] || E.RAIL_ICONS._) + '</span><span class="eikon-nav-label">' + E.escapeHtml(item.title) + '</span>' +
         '<span class="eikon-rail-badge' + (n ? "" : " empty") + '" data-badge="' + item.id + '">' + (n || "") + '</span>';
       b.addEventListener("click", function () { E._ui2Back = null; window.location.hash = "#" + item.id; });
       return b;

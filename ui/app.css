@@ -955,3 +955,25 @@ html[data-ui2]{--overlay:rgba(20,27,36,.45);--panel-strong:#FFFFFF}
   html[data-ui2] .bkx-add{height:36px;padding:0 14px}
   html[data-ui2] .eikon-toast{bottom:92px!important}
 }
+
+/* ── Eikon Next look for the new layout: system font, calm greys, one green tint, line icons ── */
+html[data-ui2]{
+  --bg:#F2F2F7; --panel:#FFFFFF; --panel2:#FFFFFF; --text:#000; --muted:rgba(60,60,67,.64);
+  --border:rgba(60,60,67,.15); --accent:#0A8F6A; --danger:#D7261C; --ok:#0A8F6A;
+}
+html[data-ui2] body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Inter",system-ui,sans-serif;-webkit-font-smoothing:antialiased;letter-spacing:-.003em}
+html[data-ui2] .eikon-sidebar{background:rgba(255,255,255,.78);-webkit-backdrop-filter:blur(30px) saturate(180%);backdrop-filter:blur(30px) saturate(180%);border-right:.5px solid var(--border)}
+html[data-ui2] .eikon-rail-ico{width:22px;height:22px;display:inline-grid;place-items:center;color:rgba(60,60,67,.7);flex:none}
+html[data-ui2] .eikon-rail-btn{border-radius:12px;font-weight:500;padding:9px 12px}
+html[data-ui2] .eikon-rail-btn.active{background:rgba(10,143,106,.11);border-color:transparent;color:var(--accent);font-weight:600}
+html[data-ui2] .eikon-rail-btn.active .eikon-rail-ico{color:var(--accent)}
+html[data-ui2] .eikon-rail-btn:hover{background:rgba(118,118,128,.08)}
+html[data-ui2] .eikon-rail-badge{background:rgba(215,38,28,.12);color:var(--danger)}
+html[data-ui2] .eikon-btn.primary{background:var(--accent);border-color:var(--accent)}
+@media (max-width: 760px){
+  html[data-ui2] .eikon-rail-ico{width:24px;height:24px}
+  html[data-ui2] .eikon-rail-btn.active{background:rgba(118,118,128,.10)}
+  html[data-ui2] .eikon-rail-btn{flex:1 1 0;padding:6px 2px;border-radius:22px;font-size:10px;font-weight:500}
+  html[data-ui2] .eikon-rail-foot{flex:0 0 auto}
+  html[data-ui2] .eikon-rail-foot .eikon-rail-btn{width:58px}
+}
