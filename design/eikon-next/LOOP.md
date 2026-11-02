@@ -113,3 +113,15 @@ then a hard cut to a small sign-in card.
   3. Supplier inventory cached once for three screens.
   4. Stock transfers and scarce stock: open items only.
   5. Client orders: one range call instead of 37.
+
+### Round 4: home screen and POCT
+- **Shipped (build 2026-11-02.3):** the classic dashboard reuses its data when you
+  come back within 2 minutes. Measured: first open 34 calls, return 0, and back to
+  34 after any save anywhere. Refresh always reloads.
+- **Shipped (build 2026-11-02.4):** a POCT save sends only new or changed items,
+  and no longer re-downloads all history afterwards. Measured: one record plus one
+  patient, about 1 KB per save, where it used to send the whole history (6.6 MB and
+  about 20k writes at scale). The idle screen makes 0 writes.
+- 85/85 UI tests pass for each.
+- **Next:** appointments worker, part 1 (services, providers, hours, bookings,
+  free slots, the unique guard), with race, buffer and DST tests.
