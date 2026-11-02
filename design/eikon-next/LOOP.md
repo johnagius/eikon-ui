@@ -344,3 +344,11 @@ All of it waits only on the worker deploy.
 - Portal picker skipped when the user has one portal; unavailable portals hidden (new layout only).
 - Considered: light palette for classic screens during visits — rejected for now, modules hard-code dark colours (e.g. 34 in appointments) → patchwork. Each screen gets redone in its turn.
 - e2e scripts made time-of-day independent (hours 00:00–23:59); bookings 13/13, waitlist 5/5, week 8/8. BUILD .26.
+
+## Round 26 — customers on phones, customer → booking
+- Open customer replaces the list on narrow screens (iOS push), "‹ Customers" returns with the search kept.
+- Customer "Booking" button (when Bookings is on) opens a new booking with name/phone/email filled — one tap.
+- Search clear button: iOS grey circle instead of the browser's blue ✕.
+- Regression caught by the UI suite: Booking replaced Appointment even with Bookings off → gated on `E.bookingsOn()`. 86/86.
+- Process fix: a `grep passed` filter hid a crashed suite once; read the tail of test output instead.
+- Live verified: BUILD .27 healthy; next.html lands on the new sign-in. Now .31.
