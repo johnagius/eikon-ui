@@ -69,6 +69,15 @@ function mockApi(req, res, body) {
   if (p === "/temperature/entries" && req.method === "GET") return res.end(JSON.stringify({ ok: true, entries: [] }));
   if (p === "/dda-purchases/entries" && req.method === "GET") return res.end(JSON.stringify({ ok: true, entries: [{ id: 5, entry_date: todayYmd, dda_name_dose: "Morphine 10mg", quantity: 2, agent: "Supplier", invoice_number: "INV-1" }] }));
   if (p === "/temperature/entries" && req.method === "POST") { todayState.tempDone = true; return res.end(JSON.stringify({ ok: true, entry_id: 1 })); }
+  if (p === "/client-orders/entries" && req.method === "GET") {
+    const q = new URL(req.url, "http://x").searchParams, d = (n) => { const x = new Date(); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); };
+    if (q.get("from")) return res.end(JSON.stringify({ ok: false, error: "Missing/invalid month (YYYY-MM)" })); // like the live server today (no ranges)
+    const thisMonth = new Date().toISOString().slice(0, 7);
+    return res.end(JSON.stringify({ ok: true, entries: q.get("month") !== thisMonth ? [] : [
+      { id: 51, order_date: d(-3), client_name: "Grech Carmen", client_phone: "79123456", items_text: "Augmentin 625 x14", priority: 2, needed_by: d(-1), deposit_amount: 0, fulfilled: 0, notes: "" },
+      { id: 52, order_date: d(-1), client_name: "Vella Joseph", client_phone: "79000111", items_text: "Nexium 20mg", priority: 1, needed_by: d(3), deposit_amount: 5, fulfilled: 0, notes: "" }] }));
+  }
+  if (p.startsWith("/client-orders/entries/") && req.method === "PUT") return res.end(JSON.stringify({ ok: true }));
   if (p === "/alerts/entries" && req.method === "GET") {
     const d = new Date().toISOString().slice(0, 10);
     return res.end(JSON.stringify({ ok: true, entries: [
@@ -360,14 +369,14 @@ report("today: cleaning Done now records who and when", posts.length === 1 && po
 const backToToday = async () => { await page.goto(base + "&ui=2#today"); await page.waitForFunction(() => window.EIKON && window.EIKON.state && window.EIKON.state.user && document.querySelector(".tdy-head h1"), null, { timeout: 15000 }); await page.waitForTimeout(300); };
 await page.fill("#tdy-q", "grech");
 await page.press("#tdy-q", "Enter");
-await page.waitForFunction(() => location.search.indexOf("ui=classic") >= 0 && window.EIKON && window.EIKON.state && window.EIKON.state.activeModuleId === "clientorders", null, { timeout: 15000 });
+await page.waitForFunction(() => window.EIKON && window.EIKON.state && window.EIKON.state.activeModuleId === "ordreg", null, { timeout: 15000 });
 const openedCustomer = await page.evaluate(() => location.hash + " " + (document.documentElement.hasAttribute("data-ui2") ? "new" : "classic"));
 await backToToday();
 await page.fill("#tdy-q", "dda purchases");
 await page.press("#tdy-q", "Enter");
 await page.waitForFunction(() => location.search.indexOf("ui=classic") >= 0 && window.EIKON && window.EIKON.state && window.EIKON.state.activeModuleId === "dda-purchases", null, { timeout: 15000 });
 const openedModule = await page.evaluate(() => location.hash + " " + (document.documentElement.hasAttribute("data-ui2") ? "new" : "classic"));
-report("today: search opens a customer or a register on Enter, in the classic layout until each is rebuilt", openedCustomer === "#clientorders classic" && openedModule === "#dda-purchases classic", `${openedCustomer} | ${openedModule}`);
+report("today: search opens a waiting customer's order in the new Orders screen, and a register not yet rebuilt in classic", openedCustomer === "#ordreg new" && openedModule === "#dda-purchases classic", `${openedCustomer} | ${openedModule}`);
 await backToToday();
 // A register rebuilt in the new layout opens there.
 await page.fill("#tdy-q", "temperature");
@@ -641,6 +650,15 @@ await page.click('[data-act=tick][data-k="supplier_informed"]'); await page.wait
 const alrPuts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "PUT");
 const ab = (alrPuts[0] || {}).body || {};
 report("alerts: open in the new layout; ticking 'supplier told' keeps every other field (notes, batch, status…)", alrPuts.length === 1 && alrPuts[0].path === "/alerts/entries/41" && ab.supplier_informed === 1 && ab.team_informed === 1 && ab.status === "open" && ab.notes === "Shelf C" && ab.batch === "L9" && ab.reason === "Manufacturer recall" && ab.supplier === "Actavis" && ab.quantity === "6" && ab.item_name === "Losartan 50mg", JSON.stringify(alrPuts));
+
+// Orders in the new layout: late first, works against a server without date ranges (month fallback); Ready sends only that.
+await page.goto(base + "&ui=2#clientorders");
+await page.waitForFunction(() => window.EIKON.state.activeModuleId === "ordreg" && document.querySelector(".ord-row"), null, { timeout: 15000 });
+const ord1 = await page.evaluate(() => ({ rail: [...document.querySelectorAll(".eikon-rail-btn.active")].map((b) => b.dataset.mod), names: [...document.querySelectorAll(".ord-row .t b")].map((e) => e.textContent), late: !!document.querySelector(".ord-row.late") }));
+await fetch(`http://localhost:${PORT}/__reset`);
+await page.click('[data-act=ready][data-id="51"]'); await page.waitForTimeout(700);
+const ordPuts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "PUT");
+report("orders: open in the new layout, late first, month fallback works, Ready sends only fulfilled", ord1.rail.join() === "customers" && ord1.names[0] === "Grech Carmen" && ord1.late && ordPuts.length === 1 && ordPuts[0].path === "/client-orders/entries/51" && JSON.stringify(ordPuts[0].body) === JSON.stringify({ fulfilled: true }), JSON.stringify({ ord1, ordPuts }));
 
 // screenshot for the review (reset the mock so the screen shows a morning with work to do)
 todayState = { tempDone: false, cleanDone: false };

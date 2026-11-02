@@ -202,7 +202,10 @@
       '<div id="cus-list"></div>' +
       '<div class="cus-regs"><span>Registers</span>' + [["clientorders", "Orders"], ["tickets", "Questions"], ["deliveries", "Deliveries"], ["appointments", "Appointments"], ["loyalty", "Loyalty"]].filter(function (x) { return E.modules[x[0]] || (window.EIKON_LATE && !E._lateIn); }).map(function (x) { return '<a data-reg="' + x[0] + '">' + x[1] + '</a>'; }).join("") + '</div>' +
       '</div><div class="cus-detail" id="cus-detail"></div></div>';
-    m.querySelectorAll("[data-reg]").forEach(function (el) { el.addEventListener("click", function () { try { sessionStorage.setItem("eikon_ui2_return", "customers"); } catch (e) {} E.openClassic(el.getAttribute("data-reg")); }); });
+    m.querySelectorAll("[data-reg]").forEach(function (el) { el.addEventListener("click", function () {
+      var reg = el.getAttribute("data-reg"), nat = E.UI2_NATIVE && E.UI2_NATIVE[reg];
+      if (nat && E.modules[nat]) { window.location.hash = "#" + nat; return; }
+      try { sessionStorage.setItem("eikon_ui2_return", "customers"); } catch (e) {} E.openClassic(reg); }); });
     var q = m.querySelector("#cus-q");
     q.addEventListener("input", function () {
       state.q = q.value;
