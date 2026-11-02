@@ -287,10 +287,11 @@
     try {
       if (btn) { btn.disabled = true; btn.textContent = "Loading…"; }
 
-      var o = await api("/scarce-stock/offers?ts=" + Date.now(), { method: "GET" });
+      var openQ = state.showClosed ? "" : "&open=1"; // closed history only when asked for
+      var o = await api("/scarce-stock/offers?ts=" + Date.now() + openQ, { method: "GET" });
       state.offers = Array.isArray(o && o.offers) ? o.offers : [];
 
-      var n = await api("/scarce-stock/needs?ts=" + Date.now(), { method: "GET" });
+      var n = await api("/scarce-stock/needs?ts=" + Date.now() + openQ, { method: "GET" });
       state.needs = Array.isArray(n && n.needs) ? n.needs : [];
 
       renderTables();
@@ -1270,6 +1271,7 @@
     if (scEl) scEl.addEventListener("change", function () {
       state.showClosed = String(scEl.value || "0") === "1";
       renderTables();
+      if (state.showClosed) refreshAll(true); // closed items are fetched only when asked for
     });
 
     var btnNew = doc.getElementById("ss-new");

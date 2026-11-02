@@ -99,3 +99,18 @@ test("stock transfers: open=1 leaves out closed items and their requests; withou
   const open = await api("GET", "/stock-transfers/items?open=1", { token });
   eq(all.json.items.length, 2); eq(open.json.items.map((i) => i.item_description), ["Open item"]);
 });
+
+test("scarce stock: more than 100 needs and offers still list (no D1 parameter limit), open=1 leaves out closed", async ({ api, bootstrap, DB }) => {
+  const { token } = await bootstrap();
+  await api("GET", "/scarce-stock/needs", { token }); // creates the tables
+  const ins = DB.db.prepare("INSERT INTO scarce_stock_needs (org_id, location_id, entry_date, item_name, quantity_needed, is_closed) VALUES (1, 1, '2026-10-01', ?, 1, ?)");
+  for (let i = 0; i < 150; i++) ins.run("Need " + i, i < 30 ? 1 : 0);
+  // Real D1 refuses more than 100 bound parameters; make the shim do the same for this test.
+  const prep = DB.prepare.bind(DB);
+  DB.prepare = (sql) => { const st = prep(sql); const bind = st.bind.bind(st); st.bind = (...a) => { if (a.length > 100) throw new Error("too many SQL variables"); return bind(...a); }; return st; };
+  const all = await api("GET", "/scarce-stock/needs", { token });
+  eq(all.status, 200, all.text); eq(all.json.needs.length, 150);
+  eq((await api("GET", "/scarce-stock/needs?open=1", { token })).json.needs.length, 120);
+  eq((await api("GET", "/scarce-stock/offers", { token })).status, 200);
+  DB.prepare = prep;
+});

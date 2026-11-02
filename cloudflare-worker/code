@@ -11079,6 +11079,7 @@ async function checkScarceStockDepletion(env, offerId, authUser) {
 async function handleScarceOffersList(request, env, corsOkHeaders, authUser, url) {
   if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
   await ensureScarceStockSchema(env);
+  const openOnly = !!(url && url.searchParams.get("open") === "1");
 
   // Auto-migrate expired offers owned by this location into Near Expiry
   await ensureNearExpirySchema(env);
@@ -11157,6 +11158,7 @@ async function handleScarceOffersList(request, env, corsOkHeaders, authUser, url
     JOIN orgs org ON org.id = o.org_id
     JOIN locations loc ON loc.id = o.location_id
     LEFT JOIN scarce_stock_offer_requests r ON r.offer_id = o.id
+    ${openOnly ? "WHERE o.is_closed = 0" : ""}
     GROUP BY o.id
     ORDER BY o.is_closed ASC, o.entry_date DESC, o.id DESC
   `, []);
@@ -11164,7 +11166,6 @@ async function handleScarceOffersList(request, env, corsOkHeaders, authUser, url
   const offerIds = offersBase.map(x => Number(x.id)).filter(n => Number.isFinite(n) && n > 0);
   let reqRows = [];
   if (offerIds.length) {
-    const qs = offerIds.map(() => "?").join(",");
     reqRows = await dbAll(env, `
       SELECT
         r.id, r.offer_id, r.requester_org_id, r.requester_location_id, r.quantity_requested, r.note,
@@ -11173,9 +11174,9 @@ async function handleScarceOffersList(request, env, corsOkHeaders, authUser, url
       FROM scarce_stock_offer_requests r
       JOIN orgs org ON org.id = r.requester_org_id
       JOIN locations loc ON loc.id = r.requester_location_id
-      WHERE r.offer_id IN (${qs})
+      WHERE r.offer_id IN (SELECT id FROM scarce_stock_offers${openOnly ? " WHERE is_closed = 0" : ""})
       ORDER BY r.created_at ASC, r.id ASC
-    `, offerIds);
+    `, []); // a subquery, not one bound parameter per offer (D1 allows at most 100)
   }
 
   const reqByOffer = new Map();
@@ -11498,6 +11499,7 @@ async function handleScarceOfferRequestDelete(request, env, corsOkHeaders, authU
 async function handleScarceNeedsList(request, env, corsOkHeaders, authUser, url) {
   if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
   await ensureScarceStockSchema(env);
+  const openOnly = !!(url && url.searchParams.get("open") === "1");
 
   const needsBase = await dbAll(env, `
     SELECT
@@ -11510,6 +11512,7 @@ async function handleScarceNeedsList(request, env, corsOkHeaders, authUser, url)
     JOIN orgs org ON org.id = n.org_id
     JOIN locations loc ON loc.id = n.location_id
     LEFT JOIN scarce_stock_need_offers o ON o.need_id = n.id
+    ${openOnly ? "WHERE n.is_closed = 0" : ""}
     GROUP BY n.id
     ORDER BY n.is_closed ASC, n.entry_date DESC, n.id DESC
   `, []);
@@ -11517,7 +11520,6 @@ async function handleScarceNeedsList(request, env, corsOkHeaders, authUser, url)
   const needIds = needsBase.map(x => Number(x.id)).filter(n => Number.isFinite(n) && n > 0);
   let offRows = [];
   if (needIds.length) {
-    const qs = needIds.map(() => "?").join(",");
     offRows = await dbAll(env, `
       SELECT
         o.id, o.need_id, o.offerer_org_id, o.offerer_location_id, o.quantity_offered, o.note,
@@ -11527,9 +11529,9 @@ async function handleScarceNeedsList(request, env, corsOkHeaders, authUser, url)
       FROM scarce_stock_need_offers o
       JOIN orgs org ON org.id = o.offerer_org_id
       JOIN locations loc ON loc.id = o.offerer_location_id
-      WHERE o.need_id IN (${qs})
+      WHERE o.need_id IN (SELECT id FROM scarce_stock_needs${openOnly ? " WHERE is_closed = 0" : ""})
       ORDER BY o.created_at ASC, o.id ASC
-    `, needIds);
+    `, []); // a subquery, not one bound parameter per need (D1 allows at most 100)
   }
 
   const offByNeed = new Map();
