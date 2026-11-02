@@ -459,3 +459,8 @@ All of it waits only on the worker deploy.
 - Fixed: bookings practitioner/service/room updates keep unsent fields (service buffer/colour were reset by the settings screen);
   debug-header crash after save in 7 handlers; String(null) → "null" in 11 places; CORS PATCH; DST bug in a test's date maths.
 - Worker 97/97. WORKER_VERSION bookings-11 (not deployed). BUILD .60.
+
+## Round 43 — Alerts rebuilt (full-record saves)
+- modules.alertreg.js: open recalls/quarantines with a seven-step chip checklist, Close alert, Record an alert; closed last 60 days.
+- Full-replace endpoint → whole record sent; proven on the real local worker (only the ticked step changed). No implicit status change.
+- UI 105/105. BUILD .61. Rebuilt: Temperature, Cleaning, Daily register, Locum, Certificates, Near expiry, Returns, Transfers, Alerts.
