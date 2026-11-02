@@ -66,11 +66,12 @@
   E._isIntroEnabledOriginal = function () {
     try {
       var u = new URL(window.location.href);
+      // The intro film made everyone wait about 5 s on every load and refresh.
+      // It is off by default now; ?intro=1 still plays it.
       var v = String(u.searchParams.get("intro") || "").trim().toLowerCase();
-      if (v === "0" || v === "false" || v === "off" || v === "no") return false;
-      return true;
+      return v === "1" || v === "true" || v === "on" || v === "yes";
     } catch (e) {
-      return true;
+      return false;
     }
   };
 
