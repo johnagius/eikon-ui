@@ -4,7 +4,7 @@ function nowIso() {
 
 
 
-const WORKER_VERSION = "2026-11-02-bookings-4";
+const WORKER_VERSION = "2026-11-02-bookings-5";
 function isDebugEnabled(request) {
   try {
     return (request && request.headers && (request.headers.get("X-Eikon-Debug") || "") === "1");
@@ -19755,6 +19755,9 @@ function bkAddDays(ymd, n) { const [y, m, d] = ymd.split("-").map(Number); const
 function bkDaysBetween(a, b) { return Math.round((Date.parse(b + "T00:00:00Z") - Date.parse(a + "T00:00:00Z")) / 86400000); }
 function bkNowLocal(env) {
   // Local wall-clock date/time of the pharmacy (default Europe/Malta), DST-correct.
+  // Tests can fix the clock: BK_TEST_NOW = 'YYYY-MM-DD HH:MM' (never set in production).
+  const tn = /^(\d{4}-\d{2}-\d{2}) (\d{2}):(\d{2})$/.exec(String((env && env.BK_TEST_NOW) || ""));
+  if (tn) return { date: tn[1], min: Number(tn[2]) * 60 + Number(tn[3]) };
   const tz = (env && env.BOOKINGS_TIMEZONE) || "Europe/Malta";
   const parts = new Intl.DateTimeFormat("en-GB", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(new Date());
   const g = (t) => (parts.find((p) => p.type === t) || {}).value;
@@ -20617,7 +20620,7 @@ async function handleBookingLink(request, env, url) {
   if (n && Number(n.c) >= 60) return bkPage("Please wait", `<div class="c"><h1>Please wait a moment</h1><div class="s">Too many requests. Try again in 15 minutes.</div></div>`, 429);
   try { await dbRun(env, "INSERT INTO login_attempts (email, ip) VALUES (?, ?)", ["bk-link", ip]); } catch (e) {}
 
-  const m = /^\/b\/([^/]+?)(\.ics)?(\/cancel|\/stop)?$/.exec(url.pathname);
+  const m = /^\/b\/([^/]+?)(\.ics)?(\/cancel|\/stop|\/move|\/times|\/days)?$/.exec(url.pathname);
   const gone = () => bkPage("Link not valid", `<div class="c"><h1>This link has expired</h1><div class="s">Please call the pharmacy to check your booking.</div></div>`, 404);
   if (!m) return gone();
   const v = await bkVerifyToken(env, m[1]);
@@ -20645,6 +20648,47 @@ async function handleBookingLink(request, env, url) {
   const startsIn = (bkDayNum(b.date) - bkDayNum(now.date)) * 1440 + bkMin(b.start_time) - now.min;
   const canCancel = (b.status === "booked" || b.status === "confirmed") && startsIn >= (Number(s.cancel_cutoff_min) || 0);
 
+  // The customer moves their own booking: same service, any free time, within the pharmacy's cut-off.
+  const canChange = canCancel;
+  const jsonOut = (o, st = 200) => new Response(JSON.stringify(o), { status: st, headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", "X-Robots-Tag": "noindex" } });
+  const lateMsg = `Too late to change online. Please call ${pharmacy}${s.phone ? " on " + s.phone : ""}.`;
+  const dayOk = (d) => /^\d{4}-\d{2}-\d{2}$/.test(d) && d >= now.date && bkDaysBetween(now.date, d) <= 62;
+  if (m[3] === "/times" || m[3] === "/days") {
+    if (!canChange) return jsonOut({ ok: false, error: b.status === "cancelled" ? "This booking is cancelled." : lateMsg }, 409);
+    const svcRow = await bkGetService(env, b.org_id, b.location_id, b.service_id);
+    if (m[3] === "/days") {
+      const days = [];
+      for (let i = 0; i < 14; i++) { const d = bkAddDays(now.date, i); days.push({ date: d, free: (await bkSlotsFor(env, b.org_id, b.location_id, svcRow, d, null, b.id)).length > 0 }); }
+      return jsonOut({ ok: true, days, current: { date: b.date, start: b.start_time } });
+    }
+    const d = String(url.searchParams.get("date") || "");
+    if (!dayOk(d)) return jsonOut({ ok: false, error: "Choose a day from today up to two months ahead" }, 400);
+    const slots = (await bkSlotsFor(env, b.org_id, b.location_id, svcRow, d, null, b.id)).filter((x) => !(d === b.date && x.time === b.start_time));
+    const seen = {}; // one button per time, whoever is free
+    return jsonOut({ ok: true, date: d, slots: slots.filter((x) => (seen[x.time] ? false : (seen[x.time] = 1))).map((x) => ({ time: x.time })) });
+  }
+  if (m[3] === "/move" && request.method === "POST") {
+    if (!canChange) return jsonOut({ ok: false, error: b.status === "cancelled" ? "This booking is cancelled." : lateMsg }, 409);
+    const body = await readJson(request) || {};
+    const nd = String(body.date || ""), ns = String(body.start || "");
+    if (!dayOk(nd) || !/^\d{2}:\d{2}$/.test(ns)) return jsonOut({ ok: false, error: "Choose a day from today up to two months ahead" }, 400);
+    const svcRow = await bkGetService(env, b.org_id, b.location_id, b.service_id);
+    const free = await bkSlotsFor(env, b.org_id, b.location_id, svcRow, nd, null, b.id);
+    // Keep the same person when they are free; otherwise whoever is.
+    const pick = free.find((x) => x.time === ns && x.providerId === b.provider_id) || free.find((x) => x.time === ns);
+    if (!pick) return jsonOut({ ok: false, error: "That time is no longer free. Please pick another." }, 409);
+    let r = null;
+    try {
+      r = await dbFirst(env, `UPDATE bk_bookings SET date=?, start_time=?, end_time=?, provider_id=?, version=version+1, updated_at=datetime('now')
+        WHERE id=? AND version=? AND status IN ('booked','confirmed') RETURNING *`, [nd, ns, bkTime(bkMin(ns) + svcRow.durationMin), pick.providerId, b.id, b.version]);
+    } catch (e) { return jsonOut({ ok: false, error: "That time is no longer free. Please pick another." }, 409); }
+    if (!r) return jsonOut({ ok: false, error: "Your booking changed meanwhile. Please reload." }, 409);
+    await writeAudit(env, b.org_id, null, "BK_MOVE_ONLINE", "bk_bookings", String(b.id), { from: b.date + " " + b.start_time, to: nd + " " + ns });
+    await bkNotify(env, request, r, "change");
+    return jsonOut({ ok: true, when: bkWhen(r) });
+  }
+  if (m[3] === "/move") return bkMovePage(pharmacy, svcName, bkWhen(b), base, canChange ? "" : (b.status === "cancelled" ? "This booking is cancelled." : lateMsg));
+
   if (m[3] === "/cancel" && request.method === "POST") {
     if (!canCancel) return bkPage("Can't cancel", `<div class="c"><h1>Too late to cancel online</h1><div class="s">Please call ${e(pharmacy)}${s.phone ? " on " + e(s.phone) : ""}.</div></div>`, 409);
     const r = await dbFirst(env, `UPDATE bk_bookings SET status='cancelled', cancel_reason='Cancelled by the customer online', version=version+1, updated_at=datetime('now')
@@ -20659,6 +20703,7 @@ async function handleBookingLink(request, env, url) {
     <div class="big">${e(svcName)}</div><div class="row">${e(bkWhen(b))}</div>
     <div class="row s">${e(state)}${s.address ? " · " + e(s.address) : ""}</div>
     ${b.status !== "cancelled" ? `<a class="b g" href="${base}.ics">Add to calendar</a>` : ""}
+    ${canChange ? `<a class="b" style="background:rgba(10,143,106,.11);color:#0A7A5B" href="${base}/move">Change time</a>` : ""}
     ${canCancel ? `<form method="post" action="${base}/cancel" onsubmit="return confirm('Cancel this booking?')"><button class="b r">Cancel booking</button></form>` : ""}
     ${s.phone ? `<a class="b" style="background:rgba(118,118,128,.12);color:inherit" href="tel:${e(s.phone)}">Call ${e(pharmacy)}</a>` : ""}
   </div><div class="f">This page is only for you. Don't share the link.</div>`);
@@ -20672,6 +20717,42 @@ async function handleBookingLink(request, env, url) {
    doctor + clinic → service (length from the schedule, price = doctor + clinic fee),
    appointment → booking (statuses mapped), waiting list → waiting list.
    ══════════════════════════════════════════════════════════════════════════════ */
+// The customer's "Change time" page: a day strip and the free times of the chosen day, then one tap to move.
+function bkMovePage(pharmacy, svcName, whenText, base, blocked) {
+  const e = (x) => String(x || "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  if (blocked) return bkPage("Change time", `<div class="c"><h1>Can't change online</h1><div class="s">${e(blocked)}</div></div>`, 409);
+  return bkPage(`Change time · ${pharmacy}`, `<div class="c"><div class="s">${e(pharmacy)}</div><h1>Change time</h1>
+  <div class="row s">${e(svcName)} · now ${e(whenText)}</div>
+  <div id="days" style="display:flex;gap:6px;overflow-x:auto;margin:16px -4px 12px;padding:0 4px 4px"></div>
+  <div id="times" style="display:flex;flex-wrap:wrap;gap:8px;min-height:44px"></div>
+  <div id="msg" class="s" style="margin-top:12px"></div>
+  <button id="go" class="b g" disabled style="opacity:.45">Choose a new time</button>
+  <a class="b" style="background:rgba(118,118,128,.12);color:inherit" href="${e(base)}">Keep my booking</a></div>
+  <style>.dy{flex:0 0 auto;width:52px;height:60px;border-radius:14px;border:0;background:rgba(118,118,128,.12);font:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;color:inherit}
+  .dy small{font-size:11px;font-weight:600;opacity:.65;text-transform:uppercase}.dy b{font-size:18px}.dy.on{background:#0A8F6A;color:#fff}.dy:disabled{opacity:.3}
+  .tm{height:42px;padding:0 14px;border-radius:12px;border:0;background:rgba(118,118,128,.12);font:600 16px -apple-system,Segoe UI,Arial,sans-serif;color:inherit}.tm.on{background:#0A8F6A;color:#fff}
+  @media(prefers-color-scheme:dark){.dy.on,.tm.on{background:#32D39C;color:#00261B}}</style>
+  <script>
+  const B=${JSON.stringify(base)};let st={days:[],date:null,times:[],time:null,busy:false};
+  const $=(i)=>document.getElementById(i),esc=(x)=>String(x).replace(/[&<>"]/g,(c)=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c]);
+  async function j(p,o){const r=await fetch(B+p,o);const x=await r.json().catch(()=>({ok:false,error:"Something went wrong"}));if(!x.ok)throw new Error(x.error);return x;}
+  function paint(){
+    $("days").innerHTML=st.days.map(d=>{const a=new Date(d.date+"T12:00:00");return '<button class="dy'+(st.date===d.date?" on":"")+'" data-d="'+d.date+'"'+(d.free?"":" disabled")+'><small>'+a.toLocaleDateString("en-GB",{weekday:"short"})+'</small><b>'+a.getDate()+'</b></button>';}).join("");
+    $("times").innerHTML=st.times.length?st.times.map(t=>'<button class="tm'+(st.time===t.time?" on":"")+'" data-t="'+t.time+'">'+t.time+'</button>').join(""):(st.date?'<span class="s">No free times this day.</span>':'');
+    const g=$("go");g.disabled=!st.time||st.busy;g.style.opacity=g.disabled?".45":"1";
+    g.textContent=st.busy?"Moving…":st.time?"Move to "+new Date(st.date+"T12:00:00").toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"})+" "+st.time:"Choose a new time";
+  }
+  async function day(d){st.date=d;st.time=null;st.times=[];paint();try{st.times=(await j("/times?date="+d)).slots;}catch(e){$("msg").textContent=e.message;}paint();}
+  document.addEventListener("click",async(ev)=>{const t=ev.target.closest("[data-d],[data-t],#go");if(!t||t.disabled)return;$("msg").textContent="";
+    if(t.dataset.d)return day(t.dataset.d);
+    if(t.dataset.t){st.time=t.dataset.t;return paint();}
+    st.busy=true;paint();try{const r=await j("/move",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({date:st.date,start:st.time})});
+      document.querySelector(".c").innerHTML='<h1>Moved</h1><div class="s">Your booking is now '+esc(r.when)+'. We emailed you the new details.</div>';}
+    catch(e){$("msg").textContent=e.message;st.busy=false;await day(st.date);}});
+  (async()=>{try{const r=await j("/days");st.days=r.days;const f=r.days.find(d=>d.free);paint();if(f)await day(f.date);}catch(e){$("msg").textContent=e.message;}})();
+  </script>`);
+}
+
 async function bkImportLegacy(env, authUser, dry) {
   await ensureBookingsSchema(env); await ensureApptSchema(env);
   await dbRun(env, `CREATE TABLE IF NOT EXISTS bk_legacy_map (org_id INTEGER NOT NULL, location_id INTEGER NOT NULL, kind TEXT NOT NULL, legacy_id TEXT NOT NULL, new_id INTEGER NOT NULL,
