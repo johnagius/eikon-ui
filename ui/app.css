@@ -1031,6 +1031,9 @@ html[data-ui2] input[type=search]::-webkit-search-cancel-button{-webkit-appearan
   html[data-ui2]:not([data-ui2-visit]) .tdy-av.nt{background:rgba(118,118,128,.24);color:rgba(235,235,245,.85)}
   html[data-ui2]:not([data-ui2-visit]) .tdy-inl input{background:rgba(118,118,128,.24);border-color:transparent}
   html[data-ui2]:not([data-ui2-visit]) .tdy-av.tm{background:rgba(43,196,138,.16);color:#2BC48A}
+  html[data-ui2]:not([data-ui2-visit]) .bkx-seg{background:rgba(118,118,128,.24)}
+  html[data-ui2]:not([data-ui2-visit]) .bkx-seg button{color:rgba(235,235,245,.7)}
+  html[data-ui2]:not([data-ui2-visit]) .bkx-seg button.on{background:#636366;color:#fff;box-shadow:none}
   html[data-ui2]:not([data-ui2-visit]) .hub-card::after{border-color:rgba(235,235,245,.3)}
   html[data-ui2]:not([data-ui2-visit]) .bkx{--t:#2BC48A;--ts:rgba(43,196,138,.16);--bg:#000;--sf:#1C1C1E;--l2:rgba(235,235,245,.6);--l3:rgba(235,235,245,.3);--sep:rgba(84,84,88,.55);--fill:rgba(118,118,128,.24);--red:#FF453A;color:#fff}
   @media (max-width: 760px){
