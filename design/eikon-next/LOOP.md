@@ -451,3 +451,11 @@ All of it waits only on the worker deploy.
   after ticking, only handed_over differs. Mock test checks every field.
 - Worker: returns ?open=1 (not credited + last 60 days); old servers ignore it. Test. Worker 94/94, UI 101/101. BUILD .59.
 - Rebuilt so far: Temperature, Cleaning, Daily register, Locum register, Certificates, Near expiry, Returns.
+
+## Rounds 41–42 — Transfers rebuilt; update audit and fixes
+- modules.trfreg.js (Transfers): Needs you (accept/decline, mark sent, mark received), offers, others' offers (ask, qty checked), your requests. UI 103/103.
+- Update audit (UPDATE-AUDIT.md, by a helper agent): 71 PUT/PATCH routes — 36 full-replace, 19 partial, 6 mixed, 4 all-required, 6 actions.
+  Rule for every new screen: on a full-replace endpoint send the whole record as read. Rebuilt screens checked: all safe.
+- Fixed: bookings practitioner/service/room updates keep unsent fields (service buffer/colour were reset by the settings screen);
+  debug-header crash after save in 7 handlers; String(null) → "null" in 11 places; CORS PATCH; DST bug in a test's date maths.
+- Worker 97/97. WORKER_VERSION bookings-11 (not deployed). BUILD .60.
