@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Eikon · Today</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+<style>
+/* ───────────── Tokens (iOS / macOS 26 semantics) ───────────── */
+:root{
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter", system-ui, sans-serif;
+  --bg:#F2F2F7; --surface:#FFFFFF; --surface-2:#F2F2F7; --fill:rgba(120,120,128,.12); --fill-2:rgba(120,120,128,.08);
+  --label:#000; --label-2:rgba(60,60,67,.62); --label-3:rgba(60,60,67,.36);
+  --sep:rgba(60,60,67,.16);
+  --tint:#0A8F6A; --tint-ink:#fff; --tint-soft:rgba(10,143,106,.12);
+  --orange:#E8770C; --orange-soft:rgba(255,149,0,.14);
+  --red:#E5352B; --red-soft:rgba(255,59,48,.12);
+  --blue:#0A72E8; --indigo:#5856D6; --teal:#1A9FB5;
+  --glass:rgba(250,250,252,.80); --glass-line:rgba(255,255,255,.7); --glass-shadow:0 8px 32px rgba(0,0,0,.10), 0 1px 0 rgba(0,0,0,.04);
+  --card-shadow:0 1px 2px rgba(0,0,0,.04);
+  --r-card:22px; --r-row:14px;
+  color-scheme: light;
+}
+:root[data-theme="dark"]{
+  --bg:#000; --surface:#1C1C1E; --surface-2:#2C2C2E; --fill:rgba(120,120,128,.24); --fill-2:rgba(120,120,128,.16);
+  --label:#fff; --label-2:rgba(235,235,245,.62); --label-3:rgba(235,235,245,.32);
+  --sep:rgba(84,84,88,.55);
+  --tint:#30D19A; --tint-ink:#00241A; --tint-soft:rgba(48,209,154,.16);
+  --orange:#FF9F0A; --orange-soft:rgba(255,159,10,.16);
+  --red:#FF453A; --red-soft:rgba(255,69,58,.16);
+  --blue:#0A84FF; --indigo:#5E5CE6; --teal:#40C8E0;
+  --glass:rgba(28,28,30,.78); --glass-line:rgba(255,255,255,.10); --glass-shadow:0 8px 32px rgba(0,0,0,.5);
+  --card-shadow:none;
+  color-scheme: dark;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg);color:var(--label);font-family:var(--font);-webkit-font-smoothing:antialiased;font-feature-settings:"cv11","ss01"}
+button,input{font:inherit;color:inherit}
+button{border:0;background:none;cursor:pointer}
+svg{display:block}
+
+/* ───────────── Type scale ───────────── */
+.t-large{font-size:34px;line-height:41px;font-weight:700;letter-spacing:-.022em}
+.t-title2{font-size:22px;line-height:28px;font-weight:700;letter-spacing:-.016em}
+.t-title3{font-size:20px;line-height:25px;font-weight:600;letter-spacing:-.012em}
+.t-head{font-size:17px;line-height:22px;font-weight:600;letter-spacing:-.008em}
+.t-body{font-size:17px;line-height:22px;letter-spacing:-.008em}
+.t-sub{font-size:15px;line-height:20px;letter-spacing:-.004em}
+.t-foot{font-size:13px;line-height:18px}
+.t-cap{font-size:12px;line-height:16px;letter-spacing:.002em}
+.c2{color:var(--label-2)} .c3{color:var(--label-3)}
+.num{font-variant-numeric:tabular-nums}
+
+/* ───────────── Building blocks ───────────── */
+.section-h{display:flex;align-items:baseline;justify-content:space-between;padding:0 20px 8px}
+.section-h h2{font-size:20px;line-height:25px;font-weight:700;letter-spacing:-.012em}
+.section-h a{font-size:15px;color:var(--tint);text-decoration:none;font-weight:500}
+.group{background:var(--surface);border-radius:var(--r-card);box-shadow:var(--card-shadow);overflow:hidden}
+.row{display:flex;align-items:center;gap:14px;min-height:64px;padding:12px 16px;position:relative}
+.row + .row::before{content:"";position:absolute;top:0;right:0;left:66px;height:.5px;background:var(--sep)}
+.row .txt{flex:1;min-width:0}
+.row.two{flex-wrap:wrap;row-gap:10px}
+.row.two .temp{width:100%;padding-left:50px}
+.row.two .temp .well{flex:1;height:44px;flex-direction:row;gap:8px;justify-content:flex-start;padding:0 14px}
+.row.two .temp .well span{margin:0}
+.row.two .temp .ok{width:44px;height:44px}
+.row .txt .t-head,.row .txt .t-body{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.glyph{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;flex:none;color:#fff}
+.glyph svg{width:20px;height:20px}
+.g-cold{background:linear-gradient(180deg,#3EA4FF,#0A72E8)}
+.g-room{background:linear-gradient(180deg,#FFB340,#F28A0F)}
+.g-book{background:linear-gradient(180deg,#8E8CF5,#5856D6)}
+.g-clean{background:linear-gradient(180deg,#4FD1E8,#1A9FB5)}
+.g-warn{background:linear-gradient(180deg,#FF7A6E,#E5352B)}
+.g-cert{background:linear-gradient(180deg,#B9B9C0,#8E8E93)}
+.avatar{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;flex:none;font-weight:600;font-size:15px;letter-spacing:.01em;color:#fff}
+.chev{color:var(--label-3);width:9px;height:15px;flex:none}
+
+.btn{height:34px;padding:0 15px;border-radius:999px;font-size:15px;font-weight:600;letter-spacing:-.004em;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
+.btn-fill{background:var(--tint);color:var(--tint-ink)}
+.btn-tint{background:var(--tint-soft);color:var(--tint)}
+.btn-gray{background:var(--fill);color:var(--label)}
+.pill{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:600}
+.pill-orange{background:var(--orange-soft);color:var(--orange)}
+.pill-red{background:var(--red-soft);color:var(--red)}
+.pill-green{background:var(--tint-soft);color:var(--tint)}
+
+/* Temperature entry: two tidy number wells and a confirm */
+.temp{display:flex;align-items:center;gap:6px;flex:none}
+.well{width:62px;height:40px;border-radius:12px;background:var(--fill-2);display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1}
+.well span{font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--label-3);margin-bottom:3px}
+.well b{font-size:17px;font-weight:600;color:var(--label-3)}
+.well.filled b{color:var(--label)}
+.ok{width:40px;height:40px;border-radius:50%;background:var(--tint);color:var(--tint-ink);display:grid;place-items:center}
+.ok svg{width:18px;height:18px}
+.ok.wait{visibility:hidden}
+
+/* Progress ring */
+.ring{border-radius:50%;flex:none;background:conic-gradient(var(--tint) calc(var(--p)*360deg), var(--fill) 0);display:grid;place-items:center}
+.ring::after{content:"";width:34px;height:34px;border-radius:50%;background:var(--surface)}
+.ring-wrap{position:relative;flex:none}
+.ring-wrap b{position:absolute;inset:0;display:grid;place-items:center;font-size:12px;font-weight:700}
+
+/* Glass */
+.glass{background:var(--glass);-webkit-backdrop-filter:blur(30px) saturate(180%);backdrop-filter:blur(40px) saturate(190%);border:.5px solid var(--glass-line);box-shadow:var(--glass-shadow)}
+
+/* ───────────── Phone layout ───────────── */
+.phone{max-width:440px;margin:0 auto;min-height:100vh;padding-bottom:120px}
+.status{height:54px;display:flex;align-items:flex-end;justify-content:space-between;padding:0 30px 6px 34px;font-size:17px;font-weight:600}
+.status .icons{display:flex;gap:6px;align-items:center}
+.ph-head{padding:6px 20px 14px;display:flex;align-items:flex-end;justify-content:space-between}
+.ph-head .me{width:34px;height:34px;border-radius:50%;background:linear-gradient(180deg,#5AC8A8,#0A8F6A);color:#fff;display:grid;place-items:center;font-weight:600;font-size:14px;margin-bottom:4px}
+.ph-sec{margin:0 16px 26px}
+.ph-sec .section-h{padding:0 4px 8px}
+
+.hero{display:flex;align-items:center;gap:14px;padding:16px 16px 14px}
+.hero + .row::before{left:0!important}
+.ring{--p:.25;width:44px;height:44px}
+.hero .t-title3{margin-bottom:2px}
+
+.fade{position:fixed;left:0;right:0;bottom:0;height:130px;background:linear-gradient(to top,var(--bg) 30%,transparent);pointer-events:none}
+.tabbar{position:fixed;left:50%;transform:translateX(-50%);bottom:24px;display:flex;gap:10px;align-items:center;width:min(408px,calc(100% - 32px))}
+.tabs{flex:1;height:62px;border-radius:31px;display:flex;align-items:center;justify-content:space-around;padding:0 6px}
+.tab{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;font-weight:600;color:var(--label);min-width:64px;padding:6px 0;border-radius:24px}
+.tab svg{width:24px;height:24px}
+.tab.on{color:var(--tint);background:var(--fill-2)}
+.searchbtn{width:62px;height:62px;border-radius:50%;display:grid;place-items:center;color:var(--label)}
+.searchbtn svg{width:24px;height:24px}
+
+/* ───────────── Desktop layout ───────────── */
+.desk{display:none}
+@media (min-width:900px){
+  .phone{display:none}
+  .desk{display:grid;grid-template-columns:260px 1fr;min-height:100vh}
+}
+.side{position:sticky;top:0;height:100vh;padding:14px;display:flex;flex-direction:column}
+.side-in{flex:1;border-radius:24px;padding:18px 12px 14px;display:flex;flex-direction:column}
+.brand{display:flex;align-items:center;gap:10px;padding:0 8px 22px}
+.brand .mark{width:34px;height:34px;border-radius:10px;background:linear-gradient(160deg,#36D3A0,#0A8F6A);display:grid;place-items:center;color:#fff}
+.brand .mark svg{width:20px;height:20px}
+.nav a{display:flex;align-items:center;gap:12px;height:40px;padding:0 12px;border-radius:12px;text-decoration:none;color:var(--label);font-size:15px;font-weight:500;letter-spacing:-.004em}
+.nav a svg{width:20px;height:20px;color:var(--label-2)}
+.nav a.on{background:var(--tint-soft);color:var(--tint);font-weight:600}
+.nav a.on svg{color:var(--tint)}
+.nav a .count{margin-left:auto;font-size:13px;font-weight:600;color:var(--label-2)}
+.nav a.on .count{color:var(--tint)}
+.side .me{display:flex;align-items:center;gap:10px;padding:12px 8px 0;border-top:.5px solid var(--sep);margin-top:10px}
+.side .me .av{width:32px;height:32px;border-radius:50%;background:linear-gradient(180deg,#5AC8A8,#0A8F6A);color:#fff;display:grid;place-items:center;font-weight:600;font-size:13px}
+
+.main{padding:22px 40px 60px 26px;max-width:1240px}
+.toolbar{display:flex;align-items:center;gap:16px;margin-bottom:26px}
+.spot{flex:1;max-width:620px;height:44px;border-radius:22px;display:flex;align-items:center;gap:10px;padding:0 16px;color:var(--label-2);font-size:15px}
+.spot svg{width:18px;height:18px}
+.spot kbd{margin-left:auto;font:600 12px var(--font);color:var(--label-3);background:var(--fill-2);border-radius:6px;padding:3px 7px}
+.toolbar .when{margin-left:auto;text-align:right}
+.title-row{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:24px}
+.cols{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:28px;align-items:start}
+.cols .section-h{padding:0 4px 8px}
+.stack > * + *{margin-top:28px}
+.kpi{padding:18px 18px 16px}
+.kpi .big{font-size:34px;line-height:40px;font-weight:700;letter-spacing:-.02em}
+.team-row{display:flex;align-items:center;gap:12px;padding:10px 16px}
+.team-row{position:relative}
+.team-row + .team-row::before{content:"";position:absolute;top:0;left:62px;right:0;height:.5px;background:var(--sep)}
+</style>
+</head>
+<body>
+<script>
+  // Theme: ?theme=dark|light, otherwise follow the system.
+  (function(){var q=new URLSearchParams(location.search).get("theme");var dark=q?q==="dark":matchMedia("(prefers-color-scheme: dark)").matches;document.documentElement.dataset.theme=dark?"dark":"light";})();
+</script>
+
+<!-- ─────────────── Icon set (SF Symbols-like line icons) ─────────────── -->
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <symbol id="i-today" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"/></symbol>
+    <symbol id="i-people" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.3-5.5 6.5-5.5s5.9 1.9 6.5 5.5"/><path d="M16 4.8a3.3 3.3 0 0 1 0 6.4M18 14.8c2 .6 3.2 2.3 3.5 5.2"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H19v15H5.5A1.5 1.5 0 0 0 4 19.5z"/><path d="M4 19.5A1.5 1.5 0 0 0 5.5 21H19M8 7.5h7M8 11h5"/></symbol>
+    <symbol id="i-box" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2.8 8.5 4.6v9.2L12 21.2l-8.5-4.6V7.4z"/><path d="m3.8 7.6 8.2 4.5 8.2-4.5M12 12.1v9"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></symbol>
+    <symbol id="i-team" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="15" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+    <symbol id="i-snow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5v19M3.8 7.2l16.4 9.6M3.8 16.8l16.4-9.6M9.5 4.5 12 7l2.5-2.5M9.5 19.5 12 17l2.5 2.5"/></symbol>
+    <symbol id="i-therm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 14.8V5a2 2 0 1 0-4 0v9.8a4 4 0 1 0 4 0z"/><path d="M12 9v7"/></symbol>
+    <symbol id="i-pen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></symbol>
+    <symbol id="i-sparkle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c.6 3.9 2.1 5.4 6 6-3.9.6-5.4 2.1-6 6-.6-3.9-2.1-5.4-6-6 3.9-.6 5.4-2.1 6-6z"/><path d="M19 15c.3 1.7.9 2.4 2.5 2.5-1.6.3-2.2.9-2.5 2.5-.3-1.6-.9-2.2-2.5-2.5 1.6-.1 2.2-.8 2.5-2.5z"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 5 6v5.5c0 4.4 3 8 7 9.5 4-1.5 7-5.1 7-9.5V6z"/><path d="m9 12 2 2 4-4"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+    <symbol id="i-chev" viewBox="0 0 9 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m1.5 1.5 6 6-6 6"/></symbol>
+    <symbol id="i-leaf" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V9M12 13c-4.5 0-7-2.5-7-7 4.5 0 7 2.5 7 7zM12 11c0-4 2.2-6.5 7-6.5 0 4.6-2.5 6.5-7 6.5z"/></symbol>
+  </defs>
+</svg>
+
+<!-- ═════════════════════════ iPHONE ═════════════════════════ -->
+<div class="phone">
+  <div class="status"><span class="num">9:41</span>
+    <span class="icons">
+      <svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+      <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor"><path d="M8 2.6c2.2 0 4.2.8 5.7 2.2l1.1-1.1A9.6 9.6 0 0 0 8 1 9.6 9.6 0 0 0 1.2 3.7l1.1 1.1A8 8 0 0 1 8 2.6zm0 3.2c1.3 0 2.5.5 3.4 1.3l1.1-1.1A6.4 6.4 0 0 0 8 4.2 6.4 6.4 0 0 0 3.5 6l1.1 1.1A4.8 4.8 0 0 1 8 5.8zm0 3.2c.5 0 .9.2 1.2.5L8 10.7 6.8 9.5c.3-.3.7-.5 1.2-.5z"/></svg>
+      <svg width="27" height="13" viewBox="0 0 27 13" fill="none"><rect x=".5" y=".5" width="23" height="12" rx="3.8" stroke="currentColor" opacity=".4"/><rect x="2" y="2" width="18" height="9" rx="2.5" fill="currentColor"/><path d="M25 4.5v4c.8-.3 1.3-1.1 1.3-2s-.5-1.7-1.3-2z" fill="currentColor" opacity=".45"/></svg>
+    </span>
+  </div>
+
+  <div class="ph-head">
+    <div>
+      <div class="t-foot c2" style="font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px">Monday 2 November</div>
+      <h1 class="t-large">Today</h1>
+    </div>
+    <div class="me">MB</div>
+  </div>
+
+  <div class="ph-sec">
+    <div class="group">
+      <div class="hero">
+        <div class="ring-wrap"><div class="ring" style="--p:.25"></div><b class="num">1/4</b></div>
+        <div>
+          <div class="t-title3">Before you open</div>
+          <div class="t-foot c2">Log the temperatures and sign the register.</div>
+        </div>
+      </div>
+      <div class="row two">
+        <div class="glyph g-cold"><svg><use href="#i-snow"/></svg></div>
+        <div class="txt"><div class="t-head">Fridge</div><div class="t-foot c2 num">Keep 2–8 °C · yesterday 3.4 to 6.3</div></div>
+        <div class="temp"><div class="well filled"><span>Min</span><b class="num">3.6</b></div><div class="well"><span>Max</span><b>–</b></div><button class="ok" aria-label="Save"><svg><use href="#i-check"/></svg></button></div>
+      </div>
+      <div class="row two">
+        <div class="glyph g-room"><svg><use href="#i-therm"/></svg></div>
+        <div class="txt"><div class="t-head">Dispensary</div><div class="t-foot c2 num">Keep 15–25 °C · yesterday 19 to 23</div></div>
+        <div class="temp"><div class="well"><span>Min</span><b>–</b></div><div class="well"><span>Max</span><b>–</b></div><button class="ok wait" aria-hidden="true"><svg><use href="#i-check"/></svg></button></div>
+      </div>
+      <div class="row">
+        <div class="glyph g-book"><svg><use href="#i-pen"/></svg></div>
+        <div class="txt"><div class="t-head">Daily register</div><div class="t-foot c2">Not signed yet</div></div>
+        <button class="btn btn-tint">Sign</button>
+      </div>
+      <div class="row">
+        <div class="glyph g-clean"><svg><use href="#i-sparkle"/></svg></div>
+        <div class="txt"><div class="t-head">Cleaning</div><div class="t-foot c2">Done at 08:12 by Karl</div></div>
+        <span class="pill pill-green"><svg width="12" height="12"><use href="#i-check"/></svg>Done</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="ph-sec">
+    <div class="section-h"><h2>Waiting for you</h2><a href="#">All</a></div>
+    <div class="group">
+      <div class="row">
+        <div class="avatar" style="background:#D9822B">CG</div>
+        <div class="txt"><div class="t-head">Carmen Grech</div><div class="t-foot c2">Augmentin 625 mg</div></div>
+        <button class="btn btn-fill">Hand over</button>
+      </div>
+      <div class="row">
+        <div class="avatar" style="background:#6E6BD8">JV</div>
+        <div class="txt"><div class="t-head">Joseph Vella</div><div class="t-foot c2">Omron M3 question · 3 days</div></div>
+        <button class="btn btn-gray">Reply</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="ph-sec">
+    <div class="section-h"><h2>Coming up</h2></div>
+    <div class="group">
+      <div class="row">
+        <div class="glyph g-warn"><svg><use href="#i-clock"/></svg></div>
+        <div class="txt"><div class="t-head">Enalapril 20 mg</div><div class="t-foot c2">2 packs expire in 12 days</div></div>
+        <svg class="chev"><use href="#i-chev"/></svg>
+      </div>
+      <div class="row">
+        <div class="glyph g-cert"><svg><use href="#i-shield"/></svg></div>
+        <div class="txt"><div class="t-head">Fire extinguisher</div><div class="t-foot c2">Service due Sat 14 Nov</div></div>
+        <svg class="chev"><use href="#i-chev"/></svg>
+      </div>
+    </div>
+  </div>
+
+  <div class="fade"></div>
+  <div class="tabbar">
+    <nav class="tabs glass">
+      <a class="tab on"><svg><use href="#i-today"/></svg>Today</a>
+      <a class="tab"><svg><use href="#i-people"/></svg>Customers</a>
+      <a class="tab"><svg><use href="#i-book"/></svg>Registers</a>
+      <a class="tab"><svg><use href="#i-box"/></svg>Stock</a>
+    </nav>
+    <button class="searchbtn glass" aria-label="Search"><svg><use href="#i-search"/></svg></button>
+  </div>
+</div>
+
+<!-- ═════════════════════════ DESKTOP ═════════════════════════ -->
+<div class="desk">
+  <aside class="side">
+    <div class="side-in glass">
+      <div class="brand">
+        <div class="mark"><svg><use href="#i-leaf"/></svg></div>
+        <div><div class="t-head">Eikon</div><div class="t-foot c2">Demo Pharmacy</div></div>
+      </div>
+      <nav class="nav">
+        <a class="on" href="#"><svg><use href="#i-today"/></svg>Today<span class="count">3</span></a>
+        <a href="#"><svg><use href="#i-people"/></svg>Customers</a>
+        <a href="#"><svg><use href="#i-book"/></svg>Registers</a>
+        <a href="#"><svg><use href="#i-box"/></svg>Stock</a>
+      </nav>
+      <div style="flex:1"></div>
+      <nav class="nav">
+        <a href="#"><svg><use href="#i-team"/></svg>Team</a>
+        <a href="#"><svg><use href="#i-gear"/></svg>Settings</a>
+      </nav>
+      <div class="me"><div class="av">MB</div><div><div class="t-sub" style="font-weight:600">Maria Borg</div><div class="t-cap c2">Pharmacist</div></div></div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="toolbar">
+      <div class="spot glass"><svg><use href="#i-search"/></svg>Search customers, medicines, registers…<kbd>⌘K</kbd></div>
+    </div>
+
+    <div class="title-row">
+      <div>
+        <div class="t-foot c2" style="font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px">Monday 2 November</div>
+        <h1 class="t-large">Today</h1>
+      </div>
+    </div>
+
+    <div class="cols">
+      <div class="stack">
+        <section>
+          <div class="group">
+            <div class="hero">
+              <div class="ring-wrap"><div class="ring" style="--p:.25"></div><b class="num">1/4</b></div>
+              <div style="flex:1">
+                <div class="t-title3">Before you open</div>
+                <div class="t-foot c2">Log both temperatures and sign the register.</div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="glyph g-cold"><svg><use href="#i-snow"/></svg></div>
+              <div class="txt"><div class="t-head">Fridge</div><div class="t-foot c2 num">Keep 2–8 °C · yesterday 3.4 to 6.3</div></div>
+              <div class="temp"><div class="well filled"><span>Min</span><b class="num">3.6</b></div><div class="well"><span>Max</span><b>–</b></div><button class="ok" aria-label="Save"><svg><use href="#i-check"/></svg></button></div>
+            </div>
+            <div class="row">
+              <div class="glyph g-room"><svg><use href="#i-therm"/></svg></div>
+              <div class="txt"><div class="t-head">Dispensary</div><div class="t-foot c2 num">Keep 15–25 °C · yesterday 19 to 23</div></div>
+              <div class="temp"><div class="well"><span>Min</span><b>–</b></div><div class="well"><span>Max</span><b>–</b></div><button class="ok wait" aria-hidden="true"><svg><use href="#i-check"/></svg></button></div>
+            </div>
+            <div class="row">
+              <div class="glyph g-book"><svg><use href="#i-pen"/></svg></div>
+              <div class="txt"><div class="t-head">Daily register</div><div class="t-foot c2">Opening checks and your signature</div></div>
+              <button class="btn btn-tint">Sign</button>
+            </div>
+            <div class="row">
+              <div class="glyph g-clean"><svg><use href="#i-sparkle"/></svg></div>
+              <div class="txt"><div class="t-head">Cleaning</div><div class="t-foot c2">Done at 08:12 by Karl</div></div>
+              <span class="pill pill-green"><svg width="12" height="12"><use href="#i-check"/></svg>Done</span>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <div class="section-h"><h2>Waiting for you</h2><a href="#">All orders</a></div>
+          <div class="group">
+            <div class="row">
+              <div class="avatar" style="background:#D9822B">CG</div>
+              <div class="txt"><div class="t-head">Carmen Grech</div><div class="t-foot c2">Augmentin 625 mg ×14 · ready since 09:10 · code A1B2</div></div>
+              <button class="btn btn-fill">Hand over</button>
+            </div>
+            <div class="row">
+              <div class="avatar" style="background:#6E6BD8">JV</div>
+              <div class="txt"><div class="t-head">Joseph Vella</div><div class="t-foot c2">“Do you stock the Omron M3 monitor?” · waiting 3 days</div></div>
+              <button class="btn btn-gray">Reply</button>
+            </div>
+            <div class="row">
+              <div class="avatar" style="background:#2E9F7E">AZ</div>
+              <div class="txt"><div class="t-head">Anna Zammit</div><div class="t-foot c2">Delivery to Sliema · driver leaves at 14:00</div></div>
+              <button class="btn btn-gray">Details</button>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="stack">
+        <section>
+          <div class="group kpi">
+            <div class="t-foot c2" style="font-weight:600">Till closes at 19:00</div>
+            <div class="big num">€1,284<span class="t-title3 c3">.50</span></div>
+            <div class="t-foot c2">taken so far · €12.50 paid out</div>
+            <button class="btn btn-gray" style="margin-top:14px">Close the day</button>
+          </div>
+        </section>
+        <section>
+          <div class="section-h"><h2>Coming up</h2></div>
+          <div class="group">
+            <div class="row">
+              <div class="glyph g-warn"><svg><use href="#i-clock"/></svg></div>
+              <div class="txt"><div class="t-head">Enalapril 20 mg</div><div class="t-foot c2">2 packs expire in 12 days</div></div>
+              <svg class="chev"><use href="#i-chev"/></svg>
+            </div>
+            <div class="row">
+              <div class="glyph g-cert"><svg><use href="#i-shield"/></svg></div>
+              <div class="txt"><div class="t-head">Fire extinguisher</div><div class="t-foot c2">Service due Sat 14 Nov</div></div>
+              <svg class="chev"><use href="#i-chev"/></svg>
+            </div>
+          </div>
+        </section>
+        <section>
+          <div class="section-h"><h2>On today</h2></div>
+          <div class="group" style="padding:6px 0">
+            <div class="team-row"><div class="avatar" style="width:34px;height:34px;font-size:13px;background:#0A8F6A">MB</div><div class="txt"><div class="t-sub" style="font-weight:600">Maria Borg</div><div class="t-cap c2 num">Pharmacist · 08:00–19:00</div></div></div>
+            <div class="team-row"><div class="avatar" style="width:34px;height:34px;font-size:13px;background:#C2604A">KC</div><div class="txt"><div class="t-sub" style="font-weight:600">Karl Camilleri</div><div class="t-cap c2 num">Assistant · 13:00–19:00</div></div></div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>
