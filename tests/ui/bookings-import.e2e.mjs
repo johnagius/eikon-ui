@@ -1,0 +1,27 @@
+import { createRequire } from "node:module"; const { chromium } = createRequire(import.meta.url)("playwright");
+const [port, out] = process.argv.slice(2); const b = await chromium.launch(); const p = await b.newPage({ viewport: { width: 402, height: 874 }, deviceScaleFactor: 2 });
+const errs = []; p.on("pageerror", (e) => errs.push(e.message)); const ok = (c, m) => { console.log((c ? "  ok   " : "  FAIL ") + m); if (!c) process.exitCode = 1; };
+await p.route("**/*", (r) => { const u = r.request().url(); if (u.includes("xlsx.full.min.js")) return r.fulfill({ contentType: "application/javascript", body: "window.XLSX={};" }); return new URL(u).hostname === "localhost" ? r.continue() : r.abort(); });
+await p.goto(`http://localhost:${port}/ui/next.html`); await p.waitForTimeout(1500);
+await p.fill("input[type=email]", "maria@demo.mt"); await p.fill("input[type=password]", "Demo-Pass-2026"); await p.keyboard.press("Enter"); await p.waitForTimeout(3000);
+const pb = p.getByText("Pharmacy", { exact: true }); if (await pb.count()) { await pb.first().click(); await p.waitForTimeout(2000); }
+await p.evaluate(async () => { const E = window.EIKON; const f = (u, b) => E.apiFetch(u, { method: "POST", body: JSON.stringify(b) });
+  const d = await f("/appointments/doctors", { name: "Dr Galea", default_fee: 20 }); const c = await f("/appointments/clinics", { name: "Valletta clinic", fee: 5 });
+  const did = d.id || d.doctor.id, cid = c.id || c.clinic.id;
+  await f("/appointments/schedules", { doctorId: did, clinicId: cid, dayOfWeek: 2, startTime: "09:00", endTime: "12:00", slotDuration: 15, validFrom: "2026-01-01" });
+  const t = new Date(); t.setDate(t.getDate() + 1); const ymd = t.toISOString().slice(0, 10);
+  for (const [n, tm] of [["Carmen Grech", "09:00"], ["Joseph Vella", "09:15"]]) await f("/appointments/entries", { patient_name: n, doctor_id: did, clinic_id: cid, date: ymd, time: tm, duration_mins: 15 });
+  const all = {}; for (let x = 0; x <= 6; x++) all[x] = [["08:00", "20:00"]];
+  const pr = await f("/bookings/providers", { name: "Maria Borg", hours: all }); await f("/bookings/services", { name: "Flu vaccine", durationMin: 10, providerIds: [pr.provider.id] }); });
+await p.evaluate(() => { location.hash = "#bookings"; }); await p.waitForTimeout(1500);
+await p.click("[data-act=settings]"); await p.waitForTimeout(600);
+await p.click("[data-act=imp-check]"); await p.waitForTimeout(900);
+ok(/Would bring over: 1 person, 1 service and 2 appointments/.test(await p.locator(".bkx-sheet").innerText()), "Check shows what would move");
+await p.locator("[data-act=imp-check]").scrollIntoViewIfNeeded(); await p.screenshot({ path: `${out}/import-check.png` });
+await p.click("[data-act=imp-run]"); await p.waitForTimeout(1200);
+ok(/Brought over: 1 person, 1 service and 2 appointments/.test(await p.locator(".bkx-sheet").innerText()), "Import reports what it brought over");
+await p.click("[data-act=imp-check]"); await p.waitForTimeout(800);
+ok(/Nothing new to bring over · 2 appointments already here/.test(await p.locator(".bkx-sheet").innerText()), "checking again: nothing twice");
+await p.click(".bkx-sheet [data-act=close]"); await p.waitForTimeout(300); await p.click("[data-act=view][data-v=week]"); await p.waitForTimeout(1200);
+ok(await p.getByText("Carmen Grech").count() > 0 && await p.getByText("Joseph Vella").count() > 0, "the old appointments appear in Bookings");
+ok(errs.length === 0, "no page errors"); await b.close();

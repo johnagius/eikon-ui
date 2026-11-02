@@ -273,7 +273,11 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
           '<label><span>Who</span><select data-k="prov">' + provs.map(function (p) { return '<option value="' + p.id + '"' + ((x.providerIds || []).indexOf(p.id) >= 0 ? " selected" : "") + ">" + esc(p.name) + "</option>"; }).join("") + "</select></label>" +
           '<label><span>Bookable</span><input data-k="active" type="checkbox"' + (x.active ? " checked" : "") + ' style="flex:0 0 auto;width:22px;height:22px"></label>' +
           '<div style="padding:8px 16px 14px"><button class="bkx-btn tint" data-act="svc-save" data-id="' + x.id + '">' + (x.id ? "Save" : "Add service") + "</button></div></div>";
-      }).join("") + (sh.newService ? "" : '<button class="bkx-btn lg" data-act="svc-new">Add a service</button>');
+      }).join("") + (sh.newService ? "" : '<button class="bkx-btn lg" data-act="svc-new">Add a service</button>') +
+      '<div class="bkx-g" style="padding:16px 18px;margin-top:18px"><div style="font-size:17px;font-weight:600">From the old Appointments</div>' +
+      '<div class="sub" style="margin:4px 0 12px">Brings doctors, clinics, hours, appointments and the waiting list into Bookings. The old screen keeps working and its records are not changed. Safe to run again.</div>' +
+      (sh.importReport ? '<div class="sub" style="color:#000;margin-bottom:12px">' + esc(importText(sh.importReport)) + "</div>" : "") +
+      '<div style="display:flex;gap:8px"><button class="bkx-btn" data-act="imp-check">Check</button>' + (sh.importReport && sh.importReport.dry && (sh.importReport.bookings || sh.importReport.providers || sh.importReport.waiting) ? '<button class="bkx-btn fill" data-act="imp-run">Import</button>' : "") + "</div></div>";
     }
     if (sh.tab === "hours") {
       h += provs.map(function (p) {
@@ -305,6 +309,20 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
       }
     }
     return h;
+  }
+
+  function importText(r) {
+    var pl = function (n, one, many) { return n + " " + (n === 1 ? one : many); };
+    var parts = [];
+    if (r.providers) parts.push(pl(r.providers, "person", "people"));
+    if (r.services) parts.push(pl(r.services, "service", "services"));
+    if (r.bookings) parts.push(pl(r.bookings, "appointment", "appointments"));
+    if (r.waiting) parts.push(pl(r.waiting, "person waiting", "people waiting"));
+    if (r.extras) parts.push(pl(r.extras, "extra session", "extra sessions"));
+    if (parts.length > 1) parts = [parts.slice(0, -1).join(", ") + " and " + parts[parts.length - 1]];
+    var head = r.dry ? "Would bring over: " : "Brought over: ";
+    var tail = (r.clashes ? " · " + r.clashes + " clashing double-bookings kept as cancelled" : "") + (r.skipped ? " · " + pl(r.skipped, "appointment", "appointments") + " already here" : "");
+    return (r.dry && !r.bookings && !r.providers && !r.waiting ? "Nothing new to bring over" + tail : head + parts.join(", ") + tail) + ".";
   }
 
   async function openSettings(tab) {
@@ -403,6 +421,15 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
       }
     }
     if (act === "settings") return openSettings("services");
+    if (act === "imp-check" || act === "imp-run") {
+      S.sheet.err = S.sheet.okMsg = "";
+      try {
+        var ir = await api("/bookings/import-legacy" + (act === "imp-check" ? "?dry=1" : ""), { method: "POST", body: "{}" });
+        S.sheet.importReport = ir.report;
+        if (act === "imp-run") { toast("Old appointments brought over"); await load({ setup: true, silent: true }); }
+      } catch (e) { S.sheet.err = errMsg(e); }
+      return paint();
+    }
     if (act === "tab") return openSettings(t.getAttribute("data-t"));
     if (act === "svc-new") { S.sheet.newService = true; S.sheet.err = S.sheet.okMsg = ""; return paint(); }
     if (act === "svc-save") {

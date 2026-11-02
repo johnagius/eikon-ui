@@ -19881,6 +19881,11 @@ async function handleBookings(request, env, corsOkHeaders, authUser, url) {
 
   if (parts[0] === "settings") return await handleBookingsSettings(request, env, corsOkHeaders, authUser, url);
 
+  if (parts[0] === "import-legacy" && m === "POST") {
+    if (!isAdmin) return bad("Only an admin can import", 403);
+    return ok({ report: await bkImportLegacy(env, authUser, url.searchParams.get("dry") === "1") });
+  }
+
   // Waiting list: people waiting for a service, first come first served.
   if (parts[0] === "waitlist") {
     const wlRow = (w) => ({ id: w.id, serviceId: w.service_id, personName: w.person_name, personPhone: w.person_phone, personEmail: w.person_email,
@@ -20421,4 +20426,111 @@ async function handleBookingLink(request, env, url) {
     ${canCancel ? `<form method="post" action="${base}/cancel" onsubmit="return confirm('Cancel this booking?')"><button class="b r">Cancel booking</button></form>` : ""}
     ${s.phone ? `<a class="b" style="background:rgba(118,118,128,.12);color:inherit" href="tel:${e(s.phone)}">Call ${e(pharmacy)}</a>` : ""}
   </div><div class="f">This page is only for you. Don't share the link.</div>`);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   BOOKINGS — import from the old Appointments tables (read-only on appt_*).
+   POST /bookings/import-legacy?dry=1 reports what would move; without dry it moves it.
+   Safe to run again: everything imported is remembered in bk_legacy_map and skipped.
+   Doctor → provider (weekly hours from recurring schedules, one-off sessions as extras),
+   doctor + clinic → service (length from the schedule, price = doctor + clinic fee),
+   appointment → booking (statuses mapped), waiting list → waiting list.
+   ══════════════════════════════════════════════════════════════════════════════ */
+async function bkImportLegacy(env, authUser, dry) {
+  await ensureBookingsSchema(env); await ensureApptSchema(env);
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS bk_legacy_map (org_id INTEGER NOT NULL, location_id INTEGER NOT NULL, kind TEXT NOT NULL, legacy_id TEXT NOT NULL, new_id INTEGER NOT NULL,
+    PRIMARY KEY (org_id, location_id, kind, legacy_id))`, []);
+  const org = authUser.org_id, loc = authUser.location_id;
+  const mapGet = async (kind, id) => { const r = await dbFirst(env, `SELECT new_id FROM bk_legacy_map WHERE org_id=? AND location_id=? AND kind=? AND legacy_id=?`, [org, loc, kind, String(id)]); return r ? r.new_id : null; };
+  const mapSet = async (kind, id, nid) => dbRun(env, `INSERT OR IGNORE INTO bk_legacy_map (org_id, location_id, kind, legacy_id, new_id) VALUES (?,?,?,?,?)`, [org, loc, kind, String(id), nid]);
+  const rep = { providers: 0, services: 0, extras: 0, bookings: 0, clashes: 0, waiting: 0, skipped: 0, dry: !!dry };
+
+  const doctors = await dbAll(env, `SELECT * FROM appt_doctors WHERE org_id=? AND location_id=?`, [org, loc]);
+  const clinics = await dbAll(env, `SELECT * FROM appt_clinics WHERE org_id=? AND location_id=?`, [org, loc]);
+  const scheds = await dbAll(env, `SELECT * FROM appt_schedules WHERE org_id=? AND location_id=? AND COALESCE(cancelled,0)=0`, [org, loc]);
+  const appts = await dbAll(env, `SELECT * FROM appt_appointments WHERE org_id=? AND location_id=? ORDER BY date, time, id`, [org, loc]);
+  const waits = await dbAll(env, `SELECT * FROM appt_waitlist WHERE org_id=? AND location_id=? AND LOWER(COALESCE(status,''))='waiting'`, [org, loc]);
+  const clinicById = Object.fromEntries(clinics.map((c) => [c.id, c]));
+  const today = bkNowLocal(env).date;
+
+  // Providers with weekly hours (only schedules still valid today or later).
+  const provFor = {};
+  for (const d of doctors) {
+    let pid = await mapGet("doctor", d.id);
+    if (!pid) {
+      const hours = {};
+      for (const s of scheds.filter((x) => x.doctor_id === d.id && !x.is_one_off && (!x.valid_until || x.valid_until >= today))) {
+        const wd = Number(s.day_of_week); if (!(wd >= 0 && wd <= 6)) continue;
+        (hours[wd] = hours[wd] || []).push([String(s.start_time).slice(0, 5), String(s.end_time).slice(0, 5)]);
+      }
+      rep.providers++;
+      if (!dry) { const r = await dbFirst(env, `INSERT INTO bk_providers (org_id, location_id, name, kind, hours_json) VALUES (?,?,?,?,?) RETURNING id`, [org, loc, String(d.name || "Doctor"), "doctor", JSON.stringify(bkCleanHours(hours))]); pid = r.id; await mapSet("doctor", d.id, pid); }
+    }
+    provFor[d.id] = pid;
+  }
+  // A "Pharmacy" provider for appointments that had no doctor.
+  const noDoc = appts.some((a) => !a.doctor_id) || waits.some((w) => !w.doctor_id);
+  if (noDoc) {
+    let pid = await mapGet("doctor", "none");
+    if (!pid) { rep.providers++; if (!dry) { const r = await dbFirst(env, `INSERT INTO bk_providers (org_id, location_id, name, kind, hours_json) VALUES (?,?,?,?,?) RETURNING id`, [org, loc, "Pharmacy", "pharmacist", "{}"]); pid = r.id; await mapSet("doctor", "none", pid); } }
+    provFor["none"] = pid;
+  }
+  // Services: one per doctor + clinic pair actually used.
+  const pairs = new Map();
+  const pairKey = (d, c) => (d || "none") + "|" + (c || "none");
+  for (const s of scheds) pairs.set(pairKey(s.doctor_id, s.clinic_id), { d: s.doctor_id, c: s.clinic_id, dur: s.slot_duration });
+  for (const a of appts.concat(waits)) { const k = pairKey(a.doctor_id, a.clinic_id); if (!pairs.has(k)) pairs.set(k, { d: a.doctor_id, c: a.clinic_id, dur: a.duration_mins }); }
+  const svcFor = {};
+  for (const [k, p] of pairs) {
+    let sid = await mapGet("service", k);
+    if (!sid) {
+      const doc = doctors.find((x) => x.id === p.d), cl = clinicById[p.c];
+      const name = [doc ? doc.name : "Appointment", cl ? cl.name : ""].filter(Boolean).join(" · ");
+      const dur = Math.min(480, Math.max(5, Math.round(Number(p.dur) || 15)));
+      const price = Math.round(((Number(doc && doc.default_fee) || 0) + (Number(cl && cl.fee) || 0)) * 100);
+      rep.services++;
+      if (!dry) { const r = await dbFirst(env, `INSERT INTO bk_services (org_id, location_id, name, duration_min, price_cents, provider_ids_json) VALUES (?,?,?,?,?,?) RETURNING id`,
+        [org, loc, name, dur, price, JSON.stringify([provFor[p.d || "none"]].filter(Boolean))]); sid = r.id; await mapSet("service", k, sid); }
+    }
+    svcFor[k] = sid;
+  }
+  // One-off sessions from today on become extra hours.
+  for (const s of scheds.filter((x) => x.is_one_off && x.date && x.date >= today)) {
+    if (await mapGet("oneoff", s.id)) continue;
+    rep.extras++;
+    if (!dry && provFor[s.doctor_id]) { const r = await dbFirst(env, `INSERT INTO bk_exceptions (org_id, location_id, provider_id, date, kind, start_time, end_time, note) VALUES (?,?,?,?,'extra',?,?,?) RETURNING id`,
+      [org, loc, provFor[s.doctor_id], s.date, String(s.start_time).slice(0, 5), String(s.end_time).slice(0, 5), "Imported session"]); await mapSet("oneoff", s.id, r.id); }
+  }
+  // Bookings.
+  const ST = { "scheduled": "booked", "confirmed": "confirmed", "completed": "done", "cancelled": "cancelled", "no show": "no_show", "no_show": "no_show", "promoted": "booked" };
+  for (const a of appts) {
+    if (await mapGet("appt", a.id)) { rep.skipped++; continue; }
+    const st = ST[String(a.status || "").toLowerCase()] || "booked";
+    const start = String(a.time || "").slice(0, 5); if (!isValidYmd(a.date) || !Number.isFinite(bkMin(start))) { rep.skipped++; continue; }
+    const end = bkTime(bkMin(start) + (Math.round(Number(a.duration_mins)) || 15));
+    const k = pairKey(a.doctor_id, a.clinic_id);
+    rep.bookings++;
+    if (dry) continue;
+    const vals = (status, reason) => [org, loc, a.appt_ref || bkRef(), svcFor[k], provFor[a.doctor_id || "none"], String(a.patient_name || "Unknown"), String(a.patient_phone || ""), String(a.patient_email || "").toLowerCase(),
+      String(a.patient_id_card || "").toUpperCase(), a.date, start, end, status, Math.round(((Number(a.doctor_fee) || 0) + (Number(a.clinic_fee) || 0)) * 100), String(a.notes || ""), reason, bkRandomHex(16), authUser.user_id, authUser.user_id];
+    const sql = `INSERT INTO bk_bookings (org_id, location_id, ref, service_id, provider_id, person_name, person_phone, person_email, person_id_card, date, start_time, end_time, status, price_cents, notes, cancel_reason, link_id, created_by, updated_by)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING id`;
+    let r;
+    try { r = await dbFirst(env, sql, vals(st, st === "cancelled" ? String(a.cancellation_reason || "Cancelled") : "")); }
+    catch (e) {
+      if (!/UNIQUE/i.test(String(e && e.message))) throw e;
+      // Two old bookings at the same time with the same doctor: keep the record, visibly, without double-booking.
+      rep.clashes++; r = await dbFirst(env, sql, vals("cancelled", "Imported: clashed with another booking at the same time"));
+    }
+    await mapSet("appt", a.id, r.id);
+  }
+  // Waiting list.
+  for (const w of waits) {
+    if (await mapGet("wait", w.id)) continue;
+    rep.waiting++;
+    if (!dry) { const r = await dbFirst(env, `INSERT INTO bk_waitlist (org_id, location_id, service_id, person_name, person_phone, person_email, note, created_by) VALUES (?,?,?,?,?,?,?,?) RETURNING id`,
+      [org, loc, svcFor[pairKey(w.doctor_id, w.clinic_id)], String(w.patient_name || "Unknown"), String(w.patient_phone || ""), String(w.patient_email || "").toLowerCase(), String(w.notes || ""), authUser.user_id]); await mapSet("wait", w.id, r.id); }
+  }
+  if (!dry) await writeAudit(env, org, authUser.user_id, "BK_IMPORT_LEGACY", "bk_bookings", String(loc), rep);
+  return rep;
 }

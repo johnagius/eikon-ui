@@ -156,3 +156,56 @@ test("bookings: waiting list — a cancellation offers the freed time to the fir
   eq((await api("PATCH", "/bookings/waitlist/" + second, { token, body: { status: "removed" } })).status, 200);
   eq((await api("GET", "/bookings/waitlist", { token })).json.waiting.length, 0);
 });
+
+test("bookings: importing the old Appointments — dry run, real run, idempotent re-run, old tables untouched", async ({ api, bootstrap, DB }) => {
+  const { token } = await bootstrap();
+  const id = (r) => r.json.id || (r.json.doctor && r.json.doctor.id) || (r.json.clinic && r.json.clinic.id) || (r.json.schedule && r.json.schedule.id);
+  const doc = id(await api("POST", "/appointments/doctors", { token, body: { name: "Dr Galea", default_fee: 20 } }));
+  const cl = id(await api("POST", "/appointments/clinics", { token, body: { name: "Valletta clinic", fee: 5 } }));
+  eq((await api("POST", "/appointments/schedules", { token, body: { doctorId: doc, clinicId: cl, dayOfWeek: 1, startTime: "09:00", endTime: "12:00", slotDuration: 15, validFrom: "2026-01-01" } })).status < 300, true);
+  eq((await api("POST", "/appointments/schedules", { token, body: { doctorId: doc, clinicId: cl, isOneOff: true, date: "2027-03-06", startTime: "10:00", endTime: "11:00", slotDuration: 15 } })).status < 300, true);
+  const mk = (t, extra = {}) => api("POST", "/appointments/entries", { token, body: { patient_name: "P " + t, patient_id_card: "1M", doctor_id: doc, clinic_id: cl, date: MON, time: t, duration_mins: 15, ...extra } });
+  eq((await mk("09:00")).status, 201); eq((await mk("09:15")).status, 201);
+  const c = await mk("09:30"); await api("PUT", "/appointments/entries/" + c.json.id, { token, body: { ...c.json.appointment, status: "Cancelled", cancellation_reason: "Ill" } });
+  eq((await mk("09:45", { patient_name: "No doctor", doctor_id: null, clinic_id: null })).status, 201);
+  eq((await api("POST", "/appointments/waitlist", { token, body: { patientName: "Waiting Wendy", patientPhone: "79000000", doctorId: doc, clinicId: cl } })).status < 300, true);
+  const snap = () => JSON.stringify(["appt_doctors", "appt_clinics", "appt_schedules", "appt_appointments", "appt_waitlist"].map((t) => DB.q(`SELECT * FROM ${t} ORDER BY id`)));
+  const before = snap();
+
+  const dry = await api("POST", "/bookings/import-legacy?dry=1", { token });
+  eq(dry.status, 200, dry.text);
+  eq([dry.json.report.providers, dry.json.report.bookings, dry.json.report.waiting, dry.json.report.extras], [2, 4, 1, 1]);
+  eq(DB.q("SELECT COUNT(*) AS c FROM bk_bookings")[0].c, 0, "a dry run changes nothing");
+
+  const real = await api("POST", "/bookings/import-legacy", { token });
+  eq(real.json.report.bookings, 4);
+  const list = (await api("GET", `/bookings?from=${MON}&to=${MON}`, { token })).json.bookings;
+  eq(list.map((b) => [b.start, b.status]), [["09:00", "booked"], ["09:15", "booked"], ["09:30", "cancelled"], ["09:45", "booked"]]);
+  eq(list[0].priceCents, 0, "history is kept as recorded (old bookings never stored a fee)");
+  const setup = (await api("GET", "/bookings/setup", { token })).json;
+  const galea = setup.providers.find((p) => p.name === "Dr Galea");
+  eq(galea.hours["1"], [["09:00", "12:00"]], "weekly hours from the old schedule");
+  ok(setup.services.some((s) => s.name === "Dr Galea · Valletta clinic" && s.durationMin === 15 && s.priceCents === 2500), "doctor + clinic becomes a service priced doctor fee + clinic fee");
+  eq((await api("GET", "/bookings/waitlist", { token })).json.waiting.map((w) => w.personName), ["Waiting Wendy"]);
+  eq((await api("GET", `/bookings/slots?service_id=${setup.services.find((s) => s.name.startsWith("Dr Galea")).id}&date=2027-03-06`, { token })).json.slots.length, 4, "one-off session becomes extra hours");
+
+  const again = await api("POST", "/bookings/import-legacy", { token });
+  eq([again.json.report.bookings, again.json.report.providers, again.json.report.waiting, again.json.report.skipped], [0, 0, 0, 4], "a second run imports nothing twice");
+  eq(DB.q("SELECT COUNT(*) AS c FROM bk_bookings")[0].c, 4);
+  eq(snap(), before, "the old tables are not changed");
+});
+
+test("bookings: importing an old double-booking keeps both records without double-booking", async ({ api, bootstrap, DB }) => {
+  const { token } = await bootstrap();
+  const doc = (await api("POST", "/appointments/doctors", { token, body: { name: "Dr Abela" } })).json;
+  const docId = doc.id || doc.doctor.id;
+  eq((await api("POST", "/appointments/entries", { token, body: { patient_name: "First", doctor_id: docId, date: MON, time: "10:00", duration_mins: 15 } })).status, 201);
+  // The old diary allowed this when no clinic was set; copy the row to make a same-time duplicate.
+  DB.db.prepare("INSERT INTO appt_appointments (org_id, location_id, appt_ref, patient_token, patient_name, doctor_id, date, time, duration_mins, status) SELECT org_id, location_id, 'DUP', 'ZZZZ', 'Second', doctor_id, date, time, duration_mins, status FROM appt_appointments LIMIT 1").run();
+  const r = await api("POST", "/bookings/import-legacy", { token });
+  eq(r.status, 200, r.text);
+  eq([r.json.report.bookings, r.json.report.clashes], [2, 1]);
+  const rows = DB.q("SELECT person_name, status, cancel_reason FROM bk_bookings ORDER BY id");
+  eq(rows.map((x) => [x.person_name, x.status]), [["First", "booked"], ["Second", "cancelled"]]);
+  ok(/clashed/.test(rows[1].cancel_reason), "the clash is explained on the record");
+});
