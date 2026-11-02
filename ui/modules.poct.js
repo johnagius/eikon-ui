@@ -126,7 +126,7 @@ async function poctRuntime(root){
             var pats = st && st.patients ? st.patients : (resp && resp.patients) || [];
             __cloud.records = Array.isArray(recs) ? recs : [];
             __cloud.patients = Array.isArray(pats) ? pats : [];
-            __cloud.syncedJson = cloudSnapshot();
+            cloudMarkSynced(__cloud.records, __cloud.patients);
             __cloud.loaded = true;
           }catch(e){
             // If backend not ready yet (e.g. 404), start empty (session-only) but keep running.
@@ -149,15 +149,26 @@ async function poctRuntime(root){
         })();
         return __cloud.loading;
       }
-      // What the server already holds; a save that would send exactly this is skipped.
-      function cloudSnapshot(){
-        try{ return JSON.stringify([__cloud.records||[], __cloud.patients||[]]); }catch(e){ return ""; }
+      // What the server already holds, per id. A save sends only new or changed items
+      // (the server merges; deletions are explicit), so saving one reading is one write,
+      // not the whole history.
+      function cloudMarkSynced(recs, pats){
+        if(!__cloud.syncedRec) __cloud.syncedRec = {};
+        if(!__cloud.syncedPat) __cloud.syncedPat = {};
+        (recs||[]).forEach(function(r){ if(r && r.id) __cloud.syncedRec[String(r.id)] = JSON.stringify(r); });
+        (pats||[]).forEach(function(p){ if(p && p.patientId) __cloud.syncedPat[String(p.patientId)] = JSON.stringify(p); });
+      }
+      function cloudChanged(){
+        var sr = __cloud.syncedRec || {}, sp = __cloud.syncedPat || {};
+        var recs = (__cloud.records||[]).filter(function(r){ return r && r.id && sr[String(r.id)] !== JSON.stringify(r); });
+        var pats = (__cloud.patients||[]).filter(function(p){ return p && p.patientId && sp[String(p.patientId)] !== JSON.stringify(p); });
+        return { records: recs, patients: pats };
       }
       async function cloudSaveNow(){
         if(!__cloud.saving && !__cloud.wipeAll &&
-           !(__cloud.deletedRecordIds||[]).length && !(__cloud.deletedPatientIds||[]).length &&
-           __cloud.syncedJson && cloudSnapshot() === __cloud.syncedJson){
-          return;
+           !(__cloud.deletedRecordIds||[]).length && !(__cloud.deletedPatientIds||[]).length){
+          var ch0 = cloudChanged();
+          if(!ch0.records.length && !ch0.patients.length) return;
         }
         if(__cloud.saving){
           __cloud.pending = true;
@@ -167,9 +178,10 @@ async function poctRuntime(root){
         try{
           var delRec = (__cloud.deletedRecordIds||[]).slice();
           var delPat = (__cloud.deletedPatientIds||[]).slice();
+          var ch = cloudChanged();
           var payload = {
-            records: (__cloud.records||[]),
-            patients: (__cloud.patients||[]),
+            records: ch.records,
+            patients: ch.patients,
             deleted_record_ids: delRec,
             deleted_patient_ids: delPat,
             wipe_all: __cloud.wipeAll === true
@@ -186,16 +198,10 @@ async function poctRuntime(root){
           __cloud.deletedRecordIds = (__cloud.deletedRecordIds||[]).filter(function(x){ return delRec.indexOf(x) < 0; });
           __cloud.deletedPatientIds = (__cloud.deletedPatientIds||[]).filter(function(x){ return delPat.indexOf(x) < 0; });
           __cloud.wipeAll = false;
-          __cloud.syncedJson = JSON.stringify([payload.records, payload.patients]);
+          cloudMarkSynced(payload.records, payload.patients);
           try{ dbg("[poct] cloud save OK"); }catch(eOK){}
-          // Pull the merged state back so records saved on another PC appear here.
-          if(!__cloud.pending){
-            try{
-              __cloud.loaded = false;
-              await cloudLoad();
-              try{ if(typeof renderAll === "function") renderAll(); }catch(eR){}
-            }catch(eL){}
-          }
+          // No full reload after a save: the server merged our changes, and records saved on
+          // another PC appear the next time POCT is opened. (The reload re-downloaded all history.)
 }catch(e){
           __cloud.lastError = String(e && (e.message || e.bodyText || e) ? (e.message || e.bodyText || e) : e);
           try{ if(window.__POCT_TOAST) window.__POCT_TOAST("Cloud save failed", "warn", __cloud.lastError); }catch(e2){}
