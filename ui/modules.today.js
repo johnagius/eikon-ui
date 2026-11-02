@@ -323,7 +323,8 @@
     render();
     await load();
     if (state.timer) clearInterval(state.timer);
-    state.timer = setInterval(function () { if (E.state.activeModuleId === "today") load({ silent: true }); }, 60000);
+    state.timer = setInterval(function () { if (document.hidden) return; // no polling while the tab is hidden
+      if (E.state.activeModuleId === "today") load({ silent: true }); }, 60000);
   }
   function destroy() { if (state.timer) { clearInterval(state.timer); state.timer = null; } }
 

@@ -277,6 +277,7 @@
   function startAutoRefresh() {
     stopAutoRefresh();
     autoRefreshTimer = setInterval(function () {
+      if (document.hidden) return; // no polling while the tab is hidden
       refreshAll(true);
     }, 30000);
   }

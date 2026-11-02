@@ -578,6 +578,7 @@
   function startPolling() {
     stopPolling();
     state.pollTimer = setInterval(function () {
+      if (document.hidden) return; // no polling while the tab is hidden
       pollNewMessages();
     }, 30000);
   }

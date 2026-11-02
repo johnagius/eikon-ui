@@ -851,6 +851,7 @@
   function startAutoRefresh() {
     if (_autoRefreshTimer) { clearInterval(_autoRefreshTimer); _autoRefreshTimer = null; }
     _autoRefreshTimer = setInterval(function () {
+      if (document.hidden) return; // no polling while the tab is hidden
       apptLog("auto-refresh tick");
       refreshAll("auto-poll").catch(function (e) { apptWarn("auto-poll failed", e && e.message); });
     }, 30000); // every 30 seconds

@@ -1107,6 +1107,7 @@
     // Auto-refresh
     if (state.refreshTimer) clearInterval(state.refreshTimer);
     state.refreshTimer = setInterval(function () {
+      if (document.hidden) return; // no polling while the tab is hidden
       if (!state.busy) doRefresh();
     }, REFRESH_INTERVAL);
   }
