@@ -433,3 +433,9 @@ All of it waits only on the worker deploy.
 - QR code for the booking page (vendored qrcode-generator 1.4.4, MIT, loaded on demand); decoded from a screenshot with jsQR → exact /book/<address>. Printable card.
 - Staff day view: Everyone / each practitioner / each room chips when more than one; e2e 4/4.
 - UI 95/95; bookings 13/13, week 8/8. BUILD .56.
+
+## Round 38 — Certificates rebuilt
+- modules.certreg.js: needs-attention first (overdue/due soon/not recorded), in date last; Update (last date, months, certified person) — server computes next due as before; print; files via classic.
+- Bug found by the new test: validation error wiped typed values → draft kept. Other rebuilt registers checked: already keep drafts.
+- Phone rows made consistent (status + Update on line 2).
+- UI 97/97. BUILD .57.
