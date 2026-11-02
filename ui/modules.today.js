@@ -79,7 +79,9 @@
   async function load(opts) {
     opts = opts || {};
     try {
-      var r = await E.apiFetch("/today", { method: "GET", timeoutMs: 12000 });
+      var pre = E._todayPrefetch; E._todayPrefetch = null; // started by core during sign-in, used once
+      var r = (pre && Date.now() - pre.at < 20000) ? await pre.p : null;
+      if (!r || !r.ok) r = await E.apiFetch("/today", { method: "GET", timeoutMs: 12000 });
       if (!r || !r.ok) throw new Error((r && r.error) || "Could not load Today");
       state.data = r; state.loadedAt = new Date(); state.error = "";
     } catch (e) {

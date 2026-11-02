@@ -1628,6 +1628,13 @@
     }
 
     E.dbg("[auth] token present, checking /auth/me …");
+    // New layout opening on Today: ask for Today's data alongside /auth/me instead of after it (one round trip saved).
+    try {
+      var h0 = String(window.location.hash || "").replace(/^#/, "");
+      if (E.isUi2() && (h0 === "" || h0 === "today" || h0 === "dashboard") && window.localStorage.getItem("eikon_active_role") === E.ROLE_PHARMACY) {
+        E._todayPrefetch = { at: Date.now(), p: E.apiFetch("/today", { method: "GET", timeoutMs: 12000 }).catch(function () { return null; }) };
+      }
+    } catch (eP) {}
     try {
       var me = await E.apiFetch("/auth/me", { method: "GET" });
       if (!me || !me.ok || !me.user) throw new Error("Invalid /auth/me response");
