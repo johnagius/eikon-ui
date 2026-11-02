@@ -444,3 +444,10 @@ All of it waits only on the worker deploy.
 - Today's Needs attention already lists overdue/due-soon certificates and opens the new Certificates screen: nothing to fix.
 - modules.nexreg.js: grouped by how soon, add item, send back (create-return), search; rarer flows via classic. Test added. UI 99/99. BUILD .58.
 - Rebuilt so far: Temperature, Cleaning, Daily register, Locum register, Certificates, Near expiry.
+
+## Round 40 — Returns rebuilt (data-safe)
+- modules.retreg.js: four-step tracker per return, grouped by what it waits for, one tap for the next step.
+- Found: the returns update replaces every field → the screen sends the full record back. Proven on the real local worker:
+  after ticking, only handed_over differs. Mock test checks every field.
+- Worker: returns ?open=1 (not credited + last 60 days); old servers ignore it. Test. Worker 94/94, UI 101/101. BUILD .59.
+- Rebuilt so far: Temperature, Cleaning, Daily register, Locum register, Certificates, Near expiry, Returns.
