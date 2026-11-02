@@ -368,3 +368,9 @@ All of it waits only on the worker deploy.
   Light, classic and classic visits unchanged (verified). Fixed on the way: bookings form text was dim in dark; Today temp fields pure black.
 - Customers register links visible while background modules load.
 - UI 86/86, bookings 13/13, settings 13/13. BUILD .37.
+
+## Round 29 — small speed and reliability wins
+- Dark mode: iOS segmented control in Bookings; checked sign-in, customer search and booking sheet in dark.
+- Today's data requested alongside /auth/me (was after it): one round trip saved in production (local server is serial, so ~30 ms here).
+- Today temperatures accept a decimal comma ("3,9") and round to one decimal like the Temperature register. Test changed first, failed, then fixed.
+- UI 86/86. BUILD .40.
