@@ -1324,7 +1324,7 @@
   E.UI2_RAIL_FOOT = [{ id: "team", title: "Team" }, { id: "settings", title: "Settings" }];
   E.UI2_DESTINATIONS = ["today", "customers", "stock", "registers", "team", "settings"];
   // Screens inside a tab keep that tab lit in the rail.
-  E.UI2_PARENT = { tempreg: "registers" };
+  E.UI2_PARENT = { tempreg: "registers", cleanreg: "registers" };
   E._railBadges = E._railBadges || {};
 
   // Line icons for the new layout's menu (same set as the Eikon Next design).
