@@ -203,3 +203,12 @@ then a hard cut to a small sign-in card.
 - `tools/deploy-worker.sh` written and dry-run against live Cloudflare: tests
   58/58, settings snapshot, no change made. John has added the Cloudflare
   environment variables; the next step is the PR that allows the script.
+
+### Round 10: a link to the new version, a shared inventory, client orders
+- **Live:** `ui/next.html` opens the new version (with Bookings) without `?ui=2`.
+  Link for Daniel: https://eikon-api.labrint.workers.dev/ui/next.html
+- **Live:** Quotations and Order diary share one supplier inventory download
+  (measured 2 to 1).
+- **Client orders: 37 calls to 2** once the worker is deployed. The screen falls
+  back to month calls on the current worker (measured 38 with a refused range,
+  works the same). Worker 59/59.
