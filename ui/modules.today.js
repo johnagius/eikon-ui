@@ -94,11 +94,13 @@
   // ---------- actions ----------
   async function logTemperature(row, rowEl) {
     var minEl = rowEl.querySelector("[data-min]"), maxEl = rowEl.querySelector("[data-max]");
-    var minS = (minEl.value || "").trim(), maxS = (maxEl.value || "").trim();
+    // Some keyboards type a decimal comma ("3,4"): read it as 3.4.
+    var minS = (minEl.value || "").trim().replace(",", "."), maxS = (maxEl.value || "").trim().replace(",", ".");
     var name = row.title.replace(/ · reading$/, "");
     if (!minS || !maxS) return E.toast("Enter both min and max for " + name + ". Nothing was saved.", "warn");
     var minV = Number(minS), maxV = Number(maxS);
     if (!isFinite(minV) || !isFinite(maxV)) return E.toast("Min and max must be numbers. Nothing was saved.", "warn");
+    minV = Math.round(minV * 10) / 10; maxV = Math.round(maxV * 10) / 10; // one decimal, as the Temperature register stores it
     if (minV > maxV) return E.toast("Min is greater than max for " + name + ". Nothing was saved.", "warn");
     if (minV < -40 || maxV > 60) return E.toast("That reading is outside -40 to 60 °C. Nothing was saved.", "warn");
     var key = "temp" + row.device_id;
