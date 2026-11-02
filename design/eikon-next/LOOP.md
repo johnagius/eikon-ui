@@ -439,3 +439,8 @@ All of it waits only on the worker deploy.
 - Bug found by the new test: validation error wiped typed values → draft kept. Other rebuilt registers checked: already keep drafts.
 - Phone rows made consistent (status + Update on line 2).
 - UI 97/97. BUILD .57.
+
+## Round 39 — Today attention checked; Near expiry rebuilt
+- Today's Needs attention already lists overdue/due-soon certificates and opens the new Certificates screen: nothing to fix.
+- modules.nexreg.js: grouped by how soon, add item, send back (create-return), search; rarer flows via classic. Test added. UI 99/99. BUILD .58.
+- Rebuilt so far: Temperature, Cleaning, Daily register, Locum register, Certificates, Near expiry.
