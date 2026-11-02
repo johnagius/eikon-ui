@@ -153,7 +153,7 @@ test("public booking: off by default, needs emails, offers only online services,
     eq((await app.api("PUT", "/bookings/settings", { token, body: { publicEnabled: true } })).status, 400, "needs emails first");
     await app.api("PUT", "/bookings/settings", { token, body: { provider: "resend", fromEmail: "b@demo.mt", apiKey: "k" } });
     const on = await app.api("PUT", "/bookings/settings", { token, body: { publicEnabled: true } });
-    eq(on.status, 200, on.text); const slug = on.json.settings.publicSlug; ok(/^demo-pharmacy-[0-9a-f]{6}$/.test(slug), slug);
+    eq(on.status, 200, on.text); const slug = on.json.settings.publicSlug; eq(slug, "demo-pharmacy");
     eq((await app.api("GET", "/book/" + slug, {})).status, 200);
     const sv = await app.api("GET", `/book/${slug}/services`, {});
     eq(sv.json.services.map((s) => s.name), ["Flu vaccine"], "only online services");
