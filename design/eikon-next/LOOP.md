@@ -471,3 +471,11 @@ All of it waits only on the worker deploy.
 - modules.ordreg.js (Orders): waiting by need date, late first, tap-to-call, Ready (partial update, sends only fulfilled), new order;
   range read with month fallback for today's live server. Customers 'Orders' link and Today/search open it. UI 107/107. BUILD .63.
 - Rebuilt: Temperature, Cleaning, Daily register, Locum, Certificates, Near expiry, Returns, Transfers, Alerts, Orders.
+
+## Round 46 — Questions rebuilt
+- modules.tktreg.js (Questions): open customer questions, high priority and due follow-ups first, tap-to-call, latest note;
+  Add a note (whole history kept, only notes_log sent), Resolved (only status sent), New question.
+- Caught before shipping: the server refuses a question without a category; the form uses the classic screen's category list.
+- Customer-card hand-over still opens the classic forms on purpose (address/email fields); not changed.
+- Real local worker: note → only notes_log changed; resolve → only status/resolved/resolved_at. UI 109/109. BUILD .64.
+- Rebuilt: Temperature, Cleaning, Daily register, Locum, Certificates, Near expiry, Returns, Transfers, Alerts, Orders, Questions.
