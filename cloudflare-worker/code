@@ -4,7 +4,7 @@ function nowIso() {
 
 
 
-const WORKER_VERSION = "2026-11-02-bookings-2";
+const WORKER_VERSION = "2026-11-02-bookings-3";
 function isDebugEnabled(request) {
   try {
     return (request && request.headers && (request.headers.get("X-Eikon-Debug") || "") === "1");
@@ -19884,6 +19884,98 @@ async function handleBookings(request, env, corsOkHeaders, authUser, url) {
 
   if (parts[0] === "settings") return await handleBookingsSettings(request, env, corsOkHeaders, authUser, url);
 
+  // Email senders, tried in order (see bkSendEmail). Admin only; credentials are write-only.
+  if (parts[0] === "senders") {
+    if (!isAdmin) return bad("Only an admin can change how emails are sent", 403);
+    await ensureBookingsMsgSchema(env);
+    const settings = await bkGetSettings(env, org, loc);
+    const out = (r) => { const st = bkSenderState(r, new Date().toISOString());
+      return { id: r.id, kind: r.kind, label: r.label, position: r.position, enabled: !!r.enabled, fromName: r.from_name, fromEmail: r.from_email, hasKey: !!r.cred_enc,
+        smtpHost: r.smtp_host, smtpPort: Number(r.smtp_port) || 465, smtpUser: r.smtp_user, smtpSecure: r.smtp_secure, dailyCap: Number(r.daily_cap) || 0, monthlyCap: Number(r.monthly_cap) || 0,
+        usedToday: st.usedToday, usedThisMonth: st.usedMonth, status: st.status, restingUntil: st.restingUntil || "", lastError: r.last_error, lastOkAt: r.last_ok_at }; };
+    const mine = async (id) => dbFirst(env, `SELECT * FROM bk_senders WHERE id=? AND org_id=? AND location_id=?`, [id, org, loc]);
+    // Checks shared by add and edit; returns an error message or the cleaned fields.
+    const clean = (b, cur) => {
+      const kind = cur ? cur.kind : String(b.kind || "");
+      if (!BK_SENDER_DEFAULTS[kind]) return "Choose Resend, Brevo or your own mail server";
+      const f = {};
+      if (b.label !== undefined) f.label = String(b.label).trim().slice(0, 40);
+      if (b.fromName !== undefined) f.from_name = String(b.fromName).trim().slice(0, 80);
+      if (b.fromEmail !== undefined) { f.from_email = String(b.fromEmail).trim().toLowerCase(); if (f.from_email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.from_email)) return "That sender email does not look right"; }
+      for (const [k, col] of [["dailyCap", "daily_cap"], ["monthlyCap", "monthly_cap"]]) if (b[k] !== undefined) { const n = Math.round(Number(b[k])); if (!(n >= 0 && n <= 100000)) return "Limits are whole numbers"; f[col] = n; }
+      if (b.enabled !== undefined) f.enabled = b.enabled ? 1 : 0;
+      if (kind === "smtp") {
+        const host = b.smtpHost !== undefined ? String(b.smtpHost).trim().toLowerCase() : (cur ? cur.smtp_host : "");
+        const port = b.smtpPort !== undefined ? Math.round(Number(b.smtpPort)) : (cur ? Number(cur.smtp_port) : 465);
+        if (!/^[a-z0-9.-]+\.[a-z]{2,}$/.test(host)) return "Type the mail server, e.g. smtp.yourprovider.com";
+        if (port === 25) return "Port 25 is blocked for sending; use 465 (SSL) or 587 (STARTTLS)";
+        if (!(port > 0 && port < 65536)) return "Invalid port";
+        f.smtp_host = host; f.smtp_port = port;
+        if (b.smtpUser !== undefined) f.smtp_user = String(b.smtpUser).trim();
+        if (b.smtpSecure !== undefined) f.smtp_secure = b.smtpSecure === "starttls" ? "starttls" : "tls";
+      }
+      return f;
+    };
+    const secretOf = (b) => { const k = String((b.apiKey !== undefined ? b.apiKey : b.password) || "").trim(); return k; };
+
+    if (m === "GET" && parts.length === 1) {
+      const rows = await bkSenders(env, org, loc, settings);
+      return ok({ senders: rows.map(out), emailsOn: settings.provider !== "off", fromName: settings.from_name, fromEmail: settings.from_email, canStoreKeys: String(env.BOOKINGS_KEY || "").length >= 16 });
+    }
+    if (m === "POST" && parts.length === 1) {
+      const b = await readJson(request) || {};
+      const f = clean(b, null); if (typeof f === "string") return bad(f);
+      const secret = secretOf(b); if (!secret) return bad(b.kind === "smtp" ? "Type the mail server password" : "Paste the API key");
+      if (String(env.BOOKINGS_KEY || "").length < 16) return bad("Messages need the BOOKINGS_KEY secret set on the server");
+      const d = BK_SENDER_DEFAULTS[b.kind];
+      const last = await dbFirst(env, `SELECT MAX(position) AS p FROM bk_senders WHERE org_id=? AND location_id=?`, [org, loc]);
+      await bkSenders(env, org, loc, settings); // an older single-provider set-up becomes the first sender before this one is added
+      const r = await dbRun(env, `INSERT INTO bk_senders (org_id, location_id, kind, label, position, enabled, from_name, from_email, cred_enc, smtp_host, smtp_port, smtp_user, smtp_secure, daily_cap, monthly_cap)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        [org, loc, b.kind, f.label || d.label, last && last.p != null ? Number(last.p) + 1 : 0, f.enabled === 0 ? 0 : 1, f.from_name || "", f.from_email || "", await bkEncrypt(env, secret),
+         f.smtp_host || "", f.smtp_port || 465, f.smtp_user || "", f.smtp_secure || "tls", f.daily_cap !== undefined ? f.daily_cap : d.daily, f.monthly_cap !== undefined ? f.monthly_cap : d.monthly]);
+      const id = r && r.meta && r.meta.last_row_id;
+      await writeAudit(env, org, me, "BK_SENDER_ADD", "bk_senders", String(id), { kind: b.kind });
+      return ok({ sender: out(await mine(id)) }, 201);
+    }
+    if (m === "POST" && parts[1] === "order") {
+      const b = await readJson(request) || {};
+      const ids = (Array.isArray(b.ids) ? b.ids : []).map(Number);
+      const rows = await dbAll(env, `SELECT id FROM bk_senders WHERE org_id=? AND location_id=?`, [org, loc]);
+      if (ids.length !== rows.length || !rows.every((r) => ids.includes(r.id))) return bad("Send every sender once, in the new order");
+      for (let i = 0; i < ids.length; i++) await dbRun(env, `UPDATE bk_senders SET position=? WHERE id=? AND org_id=? AND location_id=?`, [i, ids[i], org, loc]);
+      return ok({ senders: (await bkSenders(env, org, loc, settings)).map(out) });
+    }
+    const id = Number(parts[1]);
+    const cur = id ? await mine(id) : null;
+    if (!cur) return bad("Sender not found", 404);
+    if (m === "POST" && parts[2] === "test") {
+      // Only ever to the signed-in admin: the test button cannot be used to send mail to anyone else.
+      const to = String(authUser.email || "");
+      try {
+        const r = await bkSendEmail(env, settings, { to, toName: authUser.full_name, subject: "Eikon test message", html: bkEmailHtml({ title: "It works", lines: ["Booking emails from Eikon will look like this.", "Sent through " + (cur.label || cur.kind) + "."], pharmacy: authUser.location_name || "", address: settings.address, phone: settings.phone }) }, cur.id);
+        return ok({ sentTo: to, sender: r.sender });
+      } catch (e) { return bad(String(e && e.message || e), 502); }
+    }
+    if (m === "PATCH") {
+      const b = await readJson(request) || {};
+      const f = clean(b, cur); if (typeof f === "string") return bad(f);
+      const secret = secretOf(b);
+      if (secret) { if (String(env.BOOKINGS_KEY || "").length < 16) return bad("Messages need the BOOKINGS_KEY secret set on the server"); f.cred_enc = await bkEncrypt(env, secret); f.cooldown_until = ""; f.last_error = ""; }
+      const cols = Object.keys(f);
+      if (cols.length) await dbRun(env, `UPDATE bk_senders SET ${cols.map((c) => c + "=?").join(", ")}, updated_at=datetime('now') WHERE id=? AND org_id=? AND location_id=?`, [...cols.map((c) => f[c]), id, org, loc]);
+      await writeAudit(env, org, me, "BK_SENDER_EDIT", "bk_senders", String(id), { fields: cols.filter((c) => c !== "cred_enc"), key_changed: !!secret });
+      return ok({ sender: out(await mine(id)) });
+    }
+    if (m === "DELETE") {
+      await dbRun(env, `DELETE FROM bk_senders WHERE id=? AND org_id=? AND location_id=?`, [id, org, loc]);
+      if (cur.legacy) await dbRun(env, `UPDATE bk_settings SET api_key_enc='', provider=CASE WHEN provider='off' THEN 'off' ELSE 'on' END WHERE org_id=? AND location_id=?`, [org, loc]);
+      await writeAudit(env, org, me, "BK_SENDER_DELETE", "bk_senders", String(id), { kind: cur.kind });
+      return ok({ deleted: id });
+    }
+    return bad("Not found", 404);
+  }
+
   if (parts[0] === "import-legacy" && m === "POST") {
     if (!isAdmin) return bad("Only an admin can import", 403);
     return ok({ report: await bkImportLegacy(env, authUser, url.searchParams.get("dry") === "1") });
@@ -20143,6 +20235,17 @@ async function ensureBookingsMsgSchema__impl(env) {
     try { await dbRun(env, `ALTER TABLE bk_settings ADD COLUMN ${col}`, []); } catch (e) {}
   }
   await dbRun(env, `CREATE UNIQUE INDEX IF NOT EXISTS uq_bk_public_slug ON bk_settings (public_slug) WHERE public_slug <> ''`, []);
+  // Several senders per pharmacy (Resend, Brevo, own mail server), tried in order. Credentials encrypted (bkEncrypt).
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS bk_senders (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, org_id INTEGER NOT NULL, location_id INTEGER NOT NULL,
+      kind TEXT NOT NULL, label TEXT NOT NULL DEFAULT '', position INTEGER NOT NULL DEFAULT 0, enabled INTEGER NOT NULL DEFAULT 1, legacy INTEGER NOT NULL DEFAULT 0,
+      from_name TEXT NOT NULL DEFAULT '', from_email TEXT NOT NULL DEFAULT '', cred_enc TEXT NOT NULL DEFAULT '',
+      smtp_host TEXT NOT NULL DEFAULT '', smtp_port INTEGER NOT NULL DEFAULT 465, smtp_user TEXT NOT NULL DEFAULT '', smtp_secure TEXT NOT NULL DEFAULT 'tls',
+      daily_cap INTEGER NOT NULL DEFAULT 0, monthly_cap INTEGER NOT NULL DEFAULT 0,
+      used_day TEXT NOT NULL DEFAULT '', used_today INTEGER NOT NULL DEFAULT 0, used_month TEXT NOT NULL DEFAULT '', used_this_month INTEGER NOT NULL DEFAULT 0,
+      cooldown_until TEXT NOT NULL DEFAULT '', last_error TEXT NOT NULL DEFAULT '', last_ok_at TEXT NOT NULL DEFAULT '', last_fail_at TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')))`, []);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_bk_senders_loc ON bk_senders (org_id, location_id, position)`, []);
   await dbRun(env, `CREATE TABLE IF NOT EXISTS bk_holds (
     id TEXT PRIMARY KEY, org_id INTEGER NOT NULL, location_id INTEGER NOT NULL, payload_json TEXT NOT NULL,
     code_hash TEXT NOT NULL, attempts INTEGER NOT NULL DEFAULT 0, expires_at INTEGER NOT NULL, used INTEGER NOT NULL DEFAULT 0,
@@ -20238,30 +20341,110 @@ ${link ? `<a href="${e(link)}" style="display:inline-block;margin-top:18px;backg
 <div style="font-size:13px;line-height:19px;color:#6b6b70;text-align:center;margin-top:16px">${e(pharmacy)}${address ? " · " + e(address) : ""}${phone ? " · " + e(phone) : ""}<br>
 ${optout ? `<a href="${e(optout)}" style="color:#6b6b70">Stop booking emails</a>` : ""}</div></div></body></html>`;
 }
-async function bkSendEmail(env, settings, { to, toName, subject, html, ics }) {
-  const key = await bkDecrypt(env, settings.api_key_enc);
-  if (!key) throw new Error("No API key");
-  const from = settings.from_name ? `${settings.from_name} <${settings.from_email}>` : settings.from_email;
-  if (settings.provider === "resend") {
+// Free allowances of each service, kept a little under the real ones so Eikon moves on before a provider refuses.
+const BK_SENDER_DEFAULTS = { resend: { label: "Resend", daily: 95, monthly: 2900 }, brevo: { label: "Brevo", daily: 290, monthly: 0 }, smtp: { label: "Mail server", daily: 0, monthly: 0 } };
+
+// One send through one sender. Errors carry .status (HTTP status, 0 for network or mail-server errors).
+async function bkSendVia(env, settings, snd, key, { to, toName, subject, html, ics }) {
+  const fromEmail = snd.from_email || settings.from_email, fromName = snd.from_name || settings.from_name;
+  if (!fromEmail) { const e = new Error("No sender email"); e.status = 400; throw e; }
+  const from = fromName ? `${fromName} <${fromEmail}>` : fromEmail;
+  const fail = async (who, r) => { const e = new Error(who + " " + r.status + ": " + (await r.text()).slice(0, 200)); e.status = r.status; return e; };
+  if (snd.kind === "resend") {
     const r = await fetch("https://api.resend.com/emails", { method: "POST", headers: { "Authorization": "Bearer " + key, "Content-Type": "application/json" },
       body: JSON.stringify({ from, to: [to], subject, html, reply_to: settings.reply_to || undefined,
         attachments: ics ? [{ filename: "booking.ics", content: base64FromBytes(new TextEncoder().encode(ics)) }] : undefined }) });
-    if (!r.ok) throw new Error("Resend " + r.status + ": " + (await r.text()).slice(0, 200));
+    if (!r.ok) throw await fail("Resend", r);
     return;
   }
-  if (settings.provider === "brevo") {
+  if (snd.kind === "brevo") {
     const r = await fetch("https://api.brevo.com/v3/smtp/email", { method: "POST", headers: { "api-key": key, "Content-Type": "application/json", "Accept": "application/json" },
-      body: JSON.stringify({ sender: { name: settings.from_name || settings.from_email, email: settings.from_email }, to: [{ email: to, name: toName || to }], subject, htmlContent: html,
+      body: JSON.stringify({ sender: { name: fromName || fromEmail, email: fromEmail }, to: [{ email: to, name: toName || to }], subject, htmlContent: html,
         replyTo: settings.reply_to ? { email: settings.reply_to } : undefined,
         attachment: ics ? [{ name: "booking.ics", content: base64FromBytes(new TextEncoder().encode(ics)) }] : undefined }) });
-    if (!r.ok) throw new Error("Brevo " + r.status + ": " + (await r.text()).slice(0, 200));
+    if (!r.ok) throw await fail("Brevo", r);
     return;
   }
-  if (settings.provider === "smtp") {
-    await bkSmtpSend(env, settings, key, { from, fromEmail: settings.from_email, to, subject, html, ics });
+  if (snd.kind === "smtp") {
+    try { await bkSmtpSend(env, { smtp_host: snd.smtp_host, smtp_port: snd.smtp_port, smtp_user: snd.smtp_user, smtp_secure: snd.smtp_secure, from_email: fromEmail }, key, { from, fromEmail, to, subject, html, ics }); }
+    catch (e) { const er = new Error("Mail server: " + String(e && e.message || e).slice(0, 200)); er.status = /\b535\b|auth/i.test(String(e && e.message)) ? 401 : 0; throw er; }
     return;
   }
-  throw new Error("Messages are off");
+  const e = new Error("Unknown sender"); e.status = 400; throw e;
+}
+
+// The pharmacy's senders in order. The first time, a pharmacy set up with one provider gets it as its first sender.
+async function bkSenders(env, org, loc, settings) {
+  let rows = await dbAll(env, `SELECT * FROM bk_senders WHERE org_id=? AND location_id=? ORDER BY position, id`, [org, loc]);
+  if (!rows.length && settings && BK_SENDER_DEFAULTS[settings.provider] && settings.api_key_enc) { await bkSyncLegacySender(env, org, loc); rows = await dbAll(env, `SELECT * FROM bk_senders WHERE org_id=? AND location_id=? ORDER BY position, id`, [org, loc]); }
+  return rows;
+}
+// Keeps the sender made from the single-provider settings in step with them (the settings screen still writes there).
+async function bkSyncLegacySender(env, org, loc) {
+  const st = await bkGetSettings(env, org, loc);
+  if (!BK_SENDER_DEFAULTS[st.provider] || !st.api_key_enc) return;
+  const d = BK_SENDER_DEFAULTS[st.provider];
+  const cur = await dbFirst(env, `SELECT id, kind FROM bk_senders WHERE org_id=? AND location_id=? AND legacy=1`, [org, loc]);
+  if (cur) {
+    await dbRun(env, `UPDATE bk_senders SET kind=?, label=CASE WHEN kind=? THEN label ELSE ? END, cred_enc=?, smtp_host=?, smtp_port=?, smtp_user=?, smtp_secure=?, enabled=1,
+      daily_cap=CASE WHEN kind=? THEN daily_cap ELSE ? END, monthly_cap=CASE WHEN kind=? THEN monthly_cap ELSE ? END, cooldown_until='', updated_at=datetime('now') WHERE id=?`,
+      [st.provider, st.provider, d.label, st.api_key_enc, st.smtp_host || "", Number(st.smtp_port) || 465, st.smtp_user || "", st.smtp_secure || "tls", st.provider, d.daily, st.provider, d.monthly, cur.id]);
+  } else {
+    const top = await dbFirst(env, `SELECT MIN(position) AS p FROM bk_senders WHERE org_id=? AND location_id=?`, [org, loc]);
+    await dbRun(env, `INSERT INTO bk_senders (org_id, location_id, kind, label, position, legacy, cred_enc, smtp_host, smtp_port, smtp_user, smtp_secure, daily_cap, monthly_cap)
+      VALUES (?,?,?,?,?,1,?,?,?,?,?,?,?)`, [org, loc, st.provider, d.label, top && top.p != null ? Number(top.p) - 1 : 0, st.api_key_enc,
+        st.smtp_host || "", Number(st.smtp_port) || 465, st.smtp_user || "", st.smtp_secure || "tls", d.daily, d.monthly]);
+  }
+}
+function bkSenderState(r, nowIso) {
+  const day = nowIso.slice(0, 10), month = nowIso.slice(0, 7);
+  const usedToday = r.used_day === day ? Number(r.used_today) : 0, usedMonth = r.used_month === month ? Number(r.used_this_month) : 0;
+  if (!r.enabled) return { status: "off", usedToday, usedMonth };
+  if ((r.daily_cap > 0 && usedToday >= r.daily_cap) || (r.monthly_cap > 0 && usedMonth >= r.monthly_cap)) return { status: "limit", usedToday, usedMonth, restingUntil: r.daily_cap > 0 && usedToday >= r.daily_cap ? bkNextUtcDay(nowIso) : bkNextUtcMonth(nowIso) };
+  if (r.cooldown_until && r.cooldown_until > nowIso) return { status: /quota|limit|429|exceed|too many/i.test(r.last_error) ? "limit" : "resting", usedToday, usedMonth, restingUntil: r.cooldown_until };
+  if (!r.cred_enc) return { status: "nokey", usedToday, usedMonth };
+  return { status: "ready", usedToday, usedMonth };
+}
+function bkNextUtcDay(iso) { const d = new Date(iso); d.setUTCHours(24, 0, 0, 0); return d.toISOString(); }
+function bkNextUtcMonth(iso) { const d = new Date(iso); return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1)).toISOString(); }
+
+// Sends through the first sender that can: a failure or a used-up allowance hands over to the next.
+// onlyId sends through that one sender (the test button). Returns the sender used; throws when none could.
+async function bkSendEmail(env, settings, msg, onlyId) {
+  const org = settings.org_id, loc = settings.location_id;
+  const list = (await bkSenders(env, org, loc, settings)).filter((r) => !onlyId || r.id === onlyId);
+  const tried = [];
+  for (const r of list) {
+    const nowIso = new Date().toISOString();
+    const stt = bkSenderState(r, nowIso), name = r.label || (BK_SENDER_DEFAULTS[r.kind] || {}).label || r.kind;
+    if (!onlyId && stt.status !== "ready") { tried.push(name + ": " + (stt.status === "limit" ? "free limit reached" : stt.status === "resting" ? "resting after an error" : stt.status === "off" ? "switched off" : "no key")); continue; }
+    const key = await bkDecrypt(env, r.cred_enc);
+    if (!key) { tried.push(name + ": no key"); continue; }
+    try {
+      await bkSendVia(env, settings, r, key, msg);
+      const day = nowIso.slice(0, 10), month = nowIso.slice(0, 7);
+      await dbRun(env, `UPDATE bk_senders SET used_today = CASE WHEN used_day=? THEN used_today + 1 ELSE 1 END, used_day=?,
+        used_this_month = CASE WHEN used_month=? THEN used_this_month + 1 ELSE 1 END, used_month=?, last_ok_at=?, last_error='', cooldown_until='' WHERE id=?`,
+        [day, day, month, month, nowIso, r.id]);
+      return { senderId: r.id, sender: name };
+    } catch (e) {
+      const st = Number(e && e.status) || 0, text = String(e && e.message || e).slice(0, 300);
+      // At its limit: rest until tomorrow. Credentials refused: an hour (someone has to fix them). Down: five minutes.
+      // Anything else (a bad address, say) is not the sender's fault: no rest, the next one is still tried.
+      let until = "";
+      if (st === 429 || /quota|limit|exceed|too many/i.test(text)) until = bkNextUtcDay(nowIso);
+      else if (st === 401 || st === 403) until = new Date(Date.parse(nowIso) + 3600000).toISOString();
+      else if (st === 0 || st >= 500) until = new Date(Date.parse(nowIso) + 300000).toISOString();
+      await dbRun(env, `UPDATE bk_senders SET last_error=?, last_fail_at=?, cooldown_until=? WHERE id=?`, [text, nowIso, until, r.id]);
+      tried.push(text);
+    }
+  }
+  throw new Error(tried.length ? tried.join(" · ") : "No sender is set up");
+}
+async function bkCanSend(env, s) {
+  if (!s || s.provider === "off" || String(env.BOOKINGS_KEY || "").length < 16) return false;
+  const list = await bkSenders(env, s.org_id, s.location_id, s);
+  return list.some((r) => r.enabled && r.cred_enc && (r.from_email || s.from_email));
 }
 
 // Sends one message about a booking. Never throws: a failed email must not fail a booking.
@@ -20270,7 +20453,7 @@ async function bkNotify(env, request, booking, kind) {
     await ensureBookingsMsgSchema(env);
     if (!booking || !booking.person_email) return "no-email";
     const s = await bkGetSettings(env, booking.org_id, booking.location_id);
-    if (s.provider === "off" || !s.api_key_enc || !s.from_email) return "off";
+    if (!(await bkCanSend(env, s))) return "off";
     if (await dbFirst(env, `SELECT 1 AS x FROM bk_optout WHERE email=? AND org_id=? AND location_id=?`, [booking.person_email, booking.org_id, booking.location_id])) return "opted-out";
     if (kind === "remind_evening" || kind === "remind_hours") {
       // Claim first: the unique index makes a second claim fail, so a retry never sends twice.
@@ -20345,7 +20528,7 @@ async function handleBookingsSettings(request, env, corsOkHeaders, authUser, url
   if (request.method === "PUT") {
     const b = await readJson(request) || {};
     const cur = await bkGetSettings(env, org, loc);
-    const provider = ["off", "resend", "brevo", "smtp"].includes(b.provider) ? b.provider : cur.provider;
+    const provider = ["off", "on", "resend", "brevo", "smtp"].includes(b.provider) ? b.provider : cur.provider;
     if (provider === "smtp") {
       const host = b.smtpHost !== undefined ? String(b.smtpHost).trim().toLowerCase() : (cur.smtp_host || "");
       const port = b.smtpPort !== undefined ? Math.round(Number(b.smtpPort)) : (Number(cur.smtp_port) || 465);
@@ -20379,7 +20562,7 @@ async function handleBookingsSettings(request, env, corsOkHeaders, authUser, url
     if (b.publicEnabled !== undefined) {
       const want = !!b.publicEnabled;
       const fresh = await bkGetSettings(env, org, loc);
-      if (want && (fresh.provider === "off" || !fresh.api_key_enc || !fresh.from_email)) return jsonResponse({ ok: false, error: "Switch on emails first: online booking confirms each customer with an emailed code" }, 400, corsOkHeaders);
+      if (want && !(await bkCanSend(env, fresh))) return jsonResponse({ ok: false, error: "Switch on emails first: online booking confirms each customer with an emailed code" }, 400, corsOkHeaders);
       let slug = fresh.public_slug;
       if (want && !slug) {
         const base = String(authUser.location_name || "pharmacy").toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 32) || "pharmacy";
@@ -20387,12 +20570,13 @@ async function handleBookingsSettings(request, env, corsOkHeaders, authUser, url
       }
       await dbRun(env, `UPDATE bk_settings SET public_enabled=?, public_slug=?, updated_at=datetime('now') WHERE org_id=? AND location_id=?`, [want ? 1 : 0, slug || "", org, loc]);
     }
+    await bkSyncLegacySender(env, org, loc);
     await writeAudit(env, org, authUser.user_id, "BK_SETTINGS_UPDATE", "bk_settings", String(loc), { provider, from_email: fromEmail, key_changed: b.apiKey !== undefined, public_enabled: b.publicEnabled });
     return jsonResponse({ ok: true, settings: bkSettingsOut(await bkGetSettings(env, org, loc), env) }, 200, corsOkHeaders);
   }
   if (request.method === "POST" && /\/test$/.test(url.pathname)) {
     const s = await bkGetSettings(env, org, loc);
-    if (s.provider === "off" || !s.api_key_enc) return jsonResponse({ ok: false, error: "Choose a provider and paste its key first" }, 400, corsOkHeaders);
+    if (!(await bkCanSend(env, s))) return jsonResponse({ ok: false, error: "Add a sender and switch emails on first" }, 400, corsOkHeaders);
     const to = String(authUser.email || "");
     try {
       await bkSendEmail(env, s, { to, toName: authUser.full_name, subject: "Eikon test message", html: bkEmailHtml({ title: "It works", lines: ["Booking emails from Eikon will look like this."], pharmacy: authUser.location_name || "", address: s.address, phone: s.phone }) });
