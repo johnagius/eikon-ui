@@ -2825,12 +2825,10 @@ async function handleSupplierProductsBulkImport(request, env, corsOkHeaders, aut
 
   // Generate stock change notifications by comparing old vs new
   const changes = [];
-  // Items in old that were out_of_stock and reappear → back_in_stock
+  // Out-of-stock flags survive an import (keepOos above), so an import never puts an
+  // item back in stock; that only happens through the stock-status route.
   for (const key of Object.keys(oldByDesc)) {
     const oldP = oldByDesc[key];
-    if (oldP.out_of_stock && newDescKeys.has(key)) {
-      changes.push({ type: "back_in_stock", description: oldP.description, barcode: oldP.barcode || "" });
-    }
     // Items in old that don't appear in new → removed
     if (!newDescKeys.has(key)) {
       changes.push({ type: "removed", description: oldP.description, barcode: oldP.barcode || "" });

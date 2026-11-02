@@ -16,6 +16,8 @@ test("supplier import: replaces the catalogue atomically and keeps out-of-stock 
   eq(DB.q("SELECT COUNT(*) AS c FROM supplier_products")[0].c, 4);
   eq(DB.one("SELECT out_of_stock FROM supplier_products WHERE description='Metformin 850'").out_of_stock, 1, "OOS flag survives an import");
   eq(DB.one("SELECT out_of_stock FROM supplier_products WHERE description='Paracetamol 500'").out_of_stock, 0);
+  eq(DB.q("SELECT COUNT(*) AS c FROM supplier_stock_changes WHERE change_type='back_in_stock'")[0].c, 0, "a still out-of-stock item is not announced as back in stock");
+  eq(DB.q("SELECT COUNT(*) AS c FROM supplier_stock_changes WHERE change_type='added' AND product_description='Paracetamol 500'")[0].c, 1, "new items are still announced");
   // A failure mid-import leaves the previous catalogue intact
   const origBatch = DB.batch.bind(DB);
   DB.batch = async () => { throw new Error("simulated D1 failure"); };
