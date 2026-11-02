@@ -20528,6 +20528,7 @@ async function handleBookingsSettings(request, env, corsOkHeaders, authUser, url
   if (request.method === "PUT") {
     const b = await readJson(request) || {};
     const cur = await bkGetSettings(env, org, loc);
+    await bkSenders(env, org, loc, cur); // an older single-provider set-up becomes a sender before anything changes, so it is never lost
     const provider = ["off", "on", "resend", "brevo", "smtp"].includes(b.provider) ? b.provider : cur.provider;
     if (provider === "smtp") {
       const host = b.smtpHost !== undefined ? String(b.smtpHost).trim().toLowerCase() : (cur.smtp_host || "");

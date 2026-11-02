@@ -96,7 +96,7 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
 .bkx-acts{display:grid;gap:8px}\
 .bkx-seg{display:flex;background:rgba(118,118,128,.12);border-radius:10px;padding:2px;margin-bottom:16px}.bkx-seg button{flex:1;height:32px;border-radius:8px;font-size:14px;font-weight:600;color:rgba(60,60,67,.8)}\
 .bkx-seg button.on{background:#fff;color:#000;box-shadow:0 1px 3px rgba(0,0,0,.12)}\
-.bkx-gear{width:40px;height:40px;padding:0;border-radius:50%;display:grid;place-items:center}.bkx-add{white-space:nowrap}.bkx-plus{display:none}\
+.bkx-snd{display:flex;align-items:center;gap:12px;padding:12px 16px;position:relative}.bkx-snd+.bkx-snd::before{content:'';position:absolute;top:0;left:16px;right:0;height:.5px;background:var(--sep)}.bkx-snd>i{width:9px;height:9px;border-radius:50%;flex:none}.bkx-snd .t{flex:1;min-width:0}.bkx-snd b{display:block;font-size:16px;font-weight:600}.bkx-snd b small{font-weight:400;color:var(--l2);font-size:13px}.bkx-snd span{display:block;font-size:13px;color:var(--l2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bkx-snd .a{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}.bkx-mini{height:30px;padding:0 10px;border-radius:15px;background:var(--fill);font-size:13px;font-weight:600;color:var(--t)}.bkx-mini.red{color:var(--red)}.bkx-mini:disabled{opacity:.35}@media(max-width:600px){.bkx-snd{flex-wrap:wrap}.bkx-snd .a{flex-basis:100%;justify-content:flex-start;padding-left:21px}}.bkx-gear{width:40px;height:40px;padding:0;border-radius:50%;display:grid;place-items:center}.bkx-add{white-space:nowrap}.bkx-plus{display:none}\
 @media(max-width:600px){.bkx-add{width:40px;padding:0;display:grid;place-items:center}.bkx-add-l{display:none}.bkx-plus{display:block;font-size:26px;font-weight:400;line-height:1;margin-top:-2px}.bkx-top{align-items:flex-start}}\
 .bkx-f input[type=time]{width:128px;flex:0 0 auto}\
 .bkx-f input[type=checkbox]{appearance:none;-webkit-appearance:none;width:51px!important;height:31px!important;border-radius:16px;background:rgba(120,120,128,.16);position:relative;flex:0 0 auto;cursor:pointer;transition:background .2s;margin:0}\
@@ -305,15 +305,39 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
       var m = sh.msg;
       if (!m) h += '<div class="bkx-g"><div class="bkx-empty">Loading…</div></div>';
       else {
-        h += '<div class="sub" style="margin:0 4px 12px">Send customers a confirmation with a calendar file, a reminder the evening before and a private link to see or cancel their booking. Off until you choose a provider.</div>' +
-          '<div class="bkx-f"><label><span>Send with</span><select id="bkm-provider"><option value="off"' + (m.provider === "off" ? " selected" : "") + '>Off</option><option value="resend"' + (m.provider === "resend" ? " selected" : "") + '>Resend</option><option value="brevo"' + (m.provider === "brevo" ? " selected" : "") + '>Brevo</option><option value="smtp"' + (m.provider === "smtp" ? " selected" : "") + ">Own server (SMTP)</option></select></label>" +
-          (m.provider === "smtp" ? '<label><span>Server</span><input id="bkm-host" value="' + esc(m.smtpHost) + '" placeholder="smtp.yourprovider.com" autocapitalize="off"></label>' +
-            '<label><span>Security</span><select id="bkm-sec"><option value="tls"' + (m.smtpSecure !== "starttls" ? " selected" : "") + '>SSL · port 465</option><option value="starttls"' + (m.smtpSecure === "starttls" ? " selected" : "") + ">STARTTLS · port 587</option></select></label>" +
-            '<label><span>Username</span><input id="bkm-user" value="' + esc(m.smtpUser) + '" autocapitalize="off" autocomplete="off"></label>' : "") +
-          '<label><span>' + (m.provider === "smtp" ? "Password" : "API key") + '</span><input id="bkm-key" type="password" autocomplete="off" placeholder="' + (m.hasKey ? "Saved · type to replace" : (m.provider === "smtp" ? "Mail account password" : "Paste the key")) + '"></label>' +
+        var on = m.provider !== "off", snds = sh.senders || [];
+        var sLabel = { ready: "Ready", resting: "Resting after an error", limit: "Free limit reached", off: "Switched off", nokey: "Needs its key" };
+        var dot = { ready: "var(--t)", resting: "#C9772E", limit: "#C9772E", off: "var(--l3)", nokey: "var(--red)" };
+        h += '<div class="sub" style="margin:0 4px 12px">A confirmation with a calendar file, a reminder the evening before and a private link to see or cancel. Emails go through your senders in order: if one fails or reaches its free limit, the next one sends.</div>' +
+          '<div class="bkx-f"><label><span>Emails</span><input id="bkm-on" type="checkbox"' + (on ? " checked" : "") + '><em class="bkx-closed" style="margin-left:8px">' + (on ? "On" : "Off") + "</em></label>" +
           '<label><span>From</span><input id="bkm-from" inputmode="email" value="' + esc(m.fromEmail) + '" placeholder="bookings@yourpharmacy.mt"></label>' +
-          '<label><span>Name</span><input id="bkm-name" value="' + esc(m.fromName) + '" placeholder="Your pharmacy"></label></div>' +
-          '<div class="bkx-f"><label><span>Evening</span><input id="bkm-eve" type="checkbox"' + (m.remindEvening ? " checked" : "") + ' style="flex:0 0 auto;width:22px;height:22px"><em class="bkx-closed" style="margin-left:6px">Reminder at 18:00 the day before</em></label>' +
+          '<label><span>Name</span><input id="bkm-name" value="' + esc(m.fromName) + '" placeholder="Your pharmacy"></label></div>';
+        h += '<h2 style="font-size:13px;font-weight:600;color:var(--l2);text-transform:uppercase;letter-spacing:.04em;margin:18px 4px 6px">Senders</h2><div class="bkx-g">';
+        if (!snds.length) h += '<div class="bkx-empty" style="text-align:left;padding:14px 16px">No sender yet. Brevo sends 300 emails a day for free and Resend 100; add both and Eikon uses the second when the first is busy or used up.</div>';
+        snds.forEach(function (x, i) {
+          var use = x.dailyCap ? x.usedToday + " of " + x.dailyCap + " today" : x.usedToday + " today";
+          var why = x.status === "ready" ? use : x.status === "limit" ? "back " + (x.restingUntil && x.restingUntil.slice(0, 10) > todayStr() ? "tomorrow" : "soon") : x.status === "resting" ? String(x.lastError || "").slice(0, 70) : "";
+          h += '<div class="bkx-snd"><i style="background:' + dot[x.status] + '"></i><div class="t"><b>' + (i + 1) + ". " + esc(x.label) + (x.fromEmail ? ' <small>· ' + esc(x.fromEmail) + "</small>" : "") + "</b><span>" + esc(sLabel[x.status] || x.status) + (why ? " · " + esc(why) : "") + "</span></div>" +
+            '<div class="a"><button class="bkx-mini" data-act="snd-move" data-id="' + x.id + '" data-d="-1" aria-label="Move up"' + (i === 0 ? " disabled" : "") + '>↑</button><button class="bkx-mini" data-act="snd-move" data-id="' + x.id + '" data-d="1" aria-label="Move down"' + (i === snds.length - 1 ? " disabled" : "") + '>↓</button>' +
+            '<button class="bkx-mini" data-act="snd-test" data-id="' + x.id + '">Test</button><button class="bkx-mini" data-act="snd-toggle" data-id="' + x.id + '">' + (x.enabled ? "Switch off" : "Switch on") + '</button><button class="bkx-mini red" data-act="snd-remove" data-id="' + x.id + '">Remove</button></div></div>';
+        });
+        h += "</div>";
+        var ad = sh.adding;
+        if (!ad) h += '<div class="bkx-acts" style="margin-top:8px"><button class="bkx-btn" data-act="snd-add">Add a sender</button></div>';
+        else {
+          var kinds = [["brevo", "Brevo"], ["resend", "Resend"], ["smtp", "Own mail server"]], dflt = { brevo: 290, resend: 95, smtp: 0 };
+          h += '<div class="bkx-seg" style="margin-top:12px">' + kinds.map(function (k) { return '<button class="' + (ad.kind === k[0] ? "on" : "") + '" data-act="snd-kind" data-k="' + k[0] + '">' + k[1] + "</button>"; }).join("") + "</div>" +
+            '<div class="sub" style="margin:0 4px 10px">' + (ad.kind === "brevo" ? "Free for 300 emails a day. Create a key in Brevo under SMTP &amp; API, and verify your sender address there." : ad.kind === "resend" ? "Free for 100 emails a day and 3,000 a month. Create a key in Resend and verify your domain there." : "Your own email account, e.g. the pharmacy's mailbox. Ask your provider for the server name.") + "</div>" +
+            '<div class="bkx-f">' + (ad.kind === "smtp" ? '<label><span>Server</span><input id="bks-host" placeholder="smtp.yourprovider.com" autocapitalize="off"></label>' +
+              '<label><span>Security</span><select id="bks-sec"><option value="tls">SSL · port 465</option><option value="starttls">STARTTLS · port 587</option></select></label>' +
+              '<label><span>Username</span><input id="bks-user" autocapitalize="off" autocomplete="off"></label><label><span>Password</span><input id="bks-key" type="password" autocomplete="new-password"></label>'
+              : '<label><span>API key</span><input id="bks-key" type="password" autocomplete="off" placeholder="Paste the key"></label>') +
+            '<label><span>From</span><input id="bks-from" inputmode="email" placeholder="' + esc(m.fromEmail || "Same as above") + '"></label>' +
+            '<label><span>Daily limit</span><input id="bks-cap" inputmode="numeric" value="' + dflt[ad.kind] + '"><em class="bkx-closed" style="margin-left:6px">0 means no limit</em></label></div>' +
+            '<div class="bkx-acts"><button class="bkx-btn fill" data-act="snd-save">Add sender</button><button class="bkx-btn" data-act="snd-cancel">Cancel</button></div>';
+        }
+        h += '<div class="bkx-f" style="margin-top:18px">' +
+          '<label><span>Evening</span><input id="bkm-eve" type="checkbox"' + (m.remindEvening ? " checked" : "") + ' style="flex:0 0 auto;width:22px;height:22px"><em class="bkx-closed" style="margin-left:6px">Reminder at 18:00 the day before</em></label>' +
           '<label><span>Also</span><select id="bkm-hrs">' + [0, 1, 2, 3, 4].map(function (n) { return '<option value="' + n + '"' + (m.remindHours === n ? " selected" : "") + ">" + (n ? n + " hour" + (n > 1 ? "s" : "") + " before" : "No second reminder") + "</option>"; }).join("") + "</select></label>" +
           '<label><span>Cancel</span><select id="bkm-cut">' + [[0, "Any time online"], [60, "Up to 1 hour before"], [120, "Up to 2 hours before"], [1440, "Up to the day before"]].map(function (o) { return '<option value="' + o[0] + '"' + (m.cancelCutoffMin === o[0] ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select></label>" +
           '<label><span>Address</span><input id="bkm-addr" value="' + esc(m.address) + '"></label><label><span>Phone</span><input id="bkm-phone" inputmode="tel" value="' + esc(m.phone) + '"></label></div>' +
@@ -343,7 +367,7 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
   async function openSettings(tab) {
     S.sheet = { kind: "settings", tab: tab || "services" }; paint();
     if (S.sheet.tab === "messages") {
-      try { S.sheet.msg = (await api("/bookings/settings")).settings; } catch (e) { S.sheet.err = errMsg(e); }
+      try { S.sheet.msg = (await api("/bookings/settings")).settings; S.sheet.senders = (await api("/bookings/senders")).senders; } catch (e) { S.sheet.err = errMsg(e); }
       paint();
     }
   }
@@ -474,15 +498,43 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
       catch (e) { S.sheet.err = errMsg(e); }
       return paint();
     }
+    if (/^snd-/.test(act)) {
+      var sh3 = S.sheet, gid = Number(t.getAttribute("data-id")), gv = function (id) { var el = document.getElementById(id); return el ? el.value.trim() : ""; };
+      sh3.err = sh3.okMsg = "";
+      var reload = async function () { sh3.senders = (await api("/bookings/senders")).senders; };
+      try {
+        if (act === "snd-add") sh3.adding = { kind: "brevo" };
+        else if (act === "snd-kind") sh3.adding = { kind: t.getAttribute("data-k") };
+        else if (act === "snd-cancel") sh3.adding = null;
+        else if (act === "snd-save") {
+          var kd = sh3.adding.kind, nb = { kind: kd, fromEmail: gv("bks-from"), dailyCap: Number(gv("bks-cap") || 0) };
+          if (kd === "smtp") { nb.smtpHost = gv("bks-host"); nb.smtpSecure = gv("bks-sec"); nb.smtpPort = nb.smtpSecure === "starttls" ? 587 : 465; nb.smtpUser = gv("bks-user"); nb.password = gv("bks-key"); }
+          else nb.apiKey = gv("bks-key");
+          var added = (await api("/bookings/senders", { method: "POST", body: JSON.stringify(nb) })).sender;
+          sh3.adding = null; await reload(); sh3.okMsg = added.label + " added. Press Test to check it.";
+        } else if (act === "snd-move") {
+          var ids = sh3.senders.map(function (x) { return x.id; }), i = ids.indexOf(gid), j = i + Number(t.getAttribute("data-d"));
+          if (i >= 0 && j >= 0 && j < ids.length) { ids.splice(j, 0, ids.splice(i, 1)[0]); sh3.senders = (await api("/bookings/senders/order", { method: "POST", body: JSON.stringify({ ids: ids }) })).senders; }
+        } else if (act === "snd-test") {
+          var tr = await api("/bookings/senders/" + gid + "/test", { method: "POST", body: "{}" }); await reload(); sh3.okMsg = "Test sent to " + tr.sentTo + " through " + tr.sender + ".";
+        } else if (act === "snd-toggle") {
+          var cur3 = sh3.senders.find(function (x) { return x.id === gid; });
+          await api("/bookings/senders/" + gid, { method: "PATCH", body: JSON.stringify({ enabled: !(cur3 && cur3.enabled) }) }); await reload();
+        } else if (act === "snd-remove") {
+          var cur4 = sh3.senders.find(function (x) { return x.id === gid; });
+          if (!window.confirm("Remove " + (cur4 ? cur4.label : "this sender") + "? Its key is deleted.")) return;
+          await api("/bookings/senders/" + gid, { method: "DELETE" }); await reload();
+        }
+      } catch (e) { sh3.err = errMsg(e); try { await reload(); } catch (e2) {} }
+      return paint();
+    }
     if (act === "msg-save" || act === "msg-test") {
       var g2 = function (id) { return document.getElementById(id); };
       S.sheet.err = S.sheet.okMsg = "";
       if (act === "msg-save") {
-        var body2 = { provider: g2("bkm-provider").value, fromEmail: g2("bkm-from").value, fromName: g2("bkm-name").value, remindEvening: g2("bkm-eve").checked,
+        var body2 = { provider: g2("bkm-on").checked ? "on" : "off", fromEmail: g2("bkm-from").value, fromName: g2("bkm-name").value, remindEvening: g2("bkm-eve").checked,
           remindHours: Number(g2("bkm-hrs").value), cancelCutoffMin: Number(g2("bkm-cut").value), address: g2("bkm-addr").value, phone: g2("bkm-phone").value,
           publicEnabled: g2("bkm-public").checked };
-        if (g2("bkm-key").value.trim()) body2.apiKey = g2("bkm-key").value.trim();
-        if (body2.provider === "smtp" && g2("bkm-host")) { body2.smtpHost = g2("bkm-host").value; body2.smtpSecure = g2("bkm-sec").value; body2.smtpPort = body2.smtpSecure === "starttls" ? 587 : 465; body2.smtpUser = g2("bkm-user").value; }
         try { S.sheet.msg = (await api("/bookings/settings", { method: "PUT", body: JSON.stringify(body2) })).settings; S.sheet.okMsg = body2.provider === "off" ? "Emails are off" : "Saved. Customers with an email now get messages."; }
         catch (e) { S.sheet.err = errMsg(e); }
       } else {
