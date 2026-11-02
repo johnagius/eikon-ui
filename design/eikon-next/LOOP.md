@@ -464,3 +464,10 @@ All of it waits only on the worker deploy.
 - modules.alertreg.js: open recalls/quarantines with a seven-step chip checklist, Close alert, Record an alert; closed last 60 days.
 - Full-replace endpoint → whole record sent; proven on the real local worker (only the ticked step changed). No implicit status change.
 - UI 105/105. BUILD .61. Rebuilt: Temperature, Cleaning, Daily register, Locum, Certificates, Near expiry, Returns, Transfers, Alerts.
+
+## Rounds 44–45 — phone toasts; Orders rebuilt
+- Toasts sat on the tab bar on phones (rule targeted the toast, not its container) → centred above it.
+- Transfers checked with real local data (offer an item).
+- modules.ordreg.js (Orders): waiting by need date, late first, tap-to-call, Ready (partial update, sends only fulfilled), new order;
+  range read with month fallback for today's live server. Customers 'Orders' link and Today/search open it. UI 107/107. BUILD .63.
+- Rebuilt: Temperature, Cleaning, Daily register, Locum, Certificates, Near expiry, Returns, Transfers, Alerts, Orders.
