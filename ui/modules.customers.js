@@ -314,7 +314,7 @@
       var last = act[0];
       var na = d.next_appointment;
       html += '<div class="cus-facts">' + fact("Last visit", last ? when(last.date) + " · " + kindMeta(last.kind)[0] : "") + (na ? fact("Next appointment", nextWhen(na.date) + (na.time ? " " + na.time : "") + (na.doctor ? " · " + na.doctor : "")) : "") + fact("Address", p.address) + fact("Doctor", p.doctor_name) + fact("E-mail", p.email) + (p.notes ? fact("Notes", p.notes) : "") + '</div>';
-      html += '<div class="cus-actions"><button class="cus-btn p" data-carry="#clientorders">New order</button><button class="cus-btn" data-carry="#tickets">Question</button><button class="cus-btn" data-carry="#deliveries">Delivery</button>' + (E.modules.bookings && E.isUi2 && E.isUi2() ? '<button class="cus-btn" data-act="book">Booking</button>' : '<button class="cus-btn" data-carry="#appointments">Appointment</button>') + '</div>';
+      html += '<div class="cus-actions"><button class="cus-btn p" data-carry="#clientorders">New order</button><button class="cus-btn" data-carry="#tickets">Question</button><button class="cus-btn" data-carry="#deliveries">Delivery</button>' + (E.bookingsOn && E.bookingsOn() ? '<button class="cus-btn" data-act="book">Booking</button>' : '<button class="cus-btn" data-carry="#appointments">Appointment</button>') + '</div>';
     }
     html += '</div>';
 

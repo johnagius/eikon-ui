@@ -20,6 +20,7 @@
   } catch (e) {}
   var ENABLED = false;
   try { ENABLED = localStorage.getItem("eikon_bookings") === "1"; } catch (e) {}
+  E.bookingsOn = function () { return ENABLED && !!(E.isUi2 && E.isUi2()); };
   if (ENABLED && Array.isArray(E.UI2_RAIL) && !E.UI2_RAIL.some(function (x) { return x.id === "bookings"; })) {
     var at = E.UI2_RAIL.findIndex(function (x) { return x.id === "customers"; });
     E.UI2_RAIL.splice(at >= 0 ? at + 1 : 1, 0, { id: "bookings", title: "Bookings" });
