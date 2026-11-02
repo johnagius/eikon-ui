@@ -96,7 +96,7 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
 .bkx-acts{display:grid;gap:8px}\
 .bkx-seg{display:flex;background:rgba(118,118,128,.12);border-radius:10px;padding:2px;margin-bottom:16px}.bkx-seg button{flex:1;height:32px;border-radius:8px;font-size:14px;font-weight:600;color:rgba(60,60,67,.8)}\
 .bkx-seg button.on{background:#fff;color:#000;box-shadow:0 1px 3px rgba(0,0,0,.12)}\
-.bkx-snd{display:flex;align-items:center;gap:12px;padding:12px 16px;position:relative}.bkx-snd+.bkx-snd::before{content:'';position:absolute;top:0;left:16px;right:0;height:.5px;background:var(--sep)}.bkx-snd>i{width:9px;height:9px;border-radius:50%;flex:none}.bkx-snd .t{flex:1;min-width:0}.bkx-snd b{display:block;font-size:16px;font-weight:600}.bkx-snd b small{font-weight:400;color:var(--l2);font-size:13px}.bkx-snd span{display:block;font-size:13px;color:var(--l2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bkx-snd .a{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}.bkx-mini{height:30px;padding:0 10px;border-radius:15px;background:var(--fill);font-size:13px;font-weight:600;color:var(--t)}.bkx-mini.red{color:var(--red)}.bkx-mini:disabled{opacity:.35}@media(max-width:600px){.bkx-snd{flex-wrap:wrap}.bkx-snd .a{flex-basis:100%;justify-content:flex-start;padding-left:21px}}.bkx-gear{width:40px;height:40px;padding:0;border-radius:50%;display:grid;place-items:center}.bkx-add{white-space:nowrap}.bkx-plus{display:none}\
+.bkx-pre{font-style:normal;color:var(--l2);font-size:16px;margin-right:2px}.bkx-linkrow{display:flex;align-items:center;gap:10px;padding:10px 16px 12px;position:relative}.bkx-linkrow::before{content:'';position:absolute;top:0;left:16px;right:0;height:.5px;background:var(--sep)}.bkx-linkrow a{flex:1;min-width:0;color:var(--t);font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bkx-snd{display:flex;align-items:center;gap:12px;padding:12px 16px;position:relative}.bkx-snd+.bkx-snd::before{content:'';position:absolute;top:0;left:16px;right:0;height:.5px;background:var(--sep)}.bkx-snd>i{width:9px;height:9px;border-radius:50%;flex:none}.bkx-snd .t{flex:1;min-width:0}.bkx-snd b{display:block;font-size:16px;font-weight:600}.bkx-snd b small{font-weight:400;color:var(--l2);font-size:13px}.bkx-snd span{display:block;font-size:13px;color:var(--l2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bkx-snd .a{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}.bkx-mini{height:30px;padding:0 10px;border-radius:15px;background:var(--fill);font-size:13px;font-weight:600;color:var(--t)}.bkx-mini.red{color:var(--red)}.bkx-mini:disabled{opacity:.35}@media(max-width:600px){.bkx-snd{flex-wrap:wrap}.bkx-snd .a{flex-basis:100%;justify-content:flex-start;padding-left:21px}}.bkx-gear{width:40px;height:40px;padding:0;border-radius:50%;display:grid;place-items:center}.bkx-add{white-space:nowrap}.bkx-plus{display:none}\
 @media(max-width:600px){.bkx-add{width:40px;padding:0;display:grid;place-items:center}.bkx-add-l{display:none}.bkx-plus{display:block;font-size:26px;font-weight:400;line-height:1;margin-top:-2px}.bkx-top{align-items:flex-start}}\
 .bkx-f input[type=time]{width:128px;flex:0 0 auto}\
 .bkx-f input[type=checkbox]{appearance:none;-webkit-appearance:none;width:51px!important;height:31px!important;border-radius:16px;background:rgba(120,120,128,.16);position:relative;flex:0 0 auto;cursor:pointer;transition:background .2s;margin:0}\
@@ -342,7 +342,8 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
           '<label><span>Cancel</span><select id="bkm-cut">' + [[0, "Any time online"], [60, "Up to 1 hour before"], [120, "Up to 2 hours before"], [1440, "Up to the day before"]].map(function (o) { return '<option value="' + o[0] + '"' + (m.cancelCutoffMin === o[0] ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select></label>" +
           '<label><span>Address</span><input id="bkm-addr" value="' + esc(m.address) + '"></label><label><span>Phone</span><input id="bkm-phone" inputmode="tel" value="' + esc(m.phone) + '"></label></div>' +
           '<div class="bkx-f"><label><span>Online</span><input id="bkm-public" type="checkbox"' + (m.publicEnabled ? " checked" : "") + ' style="flex:0 0 auto;width:22px;height:22px"><em class="bkx-closed" style="margin-left:8px">A booking page for your customers</em></label>' +
-          (m.publicEnabled && m.publicSlug ? '<label><span>Link</span><a href="' + esc(location.origin + "/book/" + m.publicSlug) + '" target="_blank" rel="noopener" style="color:var(--t);font-size:15px;word-break:break-all">' + esc(location.origin + "/book/" + m.publicSlug) + "</a></label>" : "") + "</div>" +
+          (m.publicEnabled && m.publicSlug ? '<label><span>Address</span><em class="bkx-pre">/book/</em><input id="bkm-slug" value="' + esc(m.publicSlug) + '" autocapitalize="off" autocomplete="off" spellcheck="false"></label>' +
+            '<div class="bkx-linkrow"><a href="' + esc(location.origin + "/book/" + m.publicSlug) + '" target="_blank" rel="noopener">' + esc(location.origin.replace(/^https?:\/\//, "") + "/book/" + m.publicSlug) + '</a><button class="bkx-mini" data-act="copy-link">Copy link</button></div>' : "") + "</div>" +
           (m.canSend ? "" : '<div class="bkx-err">The server needs its BOOKINGS_KEY secret before emails can be switched on.</div>') +
           '<div class="bkx-acts"><button class="bkx-btn fill lg" data-act="msg-save">Save</button><button class="bkx-btn lg" data-act="msg-test">Send me a test</button></div>';
       }
@@ -498,6 +499,11 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
       catch (e) { S.sheet.err = errMsg(e); }
       return paint();
     }
+    if (act === "copy-link") {
+      var url = location.origin + "/book/" + ((S.sheet && S.sheet.msg && S.sheet.msg.publicSlug) || "");
+      try { await navigator.clipboard.writeText(url); toast("Link copied · " + url); } catch (e) { window.prompt("Copy the link", url); }
+      return;
+    }
     if (/^snd-/.test(act)) {
       var sh3 = S.sheet, gid = Number(t.getAttribute("data-id")), gv = function (id) { var el = document.getElementById(id); return el ? el.value.trim() : ""; };
       sh3.err = sh3.okMsg = "";
@@ -535,6 +541,7 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
         var body2 = { provider: g2("bkm-on").checked ? "on" : "off", fromEmail: g2("bkm-from").value, fromName: g2("bkm-name").value, remindEvening: g2("bkm-eve").checked,
           remindHours: Number(g2("bkm-hrs").value), cancelCutoffMin: Number(g2("bkm-cut").value), address: g2("bkm-addr").value, phone: g2("bkm-phone").value,
           publicEnabled: g2("bkm-public").checked };
+        if (g2("bkm-slug") && g2("bkm-slug").value.trim() !== (S.sheet.msg.publicSlug || "")) body2.publicSlug = g2("bkm-slug").value.trim().toLowerCase();
         try { S.sheet.msg = (await api("/bookings/settings", { method: "PUT", body: JSON.stringify(body2) })).settings; S.sheet.okMsg = body2.provider === "off" ? "Emails are off" : "Saved. Customers with an email now get messages."; }
         catch (e) { S.sheet.err = errMsg(e); }
       } else {
