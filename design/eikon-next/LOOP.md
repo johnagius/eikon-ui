@@ -161,3 +161,28 @@ then a hard cut to a small sign-in card.
   width.** UI suite 86/86. Repeatable: `tests/ui/bookings.e2e.mjs`.
 - Fixed while inspecting: a CSS reset was stripping button backgrounds, and
   toasts were covering the tab bar.
+
+### Round 8: customer messages and the private booking link
+- Optional emails through Resend or Brevo, off by default:
+  - **Kinds:** confirmation (with calendar file), change, cancel, a reminder the
+    evening before, and optionally N hours before.
+  - **Keys:** encrypted with the BOOKINGS_KEY server secret and never sent back
+    to the browser.
+  - **Sending once:** each reminder is claimed in the database before it's sent,
+    so it goes out exactly once. One-click opt-out.
+  - **Failures:** a failing provider never fails a booking, and the failure is
+    recorded.
+- **Customer link** `/b/<id>.<expiry>.<signature>`:
+  - shows only that booking, with first name only (no surname, phone, ID card or
+    notes) and the pharmacy's address and phone
+  - offers Add to calendar, Cancel within the pharmacy's cut-off, and Call
+  - refuses tampered or extended links, is rate-limited, and is noindex and
+    no-referrer
+- **9 new tests, 58/58 worker tests pass.** Email, page and cancel confirmation
+  inspected on a phone in light and dark.
+- **SMTP not yet:** it needs raw TCP from the worker (`cloudflare:sockets`). It's
+  next on the list; Resend and Brevo cover most pharmacies today.
+- **At deploy:**
+  - set the `BOOKINGS_KEY` secret
+  - set `PUBLIC_BASE_URL` (optional)
+  - add a cron trigger every 10 minutes
