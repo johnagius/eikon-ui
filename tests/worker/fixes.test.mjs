@@ -143,3 +143,16 @@ test("ui files: build-stamped scripts are cacheable for a day; index.html and un
     eq(await cc("/ui/core.js"), "public, max-age=300");
   } finally { globalThis.fetch = orig; }
 });
+
+test("ui files: with UI_CACHE_SECONDS=0 (production), stamped files are still cached; the page and unstamped files are not", async () => {
+  const { makeApp } = await import("./harness.mjs");
+  const app = await makeApp({ env: { UI_CACHE_SECONDS: "0" } });
+  const orig = globalThis.fetch;
+  globalThis.fetch = async (u) => /raw\.githubusercontent\.com/.test(String(u)) ? new Response("x") : orig(u);
+  try {
+    const cc = async (p) => (await app.raw("GET", p)).headers.get("cache-control");
+    eq(await cc("/ui/core.js?v=2026-11-02.20"), "public, max-age=86400");
+    eq(await cc("/ui/index.html?v=2026-11-02.20"), "no-store");
+    eq(await cc("/ui/core.js"), "no-store");
+  } finally { globalThis.fetch = orig; }
+});

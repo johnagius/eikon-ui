@@ -35,7 +35,7 @@
       // browser and the Worker's edge cache can reuse every file (previously every load
       // used Date.now(), so 52 files were re-downloaded on every visit).
       // Bump BUILD on EVERY change to any file in ui/: browsers keep stamped files for a day.
-      var BUILD = "2026-11-02.20";
+      var BUILD = "2026-11-02.21";
 
       function log() { try { console.log.apply(console, arguments); } catch (e) {} }
       function warn() { try { console.warn.apply(console, arguments); } catch (e) {} }
@@ -66,6 +66,8 @@
             var s = document.createElement("script");
             s.src = src;
             s.async = false;
+            // core.js draws the sign-in form early; let it go first among the ~60 files.
+            if (/\/core\.js\?/.test(src)) try { s.fetchPriority = "high"; s.setAttribute("fetchpriority", "high"); } catch (e) {}
             s.onload = function () {
               remaining -= 1;
               if (!failed && remaining === 0) resolve();
@@ -171,8 +173,11 @@
 
       loadOptionalScript("https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js");
 
-      loadCss(withParams("./app.css"))
-        .then(function () { return loadScriptsInOrder(MODULES); })
+      // Stylesheet and scripts download together (they used to wait for each other: one extra round trip).
+      // core.js and main.js wait for window.EIKON_CSS_READY before drawing, so nothing appears unstyled.
+      var cssReady = loadCss(withParams("./app.css"));
+      window.EIKON_CSS_READY = cssReady;
+      Promise.all([cssReady, loadScriptsInOrder(MODULES)])
         .then(function () { log("[EIKON][boot] loaded build", BUILD); })
         .catch(function (e) {
           warn("[EIKON][boot] Boot failed:", e);

@@ -4,7 +4,7 @@ function nowIso() {
 
 
 
-const WORKER_VERSION = "2026-11-02-bookings-1";
+const WORKER_VERSION = "2026-11-02-bookings-2";
 function isDebugEnabled(request) {
   try {
     return (request && request.headers && (request.headers.get("X-Eikon-Debug") || "") === "1");
@@ -10081,7 +10081,11 @@ async function handleUiAsset(request, env, url) {
 
   const cache = caches.default;
 
-  const cachingEnabled = Number.isFinite(cacheSeconds) && cacheSeconds > 0;
+  // Files requested with the build stamp (?v=YYYY-MM-DD.N, see BUILD in ui/index.html) never change
+  // under that URL, so they are cached at the edge and in browsers for a day even when UI_CACHE_SECONDS
+  // is 0 (it only governs index.html and unstamped files). Without this every visit re-fetched ~60 files from GitHub.
+  const stamped = /^\d{4}-\d{2}-\d{2}\.\d+$/.test(url.searchParams.get("v") || "") && !/\.html?$/i.test(rel);
+  const cachingEnabled = stamped || (Number.isFinite(cacheSeconds) && cacheSeconds > 0);
 
   if (cachingEnabled) {
     const cached = await cache.match(request);
@@ -10122,9 +10126,6 @@ async function handleUiAsset(request, env, url) {
 
   const headers = new Headers();
   headers.set("Content-Type", ct);
-  // Files requested with the build stamp (?v=YYYY-MM-DD.N, see BUILD in ui/index.html) never change
-  // under that URL, so browsers may keep them for a day; index.html and unstamped files stay short.
-  const stamped = /^\d{4}-\d{2}-\d{2}\.\d+$/.test(url.searchParams.get("v") || "") && !/\.html?$/i.test(rel);
   const maxAge = stamped ? 86400 : cacheSeconds;
   headers.set("Cache-Control", cachingEnabled ? `public, max-age=${maxAge}` : "no-store");
   headers.set("X-Source", "github-raw");

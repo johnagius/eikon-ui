@@ -16,9 +16,11 @@
   }
 
   // IMPORTANT: This works even when scripts are dynamically injected AFTER DOMContentLoaded.
+  // Wait for the stylesheet (index.html downloads it alongside the scripts).
+  function whenCss(fn) { var c = window.EIKON_CSS_READY; if (c && c.then) c.then(fn, fn); else fn(); }
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", boot);
+    document.addEventListener("DOMContentLoaded", function () { whenCss(boot); });
   } else {
-    boot();
+    whenCss(boot);
   }
 })();

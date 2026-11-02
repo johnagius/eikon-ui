@@ -1646,7 +1646,8 @@
 
   // Show sign-in as soon as the core is here (about 0.3 s) instead of after all 59 scripts;
   // modules keep loading while the person types. Only when there is no saved session.
-  setTimeout(function () {
+  function afterCss(fn) { var c = window.EIKON_CSS_READY; if (c && c.then) c.then(fn, fn); else setTimeout(fn, 0); }
+  afterCss(function () {
     try {
       if (E.state.started || E.getToken() || !document.getElementById("eikon-root")) return;
       // Same default start() would set, but now, before anyone is signed in (setting it after
@@ -1655,5 +1656,5 @@
       E._earlyLoginShown = true;
       E.renderLogin();
     } catch (e) { E._earlyLoginShown = false; }
-  }, 0);
+  });
 })();
