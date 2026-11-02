@@ -510,3 +510,10 @@ All of it waits only on the worker deploy.
   sales (POYC server stores as typed); POYC lookups search its own last 6 months (no lookup routes on the server).
 - Real local worker: both registers pass fill-in, repeated-serial confirm, forced-failure retry with no duplicates.
 - UI 116/116. BUILD .68. Controlled-drug registers rebuilt: received, supplied, POYC (stock takes still classic).
+
+## Round 51 — dark-mode pass on today's screens
+- Live check: BUILD .68 serving.
+- Dark screenshots of Deliveries / Questions / DDA sales form: amber (#A06A0E) and fridge blue unreadable on black;
+  checkbox a white box (.eikon-content forced color-scheme:light). → --warn/--info tokens with dark values, all
+  new-layout modules use them; dark .eikon-content color-scheme:dark.
+- Bug (both modes): Questions header rule greyed its pills (specificity) → :not(.tkt-pill). UI 116/116. BUILD .69.
