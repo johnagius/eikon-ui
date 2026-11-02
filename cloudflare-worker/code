@@ -1001,6 +1001,18 @@ async function dbAll(env, sql, bind = []) {
   return res.results || [];
 }
 
+// Runs "... IN (?,?,...)" queries in batches: D1 refuses more than 100 bound parameters,
+// so a list of ids is split into chunks of 90. makeSql(placeholders) returns the SQL.
+async function dbAllChunked(env, makeSql, ids, before = [], after = [], size = 90) {
+  const out = [];
+  for (let i = 0; i < ids.length; i += size) {
+    const chunk = ids.slice(i, i + size);
+    const rows = await dbAll(env, makeSql(chunk.map(() => "?").join(",")), [...before, ...chunk, ...after]);
+    if (rows) out.push(...rows);
+  }
+  return out;
+}
+
 async function dbRun(env, sql, bind = []) {
   const stmt = env.DB.prepare(sql);
   const res = bind.length ? await stmt.bind(...bind).run() : await stmt.run();
@@ -7619,9 +7631,8 @@ async function handleCreditNotesList(request, env, corsOkHeaders, authUser, url)
   let purchases = [];
   let notes = [];
   if (ids.length) {
-    const placeholders = ids.map(() => "?").join(",");
-    purchases = await dbAll(env, `SELECT id, credit_note_id, amount, receipt_number, timestamp FROM credit_note_purchases WHERE credit_note_id IN (${placeholders}) AND org_id=? ORDER BY timestamp ASC`, [...ids, authUser.org_id]) || [];
-    notes = await dbAll(env, `SELECT id, credit_note_id, text, timestamp FROM credit_note_notes WHERE credit_note_id IN (${placeholders}) AND org_id=? ORDER BY timestamp ASC`, [...ids, authUser.org_id]) || [];
+    purchases = await dbAllChunked(env, (ph) => `SELECT id, credit_note_id, amount, receipt_number, timestamp FROM credit_note_purchases WHERE credit_note_id IN (${ph}) AND org_id=? ORDER BY timestamp ASC`, ids, [], [authUser.org_id]);
+    notes = await dbAllChunked(env, (ph) => `SELECT id, credit_note_id, text, timestamp FROM credit_note_notes WHERE credit_note_id IN (${ph}) AND org_id=? ORDER BY timestamp ASC`, ids, [], [authUser.org_id]);
   }
 
   const purchaseMap = {};
@@ -12600,11 +12611,8 @@ async function handleVaccinesOrdersList(request, env, corsOkHeaders, authUser, u
   const ids = orders.map(o => o.id);
   let itemsByOrder = {};
   if (ids.length) {
-    const placeholders = ids.map(() => "?").join(",");
-    const itemsRes = await env.DB.prepare(
-      `SELECT order_id, vaccine_name, qty FROM vaccines_order_items WHERE org_id = ? AND location_id = ? AND order_id IN (${placeholders}) ORDER BY id ASC`
-    ).bind(authUser.org_id, authUser.location_id, ...ids).all();
-    const items = (itemsRes && itemsRes.results) ? itemsRes.results : [];
+    const items = await dbAllChunked(env, (ph) => `SELECT order_id, vaccine_name, qty FROM vaccines_order_items WHERE org_id = ? AND location_id = ? AND order_id IN (${ph}) ORDER BY id ASC`,
+      ids, [authUser.org_id, authUser.location_id]);
     items.forEach(it => {
       const k = String(it.order_id);
       if (!itemsByOrder[k]) itemsByOrder[k] = [];
@@ -18313,10 +18321,9 @@ async function handleCherubinoPriceList(request, env, corsOkHeaders, authUser, u
   // Fetch checks for these changes
   if (rows.length) {
     const ids = rows.map(r => r.id);
-    const placeholders = ids.map(() => "?").join(",");
-    const checks = await dbAll(env,
+    const checks = await dbAllChunked(env, (ph) =>
       `SELECT price_change_id, location_id, location_name, checked_by_name, checked_at
-       FROM cherubino_price_checks WHERE price_change_id IN (${placeholders})`,
+       FROM cherubino_price_checks WHERE price_change_id IN (${ph})`,
       ids);
     const checkMap = {};
     checks.forEach(c => {

@@ -115,3 +115,17 @@ test("client orders: one range call returns the same rows as the month calls, an
   eq((await api("GET", "/client-orders/entries?from=2020-01-01&to=2027-01-01", { token })).status, 400, "more than 4 years is refused");
   eq((await api("GET", "/client-orders/entries", { token })).status, 400);
 });
+
+test("credit notes: more than 100 notes still list (lookups are batched under D1's 100-parameter limit)", async ({ api, bootstrap, DB }) => {
+  const { token } = await bootstrap();
+  eq((await api("GET", "/creditnotes/list", { token })).status, 200); // creates the tables
+  const ins = DB.db.prepare("INSERT INTO credit_notes (org_id, location_id, issue_date, client_name, client_surname, telephone, receipt_number, amount, expiry_date, no_expiry) VALUES (1, 1, '2026-10-01', ?, 'X', '79000000', ?, 5, '2027-10-01', 0)");
+  for (let i = 0; i < 150; i++) ins.run("Client " + i, "R" + i);
+  const prep = DB.prepare.bind(DB);
+  DB.prepare = (sql) => { const st = prep(sql); const bind = st.bind.bind(st); st.bind = (...a) => { if (a.length > 100) throw new Error("too many SQL variables"); return bind(...a); }; return st; };
+  const r = await api("GET", "/creditnotes/list", { token });
+  DB.prepare = prep;
+  eq(r.status, 200, r.text.slice(0, 200));
+  const list = r.json.entries || r.json.notes || r.json.items || r.json.creditNotes || [];
+  eq(list.length, 150);
+});
