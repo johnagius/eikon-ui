@@ -87,3 +87,25 @@ test("today: an empty pharmacy gets a quiet morning, not an error", async ({ api
   eq(r.json.customers_waiting.length, 0);
   ok(typeof r.json.counts.before_opening === "number");
 });
+
+test("today: shows the next bookings still to come, with the total for the day", async ({ api, bootstrap }) => {
+  const { token } = await bootstrap();
+  const all = {}; for (let d = 0; d <= 6; d++) all[d] = [["00:00", "23:59"]];
+  const p = await api("POST", "/bookings/providers", { token, body: { name: "Maria", hours: all } });
+  const s = await api("POST", "/bookings/services", { token, body: { name: "Flu vaccine", durationMin: 10, providerIds: [p.json.provider.id] } });
+  const n = await api("GET", `/bookings/next?service_id=${s.json.service.id}&count=2`, { token });
+  for (const [i, sl] of n.json.slots.entries()) await api("POST", "/bookings", { token, body: { serviceId: s.json.service.id, providerId: sl.providerId, date: sl.date, start: sl.time, personName: "Person " + i } });
+  const t = await api("GET", "/today", { token });
+  eq(t.status, 200);
+  const today = n.json.serverNow.date;
+  const expected = n.json.slots.filter((x) => x.date === today).length;
+  eq(t.json.bookings.total_today, expected);
+  eq(t.json.bookings.next.length, expected);
+  if (expected) { eq(t.json.bookings.next[0].service, "Flu vaccine"); eq(t.json.bookings.next[0].provider, "Maria"); }
+});
+
+test("today: without Bookings set up, the bookings section is simply empty", async ({ api, bootstrap }) => {
+  const { token } = await bootstrap();
+  const t = await api("GET", "/today", { token });
+  eq(t.status, 200); eq(t.json.bookings.total_today, 0); eq(t.json.bookings.next, []);
+});

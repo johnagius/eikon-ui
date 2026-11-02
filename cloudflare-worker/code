@@ -15531,6 +15531,18 @@ async function handleToday(request, env, corsOkHeaders, authUser) {
   const team = { on_today: shifts.map((x) => ({ name: x.full_name, role: x.designation, from: x.start_time, to: x.end_time })),
     handover_incoming: Array.isArray(incoming) ? incoming : [], notes_today: notesToday ? String(notesToday.notes || "") : "" };
 
+  // ---- Bookings today (new appointments): the next few still to come. Empty if Bookings is not set up.
+  const nowHm = tzHm();
+  const bkRows = await all(
+    `SELECT b.id, b.start_time, b.end_time, b.person_name, b.status, s.name AS service, p.name AS provider
+       FROM bk_bookings b LEFT JOIN bk_services s ON s.id = b.service_id LEFT JOIN bk_providers p ON p.id = b.provider_id
+      WHERE b.org_id = ? AND b.location_id = ? AND b.date = ? AND b.status IN ('booked','confirmed','arrived') AND b.end_time > ?
+      ORDER BY b.start_time ASC, b.id ASC LIMIT 6`, [org, loc, today, nowHm]);
+  const bkTotal = await one(`SELECT COUNT(*) AS c FROM bk_bookings WHERE org_id = ? AND location_id = ? AND date = ? AND status <> 'cancelled'`, [org, loc, today]);
+  const bookings = { total_today: bkTotal ? Number(bkTotal.c) || 0 : 0,
+    next: bkRows.map((r) => ({ id: r.id, start: r.start_time, end: r.end_time, name: r.person_name, status: r.status, service: r.service || "", provider: r.provider || "" })),
+    action: { type: "open", path: "#bookings", label: "Bookings" } };
+
   const counts = {
     before_opening: before.filter((x) => x.status === "todo" || x.status === "overdue").length,
     customers_waiting: waiting.length,
@@ -15538,7 +15550,7 @@ async function handleToday(request, env, corsOkHeaders, authUser) {
   };
   return jsonResponse({ ok: true, date: today, time: tzHm(), timezone: PHARMACY_TZ,
     pharmacy: { name: authUser.location_name, location_id: loc, org: authUser.org_name },
-    before_opening: before, customers_waiting: waiting, attention, takings, stock, team, counts },
+    before_opening: before, customers_waiting: waiting, attention, takings, stock, team, bookings, counts },
     200, { ...corsOkHeaders, "Cache-Control": "private, max-age=10" });
 }
 

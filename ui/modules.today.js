@@ -237,6 +237,18 @@
 
     html += '<div class="tdy-lab">Customers waiting <b>' + nWait + '</b><a data-open="#clientorders">All orders ›</a></div>';
     html += waiting.length ? '<div class="tdy-list">' + waiting.map(rowCustomer).join("") + '</div>' : '<div class="tdy-quiet">No one is waiting. New orders and questions appear here the moment they are recorded.</div>';
+    // Bookings today (only when the pharmacy uses Bookings): the next few, one tap to the day.
+    var bk = d.bookings;
+    if (bk && bk.total_today > 0) {
+      html += '<div class="tdy-lab">Bookings today <b>' + bk.total_today + '</b><a data-open="#bookings">All bookings ›</a></div>';
+      html += bk.next.length ? '<div class="tdy-list">' + bk.next.map(function (b) {
+        var here = b.status === "arrived";
+        return '<div class="tdy-row ' + (here ? "grn" : "blu") + '">' +
+          '<div class="tdy-av sq" style="background:#2E9F7E;width:50px;font-size:12px;font-variant-numeric:tabular-nums">' + esc(b.start) + '</div>' +
+          '<div class="tdy-t"><b>' + esc(b.name) + '</b><span>' + esc(b.service) + (b.provider ? " · " + esc(b.provider) : "") + " · until " + esc(b.end) + '</span></div>' +
+          (here ? '<span class="tdy-pill grn">Here</span>' : "") + '<button class="tdy-btn" data-open="#bookings">Open</button></div>';
+      }).join("") + '</div>' : '<div class="tdy-quiet">All of today\'s bookings are done.</div>';
+    }
     html += '</div>';
 
     // side tiles
