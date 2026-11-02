@@ -34,7 +34,7 @@ then a hard cut to a small sign-in card.
 ## Backlog (ranked)
 
 ### Needs John's OK because it changes the live site
-1. **Kill the forced intro.** The launch lasts exactly as long as loading
+1. ~~**Kill the forced intro.**~~ **Shipped 2 Nov (UI build 2026-11-02.1).** The launch lasts exactly as long as loading
    (`design/eikon-next/launch.html`), and signed-in people go straight in. Saves
    3–5 s on every load and refresh, for every user, every day. Lowest risk, biggest
    felt win.
@@ -78,3 +78,19 @@ then a hard cut to a small sign-in card.
 - Inspected at iPhone and desktop sizes in both themes; fixed the off-centre form
   and the strikethrough-looking slits.
 - Next: prototype lazy loading against the real UI locally and measure it.
+
+### Round 2: launch shipped, appointments started, data at scale
+- **Shipped:** the intro film is off by default; a centred wordmark with a moving
+  line shows only while loading. Sign-in is usable at 0.25 s instead of 5.1 s on a
+  warm cache, and at 2.2 s instead of 5.5 s over an ordinary connection. 85/85 UI
+  tests pass. Live (build 2026-11-02.1).
+- **Real data volume (read-only counts):** 24,008 rows in 105 tables, 8.5 MB.
+  Biggest: pos_products 12,155; audit_log 6,006; quotation_entries 2,523. A
+  background audit is seeding 5 years x 20 pharmacies locally to measure every
+  screen's requests, payload and rows read (D1 bills per row read).
+- **Appointments:** both codebases studied. Two live defects fixed in the worker
+  with regression tests (38/38 pass): cancelled bookings blocked their slot, and
+  the public lookup leaked staff notes with no rate limit. Committed to the live
+  branch; **worker deploy blocked by the session's safety check, needs John's
+  permission.**
+- Redesign spec written: `APPOINTMENTS.md`.
