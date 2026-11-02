@@ -330,3 +330,10 @@ All of it waits only on the worker deploy.
 - CORRECTION (round 23b): the 5.3–8.0 s figure measured until the page `load` event (inflated by the sandbox blocking the SheetJS CDN).
   Measured from navigation start: sign-in form at 0.6–1.1 s on throttled 4G, all modules by 2.6–3.0 s (live, BUILD .21).
   Signed-in visits wait for all modules (~3 s uncached); the worker-side caching (pending deploy) is what makes repeat visits fast.
+
+## Round 24 — the other tabs
+- Stock/Registers/Settings hubs: iOS grouped lists with chevrons on phones (were edge-to-edge tall cards), calm grey hover + green focus ring on desktop, developer note removed, Settings wording for pharmacists.
+- Customers on phones: empty "pick a customer" panel no longer above the search; side padding.
+- One SVG search icon (was 🔍 on Today, ⌕ on Customers).
+- Bookings setup: card capped at 560px on desktop; hours no longer clipped (desktop 128px, phones share the row, no picker icon).
+- e2e on fresh servers: bookings 13/13, settings 13/13, week 8/8; UI 86/86. BUILD .23.
