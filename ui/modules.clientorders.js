@@ -477,7 +477,20 @@
       return { mode: "local", entries: localList(), lastError: eProbe || null, allow500Fallback: allow500Fallback };
     }
 
-    // If probe succeeded, load 3y window (all months in parallel).
+    // One call for the whole 3-year window when the server supports it (it used to be 36 calls).
+    try {
+      var yNow = new Date().getFullYear();
+      var one = await apiFetchDbg("/client-orders/entries?from=" + (yNow - 1) + "-01-01&to=" + (yNow + 2) + "-01-01", { method: "GET" }, "range");
+      if (one && one.ok && Array.isArray(one.entries)) {
+        var byId1 = Object.create(null); mergeById(byId1, one.entries);
+        return { mode: "api", entries: Object.keys(byId1).map(function (k) { return byId1[k]; }), lastError: null, allow500Fallback: allow500Fallback };
+      }
+    } catch (eRange) {
+      if (eRange && (eRange.status === 401 || eRange.status === 403)) throw eRange;
+      dbg("[clientorders] range call not supported yet, using months", { status: eRange && eRange.status });
+    }
+
+    // Older server: load the 3y window month by month (all in parallel).
     var months = buildMonths3y();
     var byId = Object.create(null);
     var anyOk = false;

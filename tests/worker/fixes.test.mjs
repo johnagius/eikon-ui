@@ -101,3 +101,17 @@ test("Cherubino OOS: Keep keeps, Reject only removes a pending proposal", async 
   eq((await api("PUT", "/cherubino/oos/" + pend, { token: admin.token, body: { action: "reject" } })).status, 200);
   eq(DB.q("SELECT COUNT(*) AS c FROM cherubino_oos")[0].c, 1);
 });
+
+test("client orders: one range call returns the same rows as the month calls, and ranges are capped", async ({ api, bootstrap }) => {
+  const { token } = await bootstrap();
+  for (const d of ["2025-12-30", "2026-01-15", "2026-11-02"]) {
+    const r = await api("POST", "/client-orders/entries", { token, body: { order_date: d, client_name: "C " + d, client_phone: "79000000", items_text: "Item" } });
+    eq(r.status < 300, true, r.text);
+  }
+  const range = await api("GET", "/client-orders/entries?from=2025-01-01&to=2027-01-01", { token });
+  eq(range.status, 200, range.text);
+  eq(range.json.entries.length, 3);
+  eq((await api("GET", "/client-orders/entries?month=2026-01", { token })).json.entries.length, 1, "month calls still work");
+  eq((await api("GET", "/client-orders/entries?from=2020-01-01&to=2027-01-01", { token })).status, 400, "more than 4 years is refused");
+  eq((await api("GET", "/client-orders/entries", { token })).status, 400);
+});
