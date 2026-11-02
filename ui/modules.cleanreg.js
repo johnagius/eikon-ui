@@ -174,6 +174,7 @@
     if (!body.entry_date) { S.form.err = "Choose the date. Nothing was saved."; return paint(); }
     if (body.entry_date > ymd(new Date())) { S.form.err = "The date is in the future. Nothing was saved."; return paint(); }
     if (!body.cleaner_name) { S.form.err = "Write who cleaned. Nothing was saved."; return paint(); }
+    if (!body.time_in) { S.form.err = "Fill in the time in. Nothing was saved."; return paint(); }
     if (body.time_in && body.time_out && body.time_out < body.time_in) { S.form.err = "Time out is before time in. Nothing was saved."; return paint(); }
     S.saving = true; paint();
     try {

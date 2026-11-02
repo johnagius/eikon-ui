@@ -1,0 +1,173 @@
+/* Locum register, new layout: which pharmacist was in charge, when, with their registration number.
+   The month by day, a quick entry form that fills a known locum's registration number, and a printout.
+   Same endpoints as the classic screen (/locumregister/entries); corrections still happen there. */
+(function () {
+  "use strict";
+  var E = window.EIKON;
+  if (!E) return;
+
+  var S = { mount: null, month: null, entries: [], history: [], loading: false, error: "", form: null, saving: false };
+  var MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  var MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  var WDN = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+  function esc(s) { return E.escapeHtml ? E.escapeHtml(String(s == null ? "" : s)) : String(s == null ? "" : s); }
+  function pad(n) { return (n < 10 ? "0" : "") + n; }
+  function ymd(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+  function parse(s) { var p = String(s).split("-"); return new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2])); }
+  function thisMonth() { var d = new Date(); return d.getFullYear() + "-" + pad(d.getMonth() + 1); }
+  function shiftMonth(m, k) { var p = m.split("-"), d = new Date(Number(p[0]), Number(p[1]) - 1 + k, 1); return d.getFullYear() + "-" + pad(d.getMonth() + 1); }
+  function monthLabel(m) { var p = m.split("-"); return MONTHS[Number(p[1]) - 1] + " " + p[0]; }
+  function dayLong(s) { var d = parse(s); return s === ymd(new Date()) ? "Today" : WDN[d.getDay()] + " " + d.getDate() + " " + MON[d.getMonth()]; }
+  function hmNow() { var d = new Date(); return pad(d.getHours()) + ":" + pad(d.getMinutes()); }
+  function norm(s) { return String(s || "").trim().toLowerCase(); }
+
+  function css() {
+    if (document.getElementById("eikon-locreg-css")) return;
+    var st = document.createElement("style");
+    st.id = "eikon-locreg-css";
+    // Shares the look of the other rebuilt registers; only what differs is here.
+    st.textContent =
+      ".lcr{max-width:860px;margin:0 auto}" +
+      ".lcr-back{border:0;background:none;color:var(--accent);font:inherit;font-size:15px;font-weight:500;padding:0 0 10px;cursor:pointer}" +
+      ".lcr-top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}" +
+      ".lcr h1{font-size:30px;letter-spacing:-.025em;margin:0;line-height:1.1;font-weight:800}.lcr-sub{color:var(--muted);font-size:14.5px;margin:4px 0 0}" +
+      ".lcr-acts{display:flex;gap:8px}" +
+      ".lcr-btn{font:inherit;font-size:14px;font-weight:600;height:36px;padding:0 14px;border-radius:18px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer}" +
+      ".lcr-btn.p{background:var(--accent);border-color:var(--accent);color:#fff}.lcr-btn:disabled{opacity:.55;cursor:default}" +
+      ".lcr-month{display:flex;align-items:center;gap:6px;margin:18px 0 6px}.lcr-month b{font-size:17px;min-width:150px;text-align:center}" +
+      ".lcr-arrow{width:34px;height:34px;border-radius:50%;border:0;background:rgba(118,118,128,.12);color:var(--text);font-size:18px;cursor:pointer}.lcr-arrow:disabled{opacity:.35;cursor:default}" +
+      ".lcr-lab{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:16px 2px 7px}" +
+      ".lcr-list{background:var(--panel2);border:1px solid var(--border);border-radius:12px;overflow:hidden}" +
+      ".lcr-row{display:flex;align-items:center;gap:12px;padding:11px 16px;border-top:.5px solid var(--border)}.lcr-row:first-child{border-top:0}" +
+      ".lcr-row .t{flex:1;min-width:0}.lcr-row b{display:block;font-size:14.5px;font-weight:600}.lcr-row span{display:block;font-size:12.5px;color:var(--muted)}" +
+      ".lcr-row .tm{font-variant-numeric:tabular-nums;font-size:13px;color:var(--muted);white-space:nowrap}" +
+      ".lcr-form{background:var(--panel2);border:1px solid var(--border);border-radius:14px;padding:6px 0;margin-top:16px}" +
+      ".lcr-form label{display:flex;align-items:center;gap:12px;min-height:48px;padding:0 16px;border-top:.5px solid var(--border)}.lcr-form label:first-child{border-top:0}" +
+      ".lcr-form label>span{flex:0 0 96px;font-size:15px}.lcr-form label.miss>span{color:var(--danger)}" +
+      ".lcr-form input{flex:1;min-width:0;border:0;outline:0;background:transparent;font:inherit;font-size:16px;color:inherit;padding:10px 0}" +
+      ".lcr-form .acts{display:flex;gap:8px;padding:10px 16px 8px;justify-content:flex-end}" +
+      ".lcr-err{color:var(--danger);font-size:13px;padding:2px 16px 4px}" +
+      ".lcr-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
+      ".lcr-print,.lcr-pmeta{display:none}" +
+      "@media (max-width:600px){.lcr{padding:4px 16px 0}.lcr h1{font-size:32px}.lcr-form label>span{flex-basis:84px}}" +
+      "@media print{.eikon-sidebar,.eikon-topbar,.lcr-back,.lcr-acts,.lcr-month,.lcr-lab,.lcr-list,.lcr-form,.lcr-note,.eikon-toast{display:none!important}" +
+      ".eikon-content{padding:0!important}.lcr-pmeta{display:block;font-size:12px;margin:2px 0 8px}.lcr-print{display:table;width:100%;border-collapse:collapse;font-size:11px}" +
+      ".lcr-print th,.lcr-print td{border:1px solid #999;padding:3px 6px;text-align:left}}";
+    document.head.appendChild(st);
+  }
+
+  async function load() {
+    S.loading = true; S.error = ""; paint();
+    try {
+      var res = await Promise.all([S.month, shiftMonth(S.month, -1)].map(function (mo) { return E.apiFetch("/locumregister/entries?month=" + encodeURIComponent(mo), { method: "GET" }); }));
+      var byNewest = function (a, b) { return (String(a.entry_date) + (a.time_in || "")) < (String(b.entry_date) + (b.time_in || "")) ? 1 : -1; };
+      S.entries = ((res[0] && res[0].entries) || []).slice().sort(byNewest);
+      S.history = S.entries.concat((res[1] && res[1].entries) || []);
+    } catch (e) {
+      S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load the register");
+    }
+    S.loading = false; paint();
+  }
+
+  function formHtml() {
+    var f = S.form, names = {}, miss = f.missing || [];
+    S.history.forEach(function (e) { if (e.locum_full_name) names[e.locum_full_name] = 1; });
+    var row = function (k, label, type, ph, extra) {
+      return '<label' + (miss.indexOf(k) >= 0 ? ' class="miss"' : "") + "><span>" + label + '</span><input name="' + k + '" type="' + type + '" placeholder="' + esc(ph) + '" value="' + esc(f[k] || "") + '"' + (extra || "") + "></label>";
+    };
+    return '<form class="lcr-form" id="lcr-form" autocomplete="off">' +
+      row("entry_date", "Date", "date", "", ' max="' + esc(ymd(new Date())) + '"') +
+      row("time_in", "Time in", "time", "") +
+      row("time_out", "Time out", "time", "Optional") +
+      row("locum_full_name", "Pharmacist", "text", "Name and surname", ' list="lcr-names"') +
+      row("registration_number", "Reg no", "text", "Registration number") +
+      '<datalist id="lcr-names">' + Object.keys(names).map(function (n) { return '<option value="' + esc(n) + '">'; }).join("") + "</datalist>" +
+      (f.err ? '<div class="lcr-err">' + esc(f.err) + "</div>" : "") +
+      '<div class="acts"><button type="button" class="lcr-btn" data-act="cancel">Cancel</button><button type="submit" class="lcr-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Add to register") + "</button></div></form>";
+  }
+
+  function paint() {
+    var m = S.mount; if (!m) return;
+    if (E.state.activeModuleId !== "locreg") return; // left before a reply came back: do not draw over the next screen
+    var isNow = S.month >= thisMonth(), user = E.state.user || {};
+    var h = '<div class="lcr"><button class="lcr-back" data-act="back">‹ Registers</button>' +
+      '<div class="lcr-top"><div><h1>Locum register</h1><p class="lcr-sub">Which pharmacist was in charge, and when.</p></div>' +
+      '<div class="lcr-acts">' + (S.form ? "" : '<button class="lcr-btn p" data-act="new">New entry</button>') + '<button class="lcr-btn" data-act="print">Print</button></div></div>' +
+      '<p class="lcr-pmeta">' + esc((user.location_name || "") + " · Locum register · " + monthLabel(S.month) + " · printed " + ymd(new Date())) + "</p>";
+    if (S.form) h += formHtml();
+    h += '<div class="lcr-month"><button class="lcr-arrow" data-act="prev" aria-label="Previous month">‹</button><b>' + esc(monthLabel(S.month)) + '</b><button class="lcr-arrow" data-act="next" aria-label="Next month"' + (isNow ? " disabled" : "") + ">›</button></div>";
+    if (S.loading && !S.entries.length) h += '<div class="lcr-quiet">Opening the register…</div>';
+    else if (S.error) h += '<div class="lcr-quiet">' + esc(S.error) + "</div>";
+    else if (!S.entries.length) h += '<div class="lcr-quiet">No locum recorded in ' + esc(monthLabel(S.month)) + ".</div>";
+    else {
+      var day = null;
+      S.entries.forEach(function (e) {
+        if (e.entry_date !== day) { if (day) h += "</div>"; day = e.entry_date; h += '<div class="lcr-lab">' + esc(dayLong(day)) + '</div><div class="lcr-list">'; }
+        h += '<div class="lcr-row"><div class="t"><b>' + esc(e.locum_full_name) + "</b><span>Reg no " + esc(e.registration_number) + '</span></div><div class="tm">' +
+          esc(e.time_in || "") + (e.time_out ? "–" + esc(e.time_out) : " onwards") + "</div></div>";
+      });
+      h += "</div>";
+    }
+    h += '<p class="lcr-note" style="font-size:12.5px;color:var(--muted);margin-top:12px">To correct or remove a line, open it in the <a href="#" data-act="classic" style="color:var(--accent)">classic register</a>.</p>';
+    h += '<table class="lcr-print"><thead><tr><th>Date</th><th>Time in</th><th>Time out</th><th>Pharmacist</th><th>Reg no</th></tr></thead><tbody>' +
+      (S.entries.length ? S.entries.slice().reverse().map(function (e) {
+        return "<tr><td>" + esc(e.entry_date) + "</td><td>" + esc(e.time_in || "") + "</td><td>" + esc(e.time_out || "") + "</td><td>" + esc(e.locum_full_name) + "</td><td>" + esc(e.registration_number) + "</td></tr>";
+      }).join("") : '<tr><td colspan="5">No locum recorded this month.</td></tr>') + "</tbody></table></div>";
+    m.innerHTML = h;
+    bind(m);
+  }
+
+  function bind(m) {
+    m.querySelectorAll("[data-act]").forEach(function (b) {
+      b.addEventListener("click", function (ev) {
+        var a = b.getAttribute("data-act");
+        if (a === "back") window.location.hash = "#registers";
+        else if (a === "prev") { S.month = shiftMonth(S.month, -1); load(); }
+        else if (a === "next") { if (S.month < thisMonth()) { S.month = shiftMonth(S.month, 1); load(); } }
+        else if (a === "print") window.print();
+        else if (a === "new") { S.form = { entry_date: ymd(new Date()), time_in: hmNow() }; paint(); setTimeout(function () { var c = m.querySelector("[name=locum_full_name]"); if (c) c.focus(); }, 30); }
+        else if (a === "cancel") { S.form = null; paint(); }
+        else if (a === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "locreg"); } catch (e) {} E.openClassic("locumregister"); }
+      });
+    });
+    var f = m.querySelector("#lcr-form");
+    if (!f) return;
+    f.addEventListener("submit", function (ev) { ev.preventDefault(); save(f); });
+    var nm = f.querySelector("[name=locum_full_name]"), rg = f.querySelector("[name=registration_number]");
+    nm.addEventListener("change", function () { // a locum who worked here before brings their registration number
+      var hit = S.history.find(function (e) { return norm(e.locum_full_name) === norm(nm.value) && e.registration_number; });
+      if (hit && !rg.value) rg.value = hit.registration_number;
+    });
+  }
+
+  async function save(f) {
+    if (S.saving) return;
+    var v = function (n) { var el = f.querySelector("[name=" + n + "]"); return el ? String(el.value || "").trim() : ""; };
+    var body = { entry_date: v("entry_date"), time_in: v("time_in"), time_out: v("time_out"), locum_full_name: v("locum_full_name"), registration_number: v("registration_number") };
+    var need = { entry_date: "the date", time_in: "the time in", locum_full_name: "the pharmacist", registration_number: "the registration number" };
+    var missing = Object.keys(need).filter(function (k) { return !body[k]; });
+    S.form = Object.assign({}, body, { err: "", missing: missing });
+    if (missing.length) { S.form.err = "Fill in " + missing.map(function (k) { return need[k]; }).join(", ") + ". Nothing was saved."; return paint(); }
+    if (body.entry_date > ymd(new Date())) { S.form.err = "The date is in the future. Nothing was saved."; return paint(); }
+    if (body.time_out && body.time_out < body.time_in) { S.form.err = "Time out is before time in. Nothing was saved."; return paint(); }
+    S.saving = true; paint();
+    try {
+      var r = await E.apiFetch("/locumregister/entries", { method: "POST", body: JSON.stringify(body) });
+      if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
+      S.form = null; E.toast("Added · " + body.locum_full_name + " · " + body.time_in, "success");
+      S.month = body.entry_date.slice(0, 7);
+    } catch (e) {
+      S.form.err = "Not saved: " + String((e && (e.message || e)) || "error");
+    }
+    S.saving = false;
+    return load();
+  }
+
+  E.registerModule({
+    id: "locreg", title: "Locum register", order: 3, icon: "◷", ui2Only: true,
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.form = null; if (!S.month) S.month = thisMonth(); css(); paint(); return load(); }
+  });
+  if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("locreg") < 0) E.UI2_DESTINATIONS.push("locreg");
+  if (E.UI2_PARENT) E.UI2_PARENT.locreg = "registers";
+})();

@@ -69,6 +69,12 @@ function mockApi(req, res, body) {
   if (p === "/temperature/entries" && req.method === "GET") return res.end(JSON.stringify({ ok: true, entries: [] }));
   if (p === "/dda-purchases/entries" && req.method === "GET") return res.end(JSON.stringify({ ok: true, entries: [{ id: 5, entry_date: todayYmd, dda_name_dose: "Morphine 10mg", quantity: 2, agent: "Supplier", invoice_number: "INV-1" }] }));
   if (p === "/temperature/entries" && req.method === "POST") { todayState.tempDone = true; return res.end(JSON.stringify({ ok: true, entry_id: 1 })); }
+  if (p === "/locumregister/entries" && req.method === "GET") {
+    const mo = new URL(req.url, "http://x").searchParams.get("month") || "", cur = new Date().toISOString().slice(0, 7);
+    const old = { id: 5, entry_date: "2026-10-05", time_in: "08:00", time_out: "14:00", locum_full_name: "Pharm. Anna Grech", registration_number: "P1234" };
+    return res.end(JSON.stringify({ ok: true, entries: mo !== cur ? [old] : [] }));
+  }
+  if (p === "/locumregister/entries" && req.method === "POST") return res.end(JSON.stringify({ ok: true, entry: { id: 6 } }));
   if (p === "/daily-register/entries" && req.method === "GET") {
     const mo = new URL(req.url, "http://x").searchParams.get("month") || "", cur = new Date().toISOString().slice(0, 7);
     const old = { id: 3, entry_date: "2026-10-12", client_name: "John Borg", client_id: "123456M", medicine_name_dose: "Amoxil 500mg", posology: "1-1-1 x 7 days", prescriber_name: "Dr Abela", prescriber_reg_no: "4321" };
@@ -315,11 +321,11 @@ await page.press("#tdy-q", "Enter");
 await page.waitForFunction(() => location.search.indexOf("ui=classic") >= 0 && window.EIKON && window.EIKON.state && window.EIKON.state.activeModuleId === "clientorders", null, { timeout: 15000 });
 const openedCustomer = await page.evaluate(() => location.hash + " " + (document.documentElement.hasAttribute("data-ui2") ? "new" : "classic"));
 await backToToday();
-await page.fill("#tdy-q", "locum register");
+await page.fill("#tdy-q", "dda purchases");
 await page.press("#tdy-q", "Enter");
-await page.waitForFunction(() => location.search.indexOf("ui=classic") >= 0 && window.EIKON && window.EIKON.state && window.EIKON.state.activeModuleId === "locumregister", null, { timeout: 15000 });
+await page.waitForFunction(() => location.search.indexOf("ui=classic") >= 0 && window.EIKON && window.EIKON.state && window.EIKON.state.activeModuleId === "dda-purchases", null, { timeout: 15000 });
 const openedModule = await page.evaluate(() => location.hash + " " + (document.documentElement.hasAttribute("data-ui2") ? "new" : "classic"));
-report("today: search opens a customer or a register on Enter, in the classic layout until each is rebuilt", openedCustomer === "#clientorders classic" && openedModule === "#locumregister classic", `${openedCustomer} | ${openedModule}`);
+report("today: search opens a customer or a register on Enter, in the classic layout until each is rebuilt", openedCustomer === "#clientorders classic" && openedModule === "#dda-purchases classic", `${openedCustomer} | ${openedModule}`);
 await backToToday();
 // A register rebuilt in the new layout opens there.
 await page.fill("#tdy-q", "temperature");
@@ -344,9 +350,9 @@ report("shell: the rail is Today, Customers, Stock, Registers, Team, Settings an
 await page.evaluate(() => { location.hash = "#registers"; });
 await page.waitForFunction(() => document.querySelector(".hub-card"), null, { timeout: 8000 });
 const hub = await page.evaluate(() => ({ h1: document.querySelector(".hub h1").textContent, cards: document.querySelectorAll(".hub-card").length, temp: !!document.querySelector('.hub-card[data-open="temperature"]'), topbar: getComputedStyle(document.querySelector(".eikon-topbar")).display }));
-await page.click('.hub-card[data-open="locumregister"]');
+await page.click('.hub-card[data-open="dda-purchases"]');
 // an old module never renders inside the new shell: the classic layout opens for this visit
-await page.waitForFunction(() => location.hash === "#locumregister" && location.search.indexOf("ui=classic") >= 0 && window.EIKON && window.EIKON.state && window.EIKON.state.user && document.querySelector(".eikon-nav-cat"), null, { timeout: 15000 });
+await page.waitForFunction(() => location.hash === "#dda-purchases" && location.search.indexOf("ui=classic") >= 0 && window.EIKON && window.EIKON.state && window.EIKON.state.user && document.querySelector(".eikon-nav-cat"), null, { timeout: 15000 });
 await page.waitForTimeout(400);
 const legacy = await page.evaluate(() => ({ light: document.documentElement.hasAttribute("data-ui2"), cats: document.querySelectorAll(".eikon-nav-cat").length, back: document.getElementById("eikon-back-btn").textContent, backShown: document.getElementById("eikon-back-btn").style.display !== "none", pref: localStorage.getItem("eikon_ui2") }));
 await page.click("#eikon-back-btn");
@@ -513,6 +519,24 @@ await page.waitForTimeout(700);
 const drrPosts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST" && c.path === "/daily-register/entries");
 const db = (drrPosts[0] || {}).body || {};
 report("daily register: Today's Open lands on the new screen; every line required; known ID and prescriber fill in; one POST", drr1.hash === "#drreg" && !drr1.classic && drr1.rail.join() === "registers" && drrPosts0.length === 0 && drrErr.miss === 6 && /Nothing was saved/.test(drrErr.err) && filled.name === "John Borg" && filled.reg === "4321" && drrPosts.length === 1 && db.client_name === "John Borg" && db.prescriber_reg_no === "4321" && db.medicine_name_dose === "Augmentin 1g" && /^\d{4}-\d{2}-\d{2}$/.test(db.entry_date), JSON.stringify({ drr1, drrErr, filled, drrPosts }));
+
+// Locum register in the new layout: a returning locum's registration number fills in; time in is required; one POST.
+await page.goto(base + "&ui=2#locumregister");
+await page.waitForFunction(() => window.EIKON.state.activeModuleId === "locreg" && document.querySelector("[data-act=new]") && !/Opening/.test(document.querySelector(".lcr").textContent), null, { timeout: 15000 });
+const lcr1 = await page.evaluate(() => ({ hash: location.hash, rail: [...document.querySelectorAll(".eikon-rail-btn.active")].map((b) => b.dataset.mod) }));
+await fetch(`http://localhost:${PORT}/__reset`);
+await page.click("[data-act=new]");
+await page.fill("#lcr-form [name=time_in]", "");
+await page.fill("#lcr-form [name=locum_full_name]", "Pharm. Anna Grech"); await page.press("#lcr-form [name=locum_full_name]", "Tab");
+const lcrReg = await page.inputValue("#lcr-form [name=registration_number]");
+await page.click("#lcr-form button[type=submit]"); await page.waitForTimeout(300);
+const lcrPosts0 = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST" && c.path === "/locumregister/entries");
+const lcrErr = await page.evaluate(() => (document.querySelector(".lcr-err") || {}).textContent || "");
+await page.fill("#lcr-form [name=time_in]", "08:00");
+await page.click("#lcr-form button[type=submit]"); await page.waitForTimeout(700);
+const lcrPosts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST" && c.path === "/locumregister/entries");
+const lb = (lcrPosts[0] || {}).body || {};
+report("locum register: old link lands on the new screen; a known locum fills the reg no; time in required; one POST", lcr1.hash === "#locreg" && lcr1.rail.join() === "registers" && lcrReg === "P1234" && lcrPosts0.length === 0 && /time in/.test(lcrErr) && lcrPosts.length === 1 && lb.locum_full_name === "Pharm. Anna Grech" && lb.registration_number === "P1234" && lb.time_in === "08:00", JSON.stringify({ lcr1, lcrReg, lcrErr, lcrPosts }));
 
 // screenshot for the review (reset the mock so the screen shows a morning with work to do)
 todayState = { tempDone: false, cleanDone: false };
