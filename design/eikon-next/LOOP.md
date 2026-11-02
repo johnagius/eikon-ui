@@ -398,3 +398,11 @@ All of it waits only on the worker deploy.
 - Bugs found by looking before pushing: a week crossing into the previous month showed "no cleaning" though one existed; the
   just-started week was flagged amber. Fixed.
 - Classic-path tests moved to the Daily register. UI 91/91. BUILD .48.
+
+## Round 33 — Daily register rebuilt; rebuilt registers reached from anywhere
+- modules.drreg.js: month by day, search, New entry with autofill (known ID → name, known prescriber → reg no), every line required,
+  print table; corrections stay in the classic register (no edit/delete in the new screens).
+- E.UI2_NATIVE: temperature/cleaning/dailyregister ids land on the rebuilt screens from Today, search, hubs and links (new layout only).
+- John asked about data/logins/features safety: answered — same endpoints/tables, no edit/delete in new screens, worker changes additive
+  and undeployed, deploy script code-only with rollback, sign-in mechanics untouched, classic layout unchanged and always reachable.
+- UI 93/93; bookings 13/13, week 8/8. BUILD .50.
