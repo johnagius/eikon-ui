@@ -69,6 +69,12 @@ function mockApi(req, res, body) {
   if (p === "/temperature/entries" && req.method === "GET") return res.end(JSON.stringify({ ok: true, entries: [] }));
   if (p === "/dda-purchases/entries" && req.method === "GET") return res.end(JSON.stringify({ ok: true, entries: [{ id: 5, entry_date: todayYmd, dda_name_dose: "Morphine 10mg", quantity: 2, agent: "Supplier", invoice_number: "INV-1" }] }));
   if (p === "/temperature/entries" && req.method === "POST") { todayState.tempDone = true; return res.end(JSON.stringify({ ok: true, entry_id: 1 })); }
+  if (p === "/daily-register/entries" && req.method === "GET") {
+    const mo = new URL(req.url, "http://x").searchParams.get("month") || "", cur = new Date().toISOString().slice(0, 7);
+    const old = { id: 3, entry_date: "2026-10-12", client_name: "John Borg", client_id: "123456M", medicine_name_dose: "Amoxil 500mg", posology: "1-1-1 x 7 days", prescriber_name: "Dr Abela", prescriber_reg_no: "4321" };
+    return res.end(JSON.stringify({ ok: true, entries: mo !== cur ? [old] : [] }));
+  }
+  if (p === "/daily-register/entries" && req.method === "POST") return res.end(JSON.stringify({ ok: true, entry: { id: 4 } }));
   if (p === "/cleaning/entries" && req.method === "GET") {
     const mo = new URL(req.url, "http://x").searchParams.get("month") || "";
     const last = { id: 9, entry_date: "2026-10-17", time_in: "08:00", time_out: "08:40", cleaner_name: "Karl", staff_name: "Maria Borg", notes: "" };
@@ -309,11 +315,11 @@ await page.press("#tdy-q", "Enter");
 await page.waitForFunction(() => location.search.indexOf("ui=classic") >= 0 && window.EIKON && window.EIKON.state && window.EIKON.state.activeModuleId === "clientorders", null, { timeout: 15000 });
 const openedCustomer = await page.evaluate(() => location.hash + " " + (document.documentElement.hasAttribute("data-ui2") ? "new" : "classic"));
 await backToToday();
-await page.fill("#tdy-q", "daily register");
+await page.fill("#tdy-q", "locum register");
 await page.press("#tdy-q", "Enter");
-await page.waitForFunction(() => location.search.indexOf("ui=classic") >= 0 && window.EIKON && window.EIKON.state && window.EIKON.state.activeModuleId === "dailyregister", null, { timeout: 15000 });
+await page.waitForFunction(() => location.search.indexOf("ui=classic") >= 0 && window.EIKON && window.EIKON.state && window.EIKON.state.activeModuleId === "locumregister", null, { timeout: 15000 });
 const openedModule = await page.evaluate(() => location.hash + " " + (document.documentElement.hasAttribute("data-ui2") ? "new" : "classic"));
-report("today: search opens a customer or a register on Enter, in the classic layout until each is rebuilt", openedCustomer === "#clientorders classic" && openedModule === "#dailyregister classic", `${openedCustomer} | ${openedModule}`);
+report("today: search opens a customer or a register on Enter, in the classic layout until each is rebuilt", openedCustomer === "#clientorders classic" && openedModule === "#locumregister classic", `${openedCustomer} | ${openedModule}`);
 await backToToday();
 // A register rebuilt in the new layout opens there.
 await page.fill("#tdy-q", "temperature");
@@ -338,9 +344,9 @@ report("shell: the rail is Today, Customers, Stock, Registers, Team, Settings an
 await page.evaluate(() => { location.hash = "#registers"; });
 await page.waitForFunction(() => document.querySelector(".hub-card"), null, { timeout: 8000 });
 const hub = await page.evaluate(() => ({ h1: document.querySelector(".hub h1").textContent, cards: document.querySelectorAll(".hub-card").length, temp: !!document.querySelector('.hub-card[data-open="temperature"]'), topbar: getComputedStyle(document.querySelector(".eikon-topbar")).display }));
-await page.click('.hub-card[data-open="dailyregister"]');
+await page.click('.hub-card[data-open="locumregister"]');
 // an old module never renders inside the new shell: the classic layout opens for this visit
-await page.waitForFunction(() => location.hash === "#dailyregister" && location.search.indexOf("ui=classic") >= 0 && window.EIKON && window.EIKON.state && window.EIKON.state.user && document.querySelector(".eikon-nav-cat"), null, { timeout: 15000 });
+await page.waitForFunction(() => location.hash === "#locumregister" && location.search.indexOf("ui=classic") >= 0 && window.EIKON && window.EIKON.state && window.EIKON.state.user && document.querySelector(".eikon-nav-cat"), null, { timeout: 15000 });
 await page.waitForTimeout(400);
 const legacy = await page.evaluate(() => ({ light: document.documentElement.hasAttribute("data-ui2"), cats: document.querySelectorAll(".eikon-nav-cat").length, back: document.getElementById("eikon-back-btn").textContent, backShown: document.getElementById("eikon-back-btn").style.display !== "none", pref: localStorage.getItem("eikon_ui2") }));
 await page.click("#eikon-back-btn");
@@ -483,6 +489,30 @@ await page.waitForTimeout(700);
 const clrPosts2 = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST" && c.path === "/cleaning/entries");
 const b0 = (clrPosts2[0] || {}).body || {};
 report("cleaning register: opens in the new layout, overdue status from last month, needs a name, then records once with who checked", clr1.hash === "#cleanreg" && clr1.rail.join() === "registers" && /Overdue · last cleaned \d+ days ago by Karl/.test(clr1.status) && clr1.weeks >= 1 && clrPosts.length === 0 && /who cleaned/.test(clrErr) && clrPosts2.length === 1 && b0.cleaner_name === "Karl" && b0.staff_name === "Maria Borg" && /^\d{4}-\d{2}-\d{2}$/.test(b0.entry_date) && b0.time_out === "23:59", JSON.stringify({ clr1, clrErr, clrPosts2 }));
+
+// Daily register in the new layout: Today's "Open" lands on it; nothing saved until every line is filled;
+// a known ID card brings the name and a known prescriber the registration number; then one POST.
+await page.goto(base + "&ui=2#today");
+await page.waitForFunction(() => document.querySelector('.tdy-row[data-kind="daily_register"] [data-open]'), null, { timeout: 15000 });
+await page.click('.tdy-row[data-kind="daily_register"] [data-open]');
+await page.waitForFunction(() => window.EIKON.state.activeModuleId === "drreg" && document.querySelector("[data-act=new]") && !/Opening/.test(document.querySelector(".drr").textContent), null, { timeout: 15000 });
+const drr1 = await page.evaluate(() => ({ hash: location.hash, classic: location.search.indexOf("ui=classic") >= 0, rail: [...document.querySelectorAll(".eikon-rail-btn.active")].map((b) => b.dataset.mod) }));
+await fetch(`http://localhost:${PORT}/__reset`);
+await page.click("[data-act=new]");
+await page.click("#drr-form button[type=submit]");
+await page.waitForTimeout(300);
+const drrPosts0 = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST" && c.path === "/daily-register/entries");
+const drrErr = await page.evaluate(() => ({ err: (document.querySelector(".drr-err") || {}).textContent || "", miss: document.querySelectorAll(".drr-form label.miss").length }));
+await page.fill("#drr-form [name=client_id]", "123456M"); await page.press("#drr-form [name=client_id]", "Tab");
+await page.fill("#drr-form [name=medicine_name_dose]", "Augmentin 1g");
+await page.fill("#drr-form [name=posology]", "1-0-1 x 5 days");
+await page.fill("#drr-form [name=prescriber_name]", "Dr Abela"); await page.press("#drr-form [name=prescriber_name]", "Tab");
+const filled = await page.evaluate(() => ({ name: document.querySelector("#drr-form [name=client_name]").value, reg: document.querySelector("#drr-form [name=prescriber_reg_no]").value }));
+await page.click("#drr-form button[type=submit]");
+await page.waitForTimeout(700);
+const drrPosts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST" && c.path === "/daily-register/entries");
+const db = (drrPosts[0] || {}).body || {};
+report("daily register: Today's Open lands on the new screen; every line required; known ID and prescriber fill in; one POST", drr1.hash === "#drreg" && !drr1.classic && drr1.rail.join() === "registers" && drrPosts0.length === 0 && drrErr.miss === 6 && /Nothing was saved/.test(drrErr.err) && filled.name === "John Borg" && filled.reg === "4321" && drrPosts.length === 1 && db.client_name === "John Borg" && db.prescriber_reg_no === "4321" && db.medicine_name_dose === "Augmentin 1g" && /^\d{4}-\d{2}-\d{2}$/.test(db.entry_date), JSON.stringify({ drr1, drrErr, filled, drrPosts }));
 
 // screenshot for the review (reset the mock so the screen shows a morning with work to do)
 todayState = { tempDone: false, cleanDone: false };

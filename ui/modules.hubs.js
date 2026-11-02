@@ -144,7 +144,7 @@
       m.querySelectorAll("[data-open]").forEach(function (b) {
         b.addEventListener("click", function () {
           // Registers rebuilt in the new layout open there; the rest still open in classic.
-          var NATIVE = { temperature: "tempreg", cleaning: "cleanreg" }, nat = NATIVE[b.getAttribute("data-open")];
+          var NATIVE = E.UI2_NATIVE || {}, nat = NATIVE[b.getAttribute("data-open")];
           if (nat && E.modules[nat]) { window.location.hash = "#" + nat; return; }
           try { sessionStorage.setItem("eikon_ui2_return", id); } catch (e) {}
           E.openClassic(b.getAttribute("data-open"));
