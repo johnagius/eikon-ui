@@ -479,3 +479,11 @@ All of it waits only on the worker deploy.
 - Customer-card hand-over still opens the classic forms on purpose (address/email fields); not changed.
 - Real local worker: note → only notes_log changed; resolve → only status/resolved/resolved_at. UI 109/109. BUILD .64.
 - Rebuilt: Temperature, Cleaning, Daily register, Locum, Certificates, Near expiry, Returns, Transfers, Alerts, Orders, Questions.
+
+## Round 47 — Deliveries rebuilt (full-record saves)
+- modules.dlvreg.js: Today (incl. overdue) / Later, maps link, tap-to-call, Fridge / Controlled drug / Signature flags;
+  On its way, Delivered (recipient, signed), Not delivered (reason; 3rd attempt → Returned, same rule as classic), New delivery.
+- FULL-REPLACE endpoint → whole record sent. Real local worker: each action changed only its own fields
+  (ID ref, driver, method, items with batch, notes, ticket ref all intact).
+- Phone: three actions on one row. UI 111/111. BUILD .65.
+- Customers group now fully rebuilt for daily work: Orders, Questions, Deliveries (Appointments → Bookings).
