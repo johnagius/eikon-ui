@@ -4,7 +4,7 @@ function nowIso() {
 
 
 
-const WORKER_VERSION = "2026-11-02-bookings-5";
+const WORKER_VERSION = "2026-11-02-bookings-6";
 function isDebugEnabled(request) {
   try {
     return (request && request.headers && (request.headers.get("X-Eikon-Debug") || "") === "1");
@@ -20052,6 +20052,37 @@ async function handleBookings(request, env, corsOkHeaders, authUser, url) {
   }
 
   // Providers (people or rooms) with weekly hours
+  // A practitioner (or room) away for a day, several days or some hours: the time is closed and the bookings in it
+  // are cancelled with the reason; customers with an email are told (with a link to book again); the rest are listed to call.
+  if (parts[0] === "providers" && parts[2] === "away" && m === "POST") {
+    if (!isAdmin) return bad("Only an admin can mark someone away", 403);
+    const pid = Number(parts[1]);
+    const prov = await dbFirst(env, `SELECT * FROM bk_providers WHERE id=? AND org_id=? AND location_id=?`, [pid, org, loc]);
+    if (!prov) return bad("Not found", 404);
+    const b = await readJson(request) || {};
+    const from = String(b.from || ""), to = String(b.to || b.from || ""), st = String(b.start || ""), en = String(b.end || "");
+    const reason = String(b.reason || "").trim().slice(0, 140) || (prov.name + " is unavailable");
+    if (!isValidYmd(from) || !isValidYmd(to) || to < from) return bad("Choose the day, or the first and last day");
+    if (bkDaysBetween(from, to) > 30) return bad("At most 31 days at once");
+    if ((st || en) && !(bkMin(en) > bkMin(st))) return bad("End must be after start");
+    for (let d = from; d <= to; d = bkAddDays(d, 1))
+      await dbRun(env, `INSERT INTO bk_exceptions (org_id, location_id, provider_id, date, kind, start_time, end_time, note) VALUES (?,?,?,?, 'off', ?,?,?)`, [org, loc, pid, d, st, en, reason]);
+    const hit = await dbAll(env, `SELECT * FROM bk_bookings WHERE org_id=? AND location_id=? AND provider_id=? AND date BETWEEN ? AND ? AND status IN ('booked','confirmed')
+      ${st ? "AND start_time < ? AND end_time > ?" : ""} ORDER BY date, start_time`, st ? [org, loc, pid, from, to, en, st] : [org, loc, pid, from, to]);
+    let cancelled = 0, emailed = 0; const toCall = [];
+    for (const x of hit) {
+      const r = await dbFirst(env, `UPDATE bk_bookings SET status='cancelled', cancel_reason=?, version=version+1, updated_by=?, updated_at=datetime('now')
+        WHERE id=? AND status IN ('booked','confirmed') RETURNING *`, [reason, me, x.id]);
+      if (!r) continue;
+      cancelled++;
+      const sent = b.notify === false ? "off" : await bkNotify(env, request, r, "cancel");
+      if (sent === "sent") emailed++;
+      else toCall.push({ id: r.id, personName: r.person_name, personPhone: r.person_phone, date: r.date, start: r.start_time });
+    }
+    await writeAudit(env, org, me, "BK_PROVIDER_AWAY", "bk_providers", String(pid), { from, to, start: st, end: en, reason, cancelled });
+    return ok({ cancelled, emailed, toCall });
+  }
+
   if (parts[0] === "providers" && (m === "POST" || m === "PUT")) {
     if (!isAdmin) return bad("Only an admin can change providers", 403);
     const b = await readJson(request) || {};
@@ -20332,14 +20363,14 @@ function bkWhen(b) {
   const d = new Date(b.date + "T12:00:00Z");
   return d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" }) + " at " + b.start_time;
 }
-function bkEmailHtml({ title, lines, link, pharmacy, address, phone, optout }) {
+function bkEmailHtml({ title, lines, link, linkText, pharmacy, address, phone, optout }) {
   const e = (s) => String(s || "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
   return `<!doctype html><html><body style="margin:0;background:#F2F2F7;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#000">
 <div style="max-width:480px;margin:0 auto;padding:28px 18px">
 <div style="background:#fff;border-radius:20px;padding:24px 22px">
 <div style="font-size:22px;font-weight:700;margin-bottom:12px">${e(title)}</div>
 ${lines.map((l) => `<div style="font-size:16px;line-height:23px;margin:4px 0">${e(l)}</div>`).join("")}
-${link ? `<a href="${e(link)}" style="display:inline-block;margin-top:18px;background:#0A8F6A;color:#fff;text-decoration:none;font-weight:600;padding:12px 20px;border-radius:22px">See or change your booking</a>` : ""}
+${link ? `<a href="${e(link)}" style="display:inline-block;margin-top:18px;background:#0A8F6A;color:#fff;text-decoration:none;font-weight:600;padding:12px 20px;border-radius:22px">${e(linkText || "See or change your booking")}</a>` : ""}
 </div>
 <div style="font-size:13px;line-height:19px;color:#6b6b70;text-align:center;margin-top:16px">${e(pharmacy)}${address ? " · " + e(address) : ""}${phone ? " · " + e(phone) : ""}<br>
 ${optout ? `<a href="${e(optout)}" style="color:#6b6b70">Stop booking emails</a>` : ""}</div></div></body></html>`;
@@ -20482,7 +20513,14 @@ async function bkNotify(env, request, booking, kind) {
       remind_evening: [`Tomorrow: ${svcName}`, [`Hi ${first},`, `a reminder: ${svcName.toLowerCase()} tomorrow at ${booking.start_time}.`]],
       remind_hours: [`Soon: ${svcName}`, [`Hi ${first},`, `see you at ${booking.start_time} for ${svcName.toLowerCase()}.`]]
     }[kind];
-    const html = bkEmailHtml({ title: T[0], lines: T[1], link: kind === "cancel" ? "" : link, pharmacy, address: s.address, phone: s.phone, optout });
+    // A cancellation says why (unless the customer cancelled it) and, when online booking is on, how to book again.
+    let lines = T[1], btn = kind === "cancel" ? "" : link, btnText = "";
+    if (kind === "cancel") {
+      const why = String(booking.cancel_reason || "");
+      if (why && !/by the customer/i.test(why)) lines = lines.concat([why + "."]);
+      if (s.public_enabled && s.public_slug && base) { btn = `${base}/book/${s.public_slug}`; btnText = "Book another time"; }
+    }
+    const html = bkEmailHtml({ title: T[0], lines, link: btn, linkText: btnText, pharmacy, address: s.address, phone: s.phone, optout });
     try {
       await bkSendEmail(env, s, { to: booking.person_email, toName: booking.person_name, subject: `${T[0]} · ${pharmacy}`, html,
         ics: kind === "confirm" || kind === "change" ? bkIcs(booking, svcName, pharmacy) : null });

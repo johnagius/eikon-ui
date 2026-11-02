@@ -63,3 +63,42 @@ test("customer moves their booking: not inside the cut-off, not once cancelled",
     eq((await app.api("POST", link2 + "/move", { body: { date: TUE, start: "11:00" } })).status, 409, "a cancelled booking cannot be moved");
   } finally { cap.restore(); }
 });
+
+test("practitioner away: their bookings that day are cancelled with the reason, customers emailed a way to rebook", async () => {
+  const app = await makeApp({ env: { ...KEY, BK_TEST_NOW: "2027-02-27 08:00" } }); const cap = capture();
+  try {
+    const { token, sid, pid } = await setup(app);
+    await app.api("PUT", "/bookings/settings", { token, body: { publicEnabled: true } });
+    const mk = (date, start, name, email) => app.api("POST", "/bookings", { token, body: { serviceId: sid, date, start, personName: name, personEmail: email } });
+    await mk(MON, "09:00", "Carmen Grech", "carmen@example.com");
+    await mk(MON, "10:00", "No Email Person", "");
+    await mk(TUE, "09:00", "Joseph Vella", "joseph@example.com"); // another day: untouched
+    const before = cap.sent.length;
+    const staff = await app.addUser({ email: "staff@example.com", role: "staff" });
+    eq((await app.api("POST", `/bookings/providers/${pid}/away`, { token: staff.token, body: { from: MON, reason: "Ill" } })).status, 403, "admins only");
+    eq((await app.api("POST", `/bookings/providers/${pid}/away`, { token, body: { from: MON, to: "2027-05-01", reason: "x" } })).status, 400, "at most 31 days at once");
+    const r = await app.api("POST", `/bookings/providers/${pid}/away`, { token, body: { from: MON, reason: "Maria is unwell" } });
+    eq(r.status, 200, r.text);
+    eq(r.json.cancelled, 2); eq(r.json.emailed, 1);
+    eq(r.json.toCall.map((x) => x.personName), ["No Email Person"], "the pharmacy is told whom to call");
+    const rows = app.DB.q(`SELECT date, status, cancel_reason FROM bk_bookings ORDER BY id`);
+    eq(rows.map((x) => x.status), ["cancelled", "cancelled", "booked"]);
+    eq(rows[0].cancel_reason, "Maria is unwell");
+    const mail = cap.sent.slice(before).find((m) => /Cancelled/.test(m.subject));
+    ok(mail && /Maria is unwell/.test(html(mail)) && /\/book\/demo-pharmacy/.test(html(mail)), "the email says why and links to book again");
+    const day = await app.api("GET", `/bookings/next?service_id=${sid}&from=${MON}&count=3`, { token });
+    ok(!(day.json.slots || []).some((x) => x.date === MON), "no free times that day any more");
+  } finally { cap.restore(); }
+});
+
+test("practitioner away for part of a day: only bookings in those hours are cancelled", async () => {
+  const app = await makeApp({ env: { ...KEY, BK_TEST_NOW: "2027-02-27 08:00" } }); const cap = capture();
+  try {
+    const { token, sid, pid } = await setup(app);
+    await app.api("POST", "/bookings", { token, body: { serviceId: sid, date: MON, start: "09:00", personName: "A", personEmail: "a@example.com" } });
+    await app.api("POST", "/bookings", { token, body: { serviceId: sid, date: MON, start: "11:00", personName: "B", personEmail: "b@example.com" } });
+    const r = await app.api("POST", `/bookings/providers/${pid}/away`, { token, body: { from: MON, start: "10:30", end: "12:00", reason: "Training" } });
+    eq(r.status, 200, r.text); eq(r.json.cancelled, 1);
+    eq(app.DB.q(`SELECT status FROM bk_bookings ORDER BY id`).map((x) => x.status), ["booked", "cancelled"]);
+  } finally { cap.restore(); }
+});
