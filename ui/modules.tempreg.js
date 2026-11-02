@@ -54,7 +54,7 @@
       ".trg-d b{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.01em;display:flex;flex-direction:column;line-height:1.25}" +
       ".trg-d.ok{background:rgba(10,143,106,.08)}" +
       ".trg-d.bad{background:rgba(215,38,28,.10)}.trg-d.bad b{color:var(--danger)}" +
-      ".trg-d.miss{background:transparent;border:1px dashed rgba(201,138,18,.6)}.trg-d.miss b{color:#A06A0E;font-weight:500;font-size:12px}" +
+      ".trg-d.miss{background:transparent;border:1px dashed rgba(201,138,18,.6)}.trg-d.miss b{color:var(--warn,#A06A0E);font-weight:500;font-size:12px}" +
       ".trg-d.future,.trg-d.pad{background:transparent}.trg-d.today{box-shadow:inset 0 0 0 2px var(--accent)}" +
       ".trg-note{font-size:12.5px;color:var(--muted);margin-top:10px}" +
       ".trg-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +

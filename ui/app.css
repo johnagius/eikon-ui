@@ -877,7 +877,7 @@ html[data-ui2] .eikon-rail-dot{width:16px;height:16px;border-radius:5px;border:1
 html[data-ui2] .eikon-rail-btn.active .eikon-rail-dot{border-color:var(--accent)}
 html[data-ui2] .eikon-rail-badge{margin-left:auto;min-width:22px;height:22px;padding:0 7px;border-radius:999px;display:inline-grid;place-items:center;font-size:12px;font-weight:700;background:rgba(191,59,46,.12);color:var(--danger);font-variant-numeric:tabular-nums}
 html[data-ui2] .eikon-rail-badge.empty{display:none}
-html[data-ui2] .eikon-rail-btn[data-mod="stock"] .eikon-rail-badge{background:rgba(201,138,18,.16);color:#A06A0E}
+html[data-ui2] .eikon-rail-btn[data-mod="stock"] .eikon-rail-badge{background:rgba(201,138,18,.16);color:var(--warn,#A06A0E)}
 html[data-ui2] .eikon-rail-who{margin-top:12px;padding:12px 12px 0;border-top:1px solid var(--border)}
 html[data-ui2] .eikon-rail-who b{display:block;font-size:14px;font-weight:700;letter-spacing:-.01em}
 html[data-ui2] .eikon-rail-who span{display:block;font-size:12.5px;color:var(--muted);margin-top:2px}
@@ -1017,7 +1017,9 @@ html[data-ui2] input[type=search]::-webkit-search-cancel-button{-webkit-appearan
     color-scheme:dark;
     --bg:#000; --panel:#1C1C1E; --panel2:#1C1C1E; --text:#fff; --muted:rgba(235,235,245,.6);
     --border:rgba(84,84,88,.55); --accent:#2BC48A; --danger:#FF453A; --ok:#2BC48A; --shadow:rgba(0,0,0,.4);
+    --warn:#FFB340; --info:#64B5FF; /* amber and blue that read on black (the light ones are too dark here) */
   }
+  html[data-ui2]:not([data-ui2-visit]) .eikon-content{color-scheme:dark} /* checkboxes and date pickers dark too, not white boxes */
   html[data-ui2]:not([data-ui2-visit]) .eikon-sidebar{background:rgba(28,28,30,.82);border-color:var(--border)}
   html[data-ui2]:not([data-ui2-visit]) .eikon-rail-ico{color:rgba(235,235,245,.6)}
   html[data-ui2]:not([data-ui2-visit]) .eikon-rail-btn{color:var(--text)}
