@@ -304,11 +304,18 @@ await page.press("#tdy-q", "Enter");
 await page.waitForFunction(() => location.search.indexOf("ui=classic") >= 0 && window.EIKON && window.EIKON.state && window.EIKON.state.activeModuleId === "clientorders", null, { timeout: 15000 });
 const openedCustomer = await page.evaluate(() => location.hash + " " + (document.documentElement.hasAttribute("data-ui2") ? "new" : "classic"));
 await backToToday();
+await page.fill("#tdy-q", "cleaning");
+await page.press("#tdy-q", "Enter");
+await page.waitForFunction(() => location.search.indexOf("ui=classic") >= 0 && window.EIKON && window.EIKON.state && window.EIKON.state.activeModuleId === "cleaning", null, { timeout: 15000 });
+const openedModule = await page.evaluate(() => location.hash + " " + (document.documentElement.hasAttribute("data-ui2") ? "new" : "classic"));
+report("today: search opens a customer or a register on Enter, in the classic layout until each is rebuilt", openedCustomer === "#clientorders classic" && openedModule === "#cleaning classic", `${openedCustomer} | ${openedModule}`);
+await backToToday();
+// A register rebuilt in the new layout opens there.
 await page.fill("#tdy-q", "temperature");
 await page.press("#tdy-q", "Enter");
-await page.waitForFunction(() => location.search.indexOf("ui=classic") >= 0 && window.EIKON && window.EIKON.state && window.EIKON.state.activeModuleId === "temperature", null, { timeout: 15000 });
-const openedModule = await page.evaluate(() => location.hash + " " + (document.documentElement.hasAttribute("data-ui2") ? "new" : "classic"));
-report("today: search opens a customer or a register on Enter, in the classic layout until each is rebuilt", openedCustomer === "#clientorders classic" && openedModule === "#temperature classic", `${openedCustomer} | ${openedModule}`);
+await page.waitForFunction(() => window.EIKON && window.EIKON.state && window.EIKON.state.activeModuleId === "tempreg", null, { timeout: 15000 });
+const openedTemp = await page.evaluate(() => location.hash + " " + (document.documentElement.hasAttribute("data-ui2") ? "new" : "classic") + " " + (location.search.indexOf("ui=classic") >= 0));
+report("today: searching 'temperature' opens the rebuilt register in the new layout", openedTemp === "#tempreg new false", openedTemp);
 await backToToday();
 
 // 10b. The reimagined shell: six words in the rail, nothing else; top bar only over an old module
@@ -326,9 +333,9 @@ report("shell: the rail is Today, Customers, Stock, Registers, Team, Settings an
 await page.evaluate(() => { location.hash = "#registers"; });
 await page.waitForFunction(() => document.querySelector(".hub-card"), null, { timeout: 8000 });
 const hub = await page.evaluate(() => ({ h1: document.querySelector(".hub h1").textContent, cards: document.querySelectorAll(".hub-card").length, temp: !!document.querySelector('.hub-card[data-open="temperature"]'), topbar: getComputedStyle(document.querySelector(".eikon-topbar")).display }));
-await page.click('.hub-card[data-open="temperature"]');
+await page.click('.hub-card[data-open="cleaning"]');
 // an old module never renders inside the new shell: the classic layout opens for this visit
-await page.waitForFunction(() => location.hash === "#temperature" && location.search.indexOf("ui=classic") >= 0 && window.EIKON && window.EIKON.state && window.EIKON.state.user && document.querySelector(".eikon-nav-cat"), null, { timeout: 15000 });
+await page.waitForFunction(() => location.hash === "#cleaning" && location.search.indexOf("ui=classic") >= 0 && window.EIKON && window.EIKON.state && window.EIKON.state.user && document.querySelector(".eikon-nav-cat"), null, { timeout: 15000 });
 await page.waitForTimeout(400);
 const legacy = await page.evaluate(() => ({ light: document.documentElement.hasAttribute("data-ui2"), cats: document.querySelectorAll(".eikon-nav-cat").length, back: document.getElementById("eikon-back-btn").textContent, backShown: document.getElementById("eikon-back-btn").style.display !== "none", pref: localStorage.getItem("eikon_ui2") }));
 await page.click("#eikon-back-btn");
@@ -442,6 +449,15 @@ await page.waitForFunction(() => document.querySelector(".cus-story li"), null, 
 await page.waitForTimeout(300);
 await page.screenshot({ path: path.join(here, "..", "..", "design", "eikon-reimagined", "prototype", "05 Customers, built.png") });
 peopleState.adopted = false;
+
+// Temperature register in the new layout: the Registers card opens it there (not classic), the rail stays on Registers,
+// and an empty month says how many days were logged out of how many.
+await page.goto(base + "&ui=2#registers");
+await page.waitForFunction(() => document.querySelector(".hub-card"), null, { timeout: 15000 });
+await page.locator(".hub-card", { hasText: "Temperature" }).first().click();
+await page.waitForFunction(() => document.querySelector(".trg-sum"), null, { timeout: 15000 });
+const trg = await page.evaluate(() => ({ hash: location.hash, classic: location.search.indexOf("ui=classic") >= 0, rail: [...document.querySelectorAll(".eikon-rail-btn.active")].map((b) => b.dataset.mod), cards: document.querySelectorAll(".trg-card").length, sum: document.querySelector(".trg-sum").textContent, next: document.querySelector("[data-act=next]").disabled, cells: document.querySelectorAll(".trg-card .trg-d:not(.pad)").length }));
+report("temperature register: opens in the new layout from Registers, rail stays on Registers, month summary shown", trg.hash === "#tempreg" && !trg.classic && trg.rail.join() === "registers" && trg.cards === 1 && /^0 of \d+ days logged/.test(trg.sum) && trg.next === true && trg.cells >= 28, JSON.stringify(trg));
 
 // screenshot for the review (reset the mock so the screen shows a morning with work to do)
 todayState = { tempDone: false, cleanDone: false };

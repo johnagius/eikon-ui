@@ -195,6 +195,7 @@
 
   // ---------- render ----------
   function render() {
+    if (E.state.activeModuleId !== "customers") return; // left before a reply came back: do not draw over the next screen
     var m = state.mount; if (!m) return;
     m.innerHTML = '<div class="cus"><div class="cus-side">' +
       '<div class="cus-search"><span aria-hidden="true"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" style="color:rgba(60,60,67,.55);flex:none;display:block"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span><input id="cus-q" type="search" autocomplete="off" placeholder="Name, ID card or phone" value="' + esc(state.q) + '"></div>' +
@@ -224,6 +225,7 @@
   }
 
   function renderList() {
+    if (E.state.activeModuleId !== "customers") return; // left before a reply came back: do not draw over the next screen
     var m = state.mount; if (!m) return;
     var box = m.querySelector("#cus-list"); if (!box) return;
     var r = state.results;
@@ -281,6 +283,7 @@
     if (open && !was && window.matchMedia && window.matchMedia("(max-width:900px)").matches) try { window.scrollTo(0, 0); } catch (e) {}
   }
   function renderDetailInner() {
+    if (E.state.activeModuleId !== "customers") return; // left before a reply came back: do not draw over the next screen
     var m = state.mount; if (!m) return;
     var box = m.querySelector("#cus-detail"); if (!box) return;
     if (state.creating) {

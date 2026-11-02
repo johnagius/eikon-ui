@@ -195,6 +195,7 @@
   }
 
   function render() {
+    if (E.state.activeModuleId !== "today") return; // left before a reply came back: do not draw over the next screen
     var m = state.mount; if (!m) return;
     injectCss();
     var d = state.data;

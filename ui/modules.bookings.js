@@ -187,6 +187,7 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
   }
   function paint() {
     if (!S.mount) return;
+    if (E.state.activeModuleId !== "bookings") return; // left before a reply came back: do not draw over the next screen
     var isToday = S.date === todayStr(), now = nowHM();
     var list = S.bookings.filter(function (b) { return b.status !== "cancelled"; });
     var up = list.filter(function (b) { return !isToday || b.end > now; });
