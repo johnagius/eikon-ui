@@ -826,6 +826,10 @@
 
   // Role Selection Screen
   E.renderRoleSelection = function (accessibleRoles) {
+    // New layout: one portal means nothing to choose, so go straight in; portals you cannot open are not shown.
+    if (E.isUi2() && accessibleRoles && accessibleRoles.length === 1 && typeof E.bootForRole === "function") {
+      return E.bootForRole(accessibleRoles[0]);
+    }
     var root = E.ensureRoot();
     var user = E.state.user;
     var userName = (user && user.full_name) ? user.full_name : "User";
@@ -868,6 +872,7 @@
       }
     ];
 
+    if (E.isUi2()) allRoles = allRoles.filter(function (r) { return accessibleRoles.indexOf(r.key) !== -1; });
     var tilesHtml = allRoles.map(function (r) {
       var isAccessible = accessibleRoles.indexOf(r.key) !== -1;
       var cls = "eikon-role-option" + (isAccessible ? "" : " disabled");
