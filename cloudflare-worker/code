@@ -4,7 +4,7 @@ function nowIso() {
 
 
 
-const WORKER_VERSION = "2026-11-02-bookings-6";
+const WORKER_VERSION = "2026-11-02-bookings-7";
 function isDebugEnabled(request) {
   try {
     return (request && request.headers && (request.headers.get("X-Eikon-Debug") || "") === "1");
@@ -19744,6 +19744,10 @@ async function ensureBookingsSchema__impl(env) {
     `CREATE INDEX IF NOT EXISTS idx_bk_waitlist ON bk_waitlist (org_id, location_id, status, service_id, id)`
   ];
   for (const s of stmts) await dbRun(env, s, []);
+  // Added later: a practitioner's title and speciality, shown to staff and on the booking page.
+  for (const col of ["title TEXT NOT NULL DEFAULT ''", "speciality TEXT NOT NULL DEFAULT ''"]) {
+    try { await dbRun(env, `ALTER TABLE bk_providers ADD COLUMN ${col}`, []); } catch (e) {}
+  }
 }
 const ensureBookingsSchema = schemaOnce("ensureBookingsSchema", ensureBookingsSchema__impl);
 
@@ -19785,7 +19789,8 @@ function bkServiceRow(r) {
   return { id: r.id, name: r.name, durationMin: r.duration_min, bufferMin: r.buffer_min, priceCents: r.price_cents,
     color: r.color, providerIds: bkJson(r.provider_ids_json, []), online: !!r.online, active: !!r.active, sort: r.sort };
 }
-function bkProviderRow(r) { return { id: r.id, name: r.name, kind: r.kind, hours: bkJson(r.hours_json, {}), active: !!r.active }; }
+function bkProviderRow(r) { return { id: r.id, name: r.name, kind: r.kind, title: r.title || "", speciality: r.speciality || "", hours: bkJson(r.hours_json, {}), active: !!r.active }; }
+function bkProviderLabel(p) { return [p.title, p.name].filter(Boolean).join(" "); }
 function bkBookingRow(r) {
   return { id: r.id, ref: r.ref, serviceId: r.service_id, providerId: r.provider_id, personName: r.person_name,
     personPhone: r.person_phone, personEmail: r.person_email, personIdCard: r.person_id_card, date: r.date,
@@ -20090,14 +20095,15 @@ async function handleBookings(request, env, corsOkHeaders, authUser, url) {
     const kind = ["pharmacist", "doctor", "nurse", "room", "other"].includes(b.kind) ? b.kind : "pharmacist";
     const hours = bkCleanHours(b.hours);
     if (!name) return bad("Name is required");
+    const title = String(b.title || "").trim().slice(0, 20), speciality = String(b.speciality || "").trim().slice(0, 60);
     if (m === "POST" && parts.length === 1) {
-      const r = await dbFirst(env, `INSERT INTO bk_providers (org_id, location_id, name, kind, hours_json) VALUES (?,?,?,?,?) RETURNING *`, [org, loc, name, kind, JSON.stringify(hours)]);
+      const r = await dbFirst(env, `INSERT INTO bk_providers (org_id, location_id, name, kind, hours_json, title, speciality) VALUES (?,?,?,?,?,?,?) RETURNING *`, [org, loc, name, kind, JSON.stringify(hours), title, speciality]);
       await writeAudit(env, org, me, "BK_PROVIDER_CREATE", "bk_providers", String(r.id), { name });
       return ok({ provider: bkProviderRow(r) }, 201);
     }
     if (m === "PUT" && parts.length === 2) {
-      const r = await dbFirst(env, `UPDATE bk_providers SET name=?, kind=?, hours_json=?, active=?, updated_at=datetime('now') WHERE id=? AND org_id=? AND location_id=? RETURNING *`,
-        [name, kind, JSON.stringify(hours), b.active === false ? 0 : 1, Number(parts[1]), org, loc]);
+      const r = await dbFirst(env, `UPDATE bk_providers SET name=?, kind=?, hours_json=?, active=?, title=?, speciality=?, updated_at=datetime('now') WHERE id=? AND org_id=? AND location_id=? RETURNING *`,
+        [name, kind, JSON.stringify(hours), b.active === false ? 0 : 1, title, speciality, Number(parts[1]), org, loc]);
       if (!r) return bad("Not found", 404);
       await writeAudit(env, org, me, "BK_PROVIDER_UPDATE", "bk_providers", String(r.id), { name });
       return ok({ provider: bkProviderRow(r) });
@@ -20921,15 +20927,19 @@ async function handlePublicBooking(request, env, url) {
   if (m[2] === "services") {
     const rows = await dbAll(env, `SELECT * FROM bk_services WHERE org_id=? AND location_id=? AND active=1 AND online=1 ORDER BY sort, name`, [org, loc]);
     const people = await dbAll(env, `SELECT * FROM bk_providers WHERE org_id=? AND location_id=? AND active=1`, [org, loc]);
-    return json({ ok: true, pharmacy, address: s.address, phone: s.phone, hours: bkHoursSummary(people.map(bkProviderRow)),
-      services: rows.map(bkServiceRow).map((x) => ({ id: x.id, name: x.name, durationMin: x.durationMin, priceCents: x.priceCents })) });
+    const pp = people.map(bkProviderRow), byId = Object.fromEntries(pp.map((p) => [p.id, p]));
+    return json({ ok: true, pharmacy, address: s.address, phone: s.phone, hours: bkHoursSummary(pp),
+      services: rows.map(bkServiceRow).map((x) => ({ id: x.id, name: x.name, durationMin: x.durationMin, priceCents: x.priceCents,
+        // Who does it: customers may choose a person, or take whoever is free.
+        people: x.providerIds.map((id) => byId[id]).filter(Boolean).map((p) => ({ id: p.id, name: bkProviderLabel(p), speciality: p.speciality })) })) });
   }
   // The next two weeks: which days still have a free time (for the day strip).
   if (m[2] === "days") {
     const svc = await onlineSvc(url.searchParams.get("service_id"));
     if (!svc) return json({ ok: false, error: "Unknown service" }, 404);
     const from = bkNowLocal(env).date, days = [];
-    for (let i = 0; i < 14; i++) { const d = bkAddDays(from, i); days.push({ date: d, free: (await bkSlotsFor(env, org, loc, svc, d)).length > 0 }); }
+    const who = Number(url.searchParams.get("provider_id")) || null;
+    for (let i = 0; i < 14; i++) { const d = bkAddDays(from, i); days.push({ date: d, free: (await bkSlotsFor(env, org, loc, svc, d, who)).length > 0 }); }
     return json({ ok: true, days });
   }
   // The free times of one day, today up to two months ahead.
@@ -20938,8 +20948,10 @@ async function handlePublicBooking(request, env, url) {
     if (!svc) return json({ ok: false, error: "Unknown service" }, 404);
     const date = String(url.searchParams.get("date") || ""), today = bkNowLocal(env).date;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date < today || bkDaysBetween(today, date) > 62) return json({ ok: false, error: "Choose a day from today up to two months ahead" }, 400);
-    const slots = await bkSlotsFor(env, org, loc, svc, date);
-    return json({ ok: true, date, slots: slots.map((x) => ({ date, time: x.time, providerId: x.providerId })) });
+    const slots = await bkSlotsFor(env, org, loc, svc, date, Number(url.searchParams.get("provider_id")) || null);
+    // Anyone: one button per time (the first free person); one person: their times.
+    const seen = {}, uniq = slots.filter((x) => (seen[x.time] ? false : (seen[x.time] = 1))).sort((a, b) => (a.time < b.time ? -1 : 1));
+    return json({ ok: true, date, slots: uniq.map((x) => ({ date, time: x.time, providerId: x.providerId })) });
   }
   if (m[2] === "next") {
     const svc = await onlineSvc(url.searchParams.get("service_id"));
@@ -21048,11 +21060,14 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
 .day.on{background:var(--t);color:var(--ti)}.day.on small{color:var(--ti)}.day:disabled{opacity:.35;cursor:default}
 .hrs{margin-top:34px;font-size:14px;color:var(--l2);line-height:22px}.hrs b{color:inherit;font-weight:600}.hrs div{display:flex;justify-content:space-between;max-width:280px}
 .pow{margin-top:26px;font-size:12px;color:var(--l3);text-align:center}
+.who{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 22px}
+.pp{min-width:0;text-align:left;padding:10px 14px;border-radius:14px;background:var(--sf);display:flex;flex-direction:column;gap:2px}
+.pp b{font-size:15px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pp small{font-size:12.5px;color:var(--l2)}.pp.on{background:var(--t);color:var(--ti)}.pp.on small{color:var(--ti);opacity:.85}
 .part{font-size:13px;color:var(--l2);margin:0 4px 8px}.slots+.part{margin-top:-8px}
 </style></head><body><div class="w" id="app"></div>
 <script>
 const SLUG=${JSON.stringify(slug)}, P="/book/"+SLUG, $=(id)=>document.getElementById(id);
-const st={step:"what",services:[],svc:null,days:[],date:null,slots:[],slot:null,name:"",email:"",phone:"",holdId:"",err:"",busy:false,info:null};
+const st={step:"what",services:[],svc:null,who:null,days:[],date:null,slots:[],slot:null,name:"",email:"",phone:"",holdId:"",err:"",busy:false,info:null};
 const esc=(s)=>String(s==null?"":s).replace(/[&<>"]/g,(c)=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c]);
 const money=(c)=>!c?"free":"€"+(c/100).toFixed(c%100?2:0);
 const dayW=(d)=>{const t=new Date();const a=new Date(d+"T12:00:00");const diff=Math.round((a-new Date(t.getFullYear(),t.getMonth(),t.getDate(),12))/864e5);return diff===0?"Today":diff===1?"Tomorrow":a.toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"});};
@@ -21063,6 +21078,8 @@ function paint(){
   let h='<div class="kick">Book online</div><h1>'+esc((st.info&&st.info.pharmacy)||"Book")+'</h1><div class="sub">'+(st.info?[esc(st.info.address),tel].filter(Boolean).join(" · "):"")+'</div>';
   if(st.step==="done"){h+='<div class="g" style="padding:22px 20px"><div class="done">You\\'re booked</div><div class="sub" style="margin:0">'+esc(st.doneText)+'</div></div>'+(st.link?'<a class="go" style="display:grid;place-items:center;text-decoration:none" href="'+esc(st.link)+'">See or change your booking</a>':"")+'<div class="note">We sent the details to '+esc(st.email)+'.</div>';$("app").innerHTML=h;return;}
   h+='<div class="lab">What</div><div class="g">'+(st.services.length?st.services.map(s=>'<button class="svc'+(st.svc&&st.svc.id===s.id?" on":"")+'" data-svc="'+s.id+'">'+esc(s.name)+'<span>'+s.durationMin+' min · '+money(s.priceCents)+'</span></button>').join(""):'<div class="svc">Nothing can be booked online right now.</div>')+'</div>';
+  if(st.svc&&(st.svc.people||[]).length>1){
+    h+='<div class="lab">With</div><div class="who">'+[{id:null,name:"Anyone",speciality:"First free"}].concat(st.svc.people).map(p=>'<button class="pp'+(st.who===p.id?" on":"")+'" data-who="'+(p.id==null?"":p.id)+'" aria-pressed="'+(st.who===p.id)+'"><b>'+esc(p.name)+'</b>'+(p.speciality?'<small>'+esc(p.speciality)+'</small>':"")+'</button>').join("")+'</div>';}
   if(st.svc){
     h+='<div class="lab">When</div>';
     if(st.days.length){h+='<div class="days" role="listbox" aria-label="Day">'+st.days.map(d=>{const a=new Date(d.date+"T12:00:00");return '<button class="day'+(st.date===d.date?" on":"")+'" data-d="'+d.date+'"'+(d.free?"":" disabled")+' aria-pressed="'+(st.date===d.date)+'" aria-label="'+esc(a.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"}))+(d.free?"":", full or closed")+'"><small>'+esc(a.toLocaleDateString("en-GB",{weekday:"short"}))+'</small><b>'+a.getDate()+'</b></button>';}).join("")+'</div>';}
@@ -21077,13 +21094,15 @@ function paint(){
   const c=$("in-code"); if(c) c.focus();
 }
 document.addEventListener("click",async(ev)=>{
-  const t=ev.target.closest("[data-svc],[data-d],[data-i],#hold,#confirm"); if(!t||t.disabled) return; keep(); st.err="";
-  if(t.dataset.svc){st.svc=st.services.find(s=>s.id===Number(t.dataset.svc));st.slot=null;st.step="what";st.slots=[];st.days=[];st.date=null;paint();
-    try{st.days=(await call("/days?service_id="+st.svc.id)).days;const f=st.days.find(d=>d.free);if(f){st.date=f.date;st.slots=(await call("/day?service_id="+st.svc.id+"&date="+f.date)).slots;}}catch(e){st.err=e.message;}return paint();}
-  if(t.dataset.d){st.date=t.dataset.d;st.slot=null;st.slots=[];paint();try{st.slots=(await call("/day?service_id="+st.svc.id+"&date="+st.date)).slots;}catch(e){st.err=e.message;}return paint();}
+  const t=ev.target.closest("[data-svc],[data-who],[data-d],[data-i],#hold,#confirm"); if(!t||t.disabled) return; keep(); st.err="";
+  if(t.dataset.who!==undefined){st.who=t.dataset.who?Number(t.dataset.who):null;st.slot=null;st.slots=[];st.days=[];st.date=null;paint();
+    try{st.days=(await call("/days?service_id="+st.svc.id+(st.who?"&provider_id="+st.who:""))).days;const f=st.days.find(d=>d.free);if(f){st.date=f.date;st.slots=(await call("/day?service_id="+st.svc.id+(st.who?"&provider_id="+st.who:"")+"&date="+f.date)).slots;}}catch(e){st.err=e.message;}return paint();}
+  if(t.dataset.svc){st.svc=st.services.find(s=>s.id===Number(t.dataset.svc));st.who=null;st.slot=null;st.step="what";st.slots=[];st.days=[];st.date=null;paint();
+    try{st.days=(await call("/days?service_id="+st.svc.id+(st.who?"&provider_id="+st.who:""))).days;const f=st.days.find(d=>d.free);if(f){st.date=f.date;st.slots=(await call("/day?service_id="+st.svc.id+(st.who?"&provider_id="+st.who:"")+"&date="+f.date)).slots;}}catch(e){st.err=e.message;}return paint();}
+  if(t.dataset.d){st.date=t.dataset.d;st.slot=null;st.slots=[];paint();try{st.slots=(await call("/day?service_id="+st.svc.id+(st.who?"&provider_id="+st.who:"")+"&date="+st.date)).slots;}catch(e){st.err=e.message;}return paint();}
   if(t.dataset.i!==undefined){st.slot=st.slots[Number(t.dataset.i)];st.step="what";return paint();}
-  if(t.id==="hold"){st.busy=true;paint();try{const r=await call("/hold",{serviceId:st.svc.id,providerId:st.slot.providerId,date:st.slot.date,start:st.slot.time,name:st.name,email:st.email,phone:st.phone});st.holdId=r.holdId;st.step="code";}catch(e){st.err=e.message;if(e.status===409){try{st.slots=st.date?(await call("/day?service_id="+st.svc.id+"&date="+st.date)).slots:(await call("/next?service_id="+st.svc.id)).slots;st.slot=null;}catch(x){}}}st.busy=false;return paint();}
-  if(t.id==="confirm"){const code=($("in-code")||{}).value||"";st.busy=true;paint();try{const r=await call("/confirm",{holdId:st.holdId,code:code});st.step="done";st.doneText=r.service+", "+r.when+".";st.link=r.link;}catch(e){st.err=e.message;if(e.status===410||e.status===409){st.step="what";st.slot=null;try{st.slots=st.date?(await call("/day?service_id="+st.svc.id+"&date="+st.date)).slots:(await call("/next?service_id="+st.svc.id)).slots;}catch(x){}}}st.busy=false;return paint();}
+  if(t.id==="hold"){st.busy=true;paint();try{const r=await call("/hold",{serviceId:st.svc.id,providerId:st.slot.providerId,date:st.slot.date,start:st.slot.time,name:st.name,email:st.email,phone:st.phone});st.holdId=r.holdId;st.step="code";}catch(e){st.err=e.message;if(e.status===409){try{st.slots=st.date?(await call("/day?service_id="+st.svc.id+(st.who?"&provider_id="+st.who:"")+"&date="+st.date)).slots:(await call("/next?service_id="+st.svc.id)).slots;st.slot=null;}catch(x){}}}st.busy=false;return paint();}
+  if(t.id==="confirm"){const code=($("in-code")||{}).value||"";st.busy=true;paint();try{const r=await call("/confirm",{holdId:st.holdId,code:code});st.step="done";st.doneText=r.service+", "+r.when+".";st.link=r.link;}catch(e){st.err=e.message;if(e.status===410||e.status===409){st.step="what";st.slot=null;try{st.slots=st.date?(await call("/day?service_id="+st.svc.id+(st.who?"&provider_id="+st.who:"")+"&date="+st.date)).slots:(await call("/next?service_id="+st.svc.id)).slots;}catch(x){}}}st.busy=false;return paint();}
 });
 (async()=>{try{st.info=await call("/services");st.services=st.info.services;}catch(e){st.err=e.message;}paint();})();
 </script></body></html>`;

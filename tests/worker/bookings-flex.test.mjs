@@ -102,3 +102,26 @@ test("practitioner away for part of a day: only bookings in those hours are canc
     eq(app.DB.q(`SELECT status FROM bk_bookings ORDER BY id`).map((x) => x.status), ["booked", "cancelled"]);
   } finally { cap.restore(); }
 });
+
+test("practitioners: title and speciality are kept; the booking page lists who does each service and can show one person's times", async () => {
+  const app = await makeApp({ env: { ...KEY, BK_TEST_NOW: "2027-02-27 08:00" } });
+  const { token } = await app.bootstrap();
+  const h = (a, b) => { const o = {}; for (let d = 0; d <= 6; d++) o[d] = [[a, b]]; return o; };
+  const borg = (await app.api("POST", "/bookings/providers", { token, body: { name: "Anna Borg", title: "Dr", speciality: "Physiotherapy", kind: "doctor", hours: h("09:00", "10:00") } })).json.provider;
+  const vella = (await app.api("POST", "/bookings/providers", { token, body: { name: "Paul Vella", title: "Dr", speciality: "Physiotherapy", kind: "doctor", hours: h("14:00", "15:00") } })).json.provider;
+  eq([borg.title, borg.speciality], ["Dr", "Physiotherapy"]);
+  const up = await app.api("PUT", `/bookings/providers/${borg.id}`, { token, body: { name: "Anna Borg", title: "Dr", speciality: "Sports physiotherapy", kind: "doctor", hours: h("09:00", "10:00") } });
+  eq(up.json.provider.speciality, "Sports physiotherapy");
+  const svc = (await app.api("POST", "/bookings/services", { token, body: { name: "Physio session", durationMin: 30, providerIds: [borg.id, vella.id], online: true } })).json.service;
+  await app.api("PUT", "/bookings/settings", { token, body: { provider: "on", fromEmail: "b@demo.mt" } });
+  await app.api("POST", "/bookings/senders", { token, body: { kind: "brevo", apiKey: "xkeysib-1" } });
+  const slug = (await app.api("PUT", "/bookings/settings", { token, body: { publicEnabled: true } })).json.settings.publicSlug;
+  const sv = (await app.api("GET", `/book/${slug}/services`, {})).json.services[0];
+  eq(sv.people.map((p) => p.name + " · " + p.speciality), ["Dr Anna Borg · Sports physiotherapy", "Dr Paul Vella · Physiotherapy"]);
+  const any = (await app.api("GET", `/book/${slug}/day?service_id=${svc.id}&date=2027-03-01`, {})).json.slots.map((x) => x.time);
+  eq(any, ["09:00", "09:30", "14:00", "14:30"], "anyone: both practitioners' times");
+  const one = (await app.api("GET", `/book/${slug}/day?service_id=${svc.id}&date=2027-03-01&provider_id=${vella.id}`, {})).json.slots.map((x) => x.time);
+  eq(one, ["14:00", "14:30"], "one practitioner: only their times");
+  const days = (await app.api("GET", `/book/${slug}/days?service_id=${svc.id}&provider_id=${vella.id}`, {})).json.days;
+  eq(days.length, 14);
+});
