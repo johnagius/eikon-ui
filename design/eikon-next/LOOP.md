@@ -125,3 +125,16 @@ then a hard cut to a small sign-in card.
 - 85/85 UI tests pass for each.
 - **Next:** appointments worker, part 1 (services, providers, hours, bookings,
   free slots, the unique guard), with race, buffer and DST tests.
+
+### Round 5: Bookings server side, part 1
+- New worker routes under `/bookings`: setup, services, providers (with weekly
+  hours), exceptions, slots, next, a list by date range, book, and change (status
+  or move).
+- Free slots are computed from rules, never stored, in the pharmacy's local time
+  (DST-correct). A partial unique index guards double booking: three counters
+  booking at once gives exactly one booking. Moves are one versioned UPDATE.
+  Price defaults from the service.
+- **12 new tests, 50/50 worker tests pass.** Committed to the live branch;
+  **active only after a worker deploy (still blocked).**
+- **Next:** the counter UI for Bookings (day view, three-tap booking, booking
+  sheet), designed and checked on iPhone and desktop.
