@@ -289,3 +289,26 @@ then a hard cut to a small sign-in card.
   shows the pharmacy's link.
 - Worker 71/71; customer e2e and settings e2e pass (one stale selector in a
   test fixed).
+
+### Round 21: SMTP
+- Bookings emails can go through the pharmacy's own mail server: SSL on 465 or
+  STARTTLS on 587, with login, MIME and the calendar file. Port 25 is refused
+  (Cloudflare blocks it).
+- The SMTP conversation is tested against a scripted server: secure and STARTTLS
+  connections, login, attachment, encoded subject, and a wrong password failing
+  the email (with the reason) but never the booking. Worker 73/73.
+- **Honest limit:** the raw socket part (`cloudflare:sockets`) only runs inside
+  Cloudflare, so its first real test is on the live worker with a real mail
+  account. The "Send me a test" button exists for exactly that.
+
+**The Bookings spec (APPOINTMENTS.md) is now built end to end:**
+- services, people, hours, safe booking, moves and statuses
+- the day and week views
+- the waiting list, with offers when a time frees up
+- emails through Resend, Brevo or SMTP, with reminders sent exactly once
+- the private customer link
+- the optional online booking page
+- importing the old appointments
+- Bookings on Today
+
+All of it waits only on the worker deploy.
