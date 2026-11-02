@@ -953,7 +953,7 @@ html[data-ui2]{--overlay:rgba(20,27,36,.45);--panel-strong:#FFFFFF}
   html[data-ui2] .bkx{padding:18px 16px 40px}
   html[data-ui2] .bkx h1{font-size:30px;line-height:36px}
   html[data-ui2] .bkx-add{height:36px;padding:0 14px}
-  html[data-ui2] .eikon-toast{bottom:92px!important}
+  html[data-ui2] .eikon-toast-wrap{bottom:calc(92px + env(safe-area-inset-bottom,0px))!important;left:16px;right:16px;align-items:center;max-width:none!important}
 }
 
 /* ── Eikon Next look for the new layout: system font, calm greys, one green tint, line icons ── */
