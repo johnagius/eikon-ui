@@ -20137,7 +20137,8 @@ async function ensureBookingsMsgSchema__impl(env) {
   ];
   for (const s of stmts) await dbRun(env, s, []);
   // Online booking (public page), added later: columns are added if missing.
-  for (const col of ["public_enabled INTEGER NOT NULL DEFAULT 0", "public_slug TEXT NOT NULL DEFAULT ''"]) {
+  for (const col of ["public_enabled INTEGER NOT NULL DEFAULT 0", "public_slug TEXT NOT NULL DEFAULT ''",
+                     "smtp_host TEXT NOT NULL DEFAULT ''", "smtp_port INTEGER NOT NULL DEFAULT 465", "smtp_user TEXT NOT NULL DEFAULT ''", "smtp_secure TEXT NOT NULL DEFAULT 'tls'"]) {
     try { await dbRun(env, `ALTER TABLE bk_settings ADD COLUMN ${col}`, []); } catch (e) {}
   }
   await dbRun(env, `CREATE UNIQUE INDEX IF NOT EXISTS uq_bk_public_slug ON bk_settings (public_slug) WHERE public_slug <> ''`, []);
@@ -20206,6 +20207,7 @@ function bkSettingsOut(s, env) {
   return { provider: s.provider, fromName: s.from_name, fromEmail: s.from_email, replyTo: s.reply_to, hasKey: !!s.api_key_enc,
     remindEvening: !!s.remind_evening, remindHours: s.remind_hours, cancelCutoffMin: s.cancel_cutoff_min, address: s.address, phone: s.phone,
     publicEnabled: !!s.public_enabled, publicSlug: s.public_slug || "",
+    smtpHost: s.smtp_host || "", smtpPort: Number(s.smtp_port) || 465, smtpUser: s.smtp_user || "", smtpSecure: s.smtp_secure || "tls",
     canSend: !!(env && String(env.BOOKINGS_KEY || "").length >= 16) };
 }
 
@@ -20252,6 +20254,10 @@ async function bkSendEmail(env, settings, { to, toName, subject, html, ics }) {
         replyTo: settings.reply_to ? { email: settings.reply_to } : undefined,
         attachment: ics ? [{ name: "booking.ics", content: base64FromBytes(new TextEncoder().encode(ics)) }] : undefined }) });
     if (!r.ok) throw new Error("Brevo " + r.status + ": " + (await r.text()).slice(0, 200));
+    return;
+  }
+  if (settings.provider === "smtp") {
+    await bkSmtpSend(env, settings, key, { from, fromEmail: settings.from_email, to, subject, html, ics });
     return;
   }
   throw new Error("Messages are off");
@@ -20338,7 +20344,14 @@ async function handleBookingsSettings(request, env, corsOkHeaders, authUser, url
   if (request.method === "PUT") {
     const b = await readJson(request) || {};
     const cur = await bkGetSettings(env, org, loc);
-    const provider = ["off", "resend", "brevo"].includes(b.provider) ? b.provider : cur.provider;
+    const provider = ["off", "resend", "brevo", "smtp"].includes(b.provider) ? b.provider : cur.provider;
+    if (provider === "smtp") {
+      const host = b.smtpHost !== undefined ? String(b.smtpHost).trim().toLowerCase() : (cur.smtp_host || "");
+      const port = b.smtpPort !== undefined ? Math.round(Number(b.smtpPort)) : (Number(cur.smtp_port) || 465);
+      if (!/^[a-z0-9.-]+\.[a-z]{2,}$/.test(host)) return jsonResponse({ ok: false, error: "Type the mail server, e.g. smtp.yourprovider.com" }, 400, corsOkHeaders);
+      if (port === 25) return jsonResponse({ ok: false, error: "Port 25 is blocked for sending; use 465 (SSL) or 587 (STARTTLS)" }, 400, corsOkHeaders);
+      if (!(port > 0 && port < 65536)) return jsonResponse({ ok: false, error: "Invalid port" }, 400, corsOkHeaders);
+    }
     const fromEmail = b.fromEmail !== undefined ? String(b.fromEmail).trim().toLowerCase() : cur.from_email;
     if (provider !== "off" && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(fromEmail)) return jsonResponse({ ok: false, error: "A valid sender email is required" }, 400, corsOkHeaders);
     let enc = cur.api_key_enc;
@@ -20357,6 +20370,11 @@ async function handleBookingsSettings(request, env, corsOkHeaders, authUser, url
       [org, loc, provider, b.fromName !== undefined ? String(b.fromName).trim() : cur.from_name, fromEmail, b.replyTo !== undefined ? String(b.replyTo).trim() : cur.reply_to, enc,
         b.remindEvening === undefined ? cur.remind_evening : (b.remindEvening ? 1 : 0), hrs, cut,
         b.address !== undefined ? String(b.address).trim() : cur.address, b.phone !== undefined ? String(b.phone).trim() : cur.phone]);
+    if (provider === "smtp" || b.smtpHost !== undefined) {
+      await dbRun(env, `UPDATE bk_settings SET smtp_host=?, smtp_port=?, smtp_user=?, smtp_secure=? WHERE org_id=? AND location_id=?`,
+        [b.smtpHost !== undefined ? String(b.smtpHost).trim().toLowerCase() : (cur.smtp_host || ""), b.smtpPort !== undefined ? Math.round(Number(b.smtpPort)) : (Number(cur.smtp_port) || 465),
+         b.smtpUser !== undefined ? String(b.smtpUser).trim() : (cur.smtp_user || ""), b.smtpSecure === "starttls" ? "starttls" : (b.smtpSecure === "tls" ? "tls" : (cur.smtp_secure || "tls")), org, loc]);
+    }
     if (b.publicEnabled !== undefined) {
       const want = !!b.publicEnabled;
       const fresh = await bkGetSettings(env, org, loc);
@@ -20696,4 +20714,53 @@ document.addEventListener("click",async(ev)=>{
 (async()=>{try{st.info=await call("/services");st.services=st.info.services;}catch(e){st.err=e.message;}paint();})();
 </script></body></html>`;
   return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "X-Robots-Tag": "noindex", "Referrer-Policy": "no-referrer", "X-Frame-Options": "DENY" } });
+}
+
+/* ---------- SMTP (port 465 TLS or 587 STARTTLS), over Cloudflare TCP sockets ----------
+   The SMTP conversation runs against a small transport { read(), write(), startTls() } so it can
+   be tested against a scripted server; in the Worker it uses cloudflare:sockets. Port 25 is blocked. */
+async function bkSmtpTransport(env, host, port, secure) {
+  if (env && env.__SMTP_TRANSPORT) return env.__SMTP_TRANSPORT(host, port, secure); // tests
+  const { connect } = await import("cloudflare:sockets");
+  let sock = connect({ hostname: host, port }, { secureTransport: secure === "starttls" ? "starttls" : "on", allowHalfOpen: false });
+  const enc = new TextEncoder(), dec = new TextDecoder();
+  let reader = sock.readable.getReader(), writer = sock.writable.getWriter(), buf = "";
+  return {
+    async read() { while (true) { const i = buf.indexOf("\r\n"); if (i >= 0) { const line = buf.slice(0, i); buf = buf.slice(i + 2); return line; }
+      const { value, done } = await reader.read(); if (done) throw new Error("SMTP connection closed"); buf += dec.decode(value, { stream: true }); } },
+    async write(s) { await writer.write(enc.encode(s)); },
+    async startTls() { reader.releaseLock(); writer.releaseLock(); sock = sock.startTls(); reader = sock.readable.getReader(); writer = sock.writable.getWriter(); buf = ""; },
+    async close() { try { await sock.close(); } catch (e) {} }
+  };
+}
+async function bkSmtpSend(env, s, password, { from, fromEmail, to, subject, html, ics }) {
+  const t = await bkSmtpTransport(env, s.smtp_host, Number(s.smtp_port) || 465, s.smtp_secure || "tls");
+  const reply = async () => { let line, all = []; do { line = await t.read(); all.push(line); } while (/^\d{3}-/.test(line)); return { code: Number(line.slice(0, 3)), text: all.join(" ") }; };
+  const expect = async (want, what) => { const r = await reply(); if (r.code !== want) throw new Error(`SMTP ${what}: ${r.text.slice(0, 160)}`); return r; };
+  const cmd = async (line, want, what) => { await t.write(line + "\r\n"); return expect(want, what); };
+  const b64 = (x) => base64FromBytes(new TextEncoder().encode(x));
+  try {
+    await expect(220, "greeting");
+    let ehlo = await cmd("EHLO eikon.local", 250, "EHLO");
+    if ((s.smtp_secure || "tls") === "starttls") {
+      if (!/STARTTLS/i.test(ehlo.text)) throw new Error("SMTP server does not offer STARTTLS");
+      await cmd("STARTTLS", 220, "STARTTLS"); await t.startTls(); ehlo = await cmd("EHLO eikon.local", 250, "EHLO after TLS");
+    }
+    if (s.smtp_user) { await cmd("AUTH LOGIN", 334, "AUTH"); await cmd(b64(s.smtp_user), 334, "user"); await cmd(b64(password), 235, "login (check user and password)"); }
+    await cmd(`MAIL FROM:<${fromEmail}>`, 250, "MAIL FROM");
+    await cmd(`RCPT TO:<${to}>`, 250, "RCPT TO");
+    await cmd("DATA", 354, "DATA");
+    const boundary = "eikon-" + bkRandomHex(8);
+    const encWord = (x) => /^[\x20-\x7e]*$/.test(x) ? x : "=?UTF-8?B?" + b64(x) + "?=";
+    const wrap = (x) => x.replace(/.{1,76}/g, "$&\r\n");
+    let msg = [`From: ${encWord(from)}`, `To: <${to}>`, `Subject: ${encWord(subject)}`, `Date: ${new Date().toUTCString()}`, `Message-ID: <${bkRandomHex(12)}@eikon>`,
+      "MIME-Version: 1.0", `Content-Type: multipart/mixed; boundary="${boundary}"`, "", `--${boundary}`, "Content-Type: text/html; charset=UTF-8", "Content-Transfer-Encoding: base64", "", wrap(b64(html))].join("\r\n");
+    if (ics) msg += [`--${boundary}`, 'Content-Type: text/calendar; charset=UTF-8; method=PUBLISH; name="booking.ics"', "Content-Transfer-Encoding: base64",
+      'Content-Disposition: attachment; filename="booking.ics"', "", wrap(b64(ics))].join("\r\n");
+    msg += `--${boundary}--\r\n`;
+    // Dot-stuffing: a line that starts with "." gets another "." (RFC 5321 4.5.2).
+    msg = msg.replace(/\r\n\./g, "\r\n..");
+    await t.write(msg + "\r\n.\r\n"); await expect(250, "message");
+    await t.write("QUIT\r\n");
+  } finally { await t.close(); }
 }

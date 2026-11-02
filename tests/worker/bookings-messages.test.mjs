@@ -199,3 +199,71 @@ test("public booking: five wrong codes end the attempt", async () => {
     eq(app.DB.q("SELECT COUNT(*) AS c FROM bk_bookings")[0].c, 0);
   } finally { cap.restore(); }
 });
+
+// A scripted SMTP server: replies like a real one and records what the client sent.
+function fakeSmtp({ password = "secret", starttls = false } = {}) {
+  const log = { lines: [], data: "", tls: false, connectedTo: null };
+  const factory = async (host, port, secure) => {
+    log.connectedTo = { host, port, secure };
+    const out = ["220 mail.test ESMTP"]; let inData = false, user = "", secured = false; // per connection, like a real server
+    const ehlo = () => ["250-mail.test", ...(starttls && !secured ? ["250-STARTTLS"] : []), "250 AUTH LOGIN"];
+    const b64d = (x) => Buffer.from(x, "base64").toString();
+    return {
+      async read() { if (!out.length) throw new Error("server has nothing to say"); return out.shift(); },
+      async write(s) {
+        if (inData) { log.data += s; if (s.endsWith("\r\n.\r\n")) { inData = false; out.push("250 OK queued"); } return; }
+        for (const line of s.split("\r\n").filter(Boolean)) {
+          log.lines.push(line);
+          if (/^EHLO/.test(line)) out.push(...ehlo());
+          else if (line === "STARTTLS") out.push("220 go ahead");
+          else if (line === "AUTH LOGIN") out.push("334 VXNlcm5hbWU6");
+          else if (!user && log.lines[log.lines.length - 2] === "AUTH LOGIN") { user = b64d(line); out.push("334 UGFzc3dvcmQ6"); }
+          else if (user && log.lines[log.lines.length - 3] === "AUTH LOGIN") out.push(b64d(line) === password ? "235 ok" : "535 5.7.8 Authentication failed");
+          else if (/^MAIL FROM/.test(line) || /^RCPT TO/.test(line)) out.push("250 ok");
+          else if (line === "DATA") { out.push("354 end with ."); inData = true; }
+          else if (line === "QUIT") out.push("221 bye");
+        }
+      },
+      async startTls() { secured = true; log.tls = true; },
+      async close() {}
+    };
+  };
+  return { factory, log };
+}
+
+test("booking messages over SMTP: 465 TLS with login, MIME message with the calendar file", async () => {
+  const smtp = fakeSmtp();
+  const app = await makeApp({ env: { ...KEY, __SMTP_TRANSPORT: smtp.factory } });
+  const { token } = await app.bootstrap();
+  const p = await app.api("POST", "/bookings/providers", { token, body: { name: "Maria", hours: { 1: [["08:00", "20:00"]] } } });
+  const sv = (await app.api("POST", "/bookings/services", { token, body: { name: "Flu vaccine", durationMin: 10, providerIds: [p.json.provider.id] } })).json.service;
+  eq((await app.api("PUT", "/bookings/settings", { token, body: { provider: "smtp", smtpHost: "smtp.example.com", smtpPort: 25, fromEmail: "b@demo.mt" } })).status, 400, "port 25 refused");
+  eq((await app.api("PUT", "/bookings/settings", { token, body: { provider: "smtp", smtpHost: "not a host", fromEmail: "b@demo.mt" } })).status, 400);
+  const st = await app.api("PUT", "/bookings/settings", { token, body: { provider: "smtp", smtpHost: "smtp.example.com", smtpPort: 465, smtpUser: "bookings@demo.mt", smtpSecure: "tls", apiKey: "secret", fromName: "Demo Pharmacy", fromEmail: "bookings@demo.mt" } });
+  eq(st.status, 200, st.text); ok(!/secret/.test(st.text), "password never returned");
+  const b = await app.api("POST", "/bookings", { token, body: { serviceId: sv.id, date: MON, start: "10:00", personName: "Carmen Grech", personEmail: "carmen@example.com" } });
+  eq(b.json.message, "sent", b.text);
+  eq(smtp.log.connectedTo, { host: "smtp.example.com", port: 465, secure: "tls" });
+  ok(smtp.log.lines.includes("MAIL FROM:<bookings@demo.mt>") && smtp.log.lines.includes("RCPT TO:<carmen@example.com>"));
+  ok(/Content-Type: multipart\/mixed/.test(smtp.log.data) && /filename="booking.ics"/.test(smtp.log.data), "MIME with calendar attachment");
+  const subj = /Subject: =\?UTF-8\?B\?([^?]+)\?=/.exec(smtp.log.data);
+  ok(subj && /^Booked: Flu vaccine · /.test(Buffer.from(subj[1], "base64").toString()), "non-ASCII subject is RFC 2047 encoded");
+  const htmlB64 = /charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n([\s\S]*?)--eikon/.exec(smtp.log.data)[1].replace(/\r\n/g, "");
+  ok(/Hi Carmen/.test(Buffer.from(htmlB64, "base64").toString()), "the HTML body decodes");
+});
+
+test("booking messages over SMTP: STARTTLS on 587; a wrong password fails the email, never the booking", async () => {
+  const smtp = fakeSmtp({ starttls: true, password: "right" });
+  const app = await makeApp({ env: { ...KEY, __SMTP_TRANSPORT: smtp.factory } });
+  const { token } = await app.bootstrap();
+  const p = await app.api("POST", "/bookings/providers", { token, body: { name: "Maria", hours: { 1: [["08:00", "20:00"]] } } });
+  const sv = (await app.api("POST", "/bookings/services", { token, body: { name: "Flu vaccine", durationMin: 10, providerIds: [p.json.provider.id] } })).json.service;
+  await app.api("PUT", "/bookings/settings", { token, body: { provider: "smtp", smtpHost: "smtp.example.com", smtpPort: 587, smtpUser: "u", smtpSecure: "starttls", apiKey: "right", fromEmail: "b@demo.mt" } });
+  eq((await app.api("POST", "/bookings", { token, body: { serviceId: sv.id, date: MON, start: "10:00", personName: "A", personEmail: "a@example.com" } })).json.message, "sent");
+  ok(smtp.log.tls && smtp.log.lines.indexOf("STARTTLS") < smtp.log.lines.indexOf("AUTH LOGIN"), "TLS before login");
+  await app.api("PUT", "/bookings/settings", { token, body: { apiKey: "wrong" } });
+  const b2 = await app.api("POST", "/bookings", { token, body: { serviceId: sv.id, date: MON, start: "10:30", personName: "B", personEmail: "b@example.com" } });
+  eq(b2.status, 201); eq(b2.json.message, "failed");
+  const err = app.DB.q("SELECT error FROM bk_messages ORDER BY id DESC LIMIT 1")[0].error;
+  ok(/login \(check user and password\)/.test(err), "a clear reason is recorded: " + err);
+});

@@ -297,8 +297,11 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
       if (!m) h += '<div class="bkx-g"><div class="bkx-empty">Loading…</div></div>';
       else {
         h += '<div class="sub" style="margin:0 4px 12px">Send customers a confirmation with a calendar file, a reminder the evening before and a private link to see or cancel their booking. Off until you choose a provider.</div>' +
-          '<div class="bkx-f"><label><span>Send with</span><select id="bkm-provider"><option value="off"' + (m.provider === "off" ? " selected" : "") + '>Off</option><option value="resend"' + (m.provider === "resend" ? " selected" : "") + '>Resend</option><option value="brevo"' + (m.provider === "brevo" ? " selected" : "") + ">Brevo</option></select></label>" +
-          '<label><span>API key</span><input id="bkm-key" type="password" autocomplete="off" placeholder="' + (m.hasKey ? "Saved · type to replace" : "Paste the key") + '"></label>' +
+          '<div class="bkx-f"><label><span>Send with</span><select id="bkm-provider"><option value="off"' + (m.provider === "off" ? " selected" : "") + '>Off</option><option value="resend"' + (m.provider === "resend" ? " selected" : "") + '>Resend</option><option value="brevo"' + (m.provider === "brevo" ? " selected" : "") + '>Brevo</option><option value="smtp"' + (m.provider === "smtp" ? " selected" : "") + ">Own server (SMTP)</option></select></label>" +
+          (m.provider === "smtp" ? '<label><span>Server</span><input id="bkm-host" value="' + esc(m.smtpHost) + '" placeholder="smtp.yourprovider.com" autocapitalize="off"></label>' +
+            '<label><span>Security</span><select id="bkm-sec"><option value="tls"' + (m.smtpSecure !== "starttls" ? " selected" : "") + '>SSL · port 465</option><option value="starttls"' + (m.smtpSecure === "starttls" ? " selected" : "") + ">STARTTLS · port 587</option></select></label>" +
+            '<label><span>Username</span><input id="bkm-user" value="' + esc(m.smtpUser) + '" autocapitalize="off" autocomplete="off"></label>' : "") +
+          '<label><span>' + (m.provider === "smtp" ? "Password" : "API key") + '</span><input id="bkm-key" type="password" autocomplete="off" placeholder="' + (m.hasKey ? "Saved · type to replace" : (m.provider === "smtp" ? "Mail account password" : "Paste the key")) + '"></label>' +
           '<label><span>From</span><input id="bkm-from" inputmode="email" value="' + esc(m.fromEmail) + '" placeholder="bookings@yourpharmacy.mt"></label>' +
           '<label><span>Name</span><input id="bkm-name" value="' + esc(m.fromName) + '" placeholder="Your pharmacy"></label></div>' +
           '<div class="bkx-f"><label><span>Evening</span><input id="bkm-eve" type="checkbox"' + (m.remindEvening ? " checked" : "") + ' style="flex:0 0 auto;width:22px;height:22px"><em class="bkx-closed" style="margin-left:6px">Reminder at 18:00 the day before</em></label>' +
@@ -470,6 +473,7 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
           remindHours: Number(g2("bkm-hrs").value), cancelCutoffMin: Number(g2("bkm-cut").value), address: g2("bkm-addr").value, phone: g2("bkm-phone").value,
           publicEnabled: g2("bkm-public").checked };
         if (g2("bkm-key").value.trim()) body2.apiKey = g2("bkm-key").value.trim();
+        if (body2.provider === "smtp" && g2("bkm-host")) { body2.smtpHost = g2("bkm-host").value; body2.smtpSecure = g2("bkm-sec").value; body2.smtpPort = body2.smtpSecure === "starttls" ? 587 : 465; body2.smtpUser = g2("bkm-user").value; }
         try { S.sheet.msg = (await api("/bookings/settings", { method: "PUT", body: JSON.stringify(body2) })).settings; S.sheet.okMsg = body2.provider === "off" ? "Emails are off" : "Saved. Customers with an email now get messages."; }
         catch (e) { S.sheet.err = errMsg(e); }
       } else {
@@ -491,17 +495,26 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
     }
   }
 
+  function onChange(ev) {
+    if (!ev.target || ev.target.id !== "bkm-provider" || !S.sheet || !S.sheet.msg) return;
+    var m = S.sheet.msg, g = function (id) { var el = document.getElementById(id); return el ? el.value : undefined; };
+    ["fromEmail:bkm-from", "fromName:bkm-name", "address:bkm-addr", "phone:bkm-phone", "smtpHost:bkm-host", "smtpUser:bkm-user"].forEach(function (pair) {
+      var kv = pair.split(":"), v = g(kv[1]); if (v !== undefined) m[kv[0]] = v; });
+    m.provider = ev.target.value; paint();
+  }
+
   async function render(ctx) {
     injectCss();
     S.mount = ctx.mount; S.date = S.date || todayStr(); S.sheet = null;
     S.mount.addEventListener("click", onClick);
+    S.mount.addEventListener("change", onChange);
     // No polling: refresh when the tab comes back into view.
     S.onVis = function () { if (!document.hidden && S.mount && E.state.activeModuleId === "bookings") load({ silent: true }); };
     document.addEventListener("visibilitychange", S.onVis);
     await load();
   }
   function destroy() {
-    if (S.mount) S.mount.removeEventListener("click", onClick);
+    if (S.mount) { S.mount.removeEventListener("click", onClick); S.mount.removeEventListener("change", onChange); }
     if (S.onVis) document.removeEventListener("visibilitychange", S.onVis);
     S.mount = null; S.sheet = null;
   }
