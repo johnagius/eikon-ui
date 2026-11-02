@@ -360,3 +360,11 @@ All of it waits only on the worker deploy.
 - Bugs found on the way and fixed before push: loader decided before core read `?ui=classic` (classic visits went to #dashboard);
   boot dropped deep links to not-yet-loaded modules. Both now wait/decide correctly; probes for #temperature/#stock/#today pass.
 - UI 86/86; bookings 13/13, settings 13/13, week 8/8, waitlist 5/5. BUILD .34.
+
+## Round 28 — dark mode; continuous-loop fix
+- Loop reliability: an in-session wakeup was lost when the container restarted (local server was down too).
+  Now: restart-proof send_later backstop each turn + hourly safety-net trigger (trig_01B3gJywJGDz7oW5YZcPvybb) + longer turns.
+- Dark mode for the new layout, following the device: Apple system colours for rail, tab bar, Today, hubs, customers, bookings, sign-in.
+  Light, classic and classic visits unchanged (verified). Fixed on the way: bookings form text was dim in dark; Today temp fields pure black.
+- Customers register links visible while background modules load.
+- UI 86/86, bookings 13/13, settings 13/13. BUILD .37.
