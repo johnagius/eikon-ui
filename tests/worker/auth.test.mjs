@@ -66,3 +66,11 @@ test("change password: proves the current one, revokes other sessions, keeps thi
   eq((await api("POST", "/auth/login", { body: { email, password } })).status, 401, "old password no longer works");
   eq((await api("POST", "/auth/login", { body: { email, password: "LongEnough!2026" } })).status, 200, "new password works");
 });
+
+test("login: wrong passwords from another network do not lock the real user out", async ({ api, bootstrap }) => {
+  const { email, password } = await bootstrap();
+  const stranger = { "CF-Connecting-IP": "198.51.100.66" }, office = { "CF-Connecting-IP": "203.0.113.10" };
+  for (let i = 0; i < 12; i++) await api("POST", "/auth/login", { body: { email, password: "x" + i }, headers: stranger });
+  eq((await api("POST", "/auth/login", { body: { email, password }, headers: stranger })).status, 429, "the guessing network is still slowed down");
+  eq((await api("POST", "/auth/login", { body: { email, password }, headers: office })).status, 200, "the real user signs in from their own network");
+});

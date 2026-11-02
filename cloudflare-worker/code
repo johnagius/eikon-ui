@@ -1380,7 +1380,8 @@ async function loginIsThrottled(env, email, ip) {
   try {
     await dbRun(env, "DELETE FROM login_attempts WHERE attempted_at < datetime('now', '-1 day')", []);
     const win = "-" + LOGIN_WINDOW_MINUTES + " minutes";
-    const e = await dbFirst(env, "SELECT COUNT(*) AS c FROM login_attempts WHERE email = ? AND attempted_at > datetime('now', ?)", [email, win]);
+    // Counted per account AND network: a stranger elsewhere cannot lock a real user out.
+    const e = await dbFirst(env, "SELECT COUNT(*) AS c FROM login_attempts WHERE email = ? AND ip = ? AND attempted_at > datetime('now', ?)", [email, ip, win]);
     if (e && Number(e.c) >= LOGIN_MAX_PER_EMAIL) return true;
     const i = await dbFirst(env, "SELECT COUNT(*) AS c FROM login_attempts WHERE ip = ? AND attempted_at > datetime('now', ?)", [ip, win]);
     if (i && Number(i.c) >= LOGIN_MAX_PER_IP) return true;
