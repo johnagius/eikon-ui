@@ -224,3 +224,14 @@ then a hard cut to a small sign-in card.
 - **Next:** 21 other one-parameter-per-item SQL lists were found. Check each
   unbounded one (customer search, lines ~7622, 12603, 15687, 18316) and fix any
   that can pass 100.
+
+### Rounds 13–15: batching, caching, faster sign-in
+- **D1 100-parameter crashes fixed:** credit notes, vaccine orders and Cherubino
+  checks (reproduced at 150 on the old code), plus customer search. Production
+  counts are still small, so these were latent.
+- **Browser cache:** build-stamped files are kept for a day instead of 5 minutes
+  (worker, at deploy).
+- **Live:** sign-in appears when the core loads, measured at 60 ms latency:
+  **2.4 s to 0.44 s**; at 150 ms: 3.0 s to 1.0 s. A race between start-up and
+  early sign-in was found by test and fixed.
+- Worker 64/64, UI 86/86, Bookings e2e 13/13.
