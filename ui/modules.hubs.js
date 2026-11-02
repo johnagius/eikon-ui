@@ -159,6 +159,10 @@
   }
 
   Object.keys(HUBS).forEach(function (id) { makeHub(id, HUBS[id]); });
+  // Hub cards list modules that may still be loading in the background: redraw once they are in.
+  window.addEventListener("eikon:modules", function () {
+    try { if (HUBS[E.state.activeModuleId] && document.querySelector(".hub")) E.renderActiveModule(); } catch (e) {}
+  });
 
   // Which hub an old module belongs to, for the back link.
   E.ui2HubFor = function (modId) {

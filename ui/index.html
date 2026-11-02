@@ -35,7 +35,7 @@
       // browser and the Worker's edge cache can reuse every file (previously every load
       // used Date.now(), so 52 files were re-downloaded on every visit).
       // Bump BUILD on EVERY change to any file in ui/: browsers keep stamped files for a day.
-      var BUILD = "2026-11-02.32";
+      var BUILD = "2026-11-02.34";
 
       function log() { try { console.log.apply(console, arguments); } catch (e) {} }
       function warn() { try { console.warn.apply(console, arguments); } catch (e) {} }
@@ -96,7 +96,14 @@
       }
 
       var root = document.getElementById("eikon-root");
-      var light = false; try { light = localStorage.getItem("eikon_ui2") === "1" && sessionStorage.getItem("eikon_ui2_pause") !== "1"; } catch (e) {}
+      // Same decision core.js makes (E.isUi2), taken here before it loads: ?ui=2 / ?ui=1 / ?ui=classic win over what is stored.
+      var light = false;
+      try {
+        var uiParam = new URLSearchParams(location.search).get("ui");
+        if (uiParam === "2") light = true;
+        else if (uiParam === "1" || uiParam === "classic") light = false;
+        else light = localStorage.getItem("eikon_ui2") === "1" && sessionStorage.getItem("eikon_ui2_pause") !== "1";
+      } catch (e) {}
       if (root) {
         // While the code loads: the wordmark, centred, with a thin moving line. No timer; it goes as soon as the app is ready.
         root.innerHTML =
@@ -170,7 +177,19 @@
         "./modules.cherubino-shortexpiry.js",
         "./modules.cherubino-oos.js",
         "./main.js"
-      ].map(withParams);
+      ];
+
+      // New layout: start with what Today needs, then load the rest in the background
+      // (about 55 of the 60 files). The router waits for a late module if one is asked for early.
+      var FIRST = ["./core.js", "./modules.today.js", "./modules.customers.js", "./modules.bookings.js", "./modules.hubs.js", "./main.js"];
+      var LATER = [];
+      if (light) {
+        LATER = MODULES.filter(function (m) { return FIRST.indexOf(m) < 0; }).map(withParams);
+        MODULES = FIRST.map(withParams);
+        window.EIKON_LATE = new Promise(function (res) { window.__eikonLateDone = res; });
+      } else {
+        MODULES = MODULES.map(withParams);
+      }
 
       loadOptionalScript("https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js");
 
@@ -179,7 +198,14 @@
       var cssReady = loadCss(withParams("./app.css"));
       window.EIKON_CSS_READY = cssReady;
       Promise.all([cssReady, loadScriptsInOrder(MODULES)])
-        .then(function () { log("[EIKON][boot] loaded build", BUILD); })
+        .then(function () {
+          log("[EIKON][boot] loaded build", BUILD);
+          if (!LATER.length) return;
+          // A late file that fails must not take the app down: the screens that need it say so.
+          loadScriptsInOrder(LATER).catch(function (e) { warn("[EIKON][boot] background modules:", e); }).then(function () {
+            try { window.__eikonLateDone(); window.dispatchEvent(new Event("eikon:modules")); } catch (e) {}
+          });
+        })
         .catch(function (e) {
           warn("[EIKON][boot] Boot failed:", e);
           if (root) {

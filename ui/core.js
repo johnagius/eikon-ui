@@ -1514,6 +1514,8 @@
 
     var fallbackDash = E._sectionDashboardId || "dashboard";
     var id = E.getHashModuleId();
+    // New layout loads most modules after the first screen: wait for them before calling an id unknown.
+    if (!E.modules[id] && window.EIKON_LATE) { await window.EIKON_LATE; id = E.getHashModuleId(); }
     if (!E.modules[id]) {
       E.warn("[router] unknown module:", id, "falling back to", fallbackDash);
       id = fallbackDash;
@@ -1578,6 +1580,8 @@
     // opens that screen; otherwise the home screen of this layout.
     var asked = String(window.location.hash || "").replace(/^#/, "").trim();
     var home = E._sectionDashboardId || "dashboard";
+    // The screen asked for may still be loading in the background (new layout): wait rather than drop the link.
+    if (window.EIKON_LATE && ((asked && !E.modules[asked]) || (back && !E.modules[back]))) await window.EIKON_LATE;
     var target = (back && E.modules[back]) ? back : (asked && E.modules[asked] && asked !== "today" && asked !== "dashboard" ? asked : home);
     if (asked === "today" || asked === "dashboard") target = (back && E.modules[back]) ? back : home;
     window.location.hash = "#" + target;
