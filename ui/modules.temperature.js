@@ -1945,9 +1945,8 @@ function ensureUserScope(u) {
     var btnDevices = el("button", { class: "eikon-btn", text: "Devices" });
     var btnReport = el("button", { class: "eikon-btn", text: "Print Report" });
 
-    var right = el("div", { style: "margin-left:auto;display:flex;gap:10px;align-items:center;flex-wrap:wrap;" }, [
-      el("span", { class: "eikon-help", text: "dbg=" + String(E.DEBUG || 0) })
-    ]);
+    var right = el("div", { style: "margin-left:auto;display:flex;gap:10px;align-items:center;flex-wrap:wrap;" },
+      E.DEBUG ? [el("span", { class: "eikon-help", text: "dbg=" + String(E.DEBUG) })] : []);
 
     row.appendChild(el("span", { class: "eikon-pill", style: "font-weight:900;", text: "🌡 Temperature" }));
     row.appendChild(btnEntries);
