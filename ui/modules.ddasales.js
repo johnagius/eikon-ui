@@ -22,6 +22,8 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
     "Alprazolam 0.5mg",
     "Bromazepam 3mg",
     "Buprenorphine/Naloxone 8mg/2mg",
+    "Cannabis 22/1 x10g",
+    "Cannabis 27/1 x10g",
     "Clonazepam 0.5mg",
     "Clonazepam 2mg",
     "Dexamfetamine 5mg",
