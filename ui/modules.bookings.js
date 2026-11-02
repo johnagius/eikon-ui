@@ -96,11 +96,11 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
 .bkx-seg{display:flex;background:rgba(118,118,128,.12);border-radius:10px;padding:2px;margin-bottom:16px}.bkx-seg button{flex:1;height:32px;border-radius:8px;font-size:14px;font-weight:600;color:rgba(60,60,67,.8)}\
 .bkx-seg button.on{background:#fff;color:#000;box-shadow:0 1px 3px rgba(0,0,0,.12)}\
 .bkx-gear{width:40px;height:40px;padding:0;border-radius:50%;display:grid;place-items:center}.bkx-add{white-space:nowrap}\
-.bkx-f input[type=time]{width:112px;flex:0 0 auto}\
+.bkx-f input[type=time]{width:128px;flex:0 0 auto}\
 .bkx-f input[type=checkbox]{appearance:none;-webkit-appearance:none;width:51px!important;height:31px!important;border-radius:16px;background:rgba(120,120,128,.16);position:relative;flex:0 0 auto;cursor:pointer;transition:background .2s;margin:0}\
 .bkx-f input[type=checkbox]::after{content:'';position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 3px 8px rgba(0,0,0,.15),0 1px 1px rgba(0,0,0,.16);transition:transform .2s}\
 .bkx-f input[type=checkbox]:checked{background:#34C759}.bkx-f input[type=checkbox]:checked::after{transform:translateX(20px)}\
-@media(max-width:760px){.bkx-closed{display:none}.bkx-f input[type=time]{width:112px}.bkx-f label{gap:8px}}\
+@media(max-width:760px){.bkx-closed{display:none}.bkx-f input[type=time]{width:auto;flex:1 1 0!important;min-width:0}.bkx-f input[type=time]::-webkit-calendar-picker-indicator{display:none}.bkx-f label{gap:8px}.bkx-f label>span:first-child{flex:0 0 76px}}\
 .bkx-view{max-width:220px;margin:0 0 14px}\
 .bkx-week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;max-width:1180px}\
 .bkx-wcol{background:var(--sf);border-radius:18px;padding:8px;min-height:220px;display:flex;flex-direction:column;gap:6px}\
@@ -165,7 +165,7 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
   }
 
   function setupHtml() {
-    return '<div class="bkx-sec"><div class="bkx-g" style="padding:20px 18px">' +
+    return '<div class="bkx-sec"><div class="bkx-g" style="padding:20px 18px;max-width:560px">' +
       '<div style="font-size:20px;font-weight:700;margin-bottom:4px">Set up bookings</div>' +
       '<div class="sub" style="margin-bottom:16px">One service and who does it. You can add more later.</div>' +
       '<div class="bkx-f"><label><span>Service</span><input id="bkx-s-name" placeholder="Flu vaccine" value="Flu vaccine"></label>' +
