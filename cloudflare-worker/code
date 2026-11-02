@@ -19732,7 +19732,13 @@ async function ensureBookingsSchema__impl(env) {
       created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')))`,
     `CREATE INDEX IF NOT EXISTS idx_bk_bookings_day ON bk_bookings (org_id, location_id, date, provider_id)`,
     `CREATE UNIQUE INDEX IF NOT EXISTS uq_bk_slot ON bk_bookings (org_id, location_id, provider_id, date, start_time) WHERE status <> 'cancelled'`,
-    `CREATE UNIQUE INDEX IF NOT EXISTS uq_bk_link ON bk_bookings (link_id) WHERE link_id <> ''`
+    `CREATE UNIQUE INDEX IF NOT EXISTS uq_bk_link ON bk_bookings (link_id) WHERE link_id <> ''`,
+    `CREATE TABLE IF NOT EXISTS bk_waitlist (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, org_id INTEGER NOT NULL, location_id INTEGER NOT NULL, service_id INTEGER NOT NULL,
+      person_name TEXT NOT NULL, person_phone TEXT NOT NULL DEFAULT '', person_email TEXT NOT NULL DEFAULT '', note TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'waiting', booking_id INTEGER, created_by INTEGER,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')))`,
+    `CREATE INDEX IF NOT EXISTS idx_bk_waitlist ON bk_waitlist (org_id, location_id, status, service_id, id)`
   ];
   for (const s of stmts) await dbRun(env, s, []);
 }
@@ -19875,6 +19881,35 @@ async function handleBookings(request, env, corsOkHeaders, authUser, url) {
 
   if (parts[0] === "settings") return await handleBookingsSettings(request, env, corsOkHeaders, authUser, url);
 
+  // Waiting list: people waiting for a service, first come first served.
+  if (parts[0] === "waitlist") {
+    const wlRow = (w) => ({ id: w.id, serviceId: w.service_id, personName: w.person_name, personPhone: w.person_phone, personEmail: w.person_email,
+      note: w.note, status: w.status, bookingId: w.booking_id, createdAt: w.created_at });
+    if (m === "GET" && parts.length === 1) {
+      const rows = await dbAll(env, `SELECT * FROM bk_waitlist WHERE org_id=? AND location_id=? AND status='waiting' ORDER BY id`, [org, loc]);
+      return ok({ waiting: rows.map(wlRow) });
+    }
+    if (m === "POST" && parts.length === 1) {
+      const b = await readJson(request) || {};
+      const svc = await bkGetService(env, org, loc, Number(b.serviceId));
+      const name = String(b.personName || "").trim();
+      if (!svc) return bad("Unknown service", 404);
+      if (!name) return bad("Name is required");
+      const r = await dbFirst(env, `INSERT INTO bk_waitlist (org_id, location_id, service_id, person_name, person_phone, person_email, note, created_by) VALUES (?,?,?,?,?,?,?,?) RETURNING *`,
+        [org, loc, svc.id, name, String(b.personPhone || "").trim(), String(b.personEmail || "").trim().toLowerCase(), String(b.note || "").trim(), me]);
+      await writeAudit(env, org, me, "BK_WAITLIST_ADD", "bk_waitlist", String(r.id), { service_id: svc.id });
+      return ok({ entry: wlRow(r) }, 201);
+    }
+    if (m === "PATCH" && parts.length === 2) {
+      const b = await readJson(request) || {};
+      if (b.status !== "removed") return bad("Only removing is allowed here; booking marks it automatically");
+      const r = await dbFirst(env, `UPDATE bk_waitlist SET status='removed', updated_at=datetime('now') WHERE id=? AND org_id=? AND location_id=? AND status='waiting' RETURNING *`, [Number(parts[1]), org, loc]);
+      if (!r) return bad("Not found", 404);
+      return ok({ entry: wlRow(r) });
+    }
+    return bad("Not found", 404);
+  }
+
   // GET /bookings/setup → services + providers
   if (parts[0] === "setup" && m === "GET") {
     const services = await dbAll(env, `SELECT * FROM bk_services WHERE org_id=? AND location_id=? ORDER BY active DESC, sort, name`, [org, loc]);
@@ -20003,6 +20038,8 @@ async function handleBookings(request, env, corsOkHeaders, authUser, url) {
           String(b.personIdCard || "").trim().toUpperCase(), date, start, end, svc.priceCents, String(b.notes || ""), bkRandomHex(16), me, me]);
       await writeAudit(env, org, me, "BK_CREATE", "bk_bookings", String(r.id), { date, start, service_id: svc.id, provider_id: slot.providerId });
       const message = await bkNotify(env, request, r, "confirm");
+      // Booked from the waiting list: mark that entry as done (only if it is for this pharmacy and still waiting).
+      if (b.waitlistId) await dbRun(env, `UPDATE bk_waitlist SET status='booked', booking_id=?, updated_at=datetime('now') WHERE id=? AND org_id=? AND location_id=? AND status='waiting'`, [r.id, Number(b.waitlistId), org, loc]);
       return ok({ booking: bkBookingRow(r), message }, 201);
     } catch (e) {
       if (/UNIQUE/i.test(String(e && e.message))) return bad("That time was just taken", 409, { next: await suggest() });
@@ -20038,9 +20075,16 @@ async function handleBookings(request, env, corsOkHeaders, authUser, url) {
       if (!r) return bad("Changed by someone else", 409);
       await writeAudit(env, org, me, "BK_UPDATE", "bk_bookings", String(id), { status, date, start, provider_id: pid });
       let message = "";
-      if (status === "cancelled" && cur.status !== "cancelled") message = await bkNotify(env, request, r, "cancel");
+      let offer = null;
+      if (status === "cancelled" && cur.status !== "cancelled") {
+        message = await bkNotify(env, request, r, "cancel");
+        // A freed time: offer it to the first person waiting for this service.
+        const w = await dbFirst(env, `SELECT * FROM bk_waitlist WHERE org_id=? AND location_id=? AND service_id=? AND status='waiting' ORDER BY id LIMIT 1`, [org, loc, r.service_id]);
+        if (w) offer = { waitlistId: w.id, personName: w.person_name, personPhone: w.person_phone, personEmail: w.person_email,
+          serviceId: r.service_id, providerId: r.provider_id, date: r.date, start: r.start_time };
+      }
       else if (r.date !== cur.date || r.start_time !== cur.start_time) message = await bkNotify(env, request, r, "change");
-      return ok({ booking: bkBookingRow(r), message });
+      return ok({ booking: bkBookingRow(r), message, offer });
     } catch (e) {
       if (/UNIQUE/i.test(String(e && e.message))) return bad("That time was just taken", 409);
       throw e;

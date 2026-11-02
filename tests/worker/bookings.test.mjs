@@ -132,3 +132,27 @@ test("bookings: next free times start from today and skip what is taken", async 
   eq(n.json.slots.length, 4);
   ok(n.json.slots[0].date >= n.json.serverNow.date, "never in the past");
 });
+
+test("bookings: waiting list — a cancellation offers the freed time to the first person waiting; booking marks them done", async ({ api, bootstrap, addUser, DB }) => {
+  const { token } = await bootstrap();
+  const { sid } = await setup(api, token);
+  const b = (await book(api, token, sid, "09:00")).json.booking;
+  eq((await api("POST", "/bookings/waitlist", { token, body: { serviceId: sid, personName: "Rita Camilleri", personPhone: "79111111" } })).status, 201);
+  eq((await api("POST", "/bookings/waitlist", { token, body: { serviceId: sid, personName: "Second Person" } })).status, 201);
+  eq((await api("POST", "/bookings/waitlist", { token, body: { serviceId: sid, personName: "" } })).status, 400);
+  const c = await api("PATCH", "/bookings/" + b.id, { token, body: { version: 1, status: "cancelled", cancelReason: "Ill" } });
+  eq(c.status, 200);
+  eq([c.json.offer.personName, c.json.offer.start, c.json.offer.date], ["Rita Camilleri", "09:00", MON], "first come, first served");
+  const nb = await api("POST", "/bookings", { token, body: { serviceId: sid, date: MON, start: "09:00", personName: c.json.offer.personName, personPhone: c.json.offer.personPhone, waitlistId: c.json.offer.waitlistId } });
+  eq(nb.status, 201, nb.text);
+  const w = await api("GET", "/bookings/waitlist", { token });
+  eq(w.json.waiting.map((x) => x.personName), ["Second Person"], "Rita leaves the list once booked");
+  eq(DB.q("SELECT status, booking_id FROM bk_waitlist WHERE person_name='Rita Camilleri'")[0].booking_id, nb.json.booking.id);
+  // Removing, and staying inside the pharmacy
+  const second = w.json.waiting[0].id;
+  DB.db.prepare("INSERT INTO locations (id, org_id, name) VALUES (2, 1, 'Sister')").run();
+  const other = await addUser({ locationId: 2, email: "sister@example.com" });
+  eq((await api("PATCH", "/bookings/waitlist/" + second, { token: other.token, body: { status: "removed" } })).status, 404);
+  eq((await api("PATCH", "/bookings/waitlist/" + second, { token, body: { status: "removed" } })).status, 200);
+  eq((await api("GET", "/bookings/waitlist", { token })).json.waiting.length, 0);
+});

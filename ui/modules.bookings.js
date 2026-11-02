@@ -123,6 +123,7 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
       var to = S.view === "week" ? addDays(S.date, 6) : S.date; // the week is one call too
       var r = await api("/bookings?from=" + S.date + "&to=" + to);
       S.bookings = r.bookings || [];
+      try { S.waiting = (await api("/bookings/waitlist")).waiting || []; } catch (e) { S.waiting = []; }
     } catch (e) {
       S.error = e && e.status === 404 ? "Bookings is not switched on for this pharmacy yet." : errMsg(e);
     }
@@ -191,6 +192,12 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
     else {
       body = '<div class="bkx-sec"><h2>' + (isToday ? "Next" : "Booked") + "</h2><div class=\"bkx-g\">" +
         (up.length ? up.map(function (b) { return rowHtml(b, false); }).join("") : '<div class="bkx-empty">' + (isToday ? "Nothing else booked today." : "Nothing booked on this day.") + "</div>") + "</div></div>";
+      if ((S.waiting || []).length) body += '<div class="bkx-sec"><h2>Waiting</h2><div class="bkx-g">' + S.waiting.map(function (w) {
+        var sv = svc(w.serviceId) || {}, days = Math.max(0, Math.round((Date.now() - Date.parse(String(w.createdAt).replace(" ", "T") + "Z")) / 86400000));
+        return '<div class="bkx-r"><div class="bkx-time" style="color:var(--l2)">' + (days ? days + "d" : "new") + '</div><div class="bkx-bar" style="background:' + svcColor(sv) + '"></div>' +
+          '<div class="bkx-txt"><b>' + esc(w.personName) + "</b><span>" + esc(sv.name || "") + (w.note ? " · " + esc(w.note) : "") + "</span></div>" +
+          '<button class="bkx-btn tint" data-act="wl-book" data-id="' + w.id + '">Book</button><button class="bkx-btn" data-act="wl-remove" data-id="' + w.id + '" aria-label="Remove">✕</button></div>';
+      }).join("") + "</div></div>";
       if (past.length) body += '<div class="bkx-sec"><h2>Earlier</h2><div class="bkx-g">' + past.map(function (b) { return rowHtml(b, true); }).join("") + "</div></div>";
     }
     S.mount.innerHTML = '<div class="bkx">' +
@@ -219,7 +226,8 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
         '<label><span>Mobile</span><input id="bkx-phone" inputmode="tel" value="' + esc(sh.phone || "") + '" placeholder="Optional"></label>' +
         '<label><span>Email</span><input id="bkx-email" inputmode="email" value="' + esc(sh.email || "") + '" placeholder="Optional"></label></div>' +
         (sh.err ? '<div class="bkx-err">' + esc(sh.err) + "</div>" : "") +
-        '<button class="bkx-btn fill lg" data-act="book"' + (sh.saving ? " disabled" : "") + ">" + (sh.saving ? "Booking…" : "Book " + esc(chosen ? chosen.name.toLowerCase() : "") + (sh.slot ? " · " + esc(dayShort(sh.slot.date)) + " " + esc(sh.slot.time) : "")) + "</button>";
+        '<button class="bkx-btn fill lg" data-act="book"' + (sh.saving ? " disabled" : "") + ">" + (sh.saving ? "Booking…" : "Book " + esc(chosen ? chosen.name.toLowerCase() : "") + (sh.slot ? " · " + esc(dayShort(sh.slot.date)) + " " + esc(sh.slot.time) : "")) + "</button>" +
+        (sh.waitlistId ? "" : '<button class="bkx-btn lg" data-act="wl-add" style="margin-top:8px">No time suits? Add to the waiting list</button>');
     }
     if (sh.kind === "booking") {
       var b = S.bookings.find(function (x) { return x.id === sh.id; }); if (!b) return "";
@@ -237,6 +245,14 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
             '<button class="bkx-btn red lg" data-act="cancel">Cancel booking</button></div>');
     }
     if (sh.kind === "settings") inner = settingsHtml(sh);
+    if (sh.kind === "offer") {
+      var o = sh.offer, osv = svc(o.serviceId) || {};
+      inner = '<div class="bkx-sh"><span style="width:60px"></span><b>A time just freed up</b><span style="width:60px"></span></div>' +
+        '<div class="bkx-g" style="padding:18px"><div style="font-size:20px;font-weight:700">' + esc(dayShort(o.date).replace(/^./, function (c) { return c.toUpperCase(); })) + " at " + esc(o.start) + '</div><div class="sub">' +
+        esc(o.personName) + " is first on the waiting list for " + esc((osv.name || "this").toLowerCase()) + (o.personPhone ? " · " + esc(o.personPhone) : "") + "</div></div>" +
+        (sh.err ? '<div class="bkx-err" style="margin-top:12px">' + esc(sh.err) + "</div>" : "") +
+        '<div class="bkx-acts" style="margin-top:16px"><button class="bkx-btn fill lg" data-act="offer-book">Book ' + esc(o.personName.split(" ")[0]) + " at " + esc(o.start) + '</button><button class="bkx-btn lg" data-act="close">Not now</button></div>';
+    }
     return '<div class="bkx-scrim" data-act="close"></div><div class="bkx-sheet bkx" style="padding-top:10px;min-height:0"><div class="bkx-grab"></div>' + inner + "</div>";
   }
 
@@ -318,6 +334,28 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
     var act = t.getAttribute("data-act");
     keepFields();
     if (act === "day") { S.date = t.getAttribute("data-d"); return load({ silent: true }); }
+    if (act === "wl-book") {
+      var w = (S.waiting || []).find(function (x) { return x.id === Number(t.getAttribute("data-id")); }); if (!w) return;
+      S.sheet = { kind: "new", serviceId: w.serviceId, slots: [], slot: null, name: w.personName, phone: w.personPhone, email: w.personEmail, waitlistId: w.id };
+      paint(); return loadSlots();
+    }
+    if (act === "wl-remove") {
+      try { await api("/bookings/waitlist/" + t.getAttribute("data-id"), { method: "PATCH", body: JSON.stringify({ status: "removed" }) }); toast("Removed from the waiting list"); } catch (e) { toast(errMsg(e), "error"); }
+      return load({ silent: true });
+    }
+    if (act === "wl-add") {
+      var sh2 = S.sheet;
+      if (!String(sh2.name || "").trim()) { sh2.err = "Type the person's name."; return paint(); }
+      try { await api("/bookings/waitlist", { method: "POST", body: JSON.stringify({ serviceId: sh2.serviceId, personName: sh2.name, personPhone: sh2.phone, personEmail: sh2.email }) });
+        S.sheet = null; toast(sh2.name + " is on the waiting list"); return load({ silent: true }); }
+      catch (e) { sh2.err = errMsg(e); return paint(); }
+    }
+    if (act === "offer-book") {
+      var o = S.sheet.offer;
+      try { var rb = await api("/bookings", { method: "POST", body: JSON.stringify({ serviceId: o.serviceId, providerId: o.providerId, date: o.date, start: o.start, personName: o.personName, personPhone: o.personPhone, personEmail: o.personEmail, waitlistId: o.waitlistId }) });
+        S.sheet = null; toast("Booked " + rb.booking.personName + " · " + o.start); return load({ silent: true }); }
+      catch (e) { S.sheet.err = e && e.status === 409 ? "Someone took that time first." : errMsg(e); return paint(); }
+    }
     if (act === "view") { S.view = t.getAttribute("data-v"); return load({ silent: true }); }
     if (act === "openday") { S.view = "day"; S.date = t.getAttribute("data-d"); return load({ silent: true }); }
     if (act === "close") { S.sheet = null; return paint(); }
@@ -335,7 +373,7 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
       if (!String(sh.name || "").trim()) { sh.err = "Type the person's name."; return paint(); }
       sh.saving = true; sh.err = ""; paint();
       try {
-        var r = await api("/bookings", { method: "POST", body: JSON.stringify({ serviceId: sh.serviceId, providerId: sh.slot.providerId, date: sh.slot.date, start: sh.slot.time, personName: sh.name, personPhone: sh.phone, personEmail: sh.email }) });
+        var r = await api("/bookings", { method: "POST", body: JSON.stringify({ serviceId: sh.serviceId, providerId: sh.slot.providerId, date: sh.slot.date, start: sh.slot.time, personName: sh.name, personPhone: sh.phone, personEmail: sh.email, waitlistId: sh.waitlistId || undefined }) });
         S.sheet = null; S.date = r.booking.date; toast("Booked " + r.booking.personName + " · " + dayShort(r.booking.date) + " " + r.booking.start);
         return load({ silent: true });
       } catch (e) {
@@ -356,7 +394,9 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
       try {
         var u = await api("/bookings/" + b.id, { method: "PATCH", body: JSON.stringify(body) });
         S.bookings = S.bookings.map(function (x) { return x.id === b.id ? u.booking : x; });
-        S.sheet = null; toast(act === "docancel" ? "Cancelled" : ({ arrived: "Marked as here", done: "Done", no_show: "Marked as no-show" })[body.status]); paint();
+        S.sheet = null; toast(act === "docancel" ? "Cancelled" : ({ arrived: "Marked as here", done: "Done", no_show: "Marked as no-show" })[body.status]);
+        if (act === "docancel" && u.offer) S.sheet = { kind: "offer", offer: u.offer };
+        paint();
       } catch (e) {
         if (e && e.status === 409) { S.sheet.err = "Someone else changed this booking. Showing the latest."; await load({ silent: true }); S.sheet = { kind: "booking", id: b.id, err: S.sheet ? S.sheet.err : "" }; return paint(); }
         S.sheet.err = errMsg(e); paint();
