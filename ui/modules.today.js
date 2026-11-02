@@ -197,7 +197,7 @@
     var user = E.state.user || {};
     var html = '<div class="tdy">';
     if (state.error) html += '<div class="tdy-off">' + esc(state.error) + (state.loadedAt ? " Showing what we had at " + hm(state.loadedAt) + "." : " Nothing to show yet.") + '</div>';
-    html += '<label class="tdy-search"><span aria-hidden="true">🔍</span><input id="tdy-q" type="search" placeholder="What do you need? A customer, a product, a register…" autocomplete="off" value="' + esc(state.search) + '"><span class="hint">Enter opens it</span></label>';
+    html += '<label class="tdy-search"><span aria-hidden="true"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" style="color:rgba(60,60,67,.55);flex:none;display:block"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span><input id="tdy-q" type="search" placeholder="What do you need? A customer, a product, a register…" autocomplete="off" value="' + esc(state.search) + '"><span class="hint">Enter opens it</span></label>';
     html += '<div class="tdy-date"><b>' + esc(longDate(d && d.date)) + '</b><span>' + esc(d && d.time ? d.time : hm()) + (user.location_name ? " · " + esc(user.location_name) : "") + '</span></div>';
 
     if (!d) {

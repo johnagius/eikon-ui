@@ -57,7 +57,7 @@
     st.id = "eikon-customers-css";
     st.textContent =
       ".cus{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:360px minmax(0,1fr);gap:18px;align-items:start}" +
-      "@media (max-width:900px){.cus{grid-template-columns:1fr}.cus-detail{order:-1}}" +
+      "@media (max-width:900px){.cus{grid-template-columns:1fr}.cus-detail{order:-1}.cus-pick{display:none}}@media (max-width:600px){.cus{padding:0 16px}}" +
       ".cus-search{display:flex;align-items:center;gap:10px;background:var(--panel2);border:1px solid var(--border);border-radius:14px;padding:0 14px;height:48px}" +
       ".cus-search input{flex:1;border:0;outline:0;background:transparent;color:var(--text);font-size:15.5px;min-width:0}.cus-search input::placeholder{color:var(--muted)}" +
       ".cus-lab{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:16px 2px 7px;display:flex;gap:8px;align-items:center}.cus-lab b{color:var(--text)}.cus-lab a{margin-left:auto;color:var(--accent);font-weight:600;text-transform:none;letter-spacing:0;font-size:12.5px;cursor:pointer}" +
@@ -197,7 +197,7 @@
   function render() {
     var m = state.mount; if (!m) return;
     m.innerHTML = '<div class="cus"><div class="cus-side">' +
-      '<div class="cus-search"><span aria-hidden="true">⌕</span><input id="cus-q" type="search" autocomplete="off" placeholder="Name, ID card or phone" value="' + esc(state.q) + '"></div>' +
+      '<div class="cus-search"><span aria-hidden="true"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" style="color:rgba(60,60,67,.55);flex:none;display:block"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span><input id="cus-q" type="search" autocomplete="off" placeholder="Name, ID card or phone" value="' + esc(state.q) + '"></div>' +
       '<div id="cus-list"></div>' +
       '<div class="cus-regs"><span>Registers</span>' + [["clientorders", "Orders"], ["tickets", "Questions"], ["deliveries", "Deliveries"], ["appointments", "Appointments"], ["loyalty", "Loyalty"]].filter(function (x) { return E.modules[x[0]]; }).map(function (x) { return '<a data-reg="' + x[0] + '">' + x[1] + '</a>'; }).join("") + '</div>' +
       '</div><div class="cus-detail" id="cus-detail"></div></div>';
@@ -280,7 +280,7 @@
       return;
     }
     if (!state.selected) {
-      box.innerHTML = '<div class="cus-quiet" style="padding:34px;text-align:center">Pick a customer on the left, or search for one.<br><span style="font-size:12.5px">Everything the pharmacy has done with them, in one place.</span></div>';
+      box.innerHTML = '<div class="cus-quiet cus-pick" style="padding:34px;text-align:center">Pick a customer on the left, or search for one.<br><span style="font-size:12.5px">Everything the pharmacy has done with them, in one place.</span></div>';
       return;
     }
     if (state.detailLoading && !state.detail) { box.innerHTML = '<div class="cus-card"><div class="cus-lab" style="margin:0">Opening…</div></div>'; return; }

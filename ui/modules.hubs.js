@@ -89,12 +89,12 @@
       groups: [
         { label: "You", actions: [
           { title: "Password", desc: "Change the password you sign in with.", run: function () { E.showChangePassword(); } },
-          { title: "Sign out", desc: "Sign out on this computer.", run: function () { E.logout(); } }
+          { title: "Sign out", desc: "Sign out on this device.", run: function () { E.logout(); } }
         ] },
         { label: "This pharmacy", ids: ["certificates", "contacts", "audit"] },
         { label: "Help", actions: [
           { title: "Help & guides", desc: "Short guides for every register.", run: function () { E.showHelpGuide(); } },
-          { title: "Classic layout", desc: "Go back to the old sidebar and dashboard. You can return with ?ui=2.", run: function () { try { localStorage.removeItem("eikon_ui2"); } catch (e) {} var u = new URL(window.location.href); u.searchParams.set("ui", "1"); u.hash = "#dashboard"; window.location.href = u.toString(); } },
+          { title: "Classic layout", desc: "The previous look, with the old sidebar. The link you were given brings you back here.", run: function () { try { localStorage.removeItem("eikon_ui2"); } catch (e) {} var u = new URL(window.location.href); u.searchParams.set("ui", "1"); u.hash = "#dashboard"; window.location.href = u.toString(); } },
           { title: "Old dashboard", desc: "The previous home screen, unchanged.", run: function () { window.location.hash = "#dashboard"; } }
         ] }
       ]
@@ -109,9 +109,13 @@
       ".hub{max-width:1180px;margin:0 auto}.hub h1{font-size:26px;letter-spacing:-.025em;margin:4px 0 6px;line-height:1.1;font-weight:800}.hub .lead{color:var(--muted);font-size:14.5px;margin:0 0 6px;max-width:640px;line-height:1.5}" +
       ".hub-lab{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:22px 2px 8px}" +
       ".hub-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}" +
-      ".hub-card{display:block;width:100%;text-align:left;background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;color:var(--text);cursor:pointer;min-height:76px}" +
-      ".hub-card:hover{border-color:rgba(31,95,216,.45)}.hub-card b{display:block;font-size:14.5px;font-weight:700;letter-spacing:-.01em;margin-bottom:3px}.hub-card span{display:block;font-size:12.5px;color:var(--muted);line-height:1.45}" +
+      ".hub-card{display:block;position:relative;width:100%;text-align:left;font:inherit;background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:14px 34px 14px 16px;color:var(--text);cursor:pointer;min-height:76px;outline:0;-webkit-tap-highlight-color:transparent}" +
+      ".hub-card::after{content:'';position:absolute;right:16px;top:50%;width:7px;height:7px;border-right:2px solid rgba(60,60,67,.3);border-top:2px solid rgba(60,60,67,.3);transform:translateY(-50%) rotate(45deg)}" +
+      ".hub-card:hover{background:rgba(118,118,128,.06)}.hub-card:active{background:rgba(118,118,128,.12)}.hub-card:focus-visible{box-shadow:0 0 0 3px rgba(10,143,106,.35)}" +
+      ".hub-card b{display:block;font-size:14.5px;font-weight:700;letter-spacing:-.01em;margin-bottom:3px}.hub-card span{display:block;font-size:12.5px;color:var(--muted);line-height:1.45}" +
       ".hub-card.missing{opacity:.5;cursor:default}" +
+      "@media (max-width:600px){.hub{padding:4px 16px 0}.hub h1{font-size:32px;margin-top:8px}.hub-grid{display:block;background:var(--panel2);border:1px solid var(--border);border-radius:12px;overflow:hidden}" +
+      ".hub-card{border:0;border-radius:0;min-height:0;padding:12px 40px 12px 16px;border-top:.5px solid var(--border)}.hub-card:first-child{border-top:0}.hub-card b{font-size:16px;font-weight:600}.hub-card span{font-size:13px}}" +
       ".hub-note{font-size:13px;color:var(--muted2,#8A94A3)}";
     document.head.appendChild(st);
   }
@@ -121,7 +125,7 @@
       var m = ctx && ctx.mount; if (!m) return;
       injectCss();
       var html = '<div class="hub"><h1>' + esc(cfg.title) + '</h1><p class="lead">' + esc(cfg.lead) + '</p>' +
-        '<p class="lead hub-note">These still open in classic Eikon, exactly as before, with one button back here. Each becomes a new screen in its turn.</p>';
+        '';
       cfg.groups.forEach(function (g, gi) {
         var cards = "";
         (g.ids || []).forEach(function (mid) {
