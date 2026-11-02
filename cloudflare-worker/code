@@ -16076,6 +16076,12 @@ export default {
 const authUser = await authFromRequest(request, env);
     if (!authUser) return jsonResponse({ ok: false, error: "Unauthorized" }, 401, corsOkHeaders);
 
+    // Bookings (Eikon Next appointments)
+    if (url.pathname === "/bookings" || url.pathname.startsWith("/bookings/")) {
+      if (!cors.ok) return jsonResponse({ ok: false, error: "CORS blocked" }, 403, corsOkHeaders);
+      return await handleBookings(request, env, corsOkHeaders, authUser, url);
+    }
+
 //  SECTION 2 — ROUTER ENTRIES
 //  Paste these lines inside the fetch() handler, before the final 404 fallback.
 //  They go after auth is confirmed (after the `if (!authUser)` block).
@@ -19645,4 +19651,357 @@ async function handleAdminPharmacyOverview(request, env, corsOkHeaders, authUser
     locum_register: locum_register,
     repeat_prescriptions: repeat_prescriptions
   }, 200, corsOkHeaders);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   BOOKINGS (Eikon Next appointments) — services, providers, hours, bookings.
+   Free slots are computed from rules, never stored. A partial unique index is the
+   final guard against two bookings for one provider at one start time.
+   New tables only (bk_*); the legacy appt_* tables are not touched.
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+const BK_STATUSES = ["booked", "confirmed", "arrived", "done", "no_show", "cancelled"];
+const BK_MAX_RANGE_DAYS = 62;
+
+async function ensureBookingsSchema__impl(env) {
+  const stmts = [
+    `CREATE TABLE IF NOT EXISTS bk_services (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, org_id INTEGER NOT NULL, location_id INTEGER NOT NULL,
+      name TEXT NOT NULL, duration_min INTEGER NOT NULL DEFAULT 15, buffer_min INTEGER NOT NULL DEFAULT 0,
+      price_cents INTEGER NOT NULL DEFAULT 0, color TEXT NOT NULL DEFAULT '', provider_ids_json TEXT NOT NULL DEFAULT '[]',
+      online INTEGER NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 1, sort INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')))`,
+    `CREATE INDEX IF NOT EXISTS idx_bk_services_loc ON bk_services (org_id, location_id, active)`,
+    `CREATE TABLE IF NOT EXISTS bk_providers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, org_id INTEGER NOT NULL, location_id INTEGER NOT NULL,
+      name TEXT NOT NULL, kind TEXT NOT NULL DEFAULT 'pharmacist', hours_json TEXT NOT NULL DEFAULT '{}',
+      active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')))`,
+    `CREATE INDEX IF NOT EXISTS idx_bk_providers_loc ON bk_providers (org_id, location_id, active)`,
+    `CREATE TABLE IF NOT EXISTS bk_exceptions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, org_id INTEGER NOT NULL, location_id INTEGER NOT NULL,
+      provider_id INTEGER NOT NULL, date TEXT NOT NULL, kind TEXT NOT NULL, start_time TEXT NOT NULL DEFAULT '',
+      end_time TEXT NOT NULL DEFAULT '', note TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT (datetime('now')))`,
+    `CREATE INDEX IF NOT EXISTS idx_bk_exc ON bk_exceptions (org_id, location_id, provider_id, date)`,
+    `CREATE TABLE IF NOT EXISTS bk_bookings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, org_id INTEGER NOT NULL, location_id INTEGER NOT NULL,
+      ref TEXT NOT NULL DEFAULT '', service_id INTEGER NOT NULL, provider_id INTEGER NOT NULL,
+      person_name TEXT NOT NULL, person_phone TEXT NOT NULL DEFAULT '', person_email TEXT NOT NULL DEFAULT '',
+      person_id_card TEXT NOT NULL DEFAULT '', date TEXT NOT NULL, start_time TEXT NOT NULL, end_time TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'booked', price_cents INTEGER NOT NULL DEFAULT 0, notes TEXT NOT NULL DEFAULT '',
+      cancel_reason TEXT NOT NULL DEFAULT '', link_id TEXT NOT NULL DEFAULT '', version INTEGER NOT NULL DEFAULT 1,
+      created_by INTEGER, updated_by INTEGER,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')))`,
+    `CREATE INDEX IF NOT EXISTS idx_bk_bookings_day ON bk_bookings (org_id, location_id, date, provider_id)`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS uq_bk_slot ON bk_bookings (org_id, location_id, provider_id, date, start_time) WHERE status <> 'cancelled'`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS uq_bk_link ON bk_bookings (link_id) WHERE link_id <> ''`
+  ];
+  for (const s of stmts) await dbRun(env, s, []);
+}
+const ensureBookingsSchema = schemaOnce("ensureBookingsSchema", ensureBookingsSchema__impl);
+
+/* ---------- small helpers ---------- */
+function bkMin(t) { const m = /^(\d{2}):(\d{2})$/.exec(String(t || "")); return m ? Number(m[1]) * 60 + Number(m[2]) : NaN; }
+function bkTime(min) { const h = Math.floor(min / 60), m = min % 60; return String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0"); }
+function bkWeekday(ymd) { const [y, m, d] = ymd.split("-").map(Number); return new Date(Date.UTC(y, m - 1, d)).getUTCDay(); }
+function bkAddDays(ymd, n) { const [y, m, d] = ymd.split("-").map(Number); const t = new Date(Date.UTC(y, m - 1, d + n)); return t.toISOString().slice(0, 10); }
+function bkDaysBetween(a, b) { return Math.round((Date.parse(b + "T00:00:00Z") - Date.parse(a + "T00:00:00Z")) / 86400000); }
+function bkNowLocal(env) {
+  // Local wall-clock date/time of the pharmacy (default Europe/Malta), DST-correct.
+  const tz = (env && env.BOOKINGS_TIMEZONE) || "Europe/Malta";
+  const parts = new Intl.DateTimeFormat("en-GB", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(new Date());
+  const g = (t) => (parts.find((p) => p.type === t) || {}).value;
+  const hh = g("hour") === "24" ? "00" : g("hour");
+  return { date: `${g("year")}-${g("month")}-${g("day")}`, min: Number(hh) * 60 + Number(g("minute")) };
+}
+function bkJson(s, dflt) { try { const v = JSON.parse(s); return v == null ? dflt : v; } catch (e) { return dflt; } }
+function bkCleanHours(h) {
+  // { "1": [["09:00","13:00"],["16:00","19:00"]], ... } weekday 0=Sunday
+  const out = {};
+  if (!h || typeof h !== "object") return out;
+  for (let wd = 0; wd <= 6; wd++) {
+    const arr = Array.isArray(h[wd]) ? h[wd] : Array.isArray(h[String(wd)]) ? h[String(wd)] : [];
+    const wins = [];
+    for (const w of arr) {
+      if (!Array.isArray(w) || w.length < 2) continue;
+      const a = bkMin(w[0]), b = bkMin(w[1]);
+      if (Number.isFinite(a) && Number.isFinite(b) && b > a) wins.push([bkTime(a), bkTime(b)]);
+    }
+    if (wins.length) out[wd] = wins;
+  }
+  return out;
+}
+function bkServiceRow(r) {
+  return { id: r.id, name: r.name, durationMin: r.duration_min, bufferMin: r.buffer_min, priceCents: r.price_cents,
+    color: r.color, providerIds: bkJson(r.provider_ids_json, []), online: !!r.online, active: !!r.active, sort: r.sort };
+}
+function bkProviderRow(r) { return { id: r.id, name: r.name, kind: r.kind, hours: bkJson(r.hours_json, {}), active: !!r.active }; }
+function bkBookingRow(r) {
+  return { id: r.id, ref: r.ref, serviceId: r.service_id, providerId: r.provider_id, personName: r.person_name,
+    personPhone: r.person_phone, personEmail: r.person_email, personIdCard: r.person_id_card, date: r.date,
+    start: r.start_time, end: r.end_time, status: r.status, priceCents: r.price_cents, notes: r.notes,
+    cancelReason: r.cancel_reason, version: r.version, createdAt: r.created_at, updatedAt: r.updated_at };
+}
+function bkRandomHex(bytes) { const a = crypto.getRandomValues(new Uint8Array(bytes)); return Array.from(a, (b) => b.toString(16).padStart(2, "0")).join(""); }
+function bkRef() { const c = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; const a = crypto.getRandomValues(new Uint8Array(6)); return "B-" + Array.from(a, (b) => c[b % c.length]).join(""); }
+
+/* ---------- free slots ---------- */
+async function bkLoadDay(env, org, loc, date, providerIds, excludeId) {
+  if (!providerIds.length) return { exc: [], booked: [] };
+  const ph = providerIds.map(() => "?").join(",");
+  const exc = await dbAll(env, `SELECT provider_id, kind, start_time, end_time FROM bk_exceptions WHERE org_id=? AND location_id=? AND date=? AND provider_id IN (${ph})`, [org, loc, date, ...providerIds]);
+  const booked = await dbAll(env,
+    `SELECT b.provider_id, b.start_time, b.end_time, COALESCE(s.buffer_min,0) AS buffer_min
+       FROM bk_bookings b LEFT JOIN bk_services s ON s.id=b.service_id
+      WHERE b.org_id=? AND b.location_id=? AND b.date=? AND b.status<>'cancelled' AND b.id<>? AND b.provider_id IN (${ph})`,
+    [org, loc, date, Number(excludeId) || 0, ...providerIds]);
+  return { exc, booked };
+}
+
+// Pure: windows minus exceptions minus bookings → candidate start times for one provider.
+function bkFreeStarts({ hours, date, exc, booked, durationMin, bufferMin, notBeforeMin }) {
+  let wins = (hours[bkWeekday(date)] || []).map((w) => [bkMin(w[0]), bkMin(w[1])]);
+  for (const e of exc) {
+    if (e.kind === "extra") wins.push([bkMin(e.start_time), bkMin(e.end_time)]);
+  }
+  for (const e of exc) {
+    if (e.kind !== "off") continue;
+    if (!e.start_time) { wins = []; break; } // whole day off
+    const a = bkMin(e.start_time), b = bkMin(e.end_time);
+    const next = [];
+    for (const [s, t] of wins) {
+      if (b <= s || a >= t) { next.push([s, t]); continue; }
+      if (a > s) next.push([s, a]);
+      if (b < t) next.push([b, t]);
+    }
+    wins = next;
+  }
+  const busy = booked.map((b) => [bkMin(b.start_time), bkMin(b.end_time) + (Number(b.buffer_min) || 0)]);
+  const step = durationMin + bufferMin;
+  const out = [];
+  wins.sort((x, y) => x[0] - y[0]);
+  for (const [s, t] of wins) {
+    for (let m = s; m + durationMin <= t; m += step) {
+      if (m < notBeforeMin) continue;
+      const end = m + durationMin + bufferMin;
+      if (busy.some(([bs, be]) => m < be && end > bs)) continue;
+      out.push(m);
+    }
+  }
+  return Array.from(new Set(out)).sort((a, b) => a - b);
+}
+
+async function bkSlotsFor(env, org, loc, service, date, onlyProviderId, excludeId) {
+  const now = bkNowLocal(env);
+  if (date < now.date) return [];
+  const pids = (service.providerIds || []).map(Number).filter((n) => !onlyProviderId || n === Number(onlyProviderId));
+  if (!pids.length) return [];
+  const provs = await dbAll(env, `SELECT * FROM bk_providers WHERE org_id=? AND location_id=? AND active=1 AND id IN (${pids.map(() => "?").join(",")})`, [org, loc, ...pids]);
+  const { exc, booked } = await bkLoadDay(env, org, loc, date, provs.map((p) => p.id), excludeId);
+  const notBefore = date === now.date ? now.min + 1 : 0;
+  const slots = [];
+  for (const p of provs) {
+    const starts = bkFreeStarts({ hours: bkJson(p.hours_json, {}), date, exc: exc.filter((e) => e.provider_id === p.id),
+      booked: booked.filter((b) => b.provider_id === p.id), durationMin: service.durationMin, bufferMin: service.bufferMin, notBeforeMin: notBefore });
+    for (const m of starts) slots.push({ time: bkTime(m), providerId: p.id, providerName: p.name });
+  }
+  slots.sort((a, b) => (a.time < b.time ? -1 : a.time > b.time ? 1 : a.providerId - b.providerId));
+  return slots;
+}
+
+async function bkNextSlots(env, org, loc, service, fromDate, count, days) {
+  const out = [];
+  for (let i = 0; i < days && out.length < count; i++) {
+    const d = bkAddDays(fromDate, i);
+    const s = await bkSlotsFor(env, org, loc, service, d, null);
+    for (const x of s) { out.push({ date: d, ...x }); if (out.length >= count) break; }
+  }
+  return out;
+}
+
+async function bkGetService(env, org, loc, id) {
+  const r = await dbFirst(env, `SELECT * FROM bk_services WHERE id=? AND org_id=? AND location_id=?`, [id, org, loc]);
+  return r ? bkServiceRow(r) : null;
+}
+
+/* ---------- router ---------- */
+async function handleBookings(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureBookingsSchema(env);
+  const org = authUser.org_id, loc = authUser.location_id, me = authUser.user_id;
+  const isAdmin = requireRole(authUser, ["admin"]);
+  const parts = url.pathname.replace(/^\/bookings\/?/, "").split("/").filter(Boolean);
+  const m = request.method;
+  const ok = (data, status = 200) => jsonResponse({ ok: true, serverNow: bkNowLocal(env), ...data }, status, corsOkHeaders);
+  const bad = (error, status = 400, extra = {}) => jsonResponse({ ok: false, error, ...extra }, status, corsOkHeaders);
+
+  // GET /bookings/setup → services + providers
+  if (parts[0] === "setup" && m === "GET") {
+    const services = await dbAll(env, `SELECT * FROM bk_services WHERE org_id=? AND location_id=? ORDER BY active DESC, sort, name`, [org, loc]);
+    const providers = await dbAll(env, `SELECT * FROM bk_providers WHERE org_id=? AND location_id=? ORDER BY active DESC, name`, [org, loc]);
+    return ok({ services: services.map(bkServiceRow), providers: providers.map(bkProviderRow) });
+  }
+
+  // Services
+  if (parts[0] === "services" && (m === "POST" || m === "PUT")) {
+    if (!isAdmin) return bad("Only an admin can change services", 403);
+    const b = await readJson(request) || {};
+    const name = String(b.name || "").trim();
+    const dur = Math.round(Number(b.durationMin));
+    const buf = Math.max(0, Math.round(Number(b.bufferMin) || 0));
+    const price = Math.max(0, Math.round(Number(b.priceCents) || 0));
+    const pids = Array.isArray(b.providerIds) ? b.providerIds.map(Number).filter((n) => n > 0) : [];
+    if (!name) return bad("Name is required");
+    if (!(dur >= 5 && dur <= 480)) return bad("Length must be 5 to 480 minutes");
+    if (buf > 120) return bad("Buffer must be at most 120 minutes");
+    if (pids.length) {
+      const n = await dbFirst(env, `SELECT COUNT(*) AS c FROM bk_providers WHERE org_id=? AND location_id=? AND id IN (${pids.map(() => "?").join(",")})`, [org, loc, ...pids]);
+      if (Number(n.c) !== pids.length) return bad("Unknown provider");
+    }
+    if (m === "POST" && parts.length === 1) {
+      const r = await dbFirst(env, `INSERT INTO bk_services (org_id, location_id, name, duration_min, buffer_min, price_cents, color, provider_ids_json, online, active, sort)
+        VALUES (?,?,?,?,?,?,?,?,?,1,?) RETURNING *`, [org, loc, name, dur, buf, price, String(b.color || ""), JSON.stringify(pids), b.online ? 1 : 0, Math.round(Number(b.sort) || 0)]);
+      await writeAudit(env, org, me, "BK_SERVICE_CREATE", "bk_services", String(r.id), { name });
+      return ok({ service: bkServiceRow(r) }, 201);
+    }
+    if (m === "PUT" && parts.length === 2) {
+      const r = await dbFirst(env, `UPDATE bk_services SET name=?, duration_min=?, buffer_min=?, price_cents=?, color=?, provider_ids_json=?, online=?, active=?, sort=?, updated_at=datetime('now')
+        WHERE id=? AND org_id=? AND location_id=? RETURNING *`, [name, dur, buf, price, String(b.color || ""), JSON.stringify(pids), b.online ? 1 : 0, b.active === false ? 0 : 1, Math.round(Number(b.sort) || 0), Number(parts[1]), org, loc]);
+      if (!r) return bad("Not found", 404);
+      await writeAudit(env, org, me, "BK_SERVICE_UPDATE", "bk_services", String(r.id), { name });
+      return ok({ service: bkServiceRow(r) });
+    }
+  }
+
+  // Providers (people or rooms) with weekly hours
+  if (parts[0] === "providers" && (m === "POST" || m === "PUT")) {
+    if (!isAdmin) return bad("Only an admin can change providers", 403);
+    const b = await readJson(request) || {};
+    const name = String(b.name || "").trim();
+    const kind = ["pharmacist", "doctor", "nurse", "room", "other"].includes(b.kind) ? b.kind : "pharmacist";
+    const hours = bkCleanHours(b.hours);
+    if (!name) return bad("Name is required");
+    if (m === "POST" && parts.length === 1) {
+      const r = await dbFirst(env, `INSERT INTO bk_providers (org_id, location_id, name, kind, hours_json) VALUES (?,?,?,?,?) RETURNING *`, [org, loc, name, kind, JSON.stringify(hours)]);
+      await writeAudit(env, org, me, "BK_PROVIDER_CREATE", "bk_providers", String(r.id), { name });
+      return ok({ provider: bkProviderRow(r) }, 201);
+    }
+    if (m === "PUT" && parts.length === 2) {
+      const r = await dbFirst(env, `UPDATE bk_providers SET name=?, kind=?, hours_json=?, active=?, updated_at=datetime('now') WHERE id=? AND org_id=? AND location_id=? RETURNING *`,
+        [name, kind, JSON.stringify(hours), b.active === false ? 0 : 1, Number(parts[1]), org, loc]);
+      if (!r) return bad("Not found", 404);
+      await writeAudit(env, org, me, "BK_PROVIDER_UPDATE", "bk_providers", String(r.id), { name });
+      return ok({ provider: bkProviderRow(r) });
+    }
+  }
+
+  // Exceptions: a day or a few hours off, or an extra window
+  if (parts[0] === "exceptions") {
+    if (!isAdmin) return bad("Only an admin can change hours", 403);
+    if (m === "POST" && parts.length === 1) {
+      const b = await readJson(request) || {};
+      const pid = Number(b.providerId), date = String(b.date || ""), kind = b.kind === "extra" ? "extra" : "off";
+      const st = String(b.start || ""), en = String(b.end || "");
+      if (!isValidYmd(date)) return bad("Invalid date");
+      if (!(await dbFirst(env, `SELECT id FROM bk_providers WHERE id=? AND org_id=? AND location_id=?`, [pid, org, loc]))) return bad("Unknown provider");
+      if (kind === "extra" || st || en) { if (!(bkMin(en) > bkMin(st))) return bad("End must be after start"); }
+      const r = await dbFirst(env, `INSERT INTO bk_exceptions (org_id, location_id, provider_id, date, kind, start_time, end_time, note) VALUES (?,?,?,?,?,?,?,?) RETURNING id`,
+        [org, loc, pid, date, kind, st, en, String(b.note || "")]);
+      return ok({ id: r.id }, 201);
+    }
+    if (m === "DELETE" && parts.length === 2) {
+      await dbRun(env, `DELETE FROM bk_exceptions WHERE id=? AND org_id=? AND location_id=?`, [Number(parts[1]), org, loc]);
+      return ok({});
+    }
+  }
+
+  // GET /bookings/slots?service_id&date[&provider_id]
+  if (parts[0] === "slots" && m === "GET") {
+    const svc = await bkGetService(env, org, loc, Number(url.searchParams.get("service_id")));
+    const date = String(url.searchParams.get("date") || "");
+    if (!svc) return bad("Unknown service", 404);
+    if (!isValidYmd(date)) return bad("Invalid date");
+    return ok({ date, slots: await bkSlotsFor(env, org, loc, svc, date, url.searchParams.get("provider_id")) });
+  }
+  // GET /bookings/next?service_id → the next free times, today first
+  if (parts[0] === "next" && m === "GET") {
+    const svc = await bkGetService(env, org, loc, Number(url.searchParams.get("service_id")));
+    if (!svc) return bad("Unknown service", 404);
+    const count = Math.min(12, Math.max(1, Number(url.searchParams.get("count")) || 6));
+    return ok({ slots: await bkNextSlots(env, org, loc, svc, bkNowLocal(env).date, count, 21) });
+  }
+
+  // GET /bookings?from&to → one date range only
+  if (parts.length === 0 && m === "GET") {
+    const from = String(url.searchParams.get("from") || ""), to = String(url.searchParams.get("to") || from);
+    if (!isValidYmd(from) || !isValidYmd(to) || to < from) return bad("from and to are required (YYYY-MM-DD)");
+    if (bkDaysBetween(from, to) > BK_MAX_RANGE_DAYS) return bad(`At most ${BK_MAX_RANGE_DAYS} days at a time`);
+    const rows = await dbAll(env, `SELECT * FROM bk_bookings WHERE org_id=? AND location_id=? AND date>=? AND date<=? ORDER BY date, start_time, provider_id`, [org, loc, from, to]);
+    return ok({ from, to, bookings: rows.map(bkBookingRow) });
+  }
+
+  // POST /bookings → book a slot
+  if (parts.length === 0 && m === "POST") {
+    const b = await readJson(request) || {};
+    const svc = await bkGetService(env, org, loc, Number(b.serviceId));
+    if (!svc || !svc.active) return bad("Unknown service", 404);
+    const date = String(b.date || ""), start = String(b.start || ""), pid = Number(b.providerId);
+    const name = String(b.personName || "").trim();
+    if (!name) return bad("Name is required");
+    if (!isValidYmd(date) || !Number.isFinite(bkMin(start))) return bad("Invalid date or time");
+    // The slot must be one the rules allow right now (hours, exceptions, other bookings, buffers, not in the past).
+    const free = await bkSlotsFor(env, org, loc, svc, date, pid || null);
+    const slot = free.find((s) => s.time === start && (!pid || s.providerId === pid));
+    const suggest = async () => (await bkNextSlots(env, org, loc, svc, date, 3, 14));
+    if (!slot) return bad("That time is no longer free", 409, { next: await suggest() });
+    const end = bkTime(bkMin(start) + svc.durationMin);
+    try {
+      const r = await dbFirst(env, `INSERT INTO bk_bookings (org_id, location_id, ref, service_id, provider_id, person_name, person_phone, person_email, person_id_card,
+          date, start_time, end_time, status, price_cents, notes, link_id, created_by, updated_by)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'booked',?,?,?,?,?) RETURNING *`,
+        [org, loc, bkRef(), svc.id, slot.providerId, name, String(b.personPhone || "").trim(), String(b.personEmail || "").trim().toLowerCase(),
+          String(b.personIdCard || "").trim().toUpperCase(), date, start, end, svc.priceCents, String(b.notes || ""), bkRandomHex(16), me, me]);
+      await writeAudit(env, org, me, "BK_CREATE", "bk_bookings", String(r.id), { date, start, service_id: svc.id, provider_id: slot.providerId });
+      return ok({ booking: bkBookingRow(r) }, 201);
+    } catch (e) {
+      if (/UNIQUE/i.test(String(e && e.message))) return bad("That time was just taken", 409, { next: await suggest() });
+      throw e;
+    }
+  }
+
+  // PATCH /bookings/:id  { version, status? , cancelReason?, notes?, date?+start? (move) }
+  if (parts.length === 1 && m === "PATCH") {
+    const id = Number(parts[0]);
+    const b = await readJson(request) || {};
+    const cur = await dbFirst(env, `SELECT * FROM bk_bookings WHERE id=? AND org_id=? AND location_id=?`, [id, org, loc]);
+    if (!cur) return bad("Not found", 404);
+    if (Number(b.version) !== cur.version) return bad("Changed by someone else", 409, { current: bkBookingRow(cur) });
+    let { status, date, start_time: start, end_time: end, provider_id: pid } = cur;
+    if (b.status !== undefined) { if (!BK_STATUSES.includes(b.status)) return bad("Unknown status"); status = b.status; }
+    if (status === "cancelled" && !String(b.cancelReason || cur.cancel_reason || "").trim()) return bad("Say why it was cancelled");
+    if (b.date !== undefined || b.start !== undefined) {
+      if (cur.status === "cancelled" || status === "cancelled") return bad("A cancelled booking cannot be moved");
+      const svc = await bkGetService(env, org, loc, cur.service_id);
+      const nd = String(b.date || cur.date), ns = String(b.start || cur.start_time), np = Number(b.providerId || cur.provider_id);
+      // The booking being moved does not block its own new time.
+      const free = (await bkSlotsFor(env, org, loc, svc, nd, np, cur.id)).map((s) => s.time);
+      if (!free.includes(ns)) return bad("That time is not free", 409, { next: await bkNextSlots(env, org, loc, svc, nd, 3, 14) });
+      date = nd; start = ns; end = bkTime(bkMin(ns) + svc.durationMin); pid = np;
+    }
+    try {
+      // One statement: the move or status change is atomic, guarded by version.
+      const r = await dbFirst(env, `UPDATE bk_bookings SET status=?, date=?, start_time=?, end_time=?, provider_id=?, notes=?, cancel_reason=?,
+          version=version+1, updated_by=?, updated_at=datetime('now') WHERE id=? AND org_id=? AND location_id=? AND version=? RETURNING *`,
+        [status, date, start, end, pid, b.notes !== undefined ? String(b.notes) : cur.notes, status === "cancelled" ? String(b.cancelReason || cur.cancel_reason) : cur.cancel_reason,
+          me, id, org, loc, cur.version]);
+      if (!r) return bad("Changed by someone else", 409);
+      await writeAudit(env, org, me, "BK_UPDATE", "bk_bookings", String(id), { status, date, start, provider_id: pid });
+      return ok({ booking: bkBookingRow(r) });
+    } catch (e) {
+      if (/UNIQUE/i.test(String(e && e.message))) return bad("That time was just taken", 409);
+      throw e;
+    }
+  }
+
+  return bad("Not found", 404);
 }
