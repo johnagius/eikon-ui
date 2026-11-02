@@ -26,7 +26,7 @@
     if (Array.isArray(E.UI2_DESTINATIONS)) E.UI2_DESTINATIONS.push("bookings");
   }
 
-  var S = { mount: null, date: null, setup: null, bookings: [], loading: false, error: "", sheet: null, onVis: null };
+  var S = { mount: null, view: "day", date: null, setup: null, bookings: [], loading: false, error: "", sheet: null, onVis: null };
 
   function esc(s) { return E.escapeHtml(String(s == null ? "" : s)); }
   function ymd(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
@@ -35,6 +35,11 @@
   function nowHM() { var d = new Date(); return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); }
   function longDate(s) { return new Date(s + "T12:00:00").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" }); }
   function dayShort(s) { var t = todayStr(); if (s === t) return "today"; if (s === addDays(t, 1)) return "tomorrow"; return new Date(s + "T12:00:00").toLocaleDateString("en-GB", { weekday: "short" }); }
+  function weekLabel() {
+    var a = new Date(S.date + "T12:00:00"), b = new Date(addDays(S.date, 6) + "T12:00:00");
+    var m = function (d) { return d.toLocaleDateString("en-GB", { month: "long" }); };
+    return a.getDate() + (m(a) === m(b) ? "" : " " + m(a)) + " – " + b.getDate() + " " + m(b);
+  }
   function money(c) { c = Number(c) || 0; return c === 0 ? "free" : "€" + (c / 100).toFixed(c % 100 ? 2 : 0); }
   function initials(n) { var p = String(n || "").trim().split(/\s+/); return ((p[0] || "?")[0] + (p[1] ? p[1][0] : "")).toUpperCase(); }
   var COLORS = ["#0A8F6A", "#5856D6", "#C9772E", "#1A9FB5", "#B4566A", "#6E8B3D"];
@@ -96,6 +101,14 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
 .bkx-f input[type=checkbox]::after{content:'';position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 3px 8px rgba(0,0,0,.15),0 1px 1px rgba(0,0,0,.16);transition:transform .2s}\
 .bkx-f input[type=checkbox]:checked{background:#34C759}.bkx-f input[type=checkbox]:checked::after{transform:translateX(20px)}\
 @media(max-width:760px){.bkx-closed{display:none}.bkx-f input[type=time]{width:112px}.bkx-f label{gap:8px}}\
+.bkx-view{max-width:220px;margin:0 0 14px}\
+.bkx-week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;max-width:1180px}\
+.bkx-wcol{background:var(--sf);border-radius:18px;padding:8px;min-height:220px;display:flex;flex-direction:column;gap:6px}\
+.bkx-wh{display:flex;flex-direction:column;align-items:center;padding:6px 0 8px;border-radius:12px}.bkx-wh small{font-size:11px;font-weight:600;color:var(--l2);text-transform:uppercase}\
+.bkx-wh b{font-size:20px;font-weight:600}.bkx-wh span{font-size:12px;color:var(--l2)}.bkx-wh.now b{color:var(--t)}\
+.bkx-wb{display:block;width:100%;text-align:left;border-left:3px solid;border-radius:8px;background:var(--bg);padding:6px 8px;font-size:13px;line-height:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}\
+.bkx-wb b{font-variant-numeric:tabular-nums}.bkx-wb span{display:block;font-size:12px;color:var(--l2);overflow:hidden;text-overflow:ellipsis}\
+@media(max-width:760px){.bkx-week{grid-template-columns:1fr}.bkx-wcol{min-height:0;flex-direction:column}.bkx-wh{flex-direction:row;gap:8px;justify-content:flex-start;padding:4px 6px}.bkx-wh span{margin-left:auto}}\
 .bkx-ok{color:var(--t);font-size:15px;font-weight:600;margin:0 4px 12px}.bkx-closed{font-style:normal;font-size:13px;color:var(--l3);margin-left:auto}\
 ";
   function injectCss() { if (document.getElementById("bkx-css")) return; var st = document.createElement("style"); st.id = "bkx-css"; st.textContent = CSS; document.head.appendChild(st); }
@@ -107,7 +120,8 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
     if (!opts.silent) paint();
     try {
       if (!S.setup || opts.setup) { var su = await api("/bookings/setup"); S.setup = { services: su.services || [], providers: su.providers || [] }; }
-      var r = await api("/bookings?from=" + S.date + "&to=" + S.date);
+      var to = S.view === "week" ? addDays(S.date, 6) : S.date; // the week is one call too
+      var r = await api("/bookings?from=" + S.date + "&to=" + to);
       S.bookings = r.bookings || [];
     } catch (e) {
       S.error = e && e.status === 404 ? "Bookings is not switched on for this pharmacy yet." : errMsg(e);
@@ -133,6 +147,22 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
     }
     return '<div class="bkx-days">' + h + "</div>";
   }
+  // Seven days from the chosen date, one column each (stacked on a phone); tap a day to open it.
+  function weekHtml(list) {
+    var h = '<div class="bkx-week">';
+    for (var i = 0; i < 7; i++) {
+      var d = addDays(S.date, i), dt = new Date(d + "T12:00:00");
+      var dayList = list.filter(function (b) { return b.date === d; });
+      h += '<div class="bkx-wcol"><button class="bkx-wh' + (d === todayStr() ? " now" : "") + '" data-act="openday" data-d="' + d + '"><small>' +
+        dt.toLocaleDateString("en-GB", { weekday: "short" }) + "</small><b>" + dt.getDate() + "</b><span>" + (dayList.length ? dayList.length + " booked" : "Free") + "</span></button>" +
+        dayList.map(function (b) {
+          var sv = svc(b.serviceId) || {};
+          return '<button class="bkx-wb" data-act="open" data-id="' + b.id + '" style="border-left-color:' + svcColor(sv) + '"><b>' + esc(b.start) + "</b> " + esc(b.personName) + "<span>" + esc(sv.name || "") + "</span></button>";
+        }).join("") + "</div>";
+    }
+    return h + "</div>";
+  }
+
   function setupHtml() {
     return '<div class="bkx-sec"><div class="bkx-g" style="padding:20px 18px">' +
       '<div style="font-size:20px;font-weight:700;margin-bottom:4px">Set up bookings</div>' +
@@ -157,15 +187,17 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
     if (S.error) body = '<div class="bkx-sec"><div class="bkx-g"><div class="bkx-empty">' + esc(S.error) + "</div></div></div>";
     else if (S.setup && !hasSetup) body = setupHtml();
     else if (!S.setup) body = '<div class="bkx-sec"><div class="bkx-g"><div class="bkx-empty">Loading…</div></div></div>';
+    else if (S.view === "week") body = weekHtml(list);
     else {
       body = '<div class="bkx-sec"><h2>' + (isToday ? "Next" : "Booked") + "</h2><div class=\"bkx-g\">" +
         (up.length ? up.map(function (b) { return rowHtml(b, false); }).join("") : '<div class="bkx-empty">' + (isToday ? "Nothing else booked today." : "Nothing booked on this day.") + "</div>") + "</div></div>";
       if (past.length) body += '<div class="bkx-sec"><h2>Earlier</h2><div class="bkx-g">' + past.map(function (b) { return rowHtml(b, true); }).join("") + "</div></div>";
     }
     S.mount.innerHTML = '<div class="bkx">' +
-      '<div class="bkx-top"><div><h1>Bookings</h1><div class="sub">' + esc(longDate(S.date)) + (hasSetup ? " · " + list.length + " booked" : "") + "</div></div>" +
+      '<div class="bkx-top"><div><h1>Bookings</h1><div class="sub">' + esc(S.view === "week" ? weekLabel() : longDate(S.date)) + (hasSetup ? " · " + list.length + " booked" : "") + "</div></div>" +
       (hasSetup ? '<div style="display:flex;gap:8px">' + (isAdmin() ? '<button class="bkx-btn bkx-gear" data-act="settings" aria-label="Bookings settings" title="Settings"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M2.8 12h2.4M18.8 12h2.4M4.9 19.1l1.7-1.7M17.4 6.6l1.7-1.7"/></svg></button>' : "") + '<button class="bkx-add" data-act="new">New booking</button></div>' : "") + "</div>" +
-      (hasSetup ? daysHtml() : "") + body + "</div>" + sheetHtml();
+      (hasSetup ? '<div class="bkx-seg bkx-view"><button class="' + (S.view === "day" ? "on" : "") + '" data-act="view" data-v="day">Day</button><button class="' + (S.view === "week" ? "on" : "") + '" data-act="view" data-v="week">Week</button></div>' : "") +
+      (hasSetup && S.view === "day" ? daysHtml() : "") + body + "</div>" + sheetHtml();
   }
 
   // ---------- sheets ----------
@@ -286,6 +318,8 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
     var act = t.getAttribute("data-act");
     keepFields();
     if (act === "day") { S.date = t.getAttribute("data-d"); return load({ silent: true }); }
+    if (act === "view") { S.view = t.getAttribute("data-v"); return load({ silent: true }); }
+    if (act === "openday") { S.view = "day"; S.date = t.getAttribute("data-d"); return load({ silent: true }); }
     if (act === "close") { S.sheet = null; return paint(); }
     if (act === "new") {
       var first = S.setup.services.filter(function (x) { return x.active; })[0];
