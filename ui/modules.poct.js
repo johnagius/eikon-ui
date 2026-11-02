@@ -126,6 +126,7 @@ async function poctRuntime(root){
             var pats = st && st.patients ? st.patients : (resp && resp.patients) || [];
             __cloud.records = Array.isArray(recs) ? recs : [];
             __cloud.patients = Array.isArray(pats) ? pats : [];
+            __cloud.syncedJson = cloudSnapshot();
             __cloud.loaded = true;
           }catch(e){
             // If backend not ready yet (e.g. 404), start empty (session-only) but keep running.
@@ -148,7 +149,16 @@ async function poctRuntime(root){
         })();
         return __cloud.loading;
       }
+      // What the server already holds; a save that would send exactly this is skipped.
+      function cloudSnapshot(){
+        try{ return JSON.stringify([__cloud.records||[], __cloud.patients||[]]); }catch(e){ return ""; }
+      }
       async function cloudSaveNow(){
+        if(!__cloud.saving && !__cloud.wipeAll &&
+           !(__cloud.deletedRecordIds||[]).length && !(__cloud.deletedPatientIds||[]).length &&
+           __cloud.syncedJson && cloudSnapshot() === __cloud.syncedJson){
+          return;
+        }
         if(__cloud.saving){
           __cloud.pending = true;
           return;
@@ -176,6 +186,7 @@ async function poctRuntime(root){
           __cloud.deletedRecordIds = (__cloud.deletedRecordIds||[]).filter(function(x){ return delRec.indexOf(x) < 0; });
           __cloud.deletedPatientIds = (__cloud.deletedPatientIds||[]).filter(function(x){ return delPat.indexOf(x) < 0; });
           __cloud.wipeAll = false;
+          __cloud.syncedJson = JSON.stringify([payload.records, payload.patients]);
           try{ dbg("[poct] cloud save OK"); }catch(eOK){}
           // Pull the merged state back so records saved on another PC appear here.
           if(!__cloud.pending){
