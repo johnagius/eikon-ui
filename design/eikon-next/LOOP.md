@@ -487,3 +487,10 @@ All of it waits only on the worker deploy.
   (ID ref, driver, method, items with batch, notes, ticket ref all intact).
 - Phone: three actions on one row. UI 111/111. BUILD .65.
 - Customers group now fully rebuilt for daily work: Orders, Questions, Deliveries (Appointments → Bookings).
+
+## Round 48 — Controlled drugs received (DDA purchases) rebuilt
+- Live check: BUILD .65 serving with tktreg + dlvreg.
+- modules.cdpreg.js: this month by invoice; one form per delivery note with many lines (one entry per line, like classic).
+- All lines validated before any POST; sequential POSTs; a failure keeps unsaved lines, saved ones greyed and never re-sent
+  (real local worker with a forced 500 on line 2: retry saved only the rest, no duplicates).
+- Typeahead for drug names and suppliers from the last two months. UI 113/113. BUILD .66.
