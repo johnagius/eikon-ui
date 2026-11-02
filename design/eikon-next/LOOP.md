@@ -390,3 +390,11 @@ All of it waits only on the worker deploy.
 - Real bug found by the suite: an async reply after leaving a screen repainted it over the next (Today/Customers/Bookings/register).
   Guarded paints on activeModuleId.
 - UI 89/89; bookings 13/13, settings 13/13, week 8/8, waitlist 5/5. BUILD .46.
+
+## Round 32 — Cleaning register rebuilt; Temperature verified live
+- Temperature register live (BUILD .46): module served, 61 modules, dark sign-in on dark devices, no errors. Dark register checked locally.
+- Cleaning register (modules.cleanreg.js): status (last cleaned, by whom, next due / overdue), month by week incl. weeks crossing month ends,
+  current week neutral until overdue, Record a cleaning form with validation (name, no future date, out after in), print table.
+- Bugs found by looking before pushing: a week crossing into the previous month showed "no cleaning" though one existed; the
+  just-started week was flagged amber. Fixed.
+- Classic-path tests moved to the Daily register. UI 91/91. BUILD .48.
