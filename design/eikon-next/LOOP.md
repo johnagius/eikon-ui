@@ -406,3 +406,13 @@ All of it waits only on the worker deploy.
 - John asked about data/logins/features safety: answered — same endpoints/tables, no edit/delete in new screens, worker changes additive
   and undeployed, deploy script code-only with rollback, sign-in mechanics untouched, classic layout unchanged and always reachable.
 - UI 93/93; bookings 13/13, week 8/8. BUILD .50.
+
+## Rounds 34–35 — Locum register; Bookings email failover; each pharmacy's booking page
+- Locum register rebuilt (modules.locreg.js), returning locum fills the reg no; Cleaning catches an empty time in. UI 95/95.
+- John: "very professional booking: Brevo, Resend, SMTP easily and safely, keep working when one fails or hits its limit; a subpage per pharmacy; minimise cost".
+  - Worker: bk_senders (ordered, encrypted creds), failover with rests (limit → next UTC day, auth → 1h, down → 5 min), daily/monthly caps under free tiers,
+    legacy single provider migrated automatically and protected; admin endpoints; test only to the admin. 8 tests.
+  - UI: Messages tab with the senders list, states in plain words, add/order/test/switch off/remove. e2e 9/9.
+  - Booking page: /book/<pharmacy-name>, choosable address (validated, unique), day strip, times by part of day, opening times, tappable phone. 4 tests; e2e light+dark.
+- John added: practitioners & specialities, clinics set internally, flexible rescheduling/cancellation by pharmacy, clinic/doctor and client → task #10, next.
+- Worker 86/86, WORKER_VERSION 2026-11-02-bookings-4 (not deployed). BUILD .53.
