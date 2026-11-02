@@ -12005,7 +12005,7 @@ async function handleStockTransferItemsList(request, env, corsOkHeaders, authUse
     FROM stock_transfer_items i
     LEFT JOIN orgs o ON o.id = i.org_id
     LEFT JOIN locations l ON l.id = i.location_id
-    WHERE i.org_id = ?
+    WHERE i.org_id = ?${url && url.searchParams.get("open") === "1" ? " AND i.is_closed = 0" : ""}
     ORDER BY i.is_closed ASC, i.entry_date DESC, i.id DESC
   `, [authUser.org_id]);
 
@@ -12017,7 +12017,7 @@ async function handleStockTransferItemsList(request, env, corsOkHeaders, authUse
     FROM stock_transfer_requests r
     LEFT JOIN orgs ro ON ro.id = r.requester_org_id
     LEFT JOIN locations rl ON rl.id = r.requester_location_id
-    WHERE r.item_id IN (SELECT id FROM stock_transfer_items WHERE org_id = ?)
+    WHERE r.item_id IN (SELECT id FROM stock_transfer_items WHERE org_id = ?${url && url.searchParams.get("open") === "1" ? " AND is_closed = 0" : ""})
     ORDER BY r.created_at ASC
   `, [authUser.org_id]);
 

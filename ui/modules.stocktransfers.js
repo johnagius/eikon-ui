@@ -227,7 +227,8 @@
     state.busy = true;
     setBusyUI(true);
     try {
-      var res = await api("GET", "/stock-transfers/items?ts=" + Date.now());
+      // Open items only while the "open" filter is on (closed history is downloaded only when asked for).
+      var res = await api("GET", "/stock-transfers/items?ts=" + Date.now() + (state.filterOpen ? "&open=1" : ""));
       if (!res || !res.ok) throw new Error((res && res.error) || "Load failed");
       state.items = (res.items || []).map(function (item) {
         // Auto-detect expired items
@@ -1073,6 +1074,7 @@
       filterEl.addEventListener("change", function () {
         state.filterOpen = !!filterEl.checked;
         renderContent();
+        if (!state.filterOpen && !state.busy) doRefresh(); // closed history is fetched only when asked for
       });
     }
 

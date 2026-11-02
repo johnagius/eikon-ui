@@ -87,3 +87,15 @@ test("emergency POS: the server computes the money, VAT follows the discount, sh
   const dup = await api("POST", "/emergency-pos/sales", { token, body: { offline_id: "o1", receipt_no: "R-1", items, payment_method: "cash", amount_tendered: 100 } });
   eq(dup.json.duplicate, true);
 });
+
+test("stock transfers: open=1 leaves out closed items and their requests; without it everything comes back", async ({ api, bootstrap, DB }) => {
+  const { token } = await bootstrap();
+  for (const n of ["Open item", "Closed item"]) {
+    const r = await api("POST", "/stock-transfers/items", { token, body: { item_description: n, quantity_available: 5, entry_date: "2026-10-01", expiry_date: "2027-12-31" } });
+    eq(r.status < 300, true, r.text);
+  }
+  DB.db.prepare("UPDATE stock_transfer_items SET is_closed = 1 WHERE item_description = 'Closed item'").run();
+  const all = await api("GET", "/stock-transfers/items", { token });
+  const open = await api("GET", "/stock-transfers/items?open=1", { token });
+  eq(all.json.items.length, 2); eq(open.json.items.map((i) => i.item_description), ["Open item"]);
+});
