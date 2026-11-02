@@ -4,7 +4,7 @@ function nowIso() {
 
 
 
-const WORKER_VERSION = "2026-11-02-fixes-1";
+const WORKER_VERSION = "2026-11-02-fixes-2";
 function isDebugEnabled(request) {
   try {
     return (request && request.headers && (request.headers.get("X-Eikon-Debug") || "") === "1");
@@ -13660,7 +13660,7 @@ async function handleShiftIcalPublic(request, env, corsOkHeaders, url) {
 let apptSchemaEnsured = false;
 
 async function ensureApptSchema__impl(env) {
-  if (apptSchemaEnsured) return;
+  // schemaOnce() already runs this once per database; no global flag (it leaked across databases).
 
   const tables = [
     // Doctors
@@ -14417,7 +14417,7 @@ async function handleApptCreate(request, env, corsOkHeaders, authUser) {
     const newEnd   = newStart + durationMins;
     const conflict = await dbFirst(env, `
       SELECT id FROM appt_appointments
-      WHERE org_id=? AND location_id=? AND date=? AND doctor_id=? AND clinic_id=? AND status!='cancelled'
+      WHERE org_id=? AND location_id=? AND date=? AND doctor_id=? AND clinic_id=? AND LOWER(status)!='cancelled'
         AND ((CAST(substr(time,1,2) AS INT)*60 + CAST(substr(time,4,2) AS INT)) < ?)
         AND ((CAST(substr(time,1,2) AS INT)*60 + CAST(substr(time,4,2) AS INT) + duration_mins) > ?)
       LIMIT 1
@@ -14514,7 +14514,7 @@ async function handleApptUpdate(request, env, corsOkHeaders, authUser, id) {
     const newEnd   = newStart + durationMins;
     const conflict = await dbFirst(env, `
       SELECT id FROM appt_appointments
-      WHERE org_id=? AND location_id=? AND date=? AND doctor_id=? AND clinic_id=? AND status!='cancelled' AND id!=?
+      WHERE org_id=? AND location_id=? AND date=? AND doctor_id=? AND clinic_id=? AND LOWER(status)!='cancelled' AND id!=?
         AND ((CAST(substr(time,1,2) AS INT)*60 + CAST(substr(time,4,2) AS INT)) < ?)
         AND ((CAST(substr(time,1,2) AS INT)*60 + CAST(substr(time,4,2) AS INT) + duration_mins) > ?)
       LIMIT 1
@@ -14735,6 +14735,15 @@ async function handleApptPublicLookup(request, env, corsOkHeaders, url) {
     return jsonResponse({ ok: false, error: "Invalid token format" }, 400, corsOkHeaders);
   }
 
+  // No login here, and the token is short: cap lookups per network so codes cannot be guessed.
+  const ip = clientIp(request);
+  await ensureLoginAttemptsSchema(env);
+  const lookups = await dbFirst(env, "SELECT COUNT(*) AS c FROM login_attempts WHERE email = ? AND ip = ? AND attempted_at > datetime('now', '-15 minutes')", ["appt-lookup", ip]);
+  if (lookups && Number(lookups.c) >= 20) {
+    return jsonResponse({ ok: false, error: "Too many lookups. Try again in 15 minutes." }, 429, { ...corsOkHeaders, "Retry-After": "900" });
+  }
+  try { await dbRun(env, "INSERT INTO login_attempts (email, ip) VALUES (?, ?)", ["appt-lookup", ip]); } catch (e) {}
+
   // Find appointment by token (globally within the platform — token is unique per org)
   // We deliberately return minimal info suitable for patient-facing view
   const appt = await dbFirst(env,
@@ -14766,7 +14775,6 @@ async function handleApptPublicLookup(request, env, corsOkHeaders, url) {
       status:      appt.status           || "Scheduled",
       doctor:      doctor ? { name: doctor.name, specialty: doctor.specialty } : null,
       clinic:      clinic ? { name: clinic.name, locality: clinic.locality, address: clinic.address } : null,
-      notes:       appt.notes            || "",
       cancellationReason: appt.cancellation_reason || ""
     }
   }, 200, corsOkHeaders);
