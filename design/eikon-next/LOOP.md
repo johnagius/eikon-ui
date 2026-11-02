@@ -381,3 +381,12 @@ All of it waits only on the worker deploy.
 - API audit of the new layout (calls per step): sign-in→Today 2 (login, /today), Customers 1, search 1 for six typed letters (debounced),
   Bookings 3 (setup, day, waitlist), Stock 0, back to Today 1. No duplicates. Nothing to fix.
 - UI 86/86. BUILD .42.
+
+## Round 31 — Temperature register rebuilt
+- New screen (modules.tempreg.js): per device a month calendar (min above max), red when outside limits, dashed when missed,
+  summary ("30 of 31 days logged · 1 outside the limits · 1 missed"), month arrows, print table per device with pharmacy/month/date,
+  Devices → classic settings. Existing endpoints only, so it works on the current production worker.
+- Registers card and Today search open it; rail keeps Registers lit (E.UI2_PARENT).
+- Real bug found by the suite: an async reply after leaving a screen repainted it over the next (Today/Customers/Bookings/register).
+  Guarded paints on activeModuleId.
+- UI 89/89; bookings 13/13, settings 13/13, week 8/8, waitlist 5/5. BUILD .46.
