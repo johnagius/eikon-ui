@@ -16007,6 +16007,8 @@ export default {
     if (url.pathname === "/su" && request.method === "GET") return await handleSuPage(request, env);
     // A customer's private booking link (public, signed, rate-limited)
     if (url.pathname.startsWith("/b/")) return await handleBookingLink(request, env, url);
+    // The pharmacy's public booking page (only when switched on)
+    if (url.pathname.startsWith("/book/")) return await handlePublicBooking(request, env, url);
 
     // Hard 302 redirect to ChatGPT.
     // A server-side redirect means the browser goes from "blank new tab" straight
@@ -20134,6 +20136,15 @@ async function ensureBookingsMsgSchema__impl(env) {
       created_at TEXT NOT NULL DEFAULT (datetime('now')), PRIMARY KEY (email, org_id, location_id))`
   ];
   for (const s of stmts) await dbRun(env, s, []);
+  // Online booking (public page), added later: columns are added if missing.
+  for (const col of ["public_enabled INTEGER NOT NULL DEFAULT 0", "public_slug TEXT NOT NULL DEFAULT ''"]) {
+    try { await dbRun(env, `ALTER TABLE bk_settings ADD COLUMN ${col}`, []); } catch (e) {}
+  }
+  await dbRun(env, `CREATE UNIQUE INDEX IF NOT EXISTS uq_bk_public_slug ON bk_settings (public_slug) WHERE public_slug <> ''`, []);
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS bk_holds (
+    id TEXT PRIMARY KEY, org_id INTEGER NOT NULL, location_id INTEGER NOT NULL, payload_json TEXT NOT NULL,
+    code_hash TEXT NOT NULL, attempts INTEGER NOT NULL DEFAULT 0, expires_at INTEGER NOT NULL, used INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')))`, []);
 }
 const ensureBookingsMsgSchema = schemaOnce("ensureBookingsMsgSchema", ensureBookingsMsgSchema__impl);
 
@@ -20194,6 +20205,7 @@ async function bkGetSettings(env, org, loc) {
 function bkSettingsOut(s, env) {
   return { provider: s.provider, fromName: s.from_name, fromEmail: s.from_email, replyTo: s.reply_to, hasKey: !!s.api_key_enc,
     remindEvening: !!s.remind_evening, remindHours: s.remind_hours, cancelCutoffMin: s.cancel_cutoff_min, address: s.address, phone: s.phone,
+    publicEnabled: !!s.public_enabled, publicSlug: s.public_slug || "",
     canSend: !!(env && String(env.BOOKINGS_KEY || "").length >= 16) };
 }
 
@@ -20345,7 +20357,18 @@ async function handleBookingsSettings(request, env, corsOkHeaders, authUser, url
       [org, loc, provider, b.fromName !== undefined ? String(b.fromName).trim() : cur.from_name, fromEmail, b.replyTo !== undefined ? String(b.replyTo).trim() : cur.reply_to, enc,
         b.remindEvening === undefined ? cur.remind_evening : (b.remindEvening ? 1 : 0), hrs, cut,
         b.address !== undefined ? String(b.address).trim() : cur.address, b.phone !== undefined ? String(b.phone).trim() : cur.phone]);
-    await writeAudit(env, org, authUser.user_id, "BK_SETTINGS_UPDATE", "bk_settings", String(loc), { provider, from_email: fromEmail, key_changed: b.apiKey !== undefined });
+    if (b.publicEnabled !== undefined) {
+      const want = !!b.publicEnabled;
+      const fresh = await bkGetSettings(env, org, loc);
+      if (want && (fresh.provider === "off" || !fresh.api_key_enc || !fresh.from_email)) return jsonResponse({ ok: false, error: "Switch on emails first: online booking confirms each customer with an emailed code" }, 400, corsOkHeaders);
+      let slug = fresh.public_slug;
+      if (want && !slug) {
+        const base = String(authUser.location_name || "pharmacy").toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 32) || "pharmacy";
+        slug = base + "-" + bkRandomHex(3);
+      }
+      await dbRun(env, `UPDATE bk_settings SET public_enabled=?, public_slug=?, updated_at=datetime('now') WHERE org_id=? AND location_id=?`, [want ? 1 : 0, slug || "", org, loc]);
+    }
+    await writeAudit(env, org, authUser.user_id, "BK_SETTINGS_UPDATE", "bk_settings", String(loc), { provider, from_email: fromEmail, key_changed: b.apiKey !== undefined, public_enabled: b.publicEnabled });
     return jsonResponse({ ok: true, settings: bkSettingsOut(await bkGetSettings(env, org, loc), env) }, 200, corsOkHeaders);
   }
   if (request.method === "POST" && /\/test$/.test(url.pathname)) {
@@ -20533,4 +20556,144 @@ async function bkImportLegacy(env, authUser, dry) {
   }
   if (!dry) await writeAudit(env, org, authUser.user_id, "BK_IMPORT_LEGACY", "bk_bookings", String(loc), rep);
   return rep;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   BOOKINGS — the pharmacy's public booking page /book/<slug> (off unless switched on).
+   Only services marked "online" are offered. The customer picks a time, types name and
+   email, and confirms with a 6-digit code sent by email (10 minutes, 5 tries), so bots
+   cannot fill the diary. The slot is checked again when the code is confirmed.
+   Rate-limited per network. Needs customer emails switched on.
+   ══════════════════════════════════════════════════════════════════════════════ */
+async function bkPublicLimit(env, request, bucket, max) {
+  const ip = clientIp(request);
+  await ensureLoginAttemptsSchema(env);
+  const n = await dbFirst(env, "SELECT COUNT(*) AS c FROM login_attempts WHERE email=? AND ip=? AND attempted_at > datetime('now','-15 minutes')", [bucket, ip]);
+  if (n && Number(n.c) >= max) return false;
+  try { await dbRun(env, "INSERT INTO login_attempts (email, ip) VALUES (?, ?)", [bucket, ip]); } catch (e) {}
+  return true;
+}
+async function handlePublicBooking(request, env, url) {
+  await ensureBookingsMsgSchema(env);
+  const m = /^\/book\/([a-z0-9-]{3,48})(?:\/(services|next|hold|confirm))?$/.exec(url.pathname);
+  const json = (o, st = 200) => new Response(JSON.stringify(o), { status: st, headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", "X-Robots-Tag": "noindex" } });
+  if (!m) return bkPage("Not found", `<div class="c"><h1>Page not found</h1></div>`, 404);
+  const s = await dbFirst(env, `SELECT * FROM bk_settings WHERE public_slug=? AND public_enabled=1`, [m[1]]);
+  if (!s) return m[2] ? json({ ok: false, error: "Online booking is not available" }, 404) : bkPage("Not available", `<div class="c"><h1>Online booking is not available</h1><div class="s">Please call the pharmacy.</div></div>`, 404);
+  const org = s.org_id, loc = s.location_id;
+  const locRow = await dbFirst(env, `SELECT name FROM locations WHERE id=?`, [loc]);
+  const pharmacy = (locRow && locRow.name) || "Pharmacy";
+  if (!(await bkPublicLimit(env, request, "bk-public", 120))) return m[2] ? json({ ok: false, error: "Too many requests. Try again in 15 minutes." }, 429) : bkPage("Please wait", `<div class="c"><h1>Please wait a moment</h1></div>`, 429);
+  const onlineSvc = async (id) => { const r = await dbFirst(env, `SELECT * FROM bk_services WHERE id=? AND org_id=? AND location_id=? AND active=1 AND online=1`, [Number(id), org, loc]); return r ? bkServiceRow(r) : null; };
+
+  if (m[2] === "services") {
+    const rows = await dbAll(env, `SELECT * FROM bk_services WHERE org_id=? AND location_id=? AND active=1 AND online=1 ORDER BY sort, name`, [org, loc]);
+    return json({ ok: true, pharmacy, address: s.address, phone: s.phone, services: rows.map(bkServiceRow).map((x) => ({ id: x.id, name: x.name, durationMin: x.durationMin, priceCents: x.priceCents })) });
+  }
+  if (m[2] === "next") {
+    const svc = await onlineSvc(url.searchParams.get("service_id"));
+    if (!svc) return json({ ok: false, error: "Unknown service" }, 404);
+    const slots = await bkNextSlots(env, org, loc, svc, bkNowLocal(env).date, 9, 21);
+    return json({ ok: true, slots: slots.map((x) => ({ date: x.date, time: x.time, providerId: x.providerId })) });
+  }
+  if (m[2] === "hold" && request.method === "POST") {
+    if (!(await bkPublicLimit(env, request, "bk-hold", 6))) return json({ ok: false, error: "Too many tries. Please call the pharmacy." }, 429);
+    const b = await readJson(request) || {};
+    const svc = await onlineSvc(b.serviceId);
+    const name = String(b.name || "").trim().slice(0, 80), email = String(b.email || "").trim().toLowerCase().slice(0, 120), phone = String(b.phone || "").trim().slice(0, 30);
+    if (!svc) return json({ ok: false, error: "Unknown service" }, 404);
+    if (!name || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ ok: false, error: "Your name and a valid email are needed" }, 400);
+    const free = await bkSlotsFor(env, org, loc, svc, String(b.date || ""), Number(b.providerId) || null);
+    if (!free.some((x) => x.time === b.start)) return json({ ok: false, error: "That time is no longer free. Please pick another." }, 409);
+    const code = String(100000 + (crypto.getRandomValues(new Uint32Array(1))[0] % 900000));
+    const holdId = bkRandomHex(16);
+    await dbRun(env, `INSERT INTO bk_holds (id, org_id, location_id, payload_json, code_hash, expires_at) VALUES (?,?,?,?,?,?)`,
+      [holdId, org, loc, JSON.stringify({ serviceId: svc.id, providerId: Number(b.providerId) || null, date: b.date, start: b.start, name, email, phone }), await bkHmac(env, "hold|" + holdId + "|" + code), Date.now() + 10 * 60000]);
+    try {
+      await bkSendEmail(env, s, { to: email, toName: name, subject: `Your code: ${code} · ${pharmacy}`,
+        html: bkEmailHtml({ title: code, lines: [`Type this code to confirm ${svc.name.toLowerCase()} on ${bkWhen({ date: b.date, start_time: b.start })}.`, "It works for 10 minutes. If you didn't ask for it, ignore this email."], pharmacy, address: s.address, phone: s.phone }) });
+    } catch (e) { return json({ ok: false, error: "We couldn't send the code. Please call the pharmacy." }, 502); }
+    return json({ ok: true, holdId });
+  }
+  if (m[2] === "confirm" && request.method === "POST") {
+    const b = await readJson(request) || {};
+    const h = await dbFirst(env, `SELECT * FROM bk_holds WHERE id=? AND org_id=? AND location_id=?`, [String(b.holdId || ""), org, loc]);
+    if (!h || h.used || h.expires_at < Date.now()) return json({ ok: false, error: "This code has expired. Please start again." }, 410);
+    if (h.attempts >= 5) return json({ ok: false, error: "Too many wrong codes. Please start again." }, 429);
+    await dbRun(env, `UPDATE bk_holds SET attempts=attempts+1 WHERE id=?`, [h.id]);
+    if (!bkSafeEq(await bkHmac(env, "hold|" + h.id + "|" + String(b.code || "").trim()), h.code_hash)) return json({ ok: false, error: "That code isn't right." }, 400);
+    const p = JSON.parse(h.payload_json);
+    const svc = await onlineSvc(p.serviceId);
+    if (!svc) return json({ ok: false, error: "This service is no longer offered online." }, 409);
+    const free = await bkSlotsFor(env, org, loc, svc, p.date, p.providerId);
+    const slot = free.find((x) => x.time === p.start);
+    if (!slot) return json({ ok: false, error: "Sorry, that time was just taken. Please pick another." }, 409);
+    try {
+      const r = await dbFirst(env, `INSERT INTO bk_bookings (org_id, location_id, ref, service_id, provider_id, person_name, person_phone, person_email, date, start_time, end_time, status, price_cents, notes, link_id)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,'booked',?,?,?) RETURNING *`,
+        [org, loc, bkRef(), svc.id, slot.providerId, p.name, p.phone, p.email, p.date, p.start, bkTime(bkMin(p.start) + svc.durationMin), svc.priceCents, "Booked online", bkRandomHex(16)]);
+      await dbRun(env, `UPDATE bk_holds SET used=1 WHERE id=?`, [h.id]);
+      await writeAudit(env, org, null, "BK_CREATE_ONLINE", "bk_bookings", String(r.id), { date: p.date, start: p.start, service_id: svc.id });
+      await bkNotify(env, request, r, "confirm");
+      const tok = await bkLinkToken(env, r);
+      return json({ ok: true, when: bkWhen(r), service: svc.name, link: tok ? `/b/${tok}` : "" });
+    } catch (e) {
+      if (/UNIQUE/i.test(String(e && e.message))) return json({ ok: false, error: "Sorry, that time was just taken. Please pick another." }, 409);
+      throw e;
+    }
+  }
+  if (m[2]) return json({ ok: false, error: "Not found" }, 404);
+  return bkPublicPage(pharmacy, m[1]);
+}
+function bkPublicPage(pharmacy, slug) {
+  const e = (x) => String(x || "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex"><meta name="referrer" content="no-referrer"><title>Book · ${e(pharmacy)}</title>
+<style>
+:root{--bg:#F2F2F7;--sf:#fff;--l2:rgba(60,60,67,.64);--l3:rgba(60,60,67,.4);--sep:rgba(60,60,67,.15);--t:#0A8F6A;--ti:#fff;--ts:rgba(10,143,106,.11);--red:#D7261C;--fill:rgba(118,118,128,.12)}
+@media(prefers-color-scheme:dark){:root{--bg:#000;--sf:#1C1C1E;--l2:rgba(235,235,245,.64);--l3:rgba(235,235,245,.4);--sep:rgba(84,84,88,.6);--t:#32D39C;--ti:#00261B;--ts:rgba(50,211,156,.15);--red:#FF5A50;--fill:rgba(118,118,128,.26)}body{color:#fff}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+.w{max-width:480px;margin:0 auto;padding:36px 16px 48px}h1{font-size:32px;line-height:38px;letter-spacing:-.02em;margin:0}.sub{color:var(--l2);font-size:15px;line-height:21px;margin:4px 0 24px}
+.lab{font-size:13px;font-weight:600;color:var(--l2);text-transform:uppercase;letter-spacing:.04em;margin:0 4px 8px}
+.g{background:var(--sf);border-radius:18px;overflow:hidden;margin-bottom:22px}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+.svc{display:flex;justify-content:space-between;align-items:center;width:100%;padding:15px 16px;text-align:left;position:relative;font-size:17px}
+.svc+.svc::before,.f+.f::before{content:"";position:absolute;top:0;left:16px;right:0;height:.5px;background:var(--sep)}
+.svc span{color:var(--l2);font-size:15px}.svc.on{color:var(--t);font-weight:600}
+.slots{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:22px}.slot{height:44px;padding:0 14px;border-radius:12px;background:var(--sf);font-size:16px;font-weight:600;font-variant-numeric:tabular-nums}
+.slot small{font-weight:500;color:var(--l2);font-size:12px;margin-left:5px}.slot.on{background:var(--t);color:var(--ti)}.slot.on small{color:var(--ti)}
+.f{display:flex;align-items:center;min-height:52px;padding:0 16px;position:relative}.f span{width:80px;font-size:17px;font-weight:500}.f input{flex:1;border:0;outline:0;background:transparent;font:inherit;font-size:17px;color:inherit;padding:14px 0;min-width:0}
+.code{font-size:30px;letter-spacing:10px;text-align:center;font-variant-numeric:tabular-nums}
+.go{width:100%;height:52px;border-radius:26px;background:var(--t);color:var(--ti);font-size:17px;font-weight:600}.go:disabled{opacity:.45}
+.err{color:var(--red);font-weight:600;font-size:15px;margin:0 4px 12px}.note{color:var(--l3);font-size:13px;text-align:center;margin-top:14px;line-height:18px}
+.done{font-size:22px;font-weight:700;margin-bottom:6px}
+</style></head><body><div class="w" id="app"></div>
+<script>
+const SLUG=${JSON.stringify(slug)}, P="/book/"+SLUG, $=(id)=>document.getElementById(id);
+const st={step:"what",services:[],svc:null,slots:[],slot:null,name:"",email:"",phone:"",holdId:"",err:"",busy:false,info:null};
+const esc=(s)=>String(s==null?"":s).replace(/[&<>"]/g,(c)=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c]);
+const money=(c)=>!c?"free":"€"+(c/100).toFixed(c%100?2:0);
+const dayW=(d)=>{const t=new Date();const a=new Date(d+"T12:00:00");const diff=Math.round((a-new Date(t.getFullYear(),t.getMonth(),t.getDate(),12))/864e5);return diff===0?"Today":diff===1?"Tomorrow":a.toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"});};
+async function call(path,body){const r=await fetch(P+path,body?{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}:{});const j=await r.json().catch(()=>({ok:false,error:"Something went wrong"}));if(!j.ok){const e=new Error(j.error||"Something went wrong");e.status=r.status;throw e;}return j;}
+function keep(){for(const k of ["name","email","phone"]){const el=$("in-"+k);if(el)st[k]=el.value;}}
+function paint(){
+  let h='<h1>'+esc((st.info&&st.info.pharmacy)||"Book")+'</h1><div class="sub">'+esc(st.info?[st.info.address,st.info.phone].filter(Boolean).join(" · "):"")+'</div>';
+  if(st.step==="done"){h+='<div class="g" style="padding:22px 20px"><div class="done">You\\'re booked</div><div class="sub" style="margin:0">'+esc(st.doneText)+'</div></div>'+(st.link?'<a class="go" style="display:grid;place-items:center;text-decoration:none" href="'+esc(st.link)+'">See or change your booking</a>':"")+'<div class="note">We sent the details to '+esc(st.email)+'.</div>';$("app").innerHTML=h;return;}
+  h+='<div class="lab">What</div><div class="g">'+(st.services.length?st.services.map(s=>'<button class="svc'+(st.svc&&st.svc.id===s.id?" on":"")+'" data-svc="'+s.id+'">'+esc(s.name)+'<span>'+s.durationMin+' min · '+money(s.priceCents)+'</span></button>').join(""):'<div class="svc">Nothing can be booked online right now.</div>')+'</div>';
+  if(st.svc){h+='<div class="lab">When</div><div class="slots">'+(st.slots.length?st.slots.map((x,i)=>'<button class="slot'+(st.slot===x?" on":"")+'" data-i="'+i+'">'+esc(x.time)+'<small>'+esc(dayW(x.date))+'</small></button>').join(""):'<span class="sub">No free times in the next three weeks.</span>')+'</div>';}
+  if(st.slot&&st.step==="what"){h+='<div class="lab">You</div><div class="g"><label class="f"><span>Name</span><input id="in-name" autocomplete="name" value="'+esc(st.name)+'"></label><label class="f"><span>Email</span><input id="in-email" type="email" autocomplete="email" value="'+esc(st.email)+'"></label><label class="f"><span>Mobile</span><input id="in-phone" type="tel" autocomplete="tel" value="'+esc(st.phone)+'" placeholder="Optional"></label></div>'+(st.err?'<div class="err">'+esc(st.err)+'</div>':"")+'<button class="go" id="hold"'+(st.busy?" disabled":"")+'>'+(st.busy?"Sending your code…":"Email me a code to confirm")+'</button><div class="note">We use your email only for this booking.</div>';}
+  if(st.step==="code"){h+='<div class="lab">Code</div><div class="sub" style="margin:0 4px 10px">We emailed a 6-digit code to '+esc(st.email)+'.</div><div class="g"><label class="f"><input id="in-code" class="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="······"></label></div>'+(st.err?'<div class="err">'+esc(st.err)+'</div>':"")+'<button class="go" id="confirm"'+(st.busy?" disabled":"")+'>'+(st.busy?"Booking…":"Book "+esc(st.svc.name.toLowerCase())+" · "+esc(dayW(st.slot.date))+" "+esc(st.slot.time))+'</button>';}
+  $("app").innerHTML=h;
+  const c=$("in-code"); if(c) c.focus();
+}
+document.addEventListener("click",async(ev)=>{
+  const t=ev.target.closest("[data-svc],[data-i],#hold,#confirm"); if(!t) return; keep(); st.err="";
+  if(t.dataset.svc){st.svc=st.services.find(s=>s.id===Number(t.dataset.svc));st.slot=null;st.step="what";st.slots=[];paint();try{st.slots=(await call("/next?service_id="+st.svc.id)).slots;}catch(e){st.err=e.message;}return paint();}
+  if(t.dataset.i!==undefined){st.slot=st.slots[Number(t.dataset.i)];st.step="what";return paint();}
+  if(t.id==="hold"){st.busy=true;paint();try{const r=await call("/hold",{serviceId:st.svc.id,providerId:st.slot.providerId,date:st.slot.date,start:st.slot.time,name:st.name,email:st.email,phone:st.phone});st.holdId=r.holdId;st.step="code";}catch(e){st.err=e.message;if(e.status===409){try{st.slots=(await call("/next?service_id="+st.svc.id)).slots;st.slot=null;}catch(x){}}}st.busy=false;return paint();}
+  if(t.id==="confirm"){const code=($("in-code")||{}).value||"";st.busy=true;paint();try{const r=await call("/confirm",{holdId:st.holdId,code:code});st.step="done";st.doneText=r.service+", "+r.when+".";st.link=r.link;}catch(e){st.err=e.message;if(e.status===410||e.status===409){st.step="what";st.slot=null;try{st.slots=(await call("/next?service_id="+st.svc.id)).slots;}catch(x){}}}st.busy=false;return paint();}
+});
+(async()=>{try{st.info=await call("/services");st.services=st.info.services;}catch(e){st.err=e.message;}paint();})();
+</script></body></html>`;
+  return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "X-Robots-Tag": "noindex", "Referrer-Policy": "no-referrer", "X-Frame-Options": "DENY" } });
 }

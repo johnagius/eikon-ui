@@ -272,6 +272,7 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
           '<label><span>Price €</span><input data-k="price" type="number" min="0" step="0.5" value="' + (x.priceCents / 100) + '"></label>' +
           '<label><span>Who</span><select data-k="prov">' + provs.map(function (p) { return '<option value="' + p.id + '"' + ((x.providerIds || []).indexOf(p.id) >= 0 ? " selected" : "") + ">" + esc(p.name) + "</option>"; }).join("") + "</select></label>" +
           '<label><span>Bookable</span><input data-k="active" type="checkbox"' + (x.active ? " checked" : "") + ' style="flex:0 0 auto;width:22px;height:22px"></label>' +
+          '<label><span>Online</span><input data-k="online" type="checkbox"' + (x.online ? " checked" : "") + ' style="flex:0 0 auto;width:22px;height:22px"><em class="bkx-closed" style="margin-left:8px">Customers can book it on your page</em></label>' +
           '<div style="padding:8px 16px 14px"><button class="bkx-btn tint" data-act="svc-save" data-id="' + x.id + '">' + (x.id ? "Save" : "Add service") + "</button></div></div>";
       }).join("") + (sh.newService ? "" : '<button class="bkx-btn lg" data-act="svc-new">Add a service</button>') +
       '<div class="bkx-g" style="padding:16px 18px;margin-top:18px"><div style="font-size:17px;font-weight:600">From the old Appointments</div>' +
@@ -304,6 +305,8 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
           '<label><span>Also</span><select id="bkm-hrs">' + [0, 1, 2, 3, 4].map(function (n) { return '<option value="' + n + '"' + (m.remindHours === n ? " selected" : "") + ">" + (n ? n + " hour" + (n > 1 ? "s" : "") + " before" : "No second reminder") + "</option>"; }).join("") + "</select></label>" +
           '<label><span>Cancel</span><select id="bkm-cut">' + [[0, "Any time online"], [60, "Up to 1 hour before"], [120, "Up to 2 hours before"], [1440, "Up to the day before"]].map(function (o) { return '<option value="' + o[0] + '"' + (m.cancelCutoffMin === o[0] ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select></label>" +
           '<label><span>Address</span><input id="bkm-addr" value="' + esc(m.address) + '"></label><label><span>Phone</span><input id="bkm-phone" inputmode="tel" value="' + esc(m.phone) + '"></label></div>' +
+          '<div class="bkx-f"><label><span>Online</span><input id="bkm-public" type="checkbox"' + (m.publicEnabled ? " checked" : "") + ' style="flex:0 0 auto;width:22px;height:22px"><em class="bkx-closed" style="margin-left:8px">A booking page for your customers</em></label>' +
+          (m.publicEnabled && m.publicSlug ? '<label><span>Link</span><a href="' + esc(location.origin + "/book/" + m.publicSlug) + '" target="_blank" rel="noopener" style="color:var(--t);font-size:15px;word-break:break-all">' + esc(location.origin + "/book/" + m.publicSlug) + "</a></label>" : "") + "</div>" +
           (m.canSend ? "" : '<div class="bkx-err">The server needs its BOOKINGS_KEY secret before emails can be switched on.</div>') +
           '<div class="bkx-acts"><button class="bkx-btn fill lg" data-act="msg-save">Save</button><button class="bkx-btn lg" data-act="msg-test">Send me a test</button></div>';
       }
@@ -435,7 +438,7 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
     if (act === "svc-save") {
       var box = t.closest("[data-svc]"), q = function (k) { return box.querySelector('[data-k="' + k + '"]'); };
       var id = Number(t.getAttribute("data-id"));
-      var body = { name: q("name").value, durationMin: Number(q("dur").value), priceCents: Math.round(Number(q("price").value || 0) * 100), providerIds: [Number(q("prov").value)], active: q("active").checked };
+      var body = { name: q("name").value, durationMin: Number(q("dur").value), priceCents: Math.round(Number(q("price").value || 0) * 100), providerIds: [Number(q("prov").value)], active: q("active").checked, online: q("online").checked };
       S.sheet.err = S.sheet.okMsg = "";
       try {
         await api("/bookings/services" + (id ? "/" + id : ""), { method: id ? "PUT" : "POST", body: JSON.stringify(body) });
@@ -464,7 +467,8 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
       S.sheet.err = S.sheet.okMsg = "";
       if (act === "msg-save") {
         var body2 = { provider: g2("bkm-provider").value, fromEmail: g2("bkm-from").value, fromName: g2("bkm-name").value, remindEvening: g2("bkm-eve").checked,
-          remindHours: Number(g2("bkm-hrs").value), cancelCutoffMin: Number(g2("bkm-cut").value), address: g2("bkm-addr").value, phone: g2("bkm-phone").value };
+          remindHours: Number(g2("bkm-hrs").value), cancelCutoffMin: Number(g2("bkm-cut").value), address: g2("bkm-addr").value, phone: g2("bkm-phone").value,
+          publicEnabled: g2("bkm-public").checked };
         if (g2("bkm-key").value.trim()) body2.apiKey = g2("bkm-key").value.trim();
         try { S.sheet.msg = (await api("/bookings/settings", { method: "PUT", body: JSON.stringify(body2) })).settings; S.sheet.okMsg = body2.provider === "off" ? "Emails are off" : "Saved. Customers with an email now get messages."; }
         catch (e) { S.sheet.err = errMsg(e); }

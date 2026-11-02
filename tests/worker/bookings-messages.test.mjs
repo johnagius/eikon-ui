@@ -141,3 +141,61 @@ test("booking link: rate-limited per network", async () => {
   eq((await app.api("GET", "/b/x", { headers: ip })).status, 429);
   eq((await app.api("GET", "/b/x", { headers: { "CF-Connecting-IP": "203.0.113.1" } })).status, 404);
 });
+
+test("public booking: off by default, needs emails, offers only online services, books after the emailed code", async () => {
+  const app = await makeApp({ env: KEY }); const cap = captureFetch();
+  try {
+    const { token } = await app.bootstrap();
+    const all = {}; for (let d = 0; d <= 6; d++) all[d] = [["08:00", "20:00"]];
+    const p = await app.api("POST", "/bookings/providers", { token, body: { name: "Maria", hours: all } });
+    const flu = (await app.api("POST", "/bookings/services", { token, body: { name: "Flu vaccine", durationMin: 10, providerIds: [p.json.provider.id], online: true } })).json.service;
+    await app.api("POST", "/bookings/services", { token, body: { name: "Staff only", durationMin: 10, providerIds: [p.json.provider.id] } });
+    eq((await app.api("PUT", "/bookings/settings", { token, body: { publicEnabled: true } })).status, 400, "needs emails first");
+    await app.api("PUT", "/bookings/settings", { token, body: { provider: "resend", fromEmail: "b@demo.mt", apiKey: "k" } });
+    const on = await app.api("PUT", "/bookings/settings", { token, body: { publicEnabled: true } });
+    eq(on.status, 200, on.text); const slug = on.json.settings.publicSlug; ok(/^demo-pharmacy-[0-9a-f]{6}$/.test(slug), slug);
+    eq((await app.api("GET", "/book/" + slug, {})).status, 200);
+    const sv = await app.api("GET", `/book/${slug}/services`, {});
+    eq(sv.json.services.map((s) => s.name), ["Flu vaccine"], "only online services");
+    const nx = (await app.api("GET", `/book/${slug}/next?service_id=${flu.id}`, {})).json.slots;
+    ok(nx.length > 0);
+    const s0 = nx[0];
+    const hold = await app.api("POST", `/book/${slug}/hold`, { body: { serviceId: flu.id, providerId: s0.providerId, date: s0.date, start: s0.time, name: "Online Olga", email: "olga@example.com" } });
+    eq(hold.status, 200, hold.text);
+    const codeMail = cap.sent.find((m) => /Your code/.test(m.body.subject)); ok(codeMail, "code emailed");
+    const code = /Your code: (\d{6})/.exec(codeMail.body.subject)[1];
+    eq((await app.api("POST", `/book/${slug}/confirm`, { body: { holdId: hold.json.holdId, code: "000000" === code ? "111111" : "000000" } })).status, 400);
+    const conf = await app.api("POST", `/book/${slug}/confirm`, { body: { holdId: hold.json.holdId, code } });
+    eq(conf.status, 200, conf.text); ok(/^\/b\//.test(conf.json.link), "private link returned");
+    eq(app.DB.q("SELECT person_name, notes FROM bk_bookings")[0].notes, "Booked online");
+    ok(cap.sent.some((m) => /Booked: Flu vaccine/.test(m.body.subject)), "confirmation email");
+    eq((await app.api("POST", `/book/${slug}/confirm`, { body: { holdId: hold.json.holdId, code } })).status, 410, "a code works once");
+    // Taken between hold and confirm
+    const s1 = (await app.api("GET", `/book/${slug}/next?service_id=${flu.id}`, {})).json.slots[0];
+    const h2 = await app.api("POST", `/book/${slug}/hold`, { body: { serviceId: flu.id, providerId: s1.providerId, date: s1.date, start: s1.time, name: "Late Larry", email: "larry@example.com" } });
+    const code2 = /Your code: (\d{6})/.exec(cap.sent.filter((m) => /Your code/.test(m.body.subject)).pop().body.subject)[1];
+    await app.api("POST", "/bookings", { token, body: { serviceId: flu.id, providerId: s1.providerId, date: s1.date, start: s1.time, personName: "At the counter" } });
+    eq((await app.api("POST", `/book/${slug}/confirm`, { body: { holdId: h2.json.holdId, code: code2 } })).status, 409, "taken meanwhile");
+    // Switched off: nothing is revealed
+    await app.api("PUT", "/bookings/settings", { token, body: { publicEnabled: false } });
+    eq((await app.api("GET", `/book/${slug}/services`, {})).status, 404);
+  } finally { cap.restore(); }
+});
+
+test("public booking: five wrong codes end the attempt", async () => {
+  const app = await makeApp({ env: KEY }); const cap = captureFetch();
+  try {
+    const { token } = await app.bootstrap();
+    const all = {}; for (let d = 0; d <= 6; d++) all[d] = [["08:00", "20:00"]];
+    const p = await app.api("POST", "/bookings/providers", { token, body: { name: "Maria", hours: all } });
+    const flu = (await app.api("POST", "/bookings/services", { token, body: { name: "Flu", durationMin: 10, providerIds: [p.json.provider.id], online: true } })).json.service;
+    await app.api("PUT", "/bookings/settings", { token, body: { provider: "resend", fromEmail: "b@demo.mt", apiKey: "k" } });
+    const slug = (await app.api("PUT", "/bookings/settings", { token, body: { publicEnabled: true } })).json.settings.publicSlug;
+    const s0 = (await app.api("GET", `/book/${slug}/next?service_id=${flu.id}`, {})).json.slots[0];
+    const h = await app.api("POST", `/book/${slug}/hold`, { body: { serviceId: flu.id, providerId: s0.providerId, date: s0.date, start: s0.time, name: "G", email: "g@example.com" } });
+    const code = /Your code: (\d{6})/.exec(cap.sent.pop().body.subject)[1];
+    for (let i = 0; i < 5; i++) await app.api("POST", `/book/${slug}/confirm`, { body: { holdId: h.json.holdId, code: "12345" + i } });
+    eq((await app.api("POST", `/book/${slug}/confirm`, { body: { holdId: h.json.holdId, code } })).status, 429, "even the right code is refused after 5 wrong ones");
+    eq(app.DB.q("SELECT COUNT(*) AS c FROM bk_bookings")[0].c, 0);
+  } finally { cap.restore(); }
+});
