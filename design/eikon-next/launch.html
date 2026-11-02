@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Eikon · Launch and sign in</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
+<style>
+/* Same tokens as today.html */
+:root{--font:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Inter",system-ui,sans-serif;
+  --bg:#F2F2F7;--surface:#fff;--fill-2:rgba(118,118,128,.07);--label:#000;--label-2:rgba(60,60,67,.64);--label-3:rgba(60,60,67,.42);
+  --sep:rgba(60,60,67,.15);--tint:#0A8F6A;--tint-ink:#fff;--tint-soft:rgba(10,143,106,.11);--red:#D7261C;color-scheme:light}
+:root[data-theme="dark"]{--bg:#000;--surface:#1C1C1E;--fill-2:rgba(118,118,128,.16);--label:#fff;--label-2:rgba(235,235,245,.64);--label-3:rgba(235,235,245,.40);
+  --sep:rgba(84,84,88,.6);--tint:#32D39C;--tint-ink:#00261B;--tint-soft:rgba(50,211,156,.15);--red:#FF5A50;color-scheme:dark}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--label);font-family:var(--font);-webkit-font-smoothing:antialiased}
+button,input{font:inherit;color:inherit;border:0;background:none}
+
+/* ───── Launch: the mark, drawn in vector, on the page background. Lasts only as long as loading does. ───── */
+.launch{position:fixed;inset:0;display:grid;place-items:center;background:var(--bg)}
+.mark{display:flex;flex-direction:column;align-items:center;gap:18px}
+.mark svg{width:180px;height:auto;color:var(--label)}
+.mark .slit{fill:var(--bg)}
+.mark .line{width:120px;height:3px;border-radius:2px;background:var(--fill-2);overflow:hidden}
+.mark .line i{display:block;height:100%;width:40%;border-radius:2px;background:var(--tint)}
+
+/* ───── Sign in ───── */
+.signin{min-height:100vh;min-height:100svh;display:grid;place-items:center;padding:24px 16px}
+.card{width:100%;max-width:400px;margin-top:-6vh}
+.card .logo{display:flex;justify-content:center;margin-bottom:28px}
+.card .logo svg{width:112px;color:var(--label)}
+.card .logo .slit{fill:var(--bg)}
+h1{font-size:28px;line-height:34px;font-weight:700;letter-spacing:-.02em;text-align:center}
+.sub{font-size:15px;line-height:20px;color:var(--label-2);text-align:center;margin:6px 0 26px}
+.fields{background:var(--surface);border-radius:16px;overflow:hidden}
+.field{display:flex;align-items:center;height:54px;padding:0 16px;position:relative}
+.field + .field::before{content:"";position:absolute;top:0;left:16px;right:0;height:.5px;background:var(--sep)}
+.field label{width:92px;font-size:17px;font-weight:500;flex:none}
+.field .val{font-size:17px;color:var(--label)}
+.field .ph{font-size:17px;color:var(--label-3)}
+.caret{display:inline-block;width:2px;height:22px;background:var(--tint);vertical-align:middle;margin-left:1px;border-radius:1px}
+.go{margin-top:18px;height:52px;width:100%;border-radius:26px;background:var(--tint);color:var(--tint-ink);font-size:17px;font-weight:600}
+.small{margin-top:16px;text-align:center;font-size:13px;line-height:18px;color:var(--label-2)}
+.small a{color:var(--tint);text-decoration:none;font-weight:500}
+.foot{position:fixed;left:0;right:0;bottom:22px;text-align:center;font-size:12px;color:var(--label-3)}
+</style>
+</head>
+<body>
+<!-- The wordmark: "eikon" with the three slits of the existing brand, as vector so it is sharp at any size and in both themes. -->
+<template id="wordmark">
+  <svg viewBox="0 0 300 92" aria-label="eikon">
+    <text x="150" y="74" text-anchor="middle" font-family="Inter, -apple-system, sans-serif" font-weight="800" font-size="92" letter-spacing="-3" fill="currentColor">eikon</text>
+    <rect class="slit" x="0" y="44.5" width="300" height="2.2"/>
+    <rect class="slit" x="0" y="58" width="300" height="2.2"/>
+  </svg>
+</template>
+
+<div id="app"></div>
+<script>
+const Q = new URLSearchParams(location.search);
+document.documentElement.dataset.theme = Q.get("theme") || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+const mark = document.getElementById("wordmark").innerHTML;
+const view = Q.get("view") || "launch";
+document.getElementById("app").innerHTML = view === "launch"
+  ? `<div class="launch"><div class="mark">${mark}<div class="line"><i></i></div></div></div>`
+  : `<div class="signin"><div class="card">
+       <div class="logo">${mark}</div>
+       <h1>Welcome back</h1>
+       <div class="sub">Sign in to Demo Pharmacy</div>
+       <div class="fields">
+         <div class="field"><label>Email</label><span class="val">maria@demopharmacy.mt</span></div>
+         <div class="field"><label>Password</label><span class="ph"><span class="caret"></span></span></div>
+       </div>
+       <button class="go">Sign in</button>
+       <div class="small">Forgot your password? <a href="#">Ask your pharmacy admin</a></div>
+     </div></div><div class="foot">Eikon · build your vision</div>`;
+</script>
+</body>
+</html>
