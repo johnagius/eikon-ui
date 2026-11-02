@@ -178,7 +178,7 @@
   function prefetchSupplierProducts() {
     if (_supplierProducts!==null||_supplierProductsLoading) return;
     _supplierProductsLoading=true;
-    E.apiFetch("/supplier-products/inventory",{method:"GET"}).then(function(r){
+    E.getShared("/supplier-products/inventory", 600000).then(function(r){
       _supplierProducts=(r&&r.entries)||[];
       _supplierProductsLoading=false;
     }).catch(function(){ _supplierProducts=[]; _supplierProductsLoading=false; });

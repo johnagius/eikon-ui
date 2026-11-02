@@ -1765,7 +1765,7 @@
 
     // Prefetch supplier products for lookup in add/edit modal
     if (!window._qtSupplierProducts) {
-      E.apiFetch("/supplier-products/inventory", { method: "GET" })
+      E.getShared("/supplier-products/inventory", 600000)
         .then(function (r) { window._qtSupplierProducts = (r && r.entries) || []; })
         .catch(function () { window._qtSupplierProducts = []; });
     }

@@ -328,6 +328,17 @@
 
   // API base (same-origin, because UI is served by the Worker)
   E.apiBase = "";
+  // One shared GET for data several screens use (e.g. the supplier inventory): screens opened
+  // within ttlMs reuse the same response or in-flight request instead of downloading it again.
+  E._getCache = {};
+  E.getShared = function (path, ttlMs) {
+    var c = E._getCache[path], now = Date.now();
+    if (c && (now - c.at) < (ttlMs || 300000)) return c.p;
+    var p = E.apiFetch(path, { method: "GET" });
+    E._getCache[path] = { at: now, p: p };
+    p.catch(function () { if (E._getCache[path] && E._getCache[path].p === p) delete E._getCache[path]; });
+    return p;
+  };
 
   // Fetch wrapper with heavy debugging
   E.apiFetch = async function (path, options) {
@@ -343,7 +354,7 @@
 
     var url = path;
     if (!/^https?:\/\//i.test(path)) url = (E.apiBase || "") + path;
-    if (String(method).toUpperCase() !== "GET") E.lastWriteAt = Date.now(); // lets screens know cached data may be stale
+    if (String(method).toUpperCase() !== "GET") { E.lastWriteAt = Date.now(); E._getCache = {}; } // any save makes shared caches stale
 
     var reqInfo = { method: method, headers: {}, hasToken: !!token };
     try { headers.forEach(function (v, k) { reqInfo.headers[k] = (String(k).toLowerCase() === "authorization") ? "Bearer [redacted]" : v; }); } catch (e) {}

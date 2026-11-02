@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Eikon · new version</title>
+<style>html,body{margin:0;height:100%;background:#F2F2F7;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
+.c{height:100%;display:grid;place-items:center;color:rgba(60,60,67,.64);font-size:15px}</style>
+</head>
+<body>
+<div class="c">Opening the new Eikon…</div>
+<script>
+  // A shareable door into the new version: remembers the choice on this browser,
+  // then opens it. "Classic layout" in Settings (or index.html?ui=1) goes back.
+  try {
+    localStorage.setItem("eikon_ui2", "1");
+    localStorage.setItem("eikon_bookings", "1");
+    sessionStorage.removeItem("eikon_ui2_pause");
+  } catch (e) {}
+  location.replace("index.html#today");
+</script>
+</body>
+</html>
