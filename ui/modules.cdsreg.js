@@ -9,6 +9,10 @@
   var E = window.EIKON;
   if (!E) return;
 
+  // One builder for both prescription registers: DDA sales and POYC take the same entries; they differ in the urgent
+  // flag, in how the ID card is stored (sales pads it like the server does; POYC keeps it as typed) and in where
+  // earlier patients and prescribers are looked up (sales has lookup routes; POYC searches its own recent months).
+  function make(C) {
   var S = { mount: null, month: "", entries: [], doctors: [], loading: false, error: "", adding: null, saving: false, err: "", dup: null, dupOk: "" };
   var MON = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   var TEXT = ["entry_date", "client_id_card", "client_name", "client_address", "doctor_name", "doctor_reg_no", "prescription_serial_no"];
@@ -19,7 +23,7 @@
   function dmy(s) { var p = String(s).split("-"); return Number(p[2]) + " " + MON[Number(p[1]) - 1].slice(0, 3); }
   function idCard(raw) { // same rule as the classic register and the server: 123M → 0000123M
     var s = String(raw || "").replace(/\s+/g, "").toUpperCase(), m = /^(\d{1,7})([A-Z])$/.exec(s);
-    return m ? ("0000000" + m[1]).slice(-7) + m[2] : s;
+    return m && C.pad ? ("0000000" + m[1]).slice(-7) + m[2] : s;
   }
   function uniq(a) { var seen = {}, out = []; a.forEach(function (x) { var k = String(x || "").trim(); if (k && !seen[k.toLowerCase()]) { seen[k.toLowerCase()] = 1; out.push(k); } }); return out.sort(function (x, y) { return x.localeCompare(y); }); }
   function blank() { return { entry_date: today(), client_id_card: "", client_name: "", client_address: "", doctor_name: "", doctor_reg_no: "", prescription_serial_no: "", urgent: 0, lines: [{ medicine_name_dose: "", quantity: "" }] }; }
@@ -58,24 +62,24 @@
   async function load() {
     S.loading = true; S.error = ""; paint();
     try {
-      var r = await E.apiFetch("/dda-sales/entries?month=" + encodeURIComponent(S.month), { method: "GET" });
+      var r = await E.apiFetch(C.path + "/entries?month=" + encodeURIComponent(S.month), { method: "GET" });
       if (!r || !r.ok) throw new Error((r && r.error) || "Could not load the register");
       S.entries = r.entries || [];
     } catch (e) { S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load the register"); }
     S.loading = false; paint();
   }
   async function loadDoctors() { // the prescribers this pharmacy sees most, for the name list
-    try { var r = await E.apiFetch("/dda-sales/doctors?limit=50", { method: "GET" }); S.doctors = (r && r.ok && r.doctors) || []; } catch (e) { S.doctors = []; }
+    try { S.doctors = await C.doctors(""); } catch (e) { S.doctors = []; }
     if (S.adding) paint();
   }
 
   function paint(fromState) {
     var m = S.mount; if (!m) return;
-    if (E.state.activeModuleId !== "cdsreg") return; // left before a reply came back: do not draw over the next screen
+    if (E.state.activeModuleId !== C.id) return; // left before a reply came back: do not draw over the next screen
     if (S.adding && !S.saving && !fromState) keep(); // a reply landing while someone types must not wipe the form
     var mn = MON[Number(S.month.slice(5)) - 1] + " " + S.month.slice(0, 4);
     var h = '<div class="cds"><button class="cds-back" data-act="back">‹ Registers</button>' +
-      '<div class="cds-top"><div><h1>Controlled drugs supplied</h1><p class="cds-sub">Every controlled drug handed over against a prescription.</p></div>' + (S.adding ? "" : '<button class="cds-btn p" data-act="add">Record a prescription</button>') + "</div>";
+      '<div class="cds-top"><div><h1>' + esc(C.title) + '</h1><p class="cds-sub">' + esc(C.sub) + '</p></div>' + (S.adding ? "" : '<button class="cds-btn p" data-act="add">Record a prescription</button>') + "</div>";
     if (S.adding) {
       var a = S.adding, saved = a.lines.some(function (l) { return l.saved; }), lock = saved ? " disabled" : "";
       var fld = function (k, label, extra, hint) { return '<label><span>' + label + '</span><input name="' + k + '" value="' + esc(a[k]) + '"' + (extra || "") + lock + ">" + (hint || "") + "</label>"; };
@@ -87,7 +91,7 @@
         fld("doctor_name", "Prescriber", ' list="cds-docs" placeholder="Dr name"') +
         fld("doctor_reg_no", "Reg no.", ' inputmode="numeric"') +
         fld("prescription_serial_no", "Serial no.", ' placeholder="From the prescription"') +
-        '<label><span>Urgent</span><input type="checkbox" name="urgent"' + (a.urgent ? " checked" : "") + lock + "></label>" +
+        (C.urgent ? '<label><span>Urgent</span><input type="checkbox" name="urgent"' + (a.urgent ? " checked" : "") + lock + "></label>" : "") +
         '<div class="hd"><span>Medicine, strength and form</span><span>Qty</span></div>' +
         a.lines.map(function (l, i) {
           return '<div class="row' + (l.saved ? " ok" : "") + '"><input class="n" data-i="' + i + '" data-k="medicine_name_dose" list="cds-meds" value="' + esc(l.medicine_name_dose) + '" placeholder="e.g. Morphine 10mg tablets"' + (l.saved ? " disabled" : "") + ">" +
@@ -120,7 +124,7 @@
         else if (act === "add") { S.adding = blank(); S.err = ""; S.dup = null; S.dupOk = ""; paint(); if (!S.doctors.length) loadDoctors(); var f = m.querySelector("[name=client_id_card]"); if (f) f.focus(); }
         else if (act === "add-cancel") { S.adding = null; S.err = ""; S.dup = null; paint(); }
         else if (act === "line") { keep(); S.adding.lines.push({ medicine_name_dose: "", quantity: "" }); paint(); var ins = m.querySelectorAll(".cds-form .row input.n"); if (ins.length) ins[ins.length - 1].focus(); }
-        else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "cdsreg"); } catch (x) {} E.openClassic("dda-sales"); }
+        else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", C.id); } catch (x) {} E.openClassic(C.classic); }
       });
     });
     var f = m.querySelector("#cds-add");
@@ -141,10 +145,10 @@
   }
 
   async function lookupPatient(raw) {
-    var id = idCard(raw); if (!/^\d{7}[A-Z]$/.test(id) || !S.adding || S.adding.looked === id) return;
+    var id = idCard(raw); if (!/^\d{1,7}[A-Z]$/.test(id) || !S.adding || S.adding.looked === id) return;
     S.adding.looked = id;
     try {
-      var r = await E.apiFetch("/dda-sales/client?client_id_card=" + encodeURIComponent(id), { method: "GET" });
+      var r = await C.patient(id);
       if (!S.adding || !r || !r.ok) return;
       keep(); S.adding.client_id_card = id;
       if (r.found) { // fill only what is still empty: never overwrite what was typed
@@ -159,7 +163,7 @@
     name = String(name || "").trim(); if (!name || !S.adding || S.adding.lookedDoc === name) return;
     S.adding.lookedDoc = name;
     var hit = S.doctors.filter(function (d) { return d.doctor_name.toLowerCase() === name.toLowerCase(); });
-    if (!hit.length) { try { var r = await E.apiFetch("/dda-sales/doctors?limit=5&q=" + encodeURIComponent(name), { method: "GET" }); hit = ((r && r.ok && r.doctors) || []).filter(function (d) { return d.doctor_name.toLowerCase() === name.toLowerCase(); }); } catch (e) { return; } }
+    if (!hit.length) { try { hit = (await C.doctors(name)).filter(function (d) { return d.doctor_name.toLowerCase() === name.toLowerCase(); }); } catch (e) { return; } }
     var regs = uniq(hit.map(function (d) { return d.doctor_reg_no; }));
     if (regs.length !== 1 || !S.adding) return; // two doctors with one name: let the person type it
     keep(); if (!S.adding.doctor_reg_no) { S.adding.doctor_reg_no = regs[0]; paint(true); }
@@ -180,7 +184,7 @@
     // a serial already in the register: show it once and ask for a second press (part-dispense), like the classic warning
     if (!a.lines.some(function (l) { return l.saved; }) && S.dupOk !== a.prescription_serial_no) {
       S.saving = true; paint();
-      var dup = null; try { var c = await E.apiFetch("/dda-sales/check-serial?serial=" + encodeURIComponent(a.prescription_serial_no), { method: "GET" }); if (c && c.ok && c.found) dup = c; } catch (e) {}
+      var dup = null; try { var c = await E.apiFetch(C.path + "/check-serial?serial=" + encodeURIComponent(a.prescription_serial_no), { method: "GET" }); if (c && c.ok && c.found) dup = c; } catch (e) {}
       S.saving = false;
       if (dup) { S.dup = dup; S.dupOk = a.prescription_serial_no; return paint(); }
     }
@@ -189,8 +193,8 @@
     for (var i = 0; i < todo.length; i++) {
       var l = todo[i];
       try {
-        var r = await E.apiFetch("/dda-sales/entries", { method: "POST", body: JSON.stringify({ entry_date: a.entry_date, client_name: a.client_name, client_id_card: a.client_id_card, client_address: a.client_address,
-          medicine_name_dose: l.medicine_name_dose, quantity: Number(l.quantity), doctor_name: a.doctor_name, doctor_reg_no: a.doctor_reg_no, prescription_serial_no: a.prescription_serial_no, urgent: a.urgent ? 1 : 0 }) });
+        var r = await E.apiFetch(C.path + "/entries", { method: "POST", body: JSON.stringify({ entry_date: a.entry_date, client_name: a.client_name, client_id_card: a.client_id_card, client_address: a.client_address,
+          medicine_name_dose: l.medicine_name_dose, quantity: Number(l.quantity), doctor_name: a.doctor_name, doctor_reg_no: a.doctor_reg_no, prescription_serial_no: a.prescription_serial_no, urgent: a.urgent ? 1 : 0 }) }); // the POYC server ignores urgent
         if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
         l.saved = true; done++;
       } catch (x) { failed = String((x && (x.message || x)) || "error"); break; } // stop: the rest stay in the form
@@ -202,9 +206,33 @@
   }
 
   E.registerModule({
-    id: "cdsreg", title: "Controlled drugs supplied", order: 3, icon: "℞", ui2Only: true,
+    id: C.id, title: C.title, order: 3, icon: "℞", ui2Only: true,
     render: function (ctx) { S.mount = ctx && ctx.mount; S.month = today().slice(0, 7); S.adding = null; S.err = ""; S.dup = null; S.dupOk = ""; css(); paint(); return load(); }
   });
-  if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("cdsreg") < 0) E.UI2_DESTINATIONS.push("cdsreg");
-  if (E.UI2_PARENT) E.UI2_PARENT.cdsreg = "registers";
+  if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf(C.id) < 0) E.UI2_DESTINATIONS.push(C.id);
+  if (E.UI2_PARENT) E.UI2_PARENT[C.id] = "registers";
+  }
+
+  function ym(back) { var d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - back); return d.getFullYear() + "-" + (d.getMonth() < 9 ? "0" : "") + (d.getMonth() + 1); }
+  // POYC has no lookup routes: search its own last six months, newest first, as the classic POYC screen does
+  async function poycSearch(q) {
+    var res = await Promise.all([0, 1, 2, 3, 4, 5].map(function (b) { return E.apiFetch("/dda-poyc/entries?month=" + ym(b) + "&q=" + encodeURIComponent(q), { method: "GET" }).catch(function () { return null; }); }));
+    return [].concat.apply([], res.map(function (r) { return (r && r.ok && r.entries) || []; }));
+  }
+
+  make({ id: "cdsreg", path: "/dda-sales", classic: "dda-sales", title: "Controlled drugs supplied", sub: "Every controlled drug handed over against a prescription.", urgent: true, pad: true,
+    patient: function (id) { return E.apiFetch("/dda-sales/client?client_id_card=" + encodeURIComponent(id), { method: "GET" }); },
+    doctors: async function (q) { var r = await E.apiFetch("/dda-sales/doctors?limit=" + (q ? 5 : 50) + (q ? "&q=" + encodeURIComponent(q) : ""), { method: "GET" }); return (r && r.ok && r.doctors) || []; } });
+
+  make({ id: "poyreg", path: "/dda-poyc", classic: "dda-poyc", title: "POYC controlled drugs", sub: "Controlled drugs given under the Pharmacy of Your Choice scheme.", urgent: false, pad: false,
+    patient: async function (id) {
+      var hit = (await poycSearch(id)).filter(function (e) { return String(e.client_id_card || "").replace(/\s+/g, "").toUpperCase().replace(/^0+/, "") === id.replace(/^0+/, ""); })[0];
+      return hit ? { ok: true, found: true, client_name: hit.client_name, client_address: hit.client_address } : { ok: true, found: false };
+    },
+    doctors: async function (q) {
+      var rows = q ? await poycSearch(q) : [].concat.apply([], (await Promise.all([0, 1, 2].map(function (b) { return E.apiFetch("/dda-poyc/entries?month=" + ym(b), { method: "GET" }).catch(function () { return null; }); }))).map(function (r) { return (r && r.ok && r.entries) || []; }));
+      var seen = {}, out = [];
+      rows.forEach(function (e) { var k = e.doctor_name + "|" + e.doctor_reg_no; if (e.doctor_name && e.doctor_reg_no && !seen[k]) { seen[k] = 1; out.push({ doctor_name: e.doctor_name, doctor_reg_no: e.doctor_reg_no }); } });
+      return out;
+    } });
 })();
