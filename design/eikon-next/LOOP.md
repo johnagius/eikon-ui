@@ -503,3 +503,10 @@ All of it waits only on the worker deploy.
 - Validate-all-then-sequential-POST with failure retention (real worker + forced 500: no duplicates).
 - Bug caught in testing: repaint's keep() overwrote lookup-filled values → paint(fromState) for lookup repaints;
   lookups on input/blur instead of change (a repaint can swallow change). UI 115/115. BUILD .67.
+
+## Round 50 — POYC rebuilt (one builder for both prescription registers)
+- Live check: BUILD .67 serving with cdsreg.
+- modules.cdsreg.js now make(C) for DDA sales (cdsreg) and POYC (poyreg): urgent only for sales; ID padded only for
+  sales (POYC server stores as typed); POYC lookups search its own last 6 months (no lookup routes on the server).
+- Real local worker: both registers pass fill-in, repeated-serial confirm, forced-failure retry with no duplicates.
+- UI 116/116. BUILD .68. Controlled-drug registers rebuilt: received, supplied, POYC (stock takes still classic).
