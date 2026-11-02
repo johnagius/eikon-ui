@@ -327,3 +327,6 @@ All of it waits only on the worker deploy.
 - Cause 2 (UI): scripts waited for app.css to finish before being requested. Now parallel; core.js high priority; early sign-in waits for CSS. Live with BUILD .21.
 - Also: home-screen tags + icons (same website, full-screen from the home screen), tab bar clears the home indicator.
 - e2e note: bookings e2e assume a fresh DB; run each on a fresh server (all pass).
+- CORRECTION (round 23b): the 5.3–8.0 s figure measured until the page `load` event (inflated by the sandbox blocking the SheetJS CDN).
+  Measured from navigation start: sign-in form at 0.6–1.1 s on throttled 4G, all modules by 2.6–3.0 s (live, BUILD .21).
+  Signed-in visits wait for all modules (~3 s uncached); the worker-side caching (pending deploy) is what makes repeat visits fast.
