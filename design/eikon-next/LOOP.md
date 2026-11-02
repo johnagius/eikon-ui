@@ -276,3 +276,16 @@ then a hard cut to a small sign-in card.
 - Worker 69/69, e2e 5/5.
 - **Production today:** 31 old appointments in total, ready to move once the
   worker is deployed.
+
+### Round 20: online booking page (optional)
+- `/book/<slug>`:
+  - only services marked Online are offered
+  - the customer picks a time, gives a name and email, and confirms with a
+    6-digit emailed code (10 minutes, 5 tries)
+  - the slot is re-checked at that moment
+  - it's rate-limited, noindex and no-referrer
+- **Off by default.** It can't be switched on until customer emails are set up.
+- **Settings:** an Online switch per service, plus an Online booking switch that
+  shows the pharmacy's link.
+- Worker 71/71; customer e2e and settings e2e pass (one stale selector in a
+  test fixed).
