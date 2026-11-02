@@ -125,3 +125,32 @@ test("practitioners: title and speciality are kept; the booking page lists who d
   const days = (await app.api("GET", `/book/${slug}/days?service_id=${svc.id}&provider_id=${vella.id}`, {})).json.days;
   eq(days.length, 14);
 });
+
+test("clinic rooms: set up internally, a session can be in a room, two people cannot hold one room at the same time, bookings show it", async () => {
+  const app = await makeApp({ env: { ...KEY, BK_TEST_NOW: "2027-02-27 08:00" } }); const cap = capture();
+  try {
+    const { token } = await app.bootstrap();
+    const staff = await app.addUser({ email: "staff@example.com", role: "staff" });
+    eq((await app.api("POST", "/bookings/rooms", { token: staff.token, body: { name: "Room 1" } })).status, 403, "admins set up rooms");
+    eq((await app.api("POST", "/bookings/rooms", { token, body: { name: "" } })).status, 400);
+    const r1 = (await app.api("POST", "/bookings/rooms", { token, body: { name: "Room 1" } })).json.room;
+    const r2 = (await app.api("POST", "/bookings/rooms", { token, body: { name: "Physio room" } })).json.room;
+    eq((await app.api("GET", "/bookings/rooms", { token })).json.rooms.map((r) => r.name), ["Physio room", "Room 1"]);
+    // Monday (1): Dr Borg in Room 1 09:00–12:00
+    const borg = await app.api("POST", "/bookings/providers", { token, body: { name: "Anna Borg", title: "Dr", hours: { 1: [["09:00", "12:00", r1.id]] } } });
+    eq(borg.status, 201, borg.text); eq(borg.json.provider.hours[1][0][2], r1.id, "the room is kept on the session");
+    const clash = await app.api("POST", "/bookings/providers", { token, body: { name: "Paul Vella", hours: { 1: [["11:00", "13:00", r1.id]] } } });
+    eq(clash.status, 409, "Room 1 is Dr Borg's until 12:00"); ok(/Room 1/.test(clash.json.error) && /Borg/.test(clash.json.error), clash.text);
+    const vella = await app.api("POST", "/bookings/providers", { token, body: { name: "Paul Vella", hours: { 1: [["11:00", "13:00", r2.id]] } } });
+    eq(vella.status, 201, "another room is fine");
+    eq((await app.api("POST", "/bookings/providers", { token, body: { name: "X", hours: { 1: [["09:00", "10:00", 9999]] } } })).status, 400, "unknown room");
+    const svc = (await app.api("POST", "/bookings/services", { token, body: { name: "Consultation", durationMin: 30, providerIds: [borg.json.provider.id] } })).json.service;
+    await app.api("PUT", "/bookings/settings", { token, body: { provider: "on", fromEmail: "b@demo.mt" } });
+    await app.api("POST", "/bookings/senders", { token, body: { kind: "brevo", apiKey: "xkeysib-1" } });
+    const bk = await app.api("POST", "/bookings", { token, body: { serviceId: svc.id, date: "2027-03-01", start: "10:00", personName: "Carmen", personEmail: "c@example.com" } });
+    eq(bk.status, 201, bk.text);
+    const list = await app.api("GET", "/bookings?from=2027-03-01&to=2027-03-01", { token });
+    eq(list.json.bookings[0].roomName, "Room 1", "the day view knows the room");
+    ok(/Room 1/.test(html(cap.sent[cap.sent.length - 1])), "the confirmation says the room");
+  } finally { cap.restore(); }
+});

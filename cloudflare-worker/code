@@ -4,7 +4,7 @@ function nowIso() {
 
 
 
-const WORKER_VERSION = "2026-11-02-bookings-7";
+const WORKER_VERSION = "2026-11-02-bookings-8";
 function isDebugEnabled(request) {
   try {
     return (request && request.headers && (request.headers.get("X-Eikon-Debug") || "") === "1");
@@ -19748,6 +19748,9 @@ async function ensureBookingsSchema__impl(env) {
   for (const col of ["title TEXT NOT NULL DEFAULT ''", "speciality TEXT NOT NULL DEFAULT ''"]) {
     try { await dbRun(env, `ALTER TABLE bk_providers ADD COLUMN ${col}`, []); } catch (e) {}
   }
+  // Clinic rooms, set up by the pharmacy; a practitioner's weekly session may name one ([from, to, roomId]).
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS bk_rooms (id INTEGER PRIMARY KEY AUTOINCREMENT, org_id INTEGER NOT NULL, location_id INTEGER NOT NULL,
+    name TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT (datetime('now')))`, []);
 }
 const ensureBookingsSchema = schemaOnce("ensureBookingsSchema", ensureBookingsSchema__impl);
 
@@ -19779,7 +19782,8 @@ function bkCleanHours(h) {
     for (const w of arr) {
       if (!Array.isArray(w) || w.length < 2) continue;
       const a = bkMin(w[0]), b = bkMin(w[1]);
-      if (Number.isFinite(a) && Number.isFinite(b) && b > a) wins.push([bkTime(a), bkTime(b)]);
+      const room = Number(w[2]) > 0 ? Math.round(Number(w[2])) : 0; // optional third item: the room
+      if (Number.isFinite(a) && Number.isFinite(b) && b > a) wins.push(room ? [bkTime(a), bkTime(b), room] : [bkTime(a), bkTime(b)]);
     }
     if (wins.length) out[wd] = wins;
   }
@@ -19790,6 +19794,18 @@ function bkServiceRow(r) {
     color: r.color, providerIds: bkJson(r.provider_ids_json, []), online: !!r.online, active: !!r.active, sort: r.sort };
 }
 function bkProviderRow(r) { return { id: r.id, name: r.name, kind: r.kind, title: r.title || "", speciality: r.speciality || "", hours: bkJson(r.hours_json, {}), active: !!r.active }; }
+// The room a booking is in: the room of the practitioner's weekly session that contains its start time.
+function bkRoomIdFor(hours, date, start) {
+  for (const w of (hours || {})[bkWeekday(date)] || []) if (w[2] && start >= w[0] && start < w[1]) return Number(w[2]);
+  return 0;
+}
+async function bkRoomNameFor(env, booking) {
+  const p = await dbFirst(env, `SELECT hours_json FROM bk_providers WHERE id=?`, [booking.provider_id]);
+  const rid = p ? bkRoomIdFor(bkJson(p.hours_json, {}), booking.date, booking.start_time) : 0;
+  if (!rid) return "";
+  const r = await dbFirst(env, `SELECT name FROM bk_rooms WHERE id=? AND org_id=? AND location_id=?`, [rid, booking.org_id, booking.location_id]);
+  return r ? r.name : "";
+}
 function bkProviderLabel(p) { return [p.title, p.name].filter(Boolean).join(" "); }
 function bkBookingRow(r) {
   return { id: r.id, ref: r.ref, serviceId: r.service_id, providerId: r.provider_id, personName: r.person_name,
@@ -20088,6 +20104,26 @@ async function handleBookings(request, env, corsOkHeaders, authUser, url) {
     return ok({ cancelled, emailed, toCall });
   }
 
+  // Clinic rooms: everyone can see them; admins set them up.
+  if (parts[0] === "rooms") {
+    if (m === "GET") return ok({ rooms: (await dbAll(env, `SELECT id, name, active FROM bk_rooms WHERE org_id=? AND location_id=? ORDER BY active DESC, name`, [org, loc])).map((r) => ({ id: r.id, name: r.name, active: !!r.active })) });
+    if (!isAdmin) return bad("Only an admin can set up rooms", 403);
+    const b = await readJson(request) || {};
+    const name = String(b.name || "").trim().slice(0, 40);
+    if (!name) return bad("Give the room a name, e.g. Room 1");
+    if (m === "POST" && parts.length === 1) {
+      const r = await dbFirst(env, `INSERT INTO bk_rooms (org_id, location_id, name) VALUES (?,?,?) RETURNING *`, [org, loc, name]);
+      await writeAudit(env, org, me, "BK_ROOM_CREATE", "bk_rooms", String(r.id), { name });
+      return ok({ room: { id: r.id, name: r.name, active: true } }, 201);
+    }
+    if (m === "PUT" && parts.length === 2) {
+      const r = await dbFirst(env, `UPDATE bk_rooms SET name=?, active=? WHERE id=? AND org_id=? AND location_id=? RETURNING *`, [name, b.active === false ? 0 : 1, Number(parts[1]), org, loc]);
+      if (!r) return bad("Not found", 404);
+      return ok({ room: { id: r.id, name: r.name, active: !!r.active } });
+    }
+    return bad("Not found", 404);
+  }
+
   if (parts[0] === "providers" && (m === "POST" || m === "PUT")) {
     if (!isAdmin) return bad("Only an admin can change providers", 403);
     const b = await readJson(request) || {};
@@ -20096,6 +20132,23 @@ async function handleBookings(request, env, corsOkHeaders, authUser, url) {
     const hours = bkCleanHours(b.hours);
     if (!name) return bad("Name is required");
     const title = String(b.title || "").trim().slice(0, 20), speciality = String(b.speciality || "").trim().slice(0, 60);
+    // Rooms named in the sessions must exist here, and no one else may hold the same room at the same time.
+    const wanted = new Set(); for (const wd of Object.keys(hours)) for (const w of hours[wd]) if (w[2]) wanted.add(w[2]);
+    if (wanted.size) {
+      const rooms = await dbAll(env, `SELECT id, name FROM bk_rooms WHERE org_id=? AND location_id=? AND active=1`, [org, loc]);
+      const rn = Object.fromEntries(rooms.map((r) => [r.id, r.name]));
+      for (const id of wanted) if (!rn[id]) return bad("Choose a room that is set up here");
+      const selfId = m === "PUT" ? Number(parts[1]) : 0, DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+      const others = await dbAll(env, `SELECT id, name, title, hours_json FROM bk_providers WHERE org_id=? AND location_id=? AND active=1 AND id<>?`, [org, loc, selfId]);
+      for (const o of others) {
+        const oh = bkJson(o.hours_json, {});
+        for (const wd of Object.keys(hours)) for (const w of hours[wd]) {
+          if (!w[2]) continue;
+          const hit = (oh[wd] || []).find((x) => Number(x[2]) === w[2] && x[0] < w[1] && w[0] < x[1]);
+          if (hit) return bad(`${rn[w[2]]} is ${bkProviderLabel(o)}'s on ${DAYS[wd]} ${hit[0]}–${hit[1]}`, 409);
+        }
+      }
+    }
     if (m === "POST" && parts.length === 1) {
       const r = await dbFirst(env, `INSERT INTO bk_providers (org_id, location_id, name, kind, hours_json, title, speciality) VALUES (?,?,?,?,?,?,?) RETURNING *`, [org, loc, name, kind, JSON.stringify(hours), title, speciality]);
       await writeAudit(env, org, me, "BK_PROVIDER_CREATE", "bk_providers", String(r.id), { name });
@@ -20152,7 +20205,10 @@ async function handleBookings(request, env, corsOkHeaders, authUser, url) {
     if (!isValidYmd(from) || !isValidYmd(to) || to < from) return bad("from and to are required (YYYY-MM-DD)");
     if (bkDaysBetween(from, to) > BK_MAX_RANGE_DAYS) return bad(`At most ${BK_MAX_RANGE_DAYS} days at a time`);
     const rows = await dbAll(env, `SELECT * FROM bk_bookings WHERE org_id=? AND location_id=? AND date>=? AND date<=? ORDER BY date, start_time, provider_id`, [org, loc, from, to]);
-    return ok({ from, to, bookings: rows.map(bkBookingRow) });
+    const provs = await dbAll(env, `SELECT id, hours_json FROM bk_providers WHERE org_id=? AND location_id=?`, [org, loc]);
+    const ph = Object.fromEntries(provs.map((p) => [p.id, bkJson(p.hours_json, {})]));
+    const rn = Object.fromEntries((await dbAll(env, `SELECT id, name FROM bk_rooms WHERE org_id=? AND location_id=?`, [org, loc])).map((r) => [r.id, r.name]));
+    return ok({ from, to, bookings: rows.map((r) => { const rid = bkRoomIdFor(ph[r.provider_id], r.date, r.start_time); return { ...bkBookingRow(r), roomId: rid || null, roomName: rn[rid] || "" }; }) });
   }
 
   // POST /bookings → book a slot
@@ -20521,6 +20577,7 @@ async function bkNotify(env, request, booking, kind) {
     }[kind];
     // A cancellation says why (unless the customer cancelled it) and, when online booking is on, how to book again.
     let lines = T[1], btn = kind === "cancel" ? "" : link, btnText = "";
+    if (kind !== "cancel") { const room = await bkRoomNameFor(env, booking); if (room) lines = lines.concat([`In ${room}.`]); }
     if (kind === "cancel") {
       const why = String(booking.cancel_reason || "");
       if (why && !/by the customer/i.test(why)) lines = lines.concat([why + "."]);
@@ -20742,10 +20799,11 @@ async function handleBookingLink(request, env, url) {
   }
 
   const state = b.status === "cancelled" ? "Cancelled" : b.status === "done" ? "Done" : "Booked";
+  const roomName = b.status === "cancelled" ? "" : await bkRoomNameFor(env, b);
   return bkPage(`${svcName} · ${pharmacy}`, `<div class="c">
     <div class="s">${e(pharmacy)}</div><h1>${e(bkFirstName(b.person_name))}, you're ${b.status === "cancelled" ? "not booked" : "booked"}</h1>
     <div class="big">${e(svcName)}</div><div class="row">${e(bkWhen(b))}</div>
-    <div class="row s">${e(state)}${s.address ? " · " + e(s.address) : ""}</div>
+    <div class="row s">${e(state)}${roomName ? " · " + e(roomName) : ""}${s.address ? " · " + e(s.address) : ""}</div>
     ${b.status !== "cancelled" ? `<a class="b g" href="${base}.ics">Add to calendar</a>` : ""}
     ${canChange ? `<a class="b" style="background:rgba(10,143,106,.11);color:#0A7A5B" href="${base}/move">Change time</a>` : ""}
     ${canCancel ? `<form method="post" action="${base}/cancel" onsubmit="return confirm('Cancel this booking?')"><button class="b r">Cancel booking</button></form>` : ""}
