@@ -440,6 +440,9 @@
 
   // Module registry
   E.modules = E.modules || {};
+  // Resolved by start() (main.js loads last, after every module). Sign-in can show before this.
+  E.modulesReady = E.modulesReady || new Promise(function (r) { E._resolveModulesReady = r; });
+
   E.registerModule = function (mod) {
     if (!mod || !mod.id) throw new Error("Invalid module registration (missing id)");
     E.modules[mod.id] = mod;
@@ -778,6 +781,7 @@
 
       btn.disabled = true;
       btn.textContent = "Logging in…";
+      E._loginInFlight = true; // start() must not also draw the app (see start)
 
       E.apiFetch("/auth/login", {
         method: "POST",
@@ -791,7 +795,8 @@
           E.dbg("[auth] login OK:", resp.user);
           var roles = E.getRolesForUser(resp.user);
           E.dbg("[auth] available roles:", roles);
-          return E.renderRoleSelection(roles);
+          // The form can appear before every module has loaded; wait for them only if needed.
+          return E.modulesReady.then(function () { return E.renderRoleSelection(roles); });
         })
         .catch(function (err) {
           E.error("[auth] login error:", err);
@@ -803,6 +808,7 @@
           E.renderLogin(msg, email);
         })
         .finally(function () {
+          E._loginInFlight = false;
           try {
             btn.disabled = false;
             btn.textContent = "Sign in";
@@ -1584,10 +1590,14 @@
     });
 
     // Try authed boot
+    try { if (E._resolveModulesReady) E._resolveModulesReady(); } catch (e) {}
+    // Someone signed in on the early form while modules were loading: that flow draws the app.
+    if (E._loginInFlight || (E._earlyLoginShown && E.state.user)) return;
     var token = E.getToken();
     if (!token) {
       E.dbg("[auth] no token -> login screen");
-      E.renderLogin();
+      // Already on screen (shown early while modules loaded): do not redraw over what was typed.
+      if (!E._earlyLoginShown) E.renderLogin();
       return;
     }
 
@@ -1619,4 +1629,16 @@
     }
   };
 
+  // Show sign-in as soon as the core is here (about 0.3 s) instead of after all 59 scripts;
+  // modules keep loading while the person types. Only when there is no saved session.
+  setTimeout(function () {
+    try {
+      if (E.state.started || E.getToken() || !document.getElementById("eikon-root")) return;
+      // Same default start() would set, but now, before anyone is signed in (setting it after
+      // sign-in would fire the router while the portal picker is on screen).
+      if (!window.location.hash) window.location.hash = "#dashboard";
+      E._earlyLoginShown = true;
+      E.renderLogin();
+    } catch (e) { E._earlyLoginShown = false; }
+  }, 0);
 })();
