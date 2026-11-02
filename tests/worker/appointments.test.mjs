@@ -36,3 +36,13 @@ test("appointments: public lookup hides staff notes and is rate-limited per netw
   eq((await api("GET", "/appointments/public/lookup?id_card=12345m&token=" + t, { headers: ip })).status, 429, "guessing network is stopped");
   eq((await api("GET", "/appointments/public/lookup?id_card=12345m&token=" + t, { headers: { "CF-Connecting-IP": "203.0.113.4" } })).status, 200, "other networks unaffected");
 });
+
+test("appointments: when the list is capped, the newest bookings are kept, oldest-first", async ({ api, bootstrap }) => {
+  const { token } = await bootstrap();
+  for (const d of ["2026-01-05", "2026-06-10", "2026-12-01"]) {
+    eq((await api("POST", "/appointments/entries", { token, body: { patient_name: "P " + d, date: d, time: "10:00" } })).status, 201);
+  }
+  const r = await api("GET", "/appointments/entries?limit=2", { token });
+  eq(r.status, 200, r.text);
+  eq(r.json.appointments.map((a) => a.date), ["2026-06-10", "2026-12-01"]);
+});

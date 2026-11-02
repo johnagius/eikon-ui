@@ -14358,7 +14358,8 @@ async function handleApptList(request, env, corsOkHeaders, authUser, url) {
 
   bind.push(limit);
   const rows = await dbAll(env,
-    `SELECT * FROM appt_appointments WHERE ${where.join(" AND ")} ORDER BY date ASC, time ASC LIMIT ?`,
+    // When capped, keep the NEWEST rows (the old ORDER BY ... ASC LIMIT dropped the latest bookings), returned oldest-first as before.
+    `SELECT * FROM (SELECT * FROM appt_appointments WHERE ${where.join(" AND ")} ORDER BY date DESC, time DESC LIMIT ?) ORDER BY date ASC, time ASC`,
     bind);
   return jsonResponse({ ok: true, appointments: rows.map(apptRowToUi) }, 200, corsOkHeaders);
 }
