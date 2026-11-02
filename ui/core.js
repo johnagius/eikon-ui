@@ -40,6 +40,8 @@
     try { if (window.sessionStorage.getItem("eikon_ui2_pause") === "1") return false; } catch (e) {}
     try { return window.localStorage.getItem("eikon_ui2") === "1"; } catch (e) { return false; }
   };
+  // Light look from the very first screen (sign-in, portal picker), not only after sign-in.
+  try { document.documentElement.toggleAttribute("data-ui2", E.isUi2()); } catch (e) {}
   E.isUi2Paused = function () {
     try { return window.localStorage.getItem("eikon_ui2") === "1" && window.sessionStorage.getItem("eikon_ui2_pause") === "1"; } catch (e) { return false; }
   };
