@@ -15948,6 +15948,10 @@ const ensureContactsSchema = schemaOnce("ensureContactsSchema", ensureContactsSc
 const ensurePeopleSchema = schemaOnce("ensurePeopleSchema", ensurePeopleSchema__impl);
 
 export default {
+  // Cloudflare cron: booking reminders (needs a cron trigger, e.g. every 10 minutes).
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(bkRunReminders(env).catch((e) => console.log("[bookings] reminders failed", e && e.message)));
+  },
   async fetch(request, env, ctx) {
     try {
       const url = new URL(request.url);
@@ -15968,6 +15972,8 @@ export default {
     if (url.pathname === "/admin-recover" && request.method === "POST") return await handleAdminRecoverPost(request, env);
 
     if (url.pathname === "/su" && request.method === "GET") return await handleSuPage(request, env);
+    // A customer's private booking link (public, signed, rate-limited)
+    if (url.pathname.startsWith("/b/")) return await handleBookingLink(request, env, url);
 
     // Hard 302 redirect to ChatGPT.
     // A server-side redirect means the browser goes from "blank new tab" straight
@@ -19835,6 +19841,8 @@ async function handleBookings(request, env, corsOkHeaders, authUser, url) {
   const ok = (data, status = 200) => jsonResponse({ ok: true, serverNow: bkNowLocal(env), ...data }, status, corsOkHeaders);
   const bad = (error, status = 400, extra = {}) => jsonResponse({ ok: false, error, ...extra }, status, corsOkHeaders);
 
+  if (parts[0] === "settings") return await handleBookingsSettings(request, env, corsOkHeaders, authUser, url);
+
   // GET /bookings/setup → services + providers
   if (parts[0] === "setup" && m === "GET") {
     const services = await dbAll(env, `SELECT * FROM bk_services WHERE org_id=? AND location_id=? ORDER BY active DESC, sort, name`, [org, loc]);
@@ -19962,7 +19970,8 @@ async function handleBookings(request, env, corsOkHeaders, authUser, url) {
         [org, loc, bkRef(), svc.id, slot.providerId, name, String(b.personPhone || "").trim(), String(b.personEmail || "").trim().toLowerCase(),
           String(b.personIdCard || "").trim().toUpperCase(), date, start, end, svc.priceCents, String(b.notes || ""), bkRandomHex(16), me, me]);
       await writeAudit(env, org, me, "BK_CREATE", "bk_bookings", String(r.id), { date, start, service_id: svc.id, provider_id: slot.providerId });
-      return ok({ booking: bkBookingRow(r) }, 201);
+      const message = await bkNotify(env, request, r, "confirm");
+      return ok({ booking: bkBookingRow(r), message }, 201);
     } catch (e) {
       if (/UNIQUE/i.test(String(e && e.message))) return bad("That time was just taken", 409, { next: await suggest() });
       throw e;
@@ -19996,7 +20005,10 @@ async function handleBookings(request, env, corsOkHeaders, authUser, url) {
           me, id, org, loc, cur.version]);
       if (!r) return bad("Changed by someone else", 409);
       await writeAudit(env, org, me, "BK_UPDATE", "bk_bookings", String(id), { status, date, start, provider_id: pid });
-      return ok({ booking: bkBookingRow(r) });
+      let message = "";
+      if (status === "cancelled" && cur.status !== "cancelled") message = await bkNotify(env, request, r, "cancel");
+      else if (r.date !== cur.date || r.start_time !== cur.start_time) message = await bkNotify(env, request, r, "change");
+      return ok({ booking: bkBookingRow(r), message });
     } catch (e) {
       if (/UNIQUE/i.test(String(e && e.message))) return bad("That time was just taken", 409);
       throw e;
@@ -20004,4 +20016,333 @@ async function handleBookings(request, env, corsOkHeaders, authUser, url) {
   }
 
   return bad("Not found", 404);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   BOOKINGS — customer messages (optional) and the private booking link.
+   - Off by default. A pharmacy picks Resend or Brevo and pastes its API key.
+     Keys are encrypted at rest with the BOOKINGS_KEY worker secret and never
+     returned to the browser. Without BOOKINGS_KEY, messages and links stay off.
+   - Each booking has a private link /b/<token>: 128 random bits + a versioned
+     HMAC with an expiry (7 days after the appointment). It shows that one
+     booking only (first name, service, time, place) and lets the person cancel
+     up to the pharmacy's cut-off. Rate-limited per network. No login, no notes,
+     no ID card, no other bookings.
+   - Reminders run from the scheduled handler: the evening before (18:00 local)
+     and optionally N hours before. Each is claimed in the database before it is
+     sent, so a retry never sends twice. One-click opt-out per email.
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+async function ensureBookingsMsgSchema__impl(env) {
+  await ensureBookingsSchema(env);
+  const stmts = [
+    `CREATE TABLE IF NOT EXISTS bk_settings (
+      org_id INTEGER NOT NULL, location_id INTEGER NOT NULL,
+      provider TEXT NOT NULL DEFAULT 'off', from_name TEXT NOT NULL DEFAULT '', from_email TEXT NOT NULL DEFAULT '',
+      reply_to TEXT NOT NULL DEFAULT '', api_key_enc TEXT NOT NULL DEFAULT '',
+      remind_evening INTEGER NOT NULL DEFAULT 1, remind_hours INTEGER NOT NULL DEFAULT 0,
+      cancel_cutoff_min INTEGER NOT NULL DEFAULT 120, address TEXT NOT NULL DEFAULT '', phone TEXT NOT NULL DEFAULT '',
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')), PRIMARY KEY (org_id, location_id))`,
+    `CREATE TABLE IF NOT EXISTS bk_messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, org_id INTEGER NOT NULL, location_id INTEGER NOT NULL,
+      booking_id INTEGER NOT NULL, kind TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending',
+      error TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT (datetime('now')))`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS uq_bk_msg_reminder ON bk_messages (booking_id, kind) WHERE kind IN ('remind_evening','remind_hours')`,
+    `CREATE INDEX IF NOT EXISTS idx_bk_msg_loc ON bk_messages (org_id, location_id, created_at)`,
+    `CREATE TABLE IF NOT EXISTS bk_optout (email TEXT NOT NULL, org_id INTEGER NOT NULL, location_id INTEGER NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')), PRIMARY KEY (email, org_id, location_id))`
+  ];
+  for (const s of stmts) await dbRun(env, s, []);
+}
+const ensureBookingsMsgSchema = schemaOnce("ensureBookingsMsgSchema", ensureBookingsMsgSchema__impl);
+
+/* ---------- crypto ---------- */
+function bkB64url(bytes) { return base64FromBytes(bytes).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); }
+async function bkKeyBytes(env, purpose) {
+  const secret = String((env && env.BOOKINGS_KEY) || "");
+  if (secret.length < 16) return null;
+  return new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(purpose + "|" + secret)));
+}
+async function bkEncrypt(env, plain) {
+  const kb = await bkKeyBytes(env, "enc"); if (!kb) throw new Error("BOOKINGS_KEY is not set");
+  const key = await crypto.subtle.importKey("raw", kb, "AES-GCM", false, ["encrypt"]);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, new TextEncoder().encode(plain)));
+  return "v1." + base64FromBytes(iv) + "." + base64FromBytes(ct);
+}
+async function bkDecrypt(env, enc) {
+  if (!enc) return "";
+  const kb = await bkKeyBytes(env, "enc"); if (!kb) return "";
+  const [v, ivB, ctB] = String(enc).split(".");
+  if (v !== "v1") return "";
+  const key = await crypto.subtle.importKey("raw", kb, "AES-GCM", false, ["decrypt"]);
+  const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: bytesFromBase64(ivB) }, key, bytesFromBase64(ctB));
+  return new TextDecoder().decode(pt);
+}
+async function bkHmac(env, msg) {
+  const kb = await bkKeyBytes(env, "link"); if (!kb) return null;
+  const key = await crypto.subtle.importKey("raw", kb, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  return bkB64url(new Uint8Array(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(msg))));
+}
+function bkSafeEq(a, b) { a = String(a || ""); b = String(b || ""); if (a.length !== b.length) return false; let r = 0; for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i); return r === 0; }
+function bkDayNum(ymd) { return Math.floor(Date.parse(ymd + "T00:00:00Z") / 86400000); }
+async function bkLinkToken(env, booking) {
+  const exp = bkDayNum(booking.date) + 7;
+  const sig = await bkHmac(env, `v1|${booking.link_id}|${exp}`);
+  return sig ? `${booking.link_id}.${exp.toString(36)}.${sig}` : "";
+}
+async function bkVerifyToken(env, token) {
+  const m = /^([0-9a-f]{32})\.([0-9a-z]{1,8})\.([A-Za-z0-9_-]{43})$/.exec(String(token || ""));
+  if (!m) return null;
+  const exp = parseInt(m[2], 36);
+  const want = await bkHmac(env, `v1|${m[1]}|${exp}`);
+  if (!want || !bkSafeEq(want, m[3])) return null;
+  if (Math.floor(Date.now() / 86400000) > exp) return { expired: true };
+  return { linkId: m[1], exp };
+}
+function bkBaseUrl(env, request) {
+  if (env && env.PUBLIC_BASE_URL) return String(env.PUBLIC_BASE_URL).replace(/\/+$/, "");
+  try { return new URL(request.url).origin; } catch (e) { return ""; }
+}
+
+/* ---------- settings ---------- */
+async function bkGetSettings(env, org, loc) {
+  const r = await dbFirst(env, `SELECT * FROM bk_settings WHERE org_id=? AND location_id=?`, [org, loc]);
+  return r || { org_id: org, location_id: loc, provider: "off", from_name: "", from_email: "", reply_to: "", api_key_enc: "", remind_evening: 1, remind_hours: 0, cancel_cutoff_min: 120, address: "", phone: "" };
+}
+function bkSettingsOut(s, env) {
+  return { provider: s.provider, fromName: s.from_name, fromEmail: s.from_email, replyTo: s.reply_to, hasKey: !!s.api_key_enc,
+    remindEvening: !!s.remind_evening, remindHours: s.remind_hours, cancelCutoffMin: s.cancel_cutoff_min, address: s.address, phone: s.phone,
+    canSend: !!(env && String(env.BOOKINGS_KEY || "").length >= 16) };
+}
+
+/* ---------- sending ---------- */
+function bkIcs(b, svcName, placeName) {
+  const dt = (d, t) => d.replace(/-/g, "") + "T" + t.replace(":", "") + "00";
+  const esc = (s) => String(s || "").replace(/[\\;,]/g, (c) => "\\" + c).replace(/\n/g, "\\n");
+  return ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Eikon//Bookings//EN", "BEGIN:VEVENT",
+    `UID:${b.link_id}@eikon`, `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, "").slice(0, 15)}Z`,
+    `DTSTART;TZID=Europe/Malta:${dt(b.date, b.start_time)}`, `DTEND;TZID=Europe/Malta:${dt(b.date, b.end_time)}`,
+    `SUMMARY:${esc(svcName)} at ${esc(placeName)}`, `LOCATION:${esc(placeName)}`, "END:VEVENT", "END:VCALENDAR"].join("\r\n");
+}
+function bkFirstName(n) { return String(n || "").trim().split(/\s+/)[0] || ""; }
+function bkWhen(b) {
+  const d = new Date(b.date + "T12:00:00Z");
+  return d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" }) + " at " + b.start_time;
+}
+function bkEmailHtml({ title, lines, link, pharmacy, address, phone, optout }) {
+  const e = (s) => String(s || "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  return `<!doctype html><html><body style="margin:0;background:#F2F2F7;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#000">
+<div style="max-width:480px;margin:0 auto;padding:28px 18px">
+<div style="background:#fff;border-radius:20px;padding:24px 22px">
+<div style="font-size:22px;font-weight:700;margin-bottom:12px">${e(title)}</div>
+${lines.map((l) => `<div style="font-size:16px;line-height:23px;margin:4px 0">${e(l)}</div>`).join("")}
+${link ? `<a href="${e(link)}" style="display:inline-block;margin-top:18px;background:#0A8F6A;color:#fff;text-decoration:none;font-weight:600;padding:12px 20px;border-radius:22px">See or change your booking</a>` : ""}
+</div>
+<div style="font-size:13px;line-height:19px;color:#6b6b70;text-align:center;margin-top:16px">${e(pharmacy)}${address ? " · " + e(address) : ""}${phone ? " · " + e(phone) : ""}<br>
+${optout ? `<a href="${e(optout)}" style="color:#6b6b70">Stop booking emails</a>` : ""}</div></div></body></html>`;
+}
+async function bkSendEmail(env, settings, { to, toName, subject, html, ics }) {
+  const key = await bkDecrypt(env, settings.api_key_enc);
+  if (!key) throw new Error("No API key");
+  const from = settings.from_name ? `${settings.from_name} <${settings.from_email}>` : settings.from_email;
+  if (settings.provider === "resend") {
+    const r = await fetch("https://api.resend.com/emails", { method: "POST", headers: { "Authorization": "Bearer " + key, "Content-Type": "application/json" },
+      body: JSON.stringify({ from, to: [to], subject, html, reply_to: settings.reply_to || undefined,
+        attachments: ics ? [{ filename: "booking.ics", content: base64FromBytes(new TextEncoder().encode(ics)) }] : undefined }) });
+    if (!r.ok) throw new Error("Resend " + r.status + ": " + (await r.text()).slice(0, 200));
+    return;
+  }
+  if (settings.provider === "brevo") {
+    const r = await fetch("https://api.brevo.com/v3/smtp/email", { method: "POST", headers: { "api-key": key, "Content-Type": "application/json", "Accept": "application/json" },
+      body: JSON.stringify({ sender: { name: settings.from_name || settings.from_email, email: settings.from_email }, to: [{ email: to, name: toName || to }], subject, htmlContent: html,
+        replyTo: settings.reply_to ? { email: settings.reply_to } : undefined,
+        attachment: ics ? [{ name: "booking.ics", content: base64FromBytes(new TextEncoder().encode(ics)) }] : undefined }) });
+    if (!r.ok) throw new Error("Brevo " + r.status + ": " + (await r.text()).slice(0, 200));
+    return;
+  }
+  throw new Error("Messages are off");
+}
+
+// Sends one message about a booking. Never throws: a failed email must not fail a booking.
+async function bkNotify(env, request, booking, kind) {
+  try {
+    await ensureBookingsMsgSchema(env);
+    if (!booking || !booking.person_email) return "no-email";
+    const s = await bkGetSettings(env, booking.org_id, booking.location_id);
+    if (s.provider === "off" || !s.api_key_enc || !s.from_email) return "off";
+    if (await dbFirst(env, `SELECT 1 AS x FROM bk_optout WHERE email=? AND org_id=? AND location_id=?`, [booking.person_email, booking.org_id, booking.location_id])) return "opted-out";
+    if (kind === "remind_evening" || kind === "remind_hours") {
+      // Claim first: the unique index makes a second claim fail, so a retry never sends twice.
+      try { await dbRun(env, `INSERT INTO bk_messages (org_id, location_id, booking_id, kind, status) VALUES (?,?,?,?, 'sending')`, [booking.org_id, booking.location_id, booking.id, kind]); }
+      catch (e) { return "already"; }
+    } else {
+      await dbRun(env, `INSERT INTO bk_messages (org_id, location_id, booking_id, kind, status) VALUES (?,?,?,?, 'sending')`, [booking.org_id, booking.location_id, booking.id, kind]);
+    }
+    const msgId = (await dbFirst(env, `SELECT id FROM bk_messages WHERE booking_id=? AND kind=? ORDER BY id DESC LIMIT 1`, [booking.id, kind])).id;
+    const svc = await dbFirst(env, `SELECT name FROM bk_services WHERE id=?`, [booking.service_id]);
+    const loc = await dbFirst(env, `SELECT name FROM locations WHERE id=?`, [booking.location_id]);
+    const pharmacy = (loc && loc.name) || "Your pharmacy";
+    const base = bkBaseUrl(env, request);
+    const tok = await bkLinkToken(env, booking);
+    const link = tok && base ? `${base}/b/${tok}` : "";
+    const optout = tok && base ? `${base}/b/${tok}/stop` : "";
+    const svcName = (svc && svc.name) || "Appointment";
+    const first = bkFirstName(booking.person_name);
+    const T = {
+      confirm: [`Booked: ${svcName}`, [`Hi ${first},`, `you're booked for ${svcName.toLowerCase()} on ${bkWhen(booking)}.`]],
+      change: [`Moved: ${svcName}`, [`Hi ${first},`, `your ${svcName.toLowerCase()} is now on ${bkWhen(booking)}.`]],
+      cancel: [`Cancelled: ${svcName}`, [`Hi ${first},`, `your ${svcName.toLowerCase()} on ${bkWhen(booking)} is cancelled.`]],
+      remind_evening: [`Tomorrow: ${svcName}`, [`Hi ${first},`, `a reminder: ${svcName.toLowerCase()} tomorrow at ${booking.start_time}.`]],
+      remind_hours: [`Soon: ${svcName}`, [`Hi ${first},`, `see you at ${booking.start_time} for ${svcName.toLowerCase()}.`]]
+    }[kind];
+    const html = bkEmailHtml({ title: T[0], lines: T[1], link: kind === "cancel" ? "" : link, pharmacy, address: s.address, phone: s.phone, optout });
+    try {
+      await bkSendEmail(env, s, { to: booking.person_email, toName: booking.person_name, subject: `${T[0]} · ${pharmacy}`, html,
+        ics: kind === "confirm" || kind === "change" ? bkIcs(booking, svcName, pharmacy) : null });
+      await dbRun(env, `UPDATE bk_messages SET status='sent' WHERE id=?`, [msgId]);
+      return "sent";
+    } catch (e) {
+      await dbRun(env, `UPDATE bk_messages SET status='failed', error=? WHERE id=?`, [String(e && e.message || e).slice(0, 300), msgId]);
+      return "failed";
+    }
+  } catch (e) { return "error"; }
+}
+
+/* ---------- reminders (scheduled handler) ---------- */
+async function bkRunReminders(env, nowOverride) {
+  await ensureBookingsMsgSchema(env);
+  // BK_TEST_NOW ('YYYY-MM-DD HH:MM') lets tests run the job at a chosen local time.
+  const tn = /^(\d{4}-\d{2}-\d{2}) (\d{2}):(\d{2})$/.exec(String((env && env.BK_TEST_NOW) || ""));
+  const now = nowOverride || (tn ? { date: tn[1], min: Number(tn[2]) * 60 + Number(tn[3]) } : bkNowLocal(env));
+  const tomorrow = bkAddDays(now.date, 1);
+  let sent = 0;
+  const sets = await dbAll(env, `SELECT * FROM bk_settings WHERE provider<>'off' AND api_key_enc<>''`, []);
+  for (const s of sets) {
+    const rows = [];
+    if (s.remind_evening && now.min >= 18 * 60) {
+      for (const b of await dbAll(env, `SELECT * FROM bk_bookings WHERE org_id=? AND location_id=? AND date=? AND status IN ('booked','confirmed') AND person_email<>''`, [s.org_id, s.location_id, tomorrow])) rows.push([b, "remind_evening"]);
+    }
+    if (s.remind_hours > 0) {
+      const hi = now.min + s.remind_hours * 60;
+      for (const b of await dbAll(env, `SELECT * FROM bk_bookings WHERE org_id=? AND location_id=? AND date=? AND status IN ('booked','confirmed') AND person_email<>''`, [s.org_id, s.location_id, now.date])) {
+        const m = bkMin(b.start_time);
+        // In the window, and not booked in the last 30 minutes (they just got a confirmation).
+        if (m > now.min && m <= hi && (Date.now() - Date.parse(String(b.created_at).replace(" ", "T") + "Z")) > 30 * 60000) rows.push([b, "remind_hours"]);
+      }
+    }
+    for (const [b, kind] of rows) if ((await bkNotify(env, null, b, kind)) === "sent") sent++;
+  }
+  return sent;
+}
+
+/* ---------- staff routes: settings + test ---------- */
+async function handleBookingsSettings(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin"])) return jsonResponse({ ok: false, error: "Only an admin can change messages" }, 403, corsOkHeaders);
+  await ensureBookingsMsgSchema(env);
+  const org = authUser.org_id, loc = authUser.location_id;
+  if (request.method === "GET") return jsonResponse({ ok: true, settings: bkSettingsOut(await bkGetSettings(env, org, loc), env) }, 200, corsOkHeaders);
+  if (request.method === "PUT") {
+    const b = await readJson(request) || {};
+    const cur = await bkGetSettings(env, org, loc);
+    const provider = ["off", "resend", "brevo"].includes(b.provider) ? b.provider : cur.provider;
+    const fromEmail = b.fromEmail !== undefined ? String(b.fromEmail).trim().toLowerCase() : cur.from_email;
+    if (provider !== "off" && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(fromEmail)) return jsonResponse({ ok: false, error: "A valid sender email is required" }, 400, corsOkHeaders);
+    let enc = cur.api_key_enc;
+    if (b.apiKey !== undefined) {
+      const k = String(b.apiKey).trim();
+      if (k && String(env.BOOKINGS_KEY || "").length < 16) return jsonResponse({ ok: false, error: "Messages need the BOOKINGS_KEY secret set on the server" }, 400, corsOkHeaders);
+      enc = k ? await bkEncrypt(env, k) : "";
+    }
+    const hrs = Math.max(0, Math.min(24, Math.round(Number(b.remindHours ?? cur.remind_hours) || 0)));
+    const cut = Math.max(0, Math.min(2880, Math.round(Number(b.cancelCutoffMin ?? cur.cancel_cutoff_min) || 0)));
+    await dbRun(env, `INSERT INTO bk_settings (org_id, location_id, provider, from_name, from_email, reply_to, api_key_enc, remind_evening, remind_hours, cancel_cutoff_min, address, phone, updated_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'))
+      ON CONFLICT(org_id, location_id) DO UPDATE SET provider=excluded.provider, from_name=excluded.from_name, from_email=excluded.from_email, reply_to=excluded.reply_to,
+        api_key_enc=excluded.api_key_enc, remind_evening=excluded.remind_evening, remind_hours=excluded.remind_hours, cancel_cutoff_min=excluded.cancel_cutoff_min,
+        address=excluded.address, phone=excluded.phone, updated_at=datetime('now')`,
+      [org, loc, provider, b.fromName !== undefined ? String(b.fromName).trim() : cur.from_name, fromEmail, b.replyTo !== undefined ? String(b.replyTo).trim() : cur.reply_to, enc,
+        b.remindEvening === undefined ? cur.remind_evening : (b.remindEvening ? 1 : 0), hrs, cut,
+        b.address !== undefined ? String(b.address).trim() : cur.address, b.phone !== undefined ? String(b.phone).trim() : cur.phone]);
+    await writeAudit(env, org, authUser.user_id, "BK_SETTINGS_UPDATE", "bk_settings", String(loc), { provider, from_email: fromEmail, key_changed: b.apiKey !== undefined });
+    return jsonResponse({ ok: true, settings: bkSettingsOut(await bkGetSettings(env, org, loc), env) }, 200, corsOkHeaders);
+  }
+  if (request.method === "POST" && /\/test$/.test(url.pathname)) {
+    const s = await bkGetSettings(env, org, loc);
+    if (s.provider === "off" || !s.api_key_enc) return jsonResponse({ ok: false, error: "Choose a provider and paste its key first" }, 400, corsOkHeaders);
+    const to = String(authUser.email || "");
+    try {
+      await bkSendEmail(env, s, { to, toName: authUser.full_name, subject: "Eikon test message", html: bkEmailHtml({ title: "It works", lines: ["Booking emails from Eikon will look like this."], pharmacy: authUser.location_name || "", address: s.address, phone: s.phone }) });
+      return jsonResponse({ ok: true, sentTo: to }, 200, corsOkHeaders);
+    } catch (e) { return jsonResponse({ ok: false, error: String(e && e.message || e) }, 502, corsOkHeaders); }
+  }
+  return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+}
+
+/* ---------- the private booking link (public) ---------- */
+function bkPage(title, body, status = 200) {
+  return new Response(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>${title}</title>
+<style>body{margin:0;background:#F2F2F7;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;color:#000;-webkit-font-smoothing:antialiased}
+.w{max-width:440px;margin:0 auto;padding:40px 16px}.c{background:#fff;border-radius:22px;padding:24px 22px}h1{font-size:26px;line-height:32px;margin:0 0 6px;letter-spacing:-.02em}
+.s{color:rgba(60,60,67,.64);font-size:15px;line-height:21px}.big{font-size:20px;font-weight:600;margin:18px 0 2px}.row{font-size:16px;line-height:24px}
+.b{display:block;width:100%;height:50px;border-radius:25px;border:0;font:600 17px -apple-system,Segoe UI,Arial,sans-serif;margin-top:12px;text-align:center;line-height:50px;text-decoration:none}
+.g{background:#0A8F6A;color:#fff}.r{background:rgba(255,59,48,.10);color:#D7261C}.f{font-size:13px;color:rgba(60,60,67,.6);text-align:center;margin-top:18px}
+@media(prefers-color-scheme:dark){body{background:#000;color:#fff}.c{background:#1C1C1E}.s,.f{color:rgba(235,235,245,.64)}.g{background:#32D39C;color:#00261B}}</style></head>
+<body><div class="w">${body}</div></body></html>`, { status, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "X-Robots-Tag": "noindex", "Referrer-Policy": "no-referrer", "X-Frame-Options": "DENY" } });
+}
+async function handleBookingLink(request, env, url) {
+  await ensureBookingsMsgSchema(env);
+  // Rate limit per network: 60 views per 15 minutes.
+  const ip = clientIp(request);
+  await ensureLoginAttemptsSchema(env);
+  const n = await dbFirst(env, "SELECT COUNT(*) AS c FROM login_attempts WHERE email=? AND ip=? AND attempted_at > datetime('now','-15 minutes')", ["bk-link", ip]);
+  if (n && Number(n.c) >= 60) return bkPage("Please wait", `<div class="c"><h1>Please wait a moment</h1><div class="s">Too many requests. Try again in 15 minutes.</div></div>`, 429);
+  try { await dbRun(env, "INSERT INTO login_attempts (email, ip) VALUES (?, ?)", ["bk-link", ip]); } catch (e) {}
+
+  const m = /^\/b\/([^/]+?)(\.ics)?(\/cancel|\/stop)?$/.exec(url.pathname);
+  const gone = () => bkPage("Link not valid", `<div class="c"><h1>This link has expired</h1><div class="s">Please call the pharmacy to check your booking.</div></div>`, 404);
+  if (!m) return gone();
+  const v = await bkVerifyToken(env, m[1]);
+  if (!v || v.expired) return gone();
+  const b = await dbFirst(env, `SELECT * FROM bk_bookings WHERE link_id=?`, [v.linkId]);
+  if (!b) return gone();
+  const s = await bkGetSettings(env, b.org_id, b.location_id);
+  const svc = await dbFirst(env, `SELECT name FROM bk_services WHERE id=?`, [b.service_id]);
+  const loc = await dbFirst(env, `SELECT name FROM locations WHERE id=?`, [b.location_id]);
+  const e = (x) => String(x || "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  const pharmacy = (loc && loc.name) || "Pharmacy", svcName = (svc && svc.name) || "Appointment";
+  const base = `/b/${m[1]}`;
+
+  if (m[2] === ".ics") return new Response(bkIcs(b, svcName, pharmacy), { headers: { "Content-Type": "text/calendar; charset=utf-8", "Content-Disposition": "attachment; filename=booking.ics", "Cache-Control": "no-store" } });
+
+  if (m[3] === "/stop") {
+    if (request.method === "POST" && b.person_email) {
+      await dbRun(env, `INSERT OR IGNORE INTO bk_optout (email, org_id, location_id) VALUES (?,?,?)`, [b.person_email, b.org_id, b.location_id]);
+      return bkPage("Done", `<div class="c"><h1>Done</h1><div class="s">${e(pharmacy)} won't email you about bookings any more.</div></div>`);
+    }
+    return bkPage("Stop emails", `<div class="c"><h1>Stop booking emails?</h1><div class="s">From ${e(pharmacy)} only.</div><form method="post"><button class="b r">Stop emails</button></form></div>`);
+  }
+
+  const now = bkNowLocal(env);
+  const startsIn = (bkDayNum(b.date) - bkDayNum(now.date)) * 1440 + bkMin(b.start_time) - now.min;
+  const canCancel = (b.status === "booked" || b.status === "confirmed") && startsIn >= (Number(s.cancel_cutoff_min) || 0);
+
+  if (m[3] === "/cancel" && request.method === "POST") {
+    if (!canCancel) return bkPage("Can't cancel", `<div class="c"><h1>Too late to cancel online</h1><div class="s">Please call ${e(pharmacy)}${s.phone ? " on " + e(s.phone) : ""}.</div></div>`, 409);
+    const r = await dbFirst(env, `UPDATE bk_bookings SET status='cancelled', cancel_reason='Cancelled by the customer online', version=version+1, updated_at=datetime('now')
+      WHERE id=? AND status IN ('booked','confirmed') RETURNING *`, [b.id]);
+    if (r) { await writeAudit(env, b.org_id, null, "BK_CANCEL_ONLINE", "bk_bookings", String(b.id), {}); await bkNotify(env, request, r, "cancel"); }
+    return bkPage("Cancelled", `<div class="c"><h1>Cancelled</h1><div class="s">Your ${e(svcName.toLowerCase())} on ${e(bkWhen(b))} is cancelled. ${e(pharmacy)} has been told.</div></div>`);
+  }
+
+  const state = b.status === "cancelled" ? "Cancelled" : b.status === "done" ? "Done" : "Booked";
+  return bkPage(`${svcName} · ${pharmacy}`, `<div class="c">
+    <div class="s">${e(pharmacy)}</div><h1>${e(bkFirstName(b.person_name))}, you're ${b.status === "cancelled" ? "not booked" : "booked"}</h1>
+    <div class="big">${e(svcName)}</div><div class="row">${e(bkWhen(b))}</div>
+    <div class="row s">${e(state)}${s.address ? " · " + e(s.address) : ""}</div>
+    ${b.status !== "cancelled" ? `<a class="b g" href="${base}.ics">Add to calendar</a>` : ""}
+    ${canCancel ? `<form method="post" action="${base}/cancel" onsubmit="return confirm('Cancel this booking?')"><button class="b r">Cancel booking</button></form>` : ""}
+    ${s.phone ? `<a class="b" style="background:rgba(118,118,128,.12);color:inherit" href="tel:${e(s.phone)}">Call ${e(pharmacy)}</a>` : ""}
+  </div><div class="f">This page is only for you. Don't share the link.</div>`);
 }
