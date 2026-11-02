@@ -352,3 +352,11 @@ All of it waits only on the worker deploy.
 - Regression caught by the UI suite: Booking replaced Appointment even with Bookings off → gated on `E.bookingsOn()`. 86/86.
 - Process fix: a `grep passed` filter hid a crashed suite once; read the tail of test output instead.
 - Live verified: BUILD .27 healthy; next.html lands on the new sign-in. Now .31.
+
+## Round 27 — Today 4x sooner
+- Bookings phone header: round + instead of a wrapped title.
+- Two-phase loading for the new layout: core/today/customers/bookings/hubs/main first, 55 modules in the background.
+  Measured (local, signed in, throttled 4G, empty cache): Today ready 4.1 s → 1.05 s.
+- Bugs found on the way and fixed before push: loader decided before core read `?ui=classic` (classic visits went to #dashboard);
+  boot dropped deep links to not-yet-loaded modules. Both now wait/decide correctly; probes for #temperature/#stock/#today pass.
+- UI 86/86; bookings 13/13, settings 13/13, week 8/8, waitlist 5/5. BUILD .34.
