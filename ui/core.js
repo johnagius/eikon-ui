@@ -343,6 +343,7 @@
 
     var url = path;
     if (!/^https?:\/\//i.test(path)) url = (E.apiBase || "") + path;
+    if (String(method).toUpperCase() !== "GET") E.lastWriteAt = Date.now(); // lets screens know cached data may be stale
 
     var reqInfo = { method: method, headers: {}, hasToken: !!token };
     try { headers.forEach(function (v, k) { reqInfo.headers[k] = (String(k).toLowerCase() === "authorization") ? "Bearer [redacted]" : v; }); } catch (e) {}

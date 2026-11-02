@@ -1485,6 +1485,8 @@
     Promise.allSettled(tasks).then(function () {
       if (token !== state.refreshToken) return;
       state.loading = false;
+      state.freshAt = Date.now();
+      state.freshKey = dashFreshKey();
       if (state.diag && state.diag.token === token) {
         state.diag.finishedAt = Date.now();
         state.diag.totalMs = state.diag.finishedAt - (state.diag.startedAt || state.diag.finishedAt);
@@ -3090,6 +3092,13 @@
   // ----------------------------
   // Render
   // ----------------------------
+  // Coming back to the dashboard within 2 minutes reuses what was just loaded
+  // (it used to fire ~34 API calls on every return). Refresh still reloads everything.
+  var DASH_FRESH_MS = 120000;
+  function dashFreshKey() {
+    try { var u = E.state && E.state.user; return (u ? (u.org_id + ":" + u.location_id) : "") + "|" + todayYmd(); } catch (e) { return ""; }
+  }
+
   async function render(ctx) {
     injectCssOnce();
 
@@ -3155,6 +3164,11 @@
 
     // OTC Cross Sell search bindings
     bindXsellSearch(mount);
+
+    if (state.freshAt && (Date.now() - state.freshAt) < DASH_FRESH_MS && state.freshKey === dashFreshKey() && !state.loading && !((E.lastWriteAt || 0) > state.freshAt)) {
+      renderAll(); // recent and same pharmacy/day: show it instantly, no API calls
+      return;
+    }
 
     // ✅ BUG 1 FIX: do NOT set loading=true here (refreshAll would bail out)
     state.loading = false; // ensure refreshAll() can run (avoid deadlock)
