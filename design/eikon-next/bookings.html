@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Eikon · Bookings</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="next.css">
+<style>
+/* ───── Bookings-specific ───── */
+.daybar{display:flex;gap:6px;overflow:hidden;padding:2px 0 14px}
+.day{flex:1;min-width:0;height:62px;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:var(--surface)}
+.day small{font-size:11px;font-weight:600;color:var(--label-2);text-transform:uppercase;letter-spacing:.03em}
+.day b{font-size:19px;font-weight:600}
+.day i{width:5px;height:5px;border-radius:50%;background:var(--tint);margin-top:1px}
+.day.on{background:var(--tint);color:var(--tint-ink)}
+.day.on small{color:var(--tint-ink);opacity:.85}
+.day.on i{background:var(--tint-ink)}
+.time{width:52px;flex:none;font-size:15px;font-weight:600;font-variant-numeric:tabular-nums}
+.time small{display:block;font-size:12px;font-weight:500;color:var(--label-2)}
+.bar{width:4px;align-self:stretch;border-radius:2px;flex:none}
+.state{font-size:13px;font-weight:600;flex:none}
+.free{color:var(--tint);font-weight:600;font-size:15px}
+.row.freeRow{min-height:48px}
+.row.freeRow .txt{color:var(--label-3);font-size:15px}
+.chip{display:inline-flex;align-items:center;height:28px;padding:0 11px;border-radius:999px;background:var(--fill-2);font-size:13px;font-weight:600;color:var(--label-2)}
+.chip.on{background:var(--tint-soft);color:var(--tint)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.fab{position:fixed;right:20px;bottom:104px;height:54px;padding:0 22px 0 18px;border-radius:27px;background:var(--tint);color:var(--tint-ink);display:flex;align-items:center;gap:8px;font-size:17px;font-weight:600;box-shadow:0 10px 30px rgba(10,143,106,.35)}
+.fab svg{width:20px;height:20px}
+
+/* Sheet */
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.28)}
+.sheet{position:fixed;left:0;right:0;bottom:0;max-height:92vh;background:var(--bg);border-radius:28px 28px 0 0;padding:8px 16px 30px;overflow:hidden;box-shadow:0 -10px 40px rgba(0,0,0,.18)}
+.grab{width:38px;height:5px;border-radius:3px;background:var(--fill);margin:4px auto 10px}
+.sheet-h{display:flex;align-items:center;justify-content:space-between;padding:0 4px 14px}
+.sheet-h .t-title3{font-weight:700}
+.step{font-size:13px;font-weight:600;color:var(--label-2);text-transform:uppercase;letter-spacing:.04em;padding:0 4px 8px;display:flex;justify-content:space-between}
+.step b{color:var(--tint);text-transform:none;letter-spacing:0;font-size:13px}
+.svcgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:22px}
+.svc{background:var(--surface);border-radius:16px;padding:12px 14px;border:2px solid transparent}
+.svc b{display:block;font-size:15px;font-weight:600;margin-bottom:2px}
+.svc span{font-size:13px;color:var(--label-2)}
+.svc.on{border-color:var(--tint)}
+.slots{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:22px}
+.slot{height:40px;padding:0 14px;border-radius:12px;background:var(--surface);display:flex;align-items:center;gap:6px;font-size:15px;font-weight:600;font-variant-numeric:tabular-nums}
+.slot small{font-size:12px;font-weight:500;color:var(--label-2)}
+.slot.on{background:var(--tint);color:var(--tint-ink)}
+.slot.on small{color:var(--tint-ink);opacity:.85}
+.slot.more{color:var(--tint);background:var(--tint-soft)}
+.slot svg{width:16px;height:16px}
+.addbtn{width:34px;height:34px;border-radius:50%;background:var(--tint);color:var(--tint-ink);display:grid;place-items:center;margin-bottom:6px}
+.addbtn svg{width:18px;height:18px}
+.ev.short{display:flex;align-items:center;gap:6px;white-space:nowrap}
+.ev.short span{overflow:hidden;text-overflow:ellipsis}
+.search{height:44px;border-radius:12px;background:var(--surface);display:flex;align-items:center;gap:8px;padding:0 12px;font-size:17px}
+.search svg{width:18px;height:18px;color:var(--label-2)}
+.caret{display:inline-block;width:2px;height:20px;background:var(--tint);border-radius:1px}
+.summary{display:flex;align-items:center;gap:12px;padding:14px 16px;margin:16px 0 14px;background:var(--surface);border-radius:16px}
+.summary .t-sub{font-weight:600}
+
+/* Desktop day grid */
+.grid{display:grid;grid-template-columns:64px repeat(3,1fr);background:var(--surface);border-radius:22px;overflow:hidden;padding-bottom:14px}
+.grid .hd{padding:14px 14px 12px;border-bottom:.5px solid var(--sep);display:flex;align-items:center;gap:10px}
+.grid .hd .t-sub{font-weight:600}
+.grid .col{position:relative;border-left:.5px solid var(--sep)}
+.grid .hours{position:relative}
+.hourline{position:absolute;left:0;right:0;border-top:.5px solid var(--sep)}
+.hourlab{position:absolute;right:10px;font-size:12px;color:var(--label-2);font-variant-numeric:tabular-nums;transform:translateY(-8px)}
+.ev{position:absolute;left:6px;right:6px;border-radius:10px;padding:6px 10px;font-size:13px;line-height:17px;overflow:hidden}
+.ev b{display:block;font-weight:600;font-size:13px}
+.ev.freeslot{border:1.5px dashed var(--sep);color:var(--label-3);background:transparent;display:flex;align-items:center;justify-content:center;font-weight:600}
+.nowline{position:absolute;left:0;right:0;height:2px;background:var(--red);z-index:2}
+.nowline::before{content:"";position:absolute;left:-4px;top:-3px;width:8px;height:8px;border-radius:50%;background:var(--red)}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute"><defs>
+
+  <symbol id="i-today" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"/></symbol>
+  <symbol id="i-people" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.3-5.5 6.5-5.5s5.9 1.9 6.5 5.5M16 4.8a3.3 3.3 0 0 1 0 6.4M18 14.8c2 .6 3.2 2.3 3.5 5.2"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H19v15H5.5A1.5 1.5 0 0 0 4 19.5z"/><path d="M4 19.5A1.5 1.5 0 0 0 5.5 21H19M8 7.5h7M8 11h5"/></symbol>
+  <symbol id="i-box" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2.8 8.5 4.6v9.2L12 21.2l-8.5-4.6V7.4z"/><path d="m3.8 7.6 8.2 4.5 8.2-4.5M12 12.1v9"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></symbol>
+  <symbol id="i-team" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="15" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M2.8 12h2.4M18.8 12h2.4M4.9 19.1l1.7-1.7M17.4 6.6l1.7-1.7"/></symbol>
+  <symbol id="i-snow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5v19M3.8 7.2l16.4 9.6M3.8 16.8l16.4-9.6M9.5 4.5 12 7l2.5-2.5M9.5 19.5 12 17l2.5 2.5"/></symbol>
+  <symbol id="i-therm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 14.8V5a2 2 0 1 0-4 0v9.8a4 4 0 1 0 4 0z"/><path d="M12 9v7"/></symbol>
+  <symbol id="i-pen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></symbol>
+  <symbol id="i-sparkle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c.6 3.9 2.1 5.4 6 6-3.9.6-5.4 2.1-6 6-.6-3.9-2.1-5.4-6-6 3.9-.6 5.4-2.1 6-6z"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 5 6v5.5c0 4.4 3 8 7 9.5 4-1.5 7-5.1 7-9.5V6z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 8 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m1.5 1.5 5 5.5-5 5.5"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 2.5 20h19z"/><path d="M12 10v4.5M12 17.2v.1"/></symbol>
+  <symbol id="i-leaf" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V9M12 13c-4.5 0-7-2.5-7-7 4.5 0 7 2.5 7 7zM12 11c0-4 2.2-6.5 7-6.5 0 4.6-2.5 6.5-7 6.5z"/></symbol>
+
+  <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+</defs></svg>
+<div id="app"></div>
+<script>
+const Q = new URLSearchParams(location.search);
+const SCENE = Q.get("scene") || "day";
+document.documentElement.dataset.theme = Q.get("theme") || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+const ic = (id, cls="") => `<svg class="${cls}"><use href="#i-${id}"/></svg>`;
+
+const PROVIDERS = [
+  { id:1, name:"Maria Borg", role:"Pharmacist", col:"#0A8F6A" },
+  { id:2, name:"Dr Galea", role:"Visiting GP", col:"#5856D6" },
+  { id:3, name:"Room 2", role:"Consultation", col:"#C9772E" },
+];
+const SERVICES = [
+  { name:"Flu vaccine", meta:"10 min · €15", col:"#0A8F6A" },
+  { name:"Blood pressure", meta:"10 min · free", col:"#1A9FB5" },
+  { name:"Dr Galea clinic", meta:"15 min · €25", col:"#5856D6" },
+  { name:"Weight review", meta:"20 min · €10", col:"#C9772E" },
+];
+// Bookings for Monday 2 November
+const B = [
+  { t:"09:00", e:"09:10", p:1, who:"Carmen Grech", svc:"Flu vaccine", st:"done" },
+  { t:"09:30", e:"09:45", p:2, who:"Joseph Vella", svc:"Dr Galea clinic", st:"done" },
+  { t:"10:15", e:"10:35", p:3, who:"Anna Zammit", svc:"Weight review", st:"no_show" },
+  { t:"14:30", e:"14:45", p:2, who:"Paul Borg", svc:"Dr Galea clinic", st:"arrived" },
+  { t:"14:40", e:"14:50", p:1, who:"Rita Camilleri", svc:"Blood pressure", st:"booked" },
+  { t:"15:00", e:"15:15", p:2, who:"Mark Farrugia", svc:"Dr Galea clinic", st:"confirmed" },
+  { t:"15:30", e:"15:40", p:1, who:"Doris Attard", svc:"Flu vaccine", st:"booked" },
+  { t:"16:15", e:"16:30", p:2, who:"Kevin Spiteri", svc:"Dr Galea clinic", st:"booked" },
+];
+const ST = { done:["Done","var(--label-3)"], no_show:["No-show","var(--red)"], arrived:["Here","var(--tint)"], booked:["", ""], confirmed:["Confirmed","var(--label-2)"] };
+const P = (id) => PROVIDERS.find(p => p.id === id);
+const SVC = (n) => SERVICES.find(s => s.name === n);
+
+const days = [["Mon",2,1],["Tue",3,1],["Wed",4,0],["Thu",5,1],["Fri",6,1],["Sat",7,0],["Sun",8,0]];
+const daybar = `<div class="daybar">${days.map((d,i)=>`<div class="day${i===0?" on":""}"><small>${d[0]}</small><b class="num">${d[1]}</b>${d[2]?"<i></i>":"<i style='opacity:0'></i>"}</div>`).join("")}</div>`;
+
+/* ---------- iPhone day: a calm list, past bookings dimmed, next free times inline ---------- */
+function phoneDay() {
+  const upcoming = B.filter(b => b.t >= "14:30");
+  const past = B.filter(b => b.t < "14:30");
+  const row = (b) => { const s = ST[b.st]; return `<div class="row" style="${b.t < "14:30" ? "opacity:.55" : ""}">
+      <div class="time num">${b.t}<small>${b.e}</small></div><div class="bar" style="background:${SVC(b.svc).col}"></div>
+      <div class="txt"><div class="t-head">${b.who}</div><div class="t-foot c2">${b.svc} · ${P(b.p).name}</div></div>
+      ${s[0] ? `<span class="state" style="color:${s[1]}">${s[0]}</span>` : ""}</div>`; };
+  return `
+    <div class="sec-h" style="padding-top:2px"><h2>Next</h2><a href="#">${upcoming.length} today</a></div>
+    <div class="group">${upcoming.map(row).join("")}
+      <div class="row freeRow"><div class="time num c3">16:30</div><div class="txt">Free until 18:00</div><span class="free">Book</span></div>
+    </div>
+    <div class="sec-h" style="margin-top:26px"><h2>Earlier</h2></div>
+    <div class="group">${past.map(row).join("")}</div>`;
+}
+
+/* ---------- The booking sheet: what → when → who ---------- */
+function sheet() {
+  return `<div class="scrim"></div><div class="sheet">
+    <div class="grab"></div>
+    <div class="sheet-h"><button class="btn btn-gray" style="width:34px;padding:0;justify-content:center">${ic("x")}</button><div class="t-title3">New booking</div><span style="width:34px"></span></div>
+    <div class="step">What</div>
+    <div class="svcgrid">${SERVICES.map((s,i)=>`<div class="svc${i===0?" on":""}"><b>${s.name}</b><span>${s.meta}</span></div>`).join("")}</div>
+    <div class="step">When <b>Maria Borg</b></div>
+    <div class="slots">
+      <div class="slot">15:10<small>today</small></div><div class="slot on">15:40<small>today</small></div><div class="slot">16:00<small>today</small></div>
+      <div class="slot">09:00<small>Tue</small></div><div class="slot">09:10<small>Tue</small></div><div class="slot more">${ic("cal")}Later</div>
+    </div>
+    <div class="step">Who</div>
+    <div class="search">${ic("search")}<span>Doris At</span><span class="caret"></span></div>
+    <div class="group" style="margin-top:8px">
+      <div class="row"><div class="avatar" style="background:#B4566A;width:36px;height:36px;font-size:13px">DA</div><div class="txt"><div class="t-head">Doris Attard</div><div class="t-foot c2">0123456M · 7912 3456 · last visit 3 Oct</div></div><span class="done-mark">${ic("check")}</span></div>
+    </div>
+    <button class="btn btn-fill btn-lg" style="margin-top:18px">Book flu vaccine · today 15:40</button>
+    <div class="t-foot c2" style="text-align:center;margin-top:10px">Doris gets a confirmation by email with a calendar file.</div>
+  </div>`;
+}
+
+const status = `<div class="status"><span class="num">14:32</span><span style="display:flex;gap:6px;align-items:center">
+  <svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" width="3" height="12" rx="1"/></svg>
+  <svg width="27" height="13" viewBox="0 0 27 13" fill="none"><rect x=".5" y=".5" width="23" height="12" rx="3.8" stroke="currentColor" opacity=".4"/><rect x="2" y="2" width="18" height="9" rx="2.5" fill="currentColor"/></svg></span></div>`;
+const tabs = `<div class="fade"></div><div class="tabbar"><nav class="tabs glass">
+  <a class="tab">${ic("today")}Today</a><a class="tab">${ic("people")}Customers</a><a class="tab on">${ic("cal")}Bookings</a><a class="tab">${ic("book")}Registers</a></nav>
+  <button class="searchbtn glass">${ic("search")}</button></div>`;
+
+const phone = `<div class="phone">${status}
+  <div class="ph-head"><div><h1 class="t-large">Bookings</h1><div class="t-sub c2">Monday 2 November</div></div><button class="addbtn" aria-label="New booking">${ic("plus")}</button></div>
+  ${daybar}${phoneDay()}
+  ${tabs}${SCENE === "book" ? sheet() : ""}</div>`;
+
+/* ---------- Desktop: one column per provider, the hour grid, now line ---------- */
+function deskGrid() {
+  const H0 = 13, H1 = 18, PX = 132; // 13:00–18:00, 84 px per hour
+  const y = (t) => ((+t.slice(0,2) - H0) + (+t.slice(3,5))/60) * PX;
+  const hrs = []; for (let h = H0; h <= H1; h++) hrs.push(h);
+  const lines = hrs.map(h => `<div class="hourline" style="top:${(h-H0)*PX}px"></div>`).join("");
+  const labs = hrs.map(h => `<div class="hourlab num" style="top:${(h-H0)*PX}px">${String(h).padStart(2,"0")}:00</div>`).join("");
+  const cols = PROVIDERS.map(p => {
+    const evs = B.filter(b => b.p === p.id && b.t >= "13:00").map(b => { const s = SVC(b.svc); const st = ST[b.st];
+      const h = y(b.e) - y(b.t) - 4, short = h < 34;
+      return `<div class="ev${short ? " short" : ""}" style="top:${y(b.t)+2}px;height:${Math.max(h, 22)}px;background:${s.col}22;border-left:3px solid ${s.col}">
+        <b>${b.who}</b><span class="c2">${b.t} · ${b.svc}${st[0] ? " · " + st[0] : ""}</span></div>`; }).join("");
+    const free = p.id === 3 ? `<div class="ev freeslot" style="top:${y("15:00")+2}px;height:${PX*1.5-4}px">Free · tap to book</div>` : "";
+    return `<div class="col" style="height:${(H1-H0)*PX}px">${lines}${evs}${free}</div>`;
+  }).join("");
+  return `<div class="grid">
+    <div class="hd"></div>${PROVIDERS.map(p=>`<div class="hd" style="border-left:.5px solid var(--sep)"><div class="avatar" style="width:30px;height:30px;font-size:12px;background:${p.col}">${p.name.split(" ").map(x=>x[0]).join("").slice(0,2)}</div><div><div class="t-sub">${p.name}</div><div class="t-foot c2">${p.role}</div></div></div>`).join("")}
+    <div class="hours" style="height:${(H1-H0)*PX}px">${labs}</div>${cols}
+  </div>`;
+}
+const desk = `<div class="desk">
+  <aside class="side"><div class="side-in glass">
+    <div class="brand"><div class="mark">${ic("leaf")}</div><div><div class="t-head">Eikon</div><div class="t-foot c2">Demo Pharmacy</div></div></div>
+    <nav class="nav"><a href="#">${ic("today")}Today</a><a href="#">${ic("people")}Customers</a><a class="on" href="#">${ic("cal")}Bookings</a><a href="#">${ic("book")}Registers</a><a href="#">${ic("box")}Stock</a></nav>
+    <div style="flex:1"></div><nav class="nav"><a href="#">${ic("team")}Team</a><a href="#">${ic("gear")}Settings</a></nav>
+    <div class="who"><div class="me">MB</div><div><div class="t-sub" style="font-weight:600">Maria Borg</div><div class="t-foot c2">Pharmacist</div></div></div>
+  </div></aside>
+  <main class="main">
+    <div class="top"><div><h1 class="t-large">Bookings</h1><div class="t-sub c2">Monday 2 November · 8 today · 3 still to come</div></div>
+      <div style="display:flex;gap:10px;align-items:center"><div class="chips"><span class="chip">‹</span><span class="chip on">Today</span><span class="chip">›</span><span class="chip">Week</span></div><button class="btn btn-fill" style="height:40px;padding:0 18px">${ic("plus").replace('<svg class="">','<svg style="width:18px;height:18px">')}New booking</button></div></div>
+    <div style="position:relative">${deskGrid()}<div class="nowline" style="top:${0}px;display:none"></div></div>
+  </main></div>`;
+
+document.getElementById("app").innerHTML = phone + desk;
+// Now line at 14:32 across the grid body
+const g = document.querySelector(".grid"); if (g) { const body = g.querySelector(".hours"); const top = body.offsetTop + (1 + 32/60) * 132; const nl = document.createElement("div"); nl.className = "nowline"; nl.style.top = top + "px"; nl.style.left = "64px"; g.style.position = "relative"; g.appendChild(nl); }
+</script>
+</body>
+</html>

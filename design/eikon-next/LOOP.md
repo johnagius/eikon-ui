@@ -138,3 +138,14 @@ then a hard cut to a small sign-in card.
   **active only after a worker deploy (still blocked).**
 - **Next:** the counter UI for Bookings (day view, three-tap booking, booking
   sheet), designed and checked on iPhone and desktop.
+
+### Round 6: Bookings counter design
+- `bookings.html`: the iPhone day view (next bookings first, earlier ones dimmed,
+  the next free stretch inline), the booking sheet (what, then when with the next
+  free times, then who with a person search, and one button that says exactly
+  what happens), and the desktop day grid (one column per person or room, a now
+  line, free time ready to tap).
+- Inspected in both themes. Fixed: an oversized "Later" icon, a floating button
+  covering rows (replaced by a + in the header), and cut-off short bookings (taller
+  grid, one-line layout).
+- Shared styles split into `next.css`.
