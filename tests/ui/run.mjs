@@ -103,6 +103,9 @@ function mockApi(req, res, body) {
   if (p === "/paid-out/entries" && req.method === "GET") return res.end(JSON.stringify({ ok: true, entries: [{ id: 3, entry_date: todayYmd, entry_time: "09:00", payee_name: "Courier Ltd", fee: 12.5, payment_method: "cash", invoice_no: "", cheque_no: "", reason: "Gozo" }] }));
   if (p === "/paid-out/entries" && req.method === "POST") return res.end(JSON.stringify({ ok: true, entry_id: 4 }));
   if (p === "/paid-out/names") return res.end(JSON.stringify({ ok: true, names: ["Courier Ltd"] }));
+  if (p === "/instructions/daily" && req.method === "GET") { const y = url.searchParams.get("ymd"); return res.end(JSON.stringify({ ok: true, record: y === todayYmd ? { ymd: y, notes: "Inspector may visit", handover_out: [{ id: "t1", sev: "g", text: "Already for tomorrow" }] } : { ymd: y, notes: "", handover_out: [{ id: "y1", sev: "g", text: "Restock gloves" }, { id: "y2", sev: "r", text: "Methadone at 9" }] } })); }
+  if (p === "/instructions/daily" && req.method === "PUT") return res.end(JSON.stringify({ ok: true }));
+  if (p === "/instructions/global" && req.method === "GET") return res.end(JSON.stringify({ ok: true, global: { permanent_handover: { text: "Count the CD cupboard every evening" } } }));
   if (p === "/alerts/entries" && req.method === "GET") {
     const d = new Date().toISOString().slice(0, 10);
     return res.end(JSON.stringify({ ok: true, entries: [
@@ -774,6 +777,18 @@ const poPosts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json())
 report("paid out: opens from the old link in the new layout with today's total; 25,5 is recorded as 25.50 cash",
   /Today€12\.50/.test(po1) && poPosts.length === 1 && poPosts[0].fee === 25.5 && poPosts[0].payment_method === "cash" && poPosts[0].cheque_no === "" && poPosts[0].payee_name === "Cleaner Joe" && /^\d{2}:\d{2}$/.test(poPosts[0].entry_time),
   JSON.stringify({ po1, poPosts }));
+
+// Handover in the new layout: critical first from yesterday; adding a point re-reads the day and sends notes and every point.
+await page.goto(base + "&ui=2#instructions");
+await page.waitForFunction(() => window.EIKON.state.activeModuleId === "hndreg" && document.querySelector(".hnd-list"), null, { timeout: 15000 });
+const hn1 = await page.evaluate(() => ({ first: (document.querySelector(".hnd-list .hnd-pt") || {}).textContent, always: (document.querySelector(".hnd-box") || {}).textContent, rail: [...document.querySelectorAll(".eikon-rail-btn.active")].map((b) => b.dataset.mod) }));
+await fetch(`http://localhost:${PORT}/__reset`);
+await page.fill("#hnd-new", "Fridge door sticks"); await page.click('.hnd-seg [data-sev="r"]'); await page.click("#hnd-add button[type=submit]"); await page.waitForTimeout(700);
+const hnCalls = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.path.startsWith("/instructions/daily"));
+const hnPut = (hnCalls.find((c) => c.method === "PUT") || {}).body || {};
+report("handover: opens from the old link, critical first; adding re-reads today and keeps the notes and the earlier point",
+  /CRITICALMethadone/.test(hn1.first || "") && /CD cupboard/.test(hn1.always || "") && hn1.rail.join() === "team" && hnCalls[0].method === "GET" && hnPut.notes === "Inspector may visit" && hnPut.handover_out.length === 2 && hnPut.handover_out[0].text === "Already for tomorrow" && hnPut.handover_out[1].text === "Fridge door sticks" && hnPut.handover_out[1].sev === "r",
+  JSON.stringify({ hn1, hnCalls }));
 
 // screenshot for the review (reset the mock so the screen shows a morning with work to do)
 todayState = { tempDone: false, cleanDone: false };
