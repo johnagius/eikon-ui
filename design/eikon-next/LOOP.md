@@ -517,3 +517,10 @@ All of it waits only on the worker deploy.
   checkbox a white box (.eikon-content forced color-scheme:light). → --warn/--info tokens with dark values, all
   new-layout modules use them; dark .eikon-content color-scheme:dark.
 - Bug (both modes): Questions header rule greyed its pills (specificity) → :not(.tkt-pill). UI 116/116. BUILD .69.
+
+## Round 52 — desktop check; Today lists deliveries
+- Live: BUILD .69. Desktop 1440 review of Deliveries / Questions / DDA sales: clean, nothing to fix.
+- Considered next rebuilds: End of day (3k lines, FULL-REPLACE money record) too risky for one round; stock takes
+  low value. The audit's stock-take ReferenceError was already fixed earlier (debug-header fix).
+- /today: deliveries due today or overdue in customers_waiting (worker test, 98/98; WORKER_VERSION bookings-12,
+  undeployed). Today UI draws them and opens Deliveries; harmless with today's server. UI 117/117. BUILD .70.
