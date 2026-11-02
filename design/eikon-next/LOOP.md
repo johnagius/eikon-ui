@@ -259,3 +259,20 @@ then a hard cut to a small sign-in card.
   1. move the old appointments into Bookings (read-only from the old tables)
   2. the optional public booking page
   3. SMTP
+
+### Round 19: bringing over the old Appointments
+- Settings → Services → "From the old Appointments": **Check** (a dry run that
+  says what would move), then **Import**.
+- **What maps to what:**
+  - doctors become people, with weekly hours from recurring schedules
+  - one-off sessions become extra hours
+  - each doctor + clinic pair becomes a service, priced doctor fee + clinic fee
+  - appointments keep their status, fee and notes exactly as recorded
+  - the waiting list carries over
+- **Old double-bookings** are kept, as cancelled, with the reason written on the
+  record.
+- **Safety:** safe to run again (bk_legacy_map). The old tables are proven
+  byte-for-byte unchanged.
+- Worker 69/69, e2e 5/5.
+- **Production today:** 31 old appointments in total, ready to move once the
+  worker is deployed.
