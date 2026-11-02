@@ -1324,9 +1324,9 @@
   E.UI2_RAIL_FOOT = [{ id: "team", title: "Team" }, { id: "settings", title: "Settings" }];
   E.UI2_DESTINATIONS = ["today", "customers", "stock", "registers", "team", "settings"];
   // Screens inside a tab keep that tab lit in the rail.
-  E.UI2_PARENT = { tempreg: "registers", cleanreg: "registers", drreg: "registers", locreg: "registers", certreg: "settings", nexreg: "stock", retreg: "stock", trfreg: "stock", alertreg: "stock", ordreg: "customers", tktreg: "customers", dlvreg: "customers", cdpreg: "registers" };
+  E.UI2_PARENT = { tempreg: "registers", cleanreg: "registers", drreg: "registers", locreg: "registers", certreg: "settings", nexreg: "stock", retreg: "stock", trfreg: "stock", alertreg: "stock", ordreg: "customers", tktreg: "customers", dlvreg: "customers", cdpreg: "registers", cdsreg: "registers" };
   // Old registers rebuilt for the new layout: any way of reaching the old id (Today, search, a hub, a link) lands on the new screen.
-  E.UI2_NATIVE = { temperature: "tempreg", cleaning: "cleanreg", dailyregister: "drreg", locumregister: "locreg", certificates: "certreg", nearexpiry: "nexreg", returns: "retreg", stocktransfers: "trfreg", alerts: "alertreg", clientorders: "ordreg", tickets: "tktreg", deliveries: "dlvreg", "dda-purchases": "cdpreg" };
+  E.UI2_NATIVE = { temperature: "tempreg", cleaning: "cleanreg", dailyregister: "drreg", locumregister: "locreg", certificates: "certreg", nearexpiry: "nexreg", returns: "retreg", stocktransfers: "trfreg", alerts: "alertreg", clientorders: "ordreg", tickets: "tktreg", deliveries: "dlvreg", "dda-purchases": "cdpreg", "dda-sales": "cdsreg" };
   E._railBadges = E._railBadges || {};
 
   // Line icons for the new layout's menu (same set as the Eikon Next design).
