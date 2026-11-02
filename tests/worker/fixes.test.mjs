@@ -129,3 +129,17 @@ test("credit notes: more than 100 notes still list (lookups are batched under D1
   const list = r.json.entries || r.json.notes || r.json.items || r.json.creditNotes || [];
   eq(list.length, 150);
 });
+
+test("ui files: build-stamped scripts are cacheable for a day; index.html and unstamped files stay short", async () => {
+  const { makeApp } = await import("./harness.mjs");
+  const app = await makeApp({ env: { UI_CACHE_SECONDS: "300" } });
+  const orig = globalThis.fetch;
+  globalThis.fetch = async (u) => /raw\.githubusercontent\.com/.test(String(u)) ? new Response("x") : orig(u);
+  try {
+    const cc = async (p) => (await app.raw("GET", p)).headers.get("cache-control");
+    eq(await cc("/ui/core.js?v=2026-11-02.11"), "public, max-age=86400");
+    eq(await cc("/ui/core.js?v=1730000000000"), "public, max-age=300", "Date.now() stamps are not build stamps");
+    eq(await cc("/ui/index.html?v=2026-11-02.11"), "public, max-age=300", "the page itself always stays short");
+    eq(await cc("/ui/core.js"), "public, max-age=300");
+  } finally { globalThis.fetch = orig; }
+});

@@ -10122,7 +10122,11 @@ async function handleUiAsset(request, env, url) {
 
   const headers = new Headers();
   headers.set("Content-Type", ct);
-  headers.set("Cache-Control", cachingEnabled ? `public, max-age=${cacheSeconds}` : "no-store");
+  // Files requested with the build stamp (?v=YYYY-MM-DD.N, see BUILD in ui/index.html) never change
+  // under that URL, so browsers may keep them for a day; index.html and unstamped files stay short.
+  const stamped = /^\d{4}-\d{2}-\d{2}\.\d+$/.test(url.searchParams.get("v") || "") && !/\.html?$/i.test(rel);
+  const maxAge = stamped ? 86400 : cacheSeconds;
+  headers.set("Cache-Control", cachingEnabled ? `public, max-age=${maxAge}` : "no-store");
   headers.set("X-Source", "github-raw");
   headers.set("Access-Control-Allow-Origin", "*");
 
