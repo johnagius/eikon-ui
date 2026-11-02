@@ -427,3 +427,9 @@ All of it waits only on the worker deploy.
 - Data safety found and fixed before shipping: saving hours would have wiped title/speciality and rooms; the old Hours screen dropped
   every window but the first (split days) — now all kept.
 - Worker 93/93, UI 95/95, e2e: people 9/9, settings 13/13, bookings 13/13, move 4/4, choose-practitioner 4/4. WORKER_VERSION bookings-9 (not deployed). BUILD .54.
+
+## Round 37 — QR code, day-view filter; live check
+- Live BUILD .54: 64 modules, all four rebuilt registers present, no errors (sign-in page only; no live login used).
+- QR code for the booking page (vendored qrcode-generator 1.4.4, MIT, loaded on demand); decoded from a screenshot with jsQR → exact /book/<address>. Printable card.
+- Staff day view: Everyone / each practitioner / each room chips when more than one; e2e 4/4.
+- UI 95/95; bookings 13/13, week 8/8. BUILD .56.
