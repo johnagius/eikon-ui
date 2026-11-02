@@ -312,3 +312,10 @@ then a hard cut to a small sign-in card.
 - Bookings on Today
 
 All of it waits only on the worker deploy.
+
+## Round 22 — Eikon Next look in the real app
+- Rail: line icons, single green tint, system font, iOS greys (core.js `E.RAIL_ICONS`, app.css token block).
+- Today: glyph tiles neutral (colour only means status); headline follows the time of day ("3 checks still to do today" after noon).
+- Phone bugs found by inspection and fixed: side column kept `grid-row:2/4` in one-column layout (huge gaps, cards off-screen);
+  rows squeezed titles to "Ph…"; tab bar overflowed (desktop padding overrode phone padding). Now rows wrap under the title, tab bar fits 6.
+- Shots: shots/r22-today-desk.png, shots/r22-today-phone.png. BUILD 2026-11-02.19.
