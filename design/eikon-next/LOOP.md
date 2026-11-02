@@ -247,3 +247,15 @@ then a hard cut to a small sign-in card.
   2. moving the old appointments across (read-only from the old tables)
   3. the optional public booking page with an email code
   4. SMTP
+
+### Round 18: the Bookings waiting list
+- People wait for a service, first come first served. When a booking is
+  cancelled, Eikon offers the freed time to the first person waiting ("A time
+  just freed up"). One tap books them and takes them off the list.
+- Also: a Waiting section on the day (Book or Remove), and "Add to the waiting
+  list" in the booking sheet.
+- Worker 67/67, e2e 5/5 on iPhone and desktop, UI 86/86.
+- **Next:**
+  1. move the old appointments into Bookings (read-only from the old tables)
+  2. the optional public booking page
+  3. SMTP
