@@ -212,3 +212,15 @@ then a hard cut to a small sign-in card.
 - **Client orders: 37 calls to 2** once the worker is deployed. The screen falls
   back to month calls on the current worker (measured 38 with a refused range,
   works the same). Worker 59/59.
+
+### Round 11–12: stock transfers and scarce stock
+- **Stock transfers:** open items only while "open only" is on (worker
+  `open=1`). It previously pulled the whole history every 30 s.
+- **Scarce stock, a real latent crash:** the lists bound one SQL parameter per
+  need or offer, and real D1 refuses more than 100. Reproduced ("too many SQL
+  variables") and fixed with a subquery, plus `open=1` on refresh.
+- Worker 61/61, UI 86/86. Both screens are safe on the current worker, which
+  ignores the parameter.
+- **Next:** 21 other one-parameter-per-item SQL lists were found. Check each
+  unbounded one (customer search, lines ~7622, 12603, 15687, 18316) and fix any
+  that can pass 100.
