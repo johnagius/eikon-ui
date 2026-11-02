@@ -149,3 +149,15 @@ then a hard cut to a small sign-in card.
   covering rows (replaced by a + in the header), and cut-off short bookings (taller
   grid, one-line layout).
 - Shared styles split into `next.css`.
+
+### Round 7: Bookings screen, built and tested end to end
+- `ui/modules.bookings.js`, shipped hidden (`?bookings=1` switches it on for one
+  browser): the day view, one-card setup, the three-step booking sheet, status
+  actions, cancel with a reason, and a plain message with the next times when a
+  slot is taken at another counter.
+- The new shell on phones: the side rail becomes a glass bottom tab bar under
+  760 px. Before, it took more than half the screen.
+- **End-to-end in Chromium against the real worker: 13/13 checks on iPhone
+  width.** UI suite 86/86. Repeatable: `tests/ui/bookings.e2e.mjs`.
+- Fixed while inspecting: a CSS reset was stripping button backgrounds, and
+  toasts were covering the tab bar.
