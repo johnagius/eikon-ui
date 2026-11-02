@@ -35,7 +35,7 @@
       // browser and the Worker's edge cache can reuse every file (previously every load
       // used Date.now(), so 52 files were re-downloaded on every visit).
       // Bump BUILD on EVERY change to any file in ui/: browsers keep stamped files for a day.
-      var BUILD = "2026-11-02.34";
+      var BUILD = "2026-11-02.35";
 
       function log() { try { console.log.apply(console, arguments); } catch (e) {} }
       function warn() { try { console.warn.apply(console, arguments); } catch (e) {} }
@@ -203,7 +203,7 @@
           if (!LATER.length) return;
           // A late file that fails must not take the app down: the screens that need it say so.
           loadScriptsInOrder(LATER).catch(function (e) { warn("[EIKON][boot] background modules:", e); }).then(function () {
-            try { window.__eikonLateDone(); window.dispatchEvent(new Event("eikon:modules")); } catch (e) {}
+            try { if (window.EIKON) window.EIKON._lateIn = true; window.__eikonLateDone(); window.dispatchEvent(new Event("eikon:modules")); } catch (e) {}
           });
         })
         .catch(function (e) {

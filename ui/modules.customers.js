@@ -199,7 +199,7 @@
     m.innerHTML = '<div class="cus"><div class="cus-side">' +
       '<div class="cus-search"><span aria-hidden="true"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" style="color:rgba(60,60,67,.55);flex:none;display:block"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span><input id="cus-q" type="search" autocomplete="off" placeholder="Name, ID card or phone" value="' + esc(state.q) + '"></div>' +
       '<div id="cus-list"></div>' +
-      '<div class="cus-regs"><span>Registers</span>' + [["clientorders", "Orders"], ["tickets", "Questions"], ["deliveries", "Deliveries"], ["appointments", "Appointments"], ["loyalty", "Loyalty"]].filter(function (x) { return E.modules[x[0]]; }).map(function (x) { return '<a data-reg="' + x[0] + '">' + x[1] + '</a>'; }).join("") + '</div>' +
+      '<div class="cus-regs"><span>Registers</span>' + [["clientorders", "Orders"], ["tickets", "Questions"], ["deliveries", "Deliveries"], ["appointments", "Appointments"], ["loyalty", "Loyalty"]].filter(function (x) { return E.modules[x[0]] || (window.EIKON_LATE && !E._lateIn); }).map(function (x) { return '<a data-reg="' + x[0] + '">' + x[1] + '</a>'; }).join("") + '</div>' +
       '</div><div class="cus-detail" id="cus-detail"></div></div>';
     m.querySelectorAll("[data-reg]").forEach(function (el) { el.addEventListener("click", function () { try { sessionStorage.setItem("eikon_ui2_return", "customers"); } catch (e) {} E.openClassic(el.getAttribute("data-reg")); }); });
     var q = m.querySelector("#cus-q");
