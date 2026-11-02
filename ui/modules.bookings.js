@@ -41,6 +41,9 @@
   function svcColor(svc) { return (svc && svc.color) || COLORS[((svc && svc.id) || 0) % COLORS.length]; }
   function svc(id) { return ((S.setup && S.setup.services) || []).find(function (x) { return x.id === id; }); }
   function prov(id) { return ((S.setup && S.setup.providers) || []).find(function (x) { return x.id === id; }); }
+  function isAdmin() { return !!(E.state && E.state.user && E.state.user.role === "admin"); }
+  var WD = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  var WD_ORDER = [1, 2, 3, 4, 5, 6, 0];
   function api(path, opts) { return E.apiFetch(path, opts || { method: "GET" }); }
   function toast(msg, kind) { try { (E.toast || E.showToast)(msg, kind || "success"); } catch (e) {} }
   function errMsg(e) { return (e && (e.bodyJson && e.bodyJson.error || e.message)) || "Something went wrong"; }
@@ -85,6 +88,15 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
 .bkx-f label span{width:92px;font-size:17px;font-weight:500;flex:none}.bkx-f input,.bkx-f select{flex:1;min-width:0;border:0;outline:0;font:inherit;font-size:17px;background:transparent;padding:12px 0}\
 .bkx-note{font-size:13px;color:var(--l2);text-align:center;margin-top:10px}.bkx-err{color:var(--red);font-size:15px;font-weight:600;margin:0 4px 12px}\
 .bkx-acts{display:grid;gap:8px}\
+.bkx-seg{display:flex;background:rgba(118,118,128,.12);border-radius:10px;padding:2px;margin-bottom:16px}.bkx-seg button{flex:1;height:32px;border-radius:8px;font-size:14px;font-weight:600;color:rgba(60,60,67,.8)}\
+.bkx-seg button.on{background:#fff;color:#000;box-shadow:0 1px 3px rgba(0,0,0,.12)}\
+.bkx-gear{width:40px;height:40px;padding:0;border-radius:50%;display:grid;place-items:center}.bkx-add{white-space:nowrap}\
+.bkx-f input[type=time]{width:112px;flex:0 0 auto}\
+.bkx-f input[type=checkbox]{appearance:none;-webkit-appearance:none;width:51px!important;height:31px!important;border-radius:16px;background:rgba(120,120,128,.16);position:relative;flex:0 0 auto;cursor:pointer;transition:background .2s;margin:0}\
+.bkx-f input[type=checkbox]::after{content:'';position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 3px 8px rgba(0,0,0,.15),0 1px 1px rgba(0,0,0,.16);transition:transform .2s}\
+.bkx-f input[type=checkbox]:checked{background:#34C759}.bkx-f input[type=checkbox]:checked::after{transform:translateX(20px)}\
+@media(max-width:760px){.bkx-closed{display:none}.bkx-f input[type=time]{width:112px}.bkx-f label{gap:8px}}\
+.bkx-ok{color:var(--t);font-size:15px;font-weight:600;margin:0 4px 12px}.bkx-closed{font-style:normal;font-size:13px;color:var(--l3);margin-left:auto}\
 ";
   function injectCss() { if (document.getElementById("bkx-css")) return; var st = document.createElement("style"); st.id = "bkx-css"; st.textContent = CSS; document.head.appendChild(st); }
 
@@ -152,7 +164,7 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
     }
     S.mount.innerHTML = '<div class="bkx">' +
       '<div class="bkx-top"><div><h1>Bookings</h1><div class="sub">' + esc(longDate(S.date)) + (hasSetup ? " · " + list.length + " booked" : "") + "</div></div>" +
-      (hasSetup ? '<button class="bkx-add" data-act="new">New booking</button>' : "") + "</div>" +
+      (hasSetup ? '<div style="display:flex;gap:8px">' + (isAdmin() ? '<button class="bkx-btn bkx-gear" data-act="settings" aria-label="Bookings settings" title="Settings"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M2.8 12h2.4M18.8 12h2.4M4.9 19.1l1.7-1.7M17.4 6.6l1.7-1.7"/></svg></button>' : "") + '<button class="bkx-add" data-act="new">New booking</button></div>' : "") + "</div>" +
       (hasSetup ? daysHtml() : "") + body + "</div>" + sheetHtml();
   }
 
@@ -192,7 +204,67 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
             (b.status === "booked" || b.status === "confirmed" ? '<button class="bkx-btn lg" data-act="st" data-s="no_show">No-show</button>' : "") +
             '<button class="bkx-btn red lg" data-act="cancel">Cancel booking</button></div>');
     }
+    if (sh.kind === "settings") inner = settingsHtml(sh);
     return '<div class="bkx-scrim" data-act="close"></div><div class="bkx-sheet bkx" style="padding-top:10px;min-height:0"><div class="bkx-grab"></div>' + inner + "</div>";
+  }
+
+  function settingsHtml(sh) {
+    var tabs = [["services", "Services"], ["hours", "Hours"], ["messages", "Messages"]];
+    var h = '<div class="bkx-sh"><button class="bkx-btn" data-act="close">Done</button><b>Bookings settings</b><span style="width:60px"></span></div>' +
+      '<div class="bkx-seg">' + tabs.map(function (t) { return '<button class="' + (sh.tab === t[0] ? "on" : "") + '" data-act="tab" data-t="' + t[0] + '">' + t[1] + "</button>"; }).join("") + "</div>";
+    if (sh.err) h += '<div class="bkx-err">' + esc(sh.err) + "</div>";
+    if (sh.okMsg) h += '<div class="bkx-ok">' + esc(sh.okMsg) + "</div>";
+    var provs = S.setup.providers;
+    if (sh.tab === "services") {
+      var list = S.setup.services.concat(sh.newService ? [{ id: 0, name: "", durationMin: 15, priceCents: 0, active: true, providerIds: provs.length ? [provs[0].id] : [] }] : []);
+      h += list.map(function (x) {
+        return '<div class="bkx-f" data-svc="' + x.id + '">' +
+          '<label><span>Name</span><input data-k="name" value="' + esc(x.name) + '" placeholder="e.g. Blood pressure"></label>' +
+          '<label><span>Minutes</span><input data-k="dur" type="number" min="5" max="480" value="' + x.durationMin + '"></label>' +
+          '<label><span>Price €</span><input data-k="price" type="number" min="0" step="0.5" value="' + (x.priceCents / 100) + '"></label>' +
+          '<label><span>Who</span><select data-k="prov">' + provs.map(function (p) { return '<option value="' + p.id + '"' + ((x.providerIds || []).indexOf(p.id) >= 0 ? " selected" : "") + ">" + esc(p.name) + "</option>"; }).join("") + "</select></label>" +
+          '<label><span>Bookable</span><input data-k="active" type="checkbox"' + (x.active ? " checked" : "") + ' style="flex:0 0 auto;width:22px;height:22px"></label>' +
+          '<div style="padding:8px 16px 14px"><button class="bkx-btn tint" data-act="svc-save" data-id="' + x.id + '">' + (x.id ? "Save" : "Add service") + "</button></div></div>";
+      }).join("") + (sh.newService ? "" : '<button class="bkx-btn lg" data-act="svc-new">Add a service</button>');
+    }
+    if (sh.tab === "hours") {
+      h += provs.map(function (p) {
+        var draft = sh.draft && sh.draft[p.id];
+        var hrs = p.hours || {};
+        return '<div class="bkx-lab">' + esc(p.name) + "</div>" + '<div class="bkx-f" data-prov="' + p.id + '">' + WD_ORDER.map(function (d) {
+          // Unsaved typing survives a failed save (draft), otherwise show what is saved.
+          var w = draft ? [draft[d][0], draft[d][1]] : ((hrs[d] || hrs[String(d)] || [])[0] || ["", ""]);
+          return '<label><span>' + WD[d] + '</span><input data-d="' + d + '" data-k="from" type="time" value="' + esc(w[0]) + '" style="flex:0 0 auto"> – <input data-d="' + d + '" data-k="to" type="time" value="' + esc(w[1]) + '" style="flex:0 0 auto">' +
+            (w[0] || w[1] ? "" : '<em class="bkx-closed">Closed</em>') + "</label>";
+        }).join("") + '<div style="padding:8px 16px 14px"><button class="bkx-btn tint" data-act="hours-save" data-id="' + p.id + '">Save hours</button> <span class="sub" style="margin-left:8px">Clear both times to close a day.</span></div></div>';
+      }).join("");
+    }
+    if (sh.tab === "messages") {
+      var m = sh.msg;
+      if (!m) h += '<div class="bkx-g"><div class="bkx-empty">Loading…</div></div>';
+      else {
+        h += '<div class="sub" style="margin:0 4px 12px">Send customers a confirmation with a calendar file, a reminder the evening before and a private link to see or cancel their booking. Off until you choose a provider.</div>' +
+          '<div class="bkx-f"><label><span>Send with</span><select id="bkm-provider"><option value="off"' + (m.provider === "off" ? " selected" : "") + '>Off</option><option value="resend"' + (m.provider === "resend" ? " selected" : "") + '>Resend</option><option value="brevo"' + (m.provider === "brevo" ? " selected" : "") + ">Brevo</option></select></label>" +
+          '<label><span>API key</span><input id="bkm-key" type="password" autocomplete="off" placeholder="' + (m.hasKey ? "Saved · type to replace" : "Paste the key") + '"></label>' +
+          '<label><span>From</span><input id="bkm-from" inputmode="email" value="' + esc(m.fromEmail) + '" placeholder="bookings@yourpharmacy.mt"></label>' +
+          '<label><span>Name</span><input id="bkm-name" value="' + esc(m.fromName) + '" placeholder="Your pharmacy"></label></div>' +
+          '<div class="bkx-f"><label><span>Evening</span><input id="bkm-eve" type="checkbox"' + (m.remindEvening ? " checked" : "") + ' style="flex:0 0 auto;width:22px;height:22px"><em class="bkx-closed" style="margin-left:6px">Reminder at 18:00 the day before</em></label>' +
+          '<label><span>Also</span><select id="bkm-hrs">' + [0, 1, 2, 3, 4].map(function (n) { return '<option value="' + n + '"' + (m.remindHours === n ? " selected" : "") + ">" + (n ? n + " hour" + (n > 1 ? "s" : "") + " before" : "No second reminder") + "</option>"; }).join("") + "</select></label>" +
+          '<label><span>Cancel</span><select id="bkm-cut">' + [[0, "Any time online"], [60, "Up to 1 hour before"], [120, "Up to 2 hours before"], [1440, "Up to the day before"]].map(function (o) { return '<option value="' + o[0] + '"' + (m.cancelCutoffMin === o[0] ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select></label>" +
+          '<label><span>Address</span><input id="bkm-addr" value="' + esc(m.address) + '"></label><label><span>Phone</span><input id="bkm-phone" inputmode="tel" value="' + esc(m.phone) + '"></label></div>' +
+          (m.canSend ? "" : '<div class="bkx-err">The server needs its BOOKINGS_KEY secret before emails can be switched on.</div>') +
+          '<div class="bkx-acts"><button class="bkx-btn fill lg" data-act="msg-save">Save</button><button class="bkx-btn lg" data-act="msg-test">Send me a test</button></div>';
+      }
+    }
+    return h;
+  }
+
+  async function openSettings(tab) {
+    S.sheet = { kind: "settings", tab: tab || "services" }; paint();
+    if (S.sheet.tab === "messages") {
+      try { S.sheet.msg = (await api("/bookings/settings")).settings; } catch (e) { S.sheet.err = errMsg(e); }
+      paint();
+    }
   }
 
   function keepFields() {
@@ -255,6 +327,51 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
         if (e && e.status === 409) { S.sheet.err = "Someone else changed this booking. Showing the latest."; await load({ silent: true }); S.sheet = { kind: "booking", id: b.id, err: S.sheet ? S.sheet.err : "" }; return paint(); }
         S.sheet.err = errMsg(e); paint();
       }
+    }
+    if (act === "settings") return openSettings("services");
+    if (act === "tab") return openSettings(t.getAttribute("data-t"));
+    if (act === "svc-new") { S.sheet.newService = true; S.sheet.err = S.sheet.okMsg = ""; return paint(); }
+    if (act === "svc-save") {
+      var box = t.closest("[data-svc]"), q = function (k) { return box.querySelector('[data-k="' + k + '"]'); };
+      var id = Number(t.getAttribute("data-id"));
+      var body = { name: q("name").value, durationMin: Number(q("dur").value), priceCents: Math.round(Number(q("price").value || 0) * 100), providerIds: [Number(q("prov").value)], active: q("active").checked };
+      S.sheet.err = S.sheet.okMsg = "";
+      try {
+        await api("/bookings/services" + (id ? "/" + id : ""), { method: id ? "PUT" : "POST", body: JSON.stringify(body) });
+        S.sheet.newService = false; S.sheet.okMsg = "Saved " + body.name; await load({ setup: true, silent: true });
+      } catch (e) { S.sheet.err = errMsg(e); }
+      return paint();
+    }
+    if (act === "hours-save") {
+      var pid = Number(t.getAttribute("data-id")), pbox = t.closest("[data-prov]"), hours = {}, bad = "";
+      S.sheet.draft = S.sheet.draft || {}; S.sheet.draft[pid] = {};
+      WD_ORDER.forEach(function (d) {
+        var f = pbox.querySelector('[data-d="' + d + '"][data-k="from"]').value, to = pbox.querySelector('[data-d="' + d + '"][data-k="to"]').value;
+        S.sheet.draft[pid][d] = [f, to];
+        if (f && to) { if (to <= f) bad = WD[d] + ": the end must be after the start."; hours[d] = [[f, to]]; }
+        else if (f || to) bad = WD[d] + ": give both times, or clear both to close.";
+      });
+      S.sheet.err = bad; S.sheet.okMsg = "";
+      if (bad) return paint();
+      var pr = prov(pid);
+      try { await api("/bookings/providers/" + pid, { method: "PUT", body: JSON.stringify({ name: pr.name, kind: pr.kind, hours: hours, active: pr.active }) }); delete S.sheet.draft[pid]; S.sheet.okMsg = "Hours saved"; await load({ setup: true, silent: true }); }
+      catch (e) { S.sheet.err = errMsg(e); }
+      return paint();
+    }
+    if (act === "msg-save" || act === "msg-test") {
+      var g2 = function (id) { return document.getElementById(id); };
+      S.sheet.err = S.sheet.okMsg = "";
+      if (act === "msg-save") {
+        var body2 = { provider: g2("bkm-provider").value, fromEmail: g2("bkm-from").value, fromName: g2("bkm-name").value, remindEvening: g2("bkm-eve").checked,
+          remindHours: Number(g2("bkm-hrs").value), cancelCutoffMin: Number(g2("bkm-cut").value), address: g2("bkm-addr").value, phone: g2("bkm-phone").value };
+        if (g2("bkm-key").value.trim()) body2.apiKey = g2("bkm-key").value.trim();
+        try { S.sheet.msg = (await api("/bookings/settings", { method: "PUT", body: JSON.stringify(body2) })).settings; S.sheet.okMsg = body2.provider === "off" ? "Emails are off" : "Saved. Customers with an email now get messages."; }
+        catch (e) { S.sheet.err = errMsg(e); }
+      } else {
+        try { var r2 = await api("/bookings/settings/test", { method: "POST", body: "{}" }); S.sheet.okMsg = "Test sent to " + r2.sentTo; }
+        catch (e) { S.sheet.err = errMsg(e); }
+      }
+      return paint();
     }
     if (act === "setup") {
       var v = function (id) { return (document.getElementById(id) || {}).value || ""; };

@@ -1,10 +1,13 @@
-// Serves ui/ and answers API calls with the real worker on an in-memory SQLite D1. Never contacts the live site.
+// Serves ui/ and answers API calls with the real worker on an in-memory SQLite D1. Never contacts the live site; email providers are stubbed.
 // Local full stack: serves <tree>/ui and answers API calls with the REAL worker from <tree>
 // on an in-memory SQLite D1. Never talks to the live site.
 import http from "node:http"; import fs from "node:fs"; import path from "node:path"; import { pathToFileURL } from "node:url";
 const [tree, port] = [process.argv[2], Number(process.argv[3])];
 const { makeApp } = await import(pathToFileURL(path.join(tree, "tests/worker/harness.mjs")).href);
-const app = await makeApp({ allowedOrigins: "http://localhost:" + port });
+const app = await makeApp({ allowedOrigins: "http://localhost:" + port, env: { BOOKINGS_KEY: "local-test-bookings-key-0123456789", PUBLIC_BASE_URL: "http://localhost:" + port } });
+// Local only: email providers are stubbed so nothing is ever sent.
+globalThis.__sentEmails = []; const __origFetch = globalThis.fetch;
+globalThis.fetch = async (u, init) => { if (/api\.resend\.com|api\.brevo\.com/.test(String(u))) { globalThis.__sentEmails.push({ url: String(u), body: JSON.parse(init.body) }); return new Response('{"id":"stub"}'); } return __origFetch(u, init); };
 const s = await app.bootstrap({ email: "maria@demo.mt", password: "Demo-Pass-2026", name: "Maria Borg", location: "Demo Pharmacy", org: "Demo Org" });
 const T = s.token; const d = (n) => new Date(Date.now() - n * 864e5).toISOString().slice(0, 10);
 const seed = async (m, p, body) => { const r = await app.api(m, p, { token: T, body }); if (r.status >= 400) console.log("seed fail", p, r.status, r.text.slice(0, 120)); return r; };
@@ -15,6 +18,7 @@ const sales = [["Zammit Carmel","0012345M","Morphine 10mg/ml",2,"Dr Abela"],["Gr
 let k = 0; for (const [n, id, med, q, doc] of sales) await seed("POST", "/dda-sales/entries", { entry_date: d(k++), client_name: n, client_id_card: id, client_address: "1 Triq il-Knisja, Valletta", medicine_name_dose: med, quantity: q, doctor_name: doc, doctor_reg_no: "R" + (1200 + k), prescription_serial_no: "S" + (5000 + k) });
 const server = http.createServer((req, res) => {
   const u = new URL(req.url, "http://localhost"); let p = decodeURIComponent(u.pathname);
+  if (p === "/__emails") { res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify(globalThis.__sentEmails)); }
   if (p.startsWith("/ui/")) { const f = path.join(tree, "ui", p.slice(4)); if (fs.existsSync(f) && fs.statSync(f).isFile()) { const ext = f.split(".").pop(); res.writeHead(200, { "content-type": ({ html: "text/html", js: "application/javascript", css: "text/css", png: "image/png", svg: "image/svg+xml" })[ext] || "application/octet-stream" }); return fs.createReadStream(f).pipe(res); } }
   const chunks = []; req.on("data", (c) => chunks.push(c)); req.on("end", async () => {
     const h = {}; for (const [kk, v] of Object.entries(req.headers)) if (!["host", "content-length", "connection"].includes(kk)) h[kk] = v;
