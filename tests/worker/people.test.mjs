@@ -185,3 +185,19 @@ test("people: the person carries loyalty points and the next booking, cancelled 
   const r2 = await api("GET", "/people/" + m.json.person.id, { token });
   eq(r2.json.loyalty, null); eq(r2.json.next_appointment, null);
 });
+
+test("people: a broad search with many ID cards works under D1's 100-parameter limit (one register; up to 8 registers x 25 can reach ~200 keys in real use)", async ({ api, bootstrap, DB }) => {
+  const { token } = await bootstrap();
+  // 150 DDA sales by different customers named Zammit, each with an ID card, and one person already adopted.
+  for (let i = 0; i < 150; i++) {
+    const r = await api("POST", "/dda-sales/entries", { token, body: { entry_date: "2026-10-01", client_name: "Zammit " + i, client_id_card: String(100000 + i) + "M", client_address: "Valletta", medicine_name_dose: "Alprazolam 0.5mg", quantity: 1, doctor_name: "Dr A", doctor_reg_no: "R1", prescription_serial_no: "S" + i } });
+    if (r.status >= 300) throw new Error(r.text);
+  }
+  eq((await api("POST", "/people", { token, body: { name: "Zammit 1", id_card: "0100001M" } })).status < 300, true);
+  const prep = DB.prepare.bind(DB);
+  DB.prepare = (sql) => { const st = prep(sql); const bind = st.bind.bind(st); st.bind = (...a) => { if (a.length > 100) throw new Error("too many SQL variables"); return bind(...a); }; return st; };
+  const r = await api("GET", "/people?q=zammit&limit=50", { token });
+  DB.prepare = prep;
+  eq(r.status, 200, r.text.slice(0, 200));
+  ok(r.json.history.length > 0, "history candidates are listed");
+});

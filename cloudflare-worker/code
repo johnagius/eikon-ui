@@ -15690,9 +15690,10 @@ async function handlePeopleSearch(request, env, corsOkHeaders, authUser) {
   for (const p of people) { known.add(personKey(p.id_card, p.name)); known.add(personKey("", p.name)); }
   if (people.length) {
     // Anyone in history whose ID card already belongs to a person is that person.
-    const keysInHistory = peopleGroupCandidates(rowsByKind).filter((g) => g.id_card).map((g) => g.id_card);
+    const keysInHistory = Array.from(new Set(peopleGroupCandidates(rowsByKind).filter((g) => g.id_card).map((g) => g.id_card)));
     if (keysInHistory.length) {
-      const owned = await dbAll(env, "SELECT id_card FROM people WHERE org_id = ? AND location_id = ? AND id_card IN (" + keysInHistory.map(() => "?").join(",") + ")", [org, loc].concat(keysInHistory));
+      // Batched: a broad search can find more ID cards than D1's 100 bound parameters.
+      const owned = await dbAllChunked(env, (ph) => "SELECT id_card FROM people WHERE org_id = ? AND location_id = ? AND id_card IN (" + ph + ")", keysInHistory, [org, loc]);
       for (const o of owned) known.add("id:" + o.id_card);
     }
   }
