@@ -94,6 +94,7 @@ function mockApi(req, res, body) {
       { id: 73, delivery_id: "DEL-00001", order_date: d(-9), client_name: "Done Dora", delivery_address: "Rabat", status: "Delivered", items: "[]", delivery_log: "[]" }] }));
   }
   if (p.startsWith("/client-deliveries/entries/") && req.method === "PUT") return res.end(JSON.stringify({ ok: true }));
+  if (p === "/dda-purchases/entries" && req.method === "POST") return res.end(JSON.stringify({ ok: true, entry_id: 900 }));
   if (p === "/alerts/entries" && req.method === "GET") {
     const d = new Date().toISOString().slice(0, 10);
     return res.end(JSON.stringify({ ok: true, entries: [
@@ -388,11 +389,11 @@ await page.press("#tdy-q", "Enter");
 await page.waitForFunction(() => window.EIKON && window.EIKON.state && window.EIKON.state.activeModuleId === "ordreg", null, { timeout: 15000 });
 const openedCustomer = await page.evaluate(() => location.hash + " " + (document.documentElement.hasAttribute("data-ui2") ? "new" : "classic"));
 await backToToday();
-await page.fill("#tdy-q", "dda purchases");
+await page.fill("#tdy-q", "dda sales");
 await page.press("#tdy-q", "Enter");
-await page.waitForFunction(() => location.search.indexOf("ui=classic") >= 0 && window.EIKON && window.EIKON.state && window.EIKON.state.activeModuleId === "dda-purchases", null, { timeout: 15000 });
+await page.waitForFunction(() => location.search.indexOf("ui=classic") >= 0 && window.EIKON && window.EIKON.state && window.EIKON.state.activeModuleId === "dda-sales", null, { timeout: 15000 });
 const openedModule = await page.evaluate(() => location.hash + " " + (document.documentElement.hasAttribute("data-ui2") ? "new" : "classic"));
-report("today: search opens a waiting customer's order in the new Orders screen, and a register not yet rebuilt in classic", openedCustomer === "#ordreg new" && openedModule === "#dda-purchases classic", `${openedCustomer} | ${openedModule}`);
+report("today: search opens a waiting customer's order in the new Orders screen, and a register not yet rebuilt in classic", openedCustomer === "#ordreg new" && openedModule === "#dda-sales classic", `${openedCustomer} | ${openedModule}`);
 await backToToday();
 // A register rebuilt in the new layout opens there.
 await page.fill("#tdy-q", "temperature");
@@ -417,9 +418,9 @@ report("shell: the rail is Today, Customers, Stock, Registers, Team, Settings an
 await page.evaluate(() => { location.hash = "#registers"; });
 await page.waitForFunction(() => document.querySelector(".hub-card"), null, { timeout: 8000 });
 const hub = await page.evaluate(() => ({ h1: document.querySelector(".hub h1").textContent, cards: document.querySelectorAll(".hub-card").length, temp: !!document.querySelector('.hub-card[data-open="temperature"]'), topbar: getComputedStyle(document.querySelector(".eikon-topbar")).display }));
-await page.click('.hub-card[data-open="dda-purchases"]');
+await page.click('.hub-card[data-open="dda-sales"]');
 // an old module never renders inside the new shell: the classic layout opens for this visit
-await page.waitForFunction(() => location.hash === "#dda-purchases" && location.search.indexOf("ui=classic") >= 0 && window.EIKON && window.EIKON.state && window.EIKON.state.user && document.querySelector(".eikon-nav-cat"), null, { timeout: 15000 });
+await page.waitForFunction(() => location.hash === "#dda-sales" && location.search.indexOf("ui=classic") >= 0 && window.EIKON && window.EIKON.state && window.EIKON.state.user && document.querySelector(".eikon-nav-cat"), null, { timeout: 15000 });
 await page.waitForTimeout(400);
 const legacy = await page.evaluate(() => ({ light: document.documentElement.hasAttribute("data-ui2"), cats: document.querySelectorAll(".eikon-nav-cat").length, back: document.getElementById("eikon-back-btn").textContent, backShown: document.getElementById("eikon-back-btn").style.display !== "none", pref: localStorage.getItem("eikon_ui2") }));
 await page.click("#eikon-back-btn");
@@ -711,6 +712,20 @@ report("deliveries: open in the new layout, overdue first, done hidden; Delivere
   dvb.id_doc_ref === "123456M" && dvb.delivery_method === "Courier" && dvb.priority === 1 && dvb.tracking_number === "TRK9" && dvb.internal_notes === "Call first" && dvb.ticket_ref === "TKT-00007" && dvb.email === "rita@x.com" &&
   JSON.parse(dvb.items)[0].batch_ref === "B7" && JSON.parse(dvb.delivery_log).length === 2 && dvb.cold_chain_required === 1 && dvb.signature_required === 1,
   JSON.stringify({ dl1, dlErr, dlPuts }));
+
+// Controlled drugs received in the new layout: one invoice, several lines, one POST per line with the shared supplier and invoice.
+await page.goto(base + "&ui=2#dda-purchases");
+await page.waitForFunction(() => window.EIKON.state.activeModuleId === "cdpreg" && document.querySelector(".cdp-inv"), null, { timeout: 15000 });
+const cdp1 = await page.evaluate(() => ({ rail: [...document.querySelectorAll(".eikon-rail-btn.active")].map((b) => b.dataset.mod), inv: (document.querySelector(".cdp-inv .h") || {}).textContent || "" }));
+await fetch(`http://localhost:${PORT}/__reset`);
+await page.click("[data-act=add]"); await page.fill("[name=agent]", "Actavis"); await page.fill("[name=invoice_number]", "INV-9");
+await page.fill('[data-i="0"][data-k=dda_name_dose]', "Morphine 10mg"); await page.fill('[data-i="0"][data-k=quantity]', "30");
+await page.fill('[data-i="1"][data-k=dda_name_dose]', "Fentanyl 25mcg"); await page.fill('[data-i="1"][data-k=quantity]', "5");
+await page.click("#cdp-add button[type=submit]"); await page.waitForTimeout(800);
+const cdpPosts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST" && c.path === "/dda-purchases/entries").map((c) => c.body);
+report("controlled drugs received: open from the old link in the new layout; one invoice with two lines makes two entries",
+  cdp1.rail.join() === "registers" && /Supplier/.test(cdp1.inv) && /INV-1/.test(cdp1.inv) && cdpPosts.length === 2 && cdpPosts.every((b) => b.agent === "Actavis" && b.invoice_number === "INV-9" && /^\d{4}-\d{2}-\d{2}$/.test(b.entry_date)) && cdpPosts[0].dda_name_dose === "Morphine 10mg" && cdpPosts[0].quantity === 30 && cdpPosts[1].quantity === 5,
+  JSON.stringify({ cdp1, cdpPosts }));
 
 // screenshot for the review (reset the mock so the screen shows a morning with work to do)
 todayState = { tempDone: false, cleanDone: false };
