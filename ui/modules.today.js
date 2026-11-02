@@ -187,6 +187,13 @@
         '<div class="tdy-t"><b>' + esc(c.name) + '</b><span>Order · ' + esc(c.detail || "") + (c.code ? " · " + esc(c.code) : "") + (c.waiting_days > 0 ? " · " + plural(c.waiting_days, "day") + " ago" : " · today") + '</span></div>' +
         due + '<button class="tdy-btn" data-open="' + esc(c.action.path) + '">Open</button></div>';
     }
+    if (c.kind === "delivery") { // sent by servers from 2026-11-02-bookings-12; older ones simply do not list deliveries
+      var dp = c.late_days > 0 ? '<span class="tdy-pill red">Was due ' + esc(dayWord(c.due_date)) + '</span>' : c.status === "Out for Delivery" ? '<span class="tdy-pill grn">On its way</span>' : '<span class="tdy-pill amb">Goes out today</span>';
+      return '<div class="tdy-row ' + (c.late_days > 0 ? "red" : "amb") + '">' +
+        '<div class="tdy-av" style="background:hsl(' + hue(c.name) + ',45%,42%)">' + esc(initials(c.name)) + '</div>' +
+        '<div class="tdy-t"><b>' + esc(c.name) + '</b><span>Delivery · ' + esc(c.detail || "") + (c.slot ? " · " + esc(c.slot) : "") + (c.cold ? " · Fridge" : "") + (c.controlled ? " · Controlled drug" : "") + '</span></div>' +
+        dp + '<button class="tdy-btn" data-open="' + esc(c.action.path) + '">Open</button></div>';
+    }
     return '<div class="tdy-row blu">' +
       '<div class="tdy-av" style="background:hsl(' + hue(c.name) + ',45%,42%)">' + esc(initials(c.name)) + '</div>' +
       '<div class="tdy-t"><b>' + esc(c.name) + '</b><span>Asked ' + (c.waiting_days > 0 ? plural(c.waiting_days, "day") + " ago" : "today") + ' · "' + esc(c.detail || "") + '"</span></div>' +
@@ -226,6 +233,8 @@
     var ready = waiting.filter(function (x) { return x.kind === "order"; }).length, qs = waiting.filter(function (x) { return x.kind === "question"; }).length;
     if (ready) leg.push('<span><i style="background:var(--ok)"></i>' + plural(ready, "order") + " to hand over</span>");
     if (qs) leg.push('<span><i style="background:var(--accent)"></i>' + plural(qs, "question") + "</span>");
+    var dl = waiting.filter(function (x) { return x.kind === "delivery"; }).length;
+    if (dl) leg.push('<span><i style="background:var(--warn,#C98A12)"></i>' + plural(dl, "delivery", "deliveries") + " to go out</span>");
     html += '<div class="tdy-head"><h1>' + h1 + '</h1><div class="tdy-legend">' + leg.join("") + '</div></div>';
 
     html += '<div class="tdy-col">';

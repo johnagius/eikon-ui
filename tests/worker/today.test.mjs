@@ -110,3 +110,20 @@ test("today: without Bookings set up, the bookings section is simply empty", asy
   const t = await api("GET", "/today", { token });
   eq(t.status, 200); eq(t.json.bookings.total_today, 0); eq(t.json.bookings.next, []);
 });
+
+test("today: deliveries due today or overdue are listed; later, delivered and cancelled ones are not", async ({ api, bootstrap }) => {
+  const { token } = await bootstrap();
+  const today = maltaToday(), tomorrow = daysAgo(-1);
+  const mk = (b) => api("POST", "/client-deliveries/entries", { token, body: { order_date: daysAgo(3), phone: "79000000", items: "[]", delivery_log: "[]", status: "Scheduled", ...b } });
+  eq((await mk({ client_name: "Late Lina", delivery_address: "Mosta", scheduled_date: daysAgo(1), cold_chain_required: 1 })).status, 200);
+  eq((await mk({ client_name: "Today Toni", delivery_address: "Naxxar", scheduled_date: today, status: "Out for Delivery" })).status, 200);
+  eq((await mk({ client_name: "Later Leo", delivery_address: "Gozo", scheduled_date: tomorrow })).status, 200);
+  eq((await mk({ client_name: "Done Dora", delivery_address: "Rabat", scheduled_date: today, status: "Delivered" })).status, 200);
+  eq((await mk({ client_name: "Off Olga", delivery_address: "Zejtun", scheduled_date: today, status: "Cancelled" })).status, 200);
+  const t = (await api("GET", "/today", { token })).json;
+  const dl = t.customers_waiting.filter((c) => c.kind === "delivery");
+  eq(dl.map((d) => d.name).join(), "Late Lina,Today Toni", JSON.stringify(dl));
+  eq(dl[0].late_days, 1); eq(dl[0].cold, true); eq(dl[0].detail, "Mosta");
+  eq(dl[1].status, "Out for Delivery"); eq(dl[1].late_days, 0);
+  eq(dl[0].action.path, "#deliveries");
+});

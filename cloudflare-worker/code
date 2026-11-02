@@ -4,7 +4,7 @@ function nowIso() {
 
 
 
-const WORKER_VERSION = "2026-11-02-bookings-11";
+const WORKER_VERSION = "2026-11-02-bookings-12";
 function isDebugEnabled(request) {
   try {
     return (request && request.headers && (request.headers.get("X-Eikon-Debug") || "") === "1");
@@ -15417,7 +15417,7 @@ async function handleToday(request, env, corsOkHeaders, authUser) {
   const one = async (sql, bind) => { try { return await dbFirst(env, sql, bind); } catch (e) { return null; } };
 
   const ensures = [ensureDailyRegisterSchema, ensureCertificatesSchema, ensureAlertsSchema, ensureReturnsSchema, ensureNearExpirySchema,
-    ensureClientOrdersSchema, ensureClientTicketsSchema, ensureEndOfDaySchema, ensurePaidOutSchema, ensureShiftsSchema, ensureSupplierProductsSchema];
+    ensureClientOrdersSchema, ensureClientTicketsSchema, ensureDeliveriesSchema, ensureEndOfDaySchema, ensurePaidOutSchema, ensureShiftsSchema, ensureSupplierProductsSchema];
   for (const fn of ensures) { try { await fn(env); } catch (e) {} }
   try { await ensureDefaultTempDevicesIfMissing(env, authUser); } catch (e) {}
   try { await ensureDefaultCertificatesIfMissing(env, authUser); } catch (e) {}
@@ -15483,6 +15483,18 @@ async function handleToday(request, env, corsOkHeaders, authUser) {
     waiting.push({ kind: "question", id: t.id, ref: t.ticket_id || "", name: t.client_name, phone: t.phone || "", detail: t.issue || "", status: t.status,
       priority: Number(t.priority) || 2, waiting_days: ymdDiffDays(t.open_date, today), followup_date: t.followup_date || null,
       action: { type: "open", path: "#tickets", label: "Reply" } });
+  }
+  // deliveries still to go out today, and any that slipped past their day
+  const deliveries = await all(
+    `SELECT id, delivery_id, client_name, phone, delivery_address, scheduled_date, scheduled_time_slot, order_date, status, cold_chain_required, contains_controlled
+       FROM client_deliveries WHERE org_id = ? AND location_id = ? AND status IN ('Scheduled', 'Dispatched', 'Out for Delivery')
+        AND COALESCE(NULLIF(scheduled_date, ''), order_date) <= ?
+      ORDER BY COALESCE(NULLIF(scheduled_date, ''), order_date) ASC, priority ASC, id ASC LIMIT 50`, [org, loc, today]);
+  for (const d of deliveries) {
+    const due = d.scheduled_date || d.order_date || today;
+    waiting.push({ kind: "delivery", id: d.id, ref: d.delivery_id || "", name: d.client_name, phone: d.phone || "", detail: d.delivery_address || "", slot: d.scheduled_time_slot || "",
+      status: d.status, due_date: due, late_days: due < today ? ymdDiffDays(due, today) : 0, cold: !!Number(d.cold_chain_required), controlled: !!Number(d.contains_controlled),
+      action: { type: "open", path: "#deliveries", label: "Open" } });
   }
 
   // ---- Attention: paperwork and dates that are slipping
