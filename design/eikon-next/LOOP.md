@@ -337,3 +337,10 @@ All of it waits only on the worker deploy.
 - One SVG search icon (was 🔍 on Today, ⌕ on Customers).
 - Bookings setup: card capped at 560px on desktop; hours no longer clipped (desktop 128px, phones share the row, no picker icon).
 - e2e on fresh servers: bookings 13/13, settings 13/13, week 8/8; UI 86/86. BUILD .23.
+
+## Round 25 — first impression and classic screens on phones
+- Classic screens opened from the new layout on phones: old sidebar hidden (was 60% of width), header keeps back + title. Classic users unaffected (`data-ui2-visit`).
+- Sign-in and loading splash in the new look from the first frame (Atlas mark, one column, green button); classic sign-in unchanged (verified).
+- Portal picker skipped when the user has one portal; unavailable portals hidden (new layout only).
+- Considered: light palette for classic screens during visits — rejected for now, modules hard-code dark colours (e.g. 34 in appointments) → patchwork. Each screen gets redone in its turn.
+- e2e scripts made time-of-day independent (hours 00:00–23:59); bookings 13/13, waitlist 5/5, week 8/8. BUILD .26.
