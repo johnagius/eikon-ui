@@ -46,6 +46,7 @@
   var COLORS = ["#0A8F6A", "#5856D6", "#C9772E", "#1A9FB5", "#B4566A", "#6E8B3D"];
   function svcColor(svc) { return (svc && svc.color) || COLORS[((svc && svc.id) || 0) % COLORS.length]; }
   function svc(id) { return ((S.setup && S.setup.services) || []).find(function (x) { return x.id === id; }); }
+  function plabel(p) { return [p.title, p.name].filter(Boolean).join(" "); }
   function prov(id) { return ((S.setup && S.setup.providers) || []).find(function (x) { return x.id === id; }); }
   function isAdmin() { return !!(E.state && E.state.user && E.state.user.role === "admin"); }
   var WD = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -96,7 +97,7 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
 .bkx-acts{display:grid;gap:8px}\
 .bkx-seg{display:flex;background:rgba(118,118,128,.12);border-radius:10px;padding:2px;margin-bottom:16px}.bkx-seg button{flex:1;height:32px;border-radius:8px;font-size:14px;font-weight:600;color:rgba(60,60,67,.8)}\
 .bkx-seg button.on{background:#fff;color:#000;box-shadow:0 1px 3px rgba(0,0,0,.12)}\
-.bkx-pre{font-style:normal;color:var(--l2);font-size:16px;margin-right:2px}.bkx-linkrow{display:flex;align-items:center;gap:10px;padding:10px 16px 12px;position:relative}.bkx-linkrow::before{content:'';position:absolute;top:0;left:16px;right:0;height:.5px;background:var(--sep)}.bkx-linkrow a{flex:1;min-width:0;color:var(--t);font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bkx-snd{display:flex;align-items:center;gap:12px;padding:12px 16px;position:relative}.bkx-snd+.bkx-snd::before{content:'';position:absolute;top:0;left:16px;right:0;height:.5px;background:var(--sep)}.bkx-snd>i{width:9px;height:9px;border-radius:50%;flex:none}.bkx-snd .t{flex:1;min-width:0}.bkx-snd b{display:block;font-size:16px;font-weight:600}.bkx-snd b small{font-weight:400;color:var(--l2);font-size:13px}.bkx-snd span{display:block;font-size:13px;color:var(--l2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bkx-snd .a{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}.bkx-mini{height:30px;padding:0 10px;border-radius:15px;background:var(--fill);font-size:13px;font-weight:600;color:var(--t)}.bkx-mini.red{color:var(--red)}.bkx-mini:disabled{opacity:.35}@media(max-width:600px){.bkx-snd{flex-wrap:wrap}.bkx-snd .a{flex-basis:100%;justify-content:flex-start;padding-left:21px}}.bkx-gear{width:40px;height:40px;padding:0;border-radius:50%;display:grid;place-items:center}.bkx-add{white-space:nowrap}.bkx-plus{display:none}\
+.bkx-pre{font-style:normal;color:var(--l2);font-size:16px;margin-right:2px}.bkx-linkrow{display:flex;align-items:center;gap:10px;padding:10px 16px 12px;position:relative}.bkx-linkrow::before{content:'';position:absolute;top:0;left:16px;right:0;height:.5px;background:var(--sep)}.bkx-linkrow a{flex:1;min-width:0;color:var(--t);font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bkx-chips{display:flex;flex-wrap:wrap;gap:6px;flex:1}.bkx-chip{height:32px;padding:0 12px;border-radius:16px;background:var(--fill);font-size:14px;font-weight:600;color:var(--l2)}.bkx-chip.on{background:var(--t);color:#fff}.bkx-win select{border:0;background:var(--fill);border-radius:8px;height:30px;font:inherit;font-size:14px;color:inherit;padding:0 6px;margin-left:6px;max-width:130px}@media(max-width:760px){.bkx-win{display:grid!important;grid-template-columns:72px minmax(0,1fr) auto minmax(0,1fr) auto auto;align-items:center;column-gap:6px;row-gap:8px;padding-top:10px!important;padding-bottom:10px!important}.bkx-win input[type=time]{width:100%!important;min-width:0}.bkx-win select{grid-column:2/-1;grid-row:2;margin-left:0;max-width:none;height:34px}.bkx-win>span:not(:first-child){display:none}}.bkx-away{margin:0 16px 14px;padding:12px;border-radius:12px;background:var(--fill)}.bkx-away label{padding:0;min-height:40px}.bkx-away label+label::before{display:none}.bkx-call{font-size:14px;margin-top:8px}.bkx-snd{display:flex;align-items:center;gap:12px;padding:12px 16px;position:relative}.bkx-snd+.bkx-snd::before{content:'';position:absolute;top:0;left:16px;right:0;height:.5px;background:var(--sep)}.bkx-snd>i{width:9px;height:9px;border-radius:50%;flex:none}.bkx-snd .t{flex:1;min-width:0}.bkx-snd b{display:block;font-size:16px;font-weight:600}.bkx-snd b small{font-weight:400;color:var(--l2);font-size:13px}.bkx-snd span{display:block;font-size:13px;color:var(--l2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bkx-snd .a{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}.bkx-mini{height:30px;padding:0 10px;border-radius:15px;background:var(--fill);font-size:13px;font-weight:600;color:var(--t)}.bkx-mini.red{color:var(--red)}.bkx-mini:disabled{opacity:.35}@media(max-width:600px){.bkx-snd{flex-wrap:wrap}.bkx-snd .a{flex-basis:100%;justify-content:flex-start;padding-left:21px}}.bkx-gear{width:40px;height:40px;padding:0;border-radius:50%;display:grid;place-items:center}.bkx-add{white-space:nowrap}.bkx-plus{display:none}\
 @media(max-width:600px){.bkx-add{width:40px;padding:0;display:grid;place-items:center}.bkx-add-l{display:none}.bkx-plus{display:block;font-size:26px;font-weight:400;line-height:1;margin-top:-2px}.bkx-top{align-items:flex-start}}\
 .bkx-f input[type=time]{width:128px;flex:0 0 auto}\
 .bkx-f input[type=checkbox]{appearance:none;-webkit-appearance:none;width:51px!important;height:31px!important;border-radius:16px;background:rgba(120,120,128,.16);position:relative;flex:0 0 auto;cursor:pointer;transition:background .2s;margin:0}\
@@ -145,7 +146,7 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
     return '<button class="bkx-r' + (past ? " bkx-past" : "") + '" data-act="open" data-id="' + b.id + '">' +
       '<div class="bkx-time">' + esc(b.start) + "<small>" + esc(b.end) + "</small></div>" +
       '<div class="bkx-bar" style="background:' + svcColor(s) + '"></div>' +
-      '<div class="bkx-txt"><b>' + esc(b.personName) + "</b><span>" + esc(s.name || "Booking") + (p.name ? " · " + esc(p.name) : "") + "</span></div>" +
+      '<div class="bkx-txt"><b>' + esc(b.personName) + "</b><span>" + esc(s.name || "Booking") + (p.name ? " · " + esc(plabel(p)) : "") + (b.roomName ? " · " + esc(b.roomName) : "") + "</span></div>" +
       (st ? '<span class="bkx-st" style="color:' + st[1] + '">' + st[0] + "</span>" : "") + "</button>";
   }
   function daysHtml() {
@@ -266,7 +267,7 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
   }
 
   function settingsHtml(sh) {
-    var tabs = [["services", "Services"], ["hours", "Hours"], ["messages", "Messages"]];
+    var tabs = [["services", "Services"], ["hours", "People"], ["rooms", "Rooms"], ["messages", "Messages"]];
     var h = '<div class="bkx-sh"><button class="bkx-btn" data-act="close">Done</button><b>Bookings settings</b><span style="width:60px"></span></div>' +
       '<div class="bkx-seg">' + tabs.map(function (t) { return '<button class="' + (sh.tab === t[0] ? "on" : "") + '" data-act="tab" data-t="' + t[0] + '">' + t[1] + "</button>"; }).join("") + "</div>";
     if (sh.err) h += '<div class="bkx-err">' + esc(sh.err) + "</div>";
@@ -279,7 +280,7 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
           '<label><span>Name</span><input data-k="name" value="' + esc(x.name) + '" placeholder="e.g. Blood pressure"></label>' +
           '<label><span>Minutes</span><input data-k="dur" type="number" min="5" max="480" value="' + x.durationMin + '"></label>' +
           '<label><span>Price €</span><input data-k="price" type="number" min="0" step="0.5" value="' + (x.priceCents / 100) + '"></label>' +
-          '<label><span>Who</span><select data-k="prov">' + provs.map(function (p) { return '<option value="' + p.id + '"' + ((x.providerIds || []).indexOf(p.id) >= 0 ? " selected" : "") + ">" + esc(p.name) + "</option>"; }).join("") + "</select></label>" +
+          '<label style="align-items:flex-start;padding-top:12px;padding-bottom:12px"><span>Who</span><div class="bkx-chips">' + provs.map(function (p) { var on = (x.providerIds || []).indexOf(p.id) >= 0; return '<button type="button" class="bkx-chip' + (on ? " on" : "") + '" data-act="chip" data-pid="' + p.id + '" aria-pressed="' + on + '">' + esc(plabel(p)) + "</button>"; }).join("") + "</div></label>" +
           '<label><span>Bookable</span><input data-k="active" type="checkbox"' + (x.active ? " checked" : "") + ' style="flex:0 0 auto;width:22px;height:22px"></label>' +
           '<label><span>Online</span><input data-k="online" type="checkbox"' + (x.online ? " checked" : "") + ' style="flex:0 0 auto;width:22px;height:22px"><em class="bkx-closed" style="margin-left:8px">Customers can book it on your page</em></label>' +
           '<div style="padding:8px 16px 14px"><button class="bkx-btn tint" data-act="svc-save" data-id="' + x.id + '">' + (x.id ? "Save" : "Add service") + "</button></div></div>";
@@ -290,16 +291,50 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
       '<div style="display:flex;gap:8px"><button class="bkx-btn" data-act="imp-check">Check</button>' + (sh.importReport && sh.importReport.dry && (sh.importReport.bookings || sh.importReport.providers || sh.importReport.waiting) ? '<button class="bkx-btn fill" data-act="imp-run">Import</button>' : "") + "</div></div>";
     }
     if (sh.tab === "hours") {
+      // People: who gives the services, their title and speciality, their weekly hours (any number of windows a day,
+      // each optionally in a room), and "Mark away" to close time and tell the customers.
+      var rooms = (sh.rooms || []).filter(function (r) { return r.active; });
+      h += '<div class="sub" style="margin:0 4px 12px">Everyone who sees customers. A day can have more than one window, each in a room if you use rooms.</div>';
       h += provs.map(function (p) {
-        var draft = sh.draft && sh.draft[p.id];
-        var hrs = p.hours || {};
-        return '<div class="bkx-lab">' + esc(p.name) + "</div>" + '<div class="bkx-f" data-prov="' + p.id + '">' + WD_ORDER.map(function (d) {
-          // Unsaved typing survives a failed save (draft), otherwise show what is saved.
-          var w = draft ? [draft[d][0], draft[d][1]] : ((hrs[d] || hrs[String(d)] || [])[0] || ["", ""]);
-          return '<label><span>' + WD[d] + '</span><input data-d="' + d + '" data-k="from" type="time" value="' + esc(w[0]) + '" style="flex:0 0 auto"> – <input data-d="' + d + '" data-k="to" type="time" value="' + esc(w[1]) + '" style="flex:0 0 auto">' +
-            (w[0] || w[1] ? "" : '<em class="bkx-closed">Closed</em>') + "</label>";
-        }).join("") + '<div style="padding:8px 16px 14px"><button class="bkx-btn tint" data-act="hours-save" data-id="' + p.id + '">Save hours</button> <span class="sub" style="margin-left:8px">Clear both times to close a day.</span></div></div>';
+        var dr = (sh.pdraft && sh.pdraft[p.id]) || { title: p.title || "", name: p.name, speciality: p.speciality || "", hours: JSON.parse(JSON.stringify(p.hours || {})) };
+        var c = '<div class="bkx-f" data-prov="' + p.id + '">' +
+          '<label><span>Title</span><input data-k="title" value="' + esc(dr.title) + '" placeholder="Dr, Pharm., Nurse"></label>' +
+          '<label><span>Name</span><input data-k="name" value="' + esc(dr.name) + '"></label>' +
+          '<label><span>Speciality</span><input data-k="speciality" value="' + esc(dr.speciality) + '" placeholder="Optional, e.g. Physiotherapy"></label>';
+        WD_ORDER.forEach(function (d) {
+          var wins = dr.hours[d] || dr.hours[String(d)] || [];
+          if (!wins.length) c += '<label><span>' + WD[d] + '</span><em class="bkx-closed" style="flex:1">Closed</em><button type="button" class="bkx-mini" data-act="win-add" data-id="' + p.id + '" data-d="' + d + '">Add hours</button></label>';
+          wins.forEach(function (w, i) {
+            c += '<label class="bkx-win"><span>' + (i ? "" : WD[d]) + '</span><input data-d="' + d + '" data-i="' + i + '" data-k="from" type="time" value="' + esc(w[0]) + '" style="flex:0 0 auto"> – <input data-d="' + d + '" data-i="' + i + '" data-k="to" type="time" value="' + esc(w[1]) + '" style="flex:0 0 auto">' +
+              (rooms.length ? '<select data-d="' + d + '" data-i="' + i + '" data-k="room" aria-label="Room"><option value="">No room</option>' + rooms.map(function (r) { return '<option value="' + r.id + '"' + (Number(w[2]) === r.id ? " selected" : "") + ">" + esc(r.name) + "</option>"; }).join("") + "</select>" : "") +
+              '<span style="flex:1"></span>' + (i === wins.length - 1 && wins.length < 3 ? '<button type="button" class="bkx-mini" data-act="win-add" data-id="' + p.id + '" data-d="' + d + '" aria-label="Add another window">+</button>' : "") +
+              '<button type="button" class="bkx-mini red" data-act="win-del" data-id="' + p.id + '" data-d="' + d + '" data-i="' + i + '" aria-label="Remove these hours">×</button></label>';
+          });
+        });
+        c += '<div style="padding:8px 16px 14px;display:flex;gap:8px;flex-wrap:wrap"><button class="bkx-btn tint" data-act="hours-save" data-id="' + p.id + '">Save</button>' +
+          '<button class="bkx-btn" data-act="away-open" data-id="' + p.id + '">Mark away</button></div>';
+        if (sh.away && sh.away.pid === p.id) {
+          var a = sh.away;
+          c += '<div class="bkx-away"><div style="font-weight:600;margin-bottom:6px">' + esc(plabel(p)) + ' is away</div>' +
+            '<label><span>From</span><input id="aw-from" type="date" value="' + esc(a.from) + '"></label>' +
+            '<label><span>To</span><input id="aw-to" type="date" value="' + esc(a.to || "") + '"><em class="bkx-closed" style="margin-left:6px">Leave empty for one day</em></label>' +
+            '<label><span>Hours</span><input id="aw-st" type="time" value="' + esc(a.start || "") + '" style="flex:0 0 auto"> – <input id="aw-en" type="time" value="' + esc(a.end || "") + '" style="flex:0 0 auto"><em class="bkx-closed" style="margin-left:6px">Empty means all day</em></label>' +
+            '<label><span>Why</span><input id="aw-why" value="' + esc(a.reason || "") + '" placeholder="Shown to customers, e.g. ' + esc(plabel(p)) + ' is unwell"></label>' +
+            '<div style="display:flex;gap:8px;margin-top:8px"><button class="bkx-btn fill" data-act="away-go" data-id="' + p.id + '">Cancel those bookings and tell customers</button><button class="bkx-btn" data-act="away-close">Back</button></div>' +
+            (a.result ? '<div class="bkx-call">' + esc(a.result.cancelled + " cancelled · " + a.result.emailed + " told by email") + (a.result.toCall.length ? "<br><b>Please call:</b> " + a.result.toCall.map(function (x) { return esc(x.personName + (x.personPhone ? " " + x.personPhone : "") + " (" + dayShort(x.date) + " " + x.start + ")"); }).join(", ") : "") + "</div>" : "") +
+            "</div>";
+        }
+        return c + "</div>";
       }).join("");
+      h += sh.addingPerson ? '<div class="bkx-f"><label><span>Title</span><input id="np-title" placeholder="Dr, Pharm., Nurse"></label><label><span>Name</span><input id="np-name" placeholder="Name and surname"></label><label><span>Speciality</span><input id="np-spec" placeholder="Optional"></label>' +
+        '<div style="padding:8px 16px 14px;display:flex;gap:8px"><button class="bkx-btn fill" data-act="np-save">Add</button><button class="bkx-btn" data-act="np-cancel">Cancel</button></div></div>'
+        : '<button class="bkx-btn lg" data-act="np-new">Add a practitioner</button>';
+    }
+    if (sh.tab === "rooms") {
+      var rs = sh.rooms || [];
+      h += '<div class="sub" style="margin:0 4px 12px">Clinic rooms, if you use them. Choose a room for each practitioner’s hours under People; two people can’t have the same room at the same time.</div>' +
+        '<div class="bkx-f">' + (rs.length ? rs.map(function (r) { return '<label data-room="' + r.id + '"><span>Room</span><input data-k="rname" value="' + esc(r.name) + '"><button type="button" class="bkx-mini" data-act="room-save" data-id="' + r.id + '">Save</button></label>'; }).join("") : '<label><em class="bkx-closed">No rooms yet</em></label>') +
+        '<label><span>New</span><input id="room-new" placeholder="e.g. Room 1, Physio room"><button type="button" class="bkx-mini" data-act="room-add">Add</button></label></div>';
     }
     if (sh.tab === "messages") {
       var m = sh.msg;
@@ -367,6 +402,7 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
 
   async function openSettings(tab) {
     S.sheet = { kind: "settings", tab: tab || "services" }; paint();
+    if (S.sheet.tab === "hours" || S.sheet.tab === "rooms") { try { S.sheet.rooms = (await api("/bookings/rooms")).rooms; } catch (e) { S.sheet.rooms = []; } paint(); }
     if (S.sheet.tab === "messages") {
       try { S.sheet.msg = (await api("/bookings/settings")).settings; S.sheet.senders = (await api("/bookings/senders")).senders; } catch (e) { S.sheet.err = errMsg(e); }
       paint();
@@ -475,7 +511,7 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
     if (act === "svc-save") {
       var box = t.closest("[data-svc]"), q = function (k) { return box.querySelector('[data-k="' + k + '"]'); };
       var id = Number(t.getAttribute("data-id"));
-      var body = { name: q("name").value, durationMin: Number(q("dur").value), priceCents: Math.round(Number(q("price").value || 0) * 100), providerIds: [Number(q("prov").value)], active: q("active").checked, online: q("online").checked };
+      var body = { name: q("name").value, durationMin: Number(q("dur").value), priceCents: Math.round(Number(q("price").value || 0) * 100), providerIds: Array.prototype.map.call(box.querySelectorAll(".bkx-chip.on"), function (c) { return Number(c.getAttribute("data-pid")); }), active: q("active").checked, online: q("online").checked };
       S.sheet.err = S.sheet.okMsg = "";
       try {
         await api("/bookings/services" + (id ? "/" + id : ""), { method: id ? "PUT" : "POST", body: JSON.stringify(body) });
@@ -483,20 +519,77 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
       } catch (e) { S.sheet.err = errMsg(e); }
       return paint();
     }
+    if (act === "chip") { var on = !t.classList.contains("on"); t.classList.toggle("on", on); t.setAttribute("aria-pressed", String(on)); return; }
+    // People tab: read a practitioner card back from the screen (so typing survives adding or removing a window).
+    var readProv = function (pid) {
+      var box = S.mount.querySelector('[data-prov="' + pid + '"]'), hrs = {}, g = function (k) { var el = box.querySelector('[data-k="' + k + '"]:not([data-d])'); return el ? el.value : ""; };
+      box.querySelectorAll('[data-k="from"]').forEach(function (f) {
+        var d = f.getAttribute("data-d"), i = f.getAttribute("data-i");
+        var to = box.querySelector('[data-d="' + d + '"][data-i="' + i + '"][data-k="to"]').value, rm = box.querySelector('[data-d="' + d + '"][data-i="' + i + '"][data-k="room"]');
+        (hrs[d] = hrs[d] || []).push(rm && rm.value ? [f.value, to, Number(rm.value)] : [f.value, to]);
+      });
+      return { title: g("title").trim(), name: g("name").trim(), speciality: g("speciality").trim(), hours: hrs };
+    };
+    if (act === "win-add" || act === "win-del") {
+      var wp = Number(t.getAttribute("data-id")), wd = t.getAttribute("data-d"), dr = readProv(wp);
+      var list = dr.hours[wd] || [];
+      if (act === "win-add") list.push(list.length ? ["", ""] : ["09:00", "13:00"]); else list.splice(Number(t.getAttribute("data-i")), 1);
+      dr.hours[wd] = list; S.sheet.pdraft = S.sheet.pdraft || {}; S.sheet.pdraft[wp] = dr; S.sheet.err = S.sheet.okMsg = "";
+      return paint();
+    }
     if (act === "hours-save") {
-      var pid = Number(t.getAttribute("data-id")), pbox = t.closest("[data-prov]"), hours = {}, bad = "";
-      S.sheet.draft = S.sheet.draft || {}; S.sheet.draft[pid] = {};
-      WD_ORDER.forEach(function (d) {
-        var f = pbox.querySelector('[data-d="' + d + '"][data-k="from"]').value, to = pbox.querySelector('[data-d="' + d + '"][data-k="to"]').value;
-        S.sheet.draft[pid][d] = [f, to];
-        if (f && to) { if (to <= f) bad = WD[d] + ": the end must be after the start."; hours[d] = [[f, to]]; }
-        else if (f || to) bad = WD[d] + ": give both times, or clear both to close.";
+      var pid = Number(t.getAttribute("data-id")), d2 = readProv(pid), hours = {}, bad = "";
+      S.sheet.pdraft = S.sheet.pdraft || {}; S.sheet.pdraft[pid] = d2;
+      if (!d2.name) bad = "Give the practitioner a name.";
+      Object.keys(d2.hours).forEach(function (d) {
+        var ws = d2.hours[d].slice().sort(function (a, b) { return a[0] < b[0] ? -1 : 1; });
+        ws.forEach(function (w, i) {
+          if (!w[0] || !w[1]) bad = bad || WD[d] + ": give both times, or remove the line.";
+          else if (w[1] <= w[0]) bad = bad || WD[d] + ": the end must be after the start.";
+          else if (i && w[0] < ws[i - 1][1]) bad = bad || WD[d] + ": two windows overlap.";
+        });
+        if (ws.length) hours[d] = ws;
       });
       S.sheet.err = bad; S.sheet.okMsg = "";
       if (bad) return paint();
       var pr = prov(pid);
-      try { await api("/bookings/providers/" + pid, { method: "PUT", body: JSON.stringify({ name: pr.name, kind: pr.kind, hours: hours, active: pr.active }) }); delete S.sheet.draft[pid]; S.sheet.okMsg = "Hours saved"; await load({ setup: true, silent: true }); }
-      catch (e) { S.sheet.err = errMsg(e); }
+      try {
+        await api("/bookings/providers/" + pid, { method: "PUT", body: JSON.stringify({ name: d2.name, title: d2.title, speciality: d2.speciality, kind: pr.kind, hours: hours, active: pr.active }) });
+        delete S.sheet.pdraft[pid]; S.sheet.okMsg = "Saved " + plabel({ title: d2.title, name: d2.name }); await load({ setup: true, silent: true });
+      } catch (e) { S.sheet.err = errMsg(e); }
+      return paint();
+    }
+    if (act === "away-open") { S.sheet.away = { pid: Number(t.getAttribute("data-id")), from: todayStr() }; S.sheet.err = S.sheet.okMsg = ""; return paint(); }
+    if (act === "away-close") { S.sheet.away = null; return paint(); }
+    if (act === "away-go") {
+      var aw = S.sheet.away, gv = function (id) { var el = document.getElementById(id); return el ? el.value.trim() : ""; };
+      Object.assign(aw, { from: gv("aw-from"), to: gv("aw-to"), start: gv("aw-st"), end: gv("aw-en"), reason: gv("aw-why") });
+      if (!window.confirm("Cancel every booking with " + plabel(prov(aw.pid)) + " in that time and tell the customers?")) return;
+      S.sheet.err = "";
+      try {
+        aw.result = await api("/bookings/providers/" + aw.pid + "/away", { method: "POST", body: JSON.stringify({ from: aw.from, to: aw.to || aw.from, start: aw.start, end: aw.end, reason: aw.reason }) });
+        await load({ setup: true, silent: true });
+      } catch (e) { S.sheet.err = errMsg(e); }
+      return paint();
+    }
+    if (act === "np-new") { S.sheet.addingPerson = true; return paint(); }
+    if (act === "np-cancel") { S.sheet.addingPerson = false; return paint(); }
+    if (act === "np-save") {
+      var nv = function (id) { var el = document.getElementById(id); return el ? el.value.trim() : ""; };
+      S.sheet.err = "";
+      try {
+        await api("/bookings/providers", { method: "POST", body: JSON.stringify({ name: nv("np-name"), title: nv("np-title"), speciality: nv("np-spec"), kind: nv("np-title") ? "doctor" : "pharmacist", hours: {} }) });
+        S.sheet.addingPerson = false; S.sheet.okMsg = "Added. Give them hours below, then choose them under Services."; await load({ setup: true, silent: true });
+      } catch (e) { S.sheet.err = errMsg(e); }
+      return paint();
+    }
+    if (act === "room-add" || act === "room-save") {
+      S.sheet.err = S.sheet.okMsg = "";
+      try {
+        if (act === "room-add") await api("/bookings/rooms", { method: "POST", body: JSON.stringify({ name: (document.getElementById("room-new") || {}).value || "" }) });
+        else { var rid = Number(t.getAttribute("data-id")); await api("/bookings/rooms/" + rid, { method: "PUT", body: JSON.stringify({ name: t.closest("[data-room]").querySelector('[data-k="rname"]').value }) }); }
+        S.sheet.rooms = (await api("/bookings/rooms")).rooms; S.sheet.okMsg = "Rooms saved";
+      } catch (e) { S.sheet.err = errMsg(e); }
       return paint();
     }
     if (act === "copy-link") {

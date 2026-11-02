@@ -154,3 +154,11 @@ test("clinic rooms: set up internally, a session can be in a room, two people ca
     ok(/Room 1/.test(html(cap.sent[cap.sent.length - 1])), "the confirmation says the room");
   } finally { cap.restore(); }
 });
+
+test("practitioners: saving only the hours keeps the title and speciality", async () => {
+  const app = await makeApp({ env: KEY });
+  const { token } = await app.bootstrap();
+  const p = (await app.api("POST", "/bookings/providers", { token, body: { name: "Anna Borg", title: "Dr", speciality: "Physiotherapy", hours: { 1: [["09:00", "12:00"]] } } })).json.provider;
+  const u = await app.api("PUT", `/bookings/providers/${p.id}`, { token, body: { name: "Anna Borg", kind: "doctor", hours: { 1: [["10:00", "12:00"]] } } });
+  eq(u.status, 200, u.text); eq([u.json.provider.title, u.json.provider.speciality], ["Dr", "Physiotherapy"]);
+});

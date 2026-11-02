@@ -4,7 +4,7 @@ function nowIso() {
 
 
 
-const WORKER_VERSION = "2026-11-02-bookings-8";
+const WORKER_VERSION = "2026-11-02-bookings-9";
 function isDebugEnabled(request) {
   try {
     return (request && request.headers && (request.headers.get("X-Eikon-Debug") || "") === "1");
@@ -20155,8 +20155,10 @@ async function handleBookings(request, env, corsOkHeaders, authUser, url) {
       return ok({ provider: bkProviderRow(r) }, 201);
     }
     if (m === "PUT" && parts.length === 2) {
-      const r = await dbFirst(env, `UPDATE bk_providers SET name=?, kind=?, hours_json=?, active=?, title=?, speciality=?, updated_at=datetime('now') WHERE id=? AND org_id=? AND location_id=? RETURNING *`,
-        [name, kind, JSON.stringify(hours), b.active === false ? 0 : 1, title, speciality, Number(parts[1]), org, loc]);
+      // Fields not sent are kept (the hours screen sends only name and hours).
+      const r = await dbFirst(env, `UPDATE bk_providers SET name=?, kind=?, hours_json=?, active=?, title=CASE WHEN ? THEN ? ELSE title END, speciality=CASE WHEN ? THEN ? ELSE speciality END,
+          updated_at=datetime('now') WHERE id=? AND org_id=? AND location_id=? RETURNING *`,
+        [name, kind, JSON.stringify(hours), b.active === false ? 0 : 1, b.title !== undefined ? 1 : 0, title, b.speciality !== undefined ? 1 : 0, speciality, Number(parts[1]), org, loc]);
       if (!r) return bad("Not found", 404);
       await writeAudit(env, org, me, "BK_PROVIDER_UPDATE", "bk_providers", String(r.id), { name });
       return ok({ provider: bkProviderRow(r) });
