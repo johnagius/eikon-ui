@@ -319,3 +319,11 @@ All of it waits only on the worker deploy.
 - Phone bugs found by inspection and fixed: side column kept `grid-row:2/4` in one-column layout (huge gaps, cards off-screen);
   rows squeezed titles to "Ph…"; tab bar overflowed (desktop padding overrode phone padding). Now rows wrap under the title, tab bar fits 6.
 - Shots: shots/r22-today-desk.png, shots/r22-today-phone.png. BUILD 2026-11-02.19.
+
+## Round 23 — first-load speed (website only; no native apps per John)
+- Measured live on throttled 4G: sign-in form at 5.3–8.0 s; 62 requests, 922 KB compressed.
+- Cause 1 (worker, live): every UI file served `no-store`, re-fetched from GitHub per request (0.3–0.9 s TTFB each).
+  Fix in worker code: build-stamped files cached a day at edge + browser even when UI_CACHE_SECONDS=0. Test added (74/74). Waits on worker deploy.
+- Cause 2 (UI): scripts waited for app.css to finish before being requested. Now parallel; core.js high priority; early sign-in waits for CSS. Live with BUILD .21.
+- Also: home-screen tags + icons (same website, full-screen from the home screen), tab bar clears the home indicator.
+- e2e note: bookings e2e assume a fresh DB; run each on a fresh server (all pass).
