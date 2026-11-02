@@ -96,7 +96,8 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
 .bkx-acts{display:grid;gap:8px}\
 .bkx-seg{display:flex;background:rgba(118,118,128,.12);border-radius:10px;padding:2px;margin-bottom:16px}.bkx-seg button{flex:1;height:32px;border-radius:8px;font-size:14px;font-weight:600;color:rgba(60,60,67,.8)}\
 .bkx-seg button.on{background:#fff;color:#000;box-shadow:0 1px 3px rgba(0,0,0,.12)}\
-.bkx-gear{width:40px;height:40px;padding:0;border-radius:50%;display:grid;place-items:center}.bkx-add{white-space:nowrap}\
+.bkx-gear{width:40px;height:40px;padding:0;border-radius:50%;display:grid;place-items:center}.bkx-add{white-space:nowrap}.bkx-plus{display:none}\
+@media(max-width:600px){.bkx-add{width:40px;padding:0;display:grid;place-items:center}.bkx-add-l{display:none}.bkx-plus{display:block;font-size:26px;font-weight:400;line-height:1;margin-top:-2px}.bkx-top{align-items:flex-start}}\
 .bkx-f input[type=time]{width:128px;flex:0 0 auto}\
 .bkx-f input[type=checkbox]{appearance:none;-webkit-appearance:none;width:51px!important;height:31px!important;border-radius:16px;background:rgba(120,120,128,.16);position:relative;flex:0 0 auto;cursor:pointer;transition:background .2s;margin:0}\
 .bkx-f input[type=checkbox]::after{content:'';position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 3px 8px rgba(0,0,0,.15),0 1px 1px rgba(0,0,0,.16);transition:transform .2s}\
@@ -209,7 +210,7 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
     }
     S.mount.innerHTML = '<div class="bkx">' +
       '<div class="bkx-top"><div><h1>Bookings</h1><div class="sub">' + esc(S.view === "week" ? weekLabel() : longDate(S.date)) + (hasSetup ? " · " + list.length + " booked" : "") + "</div></div>" +
-      (hasSetup ? '<div style="display:flex;gap:8px">' + (isAdmin() ? '<button class="bkx-btn bkx-gear" data-act="settings" aria-label="Bookings settings" title="Settings"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M2.8 12h2.4M18.8 12h2.4M4.9 19.1l1.7-1.7M17.4 6.6l1.7-1.7"/></svg></button>' : "") + '<button class="bkx-add" data-act="new">New booking</button></div>' : "") + "</div>" +
+      (hasSetup ? '<div style="display:flex;gap:8px">' + (isAdmin() ? '<button class="bkx-btn bkx-gear" data-act="settings" aria-label="Bookings settings" title="Settings"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M2.8 12h2.4M18.8 12h2.4M4.9 19.1l1.7-1.7M17.4 6.6l1.7-1.7"/></svg></button>' : "") + '<button class="bkx-add" data-act="new" aria-label="New booking"><span class="bkx-plus" aria-hidden="true">+</span><span class="bkx-add-l">New booking</span></button></div>' : "") + "</div>" +
       (hasSetup ? '<div class="bkx-seg bkx-view"><button class="' + (S.view === "day" ? "on" : "") + '" data-act="view" data-v="day">Day</button><button class="' + (S.view === "week" ? "on" : "") + '" data-act="view" data-v="week">Week</button></div>' : "") +
       (hasSetup && S.view === "day" ? daysHtml() : "") + body + "</div>" + sheetHtml();
   }
