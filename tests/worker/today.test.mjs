@@ -4,8 +4,9 @@ function maltaToday() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Malta", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 }
 function daysAgo(n) {
-  const d = new Date(Date.now() - n * 86400000);
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Malta", year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+  // Calendar days back from Malta's today (24-hour steps go wrong across a clock change late in the evening).
+  const [y, m, d] = maltaToday().split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d - n)).toISOString().slice(0, 10);
 }
 
 test("today: one call answers what needs the pharmacy now", async ({ api, bootstrap, DB }) => {

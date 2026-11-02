@@ -162,3 +162,19 @@ test("practitioners: saving only the hours keeps the title and speciality", asyn
   const u = await app.api("PUT", `/bookings/providers/${p.id}`, { token, body: { name: "Anna Borg", kind: "doctor", hours: { 1: [["10:00", "12:00"]] } } });
   eq(u.status, 200, u.text); eq([u.json.provider.title, u.json.provider.speciality], ["Dr", "Physiotherapy"]);
 });
+
+test("updates keep what is not sent: a practitioner's kind, active and hours; a service's buffer and colour; a room's active", async () => {
+  const app = await makeApp({ env: KEY });
+  const { token } = await app.bootstrap();
+  const p = (await app.api("POST", "/bookings/providers", { token, body: { name: "Anna Borg", kind: "doctor", hours: { 1: [["09:00", "12:00"]] } } })).json.provider;
+  await app.api("PUT", `/bookings/providers/${p.id}`, { token, body: { name: "Anna Borg", kind: "doctor", hours: { 1: [["09:00", "12:00"]] }, active: false } });
+  const u = (await app.api("PUT", `/bookings/providers/${p.id}`, { token, body: { name: "Dr Anna Borg" } })).json.provider;
+  eq([u.name, u.kind, u.active, JSON.stringify(u.hours)], ["Dr Anna Borg", "doctor", false, JSON.stringify({ 1: [["09:00", "12:00"]] })]);
+  const s = (await app.api("POST", "/bookings/services", { token, body: { name: "Physio", durationMin: 30, bufferMin: 10, color: "#C9772E", providerIds: [p.id] } })).json.service;
+  const s2 = (await app.api("PUT", `/bookings/services/${s.id}`, { token, body: { name: "Physio session", durationMin: 30, priceCents: 0, providerIds: [p.id], active: true, online: false } })).json.service;
+  eq([s2.name, s2.bufferMin, s2.color], ["Physio session", 10, "#C9772E"]);
+  const r = (await app.api("POST", "/bookings/rooms", { token, body: { name: "Room 1" } })).json.room;
+  await app.api("PUT", `/bookings/rooms/${r.id}`, { token, body: { name: "Room 1", active: false } });
+  const r2 = (await app.api("PUT", `/bookings/rooms/${r.id}`, { token, body: { name: "Room One" } })).json.room;
+  eq([r2.name, r2.active], ["Room One", false]);
+});

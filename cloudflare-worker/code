@@ -4,7 +4,7 @@ function nowIso() {
 
 
 
-const WORKER_VERSION = "2026-11-02-bookings-10";
+const WORKER_VERSION = "2026-11-02-bookings-11";
 function isDebugEnabled(request) {
   try {
     return (request && request.headers && (request.headers.get("X-Eikon-Debug") || "") === "1");
@@ -97,7 +97,7 @@ function corsHeadersForRequest(request, env) {
       ok: true,
       headers: {
         "Access-Control-Allow-Origin": origin,
-        "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS,HEAD",
+        "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS,HEAD",
         "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Eikon-Debug, X-Eikon-Report-Pass, X-Eikon-Edit-Pass",
         "Access-Control-Max-Age": "86400",
         "Vary": "Origin"
@@ -118,7 +118,7 @@ function corsHeadersForRequest(request, env) {
     ok: true,
     headers: {
       "Access-Control-Allow-Origin": origin,
-      "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS,HEAD",
+      "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS,HEAD",
       "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Eikon-Debug, X-Eikon-Report-Pass, X-Eikon-Edit-Pass",
       "Access-Control-Max-Age": "86400",
       "Vary": "Origin"
@@ -1642,7 +1642,7 @@ async function handleTempDevicesUpdate(request, env, corsOkHeaders, authUser, de
   if (!existing) {
     const wantDebug = (request.headers.get("X-Eikon-Debug") || "") === "1";
     const payload = { ok: false, error: "Not found" };
-    if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
+    if (isDebugEnabled(request)) payload.debug = { id: deviceId };
     return jsonResponse(payload, 404, corsOkHeaders);
   }
 
@@ -1672,7 +1672,7 @@ async function handleTempDevicesUpdate(request, env, corsOkHeaders, authUser, de
   });
 
   const out = { ok: true };
-  if (isDebugEnabled(request)) out.debug = { entryId: entryId };
+  if (isDebugEnabled(request)) out.debug = { id: deviceId };
   return jsonResponse(out, 200, corsOkHeaders);
 }
 
@@ -2211,10 +2211,10 @@ async function handleQuotationsEntryUpdate(request, env, corsOkHeaders, authUser
   if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
 
   const body = await readJson(request);
-  const itemDescription = String(body.item_description !== undefined ? body.item_description : existing.item_description).trim();
+  const itemDescription = String(body.item_description !== undefined ? (body.item_description ?? "") : (existing.item_description ?? "")).trim();
   if (!itemDescription) return jsonResponse({ ok: false, error: "item_description is required" }, 400, corsOkHeaders);
 
-  const quoteDate = String(body.quote_date !== undefined ? body.quote_date : existing.quote_date).trim();
+  const quoteDate = String(body.quote_date !== undefined ? (body.quote_date ?? "") : (existing.quote_date ?? "")).trim();
   if (!isValidYmd(quoteDate)) return jsonResponse({ ok: false, error: "Invalid quote_date (YYYY-MM-DD)" }, 400, corsOkHeaders);
 
   const vatRate = body.vat_rate !== undefined ? normalizeVatRate(body.vat_rate) : existing.vat_rate;
@@ -2234,14 +2234,14 @@ async function handleQuotationsEntryUpdate(request, env, corsOkHeaders, authUser
       quote_date=?, notes=?, updated_at=datetime('now')
      WHERE org_id=? AND id=?`,
     [
-      String(body.supplier !== undefined ? body.supplier : existing.supplier).trim(),
-      String(body.barcode !== undefined ? body.barcode : existing.barcode).trim(),
-      String(body.stock_code !== undefined ? body.stock_code : existing.stock_code).trim(),
+      String(body.supplier !== undefined ? (body.supplier ?? "") : (existing.supplier ?? "")).trim(),
+      String(body.barcode !== undefined ? (body.barcode ?? "") : (existing.barcode ?? "")).trim(),
+      String(body.stock_code !== undefined ? (body.stock_code ?? "") : (existing.stock_code ?? "")).trim(),
       itemDescription, qtyPurchased, qtyFree, vatRate,
       computed.cost_excl_vat, computed.cost_incl_vat,
       computed.discount_pct, computed.discount_euro, computed.total_incl_vat,
       computed.retail_price, computed.profit, computed.profit_margin,
-      quoteDate, String(body.notes !== undefined ? body.notes : existing.notes).trim(),
+      quoteDate, String(body.notes !== undefined ? (body.notes ?? "") : (existing.notes ?? "")).trim(),
       authUser.org_id, entryId
     ]
   );
@@ -2660,7 +2660,7 @@ async function handleSupplierProductUpdate(request, env, corsOkHeaders, authUser
   if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
 
   const body = await readJson(request);
-  const description = String(body.description !== undefined ? body.description : existing.description).trim();
+  const description = String(body.description !== undefined ? (body.description ?? "") : (existing.description ?? "")).trim();
   if (!description) return jsonResponse({ ok: false, error: "description is required" }, 400, corsOkHeaders);
 
   const vatRate = body.vat_rate !== undefined ? normalizeVatRate(body.vat_rate) : existing.vat_rate;
@@ -2681,13 +2681,13 @@ async function handleSupplierProductUpdate(request, env, corsOkHeaders, authUser
      WHERE org_id=? AND location_id=? AND id=?`,
     [
       String(authUser.location_name || existing.supplier_name || "").trim(),
-      String(body.stock_code !== undefined ? body.stock_code : existing.stock_code).trim(),
-      String(body.barcode !== undefined ? body.barcode : existing.barcode).trim(),
+      String(body.stock_code !== undefined ? (body.stock_code ?? "") : (existing.stock_code ?? "")).trim(),
+      String(body.barcode !== undefined ? (body.barcode ?? "") : (existing.barcode ?? "")).trim(),
       description,
       computed.cost_excl_vat, computed.cost_incl_vat, vatRate,
       computed.discount_pct, computed.discount_euro, qtyPurchased, qtyFree,
-      String(body.batch !== undefined ? body.batch : existing.batch).trim(),
-      String(body.expiry_date !== undefined ? body.expiry_date : existing.expiry_date).trim(),
+      String(body.batch !== undefined ? (body.batch ?? "") : (existing.batch ?? "")).trim(),
+      String(body.expiry_date !== undefined ? (body.expiry_date ?? "") : (existing.expiry_date ?? "")).trim(),
       computed.retail_price, computed.profit, computed.profit_margin, computed.total_incl_vat,
       body.out_of_stock !== undefined ? (body.out_of_stock ? 1 : 0) : existing.out_of_stock,
       authUser.org_id, authUser.location_id, entryId
@@ -4499,7 +4499,7 @@ async function handleEodContactsUpdate(request, env, corsOkHeaders, authUser, co
   await writeAudit(env, authUser.org_id, authUser.user_id, "EOD_CONTACT_UPDATE", "end_of_day_contacts", String(contactId), { display_name: name });
 
     const payload = { ok: true };
-  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
+  if (isDebugEnabled(request)) payload.debug = { id: contactId };
   return jsonResponse(payload, 200, corsOkHeaders);
 }
 
@@ -6951,7 +6951,7 @@ async function handleAlertsEntryUpdate(request, env, corsOkHeaders, authUser, id
 
   await writeAudit(env, authUser.org_id, authUser.user_id, "ALERT_UPDATE", "alerts_entries", String(id), { entry_date, alert_type, status, item_name });
     const payload = { ok: true };
-  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
+  if (isDebugEnabled(request)) payload.debug = { id: id };
   return jsonResponse(payload, 200, corsOkHeaders);
 }
 
@@ -9303,7 +9303,7 @@ async function handleDdaStockTakeUpdate(request, env, corsOkHeaders, authUser, s
   }
 
     const payload = { ok: true };
-  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
+  if (isDebugEnabled(request)) payload.debug = { id: stocktakeId };
   return jsonResponse(payload, 200, corsOkHeaders);
 }
 
@@ -9365,7 +9365,7 @@ async function handleDdaStockTakeItemUpdate(request, env, corsOkHeaders, authUse
   await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_STOCKTAKE_ITEM_UPDATE", "dda_stocktake_items", String(itemId), { item_name: name, dosage, qty_tablets: Math.floor(qty) });
 
     const payload = { ok: true };
-  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
+  if (isDebugEnabled(request)) payload.debug = { id: itemId };
   return jsonResponse(payload, 200, corsOkHeaders);
 }
 
@@ -9789,7 +9789,7 @@ async function handleCertificatesItemUpdate(request, env, corsOkHeaders, authUse
 
   console.log("[certificates] UPDATE done", { id: existing.id, item_key: existing.item_key });
     const payload = { ok: true };
-  if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
+  if (isDebugEnabled(request)) payload.debug = { id: idOrKey };
   return jsonResponse(payload, 200, corsOkHeaders);
 }
 
@@ -20046,7 +20046,12 @@ async function handleBookings(request, env, corsOkHeaders, authUser, url) {
   // Services
   if (parts[0] === "services" && (m === "POST" || m === "PUT")) {
     if (!isAdmin) return bad("Only an admin can change services", 403);
-    const b = await readJson(request) || {};
+    const b0 = await readJson(request) || {};
+    // An update keeps whatever is not sent (buffer, colour, sort… are not on every screen).
+    const curSvc = m === "PUT" && parts.length === 2 ? await dbFirst(env, `SELECT * FROM bk_services WHERE id=? AND org_id=? AND location_id=?`, [Number(parts[1]), org, loc]) : null;
+    if (m === "PUT" && parts.length === 2 && !curSvc) return bad("Not found", 404);
+    const cs = curSvc ? bkServiceRow(curSvc) : null;
+    const b = cs ? { name: cs.name, durationMin: cs.durationMin, bufferMin: cs.bufferMin, priceCents: cs.priceCents, color: cs.color, providerIds: cs.providerIds, online: cs.online, active: cs.active, sort: cs.sort, ...Object.fromEntries(Object.entries(b0).filter(([, v]) => v !== undefined)) } : b0;
     const name = String(b.name || "").trim();
     const dur = Math.round(Number(b.durationMin));
     const buf = Math.max(0, Math.round(Number(b.bufferMin) || 0));
@@ -20119,7 +20124,8 @@ async function handleBookings(request, env, corsOkHeaders, authUser, url) {
       return ok({ room: { id: r.id, name: r.name, active: true } }, 201);
     }
     if (m === "PUT" && parts.length === 2) {
-      const r = await dbFirst(env, `UPDATE bk_rooms SET name=?, active=? WHERE id=? AND org_id=? AND location_id=? RETURNING *`, [name, b.active === false ? 0 : 1, Number(parts[1]), org, loc]);
+      const r = await dbFirst(env, `UPDATE bk_rooms SET name=?, active=CASE WHEN ? THEN ? ELSE active END WHERE id=? AND org_id=? AND location_id=? RETURNING *`,
+        [name, b.active !== undefined ? 1 : 0, b.active === false ? 0 : 1, Number(parts[1]), org, loc]);
       if (!r) return bad("Not found", 404);
       return ok({ room: { id: r.id, name: r.name, active: !!r.active } });
     }
@@ -20128,7 +20134,10 @@ async function handleBookings(request, env, corsOkHeaders, authUser, url) {
 
   if (parts[0] === "providers" && (m === "POST" || m === "PUT")) {
     if (!isAdmin) return bad("Only an admin can change providers", 403);
-    const b = await readJson(request) || {};
+    const b0p = await readJson(request) || {};
+    // An update keeps whatever is not sent: kind, weekly hours, active, title, speciality.
+    const curP = m === "PUT" && parts.length === 2 ? await dbFirst(env, `SELECT * FROM bk_providers WHERE id=? AND org_id=? AND location_id=?`, [Number(parts[1]), org, loc]) : null;
+    const b = curP ? { name: curP.name, kind: curP.kind, hours: bkJson(curP.hours_json, {}), active: !!curP.active, ...Object.fromEntries(Object.entries(b0p).filter(([, v]) => v !== undefined)) } : b0p;
     const name = String(b.name || "").trim();
     const kind = ["pharmacist", "doctor", "nurse", "room", "other"].includes(b.kind) ? b.kind : "pharmacist";
     const hours = bkCleanHours(b.hours);

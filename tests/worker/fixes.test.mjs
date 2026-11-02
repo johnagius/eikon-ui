@@ -156,3 +156,25 @@ test("ui files: with UI_CACHE_SECONDS=0 (production), stamped files are still ca
     eq(await cc("/ui/core.js"), "no-store");
   } finally { globalThis.fetch = orig; }
 });
+
+test("debug mode: saving a certificate or a temperature device with the debug header answers, it no longer crashes after saving", async () => {
+  const { makeApp } = await import("./harness.mjs");
+  const app = await makeApp();
+  const { token } = await app.bootstrap();
+  const items = (await app.api("GET", "/certificates/items", { token })).json.items;
+  const r = await app.api("PUT", "/certificates/items/" + items[0].id, { token, body: { last_date: "2026-01-10", interval_months: 12 }, headers: { "X-Eikon-Debug": "1" } });
+  eq(r.status, 200, r.text);
+  const devs = (await app.api("GET", "/temperature/devices", { token })).json.devices;
+  if (devs.length) {
+    const d = devs[0];
+    const r2 = await app.api("PUT", "/temperature/devices/" + d.id, { token, body: { name: d.name, device_type: d.device_type, min_limit: d.min_limit, max_limit: d.max_limit, active: 1 }, headers: { "X-Eikon-Debug": "1" } });
+    eq(r2.status, 200, r2.text);
+  }
+});
+
+test("updates never turn a stored NULL into the text 'null' (no String(x !== undefined ? x : existing.x) left)", async () => {
+  const { readFileSync } = await import("node:fs");
+  const src = readFileSync(new URL("../../cloudflare-worker/code", import.meta.url), "utf8");
+  const bad = src.match(/String\((body|b)\.(\w+) !== undefined \? \1\.\2 : (existing|cur|prev|row)\.\w+\)/g) || [];
+  eq(bad, [], "every kept field falls back to an empty string, not String(null)");
+});
