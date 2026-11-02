@@ -1005,3 +1005,7 @@ html[data-ui2] .eikon-login-card .eikon-input{height:48px;font-size:17px;backgro
 html[data-ui2] .eikon-login-card .eikon-input:focus{outline:0;background:#fff;border-color:var(--accent);box-shadow:0 0 0 3px rgba(10,143,106,.18)}
 html[data-ui2] .eikon-login-card > div[style*="justify-content:flex-end"]{display:block!important;margin-top:20px!important}
 html[data-ui2] #eikon-login-btn{width:100%;height:50px;border-radius:14px;font-size:17px;font-weight:600;background:var(--accent);border-color:var(--accent);color:#fff}
+
+/* Search fields: the iOS grey circled clear button instead of the browser's blue cross */
+html[data-ui2] input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none;width:18px;height:18px;cursor:pointer;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Ccircle cx='10' cy='10' r='10' fill='%23AEAEB2'/%3E%3Cpath d='M6.5 6.5l7 7M13.5 6.5l-7 7' stroke='%23fff' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E") center/contain no-repeat}

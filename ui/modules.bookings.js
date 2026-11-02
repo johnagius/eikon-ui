@@ -128,6 +128,12 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
       S.error = e && e.status === 404 ? "Bookings is not switched on for this pharmacy yet." : errMsg(e);
     }
     S.loading = false; paint();
+    // Arrived from a customer's "Booking" button: open a new booking with their details filled in.
+    var carry = null; try { carry = JSON.parse(sessionStorage.getItem("eikon_bk_carry") || "null"); sessionStorage.removeItem("eikon_bk_carry"); } catch (e) {}
+    if (carry && S.setup && !S.error) {
+      var first = S.setup.services.filter(function (x) { return x.active; })[0];
+      if (first) { S.sheet = { kind: "new", serviceId: first.id, slots: [], slot: null, name: carry.name, phone: carry.phone, email: carry.email }; paint(); return loadSlots(); }
+    }
   }
 
   // ---------- paint ----------

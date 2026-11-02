@@ -57,7 +57,7 @@
     st.id = "eikon-customers-css";
     st.textContent =
       ".cus{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:360px minmax(0,1fr);gap:18px;align-items:start}" +
-      "@media (max-width:900px){.cus{grid-template-columns:1fr}.cus-detail{order:-1}.cus-pick{display:none}}@media (max-width:600px){.cus{padding:0 16px}}" +
+      ".cus-back{display:none}@media (max-width:900px){.cus{grid-template-columns:1fr}.cus-detail{order:-1}.cus-pick{display:none}.cus.has-sel .cus-side{display:none}.cus-back{display:inline-block;border:0;background:none;color:var(--accent);font:inherit;font-size:16px;font-weight:500;padding:4px 0 12px;cursor:pointer}}@media (max-width:600px){.cus{padding:0 16px}}" +
       ".cus-search{display:flex;align-items:center;gap:10px;background:var(--panel2);border:1px solid var(--border);border-radius:14px;padding:0 14px;height:48px}" +
       ".cus-search input{flex:1;border:0;outline:0;background:transparent;color:var(--text);font-size:15.5px;min-width:0}.cus-search input::placeholder{color:var(--muted)}" +
       ".cus-lab{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:16px 2px 7px;display:flex;gap:8px;align-items:center}.cus-lab b{color:var(--text)}.cus-lab a{margin-left:auto;color:var(--accent);font-weight:600;text-transform:none;letter-spacing:0;font-size:12.5px;cursor:pointer}" +
@@ -266,7 +266,21 @@
     return '<div' + (wide ? ' class="w"' : "") + '><label for="cus-f-' + name + '">' + label + '</label>' + (type === "textarea" ? '<textarea id="cus-f-' + name + '" name="' + name + '">' + esc(value) + '</textarea>' : '<input id="cus-f-' + name + '" name="' + name + '" type="' + (type || "text") + '" value="' + esc(value) + '" autocomplete="off">') + '</div>';
   }
 
+  // On narrow screens an open customer replaces the list (iOS style), with "‹ Customers" to go back.
   function renderDetail() {
+    renderDetailInner();
+    var m = state.mount; if (!m) return;
+    var wrap = m.querySelector(".cus"), box = m.querySelector("#cus-detail"); if (!wrap || !box) return;
+    var open = !!(state.selected || state.creating), was = wrap.classList.contains("has-sel");
+    wrap.classList.toggle("has-sel", open);
+    if (open && !box.querySelector(".cus-back")) {
+      var b = document.createElement("button"); b.type = "button"; b.className = "cus-back"; b.textContent = "‹ Customers";
+      b.addEventListener("click", function () { state.selected = null; state.creating = false; state.detail = null; state.editing = false; renderList(); renderDetail(); });
+      box.insertBefore(b, box.firstChild);
+    }
+    if (open && !was && window.matchMedia && window.matchMedia("(max-width:900px)").matches) try { window.scrollTo(0, 0); } catch (e) {}
+  }
+  function renderDetailInner() {
     var m = state.mount; if (!m) return;
     var box = m.querySelector("#cus-detail"); if (!box) return;
     if (state.creating) {
@@ -300,7 +314,7 @@
       var last = act[0];
       var na = d.next_appointment;
       html += '<div class="cus-facts">' + fact("Last visit", last ? when(last.date) + " · " + kindMeta(last.kind)[0] : "") + (na ? fact("Next appointment", nextWhen(na.date) + (na.time ? " " + na.time : "") + (na.doctor ? " · " + na.doctor : "")) : "") + fact("Address", p.address) + fact("Doctor", p.doctor_name) + fact("E-mail", p.email) + (p.notes ? fact("Notes", p.notes) : "") + '</div>';
-      html += '<div class="cus-actions"><button class="cus-btn p" data-carry="#clientorders">New order</button><button class="cus-btn" data-carry="#tickets">Question</button><button class="cus-btn" data-carry="#deliveries">Delivery</button><button class="cus-btn" data-carry="#appointments">Appointment</button></div>';
+      html += '<div class="cus-actions"><button class="cus-btn p" data-carry="#clientorders">New order</button><button class="cus-btn" data-carry="#tickets">Question</button><button class="cus-btn" data-carry="#deliveries">Delivery</button>' + (E.modules.bookings && E.isUi2 && E.isUi2() ? '<button class="cus-btn" data-act="book">Booking</button>' : '<button class="cus-btn" data-carry="#appointments">Appointment</button>') + '</div>';
     }
     html += '</div>';
 
@@ -327,6 +341,11 @@
       f.querySelector('[data-act="cancel"]').addEventListener("click", function () { state.editing = false; state.conflict = ""; state.conflictExisting = null; renderDetail(); });
     }
     box.querySelectorAll("[data-carry]").forEach(function (el) { el.addEventListener("click", function () { carry(el.getAttribute("data-carry")); }); });
+    box.querySelectorAll('[data-act="book"]').forEach(function (el) { el.addEventListener("click", function () {
+      var p = (state.detail && state.detail.person) || {};
+      try { sessionStorage.setItem("eikon_bk_carry", JSON.stringify({ name: p.name || "", phone: p.phone || "", email: p.email || "" })); } catch (e) {}
+      location.hash = "#bookings";
+    }); });
     box.querySelectorAll("[data-person]").forEach(function (el) { el.addEventListener("click", function () { state.conflict = ""; state.conflictExisting = null; open(Number(el.getAttribute("data-person"))); }); });
   }
 
