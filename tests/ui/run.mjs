@@ -114,6 +114,8 @@ function mockApi(req, res, body) {
   if (p === "/repeat-prescriptions/entries" && req.method === "POST") return res.end(JSON.stringify({ ok: true, entry_id: 82 }));
   if (p === "/creditnotes/list") return res.end(JSON.stringify({ ok: true, entries: [{ id: 91, issue_date: "2026-10-01", client_name: "Rita", client_surname: "Camilleri", telephone: "79222333", amount: 30, expiry_date: "", no_expiry: false, purchase_entries: [{ id: 1, amount: 12.5 }], notes: [] }] }));
   if (/^\/creditnotes\/entries\/\d+\/purchases$/.test(p) && req.method === "POST") return res.end(JSON.stringify({ ok: true, id: 2 }));
+  if (p === "/locumreceipts/receipts" && req.method === "GET") return res.end(JSON.stringify({ ok: true, receipts: url.searchParams.get("month") === todayYmd.slice(0, 7) ? [{ id: 5, receipt_date: todayYmd.slice(0, 7) + "-01", hours: 6, locum_full_name: "Paul Vella", registration_number: "PH1234", day_type: "normal", fee_per_hour: 15, total_fee: 90 }] : [] }));
+  if (p === "/locumreceipts/receipts" && req.method === "POST") return res.end(JSON.stringify({ ok: true, id: 6 }));
   if (p === "/alerts/entries" && req.method === "GET") {
     const d = new Date().toISOString().slice(0, 10);
     return res.end(JSON.stringify({ ok: true, entries: [
@@ -853,6 +855,20 @@ await page.fill('.tdy-row[data-kind="temperature"] [data-min]', ""); await page.
 await page.evaluate(() => window.EIKON.__todayRefresh()); await page.waitForTimeout(800);
 const tdyIdle = await page.evaluate(() => document.querySelector('.tdy-row[data-kind="temperature"] [data-min]') !== window.__minEl);
 report("today: the minute refresh leaves a reading being typed alone (value, field and focus kept), and redraws when idle", tdyKeep.same && tdyKeep.val === "3.4" && tdyKeep.focus && tdyIdle, JSON.stringify({ tdyKeep, tdyIdle }));
+
+// Locum receipts: a known locum fills the reg no; 25 December takes the holiday rate remembered in this browser; one POST.
+await page.evaluate(() => localStorage.setItem("eikon:locumreceipts:feeMem", JSON.stringify({ normal: 15, holiday: 22.5 })));
+await page.goto(base + "&ui=2#locumreceipts");
+await page.waitForFunction(() => window.EIKON.state.activeModuleId === "lrcreg" && document.querySelector(".lrc-row"), null, { timeout: 15000 });
+const lrcTag = await page.evaluate(() => !!document.querySelector(".lrc-row .lrc-hol"));
+await fetch(`http://localhost:${PORT}/__reset`);
+await page.click("[data-act=add]"); await page.fill("[name=locum_full_name]", "Paul Vella"); await page.press("[name=locum_full_name]", "Tab"); await page.waitForTimeout(200);
+const xmas = (new Date().getFullYear() - 1) + "-12-25";
+await page.fill("[name=receipt_date]", xmas); await page.waitForTimeout(200); await page.fill("[name=hours]", "4"); await page.click("#lrc-add button[type=submit]"); await page.waitForTimeout(700);
+const lrcPost = ((await (await fetch(`http://localhost:${PORT}/__calls`)).json()).find((c) => c.method === "POST" && c.path === "/locumreceipts/receipts") || {}).body || {};
+report("locum receipts: a receipt saved at the normal rate is not tagged holiday; Christmas takes the remembered holiday rate; the known reg no fills in",
+  !lrcTag && lrcPost.registration_number === "PH1234" && lrcPost.day_type === "holiday" && lrcPost.fee_per_hour === 22.5 && lrcPost.hours === 4 && lrcPost.receipt_date === xmas, JSON.stringify({ lrcTag, lrcPost }));
+await page.evaluate(() => localStorage.removeItem("eikon:locumreceipts:feeMem"));
 
 // screenshot for the review (reset the mock so the screen shows a morning with work to do)
 todayState = { tempDone: false, cleanDone: false };
