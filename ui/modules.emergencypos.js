@@ -1580,25 +1580,24 @@
           // Add bwip-js for DataMatrix rendering, print button, and auto-print
           html = html.replace("</body>",
             "<script src='" + vendorUrl("bwip-js-4.11.4/bwip-js-min.js") + "'><\/script>" +
-            "<script>" +
-            "window.onload=function(){" +
-              "var cs=document.querySelectorAll('.fmd-barcode-container[data-fmd-raw]');" +
-              "cs.forEach(function(el){try{" +
-                "var raw=atob(el.getAttribute('data-fmd-raw'));" +
-                "var cvs=document.createElement('canvas');" +
-                "bwipjs.toCanvas(cvs,{bcid:'datamatrix',text:raw,scale:3,padding:2,parsefnc:true});" +
-                "var img=document.createElement('img');" +
-                "img.src=cvs.toDataURL('image/png');" +
-                "img.style.cssText='width:'+Math.min(cvs.width,120)+'px;height:auto;image-rendering:pixelated;';" +
-                "el.appendChild(img);" +
-              "}catch(e){}});" +
-              "setTimeout(function(){window.print();},300);" +
-            "};<\/script>" +
-            "<br><button onclick='window.print()' style='padding:12px 28px;font-size:16px;cursor:pointer;border-radius:8px;border:1px solid #ccc;font-weight:600;'>Print / Save PDF</button>" +
+            "<br><button data-eikon-print='print' style='padding:12px 28px;font-size:16px;cursor:pointer;border-radius:8px;border:1px solid #ccc;font-weight:600;'>Print / Save PDF</button>" +
             "</body>"
           );
           win.document.write(html);
           win.document.close();
+          // DataMatrix codes are drawn from here once bwip-js has loaded in the window (no inline script: CSP).
+          window.EIKON.printTab(win, { delay: 300, onReady: function (pw, doc) {
+            var cs = doc.querySelectorAll(".fmd-barcode-container[data-fmd-raw]");
+            Array.prototype.forEach.call(cs, function (el) { try {
+              var raw = pw.atob(el.getAttribute("data-fmd-raw"));
+              var cvs = doc.createElement("canvas");
+              pw.bwipjs.toCanvas(cvs, { bcid: "datamatrix", text: raw, scale: 3, padding: 2, parsefnc: true });
+              var img = doc.createElement("img");
+              img.src = cvs.toDataURL("image/png");
+              img.style.cssText = "width:" + Math.min(cvs.width, 120) + "px;height:auto;image-rendering:pixelated;";
+              el.appendChild(img);
+            } catch (e) {} });
+          } });
           showToast("Opened in new window for printing", "ok");
         } else {
           showToast("Pop-up blocked — allow pop-ups.", "warn");

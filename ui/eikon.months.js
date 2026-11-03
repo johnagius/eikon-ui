@@ -287,15 +287,17 @@
       ".pf{margin-top:10px;font-size:10px}@media print{body{margin:0}.pf{display:none}}" +
       "</style></head><body>" + head + body + sign +
       "<p class='pf'>" + esc(foot) + " · printed " + esc(printed) + "</p>" +
-      "<script>window.addEventListener('load',function(){setTimeout(function(){try{window.focus();}catch(e){}try{window.print();}catch(e){}},150);});<\/script></body></html>";
+      "</body></html>"; // no inline script (CSP): M.print prints it from here, 150 ms after load, as the old script did
   };
   // Opens the printout in a new tab (as the classic screens do), or the same page when a new tab is refused.
   M.print = function (doc) {
     var html = M.printHtml(doc);
     M.lastPrint = { register: doc.register, month: doc.month || "", html: html };
-    var url = URL.createObjectURL(new Blob([html], { type: "text/html" })), w = null;
-    try { w = window.open(url, "_blank", "noopener"); } catch (e) { w = null; }
-    if (!w) { try { var a = document.createElement("a"); a.href = url; a.target = "_blank"; a.rel = "noopener"; a.style.display = "none"; document.body.appendChild(a); a.click(); a.remove(); } catch (e2) {} }
+    var url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
+    // E.openPrintUrlOrLink: a new tab with its opener link cut, printed from here (focus, then print 150 ms after load);
+    // refused or framed by another site: the link click as before (that tab is not auto-printed).
+    if (E.openPrintUrlOrLink) E.openPrintUrlOrLink(url, { delay: 150, focus: true });
+    else { try { var a = document.createElement("a"); a.href = url; a.target = "_blank"; a.rel = "noopener"; a.style.display = "none"; document.body.appendChild(a); a.click(); a.remove(); } catch (e2) {} }
     setTimeout(function () { try { URL.revokeObjectURL(url); } catch (e3) {} }, 60000);
     return html;
   };

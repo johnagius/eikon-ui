@@ -448,7 +448,7 @@ POST /dda-sales/entries PUT /dda-sales/entries/:id DELETE /dda-sales/entries/:id
     var blob = new Blob([html], { type: "text/html" });
     var url = URL.createObjectURL(blob);
     var w = null;
-    try { w = window.open(url, "_blank", "noopener"); } catch (e) { w = null; }
+    w = window.EIKON.openPrintUrl(url, { delay: 250 });
     if (!w) {
       try {
         var a = document.createElement("a");
@@ -1223,7 +1223,7 @@ function setLoading(v) {
         "@media print{button{display:none!important;}}" +
         "</style>";
       html += "</head><body>";
-      html += "<button onclick='window.print()' style='position:fixed;right:14px;top:14px;padding:8px 10px;font-weight:800;'>Print</button>";
+      html += "<button data-eikon-print='print' style='position:fixed;right:14px;top:14px;padding:8px 10px;font-weight:800;'>Print</button>";
       html += "<h1>" + escapeHtml(org) + " — DDA Sales Report</h1>";
       html += "<div class='meta'>" + (loc ? "Location: " + escapeHtml(loc) + "<br>" : "") + "Range: " + escapeHtml(from) + " to " + escapeHtml(to) + "</div>";
 
@@ -1257,7 +1257,6 @@ function setLoading(v) {
         }
       }
 
-      html += "<script>setTimeout(function(){try{window.print()}catch(e){}},250);</script>";
       html += "</body></html>";
       return html;
     }

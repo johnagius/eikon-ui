@@ -195,7 +195,7 @@
       "th{background:#f5f5f5;text-transform:uppercase;letter-spacing:.2px;font-size:11px;}" +
       "@media print{button{display:none!important;}}" +
       "</style></head><body>" +
-      "<button onclick='window.print()'>Print</button>" +
+      "<button data-eikon-print='print'>Print</button>" +
       "<h1>" + safeTitle + "</h1>" +
       "<div class='meta'>" + meta + "</div>" +
       tableHtml +
@@ -203,6 +203,7 @@
     w.document.open();
     w.document.write(html);
     w.document.close();
+    E.printTab(w, { autoPrint: false }); // wires its Print button (no onclick=: CSP)
   }
 
   // ------------------------------------------------------------

@@ -291,16 +291,11 @@
       "<table><thead><tr><th>Trade Name</th><th>Estrogen</th><th>Estrogen Dose</th><th>Progestogen</th><th>Progestogen Dose</th></tr></thead><tbody>" +
       rows + "</tbody></table>" +
       "<div class='footer'>Eikon Pharmacy System – OCP Finder · For professional use only</div>" +
-      "<script>window.onload=function(){window.print()}<\/script>" +
       "</body></html>";
 
     var blob = new Blob([html], { type: "text/html" });
     var url = URL.createObjectURL(blob);
-    try {
-      var a = document.createElement("a");
-      a.href = url; a.target = "_blank"; a.rel = "noopener"; a.style.display = "none";
-      document.body.appendChild(a); a.click(); a.remove();
-    } catch (e) { try { window.open(url, "_blank"); } catch (e2) {} }
+    E.openPrintUrlOrLink(url, { delay: 0 });
     setTimeout(function () { try { URL.revokeObjectURL(url); } catch (e) {} }, 60000);
   }
 

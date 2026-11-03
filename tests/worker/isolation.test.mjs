@@ -219,6 +219,37 @@ test("isolation: credit-note uses and notes cannot be removed from another pharm
   eq(DB.q("SELECT COUNT(*) AS c FROM credit_note_purchases")[0].c + DB.q("SELECT COUNT(*) AS c FROM credit_note_notes")[0].c, 0);
 });
 
+test("isolation: people links (link, read, undo, not-same) stay in their pharmacy; another pharmacy gets 404 and nothing is written", async (app) => {
+  const { api, DB } = app;
+  const T = await world(app);
+  const o = await api("POST", "/client-orders/entries", { token: T.A, body: sink("lk") });
+  eq(o.status, 200, o.text);
+  const orderId = DB.q("SELECT id FROM client_orders_entries ORDER BY id DESC LIMIT 1")[0].id;
+  const p = await api("POST", "/people", { token: T.A, body: { name: MARK + "lk", phone: "79123456" } });
+  const recs = [{ kind: "order", id: orderId }, { kind: "people", id: p.json.person.id }];
+  const l = await api("POST", "/people/links", { token: T.A, body: { records: recs } });
+  eq(l.status, 200, l.text);
+  eq((await api("POST", "/people/not-same", { token: T.A, body: { fingerprint: "abcd1234" } })).status, 200);
+  const snap = () => JSON.stringify([DB.q("SELECT * FROM people_links ORDER BY id"), DB.q("SELECT * FROM people_not_same ORDER BY id"), DB.q("SELECT * FROM client_orders_entries ORDER BY id"), DB.q("SELECT * FROM people ORDER BY id")]);
+  const before = snap();
+  for (const who of ["branch", "stranger"]) {
+    const tok = T[who];
+    eq((await api("POST", "/people/links", { token: tok, body: { records: recs } })).status, 404, who + " cannot link A's records");
+    eq((await api("GET", "/people/links?group=" + encodeURIComponent(l.json.link_group), { token: tok })).status, 404, who + " cannot read A's group");
+    const all = await api("GET", "/people/links", { token: tok });
+    eq([all.status, all.json.links.length], [200, 0], who + " lists none of A's links");
+    eq((await api("POST", "/people/links/undo", { token: tok, body: { link_ids: l.json.link_ids } })).status, 404, who + " cannot undo A's links");
+    eq((await api("POST", "/people/not-same/undo", { token: tok, body: { fingerprint: "abcd1234" } })).status, 404, who + " cannot undo A's not-same");
+    eq((await api("GET", "/people/not-same", { token: tok })).json.fingerprints, [], who + " does not see A's not-same");
+    const g = await api("GET", "/people/" + p.json.person.id, { token: tok });
+    eq(g.status, 404, who + " cannot read A's person (or their links)");
+    eq(snap(), before, who + ": nothing written");
+  }
+  // A still reads and undoes its own
+  eq((await api("GET", "/people/links?group=" + encodeURIComponent(l.json.link_group), { token: T.A })).json.links.length, 2);
+  eq((await api("POST", "/people/links/undo", { token: T.A, body: { link_ids: l.json.link_ids } })).json.undone, 2);
+});
+
 // ───────────────────────── Shared ON PURPOSE inside a group: must not change ─────────────────────────
 
 test("isolation, group sharing kept: quotations 'All our pharmacies' shows every branch; edits stay as before (Decision 4)", async (app) => {

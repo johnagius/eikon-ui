@@ -107,6 +107,7 @@ function mockApi(req, res, body) {
     const sid = Number(p.split("/")[3]), its = ddstState.items.filter((i) => i.stocktake_id === sid);
     res.writeHead(200, { "content-type": "text/html" }); return res.end("<!doctype html><title>DDA Stock Take</title><h1>Demo - DDA Stock Take</h1><table>" + its.map((i) => "<tr><td>" + i.item_name + "</td><td>" + i.qty_tablets + "</td></tr>").join("") + "</table>");
   }
+  if (globalThis.__dupLinks === "404" && p.indexOf("/people/links") === 0) { res.writeHead(404, { "content-type": "application/json" }); return res.end(JSON.stringify({ ok: false, error: "Not found" })); } // as the live worker without the routes
   res.writeHead(200, { "content-type": "application/json" });
   if (p === "/people") return res.end(JSON.stringify({ ok: true, q: url.searchParams.get("q") || "", people: (peopleState.adopted ? [peopleState.carmel] : []).concat([{ id: 2, name: "Zammit Paul", phone: "79000001", id_card: "", version: 1 }]), history: peopleState.adopted ? [] : [{ key: "id:0012345M", name: "Zammit Carmel", id_card: "0012345M", phone: "", alt_phone: "", email: "", address: "1 Triq il-Knisja", doctor_name: "", sources: { dda_sale: 1, loyalty: 1 }, last_date: "2026-10-05" }] }));
   if (p === "/people/1") return res.end(JSON.stringify({ ok: true, person: peopleState.carmel, loyalty: { points: 1120, stamps: 3, visits: 2, last_date: "2026-10-20" }, next_appointment: { id: 9, ref: "A-2", date: "2026-11-04", time: "09:30", status: "Scheduled", doctor: "Dr Galea" }, activity: [{ kind: "dda_sale", label: "DDA sale", date: "2026-10-05", title: "Morphine 10mg", ref: "S-1", doctor: "Dr Abela" }, { kind: "loyalty", label: "Loyalty", date: "2026-09-01", title: "", ref: "" }], counts: { dda_sale: 1, loyalty: 1 } }));
@@ -276,6 +277,17 @@ function mockApi(req, res, body) {
     if (req.method === "GET") { const r = recs.find((x) => String(x.id) === p.split("/")[3]); return res.end(JSON.stringify(r ? { ok: true, record: r } : { ok: false, error: "Record not found" })); }
   }
   // Possible duplicates (new layout dupreg): only while a test turns it on. One person written differently in two more sections (the suite's order mock adds Grech Carmen on the same phone), plus a namesake with another ID card.
+  // People links (worker people links block): a list kept here; "404" answers as the live worker without the routes.
+  if (globalThis.__dupLinks && p.indexOf("/people/links") === 0) {
+    const L = globalThis.__dupLinks;
+    if (p === "/people/links" && req.method === "GET") return res.end(JSON.stringify({ ok: true, links: L.rows.filter((r) => !r.undone) }));
+    if (p === "/people/links" && req.method === "POST") {
+      const g = "lg_test" + (++L.n); const ids = [];
+      for (const r of body.records) { const id = 900 + L.rows.length; L.rows.push({ id, link_group: g, kind: r.kind, source_id: String(r.id) }); ids.push(id); }
+      return res.end(JSON.stringify({ ok: true, link_group: g, link_ids: ids }));
+    }
+    if (p === "/people/links/undo" && req.method === "POST") { let n = 0; for (const r of L.rows) if (body.link_ids.includes(r.id) && !r.undone) { r.undone = true; n++; } return res.end(JSON.stringify({ ok: true, undone: n })); }
+  }
   if (globalThis.__dupMock && req.method === "GET") {
     const ym = new Date().toISOString().slice(0, 7);
     if (p === "/dda-sales/entries") return res.end(JSON.stringify({ ok: true, entries: url.searchParams.get("month") === ym ? [{ id: 502, entry_date: todayYmd, client_name: "Zammit Carmel", client_id_card: "12345 m", medicine_name_dose: "Morphine 10mg", prescription_serial_no: "S1" }] : [] }));
@@ -1612,7 +1624,8 @@ try {
 } catch (e) { report("contraceptive pills: ran to the end", false, String(e).slice(0, 300)); }
 
 // Dispensing labels: the old link opens the new screen under Services; a medicine labelled before fills its dose; Print
-// opens the classic print page and sends one PUT with only that entry and the settings unchanged.
+// opens the classic print page (no inline script: Eikon prints it from the opener, CSP) and sends one PUT with only that
+// entry and the settings unchanged.
 try {
   await page.goto(base + "&ui=2#labels");
   await page.waitForFunction(() => window.EIKON.state.activeModuleId === "lblreg" && document.querySelector("#lbl-add") && document.querySelector(".lbl-row"), null, { timeout: 15000 });
@@ -1628,7 +1641,7 @@ try {
   const e0 = ((lblPuts[0] || {}).labelHistory || [])[0] || {};
   report("dispensing labels: #labels opens it under Services; a known medicine fills its dose; Print opens the classic print page; one PUT with only the new entry and the settings unchanged",
     lblRail === "services" && lblDose === "1 capsule" && /Rx: Amoxicillin 500mg/.test(lblPrev) && /Dose\/Freq: 1 capsule \| Three times daily/.test(lblPrev) &&
-    /<b>Rx:<\/b> Amoxicillin 500mg/.test(lblHtml) && /@page\{margin:0;\}/.test(lblHtml) && /T:21234567/.test(lblHtml) && /window\.print\(\)/.test(lblHtml) &&
+    /<b>Rx:<\/b> Amoxicillin 500mg/.test(lblHtml) && /@page\{margin:0;\}/.test(lblHtml) && /T:21234567/.test(lblHtml) && !/<script|\son[a-z]+=/i.test(lblHtml) &&
     lblPuts.length === 1 && lblPuts[0].labelHistory.length === 1 && e0.drugName === "Amoxicillin 500mg" && e0.dose === "1 capsule" && e0.templateId === "tpl_std" && /^lb_\d+_/.test(e0.id) &&
     JSON.stringify(Object.keys(e0)) === JSON.stringify(["patientName", "drugName", "dose", "frequency", "route", "customInstructions", "selectedWarnings", "templateId", "id", "printedAt", "printedBy"]) &&
     lblPuts[0].templates.length === 1 && lblPuts[0].templates[0].id === "tpl_std" && lblPuts[0].pharmacyDetails.phone === "21234567",
@@ -1808,6 +1821,52 @@ try {
     dpWrites.length === 0 && dpCalls.some((c) => c.path === "/dda-sales/entries") && dpCalls.filter((c) => c.path === "/client-orders/entries").every((c) => /month=/.test(c.query) && !/from=/.test(c.query)) && dpCalls.some((c) => c.path === "/people"),
     JSON.stringify({ dpRail, dp1, dp2, dp3, dpWrites }).slice(0, 700));
 } catch (e) { globalThis.__dupMock = false; report("possible duplicates: ran to the end", false, String(e).slice(0, 300)); }
+// Possible duplicates with the server's people links: no Link button on a server without the routes (the live worker
+// today); with them, "Same person — link" sends the group's records once, the group moves to "Linked as one person",
+// Undo sends exactly the ids the link made and the group is back. No other write.
+try {
+  // The Link button is behind E.FEATURES.peopleLinks (off by default, not approved yet): off, the screen never asks
+  // for /people/links and shows no Link button even on a server with the routes; the rest of this test turns it on.
+  globalThis.__dupMock = true; globalThis.__dupLinks = { rows: [], n: 0 };
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.goto(base + "&ui=2#customers");
+  await page.waitForSelector("[data-dupes]", { timeout: 15000 });
+  await page.click("[data-dupes]");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "dupreg" && document.querySelector("#dup-count"), null, { timeout: 20000 });
+  const lkOff = await page.evaluate(() => ({ flag: window.EIKON.FEATURES && window.EIKON.FEATURES.peopleLinks, link: document.querySelectorAll("[data-link]").length, hide: document.querySelectorAll("[data-hide]").length }));
+  const lkOffCalls = (await callsNow()).filter((c) => c.path.indexOf("/people/links") === 0).length;
+  await page.evaluate(() => { window.EIKON.FEATURES.peopleLinks = true; });
+  globalThis.__dupLinks = "404";
+  await page.click("[data-act=reload]");
+  await page.waitForFunction(() => document.querySelector("#dup-count") && !document.querySelector("#dup-status"), null, { timeout: 20000 });
+  const lk0 = await page.evaluate(() => ({ link: document.querySelectorAll("[data-link]").length, hide: document.querySelectorAll("[data-hide]").length }));
+  globalThis.__dupLinks = { rows: [], n: 0 };
+  await page.click("[data-act=reload]");
+  await page.waitForSelector('[data-link][aria-label*="Zammit"]', { timeout: 20000 });
+  const lkN = await page.evaluate(() => parseInt(document.querySelector("#dup-count").textContent, 10) || 0);
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click('[data-link][aria-label*="Zammit"]');
+  await page.waitForSelector("[data-act=unlink-last]", { timeout: 8000 });
+  await page.waitForFunction(() => document.activeElement && document.activeElement.dataset.act === "unlink-last", null, { timeout: 4000 }).catch(() => {});
+  const lk1 = await page.evaluate(() => ({ count: parseInt(document.querySelector("#dup-count").textContent, 10) || 0, zam: [...document.querySelectorAll(".dup-card")].some((c) => /Zammit/.test(c.textContent)),
+    linkedLab: [...document.querySelectorAll(".dup-lab")].map((x) => x.textContent).join("|"), bar: (document.querySelector(".dup-bar") || {}).textContent || "", focus: document.activeElement && document.activeElement.dataset.act }));
+  await page.click("[data-act=toggle-linked]");
+  const lk2 = await page.evaluate(() => ({ unlink: [...document.querySelectorAll("[data-unlink]")].map((b) => b.getAttribute("aria-label")).join("|") }));
+  await page.click("[data-act=unlink-last]");
+  await page.waitForSelector('[data-link][aria-label*="Zammit"]', { timeout: 8000 });
+  const lk3 = await page.evaluate(() => ({ count: parseInt(document.querySelector("#dup-count").textContent, 10) || 0, linkedLab: [...document.querySelectorAll(".dup-lab")].map((x) => x.textContent).join("|"), focus: document.activeElement && document.activeElement.getAttribute("aria-label") }));
+  const lkCalls = (await callsNow()).filter((c) => c.method !== "GET");
+  const lkPost = lkCalls.find((c) => c.path === "/people/links") || {}, lkUndo = lkCalls.find((c) => c.path === "/people/links/undo") || {};
+  const kinds = ((lkPost.body || {}).records || []).map((r) => r.kind).sort();
+  const made = globalThis.__dupLinks.rows.map((r) => r.id);
+  globalThis.__dupMock = false; globalThis.__dupLinks = null;
+  report("possible duplicates, links: off by default (no /people/links call, no Link button); turned on: no Link button on a server without the routes; Same person — link sends the group once (order, DDA sale, appointment); the group moves to Linked as one person; Undo sends exactly those ids and it is back; no other write",
+    lkOff.flag === false && lkOff.link === 0 && lkOff.hide >= 1 && lkOffCalls === 0 &&
+    lk0.link === 0 && lk0.hide >= 1 && lkN >= 1 && lkCalls.length === 2 && lkPost.method === "POST" && kinds.includes("dda_sale") && kinds.includes("appointment") && kinds.includes("order") && !kinds.includes("loyalty") &&
+    lk1.count === lkN - 1 && !lk1.zam && /Linked as one person · 1/.test(lk1.linkedLab) && /linked as one person/.test(lk1.bar) && /Zammit/.test(lk2.unlink) &&
+    JSON.stringify((lkUndo.body || {}).link_ids) === JSON.stringify(made) && lk3.count === lkN && !/Linked as one person/.test(lk3.linkedLab) && /Zammit/.test(lk3.focus || ""),
+    JSON.stringify({ lkOff, lkOffCalls, lk0, lkN, lk1, lk2, lk3, kinds, calls: lkCalls.map((c) => c.method + " " + c.path) }).slice(0, 900));
+} catch (e) { globalThis.__dupMock = false; globalThis.__dupLinks = null; report("possible duplicates, links: ran to the end", false, String(e).slice(0, 300)); }
 // Where things live (2026-11-03): money and clinical services left Registers. Old links land on the same screens; the rail
 // lights the new tab and each screen's back button names it; on phones the six-word bar has More (Team, Services, Money).
 try {

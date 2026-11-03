@@ -2368,14 +2368,12 @@
                 '<!DOCTYPE html><html><head><meta charset="utf-8"><style>' +
                 '@page{margin:0;}html,body{margin:0;padding:0.8mm 1mm 0.5mm 1.5mm;width:100%;height:auto;box-sizing:border-box;}div,b,i,span{page-break-inside:avoid;}' +
                 '</style></head><body>' + h +
-                "<script>window.addEventListener('load',function(){setTimeout(function(){try{window.print();}catch(e){}},80);});" +
-                "window.addEventListener('afterprint',function(){setTimeout(function(){try{window.close();}catch(e){}},250);});<\/script>" +
                 '</body></html>';
 
               var blob = new Blob([printHtml], { type: "text/html;charset=utf-8" });
               var url = URL.createObjectURL(blob);
               var w = null;
-              try { w = window.open(url, "_blank"); } catch (e) { w = null; }
+              w = E.openPrintUrl(url, { delay: 80, closeAfter: true, closeDelay: 250 });
               if (!w) {
                 try { var a = document.createElement("a"); a.href = url; a.target = "_blank"; a.style.display = "none"; document.body.appendChild(a); a.click(); a.remove(); } catch (e2) {}
               }

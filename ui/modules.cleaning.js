@@ -226,14 +226,7 @@
       "</tr></thead>\n" +
       "<tbody>\n" + rows + "\n</tbody>\n" +
       "</table>\n" +
-      "<script>\n" +
-      "window.addEventListener('load', function(){\n" +
-      "  setTimeout(function(){ try{window.focus();}catch(e){} try{window.print();}catch(e){} }, 80);\n" +
-      "});\n" +
-      "window.addEventListener('afterprint', function(){\n" +
-      "  setTimeout(function(){ try{window.close();}catch(e){} }, 250);\n" +
-      "});\n" +
-      "</script>\n" +
+      "\n" +
       "</body>\n</html>";
   }
 
@@ -242,11 +235,7 @@
     var url = URL.createObjectURL(blob);
 
     var w = null;
-    try {
-      w = window.open(url, "_blank", "noopener");
-    } catch (e) {
-      w = null;
-    }
+    w = E.openPrintUrl(url, { delay: 80, focus: true, closeAfter: true });
 
     if (!w) {
       try {

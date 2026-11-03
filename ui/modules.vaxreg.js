@@ -333,13 +333,8 @@
       "th,td{border-bottom:1px solid #ddd;padding:" + (isReceipt ? "4px 4px" : "6px 6px") + ";vertical-align:top}" +
       "th{text-align:left;background:#f6f6f6}.muted{color:#666}.row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}" +
       ".pill{display:inline-block;border:1px solid #ddd;border-radius:999px;padding:3px 8px;font-size:11px;background:#fafafa}";
-    var script = "<script>(function(){function pxToMm(px){return px*25.4/96;}function applyReceiptPageSize(){try{var c=document.getElementById('content');if(!c) return;" +
-      "var h=Math.max(c.scrollHeight||0, c.getBoundingClientRect().height||0);var mm=Math.ceil(pxToMm(h)+2);if(mm<60) mm=60;if(mm>1200) mm=1200;" +
-      "var st=document.getElementById('pageSizeStyle');if(st) st.textContent='@page{size:75mm '+mm+'mm;margin:0}';}catch(e){}}" +
-      "window.addEventListener('load', function(){" + (isReceipt ? "applyReceiptPageSize();setTimeout(applyReceiptPageSize,80);setTimeout(applyReceiptPageSize,220);" : "") +
-      " setTimeout(function(){try{window.focus();}catch(e){} try{window.print();}catch(e2){}}, 120);});})();<\/script>";
     return "<!doctype html><html><head><meta charset='utf-8'/><title>" + esc(title || "Print") + "</title><style id='pageSizeStyle'>" + pageCss + "</style><style>" + base + "</style></head><body>" +
-      (isReceipt ? "<div id='paper'><div id='content'>" + bodyHtml + "</div></div>" : bodyHtml) + script + "</body></html>";
+      (isReceipt ? "<div id='paper'><div id='content'>" + bodyHtml + "</div></div>" : bodyHtml) + "</body></html>";
   }
   function printOrder(o, size) {
     var items = o.items || [];
@@ -352,6 +347,7 @@
     if (!w) { E.toast("The browser blocked the print window. Allow pop-ups for Eikon and press Print again.", "warn"); return; }
     try { w.document.open(); w.document.write(printShell("Vaccine order", body, size)); w.document.close(); } catch (e) {}
     try { w.focus(); } catch (e2) {}
+    E.printTab(w, { delay: 120, focus: true, onReady: function (pw, doc) { if (doc.getElementById("paper")) E.fitReceiptPage(doc); } });
   }
 
   E.registerModule({

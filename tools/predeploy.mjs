@@ -324,25 +324,35 @@ const dry = await api("POST", "/admin/names/titlecase", { token: T, body: { dry_
 const perGroup = {}; const samples = [];
 for (const g of groups) { perGroup[g] = { tables: 0, rows_checked: 0, would_change: 0, skipped_unusual_json: 0 }; for (const e of dry.json?.groups?.[g] || []) { if (e.missing) continue; perGroup[g].tables++; perGroup[g].rows_checked += e.rows_checked; perGroup[g].would_change += e.would_change; perGroup[g].skipped_unusual_json += e.skipped_unusual_json; for (const s of e.samples) samples.push({ table: e.table, col: e.columns.join("+"), ...s }); } }
 const isMixed = (v) => typeof v === "string" && v !== v.toLowerCase() && v !== v.toUpperCase();
-const mixedTouched = samples.filter((s) => { const a = String(s.from).split(", "), b = String(s.to).split(", "); return a.some((v, i) => MIXED.includes(v) && b[i] !== v); });
+// Names are capitalised word by word since batch-2 (eikonNameCase): in a mixed-case name only the words typed all in
+// lower or all in upper case change ("de Gabriele Maria" -> "De Gabriele Maria"); inner capitals (McDonald) stay.
+// The one-off fix looks only at values all in lower or all in upper case (its SQL sift), except in an entry with a
+// JSON column (POCT), where a mixed-case name changes word by word. The expectation uses the new worker's own
+// eikonNameCase, read from its code.
+const NAME_CASE = (() => { const m = fs.readFileSync(NEW_FILE, "utf8").match(/\nfunction eikonNameCase\(value\) \{[\s\S]*?\n\}\n/); return m ? new Function("return (" + m[0] + ")")() : null; })();
+const caseOf = (v) => (NAME_CASE ? NAME_CASE(v) : v);
+const mixedTouched = samples.filter((s) => { const a = String(s.from).split(", "), b = String(s.to).split(", "); return a.some((v, i) => MIXED.includes(v) && b[i] !== caseOf(v)); });
 const nameDataBefore = snapshot();
 const wouldTotal = dry.json?.would_change || 0;
 // mixed-case and org-2 values before the real run
-const plainCols = NAME_COLUMNS.flatMap((t) => t.cols.filter((c) => !c.json).map((c) => [t.table, c.c])).filter(([t]) => tablesNow().includes(t));
+// [table, column, unsifted]: the fix's SQL sift (column all lower or all upper, A-Z only) is skipped for an entry with a JSON column.
+const plainCols = NAME_COLUMNS.flatMap((t) => t.cols.filter((c) => !c.json).map((c) => [t.table, c.c, t.cols.some((x) => x.json)])).filter(([t]) => tablesNow().includes(t));
+const sqlLower = (v) => v.replace(/[A-Z]/g, (ch) => ch.toLowerCase()), sqlUpper = (v) => v.replace(/[a-z]/g, (ch) => ch.toUpperCase());
 const keepBefore = new Map();
-for (const [t, c] of plainCols) for (const r of DB.db.prepare(`SELECT id, org_id, "${c}" v FROM "${t}"`).iterate()) if (isMixed(r.v) || r.org_id !== 1) keepBefore.set(t + "." + c + "." + r.id, r.v);
+// What the run should leave: org 1 values the fix looks at (past its sift) as eikonNameCase gives them; the rest unchanged.
+for (const [t, c, unsifted] of plainCols) for (const r of DB.db.prepare(`SELECT id, org_id, "${c}" v FROM "${t}"`).iterate()) if (isMixed(r.v) || r.org_id !== 1) keepBefore.set(t + "." + c + "." + r.id, { v: r.v, want: r.org_id === 1 && typeof r.v === "string" && r.v && (unsifted || r.v === sqlLower(r.v) || r.v === sqlUpper(r.v)) ? caseOf(r.v) : r.v });
 const runs = []; let changed = 0, cells = 0;
 for (let k = 0; k < 200; k++) { const r = await api("POST", "/admin/names/titlecase", { token: T, body: { dry_run: 0, groups, limit: 5000 } }); if (!r.json?.ok) { runs.push({ err: r.text.slice(0, 200) }); break; } runs.push(r.json.run_id); changed += r.json.changed; cells += r.json.cells_changed; if (!r.json.more) break; }
-let keptMixed = 0, brokeMixed = 0;
-for (const [t, c] of plainCols) for (const r of DB.db.prepare(`SELECT id, "${c}" v FROM "${t}"`).iterate()) { const k = t + "." + c + "." + r.id; if (keepBefore.has(k)) { if (keepBefore.get(k) === r.v) keptMixed++; else brokeMixed++; } }
+let keptMixed = 0, perWordMixed = 0, brokeMixed = 0; const brokeEx = [];
+for (const [t, c] of plainCols) for (const r of DB.db.prepare(`SELECT id, "${c}" v FROM "${t}"`).iterate()) { const k = t + "." + c + "." + r.id; if (keepBefore.has(k)) { const e = keepBefore.get(k); if (e.want !== r.v) { brokeMixed++; if (brokeEx.length < 6) brokeEx.push(`${t}.${c}#${r.id} "${e.v}" -> "${r.v}" (expected "${e.want}")`); } else if (e.v === r.v) keptMixed++; else perWordMixed++; } }
 const leftLowerUpper = plainCols.reduce((n, [t, c]) => n + DB.db.prepare(`SELECT count(*) n FROM "${t}" WHERE org_id = 1 AND "${c}" GLOB '*[A-Za-z][A-Za-z]*' AND ("${c}" = lower("${c}") OR "${c}" = upper("${c}"))`).get().n, 0);
 const again = await api("POST", "/admin/names/titlecase", { token: T, body: { dry_run: 1, groups, limit: 5000 } });
 for (const id of runs.filter((x) => typeof x === "string").reverse()) await api("POST", "/admin/names/titlecase/undo", { token: T, body: { run_id: id } });
 const afterUndo = compare(nameDataBefore);
 const undoChanged = Object.keys(afterUndo.changedRows);
 const undoNew = Object.keys(afterUndo.newRows).filter((t) => !["audit_log", "eikon_schema", "sessions"].includes(t) && !/^name_case_/.test(t));
-step("6 names fix: dry run, real run, undo", dry.status === 200 && changed === wouldTotal && brokeMixed === 0 && mixedTouched.length === 0 && (again.json?.would_change || 0) === 0 && undoChanged.length === 0 && undoNew.length === 0,
-  `dry run would change ${wouldTotal} rows; real run changed ${changed} rows / ${cells} cells in ${runs.length} calls; mixed-case and other-group values kept ${keptMixed}, changed ${brokeMixed}; dry run after: ${again.json?.would_change}; after undo changed rows: ${JSON.stringify(afterUndo.changedRows)}; added: ${afterUndo.addedTables.join(", ")}; new rows ${JSON.stringify(afterUndo.newRows)}`);
+step("6 names fix: dry run, real run, undo", dry.status === 200 && !!NAME_CASE && changed === wouldTotal && brokeMixed === 0 && mixedTouched.length === 0 && (again.json?.would_change || 0) === 0 && undoChanged.length === 0 && undoNew.length === 0,
+  `dry run would change ${wouldTotal} rows; real run changed ${changed} rows / ${cells} cells in ${runs.length} calls; mixed-case and other-group values kept ${keptMixed}, word-by-word as eikonNameCase ${perWordMixed}, otherwise changed ${brokeMixed}${brokeEx.length ? " e.g. " + brokeEx.join(" | ") : ""}; dry run after: ${again.json?.would_change}; after undo changed rows: ${JSON.stringify(afterUndo.changedRows)}; added: ${afterUndo.addedTables.join(", ")}; new rows ${JSON.stringify(afterUndo.newRows)}`);
 info("names dry run per group:", JSON.stringify(perGroup));
 info("lower/upper names left after the run (org 1, plain columns, not in the selected list or single words):", leftLowerUpper);
 fs.writeFileSync(path.join(WORK, "names-dryrun.json"), JSON.stringify({ perGroup, samples, dry: dry.json }, null, 1));
@@ -364,8 +374,8 @@ const clUnsigned = await api("POST", "/client-log", { body: { build: "x", screen
 const clRow = DB.db.prepare("SELECT message FROM client_errors ORDER BY id DESC LIMIT 1").get();
 worker = await isolate(OLD_FILE, "old");
 const clOld = await api("POST", "/client-log", { token: T, body: { build: "x", screen: "today", kind: "error", message: "probe", stack: "" } });
-step("4d error reports", clSigned.status === 200 && clUnsigned.status === 401 && clOld.status === 404 && clRow && !/0012345M/.test(clRow.message),
-  `new: signed ${clSigned.status}, unsigned ${clUnsigned.status}, stored "${clRow && clRow.message}"; old worker answers ${clOld.status} (what the UI meets before the deploy)`);
+step("4d error reports", clSigned.status === 200 && clUnsigned.status === 401 && clOld.status === 200 && clRow && !/0012345M/.test(clRow.message),
+  `new: signed ${clSigned.status}, unsigned ${clUnsigned.status}, stored "${clRow && clRow.message}"; old (live) worker answers ${clOld.status} (POST /client-log is live since batch-3)`);
 
 // everything the new code added to the database by the end (some tables appear only when first used)
 {

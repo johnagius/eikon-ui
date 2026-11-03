@@ -270,10 +270,10 @@
       ".pg{page-break-after:always;break-after:page}.pg:last-child{page-break-after:auto;break-after:auto}header{display:flex;justify-content:space-between;gap:12px;border-bottom:2px solid #000;padding-bottom:6px;margin-bottom:10px;font-size:13px}header b{font-size:15px}header span:nth-child(2){font-size:18px;font-weight:800}" +
       "h3{font-size:14px;margin:14px 0 6px}.n{font-size:12px;color:#333;margin:0 0 8px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #000;padding:4px 6px;font-size:10.5px;text-align:left;vertical-align:top;overflow-wrap:anywhere}th{background:#eee}td.bad{font-weight:700}" +
       "footer{font-size:10px;color:#333;margin-top:8px}@page{size:A4 landscape;margin:10mm}@media print{body{margin:0}tr{page-break-inside:avoid}}</style></head><body>" + secs +
-      "<footer>Printed " + esc(printed) + " from Eikon. It holds patients' names and ID cards: keep it safe.</footer><script>window.addEventListener('load',function(){setTimeout(function(){try{window.print();}catch(e){}},120);});<\/script></body></html>";
+      "<footer>Printed " + esc(printed) + " from Eikon. It holds patients' names and ID cards: keep it safe.</footer></body></html>";
     out.html = html;
     var url = URL.createObjectURL(new Blob([html], { type: "text/html" })), w = null;
-    try { w = window.open(url, "_blank", "noopener"); } catch (e) { w = null; }
+    w = E.openPrintUrl(url, { delay: 120 });
     if (!w) { try { var a = document.createElement("a"); a.href = url; a.target = "_blank"; a.rel = "noopener"; a.style.display = "none"; document.body.appendChild(a); a.click(); a.remove(); } catch (e2) {} }
     setTimeout(function () { try { URL.revokeObjectURL(url); } catch (e3) {} }, 60000);
   }

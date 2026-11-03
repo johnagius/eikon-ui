@@ -191,10 +191,11 @@
       '<div><div class="k">Day Type</div><div class="v">' + esc(lbl) + '</div></div><div><div class="k">Hours</div><div class="v">' + esc(hrs) + "</div></div>" +
       '<div><div class="k">Fee per Hour</div><div class="v">€ ' + esc((Number(row.fee_per_hour) || 0).toFixed(2)) + '</div></div><div><div class="k">Total Fee</div><div class="v">€ ' + esc((Number(row.total_fee) || 0).toFixed(2)) + "</div></div></div>" +
       '<div class="sign"><div class="lbl">Locum Signature</div><div class="line"></div></div><div class="note">This receipt was generated via the Eikon system.</div></div>' +
-      "<script>window.addEventListener('load',function(){setTimeout(function(){try{window.focus()}catch(e){}try{window.print()}catch(e){}},80)});window.addEventListener('afterprint',function(){setTimeout(function(){try{window.close()}catch(e){}},250)});<\/script></body></html>";
+      "</body></html>";
     var w = window.open("", "_blank");
     if (!w) { E.toast("The browser blocked the print window. Allow pop-ups for Eikon and press Print again.", "warn"); return; }
     w.document.open(); w.document.write(html); w.document.close();
+    E.printTab(w, { delay: 80, focus: true, closeAfter: true });
   }
 
   E.registerModule({

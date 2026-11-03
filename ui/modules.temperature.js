@@ -757,10 +757,6 @@ async function qFlush() {
       "<p class='sub'>Printed: " + esc(printed) + " • Thin=min, Thick=max • Dashed lines = limits</p>" +
       body +
       "</div>" +
-      "<script>" +
-      "window.addEventListener('load', function(){setTimeout(function(){try{window.focus();}catch(e){} try{window.print();}catch(e){}}, 80);});" +
-      "window.addEventListener('afterprint', function(){setTimeout(function(){try{window.close();}catch(e){}}, 250);});" +
-      "</script>" +
       "</body></html>";
   }
 
@@ -871,14 +867,7 @@ async function qFlush() {
       "<h1>" + esc(title) + "</h1>\n" +
       "<p class='sub'>Temperature Report • " + esc(from) + " to " + esc(to) + "</p>\n" +
       tables +
-      "<script>\n" +
-      "window.addEventListener('load', function(){\n" +
-      "  setTimeout(function(){ try{window.focus();}catch(e){} try{window.print();}catch(e){} }, 80);\n" +
-      "});\n" +
-      "window.addEventListener('afterprint', function(){\n" +
-      "  setTimeout(function(){ try{window.close();}catch(e){} }, 250);\n" +
-      "});\n" +
-      "</script>\n" +
+      "\n" +
       "</body>\n</html>";
   }
 
@@ -916,19 +905,9 @@ async function qFlush() {
     var blob = new Blob([html], { type: "text/html" });
     var url = URL.createObjectURL(blob);
 
-    try {
-      var a = document.createElement("a");
-      a.href = url;
-      a.target = "_blank";
-      a.rel = "noopener";
-      a.style.display = "none";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-    } catch (e1) {
-      // Last resort
-      try { window.open(url, "_blank"); } catch (e2) {}
-    }
+    // Top level: opened and printed from here (the CSP allows no script in the tab). Framed (e.g. GoDaddy): the
+    // single link click as before, since window.open there can return null although the tab opened.
+    E.openPrintUrlOrLink(url, { delay: 80, focus: true, closeAfter: true });
 
     setTimeout(function () {
       try { URL.revokeObjectURL(url); } catch (e3) {}

@@ -1,8 +1,13 @@
 /* ============================================================
    EIKON — Possible duplicates  (modules.dupreg.js), new layout, under Customers
    People who are probably the same person but were written down differently in
-   different sections. READ ONLY: every row comes from an existing GET route,
-   scoped by the server to the signed-in pharmacy; nothing here writes to the server.
+   different sections. Every row comes from an existing GET route, scoped by the
+   server to the signed-in pharmacy. No record is ever changed from here.
+   - "Same person — link" (only when E.FEATURES.peopleLinks is on, OFF by default until the
+     owner approves it, and the server has POST /people/links) records that
+     the group's records are one person in the server's insert-only people_links
+     table; "Undo" takes the link out of force. Linked records count as one client,
+     so a fully linked group leaves the list and shows under "Linked as one person".
    - Grouped by: the same ID card (upper case, no spaces, Maltese 7-digit padding as
      normalizeMtIdCard in the worker), the same phone number (digits only, +356/00356
      dropped), or the same name and date of birth.
@@ -17,8 +22,11 @@
   "use strict";
   var E = window.EIKON;
   if (!E) return;
+  E.FEATURES = E.FEATURES || {};
+  if (E.FEATURES.peopleLinks === undefined) E.FEATURES.peopleLinks = false; // not approved yet: see readLinks
 
-  var S = { mount: null, loading: false, done: 0, total: 0, records: [], failed: [], groups: null, showHidden: false, undo: null, seq: 0, err: "" };
+  var S = { mount: null, loading: false, done: 0, total: 0, records: [], failed: [], groups: null, showHidden: false, undo: null, seq: 0, err: "",
+    canLink: false, links: [], showLinked: false, linkUndo: null, busy: false };
 
   // ---------- normalising (pure; also exposed as E.dupes for tests) ----------
   function str(v) { return v == null ? "" : String(v); }
@@ -92,6 +100,9 @@
       list.forEach(function (r) { var a = attr[find(r.uid)]; if (a.ids[0]) ids[a.ids[0]] = 1; if (a.dobs[0]) dobs[a.dobs[0]] = 1; });
       return Object.keys(ids).length > 1 || Object.keys(dobs).length > 1;
     }
+    // Records the pharmacy linked as one person (people_links, r.link) are one person, whatever else they say.
+    var byLink = buckets(function (r) { return r.link ? [r.link] : []; });
+    Object.keys(byLink).forEach(function (k) { var l = byLink[k]; for (var i = 1; i < l.length; i++) { var a = find(l[0].uid), b = find(l[i].uid); if (a !== b) parent[b] = a; } });
     var used = { id: {}, dob: {}, phone: {} }, skipped = { phone: {}, dob: {} };
     var byId = buckets(function (r) { return r._id ? [r._id] : []; });
     Object.keys(byId).forEach(function (k) { var l = byId[k]; for (var i = 1; i < l.length; i++) union(l[0].uid, l[i].uid); });
@@ -102,7 +113,7 @@
 
     // Customers rows own the history that carries their ID card or their name (as GET /people does).
     var own = {};
-    records.forEach(function (r) { if (r.kind !== "people") return; var me = "p:" + r.people_id; if (normId(r.idRaw)) own["id:" + normId(r.idRaw)] = me; own[clientKey("", r.name)] = me; });
+    records.forEach(function (r) { if (r.kind !== "people") return; var me = r.link ? "l:" + r.link : "p:" + r.people_id; if (normId(r.idRaw)) own["id:" + normId(r.idRaw)] = me; own[clientKey("", r.name)] = me; });
     var comps = {};
     records.forEach(function (r) { var root = find(r.uid); (comps[root] = comps[root] || []).push(r); });
     var out = [];
@@ -110,13 +121,14 @@
       var list = comps[root]; if (list.length < 2) return;
       var keys = {}, written = {};
       list.forEach(function (r) {
-        var k = r.kind === "people" ? "p:" + r.people_id : clientKey(r.idRaw, r.name);
-        if (r.kind !== "people" && own[k]) k = own[k];
+        var k = r.link ? "l:" + r.link : r.kind === "people" ? "p:" + r.people_id : clientKey(r.idRaw, r.name);
+        if (!r.link && r.kind !== "people" && own[k]) k = own[k];
         r._client = k; if (k) keys[k] = 1;
         var w = str(r.idRaw).replace(/\s+/g, "").toUpperCase(); if (w && r._id) written[w] = 1;
       });
       var nk = Object.keys(keys).length, nw = Object.keys(written).length;
-      if (nk < 2 && nw < 2) return;
+      var linked = list[0].link && list.every(function (r) { return r.link === list[0].link; }) ? list[0].link : "";
+      if (!linked && nk < 2 && nw < 2) return;
       // why: each key shared by records that would otherwise be separate clients
       var why = [];
       function reason(type, valueOf) {
@@ -133,7 +145,7 @@
       reason("dob", function (r) { return r._dob && r._name && r._name.indexOf(" ") > 0 && !skipped.dob[r._name + "|" + r._dob] ? [r._name + "|" + r._dob] : []; });
       var fp = Object.keys(keys).concat(Object.keys(written).map(function (w) { return "w:" + w; })).sort().join("|");
       var latest = list.reduce(function (m, r) { return str(r.date) > m ? str(r.date) : m; }, "");
-      out.push({ id: hash(fp), records: list, keys: nk, why: why, latest: latest, name: bestName(list), idCard: (attr[root].ids[0] || ""), sections: uniq(list.map(function (r) { return r.kind; })).length });
+      out.push({ id: hash(fp), records: list, keys: nk, why: why, latest: latest, name: bestName(list), idCard: (attr[root].ids[0] || ""), sections: uniq(list.map(function (r) { return r.kind; })).length, linked: linked });
     });
     out.sort(function (a, b) { return b.keys - a.keys || (b.latest > a.latest ? 1 : b.latest < a.latest ? -1 : 0) || a.name.localeCompare(b.name); });
     return out;
@@ -200,9 +212,78 @@
     // the same row can arrive twice (two month pages never overlap, but be safe)
     var seen = {}; recs = recs.filter(function (r) { if (seen[r.uid]) return false; seen[r.uid] = 1; return true; });
     S.records = recs; S.failed = Object.keys(failed);
-    try { S.groups = group(recs); } catch (e) { S.groups = []; S.err = "Could not compare the records."; }
+    await readLinks(my);
+    if (my !== S.seq) return;
+    regroup();
     S.loading = false;
     paint();
+  }
+
+  // ---------- links: GET/POST /people/links (a server without them: no Link button, the view as before) ----------
+  // Off until the owner approves "Same person — link": E.FEATURES.peopleLinks (default false). Off, this screen
+  // never asks for /people/links, shows no Link button and groups exactly as before. The server routes are inert.
+  function linksOn() { return !!(E.FEATURES && E.FEATURES.peopleLinks); }
+  async function readLinks(my) {
+    if (!linksOn()) { S.canLink = false; S.links = []; return; }
+    try {
+      var r = await E.apiFetch("/people/links", { method: "GET", timeoutMs: 15000 });
+      if (my !== undefined && my !== S.seq) return;
+      if (r && r.ok !== false && Array.isArray(r.links)) { S.canLink = true; S.links = r.links; } else { S.canLink = false; S.links = []; }
+    } catch (e) { S.canLink = false; S.links = []; }
+  }
+  function regroup() {
+    var of = {};
+    S.links.forEach(function (l) { of[l.kind + ":" + l.source_id] = l.link_group; });
+    S.records.forEach(function (r) { r.link = of[r.kind + ":" + str(r.rid)] || ""; });
+    try { S.groups = group(S.records); } catch (e) { S.groups = []; S.err = "Could not compare the records."; }
+  }
+  function linkIdsOf(groupId) { return S.links.filter(function (l) { return l.link_group === groupId; }).map(function (l) { return l.id; }); }
+  function errText(e, fallback) { var j = e && e.bodyJson; return (j && j.error) || (e && e.message && !/^HTTP /.test(e.message) ? e.message : fallback); }
+  // The server takes 50 records a call; a bigger group goes in parts that share a record, so they land in one group.
+  async function linkGroup(g) {
+    var recs = [], seen = {};
+    g.records.forEach(function (r) { var k = r.kind + ":" + str(r.rid); if (!seen[k]) { seen[k] = 1; recs.push({ kind: r.kind, id: str(r.rid) }); } });
+    var ids = [], groupId = "", i = 0;
+    try {
+      while (i < recs.length) {
+        var part = i === 0 ? recs.slice(0, 50) : [recs[0]].concat(recs.slice(i, i + 49));
+        var r = await E.apiFetch("/people/links", { method: "POST", body: JSON.stringify({ records: part }), timeoutMs: 15000 });
+        (r.link_ids || []).forEach(function (x) { ids.push(x); });
+        groupId = r.link_group || groupId;
+        i += i === 0 ? 50 : 49;
+      }
+      return { ids: ids, group: groupId };
+    } catch (e) {
+      if (ids.length) { try { await E.apiFetch("/people/links/undo", { method: "POST", body: JSON.stringify({ link_ids: ids }), timeoutMs: 15000 }); } catch (e2) {} }
+      throw e;
+    }
+  }
+  async function doLink(id) {
+    var g = groupById(id); if (!g || S.busy) return;
+    S.busy = true; paint();
+    try {
+      var res = await linkGroup(g);
+      S.linkUndo = { ids: res.ids, name: g.name, group: res.group, gid: id };
+      await readLinks(); regroup(); S.busy = false;
+      paint('[data-act="unlink-last"]');
+      E.toast(g.name + ": linked as one person", "success");
+    } catch (e) {
+      S.busy = false; paint('[data-link="' + id + '"]');
+      E.toast(errText(e, "Could not link these records. Nothing was linked."), "warn");
+    }
+  }
+  async function doUnlink(ids, name, focusSel) {
+    if (!ids.length || S.busy) return;
+    S.busy = true; paint();
+    try {
+      await E.apiFetch("/people/links/undo", { method: "POST", body: JSON.stringify({ link_ids: ids }), timeoutMs: 15000 });
+      S.linkUndo = null; await readLinks(); regroup(); S.busy = false;
+      paint(focusSel);
+      E.toast((name ? name + ": " : "") + "link undone", "success");
+    } catch (e) {
+      S.busy = false; paint();
+      E.toast(errText(e, "Could not undo the link."), "warn");
+    }
   }
 
   // ---------- "Not the same person": per device, per pharmacy ----------
@@ -232,6 +313,7 @@
       ".dup-sub{color:var(--muted);font-size:14.5px;line-height:1.45;margin:6px 0 0;max-width:640px}" +
       ".dup-top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}.dup-top>div{min-width:0;flex:1 1 260px}" +
       ".dup-btn{font:inherit;font-size:14px;font-weight:600;min-height:34px;padding:6px 14px;border-radius:17px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer;white-space:nowrap}" +
+      ".dup-btn.p{background:var(--accent);border-color:var(--accent);color:#fff}" +
       ".dup-btn:disabled{opacity:.55;cursor:default}.dup-link{border:0;background:none;padding:4px 2px;font:inherit;font-size:13.5px;font-weight:600;color:var(--accent);cursor:pointer;white-space:nowrap}" +
       ".dup-lab{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:22px 2px 8px}" +
       ".dup-note{color:var(--muted);font-size:13px;line-height:1.5;margin:14px 2px 0}" +
@@ -266,10 +348,10 @@
     });
     return order.map(function (k) { return m[k]; }).sort(function (a, b) { return a.latest < b.latest ? 1 : a.latest > b.latest ? -1 : 0; });
   }
-  function card(g, isHidden) {
+  function card(g, isHidden, isLinked) {
     var ls = lines(g);
     var h = '<section class="dup-card" data-group="' + esc(g.id) + '" aria-labelledby="dup-h-' + esc(g.id) + '"><div class="dup-head"><h2 id="dup-h-' + esc(g.id) + '">' + esc(g.name) + "</h2>" +
-      "<p>" + g.records.length + (g.records.length === 1 ? " record" : " records") + " in " + g.sections + (g.sections === 1 ? " section" : " sections") + (g.keys > 1 ? " · shown as " + g.keys + " clients" : " · ID card written more than one way") + "</p>" +
+      "<p>" + g.records.length + (g.records.length === 1 ? " record" : " records") + " in " + g.sections + (g.sections === 1 ? " section" : " sections") + (isLinked ? " · linked as one person" : g.keys > 1 ? " · shown as " + g.keys + " clients" : " · ID card written more than one way") + "</p>" +
       '<ul class="dup-why" aria-label="Why these were grouped">' + g.why.map(whyLine).join("") + "</ul></div>";
     h += '<ul class="dup-recs">' + ls.map(function (l) {
       var r = l.r, src = LABEL[r.kind] || { label: r.kind };
@@ -278,7 +360,9 @@
       return '<li class="dup-rec"><div class="t"><span class="s">' + esc(src.label) + (l.latest ? " · " + esc(when(l.latest)) : "") + (l.n > 1 ? " · " + l.n + " records" : "") + "</span><b>" + esc(who) + "</b>" + (det ? '<span class="d">' + esc(det.slice(0, 160)) + "</span>" : "") + "</div>" +
         '<button type="button" class="dup-link" data-open="' + esc(r.kind) + '" data-uid="' + esc(r.uid) + '" aria-label="Open ' + esc(src.label) + " for " + esc(str(r.name).trim() || "this record") + '">Open</button></li>';
     }).join("") + "</ul>";
-    h += '<div class="dup-acts">' + (isHidden ? '<button type="button" class="dup-btn" data-show="' + esc(g.id) + '">Show again</button>' : '<button type="button" class="dup-btn" data-hide="' + esc(g.id) + '" aria-label="Not the same person: ' + esc(g.name) + '">Not the same person</button>') + "</div></section>";
+    var dis = S.busy ? " disabled" : "";
+    if (isLinked) h += '<div class="dup-acts"><button type="button" class="dup-btn" data-unlink="' + esc(g.linked) + '" aria-label="Undo the link: ' + esc(g.name) + '"' + dis + ">Undo link</button></div></section>";
+    else h += '<div class="dup-acts">' + (isHidden ? '<button type="button" class="dup-btn" data-show="' + esc(g.id) + '">Show again</button>' : (S.canLink ? '<button type="button" class="dup-btn p" data-link="' + esc(g.id) + '" aria-label="Same person — link: ' + esc(g.name) + '"' + dis + ">Same person — link</button>" : "") + '<button type="button" class="dup-btn" data-hide="' + esc(g.id) + '" aria-label="Not the same person: ' + esc(g.name) + '">Not the same person</button>') + "</div></section>";
     return h;
   }
 
@@ -298,7 +382,9 @@
     if (S.loading) {
       h += '<div class="dup-prog" aria-hidden="true"><i style="width:' + Math.round(100 * S.done / Math.max(1, S.total)) + '%"></i></div><p class="dup-note" id="dup-status" role="status">Checking the registers… ' + S.done + " of " + S.total + "</p>";
     } else if (S.groups) {
-      var hid = hidden(), shown = S.groups.filter(function (g) { return hid.indexOf(g.id) < 0; }), gone = S.groups.filter(function (g) { return hid.indexOf(g.id) >= 0; });
+      var hid = hidden(), linkedGs = S.groups.filter(function (g) { return g.linked; }), open = S.groups.filter(function (g) { return !g.linked; });
+      var shown = open.filter(function (g) { return hid.indexOf(g.id) < 0; }), gone = open.filter(function (g) { return hid.indexOf(g.id) >= 0; });
+      if (S.linkUndo) h += '<div class="dup-bar" role="status"><span>' + esc(S.linkUndo.name) + " linked as one person. No record was changed.</span><button type=\"button\" class=\"dup-link\" data-act=\"unlink-last\"" + (S.busy ? " disabled" : "") + ">Undo</button></div>";
       if (S.undo) h += '<div class="dup-bar" role="status"><span>' + esc(S.undo.name) + " marked as not the same person.</span><button type=\"button\" class=\"dup-link\" data-act=\"undo\">Undo</button></div>";
       if (S.err) h += '<div class="dup-warn" role="alert">' + esc(S.err) + "</div>";
       if (S.failed.length) h += '<div class="dup-warn">Could not read ' + esc(S.failed.join(", ")) + ". The list below leaves them out. Check again later.</div>";
@@ -306,11 +392,15 @@
       if (!shown.length) h += '<div class="dup-quiet">' + (S.records.length ? "Every person here is recorded one way, or the records that look alike have different ID cards or dates of birth." : "There is nothing in the registers yet.") + "</div>";
       h += shown.slice(0, S.limit || 40).map(function (g) { return card(g, false); }).join("");
       if (shown.length > (S.limit || 40)) h += '<div style="text-align:center;margin-top:14px"><button type="button" class="dup-btn" data-act="more">Show ' + Math.min(40, shown.length - (S.limit || 40)) + " more</button></div>";
+      if (linkedGs.length) {
+        h += '<div class="dup-lab">Linked as one person · ' + linkedGs.length + '</div><button type="button" class="dup-link" data-act="toggle-linked" aria-expanded="' + (S.showLinked ? "true" : "false") + '">' + (S.showLinked ? "Hide these" : "Show these") + "</button>";
+        if (S.showLinked) h += linkedGs.map(function (g) { return card(g, false, true); }).join("");
+      }
       if (gone.length) {
         h += '<div class="dup-lab">Marked as not the same person · ' + gone.length + '</div><button type="button" class="dup-link" data-act="toggle" aria-expanded="' + (S.showHidden ? "true" : "false") + '">' + (S.showHidden ? "Hide these" : "Show these") + "</button>";
         if (S.showHidden) h += gone.map(function (g) { return card(g, true); }).join("");
       }
-      h += '<p class="dup-note">Compared ' + S.records.length + " records: the 50 most recently changed customer cards, orders, DDA, POYC and repeat prescriptions for the last " + MONTHS + " months, bookings two months either side of today, and everything in the other sections. People are grouped by the same ID card, the same phone number, or the same name and date of birth; never when their ID cards or dates of birth differ. “Not the same person” is kept on this device only.</p>";
+      h += '<p class="dup-note">Compared ' + S.records.length + " records: the 50 most recently changed customer cards, orders, DDA, POYC and repeat prescriptions for the last " + MONTHS + " months, bookings two months either side of today, and everything in the other sections. People are grouped by the same ID card, the same phone number, or the same name and date of birth; never when their ID cards or dates of birth differ. “Not the same person” is kept on this device only." + (S.canLink ? " “Same person — link” records that the records are one person, for everyone in this pharmacy; it changes no record and can be undone." : "") + "</p>";
     }
     h += "</div>";
     m.innerHTML = h;
@@ -338,6 +428,8 @@
         else if (a === "reload") { S.undo = null; load(); }
         else if (a === "more") { S.limit = (S.limit || 40) + 40; paint(); }
         else if (a === "toggle") { S.showHidden = !S.showHidden; paint('[data-act="toggle"]'); }
+        else if (a === "toggle-linked") { S.showLinked = !S.showLinked; paint('[data-act="toggle-linked"]'); }
+        else if (a === "unlink-last" && S.linkUndo) { var lu = S.linkUndo; doUnlink(lu.ids, lu.name, '[data-link="' + lu.gid + '"]'); }
         else if (a === "undo" && S.undo) { var id = S.undo.id; setHidden(hidden().filter(function (x) { return x !== id; })); S.undo = null; paint('[data-hide="' + id + '"]'); E.toast("Shown again", "success"); }
       });
     });
@@ -353,12 +445,16 @@
     m.querySelectorAll("[data-show]").forEach(function (b) {
       b.addEventListener("click", function () { var id = b.getAttribute("data-show"); setHidden(hidden().filter(function (x) { return x !== id; })); S.undo = null; paint('[data-hide="' + id + '"]'); });
     });
+    m.querySelectorAll("[data-link]").forEach(function (b) { b.addEventListener("click", function () { doLink(b.getAttribute("data-link")); }); });
+    m.querySelectorAll("[data-unlink]").forEach(function (b) {
+      b.addEventListener("click", function () { var gid = b.getAttribute("data-unlink"), g = (S.groups || []).filter(function (x) { return x.linked === gid; })[0]; doUnlink(linkIdsOf(gid), g ? g.name : "", '[data-act="toggle-linked"]'); });
+    });
     m.querySelectorAll("[data-open]").forEach(function (b) { b.addEventListener("click", function () { openRecord(b.getAttribute("data-open"), b.getAttribute("data-uid")); }); });
   }
 
   E.registerModule({
     id: "dupreg", title: "Possible duplicates", order: 2, icon: "◯", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.undo = null; S.showHidden = false; S.limit = 40; css(); return load(); },
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.undo = null; S.linkUndo = null; S.showHidden = false; S.showLinked = false; S.busy = false; S.limit = 40; css(); return load(); },
     destroy: function () { S.seq++; }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("dupreg") < 0) E.UI2_DESTINATIONS.push("dupreg");

@@ -508,7 +508,7 @@
     var blob = new Blob([String(html || "")], { type: "text/html" });
     var url = URL.createObjectURL(blob);
     var w = null;
-    try { w = window.open(url, "_blank", "noopener"); } catch (e) { w = null; }
+    w = E.openPrintUrl(url, { autoPrint: false }); // wires its Print button (no onclick=: CSP)
     if (!w) {
       try {
         var a = document.createElement("a");
@@ -1593,7 +1593,7 @@
       ".gap{height:10mm}" +
       ".printbar{position:sticky;top:0;background:#fff;padding:8px;border-bottom:1px solid #ccc;display:flex;gap:8px;justify-content:flex-end}" +
       "</style></head><body>" +
-      "<div class='printbar'><button onclick='window.print()'>Print</button></div>" +
+      "<div class='printbar'><button data-eikon-print='print'>Print</button></div>" +
       "<div class='page'><div class='sheet'>" +
       "<table class='hdr'>" +
       "<tr><td>DATE:</td><td>" + esc(ddmmyyyy(d)) + "</td></tr>" +
@@ -2343,7 +2343,7 @@ async function doPrintRangeReport(from, to) {
       "tfoot .totrow td{font-weight:800;background:#f3f3f3}" +
     "</style>" +
     "</head><body>" +
-    "<div class='printbar'><button onclick='window.print()'>Print</button></div>" +
+    "<div class='printbar'><button data-eikon-print='print'>Print</button></div>" +
     "<h2>End Of Day — Range Report</h2>" +
     "<div class='meta'><b>Location:</b> " + esc(state.location_name) + "</div>" +
     "<div class='meta'><b>Range:</b> " + esc(ddmmyyyy(from)) + " to " + esc(ddmmyyyy(to)) + "</div>" +

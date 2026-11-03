@@ -387,9 +387,9 @@
     var html = "<!doctype html><html><head><meta charset='utf-8'><title>Audit trail</title><style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:24px;color:#000}h1{margin:0 0 6px;font-size:22px}.sub{margin:0 0 18px;color:#333;font-size:13px}" +
       "table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{border:1px solid #000;padding:6px 8px;vertical-align:top;font-size:11px;overflow-wrap:anywhere}th{background:#f2f2f2;font-size:10px;text-align:left}small{color:#444}@media print{body{margin:12mm}tr{page-break-inside:avoid}}</style></head><body>" +
       "<h1>Audit trail</h1><p class='sub'>" + esc(sub.join(" | ")) + " | " + list.length + " rows</p><table><thead><tr><th>When</th><th>Who</th><th>Area</th><th>Action</th><th>Record</th><th>Details</th></tr></thead><tbody>" + rows + "</tbody></table>" +
-      "<script>window.addEventListener('load',function(){setTimeout(function(){try{window.print();}catch(e){}},80);});<\/script></body></html>";
+      "</body></html>";
     var url = URL.createObjectURL(new Blob([html], { type: "text/html" })), w = null;
-    try { w = window.open(url, "_blank", "noopener"); } catch (e) { w = null; }
+    w = E.openPrintUrl(url, { delay: 80 });
     if (!w) { try { var a = document.createElement("a"); a.href = url; a.target = "_blank"; a.rel = "noopener"; a.style.display = "none"; document.body.appendChild(a); a.click(); a.remove(); } catch (e2) {} }
     setTimeout(function () { try { URL.revokeObjectURL(url); } catch (e3) {} }, 60000);
   }

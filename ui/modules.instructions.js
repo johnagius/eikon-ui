@@ -461,6 +461,7 @@
       w.document.close();
       w.focus();
     } catch (e2) {}
+    E.printTab(w, { autoPrint: false }); // wires its Print button (no onclick=: CSP)
   }
 
   function buildPrintHtmlAll() {
@@ -508,7 +509,7 @@
     }
 
     var header =
-      "<div class='printbar'><button onclick='window.print()'>Print</button></div>" +
+      "<div class='printbar'><button data-eikon-print='print'>Print</button></div>" +
       "<h1>Instructions (A4)</h1>" +
       "<div class='meta'>" +
         "Org: " + escHtml(String(user.org_name || user.org || user.org_id || "-")) + " | " +

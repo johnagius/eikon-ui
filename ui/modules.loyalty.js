@@ -1336,7 +1336,7 @@
       + '.foot{text-align:center;margin-top:14px;padding-top:12px;border-top:1px dashed #bbb;font-size:12px;color:#555;}'
       + '@media print{button{display:none!important;}}'
       + '</style></head><body>'
-      + '<button onclick="window.print()">&#128424; Print</button>'
+      + '<button data-eikon-print="print">&#128424; Print</button>'
       + '<div class="receipt">'
       + '<div class="head"><b>Loyalty Transaction</b><br><span class="camp">'+safe(camp.name)+'</span><br><span class="ts">'+safe(fmtTs(txn.created_at))+'</span></div>'
       + '<div class="row"><span>Client:</span><b>'+safe(txn.client_name||txn.client_id)+'</b></div>'
@@ -1350,9 +1350,8 @@
       + (txn.notes?'<div style="margin-top:6px;font-size:11px;color:#666;">Notes: '+safe(txn.notes)+'</div>':"")
       + '<div class="foot">Thank you for your loyalty! &#x1F49B;</div>'
       + '</div>'
-      + '<scr'+'ipt>setTimeout(function(){try{window.print()}catch(e){}},250);<\/scr'+'ipt>'
       + '</body></html>';
-    w.document.open(); w.document.write(html); w.document.close();
+    w.document.open(); w.document.write(html); w.document.close(); E.printTab(w, { delay: 250 });
   }
 
   function printClientHistory(client, ctxns, campMap){
@@ -1385,15 +1384,14 @@
       + 'tr:nth-child(even){background:#fafbfc;}'
       + '@media print{button{display:none!important;}}'
       + '</style></head><body>'
-      + '<button onclick="window.print()">&#128424; Print</button>'
+      + '<button data-eikon-print="print">&#128424; Print</button>'
       + '<h1>Loyalty History &ndash; '+safe(client.name||client.id_card)+'</h1>'
       + '<div class="meta">ID Card: '+safe(client.id_card)+' &nbsp;&middot;&nbsp; Transactions: '+safe(String(ctxns.length))+' &nbsp;&middot;&nbsp; Printed: '+safe(new Date().toLocaleString())+'</div>'
       + (ctxns.length
           ? '<table><thead><tr><th>Date</th><th>Campaign</th><th>Items</th><th>Action</th><th>Receipt</th></tr></thead><tbody>'+rowsHtml+'</tbody></table>'
           : '<p>No transactions recorded for this client.</p>')
-      + '<scr'+'ipt>setTimeout(function(){try{window.print()}catch(e){}},250);<\/scr'+'ipt>'
       + '</body></html>';
-    w.document.open(); w.document.write(html); w.document.close();
+    w.document.open(); w.document.write(html); w.document.close(); E.printTab(w, { delay: 250 });
   }
 
   // ─── CLIENTS ─────────────────────────────────────────────────

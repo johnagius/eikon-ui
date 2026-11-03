@@ -206,12 +206,13 @@
     return state.receiptsByMonth[month];
   }
 
-  function openPrintTabWithHtml(html) {
+  // printOpts: how the tab prints (see E.printTab); receipts print 80 ms after load, the report 120 ms.
+  function openPrintTabWithHtml(html, printOpts) {
     var blob = new Blob([html], { type: "text/html" });
     var url = URL.createObjectURL(blob);
 
     var w = null;
-    try { w = window.open(url, "_blank", "noopener"); } catch (e) { w = null; }
+    w = E.openPrintUrl(url, printOpts || { delay: 80, focus: true, closeAfter: true });
 
     if (!w) {
       try {
@@ -291,10 +292,6 @@
       + "  </div>"
       + "  <div class=\"note\">This receipt was generated via the Eikon system.</div>"
       + "</div>"
-      + "<script>"
-      + "window.addEventListener('load',function(){setTimeout(function(){try{window.focus();}catch(e){} try{window.print();}catch(e){}},80);});"
-      + "window.addEventListener('afterprint',function(){setTimeout(function(){try{window.close();}catch(e){}},250);});"
-      + "</script>"
       + "</body></html>";
   }
 
@@ -391,10 +388,6 @@
       + "  </table>"
       + overallTotalsHtml
       + "</div>"
-      + "<script>"
-      + "window.addEventListener('load',function(){setTimeout(function(){try{window.focus();}catch(e){} try{window.print();}catch(e){}},120);});"
-      + "window.addEventListener('afterprint',function(){setTimeout(function(){try{window.close();}catch(e){}},250);});"
-      + "</script>"
       + "</body></html>";
   }
 
@@ -1153,7 +1146,7 @@
       }
       try {
         var html = buildReportPrintHtml(state.lastReport);
-        openPrintTabWithHtml(html);
+        openPrintTabWithHtml(html, { delay: 120, focus: true, closeAfter: true });
       } catch (e) {
         E.error("[locumreceipts] print report failed:", e);
       }

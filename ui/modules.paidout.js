@@ -762,7 +762,6 @@
       "@media print{body{padding:0} .noprint{display:none}}" +
       "</style></head><body>" +
       bodyHtml +
-      "<script>window.onload=function(){try{setTimeout(function(){window.print();},40);}catch(e){}}</script>" +
       "</body></html>"
     );
   }
@@ -771,7 +770,7 @@
     var blob = new Blob([html], { type: "text/html" });
     var url = URL.createObjectURL(blob);
     var w = null;
-    try { w = window.open(url, "_blank", "noopener"); } catch (e) { w = null; }
+    w = E.openPrintUrl(url, { delay: 40 });
     if (!w) {
       try {
         var a = document.createElement("a");

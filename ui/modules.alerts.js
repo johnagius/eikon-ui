@@ -201,7 +201,7 @@
       ".meta{font-size:12px;color:#333;margin-top:6px;white-space:pre-wrap;}" +
       "@media print{button{display:none!important;}}" +
       "</style></head><body>" +
-      "<button onclick='window.print()'>Print</button>" +
+      "<button data-eikon-print='print'>Print</button>" +
       "<h1 style='margin:0 0 4px 0;font-size:18px;'>Alerts</h1>" +
       "<div class='meta'>Rows: " + safe(String(list.length)) + "\nYears: " + safe(rLabel || "-") + "\nPrinted: " + safe(new Date().toLocaleString()) + "</div>" +
       "<table><thead><tr>" +
@@ -209,12 +209,11 @@
       "</tr></thead><tbody>" +
       rowsHtml +
       "</tbody></table>" +
-      "<script>setTimeout(function(){try{window.print()}catch(e){}},250);</script>" +
       "</body></html>";
 
     w.document.open();
     w.document.write(html);
-    w.document.close();
+    w.document.close(); E.printTab(w, { delay: 250 });
   }
 
   function payloadFromEntry(r) {

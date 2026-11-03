@@ -228,7 +228,6 @@
       + "</tr></thead>"
       + "<tbody>" + rows + "</tbody>"
       + "</table>"
-      + "<script>try{setTimeout(function(){window.print();},350);}catch(e){}</script>"
       + "</body></html>";
   }
 
@@ -237,7 +236,7 @@
     var url = URL.createObjectURL(blob);
 
     var w = null;
-    try { w = window.open(url, "_blank", "noopener"); } catch (e) { w = null; }
+    w = E.openPrintUrl(url, { delay: 350 });
 
     if (!w) {
       try {

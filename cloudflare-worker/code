@@ -4,7 +4,7 @@ function nowIso() {
 
 
 
-const WORKER_VERSION = "2026-11-03-batch-3";
+const WORKER_VERSION = "2026-11-03-batch-4";
 function isDebugEnabled(request) {
   try {
     return (request && request.headers && (request.headers.get("X-Eikon-Debug") || "") === "1");
@@ -2933,6 +2933,64 @@ async function handleSupplierProductStockStatus(request, env, corsOkHeaders, aut
   return jsonResponse({ ok: true, changed: true, propagated: propagated.length }, 200, corsOkHeaders);
 }
 
+// ── Bulk writes, many rows per statement ────────────────────────────────────────────────────────────────
+// The bulk routes (supplier catalogue import, contacts import, emergency-POS catalogue, warehouse short expiry,
+// shift patterns, end-of-day contacts) wrote one statement per row: a 5,000-row supplier import was one
+// env.DB.batch of 5,001 statements followed by one INSERT per stock change (up to 10,000), far past what D1 runs
+// for one request (100 bound parameters per statement, a capped number of queries per invocation). They now put
+// many rows in each statement (wsaveStatements / wsaveRun above, or bimpStatements below), binding the same
+// values in the same order, so every row is stored as before.
+
+// Like wsaveStatements, plus: consts are bound once per statement as ?1..?n and a tuple slot "?1".."?n" uses one;
+// a "#" slot is a number column (INTEGER or REAL only) whose value is written as SQL when that stores the same
+// value -- a safe integer as its digits, a cents amount k/100 as (k/100.0), which SQLite divides to the same
+// double as JavaScript's k / 100 -- and bound otherwise. Never "#" for a TEXT column (it would store '5' where a
+// bound 5.0 stores '5.0'). Rows are value arrays indexed like the tuple; a statement stays <= 100 bound
+// parameters, <= 512 KB of bound text and <= 90 KB of SQL.
+const BIMP_SQL_BYTES = 90 * 1024;
+function bimpNumberSql(v) {
+  if (typeof v !== "number" || Object.is(v, -0)) return null;
+  if (Number.isSafeInteger(v)) return String(v);
+  const k = Math.round(v * 100);
+  return Number.isSafeInteger(k) && k / 100 === v ? "(" + k + "/100.0)" : null;
+}
+function bimpStatements(env, head, consts, tuple, tail, rows) {
+  const stmts = [], base = consts.length, fixed = head.length + tail.length;
+  let sqlParts = [], params = [], bytes = 0, sqlLen = 0;
+  const flush = () => {
+    if (!sqlParts.length) return;
+    stmts.push({ stmt: env.DB.prepare(head + sqlParts.join(", ") + tail).bind(...consts, ...params), bytes: bytes + wsaveBytes(consts) });
+    sqlParts = []; params = []; bytes = 0; sqlLen = 0;
+  };
+  for (const r of rows) {
+    const slots = [], vals = [];
+    for (let i = 0; i < tuple.length; i++) {
+      const t = tuple[i], v = r[i];
+      if (t !== "?" && t !== "#") { slots.push(t); continue; }
+      if (v === null || v === undefined) { slots.push("NULL"); continue; }
+      if (v === "") { slots.push("''"); continue; }
+      const lit = t === "#" ? bimpNumberSql(v) : null;
+      if (lit !== null) { slots.push(lit); continue; }
+      slots.push(null); vals.push(v);
+    }
+    const render = (n) => "(" + slots.map((s) => (s === null ? "?" + (++n) : s)).join(",") + ")";
+    const b = wsaveBytes(vals);
+    let part = render(base + params.length);
+    if (sqlParts.length && (base + params.length + vals.length > WSAVE_MAX_PARAMS || bytes + b > WSAVE_STMT_BYTES || fixed + sqlLen + part.length + 2 > BIMP_SQL_BYTES)) {
+      flush();
+      part = render(base);
+    }
+    sqlParts.push(part);
+    for (const v of vals) params.push(v);
+    bytes += b; sqlLen += part.length + 2;
+  }
+  flush();
+  return stmts;
+}
+// Request-size caps for the two bulk routes that had none (each is far beyond what the screens send).
+const BIMP_SHIFT_MAX_DAYS = 3660, BIMP_SHIFT_MAX_ROWS = 3660, BIMP_EOD_CONTACTS_MAX = 1000;
+// ── End bulk writes ────────────────────────────────────────────────────────────────────────────────────
+
 // ─── Bulk Import (Full Replace) ───────────────────────────────────────────
 
 async function handleSupplierProductsBulkImport(request, env, corsOkHeaders, authUser) {
@@ -2972,7 +3030,8 @@ async function handleSupplierProductsBulkImport(request, env, corsOkHeaders, aut
         qty_purchased, qty_free, batch, expiry_date, retail_price,
         profit, profit_margin, total_incl_vat, out_of_stock, created_by,
         created_at, updated_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'),datetime('now'))`;
+       VALUES `;
+  const insertRows = []; // many rows per INSERT (bimpStatements), still in the one atomic batch
 
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
@@ -2987,7 +3046,7 @@ async function handleSupplierProductsBulkImport(request, env, corsOkHeaders, aut
     const prev = oldByDesc[key];
     const keepOos = prev && Number(prev.out_of_stock || 0) === 1 ? 1 : 0;
 
-    stmts.push(env.DB.prepare(insertSql).bind(
+    insertRows.push([
         authUser.org_id, authUser.location_id, supplierName,
         String(r.stock_code || "").trim(), String(r.barcode || "").trim(), desc,
         computed.cost_excl_vat, computed.cost_incl_vat, vatRate,
@@ -2996,13 +3055,16 @@ async function handleSupplierProductsBulkImport(request, env, corsOkHeaders, aut
         String(r.batch || "").trim(), String(r.expiry_date || "").trim(),
         computed.retail_price, computed.profit, computed.profit_margin, computed.total_incl_vat,
         keepOos, authUser.user_id
-    ));
+    ]);
     imported++;
     newDescKeys.add(key);
   }
 
   if (imported === 0) return jsonResponse({ ok: false, error: "No valid rows (every row needs a description)", errors }, 400, corsOkHeaders);
 
+  for (const x of bimpStatements(env, insertSql, [authUser.org_id, authUser.location_id, supplierName, authUser.user_id],
+    ["?1", "?2", "?3", "?", "?", "?", "#", "#", "#", "#", "#", "#", "#", "?", "?", "#", "#", "#", "#", "#", "?4", "datetime('now')", "datetime('now')"],
+    "", insertRows)) stmts.push(x.stmt);
   await env.DB.batch(stmts);
 
   // Generate stock change notifications by comparing old vs new
@@ -3024,14 +3086,15 @@ async function handleSupplierProductsBulkImport(request, env, corsOkHeaders, aut
     }
   }
 
-  // Write stock changes to notification log
-  for (const ch of changes) {
-    await dbRun(env,
+  // Write stock changes to notification log, in order (all "removed", then all "added"), many per INSERT
+  const changeStmts = [];
+  for (const type of ["removed", "added"]) {
+    changeStmts.push(...bimpStatements(env,
       `INSERT INTO supplier_stock_changes (org_id, supplier_location_id, supplier_name, product_description, barcode, change_type, created_at)
-       VALUES (?,?,?,?,?,?,datetime('now'))`,
-      [authUser.org_id, authUser.location_id, supplierName, ch.description, ch.barcode, ch.type]
-    );
+       VALUES `, [authUser.org_id, authUser.location_id, supplierName], ["?1", "?2", "?3", "?", "?", "'" + type + "'", "datetime('now')"], "",
+      changes.filter((ch) => ch.type === type).map((ch) => [null, null, null, ch.description, ch.barcode])));
   }
+  await wsaveRun(env, changeStmts);
 
   await writeAudit(env, authUser.org_id, authUser.user_id, "SUPPLIER_BULK_IMPORT", "supplier_products", "", { imported, changes: changes.length }, authUser.location_id);
 
@@ -4603,27 +4666,42 @@ async function handleEodContactsCreate(request, env, corsOkHeaders, authUser) {
 async function handleEodContactsBulkSave(contacts, env, corsOkHeaders, authUser) {
   // Bulk save: deactivate all existing, then upsert each contact from the UI list
   await ensureEndOfDaySchema(env);
+  if (contacts.length > BIMP_EOD_CONTACTS_MAX) return jsonResponse({ ok: false, error: "At most 1,000 contacts can be saved at once" }, 400, corsOkHeaders);
 
-  // Mark all existing contacts inactive
-  await dbRun(env, "UPDATE end_of_day_contacts SET is_active = 0, updated_at = datetime('now'), updated_by = ? WHERE org_id = ? AND location_id = ?", [authUser.user_id, authUser.org_id, authUser.location_id]);
-
-  const ids = [];
+  // One entry per name (display_name is unique per pharmacy), in first-seen order, with the last copy's phone and
+  // email: what the old row-by-row insert-then-update left stored.
+  const names = [], latest = new Map();
   for (const c of contacts) {
     const name = String(c.display_name || c.name || "").trim();
     const phone = String(c.phone || "").trim();
     const email = String(c.email || "").trim();
     if (!name) continue;
-
-    // Try to re-activate existing by name, or insert new
-    const existing = await dbFirst(env, "SELECT id FROM end_of_day_contacts WHERE org_id = ? AND location_id = ? AND display_name = ?", [authUser.org_id, authUser.location_id, name]);
-    if (existing) {
-      await dbRun(env, "UPDATE end_of_day_contacts SET phone = ?, email = ?, is_active = 1, updated_at = datetime('now'), updated_by = ? WHERE id = ?", [phone, email, authUser.user_id, existing.id]);
-      ids.push(existing.id);
-    } else {
-      const row = await dbFirst(env, "INSERT INTO end_of_day_contacts (org_id, location_id, display_name, phone, email, is_active, created_at, updated_at, created_by, updated_by) VALUES (?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'), ?, ?) RETURNING id", [authUser.org_id, authUser.location_id, name, phone, email, authUser.user_id, authUser.user_id]);
-      ids.push(row.id);
-    }
+    names.push(name);
+    latest.set(name, [phone, email]);
   }
+  const idsByName = async () => {
+    const m = new Map();
+    for (const r of await dbAll(env, "SELECT id, display_name FROM end_of_day_contacts WHERE org_id = ? AND location_id = ? ORDER BY id", [authUser.org_id, authUser.location_id])) if (!m.has(r.display_name)) m.set(r.display_name, r.id);
+    return m;
+  };
+  const stored = await idsByName();
+
+  // Mark all existing contacts inactive
+  await dbRun(env, "UPDATE end_of_day_contacts SET is_active = 0, updated_at = datetime('now'), updated_by = ? WHERE org_id = ? AND location_id = ?", [authUser.user_id, authUser.org_id, authUser.location_id]);
+
+  // Re-activate existing ones by name, insert new ones: many rows per statement.
+  const upd = [], ins = [];
+  for (const [name, [phone, email]] of latest) {
+    if (stored.has(name)) upd.push([stored.get(name), phone, email, authUser.user_id]);
+    else ins.push([authUser.org_id, authUser.location_id, name, phone, email, null, null, null, authUser.user_id, authUser.user_id]);
+  }
+  await wsaveRun(env, wsaveStatements(env,
+    "UPDATE end_of_day_contacts SET phone = v.column2, email = v.column3, is_active = 1, updated_at = datetime('now'), updated_by = v.column4 FROM (VALUES ",
+    ["?", "?", "?", "?"], ") AS v WHERE end_of_day_contacts.id = v.column1", upd).concat(wsaveStatements(env,
+    "INSERT INTO end_of_day_contacts (org_id, location_id, display_name, phone, email, is_active, created_at, updated_at, created_by, updated_by) VALUES ",
+    ["?", "?", "?", "?", "?", "1", "datetime('now')", "datetime('now')", "?", "?"], "", ins)));
+  const idOf = ins.length ? await idsByName() : stored;
+  const ids = names.map((n) => idOf.get(n));
 
   await writeAudit(env, authUser.org_id, authUser.user_id, "EOD_CONTACTS_BULK_SAVE", "end_of_day_contacts", "", { count: ids.length }, authUser.location_id);
   return jsonResponse({ ok: true, ids: ids }, 200, corsOkHeaders);
@@ -10752,6 +10830,197 @@ function poctChunk(arr, size) {
   return out;
 }
 
+// ── Whole-state saves (POCT, screening, pharmacovigilance): write only new or changed rows ──────────────
+// These screens send every item on every save. Writing each one back cost one statement per item (2,000 POCT
+// records = 2,000+ statements per save) and runs into D1's per-request query limit. Now the stored rows are read
+// once, an item whose stored columns already match is left alone, and the rest go in multi-row upserts
+// (<= 100 bound parameters each, <= 50 statements per env.DB.batch). The SQL and the values bound are the same
+// as the old one-row upserts, so a written row is stored exactly as before; an untouched row keeps its
+// updated_at / updated_by (and a server "now" fallback for a missing client timestamp is not counted as a change).
+const WSAVE_MAX_PARAMS = 100, WSAVE_BATCH_STMTS = 50, WSAVE_STMT_BYTES = 512 * 1024, WSAVE_BATCH_BYTES = 4 * 1024 * 1024;
+const WSAVE_IN_CHUNK = 90, WSAVE_SCAN_OVER = 360;
+
+// Stored rows for these keys as Map(key -> row). A small save reads by IN lists of 90; a big one reads the
+// pharmacy's rows in one query.
+async function wsaveStored(env, table, keyCol, cols, orgId, locId, keys) {
+  const out = new Map();
+  if (!keys.length) return out;
+  const sel = `SELECT ${[keyCol].concat(cols).join(", ")} FROM ${table} WHERE org_id = ? AND location_id = ?`;
+  const rows = keys.length > WSAVE_SCAN_OVER
+    ? await dbAll(env, sel, [orgId, locId])
+    : await dbAllChunked(env, (ph) => `${sel} AND ${keyCol} IN (${ph})`, keys, [orgId, locId], [], WSAVE_IN_CHUNK);
+  for (const r of rows) if (r && r[keyCol] != null) out.set(String(r[keyCol]), r);
+  return out;
+}
+
+function wsaveBytes(vals) {
+  let n = 0;
+  for (const v of vals) n += typeof v === "string" ? v.length * 3 : 8;
+  return n;
+}
+
+// Multi-row statements for one upsert: head + "(...), (...)" + tail. rows are value arrays; tuple[i] is "?" (the
+// value is bound, except a null or "" which is written as the literal NULL / '' -- the same stored value, one bound
+// parameter fewer) or an SQL expression such as "datetime('now')" (the value is ignored). A statement takes
+// rows while its bound parameters stay <= 100 (D1's limit) and its bound text <= 512 KB.
+function wsaveStatements(env, head, tuple, tail, rows) {
+  const stmts = [];
+  let sqlParts = [], params = [], bytes = 0;
+  const flush = () => {
+    if (!sqlParts.length) return;
+    stmts.push({ stmt: env.DB.prepare(head + sqlParts.join(", ") + tail).bind(...params), bytes });
+    sqlParts = []; params = []; bytes = 0;
+  };
+  for (const r of rows) {
+    const slots = [], vals = [];
+    for (let i = 0; i < tuple.length; i++) {
+      if (tuple[i] !== "?") { slots.push(tuple[i]); continue; }
+      const v = r[i];
+      if (v === null || v === undefined) slots.push("NULL");
+      else if (v === "") slots.push("''");
+      else { slots.push("?"); vals.push(v); }
+    }
+    const b = wsaveBytes(vals);
+    if (sqlParts.length && (params.length + vals.length > WSAVE_MAX_PARAMS || bytes + b > WSAVE_STMT_BYTES)) flush();
+    sqlParts.push("(" + slots.join(",") + ")");
+    for (const v of vals) params.push(v);
+    bytes += b;
+  }
+  flush();
+  return stmts;
+}
+
+// Runs the statements in order, up to 50 (and ~4 MB) per env.DB.batch. Returns the D1 results in order.
+async function wsaveRun(env, stmts) {
+  const out = [];
+  let group = [], bytes = 0;
+  const go = async () => { if (group.length) { const r = await env.DB.batch(group); for (const x of (r || [])) out.push(x); } group = []; bytes = 0; };
+  for (const s of stmts) {
+    if (group.length && (group.length >= WSAVE_BATCH_STMTS || bytes + s.bytes > WSAVE_BATCH_BYTES)) await go();
+    group.push(s.stmt); bytes += s.bytes;
+  }
+  await go();
+  return out;
+}
+
+// DELETE ... WHERE org_id = ? AND location_id = ? AND keyCol IN (90 ids), batched. Returns rows removed.
+async function wsaveDeleteIds(env, table, keyCol, orgId, locId, ids) {
+  const stmts = [];
+  for (let i = 0; i < ids.length; i += WSAVE_IN_CHUNK) {
+    const chunk = ids.slice(i, i + WSAVE_IN_CHUNK);
+    stmts.push({ stmt: env.DB.prepare(`DELETE FROM ${table} WHERE org_id = ? AND location_id = ? AND ${keyCol} IN (${chunk.map(() => "?").join(",")})`).bind(orgId, locId, ...chunk), bytes: wsaveBytes(chunk) });
+  }
+  let n = 0;
+  for (const r of await wsaveRun(env, stmts)) n += Number(r && r.meta && r.meta.changes || 0);
+  return n;
+}
+
+// One JSON document per id (pharmacovigilance, screening). items: the handler's de-duplicated list (first wins).
+// Writes the ones that are new or whose stored JSON differs. Returns how many were written.
+async function wsaveJsonDocs(env, table, keyCol, jsonCol, orgId, locId, userId, items) {
+  const keys = items.map((x) => String(x.id));
+  const docs = items.map((x) => JSON.stringify(x));
+  const stored = await wsaveStored(env, table, keyCol, [jsonCol], orgId, locId, keys);
+  const rows = [];
+  for (let i = 0; i < keys.length; i++) {
+    const s = stored.get(keys[i]);
+    if (s && s[jsonCol] === docs[i]) continue;
+    rows.push([orgId, locId, keys[i], docs[i], userId, userId]);
+  }
+  await wsaveRun(env, wsaveStatements(env,
+    `INSERT INTO ${table} (org_id, location_id, ${keyCol}, ${jsonCol}, created_by, updated_by, updated_at) VALUES `,
+    ["?", "?", "?", "?", "?", "?", "datetime('now')"],
+    ` ON CONFLICT(org_id, location_id, ${keyCol}) DO UPDATE SET
+      ${jsonCol} = excluded.${jsonCol}, updated_by = excluded.updated_by, updated_at = datetime('now')`, rows));
+  return rows.length;
+}
+
+const POCT_PAT_COLS = ["name", "phone", "age", "address", "created_at_iso", "updated_at_iso", "last_seen_iso", "conflicts_json", "patient_json"];
+const POCT_REC_COLS = ["test_type", "test_label", "performed_at_iso", "performed_at_local",
+  "patient_id", "patient_name", "patient_phone", "patient_age", "patient_address", "fee_due", "notes", "intervention",
+  "bp_sys", "bp_dia", "bp_pulse", "bp_arm", "bp_position",
+  "urine_leu", "urine_nit", "urine_uro", "urine_pro", "urine_ph", "urine_bld", "urine_ket", "urine_glu", "urine_appearance",
+  "hba1c_pct", "hba1c_mmol", "bg_glucose", "bg_timing",
+  "chol_tc", "chol_hdl", "chol_ldl", "chol_tg", "chol_ratio", "chol_fasting",
+  "bmi_weight", "bmi_height", "bmi_bmi", "bmi_category", "bmi_waist",
+  "results_json", "record_json", "updated_at_iso"];
+
+// POCT patients then records, as the old loops did. The same id twice in one save: the last copy's columns win
+// (each old upsert overwrote the one before), placed where the id first appeared; a patient's created_at_iso
+// stays the stored one unless that is '' (then the first copy's), as the old CASE gave.
+async function poctWriteChanged(env, orgId, locId, userId, cleanedPatients, cleanedRecords) {
+  const pats = new Map();
+  for (const p of cleanedPatients) {
+    const cols = poctExtractPatientColumns(p);
+    if (!cols.patient_id) continue;
+    const pp = p && typeof p === "object" ? p : {};
+    const prev = pats.get(cols.patient_id);
+    if (prev) cols.created_at_iso = prev.cols.created_at_iso;
+    pats.set(cols.patient_id, { cols, nowUpdated: !poctText(pp.updatedAtIso, 60) }); // a Map keeps the first position
+  }
+  const recs = new Map();
+  for (const r of cleanedRecords) {
+    const cols = poctExtractRecordColumns(r);
+    if (!cols.record_id) continue;
+    const rr = r && typeof r === "object" ? r : {};
+    const nowPerformed = !cols.performed_at_iso;
+    if (nowPerformed) cols.performed_at_iso = nowIso();
+    recs.set(cols.record_id, { cols, nowPerformed, nowUpdated: !poctText(rr.updatedAtIso, 60) });
+  }
+
+  const sp = await wsaveStored(env, "poct_patients", "patient_id", POCT_PAT_COLS, orgId, locId, [...pats.keys()]);
+  const patRows = [];
+  for (const [k, e] of pats) {
+    const s = sp.get(k);
+    let same = !!s && s.created_at_iso !== "";
+    if (same) for (const c of POCT_PAT_COLS) {
+      if (c === "created_at_iso" || (c === "updated_at_iso" && e.nowUpdated)) continue;
+      if (s[c] !== e.cols[c]) { same = false; break; }
+    }
+    if (same) continue;
+    const c = e.cols;
+    patRows.push([orgId, locId, c.patient_id, c.name, c.phone, c.age, c.address, c.created_at_iso, c.updated_at_iso, c.last_seen_iso, c.conflicts_json, c.patient_json, userId, userId]);
+  }
+
+  const sr = await wsaveStored(env, "poct_records", "record_id", POCT_REC_COLS, orgId, locId, [...recs.keys()]);
+  const recRows = [];
+  for (const [k, e] of recs) {
+    const s = sr.get(k);
+    let same = !!s;
+    if (same) for (const c of POCT_REC_COLS) {
+      if ((c === "updated_at_iso" && e.nowUpdated) || (c === "performed_at_iso" && e.nowPerformed)) continue;
+      if (s[c] !== e.cols[c]) { same = false; break; }
+    }
+    if (same) continue;
+    recRows.push([orgId, locId, k].concat(POCT_REC_COLS.map((c) => e.cols[c]), [userId, userId]));
+  }
+
+  const stmts = wsaveStatements(env, `INSERT INTO poct_patients (
+        org_id, location_id, patient_id, name, phone, age, address,
+        created_at_iso, updated_at_iso, last_seen_iso, conflicts_json, patient_json,
+        created_by, updated_by, updated_at
+      ) VALUES `, new Array(14).fill("?").concat(["datetime('now')"]), `
+      ON CONFLICT(org_id, location_id, patient_id) DO UPDATE SET
+        name = excluded.name,
+        phone = excluded.phone,
+        age = excluded.age,
+        address = excluded.address,
+        created_at_iso = CASE WHEN poct_patients.created_at_iso = '' THEN excluded.created_at_iso ELSE poct_patients.created_at_iso END,
+        updated_at_iso = excluded.updated_at_iso,
+        last_seen_iso = excluded.last_seen_iso,
+        conflicts_json = excluded.conflicts_json,
+        patient_json = excluded.patient_json,
+        updated_by = excluded.updated_by,
+        updated_at = datetime('now')`, patRows).concat(wsaveStatements(env,
+    `INSERT INTO poct_records (org_id, location_id, record_id, ${POCT_REC_COLS.join(", ")}, created_by, updated_by) VALUES `,
+    new Array(POCT_REC_COLS.length + 5).fill("?"),
+    ` ON CONFLICT(org_id, location_id, record_id) DO UPDATE SET ` + POCT_REC_COLS.map((c) => `${c}=excluded.${c}`).join(", ") + `, updated_by=excluded.updated_by, updated_at=datetime('now')`,
+    recRows));
+  await wsaveRun(env, stmts);
+  return { patients_written: patRows.length, records_written: recRows.length };
+}
+// ── End whole-state saves ──────────────────────────────────────────────────────────────────────────────
+
 async function handlePoctStateGet(request, env, corsOkHeaders, authUser, url) {
   if (!requireRole(authUser, ["admin", "staff"])) {
     return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
@@ -10863,203 +11132,10 @@ async function handlePoctStatePut(request, env, corsOkHeaders, authUser) {
     records_deleted: 0 };
 
   try {
-// Upsert patients
-    const upPatSql = `
-      INSERT INTO poct_patients (
-        org_id, location_id, patient_id, name, phone, age, address,
-        created_at_iso, updated_at_iso, last_seen_iso, conflicts_json, patient_json,
-        created_by, updated_by, updated_at
-      ) VALUES (
-        ?,?,?,?,?,?,?,?,?,?,?,?,?,?, datetime('now')
-      )
-      ON CONFLICT(org_id, location_id, patient_id) DO UPDATE SET
-        name = excluded.name,
-        phone = excluded.phone,
-        age = excluded.age,
-        address = excluded.address,
-        created_at_iso = CASE WHEN poct_patients.created_at_iso = '' THEN excluded.created_at_iso ELSE poct_patients.created_at_iso END,
-        updated_at_iso = excluded.updated_at_iso,
-        last_seen_iso = excluded.last_seen_iso,
-        conflicts_json = excluded.conflicts_json,
-        patient_json = excluded.patient_json,
-        updated_by = excluded.updated_by,
-        updated_at = datetime('now')
-    `;
-    const upPat = env.DB.prepare(upPatSql);
-
-    for (let i = 0; i < cleanedPatients.length; i++) {
-      const cols = poctExtractPatientColumns(cleanedPatients[i]);
-      if (!cols.patient_id) continue;
-      await upPat
-        .bind(
-          orgId,
-          locId,
-          cols.patient_id,
-          cols.name,
-          cols.phone,
-          cols.age,
-          cols.address,
-          cols.created_at_iso,
-          cols.updated_at_iso,
-          cols.last_seen_iso,
-          cols.conflicts_json,
-          cols.patient_json,
-          userId,
-          userId
-        )
-        .run();
-      counts.patients_upserted++;
-    }
-
-    // Upsert records
-    const upRecSql = `
-      INSERT INTO poct_records (
-        org_id, location_id, record_id, test_type, test_label, performed_at_iso, performed_at_local,
-        patient_id, patient_name, patient_phone, patient_age, patient_address,
-        fee_due, notes, intervention,
-        bp_sys, bp_dia, bp_pulse, bp_arm, bp_position,
-        urine_leu, urine_nit, urine_uro, urine_pro, urine_ph, urine_bld, urine_ket, urine_glu, urine_appearance,
-        hba1c_pct, hba1c_mmol,
-        bg_glucose, bg_timing,
-        chol_tc, chol_hdl, chol_ldl, chol_tg, chol_ratio, chol_fasting,
-        bmi_weight, bmi_height, bmi_bmi, bmi_category, bmi_waist,
-        results_json, record_json, updated_at_iso,
-        created_by, updated_by
-      ) VALUES (
-        ?,?,?,?,?,?,?,?,
-        ?,?,?,?,
-        ?,?,?,
-        ?,?,?,?,?,
-        ?,?,?,?,?,?,?,?,?,
-        ?,?,
-        ?,?,
-        ?,?,?,?,?,?,
-        ?,?,?,?,?,
-        ?,?,?,
-        ?,?
-      )
-      ON CONFLICT(org_id, location_id, record_id) DO UPDATE SET
-        test_type=excluded.test_type,
-        test_label=excluded.test_label,
-        performed_at_iso=excluded.performed_at_iso,
-        performed_at_local=excluded.performed_at_local,
-        patient_id=excluded.patient_id,
-        patient_name=excluded.patient_name,
-        patient_phone=excluded.patient_phone,
-        patient_age=excluded.patient_age,
-        patient_address=excluded.patient_address,
-        fee_due=excluded.fee_due,
-        notes=excluded.notes,
-        intervention=excluded.intervention,
-        bp_sys=excluded.bp_sys,
-        bp_dia=excluded.bp_dia,
-        bp_pulse=excluded.bp_pulse,
-        bp_arm=excluded.bp_arm,
-        bp_position=excluded.bp_position,
-        urine_leu=excluded.urine_leu,
-        urine_nit=excluded.urine_nit,
-        urine_uro=excluded.urine_uro,
-        urine_pro=excluded.urine_pro,
-        urine_ph=excluded.urine_ph,
-        urine_bld=excluded.urine_bld,
-        urine_ket=excluded.urine_ket,
-        urine_glu=excluded.urine_glu,
-        urine_appearance=excluded.urine_appearance,
-        hba1c_pct=excluded.hba1c_pct,
-        hba1c_mmol=excluded.hba1c_mmol,
-        bg_glucose=excluded.bg_glucose,
-        bg_timing=excluded.bg_timing,
-        chol_tc=excluded.chol_tc,
-        chol_hdl=excluded.chol_hdl,
-        chol_ldl=excluded.chol_ldl,
-        chol_tg=excluded.chol_tg,
-        chol_ratio=excluded.chol_ratio,
-        chol_fasting=excluded.chol_fasting,
-        bmi_weight=excluded.bmi_weight,
-        bmi_height=excluded.bmi_height,
-        bmi_bmi=excluded.bmi_bmi,
-        bmi_category=excluded.bmi_category,
-        bmi_waist=excluded.bmi_waist,
-        results_json=excluded.results_json,
-        record_json=excluded.record_json,
-        updated_at_iso=excluded.updated_at_iso,
-        updated_by=excluded.updated_by,
-        updated_at=datetime('now')
-    `;
-    const upRec = env.DB.prepare(upRecSql);
-
-    for (let k = 0; k < cleanedRecords.length; k++) {
-      const cols = poctExtractRecordColumns(cleanedRecords[k]);
-      if (!cols.record_id) continue;
-      // performed_at_iso is required in schema; best-effort fallback
-      if (!cols.performed_at_iso) cols.performed_at_iso = nowIso();
-
-      await upRec
-        .bind(
-          orgId,
-          locId,
-          cols.record_id,
-          cols.test_type,
-          cols.test_label,
-          cols.performed_at_iso,
-          cols.performed_at_local,
-
-          cols.patient_id,
-          cols.patient_name,
-          cols.patient_phone,
-          cols.patient_age,
-          cols.patient_address,
-
-          cols.fee_due,
-          cols.notes,
-          cols.intervention,
-
-          cols.bp_sys,
-          cols.bp_dia,
-          cols.bp_pulse,
-          cols.bp_arm,
-          cols.bp_position,
-
-          cols.urine_leu,
-          cols.urine_nit,
-          cols.urine_uro,
-          cols.urine_pro,
-          cols.urine_ph,
-          cols.urine_bld,
-          cols.urine_ket,
-          cols.urine_glu,
-          cols.urine_appearance,
-
-          cols.hba1c_pct,
-          cols.hba1c_mmol,
-
-          cols.bg_glucose,
-          cols.bg_timing,
-
-          cols.chol_tc,
-          cols.chol_hdl,
-          cols.chol_ldl,
-          cols.chol_tg,
-          cols.chol_ratio,
-          cols.chol_fasting,
-
-          cols.bmi_weight,
-          cols.bmi_height,
-          cols.bmi_bmi,
-          cols.bmi_category,
-          cols.bmi_waist,
-
-          cols.results_json,
-          cols.record_json,
-          cols.updated_at_iso,
-
-          userId,
-          userId
-        )
-        .run();
-
-      counts.records_upserted++;
-    }
+    // Only new or changed patients and records are written, many per statement (see poctWriteChanged).
+    for (const p of cleanedPatients) if (poctExtractPatientColumns(p).patient_id) counts.patients_upserted++;
+    for (const r of cleanedRecords) if (poctText(r && r.id, 120)) counts.records_upserted++;
+    Object.assign(counts, await poctWriteChanged(env, orgId, locId, userId, cleanedPatients, cleanedRecords));
 
     // Deletes are explicit. A PC never deletes what it did not load: the client sends the
     // ids the user actually deleted (deleted_record_ids / deleted_patient_ids). A payload
@@ -11077,22 +11153,8 @@ async function handlePoctStatePut(request, env, corsOkHeaders, authUser) {
       counts.patients_deleted += Number(n2 && n2.c || 0);
       await writeAudit(env, orgId, userId, "POCT_WIPE_ALL", "poct_records", "", { records: counts.records_deleted, patients: counts.patients_deleted }, authUser.location_id);
     } else {
-      const recChunks = poctChunk(delRec, 800);
-      for (let c = 0; c < recChunks.length; c++) {
-        const chunk = recChunks[c];
-        if (!chunk.length) continue;
-        const qs = chunk.map(() => "?").join(",");
-        const r = await dbRun(env, `DELETE FROM poct_records WHERE org_id = ? AND location_id = ? AND record_id IN (${qs})`, [orgId, locId, ...chunk]);
-        counts.records_deleted += Number(r && r.meta && r.meta.changes || 0);
-      }
-      const patChunks = poctChunk(delPat, 800);
-      for (let d = 0; d < patChunks.length; d++) {
-        const chunk2 = patChunks[d];
-        if (!chunk2.length) continue;
-        const qs2 = chunk2.map(() => "?").join(",");
-        const r2 = await dbRun(env, `DELETE FROM poct_patients WHERE org_id = ? AND location_id = ? AND patient_id IN (${qs2})`, [orgId, locId, ...chunk2]);
-        counts.patients_deleted += Number(r2 && r2.meta && r2.meta.changes || 0);
-      }
+      counts.records_deleted += await wsaveDeleteIds(env, "poct_records", "record_id", orgId, locId, delRec);
+      counts.patients_deleted += await wsaveDeleteIds(env, "poct_patients", "patient_id", orgId, locId, delPat);
     }
 
     await writeAudit(env, orgId, userId, "POCT_STATE_PUT", "poct_records", "", counts, authUser.location_id);
@@ -13634,6 +13696,8 @@ async function handleShiftApplyPattern(request, env, corsOkHeaders, authUser) {
     return jsonResponse({ ok:false, error:"start_date and end_date required (YYYY-MM-DD)" }, 400, corsOkHeaders);
   }
   if (end < start) return jsonResponse({ ok:false, error:"end_date must be >= start_date" }, 400, corsOkHeaders);
+  { const ms = (d) => { const [Y, M, D] = d.split("-").map((n) => parseInt(n, 10)); return Date.UTC(Y, M - 1, D); };
+    if ((ms(end) - ms(start)) / 864e5 >= BIMP_SHIFT_MAX_DAYS) return jsonResponse({ ok:false, error:"A pattern can cover at most 10 years (3,660 days) at a time" }, 400, corsOkHeaders); }
 
   // Normalize inputs
   const explicitDates = Array.isArray(body.dates) ? body.dates : null;
@@ -13683,6 +13747,7 @@ async function handleShiftApplyPattern(request, env, corsOkHeaders, authUser) {
   } else {
     return jsonResponse({ ok:false, error:"Provide either body.dates[] or body.pattern.week[]" }, 400, corsOkHeaders);
   }
+  if (rows.length > BIMP_SHIFT_MAX_ROWS) return jsonResponse({ ok:false, error:"At most 3,660 shifts can be applied at a time" }, 400, corsOkHeaders);
 
   // Determine which dates already have shifts (for fill mode)
   let existing = new Set();
@@ -13697,14 +13762,16 @@ async function handleShiftApplyPattern(request, env, corsOkHeaders, authUser) {
   }
 
   let inserted = 0;
+  const insRows = [];
   for (const r of rows) {
     if (mode === "fill" && existing.has(r.date)) continue;
-    await dbRun(env,
-      `INSERT INTO shift_assignments (org_id, location_id, staff_id, shift_date, start_time, end_time, role_override, notes, created_at, updated_at, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), ?)`,
-      [authUser.org_id, authUser.location_id, staffId, r.date, r.start_time, r.end_time, r.role_override || "", r.notes || "", authUser.user_id]);
+    insRows.push([null, null, null, r.date, r.start_time, r.end_time, r.role_override || "", r.notes || ""]);
     inserted++;
   }
+  await wsaveRun(env, bimpStatements(env,
+      `INSERT INTO shift_assignments (org_id, location_id, staff_id, shift_date, start_time, end_time, role_override, notes, created_at, updated_at, created_by)
+       VALUES `, [authUser.org_id, authUser.location_id, staffId, authUser.user_id],
+      ["?1", "?2", "?3", "?", "?", "?", "?", "?", "datetime('now')", "datetime('now')", "?4"], "", insRows));
 
   await writeAudit(env, authUser.org_id, authUser.user_id, "SHIFT_APPLY_PATTERN", "shift_assignments", String(staffId), { mode, start, end, inserted }, authUser.location_id);
 
@@ -16172,7 +16239,7 @@ async function handlePeopleSearch(request, env, corsOkHeaders, authUser) {
     .filter((g) => !known.has(g.key) && !(g.id_card && known.has("id:" + g.id_card)))
     .sort((a, b) => (b.last_date > a.last_date ? 1 : b.last_date < a.last_date ? -1 : a.name.localeCompare(b.name)))
     .slice(0, limit);
-  return jsonResponse({ ok: true, q: raw, people, history }, 200, corsOkHeaders);
+  return jsonResponse({ ok: true, q: raw, people, history: await peopleLinksHideHistory(env, org, loc, rowsByKind, history, people) }, 200, corsOkHeaders); // people links block (b)
 }
 
 async function peopleLoad(env, org, loc, id) {
@@ -16219,6 +16286,7 @@ async function handlePersonGet(request, env, corsOkHeaders, authUser, id) {
     counts[src.kind] = rows.length;
     for (const r of rows) activity.push({ kind: src.kind, label: src.label, table: src.table, id: r.id, date: String(r.date || "").slice(0, 10), title: String(r.title || "").slice(0, 200), ref: r.ref || "", doctor: r.doctor || "" });
   }
+  const linkGroups = await peopleLinksAddToActivity(env, org, loc, Array.from(new Set([person.id, id])), activity); // people links block (b)
   activity.sort((a, b) => (b.date > a.date ? 1 : b.date < a.date ? -1 : 0));
 
   // Two facts the counter asks for by name: loyalty points, and the next booking.
@@ -16244,7 +16312,7 @@ async function handlePersonGet(request, env, corsOkHeaders, authUser, id) {
     }
   } catch (e) { /* appointments not set up here */ }
 
-  return jsonResponse({ ok: true, person, activity: activity.slice(0, limit), counts, loyalty, next_appointment: nextAppointment }, 200, corsOkHeaders);
+  return jsonResponse({ ok: true, person, activity: activity.slice(0, limit), counts, loyalty, next_appointment: nextAppointment, link_groups: linkGroups }, 200, corsOkHeaders);
 }
 
 function peopleCleanBody(body) {
@@ -16312,6 +16380,7 @@ async function handlePersonSave(request, env, corsOkHeaders, authUser) {
       return jsonResponse({ ok: true, person: target, created: false, existing: true }, 200, corsOkHeaders);
     }
   }
+  { const r = await peopleCreateNoCardExisting(env, authUser, clean, corsOkHeaders); if (r) return r; } // people links block (a)
   const source = String(body.source || "manual").slice(0, 40);
   const row = await dbFirst(env,
     "INSERT INTO people (org_id, location_id, id_card, name, phone, alt_phone, email, address, doctor_name, date_of_birth, notes, source, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
@@ -16752,6 +16821,434 @@ async function handlePersonIdCardChanges(request, env, corsOkHeaders, authUser, 
 // end of the ID card change block
 // ===================================================================================
 
+// ===================================================================================
+// People, server side (BACKLOG2 item 12; PEOPLE-AUDIT §5.3, DUPES-DESIGN). Separate block:
+// the code above calls into it only through one-line hooks, each marked "people links block".
+//
+//  (a) Small fixes
+//    - PEOPLE_SOURCES gains five read-only sources (bookings, bookings waiting list, vaccine
+//      orders, credit notes, client contacts): Customers search, the timeline and the backfill
+//      see them. Nothing here writes to them. The ID card change keeps its own table list.
+//    - POST /people without an ID card returns the one existing person with the same name and
+//      the same phone digits or e-mail (existing: true), the rule the UI uses since .130.
+//    - Loyalty: new writes store normalizeMtIdCard; a client already stored under the old
+//      normaliser's spelling keeps that row. No existing row is changed.
+//    - /contacts/clients/aggregated: one client per name + normalised ID card.
+//  (b) Links (DUPES-DESIGN): "these records are one person", insert-only.
+//    - people_links / people_not_same are new tables. No existing table is altered, updated or
+//      deleted from; the only UPDATE is people_links.undone_at (and its own bookkeeping
+//      columns) on rows this block inserted, and people_not_same.undone_at.
+//    - Every read and write is org_id = ? AND location_id = ? of the caller.
+//    - Table names come from PEOPLE_LINK_KINDS (an allow-list keyed by kind), never from a request.
+// ===================================================================================
+
+// (a) Read-only sources added to Customers search, the timeline and the backfill.
+const PEOPLE_SOURCES_MORE = [
+  { kind: "booking",          label: "Booking",               table: "bk_bookings",      name: "person_name", id_card: "person_id_card", phone: "person_phone", email: "person_email", date: "date",       title: "notes",       ref: "ref" },
+  { kind: "booking_waitlist", label: "Bookings waiting list", table: "bk_waitlist",      name: "person_name",                            phone: "person_phone", email: "person_email", date: "created_at", title: "note" },
+  { kind: "vaccine",          label: "Vaccine order",         table: "vaccines_orders",  name: "TRIM(client_first || ' ' || client_last)", phone: "phone",   email: "email",        date: "created_at", title: "country_name" },
+  { kind: "credit_note",      label: "Credit note",           table: "credit_notes",     name: "TRIM(client_name || ' ' || client_surname)", phone: "telephone", email: "email",    date: "issue_date", title: "receipt_number" },
+  { kind: "contact",          label: "Client contact",        table: "contacts_clients", name: "name",        id_card: "id_card",        phone: "phone",        alt_phone: "alt_phone", address: "address", date: "updated_at" }
+];
+for (const s of PEOPLE_SOURCES_MORE) if (!PEOPLE_SOURCES.some((x) => x.kind === s.kind)) PEOPLE_SOURCES.push(s);
+
+// Phones compared on their digits, without Malta's +356 / 00356 (E.people.normPhone in the UI, line for line).
+function peoplePhoneDigits(raw) {
+  let d = String(raw == null ? "" : raw).replace(/\D+/g, "");
+  if (d.length > 8 && d.indexOf("00356") === 0) d = d.slice(5);
+  else if (d.length === 11 && d.indexOf("356") === 0) d = d.slice(3);
+  return d;
+}
+function peopleNameKey(raw) { return String(raw || "").trim().replace(/\s+/g, " ").toLowerCase(); }
+
+// (a) POST /people without an ID card: the one person with the same name and the same phone or e-mail, and no phone
+// or e-mail that differs (the UI's find(), rules 2 and "conflicts"). Returns a Response, or null to insert as before.
+async function peopleCreateNoCardExisting(env, authUser, clean, corsOkHeaders) {
+  if (!clean || clean.id_card || !clean.name) return null;
+  const org = authUser.org_id, loc = authUser.location_id;
+  const k = peopleNameKey(clean.name);
+  const rows = await dbAll(env, "SELECT * FROM people WHERE org_id = ? AND location_id = ? AND merged_into IS NULL AND (LOWER(name) = LOWER(?) OR name = ?) ORDER BY id LIMIT 50", [org, loc, clean.name, clean.name]);
+  const wPhones = [peoplePhoneDigits(clean.phone), peoplePhoneDigits(clean.alt_phone)].filter(Boolean);
+  const wEmail = String(clean.email || "").toLowerCase();
+  if (!wPhones.length && !wEmail) return null;
+  const sure = rows.map(peopleRowToPerson).filter((p) => {
+    if (peopleNameKey(p.name) !== k) return false;
+    const pp = [peoplePhoneDigits(p.phone), peoplePhoneDigits(p.alt_phone)].filter(Boolean);
+    if (wPhones.length && pp.length && !wPhones.some((x) => pp.includes(x))) return false;     // a different phone: a namesake
+    if (wEmail && p.email && String(p.email).toLowerCase() !== wEmail) return false;           // a different e-mail: a namesake
+    return wPhones.some((x) => pp.includes(x)) || (!!wEmail && String(p.email || "").toLowerCase() === wEmail);
+  });
+  if (sure.length !== 1) return null; // nobody, or two possible people: insert as before (staff link or merge later)
+  const target = sure[0];
+  const fill = {};
+  for (const f of PEOPLE_FIELDS) if (f !== "id_card" && f !== "name" && !target[f] && clean[f]) fill[f] = clean[f];
+  if (!Object.keys(fill).length) return jsonResponse({ ok: true, person: target, created: false, existing: true, matched: "name+contact" }, 200, corsOkHeaders);
+  const next = Object.assign({}, target, fill);
+  const res = await dbRun(env, "UPDATE people SET phone = ?, alt_phone = ?, email = ?, address = ?, doctor_name = ?, date_of_birth = ?, notes = ?, version = version + 1, updated_at = datetime('now'), updated_by = ? WHERE id = ? AND org_id = ? AND location_id = ? AND version = ?",
+    [next.phone, next.alt_phone, next.email, next.address, next.doctor_name, next.date_of_birth, next.notes, authUser.user_id, target.id, org, loc, target.version]);
+  const after = await peopleLoad(env, org, loc, target.id);
+  if (res && res.meta && !res.meta.changes) return jsonResponse({ ok: true, person: after, created: false, existing: true, matched: "name+contact" }, 200, corsOkHeaders);
+  await writeAudit(env, org, authUser.user_id, "PERSON_UPDATE", "people", String(target.id), { location_id: loc, before: target, after, filled: Object.keys(fill), matched: "name+contact" });
+  return jsonResponse({ ok: true, person: after, created: false, existing: true, matched: "name+contact" }, 200, corsOkHeaders);
+}
+
+// (a) Loyalty: the card a NEW write stores. normalizeMtIdCard, unless this client is already stored under the old
+// normaliser's spelling (normMtIdCard: digits-only padded, inner spaces kept), in which case that row is used.
+async function loyaltyIdCardForWrite(env, authUser, rawCard) {
+  const raw = String(rawCard || "").trim();
+  const next = normalizeMtIdCard(raw) || raw;
+  const old = normMtIdCard(raw) || raw;
+  if (!old || old === next) return next;
+  try {
+    const rows = await dbAll(env, "SELECT id_card FROM loyalty_clients WHERE org_id = ? AND location_id = ? AND id_card IN (?, ?)", [authUser.org_id, authUser.location_id, next, old]);
+    if (!rows.some((r) => r.id_card === next) && rows.some((r) => r.id_card === old)) return old;
+  } catch (e) { /* loyalty not set up: the new spelling */ }
+  return next;
+}
+
+// (a) /contacts/clients/aggregated: one client per name + normalised ID card ("123456 m" = "0123456M").
+function contactsAggregatedKey(name, idCard) { return String(name || "").trim().toLowerCase() + "|" + normalizeMtIdCard(idCard).toLowerCase(); }
+
+// (b) Which records may be linked, and where each lives. `key` is the column the record's id is (TEXT in
+// people_links.source_id). `card` the ID card column (null: no card). Screening participants live in JSON.
+const PEOPLE_LINK_KINDS = {
+  people:           { table: "people",                      key: "id",         card: "id_card",         name: "name",         date: "updated_at",     label: "Customer card" },
+  order:            { table: "client_orders_entries",       key: "id",         card: null,              name: "client_name",  date: "order_date",     label: "Order",               title: "items_text", ref: "order_code" },
+  question:         { table: "client_tickets_entries",      key: "id",         card: null,              name: "client_name",  date: "open_date",      label: "Question",            title: "issue", ref: "ticket_id" },
+  delivery:         { table: "client_deliveries",           key: "id",         card: null,              name: "client_name",  date: "order_date",     label: "Delivery",            title: "items", ref: "delivery_id" },
+  dda_sale:         { table: "dda_sales_entries",           key: "id",         card: "client_id_card",  name: "client_name",  date: "entry_date",     label: "DDA sale",            title: "medicine_name_dose", ref: "prescription_serial_no" },
+  poyc:             { table: "dda_poyc_entries",            key: "id",         card: "client_id_card",  name: "client_name",  date: "entry_date",     label: "POYC",                title: "medicine_name_dose", ref: "prescription_serial_no" },
+  repeat:           { table: "repeat_prescription_entries", key: "id",         card: "client_id",       name: "client_name",  date: "entry_date",     label: "Repeat prescription", title: "medicine_name_dose" },
+  poct:             { table: "poct_patients",               key: "patient_id", card: "patient_id",      name: "name",         date: "last_seen_iso",  label: "POCT" },
+  loyalty:          { table: "loyalty_clients",             key: "id",         card: "id_card",         name: "name",         date: "created_at",     label: "Loyalty" },
+  appointment:      { table: "appt_appointments",           key: "id",         card: "patient_id_card", name: "patient_name", date: "date",           label: "Appointment",         title: "notes", ref: "appt_ref" },
+  waitlist:         { table: "appt_waitlist",               key: "id",         card: "patient_id_card", name: "patient_name", date: "added_date",     label: "Waiting list",        ref: "wl_ref" },
+  calculator:       { table: "pharmacy_calc_patients",      key: "id",         card: "id_card",         name: "patient_name", date: "updated_at",     label: "Calculator" },
+  booking:          { table: "bk_bookings",                 key: "id",         card: "person_id_card",  name: "person_name",  date: "date",           label: "Booking",             title: "notes", ref: "ref" },
+  booking_waitlist: { table: "bk_waitlist",                 key: "id",         card: null,              name: "person_name",  date: "created_at",     label: "Bookings waiting list", title: "note" },
+  vaccine:          { table: "vaccines_orders",             key: "id",         card: null,              name: "TRIM(client_first || ' ' || client_last)", date: "created_at", label: "Vaccine order", title: "country_name" },
+  credit_note:      { table: "credit_notes",                key: "id",         card: null,              name: "TRIM(client_name || ' ' || client_surname)", date: "issue_date", label: "Credit note", title: "receipt_number" },
+  contact:          { table: "contacts_clients",            key: "id",         card: "id_card",         name: "name",         date: "updated_at",     label: "Client contact" },
+  screening:        { table: "screening_campaigns",         key: "campaign_id", json: true,                                   date: "updated_at",     label: "Screening" }
+};
+const PEOPLE_LINK_MAX = 50;
+const PEOPLE_LINK_ROLES = ["admin", "staff"];
+
+async function ensurePeopleLinksSchema__impl(env) {
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS people_links (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id INTEGER NOT NULL,
+    location_id INTEGER NOT NULL,
+    link_group TEXT NOT NULL,
+    source_kind TEXT NOT NULL,
+    source_table TEXT NOT NULL,
+    source_id TEXT NOT NULL,
+    op_id TEXT NOT NULL DEFAULT '',
+    moved_from INTEGER,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    created_by INTEGER,
+    undone_at TEXT,
+    undone_by INTEGER,
+    undone_why TEXT)`, []);
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_people_links_group ON people_links (org_id, location_id, link_group)", []);
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_people_links_source ON people_links (org_id, location_id, source_table, source_id)", []);
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_people_links_op ON people_links (org_id, location_id, op_id)", []);
+  await dbRun(env, "CREATE UNIQUE INDEX IF NOT EXISTS uq_people_links_live ON people_links (org_id, location_id, source_table, source_id) WHERE undone_at IS NULL", []);
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS people_not_same (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id INTEGER NOT NULL,
+    location_id INTEGER NOT NULL,
+    fingerprint TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    created_by INTEGER,
+    undone_at TEXT,
+    undone_by INTEGER,
+    UNIQUE (org_id, location_id, fingerprint))`, []);
+}
+const ensurePeopleLinksSchema = schemaOnce("ensurePeopleLinksSchema", ensurePeopleLinksSchema__impl);
+
+// Only something that can be an ID card tells people apart (modules.dupreg.js idKey): a digit, 4+ characters, not all zeros.
+function peopleLinkCardKey(raw) {
+  const n = normalizeMtIdCard(raw);
+  if (n.length < 4 || !/\d/.test(n) || /^0+[A-Z]?$/.test(n)) return "";
+  return n;
+}
+
+// One record in THIS pharmacy, or null. { kind, table, source_id, card, name, date, title, ref }.
+async function peopleLinkRecord(env, org, loc, kind, rawId) {
+  const d = PEOPLE_LINK_KINDS[kind];
+  if (!d) return null;
+  const sid = String(rawId == null ? "" : rawId).trim();
+  if (!sid || sid.length > 200) return null;
+  try {
+    if (d.json) { // screening: "<campaign id>/<participant id>"
+      const i = sid.lastIndexOf("/");
+      if (i <= 0 || i === sid.length - 1) return null;
+      const row = await dbFirst(env, "SELECT campaign_json, updated_at FROM screening_campaigns WHERE org_id = ? AND location_id = ? AND campaign_id = ?", [org, loc, sid.slice(0, i)]);
+      if (!row) return null;
+      let c = null; try { c = JSON.parse(String(row.campaign_json || "")); } catch (e) { c = null; }
+      const p = c && Array.isArray(c.participants) ? c.participants.find((x) => x && String(x.id) === sid.slice(i + 1)) : null;
+      if (!p) return null;
+      return { kind, table: d.table, source_id: sid, card: String(p.idCard || ""), name: String(p.name || ""), date: String(p.date || row.updated_at || ""), title: String(c.name || ""), ref: "" };
+    }
+    if (d.key === "id" && !/^\d{1,15}$/.test(sid)) return null;
+    const sel = "SELECT " + d.key + " AS k, " + (d.card ? d.card : "''") + " AS card, " + d.name + " AS name, " + d.date + " AS date, " + (d.title || "''") + " AS title, " + (d.ref || "''") + " AS ref FROM " + d.table +
+      " WHERE org_id = ? AND location_id = ? AND " + d.key + " = ?";
+    const r = await dbFirst(env, sel, [org, loc, d.key === "id" ? Number(sid) : sid]);
+    if (!r) return null;
+    return { kind, table: d.table, source_id: String(r.k), card: String(r.card || ""), name: String(r.name || ""), date: String(r.date || ""), title: String(r.title || ""), ref: String(r.ref || "") };
+  } catch (e) { return null; } // table not created for this pharmacy
+}
+
+function peopleLinkRowOut(r) {
+  return { id: r.id, link_group: r.link_group, kind: r.source_kind, source_id: r.source_id, created_at: r.created_at, created_by: r.created_by, undone_at: r.undone_at || null };
+}
+async function peopleLinksLive(env, org, loc, groups) {
+  if (!groups.length) return [];
+  return dbAllChunked(env, (ph) => "SELECT * FROM people_links WHERE org_id = ? AND location_id = ? AND undone_at IS NULL AND link_group IN (" + ph + ") ORDER BY id", groups, [org, loc]);
+}
+// Live links of the given (table, source_id) pairs.
+async function peopleLinksOfSources(env, org, loc, pairs) {
+  const byTable = {};
+  for (const p of pairs) (byTable[p.table] = byTable[p.table] || new Set()).add(String(p.source_id));
+  const out = [];
+  for (const t of Object.keys(byTable)) {
+    const ids = Array.from(byTable[t]);
+    out.push(...await dbAllChunked(env, (ph) => "SELECT * FROM people_links WHERE org_id = ? AND location_id = ? AND undone_at IS NULL AND source_table = ? AND source_id IN (" + ph + ")", ids, [org, loc, t]));
+  }
+  return out;
+}
+
+// POST /people/links { records: [{ kind, id }, …] } — says these records are one person. Nothing else is written.
+async function handlePeopleLinkCreate(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, PEOPLE_LINK_ROLES)) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  const org = authUser.org_id, loc = authUser.location_id;
+  const body = (await readJson(request)) || {};
+  const list = Array.isArray(body.records) ? body.records : [];
+  if (list.length > PEOPLE_LINK_MAX) return jsonResponse({ ok: false, error: "Link at most " + PEOPLE_LINK_MAX + " records at a time" }, 400, corsOkHeaders);
+  const want = [], seen = new Set();
+  for (const x of list) {
+    const kind = String((x && x.kind) || "");
+    if (!Object.prototype.hasOwnProperty.call(PEOPLE_LINK_KINDS, kind)) return jsonResponse({ ok: false, error: "Unknown kind of record", kind: kind.slice(0, 40) }, 400, corsOkHeaders);
+    const k = kind + ":" + String(x.id);
+    if (!seen.has(k)) { seen.add(k); want.push({ kind, id: x.id }); }
+  }
+  if (want.length < 2) return jsonResponse({ ok: false, error: "Choose at least two records" }, 400, corsOkHeaders);
+  await ensurePeopleLinksSchema(env);
+
+  // 1. Every record exists in THIS pharmacy; any miss -> 404, nothing written.
+  const recs = [];
+  for (const w of want) {
+    const r = await peopleLinkRecord(env, org, loc, w.kind, w.id);
+    if (!r) return jsonResponse({ ok: false, error: "Record not found", kind: w.kind, id: String(w.id).slice(0, 60) }, 404, corsOkHeaders);
+    recs.push(r);
+  }
+  // 2. The groups these records are already in, and every member of those groups.
+  const already = await peopleLinksOfSources(env, org, loc, recs);
+  const groups = Array.from(new Set(already.map((l) => l.link_group)));
+  const members = await peopleLinksLive(env, org, loc, groups);
+  // 3. Two different ID cards among the records and their groups' members -> 409, nothing written.
+  const cards = new Set(recs.map((r) => peopleLinkCardKey(r.card)).filter(Boolean));
+  const inReq = new Set(recs.map((r) => r.table + ":" + r.source_id));
+  for (const m of members) {
+    if (inReq.has(m.source_table + ":" + m.source_id)) continue;
+    const r = await peopleLinkRecord(env, org, loc, m.source_kind, m.source_id);
+    const c = r ? peopleLinkCardKey(r.card) : "";
+    if (c) cards.add(c);
+  }
+  if (cards.size > 1) return jsonResponse({ ok: false, error: "These records have different ID cards, so they are not one person", id_cards: Array.from(cards) }, 409, corsOkHeaders);
+
+  // 4. One group: the oldest of the groups already there, else a new one. Members of a younger group move into it
+  // (their row goes out of force and a new row points back at it, so undoing this link puts them back).
+  const firstId = {};
+  for (const m of members) if (!(m.link_group in firstId) || m.id < firstId[m.link_group]) firstId[m.link_group] = m.id;
+  const target = groups.length ? groups.slice().sort((a, b) => firstId[a] - firstId[b])[0] : "lg_" + crypto.randomUUID();
+  const opId = "lop_" + crypto.randomUUID();
+  const stmts = [];
+  const ins = "INSERT INTO people_links (org_id, location_id, link_group, source_kind, source_table, source_id, op_id, moved_from, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING";
+  const moved = members.filter((m) => m.link_group !== target);
+  for (const m of moved) {
+    stmts.push(env.DB.prepare("UPDATE people_links SET undone_at = datetime('now'), undone_by = ?, undone_why = ? WHERE id = ? AND org_id = ? AND location_id = ? AND undone_at IS NULL").bind(authUser.user_id, "moved:" + opId, m.id, org, loc));
+    stmts.push(env.DB.prepare(ins).bind(org, loc, target, m.source_kind, m.source_table, m.source_id, opId, m.id, authUser.user_id));
+  }
+  const live = new Set(members.filter((m) => m.link_group === target).map((m) => m.source_table + ":" + m.source_id));
+  for (const m of moved) live.add(m.source_table + ":" + m.source_id);
+  for (const r of recs) if (!live.has(r.table + ":" + r.source_id)) stmts.push(env.DB.prepare(ins).bind(org, loc, target, r.kind, r.table, r.source_id, opId, null, authUser.user_id));
+  if (stmts.length) await env.DB.batch(stmts);
+  const made = await dbAll(env, "SELECT * FROM people_links WHERE org_id = ? AND location_id = ? AND op_id = ? ORDER BY id", [org, loc, opId]);
+  const all = await peopleLinksLive(env, org, loc, [target]);
+  if (made.length) {
+    await writeAudit(env, org, authUser.user_id, "PERSON_LINK", "people_links", target, auditWith({ location_id: loc, op_id: opId,
+      records: recs.map((r) => ({ kind: r.kind, id: r.source_id })), moved_from_groups: Array.from(new Set(moved.map((m) => m.link_group))) },
+      members.map(peopleLinkRowOut), made.map(peopleLinkRowOut)), loc);
+  }
+  return jsonResponse({ ok: true, link_group: target, link_ids: made.map((r) => r.id), already: !made.length, links: all.map(peopleLinkRowOut) }, 200, corsOkHeaders);
+}
+
+// POST /people/links/undo { link_ids: [...] } — those links go out of force; links this one moved come back.
+async function handlePeopleLinkUndo(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, PEOPLE_LINK_ROLES)) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  const org = authUser.org_id, loc = authUser.location_id;
+  const body = (await readJson(request)) || {};
+  const ids = Array.from(new Set((Array.isArray(body.link_ids) ? body.link_ids : []).map(Number).filter((n) => Number.isInteger(n) && n > 0)));
+  if (!ids.length) return jsonResponse({ ok: false, error: "Nothing to undo" }, 400, corsOkHeaders);
+  if (ids.length > 500) return jsonResponse({ ok: false, error: "Too many links at once" }, 400, corsOkHeaders);
+  await ensurePeopleLinksSchema(env);
+  const rows = await dbAllChunked(env, (ph) => "SELECT * FROM people_links WHERE org_id = ? AND location_id = ? AND id IN (" + ph + ") ORDER BY id", ids, [org, loc]);
+  if (rows.length !== ids.length) return jsonResponse({ ok: false, error: "Link not found" }, 404, corsOkHeaders); // another pharmacy's, or none: nothing written
+  const liveRows = rows.filter((r) => !r.undone_at);
+  if (!liveRows.length) return jsonResponse({ ok: true, undone: 0, restored: 0, already: true }, 200, corsOkHeaders);
+  const stmts = [];
+  for (const r of liveRows) stmts.push(env.DB.prepare("UPDATE people_links SET undone_at = datetime('now'), undone_by = ?, undone_why = 'undo' WHERE id = ? AND org_id = ? AND location_id = ? AND undone_at IS NULL").bind(authUser.user_id, r.id, org, loc));
+  // A link this one moved into its group comes back into force, if nothing else holds that record now.
+  const back = liveRows.filter((r) => r.moved_from);
+  for (const r of back) {
+    stmts.push(env.DB.prepare("UPDATE people_links SET undone_at = NULL, undone_by = NULL, undone_why = NULL WHERE id = ? AND org_id = ? AND location_id = ? AND undone_why = ? AND NOT EXISTS (SELECT 1 FROM people_links x WHERE x.org_id = ? AND x.location_id = ? AND x.source_table = ? AND x.source_id = ? AND x.undone_at IS NULL)")
+      .bind(r.moved_from, org, loc, "moved:" + r.op_id, org, loc, r.source_table, r.source_id));
+  }
+  await env.DB.batch(stmts);
+  const after = await dbAllChunked(env, (ph) => "SELECT * FROM people_links WHERE org_id = ? AND location_id = ? AND id IN (" + ph + ") ORDER BY id", ids.concat(back.map((r) => r.moved_from)), [org, loc]);
+  const restored = after.filter((r) => back.some((b) => b.moved_from === r.id) && !r.undone_at).length;
+  await writeAudit(env, org, authUser.user_id, "PERSON_UNLINK", "people_links", liveRows[0].link_group, auditWith({ location_id: loc, link_ids: liveRows.map((r) => r.id), restored },
+    liveRows.map(peopleLinkRowOut), after.map(peopleLinkRowOut)), loc);
+  return jsonResponse({ ok: true, undone: liveRows.length, restored }, 200, corsOkHeaders);
+}
+
+// GET /people/links?group=  — the live links of one group (404 when this pharmacy has none);
+// GET /people/links          — every live link of this pharmacy (for Possible duplicates).
+async function handlePeopleLinksGet(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, PEOPLE_LINK_ROLES)) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  const org = authUser.org_id, loc = authUser.location_id;
+  // Reads only: before the first link there is no table, and the answer is "no links".
+  const url = new URL(request.url);
+  const group = String(url.searchParams.get("group") || "").trim();
+  if (group) {
+    let rows = [];
+    try { rows = await peopleLinksLive(env, org, loc, [group]); } catch (e) { rows = []; }
+    if (!rows.length) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+    return jsonResponse({ ok: true, link_group: group, links: rows.map(peopleLinkRowOut) }, 200, corsOkHeaders);
+  }
+  let rows = [];
+  try { rows = await dbAll(env, "SELECT * FROM people_links WHERE org_id = ? AND location_id = ? AND undone_at IS NULL ORDER BY id LIMIT 5000", [org, loc]); } catch (e) { rows = []; }
+  return jsonResponse({ ok: true, links: rows.map(peopleLinkRowOut), kinds: Object.keys(PEOPLE_LINK_KINDS) }, 200, corsOkHeaders);
+}
+
+// "Not the same person", kept for the pharmacy (the view's own hash: no names or ID cards).
+function peopleFingerprint(raw) { const s = String(raw || "").trim(); return /^[a-z0-9.]{4,64}$/.test(s) ? s : ""; }
+async function handlePeopleNotSame(request, env, corsOkHeaders, authUser, undo) {
+  if (!requireRole(authUser, PEOPLE_LINK_ROLES)) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  const org = authUser.org_id, loc = authUser.location_id;
+  if (request.method === "GET") {
+    let rows = [];
+    try { rows = await dbAll(env, "SELECT fingerprint FROM people_not_same WHERE org_id = ? AND location_id = ? AND undone_at IS NULL ORDER BY id LIMIT 5000", [org, loc]); } catch (e) { rows = []; }
+    return jsonResponse({ ok: true, fingerprints: rows.map((r) => r.fingerprint) }, 200, corsOkHeaders);
+  }
+  const body = (await readJson(request)) || {};
+  const fp = peopleFingerprint(body.fingerprint);
+  if (!fp) return jsonResponse({ ok: false, error: "Missing fingerprint" }, 400, corsOkHeaders);
+  await ensurePeopleLinksSchema(env);
+  const before = await dbFirst(env, "SELECT * FROM people_not_same WHERE org_id = ? AND location_id = ? AND fingerprint = ?", [org, loc, fp]);
+  if (undo) {
+    if (!before) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+    if (before.undone_at) return jsonResponse({ ok: true, already: true }, 200, corsOkHeaders);
+    await dbRun(env, "UPDATE people_not_same SET undone_at = datetime('now'), undone_by = ? WHERE id = ? AND org_id = ? AND location_id = ? AND undone_at IS NULL", [authUser.user_id, before.id, org, loc]);
+  } else {
+    if (before && !before.undone_at) return jsonResponse({ ok: true, already: true }, 200, corsOkHeaders);
+    if (before) await dbRun(env, "UPDATE people_not_same SET undone_at = NULL, undone_by = NULL, created_by = ? WHERE id = ? AND org_id = ? AND location_id = ?", [authUser.user_id, before.id, org, loc]);
+    else await dbRun(env, "INSERT INTO people_not_same (org_id, location_id, fingerprint, created_by) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING", [org, loc, fp, authUser.user_id]);
+  }
+  const after = await dbFirst(env, "SELECT * FROM people_not_same WHERE org_id = ? AND location_id = ? AND fingerprint = ?", [org, loc, fp]);
+  await writeAudit(env, org, authUser.user_id, undo ? "PERSON_NOT_SAME_UNDO" : "PERSON_NOT_SAME", "people_not_same", fp, auditWith({ location_id: loc }, before, after), loc);
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+
+// Read side, GET /people/:id: every live link group that holds the person (or one of the records already on their
+// timeline) adds its other records to the timeline. Records already there are marked with their group.
+async function peopleLinksAddToActivity(env, org, loc, personIds, activity) {
+  try { // reads only: no table is created here (before the first link the query fails and the timeline is as before)
+    const pairs = personIds.map((id) => ({ table: "people", source_id: String(id) }));
+    const poctRowIds = [];
+    for (const a of activity) { if (a.table === "poct_patients") poctRowIds.push(a.id); else pairs.push({ table: a.table, source_id: String(a.id) }); }
+    const poctKey = {};
+    if (poctRowIds.length) {
+      const pr = await dbAllChunked(env, (ph) => "SELECT id, patient_id FROM poct_patients WHERE org_id = ? AND location_id = ? AND id IN (" + ph + ")", poctRowIds, [org, loc]);
+      for (const r of pr) { poctKey[r.id] = String(r.patient_id); pairs.push({ table: "poct_patients", source_id: String(r.patient_id) }); }
+    }
+    const hits = await peopleLinksOfSources(env, org, loc, pairs);
+    const groups = Array.from(new Set(hits.map((l) => l.link_group)));
+    if (!groups.length) return [];
+    const members = await peopleLinksLive(env, org, loc, groups);
+    const groupOf = {};
+    for (const m of members) groupOf[m.source_table + ":" + m.source_id] = m.link_group;
+    const have = new Set();
+    for (const a of activity) {
+      const sid = a.table === "poct_patients" ? poctKey[a.id] : String(a.id);
+      const g = groupOf[a.table + ":" + sid];
+      if (g) a.link_group = g;
+      have.add(a.table + ":" + sid);
+    }
+    for (const m of members) {
+      if (m.source_kind === "people" || have.has(m.source_table + ":" + m.source_id)) continue;
+      const r = await peopleLinkRecord(env, org, loc, m.source_kind, m.source_id);
+      if (!r) continue; // the record is gone: the link stays, the timeline skips it
+      const d = PEOPLE_LINK_KINDS[m.source_kind];
+      activity.push({ kind: m.source_kind, label: d.label, table: m.source_table, id: /^\d+$/.test(r.source_id) && d.key === "id" ? Number(r.source_id) : r.source_id,
+        date: String(r.date || "").slice(0, 10), title: String(r.title || "").slice(0, 200), ref: r.ref || "", doctor: "", linked: true, link_group: m.link_group });
+    }
+    return groups;
+  } catch (e) { return []; } // the timeline never fails over links
+}
+
+// Read side, GET /people?q=: a history candidate whose rows are all linked into groups that hold a person is that
+// person: the candidate is left out and the person is listed (once) instead.
+async function peopleLinksHideHistory(env, org, loc, rowsByKind, history, people) {
+  try {
+    if (!history.length) return history; // reads only: no table is created here
+    const srcOf = {};
+    for (const s of PEOPLE_SOURCES) srcOf[s.kind] = s;
+    const rowsOfKey = {};
+    const pairs = [];
+    for (const { kind, rows } of rowsByKind) {
+      const s = srcOf[kind];
+      if (!s) continue;
+      for (const r of rows) {
+        const key = personKey(r.id_card, r.name);
+        if (!key) continue;
+        const sid = s.table === "poct_patients" ? String(r.id_card) : String(r.id);
+        const p = { table: s.table, source_id: sid };
+        (rowsOfKey[key] = rowsOfKey[key] || []).push(p);
+        pairs.push(p);
+      }
+    }
+    if (!pairs.length) return history;
+    const hits = await peopleLinksOfSources(env, org, loc, pairs);
+    if (!hits.length) return history;
+    const groupOf = {};
+    for (const h of hits) groupOf[h.source_table + ":" + h.source_id] = h.link_group;
+    const groups = Array.from(new Set(hits.map((h) => h.link_group)));
+    const personLinks = await dbAllChunked(env, (ph) => "SELECT link_group, source_id FROM people_links WHERE org_id = ? AND location_id = ? AND undone_at IS NULL AND source_kind = 'people' AND link_group IN (" + ph + ")", groups, [org, loc]);
+    const personOf = {};
+    for (const l of personLinks) if (!personOf[l.link_group]) personOf[l.link_group] = Number(l.source_id);
+    const listed = new Set(people.map((p) => p.id));
+    const out = [];
+    for (const g of history) {
+      const rows = rowsOfKey[g.key] || [];
+      const pids = rows.map((p) => personOf[groupOf[p.table + ":" + p.source_id]]);
+      if (!rows.length || pids.some((x) => !x)) { out.push(g); continue; }
+      for (const pid of new Set(pids)) {
+        if (listed.has(pid)) continue;
+        let person = await peopleLoad(env, org, loc, pid);
+        if (person && person.merged_into) person = await peopleLoad(env, org, loc, person.merged_into);
+        if (person && !listed.has(person.id)) { listed.add(person.id); people.push(Object.assign({}, person, { via_link: true })); }
+      }
+    }
+    return out;
+  } catch (e) { return history; } // search never fails over links
+}
+// ===================================================================================
+// end of the people links block
+// ===================================================================================
+
 // The memo above lasts one isolate, and Cloudflare starts isolates often: a cold /today ran ~100 schema statements
 // (2–3 s on D1, once 12 s). So each schema step also leaves a mark in the database (eikon_schema: name -> fingerprint
 // of its own code). A new isolate reads all marks in one query and skips every step whose code has not changed;
@@ -17123,6 +17620,11 @@ const authUser = await authFromRequest(request, env);
     if (url.pathname === "/people/backfill" && request.method === "POST") {
       return await handlePeopleBackfill(request, env, corsOkHeaders, authUser);
     }
+    if (url.pathname === "/people/links" && request.method === "GET") return await handlePeopleLinksGet(request, env, corsOkHeaders, authUser); // people links block (b)
+    if (url.pathname === "/people/links" && request.method === "POST") return await handlePeopleLinkCreate(request, env, corsOkHeaders, authUser);
+    if (url.pathname === "/people/links/undo" && request.method === "POST") return await handlePeopleLinkUndo(request, env, corsOkHeaders, authUser);
+    if (url.pathname === "/people/not-same" && (request.method === "GET" || request.method === "POST")) return await handlePeopleNotSame(request, env, corsOkHeaders, authUser, false);
+    if (url.pathname === "/people/not-same/undo" && request.method === "POST") return await handlePeopleNotSame(request, env, corsOkHeaders, authUser, true);
     { const m = url.pathname.match(/^\/people\/(\d+)$/); if (m && request.method === "GET") return await handlePersonGet(request, env, corsOkHeaders, authUser, Number(m[1])); }
     { const m = url.pathname.match(/^\/people\/(\d+)\/merge$/); if (m && request.method === "POST") return await handlePersonMerge(request, env, corsOkHeaders, authUser, Number(m[1])); }
     { const m = url.pathname.match(/^\/people\/(\d+)\/change-id-card$/); if (m && request.method === "POST") return await handlePersonChangeIdCard(request, env, corsOkHeaders, authUser, Number(m[1])); } // ID card change (block after handlePeopleBackfill)
@@ -18322,7 +18824,7 @@ if (url.pathname.startsWith("/dda-stocktakes/items/")) {
       function addClient(name, idCard, address, phone, altPhone) {
         name = (name || "").trim();
         if (!name) return;
-        const key = name.toLowerCase() + "|" + normalizeMtIdCard(idCard).toLowerCase();
+        const key = contactsAggregatedKey(name, idCard); // people links block (a): was name.toLowerCase() + "|" + (idCard || "").toLowerCase().trim()
         if (seen.has(key)) return;
         seen.add(key);
         agg.push({ name: name, id_card: (idCard || "").trim(), address: (address || "").trim(), phone: (phone || "").trim(), alt_phone: (altPhone || "").trim() });
@@ -18857,7 +19359,7 @@ async function handleLoyaltyClientUpsert(request, env, corsOkHeaders, authUser) 
   const rawCard = String(body.id_card || "").trim();
   if (!rawCard) return jsonResponse({ ok: false, error: "Missing id_card" }, 400, corsOkHeaders);
 
-  const idCard = normMtIdCard(rawCard);
+  const idCard = await loyaltyIdCardForWrite(env, authUser, rawCard); // people links block (a): was normMtIdCard(rawCard)
   const name   = String(body.name || "").trim();
   let __before = null;
   try { __before = await dbFirst(env, "SELECT * FROM loyalty_clients WHERE org_id = ? AND location_id = ? AND id_card = ?", [authUser.org_id, authUser.location_id, idCard]); } catch (e) {}
@@ -19000,7 +19502,7 @@ async function handleLoyaltyTransactionCreate(request, env, corsOkHeaders, authU
   const rawCard = String(body.client_id || body.client_id_card || "").trim();
   if (!rawCard) return jsonResponse({ ok: false, error: "Missing client_id" }, 400, corsOkHeaders);
 
-  const idCard     = normMtIdCard(rawCard) || rawCard;
+  const idCard     = await loyaltyIdCardForWrite(env, authUser, rawCard); // people links block (a): was normMtIdCard(rawCard) || rawCard
   const clientName = String(body.client_name || "").trim();
   const campaignId = String(body.campaign_id || "").trim();
   if (!campaignId) return jsonResponse({ ok: false, error: "Missing campaign_id" }, 400, corsOkHeaders);
@@ -19393,6 +19895,7 @@ async function handleShortExpiryUpload(request, env, corsOkHeaders, authUser) {
   }
 
   let inserted = 0;
+  const seRows = [];
   for (const item of items) {
     const stkCode = String(item.stk_code || "").trim();
     const stkDesc = String(item.stk_desc || "").trim();
@@ -19401,12 +19904,12 @@ async function handleShortExpiryUpload(request, env, corsOkHeaders, authUser) {
     const qty = parseInt(item.qty) || 0;
     const locCode = String(item.loc_code || "").trim();
     if (!stkDesc) continue;
-    await dbRun(env,
-      `INSERT INTO cherubino_short_expiry (org_id, stk_code, stk_desc, batch, expiry, qty, loc_code)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [authUser.org_id, stkCode, stkDesc, batch, expiry, qty, locCode]);
+    seRows.push([authUser.org_id, stkCode, stkDesc, batch, expiry, qty, locCode]);
     inserted++;
   }
+  await wsaveRun(env, wsaveStatements(env,
+      `INSERT INTO cherubino_short_expiry (org_id, stk_code, stk_desc, batch, expiry, qty, loc_code)
+       VALUES `, ["?", "?", "?", "?", "?", "?", "?"], "", seRows));
   await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_SE_UPLOAD", "cherubino_short_expiry", "", { count: inserted, wipe: !!body.wipe }, authUser.location_id);
   return jsonResponse({ ok: true, inserted }, 200, corsOkHeaders);
 }
@@ -19733,6 +20236,7 @@ async function handlePosCatalogBatch(request, env, corsOkHeaders, authUser) {
   }
 
   let upserted = 0;
+  const upsertRows = [];
   for (const p of products) {
     const barcodeRaw = String(p.barcode || "").trim();
     const barcode = barcodeRaw || null;               // NULL = no barcode (SQLite UNIQUE allows multiple NULLs)
@@ -19742,9 +20246,13 @@ async function handlePosCatalogBatch(request, env, corsOkHeaders, authUser) {
     const vatRate = parseFloat(p.vat_rate) || 0;
     const category = String(p.category || "").trim().slice(0, 80);
     const unit = String(p.unit || "").trim().slice(0, 40);
-    // Upsert by name (idx_pos_products_name); preserve existing barcode when new row has none
-    await dbRun(env, `INSERT INTO pos_products (org_id, location_id, barcode, name, price, vat_rate, category, unit, is_active, created_at, updated_at)
-      VALUES (?,?,?,?,?,?,?,?,1,datetime('now'),datetime('now'))
+    upsertRows.push([authUser.org_id, authUser.location_id, barcode, name, price, vatRate, category, unit]);
+    upserted++;
+  }
+  // Upsert by name (idx_pos_products_name); preserve existing barcode when new row has none. Many rows per
+  // statement, in order (a name repeated in the upload is upserted again by its later row, as before).
+  await wsaveRun(env, wsaveStatements(env, `INSERT INTO pos_products (org_id, location_id, barcode, name, price, vat_rate, category, unit, is_active, created_at, updated_at)
+      VALUES `, ["?", "?", "?", "?", "?", "?", "?", "?", "1", "datetime('now')", "datetime('now')"], `
       ON CONFLICT(org_id, location_id, name) DO UPDATE SET
         barcode   = CASE WHEN excluded.barcode IS NOT NULL THEN excluded.barcode ELSE barcode END,
         price     = excluded.price,
@@ -19752,10 +20260,7 @@ async function handlePosCatalogBatch(request, env, corsOkHeaders, authUser) {
         category  = excluded.category,
         unit      = excluded.unit,
         is_active = 1,
-        updated_at = datetime('now')`,
-      [authUser.org_id, authUser.location_id, barcode, name, price, vatRate, category, unit]);
-    upserted++;
-  }
+        updated_at = datetime('now')`, upsertRows));
   // Update catalog metadata
   const fileName = String(body.file_name || "").trim();
   const totalRows = parseInt(body.total_rows) || 0;
@@ -19967,26 +20472,15 @@ async function handlePvStatePut(request, env, corsOkHeaders, authUser) {
     if (!idSet.has(rid)) { idSet.add(rid); cleaned.push(r); }
   }
 
-  // Upsert each report
-  const upsertSql = `INSERT INTO pv_reports (org_id, location_id, report_id, report_json, created_by, updated_by, updated_at)
-    VALUES (?,?,?,?,?,?, datetime('now'))
-    ON CONFLICT(org_id, location_id, report_id) DO UPDATE SET
-      report_json = excluded.report_json, updated_by = excluded.updated_by, updated_at = datetime('now')`;
-  const stmt = env.DB.prepare(upsertSql);
-  for (const r of cleaned) {
-    await stmt.bind(orgId, locId, String(r.id), JSON.stringify(r), userId, userId).run();
-  }
+  // Upsert the new or changed reports only, many per statement (wsaveJsonDocs)
+  const pvWritten = await wsaveJsonDocs(env, "pv_reports", "report_id", "report_json", orgId, locId, userId, cleaned);
 
   // Deletes are explicit (deleted_ids); a payload that lacks a report never removes it.
   const pvDeleted = poctExplicitIds(st && (st.deleted_ids || st.deletedIds));
-  let pvRemoved = 0;
-  for (const did of pvDeleted) {
-    const r = await dbRun(env, `DELETE FROM pv_reports WHERE org_id = ? AND location_id = ? AND report_id = ?`, [orgId, locId, did]);
-    pvRemoved += Number(r && r.meta && r.meta.changes || 0);
-  }
+  const pvRemoved = await wsaveDeleteIds(env, "pv_reports", "report_id", orgId, locId, pvDeleted);
 
-  await writeAudit(env, orgId, userId, "PV_STATE_PUT", "pv_reports", "", { count: cleaned.length, deleted: pvRemoved, deleted_ids: pvDeleted }, authUser.location_id);
-  return jsonResponse({ ok: true, saved: cleaned.length }, 200, corsOkHeaders);
+  await writeAudit(env, orgId, userId, "PV_STATE_PUT", "pv_reports", "", { count: cleaned.length, written: pvWritten, deleted: pvRemoved, deleted_ids: pvDeleted }, authUser.location_id);
+  return jsonResponse({ ok: true, saved: cleaned.length, written: pvWritten }, 200, corsOkHeaders);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -20045,26 +20539,15 @@ async function handleScreeningStatePut(request, env, corsOkHeaders, authUser) {
     if (!idSet.has(cid)) { idSet.add(cid); cleaned.push(c); }
   }
 
-  // Upsert each campaign
-  const upsertSql = `INSERT INTO screening_campaigns (org_id, location_id, campaign_id, campaign_json, created_by, updated_by, updated_at)
-    VALUES (?,?,?,?,?,?, datetime('now'))
-    ON CONFLICT(org_id, location_id, campaign_id) DO UPDATE SET
-      campaign_json = excluded.campaign_json, updated_by = excluded.updated_by, updated_at = datetime('now')`;
-  const stmt = env.DB.prepare(upsertSql);
-  for (const c of cleaned) {
-    await stmt.bind(orgId, locId, String(c.id), JSON.stringify(c), userId, userId).run();
-  }
+  // Upsert the new or changed campaigns only, many per statement (wsaveJsonDocs)
+  const scWritten = await wsaveJsonDocs(env, "screening_campaigns", "campaign_id", "campaign_json", orgId, locId, userId, cleaned);
 
   // Deletes are explicit (deleted_ids); a payload that lacks a campaign never removes it.
   const scDeleted = poctExplicitIds(st && (st.deleted_ids || st.deletedIds));
-  let scRemoved = 0;
-  for (const did of scDeleted) {
-    const r = await dbRun(env, `DELETE FROM screening_campaigns WHERE org_id = ? AND location_id = ? AND campaign_id = ?`, [orgId, locId, did]);
-    scRemoved += Number(r && r.meta && r.meta.changes || 0);
-  }
+  const scRemoved = await wsaveDeleteIds(env, "screening_campaigns", "campaign_id", orgId, locId, scDeleted);
 
-  await writeAudit(env, orgId, userId, "SCREENING_STATE_PUT", "screening_campaigns", "", { count: cleaned.length, deleted: scRemoved, deleted_ids: scDeleted }, authUser.location_id);
-  return jsonResponse({ ok: true, saved: cleaned.length }, 200, corsOkHeaders);
+  await writeAudit(env, orgId, userId, "SCREENING_STATE_PUT", "screening_campaigns", "", { count: cleaned.length, written: scWritten, deleted: scRemoved, deleted_ids: scDeleted }, authUser.location_id);
+  return jsonResponse({ ok: true, saved: cleaned.length, written: scWritten }, 200, corsOkHeaders);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -20374,18 +20857,19 @@ async function handleContactsBulk(request, env, corsOkHeaders, authUser, tableKe
   const colNames = def.locScoped
     ? ["org_id", "location_id"].concat(def.cols).concat(["created_by", "updated_by"])
     : ["org_id"].concat(def.cols).concat(["created_by", "updated_by"]);
-  const placeholders = colNames.map(() => "?").join(", ");
-  const sql = `INSERT INTO ${def.db} (${colNames.join(", ")}) VALUES (${placeholders})`;
-  const stmt = env.DB.prepare(sql);
-
-  const ids = [];
+  const valRows = [];
   for (const row of rows) {
     const baseVals = def.locScoped
       ? [authUser.org_id, authUser.location_id]
       : [authUser.org_id];
     const vals = baseVals.concat(def.cols.map(c => String(row[c] || "").trim())).concat([authUser.user_id, authUser.user_id]);
-    const res = await stmt.bind(...vals).run();
-    ids.push(res && res.meta ? res.meta.last_row_id : null);
+    valRows.push(vals);
+  }
+  // Many rows per INSERT; each statement's rows take consecutive ids ending at its last_row_id (AUTOINCREMENT).
+  const ids = [];
+  for (const res of await wsaveRun(env, wsaveStatements(env, `INSERT INTO ${def.db} (${colNames.join(", ")}) VALUES `, colNames.map(() => "?"), "", valRows))) {
+    const last = Number(res.meta.last_row_id), n = Number(res.meta.changes);
+    for (let i = n - 1; i >= 0; i--) ids.push(last - i);
   }
 
   await writeAudit(env, authUser.org_id, authUser.user_id, "CONTACT_BULK_IMPORT", def.db, "", { count: rows.length }, authUser.location_id);

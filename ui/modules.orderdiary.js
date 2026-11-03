@@ -1229,7 +1229,7 @@
       ".no-print{position:fixed;top:12px;right:12px;}"+
       "@media print{.no-print{display:none;}}"+
       "</style></head><body>"+
-      "<button class='no-print' onclick='window.print()' style='padding:7px 14px;background:#111;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;'>🖨 Print</button>"+
+      "<button class='no-print' data-eikon-print='print' style='padding:7px 14px;background:#111;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;'>🖨 Print</button>"+
       "<h1>📦 Order Diary</h1>"+
       "<div class='meta'>"+esc(dateStr)+(location?" &nbsp;·&nbsp; "+esc(location):"")+"</div>"+
       "<div class='stats'>"+
@@ -1244,6 +1244,7 @@
     if(!win){toast("bad","Blocked","Allow pop-ups to print.");return;}
     win.document.write(html);
     win.document.close();
+    window.EIKON.printTab(win, { autoPrint: false }); // wires its Print button (no onclick=: CSP)
     setTimeout(function(){try{win.print();}catch(e){}},400);
   }
 

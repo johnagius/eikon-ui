@@ -3053,8 +3053,8 @@ function singleShiftModal(e2, ds, existing, onSave) {
         + "<div class='toolbar'>"
         + "<h1>"+safe(title||"Shifts")+"</h1>"
         + "<div style='display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px;'>"
-        + "<button class='btn primary' onclick='window.print()'>Print</button>"
-        + "<button class='btn' onclick='window.close()'>Close</button>"
+        + "<button class='btn primary' data-eikon-print='print'>Print</button>"
+        + "<button class='btn' data-eikon-print='close'>Close</button>"
         + "</div>"
         + "</div>"
         + (htmlBody || "")
@@ -3062,6 +3062,7 @@ function singleShiftModal(e2, ds, existing, onSave) {
       w.document.open();
       w.document.write(html);
       w.document.close();
+      E.printTab(w, { autoPrint: false }); // wires Print / Close (no onclick=: CSP)
     } catch(e){
       console.error("[shifts][print] failed", e);
       toast("Print failed","error");

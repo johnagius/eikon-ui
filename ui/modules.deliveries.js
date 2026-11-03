@@ -1193,13 +1193,13 @@
       "table{width:100%;border-collapse:collapse;}th,td{border:1px solid #ddd;padding:5px 7px;font-size:11px;vertical-align:top;}"+
       "th{background:#f0f2f5;font-weight:800;text-align:left;}tr:nth-child(even){background:#fafbfc;}"+
       "@media print{button{display:none!important;}}</style></head><body>"+
-      "<button onclick='window.print()'>🖨 Print</button>"+
+      "<button data-eikon-print='print'>🖨 Print</button>"+
       "<h1>"+safe(title||"Deliveries")+"</h1>"+
       "<div class='meta'>Rows: "+safe(String(list.length))+(query?"  ·  Search: "+safe(query):"")+"  ·  Printed: "+safe(new Date().toLocaleString())+"</div>"+
       "<table><thead><tr><th>Del #</th><th>Order Date</th><th>Scheduled</th><th>Client</th><th>Phone</th><th>Method</th><th>Driver</th><th>Status</th><th>Address</th><th>Items</th></tr></thead>"+
       "<tbody>"+rowsHtml+"</tbody></table>"+
-      "<script>setTimeout(function(){try{window.print()}catch(e){}},250);<\/script></body></html>";
-    w.document.open(); w.document.write(html); w.document.close();
+      "</body></html>";
+    w.document.open(); w.document.write(html); w.document.close(); E.printTab(w, { delay: 250 });
   }
 
   function printSingleDelivery(entry) {
@@ -1232,7 +1232,7 @@
       "th,td{border:1px solid #e2e4e8;padding:5px 8px;font-size:11px;text-align:left;}"+
       "th{background:#f5f5f5;font-weight:800;}"+
       "@media print{button{display:none!important;}}</style></head><body>"+
-      "<button onclick='window.print()'>🖨 Print</button>"+
+      "<button data-eikon-print='print'>🖨 Print</button>"+
       "<div class='hdr'><div class='did'>"+safe(entry.delivery_id||"—")+"</div>"+
       "<div class='dsub'>"+safe(entry.client_name||"")+" · "+safe(fmtDmyFromYmd(entry.scheduled_date||""))+(entry.scheduled_time_slot?" "+safe(entry.scheduled_time_slot):"")+" · Status: "+safe(entry.status||"")+"</div></div>"+
       "<div class='grid'>"+
@@ -1250,8 +1250,8 @@
       "<table><thead><tr><th>Qty</th><th>Name</th><th>Schedule</th><th>Batch Ref</th><th>Expiry</th></tr></thead><tbody>"+itemsHtml+"</tbody></table>"+
       "<h3>Delivery Log ("+logEntries.length+" entr"+(logEntries.length===1?"y":"ies")+")</h3>"+
       logHtml+
-      "<script>setTimeout(function(){try{window.print()}catch(e){}},250);<\/script></body></html>";
-    w.document.open(); w.document.write(html); w.document.close();
+      "</body></html>";
+    w.document.open(); w.document.write(html); w.document.close(); E.printTab(w, { delay: 250 });
   }
 
   // ------------------------------------------------------------

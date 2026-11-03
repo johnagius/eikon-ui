@@ -797,7 +797,7 @@
       "tr:nth-child(even){background:#fafbfc;}" +
       "@media print{button{display:none!important;}}" +
       "</style></head><body>" +
-      "<button onclick='window.print()'>🖨 Print</button>" +
+      "<button data-eikon-print='print'>🖨 Print</button>" +
       "<h1>"+safe(t)+"</h1>" +
       "<div class='meta'>Rows: "+safe(String(list.length))+(q?"\nSearch: "+safe(q):"")+"\nPrinted: "+safe(new Date().toLocaleString())+"</div>" +
       "<table><thead><tr>" +
@@ -805,10 +805,9 @@
       "</tr></thead><tbody>" +
       rowsHtml +
       "</tbody></table>" +
-      "<script>setTimeout(function(){try{window.print()}catch(e){}},250);<\/script>" +
       "</body></html>";
 
-    w.document.open(); w.document.write(html); w.document.close();
+    w.document.open(); w.document.write(html); w.document.close(); E.printTab(w, { delay: 250 });
   }
 
   // Print single ticket (detail print)
@@ -842,7 +841,7 @@
       "h3{margin:0 0 10px 0;font-size:14px;}" +
       "@media print{button{display:none!important;}}" +
       "</style></head><body>" +
-      "<button onclick='window.print()'>🖨 Print</button>" +
+      "<button data-eikon-print='print'>🖨 Print</button>" +
       "<div class='hdr'><div class='tid'>"+safe(entry.ticket_id||"—")+"</div>" +
       "<div class='tsub'>Opened: "+safe(fmtDmyFromYmd(entry.open_date||""))+" · Status: "+safe(entry.status||"")+" · Priority: "+safe(prText(entry.priority))+"</div></div>" +
       "<div class='grid'>" +
@@ -856,10 +855,9 @@
       "<div class='issue-box'><div class='lbl'>Issue Description</div><div class='txt'>"+safe(entry.issue||"—")+"</div></div>" +
       "<h3>Notes Log ("+String(notes.length)+" entr"+(notes.length===1?"y":"ies")+")</h3>" +
       notesHtml +
-      "<script>setTimeout(function(){try{window.print()}catch(e){}},250);<\/script>" +
       "</body></html>";
 
-    w.document.open(); w.document.write(html); w.document.close();
+    w.document.open(); w.document.write(html); w.document.close(); E.printTab(w, { delay: 250 });
   }
 
   // ------------------------------------------------------------

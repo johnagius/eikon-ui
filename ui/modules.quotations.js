@@ -1064,10 +1064,6 @@
       "</tr></thead><tbody>" + trs + "</tbody></table>" +
       "<div class='summary'>Total Invested (Incl VAT): <b>\u20ac" + fmt2(totalInvested) + "</b>" +
         " &nbsp;&nbsp; Total Retail Value: <b>\u20ac" + fmt2(totalRetail) + "</b></div>" +
-      "<script>window.addEventListener('load',function(){setTimeout(function(){" +
-        "try{window.focus();}catch(e){}try{window.print();}catch(e){}},100);});" +
-        "window.addEventListener('afterprint',function(){setTimeout(function(){" +
-        "try{window.close();}catch(e){}},300);});<\/script>" +
       "</body></html>";
 
     var win = window.open("", "_blank", "width=1100,height=750,scrollbars=yes");
@@ -1081,6 +1077,7 @@
       win.document.open();
       win.document.write(html);
       win.document.close();
+      E.printTab(win, { delay: 100, focus: true, closeAfter: true, closeDelay: 300 });
     } catch (e) {
       try { win.close(); } catch (e2) {}
       E.modal.show("Print Failed",

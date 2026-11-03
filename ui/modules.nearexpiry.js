@@ -761,16 +761,13 @@ async function apiJson(path, options, tag) {
       "</tr></thead><tbody>" +
       rowsHtml +
       "</tbody></table>" +
-      "<script>" +
-      "window.addEventListener('load', function(){setTimeout(function(){try{window.focus();}catch(e){} try{window.print();}catch(e){}}, 60);});" +
-      "window.addEventListener('afterprint', function(){setTimeout(function(){try{window.close();}catch(e){}}, 250);});" +
-      "</script>" +
       "</body></html>";
 
     try {
       w.document.open();
       w.document.write(html);
       w.document.close();
+      E.printTab(w, { delay: 60, focus: true, closeAfter: true });
     } catch (e) {
       try { w.close(); } catch (e2) {}
       E.modal.show("Print failed", "<div style='white-space:pre-wrap;color:var(--danger)'>" + esc(e && (e.message || e)) + "</div>", [

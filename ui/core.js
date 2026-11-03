@@ -531,6 +531,121 @@
     });
   };
 
+  // ---- Print tabs under a strict Content-Security-Policy (script-src 'self': no inline <script>, no on*=) ----
+  // A tab opened from here (window.open("") + document.write, or a blob: url) inherits this page's policy,
+  // so the printed HTML carries no code: this page drives the tab instead.
+  //   E.printTab(w, opts)    drive a tab this page opened and wrote (or that is loading opts.url).
+  //     opts.url         the blob: url w is navigating to: wait until that is the loaded document
+  //     opts.autoPrint   default true: print once the document has loaded, opts.delay ms later (default 80)
+  //     opts.focus       focus the tab just before printing
+  //     opts.closeAfter  close the tab after printing (afterprint), opts.closeDelay ms later (default 250)
+  //     opts.onReady(w, doc)  runs here before printing (barcodes, page size); may return a Promise
+  //     Buttons in the printed HTML: data-eikon-print="print" prints, data-eikon-print="close" closes the tab.
+  //   E.openPrint(html, opts)   window.open("", "_blank", opts.features), write html, then printTab.
+  //   E.openPrintUrl(url, opts) open url (a blob: of the page) in a new tab, cut its opener link, then printTab.
+  //   Both return the tab, or null when the browser blocked it (the caller keeps its own fallback).
+  // Handlers are the print tab's own built-ins (w.print / w.close), so its buttons keep working after
+  // this page reloads or closes.
+  E.printTab = function (w, opts) {
+    opts = opts || {};
+    if (!w) return null;
+    var start = Date.now(), done = false;
+    function own(name) {
+      try { return w.Function.prototype.bind.call(w[name], w); }
+      catch (e) { return function () { try { w[name](); } catch (e2) {} }; }
+    }
+    function isClosed() { try { return !!w.closed; } catch (e) { return true; } }
+    function atUrl() { try { return !opts.url || String(w.location.href) === String(opts.url); } catch (e) { return false; } }
+    function complete() { try { return w.document.readyState === "complete"; } catch (e) { return false; } }
+    function go() {
+      if (done) return; done = true;
+      var doc; try { doc = w.document; } catch (e) { return; }
+      try {
+        var els = doc.querySelectorAll("[data-eikon-print]");
+        for (var i = 0; i < els.length; i++) {
+          var act = els[i].getAttribute("data-eikon-print");
+          if (act === "print" || act === "close") els[i].addEventListener("click", own(act));
+        }
+      } catch (e) {}
+      if (opts.closeAfter) {
+        var closeTab = own("close");
+        try { w.addEventListener("afterprint", function () { setTimeout(closeTab, opts.closeDelay == null ? 250 : opts.closeDelay); }); } catch (e) {}
+      }
+      var ready = null;
+      if (typeof opts.onReady === "function") { try { ready = opts.onReady(w, doc); } catch (e) { try { console.warn("[EIKON][print] onReady failed", e); } catch (e2) {} } }
+      if (opts.autoPrint === false) return;
+      function printNow() {
+        if (isClosed()) return;
+        if (opts.focus) { try { w.focus(); } catch (e) {} }
+        try { w.print(); } catch (e) {}
+      }
+      function later() { setTimeout(printNow, opts.delay == null ? 80 : opts.delay); }
+      if (ready && typeof ready.then === "function") ready.then(later, later); else later();
+    }
+    (function poll() {
+      if (done || isClosed()) return;
+      var here = atUrl();
+      if (here && complete()) return go();
+      // A page that never finishes loading (a stuck image) still prints after 15 s, as the old timers did.
+      if (here && Date.now() - start > 15000) return go();
+      if (Date.now() - start > 60000) return;
+      setTimeout(poll, 25);
+    })();
+    return w;
+  };
+  E.openPrint = function (html, opts) {
+    opts = opts || {};
+    var w = null;
+    try { w = window.open("", "_blank", opts.features || ""); } catch (e) { w = null; }
+    if (!w) return null;
+    try { w.document.open(); w.document.write(String(html == null ? "" : html)); w.document.close(); } catch (e) {}
+    return E.printTab(w, opts);
+  };
+  E.openPrintUrl = function (url, opts) {
+    var o = {}, k; opts = opts || {};
+    for (k in opts) if (Object.prototype.hasOwnProperty.call(opts, k)) o[k] = opts[k];
+    o.url = url;
+    var w = null;
+    try { w = window.open(url, "_blank", o.features || ""); } catch (e) { w = null; }
+    if (!w) return null;
+    try { w.opener = null; } catch (e) {}
+    return E.printTab(w, o);
+  };
+  // 75 mm receipt printouts (vaccines): set the @page height in <style id="pageSizeStyle"> to the length of
+  // #content, as the receipt's own script did at load, 80 ms and 220 ms later. Call it from onReady.
+  E.fitReceiptPage = function (doc) {
+    function fit() {
+      try {
+        var c = doc.getElementById("content");
+        if (!c) return;
+        var h = Math.max(c.scrollHeight || 0, c.getBoundingClientRect().height || 0);
+        var mm = Math.ceil(h * 25.4 / 96 + 2);
+        if (mm < 60) mm = 60;
+        if (mm > 1200) mm = 1200;
+        var st = doc.getElementById("pageSizeStyle");
+        if (st) st.textContent = "@page{size:75mm " + mm + "mm;margin:0}";
+      } catch (e) {}
+    }
+    fit(); setTimeout(fit, 80); setTimeout(fit, 220);
+  };
+  // For the screens that opened their blob tab with a link click (kept for pages framed by another site, where
+  // window.open can return null although the tab opened, and a second try would open it twice): a framed
+  // page still uses the link, and that tab is not driven (no auto-print); a top-level page uses openPrintUrl.
+  E.openPrintUrlOrLink = function (url, opts) {
+    var framed = true;
+    try { framed = window.top !== window.self; } catch (e) { framed = true; }
+    var w = framed ? null : E.openPrintUrl(url, opts);
+    if (w) return w;
+    try {
+      var a = document.createElement("a");
+      a.href = url; a.target = "_blank"; a.rel = "noopener"; a.style.display = "none";
+      document.body.appendChild(a); a.click(); a.remove();
+    } catch (e1) {
+      try { window.open(url, "_blank"); } catch (e2) {}
+    }
+    return null;
+  };
+
   // Token storage
   E.TOKEN_KEY = "eikon_token";
   E.getToken = function () { try { return String(window.localStorage.getItem(E.TOKEN_KEY) || ""); } catch (e) { return ""; } };

@@ -205,8 +205,7 @@
       "<table>\n<thead><tr>" +
       "<th>Date/Time</th><th>User</th><th>Module</th><th>Action</th><th>Record ID</th><th>Details</th>" +
       "</tr></thead>\n<tbody>\n" + rows + "\n</tbody>\n</table>\n" +
-      "<script>window.addEventListener('load',function(){setTimeout(function(){try{window.print();}catch(e){}},80);});" +
-      "window.addEventListener('afterprint',function(){setTimeout(function(){try{window.close();}catch(e){}},250);});</script>\n" +
+      "\n" +
       "</body>\n</html>";
   }
 
@@ -214,7 +213,7 @@
     var blob = new Blob([html], { type: "text/html" });
     var url = URL.createObjectURL(blob);
     var w = null;
-    try { w = window.open(url, "_blank", "noopener"); } catch (e) { w = null; }
+    w = E.openPrintUrl(url, { delay: 80, closeAfter: true, closeDelay: 250 });
     if (!w) {
       try {
         var a = document.createElement("a");

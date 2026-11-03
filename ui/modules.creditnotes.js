@@ -442,12 +442,11 @@
       "<table><thead><tr><th>Date / Time</th><th>Receipt #</th><th style='text-align:right'>Amount</th></tr></thead><tbody>" + entriesHtml + "</tbody></table>" +
       "<div class='balance'><div class='lbl'>Remaining Balance</div><div class='val' style='color:" + (remaining > 0 ? "#067647" : "#b42318") + "'>" + safe(fmtEuro(remaining)) + "</div></div>" +
       (notesHtml ? "<div style='margin-top:18px'><div style='font-weight:900;margin-bottom:6px;font-size:13px;'>Notes</div>" + notesHtml + "</div>" : "") +
-      "<script>window.onload=function(){setTimeout(function(){window.print();},150);};<\/script>" +
       "</body></html>";
 
     w.document.open();
     w.document.write(html);
-    w.document.close();
+    w.document.close(); E.printTab(w, { delay: 150 });
   }
 
   function printList() {
@@ -475,12 +474,11 @@
       "</head><body>" +
       "<h1>Credit Notes</h1><div class='sub'>Printed: " + safe(new Date().toLocaleString()) + " • " + safe(list.length) + " entries</div>" +
       "<table><thead><tr><th>Date</th><th>Client</th><th>Telephone</th><th style='text-align:right'>Balance / Total</th><th>Status</th></tr></thead><tbody>" + rowsHtml + "</tbody></table>" +
-      "<script>window.onload=function(){setTimeout(function(){window.print();},150);};<\/script>" +
       "</body></html>";
 
     w.document.open();
     w.document.write(html);
-    w.document.close();
+    w.document.close(); E.printTab(w, { delay: 150 });
   }
 
   // ----------------------------
@@ -647,7 +645,7 @@
             "</div>" +
             "<div style='display:flex;align-items:center;gap:10px;'>" +
               "<span class='cn-mini'>" + esc(fmtDateTime(e.timestamp)) + "</span>" +
-              "<button onclick=\"window._cnDelPurchase(" + esc(e.id) + ")\" style='background:var(--danger-soft,rgba(255,90,122,.15));border:1px solid var(--danger-soft,rgba(255,90,122,.3));color:var(--danger,#ff5a7a);border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer;'>✕</button>" +
+              "<button data-cn-del-purchase='" + esc(e.id) + "' style='background:var(--danger-soft,rgba(255,90,122,.15));border:1px solid var(--danger-soft,rgba(255,90,122,.3));color:var(--danger,#ff5a7a);border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer;'>✕</button>" +
             "</div>" +
           "</div>" +
           "</div>";
@@ -667,7 +665,7 @@
               "<div style='font-size:13px;'>" + esc(n.text) + "</div>" +
               "<div class='cn-mini' style='margin-top:3px;'>" + esc(fmtDateTime(n.timestamp)) + "</div>" +
             "</div>" +
-            "<button onclick=\"window._cnDelNote(" + esc(n.id) + ")\" style='background:var(--danger-soft,rgba(255,90,122,.1));border:1px solid var(--danger-soft,rgba(255,90,122,.25));color:var(--danger,#ff5a7a);border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer;flex-shrink:0;margin-left:10px;'>✕</button>" +
+            "<button data-cn-del-note='" + esc(n.id) + "' style='background:var(--danger-soft,rgba(255,90,122,.1));border:1px solid var(--danger-soft,rgba(255,90,122,.25));color:var(--danger,#ff5a7a);border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer;flex-shrink:0;margin-left:10px;'>✕</button>" +
           "</div>" +
           "</div>";
       }
@@ -761,6 +759,14 @@
     var btnPrintCn = document.getElementById("cn-print-cn");
     if (btnPrintCn) btnPrintCn.addEventListener("click", function () { printCreditNote(state.selected); });
 
+    // Delete buttons on purchase entries and notes (listeners, not onclick=: the CSP allows no inline handlers).
+    Array.prototype.forEach.call(panel.querySelectorAll("[data-cn-del-purchase]"), function (b) {
+      b.addEventListener("click", function () { doDeletePurchaseEntry(b.getAttribute("data-cn-del-purchase")); });
+    });
+    Array.prototype.forEach.call(panel.querySelectorAll("[data-cn-del-note]"), function (b) {
+      b.addEventListener("click", function () { doDeleteNote(b.getAttribute("data-cn-del-note")); });
+    });
+
     var noExpiry = document.getElementById("cn-no-expiry");
     if (noExpiry) {
       noExpiry.addEventListener("change", function () {
@@ -840,10 +846,6 @@
   function render(ctx) {
     var mount = ctx.mount;
     ensureStyles();
-
-    // Global delegate for purchase/note delete buttons inside innerHTML
-    window._cnDelPurchase = function (id) { doDeletePurchaseEntry(id); };
-    window._cnDelNote = function (id) { doDeleteNote(id); };
 
     mount.innerHTML =
       // Stats bar

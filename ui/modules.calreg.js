@@ -470,14 +470,7 @@
     _lastPrintAt = now;
     var blob = new Blob([html], { type: "text/html" });
     var url = URL.createObjectURL(blob);
-    try {
-      var a = document.createElement("a");
-      a.href = url; a.target = "_blank"; a.rel = "noopener";
-      a.style.display = "none";
-      document.body.appendChild(a); a.click(); a.remove();
-    } catch (e1) {
-      try { window.open(url, "_blank"); } catch (e2) {}
-    }
+    E.openPrintUrlOrLink(url, { delay: 80, focus: true, closeAfter: true });
     setTimeout(function () { try { URL.revokeObjectURL(url); } catch (e) {} }, 60000);
   }
   function buildPrintHtml(title, meta, innerHtml) {
@@ -485,7 +478,7 @@
     var pId = meta.idCard || "____________________";
     var pharmName = meta.pharmacyName || "____________________";
     var note = meta.note ? "<div><b>Note:</b> " + escHtml(meta.note) + "</div>" : "";
-    return "<!doctype html>\n<html>\n<head>\n<meta charset='utf-8'/>\n<meta name='viewport' content='width=device-width,initial-scale=1'/>\n<title>" + escHtml(title) + "</title>\n<style>\n@page{size:A4;margin:14mm;}\nbody{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:0;color:#000;}\n.sheet{padding:12px;}\n.ph{border-bottom:3px solid #000;padding-bottom:10px;margin-bottom:14px;}\n.ph h1{font-size:18px;margin:0;}\n.pmeta{margin-top:8px;font-size:12px;line-height:1.4;}\n.pline{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;}\n.pline div{border:2px solid #000;padding:5px 8px;border-radius:8px;font-weight:800;}\ntable{width:100%;border-collapse:collapse;margin:8px 0;page-break-inside:avoid;}\nth,td{border:2px solid #000;padding:7px 8px;font-size:12px;vertical-align:top;}\nth{font-weight:900;text-align:left;}\n.bt{font-weight:900;font-size:13px;margin:14px 0 8px;text-transform:uppercase;letter-spacing:0.6px;}\n.warn{border:3px solid #000;padding:10px;border-radius:12px;font-weight:900;font-size:13px;margin:12px 0;}\n.bigwarn{border:4px solid #000;padding:10px;border-radius:12px;font-weight:900;font-size:14px;margin:12px 0;}\n</style>\n</head>\n<body>\n<div class='sheet'>\n<div class='ph'>\n<h1>" + escHtml(title) + "</h1>\n<div class='pmeta'>\n<div class='pline'><div>Pharmacy: " + escHtml(pharmName) + "</div></div>\n<div class='pline'><div>Patient: " + escHtml(pName) + "</div><div>ID: " + escHtml(pId) + "</div></div>\n" + (note ? "<div style='margin-top:8px;'>" + note + "</div>" : "") + "\n</div></div>\n" + innerHtml + "\n</div>\n<script>\nwindow.addEventListener('load',function(){setTimeout(function(){try{window.focus();}catch(e){}try{window.print();}catch(e){}},80);});\nwindow.addEventListener('afterprint',function(){setTimeout(function(){try{window.close();}catch(e){}},250);});\n</scr" + "ipt>\n</body></html>";
+    return "<!doctype html>\n<html>\n<head>\n<meta charset='utf-8'/>\n<meta name='viewport' content='width=device-width,initial-scale=1'/>\n<title>" + escHtml(title) + "</title>\n<style>\n@page{size:A4;margin:14mm;}\nbody{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:0;color:#000;}\n.sheet{padding:12px;}\n.ph{border-bottom:3px solid #000;padding-bottom:10px;margin-bottom:14px;}\n.ph h1{font-size:18px;margin:0;}\n.pmeta{margin-top:8px;font-size:12px;line-height:1.4;}\n.pline{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;}\n.pline div{border:2px solid #000;padding:5px 8px;border-radius:8px;font-weight:800;}\ntable{width:100%;border-collapse:collapse;margin:8px 0;page-break-inside:avoid;}\nth,td{border:2px solid #000;padding:7px 8px;font-size:12px;vertical-align:top;}\nth{font-weight:900;text-align:left;}\n.bt{font-weight:900;font-size:13px;margin:14px 0 8px;text-transform:uppercase;letter-spacing:0.6px;}\n.warn{border:3px solid #000;padding:10px;border-radius:12px;font-weight:900;font-size:13px;margin:12px 0;}\n.bigwarn{border:4px solid #000;padding:10px;border-radius:12px;font-weight:900;font-size:14px;margin:12px 0;}\n</style>\n</head>\n<body>\n<div class='sheet'>\n<div class='ph'>\n<h1>" + escHtml(title) + "</h1>\n<div class='pmeta'>\n<div class='pline'><div>Pharmacy: " + escHtml(pharmName) + "</div></div>\n<div class='pline'><div>Patient: " + escHtml(pName) + "</div><div>ID: " + escHtml(pId) + "</div></div>\n" + (note ? "<div style='margin-top:8px;'>" + note + "</div>" : "") + "\n</div></div>\n" + innerHtml + "\n</div>\n\n</body></html>";
   }
   function levParts(x) {
     return x.comboItems.map(function (it) {

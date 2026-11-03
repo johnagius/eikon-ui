@@ -1060,7 +1060,7 @@
       ".meta{font-size:12px;color:#333;margin-top:6px;white-space:pre-wrap;}" +
       "@media print{button{display:none!important;}}" +
       "</style></head><body>" +
-      "<button onclick='window.print()'>Print</button>" +
+      "<button data-eikon-print='print'>Print</button>" +
       "<h1 style='margin:0 0 4px 0;font-size:18px;'>" + safe(t) + "</h1>" +
       "<div class='meta'>Rows: " + safe(String(list.length)) + "\nSearch: " + safe(q || "-") + "\nPrinted: " + safe(new Date().toLocaleString()) + "</div>" +
       "<table><thead><tr>" +
@@ -1068,12 +1068,11 @@
       "</tr></thead><tbody>" +
       rowsHtml +
       "</tbody></table>" +
-      "<script>setTimeout(function(){try{window.print()}catch(e){}},250);</script>" +
       "</body></html>";
 
     w.document.open();
     w.document.write(html);
-    w.document.close();
+    w.document.close(); E.printTab(w, { delay: 250 });
   }
 
   // ------------------------------------------------------------
@@ -1120,7 +1119,7 @@
       "</style>" +
       "<script src='" + E.vendorUrl("bwip-js-4.11.4/bwip-js-min.js") + "'></" + "script>" +
       "</head><body>" +
-      "<button class='print-btn' onclick='window.print()'>Print</button>" +
+      "<button class='print-btn' data-eikon-print='print'>Print</button>" +
       "<div class='sticker'>" +
       "  <div class='sticker-head'>" +
       "    <div>" +
@@ -1137,17 +1136,16 @@
       (fuLabel !== "-" ? "  <div class='sticker-row'><div class='lbl'>Follow-up</div><div class='val'>" + safe(fuLabel) + "</div></div>" : "") +
       "  <div class='sticker-row'><div class='lbl'>Priority</div><div class='val'>" + safe(entry.priority === 1 ? "High" : entry.priority === 3 ? "Low" : "Medium") + "</div></div>" +
       "</div>" +
-      "<script>" +
-      "try{" +
-      "  bwipjs.toCanvas('qr-canvas',{bcid:'qrcode',text:'" + safe(code) + "',scale:3,includetext:false});" +
-      "}catch(e){console.warn('QR generation failed',e);}" +
-      "setTimeout(function(){try{window.print()}catch(e){}},400);" +
-      "</" + "script>" +
       "</body></html>";
 
     w.document.open();
     w.document.write(html);
     w.document.close();
+    // The QR code is drawn from here once bwip-js has loaded in the tab (the CSP allows no inline script there).
+    E.printTab(w, { delay: 400, onReady: function (pw) {
+      try { pw.bwipjs.toCanvas("qr-canvas", { bcid: "qrcode", text: safe(code), scale: 3, includetext: false }); }
+      catch (e) { console.warn("QR generation failed", e); }
+    } });
   }
 
   // ------------------------------------------------------------

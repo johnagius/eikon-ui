@@ -490,9 +490,10 @@
     w.document.write('<!DOCTYPE html><html><head><title>ADR Report – ' + esc(r.pt_initials || r.id) + '</title>');
     w.document.write('<style>body{margin:0;padding:0}@media print{body{padding:10mm}}</style></head><body>');
     w.document.write(buildReportHtml(r));
-    w.document.write('<div style="text-align:center;margin-top:20px;padding:14px"><button onclick="window.print()" style="padding:10px 28px;font-size:14px;font-weight:700;cursor:pointer;border-radius:8px;border:1px solid #ccc;background:#f0f0f0">Save as PDF (Print &rarr; Save as PDF)</button></div>');
+    w.document.write('<div style="text-align:center;margin-top:20px;padding:14px"><button data-eikon-print="print" style="padding:10px 28px;font-size:14px;font-weight:700;cursor:pointer;border-radius:8px;border:1px solid #ccc;background:#f0f0f0">Save as PDF (Print &rarr; Save as PDF)</button></div>');
     w.document.write('</body></html>');
     w.document.close();
+    window.EIKON.printTab(w, { autoPrint: false }); // wires its Save button (no onclick=: CSP)
   }
 
   // ── form wizard ────────────────────────────────────────────────────────

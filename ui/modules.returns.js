@@ -440,12 +440,11 @@
       "<table><thead><tr>" +
         "<th>Date</th><th>Description</th><th>Expiry</th><th>Batch</th><th>Invoice #</th><th>Remarks</th><th>Location stored</th><th>Checklist</th>" +
       "</tr></thead><tbody>" + rowsHtml + "</tbody></table>" +
-      "<script>window.onload=function(){setTimeout(function(){window.print();},150);};</script>" +
       "</body></html>";
 
     w.document.open();
     w.document.write(html);
-    w.document.close();
+    w.document.close(); E.printTab(w, { delay: 150 });
   }
 
   function renderSelection() {

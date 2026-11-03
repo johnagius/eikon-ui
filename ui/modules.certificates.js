@@ -747,93 +747,95 @@
       "<div id=\"status\" style=\"font-weight:800;color:#444;\">Loading documents…</div>" +
       "</div>" +
       "<div id=\"root\"></div>" +
-      "<script>" +
-      "(function(){" +
-      "function esc(s){return String(s||'').replace(/[&<>\"']/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'}[c]);});}" +
-      "function isYmd(s){return /^\\d{4}-\\d{2}-\\d{2}$/.test(String(s||'').trim());}" +
-      "function fmtDmy(ymd){var v=String(ymd||'').trim();if(!isYmd(v))return v;return v.slice(8,10)+'/'+v.slice(5,7)+'/'+v.slice(0,4);}" +
-      "function getToken(){try{var keys=['eikon_token','EIKON_TOKEN','token','auth_token','eikon.auth.token'];for(var i=0;i<keys.length;i++){var v=localStorage.getItem(keys[i]);if(v&&String(v).trim())return String(v).trim();}}catch(e){}return '';}" +
-      "function parseCdFilename(cd){cd=String(cd||'');var m1=cd.match(/filename\\*\\s*=\\s*UTF-8''([^;]+)/i);if(m1&&m1[1]){try{return decodeURIComponent(m1[1].trim().replace(/^\\\"|\\\"$/g,''));}catch(e){}}var m2=cd.match(/filename\\s*=\\s*\\\"([^\\\"]+)\\\"/i);if(m2&&m2[1])return m2[1];var m3=cd.match(/filename\\s*=\\s*([^;]+)/i);if(m3&&m3[1])return m3[1].trim().replace(/^\\\"|\\\"$/g,'');return '';}" +
-      "var data=(window.opener&&window.opener.__EIKON_CERT_PRINT_DATA)?window.opener.__EIKON_CERT_PRINT_DATA:null;" +
-      "var root=document.getElementById('root');" +
-      "var statusEl=document.getElementById('status');" +
-      "document.getElementById('btnPrint').addEventListener('click',function(){window.print();});" +
-      "if(!data){statusEl.textContent='Missing print data';return;}" +
-      "var items=Array.isArray(data.items)?data.items:[];" +
-      "var html='';" +
-      "html+='<h1>Certificates</h1>';" +
-      "html+='<p class=\"meta\">Printed: '+esc(new Date().toLocaleString())+'</p>';" +
-      "html+='<table><thead><tr>';" +
-      "html+='<th>Certificate</th><th>Last</th><th>Next Due</th><th>Interval (months)</th><th>Person</th><th>File</th>';" +
-      "html+='</tr></thead><tbody>';" +
-      "for(var i=0;i<items.length;i++){" +
-      "var it=items[i]||{};" +
-      "html+='<tr>';" +
-      "html+='<td><b>'+esc(it.title||'')+'</b><div class=\"small\">'+esc(it.subtitle||'')+'</div></td>';" +
-      "html+='<td>'+esc(it.last_date?fmtDmy(it.last_date):'-')+'</td>';" +
-      "html+='<td><b>'+esc(it.next_due?fmtDmy(it.next_due):'-')+'</b></td>';" +
-      "html+='<td>'+esc(String(it.interval_months||''))+'</td>';" +
-      "html+='<td>'+esc(it.requires_person?(it.certified_person||'-'):'-')+'</td>';" +
-      "html+='<td>'+esc(it.file_name?it.file_name:'-')+'</td>';" +
-      "html+='</tr>';" +
-      "}" +
-      "html+='</tbody></table>';" +
-      "html+='<div style=\"margin-top:16px;\">';" +
-      "for(var j=0;j<items.length;j++){" +
-      "var it2=items[j]||{};" +
-      "if(!it2.file_name) continue;" +
-      "html+='<div class=\"doc\" id=\"doc_'+j+'\">'+" +
-      "'<h3>'+esc(it2.title||'')+' — Document</h3>'+" +
-      "'<div class=\"small\">'+esc(it2.file_name||'')+'</div>'+" +
-      "'<div class=\"small\" id=\"doc_status_'+j+'\">Fetching…</div>'+" +
-      "'<div id=\"doc_body_'+j+'\" style=\"margin-top:8px;\"></div>'+" +
-      "'</div>';" +
-      "}" +
-      "html+='</div>';" +
-      "root.innerHTML=html;" +
-      "var token=getToken();" +
-      "var headers={}; if(token) headers['Authorization']='Bearer '+token;" +
-      "var tasks=[];" +
-      "for(let k=0;k<items.length;k++){" +
-      "let it3=items[k]||{};" +
-      "if(!it3.file_name) continue;" +
-      "let id=it3.id;" +
-      "let docStatus=document.getElementById('doc_status_'+k);" +
-      "let docBody=document.getElementById('doc_body_'+k);" +
-      "let p=(function(idx,itemId){" +
-      "return fetch('/certificates/items/'+encodeURIComponent(String(itemId))+'/download?inline=1',{method:'GET',headers:headers})" +
-      ".then(function(res){if(!res.ok){return res.text().then(function(t){throw new Error('HTTP '+res.status+': '+(t||res.statusText));});}" +
-      "var ct=res.headers.get('Content-Type')||'';" +
-      "var cd=res.headers.get('Content-Disposition')||'';" +
-      "var fn=parseCdFilename(cd)||'';" +
-      "return res.blob().then(function(b){return {blob:b,ct:ct||b.type||'',fn:fn};});})" +
-      ".then(function(obj){" +
-      "docStatus.textContent='Loaded '+(obj.fn?('('+obj.fn+')'):'');" +
-      "var ct2=String(obj.ct||'').toLowerCase();" +
-      "var url=URL.createObjectURL(obj.blob);" +
-      "if(ct2.indexOf('image/')===0){" +
-      "var im=document.createElement('img'); im.src=url; docBody.appendChild(im);" +
-      "} else if(ct2.indexOf('pdf')>=0){" +
-      "var em=document.createElement('embed'); em.src=url; em.type='application/pdf'; docBody.appendChild(em);" +
-      "} else {" +
-      "var a=document.createElement('a'); a.href=url; a.textContent='Open file'; a.target='_blank'; a.rel='noopener'; docBody.appendChild(a);" +
-      "}" +
-      "})" +
-      ".catch(function(e){docStatus.textContent='Failed: '+String(e&&(e.message||e));});" +
-      "})(k,id);" +
-      "tasks.push(p);" +
-      "}" +
-      "Promise.allSettled(tasks).then(function(){" +
-      "statusEl.textContent='Ready';" +
-      "setTimeout(function(){try{window.print();}catch(e){}}, 300);" +
-      "});" +
-      "})();" +
-      "</script>" +
       "</body></html>";
 
     w.document.open();
     w.document.write(html);
     w.document.close();
+    // The tab fills itself from here (the CSP allows no inline script in it); then it prints.
+    E.printTab(w, { delay: 300, onReady: fillPrintAllWindow });
+  }
+
+  // Was the print tab's own inline script: builds the list, fetches each document, then (returned promise) prints.
+  function fillPrintAllWindow(pw, doc) {
+    function esc(s){return String(s||'').replace(/[&<>"']/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]);});}
+    function isYmd(s){return /^\d{4}-\d{2}-\d{2}$/.test(String(s||'').trim());}
+    function fmtDmy(ymd){var v=String(ymd||'').trim();if(!isYmd(v))return v;return v.slice(8,10)+'/'+v.slice(5,7)+'/'+v.slice(0,4);}
+    function getToken(){try{var keys=['eikon_token','EIKON_TOKEN','token','auth_token','eikon.auth.token'];for(var i=0;i<keys.length;i++){var v=localStorage.getItem(keys[i]);if(v&&String(v).trim())return String(v).trim();}}catch(e){}return '';}
+    function parseCdFilename(cd){cd=String(cd||'');var m1=cd.match(/filename\*\s*=\s*UTF-8''([^;]+)/i);if(m1&&m1[1]){try{return decodeURIComponent(m1[1].trim().replace(/^"|"$/g,''));}catch(e){}}var m2=cd.match(/filename\s*=\s*"([^"]+)"/i);if(m2&&m2[1])return m2[1];var m3=cd.match(/filename\s*=\s*([^;]+)/i);if(m3&&m3[1])return m3[1].trim().replace(/^"|"$/g,'');return '';}
+    var data=window.__EIKON_CERT_PRINT_DATA||null;
+    var root=doc.getElementById('root');
+    var statusEl=doc.getElementById('status');
+    doc.getElementById('btnPrint').addEventListener('click',pw.Function.prototype.bind.call(pw.print,pw));
+    if(!data){statusEl.textContent='Missing print data';return null;}
+    var items=Array.isArray(data.items)?data.items:[];
+    var html='';
+    html+='<h1>Certificates</h1>';
+    html+='<p class="meta">Printed: '+esc(new Date().toLocaleString())+'</p>';
+    html+='<table><thead><tr>';
+    html+='<th>Certificate</th><th>Last</th><th>Next Due</th><th>Interval (months)</th><th>Person</th><th>File</th>';
+    html+='</tr></thead><tbody>';
+    for(var i=0;i<items.length;i++){
+      var it=items[i]||{};
+      html+='<tr>';
+      html+='<td><b>'+esc(it.title||'')+'</b><div class="small">'+esc(it.subtitle||'')+'</div></td>';
+      html+='<td>'+esc(it.last_date?fmtDmy(it.last_date):'-')+'</td>';
+      html+='<td><b>'+esc(it.next_due?fmtDmy(it.next_due):'-')+'</b></td>';
+      html+='<td>'+esc(String(it.interval_months||''))+'</td>';
+      html+='<td>'+esc(it.requires_person?(it.certified_person||'-'):'-')+'</td>';
+      html+='<td>'+esc(it.file_name?it.file_name:'-')+'</td>';
+      html+='</tr>';
+    }
+    html+='</tbody></table>';
+    html+='<div style="margin-top:16px;">';
+    for(var j=0;j<items.length;j++){
+      var it2=items[j]||{};
+      if(!it2.file_name) continue;
+      html+='<div class="doc" id="doc_'+j+'">'+
+        '<h3>'+esc(it2.title||'')+' — Document</h3>'+
+        '<div class="small">'+esc(it2.file_name||'')+'</div>'+
+        '<div class="small" id="doc_status_'+j+'">Fetching…</div>'+
+        '<div id="doc_body_'+j+'" style="margin-top:8px;"></div>'+
+        '</div>';
+    }
+    html+='</div>';
+    root.innerHTML=html;
+    var token=getToken();
+    var headers={}; if(token) headers['Authorization']='Bearer '+token;
+    var tasks=[];
+    for(let k=0;k<items.length;k++){
+      let it3=items[k]||{};
+      if(!it3.file_name) continue;
+      let id=it3.id;
+      let docStatus=doc.getElementById('doc_status_'+k);
+      let docBody=doc.getElementById('doc_body_'+k);
+      let p=(function(idx,itemId){
+        return fetch('/certificates/items/'+encodeURIComponent(String(itemId))+'/download?inline=1',{method:'GET',headers:headers})
+          .then(function(res){if(!res.ok){return res.text().then(function(t){throw new Error('HTTP '+res.status+': '+(t||res.statusText));});}
+            var ct=res.headers.get('Content-Type')||'';
+            var cd=res.headers.get('Content-Disposition')||'';
+            var fn=parseCdFilename(cd)||'';
+            return res.blob().then(function(b){return {blob:b,ct:ct||b.type||'',fn:fn};});})
+          .then(function(obj){
+            docStatus.textContent='Loaded '+(obj.fn?('('+obj.fn+')'):'');
+            var ct2=String(obj.ct||'').toLowerCase();
+            // The tab's own URL object, so the file stays open there after this page goes away.
+            var url=pw.URL.createObjectURL(new pw.Blob([obj.blob],{type:obj.blob.type}));
+            if(ct2.indexOf('image/')===0){
+              var im=doc.createElement('img'); im.src=url; docBody.appendChild(im);
+            } else if(ct2.indexOf('pdf')>=0){
+              var em=doc.createElement('embed'); em.src=url; em.type='application/pdf'; docBody.appendChild(em);
+            } else {
+              var a=doc.createElement('a'); a.href=url; a.textContent='Open file'; a.target='_blank'; a.rel='noopener'; docBody.appendChild(a);
+            }
+          })
+          .catch(function(e){docStatus.textContent='Failed: '+String(e&&(e.message||e));});
+      })(k,id);
+      tasks.push(p);
+    }
+    return Promise.allSettled(tasks).then(function(){
+      statusEl.textContent='Ready';
+    });
   }
 
   async function render(ctx) {

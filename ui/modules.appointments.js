@@ -1151,14 +1151,14 @@
       "table{width:100%;border-collapse:collapse;}th,td{border:1px solid #ddd;padding:5px 7px;font-size:11px;}" +
       "th{background:#f0f2f5;font-weight:800;text-align:left;}tr:nth-child(even){background:#fafbfc;}tfoot td{font-weight:800;background:#e8edf3;}" +
       "@media print{button{display:none!important;}}</style></head><body>" +
-      "<button onclick='window.print()'>🖨 Print</button>" +
+      "<button data-eikon-print='print'>🖨 Print</button>" +
       "<h1>" + safe(title) + "</h1><div class='meta'>Records: " + list.length + (filterDesc ? "  " + safe(filterDesc) : "") + "  Printed: " + new Date().toLocaleString() + "</div>" +
       "<table><thead><tr><th>ID</th><th>Date</th><th>Time</th><th>Patient</th><th>ID Card</th><th>Phone</th><th>Doctor</th><th>Clinic</th><th>Status</th><th>Dr Fee</th><th>Clinic Fee</th><th>Total</th></tr></thead>" +
       "<tbody>" + rowsHtml + "</tbody><tfoot><tr><td colspan='9' style='text-align:right;'>TOTALS</td>" +
       "<td style='text-align:right;'>EUR" + totals.doc.toFixed(2) + "</td><td style='text-align:right;'>EUR" + totals.cl.toFixed(2) + "</td>" +
       "<td style='text-align:right;'>EUR" + totals.tot.toFixed(2) + "</td></tr></tfoot></table>" +
-      "<script>setTimeout(function(){try{window.print()}catch(e){}},250);<\/script></body></html>";
-    w.document.open(); w.document.write(html); w.document.close();
+      "</body></html>";
+    w.document.open(); w.document.write(html); w.document.close(); E.printTab(w, { delay: 250 });
   }
 
   function printSingleAppt(a) {
@@ -1179,7 +1179,7 @@
       ".fee-box.total{border-color:#2a8;background:#f0fff4;}.fk{font-size:10px;font-weight:800;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;}" +
       ".fv{font-size:14px;font-weight:900;}.fee-box.total .fv{color:#1a7a50;font-size:17px;}" +
       "@media print{button{display:none!important;}}</style></head><body>" +
-      "<button onclick='window.print()'>🖨 Print</button>" +
+      "<button data-eikon-print='print'>🖨 Print</button>" +
       "<div class='hdr'><div><div class='aid'>" + safe(a.id || "-") + "</div>" +
       "<div class='asub'>" + safe(fmtDmy(a.date)) + " at " + safe(a.time || "-") + "  " + safe(a.status || "Scheduled") + "</div></div>" +
       "<div><div style='font-size:10px;color:#888;margin-bottom:3px;'>PATIENT TOKEN</div><div class='token-box'>" + safe(a.token || "-") + "</div></div></div>" +
@@ -1197,8 +1197,8 @@
       "<div class='fee-box'><div class='fk'>Medicines</div><div class='fv'>EUR" + safe((parseFloat(a.medicinesCost) || 0).toFixed(2)) + "</div></div>" +
       "<div class='fee-box total'><div class='fk'>Total Due</div><div class='fv'>EUR" + safe(computeTotal(a).toFixed(2)) + "</div></div></div>" +
       (meds ? "<div style='border:1px solid #f0c060;border-radius:8px;padding:12px;'><div style='font-size:10px;font-weight:800;color:#a07000;text-transform:uppercase;margin-bottom:6px;'>Medicines</div><div style='font-size:12px;white-space:pre-wrap;'>" + safe(meds) + "</div></div>" : "") +
-      "<script>setTimeout(function(){try{window.print()}catch(e){}},250);<\/script></body></html>";
-    w.document.open(); w.document.write(html); w.document.close();
+      "</body></html>";
+    w.document.open(); w.document.write(html); w.document.close(); E.printTab(w, { delay: 250 });
   }
 
   function printWaitlist(list) {
@@ -1219,12 +1219,12 @@
       "table{width:100%;border-collapse:collapse;}th,td{border:1px solid #ddd;padding:5px 7px;font-size:11px;}" +
       "th{background:#f0f2f5;font-weight:800;text-align:left;}tr:nth-child(even){background:#fafbfc;}" +
       "@media print{button{display:none!important;}}</style></head><body>" +
-      "<button onclick='window.print()'>🖨 Print</button><h1>Waiting List</h1>" +
+      "<button data-eikon-print='print'>🖨 Print</button><h1>Waiting List</h1>" +
       "<div class='meta'>Records: " + list.length + "  Printed: " + new Date().toLocaleString() + "</div>" +
       "<table><thead><tr><th>ID</th><th>Patient</th><th>ID Card</th><th>Phone</th><th>Doctor Pref.</th><th>Clinic Pref.</th><th>Preferred Dates</th><th>Flexibility</th><th>Added</th><th>Status</th><th>Notes</th></tr></thead>" +
       "<tbody>" + rowsHtml + "</tbody></table>" +
-      "<script>setTimeout(function(){try{window.print()}catch(e){}},250);<\/script></body></html>";
-    w.document.open(); w.document.write(html); w.document.close();
+      "</body></html>";
+    w.document.open(); w.document.write(html); w.document.close(); E.printTab(w, { delay: 250 });
   }
 
   // ============================================================

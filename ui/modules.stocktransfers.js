@@ -948,12 +948,11 @@
       "<div class='sub'>Printed: " + safe(new Date().toLocaleString()) + "</div>" +
       "<table><thead><tr><th>Date</th><th>Description</th><th>Batch</th><th>Expiry</th><th>Qty (Rem/Total)</th><th>Status</th></tr></thead>" +
       "<tbody>" + rowsHtml + "</tbody></table>" +
-      "<script>window.onload=function(){setTimeout(function(){window.print();},150);};<\/script>" +
       "</body></html>";
 
     w.document.open();
     w.document.write(html);
-    w.document.close();
+    w.document.close(); E.printTab(w, { delay: 150 });
   }
 
   // ────────────────────────────────────────────
