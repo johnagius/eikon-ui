@@ -572,3 +572,8 @@ All of it waits only on the worker deploy.
 
 ## Round 59 — Today's team tile
 - Live: BUILD .74. Team tile: handover points sorted critical first (red), Who's in button. UI 124/124. BUILD .75.
+
+## Round 60 — Repeat prescriptions rebuilt
+- Live: BUILD .75. modules.repreg.js: one range read (a year back), valid by expiry, ran out in 30 days, search,
+  record (server sets expiry), Renew prefill; superseded prescriptions say "Renewed <date>" (caught in testing: the
+  old one still offered Renew). Real worker checked. UI 126/126. BUILD .76.
