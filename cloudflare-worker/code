@@ -4,7 +4,7 @@ function nowIso() {
 
 
 
-const WORKER_VERSION = "2026-11-03-bookings-18";
+const WORKER_VERSION = "2026-11-03-bookings-19";
 function isDebugEnabled(request) {
   try {
     return (request && request.headers && (request.headers.get("X-Eikon-Debug") || "") === "1");
@@ -16060,6 +16060,12 @@ export default {
   async fetch(request, env, ctx) {
     try {
       const url = new URL(request.url);
+
+    // The bare address, /ui and /ui/ open the app (they answered "Unauthorized" / 404 before). Only GET/HEAD, so no
+    // API call is ever redirected; the query string and hash come along (e.g. /?ui=1).
+    if ((request.method === "GET" || request.method === "HEAD") && (url.pathname === "/" || url.pathname === "/ui" || url.pathname === "/ui/" || url.pathname === "/index.html")) {
+      return new Response(null, { status: 302, headers: { Location: "/ui/index.html" + url.search, "Cache-Control": "no-store" } });
+    }
 
     // UI assets
     if (url.pathname.startsWith("/ui/")) {
