@@ -796,3 +796,9 @@ All of it waits only on the worker deploy.
 - Most clients still use the classic layout, and rounds 77–93 changed shared files (core.js, app.css, index.html). Checked they did not change what classic users see: same worker and data, classic layout (?ui=classic), all 54 classic screens screenshotted at 1440×900 with UI .89 (before round 77) and with UI .101, then pixel-diffed.
 - 51 screens identical. Dashboard and Today 0.02–0.04% (clock text). Audit 2.28%: the log rows themselves differ (each local server was started at a different time and seeded in a different order), not the page. No page errors on either.
 - Confirmed by reading too: the colour change is under html[data-ui2] only; the early who-am-I/Today requests run only in the new layout; the router's shell guard only skips a render the boot does itself; E.saveFailText only adds a timestamp. Nothing to fix.
+
+## Round 95 — Background refresh: less waste, fresher on return (UI .102)
+
+- Looked at everything that polls. Today (60 s) already skipped hidden tabs, but coming back to the tab after lunch showed the old numbers until the next tick, up to a minute. The supplier portal asked two questions every 30 s even from hidden tabs, which suppliers keep open all day. The Cherubino screens refresh every 5 min, only while open: left alone.
+- Today now refreshes at once when the tab becomes visible if its data is over a minute old (no extra request after a quick glance away). The supplier poll skips hidden tabs and catches up on return if due. Classic screens otherwise unchanged.
+- Checked with a fake clock on the real stack (vis.mjs): visible → refresh each minute; hidden for two minutes → no requests; back → one refresh at once; quick away-and-back → none. UI suite 140/140. The supplier part follows the same pattern but was not run (no supplier account in the local stack).
