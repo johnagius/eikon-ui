@@ -577,3 +577,9 @@ All of it waits only on the worker deploy.
 - Live: BUILD .75. modules.repreg.js: one range read (a year back), valid by expiry, ran out in 30 days, search,
   record (server sets expiry), Renew prefill; superseded prescriptions say "Renewed <date>" (caught in testing: the
   old one still offered Renew). Real worker checked. UI 126/126. BUILD .76.
+
+## Round 61 — Credit notes; a lost-tap race fixed
+- Live: BUILD .76. modules.cnreg.js (Stock > Credit notes): remaining = amount − uses; Use re-reads and refuses more
+  than is left (server has no check; classic allowed overspend; server left unchanged); Use all; new note.
+- A flaky UI failure (Paid out POST missing) traced to the payee-suggestions fetch repainting the whole form while
+  the Record click landed. Paid out and DDA sales/POYC now update only the datalist. UI 128/128 twice. BUILD .78.
