@@ -152,9 +152,12 @@
     } catch (e) {
       var j = e && e.bodyJson;
       if (e && e.status === 409 && j && j.current) {
-        // Someone else saved first. Show their version; the typed change stays on screen in the toast.
+        // Someone else saved first. Show their version, and say what this person had typed so nothing has to be remembered.
+        var LBL = { name: "Name", id_card: "ID card", phone: "Phone", alt_phone: "Other phone", email: "Email", address: "Address", doctor_name: "Doctor", date_of_birth: "Born", notes: "Notes" };
+        var mine = Object.keys(LBL).filter(function (k) { return k in body && String(body[k] || "") !== String(p[k] || "") && String(body[k] || "") !== String(j.current[k] || ""); })
+          .map(function (k) { return LBL[k] + " “" + String(body[k] || "") + "”"; });
         state.detail.person = j.current; state.editing = true;
-        state.conflict = "Someone else changed this record while you were editing. Their version is shown below; make your change again.";
+        state.conflict = "Someone else changed this record while you were editing. Their version is shown below; make your change again." + (mine.length ? " Yours was: " + mine.join(", ") + "." : "");
         renderDetail();
       } else if (e && e.status === 409 && j && j.existing) {
         state.conflict = "Another customer already has this ID card: " + j.existing.name + ". Open them instead, or merge the two.";
