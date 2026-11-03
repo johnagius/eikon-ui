@@ -715,3 +715,9 @@ All of it waits only on the worker deploy.
 - Who's in: a week with two working days still spent five full cards on "No one on the rota." Empty days are now one slim line ("Thursday · 5 Nov · Nobody on", muted), so the working days stand out and the whole week plus footer fits on one phone screen.
 - Repeat prescriptions, credit notes and price check wrote the year on every date, which pushed medicine lines onto three rows next to the status chip. They now leave out the year when it is this year (3 Nov; 4 Mar 2027 keeps it). Legal/expiry screens (alerts, certificates, near expiry, returns, transfers) keep full dates on purpose.
 - rot/rep/cn real scripts re-run after the change: all pass. UI suite 138/138.
+
+## Round 83 — Phone review of the older rebuilt screens, with data (UI .95)
+
+- Seeded alerts, DDA purchases/sales, POYC, paid out and returns through their *-real scripts (32 checks, all pass), then phone screenshots of Alerts, Controlled drugs received/supplied, POYC, Paid out, Returns, Temperature, Cleaning, Daily register and Certificates. These hold up well: clear groups, numbers right-aligned, actions where the thumb is.
+- Certificates was the one that sprawled: items never recorded sat under "Needs attention", each a two-line card with a "Not recorded" pill and an Update button on its own row, about 100px apiece, pushing anything actually overdue off the first screen. They now have their own "Not recorded yet" group after "In date", one line each with Update beside the name (the pill is dropped there; the heading says it). Overdue and due-soon stay first under Needs attention. Eight never-recorded items now fit on one phone screen.
+- UI suite 138/138 (its certificate test still passes).
