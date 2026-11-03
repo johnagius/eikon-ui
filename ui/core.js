@@ -1788,25 +1788,43 @@
   // A screen that just failed to save keeps what is on it if the re-read that follows fails too (offline): the list and
   // what was typed stay, with the save message under the form. Used once, within 2.5 s, by the next load only.
   E.takeSaveFailed = function () { var t = E._saveFailedAt; E._saveFailedAt = 0; return !!t && Date.now() - t < 2500; };
+  // After a lost answer Eikon has already looked in the list (item 8 below; E.postOnce): x.landed says what it found.
   E.saveFailText = function (x) {
     E._saveFailedAt = Date.now();
-    if (x && x.network) return /timed out/i.test(String(x.message || "")) ? "No answer from the server in time. It may have been saved: check the list before doing it again." : "The connection dropped. Check the list: if it is not there, try again.";
+    if (x && x.alreadySaved) return String(x.message);
+    if (x && x.network) {
+      if (x.landed === true) return "It was saved: the connection dropped as it went through, and it is in the list.";
+      if (x.landed === false) return x.notSent ? "Not saved: there is no connection. What you typed is kept: save again when it is back." : "Not saved: the connection dropped. Try again.";
+      return "We could not tell if it was saved. Check the list before trying again.";
+    }
     return "Not saved: " + String((x && (x.message || x)) || "error");
   };
   // POST a new record at most once. When the answer is lost (timeout, dropped connection) the list is read again and
   // a record that arrived counts as saved, so pressing Save again can never add it twice.
   // check = { list: async () => rows of the period the record falls in, same: row => true when it is this record }
+  // Pressing Save again with the same thing after a lost answer counts against the list as it was before the first
+  // try (item 8): a record that arrived late counts as saved, and is not sent a second time.
+  var onceLost = {};
   E.postOnce = async function (path, body, check) {
     var count = async function () { return (await check.list()).filter(check.same).length; };
+    var key = path + "\n" + JSON.stringify(body), prev = onceLost[key]; if (prev && Date.now() - prev.at > 30 * 60000) prev = null;
     var had = null; if (check) { try { had = await count(); } catch (e0) { had = null; } }
+    if (prev && had != null && had > prev.had) { delete onceLost[key]; return { ok: true, recovered: true }; }
+    if (prev && had != null) had = prev.had;
+    var wasOff = navigator.onLine === false;
     try {
-      var r = await E.apiFetch(path, { method: "POST", body: JSON.stringify(body) });
+      var r = await E.apiFetch(path, { method: "POST", body: JSON.stringify(body), landCheck: false });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
+      delete onceLost[key];
       return r;
     } catch (x) {
-      if (!(x && x.network) || had == null) throw x;
+      if (!(x && x.network)) throw x;
+      if (wasOff) { x.notSent = true; x.landed = false; throw x; } // offline when pressed: it never left
+      if (had == null) throw x;
+      onceLost[key] = { had: had, at: Date.now() };
       var now; try { now = await count(); } catch (e1) { throw x; }
-      if (now <= had) throw x;
+      if (now <= had) { if (!/timed out/i.test(String(x.message || ""))) x.landed = false; throw x; }
+      delete onceLost[key];
       return { ok: true, recovered: true };
     }
   };
@@ -2017,6 +2035,193 @@
       }
     });
   })();
+  // ==== Honest when the connection drops (BACKLOG4 item 8) ======================================================
+  // 1. A thin banner (role=status, polite) says "No connection — what you type is kept" as soon as the browser goes
+  //    offline, and "Back online" when it returns. It floats (position:fixed), so the screen under it never moves.
+  // 2. A new record whose answer was lost (POST, dropped connection or timeout) is looked for once: one GET of the
+  //    screen's own list (the last list of that address this screen read), compared with that list as it was before
+  //    the save. The error then carries x.landed = true (saved) / false (not saved) / undefined (cannot tell), and
+  //    E.saveFailText words it. "Not saved" is said only when it is certain: the request never left (the browser was
+  //    offline), or the list covers the record's dates and gained no new row. A row only counts as this record when
+  //    every field sent that the row has is equal (a strict match). Anything less sure: "We could not tell".
+  // 3. Pressing Save again with exactly the same thing, after an answer was lost, first looks in the list again (one
+  //    GET): already there, it is not sent ("It was saved already"), so a retry can never make a double. Nothing is
+  //    ever sent again by itself. E.postOnce screens use their own list (E.postOnce below sets x.landed).
+  // 4. Back online, the screen on show reads its list once: a screen that registered E.onReconnect(load) runs it;
+  //    otherwise a screen that nobody has touched since it opened is drawn again (scroll and height kept). A screen
+  //    with something typed, or a save that just failed, is left as it is.
+  // Emergency POS keeps its own offline queue: /emergency-pos/* is never checked, guarded or held back here.
+  (function () {
+    var SKIP = /^\/(emergency-pos|auth|client-log)(\/|$)/;
+    var lists = {}, wrote = {}, lost = {}, hook = null, renderedAt = 0, touched = false;
+    var inner = E.apiFetch;
+    function base(p) { return String(p || "").split("?")[0]; }
+    function on() { return !(E.isUi2 && E.isUi2()) ? false : true; }
+    function rowsOf(j) {
+      if (Array.isArray(j)) return j;
+      if (!j || typeof j !== "object") return null;
+      var ks = Object.keys(j).filter(function (k) { return Array.isArray(j[k]) && j[k].every(function (r) { return r && typeof r === "object" && !Array.isArray(r); }); });
+      if (ks.length === 1) return j[ks[0]];
+      var pref = ["entries", "items", "rows", "orders", "records", "list"].filter(function (k) { return ks.indexOf(k) >= 0; });
+      return pref.length === 1 ? j[pref[0]] : null;
+    }
+    function empty(v) { return v === null || v === undefined || v === ""; }
+    function num(v) { return (typeof v === "number" && isFinite(v)) || (typeof v === "string" && /^-?\d+(\.\d+)?$/.test(v.trim())); }
+    function eq(a, b) {
+      if (empty(a) || empty(b)) return empty(a) && (empty(b) || b === 0 || (typeof b === "string" && !b.trim())); // left empty: stored empty, or 0 for a number
+      if (typeof a === "boolean") return b === a || String(b) === (a ? "1" : "0") || String(b) === String(a);
+      if (num(a) && num(b)) return Number(a) === Number(b);
+      return String(a).trim() === String(b).trim();
+    }
+    function prim(body) { return Object.keys(body).filter(function (k) { var v = body[k]; return v === null || /^(string|number|boolean)$/.test(typeof v); }); }
+    function same(row, body) { // every field sent that the row has is equal, and the row has at least half of what was sent
+      var keys = prim(body), have = keys.filter(function (k) { return Object.prototype.hasOwnProperty.call(row, k); });
+      var filled = keys.filter(function (k) { return !empty(body[k]); }), filledHave = have.filter(function (k) { return !empty(body[k]); });
+      if (!filledHave.length || filledHave.length * 2 < filled.length) return false;
+      return have.every(function (k) { return eq(body[k], row[k]); });
+    }
+    function covers(url, body, rows) { // would a record with these dates be in this list?
+      var dates = prim(body).map(function (k) { return String(body[k] == null ? "" : body[k]); }).filter(function (v) { return /^\d{4}-\d{2}-\d{2}$/.test(v); });
+      var q; try { q = new URL(url, "http://x").searchParams; } catch (e) { return false; }
+      var ok = true, any = false;
+      q.forEach(function (v, k) {
+        any = true;
+        if (k === "month") ok = ok && /^\d{4}-\d{2}$/.test(v) && dates.length > 0 && dates.every(function (d) { return d.slice(0, 7) === v; });
+        else if (k === "date" || k === "day") ok = ok && dates.length > 0 && dates.every(function (d) { return d === v; });
+        else if (k === "from" || k === "to") ok = ok && dates.length > 0 && dates.every(function (d) { return d >= (q.get("from") || "") && (!q.get("to") || d < q.get("to")); });
+        else ok = false; // a filter we cannot read (status, search, a page): not sure the record would show
+      });
+      if (any || !ok) return ok;
+      if (!dates.length) return true;
+      return dates.every(function (d) { return rows.some(function (r) { return Object.keys(r).some(function (k) { return typeof r[k] === "string" && r[k].slice(0, 7) === d.slice(0, 7); }); }); });
+    }
+    // The screen's own list for this record: the newest one read that would show it, else the newest one read.
+    function pick(by, body) {
+      var all = Object.keys(by || {}).map(function (k) { return by[k]; }).sort(function (a, b) { return b.at - a.at; });
+      return all.filter(function (sn) { return covers(sn.url, body, sn.rows); })[0] || all[0] || null;
+    }
+    // true: it is in the list; false: certainly not; undefined: cannot tell. One GET.
+    async function look(rec) {
+      var snap = rec.snap; if (!snap || (wrote[rec.base] || 0) > snap.at) return undefined;
+      var j; try { j = await inner(snap.url, { method: "GET", retry: false, timeoutMs: 8000 }); } catch (e) { return undefined; }
+      var now = rowsOf(j), was = snap.rows; if (!now) return undefined;
+      var ids = was.concat(now).every(function (r) { return r.id != null; });
+      if (ids) {
+        var old = {}; was.forEach(function (r) { old[String(r.id)] = 1; });
+        var fresh = now.filter(function (r) { return !old[String(r.id)]; });
+        if (fresh.some(function (r) { return same(r, rec.body); })) return true;
+        return !fresh.length && rec.sure && covers(snap.url, rec.body, was.concat(now)) ? false : undefined;
+      }
+      var c0 = was.filter(function (r) { return same(r, rec.body); }).length, c1 = now.filter(function (r) { return same(r, rec.body); }).length;
+      if (c1 > c0) return true;
+      return c1 === c0 && now.length === was.length && rec.sure && covers(snap.url, rec.body, was.concat(now)) ? false : undefined;
+    }
+    E.apiFetch = async function (path, options) {
+      var o = options || {}, m = String(o.method || "GET").toUpperCase(), b = base(path);
+      if (!on() || SKIP.test(b) || /^https?:/i.test(String(path))) return inner.apply(this, arguments);
+      if (m === "GET") {
+        var mod = E.state.activeModuleId, r0 = await inner.apply(this, arguments);
+        var rows = r0 && r0.ok !== false ? rowsOf(r0) : null;
+        if (rows && mod === E.state.activeModuleId) { var by = lists[b] = lists[b] || {}; by[String(path)] = { url: String(path), at: Date.now(), rows: rows.slice() }; }
+        return r0;
+      }
+      if (m !== "POST" || o.landCheck === false || typeof o.body !== "string") return inner.apply(this, arguments);
+      var body = null; try { body = JSON.parse(o.body); } catch (eB) {} if (!body || typeof body !== "object" || Array.isArray(body)) return inner.apply(this, arguments);
+      var key = b + "\n" + o.body, prev = lost[key];
+      if (prev && Date.now() - prev.at < 30 * 60000 && await look(prev) === true) { // the same thing again after a lost answer: it is already there
+        var dup = new Error("It was saved already: it is in the list."); dup.alreadySaved = true; dup.status = 409; throw dup;
+      }
+      var wasOff = navigator.onLine === false, snap = pick(lists[b], body);
+      try {
+        var r = await inner.apply(this, arguments);
+        if (r && r.ok !== false) { wrote[b] = Date.now(); delete lost[key]; }
+        return r;
+      } catch (x) {
+        if (!(x && x.network)) throw x;
+        if (wasOff) { x.notSent = true; x.landed = false; delete lost[key]; throw x; } // offline when pressed: it never left
+        var rec = prev || { base: b, body: body, snap: snap, at: Date.now() };
+        rec.sure = !/timed out/i.test(String(x.message || "")); // a timeout may still be saved later: never "not saved"
+        lost[key] = rec;
+        await new Promise(function (res) { setTimeout(res, 600); }); // a moment for a save already on its way
+        x.landed = await look(rec);
+        throw x;
+      }
+    };
+    // The screen on show can give its list reader: called once when the connection returns (replaced per screen).
+    E.onReconnect = function (fn) { hook = { mod: E.state.activeModuleId, fn: fn }; };
+    // A create whose answer was lost but which is in the list counts as saved: E.apiFetch(...).catch(E.landedOk).
+    // Only for a screen that needs nothing from the answer but ok (the answer itself was lost).
+    E.landedOk = function (x) { if (x && (x.landed === true || x.alreadySaved)) return { ok: true, recovered: true }; throw x; };
+    function wrapRender() { // the router is defined further down this file: wrapped once it exists
+      var render = E.renderActiveModule; if (!render || render._net) return;
+      E.renderActiveModule = function () {
+        var mod = E.state.activeModuleId; hook = null; touched = false; renderedAt = Date.now();
+        if (mod !== E.getHashModuleId()) lists = {}; // another screen: its lists are not this one's
+        return render.apply(this, arguments);
+      };
+      E.renderActiveModule._net = true;
+    }
+    Promise.resolve().then(wrapRender);
+    ["pointerdown", "keydown", "input"].forEach(function (t) {
+      document.addEventListener(t, function (ev) { var c = document.getElementById("eikon-content"); if (c && ev.target && c.contains(ev.target)) touched = true; }, true);
+    });
+    function dirty(c) {
+      return Array.prototype.some.call(c.querySelectorAll("input,textarea,select"), function (el) {
+        if (el.type === "hidden" || el.type === "search") return false;
+        if (el.tagName === "SELECT") return Array.prototype.some.call(el.options, function (op) { return op.selected !== op.defaultSelected; }) && el.selectedIndex !== 0;
+        if (/^(checkbox|radio)$/.test(el.type)) return el.checked !== el.defaultChecked;
+        return el.value !== el.defaultValue;
+      });
+    }
+    function refresh() {
+      var c = document.getElementById("eikon-content"); if (!c || !E.state.user || !on()) return;
+      if (hook && hook.mod === E.state.activeModuleId) { try { var p = hook.fn(); if (p && p.catch) p.catch(function () {}); } catch (e) {} return; }
+      if (touched || (E._saveFailedAt || 0) > renderedAt || dirty(c)) return; // something of theirs is on the screen: leave it
+      var y = window.scrollY, h = c.offsetHeight; c.style.minHeight = h + "px";
+      Promise.resolve(E.renderActiveModule()).catch(function () {}).then(function () { c.style.minHeight = ""; try { window.scrollTo(0, y); } catch (e) {} });
+    }
+    // ---- the banner ----
+    var bar = null, hideT = 0, off = false;
+    function css() {
+      if (document.getElementById("eikon-net-style")) return;
+      var st = document.createElement("style"); st.id = "eikon-net-style";
+      st.textContent =
+        ".eikon-net{position:fixed;left:16px;right:16px;bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:999998;pointer-events:none;display:flex;justify-content:center}" +
+        ".eikon-net span{display:inline-flex;align-items:center;gap:8px;min-height:32px;padding:6px 14px;border-radius:16px;background:#1b2332;color:#fff;font:600 14px/20px system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.18)}" +
+        ".eikon-net span::before{content:'';width:8px;height:8px;border-radius:4px;background:#f5b94a;flex:none}" +
+        ".eikon-net.back span::before{background:#43d17a}" +
+        ".eikon-net:empty{display:none}" +
+        "html.eikon-net-on .eikon-toast-wrap{bottom:60px!important}" +
+        "@media (max-width:760px){html[data-ui2] .eikon-net{bottom:calc(86px + env(safe-area-inset-bottom,0px))}" +
+        "html[data-ui2].eikon-net-on .eikon-toast-wrap{bottom:calc(132px + env(safe-area-inset-bottom,0px))!important}" +
+        "html[data-ui2].eikon-net-on .eikon-content{padding-bottom:calc(136px + env(safe-area-inset-bottom,0px))}}" +
+        "@media print{.eikon-net{display:none}}";
+      document.head.appendChild(st);
+    }
+    function ensure() {
+      if (bar && bar.isConnected) return bar;
+      css(); bar = document.createElement("div"); bar.id = "eikon-net"; bar.className = "eikon-net"; bar.setAttribute("role", "status"); bar.setAttribute("aria-live", "polite");
+      document.body.appendChild(bar); return bar;
+    }
+    function say(text, back) {
+      var el = ensure(); clearTimeout(hideT);
+      el.classList.toggle("back", !!back);
+      el.innerHTML = text ? "<span></span>" : ""; if (text) el.firstChild.textContent = text;
+      document.documentElement.classList.toggle("eikon-net-on", !!text);
+    }
+    function goneOff() { if (off) return; off = true; say("No connection — what you type is kept"); }
+    function backOn() {
+      if (!off) return; off = false; say("Back online", true);
+      hideT = setTimeout(function () { say(""); }, 4000);
+      setTimeout(refresh, 0); // once
+    }
+    E._netBanner = { off: goneOff, on: backOn };
+    window.addEventListener("offline", goneOff);
+    window.addEventListener("online", backOn);
+    function start() { ensure(); if (navigator.onLine === false) goneOff(); }
+    if (document.body) start(); else document.addEventListener("DOMContentLoaded", start);
+  })();
+  // ==== end of item 8 ============================================================================================
   E.carryPerson = function (p) {
     try { sessionStorage.setItem("eikon_carry_person", JSON.stringify({ id: p.id, name: p.name || "", id_card: p.id_card || "", phone: p.phone || "", alt_phone: p.alt_phone || "", email: p.email || "", address: p.address || "", at: Date.now() })); } catch (e) {}
   };

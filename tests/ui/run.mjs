@@ -2006,7 +2006,7 @@ try {
   const off = await page.evaluate(() => ({ err: (document.querySelector(".por-err") || {}).textContent || "", name: (document.querySelector("[name=payee_name]") || {}).value, fee: (document.querySelector("[name=fee]") || {}).value,
     gone: /Can't reach the server/.test(document.querySelector(".eikon-content").innerText), sum: !!document.querySelector(".por-sum") }));
   await page.context().setOffline(false);
-  report("offline save: says the connection dropped, keeps what was typed and the list on screen", /connection dropped/i.test(off.err) && off.name === "Offline Ltd" && off.fee === "7" && !off.gone && off.sum, JSON.stringify(off));
+  report("offline save: says it was not saved (no connection), keeps what was typed and the list on screen", /Not saved: there is no connection/.test(off.err) && off.name === "Offline Ltd" && off.fee === "7" && !off.gone && off.sum, JSON.stringify(off));
 } catch (e) { await page.context().setOffline(false).catch(() => {}); report("offline save: ran to the end", false, String(e).slice(0, 300)); }
 
 // Chat board in the new layout: opens from the old link under Team; pinned on top, "Mentions you"; a new message goes
@@ -4670,7 +4670,7 @@ try {
   await tp.click(".tdy-warn form[data-tnote] button[type=submit]"); await tp.waitForTimeout(1500);
   const off = await tp.evaluate(() => ({ msg: (document.querySelector(".tdy-warn .tnote-msg") || {}).textContent || "", v: (document.querySelector(".tdy-warn form[data-tnote] textarea") || {}).value, dis: (document.querySelector(".tdy-warn form[data-tnote] button[type=submit]") || {}).disabled }));
   await tp.unroute("**/temperature/entries*");
-  report("temperature note (Today): offline the form keeps the text and says the connection dropped (E.saveFailText)", /connection dropped/i.test(off.msg) && off.v === "Door closed" && off.dis === false, JSON.stringify(off));
+  report("temperature note (Today): a dropped save (and its check) keeps the text and says plainly Eikon could not tell (E.saveFailText)", /^We could not tell if it was saved\. Check the list before trying again\.$/.test(off.msg) && off.v === "Door closed" && off.dis === false, JSON.stringify(off));
   // today's own reading outside the limits: the note box follows it and takes the cursor
   tempState = { on: true, entries: [], next: 100 }; todayState = { tempDone: false, cleanDone: false };
   await openT();
@@ -5014,6 +5014,39 @@ try {
   await bx.close();
 } catch (e) { report("first day: ran to the end", false, String(e && e.stack || e).slice(0, 600)); }
 globalThis.__b47 = false; b47 = null;
+
+// BACKLOG4 item 8: honest when the connection drops (banner, verdict words, the retry guard, E.postOnce after a late save)
+try {
+  const nx = await browser.newContext({ viewport: { width: 390, height: 844 } }); const np = await nx.newPage();
+  const nErr = []; np.on("pageerror", (e) => nErr.push(String(e)));
+  await np.route(/cdn\.jsdelivr\.net|unpkg\.com|cdnjs\.cloudflare\.com|fonts\.googleapis\.com/, (r) => r.fulfill({ contentType: "application/javascript", body: "" }));
+  await np.goto(base + "&ui=2#today"); await np.evaluate(() => { localStorage.setItem("eikon_token", "x"); localStorage.setItem("eikon_active_role", "pharmacy"); }); await np.reload();
+  await np.waitForFunction(() => window.EIKON && window.EIKON.state && window.EIKON.state.user && document.getElementById("eikon-content"), null, { timeout: 15000 });
+  const y0 = await np.evaluate(() => document.getElementById("eikon-content").getBoundingClientRect().top);
+  await nx.setOffline(true); await np.waitForTimeout(300);
+  const b1 = await np.evaluate(() => { const b = document.getElementById("eikon-net"); return { t: b.innerText.trim(), role: b.getAttribute("role"), live: b.getAttribute("aria-live"), top: document.getElementById("eikon-content").getBoundingClientRect().top }; });
+  report("offline: a polite banner says 'No connection — what you type is kept' at once, nothing moves", b1.t === "No connection — what you type is kept" && b1.role === "status" && b1.live === "polite" && b1.top === y0, JSON.stringify(b1));
+  await nx.setOffline(false); await np.waitForTimeout(300);
+  const b2 = await np.evaluate(() => document.getElementById("eikon-net").innerText.trim());
+  report("online again: the banner says 'Back online'", b2 === "Back online", b2);
+  const words = await np.evaluate(() => { const E = window.EIKON, n = (o) => Object.assign(new Error("Network error"), { network: true }, o);
+    return [E.saveFailText(n({ landed: true })), E.saveFailText(n({ landed: false })), E.saveFailText(n({ landed: false, notSent: true })), E.saveFailText(n({})), E.saveFailText(Object.assign(new Error("Request timed out after 20 s"), { network: true })), E.saveFailText(Object.assign(new Error("It was saved already: it is in the list."), { alreadySaved: true }))]; });
+  report("after a lost answer the words say what Eikon found: saved / not saved / could not tell",
+    /^It was saved:/.test(words[0]) && words[1] === "Not saved: the connection dropped. Try again." && /^Not saved: there is no connection/.test(words[2]) && words[3] === "We could not tell if it was saved. Check the list before trying again." && words[4] === words[3] && /saved already/.test(words[5]), JSON.stringify(words));
+  // E.postOnce: the first answer is lost and the list does not have it yet ("not saved"); the server saves it late; Save again sends nothing
+  const po = await np.evaluate(async () => {
+    const E = window.EIKON, real = E.apiFetch, rows = [], sent = [];
+    E.apiFetch = async (p, o) => { if (o && o.method === "POST") { sent.push(o.body); throw Object.assign(new Error("Network error"), { network: true }); } return real(p, o); };
+    const check = { list: async () => rows.slice(), same: (r) => r.item === "X" };
+    let first = ""; try { await E.postOnce("/q48/test", { item: "X" }, check); } catch (x) { first = E.saveFailText(x); }
+    rows.push({ id: 1, item: "X" }); // the server saved it after all
+    let second; try { second = await E.postOnce("/q48/test", { item: "X" }, check); } catch (x) { second = E.saveFailText(x); }
+    E.apiFetch = real; return { first, second, sent: sent.length };
+  });
+  report("E.postOnce: a late save is found when Save is pressed again, and nothing is sent twice", po.first === "Not saved: the connection dropped. Try again." && po.second && po.second.recovered === true && po.sent === 1, JSON.stringify(po));
+  report("connection banner: no page errors", nErr.length === 0, nErr.slice(0, 3).join(" | "));
+  await nx.close();
+} catch (e) { report("connection banner: ran to the end", false, String(e && e.stack || e).slice(0, 600)); }
 
 await browser.close();
 server.close();

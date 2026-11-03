@@ -570,7 +570,7 @@
     }
     S.saving = true; paint();
     try {
-      var r = await E.apiFetch("/client-orders/entries", { method: "POST", body: JSON.stringify(body) });
+      var r = await E.apiFetch("/client-orders/entries", { method: "POST", body: JSON.stringify(body) }).catch(E.landedOk); // lost answer, but in the list: saved (item 8)
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
       S.adding = null; S.carry = null; S.fe = {}; E.toast("Saved · order for " + body.client_name, "success"); S.justAdded = true;
       var lines = String(body.items || "").split(/\r?\n/).map(function (l) { return l.trim(); }).filter(Boolean); // the classic splitItemLines
@@ -595,7 +595,7 @@
       S.carry = hand && hand.mode === "new" ? hand : null;
       if (hand && hand.mode === "find") { S.q = String(hand.person.name); S.qFromSearch = true; }
       if (S.carry) S.adding = {};
-      css(); paint(); if (S.carry) fillCarry(); return load();
+      css(); paint(); if (S.carry) fillCarry(); if (E.onReconnect) E.onReconnect(load); return load();
     }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("ordreg") < 0) E.UI2_DESTINATIONS.push("ordreg");
