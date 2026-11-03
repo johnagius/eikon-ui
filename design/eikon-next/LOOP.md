@@ -660,3 +660,10 @@ All of it waits only on the worker deploy.
 ## Round 74 — typing fix confirmed on other screens
 - Live: BUILD .87. Fast-typing save loop (arrive from another screen, fill quickly, save; 10 each) on Paid out,
   Repeat Rx, Order diary: 0 lost saves. Tool: scratchpad/tools/typeloop.mjs (qtloop.mjs for Price check).
+
+## Round 75 — accessibility: WCAG AA contrast across the new layout
+- axe-core 4.10 (local, scratchpad/axe) over 29 destinations with their forms open, light + dark
+  (tool: scratchpad/tools/axe-run.mjs). Before: color-contrast on 29/29 screens + link-in-text-block on 22.
+- Token fixes in app.css: --muted #6A6A70, --accent/--ok #077A5B, --warn #8A5A08, --danger #C4221A; dark-mode
+  text on green buttons #00160E; inline links underlined. After: no WCAG A/AA violations, light and dark.
+- Visual check: same look, a slightly deeper green. UI 137/137. BUILD .88.
