@@ -116,7 +116,7 @@
     if (COUNTRIES || countriesLoading) return countriesLoading;
     countriesLoading = (async function () {
       try {
-        var res = await fetch("./world_hi_res_v4_palette.html", { method: "GET", cache: "force-cache" });
+        var res = await fetch(E.uiUrl ? E.uiUrl("./world_hi_res_v4_palette.html") : "./world_hi_res_v4_palette.html", { method: "GET", cache: "force-cache" });
         if (!res.ok) throw new Error("HTTP " + res.status);
         var html = await res.text(), seen = {}, out = [], ta = document.createElement("textarea");
         (html.match(/<g\b[^>]*\bclass="country"[^>]*>/g) || []).forEach(function (tag) {

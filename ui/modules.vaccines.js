@@ -514,7 +514,7 @@
   var PUZZLE_PATHS = [
     "./world_hi_res_v4_palette.html?v=" + encodeURIComponent((E && (E.VERSION || E.build || E.BUILD || "")) || Date.now()),
     "./world_hi_res_v4_palette.html"
-  ];
+  ].map(function (p) { return (E && E.uiUrl) ? E.uiUrl(p) : p; }); // clean addresses: from /ui/
   var puzzleTemplateSvg = null;
   var puzzleLoading = null;
   var mapCountryIndex = []; // [{code,name,normName}]

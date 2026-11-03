@@ -127,9 +127,17 @@
 
   async function ready(id) {
     var e = S.entries.find(function (x) { return x.id === id; }); if (!e || S.busy[id]) return;
+    // The server refuses any change to an order without client_phone (creating one does not need it), so an order saved
+    // with no phone, or one whose phone this screen dropped before 3 Nov, could never be marked ready: ask for it and send it.
+    var body = { fulfilled: true };
+    if (!String(e.client_phone || e.contact || "").trim()) {
+      var ph = String(window.prompt("This order has no phone number, and it cannot be marked ready without one. Customer's phone:", "") || "").trim();
+      if (!ph) return;
+      body.client_phone = ph; body.contact = ph;
+    }
     S.busy[id] = true; paint();
     try {
-      var r = await E.apiFetch("/client-orders/entries/" + encodeURIComponent(String(id)), { method: "PUT", body: JSON.stringify({ fulfilled: true }) });
+      var r = await E.apiFetch("/client-orders/entries/" + encodeURIComponent(String(id)), { method: "PUT", body: JSON.stringify(body) });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
       E.toast(e.client_name + "'s order is ready", "success");
     } catch (x) { E.toast(E.saveFailText(x), "error"); }

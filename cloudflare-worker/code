@@ -4,7 +4,7 @@ function nowIso() {
 
 
 
-const WORKER_VERSION = "2026-11-03-bookings-19";
+const WORKER_VERSION = "2026-11-03-urls-1";
 function isDebugEnabled(request) {
   try {
     return (request && request.headers && (request.headers.get("X-Eikon-Debug") || "") === "1");
@@ -10052,6 +10052,58 @@ function sanitizeJsSourceText(s) {
     .replace(/\u2029/g, "\n");
 }
 
+// ------------------------------------------------------------
+// Clean addresses (eikonhq.com/, eikonhq.com/today)
+// The app's page is served at "/" and at a one-word path when, and only when, a BROWSER NAVIGATES there:
+//   - GET or HEAD, with no Authorization header (every API call the app makes carries its Bearer token);
+//   - Sec-Fetch-Mode: navigate. Browsers set it themselves on address-bar, link, reload and new-tab loads, and a
+//     script cannot (it is a forbidden header): fetch() and XHR always send cors / same-origin / no-cors. Browsers too
+//     old to send it are recognised by Accept beginning with text/html, which fetch() never sends unless told to;
+//   - the path is "/" or one word (letters, digits, - and _), and not one of the worker's own pages below.
+// So /today asked for by the app (fetch + Bearer) still gets Today's JSON; /today typed in the address bar gets the
+// app, which opens the Today screen. /ui/index.html#today and every other path answer exactly as before.
+// ------------------------------------------------------------
+const APP_PAGE_RESERVED = new Set(["ui", "api", "b", "book", "bootstrap", "admin-recover", "su", "health", "go", "auth"]);
+function isAppPageRequest(request, url) {
+  if (request.method !== "GET" && request.method !== "HEAD") return false;
+  if (request.headers.has("Authorization")) return false;
+  const p = url.pathname;
+  if (p !== "/") {
+    const m = /^\/([A-Za-z][A-Za-z0-9_-]{0,63})$/.exec(p);
+    if (!m || APP_PAGE_RESERVED.has(m[1].toLowerCase())) return false;
+  }
+  const mode = request.headers.get("Sec-Fetch-Mode");
+  if (mode) return mode === "navigate";
+  return /^\s*text\/html/i.test(request.headers.get("Accept") || "");
+}
+
+// index.html with a mark that tells it to load its files from /ui/ and to name screens by path. Returns null (and the
+// request goes on as before: "/" redirects to /ui/index.html, a screen path to the API) when the page cannot be had or
+// is an index.html that does not know the mark yet, so a worker deployed ahead of the UI changes nothing.
+async function handleAppPage(request, env, url) {
+  try {
+    const pageUrl = new URL("/ui/index.html", url);
+    const res = await handleUiAsset(new Request(pageUrl.toString(), { method: "GET" }), env, pageUrl);
+    if (!res || res.status !== 200) return null;
+    const html = await res.text();
+    if (html.indexOf("EIKON_UI_BASE") < 0 || !/<head[^>]*>/i.test(html)) return null;
+    const out = html.replace(/<head[^>]*>/i, (h) => h + '\n  <meta name="eikon-ui-base" content="/ui/" />');
+    return new Response(request.method === "HEAD" ? null : out, {
+      status: 200,
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+        // Never kept by the browser: the same address also answers the app's API call (/today), and a stored page must
+        // not be handed to that call (nor the other way round).
+        "Cache-Control": "no-store",
+        "Vary": "Accept, Sec-Fetch-Mode, Authorization",
+        "X-Eikon-Page": "app"
+      }
+    });
+  } catch (e) {
+    return null;
+  }
+}
+
 async function handleUiAsset(request, env, url) {
   const p = url.pathname;
   const rel = p.replace(/^\/ui\/?/, "");
@@ -15592,7 +15644,7 @@ async function handleToday(request, env, corsOkHeaders, authUser) {
   return jsonResponse({ ok: true, date: today, time: tzHm(), timezone: PHARMACY_TZ,
     pharmacy: { name: authUser.location_name, location_id: loc, org: authUser.org_name },
     before_opening: before, customers_waiting: waiting, attention, takings, stock, team, bookings, counts },
-    200, { ...corsOkHeaders, "Cache-Control": "private, max-age=10" });
+    200, { ...corsOkHeaders, "Cache-Control": "private, max-age=10", "Vary": "Origin, Authorization" }); // Authorization: a page load of /today (clean address) must not get this from the browser's cache
 }
 
 // ---------------------------------------------------------------------------
@@ -16060,6 +16112,13 @@ export default {
   async fetch(request, env, ctx) {
     try {
       const url = new URL(request.url);
+
+    // Clean addresses: the bare address and a browser opening a screen (eikonhq.com/today, /endofday) get the app's
+    // page itself, which then names screens by path. Never an API call: see isAppPageRequest.
+    if (isAppPageRequest(request, url)) {
+      const page = await handleAppPage(request, env, url);
+      if (page) return page;
+    }
 
     // The bare address, /ui and /ui/ open the app (they answered "Unauthorized" / 404 before). Only GET/HEAD, so no
     // API call is ever redirected; the query string and hash come along (e.g. /?ui=1).

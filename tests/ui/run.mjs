@@ -1647,6 +1647,63 @@ try {
   report("people suggestions: first name then part of the surname finds the person, not a namesake; choosing fills the ID card",
     nmOpts.includes("Zammit Carmel") && !nmOpts.includes("Zammit Paul") && nmPick.name === "Zammit Carmel" && /12345M/.test(nmPick.id), JSON.stringify({ nmOpts, nmPick, nmGets }));
 } catch (e) { report("people suggestions: first name then part of the surname ran to the end", false, String(e).slice(0, 300)); }
+// ---- Clean addresses (eikonhq.com/today). Insert in tests/ui/run.mjs just before "// screenshot for the review".
+// The page at a one-word path is index.html with the worker's mark (as handleAppPage serves it); /ui/index.html stays hash-based.
+try {
+  const cp = await browser.newPage({ viewport: { width: 1280, height: 860 } });
+  const cErr = [];
+  cp.on("pageerror", (e) => cErr.push("pageerror: " + e.message));
+  cp.on("response", (r) => { if (r.status() === 404) cErr.push("404 " + new URL(r.url()).pathname); });
+  await cp.route("**/xlsx.full.min.js", (r) => r.fulfill({ contentType: "application/javascript", body: "window.XLSX={};" }));
+  const idxHtml = fs.readFileSync(path.join(root, "index.html"), "utf8").replace(/<head[^>]*>/i, (h) => h + '\n  <meta name="eikon-ui-base" content="/ui/" />');
+  await cp.route(/^http:\/\/localhost:\d+\/([A-Za-z][A-Za-z0-9_-]*)?(\?.*)?$/, (r) => r.request().isNavigationRequest()
+    ? r.fulfill({ status: 200, contentType: "text/html; charset=utf-8", headers: { "cache-control": "no-store" }, body: idxHtml }) : r.fallback());
+  const cpath = () => { const u = new URL(cp.url()); return u.pathname + u.search + u.hash; };
+  const on = (id) => cp.waitForFunction((id) => window.EIKON && window.EIKON.state && window.EIKON.state.user && window.EIKON.state.activeModuleId === id && document.getElementById("eikon-content") && document.getElementById("eikon-content").children.length > 0, id, { timeout: 15000 }).then(() => true, () => false);
+  await cp.goto(`http://localhost:${PORT}/?intro=0`);
+  await cp.waitForSelector("#eikon-login-email", { timeout: 15000 });
+  const atRoot = cpath();
+  await cp.evaluate(() => { localStorage.setItem("eikon_token", "x"); localStorage.setItem("eikon_active_role", "pharmacy"); localStorage.removeItem("eikon_ui2"); });
+  await cp.reload();
+  const t1 = await on("today"), p1 = cpath();
+  await cp.click('.eikon-rail-btn[data-mod="registers"]'); const t2 = await on("registers"), p2 = cpath();
+  await cp.waitForSelector('.hub-card[data-open="temperature"]', { timeout: 15000 });
+  await cp.click('.hub-card[data-open="temperature"]'); const t3 = await on("tempreg"), p3 = cpath();
+  await cp.goBack(); const b1 = (await on("registers")) && cpath() === "/registers?intro=0";
+  await cp.goBack(); const b2 = (await on("today")) && cpath() === "/today?intro=0";
+  await cp.goForward(); const f1 = (await on("registers")) && cpath() === "/registers?intro=0";
+  await cp.goto(`http://localhost:${PORT}/endofday?intro=0`); const d1 = (await on("eodreg")) && cpath() === "/eodreg?intro=0";
+  await cp.reload(); const r1 = (await on("eodreg")) && cpath() === "/eodreg?intro=0";
+  await cp.goto("about:blank"); await cp.goto(`http://localhost:${PORT}/?intro=0#customers`); const h1 = (await on("customers")) && cpath() === "/customers?intro=0";
+  const files = await cp.evaluate(() => [...document.scripts].map((s) => s.src).filter((s) => s && !/xlsx/.test(s)).every((s) => /\/ui\/[^/]+\.js\?v=/.test(s)));
+  // the old address keeps its #hash exactly as before
+  await cp.goto("about:blank"); await cp.goto(`http://localhost:${PORT}/ui/index.html?intro=0#endofday`); const o1 = (await on("eodreg")) && cpath() === "/ui/index.html?intro=0#eodreg";
+  const o2 = await cp.evaluate(() => window.EIKON.CLEAN_URLS === false && window.EIKON.uiUrl("./assets/x.png") === "./assets/x.png");
+  await cp.close();
+  report("clean addresses: / signs in to /today; Registers, a register, Back/Forward, a deep link, refresh and an old /#customers link use clean paths; files from /ui/; /ui/index.html#endofday unchanged",
+    atRoot === "/?intro=0" && t1 && p1 === "/today?intro=0" && t2 && p2 === "/registers?intro=0" && t3 && p3 === "/tempreg?intro=0" && b1 && b2 && f1 && d1 && r1 && h1 && files && o1 && o2 && cErr.length === 0,
+    JSON.stringify({ atRoot, t1, p1, t2, p2, t3, p3, b1, b2, f1, d1, r1, h1, files, o1, o2, cErr: cErr.slice(0, 5) }));
+} catch (e) { report("clean addresses: ran to the end", false, String(e).slice(0, 300)); }
+// Orders: Ready on an order with no phone (saved blank, or dropped by this screen before 3 Nov) asks for the phone and sends it
+// as client_phone: the server refuses any change to an order without one. Cancelling the question sends nothing.
+try {
+  const dNo = new Date().toISOString().slice(0, 10);
+  await page.route("**/client-orders/entries?*", (r) => r.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, entries: [{ id: 53, order_date: dNo, client_name: "Borg Olga", client_phone: "", items_text: "Augmentin 625 x14", priority: 2, needed_by: dNo, deposit_amount: 0, fulfilled: 0, notes: "" }] }) }));
+  await page.goto(base + "&ui=2#clientorders");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "ordreg" && document.querySelector('[data-act=ready][data-id="53"]'), null, { timeout: 15000 });
+  await fetch(`http://localhost:${PORT}/__reset`);
+  const asked = [];
+  page.once("dialog", (d) => { asked.push(d.type()); d.dismiss(); });
+  await page.click('[data-act=ready][data-id="53"]'); await page.waitForTimeout(500);
+  const putsNone = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "PUT").length;
+  page.once("dialog", (d) => { asked.push(d.type()); d.accept("79112233"); });
+  await page.click('[data-act=ready][data-id="53"]'); await page.waitForTimeout(700);
+  const ordNoPh = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "PUT");
+  await page.unroute("**/client-orders/entries?*");
+  report("orders: Ready on an order with no phone asks for it and sends it as client_phone (the server needs one); cancelling sends nothing",
+    asked.join() === "prompt,prompt" && putsNone === 0 && ordNoPh.length === 1 && ordNoPh[0].path === "/client-orders/entries/53" &&
+    JSON.stringify(ordNoPh[0].body) === JSON.stringify({ fulfilled: true, client_phone: "79112233", contact: "79112233" }), JSON.stringify({ asked, putsNone, ordNoPh }));
+} catch (e) { report("orders: Ready on an order with no phone", false, String(e).slice(0, 300)); }
 // screenshot for the review (reset the mock so the screen shows a morning with work to do)
 todayState = { tempDone: false, cleanDone: false };
 await page.evaluate(() => { location.hash = "#today"; });

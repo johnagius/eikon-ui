@@ -11,13 +11,48 @@
   E.PARENT_ORIGIN = "https://swiftdataautomation.com";
   E.VERSION = "2026-02-20-05";
 
+  // ---- Clean addresses (eikonhq.com/today instead of /ui/index.html#today) ----
+  // Only on a page the worker served outside /ui/ (index.html reads its mark into EIKON_UI_BASE). The screens still
+  // name each other by the old #ids: a #id set anywhere becomes the path at once (replaceState, so the history keeps
+  // one entry per screen), and Back/Forward between paths reaches the router as a hashchange. Opened as
+  // /ui/index.html (other sites, tablets, the home-screen app) none of this runs and the #hash works as before.
+  E.CLEAN_URLS = !!window.EIKON_UI_BASE;
+  E.uiUrl = function (rel) { var b = window.EIKON_UI_BASE || ""; return b ? b + String(rel).replace(/^\.\//, "") : rel; };
+  var ROUTE_ID = /^[A-Za-z][A-Za-z0-9_-]{0,63}$/;
+  // The screen in the address, as "#id" (or ""): the hash, or with clean addresses the path.
+  E.routeHash = function () {
+    var h = String(window.location.hash || "");
+    if (!E.CLEAN_URLS || h) return h;
+    var p = String(window.location.pathname || "").replace(/^\//, "");
+    return ROUTE_ID.test(p) ? "#" + p : "";
+  };
+  // The app's own "this is the screen now" (boot, fallbacks): the hash as before, or the path in place.
+  E.setRoute = function (id) {
+    if (E.CLEAN_URLS) { try { window.history.replaceState(window.history.state, "", "/" + id + window.location.search); return; } catch (e) {} }
+    window.location.hash = "#" + id;
+  };
+  if (E.CLEAN_URLS) {
+    var hashToPath = function () {
+      var h = String(window.location.hash || "").replace(/^#/, "");
+      if (!ROUTE_ID.test(h)) return;
+      try { window.history.replaceState(window.history.state, "", "/" + h + window.location.search); } catch (e) {}
+    };
+    hashToPath(); // an old link: eikonhq.com/#endofday -> /endofday
+    window.addEventListener("hashchange", hashToPath); // first listener, so the router and the screens read the path
+    window.addEventListener("popstate", function () {
+      if (window.location.hash) return; // a #id change: its own hashchange follows
+      var ev; try { ev = new HashChangeEvent("hashchange"); } catch (e) { ev = document.createEvent("Event"); ev.initEvent("hashchange", false, false); }
+      window.dispatchEvent(ev);
+    });
+  }
+
   // Splash / loading assets (static files under /ui/assets/)
   // Put these two files in: ui/assets/
   //   - eikon-logo.png
   //   - eikon-intro.gif
   E.SPLASH = {
-    logoUrl: "./assets/eikon-logo.png?v=" + encodeURIComponent(E.VERSION),
-    introGifUrl: "./assets/eikon-intro.gif?v=" + encodeURIComponent(E.VERSION),
+    logoUrl: E.uiUrl("./assets/eikon-logo.png") + "?v=" + encodeURIComponent(E.VERSION),
+    introGifUrl: E.uiUrl("./assets/eikon-intro.gif") + "?v=" + encodeURIComponent(E.VERSION),
     introMs: 4930
   };
 
@@ -437,7 +472,7 @@
   E.handleSessionExpired = function () {
     if (E._sessionExpiredShown) return;
     E._sessionExpiredShown = true;
-    try { E._returnHash = String(window.location.hash || ""); } catch (e) {}
+    try { E._returnHash = String(E.routeHash() || ""); } catch (e) {}
     if (E._supplierPollInterval) { try { clearInterval(E._supplierPollInterval); } catch (e) {} E._supplierPollInterval = null; }
     E.clearToken();
     E.state.user = null;
@@ -953,7 +988,7 @@
       E._sectionDashboardId = "company-dashboard";
     }
 
-    window.location.hash = "#" + E._sectionDashboardId;
+    E.setRoute(E._sectionDashboardId);
     E.renderShell();
 
     try {
@@ -1085,7 +1120,7 @@
         var base = isFullscreenHost ? exitBase : enterBase;
         try {
           var q = window.location.search || "";
-          var h = window.location.hash || "";
+          var h = E.routeHash() || "";
           var target = base + q + h;
 
           if (isFullscreenHost) {
@@ -1372,7 +1407,7 @@
     var side = nav.parentNode;
     var header = side ? side.querySelector(".eikon-sidebar-header") : null;
     if (header) {
-      header.innerHTML = '<img class="eikon-rail-mark" alt="" src="./assets/mu-mark.png?v=' + encodeURIComponent(E.VERSION) + '">' +
+      header.innerHTML = '<img class="eikon-rail-mark" alt="" src="' + E.uiUrl("./assets/mu-mark.png") + '?v=' + encodeURIComponent(E.VERSION) + '">' +
         '<div class="eikon-rail-brand"><b>Eikon</b><span>' + E.escapeHtml(String(u.location_name || "")) + '</span></div>';
     }
     function btn(item) {
@@ -1585,7 +1620,7 @@
   };
 
   E.getHashModuleId = function () {
-    var h = String(window.location.hash || "").replace(/^#/, "").trim();
+    var h = String(E.routeHash() || "").replace(/^#/, "").trim();
     var fallback = E._sectionDashboardId || "dashboard";
     if (!h) return fallback;
     return h;
@@ -1602,7 +1637,7 @@
     if (!E.modules[id]) {
       E.warn("[router] unknown module:", id, "falling back to", fallbackDash);
       id = fallbackDash;
-      window.location.hash = "#" + fallbackDash;
+      E.setRoute(fallbackDash);
     }
 
     if (E.isUi2() && E._sectionDashboardId === "today" && E.UI2_NATIVE[id] && E.modules[E.UI2_NATIVE[id]]) {
@@ -1620,7 +1655,7 @@
       try { E.modules[leaving].destroy(); } catch (eD) { E.warn("[router] destroy failed for", leaving, eD); }
     }
     E.state.activeModuleId = id;
-    E._lastRenderedHash = window.location.hash;
+    E._lastRenderedHash = E.routeHash();
     E.highlightNav();
 
 
@@ -1664,13 +1699,13 @@
     E._returnHash = "";
     // A link that names a screen (#temperature, or the classic hand-off from the new shell)
     // opens that screen; otherwise the home screen of this layout.
-    var asked = String(window.location.hash || "").replace(/^#/, "").trim();
+    var asked = String(E.routeHash() || "").replace(/^#/, "").trim();
     var home = E._sectionDashboardId || "dashboard";
     // The screen asked for may still be loading in the background (new layout): wait rather than drop the link.
     if (window.EIKON_LATE && ((asked && !E.modules[asked]) || (back && !E.modules[back]))) await window.EIKON_LATE;
     var target = (back && E.modules[back]) ? back : (asked && E.modules[asked] && asked !== "today" && asked !== "dashboard" ? asked : home);
     if (asked === "today" || asked === "dashboard") target = (back && E.modules[back]) ? back : home;
-    window.location.hash = "#" + target;
+    E.setRoute(target);
     E.renderShell();
 
     // Render module, then mark "screen done" so overlay can hide after introMs
@@ -1690,16 +1725,17 @@
     try { E.showIntroOverlayOnce(); } catch (e) {}
 
     // If hash missing, default (will be updated when role is selected)
-    if (!window.location.hash) window.location.hash = "#dashboard";
+    // (Clean addresses: the bare address stays bare until a screen opens.)
+    if (!E.routeHash() && !E.CLEAN_URLS) E.setRoute("dashboard");
 
     // Router
     window.addEventListener("hashchange", function () {
-      E.dbg("[router] hashchange:", window.location.hash);
+      E.dbg("[router] hashchange:", E.routeHash());
       if (!E.state.user) return;
       // Still building the shell (sign-in answered faster than this event fired): the boot renders the screen itself.
       if (!document.getElementById("eikon-content")) return;
       // The boot sets the hash itself and renders; do not render the same screen twice.
-      if (E._lastRenderedHash === window.location.hash && E.state.activeModuleId === E.getHashModuleId()) return;
+      if (E._lastRenderedHash === E.routeHash() && E.state.activeModuleId === E.getHashModuleId()) return;
       E.renderActiveModule();
     });
 
@@ -1721,7 +1757,7 @@
     var early = window.EIKON_EARLY; window.EIKON_EARLY = null;
     if (!(early && early.token === token && Date.now() - early.at < 20000)) early = null;
     try {
-      var h0 = String(window.location.hash || "").replace(/^#/, "");
+      var h0 = String(E.routeHash() || "").replace(/^#/, "");
       if (E.isUi2() && (h0 === "" || h0 === "today" || h0 === "dashboard") && window.localStorage.getItem("eikon_active_role") === E.ROLE_PHARMACY) {
         var askToday = function () { return E.apiFetch("/today", { method: "GET", timeoutMs: 12000 }).catch(function () { return null; }); };
         E._todayPrefetch = { at: Date.now(), p: early ? early.today.then(function (r) { return r && r.ok ? r : askToday(); }) : askToday() };
@@ -1763,7 +1799,7 @@
       if (E.state.started || E.getToken() || !document.getElementById("eikon-root")) return;
       // Same default start() would set, but now, before anyone is signed in (setting it after
       // sign-in would fire the router while the portal picker is on screen).
-      if (!window.location.hash) window.location.hash = "#dashboard";
+      if (!E.routeHash() && !E.CLEAN_URLS) E.setRoute("dashboard");
       E._earlyLoginShown = true;
       E.renderLogin();
     } catch (e) { E._earlyLoginShown = false; }

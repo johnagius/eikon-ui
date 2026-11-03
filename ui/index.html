@@ -12,10 +12,29 @@
   <meta name="theme-color" content="#F2F2F7" />
   <link rel="apple-touch-icon" href="assets/icon-180.png" />
   <script>
+    // Clean addresses (eikonhq.com/today): the worker marks the page it serves outside /ui/ with
+    // <meta name="eikon-ui-base" content="/ui/">, and every file is then fetched from /ui/. Without the mark
+    // (opened as /ui/index.html anywhere) nothing changes: relative files and #hash screens, as before.
+    (function () { var b = ""; try { var m = document.querySelector('meta[name="eikon-ui-base"]'); if (m && /^\/[\w\/-]*\/$/.test(m.getAttribute("content") || "")) b = m.getAttribute("content"); } catch (e) {}
+      window.EIKON_UI_BASE = b;
+      if (b) { if (!window.EIKON_PRODUCTMAP_BASE) window.EIKON_PRODUCTMAP_BASE = b.replace(/\/$/, ""); // read by the OTC map modules
+        try { var ic = document.querySelector('link[rel="apple-touch-icon"]'); if (ic) ic.setAttribute("href", b + "assets/icon-180.png"); } catch (e) {} } })();
+    // An old eikonhq.com/ui/index.html#endofday link, opened in a browser tab, moves to eikonhq.com/endofday.
+    // Not inside a frame, not in the home-screen app (its scope is /ui/), not on any other host.
+    (function () { try {
+      if (window.EIKON_UI_BASE || !/^(www\.)?eikonhq\.com$/i.test(location.hostname) || !/^\/ui\/(index\.html)?$/.test(location.pathname)) return;
+      if (window.top !== window || navigator.standalone || (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches)) return;
+      var h = String(location.hash || "").replace(/^#/, "");
+      if (h && !/^[A-Za-z][A-Za-z0-9_-]{0,63}$/.test(h)) return;
+      // Once per 20 s: a worker without clean addresses sends "/" back here, and this must not go round in a loop.
+      var t = Number(sessionStorage.getItem("eikon_clean_try") || 0); if (Date.now() - t < 20000) return;
+      sessionStorage.setItem("eikon_clean_try", String(Date.now()));
+      window.EIKON_LEAVING = true; location.replace("/" + h + location.search);
+    } catch (e) {} })();
     // A home-screen app keeps its own storage, so the new layout installs through next.html.
     (function () { var l = document.createElement("link"); l.rel = "manifest"; var n = false;
       try { n = localStorage.getItem("eikon_ui2") !== "0"; } catch (e) {}
-      l.href = n ? "manifest-next.json" : "manifest.json"; document.head.appendChild(l); })();
+      l.href = (window.EIKON_UI_BASE || "") + (n ? "manifest-next.json" : "manifest.json"); document.head.appendChild(l); })();
   </script>
 
   <!-- CSS and scripts are attached dynamically with a build stamp (see BUILD below). -->
@@ -35,10 +54,15 @@
       // browser and the Worker's edge cache can reuse every file (previously every load
       // used Date.now(), so 52 files were re-downloaded on every visit).
       // Bump BUILD on EVERY change to any file in ui/: browsers keep stamped files for a day.
-      var BUILD = "2026-11-03.128";
+      var BUILD = "2026-11-03.129";
+      if (window.EIKON_LEAVING) return; // moving to the clean address (see the head)
 
       function log() { try { console.log.apply(console, arguments); } catch (e) {} }
       function warn() { try { console.warn.apply(console, arguments); } catch (e) {} }
+
+      // Clean addresses (see the head): files come from /ui/; otherwise "./core.js" exactly as before.
+      var UIB = window.EIKON_UI_BASE || "";
+      function fromUi(src) { return UIB ? UIB + String(src).replace(/^\.\//, "") : src; }
 
       function withParams(src) {
         var sep = src.indexOf("?") >= 0 ? "&" : "?";
@@ -108,6 +132,7 @@
       // instead of after them (one round trip saved). core.js uses these answers once; anything odd and it asks again.
       try {
         var tok0 = localStorage.getItem("eikon_token") || "", h00 = String(location.hash || "").replace(/^#/, "");
+        if (window.EIKON_UI_BASE && !h00) h00 = location.pathname.replace(/^\//, ""); // clean address: the screen is the path
         if (tok0 && light && window.fetch && (h00 === "" || h00 === "today" || h00 === "dashboard") && localStorage.getItem("eikon_active_role") === "pharmacy") {
           var early0 = function (path) { return fetch(path, { headers: { Authorization: "Bearer " + tok0 } }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }); };
           window.EIKON_EARLY = { at: Date.now(), token: tok0, me: early0("/auth/me"), today: early0("/today") };
@@ -235,18 +260,18 @@
       var FIRST = ["./core.js", "./modules.today.js", "./modules.customers.js", "./modules.bookings.js", "./modules.hubs.js", "./main.js"];
       var LATER = [];
       if (light) {
-        LATER = MODULES.filter(function (m) { return FIRST.indexOf(m) < 0; }).map(withParams);
-        MODULES = FIRST.map(withParams);
+        LATER = MODULES.filter(function (m) { return FIRST.indexOf(m) < 0; }).map(fromUi).map(withParams);
+        MODULES = FIRST.map(fromUi).map(withParams);
         window.EIKON_LATE = new Promise(function (res) { window.__eikonLateDone = res; });
       } else {
-        MODULES = MODULES.map(withParams);
+        MODULES = MODULES.map(fromUi).map(withParams);
       }
 
       loadOptionalScript("https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js");
 
       // Stylesheet and scripts download together (they used to wait for each other: one extra round trip).
       // core.js and main.js wait for window.EIKON_CSS_READY before drawing, so nothing appears unstyled.
-      var cssReady = loadCss(withParams("./app.css"));
+      var cssReady = loadCss(withParams(fromUi("./app.css")));
       window.EIKON_CSS_READY = cssReady;
       Promise.all([cssReady, loadScriptsInOrder(MODULES)])
         .then(function () {
