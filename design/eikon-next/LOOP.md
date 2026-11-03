@@ -778,3 +778,9 @@ All of it waits only on the worker deploy.
 - Rounds 88–90 added to the worker, which only John can deploy. Checked what is actually waiting: the live server is still 2026-11-02-fixes-1, from before Bookings, so the deploy carries all of Bookings, the board privacy fix, Today deliveries, the audit fixes and the booking-page work (one file, +1680 lines since 54b2ec3).
 - Checked the data side from the diff: no existing table is altered or dropped; the 12 new bk_ tables create themselves (IF NOT EXISTS), the only ALTERs add columns to those new tables, old Appointments are only read. No d1 step needed. BOOKINGS_KEY is optional (without it Bookings works, emails/links stay off).
 - Wrote design/eikon-next/DEPLOY-WORKER.md: what is live vs waiting, what it brings, why data is safe, the optional secret, the one deploy command, how to check (/health), and rollback.
+
+## Round 92 — Upgrade rehearsal for the waiting server deploy
+
+- Wrote upgrade-rehearsal.mjs: loads the live worker (fixes-1, commit 54b2ec3) and the waiting one (bookings-15) under Node on ONE shared in-memory database. The old code signs up an account and saves 20 records across 15 registers (temperature, cleaning, DDA sales, paid out, questions, deliveries, handover, appointments, credit notes, repeat Rx, price check, order diary, alerts, near expiry, daily register); every table is snapshotted (29 tables, 32 rows) and 16 lists the screens read are recorded.
+- Then the new code takes over: the old session and the password still sign in; all 16 lists return the same records; Bookings opens and creates its tables; the old appointments are checked and imported; every existing table is byte-for-byte identical afterwards; only bk_ tables were added. Then a rollback to the old code: session and all 16 lists unchanged. 10/10.
+- Added to DEPLOY-WORKER.md under "Is existing data safe?". This is the evidence for "clients keep their data, logins and features" when John deploys.

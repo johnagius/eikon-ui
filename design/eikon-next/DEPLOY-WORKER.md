@@ -38,6 +38,13 @@ everything else works. Nothing breaks while the deploy waits.
 - The old Appointments tables are only **read** (Check, then Import, by the pharmacy).
 - Logins, roles and chain groups are not touched.
 - Worker tests: 99/99 on the branch (`node --no-warnings tests/worker/run.mjs`).
+- **Upgrade rehearsal** (round 92, `upgrade-rehearsal.mjs` next to this file): the live
+  server code (fixes-1) creates an account and 20 records across 15 registers; then the
+  waiting code (bookings-15) takes over the same database. Result, 10/10: sessions and
+  passwords keep working; all 16 lists the screens read return the same records; Bookings
+  sets itself up; the old appointments check and import; every existing table is
+  byte-for-byte unchanged afterwards; only bk_ tables are added; and after a rollback to
+  the old code, the session and all 16 lists are still the same.
 
 ## One optional secret
 
