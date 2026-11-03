@@ -615,3 +615,10 @@ All of it waits only on the worker deploy.
   prescriptions use it. Real worker with replies cut: each closes as saved, one record. UI 131/131. BUILD .83.
 - Lost-answer protection now covers every create on a register or money screen in the new layout
   (CD received/supplied/POYC, daily, locum, repeat Rx, paid out, locum receipts, credit-note uses).
+
+## Round 67 — new screens against the server that is live today
+- Live: BUILD .83 (UI) on worker 2026-11-02-fixes-1 (commit 54b2ec3; /health). Built a local mix: today's ui/ +
+  that worker, opened all 28 new-layout destinations on a phone: no crashes, no page errors. Only two error
+  responses, both handled: /client-orders range (400 → month fallback, by design) and /bookings/setup (404 →
+  "Bookings is not switched on for this pharmacy yet"). So the live site is consistent while bookings-13 waits.
+- Repeatable: scratchpad/tools/prodmix.mjs (serve the mix on :8803 with serve.mjs).
