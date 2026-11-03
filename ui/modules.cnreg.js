@@ -141,8 +141,17 @@
       var rem = left(cn);
       if (expired(cn)) throw new Error("this credit note expired on " + dm(cn.expiry_date));
       if (amt > rem + 0.004) throw new Error("only " + eur(rem) + " is left on it");
-      var r = await E.apiFetch("/creditnotes/entries/" + encodeURIComponent(String(cn.id)) + "/purchases", { method: "POST", body: JSON.stringify({ amount: amt, receipt_number: String(S.draft.receipt_number || "").trim() }) });
-      if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
+      var rec = String(S.draft.receipt_number || "").trim();
+      var sameUse = function (pe) { return Math.abs((Number(pe.amount) || 0) - amt) < 0.005 && String(pe.receipt_number || "") === rec; };
+      var had = (cn.purchase_entries || []).filter(sameUse).length;
+      try {
+        var r = await E.apiFetch("/creditnotes/entries/" + encodeURIComponent(String(cn.id)) + "/purchases", { method: "POST", body: JSON.stringify({ amount: amt, receipt_number: rec }) });
+        if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
+      } catch (x0) { // the answer was lost: did the use arrive? Never use the note twice.
+        if (!(x0 && x0.network)) throw x0;
+        var again = (await fetchAll()).find(function (x) { return x.id === cn.id; });
+        if (!again || (again.purchase_entries || []).filter(sameUse).length <= had) throw x0;
+      }
       E.toast(eur(amt) + " used · " + eur(rem - amt) + " left for " + cn.client_name, "success");
       S.using = null; S.draft = {};
     } catch (x) { S.err = E.saveFailText(x) + "."; }

@@ -140,8 +140,17 @@
     if (S.err) return paint(true);
     S.saving = true; paint(true);
     try {
-      var r = await E.apiFetch("/locumreceipts/receipts", { method: "POST", body: JSON.stringify({ receipt_date: a.receipt_date, hours: hrs, locum_full_name: a.locum_full_name, registration_number: a.registration_number, day_type: a.day_type === "holiday" ? "holiday" : "normal", fee_per_hour: rate }) });
-      if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
+      var monthList = async function () { var r0 = await E.apiFetch("/locumreceipts/receipts?month=" + encodeURIComponent(a.receipt_date.slice(0, 7)), { method: "GET" }); return (r0 && r0.ok && r0.receipts) || []; };
+      var same = function (e) { return e.receipt_date === a.receipt_date && String(e.locum_full_name).trim().toLowerCase() === a.locum_full_name.toLowerCase() && Math.abs(Number(e.hours) - hrs) < 0.001 && Math.abs((Number(e.fee_per_hour) || 0) - rate) < 0.005; };
+      var had = null; try { had = (await monthList()).filter(same).length; } catch (e0) { had = null; }
+      try {
+        var r = await E.apiFetch("/locumreceipts/receipts", { method: "POST", body: JSON.stringify({ receipt_date: a.receipt_date, hours: hrs, locum_full_name: a.locum_full_name, registration_number: a.registration_number, day_type: a.day_type === "holiday" ? "holiday" : "normal", fee_per_hour: rate }) });
+        if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
+      } catch (x0) { // the answer was lost: did it arrive? Never record it twice.
+        if (!(x0 && x0.network) || had == null) throw x0;
+        var now = null; try { now = (await monthList()).filter(same).length; } catch (e1) { throw x0; }
+        if (now <= had) throw x0;
+      }
       remember(a.day_type === "holiday" ? "holiday" : "normal", rate);
       S.adding = null; E.toast(eur(hrs * rate) + " for " + a.locum_full_name + " · Print it from the list", "success");
       if (a.receipt_date.slice(0, 7) !== S.month) S.month = a.receipt_date.slice(0, 7);

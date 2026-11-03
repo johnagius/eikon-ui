@@ -128,8 +128,17 @@
     if (S.err) return paint(true);
     S.saving = true; paint(true);
     try {
-      var r = await E.apiFetch("/paid-out/entries", { method: "POST", body: JSON.stringify({ entry_date: a.entry_date, entry_time: a.entry_time, payee_name: a.payee_name, fee: fee, payment_method: a.payment_method === "cheque" ? "cheque" : "cash", invoice_no: a.invoice_no, cheque_no: a.payment_method === "cheque" ? a.cheque_no : "", reason: a.reason }) });
-      if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
+      var monthList = async function () { var r0 = await E.apiFetch("/paid-out/entries?month=" + encodeURIComponent(a.entry_date.slice(0, 7)), { method: "GET" }); return (r0 && r0.ok && r0.entries) || []; };
+      var same = function (e) { return e.entry_date === a.entry_date && String(e.entry_time).slice(0, 5) === a.entry_time && String(e.payee_name).trim().toLowerCase() === a.payee_name.toLowerCase() && Math.abs((Number(e.fee) || 0) - fee) < 0.005; };
+      var had = null; try { had = (await monthList()).filter(same).length; } catch (e0) { had = null; }
+      try {
+        var r = await E.apiFetch("/paid-out/entries", { method: "POST", body: JSON.stringify({ entry_date: a.entry_date, entry_time: a.entry_time, payee_name: a.payee_name, fee: fee, payment_method: a.payment_method === "cheque" ? "cheque" : "cash", invoice_no: a.invoice_no, cheque_no: a.payment_method === "cheque" ? a.cheque_no : "", reason: a.reason }) });
+        if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
+      } catch (x0) { // the answer was lost: did it arrive? Never record it twice.
+        if (!(x0 && x0.network) || had == null) throw x0;
+        var now = null; try { now = (await monthList()).filter(same).length; } catch (e1) { throw x0; }
+        if (now <= had) throw x0;
+      }
       S.adding = null; E.toast("Paid out " + eur(fee) + " to " + a.payee_name, "success");
       if (a.entry_date.slice(0, 7) !== S.month) S.month = a.entry_date.slice(0, 7);
     } catch (x) { S.err = E.saveFailText(x); }
